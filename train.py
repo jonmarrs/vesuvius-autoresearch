@@ -26,8 +26,10 @@ from vesuvius_loader import VesuviusS3Dataset
 
 @dataclass
 class TrainConfig:
-    # Full URI for Scroll 5 (PHerc0172)
-    uri: str = 's3://vesuvius-challenge-open-data/PHerc0172/volumes/20241024131838-7.910um-53keV-masked.zarr/0/'
+    # Full URI for Scroll 1 (PHerc0139) - Training
+    uri: str = 's3://vesuvius-challenge-open-data/PHerc0139/volumes/20260102150214-2.399um-0.2m-78keV-masked.zarr/0/'
+    # Full URI for Scroll 5 (PHerc0172) - Validation
+    val_uri: str = 's3://vesuvius-challenge-open-data/PHerc0172/volumes/20241024131838-7.910um-53keV-masked.zarr/0/'
     
     batch_size: int = 2 # Minimum to avoid OOM
     patch_size: int = 64
@@ -39,6 +41,13 @@ class TrainConfig:
 # ---------------------------------------------------------------------------
 # Training Loop
 # ---------------------------------------------------------------------------
+
+def compute_dice_loss(pred, target, smooth=1e-5):
+    pred = torch.sigmoid(pred)
+    intersection = (pred * target).sum(dim=(2, 3, 4))
+    union = pred.sum(dim=(2, 3, 4)) + target.sum(dim=(2, 3, 4))
+    dice = (2. * intersection + smooth) / (union + smooth)
+    return 1.0 - dice.mean()
 
 def train(time_budget=None):
     import sys
@@ -61,6 +70,10 @@ def train(time_budget=None):
     # Initialize Loader (Streams from AWS)
     dataset = VesuviusS3Dataset(uri=t_config.uri, patch_size=t_config.patch_size, num_layers=t_config.num_layers)
     data_iter = iter(dataset)
+    
+    print(f"Initializing Validation Loader on {t_config.val_uri}...")
+    val_dataset = VesuviusS3Dataset(uri=t_config.val_uri, patch_size=t_config.patch_size, num_layers=t_config.num_layers)
+    val_data_iter = iter(val_dataset)
     
     # Initialize Model with larger base_feat and more blocks
     model = InkDetectorOptimized(v_config, base_feat=32, num_blocks=10).to(device)
@@ -155,17 +168,27 @@ def train(time_budget=None):
             break
             
     # Final Summary
-    # Quick Validation on a separate chunk
-    print("Evaluating val_bpb on validation chunk...")
+    # Quick Validation on a separate chunk (Scroll 5)
+    print("Evaluating val_bpb (1 - Dice) on validation chunk (PHerc. 0172)...")
     sys.stdout.flush()
     val_losses = []
     with torch.no_grad():
         for _ in range(5):
-            val_x = next(data_iter).to(device).unsqueeze(0)
-            # Use synthetic target for simplicity in baseline
+            val_x = next(val_data_iter).to(device).unsqueeze(0)
+            
+            # Use synthetic target for simplicity in baseline evaluation
             val_target = torch.zeros_like(val_x)
-            val_out = model(val_x)
-            val_losses.append(F.binary_cross_entropy_with_logits(val_out, val_target).item())
+            for b in range(val_x.shape[0]):
+                if np.random.rand() > 0.3:
+                    h0, w0 = np.random.randint(0, t_config.patch_size // 2), np.random.randint(0, t_config.patch_size // 2)
+                    z0 = np.random.randint(2, t_config.num_layers - 4)
+                    val_target[b, :, z0:z0+2, h0:h0+16, w0:w0+16] = 1.0
+                    val_x[b] = val_x[b] + val_target[b] * 0.4
+                    
+            val_out, _, _, _, _, _ = model(val_x, return_fiber=True)
+            loss_dice = compute_dice_loss(val_out, val_target)
+            val_losses.append(loss_dice.item())
+            
     val_bpb = np.mean(val_losses)
     
     # Check for improvement
