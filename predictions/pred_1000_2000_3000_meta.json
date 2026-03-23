@@ -1,0 +1,18 @@
+{
+    "project": "Vesuvius Autoresearch",    "scroll_uri": "s3://vesuvius-challenge-open-data/PHerc0172/volumes/20241024131838-7.910um-53keV-masked.zarr/0/",
+    "coordinates": {
+        "z": 1000,
+        "y": 2000,
+        "x": 3000
+    },
+    "patch_size": 32,
+    "num_layers": 16,
+    "scores": {
+        "qc_messy_score": 0.5639687776565552,
+        "hallucination_compliance": 0.5367377400398254
+    },
+    "hallucination_mitigation": {
+        "window_size_mm": 0.256,
+        "status": "COMPLIANT (<0.5mm)"
+    }
+}
