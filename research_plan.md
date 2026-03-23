@@ -1,14 +1,13 @@
 # Research Plan: Vesuvius Challenge (Project 002)
 
 ## Objective
-Optimize 3D ink detection and surface segmentation for carbonized Herculaneum scrolls, targeting the $1M Grand Prize requirements for speed, accuracy, and cross-scroll generalization.
+Optimize 3D ink detection for cross-scroll generalization, targeting the $1M Grand Prize requirements for robustness. Specifically, maximize the validation Dice score on entirely unseen scrolls when training exclusively on a single source scroll.
 
 ## Current Breakthrough
 - **Model:** 3D Temporal Attention Hybrid with Anisotropic Fiber Extraction (5.97M params).
+- **Cross-Scroll Generalization Setup:** Autoresearch agents are actively maximizing validation Dice scores on independent test segments (e.g. Scroll 4/5) after training solely on Scroll 1 (PHerc0139).
 - **Performance:** **31.77M voxels/sec** (verified on RTX 4090).
 - **Isolation:** **5,767x interlayer isolation** (zero ghosting between papyrus wraps).
-- **Validation:** **0.005401 val_bpb** after 1-hour deep pretraining on Scroll 5.
-- **Robustness:** Verified against geometric deformation, layer corruption, 1:1 SNR, and cross-scroll generalization.
 
 ## Real-Data Integration Strategy
 1. **Source:** Access `s3://vesuvius-challenge-open-data/` via AWS Open Data.
