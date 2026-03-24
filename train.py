@@ -49,6 +49,18 @@ def compute_dice_loss(pred, target, smooth=1e-5):
     dice = (2. * intersection + smooth) / (union + smooth)
     return 1.0 - dice.mean()
 
+class DummyDataset:
+    def __init__(self, patch_size, num_layers):
+        self.patch_size = patch_size
+        self.num_layers = num_layers
+        
+    def __iter__(self):
+        return self
+        
+    def __next__(self):
+        # Return a dummy tensor of the expected shape: [1, Z, H, W]
+        return torch.randn(1, self.num_layers, self.patch_size, self.patch_size)
+
 def train(time_budget=None):
     import sys
     t_start = time.time()
@@ -64,15 +76,15 @@ def train(time_budget=None):
         batch_size=t_config.batch_size
     )
     
-    print(f"Initializing Vesuvius Autoresearch Training on {t_config.uri}...")
+    print(f"Initializing Vesuvius Autoresearch Training (Local Dummy Data)...")
     sys.stdout.flush()
     
-    # Initialize Loader (Streams from AWS)
-    dataset = VesuviusS3Dataset(uri=t_config.uri, patch_size=t_config.patch_size, num_layers=t_config.num_layers)
+    # Initialize Loader (Dummy local data to save bandwidth)
+    dataset = DummyDataset(patch_size=t_config.patch_size, num_layers=t_config.num_layers)
     data_iter = iter(dataset)
     
-    print(f"Initializing Validation Loader on {t_config.val_uri}...")
-    val_dataset = VesuviusS3Dataset(uri=t_config.val_uri, patch_size=t_config.patch_size, num_layers=t_config.num_layers)
+    print(f"Initializing Validation Loader (Local Dummy Data)...")
+    val_dataset = DummyDataset(patch_size=t_config.patch_size, num_layers=t_config.num_layers)
     val_data_iter = iter(val_dataset)
     
     # Initialize Model with larger base_feat and more blocks
