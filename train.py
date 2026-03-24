@@ -70,8 +70,8 @@ def train(time_budget=None):
     # We use local mock Zarrs to prevent bandwidth usage but maintain the exact same loader architecture.
     # The 's3://' config strings remain in the config for accurate logging, but the actual loader 
     # uses local mocked volumes generated from actual small data samples.
-    local_train_uri = 'local_data/MiniRealScroll_1_tiled/0/'
-    local_val_uri = 'local_data/MiniRealScroll_5_tiled/0/'
+    local_train_uri = 'local_data/MiniRealScroll_1_1GB/0/'
+    local_val_uri = 'local_data/MiniRealScroll_5_1GB/0/'
     
     dataset = VesuviusS3Dataset(uri=local_train_uri, patch_size=t_config.patch_size, num_layers=t_config.num_layers)
     data_iter = iter(dataset)
