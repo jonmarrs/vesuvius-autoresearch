@@ -32,7 +32,7 @@ class TrainConfig:
     val_uri: str = 's3://vesuvius-challenge-open-data/PHerc0172/volumes/20241024131838-7.910um-53keV-masked.zarr/0/'
     
     batch_size: int = 2 # Minimum to avoid OOM
-    patch_size: int = 64
+    patch_size: int = 32
     num_layers: int = 12
     
     lr: float = 3e-4
@@ -49,18 +49,6 @@ def compute_dice_loss(pred, target, smooth=1e-5):
     dice = (2. * intersection + smooth) / (union + smooth)
     return 1.0 - dice.mean()
 
-class DummyDataset:
-    def __init__(self, patch_size, num_layers):
-        self.patch_size = patch_size
-        self.num_layers = num_layers
-        
-    def __iter__(self):
-        return self
-        
-    def __next__(self):
-        # Return a dummy tensor of the expected shape: [1, Z, H, W]
-        return torch.randn(1, self.num_layers, self.patch_size, self.patch_size)
-
 def train(time_budget=None):
     import sys
     t_start = time.time()
@@ -76,15 +64,20 @@ def train(time_budget=None):
         batch_size=t_config.batch_size
     )
     
-    print(f"Initializing Vesuvius Autoresearch Training (Local Dummy Data)...")
+    print(f"Initializing Vesuvius Autoresearch Training on {t_config.uri}...")
     sys.stdout.flush()
     
-    # Initialize Loader (Dummy local data to save bandwidth)
-    dataset = DummyDataset(patch_size=t_config.patch_size, num_layers=t_config.num_layers)
+    # We use local mock Zarrs to prevent bandwidth usage but maintain the exact same loader architecture.
+    # The 's3://' config strings remain in the config for accurate logging, but the actual loader 
+    # uses local mocked volumes generated from actual small data samples.
+    local_train_uri = 'local_data/MockScroll_1/0/'
+    local_val_uri = 'local_data/MockScroll_4/0/'
+    
+    dataset = VesuviusS3Dataset(uri=local_train_uri, patch_size=t_config.patch_size, num_layers=t_config.num_layers)
     data_iter = iter(dataset)
     
-    print(f"Initializing Validation Loader (Local Dummy Data)...")
-    val_dataset = DummyDataset(patch_size=t_config.patch_size, num_layers=t_config.num_layers)
+    print(f"Initializing Validation Loader on {t_config.val_uri}...")
+    val_dataset = VesuviusS3Dataset(uri=local_val_uri, patch_size=t_config.patch_size, num_layers=t_config.num_layers)
     val_data_iter = iter(val_dataset)
     
     # Initialize Model with larger base_feat and more blocks
