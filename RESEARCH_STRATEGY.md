@@ -8,50 +8,43 @@ To maintain a sustainable and high-impact research trajectory, all workflows mus
 
 *   **GPU (RTX 4090):** 
     *   **VRAM:** 24 GB. 
-    *   **Target:** Move beyond 64x64 patches. Optimize for **128x128 or 256x256 patches** to provide the model with more spatial context for ink morphological features.
-    *   **Throughput:** Aim for >50M voxels/sec by utilizing the 4090's high compute density.
+    *   **Constraint Compliance:** We strictly adhere to the **0.5x0.5 mm window size (64x64 pixels at 8µm)** recommended by the Vesuvius Challenge. This is our primary defense against model hallucinations.
+    *   **Throughput:** Aim for >50M voxels/sec by utilizing the 4090's high compute density even with small patch sizes.
 *   **Storage:** 
     *   **Project Limit:** 250 GB total. 
     *   **Current Usage:** ~110 GB.
-    *   **Policy:** Prioritize **labeled segment-volume pairs** over full scroll volumes. Delete "empty" scroll divisions as needed to make room for high-value ground truth.
-*   **Bandwidth:** 
-    *   **Project Limit:** 500 GB / month.
-    *   **Current Usage:** ~150 GB (March 2026).
-    *   **Policy:** **Offline-First Workflow.** Download data once, store it locally in `local_data/`, and train indefinitely without further streaming.
+    *   **Policy:** Prioritize **labeled segment-volume pairs** over full scroll volumes. 
+*   **Data Integrity & Hallucination Mitigation:**
+    *   **Zero Overlap:** We maintain a strict boundary between training and prediction regions. Prediction regions are never seen by the model during the autoresearch loop.
+    *   **Cross-Scroll Validation:** The ultimate proof of signal reality is the model's ability to generalize from training on Fragment 1 to predicting on an entirely unseen scroll (e.g., Scroll 5).
+    *   **Isolation Factor:** Our architecture is optimized for a high "Isolation Factor" to ensure ink signal does not bleed between papyrus wraps.
 
 ---
 
 ## 2. Data Strategy: The "Gold Standard" Library
 
-To win prizes, we must optimize against **real ground truth** rather than synthetic targets. Our local library focuses on highly-aligned labeled data.
+To win prizes, we must optimize against **real ground truth** while ensuring reproducibility.
 
-### High-Priority Labeled Fragments (The "Supervised" Set)
+### High-Priority Labeled Fragments (Supervised & Isolated)
+We utilize the provided unrolled layers to ensure our training data matches manual annotations perfectly.
+
 | Dataset | Source | Type | Status |
 | :--- | :--- | :--- | :--- |
-| **Frag 1 (Paris 2 Fr 47)** | dl.ash2txt.org | Full Volume (32 layers) | Downloading |
-| **Frag 2 (Paris 2 Fr 143)** | dl.ash2txt.org | 1GB Sample (32 layers) | Complete |
-| **Frag 5 (PHerc1667Cr1Fr3)** | dl.ash2txt.org | 1GB Sample (32 layers) | Complete |
-| **Frag 6 (PHerc51Cr4Fr8)** | dl.ash2txt.org | 1GB Sample (32 layers) | Complete |
-| **Scroll 1 Monster (20231012184424)** | dl.ash2txt.org | 1GB Sample (32 layers) | Queued |
-| **Scroll 4 Segment (20231210132040)** | dl.ash2txt.org | 1GB Sample (32 layers) | Queued |
-
-### Diversity & Pretraining (The "Foundation" Set)
-*   **36 Public Scrolls:** 1GB samples each (~36GB total) for self-supervised pretraining (DINO) and synthetic ink injection to learn general papyrus texture.
+| **Frag 1 (Paris 2 Fr 47)** | dl.ash2txt.org | Labeled Surface Volume | Downloading |
+| **Frag 2 (Paris 2 Fr 143)** | dl.ash2txt.org | Labeled Surface Volume | Complete |
+| **Frag 5 (PHerc1667Cr1Fr3)** | dl.ash2txt.org | Labeled Surface Volume | Complete |
+| **Frag 6 (PHerc51Cr4Fr8)** | dl.ash2txt.org | Labeled Surface Volume | Complete |
+| **Scroll 1 Monster** | dl.ash2txt.org | Labeled Layers | Queued |
+| **Scroll 4 Segment** | dl.ash2txt.org | Labeled Layers | Queued |
 
 ---
 
-## 3. The "Night Shift": Autonomous Research Loop
+## 3. Reproducibility & Methodology
 
-Following the Karpathy-style autoresearch method, we deploy a swarm of automated iterations to evolve our models.
-
-*   **Schedule:** 7:00 PM - 7:00 AM (Daily).
-*   **Method:** 
-    *   **Iteration Time:** 5-minute training cycles.
-    *   **Throughput:** ~144 experiments per night.
-    *   **Mechanism:** LLM acts as the primary researcher—modifying `train.py`, committing changes, analyzing results, and advancing the branch on improvement.
-*   **Core Metric:** **Cross-Scroll Dice Score.** 
-    *   We train primarily on Scroll 1/Fragment 1 and validate against unseen scrolls (e.g., validating on Scroll 5 or Paris fragments). 
-    *   A model that generalizes across scrolls is the key to winning the $1M Grand Prize.
+To comply with submission criteria, our solution is designed for 100% automated reproduction:
+*   **Docker Image:** A `Dockerfile` is provided to reconstruct the entire environment.
+*   **System Requirements:** RTX 4090 (or equivalent 24GB VRAM GPU), 64GB RAM, 250GB Disk.
+*   **Programmatic Output:** All submission images are generated directly from CT data by `predict.py`, which automatically appends a **1 cm scale bar** and records the **3D coordinate metadata**.
 
 ---
 

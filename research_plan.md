@@ -16,14 +16,14 @@ For the comprehensive systematic progress plan, hardware constraints (RTX 4090),
 ## Core Research Focus
 1.  **Cross-Scroll Generalization:** Maximizing Dice score on unseen scrolls (Scroll 5 / Paris fragments).
 2.  **Autonomous Evolution:** Running 12-hour "Night Shift" sprints with 5-minute experiment iterations.
-3.  **Gold Standard Alignment:** Perfectly aligning local unrolled layers with manual ink annotations.
+3.  **Hallucination Mitigation:** Strictly limiting prediction window size to **0.5x0.5 mm (64x64 pixels)** and maintaining zero overlap with training regions.
 
 ## Technical Goals
-- **Patch Optimization:** Scale from 64x64 to **256x256 patches** using 24GB VRAM.
+- **Throughput Optimization:** Maximize voxel/sec throughput on the RTX 4090 while maintaining small patch sizes.
 - **Denoising:** Autoresearch kernels to handle high X-ray noise floor in carbonized regions.
-- **Throughput:** Maintain >50M voxels/sec for rapid full-scroll inference.
+- **Reproducibility:** Provide a verified Docker image for automated validation.
 
-## Verification
-- Daily morning review of `results.tsv` from the Night Shift loop.
-- Automated Dice score benchmarking against the Gold Standard Library.
-- Inference consistency checks on unseen "wild" segments.
+## Verification & Submission
+- **Scale Bar Implementation:** Ensure `predict.py` generates images with a programmatic 1 cm scale bar.
+- **3D Context:** Include 3D segmentation IDs and coordinates for all text discovered.
+- **Non-Overlap Audit:** Verify that discovered text regions were never exposed to the model during training.

@@ -31,7 +31,7 @@ class TrainConfig:
     val_uri: str = 'local_data/PHerc0172_1GB/0/'
     
     batch_size: int = 2 # Minimum to avoid OOM
-    patch_size: int = 32
+    patch_size: int = 64
     num_layers: int = 12
     
     lr: float = 3e-4

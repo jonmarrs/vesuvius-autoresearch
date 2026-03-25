@@ -11,7 +11,7 @@ import torch.nn.functional as F
 import numpy as np
 
 class VesuviusConfig:
-    def __init__(self, patch_size=32, num_layers=16, batch_size=4):
+    def __init__(self, patch_size=64, num_layers=16, batch_size=4):
         self.patch_size = patch_size
         self.num_layers = num_layers
         self.batch_size = batch_size

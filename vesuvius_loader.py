@@ -6,7 +6,7 @@ from PIL import Image
 import os
 
 class VesuviusLabeledDataset(IterableDataset):
-    def __init__(self, volume_uri, labels_path, mask_path=None, patch_size=32, num_layers=16):
+    def __init__(self, volume_uri, labels_path, mask_path=None, patch_size=64, num_layers=16):
         self.volume_uri = volume_uri
         self.patch_size = patch_size
         self.num_layers = num_layers
@@ -118,7 +118,7 @@ class VesuviusS3Dataset(IterableDataset):
                 print(f"Error loading block: {e}")
                 continue
 
-def make_s3_loader(uri, batch_size=4, patch_size=32, num_layers=16):
+def make_s3_loader(uri, batch_size=4, patch_size=64, num_layers=16):
     dataset = VesuviusS3Dataset(uri, patch_size, num_layers)
     return DataLoader(dataset, batch_size=batch_size)
 
