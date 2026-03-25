@@ -3,8 +3,8 @@ import os
 import sys
 import subprocess
 
-# This script is located in local_data/ but should be run from the project root.
-# Usage: python3 local_data/download_data.py
+# This script is located in scripts/ and should be run from the project root.
+# Usage: python3 scripts/download_data.py
 
 DATASETS = {
     "1": {
