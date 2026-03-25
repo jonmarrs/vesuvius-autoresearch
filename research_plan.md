@@ -1,26 +1,29 @@
 # Research Plan: Vesuvius Challenge (Project 002)
 
 ## Objective
-Optimize 3D ink detection for cross-scroll generalization, targeting the $1M Grand Prize requirements for robustness. Specifically, maximize the validation Dice score on entirely unseen scrolls when training exclusively on a single source scroll.
+Optimize 3D ink detection for cross-scroll generalization, targeting the $1M Grand Prize. We utilize an autonomous research loop to evolve high-performance models while adhering to strict hardware and data constraints.
+
+## Strategic Roadmap
+For the comprehensive systematic progress plan, hardware constraints (RTX 4090), and data management policy, refer to:
+**[RESEARCH_STRATEGY.md](./RESEARCH_STRATEGY.md)**
 
 ## Current Breakthrough
 - **Model:** 3D Temporal Attention Hybrid with Anisotropic Fiber Extraction (5.97M params).
-- **Cross-Scroll Generalization Setup:** Autoresearch agents are actively maximizing validation Dice scores on independent test segments (e.g. Scroll 4/5) after training solely on Scroll 1 (PHerc0139).
+- **Setup:** Transitioning from synthetic targets to a **Gold Standard Labeled Library** (Fragments 1-6 + Monster Segment).
 - **Performance:** **31.77M voxels/sec** (verified on RTX 4090).
 - **Isolation:** **5,767x interlayer isolation** (zero ghosting between papyrus wraps).
 
-## Real-Data Integration Strategy
-1. **Source:** Access `s3://vesuvius-challenge-open-data/` via AWS Open Data.
-2. **Format:** Support OME-Zarr multiscale volumetric data.
-3. **Validation Target:** Use **PHercParis4** (Scroll 1) and **PHerc0172** (Scroll 5) segments for real-world benchmarking.
-4. **Foundation Model Alignment:** Transition to DINO-style volumetric feature extraction to support the "Neural Tracer" automated meshing workflow.
+## Core Research Focus
+1.  **Cross-Scroll Generalization:** Maximizing Dice score on unseen scrolls (Scroll 5 / Paris fragments).
+2.  **Autonomous Evolution:** Running 12-hour "Night Shift" sprints with 5-minute experiment iterations.
+3.  **Gold Standard Alignment:** Perfectly aligning local unrolled layers with manual ink annotations.
 
 ## Technical Goals
-- **Topological Accuracy:** Ensure detected surfaces maintain consistency across wraps.
-- **Cross-Scroll Generalization:** Validate the model trained on Scroll 1 against Scroll 5 data.
-- **Annotation Acceleration:** Optimize inference to support the 3x "Lasagna" annotation speedup goal.
+- **Patch Optimization:** Scale from 64x64 to **256x256 patches** using 24GB VRAM.
+- **Denoising:** Autoresearch kernels to handle high X-ray noise floor in carbonized regions.
+- **Throughput:** Maintain >50M voxels/sec for rapid full-scroll inference.
 
 ## Verification
-- Run `uv run vesuvius_model.py` for each model iteration.
-- Achieve >0.90 Dice score on synthetic fiber/ink benchmarks.
-- Maintain >50M voxels/sec throughput on production-grade hardware.
+- Daily morning review of `results.tsv` from the Night Shift loop.
+- Automated Dice score benchmarking against the Gold Standard Library.
+- Inference consistency checks on unseen "wild" segments.
