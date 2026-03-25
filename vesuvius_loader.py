@@ -2,6 +2,67 @@ import tensorstore as ts
 import numpy as np
 import torch
 from torch.utils.data import IterableDataset, DataLoader
+from PIL import Image
+import os
+
+class VesuviusLabeledDataset(IterableDataset):
+    def __init__(self, volume_uri, labels_path, mask_path=None, patch_size=32, num_layers=16):
+        self.volume_uri = volume_uri
+        self.patch_size = patch_size
+        self.num_layers = num_layers
+        
+        # Open Volume
+        self.dataset = ts.open({
+            'driver': 'zarr',
+            'kvstore': {'driver': 'file', 'path': volume_uri},
+        }).result()
+        self.shape = self.dataset.shape # (Z, Y, X)
+        
+        # Load Labels (2D PNG)
+        self.labels = np.array(Image.open(labels_path)).astype(np.float32) / 255.0
+        if mask_path and os.path.exists(mask_path):
+            self.mask = np.array(Image.open(mask_path)).astype(np.float32) / 255.0
+        else:
+            self.mask = np.ones_like(self.labels)
+            
+        print(f"Initialized Labeled Dataset: Volume {self.shape}, Labels {self.labels.shape}")
+
+    def __iter__(self):
+        while True:
+            # We need to sample a patch that is within BOTH volume and label bounds.
+            # Volume shape is (Z, Y, X). Label shape is (H, W).
+            # We assume Y maps to H and X maps to W.
+            max_y = min(self.shape[1], self.labels.shape[0]) - self.patch_size
+            max_x = min(self.shape[2], self.labels.shape[1]) - self.patch_size
+            
+            if max_y <= 0 or max_x <= 0:
+                print(f"Warning: Bounds error for {self.volume_uri}. Shape {self.shape} vs Labels {self.labels.shape}")
+                yield torch.zeros(1, self.num_layers, self.patch_size, self.patch_size)
+                continue
+
+            y0 = np.random.randint(0, max_y)
+            x0 = np.random.randint(0, max_x)
+            
+            # Check mask
+            if self.mask[y0:y0+self.patch_size, x0:x0+self.patch_size].mean() < 0.1:
+                continue
+                
+            # Sample Z
+            z0 = np.random.randint(0, self.shape[0] - self.num_layers)
+            
+            try:
+                # Load volume patch (Z, H, W)
+                patch_vol = self.dataset[z0:z0+self.num_layers, y0:y0+self.patch_size, x0:x0+self.patch_size].read().result()
+                patch_vol = torch.from_numpy(patch_vol.astype(np.float32) / 255.0).unsqueeze(0)
+                
+                # Load label patch (H, W) -> Expand to (1, 1, H, W) or (1, Z, H, W)
+                patch_label = self.labels[y0:y0+self.patch_size, x0:x0+self.patch_size]
+                patch_label = torch.from_numpy(patch_label).unsqueeze(0).unsqueeze(0)
+                
+                yield patch_vol, patch_label
+                
+            except Exception as e:
+                continue
 
 class VesuviusS3Dataset(IterableDataset):
     def __init__(self, uri, patch_size=32, num_layers=16, anonymous=True):
@@ -9,20 +70,11 @@ class VesuviusS3Dataset(IterableDataset):
         self.patch_size = patch_size
         self.num_layers = num_layers
         
-        # Parse URI if it's an s3:// link
+        # Bandwidth Safety Check
         if uri.startswith("s3://"):
-            parts = uri.replace("s3://", "").split("/")
-            bucket = parts[0]
-            path = "/".join(parts[1:])
-            kvstore = {
-                'driver': 's3',
-                'bucket': bucket,
-                'path': path,
-                'aws_region': 'us-east-1',
-                'aws_credentials': {'type': 'anonymous'} if anonymous else {}
-            }
-        else:
-            kvstore = {'driver': 'file', 'path': uri}
+            raise ValueError(f"S3 Streaming is DISABLED to save bandwidth. Please use local data paths. (Requested: {uri})")
+            
+        kvstore = {'driver': 'file', 'path': uri}
 
         # Open the dataset
         self.dataset = ts.open({
@@ -60,7 +112,7 @@ class VesuviusS3Dataset(IterableDataset):
                     
                     patch = block[pz:pz+self.num_layers, py:py+self.patch_size, px:px+self.patch_size]
                     tensor = torch.from_numpy(patch.astype(np.float32) / 255.0).unsqueeze(0)
-                    yield tensor
+                    yield tensor, None
                 
             except Exception as e:
                 print(f"Error loading block: {e}")

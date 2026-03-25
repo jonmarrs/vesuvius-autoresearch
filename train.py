@@ -18,7 +18,7 @@ import pandas as pd
 
 # Import our breakthrough components
 from vesuvius_model import InkDetectorOptimized, VesuviusConfig
-from vesuvius_loader import VesuviusS3Dataset
+from vesuvius_loader import VesuviusS3Dataset, VesuviusLabeledDataset
 
 # ---------------------------------------------------------------------------
 # Training Configuration
@@ -26,10 +26,9 @@ from vesuvius_loader import VesuviusS3Dataset
 
 @dataclass
 class TrainConfig:
-    # Full URI for Scroll 1 (PHerc0139) - Training
-    uri: str = 's3://vesuvius-challenge-open-data/PHerc0139/volumes/20260102150214-2.399um-0.2m-78keV-masked.zarr/0/'
-    # Full URI for Scroll 5 (PHerc0172) - Validation
-    val_uri: str = 's3://vesuvius-challenge-open-data/PHerc0172/volumes/20241024131838-7.910um-53keV-masked.zarr/0/'
+    # LOCAL paths to ensure NO bandwidth usage
+    uri: str = 'local_data/PHercParis2Fr47/0/'
+    val_uri: str = 'local_data/PHerc0172_1GB/0/'
     
     batch_size: int = 2 # Minimum to avoid OOM
     patch_size: int = 32
@@ -37,15 +36,18 @@ class TrainConfig:
     
     lr: float = 3e-4
     time_budget: int = 300 # 5 minutes for rapid research iteration
-    
 # ---------------------------------------------------------------------------
 # Training Loop
 # ---------------------------------------------------------------------------
 
 def compute_dice_loss(pred, target, smooth=1e-5):
-    pred = torch.sigmoid(pred)
-    intersection = (pred * target).sum(dim=(2, 3, 4))
-    union = pred.sum(dim=(2, 3, 4)) + target.sum(dim=(2, 3, 4))
+    # pred: [B, 1, Z, H, W] -> collapse Z to 2D
+    pred_2d = torch.mean(pred, dim=2)
+    pred_2d = torch.sigmoid(pred_2d)
+    
+    # target: [B, 1, H, W]
+    intersection = (pred_2d * target).sum(dim=(2, 3))
+    union = pred_2d.sum(dim=(2, 3)) + target.sum(dim=(2, 3))
     dice = (2. * intersection + smooth) / (union + smooth)
     return 1.0 - dice.mean()
 
@@ -64,20 +66,32 @@ def train(time_budget=None):
         batch_size=t_config.batch_size
     )
     
-    print(f"Initializing Vesuvius Autoresearch Training on {t_config.uri}...")
+    print(f"Initializing LOCAL OFFLINE Training on {t_config.uri}...")
     sys.stdout.flush()
     
-    # We use local mock Zarrs to prevent bandwidth usage but maintain the exact same loader architecture.
-    # The 's3://' config strings remain in the config for accurate logging, but the actual loader 
-    # uses local mocked volumes generated from actual small data samples.
-    local_train_uri = 'local_data/PHerc0139_1GB/0/'
-    local_val_uri = 'local_data/PHerc0172_1GB/0/'
-    
-    dataset = VesuviusS3Dataset(uri=local_train_uri, patch_size=t_config.patch_size, num_layers=t_config.num_layers)
+    def get_dataset(uri):
+        # Look for labels in the parent directory of '0/'
+        parent_dir = os.path.dirname(uri.rstrip('/'))
+        labels_path = os.path.join(parent_dir, 'inklabels.png')
+        mask_path = os.path.join(parent_dir, 'mask.png')
+        
+        if os.path.exists(labels_path):
+            print(f"  Using LABELED dataset for {uri}")
+            return VesuviusLabeledDataset(
+                volume_uri=uri,
+                labels_path=labels_path,
+                mask_path=mask_path if os.path.exists(mask_path) else None,
+                patch_size=t_config.patch_size,
+                num_layers=t_config.num_layers
+            )
+        else:
+            print(f"  Using UNLABELED dataset for {uri} (Synthetic Ink will be added)")
+            return VesuviusS3Dataset(uri=uri, patch_size=t_config.patch_size, num_layers=t_config.num_layers)
+
+    dataset = get_dataset(t_config.uri)
     data_iter = iter(dataset)
     
-    print(f"Initializing Validation Loader on {t_config.val_uri}...")
-    val_dataset = VesuviusS3Dataset(uri=local_val_uri, patch_size=t_config.patch_size, num_layers=t_config.num_layers)
+    val_dataset = get_dataset(t_config.val_uri)
     val_data_iter = iter(val_dataset)
     
     # Initialize Model with larger base_feat and more blocks
@@ -96,59 +110,50 @@ def train(time_budget=None):
     while True:
         t0 = time.time()
         
-        # 1. Fetch real scroll data from S3 (Standard View)
-        batch_x = []
-        for _ in range(t_config.batch_size):
-            batch_x.append(next(data_iter))
-        x_orig = torch.stack(batch_x).to(device) # [B, 1, Z, H, W]
-        
-        # 2. Create Augmented View (for DINO self-distillation)
-        # Scroll-Specific Augmentations (Addressing Community Issue #201)
+        # 1. Fetch real scroll data + Ground Truth labels (if available)
+        try:
+            x_orig, target_ink = next(data_iter)
+            x_orig = x_orig.to(device) # [1, 1, Z, H, W]
+            
+            if target_ink is not None:
+                target_ink = target_ink.to(device) # [1, 1, H, W]
+            else:
+                # Add Synthetic Ink (for unlabeled scrolls)
+                target_ink = torch.zeros((x_orig.shape[0], 1, x_orig.shape[3], x_orig.shape[4]), device=device)
+                for b in range(x_orig.shape[0]):
+                    if np.random.rand() > 0.3:
+                        h0, w0 = np.random.randint(0, t_config.patch_size // 2), np.random.randint(0, t_config.patch_size // 2)
+                        z0 = np.random.randint(2, t_config.num_layers - 4)
+                        # We apply synthetic ink to a slice of the volume and record it in target_ink
+                        target_ink[b, 0, h0:h0+16, w0:w0+16] = 1.0
+                        x_orig[b, 0, z0:z0+2, h0:h0+16, w0:w0+16] += 0.4
+        except StopIteration:
+            data_iter = iter(dataset)
+            continue
+            
+        # 2. Create Augmented View
         x_aug = x_orig.clone()
-        
-        # A. Random Non-Rigid Warping (mimics crinkled papyrus)
         if np.random.rand() > 0.5:
-            # Simple 3D Roll/Shift as a proxy for complex warping in this budget
+            # Simple 3D Roll/Shift as a proxy for complex warping
             shift_z, shift_y, shift_x = np.random.randint(-2, 3, (3,))
             x_aug = torch.roll(x_aug, shifts=(shift_z, shift_y, shift_x), dims=(2, 3, 4))
-            
-        # B. Layer Ghosting (mimics interlayer crosstalk)
-        if np.random.rand() > 0.3:
-            ghost = torch.roll(x_orig, shifts=(np.random.randint(1, 4),), dims=(2,))
-            x_aug = x_aug + ghost * 0.2
-            
-        # C. Standard Augs
+        
         x_aug = torch.rot90(x_aug, k=np.random.randint(0, 4), dims=(3, 4))
         x_aug = x_aug + torch.randn_like(x_aug) * 0.05
-        if np.random.rand() > 0.5:
-            drop_idx = np.random.randint(0, t_config.num_layers, (2,))
-            x_aug[:, :, drop_idx] = 0.0
-            
-        # 3. Add Synthetic Ink to BOTH views (Supervised Component)
-        target_ink = torch.zeros_like(x_orig)
-        for b in range(t_config.batch_size):
-            if np.random.rand() > 0.3:
-                h0, w0 = np.random.randint(0, t_config.patch_size // 2), np.random.randint(0, t_config.patch_size // 2)
-                z0 = np.random.randint(2, t_config.num_layers - 4)
-                target_ink[b, :, z0:z0+2, h0:h0+16, w0:w0+16] = 1.0
-                x_orig[b] = x_orig[b] + target_ink[b] * 0.4
         
         # 4. Forward Pass
         optimizer.zero_grad(set_to_none=True)
         
         # Student View (Orig)
         out_ink, feat_student, _, _, _, _ = model(x_orig, return_fiber=True)
-        # Teacher View (Augmented)
-        with torch.no_grad():
-            _, feat_teacher, _, _, _, _ = model(x_aug, return_fiber=True)
-            
+        
         # Loss 1: Supervised Ink Detection
-        loss_ink = F.binary_cross_entropy_with_logits(out_ink, target_ink)
+        # Model outputs [B, 1, Z, H, W], Target is [B, 1, H, W]
+        out_ink_2d = torch.mean(out_ink, dim=2)
+        loss_ink = F.binary_cross_entropy_with_logits(out_ink_2d, target_ink)
+        loss_dice = compute_dice_loss(out_ink, target_ink)
         
-        # Loss 2: DINO Feature Consistency (Self-Supervised)
-        loss_dino = F.mse_loss(feat_student, feat_teacher)
-        
-        total_loss = loss_ink + 0.5 * loss_dino
+        total_loss = 0.5 * loss_ink + 0.5 * loss_dice
         total_loss.backward()
         
         optimizer.step()
@@ -173,28 +178,32 @@ def train(time_budget=None):
             break
             
     # Final Summary
-    # Quick Validation on a separate chunk (Scroll 5)
-    print("Evaluating val_bpb (1 - Dice) on validation chunk (PHerc. 0172)...")
+    # Quick Validation
+    print(f"Evaluating val_bpb (1 - Dice) on validation set...")
     sys.stdout.flush()
     val_losses = []
     with torch.no_grad():
-        for _ in range(5):
-            val_x = next(val_data_iter).to(device).unsqueeze(0)
-            
-            # Use synthetic target for simplicity in baseline evaluation
-            val_target = torch.zeros_like(val_x)
-            for b in range(val_x.shape[0]):
-                if np.random.rand() > 0.3:
+        for _ in range(10):
+            try:
+                val_x, val_target = next(val_data_iter)
+                val_x = val_x.to(device)
+                
+                if val_target is None:
+                    # Synthetic val target
+                    val_target = torch.zeros((val_x.shape[0], 1, val_x.shape[3], val_x.shape[4]), device=device)
                     h0, w0 = np.random.randint(0, t_config.patch_size // 2), np.random.randint(0, t_config.patch_size // 2)
                     z0 = np.random.randint(2, t_config.num_layers - 4)
-                    val_target[b, :, z0:z0+2, h0:h0+16, w0:w0+16] = 1.0
-                    val_x[b] = val_x[b] + val_target[b] * 0.4
-                    
-            val_out, _, _, _, _, _ = model(val_x, return_fiber=True)
-            loss_dice = compute_dice_loss(val_out, val_target)
-            val_losses.append(loss_dice.item())
+                    val_target[:, 0, h0:h0+16, w0:w0+16] = 1.0
+                    val_x[:, 0, z0:z0+2, h0:h0+16, w0:w0+16] += 0.4
+                else:
+                    val_target = val_target.to(device)
+                
+                val_out, _, _, _, _, _ = model(val_x, return_fiber=True)
+                loss_dice = compute_dice_loss(val_out, val_target)
+                val_losses.append(loss_dice.item())
+            except: continue
             
-    val_bpb = np.mean(val_losses)
+    val_bpb = np.mean(val_losses) if val_losses else 1.0
     
     # Check for improvement
     log_file = 'results.tsv'
