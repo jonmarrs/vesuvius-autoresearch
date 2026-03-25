@@ -3,8 +3,7 @@ import os
 import sys
 import subprocess
 
-# This script is located in scripts/ and should be run from the project root.
-# Usage: python3 scripts/download_data.py
+# Usage: python3 download_data.py
 
 DATASETS = {
     "1": {
@@ -64,11 +63,8 @@ def prompt_user(dataset_id):
 def run_script(dataset_id):
     script_path = DATASETS[dataset_id]['script']
     if not os.path.exists(script_path):
-        # Check if we are running from within local_data/
-        script_path = os.path.join("..", script_path)
-        if not os.path.exists(script_path):
-            print(f"Error: Could not find script {DATASETS[dataset_id]['script']}")
-            return
+        print(f"Error: Could not find script {script_path}")
+        return
 
     print(f"\nLaunching {script_path}...")
     try:

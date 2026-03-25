@@ -1,6 +1,6 @@
 # Local Data Manifest
 
-This document lists the offline datasets currently built and stored in `local_data/`. These datasets are completely excluded from git due to their massive size (~63GB total). To regenerate these datasets locally, run the interactive downloader: `python3 scripts/download_data.py`.
+This document lists the offline datasets currently built and stored in `local_data/`. These datasets are completely excluded from git due to their massive size (~63GB total). To regenerate these datasets locally, run the interactive downloader: `python3 download_data.py`.
 
 ## Generated 1GB Continuous Cross-Scroll Datasets
 
