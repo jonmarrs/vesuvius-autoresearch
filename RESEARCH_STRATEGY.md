@@ -11,7 +11,7 @@ To maintain a sustainable and high-impact research trajectory, all workflows mus
     *   **Constraint Compliance:** We strictly adhere to the **0.5x0.5 mm window size (64x64 pixels at 8µm)** recommended by the Vesuvius Challenge. This is our primary defense against model hallucinations.
     *   **Throughput:** Aim for >50M voxels/sec by utilizing the 4090's high compute density even with small patch sizes.
 *   **Storage:** 
-    *   **Project Limit:** 250 GB total. 
+    *   **Project Limit:** 500 GB total. 
     *   **Current Usage:** ~110 GB.
     *   **Policy:** Prioritize **labeled segment-volume pairs** over full scroll volumes. 
 *   **Data Integrity & Hallucination Mitigation:**
