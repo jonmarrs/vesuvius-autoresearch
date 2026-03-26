@@ -2,6 +2,10 @@
 
 This document outlines the systematic research strategy for winning Vesuvius Challenge prizes, specifically focusing on ink detection while operating within strict hardware, storage, and bandwidth constraints.
 
+## Strategic Roadmap
+For the granular sprint schedule, priority backlog, and milestone targets, refer to:
+**[SPRINT_KANBAN.md](./SPRINT_KANBAN.md)**
+
 ## 1. Constraints & Optimization
 
 To maintain a sustainable and high-impact research trajectory, all workflows must respect the following limits:
