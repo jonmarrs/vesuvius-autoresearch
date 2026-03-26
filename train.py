@@ -33,7 +33,7 @@ class TrainConfig:
     val_uri: str = 'local_data/PHercParis2Fr143/surface_volume/'
     
     batch_size: int = 2 # Minimum to avoid OOM
-    patch_size: int = 64
+    patch_size: int = 128
     num_layers: int = 12
     
     lr: float = 3e-4
