@@ -2,8 +2,10 @@
 
 **Authors:** Vesuvius Autoresearch Swarm, Lead Researcher: Jon Marrs
 
+**Target Publication:** IEEE Computing Edge / IEEE Letters on Machine Learning
+
 ## Abstract
-Detecting ink within micro-CT scans of carbonized papyrus scrolls remains a significant challenge due to low signal-to-noise ratios, morphological variability across scrolls, and the risk of model hallucination. This paper presents an autonomous research framework that utilizes a high-throughput mutation-based search to evolve 3D model architectures for ink detection. By prioritizing cross-scroll generalization and strictly adhering to spatial window constraints, we demonstrate a robust methodology for discovering legible text in previously unseen scrolls. Our results highlight the efficacy of Temporal Attention Hybrids and specialized denoising backbones in isolating ink signals from volumetric X-ray data.
+Detecting ink within micro-CT scans of carbonized papyrus scrolls remains a significant challenge due to low signal-to-noise ratios, morphological variability across scrolls, and the risk of model hallucination. This paper presents an autonomous research framework that utilizes a high-throughput mutation-based search to evolve 3D model architectures for ink detection. We specifically emphasize hardware-aware optimization for high-end consumer GPUs (NVIDIA RTX 4090), demonstrating that "edge-scale" workstation compute can achieve frontier-level results through rapid autonomous iteration. By prioritizing cross-scroll generalization and strictly adhering to spatial window constraints, we demonstrate a robust methodology for discovering legible text in previously unseen scrolls. Our results highlight the efficacy of Temporal Attention Hybrids and specialized denoising backbones in isolating ink signals from volumetric X-ray data.
 
 ## I. Introduction
 The Vesuvius Challenge seeks to read the lost library of Herculaneum through advanced imaging and machine learning. While significant progress has been made on unrolled fragments, the "Generalization Gap"—the failure of a model trained on one scroll to detect ink on another—remains the primary bottleneck for the $1M Grand Prize. 
