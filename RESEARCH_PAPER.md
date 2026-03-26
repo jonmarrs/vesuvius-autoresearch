@@ -26,8 +26,13 @@ We implement a "Night Shift" research loop that autonomously mutates hyperparame
 ### C. Data Strategy: The Gold Standard Library
 To mitigate hallucination, we train exclusively on unrolled "Gold Standard" labeled fragments (Fragments 1-6) and the Scroll 1 "Monster" segment. Validation is performed on entirely unseen cross-scroll datasets (Scroll 5 / Scroll 4) to ensure genuine signal detection.
 
+### D. Resource Constraints and Citizen Science Accessibility
+In the spirit of citizen science and decentralized science (DeSci), our framework is designed to be accessible to researchers with standard high-end consumer hardware and typical internet connectivity. We strictly limit resource consumption to ensure that the methodology remains tolerable for individual contributors:
+*   **Data Bandwidth:** We maintain a monthly download limit of **500 GB**, achieved through a targeted "download once, train indefinitely" offline-first strategy.
+*   **Local Storage:** We cap local data storage at **250 GB** at any given time, prioritizing high-value labeled segments over full scroll volumes.
+
 ## III. Experimental Setup
-Experiments are performed on an NVIDIA RTX 4090 (24GB VRAM). We strictly enforce a 0.5x0.5mm (64x64 pixel) prediction window to prevent memorization and comply with Vesuvius Challenge technical requirements.
+Experiments are performed on an NVIDIA RTX 4090 (24GB VRAM), a high-end consumer GPU representative of the compute power available to the broader research community. We strictly enforce a 0.5x0.5mm (64x64 pixel) prediction window to prevent memorization and comply with Vesuvius Challenge technical requirements. Furthermore, our autonomous loop is optimized to run during off-peak hours ("Night Shift"), minimizing interference with daily workstation utility.
 
 ## IV. Results
 *(This section is updated daily by the autonomous research swarm as new breakthroughs are achieved.)*
