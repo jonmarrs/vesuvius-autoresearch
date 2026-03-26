@@ -34,7 +34,7 @@ class TrainConfig:
 
     batch_size: int = 2 # Minimum to avoid OOM
     patch_size: int = 128
-    num_layers: int = 24 # Must be multiple of 4 for patch_embed
+    num_layers: int = 16 # Must be multiple of 4 for patch_embed
 
     lr: float = 3e-4
     time_budget: int = 900 # 15 minutes for transformer convergence
