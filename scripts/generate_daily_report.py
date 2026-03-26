@@ -63,9 +63,23 @@ def generate_pdf():
     
     pdf.ln(10)
 
-    # 4. Top Discoveries Table
+    # 4. Training Samples
     pdf.set_font('helvetica', 'B', 14)
-    pdf.cell(0, 10, '4. Top discovery Milestones', 0, 1, 'L')
+    pdf.cell(0, 10, '4. Training Data Samples (Visual Audit)', 0, 1, 'L')
+    
+    import glob
+    sample_images = sorted(glob.glob('reports/figures/training_samples/*.png'))
+    if sample_images:
+        latest_sample = sample_images[-1]
+        pdf.image(latest_sample, x=10, w=190)
+    else:
+        pdf.cell(0, 10, 'Training samples not found. Run visualize_training_data.py first.', 0, 1, 'L')
+
+    pdf.ln(10)
+
+    # 5. Top Discoveries Table
+    pdf.set_font('helvetica', 'B', 14)
+    pdf.cell(0, 10, '5. Top discovery Milestones', 0, 1, 'L')
     
     if os.path.exists('results.tsv'):
         df = pd.read_csv('results.tsv', sep='\t')

@@ -100,7 +100,7 @@ Our workflow is strictly engineered to win the following high-value prizes:
 | Time | Action | Responsibility |
 | :--- | :--- | :--- |
 | **08:00 AM** | **Morning Review** | Human + LLM: Analyze `NightShift_Analysis.ipynb` and `reports/figures/`. |
-| **08:15 AM** | **Generate Reports** | Run `python3 plot_results.py` and `python3 scripts/generate_daily_report.py`. |
+| **08:15 AM** | **Generate Reports** | Run `python3 plot_results.py`, `python3 scripts/generate_daily_report.py`, and `python3 scripts/visualize_training_data.py`. |
 | **08:45 AM** | **Paper Update** | Update `RESEARCH_PAPER.md` with new findings and winning mutations. |
 | **09:00 AM** | **Winning Merge** | Merge the best-performing architecture into `main`. |
 | **10:00 AM** | **Full-Scale Inference** | Use the winning model to generate ink-maps for new, unseen segments. |
