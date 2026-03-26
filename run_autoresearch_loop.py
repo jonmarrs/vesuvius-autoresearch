@@ -7,15 +7,15 @@ import sys
 
 # Define templates for architectural and hyperparameter tweaks
 tweak_templates = [
-    {"name": "lr_{val}", "file": "train.py", "pattern": r"lr:\s*float\s*=\s*[\d\.e-]+", "repl": "lr: float = {val}", "vals": ["5e-4", "1e-4", "5e-5", "1e-5", "3e-4"]},
-    {"name": "wd_{val}", "file": "train.py", "pattern": r"weight_decay=[\d\.]+", "repl": "weight_decay={val}", "vals": ["0.1", "0.05", "0.001", "0.005", "0.0"]},
-    {"name": "blocks_{val}", "file": "train.py", "pattern": r"num_blocks=\d+", "repl": "num_blocks={val}", "vals": ["8", "10", "12"]}, 
-    {"name": "heads_{val}", "file": "vesuvius_model.py", "pattern": r"num_heads=\d+", "repl": "num_heads={val}", "vals": ["4", "8"]},
-    {"name": "dropout_{val}", "file": "vesuvius_model.py", "pattern": r"dropout=[\d\.]+", "repl": "dropout={val}", "vals": ["0.1", "0.2", "0.3", "0.0"]},
-    {"name": "batch_size_{val}", "file": "train.py", "pattern": r"batch_size:\s*int\s*=\s*\d+", "repl": "batch_size: int = {val}", "vals": ["2", "4", "6"]}, 
-    {"name": "patch_size_{val}", "file": "train.py", "pattern": r"patch_size:\s*int\s*=\s*\d+", "repl": "patch_size: int = {val}", "vals": ["32", "48"]},
-    {"name": "num_layers_{val}", "file": "train.py", "pattern": r"num_layers:\s*int\s*=\s*\d+", "repl": "num_layers: int = {val}", "vals": ["12", "16"]}, 
-    {"name": "base_feat_{val}", "file": "train.py", "pattern": r"base_feat=\d+", "repl": "base_feat={val}", "vals": ["32", "64"]}
+    {"name": "lr_{val}", "file": "train.py", "pattern": r"lr:\s*float\s*=\s*[\d\.e-]+", "repl": "lr: float = {val}", "vals": ["1e-3", "5e-4", "1e-4", "5e-5", "1e-5"]},
+    {"name": "wd_{val}", "file": "train.py", "pattern": r"weight_decay=[\d\.]+", "repl": "weight_decay={val}", "vals": ["0.1", "0.01", "0.001", "0.0"]},
+    {"name": "blocks_{val}", "file": "train.py", "pattern": r"num_blocks=\d+", "repl": "num_blocks={val}", "vals": ["10", "12", "16", "20"]}, 
+    {"name": "heads_{val}", "file": "vesuvius_model.py", "pattern": r"num_heads=\d+", "repl": "num_heads={val}", "vals": ["4", "8", "12"]},
+    {"name": "dropout_{val}", "file": "vesuvius_model.py", "pattern": r"dropout=[\d\.]+", "repl": "dropout={val}", "vals": ["0.1", "0.2", "0.4", "0.0"]},
+    {"name": "batch_size_{val}", "file": "train.py", "pattern": r"batch_size:\s*int\s*=\s*\d+", "repl": "batch_size: int = {val}", "vals": ["4", "8", "16"]}, 
+    {"name": "patch_size_{val}", "file": "train.py", "pattern": r"patch_size:\s*int\s*=\s*\d+", "repl": "patch_size: int = {val}", "vals": ["64", "96", "128"]},
+    {"name": "num_layers_{val}", "file": "train.py", "pattern": r"num_layers:\s*int\s*=\s*\d+", "repl": "num_layers: int = {val}", "vals": ["12", "16", "24"]}, 
+    {"name": "base_feat_{val}", "file": "train.py", "pattern": r"base_feat=\d+", "repl": "base_feat={val}", "vals": ["32", "64", "128"]}
 ]
 
 def get_current_config():
@@ -58,27 +58,27 @@ env = os.environ.copy()
 i = 0
 
 os.makedirs("sprint_logs", exist_ok=True)
-log_filename = f"sprint_logs/sprint_log_{time.strftime('%Y-%m-%d_%H-%M-%S')}_day_shift.md"
+log_filename = f"sprint_logs/sprint_log_{time.strftime('%Y-%m-%d_%H-%M-%S')}_night_shift.md"
 
-print(f"--- DAY SHIFT STARTING AT {time.strftime('%H:%M:%S')} ---")
+print(f"--- NIGHT SHIFT STARTING AT {time.strftime('%H:%M:%S')} ---")
 print(f"Logging to: {log_filename}")
-print(f"Starting persistent background loop until 7:00 PM...")
+print(f"Starting persistent background loop until 7:00 AM...")
 sys.stdout.flush()
 
 with open(log_filename, "w") as log:
-    log.write(f"# Day Shift Sprint - {time.strftime('%Y-%m-%d')}\n")
+    log.write(f"# Night Shift Sprint - {time.strftime('%Y-%m-%d')}\n")
     log.write(f"- **Start Time**: {time.strftime('%H:%M:%S')}\n")
     log.write("- **Goal**: Monotonic val_bpb optimization via 5-min cycles.\n\n")
 
 while True:
     i += 1
-    # Check if it's 7:00 PM (19:00)
+    # Check if it's 7:00 AM (07:00)
     current_hour = time.localtime().tm_hour
-    if current_hour == 19:
-        print("7:00 PM reached. Ending Day Shift sprint.")
+    if current_hour == 7:
+        print("7:00 AM reached. Ending Night Shift sprint.")
         sys.stdout.flush()
         with open(log_filename, "a") as log:
-            log.write(f"\n## Sprint Completed at 7:00 PM\n")
+            log.write(f"\n## Sprint Completed at 7:00 AM\n")
         break
 
     # Select a random tweak
@@ -118,7 +118,7 @@ while True:
         
         # Open run.log in append mode and stream subprocess output to it live
         with open("run.log", "a") as f:
-            f.write(f"\n\n--- DAY SHIFT CYCLE {i}: {tweak['name']} ---\n")
+            f.write(f"\n\n--- NIGHT SHIFT CYCLE {i}: {tweak['name']} ---\n")
             f.flush()
             
             # Using shell=True and explicit env propagation
@@ -174,7 +174,7 @@ while True:
 
         if is_success:
             print("IMPROVEMENT FOUND! Committing changes.")
-            os.system(f'git add . && git commit -m "Day Shift: {tweak["name"]} improved model"')
+            os.system(f'git add . && git commit -m "Night Shift: {tweak["name"]} improved model"')
         else:
             print("No improvement. Reverting.")
             os.system("git restore .")

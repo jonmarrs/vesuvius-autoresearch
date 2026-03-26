@@ -27,8 +27,10 @@ from vesuvius_loader import VesuviusS3Dataset, VesuviusLabeledDataset
 @dataclass
 class TrainConfig:
     # LOCAL paths to ensure NO bandwidth usage
-    uri: str = 'local_data/PHercParis2Fr47/0/'
-    val_uri: str = 'local_data/PHerc0172_1GB/0/'
+    # Training: Fragment 1
+    uri: str = 'local_data/PHercParis2Fr47/surface_volume/'
+    # Validation: Fragment 2
+    val_uri: str = 'local_data/PHercParis2Fr143/surface_volume/'
     
     batch_size: int = 2 # Minimum to avoid OOM
     patch_size: int = 64

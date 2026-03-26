@@ -5,6 +5,8 @@ from torch.utils.data import IterableDataset, DataLoader
 from PIL import Image
 import os
 
+Image.MAX_IMAGE_PIXELS = None
+
 class VesuviusLabeledDataset(IterableDataset):
     def __init__(self, volume_uri, labels_path, mask_path=None, patch_size=64, num_layers=16):
         self.volume_uri = volume_uri
@@ -12,11 +14,29 @@ class VesuviusLabeledDataset(IterableDataset):
         self.num_layers = num_layers
         
         # Open Volume
-        self.dataset = ts.open({
-            'driver': 'zarr',
-            'kvstore': {'driver': 'file', 'path': volume_uri},
-        }).result()
-        self.shape = self.dataset.shape # (Z, Y, X)
+        if os.path.isdir(volume_uri) and any(f.endswith('.tif') for f in os.listdir(volume_uri)):
+            # Load TIF layers into memory (they are unrolled, so they fit)
+            print(f"Loading TIF layers from {volume_uri} ...")
+            files = sorted([f for f in os.listdir(volume_uri) if f.endswith('.tif')])
+            
+            # Pre-allocate to avoid copies
+            first_layer = np.array(Image.open(os.path.join(volume_uri, files[0])))
+            self.volume = np.zeros((len(files), *first_layer.shape), dtype=np.uint8)
+            self.volume[0] = first_layer
+            
+            for i in range(1, len(files)):
+                self.volume[i] = np.array(Image.open(os.path.join(volume_uri, files[i])))
+                
+            self.shape = self.volume.shape
+            self.is_zarr = False
+        else:
+            # Open Zarr
+            self.dataset = ts.open({
+                'driver': 'zarr',
+                'kvstore': {'driver': 'file', 'path': volume_uri},
+            }).result()
+            self.shape = self.dataset.shape # (Z, Y, X)
+            self.is_zarr = True
         
         # Load Labels (2D PNG)
         self.labels = np.array(Image.open(labels_path)).astype(np.float32) / 255.0
@@ -29,39 +49,34 @@ class VesuviusLabeledDataset(IterableDataset):
 
     def __iter__(self):
         while True:
-            # We need to sample a patch that is within BOTH volume and label bounds.
             # Volume shape is (Z, Y, X). Label shape is (H, W).
-            # We assume Y maps to H and X maps to W.
             max_y = min(self.shape[1], self.labels.shape[0]) - self.patch_size
             max_x = min(self.shape[2], self.labels.shape[1]) - self.patch_size
             
             if max_y <= 0 or max_x <= 0:
-                print(f"Warning: Bounds error for {self.volume_uri}. Shape {self.shape} vs Labels {self.labels.shape}")
-                yield torch.zeros(1, self.num_layers, self.patch_size, self.patch_size)
+                yield torch.zeros(1, self.num_layers, self.patch_size, self.patch_size), torch.zeros(1, 1, self.patch_size, self.patch_size)
                 continue
 
             y0 = np.random.randint(0, max_y)
             x0 = np.random.randint(0, max_x)
             
-            # Check mask
             if self.mask[y0:y0+self.patch_size, x0:x0+self.patch_size].mean() < 0.1:
                 continue
                 
-            # Sample Z
             z0 = np.random.randint(0, self.shape[0] - self.num_layers)
             
             try:
-                # Load volume patch (Z, H, W)
-                patch_vol = self.dataset[z0:z0+self.num_layers, y0:y0+self.patch_size, x0:x0+self.patch_size].read().result()
+                if self.is_zarr:
+                    patch_vol = self.dataset[z0:z0+self.num_layers, y0:y0+self.patch_size, x0:x0+self.patch_size].read().result()
+                else:
+                    patch_vol = self.volume[z0:z0+self.num_layers, y0:y0+self.patch_size, x0:x0+self.patch_size]
+                    
                 patch_vol = torch.from_numpy(patch_vol.astype(np.float32) / 255.0).unsqueeze(0)
-                
-                # Load label patch (H, W) -> Expand to (1, 1, H, W) or (1, Z, H, W)
-                patch_label = self.labels[y0:y0+self.patch_size, x0:x0+self.patch_size]
-                patch_label = torch.from_numpy(patch_label).unsqueeze(0).unsqueeze(0)
+                patch_label = torch.from_numpy(self.labels[y0:y0+self.patch_size, x0:x0+self.patch_size]).unsqueeze(0).unsqueeze(0)
                 
                 yield patch_vol, patch_label
                 
-            except Exception as e:
+            except Exception:
                 continue
 
 class VesuviusS3Dataset(IterableDataset):
