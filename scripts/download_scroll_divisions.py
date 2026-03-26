@@ -14,7 +14,7 @@ bucket = 'vesuvius-challenge-open-data'
 # - PHerc0172 (Scroll 5)
 # - PHerc0139 (Scroll 1)
 # (Note: PHerc1667 volumes are missing from the public bucket, but we will still check for it just in case)
-target_scrolls = ['PHerc0332', 'PHerc0172', 'PHerc0139', 'PHerc1667']
+target_scrolls = ['PHerc0332', 'PHerc0172', 'PHerc0139', 'PHerc0125', 'PHerc1667']
 
 def get_volume_prefix(scroll_id):
     volumes_prefix = f"{scroll_id}/volumes/"

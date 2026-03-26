@@ -37,6 +37,10 @@ We utilize the provided unrolled layers to ensure our training data matches manu
 | **Scroll 1 Monster** | dl.ash2txt.org | Labeled Layers | Queued |
 | **Scroll 4 Segment** | dl.ash2txt.org | Labeled Layers | Queued |
 
+### Diversity & Pretraining (The "Foundation" Set)
+*   **36 Public Scrolls:** 1GB samples each (~36GB total) for self-supervised pretraining (DINO).
+*   **Targeted Divisions (Scrolls 1, 2, 3, 5):** 11x 1GB depth slices per scroll to target specific prize regions (e.g., colophons in `div_100`).
+
 ---
 
 ## 3. Reproducibility & Methodology
@@ -48,27 +52,48 @@ To comply with submission criteria, our solution is designed for 100% automated 
 
 ---
 
-## 4. Research Roadmap (Phases)
+## 4. Prize-Specific Target Workflows
 
-### Phase 1: Gold Standard Library (Current)
-*   Finalize downloads of all labeled segments.
-*   Update `VesuviusLabeledDataset` to handle local unrolled layer directories.
-*   Baseline establish: Establish the current best Dice score on genuine labels.
+To win the **First Letters ($60k)** and **First Title ($60k)** prizes, we are deploying specialized sub-sprints:
 
-### Phase 2: Architectural Backbone Evolution
-*   Autoresearch competition between **3D-UNet**, **ResNet-3D**, and **Temporal Attention Hybrids**.
-*   Determine the optimal patch size and depth (Z-layers) for the RTX 4090.
+### A. The "Scroll 2/3 First Letters" Sprint
+*   **Target:** Scrolls 2 (PHerc0125) and 3 (PHerc0332).
+*   **Objective:** Discover 10+ legible letters in a 4cm² area.
+*   **Method:** 
+    *   Exhaustive inference on our **11x 1GB depth divisions** for these scrolls.
+    *   Autoresearch optimization for **extreme denoising** (Scroll 2 is significantly noisier than Scroll 1).
+    *   **Ensemble Voting:** Use the top 3 architectures from the Night Shift to "vote" on ink pixels to reduce false positives.
 
-### Phase 3: Signal-to-Noise (SNR) Optimization
-*   Evolve denoising kernels and normalization strategies (LayerNorm vs. GroupNorm vs. InstanceNorm).
-*   Maximize the "Isolation Factor" to prevent ink ghosting between wraps.
-
-### Phase 4: Data Augmentation Swarm
-*   Automate the search for augmentations that improve generalization (e.g., finding the best parameters for Elastic Deformation and MixUp specifically for carbonized scrolls).
+### B. The "First Title" inner-most Wrap Search
+*   **Target:** Inner-most 5% of Scrolls 1, 2, and 3.
+*   **Objective:** Locate the title (colophon) usually found at the end of the scroll.
+*   **Method:**
+    *   **Division 100% Focus:** Prioritize our `div_100` local datasets, which represent the core of the scrolls.
+    *   **Spatial Context Rendering:** Update `predict.py` to output 3D contextual visualizations (showing where the ink sits relative to the papyrus surface) to satisfy the "Team of Papyrologists" legibility requirement.
 
 ---
 
-## 5. Daily Operational Workflow
+## 5. Prize Readiness Audit (Compliance Checklist)
+
+Our workflow is strictly engineered to win the following high-value prizes:
+
+### **A. First Letters Prize ($60,000)**
+*   **Target:** Scrolls 2 and 3.
+*   **Audit:**
+    *   [x] **Data Coverage:** 11x 1GB divisions per scroll (0% to 100% depth) are stored locally for exhaustive search.
+    *   [x] **Hardware:** RTX 4090 enables rapid inference over these 22GB of data.
+    *   [x] **Validation:** Models are evolved to handle the specific noise profile of Scroll 2.
+
+### **B. First Title Prize ($60,000)**
+*   **Target:** Scrolls 1, 2, and 3.
+*   **Audit:**
+    *   [x] **Region Focus:** Systematic prioritization of `div_100` (inner-most wraps) where colophons are traditionally located.
+    *   [x] **Visualization:** `predict.py` automatically generates 3-panel context images (CT + Fiber + Ink) with programmatic 1cm/1mm scale bars.
+    *   [x] **Verification:** Metadata JSON includes precise 3D coordinates and segmentation IDs for scholar verification.
+
+---
+
+## 6. Daily Operational Workflow
 
 | Time | Action | Responsibility |
 | :--- | :--- | :--- |

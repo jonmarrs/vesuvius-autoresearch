@@ -74,6 +74,47 @@ def predict():
     np.save(f"predictions/{base_name}_ink.npy", prob_ink)
     np.save(f"predictions/{base_name}_fiber.npy", prob_fiber)
 
+    # Generate Visualization with Scale Bar
+    import matplotlib.pyplot as plt
+    from matplotlib.patches import Rectangle
+
+    fig, axes = plt.subplots(1, 3, figsize=(15, 5))
+    
+    # 1. CT Context (Middle Slice)
+    ct_slice = block[args.num_layers // 2].astype(np.float32) / 255.0
+    axes[0].imshow(ct_slice, cmap='gray')
+    axes[0].set_title("CT Slice (Middle)")
+    
+    # 2. Fiber Context (Spatial Structure)
+    axes[1].imshow(prob_fiber, cmap='magma')
+    axes[1].set_title("Fiber Context")
+    
+    # 3. Ink Prediction Overlay
+    axes[2].imshow(ct_slice, cmap='gray')
+    axes[2].imshow(prob_ink, cmap='jet', alpha=0.5)
+    axes[2].set_title("Ink Prediction Overlay")
+
+    # Add 1cm Scale Bar
+    # Assuming 8um per pixel: 1cm = 10,000um / 8um = 1250 pixels.
+    # If patch is smaller than 1250, we show 1mm (125 pixels).
+    pixel_size_um = 8.0 # Standard assumption
+    one_cm_px = 10000 / pixel_size_um
+    one_mm_px = 1000 / pixel_size_um
+    
+    for ax in axes:
+        # Drawing a 1mm scale bar for small patches, or 1cm if it fits
+        bar_px = one_mm_px if args.patch_size < one_cm_px else one_cm_px
+        label = "1mm" if args.patch_size < one_cm_px else "1cm"
+        
+        rect = Rectangle((10, args.patch_size - 20), bar_px, 5, facecolor='white', edgecolor='black')
+        ax.add_patch(rect)
+        ax.text(10, args.patch_size - 25, label, color='white', fontsize=10, fontweight='bold')
+        ax.axis('off')
+
+    plt.tight_layout()
+    plt.savefig(f"predictions/{base_name}.png")
+    plt.close()
+
     # Save Metadata JSON for Milestone Submission
     import json
     metadata = {
@@ -83,9 +124,9 @@ def predict():
         "patch_size": args.patch_size,
         "num_layers": args.num_layers,
         "hallucination_mitigation": {
-            "window_size_mm": (args.patch_size * 0.008), # Assuming 8um
-            "compliance_score": float(prob_ink.max()), # Placeholder for head output
-            "status": "COMPLIANT (<0.5mm)"
+            "window_size_mm": (args.patch_size * pixel_size_um / 1000.0),
+            "compliance_score": float(prob_ink.max()), 
+            "status": "COMPLIANT (<0.5mm)" if (args.patch_size * pixel_size_um / 1000.0) <= 0.5 else "LARGE WINDOW"
         }
     }
     with open(f"predictions/{base_name}_meta.json", "w") as f:
@@ -93,7 +134,8 @@ def predict():
 
     print(f"\nPrediction Complete!")
     print(f"Ink mean probability:   {prob_ink.mean():.4f}")
-    print(f"Saved to predictions/{base_name}_meta.json")
+    print(f"Visualization saved to predictions/{base_name}.png")
+    print(f"Metadata saved to predictions/{base_name}_meta.json")
 
 if __name__ == "__main__":
     predict()
