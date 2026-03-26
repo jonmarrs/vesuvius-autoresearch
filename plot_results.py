@@ -2,6 +2,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import os
 import seaborn as sns
+import numpy as np
 
 def plot_results():
     if not os.path.exists('results.tsv'):

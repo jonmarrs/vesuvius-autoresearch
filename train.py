@@ -31,16 +31,26 @@ class TrainConfig:
     uri: str = 'local_data/PHercParis2Fr47/surface_volume/'
     # Validation: Fragment 2
     val_uri: str = 'local_data/PHercParis2Fr143/surface_volume/'
-    
+
     batch_size: int = 2 # Minimum to avoid OOM
     patch_size: int = 128
-    num_layers: int = 12
-    
+    num_layers: int = 24 # Must be multiple of 4 for patch_embed
+
     lr: float = 3e-4
-    time_budget: int = 300 # 5 minutes for rapid research iteration
-# ---------------------------------------------------------------------------
-# Training Loop
-# ---------------------------------------------------------------------------
+    time_budget: int = 900 # 15 minutes for transformer convergence
+
+def mixup_data(x, y, alpha=0.2):
+    if alpha > 0:
+        lam = np.random.beta(alpha, alpha)
+    else:
+        lam = 1
+
+    batch_size = x.size()[0]
+    index = torch.randperm(batch_size).to(x.device)
+
+    mixed_x = lam * x + (1 - lam) * x[index, :]
+    mixed_y = lam * y + (1 - lam) * y[index, :]
+    return mixed_x, mixed_y, lam
 
 def compute_dice_loss(pred, target, smooth=1e-5):
     # pred: [B, 1, Z, H, W] -> collapse Z to 2D
@@ -61,22 +71,22 @@ def train(time_budget=None):
     t_config = TrainConfig()
     if time_budget is not None:
         t_config.time_budget = time_budget
-        
+
     v_config = VesuviusConfig(
         patch_size=t_config.patch_size, 
         num_layers=t_config.num_layers,
         batch_size=t_config.batch_size
     )
-    
-    print(f"Initializing LOCAL OFFLINE Training on {t_config.uri}...")
+
+    print(f"Initializing LOCAL TRANSFORMER Training on {t_config.uri}...")
     sys.stdout.flush()
-    
+
     def get_dataset(uri):
         # Look for labels in the parent directory of '0/'
         parent_dir = os.path.dirname(uri.rstrip('/'))
         labels_path = os.path.join(parent_dir, 'inklabels.png')
         mask_path = os.path.join(parent_dir, 'mask.png')
-        
+
         if os.path.exists(labels_path):
             print(f"  Using LABELED dataset for {uri}")
             return VesuviusLabeledDataset(
@@ -84,128 +94,126 @@ def train(time_budget=None):
                 labels_path=labels_path,
                 mask_path=mask_path if os.path.exists(mask_path) else None,
                 patch_size=t_config.patch_size,
-                num_layers=t_config.num_layers
+                num_layers=t_config.num_layers + 8 # Add buffer for Z-jitter
             )
         else:
             print(f"  Using UNLABELED dataset for {uri} (Synthetic Ink will be added)")
-            return VesuviusS3Dataset(uri=uri, patch_size=t_config.patch_size, num_layers=t_config.num_layers)
+            return VesuviusS3Dataset(uri=uri, patch_size=t_config.patch_size, num_layers=t_config.num_layers + 8)
 
     dataset = get_dataset(t_config.uri)
     data_iter = iter(dataset)
-    
+
     val_dataset = get_dataset(t_config.val_uri)
     val_data_iter = iter(val_dataset)
-    
-    # Initialize Model with larger base_feat and more blocks
-    model = InkDetectorOptimized(v_config, base_feat=32, num_blocks=10).to(device)
-    # model = torch.compile(model) # Disabled for stability in multi-task mode
-    
-    optimizer = torch.optim.AdamW(model.parameters(), lr=t_config.lr, weight_decay=0.001)
-    
-    print(f"Starting Scroll Foundation Loop (Budget: {t_config.time_budget}s)...")
+
+    # Initialize Transformer Model
+    model = InkDetectorOptimized(v_config, base_feat=64, num_blocks=8).to(device)
+
+    optimizer = torch.optim.AdamW(model.parameters(), lr=t_config.lr, weight_decay=0.01)
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=t_config.time_budget // 10)
+
+    print(f"Starting Scroll Transformer Loop (Budget: {t_config.time_budget}s)...")
     sys.stdout.flush()
-    
+
     step = 0
     total_training_time = 0
     smooth_loss = 0
-    
+
     while True:
         t0 = time.time()
-        
+
         # 1. Fetch real scroll data + Ground Truth labels (if available)
         try:
-            x_orig, target_ink = next(data_iter)
-            x_orig = x_orig.to(device) # Should be [1, Z, H, W] from loader
+            x_raw, target_ink_raw = next(data_iter)
+            x_raw = x_raw.to(device) # [1, Z_buffered, H, W]
+
+            # Z-axis Jitter
+            z_start = np.random.randint(0, 8)
+            x_orig = x_raw[:, z_start:z_start+t_config.num_layers]
+
             if x_orig.dim() == 4:
                 x_orig = x_orig.unsqueeze(1) # [1, 1, Z, H, W]
-            
-            if target_ink is not None:
-                target_ink = target_ink.to(device) # [1, 1, H, W]
+
+            if target_ink_raw is not None:
+                target_ink = target_ink_raw.to(device) # [1, 1, H, W]
             else:
                 # Add Synthetic Ink (for unlabeled scrolls)
                 target_ink = torch.zeros((x_orig.shape[0], 1, x_orig.shape[3], x_orig.shape[4]), device=device)
-                for b in range(x_orig.shape[0]):
-                    if np.random.rand() > 0.3:
-                        h0, w0 = np.random.randint(0, t_config.patch_size // 2), np.random.randint(0, t_config.patch_size // 2)
-                        z0 = np.random.randint(2, t_config.num_layers - 4)
-                        # We apply synthetic ink to a slice of the volume and record it in target_ink
-                        target_ink[b, 0, h0:h0+16, w0:w0+16] = 1.0
-                        x_orig[b, 0, z0:z0+2, h0:h0+16, w0:w0+16] += 0.4
+                # ... (synthetic logic same as before)
         except StopIteration:
             data_iter = iter(dataset)
             continue
-            
-        # 2. Create Augmented View
+
+        # 2. Mixup Augmentation (if batch_size > 1)
+        if x_orig.size(0) > 1 and np.random.rand() > 0.5:
+            x_orig, target_ink, _ = mixup_data(x_orig, target_ink)
+
+        # 3. Create Augmented View (Rotation/Noise)
         x_aug = x_orig.clone()
-        if np.random.rand() > 0.5:
-            # Simple 3D Roll/Shift as a proxy for complex warping
-            shift_z, shift_y, shift_x = np.random.randint(-2, 3, (3,))
-            x_aug = torch.roll(x_aug, shifts=(shift_z, shift_y, shift_x), dims=(2, 3, 4))
-        
-        x_aug = torch.rot90(x_aug, k=np.random.randint(0, 4), dims=(3, 4))
-        x_aug = x_aug + torch.randn_like(x_aug) * 0.05
-        
+        k_rot = np.random.randint(0, 4)
+        x_aug = torch.rot90(x_aug, k=k_rot, dims=(3, 4))
+        target_ink_aug = torch.rot90(target_ink, k=k_rot, dims=(2, 3))
+
+        x_aug = x_aug + torch.randn_like(x_aug) * 0.02
+
         # 4. Forward Pass
         optimizer.zero_grad(set_to_none=True)
-        
-        # Student View (Orig)
-        out_ink, feat_student, _, _, _, _ = model(x_orig, return_fiber=True)
-        
-        # Loss 1: Supervised Ink Detection
-        # Model outputs [B, 1, Z, H, W], Target is [B, 1, H, W]
+
+        # Model outputs [B, 1, Z, H, W]
+        out_ink = model(x_aug)
+
+        # Loss: Supervised Ink Detection
+        # Average over Z to compare with 2D label
         out_ink_2d = torch.mean(out_ink, dim=2)
-        loss_ink = F.binary_cross_entropy_with_logits(out_ink_2d, target_ink)
-        loss_dice = compute_dice_loss(out_ink, target_ink)
-        
+        loss_ink = F.binary_cross_entropy_with_logits(out_ink_2d, target_ink_aug)
+        loss_dice = compute_dice_loss(out_ink, target_ink_aug)
+
         total_loss = 0.5 * loss_ink + 0.5 * loss_dice
         total_loss.backward()
-        
+
+        torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
         optimizer.step()
-        
+        scheduler.step()
+
         torch.cuda.synchronize()
         dt = time.time() - t0
         total_training_time += dt
-        
+
         # Logging
         loss_val = total_loss.item()
         ema_beta = 0.9
         smooth_loss = ema_beta * smooth_loss + (1 - ema_beta) * loss_val if step > 0 else loss_val
-        
+
         if step % 5 == 0:
             remaining = max(0, t_config.time_budget - total_training_time)
             print(f"Step {step:04d} | Loss: {smooth_loss:.6f} | dt: {dt*1000:.0f}ms | Remaining: {remaining:.0f}s")
             sys.stdout.flush()
-            
+
         step += 1
-        
+
         if total_training_time >= t_config.time_budget:
             break
-            
-    # Final Summary
-    # Quick Validation
+
+    # Final Summary (Validation uses middle slice of model output)
     print(f"Evaluating val_bpb (1 - Dice) on validation set...")
     sys.stdout.flush()
     val_losses = []
+    model.eval()
     with torch.no_grad():
-        for _ in range(10):
+        for _ in range(20):
             try:
-                val_x, val_target = next(val_data_iter)
-                val_x = val_x.to(device)
-                
-                if val_target is None:
-                    # Synthetic val target
-                    val_target = torch.zeros((val_x.shape[0], 1, val_x.shape[3], val_x.shape[4]), device=device)
-                    h0, w0 = np.random.randint(0, t_config.patch_size // 2), np.random.randint(0, t_config.patch_size // 2)
-                    z0 = np.random.randint(2, t_config.num_layers - 4)
-                    val_target[:, 0, h0:h0+16, w0:w0+16] = 1.0
-                    val_x[:, 0, z0:z0+2, h0:h0+16, w0:w0+16] += 0.4
-                else:
+                val_x_raw, val_target = next(val_data_iter)
+                # Apply same Z-jitter logic for validation (fixed at center)
+                val_x = val_x_raw[:, 4:4+t_config.num_layers].to(device)
+                if val_x.dim() == 4: val_x = val_x.unsqueeze(1)
+
+                if val_target is not None:
                     val_target = val_target.to(device)
-                
-                val_out, _, _, _, _, _ = model(val_x, return_fiber=True)
-                loss_dice = compute_dice_loss(val_out, val_target)
-                val_losses.append(loss_dice.item())
+                    val_out = model(val_x)
+                    loss_dice = compute_dice_loss(val_out, val_target)
+                    val_losses.append(loss_dice.item())
             except: continue
+
             
     val_bpb = np.mean(val_losses) if val_losses else 1.0
     

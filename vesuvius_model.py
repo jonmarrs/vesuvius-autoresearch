@@ -17,85 +17,126 @@ class VesuviusConfig:
         self.batch_size = batch_size
 
 class InkDetectorOptimized(nn.Module):
-    def __init__(self, config, base_feat=256, num_blocks=16):
+    def __init__(self, config, base_feat=32, num_blocks=8, num_heads=8, dropout=0.1):
         super().__init__()
-        # Initial projection
-        self.proj = nn.Conv3d(1, base_feat, kernel_size=3, padding=1)
+        self.config = config
+        self.patch_size = config.patch_size
+        self.num_layers = config.num_layers
         
-        # Deep Residual Backbone
+        # 3D Patch Embedding (Treating Z as depth/time)
+        # Patch size 4x4x4 for initial embedding
+        self.patch_embed = nn.Conv3d(1, base_feat, kernel_size=(4, 4, 4), stride=(4, 4, 4))
+        
+        # Calculate latent dims
+        self.latent_z = self.num_layers // 4
+        self.latent_hw = self.patch_size // 4
+        num_patches = self.latent_z * self.latent_hw * self.latent_hw
+        
+        self.pos_embed = nn.Parameter(torch.zeros(1, num_patches, base_feat))
+        self.pos_drop = nn.Dropout(p=dropout)
+        
+        # Divided Space-Time Attention Blocks
         self.blocks = nn.ModuleList([
-            ResBlock3D(base_feat) for _ in range(num_blocks)
+            DividedSpaceTimeBlock(base_feat, num_heads, self.latent_z, self.latent_hw, dropout)
+            for _ in range(num_blocks)
         ])
         
-        # Robust Attention
-        self.attn = nn.MultiheadAttention(base_feat, num_heads=8, batch_first=True, dropout=0.4)
         self.norm = nn.LayerNorm(base_feat)
-
-        # Multi-task Heads
-        self.ink_head = nn.Conv3d(base_feat, 1, kernel_size=1)
+        
+        # Decoder (Upsampling back to original resolution)
+        self.decoder = nn.Sequential(
+            nn.ConvTranspose3d(base_feat, base_feat // 2, kernel_size=(4, 4, 4), stride=(4, 4, 4)),
+            nn.GELU(),
+            nn.Conv3d(base_feat // 2, 1, kernel_size=3, padding=1)
+        )
+        
+        # Multi-task heads (Simplified for now to focus on Ink)
         self.fiber_head = nn.Conv3d(base_feat, 1, kernel_size=1)
-        self.qc_head = nn.Sequential(
-            nn.AdaptiveAvgPool3d(1),
-            nn.Flatten(),
-            nn.Linear(base_feat, 64),
-            nn.ReLU(),
-            nn.Linear(64, 1) # High score = "Messy" (overlapping/distorted)
-        )
-        self.flow_head = nn.Conv3d(base_feat, 3, kernel_size=1) # 3D Unit Vector
-        self.compliance_head = nn.Sequential(
-            nn.AdaptiveAvgPool3d(1),
-            nn.Flatten(),
-            nn.Linear(base_feat, 1),
-            nn.Sigmoid() # High score = "Compliant" (local signal, not hallucinated)
-        )
-        self.embedding_head = nn.Sequential(
-            nn.AdaptiveAvgPool3d(1),
-            nn.Flatten(),
-            nn.Linear(base_feat, 384) # Standard dinovol/DINOv2 small embedding size
-        )
-
-    def forward(self, x, return_fiber=False, return_qc=False, return_flow=False, return_compliance=False, return_embedding=False):
-        B, C, Z, H, W = x.size()
         
-        # Scale Pyramid: Process at original and 0.5x resolution for scale invariance
-        if H >= 32 and W >= 32:
-            x_half = F.interpolate(x, scale_factor=(1, 0.5, 0.5), mode='trilinear')
-            feat_half = self._extract_features(x_half)
-            feat_half = F.interpolate(feat_half, size=(Z, H, W), mode='trilinear')
-            feat_orig = self._extract_features(x)
-            feat = (feat_orig + feat_half) / 2.0 # Normalized
-        else:
-            feat = self._extract_features(x)
-            
-        ink = self.ink_head(feat)
+    def forward(self, x, return_fiber=False, **kwargs):
+        # x: [B, 1, Z, H, W]
+        B, C, Z, H, W = x.shape
         
-        if return_fiber or return_qc or return_flow or return_compliance or return_embedding:
-            # Consistent return for multi-task
-            fiber = self.fiber_head(feat) if return_fiber else None
-            qc = self.qc_head(feat) if return_qc else None
-            flow = self.flow_head(feat) if return_flow else None
-            compliance = self.compliance_head(feat) if return_compliance else None
-            embedding = self.embedding_head(feat) if return_embedding else None
-            return ink, fiber, qc, flow, compliance, embedding
-            
-        return ink
-
-    def _extract_features(self, x):
-        B, C, Z, H, W = x.size()
-        x = self.proj(x)
+        # 1. Patch Embedding
+        x = self.patch_embed(x) # [B, d, Z/4, H/4, W/4]
         
+        # 2. Reshape for Transformer
+        # [B, d, z, h, w] -> [B, z*h*w, d]
+        x = x.flatten(2).transpose(1, 2)
+        
+        # 3. Add Positional Embedding
+        x = x + self.pos_embed
+        x = self.pos_drop(x)
+        
+        # 4. Divided Space-Time Attention
         for block in self.blocks:
             x = block(x)
             
-        x_res = x 
+        x = self.norm(x)
         
-        # Temporal Attention
-        x_attn = x.permute(0, 3, 4, 2, 1).reshape(B * H * W, Z, -1)
-        x_attn = self.norm(x_attn)
-        x_attn, _ = self.attn(x_attn, x_attn, x_attn)
+        # 5. Reshape back to 3D for Decoder
+        # [B, z*h*w, d] -> [B, d, z, h, w]
+        x = x.transpose(1, 2).reshape(B, -1, self.latent_z, self.latent_hw, self.latent_hw)
         
-        x = x_attn.reshape(B, H, W, Z, -1).permute(0, 4, 3, 1, 2)
-        return x + x_res
+        # 6. Decoder / Upsampling
+        ink = self.decoder(x) # [B, 1, Z, H, W]
+        
+        if return_fiber:
+            # Simple fiber head from latent features (needs upsampling or latent prediction)
+            fiber = F.interpolate(self.fiber_head(x), size=(Z, H, W), mode='trilinear')
+            return ink, fiber, None, None, None, None
+            
+        return ink
+
+class DividedSpaceTimeBlock(nn.Module):
+    def __init__(self, dim, num_heads, latent_z, latent_hw, dropout=0.1):
+        super().__init__()
+        self.latent_z = latent_z
+        self.latent_hw = latent_hw
+        
+        self.norm1 = nn.LayerNorm(dim)
+        self.temporal_attn = nn.MultiheadAttention(dim, num_heads, dropout=dropout, batch_first=True)
+        
+        self.norm2 = nn.LayerNorm(dim)
+        self.spatial_attn = nn.MultiheadAttention(dim, num_heads, dropout=dropout, batch_first=True)
+        
+        self.norm3 = nn.LayerNorm(dim)
+        self.mlp = nn.Sequential(
+            nn.Linear(dim, dim * 4),
+            nn.GELU(),
+            nn.Dropout(dropout),
+            nn.Linear(dim * 4, dim),
+            nn.Dropout(dropout)
+        )
+
+    def forward(self, x):
+        # x: [B, Z*H*W, D]
+        B, N, D = x.shape
+        
+        # --- Temporal Attention ---
+        res = x
+        x = self.norm1(x)
+        # Reshape to [B*HW, Z, D] for attention across Z
+        x = x.reshape(B, self.latent_z, self.latent_hw * self.latent_hw, D).permute(0, 2, 1, 3).reshape(-1, self.latent_z, D)
+        x, _ = self.temporal_attn(x, x, x)
+        # Reshape back to [B, Z*HW, D]
+        x = x.reshape(B, self.latent_hw * self.latent_hw, self.latent_z, D).permute(0, 2, 1, 3).reshape(B, -1, D)
+        x = x + res
+        
+        # --- Spatial Attention ---
+        res = x
+        x = self.norm2(x)
+        # Reshape to [B*Z, HW, D] for attention across H*W
+        x = x.reshape(B, self.latent_z, self.latent_hw * self.latent_hw, D).reshape(-1, self.latent_hw * self.latent_hw, D)
+        x, _ = self.spatial_attn(x, x, x)
+        # Reshape back to [B, Z*HW, D]
+        x = x.reshape(B, self.latent_z, self.latent_hw * self.latent_hw, D).reshape(B, -1, D)
+        x = x + res
+        
+        # --- MLP ---
+        x = x + self.mlp(self.norm3(x))
+        
+        return x
 
 class ResBlock3D(nn.Module):
     def __init__(self, channels):
