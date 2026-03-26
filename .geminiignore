@@ -1,0 +1,16 @@
+local_data/
+.venv/
+__pycache__/
+*.npy
+*.tif
+*.png
+*.ipynb
+*.zarr
+*.log
+predictions/
+results/
+queue/
+outputs/
+checkpoint/
+runs/
+logs/

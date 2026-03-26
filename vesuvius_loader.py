@@ -15,20 +15,16 @@ class VesuviusLabeledDataset(IterableDataset):
         
         # Open Volume
         if os.path.isdir(volume_uri) and any(f.endswith('.tif') for f in os.listdir(volume_uri)):
-            # Load TIF layers into memory (they are unrolled, so they fit)
-            print(f"Loading TIF layers from {volume_uri} ...")
-            files = sorted([f for f in os.listdir(volume_uri) if f.endswith('.tif')])
+            # Lazy Loading: Just store file paths
+            print(f"Initializing lazy TIF loader for {volume_uri} ...")
+            self.tif_files = sorted([os.path.join(volume_uri, f) for f in os.listdir(volume_uri) if f.endswith('.tif')])
             
-            # Pre-allocate to avoid copies
-            first_layer = np.array(Image.open(os.path.join(volume_uri, files[0])))
-            self.volume = np.zeros((len(files), *first_layer.shape), dtype=np.uint8)
-            self.volume[0] = first_layer
+            with Image.open(self.tif_files[0]) as img:
+                self.img_shape = img.size[::-1] # (H, W)
             
-            for i in range(1, len(files)):
-                self.volume[i] = np.array(Image.open(os.path.join(volume_uri, files[i])))
-                
-            self.shape = self.volume.shape
+            self.shape = (len(self.tif_files), *self.img_shape)
             self.is_zarr = False
+            self.volume = None # Not used in lazy mode
         else:
             # Open Zarr
             self.dataset = ts.open({
@@ -39,16 +35,17 @@ class VesuviusLabeledDataset(IterableDataset):
             self.is_zarr = True
         
         # Load Labels (2D PNG)
-        self.labels = np.array(Image.open(labels_path)).astype(np.float32) / 255.0
+        with Image.open(labels_path) as img:
+            self.labels = np.array(img).astype(np.float32) / 255.0
+            
         if mask_path and os.path.exists(mask_path):
-            self.mask = np.array(Image.open(mask_path)).astype(np.float32) / 255.0
+            with Image.open(mask_path) as img:
+                self.mask = np.array(img).astype(np.float32) / 255.0
         else:
             self.mask = np.ones_like(self.labels)
             
         # Pre-calculate valid coordinates to avoid infinite sampling in sparse masks
         print(f"Finding valid coordinates in sparse mask (mean={self.mask.mean():.4f})...")
-        # We look for patches with at least some content. 
-        # Using a stride to keep the coordinate list manageable.
         stride = 16
         self.valid_coords = []
         H, W = self.mask.shape
@@ -86,14 +83,21 @@ class VesuviusLabeledDataset(IterableDataset):
                 if self.is_zarr:
                     patch_vol = self.dataset[z0:z0+self.num_layers, y0:y0+self.patch_size, x0:x0+self.patch_size].read().result()
                 else:
-                    patch_vol = self.volume[z0:z0+self.num_layers, y0:y0+self.patch_size, x0:x0+self.patch_size]
+                    # Lazy loading from TIF files
+                    patch_vol = np.zeros((self.num_layers, self.patch_size, self.patch_size), dtype=np.uint8)
+                    for i, z in enumerate(range(z0, z0 + self.num_layers)):
+                        with Image.open(self.tif_files[z]) as img:
+                            # Use crop for efficiency
+                            crop = img.crop((x0, y0, x0 + self.patch_size, y0 + self.patch_size))
+                            patch_vol[i] = np.array(crop)
                     
                 patch_vol = torch.from_numpy(patch_vol.astype(np.float32) / 255.0).unsqueeze(0)
                 patch_label = torch.from_numpy(self.labels[y0:y0+self.patch_size, x0:x0+self.patch_size]).unsqueeze(0).unsqueeze(0)
                 
                 yield patch_vol, patch_label
                 
-            except Exception:
+            except Exception as e:
+                # print(f"Error in loader: {e}")
                 continue
 
 class VesuviusS3Dataset(IterableDataset):
