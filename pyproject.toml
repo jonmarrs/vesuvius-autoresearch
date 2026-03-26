@@ -5,8 +5,11 @@ description = "Autonomous pretraining research swarm for high-value AI bounties"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
+    "fpdf2>=2.8.7",
     "kernels>=0.11.7",
     "matplotlib>=3.10.8",
+    "nbconvert>=7.17.0",
+    "nbformat>=5.10.4",
     "numpy>=2.2.6",
     "pandas>=2.3.3",
     "pyarrow>=21.0.0",
