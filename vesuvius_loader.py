@@ -45,23 +45,40 @@ class VesuviusLabeledDataset(IterableDataset):
         else:
             self.mask = np.ones_like(self.labels)
             
-        print(f"Initialized Labeled Dataset: Volume {self.shape}, Labels {self.labels.shape}")
+        # Pre-calculate valid coordinates to avoid infinite sampling in sparse masks
+        print(f"Finding valid coordinates in sparse mask (mean={self.mask.mean():.4f})...")
+        # We look for patches with at least some content. 
+        # Using a stride to keep the coordinate list manageable.
+        stride = 16
+        self.valid_coords = []
+        H, W = self.mask.shape
+        for y in range(0, H - self.patch_size, stride):
+            for x in range(0, W - self.patch_size, stride):
+                if self.mask[y:y+self.patch_size, x:x+self.patch_size].mean() > 0.05:
+                    self.valid_coords.append((y, x))
+        
+        if not self.valid_coords:
+            print("Warning: No high-density patches found. Falling back to all coordinates.")
+            for y in range(0, H - self.patch_size, stride * 4):
+                for x in range(0, W - self.patch_size, stride * 4):
+                    if self.mask[y:y+self.patch_size, x:x+self.patch_size].any():
+                        self.valid_coords.append((y, x))
+        
+        print(f"Initialized Labeled Dataset: Volume {self.shape}, Labels {self.labels.shape}, Valid Patches {len(self.valid_coords)}")
 
     def __iter__(self):
         while True:
-            # Volume shape is (Z, Y, X). Label shape is (H, W).
-            max_y = min(self.shape[1], self.labels.shape[0]) - self.patch_size
-            max_x = min(self.shape[2], self.labels.shape[1]) - self.patch_size
-            
-            if max_y <= 0 or max_x <= 0:
+            if not self.valid_coords:
                 yield torch.zeros(1, self.num_layers, self.patch_size, self.patch_size), torch.zeros(1, 1, self.patch_size, self.patch_size)
                 continue
 
-            y0 = np.random.randint(0, max_y)
-            x0 = np.random.randint(0, max_x)
+            # Pick from pre-calculated valid coordinates
+            idx = np.random.randint(0, len(self.valid_coords))
+            y0, x0 = self.valid_coords[idx]
             
-            if self.mask[y0:y0+self.patch_size, x0:x0+self.patch_size].mean() < 0.1:
-                continue
+            # Add a small jitter
+            y0 = max(0, min(self.shape[1] - self.patch_size, y0 + np.random.randint(-8, 9)))
+            x0 = max(0, min(self.shape[2] - self.patch_size, x0 + np.random.randint(-8, 9)))
                 
             z0 = np.random.randint(0, self.shape[0] - self.num_layers)
             

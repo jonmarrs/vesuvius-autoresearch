@@ -115,7 +115,9 @@ def train(time_budget=None):
         # 1. Fetch real scroll data + Ground Truth labels (if available)
         try:
             x_orig, target_ink = next(data_iter)
-            x_orig = x_orig.to(device) # [1, 1, Z, H, W]
+            x_orig = x_orig.to(device) # Should be [1, Z, H, W] from loader
+            if x_orig.dim() == 4:
+                x_orig = x_orig.unsqueeze(1) # [1, 1, Z, H, W]
             
             if target_ink is not None:
                 target_ink = target_ink.to(device) # [1, 1, H, W]
