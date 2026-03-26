@@ -1,6 +1,7 @@
 import pandas as pd
 import matplotlib.pyplot as plt
 import os
+import seaborn as sns
 
 def plot_results():
     if not os.path.exists('results.tsv'):
@@ -20,50 +21,58 @@ def plot_results():
         print(f"Failed to read/parse results.tsv: {e}")
         return
     
-    # Convert timestamp to datetime for better plotting
+    # Convert timestamp to datetime
     try:
         df['timestamp'] = pd.to_datetime(df['timestamp'])
     except Exception as e:
         print(f"Failed to convert timestamps: {e}")
         return
     
-    # Sort by timestamp
     df = df.sort_values('timestamp')
+    os.makedirs('reports/figures', exist_ok=True)
+
+    # Figure 1: Research Frontier (Metric vs Time)
+    plt.figure(figsize=(12, 7))
+    sns.set_style("whitegrid")
     
-    # Create the plot
-    fig, ax1 = plt.subplots(figsize=(10, 6))
-
-    # Plot val_bpb (primary metric - lower is better)
+    ax1 = plt.gca()
     color = 'tab:blue'
-    ax1.set_xlabel('Time')
-    ax1.set_ylabel('val_bpb (lower is better)', color=color)
-    ax1.plot(df['timestamp'], df['val_bpb'], marker='o', color=color, linewidth=2, label='val_bpb')
+    ax1.set_xlabel('Experiment Timeline')
+    ax1.set_ylabel('Validation Dice Loss (1-Dice)', color=color, fontweight='bold')
+    ax1.plot(df['timestamp'], df['val_bpb'], marker='o', color=color, linewidth=2.5, label='Dice Loss')
     ax1.tick_params(axis='y', labelcolor=color)
-    ax1.set_yscale('log') # Log scale since bpb can vary widely
+    ax1.set_yscale('log')
 
-    # Create a second y-axis for throughput
     ax2 = ax1.twinx()
     color = 'tab:red'
-    ax2.set_ylabel('Throughput (Mvps)', color=color)
+    ax2.set_ylabel('Inference Throughput (Mvps)', color=color, fontweight='bold')
     ax2.plot(df['timestamp'], df['throughput_Mvps'], marker='x', color=color, linestyle='--', alpha=0.6, label='Throughput')
     ax2.tick_params(axis='y', labelcolor=color)
 
-    plt.title('Vesuvius Autoresearch: Autonomous Research Progress')
-    fig.tight_layout()
+    plt.title('Vesuvius Autoresearch: Autonomous Optimization Trajectory', fontsize=14, fontweight='bold')
+    plt.tight_layout()
     
-    # Annotate significant points (e.g., model scale jumps)
-    for i, row in df.iterrows():
-        if i == 0 or row['num_params_M'] != df.iloc[i-1]['num_params_M']:
-            ax1.annotate(f"{row['num_params_M']}M params", 
-                         (row['timestamp'], row['val_bpb']),
-                         textcoords="offset points", 
-                         xytext=(0,10), 
-                         ha='center',
-                         fontsize=8,
-                         bbox=dict(boxstyle='round,pad=0.3', fc='yellow', alpha=0.3))
+    for fmt in ['png', 'svg']:
+        plt.savefig(f'reports/figures/research_frontier.{fmt}', dpi=300, bbox_inches='tight')
+    plt.close()
 
-    plt.savefig('progress.png')
-    print("Updated progress.png")
+    # Figure 2: Hardware Efficiency (Throughput vs Params)
+    plt.figure(figsize=(10, 6))
+    scatter = plt.scatter(df['num_params_M'], df['throughput_Mvps'], 
+                         c=np.log10(df['val_bpb'].values), cmap='viridis_r', 
+                         s=100, edgecolors='black', alpha=0.8)
+    plt.colorbar(scatter, label='log10(Dice Loss)')
+    plt.xlabel('Model Parameters (Millions)', fontweight='bold')
+    plt.ylabel('Throughput (Mvps)', fontweight='bold')
+    plt.title('Hardware Efficiency Pareto: Throughput vs. Model Scale', fontsize=12, fontweight='bold')
+    plt.grid(True, linestyle=':', alpha=0.6)
+    
+    for fmt in ['png', 'svg']:
+        plt.savefig(f'reports/figures/hardware_efficiency.{fmt}', dpi=300, bbox_inches='tight')
+    plt.close()
+
+    print(f"Generated PNG and SVG reports in reports/figures/")
 
 if __name__ == "__main__":
+    import numpy as np
     plot_results()
