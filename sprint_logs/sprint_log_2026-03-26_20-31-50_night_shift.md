@@ -51,3 +51,10 @@
 - **Stats**: val_bpb: 0.999614, loss: 0.502408, params: 1.693M, vram: 3362.9MB, speed: 4.52Mvps
 - **Result**: No improvement detected. Changes reverted.
 
+## Cycle 15: base_feat_128 (SUCCESS)
+- **Timestamp**: 00:08:14
+- **Data**: local_data/PHercParis2Fr47/surface_volume/
+- **Config**: lr: 1e-3, wd: 0.01, blocks: 20, batch_size: 2, patch_size: 96, num_layers: 24, base_feat: 128, heads: 8, dropout: 0.1
+- **Stats**: val_bpb: 0.350198, loss: 0.123922, params: 6.269M, vram: 3955.4MB, speed: 3.69Mvps
+- **Result**: Improvement detected. Changes committed.
+

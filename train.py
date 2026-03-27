@@ -107,7 +107,7 @@ def train(time_budget=None):
     val_data_iter = iter(val_dataset)
 
     # Initialize Transformer Model
-    model = InkDetectorOptimized(v_config, base_feat=64, num_blocks=20).to(device)
+    model = InkDetectorOptimized(v_config, base_feat=128, num_blocks=20).to(device)
 
     optimizer = torch.optim.AdamW(model.parameters(), lr=t_config.lr, weight_decay=0.01)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=t_config.time_budget // 10)
