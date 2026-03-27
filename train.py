@@ -36,7 +36,7 @@ class TrainConfig:
     patch_size: int = 96
     num_layers: int = 24 # Must be multiple of 4 for patch_embed
 
-    lr: float = 3e-4
+    lr: float = 1e-3
     time_budget: int = 900 # 15 minutes for transformer convergence
 
 def mixup_data(x, y, alpha=0.2):
