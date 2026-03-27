@@ -65,3 +65,10 @@
 - **Stats**: val_bpb: 0.200112, loss: 0.222194, params: 6.121M, vram: 2690.0MB, speed: 2.95Mvps
 - **Result**: Improvement detected. Changes committed.
 
+## Cycle 28: batch_size_8 (SUCCESS)
+- **Timestamp**: 03:28:04
+- **Data**: local_data/PHercParis2Fr47/surface_volume/
+- **Config**: lr: 1e-3, wd: 0.01, blocks: 20, batch_size: 8, patch_size: 96, num_layers: 16, base_feat: 128, heads: 8, dropout: 0.1
+- **Stats**: val_bpb: 0.100231, loss: 0.117520, params: 6.121M, vram: 2690.0MB, speed: 12.47Mvps
+- **Result**: Improvement detected. Changes committed.
+
