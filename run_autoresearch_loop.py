@@ -81,6 +81,7 @@ while True:
             log.write(f"\n## Sprint Completed at 7:00 PM\n")
         break
 
+
     # Select a random tweak
     template = random.choice(tweak_templates)
     val = random.choice(template["vals"])
@@ -176,6 +177,7 @@ while True:
             print("IMPROVEMENT FOUND! Committing changes.")
             os.system(f'git add . && git commit -m "Day Shift: {tweak["name"]} improved model"')
         else:
+
             print("No improvement. Reverting.")
             os.system("git restore .")
         
