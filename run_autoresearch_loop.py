@@ -58,28 +58,29 @@ env = os.environ.copy()
 i = 0
 
 os.makedirs("sprint_logs", exist_ok=True)
-log_filename = f"sprint_logs/sprint_log_{time.strftime('%Y-%m-%d_%H-%M-%S')}_day_shift.md"
+log_filename = f"sprint_logs/sprint_log_{time.strftime('%Y-%m-%d_%H-%M-%S')}_night_shift.md"
 
-print(f"--- DAY SHIFT STARTING AT {time.strftime('%H:%M:%S')} ---")
+print(f"--- NIGHT SHIFT STARTING AT {time.strftime('%H:%M:%S')} ---")
 print(f"Logging to: {log_filename}")
-print(f"Starting persistent background loop until 7:00 PM...")
+print(f"Starting persistent background loop until 7:00 AM...")
 sys.stdout.flush()
 
 with open(log_filename, "w") as log:
-    log.write(f"# Day Shift Sprint - {time.strftime('%Y-%m-%d')}\n")
+    log.write(f"# Night Shift Sprint - {time.strftime('%Y-%m-%d')}\n")
     log.write(f"- **Start Time**: {time.strftime('%H:%M:%S')}\n")
     log.write("- **Goal**: Monotonic val_bpb optimization via 15-min cycles.\n\n")
 
 while True:
     i += 1
-    # Check if it's 7:00 PM (19:00)
+    # Check if it's 7:00 AM (07:00)
     current_hour = time.localtime().tm_hour
-    if current_hour == 19:
-        print("7:00 PM reached. Ending Day Shift sprint.")
+    if current_hour == 7:
+        print("7:00 AM reached. Ending Night Shift sprint.")
         sys.stdout.flush()
         with open(log_filename, "a") as log:
-            log.write(f"\n## Sprint Completed at 7:00 PM\n")
+            log.write(f"\n## Sprint Completed at 7:00 AM\n")
         break
+
 
 
     # Select a random tweak
@@ -175,9 +176,8 @@ while True:
 
         if is_success:
             print("IMPROVEMENT FOUND! Committing changes.")
-            os.system(f'git add . && git commit -m "Day Shift: {tweak["name"]} improved model"')
+            os.system(f'git add . && git commit -m "Night Shift: {tweak["name"]} improved model"')
         else:
-
             print("No improvement. Reverting.")
             os.system("git restore .")
         
