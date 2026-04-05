@@ -177,7 +177,7 @@ while True:
 
         if is_success:
             print("IMPROVEMENT FOUND! Committing changes.")
-            os.system(f'git add . && git commit -m "Night Shift: {tweak["name"]} improved model"')
+            os.system(f'git add . && git commit -m "Day Shift: {tweak["name"]} improved model"')
         else:
             print("No improvement. Reverting.")
             os.system("git restore .")
