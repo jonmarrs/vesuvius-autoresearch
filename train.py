@@ -32,9 +32,9 @@ class TrainConfig:
     # Validation: Fragment 2
     val_uri: str = 'local_data/PHercParis2Fr143/surface_volume/'
 
-    batch_size: int = 8 # Minimum to avoid OOM
+    batch_size: int = 16 # Minimum to avoid OOM
     patch_size: int = 96
-    num_layers: int = 16 # Must be multiple of 4 for patch_embed
+    num_layers: int = 24 # Must be multiple of 4 for patch_embed
 
     lr: float = 1e-3
     time_budget: int = 900 # 15 minutes for transformer convergence
