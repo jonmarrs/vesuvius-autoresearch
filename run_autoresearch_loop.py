@@ -120,7 +120,7 @@ while True:
         
         # Open run.log in append mode and stream subprocess output to it live
         with open("run.log", "a") as f:
-            f.write(f"\n\n--- NIGHT SHIFT CYCLE {i}: {tweak['name']} ---\n")
+            f.write(f"\n\n--- DAY SHIFT CYCLE {i}: {tweak['name']} ---\n")
             f.flush()
 
             
