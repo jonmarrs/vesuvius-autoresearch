@@ -113,7 +113,7 @@ def train(time_budget=None):
     # Initialize Transformer Model
     model = InkDetectorOptimized(v_config, base_feat=32, num_blocks=20).to(device)
 
-    optimizer = torch.optim.AdamW(model.parameters(), lr=t_config.lr, weight_decay=0.01)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=t_config.lr, weight_decay=0.0)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=t_config.time_budget // 10)
 
     print(f"Starting Scroll Transformer Loop (Budget: {t_config.time_budget}s)...")
