@@ -64,9 +64,15 @@ class VesuviusLabeledDataset(IterableDataset):
         print(f"Initialized Labeled Dataset: Volume {self.shape}, Labels {self.labels.shape}, Valid Patches {len(self.valid_coords)}")
 
     def __iter__(self):
+        import time
+        worker_info = torch.utils.data.get_worker_info()
+        if worker_info is not None:
+            # Cryptographic seed based on worker ID and time
+            np.random.seed((worker_info.id + int(time.time() * 1000)) % 4294967295)
+
         while True:
             if not self.valid_coords:
-                yield torch.zeros(1, self.num_layers, self.patch_size, self.patch_size), torch.zeros(1, 1, self.patch_size, self.patch_size)
+                yield torch.zeros(1, self.num_layers, self.patch_size, self.patch_size), torch.zeros(1, self.patch_size, self.patch_size)
                 continue
 
             # Pick from pre-calculated valid coordinates
@@ -92,7 +98,8 @@ class VesuviusLabeledDataset(IterableDataset):
                             patch_vol[i] = np.array(crop)
                     
                 patch_vol = torch.from_numpy(patch_vol.astype(np.float32) / 255.0).unsqueeze(0)
-                patch_label = torch.from_numpy(self.labels[y0:y0+self.patch_size, x0:x0+self.patch_size]).unsqueeze(0).unsqueeze(0)
+                # Correct Label Shape: [1, H, W] for BCE/Dice with correct collation
+                patch_label = torch.from_numpy(self.labels[y0:y0+self.patch_size, x0:x0+self.patch_size]).unsqueeze(0)
                 
                 yield patch_vol, patch_label
                 
@@ -122,6 +129,11 @@ class VesuviusS3Dataset(IterableDataset):
         print(f"Initialized VesuviusS3Dataset from {uri}: {self.shape} {self.dataset.dtype}")
 
     def __iter__(self):
+        import time
+        worker_info = torch.utils.data.get_worker_info()
+        if worker_info is not None:
+            np.random.seed((worker_info.id + int(time.time() * 1000)) % 4294967295)
+
         # Optimized loading: Fetch a larger block and yield multiple patches from it
         block_z = 128 # Matching chunk size
         block_hw = 256
@@ -148,7 +160,8 @@ class VesuviusS3Dataset(IterableDataset):
                     
                     patch = block[pz:pz+self.num_layers, py:py+self.patch_size, px:px+self.patch_size]
                     tensor = torch.from_numpy(patch.astype(np.float32) / 255.0).unsqueeze(0)
-                    yield tensor, None
+                    # Yield empty tensor instead of None to allow proper collation
+                    yield tensor, torch.empty(0)
                 
             except Exception as e:
                 print(f"Error loading block: {e}")

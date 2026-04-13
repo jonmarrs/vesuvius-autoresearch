@@ -15,6 +15,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
 import pandas as pd
+from torch.utils.data import DataLoader
 
 # Import our breakthrough components
 from vesuvius_model import InkDetectorOptimized, VesuviusConfig
@@ -81,7 +82,7 @@ def train(time_budget=None):
     print(f"Initializing LOCAL TRANSFORMER Training on {t_config.uri}...")
     sys.stdout.flush()
 
-    def get_dataset(uri):
+    def get_dataloader(uri):
         # Look for labels in the parent directory of '0/'
         parent_dir = os.path.dirname(uri.rstrip('/'))
         labels_path = os.path.join(parent_dir, 'inklabels.png')
@@ -89,7 +90,7 @@ def train(time_budget=None):
 
         if os.path.exists(labels_path):
             print(f"  Using LABELED dataset for {uri}")
-            return VesuviusLabeledDataset(
+            ds = VesuviusLabeledDataset(
                 volume_uri=uri,
                 labels_path=labels_path,
                 mask_path=mask_path if os.path.exists(mask_path) else None,
@@ -98,16 +99,19 @@ def train(time_budget=None):
             )
         else:
             print(f"  Using UNLABELED dataset for {uri} (Synthetic Ink will be added)")
-            return VesuviusS3Dataset(uri=uri, patch_size=t_config.patch_size, num_layers=t_config.num_layers + 8)
+            ds = VesuviusS3Dataset(uri=uri, patch_size=t_config.patch_size, num_layers=t_config.num_layers + 8)
 
-    dataset = get_dataset(t_config.uri)
-    data_iter = iter(dataset)
+        num_workers = min(4, os.cpu_count() or 1)
+        return DataLoader(ds, batch_size=t_config.batch_size, num_workers=num_workers, pin_memory=True)
 
-    val_dataset = get_dataset(t_config.val_uri)
-    val_data_iter = iter(val_dataset)
+    data_loader = get_dataloader(t_config.uri)
+    data_iter = iter(data_loader)
+
+    val_data_loader = get_dataloader(t_config.val_uri)
+    val_data_iter = iter(val_data_loader)
 
     # Initialize Transformer Model
-    model = InkDetectorOptimized(v_config, base_feat=128, num_blocks=20).to(device)
+    model = InkDetectorOptimized(v_config, base_feat=32, num_blocks=20).to(device)
 
     optimizer = torch.optim.AdamW(model.parameters(), lr=t_config.lr, weight_decay=0.01)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=t_config.time_budget // 10)
@@ -125,23 +129,25 @@ def train(time_budget=None):
         # 1. Fetch real scroll data + Ground Truth labels (if available)
         try:
             x_raw, target_ink_raw = next(data_iter)
-            x_raw = x_raw.to(device) # [1, Z_buffered, H, W]
+            x_raw = x_raw.to(device) # [B, 1, Z_buffered, H, W]
 
             # Z-axis Jitter
             z_start = np.random.randint(0, 8)
-            x_orig = x_raw[:, z_start:z_start+t_config.num_layers]
+            x_orig = x_raw[:, :, z_start:z_start+t_config.num_layers]
 
-            if x_orig.dim() == 4:
-                x_orig = x_orig.unsqueeze(1) # [1, 1, Z, H, W]
-
-            if target_ink_raw is not None:
-                target_ink = target_ink_raw.to(device) # [1, 1, H, W]
+            if target_ink_raw is not None and target_ink_raw.numel() > 0:
+                target_ink = target_ink_raw.to(device) # [B, 1, H, W]
             else:
                 # Add Synthetic Ink (for unlabeled scrolls)
                 target_ink = torch.zeros((x_orig.shape[0], 1, x_orig.shape[3], x_orig.shape[4]), device=device)
-                # ... (synthetic logic same as before)
+                for b in range(x_orig.shape[0]):
+                    if np.random.rand() > 0.3:
+                        h0, w0 = np.random.randint(0, t_config.patch_size // 2), np.random.randint(0, t_config.patch_size // 2)
+                        z0 = np.random.randint(2, t_config.num_layers - 4)
+                        target_ink[b, 0, h0:h0+16, w0:w0+16] = 1.0
+                        x_orig[b, 0, z0:z0+2, h0:h0+16, w0:w0+16] += 0.4
         except StopIteration:
-            data_iter = iter(dataset)
+            data_iter = iter(data_loader)
             continue
 
         # 2. Mixup Augmentation (if batch_size > 1)
@@ -204,15 +210,17 @@ def train(time_budget=None):
             try:
                 val_x_raw, val_target = next(val_data_iter)
                 # Apply same Z-jitter logic for validation (fixed at center)
-                val_x = val_x_raw[:, 4:4+t_config.num_layers].to(device)
-                if val_x.dim() == 4: val_x = val_x.unsqueeze(1)
+                val_x = val_x_raw[:, :, 4:4+t_config.num_layers].to(device)
 
-                if val_target is not None:
+                if val_target is not None and val_target.numel() > 0:
                     val_target = val_target.to(device)
                     val_out = model(val_x)
                     loss_dice = compute_dice_loss(val_out, val_target)
                     val_losses.append(loss_dice.item())
-            except: continue
+            except StopIteration:
+                val_data_iter = iter(val_data_loader)
+            except Exception as e:
+                continue
 
             
     val_bpb = np.mean(val_losses) if val_losses else 1.0
@@ -278,4 +286,3 @@ if __name__ == "__main__":
         train(time_budget=30)
     else:
         train()
-

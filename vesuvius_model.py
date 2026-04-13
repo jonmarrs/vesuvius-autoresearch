@@ -19,6 +19,11 @@ class VesuviusConfig:
 class InkDetectorOptimized(nn.Module):
     def __init__(self, config, base_feat=32, num_blocks=8, num_heads=8, dropout=0.1):
         super().__init__()
+        # Ensure num_heads divides base_feat perfectly
+        while base_feat % num_heads != 0:
+            num_heads -= 1
+        if num_heads <= 0: num_heads = 1
+            
         self.config = config
         self.patch_size = config.patch_size
         self.num_layers = config.num_layers
@@ -37,7 +42,7 @@ class InkDetectorOptimized(nn.Module):
         
         # Divided Space-Time Attention Blocks
         self.blocks = nn.ModuleList([
-            DividedSpaceTimeBlock(base_feat, num_heads, self.latent_z, self.latent_hw, dropout)
+            DividedSpaceTimeBlock(base_feat, num_heads, dropout)
             for _ in range(num_blocks)
         ])
         
@@ -50,49 +55,89 @@ class InkDetectorOptimized(nn.Module):
             nn.Conv3d(base_feat // 2, 1, kernel_size=3, padding=1)
         )
         
-        # Multi-task heads (Simplified for now to focus on Ink)
-        self.fiber_head = nn.Conv3d(base_feat, 1, kernel_size=1)
+        # Multi-task Heads
+        self.fiber_head = nn.Sequential(
+            nn.ConvTranspose3d(base_feat, base_feat // 2, kernel_size=(4, 4, 4), stride=(4, 4, 4)),
+            nn.GELU(),
+            nn.Conv3d(base_feat // 2, 1, kernel_size=3, padding=1)
+        )
+        self.qc_head = nn.Sequential(
+            nn.AdaptiveAvgPool3d(1),
+            nn.Flatten(),
+            nn.Linear(base_feat, 64),
+            nn.ReLU(),
+            nn.Linear(64, 1) # High score = "Messy" (overlapping/distorted)
+        )
+        self.flow_head = nn.Sequential(
+            nn.ConvTranspose3d(base_feat, base_feat // 2, kernel_size=(4, 4, 4), stride=(4, 4, 4)),
+            nn.GELU(),
+            nn.Conv3d(base_feat // 2, 3, kernel_size=3, padding=1)
+        )
+        self.compliance_head = nn.Sequential(
+            nn.AdaptiveAvgPool3d(1),
+            nn.Flatten(),
+            nn.Linear(base_feat, 1),
+            nn.Sigmoid() # High score = "Compliant" (local signal, not hallucinated)
+        )
+        self.embedding_head = nn.Sequential(
+            nn.AdaptiveAvgPool3d(1),
+            nn.Flatten(),
+            nn.Linear(base_feat, 384) # Standard dinovol/DINOv2 small embedding size
+        )
         
-    def forward(self, x, return_fiber=False, **kwargs):
+    def forward(self, x, return_fiber=False, return_qc=False, return_flow=False, return_compliance=False, return_embedding=False, **kwargs):
         # x: [B, 1, Z, H, W]
         B, C, Z, H, W = x.shape
         
         # 1. Patch Embedding
         x = self.patch_embed(x) # [B, d, Z/4, H/4, W/4]
         
+        latent_z = x.shape[2]
+        latent_h = x.shape[3]
+        latent_w = x.shape[4]
+        
         # 2. Reshape for Transformer
         # [B, d, z, h, w] -> [B, z*h*w, d]
         x = x.flatten(2).transpose(1, 2)
         
         # 3. Add Positional Embedding
-        x = x + self.pos_embed
+        if x.shape[1] == self.pos_embed.shape[1]:
+            x = x + self.pos_embed
+        else:
+            # Interpolate pos_embed for different sequence lengths (e.g. during scale invariance test)
+            pos = self.pos_embed.transpose(1, 2).reshape(1, -1, self.latent_z, self.latent_hw, self.latent_hw)
+            pos = F.interpolate(pos, size=(latent_z, latent_h, latent_w), mode='trilinear', align_corners=False)
+            pos = pos.reshape(1, -1, latent_z * latent_h * latent_w).transpose(1, 2)
+            x = x + pos
+            
         x = self.pos_drop(x)
         
         # 4. Divided Space-Time Attention
         for block in self.blocks:
-            x = block(x)
+            x = block(x, latent_z, latent_h, latent_w)
             
         x = self.norm(x)
         
         # 5. Reshape back to 3D for Decoder
         # [B, z*h*w, d] -> [B, d, z, h, w]
-        x = x.transpose(1, 2).reshape(B, -1, self.latent_z, self.latent_hw, self.latent_hw)
+        x = x.transpose(1, 2).reshape(B, -1, latent_z, latent_h, latent_w)
         
         # 6. Decoder / Upsampling
         ink = self.decoder(x) # [B, 1, Z, H, W]
         
-        if return_fiber:
-            # Simple fiber head from latent features (needs upsampling or latent prediction)
-            fiber = F.interpolate(self.fiber_head(x), size=(Z, H, W), mode='trilinear')
-            return ink, fiber, None, None, None, None
+        if return_fiber or return_qc or return_flow or return_compliance or return_embedding:
+            fiber = self.fiber_head(x) if return_fiber else None
+            qc = self.qc_head(x) if return_qc else None
+            flow = self.flow_head(x) if return_flow else None
+            compliance = self.compliance_head(x) if return_compliance else None
+            embedding = self.embedding_head(x) if return_embedding else None
+            return ink, fiber, qc, flow, compliance, embedding
             
         return ink
 
 class DividedSpaceTimeBlock(nn.Module):
-    def __init__(self, dim, num_heads, latent_z, latent_hw, dropout=0.1):
+    def __init__(self, dim, num_heads, dropout=0.1):
         super().__init__()
-        self.latent_z = latent_z
-        self.latent_hw = latent_hw
         
         self.norm1 = nn.LayerNorm(dim)
         self.temporal_attn = nn.MultiheadAttention(dim, num_heads, dropout=dropout, batch_first=True)
@@ -109,7 +154,7 @@ class DividedSpaceTimeBlock(nn.Module):
             nn.Dropout(dropout)
         )
 
-    def forward(self, x):
+    def forward(self, x, latent_z, latent_h, latent_w):
         # x: [B, Z*H*W, D]
         B, N, D = x.shape
         
@@ -117,20 +162,20 @@ class DividedSpaceTimeBlock(nn.Module):
         res = x
         x = self.norm1(x)
         # Reshape to [B*HW, Z, D] for attention across Z
-        x = x.reshape(B, self.latent_z, self.latent_hw * self.latent_hw, D).permute(0, 2, 1, 3).reshape(-1, self.latent_z, D)
+        x = x.reshape(B, latent_z, latent_h * latent_w, D).permute(0, 2, 1, 3).reshape(-1, latent_z, D)
         x, _ = self.temporal_attn(x, x, x)
         # Reshape back to [B, Z*HW, D]
-        x = x.reshape(B, self.latent_hw * self.latent_hw, self.latent_z, D).permute(0, 2, 1, 3).reshape(B, -1, D)
+        x = x.reshape(B, latent_h * latent_w, latent_z, D).permute(0, 2, 1, 3).reshape(B, -1, D)
         x = x + res
         
         # --- Spatial Attention ---
         res = x
         x = self.norm2(x)
         # Reshape to [B*Z, HW, D] for attention across H*W
-        x = x.reshape(B, self.latent_z, self.latent_hw * self.latent_hw, D).reshape(-1, self.latent_hw * self.latent_hw, D)
+        x = x.reshape(B, latent_z, latent_h * latent_w, D).reshape(-1, latent_h * latent_w, D)
         x, _ = self.spatial_attn(x, x, x)
         # Reshape back to [B, Z*HW, D]
-        x = x.reshape(B, self.latent_z, self.latent_hw * self.latent_hw, D).reshape(B, -1, D)
+        x = x.reshape(B, latent_z, latent_h * latent_w, D).reshape(B, -1, D)
         x = x + res
         
         # --- MLP ---
