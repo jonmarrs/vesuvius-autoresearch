@@ -4,19 +4,23 @@ import time
 import re
 import random
 import sys
+from collections import defaultdict
 
 # Define templates for architectural and hyperparameter tweaks
 tweak_templates = [
-    {"name": "lr_{val}", "file": "train.py", "pattern": r"lr:\s*float\s*=\s*[\d\.e-]+", "repl": "lr: float = {val}", "vals": ["1e-3", "5e-4", "1e-4", "5e-5", "1e-5"]},
-    {"name": "wd_{val}", "file": "train.py", "pattern": r"weight_decay=[\d\.]+", "repl": "weight_decay={val}", "vals": ["0.1", "0.01", "0.001", "0.0"]},
-    {"name": "blocks_{val}", "file": "train.py", "pattern": r"num_blocks=\d+", "repl": "num_blocks={val}", "vals": ["8", "10", "12", "16"]}, 
-    {"name": "heads_{val}", "file": "vesuvius_model.py", "pattern": r"num_heads=\d+", "repl": "num_heads={val}", "vals": ["4", "8", "12"]},
-    {"name": "dropout_{val}", "file": "vesuvius_model.py", "pattern": r"dropout=[\d\.]+", "repl": "dropout={val}", "vals": ["0.1", "0.2", "0.0"]},
-    {"name": "batch_size_{val}", "file": "train.py", "pattern": r"batch_size:\s*int\s*=\s*\d+", "repl": "batch_size: int = {val}", "vals": ["8", "16", "24"]}, 
-    {"name": "patch_size_{val}", "file": "train.py", "pattern": r"patch_size:\s*int\s*=\s*\d+", "repl": "patch_size: int = {val}", "vals": ["64", "96"]},
-    {"name": "num_layers_{val}", "file": "train.py", "pattern": r"num_layers:\s*int\s*=\s*\d+", "repl": "num_layers: int = {val}", "vals": ["16", "24", "32"]}, 
-    {"name": "base_feat_{val}", "file": "train.py", "pattern": r"base_feat=\d+", "repl": "base_feat={val}", "vals": ["32", "64"]}
+    {"family": "lr", "name": "lr_{val}", "file": "train.py", "pattern": r"lr:\s*float\s*=\s*[\d\.e-]+", "repl": "lr: float = {val}", "vals": ["1e-3", "5e-4", "1e-4", "5e-5", "1e-5"]},
+    {"family": "wd", "name": "wd_{val}", "file": "train.py", "pattern": r"weight_decay=[\d\.]+", "repl": "weight_decay={val}", "vals": ["0.1", "0.01", "0.001", "0.0"]},
+    {"family": "capacity", "name": "blocks_{val}", "file": "train.py", "pattern": r"num_blocks=\d+", "repl": "num_blocks={val}", "vals": ["8", "10", "12", "16"]}, 
+    {"family": "attention", "name": "heads_{val}", "file": "vesuvius_model.py", "pattern": r"num_heads=\d+", "repl": "num_heads={val}", "vals": ["4", "8", "12"]},
+    {"family": "regularization", "name": "dropout_{val}", "file": "vesuvius_model.py", "pattern": r"dropout=[\d\.]+", "repl": "dropout={val}", "vals": ["0.1", "0.2", "0.0"]},
+    {"family": "batch", "name": "batch_size_{val}", "file": "train.py", "pattern": r"batch_size:\s*int\s*=\s*\d+", "repl": "batch_size: int = {val}", "vals": ["8", "16", "24"]}, 
+    {"family": "spatial", "name": "patch_size_{val}", "file": "train.py", "pattern": r"patch_size:\s*int\s*=\s*\d+", "repl": "patch_size: int = {val}", "vals": ["64", "96"]},
+    {"family": "temporal", "name": "num_layers_{val}", "file": "train.py", "pattern": r"num_layers:\s*int\s*=\s*\d+", "repl": "num_layers: int = {val}", "vals": ["16", "24", "32"]}, 
+    {"family": "width", "name": "base_feat_{val}", "file": "train.py", "pattern": r"base_feat=\d+", "repl": "base_feat={val}", "vals": ["32", "64"]}
 ]
+
+# Track successes per family to implement Bayesian-Lite sampling
+success_counts = defaultdict(lambda: 1)
 
 def get_current_config():
     config = {}
@@ -52,7 +56,7 @@ def get_current_config():
         print(f"Error parsing vesuvius_model.py: {e}")
     return config
 
-# --- Automatic Shift Logic ---
+# Detect Shift
 current_hour = time.localtime().tm_hour
 if 7 <= current_hour < 19:
     shift_name = "DAY SHIFT"
@@ -85,16 +89,21 @@ while True:
             log.write(f"\n## Sprint Completed at {time.strftime('%H:%M:%S')}\n")
         break
 
-    template = random.choice(tweak_templates)
+    # Bayesian-Lite Sampling
+    families = [t["family"] for t in tweak_templates]
+    weights = [success_counts[f] for f in families]
+    template = random.choices(tweak_templates, weights=weights, k=1)[0]
+    
     val = random.choice(template["vals"])
     tweak = {
         "name": template["name"].format(val=val),
+        "family": template["family"],
         "file": template["file"],
         "pattern": template["pattern"],
         "repl": template["repl"].format(val=val)
     }
 
-    print(f"\nCycle {i}: Applying {tweak['name']}")
+    print(f"\nCycle {i}: Applying {tweak['name']} (Weight: {success_counts[tweak['family']]})")
     sys.stdout.flush()
     try:
         with open(tweak["file"], "r") as f:
@@ -127,7 +136,7 @@ while True:
         try:
             with open("run.log", "rb") as f:
                 f.seek(0, 2)
-                f.seek(max(0, f.tell() - 8192), 0)
+                f.seek(max(0, f.tell() - 8192), 0) 
                 log_tail = f.read().decode("utf-8", errors="ignore")
         except: log_tail = ""
             
@@ -146,6 +155,9 @@ while True:
         is_success = "[NEW BEST]" in log_tail
         status = "SUCCESS" if is_success else "REVERTED"
         
+        if is_success:
+            success_counts[tweak["family"]] += 1 
+
         with open(log_filename, "a") as log:
             log.write(f"## Cycle {i}: {tweak['name']} ({status})\n")
             log.write(f"- **Timestamp**: {time.strftime('%H:%M:%S')}\n")
