@@ -9,13 +9,13 @@ import sys
 tweak_templates = [
     {"name": "lr_{val}", "file": "train.py", "pattern": r"lr:\s*float\s*=\s*[\d\.e-]+", "repl": "lr: float = {val}", "vals": ["1e-3", "5e-4", "1e-4", "5e-5", "1e-5"]},
     {"name": "wd_{val}", "file": "train.py", "pattern": r"weight_decay=[\d\.]+", "repl": "weight_decay={val}", "vals": ["0.1", "0.01", "0.001", "0.0"]},
-    {"name": "blocks_{val}", "file": "train.py", "pattern": r"num_blocks=\d+", "repl": "num_blocks={val}", "vals": ["10", "12", "16", "20"]}, 
+    {"name": "blocks_{val}", "file": "train.py", "pattern": r"num_blocks=\d+", "repl": "num_blocks={val}", "vals": ["8", "10", "12", "16"]}, 
     {"name": "heads_{val}", "file": "vesuvius_model.py", "pattern": r"num_heads=\d+", "repl": "num_heads={val}", "vals": ["4", "8", "12"]},
-    {"name": "dropout_{val}", "file": "vesuvius_model.py", "pattern": r"dropout=[\d\.]+", "repl": "dropout={val}", "vals": ["0.1", "0.2", "0.4", "0.0"]},
-    {"name": "batch_size_{val}", "file": "train.py", "pattern": r"batch_size:\s*int\s*=\s*\d+", "repl": "batch_size: int = {val}", "vals": ["4", "8", "16"]}, 
-    {"name": "patch_size_{val}", "file": "train.py", "pattern": r"patch_size:\s*int\s*=\s*\d+", "repl": "patch_size: int = {val}", "vals": ["64", "96", "128"]},
-    {"name": "num_layers_{val}", "file": "train.py", "pattern": r"num_layers:\s*int\s*=\s*\d+", "repl": "num_layers: int = {val}", "vals": ["12", "16", "24"]}, 
-    {"name": "base_feat_{val}", "file": "train.py", "pattern": r"base_feat=\d+", "repl": "base_feat={val}", "vals": ["32", "64", "128"]}
+    {"name": "dropout_{val}", "file": "vesuvius_model.py", "pattern": r"dropout=[\d\.]+", "repl": "dropout={val}", "vals": ["0.1", "0.2", "0.0"]},
+    {"name": "batch_size_{val}", "file": "train.py", "pattern": r"batch_size:\s*int\s*=\s*\d+", "repl": "batch_size: int = {val}", "vals": ["8", "16", "24"]}, 
+    {"name": "patch_size_{val}", "file": "train.py", "pattern": r"patch_size:\s*int\s*=\s*\d+", "repl": "patch_size: int = {val}", "vals": ["64", "96"]},
+    {"name": "num_layers_{val}", "file": "train.py", "pattern": r"num_layers:\s*int\s*=\s*\d+", "repl": "num_layers: int = {val}", "vals": ["16", "24", "32"]}, 
+    {"name": "base_feat_{val}", "file": "train.py", "pattern": r"base_feat=\d+", "repl": "base_feat={val}", "vals": ["32", "64"]}
 ]
 
 def get_current_config():
@@ -41,7 +41,6 @@ def get_current_config():
             if m: config['uri'] = m.group(1)
     except Exception as e:
         print(f"Error parsing train.py: {e}")
-    
     try:
         with open('vesuvius_model.py', 'r') as f:
             content = f.read()
@@ -51,39 +50,41 @@ def get_current_config():
             if m: config['dropout'] = m.group(1)
     except Exception as e:
         print(f"Error parsing vesuvius_model.py: {e}")
-    
     return config
+
+# --- Automatic Shift Logic ---
+current_hour = time.localtime().tm_hour
+if 7 <= current_hour < 19:
+    shift_name = "DAY SHIFT"
+    end_hour = 19
+else:
+    shift_name = "NIGHT SHIFT"
+    end_hour = 7
+
+os.makedirs("sprint_logs", exist_ok=True)
+log_filename = f"sprint_logs/sprint_log_{time.strftime('%Y-%m-%d_%H-%M-%S')}_{shift_name.lower().replace(' ', '_')}.md"
+
+print(f"--- {shift_name} STARTING AT {time.strftime('%H:%M:%S')} ---")
+print(f"Logging to: {log_filename}")
+print(f"Starting persistent background loop until {end_hour % 12 or 12}:00 {'PM' if end_hour >= 12 else 'AM'}...")
+sys.stdout.flush()
+
+with open(log_filename, "w") as log:
+    log.write(f"# {shift_name.title()} Sprint - {time.strftime('%Y-%m-%d')}\n")
+    log.write(f"- **Start Time**: {time.strftime('%H:%M:%S')}\n")
+    log.write("- **Goal**: Monotonic val_bpb optimization via 15-min cycles.\n\n")
 
 env = os.environ.copy()
 i = 0
 
-os.makedirs("sprint_logs", exist_ok=True)
-log_filename = f"sprint_logs/sprint_log_{time.strftime('%Y-%m-%d_%H-%M-%S')}_day_shift.md"
-
-print(f"--- DAY SHIFT STARTING AT {time.strftime('%H:%M:%S')} ---")
-print(f"Logging to: {log_filename}")
-print(f"Starting persistent background loop until 7:00 PM...")
-sys.stdout.flush()
-
-with open(log_filename, "w") as log:
-    log.write(f"# Day Shift Sprint - {time.strftime('%Y-%m-%d')}\n")
-    log.write(f"- **Start Time**: {time.strftime('%H:%M:%S')}\n")
-    log.write("- **Goal**: Monotonic val_bpb optimization via 15-min cycles.\n\n")
-
 while True:
     i += 1
-    # Check if it's 7:00 PM (19:00)
-    current_hour = time.localtime().tm_hour
-    if current_hour == 19:
-        print("7:00 PM reached. Ending Day Shift sprint.")
-        sys.stdout.flush()
+    if time.localtime().tm_hour == end_hour:
+        print(f"{shift_name} end reached. Ending sprint.")
         with open(log_filename, "a") as log:
-            log.write(f"\n## Sprint Completed at 7:00 PM\n")
+            log.write(f"\n## Sprint Completed at {time.strftime('%H:%M:%S')}\n")
         break
 
-
-
-    # Select a random tweak
     template = random.choice(tweak_templates)
     val = random.choice(template["vals"])
     tweak = {
@@ -99,66 +100,47 @@ while True:
         with open(tweak["file"], "r") as f:
             file_content = f.read()
         
-        # Apply the mutation using regex substitution
         new_content, count = re.subn(tweak["pattern"], tweak["repl"], file_content, flags=re.MULTILINE)
         if count > 0:
             with open(tweak["file"], "w") as f:
                 f.write(new_content)
             print(f"Applied tweak: {tweak['name']}")
         else:
-            print(f"Failed to apply {tweak['name']}, pattern not found. Skipping cycle.")
-            sys.stdout.flush()
+            print(f"Failed to apply {tweak['name']}, pattern not found. Skipping.")
             continue
             
-        # Get active config after tweak
         current_cfg = get_current_config()
         uri = current_cfg.pop('uri', 'N/A')
         cfg_str = ", ".join([f"{k}: {v}" for k, v in current_cfg.items()])
 
-        print(f"Running 5-minute training for {tweak['name']}...")
+        print(f"Running 15-minute training for {tweak['name']}...")
         sys.stdout.flush()
         
-        # Open run.log in append mode and stream subprocess output to it live
         with open("run.log", "a") as f:
-            f.write(f"\n\n--- DAY SHIFT CYCLE {i}: {tweak['name']} ---\n")
+            f.write(f"\n\n--- {shift_name} CYCLE {i}: {tweak['name']} ---\n")
             f.flush()
-
-            
-            # Using shell=True and explicit env propagation
             result = subprocess.run(
                 "uv run train.py",
-                shell=True,
-                stdout=f,
-                stderr=subprocess.STDOUT,
-                env=env,
-                text=True
+                shell=True, stdout=f, stderr=subprocess.STDOUT, env=env, text=True
             )
         
-        # Check the last 4KB of run.log for stats
         try:
             with open("run.log", "rb") as f:
                 f.seek(0, 2)
-                f.seek(max(0, f.tell() - 4096), 0)
+                f.seek(max(0, f.tell() - 8192), 0)
                 log_tail = f.read().decode("utf-8", errors="ignore")
-        except Exception as e:
-            log_tail = f"Error reading run.log: {e}"
+        except: log_tail = ""
             
-        # Extract stats
-        val_bpb = "N/A"
-        train_loss = "N/A"
-        params = "N/A"
-        vram = "N/A"
-        vps = "N/A"
-        
-        m = re.search(r"val_bpb:\s+([\d\.]+)", log_tail)
+        val_bpb = "N/A"; train_loss = "N/A"; params = "N/A"; vram = "N/A"; vps = "N/A"
+        m = re.search(r"val_bpb:\s+([\d\.]+)", log_tail); 
         if m: val_bpb = m.group(1)
-        m = re.search(r"train_loss:\s+([\d\.]+)", log_tail)
+        m = re.search(r"train_loss:\s+([\d\.]+)", log_tail); 
         if m: train_loss = m.group(1)
-        m = re.search(r"num_params_M:\s+([\d\.]+)", log_tail)
+        m = re.search(r"num_params_M:\s+([\d\.]+)", log_tail); 
         if m: params = m.group(1)
-        m = re.search(r"peak_vram_mb:\s+([\d\.]+)", log_tail)
+        m = re.search(r"peak_vram_mb:\s+([\d\.]+)", log_tail); 
         if m: vram = m.group(1)
-        m = re.search(r"throughput_Mvps:\s+([\d\.]+)", log_tail)
+        m = re.search(r"throughput_Mvps:\s+([\d\.]+)", log_tail); 
         if m: vps = m.group(1)
 
         is_success = "[NEW BEST]" in log_tail
@@ -170,26 +152,20 @@ while True:
             log.write(f"- **Data**: {uri}\n")
             log.write(f"- **Config**: {cfg_str}\n")
             log.write(f"- **Stats**: val_bpb: {val_bpb}, loss: {train_loss}, params: {params}M, vram: {vram}MB, speed: {vps}Mvps\n")
-            if is_success:
-                log.write(f"- **Result**: Improvement detected. Changes committed.\n\n")
-            else:
-                log.write(f"- **Result**: No improvement detected. Changes reverted.\n\n")
+            log.write(f"- **Result**: {'Improvement detected. Changes committed.' if is_success else 'No improvement detected. Changes reverted.'}\n\n")
+            log.flush()
 
         if is_success:
             print("IMPROVEMENT FOUND! Committing changes.")
-            os.system(f'git add . && git commit -m "Night Shift: {tweak["name"]} improved model"')
+            os.system(f'git add train.py vesuvius_model.py results.tsv reports/figures/ best_model.pt && git commit -m "{shift_name}: {tweak["name"]} improved model"')
         else:
             print("No improvement. Reverting.")
-            os.system("git restore .")
+            os.system("git restore train.py vesuvius_model.py")
         
         sys.stdout.flush()
         time.sleep(2)
 
     except Exception as e:
-        print(f"An error occurred during cycle {i}: {e}")
-        sys.stdout.flush()
-        os.system("git restore .")
+        print(f"An error occurred: {e}")
+        os.system("git restore train.py vesuvius_model.py")
         time.sleep(2)
-
-print("\nAutoresearch loop completed.")
-sys.stdout.flush()

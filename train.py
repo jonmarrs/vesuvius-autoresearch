@@ -16,6 +16,7 @@ import torch.nn.functional as F
 import numpy as np
 import pandas as pd
 from torch.utils.data import DataLoader
+from torch.cuda.amp import GradScaler, autocast
 
 # Import our breakthrough components
 from vesuvius_model import InkDetectorOptimized, VesuviusConfig
@@ -134,10 +135,19 @@ def train(time_budget=None):
     # Initialize Transformer Model
     model = InkDetectorOptimized(v_config, base_feat=32, num_blocks=8).to(device)
 
-    # Step-Consistent Scheduler (estimated 10k steps for 15 min budget)
-    max_steps = 10000
-    optimizer = torch.optim.AdamW(model.parameters(), lr=t_config.lr, weight_decay=0.001)
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=max_steps)
+    # Step-Consistent Optimizer & Scheduler
+    max_steps = 15000 # Tuned for 4090 throughput
+    optimizer = torch.optim.AdamW(model.parameters(), lr=t_config.lr, weight_decay=0.01)
+    
+    # scheduler with 1000 step warmup
+    warmup_steps = 1000
+    def lr_lambda(current_step: int):
+        if current_step < warmup_steps:
+            return float(current_step) / float(max(1, warmup_steps))
+        return 0.5 * (1.0 + math.cos(math.pi * (current_step - warmup_steps) / float(max(1, max_steps - warmup_steps))))
+    
+    scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda)
+    scaler = GradScaler()
 
     print(f"Starting Scroll Transformer Loop (Budget: {t_config.time_budget}s)...")
     sys.stdout.flush()
@@ -166,10 +176,9 @@ def train(time_budget=None):
             continue
 
         # --- Multi-Task Pseudo-Fiber Label (Sobel-Z) ---
-        # Capture volumetric gradient as texture signal
         with torch.no_grad():
             grad_z = x_orig[:, :, 1:] - x_orig[:, :, :-1]
-            target_fiber = grad_z.abs().mean(dim=2, keepdim=True) # [B, 1, 1, H, W]
+            target_fiber = grad_z.abs().mean(dim=2, keepdim=True)
             target_fiber = (target_fiber - target_fiber.min()) / (target_fiber.max() - target_fiber.min() + 1e-8)
 
         # 2. Augmentations
@@ -189,23 +198,26 @@ def train(time_budget=None):
 
         x_aug = x_aug + torch.randn_like(x_aug) * 0.01
 
-        # 4. Forward Pass
+        # 4. Forward Pass with AMP
         optimizer.zero_grad(set_to_none=True)
-        out_ink, out_fiber, _, _, _, _ = model(x_aug, return_fiber=True)
+        with autocast():
+            out_ink, out_fiber, _, _, _, _ = model(x_aug, return_fiber=True)
 
-        # Loss Calculation
-        out_ink_2d = torch.mean(out_ink, dim=2)
-        loss_ink = F.binary_cross_entropy_with_logits(out_ink_2d, target_ink_aug)
-        loss_dice = compute_dice_loss(out_ink, target_ink_aug)
-        
-        out_fiber_2d = torch.mean(out_fiber, dim=2, keepdim=True)
-        loss_fiber = F.mse_loss(torch.sigmoid(out_fiber_2d), target_fiber_aug)
+            out_ink_2d = torch.mean(out_ink, dim=2)
+            loss_ink = F.binary_cross_entropy_with_logits(out_ink_2d, target_ink_aug)
+            loss_dice = compute_dice_loss(out_ink, target_ink_aug)
+            
+            out_fiber_2d = torch.mean(out_fiber, dim=2, keepdim=True)
+            loss_fiber = F.mse_loss(torch.sigmoid(out_fiber_2d), target_fiber_aug)
 
-        total_loss = 0.4 * loss_ink + 0.4 * loss_dice + 0.2 * loss_fiber
-        total_loss.backward()
+            total_loss = 0.4 * loss_ink + 0.4 * loss_dice + 0.2 * loss_fiber
 
+        # Backward with Scaler
+        scaler.scale(total_loss).backward()
+        scaler.unscale_(optimizer)
         torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
-        optimizer.step()
+        scaler.step(optimizer)
+        scaler.update()
         scheduler.step()
 
         torch.cuda.synchronize()
@@ -226,19 +238,20 @@ def train(time_budget=None):
         if total_training_time >= t_config.time_budget:
             break
 
-    # Final Summary
+    # Final Summary & Evaluation
     print(f"Evaluating val_bpb (1 - Dice) on validation set...")
     sys.stdout.flush()
     val_losses = []
     model.eval()
     with torch.no_grad():
-        for _ in range(50): # Increased sample count for stability
+        for _ in range(50): 
             try:
                 val_x_raw, val_target = next(val_data_iter)
                 val_x = val_x_raw[:, :, 4:4+t_config.num_layers].to(device)
                 if val_target is not None and val_target.numel() > 0:
                     val_target = val_target.to(device)
-                    val_out = model(val_x)
+                    with autocast():
+                        val_out = model(val_x)
                     loss_dice = compute_dice_loss(val_out, val_target)
                     val_losses.append(loss_dice.item())
             except StopIteration:
@@ -248,6 +261,7 @@ def train(time_budget=None):
 
     val_bpb = np.mean(val_losses) if val_losses else 1.0
     
+    # Check for improvement
     log_file = 'results.tsv'
     is_improvement = True
     if os.path.exists(log_file):
@@ -258,6 +272,7 @@ def train(time_budget=None):
                 if val_bpb >= best_val: is_improvement = False
         except Exception: pass
 
+    # Stats Calculation
     peak_vram_mb = torch.cuda.max_memory_allocated() / 1024**2
     total_seconds = time.time() - t_start
     num_params_M = sum(p.numel() for p in model.parameters())/1e6
@@ -274,7 +289,17 @@ def train(time_budget=None):
     print(f"throughput_Mvps:  {throughput_Mvps:.2f}")
     sys.stdout.flush()
 
+    # Save Checkpoint & Log Results
     if is_improvement:
+        # Save model weights
+        checkpoint = {
+            'model_state_dict': model.state_dict(),
+            'val_bpb': val_bpb,
+            'config': asdict(t_config)
+        }
+        torch.save(checkpoint, 'best_model.pt')
+        print(f"Checkpoint saved to best_model.pt")
+
         header = "timestamp\tval_bpb\ttrain_loss\tthroughput_Mvps\tnum_params_M\tpeak_vram_mb\n"
         if not os.path.exists(log_file):
             with open(log_file, 'w') as f: f.write(header)
