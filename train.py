@@ -136,7 +136,7 @@ def train(time_budget=None):
 
     # Step-Consistent Scheduler (estimated 10k steps for 15 min budget)
     max_steps = 10000
-    optimizer = torch.optim.AdamW(model.parameters(), lr=t_config.lr, weight_decay=0.01)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=t_config.lr, weight_decay=0.001)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=max_steps)
 
     print(f"Starting Scroll Transformer Loop (Budget: {t_config.time_budget}s)...")
