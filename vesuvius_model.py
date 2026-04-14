@@ -25,10 +25,11 @@ class SEBlock3D(nn.Module):
     def __init__(self, channels, reduction=16):
         super().__init__()
         self.avg_pool = nn.AdaptiveAvgPool3d(1)
+        mid_channels = max(1, channels // reduction)
         self.fc = nn.Sequential(
-            nn.Linear(channels, channels // reduction, bias=False),
+            nn.Linear(channels, mid_channels, bias=False),
             nn.ReLU(inplace=True),
-            nn.Linear(channels // reduction, channels, bias=False),
+            nn.Linear(mid_channels, channels, bias=False),
             nn.Sigmoid()
         )
 
@@ -86,6 +87,7 @@ class InkDetectorOptimized(nn.Module):
         self.latent_hw = self.patch_size // 4
         num_patches = self.latent_z * self.latent_hw * self.latent_hw
         self.pos_embed = nn.Parameter(torch.zeros(1, num_patches, self.base_feat))
+        nn.init.trunc_normal_(self.pos_embed, std=0.02)
         self.pos_drop = nn.Dropout(p=self.dropout)
         self._cached_pos = None
         self._cached_shape = None
