@@ -204,15 +204,15 @@ def train(config: ExperimentConfig):
             target_fiber = grad_z.abs().mean(dim=2, keepdim=True)
             b_sz = target_fiber.shape[0]
             tf_flat = target_fiber.view(b_sz, -1)
-            tf_min = tf_flat.min(dim=1, keepdim=True)[0].view(b_sz, 1, 1, 1)
-            tf_max = tf_flat.max(dim=1, keepdim=True)[0].view(b_sz, 1, 1, 1)
+            tf_min = tf_flat.min(dim=1, keepdim=True)[0].view(b_sz, 1, 1, 1, 1)
+            tf_max = tf_flat.max(dim=1, keepdim=True)[0].view(b_sz, 1, 1, 1, 1)
             target_fiber = (target_fiber - tf_min) / (tf_max - tf_min + 1e-8)
 
         x_aug = x_orig.clone()
         k_rot = np.random.randint(0, 4)
         x_aug = torch.rot90(x_aug, k=k_rot, dims=(-2, -1))
-        target_ink_aug = torch.rot90(target_ink, k=k_rot, dims=(-2, -1))
-        target_fiber_aug = torch.rot90(target_fiber, k=k_rot, dims=(-2, -1))
+        target_ink_aug = torch.rot90(target_ink, k=k_rot, dims=(-2, -1)).clamp(0, 1)
+        target_fiber_aug = torch.rot90(target_fiber, k=k_rot, dims=(-2, -1)).clamp(0, 1)
         x_aug = x_aug + torch.randn_like(x_aug) * 0.01
 
         optimizer.zero_grad(set_to_none=True)
@@ -226,11 +226,17 @@ def train(config: ExperimentConfig):
             loss_fiber = F.mse_loss(torch.sigmoid(out_fiber_2d), target_fiber_aug)
             total_loss = 0.4 * loss_ink + 0.4 * loss_dice + 0.2 * loss_fiber
 
-        scaler.scale(total_loss).backward()
-        scaler.unscale_(optimizer)
-        torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
-        scaler.step(optimizer)
-        scaler.update()
+        if not torch.isfinite(total_loss) or total_loss.item() > 1e6:
+            print(f"\n[WARNING] Numerical Instability at Step {step}: Loss {total_loss.item():.2e}")
+            print(f"Ink: {loss_ink.item():.2e}, Dice: {loss_dice.item():.2e}, Fiber: {loss_fiber.item():.2e}")
+            optimizer.zero_grad(set_to_none=True)
+            total_loss = torch.tensor(0.0, device=device, requires_grad=True)
+        else:
+            scaler.scale(total_loss).backward()
+            scaler.unscale_(optimizer)
+            torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+            scaler.step(optimizer)
+            scaler.update()
         scheduler.step()
 
         dt = time.time() - t0
