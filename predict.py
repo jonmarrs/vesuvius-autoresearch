@@ -27,24 +27,8 @@ def predict():
     print(f"Loading volume from {args.uri}...")
 
     # Open the dataset
-    if args.uri.startswith("s3://"):
-        parts = args.uri.replace("s3://", "").split("/")
-        bucket = parts[0]
-        path = "/".join(parts[1:])
-        kvstore = {
-            'driver': 's3',
-            'bucket': bucket,
-            'path': path,
-            'aws_region': 'us-east-1',
-            'aws_credentials': {'type': 'anonymous'}
-        }
-    else:
-        kvstore = {'driver': 'file', 'path': args.uri}
-
-    dataset = ts.open({
-        'driver': 'zarr',
-        'kvstore': kvstore,
-    }).result()
+    from vesuvius_loader import FastVesuviusVolume
+    dataset = FastVesuviusVolume(args.uri)
 
     # Read the block
     print(f"Reading block at Z={args.z}, Y={args.y}, X={args.x}...")
@@ -52,7 +36,7 @@ def predict():
         args.z : args.z + args.num_layers,
         args.y : args.y + args.patch_size,
         args.x : args.x + args.patch_size
-    ].read().result()
+    ]
 
     # Prepare input
     x = torch.from_numpy(block.astype(np.float32) / 255.0).unsqueeze(0).unsqueeze(0).to(device) # [B, C, Z, H, W]
@@ -64,9 +48,9 @@ def predict():
 
     print("Running inference...")
     with torch.no_grad():
-        out_ink, out_fiber = model(x, return_fiber=True)
-        prob_ink = torch.sigmoid(out_ink).cpu().numpy()[0, 0]
-        prob_fiber = torch.sigmoid(out_fiber).cpu().numpy()[0, 0]
+        out_ink, out_fiber, _ = model(x, return_fiber=True)
+        prob_ink = torch.sigmoid(out_ink.mean(dim=2)).cpu().numpy()[0, 0]
+        prob_fiber = torch.sigmoid(out_fiber.mean(dim=2)).cpu().numpy()[0, 0]
 
     # Save results
     os.makedirs("predictions", exist_ok=True)

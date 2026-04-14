@@ -156,7 +156,7 @@ class InkDetectorOptimized(nn.Module):
         if return_fiber or return_qc:
             fiber = self.fiber_head(x_out) if return_fiber else None
             qc = self.qc_head(x_trans) if return_qc else None
-            return ink, fiber, qc, None, None, None
+            return ink, fiber, qc
         return ink
 
 class DividedSpaceTimeBlock(nn.Module):

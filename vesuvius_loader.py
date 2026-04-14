@@ -79,7 +79,8 @@ class VesuviusLabeledDataset(IterableDataset):
             
         # Pre-calculate valid coordinates
         stride = 16
-        cache_path = os.path.join(volume_uri, f"valid_coords_cache_{self.patch_size}_{stride}.npy")
+        mask_mtime = int(os.path.getmtime(mask_path)) if mask_path and os.path.exists(mask_path) else 0
+        cache_path = os.path.join(volume_uri, f"valid_coords_cache_{self.patch_size}_{stride}_{mask_mtime}.npy")
         if os.path.exists(cache_path):
             self.valid_coords = np.load(cache_path).tolist()
             # If the mask happens to be empty or list empty, valid_coords could be empty. But we trust the cache.

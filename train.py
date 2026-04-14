@@ -152,7 +152,8 @@ def train(config: ExperimentConfig):
     warmup_steps = 1000
     def lr_lambda(current_step: int):
         if current_step < warmup_steps: return float(current_step) / float(max(1, warmup_steps))
-        return 0.5 * (1.0 + math.cos(math.pi * (current_step - warmup_steps) / float(max(1, max_steps - warmup_steps))))
+        clamped_step = min(current_step, max_steps)
+        return 0.5 * (1.0 + math.cos(math.pi * (clamped_step - warmup_steps) / float(max(1, max_steps - warmup_steps))))
     
     scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda)
     scaler = GradScaler()
@@ -179,27 +180,33 @@ def train(config: ExperimentConfig):
 
             # 2. Anisotropic Z-Interpolation
             z_start = np.random.randint(0, 8)
-            x_orig = x_raw[:, :, z_start:z_start+config.num_layers]
-            
             if np.random.rand() > 0.8:
-                scale = np.random.uniform(0.8, 1.2)
-                new_z = int(config.num_layers * scale)
-                x_orig = F.interpolate(x_orig, size=(new_z, config.patch_size, config.patch_size), mode='trilinear', align_corners=False)
-                x_orig = F.interpolate(x_orig, size=(config.num_layers, config.patch_size, config.patch_size), mode='trilinear', align_corners=False)
+                max_len = x_raw.shape[2] - z_start
+                min_len = max(4, int(config.num_layers * 0.8))
+                z_len = np.random.randint(min_len, max_len + 1)
+                x_orig = x_raw[:, :, z_start:z_start+z_len]
+                if z_len != config.num_layers:
+                    x_orig = F.interpolate(x_orig, size=(config.num_layers, config.patch_size, config.patch_size), mode='trilinear', align_corners=False)
+            else:
+                x_orig = x_raw[:, :, z_start:z_start+config.num_layers]
 
         except StopIteration:
             data_iter = iter(data_loader); continue
-
-        # 3. Sobel-Z pseudo-labels
-        with torch.no_grad():
-            grad_z = x_orig[:, :, 1:] - x_orig[:, :, :-1]
-            target_fiber = grad_z.abs().mean(dim=2, keepdim=True)
-            target_fiber = (target_fiber - target_fiber.min()) / (target_fiber.max() - target_fiber.min() + 1e-8)
 
         if x_orig.size(0) > 1:
             r = np.random.rand()
             if r < 0.2: x_orig, target_ink, _ = mixup_data(x_orig, target_ink)
             elif r < 0.4: x_orig, target_ink, _ = cutmix_data(x_orig, target_ink)
+
+        # 3. Sobel-Z pseudo-labels (after mixup)
+        with torch.no_grad():
+            grad_z = x_orig[:, :, 1:] - x_orig[:, :, :-1]
+            target_fiber = grad_z.abs().mean(dim=2, keepdim=True)
+            b_sz = target_fiber.shape[0]
+            tf_flat = target_fiber.view(b_sz, -1)
+            tf_min = tf_flat.min(dim=1, keepdim=True)[0].view(b_sz, 1, 1, 1)
+            tf_max = tf_flat.max(dim=1, keepdim=True)[0].view(b_sz, 1, 1, 1)
+            target_fiber = (target_fiber - tf_min) / (tf_max - tf_min + 1e-8)
 
         x_aug = x_orig.clone()
         k_rot = np.random.randint(0, 4)
@@ -210,8 +217,8 @@ def train(config: ExperimentConfig):
 
         optimizer.zero_grad(set_to_none=True)
         with autocast():
-            # InkDetectorOptimized forward returns (ink, fiber, qc, None, None, None)
-            out_ink, out_fiber, _, _, _, _ = model(x_aug, return_fiber=True)
+            # InkDetectorOptimized forward returns (ink, fiber, qc)
+            out_ink, out_fiber, _ = model(x_aug, return_fiber=True)
             out_ink_2d = torch.mean(out_ink, dim=2)
             loss_ink = F.binary_cross_entropy_with_logits(out_ink_2d, target_ink_aug)
             loss_dice = compute_dice_loss(out_ink, target_ink_aug)
@@ -226,7 +233,6 @@ def train(config: ExperimentConfig):
         scaler.update()
         scheduler.step()
 
-        torch.cuda.synchronize()
         dt = time.time() - t0
         total_training_time += dt
         loss_val = total_loss.item()
@@ -254,9 +260,8 @@ def train(config: ExperimentConfig):
                 if val_target is not None and val_target.numel() > 0:
                     val_target = val_target.to(device)
                     if val_target.dim() == 3: val_target = val_target.unsqueeze(1)
-                    if val_target.sum() > 0:
-                        with autocast(): out = model(val_x)
-                        val_losses.append(compute_dice_loss(out, val_target).item())
+                    with autocast(): out = model(val_x)
+                    val_losses.append(compute_dice_loss(out, val_target).item())
             except StopIteration: val_data_iter = iter(val_data_loader)
             except Exception: continue
 

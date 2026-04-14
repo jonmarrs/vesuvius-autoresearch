@@ -20,3 +20,9 @@
 - **Stats**: val_bpb: 0.998138, loss: 0.406896, params: N/AM, vram: N/AMB, speed: 11.99Mvps
 - **Result**: No improvement detected. Config reverted.
 
+## Cycle 4: base_feat_64 (REVERTED)
+- **Timestamp**: 11:00:25
+- **Config**: batch_size: 16, patch_size: 64, num_layers: 24, lr: 0.001, weight_decay: 0.01, time_budget: 900, base_feat: 64, num_blocks: 16, num_heads: 8, dropout: 0.0
+- **Stats**: val_bpb: 0.998552, loss: 0.404948, params: N/AM, vram: N/AMB, speed: 5.74Mvps
+- **Result**: No improvement detected. Config reverted.
+
