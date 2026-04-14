@@ -11,10 +11,14 @@ import torch.nn.functional as F
 import numpy as np
 
 class VesuviusConfig:
-    def __init__(self, patch_size=64, num_layers=16, batch_size=4):
+    def __init__(self, patch_size=64, num_layers=16, batch_size=4, base_feat=64, num_blocks=16, num_heads=8, dropout=0.0):
         self.patch_size = patch_size
         self.num_layers = num_layers
         self.batch_size = batch_size
+        self.base_feat = base_feat
+        self.num_blocks = num_blocks
+        self.num_heads = num_heads
+        self.dropout = dropout
 
 class SEBlock3D(nn.Module):
     """Squeeze-and-Excitation for 3D volumes."""
@@ -52,56 +56,66 @@ class GatedFusionBlock(nn.Module):
         return self.res(up) + (mask * feat)
 
 class InkDetectorOptimized(nn.Module):
-    def __init__(self, config, base_feat=32, num_blocks=8, num_heads=4, dropout=0.0):
+    def __init__(self, config: VesuviusConfig):
         super().__init__()
-        while base_feat % num_heads != 0:
-            num_heads -= 1
-        if num_heads <= 0: num_heads = 1
-            
         self.config = config
+        
+        # Pull architectural parameters from config
+        self.base_feat = config.base_feat
+        self.num_blocks = config.num_blocks
+        self.num_heads = config.num_heads
+        self.dropout = config.dropout
+        
+        # Sanity check for MultiheadAttention
+        if self.base_feat % self.num_heads != 0:
+            # Dynamically adjust num_heads to the nearest factor of base_feat for stability
+            while self.base_feat % self.num_heads != 0:
+                self.num_heads -= 1
+            if self.num_heads <= 0: self.num_heads = 1
+            print(f"Warning: adjusted num_heads to {self.num_heads} for compatibility with base_feat {self.base_feat}")
+            
         self.patch_size = config.patch_size
         self.num_layers = config.num_layers
-        self.base_feat = base_feat
         
         # Encoder: Hierarchical 3D Patch Embedding
-        self.stage1 = nn.Conv3d(1, base_feat // 2, kernel_size=3, stride=(2, 2, 2), padding=1)
-        self.stage2 = nn.Conv3d(base_feat // 2, base_feat, kernel_size=3, stride=(2, 2, 2), padding=1)
+        self.stage1 = nn.Conv3d(1, self.base_feat // 2, kernel_size=3, stride=(2, 2, 2), padding=1)
+        self.stage2 = nn.Conv3d(self.base_feat // 2, self.base_feat, kernel_size=3, stride=(2, 2, 2), padding=1)
         
         # Positional Embedding Caching
         self.latent_z = self.num_layers // 4
         self.latent_hw = self.patch_size // 4
         num_patches = self.latent_z * self.latent_hw * self.latent_hw
-        self.pos_embed = nn.Parameter(torch.zeros(1, num_patches, base_feat))
-        self.pos_drop = nn.Dropout(p=dropout)
+        self.pos_embed = nn.Parameter(torch.zeros(1, num_patches, self.base_feat))
+        self.pos_drop = nn.Dropout(p=self.dropout)
         self._cached_pos = None
         self._cached_shape = None
         
         # Transformer Backbone
         self.blocks = nn.ModuleList([
-            DividedSpaceTimeBlock(base_feat, num_heads, dropout)
-            for _ in range(num_blocks)
+            DividedSpaceTimeBlock(self.base_feat, self.num_heads, self.dropout)
+            for _ in range(self.num_blocks)
         ])
-        self.norm = nn.LayerNorm(base_feat)
+        self.norm = nn.LayerNorm(self.base_feat)
         
         # Progressive UNet Decoder with GATED Fusion
-        self.up1 = nn.ConvTranspose3d(base_feat, base_feat // 2, kernel_size=4, stride=2, padding=1)
-        self.fusion1 = GatedFusionBlock(base_feat // 2, base_feat // 2, base_feat // 2)
+        self.up1 = nn.ConvTranspose3d(self.base_feat, self.base_feat // 2, kernel_size=4, stride=2, padding=1)
+        self.fusion1 = GatedFusionBlock(self.base_feat // 2, self.base_feat // 2, self.base_feat // 2)
         
-        self.up2 = nn.ConvTranspose3d(base_feat // 2, base_feat // 4, kernel_size=4, stride=2, padding=1)
-        self.fusion2 = GatedFusionBlock(1, base_feat // 4, base_feat // 4)
+        self.up2 = nn.ConvTranspose3d(self.base_feat // 2, self.base_feat // 4, kernel_size=4, stride=2, padding=1)
+        self.fusion2 = GatedFusionBlock(1, self.base_feat // 4, self.base_feat // 4)
         
         self.decoder_res = nn.Sequential(
-            ResBlock3D(base_feat // 4),
-            ResBlock3D(base_feat // 4)
+            ResBlock3D(self.base_feat // 4),
+            ResBlock3D(self.base_feat // 4)
         )
         
         # Multi-task Heads
-        self.final_ink = nn.Conv3d(base_feat // 4, 1, kernel_size=3, padding=1)
-        self.fiber_head = nn.Conv3d(base_feat // 4, 1, kernel_size=3, padding=1)
+        self.final_ink = nn.Conv3d(self.base_feat // 4, 1, kernel_size=3, padding=1)
+        self.fiber_head = nn.Conv3d(self.base_feat // 4, 1, kernel_size=3, padding=1)
         self.qc_head = nn.Sequential(
             nn.AdaptiveAvgPool3d(1),
             nn.Flatten(),
-            nn.Linear(base_feat, 64),
+            nn.Linear(self.base_feat, 64),
             nn.ReLU(),
             nn.Linear(64, 1)
         )
@@ -260,7 +274,15 @@ def mission_critical_audit():
     print("\n" + "="*60)
     print("   PROJECT 002: MISSION-CRITICAL VESUVIUS AUDIT")
     print("="*60)
-    config = VesuviusConfig()
+    config = VesuviusConfig(
+        patch_size=64, 
+        num_layers=16, 
+        batch_size=1, 
+        base_feat=32, 
+        num_blocks=2, 
+        num_heads=4, 
+        dropout=0.1
+    )
     device = "cpu"
     if torch.cuda.is_available(): torch.cuda.empty_cache()
     gc.collect()

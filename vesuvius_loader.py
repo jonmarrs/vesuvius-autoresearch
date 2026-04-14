@@ -26,20 +26,23 @@ class FastVesuviusVolume:
                 with Image.open(files[0]) as img:
                     h, w = img.size[::-1]
                 
-                # Pre-allocate on disk
-                self.data = np.memmap(self.npy_path, dtype='uint8', mode='w+', shape=(len(files), h, w))
+                # Pre-allocate on disk using a temporary file for atomicity
+                tmp_npy_path = self.npy_path + ".tmp"
+                tmp_data = np.memmap(tmp_npy_path, dtype='uint8', mode='w+', shape=(len(files), h, w))
                 for i, f in enumerate(files):
                     with Image.open(f) as img:
-                        self.data[i] = np.array(img)
-                self.data.flush()
+                        tmp_data[i] = np.array(img)
+                tmp_data.flush()
+                del tmp_data # Close memmap
+                
+                os.rename(tmp_npy_path, self.npy_path)
                 print(f"Fast cache built: {self.npy_path}")
-            else:
-                # Open existing memmap
-                # We need to know the shape. We can infer it from the first TIF.
-                files = [f for f in os.listdir(volume_uri) if f.endswith('.tif')]
-                with Image.open(os.path.join(volume_uri, files[0])) as img:
-                    h, w = img.size[::-1]
-                self.data = np.memmap(self.npy_path, dtype='uint8', mode='r', shape=(len(files), h, w))
+                
+            # Open existing (or just built) memmap
+            files = [f for f in os.listdir(volume_uri) if f.endswith('.tif')]
+            with Image.open(os.path.join(volume_uri, files[0])) as img:
+                h, w = img.size[::-1]
+            self.data = np.memmap(self.npy_path, dtype='uint8', mode='r', shape=(len(files), h, w))
             
             self.shape = self.data.shape
             self.is_zarr = False

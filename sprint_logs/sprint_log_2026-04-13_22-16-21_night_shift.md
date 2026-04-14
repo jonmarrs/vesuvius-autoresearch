@@ -44,3 +44,17 @@
 - **Stats**: val_bpb: 0.998170, loss: 0.406035, params: N/AM, vram: N/AMB, speed: 11.03Mvps
 - **Result**: No improvement detected. Changes reverted.
 
+## Cycle 7: blocks_16 (REVERTED)
+- **Timestamp**: 00:04:35
+- **Data**: local_data/PHercParis2Fr47/surface_volume/
+- **Config**: lr: 1e-3, wd: 0.01, blocks: 16, batch_size: 16, patch_size: 64, num_layers: 24, base_feat: 64, heads: 4, dropout: 0.0
+- **Stats**: val_bpb: N/A, loss: N/A, params: N/AM, vram: N/AMB, speed: 6.53Mvps
+- **Result**: No improvement detected. Changes reverted.
+
+## Cycle 8: heads_12 (REVERTED)
+- **Timestamp**: 00:20:11
+- **Data**: local_data/PHercParis2Fr47/surface_volume/
+- **Config**: lr: 1e-3, wd: 0.01, blocks: 16, batch_size: 16, patch_size: 64, num_layers: 24, base_feat: 64, heads: 12, dropout: 0.0
+- **Stats**: val_bpb: 0.998729, loss: 0.404690, params: N/AM, vram: N/AMB, speed: 8.45Mvps
+- **Result**: No improvement detected. Changes reverted.
+
