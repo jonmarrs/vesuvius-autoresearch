@@ -241,10 +241,12 @@ def train(time_budget=None):
     val_bpb = np.mean(val_losses) if val_losses else 1.0
     log_file = 'results.tsv'
     is_improvement = True
-    if os.path.exists(log_file):
+    if np.isnan(val_bpb): is_improvement = False
+    
+    if is_improvement and os.path.exists(log_file):
         try:
             df = pd.read_csv(log_file, sep='\t')
-            if len(df) > 0 and val_bpb >= df['val_bpb'].min(): is_improvement = False
+            if len(df) > 0 and val_bpb >= df['val_bpb'].dropna().min(): is_improvement = False
         except Exception: pass
 
     peak_vram_mb = torch.cuda.max_memory_allocated() / 1024**2
