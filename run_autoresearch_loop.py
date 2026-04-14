@@ -4,6 +4,7 @@ import time
 import re
 import random
 import sys
+import json
 from collections import defaultdict
 
 # Define templates for architectural and hyperparameter tweaks
@@ -19,8 +20,26 @@ tweak_templates = [
     {"family": "width", "name": "base_feat_{val}", "file": "train.py", "pattern": r"base_feat=\d+", "repl": "base_feat={val}", "vals": ["32", "64"]}
 ]
 
-# Track successes per family to implement Bayesian-Lite sampling
-success_counts = defaultdict(lambda: 1)
+# Persistent Bayesian-Lite Success Tracking
+HISTORY_FILE = "autoresearch_history.json"
+def load_history():
+    if os.path.exists(HISTORY_FILE):
+        try:
+            with open(HISTORY_FILE, "r") as f:
+                data = json.load(f)
+                counts = defaultdict(lambda: 1)
+                counts.update(data)
+                return counts
+        except: pass
+    return defaultdict(lambda: 1)
+
+def save_history(counts):
+    try:
+        with open(HISTORY_FILE, "w") as f:
+            json.dump(dict(counts), f)
+    except: pass
+
+success_counts = load_history()
 
 def get_current_config():
     config = {}
@@ -103,7 +122,7 @@ while True:
         "repl": template["repl"].format(val=val)
     }
 
-    print(f"\nCycle {i}: Applying {tweak['name']} (Weight: {success_counts[tweak['family']]})")
+    print(f"\nCycle {i}: Applying {tweak['name']} (Family Weight: {success_counts[tweak['family']]})")
     sys.stdout.flush()
     try:
         with open(tweak["file"], "r") as f:
@@ -157,6 +176,7 @@ while True:
         
         if is_success:
             success_counts[tweak["family"]] += 1 
+            save_history(success_counts)
 
         with open(log_filename, "a") as log:
             log.write(f"## Cycle {i}: {tweak['name']} ({status})\n")
@@ -169,7 +189,7 @@ while True:
 
         if is_success:
             print("IMPROVEMENT FOUND! Committing changes.")
-            os.system(f'git add train.py vesuvius_model.py results.tsv reports/figures/ best_model.pt && git commit -m "{shift_name}: {tweak["name"]} improved model"')
+            os.system(f'git add train.py vesuvius_model.py results.tsv reports/figures/ best_model.pt autoresearch_history.json && git commit -m "{shift_name}: {tweak["name"]} improved model"')
         else:
             print("No improvement. Reverting.")
             os.system("git restore train.py vesuvius_model.py")
