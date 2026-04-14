@@ -61,11 +61,12 @@ class FastVesuviusVolume:
         return self.data[key]
 
 class VesuviusLabeledDataset(IterableDataset):
-    def __init__(self, volume_uri, labels_path, mask_path=None, patch_size=64, num_layers=16):
+    def __init__(self, volume_uri, labels_path, mask_path=None, patch_size=64, num_layers=16, seed=None):
         self.volume = FastVesuviusVolume(volume_uri)
         self.patch_size = patch_size
         self.num_layers = num_layers
         self.shape = self.volume.shape
+        self.seed = seed
         
         # Load Labels (2D PNG)
         with Image.open(labels_path) as img:
@@ -104,8 +105,11 @@ class VesuviusLabeledDataset(IterableDataset):
 
     def __iter__(self):
         worker_info = torch.utils.data.get_worker_info()
+        worker_seed = self.seed if self.seed is not None else int(time.time() * 1000)
         if worker_info is not None:
-            np.random.seed((worker_info.id + int(time.time() * 1000)) % 4294967295)
+            np.random.seed((worker_info.id + worker_seed) % 4294967295)
+        else:
+            np.random.seed(worker_seed % 4294967295)
 
         while True:
             if not self.valid_coords:
@@ -132,10 +136,11 @@ class VesuviusLabeledDataset(IterableDataset):
 
 class VesuviusS3Dataset(IterableDataset):
     """Fallback for Zarr/S3 data."""
-    def __init__(self, uri, patch_size=32, num_layers=16):
+    def __init__(self, uri, patch_size=32, num_layers=16, seed=None):
         self.uri = uri
         self.patch_size = patch_size
         self.num_layers = num_layers
+        self.seed = seed
         if uri.startswith("s3://"):
             raise ValueError("S3 Streaming disabled. Use local paths.")
             
@@ -147,8 +152,11 @@ class VesuviusS3Dataset(IterableDataset):
 
     def __iter__(self):
         worker_info = torch.utils.data.get_worker_info()
+        worker_seed = self.seed if self.seed is not None else int(time.time() * 1000)
         if worker_info is not None:
-            np.random.seed((worker_info.id + int(time.time() * 1000)) % 4294967295)
+            np.random.seed((worker_info.id + worker_seed) % 4294967295)
+        else:
+            np.random.seed(worker_seed % 4294967295)
 
         block_z, block_hw = 128, 256
         while True:

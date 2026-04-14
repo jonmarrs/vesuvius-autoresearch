@@ -128,19 +128,20 @@ def train(config: ExperimentConfig):
     print(f"Initializing LOCAL TRANSFORMER Training on {config.uri}...")
     sys.stdout.flush()
 
-    def get_dataloader(uri):
+    def get_dataloader(uri, seed=None):
         parent_dir = os.path.dirname(uri.rstrip('/'))
         labels_path = os.path.join(parent_dir, 'inklabels.png')
         mask_path = os.path.join(parent_dir, 'mask.png')
         if os.path.exists(labels_path):
-            ds = VesuviusLabeledDataset(uri, labels_path, mask_path if os.path.exists(mask_path) else None, config.patch_size, config.num_layers + 8)
+            ds = VesuviusLabeledDataset(uri, labels_path, mask_path if os.path.exists(mask_path) else None, config.patch_size, config.num_layers + 8, seed=seed)
         else:
-            ds = VesuviusS3Dataset(uri, config.patch_size, config.num_layers + 8)
+            ds = VesuviusS3Dataset(uri, config.patch_size, config.num_layers + 8, seed=seed)
         return DataLoader(ds, batch_size=config.batch_size, num_workers=min(4, os.cpu_count() or 1), pin_memory=True)
 
     data_loader = get_dataloader(config.uri)
     data_iter = iter(data_loader)
-    val_data_loader = get_dataloader(config.val_uri)
+    # Use fixed seed for validation to ensure deterministic patch sampling
+    val_data_loader = get_dataloader(config.val_uri, seed=42)
     val_data_iter = iter(val_data_loader)
 
     model = InkDetectorOptimized(v_config).to(device)
