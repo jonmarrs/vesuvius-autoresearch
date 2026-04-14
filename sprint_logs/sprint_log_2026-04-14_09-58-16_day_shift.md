@@ -32,3 +32,15 @@
 - **Stats**: val_bpb: 0.998133, loss: 0.404871, params: N/AM, vram: N/AMB, speed: 6.33Mvps
 - **Result**: No improvement detected. Config reverted.
 
+## Cycle 6: lr_0.0005 (REVERTED)
+- **Timestamp**: 11:32:02
+- **Config**: batch_size: 16, patch_size: 64, num_layers: 24, lr: 0.0005, weight_decay: 0.01, time_budget: 900, base_feat: 64, num_blocks: 16, num_heads: 8, dropout: 0.0
+- **Stats**: val_bpb: 0.989978, loss: 432103314959.776184, params: N/AM, vram: N/AMB, speed: 4.92Mvps
+- **Result**: No improvement detected. Config reverted.
+
+## Cycle 7: batch_size_8 (REVERTED)
+- **Timestamp**: 11:47:15
+- **Config**: batch_size: 8, patch_size: 64, num_layers: 24, lr: 0.001, weight_decay: 0.01, time_budget: 900, base_feat: 64, num_blocks: 16, num_heads: 8, dropout: 0.0
+- **Stats**: val_bpb: 0.949991, loss: 8668474.819096, params: N/AM, vram: N/AMB, speed: 4.38Mvps
+- **Result**: No improvement detected. Config reverted.
+
