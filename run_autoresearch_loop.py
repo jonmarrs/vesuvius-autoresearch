@@ -155,7 +155,7 @@ while True:
 
     if is_success:
         print("IMPROVEMENT FOUND! Committing config.")
-        os.system(f'git add {CONFIG_FILE} results.tsv reports/figures/ best_model.pt autoresearch_history.json && git commit -m "{shift_name}: {tweak_name} improved model"')
+        os.system(f'git add {CONFIG_FILE} reports/figures/ best_model.pt autoresearch_history.json && git commit -m "{shift_name}: {tweak_name} improved model"')
     else:
         print("No improvement.")
     

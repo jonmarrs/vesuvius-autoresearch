@@ -89,24 +89,22 @@ def cutmix_data(x, y, alpha=1.0):
 
 def compute_dice_loss(pred, target, smooth=1e-5):
     """
-    Weighted Dice Loss to handle sparse ink labels.
-    Only computes Dice on patches that actually contain ink to avoid 'background-matching' bias.
+    Standard Dice Loss for 2D ink detection.
+    Collapses the Z-dimension of the 3D prediction before computing Dice.
     """
     # pred: [B, 1, Z, H, W] -> collapse Z to 2D
     pred_2d = torch.mean(pred, dim=2)
     pred_2d = torch.sigmoid(pred_2d)
     
     # target: [B, 1, H, W]
+    # Ensure target is 4D
+    if target.dim() == 3: target = target.unsqueeze(1)
+    
     intersection = (pred_2d * target).sum(dim=(-2, -1))
     union = pred_2d.sum(dim=(-2, -1)) + target.sum(dim=(-2, -1))
     
-    has_ink = (target.sum(dim=(-2, -1)) > 0).float()
     dice = (2. * intersection + smooth) / (union + smooth)
-    
-    if has_ink.sum() == 0:
-        return 1.0 - dice.mean() 
-        
-    return 1.0 - (dice * has_ink).sum() / has_ink.sum()
+    return 1.0 - dice.mean()
 
 def train(config: ExperimentConfig):
     import sys
@@ -140,8 +138,15 @@ def train(config: ExperimentConfig):
 
     data_loader = get_dataloader(config.uri)
     data_iter = iter(data_loader)
-    # Use fixed seed for validation to ensure deterministic patch sampling
-    val_data_loader = get_dataloader(config.val_uri, seed=42)
+    # Use fixed seed and num_workers=0 for validation to ensure absolute determinism
+    def get_val_dataloader(uri):
+        parent_dir = os.path.dirname(uri.rstrip('/'))
+        labels_path = os.path.join(parent_dir, 'inklabels.png')
+        mask_path = os.path.join(parent_dir, 'mask.png')
+        ds = VesuviusLabeledDataset(uri, labels_path, mask_path if os.path.exists(mask_path) else None, config.patch_size, config.num_layers + 8, seed=42)
+        return DataLoader(ds, batch_size=config.batch_size, num_workers=0, pin_memory=True)
+
+    val_data_loader = get_val_dataloader(config.val_uri)
     val_data_iter = iter(val_data_loader)
 
     model = InkDetectorOptimized(v_config).to(device)

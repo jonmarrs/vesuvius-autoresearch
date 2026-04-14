@@ -1,0 +1,14 @@
+{
+    "uri": "local_data/PHercParis2Fr47/surface_volume/",
+    "val_uri": "local_data/PHercParis2Fr143/surface_volume/",
+    "batch_size": 16,
+    "patch_size": 64,
+    "num_layers": 24,
+    "lr": 0.001,
+    "weight_decay": 0.01,
+    "time_budget": 900,
+    "base_feat": 64,
+    "num_blocks": 16,
+    "num_heads": 8,
+    "dropout": 0.0
+}
