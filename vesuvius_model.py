@@ -177,18 +177,23 @@ class DividedSpaceTimeBlock(nn.Module):
 
     def forward(self, x, lz, lh, lw):
         B, N, D = x.shape
+        # Temporal Attention (across Z)
         res = x
         x = self.norm1(x)
         x = x.reshape(B, lz, lh * lw, D).permute(0, 2, 1, 3).reshape(-1, lz, D)
         x, _ = self.temporal_attn(x, x, x)
         x = x.reshape(B, lh * lw, lz, D).permute(0, 2, 1, 3).reshape(B, -1, D)
         x = x + res
+        
+        # Spatial Attention (across H*W)
         res = x
         x = self.norm2(x)
-        x = x.reshape(B, lz, lh * lw, D).reshape(-1, lh * lw, D)
+        x = x.reshape(-1, lh * lw, D)
         x, _ = self.spatial_attn(x, x, x)
-        x = x.reshape(B, lz, lh * lw, D).reshape(B, -1, D)
+        x = x.reshape(B, -1, D)
         x = x + res
+        
+        # MLP
         x = x + self.mlp(self.norm3(x))
         return x
 

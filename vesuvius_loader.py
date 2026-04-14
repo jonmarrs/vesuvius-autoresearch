@@ -78,20 +78,26 @@ class VesuviusLabeledDataset(IterableDataset):
             self.mask = np.ones_like(self.labels)
             
         # Pre-calculate valid coordinates
-        print(f"Finding valid coordinates in mask (mean={self.mask.mean():.4f})...")
         stride = 16
-        self.valid_coords = []
-        H, W = self.mask.shape
-        for y in range(0, H - self.patch_size, stride):
-            for x in range(0, W - self.patch_size, stride):
-                if self.mask[y:y+self.patch_size, x:x+self.patch_size].mean() > 0.05:
-                    self.valid_coords.append((y, x))
-        
-        if not self.valid_coords:
-            for y in range(0, H - self.patch_size, stride * 4):
-                for x in range(0, W - self.patch_size, stride * 4):
-                    if self.mask[y:y+self.patch_size, x:x+self.patch_size].any():
+        cache_path = os.path.join(volume_uri, f"valid_coords_cache_{self.patch_size}_{stride}.npy")
+        if os.path.exists(cache_path):
+            self.valid_coords = np.load(cache_path).tolist()
+            # If the mask happens to be empty or list empty, valid_coords could be empty. But we trust the cache.
+        else:
+            print(f"Finding valid coordinates in mask (mean={self.mask.mean():.4f})...")
+            self.valid_coords = []
+            H, W = self.mask.shape
+            for y in range(0, H - self.patch_size, stride):
+                for x in range(0, W - self.patch_size, stride):
+                    if self.mask[y:y+self.patch_size, x:x+self.patch_size].mean() > 0.05:
                         self.valid_coords.append((y, x))
+            
+            if not self.valid_coords:
+                for y in range(0, H - self.patch_size, stride * 4):
+                    for x in range(0, W - self.patch_size, stride * 4):
+                        if self.mask[y:y+self.patch_size, x:x+self.patch_size].any():
+                            self.valid_coords.append((y, x))
+            np.save(cache_path, np.array(self.valid_coords, dtype=np.int32))
         
         print(f"Initialized Labeled Dataset: Volume {self.shape}, Valid Patches {len(self.valid_coords)}")
 

@@ -109,6 +109,9 @@ while True:
     print(f"Running 15-minute training for {tweak_name}...")
     sys.stdout.flush()
     
+    if os.path.exists("run_result.json"):
+        os.remove("run_result.json")
+    
     with open("run.log", "a") as f:
         f.write(f"\n\n--- {shift_name} CYCLE {i}: {tweak_name} ---\n")
         f.flush()
@@ -118,25 +121,19 @@ while True:
         )
     
     try:
-        with open("run.log", "rb") as f:
-            f.seek(0, 2)
-            f.seek(max(0, f.tell() - 8192), 0) 
-            log_tail = f.read().decode("utf-8", errors="ignore")
-    except: log_tail = ""
-        
-    val_bpb = "N/A"; train_loss = "N/A"; params = "N/A"; vram = "N/A"; vps = "N/A"
-    m = re.search(r"val_bpb:\s+([\d\.]+)", log_tail); 
-    if m: val_bpb = m.group(1)
-    m = re.search(r"train_loss:\s+([\d\.]+)", log_tail); 
-    if m: train_loss = m.group(1)
-    m = re.search(r"num_params_M:\s+([\d\.]+)", log_tail); 
-    if m: params = m.group(1)
-    m = re.search(r"peak_vram_mb:\s+([\d\.]+)", log_tail); 
-    if m: vram = m.group(1)
-    m = re.search(r"throughput_Mvps:\s+([\d\.]+)", log_tail); 
-    if m: vps = m.group(1)
+        with open("run_result.json", "r") as f:
+            res = json.load(f)
+        val_bpb = res.get("val_bpb", "N/A")
+        train_loss = res.get("train_loss", "N/A")
+        params = res.get("num_params_M", "N/A")
+        vram = res.get("peak_vram_mb", "N/A")
+        vps = res.get("throughput_Mvps", "N/A")
+        is_success = res.get("is_success", False)
+    except Exception as e:
+        print(f"Error reading run_result.json: {e}")
+        val_bpb = train_loss = params = vram = vps = "N/A"
+        is_success = False
 
-    is_success = "[NEW BEST]" in log_tail
     status = "SUCCESS" if is_success else "REVERTED"
     
     if is_success:

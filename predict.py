@@ -58,8 +58,8 @@ def predict():
     x = torch.from_numpy(block.astype(np.float32) / 255.0).unsqueeze(0).unsqueeze(0).to(device) # [B, C, Z, H, W]
 
     # Initialize model
-    config = VesuviusConfig(patch_size=args.patch_size, num_layers=args.num_layers)
-    model = InkDetectorOptimized(config, base_feat=args.base_feat).to(device)
+    config = VesuviusConfig(patch_size=args.patch_size, num_layers=args.num_layers, base_feat=args.base_feat)
+    model = InkDetectorOptimized(config).to(device)
     model.eval()
 
     print("Running inference...")

@@ -297,6 +297,17 @@ def train(config: ExperimentConfig):
     if not is_improvement: print("\n[RESULT] No improvement detected. Recommended: Revert.")
     else: print("\n[RESULT] Improvement detected! Recommended: Keep changes.")
 
+    result_data = {
+        "val_bpb": float(val_bpb),
+        "train_loss": float(smooth_loss),
+        "throughput_Mvps": float(throughput_Mvps),
+        "num_params_M": float(num_params_M),
+        "peak_vram_mb": float(peak_vram_mb),
+        "is_success": bool(is_improvement)
+    }
+    with open("run_result.json", "w") as f:
+        json.dump(result_data, f, indent=4)
+
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser()

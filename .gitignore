@@ -24,3 +24,5 @@ results.tsv
 *.log
 local_data/
 *.pid
+config_temp.json
+run_result.json
