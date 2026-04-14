@@ -1,0 +1,16 @@
+{
+    "project": "Vesuvius Autoresearch",
+    "scroll_uri": "local_data/PHercParis2Fr47/surface_volume/",
+    "coordinates": {
+        "z": 10,
+        "y": 20,
+        "x": 30
+    },
+    "patch_size": 32,
+    "num_layers": 16,
+    "hallucination_mitigation": {
+        "window_size_mm": 0.256,
+        "compliance_score": 0.53607177734375,
+        "status": "COMPLIANT (<0.5mm)"
+    }
+}
