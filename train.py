@@ -122,7 +122,7 @@ def train(time_budget=None):
     val_data_loader = get_dataloader(t_config.val_uri)
     val_data_iter = iter(val_data_loader)
 
-    model = InkDetectorOptimized(v_config, base_feat=64, num_blocks=12).to(device)
+    model = InkDetectorOptimized(v_config, base_feat=64, num_blocks=16).to(device)
     
     # 1. Step-Consistent Scheduler
     max_steps = 15000 
