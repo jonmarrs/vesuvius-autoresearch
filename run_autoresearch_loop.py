@@ -84,6 +84,11 @@ while True:
         config = ExperimentConfig()
 
     # Bayesian-Lite Sampling
+    # Decay weights to keep exploration fresh
+    if i % 20 == 0:
+        for family in success_counts:
+            success_counts[family] = max(1, success_counts[family] // 2)
+            
     families = [t["family"] for t in tweak_templates]
     weights = [success_counts[f] for f in families]
     template = random.choices(tweak_templates, weights=weights, k=1)[0]
