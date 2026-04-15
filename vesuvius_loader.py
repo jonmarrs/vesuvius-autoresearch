@@ -17,6 +17,7 @@ class FastVesuviusVolume:
         self.uri = volume_uri
         self.npy_path = os.path.join(volume_uri, "volume_cache.npy")
         self.data = None
+        self.dataset = None
         
         if os.path.isdir(volume_uri) and any(f.endswith('.tif') for f in os.listdir(volume_uri)):
             if not os.path.exists(self.npy_path):
@@ -38,24 +39,35 @@ class FastVesuviusVolume:
                 os.rename(tmp_npy_path, self.npy_path)
                 print(f"Fast cache built: {self.npy_path}")
                 
-            # Open existing (or just built) memmap
+            # Get shape
             files = [f for f in os.listdir(volume_uri) if f.endswith('.tif')]
             with Image.open(os.path.join(volume_uri, files[0])) as img:
                 h, w = img.size[::-1]
-            self.data = np.memmap(self.npy_path, dtype='uint8', mode='r', shape=(len(files), h, w))
             
-            self.shape = self.data.shape
+            self.shape = (len(files), h, w)
             self.is_zarr = False
         else:
-            # Fallback to TensorStore/Zarr
-            self.dataset = ts.open({
+            # For shape only. Do not save dataset to self to maintain fork safety.
+            ds = ts.open({
                 'driver': 'zarr',
                 'kvstore': {'driver': 'file', 'path': volume_uri},
             }).result()
-            self.shape = self.dataset.shape
+            self.shape = ds.shape
             self.is_zarr = True
 
+    def _lazy_init(self):
+        if self.is_zarr:
+            if self.dataset is None:
+                self.dataset = ts.open({
+                    'driver': 'zarr',
+                    'kvstore': {'driver': 'file', 'path': self.uri},
+                }).result()
+        else:
+            if self.data is None:
+                self.data = np.memmap(self.npy_path, dtype='uint8', mode='r', shape=self.shape)
+
     def __getitem__(self, key):
+        self._lazy_init()
         if self.is_zarr:
             return self.dataset[key].read().result()
         return self.data[key]
@@ -141,14 +153,15 @@ class VesuviusS3Dataset(IterableDataset):
         self.patch_size = patch_size
         self.num_layers = num_layers
         self.seed = seed
+        self.dataset = None
         if uri.startswith("s3://"):
             raise ValueError("S3 Streaming disabled. Use local paths.")
             
-        self.dataset = ts.open({
+        ds = ts.open({
             'driver': 'zarr',
             'kvstore': {'driver': 'file', 'path': uri},
         }).result()
-        self.shape = self.dataset.shape
+        self.shape = ds.shape
 
     def __iter__(self):
         worker_info = torch.utils.data.get_worker_info()
@@ -157,6 +170,12 @@ class VesuviusS3Dataset(IterableDataset):
             np.random.seed((worker_info.id + worker_seed) % 4294967295)
         else:
             np.random.seed(worker_seed % 4294967295)
+            
+        if self.dataset is None:
+            self.dataset = ts.open({
+                'driver': 'zarr',
+                'kvstore': {'driver': 'file', 'path': self.uri},
+            }).result()
 
         block_z, block_hw = 128, 256
         while True:

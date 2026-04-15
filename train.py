@@ -57,16 +57,17 @@ class ExperimentConfig:
             data = json.load(f)
         return cls(**data)
 
-def mixup_data(x, y, alpha=0.2):
+def mixup_data(x, y, z, alpha=0.2):
     if alpha > 0: lam = np.random.beta(alpha, alpha)
     else: lam = 1
     batch_size = x.size()[0]
     index = torch.randperm(batch_size).to(x.device)
     mixed_x = lam * x + (1 - lam) * x[index, :]
     mixed_y = lam * y + (1 - lam) * y[index, :]
-    return mixed_x, mixed_y, lam
+    mixed_z = lam * z + (1 - lam) * z[index, :]
+    return mixed_x, mixed_y, mixed_z, lam
 
-def cutmix_data(x, y, alpha=1.0):
+def cutmix_data(x, y, z, alpha=1.0):
     if alpha > 0: lam = np.random.beta(alpha, alpha)
     else: lam = 1
     batch_size = x.size()[0]
@@ -84,8 +85,9 @@ def cutmix_data(x, y, alpha=1.0):
 
     x[..., bby1:bby2, bbx1:bbx2] = x[index, ..., bby1:bby2, bbx1:bbx2]
     y[..., bby1:bby2, bbx1:bbx2] = y[index, ..., bby1:bby2, bbx1:bbx2]
+    z[..., bby1:bby2, bbx1:bbx2] = z[index, ..., bby1:bby2, bbx1:bbx2]
     
-    return x, y, lam
+    return x, y, z, lam
 
 def compute_dice_loss(pred, target, smooth=1e-5):
     """
@@ -196,12 +198,7 @@ def train(config: ExperimentConfig):
         except StopIteration:
             data_iter = iter(data_loader); continue
 
-        if x_orig.size(0) > 1:
-            r = np.random.rand()
-            if r < 0.2: x_orig, target_ink, _ = mixup_data(x_orig, target_ink)
-            elif r < 0.4: x_orig, target_ink, _ = cutmix_data(x_orig, target_ink)
-
-        # 3. Sobel-Z pseudo-labels (after mixup)
+        # 3. Sobel-Z pseudo-labels (BEFORE mixup to avoid boundary artifacts)
         with torch.no_grad():
             grad_z = x_orig[:, :, 1:] - x_orig[:, :, :-1]
             target_fiber = grad_z.abs().mean(dim=2, keepdim=True)
@@ -210,6 +207,11 @@ def train(config: ExperimentConfig):
             tf_min = tf_flat.min(dim=1, keepdim=True)[0].view(b_sz, 1, 1, 1, 1)
             tf_max = tf_flat.max(dim=1, keepdim=True)[0].view(b_sz, 1, 1, 1, 1)
             target_fiber = (target_fiber - tf_min) / (tf_max - tf_min + 1e-8)
+
+        if x_orig.size(0) > 1:
+            r = np.random.rand()
+            if r < 0.2: x_orig, target_ink, target_fiber, _ = mixup_data(x_orig, target_ink, target_fiber)
+            elif r < 0.4: x_orig, target_ink, target_fiber, _ = cutmix_data(x_orig, target_ink, target_fiber)
 
         k_rot = np.random.randint(0, 4)
         x_aug = torch.rot90(x_orig, k=k_rot, dims=(-2, -1))
