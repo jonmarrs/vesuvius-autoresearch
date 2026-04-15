@@ -68,3 +68,87 @@
 - **Stats**: val_bpb: 0.9996259784698487, loss: 0.40654647195995, params: 1.412051M, vram: 7894.75732421875MB, speed: 9.759578993968123Mvps
 - **Result**: No improvement detected. Config reverted.
 
+## Cycle 12: num_layers_16 (REVERTED)
+- **Timestamp**: 13:14:14
+- **Config**: batch_size: 16, patch_size: 64, num_layers: 16, lr: 0.001, weight_decay: 0.01, time_budget: 900, base_feat: 64, num_blocks: 16, num_heads: 8, dropout: 0.0
+- **Stats**: val_bpb: 0.2893691438436508, loss: 0.28476169435606685, params: 1.379283M, vram: 5243.81982421875MB, speed: 4.662347399858681Mvps
+- **Result**: No improvement detected. Config reverted.
+
+## Cycle 13: batch_size_24 (REVERTED)
+- **Timestamp**: 13:29:32
+- **Config**: batch_size: 24, patch_size: 64, num_layers: 24, lr: 0.001, weight_decay: 0.01, time_budget: 900, base_feat: 64, num_blocks: 16, num_heads: 8, dropout: 0.0
+- **Stats**: val_bpb: 0.28540835201740267, loss: 0.49261241021295443, params: 1.412051M, vram: 11825.85693359375MB, speed: 9.99079689465336Mvps
+- **Result**: No improvement detected. Config reverted.
+
+## Cycle 14: dropout_0.1 (REVERTED)
+- **Timestamp**: 13:44:47
+- **Config**: batch_size: 16, patch_size: 64, num_layers: 24, lr: 0.001, weight_decay: 0.01, time_budget: 900, base_feat: 64, num_blocks: 16, num_heads: 8, dropout: 0.1
+- **Stats**: val_bpb: 0.2806170701980591, loss: 0.3444149408682863, params: 1.412051M, vram: 8810.25732421875MB, speed: 8.945414200504302Mvps
+- **Result**: No improvement detected. Config reverted.
+
+## Cycle 15: base_feat_64 (REVERTED)
+- **Timestamp**: 14:00:02
+- **Config**: batch_size: 16, patch_size: 64, num_layers: 24, lr: 0.001, weight_decay: 0.01, time_budget: 900, base_feat: 64, num_blocks: 16, num_heads: 8, dropout: 0.0
+- **Stats**: val_bpb: 0.2806170701980591, loss: 0.3912822601380464, params: 1.412051M, vram: 7894.75732421875MB, speed: 9.711684967135522Mvps
+- **Result**: No improvement detected. Config reverted.
+
+## Cycle 16: num_blocks_8 (REVERTED)
+- **Timestamp**: 14:15:17
+- **Config**: batch_size: 16, patch_size: 64, num_layers: 24, lr: 0.001, weight_decay: 0.01, time_budget: 900, base_feat: 64, num_blocks: 8, num_heads: 8, dropout: 0.0
+- **Stats**: val_bpb: 0.2806170701980591, loss: 0.24253908045004055, params: 0.878035M, vram: 4872.43310546875MB, speed: 13.088869093447371Mvps
+- **Result**: No improvement detected. Config reverted.
+
+## Cycle 17: batch_size_16 (REVERTED)
+- **Timestamp**: 14:30:32
+- **Config**: batch_size: 16, patch_size: 64, num_layers: 24, lr: 0.001, weight_decay: 0.01, time_budget: 900, base_feat: 64, num_blocks: 16, num_heads: 8, dropout: 0.0
+- **Stats**: val_bpb: 0.2806170701980591, loss: 0.23846305462649797, params: 1.412051M, vram: 7894.63232421875MB, speed: 9.932936080379903Mvps
+- **Result**: No improvement detected. Config reverted.
+
+## Cycle 18: num_heads_8 (REVERTED)
+- **Timestamp**: 14:45:46
+- **Config**: batch_size: 16, patch_size: 64, num_layers: 24, lr: 0.001, weight_decay: 0.01, time_budget: 900, base_feat: 64, num_blocks: 16, num_heads: 8, dropout: 0.0
+- **Stats**: val_bpb: 0.2806170701980591, loss: 0.3222537216724104, params: 1.412051M, vram: 7894.63232421875MB, speed: 10.001951497503871Mvps
+- **Result**: No improvement detected. Config reverted.
+
+## Cycle 19: lr_0.0001 (REVERTED)
+- **Timestamp**: 15:01:01
+- **Config**: batch_size: 16, patch_size: 64, num_layers: 24, lr: 0.0001, weight_decay: 0.01, time_budget: 900, base_feat: 64, num_blocks: 16, num_heads: 8, dropout: 0.0
+- **Stats**: val_bpb: 0.9996257835626602, loss: 0.4062523652057664, params: 1.412051M, vram: 7894.63232421875MB, speed: 9.9295536602612Mvps
+- **Result**: No improvement detected. Config reverted.
+
+## Cycle 20: patch_size_96 (REVERTED)
+- **Timestamp**: 15:01:08
+- **Config**: batch_size: 16, patch_size: 96, num_layers: 24, lr: 0.001, weight_decay: 0.01, time_budget: 900, base_feat: 64, num_blocks: 16, num_heads: 8, dropout: 0.0
+- **Stats**: val_bpb: N/A, loss: N/A, params: N/AM, vram: N/AMB, speed: N/AMvps
+- **Result**: No improvement detected. Config reverted.
+
+## Cycle 21: weight_decay_0.1 (REVERTED)
+- **Timestamp**: 15:16:23
+- **Config**: batch_size: 16, patch_size: 64, num_layers: 24, lr: 0.001, weight_decay: 0.1, time_budget: 900, base_feat: 64, num_blocks: 16, num_heads: 8, dropout: 0.0
+- **Stats**: val_bpb: 0.2806170701980591, loss: 0.3238765708793298, params: 1.412051M, vram: 7894.75732421875MB, speed: 9.971723156461158Mvps
+- **Result**: No improvement detected. Config reverted.
+
+## Cycle 22: lr_5e-05 (REVERTED)
+- **Timestamp**: 15:31:38
+- **Config**: batch_size: 16, patch_size: 64, num_layers: 24, lr: 5e-05, weight_decay: 0.01, time_budget: 900, base_feat: 64, num_blocks: 16, num_heads: 8, dropout: 0.0
+- **Stats**: val_bpb: 0.9996060746908187, loss: 0.4062379298162593, params: 1.412051M, vram: 7894.75732421875MB, speed: 9.764285020137407Mvps
+- **Result**: No improvement detected. Config reverted.
+
+## Cycle 23: patch_size_64 (REVERTED)
+- **Timestamp**: 15:46:53
+- **Config**: batch_size: 16, patch_size: 64, num_layers: 24, lr: 0.001, weight_decay: 0.01, time_budget: 900, base_feat: 64, num_blocks: 16, num_heads: 8, dropout: 0.0
+- **Stats**: val_bpb: 0.2806170701980591, loss: 0.4999763615128239, params: 1.412051M, vram: 7894.63232421875MB, speed: 9.868655306151407Mvps
+- **Result**: No improvement detected. Config reverted.
+
+## Cycle 24: num_heads_4 (REVERTED)
+- **Timestamp**: 16:02:07
+- **Config**: batch_size: 16, patch_size: 64, num_layers: 24, lr: 0.001, weight_decay: 0.01, time_budget: 900, base_feat: 64, num_blocks: 16, num_heads: 4, dropout: 0.0
+- **Stats**: val_bpb: 0.2806170701980591, loss: 0.23027696058436845, params: 1.412051M, vram: 5547.75732421875MB, speed: 11.105967885005597Mvps
+- **Result**: No improvement detected. Config reverted.
+
+## Cycle 25: num_heads_12 (REVERTED)
+- **Timestamp**: 16:17:22
+- **Config**: batch_size: 16, patch_size: 64, num_layers: 24, lr: 0.001, weight_decay: 0.01, time_budget: 900, base_feat: 64, num_blocks: 16, num_heads: 12, dropout: 0.0
+- **Stats**: val_bpb: 0.2806170701980591, loss: 0.29415043074617686, params: 1.412051M, vram: 7894.75732421875MB, speed: 9.88644700867908Mvps
+- **Result**: No improvement detected. Config reverted.
+
