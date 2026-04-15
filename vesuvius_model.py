@@ -3,7 +3,6 @@ Vesuvius Autoresearch: FRONTIER-LEVEL MISSION-CRITICAL AUDIT.
 Zero compromises. Target: $1M Grand Prize & Scroll Foundation Model.
 """
 
-import os
 import time
 import torch
 import torch.nn as nn

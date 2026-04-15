@@ -7,7 +7,6 @@ Usage: uv run train.py
 import os
 import time
 import math
-import gc
 import json
 from dataclasses import dataclass, asdict
 
