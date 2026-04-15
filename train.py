@@ -107,7 +107,6 @@ def compute_dice_loss(pred, target, smooth=1e-5):
     return 1.0 - dice.mean()
 
 def train(config: ExperimentConfig):
-    t_start = time.time()
     torch.set_float32_matmul_precision('high')
     device = torch.device("cuda")
     
@@ -212,9 +211,8 @@ def train(config: ExperimentConfig):
             tf_max = tf_flat.max(dim=1, keepdim=True)[0].view(b_sz, 1, 1, 1, 1)
             target_fiber = (target_fiber - tf_min) / (tf_max - tf_min + 1e-8)
 
-        x_aug = x_orig.clone()
         k_rot = np.random.randint(0, 4)
-        x_aug = torch.rot90(x_aug, k=k_rot, dims=(-2, -1))
+        x_aug = torch.rot90(x_orig, k=k_rot, dims=(-2, -1))
         target_ink_aug = torch.rot90(target_ink, k=k_rot, dims=(-2, -1)).clamp(0, 1)
         target_fiber_aug = torch.rot90(target_fiber, k=k_rot, dims=(-2, -1)).clamp(0, 1)
         x_aug = x_aug + torch.randn_like(x_aug) * 0.01
