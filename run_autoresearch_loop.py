@@ -117,27 +117,35 @@ while True:
     if os.path.exists("run_result.json"):
         os.remove("run_result.json")
     
-    with open("run.log", "a") as f:
-        f.write(f"\n\n--- {shift_name} CYCLE {i}: {tweak_name} ---\n")
-        f.flush()
-        result = subprocess.run(
-            f"uv run train.py --config {TEMP_CONFIG}",
-            shell=True, stdout=f, stderr=subprocess.STDOUT, env=env, text=True
-        )
+    try:
+        with open("run.log", "a") as f:
+            f.write(f"\n\n--- {shift_name} CYCLE {i}: {tweak_name} ---\n")
+            f.flush()
+            subprocess.run(
+                f"uv run train.py --config {TEMP_CONFIG}",
+                shell=True, stdout=f, stderr=subprocess.STDOUT, env=env, text=True,
+                timeout=1200 # 20 minute safety timeout
+            )
+    except subprocess.TimeoutExpired:
+        print(f"Cycle {i} timed out after 20 minutes.")
+    except Exception as e:
+        print(f"Subprocess error in cycle {i}: {e}")
+
+    val_bpb = train_loss = params = vram = vps = "N/A"
+    is_success = False
     
     try:
-        with open("run_result.json", "r") as f:
-            res = json.load(f)
-        val_bpb = res.get("val_bpb", "N/A")
-        train_loss = res.get("train_loss", "N/A")
-        params = res.get("num_params_M", "N/A")
-        vram = res.get("peak_vram_mb", "N/A")
-        vps = res.get("throughput_Mvps", "N/A")
-        is_success = res.get("is_success", False)
+        if os.path.exists("run_result.json"):
+            with open("run_result.json", "r") as f:
+                res = json.load(f)
+            val_bpb = res.get("val_bpb", "N/A")
+            train_loss = res.get("train_loss", "N/A")
+            params = res.get("num_params_M", "N/A")
+            vram = res.get("peak_vram_mb", "N/A")
+            vps = res.get("throughput_Mvps", "N/A")
+            is_success = res.get("is_success", False)
     except Exception as e:
         print(f"Error reading run_result.json: {e}")
-        val_bpb = train_loss = params = vram = vps = "N/A"
-        is_success = False
 
     status = "SUCCESS" if is_success else "REVERTED"
     

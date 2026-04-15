@@ -5,6 +5,7 @@ Usage: uv run train.py
 """
 
 import os
+import sys
 import time
 import math
 import json
@@ -16,7 +17,7 @@ import torch.nn.functional as F
 import numpy as np
 import pandas as pd
 from torch.utils.data import DataLoader
-from torch.cuda.amp import GradScaler, autocast
+from torch.amp import GradScaler, autocast
 
 # Import our breakthrough components
 from vesuvius_model import InkDetectorOptimized, VesuviusConfig
@@ -106,8 +107,6 @@ def compute_dice_loss(pred, target, smooth=1e-5):
     return 1.0 - dice.mean()
 
 def train(config: ExperimentConfig):
-    import sys
-    import json
     t_start = time.time()
     torch.set_float32_matmul_precision('high')
     device = torch.device("cuda")
@@ -221,7 +220,7 @@ def train(config: ExperimentConfig):
         x_aug = x_aug + torch.randn_like(x_aug) * 0.01
 
         optimizer.zero_grad(set_to_none=True)
-        with autocast():
+        with autocast(device_type='cuda'):
             # InkDetectorOptimized forward returns (ink, fiber, qc)
             out_ink, out_fiber, _ = model(x_aug, return_fiber=True)
             out_ink_2d = torch.mean(out_ink, dim=2)
@@ -271,7 +270,7 @@ def train(config: ExperimentConfig):
                 if val_target is not None and val_target.numel() > 0:
                     val_target = val_target.to(device)
                     if val_target.dim() == 3: val_target = val_target.unsqueeze(1)
-                    with autocast(): out = model(val_x)
+                    with autocast(device_type='cuda'): out = model(val_x)
                     val_losses.append(compute_dice_loss(out, val_target).item())
             except StopIteration: val_data_iter = iter(val_data_loader)
             except Exception: continue

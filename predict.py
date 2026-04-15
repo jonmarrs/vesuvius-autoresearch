@@ -6,11 +6,14 @@ Usage: uv run predict.py --uri "s3://..." --z 1000 --y 2000 --x 3000
 
 import os
 import argparse
+import json
 import torch
 import torch.nn.functional as F
 import numpy as np
-import tensorstore as ts
+import matplotlib.pyplot as plt
+from matplotlib.patches import Rectangle
 from vesuvius_model import InkDetectorOptimized, VesuviusConfig
+from vesuvius_loader import FastVesuviusVolume
 
 def predict():
     parser = argparse.ArgumentParser()
@@ -27,7 +30,6 @@ def predict():
     print(f"Loading volume from {args.uri}...")
 
     # Open the dataset
-    from vesuvius_loader import FastVesuviusVolume
     dataset = FastVesuviusVolume(args.uri)
 
     # Read the block
@@ -59,9 +61,6 @@ def predict():
     np.save(f"predictions/{base_name}_fiber.npy", prob_fiber)
 
     # Generate Visualization with Scale Bar
-    import matplotlib.pyplot as plt
-    from matplotlib.patches import Rectangle
-
     fig, axes = plt.subplots(1, 3, figsize=(15, 5))
     
     # 1. CT Context (Middle Slice)
@@ -100,7 +99,6 @@ def predict():
     plt.close()
 
     # Save Metadata JSON for Milestone Submission
-    import json
     metadata = {
         "project": "Vesuvius Autoresearch",
         "scroll_uri": args.uri,
