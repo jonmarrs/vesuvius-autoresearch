@@ -29,24 +29,48 @@ def predict():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Loading volume from {args.uri}...")
 
+    # Load trained model first to get the correct hyperparameters
+    checkpoint_path = "best_model.pt"
+    if not os.path.exists(checkpoint_path):
+        raise FileNotFoundError(f"Trained model not found at {checkpoint_path}. Please run training first.")
+        
+    checkpoint = torch.load(checkpoint_path, map_location=device)
+    config_dict = checkpoint.get('config', {})
+    
+    # Reconstruct VesuviusConfig from checkpoint, overriding args if present
+    patch_size = config_dict.get('patch_size', args.patch_size)
+    num_layers = config_dict.get('num_layers', args.num_layers)
+    base_feat = config_dict.get('base_feat', args.base_feat)
+    num_blocks = config_dict.get('num_blocks', 16)
+    num_heads = config_dict.get('num_heads', 8)
+    dropout = config_dict.get('dropout', 0.0)
+    
+    v_config = VesuviusConfig(
+        patch_size=patch_size, 
+        num_layers=num_layers, 
+        base_feat=base_feat,
+        num_blocks=num_blocks,
+        num_heads=num_heads,
+        dropout=dropout
+    )
+    
+    model = InkDetectorOptimized(v_config).to(device)
+    model.load_state_dict(checkpoint['model_state_dict'])
+    model.eval()
+
     # Open the dataset
     dataset = FastVesuviusVolume(args.uri)
 
-    # Read the block
-    print(f"Reading block at Z={args.z}, Y={args.y}, X={args.x}...")
+    # Read the block using the verified config sizes
+    print(f"Reading block at Z={args.z}, Y={args.y}, X={args.x} with patch_size={patch_size}, num_layers={num_layers}...")
     block = dataset[
-        args.z : args.z + args.num_layers,
-        args.y : args.y + args.patch_size,
-        args.x : args.x + args.patch_size
+        args.z : args.z + num_layers,
+        args.y : args.y + patch_size,
+        args.x : args.x + patch_size
     ]
 
     # Prepare input
     x = torch.from_numpy(block.astype(np.float32) / 255.0).unsqueeze(0).unsqueeze(0).to(device) # [B, C, Z, H, W]
-
-    # Initialize model
-    config = VesuviusConfig(patch_size=args.patch_size, num_layers=args.num_layers, base_feat=args.base_feat)
-    model = InkDetectorOptimized(config).to(device)
-    model.eval()
 
     print("Running inference...")
     with torch.no_grad():
@@ -64,7 +88,7 @@ def predict():
     fig, axes = plt.subplots(1, 3, figsize=(15, 5))
     
     # 1. CT Context (Middle Slice)
-    ct_slice = block[args.num_layers // 2].astype(np.float32) / 255.0
+    ct_slice = block[num_layers // 2].astype(np.float32) / 255.0
     axes[0].imshow(ct_slice, cmap='gray')
     axes[0].set_title("CT Slice (Middle)")
     
@@ -86,12 +110,12 @@ def predict():
     
     for ax in axes:
         # Drawing a 1mm scale bar for small patches, or 1cm if it fits
-        bar_px = one_mm_px if args.patch_size < one_cm_px else one_cm_px
-        label = "1mm" if args.patch_size < one_cm_px else "1cm"
+        bar_px = one_mm_px if patch_size < one_cm_px else one_cm_px
+        label = "1mm" if patch_size < one_cm_px else "1cm"
         
-        rect = Rectangle((10, args.patch_size - 20), bar_px, 5, facecolor='white', edgecolor='black')
+        rect = Rectangle((10, patch_size - 20), bar_px, 5, facecolor='white', edgecolor='black')
         ax.add_patch(rect)
-        ax.text(10, args.patch_size - 25, label, color='white', fontsize=10, fontweight='bold')
+        ax.text(10, patch_size - 25, label, color='white', fontsize=10, fontweight='bold')
         ax.axis('off')
 
     plt.tight_layout()
@@ -103,12 +127,12 @@ def predict():
         "project": "Vesuvius Autoresearch",
         "scroll_uri": args.uri,
         "coordinates": {"z": args.z, "y": args.y, "x": args.x},
-        "patch_size": args.patch_size,
-        "num_layers": args.num_layers,
+        "patch_size": patch_size,
+        "num_layers": num_layers,
         "hallucination_mitigation": {
-            "window_size_mm": (args.patch_size * pixel_size_um / 1000.0),
+            "window_size_mm": (patch_size * pixel_size_um / 1000.0),
             "compliance_score": float(prob_ink.max()), 
-            "status": "COMPLIANT (<0.5mm)" if (args.patch_size * pixel_size_um / 1000.0) <= 0.5 else "LARGE WINDOW"
+            "status": "COMPLIANT (<0.5mm)" if (patch_size * pixel_size_um / 1000.0) <= 0.5 else "LARGE WINDOW"
         }
     }
     with open(f"predictions/{base_name}_meta.json", "w") as f:
