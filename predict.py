@@ -74,8 +74,8 @@ def predict():
 
     print("Running inference...")
     with torch.no_grad():
-        out_ink, out_fiber, _ = model(x, return_fiber=True)
-        prob_ink = torch.sigmoid(out_ink.mean(dim=2)).cpu().numpy()[0, 0]
+        out_ink_2d, out_fiber, _ = model(x, return_fiber=True)
+        prob_ink = torch.sigmoid(out_ink_2d).cpu().numpy()[0, 0]
         prob_fiber = torch.sigmoid(out_fiber.mean(dim=2)).cpu().numpy()[0, 0]
 
     # Save results

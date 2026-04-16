@@ -20,7 +20,10 @@ tweak_templates = [
     {"family": "batch", "attr": "batch_size", "vals": [8, 16, 24]}, 
     {"family": "spatial", "attr": "patch_size", "vals": [64, 96]},
     {"family": "temporal", "attr": "num_layers", "vals": [16, 24, 32]}, 
-    {"family": "width", "attr": "base_feat", "vals": [32, 64, 128]}
+    {"family": "width", "attr": "base_feat", "vals": [32, 64, 128]},
+    {"family": "loss_balance", "attr": "loss_ink_bce", "vals": [0.2, 0.4, 0.6]},
+    {"family": "loss_balance", "attr": "loss_ink_dice", "vals": [0.2, 0.4, 0.6]},
+    {"family": "loss_balance", "attr": "loss_fiber_mse", "vals": [0.1, 0.2, 0.3]}
 ]
 
 HISTORY_FILE = "autoresearch_history.json"

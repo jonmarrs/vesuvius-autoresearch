@@ -13,9 +13,19 @@ class FastVesuviusVolume:
     Highly optimized volume reader. 
     Loads TIF stack into a single memmapped .npy file for instantaneous access.
     """
-    def __init__(self, volume_uri):
+    def __init__(self, volume_uri, cache_dir=None):
         self.uri = volume_uri
-        self.npy_path = os.path.join(volume_uri, "volume_cache.npy")
+        
+        # Determine cache location
+        if cache_dir:
+            os.makedirs(cache_dir, exist_ok=True)
+            # Use hash of uri to create a unique cache name if using a shared cache_dir
+            import hashlib
+            uri_hash = hashlib.md5(volume_uri.encode()).hexdigest()[:8]
+            self.npy_path = os.path.join(cache_dir, f"volume_cache_{uri_hash}.npy")
+        else:
+            self.npy_path = os.path.join(volume_uri, "volume_cache.npy")
+            
         self.data = None
         self.dataset = None
         
@@ -73,8 +83,8 @@ class FastVesuviusVolume:
         return self.data[key]
 
 class VesuviusLabeledDataset(IterableDataset):
-    def __init__(self, volume_uri, labels_path, mask_path=None, patch_size=64, num_layers=16, seed=None):
-        self.volume = FastVesuviusVolume(volume_uri)
+    def __init__(self, volume_uri, labels_path, mask_path=None, patch_size=64, num_layers=16, seed=None, cache_dir=None):
+        self.volume = FastVesuviusVolume(volume_uri, cache_dir=cache_dir)
         self.patch_size = patch_size
         self.num_layers = num_layers
         self.shape = self.volume.shape
@@ -93,7 +103,14 @@ class VesuviusLabeledDataset(IterableDataset):
         # Pre-calculate valid coordinates
         stride = 16
         mask_mtime = int(os.path.getmtime(mask_path)) if mask_path and os.path.exists(mask_path) else 0
-        cache_path = os.path.join(volume_uri, f"valid_coords_cache_{self.patch_size}_{stride}_{mask_mtime}.npy")
+        
+        if cache_dir:
+            import hashlib
+            uri_hash = hashlib.md5(volume_uri.encode()).hexdigest()[:8]
+            cache_path = os.path.join(cache_dir, f"valid_coords_cache_{uri_hash}_{self.patch_size}_{stride}_{mask_mtime}.npy")
+        else:
+            cache_path = os.path.join(volume_uri, f"valid_coords_cache_{self.patch_size}_{stride}_{mask_mtime}.npy")
+
         if os.path.exists(cache_path):
             self.valid_coords = np.load(cache_path).tolist()
             # If the mask happens to be empty or list empty, valid_coords could be empty. But we trust the cache.
@@ -148,11 +165,12 @@ class VesuviusLabeledDataset(IterableDataset):
 
 class VesuviusS3Dataset(IterableDataset):
     """Fallback for Zarr/S3 data."""
-    def __init__(self, uri, patch_size=32, num_layers=16, seed=None):
+    def __init__(self, uri, patch_size=32, num_layers=16, seed=None, cache_dir=None):
         self.uri = uri
         self.patch_size = patch_size
         self.num_layers = num_layers
         self.seed = seed
+        self.cache_dir = cache_dir
         self.dataset = None
         if uri.startswith("s3://"):
             raise ValueError("S3 Streaming disabled. Use local paths.")

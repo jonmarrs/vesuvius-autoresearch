@@ -55,6 +55,17 @@ class GatedFusionBlock(nn.Module):
         feat = self.proj(x)
         return self.res(up) + (mask * feat)
 
+class LearnedZProjection(nn.Module):
+    """Learned linear projection to collapse Z-dimension into 2D."""
+    def __init__(self, depth, channels):
+        super().__init__()
+        self.proj = nn.Conv3d(channels, channels, kernel_size=(depth, 1, 1))
+
+    def forward(self, x):
+        # x: [B, C, Z, H, W]
+        x = self.proj(x) # [B, C, 1, H, W]
+        return x.squeeze(2)
+
 class InkDetectorOptimized(nn.Module):
     def __init__(self, config: VesuviusConfig):
         super().__init__()
@@ -111,7 +122,8 @@ class InkDetectorOptimized(nn.Module):
         )
         
         # Multi-task Heads
-        self.final_ink = nn.Conv3d(self.base_feat // 4, 1, kernel_size=3, padding=1)
+        self.z_proj = LearnedZProjection(self.num_layers, self.base_feat // 4)
+        self.final_ink = nn.Conv2d(self.base_feat // 4, 1, kernel_size=3, padding=1)
         self.fiber_head = nn.Conv3d(self.base_feat // 4, 1, kernel_size=3, padding=1)
         self.qc_head = nn.Sequential(
             nn.AdaptiveAvgPool3d(1),
@@ -153,12 +165,12 @@ class InkDetectorOptimized(nn.Module):
         x_f2 = self.fusion2(x, x_up2)
         x_out = self.decoder_res(x_f2)
         
-        ink = self.final_ink(x_out)
+        ink_2d = self.final_ink(self.z_proj(x_out))
         if return_fiber or return_qc:
             fiber = self.fiber_head(x_out) if return_fiber else None
             qc = self.qc_head(x_trans) if return_qc else None
-            return ink, fiber, qc
-        return ink
+            return ink_2d, fiber, qc
+        return ink_2d
 
 class DividedSpaceTimeBlock(nn.Module):
     def __init__(self, dim, num_heads, dropout=0.0):

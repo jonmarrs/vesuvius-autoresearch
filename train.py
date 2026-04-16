@@ -32,6 +32,7 @@ class ExperimentConfig:
     # Data
     uri: str = 'local_data/PHercParis2Fr47/surface_volume/'
     val_uri: str = 'local_data/PHercParis2Fr143/surface_volume/'
+    cache_dir: str = None  # If None, caches are stored next to volume_uri
     
     # Training Loop
     batch_size: int = 16 
@@ -41,6 +42,11 @@ class ExperimentConfig:
     weight_decay: float = 0.01
     time_budget: int = 900 
     
+    # Loss Weights
+    loss_ink_bce: float = 0.4
+    loss_ink_dice: float = 0.4
+    loss_fiber_mse: float = 0.2
+
     # Model Architecture
     base_feat: int = 64
     num_blocks: int = 16
@@ -89,13 +95,10 @@ def cutmix_data(x, y, z, alpha=1.0):
     
     return x, y, z, lam
 
-def compute_dice_loss(pred, target, smooth=1e-5):
+def compute_dice_loss(pred_2d, target, smooth=1e-5):
     """
     Standard Dice Loss for 2D ink detection.
-    Collapses the Z-dimension of the 3D prediction before computing Dice.
     """
-    # pred: [B, 1, Z, H, W] -> collapse Z to 2D
-    pred_2d = torch.mean(pred, dim=2)
     pred_2d = torch.sigmoid(pred_2d)
     
     # target: [B, 1, H, W]
@@ -130,9 +133,9 @@ def train(config: ExperimentConfig):
         labels_path = os.path.join(parent_dir, 'inklabels.png')
         mask_path = os.path.join(parent_dir, 'mask.png')
         if os.path.exists(labels_path):
-            ds = VesuviusLabeledDataset(uri, labels_path, mask_path if os.path.exists(mask_path) else None, config.patch_size, config.num_layers + 8, seed=seed)
+            ds = VesuviusLabeledDataset(uri, labels_path, mask_path if os.path.exists(mask_path) else None, config.patch_size, config.num_layers + 8, seed=seed, cache_dir=config.cache_dir)
         else:
-            ds = VesuviusS3Dataset(uri, config.patch_size, config.num_layers + 8, seed=seed)
+            ds = VesuviusS3Dataset(uri, config.patch_size, config.num_layers + 8, seed=seed, cache_dir=config.cache_dir)
         return DataLoader(ds, batch_size=config.batch_size, num_workers=min(4, os.cpu_count() or 1), pin_memory=True)
 
     data_loader = get_dataloader(config.uri)
@@ -142,7 +145,7 @@ def train(config: ExperimentConfig):
         parent_dir = os.path.dirname(uri.rstrip('/'))
         labels_path = os.path.join(parent_dir, 'inklabels.png')
         mask_path = os.path.join(parent_dir, 'mask.png')
-        ds = VesuviusLabeledDataset(uri, labels_path, mask_path if os.path.exists(mask_path) else None, config.patch_size, config.num_layers + 8, seed=42)
+        ds = VesuviusLabeledDataset(uri, labels_path, mask_path if os.path.exists(mask_path) else None, config.patch_size, config.num_layers + 8, seed=42, cache_dir=config.cache_dir)
         return DataLoader(ds, batch_size=config.batch_size, num_workers=0, pin_memory=True)
 
     val_data_loader = get_val_dataloader(config.val_uri)
@@ -221,14 +224,13 @@ def train(config: ExperimentConfig):
 
         optimizer.zero_grad(set_to_none=True)
         with autocast(device_type='cuda'):
-            # InkDetectorOptimized forward returns (ink, fiber, qc)
-            out_ink, out_fiber, _ = model(x_aug, return_fiber=True)
-            out_ink_2d = torch.mean(out_ink, dim=2)
+            # InkDetectorOptimized forward returns (ink_2d, fiber, qc)
+            out_ink_2d, out_fiber, _ = model(x_aug, return_fiber=True)
             loss_ink = F.binary_cross_entropy_with_logits(out_ink_2d, target_ink_aug)
-            loss_dice = compute_dice_loss(out_ink, target_ink_aug)
+            loss_dice = compute_dice_loss(out_ink_2d, target_ink_aug)
             out_fiber_2d = torch.mean(out_fiber, dim=2, keepdim=True)
             loss_fiber = F.mse_loss(torch.sigmoid(out_fiber_2d), target_fiber_aug)
-            total_loss = 0.4 * loss_ink + 0.4 * loss_dice + 0.2 * loss_fiber
+            total_loss = config.loss_ink_bce * loss_ink + config.loss_ink_dice * loss_dice + config.loss_fiber_mse * loss_fiber
 
         if not torch.isfinite(total_loss) or total_loss.item() > 1e6:
             print(f"\n[WARNING] Numerical Instability at Step {step}: Loss {total_loss.item():.2e}")
@@ -270,8 +272,8 @@ def train(config: ExperimentConfig):
                 if val_target is not None and val_target.numel() > 0:
                     val_target = val_target.to(device)
                     if val_target.dim() == 3: val_target = val_target.unsqueeze(1)
-                    with autocast(device_type='cuda'): out = model(val_x)
-                    val_losses.append(compute_dice_loss(out, val_target).item())
+                    with autocast(device_type='cuda'): out_2d = model(val_x)
+                    val_losses.append(compute_dice_loss(out_2d, val_target).item())
             except StopIteration: val_data_iter = iter(val_data_loader)
             except Exception: continue
 
