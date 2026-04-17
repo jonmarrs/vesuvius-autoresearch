@@ -29,6 +29,23 @@ Transition from synthetic targets to genuine manual ink labels. The primary obje
 
 ---
 
+## [2026-04-17] Day Shift: Resuming the Gold Standard Baseline
+
+**Status:** IN PROGRESS (Started: 13:14)
+
+### Purpose
+Resume the autonomous search for model improvements after a system crash. The focus remains on optimizing the cross-fragment generalization from Fragment 1 to Fragment 2.
+
+### Configuration
+*   **Hardware:** RTX 4090 (24GB VRAM).
+*   **Target:** `val_bpb` (1.0 - Dice) improvement over the current best (0.0025).
+*   **Strategy:** Automated 15-minute training cycles with Bayesian-lite parameter sampling.
+
+### Outcomes & Insights
+*(To be populated as cycles complete)*
+
+---
+
 ## [Future Entry Template]
 
 ## [YYYY-MM-DD] Night Shift: [Experiment Title]
