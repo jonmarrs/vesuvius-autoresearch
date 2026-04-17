@@ -111,6 +111,20 @@ def compute_dice_loss(pred_2d, target, smooth=1e-5):
     dice = (2. * intersection + smooth) / (union + smooth)
     return 1.0 - dice.mean()
 
+def compute_hard_dice(pred_2d, target, smooth=1e-5):
+    """
+    Hard Dice Score (thresholded at 0.5) for evaluation.
+    """
+    pred_2d = (torch.sigmoid(pred_2d) > 0.5).float()
+    
+    if target.dim() == 3: target = target.unsqueeze(1)
+    
+    intersection = (pred_2d * target).sum(dim=(-2, -1))
+    union = pred_2d.sum(dim=(-2, -1)) + target.sum(dim=(-2, -1))
+    
+    dice = (2. * intersection + smooth) / (union + smooth)
+    return dice.mean()
+
 def train(config: ExperimentConfig):
     torch.set_float32_matmul_precision('high')
     device = torch.device("cuda")
@@ -273,7 +287,7 @@ def train(config: ExperimentConfig):
                     val_target = val_target.to(device)
                     if val_target.dim() == 3: val_target = val_target.unsqueeze(1)
                     with autocast(device_type='cuda'): out_2d = model(val_x)
-                    val_losses.append(compute_dice_loss(out_2d, val_target).item())
+                    val_losses.append(1.0 - compute_hard_dice(out_2d, val_target).item())
             except StopIteration: val_data_iter = iter(val_data_loader)
             except Exception: continue
 
