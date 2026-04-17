@@ -167,6 +167,28 @@ def train(config: ExperimentConfig):
 
     model = InkDetectorOptimized(v_config).to(device)
     
+    # Load best model if architecture matches
+    best_model_path = 'best_model.pt'
+    if os.path.exists(best_model_path):
+        try:
+            checkpoint = torch.load(best_model_path, map_location=device)
+            best_config = checkpoint.get('config', {})
+            
+            # Check compatibility (architecture-defining attributes)
+            arch_match = True
+            for attr in ['num_layers', 'num_blocks', 'num_heads', 'base_feat', 'patch_size']:
+                if best_config.get(attr) != getattr(config, attr):
+                    arch_match = False
+                    break
+            
+            if arch_match:
+                print(f"Loading weights from {best_model_path} (Incremental Progress)...")
+                model.load_state_dict(checkpoint['model_state_dict'])
+            else:
+                print(f"New architecture detected ({best_config.get('base_feat')}->{config.base_feat}). Starting fresh.")
+        except Exception as e:
+            print(f"Warning: Could not load best model: {e}")
+    
     # 1. Step-Consistent Scheduler
     max_steps = 15000 
     optimizer = torch.optim.AdamW(model.parameters(), lr=config.lr, weight_decay=config.weight_decay)
@@ -318,17 +340,30 @@ def train(config: ExperimentConfig):
     sys.stdout.flush()
 
     if is_improvement:
+        print(f"Saving new best model with val_bpb: {val_bpb:.6f}")
         torch.save({'model_state_dict': model.state_dict(), 'val_bpb': val_bpb, 'config': asdict(config)}, 'best_model.pt')
+        
         header = "timestamp\tval_bpb\ttrain_loss\tthroughput_Mvps\tnum_params_M\tpeak_vram_mb\tconfig\n"
         if not os.path.exists(log_file):
-            with open(log_file, 'w') as f: f.write(header)
+            with open(log_file, 'w') as f: 
+                f.write(header)
+                f.flush()
+                os.fsync(f.fileno())
+        
         with open(log_file, 'a') as f:
             cfg_json = json.dumps(asdict(config))
             f.write(f"{time.strftime('%Y-%m-%d %H:%M:%S')}\t{val_bpb:.6f}\t{smooth_loss:.6f}\t{throughput_Mvps:.2f}\t{num_params_M:.3f}\t{peak_vram_mb:.1f}\t{cfg_json}\n")
+            f.flush()
+            os.fsync(f.fileno())
+            
         try:
             from plot_results import plot_results
             plot_results()
         except Exception: pass
+        
+        # Ensure filesystem sync
+        if hasattr(os, 'sync'):
+            os.sync()
     
     if not is_improvement: print("\n[RESULT] No improvement detected. Recommended: Revert.")
     else: print("\n[RESULT] Improvement detected! Recommended: Keep changes.")
@@ -341,8 +376,12 @@ def train(config: ExperimentConfig):
         "peak_vram_mb": float(peak_vram_mb),
         "is_success": bool(is_improvement)
     }
+    
+    # Write run_result.json as the VERY LAST step
     with open("run_result.json", "w") as f:
         json.dump(result_data, f, indent=4)
+        f.flush()
+        os.fsync(f.fileno())
 
 if __name__ == "__main__":
     import argparse

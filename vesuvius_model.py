@@ -56,17 +56,21 @@ class GatedFusionBlock(nn.Module):
         return self.res(up) + (mask * feat)
 
 class LearnedZProjection(nn.Module):
-    """Learned linear projection to collapse Z-dimension into 2D."""
-    def __init__(self, depth, channels):
+    """Learned linear projection to collapse Z-dimension into 2D, robust to input depth."""
+    def __init__(self, channels, target_depth=8):
         super().__init__()
+        self.target_depth = target_depth
         self.proj = nn.Sequential(
-            nn.Conv3d(channels, channels, kernel_size=(depth, 1, 1)),
+            nn.Conv3d(channels, channels, kernel_size=(target_depth, 1, 1)),
             nn.GroupNorm(min(channels, 8), channels),
             nn.GELU()
         )
 
     def forward(self, x):
         # x: [B, C, Z, H, W]
+        if x.shape[2] != self.target_depth:
+            x = F.interpolate(x, size=(self.target_depth, x.shape[3], x.shape[4]), 
+                            mode='trilinear', align_corners=False)
         x = self.proj(x) # [B, C, 1, H, W]
         return x.squeeze(2)
 
@@ -96,11 +100,9 @@ class InkDetectorOptimized(nn.Module):
         self.stage1 = nn.Conv3d(1, self.base_feat // 2, kernel_size=3, stride=(2, 2, 2), padding=1)
         self.stage2 = nn.Conv3d(self.base_feat // 2, self.base_feat, kernel_size=3, stride=(2, 2, 2), padding=1)
         
-        # Positional Embedding Caching
-        self.latent_z = self.num_layers // 4
-        self.latent_hw = self.patch_size // 4
-        num_patches = self.latent_z * self.latent_hw * self.latent_hw
-        self.pos_embed = nn.Parameter(torch.zeros(1, num_patches, self.base_feat))
+        # Positional Embedding: Canonical 3D grid that is interpolated in forward()
+        # This makes it robust to any patch_size or num_layers
+        self.pos_embed = nn.Parameter(torch.zeros(1, self.base_feat, 16, 16, 16))
         nn.init.trunc_normal_(self.pos_embed, std=0.02)
         self.pos_drop = nn.Dropout(p=self.dropout)
         
@@ -111,11 +113,11 @@ class InkDetectorOptimized(nn.Module):
         ])
         self.norm = nn.LayerNorm(self.base_feat)
         
-        # Progressive UNet Decoder with GATED Fusion
-        self.up1 = nn.ConvTranspose3d(self.base_feat, self.base_feat // 2, kernel_size=4, stride=2, padding=1)
+        # Progressive UNet Decoder with GATED Fusion (Dynamic size matching)
+        self.up1_conv = nn.Conv3d(self.base_feat, self.base_feat // 2, kernel_size=1)
         self.fusion1 = GatedFusionBlock(self.base_feat // 2, self.base_feat // 2, self.base_feat // 2)
         
-        self.up2 = nn.ConvTranspose3d(self.base_feat // 2, self.base_feat // 4, kernel_size=4, stride=2, padding=1)
+        self.up2_conv = nn.Conv3d(self.base_feat // 2, self.base_feat // 4, kernel_size=1)
         self.fusion2 = GatedFusionBlock(1, self.base_feat // 4, self.base_feat // 4)
         
         self.decoder_res = nn.Sequential(
@@ -124,7 +126,7 @@ class InkDetectorOptimized(nn.Module):
         )
         
         # Multi-task Heads
-        self.z_proj = LearnedZProjection(self.num_layers, self.base_feat // 4)
+        self.z_proj = LearnedZProjection(self.base_feat // 4)
         self.final_ink = nn.Conv2d(self.base_feat // 4, 1, kernel_size=3, padding=1)
         self.fiber_head = nn.Conv3d(self.base_feat // 4, 1, kernel_size=3, padding=1)
         self.qc_head = nn.Sequential(
@@ -145,12 +147,10 @@ class InkDetectorOptimized(nn.Module):
         
         # 2. Transformer
         x_flat = x_emb.flatten(2).transpose(1, 2)
-        if x_flat.shape[1] == self.pos_embed.shape[1]:
-            pos = self.pos_embed
-        else:
-            pos = self.pos_embed.transpose(1, 2).reshape(1, -1, self.latent_z, self.latent_hw, self.latent_hw)
-            pos = F.interpolate(pos, size=(lz, lh, lw), mode='trilinear', align_corners=False)
-            pos = pos.reshape(1, -1, lz * lh * lw).transpose(1, 2)
+        
+        # Dynamic Positional Interpolation
+        pos = F.interpolate(self.pos_embed, size=(lz, lh, lw), mode='trilinear', align_corners=False)
+        pos = pos.flatten(2).transpose(1, 2)
         
         x_flat = self.pos_drop(x_flat + pos)
         for block in self.blocks:
@@ -159,10 +159,16 @@ class InkDetectorOptimized(nn.Module):
         
         # 3. Gated Decoding
         x_trans = x_flat.transpose(1, 2).reshape(B, -1, lz, lh, lw)
-        x_up1 = self.up1(x_trans)
+        
+        # Use interpolation for robust size matching in UNet
+        x_up1 = F.interpolate(x_trans, size=s1.shape[2:], mode='trilinear', align_corners=False)
+        x_up1 = self.up1_conv(x_up1)
         x_f1 = self.fusion1(s1, x_up1)
-        x_up2 = self.up2(x_f1)
+        
+        x_up2 = F.interpolate(x_f1, size=x.shape[2:], mode='trilinear', align_corners=False)
+        x_up2 = self.up2_conv(x_up2)
         x_f2 = self.fusion2(x, x_up2)
+        
         x_out = self.decoder_res(x_f2)
         
         ink_2d = self.final_ink(self.z_proj(x_out))

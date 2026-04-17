@@ -5,6 +5,8 @@ import random
 import sys
 import json
 import re
+import torch
+import pandas as pd
 from collections import defaultdict
 from dataclasses import asdict
 from train import ExperimentConfig
@@ -30,21 +32,24 @@ HISTORY_FILE = "autoresearch_history.json"
 CONFIG_FILE = "config.json"
 
 def load_history():
+    counts = defaultdict(lambda: 1)
     if os.path.exists(HISTORY_FILE):
         try:
             with open(HISTORY_FILE, "r") as f:
                 data = json.load(f)
-                counts = defaultdict(lambda: 1)
-                counts.update(data)
+                if isinstance(data, dict):
+                    counts.update(data)
                 return counts
-        except: pass
-    return defaultdict(lambda: 1)
+        except Exception as e:
+            print(f"Warning: Could not load history from {HISTORY_FILE}: {e}")
+    return counts
 
 def save_history(counts):
     try:
         with open(HISTORY_FILE, "w") as f:
-            json.dump(dict(counts), f)
-    except: pass
+            json.dump(dict(counts), f, indent=4)
+    except Exception as e:
+        print(f"Warning: Could not save history: {e}")
 
 success_counts = load_history()
 
@@ -60,20 +65,61 @@ else:
 os.makedirs("sprint_logs", exist_ok=True)
 log_filename = f"sprint_logs/sprint_log_{time.strftime('%Y-%m-%d_%H-%M-%S')}_{shift_name.lower().replace(' ', '_')}.md"
 
+# Resume previous log if still same shift and file exists
+CURRENT_LOG_PTR = ".current_day_shift_log"
+if os.path.exists(CURRENT_LOG_PTR):
+    with open(CURRENT_LOG_PTR, "r") as f:
+        prev_log = f.read().strip()
+        if os.path.exists(prev_log) and shift_name.lower() in prev_log.lower():
+            # Check if it was today (simple check)
+            if time.strftime('%Y-%m-%d') in prev_log:
+                log_filename = prev_log
+                print(f"Resuming existing shift log: {log_filename}")
+
+with open(CURRENT_LOG_PTR, "w") as f:
+    f.write(log_filename)
+
+# Load best val_bpb baseline at startup
+best_val_bpb = 1.0
+if os.path.exists("best_model.pt"):
+    try:
+        best_model_data = torch.load("best_model.pt", map_location="cpu")
+        best_val_bpb = best_model_data.get("val_bpb", 1.0)
+        print(f"Starting with baseline val_bpb from best_model.pt: {best_val_bpb:.6f}")
+    except Exception: pass
+elif os.path.exists("results.tsv"):
+    try:
+        import pandas as pd
+        df = pd.read_csv("results.tsv", sep="\t")
+        if len(df) > 0:
+            best_val_bpb = df["val_bpb"].min()
+            print(f"Starting with baseline val_bpb from results.tsv: {best_val_bpb:.6f}")
+    except Exception: pass
+
 print(f"--- {shift_name} STARTING AT {time.strftime('%H:%M:%S')} ---")
 print(f"Logging to: {log_filename}")
 sys.stdout.flush()
 
-with open(log_filename, "w") as log:
-    log.write(f"# {shift_name.title()} Sprint - {time.strftime('%Y-%m-%d')}\n")
-    log.write(f"- **Start Time**: {time.strftime('%H:%M:%S')}\n")
-    log.write("- **Goal**: Monotonic val_bpb optimization via 15-min cycles (Config-Driven).\n\n")
+if not os.path.exists(log_filename):
+    with open(log_filename, "w") as log:
+        log.write(f"# {shift_name.title()} Sprint - {time.strftime('%Y-%m-%d')}\n")
+        log.write(f"- **Start Time**: {time.strftime('%H:%M:%S')}\n")
+        log.write("- **Goal**: Monotonic val_bpb optimization via 15-min cycles (Config-Driven).\n\n")
 
 env = os.environ.copy()
 i = 0
 
 while True:
     i += 1
+    # Refresh best_val_bpb from results.tsv if it changed
+    if os.path.exists("results.tsv"):
+        try:
+            import pandas as pd
+            df = pd.read_csv("results.tsv", sep="\t")
+            if len(df) > 0:
+                best_val_bpb = df["val_bpb"].min()
+        except Exception: pass
+
     if time.localtime().tm_hour == end_hour:
         print(f"{shift_name} end reached. Ending sprint.")
         with open(log_filename, "a") as log:
@@ -104,6 +150,15 @@ while True:
     old_val = getattr(config, attr)
     setattr(config, attr, val)
     tweak_name = f"{attr}_{val}"
+    
+    # Pre-flight VRAM estimation (Complexity Heuristic)
+    complexity = config.base_feat * config.num_layers * (config.patch_size / 64)**2 * config.batch_size
+    # A score of ~150,000 is roughly 24GB. Let's cap at 180,000 for safety.
+    if complexity > 180000:
+        print(f"Cycle {i}: Skipping {tweak_name} (Complexity {complexity:.0f} > 180000) to avoid OOM.")
+        # Revert and skip
+        setattr(config, attr, old_val)
+        continue
 
     print(f"\nCycle {i}: Applying {tweak_name} (Family Weight: {success_counts[family]})")
     sys.stdout.flush()
@@ -120,25 +175,52 @@ while True:
     if os.path.exists("run_result.json"):
         os.remove("run_result.json")
     
+    # Rotate run.log if it grows too large (> 10MB)
+    if os.path.exists("run.log") and os.path.getsize("run.log") > 10 * 1024 * 1024:
+        if os.path.exists("run.log.old"):
+            os.remove("run.log.old")
+        os.rename("run.log", "run.log.old")
+
+    import signal
     try:
         with open("run.log", "a") as f:
             f.write(f"\n\n--- {shift_name} CYCLE {i}: {tweak_name} ---\n")
             f.flush()
-            subprocess.run(
+            
+            # Robust Process Management: use session group to kill all descendants
+            p = subprocess.Popen(
                 f"uv run train.py --config {TEMP_CONFIG}",
                 shell=True, stdout=f, stderr=subprocess.STDOUT, env=env, text=True,
-                timeout=1200 # 20 minute safety timeout
+                start_new_session=True
             )
-    except subprocess.TimeoutExpired:
-        print(f"Cycle {i} timed out after 20 minutes.")
+            try:
+                p.wait(timeout=1200) # 20 minute safety timeout
+            except subprocess.TimeoutExpired:
+                print(f"Cycle {i} timed out. Killing process group...")
+                try:
+                    os.killpg(os.getpgid(p.pid), signal.SIGTERM)
+                except Exception as e:
+                    print(f"Error killing process group: {e}")
+                p.wait()
     except Exception as e:
         print(f"Subprocess error in cycle {i}: {e}")
 
     val_bpb = train_loss = params = vram = vps = "N/A"
     is_success = False
+    is_crash = False
+    oom_detected = False
     
-    try:
-        if os.path.exists("run_result.json"):
+    if not os.path.exists("run_result.json"):
+        is_crash = True
+        if os.path.exists("run.log"):
+            try:
+                with open("run.log", "r") as f:
+                    log_tail = f.read()[-2000:].lower()
+                    if "out of memory" in log_tail or "cuda error: out of memory" in log_tail:
+                        oom_detected = True
+            except Exception: pass
+    else:
+        try:
             with open("run_result.json", "r") as f:
                 res = json.load(f)
             val_bpb = res.get("val_bpb", "N/A")
@@ -147,17 +229,26 @@ while True:
             vram = res.get("peak_vram_mb", "N/A")
             vps = res.get("throughput_Mvps", "N/A")
             is_success = res.get("is_success", False)
-    except Exception as e:
-        print(f"Error reading run_result.json: {e}")
+        except Exception as e:
+            print(f"Error reading run_result.json: {e}")
+            is_crash = True
 
-    status = "SUCCESS" if is_success else "REVERTED"
-    
     if is_success:
+        status = "SUCCESS"
         success_counts[family] += 1 
         save_history(success_counts)
         # Promote temp config to main config
         os.rename(TEMP_CONFIG, CONFIG_FILE)
+    elif is_crash:
+        status = "CRASHED (OOM)" if oom_detected else "CRASHED"
+        # "do NOT penalize" -> Increment so it stays in the rotation
+        success_counts[family] += 1
+        save_history(success_counts)
+        if os.path.exists(TEMP_CONFIG):
+            os.remove(TEMP_CONFIG)
     else:
+        status = "REVERTED"
+        # Only "penalize" (don't increment) if it finished but didn't improve
         if os.path.exists(TEMP_CONFIG):
             os.remove(TEMP_CONFIG)
 
@@ -166,14 +257,21 @@ while True:
         log.write(f"- **Timestamp**: {time.strftime('%H:%M:%S')}\n")
         log.write(f"- **Config**: {cfg_str}\n")
         log.write(f"- **Stats**: val_bpb: {val_bpb}, loss: {train_loss}, params: {params}M, vram: {vram}MB, speed: {vps}Mvps\n")
-        log.write(f"- **Result**: {'Improvement detected. Config updated.' if is_success else 'No improvement detected. Config reverted.'}\n\n")
+        
+        result_msg = "No improvement detected. Config reverted."
+        if is_success: result_msg = "Improvement detected. Config updated."
+        elif is_crash: result_msg = f"Training crashed ({'OOM' if oom_detected else 'Unknown error'}). Family weight preserved/incremented to retry other values."
+        
+        log.write(f"- **Result**: {result_msg}\n\n")
         log.flush()
 
     if is_success:
-        print("IMPROVEMENT FOUND! Committing config.")
-        os.system(f'git add {CONFIG_FILE} reports/figures/ best_model.pt autoresearch_history.json && git commit -m "{shift_name}: {tweak_name} improved model"')
+        print(f"IMPROVEMENT FOUND! (val_bpb: {val_bpb}) Committing config.")
+        os.system(f'git add {CONFIG_FILE} reports/figures/ best_model.pt autoresearch_history.json && git commit -m "{shift_name}: {tweak_name} improved model to {val_bpb}"')
+    elif is_crash:
+        print(f"CYCLE CRASHED ({'OOM' if oom_detected else 'UNKNOWN'}). Reverting but keeping family weight.")
     else:
-        print("No improvement.")
+        print(f"No improvement. (val_bpb: {val_bpb}, best was: {best_val_bpb:.6f})")
     
     sys.stdout.flush()
     time.sleep(2)
