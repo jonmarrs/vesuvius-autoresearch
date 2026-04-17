@@ -103,8 +103,6 @@ class InkDetectorOptimized(nn.Module):
         self.pos_embed = nn.Parameter(torch.zeros(1, num_patches, self.base_feat))
         nn.init.trunc_normal_(self.pos_embed, std=0.02)
         self.pos_drop = nn.Dropout(p=self.dropout)
-        self._cached_pos = None
-        self._cached_shape = None
         
         # Transformer Backbone
         self.blocks = nn.ModuleList([
@@ -147,16 +145,14 @@ class InkDetectorOptimized(nn.Module):
         
         # 2. Transformer
         x_flat = x_emb.flatten(2).transpose(1, 2)
-        if self._cached_shape != (lz, lh, lw):
-            if x_flat.shape[1] == self.pos_embed.shape[1]:
-                self._cached_pos = self.pos_embed
-            else:
-                pos = self.pos_embed.transpose(1, 2).reshape(1, -1, self.latent_z, self.latent_hw, self.latent_hw)
-                pos = F.interpolate(pos, size=(lz, lh, lw), mode='trilinear', align_corners=False)
-                self._cached_pos = pos.reshape(1, -1, lz * lh * lw).transpose(1, 2)
-            self._cached_shape = (lz, lh, lw)
+        if x_flat.shape[1] == self.pos_embed.shape[1]:
+            pos = self.pos_embed
+        else:
+            pos = self.pos_embed.transpose(1, 2).reshape(1, -1, self.latent_z, self.latent_hw, self.latent_hw)
+            pos = F.interpolate(pos, size=(lz, lh, lw), mode='trilinear', align_corners=False)
+            pos = pos.reshape(1, -1, lz * lh * lw).transpose(1, 2)
         
-        x_flat = self.pos_drop(x_flat + self._cached_pos)
+        x_flat = self.pos_drop(x_flat + pos)
         for block in self.blocks:
             x_flat = block(x_flat, lz, lh, lw)
         x_flat = self.norm(x_flat)

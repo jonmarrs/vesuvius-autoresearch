@@ -239,16 +239,21 @@ def train(config: ExperimentConfig):
         optimizer.zero_grad(set_to_none=True)
         with autocast(device_type='cuda'):
             # InkDetectorOptimized forward returns (ink_2d, fiber, qc)
-            out_ink_2d, out_fiber, _ = model(x_aug, return_fiber=True)
+            out_ink_2d, out_fiber, out_qc = model(x_aug, return_fiber=True, return_qc=True)
             loss_ink = F.binary_cross_entropy_with_logits(out_ink_2d, target_ink_aug)
             loss_dice = compute_dice_loss(out_ink_2d, target_ink_aug)
             out_fiber_2d = torch.mean(out_fiber, dim=2, keepdim=True)
             loss_fiber = F.binary_cross_entropy_with_logits(out_fiber_2d, target_fiber_aug)
-            total_loss = config.loss_ink_bce * loss_ink + config.loss_ink_dice * loss_dice + config.loss_fiber_bce * loss_fiber
+            
+            # QC Head Supervision: Predict the mean structural complexity of the patch
+            target_qc = target_fiber_aug.mean(dim=(-3, -2, -1)).squeeze()
+            loss_qc = F.binary_cross_entropy_with_logits(out_qc.squeeze(-1), target_qc)
+            
+            total_loss = config.loss_ink_bce * loss_ink + config.loss_ink_dice * loss_dice + config.loss_fiber_bce * loss_fiber + 0.1 * loss_qc
 
         if not torch.isfinite(total_loss) or total_loss.item() > 1e6:
             print(f"\n[WARNING] Numerical Instability at Step {step}: Loss {total_loss.item():.2e}")
-            print(f"Ink: {loss_ink.item():.2e}, Dice: {loss_dice.item():.2e}, Fiber: {loss_fiber.item():.2e}")
+            print(f"Ink: {loss_ink.item():.2e}, Dice: {loss_dice.item():.2e}, Fiber: {loss_fiber.item():.2e}, QC: {loss_qc.item():.2e}")
             optimizer.zero_grad(set_to_none=True)
             total_loss = torch.tensor(0.0, device=device, requires_grad=True)
         else:

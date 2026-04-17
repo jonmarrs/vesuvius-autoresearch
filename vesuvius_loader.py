@@ -155,8 +155,8 @@ class VesuviusLabeledDataset(IterableDataset):
             
             try:
                 patch_vol = self.volume[z0:z0+self.num_layers, y0:y0+self.patch_size, x0:x0+self.patch_size]
-                patch_vol = torch.from_numpy(patch_vol.astype(np.float32) / 255.0).unsqueeze(0)
-                patch_label = torch.from_numpy(self.labels[y0:y0+self.patch_size, x0:x0+self.patch_size])
+                patch_vol = torch.tensor(np.array(patch_vol, copy=False), dtype=torch.float32).div_(255.0).unsqueeze(0)
+                patch_label = torch.tensor(np.array(self.labels[y0:y0+self.patch_size, x0:x0+self.patch_size], copy=False), dtype=torch.float32)
                 
                 yield patch_vol, patch_label
                 
@@ -209,7 +209,7 @@ class VesuviusS3Dataset(IterableDataset):
                     px = np.random.randint(0, block_hw - self.patch_size)
                     
                     patch = block[pz:pz+self.num_layers, py:py+self.patch_size, px:px+self.patch_size]
-                    tensor = torch.from_numpy(patch.astype(np.float32) / 255.0).unsqueeze(0)
+                    tensor = torch.tensor(np.array(patch, copy=False), dtype=torch.float32).div_(255.0).unsqueeze(0)
                     yield tensor, torch.empty(0)
             except Exception:
                 continue

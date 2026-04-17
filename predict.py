@@ -70,7 +70,7 @@ def predict():
     ]
 
     # Prepare input
-    x = torch.from_numpy(block.astype(np.float32) / 255.0).unsqueeze(0).unsqueeze(0).to(device) # [B, C, Z, H, W]
+    x = torch.tensor(np.array(block, copy=False), dtype=torch.float32).div_(255.0).unsqueeze(0).unsqueeze(0).to(device) # [B, C, Z, H, W]
 
     print("Running inference...")
     with torch.no_grad():
@@ -88,7 +88,7 @@ def predict():
     fig, axes = plt.subplots(1, 3, figsize=(15, 5))
     
     # 1. CT Context (Middle Slice)
-    ct_slice = block[num_layers // 2].astype(np.float32) / 255.0
+    ct_slice = np.array(block[num_layers // 2], dtype=np.float32) / 255.0
     axes[0].imshow(ct_slice, cmap='gray')
     axes[0].set_title("CT Slice (Middle)")
     
