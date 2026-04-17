@@ -45,7 +45,7 @@ class ExperimentConfig:
     # Loss Weights
     loss_ink_bce: float = 0.4
     loss_ink_dice: float = 0.4
-    loss_fiber_mse: float = 0.2
+    loss_fiber_bce: float = 0.2
 
     # Model Architecture
     base_feat: int = 64
@@ -229,8 +229,8 @@ def train(config: ExperimentConfig):
             loss_ink = F.binary_cross_entropy_with_logits(out_ink_2d, target_ink_aug)
             loss_dice = compute_dice_loss(out_ink_2d, target_ink_aug)
             out_fiber_2d = torch.mean(out_fiber, dim=2, keepdim=True)
-            loss_fiber = F.mse_loss(torch.sigmoid(out_fiber_2d), target_fiber_aug)
-            total_loss = config.loss_ink_bce * loss_ink + config.loss_ink_dice * loss_dice + config.loss_fiber_mse * loss_fiber
+            loss_fiber = F.binary_cross_entropy_with_logits(out_fiber_2d, target_fiber_aug)
+            total_loss = config.loss_ink_bce * loss_ink + config.loss_ink_dice * loss_dice + config.loss_fiber_bce * loss_fiber
 
         if not torch.isfinite(total_loss) or total_loss.item() > 1e6:
             print(f"\n[WARNING] Numerical Instability at Step {step}: Loss {total_loss.item():.2e}")

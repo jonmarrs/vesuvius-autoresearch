@@ -23,7 +23,7 @@ tweak_templates = [
     {"family": "width", "attr": "base_feat", "vals": [32, 64, 128]},
     {"family": "loss_balance", "attr": "loss_ink_bce", "vals": [0.2, 0.4, 0.6]},
     {"family": "loss_balance", "attr": "loss_ink_dice", "vals": [0.2, 0.4, 0.6]},
-    {"family": "loss_balance", "attr": "loss_fiber_mse", "vals": [0.1, 0.2, 0.3]}
+    {"family": "loss_balance", "attr": "loss_fiber_bce", "vals": [0.1, 0.2, 0.3]}
 ]
 
 HISTORY_FILE = "autoresearch_history.json"

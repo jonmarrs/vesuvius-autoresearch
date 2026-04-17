@@ -59,7 +59,11 @@ class LearnedZProjection(nn.Module):
     """Learned linear projection to collapse Z-dimension into 2D."""
     def __init__(self, depth, channels):
         super().__init__()
-        self.proj = nn.Conv3d(channels, channels, kernel_size=(depth, 1, 1))
+        self.proj = nn.Sequential(
+            nn.Conv3d(channels, channels, kernel_size=(depth, 1, 1)),
+            nn.GroupNorm(min(channels, 8), channels),
+            nn.GELU()
+        )
 
     def forward(self, x):
         # x: [B, C, Z, H, W]
