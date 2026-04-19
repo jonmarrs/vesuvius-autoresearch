@@ -171,7 +171,7 @@ def train(config: ExperimentConfig):
     best_model_path = 'best_model.pt'
     if os.path.exists(best_model_path):
         try:
-            checkpoint = torch.load(best_model_path, map_location=device)
+            checkpoint = torch.load(best_model_path, map_location=device, weights_only=False)
             best_config = checkpoint.get('config', {})
             
             # Check compatibility (architecture-defining attributes)
@@ -271,11 +271,20 @@ def train(config: ExperimentConfig):
             target_qc = target_fiber_aug.mean(dim=(-3, -2, -1)).squeeze()
             loss_qc = F.binary_cross_entropy_with_logits(out_qc.squeeze(-1), target_qc)
             
-            total_loss = config.loss_ink_bce * loss_ink + config.loss_ink_dice * loss_dice + config.loss_fiber_bce * loss_fiber + 0.1 * loss_qc
+            # Hallucination Penalty: If pred_ink is high but out_qc (fiber density) is low, penalize.
+            # This ensures the model only detects ink where it also detects "real" papyrus structure.
+            B = out_ink_2d.shape[0]
+            hallucination_penalty = (torch.sigmoid(out_ink_2d) * (1.0 - torch.sigmoid(out_qc).view(B, 1, 1, 1))).mean()
+            
+            total_loss = (config.loss_ink_bce * loss_ink + 
+                          config.loss_ink_dice * loss_dice + 
+                          config.loss_fiber_bce * loss_fiber + 
+                          0.1 * loss_qc + 
+                          0.2 * hallucination_penalty)
 
         if not torch.isfinite(total_loss) or total_loss.item() > 1e6:
             print(f"\n[WARNING] Numerical Instability at Step {step}: Loss {total_loss.item():.2e}")
-            print(f"Ink: {loss_ink.item():.2e}, Dice: {loss_dice.item():.2e}, Fiber: {loss_fiber.item():.2e}, QC: {loss_qc.item():.2e}")
+            print(f"Ink: {loss_ink.item():.2e}, Dice: {loss_dice.item():.2e}, Fiber: {loss_fiber.item():.2e}, QC: {loss_qc.item():.2e}, Halluc: {hallucination_penalty.item():.2e}")
             optimizer.zero_grad(set_to_none=True)
             total_loss = torch.tensor(0.0, device=device, requires_grad=True)
         else:
@@ -284,7 +293,7 @@ def train(config: ExperimentConfig):
             torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
             scaler.step(optimizer)
             scaler.update()
-        scheduler.step()
+            scheduler.step()
 
         dt = time.time() - t0
         total_training_time += dt

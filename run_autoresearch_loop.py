@@ -83,7 +83,7 @@ with open(CURRENT_LOG_PTR, "w") as f:
 best_val_bpb = 1.0
 if os.path.exists("best_model.pt"):
     try:
-        best_model_data = torch.load("best_model.pt", map_location="cpu")
+        best_model_data = torch.load("best_model.pt", map_location="cpu", weights_only=False)
         best_val_bpb = best_model_data.get("val_bpb", 1.0)
         print(f"Starting with baseline val_bpb from best_model.pt: {best_val_bpb:.6f}")
     except Exception: pass
@@ -122,8 +122,10 @@ while True:
 
     if time.localtime().tm_hour == end_hour:
         print(f"{shift_name} end reached. Ending sprint.")
+        next_shift = "NIGHT SHIFT" if shift_name == "DAY SHIFT" else "DAY SHIFT"
         with open(log_filename, "a") as log:
             log.write(f"\n## Sprint Completed at {time.strftime('%H:%M:%S')}\n")
+            log.write(f"Transitioning to {next_shift}...\n")
         break
 
     # Load current best config
@@ -132,13 +134,13 @@ while True:
     else:
         config = ExperimentConfig()
 
-    # Bayesian-Lite Sampling
-    # Decay weights to keep exploration fresh
-    if i % 20 == 0:
-        for family in success_counts:
-            success_counts[family] = max(1, success_counts[family] // 2)
-            
+    # Success-Biased Decay: Every cycle, all families decay slightly.
+    # This ensures that even successful families eventually lose their dominance 
+    # if they stop producing improvements, forcing exploration of other families.
     families = [t["family"] for t in tweak_templates]
+    for f in set(families):
+        success_counts[f] = max(1.0, success_counts[f] * 0.95)
+            
     weights = [success_counts[f] for f in families]
     template = random.choices(tweak_templates, weights=weights, k=1)[0]
     

@@ -75,8 +75,10 @@ class LearnedZProjection(nn.Module):
         return x.squeeze(2)
 
 class InkDetectorOptimized(nn.Module):
+    version = "2.1.0"
     def __init__(self, config: VesuviusConfig):
         super().__init__()
+        self.version = "2.1.0"
         self.config = config
         
         # Pull architectural parameters from config

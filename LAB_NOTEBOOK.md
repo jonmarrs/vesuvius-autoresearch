@@ -29,17 +29,22 @@ Transition from synthetic targets to genuine manual ink labels. The primary obje
 
 ---
 
-## [2026-04-17] Day Shift: Resuming the Gold Standard Baseline
+## [2026-04-17] Day Shift: Resuming the Gold Standard Baseline (v2.1.0)
 
-**Status:** IN PROGRESS (Started: 13:14)
+**Status:** ACTIVE (Launched: 13:45)
 
 ### Purpose
-Resume the autonomous search for model improvements after a system crash. The focus remains on optimizing the cross-fragment generalization from Fragment 1 to Fragment 2.
+Resume the autonomous search for model improvements after a system crash. This shift deploys the **v2.1.0 Frontier Architecture**, specifically designed to handle dynamic input geometries and mitigate model hallucinations.
 
 ### Configuration
 *   **Hardware:** RTX 4090 (24GB VRAM).
 *   **Target:** `val_bpb` (1.0 - Dice) improvement over the current best (0.0025).
-*   **Strategy:** Automated 15-minute training cycles with Bayesian-lite parameter sampling.
+*   **Strategy:** Automated 15-minute training cycles with Bayesian-lite parameter sampling and **Success-Biased Decay**.
+
+### Key Architectural Updates (v2.1.0)
+1.  **Dynamic Positional Interpolation:** Positional embeddings now adapt to any `patch_size` or `num_layers`.
+2.  **Hallucination Penalty:** Enhanced loss function that penalizes ink detection in regions where the QC head identifies low structural complexity (non-papyrus).
+3.  **Crash Resilience:** Hardened experiment tracking that persists success history across system restarts.
 
 ### Outcomes & Insights
 *(To be populated as cycles complete)*

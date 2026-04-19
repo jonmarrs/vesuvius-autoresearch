@@ -134,11 +134,13 @@ class VesuviusLabeledDataset(IterableDataset):
 
     def __iter__(self):
         worker_info = torch.utils.data.get_worker_info()
-        worker_seed = self.seed if self.seed is not None else int(time.time() * 1000)
-        if worker_info is not None:
-            np.random.seed((worker_info.id + worker_seed) % 4294967295)
-        else:
-            np.random.seed(worker_seed % 4294967295)
+        seed_base = self.seed if self.seed is not None else 0
+        worker_id = worker_info.id if worker_info is not None else 0
+        
+        # Robust seeding strategy
+        seed = (seed_base + worker_id + (os.getpid() % 1000)) % 4294967295
+        ss = np.random.SeedSequence(seed)
+        np.random.seed(ss.generate_state(1)[0])
 
         while True:
             if not self.valid_coords:
@@ -183,11 +185,13 @@ class VesuviusS3Dataset(IterableDataset):
 
     def __iter__(self):
         worker_info = torch.utils.data.get_worker_info()
-        worker_seed = self.seed if self.seed is not None else int(time.time() * 1000)
-        if worker_info is not None:
-            np.random.seed((worker_info.id + worker_seed) % 4294967295)
-        else:
-            np.random.seed(worker_seed % 4294967295)
+        seed_base = self.seed if self.seed is not None else 0
+        worker_id = worker_info.id if worker_info is not None else 0
+        
+        # Robust seeding strategy
+        seed = (seed_base + worker_id + (os.getpid() % 1000)) % 4294967295
+        ss = np.random.SeedSequence(seed)
+        np.random.seed(ss.generate_state(1)[0])
             
         if self.dataset is None:
             self.dataset = ts.open({
