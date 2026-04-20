@@ -128,6 +128,11 @@ def predict():
     np.save(f"predictions/{base_name}_ink.npy", prob_ink_final)
     np.save(f"predictions/{base_name}_fiber.npy", prob_fiber_final)
 
+    # Save as Crackle-Viewer compatible PNG (8-bit grayscale)
+    from PIL import Image
+    ink_uint8 = (np.clip(prob_ink_final, 0, 1) * 255).astype(np.uint8)
+    Image.fromarray(ink_uint8).save(f"predictions/{base_name}_ink.png")
+
     # Generate Visualization (using center CT slice of the whole region)
     # Note: For very large regions, we'd need to fetch the CT slice in parts too.
     # For now, we fetch the middle slice of the entire requested area.
