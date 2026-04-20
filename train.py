@@ -125,6 +125,29 @@ def compute_hard_dice(pred_2d, target, smooth=1e-5):
     dice = (2. * intersection + smooth) / (union + smooth)
     return dice.mean()
 
+def apply_augmentations(x, target_ink, target_fiber, step, max_steps):
+    """Applies randomized 3D augmentations to a volume patch."""
+    k_rot = np.random.randint(0, 4)
+    x_aug = torch.rot90(x, k=k_rot, dims=(-2, -1))
+    target_ink_aug = torch.rot90(target_ink, k=k_rot, dims=(-2, -1)).clamp(0, 1)
+    target_fiber_aug = torch.rot90(target_fiber, k=k_rot, dims=(-2, -1)).clamp(0, 1)
+
+    # Z-Axis Random Flip
+    if np.random.rand() > 0.5:
+        x_aug = torch.flip(x_aug, dims=[2])
+        
+    # Intensity Jitter
+    if np.random.rand() > 0.5:
+        brightness = 1.0 + (np.random.rand() - 0.5) * 0.2
+        contrast = 1.0 + (np.random.rand() - 0.5) * 0.2
+        x_aug = (x_aug * contrast) + (brightness - 1.0)
+        
+    # Dynamic Gaussian Noise
+    noise_level = 0.01 + 0.02 * (min(step, max_steps) / max_steps)
+    x_aug = x_aug + torch.randn_like(x_aug) * noise_level
+    
+    return x_aug, target_ink_aug, target_fiber_aug
+
 def train(config: ExperimentConfig):
     torch.set_float32_matmul_precision('high')
     device = torch.device("cuda")
@@ -183,7 +206,7 @@ def train(config: ExperimentConfig):
             
             if arch_match:
                 print(f"Loading weights from {best_model_path} (Incremental Progress)...")
-                model.load_state_dict(checkpoint['model_state_dict'])
+                model.load_state_dict(checkpoint['model_state_dict'], strict=False) # strict=False to allow adding projector head
             else:
                 print(f"New architecture detected ({best_config.get('base_feat')}->{config.base_feat}). Starting fresh.")
         except Exception as e:
@@ -260,49 +283,39 @@ def train(config: ExperimentConfig):
             if r < 0.2: x_orig, target_ink, target_fiber, _ = mixup_data(x_orig, target_ink, target_fiber)
             elif r < 0.4: x_orig, target_ink, target_fiber, _ = cutmix_data(x_orig, target_ink, target_fiber)
 
-        k_rot = np.random.randint(0, 4)
-        x_aug = torch.rot90(x_orig, k=k_rot, dims=(-2, -1))
-        target_ink_aug = torch.rot90(target_ink, k=k_rot, dims=(-2, -1)).clamp(0, 1)
-        target_fiber_aug = torch.rot90(target_fiber, k=k_rot, dims=(-2, -1)).clamp(0, 1)
-
-        # 4. Frontier-V Multi-Modal Augmentations
-        # Z-Axis Random Flip (Simulate 'underside' ink)
-        if np.random.rand() > 0.5:
-            x_aug = torch.flip(x_aug, dims=[2])
-            
-        # Intensity Jitter (X-ray sensor variation)
-        if np.random.rand() > 0.5:
-            brightness = 1.0 + (np.random.rand() - 0.5) * 0.2
-            contrast = 1.0 + (np.random.rand() - 0.5) * 0.2
-            x_aug = (x_aug * contrast) + (brightness - 1.0)
-            
-        # Dynamic Gaussian Noise (Denoising robustness)
-        noise_level = 0.01 + 0.02 * (min(step, max_steps) / max_steps) # Noise increases as training progresses
-        x_aug = x_aug + torch.randn_like(x_aug) * noise_level
+        # Generate two augmented views for DINO-Lite Consistency
+        x_aug1, target_ink_aug1, target_fiber_aug1 = apply_augmentations(x_orig, target_ink, target_fiber, step, max_steps)
+        x_aug2, _, _ = apply_augmentations(x_orig, target_ink, target_fiber, step, max_steps)
 
         optimizer.zero_grad(set_to_none=True)
         with autocast(device_type='cuda'):
-            # InkDetectorOptimized forward returns (ink_2d, fiber, qc)
-            out_ink_2d, out_fiber, out_qc = model(x_aug, return_fiber=True, return_qc=True)
-            loss_ink = F.binary_cross_entropy_with_logits(out_ink_2d, target_ink_aug)
-            loss_dice = compute_dice_loss(out_ink_2d, target_ink_aug)
-            out_fiber_2d = torch.mean(out_fiber, dim=2, keepdim=True)
-            loss_fiber = F.binary_cross_entropy_with_logits(out_fiber_2d, target_fiber_aug)
+            # Forward pass for view 1 (full multi-task)
+            out_ink_2d, out_fiber, out_qc, p1 = model(x_aug1, return_fiber=True, return_qc=True, return_proj=True)
             
-            # QC Head Supervision: Predict the mean structural complexity of the patch
-            target_qc = target_fiber_aug.mean(dim=(-3, -2, -1)).squeeze()
+            # Forward pass for view 2 (projection only)
+            p2 = model(x_aug2, return_proj=True)
+            
+            # Supervised Losses (on view 1)
+            loss_ink = F.binary_cross_entropy_with_logits(out_ink_2d, target_ink_aug1)
+            loss_dice = compute_dice_loss(out_ink_2d, target_ink_aug1)
+            out_fiber_2d = torch.mean(out_fiber, dim=2, keepdim=True)
+            loss_fiber = F.binary_cross_entropy_with_logits(out_fiber_2d, target_fiber_aug1)
+            
+            target_qc = target_fiber_aug1.mean(dim=(-3, -2, -1)).squeeze()
             loss_qc = F.binary_cross_entropy_with_logits(out_qc.squeeze(-1), target_qc)
             
-            # Hallucination Penalty: If pred_ink is high but out_qc (fiber density) is low, penalize.
-            # This ensures the model only detects ink where it also detects "real" papyrus structure.
             B = out_ink_2d.shape[0]
             hallucination_penalty = (torch.sigmoid(out_ink_2d) * (1.0 - torch.sigmoid(out_qc).view(B, 1, 1, 1))).mean()
+            
+            # Self-Supervised Consistency Loss (DINO-Lite)
+            consistency_loss = 1.0 - F.cosine_similarity(p1, p2, dim=1).mean()
             
             total_loss = (config.loss_ink_bce * loss_ink + 
                           config.loss_ink_dice * loss_dice + 
                           config.loss_fiber_bce * loss_fiber + 
                           0.1 * loss_qc + 
-                          0.2 * hallucination_penalty)
+                          0.2 * hallucination_penalty +
+                          0.1 * consistency_loss)
 
         if not torch.isfinite(total_loss) or total_loss.item() > 1e6:
             print(f"\n[WARNING] Numerical Instability at Step {step}: Loss {total_loss.item():.2e}")

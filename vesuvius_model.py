@@ -78,10 +78,10 @@ class LearnedZProjection(nn.Module):
         return self.refine(x)
 
 class InkDetectorOptimized(nn.Module):
-    version = "2.3.0"
+    version = "2.4.0"
     def __init__(self, config: VesuviusConfig):
         super().__init__()
-        self.version = "2.3.0"
+        self.version = "2.4.0"
         self.config = config
         
         # Pull architectural parameters from config
@@ -142,7 +142,18 @@ class InkDetectorOptimized(nn.Module):
             nn.Linear(64, 1)
         )
         
-    def forward(self, x, return_fiber=False, return_qc=False, **kwargs):
+        # Projector Head for DINO-Lite Consistency
+        self.projector = nn.Sequential(
+            nn.AdaptiveAvgPool3d(1),
+            nn.Flatten(),
+            nn.Linear(self.base_feat, 512),
+            nn.ReLU(inplace=True),
+            nn.Linear(512, 512),
+            nn.ReLU(inplace=True),
+            nn.Linear(512, 256)
+        )
+        
+    def forward(self, x, return_fiber=False, return_qc=False, return_proj=False, **kwargs):
         B, C, Z, H, W = x.shape
         
         # 1. Encoder
@@ -177,11 +188,18 @@ class InkDetectorOptimized(nn.Module):
         x_out = self.decoder_res(x_f2)
         
         ink_2d = self.final_ink(self.z_proj(x_out))
-        if return_fiber or return_qc:
-            fiber = self.fiber_head(x_out) if return_fiber else None
-            qc = self.qc_head(x_trans) if return_qc else None
-            return ink_2d, fiber, qc
-        return ink_2d
+        
+        results = [ink_2d]
+        if return_fiber:
+            results.append(self.fiber_head(x_out))
+        if return_qc:
+            results.append(self.qc_head(x_trans))
+        if return_proj:
+            results.append(self.projector(x_trans))
+            
+        if len(results) == 1:
+            return results[0]
+        return tuple(results)
 
 class DividedSpaceTimeBlock(nn.Module):
     def __init__(self, dim, num_heads, dropout=0.0):

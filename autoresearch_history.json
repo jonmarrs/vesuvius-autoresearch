@@ -4,9 +4,9 @@
     "capacity": 1.0,
     "attention": 1.0,
     "regularization": 1.0,
-    "batch": 1.002098383896722,
+    "batch": 1.0,
     "spatial": 1.0,
-    "temporal": 2.8277232882013665,
+    "temporal": 3.552020267601733,
     "width": 1.0,
     "loss_balance": 1.0
 }
