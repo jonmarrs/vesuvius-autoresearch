@@ -332,11 +332,15 @@ def train(config: ExperimentConfig):
     is_improvement = True
     if np.isnan(val_bpb): is_improvement = False
     
-    if is_improvement and os.path.exists(log_file):
+    best_previous_val_bpb = 1.0
+    if os.path.exists('best_model.pt'):
         try:
-            df = pd.read_csv(log_file, sep='\t')
-            if len(df) > 0 and val_bpb >= df['val_bpb'].dropna().min(): is_improvement = False
+            chk = torch.load('best_model.pt', map_location='cpu', weights_only=False)
+            best_previous_val_bpb = chk.get('val_bpb', 1.0)
         except Exception: pass
+        
+    if is_improvement and val_bpb >= best_previous_val_bpb:
+        is_improvement = False
 
     peak_vram_mb = torch.cuda.max_memory_allocated() / 1024**2
     num_params_M = sum(p.numel() for p in model.parameters())/1e6
