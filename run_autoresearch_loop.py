@@ -110,6 +110,23 @@ if not os.path.exists(log_filename):
 env = os.environ.copy()
 i = 0
 
+RECENT_CONFIGS_FILE = "recent_configs.json"
+def load_recent_configs():
+    if os.path.exists(RECENT_CONFIGS_FILE):
+        try:
+            with open(RECENT_CONFIGS_FILE, "r") as f:
+                return json.load(f)
+        except Exception: return []
+    return []
+
+def save_recent_configs(configs):
+    try:
+        with open(RECENT_CONFIGS_FILE, "w") as f:
+            json.dump(configs[-20:], f)
+    except Exception: pass
+
+recent_configs = load_recent_configs()
+
 while True:
     i += 1
     # Refresh best_val_bpb from results.tsv if it changed
@@ -143,15 +160,33 @@ while True:
         success_counts[f] = max(1.0, success_counts[f] * 0.95)
             
     weights = [success_counts[f] for f in families]
-    template = random.choices(tweak_templates, weights=weights, k=1)[0]
     
-    val = random.choice(template["vals"])
-    family = template["family"]
-    attr = template["attr"]
+    # Frontier-V: Config-Space Entropy Protection
+    # Avoid testing the exact same thing twice in a row if it failed recently
+    max_retries = 10
+    for _ in range(max_retries):
+        template = random.choices(tweak_templates, weights=weights, k=1)[0]
+        val = random.choice(template["vals"])
+        family = template["family"]
+        attr = template["attr"]
+        
+        # Apply tweak to a copy of current config
+        test_config = ExperimentConfig.load(CONFIG_FILE) if os.path.exists(CONFIG_FILE) else ExperimentConfig()
+        setattr(test_config, attr, val)
+        
+        cfg_dict = asdict(test_config)
+        # Remove volatile fields for comparison
+        for k in ['uri', 'val_uri', 'cache_dir', 'time_budget']:
+            cfg_dict.pop(k, None)
+            
+        if cfg_dict not in recent_configs:
+            config = test_config
+            recent_configs.append(cfg_dict)
+            save_recent_configs(recent_configs)
+            break
+        else:
+            print(f"Cycle {i}: Sampled duplicate config ({attr}={val}). Re-sampling for entropy...")
     
-    # Apply tweak to config object
-    old_val = getattr(config, attr)
-    setattr(config, attr, val)
     tweak_name = f"{attr}_{val}"
     
     # Pre-flight VRAM estimation (Complexity Heuristic)

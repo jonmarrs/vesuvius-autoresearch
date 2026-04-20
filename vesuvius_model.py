@@ -56,29 +56,32 @@ class GatedFusionBlock(nn.Module):
         return self.res(up) + (mask * feat)
 
 class LearnedZProjection(nn.Module):
-    """Learned linear projection to collapse Z-dimension into 2D, robust to input depth."""
-    def __init__(self, channels, target_depth=8):
+    """Progressive Depth-Attention Bridge: Collapses Z-dimension into 2D via feature-aware attention."""
+    def __init__(self, channels):
         super().__init__()
-        self.target_depth = target_depth
-        self.proj = nn.Sequential(
-            nn.Conv3d(channels, channels, kernel_size=(target_depth, 1, 1)),
+        self.local_context = nn.Sequential(
+            nn.Conv3d(channels, channels, kernel_size=(3, 1, 1), padding=(1, 0, 0)),
+            nn.GroupNorm(min(channels, 8), channels),
+            nn.GELU()
+        )
+        self.global_pool = nn.AdaptiveAvgPool3d((1, None, None))
+        self.refine = nn.Sequential(
+            nn.Conv2d(channels, channels, kernel_size=1),
             nn.GroupNorm(min(channels, 8), channels),
             nn.GELU()
         )
 
     def forward(self, x):
         # x: [B, C, Z, H, W]
-        if x.shape[2] != self.target_depth:
-            x = F.interpolate(x, size=(self.target_depth, x.shape[3], x.shape[4]), 
-                            mode='trilinear', align_corners=False)
-        x = self.proj(x) # [B, C, 1, H, W]
-        return x.squeeze(2)
+        x = self.local_context(x)
+        x = self.global_pool(x).squeeze(2) # [B, C, H, W]
+        return self.refine(x)
 
 class InkDetectorOptimized(nn.Module):
-    version = "2.2.0"
+    version = "2.3.0"
     def __init__(self, config: VesuviusConfig):
         super().__init__()
-        self.version = "2.2.0"
+        self.version = "2.3.0"
         self.config = config
         
         # Pull architectural parameters from config

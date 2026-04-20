@@ -264,7 +264,21 @@ def train(config: ExperimentConfig):
         x_aug = torch.rot90(x_orig, k=k_rot, dims=(-2, -1))
         target_ink_aug = torch.rot90(target_ink, k=k_rot, dims=(-2, -1)).clamp(0, 1)
         target_fiber_aug = torch.rot90(target_fiber, k=k_rot, dims=(-2, -1)).clamp(0, 1)
-        x_aug = x_aug + torch.randn_like(x_aug) * 0.01
+
+        # 4. Frontier-V Multi-Modal Augmentations
+        # Z-Axis Random Flip (Simulate 'underside' ink)
+        if np.random.rand() > 0.5:
+            x_aug = torch.flip(x_aug, dims=[2])
+            
+        # Intensity Jitter (X-ray sensor variation)
+        if np.random.rand() > 0.5:
+            brightness = 1.0 + (np.random.rand() - 0.5) * 0.2
+            contrast = 1.0 + (np.random.rand() - 0.5) * 0.2
+            x_aug = (x_aug * contrast) + (brightness - 1.0)
+            
+        # Dynamic Gaussian Noise (Denoising robustness)
+        noise_level = 0.01 + 0.02 * (min(step, max_steps) / max_steps) # Noise increases as training progresses
+        x_aug = x_aug + torch.randn_like(x_aug) * noise_level
 
         optimizer.zero_grad(set_to_none=True)
         with autocast(device_type='cuda'):
