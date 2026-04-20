@@ -21,6 +21,35 @@ def get_weight_window(patch_size, device):
     window = h.unsqueeze(1) * h.unsqueeze(0)
     return window
 
+def save_vc3d_zarr(base_path, array_uint8, name="prediction"):
+    """Saves a 2D uint8 array as a VC3D-compatible OME-Zarr volume."""
+    import zarr
+    import uuid
+    import json
+    import os
+    
+    os.makedirs(base_path, exist_ok=True)
+    
+    # Create Zarr group/array at scale '0'
+    z = zarr.open(os.path.join(base_path, "0"), mode='w', shape=(1, *array_uint8.shape), chunks=(1, 256, 256), dtype='|u1')
+    z[0] = array_uint8
+    
+    # Create VC3D meta.json
+    meta = {
+        "height": array_uint8.shape[0],
+        "max": 255.0,
+        "min": 0.0,
+        "name": name,
+        "slices": 1,
+        "type": "vol",
+        "uuid": str(uuid.uuid4()),
+        "voxelsize": 7.91,
+        "width": array_uint8.shape[1],
+        "format": "zarr"
+    }
+    with open(os.path.join(base_path, "meta.json"), "w") as f:
+        json.dump(meta, f)
+
 def predict():
     parser = argparse.ArgumentParser()
     parser.add_argument("--uri", type=str, required=True, help="S3 or local path to Zarr volume")
@@ -132,6 +161,10 @@ def predict():
     from PIL import Image
     ink_uint8 = (np.clip(prob_ink_final, 0, 1) * 255).astype(np.uint8)
     Image.fromarray(ink_uint8).save(f"predictions/{base_name}_ink.png")
+    
+    # Save as VC3D OME-Zarr
+    zarr_path = f"predictions/{base_name}_ink.zarr"
+    save_vc3d_zarr(zarr_path, ink_uint8, name=f"Ink Prediction {base_name}")
 
     # Generate Visualization (using center CT slice of the whole region)
     # Note: For very large regions, we'd need to fetch the CT slice in parts too.
