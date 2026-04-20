@@ -314,7 +314,7 @@ def train(config: ExperimentConfig):
                           config.loss_ink_dice * loss_dice + 
                           config.loss_fiber_bce * loss_fiber + 
                           0.1 * loss_qc + 
-                          0.2 * hallucination_penalty +
+                          0.05 * hallucination_penalty +
                           0.05 * consistency_loss)
 
         if not torch.isfinite(total_loss) or total_loss.item() > 1e6:
