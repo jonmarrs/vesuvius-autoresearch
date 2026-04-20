@@ -73,17 +73,17 @@ Continue the autonomous search for model improvements utilizing the robust v2.1.
 
 ---
 
-## [2026-04-20] Day Shift: Scalability & Convergence Optimization (v2.2.0)
+## [2026-04-20] Day Shift: Vesuvius-DINO Self-Supervised Refactor (v2.4.0)
 
-**Status:** INITIALIZING (Scheduled: 11:15 - 19:00)
+**Status:** ACTIVE (Launched: 13:25)
 
 ### Purpose
-Deploy the **v2.2.0 Frontier Architecture** (Windowed Spatial Attention) to further optimize convergence and explore higher-resolution patch sizes without OOM risks.
+Deploy the **v2.4.0 Vesuvius-DINO** architecture. This refactor bridges the "Grand Prize Gap" by integrating self-supervised consistency learning alongside supervised ink detection.
 
 ### Configuration
-*   **Architecture:** v2.2.0 (Windowed Attention + Budget-Aware Scheduling).
-*   **Target:** `val_bpb` improvement over `0.2662`.
-*   **Technique:** Linear LR Scaling (`lr * batch_size/16`) to stabilize optimization across varying batch sizes.
+*   **Architecture:** v2.4.0 (Student-Teacher Projection + Self-Supervised Consistency Loss).
+*   **New Objective:** `consistency_loss` (weight: 0.1) forcing alignment between different augmented views of the same volume patch.
+*   **Inference:** Sliding window soft-tiling with Hanning blending enabled in `predict.py`.
 
 ### Outcomes & Insights
 *(To be populated as cycles complete)*
