@@ -189,11 +189,19 @@ def train(config: ExperimentConfig):
         except Exception as e:
             print(f"Warning: Could not load best model: {e}")
     
-    # 1. Step-Consistent Scheduler
-    max_steps = 15000 
+    # 1. Linear Scaling Rule for LR
+    config.lr = config.lr * (config.batch_size / 16.0)
+    
+    # 2. Budget-Aware Scheduling
+    # Estimate throughput: ~0.2s per step (conservative estimate for base_feat=64)
+    estimated_step_time = 0.2 
+    max_steps = max(1000, int(config.time_budget / estimated_step_time))
+    warmup_steps = int(max_steps * 0.125) # 12.5% warmup
+    
+    print(f"Budget-Aware Scheduling: max_steps={max_steps}, warmup_steps={warmup_steps}, scaled_lr={config.lr:.2e}")
+    
     optimizer = torch.optim.AdamW(model.parameters(), lr=config.lr, weight_decay=config.weight_decay)
     
-    warmup_steps = 1000
     def lr_lambda(current_step: int):
         if current_step < warmup_steps: return float(current_step) / float(max(1, warmup_steps))
         clamped_step = min(current_step, max_steps)

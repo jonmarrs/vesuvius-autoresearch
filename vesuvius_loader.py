@@ -86,8 +86,8 @@ class FastVesuviusVolume:
         print(f"Calculating stats for {self.uri} ...")
         try:
             self._lazy_init()
-            # Sample 10 slices for speed
-            indices = np.linspace(0, self.shape[0]-1, 10, dtype=int)
+            # Sample 32 slices for better Z-score accuracy
+            indices = np.linspace(0, self.shape[0]-1, 32, dtype=int)
             samples = []
             for idx in indices:
                 samples.append(np.array(self[idx]))
@@ -119,6 +119,12 @@ class FastVesuviusVolume:
         else:
             if self.data is None:
                 self.data = np.memmap(self.npy_path, dtype='uint8', mode='r', shape=self.shape)
+                # Prefetch hint: Use posix_fadvise if available for faster sequential reads
+                try:
+                    if hasattr(os, 'posix_fadvise'):
+                        with open(self.npy_path, 'rb') as f:
+                            os.posix_fadvise(f.fileno(), 0, os.path.getsize(self.npy_path), os.POSIX_FADV_SEQUENTIAL)
+                except Exception: pass
 
     def __getitem__(self, key):
         self._lazy_init()

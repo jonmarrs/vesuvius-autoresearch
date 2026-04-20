@@ -82,9 +82,8 @@ def predict():
         prob_qc = torch.sigmoid(out_qc).cpu().numpy()[0, 0] # Scalar or low-res? model.py shows it's from AdaptiveAvgPool3d(1) -> Scalar per patch
         
         # Frontier Improvement: Use QC head to gate ink prediction
-        # If prob_qc <= 0.5, it's likely non-papyrus region (resin, air, etc)
-        qc_gate = 1.0 if prob_qc > 0.5 else 0.0
-        prob_ink_gated = prob_ink * qc_gate
+        # Soft Gate: allows for smoother transitions in low-quality areas
+        prob_ink_gated = prob_ink * torch.sigmoid(out_qc / 0.1).cpu().numpy()[0, 0]
 
     # Save results
     os.makedirs("predictions", exist_ok=True)
