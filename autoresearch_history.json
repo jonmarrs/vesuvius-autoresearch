@@ -3,10 +3,10 @@
     "wd": 1.0,
     "capacity": 1.0,
     "attention": 1.0,
-    "regularization": 1.080720175325273,
-    "batch": 1.673687254324809,
+    "regularization": 1.0266841665590094,
+    "batch": 1.5900028916085684,
     "spatial": 1.0,
-    "temporal": 2.0,
+    "temporal": 2.9,
     "width": 1.0,
     "loss_balance": 1.0
 }

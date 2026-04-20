@@ -74,3 +74,57 @@
 - **Stats**: val_bpb: 0.27686442792415616, loss: 0.6002778023160302, params: 1.683427M, vram: 10668.9765625MB, speed: 6.318120475588904Mvps
 - **Result**: No improvement detected. Config reverted.
 
+## Cycle 13: loss_ink_bce_0.2 (REVERTED)
+- **Timestamp**: 22:18:48
+- **Config**: cache_dir: None, batch_size: 16, patch_size: 64, num_layers: 24, lr: 0.001, weight_decay: 0.01, time_budget: 900, loss_ink_bce: 0.2, loss_ink_dice: 0.4, loss_fiber_bce: 0.2, base_feat: 64, num_blocks: 16, num_heads: 8, dropout: 0.2
+- **Stats**: val_bpb: 0.2824960547685623, loss: 0.32216058449165363, params: 1.416419M, vram: 8928.626953125MB, speed: 4.110106963392578Mvps
+- **Result**: No improvement detected. Config reverted.
+
+## Cycle 14: batch_size_8 (REVERTED)
+- **Timestamp**: 22:34:13
+- **Config**: cache_dir: None, batch_size: 8, patch_size: 64, num_layers: 24, lr: 0.001, weight_decay: 0.01, time_budget: 900, loss_ink_bce: 0.4, loss_ink_dice: 0.4, loss_fiber_bce: 0.2, base_feat: 64, num_blocks: 16, num_heads: 8, dropout: 0.2
+- **Stats**: val_bpb: 0.29749520689249037, loss: 0.29831744979367686, params: 1.416419M, vram: 4526.603515625MB, speed: 4.740433107613721Mvps
+- **Result**: No improvement detected. Config reverted.
+
+## Cycle 15: num_layers_24 (SUCCESS)
+- **Timestamp**: 22:49:33
+- **Config**: cache_dir: None, batch_size: 16, patch_size: 64, num_layers: 24, lr: 0.001, weight_decay: 0.01, time_budget: 900, loss_ink_bce: 0.4, loss_ink_dice: 0.4, loss_fiber_bce: 0.2, base_feat: 64, num_blocks: 16, num_heads: 8, dropout: 0.2
+- **Stats**: val_bpb: 0.2662423020601273, loss: 0.3327777936679038, params: 1.416419M, vram: 8928.626953125MB, speed: 8.122308676715514Mvps
+- **Result**: Improvement detected. Config updated.
+
+## Cycle 16: num_layers_32 (CRASHED)
+- **Timestamp**: 22:49:42
+- **Config**: cache_dir: None, batch_size: 16, patch_size: 64, num_layers: 32, lr: 0.001, weight_decay: 0.01, time_budget: 900, loss_ink_bce: 0.4, loss_ink_dice: 0.4, loss_fiber_bce: 0.2, base_feat: 64, num_blocks: 16, num_heads: 8, dropout: 0.2
+- **Stats**: val_bpb: N/A, loss: N/A, params: N/AM, vram: N/AMB, speed: N/AMvps
+- **Result**: Training crashed (Unknown error). Family weight preserved/incremented to retry other values.
+
+## Cycle 17: num_heads_4 (REVERTED)
+- **Timestamp**: 23:04:57
+- **Config**: cache_dir: None, batch_size: 16, patch_size: 64, num_layers: 24, lr: 0.001, weight_decay: 0.01, time_budget: 900, loss_ink_bce: 0.4, loss_ink_dice: 0.4, loss_fiber_bce: 0.2, base_feat: 64, num_blocks: 16, num_heads: 4, dropout: 0.2
+- **Stats**: val_bpb: 0.2862409168481827, loss: 0.5939009335736554, params: 1.416419M, vram: 6174.626953125MB, speed: 9.601199798699996Mvps
+- **Result**: No improvement detected. Config reverted.
+
+## Cycle 18: num_heads_12 (REVERTED)
+- **Timestamp**: 23:20:13
+- **Config**: cache_dir: None, batch_size: 16, patch_size: 64, num_layers: 24, lr: 0.001, weight_decay: 0.01, time_budget: 900, loss_ink_bce: 0.4, loss_ink_dice: 0.4, loss_fiber_bce: 0.2, base_feat: 64, num_blocks: 16, num_heads: 12, dropout: 0.2
+- **Stats**: val_bpb: 0.3012449809908867, loss: 0.5920452166803393, params: 1.416419M, vram: 8930.626953125MB, speed: 8.730094125708343Mvps
+- **Result**: No improvement detected. Config reverted.
+
+## Cycle 19: loss_fiber_bce_0.2 (REVERTED)
+- **Timestamp**: 23:35:28
+- **Config**: cache_dir: None, batch_size: 16, patch_size: 64, num_layers: 24, lr: 0.001, weight_decay: 0.01, time_budget: 900, loss_ink_bce: 0.4, loss_ink_dice: 0.4, loss_fiber_bce: 0.2, base_feat: 64, num_blocks: 16, num_heads: 8, dropout: 0.2
+- **Stats**: val_bpb: 0.2956198820471764, loss: 0.35912263582601267, params: 1.416419M, vram: 8928.626953125MB, speed: 8.566826631557959Mvps
+- **Result**: No improvement detected. Config reverted.
+
+## Cycle 20: num_blocks_20 (REVERTED)
+- **Timestamp**: 23:50:45
+- **Config**: cache_dir: None, batch_size: 16, patch_size: 64, num_layers: 24, lr: 0.001, weight_decay: 0.01, time_budget: 900, loss_ink_bce: 0.4, loss_ink_dice: 0.4, loss_fiber_bce: 0.2, base_feat: 64, num_blocks: 20, num_heads: 8, dropout: 0.2
+- **Stats**: val_bpb: 0.28249573916196824, loss: 0.596251565423289, params: 1.683427M, vram: 10664.3515625MB, speed: 7.6325702002456675Mvps
+- **Result**: No improvement detected. Config reverted.
+
+## Cycle 21: patch_size_64 (REVERTED)
+- **Timestamp**: 00:06:03
+- **Config**: cache_dir: None, batch_size: 16, patch_size: 64, num_layers: 24, lr: 0.001, weight_decay: 0.01, time_budget: 900, loss_ink_bce: 0.4, loss_ink_dice: 0.4, loss_fiber_bce: 0.2, base_feat: 64, num_blocks: 16, num_heads: 8, dropout: 0.2
+- **Stats**: val_bpb: 0.29374654054641725, loss: 0.3464791569411797, params: 1.416419M, vram: 8930.626953125MB, speed: 8.481842724966342Mvps
+- **Result**: No improvement detected. Config reverted.
+
