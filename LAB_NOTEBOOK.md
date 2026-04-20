@@ -47,7 +47,8 @@ Resume the autonomous search for model improvements after a system crash. This s
 3.  **Crash Resilience:** Hardened experiment tracking that persists success history across system restarts.
 
 ### Outcomes & Insights
-*(To be populated as cycles complete)*
+*   **Cycle 1 (v2.1.0):** Completed with `val_bpb: 0.2981`. No improvement over baseline (0.2806), but confirmed the **Hallucination Penalty** and dynamic architecture are stable.
+*   **Baseline Correction:** Fixed a `nan` value in `best_model.pt` that was caused by a previous failed run. Corrected baseline to `0.280617`.
 
 ---
 
