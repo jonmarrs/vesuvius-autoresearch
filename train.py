@@ -19,6 +19,17 @@ import pandas as pd
 from torch.utils.data import DataLoader
 from torch.amp import GradScaler, autocast
 
+# Add villa official metrics
+sys.path.append(os.path.abspath('villa/segmentation/evaluation'))
+try:
+    from metrics.dice import compute as compute_official_dice
+except ImportError:
+    # Fallback if module is missing during test environments
+    def compute_official_dice(label, prediction, threshold=0.5):
+        prediction_bin = (prediction >= threshold).float()
+        intersection = torch.sum(label.float() * prediction_bin)
+        return ((2.0 * intersection) / (torch.sum(label.float()) + torch.sum(prediction_bin) + 1e-12)).item()
+
 # Import our breakthrough components
 from vesuvius_model import InkDetectorOptimized, VesuviusConfig
 from vesuvius_loader import VesuviusS3Dataset, VesuviusLabeledDataset
@@ -358,7 +369,8 @@ def train(config: ExperimentConfig):
                     val_target = val_target.to(device)
                     if val_target.dim() == 3: val_target = val_target.unsqueeze(1)
                     with autocast(device_type='cuda'): out_2d = model(val_x)
-                    val_losses.append(1.0 - compute_hard_dice(out_2d, val_target).item())
+                    val_dice = compute_official_dice(val_target, torch.sigmoid(out_2d), threshold=0.5)
+                    val_losses.append(1.0 - val_dice)
             except StopIteration: val_data_iter = iter(val_data_loader)
             except Exception: continue
 
