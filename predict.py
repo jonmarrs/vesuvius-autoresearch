@@ -24,6 +24,7 @@ def predict():
     parser.add_argument("--patch_size", type=int, default=32)
     parser.add_argument("--num_layers", type=int, default=16)
     parser.add_argument("--base_feat", type=int, default=128)
+    parser.add_argument("--output_img", type=str, default=None, help="Force output image path")
     args = parser.parse_args()
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -69,19 +70,27 @@ def predict():
         args.x : args.x + patch_size
     ]
 
-    # Prepare input
-    x = torch.tensor(np.array(block, copy=False), dtype=torch.float32).div_(255.0).unsqueeze(0).unsqueeze(0).to(device) # [B, C, Z, H, W]
+    # Prepare input using loader normalization
+    x = dataset.normalize(block).unsqueeze(0).unsqueeze(0).to(device) # [B, C, Z, H, W]
 
     print("Running inference...")
     with torch.no_grad():
-        out_ink_2d, out_fiber, _ = model(x, return_fiber=True)
+        # out_qc is the papyrus quality score (0-1 density)
+        out_ink_2d, out_fiber, out_qc = model(x, return_fiber=True, return_qc=True)
         prob_ink = torch.sigmoid(out_ink_2d).cpu().numpy()[0, 0]
         prob_fiber = torch.sigmoid(out_fiber.mean(dim=2)).cpu().numpy()[0, 0]
+        prob_qc = torch.sigmoid(out_qc).cpu().numpy()[0, 0] # Scalar or low-res? model.py shows it's from AdaptiveAvgPool3d(1) -> Scalar per patch
+        
+        # Frontier Improvement: Use QC head to gate ink prediction
+        # If prob_qc <= 0.5, it's likely non-papyrus region (resin, air, etc)
+        qc_gate = 1.0 if prob_qc > 0.5 else 0.0
+        prob_ink_gated = prob_ink * qc_gate
 
     # Save results
     os.makedirs("predictions", exist_ok=True)
     base_name = f"pred_{args.z}_{args.y}_{args.x}"
     np.save(f"predictions/{base_name}_ink.npy", prob_ink)
+    np.save(f"predictions/{base_name}_ink_gated.npy", prob_ink_gated)
     np.save(f"predictions/{base_name}_fiber.npy", prob_fiber)
 
     # Generate Visualization with Scale Bar
@@ -90,26 +99,23 @@ def predict():
     # 1. CT Context (Middle Slice)
     ct_slice = np.array(block[num_layers // 2], dtype=np.float32) / 255.0
     axes[0].imshow(ct_slice, cmap='gray')
-    axes[0].set_title("CT Slice (Middle)")
+    axes[0].set_title(f"CT Slice (QC={prob_qc:.2f})")
     
     # 2. Fiber Context (Spatial Structure)
     axes[1].imshow(prob_fiber, cmap='magma')
     axes[1].set_title("Fiber Context")
     
-    # 3. Ink Prediction Overlay
+    # 3. Ink Prediction Overlay (Gated)
     axes[2].imshow(ct_slice, cmap='gray')
-    axes[2].imshow(prob_ink, cmap='jet', alpha=0.5)
-    axes[2].set_title("Ink Prediction Overlay")
+    axes[2].imshow(prob_ink_gated, cmap='jet', alpha=0.5)
+    axes[2].set_title("Gated Ink Overlay")
 
     # Add 1cm Scale Bar
-    # Assuming 8um per pixel: 1cm = 10,000um / 8um = 1250 pixels.
-    # If patch is smaller than 1250, we show 1mm (125 pixels).
     pixel_size_um = 8.0 # Standard assumption
     one_cm_px = 10000 / pixel_size_um
     one_mm_px = 1000 / pixel_size_um
     
     for ax in axes:
-        # Drawing a 1mm scale bar for small patches, or 1cm if it fits
         bar_px = one_mm_px if patch_size < one_cm_px else one_cm_px
         label = "1mm" if patch_size < one_cm_px else "1cm"
         
@@ -119,7 +125,8 @@ def predict():
         ax.axis('off')
 
     plt.tight_layout()
-    plt.savefig(f"predictions/{base_name}.png")
+    out_path = args.output_img if args.output_img else f"predictions/{base_name}.png"
+    plt.savefig(out_path)
     plt.close()
 
     # Save Metadata JSON for Milestone Submission
@@ -129,18 +136,21 @@ def predict():
         "coordinates": {"z": args.z, "y": args.y, "x": args.x},
         "patch_size": patch_size,
         "num_layers": num_layers,
+        "qc_score": float(prob_qc),
         "hallucination_mitigation": {
             "window_size_mm": (patch_size * pixel_size_um / 1000.0),
-            "compliance_score": float(prob_ink.max()), 
-            "status": "COMPLIANT (<0.5mm)" if (patch_size * pixel_size_um / 1000.0) <= 0.5 else "LARGE WINDOW"
+            "compliance_score": float(prob_ink_gated.max()), 
+            "status": "COMPLIANT (<0.5mm)" if (patch_size * pixel_size_um / 1000.0) <= 0.5 else "LARGE WINDOW",
+            "gated": bool(prob_qc > 0.5)
         }
     }
     with open(f"predictions/{base_name}_meta.json", "w") as f:
         json.dump(metadata, f, indent=4)
 
     print(f"\nPrediction Complete!")
-    print(f"Ink mean probability:   {prob_ink.mean():.4f}")
-    print(f"Visualization saved to predictions/{base_name}.png")
+    print(f"QC Score:               {prob_qc:.4f}")
+    print(f"Ink mean prob (gated):  {prob_ink_gated.mean():.4f}")
+    print(f"Visualization saved to {out_path}")
     print(f"Metadata saved to predictions/{base_name}_meta.json")
 
 if __name__ == "__main__":

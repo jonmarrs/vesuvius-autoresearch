@@ -68,3 +68,9 @@
 - **Stats**: val_bpb: 0.30061611443758013, loss: 0.33227961866256533, params: 1.416419M, vram: 8930.626953125MB, speed: 8.78226560769616Mvps
 - **Result**: No improvement detected. Config reverted.
 
+## Cycle 12: num_blocks_20 (REVERTED)
+- **Timestamp**: 22:02:03
+- **Config**: cache_dir: None, batch_size: 16, patch_size: 64, num_layers: 24, lr: 0.001, weight_decay: 0.01, time_budget: 900, loss_ink_bce: 0.4, loss_ink_dice: 0.4, loss_fiber_bce: 0.2, base_feat: 64, num_blocks: 20, num_heads: 8, dropout: 0.2
+- **Stats**: val_bpb: 0.27686442792415616, loss: 0.6002778023160302, params: 1.683427M, vram: 10668.9765625MB, speed: 6.318120475588904Mvps
+- **Result**: No improvement detected. Config reverted.
+

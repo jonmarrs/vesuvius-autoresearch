@@ -5,6 +5,7 @@ from torch.utils.data import IterableDataset, DataLoader
 from PIL import Image
 import os
 import time
+import json
 
 Image.MAX_IMAGE_PIXELS = None
 
@@ -26,8 +27,11 @@ class FastVesuviusVolume:
         else:
             self.npy_path = os.path.join(volume_uri, "volume_cache.npy")
             
+        self.stats_path = self.npy_path.replace(".npy", "_stats.json")
         self.data = None
         self.dataset = None
+        self.mean = 128.0
+        self.std = 70.0
         
         if os.path.isdir(volume_uri) and any(f.endswith('.tif') for f in os.listdir(volume_uri)):
             if not os.path.exists(self.npy_path):
@@ -64,6 +68,46 @@ class FastVesuviusVolume:
             }).result()
             self.shape = ds.shape
             self.is_zarr = True
+            # For Zarr, try to find stats in the parent dir if npy_path isn't standard
+            if not os.path.exists(self.stats_path):
+                self.stats_path = os.path.join(os.path.dirname(volume_uri.rstrip('/')), "volume_stats.json")
+
+        if os.path.exists(self.stats_path):
+            try:
+                with open(self.stats_path, 'r') as f:
+                    stats = json.load(f)
+                    self.mean = stats.get('mean', 128.0)
+                    self.std = stats.get('std', 70.0)
+            except Exception: pass
+        else:
+            self._calculate_stats()
+
+    def _calculate_stats(self):
+        print(f"Calculating stats for {self.uri} ...")
+        try:
+            self._lazy_init()
+            # Sample 10 slices for speed
+            indices = np.linspace(0, self.shape[0]-1, 10, dtype=int)
+            samples = []
+            for idx in indices:
+                samples.append(np.array(self[idx]))
+            samples = np.array(samples)
+            self.mean = float(samples.mean())
+            self.std = float(samples.std())
+            
+            with open(self.stats_path, 'w') as f:
+                json.dump({'mean': self.mean, 'std': self.std}, f)
+        except Exception as e:
+            print(f"Warning: Could not calculate/save stats: {e}")
+
+    def normalize(self, patch):
+        """Automated Z-scoring based on stored volume stats."""
+        if isinstance(patch, np.ndarray):
+            patch = torch.from_numpy(patch).float()
+        elif not isinstance(patch, torch.Tensor):
+            patch = torch.tensor(np.array(patch, copy=False), dtype=torch.float32)
+        
+        return (patch - self.mean) / (self.std + 1e-5)
 
     def _lazy_init(self):
         if self.is_zarr:
@@ -157,7 +201,7 @@ class VesuviusLabeledDataset(IterableDataset):
             
             try:
                 patch_vol = self.volume[z0:z0+self.num_layers, y0:y0+self.patch_size, x0:x0+self.patch_size]
-                patch_vol = torch.tensor(np.array(patch_vol, copy=False), dtype=torch.float32).div_(255.0).unsqueeze(0)
+                patch_vol = self.volume.normalize(patch_vol).unsqueeze(0)
                 patch_label = torch.tensor(np.array(self.labels[y0:y0+self.patch_size, x0:x0+self.patch_size], copy=False), dtype=torch.float32)
                 
                 yield patch_vol, patch_label
@@ -177,11 +221,8 @@ class VesuviusS3Dataset(IterableDataset):
         if uri.startswith("s3://"):
             raise ValueError("S3 Streaming disabled. Use local paths.")
             
-        ds = ts.open({
-            'driver': 'zarr',
-            'kvstore': {'driver': 'file', 'path': uri},
-        }).result()
-        self.shape = ds.shape
+        self.volume = FastVesuviusVolume(uri, cache_dir=cache_dir)
+        self.shape = self.volume.shape
 
     def __iter__(self):
         worker_info = torch.utils.data.get_worker_info()
@@ -193,12 +234,6 @@ class VesuviusS3Dataset(IterableDataset):
         ss = np.random.SeedSequence(seed)
         np.random.seed(ss.generate_state(1)[0])
             
-        if self.dataset is None:
-            self.dataset = ts.open({
-                'driver': 'zarr',
-                'kvstore': {'driver': 'file', 'path': self.uri},
-            }).result()
-
         block_z, block_hw = 128, 256
         while True:
             z0 = np.random.randint(0, self.shape[0] - block_z)
@@ -206,14 +241,14 @@ class VesuviusS3Dataset(IterableDataset):
             x0 = np.random.randint(0, self.shape[2] - block_hw)
             
             try:
-                block = self.dataset[z0:z0+block_z, y0:y0+block_hw, x0:x0+block_hw].read().result()
+                block = self.volume[z0:z0+block_z, y0:y0+block_hw, x0:x0+block_hw]
                 for _ in range(64):
                     pz = np.random.randint(0, block_z - self.num_layers)
                     py = np.random.randint(0, block_hw - self.patch_size)
                     px = np.random.randint(0, block_hw - self.patch_size)
                     
                     patch = block[pz:pz+self.num_layers, py:py+self.patch_size, px:px+self.patch_size]
-                    tensor = torch.tensor(np.array(patch, copy=False), dtype=torch.float32).div_(255.0).unsqueeze(0)
+                    tensor = self.volume.normalize(patch).unsqueeze(0)
                     yield tensor, torch.empty(0)
             except Exception:
                 continue

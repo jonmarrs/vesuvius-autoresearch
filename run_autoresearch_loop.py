@@ -63,6 +63,7 @@ else:
     end_hour = 7
 
 os.makedirs("sprint_logs", exist_ok=True)
+os.makedirs("reports", exist_ok=True)
 log_filename = f"sprint_logs/sprint_log_{time.strftime('%Y-%m-%d_%H-%M-%S')}_{shift_name.lower().replace(' ', '_')}.md"
 
 # Resume previous log if still same shift and file exists
@@ -274,6 +275,19 @@ while True:
         print(f"CYCLE CRASHED ({'OOM' if oom_detected else 'UNKNOWN'}). Reverting but keeping family weight.")
     else:
         print(f"No improvement. (val_bpb: {val_bpb}, best was: {best_val_bpb:.6f})")
+
+    # Benchmark Inference Step (Every 5 cycles)
+    if i % 5 == 0:
+        print(f"Cycle {i}: Running Benchmark Inference...")
+        benchmark_path = f"reports/benchmark_v210_cycle{i}.png"
+        # Using Fragment 2 (Paris2Fr143) as specified
+        benchmark_cmd = (
+            f"uv run predict.py "
+            f"--uri local_data/PHercParis2Fr143/surface_volume/ "
+            f"--z 10 --y 1000 --x 1000 "
+            f"--output_img {benchmark_path}"
+        )
+        os.system(benchmark_cmd)
     
     sys.stdout.flush()
     time.sleep(2)
