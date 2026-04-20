@@ -1,12 +1,12 @@
 {
-    "lr": 1.0,
+    "lr": 2.2665468705101857,
     "wd": 1.0,
     "capacity": 1.0,
-    "attention": 1.0,
-    "regularization": 1.0,
-    "batch": 1.0,
-    "spatial": 1.0,
-    "temporal": 3.552020267601733,
+    "attention": 2.3920254669086187,
+    "regularization": 1.805,
+    "batch": 2.3268408625781243,
+    "spatial": 1.080720175325273,
+    "temporal": 1.9091677365343998,
     "width": 1.0,
-    "loss_balance": 1.0
+    "loss_balance": 4.984660507444029
 }
