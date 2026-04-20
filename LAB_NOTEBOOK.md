@@ -52,6 +52,24 @@ Resume the autonomous search for model improvements after a system crash. This s
 
 ---
 
+## [2026-04-19] Night Shift: V2.1.0 Architecture Extended Search
+
+**Status:** ACTIVE (Launched: 19:06)
+
+### Purpose
+Continue the autonomous search for model improvements utilizing the robust v2.1.0 architecture with dynamic positional interpolation and hallucination penalty. The primary objective remains optimizing the `val_bpb` (1.0 - Dice) for Cross-Fragment Generalization.
+
+### Configuration
+*   **Hardware:** RTX 4090 (24GB VRAM).
+*   **Training Source:** PHerc. Paris 2 Fr 47 (Fragment 1) - 33 unrolled layers.
+*   **Validation Target:** PHerc. Paris 2 Fr 143 (Fragment 2) - 33 unrolled layers.
+*   **Key Tweaks:** Exploring full hyperparameter space with Success-Biased Decay to avoid local minima.
+
+### Outcomes & Insights
+*(To be populated as cycles complete or at the end of shift)*
+
+---
+
 ## [Future Entry Template]
 
 ## [YYYY-MM-DD] Night Shift: [Experiment Title]
