@@ -66,7 +66,27 @@ Continue the autonomous search for model improvements utilizing the robust v2.1.
 *   **Key Tweaks:** Exploring full hyperparameter space with Success-Biased Decay to avoid local minima.
 
 ### Outcomes & Insights
-*(To be populated as cycles complete or at the end of shift)*
+*   **Best val_bpb:** 0.2662 (Cycle 15)
+*   **Winning Mutation:** `num_layers: 24` with `dropout: 0.2`.
+*   **Key Insight:** Increasing the Z-depth to 24 layers provided a significant boost in cross-fragment generalization, likely by capturing more volumetric context for ink morphology. However, attempts to scale to 32 layers triggered system crashes, suggesting a hardware limit on the current RTX 4090 memory for that specific configuration.
+*   **Architectural Stability:** The v2.1.0 and subsequent v2.2.0 updates (Windowed Attention) proved highly stable, maintaining high throughput (~8-13M voxels/sec) throughout the 50-cycle run.
+
+---
+
+## [2026-04-20] Day Shift: Scalability & Convergence Optimization (v2.2.0)
+
+**Status:** INITIALIZING (Scheduled: 11:15 - 19:00)
+
+### Purpose
+Deploy the **v2.2.0 Frontier Architecture** (Windowed Spatial Attention) to further optimize convergence and explore higher-resolution patch sizes without OOM risks.
+
+### Configuration
+*   **Architecture:** v2.2.0 (Windowed Attention + Budget-Aware Scheduling).
+*   **Target:** `val_bpb` improvement over `0.2662`.
+*   **Technique:** Linear LR Scaling (`lr * batch_size/16`) to stabilize optimization across varying batch sizes.
+
+### Outcomes & Insights
+*(To be populated as cycles complete)*
 
 ---
 
