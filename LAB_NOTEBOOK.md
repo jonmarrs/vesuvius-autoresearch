@@ -86,6 +86,7 @@ Deploy the **v2.4.0 Vesuvius-DINO** architecture. This refactor bridges the "Gra
 *   **Inference:** Sliding window soft-tiling with Hanning blending enabled in `predict.py`.
 
 ### Outcomes & Insights
+*   **Official Metric Integration:** Successfully replaced the custom `val_bpb` Dice calculation with the official Vesuvius Challenge metric from `villa/segmentation/evaluation/metrics/dice.py`. This ensures our autonomous loop is mathematically aligned with the Grand Prize judging criteria.
 *(To be populated as cycles complete)*
 
 ---
