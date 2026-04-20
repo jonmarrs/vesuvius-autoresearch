@@ -293,7 +293,7 @@ def train(config: ExperimentConfig):
             out_ink_2d, out_fiber, out_qc, p1 = model(x_aug1, return_fiber=True, return_qc=True, return_proj=True)
             
             # Forward pass for view 2 (projection only)
-            p2 = model(x_aug2, return_proj=True)
+            _, p2 = model(x_aug2, return_proj=True)
             
             # Supervised Losses (on view 1)
             loss_ink = F.binary_cross_entropy_with_logits(out_ink_2d, target_ink_aug1)
