@@ -131,7 +131,9 @@ def predict():
             ]
 
             # Prepare input
-            x = dataset.normalize(block).unsqueeze(0).unsqueeze(0).to(device) # [B, C, Z, H, W]
+            x = dataset.normalize(block).unsqueeze(0).to(device) # [B, C, Z, H, W]
+            if not use_ridges:
+                x = x.unsqueeze(1) # [B, 1, Z, H, W]
 
             with torch.no_grad():
                 out_ink_2d, out_fiber, out_qc = model(x, return_fiber=True, return_qc=True)

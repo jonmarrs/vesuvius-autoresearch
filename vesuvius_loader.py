@@ -183,14 +183,15 @@ class FastVesuviusVolume:
         else:
             ct = self.data[key]
         
-        if self.use_ridges and self.ridge_data is not None:
-            ridges = self.ridge_data[key]
-            # Return multi-channel: [C=2, Z, H, W]
-            # Note: We need to handle slicing (key) carefully if it's a single slice vs volume
-            if len(ct.shape) == 3: # Volume
-                return np.stack([ct, ridges], axis=0)
-            else: # Single slice
-                return np.stack([ct, ridges], axis=0)
+        if self.use_ridges:
+            if self.ridge_data is not None:
+                ridges = self.ridge_data[key]
+            else:
+                # Fallback: Return zeros for ridges if not computed/loaded
+                ridges = np.zeros_like(ct, dtype='float32')
+            
+            return np.stack([ct, ridges], axis=0)
+            
         return ct
 
 class VesuviusLabeledDataset(IterableDataset):
@@ -269,7 +270,10 @@ class VesuviusLabeledDataset(IterableDataset):
             
             try:
                 patch_vol = self.volume[z0:z0+self.num_layers, y0:y0+self.patch_size, x0:x0+self.patch_size]
-                patch_vol = self.volume.normalize(patch_vol).unsqueeze(0)
+                patch_vol = self.volume.normalize(patch_vol)
+                if not self.use_ridges:
+                    patch_vol = patch_vol.unsqueeze(0) # [1, Z, H, W]
+                
                 patch_label = torch.tensor(np.array(self.labels[y0:y0+self.patch_size, x0:x0+self.patch_size], copy=False), dtype=torch.float32)
                 
                 yield patch_vol, patch_label
@@ -317,7 +321,9 @@ class VesuviusS3Dataset(IterableDataset):
                     px = np.random.randint(0, block_hw - self.patch_size)
                     
                     patch = block[pz:pz+self.num_layers, py:py+self.patch_size, px:px+self.patch_size]
-                    tensor = self.volume.normalize(patch).unsqueeze(0)
+                    tensor = self.volume.normalize(patch)
+                    if not self.use_ridges:
+                        tensor = tensor.unsqueeze(0)
                     yield tensor, torch.empty(0)
             except Exception:
                 continue
