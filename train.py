@@ -9,7 +9,6 @@ import sys
 import time
 import math
 import json
-import subprocess
 from dataclasses import dataclass, asdict
 
 import torch
@@ -31,9 +30,71 @@ except ImportError:
         prediction_bin = (prediction >= threshold).float()
         intersection = torch.sum(label.float() * prediction_bin)
         return ((2.0 * intersection) / (torch.sum(label.float()) + torch.sum(prediction_bin) + 1e-12)).item()
-    
+
     def compute_skeleton_dist(label, prediction, **kwargs):
         return 1.0 # Constant fallback
+
+try:
+    from metrics.centerline_dice import compute as compute_centerline_dice
+except ImportError:
+    def compute_centerline_dice(label, prediction, **kwargs):
+        return {"centerline_dice": 0.0}
+
+try:
+    from scipy.ndimage import label as _scipy_cc_label
+    def compute_cc_diff(gt_bin: np.ndarray, pred_bin: np.ndarray) -> int:
+        _, n_gt = _scipy_cc_label(gt_bin)
+        _, n_pred = _scipy_cc_label(pred_bin)
+        return abs(int(n_pred) - int(n_gt))
+except ImportError:
+    def compute_cc_diff(gt_bin, pred_bin):
+        return 0
+
+# Villa Albumentations recipe (Grand Prize team, tuned for Scroll 2 noise profile).
+# See villa/ink-detection/train_timesformer_og.py.
+try:
+    import albumentations as A
+    _HAS_ALBUMENTATIONS = True
+except ImportError:
+    _HAS_ALBUMENTATIONS = False
+
+_villa_aug_cache = {}
+
+def _get_villa_aug(size: int):
+    if not _HAS_ALBUMENTATIONS:
+        return None
+    if size in _villa_aug_cache:
+        return _villa_aug_cache[size]
+    # Albumentations 2.x API. Villa used rotate_limit=360 / shift_limit=0.15 /
+    # scale_limit=0.15 via the (now deprecated) ShiftScaleRotate; A.Affine is the
+    # direct replacement. CoarseDropout switched to *_range tuples + fill/fill_mask.
+    pipeline = A.Compose([
+        A.HorizontalFlip(p=0.5),
+        A.VerticalFlip(p=0.5),
+        A.RandomBrightnessContrast(p=0.75),
+        A.Affine(
+            rotate=(-180, 180),
+            translate_percent=(-0.15, 0.15),
+            scale=(0.85, 1.15),
+            border_mode=0,
+            p=0.75,
+        ),
+        A.OneOf([
+            A.GaussNoise(std_range=(0.01, 0.03)),
+            A.GaussianBlur(),
+            A.MotionBlur(),
+        ], p=0.4),
+        A.CoarseDropout(
+            num_holes_range=(1, 2),
+            hole_height_range=(0.1, 0.2),
+            hole_width_range=(0.1, 0.2),
+            fill=0,
+            fill_mask=0,
+            p=0.5,
+        ),
+    ], additional_targets={'fiber': 'mask'})
+    _villa_aug_cache[size] = pipeline
+    return pipeline
 
 # Import our breakthrough components
 from vesuvius_model import InkDetectorOptimized, VesuviusConfig
@@ -143,27 +204,59 @@ def compute_hard_dice(pred_2d, target, smooth=1e-5):
     return dice.mean()
 
 def apply_augmentations(x, target_ink, target_fiber, step, max_steps):
-    """Applies randomized 3D augmentations to a volume patch."""
-    k_rot = np.random.randint(0, 4)
-    x_aug = torch.rot90(x, k=k_rot, dims=(-2, -1))
-    target_ink_aug = torch.rot90(target_ink, k=k_rot, dims=(-2, -1)).clamp(0, 1)
-    target_fiber_aug = torch.rot90(target_fiber, k=k_rot, dims=(-2, -1)).clamp(0, 1)
+    """Villa Albumentations recipe (per-item, synchronized across depth).
 
-    # Z-Axis Random Flip
+    x: (B, 1, D, H, W); target_ink: (B, 1, H, W); target_fiber: (B, 1, 1, H, W).
+    Treats the depth axis as multi-channel 2D image so ShiftScaleRotate etc. apply
+    the same spatial transform to every z-slice. Keeps a z-flip as a cheap 3D aug.
+    """
+    aug = _get_villa_aug(x.shape[-1]) if _HAS_ALBUMENTATIONS else None
+    if aug is None:
+        # Bare-bones fallback so the training loop still runs without albumentations.
+        k_rot = np.random.randint(0, 4)
+        x_aug = torch.rot90(x, k=k_rot, dims=(-2, -1))
+        ink_aug = torch.rot90(target_ink, k=k_rot, dims=(-2, -1)).clamp(0, 1)
+        fiber_aug = torch.rot90(target_fiber, k=k_rot, dims=(-2, -1)).clamp(0, 1)
+        if np.random.rand() > 0.5:
+            x_aug = torch.flip(x_aug, dims=[2])
+        return x_aug, ink_aug, fiber_aug
+
+    B, _, D, H, W = x.shape
+    device = x.device
+    x_dtype = x.dtype
+    ink_dtype = target_ink.dtype
+    fiber_dtype = target_fiber.dtype
+
+    x_np = x.detach().float().cpu().numpy()
+    ink_np = target_ink.detach().float().cpu().numpy()
+    fiber_np = target_fiber.detach().float().cpu().numpy()
+
+    # Collapse fiber's singleton depth dim if present.
+    fiber_has_d = (fiber_np.ndim == 5)
+    if fiber_has_d:
+        fiber_np = fiber_np[:, :, 0]  # (B, 1, H, W)
+
+    out_x, out_ink, out_fiber = [], [], []
+    for b in range(B):
+        img_hwd = np.transpose(x_np[b, 0], (1, 2, 0)).astype(np.float32, copy=False)  # (H, W, D)
+        mask_ink = ink_np[b, 0].astype(np.float32, copy=False)
+        mask_fiber = fiber_np[b, 0].astype(np.float32, copy=False)
+        res = aug(image=img_hwd, mask=mask_ink, fiber=mask_fiber)
+        out_x.append(np.transpose(res['image'], (2, 0, 1)))
+        out_ink.append(res['mask'])
+        out_fiber.append(res['fiber'])
+
+    x_aug = torch.from_numpy(np.ascontiguousarray(np.stack(out_x))).unsqueeze(1).to(device=device, dtype=x_dtype)
+    ink_aug = torch.from_numpy(np.ascontiguousarray(np.stack(out_ink))).unsqueeze(1).to(device=device, dtype=ink_dtype).clamp(0, 1)
+    fiber_aug = torch.from_numpy(np.ascontiguousarray(np.stack(out_fiber))).unsqueeze(1).to(device=device, dtype=fiber_dtype).clamp(0, 1)
+    if fiber_has_d:
+        fiber_aug = fiber_aug.unsqueeze(2)  # restore (B, 1, 1, H, W)
+
+    # Cheap 3D-specific aug the villa 2D recipe can't express: random z-flip.
     if np.random.rand() > 0.5:
         x_aug = torch.flip(x_aug, dims=[2])
-        
-    # Intensity Jitter
-    if np.random.rand() > 0.5:
-        brightness = 1.0 + (np.random.rand() - 0.5) * 0.2
-        contrast = 1.0 + (np.random.rand() - 0.5) * 0.2
-        x_aug = (x_aug * contrast) + (brightness - 1.0)
-        
-    # Dynamic Gaussian Noise
-    noise_level = 0.01 + 0.02 * (min(step, max_steps) / max_steps)
-    x_aug = x_aug + torch.randn_like(x_aug) * noise_level
-    
-    return x_aug, target_ink_aug, target_fiber_aug
+
+    return x_aug, ink_aug, fiber_aug
 
 def train(config: ExperimentConfig):
     torch.set_float32_matmul_precision('high')
@@ -183,22 +276,10 @@ def train(config: ExperimentConfig):
     print(f"Initializing LOCAL TRANSFORMER Training on {config.uri}...")
     sys.stdout.flush()
 
-    def preprocess_label_if_needed(labels_path):
-        filled_path = labels_path.replace("inklabels.png", "inklabels_filled.png")
-        if not os.path.exists(filled_path):
-            print(f"Label filling not found for {labels_path}, running pre-processing...")
-            try:
-                subprocess.run(["uv", "run", "scripts/preprocess_labels.py", "--input", labels_path, "--output", filled_path], check=True)
-            except Exception as e:
-                print(f"Label preprocessing failed ({e}); falling back to raw inklabels.")
-                return labels_path
-        return filled_path
-
     def get_dataloader(uri, seed=None):
         parent_dir = os.path.dirname(uri.rstrip('/'))
         labels_path = os.path.join(parent_dir, 'inklabels.png')
         if os.path.exists(labels_path):
-            labels_path = preprocess_label_if_needed(labels_path)
             mask_path = os.path.join(parent_dir, 'mask.png')
             ds = VesuviusLabeledDataset(uri, labels_path, mask_path if os.path.exists(mask_path) else None, config.patch_size, config.num_layers + 8, seed=seed, cache_dir=config.cache_dir, use_ridges=config.use_ridges)
         else:
@@ -377,10 +458,12 @@ def train(config: ExperimentConfig):
     sys.stdout.flush()
     val_losses = []
     val_skel_dists = []
+    val_centerline_dices = []
+    val_cc_diffs = []
     model.eval()
-    torch.manual_seed(42) 
+    torch.manual_seed(42)
     with torch.no_grad():
-        for val_idx in range(100): 
+        for val_idx in range(100):
             try:
                 val_x_raw, val_target = next(val_data_iter)
                 val_x = val_x_raw[:, :, 4:4+config.num_layers].to(device)
@@ -388,18 +471,34 @@ def train(config: ExperimentConfig):
                     val_target = val_target.to(device)
                     if val_target.dim() == 3: val_target = val_target.unsqueeze(1)
                     with autocast(device_type='cuda'): out_2d = model(val_x)
-                    
+
                     prob_2d = torch.sigmoid(out_2d)
                     val_dice = compute_official_dice(val_target, prob_2d, threshold=0.5)
                     val_losses.append(1.0 - val_dice)
-                    
-                    # Only run expensive skeleton metric on a subset (20%) of validation
+
+                    # Per-patch cheap metrics: connected-components diff (~sub-ms)
+                    try:
+                        gt_bin_b = (val_target > 0.5).cpu().numpy().astype(bool)
+                        pred_bin_b = (prob_2d > 0.5).cpu().numpy().astype(bool)
+                        for b in range(gt_bin_b.shape[0]):
+                            val_cc_diffs.append(compute_cc_diff(gt_bin_b[b, 0], pred_bin_b[b, 0]))
+                    except Exception: pass
+
+                    # Expensive topological metrics on a subset (20%): skel_dist + centerline_dice
                     if val_idx % 5 == 0:
                         try:
-                            # Skeleton distance metric expects numpy
                             skel_dist = compute_skeleton_dist(val_target.cpu().numpy(), prob_2d.cpu().numpy())
                             if not np.isnan(skel_dist):
                                 val_skel_dists.append(skel_dist)
+                        except Exception: pass
+                        try:
+                            # centerline_dice iterates axis-0 as independent 2D slices
+                            gt_3d = (val_target > 0.5).cpu().numpy()[:, 0].astype(bool)  # [B, H, W]
+                            pred_3d = (prob_2d > 0.5).cpu().numpy()[:, 0].astype(bool)
+                            cd = compute_centerline_dice(gt_3d, pred_3d, tolerance_radius=3.0)
+                            cd_val = cd.get("centerline_dice", 0.0)
+                            if not np.isnan(cd_val):
+                                val_centerline_dices.append(cd_val)
                         except Exception: pass
 
             except StopIteration: val_data_iter = iter(val_data_loader)
@@ -407,6 +506,8 @@ def train(config: ExperimentConfig):
 
     val_bpb = np.mean(val_losses) if val_losses else 1.0
     avg_skel_dist = np.mean(val_skel_dists) if val_skel_dists else 1.0
+    avg_centerline_dice = np.mean(val_centerline_dices) if val_centerline_dices else 0.0
+    avg_cc_diff = np.mean(val_cc_diffs) if val_cc_diffs else 0.0
     log_file = 'results.tsv'
     is_improvement = True
     if np.isnan(val_bpb): is_improvement = False
@@ -426,26 +527,28 @@ def train(config: ExperimentConfig):
     throughput_Mvps = step * config.batch_size * config.num_layers * config.patch_size**2 / total_training_time / 1e6
     
     print("\n--- Foundation Pretraining Complete ---")
-    print(f"val_bpb (Official): {val_bpb:.6f} {'[NEW BEST]' if is_improvement else ''}")
-    print(f"avg_skel_dist:     {avg_skel_dist:.6f}")
-    print(f"train_loss:        {smooth_loss:.6f}")
-    print(f"throughput_Mvps:   {throughput_Mvps:.2f}")
+    print(f"val_bpb (Official):    {val_bpb:.6f} {'[NEW BEST]' if is_improvement else ''}")
+    print(f"avg_skel_dist:         {avg_skel_dist:.6f}")
+    print(f"avg_centerline_dice:   {avg_centerline_dice:.6f}")
+    print(f"avg_cc_diff:           {avg_cc_diff:.3f}")
+    print(f"train_loss:            {smooth_loss:.6f}")
+    print(f"throughput_Mvps:       {throughput_Mvps:.2f}")
     sys.stdout.flush()
 
     if is_improvement:
         print(f"Saving new best model with val_bpb: {val_bpb:.6f}")
-        torch.save({'model_state_dict': model.state_dict(), 'val_bpb': val_bpb, 'avg_skel_dist': avg_skel_dist, 'config': asdict(config)}, 'best_model.pt')
-        
-        header = "timestamp\tval_bpb\tavg_skel_dist\ttrain_loss\tthroughput_Mvps\tnum_params_M\tpeak_vram_mb\tconfig\n"
+        torch.save({'model_state_dict': model.state_dict(), 'val_bpb': val_bpb, 'avg_skel_dist': avg_skel_dist, 'avg_centerline_dice': avg_centerline_dice, 'avg_cc_diff': avg_cc_diff, 'config': asdict(config)}, 'best_model.pt')
+
+        header = "timestamp\tval_bpb\tavg_skel_dist\tavg_centerline_dice\tavg_cc_diff\ttrain_loss\tthroughput_Mvps\tnum_params_M\tpeak_vram_mb\tconfig\n"
         if not os.path.exists(log_file):
-            with open(log_file, 'w') as f: 
+            with open(log_file, 'w') as f:
                 f.write(header)
                 f.flush()
                 os.fsync(f.fileno())
-        
+
         with open(log_file, 'a') as f:
             cfg_json = json.dumps(asdict(config))
-            f.write(f"{time.strftime('%Y-%m-%d %H:%M:%S')}\t{val_bpb:.6f}\t{avg_skel_dist:.6f}\t{smooth_loss:.6f}\t{throughput_Mvps:.2f}\t{num_params_M:.3f}\t{peak_vram_mb:.1f}\t{cfg_json}\n")
+            f.write(f"{time.strftime('%Y-%m-%d %H:%M:%S')}\t{val_bpb:.6f}\t{avg_skel_dist:.6f}\t{avg_centerline_dice:.6f}\t{avg_cc_diff:.3f}\t{smooth_loss:.6f}\t{throughput_Mvps:.2f}\t{num_params_M:.3f}\t{peak_vram_mb:.1f}\t{cfg_json}\n")
             f.flush()
             os.fsync(f.fileno())
             
@@ -463,6 +566,9 @@ def train(config: ExperimentConfig):
 
     result_data = {
         "val_bpb": float(val_bpb),
+        "avg_skel_dist": float(avg_skel_dist),
+        "avg_centerline_dice": float(avg_centerline_dice),
+        "avg_cc_diff": float(avg_cc_diff),
         "train_loss": float(smooth_loss),
         "throughput_Mvps": float(throughput_Mvps),
         "num_params_M": float(num_params_M),
