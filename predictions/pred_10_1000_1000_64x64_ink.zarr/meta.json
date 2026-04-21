@@ -1,0 +1,1 @@
+{"height": 64, "max": 255.0, "min": 0.0, "name": "Ink Prediction pred_10_1000_1000_64x64", "slices": 1, "type": "vol", "uuid": "29ec8a40-7a2b-4896-8aca-684c63902e07", "voxelsize": 7.91, "width": 64, "format": "zarr"}
