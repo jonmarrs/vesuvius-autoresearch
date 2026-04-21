@@ -62,6 +62,7 @@ def predict():
     parser.add_argument("--patch_size", type=int, default=32)
     parser.add_argument("--num_layers", type=int, default=16)
     parser.add_argument("--base_feat", type=int, default=128)
+    parser.add_argument("--use_ridges", action="store_true", help="Use 3D Ridge/Frangi feature channel")
     parser.add_argument("--output_img", type=str, default=None, help="Force output image path")
     args = parser.parse_args()
 
@@ -73,7 +74,7 @@ def predict():
     if not os.path.exists(checkpoint_path):
         raise FileNotFoundError(f"Trained model not found at {checkpoint_path}. Please run training first.")
         
-    checkpoint = torch.load(checkpoint_path, map_location=device)
+    checkpoint = torch.load(checkpoint_path, map_location=device, weights_only=False)
     config_dict = checkpoint.get('config', {})
     
     # Reconstruct VesuviusConfig from checkpoint, overriding args if present
@@ -83,6 +84,7 @@ def predict():
     num_blocks = config_dict.get('num_blocks', 16)
     num_heads = config_dict.get('num_heads', 8)
     dropout = config_dict.get('dropout', 0.0)
+    use_ridges = config_dict.get('use_ridges', args.use_ridges)
     
     v_config = VesuviusConfig(
         patch_size=patch_size, 
@@ -90,7 +92,8 @@ def predict():
         base_feat=base_feat,
         num_blocks=num_blocks,
         num_heads=num_heads,
-        dropout=dropout
+        dropout=dropout,
+        in_channels=2 if use_ridges else 1
     )
     
     model = InkDetectorOptimized(v_config).to(device)
@@ -98,7 +101,7 @@ def predict():
     model.eval()
 
     # Open the dataset
-    dataset = FastVesuviusVolume(args.uri)
+    dataset = FastVesuviusVolume(args.uri, use_ridges=use_ridges)
     
     # Determine region and tiling parameters
     predict_width = args.width if args.width else patch_size

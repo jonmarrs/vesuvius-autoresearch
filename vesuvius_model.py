@@ -10,7 +10,7 @@ import torch.nn.functional as F
 import numpy as np
 
 class VesuviusConfig:
-    def __init__(self, patch_size=64, num_layers=16, batch_size=4, base_feat=64, num_blocks=16, num_heads=8, dropout=0.0):
+    def __init__(self, patch_size=64, num_layers=16, batch_size=4, base_feat=64, num_blocks=16, num_heads=8, dropout=0.0, in_channels=1):
         self.patch_size = patch_size
         self.num_layers = num_layers
         self.batch_size = batch_size
@@ -18,6 +18,7 @@ class VesuviusConfig:
         self.num_blocks = num_blocks
         self.num_heads = num_heads
         self.dropout = dropout
+        self.in_channels = in_channels
 
 class SEBlock3D(nn.Module):
     """Squeeze-and-Excitation for 3D volumes."""
@@ -78,10 +79,10 @@ class LearnedZProjection(nn.Module):
         return self.refine(x)
 
 class InkDetectorOptimized(nn.Module):
-    version = "2.4.0"
+    version = "2.5.0"
     def __init__(self, config: VesuviusConfig):
         super().__init__()
-        self.version = "2.4.0"
+        self.version = "2.5.0"
         self.config = config
         
         # Pull architectural parameters from config
@@ -89,6 +90,7 @@ class InkDetectorOptimized(nn.Module):
         self.num_blocks = config.num_blocks
         self.num_heads = config.num_heads
         self.dropout = config.dropout
+        self.in_channels = getattr(config, 'in_channels', 1)
         
         # Sanity check for MultiheadAttention
         if self.base_feat % self.num_heads != 0:
@@ -102,7 +104,7 @@ class InkDetectorOptimized(nn.Module):
         self.num_layers = config.num_layers
         
         # Encoder: Hierarchical 3D Patch Embedding
-        self.stage1 = nn.Conv3d(1, self.base_feat // 2, kernel_size=3, stride=(2, 2, 2), padding=1)
+        self.stage1 = nn.Conv3d(self.in_channels, self.base_feat // 2, kernel_size=3, stride=(2, 2, 2), padding=1)
         self.stage2 = nn.Conv3d(self.base_feat // 2, self.base_feat, kernel_size=3, stride=(2, 2, 2), padding=1)
         
         # Positional Embedding: Canonical 3D grid that is interpolated in forward()
@@ -123,7 +125,7 @@ class InkDetectorOptimized(nn.Module):
         self.fusion1 = GatedFusionBlock(self.base_feat // 2, self.base_feat // 2, self.base_feat // 2)
         
         self.up2_conv = nn.Conv3d(self.base_feat // 2, self.base_feat // 4, kernel_size=1)
-        self.fusion2 = GatedFusionBlock(1, self.base_feat // 4, self.base_feat // 4)
+        self.fusion2 = GatedFusionBlock(self.in_channels, self.base_feat // 4, self.base_feat // 4)
         
         self.decoder_res = nn.Sequential(
             ResBlock3D(self.base_feat // 4),

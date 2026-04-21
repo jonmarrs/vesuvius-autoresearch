@@ -44,6 +44,7 @@ class ExperimentConfig:
     uri: str = 'local_data/PHercParis2Fr47/surface_volume/'
     val_uri: str = 'local_data/PHercParis2Fr143/surface_volume/'
     cache_dir: str = None  # If None, caches are stored next to volume_uri
+    use_ridges: bool = False # 3D Ridge/Frangi feature channel
     
     # Training Loop
     batch_size: int = 16 
@@ -170,7 +171,8 @@ def train(config: ExperimentConfig):
         base_feat=config.base_feat,
         num_blocks=config.num_blocks,
         num_heads=config.num_heads,
-        dropout=config.dropout
+        dropout=config.dropout,
+        in_channels=2 if config.use_ridges else 1
     )
 
     print(f"Initializing LOCAL TRANSFORMER Training on {config.uri}...")
@@ -181,9 +183,9 @@ def train(config: ExperimentConfig):
         labels_path = os.path.join(parent_dir, 'inklabels.png')
         mask_path = os.path.join(parent_dir, 'mask.png')
         if os.path.exists(labels_path):
-            ds = VesuviusLabeledDataset(uri, labels_path, mask_path if os.path.exists(mask_path) else None, config.patch_size, config.num_layers + 8, seed=seed, cache_dir=config.cache_dir)
+            ds = VesuviusLabeledDataset(uri, labels_path, mask_path if os.path.exists(mask_path) else None, config.patch_size, config.num_layers + 8, seed=seed, cache_dir=config.cache_dir, use_ridges=config.use_ridges)
         else:
-            ds = VesuviusS3Dataset(uri, config.patch_size, config.num_layers + 8, seed=seed, cache_dir=config.cache_dir)
+            ds = VesuviusS3Dataset(uri, config.patch_size, config.num_layers + 8, seed=seed, cache_dir=config.cache_dir, use_ridges=config.use_ridges)
         return DataLoader(ds, batch_size=config.batch_size, num_workers=min(4, os.cpu_count() or 1), pin_memory=True)
 
     data_loader = get_dataloader(config.uri)
@@ -193,7 +195,7 @@ def train(config: ExperimentConfig):
         parent_dir = os.path.dirname(uri.rstrip('/'))
         labels_path = os.path.join(parent_dir, 'inklabels.png')
         mask_path = os.path.join(parent_dir, 'mask.png')
-        ds = VesuviusLabeledDataset(uri, labels_path, mask_path if os.path.exists(mask_path) else None, config.patch_size, config.num_layers + 8, seed=42, cache_dir=config.cache_dir)
+        ds = VesuviusLabeledDataset(uri, labels_path, mask_path if os.path.exists(mask_path) else None, config.patch_size, config.num_layers + 8, seed=42, cache_dir=config.cache_dir, use_ridges=config.use_ridges)
         return DataLoader(ds, batch_size=config.batch_size, num_workers=0, pin_memory=True)
 
     val_data_loader = get_val_dataloader(config.val_uri)

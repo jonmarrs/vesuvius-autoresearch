@@ -6,6 +6,17 @@ from PIL import Image
 import os
 import time
 import json
+import sys
+
+# Add villa to path for ridge detection
+VILLA_SRC = os.path.abspath(os.path.join(os.path.dirname(__file__), "villa/vesuvius/src"))
+if VILLA_SRC not in sys.path:
+    sys.path.append(VILLA_SRC)
+
+try:
+    from vesuvius.image_proc.features.ridges_vessels import detect_ridges_3d
+except ImportError:
+    detect_ridges_3d = None
 
 Image.MAX_IMAGE_PIXELS = None
 
@@ -13,22 +24,26 @@ class FastVesuviusVolume:
     """
     Highly optimized volume reader. 
     Loads TIF stack into a single memmapped .npy file for instantaneous access.
+    Now supports optional 3D ridge detection (Frangi filters) for enhanced structural awareness.
     """
-    def __init__(self, volume_uri, cache_dir=None):
+    def __init__(self, volume_uri, cache_dir=None, use_ridges=False):
         self.uri = volume_uri
+        self.use_ridges = use_ridges
         
         # Determine cache location
         if cache_dir:
             os.makedirs(cache_dir, exist_ok=True)
-            # Use hash of uri to create a unique cache name if using a shared cache_dir
             import hashlib
             uri_hash = hashlib.md5(volume_uri.encode()).hexdigest()[:8]
             self.npy_path = os.path.join(cache_dir, f"volume_cache_{uri_hash}.npy")
+            self.ridge_path = os.path.join(cache_dir, f"ridge_cache_{uri_hash}.npy")
         else:
             self.npy_path = os.path.join(volume_uri, "volume_cache.npy")
+            self.ridge_path = os.path.join(volume_uri, "ridge_cache.npy")
             
         self.stats_path = self.npy_path.replace(".npy", "_stats.json")
         self.data = None
+        self.ridge_data = None
         self.dataset = None
         self.mean = 128.0
         self.std = 70.0
@@ -41,19 +56,17 @@ class FastVesuviusVolume:
                 with Image.open(files[0]) as img:
                     h, w = img.size[::-1]
                 
-                # Pre-allocate on disk using a temporary file for atomicity
                 tmp_npy_path = self.npy_path + ".tmp"
                 tmp_data = np.memmap(tmp_npy_path, dtype='uint8', mode='w+', shape=(len(files), h, w))
                 for i, f in enumerate(files):
                     with Image.open(f) as img:
                         tmp_data[i] = np.array(img)
                 tmp_data.flush()
-                del tmp_data # Close memmap
+                del tmp_data 
                 
                 os.rename(tmp_npy_path, self.npy_path)
                 print(f"Fast cache built: {self.npy_path}")
                 
-            # Get shape
             files = [f for f in os.listdir(volume_uri) if f.endswith('.tif')]
             with Image.open(os.path.join(volume_uri, files[0])) as img:
                 h, w = img.size[::-1]
@@ -61,14 +74,12 @@ class FastVesuviusVolume:
             self.shape = (len(files), h, w)
             self.is_zarr = False
         else:
-            # For shape only. Do not save dataset to self to maintain fork safety.
             ds = ts.open({
                 'driver': 'zarr',
                 'kvstore': {'driver': 'file', 'path': volume_uri},
             }).result()
             self.shape = ds.shape
             self.is_zarr = True
-            # For Zarr, try to find stats in the parent dir if npy_path isn't standard
             if not os.path.exists(self.stats_path):
                 self.stats_path = os.path.join(os.path.dirname(volume_uri.rstrip('/')), "volume_stats.json")
 
@@ -82,6 +93,37 @@ class FastVesuviusVolume:
         else:
             self._calculate_stats()
 
+        if self.use_ridges and detect_ridges_3d:
+            self._init_ridges()
+
+    def _init_ridges(self):
+        if not os.path.exists(self.ridge_path):
+            print(f"Computing Ridge Map (Frangi filters) for {self.uri} ... This may take a while.")
+            self._lazy_init()
+            
+            # For large volumes, we compute ridges in blocks to avoid OOM
+            # But for now, let's assume a straightforward implementation or block-wise
+            D, H, W = self.shape
+            tmp_ridge_path = self.ridge_path + ".tmp"
+            # Ridge maps are floats (0.0 to 1.0)
+            tmp_ridges = np.memmap(tmp_ridge_path, dtype='float32', mode='w+', shape=(D, H, W))
+            
+            # Simple block-wise processing
+            step_z = 32
+            for z in range(0, D, step_z):
+                z_end = min(z + step_z + 4, D) # overlap for Hessian
+                vol_slice = np.array(self[z:z_end])
+                ridge_slice = detect_ridges_3d(vol_slice, sigma=2.0)
+                # handle overlap
+                actual_end = min(z + step_z, D)
+                tmp_ridges[z:actual_end] = ridge_slice[:(actual_end-z)]
+                tmp_ridges.flush()
+                print(f"Ridge progress: {actual_end}/{D} slices")
+
+            del tmp_ridges
+            os.rename(tmp_ridge_path, self.ridge_path)
+            print(f"Ridge cache built: {self.ridge_path}")
+        
     def _calculate_stats(self):
         print(f"Calculating stats for {self.uri} ...")
         try:
@@ -101,11 +143,17 @@ class FastVesuviusVolume:
             print(f"Warning: Could not calculate/save stats: {e}")
 
     def normalize(self, patch):
-        """Automated Z-scoring based on stored volume stats."""
+        """Automated Z-scoring based on stored volume stats. Supports multi-channel input."""
         if isinstance(patch, np.ndarray):
             patch = torch.from_numpy(patch).float()
         elif not isinstance(patch, torch.Tensor):
             patch = torch.tensor(np.array(patch, copy=False), dtype=torch.float32)
+        
+        if self.use_ridges and len(patch.shape) == 4 and patch.shape[0] == 2:
+            # Multi-channel [C=2, Z, H, W]
+            ct = (patch[0] - self.mean) / (self.std + 1e-5)
+            ridges = patch[1] # Ridges are already 0-1
+            return torch.stack([ct, ridges], dim=0)
         
         return (patch - self.mean) / (self.std + 1e-5)
 
@@ -119,26 +167,40 @@ class FastVesuviusVolume:
         else:
             if self.data is None:
                 self.data = np.memmap(self.npy_path, dtype='uint8', mode='r', shape=self.shape)
-                # Prefetch hint: Use posix_fadvise if available for faster sequential reads
                 try:
                     if hasattr(os, 'posix_fadvise'):
                         with open(self.npy_path, 'rb') as f:
                             os.posix_fadvise(f.fileno(), 0, os.path.getsize(self.npy_path), os.POSIX_FADV_SEQUENTIAL)
                 except Exception: pass
 
+        if self.use_ridges and self.ridge_data is None and os.path.exists(self.ridge_path):
+            self.ridge_data = np.memmap(self.ridge_path, dtype='float32', mode='r', shape=self.shape)
+
     def __getitem__(self, key):
         self._lazy_init()
         if self.is_zarr:
-            return self.dataset[key].read().result()
-        return self.data[key]
+            ct = self.dataset[key].read().result()
+        else:
+            ct = self.data[key]
+        
+        if self.use_ridges and self.ridge_data is not None:
+            ridges = self.ridge_data[key]
+            # Return multi-channel: [C=2, Z, H, W]
+            # Note: We need to handle slicing (key) carefully if it's a single slice vs volume
+            if len(ct.shape) == 3: # Volume
+                return np.stack([ct, ridges], axis=0)
+            else: # Single slice
+                return np.stack([ct, ridges], axis=0)
+        return ct
 
 class VesuviusLabeledDataset(IterableDataset):
-    def __init__(self, volume_uri, labels_path, mask_path=None, patch_size=64, num_layers=16, seed=None, cache_dir=None):
-        self.volume = FastVesuviusVolume(volume_uri, cache_dir=cache_dir)
+    def __init__(self, volume_uri, labels_path, mask_path=None, patch_size=64, num_layers=16, seed=None, cache_dir=None, use_ridges=False):
+        self.volume = FastVesuviusVolume(volume_uri, cache_dir=cache_dir, use_ridges=use_ridges)
         self.patch_size = patch_size
         self.num_layers = num_layers
         self.shape = self.volume.shape
         self.seed = seed
+        self.use_ridges = use_ridges
         
         # Load Labels (2D PNG)
         with Image.open(labels_path) as img:
@@ -217,17 +279,18 @@ class VesuviusLabeledDataset(IterableDataset):
 
 class VesuviusS3Dataset(IterableDataset):
     """Fallback for Zarr/S3 data."""
-    def __init__(self, uri, patch_size=32, num_layers=16, seed=None, cache_dir=None):
+    def __init__(self, uri, patch_size=32, num_layers=16, seed=None, cache_dir=None, use_ridges=False):
         self.uri = uri
         self.patch_size = patch_size
         self.num_layers = num_layers
         self.seed = seed
         self.cache_dir = cache_dir
+        self.use_ridges = use_ridges
         self.dataset = None
         if uri.startswith("s3://"):
             raise ValueError("S3 Streaming disabled. Use local paths.")
             
-        self.volume = FastVesuviusVolume(uri, cache_dir=cache_dir)
+        self.volume = FastVesuviusVolume(uri, cache_dir=cache_dir, use_ridges=use_ridges)
         self.shape = self.volume.shape
 
     def __iter__(self):
