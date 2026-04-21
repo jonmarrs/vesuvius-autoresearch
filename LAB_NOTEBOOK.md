@@ -86,7 +86,24 @@ Deploy the **v2.4.0 Vesuvius-DINO** architecture. This refactor bridges the "Gra
 *   **Inference:** Sliding window soft-tiling with Hanning blending enabled in `predict.py`.
 
 ### Outcomes & Insights
-*   **Official Metric Integration:** Successfully replaced the custom `val_bpb` Dice calculation with the official Vesuvius Challenge metric from `villa/segmentation/evaluation/metrics/dice.py`. This ensures our autonomous loop is mathematically aligned with the Grand Prize judging criteria.
+*   **Official Metric Integration:** Successfully replaced the custom `val_bpb` Dice calculation with the official Vesuvius Challenge metric from `villa/segmentation/evaluation/metrics/dice.py`.
+*   **Day Shift v2.4.0/v2.5.0 Completion:** Completed the optimization loop for self-supervised consistency and initial ridge detection parameters. While no new `val_bpb` record was set, the stability of the hybrid loss function was verified.
+
+---
+
+## [2026-04-20] Night Shift: Frontier-R Structural Discovery (v2.5.0)
+
+**Status:** ACTIVE (Launched: 19:06)
+
+### Purpose
+Evaluate the impact of **3D Ridge Detection (Frangi Filters)** as a primary feature channel. This shift focuses on the `use_ridges` parameter to determine if mathematical fiber directionality significantly reduces hallucination noise and improves cross-fragment generalization.
+
+### Configuration
+*   **Architecture:** v2.5.0 (Ridge-Enhanced multi-channel input).
+*   **Primary Feature:** 2-channel input [CT + Ridge Map].
+*   **Target:** Breakthrough `val_bpb` (below 0.262).
+
+### Outcomes & Insights
 *(To be populated as cycles complete)*
 
 ---
