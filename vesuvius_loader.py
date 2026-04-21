@@ -257,7 +257,9 @@ class VesuviusLabeledDataset(IterableDataset):
 
         while True:
             if not self.valid_coords:
-                yield torch.zeros(1, self.num_layers, self.patch_size, self.patch_size), torch.zeros(self.patch_size, self.patch_size)
+                # Robust zero-fallback with correct channels
+                c = 2 if self.use_ridges else 1
+                yield torch.zeros(c, self.num_layers, self.patch_size, self.patch_size), torch.zeros(self.patch_size, self.patch_size)
                 continue
 
             idx = np.random.randint(0, len(self.valid_coords))
