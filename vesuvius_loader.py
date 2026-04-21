@@ -145,9 +145,9 @@ class FastVesuviusVolume:
     def normalize(self, patch):
         """Automated Z-scoring based on stored volume stats. Supports multi-channel input."""
         if isinstance(patch, np.ndarray):
-            patch = torch.from_numpy(patch).float()
+            patch = torch.from_numpy(patch.copy()).float()
         elif not isinstance(patch, torch.Tensor):
-            patch = torch.tensor(np.array(patch, copy=False), dtype=torch.float32)
+            patch = torch.tensor(np.array(patch, copy=True), dtype=torch.float32)
         
         if self.use_ridges and len(patch.shape) == 4 and patch.shape[0] == 2:
             # Multi-channel [C=2, Z, H, W]
