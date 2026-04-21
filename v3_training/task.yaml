@@ -1,0 +1,25 @@
+
+tr_setup:
+  model_name: "Vesuvius-DINO-v3"
+  vram_max: 20
+  autoconfigure: true
+
+tr_config:
+  batch_size: 16
+  patch_size: [16, 64, 64]
+  max_epoch: 500
+  initial_lr: 1e-3
+  optimizer: "AdamW"
+
+model_config:
+  in_channels: 1
+  base_feat: 64
+
+dataset_config:
+  volume_paths: ["local_data/PHercParis2Fr47/surface_volume/"]
+  targets:
+    ink: {"channels": 1}
+    fiber: {"channels": 1}
+
+inference_config:
+  batch_size: 16
