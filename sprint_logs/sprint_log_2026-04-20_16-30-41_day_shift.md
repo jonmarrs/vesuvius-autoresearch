@@ -38,3 +38,27 @@
 - **Stats**: val_bpb: 1.0, loss: 0.5948750930765597, params: 1.842707M, vram: 18102.43017578125MB, speed: 5.344658705236254Mvps
 - **Result**: No improvement detected. Config reverted.
 
+## Cycle 7: loss_ink_bce_0.2 (REVERTED)
+- **Timestamp**: 18:18:34
+- **Config**: cache_dir: None, batch_size: 16, patch_size: 64, num_layers: 24, lr: 0.001, weight_decay: 0.01, time_budget: 900, loss_ink_bce: 0.4, loss_ink_dice: 0.4, loss_fiber_bce: 0.2, base_feat: 64, num_blocks: 16, num_heads: 8, dropout: 0.2
+- **Stats**: val_bpb: 1.0, loss: 0.5914459777369266, params: 1.842707M, vram: 18102.43017578125MB, speed: 4.4438522583161415Mvps
+- **Result**: No improvement detected. Config reverted.
+
+## Cycle 8: weight_decay_0.001 (REVERTED)
+- **Timestamp**: 18:34:07
+- **Config**: cache_dir: None, batch_size: 16, patch_size: 64, num_layers: 24, lr: 0.001, weight_decay: 0.001, time_budget: 900, loss_ink_bce: 0.4, loss_ink_dice: 0.4, loss_fiber_bce: 0.2, base_feat: 64, num_blocks: 16, num_heads: 8, dropout: 0.2
+- **Stats**: val_bpb: 1.0, loss: 0.5930959856001432, params: 1.842707M, vram: 18102.43017578125MB, speed: 4.823049304167566Mvps
+- **Result**: No improvement detected. Config reverted.
+
+## Cycle 9: num_layers_32 (CRASHED)
+- **Timestamp**: 18:34:18
+- **Config**: cache_dir: None, batch_size: 16, patch_size: 64, num_layers: 32, lr: 0.001, weight_decay: 0.01, time_budget: 900, loss_ink_bce: 0.4, loss_ink_dice: 0.4, loss_fiber_bce: 0.2, base_feat: 64, num_blocks: 16, num_heads: 8, dropout: 0.2
+- **Stats**: val_bpb: N/A, loss: N/A, params: N/AM, vram: N/AMB, speed: N/AMvps
+- **Result**: Training crashed (Unknown error). Family weight preserved/incremented to retry other values.
+
+## Cycle 10: loss_ink_dice_0.6 (REVERTED)
+- **Timestamp**: 18:49:41
+- **Config**: cache_dir: None, batch_size: 16, patch_size: 64, num_layers: 24, lr: 0.001, weight_decay: 0.01, time_budget: 900, loss_ink_bce: 0.4, loss_ink_dice: 0.4, loss_fiber_bce: 0.2, base_feat: 64, num_blocks: 16, num_heads: 8, dropout: 0.2
+- **Stats**: val_bpb: 1.0, loss: 0.5961141572477774, params: 1.842707M, vram: 18104.43017578125MB, speed: 5.071347794335894Mvps
+- **Result**: No improvement detected. Config reverted.
+
