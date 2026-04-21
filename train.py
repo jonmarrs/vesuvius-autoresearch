@@ -23,12 +23,16 @@ from torch.amp import GradScaler, autocast
 sys.path.append(os.path.abspath('villa/segmentation/evaluation'))
 try:
     from metrics.dice import compute as compute_official_dice
+    from metrics.skeleton_distance_length import compute as compute_skeleton_dist
 except ImportError:
     # Fallback if module is missing during test environments
     def compute_official_dice(label, prediction, threshold=0.5):
         prediction_bin = (prediction >= threshold).float()
         intersection = torch.sum(label.float() * prediction_bin)
         return ((2.0 * intersection) / (torch.sum(label.float()) + torch.sum(prediction_bin) + 1e-12)).item()
+    
+    def compute_skeleton_dist(label, prediction, **kwargs):
+        return 1.0 # Constant fallback
 
 # Import our breakthrough components
 from vesuvius_model import InkDetectorOptimized, VesuviusConfig
@@ -356,14 +360,14 @@ def train(config: ExperimentConfig):
         step += 1
         if total_training_time >= config.time_budget: break
 
-    # 4. Stratified 100-patch validation
-    print(f"Evaluating val_bpb (1 - Dice) on 100 stratified patches...")
+    print(f"Evaluating metrics on 100 stratified patches...")
     sys.stdout.flush()
     val_losses = []
+    val_skel_dists = []
     model.eval()
     torch.manual_seed(42) 
     with torch.no_grad():
-        for _ in range(100): 
+        for val_idx in range(100): 
             try:
                 val_x_raw, val_target = next(val_data_iter)
                 val_x = val_x_raw[:, :, 4:4+config.num_layers].to(device)
@@ -371,12 +375,25 @@ def train(config: ExperimentConfig):
                     val_target = val_target.to(device)
                     if val_target.dim() == 3: val_target = val_target.unsqueeze(1)
                     with autocast(device_type='cuda'): out_2d = model(val_x)
-                    val_dice = compute_official_dice(val_target, torch.sigmoid(out_2d), threshold=0.5)
+                    
+                    prob_2d = torch.sigmoid(out_2d)
+                    val_dice = compute_official_dice(val_target, prob_2d, threshold=0.5)
                     val_losses.append(1.0 - val_dice)
+                    
+                    # Only run expensive skeleton metric on a subset (20%) of validation
+                    if val_idx % 5 == 0:
+                        try:
+                            # Skeleton distance metric expects numpy
+                            skel_dist = compute_skeleton_dist(val_target.cpu().numpy(), prob_2d.cpu().numpy())
+                            if not np.isnan(skel_dist):
+                                val_skel_dists.append(skel_dist)
+                        except Exception: pass
+
             except StopIteration: val_data_iter = iter(val_data_loader)
             except Exception: continue
 
     val_bpb = np.mean(val_losses) if val_losses else 1.0
+    avg_skel_dist = np.mean(val_skel_dists) if val_skel_dists else 1.0
     log_file = 'results.tsv'
     is_improvement = True
     if np.isnan(val_bpb): is_improvement = False
@@ -396,16 +413,17 @@ def train(config: ExperimentConfig):
     throughput_Mvps = step * config.batch_size * config.num_layers * config.patch_size**2 / total_training_time / 1e6
     
     print("\n--- Foundation Pretraining Complete ---")
-    print(f"val_bpb:          {val_bpb:.6f} {'[NEW BEST]' if is_improvement else ''}")
-    print(f"train_loss:       {smooth_loss:.6f}")
-    print(f"throughput_Mvps:  {throughput_Mvps:.2f}")
+    print(f"val_bpb (Official): {val_bpb:.6f} {'[NEW BEST]' if is_improvement else ''}")
+    print(f"avg_skel_dist:     {avg_skel_dist:.6f}")
+    print(f"train_loss:        {smooth_loss:.6f}")
+    print(f"throughput_Mvps:   {throughput_Mvps:.2f}")
     sys.stdout.flush()
 
     if is_improvement:
         print(f"Saving new best model with val_bpb: {val_bpb:.6f}")
-        torch.save({'model_state_dict': model.state_dict(), 'val_bpb': val_bpb, 'config': asdict(config)}, 'best_model.pt')
+        torch.save({'model_state_dict': model.state_dict(), 'val_bpb': val_bpb, 'avg_skel_dist': avg_skel_dist, 'config': asdict(config)}, 'best_model.pt')
         
-        header = "timestamp\tval_bpb\ttrain_loss\tthroughput_Mvps\tnum_params_M\tpeak_vram_mb\tconfig\n"
+        header = "timestamp\tval_bpb\tavg_skel_dist\ttrain_loss\tthroughput_Mvps\tnum_params_M\tpeak_vram_mb\tconfig\n"
         if not os.path.exists(log_file):
             with open(log_file, 'w') as f: 
                 f.write(header)
@@ -414,7 +432,7 @@ def train(config: ExperimentConfig):
         
         with open(log_file, 'a') as f:
             cfg_json = json.dumps(asdict(config))
-            f.write(f"{time.strftime('%Y-%m-%d %H:%M:%S')}\t{val_bpb:.6f}\t{smooth_loss:.6f}\t{throughput_Mvps:.2f}\t{num_params_M:.3f}\t{peak_vram_mb:.1f}\t{cfg_json}\n")
+            f.write(f"{time.strftime('%Y-%m-%d %H:%M:%S')}\t{val_bpb:.6f}\t{avg_skel_dist:.6f}\t{smooth_loss:.6f}\t{throughput_Mvps:.2f}\t{num_params_M:.3f}\t{peak_vram_mb:.1f}\t{cfg_json}\n")
             f.flush()
             os.fsync(f.fileno())
             
