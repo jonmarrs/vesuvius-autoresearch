@@ -9,6 +9,7 @@ import sys
 import time
 import math
 import json
+import subprocess
 from dataclasses import dataclass, asdict
 
 import torch
@@ -181,26 +182,28 @@ def train(config: ExperimentConfig):
 
     print(f"Initializing LOCAL TRANSFORMER Training on {config.uri}...")
     sys.stdout.flush()
-# Add label pre-processing check
-def preprocess_label_if_needed(labels_path):
-    filled_path = labels_path.replace("inklabels.png", "inklabels_filled.png")
-    if not os.path.exists(filled_path):
-        print(f"Label filling not found for {labels_path}, running pre-processing...")
-        subprocess.run(["uv", "run", "scripts/preprocess_labels.py", "--input", labels_path, "--output", filled_path], check=True)
-    return filled_path
 
-# In dataloader initialization:
-def get_dataloader(uri, seed=None):
-    parent_dir = os.path.dirname(uri.rstrip('/'))
-    labels_path = os.path.join(parent_dir, 'inklabels.png')
-    if os.path.exists(labels_path):
-        labels_path = preprocess_label_if_needed(labels_path)
-        mask_path = os.path.join(parent_dir, 'mask.png')
-        ds = VesuviusLabeledDataset(uri, labels_path, mask_path if os.path.exists(mask_path) else None, config.patch_size, config.num_layers + 8, seed=seed, cache_dir=config.cache_dir, use_ridges=config.use_ridges)
-    else:
-        ds = VesuviusS3Dataset(uri, config.patch_size, config.num_layers + 8, seed=seed, cache_dir=config.cache_dir, use_ridges=config.use_ridges)
-    return DataLoader(ds, batch_size=config.batch_size, num_workers=min(4, os.cpu_count() or 1), pin_memory=True)
+    def preprocess_label_if_needed(labels_path):
+        filled_path = labels_path.replace("inklabels.png", "inklabels_filled.png")
+        if not os.path.exists(filled_path):
+            print(f"Label filling not found for {labels_path}, running pre-processing...")
+            try:
+                subprocess.run(["uv", "run", "scripts/preprocess_labels.py", "--input", labels_path, "--output", filled_path], check=True)
+            except Exception as e:
+                print(f"Label preprocessing failed ({e}); falling back to raw inklabels.")
+                return labels_path
+        return filled_path
 
+    def get_dataloader(uri, seed=None):
+        parent_dir = os.path.dirname(uri.rstrip('/'))
+        labels_path = os.path.join(parent_dir, 'inklabels.png')
+        if os.path.exists(labels_path):
+            labels_path = preprocess_label_if_needed(labels_path)
+            mask_path = os.path.join(parent_dir, 'mask.png')
+            ds = VesuviusLabeledDataset(uri, labels_path, mask_path if os.path.exists(mask_path) else None, config.patch_size, config.num_layers + 8, seed=seed, cache_dir=config.cache_dir, use_ridges=config.use_ridges)
+        else:
+            ds = VesuviusS3Dataset(uri, config.patch_size, config.num_layers + 8, seed=seed, cache_dir=config.cache_dir, use_ridges=config.use_ridges)
+        return DataLoader(ds, batch_size=config.batch_size, num_workers=min(4, os.cpu_count() or 1), pin_memory=True)
 
     data_loader = get_dataloader(config.uri)
     data_iter = iter(data_loader)
