@@ -16,9 +16,19 @@ class VesuviusTrainer(BaseTrainer):
     Integrates our custom InkDetectorOptimized model into the official Challenge Standard framework.
     """
     
+    def _get_loss(self):
+        """Integration for our multi-task (Ink + Fiber + Auxiliary Tasks) losses."""
+        return {
+            "ink": nn.BCEWithLogitsLoss(),
+            "fiber": nn.BCEWithLogitsLoss(),
+            "surface_normals": nn.MSELoss(),
+            "distance_transform": nn.L1Loss(),
+            "structure_tensor": nn.MSELoss()
+        }
+
     def _build_model(self):
         """Constructs the InkDetectorOptimized model from the v3 task config."""
-        print("--- Building v3.0.0 Model ---")
+        print("--- Building v3.1.0 Omni-Sensing Model ---")
         config = self.config
         
         # Mapping villa config to our VesuviusConfig
@@ -30,20 +40,14 @@ class VesuviusTrainer(BaseTrainer):
         )
         
         self.model = InkDetectorOptimized(v_config)
+        
+        # Add auxiliary heads dynamically
+        self.model.surface_normal_head = nn.Conv3d(v_config.base_feat // 4, 3, kernel_size=1)
+        self.model.dist_transform_head = nn.Conv3d(v_config.base_feat // 4, 1, kernel_size=1)
+        self.model.st_head = nn.Conv3d(v_config.base_feat // 4, 6, kernel_size=1) # 6 symmetric tensor components
+        
         self.model.to(self.device)
         return self.model
-
-    def _configure_dataset(self):
-        """Standardizes dataset loading using villa's structure."""
-        print("--- Configuring v3.0.0 Dataloader ---")
-        # In a full migration, we would implement the Zarr dataset loading here
-        # conforming to BaseTrainer expectations.
-        pass
-
-    def _get_loss(self):
-        """Integration for our multi-task (Ink + Fiber) losses."""
-        # villa's framework handles loss classes; we can map our losses here
-        pass
 
 if __name__ == "__main__":
     # Smoke test the trainer initialization
