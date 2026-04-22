@@ -1,13 +1,13 @@
 {
-    "lr": 1.1116501417808573,
+    "lr": 1.0,
     "wd": 1.0,
     "capacity": 1.0,
     "attention": 1.0,
     "regularization": 1.0,
     "batch": 1.0,
     "spatial": 1.0,
-    "temporal": 2.0,
-    "width": 1.0,
-    "loss_balance": 4.825218589343849,
+    "temporal": 1.7147499999999998,
+    "width": 2.0,
+    "loss_balance": 4.137021788038682,
     "features": 1.0
 }
