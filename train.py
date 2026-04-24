@@ -62,13 +62,66 @@ try:
     from vesuvius.image_proc.geometry.structure_tensor import StructureTensorComputer
 except ImportError:
     StructureTensorComputer = None
-
 try:
     from models.resnetall import generate_model as generate_resnet3d
     from models.i3dallnl import InceptionI3d
 except ImportError:
     generate_resnet3d = None
     InceptionI3d = None
+
+try:
+    from dynamic_network_architectures.architectures.unet import ResidualEncoderUNet
+    from dynamic_network_architectures.building_blocks.helper import convert_dim_to_conv_op, get_matching_instancenorm
+except ImportError:
+    ResidualEncoderUNet = None
+
+class ResEncUNetWrapper(nn.Module):
+    def __init__(self, model, features_per_stage):
+        super().__init__()
+        self.model = model
+        self.features_per_stage = features_per_stage
+        # Add basic multi-task heads if needed for consistency loss or projector
+        self.projector = nn.Sequential(
+            nn.AdaptiveAvgPool3d(1),
+            nn.Flatten(),
+            nn.Linear(1, 128) # Projecting from the pooled final logit channel
+        )
+        
+    def forward(self, x, return_fiber=False, return_qc=False, return_proj=False, return_st=False, **kwargs):
+        # x: [B, C, Z, H, W]
+        # ResidualEncoderUNet returns logits (single 3D tensor if deep_supervision=False)
+        out = self.model(x)
+        
+        # ResEncUNet returns full 3D segmentation [B, 1, Z, H, W]
+        # We need to project to 2D for our ink loss
+        ink_2d = torch.mean(out, dim=2)
+        
+        results = [ink_2d]
+        if return_fiber:
+            # Fake fiber head using mean pooling for compatibility
+            results.append(out)
+        if return_qc:
+            # Fake QC head
+            results.append(torch.zeros((x.shape[0], 1), device=x.device))
+        if return_proj:
+            # Actually use a projector for DINO consistency
+            # Need to get bottleneck features. Model returns logits, so we use pool on those
+            results.append(self.projector(out))
+        if return_st:
+            # Fake ST head
+            results.append(torch.zeros((x.shape[0], 6, *x.shape[2:]), device=x.device))
+            
+        if len(results) == 1:
+            return results[0]
+        return tuple(results)
+
+try:
+    from vesuvius.models.augmentation.pipelines.training_transforms import create_training_transforms
+except ImportError:
+    create_training_transforms = None
+
+_villa_aug_cache = {}
+_bg2_aug_cache = {}
 
 # Villa Albumentations recipe (Grand Prize team, tuned for Scroll 2 noise profile).
 # See villa/ink-detection/train_timesformer_og.py.
@@ -148,6 +201,7 @@ class ExperimentConfig:
     loss_fiber_bce: float = 0.2
     loss_st: float = 0.1
     label_smoothing: float = 0.0 # Standard for GP winner is 0.25
+    aug_mode: str = 'albumentations' # 'albumentations' or 'batchgeneratorsv2'
 
     # Model Architecture
     architecture: str = "gated_unet"
@@ -228,13 +282,74 @@ def compute_hard_dice(pred_2d, target, smooth=1e-5):
     dice = (2. * intersection + smooth) / (union + smooth)
     return dice.mean()
 
-def apply_augmentations(x, target_ink, target_fiber, step, max_steps):
-    """Villa Albumentations recipe (per-item, synchronized across depth).
+def apply_augmentations(x, target_ink, target_fiber, step, max_steps, config=None):
+    """Villa Augmentation recipes.
+    
+    Supports:
+    - 'albumentations': Per-item 2D recipe, synchronized across depth.
+    - 'batchgeneratorsv2': Official 3D-native MIC-DKFZ pipeline from villa.
 
     x: (B, 1, D, H, W); target_ink: (B, 1, H, W); target_fiber: (B, 1, 1, H, W).
-    Treats the depth axis as multi-channel 2D image so ShiftScaleRotate etc. apply
-    the same spatial transform to every z-slice. Keeps a z-flip as a cheap 3D aug.
     """
+    aug_mode = getattr(config, 'aug_mode', 'albumentations')
+    
+    if aug_mode == 'batchgeneratorsv2' and create_training_transforms is not None:
+        B, C, D, H, W = x.shape
+        patch_size_3d = (D, H, W)
+        if patch_size_3d not in _bg2_aug_cache:
+            _bg2_aug_cache[patch_size_3d] = create_training_transforms(patch_size_3d)
+        
+        bg_aug = _bg2_aug_cache[patch_size_3d]
+        
+        # Batchgenerators expects: (C, Z, H, W) for per-sample call
+        # but our wrapper handles (B, C, Z, H, W) if it's the official villa one.
+        # Actually, let's process sample by sample to be safe, like Albumentations path.
+        
+        out_x, out_ink, out_fiber = [], [], []
+        try:
+            for b in range(B):
+                # Prepare inputs for this sample
+                img_3d = x[b] # [1, D, H, W]
+                
+                # ink: [1, H, W] -> [1, D, H, W] (repeat to sync spatial transforms)
+                ink_3d = target_ink[b, :, None].repeat(1, D, 1, 1)
+                
+                # fiber: [1, 1, H, W] or [1, D, H, W]
+                f_samp = target_fiber[b]
+                if f_samp.ndim == 4 and f_samp.shape[1] == 1:
+                    fiber_3d = f_samp.repeat(1, D, 1, 1)
+                else:
+                    fiber_3d = f_samp
+
+                # Compose the data dict
+                data_dict = {
+                    'image': img_3d,
+                    'ink': ink_3d,
+                    'fiber': fiber_3d,
+                    'regression_keys': ['ink', 'fiber'] # Hint for bilinear interpolation
+                }
+                
+                # Call transform with kwargs
+                res = bg_aug(**data_dict)
+                
+                out_x.append(res['image'])
+                # Extract 2D ink from the center slice of the augmented 3D label
+                out_ink.append(res['ink'][:, D//2]) 
+                # Fiber is used as a 2D pseudo-label (collapsed mean in loss)
+                # but we keep the [1, 1, H, W] shape convention.
+                out_fiber.append(res['fiber'][:, D//2:D//2+1])
+
+            x_aug = torch.stack(out_x)
+            ink_aug = torch.stack(out_ink)
+            fiber_aug = torch.stack(out_fiber)
+            
+            return x_aug, ink_aug, fiber_aug
+        except Exception as e:
+            if step % 100 == 0:
+                print(f"Warning: batchgeneratorsv2 failed ({e}). Falling back to Albumentations.")
+            aug_mode = 'albumentations'
+
+    # Fallback/Default: Albumentations
     aug = _get_villa_aug(x.shape[-1]) if _HAS_ALBUMENTATIONS else None
     if aug is None:
         # Bare-bones fallback so the training loop still runs without albumentations.
@@ -280,6 +395,8 @@ def apply_augmentations(x, target_ink, target_fiber, step, max_steps):
     # Cheap 3D-specific aug the villa 2D recipe can't express: random z-flip.
     if np.random.rand() > 0.5:
         x_aug = torch.flip(x_aug, dims=[2])
+        if fiber_has_d:
+            fiber_aug = torch.flip(fiber_aug, dims=[2])
 
     return x_aug, ink_aug, fiber_aug
 
@@ -348,6 +465,35 @@ def train(config: ExperimentConfig):
             model = InceptionI3d(num_classes=1, in_channels=v_config.in_channels, final_endpoint='Logits', forward_features=False).to(device)
         else:
             raise ImportError("I3D model not found in villa submodule.")
+    elif hasattr(v_config, 'architecture') and v_config.architecture == "resenc_unet":
+        print(f"Instantiating nnUNet-style ResEnc UNet (base_feat={v_config.base_feat})...")
+        if ResidualEncoderUNet:
+            # Shallow 3-stage configuration to avoid dimension mismatch on small patches
+            n_stages = 3
+            features_per_stage = [v_config.base_feat * (2**i) for i in range(n_stages)]
+            strides = [[1, 1, 1]] + [[2, 2, 2]] * (n_stages - 1)
+            
+            backbone = ResidualEncoderUNet(
+                input_channels=v_config.in_channels,
+                n_stages=n_stages,
+                features_per_stage=features_per_stage,
+                conv_op=convert_dim_to_conv_op(3),
+                kernel_sizes=[[3, 3, 3]] * n_stages,
+                strides=strides,
+                n_blocks_per_stage=[2] * n_stages,
+                num_classes=1,
+                n_conv_per_stage_decoder=[2] * (n_stages - 1),
+                conv_bias=True,
+                norm_op=get_matching_instancenorm(convert_dim_to_conv_op(3)),
+                norm_op_kwargs={'eps': 1e-5, 'affine': True},
+                dropout_op=None,
+                nonlin=nn.LeakyReLU,
+                nonlin_kwargs={'inplace': True},
+                deep_supervision=False
+            )
+            model = ResEncUNetWrapper(backbone, features_per_stage).to(device)
+        else:
+            raise ImportError("ResidualEncoderUNet not found. Please install dynamic-network-architectures.")
     else:
         print("Instantiating Gated UNet-Transformer Architecture...")
         model = InkDetectorOptimized(v_config).to(device)
@@ -449,8 +595,8 @@ def train(config: ExperimentConfig):
             elif r < 0.4: x_orig, target_ink, target_fiber, _ = cutmix_data(x_orig, target_ink, target_fiber)
 
         # Generate two augmented views for DINO-Lite Consistency
-        x_aug1, target_ink_aug1, target_fiber_aug1 = apply_augmentations(x_orig, target_ink, target_fiber, step, max_steps)
-        x_aug2, _, _ = apply_augmentations(x_orig, target_ink, target_fiber, step, max_steps)
+        x_aug1, target_ink_aug1, target_fiber_aug1 = apply_augmentations(x_orig, target_ink, target_fiber, step, max_steps, config=config)
+        x_aug2, _, _ = apply_augmentations(x_orig, target_ink, target_fiber, step, max_steps, config=config)
 
         # Compute Structure Tensor targets on the fly for view 1
         with torch.no_grad():

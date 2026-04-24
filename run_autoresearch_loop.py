@@ -29,7 +29,8 @@ tweak_templates = [
     {"family": "loss_balance", "attr": "loss_st", "vals": [0.0, 0.1, 0.2]},
     {"family": "features", "attr": "use_ridges", "vals": [True, False]},
     {"family": "features", "attr": "ridge_sigma", "vals": [1.0, 2.0, 3.0]},
-    {"family": "architecture", "attr": "architecture", "vals": ["gated_unet", "timesformer", "resnet3d", "i3d"]}
+    {"family": "features", "attr": "aug_mode", "vals": ["albumentations", "batchgeneratorsv2"]},
+    {"family": "architecture", "attr": "architecture", "vals": ["gated_unet", "timesformer", "resnet3d", "i3d", "resenc_unet"]}
 ]
 
 HISTORY_FILE = "autoresearch_history.json"
