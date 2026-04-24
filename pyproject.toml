@@ -8,6 +8,7 @@ dependencies = [
     "alphashape>=1.3.1",
     "dynamic-network-architectures>=0.4.3",
     "fpdf2>=2.8.7",
+    "imagecodecs>=2025.3.30",
     "kernels>=0.11.7",
     "kimimaro>=5.8.1",
     "matplotlib>=3.10.8",

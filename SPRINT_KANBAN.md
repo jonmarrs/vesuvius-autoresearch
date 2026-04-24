@@ -13,18 +13,18 @@ This board tracks the prioritized research trajectory for the autonomous swarm. 
 - **[Sprint 013] Villa Metrics Suite**: (DONE in `train.py`)
 - **[Sprint 014] Unblock Villa Label Hole Filling**: (DONE)
 - **[Sprint 015] Port Villa Albumentations Recipe**: (DONE in `train.py`)
-- **[Sprint 016] Official Vesuvius Package Migration**: Replace `vesuvius_loader.py` with `villa/vesuvius/src/vesuvius/data/{Volume,VCDataset}`. Gains: `skip_empty_patches=True`, configurable `normalization_scheme` (z-score matches Grand Prize preprocessing), multi-resolution support, and seamless `dl.ash2txt.org` / local fallback. Likely requires re-downloading fragments in OME-Zarr format.
-- **[Sprint 017] TimeSformer + ResNet3D + I3D Backbone Port**: (DONE in `train.py`) Add the three Grand Prize-winning architectures from `villa/ink-detection/`.
-- **[Sprint 018] Iterative Pseudo-Labeling Loop (Farritor/Nader Recipe)**: Implement the prize-winning iterative label expansion: train → predict on unlabeled regions of Scrolls 1-3 → retain pixels above τ≈0.85 confidence → mask out manual-label overlap → retrain. Target ~15 rounds on `div_100` regions. Expands our effective training set 10-100× without manual annotation; pairs directly with Sprint 011 (First Title). *(Likely superseded by Sprint 020 — Uncertainty-Aware Mean Teacher uses per-pixel MC-dropout uncertainty instead of a hard τ threshold and is already implemented in villa. Keep this entry only as fallback if UA-MT destabilizes training.)*
-- **[Sprint 019] LeJEPA Self-Supervised Pretraining**: (ACTIVE) Port `villa/vesuvius/src/vesuvius/models/training/trainers/self_supervised/train_lejepa.py`. Integrated `SIGRegLoss` into `train.py` to prevent representation collapse during consistency learning.
-- **[Sprint 020] Uncertainty-Aware Mean Teacher for Pseudo-Labels**: (ACTIVE) Port `villa/vesuvius/src/vesuvius/models/training/trainers/semi_supervised/train_uncertainty_aware_mean_teacher.py`. Integrated `TwoStreamBatchSampler` foundation and EMA teacher logic.
-- **[Sprint 021] ResEnc UNet Backbone Port**: (DONE in `train.py`) Added `ResidualEncoderUNet` from `dynamic_network_architectures` (nnUNet-style) as a selectable backbone. Complements Sprint 017's trio.
+- **[Sprint 016] Official Vesuvius Package Migration**: (DONE) Replaced `vesuvius_loader.py` backend with `villa/vesuvius/src/vesuvius/data/Volume`. Converted local TIF stacks to OME-Zarr for robust, high-performance loading and official normalization.
+- **[Sprint 017] TimeSformer + ResNet3D + I3D Backbone Port**: (DONE in `train.py`)
+- **[Sprint 018] Iterative Pseudo-Labeling Loop (Farritor/Nader Recipe)**: Implement the prize-winning iterative label expansion: train → predict on unlabeled regions of Scrolls 1-3 → retain pixels above τ≈0.85 confidence → mask out manual-label overlap → retrain. Target ~15 rounds on `div_100` regions.
+- **[Sprint 019] LeJEPA Self-Supervised Pretraining**: (ACTIVE) Fully implemented `VesuviusTrainer` with `SIGRegLoss` for representation learning on unlabeled scrolls.
+- **[Sprint 020] Uncertainty-Aware Mean Teacher for Pseudo-Labels**: (ACTIVE) Integrated `TwoStreamBatchSampler` and EMA teacher logic into `VesuviusTrainer` for semi-supervised label expansion.
+- **[Sprint 021] ResEnc UNet Backbone Port**: (DONE in `train.py`)
 - **[Sprint 022] Fixed GP-Winner Baseline in the Swarm**: (DONE in `run_autoresearch_loop.py`)
 - **[Sprint 023] Structure-Tensor Auxiliary Task**: (DONE in `train.py`)
 - **[BUGFIX] (DONE)** Resolved device mismatch in `SpatialTransform` and numerical gradient error in `vesuvius_loader.py`.
 
 ### Phase 3c: Augmentation & Data Pipeline
-- **[Sprint 028] 3D-Native Augmentations (batchgeneratorsv2)**: (DONE in `train.py`) Migrate from our current per-slice Albumentations 2D pipeline (Sprint 015) to `villa/vesuvius/src/vesuvius/models/augmentation/` — a fork of MIC-DKFZ `batchgeneratorsv2` that operates natively on 3D tensors with nnUNet-compatible transforms.
+- **[Sprint 028] 3D-Native Augmentations (batchgeneratorsv2)**: (DONE in `train.py`)
 - **[Sprint 029] ThaumatoAnakalyptor Auto-Segmentation**: Deploy `villa/thaumato-anakalyptor` via the `scripts/launch_thaumato.py` wrapper to automatically generate high-precision 3D segmentations from Scroll 2 (PHerc0125). Expanding our training set by 10x with these automatically unrolled sheets is critical for the First Letters Prize.
 - **[Sprint 030] Crackle Viewer Visual Verification**: Integrate `villa/crackle-viewer` via the `scripts/launch_crackle_viewer.py` wrapper. This GUI enables fast, human-in-the-loop qualitative validation of ink predictions, ensuring our "val_bpb" improvements translate to papyrologically plausible strokes before we submit.
 - **[Sprint 031] SAM2-Photogrammetry 3D Ground Truth**: Use `villa/sam2-photogrammetry` to extract geometric ground truth from raw photogrammetry captures. This will be used to heavily penalize model hallucinations that appear off the physical papyrus surface.

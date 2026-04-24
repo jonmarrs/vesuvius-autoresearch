@@ -1,6 +1,6 @@
 {
-    "uri": "local_data/PHercParis2Fr47/surface_volume/",
-    "val_uri": "local_data/PHercParis2Fr143/surface_volume/",
+    "uri": "local_data/PHercParis2Fr47/surface_volume.zarr",
+    "val_uri": "local_data/PHercParis2Fr143/surface_volume.zarr",
     "cache_dir": null,
     "use_ridges": false,
     "ridge_sigma": 2.0,
@@ -10,7 +10,7 @@
     "lr": 0.001,
     "weight_decay": 0.01,
     "time_budget": 900,
-    "loss_ink_bce": 0.2,
+    "loss_ink_bce": 0.4,
     "loss_ink_dice": 0.4,
     "loss_fiber_bce": 0.2,
     "loss_st": 0.1,
