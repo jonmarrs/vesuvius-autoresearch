@@ -147,6 +147,14 @@ while True:
         with open(log_filename, "a") as log:
             log.write(f"\n## Sprint Completed at {time.strftime('%H:%M:%S')}\n")
             log.write(f"Transitioning to {next_shift}...\n")
+            
+        if shift_name == "NIGHT SHIFT":
+            print("\n" + "="*60)
+            print("ACTIVE LEARNING FLYWHEEL: It is highly recommended to run the Proofreader")
+            print("on the latest predictions before starting the Day Shift.")
+            print("Run: uv run scripts/launch_proofreader.py --volume local_data/PHercParis2Fr47/surface_volume/ --predictions predictions/pred_10_1000_1000_64x64_ink.zarr")
+            print("="*60 + "\n")
+            
         break
 
     # Load current best config
