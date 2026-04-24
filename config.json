@@ -17,6 +17,6 @@
     "architecture": "gated_unet",
     "base_feat": 64,
     "num_blocks": 16,
-    "num_heads": 8,
+    "num_heads": 4,
     "dropout": 0.2
 }
