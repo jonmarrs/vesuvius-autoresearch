@@ -25,6 +25,9 @@ This board tracks the prioritized research trajectory for the autonomous swarm. 
 
 ### Phase 3c: Augmentation & Data Pipeline
 - **[Sprint 028] 3D-Native Augmentations (batchgeneratorsv2)**: Migrate from our current per-slice Albumentations 2D pipeline (Sprint 015) to `villa/vesuvius/src/vesuvius/models/augmentation/` — a fork of MIC-DKFZ `batchgeneratorsv2` that operates natively on 3D tensors with nnUNet-compatible transforms. Gains: true 3D elastic warp, anisotropic scaling, proper 3D rotation (not just z-sync'd 2D rotation), spatial transforms that don't require CPU roundtrip per batch item. Do after Sprint 015 has stabilized so we can benchmark the improvement.
+- **[Sprint 029] ThaumatoAnakalyptor Auto-Segmentation**: Deploy `villa/thaumato-anakalyptor` via the `scripts/launch_thaumato.py` wrapper to automatically generate high-precision 3D segmentations from Scroll 2 (PHerc0125). Expanding our training set by 10x with these automatically unrolled sheets is critical for the First Letters Prize.
+- **[Sprint 030] Crackle Viewer Visual Verification**: Integrate `villa/crackle-viewer` via the `scripts/launch_crackle_viewer.py` wrapper. This GUI enables fast, human-in-the-loop qualitative validation of ink predictions, ensuring our "val_bpb" improvements translate to papyrologically plausible strokes before we submit.
+- **[Sprint 031] SAM2-Photogrammetry 3D Ground Truth**: Use `villa/sam2-photogrammetry` to extract geometric ground truth from raw photogrammetry captures. This will be used to heavily penalize model hallucinations that appear off the physical papyrus surface.
 
 ### Phase 4: The Prize Run (Grand Prize & Colophons)
 - **[Sprint 010] Scroll 2 "First Letters" Hunt**: Dedicated 48-hour exhaust search on Scroll 2 (PHerc0125) divisions. *Operationalized by Sprint 026 (submission-package checklist).*
