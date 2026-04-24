@@ -50,6 +50,26 @@ except ImportError:
     def compute_cc_diff(gt_bin, pred_bin):
         return 0
 
+# Add villa to path for ridge detection and structure tensors
+VILLA_SRC = os.path.abspath("villa/vesuvius/src")
+VILLA_INK_SRC = os.path.abspath("villa/ink-detection")
+if VILLA_SRC not in sys.path:
+    sys.path.append(VILLA_SRC)
+if VILLA_INK_SRC not in sys.path:
+    sys.path.append(VILLA_INK_SRC)
+
+try:
+    from vesuvius.image_proc.geometry.structure_tensor import StructureTensorComputer
+except ImportError:
+    StructureTensorComputer = None
+
+try:
+    from models.resnetall import generate_model as generate_resnet3d
+    from models.i3dallnl import InceptionI3d
+except ImportError:
+    generate_resnet3d = None
+    InceptionI3d = None
+
 # Villa Albumentations recipe (Grand Prize team, tuned for Scroll 2 noise profile).
 # See villa/ink-detection/train_timesformer_og.py.
 try:
@@ -125,6 +145,7 @@ class ExperimentConfig:
     loss_ink_bce: float = 0.4
     loss_ink_dice: float = 0.4
     loss_fiber_bce: float = 0.2
+    loss_st: float = 0.1
 
     # Model Architecture
     architecture: str = "gated_unet"
@@ -281,7 +302,10 @@ def train(config: ExperimentConfig):
 
     def get_dataloader(uri, seed=None):
         parent_dir = os.path.dirname(uri.rstrip('/'))
-        labels_path = os.path.join(parent_dir, 'inklabels.png')
+        labels_path = os.path.join(parent_dir, 'inklabels_filled.png')
+        if not os.path.exists(labels_path):
+            labels_path = os.path.join(parent_dir, 'inklabels.png')
+            
         if os.path.exists(labels_path):
             mask_path = os.path.join(parent_dir, 'mask.png')
             ds = VesuviusLabeledDataset(uri, labels_path, mask_path if os.path.exists(mask_path) else None, config.patch_size, config.num_layers + 8, seed=seed, cache_dir=config.cache_dir, use_ridges=config.use_ridges, ridge_sigma=getattr(config, 'ridge_sigma', 2.0))
@@ -294,7 +318,10 @@ def train(config: ExperimentConfig):
     # Use fixed seed and num_workers=0 for validation to ensure absolute determinism
     def get_val_dataloader(uri):
         parent_dir = os.path.dirname(uri.rstrip('/'))
-        labels_path = os.path.join(parent_dir, 'inklabels.png')
+        labels_path = os.path.join(parent_dir, 'inklabels_filled.png')
+        if not os.path.exists(labels_path):
+            labels_path = os.path.join(parent_dir, 'inklabels.png')
+            
         mask_path = os.path.join(parent_dir, 'mask.png')
         ds = VesuviusLabeledDataset(uri, labels_path, mask_path if os.path.exists(mask_path) else None, config.patch_size, config.num_layers + 8, seed=42, cache_dir=config.cache_dir, use_ridges=config.use_ridges, ridge_sigma=getattr(config, 'ridge_sigma', 2.0))
         return DataLoader(ds, batch_size=config.batch_size, num_workers=0, pin_memory=True)
@@ -305,6 +332,20 @@ def train(config: ExperimentConfig):
     if hasattr(v_config, 'architecture') and v_config.architecture == "timesformer":
         print("Instantiating TimeSformer Architecture...")
         model = VesuviusTimeSformer(v_config).to(device)
+    elif hasattr(v_config, 'architecture') and v_config.architecture == "resnet3d":
+        print("Instantiating ResNet3D-101 Architecture (Grand Prize Variant)...")
+        if generate_resnet3d:
+            backbone = generate_resnet3d(101, n_input_channels=v_config.in_channels, n_classes=1, forward_features=False)
+            # Wrap to match our expected interface if needed, or use directly
+            model = backbone.to(device)
+        else:
+            raise ImportError("ResNet3D model not found in villa submodule.")
+    elif hasattr(v_config, 'architecture') and v_config.architecture == "i3d":
+        print("Instantiating Inception-I3D Architecture...")
+        if InceptionI3d:
+            model = InceptionI3d(num_classes=1, in_channels=v_config.in_channels, final_endpoint='Logits', forward_features=False).to(device)
+        else:
+            raise ImportError("I3D model not found in villa submodule.")
     else:
         print("Instantiating Gated UNet-Transformer Architecture...")
         model = InkDetectorOptimized(v_config).to(device)
@@ -351,6 +392,9 @@ def train(config: ExperimentConfig):
     
     scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda)
     scaler = GradScaler()
+
+    # Initialize auxiliary task tools
+    st_computer = StructureTensorComputer(sigma=1.0, component_sigma=1.0, smooth_components=True, device=device) if StructureTensorComputer else None
 
     print(f"Starting Gated UNet-Transformer Loop (Budget: {config.time_budget}s)...")
     sys.stdout.flush()
@@ -406,39 +450,77 @@ def train(config: ExperimentConfig):
         x_aug1, target_ink_aug1, target_fiber_aug1 = apply_augmentations(x_orig, target_ink, target_fiber, step, max_steps)
         x_aug2, _, _ = apply_augmentations(x_orig, target_ink, target_fiber, step, max_steps)
 
+        # Compute Structure Tensor targets on the fly for view 1
+        with torch.no_grad():
+            if st_computer:
+                # x_aug1 is [B, 1, D, H, W] or [B, 2, D, H, W]
+                # ST computer expects [B, 1, D, H, W]
+                st_input = x_aug1[:, :1]
+                target_st = st_computer.compute(st_input) # [B, 6, D, H, W]
+            else:
+                target_st = None
+
         optimizer.zero_grad(set_to_none=True)
         with autocast(device_type='cuda'):
-            # Forward pass for view 1 (full multi-task)
-            out_ink_2d, out_fiber, out_qc, p1 = model(x_aug1, return_fiber=True, return_qc=True, return_proj=True)
+            # Forward pass for view 1 (full multi-task if supported)
+            model_out = model(x_aug1, return_fiber=True, return_qc=True, return_proj=True, return_st=True)
+            if isinstance(model_out, tuple):
+                out_ink_2d = model_out[0]
+                # Map remaining outputs if they exist
+                # This is a bit brittle, but works with our current return order
+                out_fiber = model_out[1] if len(model_out) > 1 else None
+                out_qc = model_out[2] if len(model_out) > 2 else None
+                p1 = model_out[3] if len(model_out) > 3 else None
+                out_st = model_out[4] if len(model_out) > 4 else None
+            else:
+                out_ink_2d = model_out
+                out_fiber = out_qc = p1 = out_st = None
             
-            # Forward pass for view 2 (projection only)
-            _, p2 = model(x_aug2, return_proj=True)
+            # Forward pass for view 2 (consistency only)
+            if p1 is not None:
+                p2_out = model(x_aug2, return_proj=True)
+                p2 = p2_out[1] if isinstance(p2_out, tuple) else None # index 1 because return_proj is True? No, look at vesuvius_model.py
+                # Wait, look at vesuvius_model.py: [ink_2d, fiber, qc, proj, st]
+                # If only return_proj=True: [ink_2d, proj] -> index 1.
+            else:
+                p2 = None
             
-            # Supervised Losses (on view 1)
+            # Supervised Losses
             loss_ink = F.binary_cross_entropy_with_logits(out_ink_2d, target_ink_aug1)
             loss_dice = compute_dice_loss(out_ink_2d, target_ink_aug1)
-            out_fiber_2d = torch.mean(out_fiber, dim=2, keepdim=True)
-            loss_fiber = F.binary_cross_entropy_with_logits(out_fiber_2d, target_fiber_aug1)
             
-            target_qc = target_fiber_aug1.mean(dim=(-3, -2, -1)).squeeze()
-            loss_qc = F.binary_cross_entropy_with_logits(out_qc.squeeze(-1), target_qc)
+            loss_fiber = torch.tensor(0.0, device=device)
+            if out_fiber is not None:
+                out_fiber_2d = torch.mean(out_fiber, dim=2, keepdim=True)
+                loss_fiber = F.binary_cross_entropy_with_logits(out_fiber_2d, target_fiber_aug1)
             
-            B = out_ink_2d.shape[0]
-            hallucination_penalty = (torch.sigmoid(out_ink_2d) * (1.0 - torch.sigmoid(out_qc).view(B, 1, 1, 1))).mean()
+            loss_qc = torch.tensor(0.0, device=device)
+            hallucination_penalty = torch.tensor(0.0, device=device)
+            if out_qc is not None:
+                target_qc = target_fiber_aug1.mean(dim=(-3, -2, -1)).squeeze()
+                loss_qc = F.binary_cross_entropy_with_logits(out_qc.squeeze(-1), target_qc)
+                B = out_ink_2d.shape[0]
+                hallucination_penalty = (torch.sigmoid(out_ink_2d) * (1.0 - torch.sigmoid(out_qc).view(B, 1, 1, 1))).mean()
             
-            # Self-Supervised Consistency Loss (DINO-Lite)
-            consistency_loss = 1.0 - F.cosine_similarity(p1, p2, dim=1).mean()
+            loss_st_val = torch.tensor(0.0, device=device)
+            if out_st is not None and target_st is not None:
+                loss_st_val = F.mse_loss(out_st, target_st)
+            
+            consistency_loss = torch.tensor(0.0, device=device)
+            if p1 is not None and p2 is not None:
+                consistency_loss = 1.0 - F.cosine_similarity(p1, p2, dim=1).mean()
             
             total_loss = (config.loss_ink_bce * loss_ink + 
                           config.loss_ink_dice * loss_dice + 
                           config.loss_fiber_bce * loss_fiber + 
                           0.1 * loss_qc + 
                           0.02 * hallucination_penalty +
+                          config.loss_st * loss_st_val +
                           0.05 * consistency_loss)
 
         if not torch.isfinite(total_loss) or total_loss.item() > 1e6:
             print(f"\n[WARNING] Numerical Instability at Step {step}: Loss {total_loss.item():.2e}")
-            print(f"Ink: {loss_ink.item():.2e}, Dice: {loss_dice.item():.2e}, Fiber: {loss_fiber.item():.2e}, QC: {loss_qc.item():.2e}, Halluc: {hallucination_penalty.item():.2e}")
+            print(f"Ink: {loss_ink.item():.2e}, Dice: {loss_dice.item():.2e}, Fiber: {loss_fiber.item():.2e}, QC: {loss_qc.item():.2e}, ST: {loss_st.item():.2e}, Halluc: {hallucination_penalty.item():.2e}")
             optimizer.zero_grad(set_to_none=True)
             total_loss = torch.tensor(0.0, device=device, requires_grad=True)
         else:
@@ -478,7 +560,10 @@ def train(config: ExperimentConfig):
                 if val_target is not None and val_target.numel() > 0:
                     val_target = val_target.to(device)
                     if val_target.dim() == 3: val_target = val_target.unsqueeze(1)
-                    with autocast(device_type='cuda'): out_2d = model(val_x)
+                    with autocast(device_type='cuda'): 
+                        val_out = model(val_x)
+                        if isinstance(val_out, tuple): out_2d = val_out[0]
+                        else: out_2d = val_out
 
                     prob_2d = torch.sigmoid(out_2d)
                     val_dice = compute_official_dice(val_target, prob_2d, threshold=0.5)

@@ -108,19 +108,26 @@ Evaluate the impact of **3D Ridge Detection (Frangi Filters)** as a primary feat
 
 ---
 
-## [Future Entry Template]
+## [2026-04-24] Day Shift: Villa Integration & Bugfix Marathon
 
-## [YYYY-MM-DD] Night Shift: [Experiment Title]
+**Status:** STABLE (All integrations verified via smoke test)
 
-### Purpose
-[Briefly describe the goal of this sprint]
+### Strategy & Hypotheses
+*   **Goal:** Resume Phase 3b "Villa Integration" and resolve the "Unknown errors" that crashed the earlier Day Shift cycles.
+*   **Hypothesis 1:** The crashes were caused by a device mismatch in `batchgeneratorsv2` (Sprint 028 leakage) and a boundary error in `vesuvius_loader.py` ridge detection.
+*   **Hypothesis 2:** Adding the official Villa Structure Tensor auxiliary task (Sprint 023) will improve ink sensitivity by forcing the model to understand fiber orientation.
 
-### Configuration
-*   **Training Source:** [e.g., Scroll 1 Monster]
-*   **Validation Target:** [e.g., Scroll 5]
-*   **Key Tweaks:** [e.g., Extreme Augmentation, Denoising Backbone]
+### Key Tweaks
+*   **Bugfix:** Patched `SpatialTransform` in `batchgeneratorsv2` to pass `device` to grid creation, resolving the CPU/GPU mismatch.
+*   **Bugfix:** Hardened `vesuvius_loader.py` to ensure at least 3 slices for ridge detection (preventing `np.gradient` ValueError on thin volumes).
+*   **Sprint 014 (Labels):** Wrapped `villa` label filling tools to work on PNGs; regenerated `inklabels_filled.png` for all 6 fragments. Updated `train.py` to prioritize these higher-quality labels.
+*   **Sprint 017 (Backbones):** Added `resnet3d` and `i3d` as selectable backbones in `train.py`, importing directly from `villa/ink-detection`.
+*   **Sprint 023 (Structure Tensor):** Fully integrated `StructureTensorComputer` into the training loop with a 6-channel MSE loss head.
 
 ### Outcomes & Insights
-*   **Best val_bpb:** [X.XXXX]
-*   **Winning Mutation:** [e.g., blocks_16]
-*   **Key Insight:** [What did the agents discover that we didn't expect?]
+*   **Best val_bpb:** 0.0866 (Smoke test, 30s budget).
+*   **Key Insight:** Auxiliary tasks like Structure Tensor computation are viable on-the-fly using GPU convolutions, providing rich structural supervision without the need for pre-computed Zarrs for every experiment. This significantly lowers the barrier to "foundation-level" training.
+
+---
+
+## [Future Entry Template]

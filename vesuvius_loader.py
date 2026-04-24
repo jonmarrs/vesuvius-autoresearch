@@ -110,13 +110,26 @@ class FastVesuviusVolume:
             
             # Simple block-wise processing
             step_z = 32
+            if D < 3:
+                print(f"Volume too small for 3D ridges (D={D}). Skipping.")
+                return
+
             for z in range(0, D, step_z):
+                z_start = z
                 z_end = min(z + step_z + 4, D) # overlap for Hessian
-                vol_slice = np.array(self[z:z_end])
+                if z_end - z_start < 3:
+                    z_start = max(0, z_end - 3)
+                
+                vol_slice = np.array(self[z_start:z_end])
+                if vol_slice.shape[0] < 3:
+                    # Final fallback if something went wrong with the range logic
+                    continue
+                    
+                print(f"z_start={z_start}, z_end={z_end}, vol_slice.shape={vol_slice.shape}")
                 ridge_slice = detect_ridges_3d(vol_slice, sigma=self.ridge_sigma)
                 # handle overlap
                 actual_end = min(z + step_z, D)
-                tmp_ridges[z:actual_end] = ridge_slice[:(actual_end-z)]
+                tmp_ridges[z:actual_end] = ridge_slice[(z - z_start):((z - z_start) + (actual_end - z))]
                 tmp_ridges.flush()
                 print(f"Ridge progress: {actual_end}/{D} slices")
 

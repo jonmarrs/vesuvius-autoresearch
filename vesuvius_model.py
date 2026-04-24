@@ -188,6 +188,7 @@ class InkDetectorOptimized(nn.Module):
         self.z_proj = LearnedZProjection(self.base_feat // 4)
         self.final_ink = nn.Conv2d(self.base_feat // 4, 1, kernel_size=3, padding=1)
         self.fiber_head = nn.Conv3d(self.base_feat // 4, 1, kernel_size=3, padding=1)
+        self.st_head = nn.Conv3d(self.base_feat // 4, 6, kernel_size=1) # 6 symmetric tensor components
         self.qc_head = nn.Sequential(
             nn.AdaptiveAvgPool3d(1),
             nn.Flatten(),
@@ -207,7 +208,7 @@ class InkDetectorOptimized(nn.Module):
             nn.Linear(512, 256)
         )
         
-    def forward(self, x, return_fiber=False, return_qc=False, return_proj=False, **kwargs):
+    def forward(self, x, return_fiber=False, return_qc=False, return_proj=False, return_st=False, **kwargs):
         B, C, Z, H, W = x.shape
         
         # 1. Encoder
@@ -250,6 +251,8 @@ class InkDetectorOptimized(nn.Module):
             results.append(self.qc_head(x_trans))
         if return_proj:
             results.append(self.projector(x_trans))
+        if return_st:
+            results.append(self.st_head(x_out))
             
         if len(results) == 1:
             return results[0]
