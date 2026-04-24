@@ -23,10 +23,14 @@ dependencies = [
     "scipy>=1.15.3",
     "seaborn>=0.13.2",
     "shapely>=2.1.2",
+    "tensorboard>=2.20.0",
     "tensorstore>=0.1.78",
     "tiktoken>=0.11.0",
     "torch==2.9.1",
     "vesuvius>=0.2.4",
+    "volumentations>=0.1.9",
+    "wandb>=0.26.1",
+    "webknossos>=2.5.0",
     "zarr>=2.18.3",
 ]
 

@@ -1,25 +1,44 @@
-
 tr_setup:
-  model_name: "Vesuvius-DINO-v3"
-  vram_max: 20
+  model_name: "v3_omni_model"
+  vram_max: 24
   autoconfigure: true
+  tr_val_split: 0.9
+  ckpt_out_base: "./v3_checkpoints/"
+  tensorboard_log_dir: "./v3_logs/"
 
 tr_config:
-  batch_size: 16
-  patch_size: [16, 64, 64]
-  max_epoch: 500
-  initial_lr: 1e-3
   optimizer: "AdamW"
+  initial_lr: 1.0e-3
+  weight_decay: 1.0e-2
+  patch_size: [24, 64, 64]
+  batch_size: 16
+  num_dataloader_workers: 4
+  max_epoch: 100
+  use_ridges: true
 
 model_config:
-  in_channels: 1
   base_feat: 64
+  in_channels: 2 # CT + Ridges
 
 dataset_config:
-  volume_paths: ["local_data/PHercParis2Fr47/surface_volume/"]
-  targets:
-    ink: {"channels": 1}
-    fiber: {"channels": 1}
+  min_labeled_ratio: 0.05
+  min_bbox_percent: 0.9
+  use_cache: true
+  cache_folder: "v3_patch_cache"
 
-inference_config:
-  batch_size: 16
+targets:
+  ink:
+    out_channels: 1
+    loss_fn: "BCEDiceLoss"
+    volumes:
+      - format: "zarr_local" # We use our custom loader anyway, but we need this structure
+        data_volume: "local_data/PHercParis2Fr47/surface_volume/"
+        label_volume: "local_data/PHercParis2Fr47/inklabels_filled.png"
+        mask_volume: "local_data/PHercParis2Fr47/mask.png"
+  fiber:
+    out_channels: 1
+    loss_fn: "BCEDiceLoss"
+    volumes:
+      - format: "zarr_local"
+        data_volume: "local_data/PHercParis2Fr47/surface_volume/"
+        label_volume: "local_data/PHercParis2Fr47/inklabels_filled.png" # Placeholder
