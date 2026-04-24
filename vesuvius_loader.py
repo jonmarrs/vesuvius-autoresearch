@@ -26,21 +26,21 @@ class FastVesuviusVolume:
     Loads TIF stack into a single memmapped .npy file for instantaneous access.
     Now supports optional 3D ridge detection (Frangi filters) for enhanced structural awareness.
     """
-    def __init__(self, volume_uri, cache_dir=None, use_ridges=False):
+    def __init__(self, volume_uri, cache_dir=None, use_ridges=False, ridge_sigma=2.0):
         self.uri = volume_uri
         self.use_ridges = use_ridges
-        
+        self.ridge_sigma = ridge_sigma
+
         # Determine cache location
         if cache_dir:
             os.makedirs(cache_dir, exist_ok=True)
             import hashlib
             uri_hash = hashlib.md5(volume_uri.encode()).hexdigest()[:8]
             self.npy_path = os.path.join(cache_dir, f"volume_cache_{uri_hash}.npy")
-            self.ridge_path = os.path.join(cache_dir, f"ridge_cache_{uri_hash}.npy")
+            self.ridge_path = os.path.join(cache_dir, f"ridge_cache_{uri_hash}_{self.ridge_sigma}.npy")
         else:
             self.npy_path = os.path.join(volume_uri, "volume_cache.npy")
-            self.ridge_path = os.path.join(volume_uri, "ridge_cache.npy")
-            
+            self.ridge_path = os.path.join(volume_uri, f"ridge_cache_{self.ridge_sigma}.npy")            
         self.stats_path = self.npy_path.replace(".npy", "_stats.json")
         self.data = None
         self.ridge_data = None
@@ -113,7 +113,7 @@ class FastVesuviusVolume:
             for z in range(0, D, step_z):
                 z_end = min(z + step_z + 4, D) # overlap for Hessian
                 vol_slice = np.array(self[z:z_end])
-                ridge_slice = detect_ridges_3d(vol_slice, sigma=2.0)
+                ridge_slice = detect_ridges_3d(vol_slice, sigma=self.ridge_sigma)
                 # handle overlap
                 actual_end = min(z + step_z, D)
                 tmp_ridges[z:actual_end] = ridge_slice[:(actual_end-z)]
@@ -195,8 +195,8 @@ class FastVesuviusVolume:
         return ct
 
 class VesuviusLabeledDataset(IterableDataset):
-    def __init__(self, volume_uri, labels_path, mask_path=None, patch_size=64, num_layers=16, seed=None, cache_dir=None, use_ridges=False):
-        self.volume = FastVesuviusVolume(volume_uri, cache_dir=cache_dir, use_ridges=use_ridges)
+    def __init__(self, volume_uri, labels_path, mask_path=None, patch_size=64, num_layers=16, seed=None, cache_dir=None, use_ridges=False, ridge_sigma=2.0):
+        self.volume = FastVesuviusVolume(volume_uri, cache_dir=cache_dir, use_ridges=use_ridges, ridge_sigma=ridge_sigma)
         self.patch_size = patch_size
         self.num_layers = num_layers
         self.shape = self.volume.shape
@@ -285,18 +285,19 @@ class VesuviusLabeledDataset(IterableDataset):
 
 class VesuviusS3Dataset(IterableDataset):
     """Fallback for Zarr/S3 data."""
-    def __init__(self, uri, patch_size=32, num_layers=16, seed=None, cache_dir=None, use_ridges=False):
+    def __init__(self, uri, patch_size=32, num_layers=16, seed=None, cache_dir=None, use_ridges=False, ridge_sigma=2.0):
         self.uri = uri
         self.patch_size = patch_size
         self.num_layers = num_layers
         self.seed = seed
         self.cache_dir = cache_dir
         self.use_ridges = use_ridges
+        self.ridge_sigma = ridge_sigma
         self.dataset = None
         if uri.startswith("s3://"):
             raise ValueError("S3 Streaming disabled. Use local paths.")
             
-        self.volume = FastVesuviusVolume(uri, cache_dir=cache_dir, use_ridges=use_ridges)
+        self.volume = FastVesuviusVolume(uri, cache_dir=cache_dir, use_ridges=use_ridges, ridge_sigma=ridge_sigma)
         self.shape = self.volume.shape
 
     def __iter__(self):
