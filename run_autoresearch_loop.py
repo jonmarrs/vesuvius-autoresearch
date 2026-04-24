@@ -26,7 +26,8 @@ tweak_templates = [
     {"family": "loss_balance", "attr": "loss_ink_bce", "vals": [0.2, 0.4, 0.6]},
     {"family": "loss_balance", "attr": "loss_ink_dice", "vals": [0.2, 0.4, 0.6]},
     {"family": "loss_balance", "attr": "loss_fiber_bce", "vals": [0.1, 0.2, 0.3]},
-    {"family": "features", "attr": "use_ridges", "vals": [True, False]}
+    {"family": "features", "attr": "use_ridges", "vals": [True, False]},
+    {"family": "architecture", "attr": "architecture", "vals": ["gated_unet", "timesformer"]}
 ]
 
 HISTORY_FILE = "autoresearch_history.json"

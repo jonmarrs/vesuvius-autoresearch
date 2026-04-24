@@ -10,7 +10,7 @@ import torch.nn.functional as F
 import numpy as np
 
 class VesuviusConfig:
-    def __init__(self, patch_size=64, num_layers=16, batch_size=4, base_feat=64, num_blocks=16, num_heads=8, dropout=0.0, in_channels=1):
+    def __init__(self, patch_size=64, num_layers=16, batch_size=4, base_feat=64, num_blocks=16, num_heads=8, dropout=0.0, in_channels=1, architecture="gated_unet"):
         self.patch_size = patch_size
         self.num_layers = num_layers
         self.batch_size = batch_size
@@ -19,6 +19,7 @@ class VesuviusConfig:
         self.num_heads = num_heads
         self.dropout = dropout
         self.in_channels = in_channels
+        self.architecture = architecture
 
 class SEBlock3D(nn.Module):
     """Squeeze-and-Excitation for 3D volumes."""
@@ -77,6 +78,57 @@ class LearnedZProjection(nn.Module):
         x = self.local_context(x)
         x = self.global_pool(x).squeeze(2) # [B, C, H, W]
         return self.refine(x)
+
+class VesuviusTimeSformer(nn.Module):
+    """Adapter for the 2023 Grand Prize TimeSformer architecture."""
+    version = "2.5.0-timesformer"
+    def __init__(self, config: VesuviusConfig):
+        super().__init__()
+        self.config = config
+        self.version = "2.5.0-timesformer"
+        import timesformer_pytorch
+        
+        self.backbone = timesformer_pytorch.TimeSformer(
+            dim=config.base_feat * 8, # typically 512
+            image_size=config.patch_size,
+            patch_size=16,
+            num_frames=config.num_layers + 8, # dynamic input size
+            num_classes=16, # 4x4 logits -> scaled up to 64x64 later
+            channels=config.in_channels,
+            depth=config.num_blocks // 2, # adapt num blocks
+            heads=config.num_heads,
+            dim_head=config.base_feat,
+            attn_dropout=config.dropout,
+            ff_dropout=config.dropout,
+        )
+        self.norm = nn.BatchNorm3d(num_features=config.in_channels)
+        
+        # Add dummy fiber/qc heads just to preserve API compatibility
+        self.fiber_head = nn.Conv3d(config.in_channels, 1, kernel_size=1)
+        self.qc_head = nn.Linear(16, 1) # Dummy input size
+        self.projector = nn.Linear(16, 16) # Dummy input size
+
+    def forward(self, x, return_fiber=False, return_qc=False):
+        # x: [B, C, Z, H, W] -> (B,frames,channels,H,W) for timesformer?
+        # Actually TimeSformer expects (B, frames, C, H, W) or (B, C, frames, H, W)?
+        # According to original implementation: x = torch.permute(x, (0, 2, 1, 3, 4)) -> (B, C, frames, H, W) wait no, permuting (B, 1, frames, H, W) -> (B, frames, 1, H, W) or vice versa.
+        # The library timesformer_pytorch actually expects (B, frames, C, H, W) usually, let's look at villa code:
+        # villa code: input was (B,1,C,H,W) -> permute(0,2,1,3,4) -> (B,C,1,H,W). Wait, C=1, frames=C?
+        # Ah, in villa: "Input from dataset: (B,1,C,H,W). TimeSformer lib expects (B,frames,channels,H,W)." Wait, the comment contradicts the code `x = torch.permute(x, (0, 2, 1, 3, 4))  # -> (B,C,1,H,W)` and `channels=1` in TimeSformer args.
+        # Actually TimeSformer in lucidrains lib expects video shape `(B, C, frames, H, W)`. So if input is `(B, C, Z, H, W)`, it is exactly correct.
+        x_norm = self.norm(x)
+        x_norm = x_norm.permute(0, 2, 1, 3, 4) # (B, C, Z, H, W) -> (B, Z, C, H, W)
+        out = self.backbone(x_norm) # returns [B, num_classes] -> [B, 16]
+        
+        # Reshape and interpolate to match target patch size
+        out = out.view(-1, 1, 4, 4)
+        out = F.interpolate(out, size=(self.config.patch_size, self.config.patch_size), mode='bilinear', align_corners=False)
+        
+        if return_fiber and return_qc:
+            return out, None, None, None
+        if return_fiber:
+            return out, None
+        return out
 
 class InkDetectorOptimized(nn.Module):
     version = "2.5.0"

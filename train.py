@@ -97,7 +97,7 @@ def _get_villa_aug(size: int):
     return pipeline
 
 # Import our breakthrough components
-from vesuvius_model import InkDetectorOptimized, VesuviusConfig
+from vesuvius_model import InkDetectorOptimized, VesuviusTimeSformer, VesuviusConfig
 from vesuvius_loader import VesuviusS3Dataset, VesuviusLabeledDataset
 
 # ---------------------------------------------------------------------------
@@ -126,6 +126,7 @@ class ExperimentConfig:
     loss_fiber_bce: float = 0.2
 
     # Model Architecture
+    architecture: str = "gated_unet"
     base_feat: int = 64
     num_blocks: int = 16
     num_heads: int = 8
@@ -270,7 +271,8 @@ def train(config: ExperimentConfig):
         num_blocks=config.num_blocks,
         num_heads=config.num_heads,
         dropout=config.dropout,
-        in_channels=2 if config.use_ridges else 1
+        in_channels=2 if config.use_ridges else 1,
+        architecture=getattr(config, 'architecture', 'gated_unet')
     )
 
     print(f"Initializing LOCAL TRANSFORMER Training on {config.uri}...")
@@ -299,7 +301,12 @@ def train(config: ExperimentConfig):
     val_data_loader = get_val_dataloader(config.val_uri)
     val_data_iter = iter(val_data_loader)
 
-    model = InkDetectorOptimized(v_config).to(device)
+    if hasattr(v_config, 'architecture') and v_config.architecture == "timesformer":
+        print("Instantiating TimeSformer Architecture...")
+        model = VesuviusTimeSformer(v_config).to(device)
+    else:
+        print("Instantiating Gated UNet-Transformer Architecture...")
+        model = InkDetectorOptimized(v_config).to(device)
     
     # Load best model if architecture matches
     best_model_path = 'best_model.pt'
