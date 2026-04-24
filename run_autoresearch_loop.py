@@ -164,50 +164,69 @@ while True:
     else:
         config = ExperimentConfig()
 
-    # Success-Biased Decay: Every cycle, all families decay slightly.
-    # This ensures that even successful families eventually lose their dominance 
-    # if they stop producing improvements, forcing exploration of other families.
-    families = [t["family"] for t in tweak_templates]
-    for f in set(families):
-        success_counts[f] = max(1.0, success_counts[f] * 0.95)
-            
-    weights = [success_counts[f] for f in families]
-    
-    # Frontier-V: Config-Space Entropy Protection
-    # Avoid testing the exact same thing twice in a row if it failed recently
-    max_retries = 10
-    for _ in range(max_retries):
-        template = random.choices(tweak_templates, weights=weights, k=1)[0]
-        val = random.choice(template["vals"])
-        family = template["family"]
-        attr = template["attr"]
+    # Sprint 022: Fixed GP-Winner Baseline Injection
+    is_pinned_cycle = (i % 10 == 0)
+    if is_pinned_cycle:
+        print(f"Cycle {i}: Injecting FIXED GP-WINNER BASELINE for calibration...")
+        config = ExperimentConfig(
+            architecture="timesformer",
+            patch_size=256,
+            num_layers=16,
+            lr=3e-5,
+            loss_ink_bce=0.5,
+            loss_ink_dice=0.5,
+            loss_fiber_bce=0.0,
+            loss_st=0.0,
+            label_smoothing=0.25,
+            pinned=True
+        )
+        tweak_name = "gp_winner_baseline"
+        family = "baseline"
+    else:
+        # Success-Biased Decay: Every cycle, all families decay slightly.
+        # This ensures that even successful families eventually lose their dominance 
+        # if they stop producing improvements, forcing exploration of other families.
+        families = [t["family"] for t in tweak_templates]
+        for f in set(families):
+            success_counts[f] = max(1.0, success_counts[f] * 0.95)
+                
+        weights = [success_counts[f] for f in families]
         
-        # Apply tweak to a copy of current config
-        test_config = ExperimentConfig.load(CONFIG_FILE) if os.path.exists(CONFIG_FILE) else ExperimentConfig()
-        setattr(test_config, attr, val)
-        
-        cfg_dict = asdict(test_config)
-        # Remove volatile fields for comparison
-        for k in ['uri', 'val_uri', 'cache_dir', 'time_budget']:
-            cfg_dict.pop(k, None)
+        # Frontier-V: Config-Space Entropy Protection
+        # Avoid testing the exact same thing twice in a row if it failed recently
+        max_retries = 10
+        for _ in range(max_retries):
+            template = random.choices(tweak_templates, weights=weights, k=1)[0]
+            val = random.choice(template["vals"])
+            family = template["family"]
+            attr = template["attr"]
             
-        if cfg_dict not in recent_configs:
-            config = test_config
-            recent_configs.append(cfg_dict)
-            save_recent_configs(recent_configs)
-            break
-        else:
-            print(f"Cycle {i}: Sampled duplicate config ({attr}={val}). Re-sampling for entropy...")
-    
-    tweak_name = f"{attr}_{val}"
+            # Apply tweak to a copy of current config
+            test_config = ExperimentConfig.load(CONFIG_FILE) if os.path.exists(CONFIG_FILE) else ExperimentConfig()
+            # Ensure we don't carry over 'pinned' status to evolved configs
+            test_config.pinned = False
+            setattr(test_config, attr, val)
+            
+            cfg_dict = asdict(test_config)
+            # Remove volatile fields for comparison
+            for k in ['uri', 'val_uri', 'cache_dir', 'time_budget']:
+                cfg_dict.pop(k, None)
+                
+            if cfg_dict not in recent_configs:
+                config = test_config
+                recent_configs.append(cfg_dict)
+                save_recent_configs(recent_configs)
+                break
+            else:
+                print(f"Cycle {i}: Sampled duplicate config ({attr}={val}). Re-sampling for entropy...")
+        
+        tweak_name = f"{attr}_{val}"
     
     # Pre-flight VRAM estimation (Complexity Heuristic)
     complexity = config.base_feat * config.num_layers * (config.patch_size / 64)**2 * config.batch_size
     # A score of ~150,000 is roughly 24GB. Let's cap at 180,000 for safety.
     if complexity > 180000:
         print(f"Cycle {i}: Skipping {tweak_name} (Complexity {complexity:.0f} > 180000) to avoid OOM.")
-        # Revert and skip
-        setattr(config, attr, old_val)
         continue
 
     print(f"\nCycle {i}: Applying {tweak_name} (Family Weight: {success_counts[family]})")

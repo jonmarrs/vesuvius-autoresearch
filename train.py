@@ -140,12 +140,14 @@ class ExperimentConfig:
     lr: float = 1e-3
     weight_decay: float = 0.01
     time_budget: int = 900 
+    pinned: bool = False # If True, autoresearch loop should not evolve this config
     
     # Loss Weights
     loss_ink_bce: float = 0.4
     loss_ink_dice: float = 0.4
     loss_fiber_bce: float = 0.2
     loss_st: float = 0.1
+    label_smoothing: float = 0.0 # Standard for GP winner is 0.25
 
     # Model Architecture
     architecture: str = "gated_unet"
@@ -486,7 +488,11 @@ def train(config: ExperimentConfig):
                 p2 = None
             
             # Supervised Losses
-            loss_ink = F.binary_cross_entropy_with_logits(out_ink_2d, target_ink_aug1)
+            loss_ink = F.binary_cross_entropy_with_logits(out_ink_2d, target_ink_aug1, pos_weight=None, reduction='mean')
+            if config.label_smoothing > 0:
+                smoothed_target = target_ink_aug1 * (1.0 - config.label_smoothing) + 0.5 * config.label_smoothing
+                loss_ink = F.binary_cross_entropy_with_logits(out_ink_2d, smoothed_target)
+                
             loss_dice = compute_dice_loss(out_ink_2d, target_ink_aug1)
             
             loss_fiber = torch.tensor(0.0, device=device)
