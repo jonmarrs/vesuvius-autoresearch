@@ -1,27 +1,63 @@
 import sys; sys.stdout.reconfigure(line_buffering=True)
 print("STARTING TRAINING")
-"""
-Vesuvius Training Script: Scroll Foundation Model.
-Optimized for direct S3 loading and DINO-style Self-Supervised Pretraining.
-Usage: uv run train.py
-"""
-
 import os
-import sys
 import time
 import math
 import json
 from dataclasses import dataclass, asdict
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
 import pandas as pd
 from torch.utils.data import DataLoader
-from torch.amp import GradScaler, autocast
+from torch.cuda.amp import GradScaler, autocast
 
-# Add villa official metrics
+@dataclass
+class ExperimentConfig:
+    uri: str = None 
+    uris: list = None
+    val_uri: str = 'local_data/PHercParis2Fr143/surface_volume/'
+    cache_dir: str = None
+    use_ridges: bool = False
+    ridge_sigma: float = 2.0
+    batch_size: int = 16
+    patch_size: int = 64
+    num_layers: int = 48
+    lr: float = 1e-3
+    weight_decay: float = 0.01
+    time_budget: int = 900
+    pinned: bool = False
+    loss_ink_bce: float = 0.4
+    loss_ink_dice: float = 0.4
+    loss_fiber_bce: float = 0.2
+    loss_st: float = 0.1
+    label_smoothing: float = 0.0
+    aug_mode: str = 'albumentations'
+    aug_flip_p: float = 0.5
+    aug_brightness_p: float = 0.75
+    aug_affine_p: float = 0.75
+    aug_coarse_dropout_p: float = 0.5
+    aug_elastic_p: float = 0.0
+    aug_grid_p: float = 0.0
+    aug_rotate_limit: int = 180
+    aug_scale_limit: float = 0.15
+    architecture: str = "gated_unet"
+    base_feat: int = 64
+    num_blocks: int = 16
+    num_heads: int = 8
+    dropout: float = 0.0
+    def __post_init__(self):
+        if self.uris is None:
+            if self.uri is not None: self.uris = [self.uri]
+            else: self.uris = ['local_data/PHercParis2Fr47/surface_volume/']
+    def save(self, path):
+        with open(path, 'w') as f: json.dump(asdict(self), f, indent=4)
+    @classmethod
+    def load(cls, path):
+        with open(path, 'r') as f: return cls(**json.load(f))
+
+# ... (the rest of the script, I will just append it)
 sys.path.append(os.path.abspath('villa/segmentation/evaluation'))
 try:
     from metrics.dice import compute as compute_official_dice
@@ -208,6 +244,7 @@ from vesuvius_loader import VesuviusS3Dataset, VesuviusLabeledDataset
 # Training Configuration
 # ---------------------------------------------------------------------------
 
+@dataclass
 @dataclass
 class ExperimentConfig:
     # Data
@@ -496,7 +533,8 @@ def train(config: ExperimentConfig):
         combined_ds = ConcatDataset(datasets) if len(datasets) > 1 else datasets[0]
         return DataLoader(combined_ds, batch_size=config.batch_size, num_workers=min(4, os.cpu_count() or 1), pin_memory=True)
 
-    data_loader = get_dataloader(config.uris)    data_iter = iter(data_loader)
+    data_loader = get_dataloader(config.uris)
+    data_iter = iter(data_loader)
     # Use fixed seed and num_workers=0 for validation to ensure absolute determinism
     def get_val_dataloader(uri):
         parent_dir = os.path.dirname(uri.rstrip('/'))
@@ -672,7 +710,7 @@ def train(config: ExperimentConfig):
                 target_st = None
 
         optimizer.zero_grad(set_to_none=True)
-        with autocast(device_type='cuda'):
+        with autocast():
             # Forward pass for view 1 (full multi-task if supported)
             model_out = model(x_aug1, return_fiber=True, return_qc=True, return_proj=True, return_st=True)
             if isinstance(model_out, tuple):
@@ -775,7 +813,7 @@ def train(config: ExperimentConfig):
                 if val_target is not None and val_target.numel() > 0:
                     val_target = val_target.to(device)
                     if val_target.dim() == 3: val_target = val_target.unsqueeze(1)
-                    with autocast(device_type='cuda'): 
+                    with autocast(): 
                         val_out = model(val_x)
                         if isinstance(val_out, tuple): out_2d = val_out[0]
                         else: out_2d = val_out
