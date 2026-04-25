@@ -135,40 +135,69 @@ except ImportError:
 
 _villa_aug_cache = {}
 
-def _get_villa_aug(size: int):
+def _get_villa_aug(size: int, config: ExperimentConfig):
     if not _HAS_ALBUMENTATIONS:
         return None
-    if size in _villa_aug_cache:
-        return _villa_aug_cache[size]
-    # Albumentations 2.x API. Villa used rotate_limit=360 / shift_limit=0.15 /
-    # scale_limit=0.15 via the (now deprecated) ShiftScaleRotate; A.Affine is the
-    # direct replacement. CoarseDropout switched to *_range tuples + fill/fill_mask.
-    pipeline = A.Compose([
-        A.HorizontalFlip(p=0.5),
-        A.VerticalFlip(p=0.5),
-        A.RandomBrightnessContrast(p=0.75),
-        A.Affine(
-            rotate=(-180, 180),
-            translate_percent=(-0.15, 0.15),
-            scale=(0.85, 1.15),
-            border_mode=0,
-            p=0.75,
-        ),
+        
+    cache_key = (
+        size, config.aug_flip_p, config.aug_brightness_p, config.aug_affine_p,
+        config.aug_coarse_dropout_p, config.aug_elastic_p, config.aug_grid_p,
+        config.aug_rotate_limit, config.aug_scale_limit
+    )
+    
+    if cache_key in _villa_aug_cache:
+        return _villa_aug_cache[cache_key]
+
+    transforms = []
+    
+    if config.aug_flip_p > 0:
+        transforms.extend([
+            A.HorizontalFlip(p=config.aug_flip_p),
+            A.VerticalFlip(p=config.aug_flip_p)
+        ])
+        
+    if config.aug_brightness_p > 0:
+        transforms.append(A.RandomBrightnessContrast(p=config.aug_brightness_p))
+        
+    if config.aug_affine_p > 0:
+        transforms.append(
+            A.Affine(
+                rotate=(-config.aug_rotate_limit, config.aug_rotate_limit),
+                scale=(1.0 - config.aug_scale_limit, 1.0 + config.aug_scale_limit),
+                translate_percent=(-0.15, 0.15),
+                border_mode=0,
+                p=config.aug_affine_p
+            )
+        )
+        
+    transforms.append(
         A.OneOf([
             A.GaussNoise(std_range=(0.01, 0.03)),
             A.GaussianBlur(),
             A.MotionBlur(),
-        ], p=0.4),
-        A.CoarseDropout(
-            num_holes_range=(1, 2),
-            hole_height_range=(0.1, 0.2),
-            hole_width_range=(0.1, 0.2),
-            fill=0,
-            fill_mask=0,
-            p=0.5,
-        ),
-    ], additional_targets={'fiber': 'mask'})
-    _villa_aug_cache[size] = pipeline
+        ], p=0.4)
+    )
+        
+    if config.aug_coarse_dropout_p > 0:
+        transforms.append(
+            A.CoarseDropout(
+                num_holes_range=(1, 2),
+                hole_height_range=(0.1, 0.2),
+                hole_width_range=(0.1, 0.2),
+                fill=0,
+                fill_mask=0,
+                p=config.aug_coarse_dropout_p
+            )
+        )
+        
+    if getattr(config, 'aug_elastic_p', 0.0) > 0:
+        transforms.append(A.ElasticTransform(alpha=1, sigma=50, alpha_affine=50, p=config.aug_elastic_p))
+        
+    if getattr(config, 'aug_grid_p', 0.0) > 0:
+        transforms.append(A.GridDistortion(num_steps=5, distort_limit=0.3, p=config.aug_grid_p))
+
+    pipeline = A.Compose(transforms, additional_targets={'fiber': 'mask'})
+    _villa_aug_cache[cache_key] = pipeline
     return pipeline
 
 # Import our breakthrough components
@@ -187,16 +216,16 @@ class ExperimentConfig:
     cache_dir: str = None  # If None, caches are stored next to volume_uri
     use_ridges: bool = False # 3D Ridge/Frangi feature channel
     ridge_sigma: float = 2.0 # Ridge filter parameter
-    
+
     # Training Loop
-    batch_size: int = 16 
+    batch_size: int = 16
     patch_size: int = 64
-    num_layers: int = 24 
+    num_layers: int = 24
     lr: float = 1e-3
     weight_decay: float = 0.01
-    time_budget: int = 900 
+    time_budget: int = 900
     pinned: bool = False # If True, autoresearch loop should not evolve this config
-    
+
     # Loss Weights
     loss_ink_bce: float = 0.4
     loss_ink_dice: float = 0.4
@@ -205,13 +234,22 @@ class ExperimentConfig:
     label_smoothing: float = 0.0 # Standard for GP winner is 0.25
     aug_mode: str = 'albumentations' # 'albumentations' or 'batchgeneratorsv2'
 
+    # Domain Randomization (Sprint 006)
+    aug_flip_p: float = 0.5
+    aug_brightness_p: float = 0.75
+    aug_affine_p: float = 0.75
+    aug_coarse_dropout_p: float = 0.5
+    aug_elastic_p: float = 0.0
+    aug_grid_p: float = 0.0
+    aug_rotate_limit: int = 180
+    aug_scale_limit: float = 0.15
+
     # Model Architecture
     architecture: str = "gated_unet"
     base_feat: int = 64
     num_blocks: int = 16
     num_heads: int = 8
     dropout: float = 0.0
-
     def save(self, path):
         with open(path, 'w') as f:
             json.dump(asdict(self), f, indent=4)
@@ -362,7 +400,7 @@ def apply_augmentations(x, target_ink, target_fiber, step, max_steps, config=Non
             aug_mode = 'albumentations'
 
     # Fallback/Default: Albumentations
-    aug = _get_villa_aug(x.shape[-1]) if _HAS_ALBUMENTATIONS else None
+    aug = _get_villa_aug(x.shape[-1], config) if _HAS_ALBUMENTATIONS else None
     if aug is None:
         # Bare-bones fallback so the training loop still runs without albumentations.
         k_rot = np.random.randint(0, 4)
