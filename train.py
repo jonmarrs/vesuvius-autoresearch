@@ -1,3 +1,5 @@
+import sys; sys.stdout.reconfigure(line_buffering=True)
+print("STARTING TRAINING")
 """
 Vesuvius Training Script: Scroll Foundation Model.
 Optimized for direct S3 loading and DINO-style Self-Supervised Pretraining.
@@ -579,7 +581,7 @@ def train(config: ExperimentConfig):
             if np.random.rand() > 0.8:
                 max_len = x_raw.shape[2] - z_start
                 min_len = max(4, int(config.num_layers * 0.8))
-                z_len = np.random.randint(min_len, max_len + 1)
+                z_len = min_len
                 x_orig = x_raw[:, :, z_start:z_start+z_len]
                 if z_len != config.num_layers:
                     x_orig = F.interpolate(x_orig, size=(config.num_layers, config.patch_size, config.patch_size), mode='trilinear', align_corners=False)
