@@ -43,7 +43,7 @@ This board tracks the prioritized research trajectory for the autonomous swarm. 
 ## 📅 TODO (Upcoming Weeks)
 
 ### Phase 2: Hardware Optimization (4090 Max-Out)
-- **[Sprint 004] 24GB VRAM Saturation**: Automate search for the largest possible `patch_size` and `batch_size` the 4090 can handle without OOM. ⚠️ **Prize-submission cap**: per `villa/scrollprize.org/docs/34_prizes.md`, ML outputs destined for First Letters / First Title / Grand Prize submissions must use window size ≤ 0.5×0.5 mm = **64×64 px at 8 µm**. Any evolved config with `patch_size > 64` is research-only and must be tagged non-submittable in `results.tsv` / `best_model.pt` metadata.
+- **[Sprint 004] 24GB VRAM Saturation**: (DONE) Automate search for the largest possible `patch_size` and `batch_size` the 4090 can handle without OOM. ⚠️ **Prize-submission cap**: per `villa/scrollprize.org/docs/34_prizes.md`, ML outputs destined for First Letters / First Title / Grand Prize submissions must use window size ≤ 0.5×0.5 mm = **64×64 px at 8 µm**. Any evolved config with `patch_size > 64` is research-only and must be tagged non-submittable in `results.tsv` / `best_model.pt` metadata.
 - **[Sprint 005] High-Resolution 3D Depth**: Increasing `num_layers` from 16 to 48 to capture deeper structural context.
 - **[Sprint 006] Domain Randomization Swarm**: Autoresearch the optimal augmentation parameters (rotation, scale, elastic warp) to prevent memorization of Fragment 1. *Use the villa Albumentations recipe from Sprint 015 as the starting point, then evolve around it.*
 
