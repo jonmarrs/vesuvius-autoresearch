@@ -309,14 +309,24 @@ def apply_augmentations(x, target_ink, target_fiber, step, max_steps, config=Non
         try:
             for b in range(B):
                 # Prepare inputs for this sample
-                img_3d = x[b] # [1, D, H, W]
+                img_3d = x[b] # [C, D, H, W]
                 
-                # ink: [1, H, W] -> [1, D, H, W] (repeat to sync spatial transforms)
-                ink_3d = target_ink[b, :, None].repeat(1, D, 1, 1)
+                # Ensure ink is [1, D, H, W]
+                ink_samp = target_ink[b]
+                if ink_samp.ndim == 2: # [H, W]
+                    ink_3d = ink_samp[None, None].repeat(1, D, 1, 1)
+                elif ink_samp.ndim == 3: # [1, H, W]
+                    ink_3d = ink_samp[:, None].repeat(1, D, 1, 1)
+                else:
+                    ink_3d = ink_samp
                 
-                # fiber: [1, 1, H, W] or [1, D, H, W]
+                # Ensure fiber is [1, D, H, W]
                 f_samp = target_fiber[b]
-                if f_samp.ndim == 4 and f_samp.shape[1] == 1:
+                if f_samp.ndim == 2: # [H, W]
+                    fiber_3d = f_samp[None, None].repeat(1, D, 1, 1)
+                elif f_samp.ndim == 3: # [1, H, W]
+                    fiber_3d = f_samp[:, None].repeat(1, D, 1, 1)
+                elif f_samp.ndim == 4 and f_samp.shape[1] == 1: # [1, 1, H, W]
                     fiber_3d = f_samp.repeat(1, D, 1, 1)
                 else:
                     fiber_3d = f_samp
@@ -334,9 +344,9 @@ def apply_augmentations(x, target_ink, target_fiber, step, max_steps, config=Non
                 
                 out_x.append(res['image'])
                 # Extract 2D ink from the center slice of the augmented 3D label
+                # res['ink'] is [1, D, H, W]
                 out_ink.append(res['ink'][:, D//2]) 
                 # Fiber is used as a 2D pseudo-label (collapsed mean in loss)
-                # but we keep the [1, 1, H, W] shape convention.
                 out_fiber.append(res['fiber'][:, D//2:D//2+1])
 
             x_aug = torch.stack(out_x)

@@ -10,7 +10,7 @@ import torch.nn.functional as F
 import numpy as np
 
 class VesuviusConfig:
-    def __init__(self, patch_size=64, num_layers=16, batch_size=4, base_feat=64, num_blocks=16, num_heads=8, dropout=0.0, in_channels=1, architecture="gated_unet"):
+    def __init__(self, patch_size=64, num_layers=16, batch_size=4, base_feat=64, num_blocks=16, num_heads=8, dropout=0.0, in_channels=1, architecture="gated_unet", aug_mode="albumentations"):
         self.patch_size = patch_size
         self.num_layers = num_layers
         self.batch_size = batch_size
@@ -20,6 +20,7 @@ class VesuviusConfig:
         self.dropout = dropout
         self.in_channels = in_channels
         self.architecture = architecture
+        self.aug_mode = aug_mode
 
 class SEBlock3D(nn.Module):
     """Squeeze-and-Excitation for 3D volumes."""

@@ -11,7 +11,7 @@ VILLA_TRAIN_PATH = os.path.abspath(os.path.join(PROJECT_ROOT, "villa/segmentatio
 VILLA_SRC = os.path.abspath(os.path.join(PROJECT_ROOT, "villa/vesuvius/src"))
 
 if PROJECT_ROOT not in sys.path:
-    sys.path.append(PROJECT_ROOT)
+    sys.path.insert(0, PROJECT_ROOT)
 if VILLA_TRAIN_PATH not in sys.path:
     sys.path.append(VILLA_TRAIN_PATH)
 if VILLA_SRC not in sys.path:
@@ -20,7 +20,7 @@ if VILLA_SRC not in sys.path:
 from vesuvius_model import InkDetectorOptimized, VesuviusConfig
 from vesuvius_loader import VesuviusLabeledDataset, VesuviusS3Dataset
 from training.trainers.basetrainer import BaseTrainer
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, ConcatDataset
 from vesuvius.models.training.trainers.semi_supervised.two_stream_batch_sampler import TwoStreamBatchSampler
 from vesuvius.models.training.trainers.semi_supervised import ramps
 from vesuvius.models.training.loss.sigreg import SIGRegLoss
@@ -78,18 +78,40 @@ class VesuviusTrainer(BaseTrainer):
         model.to(self.device)
         return model
 
+    def _discover_all_scrolls(self):
+        """Finds all available large scroll volumes for foundation pretraining."""
+        base_dir = os.path.join(PROJECT_ROOT, "local_data")
+        scroll_paths = []
+        for d in os.listdir(base_dir):
+            if d.endswith("_Large") or "_div_" in d:
+                # Check for zarr
+                zarr_path = os.path.join(base_dir, d, "0")
+                if os.path.exists(os.path.join(zarr_path, ".zarray")):
+                    scroll_paths.append(zarr_path)
+        return scroll_paths
+
     def _build_dataloaders(self):
         config = self.mgr
+        
         # Note: In LeJEPA mode, we only need unlabeled data
         if self.use_lejepa:
-             ds = VesuviusS3Dataset(
-                uri=os.path.join(PROJECT_ROOT, "local_data/PHerc0139_div_0_1GB/0/"),
-                patch_size=config.train_patch_size[1],
-                num_layers=config.train_patch_size[0],
-                is_unlabeled=True
-            )
-             loader = DataLoader(ds, batch_size=config.train_batch_size, shuffle=True, 
-                                 num_workers=config.train_num_dataloader_workers)
+             print("Discovering scrolls for Foundation Pretraining...")
+             scroll_paths = self._discover_all_scrolls()
+             print(f"  Found {len(scroll_paths)} scroll volumes.")
+             
+             datasets = []
+             for path in scroll_paths:
+                 datasets.append(VesuviusS3Dataset(
+                    uri=path,
+                    patch_size=config.train_patch_size[1],
+                    num_layers=config.train_patch_size[0],
+                    is_unlabeled=True
+                ))
+             ds_combined = ConcatDataset(datasets)
+             print(f"  Total foundation patches: {len(ds_combined)}")
+             
+             loader = DataLoader(ds_combined, batch_size=config.train_batch_size, shuffle=True, 
+                                 num_workers=config.train_num_dataloader_workers, pin_memory=True)
              return loader, None
 
         # Labeled dataset path
@@ -117,19 +139,29 @@ class VesuviusTrainer(BaseTrainer):
                                    num_workers=config.train_num_dataloader_workers)
             return train_loader, val_loader
 
-        # UA-MT mixing logic...
-        ds_unlabeled = VesuviusS3Dataset(
-            uri=os.path.join(PROJECT_ROOT, "local_data/PHerc0139_div_0_1GB/0/"),
-            patch_size=config.train_patch_size[1],
-            num_layers=config.train_patch_size[0],
-            is_unlabeled=True
-        )
-        ds_combined = ds_labeled + ds_unlabeled
+        # UA-MT: Mix labeled with all available unlabeled data
+        print("Discovering scrolls for UA-MT Pseudo-Labeling...")
+        unlabeled_paths = self._discover_all_scrolls()
+        ds_unlabeled_list = []
+        for path in unlabeled_paths:
+            ds_unlabeled_list.append(VesuviusS3Dataset(
+                uri=path,
+                patch_size=config.train_patch_size[1],
+                num_layers=config.train_patch_size[0],
+                is_unlabeled=True
+            ))
+        ds_unlabeled = ConcatDataset(ds_unlabeled_list)
+        
+        ds_combined = ConcatDataset([ds_labeled, ds_unlabeled])
         labeled_indices = list(range(len(ds_labeled)))
         unlabeled_indices = list(range(len(ds_labeled), len(ds_combined)))
+        
         batch_sampler = TwoStreamBatchSampler(labeled_indices, unlabeled_indices, config.train_batch_size, config.train_batch_size - self.labeled_bs)
-        train_loader = DataLoader(ds_combined, batch_sampler=batch_sampler, num_workers=config.train_num_dataloader_workers)
+        train_loader = DataLoader(ds_combined, batch_sampler=batch_sampler, num_workers=config.train_num_dataloader_workers, pin_memory=True)
+        
+        # Validation remains on labeled only
         val_loader = DataLoader(ds_labeled, batch_size=config.train_batch_size, num_workers=config.train_num_dataloader_workers)
+        
         return train_loader, val_loader
 
     def train(self):
@@ -145,29 +177,38 @@ class VesuviusTrainer(BaseTrainer):
         optimizer = self._get_optimizer(model)
         train_loader, _ = self._build_dataloaders()
         
+        from train import apply_augmentations
+        from vesuvius_model import VesuviusConfig
+        
+        v_cfg_dummy = VesuviusConfig(
+            patch_size=self.mgr.train_patch_size[1],
+            num_layers=self.mgr.train_patch_size[0],
+            aug_mode='batchgeneratorsv2'
+        )
+
         global_step = 0
         for epoch in range(self.mgr.max_epoch):
             model.train()
             for i, (img, _) in enumerate(train_loader):
                 img = img.to(self.device)
                 
-                # Multi-view generation (simplified LeJEPA)
-                # In a full LeJEPA we'd use local/global crops
-                # Here we use two augmented views of the same patch
-                # using our integrated batchgeneratorsv2 pipeline
+                # Forward View 1
+                # apply_augmentations expects target_ink: [B, 1, H, W], target_fiber: [B, 1, 1, H, W]
+                ink_dummy = torch.zeros((img.shape[0], 1, img.shape[3], img.shape[4]), device=img.device)
+                fiber_dummy = torch.zeros((img.shape[0], 1, 1, img.shape[3], img.shape[4]), device=img.device)
                 
-                # Forward with return_proj=True to get embeddings
-                out1, proj1 = model(img, return_proj=True)
+                img_aug1, _, _ = apply_augmentations(img, ink_dummy, fiber_dummy, global_step, 1000, config=v_cfg_dummy)
+                img_aug1 = img_aug1.to(self.device)
+                _, proj1 = model(img_aug1, return_proj=True)
                 
-                # View 2
-                with torch.no_grad():
-                    img2 = img + torch.randn_like(img) * 0.05 # Simple noise view
-                out2, proj2 = model(img2, return_proj=True)
+                # Forward View 2
+                img_aug2, _, _ = apply_augmentations(img, ink_dummy, fiber_dummy, global_step, 1000, config=v_cfg_dummy)
+                img_aug2 = img_aug2.to(self.device)
+                _, proj2 = model(img_aug2, return_proj=True)
                 
                 # SIGReg Loss
-                # sigreg expects (V_g, B, K) for global, (V, B, K) for all
-                global_projs = proj1.unsqueeze(0) # [1, B, K]
-                all_projs = torch.stack([proj1, proj2]) # [2, B, K]
+                global_projs = proj1.unsqueeze(0) 
+                all_projs = torch.stack([proj1, proj2]) 
                 
                 loss, loss_dict = self.sigreg(global_projs, all_projs, global_step)
                 
@@ -237,6 +278,11 @@ class VesuviusTrainer(BaseTrainer):
                 
                 if global_step % 10 == 0:
                     print(f"Step {global_step} | Loss Seg: {loss_seg.item():.4f} | Cons: {consistency_loss.item():.4f}")
+
+    def _update_ema_variables(self, model, ema_model, alpha, global_step):
+        alpha = min(1 - 1 / (global_step + 1), alpha)
+        for ema_param, param in zip(ema_model.parameters(), model.parameters()):
+            ema_param.data.mul_(alpha).add_(param.data, alpha=1 - alpha)
 
 if __name__ == "__main__":
     from configuration.config_manager import ConfigManager

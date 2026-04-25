@@ -4,7 +4,7 @@
     "cache_dir": null,
     "use_ridges": false,
     "ridge_sigma": 2.0,
-    "batch_size": 4,
+    "batch_size": 16,
     "patch_size": 64,
     "num_layers": 16,
     "lr": 1e-05,

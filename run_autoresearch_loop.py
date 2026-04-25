@@ -154,7 +154,7 @@ while True:
             print("\n" + "="*60)
             print("ACTIVE LEARNING FLYWHEEL: It is highly recommended to run the Proofreader")
             print("on the latest predictions before starting the Day Shift.")
-            print("Run: uv run scripts/launch_proofreader.py --volume local_data/PHercParis2Fr47/surface_volume/ --predictions predictions/pred_10_1000_1000_64x64_ink.zarr")
+            print("Run: uv run scripts/launch_proofreader.py --volume local_data/PHercParis2Fr47/surface_volume.zarr --predictions predictions/pred_10_1000_1000_64x64_ink.zarr")
             print("="*60 + "\n")
             
         break
@@ -350,7 +350,7 @@ while True:
         # Using Fragment 2 (Paris2Fr143) as specified
         benchmark_cmd = (
             f"uv run predict.py "
-            f"--uri local_data/PHercParis2Fr143/surface_volume/ "
+            f"--uri local_data/PHercParis2Fr143/surface_volume.zarr "
             f"--z 10 --y 1000 --x 1000 "
             f"--output_img {benchmark_path}"
         )
