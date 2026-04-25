@@ -1,0 +1,13 @@
+{
+    "scroll_id": "Scroll 1 (Dry Run)",
+    "segmentation_id": "20230509172439",
+    "3d_position_xyz": [
+        1000,
+        2000,
+        3000
+    ],
+    "window_size_pixels": "64x64",
+    "voxel_resolution_um": 8,
+    "window_size_mm": "0.512 x 0.512 mm",
+    "compliance_check": "PASS: Window size <= 64x64 at 8um"
+}
