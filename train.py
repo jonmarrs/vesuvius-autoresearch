@@ -211,7 +211,8 @@ from vesuvius_loader import VesuviusS3Dataset, VesuviusLabeledDataset
 @dataclass
 class ExperimentConfig:
     # Data
-    uri: str = 'local_data/PHercParis2Fr47/surface_volume/'
+    uri: str = None  # Deprecated, use uris instead
+    uris: list = None # List of URIs to pool for training
     val_uri: str = 'local_data/PHercParis2Fr143/surface_volume/'
     cache_dir: str = None  # If None, caches are stored next to volume_uri
     use_ridges: bool = False # 3D Ridge/Frangi feature channel
@@ -250,6 +251,13 @@ class ExperimentConfig:
     num_blocks: int = 16
     num_heads: int = 8
     dropout: float = 0.0
+
+    def __post_init__(self):
+        if self.uris is None:
+            if self.uri is not None:
+                self.uris = [self.uri]
+            else:
+                self.uris = ['local_data/PHercParis2Fr47/surface_volume/']
     def save(self, path):
         with open(path, 'w') as f:
             json.dump(asdict(self), f, indent=4)
@@ -466,24 +474,29 @@ def train(config: ExperimentConfig):
         architecture=getattr(config, 'architecture', 'gated_unet')
     )
 
-    print(f"Initializing LOCAL TRANSFORMER Training on {config.uri}...")
+    print(f"Initializing LOCAL TRANSFORMER Training on {config.uris}...")
     sys.stdout.flush()
 
-    def get_dataloader(uri, seed=None):
-        parent_dir = os.path.dirname(uri.rstrip('/'))
-        labels_path = os.path.join(parent_dir, 'inklabels_filled.png')
-        if not os.path.exists(labels_path):
-            labels_path = os.path.join(parent_dir, 'inklabels.png')
-            
-        if os.path.exists(labels_path):
-            mask_path = os.path.join(parent_dir, 'mask.png')
-            ds = VesuviusLabeledDataset(uri, labels_path, mask_path if os.path.exists(mask_path) else None, config.patch_size, config.num_layers + 8, seed=seed, cache_dir=config.cache_dir, use_ridges=config.use_ridges, ridge_sigma=getattr(config, 'ridge_sigma', 2.0))
-        else:
-            ds = VesuviusS3Dataset(uri, config.patch_size, config.num_layers + 8, seed=seed, cache_dir=config.cache_dir, use_ridges=config.use_ridges, ridge_sigma=getattr(config, 'ridge_sigma', 2.0))
-        return DataLoader(ds, batch_size=config.batch_size, num_workers=min(4, os.cpu_count() or 1), pin_memory=True)
+    def get_dataloader(uris, seed=None):
+        from torch.utils.data import ConcatDataset
+        datasets = []
+        for uri in uris:
+            parent_dir = os.path.dirname(uri.rstrip('/'))
+            labels_path = os.path.join(parent_dir, 'inklabels_filled.png')
+            if not os.path.exists(labels_path):
+                labels_path = os.path.join(parent_dir, 'inklabels.png')
 
-    data_loader = get_dataloader(config.uri)
-    data_iter = iter(data_loader)
+            if os.path.exists(labels_path):
+                mask_path = os.path.join(parent_dir, 'mask.png')
+                ds = VesuviusLabeledDataset(uri, labels_path, mask_path if os.path.exists(mask_path) else None, config.patch_size, config.num_layers + 8, seed=seed, cache_dir=config.cache_dir, use_ridges=config.use_ridges, ridge_sigma=getattr(config, 'ridge_sigma', 2.0))
+            else:
+                ds = VesuviusS3Dataset(uri, config.patch_size, config.num_layers + 8, seed=seed, cache_dir=config.cache_dir, use_ridges=config.use_ridges, ridge_sigma=getattr(config, 'ridge_sigma', 2.0))
+            datasets.append(ds)
+
+        combined_ds = ConcatDataset(datasets) if len(datasets) > 1 else datasets[0]
+        return DataLoader(combined_ds, batch_size=config.batch_size, num_workers=min(4, os.cpu_count() or 1), pin_memory=True)
+
+    data_loader = get_dataloader(config.uris)    data_iter = iter(data_loader)
     # Use fixed seed and num_workers=0 for validation to ensure absolute determinism
     def get_val_dataloader(uri):
         parent_dir = os.path.dirname(uri.rstrip('/'))
