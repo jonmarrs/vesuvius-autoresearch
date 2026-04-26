@@ -102,7 +102,7 @@ class VesuviusLabeledDataset(torch.utils.data.Dataset):
     def __init__(self, volume_uri, labels_path, mask_path=None, patch_size=64, num_layers=16, seed=None, cache_dir=None, use_ridges=False, ridge_sigma=2.0, is_unlabeled=False):
         self.volume = FastVesuviusVolume(volume_uri, cache_dir=cache_dir, use_ridges=use_ridges, ridge_sigma=ridge_sigma)
         self.patch_size = patch_size
-        self.num_layers = num_layers
+        self.num_layers = min(num_layers, self.volume.shape[0])
         self.shape = self.volume.shape
         self.seed = seed
         self.use_ridges = use_ridges
@@ -177,7 +177,9 @@ class VesuviusLabeledDataset(torch.utils.data.Dataset):
         rng = np.random.RandomState(idx + (self.seed or 0))
         y0 = max(0, min(self.shape[1] - self.patch_size, y0 + rng.randint(-4, 5)))
         x0 = max(0, min(self.shape[2] - self.patch_size, x0 + rng.randint(-4, 5)))
-        z0 = rng.randint(0, self.shape[0] - self.num_layers)
+        
+        z_range = self.shape[0] - self.num_layers
+        z0 = rng.randint(0, z_range + 1) if z_range > 0 else 0
         
         try:
             patch_vol = self.volume[z0:z0+self.num_layers, y0:y0+self.patch_size, x0:x0+self.patch_size]

@@ -109,7 +109,7 @@ class VesuviusTimeSformer(nn.Module):
         self.qc_head = nn.Linear(16, 1) # Dummy input size
         self.projector = nn.Linear(16, 16) # Dummy input size
 
-    def forward(self, x, return_fiber=False, return_qc=False):
+    def forward(self, x, return_fiber=False, return_qc=False, return_proj=False, return_st=False, **kwargs):
         # x: [B, C, Z, H, W] -> (B,frames,channels,H,W) for timesformer?
         # Actually TimeSformer expects (B, frames, C, H, W) or (B, C, frames, H, W)?
         # According to original implementation: x = torch.permute(x, (0, 2, 1, 3, 4)) -> (B, C, frames, H, W) wait no, permuting (B, 1, frames, H, W) -> (B, frames, 1, H, W) or vice versa.
@@ -125,11 +125,21 @@ class VesuviusTimeSformer(nn.Module):
         out = out.view(-1, 1, 4, 4)
         out = F.interpolate(out, size=(self.config.patch_size, self.config.patch_size), mode='bilinear', align_corners=False)
         
-        if return_fiber and return_qc:
-            return out, None, None, None
+        results = [out]
         if return_fiber:
-            return out, None
-        return out
+            results.append(torch.zeros((x.shape[0], 1, x.shape[2], x.shape[3], x.shape[4]), device=x.device))
+        if return_qc:
+            results.append(torch.zeros((x.shape[0], 1), device=x.device))
+        if return_proj:
+            # Return a dummy projection tensor [B, 256]
+            results.append(torch.zeros((x.shape[0], 256), device=x.device))
+        if return_st:
+            # Return a dummy structure tensor [B, 6, Z, H, W]
+            results.append(torch.zeros((x.shape[0], 6, x.shape[2], x.shape[3], x.shape[4]), device=x.device))
+            
+        if len(results) == 1:
+            return results[0]
+        return tuple(results)
 
 class InkDetectorOptimized(nn.Module):
     version = "2.5.0"

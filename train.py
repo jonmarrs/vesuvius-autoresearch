@@ -13,27 +13,35 @@ import pandas as pd
 from torch.utils.data import DataLoader
 from torch.cuda.amp import GradScaler, autocast
 
+# ... (the rest of the script, I will just append it)
 @dataclass
 class ExperimentConfig:
-    uri: str = None 
-    uris: list = None
+    # Data
+    uri: str = None  # Deprecated, use uris instead
+    uris: list = None # List of URIs to pool for training
     val_uri: str = 'local_data/PHercParis2Fr143/surface_volume/'
-    cache_dir: str = None
-    use_ridges: bool = False
-    ridge_sigma: float = 2.0
-    batch_size: int = 16
+    cache_dir: str = None  # If None, caches are stored next to volume_uri
+    use_ridges: bool = False # 3D Ridge/Frangi feature channel
+    ridge_sigma: float = 2.0 # Ridge filter parameter
+
+    # Training Loop
+    batch_size: int = 8
     patch_size: int = 64
-    num_layers: int = 48
+    num_layers: int = 24
     lr: float = 1e-3
     weight_decay: float = 0.01
     time_budget: int = 900
-    pinned: bool = False
+    pinned: bool = False # If True, autoresearch loop should not evolve this config
+
+    # Loss Weights
     loss_ink_bce: float = 0.4
     loss_ink_dice: float = 0.4
     loss_fiber_bce: float = 0.2
     loss_st: float = 0.1
-    label_smoothing: float = 0.0
-    aug_mode: str = 'albumentations'
+    label_smoothing: float = 0.0 # Standard for GP winner is 0.25
+    aug_mode: str = 'albumentations' # 'albumentations' or 'batchgeneratorsv2'
+
+    # Domain Randomization (Sprint 006)
     aug_flip_p: float = 0.5
     aug_brightness_p: float = 0.75
     aug_affine_p: float = 0.75
@@ -42,22 +50,30 @@ class ExperimentConfig:
     aug_grid_p: float = 0.0
     aug_rotate_limit: int = 180
     aug_scale_limit: float = 0.15
+
+    # Model Architecture
     architecture: str = "gated_unet"
     base_feat: int = 64
     num_blocks: int = 16
     num_heads: int = 8
     dropout: float = 0.0
+
     def __post_init__(self):
         if self.uris is None:
-            if self.uri is not None: self.uris = [self.uri]
-            else: self.uris = ['local_data/PHercParis2Fr47/surface_volume/']
+            if self.uri is not None:
+                self.uris = [self.uri]
+            else:
+                self.uris = ['local_data/PHercParis2Fr47/surface_volume/']
     def save(self, path):
-        with open(path, 'w') as f: json.dump(asdict(self), f, indent=4)
+        with open(path, 'w') as f:
+            json.dump(asdict(self), f, indent=4)
+
     @classmethod
     def load(cls, path):
-        with open(path, 'r') as f: return cls(**json.load(f))
+        with open(path, 'r') as f:
+            data = json.load(f)
+        return cls(**data)
 
-# ... (the rest of the script, I will just append it)
 sys.path.append(os.path.abspath('villa/segmentation/evaluation'))
 try:
     from metrics.dice import compute as compute_official_dice
@@ -113,38 +129,47 @@ try:
 except ImportError:
     ResidualEncoderUNet = None
 
-class ResEncUNetWrapper(nn.Module):
-    def __init__(self, model, features_per_stage):
+class GenericMultiTaskWrapper(nn.Module):
+    def __init__(self, model, projector=None):
         super().__init__()
         self.model = model
-        self.features_per_stage = features_per_stage
         # Add basic multi-task heads if needed for consistency loss or projector
-        self.projector = nn.Sequential(
-            nn.AdaptiveAvgPool3d(1),
-            nn.Flatten(),
-            nn.Linear(1, 128) # Projecting from the pooled final logit channel
-        )
+        if projector is not None:
+            self.projector = projector
+        else:
+            self.projector = nn.Sequential(
+                nn.AdaptiveAvgPool3d(1),
+                nn.Flatten(),
+                nn.Linear(1, 128) # Projecting from the pooled final logit channel
+            )
         
     def forward(self, x, return_fiber=False, return_qc=False, return_proj=False, return_st=False, **kwargs):
         # x: [B, C, Z, H, W]
-        # ResidualEncoderUNet returns logits (single 3D tensor if deep_supervision=False)
         out = self.model(x)
         
-        # ResEncUNet returns full 3D segmentation [B, 1, Z, H, W]
+        # If model returns a list (e.g. deep supervision), take the first one
+        if isinstance(out, (list, tuple)):
+            out = out[0]
+            
+        # Model returns full 3D segmentation [B, 1, Z, H, W] or logits
         # We need to project to 2D for our ink loss
-        ink_2d = torch.mean(out, dim=2)
+        if out.dim() == 5:
+            ink_2d = torch.mean(out, dim=2)
+        else:
+            ink_2d = out
         
         results = [ink_2d]
         if return_fiber:
             # Fake fiber head using mean pooling for compatibility
-            results.append(out)
+            results.append(out if out.dim() == 5 else out.unsqueeze(2))
         if return_qc:
             # Fake QC head
             results.append(torch.zeros((x.shape[0], 1), device=x.device))
         if return_proj:
-            # Actually use a projector for DINO consistency
-            # Need to get bottleneck features. Model returns logits, so we use pool on those
-            results.append(self.projector(out))
+            # Use a projector for DINO consistency
+            # Ensure out is 5D for AdaptiveAvgPool3d
+            proj_in = out if out.dim() == 5 else out.unsqueeze(2).unsqueeze(-1).unsqueeze(-1)
+            results.append(self.projector(proj_in))
         if return_st:
             # Fake ST head
             results.append(torch.zeros((x.shape[0], 6, *x.shape[2:]), device=x.device))
@@ -239,71 +264,6 @@ def _get_villa_aug(size: int, config: ExperimentConfig):
 # Import our breakthrough components
 from vesuvius_model import InkDetectorOptimized, VesuviusTimeSformer, VesuviusConfig
 from vesuvius_loader import VesuviusS3Dataset, VesuviusLabeledDataset
-
-# ---------------------------------------------------------------------------
-# Training Configuration
-# ---------------------------------------------------------------------------
-
-@dataclass
-@dataclass
-class ExperimentConfig:
-    # Data
-    uri: str = None  # Deprecated, use uris instead
-    uris: list = None # List of URIs to pool for training
-    val_uri: str = 'local_data/PHercParis2Fr143/surface_volume/'
-    cache_dir: str = None  # If None, caches are stored next to volume_uri
-    use_ridges: bool = False # 3D Ridge/Frangi feature channel
-    ridge_sigma: float = 2.0 # Ridge filter parameter
-
-    # Training Loop
-    batch_size: int = 16
-    patch_size: int = 64
-    num_layers: int = 24
-    lr: float = 1e-3
-    weight_decay: float = 0.01
-    time_budget: int = 900
-    pinned: bool = False # If True, autoresearch loop should not evolve this config
-
-    # Loss Weights
-    loss_ink_bce: float = 0.4
-    loss_ink_dice: float = 0.4
-    loss_fiber_bce: float = 0.2
-    loss_st: float = 0.1
-    label_smoothing: float = 0.0 # Standard for GP winner is 0.25
-    aug_mode: str = 'albumentations' # 'albumentations' or 'batchgeneratorsv2'
-
-    # Domain Randomization (Sprint 006)
-    aug_flip_p: float = 0.5
-    aug_brightness_p: float = 0.75
-    aug_affine_p: float = 0.75
-    aug_coarse_dropout_p: float = 0.5
-    aug_elastic_p: float = 0.0
-    aug_grid_p: float = 0.0
-    aug_rotate_limit: int = 180
-    aug_scale_limit: float = 0.15
-
-    # Model Architecture
-    architecture: str = "gated_unet"
-    base_feat: int = 64
-    num_blocks: int = 16
-    num_heads: int = 8
-    dropout: float = 0.0
-
-    def __post_init__(self):
-        if self.uris is None:
-            if self.uri is not None:
-                self.uris = [self.uri]
-            else:
-                self.uris = ['local_data/PHercParis2Fr47/surface_volume/']
-    def save(self, path):
-        with open(path, 'w') as f:
-            json.dump(asdict(self), f, indent=4)
-
-    @classmethod
-    def load(cls, path):
-        with open(path, 'r') as f:
-            data = json.load(f)
-        return cls(**data)
 
 def mixup_data(x, y, z, alpha=0.2):
     if alpha > 0: lam = np.random.beta(alpha, alpha)
@@ -453,10 +413,10 @@ def apply_augmentations(x, target_ink, target_fiber, step, max_steps, config=Non
         ink_aug = torch.rot90(target_ink, k=k_rot, dims=(-2, -1)).clamp(0, 1)
         fiber_aug = torch.rot90(target_fiber, k=k_rot, dims=(-2, -1)).clamp(0, 1)
         if np.random.rand() > 0.5:
-            x_aug = torch.flip(x_aug, dims=[2])
+            x_aug = torch.flip(x_aug, dims=[2]) # Flip across Z
         return x_aug, ink_aug, fiber_aug
 
-    B, _, D, H, W = x.shape
+    B, C, D, H, W = x.shape
     device = x.device
     x_dtype = x.dtype
     ink_dtype = target_ink.dtype
@@ -473,15 +433,32 @@ def apply_augmentations(x, target_ink, target_fiber, step, max_steps, config=Non
 
     out_x, out_ink, out_fiber = [], [], []
     for b in range(B):
-        img_hwd = np.transpose(x_np[b, 0], (1, 2, 0)).astype(np.float32, copy=False)  # (H, W, D)
+        # img_hwd shape will be (H, W, D*C) for albumentations to process all channels at once
+        # but albumentations works best with (H, W, C). For 3D, we have (D, H, W).
+        # We need to process each channel's depth slices.
+        # Actually, let's process it as (H, W, D, C) and then flatten last two.
+        
+        channels_data = []
+        for c in range(C):
+            channels_data.append(np.transpose(x_np[b, c], (1, 2, 0))) # List of (H, W, D)
+        
+        img_hwd_all = np.concatenate(channels_data, axis=-1) # (H, W, D*C)
+        
         mask_ink = ink_np[b, 0].astype(np.float32, copy=False)
         mask_fiber = fiber_np[b, 0].astype(np.float32, copy=False)
-        res = aug(image=img_hwd, mask=mask_ink, fiber=mask_fiber)
-        out_x.append(np.transpose(res['image'], (2, 0, 1)))
+        
+        res = aug(image=img_hwd_all, mask=mask_ink, fiber=mask_fiber)
+        
+        # Reshape back to (C, D, H, W)
+        aug_img = res['image'] # (H, W, D*C)
+        aug_img = np.transpose(aug_img, (2, 0, 1)) # (D*C, H, W)
+        aug_img = aug_img.reshape(C, D, *aug_img.shape[1:]) # (C, D, H, W)
+        
+        out_x.append(aug_img)
         out_ink.append(res['mask'])
         out_fiber.append(res['fiber'])
 
-    x_aug = torch.from_numpy(np.ascontiguousarray(np.stack(out_x))).unsqueeze(1).to(device=device, dtype=x_dtype)
+    x_aug = torch.from_numpy(np.ascontiguousarray(np.stack(out_x))).to(device=device, dtype=x_dtype)
     ink_aug = torch.from_numpy(np.ascontiguousarray(np.stack(out_ink))).unsqueeze(1).to(device=device, dtype=ink_dtype).clamp(0, 1)
     fiber_aug = torch.from_numpy(np.ascontiguousarray(np.stack(out_fiber))).unsqueeze(1).to(device=device, dtype=fiber_dtype).clamp(0, 1)
     if fiber_has_d:
@@ -556,14 +533,14 @@ def train(config: ExperimentConfig):
         print("Instantiating ResNet3D-101 Architecture (Grand Prize Variant)...")
         if generate_resnet3d:
             backbone = generate_resnet3d(101, n_input_channels=v_config.in_channels, n_classes=1, forward_features=False)
-            # Wrap to match our expected interface if needed, or use directly
-            model = backbone.to(device)
+            model = GenericMultiTaskWrapper(backbone).to(device)
         else:
             raise ImportError("ResNet3D model not found in villa submodule.")
     elif hasattr(v_config, 'architecture') and v_config.architecture == "i3d":
         print("Instantiating Inception-I3D Architecture...")
         if InceptionI3d:
-            model = InceptionI3d(num_classes=1, in_channels=v_config.in_channels, final_endpoint='Logits', forward_features=False).to(device)
+            backbone = InceptionI3d(num_classes=1, in_channels=v_config.in_channels, final_endpoint='Logits', forward_features=False)
+            model = GenericMultiTaskWrapper(backbone).to(device)
         else:
             raise ImportError("I3D model not found in villa submodule.")
     elif hasattr(v_config, 'architecture') and v_config.architecture == "resenc_unet":
@@ -592,7 +569,7 @@ def train(config: ExperimentConfig):
                 nonlin_kwargs={'inplace': True},
                 deep_supervision=False
             )
-            model = ResEncUNetWrapper(backbone, features_per_stage).to(device)
+            model = GenericMultiTaskWrapper(backbone).to(device)
         else:
             raise ImportError("ResidualEncoderUNet not found. Please install dynamic-network-architectures.")
     else:

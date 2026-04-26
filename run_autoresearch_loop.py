@@ -285,9 +285,15 @@ while True:
         if os.path.exists("run.log"):
             try:
                 with open("run.log", "r") as f:
-                    log_tail = f.read()[-2000:].lower()
+                    lines = f.readlines()
+                    log_tail_raw = "".join(lines[-20:])
+                    log_tail = log_tail_raw.lower()
                     if "out of memory" in log_tail or "cuda error: out of memory" in log_tail:
                         oom_detected = True
+                    else:
+                        print(f"--- DIAGNOSTICS FOR CYCLE {i} CRASH ---")
+                        print(log_tail_raw)
+                        print("---------------------------------------")
             except Exception: pass
     else:
         try:
