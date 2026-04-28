@@ -1,8 +1,8 @@
 {
-    "lr": 1.0,
+    "lr": 1.9,
     "wd": 1.0,
     "capacity": 1.0,
-    "attention": 1.0,
+    "attention": 2.0,
     "regularization": 1.0,
     "batch": 1.0,
     "spatial": 1.0,
@@ -10,6 +10,6 @@
     "width": 1.0,
     "loss_balance": 1.0,
     "features": 1.0,
-    "architecture": 2.850155749572706,
-    "baseline": 7
+    "architecture": 1.8908515566225255,
+    "baseline": 8
 }
