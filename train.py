@@ -151,10 +151,14 @@ class GenericMultiTaskWrapper(nn.Module):
         if isinstance(out, (list, tuple)):
             out = out[0]
             
-        # Model returns full 3D segmentation [B, 1, Z, H, W] or logits
+        # Model returns full 3D segmentation [B, 1, Z, H, W] or logits [B, 1]
         # We need to project to 2D for our ink loss
         if out.dim() == 5:
             ink_2d = torch.mean(out, dim=2)
+        elif out.dim() == 2:
+            # Expansion for classification backbones (ResNet3D/I3D)
+            # Expand (B, 1) -> (B, 1, H, W)
+            ink_2d = out.view(out.shape[0], out.shape[1], 1, 1).expand(-1, -1, x.shape[3], x.shape[4])
         else:
             ink_2d = out
         
