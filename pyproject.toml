@@ -19,6 +19,7 @@ dependencies = [
     "opencv-python-headless>=4.13.0.92",
     "pandas>=2.3.3",
     "pyarrow>=21.0.0",
+    "pybind11>=3.0.4",
     "pytorch-optimizer>=3.10.0",
     "requests>=2.32.0",
     "rustbpe>=0.1.0",

@@ -110,3 +110,9 @@
 - **Stats**: val_bpb: 1.52587890625e-07, loss: 0.14483391738396803, params: 1.842809M, vram: 9676.76025390625MB, speed: 2.220249306372466Mvps
 - **Result**: No improvement detected. Config reverted.
 
+## Cycle 27: base_feat_32 (REVERTED)
+- **Timestamp**: 16:30:10
+- **Config**: uris: ['local_data/PHercParis2Fr47/surface_volume.zarr'], cache_dir: None, use_ridges: False, ridge_sigma: 1.0, batch_size: 8, patch_size: 64, num_layers: 32, lr: 0.0005, weight_decay: 0.01, time_budget: 900, pinned: False, loss_ink_bce: 0.4, loss_ink_dice: 0.4, loss_fiber_bce: 0.1, loss_st: 0.1, label_smoothing: 0.0, aug_mode: batchgeneratorsv2, aug_flip_p: 0.5, aug_brightness_p: 0.75, aug_affine_p: 0.75, aug_coarse_dropout_p: 0.5, aug_elastic_p: 0.0, aug_grid_p: 0.0, aug_rotate_limit: 180, aug_scale_limit: 0.15, architecture: gated_unet, base_feat: 32, num_blocks: 16, num_heads: 4, dropout: 0.2
+- **Stats**: val_bpb: 0.0, loss: 0.1785998686865777, params: 0.836865M, vram: 6811.23828125MB, speed: 2.0420520597493867Mvps
+- **Result**: No improvement detected. Config reverted.
+
