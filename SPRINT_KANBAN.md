@@ -22,6 +22,7 @@ This board tracks the prioritized research trajectory for the autonomous swarm. 
 - **[Sprint 022] Fixed GP-Winner Baseline in the Swarm**: (DONE in `run_autoresearch_loop.py`)
 - **[Sprint 023] Structure-Tensor Auxiliary Task**: (DONE in `train.py`)
 - **[BUGFIX] (DONE)** Resolved device mismatch in `SpatialTransform` and numerical gradient error in `vesuvius_loader.py`.
+- **[BUGFIX] (DONE)** Fixed Zarr URI defaults, Volume slicing IndexErrors, and corrupted 0.0 baseline reset (v2.6.0).
 
 ### Phase 3c: Augmentation & Data Pipeline
 - **[Sprint 028] 3D-Native Augmentations (batchgeneratorsv2)**: (DONE in `train.py`)

@@ -69,7 +69,7 @@ class FastVesuviusVolume:
                 z_start = max(0, z - 4)
                 z_end = min(z + step_z + 4, D)
                 
-                vol_slice = self.official_vol[z_start:z_end].cpu().numpy()
+                vol_slice = self.official_vol[z_start:z_end, :, :].cpu().numpy()
                 if vol_slice.shape[0] < 3: continue
                 
                 ridge_slice = detect_ridges_3d(vol_slice, sigma=self.ridge_sigma)

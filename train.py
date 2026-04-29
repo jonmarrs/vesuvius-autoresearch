@@ -1,5 +1,4 @@
 import sys; sys.stdout.reconfigure(line_buffering=True)
-print("STARTING TRAINING")
 import os
 import time
 import math
@@ -13,13 +12,12 @@ import pandas as pd
 from torch.utils.data import DataLoader
 from torch.cuda.amp import GradScaler, autocast
 
-# ... (the rest of the script, I will just append it)
 @dataclass
 class ExperimentConfig:
     # Data
     uri: str = None  # Deprecated, use uris instead
     uris: list = None # List of URIs to pool for training
-    val_uri: str = 'local_data/PHercParis2Fr143/surface_volume/'
+    val_uri: str = 'local_data/PHercParis2Fr143/surface_volume.zarr'
     cache_dir: str = None  # If None, caches are stored next to volume_uri
     use_ridges: bool = False # 3D Ridge/Frangi feature channel
     ridge_sigma: float = 2.0 # Ridge filter parameter
@@ -63,7 +61,7 @@ class ExperimentConfig:
             if self.uri is not None:
                 self.uris = [self.uri]
             else:
-                self.uris = ['local_data/PHercParis2Fr47/surface_volume/']
+                self.uris = ['local_data/PHercParis2Fr47/surface_volume.zarr']
     def save(self, path):
         with open(path, 'w') as f:
             json.dump(asdict(self), f, indent=4)
@@ -477,6 +475,7 @@ def apply_augmentations(x, target_ink, target_fiber, step, max_steps, config=Non
     return x_aug, ink_aug, fiber_aug
 
 def train(config: ExperimentConfig):
+    print("STARTING TRAINING")
     torch.set_float32_matmul_precision('high')
     device = torch.device("cuda")
     

@@ -130,4 +130,26 @@ Evaluate the impact of **3D Ridge Detection (Frangi Filters)** as a primary feat
 
 ---
 
+## [2026-04-29] Day Shift: Reset & Bugfix Kickoff (v2.6.0)
+
+**Status:** ACTIVE (Launched: 11:25)
+
+### Purpose
+Kick off the Day Shift Experiment Sprint after identifying and fixing critical bugs that were causing widespread cycle crashes. Reset the baseline to clear a corrupted `val_bpb: 0.0` score that was preventing monotonic optimization.
+
+### Key Fixes (v2.6.0)
+1.  **Zarr URI Correction:** Updated `ExperimentConfig` defaults in `train.py` to use the `.zarr` suffix, matching the converted OME-Zarr data.
+2.  **Volume Slicing Fix:** Patched `FastVesuviusVolume` in `vesuvius_loader.py` to use multi-dimensional slicing `[z, :, :]` required by the official `Volume` class.
+3.  **Baseline Injection Hardening:** Updated `run_autoresearch_loop.py` to ensure injected baseline configs inherit the correct URIs.
+4.  **Baseline Reset:** Renamed corrupted `best_model.pt` and `results.tsv` (which had impossible 0.0 scores) to allow the loop to find a new, genuine best model.
+
+### Configuration
+*   **Hardware:** RTX 4090 (24GB VRAM).
+*   **Goal:** Establish a new, stable baseline and resume autonomous exploration of architectures and hyperparameters.
+
+### Outcomes & Insights
+*(To be populated as cycles complete)*
+
+---
+
 ## [Future Entry Template]

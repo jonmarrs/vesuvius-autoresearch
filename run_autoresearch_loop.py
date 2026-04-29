@@ -7,9 +7,39 @@ import json
 import re
 import torch
 import pandas as pd
+import signal
+import fcntl
 from collections import defaultdict
 from dataclasses import asdict
 from train import ExperimentConfig
+
+LOCK_FILE = "autoresearch.lock"
+def check_lock():
+    fp = open(LOCK_FILE, 'w')
+    try:
+        fcntl.lockf(fp, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except IOError:
+        print("Another instance of run_autoresearch_loop.py is already running. Exiting.")
+        sys.exit(1)
+    return fp
+
+lock_fp = check_lock()
+
+active_child_p = None
+def signal_handler(sig, frame):
+    global active_child_p
+    print(f"\nCaught signal {sig}. Cleaning up...")
+    if active_child_p:
+        print("Killing active child process group...")
+        try:
+            os.killpg(os.getpgid(active_child_p.pid), signal.SIGTERM)
+            active_child_p.wait(timeout=5)
+        except Exception as e:
+            print(f"Error during cleanup: {e}")
+    sys.exit(0)
+
+signal.signal(signal.SIGINT, signal_handler)
+signal.signal(signal.SIGTERM, signal_handler)
 
 # Define templates for architectural and hyperparameter tweaks
 # These now map directly to ExperimentConfig attributes
@@ -169,7 +199,12 @@ while True:
     is_pinned_cycle = (i % 10 == 0)
     if is_pinned_cycle:
         print(f"Cycle {i}: Injecting FIXED GP-WINNER BASELINE for calibration...")
+        # Maintain current URIs but force other parameters
+        current_uris = config.uris
+        current_val_uri = config.val_uri
         config = ExperimentConfig(
+            uris=current_uris,
+            val_uri=current_val_uri,
             architecture="timesformer",
             patch_size=256,
             num_layers=16,
@@ -223,11 +258,25 @@ while True:
         
         tweak_name = f"{attr}_{val}"
     
-    # Pre-flight VRAM estimation (Complexity Heuristic)
-    complexity = config.base_feat * config.num_layers * (config.patch_size / 64)**2 * config.batch_size
-    # A score of ~150,000 is roughly 24GB. Let's cap at 180,000 for safety.
-    if complexity > 180000:
-        print(f"Cycle {i}: Skipping {tweak_name} (Complexity {complexity:.0f} > 180000) to avoid OOM.")
+    # Pre-flight VRAM estimation (Complexity Heuristic - Sprint 023 Refined)
+    # Standard baseline: 64 feat, 24 layers, 64 patch, 8 batch, 16 blocks ~= 14GB VRAM
+    feat_factor = config.base_feat / 64.0
+    depth_factor = config.num_layers / 24.0
+    patch_sq = (config.patch_size / 64.0)**2
+    patch_quartic = (config.patch_size / 64.0)**4
+    batch_factor = config.batch_size / 8.0
+    block_factor = config.num_blocks / 16.0
+    
+    # Linear components (Convs, Activations)
+    complexity_linear = feat_factor * depth_factor * patch_sq * batch_factor * block_factor
+    # Quadratic components (Attention)
+    complexity_attn = depth_factor * patch_quartic * batch_factor * block_factor
+    
+    # Weighted Score (Standard Config = 1.0). Attention weighted at 0.4 due to quadratic growth.
+    complexity_score = 0.6 * complexity_linear + 0.4 * complexity_attn
+    
+    if complexity_score > 1.5: # Cap at 50% overhead above baseline (~21GB VRAM)
+        print(f"Cycle {i}: Skipping {tweak_name} (Complexity Score {complexity_score:.2f} > 1.5) to avoid OOM.")
         continue
 
     print(f"\nCycle {i}: Applying {tweak_name} (Family Weight: {success_counts[family]})")
@@ -251,7 +300,6 @@ while True:
             os.remove("run.log.old")
         os.rename("run.log", "run.log.old")
 
-    import signal
     try:
         with open("run.log", "a") as f:
             f.write(f"\n\n--- {shift_name} CYCLE {i}: {tweak_name} ---\n")
@@ -263,6 +311,7 @@ while True:
                 shell=True, stdout=f, stderr=subprocess.STDOUT, env=env, text=True,
                 start_new_session=True
             )
+            active_child_p = p
             try:
                 p.wait(timeout=1200) # 20 minute safety timeout
             except subprocess.TimeoutExpired:
@@ -272,6 +321,8 @@ while True:
                 except Exception as e:
                     print(f"Error killing process group: {e}")
                 p.wait()
+            finally:
+                active_child_p = None
     except Exception as e:
         print(f"Subprocess error in cycle {i}: {e}")
 
