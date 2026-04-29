@@ -1,0 +1,5 @@
+{
+    "uris": ["local_data/PHercParis2Fr47/surface_volume.zarr"],
+    "use_ridges": true,
+    "time_budget": 60
+}

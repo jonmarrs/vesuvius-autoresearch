@@ -1,0 +1,15 @@
+{
+    "uris": ["local_data/PHercParis2Fr47/surface_volume.zarr"],
+    "val_uri": "local_data/PHercParis2Fr143/surface_volume.zarr",
+    "architecture": "timesformer",
+    "patch_size": 256,
+    "num_layers": 16,
+    "lr": 3e-05,
+    "loss_ink_bce": 0.5,
+    "loss_ink_dice": 0.5,
+    "loss_fiber_bce": 0.0,
+    "loss_st": 0.0,
+    "label_smoothing": 0.25,
+    "pinned": true,
+    "time_budget": 60
+}

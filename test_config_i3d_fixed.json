@@ -1,0 +1,6 @@
+{
+    "uris": ["local_data/PHercParis2Fr47/surface_volume.zarr"],
+    "val_uri": "local_data/PHercParis2Fr143/surface_volume.zarr",
+    "architecture": "i3d",
+    "time_budget": 60
+}

@@ -53,7 +53,7 @@ This board tracks the prioritized research trajectory for the autonomous swarm. 
 ## 🚀 IN PROGRESS
 
 ### Phase 1: Fundamental Grounding (Week 1)
-- **[Sprint 001] Gold Standard Baseline**: (ACTIVE) Calibration of the autonomous loop against genuine Fragment 1 labels.
+- **[Sprint 001] Gold Standard Baseline**: (ACTIVE & HEALTHY) Reset and resumed after v2.6.0 bugfixes. Calibration against Fragment 1 labels ongoing.
 - **[Sprint 002] Multi-Fragment Training**: (DONE) Preparing to pool Fragments 1, 2, and 5 into a single training source.
 - **[Sprint 003] Denoising Backbone Evolution**: Comparing GroupNorm vs. InstanceNorm for high-noise Paris scan environments.
 
