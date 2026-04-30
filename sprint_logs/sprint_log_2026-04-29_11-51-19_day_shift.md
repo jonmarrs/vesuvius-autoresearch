@@ -116,3 +116,27 @@
 - **Stats**: val_bpb: 0.0, loss: 0.1785998686865777, params: 0.836865M, vram: 6811.23828125MB, speed: 2.0420520597493867Mvps
 - **Result**: No improvement detected. Config reverted.
 
+## Cycle 28: num_blocks_12 (REVERTED)
+- **Timestamp**: 16:45:47
+- **Config**: uris: ['local_data/PHercParis2Fr47/surface_volume.zarr'], cache_dir: None, use_ridges: False, ridge_sigma: 1.0, batch_size: 8, patch_size: 64, num_layers: 32, lr: 0.0005, weight_decay: 0.01, time_budget: 900, pinned: False, loss_ink_bce: 0.4, loss_ink_dice: 0.4, loss_fiber_bce: 0.1, loss_st: 0.1, label_smoothing: 0.0, aug_mode: batchgeneratorsv2, aug_flip_p: 0.5, aug_brightness_p: 0.75, aug_affine_p: 0.75, aug_coarse_dropout_p: 0.5, aug_elastic_p: 0.0, aug_grid_p: 0.0, aug_rotate_limit: 180, aug_scale_limit: 0.15, architecture: gated_unet, base_feat: 64, num_blocks: 12, num_heads: 4, dropout: 0.2
+- **Stats**: val_bpb: 0.0, loss: 0.15790519418464766, params: 1.575801M, vram: 8273.78564453125MB, speed: 1.9927347571821372Mvps
+- **Result**: No improvement detected. Config reverted.
+
+## Cycle 29: lr_5e-05 (REVERTED)
+- **Timestamp**: 17:01:09
+- **Config**: uris: ['local_data/PHercParis2Fr47/surface_volume.zarr'], cache_dir: None, use_ridges: False, ridge_sigma: 1.0, batch_size: 8, patch_size: 64, num_layers: 32, lr: 5e-05, weight_decay: 0.01, time_budget: 900, pinned: False, loss_ink_bce: 0.4, loss_ink_dice: 0.4, loss_fiber_bce: 0.1, loss_st: 0.1, label_smoothing: 0.0, aug_mode: batchgeneratorsv2, aug_flip_p: 0.5, aug_brightness_p: 0.75, aug_affine_p: 0.75, aug_coarse_dropout_p: 0.5, aug_elastic_p: 0.0, aug_grid_p: 0.0, aug_rotate_limit: 180, aug_scale_limit: 0.15, architecture: gated_unet, base_feat: 64, num_blocks: 16, num_heads: 4, dropout: 0.2
+- **Stats**: val_bpb: 0.0, loss: 0.2338135242238029, params: 1.842809M, vram: 9675.38525390625MB, speed: 3.6589935334582364Mvps
+- **Result**: No improvement detected. Config reverted.
+
+## Cycle 31: aug_mode_albumentations (REVERTED)
+- **Timestamp**: 17:16:25
+- **Config**: uris: ['local_data/PHercParis2Fr47/surface_volume.zarr'], cache_dir: None, use_ridges: False, ridge_sigma: 1.0, batch_size: 8, patch_size: 64, num_layers: 32, lr: 0.0005, weight_decay: 0.01, time_budget: 900, pinned: False, loss_ink_bce: 0.4, loss_ink_dice: 0.4, loss_fiber_bce: 0.1, loss_st: 0.1, label_smoothing: 0.0, aug_mode: albumentations, aug_flip_p: 0.5, aug_brightness_p: 0.75, aug_affine_p: 0.75, aug_coarse_dropout_p: 0.5, aug_elastic_p: 0.0, aug_grid_p: 0.0, aug_rotate_limit: 180, aug_scale_limit: 0.15, architecture: gated_unet, base_feat: 64, num_blocks: 16, num_heads: 4, dropout: 0.2
+- **Stats**: val_bpb: 0.03975612699985504, loss: 0.23651136746809712, params: 1.842809M, vram: 9678.51025390625MB, speed: 4.957310468752751Mvps
+- **Result**: No improvement detected. Config reverted.
+
+## Cycle 32: num_blocks_10 (REVERTED)
+- **Timestamp**: 17:31:42
+- **Config**: uris: ['local_data/PHercParis2Fr47/surface_volume.zarr'], cache_dir: None, use_ridges: False, ridge_sigma: 1.0, batch_size: 8, patch_size: 64, num_layers: 32, lr: 0.0005, weight_decay: 0.01, time_budget: 900, pinned: False, loss_ink_bce: 0.4, loss_ink_dice: 0.4, loss_fiber_bce: 0.1, loss_st: 0.1, label_smoothing: 0.0, aug_mode: batchgeneratorsv2, aug_flip_p: 0.5, aug_brightness_p: 0.75, aug_affine_p: 0.75, aug_coarse_dropout_p: 0.5, aug_elastic_p: 0.0, aug_grid_p: 0.0, aug_rotate_limit: 180, aug_scale_limit: 0.15, architecture: gated_unet, base_feat: 64, num_blocks: 10, num_heads: 4, dropout: 0.2
+- **Stats**: val_bpb: 8.697509765625e-06, loss: 0.251599465952322, params: 1.442297M, vram: 7572.92333984375MB, speed: 4.81021544359734Mvps
+- **Result**: No improvement detected. Config reverted.
+
