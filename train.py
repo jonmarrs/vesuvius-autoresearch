@@ -11,6 +11,7 @@ import numpy as np
 import pandas as pd
 from torch.utils.data import DataLoader
 from torch.cuda.amp import GradScaler, autocast
+from scripts.betti_loss_module import BettiLoss
 
 @dataclass
 class ExperimentConfig:
@@ -48,6 +49,8 @@ class ExperimentConfig:
     aug_grid_p: float = 0.0
     aug_rotate_limit: int = 180
     aug_scale_limit: float = 0.15
+    use_betti_loss: bool = False
+    betti_loss_weight: float = 0.1
 
     # Model Architecture
     architecture: str = "gated_unet"
@@ -578,6 +581,7 @@ def train(config: ExperimentConfig):
     else:
         print("Instantiating Gated UNet-Transformer Architecture...")
         model = InkDetectorOptimized(v_config).to(device)
+    betti_loss = BettiLoss(weight=config.betti_loss_weight) if config.use_betti_loss else None
     
     # Load best model if architecture matches
     best_model_path = 'best_model.pt'
@@ -722,6 +726,8 @@ def train(config: ExperimentConfig):
                 
             loss_dice = compute_dice_loss(out_ink_2d, target_ink_aug1)
             
+            loss_betti = betti_loss(out_ink_2d, target_ink_aug1) if betti_loss is not None else 0.0
+            
             loss_fiber = torch.tensor(0.0, device=device)
             if out_fiber is not None:
                 out_fiber_2d = torch.mean(out_fiber, dim=2, keepdim=True)
@@ -746,6 +752,7 @@ def train(config: ExperimentConfig):
             total_loss = (config.loss_ink_bce * loss_ink + 
                           config.loss_ink_dice * loss_dice + 
                           config.loss_fiber_bce * loss_fiber + 
+                          (config.betti_loss_weight * loss_betti) +
                           0.1 * loss_qc + 
                           0.02 * hallucination_penalty +
                           config.loss_st * loss_st_val +
