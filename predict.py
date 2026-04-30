@@ -96,8 +96,31 @@ def predict():
         in_channels=2 if use_ridges else 1
     )
     
-    model = InkDetectorOptimized(v_config).to(device)
-    model.load_state_dict(checkpoint['model_state_dict'], strict=False)
+from scripts.swarm_voter import SwarmVoter
+# ...
+    
+    # Initialize Ensemble
+    checkpoint_paths = ["best_model.pt"]
+    ensemble_models = []
+    
+    for path in checkpoint_paths:
+        checkpoint = torch.load(path, map_location=device, weights_only=False)
+        config_dict = checkpoint.get('config', {})
+        v_config = VesuviusConfig(
+            patch_size=config_dict.get('patch_size', args.patch_size),
+            num_layers=config_dict.get('num_layers', args.num_layers),
+            base_feat=config_dict.get('base_feat', args.base_feat),
+            num_blocks=config_dict.get('num_blocks', 16),
+            num_heads=config_dict.get('num_heads', 8),
+            dropout=config_dict.get('dropout', 0.0),
+            in_channels=2 if use_ridges else 1
+        )
+        model = InkDetectorOptimized(v_config).to(device)
+        model.load_state_dict(checkpoint['model_state_dict'], strict=False)
+        model.eval()
+        ensemble_models.append(model)
+    
+    model = SwarmVoter(ensemble_models)
     model.eval()
 
     # Open the dataset
