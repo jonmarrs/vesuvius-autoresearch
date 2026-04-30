@@ -44,6 +44,13 @@ This project builds heavily upon the excellent foundation provided by the offici
 *   **[Villa Albumentations Recipe](https://github.com/ScrollPrize/villa/blob/main/ink-detection/train_timesformer_og.py):** Our augmentation pipeline evolves from the official recipe tuned for Scroll 2 noise profiles.
 *   **[Villa 3D Structure Tensors](https://github.com/ScrollPrize/villa/blob/main/vesuvius/src/vesuvius/image_proc/geometry/structure_tensor.py):** We use the structure tensor computation to supervise our auxiliary tasks.
 
+## Prize Readiness Tooling
+
+See [`VILLA_PRIZE_READINESS.md`](./VILLA_PRIZE_READINESS.md) for the current
+Scroll 2/3 search and validation workflow. The package includes a deterministic
+candidate queue builder, VC3D-compatible prediction metadata export, and a local
+validator for scale-bar, provenance, ML-window, and train/predict-overlap checks.
+
 ## License
 
 This project is licensed under the MIT License. See `README.md` for full details.

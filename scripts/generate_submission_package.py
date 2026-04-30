@@ -5,8 +5,15 @@ Generates a compliant submission package for the First Letters/Title Prize.
 """
 import os
 import json
+import sys
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
+
+REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+if REPO_ROOT not in sys.path:
+    sys.path.insert(0, REPO_ROOT)
+
+from scripts.validate_prize_artifact import validate
 
 def main():
     out_dir = "submission_package_dry_run"
@@ -51,12 +58,19 @@ def main():
         "scroll_id": "Scroll 1 (Dry Run)",
         "segmentation_id": "20230509172439", # Example
         "3d_position_xyz": [1000, 2000, 3000],
-        "window_size_pixels": "64x64",
+        "patch_size": 64,
+        "window_width_px": 64,
+        "window_height_px": 64,
+        "ml_window_px": 64,
         "voxel_resolution_um": 8,
         "window_size_mm": "0.512 x 0.512 mm",
+        "scale_bar_cm": True,
+        "train_mask_path": os.path.join(out_dir, "train_mask.npy"),
+        "predict_mask_path": os.path.join(out_dir, "predict_mask.npy"),
         "compliance_check": "PASS: Window size <= 64x64 at 8um"
     }
-    with open(os.path.join(out_dir, "metadata.json"), "w") as f:
+    metadata_path = os.path.join(out_dir, "metadata.json")
+    with open(metadata_path, "w") as f:
         json.dump(metadata, f, indent=4)
     print("Saved metadata.json")
     
@@ -69,6 +83,12 @@ def main():
     # Draw prediction region (blue)
     mask_draw.rectangle([600, 600, 950, 950], fill=(0, 0, 255))
     mask_img.save(os.path.join(out_dir, "train_predict_mask.png"))
+    train_mask = np.zeros((1000, 1000), dtype=bool)
+    predict_mask = np.zeros((1000, 1000), dtype=bool)
+    train_mask[50:401, 50:401] = True
+    predict_mask[600:951, 600:951] = True
+    np.save(os.path.join(out_dir, "train_mask.npy"), train_mask)
+    np.save(os.path.join(out_dir, "predict_mask.npy"), predict_mask)
     print("Saved train_predict_mask.png showing ZERO overlap.")
     
     # 4. Hallucination Mitigation Note
@@ -86,6 +106,11 @@ To ensure the text signals detected by our model are real carbonized ink and not
     with open(os.path.join(out_dir, "HALLUCINATION_MITIGATION.md"), "w") as f:
         f.write(hallucination_note)
     print("Saved HALLUCINATION_MITIGATION.md")
+
+    readiness_report = validate(metadata_path)
+    with open(os.path.join(out_dir, "PRIZE_READINESS_REPORT.json"), "w") as f:
+        json.dump(readiness_report, f, indent=2)
+    print(f"Saved PRIZE_READINESS_REPORT.json ({readiness_report['status']})")
     
     print("\nDry-run submission package successfully built!")
     print("Checklist:")
@@ -96,6 +121,7 @@ To ensure the text signals detected by our model are real carbonized ink and not
     print(" [x] (e) explicit train/predict mask showing zero overlap")
     print(" [x] (f) clear instructions (via run_autoresearch_loop.py)")
     print(" [x] (g) Hallucination Mitigation note")
+    print(" [x] (h) machine-readable prize readiness report")
 
 if __name__ == "__main__":
     main()

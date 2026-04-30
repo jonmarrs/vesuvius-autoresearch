@@ -6,8 +6,14 @@
         2000,
         3000
     ],
-    "window_size_pixels": "64x64",
+    "patch_size": 64,
+    "window_width_px": 64,
+    "window_height_px": 64,
+    "ml_window_px": 64,
     "voxel_resolution_um": 8,
     "window_size_mm": "0.512 x 0.512 mm",
+    "scale_bar_cm": true,
+    "train_mask_path": "submission_package_dry_run/train_mask.npy",
+    "predict_mask_path": "submission_package_dry_run/predict_mask.npy",
     "compliance_check": "PASS: Window size <= 64x64 at 8um"
 }

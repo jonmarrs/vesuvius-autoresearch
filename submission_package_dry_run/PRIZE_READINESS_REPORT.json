@@ -1,0 +1,10 @@
+{
+  "status": "PASS",
+  "metadata_path": "submission_package_dry_run/metadata.json",
+  "ml_window_px": 64,
+  "ml_window_mm": 0.512,
+  "failures": [],
+  "warnings": [
+    "VC3D/Zarr export path not provided; export compatibility is unverified"
+  ]
+}
