@@ -189,12 +189,20 @@ from scripts.swarm_voter import SwarmVoter
     from PIL import Image
     ink_uint8 = (np.clip(prob_ink_final, 0, 1) * 255).astype(np.uint8)
     Image.fromarray(ink_uint8).save(f"predictions/{base_name}_ink.png")
-    
     # Save as VC3D OME-Zarr
     zarr_path = f"predictions/{base_name}_ink.zarr"
     save_vc3d_zarr(zarr_path, ink_uint8, name=f"Ink Prediction {base_name}")
 
+    # Active Learning: Identify and export uncertain regions
+    from scripts.active_learning_sampler import identify_uncertain_patches
+    uncertain_mask = identify_uncertain_patches(full_prob_ink, threshold=0.2)
+    if uncertain_mask.sum() > 0:
+        from scripts.active_learning_sampler import export_for_proofreader
+        export_for_proofreader(uncertain_mask.unsqueeze(0), f"predictions/{base_name}_uncertain")
+
     # Generate Visualization (using center CT slice of the whole region)
+    # ...
+
     # Note: For very large regions, we'd need to fetch the CT slice in parts too.
     # For now, we fetch the middle slice of the entire requested area.
     ct_full = dataset[args.z + num_layers // 2, args.y : args.y + predict_height, args.x : args.x + predict_width]
