@@ -26,3 +26,18 @@ local_data/
 *.pid
 config_temp.json
 run_result.json
+
+# Generated experiment artifacts
+wandb/
+test_cache*/
+# Crash-recovery outputs; keep canonical best_model.pt and results.tsv tracked/visible.
+best_model.pt.corrupted
+results.tsv.corrupted
+smoke_test_config.json
+hard_smoke_test_config.json
+reports/nnunetv2_baseline_*/
+scripts/curated_data/
+
+# Accidental local interpreter symlinks
+/python
+/python3
