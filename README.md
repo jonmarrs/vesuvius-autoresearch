@@ -33,6 +33,23 @@ uv run run_autoresearch_loop.py
 - **`LAB_NOTEBOOK.md`**: High-level strategic record of research milestones and breakthroughs.
 - **`sprint_logs/`**: Detailed per-shift execution traces and config samples.
 
+## ✅ Validation
+
+Use the project interpreter for tests; a system `pytest` may not have the GPU/CT
+dependencies installed.
+
+```bash
+uv run python scripts/run_validation_tests.py
+```
+
+For prize-submission mechanics specifically:
+
+```bash
+uv run python scripts/build_scroll23_search_queue.py
+uv run python scripts/generate_submission_package.py
+uv run python scripts/validate_prize_artifact.py --metadata submission_package_dry_run/metadata.json
+```
+
 ---
 
 ## Quick start
