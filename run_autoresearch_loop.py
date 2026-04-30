@@ -317,7 +317,7 @@ while True:
             )
             active_child_p = p
             try:
-                p.wait(timeout=1200) # 20 minute safety timeout
+                p.wait(timeout=default_budget + 300) # 5 minute safety buffer
             except subprocess.TimeoutExpired:
                 print(f"Cycle {i} timed out. Killing process group...")
                 try:

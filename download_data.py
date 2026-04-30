@@ -2,8 +2,9 @@
 import os
 import sys
 import subprocess
+import argparse
 
-# Usage: python3 download_data.py
+# Usage: python3 download_data.py [--fragment ID]
 
 DATASETS = {
     "1": {
@@ -22,7 +23,7 @@ DATASETS = {
         "name": "PHerc0332 (Scroll 3)",
         "size": "~4.5 TB (Full) / ~1 GB (Sample)",
         "description": "Intact scroll data.",
-        "script": "scripts/download_all_scrolls.py" # This script handles all, but can be filtered
+        "script": "scripts/download_all_scrolls.py"
     },
     "4": {
         "name": "PHerc. Paris 2 Fr 47",
@@ -68,9 +69,7 @@ def run_script(dataset_id):
 
     print(f"\nLaunching {script_path}...")
     try:
-        # We use 'uv run' if available, else standard python
         cmd = ["python3", script_path]
-        # For S3 scripts, we usually need boto3
         if "paris" not in script_path:
             cmd = ["uv", "run", "--with", "boto3", "python3", script_path]
             
@@ -81,6 +80,17 @@ def run_script(dataset_id):
         print(f"\nDownload failed with exit code {e.returncode}")
 
 def main():
+    parser = argparse.ArgumentParser(description="Vesuvius Autoresearch Data Downloader")
+    parser.add_argument("--fragment", type=str, help="Dataset ID to download (1-6)")
+    args = parser.parse_args()
+
+    if args.fragment:
+        if args.fragment in DATASETS:
+            run_script(args.fragment)
+        else:
+            print(f"Invalid fragment ID: {args.fragment}")
+        return
+
     print("========================================")
     print(" Vesuvius Autoresearch Data Downloader  ")
     print("========================================\n")

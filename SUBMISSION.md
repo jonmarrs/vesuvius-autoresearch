@@ -21,9 +21,8 @@ The framework is designed for a single NVIDIA GPU (e.g., RTX 4090 or H100) and u
 # 1. Install dependencies
 uv sync
 
-# 2. Download sample dataset (Fragment 1 and 5)
-uv run download_data.py --fragment 1
-uv run download_data.py --fragment 5
+# 2. Download sample dataset (PHerc. Paris 2 Fr 47)
+uv run download_data.py --fragment 4
 
 # 3. Kick off the autonomous research loop
 uv run run_autoresearch_loop.py
