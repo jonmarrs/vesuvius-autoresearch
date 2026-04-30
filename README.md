@@ -47,6 +47,7 @@ For prize-submission mechanics specifically:
 ```bash
 uv run python scripts/build_scroll23_search_queue.py
 uv run python scripts/rank_scroll23_candidates.py
+uv run python scripts/run_ranked_inference.py
 uv run python scripts/generate_submission_package.py
 uv run python scripts/validate_prize_artifact.py --metadata submission_package_dry_run/metadata.json
 ```

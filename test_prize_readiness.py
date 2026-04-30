@@ -5,6 +5,7 @@ import numpy as np
 
 from scripts.build_scroll23_search_queue import build_queue
 from scripts.rank_scroll23_candidates import rank_candidates, score_row
+from scripts.run_ranked_inference import build_predict_command, load_candidates
 from scripts.validate_prize_artifact import validate
 
 
@@ -145,3 +146,40 @@ def test_rank_candidates_writes_ranked_tsv(tmp_path):
     assert out_path.exists()
     assert len(ranked) == 2
     assert float(ranked[0]["review_score"]) >= float(ranked[1]["review_score"])
+
+
+def test_build_predict_command_uses_ranked_candidate_fields():
+    row = {
+        "artifact_stem": "pred_9000_2048_2048_64x64",
+        "local_uri": "local_data/PHerc0125_Divisions/div_100/0",
+        "z": "9000",
+        "y": "2048",
+        "x": "2048",
+        "width": "64",
+        "height": "64",
+        "patch_size": "64",
+    }
+
+    cmd = build_predict_command(row, python_executable="python", prediction_dir="predictions")
+
+    assert cmd[:4] == ["python", "predict.py", "--uri", "local_data/PHerc0125_Divisions/div_100/0"]
+    assert "--output_img" in cmd
+    assert "predictions/pred_9000_2048_2048_64x64.png" in cmd
+    assert "predictions/pred_9000_2048_2048_64x64_meta.json" in cmd
+
+
+def test_load_candidates_filters_missing_local_uri(tmp_path):
+    ranked_path = tmp_path / "ranked.tsv"
+    rows = [
+        {"review_score": "2", "local_uri": "local_data/a", "z": "1", "y": "2", "x": "3"},
+        {"review_score": "1", "local_uri": "", "z": "4", "y": "5", "x": "6"},
+    ]
+    with open(ranked_path, "w") as f:
+        f.write("\t".join(rows[0].keys()) + "\n")
+        for row in rows:
+            f.write("\t".join(row[key] for key in rows[0].keys()) + "\n")
+
+    loaded = load_candidates(ranked_path)
+
+    assert len(loaded) == 1
+    assert loaded[0]["local_uri"] == "local_data/a"

@@ -30,6 +30,18 @@ The ranking pass uses queue priority, core-scroll focus, local data availability
 submittable-window status, and optional `*_ink.npy` / `*_fiber.npy` prediction
 statistics. It is metadata-only and does not run inference or download data.
 
+Generate exact inference commands for the top ranked rows:
+
+```bash
+uv run python scripts/run_ranked_inference.py \
+  --ranked reports/scroll23_ranked_candidates.tsv \
+  --limit 8 \
+  --manifest reports/scroll23_inference_commands.sh
+```
+
+This is dry-run by default. Add `--execute` only when you are ready to run the
+jobs serially on the active machine/GPU.
+
 ## 2. Run Prediction on a Candidate
 
 Use a row from `reports/scroll23_search_queue.tsv`:
