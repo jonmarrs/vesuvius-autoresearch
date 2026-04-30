@@ -28,9 +28,22 @@
     "aug_grid_p": 0.0,
     "aug_rotate_limit": 180,
     "aug_scale_limit": 0.15,
+    "use_betti_loss": false,
+    "betti_loss_weight": 0.1,
+    "auxiliary_config": {
+        "enabled": false,
+        "task_types": [
+            "surface_normals",
+            "structure_tensor"
+        ],
+        "weights": {
+            "surface_normals": 0.05,
+            "structure_tensor": 0.05
+        }
+    },
     "architecture": "gated_unet",
     "base_feat": 64,
-    "num_blocks": 16,
+    "num_blocks": 8,
     "num_heads": 4,
     "dropout": 0.2
 }
