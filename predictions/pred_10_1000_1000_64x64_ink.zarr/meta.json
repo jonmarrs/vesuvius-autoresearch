@@ -1,1 +1,1 @@
-{"height": 64, "max": 255.0, "min": 0.0, "name": "Ink Prediction pred_10_1000_1000_64x64", "slices": 1, "type": "vol", "uuid": "af731b6b-0cdb-481f-93dd-c90b906f383c", "voxelsize": 7.91, "width": 64, "format": "zarr"}
+{"height": 64, "max": 255.0, "min": 0.0, "name": "Ink Prediction pred_10_1000_1000_64x64", "slices": 1, "type": "vol", "uuid": "d18ecfc5-b6f9-43d6-878a-5c4ac6b8f823", "voxelsize": 7.91, "width": 64, "format": "zarr"}
