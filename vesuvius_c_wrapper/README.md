@@ -20,6 +20,12 @@ chmod +x build.sh
 ./build.sh
 ```
 
+`vesuvius_c_impl.c` includes the header from `../villa/vesuvius-c/vesuvius-c.h`
+at compile time. If that nested `villa` header has local changes, rebuilds of
+`libvesuvius.so` will reflect those changes even when no wrapper source file
+changed. Keep the header change and rebuilt `.so` together when preserving a
+local wrapper behavior fix.
+
 ## Usage
 ```python
 from vesuvius_c_wrapper.vesuvius_c import FastLocalVolume
