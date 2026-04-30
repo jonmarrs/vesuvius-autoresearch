@@ -158,3 +158,36 @@
 - **Stats**: val_bpb: 0.0, loss: 0.1396326225993132, params: 1.842809M, vram: 9677.26025390625MB, speed: 2.3865846945250895Mvps
 - **Result**: No improvement detected. Config reverted.
 
+## Cycle 37: loss_fiber_bce_0.3 (REVERTED)
+- **Timestamp**: 18:20:23
+- **Config**: uris: ['local_data/PHercParis2Fr47/surface_volume.zarr'], cache_dir: None, use_ridges: False, ridge_sigma: 1.0, batch_size: 8, patch_size: 64, num_layers: 32, lr: 0.0005, weight_decay: 0.01, time_budget: 900, pinned: False, loss_ink_bce: 0.4, loss_ink_dice: 0.4, loss_fiber_bce: 0.3, loss_st: 0.1, label_smoothing: 0.0, aug_mode: batchgeneratorsv2, aug_flip_p: 0.5, aug_brightness_p: 0.75, aug_affine_p: 0.75, aug_coarse_dropout_p: 0.5, aug_elastic_p: 0.0, aug_grid_p: 0.0, aug_rotate_limit: 180, aug_scale_limit: 0.15, architecture: gated_unet, base_feat: 64, num_blocks: 16, num_heads: 4, dropout: 0.2
+- **Stats**: val_bpb: 4.57763671875e-07, loss: 0.26296492791140114, params: 1.842809M, vram: 9677.01025390625MB, speed: 3.1107699486764546Mvps
+- **Result**: No improvement detected. Config reverted.
+
+## Cycle 39: loss_ink_dice_0.2 (REVERTED)
+- **Timestamp**: 18:35:41
+- **Config**: uris: ['local_data/PHercParis2Fr47/surface_volume.zarr'], cache_dir: None, use_ridges: False, ridge_sigma: 1.0, batch_size: 8, patch_size: 64, num_layers: 32, lr: 0.0005, weight_decay: 0.01, time_budget: 900, pinned: False, loss_ink_bce: 0.4, loss_ink_dice: 0.2, loss_fiber_bce: 0.1, loss_st: 0.1, label_smoothing: 0.0, aug_mode: batchgeneratorsv2, aug_flip_p: 0.5, aug_brightness_p: 0.75, aug_affine_p: 0.75, aug_coarse_dropout_p: 0.5, aug_elastic_p: 0.0, aug_grid_p: 0.0, aug_rotate_limit: 180, aug_scale_limit: 0.15, architecture: gated_unet, base_feat: 64, num_blocks: 16, num_heads: 4, dropout: 0.2
+- **Stats**: val_bpb: 0.0, loss: 0.35737660087876405, params: 1.842809M, vram: 9676.63525390625MB, speed: 3.7397404395760256Mvps
+- **Result**: No improvement detected. Config reverted.
+
+## Cycle 42: weight_decay_0.001 (REVERTED)
+- **Timestamp**: 18:50:58
+- **Config**: uris: ['local_data/PHercParis2Fr47/surface_volume.zarr'], cache_dir: None, use_ridges: False, ridge_sigma: 1.0, batch_size: 8, patch_size: 64, num_layers: 32, lr: 0.0005, weight_decay: 0.001, time_budget: 900, pinned: False, loss_ink_bce: 0.4, loss_ink_dice: 0.4, loss_fiber_bce: 0.1, loss_st: 0.1, label_smoothing: 0.0, aug_mode: batchgeneratorsv2, aug_flip_p: 0.5, aug_brightness_p: 0.75, aug_affine_p: 0.75, aug_coarse_dropout_p: 0.5, aug_elastic_p: 0.0, aug_grid_p: 0.0, aug_rotate_limit: 180, aug_scale_limit: 0.15, architecture: gated_unet, base_feat: 64, num_blocks: 16, num_heads: 4, dropout: 0.2
+- **Stats**: val_bpb: 0.0, loss: 0.31139004071250653, params: 1.842809M, vram: 9678.38525390625MB, speed: 3.9284544273451396Mvps
+- **Result**: No improvement detected. Config reverted.
+
+## Cycle 43: architecture_resnet3d (CRASHED)
+- **Timestamp**: 18:51:11
+- **Config**: uris: ['local_data/PHercParis2Fr47/surface_volume.zarr'], cache_dir: None, use_ridges: False, ridge_sigma: 1.0, batch_size: 8, patch_size: 64, num_layers: 32, lr: 0.0005, weight_decay: 0.01, time_budget: 900, pinned: False, loss_ink_bce: 0.4, loss_ink_dice: 0.4, loss_fiber_bce: 0.1, loss_st: 0.1, label_smoothing: 0.0, aug_mode: batchgeneratorsv2, aug_flip_p: 0.5, aug_brightness_p: 0.75, aug_affine_p: 0.75, aug_coarse_dropout_p: 0.5, aug_elastic_p: 0.0, aug_grid_p: 0.0, aug_rotate_limit: 180, aug_scale_limit: 0.15, architecture: resnet3d, base_feat: 64, num_blocks: 16, num_heads: 4, dropout: 0.2
+- **Stats**: val_bpb: N/A, loss: N/A, params: N/AM, vram: N/AMB, speed: N/AMvps
+- **Result**: Training crashed (Unknown error). Family weight preserved/incremented to retry other values.
+
+## Cycle 44: num_heads_8 (REVERTED)
+- **Timestamp**: 19:06:27
+- **Config**: uris: ['local_data/PHercParis2Fr47/surface_volume.zarr'], cache_dir: None, use_ridges: False, ridge_sigma: 1.0, batch_size: 8, patch_size: 64, num_layers: 32, lr: 0.0005, weight_decay: 0.01, time_budget: 900, pinned: False, loss_ink_bce: 0.4, loss_ink_dice: 0.4, loss_fiber_bce: 0.1, loss_st: 0.1, label_smoothing: 0.0, aug_mode: batchgeneratorsv2, aug_flip_p: 0.5, aug_brightness_p: 0.75, aug_affine_p: 0.75, aug_coarse_dropout_p: 0.5, aug_elastic_p: 0.0, aug_grid_p: 0.0, aug_rotate_limit: 180, aug_scale_limit: 0.15, architecture: gated_unet, base_feat: 64, num_blocks: 16, num_heads: 8, dropout: 0.2
+- **Stats**: val_bpb: 0.0, loss: 0.5562699774578127, params: 1.842809M, vram: 13374.63525390625MB, speed: 3.733943120372277Mvps
+- **Result**: No improvement detected. Config reverted.
+
+
+## Sprint Completed at 19:06:29
+Transitioning to NIGHT SHIFT...

@@ -1,5 +1,5 @@
 {
-    "lr": 1.2604988194492182,
+    "lr": 1.0,
     "wd": 1.0,
     "capacity": 1.0,
     "attention": 1.0,
@@ -9,7 +9,7 @@
     "temporal": 1.0,
     "width": 1.0,
     "loss_balance": 1.0,
-    "features": 2.0,
-    "architecture": 1.0,
+    "features": 1.3268408625781245,
+    "architecture": 2.0,
     "baseline": 18
 }
