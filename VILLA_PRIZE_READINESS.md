@@ -17,6 +17,19 @@ The queue prioritizes Scroll 2 (`PHerc0125`) and Scroll 3 (`PHerc0332`) windows
 for First Letters / First Title searches. It marks `64x64` ML windows as
 submittable under the official guidance and records any local division data.
 
+Rank the queue after predictions are available:
+
+```bash
+uv run python scripts/rank_scroll23_candidates.py \
+  --queue reports/scroll23_search_queue.tsv \
+  --prediction-dir predictions \
+  --out reports/scroll23_ranked_candidates.tsv
+```
+
+The ranking pass uses queue priority, core-scroll focus, local data availability,
+submittable-window status, and optional `*_ink.npy` / `*_fiber.npy` prediction
+statistics. It is metadata-only and does not run inference or download data.
+
 ## 2. Run Prediction on a Candidate
 
 Use a row from `reports/scroll23_search_queue.tsv`:

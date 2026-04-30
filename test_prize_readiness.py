@@ -4,6 +4,7 @@ from pathlib import Path
 import numpy as np
 
 from scripts.build_scroll23_search_queue import build_queue
+from scripts.rank_scroll23_candidates import rank_candidates, score_row
 from scripts.validate_prize_artifact import validate
 
 
@@ -100,3 +101,47 @@ def test_build_scroll23_search_queue_marks_64px_windows_submittable():
     assert {row["short_id"] for row in rows} == {"PHerc0125", "PHerc0332"}
     assert all(row["submittable_window"] == "true" for row in rows)
     assert all(row["division"] == "div_100" for row in rows)
+
+
+def test_rank_scroll23_candidates_prefers_high_confidence_prediction(tmp_path):
+    prediction_dir = tmp_path / "predictions"
+    prediction_dir.mkdir()
+    row = {
+        "priority": "1.0",
+        "scroll_id": "Scroll 2",
+        "short_id": "PHerc0125",
+        "division": "div_100",
+        "z": "9000",
+        "y": "2048",
+        "x": "2048",
+        "width": "64",
+        "height": "64",
+        "patch_size": "64",
+        "submittable_window": "true",
+        "local_uri": "local_data/PHerc0125_Divisions/div_100/0",
+    }
+    arr = np.zeros((64, 64), dtype=np.float32)
+    arr[20:24, 20:24] = 0.95
+    np.save(prediction_dir / "pred_9000_2048_2048_64x64_ink.npy", arr)
+
+    scored = score_row(row, prediction_dir=prediction_dir)
+
+    assert scored["prediction_found"] == "true"
+    assert float(scored["ink_max"]) == 0.95
+    assert float(scored["review_score"]) > 1.0
+
+
+def test_rank_candidates_writes_ranked_tsv(tmp_path):
+    queue_path = tmp_path / "queue.tsv"
+    out_path = tmp_path / "ranked.tsv"
+    rows = build_queue(divisions=[1.0], windows_per_division=1, patch_size=64, voxel_um=7.91)
+    with open(queue_path, "w") as f:
+        f.write("\t".join(rows[0].keys()) + "\n")
+        for row in rows:
+            f.write("\t".join(str(row[key]) for key in rows[0].keys()) + "\n")
+
+    ranked = rank_candidates(queue_path, out_path, prediction_dir=tmp_path / "predictions")
+
+    assert out_path.exists()
+    assert len(ranked) == 2
+    assert float(ranked[0]["review_score"]) >= float(ranked[1]["review_score"])
