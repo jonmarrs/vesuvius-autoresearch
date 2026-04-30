@@ -96,9 +96,6 @@ def predict():
         in_channels=2 if use_ridges else 1
     )
     
-from scripts.swarm_voter import SwarmVoter
-# ...
-    
     # Initialize Ensemble
     checkpoint_paths = ["best_model.pt"]
     ensemble_models = []
