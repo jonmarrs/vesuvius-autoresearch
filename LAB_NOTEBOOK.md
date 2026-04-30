@@ -130,9 +130,22 @@ Evaluate the impact of **3D Ridge Detection (Frangi Filters)** as a primary feat
 
 ---
 
+## [2026-04-29] Night Shift: High-Budget Backbone Scaling
+
+**Status:** ACTIVE (Launched: 21:25)
+
+### Purpose
+Transition to high-budget (60-min) cycles to allow complex 3D backbones and large patch sizes (96+) to converge. Focus on evaluating the `GatedUNet` vs `ResidualEncoderUNet` stability under long-term training.
+
+### Configuration
+*   **Budget:** 3600s per cycle.
+*   **Goal:** Establish definitive architectural preference for Phase 3 integration.
+
+---
+
 ## [2026-04-29] Day Shift: Reset & Bugfix Kickoff (v2.6.0)
 
-**Status:** ACTIVE (Launched: 11:25)
+**Status:** COMPLETE (Shift Ended: 19:06)
 
 ### Purpose
 Kick off the Day Shift Experiment Sprint after identifying and fixing critical bugs that were causing widespread cycle crashes. Reset the baseline to clear a corrupted `val_bpb: 0.0` score that was preventing monotonic optimization.

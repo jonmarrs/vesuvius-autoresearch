@@ -93,9 +93,11 @@ current_hour = time.localtime().tm_hour
 if 7 <= current_hour < 19:
     shift_name = "DAY SHIFT"
     end_hour = 19
+    default_budget = 900
 else:
     shift_name = "NIGHT SHIFT"
     end_hour = 7
+    default_budget = 3600
 
 os.makedirs("sprint_logs", exist_ok=True)
 os.makedirs("reports", exist_ok=True)
@@ -140,7 +142,7 @@ if not os.path.exists(log_filename):
     with open(log_filename, "w") as log:
         log.write(f"# {shift_name.title()} Sprint - {time.strftime('%Y-%m-%d')}\n")
         log.write(f"- **Start Time**: {time.strftime('%H:%M:%S')}\n")
-        log.write("- **Goal**: Monotonic val_bpb optimization via 15-min cycles (Config-Driven).\n\n")
+        log.write(f"- **Goal**: Monotonic val_bpb optimization via {default_budget//60}-min cycles (Config-Driven).\n\n")
 
 env = os.environ.copy()
 i = 0
@@ -214,7 +216,8 @@ while True:
             loss_fiber_bce=0.0,
             loss_st=0.0,
             label_smoothing=0.25,
-            pinned=True
+            pinned=True,
+            time_budget=default_budget
         )
         tweak_name = "gp_winner_baseline"
         family = "baseline"
@@ -241,6 +244,7 @@ while True:
             test_config = ExperimentConfig.load(CONFIG_FILE) if os.path.exists(CONFIG_FILE) else ExperimentConfig()
             # Ensure we don't carry over 'pinned' status to evolved configs
             test_config.pinned = False
+            test_config.time_budget = default_budget
             setattr(test_config, attr, val)
             
             cfg_dict = asdict(test_config)

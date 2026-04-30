@@ -59,6 +59,9 @@ This board tracks the prioritized research trajectory for the autonomous swarm. 
 - **[Sprint 002] Multi-Fragment Training**: (DONE) Preparing to pool Fragments 1, 2, and 5 into a single training source.
 - **[Sprint 003] Denoising Backbone Evolution**: Comparing GroupNorm vs. InstanceNorm for high-noise Paris scan environments.
 
+### Night Shift (21:25 - 07:00)
+- **[NIGHT SHIFT] High-Budget Architectural Scaling**: (ACTIVE) Transitioned to 60-min cycles to evaluate deep 3D backbones (`GatedUNet` vs `ResidualEncoderUNet`) and large patch sizes. Integrating multi-task structural regularizers for Grand Prize stability.
+
 ---
 
 ## ✅ DONE

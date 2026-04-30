@@ -30,7 +30,7 @@ class ExperimentConfig:
     num_layers: int = 24
     lr: float = 1e-3
     weight_decay: float = 0.01
-    time_budget: int = 900
+    time_budget: int = 3600
     pinned: bool = False # If True, autoresearch loop should not evolve this config
 
     # Loss Weights
@@ -75,6 +75,11 @@ class ExperimentConfig:
     def load(cls, path):
         with open(path, 'r') as f:
             data = json.load(f)
+        
+        # Manually deserialize nested dataclasses
+        if 'auxiliary_config' in data and isinstance(data['auxiliary_config'], dict):
+            data['auxiliary_config'] = AuxiliaryConfig(**data['auxiliary_config'])
+            
         return cls(**data)
 
 sys.path.append(os.path.abspath('villa/segmentation/evaluation'))
