@@ -130,6 +130,19 @@ Evaluate the impact of **3D Ridge Detection (Frangi Filters)** as a primary feat
 
 ---
 
+## [2026-04-30] Night Shift: High-Budget Backbone Scaling (Resumed)
+
+**Status:** ACTIVE (Resumed: 00:10)
+
+### Purpose
+Resume the high-budget (60-min) scaling cycles after a stall. The loop is now correctly processing architectural mutations and structural multi-task regularizers.
+
+### Configuration
+*   **Budget:** 3600s per cycle.
+*   **Active Log:** `sprint_logs/sprint_log_2026-04-30_00-10-18_night_shift.md`
+
+---
+
 ## [2026-04-29] Night Shift: High-Budget Backbone Scaling
 
 **Status:** ACTIVE (Launched: 21:25)
