@@ -14,6 +14,7 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
 from vesuvius_model import InkDetectorOptimized, VesuviusConfig
 from vesuvius_loader import FastVesuviusVolume
+from scripts.swarm_voter import SwarmVoter
 
 def get_weight_window(patch_size, device):
     """Generates a 2D Hanning window for soft-tiling."""
@@ -21,7 +22,7 @@ def get_weight_window(patch_size, device):
     window = h.unsqueeze(1) * h.unsqueeze(0)
     return window
 
-def save_vc3d_zarr(base_path, array_uint8, name="prediction"):
+def save_vc3d_zarr(base_path, array_uint8, name="prediction", voxel_size_um=7.91, source_uri=None, origin_xyz=None):
     """Saves a 2D uint8 array as a VC3D-compatible OME-Zarr volume."""
     import zarr
     import uuid
@@ -43,12 +44,40 @@ def save_vc3d_zarr(base_path, array_uint8, name="prediction"):
         "slices": 1,
         "type": "vol",
         "uuid": str(uuid.uuid4()),
-        "voxelsize": 7.91,
+        "voxelsize": float(voxel_size_um),
         "width": array_uint8.shape[1],
-        "format": "zarr"
+        "format": "zarr",
+        "source_uri": source_uri,
+        "origin_xyz": origin_xyz,
     }
     with open(os.path.join(base_path, "meta.json"), "w") as f:
         json.dump(meta, f)
+
+def write_prediction_metadata(path, args, config_dict, zarr_path, output_img, ink_stats):
+    voxel_size_um = float(config_dict.get("voxel_size_um", config_dict.get("voxelsize", args.voxel_size_um)))
+    patch_size = int(config_dict.get("patch_size", args.patch_size))
+    metadata = {
+        "scroll_id": config_dict.get("scroll_id", "unknown"),
+        "source_uri": args.uri,
+        "segmentation_id": config_dict.get("segmentation_id"),
+        "position_xyz": [int(args.x), int(args.y), int(args.z)],
+        "x": int(args.x),
+        "y": int(args.y),
+        "z": int(args.z),
+        "width_px": int(args.width if args.width else patch_size),
+        "height_px": int(args.height if args.height else patch_size),
+        "patch_size": patch_size,
+        "ml_window_px": patch_size,
+        "voxel_size_um": voxel_size_um,
+        "ml_window_mm": patch_size * voxel_size_um / 1000.0,
+        "scale_bar_cm": True,
+        "vc3d_zarr_path": zarr_path,
+        "output_image_path": output_img,
+        "model_config": config_dict,
+        "ink_stats": ink_stats,
+    }
+    with open(path, "w") as f:
+        json.dump(metadata, f, indent=2)
 
 def predict():
     parser = argparse.ArgumentParser()
@@ -64,6 +93,8 @@ def predict():
     parser.add_argument("--base_feat", type=int, default=128)
     parser.add_argument("--use_ridges", action="store_true", help="Use 3D Ridge/Frangi feature channel")
     parser.add_argument("--output_img", type=str, default=None, help="Force output image path")
+    parser.add_argument("--metadata_out", type=str, default=None, help="Force prediction metadata JSON path")
+    parser.add_argument("--voxel_size_um", type=float, default=7.91)
     args = parser.parse_args()
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -188,7 +219,14 @@ def predict():
     Image.fromarray(ink_uint8).save(f"predictions/{base_name}_ink.png")
     # Save as VC3D OME-Zarr
     zarr_path = f"predictions/{base_name}_ink.zarr"
-    save_vc3d_zarr(zarr_path, ink_uint8, name=f"Ink Prediction {base_name}")
+    save_vc3d_zarr(
+        zarr_path,
+        ink_uint8,
+        name=f"Ink Prediction {base_name}",
+        voxel_size_um=args.voxel_size_um,
+        source_uri=args.uri,
+        origin_xyz=[int(args.x), int(args.y), int(args.z)],
+    )
 
     # Active Learning: Identify and export uncertain regions
     from scripts.active_learning_sampler import identify_uncertain_patches
@@ -234,9 +272,24 @@ def predict():
     plt.savefig(out_path)
     plt.close()
 
+    metadata_path = args.metadata_out if args.metadata_out else f"predictions/{base_name}_meta.json"
+    write_prediction_metadata(
+        metadata_path,
+        args,
+        config_dict,
+        zarr_path,
+        out_path,
+        {
+            "mean": float(prob_ink_final.mean()),
+            "std": float(prob_ink_final.std()),
+            "max": float(prob_ink_final.max()),
+        },
+    )
+
     print(f"\nPrediction Complete!")
     print(f"Region: {predict_width}x{predict_height} at Z={args.z}, Y={args.y}, X={args.x}")
     print(f"Visualization saved to {out_path}")
+    print(f"Metadata saved to {metadata_path}")
 
 if __name__ == "__main__":
     predict()

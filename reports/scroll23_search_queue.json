@@ -1,0 +1,21 @@
+{
+  "queue_path": "reports/scroll23_search_queue.tsv",
+  "num_candidates": 44,
+  "patch_size": 64,
+  "voxel_um": 7.91,
+  "submittable_window": true,
+  "scrolls": {
+    "Scroll2": {
+      "scroll_id": "Scroll 2",
+      "short_id": "PHerc0125",
+      "priority": 1.0,
+      "notes": "First Letters / First Title target"
+    },
+    "Scroll3": {
+      "scroll_id": "Scroll 3",
+      "short_id": "PHerc0332",
+      "priority": 1.0,
+      "notes": "First Letters / First Title target"
+    }
+  }
+}

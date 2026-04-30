@@ -9,17 +9,21 @@ class SwarmVoter(nn.Module):
         self.weights = weights if weights else [1.0 / len(models)] * len(models)
         self.register_buffer("weights_tensor", torch.tensor(self.weights))
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+    def forward(self, x: torch.Tensor, **kwargs):
         outputs = []
         for model in self.models:
-            # Assumes models return logits
-            outputs.append(model(x))
+            outputs.append(model(x, **kwargs))
             
-        # Weighted averaging of logits
-        stacked_outputs = torch.stack(outputs, dim=0)
-        weights = self.weights_tensor.view(-1, 1, 1, 1, 1)
-        weighted_avg = torch.sum(stacked_outputs * weights, dim=0)
-        
-        return weighted_avg
+        if isinstance(outputs[0], tuple):
+            averaged = []
+            for item_idx in range(len(outputs[0])):
+                stacked = torch.stack([out[item_idx] for out in outputs], dim=0)
+                shape = [len(self.weights)] + [1] * (stacked.dim() - 1)
+                weights = self.weights_tensor.view(*shape)
+                averaged.append(torch.sum(stacked * weights, dim=0))
+            return tuple(averaged)
 
-print("SwarmVoter ensemble class defined.")
+        stacked_outputs = torch.stack(outputs, dim=0)
+        shape = [len(self.weights)] + [1] * (stacked_outputs.dim() - 1)
+        weights = self.weights_tensor.view(*shape)
+        return torch.sum(stacked_outputs * weights, dim=0)

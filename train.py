@@ -859,6 +859,15 @@ def train(config: ExperimentConfig):
     avg_skel_dist = np.mean(val_skel_dists) if val_skel_dists else 1.0
     avg_centerline_dice = np.mean(val_centerline_dices) if val_centerline_dices else 0.0
     avg_cc_diff = np.mean(val_cc_diffs) if val_cc_diffs else 0.0
+    window_mm = config.patch_size * 8.0 / 1000.0
+    window_ok = config.patch_size <= 64 or window_mm <= 0.5 + 1e-9
+    villa_metrics_ok = (
+        not np.isnan(val_bpb)
+        and avg_centerline_dice >= 0.0
+        and avg_skel_dist >= 0.0
+        and avg_cc_diff >= 0.0
+    )
+    submittable = bool(window_ok and villa_metrics_ok)
     log_file = 'results.tsv'
     is_improvement = True
     if np.isnan(val_bpb): is_improvement = False
@@ -882,13 +891,25 @@ def train(config: ExperimentConfig):
     print(f"avg_skel_dist:         {avg_skel_dist:.6f}")
     print(f"avg_centerline_dice:   {avg_centerline_dice:.6f}")
     print(f"avg_cc_diff:           {avg_cc_diff:.3f}")
+    print(f"submittable:           {submittable} (window={window_mm:.3f}mm)")
     print(f"train_loss:            {smooth_loss:.6f}")
     print(f"throughput_Mvps:       {throughput_Mvps:.2f}")
     sys.stdout.flush()
 
     if is_improvement:
         print(f"Saving new best model with val_bpb: {val_bpb:.6f}")
-        torch.save({'model_state_dict': model.state_dict(), 'val_bpb': val_bpb, 'avg_skel_dist': avg_skel_dist, 'avg_centerline_dice': avg_centerline_dice, 'avg_cc_diff': avg_cc_diff, 'config': asdict(config)}, 'best_model.pt')
+        torch.save({
+            'model_state_dict': model.state_dict(),
+            'val_bpb': val_bpb,
+            'avg_skel_dist': avg_skel_dist,
+            'avg_centerline_dice': avg_centerline_dice,
+            'avg_cc_diff': avg_cc_diff,
+            'submittable': submittable,
+            'window_ok': window_ok,
+            'window_mm': window_mm,
+            'villa_metrics_ok': villa_metrics_ok,
+            'config': asdict(config)
+        }, 'best_model.pt')
 
         header = "timestamp\tval_bpb\tavg_skel_dist\tavg_centerline_dice\tavg_cc_diff\ttrain_loss\tthroughput_Mvps\tnum_params_M\tpeak_vram_mb\tconfig\n"
         if not os.path.exists(log_file):
@@ -900,6 +921,19 @@ def train(config: ExperimentConfig):
         with open(log_file, 'a') as f:
             cfg_json = json.dumps(asdict(config))
             f.write(f"{time.strftime('%Y-%m-%d %H:%M:%S')}\t{val_bpb:.6f}\t{avg_skel_dist:.6f}\t{avg_centerline_dice:.6f}\t{avg_cc_diff:.3f}\t{smooth_loss:.6f}\t{throughput_Mvps:.2f}\t{num_params_M:.3f}\t{peak_vram_mb:.1f}\t{cfg_json}\n")
+            f.flush()
+            os.fsync(f.fileno())
+
+        prize_log_file = "prize_readiness.tsv"
+        prize_header = "timestamp\tsubmittable\twindow_ok\twindow_mm\tvilla_metrics_ok\tpatch_size\tval_bpb\tavg_skel_dist\tavg_centerline_dice\tavg_cc_diff\tconfig\n"
+        if not os.path.exists(prize_log_file):
+            with open(prize_log_file, 'w') as f:
+                f.write(prize_header)
+                f.flush()
+                os.fsync(f.fileno())
+
+        with open(prize_log_file, 'a') as f:
+            f.write(f"{time.strftime('%Y-%m-%d %H:%M:%S')}\t{submittable}\t{window_ok}\t{window_mm:.4f}\t{villa_metrics_ok}\t{config.patch_size}\t{val_bpb:.6f}\t{avg_skel_dist:.6f}\t{avg_centerline_dice:.6f}\t{avg_cc_diff:.3f}\t{cfg_json}\n")
             f.flush()
             os.fsync(f.fileno())
             
@@ -924,6 +958,10 @@ def train(config: ExperimentConfig):
         "throughput_Mvps": float(throughput_Mvps),
         "num_params_M": float(num_params_M),
         "peak_vram_mb": float(peak_vram_mb),
+        "submittable": bool(submittable),
+        "window_ok": bool(window_ok),
+        "window_mm": float(window_mm),
+        "villa_metrics_ok": bool(villa_metrics_ok),
         "is_success": bool(is_improvement)
     }
     
