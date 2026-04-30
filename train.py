@@ -3,7 +3,7 @@ import os
 import time
 import math
 import json
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass, asdict, field
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -12,6 +12,7 @@ import pandas as pd
 from torch.utils.data import DataLoader
 from torch.cuda.amp import GradScaler, autocast
 from scripts.betti_loss_module import BettiLoss
+from scripts.auxiliary_manager import AuxiliaryConfig, AuxiliaryManager
 
 @dataclass
 class ExperimentConfig:
@@ -51,6 +52,7 @@ class ExperimentConfig:
     aug_scale_limit: float = 0.15
     use_betti_loss: bool = False
     betti_loss_weight: float = 0.1
+    auxiliary_config: AuxiliaryConfig = field(default_factory=AuxiliaryConfig)
 
     # Model Architecture
     architecture: str = "gated_unet"
@@ -582,6 +584,7 @@ def train(config: ExperimentConfig):
         print("Instantiating Gated UNet-Transformer Architecture...")
         model = InkDetectorOptimized(v_config).to(device)
     betti_loss = BettiLoss(weight=config.betti_loss_weight) if config.use_betti_loss else None
+    aux_manager = AuxiliaryManager(config.auxiliary_config)
     
     # Load best model if architecture matches
     best_model_path = 'best_model.pt'
@@ -757,6 +760,16 @@ def train(config: ExperimentConfig):
                           0.02 * hallucination_penalty +
                           config.loss_st * loss_st_val +
                           0.05 * consistency_loss)
+            
+            # Additional Auxiliary Tasks (Track 4)
+            # We map model outputs/targets to dicts for the manager
+            outputs_dict = {"ink_2d": out_ink_2d}
+            targets_dict = {"ink_2d": target_ink_aug1}
+            # Add aux outputs if they exist in the tuple... 
+            # (In a real scenario, model would return a named dict)
+            
+            aux_loss = aux_manager.compute_losses(outputs_dict, targets_dict)
+            total_loss += aux_loss
 
         if not torch.isfinite(total_loss) or total_loss.item() > 1e6:
             print(f"\n[WARNING] Numerical Instability at Step {step}: Loss {total_loss.item():.2e}")

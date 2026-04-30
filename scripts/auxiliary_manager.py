@@ -1,3 +1,5 @@
+import torch
+import torch.nn.functional as F
 from dataclasses import dataclass, field
 from typing import Dict, Any, List
 
@@ -18,11 +20,34 @@ class AuxiliaryManager:
             
         specs = {}
         for task in self.aux_config.task_types:
-            # We map our internal task names to villa's factory logic
             spec = {
                 "task_type": task,
                 "weight": self.aux_config.weights.get(task, 0.01),
-                "source_target": "ink_2d" # Assuming they all regularize the main backbone
+                "source_target": "ink_2d"
             }
             specs[f"aux_{task}"] = spec
         return specs
+
+    def compute_losses(self, outputs: Dict[str, torch.Tensor], targets: Dict[str, torch.Tensor]) -> torch.Tensor:
+        """Computes combined auxiliary loss."""
+        if not self.aux_config.enabled:
+            # Safely return 0.0 on the correct device if possible
+            device = next(iter(outputs.values())).device if outputs else torch.device("cpu")
+            return torch.tensor(0.0, device=device)
+            
+        total_aux_loss = 0.0
+        for task in self.aux_config.task_types:
+            name = f"aux_{task}"
+            if name in outputs and name in targets:
+                pred = outputs[name]
+                target = targets[name]
+                weight = self.aux_config.weights.get(task, 0.01)
+                
+                if task == "surface_normals":
+                    loss = F.mse_loss(pred, target)
+                else:
+                    loss = F.mse_loss(pred, target)
+                    
+                total_aux_loss += weight * loss
+                
+        return total_aux_loss
