@@ -1,15 +1,15 @@
 {
     "lr": 1.0,
     "wd": 1.0,
-    "capacity": 1.3966745921874995,
+    "capacity": 1.2604988194492182,
     "attention": 1.0,
     "regularization": 1.0,
     "batch": 1.0,
     "spatial": 1.0,
     "temporal": 1.0,
     "width": 1.0,
-    "loss_balance": 1.3451100845043968,
-    "features": 2.1690789841147478,
-    "architecture": 3.685851255503081,
+    "loss_balance": 1.2139618512652182,
+    "features": 2.95759378316356,
+    "architecture": 3.32648075809153,
     "baseline": 18
 }

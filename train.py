@@ -60,6 +60,7 @@ class ExperimentConfig:
     num_blocks: int = 16
     num_heads: int = 8
     dropout: float = 0.0
+    pseudo_label_dir: Optional[str] = None
 
     def __post_init__(self):
         if self.uris is None:
@@ -509,9 +510,20 @@ def train(config: ExperimentConfig):
         datasets = []
         for uri in uris:
             parent_dir = os.path.dirname(uri.rstrip('/'))
-            labels_path = os.path.join(parent_dir, 'inklabels_filled.png')
-            if not os.path.exists(labels_path):
-                labels_path = os.path.join(parent_dir, 'inklabels.png')
+            
+            # Check for pseudo-labels first if directory is provided
+            labels_path = None
+            if config.pseudo_label_dir:
+                # Expecting pseudo-labels to be named after the segment directory
+                segment_name = os.path.basename(parent_dir)
+                pseudo_path = os.path.join(config.pseudo_label_dir, f"{segment_name}_pseudo.png")
+                if os.path.exists(pseudo_path):
+                    labels_path = pseudo_path
+            
+            if labels_path is None:
+                labels_path = os.path.join(parent_dir, 'inklabels_filled.png')
+                if not os.path.exists(labels_path):
+                    labels_path = os.path.join(parent_dir, 'inklabels.png')
 
             if os.path.exists(labels_path):
                 mask_path = os.path.join(parent_dir, 'mask.png')

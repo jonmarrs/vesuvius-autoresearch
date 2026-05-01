@@ -82,60 +82,74 @@ class LearnedZProjection(nn.Module):
 
 class VesuviusTimeSformer(nn.Module):
     """Adapter for the 2023 Grand Prize TimeSformer architecture."""
-    version = "2.5.0-timesformer"
+    version = "2.5.1-timesformer"
     def __init__(self, config: VesuviusConfig):
         super().__init__()
         self.config = config
-        self.version = "2.5.0-timesformer"
+        self.version = "2.5.2-timesformer"
         import timesformer_pytorch
         
+        # Determine number of tokens in one spatial dimension
+        self.num_tokens_side = config.patch_size // 16
+        num_classes = self.num_tokens_side ** 2
+        
         self.backbone = timesformer_pytorch.TimeSformer(
-            dim=config.base_feat * 8, # typically 512
+            dim=512, 
             image_size=config.patch_size,
             patch_size=16,
-            num_frames=config.num_layers + 8, # dynamic input size
-            num_classes=16, # 4x4 logits -> scaled up to 64x64 later
+            num_frames=config.num_layers,
+            num_classes=num_classes,
             channels=config.in_channels,
-            depth=config.num_blocks // 2, # adapt num blocks
-            heads=config.num_heads,
-            dim_head=config.base_feat,
+            depth=getattr(config, 'num_blocks', 8), 
+            heads=getattr(config, 'num_heads', 8),
+            dim_head=64,
             attn_dropout=config.dropout,
             ff_dropout=config.dropout,
         )
+        # TimeSformer often benefits from a BN3D pre-norm to stabilize the input Z-stack
         self.norm = nn.BatchNorm3d(num_features=config.in_channels)
         
-        # Add dummy fiber/qc heads just to preserve API compatibility
+        # Multi-task heads for compatibility with Vesuvius Autoresearch pipeline
+        self.ink_head = nn.Sequential(
+            nn.Conv2d(1, 1, kernel_size=3, padding=1) # Refinement
+        )
         self.fiber_head = nn.Conv3d(config.in_channels, 1, kernel_size=1)
-        self.qc_head = nn.Linear(16, 1) # Dummy input size
-        self.projector = nn.Linear(16, 16) # Dummy input size
+        self.qc_head = nn.Sequential(
+            nn.Linear(num_classes, 64),
+            nn.ReLU(),
+            nn.Linear(64, 1)
+        )
 
     def forward(self, x, return_fiber=False, return_qc=False, return_proj=False, return_st=False, **kwargs):
-        # x: [B, C, Z, H, W] -> (B,frames,channels,H,W) for timesformer?
-        # Actually TimeSformer expects (B, frames, C, H, W) or (B, C, frames, H, W)?
-        # According to original implementation: x = torch.permute(x, (0, 2, 1, 3, 4)) -> (B, C, frames, H, W) wait no, permuting (B, 1, frames, H, W) -> (B, frames, 1, H, W) or vice versa.
-        # The library timesformer_pytorch actually expects (B, frames, C, H, W) usually, let's look at villa code:
-        # villa code: input was (B,1,C,H,W) -> permute(0,2,1,3,4) -> (B,C,1,H,W). Wait, C=1, frames=C?
-        # Ah, in villa: "Input from dataset: (B,1,C,H,W). TimeSformer lib expects (B,frames,channels,H,W)." Wait, the comment contradicts the code `x = torch.permute(x, (0, 2, 1, 3, 4))  # -> (B,C,1,H,W)` and `channels=1` in TimeSformer args.
-        # Actually TimeSformer in lucidrains lib expects video shape `(B, C, frames, H, W)`. So if input is `(B, C, Z, H, W)`, it is exactly correct.
+        # x: [B, C, Z, H, W]
+        B, C, Z, H, W = x.shape
+        
+        # BN3D expects [B, C, Z, H, W]
         x_norm = self.norm(x)
-        x_norm = x_norm.permute(0, 2, 1, 3, 4) # (B, C, Z, H, W) -> (B, Z, C, H, W)
-        out = self.backbone(x_norm) # returns [B, num_classes] -> [B, 16]
         
-        # Reshape and interpolate to match target patch size
-        out = out.view(-1, 1, 4, 4)
-        out = F.interpolate(out, size=(self.config.patch_size, self.config.patch_size), mode='bilinear', align_corners=False)
+        # TimeSformer lib expects [B, C, frames, H, W]
+        out = self.backbone(x_norm) # returns [B, num_classes]
         
-        results = [out]
+        # Reshape 1D logits back to 2D grid
+        out_2d = out.view(B, 1, self.num_tokens_side, self.num_tokens_side)
+        
+        # Upsample to full patch size (e.g. 64x64 or 256x256)
+        out_full = F.interpolate(out_2d, size=(H, W), mode='bilinear', align_corners=False)
+        out_full = self.ink_head(out_full)
+        
+        results = [out_full]
+        
         if return_fiber:
-            results.append(torch.zeros((x.shape[0], 1, x.shape[2], x.shape[3], x.shape[4]), device=x.device))
+            # TimeSformer doesn't natively produce 3D fiber features, return a projection
+            results.append(self.fiber_head(x_norm))
         if return_qc:
-            results.append(torch.zeros((x.shape[0], 1), device=x.device))
+            results.append(self.qc_head(out))
         if return_proj:
-            # Return a dummy projection tensor [B, 256]
-            results.append(torch.zeros((x.shape[0], 256), device=x.device))
+            # Return the bottleneck features [B, 16]
+            results.append(out)
         if return_st:
-            # Return a dummy structure tensor [B, 6, Z, H, W]
-            results.append(torch.zeros((x.shape[0], 6, x.shape[2], x.shape[3], x.shape[4]), device=x.device))
+            # Return dummy structure tensor
+            results.append(torch.zeros((B, 6, Z, H, W), device=x.device))
             
         if len(results) == 1:
             return results[0]
