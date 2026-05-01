@@ -1,6 +1,6 @@
 {
   "queue_path": "reports/scroll23_search_queue.tsv",
-  "num_candidates": 44,
+  "num_candidates": 110,
   "patch_size": 64,
   "voxel_um": 7.91,
   "submittable_window": true,

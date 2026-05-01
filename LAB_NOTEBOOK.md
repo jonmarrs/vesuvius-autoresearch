@@ -178,4 +178,27 @@ Kick off the Day Shift Experiment Sprint after identifying and fixing critical b
 
 ---
 
+## [2026-05-01] Day Shift: Villa Strategy & Search Initialization (v2.7.0)
+
+**Status:** ACTIVE
+
+### Purpose
+Align project with official `ScrollPrize/villa` strategies to maximize prize competitiveness. Focus on "Non-Metal" ink signal generalization and efficient data access.
+
+### Key Achievements
+1.  **Scroll 2/3 Search Queue:** Built and ranked a candidate queue of 110 regions in `PHerc0125` (Scroll 2) and `PHerc0332` (Scroll 3) for the First Letters/Title Prizes. Top priority: `Scroll 2 div_90`.
+2.  **"Non-Metal" Model Strategy:** Initiated training of a model focused on physical features (Structure Tensors + 3D Ridges) to move beyond metal-rich contrast dependencies.
+3.  **Vesuvius-C Wrapper Enhancement:** Updated `vesuvius_c_wrapper` to support the official `Volume` API from `vesuvius-c`. It now supports remote fetching/caching of Zarr chunks from `dl.ash2txt.org` directly into Python, enabling "data-on-demand" workflows.
+
+### Configuration
+*   **Model:** `GatedUNet` with `use_ridges=True` and `loss_st=0.2`.
+*   **Data:** Fragments 1 & 2 pooled.
+*   **Search Target:** Scroll 2 Divisions (90, 100).
+
+### Outcomes & Insights
+- Verified `Vesuvius-C` wrapper can load local data via `file://` URLs, satisfying the official library's metadata requirements while maintaining C-speed performance.
+- Search queue prioritized Scroll 2 due to its higher probability of containing legible non-metal ink signatures.
+
+---
+
 ## [Future Entry Template]
