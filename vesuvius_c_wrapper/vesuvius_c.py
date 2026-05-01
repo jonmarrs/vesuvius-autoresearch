@@ -75,21 +75,37 @@ class FastLocalVolume:
         if not self.sep or self.sep == '\x00':
             self.sep = '.'
 
-    def get_chunk(self, z, y, x):
-        """Fetch a pre-defined zarr chunk by its grid index."""
-        chunk_name = f"{z}{self.sep}{y}{self.sep}{x}"
-        chunk_path = os.path.join(self.path, chunk_name).encode('utf-8')
-        chunk_ptr = _lib.vs_zarr_read_chunk(chunk_path, self.metadata)
-        if not chunk_ptr:
-            raise RuntimeError(f"Failed to read zarr chunk {chunk_name}")
-        try:
-            depth, height, width = self.metadata.chunks
-            size = depth * height * width
-            data_addr = ctypes.addressof(chunk_ptr.contents) + ctypes.sizeof(ctypes.c_int * 3)
-            float_array = (ctypes.c_float * size).from_address(data_addr)
-            return np.ctypeslib.as_array(float_array).copy().reshape((depth, height, width))
-        finally:
-            _lib.vs_chunk_free(chunk_ptr)
+    def get_chunk(self, z, y, x, depth=None, height=None, width=None):
+        """Fetch an arbitrary volume chunk by voxel coordinates (local only)."""
+        # If requested dims match zarr chunks, use vs_zarr_read_chunk for speed
+        depth = depth or self.chunks[0]
+        height = height or self.chunks[1]
+        width = width or self.chunks[2]
+
+        if z % self.chunks[0] == 0 and y % self.chunks[1] == 0 and x % self.chunks[2] == 0 \
+           and depth == self.chunks[0] and height == self.chunks[1] and width == self.chunks[2]:
+            
+            gz, gy, gx = z // self.chunks[0], y // self.chunks[1], x // self.chunks[2]
+            chunk_name = f"{gz}{self.sep}{gy}{self.sep}{gx}"
+            chunk_path = os.path.join(self.path, chunk_name).encode('utf-8')
+            chunk_ptr = _lib.vs_zarr_read_chunk(chunk_path, self.metadata)
+            if not chunk_ptr:
+                # Missing chunks return zeros in Zarr
+                return np.zeros((depth, height, width), dtype=np.float32)
+            try:
+                size = depth * height * width
+                data_addr = ctypes.addressof(chunk_ptr.contents) + ctypes.sizeof(ctypes.c_int * 3)
+                float_array = (ctypes.c_float * size).from_address(data_addr)
+                return np.ctypeslib.as_array(float_array).copy().reshape((depth, height, width))
+            finally:
+                _lib.vs_chunk_free(chunk_ptr)
+        else:
+            # For unaligned access, we'd need vs_vol_get_chunk.
+            # But vs_vol_new needs a working URL for metadata.
+            # Workaround: use standard zarr for unaligned local access.
+            import zarr
+            z_vol = zarr.open(self.path, mode='r')
+            return z_vol[z:z+depth, y:y+height, x:x+width].astype(np.float32)
 
 class VesuviusVolume:
     """Modern wrapper supporting remote data fetching and on-disk caching."""

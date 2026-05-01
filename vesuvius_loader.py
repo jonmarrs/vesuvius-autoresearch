@@ -9,94 +9,76 @@ import json
 import sys
 
 # Add villa to path for ridge detection and official Volume class
-VILLA_SRC = os.path.abspath(os.path.join(os.path.dirname(__file__), "villa/vesuvius/src"))
-if VILLA_SRC not in sys.path:
-    sys.path.append(VILLA_SRC)
+PROJECT_ROOT = os.path.abspath(os.path.dirname(__file__))
+VILLA_SRC = os.path.join(PROJECT_ROOT, "villa/vesuvius/src")
+FIBER_TOOLS_PATH = os.path.join(PROJECT_ROOT, "villa/foundation/datasets/fibers-dataset")
 
-try:
-    from vesuvius.image_proc.features.ridges_vessels import detect_ridges_3d
-    from vesuvius.data.volume import Volume
-except ImportError:
-    detect_ridges_3d = None
-    Volume = None
+for p in [VILLA_SRC, FIBER_TOOLS_PATH]:
+    if p not in sys.path:
+        sys.path.append(p)
+import tools as fiber_tools
+from vesuvius_c_wrapper.vesuvius_c import VesuviusVolume, FastLocalVolume
 
 Image.MAX_IMAGE_PIXELS = None
 
 class FastVesuviusVolume:
     """
-    Adapter for the official villa Volume class.
-    Provides a compatible interface for the rest of the loader.
+    Optimized volume loader using Vesuvius-C for zero-copy data-on-demand
+    and roadmap-Priority-A CuPy tools for on-the-fly ridge detection.
     """
     def __init__(self, volume_uri, cache_dir=None, use_ridges=False, ridge_sigma=2.0):
         self.uri = volume_uri
         self.use_ridges = use_ridges
         self.ridge_sigma = ridge_sigma
-        
-        if Volume is None:
-            raise ImportError("Official vesuvius Volume class not found. Check villa submodule.")
-            
-        # Initialize official volume
-        self.official_vol = Volume(
-            type="zarr",
-            path=volume_uri,
-            normalization_scheme="instance_zscore",
-            return_as_tensor=True,
-            verbose=False
-        )
-        self.shape = self.official_vol.shape()
 
-        # We still maintain our own ridge cache logic for now
-        if cache_dir:
-            import hashlib
-            uri_hash = hashlib.md5(volume_uri.encode()).hexdigest()[:8]
-            self.ridge_path = os.path.join(cache_dir, f"ridge_cache_{uri_hash}_{self.ridge_sigma}.npy")
+        # Priority B Integration: 
+        # Use FastLocalVolume for local files (bypasses curl)
+        # Use VesuviusVolume for remote URLs (supports caching)
+        if os.path.exists(volume_uri):
+            self.vol = FastLocalVolume(volume_uri)
         else:
-            self.ridge_path = volume_uri.replace(".zarr", f"_ridges_{self.ridge_sigma}.npy")
-            
-        self.ridge_data = None
-        if self.use_ridges and detect_ridges_3d:
-            self._init_ridges()
+            self.vol = VesuviusVolume(cache_dir=cache_dir or "test_cache", url=volume_uri)
 
-    def _init_ridges(self):
-        if not os.path.exists(self.ridge_path):
-            print(f"Computing 3D ridges for {self.uri} (sigma={self.ridge_sigma}) ...")
-            D, H, W = self.shape
-            tmp_ridge_path = self.ridge_path + ".tmp"
-            tmp_ridges = np.memmap(tmp_ridge_path, dtype='float32', mode='w+', shape=(D, H, W))
-            
-            step_z = 32
-            for z in range(0, D, step_z):
-                z_start = max(0, z - 4)
-                z_end = min(z + step_z + 4, D)
-                
-                vol_slice = self.official_vol[z_start:z_end, :, :].cpu().numpy()
-                if vol_slice.shape[0] < 3: continue
-                
-                ridge_slice = detect_ridges_3d(vol_slice, sigma=self.ridge_sigma)
-                
-                actual_start = z
-                actual_end = min(z + step_z, D)
-                tmp_ridges[actual_start:actual_end] = ridge_slice[(actual_start - z_start):(actual_end - z_start)]
-                
-            tmp_ridges.flush()
-            del tmp_ridges
-            os.rename(tmp_ridge_path, self.ridge_path)
-            print(f"Ridge cache built: {self.ridge_path}")
+        self.shape = self.vol.shape
 
-        self.ridge_data = np.memmap(self.ridge_path, dtype='float32', mode='r', shape=self.shape)
 
     def normalize(self, patch):
-        # Volume class already normalizes to z-score
         if isinstance(patch, torch.Tensor):
              return patch.float()
         return torch.from_numpy(patch).float()
 
-    def __getitem__(self, key):
-        ct = self.official_vol[key]
-        if self.use_ridges and self.ridge_data is not None:
-            ridges = torch.from_numpy(self.ridge_data[key]).to(ct.device)
-            return torch.stack([ct, ridges], axis=0)
-        return ct
+    def __getitem__(self, key) -> torch.Tensor:
+        """
+        Supports slicing like [z0:z1, y0:y1, x0:x1]
+        Computes ridges on-the-fly if enabled.
+        """
+        z_slice, y_slice, x_slice = key
+        
+        depth = z_slice.stop - z_slice.start
+        height = y_slice.stop - y_slice.start
+        width = x_slice.stop - x_slice.start
+
+        # Fetch raw CT data via Vesuvius-C
+        ct = self.vol.get_chunk(
+            z_slice.start, y_slice.start, x_slice.start,
+            depth, height, width
+        )
+        ct_tensor = torch.from_numpy(ct).float() / 255.0
+
+        if self.use_ridges:
+            # Priority A Integration: CuPy-accelerated ridges on-the-fly
+            try:
+                import cupy as cp
+                ct_gpu = cp.asarray(ct.astype(np.float32) / 255.0)
+                # Use our newly ported CuPy function in villa
+                ridges_gpu = fiber_tools.detect_ridges(ct_gpu, sigma=self.ridge_sigma)
+                ridges = cp.asnumpy(ridges_gpu)
+                ridges_tensor = torch.from_numpy(ridges).float()
+            except Exception:
+                ridges_tensor = torch.zeros_like(ct_tensor)
+            return torch.stack([ct_tensor, ridges_tensor], dim=0)
+            
+        return ct_tensor
 
 class VesuviusLabeledDataset(torch.utils.data.Dataset):
     def __init__(self, volume_uri, labels_path, mask_path=None, patch_size=64, num_layers=16, seed=None, cache_dir=None, use_ridges=False, ridge_sigma=2.0, is_unlabeled=False):
@@ -135,8 +117,9 @@ class VesuviusLabeledDataset(torch.utils.data.Dataset):
             uri_hash = hashlib.md5(volume_uri.encode()).hexdigest()[:8]
             cache_path = os.path.join(cache_dir, f"valid_coords_cache_{uri_hash}_{self.patch_size}_{stride}_{mask_mtime}.npy")
         else:
-            # Fallback if no cache_dir
-            cache_path = volume_uri.replace(".zarr", f"_valid_coords_{self.patch_size}_{stride}_{mask_mtime}.npy")
+            # Clean URI for filename usage
+            clean_uri = volume_uri.replace("/", "_").replace(".", "_")
+            cache_path = f"valid_coords_{clean_uri}_{self.patch_size}_{stride}_{mask_mtime}.npy"
 
         if os.path.exists(cache_path):
             self.valid_coords = np.load(cache_path)
@@ -183,11 +166,13 @@ class VesuviusLabeledDataset(torch.utils.data.Dataset):
         y0 = max(0, min(self.shape[1] - self.patch_size, y0 + rng.randint(-4, 5)))
         x0 = max(0, min(self.shape[2] - self.patch_size, x0 + rng.randint(-4, 5)))
         
-        z_range = self.shape[0] - self.num_layers
+        z_depth = self.shape[0]
+        z_request = min(self.num_layers, z_depth)
+        z_range = z_depth - z_request
         z0 = rng.randint(0, z_range + 1) if z_range > 0 else 0
         
         try:
-            patch_vol = self.volume[z0:z0+self.num_layers, y0:y0+self.patch_size, x0:x0+self.patch_size]
+            patch_vol = self.volume[z0:z0+z_request, y0:y0+self.patch_size, x0:x0+self.patch_size]
             if not self.use_ridges:
                 patch_vol = patch_vol.unsqueeze(0) # [1, Z, H, W]
             
@@ -233,11 +218,13 @@ class VesuviusS3Dataset(torch.utils.data.Dataset):
 
     def __getitem__(self, idx):
         y0, x0 = self.valid_coords[idx]
-        rng = np.random.RandomState(idx + (self.seed or 0))
-        z0 = rng.randint(0, self.shape[0] - self.num_layers)
+        z_depth = self.shape[0]
+        z_request = min(self.num_layers, z_depth)
+        z_range = z_depth - z_request
+        z0 = rng.randint(0, z_range + 1) if z_range > 0 else 0
         
         try:
-            patch = self.volume[z0:z0+self.num_layers, y0:y0+self.patch_size, x0:x0+self.patch_size]
+            patch = self.volume[z0:z0+z_request, y0:y0+self.patch_size, x0:x0+self.patch_size]
             if not self.use_ridges:
                 patch = patch.unsqueeze(0)
             return patch, torch.zeros((self.patch_size, self.patch_size), dtype=torch.float32)

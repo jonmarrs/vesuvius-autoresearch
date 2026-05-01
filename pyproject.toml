@@ -7,6 +7,7 @@ requires-python = ">=3.10,<3.11"
 dependencies = [
     "alphashape>=1.3.1",
     "connected-components-3d",
+    "cupy-cuda12x>=14.0.1",
     "dynamic-network-architectures>=0.4.3",
     "fpdf2>=2.8.7",
     "imagecodecs>=2025.3.30",
@@ -26,6 +27,7 @@ dependencies = [
     "requests>=2.32.0",
     "rustbpe>=0.1.0",
     "s3fs>=2026.2.0",
+    "scikit-image>=0.25.2",
     "scipy>=1.15.3",
     "seaborn>=0.13.2",
     "segmentation-models-pytorch",

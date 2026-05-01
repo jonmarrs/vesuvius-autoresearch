@@ -687,7 +687,8 @@ def train(config: ExperimentConfig):
 
         # 3. Sobel-Z pseudo-labels (BEFORE mixup to avoid boundary artifacts)
         with torch.no_grad():
-            grad_z = x_orig[:, :, 1:] - x_orig[:, :, :-1]
+            # Use only the raw CT channel (index 0) for pseudo-labels if multi-channel
+            grad_z = x_orig[:, :1, 1:] - x_orig[:, :1, :-1]
             target_fiber = grad_z.abs().mean(dim=2, keepdim=True)
             b_sz = target_fiber.shape[0]
             tf_flat = target_fiber.view(b_sz, -1)
