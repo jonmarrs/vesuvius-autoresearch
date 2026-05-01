@@ -24,6 +24,7 @@ results.tsv
 *.log
 local_data/
 *.pid
+*.npy
 config_temp.json
 run_result.json
 

@@ -35,10 +35,18 @@ class FastVesuviusVolume:
         # Use FastLocalVolume for local files (bypasses curl)
         # Use VesuviusVolume for remote URLs (supports caching)
         if os.path.exists(volume_uri):
-            self.vol = FastLocalVolume(volume_uri)
+            # Auto-detect OME-Zarr resolution levels
+            local_path = volume_uri
+            if not os.path.exists(os.path.join(local_path, ".zarray")):
+                # Check for OME-Zarr structure (level 0 is full res)
+                level0_path = os.path.join(local_path, "0")
+                if os.path.exists(os.path.join(level0_path, ".zarray")):
+                    local_path = level0_path
+                    print(f"Detected OME-Zarr: Using level 0 at {local_path}")
+            self.vol = FastLocalVolume(local_path)
         else:
             self.vol = VesuviusVolume(cache_dir=cache_dir or "test_cache", url=volume_uri)
-
+            
         self.shape = self.vol.shape
 
 
