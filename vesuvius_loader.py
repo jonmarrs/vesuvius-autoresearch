@@ -111,16 +111,21 @@ class VesuviusLabeledDataset(torch.utils.data.Dataset):
         # Load Labels (2D PNG)
         if labels_path and os.path.exists(labels_path):
             with Image.open(labels_path) as img:
-                self.labels = np.array(img).astype(np.float32) / 255.0
+                img_arr = np.array(img).astype(np.float32)
+                if img_arr.max() > 1.0:
+                    img_arr /= 255.0
+                self.labels = img_arr
         else:
             self.labels = None
-            
+
         if mask_path and os.path.exists(mask_path):
             with Image.open(mask_path) as img:
-                self.mask = np.array(img).astype(np.float32) / 255.0
+                img_arr = np.array(img).astype(np.float32)
+                if img_arr.max() > 1.0:
+                    img_arr /= 255.0
+                self.mask = img_arr
         else:
-            self.mask = None
-            
+            self.mask = None            
         # Pre-calculate valid coordinates
         stride = 16
         mask_mtime = int(os.path.getmtime(mask_path)) if mask_path and os.path.exists(mask_path) else 0

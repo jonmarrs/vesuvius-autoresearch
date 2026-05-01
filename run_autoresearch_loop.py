@@ -90,14 +90,9 @@ success_counts = load_history()
 
 # Detect Shift
 current_hour = time.localtime().tm_hour
-if 7 <= current_hour < 19:
-    shift_name = "DAY SHIFT"
-    end_hour = 19
-    default_budget = 900
-else:
-    shift_name = "NIGHT SHIFT"
-    end_hour = 7
-    default_budget = 3600
+shift_name = "NIGHT SHIFT"
+end_hour = 7
+default_budget = 3600
 
 os.makedirs("sprint_logs", exist_ok=True)
 os.makedirs("reports", exist_ok=True)
