@@ -1,0 +1,15 @@
+{
+    "dataset_out_path": "local_data/Proofread_Patches",
+    "patch_size": [
+        16,
+        64,
+        64
+    ],
+    "min_label_percentage": 1.0,
+    "volumes": {
+        "Autoresearch_Prediction": {
+            "image_zarr": "local_data/PHercParis2Fr47/surface_volume.zarr",
+            "label_zarr": "predictions/pred_10_1000_1000_64x64_ink.zarr"
+        }
+    }
+}
