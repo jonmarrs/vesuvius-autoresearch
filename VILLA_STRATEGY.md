@@ -43,7 +43,19 @@ This document outlines how we leverage and contribute to the official `ScrollPri
 *   **Action**: Created `scripts/launch_crackle_viewer.py` to bridge the gap between AI predictions and human review.
 *   **Impact**: Critical for the **First Title / First Letters** prize. Allows rapid manual confirmation of high-uncertainty regions identified by the sampler.
 
-### [Priority J] VC3D Unwrapping Environment (STATUS: LAUNCHER READY)
-*   **Action**: Created `scripts/launch_vc3d.py` to automate the official Docker-based cartography setup.
-*   **Impact**: Foundational for **Grand Prize** level unwrapping. Ensures our environment is 100% compatible with official Vesuvius Challenge data structures.
+## 5. Domain Adaptation & Open Problems (Stage 2 Advanced)
+*Tackling the remaining bottlenecks for full-scroll recovery.*
+
+### [Priority K] Uncertainty-Aware Mean Teacher (STATUS: STRATEGY DEFINED)
+*   **Action**: Use `villa/vesuvius/src/vesuvius/models/training/trainers/semi_supervised/train_uncertainty_aware_mean_teacher.py`.
+*   **Strategy**: Train with labeled Fragment 1 data and unlabeled Scroll 2/3 volumes to solve the "Domain Gap" problem. Use autoresearch to optimize `ema_decay` and `consistency_weight`.
+*   **Impact**: The most direct path to the **$200,000 Grand Prize** (90% coverage) by learning Scroll 2's unique texture from raw data.
+
+### [Priority L] Automated ARAP Parameterization (STATUS: STRATEGY DEFINED)
+*   **Action**: Integrate `vesuvius_c_wrapper` into the ARAP flattening scripts in `villa/volume-cartographer`.
+*   **Impact**: Accelerates the "Representation" open problem, qualifying for a **$10k-$20k Progress Prize** for Software Performance/Scalability.
+
+### [Priority M] Fast Domain Adaptation via nnUNet (STATUS: STRATEGY DEFINED)
+*   **Action**: Utilize `convert_nnunet_to_vesuvius.py` to package evolved models as official checkpoints.
+*   **Impact**: Establishes models as community "State of the Art," qualifying for the **$100,000 Reproducibility Prize**.
 
