@@ -6,6 +6,7 @@ import numpy as np
 from scripts.build_scroll23_search_queue import build_queue
 from scripts.rank_scroll23_candidates import rank_candidates, score_row
 from scripts.run_ranked_inference import build_predict_command, load_candidates
+from scripts.run_villa_prize_evidence_chain import build_evidence_chain
 from scripts.validate_prize_artifact import validate
 
 
@@ -252,3 +253,58 @@ def test_load_candidates_filters_missing_local_uri(tmp_path):
 
     assert len(loaded) == 1
     assert loaded[0]["local_uri"] == "local_data/a"
+
+
+def test_villa_prize_evidence_chain_validates_existing_prediction_artifacts(tmp_path):
+    ranked_path = tmp_path / "ranked.tsv"
+    out_dir = tmp_path / "evidence"
+    prediction_dir = out_dir / "predictions"
+    prediction_dir.mkdir(parents=True)
+    row = {
+        "review_score": "2.0",
+        "scroll_id": "Scroll 2",
+        "short_id": "PHerc0125",
+        "division": "div_100",
+        "local_uri": "local_data/PHerc0125_Divisions/div_100/0",
+        "z": "9000",
+        "y": "2048",
+        "x": "2048",
+        "width": "64",
+        "height": "64",
+        "patch_size": "64",
+        "voxel_um": "7.91",
+        "artifact_stem": "pred_9000_2048_2048_64x64",
+    }
+    with open(ranked_path, "w") as f:
+        f.write("\t".join(row.keys()) + "\n")
+        f.write("\t".join(row.values()) + "\n")
+
+    zarr_path = tmp_path / "prediction.zarr"
+    _write_json(
+        zarr_path / "meta.json",
+        {"format": "zarr", "voxelsize": 7.91, "height": 64, "width": 64, "slices": 1},
+    )
+    _write_json(zarr_path / "0" / ".zarray", {"shape": [1, 64, 64], "chunks": [1, 64, 64]})
+    (prediction_dir / "pred_9000_2048_2048_64x64.png").write_bytes(b"not-a-real-png-but-present")
+    _write_json(
+        prediction_dir / "pred_9000_2048_2048_64x64_meta.json",
+        {
+            "scroll_id": "unknown",
+            "source_uri": row["local_uri"],
+            "position_xyz": [0, 0, 0],
+            "patch_size": 64,
+            "width_px": 64,
+            "height_px": 64,
+            "voxel_size_um": 7.91,
+            "scale_bar_cm": True,
+            "vc3d_zarr_path": str(zarr_path),
+        },
+    )
+
+    report = build_evidence_chain(ranked_path, out_dir, execute=False)
+
+    assert report["status"] == "PASS"
+    assert (out_dir / "candidate.json").exists()
+    assert (out_dir / "predict_command.sh").exists()
+    assert (out_dir / "manifest.json").exists()
+    assert (out_dir / "PRIZE_READINESS_REPORT.json").exists()
