@@ -6,7 +6,7 @@ import numpy as np
 from scripts.build_scroll23_search_queue import build_queue
 from scripts.rank_scroll23_candidates import rank_candidates, score_row
 from scripts.run_ranked_inference import build_predict_command, load_candidates
-from scripts.run_villa_prize_evidence_chain import build_evidence_chain
+from scripts.run_villa_prize_evidence_chain import build_evidence_chain, preflight_evidence_chain
 from scripts.validate_prize_artifact import validate
 
 
@@ -308,3 +308,32 @@ def test_villa_prize_evidence_chain_validates_existing_prediction_artifacts(tmp_
     assert (out_dir / "predict_command.sh").exists()
     assert (out_dir / "manifest.json").exists()
     assert (out_dir / "PRIZE_READINESS_REPORT.json").exists()
+
+
+def test_villa_prize_evidence_chain_preflight_reports_missing_checkpoint_for_execute(tmp_path):
+    ranked_path = tmp_path / "ranked.tsv"
+    out_dir = tmp_path / "evidence"
+    row = {
+        "review_score": "2.0",
+        "scroll_id": "Scroll 2",
+        "short_id": "PHerc0125",
+        "division": "div_100",
+        "local_uri": str(tmp_path / "volume.zarr" / "0"),
+        "z": "9000",
+        "y": "2048",
+        "x": "2048",
+        "width": "64",
+        "height": "64",
+        "patch_size": "64",
+        "voxel_um": "7.91",
+        "artifact_stem": "pred_9000_2048_2048_64x64",
+    }
+    Path(row["local_uri"]).mkdir(parents=True)
+    with open(ranked_path, "w") as f:
+        f.write("\t".join(row.keys()) + "\n")
+        f.write("\t".join(row.values()) + "\n")
+
+    report = preflight_evidence_chain(ranked_path, out_dir, execute=True)
+
+    assert report["status"] == "FAIL"
+    assert any("best_model.pt is missing" in failure for failure in report["failures"])

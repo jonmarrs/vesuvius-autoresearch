@@ -17,6 +17,10 @@ from pathlib import Path
 
 import numpy as np
 
+REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
 from scripts.run_ranked_inference import build_predict_command, load_candidates
 from scripts.validate_prize_artifact import validate
 
@@ -161,14 +165,76 @@ def build_evidence_chain(
     return report
 
 
+def preflight_evidence_chain(ranked_path, out_dir, candidate_index=0, execute=False):
+    out_dir = Path(out_dir)
+    prediction_dir = out_dir / "predictions"
+    row = select_candidate(ranked_path, candidate_index)
+    stem = _artifact_stem(row)
+    image_path = prediction_dir / f"{stem}.png"
+    metadata_path = prediction_dir / f"{stem}_meta.json"
+    local_uri = row.get("local_uri")
+    failures = []
+    warnings = []
+
+    if not local_uri and execute:
+        failures.append("candidate has no local_uri; execute mode cannot run predict.py locally")
+    elif local_uri and not Path(local_uri).exists():
+        failures.append(f"candidate local_uri does not exist: {local_uri}")
+
+    if execute and not Path("best_model.pt").exists():
+        failures.append("best_model.pt is missing; run training or place a checkpoint before execute mode")
+
+    if not execute:
+        if not image_path.exists():
+            failures.append(f"existing prediction image is missing: {image_path}")
+        if not metadata_path.exists():
+            failures.append(f"existing prediction metadata is missing: {metadata_path}")
+
+    patch_size = _as_int(row, "patch_size", 64)
+    voxel_um = _as_float(row, "voxel_um", 7.91)
+    if patch_size > 64 and patch_size * voxel_um / 1000.0 > 0.5 + 1e-9:
+        failures.append(f"candidate ML window is not submittable: {patch_size}px at {voxel_um}um")
+    elif patch_size * voxel_um / 1000.0 > 0.5:
+        warnings.append(
+            f"candidate is {patch_size * voxel_um / 1000.0:.4f}mm; accepted only because it is <=64px per prize guidance"
+        )
+
+    return {
+        "status": "PASS" if not failures else "FAIL",
+        "ranked_path": str(ranked_path),
+        "out_dir": str(out_dir),
+        "candidate_index": candidate_index,
+        "candidate": row,
+        "execute": execute,
+        "expected_prediction_image": str(image_path),
+        "expected_prediction_metadata": str(metadata_path),
+        "failures": failures,
+        "warnings": warnings,
+    }
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--ranked", default="reports/scroll23_ranked_candidates.tsv")
     parser.add_argument("--candidate-index", type=int, default=0)
     parser.add_argument("--out-dir", default="submission_evidence/candidate_000")
     parser.add_argument("--execute", action="store_true", help="Run predict.py before validating")
+    parser.add_argument("--preflight", action="store_true", help="Only check prerequisites and write a preflight report")
+    parser.add_argument("--preflight-report", default=None)
     parser.add_argument("--python-executable", default=sys.executable)
     args = parser.parse_args()
+
+    if args.preflight:
+        report = preflight_evidence_chain(
+            ranked_path=args.ranked,
+            out_dir=args.out_dir,
+            candidate_index=args.candidate_index,
+            execute=args.execute,
+        )
+        if args.preflight_report:
+            _write_json(args.preflight_report, report)
+        print(json.dumps(report, indent=2))
+        raise SystemExit(0 if report["status"] == "PASS" else 1)
 
     report = build_evidence_chain(
         ranked_path=args.ranked,
