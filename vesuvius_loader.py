@@ -226,6 +226,7 @@ class VesuviusS3Dataset(torch.utils.data.Dataset):
 
     def __getitem__(self, idx):
         y0, x0 = self.valid_coords[idx]
+        rng = np.random.RandomState(idx + (self.seed or 0))
         z_depth = self.shape[0]
         z_request = min(self.num_layers, z_depth)
         z_range = z_depth - z_request

@@ -6,6 +6,7 @@ Generates a compliant submission package for the First Letters/Title Prize.
 import os
 import json
 import sys
+import argparse
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 
@@ -16,25 +17,37 @@ if REPO_ROOT not in sys.path:
 from scripts.validate_prize_artifact import validate
 
 def main():
-    out_dir = "submission_package_dry_run"
+    parser = argparse.ArgumentParser(description="Generate a First Letters/Title submission package.")
+    parser.add_argument("--prediction-image", default="predictions/pred_10_20_30.png")
+    parser.add_argument("--out-dir", default="submission_package_dry_run")
+    parser.add_argument("--scroll-id", default="Scroll 1 (Dry Run)")
+    parser.add_argument("--segmentation-id", default="20230509172439")
+    parser.add_argument("--position-xyz", default="1000,2000,3000")
+    parser.add_argument("--voxel-resolution-um", type=float, default=8.0)
+    parser.add_argument("--ml-window-px", type=int, default=64)
+    args = parser.parse_args()
+
+    out_dir = args.out_dir
     os.makedirs(out_dir, exist_ok=True)
     
     print("--- Generating First Letters Submission Package Dry-Run ---")
     
     # 1. Discovery Image with Scale Bar
     # Use a prediction image if available, else create a dummy
-    src_img_path = "predictions/pred_10_20_30.png"
+    src_img_path = args.prediction_image
+    source_image_is_placeholder = False
     if os.path.exists(src_img_path):
         img = Image.open(src_img_path).convert("RGBA")
         print(f"Loaded source image {src_img_path}")
     else:
-        print(f"Source image {src_img_path} not found. Creating dummy.")
+        print(f"Source image {src_img_path} not found. Creating placeholder dry-run image.")
         img = Image.new("RGBA", (2000, 1000), (50, 50, 50, 255))
+        source_image_is_placeholder = True
     
     # Draw Scale Bar
     # 1 cm = 10,000 um. At 8 um/voxel, 1 cm = 1250 pixels.
     draw = ImageDraw.Draw(img)
-    scale_px = 1250
+    scale_px = round(10000.0 / args.voxel_resolution_um)
     # Draw a line 1250px long at the bottom left
     bar_x_start = 50
     bar_y = img.height - 50
@@ -54,20 +67,27 @@ def main():
     print(f"Saved discovery image to {out_img_path}")
     
     # 2. Metadata (Segmentation ID, 3D Position, Window Size)
+    position_xyz = [int(part.strip()) for part in args.position_xyz.split(",")]
+    window_mm = args.ml_window_px * args.voxel_resolution_um / 1000.0
+    metadata_is_dry_run = "dry run" in args.scroll_id.lower()
     metadata = {
-        "scroll_id": "Scroll 1 (Dry Run)",
-        "segmentation_id": "20230509172439", # Example
-        "3d_position_xyz": [1000, 2000, 3000],
-        "patch_size": 64,
-        "window_width_px": 64,
-        "window_height_px": 64,
-        "ml_window_px": 64,
-        "voxel_resolution_um": 8,
-        "window_size_mm": "0.512 x 0.512 mm",
+        "scroll_id": args.scroll_id,
+        "segmentation_id": args.segmentation_id,
+        "3d_position_xyz": position_xyz,
+        "patch_size": args.ml_window_px,
+        "window_width_px": args.ml_window_px,
+        "window_height_px": args.ml_window_px,
+        "ml_window_px": args.ml_window_px,
+        "voxel_resolution_um": args.voxel_resolution_um,
+        "window_size_mm": f"{window_mm:.3f} x {window_mm:.3f} mm",
         "scale_bar_cm": True,
+        "source_image_path": src_img_path,
+        "source_image_is_placeholder": source_image_is_placeholder,
+        "metadata_is_dry_run": metadata_is_dry_run,
+        "evidence_mode": "placeholder_dry_run" if source_image_is_placeholder else "real_prediction",
         "train_mask_path": os.path.join(out_dir, "train_mask.npy"),
         "predict_mask_path": os.path.join(out_dir, "predict_mask.npy"),
-        "compliance_check": "PASS: Window size <= 64x64 at 8um"
+        "compliance_check": "64px local ML window per official Vesuvius Challenge guidance"
     }
     metadata_path = os.path.join(out_dir, "metadata.json")
     with open(metadata_path, "w") as f:
@@ -112,7 +132,12 @@ To ensure the text signals detected by our model are real carbonized ink and not
         json.dump(readiness_report, f, indent=2)
     print(f"Saved PRIZE_READINESS_REPORT.json ({readiness_report['status']})")
     
-    print("\nDry-run submission package successfully built!")
+    if readiness_report["status"] == "PASS":
+        print("\nSubmission package passed mechanical readiness checks.")
+    else:
+        print("\nSubmission package built, but it is NOT ready for submission.")
+        for failure in readiness_report["failures"]:
+            print(f" [!] {failure}")
     print("Checklist:")
     print(" [x] (a) single static discovery image")
     print(" [x] (b) scale bar showing 1 cm")

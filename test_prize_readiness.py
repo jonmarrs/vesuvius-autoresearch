@@ -95,6 +95,75 @@ def test_validate_prize_artifact_fails_on_train_predict_overlap(tmp_path):
     assert any("overlap" in failure for failure in report["failures"])
 
 
+def test_validate_prize_artifact_fails_on_placeholder_evidence(tmp_path):
+    train_mask = np.zeros((8, 8), dtype=bool)
+    predict_mask = np.zeros((8, 8), dtype=bool)
+    train_mask[:2, :2] = True
+    predict_mask[-2:, -2:] = True
+    train_mask_path = tmp_path / "train_mask.npy"
+    predict_mask_path = tmp_path / "predict_mask.npy"
+    np.save(train_mask_path, train_mask)
+    np.save(predict_mask_path, predict_mask)
+
+    metadata_path = tmp_path / "metadata.json"
+    _write_json(
+        metadata_path,
+        {
+            "scroll_id": "Scroll 2",
+            "source_uri": "local_data/PHerc0125_Divisions/div_100/0",
+            "position_xyz": [2048, 2048, 9000],
+            "patch_size": 64,
+            "width_px": 64,
+            "height_px": 64,
+            "voxel_size_um": 7.91,
+            "scale_bar_cm": True,
+            "train_mask_path": str(train_mask_path),
+            "predict_mask_path": str(predict_mask_path),
+            "source_image_is_placeholder": True,
+            "evidence_mode": "placeholder_dry_run",
+        },
+    )
+
+    report = validate(metadata_path)
+
+    assert report["status"] == "FAIL"
+    assert any("placeholder" in failure for failure in report["failures"])
+
+
+def test_validate_prize_artifact_fails_on_dry_run_metadata(tmp_path):
+    train_mask = np.zeros((8, 8), dtype=bool)
+    predict_mask = np.zeros((8, 8), dtype=bool)
+    train_mask[:2, :2] = True
+    predict_mask[-2:, -2:] = True
+    train_mask_path = tmp_path / "train_mask.npy"
+    predict_mask_path = tmp_path / "predict_mask.npy"
+    np.save(train_mask_path, train_mask)
+    np.save(predict_mask_path, predict_mask)
+
+    metadata_path = tmp_path / "metadata.json"
+    _write_json(
+        metadata_path,
+        {
+            "scroll_id": "Scroll 1 (Dry Run)",
+            "segmentation_id": "20230509172439",
+            "position_xyz": [1000, 2000, 3000],
+            "patch_size": 64,
+            "width_px": 64,
+            "height_px": 64,
+            "voxel_size_um": 8,
+            "scale_bar_cm": True,
+            "train_mask_path": str(train_mask_path),
+            "predict_mask_path": str(predict_mask_path),
+            "metadata_is_dry_run": True,
+        },
+    )
+
+    report = validate(metadata_path)
+
+    assert report["status"] == "FAIL"
+    assert any("dry-run" in failure for failure in report["failures"])
+
+
 def test_build_scroll23_search_queue_marks_64px_windows_submittable():
     rows = build_queue(divisions=[1.0], windows_per_division=1, patch_size=64, voxel_um=7.91)
 

@@ -86,6 +86,17 @@ def validate(metadata_path, train_mask=None, predict_mask=None, zarr_path=None):
         "metadata must declare a 1 cm scale bar",
         failures,
     )
+    _check(
+        not _as_bool(metadata.get("source_image_is_placeholder", False))
+        and metadata.get("evidence_mode") not in {"placeholder", "placeholder_dry_run", "dummy"},
+        "submission image is marked as a placeholder/dry-run artifact; real CT-derived prediction evidence is required",
+        failures,
+    )
+    _check(
+        not _as_bool(metadata.get("metadata_is_dry_run", False)),
+        "metadata is marked as dry-run/default; real scroll, segmentation, and 3D position metadata are required",
+        failures,
+    )
 
     train_mask_path = train_mask or metadata.get("train_mask_path")
     predict_mask_path = predict_mask or metadata.get("predict_mask_path")
