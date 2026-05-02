@@ -13,21 +13,15 @@ import sys
 import argparse
 import torch
 
-def main():
-    parser = argparse.ArgumentParser(description="Map Vesuvius-DINO to Grand Prize Inference Format")
-    parser.add_argument("--input", type=str, default="best_model.pt", help="Path to our best_model.pt")
-    parser.add_argument("--output", type=str, required=True, help="Path for the production-ready weight file")
-    args = parser.parse_args()
-
-    if not os.path.exists(args.input):
-        print(f"Error: {args.input} not found.")
-        sys.exit(1)
+def export_checkpoint(input_path, output_path):
+    if not os.path.exists(input_path):
+        raise FileNotFoundError(f"{input_path} not found")
 
     print(f"--- Vesuvius Autoresearch Production Export ---")
-    print(f"Converting: {args.input} -> {args.output}")
+    print(f"Converting: {input_path} -> {output_path}")
 
     # Load our checkpoint
-    checkpoint = torch.load(args.input, map_location="cpu", weights_only=False)
+    checkpoint = torch.load(input_path, map_location="cpu", weights_only=False)
     state_dict = checkpoint['model_state_dict']
 
     # The official villa inference engine expects model state to be wrapped
@@ -44,9 +38,23 @@ def main():
         }
     }
 
-    torch.save(prod_state, args.output)
+    torch.save(prod_state, output_path)
     print(f"\nSuccess! Model exported for production inference.")
     print(f"You can now use this model with the official villa inference container.")
+    return prod_state
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Map Vesuvius-DINO to Grand Prize Inference Format")
+    parser.add_argument("--input", type=str, default="best_model.pt", help="Path to our best_model.pt")
+    parser.add_argument("--output", type=str, required=True, help="Path for the production-ready weight file")
+    args = parser.parse_args()
+
+    try:
+        export_checkpoint(args.input, args.output)
+    except FileNotFoundError as exc:
+        print(f"Error: {exc}")
+        sys.exit(1)
 
 if __name__ == "__main__":
     main()
