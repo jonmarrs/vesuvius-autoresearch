@@ -32,6 +32,7 @@ run_result.json
 wandb/
 test_cache*/
 # Crash-recovery outputs; keep canonical best_model.pt and results.tsv tracked/visible.
+last_model.pt
 best_model.pt.corrupted
 results.tsv.corrupted
 smoke_test_config.json

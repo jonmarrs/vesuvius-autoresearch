@@ -19,7 +19,7 @@ def _as_int(row, key, default=0):
         return default
 
 
-def build_predict_command(row, python_executable=sys.executable, prediction_dir="predictions"):
+def build_predict_command(row, python_executable=sys.executable, prediction_dir="predictions", checkpoint="best_model.pt"):
     width = _as_int(row, "width", _as_int(row, "patch_size", 64))
     height = _as_int(row, "height", _as_int(row, "patch_size", 64))
     stem = row.get("artifact_stem") or f"pred_{_as_int(row, 'z')}_{_as_int(row, 'y')}_{_as_int(row, 'x')}_{width}x{height}"
@@ -50,6 +50,9 @@ def build_predict_command(row, python_executable=sys.executable, prediction_dir=
         output_img,
         "--metadata_out",
         metadata_out,
+        "--checkpoint",
+        checkpoint,
+        "--skip_active_learning",
     ]
 
 
@@ -76,13 +79,14 @@ def main():
     parser.add_argument("--ranked", default="reports/scroll23_ranked_candidates.tsv")
     parser.add_argument("--limit", type=int, default=8)
     parser.add_argument("--prediction-dir", default="predictions")
+    parser.add_argument("--checkpoint", default="best_model.pt")
     parser.add_argument("--manifest", default="reports/scroll23_inference_commands.sh")
     parser.add_argument("--execute", action="store_true", help="Run commands serially; default only writes/prints commands")
     parser.add_argument("--allow-missing-local-uri", action="store_true")
     args = parser.parse_args()
 
     rows = load_candidates(args.ranked, limit=args.limit, require_local=not args.allow_missing_local_uri)
-    commands = [build_predict_command(row, prediction_dir=args.prediction_dir) for row in rows]
+    commands = [build_predict_command(row, prediction_dir=args.prediction_dir, checkpoint=args.checkpoint) for row in rows]
     write_manifest(commands, args.manifest)
 
     print(f"Wrote {len(commands)} inference commands to {args.manifest}")

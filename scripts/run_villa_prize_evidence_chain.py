@@ -122,6 +122,7 @@ def build_evidence_chain(
     candidate_index=0,
     execute=False,
     python_executable=sys.executable,
+    checkpoint="best_model.pt",
 ):
     out_dir = Path(out_dir)
     prediction_dir = out_dir / "predictions"
@@ -129,7 +130,12 @@ def build_evidence_chain(
 
     row = select_candidate(ranked_path, candidate_index)
     stem = _artifact_stem(row)
-    cmd = build_predict_command(row, python_executable=python_executable, prediction_dir=str(prediction_dir))
+    cmd = build_predict_command(
+        row,
+        python_executable=python_executable,
+        prediction_dir=str(prediction_dir),
+        checkpoint=checkpoint,
+    )
     image_path = prediction_dir / f"{stem}.png"
     metadata_path = prediction_dir / f"{stem}_meta.json"
 
@@ -165,7 +171,7 @@ def build_evidence_chain(
     return report
 
 
-def preflight_evidence_chain(ranked_path, out_dir, candidate_index=0, execute=False):
+def preflight_evidence_chain(ranked_path, out_dir, candidate_index=0, execute=False, checkpoint="best_model.pt"):
     out_dir = Path(out_dir)
     prediction_dir = out_dir / "predictions"
     row = select_candidate(ranked_path, candidate_index)
@@ -181,8 +187,8 @@ def preflight_evidence_chain(ranked_path, out_dir, candidate_index=0, execute=Fa
     elif local_uri and not Path(local_uri).exists():
         failures.append(f"candidate local_uri does not exist: {local_uri}")
 
-    if execute and not Path("best_model.pt").exists():
-        failures.append("best_model.pt is missing; run training or place a checkpoint before execute mode")
+    if execute and not Path(checkpoint).exists():
+        failures.append(f"{checkpoint} is missing; run training or place a checkpoint before execute mode")
 
     if not execute:
         if not image_path.exists():
@@ -206,6 +212,7 @@ def preflight_evidence_chain(ranked_path, out_dir, candidate_index=0, execute=Fa
         "candidate_index": candidate_index,
         "candidate": row,
         "execute": execute,
+        "checkpoint": checkpoint,
         "expected_prediction_image": str(image_path),
         "expected_prediction_metadata": str(metadata_path),
         "failures": failures,
@@ -219,6 +226,7 @@ def main():
     parser.add_argument("--candidate-index", type=int, default=0)
     parser.add_argument("--out-dir", default="submission_evidence/candidate_000")
     parser.add_argument("--execute", action="store_true", help="Run predict.py before validating")
+    parser.add_argument("--checkpoint", default="best_model.pt")
     parser.add_argument("--preflight", action="store_true", help="Only check prerequisites and write a preflight report")
     parser.add_argument("--preflight-report", default=None)
     parser.add_argument("--python-executable", default=sys.executable)
@@ -230,6 +238,7 @@ def main():
             out_dir=args.out_dir,
             candidate_index=args.candidate_index,
             execute=args.execute,
+            checkpoint=args.checkpoint,
         )
         if args.preflight_report:
             _write_json(args.preflight_report, report)
@@ -242,6 +251,7 @@ def main():
         candidate_index=args.candidate_index,
         execute=args.execute,
         python_executable=args.python_executable,
+        checkpoint=args.checkpoint,
     )
     print(json.dumps(report, indent=2))
     raise SystemExit(0 if report["status"] == "PASS" else 1)

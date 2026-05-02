@@ -1031,6 +1031,20 @@ def train(config: ExperimentConfig):
         # Ensure filesystem sync
         if hasattr(os, 'sync'):
             os.sync()
+    else:
+        torch.save({
+            'model_state_dict': model.state_dict(),
+            'val_bpb': val_bpb,
+            'avg_skel_dist': avg_skel_dist,
+            'avg_centerline_dice': avg_centerline_dice,
+            'avg_cc_diff': avg_cc_diff,
+            'submittable': submittable,
+            'window_ok': window_ok,
+            'window_mm': window_mm,
+            'villa_metrics_ok': villa_metrics_ok,
+            'prize_gate_failures': prize_gate_failures,
+            'config': asdict(config)
+        }, 'last_model.pt')
     
     if not is_improvement: print("\n[RESULT] No improvement detected. Recommended: Revert.")
     else: print("\n[RESULT] Improvement detected! Recommended: Keep changes.")

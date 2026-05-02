@@ -236,6 +236,8 @@ def test_build_predict_command_uses_ranked_candidate_fields():
     assert "--output_img" in cmd
     assert "predictions/pred_9000_2048_2048_64x64.png" in cmd
     assert "predictions/pred_9000_2048_2048_64x64_meta.json" in cmd
+    assert "--checkpoint" in cmd
+    assert "best_model.pt" in cmd
 
 
 def test_load_candidates_filters_missing_local_uri(tmp_path):
@@ -333,7 +335,8 @@ def test_villa_prize_evidence_chain_preflight_reports_missing_checkpoint_for_exe
         f.write("\t".join(row.keys()) + "\n")
         f.write("\t".join(row.values()) + "\n")
 
-    report = preflight_evidence_chain(ranked_path, out_dir, execute=True)
+    missing_checkpoint = tmp_path / "missing_last_model.pt"
+    report = preflight_evidence_chain(ranked_path, out_dir, execute=True, checkpoint=str(missing_checkpoint))
 
     assert report["status"] == "FAIL"
-    assert any("best_model.pt is missing" in failure for failure in report["failures"])
+    assert any("missing_last_model.pt is missing" in failure for failure in report["failures"])

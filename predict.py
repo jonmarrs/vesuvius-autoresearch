@@ -95,13 +95,15 @@ def predict():
     parser.add_argument("--output_img", type=str, default=None, help="Force output image path")
     parser.add_argument("--metadata_out", type=str, default=None, help="Force prediction metadata JSON path")
     parser.add_argument("--voxel_size_um", type=float, default=7.91)
+    parser.add_argument("--checkpoint", type=str, default="best_model.pt", help="Model checkpoint to use for prediction")
+    parser.add_argument("--skip_active_learning", action="store_true", help="Skip optional proofreader uncertainty export")
     args = parser.parse_args()
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Loading volume from {args.uri}...")
 
     # Load trained model first to get the correct hyperparameters
-    checkpoint_path = "best_model.pt"
+    checkpoint_path = args.checkpoint
     if not os.path.exists(checkpoint_path):
         raise FileNotFoundError(f"Trained model not found at {checkpoint_path}. Please run training first.")
         
@@ -128,7 +130,7 @@ def predict():
     )
     
     # Initialize Ensemble
-    checkpoint_paths = ["best_model.pt"]
+    checkpoint_paths = [checkpoint_path]
     ensemble_models = []
     
     for path in checkpoint_paths:
@@ -207,18 +209,19 @@ def predict():
     prob_ink_final = full_prob_ink.cpu().numpy()
     prob_fiber_final = full_prob_fiber.cpu().numpy()
 
-    # Save results
-    os.makedirs("predictions", exist_ok=True)
     base_name = f"pred_{args.z}_{args.y}_{args.x}_{predict_width}x{predict_height}"
-    np.save(f"predictions/{base_name}_ink.npy", prob_ink_final)
-    np.save(f"predictions/{base_name}_fiber.npy", prob_fiber_final)
+    out_path = args.output_img if args.output_img else f"predictions/{base_name}.png"
+    output_dir = os.path.dirname(out_path) or "predictions"
+    os.makedirs(output_dir, exist_ok=True)
+    np.save(os.path.join(output_dir, f"{base_name}_ink.npy"), prob_ink_final)
+    np.save(os.path.join(output_dir, f"{base_name}_fiber.npy"), prob_fiber_final)
 
     # Save as Crackle-Viewer compatible PNG (8-bit grayscale)
     from PIL import Image
     ink_uint8 = (np.clip(prob_ink_final, 0, 1) * 255).astype(np.uint8)
-    Image.fromarray(ink_uint8).save(f"predictions/{base_name}_ink.png")
+    Image.fromarray(ink_uint8).save(os.path.join(output_dir, f"{base_name}_ink.png"))
     # Save as VC3D OME-Zarr
-    zarr_path = f"predictions/{base_name}_ink.zarr"
+    zarr_path = os.path.join(output_dir, f"{base_name}_ink.zarr")
     save_vc3d_zarr(
         zarr_path,
         ink_uint8,
@@ -228,20 +231,25 @@ def predict():
         origin_xyz=[int(args.x), int(args.y), int(args.z)],
     )
 
-    # Active Learning: Identify and export uncertain regions
-    from scripts.active_learning_sampler import identify_uncertain_patches
-    uncertain_mask = identify_uncertain_patches(full_prob_ink, threshold=0.2)
-    if uncertain_mask.sum() > 0:
-        from scripts.active_learning_sampler import export_for_proofreader
-        export_for_proofreader(uncertain_mask.unsqueeze(0), f"predictions/{base_name}_uncertain")
+    # Active Learning: optional proofreader export. Prize evidence generation
+    # should not fail if this auxiliary tool is not available.
+    if not args.skip_active_learning:
+        try:
+            from scripts.active_learning_sampler import identify_uncertain_patches, export_for_proofreader
+            uncertain_mask = identify_uncertain_patches(full_prob_ink, threshold=0.2)
+            if uncertain_mask.sum() > 0:
+                export_for_proofreader(uncertain_mask.unsqueeze(0), os.path.join(output_dir, f"{base_name}_uncertain"))
+        except ImportError as exc:
+            print(f"Warning: skipping active-learning export: {exc}")
 
     # Generate Visualization (using center CT slice of the whole region)
     # ...
 
     # Note: For very large regions, we'd need to fetch the CT slice in parts too.
     # For now, we fetch the middle slice of the entire requested area.
-    ct_full = dataset[args.z + num_layers // 2, args.y : args.y + predict_height, args.x : args.x + predict_width]
-    ct_slice = np.array(ct_full, dtype=np.float32) / 255.0
+    z_mid = args.z + num_layers // 2
+    ct_full = dataset[z_mid : z_mid + 1, args.y : args.y + predict_height, args.x : args.x + predict_width]
+    ct_slice = np.array(ct_full[0], dtype=np.float32)
 
     fig, axes = plt.subplots(1, 3, figsize=(15, 5))
     axes[0].imshow(ct_slice, cmap='gray')
@@ -268,7 +276,6 @@ def predict():
         ax.axis('off')
 
     plt.tight_layout()
-    out_path = args.output_img if args.output_img else f"predictions/{base_name}.png"
     plt.savefig(out_path)
     plt.close()
 
