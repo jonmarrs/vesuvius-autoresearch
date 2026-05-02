@@ -55,7 +55,20 @@ This document outlines how we leverage and contribute to the official `ScrollPri
 *   **Action**: Integrate `vesuvius_c_wrapper` into the ARAP flattening scripts in `villa/volume-cartographer`.
 *   **Impact**: Accelerates the "Representation" open problem, qualifying for a **$10k-$20k Progress Prize** for Software Performance/Scalability.
 
-### [Priority M] Fast Domain Adaptation via nnUNet (STATUS: STRATEGY DEFINED)
-*   **Action**: Utilize `convert_nnunet_to_vesuvius.py` to package evolved models as official checkpoints.
-*   **Impact**: Establishes models as community "State of the Art," qualifying for the **$100,000 Reproducibility Prize**.
+## 6. Foundation Models & Community Knowledge (Ultimate Tier)
+*Leveraging the full collective intelligence of the Vesuvius Challenge.*
+
+### [Priority N] LeJEPA Foundation Pretraining (STATUS: LAUNCHER READY)
+*   **Action**: Created `scripts/launch_lejepa.py` to interface with the official `lejepa` trainer.
+*   **Strategy**: Pretrain a single massive encoder on ALL unlabeled scroll volumes (Scrolls 1-4). This creates a "Foundation Model" for papyrus texture that makes fine-tuning on limited labels significantly more effective.
+*   **Impact**: Essential for the **$200,000 Grand Prize**. Foundation models are the only proven way to generalize across different scan energies.
+
+### [Priority O] RAG-Guided Autoresearch (STATUS: INTEGRATED)
+*   **Action**: Created `scripts/rag_researcher.py` using the official `Discord RAG Chatbot`.
+*   **Impact**: Allows the Autoresearch loop to "ask the community" for the best hyperparameters. Instead of a random search, we use AI to retrieve successful strategies from the Discord knowledge base, saving thousands of GPU hours.
+
+### [Priority P] 3D (Volumetric) Ink Detection (STATUS: STRATEGY DEFINED)
+*   **Action**: Implement a launcher for Ryan Chesler's 3D-only approach (bypassing unwrapping).
+*   **Impact**: A "Wildcard" strategy for the **First Letters Prize** in regions where segmentation is currently impossible.
+
 
