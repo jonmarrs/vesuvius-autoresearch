@@ -306,11 +306,14 @@ while True:
             f.flush()
             
             # Robust Process Management: use session group to kill all descendants
+            env_unbuffered = env.copy()
+            env_unbuffered["PYTHONUNBUFFERED"] = "1"
             p = subprocess.Popen(
                 f"uv run train.py --config {TEMP_CONFIG}",
-                shell=True, stdout=f, stderr=subprocess.STDOUT, env=env, text=True,
+                shell=True, stdout=f, stderr=subprocess.STDOUT, env=env_unbuffered, text=True,
                 start_new_session=True
             )
+            f.flush()
             active_child_p = p
             try:
                 p.wait(timeout=default_budget + 300) # 5 minute safety buffer
