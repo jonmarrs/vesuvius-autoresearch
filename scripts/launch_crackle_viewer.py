@@ -8,17 +8,20 @@ import sys
 import subprocess
 
 def main():
-    crackle_dir = os.path.abspath("villa/crackle-viewer")
-    
-    if not os.path.exists(crackle_dir):
-        print(f"Error: Crackle Viewer directory not found at {crackle_dir}")
+    PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+    crackle_dir = os.path.join(PROJECT_ROOT, "villa/crackle-viewer")
+    gui_script = os.path.join(crackle_dir, "view_gui.py")
+
+    if not os.path.exists(gui_script):
+        print(f"Error: Crackle Viewer not found at {gui_script}")
         sys.exit(1)
-        
-    print(f"--- Launching Crackle Viewer ---")
-    print("Please use the GUI to open your generated PNG/TIFF predictions located in predictions/.")
+
+    print("Launching Crackle Viewer...")
+    print("Usage: Use 'File -> Open' to load your prediction and base images.")
     
-    cmd = [sys.executable, "view_gui.py"]
     try:
+        # Run using the current virtual environment's python
+        cmd = [sys.executable, gui_script]
         subprocess.run(cmd, cwd=crackle_dir, check=True)
     except KeyboardInterrupt:
         print("\nExiting.")

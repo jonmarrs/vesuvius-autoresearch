@@ -39,7 +39,11 @@ This document outlines how we leverage and contribute to the official `ScrollPri
 *   **Action**: Integrated `VesuviusTimeSformer` (canonical GP configuration) into `vesuvius_model.py`.
 *   **Impact**: Provides a world-record baseline for ink detection. Judges will value the use of validated architectures.
 
-### [Priority H] SAM2 Active Learning Flywheel (STATUS: SAMPLER READY)
-*   **Action**: Created `scripts/active_learning_sampler.py` to identify low-confidence regions using the QC head and prediction entropy.
-*   **Impact**: Automates the discovery of data "edge cases." Facilitates the 15+ rounds of data cleaning required for a Grand Prize level submission.
+### [Priority I] Crackle-Viewer Inspection (STATUS: WRAPPER READY)
+*   **Action**: Created `scripts/launch_crackle_viewer.py` to bridge the gap between AI predictions and human review.
+*   **Impact**: Critical for the **First Title / First Letters** prize. Allows rapid manual confirmation of high-uncertainty regions identified by the sampler.
+
+### [Priority J] VC3D Unwrapping Environment (STATUS: LAUNCHER READY)
+*   **Action**: Created `scripts/launch_vc3d.py` to automate the official Docker-based cartography setup.
+*   **Impact**: Foundational for **Grand Prize** level unwrapping. Ensures our environment is 100% compatible with official Vesuvius Challenge data structures.
 
