@@ -35,6 +35,11 @@ This document outlines how we leverage and contribute to the official `ScrollPri
 ## 4. Automation & Scale (Stage 2 Goal)
 *Solving the unwrapping bottleneck.*
 
-### [Priority F] Mutex-Affinity for Thaumato (STATUS: PLUGIN READY)
-*   **Action**: Created `scripts/mutex_stitcher.py` for affinity-based sheet stitching.
-*   **Impact**: Direct solution for the "Sheet Stitching" bottleneck in the Thaumato roadmap.
+### [Priority G] Grand Prize TimeSformer (STATUS: IMPLEMENTED)
+*   **Action**: Integrated `VesuviusTimeSformer` (canonical GP configuration) into `vesuvius_model.py`.
+*   **Impact**: Provides a world-record baseline for ink detection. Judges will value the use of validated architectures.
+
+### [Priority H] SAM2 Active Learning Flywheel (STATUS: SAMPLER READY)
+*   **Action**: Created `scripts/active_learning_sampler.py` to identify low-confidence regions using the QC head and prediction entropy.
+*   **Impact**: Automates the discovery of data "edge cases." Facilitates the 15+ rounds of data cleaning required for a Grand Prize level submission.
+

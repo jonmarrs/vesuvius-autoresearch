@@ -81,37 +81,36 @@ class LearnedZProjection(nn.Module):
         return self.refine(x)
 
 class VesuviusTimeSformer(nn.Module):
-    """Adapter for the 2023 Grand Prize TimeSformer architecture."""
-    version = "2.5.1-timesformer"
+    """
+    Canonical 2023 Grand Prize winning TimeSformer architecture.
+    Adapter for the autoresearch loop with multi-task support.
+    """
+    version = "2.5.3-GP-Winner"
     def __init__(self, config: VesuviusConfig):
         super().__init__()
         self.config = config
-        self.version = "2.5.2-timesformer"
         import timesformer_pytorch
         
-        # Determine number of tokens in one spatial dimension
         self.num_tokens_side = config.patch_size // 16
         num_classes = self.num_tokens_side ** 2
         
         self.backbone = timesformer_pytorch.TimeSformer(
-            dim=512, 
+            dim=512, # Canonical GP dim
             image_size=config.patch_size,
             patch_size=16,
             num_frames=config.num_layers,
             num_classes=num_classes,
             channels=config.in_channels,
-            depth=getattr(config, 'num_blocks', 8), 
-            heads=getattr(config, 'num_heads', 8),
+            depth=8,  # Canonical GP depth
+            heads=6,  # Canonical GP heads
             dim_head=64,
-            attn_dropout=config.dropout,
-            ff_dropout=config.dropout,
+            attn_dropout=0.1,
+            ff_dropout=0.1,
         )
-        # TimeSformer often benefits from a BN3D pre-norm to stabilize the input Z-stack
         self.norm = nn.BatchNorm3d(num_features=config.in_channels)
         
-        # Multi-task heads for compatibility with Vesuvius Autoresearch pipeline
         self.ink_head = nn.Sequential(
-            nn.Conv2d(1, 1, kernel_size=3, padding=1) # Refinement
+            nn.Conv2d(1, 1, kernel_size=3, padding=1)
         )
         self.fiber_head = nn.Conv3d(config.in_channels, 1, kernel_size=1)
         self.qc_head = nn.Sequential(
@@ -123,37 +122,26 @@ class VesuviusTimeSformer(nn.Module):
     def forward(self, x, return_fiber=False, return_qc=False, return_proj=False, return_st=False, **kwargs):
         # x: [B, C, Z, H, W]
         B, C, Z, H, W = x.shape
-        
-        # BN3D expects [B, C, Z, H, W]
         x_norm = self.norm(x)
         
-        # TimeSformer lib expects [B, C, frames, H, W]
-        out = self.backbone(x_norm) # returns [B, num_classes]
+        # Space-Time Attention
+        out = self.backbone(x_norm) # [B, num_classes]
         
-        # Reshape 1D logits back to 2D grid
         out_2d = out.view(B, 1, self.num_tokens_side, self.num_tokens_side)
-        
-        # Upsample to full patch size (e.g. 64x64 or 256x256)
         out_full = F.interpolate(out_2d, size=(H, W), mode='bilinear', align_corners=False)
         out_full = self.ink_head(out_full)
         
         results = [out_full]
-        
         if return_fiber:
-            # TimeSformer doesn't natively produce 3D fiber features, return a projection
             results.append(self.fiber_head(x_norm))
         if return_qc:
             results.append(self.qc_head(out))
         if return_proj:
-            # Return the bottleneck features [B, 16]
             results.append(out)
         if return_st:
-            # Return dummy structure tensor
             results.append(torch.zeros((B, 6, Z, H, W), device=x.device))
             
-        if len(results) == 1:
-            return results[0]
-        return tuple(results)
+        return tuple(results) if len(results) > 1 else results[0]
 
 class InkDetectorOptimized(nn.Module):
     version = "2.5.0"
