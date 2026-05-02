@@ -63,6 +63,14 @@ class ExperimentConfig:
     dropout: float = 0.0
     pseudo_label_dir: Optional[str] = None
 
+    # Prize promotion gates. These keep best_model.pt aligned with villa review
+    # signals instead of promoting on Dice alone.
+    enforce_prize_gates: bool = True
+    min_prize_centerline_dice: float = 0.01
+    max_prize_skel_dist: float = 2.0
+    max_prize_cc_diff: float = 64.0
+    min_prize_topology_samples: int = 1
+
     def __post_init__(self):
         if self.uris is None:
             if self.uri is not None:
@@ -113,6 +121,58 @@ try:
 except ImportError:
     def compute_cc_diff(gt_bin, pred_bin):
         return 0
+
+def evaluate_prize_gates(
+    config: ExperimentConfig,
+    val_bpb: float,
+    avg_skel_dist: float,
+    avg_centerline_dice: float,
+    avg_cc_diff: float,
+    num_skel_samples: int,
+    num_centerline_samples: int,
+    num_cc_samples: int,
+) -> Dict[str, Union[bool, float, List[str]]]:
+    window_mm = config.patch_size * 8.0 / 1000.0
+    window_ok = config.patch_size <= 64 or window_mm <= 0.5 + 1e-9
+    failures = []
+
+    if not window_ok:
+        failures.append(f"ML window {config.patch_size}px/{window_mm:.3f}mm exceeds official prize guidance")
+    if not np.isfinite(val_bpb):
+        failures.append("val_bpb is not finite")
+    if not np.isfinite(avg_skel_dist):
+        failures.append("avg_skel_dist is not finite")
+    if not np.isfinite(avg_centerline_dice):
+        failures.append("avg_centerline_dice is not finite")
+    if not np.isfinite(avg_cc_diff):
+        failures.append("avg_cc_diff is not finite")
+
+    min_samples = int(getattr(config, "min_prize_topology_samples", 1))
+    if num_skel_samples < min_samples:
+        failures.append(f"only {num_skel_samples} skeleton-distance samples; expected >= {min_samples}")
+    if num_centerline_samples < min_samples:
+        failures.append(f"only {num_centerline_samples} centerline-dice samples; expected >= {min_samples}")
+    if num_cc_samples < min_samples:
+        failures.append(f"only {num_cc_samples} connected-component samples; expected >= {min_samples}")
+
+    min_centerline = float(getattr(config, "min_prize_centerline_dice", 0.0))
+    max_skel = float(getattr(config, "max_prize_skel_dist", float("inf")))
+    max_cc = float(getattr(config, "max_prize_cc_diff", float("inf")))
+    if np.isfinite(avg_centerline_dice) and avg_centerline_dice < min_centerline:
+        failures.append(f"avg_centerline_dice {avg_centerline_dice:.6f} below gate {min_centerline:.6f}")
+    if np.isfinite(avg_skel_dist) and avg_skel_dist > max_skel:
+        failures.append(f"avg_skel_dist {avg_skel_dist:.6f} above gate {max_skel:.6f}")
+    if np.isfinite(avg_cc_diff) and avg_cc_diff > max_cc:
+        failures.append(f"avg_cc_diff {avg_cc_diff:.3f} above gate {max_cc:.3f}")
+
+    villa_metrics_ok = not failures
+    return {
+        "window_ok": bool(window_ok),
+        "window_mm": float(window_mm),
+        "villa_metrics_ok": bool(villa_metrics_ok),
+        "submittable": bool(window_ok and villa_metrics_ok),
+        "failures": failures,
+    }
 
 # Add villa to path for ridge detection and structure tensors
 VILLA_SRC = os.path.abspath("villa/vesuvius/src")
@@ -873,18 +933,27 @@ def train(config: ExperimentConfig):
     avg_skel_dist = np.mean(val_skel_dists) if val_skel_dists else 1.0
     avg_centerline_dice = np.mean(val_centerline_dices) if val_centerline_dices else 0.0
     avg_cc_diff = np.mean(val_cc_diffs) if val_cc_diffs else 0.0
-    window_mm = config.patch_size * 8.0 / 1000.0
-    window_ok = config.patch_size <= 64 or window_mm <= 0.5 + 1e-9
-    villa_metrics_ok = (
-        not np.isnan(val_bpb)
-        and avg_centerline_dice >= 0.0
-        and avg_skel_dist >= 0.0
-        and avg_cc_diff >= 0.0
+    prize_gates = evaluate_prize_gates(
+        config,
+        val_bpb,
+        avg_skel_dist,
+        avg_centerline_dice,
+        avg_cc_diff,
+        len(val_skel_dists),
+        len(val_centerline_dices),
+        len(val_cc_diffs),
     )
+    window_mm = prize_gates["window_mm"]
+    window_ok = prize_gates["window_ok"]
+    villa_metrics_ok = prize_gates["villa_metrics_ok"]
+    submittable = prize_gates["submittable"]
+    prize_gate_failures = prize_gates["failures"]
     submittable = bool(window_ok and villa_metrics_ok)
     log_file = 'results.tsv'
     is_improvement = True
     if np.isnan(val_bpb): is_improvement = False
+    if getattr(config, "enforce_prize_gates", True) and not submittable:
+        is_improvement = False
     
     best_previous_val_bpb = 1.0
     if os.path.exists('best_model.pt'):
@@ -906,6 +975,8 @@ def train(config: ExperimentConfig):
     print(f"avg_centerline_dice:   {avg_centerline_dice:.6f}")
     print(f"avg_cc_diff:           {avg_cc_diff:.3f}")
     print(f"submittable:           {submittable} (window={window_mm:.3f}mm)")
+    if prize_gate_failures:
+        print("prize_gate_failures:   " + " | ".join(prize_gate_failures))
     print(f"train_loss:            {smooth_loss:.6f}")
     print(f"throughput_Mvps:       {throughput_Mvps:.2f}")
     sys.stdout.flush()
@@ -922,6 +993,7 @@ def train(config: ExperimentConfig):
             'window_ok': window_ok,
             'window_mm': window_mm,
             'villa_metrics_ok': villa_metrics_ok,
+            'prize_gate_failures': prize_gate_failures,
             'config': asdict(config)
         }, 'best_model.pt')
 
@@ -976,6 +1048,7 @@ def train(config: ExperimentConfig):
         "window_ok": bool(window_ok),
         "window_mm": float(window_mm),
         "villa_metrics_ok": bool(villa_metrics_ok),
+        "prize_gate_failures": prize_gate_failures,
         "is_success": bool(is_improvement)
     }
     
