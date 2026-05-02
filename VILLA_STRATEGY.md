@@ -71,4 +71,14 @@ This document outlines how we leverage and contribute to the official `ScrollPri
 *   **Action**: Implement a launcher for Ryan Chesler's 3D-only approach (bypassing unwrapping).
 *   **Impact**: A "Wildcard" strategy for the **First Letters Prize** in regions where segmentation is currently impossible.
 
+### [Priority Q] Graph-Based Sheet Stitching (STATUS: ALGORITHM MAPPED)
+*   **Discovery**: Found formal problem definition in `villa/thaumato-anakalyptor/documentation/Sheet_Stitching_Problem_Definition.pdf`.
+*   **Action**: Implement the winding-angle assignment function $f: N \to \mathbb{R}$ using the custom Random Walk or Viterbi algorithm suggested in the technical report.
+*   **Impact**: Solves the "Winding Gap" problem, allowing for the massive, multi-winding segments needed for the **$200,000 Grand Prize**.
+
+### [Priority R] Foundation Model Pretraining (STATUS: TRAINER MAPPED)
+*   **Discovery**: Official LeJEPA and MAE trainers located in `villa/vesuvius/src/vesuvius/models/training/trainers/self_supervised/`.
+*   **Action**: Execute large-scale self-supervised pretraining on **Scrolls 1-4** before finetuning on Fragments.
+*   **Impact**: Radical improvement in generalization. This is the "Foundation Model" approach that the Challenge organizers have explicitly called for in Stage Two.
+
 
