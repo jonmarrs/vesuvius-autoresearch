@@ -309,7 +309,7 @@ while True:
             env_unbuffered = env.copy()
             env_unbuffered["PYTHONUNBUFFERED"] = "1"
             p = subprocess.Popen(
-                f"uv run train.py --config {TEMP_CONFIG}",
+                f"uv run python -u train.py --config {TEMP_CONFIG}",
                 shell=True, stdout=f, stderr=subprocess.STDOUT, env=env_unbuffered, text=True,
                 start_new_session=True
             )
