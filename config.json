@@ -1,25 +1,25 @@
 {
-    "uri": "local_data/PHercParis2Fr47/surface_volume.zarr",
+    "uri": null,
     "uris": [
         "local_data/PHercParis2Fr47/surface_volume.zarr"
     ],
     "val_uri": "local_data/PHercParis2Fr143/surface_volume.zarr",
     "cache_dir": null,
     "use_ridges": false,
-    "ridge_sigma": 1.0,
+    "ridge_sigma": 2.0,
     "batch_size": 8,
     "patch_size": 64,
-    "num_layers": 32,
-    "lr": 0.0005,
+    "num_layers": 24,
+    "lr": 0.001,
     "weight_decay": 0.01,
     "time_budget": 900,
     "pinned": false,
     "loss_ink_bce": 0.4,
     "loss_ink_dice": 0.4,
-    "loss_fiber_bce": 0.1,
+    "loss_fiber_bce": 0.2,
     "loss_st": 0.1,
     "label_smoothing": 0.0,
-    "aug_mode": "batchgeneratorsv2",
+    "aug_mode": "albumentations",
     "aug_flip_p": 0.5,
     "aug_brightness_p": 0.75,
     "aug_affine_p": 0.75,
@@ -41,9 +41,15 @@
             "structure_tensor": 0.05
         }
     },
-    "architecture": "gated_unet",
+    "architecture": "resenc_unet",
     "base_feat": 64,
-    "num_blocks": 8,
-    "num_heads": 4,
-    "dropout": 0.2
+    "num_blocks": 16,
+    "num_heads": 8,
+    "dropout": 0.0,
+    "pseudo_label_dir": null,
+    "enforce_prize_gates": true,
+    "min_prize_centerline_dice": 0.01,
+    "max_prize_skel_dist": 2.0,
+    "max_prize_cc_diff": 64.0,
+    "min_prize_topology_samples": 1
 }
