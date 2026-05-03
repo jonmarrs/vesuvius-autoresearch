@@ -5,12 +5,12 @@
     "attention": 1.0,
     "regularization": 1.0,
     "batch": 1.0,
-    "spatial": 1.1749586829446221,
-    "temporal": 2.0,
+    "spatial": 1.116210748797391,
+    "temporal": 1.9,
     "width": 1.0,
-    "loss_balance": 8.776097011531363,
+    "loss_balance": 9.337292160954794,
     "features": 1.0,
-    "architecture": 3.400061874999999,
+    "architecture": 3.230058781249999,
     "baseline": 18,
     "iterative": 1.0
 }
