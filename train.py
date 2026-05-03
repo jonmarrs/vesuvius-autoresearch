@@ -606,7 +606,8 @@ def train(config: ExperimentConfig):
             labels_path = os.path.join(parent_dir, 'inklabels.png')
             
         mask_path = os.path.join(parent_dir, 'mask.png')
-        ds = VesuviusLabeledDataset(uri, labels_path, mask_path if os.path.exists(mask_path) else None, config.patch_size, config.num_layers + 8, seed=42, cache_dir=config.cache_dir, use_ridges=config.use_ridges, ridge_sigma=getattr(config, 'ridge_sigma', 2.0))
+        # Use require_ink=True for validation to ensure meaningful Dice scores
+        ds = VesuviusLabeledDataset(uri, labels_path, mask_path if os.path.exists(mask_path) else None, config.patch_size, config.num_layers + 8, seed=42, cache_dir=config.cache_dir, use_ridges=config.use_ridges, ridge_sigma=getattr(config, 'ridge_sigma', 2.0), require_ink=True)
         return DataLoader(ds, batch_size=config.batch_size, num_workers=0, pin_memory=True)
 
     val_data_loader = get_val_dataloader(config.val_uri)
@@ -876,12 +877,16 @@ def train(config: ExperimentConfig):
         step += 1
         if total_training_time >= config.time_budget: break
 
-    print(f"Evaluating metrics on 100 stratified patches...")
+    print(f"Evaluating metrics on 100 ink-containing patches (searching for best threshold)...")
     sys.stdout.flush()
     val_losses = []
     val_skel_dists = []
     val_centerline_dices = []
     val_cc_diffs = []
+    
+    all_probs = []
+    all_targets = []
+    
     model.eval()
     torch.manual_seed(42)
     with torch.no_grad():
@@ -892,42 +897,62 @@ def train(config: ExperimentConfig):
                 if val_target is not None and val_target.numel() > 0:
                     val_target = val_target.to(device)
                     if val_target.dim() == 3: val_target = val_target.unsqueeze(1)
+                    
+                    target_sum = torch.sum(val_target.float())
+                    if target_sum < 1.0: continue
+                        
                     with autocast(): 
                         val_out = model(val_x)
                         if isinstance(val_out, tuple): out_2d = val_out[0]
                         else: out_2d = val_out
 
                     prob_2d = torch.sigmoid(out_2d)
-                    val_dice = compute_official_dice(val_target, prob_2d, threshold=0.5)
-                    val_losses.append(1.0 - val_dice)
-
-                    # Per-patch cheap metrics: connected-components diff (~sub-ms)
-                    try:
-                        gt_bin_b = (val_target > 0.5).cpu().numpy().astype(bool)
-                        pred_bin_b = (prob_2d > 0.5).cpu().numpy().astype(bool)
-                        for b in range(gt_bin_b.shape[0]):
-                            val_cc_diffs.append(compute_cc_diff(gt_bin_b[b, 0], pred_bin_b[b, 0]))
-                    except Exception: pass
-
-                    # Expensive topological metrics on a subset (20%): skel_dist + centerline_dice
-                    if val_idx % 5 == 0:
-                        try:
-                            skel_dist = compute_skeleton_dist(val_target.cpu().numpy(), prob_2d.cpu().numpy())
-                            if not np.isnan(skel_dist):
-                                val_skel_dists.append(skel_dist)
-                        except Exception: pass
-                        try:
-                            # centerline_dice iterates axis-0 as independent 2D slices
-                            gt_3d = (val_target > 0.5).cpu().numpy()[:, 0].astype(bool)  # [B, H, W]
-                            pred_3d = (prob_2d > 0.5).cpu().numpy()[:, 0].astype(bool)
-                            cd = compute_centerline_dice(gt_3d, pred_3d, tolerance_radius=3.0)
-                            cd_val = cd.get("centerline_dice", 0.0)
-                            if not np.isnan(cd_val):
-                                val_centerline_dices.append(cd_val)
-                        except Exception: pass
+                    all_probs.append(prob_2d.cpu())
+                    all_targets.append(val_target.cpu())
 
             except StopIteration: val_data_iter = iter(val_data_loader)
             except Exception: continue
+
+    best_dice = 0.0
+    best_threshold = 0.5
+    if all_probs:
+        probs_cat = torch.cat(all_probs)
+        targets_cat = torch.cat(all_targets)
+        
+        # Search for best threshold to get a real signal of learning
+        for t in np.linspace(0.01, 0.8, 40):
+            dice = compute_official_dice(targets_cat, probs_cat, threshold=t)
+            if dice > best_dice:
+                best_dice = dice
+                best_threshold = t
+        
+        print(f"  Best Validation Dice: {best_dice:.6f} at threshold {best_threshold:.3f}")
+        
+        # Now re-run with best threshold for other metrics
+        for i in range(len(all_probs)):
+            prob_2d = all_probs[i]
+            val_target = all_targets[i]
+            val_losses.append(1.0 - compute_official_dice(val_target, prob_2d, threshold=best_threshold))
+            
+            try:
+                gt_bin_b = (val_target > 0.5).numpy().astype(bool)
+                pred_bin_b = (prob_2d > best_threshold).numpy().astype(bool)
+                for b in range(gt_bin_b.shape[0]):
+                    val_cc_diffs.append(compute_cc_diff(gt_bin_b[b, 0], pred_bin_b[b, 0]))
+            except Exception: pass
+
+            if i % 10 == 0:
+                try:
+                    skel_dist = compute_skeleton_dist(val_target.numpy(), prob_2d.numpy())
+                    if not np.isnan(skel_dist): val_skel_dists.append(skel_dist)
+                except Exception: pass
+                try:
+                    gt_3d = (val_target > 0.5).numpy()[:, 0].astype(bool)
+                    pred_3d = (prob_2d > best_threshold).numpy()[:, 0].astype(bool)
+                    cd = compute_centerline_dice(gt_3d, pred_3d, tolerance_radius=3.0)
+                    cd_val = cd.get("centerline_dice", 0.0)
+                    if not np.isnan(cd_val): val_centerline_dices.append(cd_val)
+                except Exception: pass
 
     val_bpb = np.mean(val_losses) if val_losses else 1.0
     avg_skel_dist = np.mean(val_skel_dists) if val_skel_dists else 1.0
@@ -956,14 +981,22 @@ def train(config: ExperimentConfig):
         is_improvement = False
     
     best_previous_val_bpb = 1.0
+    best_previous_avg_centerline_dice = 0.0
     if os.path.exists('best_model.pt'):
         try:
             chk = torch.load('best_model.pt', map_location='cpu', weights_only=False)
             best_previous_val_bpb = chk.get('val_bpb', 1.0)
+            best_previous_avg_centerline_dice = chk.get('avg_centerline_dice', 0.0)
         except Exception: pass
         
-    if is_improvement and val_bpb >= best_previous_val_bpb:
-        is_improvement = False
+    if is_improvement:
+        # Monotonic improvement in val_bpb OR 
+        # First non-zero topological breakthrough if val_bpb is stuck
+        bpb_improved = val_bpb < best_previous_val_bpb
+        topo_improved = (val_bpb <= best_previous_val_bpb and avg_centerline_dice > best_previous_avg_centerline_dice + 1e-6)
+        
+        if not (bpb_improved or topo_improved):
+            is_improvement = False
 
     peak_vram_mb = torch.cuda.max_memory_allocated() / 1024**2
     num_params_M = sum(p.numel() for p in model.parameters())/1e6

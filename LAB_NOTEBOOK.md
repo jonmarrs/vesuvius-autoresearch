@@ -178,7 +178,30 @@ Kick off the Day Shift Experiment Sprint after identifying and fixing critical b
 
 ---
 
+## [2026-05-03] Day Shift: Baseline Recovery & Pipeline Audit
+
+**Status:** ACTIVE
+
+### Purpose
+Investigate and resolve the "Zero-Dice" validation wall encountered during the recent Night Shift. Re-establish a stable `best_model.pt` and ensure the `villa` prize gates are correctly calibrated for early-stage autonomous exploration.
+
+### Strategy & Hypotheses
+*   **Hypothesis 1:** The model is failing to generalize from Fragment 47 to Fragment 143 due to divergent noise distributions or label styles, requiring stronger domain randomization.
+*   **Hypothesis 2:** The `enforce_prize_gates` logic is prematurely rejecting models that are learning but haven't yet passed the topological thresholds (0.01 centerline Dice).
+*   **Hypothesis 3:** A regression in `vesuvius_loader.py` or `train.py` (e.g., normalization or augmentation) is breaking the link between CT features and ink labels.
+
+### Key Tweaks
+*   [ ] Run "Overfit Test": Train and validate on the same fragment (Fr 47) to confirm the model *can* learn the local mapping.
+*   [ ] Temporal Slice Check: Verify that the 8-layer buffer in `vesuvius_loader.py` is correctly aligned with the `num_layers` expected by the model.
+*   [ ] Gate Relaxation: Temporarily disable `enforce_prize_gates` to see if `val_bpb` improves monotonically even without meeting prize-readiness criteria.
+
+### Outcomes & Insights
+*(To be populated)*
+
+---
+
 ## [2026-05-01] Day Shift: Villa Strategy & Search Initialization (v2.7.0)
+
 
 **Status:** ACTIVE
 

@@ -1,0 +1,10 @@
+{
+    "uris": ["local_data/PHercParis2Fr47/surface_volume.zarr"],
+    "val_uri": "local_data/PHercParis2Fr143/surface_volume.zarr",
+    "batch_size": 8,
+    "patch_size": 64,
+    "num_layers": 16,
+    "lr": 1e-3,
+    "time_budget": 900,
+    "enforce_prize_gates": false
+}

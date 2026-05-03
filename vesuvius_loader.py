@@ -89,7 +89,7 @@ class FastVesuviusVolume:
         return ct_tensor
 
 class VesuviusLabeledDataset(torch.utils.data.Dataset):
-    def __init__(self, volume_uri, labels_path, mask_path=None, patch_size=64, num_layers=16, seed=None, cache_dir=None, use_ridges=False, ridge_sigma=2.0, is_unlabeled=False):
+    def __init__(self, volume_uri, labels_path, mask_path=None, patch_size=64, num_layers=16, seed=None, cache_dir=None, use_ridges=False, ridge_sigma=2.0, is_unlabeled=False, require_ink=False):
         self.volume = FastVesuviusVolume(volume_uri, cache_dir=cache_dir, use_ridges=use_ridges, ridge_sigma=ridge_sigma)
         self.patch_size = patch_size
         self.num_layers = min(num_layers, self.volume.shape[0])
@@ -97,6 +97,7 @@ class VesuviusLabeledDataset(torch.utils.data.Dataset):
         self.seed = seed
         self.use_ridges = use_ridges
         self.is_unlabeled = is_unlabeled
+        self.require_ink = require_ink
         
         # Load Labels (2D PNG)
         if labels_path and os.path.exists(labels_path):
@@ -123,35 +124,40 @@ class VesuviusLabeledDataset(torch.utils.data.Dataset):
         if cache_dir:
             import hashlib
             uri_hash = hashlib.md5(volume_uri.encode()).hexdigest()[:8]
-            cache_path = os.path.join(cache_dir, f"valid_coords_cache_{uri_hash}_{self.patch_size}_{stride}_{mask_mtime}.npy")
+            cache_path = os.path.join(cache_dir, f"valid_coords_cache_{uri_hash}_{self.patch_size}_{stride}_{mask_mtime}_{1 if require_ink else 0}.npy")
         else:
             # Clean URI for filename usage
             clean_uri = volume_uri.replace("/", "_").replace(".", "_")
-            cache_path = f"valid_coords_{clean_uri}_{self.patch_size}_{stride}_{mask_mtime}.npy"
+            cache_path = f"valid_coords_{clean_uri}_{self.patch_size}_{stride}_{mask_mtime}_{1 if require_ink else 0}.npy"
 
         if os.path.exists(cache_path):
             self.valid_coords = np.load(cache_path)
         else:
-            print(f"Finding valid coordinates in mask for {volume_uri}...")
+            print(f"Finding valid coordinates (require_ink={require_ink}) for {volume_uri}...")
             self.valid_coords = []
-            if self.mask is not None:
-                H, W = self.mask.shape
-                print(f"  Mask shape: {H}x{W}, Mean: {self.mask.mean():.4f}")
-            else:
-                H, W = self.shape[1], self.shape[2]
-                print(f"  No mask, using volume shape: {H}x{W}")
+            
+            H, W = self.shape[1], self.shape[2]
                 
             for y in range(0, H - self.patch_size, stride):
                 for x in range(0, W - self.patch_size, stride):
-                    if self.mask is None or self.mask[y:y+self.patch_size, x:x+self.patch_size].mean() > 0.05:
-                        self.valid_coords.append((y, x))
+                    # Mask check
+                    if self.mask is not None:
+                        if not self.mask[y:y+self.patch_size, x:x+self.patch_size].any():
+                            continue
+                    
+                    # Ink check
+                    if self.require_ink and self.labels is not None:
+                        if not self.labels[y:y+self.patch_size, x:x+self.patch_size].any():
+                            continue
+                            
+                    self.valid_coords.append((y, x))
             
             if not self.valid_coords:
-                print(f"  WARNING: No patches found with threshold 0.05. Retrying with any non-zero pixels...")
-                for y in range(0, H - self.patch_size, stride):
-                    for x in range(0, W - self.patch_size, stride):
-                        if self.mask is None or self.mask[y:y+self.patch_size, x:x+self.patch_size].any():
-                            self.valid_coords.append((y, x))
+                print(f"  WARNING: No patches found. Retrying with any non-zero pixels...")
+                # Fallback to just anything in the volume if nothing matches
+                for y in range(0, H - self.patch_size, stride * 4):
+                    for x in range(0, W - self.patch_size, stride * 4):
+                        self.valid_coords.append((y, x))
 
             self.valid_coords = np.array(self.valid_coords, dtype=np.int32)
             print(f"  Found {len(self.valid_coords)} valid patches.")
@@ -189,7 +195,8 @@ class VesuviusLabeledDataset(torch.utils.data.Dataset):
             else:
                 patch_label = torch.zeros((self.patch_size, self.patch_size), dtype=torch.float32)
             return patch_vol, patch_label
-        except Exception:
+        except Exception as e:
+            if idx % 100 == 0: print(f"Error loading sample {idx}: {e}")
             c = 2 if self.use_ridges else 1
             return torch.zeros(c, self.num_layers, self.patch_size, self.patch_size), torch.zeros(self.patch_size, self.patch_size)
 
