@@ -91,8 +91,8 @@ success_counts = load_history()
 
 # Detect Shift
 current_hour = time.localtime().tm_hour
-shift_name = "DAY SHIFT"
-end_hour = 19
+shift_name = "NIGHT SHIFT"
+end_hour = 7
 default_budget = 3600
 
 os.makedirs("sprint_logs", exist_ok=True)
@@ -173,12 +173,12 @@ while True:
 
     if time.localtime().tm_hour == end_hour:
         print(f"{shift_name} end reached. Ending sprint.")
-        next_shift = "DAY SHIFT" if shift_name == "DAY SHIFT" else "DAY SHIFT"
+        next_shift = "NIGHT SHIFT" if shift_name == "NIGHT SHIFT" else "NIGHT SHIFT"
         with open(log_filename, "a") as log:
             log.write(f"\n## Sprint Completed at {time.strftime('%H:%M:%S')}\n")
             log.write(f"Transitioning to {next_shift}...\n")
             
-        if shift_name == "DAY SHIFT":
+        if shift_name == "NIGHT SHIFT":
             print("\n" + "="*60)
             print("ACTIVE LEARNING FLYWHEEL: It is highly recommended to run the Proofreader")
             print("on the latest predictions before starting the Day Shift.")
