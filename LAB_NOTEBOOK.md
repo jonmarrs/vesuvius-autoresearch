@@ -178,7 +178,28 @@ Kick off the Day Shift Experiment Sprint after identifying and fixing critical b
 
 ---
 
+## [2026-05-04] Day Shift: Rapid Iteration & Hyperparameter Fine-Tuning
+
+**Status:** ACTIVE
+
+### Purpose
+Transition back to Day Shift rapid (15m) iteration cycles to explore hyperparameter space more broadly, building on the Night Shift's generalization gains.
+
+### Strategy & Hypotheses
+*   **Hypothesis:** The model has gained stable topological performance; now focus on fine-tuning learning rates and augmentation strategies to push `avg_centerline_dice` above 0.2.
+*   **Cycles:** 15-minute cycles for broad hyperparameter exploration.
+
+### Key Tweaks
+*   [ ] Revert to 15-minute training budget.
+*   [ ] Focus on hyperparameter pruning based on Night Shift findings.
+
+### Outcomes & Insights
+*(To be populated)*
+
+---
+
 ## [2026-05-03] Night Shift: Long-Horizon Generalization Exploration
+...
 
 **Status:** ACTIVE
 
