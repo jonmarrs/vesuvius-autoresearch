@@ -9,14 +9,14 @@ def main():
     Launcher for official LeJEPA pretraining.
     Builds a foundation model from unlabeled scroll data.
     """
-    PROJECT_ROOT = os.path.abspath(os.path.dirname(__file__))
+    PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
     VILLA_PATH = os.path.join(PROJECT_ROOT, "villa/vesuvius/src")
     sys.path.append(VILLA_PATH)
     
     # Target unlabeled volumes (Scroll 2/3)
     UNLABELED_VOLUMES = [
-        "local_data/PHerc0125_Divisions/div_90/0",
-        "local_data/PHerc0125_Divisions/div_100/0"
+        os.path.join(PROJECT_ROOT, "local_data/PHerc0125_Divisions/div_90/0"),
+        os.path.join(PROJECT_ROOT, "local_data/PHerc0125_Divisions/div_100/0")
     ]
     
     config = {
@@ -35,7 +35,8 @@ def main():
             "lejepa_lambda": 0.02
         },
         "dataset_config": {
-            "volume_paths": [{"input": v} for v in UNLABELED_VOLUMES]
+            "data_format": "zarr",
+            "volumes": [{"image": v} for v in UNLABELED_VOLUMES]
         }
     }
     
