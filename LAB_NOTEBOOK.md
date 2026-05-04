@@ -178,7 +178,28 @@ Kick off the Day Shift Experiment Sprint after identifying and fixing critical b
 
 ---
 
+## [2026-05-03] Night Shift: Long-Horizon Generalization Exploration
+
+**Status:** ACTIVE
+
+### Purpose
+Transition from Day Shift rapid (15m) iteration to Night Shift sustained (1h) training cycles to improve cross-fragment generalization (Fr47 -> Fr143).
+
+### Strategy & Hypotheses
+*   **Hypothesis:** The model has successfully broken the 0.0 Dice barrier; now it needs more sustained gradient exposure to refine ink features on the validation fragment.
+*   **Cycles:** 1-hour cycles focusing on architecture stability and hyperparameter tuning.
+
+### Key Tweaks
+*   [ ] Increase training budget to 3600s.
+*   [ ] Keep ink-aware sampling and threshold search enabled.
+
+### Outcomes & Insights
+*(To be populated)*
+
+---
+
 ## [2026-05-03] Day Shift: Baseline Recovery & Pipeline Audit
+...
 
 **Status:** ACTIVE
 
