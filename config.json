@@ -15,7 +15,7 @@
     "time_budget": 3600,
     "pinned": false,
     "loss_ink_bce": 0.6,
-    "loss_ink_dice": 0.4,
+    "loss_ink_dice": 0.2,
     "loss_fiber_bce": 0.3,
     "loss_st": 0.1,
     "label_smoothing": 0.0,
