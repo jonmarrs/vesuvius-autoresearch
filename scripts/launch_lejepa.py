@@ -33,12 +33,14 @@ def main():
             "initial_lr": 5e-4,
             "weight_decay": 0.05,
             "batch_size": 2,
-            "patch_size": [64, 192, 192],
+            "patch_size": [32, 128, 128],
             "max_epoch": 100,
-            "lejepa_lambda": 0.02
+            "lejepa_lambda": 0.02,
+            "num_dataloader_workers": 0
         },
         "dataset_config": {
             "data_format": "zarr",
+            "num_workers": 0,
             "volumes": [{"image": v} for v in UNLABELED_VOLUMES]
         }
     }
