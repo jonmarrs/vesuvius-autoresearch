@@ -3,6 +3,11 @@ dataset_config:
   volumes:
   - image: /home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/local_data/PHerc0125_Divisions/div_90/0
   - image: /home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/local_data/PHerc0125_Divisions/div_100/0
+model_config:
+  patch_embed_size:
+  - 8
+  - 8
+  - 8
 tr_config:
   batch_size: 2
   initial_lr: 0.0005

@@ -25,6 +25,9 @@ def main():
             "ckpt_out_base": "./checkpoints/self_supervised/",
             "tr_val_split": 0.95
         },
+        "model_config": {
+            "patch_embed_size": [8, 8, 8]
+        },
         "tr_config": {
             "trainer": "lejepa",
             "initial_lr": 5e-4,
@@ -53,7 +56,8 @@ def main():
     cmd = [
         sys.executable,
         "villa/vesuvius/src/vesuvius/models/training/cli.py",
-        "--config", config_path
+        "--config", config_path,
+        "--trainer", "lejepa"
     ]
     
     # In a real environment, we'd run this:
