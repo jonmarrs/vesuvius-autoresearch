@@ -31,9 +31,9 @@ OFFICIAL_OPPORTUNITIES = [
         "title": "Scroll-specific 3D augmentations for model training",
         "track": "progress_and_first_letters",
         "villa_area": "resnet3d_decoder",
-        "local_hook": "train.py / train_part2.py augmentation pipeline",
+        "local_hook": "train.py scroll-specific 3D augmentation preset",
         "why_it_matters": "Targets cross-scroll generalization, the core weakness for First Letters and Title submissions.",
-        "next_action": "Add an augmentation preset for scroll curvature, z-jitter, layer dropout, and scan-intensity drift.",
+        "next_action": "Run ablations over aug_scroll_decohesion_p, aug_scroll_squeeze_p, aug_scroll_z_dropout_p, and aug_scroll_intensity_drift_p.",
         "base_score": 92,
     },
     {

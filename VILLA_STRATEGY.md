@@ -54,6 +54,11 @@ This document outlines how we leverage and contribute to the official `ScrollPri
 *   **Action**: Add an Autoresearch architecture adapter and export smoke test for the upstream 3D decoder contract. Treat this as the next high-value model family after the current TimeSformer/ResEnc UNet path.
 *   **Impact**: The upstream docs call out a 62-layer window with `TILE_SIZE=256` for tracked 3D-decoder checkpoints. This gives us a stronger cross-scroll context model for Scroll 2/3 review candidates while preserving an official inference path.
 
+### [Priority H.5] Scroll-Specific 3D Augmentations (STATUS: LOCAL PRESET ADDED)
+*   **Discovery**: Official Villa issue #201 asks for GPU-friendly augmentations that mimic scroll-specific artifacts: decohesion/smearing, warping, and squeezing/pulling.
+*   **Action**: `train.py` now exposes torch-native `aug_scroll_decohesion_p`, `aug_scroll_squeeze_p`, `aug_scroll_z_dropout_p`, and `aug_scroll_intensity_drift_p` controls. These run after the existing Villa-style augmentation path and preserve ink/fiber label alignment for spatial warps.
+*   **Impact**: Gives Autoresearch a direct search axis for cross-scroll generalization on Scroll 2/3, while keeping the implementation close to the official Progress Prize request.
+
 ### [Priority I] Crackle-Viewer Inspection (STATUS: WRAPPER READY)
 *   **Action**: Created `scripts/launch_crackle_viewer.py` to bridge the gap between AI predictions and human review.
 *   **Impact**: Critical for the **First Title / First Letters** prize. Allows rapid manual confirmation of high-uncertainty regions identified by the sampler.

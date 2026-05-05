@@ -135,3 +135,11 @@ readiness fields are written separately to `prize_readiness.tsv` and embedded in
 - `window_ok`
 - `window_mm`
 - `villa_metrics_ok`
+
+Scroll-specific 3D augmentations can be enabled in `ExperimentConfig` for
+Villa issue #201 ablations:
+
+- `aug_scroll_decohesion_p`
+- `aug_scroll_squeeze_p`
+- `aug_scroll_z_dropout_p`
+- `aug_scroll_intensity_drift_p`
