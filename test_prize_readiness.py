@@ -38,6 +38,26 @@ def test_validate_prize_artifact_passes_with_masks_and_vc3d_metadata(tmp_path):
         },
     )
     _write_json(zarr_path / "0" / ".zarray", {"shape": [1, 64, 64], "chunks": [1, 64, 64]})
+    _write_json(
+        zarr_path / ".zattrs",
+        {
+            "multiscales": [
+                {
+                    "axes": [
+                        {"name": "z", "type": "space", "unit": "micrometer"},
+                        {"name": "y", "type": "space", "unit": "micrometer"},
+                        {"name": "x", "type": "space", "unit": "micrometer"},
+                    ],
+                    "datasets": [
+                        {
+                            "path": "0",
+                            "coordinateTransformations": [{"type": "scale", "scale": [7.91, 7.91, 7.91]}],
+                        }
+                    ],
+                }
+            ]
+        },
+    )
 
     metadata_path = tmp_path / "metadata.json"
     _write_json(
@@ -61,6 +81,63 @@ def test_validate_prize_artifact_passes_with_masks_and_vc3d_metadata(tmp_path):
 
     assert report["status"] == "PASS"
     assert report["failures"] == []
+
+
+def test_validate_prize_artifact_fails_on_mismatched_ome_zarr_scale(tmp_path):
+    train_mask = np.zeros((8, 8), dtype=bool)
+    predict_mask = np.zeros((8, 8), dtype=bool)
+    train_mask[:2, :2] = True
+    predict_mask[-2:, -2:] = True
+    train_mask_path = tmp_path / "train_mask.npy"
+    predict_mask_path = tmp_path / "predict_mask.npy"
+    np.save(train_mask_path, train_mask)
+    np.save(predict_mask_path, predict_mask)
+
+    zarr_path = tmp_path / "prediction.zarr"
+    _write_json(zarr_path / "meta.json", {"format": "zarr", "voxelsize": 7.91, "height": 64, "width": 64, "slices": 1})
+    _write_json(zarr_path / "0" / ".zarray", {"shape": [1, 64, 64], "chunks": [1, 64, 64]})
+    _write_json(
+        zarr_path / ".zattrs",
+        {
+            "multiscales": [
+                {
+                    "axes": [
+                        {"name": "z", "type": "space", "unit": "micrometer"},
+                        {"name": "y", "type": "space", "unit": "micrometer"},
+                        {"name": "x", "type": "space", "unit": "micrometer"},
+                    ],
+                    "datasets": [
+                        {
+                            "path": "0",
+                            "coordinateTransformations": [{"type": "scale", "scale": [1.0, 1.0, 1.0]}],
+                        }
+                    ],
+                }
+            ]
+        },
+    )
+    metadata_path = tmp_path / "metadata.json"
+    _write_json(
+        metadata_path,
+        {
+            "scroll_id": "Scroll 2",
+            "source_uri": "local_data/PHerc0125_Divisions/div_100/0",
+            "position_xyz": [2048, 2048, 9000],
+            "patch_size": 64,
+            "width_px": 64,
+            "height_px": 64,
+            "voxel_size_um": 7.91,
+            "scale_bar_cm": True,
+            "train_mask_path": str(train_mask_path),
+            "predict_mask_path": str(predict_mask_path),
+            "vc3d_zarr_path": str(zarr_path),
+        },
+    )
+
+    report = validate(metadata_path)
+
+    assert report["status"] == "FAIL"
+    assert any("spatial scale" in failure for failure in report["failures"])
 
 
 def test_validate_prize_artifact_fails_on_train_predict_overlap(tmp_path):

@@ -130,6 +130,37 @@ def save_vc3d_zarr(base_path, array_uint8, name="prediction", voxel_size_um=7.91
     # Create Zarr group/array at scale '0'
     z = zarr.open(os.path.join(base_path, "0"), mode='w', shape=(1, *array_uint8.shape), chunks=(1, 256, 256), dtype='|u1')
     z[0] = array_uint8
+
+    zattrs = {
+        "multiscales": [
+            {
+                "name": name,
+                "axes": [
+                    {"name": "z", "type": "space", "unit": "micrometer"},
+                    {"name": "y", "type": "space", "unit": "micrometer"},
+                    {"name": "x", "type": "space", "unit": "micrometer"},
+                ],
+                "datasets": [
+                    {
+                        "path": "0",
+                        "coordinateTransformations": [
+                            {
+                                "type": "scale",
+                                "scale": [float(voxel_size_um), float(voxel_size_um), float(voxel_size_um)],
+                            },
+                            {
+                                "type": "translation",
+                                "translation": [float(v) for v in (origin_xyz or [0, 0, 0])],
+                            },
+                        ],
+                    }
+                ],
+                "version": "0.4",
+            }
+        ]
+    }
+    with open(os.path.join(base_path, ".zattrs"), "w") as f:
+        json.dump(zattrs, f, indent=2)
     
     # Create VC3D meta.json
     meta = {
@@ -147,9 +178,9 @@ def save_vc3d_zarr(base_path, array_uint8, name="prediction", voxel_size_um=7.91
         "origin_xyz": origin_xyz,
     }
     with open(os.path.join(base_path, "meta.json"), "w") as f:
-        json.dump(meta, f)
+        json.dump(meta, f, indent=2)
 
-def write_prediction_metadata(path, args, config_dict, zarr_path, output_img, ink_stats):
+def write_prediction_metadata(path, args, config_dict, zarr_path, output_img, ink_stats, fiber_zarr_path=None, fiber_stats=None):
     voxel_size_um = float(config_dict.get("voxel_size_um", config_dict.get("voxelsize", args.voxel_size_um)))
     patch_size = int(config_dict.get("patch_size", args.patch_size))
     metadata = {
@@ -168,9 +199,11 @@ def write_prediction_metadata(path, args, config_dict, zarr_path, output_img, in
         "ml_window_mm": patch_size * voxel_size_um / 1000.0,
         "scale_bar_cm": True,
         "vc3d_zarr_path": zarr_path,
+        "fiber_vc3d_zarr_path": fiber_zarr_path,
         "output_image_path": output_img,
         "model_config": config_dict,
         "ink_stats": ink_stats,
+        "fiber_stats": fiber_stats or {},
     }
     with open(path, "w") as f:
         json.dump(metadata, f, indent=2)
@@ -308,13 +341,24 @@ def predict():
     # Save as Crackle-Viewer compatible PNG (8-bit grayscale)
     from PIL import Image
     ink_uint8 = (np.clip(prob_ink_final, 0, 1) * 255).astype(np.uint8)
+    fiber_uint8 = (np.clip(prob_fiber_final, 0, 1) * 255).astype(np.uint8)
     Image.fromarray(ink_uint8).save(os.path.join(output_dir, f"{base_name}_ink.png"))
+    Image.fromarray(fiber_uint8).save(os.path.join(output_dir, f"{base_name}_fiber.png"))
     # Save as VC3D OME-Zarr
     zarr_path = os.path.join(output_dir, f"{base_name}_ink.zarr")
     save_vc3d_zarr(
         zarr_path,
         ink_uint8,
         name=f"Ink Prediction {base_name}",
+        voxel_size_um=args.voxel_size_um,
+        source_uri=args.uri,
+        origin_xyz=[int(args.x), int(args.y), int(args.z)],
+    )
+    fiber_zarr_path = os.path.join(output_dir, f"{base_name}_fiber.zarr")
+    save_vc3d_zarr(
+        fiber_zarr_path,
+        fiber_uint8,
+        name=f"Fiber Prediction {base_name}",
         voxel_size_um=args.voxel_size_um,
         source_uri=args.uri,
         origin_xyz=[int(args.x), int(args.y), int(args.z)],
@@ -379,6 +423,12 @@ def predict():
             "mean": float(prob_ink_final.mean()),
             "std": float(prob_ink_final.std()),
             "max": float(prob_ink_final.max()),
+        },
+        fiber_zarr_path=fiber_zarr_path,
+        fiber_stats={
+            "mean": float(prob_fiber_final.mean()),
+            "std": float(prob_fiber_final.std()),
+            "max": float(prob_fiber_final.max()),
         },
     )
 

@@ -63,6 +63,11 @@ This document outlines how we leverage and contribute to the official `ScrollPri
 *   **Action**: Use `uv run python scripts/build_lasagna_fiber_worklist.py` to produce `reports/lasagna_fiber_worklist.json`, then run structure-tensor and Lasagna preprocessing on the top occupied Scroll 2/3 candidates before feeding improved surfaces into the existing evidence chain.
 *   **Impact**: Better local surface geometry is the most direct way to turn our current non-empty but low-confidence candidates into papyrologist-reviewable First Letters/Title images.
 
+### [Priority J.5] VC3D Fiber Prediction Overlays (STATUS: LOCAL EXPORT ADDED)
+*   **Discovery**: Official Villa issue #369 asks for better VC3D use of fiber predictions; issue #497 calls out proper OME-Zarr scale metadata for review tools.
+*   **Action**: `predict.py` now writes `*_fiber.png`, `*_fiber.zarr`, `fiber_vc3d_zarr_path`, and `fiber_stats` beside the existing ink artifacts. `scripts/validate_prize_artifact.py` validates OME-Zarr spatial scale metadata when present.
+*   **Impact**: Autoresearch predictions now produce reviewable fiber overlays that can be loaded alongside ink evidence, improving human triage and creating a concrete Progress Prize contribution path for VC3D integration.
+
 ## 5. Domain Adaptation & Open Problems (Stage 2 Advanced)
 *Tackling the remaining bottlenecks for full-scroll recovery.*
 

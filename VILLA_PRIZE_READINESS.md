@@ -92,9 +92,9 @@ uv run python predict.py \
 
 - PNG discovery/context image with a scale bar
 - `*_ink.npy` and `*_fiber.npy`
-- `*_ink.png`
-- VC3D-compatible prediction Zarr with `meta.json`
-- metadata JSON with source URI, origin XYZ, voxel size, patch size, and ink stats
+- `*_ink.png` and `*_fiber.png`
+- VC3D-compatible ink and fiber prediction Zarrs with `meta.json` and OME-Zarr scale metadata
+- metadata JSON with source URI, origin XYZ, voxel size, patch size, ink stats, and fiber stats
 
 ## 3. Validate Prize Mechanics
 
@@ -113,7 +113,7 @@ The validator checks locally verifiable requirements:
 - `64x64` or smaller ML window
 - declared 1 cm scale bar
 - zero train/predict overlap when masks are provided
-- VC3D/Zarr metadata when a prediction Zarr is provided
+- VC3D/Zarr shape metadata and OME-Zarr spatial scale metadata when a prediction Zarr is provided
 
 ## 4. Generate a Dry-Run Package
 
