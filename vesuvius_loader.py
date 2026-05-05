@@ -17,7 +17,23 @@ for p in [VILLA_SRC, FIBER_TOOLS_PATH]:
     if p not in sys.path:
         sys.path.append(p)
 import tools as fiber_tools
-from vesuvius_c_wrapper.vesuvius_c import VesuviusVolume, FastLocalVolume
+try:
+    from vesuvius_c_wrapper.vesuvius_c import VesuviusVolume, FastLocalVolume
+except ImportError:
+    import zarr
+
+    class FastLocalVolume:
+        def __init__(self, path):
+            self.path = path
+            self.arr = zarr.open(path, mode="r")
+            self.shape = self.arr.shape
+
+        def get_chunk(self, z, y, x, depth, height, width):
+            return np.asarray(self.arr[z:z + depth, y:y + height, x:x + width])
+
+    class VesuviusVolume(FastLocalVolume):
+        def __init__(self, cache_dir=None, url=None):
+            super().__init__(url or cache_dir)
 
 Image.MAX_IMAGE_PIXELS = None
 

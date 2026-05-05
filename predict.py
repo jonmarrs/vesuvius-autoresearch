@@ -12,9 +12,105 @@ import torch.nn.functional as F
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
+import torch.nn as nn
 from vesuvius_model import InkDetectorOptimized, VesuviusConfig
 from vesuvius_loader import FastVesuviusVolume
 from scripts.swarm_voter import SwarmVoter
+
+try:
+    from dynamic_network_architectures.architectures.unet import ResidualEncoderUNet
+    from dynamic_network_architectures.building_blocks.helper import convert_dim_to_conv_op, get_matching_instancenorm
+except ImportError:
+    ResidualEncoderUNet = None
+
+
+def load_compatible_state_dict(model, state_dict):
+    model_state = model.state_dict()
+    compatible = {}
+    skipped = []
+    for key, value in state_dict.items():
+        if key in model_state and model_state[key].shape == value.shape:
+            compatible[key] = value
+        else:
+            skipped.append(key)
+    model.load_state_dict(compatible, strict=False)
+    if skipped:
+        print(f"Warning: skipped {len(skipped)} incompatible checkpoint tensors: {', '.join(skipped[:8])}")
+    return skipped
+
+
+class GenericMultiTaskWrapper(nn.Module):
+    def __init__(self, model):
+        super().__init__()
+        self.model = model
+        self.projector = nn.Sequential(
+            nn.AdaptiveAvgPool3d(1),
+            nn.Flatten(),
+            nn.Linear(1, 128),
+        )
+
+    def forward(self, x, return_fiber=False, return_qc=False, return_proj=False, return_st=False, **kwargs):
+        out = self.model(x)
+        if isinstance(out, (list, tuple)):
+            out = out[0]
+        if out.dim() == 5:
+            ink_2d = torch.mean(out, dim=2)
+        elif out.dim() == 2:
+            ink_2d = out.view(out.shape[0], out.shape[1], 1, 1).expand(-1, -1, x.shape[3], x.shape[4])
+        else:
+            ink_2d = out
+
+        results = [ink_2d]
+        if return_fiber:
+            results.append(out if out.dim() == 5 else out.unsqueeze(2))
+        if return_qc:
+            results.append(torch.zeros((x.shape[0], 1), device=x.device, dtype=ink_2d.dtype))
+        if return_proj:
+            proj_in = out if out.dim() == 5 else out.unsqueeze(2).unsqueeze(-1).unsqueeze(-1)
+            results.append(self.projector(proj_in))
+        if return_st:
+            results.append(torch.zeros((x.shape[0], 6, *x.shape[2:]), device=x.device, dtype=ink_2d.dtype))
+        return tuple(results) if len(results) > 1 else results[0]
+
+
+def build_prediction_model(config_dict, args, use_ridges):
+    architecture = config_dict.get("architecture", "gated_unet")
+    base_feat = config_dict.get("base_feat", args.base_feat)
+    v_config = VesuviusConfig(
+        patch_size=config_dict.get("patch_size", args.patch_size),
+        num_layers=config_dict.get("num_layers", args.num_layers),
+        base_feat=base_feat,
+        num_blocks=config_dict.get("num_blocks", 16),
+        num_heads=config_dict.get("num_heads", 8),
+        dropout=config_dict.get("dropout", 0.0),
+        in_channels=2 if use_ridges else 1,
+    )
+    if architecture == "resenc_unet":
+        if ResidualEncoderUNet is None:
+            raise ImportError("ResidualEncoderUNet is required for resenc_unet checkpoints")
+        n_stages = 3
+        features_per_stage = [base_feat * (2**i) for i in range(n_stages)]
+        strides = [[1, 1, 1]] + [[2, 2, 2]] * (n_stages - 1)
+        backbone = ResidualEncoderUNet(
+            input_channels=v_config.in_channels,
+            n_stages=n_stages,
+            features_per_stage=features_per_stage,
+            conv_op=convert_dim_to_conv_op(3),
+            kernel_sizes=[[3, 3, 3]] * n_stages,
+            strides=strides,
+            n_blocks_per_stage=[2] * n_stages,
+            num_classes=1,
+            n_conv_per_stage_decoder=[2] * (n_stages - 1),
+            conv_bias=True,
+            norm_op=get_matching_instancenorm(convert_dim_to_conv_op(3)),
+            norm_op_kwargs={"eps": 1e-5, "affine": True},
+            dropout_op=None,
+            nonlin=nn.LeakyReLU,
+            nonlin_kwargs={"inplace": True},
+            deep_supervision=False,
+        )
+        return GenericMultiTaskWrapper(backbone)
+    return InkDetectorOptimized(v_config)
 
 def get_weight_window(patch_size, device):
     """Generates a 2D Hanning window for soft-tiling."""
@@ -136,17 +232,10 @@ def predict():
     for path in checkpoint_paths:
         checkpoint = torch.load(path, map_location=device, weights_only=False)
         config_dict = checkpoint.get('config', {})
-        v_config = VesuviusConfig(
-            patch_size=config_dict.get('patch_size', args.patch_size),
-            num_layers=config_dict.get('num_layers', args.num_layers),
-            base_feat=config_dict.get('base_feat', args.base_feat),
-            num_blocks=config_dict.get('num_blocks', 16),
-            num_heads=config_dict.get('num_heads', 8),
-            dropout=config_dict.get('dropout', 0.0),
-            in_channels=2 if use_ridges else 1
-        )
-        model = InkDetectorOptimized(v_config).to(device)
-        model.load_state_dict(checkpoint['model_state_dict'], strict=False)
+        model = build_prediction_model(config_dict, args, use_ridges).to(device)
+        skipped = load_compatible_state_dict(model, checkpoint['model_state_dict'])
+        if len(skipped) > 8:
+            raise RuntimeError(f"checkpoint/model mismatch: skipped {len(skipped)} tensors")
         model.eval()
         ensemble_models.append(model)
     
