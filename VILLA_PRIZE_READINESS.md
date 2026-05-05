@@ -4,6 +4,20 @@ This repo uses the official `ScrollPrize/villa` checkout as the compatibility
 target for prize-facing outputs: OME-Zarr / VC3D metadata, official evaluation
 metrics, and reproducible Scroll 2/3 search queues.
 
+## 0. Audit the Official Villa Pin
+
+Before a prize sprint, refresh upstream metadata and audit our pinned Villa
+submodule:
+
+```bash
+git -C villa fetch origin main
+uv run python scripts/audit_villa_upstream.py
+```
+
+The report is written to `reports/villa_upstream_audit.json` and groups upstream
+changes by prize relevance: `lasagna`, optimized inference, ResNet3D decoder,
+VC3D / Volume Cartographer, Vesuvius data access, and current prize docs.
+
 ## 1. Build the Scroll 2/3 Search Queue
 
 ```bash
@@ -14,8 +28,10 @@ uv run python scripts/build_scroll23_search_queue.py \
 ```
 
 The queue prioritizes Scroll 2 (`PHerc0125`) and Scroll 3 (`PHerc0332`) windows
-for First Letters / First Title searches. It marks `64x64` ML windows as
-submittable under the official guidance and records any local division data.
+for First Letters / First Title searches. When local Zarr divisions are present,
+it seeds candidate windows from occupied chunks instead of placeholder center
+coordinates. It marks `64x64` ML windows as submittable under the official
+guidance and records any local division data.
 
 Rank the queue after predictions are available:
 
@@ -28,7 +44,9 @@ uv run python scripts/rank_scroll23_candidates.py \
 
 The ranking pass uses queue priority, core-scroll focus, local data availability,
 submittable-window status, and optional `*_ink.npy` / `*_fiber.npy` prediction
-statistics. It is metadata-only and does not run inference or download data.
+statistics. It also records local Zarr chunk occupancy and penalizes stale queue
+rows that point at missing chunks. It is metadata-only and does not run inference
+or download data.
 
 Generate exact inference commands for the top ranked rows:
 

@@ -5,6 +5,11 @@ This document outlines how we leverage and contribute to the official `ScrollPri
 ## 1. Technical Contributions (Progress Prize Track)
 *High-probability monthly awards ($1k - $20k) for solving official TODOs and bottlenecks.*
 
+### [Priority 0] Keep the Villa Pin Prize-Current (STATUS: AUDIT TOOL ADDED)
+*   **Discovery**: As of the May 5, 2026 audit, upstream `ScrollPrize/villa` has moved from our pinned `b8033c1b` to `289b946e`. The delta includes new `lasagna` tooling, optimized inference runtime contracts, ResNet3D + 3D decoder support, VC3D interaction/growth fixes, and updated prize docs.
+*   **Action**: Run `git -C villa fetch origin main` followed by `uv run python scripts/audit_villa_upstream.py` before prize sprints. Use `reports/villa_upstream_audit.json` to decide whether to update the submodule or selectively port compatibility changes.
+*   **Impact**: Prevents Autoresearch from optimizing against stale official APIs, which directly affects reproducible submission packaging and Progress Prize contribution timing.
+
 ### [Priority A] CuPy Acceleration for Fiber Tools (STATUS: IMPLEMENTED)
 *   **Gap**: `villa/foundation/datasets/fibers-dataset/tools.py` had explicit TODOs for GPU speedup.
 *   **Action**: Ported `hessian`, `detect_ridges`, `nms_3d`, and `detect_vesselness` to CuPy.
@@ -39,9 +44,19 @@ This document outlines how we leverage and contribute to the official `ScrollPri
 *   **Action**: Integrated `VesuviusTimeSformer` (canonical GP configuration) into `vesuvius_model.py`.
 *   **Impact**: Provides a world-record baseline for ink detection. Judges will value the use of validated architectures.
 
+### [Priority H] Upstream ResNet3D + 3D Decoder Runtime (STATUS: UPSTREAM MAPPED)
+*   **Discovery**: Current upstream `villa/ink-detection` adds `train_resnet3d_3d_decoder.py`, `inference_resnet3d_3d_decoder.py`, and optimized inference support for `MODEL_TYPE=resnet3d-152-3d-decoder`.
+*   **Action**: Add an Autoresearch architecture adapter and export smoke test for the upstream 3D decoder contract. Treat this as the next high-value model family after the current TimeSformer/ResEnc UNet path.
+*   **Impact**: The upstream docs call out a 62-layer window with `TILE_SIZE=256` for tracked 3D-decoder checkpoints. This gives us a stronger cross-scroll context model for Scroll 2/3 review candidates while preserving an official inference path.
+
 ### [Priority I] Crackle-Viewer Inspection (STATUS: WRAPPER READY)
 *   **Action**: Created `scripts/launch_crackle_viewer.py` to bridge the gap between AI predictions and human review.
 *   **Impact**: Critical for the **First Title / First Letters** prize. Allows rapid manual confirmation of high-uncertainty regions identified by the sampler.
+
+### [Priority J] Lasagna Surface-Fitting Pipeline (STATUS: UPSTREAM MAPPED)
+*   **Discovery**: Upstream Villa now exposes `lasagna/` as a first-class surface fitting, tifxyz, and 3D UNet training workflow, including conversion to VC3D OME-Zarr outputs.
+*   **Action**: Add a launcher that can run Lasagna preprocessing on the top occupancy-aware Scroll 2/3 candidates, export VC3D-compatible OME-Zarrs, and feed those surfaces into the existing evidence chain.
+*   **Impact**: Better local surface geometry is the most direct way to turn our current non-empty but low-confidence candidates into papyrologist-reviewable First Letters/Title images.
 
 ## 5. Domain Adaptation & Open Problems (Stage 2 Advanced)
 *Tackling the remaining bottlenecks for full-scroll recovery.*
@@ -80,5 +95,4 @@ This document outlines how we leverage and contribute to the official `ScrollPri
 *   **Discovery**: Official LeJEPA and MAE trainers located in `villa/vesuvius/src/vesuvius/models/training/trainers/self_supervised/`.
 *   **Action**: Execute large-scale self-supervised pretraining on **Scrolls 1-4** before finetuning on Fragments.
 *   **Impact**: Radical improvement in generalization. This is the "Foundation Model" approach that the Challenge organizers have explicitly called for in Stage Two.
-
 
