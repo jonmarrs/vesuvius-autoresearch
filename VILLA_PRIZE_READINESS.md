@@ -51,6 +51,18 @@ statistics. It also records local Zarr chunk occupancy and penalizes stale queue
 rows that point at missing chunks. It is metadata-only and does not run inference
 or download data.
 
+Build a Lasagna/fiber worklist for official Villa issue #191:
+
+```bash
+uv run python scripts/build_lasagna_fiber_worklist.py \
+  --ranked reports/scroll23_ranked_candidates.tsv \
+  --limit 12
+```
+
+This writes `reports/lasagna_fiber_worklist.json` and `.tsv`, filtering to
+submittable occupied local windows and adding commands for structure-tensor
+preprocessing plus follow-up evidence-chain runs.
+
 Generate exact inference commands for the top ranked rows:
 
 ```bash

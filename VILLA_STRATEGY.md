@@ -60,7 +60,7 @@ This document outlines how we leverage and contribute to the official `ScrollPri
 
 ### [Priority J] Lasagna Surface-Fitting Pipeline (STATUS: UPSTREAM MAPPED)
 *   **Discovery**: Upstream Villa now exposes `lasagna/` as a first-class surface fitting, tifxyz, and 3D UNet training workflow, including conversion to VC3D OME-Zarr outputs.
-*   **Action**: Add a launcher that can run Lasagna preprocessing on the top occupancy-aware Scroll 2/3 candidates, export VC3D-compatible OME-Zarrs, and feed those surfaces into the existing evidence chain.
+*   **Action**: Use `uv run python scripts/build_lasagna_fiber_worklist.py` to produce `reports/lasagna_fiber_worklist.json`, then run structure-tensor and Lasagna preprocessing on the top occupied Scroll 2/3 candidates before feeding improved surfaces into the existing evidence chain.
 *   **Impact**: Better local surface geometry is the most direct way to turn our current non-empty but low-confidence candidates into papyrologist-reviewable First Letters/Title images.
 
 ## 5. Domain Adaptation & Open Problems (Stage 2 Advanced)
