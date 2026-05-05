@@ -13,7 +13,7 @@ tr_config:
   batch_size: 2
   initial_lr: 0.0005
   lejepa_lambda: 0.02
-  max_epoch: 100
+  max_epoch: 10
   num_dataloader_workers: 0
   patch_size:
   - 32

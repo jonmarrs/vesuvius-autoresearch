@@ -43,3 +43,6 @@ scripts/curated_data/
 # Accidental local interpreter symlinks
 /python
 /python3
+
+# Model Checkpoints
+checkpoints/

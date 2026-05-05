@@ -34,7 +34,7 @@ def main():
             "weight_decay": 0.05,
             "batch_size": 2,
             "patch_size": [32, 128, 128],
-            "max_epoch": 100,
+            "max_epoch": 10,
             "lejepa_lambda": 0.02,
             "num_dataloader_workers": 0
         },
@@ -59,7 +59,8 @@ def main():
         sys.executable,
         "villa/vesuvius/src/vesuvius/models/training/cli.py",
         "--config", config_path,
-        "--trainer", "lejepa"
+        "--trainer", "lejepa",
+        "--max-epoch", "10"
     ]
     
     # In a real environment, we'd run this:
