@@ -1,0 +1,99 @@
+{
+  "source_audit": "reports/villa_upstream_audit.json",
+  "villa_local_ref": "b8033c1b911b0f5bbb3d3a90bf27219e50813604",
+  "villa_upstream_ref": "289b946e3f8b866406287a45b89c774012b1e8e0",
+  "villa_behind": true,
+  "opportunities": [
+    {
+      "id": "villa-issue-191",
+      "official_issue": "https://github.com/ScrollPrize/villa/issues/191",
+      "title": "Surface and fiber predictions in compressed or highly curved areas",
+      "track": "first_letters",
+      "villa_area": "lasagna",
+      "local_hook": "reports/scroll23_ranked_candidates.tsv + scripts/launch_crackle_viewer.py",
+      "why_it_matters": "Scroll 2/3 high-value candidates often sit in hard geometry where plain ink inference stays low confidence.",
+      "next_action": "Route high-occupancy, high-fiber candidates to Lasagna preprocessing before ink inference.",
+      "base_score": 98,
+      "priority_score": 110,
+      "villa_pin_status": "behind_upstream"
+    },
+    {
+      "id": "villa-issue-193",
+      "official_issue": "https://github.com/ScrollPrize/villa/issues/193",
+      "title": "Methods for generating surface, fiber, or ink labels",
+      "track": "progress_and_first_letters",
+      "villa_area": "lasagna",
+      "local_hook": "scripts/compute_structure_tensors.py + scripts/run_villa_prize_evidence_chain.py",
+      "why_it_matters": "Creates better supervision and review evidence for non-metal ink signals in Scrolls 2-3.",
+      "next_action": "Convert top occupancy-aware candidates into a label-generation worklist for Lasagna and Crackle review.",
+      "base_score": 95,
+      "priority_score": 107,
+      "villa_pin_status": "behind_upstream"
+    },
+    {
+      "id": "villa-issue-369",
+      "official_issue": "https://github.com/ScrollPrize/villa/issues/369",
+      "title": "VC3D integrate fiber predictions",
+      "track": "progress_prize",
+      "villa_area": "volume_cartographer",
+      "local_hook": "predict.py fiber outputs + VC3D-compatible Zarr metadata",
+      "why_it_matters": "Turns Autoresearch fiber predictions into a community-usable VC3D review layer.",
+      "next_action": "Export fiber maps beside ink maps as VC3D OME-Zarr overlays and document the viewer workflow.",
+      "base_score": 90,
+      "priority_score": 102,
+      "villa_pin_status": "behind_upstream"
+    },
+    {
+      "id": "villa-issue-203",
+      "official_issue": "https://github.com/ScrollPrize/villa/issues/203",
+      "title": "Whole-volume deformation from vertical fibers and large meshes",
+      "track": "progress_prize",
+      "villa_area": "volume_cartographer",
+      "local_hook": "scripts/register_volumes.py + generate_fiber_labels.py",
+      "why_it_matters": "Improves surface geometry and deformation correction, a blocker for legible Scroll 2/3 text.",
+      "next_action": "Prototype a deformation review metric that compares fiber coherence before/after registration.",
+      "base_score": 88,
+      "priority_score": 100,
+      "villa_pin_status": "behind_upstream"
+    },
+    {
+      "id": "villa-issue-201",
+      "official_issue": "https://github.com/ScrollPrize/villa/issues/201",
+      "title": "Scroll-specific 3D augmentations for model training",
+      "track": "progress_and_first_letters",
+      "villa_area": "resnet3d_decoder",
+      "local_hook": "train.py / train_part2.py augmentation pipeline",
+      "why_it_matters": "Targets cross-scroll generalization, the core weakness for First Letters and Title submissions.",
+      "next_action": "Add an augmentation preset for scroll curvature, z-jitter, layer dropout, and scan-intensity drift.",
+      "base_score": 92,
+      "priority_score": 97,
+      "villa_pin_status": "behind_upstream"
+    },
+    {
+      "id": "villa-issue-497",
+      "official_issue": "https://github.com/ScrollPrize/villa/issues/497",
+      "title": "vc_render_tifxyz OME-Zarr metadata scales",
+      "track": "progress_prize",
+      "villa_area": "volume_cartographer",
+      "local_hook": "scripts/validate_prize_artifact.py VC3D/Zarr checks",
+      "why_it_matters": "Correct scale metadata is a direct submission requirement because images need accurate 1 cm scale bars.",
+      "next_action": "Add a scale-metadata regression test using our prize artifact validator as the oracle.",
+      "base_score": 82,
+      "priority_score": 94,
+      "villa_pin_status": "behind_upstream"
+    },
+    {
+      "id": "villa-issue-192",
+      "official_issue": "https://github.com/ScrollPrize/villa/issues/192",
+      "title": "Accurate 3D ink labels",
+      "track": "progress_and_grand_prize",
+      "villa_area": "optimized_inference",
+      "local_hook": "scripts/smoke_test_villa_optimized_inference.py + scripts/validate_prize_artifact.py",
+      "why_it_matters": "Aligns our model outputs with official 3D labeling and reproducible inference expectations.",
+      "next_action": "Extend the optimized-inference smoke test to cover upstream 3D decoder model contracts.",
+      "base_score": 86,
+      "priority_score": 91,
+      "villa_pin_status": "behind_upstream"
+    }
+  ]
+}

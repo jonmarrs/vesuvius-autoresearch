@@ -12,11 +12,14 @@ submodule:
 ```bash
 git -C villa fetch origin main
 uv run python scripts/audit_villa_upstream.py
+uv run python scripts/plan_villa_prize_opportunities.py
 ```
 
 The report is written to `reports/villa_upstream_audit.json` and groups upstream
 changes by prize relevance: `lasagna`, optimized inference, ResNet3D decoder,
-VC3D / Volume Cartographer, Vesuvius data access, and current prize docs.
+VC3D / Volume Cartographer, Vesuvius data access, and current prize docs. The
+opportunity planner writes `reports/villa_prize_opportunities.json`, ranking
+official issue-backed work by prize impact and local Autoresearch hooks.
 
 ## 1. Build the Scroll 2/3 Search Queue
 

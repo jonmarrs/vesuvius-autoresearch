@@ -7,8 +7,13 @@ This document outlines how we leverage and contribute to the official `ScrollPri
 
 ### [Priority 0] Keep the Villa Pin Prize-Current (STATUS: AUDIT TOOL ADDED)
 *   **Discovery**: As of the May 5, 2026 audit, upstream `ScrollPrize/villa` has moved from our pinned `b8033c1b` to `289b946e`. The delta includes new `lasagna` tooling, optimized inference runtime contracts, ResNet3D + 3D decoder support, VC3D interaction/growth fixes, and updated prize docs.
-*   **Action**: Run `git -C villa fetch origin main` followed by `uv run python scripts/audit_villa_upstream.py` before prize sprints. Use `reports/villa_upstream_audit.json` to decide whether to update the submodule or selectively port compatibility changes.
+*   **Action**: Run `git -C villa fetch origin main`, `uv run python scripts/audit_villa_upstream.py`, and `uv run python scripts/plan_villa_prize_opportunities.py` before prize sprints. Use `reports/villa_upstream_audit.json` to decide whether to update the submodule or selectively port compatibility changes, then use `reports/villa_prize_opportunities.json` to pick the highest-impact official issue-backed task.
 *   **Impact**: Prevents Autoresearch from optimizing against stale official APIs, which directly affects reproducible submission packaging and Progress Prize contribution timing.
+
+### [Priority 0.5] Official Issue-Backed Prize Queue (STATUS: PLANNER ADDED)
+*   **Discovery**: Current official open issues include progress-prize candidates for whole-volume deformation (#203), scroll-specific 3D augmentations (#201), surface/fiber/ink label generation (#193), accurate 3D ink labels (#192), compressed/high-curvature surface and fiber prediction (#191), VC3D fiber prediction integration (#369), and OME-Zarr scale metadata (#497).
+*   **Action**: Use `reports/villa_prize_opportunities.json` as the Autoresearch sprint queue. The current top task is #191: route high-occupancy Scroll 2/3 candidates through Lasagna/fiber preprocessing before ink inference.
+*   **Impact**: Aligns local model work with public Progress Prize signals while also attacking the geometry bottleneck that keeps First Letters/Title candidates low-confidence.
 
 ### [Priority A] CuPy Acceleration for Fiber Tools (STATUS: IMPLEMENTED)
 *   **Gap**: `villa/foundation/datasets/fibers-dataset/tools.py` had explicit TODOs for GPU speedup.
@@ -95,4 +100,3 @@ This document outlines how we leverage and contribute to the official `ScrollPri
 *   **Discovery**: Official LeJEPA and MAE trainers located in `villa/vesuvius/src/vesuvius/models/training/trainers/self_supervised/`.
 *   **Action**: Execute large-scale self-supervised pretraining on **Scrolls 1-4** before finetuning on Fragments.
 *   **Impact**: Radical improvement in generalization. This is the "Foundation Model" approach that the Challenge organizers have explicitly called for in Stage Two.
-
