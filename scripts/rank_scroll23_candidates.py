@@ -13,6 +13,51 @@ from pathlib import Path
 import numpy as np
 
 
+def _read_zarr_array_info(local_uri):
+    if not local_uri:
+        return None
+    zarray_path = Path(local_uri) / ".zarray"
+    if not zarray_path.exists():
+        return None
+    try:
+        with open(zarray_path, "r") as f:
+            meta = json.load(f)
+    except (OSError, ValueError, TypeError):
+        return None
+    return {
+        "chunks": tuple(int(v) for v in meta["chunks"]),
+        "dimension_separator": meta.get("dimension_separator", "."),
+    }
+
+
+def _chunk_exists(local_uri, coord, dimension_separator):
+    root = Path(local_uri)
+    zc, yc, xc = coord
+    if dimension_separator == "/":
+        return (root / str(zc) / str(yc) / str(xc)).is_file()
+    return (root / f"{zc}.{yc}.{xc}").is_file()
+
+
+def _ct_occupancy_stats(row):
+    info = _read_zarr_array_info(row.get("local_uri"))
+    if not info:
+        return {"ct_occupied_status": "unknown", "ct_occupied": None}
+
+    chunks = info["chunks"]
+    width = int(_float(row, "width", _float(row, "patch_size", 64)))
+    height = int(_float(row, "height", _float(row, "patch_size", 64)))
+    z = int(_float(row, "z"))
+    y_center = int(_float(row, "y") + height / 2)
+    x_center = int(_float(row, "x") + width / 2)
+    coord = (z // chunks[0], y_center // chunks[1], x_center // chunks[2])
+    occupied = _chunk_exists(row.get("local_uri"), coord, info["dimension_separator"])
+    return {
+        "ct_occupied_status": "true" if occupied else "false",
+        "ct_occupied": occupied,
+        "ct_chunk_coord": ".".join(str(part) for part in coord),
+    }
+
+
 def _float(row, key, default=0.0):
     try:
         return float(row.get(key, default))
@@ -70,11 +115,13 @@ def _load_prediction_stats(prediction_dir, row):
 
 def score_row(row, prediction_dir="predictions"):
     stats = _load_prediction_stats(prediction_dir, row)
+    ct_stats = _ct_occupancy_stats(row)
     base_priority = _float(row, "priority", 1.0)
     div = row.get("division", "")
     core_bonus = 0.35 if div in {"div_90", "div_100"} else 0.0
     local_bonus = 0.15 if row.get("local_uri") else 0.0
     submittable_bonus = 0.25 if row.get("submittable_window") == "true" else -1.0
+    ct_occupancy_bonus = -2.0 if ct_stats["ct_occupied"] is False else 0.0
     prediction_bonus = 0.0
     if stats["prediction_found"]:
         # Favor sparse, high-confidence signal over broad foggy activations.
@@ -85,7 +132,7 @@ def score_row(row, prediction_dir="predictions"):
             - 0.5 * stats["ink_mean"]
         )
 
-    review_score = base_priority + core_bonus + local_bonus + submittable_bonus + prediction_bonus
+    review_score = base_priority + core_bonus + local_bonus + submittable_bonus + ct_occupancy_bonus + prediction_bonus
     out = dict(row)
     out.update(
         {
@@ -98,6 +145,8 @@ def score_row(row, prediction_dir="predictions"):
             "ink_hot_fraction": f"{stats['ink_hot_fraction']:.6f}",
             "fiber_mean": f"{stats['fiber_mean']:.6f}",
             "artifact_stem": _artifact_stem(row),
+            "ct_occupied_status": ct_stats["ct_occupied_status"],
+            "ct_chunk_coord": ct_stats.get("ct_chunk_coord", ""),
         }
     )
     return out
@@ -116,7 +165,7 @@ def rank_candidates(queue_path, out_path, prediction_dir="predictions", limit=No
     out_path.parent.mkdir(parents=True, exist_ok=True)
     if ranked:
         with open(out_path, "w", newline="") as f:
-            writer = csv.DictWriter(f, fieldnames=list(ranked[0].keys()), delimiter="\t")
+            writer = csv.DictWriter(f, fieldnames=list(ranked[0].keys()), delimiter="\t", lineterminator="\n")
             writer.writeheader()
             writer.writerows(ranked)
     else:

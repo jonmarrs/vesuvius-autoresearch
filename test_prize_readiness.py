@@ -3,7 +3,7 @@ from pathlib import Path
 
 import numpy as np
 
-from scripts.build_scroll23_search_queue import build_queue
+from scripts.build_scroll23_search_queue import build_queue, _occupied_windows
 from scripts.rank_scroll23_candidates import rank_candidates, score_row
 from scripts.run_ranked_inference import build_predict_command, load_candidates
 from scripts.run_villa_prize_evidence_chain import build_evidence_chain, preflight_evidence_chain
@@ -174,6 +174,31 @@ def test_build_scroll23_search_queue_marks_64px_windows_submittable():
     assert all(row["division"] == "div_100" for row in rows)
 
 
+def test_occupied_windows_uses_local_zarr_chunks(tmp_path):
+    zarr_path = tmp_path / "vol.zarr"
+    _write_json(
+        zarr_path / ".zarray",
+        {
+            "shape": [512, 512, 512],
+            "chunks": [128, 128, 128],
+            "dtype": "|u1",
+            "fill_value": 0,
+            "order": "C",
+            "filters": None,
+            "dimension_separator": "/",
+            "compressor": None,
+            "zarr_format": 2,
+        },
+    )
+    chunk_path = zarr_path / "2" / "3" / "1"
+    chunk_path.parent.mkdir(parents=True)
+    chunk_path.write_bytes(b"chunk")
+
+    windows = _occupied_windows(str(zarr_path), windows_per_division=1, patch_size=64)
+
+    assert windows == [(256, 416, 160)]
+
+
 def test_rank_scroll23_candidates_prefers_high_confidence_prediction(tmp_path):
     prediction_dir = tmp_path / "predictions"
     prediction_dir.mkdir()
@@ -216,6 +241,48 @@ def test_rank_candidates_writes_ranked_tsv(tmp_path):
     assert out_path.exists()
     assert len(ranked) == 2
     assert float(ranked[0]["review_score"]) >= float(ranked[1]["review_score"])
+
+
+def test_rank_scroll23_candidates_penalizes_empty_local_zarr_window(tmp_path):
+    zarr_path = tmp_path / "vol.zarr"
+    _write_json(
+        zarr_path / ".zarray",
+        {
+            "shape": [512, 512, 512],
+            "chunks": [128, 128, 128],
+            "dtype": "|u1",
+            "fill_value": 0,
+            "order": "C",
+            "filters": None,
+            "dimension_separator": "/",
+            "compressor": None,
+            "zarr_format": 2,
+        },
+    )
+    (zarr_path / "2" / "3").mkdir(parents=True)
+    (zarr_path / "2" / "3" / "1").write_bytes(b"chunk")
+    occupied = {
+        "priority": "1.0",
+        "scroll_id": "Scroll 2",
+        "short_id": "PHerc0125",
+        "division": "div_100",
+        "z": "256",
+        "y": "416",
+        "x": "160",
+        "width": "64",
+        "height": "64",
+        "patch_size": "64",
+        "submittable_window": "true",
+        "local_uri": str(zarr_path),
+    }
+    empty = dict(occupied, z="128", y="160", x="160")
+
+    occupied_scored = score_row(occupied, prediction_dir=tmp_path / "predictions")
+    empty_scored = score_row(empty, prediction_dir=tmp_path / "predictions")
+
+    assert occupied_scored["ct_occupied_status"] == "true"
+    assert empty_scored["ct_occupied_status"] == "false"
+    assert float(empty_scored["review_score"]) < float(occupied_scored["review_score"])
 
 
 def test_build_predict_command_uses_ranked_candidate_fields():

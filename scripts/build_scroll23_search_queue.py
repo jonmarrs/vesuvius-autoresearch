@@ -56,6 +56,78 @@ def _local_uri(short_id, div_name):
     return ""
 
 
+def _read_zarr_array_info(local_uri):
+    zarray_path = Path(local_uri) / ".zarray"
+    if not zarray_path.exists():
+        return None
+    with open(zarray_path, "r") as f:
+        meta = json.load(f)
+    return {
+        "shape": tuple(int(v) for v in meta["shape"]),
+        "chunks": tuple(int(v) for v in meta["chunks"]),
+        "dimension_separator": meta.get("dimension_separator", "."),
+    }
+
+
+def _occupied_chunk_coords(local_uri, limit=5000):
+    info = _read_zarr_array_info(local_uri)
+    if not info:
+        return []
+    root = Path(local_uri)
+    coords = []
+    if info["dimension_separator"] == "/":
+        for z_dir in root.iterdir():
+            if not z_dir.is_dir() or not z_dir.name.isdigit():
+                continue
+            for y_dir in z_dir.iterdir():
+                if not y_dir.is_dir() or not y_dir.name.isdigit():
+                    continue
+                for x_file in y_dir.iterdir():
+                    if x_file.is_file() and x_file.name.isdigit():
+                        coords.append((int(z_dir.name), int(y_dir.name), int(x_file.name)))
+                        if len(coords) >= limit:
+                            return coords
+    else:
+        for chunk_file in root.iterdir():
+            if not chunk_file.is_file():
+                continue
+            parts = chunk_file.name.split(".")
+            if len(parts) == 3 and all(part.isdigit() for part in parts):
+                coords.append(tuple(int(part) for part in parts))
+                if len(coords) >= limit:
+                    return coords
+    return coords
+
+
+def _occupied_windows(local_uri, windows_per_division, patch_size):
+    info = _read_zarr_array_info(local_uri)
+    coords = _occupied_chunk_coords(local_uri)
+    if not info or not coords:
+        return []
+
+    chunks = info["chunks"]
+    shape = info["shape"]
+    center = tuple(sum(coord[axis] for coord in coords) / len(coords) for axis in range(3))
+    coords = sorted(
+        coords,
+        key=lambda coord: sum((coord[axis] - center[axis]) ** 2 for axis in range(3)),
+    )
+    windows = []
+    seen = set()
+    for zc, yc, xc in coords:
+        z = min(max(0, zc * chunks[0]), max(0, shape[0] - 1))
+        y = min(max(0, yc * chunks[1] + chunks[1] // 2 - patch_size // 2), max(0, shape[1] - patch_size))
+        x = min(max(0, xc * chunks[2] + chunks[2] // 2 - patch_size // 2), max(0, shape[2] - patch_size))
+        key = (z, y, x)
+        if key in seen:
+            continue
+        seen.add(key)
+        windows.append(key)
+        if len(windows) >= windows_per_division:
+            break
+    return windows
+
+
 def build_queue(divisions, windows_per_division, patch_size, voxel_um, prediction_dir=None):
     rows = []
     window_mm = patch_size * voxel_um / 1000.0
@@ -68,13 +140,17 @@ def build_queue(divisions, windows_per_division, patch_size, voxel_um, predictio
             local_bonus = 0.25 if local_uri else 0.0
             pred_score = _prediction_score(prediction_dir, scroll_key, div_name)
 
-            # Use a deterministic center-biased grid. Actual shape-specific
-            # clipping is done at inference time by the loader.
+            occupied_windows = _occupied_windows(local_uri, windows_per_division, patch_size) if local_uri else []
             for rank_in_div in range(windows_per_division):
-                offset = rank_in_div - (windows_per_division // 2)
-                z = int(1000 + div * 8000)
-                y = int(2048 + offset * patch_size)
-                x = int(2048 - offset * patch_size)
+                if rank_in_div < len(occupied_windows):
+                    z, y, x = occupied_windows[rank_in_div]
+                else:
+                    # Fallback deterministic center-biased grid when no local
+                    # zarr occupancy is available.
+                    offset = rank_in_div - (windows_per_division // 2)
+                    z = int(1000 + div * 8000)
+                    y = int(2048 + offset * patch_size)
+                    x = int(2048 - offset * patch_size)
                 core_bonus = 0.35 if div >= 0.9 else 0.0
                 score = scroll["priority"] + core_bonus + local_bonus + pred_score
                 rows.append(
@@ -119,7 +195,7 @@ def main():
     out_path = Path(args.out)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     with open(out_path, "w", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=list(rows[0].keys()), delimiter="\t")
+        writer = csv.DictWriter(f, fieldnames=list(rows[0].keys()), delimiter="\t", lineterminator="\n")
         writer.writeheader()
         writer.writerows(rows)
 
