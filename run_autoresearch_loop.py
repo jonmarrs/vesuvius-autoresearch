@@ -179,7 +179,7 @@ while True:
 
     if time.localtime().tm_hour == end_hour:
         print(f"{shift_name} end reached. Ending sprint.")
-        next_shift = "NIGHT SHIFT" if shift_name == "NIGHT SHIFT" else "NIGHT SHIFT"
+        next_shift = "DAY SHIFT" if shift_name == "NIGHT SHIFT" else "NIGHT SHIFT"
         with open(log_filename, "a") as log:
             log.write(f"\n## Sprint Completed at {time.strftime('%H:%M:%S')}\n")
             log.write(f"Transitioning to {next_shift}...\n")
@@ -315,8 +315,8 @@ while True:
             env_unbuffered = env.copy()
             env_unbuffered["PYTHONUNBUFFERED"] = "1"
             p = subprocess.Popen(
-                f"uv run python -u train.py --config {TEMP_CONFIG}",
-                shell=True, stdout=f, stderr=subprocess.STDOUT, env=env_unbuffered, text=True,
+                ["uv", "run", "python", "-u", "train.py", "--config", TEMP_CONFIG],
+                stdout=f, stderr=subprocess.STDOUT, env=env_unbuffered, text=True,
                 start_new_session=True
             )
             f.flush()

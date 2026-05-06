@@ -6,13 +6,16 @@ import json
 import random
 import glob
 import numpy as np
+import shlex
 
 def run_command(cmd, log_file):
-    print(f"Running: {cmd}")
+    cmd_args = shlex.split(cmd) if isinstance(cmd, str) else cmd
+    cmd_display = " ".join(shlex.quote(str(part)) for part in cmd_args)
+    print(f"Running: {cmd_display}")
     with open(log_file, "a") as f:
-        f.write(f"\n--- Running: {cmd} ---\n")
+        f.write(f"\n--- Running: {cmd_display} ---\n")
     
-    result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+    result = subprocess.run(cmd_args, capture_output=True, text=True)
     
     with open(log_file, "a") as f:
         f.write(result.stdout)
