@@ -49,6 +49,23 @@ torch = [
     { index = "pytorch-cu128" },
 ]
 
+[tool.pytest.ini_options]
+testpaths = ["."]
+python_files = ["test_*.py"]
+norecursedirs = [
+    ".git",
+    ".venv",
+    "__pycache__",
+    "local_data",
+    "predictions",
+    "reports",
+    "submission_package_dry_run",
+    "test_cache",
+    "test_cache2",
+    "villa",
+    "wandb",
+]
+
 [[tool.uv.index]]
 name = "pytorch-cu128"
 url = "https://download.pytorch.org/whl/cu128"

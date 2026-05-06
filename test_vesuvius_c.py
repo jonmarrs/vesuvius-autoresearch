@@ -1,8 +1,10 @@
 
 import os
-import sys
-import numpy as np
-from vesuvius_c_wrapper.vesuvius_c import FastLocalVolume
+
+import pytest
+
+vesuvius_c = pytest.importorskip("vesuvius_c_wrapper.vesuvius_c")
+FastLocalVolume = vesuvius_c.FastLocalVolume
 
 def test_loading():
     path = 'local_data/PHercParis2Fr47/surface_volume.zarr/0'

@@ -1,8 +1,10 @@
 
 import os
-import sys
-import numpy as np
-from vesuvius_c_wrapper.vesuvius_c import VesuviusVolume
+
+import pytest
+
+vesuvius_c = pytest.importorskip("vesuvius_c_wrapper.vesuvius_c")
+VesuviusVolume = vesuvius_c.VesuviusVolume
 
 def test_vesuvius_volume():
     cache_dir = 'local_data/PHercParis2Fr47/surface_volume.zarr/0'

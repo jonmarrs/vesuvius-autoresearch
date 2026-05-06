@@ -123,9 +123,10 @@ class VesuviusTimeSformer(nn.Module):
         # x: [B, C, Z, H, W]
         B, C, Z, H, W = x.shape
         x_norm = self.norm(x)
+        video = x_norm.permute(0, 2, 1, 3, 4).contiguous()
         
         # Space-Time Attention
-        out = self.backbone(x_norm) # [B, num_classes]
+        out = self.backbone(video) # [B, num_classes]
         
         out_2d = out.view(B, 1, self.num_tokens_side, self.num_tokens_side)
         out_full = F.interpolate(out_2d, size=(H, W), mode='bilinear', align_corners=False)
