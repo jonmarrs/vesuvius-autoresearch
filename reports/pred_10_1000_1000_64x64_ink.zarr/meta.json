@@ -1,0 +1,18 @@
+{
+  "height": 64,
+  "max": 255.0,
+  "min": 0.0,
+  "name": "Ink Prediction pred_10_1000_1000_64x64",
+  "slices": 1,
+  "type": "vol",
+  "uuid": "400d5605-6d79-4c5f-8e85-82b7ead94cad",
+  "voxelsize": 7.91,
+  "width": 64,
+  "format": "zarr",
+  "source_uri": "local_data/PHercParis2Fr143/surface_volume.zarr",
+  "origin_xyz": [
+    1000,
+    1000,
+    10
+  ]
+}

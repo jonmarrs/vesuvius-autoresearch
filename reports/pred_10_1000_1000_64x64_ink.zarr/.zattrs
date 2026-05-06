@@ -1,0 +1,48 @@
+{
+  "multiscales": [
+    {
+      "name": "Ink Prediction pred_10_1000_1000_64x64",
+      "axes": [
+        {
+          "name": "z",
+          "type": "space",
+          "unit": "micrometer"
+        },
+        {
+          "name": "y",
+          "type": "space",
+          "unit": "micrometer"
+        },
+        {
+          "name": "x",
+          "type": "space",
+          "unit": "micrometer"
+        }
+      ],
+      "datasets": [
+        {
+          "path": "0",
+          "coordinateTransformations": [
+            {
+              "type": "scale",
+              "scale": [
+                7.91,
+                7.91,
+                7.91
+              ]
+            },
+            {
+              "type": "translation",
+              "translation": [
+                1000.0,
+                1000.0,
+                10.0
+              ]
+            }
+          ]
+        }
+      ],
+      "version": "0.4"
+    }
+  ]
+}

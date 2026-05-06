@@ -1,0 +1,18 @@
+{
+  "height": 64,
+  "max": 255.0,
+  "min": 0.0,
+  "name": "Fiber Prediction pred_10_1000_1000_64x64",
+  "slices": 1,
+  "type": "vol",
+  "uuid": "9a3380cb-2f8d-4b67-9a49-64833ab15deb",
+  "voxelsize": 7.91,
+  "width": 64,
+  "format": "zarr",
+  "source_uri": "local_data/PHercParis2Fr143/surface_volume.zarr",
+  "origin_xyz": [
+    1000,
+    1000,
+    10
+  ]
+}
