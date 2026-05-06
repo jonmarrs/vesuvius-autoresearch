@@ -775,7 +775,7 @@ def train(config: ExperimentConfig):
             
             # Check compatibility (architecture-defining attributes)
             arch_match = True
-            for attr in ['num_layers', 'num_blocks', 'num_heads', 'base_feat', 'patch_size']:
+            for attr in ['architecture', 'in_channels', 'num_layers', 'num_blocks', 'num_heads', 'base_feat', 'patch_size']:
                 if best_config.get(attr) != getattr(config, attr):
                     arch_match = False
                     break
