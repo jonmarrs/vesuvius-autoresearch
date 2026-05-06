@@ -218,15 +218,6 @@ wheels = [
 ]
 
 [[package]]
-name = "cachetools"
-version = "7.0.5"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/af/dd/57fe3fdb6e65b25a5987fd2cdc7e22db0aef508b91634d2e57d22928d41b/cachetools-7.0.5.tar.gz", hash = "sha256:0cd042c24377200c1dcd225f8b7b12b0ca53cc2c961b43757e774ebe190fd990", size = 37367, upload-time = "2026-03-09T20:51:29.451Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/06/f3/39cf3367b8107baa44f861dc802cbf16263c945b62d8265d36034fc07bea/cachetools-7.0.5-py3-none-any.whl", hash = "sha256:46bc8ebefbe485407621d0a4264b23c080cedd913921bad7ac3ed2f26c183114", size = 13918, upload-time = "2026-03-09T20:51:27.33Z" },
-]
-
-[[package]]
 name = "cattrs"
 version = "25.2.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1952,19 +1943,6 @@ wheels = [
 ]
 
 [[package]]
-name = "pynrrd"
-version = "1.1.3"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "numpy" },
-    { name = "typing-extensions" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/d7/88/5cf97e319ca11a2983938e6e486011166a4e580678cfe575d980146c74af/pynrrd-1.1.3.tar.gz", hash = "sha256:a331263bc9f05c3168182e61d6098e256a34e0fadbb7427a1d086d8942fbcbe0", size = 21679, upload-time = "2025-01-23T05:13:58.448Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/21/84/34fa17e364f8332021d4b0f75beecd4b95a76a41449e96ed0ddac5a767e0/pynrrd-1.1.3-py3-none-any.whl", hash = "sha256:21f7e370045e7ef8a86841965b2ff3a18937efbb4e2078e346168463f8f34b7e", size = 23486, upload-time = "2025-01-23T05:13:56.716Z" },
-]
-
-[[package]]
 name = "pyparsing"
 version = "3.3.2"
 source = { registry = "https://pypi.org/simple" }
@@ -2811,27 +2789,6 @@ wheels = [
 ]
 
 [[package]]
-name = "vesuvius"
-version = "0.2.4"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "cachetools" },
-    { name = "fsspec" },
-    { name = "numcodecs" },
-    { name = "numpy" },
-    { name = "pillow" },
-    { name = "pynrrd" },
-    { name = "pyyaml" },
-    { name = "requests" },
-    { name = "s3fs" },
-    { name = "zarr" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/11/06/b65d93b5357db7113e921c7122596c20d4c7b2bbcd48a77f35c617564a0b/vesuvius-0.2.4.tar.gz", hash = "sha256:e683521aac14feb23d07ccc6ce3cca7823df8d90c2d60efbd339830379a2d4e4", size = 938729, upload-time = "2026-03-04T13:12:52.536Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/e5/cf/7418dff5d22bd7292705654c7aae419436b2ce45522da9192837f48ccf28/vesuvius-0.2.4-py3-none-any.whl", hash = "sha256:d251c81b7b5e0bc1cc91589e9fdb6d795f71c4898161fa3b80e9fe52d27539a1", size = 1109407, upload-time = "2026-03-04T13:12:50.341Z" },
-]
-
-[[package]]
 name = "vesuvius-autoresearch"
 version = "0.1.0"
 source = { virtual = "." }
@@ -2868,7 +2825,6 @@ dependencies = [
     { name = "tiktoken" },
     { name = "timesformer-pytorch" },
     { name = "torch" },
-    { name = "vesuvius" },
     { name = "volumentations" },
     { name = "wandb" },
     { name = "warmup-scheduler" },
@@ -2911,7 +2867,6 @@ requires-dist = [
     { name = "tiktoken", specifier = ">=0.11.0" },
     { name = "timesformer-pytorch" },
     { name = "torch", specifier = "==2.9.1", index = "https://download.pytorch.org/whl/cu128" },
-    { name = "vesuvius", specifier = ">=0.2.4" },
     { name = "volumentations", specifier = ">=0.1.9" },
     { name = "wandb", specifier = ">=0.26.1" },
     { name = "warmup-scheduler" },

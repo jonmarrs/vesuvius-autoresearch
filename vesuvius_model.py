@@ -143,6 +143,49 @@ class VesuviusTimeSformer(nn.Module):
             
         return tuple(results) if len(results) > 1 else results[0]
 
+class LeJEPAUNet(nn.Module):
+    """
+    Wrapper for the official LeJEPA PrimusNetwork.
+    """
+    version = "1.0.0-LeJEPA"
+    def __init__(self, config: VesuviusConfig):
+        super().__init__()
+        self.config = config
+        from vesuvius.models.build.primus_wrapper import PrimusNetwork
+        from vesuvius.models.build.transformers.flash_rope import RotaryEmbeddingCat
+        
+        self.backbone = PrimusNetwork(
+            input_channels=config.in_channels,
+            config_name='S', # Match pretraining
+            patch_embed_size=(8, 8, 8),
+            input_shape=(config.num_layers, config.patch_size, config.patch_size),
+            targets={'ink': {'out_channels': 1, 'activation': 'none'}},
+            decoder_depth=2,
+            decoder_num_heads=12,
+            rope_impl=RotaryEmbeddingCat
+        )
+        
+    def forward(self, x, return_fiber=False, return_qc=False, return_proj=False, return_st=False, **kwargs):
+        # x: [B, C, Z, H, W]
+        out_dict = self.backbone(x)
+        out = out_dict['ink'] # [B, 1, Z, H, W]
+        
+        # Collapse Z dimension
+        out = torch.mean(out, dim=2) # [B, 1, H, W]
+        
+        results = [out]
+        if return_fiber:
+            # Placeholder, not supported natively by this config yet
+            results.append(torch.zeros_like(out))
+        if return_qc:
+            results.append(torch.zeros((out.shape[0], 1), device=out.device))
+        if return_proj:
+            results.append(out)
+        if return_st:
+            results.append(torch.zeros((out.shape[0], 6, x.shape[2], x.shape[3], x.shape[4]), device=x.device))
+            
+        return tuple(results) if len(results) > 1 else results[0]
+
 class InkDetectorOptimized(nn.Module):
     version = "2.5.0"
     def __init__(self, config: VesuviusConfig):

@@ -60,7 +60,7 @@ tweak_templates = [
     {"family": "features", "attr": "use_ridges", "vals": [True, False]},
     {"family": "features", "attr": "ridge_sigma", "vals": [1.0, 2.0, 3.0]},
     {"family": "features", "attr": "aug_mode", "vals": ["albumentations", "batchgeneratorsv2"]},
-    {"family": "architecture", "attr": "architecture", "vals": ["gated_unet", "timesformer", "resnet3d", "i3d", "resenc_unet"]},
+    {"family": "architecture", "attr": "architecture", "vals": ["lejepa_unet", "resenc_unet", "timesformer"]},
     {"family": "foundation", "attr": "foundation_model_path", "vals": [None, "checkpoints/lejepa_foundation_v1/lejepa_foundation_v1_final.pth"]},
     {"family": "iterative", "attr": "pseudo_label_dir", "vals": [None, "local_data/pseudo_labels"]}
 ]

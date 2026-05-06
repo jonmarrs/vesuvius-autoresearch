@@ -37,7 +37,6 @@ dependencies = [
     "tiktoken>=0.11.0",
     "timesformer-pytorch",
     "torch==2.9.1",
-    "vesuvius>=0.2.4",
     "volumentations>=0.1.9",
     "wandb>=0.26.1",
     "warmup-scheduler",

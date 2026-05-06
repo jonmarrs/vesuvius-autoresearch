@@ -735,6 +735,10 @@ def train(config: ExperimentConfig):
             model = GenericMultiTaskWrapper(backbone).to(device)
         else:
             raise ImportError("ResidualEncoderUNet not found. Please install dynamic-network-architectures.")
+    elif hasattr(v_config, 'architecture') and v_config.architecture == "lejepa_unet":
+        print("Instantiating LeJEPA Foundation-Backed UNet...")
+        from vesuvius_model import LeJEPAUNet
+        model = LeJEPAUNet(v_config).to(device)
     else:
         print("Instantiating Gated UNet-Transformer Architecture...")
         model = InkDetectorOptimized(v_config).to(device)
@@ -746,13 +750,19 @@ def train(config: ExperimentConfig):
         try:
             print(f"Loading pretrained backbone from {config.foundation_model_path}...")
             checkpoint = torch.load(config.foundation_model_path, map_location=device, weights_only=False)
-            # The checkpoint might contain 'model_state_dict' or be the state dict itself
-            state_dict = checkpoint.get('model_state_dict', checkpoint)
+            state_dict = checkpoint.get('model', checkpoint.get('model_state_dict', checkpoint))
             
             # Map weights to backbone if possible. This is highly architecture dependent.
-            # For now, we'll try a generic match.
-            model.load_state_dict(state_dict, strict=False)
-            print("  Pretrained backbone initialized.")
+            # For PrimusNetwork (LeJEPA), the encoder weights start with 'encoder.'
+            if hasattr(model, 'backbone') and hasattr(model.backbone, 'shared_encoder'):
+                # Extract encoder weights and strip 'encoder.' prefix
+                encoder_state = {k.replace('encoder.', ''): v for k, v in state_dict.items() if k.startswith('encoder.')}
+                res = model.backbone.shared_encoder.load_state_dict(encoder_state, strict=False)
+                print(f"  Pretrained LeJEPA backbone initialized: {len(encoder_state)} weights loaded.")
+                if res.missing_keys: print(f"  Missing keys in encoder: {len(res.missing_keys)}")
+            else:
+                model.load_state_dict(state_dict, strict=False)
+                print("  Generic pretrained backbone initialized.")
         except Exception as e:
             print(f"Warning: Could not load foundation model: {e}")
 

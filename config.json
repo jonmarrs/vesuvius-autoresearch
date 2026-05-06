@@ -45,7 +45,7 @@
             "structure_tensor": 0.05
         }
     },
-    "architecture": "resenc_unet",
+    "architecture": "lejepa_unet",
     "base_feat": 64,
     "num_blocks": 16,
     "num_heads": 8,

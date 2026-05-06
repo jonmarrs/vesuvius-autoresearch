@@ -1,12 +1,12 @@
 {
   "villa_dir": "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/villa",
   "local_ref": "b8033c1b911b0f5bbb3d3a90bf27219e50813604",
-  "upstream_ref": "289b946e3f8b866406287a45b89c774012b1e8e0",
+  "upstream_ref": "9f2476386855f209e8964ee152da33787f6d25cc",
   "behind": true,
-  "changed_files": 539,
+  "changed_files": 553,
   "prize_relevant_areas": {
     "lasagna": {
-      "changed_files": 150,
+      "changed_files": 161,
       "sample_paths": [
         "lasagna/README.md",
         "lasagna/analyze_zarr_channels.py",
@@ -45,7 +45,7 @@
       "prize_use": "Tracked 3D decoder baseline for thicker-layer context and stronger cross-scroll generalization."
     },
     "volume_cartographer": {
-      "changed_files": 314,
+      "changed_files": 316,
       "sample_paths": [
         "volume-cartographer/CMakeLists.txt",
         "volume-cartographer/CMakePresets.json",
@@ -81,6 +81,10 @@
     }
   },
   "recent_upstream_commits": [
+    "9f2476386 Close volume viewers / perf imrpovements in plane sampling (#877)",
+    "827f42be1 actual move plane pos when shift+scroll instead of zoff (#874)",
+    "c950768cd chunk scale fallback to allow partial and low res zarrs to render fine (#872)",
+    "09b1fee00 L3d flow fastloader (#871)",
     "289b946e3 ui: run applyRotation save on a worker thread (#870)",
     "f00638aae Fix approval mask drift and SegmentationEditManager segfault (#864)",
     "c650d427a cleanup: remove deprecated remote_volumes.json mechanism (#869)",
@@ -96,10 +100,6 @@
     "fa3e79e8f Add vc_merge_tifxyz: N-way tifxyz surface merge tool (#854)",
     "1d2bdcace defaultCacheBase: also accept /volpkgs as fast cache root (#856)",
     "9305b6093 Crash handler with rich diagnostics + move volpkg convert into vc_core (#855)",
-    "465e67955 JSON based volpkgs (#852)",
-    "ec03bd9d8 Vc lasagna3d abspoints (#853)",
-    "97cbfe22e Rtree build and mem (#843)",
-    "e5f7e7bfd Update CAdaptiveVolumeViewer.cpp (#842)",
-    "bfb5355ef Tracer infill (#841)"
+    "465e67955 JSON based volpkgs (#852)"
   ]
 }

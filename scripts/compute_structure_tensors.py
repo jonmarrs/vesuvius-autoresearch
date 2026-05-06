@@ -45,10 +45,9 @@ def main():
     # We call the official structure tensor script
     cmd = [
         "python3", run_script,
-        "--input", args.input,
-        "--output", args.output,
+        "--volume", args.input,
+        "--output_dir", args.output,
         "--sigma", str(args.sigma),
-        "--rho", str(args.rho),
         "--gpus", args.gpus
     ]
     

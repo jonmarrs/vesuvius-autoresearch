@@ -1,7 +1,7 @@
 {
   "source_audit": "reports/villa_upstream_audit.json",
   "villa_local_ref": "b8033c1b911b0f5bbb3d3a90bf27219e50813604",
-  "villa_upstream_ref": "289b946e3f8b866406287a45b89c774012b1e8e0",
+  "villa_upstream_ref": "9f2476386855f209e8964ee152da33787f6d25cc",
   "villa_behind": true,
   "opportunities": [
     {
