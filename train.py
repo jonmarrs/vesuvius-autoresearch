@@ -11,7 +11,7 @@ import torch.nn.functional as F
 import numpy as np
 import pandas as pd
 from torch.utils.data import DataLoader
-from torch.cuda.amp import GradScaler, autocast
+from torch.amp import GradScaler, autocast
 from scripts.betti_loss_module import BettiLoss
 from scripts.auxiliary_manager import AuxiliaryConfig, AuxiliaryManager
 
@@ -807,7 +807,8 @@ def train(config: ExperimentConfig):
         return 0.5 * (1.0 + math.cos(math.pi * (clamped_step - warmup_steps) / float(max(1, max_steps - warmup_steps))))
     
     scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda)
-    scaler = GradScaler()
+    amp_enabled = device.type == "cuda"
+    scaler = GradScaler(device=device.type, enabled=amp_enabled)
 
     # Initialize auxiliary task tools
     st_computer = StructureTensorComputer(sigma=1.0, component_sigma=1.0, smooth_components=True, device=device) if StructureTensorComputer else None
@@ -878,7 +879,7 @@ def train(config: ExperimentConfig):
                 target_st = None
 
         optimizer.zero_grad(set_to_none=True)
-        with autocast():
+        with autocast(device_type=device.type, enabled=amp_enabled):
             # Forward pass for view 1 (full multi-task if supported)
             model_out = model(x_aug1, return_fiber=True, return_qc=True, return_proj=True, return_st=True)
             if isinstance(model_out, tuple):
@@ -1002,7 +1003,7 @@ def train(config: ExperimentConfig):
                     target_sum = torch.sum(val_target.float())
                     if target_sum < 1.0: continue
                         
-                    with autocast(): 
+                    with autocast(device_type=device.type, enabled=amp_enabled):
                         val_out = model(val_x)
                         if isinstance(val_out, tuple): out_2d = val_out[0]
                         else: out_2d = val_out

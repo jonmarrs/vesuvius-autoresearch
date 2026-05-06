@@ -32,7 +32,8 @@ class MutexStitcher:
         
         self.trainer = MutexAffinityTrainer(mgr=MockMgr())
         if checkpoint_path and os.path.exists(checkpoint_path):
-            self.trainer.load_state_dict(torch.load(checkpoint_path, map_classes=self.device))
+            checkpoint = torch.load(checkpoint_path, map_location=self.device, weights_only=False)
+            self.trainer.load_state_dict(checkpoint)
         self.trainer.model.to(self.device)
         self.trainer.model.eval()
 
