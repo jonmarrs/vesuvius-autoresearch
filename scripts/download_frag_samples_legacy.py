@@ -103,7 +103,8 @@ def download_sample(frag, target_chunks=300):
             try:
                 if f.result():
                     downloaded += 1
-            except: pass
+            except Exception as e:
+                print(f"    Warning: chunk worker failed: {e}")
             if i % 50 == 0 and i > 0:
                 print(f"    Progress: {i}/{len(tasks)} chunks.")
                 sys.stdout.flush()

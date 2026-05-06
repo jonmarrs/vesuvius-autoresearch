@@ -39,7 +39,8 @@ def download_chunks(scroll_id, target_gb=1.0):
         out_path = os.path.join(out_dir, meta)
         try:
             s3.download_file(bucket, key, out_path)
-        except: pass
+        except Exception as exc:
+            print(f"  Warning: failed to download metadata {key}: {exc}")
             
     target_bytes = target_gb * 1024 * 1024 * 1024
     downloaded_bytes = 0
@@ -62,12 +63,17 @@ def download_chunks(scroll_id, target_gb=1.0):
                 s3.download_file(bucket, key, out_path)
                 downloaded_bytes += obj['Size']
                 count += 1
-            except: pass
+            except Exception as exc:
+                print(f"  Warning: failed to download {key}: {exc}")
             
             if downloaded_bytes >= target_bytes:
                 print(f"  Downloaded {downloaded_bytes/1024/1024/1024:.2f} GB.")
                 return True
     return True
 
-for f in FRAGS:
-    download_chunks(f)
+def main():
+    for f in FRAGS:
+        download_chunks(f)
+
+if __name__ == "__main__":
+    main()

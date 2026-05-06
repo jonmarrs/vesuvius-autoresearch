@@ -25,8 +25,10 @@ def download_chunk(task):
     except urllib.error.HTTPError as e:
         if e.code == 404:
             return True
+        print(f"Failed to download {url}: HTTP {e.code}")
         return False
     except Exception as e:
+        print(f"Failed to download {url}: {e}")
         return False
 
 def download_all():
@@ -42,7 +44,8 @@ def download_all():
                     f.write(response.read())
             print(f"Downloaded {meta}")
             sys.stdout.flush()
-        except: pass
+        except Exception as e:
+            print(f"Warning: failed to download {meta}: {e}")
 
     tasks = []
     # Shape is 7219, 1399, 7198 with 128 chunks
@@ -61,7 +64,8 @@ def download_all():
             try:
                 if future.result():
                     success_count += 1
-            except: pass
+            except Exception as e:
+                print(f"Warning: chunk worker failed: {e}")
             
             if i % 100 == 0 and i > 0:
                 print(f"Progress: {i}/{len(tasks)} chunks processed. Success: {success_count}")
