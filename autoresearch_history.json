@@ -10,7 +10,8 @@
     "width": 1.0,
     "loss_balance": 1.0,
     "features": 1.0,
-    "architecture": 3.93259185634302,
+    "architecture": 3.9351959068673135,
     "baseline": 18,
-    "iterative": 1.0
+    "iterative": 1.0,
+    "foundation": 1.0
 }

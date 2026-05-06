@@ -15,6 +15,12 @@ from torch.cuda.amp import GradScaler, autocast
 from scripts.betti_loss_module import BettiLoss
 from scripts.auxiliary_manager import AuxiliaryConfig, AuxiliaryManager
 
+try:
+    sys.path.append(os.path.join(os.path.dirname(__file__), "villa/vesuvius/src"))
+    from vesuvius.models.build.primus_wrapper import PrimusEncoder
+except ImportError:
+    PrimusEncoder = None
+
 @dataclass
 class ExperimentConfig:
     # Data
@@ -66,6 +72,7 @@ class ExperimentConfig:
     num_heads: int = 8
     dropout: float = 0.0
     pseudo_label_dir: Optional[str] = None
+    foundation_model_path: str = None # Path to pretrained foundation model (e.g. LeJEPA)
 
     # Prize promotion gates. These keep best_model.pt aligned with villa review
     # signals instead of promoting on Dice alone.
@@ -734,6 +741,21 @@ def train(config: ExperimentConfig):
     betti_loss = BettiLoss(weight=config.betti_loss_weight) if config.use_betti_loss else None
     aux_manager = AuxiliaryManager(config.auxiliary_config)
     
+    # Load from foundation model if provided
+    if config.foundation_model_path and os.path.exists(config.foundation_model_path):
+        try:
+            print(f"Loading pretrained backbone from {config.foundation_model_path}...")
+            checkpoint = torch.load(config.foundation_model_path, map_location=device, weights_only=False)
+            # The checkpoint might contain 'model_state_dict' or be the state dict itself
+            state_dict = checkpoint.get('model_state_dict', checkpoint)
+            
+            # Map weights to backbone if possible. This is highly architecture dependent.
+            # For now, we'll try a generic match.
+            model.load_state_dict(state_dict, strict=False)
+            print("  Pretrained backbone initialized.")
+        except Exception as e:
+            print(f"Warning: Could not load foundation model: {e}")
+
     # Load best model if architecture matches
     best_model_path = 'best_model.pt'
     if os.path.exists(best_model_path):

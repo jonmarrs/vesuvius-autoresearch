@@ -178,6 +178,44 @@ Kick off the Day Shift Experiment Sprint after identifying and fixing critical b
 
 ---
 
+## [2026-05-05] Night Shift: Foundation Fine-Tuning & Cross-Fragment Generalization
+
+**Status:** ACTIVE
+
+### Purpose
+Transition from unsupervised pretraining to supervised fine-tuning. This shift focuses on leveraging the **LeJEPA Foundation Model** to improve ink detection on sparse validation fragments.
+
+### Strategy & Hypotheses
+*   **Hypothesis:** The foundation model has learned a robust representation of papyrus texture from Scroll 2, which will significantly reduce hallucinations on Fragment 143 compared to models trained from scratch.
+*   **Cycles:** 1-hour cycles focusing on fine-tuning the pretrained backbone.
+
+### Key Tweaks
+*   [ ] Initialize `foundation_model_path` with `checkpoints/lejepa_foundation_v1/lejepa_foundation_v1_final.pth`.
+*   [ ] Increase training budget to 3600s.
+
+### Outcomes & Insights
+*(To be populated)*
+
+---
+
+## [2026-05-05] Day Shift: Villa Integration & LeJEPA Pretraining
+
+**Status:** COMPLETE
+
+### Purpose
+Align with the official Grand Prize strategy by building a Foundation Model. This shift focuses on unsupervised pretraining on unlabeled Scroll 2 data using the official `villa` LeJEPA trainer.
+
+### Key Achievements
+1.  **LeJEPA Pretraining:** Successfully completed 10 epochs of self-supervised training on `div_90` and `div_100`.
+2.  **Performance:** Achieved stable convergence (Final val loss: 0.0086).
+3.  **Prize Candidates:** Prepared Vesuvius-C Python Bindings and CuPy Fiber Tools for community submission.
+
+### Outcomes & Insights
+- **Representation Found:** The model successfully learned intrinsic texture features from Scroll 2 without manual labels.
+- **Hardware Tuning:** Resolved OOM issues by reducing 3D patch size to [32, 128, 128] for the RTX 4090.
+
+---
+
 ## [2026-05-04] Day Shift: Rapid Iteration & Hyperparameter Fine-Tuning
 
 **Status:** ACTIVE

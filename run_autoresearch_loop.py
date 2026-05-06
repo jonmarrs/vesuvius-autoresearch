@@ -61,6 +61,7 @@ tweak_templates = [
     {"family": "features", "attr": "ridge_sigma", "vals": [1.0, 2.0, 3.0]},
     {"family": "features", "attr": "aug_mode", "vals": ["albumentations", "batchgeneratorsv2"]},
     {"family": "architecture", "attr": "architecture", "vals": ["gated_unet", "timesformer", "resnet3d", "i3d", "resenc_unet"]},
+    {"family": "foundation", "attr": "foundation_model_path", "vals": [None, "checkpoints/lejepa_foundation_v1/lejepa_foundation_v1_final.pth"]},
     {"family": "iterative", "attr": "pseudo_label_dir", "vals": [None, "local_data/pseudo_labels"]}
 ]
 
@@ -91,9 +92,14 @@ success_counts = load_history()
 
 # Detect Shift
 current_hour = time.localtime().tm_hour
-shift_name = "DAY SHIFT"
-end_hour = 19
-default_budget = 900
+if 7 <= current_hour < 19:
+    shift_name = "DAY SHIFT"
+    end_hour = 19
+    default_budget = 900
+else:
+    shift_name = "NIGHT SHIFT"
+    end_hour = 7
+    default_budget = 3600
 
 os.makedirs("sprint_logs", exist_ok=True)
 os.makedirs("reports", exist_ok=True)

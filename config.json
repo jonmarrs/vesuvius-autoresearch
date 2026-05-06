@@ -51,6 +51,7 @@
     "num_heads": 8,
     "dropout": 0.0,
     "pseudo_label_dir": "local_data/pseudo_labels",
+    "foundation_model_path": "checkpoints/lejepa_foundation_v1/lejepa_foundation_v1_final.pth",
     "enforce_prize_gates": true,
     "min_prize_centerline_dice": 0.01,
     "max_prize_skel_dist": 2.0,
