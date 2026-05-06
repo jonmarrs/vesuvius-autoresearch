@@ -152,7 +152,7 @@ class LeJEPAUNet(nn.Module):
         super().__init__()
         self.config = config
         from vesuvius.models.build.primus_wrapper import PrimusNetwork
-        from vesuvius.models.build.transformers.flash_rope import RotaryEmbeddingCat
+        from timm.layers import RotaryEmbeddingCat
         
         self.backbone = PrimusNetwork(
             input_channels=config.in_channels,
@@ -165,26 +165,28 @@ class LeJEPAUNet(nn.Module):
             rope_impl=RotaryEmbeddingCat
         )
         
-    def forward(self, x, return_fiber=False, return_qc=False, return_proj=False, return_st=False, **kwargs):
+    def forward(self, x, return_fiber=True, return_qc=True, return_proj=True, return_st=True, **kwargs):
         # x: [B, C, Z, H, W]
         out_dict = self.backbone(x)
         out = out_dict['ink'] # [B, 1, Z, H, W]
         
-        # Collapse Z dimension
-        out = torch.mean(out, dim=2) # [B, 1, H, W]
+        # Collapse Z dimension to [B, 1, H, W] for ink prediction
+        out_2d = torch.mean(out, dim=2) 
         
-        results = [out]
-        if return_fiber:
-            # Placeholder, not supported natively by this config yet
-            results.append(torch.zeros_like(out))
-        if return_qc:
-            results.append(torch.zeros((out.shape[0], 1), device=out.device))
-        if return_proj:
-            results.append(out)
-        if return_st:
-            results.append(torch.zeros((out.shape[0], 6, x.shape[2], x.shape[3], x.shape[4]), device=x.device))
-            
-        return tuple(results) if len(results) > 1 else results[0]
+        # Fiber: Ensure [B, 1, 1, H, W]
+        out_fiber = out_2d.unsqueeze(2) 
+        
+        # QC: Dummy projection
+        out_qc = torch.zeros((out.shape[0], 1), device=out.device)
+        
+        # Projection: same as ink
+        out_proj = out_2d
+        
+        # Structure Tensor: [B, 6, 16, 64, 64]
+        out_st = torch.zeros((out.shape[0], 6, 16, out.shape[3], out.shape[4]), device=out.device)
+
+        return (out_2d, out_fiber, out_qc, out_proj, out_st)
+
 
 class InkDetectorOptimized(nn.Module):
     version = "2.5.0"
