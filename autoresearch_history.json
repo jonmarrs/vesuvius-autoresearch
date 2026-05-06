@@ -8,9 +8,9 @@
     "spatial": 1.0,
     "temporal": 1.0,
     "width": 1.0,
-    "loss_balance": 2.062972519759449,
+    "loss_balance": 1.0,
     "features": 1.0,
-    "architecture": 2.8745516287671844,
+    "architecture": 3.93259185634302,
     "baseline": 18,
     "iterative": 1.0
 }
