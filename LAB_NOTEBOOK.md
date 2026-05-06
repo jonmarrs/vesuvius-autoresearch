@@ -178,6 +178,26 @@ Kick off the Day Shift Experiment Sprint after identifying and fixing critical b
 
 ---
 
+## [2026-05-06] Day Shift: Foundation Optimization
+
+**Status:** ACTIVE
+
+### Purpose
+Transition back to rapid 15-minute Day Shift cycles. Now that the LeJEPA foundation model fine-tuning is fully integrated and proven stable (Night Shift showed it matches the best-ever models quickly), the focus is on optimizing hyper-parameters specific to the pretrained backbone.
+
+### Strategy & Hypotheses
+*   **Hypothesis:** The pretrained LeJEPA foundation requires a different hyperparameter regime (e.g., lower learning rates, specific augmentations) to fully exploit the initialized representation and achieve state-of-the-art generalization.
+*   **Cycles:** 15-minute cycles.
+
+### Key Tweaks
+*   [ ] Revert training budget to 900s for rapid iteration.
+*   [ ] Evolve parameters while maintaining `foundation_model_path`.
+
+### Outcomes & Insights
+*(To be populated)*
+
+---
+
 ## [2026-05-05] Night Shift: Foundation Fine-Tuning & Cross-Fragment Generalization
 
 **Status:** ACTIVE
