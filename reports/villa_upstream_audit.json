@@ -1,105 +1,52 @@
 {
   "villa_dir": "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/villa",
-  "local_ref": "b8033c1b911b0f5bbb3d3a90bf27219e50813604",
-  "upstream_ref": "9f2476386855f209e8964ee152da33787f6d25cc",
+  "local_ref": "4b7c5c20d95b404b7e92dc70606a1b1ed8648fd3",
+  "upstream_ref": "8e0deb2487087e849d528d3425888294d521bb72",
   "behind": true,
-  "changed_files": 553,
+  "changed_files": 24,
   "prize_relevant_areas": {
     "lasagna": {
-      "changed_files": 161,
-      "sample_paths": [
-        "lasagna/README.md",
-        "lasagna/analyze_zarr_channels.py",
-        "lasagna/batch_fit_cosine_grid.py",
-        "lasagna/batch_unet_tiled_infer.py",
-        "lasagna/cli_data.py",
-        "lasagna/cli_json.py",
-        "lasagna/cli_model.py",
-        "lasagna/cli_opt.py",
-        "lasagna/cli_vis.py",
-        "lasagna/clis",
-        "lasagna/common.py",
-        "lasagna/configs/corr.json"
-      ],
+      "changed_files": 0,
+      "sample_paths": [],
       "prize_use": "Surface fitting, tifxyz conversion, and 3D training for better Scroll 2/3 unwrapping."
     },
     "optimized_inference": {
-      "changed_files": 7,
-      "sample_paths": [
-        "ink-detection/inference_resnet3d_3d_decoder.py",
-        "ink-detection/optimized_inference/Dockerfile",
-        "ink-detection/optimized_inference/README.md",
-        "ink-detection/optimized_inference/entrypoint.py",
-        "ink-detection/optimized_inference/model_resnet3d_3d_decoder.py",
-        "ink-detection/optimized_inference/runtime_contracts.py",
-        "ink-detection/optimized_inference/tests/test_runtime_contracts.py"
-      ],
+      "changed_files": 0,
+      "sample_paths": [],
       "prize_use": "Official Docker/runtime contract for reproducible ink prediction submissions."
     },
     "resnet3d_decoder": {
-      "changed_files": 2,
-      "sample_paths": [
-        "ink-detection/optimized_inference/model_resnet3d_3d_decoder.py",
-        "ink-detection/train_resnet3d_3d_decoder.py"
-      ],
+      "changed_files": 0,
+      "sample_paths": [],
       "prize_use": "Tracked 3D decoder baseline for thicker-layer context and stronger cross-scroll generalization."
     },
     "volume_cartographer": {
-      "changed_files": 316,
+      "changed_files": 9,
       "sample_paths": [
-        "volume-cartographer/CMakeLists.txt",
-        "volume-cartographer/CMakePresets.json",
-        "volume-cartographer/README.md",
-        "volume-cartographer/apps/CMakeLists.txt",
-        "volume-cartographer/apps/VC3D/AxisAlignedSliceController.cpp",
-        "volume-cartographer/apps/VC3D/AxisAlignedSliceController.hpp",
-        "volume-cartographer/apps/VC3D/CFiberWidget.cpp",
-        "volume-cartographer/apps/VC3D/CFiberWidget.hpp",
-        "volume-cartographer/apps/VC3D/CMakeLists.txt",
-        "volume-cartographer/apps/VC3D/CPointCollectionWidget.cpp",
-        "volume-cartographer/apps/VC3D/CPointCollectionWidget.hpp",
-        "volume-cartographer/apps/VC3D/CState.cpp"
+        "volume-cartographer/apps/VC3D/overlays/SegmentationOverlayController.cpp",
+        "volume-cartographer/apps/VC3D/overlays/SegmentationOverlayController.hpp",
+        "volume-cartographer/apps/VC3D/segmentation/SegmentationModule.cpp",
+        "volume-cartographer/apps/VC3D/segmentation/SegmentationModule.hpp",
+        "volume-cartographer/apps/VC3D/segmentation/panels/SegmentationApprovalMaskPanel.cpp",
+        "volume-cartographer/apps/VC3D/segmentation/tools/ApprovalMaskBrushTool.cpp",
+        "volume-cartographer/apps/VC3D/volume_viewers/CChunkedVolumeViewer.cpp",
+        "volume-cartographer/apps/VC3D/volume_viewers/CChunkedVolumeViewer.hpp",
+        "volume-cartographer/core/src/PlaneSurface.cpp"
       ],
       "prize_use": "VC3D segmentation, browsing, growth, and tifxyz utilities for producing reviewable surfaces."
     },
     "vesuvius_data": {
-      "changed_files": 4,
-      "sample_paths": [
-        "vesuvius/src/vesuvius/data/vc_dataset.py",
-        "vesuvius/src/vesuvius/data/volume.py",
-        "vesuvius/src/vesuvius/data/zarr_chunk_index.py",
-        "vesuvius/src/vesuvius/scripts/build_chunk_occupancy.py"
-      ],
+      "changed_files": 0,
+      "sample_paths": [],
       "prize_use": "Chunk occupancy and volume access improvements that reduce empty-window search waste."
     },
     "prize_docs": {
-      "changed_files": 1,
-      "sample_paths": [
-        "scrollprize.org/docs/34_prizes.md"
-      ],
+      "changed_files": 0,
+      "sample_paths": [],
       "prize_use": "Current prize rules, deadlines, and submission criteria."
     }
   },
   "recent_upstream_commits": [
-    "9f2476386 Close volume viewers / perf imrpovements in plane sampling (#877)",
-    "827f42be1 actual move plane pos when shift+scroll instead of zoff (#874)",
-    "c950768cd chunk scale fallback to allow partial and low res zarrs to render fine (#872)",
-    "09b1fee00 L3d flow fastloader (#871)",
-    "289b946e3 ui: run applyRotation save on a worker thread (#870)",
-    "f00638aae Fix approval mask drift and SegmentationEditManager segfault (#864)",
-    "c650d427a cleanup: remove deprecated remote_volumes.json mechanism (#869)",
-    "1e5f5e29f Pr/saveoverwrite backup atomic mask (#868)",
-    "95b5ed7d5 Macos build (#865)",
-    "d6936f509 Fix tracer growth / fix masks / extend Volume / switch (most) zarr readers to volume  (#863)",
-    "bb6e52aac vc_merge_tifxyz: drop straighten stage; phase-split blend; add --strip-cols/--anchor-cap (#862)",
-    "ad548a00f Fix misc volume fetches for some seg tools  (#861)",
-    "13a594e17 Editing speed / interactivity + profile in volume viewer  (#860)",
-    "7728d2117 extra dialog for remote cache location if not already configured on project (#859)",
-    "b620ba266 Update 34_prizes.md (#858)",
-    "557766a1b Srf loading and param area (#844)",
-    "fa3e79e8f Add vc_merge_tifxyz: N-way tifxyz surface merge tool (#854)",
-    "1d2bdcace defaultCacheBase: also accept /volpkgs as fast cache root (#856)",
-    "9305b6093 Crash handler with rich diagnostics + move volpkg convert into vc_core (#855)",
-    "465e67955 JSON based volpkgs (#852)"
+    "8e0deb248 fix mask plane intersection view  (#878)"
   ]
 }

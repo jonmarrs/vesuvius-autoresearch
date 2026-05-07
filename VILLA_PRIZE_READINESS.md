@@ -21,6 +21,13 @@ VC3D / Volume Cartographer, Vesuvius data access, and current prize docs. The
 opportunity planner writes `reports/villa_prize_opportunities.json`, ranking
 official issue-backed work by prize impact and local Autoresearch hooks.
 
+Current snapshot from the 2026-05-06 audit:
+
+- local Villa ref: `4b7c5c20d95b404b7e92dc70606a1b1ed8648fd3`
+- official `origin/main`: `8e0deb2487087e849d528d3425888294d521bb72`
+- fresh prize-relevant delta: VC3D / Volume Cartographer mask-plane review fixes
+- current top opportunity: `villa-issue-191`, route occupied Scroll 2/3 windows through surface/fiber preprocessing before more ink inference
+
 ## 1. Build the Scroll 2/3 Search Queue
 
 ```bash
@@ -74,6 +81,29 @@ uv run python scripts/run_ranked_inference.py \
 
 This is dry-run by default. Add `--execute` only when you are ready to run the
 jobs serially on the active machine/GPU.
+
+When a long training sprint is already using the GPU, keep this queue staged but
+do not run `--execute`. The next safe handoff is:
+
+```bash
+uv run python scripts/run_ranked_inference.py \
+  --ranked reports/scroll23_ranked_candidates.tsv \
+  --limit 8 \
+  --manifest reports/scroll23_inference_commands.sh \
+  --execute
+
+uv run python scripts/rank_scroll23_candidates.py \
+  --queue reports/scroll23_search_queue.tsv \
+  --prediction-dir predictions \
+  --out reports/scroll23_ranked_candidates.tsv
+
+uv run python scripts/build_lasagna_fiber_worklist.py \
+  --ranked reports/scroll23_ranked_candidates.tsv \
+  --limit 12
+```
+
+Then run `scripts/run_villa_prize_evidence_chain.py` on the highest-ranked
+occupied candidate before opening Crackle Viewer / VC3D for human review.
 
 ## 2. Run Prediction on a Candidate
 

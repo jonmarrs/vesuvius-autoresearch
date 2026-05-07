@@ -6,14 +6,19 @@ This document outlines how we leverage and contribute to the official `ScrollPri
 *High-probability monthly awards ($1k - $20k) for solving official TODOs and bottlenecks.*
 
 ### [Priority 0] Keep the Villa Pin Prize-Current (STATUS: AUDIT TOOL ADDED)
-*   **Discovery**: As of the May 5, 2026 audit, upstream `ScrollPrize/villa` has moved from our pinned `b8033c1b` to `289b946e`. The delta includes new `lasagna` tooling, optimized inference runtime contracts, ResNet3D + 3D decoder support, VC3D interaction/growth fixes, and updated prize docs.
+*   **Discovery**: As of the May 6, 2026 audit, local `villa` is at `4b7c5c20d95b404b7e92dc70606a1b1ed8648fd3` and official `origin/main` is `8e0deb2487087e849d528d3425888294d521bb72`. The fresh delta is 24 files, with the prize-relevant change concentrated in 9 Volume Cartographer / VC3D files from `8e0deb248 fix mask plane intersection view (#878)`.
 *   **Action**: Run `git -C villa fetch origin main`, `uv run python scripts/audit_villa_upstream.py`, and `uv run python scripts/plan_villa_prize_opportunities.py` before prize sprints. Use `reports/villa_upstream_audit.json` to decide whether to update the submodule or selectively port compatibility changes, then use `reports/villa_prize_opportunities.json` to pick the highest-impact official issue-backed task.
 *   **Impact**: Prevents Autoresearch from optimizing against stale official APIs, which directly affects reproducible submission packaging and Progress Prize contribution timing.
 
 ### [Priority 0.5] Official Issue-Backed Prize Queue (STATUS: PLANNER ADDED)
 *   **Discovery**: Current official open issues include progress-prize candidates for whole-volume deformation (#203), scroll-specific 3D augmentations (#201), surface/fiber/ink label generation (#193), accurate 3D ink labels (#192), compressed/high-curvature surface and fiber prediction (#191), VC3D fiber prediction integration (#369), and OME-Zarr scale metadata (#497).
-*   **Action**: Use `reports/villa_prize_opportunities.json` as the Autoresearch sprint queue. The current top task is #191: route high-occupancy Scroll 2/3 candidates through Lasagna/fiber preprocessing before ink inference.
+*   **Action**: Use `reports/villa_prize_opportunities.json` as the Autoresearch sprint queue. The current top task is #191: route high-occupancy Scroll 2/3 candidates through Lasagna/fiber preprocessing before ink inference. The concrete queue is already in `reports/lasagna_fiber_worklist.tsv`, headed by occupied `PHerc0125` div_90/div_100 and `PHerc0332` div_90 windows.
 *   **Impact**: Aligns local model work with public Progress Prize signals while also attacking the geometry bottleneck that keeps First Letters/Title candidates low-confidence.
+
+### [Priority 0.6] Active Villa Evidence Pipeline (STATUS: QUEUE READY)
+*   **Discovery**: `reports/scroll23_ranked_candidates.tsv` and `reports/lasagna_fiber_worklist.tsv` now contain local, occupied, submittable 64x64 Scroll 2/3 candidates. This makes the next Villa-backed step executable instead of exploratory.
+*   **Action**: After the current Night Shift GPU cycle finishes, run `scripts/run_ranked_inference.py --execute`, re-rank prediction statistics, rebuild the Lasagna/fiber worklist, and run `scripts/run_villa_prize_evidence_chain.py` for the top candidates.
+*   **Impact**: Produces a Villa-native evidence directory with ink/fiber overlays, structure tensor outputs, validation reports, and review artifacts for First Letters / First Title triage.
 
 ### [Priority A] CuPy Acceleration for Fiber Tools (STATUS: IMPLEMENTED)
 *   **Gap**: `villa/foundation/datasets/fibers-dataset/tools.py` had explicit TODOs for GPU speedup.
