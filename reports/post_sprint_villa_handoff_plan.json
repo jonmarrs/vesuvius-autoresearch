@@ -1,0 +1,94 @@
+{
+  "status": "BLOCKED_ACTIVE_SPRINT",
+  "active_processes": [
+    "460115 .venv/bin/python -u run_autoresearch_loop.py",
+    "462401 uv run python -u train.py --config config_temp.json",
+    "462404 /home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python3 -u train.py --config config_temp.json",
+    "462417 /home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python3 -u train.py --config config_temp.json",
+    "462418 /home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python3 -u train.py --config config_temp.json",
+    "462419 /home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python3 -u train.py --config config_temp.json",
+    "462420 /home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python3 -u train.py --config config_temp.json"
+  ],
+  "steps": [
+    {
+      "name": "ranked_inference",
+      "gpu": false,
+      "command": [
+        "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python",
+        "scripts/run_ranked_inference.py",
+        "--ranked",
+        "reports/scroll23_ranked_candidates.tsv",
+        "--limit",
+        "8",
+        "--prediction-dir",
+        "predictions",
+        "--checkpoint",
+        "best_model.pt",
+        "--manifest",
+        "reports/scroll23_inference_commands.sh"
+      ]
+    },
+    {
+      "name": "rerank_candidates",
+      "gpu": false,
+      "command": [
+        "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python",
+        "scripts/rank_scroll23_candidates.py",
+        "--queue",
+        "reports/scroll23_search_queue.tsv",
+        "--prediction-dir",
+        "predictions",
+        "--out",
+        "reports/scroll23_ranked_candidates.tsv"
+      ]
+    },
+    {
+      "name": "build_lasagna_fiber_worklist",
+      "gpu": false,
+      "command": [
+        "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python",
+        "scripts/build_lasagna_fiber_worklist.py",
+        "--ranked",
+        "reports/scroll23_ranked_candidates.tsv",
+        "--limit",
+        "12"
+      ]
+    },
+    {
+      "name": "evidence_candidate_000",
+      "gpu": false,
+      "command": [
+        "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python",
+        "scripts/run_villa_prize_evidence_chain.py",
+        "--ranked",
+        "reports/scroll23_ranked_candidates.tsv",
+        "--candidate-index",
+        "0",
+        "--out-dir",
+        "reports/scroll23_evidence/candidate_000",
+        "--checkpoint",
+        "best_model.pt",
+        "--preflight",
+        "--execute"
+      ]
+    },
+    {
+      "name": "evidence_candidate_001",
+      "gpu": false,
+      "command": [
+        "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python",
+        "scripts/run_villa_prize_evidence_chain.py",
+        "--ranked",
+        "reports/scroll23_ranked_candidates.tsv",
+        "--candidate-index",
+        "1",
+        "--out-dir",
+        "reports/scroll23_evidence/candidate_001",
+        "--checkpoint",
+        "best_model.pt",
+        "--preflight",
+        "--execute"
+      ]
+    }
+  ]
+}
