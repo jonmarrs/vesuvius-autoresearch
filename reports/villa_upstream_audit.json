@@ -2,8 +2,14 @@
   "villa_dir": "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/villa",
   "local_ref": "4b7c5c20d95b404b7e92dc70606a1b1ed8648fd3",
   "upstream_ref": "ad4e1b7d8a85c553c0b135b5f02ef98af9a9e923",
+  "merge_base": "9f2476386855f209e8964ee152da33787f6d25cc",
   "behind": true,
-  "changed_files": 33,
+  "diverged": true,
+  "upstream_ahead_commits": 5,
+  "local_ahead_commits": 5,
+  "changed_files": 18,
+  "direct_tree_changed_files": 33,
+  "local_changed_files": 15,
   "prize_relevant_areas": {
     "lasagna": {
       "changed_files": 5,
@@ -42,6 +48,38 @@
         "volume-cartographer/core/src/SurfacePatchIndex.cpp",
         "volume-cartographer/core/src/VcDataset.cpp"
       ],
+      "prize_use": "VC3D segmentation, browsing, growth, and tifxyz utilities for producing reviewable surfaces."
+    },
+    "vesuvius_data": {
+      "changed_files": 0,
+      "sample_paths": [],
+      "prize_use": "Chunk occupancy and volume access improvements that reduce empty-window search waste."
+    },
+    "prize_docs": {
+      "changed_files": 0,
+      "sample_paths": [],
+      "prize_use": "Current prize rules, deadlines, and submission criteria."
+    }
+  },
+  "local_prize_relevant_areas": {
+    "lasagna": {
+      "changed_files": 0,
+      "sample_paths": [],
+      "prize_use": "Surface fitting, tifxyz conversion, and 3D training for better Scroll 2/3 unwrapping."
+    },
+    "optimized_inference": {
+      "changed_files": 0,
+      "sample_paths": [],
+      "prize_use": "Official Docker/runtime contract for reproducible ink prediction submissions."
+    },
+    "resnet3d_decoder": {
+      "changed_files": 0,
+      "sample_paths": [],
+      "prize_use": "Tracked 3D decoder baseline for thicker-layer context and stronger cross-scroll generalization."
+    },
+    "volume_cartographer": {
+      "changed_files": 0,
+      "sample_paths": [],
       "prize_use": "VC3D segmentation, browsing, growth, and tifxyz utilities for producing reviewable surfaces."
     },
     "vesuvius_data": {

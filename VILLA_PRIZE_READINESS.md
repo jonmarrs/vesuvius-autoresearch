@@ -29,9 +29,17 @@ Current snapshot from the 2026-05-07 audit:
 
 - local Villa ref: `4b7c5c20d95b404b7e92dc70606a1b1ed8648fd3`
 - official `origin/main`: `ad4e1b7d8a85c553c0b135b5f02ef98af9a9e923`
-- fresh prize-relevant delta: 5 Lasagna files and 13 VC3D / Volume Cartographer files
+- merge base: `9f2476386855f209e8964ee152da33787f6d25cc`
+- pin state: diverged, with 5 official upstream commits and 5 local Villa commits
+- fresh official prize-relevant delta: 5 Lasagna files and 13 VC3D / Volume Cartographer files
 - pin recommendation: `review_changed_areas_before_pin_update`
 - current top opportunity: `villa-issue-191`, route occupied Scroll 2/3 windows through surface/fiber preprocessing before more ink inference
+
+Because the local Villa checkout carries Autoresearch-specific patches, do not
+blindly fast-forward `villa/`. Use the divergence-aware audit fields
+(`upstream_ahead_commits`, `local_ahead_commits`, `prize_relevant_areas`, and
+`local_prize_relevant_areas`) to decide whether to rebase local patches, port
+only VC3D/Lasagna changes, or keep the pin fixed for a sprint.
 
 ## 1. Build the Scroll 2/3 Search Queue
 

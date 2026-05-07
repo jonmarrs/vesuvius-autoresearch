@@ -53,6 +53,27 @@ def _changed_paths(villa_dir, base_ref, head_ref):
     return [line for line in out.splitlines() if line]
 
 
+def _count_commits(villa_dir, base_ref, head_ref):
+    out = _git(["rev-list", "--count", f"{base_ref}..{head_ref}"], cwd=villa_dir)
+    return int(out or 0)
+
+
+def _group_paths_by_area(paths):
+    areas = {}
+    for name, spec in PRIZE_AREAS.items():
+        matches = [
+            path
+            for path in paths
+            if any(path == prefix.rstrip("/") or path.startswith(prefix) for prefix in spec["prefixes"])
+        ]
+        areas[name] = {
+            "changed_files": len(matches),
+            "sample_paths": matches[:12],
+            "prize_use": spec["prize_use"],
+        }
+    return areas
+
+
 def audit_villa_upstream(villa_dir="villa", head_ref="origin/main"):
     villa_dir = Path(villa_dir)
     if not villa_dir.is_absolute():
@@ -62,29 +83,29 @@ def audit_villa_upstream(villa_dir="villa", head_ref="origin/main"):
 
     local_ref = _git(["rev-parse", "HEAD"], cwd=villa_dir)
     upstream_ref = _git(["rev-parse", head_ref], cwd=villa_dir)
-    changed = _changed_paths(villa_dir, local_ref, head_ref)
+    merge_base = _git(["merge-base", local_ref, head_ref], cwd=villa_dir)
+    upstream_changed = _changed_paths(villa_dir, merge_base, head_ref)
+    local_changed = _changed_paths(villa_dir, merge_base, local_ref)
 
-    areas = {}
-    for name, spec in PRIZE_AREAS.items():
-        matches = [
-            path
-            for path in changed
-            if any(path == prefix.rstrip("/") or path.startswith(prefix) for prefix in spec["prefixes"])
-        ]
-        areas[name] = {
-            "changed_files": len(matches),
-            "sample_paths": matches[:12],
-            "prize_use": spec["prize_use"],
-        }
+    upstream_ahead_commits = _count_commits(villa_dir, merge_base, head_ref)
+    local_ahead_commits = _count_commits(villa_dir, merge_base, local_ref)
+    direct_changed = _changed_paths(villa_dir, local_ref, head_ref)
 
     commits = _git(["log", "--oneline", "--max-count=20", f"{local_ref}..{head_ref}"], cwd=villa_dir)
     return {
         "villa_dir": str(villa_dir),
         "local_ref": local_ref,
         "upstream_ref": upstream_ref,
-        "behind": local_ref != upstream_ref,
-        "changed_files": len(changed),
-        "prize_relevant_areas": areas,
+        "merge_base": merge_base,
+        "behind": upstream_ahead_commits > 0,
+        "diverged": upstream_ahead_commits > 0 and local_ahead_commits > 0,
+        "upstream_ahead_commits": upstream_ahead_commits,
+        "local_ahead_commits": local_ahead_commits,
+        "changed_files": len(upstream_changed),
+        "direct_tree_changed_files": len(direct_changed),
+        "local_changed_files": len(local_changed),
+        "prize_relevant_areas": _group_paths_by_area(upstream_changed),
+        "local_prize_relevant_areas": _group_paths_by_area(local_changed),
         "recent_upstream_commits": [line for line in commits.splitlines() if line],
     }
 

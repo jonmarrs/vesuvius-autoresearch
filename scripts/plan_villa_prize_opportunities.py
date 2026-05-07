@@ -118,14 +118,23 @@ def _area_boost(audit, area):
 
 def build_opportunity_plan(audit_path="reports/villa_upstream_audit.json", limit=None):
     audit = _load_audit(audit_path)
+    if audit.get("diverged"):
+        pin_status = "diverged_with_local_patches"
+    elif audit.get("behind"):
+        pin_status = "behind_upstream"
+    else:
+        pin_status = "current_or_unknown"
+
     rows = []
     for item in OFFICIAL_OPPORTUNITIES:
         score = item["base_score"] + _area_boost(audit, item["villa_area"])
         if audit.get("behind"):
             score += 2
+        if audit.get("diverged"):
+            score += 1
         row = dict(item)
         row["priority_score"] = score
-        row["villa_pin_status"] = "behind_upstream" if audit.get("behind") else "current_or_unknown"
+        row["villa_pin_status"] = pin_status
         rows.append(row)
 
     rows.sort(key=lambda row: row["priority_score"], reverse=True)
@@ -137,6 +146,9 @@ def build_opportunity_plan(audit_path="reports/villa_upstream_audit.json", limit
         "villa_local_ref": audit.get("local_ref"),
         "villa_upstream_ref": audit.get("upstream_ref"),
         "villa_behind": bool(audit.get("behind")),
+        "villa_diverged": bool(audit.get("diverged")),
+        "villa_upstream_ahead_commits": int(audit.get("upstream_ahead_commits", 0) or 0),
+        "villa_local_ahead_commits": int(audit.get("local_ahead_commits", 0) or 0),
         "opportunities": rows,
     }
 

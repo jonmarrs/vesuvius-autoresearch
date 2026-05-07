@@ -3,6 +3,9 @@
   "villa_local_ref": "4b7c5c20d95b404b7e92dc70606a1b1ed8648fd3",
   "villa_upstream_ref": "ad4e1b7d8a85c553c0b135b5f02ef98af9a9e923",
   "villa_behind": true,
+  "villa_diverged": true,
+  "villa_upstream_ahead_commits": 5,
+  "villa_local_ahead_commits": 5,
   "opportunities": [
     {
       "id": "villa-issue-191",
@@ -14,8 +17,8 @@
       "why_it_matters": "Scroll 2/3 high-value candidates often sit in hard geometry where plain ink inference stays low confidence.",
       "next_action": "Route high-occupancy, high-fiber candidates to Lasagna preprocessing before ink inference.",
       "base_score": 98,
-      "priority_score": 103,
-      "villa_pin_status": "behind_upstream"
+      "priority_score": 104,
+      "villa_pin_status": "diverged_with_local_patches"
     },
     {
       "id": "villa-issue-193",
@@ -27,8 +30,8 @@
       "why_it_matters": "Creates better supervision and review evidence for non-metal ink signals in Scrolls 2-3.",
       "next_action": "Convert top occupancy-aware candidates into a label-generation worklist for Lasagna and Crackle review.",
       "base_score": 95,
-      "priority_score": 100,
-      "villa_pin_status": "behind_upstream"
+      "priority_score": 101,
+      "villa_pin_status": "diverged_with_local_patches"
     },
     {
       "id": "villa-issue-369",
@@ -40,8 +43,8 @@
       "why_it_matters": "Turns Autoresearch fiber predictions into a community-usable VC3D review layer.",
       "next_action": "Export fiber maps beside ink maps as VC3D OME-Zarr overlays and document the viewer workflow.",
       "base_score": 90,
-      "priority_score": 98,
-      "villa_pin_status": "behind_upstream"
+      "priority_score": 99,
+      "villa_pin_status": "diverged_with_local_patches"
     },
     {
       "id": "villa-issue-203",
@@ -53,8 +56,8 @@
       "why_it_matters": "Improves surface geometry and deformation correction, a blocker for legible Scroll 2/3 text.",
       "next_action": "Prototype a deformation review metric that compares fiber coherence before/after registration.",
       "base_score": 88,
-      "priority_score": 96,
-      "villa_pin_status": "behind_upstream"
+      "priority_score": 97,
+      "villa_pin_status": "diverged_with_local_patches"
     },
     {
       "id": "villa-issue-201",
@@ -66,8 +69,8 @@
       "why_it_matters": "Targets cross-scroll generalization, the core weakness for First Letters and Title submissions.",
       "next_action": "Run ablations over aug_scroll_decohesion_p, aug_scroll_squeeze_p, aug_scroll_z_dropout_p, and aug_scroll_intensity_drift_p.",
       "base_score": 92,
-      "priority_score": 94,
-      "villa_pin_status": "behind_upstream"
+      "priority_score": 95,
+      "villa_pin_status": "diverged_with_local_patches"
     },
     {
       "id": "villa-issue-497",
@@ -79,8 +82,8 @@
       "why_it_matters": "Correct scale metadata is a direct submission requirement because images need accurate 1 cm scale bars.",
       "next_action": "Add a scale-metadata regression test using our prize artifact validator as the oracle.",
       "base_score": 82,
-      "priority_score": 90,
-      "villa_pin_status": "behind_upstream"
+      "priority_score": 91,
+      "villa_pin_status": "diverged_with_local_patches"
     },
     {
       "id": "villa-issue-192",
@@ -92,8 +95,8 @@
       "why_it_matters": "Aligns our model outputs with official 3D labeling and reproducible inference expectations.",
       "next_action": "Extend the optimized-inference smoke test to cover upstream 3D decoder model contracts.",
       "base_score": 86,
-      "priority_score": 88,
-      "villa_pin_status": "behind_upstream"
+      "priority_score": 89,
+      "villa_pin_status": "diverged_with_local_patches"
     }
   ]
 }
