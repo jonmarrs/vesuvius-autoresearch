@@ -1,0 +1,54 @@
+{
+  "root": "reports/scroll23_evidence",
+  "total": 2,
+  "ready_for_gpu": 2,
+  "blocked": 0,
+  "rows": [
+    {
+      "candidate_index": 0,
+      "status": "PASS",
+      "ready_for_gpu": true,
+      "scroll_id": "Scroll 2",
+      "short_id": "PHerc0125",
+      "division": "div_90",
+      "z": "18176",
+      "y": "4128",
+      "x": "4128",
+      "artifact_stem": "pred_18176_4128_4128_64x64",
+      "review_score": "2.350000",
+      "ct_occupied_status": "true",
+      "prediction_found": "false",
+      "metadata_found": "false",
+      "failure_count": 0,
+      "warning_count": 1,
+      "failures": [],
+      "warnings": [
+        "candidate is 0.5062mm; accepted only because it is <=64px per prize guidance"
+      ],
+      "report_path": "reports/scroll23_evidence/candidate_000/preflight_report.json"
+    },
+    {
+      "candidate_index": 1,
+      "status": "PASS",
+      "ready_for_gpu": true,
+      "scroll_id": "Scroll 2",
+      "short_id": "PHerc0125",
+      "division": "div_90",
+      "z": "18176",
+      "y": "4128",
+      "x": "4000",
+      "artifact_stem": "pred_18176_4128_4000_64x64",
+      "review_score": "2.350000",
+      "ct_occupied_status": "true",
+      "prediction_found": "false",
+      "metadata_found": "false",
+      "failure_count": 0,
+      "warning_count": 1,
+      "failures": [],
+      "warnings": [
+        "candidate is 0.5062mm; accepted only because it is <=64px per prize guidance"
+      ],
+      "report_path": "reports/scroll23_evidence/candidate_001/preflight_report.json"
+    }
+  ]
+}

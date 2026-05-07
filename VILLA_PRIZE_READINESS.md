@@ -101,6 +101,16 @@ non-GPU planning artifacts, and writes per-candidate preflight reports under
 to run if GPU execution flags are requested while `run_autoresearch_loop.py` or
 `train.py` is active.
 
+Summarize those preflight reports before spending GPU:
+
+```bash
+uv run python scripts/summarize_villa_evidence_preflight.py
+```
+
+This writes `reports/scroll23_evidence_preflight_summary.json` and `.tsv`,
+including candidate readiness, Scroll/division coordinates, review score, and
+any blocking failures or warnings.
+
 The guarded one-command handoff without `--preflight-only` is:
 
 ```bash
