@@ -2,13 +2,21 @@
   "source_audit": "reports/villa_upstream_audit.json",
   "villa_local_ref": "4b7c5c20d95b404b7e92dc70606a1b1ed8648fd3",
   "villa_upstream_ref": "ad4e1b7d8a85c553c0b135b5f02ef98af9a9e923",
+  "villa_merge_base": "9f2476386855f209e8964ee152da33787f6d25cc",
   "villa_behind": true,
-  "changed_files": 33,
-  "recommendation": "review_changed_areas_before_pin_update",
+  "villa_diverged": true,
+  "villa_upstream_ahead_commits": 5,
+  "villa_local_ahead_commits": 5,
+  "changed_files": 18,
+  "local_changed_files": 15,
+  "adoption_mode": "rebase_or_selectively_port",
+  "recommendation": "preserve_local_patches_before_pin_update",
+  "local_patch_warning": true,
   "areas": [
     {
       "area": "lasagna",
       "changed_files": 5,
+      "local_changed_files": 0,
       "sample_paths": [
         "lasagna/configs/offset.json",
         "lasagna/configs/only_flowsnap_speculative.json",
@@ -16,6 +24,7 @@
         "lasagna/opt_loss_pred_dt.py",
         "lasagna/optimizer.py"
       ],
+      "local_sample_paths": [],
       "risk": "medium",
       "decision": "review_before_pin_update",
       "reason": "Geometry preprocessing changes can reorder or alter Scroll 2/3 candidate surfaces.",
@@ -27,6 +36,7 @@
     {
       "area": "volume_cartographer",
       "changed_files": 13,
+      "local_changed_files": 0,
       "sample_paths": [
         "volume-cartographer/apps/VC3D/SegmentationCommandHandler.cpp",
         "volume-cartographer/apps/VC3D/overlays/SegmentationOverlayController.cpp",
@@ -41,6 +51,7 @@
         "volume-cartographer/core/src/SurfacePatchIndex.cpp",
         "volume-cartographer/core/src/VcDataset.cpp"
       ],
+      "local_sample_paths": [],
       "risk": "medium",
       "decision": "review_before_pin_update",
       "reason": "VC3D review and dataset changes affect how ink/fiber overlays are inspected.",
@@ -52,7 +63,9 @@
     {
       "area": "optimized_inference",
       "changed_files": 0,
+      "local_changed_files": 0,
       "sample_paths": [],
+      "local_sample_paths": [],
       "risk": "high",
       "decision": "no_action",
       "reason": "Inference contract changes can break reproducible prize packaging.",
@@ -61,7 +74,9 @@
     {
       "area": "resnet3d_decoder",
       "changed_files": 0,
+      "local_changed_files": 0,
       "sample_paths": [],
+      "local_sample_paths": [],
       "risk": "high",
       "decision": "no_action",
       "reason": "Model contract changes can affect checkpoint compatibility and inference outputs.",
@@ -70,7 +85,9 @@
     {
       "area": "vesuvius_data",
       "changed_files": 0,
+      "local_changed_files": 0,
       "sample_paths": [],
+      "local_sample_paths": [],
       "risk": "medium",
       "decision": "no_action",
       "reason": "Data loader changes can change candidate occupancy and volume addressing.",
@@ -79,7 +96,9 @@
     {
       "area": "prize_docs",
       "changed_files": 0,
+      "local_changed_files": 0,
       "sample_paths": [],
+      "local_sample_paths": [],
       "risk": "high",
       "decision": "no_action",
       "reason": "Prize criteria changes can invalidate packaging assumptions.",

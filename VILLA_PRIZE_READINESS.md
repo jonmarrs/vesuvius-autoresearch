@@ -32,7 +32,8 @@ Current snapshot from the 2026-05-07 audit:
 - merge base: `9f2476386855f209e8964ee152da33787f6d25cc`
 - pin state: diverged, with 5 official upstream commits and 5 local Villa commits
 - fresh official prize-relevant delta: 5 Lasagna files and 13 VC3D / Volume Cartographer files
-- pin recommendation: `review_changed_areas_before_pin_update`
+- pin recommendation: `preserve_local_patches_before_pin_update`
+- adoption mode: `rebase_or_selectively_port`
 - current top opportunity: `villa-issue-191`, route occupied Scroll 2/3 windows through surface/fiber preprocessing before more ink inference
 
 Because the local Villa checkout carries Autoresearch-specific patches, do not

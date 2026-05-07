@@ -82,12 +82,16 @@ def build_review(audit_path="reports/villa_upstream_audit.json"):
     areas = []
     for area, spec in REVIEW_AREAS.items():
         audit_area = audit.get("prize_relevant_areas", {}).get(area, {})
+        local_area = audit.get("local_prize_relevant_areas", {}).get(area, {})
         changed_files = int(audit_area.get("changed_files") or 0)
+        local_changed_files = int(local_area.get("changed_files") or 0)
         areas.append(
             {
                 "area": area,
                 "changed_files": changed_files,
+                "local_changed_files": local_changed_files,
                 "sample_paths": audit_area.get("sample_paths", []),
+                "local_sample_paths": local_area.get("sample_paths", []),
                 "risk": spec["risk"],
                 "decision": _decision_for(changed_files, spec["risk"]),
                 "reason": spec["reason"],
@@ -96,8 +100,11 @@ def build_review(audit_path="reports/villa_upstream_audit.json"):
         )
 
     changed_areas = [area for area in areas if area["changed_files"]]
+    local_changed_areas = [area for area in areas if area["local_changed_files"]]
     if not audit.get("behind"):
         recommendation = "villa_pin_current"
+    elif audit.get("diverged"):
+        recommendation = "preserve_local_patches_before_pin_update"
     elif any(area["decision"] == "test_before_pin_update" for area in changed_areas):
         recommendation = "hold_pin_until_required_tests_pass"
     elif changed_areas:
@@ -105,13 +112,26 @@ def build_review(audit_path="reports/villa_upstream_audit.json"):
     else:
         recommendation = "pin_update_low_risk_after_smoke_check"
 
+    adoption_mode = "no_update_needed"
+    if audit.get("behind") and audit.get("diverged"):
+        adoption_mode = "rebase_or_selectively_port"
+    elif audit.get("behind"):
+        adoption_mode = "fast_forward_after_checks"
+
     return {
         "source_audit": str(audit_path),
         "villa_local_ref": audit.get("local_ref"),
         "villa_upstream_ref": audit.get("upstream_ref"),
+        "villa_merge_base": audit.get("merge_base"),
         "villa_behind": bool(audit.get("behind")),
+        "villa_diverged": bool(audit.get("diverged")),
+        "villa_upstream_ahead_commits": int(audit.get("upstream_ahead_commits", 0) or 0),
+        "villa_local_ahead_commits": int(audit.get("local_ahead_commits", 0) or 0),
         "changed_files": audit.get("changed_files", 0),
+        "local_changed_files": audit.get("local_changed_files", 0),
+        "adoption_mode": adoption_mode,
         "recommendation": recommendation,
+        "local_patch_warning": int(audit.get("local_changed_files", 0) or 0) > 0 or bool(local_changed_areas),
         "areas": areas,
     }
 
