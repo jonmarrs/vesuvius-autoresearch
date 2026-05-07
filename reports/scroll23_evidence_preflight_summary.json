@@ -50,5 +50,7 @@
       ],
       "report_path": "reports/scroll23_evidence/candidate_001/preflight_report.json"
     }
-  ]
+  ],
+  "gpu_queue": "reports/scroll23_gpu_inference_queue.tsv",
+  "gpu_queue_ready": 2
 }

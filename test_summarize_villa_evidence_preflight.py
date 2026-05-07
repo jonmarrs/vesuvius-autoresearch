@@ -1,6 +1,6 @@
 import json
 
-from scripts.summarize_villa_evidence_preflight import summarize_reports, write_tsv
+from scripts.summarize_villa_evidence_preflight import summarize_reports, write_gpu_queue, write_tsv
 
 
 def _write_report(path, *, index, status="PASS", failures=None, warnings=None):
@@ -60,3 +60,24 @@ def test_write_tsv_outputs_flat_candidate_table(tmp_path):
     text = out.read_text()
     assert "candidate_index\tstatus\tready_for_gpu" in text
     assert "pred_0" in text
+
+
+def test_write_gpu_queue_keeps_only_ready_candidates(tmp_path):
+    root = tmp_path / "evidence"
+    _write_report(root / "candidate_000" / "preflight_report.json", index=0)
+    _write_report(
+        root / "candidate_001" / "preflight_report.json",
+        index=1,
+        status="FAIL",
+        failures=["missing checkpoint"],
+    )
+    summary = summarize_reports(root)
+    out = tmp_path / "gpu_queue.tsv"
+
+    ready = write_gpu_queue(out, summary["rows"])
+
+    text = out.read_text()
+    assert len(ready) == 1
+    assert "queue_rank\tcandidate_index" in text
+    assert "pred_0" in text
+    assert "pred_1" not in text

@@ -109,7 +109,9 @@ uv run python scripts/summarize_villa_evidence_preflight.py
 
 This writes `reports/scroll23_evidence_preflight_summary.json` and `.tsv`,
 including candidate readiness, Scroll/division coordinates, review score, and
-any blocking failures or warnings.
+any blocking failures or warnings. It also writes
+`reports/scroll23_gpu_inference_queue.tsv`, containing only candidates that are
+ready for GPU inference.
 
 The guarded one-command handoff without `--preflight-only` is:
 

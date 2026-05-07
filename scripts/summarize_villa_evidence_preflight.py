@@ -84,11 +84,39 @@ def write_tsv(path, rows):
             writer.writerow({field: row.get(field, "") for field in fields})
 
 
+def write_gpu_queue(path, rows):
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fields = [
+        "queue_rank",
+        "candidate_index",
+        "scroll_id",
+        "short_id",
+        "division",
+        "z",
+        "y",
+        "x",
+        "artifact_stem",
+        "review_score",
+        "report_path",
+    ]
+    ready_rows = [row for row in rows if row.get("ready_for_gpu")]
+    with open(path, "w", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=fields, delimiter="\t")
+        writer.writeheader()
+        for rank, row in enumerate(ready_rows):
+            payload = {field: row.get(field, "") for field in fields}
+            payload["queue_rank"] = rank
+            writer.writerow(payload)
+    return ready_rows
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--root", default="reports/scroll23_evidence")
     parser.add_argument("--out-json", default="reports/scroll23_evidence_preflight_summary.json")
     parser.add_argument("--out-tsv", default="reports/scroll23_evidence_preflight_summary.tsv")
+    parser.add_argument("--gpu-queue", default="reports/scroll23_gpu_inference_queue.tsv")
     args = parser.parse_args()
 
     summary = summarize_reports(args.root)
@@ -96,6 +124,10 @@ def main():
     out_json.parent.mkdir(parents=True, exist_ok=True)
     out_json.write_text(json.dumps(summary, indent=2) + "\n")
     write_tsv(args.out_tsv, summary["rows"])
+    ready_rows = write_gpu_queue(args.gpu_queue, summary["rows"])
+    summary["gpu_queue"] = args.gpu_queue
+    summary["gpu_queue_ready"] = len(ready_rows)
+    out_json.write_text(json.dumps(summary, indent=2) + "\n")
     print(json.dumps(summary, indent=2))
 
 

@@ -1,0 +1,3 @@
+queue_rank	candidate_index	scroll_id	short_id	division	z	y	x	artifact_stem	review_score	report_path
+0	0	Scroll 2	PHerc0125	div_90	18176	4128	4128	pred_18176_4128_4128_64x64	2.350000	reports/scroll23_evidence/candidate_000/preflight_report.json
+1	1	Scroll 2	PHerc0125	div_90	18176	4128	4000	pred_18176_4128_4000_64x64	2.350000	reports/scroll23_evidence/candidate_001/preflight_report.json
