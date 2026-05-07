@@ -1,13 +1,19 @@
 {
   "villa_dir": "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/villa",
   "local_ref": "4b7c5c20d95b404b7e92dc70606a1b1ed8648fd3",
-  "upstream_ref": "8e0deb2487087e849d528d3425888294d521bb72",
+  "upstream_ref": "ad4e1b7d8a85c553c0b135b5f02ef98af9a9e923",
   "behind": true,
-  "changed_files": 24,
+  "changed_files": 33,
   "prize_relevant_areas": {
     "lasagna": {
-      "changed_files": 0,
-      "sample_paths": [],
+      "changed_files": 5,
+      "sample_paths": [
+        "lasagna/configs/offset.json",
+        "lasagna/configs/only_flowsnap_speculative.json",
+        "lasagna/dense_batch_min_cut/src/dense_batch_preprocess.cpp",
+        "lasagna/opt_loss_pred_dt.py",
+        "lasagna/optimizer.py"
+      ],
       "prize_use": "Surface fitting, tifxyz conversion, and 3D training for better Scroll 2/3 unwrapping."
     },
     "optimized_inference": {
@@ -21,8 +27,9 @@
       "prize_use": "Tracked 3D decoder baseline for thicker-layer context and stronger cross-scroll generalization."
     },
     "volume_cartographer": {
-      "changed_files": 9,
+      "changed_files": 13,
       "sample_paths": [
+        "volume-cartographer/apps/VC3D/SegmentationCommandHandler.cpp",
         "volume-cartographer/apps/VC3D/overlays/SegmentationOverlayController.cpp",
         "volume-cartographer/apps/VC3D/overlays/SegmentationOverlayController.hpp",
         "volume-cartographer/apps/VC3D/segmentation/SegmentationModule.cpp",
@@ -31,7 +38,9 @@
         "volume-cartographer/apps/VC3D/segmentation/tools/ApprovalMaskBrushTool.cpp",
         "volume-cartographer/apps/VC3D/volume_viewers/CChunkedVolumeViewer.cpp",
         "volume-cartographer/apps/VC3D/volume_viewers/CChunkedVolumeViewer.hpp",
-        "volume-cartographer/core/src/PlaneSurface.cpp"
+        "volume-cartographer/core/src/PlaneSurface.cpp",
+        "volume-cartographer/core/src/SurfacePatchIndex.cpp",
+        "volume-cartographer/core/src/VcDataset.cpp"
       ],
       "prize_use": "VC3D segmentation, browsing, growth, and tifxyz utilities for producing reviewable surfaces."
     },
@@ -47,6 +56,10 @@
     }
   },
   "recent_upstream_commits": [
+    "ad4e1b7d8 Fix crop to valid / early intersection end at edges  (#884)",
+    "648245707 vc: in VcDataset use blosc_decompress_ctx to avoid global lock (#880)",
+    "027ca2542 vc: enable OPENMP in docker build (#881)",
+    "964bb5f49 L3d flow speed (#879)",
     "8e0deb248 fix mask plane intersection view  (#878)"
   ]
 }
