@@ -13,19 +13,24 @@ submodule:
 git -C villa fetch origin main
 uv run python scripts/audit_villa_upstream.py
 uv run python scripts/plan_villa_prize_opportunities.py
+uv run python scripts/review_villa_pin.py
 ```
 
 The report is written to `reports/villa_upstream_audit.json` and groups upstream
 changes by prize relevance: `lasagna`, optimized inference, ResNet3D decoder,
 VC3D / Volume Cartographer, Vesuvius data access, and current prize docs. The
 opportunity planner writes `reports/villa_prize_opportunities.json`, ranking
-official issue-backed work by prize impact and local Autoresearch hooks.
+official issue-backed work by prize impact and local Autoresearch hooks. The pin
+review writes `reports/villa_pin_review.json`, listing the changed official
+areas, their adoption risk, and the checks that should pass before updating the
+local Villa checkout.
 
-Current snapshot from the 2026-05-06 audit:
+Current snapshot from the 2026-05-07 audit:
 
 - local Villa ref: `4b7c5c20d95b404b7e92dc70606a1b1ed8648fd3`
-- official `origin/main`: `8e0deb2487087e849d528d3425888294d521bb72`
-- fresh prize-relevant delta: VC3D / Volume Cartographer mask-plane review fixes
+- official `origin/main`: `ad4e1b7d8a85c553c0b135b5f02ef98af9a9e923`
+- fresh prize-relevant delta: 5 Lasagna files and 13 VC3D / Volume Cartographer files
+- pin recommendation: `review_changed_areas_before_pin_update`
 - current top opportunity: `villa-issue-191`, route occupied Scroll 2/3 windows through surface/fiber preprocessing before more ink inference
 
 ## 1. Build the Scroll 2/3 Search Queue

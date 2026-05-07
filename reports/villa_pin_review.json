@@ -1,0 +1,89 @@
+{
+  "source_audit": "reports/villa_upstream_audit.json",
+  "villa_local_ref": "4b7c5c20d95b404b7e92dc70606a1b1ed8648fd3",
+  "villa_upstream_ref": "ad4e1b7d8a85c553c0b135b5f02ef98af9a9e923",
+  "villa_behind": true,
+  "changed_files": 33,
+  "recommendation": "review_changed_areas_before_pin_update",
+  "areas": [
+    {
+      "area": "lasagna",
+      "changed_files": 5,
+      "sample_paths": [
+        "lasagna/configs/offset.json",
+        "lasagna/configs/only_flowsnap_speculative.json",
+        "lasagna/dense_batch_min_cut/src/dense_batch_preprocess.cpp",
+        "lasagna/opt_loss_pred_dt.py",
+        "lasagna/optimizer.py"
+      ],
+      "risk": "medium",
+      "decision": "review_before_pin_update",
+      "reason": "Geometry preprocessing changes can reorder or alter Scroll 2/3 candidate surfaces.",
+      "checks": [
+        "uv run python scripts/build_lasagna_fiber_worklist.py --ranked reports/scroll23_ranked_candidates.tsv --limit 12",
+        "uv run python scripts/run_post_sprint_villa_handoff.py --preflight-only"
+      ]
+    },
+    {
+      "area": "volume_cartographer",
+      "changed_files": 13,
+      "sample_paths": [
+        "volume-cartographer/apps/VC3D/SegmentationCommandHandler.cpp",
+        "volume-cartographer/apps/VC3D/overlays/SegmentationOverlayController.cpp",
+        "volume-cartographer/apps/VC3D/overlays/SegmentationOverlayController.hpp",
+        "volume-cartographer/apps/VC3D/segmentation/SegmentationModule.cpp",
+        "volume-cartographer/apps/VC3D/segmentation/SegmentationModule.hpp",
+        "volume-cartographer/apps/VC3D/segmentation/panels/SegmentationApprovalMaskPanel.cpp",
+        "volume-cartographer/apps/VC3D/segmentation/tools/ApprovalMaskBrushTool.cpp",
+        "volume-cartographer/apps/VC3D/volume_viewers/CChunkedVolumeViewer.cpp",
+        "volume-cartographer/apps/VC3D/volume_viewers/CChunkedVolumeViewer.hpp",
+        "volume-cartographer/core/src/PlaneSurface.cpp",
+        "volume-cartographer/core/src/SurfacePatchIndex.cpp",
+        "volume-cartographer/core/src/VcDataset.cpp"
+      ],
+      "risk": "medium",
+      "decision": "review_before_pin_update",
+      "reason": "VC3D review and dataset changes affect how ink/fiber overlays are inspected.",
+      "checks": [
+        "uv run python scripts/validate_prize_artifact.py --metadata predictions/pred_10_1000_1000_64x64_meta.json",
+        "uv run python scripts/run_post_sprint_villa_handoff.py --preflight-only"
+      ]
+    },
+    {
+      "area": "optimized_inference",
+      "changed_files": 0,
+      "sample_paths": [],
+      "risk": "high",
+      "decision": "no_action",
+      "reason": "Inference contract changes can break reproducible prize packaging.",
+      "checks": []
+    },
+    {
+      "area": "resnet3d_decoder",
+      "changed_files": 0,
+      "sample_paths": [],
+      "risk": "high",
+      "decision": "no_action",
+      "reason": "Model contract changes can affect checkpoint compatibility and inference outputs.",
+      "checks": []
+    },
+    {
+      "area": "vesuvius_data",
+      "changed_files": 0,
+      "sample_paths": [],
+      "risk": "medium",
+      "decision": "no_action",
+      "reason": "Data loader changes can change candidate occupancy and volume addressing.",
+      "checks": []
+    },
+    {
+      "area": "prize_docs",
+      "changed_files": 0,
+      "sample_paths": [],
+      "risk": "high",
+      "decision": "no_action",
+      "reason": "Prize criteria changes can invalidate packaging assumptions.",
+      "checks": []
+    }
+  ]
+}
