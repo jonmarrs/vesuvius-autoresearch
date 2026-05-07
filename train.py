@@ -133,6 +133,44 @@ except ImportError:
     def compute_cc_diff(gt_bin, pred_bin):
         return 0
 
+def load_shape_compatible_state(module, state_dict, label):
+    current_state = module.state_dict()
+    compatible = {}
+    skipped_shape = 0
+    skipped_missing = 0
+
+    for key, value in state_dict.items():
+        if key not in current_state:
+            skipped_missing += 1
+            continue
+        if not hasattr(value, "shape") or current_state[key].shape != value.shape:
+            skipped_shape += 1
+            continue
+        compatible[key] = value
+
+    if compatible:
+        result = module.load_state_dict(compatible, strict=False)
+        print(
+            f"  Loaded {len(compatible)}/{len(state_dict)} compatible tensors from {label} "
+            f"(skipped missing={skipped_missing}, shape={skipped_shape})."
+        )
+        if result.missing_keys:
+            print(f"  Remaining missing keys after partial load: {len(result.missing_keys)}")
+    else:
+        print(
+            f"  Skipped {label}: no shape-compatible tensors "
+            f"(missing={skipped_missing}, shape={skipped_shape})."
+        )
+
+def extract_checkpoint_state(checkpoint):
+    if not isinstance(checkpoint, dict):
+        return checkpoint
+    for key in ("model", "model_state_dict", "state_dict"):
+        state_dict = checkpoint.get(key)
+        if isinstance(state_dict, dict):
+            return state_dict
+    return checkpoint
+
 def evaluate_prize_gates(
     config: ExperimentConfig,
     val_bpb: float,
@@ -750,19 +788,16 @@ def train(config: ExperimentConfig):
         try:
             print(f"Loading pretrained backbone from {config.foundation_model_path}...")
             checkpoint = torch.load(config.foundation_model_path, map_location=device, weights_only=False)
-            state_dict = checkpoint.get('model', checkpoint.get('model_state_dict', checkpoint))
+            state_dict = extract_checkpoint_state(checkpoint)
             
             # Map weights to backbone if possible. This is highly architecture dependent.
             # For PrimusNetwork (LeJEPA), the encoder weights start with 'encoder.'
             if hasattr(model, 'backbone') and hasattr(model.backbone, 'shared_encoder'):
                 # Extract encoder weights and strip 'encoder.' prefix
                 encoder_state = {k.replace('encoder.', ''): v for k, v in state_dict.items() if k.startswith('encoder.')}
-                res = model.backbone.shared_encoder.load_state_dict(encoder_state, strict=False)
-                print(f"  Pretrained LeJEPA backbone initialized: {len(encoder_state)} weights loaded.")
-                if res.missing_keys: print(f"  Missing keys in encoder: {len(res.missing_keys)}")
+                load_shape_compatible_state(model.backbone.shared_encoder, encoder_state, "LeJEPA encoder")
             else:
-                model.load_state_dict(state_dict, strict=False)
-                print("  Generic pretrained backbone initialized.")
+                load_shape_compatible_state(model, state_dict, "generic pretrained checkpoint")
         except Exception as e:
             print(f"Warning: Could not load foundation model: {e}")
 
@@ -775,16 +810,22 @@ def train(config: ExperimentConfig):
             
             # Check compatibility (architecture-defining attributes)
             arch_match = True
+            mismatch_attr = None
             for attr in ['architecture', 'in_channels', 'num_layers', 'num_blocks', 'num_heads', 'base_feat', 'patch_size']:
                 if best_config.get(attr) != getattr(config, attr):
                     arch_match = False
+                    mismatch_attr = attr
                     break
             
             if arch_match:
                 print(f"Loading weights from {best_model_path} (Incremental Progress)...")
-                model.load_state_dict(checkpoint['model_state_dict'], strict=False) # strict=False to allow adding projector head
+                load_shape_compatible_state(model, checkpoint['model_state_dict'], best_model_path)
             else:
-                print(f"New architecture detected ({best_config.get('base_feat')}->{config.base_feat}). Starting fresh.")
+                print(
+                    "New architecture detected "
+                    f"({mismatch_attr}: {best_config.get(mismatch_attr)}->{getattr(config, mismatch_attr)}). "
+                    "Starting fresh."
+                )
         except Exception as e:
             print(f"Warning: Could not load best model: {e}")
     

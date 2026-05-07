@@ -14,9 +14,9 @@ import torch.nn.functional as F
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
-from vesuvius_model import InkDetectorOptimized, VesuviusConfig
+from vesuvius_model import InkDetectorOptimized, VesuviusTimeSformer, VesuviusConfig
 from vesuvius_loader import FastVesuviusVolume
-from predict import get_weight_window, save_vc3d_zarr
+from predict import get_weight_window, load_compatible_state_dict, save_vc3d_zarr
 
 def ensemble_predict():
     parser = argparse.ArgumentParser()
@@ -68,8 +68,11 @@ def ensemble_predict():
             architecture=architecture
         )
         
-        model = InkDetectorOptimized(v_config).to(device)
-        model.load_state_dict(checkpoint['model_state_dict'], strict=False)
+        if architecture == "timesformer":
+            model = VesuviusTimeSformer(v_config).to(device)
+        else:
+            model = InkDetectorOptimized(v_config).to(device)
+        load_compatible_state_dict(model, checkpoint['model_state_dict'])
         model.eval()
         models.append((model, use_ridges, num_layers, patch_size))
 

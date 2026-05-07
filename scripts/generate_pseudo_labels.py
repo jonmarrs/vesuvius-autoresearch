@@ -8,6 +8,7 @@ from PIL import Image
 from tqdm import tqdm
 from vesuvius_model import InkDetectorOptimized, VesuviusTimeSformer, VesuviusConfig
 from vesuvius_loader import FastVesuviusVolume
+from predict import load_compatible_state_dict
 
 def get_weight_window(patch_size, device):
     h = torch.hann_window(patch_size, periodic=False).to(device)
@@ -48,7 +49,7 @@ def generate_pseudo_labels():
     else:
         model = InkDetectorOptimized(v_config).to(device)
         
-    model.load_state_dict(checkpoint['model_state_dict'], strict=False)
+    load_compatible_state_dict(model, checkpoint['model_state_dict'])
     model.eval()
 
     patch_size = args.patch_size or v_config.patch_size
