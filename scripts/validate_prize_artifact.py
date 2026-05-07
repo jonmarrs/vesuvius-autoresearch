@@ -89,6 +89,19 @@ def _check_ome_scale_metadata(zarr_dir, voxel_um, failures, warnings):
         )
 
 
+def _check_vc3d_zarr(zarr_candidate, voxel_um, failures, warnings, label):
+    zarr_dir = Path(zarr_candidate)
+    meta_json = zarr_dir / "meta.json"
+    zarray_json = zarr_dir / "0" / ".zarray"
+    _check(meta_json.exists(), f"{label} VC3D export missing {meta_json}", failures)
+    _check(zarray_json.exists(), f"{label} VC3D export missing {zarray_json}", failures)
+    if meta_json.exists():
+        vc_meta = _load_json(meta_json)
+        _check(vc_meta.get("format") == "zarr", f"{label} VC3D meta.json must include format='zarr'", failures)
+        _check(float(vc_meta.get("voxelsize", 0)) > 0, f"{label} VC3D meta.json must include positive voxelsize", failures)
+    _check_ome_scale_metadata(zarr_dir, voxel_um, failures, warnings)
+
+
 def validate(metadata_path, train_mask=None, predict_mask=None, zarr_path=None):
     metadata_path = Path(metadata_path)
     metadata = _load_json(metadata_path)
@@ -149,26 +162,33 @@ def validate(metadata_path, train_mask=None, predict_mask=None, zarr_path=None):
     else:
         _check(False, "train and predict masks were not provided; zero-overlap is unverified", failures, warnings, warning=True)
 
+    checked_zarr_paths = []
     zarr_candidate = zarr_path or metadata.get("vc3d_zarr_path") or metadata.get("prediction_zarr_path")
     if zarr_candidate:
-        zarr_dir = Path(zarr_candidate)
-        meta_json = zarr_dir / "meta.json"
-        zarray_json = zarr_dir / "0" / ".zarray"
-        _check(meta_json.exists(), f"VC3D export missing {meta_json}", failures)
-        _check(zarray_json.exists(), f"VC3D export missing {zarray_json}", failures)
-        if meta_json.exists():
-            vc_meta = _load_json(meta_json)
-            _check(vc_meta.get("format") == "zarr", "VC3D meta.json must include format='zarr'", failures)
-            _check(float(vc_meta.get("voxelsize", 0)) > 0, "VC3D meta.json must include positive voxelsize", failures)
-        _check_ome_scale_metadata(zarr_dir, voxel_um, failures, warnings)
+        _check_vc3d_zarr(zarr_candidate, voxel_um, failures, warnings, "Ink")
+        checked_zarr_paths.append(str(zarr_candidate))
     else:
         _check(False, "VC3D/Zarr export path not provided; export compatibility is unverified", failures, warnings, warning=True)
+
+    fiber_zarr_candidate = metadata.get("fiber_vc3d_zarr_path") or metadata.get("fiber_prediction_zarr_path")
+    if fiber_zarr_candidate:
+        _check_vc3d_zarr(fiber_zarr_candidate, voxel_um, failures, warnings, "Fiber")
+        checked_zarr_paths.append(str(fiber_zarr_candidate))
+    elif metadata.get("fiber_stats") or metadata.get("fiber_image_path"):
+        _check(
+            False,
+            "fiber artifact metadata is present but fiber VC3D/Zarr export path is missing",
+            failures,
+            warnings,
+            warning=True,
+        )
 
     return {
         "status": "PASS" if not failures else "FAIL",
         "metadata_path": str(metadata_path),
         "ml_window_px": ml_window_px,
         "ml_window_mm": ml_window_mm,
+        "checked_zarr_paths": checked_zarr_paths,
         "failures": failures,
         "warnings": warnings,
     }

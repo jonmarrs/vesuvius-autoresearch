@@ -1,0 +1,14 @@
+{
+  "status": "PASS",
+  "metadata_path": "predictions/pred_10_1000_1000_64x64_meta.json",
+  "ml_window_px": 64,
+  "ml_window_mm": 0.50624,
+  "checked_zarr_paths": [
+    "reports/pred_10_1000_1000_64x64_ink.zarr",
+    "reports/pred_10_1000_1000_64x64_fiber.zarr"
+  ],
+  "failures": [],
+  "warnings": [
+    "train and predict masks were not provided; zero-overlap is unverified"
+  ]
+}

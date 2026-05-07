@@ -170,7 +170,12 @@ The validator checks locally verifiable requirements:
 - `64x64` or smaller ML window
 - declared 1 cm scale bar
 - zero train/predict overlap when masks are provided
-- VC3D/Zarr shape metadata and OME-Zarr spatial scale metadata when a prediction Zarr is provided
+- VC3D/Zarr shape metadata and OME-Zarr spatial scale metadata when prediction Zarrs are provided
+
+When `fiber_vc3d_zarr_path` is present in metadata, the validator checks both
+the ink and fiber VC3D/Zarr exports for `meta.json`, `0/.zarray`, and OME-Zarr
+spatial scale metadata. This keeps the Villa issue #369 fiber-overlay path under
+the same reviewer compatibility contract as ink predictions.
 
 ## 4. Generate a Dry-Run Package
 
