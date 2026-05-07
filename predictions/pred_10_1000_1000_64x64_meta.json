@@ -19,7 +19,7 @@
   "scale_bar_cm": true,
   "vc3d_zarr_path": "reports/pred_10_1000_1000_64x64_ink.zarr",
   "fiber_vc3d_zarr_path": "reports/pred_10_1000_1000_64x64_fiber.zarr",
-  "output_image_path": "reports/benchmark_v210_cycle5.png",
+  "output_image_path": "reports/benchmark_v210_cycle25.png",
   "model_config": {
     "uri": null,
     "uris": [
