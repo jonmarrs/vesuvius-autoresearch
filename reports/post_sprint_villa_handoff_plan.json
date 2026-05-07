@@ -1,13 +1,14 @@
 {
-  "status": "BLOCKED_ACTIVE_SPRINT",
+  "status": "READY_ACTIVE_SPRINT_NON_GPU",
   "active_processes": [
-    "460115 .venv/bin/python -u run_autoresearch_loop.py",
-    "462401 uv run python -u train.py --config config_temp.json",
-    "462404 /home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python3 -u train.py --config config_temp.json",
-    "462417 /home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python3 -u train.py --config config_temp.json",
-    "462418 /home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python3 -u train.py --config config_temp.json",
-    "462419 /home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python3 -u train.py --config config_temp.json",
-    "462420 /home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python3 -u train.py --config config_temp.json"
+    "472758 uv run python -u run_autoresearch_loop.py",
+    "472762 /home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python3 -u run_autoresearch_loop.py",
+    "479381 uv run python -u train.py --config config_temp.json",
+    "479384 /home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python3 -u train.py --config config_temp.json",
+    "479397 /home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python3 -u train.py --config config_temp.json",
+    "479398 /home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python3 -u train.py --config config_temp.json",
+    "479399 /home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python3 -u train.py --config config_temp.json",
+    "479400 /home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python3 -u train.py --config config_temp.json"
   ],
   "steps": [
     {
@@ -69,7 +70,9 @@
         "--checkpoint",
         "best_model.pt",
         "--preflight",
-        "--execute"
+        "--execute",
+        "--preflight-report",
+        "reports/scroll23_evidence/candidate_000/preflight_report.json"
       ]
     },
     {
@@ -87,7 +90,9 @@
         "--checkpoint",
         "best_model.pt",
         "--preflight",
-        "--execute"
+        "--execute",
+        "--preflight-report",
+        "reports/scroll23_evidence/candidate_001/preflight_report.json"
       ]
     }
   ]

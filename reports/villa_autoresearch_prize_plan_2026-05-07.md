@@ -71,7 +71,7 @@ This executes the following queue:
 
 ## Concrete Next Engineering Moves
 
-1. Add a small `--skip-gpu` or `--preflight-only` mode to `run_post_sprint_villa_handoff.py` so we can refresh non-GPU manifests during active training without tripping the active-sprint guard.
+1. Use `scripts/run_post_sprint_villa_handoff.py --preflight-only` to refresh non-GPU manifests during active training without tripping the active-sprint guard. This remains blocked if GPU execution flags are requested and writes per-candidate `preflight_report.json` files for review.
 2. Add a regression fixture for VC3D fiber/ink Zarr scale metadata using `reports/pred_10_1000_1000_64x64_*` as the local known-good artifact.
 3. Add a Villa pin review checklist that compares local `villa` to `origin/main` for only `lasagna/`, `volume-cartographer/`, and prize docs before allowing a submodule update.
 4. Convert the top 12 `reports/lasagna_fiber_worklist.tsv` rows into per-candidate evidence directories with structure tensors, ink/fiber overlays, metadata, and validator output.

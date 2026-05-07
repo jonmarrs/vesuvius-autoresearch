@@ -4,8 +4,8 @@ Run the Villa-backed Scroll 2/3 handoff after an Autoresearch sprint.
 
 The handoff is intentionally guarded: by default it refuses to run when the
 Night/Day Shift training loop is active. Without --execute-* flags it only
-refreshes manifests and preflight reports, so it is safe to use as a planning
-step before spending GPU time.
+refreshes manifests and preflight reports; use --preflight-only to allow that
+non-GPU planning path while a sprint is active.
 """
 import argparse
 import json
@@ -83,6 +83,7 @@ def build_handoff_steps(args):
     ]
 
     for index in range(args.evidence_limit):
+        out_dir = Path(args.evidence_root) / f"candidate_{index:03d}"
         command = [
             python,
             "scripts/run_villa_prize_evidence_chain.py",
@@ -91,14 +92,21 @@ def build_handoff_steps(args):
             "--candidate-index",
             str(index),
             "--out-dir",
-            str(Path(args.evidence_root) / f"candidate_{index:03d}"),
+            str(out_dir),
             "--checkpoint",
             args.checkpoint,
         ]
         if args.execute_evidence:
             command.append("--execute")
         else:
-            command.extend(["--preflight", "--execute"])
+            command.extend(
+                [
+                    "--preflight",
+                    "--execute",
+                    "--preflight-report",
+                    str(out_dir / "preflight_report.json"),
+                ]
+            )
         steps.append(
             {
                 "name": f"evidence_candidate_{index:03d}",
@@ -122,6 +130,16 @@ def write_plan(path, active_processes, steps, status):
     return payload
 
 
+def resolve_status(active_processes, steps, force=False, preflight_only=False):
+    if not active_processes or force:
+        return "READY"
+    if preflight_only:
+        if any(step.get("gpu") for step in steps):
+            return "BLOCKED_GPU_STEP_ACTIVE_SPRINT"
+        return "READY_ACTIVE_SPRINT_NON_GPU"
+    return "BLOCKED_ACTIVE_SPRINT"
+
+
 def run_steps(steps):
     for step in steps:
         subprocess.run(step["command"], check=True)
@@ -141,17 +159,22 @@ def main():
     parser.add_argument("--evidence-limit", type=int, default=2)
     parser.add_argument("--execute-inference", action="store_true")
     parser.add_argument("--execute-evidence", action="store_true")
+    parser.add_argument(
+        "--preflight-only",
+        action="store_true",
+        help="Allow non-GPU manifest/preflight steps to run while a sprint is active",
+    )
     parser.add_argument("--force", action="store_true", help="Allow execution while a sprint process is active")
     parser.add_argument("--python-executable", default=sys.executable)
     args = parser.parse_args()
 
     active = active_sprint_processes()
     steps = build_handoff_steps(args)
-    status = "BLOCKED_ACTIVE_SPRINT" if active and not args.force else "READY"
+    status = resolve_status(active, steps, force=args.force, preflight_only=args.preflight_only)
     plan = write_plan(args.plan_out, active, steps, status)
     print(json.dumps(plan, indent=2))
 
-    if status != "READY":
+    if not status.startswith("READY"):
         raise SystemExit(2)
 
     run_steps(steps)

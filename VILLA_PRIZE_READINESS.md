@@ -83,7 +83,20 @@ This is dry-run by default. Add `--execute` only when you are ready to run the
 jobs serially on the active machine/GPU.
 
 When a long training sprint is already using the GPU, keep this queue staged but
-do not run `--execute`. The guarded one-command handoff is:
+do not run `--execute`. To refresh manifests, rankings, worklists, and evidence
+preflight reports without starting GPU inference during an active sprint, run:
+
+```bash
+uv run python scripts/run_post_sprint_villa_handoff.py --preflight-only
+```
+
+This writes `reports/post_sprint_villa_handoff_plan.json`, refreshes the
+non-GPU planning artifacts, and writes per-candidate preflight reports under
+`reports/scroll23_evidence/candidate_*/preflight_report.json`. It still refuses
+to run if GPU execution flags are requested while `run_autoresearch_loop.py` or
+`train.py` is active.
+
+The guarded one-command handoff without `--preflight-only` is:
 
 ```bash
 uv run python scripts/run_post_sprint_villa_handoff.py
