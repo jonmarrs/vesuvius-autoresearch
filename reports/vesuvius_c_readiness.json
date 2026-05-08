@@ -24,6 +24,14 @@
       4
     ]
   },
+  "loader_slice_smoke": {
+    "status": "pass",
+    "shape": [
+      2,
+      3,
+      4
+    ]
+  },
   "sample_probe": {
     "status": "pass",
     "path": "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/local_data/PHercParis2Fr47/surface_volume.zarr/0",

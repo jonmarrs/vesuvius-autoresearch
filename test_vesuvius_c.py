@@ -37,6 +37,20 @@ def test_fast_local_volume_requires_complete_voxel_dimensions(tmp_path):
         vol.get_chunk(0, 0, 0, 1)
 
 
+def test_fast_vesuvius_volume_slice_uses_voxel_chunk_signature(tmp_path):
+    zarr = pytest.importorskip("zarr")
+    from vesuvius_loader import FastVesuviusVolume
+
+    path = tmp_path / "volume.zarr"
+    data = np.arange(4 * 6 * 8, dtype=np.float32).reshape(4, 6, 8)
+    arr = zarr.open(str(path), mode="w", shape=data.shape, chunks=(2, 3, 4), dtype="float32")
+    arr[:] = data
+
+    volume = FastVesuviusVolume(str(path))
+
+    np.testing.assert_allclose(volume[1:3, 2:5, 3:7].numpy(), data[1:3, 2:5, 3:7] / 255.0)
+
+
 def test_loading():
     path = 'local_data/PHercParis2Fr47/surface_volume.zarr/0'
     if not os.path.exists(path):

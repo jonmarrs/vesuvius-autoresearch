@@ -11,6 +11,7 @@ def test_vesuvius_c_readiness_runs_fallback_smoke_for_missing_sample(tmp_path, m
     report = build_readiness(sample_zarr="missing.zarr")
 
     assert report["fallback_smoke"]["status"] == "pass"
+    assert report["loader_slice_smoke"]["status"] == "pass"
     assert report["sample_probe"]["status"] == "missing_sample"
     assert report["prize_claim_status"] == "ready_for_local_data"
 
@@ -25,6 +26,7 @@ def test_vesuvius_c_readiness_markdown_names_benchmark_command():
             "native_probe_requested": False,
         },
         "fallback_smoke": {"status": "pass"},
+        "loader_slice_smoke": {"status": "pass"},
         "sample_probe": {"status": "pass", "backend": "zarr"},
         "benchmark_command": "VESUVIUS_C_BUILD=1 python benchmark_vesuvius_c.py",
         "next_action": "Run benchmark.",

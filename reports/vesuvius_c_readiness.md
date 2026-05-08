@@ -10,6 +10,7 @@ This report checks whether the official `ScrollPrize/villa` Vesuvius-C path is r
 - Native library present: `True`
 - Native probe requested: `False`
 - Fallback smoke: `pass`
+- Loader slice smoke: `pass`
 - Sample probe: `pass`
 - Sample backend: `zarr`
 
