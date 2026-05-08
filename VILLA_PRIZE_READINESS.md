@@ -114,9 +114,12 @@ The handoff now starts by refreshing the official Villa compatibility context:
 `reports/villa_upstream_audit.json`, `reports/villa_prize_opportunities.json`,
 and `reports/villa_pin_review.json`. It then rebuilds candidate inference
 manifests, reranks Scroll 2/3 candidates, refreshes the Lasagna/fiber worklist,
-writes preflight reports, and updates the GPU-ready queue. This keeps each
-post-sprint handoff aligned with the official `ScrollPrize/villa` repo before
-we spend GPU time on evidence generation.
+writes preflight reports, updates the GPU-ready queue, and writes
+`reports/villa_prize_action_matrix.json` plus
+`reports/villa_prize_action_matrix.md`. This keeps each post-sprint handoff
+aligned with the official `ScrollPrize/villa` repo before we spend GPU time on
+evidence generation, and turns the official opportunity list into sprint-ready
+Autoresearch actions.
 
 Summarize those preflight reports before spending GPU:
 

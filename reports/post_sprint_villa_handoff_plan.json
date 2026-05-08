@@ -3,12 +3,12 @@
   "active_processes": [
     "512172 uv run python -u run_autoresearch_loop.py",
     "512180 /home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python3 -u run_autoresearch_loop.py",
-    "513922 uv run python -u train.py --config config_temp.json",
-    "513925 /home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python3 -u train.py --config config_temp.json",
-    "514076 /home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python3 -u train.py --config config_temp.json",
-    "514077 /home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python3 -u train.py --config config_temp.json",
-    "514079 /home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python3 -u train.py --config config_temp.json",
-    "514080 /home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python3 -u train.py --config config_temp.json"
+    "528638 uv run python -u train.py --config config_temp.json",
+    "528641 /home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python3 -u train.py --config config_temp.json",
+    "528662 /home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python3 -u train.py --config config_temp.json",
+    "528663 /home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python3 -u train.py --config config_temp.json",
+    "528664 /home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python3 -u train.py --config config_temp.json",
+    "528665 /home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python3 -u train.py --config config_temp.json"
   ],
   "steps": [
     {
@@ -143,6 +143,22 @@
         "reports/scroll23_evidence_preflight_summary.tsv",
         "--gpu-queue",
         "reports/scroll23_gpu_inference_queue.tsv"
+      ]
+    },
+    {
+      "name": "build_villa_prize_action_matrix",
+      "gpu": false,
+      "command": [
+        "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python",
+        "scripts/build_villa_prize_action_matrix.py",
+        "--opportunities",
+        "reports/villa_prize_opportunities.json",
+        "--preflight",
+        "reports/scroll23_evidence_preflight_summary.json",
+        "--out-json",
+        "reports/villa_prize_action_matrix.json",
+        "--out-md",
+        "reports/villa_prize_action_matrix.md"
       ]
     }
   ]

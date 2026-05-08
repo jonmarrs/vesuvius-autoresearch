@@ -172,6 +172,24 @@ def build_handoff_steps(args):
             ],
         }
     )
+    steps.append(
+        {
+            "name": "build_villa_prize_action_matrix",
+            "gpu": False,
+            "command": [
+                python,
+                "scripts/build_villa_prize_action_matrix.py",
+                "--opportunities",
+                args.villa_opportunities,
+                "--preflight",
+                args.preflight_summary_json,
+                "--out-json",
+                args.villa_action_matrix_json,
+                "--out-md",
+                args.villa_action_matrix_md,
+            ],
+        }
+    )
 
     return steps
 
@@ -218,6 +236,8 @@ def main():
     parser.add_argument("--preflight-summary-json", default="reports/scroll23_evidence_preflight_summary.json")
     parser.add_argument("--preflight-summary-tsv", default="reports/scroll23_evidence_preflight_summary.tsv")
     parser.add_argument("--gpu-queue", default="reports/scroll23_gpu_inference_queue.tsv")
+    parser.add_argument("--villa-action-matrix-json", default="reports/villa_prize_action_matrix.json")
+    parser.add_argument("--villa-action-matrix-md", default="reports/villa_prize_action_matrix.md")
     parser.add_argument("--inference-limit", type=int, default=8)
     parser.add_argument("--worklist-limit", type=int, default=12)
     parser.add_argument("--evidence-limit", type=int, default=2)

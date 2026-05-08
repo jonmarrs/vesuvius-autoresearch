@@ -18,6 +18,8 @@ def _args(**overrides):
         "preflight_summary_json": "preflight_summary.json",
         "preflight_summary_tsv": "preflight_summary.tsv",
         "gpu_queue": "gpu_queue.tsv",
+        "villa_action_matrix_json": "action_matrix.json",
+        "villa_action_matrix_md": "action_matrix.md",
         "inference_limit": 8,
         "worklist_limit": 12,
         "evidence_limit": 2,
@@ -41,6 +43,7 @@ def test_post_sprint_handoff_defaults_to_safe_preflight_commands():
         "evidence_candidate_000",
         "evidence_candidate_001",
         "summarize_villa_evidence_preflight",
+        "build_villa_prize_action_matrix",
     ]
     assert steps[0]["command"][-1] == "villa_audit.json"
     assert steps[1]["command"][-1] == "villa_opportunities.json"
@@ -50,10 +53,14 @@ def test_post_sprint_handoff_defaults_to_safe_preflight_commands():
     assert "--preflight-report" in steps[6]["command"]
     assert steps[6]["command"][-1] == "evidence/candidate_000/preflight_report.json"
     assert steps[6]["gpu"] is False
-    assert "--root" in steps[-1]["command"]
-    assert "--out-json" in steps[-1]["command"]
-    assert "--out-tsv" in steps[-1]["command"]
-    assert steps[-1]["command"][-1] == "gpu_queue.tsv"
+    assert "--root" in steps[-2]["command"]
+    assert "--out-json" in steps[-2]["command"]
+    assert "--out-tsv" in steps[-2]["command"]
+    assert steps[-2]["command"][-1] == "gpu_queue.tsv"
+    assert steps[-1]["name"] == "build_villa_prize_action_matrix"
+    assert "--opportunities" in steps[-1]["command"]
+    assert "--preflight" in steps[-1]["command"]
+    assert steps[-1]["command"][-1] == "action_matrix.md"
 
 
 def test_post_sprint_handoff_execute_flags_mark_gpu_steps():
