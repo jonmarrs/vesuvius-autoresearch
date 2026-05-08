@@ -58,6 +58,20 @@
       ]
     },
     {
+      "name": "build_vesuvius_c_readiness",
+      "gpu": false,
+      "command": [
+        "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python",
+        "scripts/build_vesuvius_c_readiness.py",
+        "--sample-zarr",
+        "local_data/PHercParis2Fr47/surface_volume.zarr/0",
+        "--out-json",
+        "reports/vesuvius_c_readiness.json",
+        "--out-md",
+        "reports/vesuvius_c_readiness.md"
+      ]
+    },
+    {
       "name": "ranked_inference",
       "gpu": false,
       "command": [

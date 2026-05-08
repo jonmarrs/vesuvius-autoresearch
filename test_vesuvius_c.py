@@ -22,6 +22,19 @@ def test_fast_local_volume_falls_back_to_zarr(tmp_path):
     assert vol.chunks == (2, 3, 4)
     assert vol.backend == "zarr"
     np.testing.assert_array_equal(vol.get_chunk(1, 1, 1), data[2:4, 3:6, 4:8])
+    np.testing.assert_array_equal(vol.get_chunk(1, 2, 3, 2, 3, 4), data[1:3, 2:5, 3:7])
+
+
+def test_fast_local_volume_requires_complete_voxel_dimensions(tmp_path):
+    zarr = pytest.importorskip("zarr")
+    path = tmp_path / "volume.zarr"
+    arr = zarr.open(str(path), mode="w", shape=(4, 6, 8), chunks=(2, 3, 4), dtype="float32")
+    arr[:] = 0
+
+    vol = FastLocalVolume(path, prefer_native=False)
+
+    with pytest.raises(ValueError, match="depth, height, and width"):
+        vol.get_chunk(0, 0, 0, 1)
 
 
 def test_loading():

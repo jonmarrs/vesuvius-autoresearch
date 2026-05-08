@@ -68,9 +68,11 @@ class VesuviusVolume:
 class FastLocalVolume:
     """Read local Zarr chunks through Vesuvius-C when possible.
 
-    ``get_chunk`` keeps the legacy Autoresearch grid-index API:
-    ``get_chunk(z_chunk, y_chunk, x_chunk)``. If the native backend is
-    unavailable, it reads the equivalent voxel slice with ``zarr``.
+    ``get_chunk`` supports both local call styles used in Autoresearch:
+    ``get_chunk(z_chunk, y_chunk, x_chunk)`` for grid-indexed chunk reads and
+    ``get_chunk(z, y, x, depth, height, width)`` for voxel-coordinate reads.
+    If the native backend is unavailable, it reads the equivalent slice with
+    ``zarr``.
     """
 
     def __init__(self, path: str | Path, prefer_native: Optional[bool] = None):
@@ -103,15 +105,23 @@ class FastLocalVolume:
             return "/"
         return "."
 
-    def get_chunk(self, z_chunk: int, y_chunk: int, x_chunk: int):
-        start = (
-            int(z_chunk) * self.chunks[0],
-            int(y_chunk) * self.chunks[1],
-            int(x_chunk) * self.chunks[2],
-        )
+    def get_chunk(self, z: int, y: int, x: int, depth=None, height=None, width=None):
+        if depth is None and height is None and width is None:
+            start = (
+                int(z) * self.chunks[0],
+                int(y) * self.chunks[1],
+                int(x) * self.chunks[2],
+            )
+            dims = self.chunks
+        else:
+            if depth is None or height is None or width is None:
+                raise ValueError("depth, height, and width must be provided together")
+            start = (int(z), int(y), int(x))
+            dims = (int(depth), int(height), int(width))
+
         stop = tuple(
-            min(axis_start + chunk, shape)
-            for axis_start, chunk, shape in zip(start, self.chunks, self.shape)
+            min(axis_start + dim, shape)
+            for axis_start, dim, shape in zip(start, dims, self.shape)
         )
 
         if self._native is not None:

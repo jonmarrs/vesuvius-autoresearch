@@ -1,0 +1,51 @@
+{
+  "source": "ScrollPrize/villa vesuvius-c",
+  "wrapper_path": "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/vesuvius_c_wrapper/vesuvius_c.py",
+  "upstream_path": "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/villa/vesuvius-c/python/vesuvius_c.py",
+  "native_library_path": "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/villa/vesuvius-c/python/libvesuvius.so",
+  "sample_zarr": "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/local_data/PHercParis2Fr47/surface_volume.zarr/0",
+  "checks": {
+    "wrapper_present": true,
+    "upstream_present": true,
+    "native_library_present": true,
+    "native_probe_requested": false
+  },
+  "fallback_smoke": {
+    "status": "pass",
+    "backend": "zarr",
+    "shape": [
+      4,
+      6,
+      8
+    ],
+    "chunks": [
+      2,
+      3,
+      4
+    ]
+  },
+  "sample_probe": {
+    "status": "pass",
+    "path": "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/local_data/PHercParis2Fr47/surface_volume.zarr/0",
+    "backend": "zarr",
+    "native_backend": "not_used",
+    "shape": [
+      33,
+      8181,
+      6330
+    ],
+    "chunks": [
+      64,
+      256,
+      256
+    ],
+    "sample_chunk_shape": [
+      33,
+      256,
+      256
+    ]
+  },
+  "benchmark_command": "VESUVIUS_C_BUILD=1 /home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python benchmark_vesuvius_c.py",
+  "prize_claim_status": "fallback_only",
+  "next_action": "Run the benchmark with VESUVIUS_C_BUILD=1 and record native speedup before a Progress Prize claim."
+}
