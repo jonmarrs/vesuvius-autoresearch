@@ -190,6 +190,32 @@ def build_handoff_steps(args):
             ],
         }
     )
+    steps.append(
+        {
+            "name": "build_villa_review_manifest",
+            "gpu": False,
+            "command": [
+                python,
+                "scripts/build_villa_review_manifest.py",
+                "--gpu-queue",
+                args.gpu_queue,
+                "--action-matrix",
+                args.villa_action_matrix_json,
+                "--prediction-dir",
+                args.prediction_dir,
+                "--evidence-root",
+                args.evidence_root,
+                "--checkpoint",
+                args.checkpoint,
+                "--out-json",
+                args.villa_review_manifest_json,
+                "--out-md",
+                args.villa_review_manifest_md,
+                "--python-executable",
+                python,
+            ],
+        }
+    )
 
     return steps
 
@@ -238,6 +264,8 @@ def main():
     parser.add_argument("--gpu-queue", default="reports/scroll23_gpu_inference_queue.tsv")
     parser.add_argument("--villa-action-matrix-json", default="reports/villa_prize_action_matrix.json")
     parser.add_argument("--villa-action-matrix-md", default="reports/villa_prize_action_matrix.md")
+    parser.add_argument("--villa-review-manifest-json", default="reports/villa_review_manifest.json")
+    parser.add_argument("--villa-review-manifest-md", default="reports/villa_review_manifest.md")
     parser.add_argument("--inference-limit", type=int, default=8)
     parser.add_argument("--worklist-limit", type=int, default=12)
     parser.add_argument("--evidence-limit", type=int, default=2)

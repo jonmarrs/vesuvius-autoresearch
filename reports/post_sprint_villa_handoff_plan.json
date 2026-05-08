@@ -160,6 +160,30 @@
         "--out-md",
         "reports/villa_prize_action_matrix.md"
       ]
+    },
+    {
+      "name": "build_villa_review_manifest",
+      "gpu": false,
+      "command": [
+        "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python",
+        "scripts/build_villa_review_manifest.py",
+        "--gpu-queue",
+        "reports/scroll23_gpu_inference_queue.tsv",
+        "--action-matrix",
+        "reports/villa_prize_action_matrix.json",
+        "--prediction-dir",
+        "predictions",
+        "--evidence-root",
+        "reports/scroll23_evidence",
+        "--checkpoint",
+        "best_model.pt",
+        "--out-json",
+        "reports/villa_review_manifest.json",
+        "--out-md",
+        "reports/villa_review_manifest.md",
+        "--python-executable",
+        "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python"
+      ]
     }
   ]
 }
