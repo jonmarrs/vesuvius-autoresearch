@@ -67,6 +67,7 @@ def test_post_sprint_handoff_defaults_to_safe_preflight_commands():
     assert steps[-1]["name"] == "build_villa_review_manifest"
     assert "--gpu-queue" in steps[-1]["command"]
     assert "--action-matrix" in steps[-1]["command"]
+    assert "--ranked" in steps[-1]["command"]
     assert steps[-1]["command"][-1] == "python"
 
 

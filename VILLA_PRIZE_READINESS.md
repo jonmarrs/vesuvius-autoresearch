@@ -145,6 +145,9 @@ uv run python scripts/build_villa_review_manifest.py
 This writes `reports/villa_review_manifest.json` and `.md`, listing the
 expected prediction image, prediction metadata, evidence directory, validation
 command, and Crackle Viewer / VC3D launch commands for each GPU-ready candidate.
+The listed prediction artifacts live under each candidate evidence directory,
+matching `scripts/run_villa_prize_evidence_chain.py` output, so validation is
+run against the exact artifact that would be promoted for review.
 
 The guarded one-command handoff without `--preflight-only` is:
 

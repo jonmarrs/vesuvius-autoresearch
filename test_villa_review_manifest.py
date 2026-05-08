@@ -61,7 +61,7 @@ def test_villa_review_manifest_builds_candidate_commands(tmp_path):
     manifest = build_review_manifest(
         gpu_queue=queue,
         action_matrix=matrix,
-        prediction_dir="predictions",
+        ranked="ranked.tsv",
         evidence_root="evidence",
         checkpoint="best_model.pt",
         python_executable="python",
@@ -72,8 +72,9 @@ def test_villa_review_manifest_builds_candidate_commands(tmp_path):
     candidate = manifest["candidates"][0]
     assert candidate["candidate_index"] == 2
     assert "scripts/run_villa_prize_evidence_chain.py" in candidate["evidence_command"]
+    assert "--ranked ranked.tsv" in candidate["evidence_command"]
     assert "--candidate-index 2" in candidate["evidence_command"]
-    assert "predictions/pred_18176_4128_4000_64x64_meta.json" in candidate["validate_command"]
+    assert "evidence/candidate_002/predictions/pred_18176_4128_4000_64x64_meta.json" in candidate["validate_command"]
     assert any("launch_vc3d.py" in command for command in candidate["review_commands"])
 
 

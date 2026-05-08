@@ -47,17 +47,20 @@ def _first_ready_actions(action_matrix):
     ][:5]
 
 
-def _candidate_item(row, python_executable, prediction_dir, evidence_root, checkpoint):
+def _candidate_item(row, python_executable, ranked, evidence_root, checkpoint):
     index = int(row.get("candidate_index", row.get("queue_rank", 0)) or 0)
     artifact = row.get("artifact_stem") or f"candidate_{index:03d}"
     evidence_dir = Path(evidence_root) / f"candidate_{index:03d}"
-    prediction_image = Path(prediction_dir) / f"{artifact}.png"
-    prediction_metadata = Path(prediction_dir) / f"{artifact}_meta.json"
+    prediction_dir = evidence_dir / "predictions"
+    prediction_image = prediction_dir / f"{artifact}.png"
+    prediction_metadata = prediction_dir / f"{artifact}_meta.json"
     prize_report = evidence_dir / "PRIZE_READINESS_REPORT.json"
 
     evidence_command = [
         python_executable,
         "scripts/run_villa_prize_evidence_chain.py",
+        "--ranked",
+        ranked,
         "--candidate-index",
         str(index),
         "--out-dir",
@@ -110,7 +113,7 @@ def _candidate_item(row, python_executable, prediction_dir, evidence_root, check
 def build_review_manifest(
     gpu_queue="reports/scroll23_gpu_inference_queue.tsv",
     action_matrix="reports/villa_prize_action_matrix.json",
-    prediction_dir="predictions",
+    ranked="reports/scroll23_ranked_candidates.tsv",
     evidence_root="reports/scroll23_evidence",
     checkpoint="best_model.pt",
     python_executable=".venv/bin/python",
@@ -118,12 +121,13 @@ def build_review_manifest(
     matrix = _load_json(action_matrix, {"actions": []})
     rows = _load_tsv(gpu_queue)
     candidates = [
-        _candidate_item(row, python_executable, prediction_dir, evidence_root, checkpoint)
+        _candidate_item(row, python_executable, ranked, evidence_root, checkpoint)
         for row in rows
     ]
     return {
         "source_gpu_queue": str(gpu_queue),
         "source_action_matrix": str(action_matrix),
+        "source_ranked_candidates": str(ranked),
         "villa_local_ref": matrix.get("villa_local_ref"),
         "villa_upstream_ref": matrix.get("villa_upstream_ref"),
         "ready_actions": _first_ready_actions(matrix),
@@ -188,7 +192,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--gpu-queue", default="reports/scroll23_gpu_inference_queue.tsv")
     parser.add_argument("--action-matrix", default="reports/villa_prize_action_matrix.json")
-    parser.add_argument("--prediction-dir", default="predictions")
+    parser.add_argument("--ranked", default="reports/scroll23_ranked_candidates.tsv")
     parser.add_argument("--evidence-root", default="reports/scroll23_evidence")
     parser.add_argument("--checkpoint", default="best_model.pt")
     parser.add_argument("--out-json", default="reports/villa_review_manifest.json")
@@ -199,7 +203,7 @@ def main():
     manifest = build_review_manifest(
         gpu_queue=args.gpu_queue,
         action_matrix=args.action_matrix,
-        prediction_dir=args.prediction_dir,
+        ranked=args.ranked,
         evidence_root=args.evidence_root,
         checkpoint=args.checkpoint,
         python_executable=args.python_executable,
