@@ -27,7 +27,9 @@ local Villa checkout. The component coverage pass writes
 `reports/villa_component_coverage.json` and `.md`, mapping official Villa
 directories such as `vesuvius`, `ink-detection`, `crackle-viewer`, VC3D /
 `volume-cartographer`, `lasagna`, and `segmentation` to the local Autoresearch
-scripts and reports that use them.
+scripts and reports that use them. Required missing hooks, such as a referenced
+Vesuvius-C wrapper that is absent from the working tree, are marked as blocked
+instead of merely partial so Progress Prize claims stay reproducible.
 
 Current snapshot from the 2026-05-07 audit:
 

@@ -26,8 +26,9 @@ COMPONENTS = [
         "name": "vesuvius-c",
         "official_path": "villa/vesuvius-c",
         "prize_use": "Low-level CT access for high-throughput chunk reads.",
-        "local_hooks": ["vesuvius_c_wrapper", "SPRINT_KANBAN.md"],
-        "next_action": "Use for throughput validation when large Scroll 2/3 searches bottleneck on IO.",
+        "local_hooks": ["vesuvius_c_wrapper", "benchmark_vesuvius_c.py", "test_vesuvius_c.py", "SPRINT_KANBAN.md"],
+        "required_hooks": ["vesuvius_c_wrapper"],
+        "next_action": "Restore or rebuild vesuvius_c_wrapper before claiming the Vesuvius-C Progress Prize path is runnable.",
         "priority": "medium",
     },
     {
@@ -108,9 +109,17 @@ def build_component_coverage(components=None):
             {"path": hook, "present": _path_exists(hook)}
             for hook in component["local_hooks"]
         ]
+        required_hooks = component.get("required_hooks", [])
+        missing_required_hooks = [
+            hook
+            for hook in required_hooks
+            if not _path_exists(hook)
+        ]
         present_hooks = sum(1 for hook in hook_status if hook["present"])
-        if official_present and present_hooks == len(hook_status):
+        if official_present and present_hooks == len(hook_status) and not missing_required_hooks:
             status = "covered"
+        elif official_present and missing_required_hooks and present_hooks:
+            status = "blocked_missing_required_hook"
         elif official_present and present_hooks:
             status = "partial"
         elif official_present:
@@ -122,6 +131,8 @@ def build_component_coverage(components=None):
                 **component,
                 "official_present": official_present,
                 "local_hook_status": hook_status,
+                "required_hooks": required_hooks,
+                "missing_required_hooks": missing_required_hooks,
                 "present_local_hooks": present_hooks,
                 "total_local_hooks": len(hook_status),
                 "coverage_status": status,
@@ -131,6 +142,9 @@ def build_component_coverage(components=None):
         "total_components": len(rows),
         "covered": sum(1 for row in rows if row["coverage_status"] == "covered"),
         "partial": sum(1 for row in rows if row["coverage_status"] == "partial"),
+        "blocked_missing_required_hook": sum(
+            1 for row in rows if row["coverage_status"] == "blocked_missing_required_hook"
+        ),
         "unwired": sum(1 for row in rows if row["coverage_status"] == "unwired"),
         "missing_official_component": sum(1 for row in rows if row["coverage_status"] == "missing_official_component"),
     }
@@ -149,6 +163,7 @@ def render_markdown(report):
         f"- Total components: `{summary['total_components']}`",
         f"- Covered: `{summary['covered']}`",
         f"- Partial: `{summary['partial']}`",
+        f"- Blocked by missing required hook: `{summary['blocked_missing_required_hook']}`",
         f"- Unwired: `{summary['unwired']}`",
         f"- Missing official component: `{summary['missing_official_component']}`",
         "",

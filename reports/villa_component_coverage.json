@@ -3,7 +3,8 @@
   "summary": {
     "total_components": 9,
     "covered": 8,
-    "partial": 1,
+    "partial": 0,
+    "blocked_missing_required_hook": 1,
     "unwired": 0,
     "missing_official_component": 0
   },
@@ -34,6 +35,8 @@
           "present": true
         }
       ],
+      "required_hooks": [],
+      "missing_required_hooks": [],
       "present_local_hooks": 3,
       "total_local_hooks": 3,
       "coverage_status": "covered"
@@ -44,9 +47,14 @@
       "prize_use": "Low-level CT access for high-throughput chunk reads.",
       "local_hooks": [
         "vesuvius_c_wrapper",
+        "benchmark_vesuvius_c.py",
+        "test_vesuvius_c.py",
         "SPRINT_KANBAN.md"
       ],
-      "next_action": "Use for throughput validation when large Scroll 2/3 searches bottleneck on IO.",
+      "required_hooks": [
+        "vesuvius_c_wrapper"
+      ],
+      "next_action": "Restore or rebuild vesuvius_c_wrapper before claiming the Vesuvius-C Progress Prize path is runnable.",
       "priority": "medium",
       "official_present": true,
       "local_hook_status": [
@@ -55,13 +63,24 @@
           "present": false
         },
         {
+          "path": "benchmark_vesuvius_c.py",
+          "present": true
+        },
+        {
+          "path": "test_vesuvius_c.py",
+          "present": true
+        },
+        {
           "path": "SPRINT_KANBAN.md",
           "present": true
         }
       ],
-      "present_local_hooks": 1,
-      "total_local_hooks": 2,
-      "coverage_status": "partial"
+      "missing_required_hooks": [
+        "vesuvius_c_wrapper"
+      ],
+      "present_local_hooks": 3,
+      "total_local_hooks": 4,
+      "coverage_status": "blocked_missing_required_hook"
     },
     {
       "name": "ink-detection",
@@ -89,6 +108,8 @@
           "present": true
         }
       ],
+      "required_hooks": [],
+      "missing_required_hooks": [],
       "present_local_hooks": 3,
       "total_local_hooks": 3,
       "coverage_status": "covered"
@@ -114,6 +135,8 @@
           "present": true
         }
       ],
+      "required_hooks": [],
+      "missing_required_hooks": [],
       "present_local_hooks": 2,
       "total_local_hooks": 2,
       "coverage_status": "covered"
@@ -144,6 +167,8 @@
           "present": true
         }
       ],
+      "required_hooks": [],
+      "missing_required_hooks": [],
       "present_local_hooks": 3,
       "total_local_hooks": 3,
       "coverage_status": "covered"
@@ -169,6 +194,8 @@
           "present": true
         }
       ],
+      "required_hooks": [],
+      "missing_required_hooks": [],
       "present_local_hooks": 2,
       "total_local_hooks": 2,
       "coverage_status": "covered"
@@ -194,6 +221,8 @@
           "present": true
         }
       ],
+      "required_hooks": [],
+      "missing_required_hooks": [],
       "present_local_hooks": 2,
       "total_local_hooks": 2,
       "coverage_status": "covered"
@@ -214,6 +243,8 @@
           "present": true
         }
       ],
+      "required_hooks": [],
+      "missing_required_hooks": [],
       "present_local_hooks": 1,
       "total_local_hooks": 1,
       "coverage_status": "covered"
@@ -239,6 +270,8 @@
           "present": true
         }
       ],
+      "required_hooks": [],
+      "missing_required_hooks": [],
       "present_local_hooks": 2,
       "total_local_hooks": 2,
       "coverage_status": "covered"

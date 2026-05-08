@@ -6,7 +6,8 @@ This report maps official `ScrollPrize/villa` components to local Autoresearch h
 
 - Total components: `9`
 - Covered: `8`
-- Partial: `1`
+- Partial: `0`
+- Blocked by missing required hook: `1`
 - Unwired: `0`
 - Missing official component: `0`
 
@@ -15,7 +16,7 @@ This report maps official `ScrollPrize/villa` components to local Autoresearch h
 | Component | Status | Priority | Prize use | Local hooks | Next action |
 | --- | --- | --- | --- | --- | --- |
 | vesuvius | `covered` | `high` | Official Python CT/Zarr data access and normalization. | `vesuvius_loader.py` ok, `v3_training/trainer.py` ok, `check_loader.py` ok | Keep loader smoke tests aligned with the pinned Villa data API. |
-| vesuvius-c | `partial` | `medium` | Low-level CT access for high-throughput chunk reads. | `vesuvius_c_wrapper` missing, `SPRINT_KANBAN.md` ok | Use for throughput validation when large Scroll 2/3 searches bottleneck on IO. |
+| vesuvius-c | `blocked_missing_required_hook` | `medium` | Low-level CT access for high-throughput chunk reads. | `vesuvius_c_wrapper` missing, `benchmark_vesuvius_c.py` ok, `test_vesuvius_c.py` ok, `SPRINT_KANBAN.md` ok | Restore or rebuild vesuvius_c_wrapper before claiming the Vesuvius-C Progress Prize path is runnable. |
 | ink-detection | `covered` | `high` | Official Grand Prize ink model recipes and optimized inference contracts. | `train.py` ok, `predict.py` ok, `scripts/smoke_test_villa_optimized_inference.py` ok | Keep optimized-inference smoke checks in the post-sprint gate before packaging evidence. |
 | crackle-viewer | `covered` | `high` | Human review and labeling of virtually unwrapped ink predictions. | `scripts/launch_crackle_viewer.py` ok, `reports/villa_review_manifest.md` ok | Open GPU-ready candidates from the review manifest for human text-legibility review. |
 | volume-cartographer | `covered` | `high` | VC3D surface tracing, segmentation, and overlay review. | `scripts/launch_vc3d.py` ok, `scripts/validate_prize_artifact.py` ok, `reports/villa_review_manifest.md` ok | Validate ink/fiber OME-Zarr overlays before VC3D review or Progress Prize packaging. |
