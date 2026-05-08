@@ -31,6 +31,43 @@ def active_sprint_processes():
 
 def build_handoff_steps(args):
     python = args.python_executable
+    steps = [
+        {
+            "name": "audit_villa_upstream",
+            "gpu": False,
+            "command": [
+                python,
+                "scripts/audit_villa_upstream.py",
+                "--out",
+                args.villa_audit,
+            ],
+        },
+        {
+            "name": "plan_villa_prize_opportunities",
+            "gpu": False,
+            "command": [
+                python,
+                "scripts/plan_villa_prize_opportunities.py",
+                "--audit",
+                args.villa_audit,
+                "--out",
+                args.villa_opportunities,
+            ],
+        },
+        {
+            "name": "review_villa_pin",
+            "gpu": False,
+            "command": [
+                python,
+                "scripts/review_villa_pin.py",
+                "--audit",
+                args.villa_audit,
+                "--out",
+                args.villa_pin_review,
+            ],
+        },
+    ]
+
     inference_command = [
         python,
         "scripts/run_ranked_inference.py",
@@ -48,7 +85,8 @@ def build_handoff_steps(args):
     if args.execute_inference:
         inference_command.append("--execute")
 
-    steps = [
+    steps.extend(
+        [
         {
             "name": "ranked_inference",
             "gpu": bool(args.execute_inference),
@@ -80,7 +118,8 @@ def build_handoff_steps(args):
                 str(args.worklist_limit),
             ],
         },
-    ]
+        ]
+    )
 
     for index in range(args.evidence_limit):
         out_dir = Path(args.evidence_root) / f"candidate_{index:03d}"
@@ -114,6 +153,25 @@ def build_handoff_steps(args):
                 "command": command,
             }
         )
+
+    steps.append(
+        {
+            "name": "summarize_villa_evidence_preflight",
+            "gpu": False,
+            "command": [
+                python,
+                "scripts/summarize_villa_evidence_preflight.py",
+                "--root",
+                args.evidence_root,
+                "--out-json",
+                args.preflight_summary_json,
+                "--out-tsv",
+                args.preflight_summary_tsv,
+                "--gpu-queue",
+                args.gpu_queue,
+            ],
+        }
+    )
 
     return steps
 
@@ -154,6 +212,12 @@ def main():
     parser.add_argument("--manifest", default="reports/scroll23_inference_commands.sh")
     parser.add_argument("--evidence-root", default="reports/scroll23_evidence")
     parser.add_argument("--plan-out", default="reports/post_sprint_villa_handoff_plan.json")
+    parser.add_argument("--villa-audit", default="reports/villa_upstream_audit.json")
+    parser.add_argument("--villa-opportunities", default="reports/villa_prize_opportunities.json")
+    parser.add_argument("--villa-pin-review", default="reports/villa_pin_review.json")
+    parser.add_argument("--preflight-summary-json", default="reports/scroll23_evidence_preflight_summary.json")
+    parser.add_argument("--preflight-summary-tsv", default="reports/scroll23_evidence_preflight_summary.tsv")
+    parser.add_argument("--gpu-queue", default="reports/scroll23_gpu_inference_queue.tsv")
     parser.add_argument("--inference-limit", type=int, default=8)
     parser.add_argument("--worklist-limit", type=int, default=12)
     parser.add_argument("--evidence-limit", type=int, default=2)

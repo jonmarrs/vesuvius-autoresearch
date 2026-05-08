@@ -110,6 +110,14 @@ non-GPU planning artifacts, and writes per-candidate preflight reports under
 to run if GPU execution flags are requested while `run_autoresearch_loop.py` or
 `train.py` is active.
 
+The handoff now starts by refreshing the official Villa compatibility context:
+`reports/villa_upstream_audit.json`, `reports/villa_prize_opportunities.json`,
+and `reports/villa_pin_review.json`. It then rebuilds candidate inference
+manifests, reranks Scroll 2/3 candidates, refreshes the Lasagna/fiber worklist,
+writes preflight reports, and updates the GPU-ready queue. This keeps each
+post-sprint handoff aligned with the official `ScrollPrize/villa` repo before
+we spend GPU time on evidence generation.
+
 Summarize those preflight reports before spending GPU:
 
 ```bash
