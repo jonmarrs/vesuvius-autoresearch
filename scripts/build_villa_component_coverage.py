@@ -28,7 +28,7 @@ COMPONENTS = [
         "prize_use": "Low-level CT access for high-throughput chunk reads.",
         "local_hooks": ["vesuvius_c_wrapper", "benchmark_vesuvius_c.py", "test_vesuvius_c.py", "SPRINT_KANBAN.md"],
         "required_hooks": ["vesuvius_c_wrapper"],
-        "next_action": "Restore or rebuild vesuvius_c_wrapper before claiming the Vesuvius-C Progress Prize path is runnable.",
+        "next_action": "Run the Vesuvius-C benchmark on local CT chunks before claiming a Progress Prize speedup.",
         "priority": "medium",
     },
     {

@@ -26,7 +26,8 @@ def benchmark():
 
     # Vesuvius-C
     start = time.time()
-    c_vol = FastLocalVolume(path)
+    c_vol = FastLocalVolume(path, prefer_native=True)
+    print(f"Vesuvius-C backend: {c_vol.backend}")
     for _ in range(10):
         _ = c_vol.get_chunk(0, 10, 10)
     vc_time = time.time() - start

@@ -1,10 +1,28 @@
 
 import os
 
+import numpy as np
+
 import pytest
 
 vesuvius_c = pytest.importorskip("vesuvius_c_wrapper.vesuvius_c")
 FastLocalVolume = vesuvius_c.FastLocalVolume
+
+
+def test_fast_local_volume_falls_back_to_zarr(tmp_path):
+    zarr = pytest.importorskip("zarr")
+    path = tmp_path / "volume.zarr"
+    data = np.arange(4 * 6 * 8, dtype=np.float32).reshape(4, 6, 8)
+    arr = zarr.open(str(path), mode="w", shape=data.shape, chunks=(2, 3, 4), dtype="float32")
+    arr[:] = data
+
+    vol = FastLocalVolume(path, prefer_native=False)
+
+    assert vol.shape == data.shape
+    assert vol.chunks == (2, 3, 4)
+    assert vol.backend == "zarr"
+    np.testing.assert_array_equal(vol.get_chunk(1, 1, 1), data[2:4, 3:6, 4:8])
+
 
 def test_loading():
     path = 'local_data/PHercParis2Fr47/surface_volume.zarr/0'

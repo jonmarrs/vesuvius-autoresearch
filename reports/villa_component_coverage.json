@@ -2,9 +2,9 @@
   "source": "ScrollPrize/villa local checkout",
   "summary": {
     "total_components": 9,
-    "covered": 8,
+    "covered": 9,
     "partial": 0,
-    "blocked_missing_required_hook": 1,
+    "blocked_missing_required_hook": 0,
     "unwired": 0,
     "missing_official_component": 0
   },
@@ -54,13 +54,13 @@
       "required_hooks": [
         "vesuvius_c_wrapper"
       ],
-      "next_action": "Restore or rebuild vesuvius_c_wrapper before claiming the Vesuvius-C Progress Prize path is runnable.",
+      "next_action": "Run the Vesuvius-C benchmark on local CT chunks before claiming a Progress Prize speedup.",
       "priority": "medium",
       "official_present": true,
       "local_hook_status": [
         {
           "path": "vesuvius_c_wrapper",
-          "present": false
+          "present": true
         },
         {
           "path": "benchmark_vesuvius_c.py",
@@ -75,12 +75,10 @@
           "present": true
         }
       ],
-      "missing_required_hooks": [
-        "vesuvius_c_wrapper"
-      ],
-      "present_local_hooks": 3,
+      "missing_required_hooks": [],
+      "present_local_hooks": 4,
       "total_local_hooks": 4,
-      "coverage_status": "blocked_missing_required_hook"
+      "coverage_status": "covered"
     },
     {
       "name": "ink-detection",
