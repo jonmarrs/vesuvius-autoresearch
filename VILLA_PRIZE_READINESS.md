@@ -23,7 +23,11 @@ opportunity planner writes `reports/villa_prize_opportunities.json`, ranking
 official issue-backed work by prize impact and local Autoresearch hooks. The pin
 review writes `reports/villa_pin_review.json`, listing the changed official
 areas, their adoption risk, and the checks that should pass before updating the
-local Villa checkout.
+local Villa checkout. The component coverage pass writes
+`reports/villa_component_coverage.json` and `.md`, mapping official Villa
+directories such as `vesuvius`, `ink-detection`, `crackle-viewer`, VC3D /
+`volume-cartographer`, `lasagna`, and `segmentation` to the local Autoresearch
+scripts and reports that use them.
 
 Current snapshot from the 2026-05-07 audit:
 
@@ -112,9 +116,10 @@ to run if GPU execution flags are requested while `run_autoresearch_loop.py` or
 
 The handoff now starts by refreshing the official Villa compatibility context:
 `reports/villa_upstream_audit.json`, `reports/villa_prize_opportunities.json`,
-and `reports/villa_pin_review.json`. It then rebuilds candidate inference
-manifests, reranks Scroll 2/3 candidates, refreshes the Lasagna/fiber worklist,
-writes preflight reports, updates the GPU-ready queue, and writes
+`reports/villa_pin_review.json`, and `reports/villa_component_coverage.md`. It
+then rebuilds candidate inference manifests, reranks Scroll 2/3 candidates,
+refreshes the Lasagna/fiber worklist, writes preflight reports, updates the
+GPU-ready queue, and writes
 `reports/villa_prize_action_matrix.json` plus
 `reports/villa_prize_action_matrix.md`, followed by
 `reports/villa_review_manifest.json` and `reports/villa_review_manifest.md`.

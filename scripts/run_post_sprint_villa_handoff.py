@@ -66,6 +66,18 @@ def build_handoff_steps(args):
                 args.villa_pin_review,
             ],
         },
+        {
+            "name": "build_villa_component_coverage",
+            "gpu": False,
+            "command": [
+                python,
+                "scripts/build_villa_component_coverage.py",
+                "--out-json",
+                args.villa_component_coverage_json,
+                "--out-md",
+                args.villa_component_coverage_md,
+            ],
+        },
     ]
 
     inference_command = [
@@ -259,6 +271,8 @@ def main():
     parser.add_argument("--villa-audit", default="reports/villa_upstream_audit.json")
     parser.add_argument("--villa-opportunities", default="reports/villa_prize_opportunities.json")
     parser.add_argument("--villa-pin-review", default="reports/villa_pin_review.json")
+    parser.add_argument("--villa-component-coverage-json", default="reports/villa_component_coverage.json")
+    parser.add_argument("--villa-component-coverage-md", default="reports/villa_component_coverage.md")
     parser.add_argument("--preflight-summary-json", default="reports/scroll23_evidence_preflight_summary.json")
     parser.add_argument("--preflight-summary-tsv", default="reports/scroll23_evidence_preflight_summary.tsv")
     parser.add_argument("--gpu-queue", default="reports/scroll23_gpu_inference_queue.tsv")

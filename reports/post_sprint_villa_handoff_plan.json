@@ -3,12 +3,12 @@
   "active_processes": [
     "512172 uv run python -u run_autoresearch_loop.py",
     "512180 /home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python3 -u run_autoresearch_loop.py",
-    "530365 uv run python -u train.py --config config_temp.json",
-    "530368 /home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python3 -u train.py --config config_temp.json",
-    "530381 /home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python3 -u train.py --config config_temp.json",
-    "530382 /home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python3 -u train.py --config config_temp.json",
-    "530383 /home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python3 -u train.py --config config_temp.json",
-    "530384 /home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python3 -u train.py --config config_temp.json"
+    "537276 uv run python -u train.py --config config_temp.json",
+    "537279 /home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python3 -u train.py --config config_temp.json",
+    "537328 /home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python3 -u train.py --config config_temp.json",
+    "537329 /home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python3 -u train.py --config config_temp.json",
+    "537330 /home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python3 -u train.py --config config_temp.json",
+    "537331 /home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python3 -u train.py --config config_temp.json"
   ],
   "steps": [
     {
@@ -43,6 +43,18 @@
         "reports/villa_upstream_audit.json",
         "--out",
         "reports/villa_pin_review.json"
+      ]
+    },
+    {
+      "name": "build_villa_component_coverage",
+      "gpu": false,
+      "command": [
+        "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python",
+        "scripts/build_villa_component_coverage.py",
+        "--out-json",
+        "reports/villa_component_coverage.json",
+        "--out-md",
+        "reports/villa_component_coverage.md"
       ]
     },
     {

@@ -1,0 +1,247 @@
+{
+  "source": "ScrollPrize/villa local checkout",
+  "summary": {
+    "total_components": 9,
+    "covered": 8,
+    "partial": 1,
+    "unwired": 0,
+    "missing_official_component": 0
+  },
+  "components": [
+    {
+      "name": "vesuvius",
+      "official_path": "villa/vesuvius",
+      "prize_use": "Official Python CT/Zarr data access and normalization.",
+      "local_hooks": [
+        "vesuvius_loader.py",
+        "v3_training/trainer.py",
+        "check_loader.py"
+      ],
+      "next_action": "Keep loader smoke tests aligned with the pinned Villa data API.",
+      "priority": "high",
+      "official_present": true,
+      "local_hook_status": [
+        {
+          "path": "vesuvius_loader.py",
+          "present": true
+        },
+        {
+          "path": "v3_training/trainer.py",
+          "present": true
+        },
+        {
+          "path": "check_loader.py",
+          "present": true
+        }
+      ],
+      "present_local_hooks": 3,
+      "total_local_hooks": 3,
+      "coverage_status": "covered"
+    },
+    {
+      "name": "vesuvius-c",
+      "official_path": "villa/vesuvius-c",
+      "prize_use": "Low-level CT access for high-throughput chunk reads.",
+      "local_hooks": [
+        "vesuvius_c_wrapper",
+        "SPRINT_KANBAN.md"
+      ],
+      "next_action": "Use for throughput validation when large Scroll 2/3 searches bottleneck on IO.",
+      "priority": "medium",
+      "official_present": true,
+      "local_hook_status": [
+        {
+          "path": "vesuvius_c_wrapper",
+          "present": false
+        },
+        {
+          "path": "SPRINT_KANBAN.md",
+          "present": true
+        }
+      ],
+      "present_local_hooks": 1,
+      "total_local_hooks": 2,
+      "coverage_status": "partial"
+    },
+    {
+      "name": "ink-detection",
+      "official_path": "villa/ink-detection",
+      "prize_use": "Official Grand Prize ink model recipes and optimized inference contracts.",
+      "local_hooks": [
+        "train.py",
+        "predict.py",
+        "scripts/smoke_test_villa_optimized_inference.py"
+      ],
+      "next_action": "Keep optimized-inference smoke checks in the post-sprint gate before packaging evidence.",
+      "priority": "high",
+      "official_present": true,
+      "local_hook_status": [
+        {
+          "path": "train.py",
+          "present": true
+        },
+        {
+          "path": "predict.py",
+          "present": true
+        },
+        {
+          "path": "scripts/smoke_test_villa_optimized_inference.py",
+          "present": true
+        }
+      ],
+      "present_local_hooks": 3,
+      "total_local_hooks": 3,
+      "coverage_status": "covered"
+    },
+    {
+      "name": "crackle-viewer",
+      "official_path": "villa/crackle-viewer",
+      "prize_use": "Human review and labeling of virtually unwrapped ink predictions.",
+      "local_hooks": [
+        "scripts/launch_crackle_viewer.py",
+        "reports/villa_review_manifest.md"
+      ],
+      "next_action": "Open GPU-ready candidates from the review manifest for human text-legibility review.",
+      "priority": "high",
+      "official_present": true,
+      "local_hook_status": [
+        {
+          "path": "scripts/launch_crackle_viewer.py",
+          "present": true
+        },
+        {
+          "path": "reports/villa_review_manifest.md",
+          "present": true
+        }
+      ],
+      "present_local_hooks": 2,
+      "total_local_hooks": 2,
+      "coverage_status": "covered"
+    },
+    {
+      "name": "volume-cartographer",
+      "official_path": "villa/volume-cartographer",
+      "prize_use": "VC3D surface tracing, segmentation, and overlay review.",
+      "local_hooks": [
+        "scripts/launch_vc3d.py",
+        "scripts/validate_prize_artifact.py",
+        "reports/villa_review_manifest.md"
+      ],
+      "next_action": "Validate ink/fiber OME-Zarr overlays before VC3D review or Progress Prize packaging.",
+      "priority": "high",
+      "official_present": true,
+      "local_hook_status": [
+        {
+          "path": "scripts/launch_vc3d.py",
+          "present": true
+        },
+        {
+          "path": "scripts/validate_prize_artifact.py",
+          "present": true
+        },
+        {
+          "path": "reports/villa_review_manifest.md",
+          "present": true
+        }
+      ],
+      "present_local_hooks": 3,
+      "total_local_hooks": 3,
+      "coverage_status": "covered"
+    },
+    {
+      "name": "lasagna",
+      "official_path": "villa/lasagna",
+      "prize_use": "Surface fitting, tifxyz conversion, and geometry-aware preprocessing.",
+      "local_hooks": [
+        "scripts/build_lasagna_fiber_worklist.py",
+        "reports/lasagna_fiber_worklist.tsv"
+      ],
+      "next_action": "Route occupied Scroll 2/3 candidates through Lasagna/fiber preprocessing before more ink inference.",
+      "priority": "high",
+      "official_present": true,
+      "local_hook_status": [
+        {
+          "path": "scripts/build_lasagna_fiber_worklist.py",
+          "present": true
+        },
+        {
+          "path": "reports/lasagna_fiber_worklist.tsv",
+          "present": true
+        }
+      ],
+      "present_local_hooks": 2,
+      "total_local_hooks": 2,
+      "coverage_status": "covered"
+    },
+    {
+      "name": "segmentation",
+      "official_path": "villa/segmentation",
+      "prize_use": "Official segmentation models and topology-oriented evaluation metrics.",
+      "local_hooks": [
+        "test_import.py",
+        "submission_package_dry_run/HALLUCINATION_MITIGATION.md"
+      ],
+      "next_action": "Keep topology metrics available as hallucination mitigation evidence.",
+      "priority": "medium",
+      "official_present": true,
+      "local_hook_status": [
+        {
+          "path": "test_import.py",
+          "present": true
+        },
+        {
+          "path": "submission_package_dry_run/HALLUCINATION_MITIGATION.md",
+          "present": true
+        }
+      ],
+      "present_local_hooks": 2,
+      "total_local_hooks": 2,
+      "coverage_status": "covered"
+    },
+    {
+      "name": "foundation",
+      "official_path": "villa/foundation",
+      "prize_use": "Dataset management and fiber-label assets.",
+      "local_hooks": [
+        "generate_fiber_labels.py"
+      ],
+      "next_action": "Use fiber assets to expand supervision for hard geometry candidates.",
+      "priority": "medium",
+      "official_present": true,
+      "local_hook_status": [
+        {
+          "path": "generate_fiber_labels.py",
+          "present": true
+        }
+      ],
+      "present_local_hooks": 1,
+      "total_local_hooks": 1,
+      "coverage_status": "covered"
+    },
+    {
+      "name": "thaumato-anakalyptor",
+      "official_path": "villa/thaumato-anakalyptor",
+      "prize_use": "Alternative semi-automatic unwrapping and surface extraction pipeline.",
+      "local_hooks": [
+        "scripts/launch_thaumato.py",
+        "scripts/autoresearch_thaumato_solver.py"
+      ],
+      "next_action": "Use as a fallback review route when VC3D/Lasagna surfaces are poor.",
+      "priority": "medium",
+      "official_present": true,
+      "local_hook_status": [
+        {
+          "path": "scripts/launch_thaumato.py",
+          "present": true
+        },
+        {
+          "path": "scripts/autoresearch_thaumato_solver.py",
+          "present": true
+        }
+      ],
+      "present_local_hooks": 2,
+      "total_local_hooks": 2,
+      "coverage_status": "covered"
+    }
+  ]
+}
