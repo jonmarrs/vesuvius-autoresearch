@@ -72,7 +72,45 @@ class VesuviusVolume:
         return self._volume.chunks
 
     def get_chunk(self, z, y, x, depth=None, height=None, width=None):
-        return self._volume.get_chunk(z, y, x, depth=depth, height=height, width=width)
+        """Fetch a volume chunk with automatic alignment expansion if needed."""
+        # Standard defaults from upstream
+        depth = depth or self.chunks[0]
+        height = height or self.chunks[1]
+        width = width or self.chunks[2]
+        
+        start = (int(z), int(y), int(x))
+        stop = (start[0] + int(depth), start[1] + int(height), start[2] + int(width))
+        
+        # Check if the requested region is already aligned to block boundaries
+        is_aligned = all(
+            start[i] % self.chunks[i] == 0 and (stop[i] - start[i]) % self.chunks[i] == 0
+            for i in range(3)
+        )
+        
+        if is_aligned:
+            return self._volume.get_chunk(
+                start[0], start[1], start[2], 
+                depth=depth, height=height, width=width
+            )
+            
+        # Unaligned read: Expand to chunk boundaries for the native call
+        # and then crop the result to the requested region.
+        aligned_start = tuple((s // c) * c for s, c in zip(start, self.chunks))
+        aligned_stop = tuple(((e + c - 1) // c) * c for e, c in zip(stop, self.chunks))
+        aligned_dims = tuple(st - st_a for st, st_a in zip(aligned_stop, aligned_start))
+        
+        # Native get_chunk is still faster for full-block reads than pure Python zarr
+        # even with the overhead of expansion and cropping.
+        block = self._volume.get_chunk(
+            aligned_start[0], aligned_start[1], aligned_start[2],
+            depth=aligned_dims[0], height=aligned_dims[1], width=aligned_dims[2]
+        )
+        
+        return block[
+            start[0]-aligned_start[0] : stop[0]-aligned_start[0],
+            start[1]-aligned_start[1] : stop[1]-aligned_start[1],
+            start[2]-aligned_start[2] : stop[2]-aligned_start[2]
+        ]
 
 
 class FastLocalVolume:
