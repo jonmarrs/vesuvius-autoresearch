@@ -9,6 +9,12 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
+import kimimaro
+original_skeletonize = kimimaro.skeletonize
+def patched_skeletonize(*args, **kwargs):
+    kwargs['parallel'] = 1
+    return original_skeletonize(*args, **kwargs)
+kimimaro.skeletonize = patched_skeletonize
 import pandas as pd
 from torch.utils.data import DataLoader
 from torch.amp import GradScaler, autocast
