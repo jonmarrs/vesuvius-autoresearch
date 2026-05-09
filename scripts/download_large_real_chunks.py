@@ -17,7 +17,7 @@ def download_chunks(prefix, out_dir, target_gb=1.0):
             s3.download_file(bucket, key, out_path)
             print(f"Downloaded {key}")
         except Exception as e:
-            pass
+            print(f"Warning: failed to download metadata {key}: {e}")
             
     # Download chunks up to target size
     # 1 chunk is typically 2MB. So 1GB is about 512 chunks.

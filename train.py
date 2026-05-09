@@ -1110,8 +1110,12 @@ def train(config: ExperimentConfig):
                     print(f"  Warning: connected-component metric failed for validation sample {i}: {type(exc).__name__}: {exc}")
 
             if i % 10 == 0:
-                gt_3d = (val_target > 0.5).numpy()[:, 0].astype(bool)
-                pred_3d = (prob_2d > best_threshold).numpy()[:, 0].astype(bool)
+                gt_3d = np.squeeze((val_target > 0.5).numpy().astype(bool))
+                pred_3d = np.squeeze((prob_2d > best_threshold).numpy().astype(bool))
+                if gt_3d.ndim == 2:
+                    gt_3d = gt_3d[np.newaxis, ...]
+                if pred_3d.ndim == 2:
+                    pred_3d = pred_3d[np.newaxis, ...]
                 try:
                     skel_dist = compute_skeleton_dist(gt_3d, pred_3d)
                     if not np.isnan(skel_dist): val_skel_dists.append(skel_dist)

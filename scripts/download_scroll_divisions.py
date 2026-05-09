@@ -89,15 +89,18 @@ def download_divisions(scroll_id):
         os.makedirs(out_dir, exist_ok=True)
         
         # Save metadata
+        metadata_failures = 0
         for meta in ['.zarray', '.zgroup', '.zattrs']:
             key = f"{prefix}{meta}"
             out_path = os.path.join(out_dir, meta)
             try:
                 s3.download_file(bucket, key, out_path)
-            except:
-                pass
+            except Exception as e:
+                metadata_failures += 1
+                print(f"  Warning: failed to download metadata {key}: {e}")
                 
         downloaded = 0
+        missing_chunks = 0
         for z in range(start_z_idx, start_z_idx + grid_size):
             for y in range(start_y_idx, start_y_idx + grid_size):
                 for x in range(start_x_idx, start_x_idx + grid_size):
@@ -110,9 +113,16 @@ def download_divisions(scroll_id):
                         downloaded += 1
                     except Exception as e:
                         # Chunk might not exist (empty space padding)
-                        pass
+                        missing_chunks += 1
+                        if missing_chunks <= 5:
+                            print(f"  Warning: missing/failed chunk {chunk_key}: {e}")
+                        elif missing_chunks == 6:
+                            print("  Warning: suppressing further missing/failed chunk messages")
         
-        print(f"  Downloaded {downloaded} chunks for {div_name}.")
+        print(
+            f"  Downloaded {downloaded} chunks for {div_name} "
+            f"(metadata_failures={metadata_failures}, missing_chunks={missing_chunks})."
+        )
 
 for scroll in target_scrolls:
     download_divisions(scroll)

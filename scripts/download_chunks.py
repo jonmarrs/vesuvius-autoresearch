@@ -38,8 +38,8 @@ def download_metadata(prefix, out_dir):
                 with open(out_path, 'wb') as f:
                     f.write(response.read())
             print(f"Downloaded metadata: {mf}")
-        except Exception:
-            pass
+        except Exception as exc:
+            print(f"Warning: failed to download metadata {url}: {exc}")
 
 # Scroll 1: PHerc0139 (Training)
 # "s3://vesuvius-challenge-open-data/PHerc0139/volumes/20260102150214-2.399um-0.2m-78keV-masked.zarr/0/"

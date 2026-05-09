@@ -23,8 +23,8 @@ def build_large_mock(in_dir, out_dir, shape=(1024, 1024, 1024)):
                     try:
                         data = np.frombuffer(f.read(), dtype=np.uint8).reshape(128, 128, 128)
                         real_data.append(data)
-                    except:
-                        pass
+                    except Exception as exc:
+                        print(f"Warning: skipped invalid chunk {path}: {exc}")
 
     if len(real_data) == 0:
         print(f'No real chunks found to tile for {in_dir}.')
@@ -51,4 +51,3 @@ for item in os.listdir('local_data'):
         # Don't rebuild if already built
         if not os.path.exists(os.path.join(out_path, '0', '.zarray')):
             build_large_mock(in_path, out_path)
-

@@ -17,7 +17,7 @@ def download_chunks(prefix, out_dir, target_gb=1.0):
             s3.download_file(bucket, key, out_path)
             print(f"Downloaded {key}")
         except Exception as e:
-            pass
+            print(f"Warning: failed to download metadata {key}: {e}")
             
     target_bytes = target_gb * 1024 * 1024 * 1024
     downloaded_bytes = 0

@@ -20,8 +20,8 @@ def build_division_mock(in_dir, out_dir, shape=(1024, 1024, 1024)):
                     try:
                         data = np.frombuffer(f.read(), dtype=np.uint8).reshape(128, 128, 128)
                         real_data.append(data)
-                    except:
-                        pass
+                    except Exception as exc:
+                        print(f"Warning: skipped invalid chunk {path}: {exc}")
 
     if len(real_data) == 0:
         print(f'No real chunks found to tile for {in_dir}. Creating empty placeholder.')
@@ -48,4 +48,3 @@ for item in os.listdir(base_dir):
             in_path = os.path.join(scroll_dir, div_name, '0')
             out_path = os.path.join(base_dir, f"{scroll_id}_{div_name}_1GB")
             build_division_mock(in_path, out_path)
-
