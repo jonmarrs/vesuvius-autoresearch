@@ -1022,11 +1022,23 @@ def train(config: ExperimentConfig):
                           0.05 * consistency_loss)
             
             # Additional Auxiliary Tasks (Track 4)
-            # We map model outputs/targets to dicts for the manager
             outputs_dict = {"ink_2d": out_ink_2d}
             targets_dict = {"ink_2d": target_ink_aug1}
-            # Add aux outputs if they exist in the tuple... 
-            # (In a real scenario, model would return a named dict)
+            
+            # Map model outputs/targets based on available returned heads
+            if isinstance(outputs, tuple):
+                # Standard Autoresearch model head contract:
+                # 0: ink, 1: fiber, 2: qc, 3: proj, 4: st
+                if len(outputs) > 1: outputs_dict["aux_fiber"] = outputs[1]
+                if len(outputs) > 2: outputs_dict["aux_qc"] = outputs[2]
+                if len(outputs) > 4: outputs_dict["aux_surface_normals"] = outputs[4]
+                if len(outputs) > 4: outputs_dict["aux_structure_tensor"] = outputs[4]
+            
+            # Setup targets for aux manager
+            targets_dict["aux_fiber"] = target_fiber_aug1
+            targets_dict["aux_qc"] = torch.zeros((out_ink_2d.shape[0], 1), device=device)
+            targets_dict["aux_surface_normals"] = torch.zeros_like(outputs_dict.get("aux_surface_normals", torch.tensor(0.0)))
+            targets_dict["aux_structure_tensor"] = torch.zeros_like(outputs_dict.get("aux_structure_tensor", torch.tensor(0.0)))
             
             aux_loss = aux_manager.compute_losses(outputs_dict, targets_dict)
             total_loss += aux_loss
