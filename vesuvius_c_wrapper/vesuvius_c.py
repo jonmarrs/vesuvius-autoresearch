@@ -101,7 +101,7 @@ class FastLocalVolume:
             )
         if prefer_native:
             try:
-                self._native = VesuviusVolume(self.path)
+                self._native = VesuviusVolume(self.path, url=f"file://{self.path.absolute()}")
                 self.backend = "vesuvius-c"
             except (VesuviusCUnavailable, RuntimeError):
                 self._native = None
