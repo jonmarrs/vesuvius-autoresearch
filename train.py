@@ -1026,13 +1026,13 @@ def train(config: ExperimentConfig):
             targets_dict = {"ink_2d": target_ink_aug1}
             
             # Map model outputs/targets based on available returned heads
-            if isinstance(outputs, tuple):
+            if isinstance(model_out, tuple):
                 # Standard Autoresearch model head contract:
                 # 0: ink, 1: fiber, 2: qc, 3: proj, 4: st
-                if len(outputs) > 1: outputs_dict["aux_fiber"] = outputs[1]
-                if len(outputs) > 2: outputs_dict["aux_qc"] = outputs[2]
-                if len(outputs) > 4: outputs_dict["aux_surface_normals"] = outputs[4]
-                if len(outputs) > 4: outputs_dict["aux_structure_tensor"] = outputs[4]
+                if len(model_out) > 1: outputs_dict["aux_fiber"] = model_out[1]
+                if len(model_out) > 2: outputs_dict["aux_qc"] = model_out[2]
+                if len(model_out) > 4: outputs_dict["aux_surface_normals"] = model_out[4]
+                if len(model_out) > 4: outputs_dict["aux_structure_tensor"] = model_out[4]
             
             # Setup targets for aux manager
             targets_dict["aux_fiber"] = target_fiber_aug1
