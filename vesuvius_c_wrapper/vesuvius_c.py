@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import importlib.util
 import os
+from collections import defaultdict
 from pathlib import Path
 from types import ModuleType
 from typing import Optional
@@ -22,6 +23,15 @@ import zarr
 REPO_ROOT = Path(__file__).resolve().parents[1]
 UPSTREAM_MODULE = REPO_ROOT / "villa" / "vesuvius-c" / "python" / "vesuvius_c.py"
 NATIVE_LIBRARY = UPSTREAM_MODULE.with_name("libvesuvius.so")
+_WARNING_COUNTS = defaultdict(int)
+
+def _warn_limited(key: str, message: str, limit: int = 3) -> None:
+    _WARNING_COUNTS[key] += 1
+    count = _WARNING_COUNTS[key]
+    if count <= limit:
+        print(f"Warning: {message}")
+    elif count == limit + 1:
+        print(f"Warning: suppressing further {key} warnings")
 
 
 class VesuviusCUnavailable(RuntimeError):
@@ -134,7 +144,11 @@ class FastLocalVolume:
                     height=stop[1] - start[1],
                     width=stop[2] - start[2],
                 )
-            except Exception:
+            except Exception as exc:
+                _warn_limited(
+                    "vesuvius_c_native_fallback",
+                    f"native Vesuvius-C chunk read failed for {self.path}; falling back to Zarr: {type(exc).__name__}: {exc}",
+                )
                 self.backend = "zarr"
                 self._native = None
 

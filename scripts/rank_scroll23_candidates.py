@@ -86,6 +86,7 @@ def _load_prediction_stats(prediction_dir, row):
         "ink_hot_fraction": 0.0,
         "fiber_mean": 0.0,
         "metadata_found": meta_path.exists(),
+        "metadata_error": "",
     }
 
     if ink_path.exists():
@@ -107,8 +108,8 @@ def _load_prediction_stats(prediction_dir, row):
             stats["ink_mean"] = float(ink_stats.get("mean", stats["ink_mean"]))
             stats["ink_std"] = float(ink_stats.get("std", stats["ink_std"]))
             stats["ink_max"] = float(ink_stats.get("max", stats["ink_max"]))
-        except (OSError, ValueError, TypeError):
-            pass
+        except (OSError, ValueError, TypeError) as exc:
+            stats["metadata_error"] = f"{type(exc).__name__}: {exc}"
 
     return stats
 
@@ -139,6 +140,7 @@ def score_row(row, prediction_dir="predictions"):
             "review_score": f"{review_score:.6f}",
             "prediction_found": str(stats["prediction_found"]).lower(),
             "metadata_found": str(stats["metadata_found"]).lower(),
+            "metadata_error": stats["metadata_error"],
             "ink_mean": f"{stats['ink_mean']:.6f}",
             "ink_std": f"{stats['ink_std']:.6f}",
             "ink_max": f"{stats['ink_max']:.6f}",

@@ -367,6 +367,31 @@ def test_rank_scroll23_candidates_prefers_high_confidence_prediction(tmp_path):
     assert float(scored["review_score"]) > 1.0
 
 
+def test_rank_scroll23_candidates_reports_corrupt_metadata(tmp_path):
+    prediction_dir = tmp_path / "predictions"
+    prediction_dir.mkdir()
+    row = {
+        "priority": "1.0",
+        "scroll_id": "Scroll 2",
+        "short_id": "PHerc0125",
+        "division": "div_100",
+        "z": "9000",
+        "y": "2048",
+        "x": "2048",
+        "width": "64",
+        "height": "64",
+        "patch_size": "64",
+        "submittable_window": "true",
+        "local_uri": "",
+    }
+    (prediction_dir / "pred_9000_2048_2048_64x64_meta.json").write_text("{bad json")
+
+    scored = score_row(row, prediction_dir=prediction_dir)
+
+    assert scored["metadata_found"] == "true"
+    assert "JSONDecodeError" in scored["metadata_error"]
+
+
 def test_rank_candidates_writes_ranked_tsv(tmp_path):
     queue_path = tmp_path / "queue.tsv"
     out_path = tmp_path / "ranked.tsv"

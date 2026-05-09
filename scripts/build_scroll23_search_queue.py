@@ -44,7 +44,11 @@ def _prediction_score(prediction_dir, scroll_key, div_name):
 
                 arr = np.load(path)
                 return float(arr.mean() + 2.0 * arr.std() + arr.max())
-            except Exception:
+            except Exception as exc:
+                print(
+                    "Warning: failed to read prediction score "
+                    f"from {path}: {type(exc).__name__}: {exc}"
+                )
                 return 0.0
     return 0.0
 
