@@ -1,5 +1,15 @@
 import sys; sys.stdout.reconfigure(line_buffering=True)
 import os
+import site
+import glob
+
+# Ensure CuPy can find PyTorch's cusolver in spawned workers
+site_packages = site.getsitepackages()
+if site_packages:
+    nvidia_libs = glob.glob(os.path.join(site_packages[0], "nvidia", "*", "lib"))
+    if nvidia_libs:
+        os.environ["LD_LIBRARY_PATH"] = ":".join(nvidia_libs) + ":" + os.environ.get("LD_LIBRARY_PATH", "")
+
 import time
 import math
 import json
@@ -15,6 +25,17 @@ def patched_skeletonize(*args, **kwargs):
     kwargs['parallel'] = 1
     return original_skeletonize(*args, **kwargs)
 kimimaro.skeletonize = patched_skeletonize
+
+try:
+    import wandb
+    original_wandb_log = wandb.log
+    def safe_wandb_log(*args, **kwargs):
+        if wandb.run is not None:
+            return original_wandb_log(*args, **kwargs)
+    wandb.log = safe_wandb_log
+except ImportError:
+    pass
+
 import pandas as pd
 from torch.utils.data import DataLoader
 from torch.amp import GradScaler, autocast
