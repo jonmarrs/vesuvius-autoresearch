@@ -106,16 +106,22 @@ class ExperimentConfig:
 sys.path.append(os.path.abspath('villa/segmentation/evaluation'))
 try:
     from metrics.dice import compute as compute_official_dice
-    from metrics.skeleton_distance_length import compute as compute_skeleton_dist
 except ImportError:
-    # Fallback if module is missing during test environments
+    # Fallback if module is missing during test environments.
     def compute_official_dice(label, prediction, threshold=0.5):
         prediction_bin = (prediction >= threshold).float()
         intersection = torch.sum(label.float() * prediction_bin)
         return ((2.0 * intersection) / (torch.sum(label.float()) + torch.sum(prediction_bin) + 1e-12)).item()
 
+SKELETON_DISTANCE_AVAILABLE = True
+SKELETON_DISTANCE_IMPORT_ERROR = None
+try:
+    from metrics.skeleton_distance_length import compute as compute_skeleton_dist
+except ImportError as exc:
+    SKELETON_DISTANCE_AVAILABLE = False
+    SKELETON_DISTANCE_IMPORT_ERROR = str(exc)
     def compute_skeleton_dist(label, prediction, **kwargs):
-        return 1.0 # Constant fallback
+        return float("nan")
 
 try:
     from metrics.centerline_dice import compute as compute_centerline_dice
@@ -1021,6 +1027,8 @@ def train(config: ExperimentConfig):
         if total_training_time >= config.time_budget: break
 
     print(f"Evaluating metrics on 100 ink-containing patches (searching for best threshold)...")
+    if not SKELETON_DISTANCE_AVAILABLE:
+        print(f"  Skeleton-distance metric unavailable: {SKELETON_DISTANCE_IMPORT_ERROR}")
     sys.stdout.flush()
     val_losses = []
     val_skel_dists = []
@@ -1098,7 +1106,7 @@ def train(config: ExperimentConfig):
                 except Exception: pass
 
     val_bpb = np.mean(val_losses) if val_losses else 1.0
-    avg_skel_dist = np.mean(val_skel_dists) if val_skel_dists else 1.0
+    avg_skel_dist = np.mean(val_skel_dists) if val_skel_dists else float("nan")
     avg_centerline_dice = np.mean(val_centerline_dices) if val_centerline_dices else 0.0
     avg_cc_diff = np.mean(val_cc_diffs) if val_cc_diffs else 0.0
     prize_gates = evaluate_prize_gates(
