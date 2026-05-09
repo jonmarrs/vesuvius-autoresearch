@@ -1,0 +1,1 @@
+docker run --rm --gpus all -e MODEL=timesformer-scroll5 -e S3_PATH=s3://bucket/path/to/input -e START_LAYER=0 -e END_LAYER=26 -e MODEL_TYPE=resenc_unet -e TILE_SIZE=64 -e STRIDE=16 ink-detection-optimized-inference

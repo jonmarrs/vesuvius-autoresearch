@@ -189,6 +189,56 @@ class LeJEPAUNet(nn.Module):
         return (out_2d, out_fiber, out_qc, out_proj, out_st)
 
 
+class VesuviusResNet3DDecoder(nn.Module):
+    """
+    Wrapper for the official Villa ResNet3D 3D-Decoder architecture.
+    Provides cross-scroll context (typically 62 layers) and optimized inference support.
+    """
+    version = "1.0.0-ResNet3D-Decoder"
+    def __init__(self, config: VesuviusConfig):
+        super().__init__()
+        self.config = config
+        import sys
+        import os
+        villa_optimized = os.path.join(os.path.dirname(__file__), "villa", "ink-detection", "optimized_inference")
+        if villa_optimized not in sys.path:
+            sys.path.append(villa_optimized)
+        
+        # Bypass __init__.py bug by appending optimized_inference directly to sys.path
+        from model_resnet3d_3d_decoder import RegressionModel
+        
+        self.backbone = RegressionModel(with_norm=True)
+        # Multi-task heads to match autoresearch contract
+        self.fiber_head = nn.Conv3d(1, 1, kernel_size=3, padding=1)
+        self.st_head = nn.Conv3d(1, 6, kernel_size=1)
+        self.qc_head = nn.Sequential(
+            nn.AdaptiveAvgPool3d(1),
+            nn.Flatten(),
+            nn.Linear(1, 64),
+            nn.ReLU(),
+            nn.Linear(64, 1)
+        )
+
+    def forward(self, x, return_fiber=False, return_qc=False, return_proj=False, return_st=False, **kwargs):
+        # x: [B, C, Z, H, W]
+        # The RegressionModel expects [B, 1, Z, H, W] or [B, Z, H, W]
+        B, C, Z, H, W = x.shape
+        out_2d_logits = self.backbone(x)
+        
+        results = [out_2d_logits]
+        
+        if return_fiber:
+            results.append(self.fiber_head(x))
+        if return_qc:
+            results.append(self.qc_head(x))
+        if return_proj:
+            # Provide dummy projection for consistency if needed
+            results.append(out_2d_logits)
+        if return_st:
+            results.append(self.st_head(x))
+            
+        return tuple(results) if len(results) > 1 else results[0]
+
 class InkDetectorOptimized(nn.Module):
     version = "2.5.0"
     def __init__(self, config: VesuviusConfig):

@@ -111,6 +111,12 @@ def build_prediction_model(config_dict, args, use_ridges):
             deep_supervision=False,
         )
         return GenericMultiTaskWrapper(backbone)
+    elif architecture == "timesformer":
+        from vesuvius_model import VesuviusTimeSformer
+        return VesuviusTimeSformer(v_config)
+    elif architecture == "resnet3d_decoder":
+        from vesuvius_model import VesuviusResNet3DDecoder
+        return VesuviusResNet3DDecoder(v_config)
     return InkDetectorOptimized(v_config)
 
 def get_weight_window(patch_size, device):

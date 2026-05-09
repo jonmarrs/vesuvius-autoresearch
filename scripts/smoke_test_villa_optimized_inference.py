@@ -96,13 +96,19 @@ def run_smoke_test(
     export_checkpoint(str(input_checkpoint), str(output_checkpoint))
 
     exported, failures = validate_exported_checkpoint(output_checkpoint)
+    arch = exported.get("config", {}).get("architecture", "timesformer")
+    if arch == "resnet3d_decoder":
+        model_type = "resnet3d-152-3d-decoder"
+    else:
+        model_type = arch
+
     docker_cmd = build_official_docker_command(
         image=docker_image,
         model=model,
         s3_path=s3_path,
         start_layer=start_layer,
         end_layer=end_layer,
-        model_type=exported.get("config", {}).get("architecture", "timesformer"),
+        model_type=model_type,
         tile_size=int(exported.get("config", {}).get("patch_size", 64)),
     )
 

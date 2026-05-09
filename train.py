@@ -742,6 +742,10 @@ def train(config: ExperimentConfig):
     if hasattr(v_config, 'architecture') and v_config.architecture == "timesformer":
         print("Instantiating TimeSformer Architecture...")
         model = VesuviusTimeSformer(v_config).to(device)
+    elif hasattr(v_config, 'architecture') and v_config.architecture == "resnet3d_decoder":
+        print("Instantiating ResNet3D-152 3D-Decoder Architecture...")
+        from vesuvius_model import VesuviusResNet3DDecoder
+        model = VesuviusResNet3DDecoder(v_config).to(device)
     elif hasattr(v_config, 'architecture') and v_config.architecture == "resnet3d":
         print("Instantiating ResNet3D-101 Architecture (Grand Prize Variant)...")
         if generate_resnet3d:

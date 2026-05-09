@@ -70,6 +70,9 @@ def ensemble_predict():
         
         if architecture == "timesformer":
             model = VesuviusTimeSformer(v_config).to(device)
+        elif architecture == "resnet3d_decoder":
+            from vesuvius_model import VesuviusResNet3DDecoder
+            model = VesuviusResNet3DDecoder(v_config).to(device)
         else:
             model = InkDetectorOptimized(v_config).to(device)
         load_compatible_state_dict(model, checkpoint['model_state_dict'])

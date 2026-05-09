@@ -46,6 +46,9 @@ def generate_pseudo_labels():
 
     if arch_type == "timesformer":
         model = VesuviusTimeSformer(v_config).to(device)
+    elif arch_type == "resnet3d_decoder":
+        from vesuvius_model import VesuviusResNet3DDecoder
+        model = VesuviusResNet3DDecoder(v_config).to(device)
     else:
         model = InkDetectorOptimized(v_config).to(device)
         
