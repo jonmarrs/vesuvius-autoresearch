@@ -12,6 +12,7 @@ class AuxiliaryConfig:
 class AuxiliaryManager:
     def __init__(self, aux_config: AuxiliaryConfig):
         self.aux_config = aux_config
+        self._missing_warning_emitted = False
 
     def get_target_specs(self) -> Dict[str, Any]:
         """Maps our config to villa's expected target spec format."""
@@ -35,10 +36,13 @@ class AuxiliaryManager:
             device = next(iter(outputs.values())).device if outputs else torch.device("cpu")
             return torch.tensor(0.0, device=device)
             
-        total_aux_loss = 0.0
+        device = next(iter(outputs.values())).device if outputs else torch.device("cpu")
+        total_aux_loss = torch.tensor(0.0, device=device)
+        matched_tasks = 0
         for task in self.aux_config.task_types:
             name = f"aux_{task}"
             if name in outputs and name in targets:
+                matched_tasks += 1
                 pred = outputs[name]
                 target = targets[name]
                 weight = self.aux_config.weights.get(task, 0.01)
@@ -49,5 +53,13 @@ class AuxiliaryManager:
                     loss = F.mse_loss(pred, target)
                     
                 total_aux_loss += weight * loss
+
+        if matched_tasks == 0 and not self._missing_warning_emitted:
+            print(
+                "Warning: auxiliary tasks are enabled, but no matching auxiliary "
+                f"outputs/targets were provided for {self.aux_config.task_types}; "
+                "auxiliary loss is zero."
+            )
+            self._missing_warning_emitted = True
                 
         return total_aux_loss

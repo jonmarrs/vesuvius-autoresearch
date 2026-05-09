@@ -20,7 +20,8 @@ for p in [VILLA_SRC, FIBER_TOOLS_PATH]:
 import tools as fiber_tools
 try:
     from vesuvius_c_wrapper.vesuvius_c import VesuviusVolume, FastLocalVolume
-except ImportError:
+except ImportError as exc:
+    print(f"Warning: vesuvius_c_wrapper unavailable; using direct Zarr fallback: {exc}")
     import zarr
 
     class FastLocalVolume:

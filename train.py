@@ -1110,16 +1110,16 @@ def train(config: ExperimentConfig):
                     print(f"  Warning: connected-component metric failed for validation sample {i}: {type(exc).__name__}: {exc}")
 
             if i % 10 == 0:
+                gt_3d = (val_target > 0.5).numpy()[:, 0].astype(bool)
+                pred_3d = (prob_2d > best_threshold).numpy()[:, 0].astype(bool)
                 try:
-                    skel_dist = compute_skeleton_dist(val_target.numpy(), prob_2d.numpy())
+                    skel_dist = compute_skeleton_dist(gt_3d, pred_3d)
                     if not np.isnan(skel_dist): val_skel_dists.append(skel_dist)
                 except Exception as exc:
                     validation_diag["skeleton_errors"] += 1
                     if validation_diag["skeleton_errors"] <= 3:
                         print(f"  Warning: skeleton-distance metric failed for validation sample {i}: {type(exc).__name__}: {exc}")
                 try:
-                    gt_3d = (val_target > 0.5).numpy()[:, 0].astype(bool)
-                    pred_3d = (prob_2d > best_threshold).numpy()[:, 0].astype(bool)
                     cd = compute_centerline_dice(gt_3d, pred_3d, tolerance_radius=3.0)
                     cd_val = cd.get("centerline_dice", 0.0)
                     if not np.isnan(cd_val): val_centerline_dices.append(cd_val)

@@ -20,7 +20,8 @@ from scripts.swarm_voter import SwarmVoter
 try:
     from dynamic_network_architectures.architectures.unet import ResidualEncoderUNet
     from dynamic_network_architectures.building_blocks.helper import convert_dim_to_conv_op, get_matching_instancenorm
-except ImportError:
+except ImportError as exc:
+    print(f"Warning: ResidualEncoderUNet unavailable in predict.py; resenc_unet checkpoints cannot be loaded: {exc}")
     ResidualEncoderUNet = None
 
 
