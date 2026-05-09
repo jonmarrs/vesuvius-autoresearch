@@ -1305,6 +1305,12 @@ def train(config: ExperimentConfig):
         os.fsync(f.fileno())
 
 if __name__ == "__main__":
+    import torch.multiprocessing as mp
+    try:
+        mp.set_start_method('spawn')
+    except RuntimeError:
+        pass
+        
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", type=str, default="config.json", help="Path to configuration JSON")
