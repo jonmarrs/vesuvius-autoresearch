@@ -166,7 +166,7 @@ class LeJEPAUNet(nn.Module):
             rope_impl=RotaryEmbeddingCat
         )
         
-    def forward(self, x, return_fiber=True, return_qc=True, return_proj=True, return_st=True, **kwargs):
+    def forward(self, x, return_fiber=False, return_qc=False, return_proj=False, return_st=False, **kwargs):
         # x: [B, C, Z, H, W]
         out_dict = self.backbone(x)
         out = out_dict['ink'] # [B, 1, Z, H, W]
@@ -174,19 +174,21 @@ class LeJEPAUNet(nn.Module):
         # Collapse Z dimension to [B, 1, H, W] for ink prediction
         out_2d = torch.mean(out, dim=2) 
         
-        # Fiber: Ensure [B, 1, 1, H, W]
-        out_fiber = out_2d.unsqueeze(2) 
-        
-        # QC: Dummy projection
-        out_qc = torch.zeros((out.shape[0], 1), device=out.device)
-        
-        # Projection: same as ink
-        out_proj = out_2d
-        
-        # Structure Tensor: [B, 6, 16, 64, 64]
-        out_st = torch.zeros((out.shape[0], 6, 16, out.shape[3], out.shape[4]), device=out.device)
+        results = [out_2d]
+        if return_fiber:
+            # Ensure [B, 1, 1, H, W]
+            results.append(out_2d.unsqueeze(2))
+        if return_qc:
+            # Dummy projection
+            results.append(torch.zeros((out.shape[0], 1), device=out.device))
+        if return_proj:
+            # Projection: same as ink
+            results.append(out_2d)
+        if return_st:
+            # Structure Tensor: [B, 6, Z, H, W]
+            results.append(torch.zeros((out.shape[0], 6, out.shape[2], out.shape[3], out.shape[4]), device=out.device))
 
-        return (out_2d, out_fiber, out_qc, out_proj, out_st)
+        return tuple(results) if len(results) > 1 else results[0]
 
 
 class VesuviusResNet3DDecoder(nn.Module):

@@ -1,14 +1,14 @@
 {
   "villa_dir": "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/villa",
   "local_ref": "4b7c5c20d95b404b7e92dc70606a1b1ed8648fd3",
-  "upstream_ref": "ad4e1b7d8a85c553c0b135b5f02ef98af9a9e923",
+  "upstream_ref": "82d6a4abba6a56bcf389f6f436e424802791cf4f",
   "merge_base": "9f2476386855f209e8964ee152da33787f6d25cc",
   "behind": true,
   "diverged": true,
-  "upstream_ahead_commits": 5,
+  "upstream_ahead_commits": 9,
   "local_ahead_commits": 5,
-  "changed_files": 18,
-  "direct_tree_changed_files": 33,
+  "changed_files": 43,
+  "direct_tree_changed_files": 58,
   "local_changed_files": 15,
   "prize_relevant_areas": {
     "lasagna": {
@@ -33,20 +33,20 @@
       "prize_use": "Tracked 3D decoder baseline for thicker-layer context and stronger cross-scroll generalization."
     },
     "volume_cartographer": {
-      "changed_files": 13,
+      "changed_files": 37,
       "sample_paths": [
+        "volume-cartographer/apps/CMakeLists.txt",
+        "volume-cartographer/apps/VC3D/CWindow.cpp",
+        "volume-cartographer/apps/VC3D/CWindow.hpp",
+        "volume-cartographer/apps/VC3D/MenuActionController.cpp",
         "volume-cartographer/apps/VC3D/SegmentationCommandHandler.cpp",
+        "volume-cartographer/apps/VC3D/SettingsDialog.cpp",
+        "volume-cartographer/apps/VC3D/SurfacePanelController.cpp",
+        "volume-cartographer/apps/VC3D/VCAppMain.cpp",
+        "volume-cartographer/apps/VC3D/VCMain.ui",
+        "volume-cartographer/apps/VC3D/VCSettings.hpp",
         "volume-cartographer/apps/VC3D/overlays/SegmentationOverlayController.cpp",
-        "volume-cartographer/apps/VC3D/overlays/SegmentationOverlayController.hpp",
-        "volume-cartographer/apps/VC3D/segmentation/SegmentationModule.cpp",
-        "volume-cartographer/apps/VC3D/segmentation/SegmentationModule.hpp",
-        "volume-cartographer/apps/VC3D/segmentation/panels/SegmentationApprovalMaskPanel.cpp",
-        "volume-cartographer/apps/VC3D/segmentation/tools/ApprovalMaskBrushTool.cpp",
-        "volume-cartographer/apps/VC3D/volume_viewers/CChunkedVolumeViewer.cpp",
-        "volume-cartographer/apps/VC3D/volume_viewers/CChunkedVolumeViewer.hpp",
-        "volume-cartographer/core/src/PlaneSurface.cpp",
-        "volume-cartographer/core/src/SurfacePatchIndex.cpp",
-        "volume-cartographer/core/src/VcDataset.cpp"
+        "volume-cartographer/apps/VC3D/overlays/SegmentationOverlayController.hpp"
       ],
       "prize_use": "VC3D segmentation, browsing, growth, and tifxyz utilities for producing reviewable surfaces."
     },
@@ -94,6 +94,10 @@
     }
   },
   "recent_upstream_commits": [
+    "82d6a4abb Transforms fixes / vc_tifxyz smooth / vc_cut_windings  (#889)",
+    "c6cc3de71 vc: add bring-your-own-buffer variants of chunk reading at various levels of APIs (#883)",
+    "a6ecf0eca vc: setup partitioning for vc_gen_normalgrids (#882)",
+    "c257b402f Force remote cache to /volpkgs or /ephemeral when present (#886)",
     "ad4e1b7d8 Fix crop to valid / early intersection end at edges  (#884)",
     "648245707 vc: in VcDataset use blosc_decompress_ctx to avoid global lock (#880)",
     "027ca2542 vc: enable OPENMP in docker build (#881)",

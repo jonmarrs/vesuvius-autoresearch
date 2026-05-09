@@ -286,8 +286,8 @@ def predict():
     dataset = FastVesuviusVolume(args.uri, use_ridges=use_ridges)
     
     # Determine region and tiling parameters
-    predict_width = args.width if args.width else patch_size
-    predict_height = args.height if args.height else patch_size
+    predict_width = max(patch_size, args.width if args.width else patch_size)
+    predict_height = max(patch_size, args.height if args.height else patch_size)
     stride = args.stride if args.stride else patch_size // 2 if (args.width or args.height) else patch_size
     
     # Initialize accumulation buffers

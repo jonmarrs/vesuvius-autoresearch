@@ -102,19 +102,23 @@ class FastVesuviusVolume:
 
         if self.use_ridges:
             # Priority A Integration: CuPy-accelerated ridges on-the-fly
-            try:
-                import cupy as cp
-                ct_gpu = cp.asarray(ct.astype(np.float32) / 255.0)
-                # Use our newly ported CuPy function in villa
-                ridges_gpu = fiber_tools.detect_ridges(ct_gpu, sigma=self.ridge_sigma)
-                ridges = cp.asnumpy(ridges_gpu)
-                ridges_tensor = torch.from_numpy(ridges).float()
-            except Exception as exc:
-                _warn_limited(
-                    "ridge_fallback",
-                    f"ridge detection failed for {self.uri}; using zero ridge channel: {type(exc).__name__}: {exc}",
-                )
+            if depth < 3:
+                _warn_limited("ridge_thin_volume", f"Volume too thin ({depth} slices) for ridge detection; using zero ridges.")
                 ridges_tensor = torch.zeros_like(ct_tensor)
+            else:
+                try:
+                    import cupy as cp
+                    ct_gpu = cp.asarray(ct.astype(np.float32) / 255.0)
+                    # Use our newly ported CuPy function in villa
+                    ridges_gpu = fiber_tools.detect_ridges(ct_gpu, sigma=self.ridge_sigma)
+                    ridges = cp.asnumpy(ridges_gpu)
+                    ridges_tensor = torch.from_numpy(ridges).float()
+                except Exception as exc:
+                    _warn_limited(
+                        "ridge_fallback",
+                        f"ridge detection failed for {self.uri}; using zero ridge channel: {type(exc).__name__}: {exc}",
+                    )
+                    ridges_tensor = torch.zeros_like(ct_tensor)
             return torch.stack([ct_tensor, ridges_tensor], dim=0)
             
         return ct_tensor
@@ -238,7 +242,6 @@ class VesuviusS3Dataset(torch.utils.data.Dataset):
     def __init__(self, uri, patch_size=32, num_layers=16, seed=None, cache_dir=None, use_ridges=False, ridge_sigma=2.0, is_unlabeled=True):
         self.uri = uri
         self.patch_size = patch_size
-        self.num_layers = num_layers
         self.seed = seed
         self.cache_dir = cache_dir
         self.use_ridges = use_ridges
@@ -247,6 +250,7 @@ class VesuviusS3Dataset(torch.utils.data.Dataset):
         
         self.volume = FastVesuviusVolume(uri, cache_dir=cache_dir, use_ridges=use_ridges, ridge_sigma=ridge_sigma)
         self.shape = self.volume.shape
+        self.num_layers = min(num_layers, self.shape[0])
         
         stride = patch_size // 2
         self.valid_coords = []

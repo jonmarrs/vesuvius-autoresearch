@@ -1033,7 +1033,7 @@ def train(config: ExperimentConfig):
 
         if not torch.isfinite(total_loss) or total_loss.item() > 1e6:
             print(f"\n[WARNING] Numerical Instability at Step {step}: Loss {total_loss.item():.2e}")
-            print(f"Ink: {loss_ink.item():.2e}, Dice: {loss_dice.item():.2e}, Fiber: {loss_fiber.item():.2e}, QC: {loss_qc.item():.2e}, ST: {loss_st.item():.2e}, Halluc: {hallucination_penalty.item():.2e}")
+            print(f"Ink: {loss_ink.item():.2e}, Dice: {loss_dice.item():.2e}, Fiber: {loss_fiber.item():.2e}, QC: {loss_qc.item():.2e}, ST: {loss_st_val.item():.2e}, Halluc: {hallucination_penalty.item():.2e}")
             optimizer.zero_grad(set_to_none=True)
             total_loss = torch.tensor(0.0, device=device, requires_grad=True)
         else:
