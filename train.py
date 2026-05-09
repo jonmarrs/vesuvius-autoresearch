@@ -1034,6 +1034,14 @@ def train(config: ExperimentConfig):
     val_skel_dists = []
     val_centerline_dices = []
     val_cc_diffs = []
+    validation_diag = {
+        "requested_patches": 100,
+        "empty_target_patches": 0,
+        "batch_errors": 0,
+        "cc_errors": 0,
+        "skeleton_errors": 0,
+        "centerline_errors": 0,
+    }
     
     all_probs = []
     all_targets = []
@@ -1050,7 +1058,9 @@ def train(config: ExperimentConfig):
                     if val_target.dim() == 3: val_target = val_target.unsqueeze(1)
                     
                     target_sum = torch.sum(val_target.float())
-                    if target_sum < 1.0: continue
+                    if target_sum < 1.0:
+                        validation_diag["empty_target_patches"] += 1
+                        continue
                         
                     with autocast(device_type=device.type, enabled=amp_enabled):
                         val_out = model(val_x)
@@ -1061,8 +1071,12 @@ def train(config: ExperimentConfig):
                     all_probs.append(prob_2d.cpu())
                     all_targets.append(val_target.cpu())
 
-            except StopIteration: val_data_iter = iter(val_data_loader)
-            except Exception: continue
+            except StopIteration:
+                val_data_iter = iter(val_data_loader)
+            except Exception as exc:
+                validation_diag["batch_errors"] += 1
+                if validation_diag["batch_errors"] <= 3:
+                    print(f"  Warning: validation batch {val_idx} failed: {type(exc).__name__}: {exc}")
 
     best_dice = 0.0
     best_threshold = 0.5
@@ -1090,20 +1104,36 @@ def train(config: ExperimentConfig):
                 pred_bin_b = (prob_2d > best_threshold).numpy().astype(bool)
                 for b in range(gt_bin_b.shape[0]):
                     val_cc_diffs.append(compute_cc_diff(gt_bin_b[b, 0], pred_bin_b[b, 0]))
-            except Exception: pass
+            except Exception as exc:
+                validation_diag["cc_errors"] += 1
+                if validation_diag["cc_errors"] <= 3:
+                    print(f"  Warning: connected-component metric failed for validation sample {i}: {type(exc).__name__}: {exc}")
 
             if i % 10 == 0:
                 try:
                     skel_dist = compute_skeleton_dist(val_target.numpy(), prob_2d.numpy())
                     if not np.isnan(skel_dist): val_skel_dists.append(skel_dist)
-                except Exception: pass
+                except Exception as exc:
+                    validation_diag["skeleton_errors"] += 1
+                    if validation_diag["skeleton_errors"] <= 3:
+                        print(f"  Warning: skeleton-distance metric failed for validation sample {i}: {type(exc).__name__}: {exc}")
                 try:
                     gt_3d = (val_target > 0.5).numpy()[:, 0].astype(bool)
                     pred_3d = (prob_2d > best_threshold).numpy()[:, 0].astype(bool)
                     cd = compute_centerline_dice(gt_3d, pred_3d, tolerance_radius=3.0)
                     cd_val = cd.get("centerline_dice", 0.0)
                     if not np.isnan(cd_val): val_centerline_dices.append(cd_val)
-                except Exception: pass
+                except Exception as exc:
+                    validation_diag["centerline_errors"] += 1
+                    if validation_diag["centerline_errors"] <= 3:
+                        print(f"  Warning: centerline-dice metric failed for validation sample {i}: {type(exc).__name__}: {exc}")
+
+    validation_diag.update({
+        "usable_patches": len(all_probs),
+        "skel_samples": len(val_skel_dists),
+        "centerline_samples": len(val_centerline_dices),
+        "cc_samples": len(val_cc_diffs),
+    })
 
     val_bpb = np.mean(val_losses) if val_losses else 1.0
     avg_skel_dist = np.mean(val_skel_dists) if val_skel_dists else float("nan")
@@ -1138,7 +1168,8 @@ def train(config: ExperimentConfig):
             chk = torch.load('best_model.pt', map_location='cpu', weights_only=False)
             best_previous_val_bpb = chk.get('val_bpb', 1.0)
             best_previous_avg_centerline_dice = chk.get('avg_centerline_dice', 0.0)
-        except Exception: pass
+        except Exception as exc:
+            print(f"Warning: could not load best_model.pt for improvement comparison: {type(exc).__name__}: {exc}")
         
     if is_improvement:
         # Monotonic improvement in val_bpb OR 
@@ -1161,6 +1192,15 @@ def train(config: ExperimentConfig):
     print(f"submittable:           {submittable} (window={window_mm:.3f}mm)")
     if prize_gate_failures:
         print("prize_gate_failures:   " + " | ".join(prize_gate_failures))
+    print(
+        "validation_diag:       "
+        f"usable={validation_diag['usable_patches']}/{validation_diag['requested_patches']}, "
+        f"empty={validation_diag['empty_target_patches']}, "
+        f"batch_errors={validation_diag['batch_errors']}, "
+        f"cc_errors={validation_diag['cc_errors']}, "
+        f"skeleton_errors={validation_diag['skeleton_errors']}, "
+        f"centerline_errors={validation_diag['centerline_errors']}"
+    )
     print(f"train_loss:            {smooth_loss:.6f}")
     print(f"throughput_Mvps:       {throughput_Mvps:.2f}")
     sys.stdout.flush()
@@ -1178,6 +1218,7 @@ def train(config: ExperimentConfig):
             'window_mm': window_mm,
             'villa_metrics_ok': villa_metrics_ok,
             'prize_gate_failures': prize_gate_failures,
+            'validation_diag': validation_diag,
             'config': asdict(config)
         }, 'best_model.pt')
 
@@ -1210,7 +1251,8 @@ def train(config: ExperimentConfig):
         try:
             from plot_results import plot_results
             plot_results()
-        except Exception: pass
+        except Exception as exc:
+            print(f"Warning: plot_results failed: {type(exc).__name__}: {exc}")
         
         # Ensure filesystem sync
         if hasattr(os, 'sync'):
@@ -1227,6 +1269,7 @@ def train(config: ExperimentConfig):
             'window_mm': window_mm,
             'villa_metrics_ok': villa_metrics_ok,
             'prize_gate_failures': prize_gate_failures,
+            'validation_diag': validation_diag,
             'config': asdict(config)
         }, 'last_model.pt')
     
@@ -1247,6 +1290,7 @@ def train(config: ExperimentConfig):
         "window_mm": float(window_mm),
         "villa_metrics_ok": bool(villa_metrics_ok),
         "prize_gate_failures": prize_gate_failures,
+        "validation_diag": validation_diag,
         "is_success": bool(is_improvement)
     }
     

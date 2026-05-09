@@ -126,7 +126,8 @@ if os.path.exists("best_model.pt"):
         best_model_data = torch.load("best_model.pt", map_location="cpu", weights_only=False)
         best_val_bpb = best_model_data.get("val_bpb", 1.0)
         print(f"Starting with baseline val_bpb from best_model.pt: {best_val_bpb:.6f}")
-    except Exception: pass
+    except Exception as e:
+        print(f"Warning: Could not load best_model.pt baseline: {e}")
 elif os.path.exists("results.tsv"):
     try:
         import pandas as pd
@@ -134,7 +135,8 @@ elif os.path.exists("results.tsv"):
         if len(df) > 0:
             best_val_bpb = df["val_bpb"].min()
             print(f"Starting with baseline val_bpb from results.tsv: {best_val_bpb:.6f}")
-    except Exception: pass
+    except Exception as e:
+        print(f"Warning: Could not load results.tsv baseline: {e}")
 
 print(f"--- {shift_name} STARTING AT {time.strftime('%H:%M:%S')} ---")
 print(f"Logging to: {log_filename}")
@@ -155,14 +157,17 @@ def load_recent_configs():
         try:
             with open(RECENT_CONFIGS_FILE, "r") as f:
                 return json.load(f)
-        except Exception: return []
+        except Exception as e:
+            print(f"Warning: Could not load {RECENT_CONFIGS_FILE}: {e}")
+            return []
     return []
 
 def save_recent_configs(configs):
     try:
         with open(RECENT_CONFIGS_FILE, "w") as f:
             json.dump(configs[-20:], f)
-    except Exception: pass
+    except Exception as e:
+        print(f"Warning: Could not save {RECENT_CONFIGS_FILE}: {e}")
 
 recent_configs = load_recent_configs()
 
@@ -175,7 +180,8 @@ while True:
             df = pd.read_csv("results.tsv", sep="\t")
             if len(df) > 0:
                 best_val_bpb = df["val_bpb"].min()
-        except Exception: pass
+        except Exception as e:
+            print(f"Warning: Could not refresh results.tsv baseline: {e}")
 
     if time.localtime().tm_hour == end_hour:
         print(f"{shift_name} end reached. Ending sprint.")
@@ -354,7 +360,8 @@ while True:
                         print(f"--- DIAGNOSTICS FOR CYCLE {i} CRASH ---")
                         print(log_tail_raw)
                         print("---------------------------------------")
-            except Exception: pass
+            except Exception as e:
+                print(f"Warning: Could not read run.log diagnostics after crash: {e}")
     else:
         try:
             with open("run_result.json", "r") as f:

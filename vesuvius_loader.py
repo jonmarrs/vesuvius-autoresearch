@@ -7,6 +7,7 @@ import os
 import time
 import json
 import sys
+from collections import defaultdict
 
 # Add villa to path for ridge detection and official Volume class
 PROJECT_ROOT = os.path.abspath(os.path.dirname(__file__))
@@ -36,6 +37,15 @@ except ImportError:
             super().__init__(url or cache_dir)
 
 Image.MAX_IMAGE_PIXELS = None
+_WARNING_COUNTS = defaultdict(int)
+
+def _warn_limited(key, message, limit=5):
+    _WARNING_COUNTS[key] += 1
+    count = _WARNING_COUNTS[key]
+    if count <= limit:
+        print(f"Warning: {message}")
+    elif count == limit + 1:
+        print(f"Warning: suppressing further {key} warnings")
 
 class FastVesuviusVolume:
     """
@@ -98,7 +108,11 @@ class FastVesuviusVolume:
                 ridges_gpu = fiber_tools.detect_ridges(ct_gpu, sigma=self.ridge_sigma)
                 ridges = cp.asnumpy(ridges_gpu)
                 ridges_tensor = torch.from_numpy(ridges).float()
-            except Exception:
+            except Exception as exc:
+                _warn_limited(
+                    "ridge_fallback",
+                    f"ridge detection failed for {self.uri}; using zero ridge channel: {type(exc).__name__}: {exc}",
+                )
                 ridges_tensor = torch.zeros_like(ct_tensor)
             return torch.stack([ct_tensor, ridges_tensor], dim=0)
             
@@ -212,7 +226,10 @@ class VesuviusLabeledDataset(torch.utils.data.Dataset):
                 patch_label = torch.zeros((self.patch_size, self.patch_size), dtype=torch.float32)
             return patch_vol, patch_label
         except Exception as e:
-            if idx % 100 == 0: print(f"Error loading sample {idx}: {e}")
+            _warn_limited(
+                "labeled_zero_patch",
+                f"returning zero labeled patch for sample {idx} from {self.volume.uri}: {type(e).__name__}: {e}",
+            )
             c = 2 if self.use_ridges else 1
             return torch.zeros(c, self.num_layers, self.patch_size, self.patch_size), torch.zeros(self.patch_size, self.patch_size)
 
@@ -260,6 +277,10 @@ class VesuviusS3Dataset(torch.utils.data.Dataset):
             if not self.use_ridges:
                 patch = patch.unsqueeze(0)
             return patch, torch.zeros((self.patch_size, self.patch_size), dtype=torch.float32)
-        except Exception:
+        except Exception as exc:
+            _warn_limited(
+                "s3_zero_patch",
+                f"returning zero S3 patch for sample {idx} from {self.uri}: {type(exc).__name__}: {exc}",
+            )
             c = 2 if self.use_ridges else 1
             return torch.zeros(c, self.num_layers, self.patch_size, self.patch_size), torch.zeros(self.patch_size, self.patch_size)
