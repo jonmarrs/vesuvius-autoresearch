@@ -1040,15 +1040,29 @@ def train(config: ExperimentConfig):
             if config.use_uamt and x_unlabeled is not None and ema_model is not None:
                 student_out = model(x_unl_aug_student)
                 student_ink = student_out[0] if isinstance(student_out, tuple) else student_out
+                student_prob = torch.sigmoid(student_ink)
                 
                 with torch.no_grad():
-                    teacher_out = ema_model(x_unl_aug_teacher)
-                    teacher_ink = teacher_out[0] if isinstance(teacher_out, tuple) else teacher_out
+                    # UAMT: T stochastic forward passes to estimate epistemic uncertainty
+                    T = 4
+                    ema_model.train() # Enable dropout for stochastic passes
+                    teacher_preds = []
+                    for _ in range(T):
+                        # Add small gaussian noise to input for extra stochasticity
+                        noise = torch.randn_like(x_unl_aug_teacher) * 0.01
+                        t_out = ema_model(x_unl_aug_teacher + noise)
+                        t_ink = t_out[0] if isinstance(t_out, tuple) else t_out
+                        teacher_preds.append(torch.sigmoid(t_ink))
+                    
+                    teacher_preds = torch.stack(teacher_preds) # [T, B, 1, H, W]
+                    teacher_prob = torch.mean(teacher_preds, dim=0) # [B, 1, H, W]
+                    teacher_var = torch.var(teacher_preds, dim=0) # [B, 1, H, W]
+                    ema_model.eval() # Restore eval mode
                 
-                # Consistency Loss: Mean Squared Error between Softmax probabilities (using sigmoid here since BCE is used)
-                student_prob = torch.sigmoid(student_ink)
-                teacher_prob = torch.sigmoid(teacher_ink)
-                uamt_loss = config.consistency_weight * F.mse_loss(student_prob, teacher_prob)
+                # Uncertainty-Aware Consistency Loss: Weight MSE by exp(-variance)
+                uncertainty_weight = torch.exp(-teacher_var)
+                mse_loss = F.mse_loss(student_prob, teacher_prob, reduction='none')
+                uamt_loss = config.consistency_weight * torch.mean(uncertainty_weight * mse_loss)
             
             # Supervised Losses
             loss_ink = F.binary_cross_entropy_with_logits(out_ink_2d, target_ink_aug1, pos_weight=None, reduction='mean')
