@@ -62,7 +62,10 @@ tweak_templates = [
     {"family": "features", "attr": "aug_mode", "vals": ["albumentations", "batchgeneratorsv2"]},
     {"family": "architecture", "attr": "architecture", "vals": ["lejepa_unet", "resenc_unet", "timesformer", "resnet3d_decoder"]},
     {"family": "foundation", "attr": "foundation_model_path", "vals": [None, "checkpoints/lejepa_foundation_v1/lejepa_foundation_v1_final.pth"]},
-    {"family": "iterative", "attr": "pseudo_label_dir", "vals": [None, "local_data/pseudo_labels"]}
+    {"family": "iterative", "attr": "pseudo_label_dir", "vals": [None, "local_data/pseudo_labels"]},
+    {"family": "uamt", "attr": "use_uamt", "vals": [True, False]},
+    {"family": "uamt", "attr": "consistency_weight", "vals": [0.05, 0.1, 0.2]},
+    {"family": "uamt", "attr": "ema_decay", "vals": [0.99, 0.999, 0.9999]}
 ]
 
 HISTORY_FILE = "autoresearch_history.json"

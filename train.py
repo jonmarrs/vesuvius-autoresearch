@@ -109,6 +109,15 @@ class ExperimentConfig:
     max_prize_cc_diff: float = 64.0
     min_prize_topology_samples: int = 1
 
+    # UAMT Semi-Supervised Learning
+    use_uamt: bool = False
+    ema_decay: float = 0.99
+    consistency_weight: float = 0.1
+    unlabeled_uris: list = field(default_factory=lambda: [
+        'local_data/PHercParis2Fr143/surface_volume.zarr',
+        'local_data/PHercParis2Fr47/surface_volume.zarr'
+    ])
+
     def __post_init__(self):
         if self.uris is None:
             if self.uri is not None:
@@ -713,10 +722,15 @@ def train(config: ExperimentConfig):
     print(f"Initializing LOCAL TRANSFORMER Training on {config.uris}...")
     sys.stdout.flush()
 
-    def get_dataloader(uris, seed=None):
+    def get_dataloader(uris, seed=None, is_unlabeled=False):
         from torch.utils.data import ConcatDataset
         datasets = []
         for uri in uris:
+            if is_unlabeled:
+                ds = VesuviusS3Dataset(uri, config.patch_size, config.num_layers + 8, seed=seed, cache_dir=config.cache_dir, use_ridges=config.use_ridges, ridge_sigma=getattr(config, 'ridge_sigma', 2.0), is_unlabeled=True)
+                datasets.append(ds)
+                continue
+                
             parent_dir = os.path.dirname(uri.rstrip('/'))
             
             # Check for pseudo-labels first if directory is provided
@@ -745,6 +759,11 @@ def train(config: ExperimentConfig):
 
     data_loader = get_dataloader(config.uris)
     data_iter = iter(data_loader)
+    
+    unlabeled_data_iter = None
+    if config.use_uamt and config.unlabeled_uris:
+        unlabeled_data_loader = get_dataloader(config.unlabeled_uris, is_unlabeled=True)
+        unlabeled_data_iter = iter(unlabeled_data_loader)
     # Use fixed seed and num_workers=0 for validation to ensure absolute determinism
     def get_val_dataloader(uri):
         parent_dir = os.path.dirname(uri.rstrip('/'))
@@ -865,6 +884,15 @@ def train(config: ExperimentConfig):
                 )
         except Exception as e:
             print(f"Warning: Could not load best model: {e}")
+            
+    # UAMT: Initialize EMA Teacher Model
+    ema_model = None
+    if config.use_uamt:
+        import copy
+        ema_model = copy.deepcopy(model)
+        for param in ema_model.parameters():
+            param.detach_()
+        ema_model.eval()
     
     # 1. Linear Scaling Rule for LR
     config.lr = config.lr * (config.batch_size / 16.0)
@@ -911,6 +939,17 @@ def train(config: ExperimentConfig):
             else:
                 target_ink = torch.zeros((x_raw.shape[0], 1, x_raw.shape[3], x_raw.shape[4]), device=device)
 
+            # UAMT: Fetch Unlabeled Data
+            x_unlabeled = None
+            if config.use_uamt and unlabeled_data_iter is not None:
+                try:
+                    x_unlabeled_raw, _ = next(unlabeled_data_iter)
+                    x_unlabeled = x_unlabeled_raw.to(device)
+                except StopIteration:
+                    unlabeled_data_iter = iter(unlabeled_data_loader)
+                    x_unlabeled_raw, _ = next(unlabeled_data_iter)
+                    x_unlabeled = x_unlabeled_raw.to(device)
+
             # 2. Anisotropic Z-Interpolation
             z_start = np.random.randint(0, 8)
             if np.random.rand() > 0.8:
@@ -920,8 +959,15 @@ def train(config: ExperimentConfig):
                 x_orig = x_raw[:, :, z_start:z_start+z_len]
                 if z_len != config.num_layers:
                     x_orig = F.interpolate(x_orig, size=(config.num_layers, config.patch_size, config.patch_size), mode='trilinear', align_corners=False)
+                
+                if x_unlabeled is not None:
+                    x_unl_orig = x_unlabeled[:, :, z_start:z_start+z_len]
+                    if z_len != config.num_layers:
+                        x_unl_orig = F.interpolate(x_unl_orig, size=(config.num_layers, config.patch_size, config.patch_size), mode='trilinear', align_corners=False)
             else:
                 x_orig = x_raw[:, :, z_start:z_start+config.num_layers]
+                if x_unlabeled is not None:
+                    x_unl_orig = x_unlabeled[:, :, z_start:z_start+config.num_layers]
 
         except StopIteration:
             data_iter = iter(data_loader); continue
@@ -945,6 +991,13 @@ def train(config: ExperimentConfig):
         # Generate two augmented views for DINO-Lite Consistency
         x_aug1, target_ink_aug1, target_fiber_aug1 = apply_augmentations(x_orig, target_ink, target_fiber, step, max_steps, config=config)
         x_aug2, _, _ = apply_augmentations(x_orig, target_ink, target_fiber, step, max_steps, config=config)
+        
+        # UAMT Unlabeled Augmentations
+        if config.use_uamt and x_unlabeled is not None:
+            dummy_ink = torch.zeros((x_unl_orig.shape[0], 1, x_unl_orig.shape[3], x_unl_orig.shape[4]), device=device)
+            dummy_fiber = torch.zeros((x_unl_orig.shape[0], 1, 1, x_unl_orig.shape[3], x_unl_orig.shape[4]), device=device)
+            x_unl_aug_student, _, _ = apply_augmentations(x_unl_orig, dummy_ink, dummy_fiber, step, max_steps, config=config)
+            x_unl_aug_teacher, _, _ = apply_augmentations(x_unl_orig, dummy_ink, dummy_fiber, step, max_steps, config=config)
 
         # Compute Structure Tensor targets on the fly for view 1
         with torch.no_grad():
@@ -980,6 +1033,21 @@ def train(config: ExperimentConfig):
                 # If only return_proj=True: [ink_2d, proj] -> index 1.
             else:
                 p2 = None
+                
+            # UAMT Forward Passes
+            uamt_loss = torch.tensor(0.0, device=device)
+            if config.use_uamt and x_unlabeled is not None and ema_model is not None:
+                student_out = model(x_unl_aug_student)
+                student_ink = student_out[0] if isinstance(student_out, tuple) else student_out
+                
+                with torch.no_grad():
+                    teacher_out = ema_model(x_unl_aug_teacher)
+                    teacher_ink = teacher_out[0] if isinstance(teacher_out, tuple) else teacher_out
+                
+                # Consistency Loss: Mean Squared Error between Softmax probabilities (using sigmoid here since BCE is used)
+                student_prob = torch.sigmoid(student_ink)
+                teacher_prob = torch.sigmoid(teacher_ink)
+                uamt_loss = config.consistency_weight * F.mse_loss(student_prob, teacher_prob)
             
             # Supervised Losses
             loss_ink = F.binary_cross_entropy_with_logits(out_ink_2d, target_ink_aug1, pos_weight=None, reduction='mean')
@@ -1019,7 +1087,8 @@ def train(config: ExperimentConfig):
                           0.1 * loss_qc + 
                           0.02 * hallucination_penalty +
                           config.loss_st * loss_st_val +
-                          0.05 * consistency_loss)
+                          0.05 * consistency_loss +
+                          uamt_loss)
             
             # Additional Auxiliary Tasks (Track 4)
             outputs_dict = {"ink_2d": out_ink_2d}
@@ -1045,7 +1114,7 @@ def train(config: ExperimentConfig):
 
         if not torch.isfinite(total_loss) or total_loss.item() > 1e6:
             print(f"\n[WARNING] Numerical Instability at Step {step}: Loss {total_loss.item():.2e}")
-            print(f"Ink: {loss_ink.item():.2e}, Dice: {loss_dice.item():.2e}, Fiber: {loss_fiber.item():.2e}, QC: {loss_qc.item():.2e}, ST: {loss_st_val.item():.2e}, Halluc: {hallucination_penalty.item():.2e}")
+            print(f"Ink: {loss_ink.item():.2e}, Dice: {loss_dice.item():.2e}, Fiber: {loss_fiber.item():.2e}, QC: {loss_qc.item():.2e}, ST: {loss_st_val.item():.2e}, Halluc: {hallucination_penalty.item():.2e}, UAMT: {uamt_loss.item():.2e}")
             optimizer.zero_grad(set_to_none=True)
             total_loss = torch.tensor(0.0, device=device, requires_grad=True)
         else:
@@ -1055,6 +1124,13 @@ def train(config: ExperimentConfig):
             scaler.step(optimizer)
             scaler.update()
             scheduler.step()
+            
+            # UAMT: Update Teacher EMA
+            if config.use_uamt and ema_model is not None:
+                with torch.no_grad():
+                    decay = config.ema_decay
+                    for param_student, param_teacher in zip(model.parameters(), ema_model.parameters()):
+                        param_teacher.data.mul_(decay).add_(param_student.data, alpha=1.0 - decay)
 
         dt = time.time() - t0
         total_training_time += dt
