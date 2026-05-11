@@ -755,7 +755,8 @@ def train(config: ExperimentConfig):
             datasets.append(ds)
 
         combined_ds = ConcatDataset(datasets) if len(datasets) > 1 else datasets[0]
-        return DataLoader(combined_ds, batch_size=config.batch_size, num_workers=min(4, os.cpu_count() or 1), pin_memory=True)
+        num_workers = min(4, os.cpu_count() or 1)
+        return DataLoader(combined_ds, batch_size=config.batch_size, num_workers=num_workers, pin_memory=True, multiprocessing_context="spawn" if num_workers > 0 else None)
 
     data_loader = get_dataloader(config.uris)
     data_iter = iter(data_loader)
