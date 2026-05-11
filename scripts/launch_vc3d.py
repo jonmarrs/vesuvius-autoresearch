@@ -37,7 +37,12 @@ def main():
     
     print("\nRun this command to start the interactive container:")
     print(" ".join(docker_cmd))
-    print("\nInside the container, navigate to your .volpkg and run 'VC3D'.")
+    print("\nWorkflow to review Autoresearch Fiber/Ink predictions in VC3D:")
+    print("1. Inside the container, open your target surface (e.g. using a .volpkg or OME-Zarr volume).")
+    print("2. In the VC3D GUI, go to File -> Open Overlay (or Layer -> Add).")
+    print("3. Navigate to the 'predictions/' directory.")
+    print("4. Load both '*_ink.zarr' and '*_fiber.zarr' as surface overlays.")
+    print("5. Adjust opacity or toggle visibility to verify that ink predictions align with papyrus fiber structures.")
 
 if __name__ == "__main__":
     main()
