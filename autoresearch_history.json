@@ -1,18 +1,18 @@
 {
     "lr": 1.0,
     "wd": 1.0,
-    "capacity": 2.841190416559009,
+    "capacity": 1.9543775693351164,
     "attention": 1.0,
     "regularization": 1.0,
-    "batch": 2.7455050377266184,
-    "spatial": 1.9,
-    "temporal": 1.0,
-    "width": 1.805,
-    "loss_balance": 7.599807906542337,
-    "features": 1.0,
+    "batch": 3.4325056049390237,
+    "spatial": 2.4669425479821427,
+    "temporal": 1.1974738784767571,
+    "width": 1.0,
+    "loss_balance": 6.739875139487883,
+    "features": 2.4500618749999994,
     "architecture": 1.0,
     "baseline": 18,
     "iterative": 1.0,
-    "foundation": 1.5475618749999998,
-    "uamt": 1.0
+    "foundation": 1.0,
+    "uamt": 1.4701837812499996
 }
