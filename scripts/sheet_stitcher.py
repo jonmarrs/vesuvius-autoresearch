@@ -57,19 +57,58 @@ def assign_winding_angles_viterbi(graph: SheetGraph, start_node=None):
                 
     return angles
 
-def assign_winding_angles_random_walk(graph: SheetGraph, num_walks=1000):
+def assign_winding_angles_random_walk(graph: SheetGraph, num_walks=2000):
     """
     Assigns winding angles using a Random Walk approach.
+    By traversing the graph randomly and accumulating angle deltas, we can build a distribution
+    of angle estimates for each node. The median of this distribution provides a robust consensus
+    that naturally ignores outlier edges (incorrect segment connections).
     """
     if not graph.nodes:
         return {}
         
-    # Simplified placeholder for the random walk consensus algorithm
-    # In practice, this would aggregate angle deltas across many random walks
-    # to find the most robust global parameterization.
+    start_node = next(iter(graph.nodes))
+    angle_samples = defaultdict(list)
+    angle_samples[start_node].append(0.0)
     
-    # Fallback to Viterbi for baseline functionality
-    return assign_winding_angles_viterbi(graph)
+    nodes = list(graph.nodes)
+    walk_length = max(20, len(nodes))
+    
+    for _ in range(num_walks):
+        current_node = start_node
+        current_angle = 0.0
+        
+        for _ in range(walk_length):
+            neighbors = graph.edges[current_node]
+            if not neighbors:
+                break
+                
+            # Randomly select a neighbor, weighted by edge confidence
+            weights = [max(edge['weight'], 0.01) for edge in neighbors]
+            total_weight = sum(weights)
+            probs = [w / total_weight for w in weights]
+            
+            chosen_idx = np.random.choice(len(neighbors), p=probs)
+            edge = neighbors[chosen_idx]
+            
+            current_node = edge['to']
+            current_angle += edge['delta']
+            angle_samples[current_node].append(current_angle)
+            
+    # Consensus: Compute the median angle for each node
+    final_angles = {}
+    
+    # Fallback to Viterbi for disconnected nodes or nodes never reached
+    viterbi_fallback = assign_winding_angles_viterbi(graph, start_node=start_node)
+    
+    for node in graph.nodes:
+        if angle_samples[node]:
+            # Median is robust against walks that took "impossible" paths across the winding gap
+            final_angles[node] = float(np.median(angle_samples[node]))
+        else:
+            final_angles[node] = viterbi_fallback.get(node, 0.0)
+            
+    return final_angles
 
 def main():
     parser = argparse.ArgumentParser(description="Graph-Based Sheet Stitching")
