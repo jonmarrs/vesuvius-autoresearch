@@ -1418,6 +1418,15 @@ def train(config: ExperimentConfig):
         "is_success": bool(is_improvement)
     }
     
+    # Cleanup multiprocessing iterators to avoid leaked semaphores
+    del data_iter
+    del data_loader
+    if unlabeled_data_iter is not None:
+        del unlabeled_data_iter
+        del unlabeled_data_loader
+    del val_data_iter
+    del val_data_loader
+
     # Write run_result.json as the VERY LAST step
     with open("run_result.json", "w") as f:
         json.dump(result_data, f, indent=4)
