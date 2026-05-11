@@ -55,15 +55,20 @@ class FastVesuviusVolume:
     """
     def __init__(self, volume_uri, cache_dir=None, use_ridges=False, ridge_sigma=2.0):
         self.uri = volume_uri
+        self.cache_dir = cache_dir
         self.use_ridges = use_ridges
         self.ridge_sigma = ridge_sigma
 
+        self._init_vol()
+        self.shape = self.vol.shape
+
+    def _init_vol(self):
         # Priority B Integration: 
         # Use FastLocalVolume for local files (bypasses curl)
         # Use VesuviusVolume for remote URLs (supports caching)
-        if os.path.exists(volume_uri):
+        if os.path.exists(self.uri):
             # Auto-detect OME-Zarr resolution levels
-            local_path = volume_uri
+            local_path = self.uri
             if not os.path.exists(os.path.join(local_path, ".zarray")):
                 # Check for OME-Zarr structure (level 0 is full res)
                 level0_path = os.path.join(local_path, "0")
@@ -72,9 +77,16 @@ class FastVesuviusVolume:
                     print(f"Detected OME-Zarr: Using level 0 at {local_path}")
             self.vol = FastLocalVolume(local_path)
         else:
-            self.vol = VesuviusVolume(cache_dir=cache_dir or "test_cache", url=volume_uri)
-            
-        self.shape = self.vol.shape
+            self.vol = VesuviusVolume(cache_dir=self.cache_dir or "test_cache", url=self.uri)
+
+    def __getstate__(self):
+        state = self.__dict__.copy()
+        state.pop('vol', None)
+        return state
+
+    def __setstate__(self, state):
+        self.__dict__.update(state)
+        self._init_vol()
 
 
     def normalize(self, patch):
