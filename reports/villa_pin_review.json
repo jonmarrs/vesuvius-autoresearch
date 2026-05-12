@@ -1,64 +1,39 @@
 {
   "source_audit": "reports/villa_upstream_audit.json",
-  "villa_local_ref": "4b7c5c20d95b404b7e92dc70606a1b1ed8648fd3",
-  "villa_upstream_ref": "ad4e1b7d8a85c553c0b135b5f02ef98af9a9e923",
-  "villa_merge_base": "9f2476386855f209e8964ee152da33787f6d25cc",
-  "villa_behind": true,
-  "villa_diverged": true,
-  "villa_upstream_ahead_commits": 5,
-  "villa_local_ahead_commits": 5,
-  "changed_files": 18,
+  "villa_local_ref": "e67fa7425a31f73ec48eeae14b8d7d53b782c2b0",
+  "villa_upstream_ref": "c33fc11f09e0f65ce3c1c267f46a311104902055",
+  "villa_merge_base": "c33fc11f09e0f65ce3c1c267f46a311104902055",
+  "villa_behind": false,
+  "villa_diverged": false,
+  "villa_upstream_ahead_commits": 0,
+  "villa_local_ahead_commits": 6,
+  "changed_files": 0,
   "local_changed_files": 15,
-  "adoption_mode": "rebase_or_selectively_port",
-  "recommendation": "preserve_local_patches_before_pin_update",
+  "adoption_mode": "no_update_needed",
+  "recommendation": "villa_pin_current",
   "local_patch_warning": true,
   "areas": [
     {
       "area": "lasagna",
-      "changed_files": 5,
+      "changed_files": 0,
       "local_changed_files": 0,
-      "sample_paths": [
-        "lasagna/configs/offset.json",
-        "lasagna/configs/only_flowsnap_speculative.json",
-        "lasagna/dense_batch_min_cut/src/dense_batch_preprocess.cpp",
-        "lasagna/opt_loss_pred_dt.py",
-        "lasagna/optimizer.py"
-      ],
+      "sample_paths": [],
       "local_sample_paths": [],
       "risk": "medium",
-      "decision": "review_before_pin_update",
+      "decision": "no_action",
       "reason": "Geometry preprocessing changes can reorder or alter Scroll 2/3 candidate surfaces.",
-      "checks": [
-        "uv run python scripts/build_lasagna_fiber_worklist.py --ranked reports/scroll23_ranked_candidates.tsv --limit 12",
-        "uv run python scripts/run_post_sprint_villa_handoff.py --preflight-only"
-      ]
+      "checks": []
     },
     {
       "area": "volume_cartographer",
-      "changed_files": 13,
+      "changed_files": 0,
       "local_changed_files": 0,
-      "sample_paths": [
-        "volume-cartographer/apps/VC3D/SegmentationCommandHandler.cpp",
-        "volume-cartographer/apps/VC3D/overlays/SegmentationOverlayController.cpp",
-        "volume-cartographer/apps/VC3D/overlays/SegmentationOverlayController.hpp",
-        "volume-cartographer/apps/VC3D/segmentation/SegmentationModule.cpp",
-        "volume-cartographer/apps/VC3D/segmentation/SegmentationModule.hpp",
-        "volume-cartographer/apps/VC3D/segmentation/panels/SegmentationApprovalMaskPanel.cpp",
-        "volume-cartographer/apps/VC3D/segmentation/tools/ApprovalMaskBrushTool.cpp",
-        "volume-cartographer/apps/VC3D/volume_viewers/CChunkedVolumeViewer.cpp",
-        "volume-cartographer/apps/VC3D/volume_viewers/CChunkedVolumeViewer.hpp",
-        "volume-cartographer/core/src/PlaneSurface.cpp",
-        "volume-cartographer/core/src/SurfacePatchIndex.cpp",
-        "volume-cartographer/core/src/VcDataset.cpp"
-      ],
+      "sample_paths": [],
       "local_sample_paths": [],
       "risk": "medium",
-      "decision": "review_before_pin_update",
+      "decision": "no_action",
       "reason": "VC3D review and dataset changes affect how ink/fiber overlays are inspected.",
-      "checks": [
-        "uv run python scripts/validate_prize_artifact.py --metadata predictions/pred_10_1000_1000_64x64_meta.json",
-        "uv run python scripts/run_post_sprint_villa_handoff.py --preflight-only"
-      ]
+      "checks": []
     },
     {
       "area": "optimized_inference",
