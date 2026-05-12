@@ -2,8 +2,8 @@
   "source_gpu_queue": "reports/scroll23_gpu_inference_queue.tsv",
   "source_action_matrix": "reports/villa_prize_action_matrix.json",
   "source_ranked_candidates": "reports/scroll23_ranked_candidates.tsv",
-  "villa_local_ref": "4b7c5c20d95b404b7e92dc70606a1b1ed8648fd3",
-  "villa_upstream_ref": "ad4e1b7d8a85c553c0b135b5f02ef98af9a9e923",
+  "villa_local_ref": "e67fa7425a31f73ec48eeae14b8d7d53b782c2b0",
+  "villa_upstream_ref": "c33fc11f09e0f65ce3c1c267f46a311104902055",
   "ready_actions": [
     {
       "rank": 1,
@@ -12,7 +12,7 @@
       "title": "Surface and fiber predictions in compressed or highly curved areas",
       "track": "first_letters",
       "villa_area": "lasagna",
-      "priority_score": 104,
+      "priority_score": 98,
       "readiness": "ready_now",
       "local_hook": "reports/scroll23_ranked_candidates.tsv + scripts/launch_crackle_viewer.py",
       "why_it_matters": "Scroll 2/3 high-value candidates often sit in hard geometry where plain ink inference stays low confidence.",
@@ -28,7 +28,7 @@
       "title": "Methods for generating surface, fiber, or ink labels",
       "track": "progress_and_first_letters",
       "villa_area": "lasagna",
-      "priority_score": 101,
+      "priority_score": 95,
       "readiness": "ready_now",
       "local_hook": "scripts/compute_structure_tensors.py + scripts/run_villa_prize_evidence_chain.py",
       "why_it_matters": "Creates better supervision and review evidence for non-metal ink signals in Scrolls 2-3.",
@@ -39,12 +39,28 @@
     },
     {
       "rank": 3,
+      "id": "villa-issue-201",
+      "official_issue": "https://github.com/ScrollPrize/villa/issues/201",
+      "title": "Scroll-specific 3D augmentations for model training",
+      "track": "progress_and_first_letters",
+      "villa_area": "resnet3d_decoder",
+      "priority_score": 92,
+      "readiness": "training_ablation",
+      "local_hook": "train.py scroll-specific 3D augmentation preset",
+      "why_it_matters": "Targets cross-scroll generalization, the core weakness for First Letters and Title submissions.",
+      "official_next_action": "Run ablations over aug_scroll_decohesion_p, aug_scroll_squeeze_p, aug_scroll_z_dropout_p, and aug_scroll_intensity_drift_p.",
+      "autoresearch_action": "Use official 3D decoder changes to prioritize cross-scroll augmentation ablations.",
+      "evidence_gate": "Require a sprint log entry that records scroll-specific augmentation settings.",
+      "review_artifact": "sprint_logs/"
+    },
+    {
+      "rank": 4,
       "id": "villa-issue-369",
       "official_issue": "https://github.com/ScrollPrize/villa/issues/369",
       "title": "VC3D integrate fiber predictions",
       "track": "progress_prize",
       "villa_area": "volume_cartographer",
-      "priority_score": 99,
+      "priority_score": 90,
       "readiness": "ready_now",
       "local_hook": "predict.py fiber outputs + VC3D-compatible Zarr metadata",
       "why_it_matters": "Turns Autoresearch fiber predictions into a community-usable VC3D review layer.",
@@ -54,13 +70,13 @@
       "review_artifact": "VC3D overlay path in prediction metadata"
     },
     {
-      "rank": 4,
+      "rank": 5,
       "id": "villa-issue-203",
       "official_issue": "https://github.com/ScrollPrize/villa/issues/203",
       "title": "Whole-volume deformation from vertical fibers and large meshes",
       "track": "progress_prize",
       "villa_area": "volume_cartographer",
-      "priority_score": 97,
+      "priority_score": 88,
       "readiness": "ready_now",
       "local_hook": "scripts/register_volumes.py + generate_fiber_labels.py",
       "why_it_matters": "Improves surface geometry and deformation correction, a blocker for legible Scroll 2/3 text.",
@@ -68,22 +84,6 @@
       "autoresearch_action": "Export ink and fiber maps as VC3D-compatible OME-Zarr overlays for surface review.",
       "evidence_gate": "Require prediction Zarr metadata and scale metadata to validate cleanly.",
       "review_artifact": "VC3D overlay path in prediction metadata"
-    },
-    {
-      "rank": 5,
-      "id": "villa-issue-201",
-      "official_issue": "https://github.com/ScrollPrize/villa/issues/201",
-      "title": "Scroll-specific 3D augmentations for model training",
-      "track": "progress_and_first_letters",
-      "villa_area": "resnet3d_decoder",
-      "priority_score": 95,
-      "readiness": "training_ablation",
-      "local_hook": "train.py scroll-specific 3D augmentation preset",
-      "why_it_matters": "Targets cross-scroll generalization, the core weakness for First Letters and Title submissions.",
-      "official_next_action": "Run ablations over aug_scroll_decohesion_p, aug_scroll_squeeze_p, aug_scroll_z_dropout_p, and aug_scroll_intensity_drift_p.",
-      "autoresearch_action": "Use official 3D decoder changes to prioritize cross-scroll augmentation ablations.",
-      "evidence_gate": "Require a sprint log entry that records scroll-specific augmentation settings.",
-      "review_artifact": "sprint_logs/"
     }
   ],
   "candidate_count": 2,
@@ -104,11 +104,11 @@
       "expected_prediction_metadata": "reports/scroll23_evidence/candidate_000/predictions/pred_18176_4128_4128_64x64_meta.json",
       "expected_evidence_dir": "reports/scroll23_evidence/candidate_000",
       "expected_prize_report": "reports/scroll23_evidence/candidate_000/PRIZE_READINESS_REPORT.json",
-      "evidence_command": "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python scripts/run_villa_prize_evidence_chain.py --ranked reports/scroll23_ranked_candidates.tsv --candidate-index 0 --out-dir reports/scroll23_evidence/candidate_000 --execute --checkpoint best_model.pt",
-      "validate_command": "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python scripts/validate_prize_artifact.py --metadata reports/scroll23_evidence/candidate_000/predictions/pred_18176_4128_4128_64x64_meta.json --out reports/scroll23_evidence/candidate_000/validation_report.json",
+      "evidence_command": "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python3 scripts/run_villa_prize_evidence_chain.py --ranked reports/scroll23_ranked_candidates.tsv --candidate-index 0 --out-dir reports/scroll23_evidence/candidate_000 --execute --checkpoint best_model.pt",
+      "validate_command": "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python3 scripts/validate_prize_artifact.py --metadata reports/scroll23_evidence/candidate_000/predictions/pred_18176_4128_4128_64x64_meta.json --out reports/scroll23_evidence/candidate_000/validation_report.json",
       "review_commands": [
-        "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python scripts/launch_crackle_viewer.py",
-        "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python scripts/launch_vc3d.py"
+        "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python3 scripts/launch_crackle_viewer.py",
+        "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python3 scripts/launch_vc3d.py"
       ],
       "villa_review_route": [
         "Run GPU inference/evidence chain",
@@ -133,11 +133,11 @@
       "expected_prediction_metadata": "reports/scroll23_evidence/candidate_001/predictions/pred_18176_4128_4000_64x64_meta.json",
       "expected_evidence_dir": "reports/scroll23_evidence/candidate_001",
       "expected_prize_report": "reports/scroll23_evidence/candidate_001/PRIZE_READINESS_REPORT.json",
-      "evidence_command": "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python scripts/run_villa_prize_evidence_chain.py --ranked reports/scroll23_ranked_candidates.tsv --candidate-index 1 --out-dir reports/scroll23_evidence/candidate_001 --execute --checkpoint best_model.pt",
-      "validate_command": "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python scripts/validate_prize_artifact.py --metadata reports/scroll23_evidence/candidate_001/predictions/pred_18176_4128_4000_64x64_meta.json --out reports/scroll23_evidence/candidate_001/validation_report.json",
+      "evidence_command": "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python3 scripts/run_villa_prize_evidence_chain.py --ranked reports/scroll23_ranked_candidates.tsv --candidate-index 1 --out-dir reports/scroll23_evidence/candidate_001 --execute --checkpoint best_model.pt",
+      "validate_command": "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python3 scripts/validate_prize_artifact.py --metadata reports/scroll23_evidence/candidate_001/predictions/pred_18176_4128_4000_64x64_meta.json --out reports/scroll23_evidence/candidate_001/validation_report.json",
       "review_commands": [
-        "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python scripts/launch_crackle_viewer.py",
-        "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python scripts/launch_vc3d.py"
+        "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python3 scripts/launch_crackle_viewer.py",
+        "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python3 scripts/launch_vc3d.py"
       ],
       "villa_review_route": [
         "Run GPU inference/evidence chain",

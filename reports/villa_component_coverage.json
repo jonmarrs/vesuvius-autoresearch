@@ -2,10 +2,10 @@
   "source": "ScrollPrize/villa local checkout",
   "summary": {
     "total_components": 9,
-    "covered": 9,
-    "partial": 0,
+    "covered": 5,
+    "partial": 3,
     "blocked_missing_required_hook": 0,
-    "unwired": 0,
+    "unwired": 1,
     "missing_official_component": 0
   },
   "components": [
@@ -32,14 +32,14 @@
         },
         {
           "path": "check_loader.py",
-          "present": true
+          "present": false
         }
       ],
       "required_hooks": [],
       "missing_required_hooks": [],
-      "present_local_hooks": 3,
+      "present_local_hooks": 2,
       "total_local_hooks": 3,
-      "coverage_status": "covered"
+      "coverage_status": "partial"
     },
     {
       "name": "vesuvius-c",
@@ -64,21 +64,21 @@
         },
         {
           "path": "benchmark_vesuvius_c.py",
-          "present": true
+          "present": false
         },
         {
           "path": "test_vesuvius_c.py",
-          "present": true
+          "present": false
         },
         {
           "path": "SPRINT_KANBAN.md",
-          "present": true
+          "present": false
         }
       ],
       "missing_required_hooks": [],
-      "present_local_hooks": 4,
+      "present_local_hooks": 1,
       "total_local_hooks": 4,
-      "coverage_status": "covered"
+      "coverage_status": "partial"
     },
     {
       "name": "ink-detection",
@@ -212,7 +212,7 @@
       "local_hook_status": [
         {
           "path": "test_import.py",
-          "present": true
+          "present": false
         },
         {
           "path": "submission_package_dry_run/HALLUCINATION_MITIGATION.md",
@@ -221,9 +221,9 @@
       ],
       "required_hooks": [],
       "missing_required_hooks": [],
-      "present_local_hooks": 2,
+      "present_local_hooks": 1,
       "total_local_hooks": 2,
-      "coverage_status": "covered"
+      "coverage_status": "partial"
     },
     {
       "name": "foundation",
@@ -238,14 +238,14 @@
       "local_hook_status": [
         {
           "path": "generate_fiber_labels.py",
-          "present": true
+          "present": false
         }
       ],
       "required_hooks": [],
       "missing_required_hooks": [],
-      "present_local_hooks": 1,
+      "present_local_hooks": 0,
       "total_local_hooks": 1,
-      "coverage_status": "covered"
+      "coverage_status": "unwired"
     },
     {
       "name": "thaumato-anakalyptor",

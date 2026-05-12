@@ -23,6 +23,7 @@
     "review_score": "2.350000",
     "prediction_found": "false",
     "metadata_found": "false",
+    "metadata_error": "",
     "ink_mean": "0.000000",
     "ink_std": "0.000000",
     "ink_max": "0.000000",
