@@ -58,6 +58,45 @@ class ActiveLearningSampler:
         
         return all_coords[top_indices], uncertainties[top_indices]
 
+def identify_uncertain_patches(probs, threshold=0.2):
+    """
+    Identifies high-entropy (uncertain) regions in a probability map.
+    probs: (H, W) or (C, H, W) tensor
+    """
+    if isinstance(probs, np.ndarray):
+        probs = torch.from_numpy(probs)
+    
+    entropy = calculate_entropy(probs)
+    if entropy.dim() == 3:
+        entropy = entropy.mean(dim=0)
+    
+    # Normalize entropy to [0, 1]
+    max_entropy = -0.5 * np.log(0.5) - (1 - 0.5) * np.log(1 - 0.5)
+    entropy /= max_entropy
+    
+    return (entropy > threshold).float()
+
+def export_for_proofreader(mask, output_path):
+    """
+    Exports a binary mask to a Zarr volume for the proofreader tool.
+    """
+    import zarr
+    if isinstance(mask, torch.Tensor):
+        mask = mask.cpu().numpy()
+    
+    # Ensure 3D [Z, H, W]
+    if mask.ndim == 2:
+        mask = mask[np.newaxis, ...]
+    
+    # If 4D [C, Z, H, W], take first channel
+    if mask.ndim == 4:
+        mask = mask[0]
+
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    z = zarr.open(output_path, mode='w', shape=mask.shape, chunks=(1, 64, 64), dtype='f4')
+    z[:] = mask
+    print(f"Exported uncertainty mask for proofreading: {output_path}")
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--checkpoint", type=str, required=True)
