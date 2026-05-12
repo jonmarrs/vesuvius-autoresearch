@@ -51,7 +51,8 @@ torch = [
 ]
 
 [tool.pytest.ini_options]
-testpaths = ["."]
+testpaths = ["tests"]
+pythonpath = "."
 python_files = ["test_*.py"]
 norecursedirs = [
     ".git",
