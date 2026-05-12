@@ -1029,9 +1029,12 @@ def train(config: ExperimentConfig):
             # Forward pass for view 2 (consistency only)
             if p1 is not None:
                 p2_out = model(x_aug2, return_proj=True)
-                p2 = p2_out[1] if isinstance(p2_out, tuple) else None # index 1 because return_proj is True? No, look at vesuvius_model.py
-                # Wait, look at vesuvius_model.py: [ink_2d, fiber, qc, proj, st]
-                # If only return_proj=True: [ink_2d, proj] -> index 1.
+                if isinstance(p2_out, tuple):
+                    # InkDetectorOptimized returns [ink, fiber, qc, proj, st]
+                    # if only return_proj=True: [ink, proj]
+                    p2 = p2_out[1]
+                else:
+                    p2 = None # Should not happen if return_proj=True
             else:
                 p2 = None
                 

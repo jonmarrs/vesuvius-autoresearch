@@ -167,15 +167,16 @@ class VesuviusLabeledDataset(torch.utils.data.Dataset):
         # Pre-calculate valid coordinates
         stride = 16
         mask_mtime = int(os.path.getmtime(mask_path)) if mask_path and os.path.exists(mask_path) else 0
+        labels_mtime = int(os.path.getmtime(labels_path)) if labels_path and os.path.exists(labels_path) else 0
         
         if cache_dir:
             import hashlib
             uri_hash = hashlib.md5(volume_uri.encode()).hexdigest()[:8]
-            cache_path = os.path.join(cache_dir, f"valid_coords_cache_{uri_hash}_{self.patch_size}_{stride}_{mask_mtime}_{1 if require_ink else 0}.npy")
+            cache_path = os.path.join(cache_dir, f"valid_coords_cache_{uri_hash}_{self.patch_size}_{stride}_{mask_mtime}_{labels_mtime}_{1 if require_ink else 0}.npy")
         else:
             # Clean URI for filename usage
             clean_uri = volume_uri.replace("/", "_").replace(".", "_")
-            cache_path = f"valid_coords_{clean_uri}_{self.patch_size}_{stride}_{mask_mtime}_{1 if require_ink else 0}.npy"
+            cache_path = f"valid_coords_{clean_uri}_{self.patch_size}_{stride}_{mask_mtime}_{labels_mtime}_{1 if require_ink else 0}.npy"
 
         if os.path.exists(cache_path):
             self.valid_coords = np.load(cache_path)
