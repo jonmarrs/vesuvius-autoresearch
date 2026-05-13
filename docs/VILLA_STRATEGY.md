@@ -106,9 +106,9 @@ This document outlines how we leverage and contribute to the official `ScrollPri
 *   **Action**: Implement a launcher for Ryan Chesler's 3D-only approach (bypassing unwrapping).
 *   **Impact**: A "Wildcard" strategy for the **First Letters Prize** in regions where segmentation is currently impossible.
 
-### [Priority Q] Graph-Based Sheet Stitching (STATUS: ALGORITHM MAPPED)
+### [Priority Q] Graph-Based Sheet Stitching (STATUS: IMPLEMENTED)
 *   **Discovery**: Found formal problem definition in `villa/thaumato-anakalyptor/documentation/Sheet_Stitching_Problem_Definition.pdf`.
-*   **Action**: Implement the winding-angle assignment function $f: N \to \mathbb{R}$ using the custom Random Walk or Viterbi algorithm suggested in the technical report.
+*   **Action**: Implemented the winding-angle assignment function $f: N \to \mathbb{R}$ natively in `scripts/sheet_stitcher.py` and integrated it into the `scripts/autoresearch_thaumato_solver.py` hyperparameter sweep loop.
 *   **Impact**: Solves the "Winding Gap" problem, allowing for the massive, multi-winding segments needed for the **$200,000 Grand Prize**.
 
 ### [Priority R] Foundation Model Pretraining (STATUS: TRAINER MAPPED)

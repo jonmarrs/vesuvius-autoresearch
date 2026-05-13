@@ -110,22 +110,45 @@ def assign_winding_angles_random_walk(graph: SheetGraph, num_walks=2000):
             
     return final_angles
 
+def load_graph_from_pkl(pkl_path):
+    import sys
+    sys.path.append('villa/thaumato-anakalyptor')
+    from ThaumatoAnakalyptor.instances_to_graph import load_graph
+    
+    thaumato_graph = load_graph(pkl_path)
+    graph = SheetGraph()
+    for node_id in thaumato_graph.nodes:
+        graph.add_node(node_id)
+    for u in thaumato_graph.edges:
+        for v in thaumato_graph.edges[u]:
+            edge_data = thaumato_graph.edges[u][v]
+            # Assuming edge_data contains 'certainty' and 'k' (angle difference)
+            weight = edge_data.get('certainty', 1.0)
+            angle_delta = edge_data.get('k', 0.0)
+            graph.add_edge(u, v, weight=weight, angle_delta=angle_delta)
+    return graph, thaumato_graph
+
 def main():
     parser = argparse.ArgumentParser(description="Graph-Based Sheet Stitching")
-    parser.add_argument("--input_graph", type=str, help="Path to input graph JSON", required=False)
-    parser.add_argument("--output", type=str, default="winding_angles.json", help="Output JSON path")
+    parser.add_argument("--input_graph", type=str, help="Path to input graph JSON or PKL", required=False)
+    parser.add_argument("--output", type=str, default="winding_angles.json", help="Output JSON or PKL path")
     parser.add_argument("--algorithm", type=str, choices=['viterbi', 'random_walk'], default='viterbi')
     args = parser.parse_args()
     
     graph = SheetGraph()
+    thaumato_graph = None
     
     if args.input_graph and os.path.exists(args.input_graph):
-        with open(args.input_graph, 'r') as f:
-            data = json.load(f)
-            for node in data.get('nodes', []):
-                graph.add_node(node['id'])
-            for edge in data.get('edges', []):
-                graph.add_edge(edge['u'], edge['v'], edge.get('weight', 1.0), edge.get('angle_delta', 0.0))
+        if args.input_graph.endswith(".pkl"):
+            print(f"Loading PKL graph from {args.input_graph}...")
+            graph, thaumato_graph = load_graph_from_pkl(args.input_graph)
+        else:
+            with open(args.input_graph, 'r') as f:
+                data = json.load(f)
+                for node in data.get('nodes', []):
+                    graph.add_node(node['id'])
+                for edge in data.get('edges', []):
+                    graph.add_edge(edge['u'], edge['v'], edge.get('weight', 1.0), edge.get('angle_delta', 0.0))
     else:
         print("No input graph provided or file not found. Generating dummy graph for testing.")
         # Dummy graph representing fragmented sheets wrapping around a scroll
@@ -142,10 +165,15 @@ def main():
         
     print(f"Assigned winding angles for {len(angles)} nodes using {args.algorithm}.")
     
-    with open(args.output, 'w') as f:
-        json.dump(angles, f, indent=4)
-        
-    print(f"Results written to {args.output}")
+    if args.output.endswith(".pkl") and thaumato_graph is not None:
+        for node_id, angle in angles.items():
+            thaumato_graph.nodes_f[node_id] = angle
+        print(f"Saving modified PKL graph to {args.output}...")
+        thaumato_graph.save_graph(args.output)
+    else:
+        with open(args.output, 'w') as f:
+            json.dump(angles, f, indent=4)
+        print(f"Results written to {args.output}")
 
 if __name__ == "__main__":
     main()

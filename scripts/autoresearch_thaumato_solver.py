@@ -74,27 +74,41 @@ def main():
         print(f"\n--- Cycle {cycle} ---")
         
         # 1. Sample Hyperparameters
+        solver_type = random.choice(["cpp", "python_viterbi", "python_random_walk"])
         spring_constant = round(random.uniform(0.5, 2.5), 2)
         steps = random.choice([2, 3, 4, 5])
         estimated_windings = random.randint(40, 80)
         
-        print(f"Testing Config: spring_constant={spring_constant}, steps={steps}, windings={estimated_windings}")
+        print(f"Testing Config: solver={solver_type}, spring_constant={spring_constant}, steps={steps}, windings={estimated_windings}")
         
-        # 2. Run C++ Graph Solver
-        solver_cmd = (
-            f"./ThaumatoAnakalyptor/graph_problem/build/graph_problem_gpu "
-            f"--input_graph {graph_bin_input} --output_graph {output_bin} "
-            f"--auto --auto_num_iterations 2000 --z_min 5000 --z_max 6000 "
-            f"--num_iterations 2000 --estimated_windings {estimated_windings} "
-            f"--steps {steps} --spring_constant {spring_constant}"
-        )
-        if not run_command(solver_cmd, log_file):
-            continue
-
-        # 3. Translate bin back to pkl
-        translate_cmd = f"python3 -m ThaumatoAnakalyptor.instances_to_graph --path {pointcloud_blocks_dir} --create_graph"
-        if not run_command(translate_cmd, log_file):
-            continue
+        # 2. Run Graph Solver
+        if solver_type == "cpp":
+            solver_cmd = (
+                f"./ThaumatoAnakalyptor/graph_problem/build/graph_problem_gpu "
+                f"--input_graph {graph_bin_input} --output_graph {output_bin} "
+                f"--auto --auto_num_iterations 2000 --z_min 5000 --z_max 6000 "
+                f"--num_iterations 2000 --estimated_windings {estimated_windings} "
+                f"--steps {steps} --spring_constant {spring_constant}"
+            )
+            if not run_command(solver_cmd, log_file):
+                continue
+            
+            # 3. Translate bin back to pkl for C++ output
+            translate_cmd = f"python3 -m ThaumatoAnakalyptor.instances_to_graph --path {pointcloud_blocks_dir} --create_graph"
+            if not run_command(translate_cmd, log_file):
+                continue
+        else:
+            # Our custom Python graph solver using Viterbi or Random Walk directly against the .pkl format
+            algo = "viterbi" if solver_type == "python_viterbi" else "random_walk"
+            pkl_input = f"{pointcloud_blocks_dir}/1352_3600_5002/scroll_graph_angular.pkl"
+            pkl_output = f"{pointcloud_blocks_dir}/1352_3600_5002/point_cloud_colorized_verso_subvolume_graph_BP_solved.pkl"
+            
+            python_solver_cmd = (
+                f"python3 scripts/sheet_stitcher.py "
+                f"--input_graph {pkl_input} --output {pkl_output} --algorithm {algo}"
+            )
+            if not run_command(python_solver_cmd, log_file):
+                continue
 
         # 4. Generate Mesh
         # We append a unique ID to the output so we can evaluate it independently
