@@ -14,7 +14,9 @@
       "x": 4128,
       "width": 64,
       "height": 64,
+      "depth": 128,
       "local_uri": "local_data/PHerc0125_Divisions/div_90/0",
+      "cropped_volume_uri": "reports/lasagna_fiber_candidates/000_pred_18176_4128_4128_64x64/candidate_crop.zarr",
       "artifact_stem": "pred_18176_4128_4128_64x64",
       "ct_occupied_status": "true",
       "ct_chunk_coord": "142.32.32",
@@ -25,7 +27,8 @@
       "structure_tensor_output": "reports/lasagna_fiber_candidates/000_pred_18176_4128_4128_64x64/structure_tensors.zarr",
       "lasagna_output_dir": "reports/lasagna_fiber_candidates/000_pred_18176_4128_4128_64x64/lasagna",
       "evidence_output_dir": "reports/lasagna_fiber_candidates/000_pred_18176_4128_4128_64x64/evidence",
-      "structure_tensor_command": ".venv/bin/python scripts/compute_structure_tensors.py --input local_data/PHerc0125_Divisions/div_90/0 --output reports/lasagna_fiber_candidates/000_pred_18176_4128_4128_64x64/structure_tensors.zarr",
+      "crop_command": ".venv/bin/python scripts/crop_candidate_zarr.py --input local_data/PHerc0125_Divisions/div_90/0 --output reports/lasagna_fiber_candidates/000_pred_18176_4128_4128_64x64/candidate_crop.zarr --z 18176 --y 4128 --x 4128 --depth 128 --height 64 --width 64",
+      "structure_tensor_command": ".venv/bin/python scripts/compute_structure_tensors.py --input reports/lasagna_fiber_candidates/000_pred_18176_4128_4128_64x64/candidate_crop.zarr --output reports/lasagna_fiber_candidates/000_pred_18176_4128_4128_64x64/structure_tensors.zarr",
       "evidence_command": ".venv/bin/python scripts/run_villa_prize_evidence_chain.py --ranked reports/scroll23_ranked_candidates.tsv --candidate-index 0 --out-dir reports/lasagna_fiber_candidates/000_pred_18176_4128_4128_64x64/evidence --execute --checkpoint best_model.pt",
       "lasagna_note": "After updating the villa submodule to an upstream commit with lasagna/, run Lasagna preprocessing/training against this candidate directory and export VC3D-compatible OME-Zarr overlays for review."
     }
