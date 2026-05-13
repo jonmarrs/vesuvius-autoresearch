@@ -55,14 +55,29 @@ def main():
         print(f"Processing Candidate Rank {rank}: {item['artifact_stem']}")
         print(f"{'='*60}")
 
-        # 2. Compute Structure Tensors
+        # 2. Crop candidate window, then compute Structure Tensors on the crop.
+        crop_output = item.get("cropped_volume_uri") or os.path.join(item["output_dir"], "candidate_crop.zarr")
+        crop_cmd = [
+            sys.executable, "scripts/crop_candidate_zarr.py",
+            "--input", item["local_uri"],
+            "--output", crop_output,
+            "--z", str(item["z"]),
+            "--y", str(item["y"]),
+            "--x", str(item["x"]),
+            "--depth", str(item.get("depth", 128)),
+            "--height", str(item["height"]),
+            "--width", str(item["width"]),
+        ]
+        if not run_step(f"Crop candidate window for Rank {rank}", crop_cmd):
+            continue
+
         st_output = item["structure_tensor_output"]
         st_cmd = [
             sys.executable, "scripts/compute_structure_tensors.py",
-            "--input", item["local_uri"],
+            "--input", crop_output,
             "--output", st_output
         ]
-        if not run_step(f"Compute ST for Rank {rank}", st_cmd):
+        if not run_step(f"Compute ST for cropped Rank {rank}", st_cmd):
             continue
 
         # 3. Lasagna Preprocessing (Placeholder for official villa lasagna call)

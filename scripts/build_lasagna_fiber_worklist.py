@@ -54,15 +54,42 @@ def _load_rows(ranked_path):
 def _work_item(row, rank, output_root, python_executable):
     stem = _artifact_stem(row)
     out_dir = Path(output_root) / f"{rank:03d}_{stem}"
+    crop_dir = out_dir / "candidate_crop.zarr"
     tensor_dir = out_dir / "structure_tensors.zarr"
     lasagna_dir = out_dir / "lasagna"
     evidence_dir = out_dir / "evidence"
+    z = _int(row, "z")
+    y = _int(row, "y")
+    x = _int(row, "x")
+    width = _int(row, "width", _int(row, "patch_size", 64))
+    height = _int(row, "height", _int(row, "patch_size", 64))
+    depth = _int(row, "depth", 128)
 
+    crop_cmd = [
+        python_executable,
+        "scripts/crop_candidate_zarr.py",
+        "--input",
+        row.get("local_uri", ""),
+        "--output",
+        str(crop_dir),
+        "--z",
+        str(z),
+        "--y",
+        str(y),
+        "--x",
+        str(x),
+        "--depth",
+        str(depth),
+        "--height",
+        str(height),
+        "--width",
+        str(width),
+    ]
     structure_tensor_cmd = [
         python_executable,
         "scripts/compute_structure_tensors.py",
         "--input",
-        row.get("local_uri", ""),
+        str(crop_dir),
         "--output",
         str(tensor_dir),
     ]
@@ -92,12 +119,14 @@ def _work_item(row, rank, output_root, python_executable):
         "scroll_id": row.get("scroll_id"),
         "short_id": row.get("short_id"),
         "division": row.get("division"),
-        "z": _int(row, "z"),
-        "y": _int(row, "y"),
-        "x": _int(row, "x"),
-        "width": _int(row, "width", _int(row, "patch_size", 64)),
-        "height": _int(row, "height", _int(row, "patch_size", 64)),
+        "z": z,
+        "y": y,
+        "x": x,
+        "width": width,
+        "height": height,
+        "depth": depth,
         "local_uri": row.get("local_uri", ""),
+        "cropped_volume_uri": str(crop_dir),
         "artifact_stem": stem,
         "ct_occupied_status": row.get("ct_occupied_status", "unknown"),
         "ct_chunk_coord": row.get("ct_chunk_coord", ""),
@@ -108,6 +137,7 @@ def _work_item(row, rank, output_root, python_executable):
         "structure_tensor_output": str(tensor_dir),
         "lasagna_output_dir": str(lasagna_dir),
         "evidence_output_dir": str(evidence_dir),
+        "crop_command": shlex.join(crop_cmd),
         "structure_tensor_command": shlex.join(structure_tensor_cmd),
         "evidence_command": shlex.join(evidence_cmd),
         "lasagna_note": lasagna_note,
@@ -143,7 +173,9 @@ def _write_tsv(path, rows):
         "x",
         "width",
         "height",
+        "depth",
         "local_uri",
+        "cropped_volume_uri",
         "artifact_stem",
         "ct_occupied_status",
         "ct_chunk_coord",

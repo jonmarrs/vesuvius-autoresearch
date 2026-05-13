@@ -48,7 +48,12 @@ def test_lasagna_fiber_worklist_filters_and_scores_candidates(tmp_path):
 
     assert [row["artifact_stem"] for row in rows] == ["pred_best", "pred_good"]
     assert rows[0]["official_issue"].endswith("/191")
+    assert rows[0]["depth"] == 128
+    assert rows[0]["cropped_volume_uri"].endswith("candidate_crop.zarr")
+    assert "scripts/crop_candidate_zarr.py" in rows[0]["crop_command"]
+    assert rows[0]["cropped_volume_uri"] in rows[0]["structure_tensor_command"]
     assert "scripts/compute_structure_tensors.py" in rows[0]["structure_tensor_command"]
+    assert "local_data/PHerc0125_Divisions/div_90/0" not in rows[0]["structure_tensor_command"]
     assert "scripts/run_villa_prize_evidence_chain.py" in rows[0]["evidence_command"]
 
 
