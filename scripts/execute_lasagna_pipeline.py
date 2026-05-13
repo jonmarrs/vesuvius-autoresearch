@@ -18,6 +18,27 @@ import subprocess
 import argparse
 from pathlib import Path
 
+
+
+def _zarr_array_exists(path):
+    return Path(path, ".zarray").exists()
+
+
+def _structure_tensor_complete(path):
+    root = Path(path)
+    return _zarr_array_exists(root / "structure_tensor") and _zarr_array_exists(root / "normal" / "x" / "0")
+
+
+def _evidence_passed(evidence_dir, artifact_stem):
+    meta = Path(evidence_dir) / "predictions" / f"{artifact_stem}_meta.json"
+    if not meta.exists():
+        return False
+    try:
+        data = json.loads(meta.read_text())
+    except json.JSONDecodeError:
+        return False
+    return bool(data.get("vc3d_zarr_path") or data.get("prediction_zarr_path"))
+
 def run_step(name, cmd, env=None):
     print(f"\n>>> Step: {name}")
     print(f"Running: {' '.join(cmd)}")
@@ -33,6 +54,7 @@ def main():
     parser.add_argument("--limit", type=int, default=3, help="Number of candidates to process")
     parser.add_argument("--ranked", default="reports/scroll23_ranked_candidates.tsv")
     parser.add_argument("--checkpoint", default="best_model.pt")
+    parser.add_argument("--force", action="store_true", help="Recompute crop/ST/evidence even when outputs already exist")
     args = parser.parse_args()
 
     # 1. Build Worklist
@@ -68,7 +90,9 @@ def main():
             "--height", str(item["height"]),
             "--width", str(item["width"]),
         ]
-        if not run_step(f"Crop candidate window for Rank {rank}", crop_cmd):
+        if not args.force and _zarr_array_exists(crop_output):
+            print(f"Skipping crop for Rank {rank}; existing crop found at {crop_output}")
+        elif not run_step(f"Crop candidate window for Rank {rank}", crop_cmd):
             continue
 
         st_output = item["structure_tensor_output"]
@@ -77,7 +101,9 @@ def main():
             "--input", crop_output,
             "--output", st_output
         ]
-        if not run_step(f"Compute ST for cropped Rank {rank}", st_cmd):
+        if not args.force and _structure_tensor_complete(st_output):
+            print(f"Skipping ST for Rank {rank}; complete tensor output found at {st_output}")
+        elif not run_step(f"Compute ST for cropped Rank {rank}", st_cmd):
             continue
 
         # 3. Lasagna Preprocessing (Placeholder for official villa lasagna call)
@@ -88,6 +114,9 @@ def main():
         
         # 4. Generate Prize Evidence Chain
         evidence_dir = item["evidence_output_dir"]
+        if not args.force and _evidence_passed(evidence_dir, item["artifact_stem"]):
+            print(f"Skipping evidence for Rank {rank}; PASS metadata already exists in {evidence_dir}")
+            continue
         evidence_cmd = [
             sys.executable, "scripts/run_villa_prize_evidence_chain.py",
             "--ranked", args.ranked,
