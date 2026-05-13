@@ -136,10 +136,33 @@ def build_review(audit_path="reports/villa_upstream_audit.json"):
     }
 
 
+def build_markdown_checklist(report):
+    md = ["# Villa Pin Review Checklist\n"]
+    md.append(f"- **Local Ref:** `{report['villa_local_ref']}`")
+    md.append(f"- **Upstream Ref:** `{report['villa_upstream_ref']}`")
+    md.append(f"- **Adoption Mode:** `{report['adoption_mode']}`")
+    md.append(f"- **Recommendation:** `{report['recommendation']}`\n")
+
+    md.append("## Target Areas\n")
+    for area in report["areas"]:
+        if area["area"] not in ["lasagna", "volume_cartographer", "prize_docs"]:
+            continue
+        status = "[ ]" if area["changed_files"] > 0 else "[x]"
+        md.append(f"### {status} {area['area']} (Changed upstream: {area['changed_files']})")
+        md.append(f"*{area['reason']}*\n")
+        if area["changed_files"] > 0:
+            md.append("**Required Checks:**")
+            for check in area["checks"]:
+                md.append(f"- [ ] `{check}`")
+        md.append("")
+    
+    return "\n".join(md)
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--audit", default="reports/villa_upstream_audit.json")
     parser.add_argument("--out", default="reports/villa_pin_review.json")
+    parser.add_argument("--out-md", default="reports/villa_pin_review.md")
     args = parser.parse_args()
 
     report = build_review(args.audit)
@@ -148,6 +171,12 @@ def main():
         out = REPO_ROOT / out
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(report, indent=2) + "\n")
+    
+    out_md = Path(args.out_md)
+    if not out_md.is_absolute():
+        out_md = REPO_ROOT / out_md
+    out_md.write_text(build_markdown_checklist(report))
+    
     print(json.dumps(report, indent=2))
 
 

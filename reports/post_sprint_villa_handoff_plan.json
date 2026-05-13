@@ -1,11 +1,10 @@
 {
   "status": "READY_ACTIVE_SPRINT_NON_GPU",
   "active_processes": [
-    "807272 /usr/bin/bash -c shopt -u promptvars nullglob extglob nocaseglob dotglob; ( uv run python run_autoresearch_loop.py ) __code=$?; pgrep -g 0 >/tmp/gemini-shell-KefEqx/pgrep.tmp 2>&1; exit $__code;",
-    "807274 uv run python run_autoresearch_loop.py",
-    "807277 /home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python3 run_autoresearch_loop.py",
-    "809930 uv run python -u train.py --config config_temp.json",
-    "809933 /home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python3 -u train.py --config config_temp.json"
+    "858230 uv run python run_autoresearch_loop.py",
+    "858234 /home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python3 run_autoresearch_loop.py",
+    "859353 uv run python -u train.py --config config_temp.json",
+    "859356 /home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python3 -u train.py --config config_temp.json"
   ],
   "steps": [
     {

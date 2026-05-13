@@ -127,6 +127,18 @@ def test_validate_prize_artifact_checks_paired_ink_and_fiber_vc3d_metadata(tmp_p
     assert report["checked_zarr_paths"] == [str(ink_zarr_path), str(fiber_zarr_path)]
 
 
+def test_validate_prize_artifact_passes_on_known_good_local_fixture():
+    metadata_path = Path("predictions/pred_10_1000_1000_64x64_meta.json")
+    if not metadata_path.exists():
+        import pytest
+        pytest.skip("Known-good fixture not available")
+
+    report = validate(metadata_path)
+    assert report["status"] == "PASS"
+    assert report["failures"] == []
+    assert "reports/pred_10_1000_1000_64x64_ink.zarr" in report["checked_zarr_paths"]
+    assert "reports/pred_10_1000_1000_64x64_fiber.zarr" in report["checked_zarr_paths"]
+
 def test_validate_prize_artifact_fails_on_mismatched_fiber_ome_zarr_scale(tmp_path):
     train_mask = np.zeros((8, 8), dtype=bool)
     predict_mask = np.zeros((8, 8), dtype=bool)
