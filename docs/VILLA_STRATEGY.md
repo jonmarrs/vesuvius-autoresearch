@@ -93,7 +93,7 @@ This document outlines how we leverage and contribute to the official `ScrollPri
 ## 6. Foundation Models & Community Knowledge (Ultimate Tier)
 *Leveraging the full collective intelligence of the Vesuvius Challenge.*
 
-### [Priority N] LeJEPA Foundation Pretraining (STATUS: LAUNCHER READY)
+### [Priority N] LeJEPA Foundation Pretraining (STATUS: IMPLEMENTED)
 *   **Action**: Created `scripts/launch_lejepa.py` to interface with the official `lejepa` trainer.
 *   **Strategy**: Pretrain a single massive encoder on ALL unlabeled scroll volumes (Scrolls 1-4). This creates a "Foundation Model" for papyrus texture that makes fine-tuning on limited labels significantly more effective.
 *   **Impact**: Essential for the **$200,000 Grand Prize**. Foundation models are the only proven way to generalize across different scan energies.
