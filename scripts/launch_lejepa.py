@@ -2,22 +2,46 @@
 import os
 import sys
 import yaml
+import glob
+import argparse
 import subprocess
 
 def main():
     """
     Launcher for official LeJEPA pretraining.
-    Builds a foundation model from unlabeled scroll data.
+    Builds a foundation model from all unlabeled scroll data (Scrolls 1-4).
     """
+    parser = argparse.ArgumentParser(description="Launch LeJEPA Foundation Model Pretraining.")
+    parser.add_argument("--execute", action="store_true", help="Actually execute the training command.")
+    args = parser.parse_args()
+
     PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
     VILLA_PATH = os.path.join(PROJECT_ROOT, "villa/vesuvius/src")
     sys.path.append(VILLA_PATH)
     
-    # Target unlabeled volumes (Scroll 2/3)
-    UNLABELED_VOLUMES = [
-        os.path.join(PROJECT_ROOT, "local_data/PHerc0125_Divisions/div_90/0"),
-        os.path.join(PROJECT_ROOT, "local_data/PHerc0125_Divisions/div_100/0")
+    # Target all unlabeled volumes (Scrolls 1-4)
+    local_data_dir = os.path.join(PROJECT_ROOT, "local_data")
+    search_patterns = [
+        os.path.join(local_data_dir, "PHerc0125_Divisions", "div_*", "0"),
+        os.path.join(local_data_dir, "PHerc0332_Divisions", "div_*", "0"),
+        os.path.join(local_data_dir, "RealScroll_1", "0"),
+        os.path.join(local_data_dir, "RealScroll_4_Large", "0")
     ]
+    
+    UNLABELED_VOLUMES = []
+    for pattern in search_patterns:
+        # Exclude the nested /0/0 directory edge case
+        matches = [m for m in glob.glob(pattern) if os.path.isdir(m) and not m.endswith("/0/0")]
+        UNLABELED_VOLUMES.extend(matches)
+    
+    # Sort and deduplicate
+    UNLABELED_VOLUMES = sorted(list(set(UNLABELED_VOLUMES)))
+    
+    if not UNLABELED_VOLUMES:
+        print("Warning: No unlabeled volumes found in local_data.")
+        sys.exit(1)
+        
+    print(f"Found {len(UNLABELED_VOLUMES)} unlabeled volumes for Foundation Pretraining.")
     
     config = {
         "tr_setup": {
@@ -63,9 +87,11 @@ def main():
         "--max-epoch", "10"
     ]
     
-    # In a real environment, we'd run this:
-    # subprocess.run(cmd)
-    print(f"Run this command to start pretraining:\n{' '.join(cmd)}")
+    if args.execute:
+        print("Executing training command...")
+        subprocess.run(cmd, check=True)
+    else:
+        print(f"Dry run. Use --execute to start pretraining:\n{' '.join(cmd)}")
 
 if __name__ == "__main__":
     main()

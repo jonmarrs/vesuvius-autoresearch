@@ -111,7 +111,7 @@ This document outlines how we leverage and contribute to the official `ScrollPri
 *   **Action**: Implemented the winding-angle assignment function $f: N \to \mathbb{R}$ natively in `scripts/sheet_stitcher.py` and integrated it into the `scripts/autoresearch_thaumato_solver.py` hyperparameter sweep loop.
 *   **Impact**: Solves the "Winding Gap" problem, allowing for the massive, multi-winding segments needed for the **$200,000 Grand Prize**.
 
-### [Priority R] Foundation Model Pretraining (STATUS: TRAINER MAPPED)
+### [Priority R] Foundation Model Pretraining (STATUS: IMPLEMENTED)
 *   **Discovery**: Official LeJEPA and MAE trainers located in `villa/vesuvius/src/vesuvius/models/training/trainers/self_supervised/`.
-*   **Action**: Execute large-scale self-supervised pretraining on **Scrolls 1-4** before finetuning on Fragments.
+*   **Action**: Updated `scripts/launch_lejepa.py` to automatically discover all unlabeled chunks from Scrolls 1-4 (`RealScroll_1`, `PHerc0125`, `PHerc0332`, `RealScroll_4_Large`) using `glob`, and added an `--execute` flag to execute large-scale self-supervised pretraining natively.
 *   **Impact**: Radical improvement in generalization. This is the "Foundation Model" approach that the Challenge organizers have explicitly called for in Stage Two.
