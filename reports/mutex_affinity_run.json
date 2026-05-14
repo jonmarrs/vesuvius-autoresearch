@@ -1,7 +1,7 @@
 {
-  "model_name": "mutex_smoke",
-  "data_path": "/tmp/pytest-of-jon/pytest-10954/test_launch_mutex_writes_marke0/mutex_data",
-  "config_path": "/tmp/pytest-of-jon/pytest-10954/test_launch_mutex_writes_marke0/mutex.yaml",
+  "model_name": "mutex_affinity_v1",
+  "data_path": "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/local_data/curated_fragments",
+  "config_path": "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/configs/instance_seg/mutex_config.yaml",
   "patch_size": [
     64,
     64,
@@ -13,7 +13,7 @@
     "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python",
     "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/villa/vesuvius/src/vesuvius/models/training/cli.py",
     "--config",
-    "/tmp/pytest-of-jon/pytest-10954/test_launch_mutex_writes_marke0/mutex.yaml",
+    "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/configs/instance_seg/mutex_config.yaml",
     "--trainer",
     "mutex_affinity",
     "--max-epoch",

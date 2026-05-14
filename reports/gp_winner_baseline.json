@@ -1,6 +1,6 @@
 {
-  "model_name": "gp_smoke",
-  "config_path": "/tmp/pytest-of-jon/pytest-10954/test_launch_gp_winner_writes_b0/gp.yaml",
+  "model_name": "gp_winner_baseline_v1",
+  "config_path": "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/configs/gp_winner_recipe/gp_winner_config.yaml",
   "runner": "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/scripts/_gp_winner_runner.py",
   "patch_size": [
     16,
@@ -20,7 +20,7 @@
     "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python",
     "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/scripts/_gp_winner_runner.py",
     "--config",
-    "/tmp/pytest-of-jon/pytest-10954/test_launch_gp_winner_writes_b0/gp.yaml"
+    "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/configs/gp_winner_recipe/gp_winner_config.yaml"
   ],
   "executed": false
 }

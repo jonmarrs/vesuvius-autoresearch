@@ -65,6 +65,53 @@ def test_launch_mutex_writes_marker_and_blocks_execute_without_data(tmp_path):
     assert data["executed"] is False
 
 
+def test_launch_finetune_lejepa_uses_submittable_patch_and_finds_pretrain(tmp_path):
+    config_out = tmp_path / "ft.yaml"
+    proc = _run(
+        "launch_finetune_lejepa.py",
+        "--config-out",
+        str(config_out),
+        "--output-dir",
+        str(tmp_path / "ckpt"),
+        "--model-name",
+        "ft_smoke",
+    )
+    assert proc.returncode == 0
+    marker = REPO_ROOT / "reports" / "finetune_lejepa_run.json"
+    data = json.loads(marker.read_text())
+    assert data["patch_size"] == [32, 64, 64]
+    assert data["submittable"] is True
+    assert data["executed"] is False
+    # In this repo's known state there is a LeJEPA pretrain checkpoint and the
+    # labeled Paris2Fr47 fragment; both should be auto-resolved.
+    assert data["pretrained_lejepa_checkpoint"], "expected LeJEPA pretrain ckpt to be discovered"
+    assert data["labeled_volumes"], "expected PHercParis2Fr47 to be discovered"
+    assert data["ready"] is True
+    assert config_out.exists()
+
+
+def test_launch_finetune_lejepa_flags_non_submittable_when_patch_too_large(tmp_path):
+    config_out = tmp_path / "ft_big.yaml"
+    proc = _run(
+        "launch_finetune_lejepa.py",
+        "--config-out",
+        str(config_out),
+        "--output-dir",
+        str(tmp_path / "ckpt"),
+        "--model-name",
+        "ft_smoke_big",
+        "--patch",
+        "32",
+        "128",
+        "128",
+    )
+    assert proc.returncode == 0
+    marker = REPO_ROOT / "reports" / "finetune_lejepa_run.json"
+    data = json.loads(marker.read_text())
+    assert data["patch_size"] == [32, 128, 128]
+    assert data["submittable"] is False
+
+
 def test_launch_neural_tracing_reports_missing_checkpoint(tmp_path):
     marker_out = tmp_path / "trace.json"
     proc = _run(

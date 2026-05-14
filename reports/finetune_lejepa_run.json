@@ -1,0 +1,36 @@
+{
+  "model_name": "lejepa_finetune_ink_v1",
+  "config_path": "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/configs/finetune_lejepa/finetune_lejepa_config.yaml",
+  "runner": "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/scripts/_finetune_lejepa_runner.py",
+  "pretrained_lejepa_checkpoint": "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/checkpoints/lejepa_foundation_v1/lejepa_foundation_v1_final.pth",
+  "patch_size": [
+    32,
+    64,
+    64
+  ],
+  "patch_embed_size": [
+    8,
+    8,
+    8
+  ],
+  "submittable": true,
+  "labeled_volumes": [
+    {
+      "image": "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/local_data/PHercParis2Fr47/surface_volume",
+      "label": "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/local_data/PHercParis2Fr47/inklabels.png"
+    }
+  ],
+  "freeze_encoder_epochs": 3,
+  "encoder_lr_mult": 0.1,
+  "warmup_epochs": 2,
+  "max_epoch": 30,
+  "ready": true,
+  "blockers": [],
+  "command": [
+    "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python",
+    "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/scripts/_finetune_lejepa_runner.py",
+    "--config",
+    "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/configs/finetune_lejepa/finetune_lejepa_config.yaml"
+  ],
+  "executed": false
+}

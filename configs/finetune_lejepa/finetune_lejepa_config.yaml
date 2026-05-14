@@ -1,0 +1,40 @@
+dataset_config:
+  data_format: image
+  num_workers: 0
+  targets:
+    ink:
+      activation: none
+      in_channels: 1
+      loss_fn: BCEWithLogitsLoss
+      out_channels: 1
+      weight: 1.0
+  volumes:
+  - image: /home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/local_data/PHercParis2Fr47/surface_volume
+    label: /home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/local_data/PHercParis2Fr47/inklabels.png
+finetune_lejepa:
+  encoder_lr_mult: 0.1
+  finetune_warmup_epochs: 2
+  freeze_encoder_epochs: 3
+  load_decoder_from_pretrain: false
+  pretrained_lejepa_checkpoint: /home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/checkpoints/lejepa_foundation_v1/lejepa_foundation_v1_final.pth
+model_config:
+  patch_embed_size:
+  - 8
+  - 8
+  - 8
+tr_config:
+  batch_size: 4
+  initial_lr: 5.0e-05
+  max_epoch: 30
+  num_dataloader_workers: 0
+  optimizer: AdamW
+  patch_size:
+  - 32
+  - 64
+  - 64
+  trainer: finetune_lejepa
+  weight_decay: 0.01
+tr_setup:
+  ckpt_out_base: /home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/checkpoints/finetune_lejepa
+  model_name: lejepa_finetune_ink_v1
+  tr_val_split: 0.9

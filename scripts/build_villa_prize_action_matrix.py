@@ -95,6 +95,13 @@ _BASELINE_MARKERS = (
         "marker_path": "reports/neural_tracing_service.json",
         "launcher": "scripts/launch_neural_tracing.py",
     },
+    {
+        "id": "finetune_lejepa",
+        "label": "LeJEPA -> UNet ink fine-tune (TrainFineTuneLEJEPA)",
+        "purpose": "Convert pretrained LeJEPA encoder into a submittable ink model (patch 64)",
+        "marker_path": "reports/finetune_lejepa_run.json",
+        "launcher": "scripts/launch_finetune_lejepa.py",
+    },
 )
 
 
