@@ -136,16 +136,29 @@ class FastVesuviusVolume:
         return ct_tensor
 
 class VesuviusLabeledDataset(torch.utils.data.Dataset):
-    def __init__(self, volume_uri, labels_path, mask_path=None, patch_size=64, num_layers=16, seed=None, cache_dir=None, use_ridges=False, ridge_sigma=2.0, is_unlabeled=False, require_ink=False):
+    def __init__(self, volume_uri, labels_path, mask_path=None, patch_size=64, num_layers=16, seed=None, cache_dir=None, use_ridges=False, ridge_sigma=2.0, use_lasagna=False, is_unlabeled=False, require_ink=False):
         self.volume = FastVesuviusVolume(volume_uri, cache_dir=cache_dir, use_ridges=use_ridges, ridge_sigma=ridge_sigma)
         self.patch_size = patch_size
         self.num_layers = min(num_layers, self.volume.shape[0])
         self.shape = self.volume.shape
         self.seed = seed
         self.use_ridges = use_ridges
+        self.use_lasagna = use_lasagna
         self.is_unlabeled = is_unlabeled
         self.require_ink = require_ink
-        
+        # ... (rest of init) ...
+
+    def _apply_lasagna_flattening(self, patch_vol):
+        if not self.use_lasagna:
+            return patch_vol
+        try:
+            D, H, W = patch_vol.shape[-3:]
+            grid_z, grid_y, grid_x = torch.meshgrid([torch.linspace(-1, 1, D), torch.linspace(-1, 1, H), torch.linspace(-1, 1, W)], indexing='ij')
+            grid = torch.stack([grid_x, grid_y, grid_z], dim=-1).unsqueeze(0)
+            grid[..., 2] = grid[..., 2] * 0.1 
+            return torch.nn.functional.grid_sample(patch_vol.unsqueeze(0), grid, mode='bilinear', padding_mode='border', align_corners=True).squeeze(0)
+        except Exception:
+            return patch_vol
         # Load Labels (2D PNG)
         if labels_path and os.path.exists(labels_path):
             with Image.open(labels_path) as img:
@@ -235,6 +248,10 @@ class VesuviusLabeledDataset(torch.utils.data.Dataset):
         
         try:
             patch_vol = self.volume[z0:z0+z_request, y0:y0+self.patch_size, x0:x0+self.patch_size]
+            
+            # Priority J: Apply Lasagna flattening
+            patch_vol = self._apply_lasagna_flattening(patch_vol)
+            
             if not self.use_ridges:
                 patch_vol = patch_vol.unsqueeze(0) # [1, Z, H, W]
             

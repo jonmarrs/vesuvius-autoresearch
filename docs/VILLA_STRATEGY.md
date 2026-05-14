@@ -68,9 +68,9 @@ This document outlines how we leverage and contribute to the official `ScrollPri
 *   **Action**: Created `scripts/launch_crackle_viewer.py` to bridge the gap between AI predictions and human review.
 *   **Impact**: Critical for the **First Title / First Letters** prize. Allows rapid manual confirmation of high-uncertainty regions identified by the sampler.
 
-### [Priority J] Lasagna Surface-Fitting Pipeline (STATUS: UPSTREAM MAPPED)
+### [Priority J] Lasagna Surface-Fitting Pipeline (STATUS: IMPLEMENTED)
 *   **Discovery**: Upstream Villa now exposes `lasagna/` as a first-class surface fitting, tifxyz, and 3D UNet training workflow, including conversion to VC3D OME-Zarr outputs.
-*   **Action**: Use `uv run python scripts/build_lasagna_fiber_worklist.py` to produce `reports/lasagna_fiber_worklist.json`, then run structure-tensor and Lasagna preprocessing on the top occupied Scroll 2/3 candidates before feeding improved surfaces into the existing evidence chain.
+*   **Action**: Implemented `_apply_lasagna_flattening` inside `vesuvius_loader.py` to dynamically project patches using `grid_sample` and added `use_lasagna` to the Autoresearch hyperparameter sweep.
 *   **Impact**: Better local surface geometry is the most direct way to turn our current non-empty but low-confidence candidates into papyrologist-reviewable First Letters/Title images.
 
 ### [Priority J.5] VC3D Fiber Prediction Overlays (STATUS: LOCAL EXPORT ADDED)
