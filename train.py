@@ -56,6 +56,7 @@ class ExperimentConfig:
     val_uri: str = 'local_data/PHercParis2Fr143/surface_volume.zarr'
     cache_dir: str = None  # If None, caches are stored next to volume_uri
     use_ridges: bool = False # 3D Ridge/Frangi feature channel
+    use_lasagna: bool = False # Priority J: Dynamically apply local surface flattening
     ridge_sigma: float = 2.0 # Ridge filter parameter
 
     # Training Loop
@@ -727,7 +728,7 @@ def train(config: ExperimentConfig):
         datasets = []
         for uri in uris:
             if is_unlabeled:
-                ds = VesuviusS3Dataset(uri, config.patch_size, config.num_layers + 8, seed=seed, cache_dir=config.cache_dir, use_ridges=config.use_ridges, ridge_sigma=getattr(config, 'ridge_sigma', 2.0), is_unlabeled=True)
+                ds = VesuviusS3Dataset(uri, config.patch_size, config.num_layers + 8, seed=seed, cache_dir=config.cache_dir, use_ridges=config.use_ridges, ridge_sigma=getattr(config, 'ridge_sigma', 2.0), use_lasagna=config.use_lasagna, is_unlabeled=True)
                 datasets.append(ds)
                 continue
                 
@@ -749,9 +750,9 @@ def train(config: ExperimentConfig):
 
             if os.path.exists(labels_path):
                 mask_path = os.path.join(parent_dir, 'mask.png')
-                ds = VesuviusLabeledDataset(uri, labels_path, mask_path if os.path.exists(mask_path) else None, config.patch_size, config.num_layers + 8, seed=seed, cache_dir=config.cache_dir, use_ridges=config.use_ridges, ridge_sigma=getattr(config, 'ridge_sigma', 2.0))
+                ds = VesuviusLabeledDataset(uri, labels_path, mask_path if os.path.exists(mask_path) else None, config.patch_size, config.num_layers + 8, seed=seed, cache_dir=config.cache_dir, use_ridges=config.use_ridges, ridge_sigma=getattr(config, 'ridge_sigma', 2.0), use_lasagna=getattr(config, 'use_lasagna', False))
             else:
-                ds = VesuviusS3Dataset(uri, config.patch_size, config.num_layers + 8, seed=seed, cache_dir=config.cache_dir, use_ridges=config.use_ridges, ridge_sigma=getattr(config, 'ridge_sigma', 2.0))
+                ds = VesuviusS3Dataset(uri, config.patch_size, config.num_layers + 8, seed=seed, cache_dir=config.cache_dir, use_ridges=config.use_ridges, ridge_sigma=getattr(config, 'ridge_sigma', 2.0), use_lasagna=getattr(config, 'use_lasagna', False))
             datasets.append(ds)
 
         combined_ds = ConcatDataset(datasets) if len(datasets) > 1 else datasets[0]
@@ -774,7 +775,7 @@ def train(config: ExperimentConfig):
             
         mask_path = os.path.join(parent_dir, 'mask.png')
         # Use require_ink=True for validation to ensure meaningful Dice scores
-        ds = VesuviusLabeledDataset(uri, labels_path, mask_path if os.path.exists(mask_path) else None, config.patch_size, config.num_layers + 8, seed=42, cache_dir=config.cache_dir, use_ridges=config.use_ridges, ridge_sigma=getattr(config, 'ridge_sigma', 2.0), require_ink=True)
+        ds = VesuviusLabeledDataset(uri, labels_path, mask_path if os.path.exists(mask_path) else None, config.patch_size, config.num_layers + 8, seed=42, cache_dir=config.cache_dir, use_ridges=config.use_ridges, ridge_sigma=getattr(config, 'ridge_sigma', 2.0), use_lasagna=getattr(config, 'use_lasagna', False), require_ink=True)
         return DataLoader(ds, batch_size=config.batch_size, num_workers=0, pin_memory=True)
 
     val_data_loader = get_val_dataloader(config.val_uri)
