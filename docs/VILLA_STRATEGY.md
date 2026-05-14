@@ -81,13 +81,13 @@ This document outlines how we leverage and contribute to the official `ScrollPri
 ## 5. Domain Adaptation & Open Problems (Stage 2 Advanced)
 *Tackling the remaining bottlenecks for full-scroll recovery.*
 
-### [Priority K] Uncertainty-Aware Mean Teacher (STATUS: STRATEGY DEFINED)
-*   **Action**: Use `villa/vesuvius/src/vesuvius/models/training/trainers/semi_supervised/train_uncertainty_aware_mean_teacher.py`.
+### [Priority K] Uncertainty-Aware Mean Teacher (STATUS: IMPLEMENTED)
+*   **Action**: Created `scripts/launch_uamt.py` to wrap the official `villa` Uncertainty-Aware Mean Teacher. It sets up the YAML configuration to train on labeled Fragment 1 data while teaching the model the raw unlabeled texture of Scrolls 2/3.
 *   **Strategy**: Train with labeled Fragment 1 data and unlabeled Scroll 2/3 volumes to solve the "Domain Gap" problem. Use autoresearch to optimize `ema_decay` and `consistency_weight`.
 *   **Impact**: The most direct path to the **$200,000 Grand Prize** (90% coverage) by learning Scroll 2's unique texture from raw data.
 
-### [Priority L] Automated ARAP Parameterization (STATUS: STRATEGY DEFINED)
-*   **Action**: Integrate `vesuvius_c_wrapper` into the ARAP flattening scripts in `villa/volume-cartographer`.
+### [Priority L] Automated ARAP Parameterization (STATUS: IMPLEMENTED)
+*   **Action**: Implemented `scripts/automate_arap_flattening.py` which provides a robust harness for sweeping VC3D's `vc_flatten` CLI parameters, utilizing the existing `FastLocalVolume` loader and automating the parameter selection process.
 *   **Impact**: Accelerates the "Representation" open problem, qualifying for a **$10k-$20k Progress Prize** for Software Performance/Scalability.
 
 ## 6. Foundation Models & Community Knowledge (Ultimate Tier)
@@ -102,8 +102,8 @@ This document outlines how we leverage and contribute to the official `ScrollPri
 *   **Action**: Created `scripts/rag_researcher.py` using the official `Discord RAG Chatbot`.
 *   **Impact**: Allows the Autoresearch loop to "ask the community" for the best hyperparameters. Instead of a random search, we use AI to retrieve successful strategies from the Discord knowledge base, saving thousands of GPU hours.
 
-### [Priority P] 3D (Volumetric) Ink Detection (STATUS: STRATEGY DEFINED)
-*   **Action**: Implement a launcher for Ryan Chesler's 3D-only approach (bypassing unwrapping).
+### [Priority P] 3D (Volumetric) Ink Detection (STATUS: IMPLEMENTED)
+*   **Action**: Created `scripts/launch_3d_ink_detection.py` as a wildcard launcher that provides scaffolding and configuration hooks to execute Ryan Chesler's 3D-only model directly on local OME-Zarr data.
 *   **Impact**: A "Wildcard" strategy for the **First Letters Prize** in regions where segmentation is currently impossible.
 
 ### [Priority Q] Graph-Based Sheet Stitching (STATUS: IMPLEMENTED)
