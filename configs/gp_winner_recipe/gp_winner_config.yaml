@@ -1,0 +1,36 @@
+dataset_config:
+  cache_file: /home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/checkpoints/gp_winner_recipe/patch_cache
+  min_bbox_percent: 0.2
+  min_labeled_ratio: 0.2
+  targets:
+    ink:
+      activation: none
+      in_channels: 1
+      loss_fn: BCEWithLogitsLoss
+      out_channels: 1
+      volumes:
+      - data_volume: /home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/local_data/PHercParis2Fr47/surface_volume
+        format: image
+        label_volume: /home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/local_data/PHercParis2Fr47/inklabels.png
+      weight: 1
+  use_cache: true
+model_config: {}
+tr_config:
+  batch_size: 2
+  initial_lr: 3.0e-05
+  max_epoch: 50
+  max_steps_per_epoch: 500
+  max_val_steps_per_epoch: 25
+  num_dataloader_workers: 4
+  optimizer: AdamW
+  patch_size:
+  - 16
+  - 256
+  - 256
+tr_setup:
+  autoconfigure: false
+  ckpt_out_base: /home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/checkpoints/gp_winner_recipe/checkpoints
+  model_name: gp_winner_baseline_v1
+  tensorboard_log_dir: /home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/checkpoints/gp_winner_recipe/logs
+  tr_val_split: 0.9
+  vram_max: 22000

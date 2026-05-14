@@ -1,0 +1,36 @@
+dataset_config:
+  affinity_dirname: affinity_graph
+  affinity_targets:
+    attractive:
+      affinity_key: affinities/attractive
+      invert_for_loss: true
+      mask_key: mask/attractive
+    repulsive:
+      affinity_key: affinities/repulsive
+      invert_for_loss: false
+      mask_key: mask/repulsive
+  data_format: zarr
+  data_path: /home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/local_data/curated_fragments
+  image_dirname: images
+  num_workers: 0
+model_config:
+  patch_embed_size:
+  - 8
+  - 8
+  - 8
+tr_config:
+  affinity_label_smoothing: 0.05
+  batch_size: 4
+  initial_lr: 0.0001
+  max_epoch: 20
+  num_dataloader_workers: 0
+  patch_size:
+  - 64
+  - 64
+  - 64
+  trainer: mutex_affinity
+  weight_decay: 0.01
+tr_setup:
+  ckpt_out_base: ./checkpoints/instance_seg/
+  model_name: mutex_affinity_v1
+  tr_val_split: 0.9

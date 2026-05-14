@@ -116,6 +116,45 @@ def patch_prediction_metadata(metadata_path, row, train_mask_path, predict_mask_
     return metadata
 
 
+def _attach_neural_tracing_plan(out_dir, row, python_executable):
+    """Optionally produce a neural_tracing trace_service plan for this candidate.
+
+    Calls scripts/launch_neural_tracing.py to resolve the candidate's OME-zarr
+    volume + checkpoint, then copies the resulting marker into the candidate
+    evidence directory so reviewers can see whether trace_service is launchable
+    for this submission window. Tracing itself is not executed; this only adds
+    the readiness marker, matching the chain's conservative "no placeholders"
+    posture.
+    """
+    out_dir = Path(out_dir)
+    tracing_marker = out_dir / "neural_tracing.json"
+    launcher = REPO_ROOT / "scripts" / "launch_neural_tracing.py"
+    if not launcher.exists():
+        return None
+
+    cmd = [
+        python_executable,
+        str(launcher),
+        "--scroll-id",
+        str(row.get("short_id") or row.get("scroll_id") or ""),
+        "--division",
+        str(row.get("division") or ""),
+        "--marker-out",
+        str(tracing_marker),
+    ]
+    local_uri = row.get("local_uri")
+    if local_uri:
+        cmd.extend(["--volume-zarr", str(local_uri)])
+
+    subprocess.run(cmd, check=False)
+    if tracing_marker.exists():
+        try:
+            return json.loads(tracing_marker.read_text())
+        except json.JSONDecodeError:
+            return None
+    return None
+
+
 def build_evidence_chain(
     ranked_path,
     out_dir,
@@ -123,6 +162,7 @@ def build_evidence_chain(
     execute=False,
     python_executable=sys.executable,
     checkpoint="best_model.pt",
+    neural_tracing=False,
 ):
     out_dir = Path(out_dir)
     prediction_dir = out_dir / "predictions"
@@ -156,6 +196,11 @@ def build_evidence_chain(
 
     report = validate(metadata_path)
     _write_json(out_dir / "PRIZE_READINESS_REPORT.json", report)
+
+    tracing_plan = None
+    if neural_tracing:
+        tracing_plan = _attach_neural_tracing_plan(out_dir, row, python_executable)
+
     _write_json(
         out_dir / "manifest.json",
         {
@@ -166,6 +211,8 @@ def build_evidence_chain(
             "vc3d_zarr_path": metadata.get("vc3d_zarr_path"),
             "readiness_report": str(out_dir / "PRIZE_READINESS_REPORT.json"),
             "predict_command": cmd,
+            "neural_tracing_plan": str(out_dir / "neural_tracing.json") if tracing_plan else None,
+            "neural_tracing_ready": bool(tracing_plan and tracing_plan.get("ready")),
         },
     )
     return report
@@ -230,6 +277,11 @@ def main():
     parser.add_argument("--preflight", action="store_true", help="Only check prerequisites and write a preflight report")
     parser.add_argument("--preflight-report", default=None)
     parser.add_argument("--python-executable", default=sys.executable)
+    parser.add_argument(
+        "--neural-tracing",
+        action="store_true",
+        help="Attach a neural_tracing trace_service readiness plan to the evidence dir.",
+    )
     args = parser.parse_args()
 
     if args.preflight:
@@ -252,6 +304,7 @@ def main():
         execute=args.execute,
         python_executable=args.python_executable,
         checkpoint=args.checkpoint,
+        neural_tracing=args.neural_tracing,
     )
     print(json.dumps(report, indent=2))
     raise SystemExit(0 if report["status"] == "PASS" else 1)

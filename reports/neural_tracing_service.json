@@ -1,0 +1,24 @@
+{
+  "trace_service_path": "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/villa/vesuvius/src/vesuvius/neural_tracing/trace_service.py",
+  "volume_zarr": "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/local_data/PHerc0125_Divisions/div_100/0",
+  "volume_scale": 0,
+  "socket_path": "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/reports/neural_tracing.sock",
+  "checkpoint": null,
+  "scroll_id": "0125",
+  "division": "div_100",
+  "command": [
+    "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python",
+    "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/villa/vesuvius/src/vesuvius/neural_tracing/trace_service.py",
+    "--volume_zarr",
+    "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/local_data/PHerc0125_Divisions/div_100/0",
+    "--volume_scale",
+    "0",
+    "--socket_path",
+    "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/reports/neural_tracing.sock"
+  ],
+  "ready": false,
+  "blockers": [
+    "no neural_tracing heatmap checkpoint found; train one via /home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/villa/vesuvius/src/vesuvius/neural_tracing/trainers/train_rowcol_cond.py"
+  ],
+  "trainer_hint": "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/villa/vesuvius/src/vesuvius/neural_tracing/trainers/train_rowcol_cond.py"
+}

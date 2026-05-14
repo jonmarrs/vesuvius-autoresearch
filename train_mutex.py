@@ -1,73 +1,33 @@
+"""Back-compat shim for the prior train_mutex.py stub.
+
+Forwards to scripts/launch_mutex.py, which is the maintained launcher that
+delegates to villa's MutexAffinityTrainer via the official CLI. The original
+stub instantiated the trainer but never actually trained; we keep this entry
+so existing instructions (e.g. prepare_mutex_training.py's usage hint) still
+work, but the implementation now matches the launch_uamt / launch_lejepa
+pattern.
+"""
+from __future__ import annotations
+
 import os
 import sys
-import torch
-import torch.nn as nn
-from dataclasses import dataclass
-from torch.utils.data import DataLoader
+from pathlib import Path
 
-# Add villa paths to sys.path
-VILLA_PATHS = [
-    os.path.abspath("villa/vesuvius/src"),
-    os.path.abspath("villa/vesuvius/src/vesuvius/models/training")
-]
-for p in VILLA_PATHS:
-    if p not in sys.path:
-        sys.path.append(p)
+HERE = Path(__file__).resolve().parent
+LAUNCHER = HERE / "scripts" / "launch_mutex.py"
 
-from vesuvius.models.training.trainers.mutex_affinity_trainer import MutexAffinityTrainer
-from vesuvius.models.datasets.mutex_affinity_dataset import MutexAffinityDataset, TargetSpec
 
-@dataclass
-class MutexConfig:
-    data_path: str = "local_data/curated_fragments"
-    batch_size: int = 4
-    lr: float = 1e-4
-    max_epochs: int = 10
-    time_budget: int = 900
-    
-    # Dataset specific
-    affinity_dirname: str = "affinity_graph"
-    image_dirname: str = "images"
-    
-def train_mutex(config: MutexConfig):
-    # This is a simplified integration leveraging the official villa Trainer
-    # In a full Autoresearch cycle, we would wrap this in a manager
-    print(f"Starting Mutex-Affinity training on {config.data_path}")
-    
-    # Configure the Trainer (Villa uses a Manager object pattern)
-    # This requires mocking or configuring the 'mgr' expected by MutexAffinityTrainer
-    # For simplicity, we create a minimal configuration manager
-    class MockManager:
-        def __init__(self, cfg):
-            self.tr_configs = {"affinity_label_smoothing": 0.05}
-            self.enable_deep_supervision = False
-            self.data_path = cfg.data_path
-            self.affinity_dirname = cfg.affinity_dirname
-            self.image_dirname = cfg.image_dirname
-            self.train_patch_size = (64, 64, 64)
-            self.image_size = (64, 64, 64)
-            self.affinity_targets = {
-                "attractive": TargetSpec(affinity_key="affinities/attractive", mask_key="mask/attractive", invert_for_loss=True),
-                "repulsive": TargetSpec(affinity_key="affinities/repulsive", mask_key="mask/repulsive", invert_for_loss=False)
-            }
-            
-    mgr = MockManager(config)
-    trainer = MutexAffinityTrainer(mgr=mgr)
-    
-    # Initialize Dataset and Dataloader
-    dataset = MutexAffinityDataset(mgr, is_training=True)
-    dataloader = DataLoader(dataset, batch_size=config.batch_size, shuffle=True)
-    
-    # ...
-    # Run training
-    # Instead of lightning Trainer, we manually trigger a training step
-    # Based on villa's BaseTrainer and train.py flow
-    print("Mutex-Affinity trainer initialized. Pipeline ready.")
-    
-    # Example of how to iterate and train
-    # for batch in dataloader:
-    #     trainer.train_step(batch)
+def main() -> int:
+    if not LAUNCHER.exists():
+        print(f"ERROR: launcher not found at {LAUNCHER}", file=sys.stderr)
+        return 1
+
+    argv = sys.argv[1:]
+    if argv and argv[0] == "--data_path":
+        argv = ["--data-path", *argv[1:]]
+
+    os.execv(sys.executable, [sys.executable, str(LAUNCHER), *argv])
+
 
 if __name__ == "__main__":
-    cfg = MutexConfig()
-    train_mutex(cfg)
+    sys.exit(main())

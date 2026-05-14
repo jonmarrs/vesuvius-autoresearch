@@ -40,6 +40,7 @@ hard_smoke_test_config.json
 reports/nnunetv2_baseline_*/
 reports/lasagna_fiber_candidates/
 scripts/curated_data/
+scripts/_gp_winner_runner.py
 
 # Accidental local interpreter symlinks
 /python

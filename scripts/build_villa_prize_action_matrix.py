@@ -73,6 +73,61 @@ def _readiness_label(opportunity, digest):
     return "planning"
 
 
+_BASELINE_MARKERS = (
+    {
+        "id": "gp_winner_baseline",
+        "label": "Villa GP-2023 TimeSFormerInk recipe",
+        "purpose": "fixed research-only comparator (patch 16x256x256, not submittable)",
+        "marker_path": "reports/gp_winner_baseline.json",
+        "launcher": "scripts/launch_gp_winner.py",
+    },
+    {
+        "id": "mutex_affinity",
+        "label": "Villa MutexAffinityTrainer (sheet instance segmentation)",
+        "purpose": "Grand-Prize-aligned lane; submittable when patch<=64",
+        "marker_path": "reports/mutex_affinity_run.json",
+        "launcher": "scripts/launch_mutex.py",
+    },
+    {
+        "id": "neural_tracing_service",
+        "label": "Villa neural_tracing trace_service",
+        "purpose": "Review-time tracing daemon for VC3D / Crackle Viewer",
+        "marker_path": "reports/neural_tracing_service.json",
+        "launcher": "scripts/launch_neural_tracing.py",
+    },
+)
+
+
+def _collect_baselines():
+    items = []
+    for entry in _BASELINE_MARKERS:
+        marker = _load_json(entry["marker_path"], None)
+        status = "missing"
+        details = {}
+        if isinstance(marker, dict):
+            details = {
+                k: marker.get(k)
+                for k in (
+                    "model_name",
+                    "config_path",
+                    "executed",
+                    "submittable",
+                    "data_prepared",
+                    "ready",
+                    "blockers",
+                )
+                if k in marker
+            }
+            if marker.get("executed"):
+                status = "executed"
+            elif marker.get("ready") or marker.get("data_prepared"):
+                status = "ready"
+            else:
+                status = "dry_run"
+        items.append({**entry, "status": status, "details": details})
+    return items
+
+
 def build_action_matrix(
     opportunities_path="reports/villa_prize_opportunities.json",
     preflight_path="reports/scroll23_evidence_preflight_summary.json",
@@ -121,6 +176,7 @@ def build_action_matrix(
         "villa_diverged": bool(opportunities_report.get("villa_diverged")),
         "candidate_digest": digest,
         "actions": actions,
+        "baselines": _collect_baselines(),
     }
 
 
@@ -161,6 +217,22 @@ def render_markdown(matrix):
                 evidence_gate=str(action.get("evidence_gate") or "").replace("|", "\\|"),
             )
         )
+
+    baselines = matrix.get("baselines") or []
+    if baselines:
+        lines.extend(["", "## Villa Baselines & Lanes", ""])
+        lines.append("| ID | Status | Purpose | Marker | Launcher |")
+        lines.append("| --- | --- | --- | --- | --- |")
+        for b in baselines:
+            lines.append(
+                "| {id} | `{status}` | {purpose} | `{marker}` | `{launcher}` |".format(
+                    id=b.get("id"),
+                    status=b.get("status"),
+                    purpose=str(b.get("purpose") or "").replace("|", "\\|"),
+                    marker=b.get("marker_path"),
+                    launcher=b.get("launcher"),
+                )
+            )
 
     lines.extend(["", "## Top GPU-Ready Candidates", ""])
     candidates = digest.get("top_ready_candidates", [])
