@@ -54,9 +54,9 @@ This document outlines how we leverage and contribute to the official `ScrollPri
 *   **Action**: Integrated `VesuviusTimeSformer` (canonical GP configuration) into `vesuvius_model.py`.
 *   **Impact**: Provides a world-record baseline for ink detection. Judges will value the use of validated architectures.
 
-### [Priority H] Upstream ResNet3D + 3D Decoder Runtime (STATUS: UPSTREAM MAPPED)
+### [Priority H] Upstream ResNet3D + 3D Decoder Runtime (STATUS: IMPLEMENTED)
 *   **Discovery**: Current upstream `villa/ink-detection` adds `train_resnet3d_3d_decoder.py`, `inference_resnet3d_3d_decoder.py`, and optimized inference support for `MODEL_TYPE=resnet3d-152-3d-decoder`.
-*   **Action**: Add an Autoresearch architecture adapter and export smoke test for the upstream 3D decoder contract. Treat this as the next high-value model family after the current TimeSformer/ResEnc UNet path.
+*   **Action**: Added an Autoresearch architecture adapter and export smoke test for the upstream 3D decoder contract. This acts as the next high-value model family after the current TimeSformer/ResEnc UNet path.
 *   **Impact**: The upstream docs call out a 62-layer window with `TILE_SIZE=256` for tracked 3D-decoder checkpoints. This gives us a stronger cross-scroll context model for Scroll 2/3 review candidates while preserving an official inference path.
 
 ### [Priority H.5] Scroll-Specific 3D Augmentations (STATUS: LOCAL PRESET ADDED)
