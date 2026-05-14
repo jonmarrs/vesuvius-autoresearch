@@ -2,8 +2,30 @@ dataset_config:
   data_format: zarr
   num_workers: 0
   volumes:
-  - image: /home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/local_data/PHerc0125_Divisions/div_90/0
+  - image: /home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/local_data/PHerc0125_Divisions/div_0/0
+  - image: /home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/local_data/PHerc0125_Divisions/div_10/0
   - image: /home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/local_data/PHerc0125_Divisions/div_100/0
+  - image: /home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/local_data/PHerc0125_Divisions/div_20/0
+  - image: /home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/local_data/PHerc0125_Divisions/div_30/0
+  - image: /home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/local_data/PHerc0125_Divisions/div_40/0
+  - image: /home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/local_data/PHerc0125_Divisions/div_50/0
+  - image: /home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/local_data/PHerc0125_Divisions/div_60/0
+  - image: /home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/local_data/PHerc0125_Divisions/div_70/0
+  - image: /home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/local_data/PHerc0125_Divisions/div_80/0
+  - image: /home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/local_data/PHerc0125_Divisions/div_90/0
+  - image: /home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/local_data/PHerc0332_Divisions/div_0/0
+  - image: /home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/local_data/PHerc0332_Divisions/div_10/0
+  - image: /home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/local_data/PHerc0332_Divisions/div_100/0
+  - image: /home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/local_data/PHerc0332_Divisions/div_20/0
+  - image: /home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/local_data/PHerc0332_Divisions/div_30/0
+  - image: /home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/local_data/PHerc0332_Divisions/div_40/0
+  - image: /home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/local_data/PHerc0332_Divisions/div_50/0
+  - image: /home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/local_data/PHerc0332_Divisions/div_60/0
+  - image: /home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/local_data/PHerc0332_Divisions/div_70/0
+  - image: /home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/local_data/PHerc0332_Divisions/div_80/0
+  - image: /home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/local_data/PHerc0332_Divisions/div_90/0
+  - image: /home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/local_data/RealScroll_1/0
+  - image: /home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/local_data/RealScroll_4_Large/0
 model_config:
   patch_embed_size:
   - 8

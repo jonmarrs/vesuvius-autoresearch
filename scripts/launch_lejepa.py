@@ -60,11 +60,11 @@ def main():
             "patch_size": [32, 128, 128],
             "max_epoch": 10,
             "lejepa_lambda": 0.02,
-            "num_dataloader_workers": 0
+            "num_dataloader_workers": 4
         },
         "dataset_config": {
             "data_format": "zarr",
-            "num_workers": 0,
+            "num_workers": 4,
             "volumes": [{"image": v} for v in UNLABELED_VOLUMES]
         }
     }

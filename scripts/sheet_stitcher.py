@@ -11,6 +11,7 @@ villa/thaumato-anakalyptor/documentation/Sheet_Stitching_Problem_Definition.pdf
 import numpy as np
 from collections import defaultdict
 import json
+import heapq
 import os
 import argparse
 
@@ -41,11 +42,11 @@ def assign_winding_angles_viterbi(graph: SheetGraph, start_node=None):
     visited = {start_node}
     
     # Priority queue: (-confidence, node, current_angle)
+    # Using heapq for O(log N) operations instead of O(N log N) sorting
     queue = [(-1.0, start_node, 0.0)]
     
     while queue:
-        queue.sort() # Priority queue proxy
-        conf, u, current_angle = queue.pop(0)
+        conf, u, current_angle = heapq.heappop(queue)
         
         for edge in graph.edges[u]:
             v = edge['to']
@@ -53,7 +54,8 @@ def assign_winding_angles_viterbi(graph: SheetGraph, start_node=None):
                 visited.add(v)
                 new_angle = current_angle + edge['delta']
                 angles[v] = new_angle
-                queue.append((conf * edge['weight'], v, new_angle))
+                # heapq is a min-heap, so we keep conf negative for max confidence
+                heapq.heappush(queue, (conf * edge['weight'], v, new_angle))
                 
     return angles
 
