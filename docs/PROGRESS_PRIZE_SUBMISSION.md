@@ -2,6 +2,8 @@
 **Submission Date:** April 30, 2026
 **Target Prize:** Progress Prize (Aureus/Denarius/Sestertius)
 
+> **Status note (added 2026-05-15):** This April draft was never filed through the April Google Form before that cycle closed. The two contributions documented below (Vesuvius-C Python bindings + Autoresearch loop) were later filed as **Part 1 of 2** of the May 2026 Progress Prize cycle. See [`PROGRESS_PRIZE_SUBMISSION_2026-05_part1.md`](PROGRESS_PRIZE_SUBMISSION_2026-05_part1.md) for the canonical May filing; the companion Part 2 is [`PROGRESS_PRIZE_SUBMISSION_2026-05.md`](PROGRESS_PRIZE_SUBMISSION_2026-05.md). This file is kept for historical record of the original April framing.
+
 ## 1. Vesuvius-C Python Bindings (High-Performance Data Access)
 One of the major bottlenecks in the "Master Plan" Stage 2 is **Unwrapping at Scale**. Processing terabytes of OME-Zarr data efficiently is critical.
 
