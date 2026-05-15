@@ -1,11 +1,12 @@
-# Progress Prize Submission: Villa-Native Submission Lanes for LeJEPA / Mutex / Neural-Tracing / GP-Winner Recipes
-**Submission Date:** 2026-05 (target: 2026-05-31 11:59pm PT)
+# Progress Prize Submission (May 2026 — Part 2 of 2): Villa-Native Submission Lanes for LeJEPA / Mutex / Neural-Tracing / GP-Winner Recipes
+**Submission Date:** 2026-05-15 (target: 2026-05-31 11:59pm PT)
 **Submission Form:** https://forms.gle/LrpQmSAqdwGpTczLA
 **Target Prize Tier:** Denarius / Sestertius (open to maintainer judgment)
 **Submitter:** Jon Marrs &lt;jdmarrs@gmail.com&gt;
 **Repository:** https://github.com/jonmarrs/vesuvius-autoresearch
 **License:** MIT (autoresearch); upstream villa PR licensed per ScrollPrize/villa contribution terms
-**Continues:** [PROGRESS_PRIZE_SUBMISSION.md](PROGRESS_PRIZE_SUBMISSION.md) (April 2026 submission). This is a strict extension; the April artifacts remain available.
+**Status:** FILED through the May form on 2026-05-15.
+**Companion submission:** [PROGRESS_PRIZE_SUBMISSION_2026-05_part1.md](PROGRESS_PRIZE_SUBMISSION_2026-05_part1.md) — **Part 1 of 2**, the Vesuvius-C Python bindings + autoresearch loop (work originally drafted for April 2026 but never filed; queued for filing as a second May submission since the May Progress Prize allows multiple submissions per cycle).
 
 ## Thesis
 

@@ -1,11 +1,12 @@
-# Progress Prize Submission: Vesuvius-C Python Bindings + Autoresearch Loop (Villa-Metric-Anchored)
-**Submission Date:** 2026-06 (target: monthly deadline ≈ 2026-06-30 — verify the current form URL + exact date in `villa/scrollprize.org/docs/34_prizes.md` once the May cycle closes)
-**Submission Form:** (TBD — the May form at https://forms.gle/LrpQmSAqdwGpTczLA closes on 2026-05-31; the June form will appear in the prize docs after rollover)
+# Progress Prize Submission (May 2026 — Part 1 of 2): Vesuvius-C Python Bindings + Autoresearch Loop (Villa-Metric-Anchored)
+**Submission Date:** 2026-05 (target: 2026-05-31 11:59pm PT)
+**Submission Form:** https://forms.gle/LrpQmSAqdwGpTczLA
 **Target Prize Tier:** Denarius / Sestertius (open to maintainer judgment)
 **Submitter:** Jon Marrs &lt;jdmarrs@gmail.com&gt;
 **Repository:** https://github.com/jonmarrs/vesuvius-autoresearch
 **License:** MIT
-**Status:** QUEUED — this is the June filing for two items originally drafted for the April cycle that were never filed through the April form before it closed. Additional June work may be appended here before the cycle deadline.
+**Status:** QUEUED for May filing as a second submission in the same cycle (the May Progress Prize allows multiple submissions per month per `villa/scrollprize.org/docs/34_prizes.md:119`). The *work* covered here was drafted for the April 2026 cycle but never filed through the April form before it closed; this filing brings it into the May review pool.
+**Companion submission:** [PROGRESS_PRIZE_SUBMISSION_2026-05.md](PROGRESS_PRIZE_SUBMISSION_2026-05.md) — **Part 2 of 2**, the villa-baseline launchers + `submission_package` path + upstream PR ScrollPrize/villa#899. Already filed.
 
 ## Thesis
 
@@ -33,14 +34,9 @@ Villa-side integrations the loop relies on directly:
 - [`villa/vesuvius/src/vesuvius/data`](https://github.com/ScrollPrize/villa/tree/main/vesuvius/src/vesuvius/data) — standard volume access.
 - [`villa/.../image_proc/geometry/structure_tensor`](https://github.com/ScrollPrize/villa/blob/main/vesuvius/src/vesuvius/image_proc/geometry/structure_tensor.py) — used as an auxiliary training task for fiber sensitivity.
 
-### 3. (Placeholder) Additional June work
+### 3. Relationship to Part 2
 
-To be filled in before the 2026-06 deadline. Candidate items already discussed in the working notes:
-
-- Wiring `prepare_mutex_training.py` against a curated zarr so the mutex-affinity lane (built in May, currently dry-run-only) becomes executable.
-- Injecting villa's surface-frame / inplane-direction / distance-transform auxiliary heads into the LeJEPA fine-tune to stack auxiliary supervision on the existing pipeline.
-- Following up on PR ScrollPrize/villa#899 with the container-build PR that installs the `vesuvius` package into `optimized_inference`'s requirements so `model_primus.py` becomes runnable end-to-end.
-- Any other items shipped during June.
+Part 2 of this May filing ([PROGRESS_PRIZE_SUBMISSION_2026-05.md](PROGRESS_PRIZE_SUBMISSION_2026-05.md), already filed) covers the villa-baseline launcher family, the `submission_package` path, and upstream PR ScrollPrize/villa#899. Part 1 (this doc) covers the throughput + autonomous-search infrastructure those launchers run on top of. Together they form the May contribution; either is independently usable.
 
 ## Why this is prize-worthy
 
@@ -78,9 +74,9 @@ uv run python3 run_autoresearch_loop.py --budget 3600
 | Tests | `tests/test_load.py`, `tests/test_vesuvius_c_readiness.py` |
 | Reproduction entrypoint | `uv run python3 run_autoresearch_loop.py --budget 3600` |
 | License | MIT |
-| Prior draft | [PROGRESS_PRIZE_SUBMISSION.md](PROGRESS_PRIZE_SUBMISSION.md) (drafted for April 2026 but never filed) |
-| Sibling submission | [PROGRESS_PRIZE_SUBMISSION_2026-05.md](PROGRESS_PRIZE_SUBMISSION_2026-05.md) (May filing — villa-baseline launchers + PR ScrollPrize/villa#899) |
+| Prior draft | [PROGRESS_PRIZE_SUBMISSION.md](PROGRESS_PRIZE_SUBMISSION.md) (drafted for April 2026 but never filed; superseded by this Part 1) |
+| Companion (Part 2 of 2) | [PROGRESS_PRIZE_SUBMISSION_2026-05.md](PROGRESS_PRIZE_SUBMISSION_2026-05.md) (villa-baseline launchers + PR ScrollPrize/villa#899) |
 
 ## Public release blurb (for socials / forum announcement)
 
-> Two Vesuvius-Challenge infrastructure pieces previously documented but not filed are now queued for the June Progress Prize cycle: a `ctypes` Python wrapper around villa's `vesuvius-c` library (≈31.77M voxels/sec on local storage), and an autonomous architecture-search loop anchored on villa's official metric suite (`centerline_dice`, `skeleton_distance_length`) with the 64×64 ML-window rule enforced. Both live in https://github.com/jonmarrs/vesuvius-autoresearch (public, MIT) alongside the May submission's villa-baseline launcher family.
+> Filed as Part 1 of the May 2026 Progress Prize submission: a `ctypes` Python wrapper around villa's `vesuvius-c` library (≈31.77M voxels/sec on local storage), and an autonomous architecture-search loop anchored on villa's official metric suite (`centerline_dice`, `skeleton_distance_length`) with the 64×64 ML-window rule enforced. Both live in https://github.com/jonmarrs/vesuvius-autoresearch (public, MIT) alongside Part 2 of the May submission, which covers the villa-baseline launcher family and upstream PR ScrollPrize/villa#899.
