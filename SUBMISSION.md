@@ -3,6 +3,18 @@
 **Submission Tier:** Denarius ($10k) / Gold Aureus ($20k)
 **Deadline:** April 30, 2026
 
+> **Status note (added 2026-05-15):** This file is the original April 2026
+> framing and was never filed through the April Google Form before it closed.
+> The contributions below (Vesuvius-C bindings + autoresearch loop) were filed
+> as **Part 1 of 2** of the May 2026 Progress Prize cycle; the villa-baseline
+> launchers + `submission_package` path + upstream PR ScrollPrize/villa#899
+> were filed as **Part 2 of 2**. Canonical current filings:
+> - [`docs/PROGRESS_PRIZE_SUBMISSION_2026-05_part1.md`](docs/PROGRESS_PRIZE_SUBMISSION_2026-05_part1.md) — Part 1 (Vesuvius-C + autoresearch loop), queued for May filing.
+> - [`docs/PROGRESS_PRIZE_SUBMISSION_2026-05.md`](docs/PROGRESS_PRIZE_SUBMISSION_2026-05.md) — Part 2 (villa launchers + PR #899), filed 2026-05-15.
+>
+> This file is kept for historical record only. The May submission deadline is
+> 2026-05-31 11:59pm PT and the form is https://forms.gle/LrpQmSAqdwGpTczLA .
+
 ## Overview
 
 `bountyhunter` is an autonomous research loop designed to continuously optimize 3D ink detection models for the Vesuvius Challenge. It uses a fully automated pipeline to randomly sample configurations, evaluate them against a fixed baseline on cross-fragment validation, and retain successful architectures.
