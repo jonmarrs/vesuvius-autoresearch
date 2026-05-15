@@ -50,3 +50,7 @@ scripts/_finetune_lejepa_runner.py
 # Model Checkpoints
 checkpoints/
 autoresearch.out
+
+# Discord drafts (kept local-only; not for the public repo)
+docs/DISCORD_*.md
+DISCORD_*.md
