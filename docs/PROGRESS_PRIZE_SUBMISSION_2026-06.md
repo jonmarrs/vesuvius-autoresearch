@@ -6,7 +6,10 @@
 **Submitter:** Jon Marrs &lt;jdmarrs@gmail.com&gt;
 **Repository:** https://github.com/jonmarrs/vesuvius-autoresearch
 **License:** MIT (autoresearch); upstream villa PR licensed per ScrollPrize/villa contribution terms
-**Status:** QUEUED for June filing. The headline artifact is upstream PR [ScrollPrize/villa#915](https://github.com/ScrollPrize/villa/pull/915) (CuPy acceleration of `foundation/datasets/fibers-dataset/tools.py`, opened 2026-05-15 with full GPU benchmarks attached). A companion bindings PR [ScrollPrize/villa#916](https://github.com/ScrollPrize/villa/pull/916) ships a minimal Python ctypes wrapper for `vesuvius-c` under `vesuvius-c/python/`.
+**Status:** QUEUED for June filing on **three** villa PRs:
+- [ScrollPrize/villa#915](https://github.com/ScrollPrize/villa/pull/915) — CuPy acceleration of `foundation/datasets/fibers-dataset/tools.py` (headline; full GPU benchmarks attached).
+- [ScrollPrize/villa#916](https://github.com/ScrollPrize/villa/pull/916) — minimal Python ctypes wrapper for `vesuvius-c` under `vesuvius-c/python/` (companion).
+- [ScrollPrize/villa#922](https://github.com/ScrollPrize/villa/pull/922) — `generate_fiber_labels_from_ct.py`, addresses villa issue [#193](https://github.com/ScrollPrize/villa/issues/193) ("Methods for generating surface, fiber, or ink labels"), tagged `help wanted` / `Good candidate for a Progress Prize`.
 **Prior cycle:** May 2026 filings ([Part 1](PROGRESS_PRIZE_SUBMISSION_2026-05_part1.md), [Part 2](PROGRESS_PRIZE_SUBMISSION_2026-05.md)).
 
 ## Thesis
@@ -56,7 +59,32 @@ This is the upstreaming of the same Python wrapper layer that backed the May Par
 
 Known scope / follow-ups (called out honestly in the PR description rather than papered over): no in-PR tests (existing standalone usage substitutes for now), and `setup.py` shells out to gcc directly rather than declaring a `setuptools.Extension`.
 
-### 4. Concurrent upstream contributions (auxiliary, not part of the June prize narrative)
+### 4. Companion PR — `feat(fibers-dataset): generate fiber pseudo-labels from CT (no annotation required)`
+
+Pull request: **https://github.com/ScrollPrize/villa/pull/922**
+Addresses: **villa issue [#193](https://github.com/ScrollPrize/villa/issues/193)** — tagged `help wanted` and `Good candidate for a Progress Prize`.
+
+The issue calls out that fiber label generation is currently entirely manual: the existing scripts in `foundation/datasets/fibers-dataset/` (`fibers-dataset-generator.py`, `hz-vt-generator.py`) voxelize WebKnossos `.nml` skeletons that a human has already drawn. That creates a catch-22 for compressed / highly-curved regions where annotation is hardest and labels are most needed.
+
+This PR adds `foundation/datasets/fibers-dataset/generate_fiber_labels_from_ct.py`, a standalone CLI that runs the Frangi-style vesselness filter already in `tools.py` (the same one the autoresearch fiber predictor uses) directly on a CT zarr and writes binary fiber pseudo-labels to an output zarr. **No manual input required.**
+
+```bash
+python generate_fiber_labels_from_ct.py \
+    --input scroll.zarr \
+    --output fiber_labels.zarr \
+    --bbox z0 z1 y0 y1 x0 x1 \
+    --threshold 0.5 \
+    [--margin 8] \
+    [--write-probability fiber_prob.zarr]
+```
+
+Quality is below skilled annotation, but labels are immediately available everywhere CT is, which makes them useful as expanded supervision (mix as soft targets during training), fiber overlays for VC3D / Crackle-Viewer review, or a starting point for human refinement (annotators correct the worst cases instead of drawing from scratch).
+
+Tests (`tests/test_generate_fiber_labels_from_ct.py`): three end-to-end checks against a synthetic CT volume containing a known horizontal ridge. 3 passed in 0.60s.
+
+This script also powers the local production path in autoresearch (`scripts/generate_fiber_labels.py --mode candidates`), which has produced fiber pseudo-labels for the top-5 GPU-ready Scroll 2/3 candidates in `reports/scroll23_evidence/candidate_NNN/`.
+
+### 5. Concurrent upstream contributions (auxiliary, not part of the June prize narrative)
 
 These are small standalone bugfixes shipped to villa in the same week for community benefit. Not prize artifacts in themselves, but worth pointing at:
 
@@ -67,9 +95,10 @@ These are small standalone bugfixes shipped to villa in the same week for commun
 
 Per the Progress Prize criteria (released early, actually used, well documented):
 
-- **Released early.** PR #915 opened 2026-05-15, six weeks before the June deadline, with the full benchmark table attached and the parity tests passing on the submission hardware.
-- **Actually used.** The fiber-detection pipeline is the data-prep stage of every autoresearch ink-detection sweep cycle. The CuPy path moves the bottleneck off the CPU so the GPU stays saturated during training — directly enabling more cycles per night-shift run.
-- **Well documented.** Tests, benchmark script, PR description with concrete numbers and a known-caveat section, and a reproducer that anyone with a CUDA GPU can run end-to-end.
+- **Released early.** All three PRs opened in mid-May, six weeks before the June deadline, with tests passing on the submission hardware. PR #915 ships its full RTX 4090 benchmark table in the description.
+- **Actually used.** The fiber-detection pipeline (PR #915) is the data-prep stage of every autoresearch ink-detection sweep cycle. The vesuvius-c bindings (PR #916) replaces the standalone wrapper that backed the May Part 1 submission. The CT-derived label generator (PR #922) is the engine of `scripts/generate_fiber_labels.py --mode candidates`, which has already produced pseudo-labels for the top-5 GPU-ready Scroll 2/3 candidates.
+- **Well documented.** Tests across all three PRs (10 + 3 + 3 = 16 passing), benchmark script with concrete numbers, PR descriptions with known-caveat sections, and reproducers that work in a fresh checkout.
+- **Aligned with maintainer intent.** PR #922 is anchored to villa issue #193, explicitly tagged `help wanted` and `Good candidate for a Progress Prize`. PRs #915 and #916 fill gaps the autoresearch project has been working around for months.
 
 ## How to reproduce
 
@@ -100,27 +129,31 @@ so that the bundled `libcusolver.so.11` is on the linker search path.
 | --- | --- |
 | Repository (autoresearch) | https://github.com/jonmarrs/vesuvius-autoresearch |
 | Repository (PR fork) | https://github.com/jonmarrs/villa (branch `feat/fibers-cupy-acceleration`) |
-| Headline upstream PR | https://github.com/ScrollPrize/villa/pull/915 (CuPy fibers acceleration) |
-| Companion upstream PR | https://github.com/ScrollPrize/villa/pull/916 (vesuvius-c Python bindings) |
+| Prize-narrative PR #1 (headline) | https://github.com/ScrollPrize/villa/pull/915 (CuPy fibers acceleration) |
+| Prize-narrative PR #2 (companion) | https://github.com/ScrollPrize/villa/pull/916 (vesuvius-c Python bindings) |
+| Prize-narrative PR #3 (companion, addresses villa#193) | https://github.com/ScrollPrize/villa/pull/922 (CT-derived fiber labels) |
 | Auxiliary upstream PRs | [#913](https://github.com/ScrollPrize/villa/pull/913), [#914](https://github.com/ScrollPrize/villa/pull/914) |
-| Key files | `foundation/datasets/fibers-dataset/tools.py`, `foundation/datasets/fibers-dataset/tests/test_tools_parity.py`, `foundation/datasets/fibers-dataset/bench/bench_tools.py` |
-| Tests | `foundation/datasets/fibers-dataset/tests/test_tools_parity.py` (7 tests; 3 always-on, 4 CuPy-skipif) |
+| Key files | `foundation/datasets/fibers-dataset/tools.py`, `foundation/datasets/fibers-dataset/generate_fiber_labels_from_ct.py`, `foundation/datasets/fibers-dataset/tests/test_tools_parity.py`, `foundation/datasets/fibers-dataset/bench/bench_tools.py`, `vesuvius-c/python/vesuvius_c.py` |
+| Tests | 16 passing across the three PRs: `test_tools_parity.py` (10), `test_imports.py` (3), `test_generate_fiber_labels_from_ct.py` (3) |
 | Reproduction entrypoint | `cd foundation/datasets/fibers-dataset && pytest tests/ && python3 bench/bench_tools.py --sizes 64 128 256` |
 | License | MIT (autoresearch); upstream PR per ScrollPrize/villa contribution terms |
 | Prior cycle filings | [Part 1](PROGRESS_PRIZE_SUBMISSION_2026-05_part1.md), [Part 2](PROGRESS_PRIZE_SUBMISSION_2026-05.md) |
 
 ## Public release blurb (for socials / forum announcement)
 
-> Filed for the June 2026 Progress Prize: two villa PRs that together close one bottleneck and remove one install friction in the ink-detection pipeline.
+> Filed for the June 2026 Progress Prize: three villa PRs that together accelerate fiber detection, remove an install friction, and break the manual-annotation catch-22 for fiber labels.
 >
 > [PR #915](https://github.com/ScrollPrize/villa/pull/915) — a CuPy / `cupyx.scipy.ndimage` rewrite of villa's `foundation/datasets/fibers-dataset/tools.py` that moves Frangi vesselness, Hessian ridges, NMS, and Scharr/Pavel edge detection onto GPU with a transparent NumPy / SciPy fallback. Measured on an RTX 4090: `nms_3d` 430× at 256³, `hessian` 226×, `detect_ridges` 82× (the last enabled by replacing batched cuSolver `eigvalsh` with a closed-form 3×3 symmetric eigendecomposition, since cuSolver returns `CUSOLVER_STATUS_INVALID_VALUE` above ~1M batched matrices). Ten passing parity tests + a reproducible benchmark script.
 >
 > [PR #916](https://github.com/ScrollPrize/villa/pull/916) — a minimal Python ctypes wrapper for `vesuvius-c` under `vesuvius-c/python/`, providing `Volume` + arbitrary-chunk-read access (local and remote via `dl.ash2txt.org`) with zero-copy NumPy views. Upstreams the same wrapper layer that backed the May Part 1 submission.
+>
+> [PR #922](https://github.com/ScrollPrize/villa/pull/922) — addresses villa issue [#193](https://github.com/ScrollPrize/villa/issues/193) ("Methods for generating surface, fiber, or ink labels", tagged `help wanted` / `Good candidate for a Progress Prize`). Adds a CLI that runs the Frangi-style vesselness filter directly on a CT zarr to produce fiber pseudo-labels without manual annotation — useful as expanded supervision, fiber overlays for VC3D review, or a starting point for human refinement.
 
 ## Open work (may extend this submission before the June deadline)
 
-The two prize-narrative PRs (#915 + #916) are open. Possible additional follow-up, low-priority:
+The three prize-narrative PRs (#915 + #916 + #922) are open. Possible additional follow-ups, low-priority:
 
-- **CI builds for the bindings.** Currently the wrapper is tested by being used in production by the autoresearch loop; first-party `pytest` coverage in villa CI would require `libcurl-dev` / `libblosc2-dev` / `libjson-c-dev` available to the runner.
+- **CI builds for the bindings.** Currently `vesuvius-c/python/test_imports.py` skips cleanly if `libvesuvius.so` isn't pre-built; first-party `pytest` coverage in villa CI would require `libcurl-dev` / `libblosc2-dev` / `libjson-c-dev` available to the runner.
+- **Worklist driver for PR #922.** Single-bbox per invocation today; a worklist-driven loop would let a single command produce fiber pseudo-labels across many regions of interest.
 
-Neither is required for the June filing; this submission stands on PR #915 + PR #916 as filed.
+Neither is required for the June filing; this submission stands on PRs #915 + #916 + #922 as filed.
