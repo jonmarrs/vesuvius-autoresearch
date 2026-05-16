@@ -308,7 +308,7 @@ while True:
             
     cfg_str = ", ".join([f"{k}: {v}" for k, v in asdict(config).items() if k not in ['uri', 'val_uri']])
 
-    print(f"Running 15-minute training for {tweak_name}...")
+    print(f"Running {default_budget // 60}-minute training for {tweak_name}...")
     sys.stdout.flush()
     
     if os.path.exists("run_result.json"):
