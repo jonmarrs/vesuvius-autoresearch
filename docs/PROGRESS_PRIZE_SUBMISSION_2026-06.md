@@ -6,7 +6,7 @@
 **Submitter:** Jon Marrs &lt;jdmarrs@gmail.com&gt;
 **Repository:** https://github.com/jonmarrs/vesuvius-autoresearch
 **License:** MIT (autoresearch); upstream villa PR licensed per ScrollPrize/villa contribution terms
-**Status:** QUEUED for June filing. The headline artifact is upstream PR [ScrollPrize/villa#915](https://github.com/ScrollPrize/villa/pull/915), opened 2026-05-15 with full GPU benchmarks attached.
+**Status:** QUEUED for June filing. The headline artifact is upstream PR [ScrollPrize/villa#915](https://github.com/ScrollPrize/villa/pull/915) (CuPy acceleration of `foundation/datasets/fibers-dataset/tools.py`, opened 2026-05-15 with full GPU benchmarks attached). A companion bindings PR [ScrollPrize/villa#916](https://github.com/ScrollPrize/villa/pull/916) ships a minimal Python ctypes wrapper for `vesuvius-c` under `vesuvius-c/python/`.
 **Prior cycle:** May 2026 filings ([Part 1](PROGRESS_PRIZE_SUBMISSION_2026-05_part1.md), [Part 2](PROGRESS_PRIZE_SUBMISSION_2026-05.md)).
 
 ## Thesis
@@ -46,7 +46,17 @@ Pull request: **https://github.com/ScrollPrize/villa/pull/915**
 
 Headline numbers: `nms_3d` runs in 9.4 ms at 256³ vs 4.04 s on CPU (430×), `hessian` 226×, and `detect_ridges` 82× — meaningful enough that a fiber-detection run that used to fit in a coffee break now fits in a few seconds.
 
-### 3. Concurrent upstream contributions (auxiliary, not part of the June prize narrative)
+### 3. Companion PR — `feat(vesuvius-c): add Python ctypes bindings under vesuvius-c/python/`
+
+Pull request: **https://github.com/ScrollPrize/villa/pull/916**
+
+A minimal `ctypes` Python wrapper for `vesuvius-c`, exposing `Volume` construction (local or remote-via-`dl.ash2txt.org`) and arbitrary-chunk reads with zero-copy NumPy views. The wrapper is intentionally narrow — it covers the volume + chunk surface that the autoresearch data loader depends on, not the full vesuvius-c API.
+
+This is the upstreaming of the same Python wrapper layer that backed the May Part 1 submission via [`jonmarrs/vesuvius-autoresearch:vesuvius_c_wrapper/`](https://github.com/jonmarrs/vesuvius-autoresearch). Moving it into villa removes the "you have to install autoresearch to use the wrapper" requirement and makes it available to any contributor running their own ink-detection experiments.
+
+Known scope / follow-ups (called out honestly in the PR description rather than papered over): hardcoded `c_float` chunk dtype, no in-PR tests (existing standalone usage substitutes for now), and `setup.py` shells out to gcc directly rather than declaring a `setuptools.Extension`.
+
+### 4. Concurrent upstream contributions (auxiliary, not part of the June prize narrative)
 
 These are small standalone bugfixes shipped to villa in the same week for community benefit. Not prize artifacts in themselves, but worth pointing at:
 
@@ -90,7 +100,8 @@ so that the bundled `libcusolver.so.11` is on the linker search path.
 | --- | --- |
 | Repository (autoresearch) | https://github.com/jonmarrs/vesuvius-autoresearch |
 | Repository (PR fork) | https://github.com/jonmarrs/villa (branch `feat/fibers-cupy-acceleration`) |
-| Upstream PR | https://github.com/ScrollPrize/villa/pull/915 |
+| Headline upstream PR | https://github.com/ScrollPrize/villa/pull/915 (CuPy fibers acceleration) |
+| Companion upstream PR | https://github.com/ScrollPrize/villa/pull/916 (vesuvius-c Python bindings) |
 | Auxiliary upstream PRs | [#913](https://github.com/ScrollPrize/villa/pull/913), [#914](https://github.com/ScrollPrize/villa/pull/914) |
 | Key files | `foundation/datasets/fibers-dataset/tools.py`, `foundation/datasets/fibers-dataset/tests/test_tools_parity.py`, `foundation/datasets/fibers-dataset/bench/bench_tools.py` |
 | Tests | `foundation/datasets/fibers-dataset/tests/test_tools_parity.py` (7 tests; 3 always-on, 4 CuPy-skipif) |
@@ -100,10 +111,17 @@ so that the bundled `libcusolver.so.11` is on the linker search path.
 
 ## Public release blurb (for socials / forum announcement)
 
-> Filed for the June 2026 Progress Prize: a CuPy / `cupyx.scipy.ndimage` rewrite of villa's `foundation/datasets/fibers-dataset/tools.py` that moves Frangi vesselness, Hessian ridges, NMS, and Scharr/Pavel edge detection onto GPU with a transparent NumPy / SciPy fallback. Measured on an RTX 4090: `nms_3d` 430× at 256³, `hessian` 226×, `detect_ridges` 82× (the last enabled by replacing batched cuSolver `eigvalsh` with a closed-form 3×3 symmetric eigendecomposition, since cuSolver returns `CUSOLVER_STATUS_INVALID_VALUE` above ~1M batched matrices). Ten passing parity tests + a reproducible benchmark script. PR: https://github.com/ScrollPrize/villa/pull/915.
+> Filed for the June 2026 Progress Prize: two villa PRs that together close one bottleneck and remove one install friction in the ink-detection pipeline.
+>
+> [PR #915](https://github.com/ScrollPrize/villa/pull/915) — a CuPy / `cupyx.scipy.ndimage` rewrite of villa's `foundation/datasets/fibers-dataset/tools.py` that moves Frangi vesselness, Hessian ridges, NMS, and Scharr/Pavel edge detection onto GPU with a transparent NumPy / SciPy fallback. Measured on an RTX 4090: `nms_3d` 430× at 256³, `hessian` 226×, `detect_ridges` 82× (the last enabled by replacing batched cuSolver `eigvalsh` with a closed-form 3×3 symmetric eigendecomposition, since cuSolver returns `CUSOLVER_STATUS_INVALID_VALUE` above ~1M batched matrices). Ten passing parity tests + a reproducible benchmark script.
+>
+> [PR #916](https://github.com/ScrollPrize/villa/pull/916) — a minimal Python ctypes wrapper for `vesuvius-c` under `vesuvius-c/python/`, providing `Volume` + arbitrary-chunk-read access (local and remote via `dl.ash2txt.org`) with zero-copy NumPy views. Upstreams the same wrapper layer that backed the May Part 1 submission.
 
 ## Open work (may extend this submission before the June deadline)
 
-- **`vesuvius-c` Python bindings as an upstream PR.** The implementation that backs the May Part 1 submission's Python wrapper (the `ctypes` layer + Blosc2-direct chunk reader) lives in our fork on `cupy-fiber-acceleration`. Carving it out to a real PR against the `vesuvius-c` repo (when located) would land the bindings upstream rather than only in the autoresearch repo.
+The two prize-narrative PRs (#915 + #916) are open. Possible additional follow-ups, low-priority:
 
-If this lands before 2026-06-30 it will be added here; if not, this June submission stands on PR #915 alone.
+- **Multi-dtype support in the `vesuvius-c` Python wrapper.** Today the chunk type is hardcoded to `c_float`; the C `zarr_metadata` already exposes the underlying dtype, so wiring that through is mechanical.
+- **CI builds for the bindings.** Currently the wrapper is tested by being used in production by the autoresearch loop; first-party `pytest` coverage in villa CI would require `libcurl-dev` / `libblosc2-dev` / `libjson-c-dev` available to the runner.
+
+Neither is required for the June filing; this submission stands on PR #915 + PR #916 as filed.
