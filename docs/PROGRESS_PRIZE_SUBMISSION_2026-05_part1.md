@@ -5,7 +5,7 @@
 **Submitter:** Jon Marrs &lt;jdmarrs@gmail.com&gt;
 **Repository:** https://github.com/jonmarrs/vesuvius-autoresearch
 **License:** MIT
-**Status:** QUEUED for May filing as a second submission in the same cycle (the May Progress Prize allows multiple submissions per month per `villa/scrollprize.org/docs/34_prizes.md:119`). The *work* covered here was drafted for the April 2026 cycle but never filed through the April form before it closed; this filing brings it into the May review pool.
+**Status:** FILED through the May form as a second submission in the same cycle (the May Progress Prize allows multiple submissions per month per `villa/scrollprize.org/docs/34_prizes.md:119`). The *work* covered here was drafted for the April 2026 cycle but never filed through the April form before it closed; this filing brings it into the May review pool.
 **Companion submission:** [PROGRESS_PRIZE_SUBMISSION_2026-05.md](PROGRESS_PRIZE_SUBMISSION_2026-05.md) — **Part 2 of 2**, the villa-baseline launchers + `submission_package` path + upstream PR ScrollPrize/villa#899. Already filed.
 
 ## Thesis
