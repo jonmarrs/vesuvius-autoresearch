@@ -54,7 +54,7 @@ A minimal `ctypes` Python wrapper for `vesuvius-c`, exposing `Volume` constructi
 
 This is the upstreaming of the same Python wrapper layer that backed the May Part 1 submission via [`jonmarrs/vesuvius-autoresearch:vesuvius_c_wrapper/`](https://github.com/jonmarrs/vesuvius-autoresearch). Moving it into villa removes the "you have to install autoresearch to use the wrapper" requirement and makes it available to any contributor running their own ink-detection experiments.
 
-Known scope / follow-ups (called out honestly in the PR description rather than papered over): hardcoded `c_float` chunk dtype, no in-PR tests (existing standalone usage substitutes for now), and `setup.py` shells out to gcc directly rather than declaring a `setuptools.Extension`.
+Known scope / follow-ups (called out honestly in the PR description rather than papered over): no in-PR tests (existing standalone usage substitutes for now), and `setup.py` shells out to gcc directly rather than declaring a `setuptools.Extension`.
 
 ### 4. Concurrent upstream contributions (auxiliary, not part of the June prize narrative)
 
@@ -119,9 +119,8 @@ so that the bundled `libcusolver.so.11` is on the linker search path.
 
 ## Open work (may extend this submission before the June deadline)
 
-The two prize-narrative PRs (#915 + #916) are open. Possible additional follow-ups, low-priority:
+The two prize-narrative PRs (#915 + #916) are open. Possible additional follow-up, low-priority:
 
-- **Multi-dtype support in the `vesuvius-c` Python wrapper.** Today the chunk type is hardcoded to `c_float`; the C `zarr_metadata` already exposes the underlying dtype, so wiring that through is mechanical.
 - **CI builds for the bindings.** Currently the wrapper is tested by being used in production by the autoresearch loop; first-party `pytest` coverage in villa CI would require `libcurl-dev` / `libblosc2-dev` / `libjson-c-dev` available to the runner.
 
 Neither is required for the June filing; this submission stands on PR #915 + PR #916 as filed.
