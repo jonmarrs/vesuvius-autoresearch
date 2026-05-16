@@ -1,13 +1,13 @@
 {
   "source_opportunities": "reports/villa_prize_opportunities.json",
   "source_preflight": "reports/scroll23_evidence_preflight_summary.json",
-  "villa_local_ref": "83b6423de3357df03cd25d57d223c1a731ad8163",
+  "villa_local_ref": "666dec41597643884c87e97d817cdd8ceb8ed8e8",
   "villa_upstream_ref": "f037ffb5b236dcb74112ec33c8843eaa15ff5a85",
   "villa_behind": false,
   "villa_diverged": false,
   "candidate_digest": {
-    "total_preflight_candidates": 2,
-    "ready_for_gpu": 2,
+    "total_preflight_candidates": 12,
+    "ready_for_gpu": 12,
     "blocked": 0,
     "gpu_queue": "reports/scroll23_gpu_inference_queue.tsv",
     "top_ready_candidates": [
@@ -56,6 +56,29 @@
           "candidate is 0.5062mm; accepted only because it is <=64px per prize guidance"
         ],
         "report_path": "reports/scroll23_evidence/candidate_001/preflight_report.json"
+      },
+      {
+        "candidate_index": 2,
+        "status": "PASS",
+        "ready_for_gpu": true,
+        "scroll_id": "Scroll 2",
+        "short_id": "PHerc0125",
+        "division": "div_90",
+        "z": "18176",
+        "y": "4000",
+        "x": "4128",
+        "artifact_stem": "pred_18176_4000_4128_64x64",
+        "review_score": "2.496840",
+        "ct_occupied_status": "true",
+        "prediction_found": "true",
+        "metadata_found": "true",
+        "failure_count": 0,
+        "warning_count": 1,
+        "failures": [],
+        "warnings": [
+          "candidate is 0.5062mm; accepted only because it is <=64px per prize guidance"
+        ],
+        "report_path": "reports/scroll23_evidence/candidate_002/preflight_report.json"
       }
     ]
   },

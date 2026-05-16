@@ -4,12 +4,12 @@ This matrix joins official `ScrollPrize/villa` opportunity tracking with the cur
 
 ## Current State
 
-- Villa local ref: `83b6423de3357df03cd25d57d223c1a731ad8163`
+- Villa local ref: `666dec41597643884c87e97d817cdd8ceb8ed8e8`
 - Villa upstream ref: `f037ffb5b236dcb74112ec33c8843eaa15ff5a85`
 - Villa behind upstream: `False`
 - Villa diverged with local patches: `False`
-- Evidence preflight candidates: `2`
-- GPU-ready evidence candidates: `2`
+- Evidence preflight candidates: `12`
+- GPU-ready evidence candidates: `12`
 - Blocked evidence candidates: `0`
 - GPU queue: `reports/scroll23_gpu_inference_queue.tsv`
 
@@ -36,3 +36,4 @@ This matrix joins official `ScrollPrize/villa` opportunity tracking with the cur
 
 - `pred_18176_4128_4128_64x64`: Scroll 2 div_90 z=18176 y=4128 x=4128, review_score=2.791621, report=`reports/scroll23_evidence/candidate_000/preflight_report.json`
 - `pred_18176_4128_4000_64x64`: Scroll 2 div_90 z=18176 y=4128 x=4000, review_score=2.582762, report=`reports/scroll23_evidence/candidate_001/preflight_report.json`
+- `pred_18176_4000_4128_64x64`: Scroll 2 div_90 z=18176 y=4000 x=4128, review_score=2.496840, report=`reports/scroll23_evidence/candidate_002/preflight_report.json`

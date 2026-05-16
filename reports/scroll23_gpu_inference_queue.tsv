@@ -1,3 +1,13 @@
 queue_rank	candidate_index	scroll_id	short_id	division	z	y	x	artifact_stem	review_score	report_path
 0	0	Scroll 2	PHerc0125	div_90	18176	4128	4128	pred_18176_4128_4128_64x64	2.791621	reports/scroll23_evidence/candidate_000/preflight_report.json
 1	1	Scroll 2	PHerc0125	div_90	18176	4128	4000	pred_18176_4128_4000_64x64	2.582762	reports/scroll23_evidence/candidate_001/preflight_report.json
+2	2	Scroll 2	PHerc0125	div_90	18176	4000	4128	pred_18176_4000_4128_64x64	2.496840	reports/scroll23_evidence/candidate_002/preflight_report.json
+3	3	Scroll 2	PHerc0125	div_90	18176	4000	4000	pred_18176_4000_4000_64x64	2.350000	reports/scroll23_evidence/candidate_003/preflight_report.json
+4	4	Scroll 2	PHerc0125	div_90	18304	4128	4128	pred_18304_4128_4128_64x64	2.350000	reports/scroll23_evidence/candidate_004/preflight_report.json
+5	5	Scroll 2	PHerc0125	div_100	20224	4128	4128	pred_20224_4128_4128_64x64	2.350000	reports/scroll23_evidence/candidate_005/preflight_report.json
+6	6	Scroll 2	PHerc0125	div_100	20224	4128	4000	pred_20224_4128_4000_64x64	2.350000	reports/scroll23_evidence/candidate_006/preflight_report.json
+7	7	Scroll 2	PHerc0125	div_100	20224	4000	4128	pred_20224_4000_4128_64x64	2.350000	reports/scroll23_evidence/candidate_007/preflight_report.json
+8	8	Scroll 2	PHerc0125	div_100	20224	4000	4000	pred_20224_4000_4000_64x64	2.350000	reports/scroll23_evidence/candidate_008/preflight_report.json
+9	9	Scroll 2	PHerc0125	div_100	20096	4128	4128	pred_20096_4128_4128_64x64	2.350000	reports/scroll23_evidence/candidate_009/preflight_report.json
+10	10	Scroll 3	PHerc0332	div_90	29568	7712	7712	pred_29568_7712_7712_64x64	2.350000	reports/scroll23_evidence/candidate_010/preflight_report.json
+11	11	Scroll 3	PHerc0332	div_90	29568	7712	7840	pred_29568_7712_7840_64x64	2.350000	reports/scroll23_evidence/candidate_011/preflight_report.json

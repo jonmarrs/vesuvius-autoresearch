@@ -299,7 +299,7 @@ def main():
     parser.add_argument("--villa-review-manifest-md", default="reports/villa_review_manifest.md")
     parser.add_argument("--inference-limit", type=int, default=8)
     parser.add_argument("--worklist-limit", type=int, default=12)
-    parser.add_argument("--evidence-limit", type=int, default=2)
+    parser.add_argument("--evidence-limit", type=int, default=12)
     parser.add_argument("--execute-inference", action="store_true")
     parser.add_argument("--execute-evidence", action="store_true")
     parser.add_argument(
