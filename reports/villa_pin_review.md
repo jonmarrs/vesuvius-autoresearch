@@ -1,7 +1,7 @@
 # Villa Pin Review Checklist
 
-- **Local Ref:** `e67fa7425a31f73ec48eeae14b8d7d53b782c2b0`
-- **Upstream Ref:** `c33fc11f09e0f65ce3c1c267f46a311104902055`
+- **Local Ref:** `83b6423de3357df03cd25d57d223c1a731ad8163`
+- **Upstream Ref:** `f037ffb5b236dcb74112ec33c8843eaa15ff5a85`
 - **Adoption Mode:** `no_update_needed`
 - **Recommendation:** `villa_pin_current`
 

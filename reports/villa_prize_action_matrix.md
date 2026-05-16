@@ -4,8 +4,8 @@ This matrix joins official `ScrollPrize/villa` opportunity tracking with the cur
 
 ## Current State
 
-- Villa local ref: `e67fa7425a31f73ec48eeae14b8d7d53b782c2b0`
-- Villa upstream ref: `c33fc11f09e0f65ce3c1c267f46a311104902055`
+- Villa local ref: `83b6423de3357df03cd25d57d223c1a731ad8163`
+- Villa upstream ref: `f037ffb5b236dcb74112ec33c8843eaa15ff5a85`
 - Villa behind upstream: `False`
 - Villa diverged with local patches: `False`
 - Evidence preflight candidates: `2`
@@ -23,7 +23,16 @@ This matrix joins official `ScrollPrize/villa` opportunity tracking with the cur
 | 4 | [villa-issue-369](https://github.com/ScrollPrize/villa/issues/369) VC3D integrate fiber predictions | `progress_prize` | `ready_now` | Export ink and fiber maps as VC3D-compatible OME-Zarr overlays for surface review. | Require prediction Zarr metadata and scale metadata to validate cleanly. |
 | 5 | [villa-issue-203](https://github.com/ScrollPrize/villa/issues/203) Whole-volume deformation from vertical fibers and large meshes | `progress_prize` | `ready_now` | Export ink and fiber maps as VC3D-compatible OME-Zarr overlays for surface review. | Require prediction Zarr metadata and scale metadata to validate cleanly. |
 
+## Villa Baselines & Lanes
+
+| ID | Status | Purpose | Marker | Launcher |
+| --- | --- | --- | --- | --- |
+| gp_winner_baseline | `dry_run` | fixed research-only comparator (patch 16x256x256, not submittable) | `reports/gp_winner_baseline.json` | `scripts/launch_gp_winner.py` |
+| mutex_affinity | `dry_run` | Grand-Prize-aligned lane; submittable when patch<=64 | `reports/mutex_affinity_run.json` | `scripts/launch_mutex.py` |
+| neural_tracing_service | `dry_run` | Review-time tracing daemon for VC3D / Crackle Viewer | `reports/neural_tracing_service.json` | `scripts/launch_neural_tracing.py` |
+| finetune_lejepa | `ready` | Convert pretrained LeJEPA encoder into a submittable ink model (patch 64) | `reports/finetune_lejepa_run.json` | `scripts/launch_finetune_lejepa.py` |
+
 ## Top GPU-Ready Candidates
 
-- `pred_18176_4128_4128_64x64`: Scroll 2 div_90 z=18176 y=4128 x=4128, review_score=2.350000, report=`reports/scroll23_evidence/candidate_000/preflight_report.json`
-- `pred_18176_4128_4000_64x64`: Scroll 2 div_90 z=18176 y=4128 x=4000, review_score=2.350000, report=`reports/scroll23_evidence/candidate_001/preflight_report.json`
+- `pred_18176_4128_4128_64x64`: Scroll 2 div_90 z=18176 y=4128 x=4128, review_score=2.791621, report=`reports/scroll23_evidence/candidate_000/preflight_report.json`
+- `pred_18176_4128_4000_64x64`: Scroll 2 div_90 z=18176 y=4128 x=4000, review_score=2.582762, report=`reports/scroll23_evidence/candidate_001/preflight_report.json`

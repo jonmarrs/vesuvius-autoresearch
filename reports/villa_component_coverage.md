@@ -5,10 +5,10 @@ This report maps official `ScrollPrize/villa` components to local Autoresearch h
 ## Summary
 
 - Total components: `9`
-- Covered: `5`
+- Covered: `6`
 - Partial: `3`
 - Blocked by missing required hook: `0`
-- Unwired: `1`
+- Unwired: `0`
 - Missing official component: `0`
 
 ## Components
@@ -22,5 +22,5 @@ This report maps official `ScrollPrize/villa` components to local Autoresearch h
 | volume-cartographer | `covered` | `high` | VC3D surface tracing, segmentation, and overlay review. | `scripts/launch_vc3d.py` ok, `scripts/validate_prize_artifact.py` ok, `reports/villa_review_manifest.md` ok | Validate ink/fiber OME-Zarr overlays before VC3D review or Progress Prize packaging. |
 | lasagna | `covered` | `high` | Surface fitting, tifxyz conversion, and geometry-aware preprocessing. | `scripts/build_lasagna_fiber_worklist.py` ok, `reports/lasagna_fiber_worklist.tsv` ok | Route occupied Scroll 2/3 candidates through Lasagna/fiber preprocessing before more ink inference. |
 | segmentation | `partial` | `medium` | Official segmentation models and topology-oriented evaluation metrics. | `test_import.py` missing, `submission_package_dry_run/HALLUCINATION_MITIGATION.md` ok | Keep topology metrics available as hallucination mitigation evidence. |
-| foundation | `unwired` | `medium` | Dataset management and fiber-label assets. | `generate_fiber_labels.py` missing | Use fiber assets to expand supervision for hard geometry candidates. |
+| foundation | `covered` | `medium` | Dataset management and fiber-label assets. | `scripts/generate_fiber_labels.py` ok | Use fiber assets to expand supervision for hard geometry candidates. |
 | thaumato-anakalyptor | `covered` | `medium` | Alternative semi-automatic unwrapping and surface extraction pipeline. | `scripts/launch_thaumato.py` ok, `scripts/autoresearch_thaumato_solver.py` ok | Use as a fallback review route when VC3D/Lasagna surfaces are poor. |

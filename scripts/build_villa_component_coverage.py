@@ -75,7 +75,7 @@ COMPONENTS = [
         "name": "foundation",
         "official_path": "villa/foundation",
         "prize_use": "Dataset management and fiber-label assets.",
-        "local_hooks": ["generate_fiber_labels.py"],
+        "local_hooks": ["scripts/generate_fiber_labels.py"],
         "next_action": "Use fiber assets to expand supervision for hard geometry candidates.",
         "priority": "medium",
     },

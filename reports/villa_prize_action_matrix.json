@@ -1,8 +1,8 @@
 {
   "source_opportunities": "reports/villa_prize_opportunities.json",
   "source_preflight": "reports/scroll23_evidence_preflight_summary.json",
-  "villa_local_ref": "e67fa7425a31f73ec48eeae14b8d7d53b782c2b0",
-  "villa_upstream_ref": "c33fc11f09e0f65ce3c1c267f46a311104902055",
+  "villa_local_ref": "83b6423de3357df03cd25d57d223c1a731ad8163",
+  "villa_upstream_ref": "f037ffb5b236dcb74112ec33c8843eaa15ff5a85",
   "villa_behind": false,
   "villa_diverged": false,
   "candidate_digest": {
@@ -22,10 +22,10 @@
         "y": "4128",
         "x": "4128",
         "artifact_stem": "pred_18176_4128_4128_64x64",
-        "review_score": "2.350000",
+        "review_score": "2.791621",
         "ct_occupied_status": "true",
-        "prediction_found": "false",
-        "metadata_found": "false",
+        "prediction_found": "true",
+        "metadata_found": "true",
         "failure_count": 0,
         "warning_count": 1,
         "failures": [],
@@ -45,10 +45,10 @@
         "y": "4128",
         "x": "4000",
         "artifact_stem": "pred_18176_4128_4000_64x64",
-        "review_score": "2.350000",
+        "review_score": "2.582762",
         "ct_occupied_status": "true",
-        "prediction_found": "false",
-        "metadata_found": "false",
+        "prediction_found": "true",
+        "metadata_found": "true",
         "failure_count": 0,
         "warning_count": 1,
         "failures": [],
@@ -139,6 +139,67 @@
       "autoresearch_action": "Export ink and fiber maps as VC3D-compatible OME-Zarr overlays for surface review.",
       "evidence_gate": "Require prediction Zarr metadata and scale metadata to validate cleanly.",
       "review_artifact": "VC3D overlay path in prediction metadata"
+    }
+  ],
+  "baselines": [
+    {
+      "id": "gp_winner_baseline",
+      "label": "Villa GP-2023 TimeSFormerInk recipe",
+      "purpose": "fixed research-only comparator (patch 16x256x256, not submittable)",
+      "marker_path": "reports/gp_winner_baseline.json",
+      "launcher": "scripts/launch_gp_winner.py",
+      "status": "dry_run",
+      "details": {
+        "model_name": "gp_winner_baseline_v1",
+        "config_path": "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/configs/gp_winner_recipe/gp_winner_config.yaml",
+        "executed": false,
+        "submittable": false
+      }
+    },
+    {
+      "id": "mutex_affinity",
+      "label": "Villa MutexAffinityTrainer (sheet instance segmentation)",
+      "purpose": "Grand-Prize-aligned lane; submittable when patch<=64",
+      "marker_path": "reports/mutex_affinity_run.json",
+      "launcher": "scripts/launch_mutex.py",
+      "status": "dry_run",
+      "details": {
+        "model_name": "mutex_affinity_v1",
+        "config_path": "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/configs/instance_seg/mutex_config.yaml",
+        "executed": false,
+        "submittable": true,
+        "data_prepared": false
+      }
+    },
+    {
+      "id": "neural_tracing_service",
+      "label": "Villa neural_tracing trace_service",
+      "purpose": "Review-time tracing daemon for VC3D / Crackle Viewer",
+      "marker_path": "reports/neural_tracing_service.json",
+      "launcher": "scripts/launch_neural_tracing.py",
+      "status": "dry_run",
+      "details": {
+        "ready": false,
+        "blockers": [
+          "no neural_tracing heatmap checkpoint found; train one via /home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/villa/vesuvius/src/vesuvius/neural_tracing/trainers/train_rowcol_cond.py"
+        ]
+      }
+    },
+    {
+      "id": "finetune_lejepa",
+      "label": "LeJEPA -> UNet ink fine-tune (TrainFineTuneLEJEPA)",
+      "purpose": "Convert pretrained LeJEPA encoder into a submittable ink model (patch 64)",
+      "marker_path": "reports/finetune_lejepa_run.json",
+      "launcher": "scripts/launch_finetune_lejepa.py",
+      "status": "ready",
+      "details": {
+        "model_name": "lejepa_finetune_ink_v1",
+        "config_path": "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/configs/finetune_lejepa/finetune_lejepa_config.yaml",
+        "executed": false,
+        "submittable": true,
+        "ready": true,
+        "blockers": []
+      }
     }
   ]
 }

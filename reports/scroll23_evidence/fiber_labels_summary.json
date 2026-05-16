@@ -1,0 +1,58 @@
+{
+  "generated_at": "2026-05-16T08:26:48",
+  "backend": "numpy",
+  "threshold": 0.5,
+  "depth": 64,
+  "candidates": [
+    {
+      "candidate_index": 0,
+      "artifact_stem": "pred_18176_4128_4128_64x64",
+      "status": "OK",
+      "prob_path": "reports/scroll23_evidence/candidate_000/fiber_prob.tif",
+      "label_path": "reports/scroll23_evidence/candidate_000/fiber_label.tif",
+      "elapsed_s": 0.319,
+      "fiber_voxel_fraction": 0.000377655029296875,
+      "note": ""
+    },
+    {
+      "candidate_index": 1,
+      "artifact_stem": "pred_18176_4128_4000_64x64",
+      "status": "OK",
+      "prob_path": "reports/scroll23_evidence/candidate_001/fiber_prob.tif",
+      "label_path": "reports/scroll23_evidence/candidate_001/fiber_label.tif",
+      "elapsed_s": 0.275,
+      "fiber_voxel_fraction": 0.000110626220703125,
+      "note": ""
+    },
+    {
+      "candidate_index": 2,
+      "artifact_stem": "pred_18176_4000_4128_64x64",
+      "status": "OK",
+      "prob_path": "reports/scroll23_evidence/candidate_002/fiber_prob.tif",
+      "label_path": "reports/scroll23_evidence/candidate_002/fiber_label.tif",
+      "elapsed_s": 0.32,
+      "fiber_voxel_fraction": 0.000171661376953125,
+      "note": ""
+    },
+    {
+      "candidate_index": 3,
+      "artifact_stem": "pred_18176_4000_4000_64x64",
+      "status": "OK",
+      "prob_path": "reports/scroll23_evidence/candidate_003/fiber_prob.tif",
+      "label_path": "reports/scroll23_evidence/candidate_003/fiber_label.tif",
+      "elapsed_s": 0.285,
+      "fiber_voxel_fraction": 5.7220458984375e-05,
+      "note": ""
+    },
+    {
+      "candidate_index": 4,
+      "artifact_stem": "pred_18304_4128_4128_64x64",
+      "status": "OK",
+      "prob_path": "reports/scroll23_evidence/candidate_004/fiber_prob.tif",
+      "label_path": "reports/scroll23_evidence/candidate_004/fiber_label.tif",
+      "elapsed_s": 0.275,
+      "fiber_voxel_fraction": 5.340576171875e-05,
+      "note": ""
+    }
+  ]
+}

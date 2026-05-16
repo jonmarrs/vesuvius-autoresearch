@@ -1,17 +1,17 @@
 {
   "status": "READY_ACTIVE_SPRINT_NON_GPU",
   "active_processes": [
-    "858230 uv run python run_autoresearch_loop.py",
-    "858234 /home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python3 run_autoresearch_loop.py",
-    "859353 uv run python -u train.py --config config_temp.json",
-    "859356 /home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python3 -u train.py --config config_temp.json"
+    "66834 uv run python run_autoresearch_loop.py",
+    "66839 /home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python3 run_autoresearch_loop.py",
+    "82063 uv run python -u train.py --config config_temp.json",
+    "82066 /home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python3 -u train.py --config config_temp.json"
   ],
   "steps": [
     {
       "name": "audit_villa_upstream",
       "gpu": false,
       "command": [
-        "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python3",
+        "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python",
         "scripts/audit_villa_upstream.py",
         "--out",
         "reports/villa_upstream_audit.json"
@@ -21,7 +21,7 @@
       "name": "plan_villa_prize_opportunities",
       "gpu": false,
       "command": [
-        "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python3",
+        "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python",
         "scripts/plan_villa_prize_opportunities.py",
         "--audit",
         "reports/villa_upstream_audit.json",
@@ -33,7 +33,7 @@
       "name": "review_villa_pin",
       "gpu": false,
       "command": [
-        "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python3",
+        "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python",
         "scripts/review_villa_pin.py",
         "--audit",
         "reports/villa_upstream_audit.json",
@@ -45,7 +45,7 @@
       "name": "build_villa_component_coverage",
       "gpu": false,
       "command": [
-        "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python3",
+        "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python",
         "scripts/build_villa_component_coverage.py",
         "--out-json",
         "reports/villa_component_coverage.json",
@@ -57,7 +57,7 @@
       "name": "build_vesuvius_c_readiness",
       "gpu": false,
       "command": [
-        "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python3",
+        "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python",
         "scripts/build_vesuvius_c_readiness.py",
         "--sample-zarr",
         "local_data/PHercParis2Fr47/surface_volume.zarr/0",
@@ -71,7 +71,7 @@
       "name": "ranked_inference",
       "gpu": false,
       "command": [
-        "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python3",
+        "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python",
         "scripts/run_ranked_inference.py",
         "--ranked",
         "reports/scroll23_ranked_candidates.tsv",
@@ -89,7 +89,7 @@
       "name": "rerank_candidates",
       "gpu": false,
       "command": [
-        "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python3",
+        "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python",
         "scripts/rank_scroll23_candidates.py",
         "--queue",
         "reports/scroll23_search_queue.tsv",
@@ -103,7 +103,7 @@
       "name": "build_lasagna_fiber_worklist",
       "gpu": false,
       "command": [
-        "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python3",
+        "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python",
         "scripts/build_lasagna_fiber_worklist.py",
         "--ranked",
         "reports/scroll23_ranked_candidates.tsv",
@@ -115,7 +115,7 @@
       "name": "evidence_candidate_000",
       "gpu": false,
       "command": [
-        "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python3",
+        "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python",
         "scripts/run_villa_prize_evidence_chain.py",
         "--ranked",
         "reports/scroll23_ranked_candidates.tsv",
@@ -135,7 +135,7 @@
       "name": "evidence_candidate_001",
       "gpu": false,
       "command": [
-        "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python3",
+        "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python",
         "scripts/run_villa_prize_evidence_chain.py",
         "--ranked",
         "reports/scroll23_ranked_candidates.tsv",
@@ -155,7 +155,7 @@
       "name": "summarize_villa_evidence_preflight",
       "gpu": false,
       "command": [
-        "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python3",
+        "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python",
         "scripts/summarize_villa_evidence_preflight.py",
         "--root",
         "reports/scroll23_evidence",
@@ -171,7 +171,7 @@
       "name": "build_villa_prize_action_matrix",
       "gpu": false,
       "command": [
-        "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python3",
+        "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python",
         "scripts/build_villa_prize_action_matrix.py",
         "--opportunities",
         "reports/villa_prize_opportunities.json",
@@ -187,7 +187,7 @@
       "name": "build_villa_review_manifest",
       "gpu": false,
       "command": [
-        "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python3",
+        "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python",
         "scripts/build_villa_review_manifest.py",
         "--gpu-queue",
         "reports/scroll23_gpu_inference_queue.tsv",
@@ -204,7 +204,7 @@
         "--out-md",
         "reports/villa_review_manifest.md",
         "--python-executable",
-        "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python3"
+        "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python"
       ]
     }
   ]

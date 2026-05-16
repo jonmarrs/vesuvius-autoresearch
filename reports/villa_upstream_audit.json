@@ -1,15 +1,15 @@
 {
   "villa_dir": "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/villa",
-  "local_ref": "e67fa7425a31f73ec48eeae14b8d7d53b782c2b0",
-  "upstream_ref": "c33fc11f09e0f65ce3c1c267f46a311104902055",
-  "merge_base": "c33fc11f09e0f65ce3c1c267f46a311104902055",
+  "local_ref": "83b6423de3357df03cd25d57d223c1a731ad8163",
+  "upstream_ref": "f037ffb5b236dcb74112ec33c8843eaa15ff5a85",
+  "merge_base": "f037ffb5b236dcb74112ec33c8843eaa15ff5a85",
   "behind": false,
   "diverged": false,
   "upstream_ahead_commits": 0,
-  "local_ahead_commits": 6,
+  "local_ahead_commits": 7,
   "changed_files": 0,
-  "direct_tree_changed_files": 15,
-  "local_changed_files": 15,
+  "direct_tree_changed_files": 12,
+  "local_changed_files": 12,
   "prize_relevant_areas": {
     "lasagna": {
       "changed_files": 0,

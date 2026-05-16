@@ -2,10 +2,10 @@
   "source": "ScrollPrize/villa local checkout",
   "summary": {
     "total_components": 9,
-    "covered": 5,
+    "covered": 6,
     "partial": 3,
     "blocked_missing_required_hook": 0,
-    "unwired": 1,
+    "unwired": 0,
     "missing_official_component": 0
   },
   "components": [
@@ -230,22 +230,22 @@
       "official_path": "villa/foundation",
       "prize_use": "Dataset management and fiber-label assets.",
       "local_hooks": [
-        "generate_fiber_labels.py"
+        "scripts/generate_fiber_labels.py"
       ],
       "next_action": "Use fiber assets to expand supervision for hard geometry candidates.",
       "priority": "medium",
       "official_present": true,
       "local_hook_status": [
         {
-          "path": "generate_fiber_labels.py",
-          "present": false
+          "path": "scripts/generate_fiber_labels.py",
+          "present": true
         }
       ],
       "required_hooks": [],
       "missing_required_hooks": [],
-      "present_local_hooks": 0,
+      "present_local_hooks": 1,
       "total_local_hooks": 1,
-      "coverage_status": "unwired"
+      "coverage_status": "covered"
     },
     {
       "name": "thaumato-anakalyptor",
