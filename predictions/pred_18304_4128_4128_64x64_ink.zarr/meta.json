@@ -1,0 +1,18 @@
+{
+  "height": 64,
+  "max": 255.0,
+  "min": 0.0,
+  "name": "Ink Prediction pred_18304_4128_4128_64x64",
+  "slices": 1,
+  "type": "vol",
+  "uuid": "9e049711-99fe-4ffa-949f-7b2b7bcd49e9",
+  "voxelsize": 7.91,
+  "width": 64,
+  "format": "zarr",
+  "source_uri": "local_data/PHerc0125_Divisions/div_90/0",
+  "origin_xyz": [
+    4128,
+    4128,
+    18304
+  ]
+}

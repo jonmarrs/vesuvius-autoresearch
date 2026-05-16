@@ -1,0 +1,99 @@
+{
+  "scroll_id": "Scroll 2",
+  "source_uri": "local_data/PHerc0125_Divisions/div_100/0",
+  "segmentation_id": "local_data/PHerc0125_Divisions/div_100/0",
+  "position_xyz": [
+    4128,
+    4128,
+    20224
+  ],
+  "x": 4128,
+  "y": 4128,
+  "z": 20224,
+  "width_px": 64,
+  "height_px": 64,
+  "patch_size": 64,
+  "ml_window_px": 64,
+  "voxel_size_um": 7.91,
+  "ml_window_mm": 0.50624,
+  "scale_bar_cm": true,
+  "vc3d_zarr_path": "reports/scroll23_evidence/candidate_005/predictions/pred_20224_4128_4128_64x64_ink.zarr",
+  "fiber_vc3d_zarr_path": "reports/scroll23_evidence/candidate_005/predictions/pred_20224_4128_4128_64x64_fiber.zarr",
+  "output_image_path": "reports/scroll23_evidence/candidate_005/predictions/pred_20224_4128_4128_64x64.png",
+  "model_config": {
+    "uri": null,
+    "uris": [
+      "local_data/PHercParis2Fr47/surface_volume.zarr"
+    ],
+    "val_uri": "local_data/PHercParis2Fr143/surface_volume.zarr",
+    "cache_dir": null,
+    "use_ridges": false,
+    "ridge_sigma": 2.0,
+    "batch_size": 16,
+    "patch_size": 64,
+    "num_layers": 16,
+    "lr": 0.001,
+    "weight_decay": 0.01,
+    "time_budget": 900,
+    "pinned": false,
+    "loss_ink_bce": 0.6,
+    "loss_ink_dice": 0.2,
+    "loss_fiber_bce": 0.1,
+    "loss_st": 0.1,
+    "label_smoothing": 0.0,
+    "aug_mode": "albumentations",
+    "aug_flip_p": 0.5,
+    "aug_brightness_p": 0.75,
+    "aug_affine_p": 0.75,
+    "aug_coarse_dropout_p": 0.5,
+    "aug_elastic_p": 0.0,
+    "aug_grid_p": 0.0,
+    "aug_rotate_limit": 180,
+    "aug_scale_limit": 0.15,
+    "aug_scroll_decohesion_p": 0.0,
+    "aug_scroll_squeeze_p": 0.0,
+    "aug_scroll_z_dropout_p": 0.0,
+    "aug_scroll_intensity_drift_p": 0.0,
+    "use_betti_loss": false,
+    "betti_loss_weight": 0.1,
+    "auxiliary_config": {
+      "enabled": false,
+      "task_types": [
+        "surface_normals",
+        "structure_tensor"
+      ],
+      "weights": {
+        "surface_normals": 0.05,
+        "structure_tensor": 0.05
+      }
+    },
+    "architecture": "resenc_unet",
+    "base_feat": 64,
+    "num_blocks": 16,
+    "num_heads": 8,
+    "dropout": 0.0,
+    "pseudo_label_dir": "local_data/pseudo_labels",
+    "enforce_prize_gates": true,
+    "min_prize_centerline_dice": 0.01,
+    "max_prize_skel_dist": 2.0,
+    "max_prize_cc_diff": 64.0,
+    "min_prize_topology_samples": 1
+  },
+  "ink_stats": {
+    "mean": 0.027459794655442238,
+    "std": 0.009973261505365372,
+    "max": 0.0628376230597496
+  },
+  "fiber_stats": {
+    "mean": 0.054919589310884476,
+    "std": 0.019946523010730743,
+    "max": 0.1256752461194992
+  },
+  "short_id": "PHerc0125",
+  "division": "div_100",
+  "train_mask_path": "reports/scroll23_evidence/candidate_005/train_mask.npy",
+  "predict_mask_path": "reports/scroll23_evidence/candidate_005/predict_mask.npy",
+  "source_image_is_placeholder": false,
+  "metadata_is_dry_run": false,
+  "evidence_mode": "real_prediction"
+}

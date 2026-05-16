@@ -1,0 +1,12 @@
+{
+  "status": "PASS",
+  "metadata_path": "reports/scroll23_evidence/candidate_000/predictions/pred_18176_4128_4128_64x64_meta.json",
+  "ml_window_px": 64,
+  "ml_window_mm": 0.50624,
+  "checked_zarr_paths": [
+    "reports/scroll23_evidence/candidate_000/predictions/pred_18176_4128_4128_64x64_ink.zarr",
+    "reports/scroll23_evidence/candidate_000/predictions/pred_18176_4128_4128_64x64_fiber.zarr"
+  ],
+  "failures": [],
+  "warnings": []
+}

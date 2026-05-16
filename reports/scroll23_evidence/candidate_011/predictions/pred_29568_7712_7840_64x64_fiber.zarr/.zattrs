@@ -1,0 +1,48 @@
+{
+  "multiscales": [
+    {
+      "name": "Fiber Prediction pred_29568_7712_7840_64x64",
+      "axes": [
+        {
+          "name": "z",
+          "type": "space",
+          "unit": "micrometer"
+        },
+        {
+          "name": "y",
+          "type": "space",
+          "unit": "micrometer"
+        },
+        {
+          "name": "x",
+          "type": "space",
+          "unit": "micrometer"
+        }
+      ],
+      "datasets": [
+        {
+          "path": "0",
+          "coordinateTransformations": [
+            {
+              "type": "scale",
+              "scale": [
+                7.91,
+                7.91,
+                7.91
+              ]
+            },
+            {
+              "type": "translation",
+              "translation": [
+                7840.0,
+                7712.0,
+                29568.0
+              ]
+            }
+          ]
+        }
+      ],
+      "version": "0.4"
+    }
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "height": 64,
+  "max": 255.0,
+  "min": 0.0,
+  "name": "Fiber Prediction pred_18304_4128_4128_64x64",
+  "slices": 1,
+  "type": "vol",
+  "uuid": "cf6cb5c7-168a-42b1-9837-1f486bae9685",
+  "voxelsize": 7.91,
+  "width": 64,
+  "format": "zarr",
+  "source_uri": "local_data/PHerc0125_Divisions/div_90/0",
+  "origin_xyz": [
+    4128,
+    4128,
+    18304
+  ]
+}
