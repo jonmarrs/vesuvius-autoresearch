@@ -36,16 +36,25 @@ def ensemble_predict():
     print(f"Loading volume from {args.uri}...")
 
     models = []
-    
+    # Capture voxel_size_um from the first successfully-loaded checkpoint so the
+    # PNG scale bar matches the OME-Zarr metadata. Default to 7.91 µm to match
+    # the predict.py / ExperimentConfig convention used everywhere else.
+    voxel_size_um = 7.91
+
     # Load all models
     for cp_path in args.checkpoints:
         if not os.path.exists(cp_path):
             print(f"Warning: Checkpoint {cp_path} not found, skipping...")
             continue
-            
+
         print(f"Loading checkpoint {cp_path}...")
         checkpoint = torch.load(cp_path, map_location=device, weights_only=False)
         config_dict = checkpoint.get('config', {})
+        if not models:
+            # First successful load — capture voxel_size_um for the scale bar.
+            voxel_size_um = float(
+                config_dict.get('voxel_size_um', config_dict.get('voxelsize', voxel_size_um))
+            )
         
         # Reconstruct VesuviusConfig
         patch_size = config_dict.get('patch_size', args.patch_size)
@@ -75,7 +84,15 @@ def ensemble_predict():
             model = VesuviusResNet3DDecoder(v_config).to(device)
         else:
             model = InkDetectorOptimized(v_config).to(device)
-        load_compatible_state_dict(model, checkpoint['model_state_dict'])
+        skipped = load_compatible_state_dict(model, checkpoint['model_state_dict'])
+        if len(skipped) > 8:
+            # Mirror predict.py:282 — same threshold. Refuse silently-broken
+            # ensembles where the checkpoint and the reconstructed architecture
+            # diverged in non-trivial ways.
+            raise RuntimeError(
+                f"checkpoint {cp_path}: skipped {len(skipped)} tensors during "
+                f"state-dict load (threshold > 8). Architecture mismatch likely."
+            )
         model.eval()
         models.append((model, use_ridges, num_layers, patch_size))
 
@@ -186,7 +203,10 @@ def ensemble_predict():
     axes[2].imshow(prob_ink_final, cmap='jet', alpha=0.5)
     axes[2].set_title("Ensemble Gated Ink Overlay")
 
-    pixel_size_um = 8.0
+    # Use the voxel_size_um captured from the first checkpoint's config (default
+    # 7.91 µm) — mirrors predict.py's scale-bar calibration fix (commit 40d64c2).
+    # The PNG scale bar must match the OME-Zarr metadata that ships alongside.
+    pixel_size_um = voxel_size_um
     one_cm_px = 10000 / pixel_size_um
     one_mm_px = 1000 / pixel_size_um
     
