@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-05-16T08:26:48",
+  "generated_at": "2026-05-17T09:09:19",
   "backend": "numpy",
   "threshold": 0.5,
   "depth": 64,
@@ -10,7 +10,7 @@
       "status": "OK",
       "prob_path": "reports/scroll23_evidence/candidate_000/fiber_prob.tif",
       "label_path": "reports/scroll23_evidence/candidate_000/fiber_label.tif",
-      "elapsed_s": 0.319,
+      "elapsed_s": 0.727,
       "fiber_voxel_fraction": 0.000377655029296875,
       "note": ""
     },
@@ -20,7 +20,7 @@
       "status": "OK",
       "prob_path": "reports/scroll23_evidence/candidate_001/fiber_prob.tif",
       "label_path": "reports/scroll23_evidence/candidate_001/fiber_label.tif",
-      "elapsed_s": 0.275,
+      "elapsed_s": 0.564,
       "fiber_voxel_fraction": 0.000110626220703125,
       "note": ""
     },
@@ -30,28 +30,98 @@
       "status": "OK",
       "prob_path": "reports/scroll23_evidence/candidate_002/fiber_prob.tif",
       "label_path": "reports/scroll23_evidence/candidate_002/fiber_label.tif",
-      "elapsed_s": 0.32,
+      "elapsed_s": 0.644,
       "fiber_voxel_fraction": 0.000171661376953125,
       "note": ""
     },
     {
       "candidate_index": 3,
-      "artifact_stem": "pred_18176_4000_4000_64x64",
+      "artifact_stem": "pred_20224_4000_4128_64x64",
       "status": "OK",
       "prob_path": "reports/scroll23_evidence/candidate_003/fiber_prob.tif",
       "label_path": "reports/scroll23_evidence/candidate_003/fiber_label.tif",
-      "elapsed_s": 0.285,
-      "fiber_voxel_fraction": 5.7220458984375e-05,
+      "elapsed_s": 0.526,
+      "fiber_voxel_fraction": 3.814697265625e-05,
       "note": ""
     },
     {
       "candidate_index": 4,
-      "artifact_stem": "pred_18304_4128_4128_64x64",
+      "artifact_stem": "pred_18176_4000_4000_64x64",
       "status": "OK",
       "prob_path": "reports/scroll23_evidence/candidate_004/fiber_prob.tif",
       "label_path": "reports/scroll23_evidence/candidate_004/fiber_label.tif",
-      "elapsed_s": 0.275,
+      "elapsed_s": 0.564,
+      "fiber_voxel_fraction": 5.7220458984375e-05,
+      "note": ""
+    },
+    {
+      "candidate_index": 5,
+      "artifact_stem": "pred_20224_4128_4128_64x64",
+      "status": "OK",
+      "prob_path": "reports/scroll23_evidence/candidate_005/fiber_prob.tif",
+      "label_path": "reports/scroll23_evidence/candidate_005/fiber_label.tif",
+      "elapsed_s": 0.499,
+      "fiber_voxel_fraction": 0.0001220703125,
+      "note": ""
+    },
+    {
+      "candidate_index": 6,
+      "artifact_stem": "pred_18304_4128_4128_64x64",
+      "status": "OK",
+      "prob_path": "reports/scroll23_evidence/candidate_006/fiber_prob.tif",
+      "label_path": "reports/scroll23_evidence/candidate_006/fiber_label.tif",
+      "elapsed_s": 0.591,
       "fiber_voxel_fraction": 5.340576171875e-05,
+      "note": ""
+    },
+    {
+      "candidate_index": 7,
+      "artifact_stem": "pred_20224_4128_4000_64x64",
+      "status": "OK",
+      "prob_path": "reports/scroll23_evidence/candidate_007/fiber_prob.tif",
+      "label_path": "reports/scroll23_evidence/candidate_007/fiber_label.tif",
+      "elapsed_s": 0.632,
+      "fiber_voxel_fraction": 0.00019073486328125,
+      "note": ""
+    },
+    {
+      "candidate_index": 8,
+      "artifact_stem": "pred_20224_4000_4000_64x64",
+      "status": "OK",
+      "prob_path": "reports/scroll23_evidence/candidate_008/fiber_prob.tif",
+      "label_path": "reports/scroll23_evidence/candidate_008/fiber_label.tif",
+      "elapsed_s": 0.508,
+      "fiber_voxel_fraction": 7.62939453125e-06,
+      "note": ""
+    },
+    {
+      "candidate_index": 9,
+      "artifact_stem": "pred_20096_4128_4128_64x64",
+      "status": "OK",
+      "prob_path": "reports/scroll23_evidence/candidate_009/fiber_prob.tif",
+      "label_path": "reports/scroll23_evidence/candidate_009/fiber_label.tif",
+      "elapsed_s": 0.53,
+      "fiber_voxel_fraction": 0.0,
+      "note": ""
+    },
+    {
+      "candidate_index": 10,
+      "artifact_stem": "pred_29568_7712_7712_64x64",
+      "status": "OK",
+      "prob_path": "reports/scroll23_evidence/candidate_010/fiber_prob.tif",
+      "label_path": "reports/scroll23_evidence/candidate_010/fiber_label.tif",
+      "elapsed_s": 0.593,
+      "fiber_voxel_fraction": 0.0,
+      "note": ""
+    },
+    {
+      "candidate_index": 11,
+      "artifact_stem": "pred_29568_7712_7840_64x64",
+      "status": "OK",
+      "prob_path": "reports/scroll23_evidence/candidate_011/fiber_prob.tif",
+      "label_path": "reports/scroll23_evidence/candidate_011/fiber_label.tif",
+      "elapsed_s": 0.933,
+      "fiber_voxel_fraction": 7.62939453125e-06,
       "note": ""
     }
   ]
