@@ -402,8 +402,13 @@ def predict():
     axes[2].imshow(prob_ink_final, cmap='jet', alpha=0.5)
     axes[2].set_title("Gated Ink Overlay (Soft-Tiled)")
 
-    # Add Scale Bar
-    pixel_size_um = 8.0
+    # Add Scale Bar — uses args.voxel_size_um (same source as the OME-Zarr
+    # metadata + per-axis scale) to avoid the previous ~1.1% scale-bar
+    # miscalibration (was hardcoded to 8.0 µm despite the rest of the file
+    # using 7.91 µm). Reviewers eyeball the PNG scale bar when judging prize
+    # submissions; the bar's label needs to match the voxel-size declared in
+    # the OME-Zarr metadata that ships alongside the PNG.
+    pixel_size_um = args.voxel_size_um
     one_cm_px = 10000 / pixel_size_um
     one_mm_px = 1000 / pixel_size_um
     
