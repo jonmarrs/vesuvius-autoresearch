@@ -65,7 +65,17 @@ tweak_templates = [
     {"family": "scroll_augmentations", "attr": "aug_scroll_z_dropout_p", "vals": [0.0, 0.1, 0.25]},
     {"family": "scroll_augmentations", "attr": "aug_scroll_intensity_drift_p", "vals": [0.0, 0.1, 0.25]},
     {"family": "foundation", "attr": "foundation_model_path", "vals": [None, "checkpoints/lejepa_foundation_v1/lejepa_foundation_v1_final.pth"]},
-    {"family": "iterative", "attr": "pseudo_label_dir", "vals": [None, "local_data/pseudo_labels"]},
+    # Removed 2026-05-17 after audit confirmed this axis has been a no-op since the
+    # loop's inception: train.py:742 expects {segment_name}_pseudo.png in the
+    # pseudo_label_dir, but no such file has ever existed on disk (the actual
+    # files in local_data/pseudo_labels/ are 36 pred_*.png prediction outputs
+    # whose names don't match the contract). Both vals (None and
+    # "local_data/pseudo_labels") therefore produce bit-identical training that
+    # falls back to manual inklabels_filled.png; cycles sampled to this family
+    # always REVERTED. Re-add this entry after running
+    # scripts/generate_pseudo_labels.py to produce real {segment_name}_pseudo.png
+    # files matching the train.py contract.
+    # {"family": "iterative", "attr": "pseudo_label_dir", "vals": [None, "local_data/pseudo_labels"]},
     {"family": "uamt", "attr": "use_uamt", "vals": [True, False]},
     {"family": "uamt", "attr": "consistency_weight", "vals": [0.05, 0.1, 0.2]},
     {"family": "uamt", "attr": "ema_decay", "vals": [0.99, 0.999, 0.9999]},
