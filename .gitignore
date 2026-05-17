@@ -54,3 +54,9 @@ autoresearch.out
 # Discord drafts (kept local-only; not for the public repo)
 docs/DISCORD_*.md
 DISCORD_*.md
+
+# Community-signal logs may include third-party handles + message text
+# from Discord / GitHub; keep local-only to avoid re-publishing others'
+# content without consent.
+reports/community_signal_*.md
+community_signal_*.md
