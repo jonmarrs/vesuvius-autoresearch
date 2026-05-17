@@ -1,83 +1,83 @@
 # Bounty Hunter Journal
 
-Log of completed optimization projects and kernels for submission.
+**Status:** Personal research log of bounty / prize-competition projects I've explored. Status varies per project; numbers in WIP entries are working claims from local branches and most are not independently audited. Treat the entries below as a personal index of where I've spent time, not a portfolio of shipped wins.
+
+**Where there is verifiable public work:** Vesuvius Challenge (Project 002) has shipped artifacts in [`jonmarrs/vesuvius-autoresearch`](https://github.com/jonmarrs/vesuvius-autoresearch) plus the upstream PR stack against [`ScrollPrize/villa`](https://github.com/ScrollPrize/villa). Other projects' branches are local-only unless explicitly linked.
 
 ## Project 001: SGLang MoE Kernel Optimization
-- **Bounty**: SGLang SOAR 2026 / FlashInfer AI Kernel Generation
-- **Target**: `fused_moe` Triton Kernel
-- **Branch**: `Bounty_Hunter_2026-03-20_001_SGLang_MoE_Optimization`
-- **Result**: **58.09 TFLOPS** (97.4% improvement)
-- **Status**: **EXTREME TORTURE TESTED** (Numerical stability, bit-perfect determinism, stride handling, and non-power-of-2 tiling verified).
+- **Bounty:** SGLang SOAR 2026 / FlashInfer AI Kernel Generation
+- **Target:** `fused_moe` Triton kernel
+- **Branch:** `Bounty_Hunter_2026-03-20_001_SGLang_MoE_Optimization`
+- **Working claim:** ~58 TFLOPS on the fused kernel in local benchmarks; not independently audited.
 
-## Project 002: Vesuvius Ink Detection Optimization
-- **Bounty**: Vesuvius Challenge 2026 ($1M Grand Prize / $200k Kaggle)
-- **Target**: 3D Ink Detection in Scroll CT Scans
-- **Branch**: `Bounty_Hunter_2026-03-21_002_Vesuvius_Autoresearch`
-- **Result**: **31.77M voxels/sec** | **0.0054 val_bpb** (5.97M param model)
-- **Isolation**: **5,767x interlayer isolation** (Zero ghosting)
-- **Status**: **EXTREME TORTURE TESTED** (Robustness to layer corruption, scale invariance, geometric deformation, extreme SNR, non-linear deformation, and cross-scroll generalization verified).
+## Project 002: Vesuvius Ink Detection
+- **Bounty:** Vesuvius Challenge 2026 ($1M Grand Prize / $200K Kaggle Surface Detection tier, awarded March 2026; monthly Progress Prizes ongoing)
+- **Target:** 3D ink detection on Herculaneum scroll CT scans (Scroll 1–3 First Letters / First Title)
+- **Branch:** `Bounty_Hunter_2026-03-21_002_Vesuvius_Autoresearch`
+- **Public repo:** https://github.com/jonmarrs/vesuvius-autoresearch (MIT)
+- **Shipped artifacts:**
+  - May 2026 Progress Prize filings ([Part 1](PROGRESS_PRIZE_SUBMISSION_2026-05_part1.md) + [Part 2](PROGRESS_PRIZE_SUBMISSION_2026-05.md))
+  - June 2026 Progress Prize draft ([doc](PROGRESS_PRIZE_SUBMISSION_2026-06.md)) anchored on upstream villa PRs [#915](https://github.com/ScrollPrize/villa/pull/915), [#916](https://github.com/ScrollPrize/villa/pull/916), [#922](https://github.com/ScrollPrize/villa/pull/922), [#923](https://github.com/ScrollPrize/villa/pull/923)
+  - vesuvius-c Python wrapper measuring ~31.77M voxels/sec on local Blosc2 chunk reads
+- **Current honest `val_bpb`:** 0.4145 on PHerc Paris 2 Fr 143 (in-distribution validation under the post-`c9f578f` ink-aware sampler; cross-scroll transfer is the active research target, not a measured result — see [methodology note](PROGRESS_PRIZE_SUBMISSION_2026-05_part1.md))
 
-## Project 003: ARC-AGI Reasoning Optimization
-- **Bounty**: ARC-AGI Grand Prize ($1M+)
-- **Branch**: `Bounty_Hunter_2026-03-20_003_ARC-AGI_Challenge`
-- **Result**: **0.98 Accuracy** on resolution generalization.
-- **Status**: **EXTREME TORTURE TESTED** (Recursive rule application, few-shot learning, recursion depth, and adversarial grid distortion verified).
+## Project 003: ARC-AGI Reasoning
+- **Bounty:** ARC-AGI Grand Prize ($1M+)
+- **Branch:** `Bounty_Hunter_2026-03-20_003_ARC-AGI_Challenge`
+- **Status:** Local exploratory branch; no submission to the public leaderboard.
 
-## Project 004: AIMO Mathematical Reasoning Optimization
-- **Bounty**: AIMO Progress Prize 3 ($1,589,248)
-- **Branch**: `Bounty_Hunter_2026-03-20_004_AIMO_Challenge`
-- **Result**: **Zero loss** on math traps; long-chain stability.
-- **Status**: **EXTREME TORTURE TESTED** (Contradiction detection, LaTeX robustness, adversarial math traps, and long-chain reasoning verified).
+## Project 004: AIMO Mathematical Reasoning
+- **Bounty:** AIMO Progress Prize 3
+- **Branch:** `Bounty_Hunter_2026-03-20_004_AIMO_Challenge`
+- **Status:** Local exploratory branch.
 
-## Project 005: Blackwell FP4 Kernel Optimization
-- **Bounty**: FlagOS Global Challenge / OpenBMB ($250,000)
-- **Branch**: `Bounty_Hunter_2026-03-20_005_Blackwell_FP4_Optimization`
-- **Result**: **75.52 TFLOPS** (4090).
-- **Status**: **EXTREME TORTURE TESTED** (NaN/Inf propagation, concurrent kernel stress, stride aliasing, precision limits, and concurrency overload verified).
+## Project 005: Blackwell FP4 Kernel
+- **Bounty:** FlagOS Global Challenge / OpenBMB ($250K)
+- **Branch:** `Bounty_Hunter_2026-03-20_005_Blackwell_FP4_Optimization`
+- **Status:** Local kernel-development branch (note: Blackwell hardware not in this workstation; testing simulates the FP4 path on Ada).
 
-## Project 006: Web3 Security Optimization
-- **Bounty**: Sherlock / Immunefi ($16M)
-- **Target**: Smart Contract Vulnerability Detection
-- **Branch**: `Bounty_Hunter_2026-03-21_006_Web3_Security`
-- **Status**: **EXTREME TORTURE TESTED** (Reentrancy, Overflow, Multi-step Exploits, and EVM Edge Cases verified).
+## Project 006: Web3 Security
+- **Bounty:** Sherlock / Immunefi ($16M aggregate)
+- **Target:** Smart-contract vulnerability detection
+- **Branch:** `Bounty_Hunter_2026-03-21_006_Web3_Security`
+- **Status:** Local exploratory branch.
 
-## Project 007: XPRIZE Healthspan Optimization
-- **Bounty**: XPRIZE Healthspan ($1M Grants)
-- **Target**: Longevity Biomarker Modeling
-- **Branch**: `Bounty_Hunter_2026-03-21_007_XPRIZE_Healthspan`
-- **Status**: **EXTREME TORTURE TESTED** (Aging Clock MAE, cross-species generalization, and signal-to-noise ratio verified).
+## Project 007: XPRIZE Healthspan
+- **Bounty:** XPRIZE Healthspan ($1M)
+- **Target:** Longevity biomarker modeling
+- **Branch:** `Bounty_Hunter_2026-03-21_007_XPRIZE_Healthspan`
+- **Status:** Local exploratory branch.
 
-## Project 008: Clay Millennium Prize Optimization
-- **Bounty**: Clay Mathematics Institute ($1M per problem)
-- **Target**: Formal Proof Generation (P vs NP, etc.)
-- **Branch**: `Bounty_Hunter_2026-03-21_008_Clay_Millennium_Prizes`
-- **Status**: **EXTREME TORTURE TESTED** (Formal tactic chains, recursion depth, and adversarial grid distortion verified).
+## Project 008: Clay Millennium Prize
+- **Bounty:** Clay Mathematics Institute ($1M per problem)
+- **Target:** Formal proof generation
+- **Branch:** `Bounty_Hunter_2026-03-21_008_Clay_Millennium_Prizes`
+- **Status:** Local exploratory branch — no submission; "P vs NP" framing is exploratory, not a serious claim.
 
-## Project 009: Intrinsic AI Challenge Optimization
-- **Bounty**: Intrinsic AI Challenge ($180k)
-- **Target**: Robotics Sim-to-Real RL
-- **Branch**: `Bounty_Hunter_2026-03-21_009_Intrinsic_AI`
-- **Status**: **EXTREME TORTURE TESTED** (Robotic success rate, sim-to-real generalization, and collision avoidance verified).
+## Project 009: Intrinsic AI Challenge
+- **Bounty:** Intrinsic AI Challenge ($180K)
+- **Target:** Robotics sim-to-real RL
+- **Branch:** `Bounty_Hunter_2026-03-21_009_Intrinsic_AI`
+- **Status:** Local exploratory branch.
 
-## Project 010: AgentX-AgentBeats Optimization
-- **Bounty**: AgentX-AgentBeats ($150k+)
-- **Target**: Research Agent Efficiency
-- **Branch**: `Bounty_Hunter_2026-03-21_010_AgentX-AgentBeats`
-- **Status**: **EXTREME TORTURE TESTED** (Reasoning depth, adversarial prompt injection, and resource exhaustion protection verified).
+## Project 010: AgentX-AgentBeats
+- **Bounty:** AgentX-AgentBeats ($150K+)
+- **Target:** Research-agent efficiency
+- **Branch:** `Bounty_Hunter_2026-03-21_010_AgentX-AgentBeats`
+- **Status:** Local exploratory branch.
 
-## Project 011: Anthropic Safety Bounty Optimization
-- **Bounty**: Anthropic Safety Bounty ($15k per finding)
-- **Target**: Universal Jailbreak Discovery
-- **Branch**: `Bounty_Hunter_2026-03-21_011_Anthropic_Safety_Bounty`
-- **Status**: **EXTREME TORTURE TESTED** (Jailbreak signal strength, prompt injection, and training data poisoning identified and mitigated).
+## Project 011: Anthropic Safety Bounty
+- **Bounty:** Anthropic Safety Bounty ($15K per finding)
+- **Target:** Jailbreak / safety-eval research
+- **Branch:** `Bounty_Hunter_2026-03-21_011_Anthropic_Safety_Bounty`
+- **Status:** Local exploratory branch.
 
-## Project 012: Kaggle ML Mania 2026 Optimization
-- **Bounty**: Kaggle ML Mania 2026 ($50k)
-- **Target**: Tournament Outcome Prediction
-- **Branch**: `Bounty_Hunter_2026-03-21_012_Kaggle_ML_Mania`
-- **Status**: **EXTREME TORTURE TESTED** (Bracket LogLoss, historical data generalization, and predictive accuracy under noise verified).
+## Project 012: Kaggle ML Mania 2026
+- **Bounty:** Kaggle ML Mania 2026 ($50K)
+- **Target:** Tournament outcome prediction
+- **Branch:** `Bounty_Hunter_2026-03-21_012_Kaggle_ML_Mania`
+- **Status:** Local exploratory branch.
 
 ---
-**Summary of Bounty Portfolio**
-Total Potential Value: **$31,524,248+**
-Verification Level: **EXTREME TORTURE TESTED** (All known edge cases and production stress scenarios verified).
+
+**Note on the portfolio:** these 12 entries are tracking notes for projects I've started or wanted to take a swing at, not 12 wins. The Vesuvius work (Project 002) is the one with active public artifacts. The "Total Potential Value" framing that was in earlier versions of this doc was unhelpful — bounty pool size doesn't reflect either work done or expected return.
