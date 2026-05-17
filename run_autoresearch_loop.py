@@ -69,12 +69,18 @@ tweak_templates = [
     {"family": "uamt", "attr": "use_uamt", "vals": [True, False]},
     {"family": "uamt", "attr": "consistency_weight", "vals": [0.05, 0.1, 0.2]},
     {"family": "uamt", "attr": "ema_decay", "vals": [0.99, 0.999, 0.9999]},
-    # Auxiliary multi-task heads (surface_normals + structure_tensor with default weights).
-    # Added after the 2026-05-16 Day Shift showed 14 cycles all REVERTED at val_bpb 0.4145
-    # — the bandit's search space was missing this axis (enabled=False across every cycle).
+    # Auxiliary multi-task heads (surface_normals + structure_tensor).
+    # History:
+    #   - Added 2026-05-16 with default 0.05 weights after Day Shift showed
+    #     14 cycles all REVERTED at val_bpb 0.4145 (search-space gap).
+    #   - 2026-05-17 cycle 1 diagnostic at 0.05 weights also REVERTED at the
+    #     identical val_bpb; suggests 0.05 too low to influence ink learning.
+    #   - 0.2 variant added so the bandit can probabilistically test the 4x
+    #     higher weighting (sentinel-pinned for guaranteed first test).
     {"family": "auxiliary", "attr": "auxiliary_config", "vals": [
         AuxiliaryConfig(enabled=False),
         AuxiliaryConfig(enabled=True),
+        AuxiliaryConfig(enabled=True, weights={"surface_normals": 0.2, "structure_tensor": 0.2}),
     ]},
 ]
 
@@ -85,14 +91,24 @@ CURRENT_LOG_PTR = ".current_day_shift_log"
 TEMP_CONFIG = "config_temp.json"
 
 # One-shot diagnostic: pin cycle 1 of the next shift to
-# auxiliary_config.enabled=True. The bandit's success-weighted sampling
-# (with baseline=18, features=3.7, loss_balance=3.3, uamt=2.0, others 1.0)
-# gives a newly-added family ~2.4% sample probability per cycle, so the
-# auxiliary axis added on 2026-05-16 went un-sampled for 9 consecutive
-# cycles. This sentinel file is touched after the first auxiliary pin,
-# so the diagnostic runs once and then steps out of the way for the
-# bandit. Delete the file to re-run the diagnostic.
+# auxiliary_config.enabled=True (with the dataclass-default 0.05 weights).
+# The bandit's success-weighted sampling (with baseline=18, features=3.7,
+# loss_balance=3.3, uamt=2.0, others 1.0) gives a newly-added family
+# ~2.4% sample probability per cycle, so the auxiliary axis added on
+# 2026-05-16 went un-sampled for 11+ consecutive cycles. The sentinel
+# file is touched after the first auxiliary pin, so the diagnostic runs
+# once and then steps out of the way for the bandit. Delete the file
+# to re-run the diagnostic.
 AUX_DIAG_DONE_FILE = ".auxiliary_diagnostic_done"
+
+# Follow-up one-shot diagnostic (added 2026-05-17): cycle 1 of 2026-05-17
+# 07:35 Day Shift pinned auxiliary=True with default 0.05 weights and
+# REVERTED at the same val_bpb 0.41451274514198305 as every prior cycle.
+# That suggests 0.05 is too low for the aux losses to meaningfully
+# influence ink learning. This pin tests 0.2 weights (4x higher) on the
+# next shift's cycle 1 to disambiguate "aux tasks don't help" from
+# "aux weights were too low to matter".
+AUX_DIAG_0P2_DONE_FILE = ".auxiliary_diagnostic_0p2_done"
 
 
 def load_history():
@@ -255,6 +271,15 @@ def main():
         # AUX_DIAG_DONE_FILE sentinel — after this cycle runs once, the
         # bandit takes over normally.
         is_aux_diag_cycle = (i == 1) and not os.path.exists(AUX_DIAG_DONE_FILE)
+        # Follow-up diagnostic at 4x weights (0.2 vs default 0.05) — runs
+        # on cycle 1 of the *next* shift after the 0.05 diagnostic completed.
+        # Gated to not collide with the 0.05 pin: only fires when the 0.05
+        # sentinel already exists.
+        is_aux_diag_0p2_cycle = (
+            (i == 1)
+            and os.path.exists(AUX_DIAG_DONE_FILE)
+            and not os.path.exists(AUX_DIAG_0P2_DONE_FILE)
+        )
 
         if is_pinned_cycle:
             print(f"Cycle {i}: Injecting FIXED GP-WINNER BASELINE for calibration...")
@@ -279,7 +304,7 @@ def main():
             tweak_name = "gp_winner_baseline"
             family = "baseline"
         elif is_aux_diag_cycle:
-            print(f"Cycle {i}: PINNING auxiliary_config.enabled=True (one-shot architecture diagnostic)...")
+            print(f"Cycle {i}: PINNING auxiliary_config.enabled=True (one-shot architecture diagnostic, 0.05 weights)...")
             config.pinned = False
             config.time_budget = default_budget
             config.auxiliary_config = AuxiliaryConfig(enabled=True)
@@ -291,6 +316,21 @@ def main():
                     _f.write(f"Pinned auxiliary diagnostic on {time.strftime('%Y-%m-%d %H:%M:%S')}\n")
             except Exception as e:
                 print(f"Warning: Could not write {AUX_DIAG_DONE_FILE}: {e}")
+        elif is_aux_diag_0p2_cycle:
+            print(f"Cycle {i}: PINNING auxiliary_config with 0.2 weights (one-shot follow-up diagnostic)...")
+            config.pinned = False
+            config.time_budget = default_budget
+            config.auxiliary_config = AuxiliaryConfig(
+                enabled=True,
+                weights={"surface_normals": 0.2, "structure_tensor": 0.2},
+            )
+            tweak_name = "auxiliary_pinned_weights_0p2"
+            family = "auxiliary"
+            try:
+                with open(AUX_DIAG_0P2_DONE_FILE, "w") as _f:
+                    _f.write(f"Pinned auxiliary 0.2-weight diagnostic on {time.strftime('%Y-%m-%d %H:%M:%S')}\n")
+            except Exception as e:
+                print(f"Warning: Could not write {AUX_DIAG_0P2_DONE_FILE}: {e}")
         else:
             # Success-Biased Decay: Every cycle, all families decay slightly.
             # This ensures that even successful families eventually lose their dominance
