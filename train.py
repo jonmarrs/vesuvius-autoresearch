@@ -125,6 +125,24 @@ class ExperimentConfig:
                 self.uris = [self.uri]
             else:
                 self.uris = ['local_data/PHercParis2Fr47/surface_volume.zarr']
+        # Data-leakage guard: filter val_uri out of unlabeled_uris. UA-MT
+        # consistency loss on val patches is a contract violation — the
+        # model gets to optimize predictions on val distribution before
+        # val_bpb is measured. The default unlabeled_uris in this dataclass
+        # historically included val_uri (`PHercParis2Fr143/surface_volume.zarr`),
+        # which would leak whenever the bandit sampled use_uamt=True. This
+        # check silently filters the overlap and prints a one-line notice;
+        # it does not modify the on-disk config. See audit notes 2026-05-17.
+        if self.val_uri and self.unlabeled_uris:
+            cleaned = [u for u in self.unlabeled_uris if u != self.val_uri]
+            if len(cleaned) != len(self.unlabeled_uris):
+                print(
+                    f"Warning: filtering val_uri ({self.val_uri!r}) out of "
+                    f"unlabeled_uris to prevent UA-MT data leakage. "
+                    f"Was {self.unlabeled_uris}; now {cleaned}.",
+                    flush=True,
+                )
+                self.unlabeled_uris = cleaned
     def save(self, path):
         with open(path, 'w') as f:
             json.dump(asdict(self), f, indent=4)
