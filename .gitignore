@@ -35,6 +35,9 @@ test_cache*/
 last_model.pt
 best_model.pt.corrupted
 results.tsv.corrupted
+
+# One-shot architecture-diagnostic sentinels (local-only).
+.auxiliary_diagnostic_done
 smoke_test_config.json
 hard_smoke_test_config.json
 reports/nnunetv2_baseline_*/

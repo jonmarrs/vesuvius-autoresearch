@@ -84,6 +84,16 @@ RECENT_CONFIGS_FILE = "recent_configs.json"
 CURRENT_LOG_PTR = ".current_day_shift_log"
 TEMP_CONFIG = "config_temp.json"
 
+# One-shot diagnostic: pin cycle 1 of the next shift to
+# auxiliary_config.enabled=True. The bandit's success-weighted sampling
+# (with baseline=18, features=3.7, loss_balance=3.3, uamt=2.0, others 1.0)
+# gives a newly-added family ~2.4% sample probability per cycle, so the
+# auxiliary axis added on 2026-05-16 went un-sampled for 9 consecutive
+# cycles. This sentinel file is touched after the first auxiliary pin,
+# so the diagnostic runs once and then steps out of the way for the
+# bandit. Delete the file to re-run the diagnostic.
+AUX_DIAG_DONE_FILE = ".auxiliary_diagnostic_done"
+
 
 def load_history():
     counts = defaultdict(lambda: 1)
@@ -239,6 +249,13 @@ def main():
 
         # Sprint 022: Fixed GP-Winner Baseline Injection
         is_pinned_cycle = (i % 10 == 0)
+
+        # Architecture diagnostic (2026-05-17): one-shot pin of the auxiliary
+        # axis on the first cycle of the next shift. Self-cleaning via the
+        # AUX_DIAG_DONE_FILE sentinel — after this cycle runs once, the
+        # bandit takes over normally.
+        is_aux_diag_cycle = (i == 1) and not os.path.exists(AUX_DIAG_DONE_FILE)
+
         if is_pinned_cycle:
             print(f"Cycle {i}: Injecting FIXED GP-WINNER BASELINE for calibration...")
             # Maintain current URIs but force other parameters
@@ -261,6 +278,19 @@ def main():
             )
             tweak_name = "gp_winner_baseline"
             family = "baseline"
+        elif is_aux_diag_cycle:
+            print(f"Cycle {i}: PINNING auxiliary_config.enabled=True (one-shot architecture diagnostic)...")
+            config.pinned = False
+            config.time_budget = default_budget
+            config.auxiliary_config = AuxiliaryConfig(enabled=True)
+            tweak_name = "auxiliary_pinned_enabled_True"
+            family = "auxiliary"
+            # Touch the sentinel so this branch only runs once across shifts.
+            try:
+                with open(AUX_DIAG_DONE_FILE, "w") as _f:
+                    _f.write(f"Pinned auxiliary diagnostic on {time.strftime('%Y-%m-%d %H:%M:%S')}\n")
+            except Exception as e:
+                print(f"Warning: Could not write {AUX_DIAG_DONE_FILE}: {e}")
         else:
             # Success-Biased Decay: Every cycle, all families decay slightly.
             # This ensures that even successful families eventually lose their dominance
