@@ -28,7 +28,7 @@ The `run_autoresearch_loop.py` framework provides an autonomous "Bounty Hunter" 
 - **Architecture Search**: Automatically mutates and evaluates UNet/ResEnc architectures (Gated UNet, multi-task heads).
 - **Official Metric Integration**: Uses the `villa` metric suite (`centerline_dice`, `skeleton_distance_length`) as the primary optimization target, ensuring models are rewarded for topological continuity, not just pixel accuracy.
 - **Hallucination Mitigation**: Enforces the official `< 64x64 px` window size rule and uses "Voter Swarm" ensembles to eliminate artifact-based hallucinations.
-- **Result**: Achieved a `val_bpb` of **0.0054** with high topological consistency on the Fragment 1 -> Fragment 2 transfer task.
+- **Result**: Achieved a `val_bpb` of **0.0054** with high topological consistency on the Fragment 1 -> Fragment 2 transfer task. *(Methodology note added 2026-05-16: this number was measured before commit `c9f578f` on 2026-05-03 fixed a zero-Dice validation wall in the evaluation pipeline; under the corrected ink-aware validation, the same loop converges to `val_bpb ≈ 0.4145`. See [PROGRESS_PRIZE_SUBMISSION_2026-05_part1.md](PROGRESS_PRIZE_SUBMISSION_2026-05_part1.md) for the full methodology-shift annotation. Topological-consistency claims are unaffected.)*
 
 ### Integration with Villa
 We have explicitly integrated and verified the following components from the `villa` repository:
