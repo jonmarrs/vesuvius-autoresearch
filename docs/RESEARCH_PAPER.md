@@ -1,30 +1,27 @@
 # Autonomous Architectural Evolution for 3D Ink Detection in Carbonized Herculaneum Scrolls
 
-**Authors:** Vesuvius Autoresearch Swarm, Lead Researcher: Jon Marrs
+**Author:** Jon Marrs
 
-**Target Publication:** IEEE Computing Edge / IEEE Letters on Machine Learning
+**Status:** Draft / in-progress research notes — not a submitted paper. Numbers and claims here track the current state of the [`vesuvius-autoresearch`](https://github.com/jonmarrs/vesuvius-autoresearch) loop and are updated as cycles complete; treat as a living document until a version is explicitly submitted somewhere.
 
 ## Abstract
-Detecting ink within micro-CT scans of carbonized papyrus scrolls remains a significant challenge due to low signal-to-noise ratios, morphological variability across scrolls, and the risk of model hallucination. This paper presents an autonomous research framework that utilizes a high-throughput mutation-based search to evolve 3D model architectures for ink detection. We specifically emphasize hardware-aware optimization for high-end consumer GPUs (NVIDIA RTX 4090), demonstrating that "edge-scale" workstation compute can achieve frontier-level results through rapid autonomous iteration. By prioritizing cross-scroll generalization and strictly adhering to spatial window constraints, we demonstrate a robust methodology for discovering legible text in previously unseen scrolls. Our results highlight the efficacy of Temporal Attention Hybrids and specialized denoising backbones in isolating ink signals from volumetric X-ray data.
+Detecting ink within micro-CT scans of carbonized papyrus scrolls remains a significant challenge due to low signal-to-noise ratios, morphological variability across scrolls, and the risk of model hallucination. These notes describe an autonomous research loop that uses a Thompson-sampling bandit over architectural and hyperparameter tweaks to evolve 3D ink-detection models on a single workstation GPU (NVIDIA RTX 4090). The loop runs in two cadence modes — a 15-minute Day Shift and a 60-minute Night Shift — and gates promotions on a fixed `val_bpb` baseline measured against an ink-aware validation sampler (commit `c9f578f`). The current best `val_bpb` on the in-distribution PHerc Paris 2 Fragment 143 surface volume is **0.4145**; cross-scroll generalization to Scroll 2 / Scroll 3 is unproven and is the active research target rather than a claimed result.
 
 ## I. Introduction
-The Vesuvius Challenge seeks to read the lost library of Herculaneum through advanced imaging and machine learning. While significant progress has been made on unrolled fragments, the "Generalization Gap"—the failure of a model trained on one scroll to detect ink on another—remains the primary bottleneck for the $1M Grand Prize. 
+The Vesuvius Challenge seeks to read the lost library of Herculaneum through advanced imaging and machine learning. While significant progress has been made on unrolled fragments, the "Generalization Gap" — the failure of a model trained on one scroll to detect ink on another — remains the primary bottleneck for the $1M Grand Prize.
 
-Current manual architectural tuning is slow and prone to human bias. We propose an autonomous "agent-swarm" approach, running high-frequency (5-minute) experimental cycles to evolve architectures that maximize the Dice score on independent validation scrolls.
+Manual architectural tuning is slow. The autoresearch loop attempts to compress that loop by running 15-minute (Day Shift) or 60-minute (Night Shift) experimental cycles autonomously, mutating a small number of axes (learning rate, capacity, augmentation knobs, loss balance, auxiliary tasks, etc.) per cycle and promoting only configurations that improve `val_bpb` over the held checkpoint.
 
 ## II. Methodology
 
-### A. Model Architecture: 3D Temporal Attention Hybrid
-Our baseline model utilizes an anisotropic 3D convolutional backbone designed to prioritize fiber-aligned features. This is coupled with a Multi-head Temporal Attention mechanism that operates across the Z-axis (depth), allowing the model to isolate signal from individual papyrus wraps while suppressing interlayer ghosting.
+### A. Model Architecture
+The bandit's `architecture` family samples from `{lejepa_unet, resenc_unet, timesformer, resnet3d_decoder}`. The current best checkpoint is `lejepa_unet` initialized from a LeJEPA self-supervised pretraining stage (`checkpoints/lejepa_foundation_v1/`). The `timesformer` option provides Multi-head Temporal Attention across the Z-axis; the others are convolutional UNet variants. None of these claims to be a novel architecture — the contribution is the autonomous search over an existing zoo, not a new model.
 
 ### B. Autonomous Evolution Framework
-We implement a "Night Shift" research loop that autonomously mutates hyperparameters and architectural components, including:
-*   Normalization strategies (GroupNorm vs. InstanceNorm).
-*   Attention head depth and dropout rates.
-*   Kernel anisotropy and receptive field size.
+The loop's tweak axes (currently 19 families): learning rate, weight decay, capacity (`num_blocks`), attention head count, dropout, lasagna preprocessing toggle, batch size, patch size, temporal depth (`num_layers`), width (`base_feat`), per-task loss weights (ink/dice/fiber/structure-tensor), ridge/Frangi feature toggle and sigma, augmentation mode (Albumentations vs batchgeneratorsv2), architecture, four scroll-specific augmentation probabilities (decohesion/squeeze/z-dropout/intensity-drift), foundation-model path, pseudo-label directory, UA-MT toggle and EMA / consistency hyperparameters, and as of 2026-05-16 the auxiliary multi-task heads toggle. A Thompson-sampling-style bandit weights families by recent success (`autoresearch_history.json`).
 
-### C. Data Strategy: The Gold Standard Library
-To mitigate hallucination, we train exclusively on unrolled "Gold Standard" labeled fragments (Fragments 1-6) and the Scroll 1 "Monster" segment. Validation is performed on entirely unseen cross-scroll datasets (Scroll 5 / Scroll 4) to ensure genuine signal detection.
+### C. Data Strategy
+Training pool is currently `local_data/PHercParis2Fr47/surface_volume.zarr` (PHerc Paris 2 Fragment 47), with an additional unlabeled set for Mean-Teacher / consistency regularization (`PHercParis2Fr143`, `PHercParis2Fr47`). Validation runs on `local_data/PHercParis2Fr143/surface_volume.zarr` — a held-out fragment from the same scroll. This is *fragment-level* validation; it is not cross-scroll, and we do not currently claim a measured Scroll 2 / Scroll 3 transfer number. Cross-scroll generalization is the active research target rather than a result. The CT-derived pseudo-label generators in [ScrollPrize/villa#922](https://github.com/ScrollPrize/villa/pull/922) (fiber) and [#923](https://github.com/ScrollPrize/villa/pull/923) (3D ink) are part of the infrastructure intended to support that target.
 
 ### D. Resource Constraints and Citizen Science Accessibility
 In the spirit of citizen science and decentralized science (DeSci), our framework is designed to be accessible to researchers with standard high-end consumer hardware and typical internet connectivity. We strictly limit resource consumption to ensure that the methodology remains tolerable for individual contributors:
@@ -32,22 +29,26 @@ In the spirit of citizen science and decentralized science (DeSci), our framewor
 *   **Local Storage:** We cap local data storage at **500 GB** at any given time, prioritizing high-value labeled segments over full scroll volumes.
 
 ## III. Experimental Setup
-Experiments are performed on an NVIDIA RTX 4090 (24GB VRAM), a high-end consumer GPU representative of the compute power available to the broader research community. We strictly enforce a 0.5x0.5mm (64x64 pixel) prediction window to prevent memorization and comply with Vesuvius Challenge technical requirements. Furthermore, our autonomous loop is optimized to run during off-peak hours ("Night Shift"), minimizing interference with daily workstation utility.
+Experiments run on an NVIDIA RTX 4090 (24 GB VRAM). We enforce a 0.5 × 0.5 mm (64 × 64 voxel at 7.91 µm spacing) prediction window per the Vesuvius Challenge hallucination guidance for ink detection. The loop runs continuously during Day Shift (07:00–19:00 local, 900 s/cycle) and Night Shift (otherwise, 3600 s/cycle).
 
-## IV. Results
-*(This section is updated daily by the autonomous research swarm as new breakthroughs are achieved.)*
+## IV. Current Results
 
-### A. Performance Trajectory
-Current state-of-the-art results from our autonomous swarm show a throughput of **31.77M voxels/sec** and an interlayer isolation factor of **5,767x**.
+### A. `val_bpb` baseline
+Under the post-`c9f578f` ink-aware validation (the prior evaluation contained a documented zero-Dice validation wall — see annotation in [`PROGRESS_PRIZE_SUBMISSION_2026-05_part1.md`](PROGRESS_PRIZE_SUBMISSION_2026-05.md)), the loop converges to `val_bpb ≈ 0.4145` on the PHerc Paris 2 Fragment 143 validation volume. This is the model's honest in-distribution performance; it is **not** a cross-scroll claim. The bandit has been at this plateau since 2026-05-05.
 
-### B. Cross-Scroll Generalization
-Recent "Night Shift" sprints have focused on the transition from Fragment 1 training to Fragment 2 validation. 
+### B. Throughput / data path
+The vesuvius-c Python bindings ([`vesuvius_c_wrapper/`](https://github.com/jonmarrs/vesuvius-autoresearch/tree/main/vesuvius_c_wrapper) in this repo; upstreamed in [ScrollPrize/villa#916](https://github.com/ScrollPrize/villa/pull/916)) measure ~31.77 M voxels/sec for zero-copy Blosc2 chunk reads on local storage. CuPy acceleration of the fiber-detection preprocessing ([ScrollPrize/villa#915](https://github.com/ScrollPrize/villa/pull/915)) measures `nms_3d` 430× at 256³, `hessian` 226×, `detect_ridges` 82× vs the NumPy baseline.
+
+### C. What's open
+- Whether enabling the auxiliary multi-task heads (surface_normals + structure_tensor, added to the bandit's search space on 2026-05-16) breaks the `val_bpb` plateau.
+- Whether the CT-derived fiber and 3D ink pseudo-labels from villa PRs #922 / #923 produce useful expanded supervision when mixed into training.
+- Whether a true cross-scroll evaluation target (Scroll 2 / Scroll 3 surfaces, where there are no manual labels) can be set up via the CT-derived pseudo-labels as a downstream evaluator.
 
 ## V. Discussion
-The discovery of [Key Winning Mutation] suggests that [Insight about papyrus morphology]. Our autonomous search has identified that [Normalization/Attention/Kernel] changes are critical for handling the specific noise floors of different scan environments.
+The current plateau looks structural rather than search-failure-shaped: 14 Day Shift cycles on 2026-05-16 explored loss balance, capacity, learning rate, regularization, augmentation, and lasagna preprocessing, all reverted at the same `val_bpb`. The bandit's `auxiliary_config.enabled` axis was the missing search dimension, which is now in rotation. If that also fails to move the metric, the next-level levers are validation-target redesign and supervised-data expansion, not more hyperparameter search.
 
 ## VI. Conclusion
-By automating the research trajectory, we have established a methodology that rapidly converges on high-performance models for ink detection. Our ongoing work focuses on the inner-most wraps of Scrolls 1-3 to locate colophons and titles.
+Notes-to-self status. The infrastructure (bandit loop, evidence chain, pseudo-label generators, villa PR stack) is in place. The remaining work is research, not engineering.
 
 ## References
 [1] Seales, B., et al. "Reading the Scrolls of Herculaneum," EduceLab, 2023.
