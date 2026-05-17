@@ -12,6 +12,7 @@ import fcntl
 from collections import defaultdict
 from dataclasses import asdict
 from train import ExperimentConfig
+from scripts.auxiliary_manager import AuxiliaryConfig
 
 LOCK_FILE = "autoresearch.lock"
 def check_lock():
@@ -70,7 +71,14 @@ tweak_templates = [
     {"family": "iterative", "attr": "pseudo_label_dir", "vals": [None, "local_data/pseudo_labels"]},
     {"family": "uamt", "attr": "use_uamt", "vals": [True, False]},
     {"family": "uamt", "attr": "consistency_weight", "vals": [0.05, 0.1, 0.2]},
-    {"family": "uamt", "attr": "ema_decay", "vals": [0.99, 0.999, 0.9999]}
+    {"family": "uamt", "attr": "ema_decay", "vals": [0.99, 0.999, 0.9999]},
+    # Auxiliary multi-task heads (surface_normals + structure_tensor with default weights).
+    # Added after the 2026-05-16 Day Shift showed 14 cycles all REVERTED at val_bpb 0.4145
+    # — the bandit's search space was missing this axis (enabled=False across every cycle).
+    {"family": "auxiliary", "attr": "auxiliary_config", "vals": [
+        AuxiliaryConfig(enabled=False),
+        AuxiliaryConfig(enabled=True),
+    ]},
 ]
 
 HISTORY_FILE = "autoresearch_history.json"
