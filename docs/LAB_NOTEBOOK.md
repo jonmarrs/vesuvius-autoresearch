@@ -1,6 +1,12 @@
 # Vesuvius Autoresearch: Lab Notebook
 
-This notebook serves as a high-level record of major research milestones, Night Shift experiment results, and key architectural insights discovered by the autonomous agent swarm.
+Chronological log of shift-level intent, configurations, and outcomes from the autoresearch loop. Entries are written at the start of a Day Shift / Night Shift sprint and describe the *planned* exploration; many were not later updated with results because the cycle-level data already lives in `sprint_logs/` (one file per shift, with every cycle's full config dump and `val_bpb` result).
+
+## How to read this notebook
+
+- **Cycle-level data lives elsewhere.** This file is intent-level; for the actual per-cycle history, `results.tsv`, `autoresearch_history.json`, and `sprint_logs/sprint_log_YYYY-MM-DD_*_{day,night}_shift.md` are the authoritative records.
+- **`val_bpb` regime shift on 2026-05-03.** Entries dated *before* 2026-05-03 reference `val_bpb` numbers from the pre-`c9f578f` evaluation pipeline, which had a documented zero-Dice validation wall (sparse validation regions producing artificially low loss values). After commit `c9f578f` introduced ink-aware sampling + Dynamic Threshold Search, the same loop on `PHercParis2Fr143` settles at `val_bpb ≈ 0.4145`. Pre- and post-2026-05-03 numbers are not directly comparable. See [`PROGRESS_PRIZE_SUBMISSION_2026-05_part1.md`](PROGRESS_PRIZE_SUBMISSION_2026-05_part1.md) for the methodology annotation.
+- **Internal version names** (`v2.1.0`, `v2.4.0 Vesuvius-DINO`, `v2.5.0 Frontier-R`, etc.) and phrasing like "Frontier Architecture" / "Grand Prize Gap" are stylistic artifacts of how the doc was written at the time and don't correspond to formal release tags. Treat as labels-of-convenience for the entry, not engineering version numbers.
 
 ---
 
@@ -25,7 +31,7 @@ Transition from synthetic targets to genuine manual ink labels. The primary obje
 3.  **Capacity vs. Overfit:** Finding the threshold where increasing attention heads starts hurting cross-fragment generalization.
 
 ### Outcomes & Insights
-*(To be populated on 2026-03-26 08:00 AM)*
+*(Not retrospectively filled in — see `sprint_logs/` for this shift's cycle-level results.)*
 
 ---
 
@@ -104,7 +110,7 @@ Evaluate the impact of **3D Ridge Detection (Frangi Filters)** as a primary feat
 *   **Target:** Breakthrough `val_bpb` (below 0.262).
 
 ### Outcomes & Insights
-*(To be populated as cycles complete)*
+*(Not retrospectively filled in — see `sprint_logs/` for this shift's cycle-level results.)*
 
 ---
 
@@ -174,7 +180,7 @@ Kick off the Day Shift Experiment Sprint after identifying and fixing critical b
 *   **Goal:** Establish a new, stable baseline and resume autonomous exploration of architectures and hyperparameters.
 
 ### Outcomes & Insights
-*(To be populated as cycles complete)*
+*(Not retrospectively filled in — see `sprint_logs/` for this shift's cycle-level results.)*
 
 ---
 
@@ -194,7 +200,7 @@ Transition back to rapid 15-minute Day Shift cycles. Now that the LeJEPA foundat
 *   [ ] Evolve parameters while maintaining `foundation_model_path`.
 
 ### Outcomes & Insights
-*(To be populated)*
+*(Not retrospectively filled in — see `sprint_logs/` for this shift's cycle-level results.)*
 
 ---
 
@@ -214,7 +220,7 @@ Transition from unsupervised pretraining to supervised fine-tuning. This shift f
 *   [ ] Increase training budget to 3600s.
 
 ### Outcomes & Insights
-*(To be populated)*
+*(Not retrospectively filled in — see `sprint_logs/` for this shift's cycle-level results.)*
 
 ---
 
@@ -252,7 +258,7 @@ Transition back to Day Shift rapid (15m) iteration cycles to explore hyperparame
 *   [ ] Focus on hyperparameter pruning based on Night Shift findings.
 
 ### Outcomes & Insights
-*(To be populated)*
+*(Not retrospectively filled in — see `sprint_logs/` for this shift's cycle-level results.)*
 
 ---
 
@@ -273,7 +279,7 @@ Transition from Day Shift rapid (15m) iteration to Night Shift sustained (1h) tr
 *   [ ] Keep ink-aware sampling and threshold search enabled.
 
 ### Outcomes & Insights
-*(To be populated)*
+*(Not retrospectively filled in — see `sprint_logs/` for this shift's cycle-level results.)*
 
 ---
 
@@ -296,7 +302,7 @@ Investigate and resolve the "Zero-Dice" validation wall encountered during the r
 *   [ ] Gate Relaxation: Temporarily disable `enforce_prize_gates` to see if `val_bpb` improves monotonically even without meeting prize-readiness criteria.
 
 ### Outcomes & Insights
-*(To be populated)*
+*(Not retrospectively filled in — see `sprint_logs/` for this shift's cycle-level results.)*
 
 ---
 
