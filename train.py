@@ -1095,10 +1095,11 @@ def train(config: ExperimentConfig):
                 uamt_loss = config.consistency_weight * torch.mean(uncertainty_weight * mse_loss)
             
             # Supervised Losses
-            loss_ink = F.binary_cross_entropy_with_logits(out_ink_2d, target_ink_aug1, pos_weight=None, reduction='mean')
             if config.label_smoothing > 0:
                 smoothed_target = target_ink_aug1 * (1.0 - config.label_smoothing) + 0.5 * config.label_smoothing
                 loss_ink = F.binary_cross_entropy_with_logits(out_ink_2d, smoothed_target)
+            else:
+                loss_ink = F.binary_cross_entropy_with_logits(out_ink_2d, target_ink_aug1, pos_weight=None, reduction='mean')
                 
             loss_dice = compute_dice_loss(out_ink_2d, target_ink_aug1)
             
