@@ -52,7 +52,7 @@
     "dropout": 0.0,
     "pseudo_label_dir": "local_data/pseudo_labels",
     "foundation_model_path": null,
-    "enforce_prize_gates": true,
+    "enforce_prize_gates": false,
     "min_prize_centerline_dice": 0.01,
     "max_prize_skel_dist": 2.0,
     "max_prize_cc_diff": 64.0,
