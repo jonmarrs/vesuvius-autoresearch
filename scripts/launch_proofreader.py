@@ -50,8 +50,12 @@ def main():
     config_path = "proofreader_config.json"
     generate_config(args.volume, args.predictions, config_path)
     
+    # Use sys.executable rather than bare "python3" so we inherit the
+    # active venv (uv run sets sys.executable to .venv/bin/python). Bare
+    # python3 resolves to the system interpreter which lacks napari and
+    # the rest of the project's deps.
     cmd = [
-        "python3", villa_proofreader_path,
+        sys.executable, villa_proofreader_path,
         "--config", config_path
     ]
     
