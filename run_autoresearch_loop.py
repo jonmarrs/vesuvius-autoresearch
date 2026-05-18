@@ -283,6 +283,7 @@ def main():
             # Frontier-V: Config-Space Entropy Protection
             # Avoid testing the exact same thing twice in a row if it failed recently
             max_retries = 10
+            applied = False
             for _ in range(max_retries):
                 template = random.choices(tweak_templates, weights=weights, k=1)[0]
                 val = random.choice(template["vals"])
@@ -305,9 +306,22 @@ def main():
                     config = test_config
                     recent_configs.append(cfg_dict)
                     save_recent_configs(recent_configs)
+                    applied = True
                     break
                 else:
                     print(f"Cycle {i}: Sampled duplicate config ({attr}={val}). Re-sampling for entropy...")
+
+            # Exhaustion fallback: if max_retries ran out without finding a
+            # non-duplicate config, accept the LAST sampled config rather than
+            # silently fall through (which would run the baseline config but
+            # log it as having had the last rejected tweak — pollutes
+            # success_counts attribution). Reset recent_configs to clear the
+            # saturation so the next cycle has a fresh search space.
+            if not applied:
+                print(f"Cycle {i}: {max_retries} retries exhausted; accepting last sampled config ({attr}={val}) and resetting recent_configs.")
+                config = test_config
+                recent_configs = [cfg_dict]
+                save_recent_configs(recent_configs)
 
             tweak_name = f"{attr}_{val}"
 
