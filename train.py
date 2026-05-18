@@ -40,7 +40,17 @@ import pandas as pd
 from torch.utils.data import DataLoader
 from torch.amp import GradScaler, autocast
 from scripts.betti_loss_module import BettiLoss
-from scripts.auxiliary_manager import AuxiliaryConfig
+# AuxiliaryConfig was previously imported from scripts/auxiliary_manager.py.
+# That module held an AuxiliaryManager class which was removed when the broken
+# aux-loss path was deleted (commit fa22130). The dataclass is kept inline here
+# (with its legacy fields) so existing serialized configs in best_model.pt and
+# recent_configs.json continue to deserialize. task_types/weights are now
+# unused but harmless.
+@dataclass
+class AuxiliaryConfig:
+    enabled: bool = False
+    task_types: list = field(default_factory=lambda: ["surface_normals", "structure_tensor"])
+    weights: dict = field(default_factory=lambda: {"surface_normals": 0.05, "structure_tensor": 0.05})
 
 try:
     sys.path.append(os.path.join(os.path.dirname(__file__), "villa/vesuvius/src"))
