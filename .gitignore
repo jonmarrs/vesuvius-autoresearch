@@ -64,3 +64,9 @@ DISCORD_*.md
 # content without consent.
 reports/community_signal_*.md
 community_signal_*.md
+
+# Skeleton-distance metric writes histogram PNGs to cwd every validation
+# cycle (one per sample plus an aggregate). They get overwritten on each
+# run and were polluting commits. Local-only diagnostic output.
+skeleton_branch_length_hist_sample_*.png
+aggregate_skeleton_branch_length_hist.png
