@@ -886,10 +886,16 @@ def train(config: ExperimentConfig):
             checkpoint = torch.load(best_model_path, map_location=device, weights_only=False)
             best_config = checkpoint.get('config', {})
             
-            # Check compatibility (architecture-defining attributes)
+            # Check compatibility (architecture-defining attributes).
+            # NOTE: do NOT include `in_channels` here — it is not a field of
+            # ExperimentConfig (it is derived at model build time as
+            # `2 if use_ridges else 1`). Listing it caused getattr to raise
+            # AttributeError, which the outer except swallowed as
+            # "Could not load best model" — silently training every cycle
+            # from random init since 2026-05-06 (commit d3da171).
             arch_match = True
             mismatch_attr = None
-            for attr in ['architecture', 'in_channels', 'num_layers', 'num_blocks', 'num_heads', 'base_feat', 'patch_size']:
+            for attr in ['architecture', 'use_ridges', 'num_layers', 'num_blocks', 'num_heads', 'base_feat', 'patch_size']:
                 if best_config.get(attr) != getattr(config, attr):
                     arch_match = False
                     mismatch_attr = attr
