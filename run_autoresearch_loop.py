@@ -58,12 +58,18 @@ tweak_templates = [
     {"family": "features", "attr": "use_ridges", "vals": [True, False]},
     {"family": "features", "attr": "ridge_sigma", "vals": [1.0, 2.0, 3.0]},
     {"family": "features", "attr": "aug_mode", "vals": ["albumentations", "batchgeneratorsv2"]},
-    {"family": "architecture", "attr": "architecture", "vals": ["lejepa_unet", "resenc_unet", "timesformer", "resnet3d_decoder"]},
+    # Architecture family restricted to candidates with real (non-dummy) ST/QC
+    # heads. Audit on 2026-05-17 found that lejepa_unet has been a topology
+    # regression since the 2026-05-06 flip: skel_dist 27 px vs the May-5
+    # resenc_unet's 1 px (prize gate: <= 2 px). lejepa_unet, timesformer, and
+    # resnet3d_decoder all return torch.zeros(...) for the structure-tensor
+    # head, which explains the regression. Only resenc_unet (ResEnc UNet) and
+    # gated_unet (InkDetectorOptimized) have real ST heads.
+    {"family": "architecture", "attr": "architecture", "vals": ["resenc_unet", "gated_unet"]},
     {"family": "scroll_augmentations", "attr": "aug_scroll_decohesion_p", "vals": [0.0, 0.1, 0.25]},
     {"family": "scroll_augmentations", "attr": "aug_scroll_squeeze_p", "vals": [0.0, 0.1, 0.25]},
     {"family": "scroll_augmentations", "attr": "aug_scroll_z_dropout_p", "vals": [0.0, 0.1, 0.25]},
     {"family": "scroll_augmentations", "attr": "aug_scroll_intensity_drift_p", "vals": [0.0, 0.1, 0.25]},
-    {"family": "foundation", "attr": "foundation_model_path", "vals": [None, "checkpoints/lejepa_foundation_v1/lejepa_foundation_v1_final.pth"]},
     # Removed 2026-05-17 after audit confirmed this axis has been a no-op since the
     # loop's inception: train.py:742 expects {segment_name}_pseudo.png in the
     # pseudo_label_dir, but no such file has ever existed on disk (the actual
