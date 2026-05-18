@@ -40,7 +40,7 @@ import pandas as pd
 from torch.utils.data import DataLoader
 from torch.amp import GradScaler, autocast
 from scripts.betti_loss_module import BettiLoss
-from scripts.auxiliary_manager import AuxiliaryConfig, AuxiliaryManager
+from scripts.auxiliary_manager import AuxiliaryConfig
 
 try:
     sys.path.append(os.path.join(os.path.dirname(__file__), "villa/vesuvius/src"))
@@ -857,8 +857,7 @@ def train(config: ExperimentConfig):
         print("Instantiating Gated UNet-Transformer Architecture...")
         model = InkDetectorOptimized(v_config).to(device)
     betti_loss = BettiLoss(weight=config.betti_loss_weight) if config.use_betti_loss else None
-    aux_manager = AuxiliaryManager(config.auxiliary_config)
-    
+
     # Load from foundation model if provided
     if config.foundation_model_path and os.path.exists(config.foundation_model_path):
         try:
@@ -1126,28 +1125,6 @@ def train(config: ExperimentConfig):
                           config.loss_st * loss_st_val +
                           0.05 * consistency_loss +
                           uamt_loss)
-            
-            # Additional Auxiliary Tasks (Track 4)
-            outputs_dict = {"ink_2d": out_ink_2d}
-            targets_dict = {"ink_2d": target_ink_aug1}
-            
-            # Map model outputs/targets based on available returned heads
-            if isinstance(model_out, tuple):
-                # Standard Autoresearch model head contract:
-                # 0: ink, 1: fiber, 2: qc, 3: proj, 4: st
-                if len(model_out) > 1: outputs_dict["aux_fiber"] = model_out[1]
-                if len(model_out) > 2: outputs_dict["aux_qc"] = model_out[2]
-                if len(model_out) > 4: outputs_dict["aux_surface_normals"] = model_out[4]
-                if len(model_out) > 4: outputs_dict["aux_structure_tensor"] = model_out[4]
-            
-            # Setup targets for aux manager
-            targets_dict["aux_fiber"] = target_fiber_aug1
-            targets_dict["aux_qc"] = torch.zeros((out_ink_2d.shape[0], 1), device=device)
-            targets_dict["aux_surface_normals"] = torch.zeros_like(outputs_dict.get("aux_surface_normals", torch.tensor(0.0)))
-            targets_dict["aux_structure_tensor"] = torch.zeros_like(outputs_dict.get("aux_structure_tensor", torch.tensor(0.0)))
-            
-            aux_loss = aux_manager.compute_losses(outputs_dict, targets_dict)
-            total_loss += aux_loss
 
         if not torch.isfinite(total_loss) or total_loss.item() > 1e6:
             print(f"\n[WARNING] Numerical Instability at Step {step}: Loss {total_loss.item():.2e}")
