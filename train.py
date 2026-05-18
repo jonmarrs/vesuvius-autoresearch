@@ -343,19 +343,22 @@ class GenericMultiTaskWrapper(nn.Module):
             ink_2d = out
         
         results = [ink_2d]
+        # TODO(multi-task-heads): fiber/qc/st outputs below are dummies (re-use
+        # of ink output or zeros). With dummy outputs, the corresponding
+        # losses (loss_fiber, 0.1*loss_qc, loss_st*loss_st_val) become
+        # zero-gradient constants — they inflate reported total_loss without
+        # contributing supervision. resenc_unet's good topology (May-5
+        # skel_dist=1.0) came from ink BCE+Dice alone, so the dummies are
+        # not actively harmful, but real heads would unlock multi-task gains.
         if return_fiber:
-            # Fake fiber head using mean pooling for compatibility
             results.append(out if out.dim() == 5 else out.unsqueeze(2))
         if return_qc:
-            # Fake QC head
             results.append(torch.zeros((x.shape[0], 1), device=x.device))
         if return_proj:
-            # Use a projector for DINO consistency
-            # Ensure out is 5D for AdaptiveAvgPool3d
+            # Real projector (used for DINO-Lite consistency loss).
             proj_in = out if out.dim() == 5 else out.unsqueeze(2).unsqueeze(-1).unsqueeze(-1)
             results.append(self.projector(proj_in))
         if return_st:
-            # Fake ST head
             results.append(torch.zeros((x.shape[0], 6, *x.shape[2:]), device=x.device))
             
         if len(results) == 1:
