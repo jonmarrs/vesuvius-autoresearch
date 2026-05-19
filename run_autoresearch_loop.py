@@ -56,7 +56,13 @@ tweak_templates = [
     {"family": "loss_balance", "attr": "loss_fiber_bce", "vals": [0.1, 0.2, 0.3]},
     {"family": "loss_balance", "attr": "loss_st", "vals": [0.0, 0.1, 0.2]},
     {"family": "features", "attr": "use_ridges", "vals": [True, False]},
-    {"family": "features", "attr": "ridge_sigma", "vals": [1.0, 2.0, 3.0]},
+    # ridge_sigma is a no-op when use_ridges is False (ridges aren't computed
+    # at all); gate the axis so the bandit only samples it when the enabling
+    # flag is on. Without the gate, bandit-state analysis showed pure-noise
+    # samples landing on this axis (2026-05-18 cycle 31 was the best val_bpb
+    # of the day but ridge_sigma had no effect).
+    {"family": "features", "attr": "ridge_sigma", "vals": [1.0, 2.0, 3.0],
+     "applies_when": lambda c: getattr(c, "use_ridges", False)},
     {"family": "features", "attr": "aug_mode", "vals": ["albumentations", "batchgeneratorsv2"]},
     # Architecture family restricted to candidates with real (non-dummy) ST/QC
     # heads. Audit on 2026-05-17 found that lejepa_unet has been a topology
@@ -82,8 +88,15 @@ tweak_templates = [
     # files matching the train.py contract.
     # {"family": "iterative", "attr": "pseudo_label_dir", "vals": [None, "local_data/pseudo_labels"]},
     {"family": "uamt", "attr": "use_uamt", "vals": [True, False]},
-    {"family": "uamt", "attr": "consistency_weight", "vals": [0.05, 0.1, 0.2]},
-    {"family": "uamt", "attr": "ema_decay", "vals": [0.99, 0.999, 0.9999]},
+    # consistency_weight and ema_decay are both no-ops when use_uamt is False
+    # (the UA-MT block at train.py is gated by `if config.use_uamt and ...`).
+    # Gate them so the bandit doesn't waste cycles sampling them when UA-MT
+    # is disabled. The bandit can still turn UA-MT on via the use_uamt
+    # template above, which would re-enable these axes in the next cycle.
+    {"family": "uamt", "attr": "consistency_weight", "vals": [0.05, 0.1, 0.2],
+     "applies_when": lambda c: bool(getattr(c, "use_uamt", False))},
+    {"family": "uamt", "attr": "ema_decay", "vals": [0.99, 0.999, 0.9999],
+     "applies_when": lambda c: bool(getattr(c, "use_uamt", False))},
 ]
 
 HISTORY_FILE = "autoresearch_history.json"
@@ -271,10 +284,23 @@ def main():
             tweak_name = "gp_winner_baseline"
             family = "baseline"
         else:
-            # Success-Biased Decay: Every cycle, all families decay slightly.
+            # Conditional-axis gating: drop templates whose `applies_when`
+            # predicate is False under the current baseline config (e.g.
+            # ridge_sigma when use_ridges=False). Avoids spending cycles on
+            # axes that produce identical results to the baseline.
+            baseline_for_gate = ExperimentConfig.load(CONFIG_FILE) if os.path.exists(CONFIG_FILE) else ExperimentConfig()
+            active_templates = [
+                t for t in tweak_templates
+                if t.get("applies_when", lambda _c: True)(baseline_for_gate)
+            ]
+            if not active_templates:
+                # Defensive: should never happen (architecture/lr/etc are unconditional).
+                active_templates = tweak_templates
+
+            # Success-Biased Decay: Every cycle, all (active) families decay slightly.
             # This ensures that even successful families eventually lose their dominance
             # if they stop producing improvements, forcing exploration of other families.
-            families = [t["family"] for t in tweak_templates]
+            families = [t["family"] for t in active_templates]
             for f in set(families):
                 success_counts[f] = max(1.0, success_counts[f] * 0.95)
 
@@ -285,7 +311,7 @@ def main():
             max_retries = 10
             applied = False
             for _ in range(max_retries):
-                template = random.choices(tweak_templates, weights=weights, k=1)[0]
+                template = random.choices(active_templates, weights=weights, k=1)[0]
                 val = random.choice(template["vals"])
                 family = template["family"]
                 attr = template["attr"]
