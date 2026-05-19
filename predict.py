@@ -330,6 +330,14 @@ def predict():
     # For now, we fetch the middle slice of the entire requested area.
     z_mid = args.z + num_layers // 2
     ct_full = dataset[z_mid : z_mid + 1, args.y : args.y + predict_height, args.x : args.x + predict_width]
+    # FastVesuviusVolume returns (D, H, W) for use_ridges=False or
+    # (C, D, H, W) for use_ridges=True. The visualization wants a 2D
+    # (H, W) CT slice. Drop the channel dim if present (taking the CT
+    # channel at index 0), then drop the singleton z dim.
+    if hasattr(ct_full, "dim") and ct_full.dim() == 4:
+        ct_full = ct_full[0]
+    elif hasattr(ct_full, "ndim") and ct_full.ndim == 4:
+        ct_full = ct_full[0]
     ct_slice = np.array(ct_full[0], dtype=np.float32)
 
     fig, axes = plt.subplots(1, 3, figsize=(15, 5))

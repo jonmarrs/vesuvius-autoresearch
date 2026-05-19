@@ -189,8 +189,17 @@ def ensemble_predict():
     zarr_path = f"predictions/{base_name}_ink.zarr"
     save_vc3d_zarr(zarr_path, ink_uint8, name=f"Ensemble Ink Prediction {base_name}")
 
-    ct_full = dataset[args.z + max_layers // 2, args.y : args.y + predict_height, args.x : args.x + predict_width]
-    ct_slice = np.array(ct_full, dtype=np.float32) / 255.0
+    # FastVesuviusVolume.__getitem__ expects slices (not scalars) on every
+    # axis: it does z_slice.start/stop arithmetic. Pass z as a 1-element
+    # slice. Also drop the channel dim if use_ridges=True (returns
+    # (C, D, H, W) instead of (D, H, W)) and the singleton z dim.
+    z_mid = args.z + max_layers // 2
+    ct_full = dataset[z_mid : z_mid + 1, args.y : args.y + predict_height, args.x : args.x + predict_width]
+    if hasattr(ct_full, "dim") and ct_full.dim() == 4:
+        ct_full = ct_full[0]
+    elif hasattr(ct_full, "ndim") and ct_full.ndim == 4:
+        ct_full = ct_full[0]
+    ct_slice = np.array(ct_full[0], dtype=np.float32)
 
     fig, axes = plt.subplots(1, 3, figsize=(15, 5))
     axes[0].imshow(ct_slice, cmap='gray')
