@@ -132,19 +132,43 @@ class FastVesuviusVolume:
                 _warn_limited("ridge_thin_volume", f"Volume too thin ({depth} slices) for ridge detection; using zero ridges.")
                 ridges_tensor = torch.zeros_like(ct_tensor)
             else:
+                # Three-tier graceful degradation for ridge detection:
+                #   1) CuPy GPU path (fast)        — requires CUDA + cuSolver
+                #   2) NumPy/SciPy CPU path        — slower but no GPU deps
+                #   3) zero-ridge fallback         — last resort, was the
+                #      silent default before this fix (2026-05-19): the
+                #      original code set up CuPy but didn't flip
+                #      fiber_tools.xp from numpy, so detect_ridges' internal
+                #      numpy ops on a CuPy array triggered TypeError and
+                #      every use_ridges=True cycle silently trained on zeros.
+                ridges_tensor = None
                 try:
                     import cupy as cp
+                    import cupyx.scipy.ndimage as cup_ndimage
+                    fiber_tools.xp = cp
+                    fiber_tools.xndimage = cup_ndimage
                     ct_gpu = cp.asarray(ct_norm)
-                    # Use our newly ported CuPy function in villa
                     ridges_gpu = fiber_tools.detect_ridges(ct_gpu, sigma=self.ridge_sigma)
                     ridges = cp.asnumpy(ridges_gpu)
                     ridges_tensor = torch.from_numpy(ridges).float()
-                except Exception as exc:
+                except Exception as exc_gpu:
                     _warn_limited(
-                        "ridge_fallback",
-                        f"ridge detection failed for {self.uri}; using zero ridge channel: {type(exc).__name__}: {exc}",
+                        "ridge_gpu_fallback",
+                        f"GPU ridge detection failed for {self.uri}; trying CPU: {type(exc_gpu).__name__}: {exc_gpu}",
                     )
-                    ridges_tensor = torch.zeros_like(ct_tensor)
+                if ridges_tensor is None:
+                    try:
+                        import scipy.ndimage as scipy_ndimage
+                        fiber_tools.xp = np
+                        fiber_tools.xndimage = scipy_ndimage
+                        ridges = fiber_tools.detect_ridges(ct_norm, sigma=self.ridge_sigma)
+                        ridges_tensor = torch.from_numpy(np.asarray(ridges, dtype=np.float32))
+                    except Exception as exc_cpu:
+                        _warn_limited(
+                            "ridge_fallback",
+                            f"ridge detection failed for {self.uri} (CPU too); using zero ridges: {type(exc_cpu).__name__}: {exc_cpu}",
+                        )
+                        ridges_tensor = torch.zeros_like(ct_tensor)
             return torch.stack([ct_tensor, ridges_tensor], dim=0)
             
         return ct_tensor
