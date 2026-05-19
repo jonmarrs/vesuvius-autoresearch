@@ -229,21 +229,69 @@ class VesuviusLabeledDataset(torch.utils.data.Dataset):
         print(f"Initialized Dataset: Volume {self.shape}, Valid Patches {len(self.valid_coords)}, is_unlabeled={self.is_unlabeled}")
 
     def _apply_lasagna_flattening(self, patch_vol):
+        """Per-pixel surface flattening for papyrus CT patches.
+
+        For each (y, x) column, estimate the local Z-position of the
+        papyrus surface as a softmax-weighted argmax of intensity along
+        Z, smooth the surface, then 3D-grid_sample so every column is
+        re-centered on its local surface. This reduces inter-column Z
+        misalignment that confuses ink models trained on flat-2D labels.
+
+        Accepts [Z, H, W] (3D) or [C, Z, H, W] (4D) tensors and returns
+        the same shape. Falls back to the unmodified patch_vol if
+        use_lasagna is False, the volume is too thin (D < 3), or the
+        warp raises an exception.
+        """
         if not self.use_lasagna:
             return patch_vol
-        # TODO(lasagna): this is a constant Z-axis compression (Z * 0.1), not
-        # surface flattening. Real Lasagna needs per-pixel Z-surface
-        # estimation (e.g. softmax-weighted argmax along Z) + grid_sample
-        # warp so each (y, x) column is centered on its local surface.
-        # use_lasagna is currently disabled in config.json and not on the
-        # bandit's axis list, so this is latent.
+        if patch_vol.shape[-3] < 3:
+            return patch_vol
         try:
-            D, H, W = patch_vol.shape[-3:]
-            grid_z, grid_y, grid_x = torch.meshgrid([torch.linspace(-1, 1, D), torch.linspace(-1, 1, H), torch.linspace(-1, 1, W)], indexing='ij')
-            grid = torch.stack([grid_x, grid_y, grid_z], dim=-1).unsqueeze(0)
-            grid[..., 2] = grid[..., 2] * 0.1
-            return torch.nn.functional.grid_sample(patch_vol.unsqueeze(0), grid, mode='bilinear', padding_mode='border', align_corners=True).squeeze(0)
-        except Exception:
+            is_3d = patch_vol.dim() == 3
+            vol = patch_vol.unsqueeze(0) if is_3d else patch_vol  # [C, Z, H, W]
+            C, Z, H, W = vol.shape
+            device, dtype = vol.device, vol.dtype
+
+            # 1. Surface estimation: softmax-weighted Z index, averaged across channels.
+            intensity = vol.mean(dim=0)  # [Z, H, W]
+            z_indices = torch.arange(Z, device=device, dtype=dtype).view(Z, 1, 1)
+            weights = torch.nn.functional.softmax(intensity, dim=0)  # [Z, H, W]
+            z_surface = (weights * z_indices).sum(dim=0)  # [H, W]
+
+            # Smooth surface to suppress pixel-level noise from CT artifacts.
+            z_surface = z_surface.view(1, 1, H, W)
+            z_surface = torch.nn.functional.avg_pool2d(z_surface, kernel_size=5, stride=1, padding=2).view(H, W)
+
+            # 2. Build sampling grid in normalized [-1, 1] coords.
+            # New_z(y, x) = original_z + (z_surface(y, x) - z_center). This
+            # pulls each column's surface to the center Z.
+            z_center = (Z - 1) / 2.0
+            z_offset = (z_surface - z_center) * (2.0 / max(1, Z - 1))  # [H, W]
+            z_offset = z_offset.unsqueeze(0).expand(Z, -1, -1)  # [Z, H, W]
+
+            z_grid, y_grid, x_grid = torch.meshgrid(
+                torch.linspace(-1.0, 1.0, Z, device=device, dtype=dtype),
+                torch.linspace(-1.0, 1.0, H, device=device, dtype=dtype),
+                torch.linspace(-1.0, 1.0, W, device=device, dtype=dtype),
+                indexing="ij",
+            )
+            new_z = z_grid + z_offset
+            # grid_sample expects (x, y, z) order in the last dim.
+            grid = torch.stack([x_grid, y_grid, new_z], dim=-1).unsqueeze(0)  # [1, Z, H, W, 3]
+
+            warped = torch.nn.functional.grid_sample(
+                vol.unsqueeze(0), grid,
+                mode="bilinear", padding_mode="border", align_corners=True,
+            ).squeeze(0)  # [C, Z, H, W]
+
+            if is_3d:
+                warped = warped.squeeze(0)
+            return warped
+        except Exception as exc:
+            _warn_limited(
+                "lasagna_warp_failed",
+                f"Lasagna flattening failed for {self.volume.uri}; returning unwarped patch: {type(exc).__name__}: {exc}",
+            )
             return patch_vol
 
     def __len__(self):
