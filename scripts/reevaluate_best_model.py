@@ -29,51 +29,11 @@ from train import (
     compute_skeleton_dist,
     compute_centerline_dice,
     compute_cc_diff,
-    GenericMultiTaskWrapper,
 )
-from vesuvius_model import VesuviusConfig, InkDetectorOptimized, VesuviusTimeSformer
+from vesuvius_model import VesuviusConfig
 from vesuvius_loader import VesuviusLabeledDataset
+from model_wrappers import build_inference_model
 from torch.utils.data import DataLoader
-
-
-def build_model(arch: str, v_config: VesuviusConfig, device: torch.device) -> torch.nn.Module:
-    if arch == "timesformer":
-        return VesuviusTimeSformer(v_config).to(device)
-    if arch == "resnet3d_decoder":
-        from vesuvius_model import VesuviusResNet3DDecoder
-        return VesuviusResNet3DDecoder(v_config).to(device)
-    if arch == "lejepa_unet":
-        from vesuvius_model import LeJEPAUNet
-        return LeJEPAUNet(v_config).to(device)
-    if arch == "resenc_unet":
-        from dynamic_network_architectures.architectures.unet import ResidualEncoderUNet
-        from dynamic_network_architectures.building_blocks.helper import (
-            convert_dim_to_conv_op,
-            get_matching_instancenorm,
-        )
-        n_stages = 3
-        features_per_stage = [v_config.base_feat * (2 ** i) for i in range(n_stages)]
-        strides = [[1, 1, 1]] + [[2, 2, 2]] * (n_stages - 1)
-        backbone = ResidualEncoderUNet(
-            input_channels=v_config.in_channels,
-            n_stages=n_stages,
-            features_per_stage=features_per_stage,
-            conv_op=convert_dim_to_conv_op(3),
-            kernel_sizes=[[3, 3, 3]] * n_stages,
-            strides=strides,
-            n_blocks_per_stage=[2] * n_stages,
-            num_classes=1,
-            n_conv_per_stage_decoder=[2] * (n_stages - 1),
-            conv_bias=True,
-            norm_op=get_matching_instancenorm(convert_dim_to_conv_op(3)),
-            norm_op_kwargs={"eps": 1e-5, "affine": True},
-            dropout_op=None,
-            nonlin=torch.nn.LeakyReLU,
-            nonlin_kwargs={"inplace": True},
-            deep_supervision=False,
-        )
-        return GenericMultiTaskWrapper(backbone).to(device)
-    return InkDetectorOptimized(v_config).to(device)
 
 
 def reevaluate(update_stored: bool = False) -> None:
@@ -92,17 +52,16 @@ def reevaluate(update_stored: bool = False) -> None:
     print(f"  stored cc_diff:     {chk.get('avg_cc_diff')}")
     print()
 
-    v_config = VesuviusConfig(
+    model = build_inference_model(
+        architecture=stored_arch,
         patch_size=config.patch_size,
         num_layers=config.num_layers,
         base_feat=config.base_feat,
         num_blocks=config.num_blocks,
         num_heads=config.num_heads,
         dropout=config.dropout,
-        in_channels=2 if config.use_ridges else 1,
-        architecture=stored_arch,
-    )
-    model = build_model(stored_arch, v_config, device)
+        use_ridges=config.use_ridges,
+    ).to(device)
     skipped = load_shape_compatible_state(model, chk["model_state_dict"], "best_model.pt")
     print(f"  load_shape_compatible_state: skipped {len(skipped) if hasattr(skipped, '__len__') else 0} tensors")
 

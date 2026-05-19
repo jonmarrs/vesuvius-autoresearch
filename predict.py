@@ -40,53 +40,25 @@ def load_compatible_state_dict(model, state_dict):
     return skipped
 
 
-from model_wrappers import GenericMultiTaskWrapper
+from model_wrappers import GenericMultiTaskWrapper, build_inference_model
 
 
 def build_prediction_model(config_dict, args, use_ridges):
-    architecture = config_dict.get("architecture", "gated_unet")
-    base_feat = config_dict.get("base_feat", args.base_feat)
-    v_config = VesuviusConfig(
+    """Build a model for prediction from a checkpoint's config dict.
+
+    Thin wrapper around model_wrappers.build_inference_model that pulls
+    fallback defaults from the CLI args.
+    """
+    return build_inference_model(
+        architecture=config_dict.get("architecture", "gated_unet"),
         patch_size=config_dict.get("patch_size", args.patch_size),
         num_layers=config_dict.get("num_layers", args.num_layers),
-        base_feat=base_feat,
+        base_feat=config_dict.get("base_feat", args.base_feat),
         num_blocks=config_dict.get("num_blocks", 16),
         num_heads=config_dict.get("num_heads", 8),
         dropout=config_dict.get("dropout", 0.0),
-        in_channels=2 if use_ridges else 1,
+        use_ridges=use_ridges,
     )
-    if architecture == "resenc_unet":
-        if ResidualEncoderUNet is None:
-            raise ImportError("ResidualEncoderUNet is required for resenc_unet checkpoints")
-        n_stages = 3
-        features_per_stage = [base_feat * (2**i) for i in range(n_stages)]
-        strides = [[1, 1, 1]] + [[2, 2, 2]] * (n_stages - 1)
-        backbone = ResidualEncoderUNet(
-            input_channels=v_config.in_channels,
-            n_stages=n_stages,
-            features_per_stage=features_per_stage,
-            conv_op=convert_dim_to_conv_op(3),
-            kernel_sizes=[[3, 3, 3]] * n_stages,
-            strides=strides,
-            n_blocks_per_stage=[2] * n_stages,
-            num_classes=1,
-            n_conv_per_stage_decoder=[2] * (n_stages - 1),
-            conv_bias=True,
-            norm_op=get_matching_instancenorm(convert_dim_to_conv_op(3)),
-            norm_op_kwargs={"eps": 1e-5, "affine": True},
-            dropout_op=None,
-            nonlin=nn.LeakyReLU,
-            nonlin_kwargs={"inplace": True},
-            deep_supervision=False,
-        )
-        return GenericMultiTaskWrapper(backbone)
-    elif architecture == "timesformer":
-        from vesuvius_model import VesuviusTimeSformer
-        return VesuviusTimeSformer(v_config)
-    elif architecture == "resnet3d_decoder":
-        from vesuvius_model import VesuviusResNet3DDecoder
-        return VesuviusResNet3DDecoder(v_config)
-    return InkDetectorOptimized(v_config)
 
 def get_weight_window(patch_size, device):
     """Generates a 2D Hanning window for soft-tiling."""

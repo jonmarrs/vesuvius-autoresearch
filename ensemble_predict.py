@@ -17,6 +17,7 @@ from matplotlib.patches import Rectangle
 from vesuvius_model import InkDetectorOptimized, VesuviusTimeSformer, VesuviusConfig
 from vesuvius_loader import FastVesuviusVolume
 from predict import get_weight_window, load_compatible_state_dict, save_vc3d_zarr
+from model_wrappers import build_inference_model
 
 def ensemble_predict():
     parser = argparse.ArgumentParser()
@@ -66,24 +67,23 @@ def ensemble_predict():
         use_ridges = config_dict.get('use_ridges', False)
         architecture = config_dict.get('architecture', 'gated_unet')
         
-        v_config = VesuviusConfig(
-            patch_size=patch_size, 
-            num_layers=num_layers, 
+        # Canonical inference-side architecture dispatch. Lives in
+        # model_wrappers.build_inference_model so predict.py,
+        # ensemble_predict.py, and scripts/reevaluate_best_model.py
+        # cannot drift in which architectures they support — previously
+        # this file's else-branch silently fell back to gated_unet for
+        # resenc_unet checkpoints (the current best_model.pt), causing
+        # a guaranteed state-dict mismatch.
+        model = build_inference_model(
+            architecture=architecture,
+            patch_size=patch_size,
+            num_layers=num_layers,
             base_feat=base_feat,
             num_blocks=num_blocks,
             num_heads=num_heads,
             dropout=dropout,
-            in_channels=2 if use_ridges else 1,
-            architecture=architecture
-        )
-        
-        if architecture == "timesformer":
-            model = VesuviusTimeSformer(v_config).to(device)
-        elif architecture == "resnet3d_decoder":
-            from vesuvius_model import VesuviusResNet3DDecoder
-            model = VesuviusResNet3DDecoder(v_config).to(device)
-        else:
-            model = InkDetectorOptimized(v_config).to(device)
+            use_ridges=use_ridges,
+        ).to(device)
         skipped = load_compatible_state_dict(model, checkpoint['model_state_dict'])
         if len(skipped) > 8:
             # Mirror predict.py:282 — same threshold. Refuse silently-broken
