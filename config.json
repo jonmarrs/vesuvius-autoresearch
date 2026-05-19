@@ -5,7 +5,8 @@
     ],
     "val_uri": "local_data/PHercParis2Fr143/surface_volume.zarr",
     "cache_dir": null,
-    "use_ridges": false,
+    "use_ridges": true,
+    "use_lasagna": false,
     "ridge_sigma": 2.0,
     "batch_size": 16,
     "patch_size": 64,
@@ -56,5 +57,11 @@
     "min_prize_centerline_dice": 0.01,
     "max_prize_skel_dist": 2.0,
     "max_prize_cc_diff": 64.0,
-    "min_prize_topology_samples": 1
+    "min_prize_topology_samples": 1,
+    "use_uamt": false,
+    "ema_decay": 0.99,
+    "consistency_weight": 0.1,
+    "unlabeled_uris": [
+        "local_data/PHercParis2Fr47/surface_volume.zarr"
+    ]
 }
