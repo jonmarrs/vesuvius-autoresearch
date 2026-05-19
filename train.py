@@ -319,61 +319,7 @@ try:
 except ImportError:
     ResidualEncoderUNet = None
 
-class GenericMultiTaskWrapper(nn.Module):
-    def __init__(self, model, projector=None):
-        super().__init__()
-        self.model = model
-        # Add basic multi-task heads if needed for consistency loss or projector
-        if projector is not None:
-            self.projector = projector
-        else:
-            self.projector = nn.Sequential(
-                nn.AdaptiveAvgPool3d(1),
-                nn.Flatten(),
-                nn.Linear(1, 128) # Projecting from the pooled final logit channel
-            )
-        
-    def forward(self, x, return_fiber=False, return_qc=False, return_proj=False, return_st=False, **kwargs):
-        # x: [B, C, Z, H, W]
-        out = self.model(x)
-        
-        # If model returns a list (e.g. deep supervision), take the first one
-        if isinstance(out, (list, tuple)):
-            out = out[0]
-            
-        # Model returns full 3D segmentation [B, 1, Z, H, W] or logits [B, 1]
-        # We need to project to 2D for our ink loss
-        if out.dim() == 5:
-            ink_2d = torch.mean(out, dim=2)
-        elif out.dim() == 2:
-            # Expansion for classification backbones (ResNet3D/I3D)
-            # Expand (B, 1) -> (B, 1, H, W)
-            ink_2d = out.view(out.shape[0], out.shape[1], 1, 1).expand(-1, -1, x.shape[3], x.shape[4])
-        else:
-            ink_2d = out
-        
-        results = [ink_2d]
-        # TODO(multi-task-heads): fiber/qc/st outputs below are dummies (re-use
-        # of ink output or zeros). With dummy outputs, the corresponding
-        # losses (loss_fiber, 0.1*loss_qc, loss_st*loss_st_val) become
-        # zero-gradient constants — they inflate reported total_loss without
-        # contributing supervision. resenc_unet's good topology (May-5
-        # skel_dist=1.0) came from ink BCE+Dice alone, so the dummies are
-        # not actively harmful, but real heads would unlock multi-task gains.
-        if return_fiber:
-            results.append(out if out.dim() == 5 else out.unsqueeze(2))
-        if return_qc:
-            results.append(torch.zeros((x.shape[0], 1), device=x.device))
-        if return_proj:
-            # Real projector (used for DINO-Lite consistency loss).
-            proj_in = out if out.dim() == 5 else out.unsqueeze(2).unsqueeze(-1).unsqueeze(-1)
-            results.append(self.projector(proj_in))
-        if return_st:
-            results.append(torch.zeros((x.shape[0], 6, *x.shape[2:]), device=x.device))
-            
-        if len(results) == 1:
-            return results[0]
-        return tuple(results)
+from model_wrappers import GenericMultiTaskWrapper
 
 try:
     from vesuvius.models.augmentation.pipelines.training_transforms import create_training_transforms
@@ -988,12 +934,14 @@ def train(config: ExperimentConfig):
                     x_unlabeled_raw, _ = next(unlabeled_data_iter)
                     x_unlabeled = x_unlabeled_raw.to(device)
 
-            # 2. Anisotropic Z-Interpolation
+            # 2. Z-Compression Augmentation (20% chance): take a thinner Z
+            # window (80% of config.num_layers, min 4) and trilinearly resize
+            # back to the model's expected depth. Despite the historical
+            # "Anisotropic Z-Interpolation" comment, z_len is deterministic
+            # at max(4, int(num_layers*0.8)) — not random.
             z_start = np.random.randint(0, 8)
             if np.random.rand() > 0.8:
-                max_len = x_raw.shape[2] - z_start
-                min_len = max(4, int(config.num_layers * 0.8))
-                z_len = min_len
+                z_len = max(4, int(config.num_layers * 0.8))
                 x_orig = x_raw[:, :, z_start:z_start+z_len]
                 if z_len != config.num_layers:
                     x_orig = F.interpolate(x_orig, size=(config.num_layers, config.patch_size, config.patch_size), mode='trilinear', align_corners=False)

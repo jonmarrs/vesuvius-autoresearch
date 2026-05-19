@@ -110,7 +110,21 @@ class FastVesuviusVolume:
             z_slice.start, y_slice.start, x_slice.start,
             depth, height, width
         )
-        ct_tensor = torch.from_numpy(ct).float() / 255.0
+        # Normalize to [0, 1] based on dtype. Previously hardcoded `/ 255.0`
+        # assumed uint8; uint16 / float32 zarrs would silently miscalibrate.
+        if ct.dtype == np.uint8:
+            ct_norm = ct.astype(np.float32) / 255.0
+        elif ct.dtype == np.uint16:
+            ct_norm = ct.astype(np.float32) / 65535.0
+        elif np.issubdtype(ct.dtype, np.floating):
+            ct_norm = ct.astype(np.float32)
+        else:
+            _warn_limited(
+                "ct_unknown_dtype",
+                f"unknown CT dtype {ct.dtype} for {self.uri}; falling back to /255.0 normalization.",
+            )
+            ct_norm = ct.astype(np.float32) / 255.0
+        ct_tensor = torch.from_numpy(ct_norm)
 
         if self.use_ridges:
             # Priority A Integration: CuPy-accelerated ridges on-the-fly
@@ -120,7 +134,7 @@ class FastVesuviusVolume:
             else:
                 try:
                     import cupy as cp
-                    ct_gpu = cp.asarray(ct.astype(np.float32) / 255.0)
+                    ct_gpu = cp.asarray(ct_norm)
                     # Use our newly ported CuPy function in villa
                     ridges_gpu = fiber_tools.detect_ridges(ct_gpu, sigma=self.ridge_sigma)
                     ridges = cp.asnumpy(ridges_gpu)

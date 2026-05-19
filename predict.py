@@ -40,38 +40,7 @@ def load_compatible_state_dict(model, state_dict):
     return skipped
 
 
-class GenericMultiTaskWrapper(nn.Module):
-    def __init__(self, model):
-        super().__init__()
-        self.model = model
-        self.projector = nn.Sequential(
-            nn.AdaptiveAvgPool3d(1),
-            nn.Flatten(),
-            nn.Linear(1, 128),
-        )
-
-    def forward(self, x, return_fiber=False, return_qc=False, return_proj=False, return_st=False, **kwargs):
-        out = self.model(x)
-        if isinstance(out, (list, tuple)):
-            out = out[0]
-        if out.dim() == 5:
-            ink_2d = torch.mean(out, dim=2)
-        elif out.dim() == 2:
-            ink_2d = out.view(out.shape[0], out.shape[1], 1, 1).expand(-1, -1, x.shape[3], x.shape[4])
-        else:
-            ink_2d = out
-
-        results = [ink_2d]
-        if return_fiber:
-            results.append(out if out.dim() == 5 else out.unsqueeze(2))
-        if return_qc:
-            results.append(torch.zeros((x.shape[0], 1), device=x.device, dtype=ink_2d.dtype))
-        if return_proj:
-            proj_in = out if out.dim() == 5 else out.unsqueeze(2).unsqueeze(-1).unsqueeze(-1)
-            results.append(self.projector(proj_in))
-        if return_st:
-            results.append(torch.zeros((x.shape[0], 6, *x.shape[2:]), device=x.device, dtype=ink_2d.dtype))
-        return tuple(results) if len(results) > 1 else results[0]
+from model_wrappers import GenericMultiTaskWrapper
 
 
 def build_prediction_model(config_dict, args, use_ridges):

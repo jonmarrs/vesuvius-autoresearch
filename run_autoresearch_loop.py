@@ -470,18 +470,26 @@ def main():
         else:
             print(f"No improvement. (val_bpb: {val_bpb}, best was: {best_val_bpb:.6f})")
 
-        # Benchmark Inference Step (Every 5 cycles)
+        # Benchmark Inference Step (Every 5 cycles).
+        # Uses subprocess.run (not os.system) so a predict.py crash surfaces
+        # as a visible warning rather than silently swallowing the failure.
         if i % 5 == 0:
             print(f"Cycle {i}: Running Benchmark Inference...")
             benchmark_path = f"reports/benchmark_v210_cycle{i}.png"
-            # Using Fragment 2 (Paris2Fr143) as specified
-            benchmark_cmd = (
-                f"uv run predict.py "
-                f"--uri local_data/PHercParis2Fr143/surface_volume.zarr "
-                f"--z 10 --y 1000 --x 1000 "
-                f"--output_img {benchmark_path}"
-            )
-            os.system(benchmark_cmd)
+            benchmark_cmd = [
+                "uv", "run", "predict.py",
+                "--uri", "local_data/PHercParis2Fr143/surface_volume.zarr",
+                "--z", "10", "--y", "1000", "--x", "1000",
+                "--output_img", benchmark_path,
+            ]
+            try:
+                subprocess.run(benchmark_cmd, check=True, timeout=600)
+            except subprocess.CalledProcessError as bench_exc:
+                print(f"Cycle {i}: Benchmark inference failed (rc={bench_exc.returncode}). Continuing.")
+            except subprocess.TimeoutExpired:
+                print(f"Cycle {i}: Benchmark inference timed out (>600s). Continuing.")
+            except Exception as bench_exc:
+                print(f"Cycle {i}: Benchmark inference unexpected error: {type(bench_exc).__name__}: {bench_exc}. Continuing.")
 
         sys.stdout.flush()
         time.sleep(2)
