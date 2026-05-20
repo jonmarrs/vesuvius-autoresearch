@@ -102,6 +102,13 @@ class ExperimentConfig:
     use_betti_loss: bool = False
     betti_loss_weight: float = 0.1
     auxiliary_config: AuxiliaryConfig = field(default_factory=AuxiliaryConfig)
+    # Target for the auxiliary fiber head. "sobel_z" (default, current
+    # behavior): train.py computes Sobel-Z of CT inline on GPU. "frangi":
+    # the dataloader computes Frangi vesselness per patch (~86ms CPU,
+    # parallelized by num_workers) and passes a z-collapsed [1, 1, H, W]
+    # target. The bandit can A/B test these two via the preproc tweak axis.
+    target_fiber_source: str = "sobel_z"
+    target_fiber_sigma: float = 2.0
 
     # Model Architecture
     architecture: str = "gated_unet"
@@ -727,7 +734,14 @@ def train(config: ExperimentConfig):
 
             if os.path.exists(labels_path):
                 mask_path = os.path.join(parent_dir, 'mask.png')
-                ds = VesuviusLabeledDataset(uri, labels_path, mask_path if os.path.exists(mask_path) else None, config.patch_size, config.num_layers + 8, seed=seed, cache_dir=config.cache_dir, use_ridges=config.use_ridges, ridge_sigma=getattr(config, 'ridge_sigma', 2.0), use_lasagna=getattr(config, 'use_lasagna', False))
+                ds = VesuviusLabeledDataset(
+                    uri, labels_path, mask_path if os.path.exists(mask_path) else None,
+                    config.patch_size, config.num_layers + 8, seed=seed, cache_dir=config.cache_dir,
+                    use_ridges=config.use_ridges, ridge_sigma=getattr(config, 'ridge_sigma', 2.0),
+                    use_lasagna=getattr(config, 'use_lasagna', False),
+                    target_fiber_source=getattr(config, 'target_fiber_source', 'sobel_z'),
+                    target_fiber_sigma=getattr(config, 'target_fiber_sigma', 2.0),
+                )
             else:
                 ds = VesuviusS3Dataset(uri, config.patch_size, config.num_layers + 8, seed=seed, cache_dir=config.cache_dir, use_ridges=config.use_ridges, ridge_sigma=getattr(config, 'ridge_sigma', 2.0), use_lasagna=getattr(config, 'use_lasagna', False))
             datasets.append(ds)
@@ -752,7 +766,16 @@ def train(config: ExperimentConfig):
             
         mask_path = os.path.join(parent_dir, 'mask.png')
         # Use require_ink=True for validation to ensure meaningful Dice scores
-        ds = VesuviusLabeledDataset(uri, labels_path, mask_path if os.path.exists(mask_path) else None, config.patch_size, config.num_layers + 8, seed=42, cache_dir=config.cache_dir, use_ridges=config.use_ridges, ridge_sigma=getattr(config, 'ridge_sigma', 2.0), use_lasagna=getattr(config, 'use_lasagna', False), require_ink=True)
+        # Validation uses target_fiber_source="sobel_z" regardless of training
+        # config — val doesn't use target_fiber (only ink) and we want to avoid
+        # paying Frangi cost on every val patch.
+        ds = VesuviusLabeledDataset(
+            uri, labels_path, mask_path if os.path.exists(mask_path) else None,
+            config.patch_size, config.num_layers + 8, seed=42, cache_dir=config.cache_dir,
+            use_ridges=config.use_ridges, ridge_sigma=getattr(config, 'ridge_sigma', 2.0),
+            use_lasagna=getattr(config, 'use_lasagna', False), require_ink=True,
+            target_fiber_source="sobel_z",
+        )
         return DataLoader(ds, batch_size=config.batch_size, num_workers=0, pin_memory=True)
 
     val_data_loader = get_val_dataloader(config.val_uri)
@@ -913,9 +936,13 @@ def train(config: ExperimentConfig):
     while True:
         t0 = time.time()
         try:
-            x_raw, target_ink_raw = next(data_iter)
+            x_raw, target_ink_raw, target_fiber_from_loader = next(data_iter)
             x_raw = x_raw.to(device) # [B, 1, Z_buffered, H, W]
-            
+            # target_fiber_from_loader: [B, 1, 1, H, W] either zeros (sobel_z
+            # source, train.py computes inline below) or real Frangi
+            # vesselness (frangi source — see VesuviusLabeledDataset._compute_fiber_target).
+            target_fiber_from_loader = target_fiber_from_loader.to(device)
+
             # Ensure target_ink has 4 dims [B, 1, H, W]
             if target_ink_raw is not None and target_ink_raw.numel() > 0:
                 target_ink = target_ink_raw.to(device)
@@ -958,11 +985,21 @@ def train(config: ExperimentConfig):
         except StopIteration:
             data_iter = iter(data_loader); continue
 
-        # 3. Sobel-Z pseudo-labels (BEFORE mixup to avoid boundary artifacts)
+        # 3. Per-patch fiber pseudo-label for the fiber head's loss.
+        # source="frangi": dataloader already computed Frangi vesselness for
+        # this patch and z-collapsed it; we use it as-is and only normalize.
+        # source="sobel_z" (default): compute Sobel-Z gradient of CT inline
+        # on GPU (cheap, current behavior).
         with torch.no_grad():
-            # Use only the raw CT channel (index 0) for pseudo-labels if multi-channel
-            grad_z = x_orig[:, :1, 1:] - x_orig[:, :1, :-1]
-            target_fiber = grad_z.abs().mean(dim=2, keepdim=True)
+            if getattr(config, "target_fiber_source", "sobel_z") == "frangi":
+                # target_fiber_from_loader: [B, 1, 1, H, W] z-collapsed already
+                target_fiber = target_fiber_from_loader
+            else:
+                # Sobel-Z pseudo-label (BEFORE mixup to avoid boundary artifacts).
+                # Use only the raw CT channel (index 0) for pseudo-labels.
+                grad_z = x_orig[:, :1, 1:] - x_orig[:, :1, :-1]
+                target_fiber = grad_z.abs().mean(dim=2, keepdim=True)
+            # Per-batch min-max normalize so the BCE target sits in [0, 1].
             b_sz = target_fiber.shape[0]
             tf_flat = target_fiber.view(b_sz, -1)
             tf_min = tf_flat.min(dim=1, keepdim=True)[0].view(b_sz, 1, 1, 1, 1)
@@ -1152,7 +1189,7 @@ def train(config: ExperimentConfig):
     with torch.no_grad():
         for val_idx in range(100):
             try:
-                val_x_raw, val_target = next(val_data_iter)
+                val_x_raw, val_target, _val_fiber = next(val_data_iter)
                 val_x = val_x_raw[:, :, 4:4+config.num_layers].to(device)
                 if val_target is not None and val_target.numel() > 0:
                     val_target = val_target.to(device)

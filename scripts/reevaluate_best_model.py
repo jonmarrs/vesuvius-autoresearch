@@ -96,7 +96,7 @@ def reevaluate(update_stored: bool = False) -> None:
     with torch.no_grad():
         for _ in range(requested):
             try:
-                x_raw, target = next(val_iter)
+                x_raw, target, _fiber = next(val_iter)
             except StopIteration:
                 val_iter = iter(val_loader)
                 continue

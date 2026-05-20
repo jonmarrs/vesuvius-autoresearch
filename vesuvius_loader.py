@@ -174,7 +174,7 @@ class FastVesuviusVolume:
         return ct_tensor
 
 class VesuviusLabeledDataset(torch.utils.data.Dataset):
-    def __init__(self, volume_uri, labels_path, mask_path=None, patch_size=64, num_layers=16, seed=None, cache_dir=None, use_ridges=False, ridge_sigma=2.0, use_lasagna=False, is_unlabeled=False, require_ink=False):
+    def __init__(self, volume_uri, labels_path, mask_path=None, patch_size=64, num_layers=16, seed=None, cache_dir=None, use_ridges=False, ridge_sigma=2.0, use_lasagna=False, is_unlabeled=False, require_ink=False, target_fiber_source="sobel_z", target_fiber_sigma=2.0):
         self.volume = FastVesuviusVolume(volume_uri, cache_dir=cache_dir, use_ridges=use_ridges, ridge_sigma=ridge_sigma)
         self.patch_size = patch_size
         self.num_layers = min(num_layers, self.volume.shape[0])
@@ -184,6 +184,13 @@ class VesuviusLabeledDataset(torch.utils.data.Dataset):
         self.use_lasagna = use_lasagna
         self.is_unlabeled = is_unlabeled
         self.require_ink = require_ink
+        # target_fiber_source: "sobel_z" (default — train.py computes Sobel-Z
+        # of CT inline, dataloader returns a zero placeholder for the 3rd
+        # tuple element) or "frangi" (dataloader computes Frangi vesselness
+        # via fiber_tools.detect_vesselness on the CT patch, ~86ms/patch
+        # CPU, parallelized by num_workers).
+        self.target_fiber_source = target_fiber_source
+        self.target_fiber_sigma = target_fiber_sigma
         
         # Load Labels (2D PNG)
         if labels_path and os.path.exists(labels_path):
@@ -351,14 +358,52 @@ class VesuviusLabeledDataset(torch.utils.data.Dataset):
                 patch_label = torch.tensor(np.array(self.labels[y0:y0+self.patch_size, x0:x0+self.patch_size], copy=False), dtype=torch.float32)
             else:
                 patch_label = torch.zeros((self.patch_size, self.patch_size), dtype=torch.float32)
-            return patch_vol, patch_label
+            # 3rd return: per-patch fiber target. Always [1, 1, H, W] (z is
+            # singleton — train.py expects target_fiber to be z-collapsed to
+            # match `torch.mean(out_fiber, dim=2, keepdim=True)`). For
+            # source="sobel_z" this is a zero placeholder; train.py computes
+            # the real Sobel-Z target on the GPU side. For source="frangi"
+            # we compute Frangi vesselness on the CT channel (CPU, ~86ms/patch
+            # parallelized by dataloader workers) and z-mean to collapse.
+            patch_fiber = self._compute_fiber_target(patch_vol)
+            return patch_vol, patch_label, patch_fiber
         except Exception as e:
             _warn_limited(
                 "labeled_zero_patch",
                 f"returning zero labeled patch for sample {idx} from {self.volume.uri}: {type(e).__name__}: {e}",
             )
             c = 2 if self.use_ridges else 1
-            return torch.zeros(c, self.num_layers, self.patch_size, self.patch_size), torch.zeros(self.patch_size, self.patch_size)
+            return (
+                torch.zeros(c, self.num_layers, self.patch_size, self.patch_size),
+                torch.zeros(self.patch_size, self.patch_size),
+                torch.zeros(1, 1, self.patch_size, self.patch_size),
+            )
+
+    def _compute_fiber_target(self, patch_vol):
+        """Return [1, 1, H, W] fiber target. Sobel-Z source = zeros (train.py
+        will compute the real Sobel-Z on GPU); Frangi source = on-the-fly
+        CPU Frangi z-collapsed via mean."""
+        if self.target_fiber_source != "frangi":
+            return torch.zeros((1, 1, self.patch_size, self.patch_size), dtype=torch.float32)
+        try:
+            # Take CT channel only (index 0): patch_vol is [C, Z, H, W] or [Z, H, W]
+            ct = patch_vol[0] if patch_vol.dim() == 4 else patch_vol
+            ct_np = ct.detach().cpu().numpy().astype(np.float32)
+            # Force numpy backend (CPU path, libcusolver-free)
+            from scipy import ndimage as scipy_ndimage
+            fiber_tools.xp = np
+            fiber_tools.xndimage = scipy_ndimage
+            vesselness = fiber_tools.detect_vesselness(ct_np, sigma=self.target_fiber_sigma)
+            vesselness = np.asarray(vesselness, dtype=np.float32)
+            # Z-collapse via mean to match train.py's `target_fiber.mean(dim=2)` shape
+            v_2d = vesselness.mean(axis=0)  # [H, W]
+            return torch.from_numpy(v_2d).unsqueeze(0).unsqueeze(0)  # [1, 1, H, W]
+        except Exception as exc:
+            _warn_limited(
+                "frangi_target_failed",
+                f"Frangi target compute failed for {self.volume.uri}; using zeros: {type(exc).__name__}: {exc}",
+            )
+            return torch.zeros((1, 1, self.patch_size, self.patch_size), dtype=torch.float32)
 
 class VesuviusS3Dataset(torch.utils.data.Dataset):
     def __init__(self, uri, patch_size=32, num_layers=16, seed=None, cache_dir=None, use_ridges=False, ridge_sigma=2.0, use_lasagna=False, is_unlabeled=True):

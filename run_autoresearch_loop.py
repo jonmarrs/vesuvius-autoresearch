@@ -47,6 +47,10 @@ tweak_templates = [
     {"family": "attention", "attr": "num_heads", "vals": [4, 8, 12]},
     {"family": "regularization", "attr": "dropout", "vals": [0.1, 0.2, 0.0]},
     {"family": "preproc", "attr": "use_lasagna", "vals": [True, False]},
+    # target_fiber_source: tests whether the fiber head's BCE target benefits
+    # from being real Frangi vesselness (dataloader-side, ~86ms/patch CPU,
+    # parallelized) instead of the cheap inline Sobel-Z gradient.
+    {"family": "preproc", "attr": "target_fiber_source", "vals": ["sobel_z", "frangi"]},
     {"family": "batch", "attr": "batch_size", "vals": [8, 16, 24]},
     {"family": "spatial", "attr": "patch_size", "vals": [64, 96]},
     {"family": "temporal", "attr": "num_layers", "vals": [16, 24, 32]},
