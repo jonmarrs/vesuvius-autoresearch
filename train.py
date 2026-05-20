@@ -1415,13 +1415,8 @@ def train(config: ExperimentConfig):
             f.flush()
             os.fsync(f.fileno())
             
-        try:
-            from plot_results import plot_results
-            plot_results()
-        except Exception as exc:
-            print(f"Warning: plot_results failed: {type(exc).__name__}: {exc}")
-        
-        # Ensure filesystem sync
+        # Ensure filesystem sync (so best_model.pt / results.tsv / prize_readiness.tsv
+        # are durable before the cycle returns).
         if hasattr(os, 'sync'):
             os.sync()
     else:

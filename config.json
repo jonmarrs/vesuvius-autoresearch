@@ -63,5 +63,8 @@
     "consistency_weight": 0.1,
     "unlabeled_uris": [
         "local_data/PHercParis2Fr47/surface_volume.zarr"
-    ]
+    ],
+    "target_fiber_source": "sobel_z",
+    "target_fiber_sigma": 2.0,
+    "multi_task_heads": false
 }

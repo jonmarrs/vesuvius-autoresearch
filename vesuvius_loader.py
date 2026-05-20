@@ -407,9 +407,10 @@ class VesuviusLabeledDataset(torch.utils.data.Dataset):
 
 class VesuviusS3Dataset(torch.utils.data.Dataset):
     def __init__(self, uri, patch_size=32, num_layers=16, seed=None, cache_dir=None, use_ridges=False, ridge_sigma=2.0, use_lasagna=False, is_unlabeled=True):
-        # use_lasagna accepted for API parity with VesuviusLabeledDataset (train.py
-        # passes it unconditionally). Not applied here — the production Lasagna
-        # in VesuviusLabeledDataset is itself a no-op per the TODO there.
+        # use_lasagna accepted for API parity with VesuviusLabeledDataset
+        # (train.py's get_dataloader passes it unconditionally). The S3Dataset
+        # is used for unlabeled volumes (UA-MT) where surface flattening
+        # wasn't wired in. Real Lasagna lives only in the labeled dataset.
         self.uri = uri
         self.patch_size = patch_size
         self.seed = seed
