@@ -19,7 +19,7 @@
   "scale_bar_cm": true,
   "vc3d_zarr_path": "reports/pred_10_1000_1000_64x64_ink.zarr",
   "fiber_vc3d_zarr_path": "reports/pred_10_1000_1000_64x64_fiber.zarr",
-  "output_image_path": "reports/benchmark_v210_cycle5.png",
+  "output_image_path": "reports/benchmark_v210_cycle25.png",
   "model_config": {
     "uri": null,
     "uris": [
@@ -33,7 +33,7 @@
     "batch_size": 16,
     "patch_size": 64,
     "num_layers": 16,
-    "lr": 0.001,
+    "lr": 0.0001,
     "weight_decay": 0.01,
     "time_budget": 900,
     "pinned": false,
@@ -88,13 +88,13 @@
     ]
   },
   "ink_stats": {
-    "mean": 0.08099678158760071,
-    "std": 0.03125913813710213,
-    "max": 0.14701154828071594
+    "mean": 0.09883984923362732,
+    "std": 0.037512730807065964,
+    "max": 0.20395122468471527
   },
   "fiber_stats": {
-    "mean": 0.16199356317520142,
-    "std": 0.06251827627420425,
-    "max": 0.2940230965614319
+    "mean": 0.19767969846725464,
+    "std": 0.07502546161413193,
+    "max": 0.40790244936943054
   }
 }
