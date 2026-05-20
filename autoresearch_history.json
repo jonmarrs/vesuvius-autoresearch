@@ -1,9 +1,9 @@
 {
-    "lr": 1.0,
+    "lr": 2.0,
     "wd": 1.0,
     "capacity": 1.0,
     "attention": 1.0,
-    "regularization": 2.0,
+    "regularization": 1.3966745921874995,
     "batch": 1.0,
     "spatial": 1.0,
     "temporal": 1.0,
