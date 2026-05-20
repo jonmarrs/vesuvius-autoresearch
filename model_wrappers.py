@@ -28,15 +28,29 @@ class GenericMultiTaskWrapper(nn.Module):
     the multi-head forward signature train.py expects.
 
     Returns an ink_2d output for every call, plus optionally:
-      - fiber: same 5D output as ink (dummy — re-uses ink tensor)
-      - qc:    torch.zeros((B, 1))
+      - fiber: same 5D output as ink (dummy — re-uses ink tensor) when
+               multi_task_heads=False, or a real Conv3d head's output
+               when multi_task_heads=True.
+      - qc:    torch.zeros((B, 1)) when dummy, real Linear head when not.
       - proj:  Linear projection of pooled scalar (real, used for DINO-Lite)
-      - st:    torch.zeros((B, 6, Z, H, W))
+      - st:    torch.zeros((B, 6, Z, H, W)) when dummy, real Conv3d head
+               (6 symmetric tensor components) when not.
+
+    When multi_task_heads=True, the heads operate on
+    `cat(input_x, backbone_output)` so they see both the raw CT/ridge
+    inputs and the backbone's ink logits. Gradients from each task's
+    loss flow back through the backbone via the ink-logits path,
+    providing genuine multi-task supervision. Without this flag (the
+    default), the heads are constants with zero gradient and the
+    backbone gets only the ink supervision signal — see the long TODO
+    we left in train.py before this commit.
     """
 
-    def __init__(self, model, projector=None):
+    def __init__(self, model, projector=None, multi_task_heads=False, input_channels=1):
         super().__init__()
         self.model = model
+        self.multi_task_heads = multi_task_heads
+        self.input_channels = input_channels
         if projector is not None:
             self.projector = projector
         else:
@@ -44,6 +58,27 @@ class GenericMultiTaskWrapper(nn.Module):
                 nn.AdaptiveAvgPool3d(1),
                 nn.Flatten(),
                 nn.Linear(1, 128),
+            )
+        if multi_task_heads:
+            # Feature input to the heads: cat(input_x, backbone_output)
+            # backbone outputs 1-channel ink logits (resenc_unet has num_classes=1)
+            feat_ch = input_channels + 1
+            self.fiber_head = nn.Sequential(
+                nn.Conv3d(feat_ch, 16, kernel_size=3, padding=1),
+                nn.ReLU(inplace=True),
+                nn.Conv3d(16, 1, kernel_size=1),
+            )
+            self.qc_head = nn.Sequential(
+                nn.AdaptiveAvgPool3d(1),
+                nn.Flatten(),
+                nn.Linear(feat_ch, 32),
+                nn.ReLU(inplace=True),
+                nn.Linear(32, 1),
+            )
+            self.st_head = nn.Sequential(
+                nn.Conv3d(feat_ch, 32, kernel_size=3, padding=1),
+                nn.ReLU(inplace=True),
+                nn.Conv3d(32, 6, kernel_size=1),
             )
 
     def forward(self, x, return_fiber=False, return_qc=False, return_proj=False, return_st=False, **kwargs):
@@ -57,16 +92,32 @@ class GenericMultiTaskWrapper(nn.Module):
         else:
             ink_2d = out
 
+        # Build feat = cat(x, out) for multi-task heads. Skip when not needed.
+        # Shape: out is [B, 1, Z, H, W] for resenc; x is [B, C, Z, H, W].
+        feat = None
+        if self.multi_task_heads and out.dim() == 5 and x.dim() == 5:
+            # Channel-wise cat: [B, input_channels + 1, Z, H, W]
+            feat = torch.cat([x, out], dim=1)
+
         results = [ink_2d]
         if return_fiber:
-            results.append(out if out.dim() == 5 else out.unsqueeze(2))
+            if self.multi_task_heads and feat is not None:
+                results.append(self.fiber_head(feat))
+            else:
+                results.append(out if out.dim() == 5 else out.unsqueeze(2))
         if return_qc:
-            results.append(torch.zeros((x.shape[0], 1), device=x.device, dtype=ink_2d.dtype))
+            if self.multi_task_heads and feat is not None:
+                results.append(self.qc_head(feat))
+            else:
+                results.append(torch.zeros((x.shape[0], 1), device=x.device, dtype=ink_2d.dtype))
         if return_proj:
             proj_in = out if out.dim() == 5 else out.unsqueeze(2).unsqueeze(-1).unsqueeze(-1)
             results.append(self.projector(proj_in))
         if return_st:
-            results.append(torch.zeros((x.shape[0], 6, *x.shape[2:]), device=x.device, dtype=ink_2d.dtype))
+            if self.multi_task_heads and feat is not None:
+                results.append(self.st_head(feat))
+            else:
+                results.append(torch.zeros((x.shape[0], 6, *x.shape[2:]), device=x.device, dtype=ink_2d.dtype))
         return tuple(results) if len(results) > 1 else results[0]
 
 
@@ -79,6 +130,7 @@ def build_inference_model(
     num_heads: int = 8,
     dropout: float = 0.0,
     use_ridges: bool = False,
+    multi_task_heads: bool = False,
 ) -> nn.Module:
     """Canonical architecture dispatcher for the inference path.
 
@@ -141,6 +193,6 @@ def build_inference_model(
             nonlin_kwargs={"inplace": True},
             deep_supervision=False,
         )
-        return GenericMultiTaskWrapper(backbone)
+        return GenericMultiTaskWrapper(backbone, multi_task_heads=multi_task_heads, input_channels=v_config.in_channels)
 
     return InkDetectorOptimized(v_config)

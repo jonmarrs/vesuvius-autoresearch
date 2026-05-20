@@ -83,6 +83,7 @@ def ensemble_predict():
             num_heads=num_heads,
             dropout=dropout,
             use_ridges=use_ridges,
+            multi_task_heads=config_dict.get("multi_task_heads", False),
         ).to(device)
         skipped = load_compatible_state_dict(model, checkpoint['model_state_dict'])
         if len(skipped) > 8:

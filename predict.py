@@ -58,6 +58,7 @@ def build_prediction_model(config_dict, args, use_ridges):
         num_heads=config_dict.get("num_heads", 8),
         dropout=config_dict.get("dropout", 0.0),
         use_ridges=use_ridges,
+        multi_task_heads=config_dict.get("multi_task_heads", False),
     )
 
 def get_weight_window(patch_size, device):

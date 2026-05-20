@@ -61,6 +61,7 @@ def reevaluate(update_stored: bool = False) -> None:
         num_heads=config.num_heads,
         dropout=config.dropout,
         use_ridges=config.use_ridges,
+        multi_task_heads=stored.get("multi_task_heads", False),
     ).to(device)
     skipped = load_shape_compatible_state(model, chk["model_state_dict"], "best_model.pt")
     print(f"  load_shape_compatible_state: skipped {len(skipped) if hasattr(skipped, '__len__') else 0} tensors")

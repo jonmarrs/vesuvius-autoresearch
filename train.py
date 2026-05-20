@@ -114,6 +114,14 @@ class ExperimentConfig:
     # target. The bandit can A/B test these two via the preproc tweak axis.
     target_fiber_source: str = "sobel_z"
     target_fiber_sigma: float = 2.0
+    # When True, GenericMultiTaskWrapper (used by resenc_unet) replaces its
+    # dummy fiber/qc/st heads with real Conv3d/Linear heads operating on
+    # cat(input, backbone_output). Gradients from loss_fiber/loss_qc/loss_st
+    # then flow back through the backbone — genuine multi-task supervision.
+    # Default off for backward-compat: turning it on changes state_dict
+    # shape (3 new submodules) so best_model.pt loads with skipped tensors
+    # for the heads, which get randomly initialized.
+    multi_task_heads: bool = False
 
     # Model Architecture
     architecture: str = "gated_unet"
@@ -797,14 +805,22 @@ def train(config: ExperimentConfig):
         print("Instantiating ResNet3D-101 Architecture (Grand Prize Variant)...")
         if generate_resnet3d:
             backbone = generate_resnet3d(101, n_input_channels=v_config.in_channels, n_classes=1, forward_features=False)
-            model = GenericMultiTaskWrapper(backbone).to(device)
+            model = GenericMultiTaskWrapper(
+                backbone,
+                multi_task_heads=getattr(config, 'multi_task_heads', False),
+                input_channels=v_config.in_channels,
+            ).to(device)
         else:
             raise ImportError("ResNet3D model not found in villa submodule.")
     elif hasattr(v_config, 'architecture') and v_config.architecture == "i3d":
         print("Instantiating Inception-I3D Architecture...")
         if InceptionI3d:
             backbone = InceptionI3d(num_classes=1, in_channels=v_config.in_channels, final_endpoint='Logits', forward_features=False)
-            model = GenericMultiTaskWrapper(backbone).to(device)
+            model = GenericMultiTaskWrapper(
+                backbone,
+                multi_task_heads=getattr(config, 'multi_task_heads', False),
+                input_channels=v_config.in_channels,
+            ).to(device)
         else:
             raise ImportError("I3D model not found in villa submodule.")
     elif hasattr(v_config, 'architecture') and v_config.architecture == "resenc_unet":
@@ -833,7 +849,11 @@ def train(config: ExperimentConfig):
                 nonlin_kwargs={'inplace': True},
                 deep_supervision=False
             )
-            model = GenericMultiTaskWrapper(backbone).to(device)
+            model = GenericMultiTaskWrapper(
+                backbone,
+                multi_task_heads=getattr(config, 'multi_task_heads', False),
+                input_channels=v_config.in_channels,
+            ).to(device)
         else:
             raise ImportError("ResidualEncoderUNet not found. Please install dynamic-network-architectures.")
     elif hasattr(v_config, 'architecture') and v_config.architecture == "lejepa_unet":

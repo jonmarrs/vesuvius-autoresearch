@@ -51,6 +51,11 @@ tweak_templates = [
     # from being real Frangi vesselness (dataloader-side, ~86ms/patch CPU,
     # parallelized) instead of the cheap inline Sobel-Z gradient.
     {"family": "preproc", "attr": "target_fiber_source", "vals": ["sobel_z", "frangi"]},
+    # multi_task_heads: replaces the GenericMultiTaskWrapper's dummy
+    # fiber/qc/st outputs with real Conv3d/Linear heads operating on
+    # cat(input, backbone_output). Adds ~5k params, but gradients from
+    # loss_fiber/loss_qc/loss_st now flow back through the backbone.
+    {"family": "regularization", "attr": "multi_task_heads", "vals": [True, False]},
     {"family": "batch", "attr": "batch_size", "vals": [8, 16, 24]},
     {"family": "spatial", "attr": "patch_size", "vals": [64, 96]},
     {"family": "temporal", "attr": "num_layers", "vals": [16, 24, 32]},
