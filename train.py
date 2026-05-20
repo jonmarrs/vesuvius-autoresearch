@@ -84,7 +84,12 @@ class ExperimentConfig:
     loss_fiber_bce: float = 0.2
     loss_st: float = 0.1
     label_smoothing: float = 0.0 # Standard for GP winner is 0.25
-    aug_mode: str = 'albumentations' # 'albumentations' or 'batchgeneratorsv2'
+    # Default 2026-05-19: switched from "albumentations" to "batchgeneratorsv2" —
+    # villa's full augmentation pipeline (Rot90, BlankRectangle, GaussianBlur,
+    # GaussianNoise, Sharpening, Contrast, Brightness, etc.). The bandit can
+    # still sample "albumentations" via the features tweak axis if it
+    # performs better.
+    aug_mode: str = 'batchgeneratorsv2'
 
     # Domain Randomization (Sprint 006)
     aug_flip_p: float = 0.5
