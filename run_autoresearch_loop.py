@@ -245,8 +245,20 @@ def main():
             except Exception as e:
                 print(f"Warning: Could not refresh results.tsv baseline: {e}")
 
-        if time.localtime().tm_hour == end_hour:
-            print(f"{shift_name} end reached. Ending sprint.")
+        # Have we crossed out of this shift's bucket? The previous check was
+        # `tm_hour == end_hour`, which only matches for the single hour at
+        # transition — if a long cycle was running through it, the check
+        # missed and the loop kept spawning cycles until the next day's
+        # boundary. On 2026-05-20 the Night Shift overran by ~3.5h before
+        # being killed because of exactly this. The fix: exit when we've
+        # transitioned INTO the next shift's bucket, not when we hit a
+        # single hour value.
+        _hr = time.localtime().tm_hour
+        _in_day_bucket = 7 <= _hr < 19
+        _shift_over = (shift_name == "DAY SHIFT" and not _in_day_bucket) or \
+                      (shift_name == "NIGHT SHIFT" and _in_day_bucket)
+        if _shift_over:
+            print(f"{shift_name} end reached (hour={_hr}). Ending sprint.")
             next_shift = "DAY SHIFT" if shift_name == "NIGHT SHIFT" else "NIGHT SHIFT"
             with open(log_filename, "a") as log:
                 log.write(f"\n## Sprint Completed at {time.strftime('%H:%M:%S')}\n")
