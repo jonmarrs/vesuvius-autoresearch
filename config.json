@@ -17,7 +17,7 @@
     "pinned": false,
     "loss_ink_bce": 0.6,
     "loss_ink_dice": 0.2,
-    "loss_fiber_bce": 0.1,
+    "loss_fiber_bce": 0.3,
     "loss_st": 0.1,
     "label_smoothing": 0.0,
     "aug_mode": "batchgeneratorsv2",
@@ -46,6 +46,9 @@
             "structure_tensor": 0.05
         }
     },
+    "target_fiber_source": "sobel_z",
+    "target_fiber_sigma": 2.0,
+    "multi_task_heads": false,
     "architecture": "resenc_unet",
     "base_feat": 64,
     "num_blocks": 16,
@@ -63,8 +66,5 @@
     "consistency_weight": 0.1,
     "unlabeled_uris": [
         "local_data/PHercParis2Fr47/surface_volume.zarr"
-    ],
-    "target_fiber_source": "sobel_z",
-    "target_fiber_sigma": 2.0,
-    "multi_task_heads": false
+    ]
 }
