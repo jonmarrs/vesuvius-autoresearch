@@ -30,6 +30,7 @@
     "aug_rotate_limit": 180,
     "aug_scale_limit": 0.15,
     "aug_scroll_decohesion_p": 0.0,
+    "aug_scroll_warping_p": 0.0,
     "aug_scroll_squeeze_p": 0.0,
     "aug_scroll_z_dropout_p": 0.0,
     "aug_scroll_intensity_drift_p": 0.0,

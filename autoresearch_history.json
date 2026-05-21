@@ -13,6 +13,6 @@
     "architecture": 1.0,
     "baseline": 18,
     "uamt": 1.0,
-    "scroll_augmentations": 1.0,
+    "scroll_augmentations": 5.0,
     "preproc": 1.0
 }

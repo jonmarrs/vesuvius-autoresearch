@@ -81,10 +81,10 @@ tweak_templates = [
     # head, which explains the regression. Only resenc_unet (ResEnc UNet) and
     # gated_unet (InkDetectorOptimized) have real ST heads.
     {"family": "architecture", "attr": "architecture", "vals": ["resenc_unet", "gated_unet"]},
-    {"family": "scroll_augmentations", "attr": "aug_scroll_decohesion_p", "vals": [0.0, 0.1, 0.25]},
-    {"family": "scroll_augmentations", "attr": "aug_scroll_squeeze_p", "vals": [0.0, 0.1, 0.25]},
-    {"family": "scroll_augmentations", "attr": "aug_scroll_z_dropout_p", "vals": [0.0, 0.1, 0.25]},
-    {"family": "scroll_augmentations", "attr": "aug_scroll_intensity_drift_p", "vals": [0.0, 0.1, 0.25]},
+    {"family": "scroll_augmentations", "attr": "aug_scroll_decohesion_p", "vals": [0.0, 0.25, 0.5]},
+    {"family": "scroll_augmentations", "attr": "aug_scroll_warping_p", "vals": [0.0, 0.25, 0.5]},
+    {"family": "scroll_augmentations", "attr": "aug_scroll_squeeze_p", "vals": [0.0, 0.25, 0.5]},
+    {"family": "scroll_augmentations", "attr": "aug_scroll_z_dropout_p", "vals": [0.0, 0.25, 0.5]},
     # Removed 2026-05-17 after audit confirmed this axis has been a no-op since the
     # loop's inception: train.py:742 expects {segment_name}_pseudo.png in the
     # pseudo_label_dir, but no such file has ever existed on disk (the actual

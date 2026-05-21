@@ -101,6 +101,7 @@ class ExperimentConfig:
     aug_rotate_limit: int = 180
     aug_scale_limit: float = 0.15
     aug_scroll_decohesion_p: float = 0.0
+    aug_scroll_warping_p: float = 0.0
     aug_scroll_squeeze_p: float = 0.0
     aug_scroll_z_dropout_p: float = 0.0
     aug_scroll_intensity_drift_p: float = 0.0
