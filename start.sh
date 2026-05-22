@@ -8,6 +8,7 @@ if pgrep -f "python run_autoresearch_loop.py" > /dev/null; then
 fi
 
 echo "Starting run_autoresearch_loop.py in the background..."
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/lib/python3.10/site-packages/nvidia/cusolver/lib
 nohup uv run python run_autoresearch_loop.py > autoresearch.out 2>&1 &
 PID=$!
 

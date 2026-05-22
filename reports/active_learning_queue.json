@@ -1,0 +1,187 @@
+{
+    "timestamp": "2026-05-22T11:58:26.980351",
+    "checkpoint": "best_model.pt",
+    "volume": "local_data/PHercParis2Fr143/surface_volume.zarr",
+    "queue": [
+        {
+            "rank": 1,
+            "y_x": [
+                32,
+                7760
+            ],
+            "uncertainty_score": NaN,
+            "status": "pending_manual_review"
+        },
+        {
+            "rank": 2,
+            "y_x": [
+                32,
+                7776
+            ],
+            "uncertainty_score": NaN,
+            "status": "pending_manual_review"
+        },
+        {
+            "rank": 3,
+            "y_x": [
+                32,
+                7792
+            ],
+            "uncertainty_score": NaN,
+            "status": "pending_manual_review"
+        },
+        {
+            "rank": 4,
+            "y_x": [
+                32,
+                7808
+            ],
+            "uncertainty_score": NaN,
+            "status": "pending_manual_review"
+        },
+        {
+            "rank": 5,
+            "y_x": [
+                32,
+                7824
+            ],
+            "uncertainty_score": NaN,
+            "status": "pending_manual_review"
+        },
+        {
+            "rank": 6,
+            "y_x": [
+                32,
+                7840
+            ],
+            "uncertainty_score": NaN,
+            "status": "pending_manual_review"
+        },
+        {
+            "rank": 7,
+            "y_x": [
+                32,
+                7856
+            ],
+            "uncertainty_score": NaN,
+            "status": "pending_manual_review"
+        },
+        {
+            "rank": 8,
+            "y_x": [
+                32,
+                7872
+            ],
+            "uncertainty_score": NaN,
+            "status": "pending_manual_review"
+        },
+        {
+            "rank": 9,
+            "y_x": [
+                0,
+                0
+            ],
+            "uncertainty_score": NaN,
+            "status": "pending_manual_review"
+        },
+        {
+            "rank": 10,
+            "y_x": [
+                32,
+                7904
+            ],
+            "uncertainty_score": NaN,
+            "status": "pending_manual_review"
+        },
+        {
+            "rank": 11,
+            "y_x": [
+                32,
+                7920
+            ],
+            "uncertainty_score": NaN,
+            "status": "pending_manual_review"
+        },
+        {
+            "rank": 12,
+            "y_x": [
+                32,
+                7936
+            ],
+            "uncertainty_score": NaN,
+            "status": "pending_manual_review"
+        },
+        {
+            "rank": 13,
+            "y_x": [
+                32,
+                7952
+            ],
+            "uncertainty_score": NaN,
+            "status": "pending_manual_review"
+        },
+        {
+            "rank": 14,
+            "y_x": [
+                32,
+                7968
+            ],
+            "uncertainty_score": NaN,
+            "status": "pending_manual_review"
+        },
+        {
+            "rank": 15,
+            "y_x": [
+                32,
+                7984
+            ],
+            "uncertainty_score": NaN,
+            "status": "pending_manual_review"
+        },
+        {
+            "rank": 16,
+            "y_x": [
+                32,
+                8000
+            ],
+            "uncertainty_score": NaN,
+            "status": "pending_manual_review"
+        },
+        {
+            "rank": 17,
+            "y_x": [
+                32,
+                8016
+            ],
+            "uncertainty_score": NaN,
+            "status": "pending_manual_review"
+        },
+        {
+            "rank": 18,
+            "y_x": [
+                32,
+                8032
+            ],
+            "uncertainty_score": NaN,
+            "status": "pending_manual_review"
+        },
+        {
+            "rank": 19,
+            "y_x": [
+                32,
+                7888
+            ],
+            "uncertainty_score": NaN,
+            "status": "pending_manual_review"
+        },
+        {
+            "rank": 20,
+            "y_x": [
+                32,
+                7440
+            ],
+            "uncertainty_score": NaN,
+            "status": "pending_manual_review"
+        }
+    ]
+}

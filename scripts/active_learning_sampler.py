@@ -29,12 +29,12 @@ class ActiveLearningSampler:
 
     def sample_uncertain_regions(self, dataloader, n_samples=10):
         uncertainties = []
-        all_coords = []
+        all_indices = []
         
         print(f"Sampling {n_samples} high-uncertainty regions...")
         
         with torch.no_grad():
-            for i, (x, _, coords) in enumerate(tqdm(dataloader)):
+            for i, (x, _, _) in enumerate(tqdm(dataloader)):
                 x = x.to(self.device)
                 
                 # Forward pass - support multi-output
@@ -63,18 +63,30 @@ class ActiveLearningSampler:
                 score = 0.7 * entropy + 0.3 * qc_uncertainty
                 
                 uncertainties.append(score.cpu().numpy())
-                all_coords.append(coords.cpu().numpy())
                 
-                if i * dataloader.batch_size > 1000: # Limit search for speed
+                # Track original indices
+                batch_size = x.shape[0]
+                indices = np.arange(i * dataloader.batch_size, i * dataloader.batch_size + batch_size)
+                all_indices.append(indices)
+                
+                if i * dataloader.batch_size > 5000: # Limit search for speed
                     break
         
         uncertainties = np.concatenate(uncertainties)
-        all_coords = np.concatenate(all_coords)
+        all_indices = np.concatenate(all_indices)
         
         # Get indices of top N uncertain regions
-        top_indices = np.argsort(uncertainties)[-n_samples:][::-1]
+        top_n_idx = np.argsort(uncertainties)[-n_samples:][::-1]
         
-        return all_coords[top_indices], uncertainties[top_indices]
+        final_indices = all_indices[top_n_idx]
+        final_scores = uncertainties[top_n_idx]
+        
+        # Map indices back to coordinates from the dataset
+        coords = []
+        for idx in final_indices:
+            coords.append(dataloader.dataset.valid_coords[idx])
+            
+        return np.array(coords), final_scores
 
 def identify_uncertain_patches(probs, threshold=0.2):
     """
@@ -167,10 +179,11 @@ def main():
         labels_path,
         patch_size=arch_kwargs["patch_size"],
         num_layers=arch_kwargs["num_layers"],
+        use_ridges=arch_kwargs["use_ridges"],
         require_ink=False
     )
     
-    dataloader = DataLoader(dataset, batch_size=8, shuffle=True)
+    dataloader = DataLoader(dataset, batch_size=8, shuffle=False)
 
     # 3. Sample Uncertain Regions
     coords, scores = sampler.sample_uncertain_regions(dataloader, n_samples=args.n_samples)
@@ -178,9 +191,10 @@ def main():
     # 4. Export Review Queue
     queue = []
     for i in range(len(coords)):
+        y, x = coords[i]
         queue.append({
             "rank": i + 1,
-            "z_y_x": coords[i].tolist(),
+            "y_x": [int(y), int(x)],
             "uncertainty_score": float(scores[i]),
             "status": "pending_manual_review"
         })
