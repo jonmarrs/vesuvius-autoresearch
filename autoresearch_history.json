@@ -12,7 +12,7 @@
     "features": 1.0,
     "architecture": 1.0,
     "baseline": 18,
-    "uamt": 1.0,
-    "scroll_augmentations": 2.0,
+    "uamt": 2.0,
+    "scroll_augmentations": 1.7147499999999998,
     "preproc": 1.0
 }

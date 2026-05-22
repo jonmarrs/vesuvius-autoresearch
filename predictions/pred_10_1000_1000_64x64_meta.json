@@ -19,7 +19,7 @@
   "scale_bar_cm": true,
   "vc3d_zarr_path": "reports/pred_10_1000_1000_64x64_ink.zarr",
   "fiber_vc3d_zarr_path": "reports/pred_10_1000_1000_64x64_fiber.zarr",
-  "output_image_path": "reports/benchmark_v210_cycle5.png",
+  "output_image_path": "reports/benchmark_v210_cycle35.png",
   "model_config": {
     "uri": null,
     "uris": [
@@ -51,7 +51,8 @@
     "aug_grid_p": 0.0,
     "aug_rotate_limit": 180,
     "aug_scale_limit": 0.15,
-    "aug_scroll_decohesion_p": 0.0,
+    "aug_scroll_decohesion_p": 0.25,
+    "aug_scroll_warping_p": 0.0,
     "aug_scroll_squeeze_p": 0.0,
     "aug_scroll_z_dropout_p": 0.0,
     "aug_scroll_intensity_drift_p": 0.0,
@@ -91,13 +92,13 @@
     ]
   },
   "ink_stats": {
-    "mean": 0.09738867729902267,
-    "std": 0.04174569994211197,
-    "max": 0.2235063910484314
+    "mean": 0.09158822894096375,
+    "std": 0.038194697350263596,
+    "max": 0.21077768504619598
   },
   "fiber_stats": {
-    "mean": 0.19477735459804535,
-    "std": 0.08349139988422394,
-    "max": 0.4470127820968628
+    "mean": 0.1831764578819275,
+    "std": 0.07638939470052719,
+    "max": 0.42155537009239197
   }
 }
