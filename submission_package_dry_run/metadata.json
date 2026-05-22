@@ -10,10 +10,14 @@
     "window_width_px": 64,
     "window_height_px": 64,
     "ml_window_px": 64,
-    "voxel_resolution_um": 8,
+    "voxel_resolution_um": 8.0,
     "window_size_mm": "0.512 x 0.512 mm",
     "scale_bar_cm": true,
+    "source_image_path": "predictions/pred_10_20_30.png",
+    "source_image_is_placeholder": false,
+    "metadata_is_dry_run": true,
+    "evidence_mode": "real_prediction",
     "train_mask_path": "submission_package_dry_run/train_mask.npy",
     "predict_mask_path": "submission_package_dry_run/predict_mask.npy",
-    "compliance_check": "PASS: Window size <= 64x64 at 8um"
+    "compliance_check": "64px local ML window per official Vesuvius Challenge guidance"
 }

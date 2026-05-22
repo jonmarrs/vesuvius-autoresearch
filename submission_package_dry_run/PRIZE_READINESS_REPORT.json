@@ -1,9 +1,12 @@
 {
-  "status": "PASS",
+  "status": "FAIL",
   "metadata_path": "submission_package_dry_run/metadata.json",
   "ml_window_px": 64,
   "ml_window_mm": 0.512,
-  "failures": [],
+  "checked_zarr_paths": [],
+  "failures": [
+    "metadata is marked as dry-run/default; real scroll, segmentation, and 3D position metadata are required"
+  ],
   "warnings": [
     "VC3D/Zarr export path not provided; export compatibility is unverified"
   ]

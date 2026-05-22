@@ -19,7 +19,7 @@
   "scale_bar_cm": true,
   "vc3d_zarr_path": "reports/pred_10_1000_1000_64x64_ink.zarr",
   "fiber_vc3d_zarr_path": "reports/pred_10_1000_1000_64x64_fiber.zarr",
-  "output_image_path": "reports/benchmark_v210_cycle5.png",
+  "output_image_path": "reports/benchmark_v210_cycle15.png",
   "model_config": {
     "uri": null,
     "uris": [
@@ -92,13 +92,13 @@
     ]
   },
   "ink_stats": {
-    "mean": 0.09158822894096375,
-    "std": 0.038194697350263596,
-    "max": 0.21077768504619598
+    "mean": 0.09158902615308762,
+    "std": 0.03819506615400314,
+    "max": 0.21077707409858704
   },
   "fiber_stats": {
-    "mean": 0.1831764578819275,
-    "std": 0.07638939470052719,
-    "max": 0.42155537009239197
+    "mean": 0.18317805230617523,
+    "std": 0.07639013230800629,
+    "max": 0.4215541481971741
   }
 }
