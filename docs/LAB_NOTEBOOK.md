@@ -330,4 +330,26 @@ Align project with official `ScrollPrize/villa` strategies to maximize prize com
 
 ---
 
+## [2026-05-22] Day Shift: Foundation Pruning & Submission Preflight
+
+**Status:** INITIALIZING
+
+### Purpose
+Build on the stability of the LeJEPA foundation model and the ResEnc-UNet champion from the Night Shift. This shift focuses on hyperparameter pruning and preparing the definitive submission package for the First Letters Prize.
+
+### Strategy & Hypotheses
+*   **Hypothesis:** The current `val_bpb: 0.4124` champion is bottle-necked by augmentation noise (decohesion/warping); pruning these while maintaining topological regularizers (Betti Loss) will stabilize the 0.410 barrier.
+*   **Active Learning:** Deploy the updated `active_learning_sampler.py` to identify the top 20 most uncertain regions in `PHercParis2Fr143` for manual review in `vc_proofreader`.
+*   **Cycles:** 15-minute rapid iteration cycles.
+
+### Key Tweaks
+*   [ ] Revert to 900s training budget.
+*   [ ] Focus on `aug_scroll_decohesion_p` and `aug_scroll_warping_p` pruning.
+*   [ ] Execute Sprint 026: Dry-run submission package on Fragment 1/5.
+
+### Outcomes & Insights
+*(To be filled in by the swarm/loop.)*
+
+---
+
 ## [Future Entry Template]
