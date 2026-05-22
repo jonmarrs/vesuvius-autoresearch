@@ -24,8 +24,8 @@ def generate_config(volume_path, predictions_path, config_out_path):
         "min_label_percentage": 1.0,
         "volumes": {
             "Autoresearch_Prediction": {
-                "image_zarr": volume_path,
-                "label_zarr": predictions_path
+                "volume_path": volume_path,
+                "label_path": predictions_path
             }
         }
     }

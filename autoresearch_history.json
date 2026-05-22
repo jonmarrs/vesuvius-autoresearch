@@ -10,9 +10,9 @@
     "width": 1.0,
     "loss_balance": 1.0,
     "features": 1.0,
-    "architecture": 1.0,
+    "architecture": 2.0,
     "baseline": 18,
-    "uamt": 2.0,
-    "scroll_augmentations": 1.7147499999999998,
+    "uamt": 1.6290124999999998,
+    "scroll_augmentations": 1.3966745921874995,
     "preproc": 1.0
 }
