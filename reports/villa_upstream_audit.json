@@ -1,6 +1,6 @@
 {
   "villa_dir": "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/villa",
-  "local_ref": "666dec41597643884c87e97d817cdd8ceb8ed8e8",
+  "local_ref": "b01e0e050b8ab498d5b9166b33cbf2e8f535e690",
   "upstream_ref": "f037ffb5b236dcb74112ec33c8843eaa15ff5a85",
   "merge_base": "f037ffb5b236dcb74112ec33c8843eaa15ff5a85",
   "behind": false,

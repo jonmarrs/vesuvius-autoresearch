@@ -4,7 +4,7 @@ This matrix joins official `ScrollPrize/villa` opportunity tracking with the cur
 
 ## Current State
 
-- Villa local ref: `666dec41597643884c87e97d817cdd8ceb8ed8e8`
+- Villa local ref: `b01e0e050b8ab498d5b9166b33cbf2e8f535e690`
 - Villa upstream ref: `f037ffb5b236dcb74112ec33c8843eaa15ff5a85`
 - Villa behind upstream: `False`
 - Villa diverged with local patches: `False`

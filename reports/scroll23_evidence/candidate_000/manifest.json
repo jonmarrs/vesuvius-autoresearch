@@ -35,7 +35,7 @@
   "vc3d_zarr_path": "reports/scroll23_evidence/candidate_000/predictions/pred_18176_4128_4128_64x64_ink.zarr",
   "readiness_report": "reports/scroll23_evidence/candidate_000/PRIZE_READINESS_REPORT.json",
   "predict_command": [
-    "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python",
+    "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python3",
     "predict.py",
     "--uri",
     "local_data/PHerc0125_Divisions/div_90/0",
@@ -59,6 +59,6 @@
     "best_model.pt",
     "--skip_active_learning"
   ],
-  "neural_tracing_plan": null,
+  "neural_tracing_plan": "reports/scroll23_evidence/candidate_000/neural_tracing.json",
   "neural_tracing_ready": false
 }

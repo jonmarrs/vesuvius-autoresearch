@@ -35,7 +35,7 @@
   "vc3d_zarr_path": "reports/scroll23_evidence/candidate_010/predictions/pred_29568_7712_7712_64x64_ink.zarr",
   "readiness_report": "reports/scroll23_evidence/candidate_010/PRIZE_READINESS_REPORT.json",
   "predict_command": [
-    "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python",
+    "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python3",
     "predict.py",
     "--uri",
     "local_data/PHerc0332_Divisions/div_90/0",
