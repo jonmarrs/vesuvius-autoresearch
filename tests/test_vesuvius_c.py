@@ -48,7 +48,7 @@ def test_fast_vesuvius_volume_slice_uses_voxel_chunk_signature(tmp_path):
 
     volume = FastVesuviusVolume(str(path))
 
-    np.testing.assert_allclose(volume[1:3, 2:5, 3:7].numpy(), data[1:3, 2:5, 3:7] / 255.0)
+    np.testing.assert_allclose(volume[1:3, 2:5, 3:7].numpy(), data[1:3, 2:5, 3:7])
 
 
 def test_loading():

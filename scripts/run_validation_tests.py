@@ -10,13 +10,13 @@ import sys
 
 
 VALIDATION_TESTS = [
-    "test_import.py",
-    "test_imports.py",
-    "test_dice.py",
-    "test_grad.py",
-    "test_zarr_loading.py",
-    "test_vesuvius_c.py",
-    "test_prize_readiness.py",
+    "tests/test_import.py",
+    "tests/test_imports.py",
+    "tests/test_dice.py",
+    "tests/test_grad.py",
+    "tests/test_zarr_loading.py",
+    "tests/test_vesuvius_c.py",
+    "tests/test_prize_readiness.py",
 ]
 
 
