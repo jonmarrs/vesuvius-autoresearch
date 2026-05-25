@@ -17,9 +17,9 @@ def _args(**overrides):
         "villa_pin_review": "villa_pin_review.json",
         "villa_component_coverage_json": "component_coverage.json",
         "villa_component_coverage_md": "component_coverage.md",
-        "vesuvius_c_sample_zarr": "sample.zarr",
-        "vesuvius_c_readiness_json": "vesuvius_c_readiness.json",
-        "vesuvius_c_readiness_md": "vesuvius_c_readiness.md",
+        "volume_cartographer_sample_zarr": "sample.zarr",
+        "volume_cartographer_readiness_json": "volume_cartographer_readiness.json",
+        "volume_cartographer_readiness_md": "volume_cartographer_readiness.md",
         "preflight_summary_json": "preflight_summary.json",
         "preflight_summary_tsv": "preflight_summary.tsv",
         "gpu_queue": "gpu_queue.tsv",
@@ -45,7 +45,7 @@ def test_post_sprint_handoff_defaults_to_safe_preflight_commands():
         "plan_villa_prize_opportunities",
         "review_villa_pin",
         "build_villa_component_coverage",
-        "build_vesuvius_c_readiness",
+        "build_volume_cartographer_readiness",
         "ranked_inference",
         "rerank_candidates",
         "build_lasagna_fiber_worklist",
@@ -59,8 +59,8 @@ def test_post_sprint_handoff_defaults_to_safe_preflight_commands():
     assert steps[1]["command"][-1] == "villa_opportunities.json"
     assert steps[2]["command"][-1] == "villa_pin_review.json"
     assert steps[3]["command"][-1] == "component_coverage.md"
-    assert steps[4]["name"] == "build_vesuvius_c_readiness"
-    assert steps[4]["command"][-1] == "vesuvius_c_readiness.md"
+    assert steps[4]["name"] == "build_volume_cartographer_readiness"
+    assert steps[4]["command"][-1] == "volume_cartographer_readiness.md"
     assert steps[5]["gpu"] is False
     assert "--execute" not in steps[5]["command"]
     assert "--preflight-report" in steps[8]["command"]

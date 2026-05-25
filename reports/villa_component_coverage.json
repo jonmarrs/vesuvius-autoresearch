@@ -1,9 +1,9 @@
 {
   "source": "ScrollPrize/villa local checkout",
   "summary": {
-    "total_components": 9,
+    "total_components": 8,
     "covered": 6,
-    "partial": 3,
+    "partial": 2,
     "blocked_missing_required_hook": 0,
     "unwired": 0,
     "missing_official_component": 0
@@ -39,45 +39,6 @@
       "missing_required_hooks": [],
       "present_local_hooks": 2,
       "total_local_hooks": 3,
-      "coverage_status": "partial"
-    },
-    {
-      "name": "vesuvius-c",
-      "official_path": "villa/vesuvius-c",
-      "prize_use": "Low-level CT access for high-throughput chunk reads.",
-      "local_hooks": [
-        "vesuvius_c_wrapper",
-        "benchmark_vesuvius_c.py",
-        "test_vesuvius_c.py",
-        "SPRINT_KANBAN.md"
-      ],
-      "required_hooks": [
-        "vesuvius_c_wrapper"
-      ],
-      "next_action": "Run the Vesuvius-C benchmark on local CT chunks before claiming a Progress Prize speedup.",
-      "priority": "medium",
-      "official_present": true,
-      "local_hook_status": [
-        {
-          "path": "vesuvius_c_wrapper",
-          "present": true
-        },
-        {
-          "path": "benchmark_vesuvius_c.py",
-          "present": false
-        },
-        {
-          "path": "test_vesuvius_c.py",
-          "present": false
-        },
-        {
-          "path": "SPRINT_KANBAN.md",
-          "present": false
-        }
-      ],
-      "missing_required_hooks": [],
-      "present_local_hooks": 1,
-      "total_local_hooks": 4,
       "coverage_status": "partial"
     },
     {
@@ -142,16 +103,30 @@
     {
       "name": "volume-cartographer",
       "official_path": "villa/volume-cartographer",
-      "prize_use": "VC3D surface tracing, segmentation, and overlay review.",
+      "prize_use": "Maintained Villa path for volume/chunk access, VC3D surface tracing, segmentation, and overlay review.",
       "local_hooks": [
+        "volume_cartographer_wrapper",
+        "scripts/build_volume_cartographer_readiness.py",
         "scripts/launch_vc3d.py",
         "scripts/validate_prize_artifact.py",
         "reports/villa_review_manifest.md"
       ],
-      "next_action": "Validate ink/fiber OME-Zarr overlays before VC3D review or Progress Prize packaging.",
+      "required_hooks": [
+        "volume_cartographer_wrapper",
+        "scripts/build_volume_cartographer_readiness.py"
+      ],
+      "next_action": "Keep Python loading and VC3D overlay validation aligned with Volume Cartographer; do not add new vesuvius-c hooks.",
       "priority": "high",
       "official_present": true,
       "local_hook_status": [
+        {
+          "path": "volume_cartographer_wrapper",
+          "present": true
+        },
+        {
+          "path": "scripts/build_volume_cartographer_readiness.py",
+          "present": true
+        },
         {
           "path": "scripts/launch_vc3d.py",
           "present": true
@@ -165,10 +140,9 @@
           "present": true
         }
       ],
-      "required_hooks": [],
       "missing_required_hooks": [],
-      "present_local_hooks": 3,
-      "total_local_hooks": 3,
+      "present_local_hooks": 5,
+      "total_local_hooks": 5,
       "coverage_status": "covered"
     },
     {

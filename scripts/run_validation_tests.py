@@ -15,7 +15,7 @@ VALIDATION_TESTS = [
     "tests/test_dice.py",
     "tests/test_grad.py",
     "tests/test_zarr_loading.py",
-    "tests/test_vesuvius_c.py",
+    "tests/test_volume_cartographer.py",
     "tests/test_prize_readiness.py",
 ]
 

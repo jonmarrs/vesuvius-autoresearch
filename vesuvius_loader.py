@@ -19,9 +19,12 @@ for p in [VILLA_SRC, FIBER_TOOLS_PATH]:
         sys.path.append(p)
 import tools as fiber_tools
 try:
-    from vesuvius_c_wrapper.vesuvius_c import VesuviusVolume, FastLocalVolume
+    from volume_cartographer_wrapper.volume import (
+        FastLocalVolume,
+        VolumeCartographerVolume,
+    )
 except ImportError as exc:
-    print(f"Warning: vesuvius_c_wrapper unavailable; using direct Zarr fallback: {exc}")
+    print(f"Warning: volume_cartographer_wrapper unavailable; using direct Zarr fallback: {exc}")
     import zarr
 
     class FastLocalVolume:
@@ -29,11 +32,12 @@ except ImportError as exc:
             self.path = path
             self.arr = zarr.open(path, mode="r")
             self.shape = self.arr.shape
+            self.backend = "zarr"
 
         def get_chunk(self, z, y, x, depth, height, width):
             return np.asarray(self.arr[z:z + depth, y:y + height, x:x + width])
 
-    class VesuviusVolume(FastLocalVolume):
+    class VolumeCartographerVolume(FastLocalVolume):
         def __init__(self, cache_dir=None, url=None):
             super().__init__(url or cache_dir)
 
@@ -50,8 +54,8 @@ def _warn_limited(key, message, limit=5):
 
 class FastVesuviusVolume:
     """
-    Optimized volume loader using Vesuvius-C for zero-copy data-on-demand
-    and roadmap-Priority-A CuPy tools for on-the-fly ridge detection.
+    Optimized volume loader aligned with Villa Volume Cartographer / VC3D
+    OME-Zarr conventions plus CuPy tools for on-the-fly ridge detection.
     """
     def __init__(self, volume_uri, cache_dir=None, use_ridges=False, ridge_sigma=2.0):
         self.uri = volume_uri
@@ -63,9 +67,9 @@ class FastVesuviusVolume:
         self.shape = self.vol.shape
 
     def _init_vol(self):
-        # Priority B Integration: 
-        # Use FastLocalVolume for local files (bypasses curl)
-        # Use VesuviusVolume for remote URLs (supports caching)
+        # Use local OME-Zarr reads for Python training. Villa's maintained
+        # native path is Volume Cartographer/VC3D; remote/native integration
+        # should be added there rather than through deprecated vesuvius-c.
         if os.path.exists(self.uri):
             # Auto-detect OME-Zarr resolution levels
             local_path = self.uri
@@ -77,7 +81,7 @@ class FastVesuviusVolume:
                     print(f"Detected OME-Zarr: Using level 0 at {local_path}")
             self.vol = FastLocalVolume(local_path)
         else:
-            self.vol = VesuviusVolume(cache_dir=self.cache_dir or "test_cache", url=self.uri)
+            self.vol = VolumeCartographerVolume(cache_dir=self.cache_dir or "test_cache", url=self.uri)
 
     def __getstate__(self):
         state = self.__dict__.copy()
@@ -105,7 +109,8 @@ class FastVesuviusVolume:
         height = y_slice.stop - y_slice.start
         width = x_slice.stop - x_slice.start
 
-        # Fetch raw CT data via Vesuvius-C
+        # Fetch raw CT data through the Volume Cartographer-aligned local
+        # OME-Zarr compatibility layer.
         ct = self.vol.get_chunk(
             z_slice.start, y_slice.start, x_slice.start,
             depth, height, width

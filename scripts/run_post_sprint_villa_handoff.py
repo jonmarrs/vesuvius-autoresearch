@@ -79,17 +79,17 @@ def build_handoff_steps(args):
             ],
         },
         {
-            "name": "build_vesuvius_c_readiness",
+            "name": "build_volume_cartographer_readiness",
             "gpu": False,
             "command": [
                 python,
-                "scripts/build_vesuvius_c_readiness.py",
+                "scripts/build_volume_cartographer_readiness.py",
                 "--sample-zarr",
-                args.vesuvius_c_sample_zarr,
+                args.volume_cartographer_sample_zarr,
                 "--out-json",
-                args.vesuvius_c_readiness_json,
+                args.volume_cartographer_readiness_json,
                 "--out-md",
-                args.vesuvius_c_readiness_md,
+                args.volume_cartographer_readiness_md,
             ],
         },
     ]
@@ -287,9 +287,9 @@ def main():
     parser.add_argument("--villa-pin-review", default="reports/villa_pin_review.json")
     parser.add_argument("--villa-component-coverage-json", default="reports/villa_component_coverage.json")
     parser.add_argument("--villa-component-coverage-md", default="reports/villa_component_coverage.md")
-    parser.add_argument("--vesuvius-c-sample-zarr", default="local_data/PHercParis2Fr47/surface_volume.zarr/0")
-    parser.add_argument("--vesuvius-c-readiness-json", default="reports/vesuvius_c_readiness.json")
-    parser.add_argument("--vesuvius-c-readiness-md", default="reports/vesuvius_c_readiness.md")
+    parser.add_argument("--volume-cartographer-sample-zarr", default="local_data/PHercParis2Fr47/surface_volume.zarr/0")
+    parser.add_argument("--volume-cartographer-readiness-json", default="reports/volume_cartographer_readiness.json")
+    parser.add_argument("--volume-cartographer-readiness-md", default="reports/volume_cartographer_readiness.md")
     parser.add_argument("--preflight-summary-json", default="reports/scroll23_evidence_preflight_summary.json")
     parser.add_argument("--preflight-summary-tsv", default="reports/scroll23_evidence_preflight_summary.tsv")
     parser.add_argument("--gpu-queue", default="reports/scroll23_gpu_inference_queue.tsv")

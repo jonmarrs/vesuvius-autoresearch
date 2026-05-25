@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build a non-GPU readiness report for the Villa Vesuvius-C hook."""
+"""Build a non-GPU readiness report for the Villa Volume Cartographer path."""
 
 from __future__ import annotations
 
@@ -34,14 +34,20 @@ def _make_smoke_zarr(path):
     return data
 
 
-def _smoke_fallback(wrapper):
+def _smoke_local_volume(wrapper):
     with tempfile.TemporaryDirectory() as tmp:
         path = Path(tmp) / "volume.zarr"
         data = _make_smoke_zarr(path)
-        volume = wrapper.FastLocalVolume(path, prefer_native=False)
-        chunk = volume.get_chunk(1, 1, 1)
+        volume = wrapper.FastLocalVolume(path)
+        grid_chunk = volume.get_chunk(1, 1, 1)
+        voxel_chunk = volume.get_chunk(1, 2, 3, 2, 3, 4)
         return {
-            "status": "pass" if np.array_equal(chunk, data[2:4, 3:6, 4:8]) else "fail",
+            "status": (
+                "pass"
+                if np.array_equal(grid_chunk, data[2:4, 3:6, 4:8])
+                and np.array_equal(voxel_chunk, data[1:3, 2:5, 3:7])
+                else "fail"
+            ),
             "backend": volume.backend,
             "shape": list(volume.shape),
             "chunks": list(volume.chunks),
@@ -57,31 +63,28 @@ def _smoke_loader_slice():
 
         volume = FastVesuviusVolume(str(path))
         patch = volume[1:3, 2:5, 3:7]
-        expected = data[1:3, 2:5, 3:7] / 255.0
         return {
-            "status": "pass" if np.allclose(patch.numpy(), expected) else "fail",
+            "status": "pass" if np.allclose(patch.numpy(), data[1:3, 2:5, 3:7]) else "fail",
             "shape": list(patch.shape),
+            "backend": volume.vol.backend,
         }
 
 
-def _probe_sample(wrapper, sample_zarr, probe_native):
+def _probe_sample(wrapper, sample_zarr):
     sample_path = _resolve(sample_zarr)
     if not sample_path.exists():
         return {
             "status": "missing_sample",
             "path": str(sample_path),
-            "native_backend": "not_probed",
         }
 
-    prefer_native = bool(probe_native)
     try:
-        volume = wrapper.FastLocalVolume(sample_path, prefer_native=prefer_native)
+        volume = wrapper.FastLocalVolume(sample_path)
         chunk = volume.get_chunk(0, 0, 0)
     except Exception as exc:
         return {
             "status": "fail",
             "path": str(sample_path),
-            "native_backend": "failed" if prefer_native else "not_requested",
             "error": str(exc),
         }
 
@@ -89,68 +92,62 @@ def _probe_sample(wrapper, sample_zarr, probe_native):
         "status": "pass",
         "path": str(sample_path),
         "backend": volume.backend,
-        "native_backend": "used" if volume.backend == "vesuvius-c" else "not_used",
         "shape": list(volume.shape),
         "chunks": list(volume.chunks),
         "sample_chunk_shape": list(chunk.shape),
     }
 
 
-def build_readiness(sample_zarr=DEFAULT_SAMPLE_ZARR, probe_native=False):
-    wrapper_path = _resolve("vesuvius_c_wrapper/vesuvius_c.py")
-    upstream_path = _resolve("villa/vesuvius-c/python/vesuvius_c.py")
-    native_library = _resolve("villa/vesuvius-c/python/libvesuvius.so")
+def build_readiness(sample_zarr=DEFAULT_SAMPLE_ZARR):
+    wrapper_path = _resolve("volume_cartographer_wrapper/volume.py")
+    official_path = _resolve("villa/volume-cartographer")
+    volume_header = _resolve("villa/volume-cartographer/core/include/vc/core/types/Volume.hpp")
+    vc3d_launcher = _resolve("scripts/launch_vc3d.py")
 
     report = {
-        "source": "ScrollPrize/villa vesuvius-c",
+        "source": "ScrollPrize/villa volume-cartographer",
         "wrapper_path": str(wrapper_path),
-        "upstream_path": str(upstream_path),
-        "native_library_path": str(native_library),
+        "official_path": str(official_path),
+        "volume_header": str(volume_header),
         "sample_zarr": str(_resolve(sample_zarr)),
         "checks": {
             "wrapper_present": wrapper_path.exists(),
-            "upstream_present": upstream_path.exists(),
-            "native_library_present": native_library.exists(),
-            "native_probe_requested": bool(probe_native),
+            "official_component_present": official_path.exists(),
+            "volume_header_present": volume_header.exists(),
+            "vc3d_launcher_present": vc3d_launcher.exists(),
         },
-        "fallback_smoke": {"status": "not_run"},
+        "local_volume_smoke": {"status": "not_run"},
         "loader_slice_smoke": {"status": "not_run"},
         "sample_probe": {"status": "not_run"},
-        "benchmark_command": (
-            "VESUVIUS_C_BUILD=1 "
-            f"{REPO_ROOT / '.venv/bin/python'} benchmark_vesuvius_c.py"
-        ),
         "prize_claim_status": "blocked",
-        "next_action": "Restore wrapper and upstream Villa checkout.",
+        "next_action": "Restore the Volume Cartographer wrapper and Villa checkout.",
     }
 
-    if not report["checks"]["wrapper_present"] or not report["checks"]["upstream_present"]:
+    checks = report["checks"]
+    if not checks["wrapper_present"] or not checks["official_component_present"]:
         return report
 
-    from vesuvius_c_wrapper import vesuvius_c as wrapper
+    from volume_cartographer_wrapper import volume as wrapper
 
-    report["fallback_smoke"] = _smoke_fallback(wrapper)
+    report["local_volume_smoke"] = _smoke_local_volume(wrapper)
     report["loader_slice_smoke"] = _smoke_loader_slice()
-    report["sample_probe"] = _probe_sample(wrapper, sample_zarr, probe_native)
+    report["sample_probe"] = _probe_sample(wrapper, sample_zarr)
 
-    if report["fallback_smoke"]["status"] != "pass":
+    if report["local_volume_smoke"]["status"] != "pass":
         report["prize_claim_status"] = "blocked"
-        report["next_action"] = "Fix the local Zarr fallback before using Vesuvius-C in handoff gates."
+        report["next_action"] = "Fix the local OME-Zarr chunk compatibility layer before running handoff gates."
     elif report["loader_slice_smoke"]["status"] != "pass":
         report["prize_claim_status"] = "blocked"
         report["next_action"] = "Fix FastVesuviusVolume slicing before running another training sprint."
     elif report["sample_probe"]["status"] == "missing_sample":
         report["prize_claim_status"] = "ready_for_local_data"
-        report["next_action"] = "Download or mount a local CT Zarr sample, then run the benchmark command."
+        report["next_action"] = "Download or mount a local CT Zarr sample, then rerun this readiness report."
     elif report["sample_probe"]["status"] != "pass":
         report["prize_claim_status"] = "blocked"
-        report["next_action"] = "Fix sample chunk reads before benchmarking Vesuvius-C speedups."
-    elif report["sample_probe"].get("backend") != "vesuvius-c":
-        report["prize_claim_status"] = "fallback_only"
-        report["next_action"] = "Run the benchmark with VESUVIUS_C_BUILD=1 and record native speedup before a Progress Prize claim."
+        report["next_action"] = "Fix sample chunk reads before packaging VC3D-aligned evidence."
     else:
-        report["prize_claim_status"] = "native_probe_passed"
-        report["next_action"] = "Run repeated native-vs-Zarr benchmarks and attach timings to the Progress Prize package."
+        report["prize_claim_status"] = "volume_cartographer_aligned"
+        report["next_action"] = "Keep VC3D overlay validation in the prize handoff gate; add native C++ bridge only if Python training needs it."
 
     return report
 
@@ -158,29 +155,28 @@ def build_readiness(sample_zarr=DEFAULT_SAMPLE_ZARR, probe_native=False):
 def render_markdown(report):
     checks = report["checks"]
     sample = report["sample_probe"]
-    fallback = report["fallback_smoke"]
+    local_volume = report["local_volume_smoke"]
     loader_slice = report["loader_slice_smoke"]
     lines = [
-        "# Vesuvius-C Readiness",
+        "# Volume Cartographer Readiness",
         "",
-        "This report checks whether the official `ScrollPrize/villa` Vesuvius-C path is ready for prize-facing Autoresearch use.",
+        "This report checks whether Autoresearch is aligned with Villa's maintained `volume-cartographer` path instead of deprecated `vesuvius-c`.",
         "",
         "## Summary",
         "",
         f"- Prize claim status: `{report['prize_claim_status']}`",
         f"- Wrapper present: `{checks['wrapper_present']}`",
-        f"- Upstream present: `{checks['upstream_present']}`",
-        f"- Native library present: `{checks['native_library_present']}`",
-        f"- Native probe requested: `{checks['native_probe_requested']}`",
-        f"- Fallback smoke: `{fallback.get('status')}`",
+        f"- Official component present: `{checks['official_component_present']}`",
+        f"- Volume API header present: `{checks['volume_header_present']}`",
+        f"- VC3D launcher present: `{checks['vc3d_launcher_present']}`",
+        f"- Local volume smoke: `{local_volume.get('status')}`",
         f"- Loader slice smoke: `{loader_slice.get('status')}`",
         f"- Sample probe: `{sample.get('status')}`",
         f"- Sample backend: `{sample.get('backend', 'n/a')}`",
         "",
-        "## Benchmark",
+        "## Next Action",
         "",
-        f"- Command: `{report['benchmark_command']}`",
-        f"- Next action: {report['next_action']}",
+        f"- {report['next_action']}",
         "",
     ]
     return "\n".join(lines)
@@ -189,12 +185,11 @@ def render_markdown(report):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--sample-zarr", default=DEFAULT_SAMPLE_ZARR)
-    parser.add_argument("--probe-native", action="store_true")
-    parser.add_argument("--out-json", default="reports/vesuvius_c_readiness.json")
-    parser.add_argument("--out-md", default="reports/vesuvius_c_readiness.md")
+    parser.add_argument("--out-json", default="reports/volume_cartographer_readiness.json")
+    parser.add_argument("--out-md", default="reports/volume_cartographer_readiness.md")
     args = parser.parse_args()
 
-    report = build_readiness(sample_zarr=args.sample_zarr, probe_native=args.probe_native)
+    report = build_readiness(sample_zarr=args.sample_zarr)
 
     out_json = _resolve(args.out_json)
     out_json.parent.mkdir(parents=True, exist_ok=True)

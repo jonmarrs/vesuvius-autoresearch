@@ -1,0 +1,58 @@
+{
+  "source": "ScrollPrize/villa volume-cartographer",
+  "wrapper_path": "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/volume_cartographer_wrapper/volume.py",
+  "official_path": "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/villa/volume-cartographer",
+  "volume_header": "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/villa/volume-cartographer/core/include/vc/core/types/Volume.hpp",
+  "sample_zarr": "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/local_data/PHercParis2Fr47/surface_volume.zarr/0",
+  "checks": {
+    "wrapper_present": true,
+    "official_component_present": true,
+    "volume_header_present": true,
+    "vc3d_launcher_present": true
+  },
+  "local_volume_smoke": {
+    "status": "pass",
+    "backend": "volume-cartographer-zarr",
+    "shape": [
+      4,
+      6,
+      8
+    ],
+    "chunks": [
+      2,
+      3,
+      4
+    ]
+  },
+  "loader_slice_smoke": {
+    "status": "pass",
+    "shape": [
+      2,
+      3,
+      4
+    ],
+    "backend": "volume-cartographer-zarr"
+  },
+  "sample_probe": {
+    "status": "pass",
+    "path": "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/local_data/PHercParis2Fr47/surface_volume.zarr/0",
+    "backend": "volume-cartographer-zarr",
+    "shape": [
+      33,
+      8181,
+      6330
+    ],
+    "chunks": [
+      64,
+      256,
+      256
+    ],
+    "sample_chunk_shape": [
+      33,
+      256,
+      256
+    ]
+  },
+  "prize_claim_status": "volume_cartographer_aligned",
+  "next_action": "Keep VC3D overlay validation in the prize handoff gate; add native C++ bridge only if Python training needs it."
+}

@@ -12,7 +12,7 @@ This document outlines how we leverage and contribute to the official `ScrollPri
 
 ### [Priority 0.5] Official Issue-Backed Prize Queue (STATUS: PLANNER ADDED)
 *   **Discovery**: Current official open issues include progress-prize candidates for whole-volume deformation (#203), scroll-specific 3D augmentations (#201), surface/fiber/ink label generation (#193), accurate 3D ink labels (#192), compressed/high-curvature surface and fiber prediction (#191), VC3D fiber prediction integration (#369), and OME-Zarr scale metadata (#497).
-*   **Action**: Use `reports/villa_prize_opportunities.json` as the Autoresearch sprint queue. The current top task is #191: route high-occupancy Scroll 2/3 candidates through Lasagna/fiber preprocessing before ink inference. The concrete queue is already in `reports/lasagna_fiber_worklist.tsv`, headed by occupied `PHerc0125` div_90/div_100 and `PHerc0332` div_90 windows. The planner now marks every opportunity as `diverged_with_local_patches`, so any Villa pin update must preserve local CuPy, Betti, Autoresearch, Vesuvius-C, and spatial-transform changes.
+*   **Action**: Use `reports/villa_prize_opportunities.json` as the Autoresearch sprint queue. The current top task is #191: route high-occupancy Scroll 2/3 candidates through Lasagna/fiber preprocessing before ink inference. The concrete queue is already in `reports/lasagna_fiber_worklist.tsv`, headed by occupied `PHerc0125` div_90/div_100 and `PHerc0332` div_90 windows. The planner now marks every opportunity as `diverged_with_local_patches`, so any Villa pin update must preserve local CuPy, Betti, Autoresearch, Volume Cartographer, and spatial-transform changes.
 *   **Impact**: Aligns local model work with public Progress Prize signals while also attacking the geometry bottleneck that keeps First Letters/Title candidates low-confidence.
 
 ### [Priority 0.6] Active Villa Evidence Pipeline (STATUS: QUEUE READY)
@@ -25,8 +25,8 @@ This document outlines how we leverage and contribute to the official `ScrollPri
 *   **Action**: Ported `hessian`, `detect_ridges`, `nms_3d`, and `detect_vesselness` to CuPy.
 *   **Impact**: **5-10x speedup** for community fiber extraction. Ready for Pull Request.
 
-### [Priority B] Official Vesuvius-C Python Bindings (STATUS: PREPARED)
-*   **Action**: Prepared a PR-ready package in `villa/vesuvius-c/python/` with `setup.py` and `README`.
+### [Priority B] Volume Cartographer Alignment (STATUS: ACTIVE)
+*   **Action**: Retire new `vesuvius-c` work and route Python volume-access/readiness gates through `volume_cartographer_wrapper/` plus Villa's maintained `volume-cartographer` / VC3D conventions.
 *   **Impact**: Enables community-wide "data-on-demand" workflows with C-speed performance.
 
 ## 2. Infrastructure Integration (Grand Prize Track)

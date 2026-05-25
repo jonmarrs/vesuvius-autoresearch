@@ -23,15 +23,6 @@ COMPONENTS = [
         "priority": "high",
     },
     {
-        "name": "vesuvius-c",
-        "official_path": "villa/vesuvius-c",
-        "prize_use": "Low-level CT access for high-throughput chunk reads.",
-        "local_hooks": ["vesuvius_c_wrapper", "benchmark_vesuvius_c.py", "test_vesuvius_c.py", "SPRINT_KANBAN.md"],
-        "required_hooks": ["vesuvius_c_wrapper"],
-        "next_action": "Run the Vesuvius-C benchmark on local CT chunks before claiming a Progress Prize speedup.",
-        "priority": "medium",
-    },
-    {
         "name": "ink-detection",
         "official_path": "villa/ink-detection",
         "prize_use": "Official Grand Prize ink model recipes and optimized inference contracts.",
@@ -50,9 +41,16 @@ COMPONENTS = [
     {
         "name": "volume-cartographer",
         "official_path": "villa/volume-cartographer",
-        "prize_use": "VC3D surface tracing, segmentation, and overlay review.",
-        "local_hooks": ["scripts/launch_vc3d.py", "scripts/validate_prize_artifact.py", "reports/villa_review_manifest.md"],
-        "next_action": "Validate ink/fiber OME-Zarr overlays before VC3D review or Progress Prize packaging.",
+        "prize_use": "Maintained Villa path for volume/chunk access, VC3D surface tracing, segmentation, and overlay review.",
+        "local_hooks": [
+            "volume_cartographer_wrapper",
+            "scripts/build_volume_cartographer_readiness.py",
+            "scripts/launch_vc3d.py",
+            "scripts/validate_prize_artifact.py",
+            "reports/villa_review_manifest.md",
+        ],
+        "required_hooks": ["volume_cartographer_wrapper", "scripts/build_volume_cartographer_readiness.py"],
+        "next_action": "Keep Python loading and VC3D overlay validation aligned with Volume Cartographer; do not add new vesuvius-c hooks.",
         "priority": "high",
     },
     {

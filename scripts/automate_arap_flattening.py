@@ -12,7 +12,7 @@ from pathlib import Path
 import tempfile
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
-from vesuvius_c_wrapper.vesuvius_c import FastLocalVolume
+from volume_cartographer_wrapper.volume import FastLocalVolume
 
 def run_flattening(vc_flatten_bin, input_uri, output_path, iterations, method):
     """Executes vc_flatten as a subprocess with robust error handling."""
