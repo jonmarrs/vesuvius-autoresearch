@@ -21,7 +21,7 @@ This board tracks the prioritized research trajectory for the autonomous swarm. 
 - **[Sprint 021] ResEnc UNet Backbone Port**: (DONE in `train.py`)
 - **[Sprint 022] Fixed GP-Winner Baseline in the Swarm**: (DONE in `run_autoresearch_loop.py`)
 - **[Sprint 023] Structure-Tensor Auxiliary Task**: (DONE in `train.py`)
-- **[BUGFIX] (DONE)** Resolved device mismatch in `SpatialTransform` and numerical gradient error in `vesuvius_loader.py`.
+- **[BUGFIX] (DONE)** Resolved device mismatch in `SpatialTransform` and numerical gradient error in `vesuvius_loader.py`. Upstream Villa PR #913 for the `batchgeneratorsv2` `SpatialTransform` CUDA/CPU fix was closed without merge on 2026-05-26 at 00:02 PT; keep the local fix if it remains useful for autoresearch, but do not treat #913 as accepted upstream evidence.
 - **[BUGFIX] (DONE)** Fixed Zarr URI defaults, Volume slicing IndexErrors, and corrupted 0.0 baseline reset (v2.6.0).
 
 ### Phase 3c: Augmentation & Data Pipeline

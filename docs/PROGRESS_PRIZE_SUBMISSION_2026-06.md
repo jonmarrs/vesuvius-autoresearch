@@ -106,9 +106,9 @@ Ablation snapshot from PR description (Scroll 2 div_90 candidate, 64³ patch):
 
 ### 6. Concurrent upstream contributions (auxiliary, not part of the June prize narrative)
 
-These are small standalone bugfixes shipped to villa in the same week for community benefit. Not prize artifacts in themselves, but worth pointing at:
+These were small standalone bugfixes proposed to villa in the same week for community benefit. They are not prize artifacts, and they are no longer acceptance evidence because both were closed without merge:
 
-- [ScrollPrize/villa#913](https://github.com/ScrollPrize/villa/pull/913) — `fix(batchgeneratorsv2): resolve device mismatch in SpatialTransform`. SpatialTransform built sampling grids on CPU while inputs lived on GPU, causing `RuntimeError` in CUDA training loops.
+- [ScrollPrize/villa#913](https://github.com/ScrollPrize/villa/pull/913) — `fix(batchgeneratorsv2): resolve device mismatch in SpatialTransform`. SpatialTransform built sampling grids on CPU while inputs lived on GPU, causing `RuntimeError` in CUDA training loops. Closed without merge on 2026-05-26.
 - [ScrollPrize/villa#914](https://github.com/ScrollPrize/villa/pull/914) — `fix(vesuvius-c): accept file:// URLs in vs_download`. `vs_download` rejected any non-200 HTTP status, breaking local-file fetches where libcurl reports `http_code == 0`.
 
 ## Why this is prize-worthy
@@ -153,7 +153,7 @@ so that the bundled `libcusolver.so.11` is on the linker search path.
 | Prize-narrative PR #2 (companion) | https://github.com/ScrollPrize/villa/pull/916 (vesuvius-c Python bindings) |
 | Prize-narrative PR #3 (companion, addresses villa#193) | https://github.com/ScrollPrize/villa/pull/922 (CT-derived fiber labels) |
 | Prize-narrative PR #4 (sketch, addresses villa#192) | https://github.com/ScrollPrize/villa/pull/923 (CT-derived 3D ink labels) |
-| Auxiliary upstream PRs | [#913](https://github.com/ScrollPrize/villa/pull/913), [#914](https://github.com/ScrollPrize/villa/pull/914) |
+| Auxiliary upstream PRs | [#913](https://github.com/ScrollPrize/villa/pull/913) and [#914](https://github.com/ScrollPrize/villa/pull/914) were closed without merge; keep local fixes only where still useful |
 | Key files | `foundation/datasets/fibers-dataset/tools.py`, `foundation/datasets/fibers-dataset/generate_fiber_labels_from_ct.py`, `foundation/datasets/fibers-dataset/tests/test_tools_parity.py`, `foundation/datasets/fibers-dataset/bench/bench_tools.py`, `vesuvius-c/python/vesuvius_c.py` |
 | Tests | 16 passing across the three PRs: `test_tools_parity.py` (10), `test_imports.py` (3), `test_generate_fiber_labels_from_ct.py` (3) |
 | Reproduction entrypoint | `cd foundation/datasets/fibers-dataset && pytest tests/ && python3 bench/bench_tools.py --sizes 64 128 256` |
