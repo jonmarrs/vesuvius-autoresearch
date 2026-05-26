@@ -5,11 +5,11 @@
   "name": "Fiber Prediction pred_10_1000_1000_64x64",
   "slices": 1,
   "type": "vol",
-  "uuid": "08cc4d1a-131e-42e2-a78f-0bef2333933e",
+  "uuid": "f1c45272-25ba-4c9d-986a-deb113c34cb0",
   "voxelsize": 7.91,
   "width": 64,
   "format": "zarr",
-  "source_uri": "local_data/PHercParis2Fr143/surface_volume.zarr",
+  "source_uri": "local_data/PHercParis2Fr47/surface_volume.zarr",
   "origin_xyz": [
     1000,
     1000,
