@@ -148,6 +148,15 @@ class FastVesuviusVolume:
                 #      every use_ridges=True cycle silently trained on zeros.
                 ridges_tensor = None
                 try:
+                    # Pre-load PyTorch bundled NVIDIA libraries so CuPy can find libcusolver.so.11
+                    import ctypes, glob, os, site
+                    site_pkgs = site.getsitepackages()
+                    if site_pkgs:
+                        for lib_path in glob.glob(os.path.join(site_pkgs[0], "nvidia", "*", "lib", "*.so.*")):
+                            try:
+                                ctypes.cdll.LoadLibrary(lib_path)
+                            except Exception:
+                                pass
                     import cupy as cp
                     import cupyx.scipy.ndimage as cup_ndimage
                     fiber_tools.xp = cp
