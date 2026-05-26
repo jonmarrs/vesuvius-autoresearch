@@ -2,6 +2,18 @@
 
 This records the full `ScrollPrize/villa` PR reset for `jonmarrs` and keeps the recovery path narrow. Do not argue on closed PRs. Preserve useful local work, rebuild only the strongest slices from current `ScrollPrize/villa:main`, and reopen only when the evidence is stronger than the original submission.
 
+## PR Quality Gate
+
+Future Villa PRs must clear a professional-grade quality bar before submission:
+
+- Complete solution, not a sketch or partial implementation.
+- Current-main branch with the smallest meaningful scope.
+- Full focused tests and any relevant integration/runtime smoke tests passing.
+- Real evidence for the claimed behavior: logs, benchmarks, screenshots/contact sheets, reproducers, or Docker smoke output as appropriate.
+- Human-written PR body explaining the problem, the reasoning, the validation, and remaining limitations plainly.
+- No generated-content footers, AI attribution boilerplate, defensive language, or unverified claims.
+- No public PR, public comment, or community post until the above evidence exists.
+
 ## Verified State
 
 GitHub check on 2026-05-26: every `ScrollPrize/villa` PR authored by `jonmarrs` is closed, none are open, and none are merged.
