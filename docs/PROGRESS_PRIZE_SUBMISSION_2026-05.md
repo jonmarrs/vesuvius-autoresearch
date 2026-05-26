@@ -68,7 +68,7 @@ This is the missing piece for an end-to-end **villa-only** pipeline: `villa leje
 Per the Progress Prize criteria (released early, actually used, well documented):
 
 - **Released early.** All four launchers + the submission_package path + the upstream PR shipped during the May 2026 monthly window, well before the 2026-05-31 deadline.
-- **Actually used.** The upstream villa PR #899 is the strongest proof: an external repo is consuming our submission_package contract and we're upstreaming the consumer-side loader. The launcher family is wired into `reports/villa_prize_action_matrix.md` and `scripts/run_post_sprint_villa_handoff.py`, so each Day-Shift / Night-Shift autoresearch cycle now exercises these lanes.
+- **Actually used.** The launcher family is wired into `reports/villa_prize_action_matrix.md` and `scripts/run_post_sprint_villa_handoff.py`, so each Day-Shift / Night-Shift autoresearch cycle now exercises these lanes. The original upstream villa PR #899 is no longer acceptance evidence: it was closed without merge on 2026-05-26. Treat the PR as a lesson learned and use a fresh, human-evaluated replacement PR only after the Docker smoke passes end to end.
 - **Well documented.** Each launcher carries a docstring explaining its villa target, the submittability constraint, and the dry-run/execute pattern. The action-matrix Baselines section gives a one-glance status table. `REPRODUCIBILITY.md` in each emitted submission_package records the exact pretrain checkpoint SHA and fine-tune config SHA. The submission packaging story has eight passing unit tests covering prefix-mismatch detection, Docker refusal, and full package emission.
 
 ## How to reproduce
@@ -108,8 +108,8 @@ To package the resulting checkpoint as a submission:
   --submission-package-dir submission_package_primus_lejepa
 ```
 
-The smoke test validates the envelope, refuses the Docker command (no upstream
-Primus loader yet, pending PR #899), and writes the `submission_package_primus_lejepa/`
+The smoke test validates the envelope, refuses the Docker command (no merged
+upstream Primus optimized-inference loader yet; PR #899 was closed), and writes the `submission_package_primus_lejepa/`
 directory.
 
 ## Integration with villa (component coverage)
@@ -120,7 +120,7 @@ This submission adds direct integrations beyond what the April submission covere
 2. **[`vesuvius.models.training.trainers.self_supervised.train_finetune_lejepa`](https://github.com/ScrollPrize/villa/blob/main/vesuvius/src/vesuvius/models/training/trainers/self_supervised/train_finetune_lejepa.py)** — invoked via thin runner from `scripts/launch_finetune_lejepa.py` (the official CLI does not yet dispatch this trainer; the runner pattern bypasses cleanly without modifying the submodule).
 3. **[`segmentation/models/multi-task-3d-unet/training/trainers/train_gp_winner.py`](https://github.com/ScrollPrize/villa/blob/main/segmentation/models/multi-task-3d-unet/training/trainers/train_gp_winner.py)** — invoked via runner from `scripts/launch_gp_winner.py`.
 4. **[`vesuvius.neural_tracing.trace_service`](https://github.com/ScrollPrize/villa/blob/main/vesuvius/src/vesuvius/neural_tracing/trace_service.py)** — surfaced as a per-candidate review daemon by `scripts/launch_neural_tracing.py`.
-5. **[`vesuvius.models.run.inference`](https://github.com/ScrollPrize/villa/blob/main/vesuvius/src/vesuvius/models/run/inference.py)** — referenced by every `submission_package_primus_lejepa/predict_manifest.json` as the canonical command for Primus inference, until PR #899 merges.
+5. **[`vesuvius.models.run.inference`](https://github.com/ScrollPrize/villa/blob/main/vesuvius/src/vesuvius/models/run/inference.py)** — referenced by every `submission_package_primus_lejepa/predict_manifest.json` as the canonical command for Primus inference. A fresh optimized-inference replacement PR is still needed because PR #899 was closed without merge.
 
 ## Community value
 
@@ -135,7 +135,7 @@ This submission collapses those four steps into:
 - `python scripts/launch_<lane>.py` (dry-run, default).
 - `python scripts/launch_<lane>.py --execute` (real training).
 - `python scripts/smoke_test_villa_optimized_inference.py ...` (package).
-- PR #899 ready to merge upstream once container deps are sorted.
+- Fresh replacement PR for the Primus optimized-inference loader, but only after container deps and Docker smoke evidence are complete.
 
 The pattern is also intentionally extensible: any future villa trainer can get its own launcher by following the existing template (`launch_lejepa.py` is the smallest example at ~100 lines).
 
@@ -146,7 +146,7 @@ The pattern is also intentionally extensible: any future villa trainer can get i
 | Repository | https://github.com/jonmarrs/vesuvius-autoresearch |
 | Branch | `main` |
 | Key directories | `scripts/launch_*.py`, `reports/villa_prize_action_matrix.md`, `docs/VILLA_PRIZE_READINESS.md` |
-| Upstream PR | https://github.com/ScrollPrize/villa/pull/899 |
+| Upstream PR | PR #899 was closed without merge; replacement PR required after Docker smoke evidence |
 | Tests | `tests/test_villa_baselines_launchers.py`, `tests/test_villa_optimized_inference_smoke.py` (8 passing + 80 broader autoresearch tests) |
 | Reproduction entrypoint | `python scripts/build_villa_prize_action_matrix.py` then read `reports/villa_prize_action_matrix.md` |
 | License | MIT |
