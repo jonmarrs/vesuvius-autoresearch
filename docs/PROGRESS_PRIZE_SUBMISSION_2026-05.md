@@ -146,7 +146,7 @@ The pattern is also intentionally extensible: any future villa trainer can get i
 | Repository | https://github.com/jonmarrs/vesuvius-autoresearch |
 | Branch | `main` |
 | Key directories | `scripts/launch_*.py`, `reports/villa_prize_action_matrix.md`, `docs/VILLA_PRIZE_READINESS.md` |
-| Upstream PR | PR #899 and the companion community listing PR #901 were closed without merge; replacement PRs required after Docker smoke evidence |
+| Upstream PR | PR #899 and companion community listing PRs #901/#910 were closed without merge; replacements required after Docker smoke and Volume Cartographer-aligned evidence |
 | Tests | `tests/test_villa_baselines_launchers.py`, `tests/test_villa_optimized_inference_smoke.py` (8 passing + 80 broader autoresearch tests) |
 | Reproduction entrypoint | `python scripts/build_villa_prize_action_matrix.py` then read `reports/villa_prize_action_matrix.md` |
 | License | MIT |
