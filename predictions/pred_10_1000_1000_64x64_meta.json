@@ -1,6 +1,6 @@
 {
   "scroll_id": "unknown",
-  "source_uri": "local_data/PHercParis2Fr47/surface_volume.zarr",
+  "source_uri": "local_data/PHercParis2Fr143/surface_volume.zarr",
   "segmentation_id": null,
   "position_xyz": [
     1000,
@@ -19,7 +19,7 @@
   "scale_bar_cm": true,
   "vc3d_zarr_path": "reports/pred_10_1000_1000_64x64_ink.zarr",
   "fiber_vc3d_zarr_path": "reports/pred_10_1000_1000_64x64_fiber.zarr",
-  "output_image_path": "reports/test_cupy_fix.png",
+  "output_image_path": "reports/benchmark_v210_cycle15.png",
   "model_config": {
     "uri": null,
     "uris": [
@@ -92,13 +92,13 @@
     ]
   },
   "ink_stats": {
-    "mean": NaN,
-    "std": NaN,
-    "max": NaN
+    "mean": 0.08901874721050262,
+    "std": 0.03646416589617729,
+    "max": 0.21854716539382935
   },
   "fiber_stats": {
-    "mean": NaN,
-    "std": NaN,
-    "max": NaN
+    "mean": 0.17803749442100525,
+    "std": 0.07292833179235458,
+    "max": 0.4370943307876587
   }
 }

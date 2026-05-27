@@ -5,11 +5,11 @@
   "name": "Ink Prediction pred_10_1000_1000_64x64",
   "slices": 1,
   "type": "vol",
-  "uuid": "7c5b386b-e9d3-4432-9220-c727d22eddf9",
+  "uuid": "7bb63c27-605e-45ce-8152-eb59df7f06ed",
   "voxelsize": 7.91,
   "width": 64,
   "format": "zarr",
-  "source_uri": "local_data/PHercParis2Fr47/surface_volume.zarr",
+  "source_uri": "local_data/PHercParis2Fr143/surface_volume.zarr",
   "origin_xyz": [
     1000,
     1000,
