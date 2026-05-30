@@ -38,13 +38,13 @@ kimimaro.skeletonize = patched_skeletonize
 try:
     import wandb
 
-    original_wandb_log = wandb.log
+    original_wandb_log = wandb.log  # type: ignore[attr-defined]
 
     def safe_wandb_log(*args, **kwargs):
-        if wandb.run is not None:
+        if wandb.run is not None:  # type: ignore[attr-defined]
             return original_wandb_log(*args, **kwargs)
 
-    wandb.log = safe_wandb_log
+    wandb.log = safe_wandb_log  # type: ignore[attr-defined]
 except ImportError:
     pass
 
@@ -258,7 +258,7 @@ try:
         return abs(int(n_pred) - int(n_gt))
 except ImportError:
 
-    def compute_cc_diff(gt_bin, pred_bin):
+    def compute_cc_diff(gt_bin: np.ndarray, pred_bin: np.ndarray) -> int:
         return 0
 
 

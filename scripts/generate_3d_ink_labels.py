@@ -390,7 +390,8 @@ def _infer_full_shape(ct_path: str) -> tuple[int, int, int]:
 
     store = zarr.open(ct_path, mode="r")
     arr = store if isinstance(store, zarr.core.Array) else store["0"]
-    return tuple(int(s) for s in arr.shape[:3])
+    shape = arr.shape[:3]
+    return (int(shape[0]), int(shape[1]), int(shape[2]))
 
 
 def _build_parser() -> argparse.ArgumentParser:

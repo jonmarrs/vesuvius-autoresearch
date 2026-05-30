@@ -215,7 +215,7 @@ def main():
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
 
-    success_counts = load_history()
+    success_counts: dict[str, float] = load_history()
 
     # Detect Shift
     current_hour = time.localtime().tm_hour
@@ -556,12 +556,12 @@ def main():
             try:
                 with open("run_result.json") as f:
                     res = json.load(f)
-                val_bpb = res.get("val_bpb", "N/A")
-                train_loss = res.get("train_loss", "N/A")
-                params = res.get("num_params_M", "N/A")
-                vram = res.get("peak_vram_mb", "N/A")
-                vps = res.get("throughput_Mvps", "N/A")
-                is_success = res.get("is_success", False)
+                val_bpb = res.get("val_bpb", "N/A")  # type: ignore[attr-defined]
+                train_loss = res.get("train_loss", "N/A")  # type: ignore[attr-defined]
+                params = res.get("num_params_M", "N/A")  # type: ignore[attr-defined]
+                vram = res.get("peak_vram_mb", "N/A")  # type: ignore[attr-defined]
+                vps = res.get("throughput_Mvps", "N/A")  # type: ignore[attr-defined]
+                is_success = res.get("is_success", False)  # type: ignore[attr-defined]
             except Exception as e:
                 print(f"Error reading run_result.json: {e}")
                 is_crash = True

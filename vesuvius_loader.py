@@ -29,7 +29,7 @@ except ImportError as exc:
     )
     import zarr
 
-    class FastLocalVolume:
+    class FastLocalVolume:  # type: ignore[no-redef]
         def __init__(self, path):
             self.path = path
             self.arr = zarr.open(path, mode="r")
@@ -39,7 +39,7 @@ except ImportError as exc:
         def get_chunk(self, z, y, x, depth, height, width):
             return np.asarray(self.arr[z : z + depth, y : y + height, x : x + width])
 
-    class VolumeCartographerVolume(FastLocalVolume):
+    class VolumeCartographerVolume(FastLocalVolume):  # type: ignore[no-redef]
         def __init__(self, cache_dir=None, url=None):
             super().__init__(url or cache_dir)
 
