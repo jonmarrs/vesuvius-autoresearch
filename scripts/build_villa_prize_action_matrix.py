@@ -5,10 +5,10 @@ Build an operator-facing action matrix from Villa opportunity and evidence repor
 This turns the official ScrollPrize/villa opportunity ranking plus current
 Autoresearch preflight results into a short, repeatable sprint decision artifact.
 """
+
 import argparse
 import json
 from pathlib import Path
-
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
@@ -48,7 +48,7 @@ def _load_json(path, default):
     path = _resolve(path)
     if not path.exists():
         return default
-    with open(path, "r") as f:
+    with open(path) as f:
         return json.load(f)
 
 
@@ -66,7 +66,11 @@ def _candidate_digest(preflight):
 
 def _readiness_label(opportunity, digest):
     area = opportunity.get("villa_area")
-    if digest["ready_for_gpu"] > 0 and area in {"lasagna", "volume_cartographer", "optimized_inference"}:
+    if digest["ready_for_gpu"] > 0 and area in {
+        "lasagna",
+        "volume_cartographer",
+        "optimized_inference",
+    }:
         return "ready_now"
     if area == "resnet3d_decoder":
         return "training_ablation"
@@ -145,7 +149,9 @@ def build_action_matrix(
     digest = _candidate_digest(preflight)
 
     actions = []
-    for rank, opportunity in enumerate(opportunities_report.get("opportunities", [])[:limit], start=1):
+    for rank, opportunity in enumerate(
+        opportunities_report.get("opportunities", [])[:limit], start=1
+    ):
         area = opportunity.get("villa_area")
         area_action = AREA_ACTIONS.get(
             area,
@@ -213,15 +219,23 @@ def render_markdown(matrix):
     for action in matrix["actions"]:
         title = str(action.get("title") or "").replace("|", "\\|")
         issue = action.get("official_issue") or ""
-        hook = f"[{action.get('id')}]({issue}) {title}" if issue else f"{action.get('id')} {title}"
+        hook = (
+            f"[{action.get('id')}]({issue}) {title}"
+            if issue
+            else f"{action.get('id')} {title}"
+        )
         lines.append(
             "| {rank} | {hook} | `{track}` | `{readiness}` | {autoresearch_action} | {evidence_gate} |".format(
                 rank=action["rank"],
                 hook=hook,
                 track=action.get("track"),
                 readiness=action.get("readiness"),
-                autoresearch_action=str(action.get("autoresearch_action") or "").replace("|", "\\|"),
-                evidence_gate=str(action.get("evidence_gate") or "").replace("|", "\\|"),
+                autoresearch_action=str(
+                    action.get("autoresearch_action") or ""
+                ).replace("|", "\\|"),
+                evidence_gate=str(action.get("evidence_gate") or "").replace(
+                    "|", "\\|"
+                ),
             )
         )
 
@@ -265,8 +279,12 @@ def render_markdown(matrix):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--opportunities", default="reports/villa_prize_opportunities.json")
-    parser.add_argument("--preflight", default="reports/scroll23_evidence_preflight_summary.json")
+    parser.add_argument(
+        "--opportunities", default="reports/villa_prize_opportunities.json"
+    )
+    parser.add_argument(
+        "--preflight", default="reports/scroll23_evidence_preflight_summary.json"
+    )
     parser.add_argument("--out-json", default="reports/villa_prize_action_matrix.json")
     parser.add_argument("--out-md", default="reports/villa_prize_action_matrix.md")
     parser.add_argument("--limit", type=int, default=5)

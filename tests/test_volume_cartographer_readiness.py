@@ -1,12 +1,35 @@
 from scripts.build_volume_cartographer_readiness import build_readiness, render_markdown
 
 
-def test_volume_cartographer_readiness_runs_local_smoke_for_missing_sample(tmp_path, monkeypatch):
-    monkeypatch.setattr("scripts.build_volume_cartographer_readiness.REPO_ROOT", tmp_path)
+def test_volume_cartographer_readiness_runs_local_smoke_for_missing_sample(
+    tmp_path, monkeypatch
+):
+    monkeypatch.setattr(
+        "scripts.build_volume_cartographer_readiness.REPO_ROOT", tmp_path
+    )
     (tmp_path / "volume_cartographer_wrapper").mkdir()
     (tmp_path / "volume_cartographer_wrapper" / "volume.py").write_text("")
-    (tmp_path / "villa" / "volume-cartographer" / "core" / "include" / "vc" / "core" / "types").mkdir(parents=True)
-    (tmp_path / "villa" / "volume-cartographer" / "core" / "include" / "vc" / "core" / "types" / "Volume.hpp").write_text("")
+    (
+        tmp_path
+        / "villa"
+        / "volume-cartographer"
+        / "core"
+        / "include"
+        / "vc"
+        / "core"
+        / "types"
+    ).mkdir(parents=True)
+    (
+        tmp_path
+        / "villa"
+        / "volume-cartographer"
+        / "core"
+        / "include"
+        / "vc"
+        / "core"
+        / "types"
+        / "Volume.hpp"
+    ).write_text("")
     (tmp_path / "scripts").mkdir()
     (tmp_path / "scripts" / "launch_vc3d.py").write_text("")
 

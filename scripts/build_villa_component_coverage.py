@@ -5,10 +5,10 @@ Report how official ScrollPrize/villa components map into Autoresearch.
 The goal is to keep prize work grounded in the official monorepo surface: data
 access, ink inference, unwrapping, review tools, and validation paths.
 """
+
 import argparse
 import json
 from pathlib import Path
-
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
@@ -18,7 +18,11 @@ COMPONENTS = [
         "name": "vesuvius",
         "official_path": "villa/vesuvius",
         "prize_use": "Official Python CT/Zarr data access and normalization.",
-        "local_hooks": ["vesuvius_loader.py", "v3_training/trainer.py", "check_loader.py"],
+        "local_hooks": [
+            "vesuvius_loader.py",
+            "v3_training/trainer.py",
+            "check_loader.py",
+        ],
         "next_action": "Keep loader smoke tests aligned with the pinned Villa data API.",
         "priority": "high",
     },
@@ -26,7 +30,11 @@ COMPONENTS = [
         "name": "ink-detection",
         "official_path": "villa/ink-detection",
         "prize_use": "Official Grand Prize ink model recipes and optimized inference contracts.",
-        "local_hooks": ["train.py", "predict.py", "scripts/smoke_test_villa_optimized_inference.py"],
+        "local_hooks": [
+            "train.py",
+            "predict.py",
+            "scripts/smoke_test_villa_optimized_inference.py",
+        ],
         "next_action": "Keep optimized-inference smoke checks in the post-sprint gate before packaging evidence.",
         "priority": "high",
     },
@@ -34,7 +42,10 @@ COMPONENTS = [
         "name": "crackle-viewer",
         "official_path": "villa/crackle-viewer",
         "prize_use": "Human review and labeling of virtually unwrapped ink predictions.",
-        "local_hooks": ["scripts/launch_crackle_viewer.py", "reports/villa_review_manifest.md"],
+        "local_hooks": [
+            "scripts/launch_crackle_viewer.py",
+            "reports/villa_review_manifest.md",
+        ],
         "next_action": "Open GPU-ready candidates from the review manifest for human text-legibility review.",
         "priority": "high",
     },
@@ -49,7 +60,10 @@ COMPONENTS = [
             "scripts/validate_prize_artifact.py",
             "reports/villa_review_manifest.md",
         ],
-        "required_hooks": ["volume_cartographer_wrapper", "scripts/build_volume_cartographer_readiness.py"],
+        "required_hooks": [
+            "volume_cartographer_wrapper",
+            "scripts/build_volume_cartographer_readiness.py",
+        ],
         "next_action": "Keep Python loading and VC3D overlay validation aligned with Volume Cartographer; do not add new vesuvius-c hooks.",
         "priority": "high",
     },
@@ -57,7 +71,10 @@ COMPONENTS = [
         "name": "lasagna",
         "official_path": "villa/lasagna",
         "prize_use": "Surface fitting, tifxyz conversion, and geometry-aware preprocessing.",
-        "local_hooks": ["scripts/build_lasagna_fiber_worklist.py", "reports/lasagna_fiber_worklist.tsv"],
+        "local_hooks": [
+            "scripts/build_lasagna_fiber_worklist.py",
+            "reports/lasagna_fiber_worklist.tsv",
+        ],
         "next_action": "Route occupied Scroll 2/3 candidates through Lasagna/fiber preprocessing before more ink inference.",
         "priority": "high",
     },
@@ -65,7 +82,10 @@ COMPONENTS = [
         "name": "segmentation",
         "official_path": "villa/segmentation",
         "prize_use": "Official segmentation models and topology-oriented evaluation metrics.",
-        "local_hooks": ["test_import.py", "submission_package_dry_run/HALLUCINATION_MITIGATION.md"],
+        "local_hooks": [
+            "test_import.py",
+            "submission_package_dry_run/HALLUCINATION_MITIGATION.md",
+        ],
         "next_action": "Keep topology metrics available as hallucination mitigation evidence.",
         "priority": "medium",
     },
@@ -81,7 +101,10 @@ COMPONENTS = [
         "name": "thaumato-anakalyptor",
         "official_path": "villa/thaumato-anakalyptor",
         "prize_use": "Alternative semi-automatic unwrapping and surface extraction pipeline.",
-        "local_hooks": ["scripts/launch_thaumato.py", "scripts/autoresearch_thaumato_solver.py"],
+        "local_hooks": [
+            "scripts/launch_thaumato.py",
+            "scripts/autoresearch_thaumato_solver.py",
+        ],
         "next_action": "Use as a fallback review route when VC3D/Lasagna surfaces are poor.",
         "priority": "medium",
     },
@@ -109,12 +132,14 @@ def build_component_coverage(components=None):
         ]
         required_hooks = component.get("required_hooks", [])
         missing_required_hooks = [
-            hook
-            for hook in required_hooks
-            if not _path_exists(hook)
+            hook for hook in required_hooks if not _path_exists(hook)
         ]
         present_hooks = sum(1 for hook in hook_status if hook["present"])
-        if official_present and present_hooks == len(hook_status) and not missing_required_hooks:
+        if (
+            official_present
+            and present_hooks == len(hook_status)
+            and not missing_required_hooks
+        ):
             status = "covered"
         elif official_present and missing_required_hooks and present_hooks:
             status = "blocked_missing_required_hook"
@@ -141,12 +166,20 @@ def build_component_coverage(components=None):
         "covered": sum(1 for row in rows if row["coverage_status"] == "covered"),
         "partial": sum(1 for row in rows if row["coverage_status"] == "partial"),
         "blocked_missing_required_hook": sum(
-            1 for row in rows if row["coverage_status"] == "blocked_missing_required_hook"
+            1
+            for row in rows
+            if row["coverage_status"] == "blocked_missing_required_hook"
         ),
         "unwired": sum(1 for row in rows if row["coverage_status"] == "unwired"),
-        "missing_official_component": sum(1 for row in rows if row["coverage_status"] == "missing_official_component"),
+        "missing_official_component": sum(
+            1 for row in rows if row["coverage_status"] == "missing_official_component"
+        ),
     }
-    return {"source": "ScrollPrize/villa local checkout", "summary": summary, "components": rows}
+    return {
+        "source": "ScrollPrize/villa local checkout",
+        "summary": summary,
+        "components": rows,
+    }
 
 
 def render_markdown(report):

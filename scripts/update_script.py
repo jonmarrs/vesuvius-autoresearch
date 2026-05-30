@@ -1,6 +1,4 @@
-import sys
-
-with open('train.py', 'r') as f:
+with open("train.py") as f:
     content = f.read()
 
 # Replace TrainConfig
@@ -30,7 +28,13 @@ def compute_dice_loss(pred, target, smooth=1e-5):
     return 1.0 - dice.mean()"""
 
 import re
-content = re.sub(r'@dataclass\nclass TrainConfig:.*?(?=\ndef train\()', new_config + '\n', content, flags=re.DOTALL)
+
+content = re.sub(
+    r"@dataclass\nclass TrainConfig:.*?(?=\ndef train\()",
+    new_config + "\n",
+    content,
+    flags=re.DOTALL,
+)
 
 # Replace data loaders
 new_loaders = """    print(f"Initializing Vesuvius Autoresearch Training on {t_config.uri}...")
@@ -44,7 +48,12 @@ new_loaders = """    print(f"Initializing Vesuvius Autoresearch Training on {t_c
     val_dataset = VesuviusS3Dataset(uri=t_config.val_uri, patch_size=t_config.patch_size, num_layers=t_config.num_layers)
     val_data_iter = iter(val_dataset)"""
 
-content = re.sub(r'    print\(f"Initializing Vesuvius Autoresearch Training on.*?data_iter = iter\(dataset\)', new_loaders, content, flags=re.DOTALL)
+content = re.sub(
+    r'    print\(f"Initializing Vesuvius Autoresearch Training on.*?data_iter = iter\(dataset\)',
+    new_loaders,
+    content,
+    flags=re.DOTALL,
+)
 
 # Replace evaluation
 new_eval = """    # Final Summary
@@ -71,7 +80,12 @@ new_eval = """    # Final Summary
             
     val_bpb = np.mean(val_losses)"""
 
-content = re.sub(r'    # Final Summary.*?val_bpb = np\.mean\(val_losses\)', new_eval, content, flags=re.DOTALL)
+content = re.sub(
+    r"    # Final Summary.*?val_bpb = np\.mean\(val_losses\)",
+    new_eval,
+    content,
+    flags=re.DOTALL,
+)
 
-with open('train.py', 'w') as f:
+with open("train.py", "w") as f:
     f.write(content)

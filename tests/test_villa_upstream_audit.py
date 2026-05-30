@@ -63,7 +63,10 @@ def test_audit_villa_upstream_groups_prize_relevant_changes(monkeypatch, tmp_pat
     assert report["prize_relevant_areas"]["volume_cartographer"]["changed_files"] == 1
     assert report["prize_relevant_areas"]["vesuvius_data"]["changed_files"] == 1
     assert report["prize_relevant_areas"]["prize_docs"]["changed_files"] == 1
-    assert report["local_prize_relevant_areas"]["volume_cartographer"]["changed_files"] == 1
+    assert (
+        report["local_prize_relevant_areas"]["volume_cartographer"]["changed_files"]
+        == 1
+    )
 
 
 def test_audit_villa_upstream_handles_fast_forward_pin(monkeypatch, tmp_path):

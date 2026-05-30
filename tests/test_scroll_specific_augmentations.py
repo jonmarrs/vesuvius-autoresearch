@@ -17,7 +17,9 @@ def test_scroll_specific_augmentations_preserve_shapes_and_label_bounds():
     fiber = torch.zeros((2, 1, 1, 16, 16))
     fiber[:, :, :, :, 7:9] = 1.0
 
-    x_aug, ink_aug, fiber_aug = apply_scroll_specific_3d_augmentations(x, ink, fiber, config)
+    x_aug, ink_aug, fiber_aug = apply_scroll_specific_3d_augmentations(
+        x, ink, fiber, config
+    )
 
     assert x_aug.shape == x.shape
     assert ink_aug.shape == ink.shape
@@ -41,7 +43,9 @@ def test_scroll_specific_augmentations_noop_when_disabled():
     ink = torch.rand((1, 1, 8, 8))
     fiber = torch.rand((1, 1, 1, 8, 8))
 
-    x_aug, ink_aug, fiber_aug = apply_scroll_specific_3d_augmentations(x, ink, fiber, config)
+    x_aug, ink_aug, fiber_aug = apply_scroll_specific_3d_augmentations(
+        x, ink, fiber, config
+    )
 
     torch.testing.assert_close(x_aug, x)
     torch.testing.assert_close(ink_aug, ink)

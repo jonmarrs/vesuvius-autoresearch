@@ -6,12 +6,11 @@ The queue is intentionally metadata-first: it ranks deterministic windows by
 location, patch-size compliance, local-data availability, and optional model
 prediction scores without downloading anything.
 """
+
 import argparse
 import csv
 import json
-import os
 from pathlib import Path
-
 
 SCROLLS = {
     "Scroll2": {
@@ -64,7 +63,7 @@ def _read_zarr_array_info(local_uri):
     zarray_path = Path(local_uri) / ".zarray"
     if not zarray_path.exists():
         return None
-    with open(zarray_path, "r") as f:
+    with open(zarray_path) as f:
         meta = json.load(f)
     return {
         "shape": tuple(int(v) for v in meta["shape"]),
@@ -88,7 +87,9 @@ def _occupied_chunk_coords(local_uri, limit=5000):
                     continue
                 for x_file in y_dir.iterdir():
                     if x_file.is_file() and x_file.name.isdigit():
-                        coords.append((int(z_dir.name), int(y_dir.name), int(x_file.name)))
+                        coords.append(
+                            (int(z_dir.name), int(y_dir.name), int(x_file.name))
+                        )
                         if len(coords) >= limit:
                             return coords
     else:
@@ -111,7 +112,9 @@ def _occupied_windows(local_uri, windows_per_division, patch_size):
 
     chunks = info["chunks"]
     shape = info["shape"]
-    center = tuple(sum(coord[axis] for coord in coords) / len(coords) for axis in range(3))
+    center = tuple(
+        sum(coord[axis] for coord in coords) / len(coords) for axis in range(3)
+    )
     coords = sorted(
         coords,
         key=lambda coord: sum((coord[axis] - center[axis]) ** 2 for axis in range(3)),
@@ -120,8 +123,14 @@ def _occupied_windows(local_uri, windows_per_division, patch_size):
     seen = set()
     for zc, yc, xc in coords:
         z = min(max(0, zc * chunks[0]), max(0, shape[0] - 1))
-        y = min(max(0, yc * chunks[1] + chunks[1] // 2 - patch_size // 2), max(0, shape[1] - patch_size))
-        x = min(max(0, xc * chunks[2] + chunks[2] // 2 - patch_size // 2), max(0, shape[2] - patch_size))
+        y = min(
+            max(0, yc * chunks[1] + chunks[1] // 2 - patch_size // 2),
+            max(0, shape[1] - patch_size),
+        )
+        x = min(
+            max(0, xc * chunks[2] + chunks[2] // 2 - patch_size // 2),
+            max(0, shape[2] - patch_size),
+        )
         key = (z, y, x)
         if key in seen:
             continue
@@ -132,7 +141,9 @@ def _occupied_windows(local_uri, windows_per_division, patch_size):
     return windows
 
 
-def build_queue(divisions, windows_per_division, patch_size, voxel_um, prediction_dir=None):
+def build_queue(
+    divisions, windows_per_division, patch_size, voxel_um, prediction_dir=None
+):
     rows = []
     window_mm = patch_size * voxel_um / 1000.0
     submittable_window = patch_size <= 64 or window_mm <= 0.5 + 1e-9
@@ -144,7 +155,11 @@ def build_queue(divisions, windows_per_division, patch_size, voxel_um, predictio
             local_bonus = 0.25 if local_uri else 0.0
             pred_score = _prediction_score(prediction_dir, scroll_key, div_name)
 
-            occupied_windows = _occupied_windows(local_uri, windows_per_division, patch_size) if local_uri else []
+            occupied_windows = (
+                _occupied_windows(local_uri, windows_per_division, patch_size)
+                if local_uri
+                else []
+            )
             for rank_in_div in range(windows_per_division):
                 if rank_in_div < len(occupied_windows):
                     z, y, x = occupied_windows[rank_in_div]
@@ -193,13 +208,25 @@ def main():
     parser.add_argument("--divisions", default="0,10,20,30,40,50,60,70,80,90,100")
     args = parser.parse_args()
 
-    divisions = [float(part.strip()) / 100.0 for part in args.divisions.split(",") if part.strip()]
-    rows = build_queue(divisions, args.windows_per_division, args.patch_size, args.voxel_um, args.prediction_dir)
+    divisions = [
+        float(part.strip()) / 100.0
+        for part in args.divisions.split(",")
+        if part.strip()
+    ]
+    rows = build_queue(
+        divisions,
+        args.windows_per_division,
+        args.patch_size,
+        args.voxel_um,
+        args.prediction_dir,
+    )
 
     out_path = Path(args.out)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     with open(out_path, "w", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=list(rows[0].keys()), delimiter="\t", lineterminator="\n")
+        writer = csv.DictWriter(
+            f, fieldnames=list(rows[0].keys()), delimiter="\t", lineterminator="\n"
+        )
         writer.writeheader()
         writer.writerows(rows)
 
@@ -208,7 +235,8 @@ def main():
         "num_candidates": len(rows),
         "patch_size": args.patch_size,
         "voxel_um": args.voxel_um,
-        "submittable_window": args.patch_size <= 64 or args.patch_size * args.voxel_um / 1000.0 <= 0.5 + 1e-9,
+        "submittable_window": args.patch_size <= 64
+        or args.patch_size * args.voxel_um / 1000.0 <= 0.5 + 1e-9,
         "scrolls": SCROLLS,
     }
     manifest_path = Path(args.manifest)

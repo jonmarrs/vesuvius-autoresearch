@@ -17,7 +17,9 @@ class DummyVolume:
 
 
 def test_s3_dataset_samples_deterministic_z_without_fallback(monkeypatch):
-    monkeypatch.setattr(vesuvius_loader, "FastVesuviusVolume", lambda *args, **kwargs: DummyVolume())
+    monkeypatch.setattr(
+        vesuvius_loader, "FastVesuviusVolume", lambda *args, **kwargs: DummyVolume()
+    )
 
     dataset = vesuvius_loader.VesuviusS3Dataset(
         uri="s3://example/scroll.zarr/0",

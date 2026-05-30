@@ -12,7 +12,6 @@ from pathlib import Path
 import numpy as np
 import zarr
 
-
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_SAMPLE_ZARR = "local_data/PHercParis2Fr47/surface_volume.zarr/0"
 
@@ -29,7 +28,9 @@ def _resolve(path):
 
 def _make_smoke_zarr(path):
     data = np.arange(4 * 6 * 8, dtype=np.float32).reshape(4, 6, 8)
-    arr = zarr.open(str(path), mode="w", shape=data.shape, chunks=(2, 3, 4), dtype="float32")
+    arr = zarr.open(
+        str(path), mode="w", shape=data.shape, chunks=(2, 3, 4), dtype="float32"
+    )
     arr[:] = data
     return data
 
@@ -64,7 +65,9 @@ def _smoke_loader_slice():
         volume = FastVesuviusVolume(str(path))
         patch = volume[1:3, 2:5, 3:7]
         return {
-            "status": "pass" if np.allclose(patch.numpy(), data[1:3, 2:5, 3:7]) else "fail",
+            "status": "pass"
+            if np.allclose(patch.numpy(), data[1:3, 2:5, 3:7])
+            else "fail",
             "shape": list(patch.shape),
             "backend": volume.vol.backend,
         }
@@ -101,7 +104,9 @@ def _probe_sample(wrapper, sample_zarr):
 def build_readiness(sample_zarr=DEFAULT_SAMPLE_ZARR):
     wrapper_path = _resolve("volume_cartographer_wrapper/volume.py")
     official_path = _resolve("villa/volume-cartographer")
-    volume_header = _resolve("villa/volume-cartographer/core/include/vc/core/types/Volume.hpp")
+    volume_header = _resolve(
+        "villa/volume-cartographer/core/include/vc/core/types/Volume.hpp"
+    )
     vc3d_launcher = _resolve("scripts/launch_vc3d.py")
 
     report = {
@@ -135,19 +140,29 @@ def build_readiness(sample_zarr=DEFAULT_SAMPLE_ZARR):
 
     if report["local_volume_smoke"]["status"] != "pass":
         report["prize_claim_status"] = "blocked"
-        report["next_action"] = "Fix the local OME-Zarr chunk compatibility layer before running handoff gates."
+        report["next_action"] = (
+            "Fix the local OME-Zarr chunk compatibility layer before running handoff gates."
+        )
     elif report["loader_slice_smoke"]["status"] != "pass":
         report["prize_claim_status"] = "blocked"
-        report["next_action"] = "Fix FastVesuviusVolume slicing before running another training sprint."
+        report["next_action"] = (
+            "Fix FastVesuviusVolume slicing before running another training sprint."
+        )
     elif report["sample_probe"]["status"] == "missing_sample":
         report["prize_claim_status"] = "ready_for_local_data"
-        report["next_action"] = "Download or mount a local CT Zarr sample, then rerun this readiness report."
+        report["next_action"] = (
+            "Download or mount a local CT Zarr sample, then rerun this readiness report."
+        )
     elif report["sample_probe"]["status"] != "pass":
         report["prize_claim_status"] = "blocked"
-        report["next_action"] = "Fix sample chunk reads before packaging VC3D-aligned evidence."
+        report["next_action"] = (
+            "Fix sample chunk reads before packaging VC3D-aligned evidence."
+        )
     else:
         report["prize_claim_status"] = "volume_cartographer_aligned"
-        report["next_action"] = "Keep VC3D overlay validation in the prize handoff gate; add native C++ bridge only if Python training needs it."
+        report["next_action"] = (
+            "Keep VC3D overlay validation in the prize handoff gate; add native C++ bridge only if Python training needs it."
+        )
 
     return report
 
@@ -185,7 +200,9 @@ def render_markdown(report):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--sample-zarr", default=DEFAULT_SAMPLE_ZARR)
-    parser.add_argument("--out-json", default="reports/volume_cartographer_readiness.json")
+    parser.add_argument(
+        "--out-json", default="reports/volume_cartographer_readiness.json"
+    )
     parser.add_argument("--out-md", default="reports/volume_cartographer_readiness.md")
     args = parser.parse_args()
 

@@ -15,7 +15,6 @@ reintroducing a dependency on deprecated ``vesuvius-c``.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Optional
 from urllib.parse import urlparse
 
 import numpy as np
@@ -59,7 +58,7 @@ class FastLocalVolume:
     ``get_chunk(z, y, x, depth, height, width)``.
     """
 
-    def __init__(self, path: str | Path, prefer_native: Optional[bool] = None):
+    def __init__(self, path: str | Path, prefer_native: bool | None = None):
         del prefer_native  # Kept for compatibility with old call sites.
         self.path = _select_zarr_level(_coerce_local_path(path))
         self._zarr = zarr.open(str(self.path), mode="r")
@@ -107,5 +106,5 @@ class FastLocalVolume:
 class VolumeCartographerVolume(FastLocalVolume):
     """Compatibility constructor for local Volume Cartographer OME-Zarr reads."""
 
-    def __init__(self, cache_dir: str | Path | None = None, url: Optional[str] = None):
+    def __init__(self, cache_dir: str | Path | None = None, url: str | None = None):
         super().__init__(url or cache_dir)

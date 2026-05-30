@@ -6,12 +6,12 @@ The action matrix says which official Villa opportunities matter. This manifest
 turns the current GPU queue into per-candidate commands and expected artifacts
 for ink/fiber inference, evidence validation, and VC3D/Crackle review.
 """
+
 import argparse
 import csv
 import json
 import shlex
 from pathlib import Path
-
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
@@ -27,7 +27,7 @@ def _load_json(path, default):
     path = _resolve(path)
     if not path.exists():
         return default
-    with open(path, "r") as f:
+    with open(path) as f:
         return json.load(f)
 
 
@@ -35,7 +35,7 @@ def _load_tsv(path):
     path = _resolve(path)
     if not path.exists() or path.stat().st_size == 0:
         return []
-    with open(path, "r", newline="") as f:
+    with open(path, newline="") as f:
         return list(csv.DictReader(f, delimiter="\t"))
 
 
@@ -190,8 +190,12 @@ def render_markdown(manifest):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--gpu-queue", default="reports/scroll23_gpu_inference_queue.tsv")
-    parser.add_argument("--action-matrix", default="reports/villa_prize_action_matrix.json")
+    parser.add_argument(
+        "--gpu-queue", default="reports/scroll23_gpu_inference_queue.tsv"
+    )
+    parser.add_argument(
+        "--action-matrix", default="reports/villa_prize_action_matrix.json"
+    )
     parser.add_argument("--ranked", default="reports/scroll23_ranked_candidates.tsv")
     parser.add_argument("--evidence-root", default="reports/scroll23_evidence")
     parser.add_argument("--checkpoint", default="best_model.pt")

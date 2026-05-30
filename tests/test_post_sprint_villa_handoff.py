@@ -1,6 +1,10 @@
 from argparse import Namespace
 
-from scripts.run_post_sprint_villa_handoff import build_handoff_steps, resolve_status, write_plan
+from scripts.run_post_sprint_villa_handoff import (
+    build_handoff_steps,
+    resolve_status,
+    write_plan,
+)
 
 
 def _args(**overrides):
@@ -82,7 +86,9 @@ def test_post_sprint_handoff_defaults_to_safe_preflight_commands():
 
 
 def test_post_sprint_handoff_execute_flags_mark_gpu_steps():
-    steps = build_handoff_steps(_args(execute_inference=True, execute_evidence=True, evidence_limit=1))
+    steps = build_handoff_steps(
+        _args(execute_inference=True, execute_evidence=True, evidence_limit=1)
+    )
 
     assert steps[5]["gpu"] is True
     assert steps[5]["command"][-1] == "--execute"

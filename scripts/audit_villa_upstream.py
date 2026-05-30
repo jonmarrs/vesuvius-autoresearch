@@ -5,11 +5,11 @@ Summarize prize-relevant changes available in the upstream ScrollPrize/villa rep
 This intentionally reads only git metadata from the local villa submodule. Run
 `git -C villa fetch origin main` first when network is available.
 """
+
 import argparse
 import json
 import subprocess
 from pathlib import Path
-
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
@@ -34,7 +34,10 @@ PRIZE_AREAS = {
         "prize_use": "VC3D segmentation, browsing, growth, and tifxyz utilities for producing reviewable surfaces.",
     },
     "vesuvius_data": {
-        "prefixes": ("vesuvius/src/vesuvius/data/", "vesuvius/src/vesuvius/scripts/build_chunk_occupancy.py"),
+        "prefixes": (
+            "vesuvius/src/vesuvius/data/",
+            "vesuvius/src/vesuvius/scripts/build_chunk_occupancy.py",
+        ),
         "prize_use": "Chunk occupancy and volume access improvements that reduce empty-window search waste.",
     },
     "prize_docs": {
@@ -64,7 +67,10 @@ def _group_paths_by_area(paths):
         matches = [
             path
             for path in paths
-            if any(path == prefix.rstrip("/") or path.startswith(prefix) for prefix in spec["prefixes"])
+            if any(
+                path == prefix.rstrip("/") or path.startswith(prefix)
+                for prefix in spec["prefixes"]
+            )
         ]
         areas[name] = {
             "changed_files": len(matches),
@@ -91,7 +97,10 @@ def audit_villa_upstream(villa_dir="villa", head_ref="origin/main"):
     local_ahead_commits = _count_commits(villa_dir, merge_base, local_ref)
     direct_changed = _changed_paths(villa_dir, local_ref, head_ref)
 
-    commits = _git(["log", "--oneline", "--max-count=20", f"{local_ref}..{head_ref}"], cwd=villa_dir)
+    commits = _git(
+        ["log", "--oneline", "--max-count=20", f"{local_ref}..{head_ref}"],
+        cwd=villa_dir,
+    )
     return {
         "villa_dir": str(villa_dir),
         "local_ref": local_ref,

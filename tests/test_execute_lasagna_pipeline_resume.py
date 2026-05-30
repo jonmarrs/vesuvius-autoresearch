@@ -1,7 +1,10 @@
 import json
-from pathlib import Path
 
-from scripts.execute_lasagna_pipeline import _evidence_passed, _structure_tensor_complete, _zarr_array_exists
+from scripts.execute_lasagna_pipeline import (
+    _evidence_passed,
+    _structure_tensor_complete,
+    _zarr_array_exists,
+)
 
 
 def test_zarr_array_exists_checks_zarray_marker(tmp_path):

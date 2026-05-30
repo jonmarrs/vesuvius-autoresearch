@@ -6,13 +6,12 @@ This checks the mechanical submission constraints that can be verified locally:
 metadata completeness, ML window-size guidance, train/predict overlap, scale-bar
 declaration, and VC3D/Zarr export shape/scale metadata.
 """
+
 import argparse
 import json
-import os
 from pathlib import Path
 
 import numpy as np
-
 
 MAX_ML_WINDOW_MM = 0.5
 MAX_ML_WINDOW_PX = 64
@@ -20,7 +19,7 @@ DEFAULT_VOXEL_UM = 8.0
 
 
 def _load_json(path):
-    with open(path, "r") as f:
+    with open(path) as f:
         return json.load(f)
 
 
@@ -53,7 +52,13 @@ def _load_mask(path):
 def _check_ome_scale_metadata(zarr_dir, voxel_um, failures, warnings):
     zattrs_path = zarr_dir / ".zattrs"
     if not zattrs_path.exists():
-        _check(False, f"VC3D export missing OME-Zarr scale metadata {zattrs_path}", failures, warnings, warning=True)
+        _check(
+            False,
+            f"VC3D export missing OME-Zarr scale metadata {zattrs_path}",
+            failures,
+            warnings,
+            warning=True,
+        )
         return
 
     try:
@@ -69,7 +74,11 @@ def _check_ome_scale_metadata(zarr_dir, voxel_um, failures, warnings):
 
     axes = multiscales[0].get("axes") or []
     axis_units = [axis.get("unit") for axis in axes if axis.get("type") == "space"]
-    _check(axis_units and all(unit == "micrometer" for unit in axis_units), "OME-Zarr spatial axes must use micrometer units", failures)
+    _check(
+        axis_units and all(unit == "micrometer" for unit in axis_units),
+        "OME-Zarr spatial axes must use micrometer units",
+        failures,
+    )
 
     datasets = multiscales[0].get("datasets") or []
     _check(datasets, "OME-Zarr multiscales metadata must include datasets", failures)
@@ -78,7 +87,11 @@ def _check_ome_scale_metadata(zarr_dir, voxel_um, failures, warnings):
 
     transforms = datasets[0].get("coordinateTransformations") or []
     scales = [item.get("scale") for item in transforms if item.get("type") == "scale"]
-    _check(scales, "OME-Zarr dataset must include a scale coordinateTransformation", failures)
+    _check(
+        scales,
+        "OME-Zarr dataset must include a scale coordinateTransformation",
+        failures,
+    )
     if scales:
         spatial_scale = [float(v) for v in scales[0][-3:]]
         expected = [float(voxel_um)] * 3
@@ -97,8 +110,16 @@ def _check_vc3d_zarr(zarr_candidate, voxel_um, failures, warnings, label):
     _check(zarray_json.exists(), f"{label} VC3D export missing {zarray_json}", failures)
     if meta_json.exists():
         vc_meta = _load_json(meta_json)
-        _check(vc_meta.get("format") == "zarr", f"{label} VC3D meta.json must include format='zarr'", failures)
-        _check(float(vc_meta.get("voxelsize", 0)) > 0, f"{label} VC3D meta.json must include positive voxelsize", failures)
+        _check(
+            vc_meta.get("format") == "zarr",
+            f"{label} VC3D meta.json must include format='zarr'",
+            failures,
+        )
+        _check(
+            float(vc_meta.get("voxelsize", 0)) > 0,
+            f"{label} VC3D meta.json must include positive voxelsize",
+            failures,
+        )
     _check_ome_scale_metadata(zarr_dir, voxel_um, failures, warnings)
 
 
@@ -108,25 +129,43 @@ def validate(metadata_path, train_mask=None, predict_mask=None, zarr_path=None):
     failures = []
     warnings = []
 
-    voxel_um = float(metadata.get("voxel_size_um", metadata.get("voxel_resolution_um", DEFAULT_VOXEL_UM)))
-    patch_size = int(metadata.get("patch_size", metadata.get("window_size_pixels", 0) or 0))
-    width = int(metadata.get("width_px", metadata.get("window_width_px", patch_size) or 0))
-    height = int(metadata.get("height_px", metadata.get("window_height_px", patch_size) or 0))
+    voxel_um = float(
+        metadata.get(
+            "voxel_size_um", metadata.get("voxel_resolution_um", DEFAULT_VOXEL_UM)
+        )
+    )
+    patch_size = int(
+        metadata.get("patch_size", metadata.get("window_size_pixels", 0) or 0)
+    )
+    width = int(
+        metadata.get("width_px", metadata.get("window_width_px", patch_size) or 0)
+    )
+    height = int(
+        metadata.get("height_px", metadata.get("window_height_px", patch_size) or 0)
+    )
     ml_window_px = int(metadata.get("ml_window_px", patch_size or max(width, height)))
     ml_window_mm = ml_window_px * voxel_um / 1000.0
 
     _check(metadata.get("scroll_id"), "metadata must include scroll_id", failures)
     _check(
-        metadata.get("segmentation_id") or metadata.get("segmentation_file") or metadata.get("source_uri"),
+        metadata.get("segmentation_id")
+        or metadata.get("segmentation_file")
+        or metadata.get("source_uri"),
         "metadata must include segmentation_id, segmentation_file, or source_uri",
         failures,
     )
     _check(
-        metadata.get("position_xyz") or metadata.get("3d_position_xyz") or all(k in metadata for k in ("z", "y", "x")),
+        metadata.get("position_xyz")
+        or metadata.get("3d_position_xyz")
+        or all(k in metadata for k in ("z", "y", "x")),
         "metadata must include 3D position",
         failures,
     )
-    _check(width > 0 and height > 0, "metadata must include positive width_px/height_px or patch_size", failures)
+    _check(
+        width > 0 and height > 0,
+        "metadata must include positive width_px/height_px or patch_size",
+        failures,
+    )
     _check(voxel_um > 0, "metadata must include positive voxel size", failures)
     _check(
         ml_window_px <= MAX_ML_WINDOW_PX or ml_window_mm <= MAX_ML_WINDOW_MM + 1e-9,
@@ -140,7 +179,8 @@ def validate(metadata_path, train_mask=None, predict_mask=None, zarr_path=None):
     )
     _check(
         not _as_bool(metadata.get("source_image_is_placeholder", False))
-        and metadata.get("evidence_mode") not in {"placeholder", "placeholder_dry_run", "dummy"},
+        and metadata.get("evidence_mode")
+        not in {"placeholder", "placeholder_dry_run", "dummy"},
         "submission image is marked as a placeholder/dry-run artifact; real CT-derived prediction evidence is required",
         failures,
     )
@@ -155,22 +195,48 @@ def validate(metadata_path, train_mask=None, predict_mask=None, zarr_path=None):
     if train_mask_path and predict_mask_path:
         train = _load_mask(train_mask_path)
         predict = _load_mask(predict_mask_path)
-        _check(train.shape == predict.shape, "train and predict masks must have the same shape", failures)
+        _check(
+            train.shape == predict.shape,
+            "train and predict masks must have the same shape",
+            failures,
+        )
         if train.shape == predict.shape:
             overlap = int(np.logical_and(train, predict).sum())
-            _check(overlap == 0, f"train/predict masks overlap in {overlap} pixels", failures)
+            _check(
+                overlap == 0,
+                f"train/predict masks overlap in {overlap} pixels",
+                failures,
+            )
     else:
-        _check(False, "train and predict masks were not provided; zero-overlap is unverified", failures, warnings, warning=True)
+        _check(
+            False,
+            "train and predict masks were not provided; zero-overlap is unverified",
+            failures,
+            warnings,
+            warning=True,
+        )
 
     checked_zarr_paths = []
-    zarr_candidate = zarr_path or metadata.get("vc3d_zarr_path") or metadata.get("prediction_zarr_path")
+    zarr_candidate = (
+        zarr_path
+        or metadata.get("vc3d_zarr_path")
+        or metadata.get("prediction_zarr_path")
+    )
     if zarr_candidate:
         _check_vc3d_zarr(zarr_candidate, voxel_um, failures, warnings, "Ink")
         checked_zarr_paths.append(str(zarr_candidate))
     else:
-        _check(False, "VC3D/Zarr export path not provided; export compatibility is unverified", failures, warnings, warning=True)
+        _check(
+            False,
+            "VC3D/Zarr export path not provided; export compatibility is unverified",
+            failures,
+            warnings,
+            warning=True,
+        )
 
-    fiber_zarr_candidate = metadata.get("fiber_vc3d_zarr_path") or metadata.get("fiber_prediction_zarr_path")
+    fiber_zarr_candidate = metadata.get("fiber_vc3d_zarr_path") or metadata.get(
+        "fiber_prediction_zarr_path"
+    )
     if fiber_zarr_candidate:
         _check_vc3d_zarr(fiber_zarr_candidate, voxel_um, failures, warnings, "Fiber")
         checked_zarr_paths.append(str(fiber_zarr_candidate))
@@ -196,10 +262,18 @@ def validate(metadata_path, train_mask=None, predict_mask=None, zarr_path=None):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--metadata", required=True, help="Prediction or submission metadata JSON")
-    parser.add_argument("--train-mask", default=None, help="Optional train mask .npy/image")
-    parser.add_argument("--predict-mask", default=None, help="Optional prediction mask .npy/image")
-    parser.add_argument("--zarr", default=None, help="Optional VC3D prediction zarr directory")
+    parser.add_argument(
+        "--metadata", required=True, help="Prediction or submission metadata JSON"
+    )
+    parser.add_argument(
+        "--train-mask", default=None, help="Optional train mask .npy/image"
+    )
+    parser.add_argument(
+        "--predict-mask", default=None, help="Optional prediction mask .npy/image"
+    )
+    parser.add_argument(
+        "--zarr", default=None, help="Optional VC3D prediction zarr directory"
+    )
     parser.add_argument("--out", default=None, help="Optional JSON report path")
     args = parser.parse_args()
 

@@ -29,33 +29,34 @@ import time
 from dataclasses import dataclass
 from math import sqrt
 from pathlib import Path
-from typing import Optional
 
 import numpy as np
 import tifffile
 from scipy.ndimage import distance_transform_edt
 from tqdm import tqdm
 
-
 # ---------------------------------------------------------------------------
 # Villa-tools import (shared by both modes)
 # ---------------------------------------------------------------------------
 
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir))
-FIBER_TOOLS_PATH = os.path.join(PROJECT_ROOT, "villa", "foundation", "datasets", "fibers-dataset")
+FIBER_TOOLS_PATH = os.path.join(
+    PROJECT_ROOT, "villa", "foundation", "datasets", "fibers-dataset"
+)
 if FIBER_TOOLS_PATH not in sys.path:
     sys.path.insert(0, FIBER_TOOLS_PATH)
 
 import tools  # noqa: E402  (sys.path injection happens above)
 from tools import detect_vesselness  # noqa: E402  re-exported for skeleton mode
 
-
 # ---------------------------------------------------------------------------
 # Skeleton mode (original WebKnossos .nml → voxel labels pipeline)
 # ---------------------------------------------------------------------------
 
 
-def _classify_fiber_pca(voxel_coords: np.ndarray, z_threshold: float = 1.0 / sqrt(2)) -> str:
+def _classify_fiber_pca(
+    voxel_coords: np.ndarray, z_threshold: float = 1.0 / sqrt(2)
+) -> str:
     if voxel_coords.shape[0] < 2:
         return "horizontal"
     coords = voxel_coords.astype(np.float32)
@@ -68,20 +69,26 @@ def _classify_fiber_pca(voxel_coords: np.ndarray, z_threshold: float = 1.0 / sqr
     idx = np.argsort(eigvals)[::-1]
     eigvecs = eigvecs[:, idx]
     principal_axis = eigvecs[:, 0]
-    principal_axis /= (np.linalg.norm(principal_axis) + 1e-8)
+    principal_axis /= np.linalg.norm(principal_axis) + 1e-8
     z_axis = np.array([1, 0, 0], dtype=float)
     cos_angle = abs(np.dot(principal_axis, z_axis))
     return "vertical" if cos_angle > z_threshold else "horizontal"
 
 
-def _interpolate_adaptive(start_pos, end_pos, curvature_threshold=0.1, max_recursion=100):
+def _interpolate_adaptive(
+    start_pos, end_pos, curvature_threshold=0.1, max_recursion=100
+):
     segment_vector = end_pos - start_pos
     segment_length = np.linalg.norm(segment_vector)
     if max_recursion == 0 or segment_length < curvature_threshold:
         return [start_pos, end_pos]
     mid_pos = (start_pos + end_pos) / 2.0
-    left = _interpolate_adaptive(start_pos, mid_pos, curvature_threshold, max_recursion - 1)
-    right = _interpolate_adaptive(mid_pos, end_pos, curvature_threshold, max_recursion - 1)
+    left = _interpolate_adaptive(
+        start_pos, mid_pos, curvature_threshold, max_recursion - 1
+    )
+    right = _interpolate_adaptive(
+        mid_pos, end_pos, curvature_threshold, max_recursion - 1
+    )
     return left[:-1] + right
 
 
@@ -93,7 +100,7 @@ def _fill_volume_for_tree(tree, output_shape, origins=(0, 0, 0)):
         node2_pos = np.array([node2.position.x, node2.position.y, node2.position.z])
         for point in _interpolate_adaptive(node1_pos, node2_pos):
             voxel_coords = (point - origins).astype(int)
-            if np.all((0 <= voxel_coords) & (voxel_coords < np.asarray(output_shape))):
+            if np.all((voxel_coords >= 0) & (voxel_coords < np.asarray(output_shape))):
                 temp_fiber[voxel_coords[2], voxel_coords[1], voxel_coords[0]] = 1
     return temp_fiber
 
@@ -132,10 +139,14 @@ def _voxelize_skeleton(annotation, output_shape, origins, radius=3, n_workers=No
     accum_v = np.zeros(output_shape, dtype=np.uint8)
     with ProcessPoolExecutor(max_workers=n_workers) as executor:
         futures = {
-            executor.submit(_process_tree_worker, tree, output_shape, origins, radius): tree
+            executor.submit(
+                _process_tree_worker, tree, output_shape, origins, radius
+            ): tree
             for tree in all_trees
         }
-        for future in tqdm(as_completed(futures), total=len(futures), desc="Processing trees"):
+        for future in tqdm(
+            as_completed(futures), total=len(futures), desc="Processing trees"
+        ):
             h, v = future.result()
             accum_h = np.maximum(accum_h, h)
             accum_v = np.maximum(accum_v, v)
@@ -151,7 +162,10 @@ def _run_skeleton_mode(args: argparse.Namespace) -> int:
     try:
         from webknossos import Annotation
     except ImportError:
-        print("error: webknossos is not installed; skeleton mode requires it.", file=sys.stderr)
+        print(
+            "error: webknossos is not installed; skeleton mode requires it.",
+            file=sys.stderr,
+        )
         return 1
 
     nml_path = args.nml_path
@@ -205,10 +219,10 @@ class _LabelResult:
     candidate_index: int
     artifact_stem: str
     status: str
-    prob_path: Optional[str]
-    label_path: Optional[str]
+    prob_path: str | None
+    label_path: str | None
     elapsed_s: float
-    fiber_voxel_fraction: Optional[float]
+    fiber_voxel_fraction: float | None
     note: str
 
 
@@ -223,7 +237,10 @@ def _select_backend(use_gpu: bool) -> str:
             tools.xndimage = cup_ndimage
             return "cupy"
         except ImportError:
-            print("warning: --use-gpu requested but cupy not importable; using numpy.", file=sys.stderr)
+            print(
+                "warning: --use-gpu requested but cupy not importable; using numpy.",
+                file=sys.stderr,
+            )
     from scipy import ndimage as scipy_ndimage
 
     tools.xp = np
@@ -254,7 +271,9 @@ def _load_candidates(tsv_path: Path, top_n: int) -> list[_Candidate]:
     return candidates
 
 
-def _load_ct_window(local_uri: str, z: int, y: int, x: int, depth: int, height: int, width: int) -> np.ndarray:
+def _load_ct_window(
+    local_uri: str, z: int, y: int, x: int, depth: int, height: int, width: int
+) -> np.ndarray:
     """Return a float32 [0, 1] CT window of shape (depth, height, width)."""
     import zarr
 
@@ -396,14 +415,20 @@ def _run_candidates_mode(args: argparse.Namespace) -> int:
     results: list[_LabelResult] = []
     for c in candidates:
         print(f"  [{c.index:03d}] {c.artifact_stem} ... ", end="", flush=True)
-        result = _generate_label_for(c, args.evidence_root, args.depth, args.threshold, backend)
+        result = _generate_label_for(
+            c, args.evidence_root, args.depth, args.threshold, backend
+        )
         results.append(result)
         if result.status == "OK":
-            print(f"OK ({result.elapsed_s:.1f}s fiber_fraction={result.fiber_voxel_fraction:.4f})")
+            print(
+                f"OK ({result.elapsed_s:.1f}s fiber_fraction={result.fiber_voxel_fraction:.4f})"
+            )
         else:
             print(f"{result.status}: {result.note}")
 
-    summary_path = _write_summary(args.evidence_root, results, backend, args.threshold, args.depth)
+    summary_path = _write_summary(
+        args.evidence_root, results, backend, args.threshold, args.depth
+    )
     ok_count = sum(1 for r in results if r.status == "OK")
     print(f"# wrote {ok_count}/{len(results)} labels; summary={summary_path}")
     return 0 if ok_count == len(results) else 2
@@ -421,25 +446,39 @@ def _build_parser() -> argparse.ArgumentParser:
         choices=["candidates", "skeleton"],
         default="candidates",
         help="candidates (default): CT-derived pseudo-labels for ranked candidates. "
-             "skeleton: voxelize a WebKnossos .nml annotation.",
+        "skeleton: voxelize a WebKnossos .nml annotation.",
     )
 
     # candidates-mode args
-    parser.add_argument("--candidates", type=Path, default=Path("reports/scroll23_ranked_candidates.tsv"))
-    parser.add_argument("--evidence-root", type=Path, default=Path("reports/scroll23_evidence"))
+    parser.add_argument(
+        "--candidates",
+        type=Path,
+        default=Path("reports/scroll23_ranked_candidates.tsv"),
+    )
+    parser.add_argument(
+        "--evidence-root", type=Path, default=Path("reports/scroll23_evidence")
+    )
     parser.add_argument("--top-n", type=int, default=5)
-    parser.add_argument("--depth", type=int, default=64, help="Z-extent of the CT window in voxels")
+    parser.add_argument(
+        "--depth", type=int, default=64, help="Z-extent of the CT window in voxels"
+    )
     parser.add_argument("--threshold", type=float, default=0.5)
-    parser.add_argument("--use-gpu", action="store_true", help="Use the CuPy backend (default: CPU)")
+    parser.add_argument(
+        "--use-gpu", action="store_true", help="Use the CuPy backend (default: CPU)"
+    )
     parser.add_argument("--dry-run", action="store_true")
 
     # skeleton-mode args (defaults reproduce the original entry point)
     parser.add_argument(
         "--nml-path",
         type=Path,
-        default=Path("villa/foundation/datasets/fibers-dataset/fibers_s5_06500z_02000y_04000x_500_v03.nml"),
+        default=Path(
+            "villa/foundation/datasets/fibers-dataset/fibers_s5_06500z_02000y_04000x_500_v03.nml"
+        ),
     )
-    parser.add_argument("--output-dir", type=Path, default=Path("local_data/fibers_dataset"))
+    parser.add_argument(
+        "--output-dir", type=Path, default=Path("local_data/fibers_dataset")
+    )
     parser.add_argument("--radius", type=int, default=2)
     parser.add_argument("--n-workers", type=int, default=4)
     return parser

@@ -20,12 +20,12 @@ plan and explains what to train (see ``villa/vesuvius/.../neural_tracing/
 trainers/train_rowcol_cond.py``), and emits a marker so the evidence chain can
 report the gap.
 """
+
 from __future__ import annotations
 
 import argparse
 import glob
 import json
-import os
 import sys
 from pathlib import Path
 
@@ -51,7 +51,9 @@ TRACE_TRAINER = (
 )
 
 
-def _find_volume_for_candidate(scroll_id: str | None, division: str | None) -> Path | None:
+def _find_volume_for_candidate(
+    scroll_id: str | None, division: str | None
+) -> Path | None:
     """Best-effort mapping from a candidate row to a local OME-zarr."""
     local_data = PROJECT_ROOT / "local_data"
     if scroll_id and division:
@@ -80,15 +82,21 @@ def _find_neural_tracing_checkpoint() -> Path | None:
     for base in search:
         if not base.is_dir():
             continue
-        for path in sorted(glob.glob(str(base / "**" / "*.pth"), recursive=True), reverse=True):
+        for path in sorted(
+            glob.glob(str(base / "**" / "*.pth"), recursive=True), reverse=True
+        ):
             return Path(path)
-        for path in sorted(glob.glob(str(base / "**" / "*.pt"), recursive=True), reverse=True):
+        for path in sorted(
+            glob.glob(str(base / "**" / "*.pt"), recursive=True), reverse=True
+        ):
             return Path(path)
     return None
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Launch villa's neural_tracing trace_service for a candidate.")
+    parser = argparse.ArgumentParser(
+        description="Launch villa's neural_tracing trace_service for a candidate."
+    )
     parser.add_argument(
         "--volume-zarr",
         type=str,
@@ -97,7 +105,9 @@ def main() -> int:
     )
     parser.add_argument("--scroll-id", type=str, default=None, help="e.g. 0125, 0332.")
     parser.add_argument("--division", type=str, default=None, help="e.g. div_90.")
-    parser.add_argument("--volume-scale", type=int, default=0, help="OME-Zarr scale to use.")
+    parser.add_argument(
+        "--volume-scale", type=int, default=0, help="OME-Zarr scale to use."
+    )
     parser.add_argument(
         "--socket-path",
         type=str,
@@ -126,7 +136,9 @@ def main() -> int:
     else:
         volume_zarr = _find_volume_for_candidate(args.scroll_id, args.division)
 
-    checkpoint = Path(args.checkpoint) if args.checkpoint else _find_neural_tracing_checkpoint()
+    checkpoint = (
+        Path(args.checkpoint) if args.checkpoint else _find_neural_tracing_checkpoint()
+    )
 
     socket_path = Path(args.socket_path)
     socket_path.parent.mkdir(parents=True, exist_ok=True)
@@ -146,7 +158,9 @@ def main() -> int:
 
     blockers: list[str] = []
     if volume_zarr is None or not volume_zarr.is_dir():
-        blockers.append("missing OME-zarr volume; pass --volume-zarr or --scroll-id/--division")
+        blockers.append(
+            "missing OME-zarr volume; pass --volume-zarr or --scroll-id/--division"
+        )
     if checkpoint is None:
         blockers.append(
             f"no neural_tracing heatmap checkpoint found; train one via {TRACE_TRAINER}"

@@ -11,6 +11,7 @@ This is the Grand-Prize-aligned lane: papyrus sheet instance segmentation,
 not ink. Use the dry-run by default to inspect the resolved CLI command, then
 re-run with ``--execute`` to actually train.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -24,7 +25,14 @@ import yaml
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 VILLA_TRAINING_CLI = (
-    PROJECT_ROOT / "villa" / "vesuvius" / "src" / "vesuvius" / "models" / "training" / "cli.py"
+    PROJECT_ROOT
+    / "villa"
+    / "vesuvius"
+    / "src"
+    / "vesuvius"
+    / "models"
+    / "training"
+    / "cli.py"
 )
 
 
@@ -85,21 +93,38 @@ def build_config(model_name: str, data_path: Path, patch: int, max_epoch: int) -
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Launch villa's MutexAffinityTrainer for sheet instance segmentation.")
+    parser = argparse.ArgumentParser(
+        description="Launch villa's MutexAffinityTrainer for sheet instance segmentation."
+    )
     parser.add_argument(
         "--data-path",
         default=str(PROJECT_ROOT / "local_data" / "curated_fragments"),
         help="Directory containing images/ and affinity_graph/ subdirs (output of prepare_mutex_training.py).",
     )
     parser.add_argument("--model-name", default="mutex_affinity_v1")
-    parser.add_argument("--patch", type=int, default=64, help="Cubic patch size in px. Keep ≤64 for submittable models.")
+    parser.add_argument(
+        "--patch",
+        type=int,
+        default=64,
+        help="Cubic patch size in px. Keep ≤64 for submittable models.",
+    )
     parser.add_argument("--max-epoch", type=int, default=20)
-    parser.add_argument("--config-out", default=str(PROJECT_ROOT / "configs" / "instance_seg" / "mutex_config.yaml"))
-    parser.add_argument("--execute", action="store_true", help="Actually run the trainer (otherwise dry-run).")
+    parser.add_argument(
+        "--config-out",
+        default=str(PROJECT_ROOT / "configs" / "instance_seg" / "mutex_config.yaml"),
+    )
+    parser.add_argument(
+        "--execute",
+        action="store_true",
+        help="Actually run the trainer (otherwise dry-run).",
+    )
     args = parser.parse_args()
 
     if not VILLA_TRAINING_CLI.exists():
-        print(f"ERROR: villa training CLI not found at {VILLA_TRAINING_CLI}", file=sys.stderr)
+        print(
+            f"ERROR: villa training CLI not found at {VILLA_TRAINING_CLI}",
+            file=sys.stderr,
+        )
         return 1
 
     data_path = _resolve_data_path(Path(args.data_path).resolve())
@@ -156,7 +181,10 @@ def main() -> int:
 
     if args.execute:
         if not marker["data_prepared"]:
-            print("Refusing --execute: mutex training data is not prepared.", file=sys.stderr)
+            print(
+                "Refusing --execute: mutex training data is not prepared.",
+                file=sys.stderr,
+            )
             return 2
         env = os.environ.copy()
         return subprocess.call(cmd, cwd=str(PROJECT_ROOT), env=env)

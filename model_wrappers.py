@@ -19,6 +19,7 @@ good topology (May-5 skel_dist=1.0) came from ink BCE+Dice alone, so
 the dummies are not actively harmful, but real heads would unlock
 multi-task gains.
 """
+
 import torch
 import torch.nn as nn
 
@@ -81,14 +82,24 @@ class GenericMultiTaskWrapper(nn.Module):
                 nn.Conv3d(32, 6, kernel_size=1),
             )
 
-    def forward(self, x, return_fiber=False, return_qc=False, return_proj=False, return_st=False, **kwargs):
+    def forward(
+        self,
+        x,
+        return_fiber=False,
+        return_qc=False,
+        return_proj=False,
+        return_st=False,
+        **kwargs,
+    ):
         out = self.model(x)
         if isinstance(out, (list, tuple)):
             out = out[0]
         if out.dim() == 5:
             ink_2d = torch.mean(out, dim=2)
         elif out.dim() == 2:
-            ink_2d = out.view(out.shape[0], out.shape[1], 1, 1).expand(-1, -1, x.shape[3], x.shape[4])
+            ink_2d = out.view(out.shape[0], out.shape[1], 1, 1).expand(
+                -1, -1, x.shape[3], x.shape[4]
+            )
         else:
             ink_2d = out
 
@@ -109,15 +120,25 @@ class GenericMultiTaskWrapper(nn.Module):
             if self.multi_task_heads and feat is not None:
                 results.append(self.qc_head(feat))
             else:
-                results.append(torch.zeros((x.shape[0], 1), device=x.device, dtype=ink_2d.dtype))
+                results.append(
+                    torch.zeros((x.shape[0], 1), device=x.device, dtype=ink_2d.dtype)
+                )
         if return_proj:
-            proj_in = out if out.dim() == 5 else out.unsqueeze(2).unsqueeze(-1).unsqueeze(-1)
+            proj_in = (
+                out if out.dim() == 5 else out.unsqueeze(2).unsqueeze(-1).unsqueeze(-1)
+            )
             results.append(self.projector(proj_in))
         if return_st:
             if self.multi_task_heads and feat is not None:
                 results.append(self.st_head(feat))
             else:
-                results.append(torch.zeros((x.shape[0], 6, *x.shape[2:]), device=x.device, dtype=ink_2d.dtype))
+                results.append(
+                    torch.zeros(
+                        (x.shape[0], 6, *x.shape[2:]),
+                        device=x.device,
+                        dtype=ink_2d.dtype,
+                    )
+                )
         return tuple(results) if len(results) > 1 else results[0]
 
 
@@ -144,7 +165,7 @@ def build_inference_model(
     Callers should run load_compatible_state_dict afterward and check
     the skip count to catch architecture mismatches.
     """
-    from vesuvius_model import VesuviusConfig, InkDetectorOptimized
+    from vesuvius_model import InkDetectorOptimized, VesuviusConfig
 
     v_config = VesuviusConfig(
         patch_size=patch_size,
@@ -159,12 +180,15 @@ def build_inference_model(
 
     if architecture == "timesformer":
         from vesuvius_model import VesuviusTimeSformer
+
         return VesuviusTimeSformer(v_config)
     if architecture == "resnet3d_decoder":
         from vesuvius_model import VesuviusResNet3DDecoder
+
         return VesuviusResNet3DDecoder(v_config)
     if architecture == "lejepa_unet":
         from vesuvius_model import LeJEPAUNet
+
         return LeJEPAUNet(v_config)
     if architecture == "resenc_unet":
         from dynamic_network_architectures.architectures.unet import ResidualEncoderUNet
@@ -172,8 +196,9 @@ def build_inference_model(
             convert_dim_to_conv_op,
             get_matching_instancenorm,
         )
+
         n_stages = 3
-        features_per_stage = [base_feat * (2 ** i) for i in range(n_stages)]
+        features_per_stage = [base_feat * (2**i) for i in range(n_stages)]
         strides = [[1, 1, 1]] + [[2, 2, 2]] * (n_stages - 1)
         backbone = ResidualEncoderUNet(
             input_channels=v_config.in_channels,
@@ -193,6 +218,10 @@ def build_inference_model(
             nonlin_kwargs={"inplace": True},
             deep_supervision=False,
         )
-        return GenericMultiTaskWrapper(backbone, multi_task_heads=multi_task_heads, input_channels=v_config.in_channels)
+        return GenericMultiTaskWrapper(
+            backbone,
+            multi_task_heads=multi_task_heads,
+            input_channels=v_config.in_channels,
+        )
 
     return InkDetectorOptimized(v_config)

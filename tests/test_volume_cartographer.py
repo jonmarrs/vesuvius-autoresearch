@@ -8,7 +8,9 @@ def test_fast_local_volume_reads_grid_and_voxel_chunks(tmp_path):
     zarr = pytest.importorskip("zarr")
     path = tmp_path / "volume.zarr"
     data = np.arange(4 * 6 * 8, dtype=np.float32).reshape(4, 6, 8)
-    arr = zarr.open(str(path), mode="w", shape=data.shape, chunks=(2, 3, 4), dtype="float32")
+    arr = zarr.open(
+        str(path), mode="w", shape=data.shape, chunks=(2, 3, 4), dtype="float32"
+    )
     arr[:] = data
 
     vol = FastLocalVolume(path)
@@ -23,7 +25,9 @@ def test_fast_local_volume_reads_grid_and_voxel_chunks(tmp_path):
 def test_fast_local_volume_requires_complete_voxel_dimensions(tmp_path):
     zarr = pytest.importorskip("zarr")
     path = tmp_path / "volume.zarr"
-    arr = zarr.open(str(path), mode="w", shape=(4, 6, 8), chunks=(2, 3, 4), dtype="float32")
+    arr = zarr.open(
+        str(path), mode="w", shape=(4, 6, 8), chunks=(2, 3, 4), dtype="float32"
+    )
     arr[:] = 0
 
     vol = FastLocalVolume(path)
@@ -36,7 +40,9 @@ def test_volume_cartographer_volume_accepts_file_url(tmp_path):
     zarr = pytest.importorskip("zarr")
     path = tmp_path / "volume.zarr"
     data = np.arange(4 * 6 * 8, dtype=np.float32).reshape(4, 6, 8)
-    arr = zarr.open(str(path), mode="w", shape=data.shape, chunks=(2, 3, 4), dtype="float32")
+    arr = zarr.open(
+        str(path), mode="w", shape=data.shape, chunks=(2, 3, 4), dtype="float32"
+    )
     arr[:] = data
 
     vol = VolumeCartographerVolume(url=f"file://{path}")
@@ -51,7 +57,9 @@ def test_fast_vesuvius_volume_uses_volume_cartographer_wrapper(tmp_path):
 
     path = tmp_path / "volume.zarr"
     data = np.arange(4 * 6 * 8, dtype=np.float32).reshape(4, 6, 8)
-    arr = zarr.open(str(path), mode="w", shape=data.shape, chunks=(2, 3, 4), dtype="float32")
+    arr = zarr.open(
+        str(path), mode="w", shape=data.shape, chunks=(2, 3, 4), dtype="float32"
+    )
     arr[:] = data
 
     volume = FastVesuviusVolume(str(path))

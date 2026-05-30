@@ -1,6 +1,10 @@
 import json
 
-from scripts.summarize_villa_evidence_preflight import summarize_reports, write_gpu_queue, write_tsv
+from scripts.summarize_villa_evidence_preflight import (
+    summarize_reports,
+    write_gpu_queue,
+    write_tsv,
+)
 
 
 def _write_report(path, *, index, status="PASS", failures=None, warnings=None):
@@ -51,7 +55,11 @@ def test_summarize_reports_counts_ready_and_blocked_candidates(tmp_path):
 
 def test_write_tsv_outputs_flat_candidate_table(tmp_path):
     root = tmp_path / "evidence"
-    _write_report(root / "candidate_000" / "preflight_report.json", index=0, warnings=["window warning"])
+    _write_report(
+        root / "candidate_000" / "preflight_report.json",
+        index=0,
+        warnings=["window warning"],
+    )
     summary = summarize_reports(root)
     out = tmp_path / "summary.tsv"
 

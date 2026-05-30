@@ -15,6 +15,7 @@ number this launcher records in reports/gp_winner_baseline.json.
 Default mode is dry-run; use --execute to actually start training. Default mode
 in turn emits the exact subprocess command so it can be inspected first.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -131,7 +132,9 @@ def write_runner(runner_path: Path, gp_winner_root: Path) -> None:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Launch the villa GP-2023 TimeSFormerInk baseline.")
+    parser = argparse.ArgumentParser(
+        description="Launch the villa GP-2023 TimeSFormerInk baseline."
+    )
     parser.add_argument(
         "--model-name",
         default="gp_winner_baseline_v1",
@@ -139,7 +142,9 @@ def main() -> int:
     )
     parser.add_argument(
         "--config-out",
-        default=str(PROJECT_ROOT / "configs" / "gp_winner_recipe" / "gp_winner_config.yaml"),
+        default=str(
+            PROJECT_ROOT / "configs" / "gp_winner_recipe" / "gp_winner_config.yaml"
+        ),
     )
     parser.add_argument(
         "--output-dir",
@@ -157,7 +162,10 @@ def main() -> int:
     runner_path = PROJECT_ROOT / "scripts" / "_gp_winner_runner.py"
 
     if not GP_WINNER_ROOT.is_dir():
-        print(f"ERROR: villa multi-task-3d-unet not found at {GP_WINNER_ROOT}", file=sys.stderr)
+        print(
+            f"ERROR: villa multi-task-3d-unet not found at {GP_WINNER_ROOT}",
+            file=sys.stderr,
+        )
         return 1
 
     config_path.parent.mkdir(parents=True, exist_ok=True)
@@ -176,8 +184,12 @@ def main() -> int:
     for v in volumes:
         print(f"  - {v['data_volume']}  (labels: {v['label_volume']})")
     print()
-    print("Recipe: TimeSFormerInk + 0.5*DiceLoss + 0.5*SoftBCE(smooth=0.25), AdamW lr=3e-5, patch (16,256,256)")
-    print("NOTE: patch_size > 64 px. Result is a RESEARCH-ONLY baseline; NOT submittable.")
+    print(
+        "Recipe: TimeSFormerInk + 0.5*DiceLoss + 0.5*SoftBCE(smooth=0.25), AdamW lr=3e-5, patch (16,256,256)"
+    )
+    print(
+        "NOTE: patch_size > 64 px. Result is a RESEARCH-ONLY baseline; NOT submittable."
+    )
     print()
 
     baseline_marker = PROJECT_ROOT / "reports" / "gp_winner_baseline.json"
@@ -198,7 +210,9 @@ def main() -> int:
     print(f"Baseline marker: {baseline_marker}")
 
     if not volumes:
-        print("WARNING: no labeled ink volumes found; --execute will fail until data is staged.")
+        print(
+            "WARNING: no labeled ink volumes found; --execute will fail until data is staged."
+        )
 
     if args.execute:
         if not volumes:

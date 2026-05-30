@@ -1,5 +1,6 @@
 import torch
-from vesuvius_model import VesuviusTimeSformer, VesuviusConfig
+
+from vesuvius_model import VesuviusConfig, VesuviusTimeSformer
 
 
 def test_timesformer_forward_shapes_cpu():

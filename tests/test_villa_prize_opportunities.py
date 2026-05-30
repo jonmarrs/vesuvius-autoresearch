@@ -32,8 +32,14 @@ def test_villa_prize_opportunities_prioritize_large_upstream_deltas(tmp_path):
     assert report["villa_local_ahead_commits"] == 2
     assert len(report["opportunities"]) == 3
     assert report["opportunities"][0]["id"] == "villa-issue-191"
-    assert report["opportunities"][0]["priority_score"] > report["opportunities"][-1]["priority_score"]
-    assert all(row["villa_pin_status"] == "diverged_with_local_patches" for row in report["opportunities"])
+    assert (
+        report["opportunities"][0]["priority_score"]
+        > report["opportunities"][-1]["priority_score"]
+    )
+    assert all(
+        row["villa_pin_status"] == "diverged_with_local_patches"
+        for row in report["opportunities"]
+    )
 
 
 def test_villa_prize_opportunities_work_without_audit(tmp_path):
@@ -42,4 +48,6 @@ def test_villa_prize_opportunities_work_without_audit(tmp_path):
     assert report["villa_behind"] is False
     assert report["villa_diverged"] is False
     assert len(report["opportunities"]) == 1
-    assert report["opportunities"][0]["official_issue"].startswith("https://github.com/ScrollPrize/villa/issues/")
+    assert report["opportunities"][0]["official_issue"].startswith(
+        "https://github.com/ScrollPrize/villa/issues/"
+    )

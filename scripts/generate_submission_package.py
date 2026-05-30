@@ -3,10 +3,12 @@
 Vesuvius Autoresearch: First Letters Submission Package Dry-Run
 Generates a compliant submission package for the First Letters/Title Prize.
 """
-import os
-import json
-import sys
+
 import argparse
+import json
+import os
+import sys
+
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 
@@ -16,8 +18,11 @@ if REPO_ROOT not in sys.path:
 
 from scripts.validate_prize_artifact import validate
 
+
 def main():
-    parser = argparse.ArgumentParser(description="Generate a First Letters/Title submission package.")
+    parser = argparse.ArgumentParser(
+        description="Generate a First Letters/Title submission package."
+    )
     parser.add_argument("--prediction-image", default="predictions/pred_10_20_30.png")
     parser.add_argument("--out-dir", default="submission_package_dry_run")
     parser.add_argument("--scroll-id", default="Scroll 1 (Dry Run)")
@@ -29,9 +34,9 @@ def main():
 
     out_dir = args.out_dir
     os.makedirs(out_dir, exist_ok=True)
-    
+
     print("--- Generating First Letters Submission Package Dry-Run ---")
-    
+
     # 1. Discovery Image with Scale Bar
     # Use a prediction image if available, else create a dummy
     src_img_path = args.prediction_image
@@ -40,10 +45,12 @@ def main():
         img = Image.open(src_img_path).convert("RGBA")
         print(f"Loaded source image {src_img_path}")
     else:
-        print(f"Source image {src_img_path} not found. Creating placeholder dry-run image.")
+        print(
+            f"Source image {src_img_path} not found. Creating placeholder dry-run image."
+        )
         img = Image.new("RGBA", (2000, 1000), (50, 50, 50, 255))
         source_image_is_placeholder = True
-    
+
     # Draw Scale Bar
     # 1 cm = 10,000 um. At 8 um/voxel, 1 cm = 1250 pixels.
     draw = ImageDraw.Draw(img)
@@ -52,20 +59,22 @@ def main():
     bar_x_start = 50
     bar_y = img.height - 50
     bar_x_end = bar_x_start + scale_px
-    draw.line([(bar_x_start, bar_y), (bar_x_end, bar_y)], fill=(255, 255, 255, 255), width=10)
-    
+    draw.line(
+        [(bar_x_start, bar_y), (bar_x_end, bar_y)], fill=(255, 255, 255, 255), width=10
+    )
+
     # Add text
     try:
         font = ImageFont.truetype("arial.ttf", 40)
-    except IOError:
+    except OSError:
         font = ImageFont.load_default()
-        
+
     draw.text((bar_x_start, bar_y - 50), "1 cm", fill=(255, 255, 255, 255), font=font)
-    
+
     out_img_path = os.path.join(out_dir, "discovery_image_with_scale.png")
     img.save(out_img_path)
     print(f"Saved discovery image to {out_img_path}")
-    
+
     # 2. Metadata (Segmentation ID, 3D Position, Window Size)
     position_xyz = [int(part.strip()) for part in args.position_xyz.split(",")]
     window_mm = args.ml_window_px * args.voxel_resolution_um / 1000.0
@@ -84,16 +93,18 @@ def main():
         "source_image_path": src_img_path,
         "source_image_is_placeholder": source_image_is_placeholder,
         "metadata_is_dry_run": metadata_is_dry_run,
-        "evidence_mode": "placeholder_dry_run" if source_image_is_placeholder else "real_prediction",
+        "evidence_mode": "placeholder_dry_run"
+        if source_image_is_placeholder
+        else "real_prediction",
         "train_mask_path": os.path.join(out_dir, "train_mask.npy"),
         "predict_mask_path": os.path.join(out_dir, "predict_mask.npy"),
-        "compliance_check": "64px local ML window per official Vesuvius Challenge guidance"
+        "compliance_check": "64px local ML window per official Vesuvius Challenge guidance",
     }
     metadata_path = os.path.join(out_dir, "metadata.json")
     with open(metadata_path, "w") as f:
         json.dump(metadata, f, indent=4)
     print("Saved metadata.json")
-    
+
     # 3. Train/Predict Mask
     # Create an explicit mask showing zero overlap between training data and prediction region
     mask_img = Image.new("RGB", (1000, 1000), (0, 0, 0))
@@ -110,7 +121,7 @@ def main():
     np.save(os.path.join(out_dir, "train_mask.npy"), train_mask)
     np.save(os.path.join(out_dir, "predict_mask.npy"), predict_mask)
     print("Saved train_predict_mask.png showing ZERO overlap.")
-    
+
     # 4. Hallucination Mitigation Note
     hallucination_note = """# Hallucination Mitigation Note
 
@@ -131,7 +142,7 @@ To ensure the text signals detected by our model are real carbonized ink and not
     with open(os.path.join(out_dir, "PRIZE_READINESS_REPORT.json"), "w") as f:
         json.dump(readiness_report, f, indent=2)
     print(f"Saved PRIZE_READINESS_REPORT.json ({readiness_report['status']})")
-    
+
     if readiness_report["status"] == "PASS":
         print("\nSubmission package passed mechanical readiness checks.")
     else:
@@ -147,6 +158,7 @@ To ensure the text signals detected by our model are real carbonized ink and not
     print(" [x] (f) clear instructions (via run_autoresearch_loop.py)")
     print(" [x] (g) Hallucination Mitigation note")
     print(" [x] (h) machine-readable prize readiness report")
+
 
 if __name__ == "__main__":
     main()

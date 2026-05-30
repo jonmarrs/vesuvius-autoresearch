@@ -36,13 +36,11 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import statistics
 import subprocess
 import sys
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Optional
 
 import numpy as np
 import tifffile
@@ -59,11 +57,11 @@ class CandidateRecord:
     y: int
     x: int
     review_score: float
-    ink_pred_mean: Optional[float]
-    fiber_mean: Optional[float]
-    ink_mean_in_fiber_regions: Optional[float]
-    ink_mean_in_nonfiber_regions: Optional[float]
-    ink_anti_fiber_ratio: Optional[float]
+    ink_pred_mean: float | None
+    fiber_mean: float | None
+    ink_mean_in_fiber_regions: float | None
+    ink_mean_in_nonfiber_regions: float | None
+    ink_anti_fiber_ratio: float | None
     fiber_region_pixel_count: int
     nonfiber_region_pixel_count: int
     status: str
@@ -151,11 +149,15 @@ def _compute_metrics(
     nonfiber_mask = ~fiber_mask
 
     ink_in_fiber = float(ink_pred[fiber_mask].mean()) if fiber_mask.any() else None
-    ink_in_nonfiber = float(ink_pred[nonfiber_mask].mean()) if nonfiber_mask.any() else None
+    ink_in_nonfiber = (
+        float(ink_pred[nonfiber_mask].mean()) if nonfiber_mask.any() else None
+    )
 
     if ink_in_fiber is not None and ink_in_fiber > 1e-8 and ink_in_nonfiber is not None:
         anti_fiber_ratio = ink_in_nonfiber / ink_in_fiber
-    elif ink_in_fiber is not None and ink_in_nonfiber is not None and ink_in_nonfiber > 0:
+    elif (
+        ink_in_fiber is not None and ink_in_nonfiber is not None and ink_in_nonfiber > 0
+    ):
         anti_fiber_ratio = float("inf")
     else:
         anti_fiber_ratio = None
@@ -175,13 +177,24 @@ def _process_candidate(candidate_dir: Path, fiber_threshold: float) -> Candidate
     meta = _read_candidate_meta(candidate_dir)
     if meta is None:
         return CandidateRecord(
-            candidate_index=-1, artifact_stem="?", scroll_id="?", short_id="?",
-            division="?", z=-1, y=-1, x=-1, review_score=0.0,
-            ink_pred_mean=None, fiber_mean=None,
-            ink_mean_in_fiber_regions=None, ink_mean_in_nonfiber_regions=None,
+            candidate_index=-1,
+            artifact_stem="?",
+            scroll_id="?",
+            short_id="?",
+            division="?",
+            z=-1,
+            y=-1,
+            x=-1,
+            review_score=0.0,
+            ink_pred_mean=None,
+            fiber_mean=None,
+            ink_mean_in_fiber_regions=None,
+            ink_mean_in_nonfiber_regions=None,
             ink_anti_fiber_ratio=None,
-            fiber_region_pixel_count=0, nonfiber_region_pixel_count=0,
-            status="MISSING_META", note=f"no candidate.json in {candidate_dir}",
+            fiber_region_pixel_count=0,
+            nonfiber_region_pixel_count=0,
+            status="MISSING_META",
+            note=f"no candidate.json in {candidate_dir}",
         )
 
     try:
@@ -200,11 +213,15 @@ def _process_candidate(candidate_dir: Path, fiber_threshold: float) -> Candidate
         y=int(float(meta.get("y", -1))),
         x=int(float(meta.get("x", -1))),
         review_score=float(meta.get("review_score", 0.0)),
-        ink_pred_mean=None, fiber_mean=None,
-        ink_mean_in_fiber_regions=None, ink_mean_in_nonfiber_regions=None,
+        ink_pred_mean=None,
+        fiber_mean=None,
+        ink_mean_in_fiber_regions=None,
+        ink_mean_in_nonfiber_regions=None,
         ink_anti_fiber_ratio=None,
-        fiber_region_pixel_count=0, nonfiber_region_pixel_count=0,
-        status="PENDING", note="",
+        fiber_region_pixel_count=0,
+        nonfiber_region_pixel_count=0,
+        status="PENDING",
+        note="",
     )
 
     ink_pred = _load_ink_prediction(candidate_dir, artifact_stem)
@@ -244,33 +261,54 @@ def _aggregate(records: list[CandidateRecord]) -> dict:
 
     groups = []
     for (short_id, division), members in sorted(by_group.items()):
-        ratios = [r.ink_anti_fiber_ratio for r in members if r.ink_anti_fiber_ratio is not None and r.ink_anti_fiber_ratio != float("inf")]
+        ratios = [
+            r.ink_anti_fiber_ratio
+            for r in members
+            if r.ink_anti_fiber_ratio is not None
+            and r.ink_anti_fiber_ratio != float("inf")
+        ]
         ink_means = [r.ink_pred_mean for r in members if r.ink_pred_mean is not None]
         fiber_means = [r.fiber_mean for r in members if r.fiber_mean is not None]
-        groups.append({
-            "short_id": short_id,
-            "division": division,
-            "n_candidates": len(members),
-            "mean_ink_pred": statistics.mean(ink_means) if ink_means else None,
-            "mean_fiber": statistics.mean(fiber_means) if fiber_means else None,
-            "mean_anti_fiber_ratio": statistics.mean(ratios) if ratios else None,
-            "stdev_anti_fiber_ratio": statistics.stdev(ratios) if len(ratios) >= 2 else None,
-            "candidate_indices": sorted(r.candidate_index for r in members),
-        })
-    return {"groups": groups, "total_candidates_evaluated": sum(1 for r in records if r.status == "OK")}
+        groups.append(
+            {
+                "short_id": short_id,
+                "division": division,
+                "n_candidates": len(members),
+                "mean_ink_pred": statistics.mean(ink_means) if ink_means else None,
+                "mean_fiber": statistics.mean(fiber_means) if fiber_means else None,
+                "mean_anti_fiber_ratio": statistics.mean(ratios) if ratios else None,
+                "stdev_anti_fiber_ratio": statistics.stdev(ratios)
+                if len(ratios) >= 2
+                else None,
+                "candidate_indices": sorted(r.candidate_index for r in members),
+            }
+        )
+    return {
+        "groups": groups,
+        "total_candidates_evaluated": sum(1 for r in records if r.status == "OK"),
+    }
 
 
 def _maybe_generate_fiber_labels(evidence_root: Path, top_n: int) -> None:
     """Run scripts/generate_fiber_labels.py if any candidate is missing fiber_label.tif."""
-    missing = [d for d in sorted(evidence_root.glob("candidate_*")) if not (d / "fiber_label.tif").exists()]
+    missing = [
+        d
+        for d in sorted(evidence_root.glob("candidate_*"))
+        if not (d / "fiber_label.tif").exists()
+    ]
     if not missing:
         print("# All candidate dirs already have fiber_label.tif; skipping generator.")
         return
-    print(f"# {len(missing)} candidate dirs missing fiber_label.tif; running generate_fiber_labels.py --mode candidates --top-n {top_n} ...")
+    print(
+        f"# {len(missing)} candidate dirs missing fiber_label.tif; running generate_fiber_labels.py --mode candidates --top-n {top_n} ..."
+    )
     cmd = [
-        sys.executable, "scripts/generate_fiber_labels.py",
-        "--mode", "candidates",
-        "--top-n", str(top_n),
+        sys.executable,
+        "scripts/generate_fiber_labels.py",
+        "--mode",
+        "candidates",
+        "--top-n",
+        str(top_n),
     ]
     subprocess.run(cmd, check=True)
 
@@ -287,7 +325,9 @@ def _fmt(value, spec: str = ".4f") -> str:
     return format(value, spec)
 
 
-def _render_markdown(records: list[CandidateRecord], aggregate: dict, output_path: Path) -> None:
+def _render_markdown(
+    records: list[CandidateRecord], aggregate: dict, output_path: Path
+) -> None:
     lines = [
         "# Cross-Scroll Consistency Validation",
         "",
@@ -317,13 +357,15 @@ def _render_markdown(records: list[CandidateRecord], aggregate: dict, output_pat
             f"| {_fmt(g.get('mean_anti_fiber_ratio'), '.3f')} | {_fmt(g.get('stdev_anti_fiber_ratio'), '.3f')} |"
         )
 
-    lines.extend([
-        "",
-        "## Per-candidate",
-        "",
-        "| Idx | Stem | Scroll/Div | (z,y,x) | ink_pred_mean | fiber_mean | ink_in_fiber | ink_in_nonfiber | anti-fiber ratio | status |",
-        "| ---: | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | --- |",
-    ])
+    lines.extend(
+        [
+            "",
+            "## Per-candidate",
+            "",
+            "| Idx | Stem | Scroll/Div | (z,y,x) | ink_pred_mean | fiber_mean | ink_in_fiber | ink_in_nonfiber | anti-fiber ratio | status |",
+            "| ---: | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | --- |",
+        ]
+    )
     for r in records:
         if r.status != "OK":
             lines.append(
@@ -344,9 +386,13 @@ def _render_markdown(records: list[CandidateRecord], aggregate: dict, output_pat
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--evidence-root", type=Path, default=Path("reports/scroll23_evidence"))
     parser.add_argument(
-        "--fiber-threshold", type=float, default=0.001,
+        "--evidence-root", type=Path, default=Path("reports/scroll23_evidence")
+    )
+    parser.add_argument(
+        "--fiber-threshold",
+        type=float,
+        default=0.001,
         help=(
             "Threshold on the z-mean fiber density to classify a (y, x) pixel as "
             "'fiber region'. The first run on 12 Scroll 2/3 candidates showed actual "
@@ -354,14 +400,33 @@ def main(argv: list[str] | None = None) -> int:
             "i.e., any pixel with at least one fiber voxel across z counts as fiber."
         ),
     )
-    parser.add_argument("--auto-generate-fiber-labels", action="store_true", help="Run scripts/generate_fiber_labels.py first if any fiber labels are missing.")
-    parser.add_argument("--top-n", type=int, default=12, help="--top-n passed to generate_fiber_labels.py when auto-generating.")
-    parser.add_argument("--output-json", type=Path, default=Path("reports/cross_scroll_validation_summary.json"))
-    parser.add_argument("--output-md", type=Path, default=Path("reports/cross_scroll_validation_summary.md"))
+    parser.add_argument(
+        "--auto-generate-fiber-labels",
+        action="store_true",
+        help="Run scripts/generate_fiber_labels.py first if any fiber labels are missing.",
+    )
+    parser.add_argument(
+        "--top-n",
+        type=int,
+        default=12,
+        help="--top-n passed to generate_fiber_labels.py when auto-generating.",
+    )
+    parser.add_argument(
+        "--output-json",
+        type=Path,
+        default=Path("reports/cross_scroll_validation_summary.json"),
+    )
+    parser.add_argument(
+        "--output-md",
+        type=Path,
+        default=Path("reports/cross_scroll_validation_summary.md"),
+    )
     args = parser.parse_args(argv)
 
     if not args.evidence_root.exists():
-        print(f"error: evidence root not found at {args.evidence_root}", file=sys.stderr)
+        print(
+            f"error: evidence root not found at {args.evidence_root}", file=sys.stderr
+        )
         return 1
 
     if args.auto_generate_fiber_labels:
@@ -369,7 +434,10 @@ def main(argv: list[str] | None = None) -> int:
 
     candidate_dirs = sorted(args.evidence_root.glob("candidate_*"))
     if not candidate_dirs:
-        print(f"error: no candidate_* directories under {args.evidence_root}", file=sys.stderr)
+        print(
+            f"error: no candidate_* directories under {args.evidence_root}",
+            file=sys.stderr,
+        )
         return 1
 
     records = [_process_candidate(d, args.fiber_threshold) for d in candidate_dirs]
@@ -392,8 +460,14 @@ def main(argv: list[str] | None = None) -> int:
     print(f"# summary JSON: {args.output_json}")
     print(f"# summary MD:   {args.output_md}")
     for g in aggregate["groups"]:
-        ratio = f"{g['mean_anti_fiber_ratio']:.3f}" if g['mean_anti_fiber_ratio'] is not None else "n/a"
-        print(f"#   {g['short_id']}/{g['division']} (n={g['n_candidates']}): mean anti-fiber ratio = {ratio}")
+        ratio = (
+            f"{g['mean_anti_fiber_ratio']:.3f}"
+            if g["mean_anti_fiber_ratio"] is not None
+            else "n/a"
+        )
+        print(
+            f"#   {g['short_id']}/{g['division']} (n={g['n_candidates']}): mean anti-fiber ratio = {ratio}"
+        )
 
     return 0
 

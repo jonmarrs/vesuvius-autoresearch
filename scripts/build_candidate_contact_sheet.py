@@ -28,7 +28,9 @@ def _label_for(candidate_dir, manifest):
         "z={}".format(candidate.get("z", "")),
         "score={}".format(candidate.get("review_score", "")),
     ]
-    return " | ".join(part for part in parts if part and part != "z=" and part != "score=")
+    return " | ".join(
+        part for part in parts if part and part != "z=" and part != "score="
+    )
 
 
 def _prediction_image_path(candidate_dir, manifest):
@@ -89,7 +91,14 @@ def main():
     parser.add_argument("--columns", type=int, default=2)
     args = parser.parse_args()
 
-    print(json.dumps(build_contact_sheet(args.root, args.out, args.thumb_width, columns=args.columns), indent=2))
+    print(
+        json.dumps(
+            build_contact_sheet(
+                args.root, args.out, args.thumb_width, columns=args.columns
+            ),
+            indent=2,
+        )
+    )
 
 
 if __name__ == "__main__":

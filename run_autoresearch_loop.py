@@ -1,30 +1,37 @@
-import os
-import subprocess
-import time
-import random
-import sys
-import json
-import re
-import torch
-import pandas as pd
-import signal
 import fcntl
+import json
+import os
+import random
+import signal
+import subprocess
+import sys
+import time
 from collections import defaultdict
 from dataclasses import asdict
+
+import pandas as pd
+import torch
+
 from train import ExperimentConfig
 
 LOCK_FILE = "autoresearch.lock"
+
+
 def check_lock():
-    fp = open(LOCK_FILE, 'w')
+    fp = open(LOCK_FILE, "w")
     try:
         fcntl.lockf(fp, fcntl.LOCK_EX | fcntl.LOCK_NB)
-    except IOError:
-        print("Another instance of run_autoresearch_loop.py is already running. Exiting.")
+    except OSError:
+        print(
+            "Another instance of run_autoresearch_loop.py is already running. Exiting."
+        )
         sys.exit(1)
     return fp
 
 
 active_child_p = None
+
+
 def signal_handler(sig, frame):
     global active_child_p
     print(f"\nCaught signal {sig}. Cleaning up...")
@@ -70,9 +77,17 @@ tweak_templates = [
     # flag is on. Without the gate, bandit-state analysis showed pure-noise
     # samples landing on this axis (2026-05-18 cycle 31 was the best val_bpb
     # of the day but ridge_sigma had no effect).
-    {"family": "features", "attr": "ridge_sigma", "vals": [1.0, 2.0, 3.0],
-     "applies_when": lambda c: getattr(c, "use_ridges", False)},
-    {"family": "features", "attr": "aug_mode", "vals": ["albumentations", "batchgeneratorsv2"]},
+    {
+        "family": "features",
+        "attr": "ridge_sigma",
+        "vals": [1.0, 2.0, 3.0],
+        "applies_when": lambda c: getattr(c, "use_ridges", False),
+    },
+    {
+        "family": "features",
+        "attr": "aug_mode",
+        "vals": ["albumentations", "batchgeneratorsv2"],
+    },
     # Architecture family restricted to candidates with real (non-dummy) ST/QC
     # heads. Audit on 2026-05-17 found that lejepa_unet has been a topology
     # regression since the 2026-05-06 flip: skel_dist 27 px vs the May-5
@@ -80,11 +95,31 @@ tweak_templates = [
     # resnet3d_decoder all return torch.zeros(...) for the structure-tensor
     # head, which explains the regression. Only resenc_unet (ResEnc UNet) and
     # gated_unet (InkDetectorOptimized) have real ST heads.
-    {"family": "architecture", "attr": "architecture", "vals": ["resenc_unet", "gated_unet"]},
-    {"family": "scroll_augmentations", "attr": "aug_scroll_decohesion_p", "vals": [0.0, 0.25, 0.5]},
-    {"family": "scroll_augmentations", "attr": "aug_scroll_warping_p", "vals": [0.0, 0.25, 0.5]},
-    {"family": "scroll_augmentations", "attr": "aug_scroll_squeeze_p", "vals": [0.0, 0.25, 0.5]},
-    {"family": "scroll_augmentations", "attr": "aug_scroll_z_dropout_p", "vals": [0.0, 0.25, 0.5]},
+    {
+        "family": "architecture",
+        "attr": "architecture",
+        "vals": ["resenc_unet", "gated_unet"],
+    },
+    {
+        "family": "scroll_augmentations",
+        "attr": "aug_scroll_decohesion_p",
+        "vals": [0.0, 0.25, 0.5],
+    },
+    {
+        "family": "scroll_augmentations",
+        "attr": "aug_scroll_warping_p",
+        "vals": [0.0, 0.25, 0.5],
+    },
+    {
+        "family": "scroll_augmentations",
+        "attr": "aug_scroll_squeeze_p",
+        "vals": [0.0, 0.25, 0.5],
+    },
+    {
+        "family": "scroll_augmentations",
+        "attr": "aug_scroll_z_dropout_p",
+        "vals": [0.0, 0.25, 0.5],
+    },
     # Removed 2026-05-17 after audit confirmed this axis has been a no-op since the
     # loop's inception: train.py:742 expects {segment_name}_pseudo.png in the
     # pseudo_label_dir, but no such file has ever existed on disk (the actual
@@ -102,10 +137,18 @@ tweak_templates = [
     # Gate them so the bandit doesn't waste cycles sampling them when UA-MT
     # is disabled. The bandit can still turn UA-MT on via the use_uamt
     # template above, which would re-enable these axes in the next cycle.
-    {"family": "uamt", "attr": "consistency_weight", "vals": [0.05, 0.1, 0.2],
-     "applies_when": lambda c: bool(getattr(c, "use_uamt", False))},
-    {"family": "uamt", "attr": "ema_decay", "vals": [0.99, 0.999, 0.9999],
-     "applies_when": lambda c: bool(getattr(c, "use_uamt", False))},
+    {
+        "family": "uamt",
+        "attr": "consistency_weight",
+        "vals": [0.05, 0.1, 0.2],
+        "applies_when": lambda c: bool(getattr(c, "use_uamt", False)),
+    },
+    {
+        "family": "uamt",
+        "attr": "ema_decay",
+        "vals": [0.99, 0.999, 0.9999],
+        "applies_when": lambda c: bool(getattr(c, "use_uamt", False)),
+    },
 ]
 
 HISTORY_FILE = "autoresearch_history.json"
@@ -119,7 +162,7 @@ def load_history():
     counts = defaultdict(lambda: 1)
     if os.path.exists(HISTORY_FILE):
         try:
-            with open(HISTORY_FILE, "r") as f:
+            with open(HISTORY_FILE) as f:
                 data = json.load(f)
                 if isinstance(data, dict):
                     counts.update(data)
@@ -140,7 +183,7 @@ def save_history(counts):
 def load_recent_configs():
     if os.path.exists(RECENT_CONFIGS_FILE):
         try:
-            with open(RECENT_CONFIGS_FILE, "r") as f:
+            with open(RECENT_CONFIGS_FILE) as f:
                 return json.load(f)
         except Exception as e:
             print(f"Warning: Could not load {RECENT_CONFIGS_FILE}: {e}")
@@ -191,11 +234,11 @@ def main():
 
     # Resume previous log if still same shift and file exists
     if os.path.exists(CURRENT_LOG_PTR):
-        with open(CURRENT_LOG_PTR, "r") as f:
+        with open(CURRENT_LOG_PTR) as f:
             prev_log = f.read().strip()
             if os.path.exists(prev_log) and shift_name.lower() in prev_log.lower():
                 # Check if it was today (simple check)
-                if time.strftime('%Y-%m-%d') in prev_log:
+                if time.strftime("%Y-%m-%d") in prev_log:
                     log_filename = prev_log
                     print(f"Resuming existing shift log: {log_filename}")
 
@@ -206,9 +249,13 @@ def main():
     best_val_bpb = 1.0
     if os.path.exists("best_model.pt"):
         try:
-            best_model_data = torch.load("best_model.pt", map_location="cpu", weights_only=False)
+            best_model_data = torch.load(
+                "best_model.pt", map_location="cpu", weights_only=False
+            )
             best_val_bpb = best_model_data.get("val_bpb", 1.0)
-            print(f"Starting with baseline val_bpb from best_model.pt: {best_val_bpb:.6f}")
+            print(
+                f"Starting with baseline val_bpb from best_model.pt: {best_val_bpb:.6f}"
+            )
         except Exception as e:
             print(f"Warning: Could not load best_model.pt baseline: {e}")
     elif os.path.exists("results.tsv"):
@@ -216,7 +263,9 @@ def main():
             df = pd.read_csv("results.tsv", sep="\t")
             if len(df) > 0:
                 best_val_bpb = df["val_bpb"].min()
-                print(f"Starting with baseline val_bpb from results.tsv: {best_val_bpb:.6f}")
+                print(
+                    f"Starting with baseline val_bpb from results.tsv: {best_val_bpb:.6f}"
+                )
         except Exception as e:
             print(f"Warning: Could not load results.tsv baseline: {e}")
 
@@ -228,7 +277,9 @@ def main():
         with open(log_filename, "w") as log:
             log.write(f"# {shift_name.title()} Sprint - {time.strftime('%Y-%m-%d')}\n")
             log.write(f"- **Start Time**: {time.strftime('%H:%M:%S')}\n")
-            log.write(f"- **Goal**: Monotonic val_bpb optimization via {default_budget//60}-min cycles (Config-Driven).\n\n")
+            log.write(
+                f"- **Goal**: Monotonic val_bpb optimization via {default_budget // 60}-min cycles (Config-Driven).\n\n"
+            )
 
     env = os.environ.copy()
     i = 0
@@ -255,8 +306,9 @@ def main():
         # single hour value.
         _hr = time.localtime().tm_hour
         _in_day_bucket = 7 <= _hr < 19
-        _shift_over = (shift_name == "DAY SHIFT" and not _in_day_bucket) or \
-                      (shift_name == "NIGHT SHIFT" and _in_day_bucket)
+        _shift_over = (shift_name == "DAY SHIFT" and not _in_day_bucket) or (
+            shift_name == "NIGHT SHIFT" and _in_day_bucket
+        )
         if _shift_over:
             print(f"{shift_name} end reached (hour={_hr}). Ending sprint.")
             next_shift = "DAY SHIFT" if shift_name == "NIGHT SHIFT" else "NIGHT SHIFT"
@@ -265,11 +317,15 @@ def main():
                 log.write(f"Transitioning to {next_shift}...\n")
 
             if shift_name == "NIGHT SHIFT":
-                print("\n" + "="*60)
-                print("ACTIVE LEARNING FLYWHEEL: It is highly recommended to run the Proofreader")
+                print("\n" + "=" * 60)
+                print(
+                    "ACTIVE LEARNING FLYWHEEL: It is highly recommended to run the Proofreader"
+                )
                 print("on the latest predictions before starting the Day Shift.")
-                print("Run: uv run scripts/launch_proofreader.py --volume local_data/PHercParis2Fr47/surface_volume.zarr --predictions predictions/pred_10_1000_1000_64x64_ink.zarr")
-                print("="*60 + "\n")
+                print(
+                    "Run: uv run scripts/launch_proofreader.py --volume local_data/PHercParis2Fr47/surface_volume.zarr --predictions predictions/pred_10_1000_1000_64x64_ink.zarr"
+                )
+                print("=" * 60 + "\n")
 
             break
 
@@ -280,7 +336,7 @@ def main():
             config = ExperimentConfig()
 
         # Sprint 022: Fixed GP-Winner Baseline Injection
-        is_pinned_cycle = (i % 10 == 0)
+        is_pinned_cycle = i % 10 == 0
 
         if is_pinned_cycle:
             print(f"Cycle {i}: Injecting FIXED GP-WINNER BASELINE for calibration...")
@@ -300,7 +356,7 @@ def main():
                 loss_st=0.0,
                 label_smoothing=0.25,
                 pinned=True,
-                time_budget=default_budget
+                time_budget=default_budget,
             )
             tweak_name = "gp_winner_baseline"
             family = "baseline"
@@ -309,9 +365,14 @@ def main():
             # predicate is False under the current baseline config (e.g.
             # ridge_sigma when use_ridges=False). Avoids spending cycles on
             # axes that produce identical results to the baseline.
-            baseline_for_gate = ExperimentConfig.load(CONFIG_FILE) if os.path.exists(CONFIG_FILE) else ExperimentConfig()
+            baseline_for_gate = (
+                ExperimentConfig.load(CONFIG_FILE)
+                if os.path.exists(CONFIG_FILE)
+                else ExperimentConfig()
+            )
             active_templates = [
-                t for t in tweak_templates
+                t
+                for t in tweak_templates
                 if t.get("applies_when", lambda _c: True)(baseline_for_gate)
             ]
             if not active_templates:
@@ -338,7 +399,11 @@ def main():
                 attr = template["attr"]
 
                 # Apply tweak to a copy of current config
-                test_config = ExperimentConfig.load(CONFIG_FILE) if os.path.exists(CONFIG_FILE) else ExperimentConfig()
+                test_config = (
+                    ExperimentConfig.load(CONFIG_FILE)
+                    if os.path.exists(CONFIG_FILE)
+                    else ExperimentConfig()
+                )
                 # Ensure we don't carry over 'pinned' status to evolved configs
                 test_config.pinned = False
                 test_config.time_budget = default_budget
@@ -346,7 +411,7 @@ def main():
 
                 cfg_dict = asdict(test_config)
                 # Remove volatile fields for comparison
-                for k in ['uri', 'val_uri', 'cache_dir', 'time_budget']:
+                for k in ["uri", "val_uri", "cache_dir", "time_budget"]:
                     cfg_dict.pop(k, None)
 
                 if cfg_dict not in recent_configs:
@@ -356,7 +421,9 @@ def main():
                     applied = True
                     break
                 else:
-                    print(f"Cycle {i}: Sampled duplicate config ({attr}={val}). Re-sampling for entropy...")
+                    print(
+                        f"Cycle {i}: Sampled duplicate config ({attr}={val}). Re-sampling for entropy..."
+                    )
 
             # Exhaustion fallback: if max_retries ran out without finding a
             # non-duplicate config, accept the LAST sampled config rather than
@@ -365,7 +432,9 @@ def main():
             # success_counts attribution). Reset recent_configs to clear the
             # saturation so the next cycle has a fresh search space.
             if not applied:
-                print(f"Cycle {i}: {max_retries} retries exhausted; accepting last sampled config ({attr}={val}) and resetting recent_configs.")
+                print(
+                    f"Cycle {i}: {max_retries} retries exhausted; accepting last sampled config ({attr}={val}) and resetting recent_configs."
+                )
                 config = test_config
                 recent_configs = [cfg_dict]
                 save_recent_configs(recent_configs)
@@ -376,30 +445,42 @@ def main():
         # Standard baseline: 64 feat, 24 layers, 64 patch, 8 batch, 16 blocks ~= 14GB VRAM
         feat_factor = config.base_feat / 64.0
         depth_factor = config.num_layers / 24.0
-        patch_sq = (config.patch_size / 64.0)**2
-        patch_quartic = (config.patch_size / 64.0)**4
+        patch_sq = (config.patch_size / 64.0) ** 2
+        patch_quartic = (config.patch_size / 64.0) ** 4
         batch_factor = config.batch_size / 8.0
         block_factor = config.num_blocks / 16.0
 
         # Linear components (Convs, Activations)
-        complexity_linear = feat_factor * depth_factor * patch_sq * batch_factor * block_factor
+        complexity_linear = (
+            feat_factor * depth_factor * patch_sq * batch_factor * block_factor
+        )
         # Quadratic components (Attention)
         complexity_attn = depth_factor * patch_quartic * batch_factor * block_factor
 
         # Weighted Score (Standard Config = 1.0). Attention weighted at 0.4 due to quadratic growth.
         complexity_score = 0.6 * complexity_linear + 0.4 * complexity_attn
 
-        if complexity_score > 1.5: # Cap at 50% overhead above baseline (~21GB VRAM)
-            print(f"Cycle {i}: Skipping {tweak_name} (Complexity Score {complexity_score:.2f} > 1.5) to avoid OOM.")
+        if complexity_score > 1.5:  # Cap at 50% overhead above baseline (~21GB VRAM)
+            print(
+                f"Cycle {i}: Skipping {tweak_name} (Complexity Score {complexity_score:.2f} > 1.5) to avoid OOM."
+            )
             continue
 
-        print(f"\nCycle {i}: Applying {tweak_name} (Family Weight: {success_counts[family]})")
+        print(
+            f"\nCycle {i}: Applying {tweak_name} (Family Weight: {success_counts[family]})"
+        )
         sys.stdout.flush()
 
         # Save temporary config for this run
         config.save(TEMP_CONFIG)
 
-        cfg_str = ", ".join([f"{k}: {v}" for k, v in asdict(config).items() if k not in ['uri', 'val_uri']])
+        cfg_str = ", ".join(
+            [
+                f"{k}: {v}"
+                for k, v in asdict(config).items()
+                if k not in ["uri", "val_uri"]
+            ]
+        )
 
         print(f"Running {default_budget // 60}-minute training for {tweak_name}...")
         sys.stdout.flush()
@@ -423,13 +504,16 @@ def main():
                 env_unbuffered["PYTHONUNBUFFERED"] = "1"
                 p = subprocess.Popen(
                     ["uv", "run", "python", "-u", "train.py", "--config", TEMP_CONFIG],
-                    stdout=f, stderr=subprocess.STDOUT, env=env_unbuffered, text=True,
-                    start_new_session=True
+                    stdout=f,
+                    stderr=subprocess.STDOUT,
+                    env=env_unbuffered,
+                    text=True,
+                    start_new_session=True,
                 )
                 f.flush()
                 active_child_p = p
                 try:
-                    p.wait(timeout=default_budget + 300) # 5 minute safety buffer
+                    p.wait(timeout=default_budget + 300)  # 5 minute safety buffer
                 except subprocess.TimeoutExpired:
                     print(f"Cycle {i} timed out. Killing process group...")
                     try:
@@ -451,21 +535,26 @@ def main():
             is_crash = True
             if os.path.exists("run.log"):
                 try:
-                    with open("run.log", "r") as f:
+                    with open("run.log") as f:
                         lines = f.readlines()
                         log_tail_raw = "".join(lines[-20:])
                         log_tail = log_tail_raw.lower()
-                        if "out of memory" in log_tail or "cuda error: out of memory" in log_tail:
+                        if (
+                            "out of memory" in log_tail
+                            or "cuda error: out of memory" in log_tail
+                        ):
                             oom_detected = True
                         else:
                             print(f"--- DIAGNOSTICS FOR CYCLE {i} CRASH ---")
                             print(log_tail_raw)
                             print("---------------------------------------")
                 except Exception as e:
-                    print(f"Warning: Could not read run.log diagnostics after crash: {e}")
+                    print(
+                        f"Warning: Could not read run.log diagnostics after crash: {e}"
+                    )
         else:
             try:
-                with open("run_result.json", "r") as f:
+                with open("run_result.json") as f:
                     res = json.load(f)
                 val_bpb = res.get("val_bpb", "N/A")
                 train_loss = res.get("train_loss", "N/A")
@@ -500,20 +589,28 @@ def main():
             log.write(f"## Cycle {i}: {tweak_name} ({status})\n")
             log.write(f"- **Timestamp**: {time.strftime('%H:%M:%S')}\n")
             log.write(f"- **Config**: {cfg_str}\n")
-            log.write(f"- **Stats**: val_bpb: {val_bpb}, loss: {train_loss}, params: {params}M, vram: {vram}MB, speed: {vps}Mvps\n")
+            log.write(
+                f"- **Stats**: val_bpb: {val_bpb}, loss: {train_loss}, params: {params}M, vram: {vram}MB, speed: {vps}Mvps\n"
+            )
 
             result_msg = "No improvement detected. Config reverted."
-            if is_success: result_msg = "Improvement detected. Config updated."
-            elif is_crash: result_msg = f"Training crashed ({'OOM' if oom_detected else 'Unknown error'}). Family weight preserved/incremented to retry other values."
+            if is_success:
+                result_msg = "Improvement detected. Config updated."
+            elif is_crash:
+                result_msg = f"Training crashed ({'OOM' if oom_detected else 'Unknown error'}). Family weight preserved/incremented to retry other values."
 
             log.write(f"- **Result**: {result_msg}\n\n")
             log.flush()
 
         if is_success:
             print(f"IMPROVEMENT FOUND! (val_bpb: {val_bpb}) Committing config.")
-            os.system(f'git add {CONFIG_FILE} reports/figures/ best_model.pt autoresearch_history.json && git commit -m "{shift_name}: {tweak_name} improved model to {val_bpb}"')
+            os.system(
+                f'git add {CONFIG_FILE} reports/figures/ best_model.pt autoresearch_history.json && git commit -m "{shift_name}: {tweak_name} improved model to {val_bpb}"'
+            )
         elif is_crash:
-            print(f"CYCLE CRASHED ({'OOM' if oom_detected else 'UNKNOWN'}). Reverting but keeping family weight.")
+            print(
+                f"CYCLE CRASHED ({'OOM' if oom_detected else 'UNKNOWN'}). Reverting but keeping family weight."
+            )
         else:
             print(f"No improvement. (val_bpb: {val_bpb}, best was: {best_val_bpb:.6f})")
 
@@ -524,19 +621,32 @@ def main():
             print(f"Cycle {i}: Running Benchmark Inference...")
             benchmark_path = f"reports/benchmark_v210_cycle{i}.png"
             benchmark_cmd = [
-                "uv", "run", "predict.py",
-                "--uri", "local_data/PHercParis2Fr143/surface_volume.zarr",
-                "--z", "10", "--y", "1000", "--x", "1000",
-                "--output_img", benchmark_path,
+                "uv",
+                "run",
+                "predict.py",
+                "--uri",
+                "local_data/PHercParis2Fr143/surface_volume.zarr",
+                "--z",
+                "10",
+                "--y",
+                "1000",
+                "--x",
+                "1000",
+                "--output_img",
+                benchmark_path,
             ]
             try:
                 subprocess.run(benchmark_cmd, check=True, timeout=600)
             except subprocess.CalledProcessError as bench_exc:
-                print(f"Cycle {i}: Benchmark inference failed (rc={bench_exc.returncode}). Continuing.")
+                print(
+                    f"Cycle {i}: Benchmark inference failed (rc={bench_exc.returncode}). Continuing."
+                )
             except subprocess.TimeoutExpired:
                 print(f"Cycle {i}: Benchmark inference timed out (>600s). Continuing.")
             except Exception as bench_exc:
-                print(f"Cycle {i}: Benchmark inference unexpected error: {type(bench_exc).__name__}: {bench_exc}. Continuing.")
+                print(
+                    f"Cycle {i}: Benchmark inference unexpected error: {type(bench_exc).__name__}: {bench_exc}. Continuing."
+                )
 
         sys.stdout.flush()
         time.sleep(2)

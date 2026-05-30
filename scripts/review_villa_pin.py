@@ -6,10 +6,10 @@ The goal is to avoid blind submodule updates. This script reads the existing
 Villa upstream audit and turns it into a focused review plan for prize-relevant
 areas before Autoresearch adopts a newer official Villa commit.
 """
+
 import argparse
 import json
 from pathlib import Path
-
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
@@ -125,13 +125,16 @@ def build_review(audit_path="reports/villa_upstream_audit.json"):
         "villa_merge_base": audit.get("merge_base"),
         "villa_behind": bool(audit.get("behind")),
         "villa_diverged": bool(audit.get("diverged")),
-        "villa_upstream_ahead_commits": int(audit.get("upstream_ahead_commits", 0) or 0),
+        "villa_upstream_ahead_commits": int(
+            audit.get("upstream_ahead_commits", 0) or 0
+        ),
         "villa_local_ahead_commits": int(audit.get("local_ahead_commits", 0) or 0),
         "changed_files": audit.get("changed_files", 0),
         "local_changed_files": audit.get("local_changed_files", 0),
         "adoption_mode": adoption_mode,
         "recommendation": recommendation,
-        "local_patch_warning": int(audit.get("local_changed_files", 0) or 0) > 0 or bool(local_changed_areas),
+        "local_patch_warning": int(audit.get("local_changed_files", 0) or 0) > 0
+        or bool(local_changed_areas),
         "areas": areas,
     }
 
@@ -148,15 +151,18 @@ def build_markdown_checklist(report):
         if area["area"] not in ["lasagna", "volume_cartographer", "prize_docs"]:
             continue
         status = "[ ]" if area["changed_files"] > 0 else "[x]"
-        md.append(f"### {status} {area['area']} (Changed upstream: {area['changed_files']})")
+        md.append(
+            f"### {status} {area['area']} (Changed upstream: {area['changed_files']})"
+        )
         md.append(f"*{area['reason']}*\n")
         if area["changed_files"] > 0:
             md.append("**Required Checks:**")
             for check in area["checks"]:
                 md.append(f"- [ ] `{check}`")
         md.append("")
-    
+
     return "\n".join(md)
+
 
 def main():
     parser = argparse.ArgumentParser()
@@ -171,12 +177,12 @@ def main():
         out = REPO_ROOT / out
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(report, indent=2) + "\n")
-    
+
     out_md = Path(args.out_md)
     if not out_md.is_absolute():
         out_md = REPO_ROOT / out_md
     out_md.write_text(build_markdown_checklist(report))
-    
+
     print(json.dumps(report, indent=2))
 
 

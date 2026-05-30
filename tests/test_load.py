@@ -3,7 +3,6 @@ import os
 import pytest
 import torch
 
-
 PrimusNetwork = pytest.importorskip(
     "villa.vesuvius.src.vesuvius.models.build.primus_wrapper"
 ).PrimusNetwork

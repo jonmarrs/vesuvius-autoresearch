@@ -1,6 +1,8 @@
-import torch
-import sys
 import os
+import sys
+
+import torch
+
 VILLA_SRC = os.path.abspath("villa/segmentation/evaluation")
 if VILLA_SRC not in sys.path:
     sys.path.append(VILLA_SRC)

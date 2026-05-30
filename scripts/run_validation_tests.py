@@ -5,9 +5,9 @@ Run the lightweight validation test suite with the active Python interpreter.
 This avoids accidentally using a system pytest entrypoint that is not connected
 to the project virtualenv.
 """
+
 import subprocess
 import sys
-
 
 VALIDATION_TESTS = [
     "tests/test_import.py",

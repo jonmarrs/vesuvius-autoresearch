@@ -7,12 +7,12 @@ Night/Day Shift training loop is active. Without --execute-* flags it only
 refreshes manifests and preflight reports; use --preflight-only to allow that
 non-GPU planning path while a sprint is active.
 """
+
 import argparse
 import json
 import subprocess
 import sys
 from pathlib import Path
-
 
 ACTIVE_PROCESS_PATTERN = "run_autoresearch_loop.py|train.py|uv run python -u train.py"
 
@@ -113,37 +113,37 @@ def build_handoff_steps(args):
 
     steps.extend(
         [
-        {
-            "name": "ranked_inference",
-            "gpu": bool(args.execute_inference),
-            "command": inference_command,
-        },
-        {
-            "name": "rerank_candidates",
-            "gpu": False,
-            "command": [
-                python,
-                "scripts/rank_scroll23_candidates.py",
-                "--queue",
-                args.queue,
-                "--prediction-dir",
-                args.prediction_dir,
-                "--out",
-                args.ranked,
-            ],
-        },
-        {
-            "name": "build_lasagna_fiber_worklist",
-            "gpu": False,
-            "command": [
-                python,
-                "scripts/build_lasagna_fiber_worklist.py",
-                "--ranked",
-                args.ranked,
-                "--limit",
-                str(args.worklist_limit),
-            ],
-        },
+            {
+                "name": "ranked_inference",
+                "gpu": bool(args.execute_inference),
+                "command": inference_command,
+            },
+            {
+                "name": "rerank_candidates",
+                "gpu": False,
+                "command": [
+                    python,
+                    "scripts/rank_scroll23_candidates.py",
+                    "--queue",
+                    args.queue,
+                    "--prediction-dir",
+                    args.prediction_dir,
+                    "--out",
+                    args.ranked,
+                ],
+            },
+            {
+                "name": "build_lasagna_fiber_worklist",
+                "gpu": False,
+                "command": [
+                    python,
+                    "scripts/build_lasagna_fiber_worklist.py",
+                    "--ranked",
+                    args.ranked,
+                    "--limit",
+                    str(args.worklist_limit),
+                ],
+            },
         ]
     )
 
@@ -281,22 +281,56 @@ def main():
     parser.add_argument("--checkpoint", default="best_model.pt")
     parser.add_argument("--manifest", default="reports/scroll23_inference_commands.sh")
     parser.add_argument("--evidence-root", default="reports/scroll23_evidence")
-    parser.add_argument("--plan-out", default="reports/post_sprint_villa_handoff_plan.json")
+    parser.add_argument(
+        "--plan-out", default="reports/post_sprint_villa_handoff_plan.json"
+    )
     parser.add_argument("--villa-audit", default="reports/villa_upstream_audit.json")
-    parser.add_argument("--villa-opportunities", default="reports/villa_prize_opportunities.json")
+    parser.add_argument(
+        "--villa-opportunities", default="reports/villa_prize_opportunities.json"
+    )
     parser.add_argument("--villa-pin-review", default="reports/villa_pin_review.json")
-    parser.add_argument("--villa-component-coverage-json", default="reports/villa_component_coverage.json")
-    parser.add_argument("--villa-component-coverage-md", default="reports/villa_component_coverage.md")
-    parser.add_argument("--volume-cartographer-sample-zarr", default="local_data/PHercParis2Fr47/surface_volume.zarr/0")
-    parser.add_argument("--volume-cartographer-readiness-json", default="reports/volume_cartographer_readiness.json")
-    parser.add_argument("--volume-cartographer-readiness-md", default="reports/volume_cartographer_readiness.md")
-    parser.add_argument("--preflight-summary-json", default="reports/scroll23_evidence_preflight_summary.json")
-    parser.add_argument("--preflight-summary-tsv", default="reports/scroll23_evidence_preflight_summary.tsv")
-    parser.add_argument("--gpu-queue", default="reports/scroll23_gpu_inference_queue.tsv")
-    parser.add_argument("--villa-action-matrix-json", default="reports/villa_prize_action_matrix.json")
-    parser.add_argument("--villa-action-matrix-md", default="reports/villa_prize_action_matrix.md")
-    parser.add_argument("--villa-review-manifest-json", default="reports/villa_review_manifest.json")
-    parser.add_argument("--villa-review-manifest-md", default="reports/villa_review_manifest.md")
+    parser.add_argument(
+        "--villa-component-coverage-json",
+        default="reports/villa_component_coverage.json",
+    )
+    parser.add_argument(
+        "--villa-component-coverage-md", default="reports/villa_component_coverage.md"
+    )
+    parser.add_argument(
+        "--volume-cartographer-sample-zarr",
+        default="local_data/PHercParis2Fr47/surface_volume.zarr/0",
+    )
+    parser.add_argument(
+        "--volume-cartographer-readiness-json",
+        default="reports/volume_cartographer_readiness.json",
+    )
+    parser.add_argument(
+        "--volume-cartographer-readiness-md",
+        default="reports/volume_cartographer_readiness.md",
+    )
+    parser.add_argument(
+        "--preflight-summary-json",
+        default="reports/scroll23_evidence_preflight_summary.json",
+    )
+    parser.add_argument(
+        "--preflight-summary-tsv",
+        default="reports/scroll23_evidence_preflight_summary.tsv",
+    )
+    parser.add_argument(
+        "--gpu-queue", default="reports/scroll23_gpu_inference_queue.tsv"
+    )
+    parser.add_argument(
+        "--villa-action-matrix-json", default="reports/villa_prize_action_matrix.json"
+    )
+    parser.add_argument(
+        "--villa-action-matrix-md", default="reports/villa_prize_action_matrix.md"
+    )
+    parser.add_argument(
+        "--villa-review-manifest-json", default="reports/villa_review_manifest.json"
+    )
+    parser.add_argument(
+        "--villa-review-manifest-md", default="reports/villa_review_manifest.md"
+    )
     parser.add_argument("--inference-limit", type=int, default=8)
     parser.add_argument("--worklist-limit", type=int, default=12)
     parser.add_argument("--evidence-limit", type=int, default=12)
@@ -307,13 +341,19 @@ def main():
         action="store_true",
         help="Allow non-GPU manifest/preflight steps to run while a sprint is active",
     )
-    parser.add_argument("--force", action="store_true", help="Allow execution while a sprint process is active")
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Allow execution while a sprint process is active",
+    )
     parser.add_argument("--python-executable", default=sys.executable)
     args = parser.parse_args()
 
     active = active_sprint_processes()
     steps = build_handoff_steps(args)
-    status = resolve_status(active, steps, force=args.force, preflight_only=args.preflight_only)
+    status = resolve_status(
+        active, steps, force=args.force, preflight_only=args.preflight_only
+    )
     plan = write_plan(args.plan_out, active, steps, status)
     print(json.dumps(plan, indent=2))
 

@@ -3,10 +3,13 @@ from pathlib import Path
 
 import numpy as np
 
-from scripts.build_scroll23_search_queue import build_queue, _occupied_windows
+from scripts.build_scroll23_search_queue import _occupied_windows, build_queue
 from scripts.rank_scroll23_candidates import rank_candidates, score_row
 from scripts.run_ranked_inference import build_predict_command, load_candidates
-from scripts.run_villa_prize_evidence_chain import build_evidence_chain, preflight_evidence_chain
+from scripts.run_villa_prize_evidence_chain import (
+    build_evidence_chain,
+    preflight_evidence_chain,
+)
 from scripts.validate_prize_artifact import validate
 
 
@@ -41,7 +44,9 @@ def _write_vc3d_zarr(path: Path, scale=7.91):
                     "datasets": [
                         {
                             "path": "0",
-                            "coordinateTransformations": [{"type": "scale", "scale": [scale, scale, scale]}],
+                            "coordinateTransformations": [
+                                {"type": "scale", "scale": [scale, scale, scale]}
+                            ],
                         }
                     ],
                 }
@@ -131,6 +136,7 @@ def test_validate_prize_artifact_passes_on_known_good_local_fixture():
     metadata_path = Path("predictions/pred_10_1000_1000_64x64_meta.json")
     if not metadata_path.exists():
         import pytest
+
         pytest.skip("Known-good fixture not available")
 
     report = validate(metadata_path)
@@ -138,6 +144,7 @@ def test_validate_prize_artifact_passes_on_known_good_local_fixture():
     assert report["failures"] == []
     assert "reports/pred_10_1000_1000_64x64_ink.zarr" in report["checked_zarr_paths"]
     assert "reports/pred_10_1000_1000_64x64_fiber.zarr" in report["checked_zarr_paths"]
+
 
 def test_validate_prize_artifact_fails_on_mismatched_fiber_ome_zarr_scale(tmp_path):
     train_mask = np.zeros((8, 8), dtype=bool)
@@ -318,7 +325,9 @@ def test_validate_prize_artifact_fails_on_dry_run_metadata(tmp_path):
 
 
 def test_build_scroll23_search_queue_marks_64px_windows_submittable():
-    rows = build_queue(divisions=[1.0], windows_per_division=1, patch_size=64, voxel_um=7.91)
+    rows = build_queue(
+        divisions=[1.0], windows_per_division=1, patch_size=64, voxel_um=7.91
+    )
 
     assert len(rows) == 2
     assert {row["short_id"] for row in rows} == {"PHerc0125", "PHerc0332"}
@@ -407,13 +416,17 @@ def test_rank_scroll23_candidates_reports_corrupt_metadata(tmp_path):
 def test_rank_candidates_writes_ranked_tsv(tmp_path):
     queue_path = tmp_path / "queue.tsv"
     out_path = tmp_path / "ranked.tsv"
-    rows = build_queue(divisions=[1.0], windows_per_division=1, patch_size=64, voxel_um=7.91)
+    rows = build_queue(
+        divisions=[1.0], windows_per_division=1, patch_size=64, voxel_um=7.91
+    )
     with open(queue_path, "w") as f:
         f.write("\t".join(rows[0].keys()) + "\n")
         for row in rows:
             f.write("\t".join(str(row[key]) for key in rows[0].keys()) + "\n")
 
-    ranked = rank_candidates(queue_path, out_path, prediction_dir=tmp_path / "predictions")
+    ranked = rank_candidates(
+        queue_path, out_path, prediction_dir=tmp_path / "predictions"
+    )
 
     assert out_path.exists()
     assert len(ranked) == 2
@@ -474,9 +487,16 @@ def test_build_predict_command_uses_ranked_candidate_fields():
         "patch_size": "64",
     }
 
-    cmd = build_predict_command(row, python_executable="python", prediction_dir="predictions")
+    cmd = build_predict_command(
+        row, python_executable="python", prediction_dir="predictions"
+    )
 
-    assert cmd[:4] == ["python", "predict.py", "--uri", "local_data/PHerc0125_Divisions/div_100/0"]
+    assert cmd[:4] == [
+        "python",
+        "predict.py",
+        "--uri",
+        "local_data/PHerc0125_Divisions/div_100/0",
+    ]
     assert "--output_img" in cmd
     assert "predictions/pred_9000_2048_2048_64x64.png" in cmd
     assert "predictions/pred_9000_2048_2048_64x64_meta.json" in cmd
@@ -487,7 +507,13 @@ def test_build_predict_command_uses_ranked_candidate_fields():
 def test_load_candidates_filters_missing_local_uri(tmp_path):
     ranked_path = tmp_path / "ranked.tsv"
     rows = [
-        {"review_score": "2", "local_uri": "local_data/a", "z": "1", "y": "2", "x": "3"},
+        {
+            "review_score": "2",
+            "local_uri": "local_data/a",
+            "z": "1",
+            "y": "2",
+            "x": "3",
+        },
         {"review_score": "1", "local_uri": "", "z": "4", "y": "5", "x": "6"},
     ]
     with open(ranked_path, "w") as f:
@@ -530,8 +556,12 @@ def test_villa_prize_evidence_chain_validates_existing_prediction_artifacts(tmp_
         zarr_path / "meta.json",
         {"format": "zarr", "voxelsize": 7.91, "height": 64, "width": 64, "slices": 1},
     )
-    _write_json(zarr_path / "0" / ".zarray", {"shape": [1, 64, 64], "chunks": [1, 64, 64]})
-    (prediction_dir / "pred_9000_2048_2048_64x64.png").write_bytes(b"not-a-real-png-but-present")
+    _write_json(
+        zarr_path / "0" / ".zarray", {"shape": [1, 64, 64], "chunks": [1, 64, 64]}
+    )
+    (prediction_dir / "pred_9000_2048_2048_64x64.png").write_bytes(
+        b"not-a-real-png-but-present"
+    )
     _write_json(
         prediction_dir / "pred_9000_2048_2048_64x64_meta.json",
         {
@@ -556,7 +586,9 @@ def test_villa_prize_evidence_chain_validates_existing_prediction_artifacts(tmp_
     assert (out_dir / "PRIZE_READINESS_REPORT.json").exists()
 
 
-def test_villa_prize_evidence_chain_preflight_reports_missing_checkpoint_for_execute(tmp_path):
+def test_villa_prize_evidence_chain_preflight_reports_missing_checkpoint_for_execute(
+    tmp_path,
+):
     ranked_path = tmp_path / "ranked.tsv"
     out_dir = tmp_path / "evidence"
     row = {
@@ -580,7 +612,11 @@ def test_villa_prize_evidence_chain_preflight_reports_missing_checkpoint_for_exe
         f.write("\t".join(row.values()) + "\n")
 
     missing_checkpoint = tmp_path / "missing_last_model.pt"
-    report = preflight_evidence_chain(ranked_path, out_dir, execute=True, checkpoint=str(missing_checkpoint))
+    report = preflight_evidence_chain(
+        ranked_path, out_dir, execute=True, checkpoint=str(missing_checkpoint)
+    )
 
     assert report["status"] == "FAIL"
-    assert any("missing_last_model.pt is missing" in failure for failure in report["failures"])
+    assert any(
+        "missing_last_model.pt is missing" in failure for failure in report["failures"]
+    )

@@ -6,6 +6,7 @@ This does not claim to run the official container unless --execute-docker is set
 By default it verifies the exported checkpoint structure, records the official
 docker command template, and writes a machine-readable report for prize evidence.
 """
+
 import argparse
 import json
 import shlex
@@ -20,7 +21,6 @@ from scripts.export_for_production import (
     ARCHITECTURE_STATE_DICT_PREFIXES,
     export_checkpoint,
 )
-
 
 REQUIRED_TOP_LEVEL_KEYS = {"model_state_dict", "config", "metadata"}
 REQUIRED_METADATA_KEYS = {"version", "framework", "val_bpb"}
@@ -73,7 +73,9 @@ def build_official_docker_command(
     ]
 
 
-def build_primus_submission_package(checkpoint_path, package_dir, exported_metadata, exported_config):
+def build_primus_submission_package(
+    checkpoint_path, package_dir, exported_metadata, exported_config
+):
     """Build a self-contained submission for a primus_lejepa fine-tuned model.
 
     Villa's optimized_inference Docker container has no Primus loader (see
@@ -112,7 +114,9 @@ def build_primus_submission_package(checkpoint_path, package_dir, exported_metad
         "expected_patch_size": exported_config.get("patch_size"),
         "architecture": exported_config.get("architecture"),
     }
-    (package_dir / "predict_manifest.json").write_text(json.dumps(predict_manifest, indent=2) + "\n")
+    (package_dir / "predict_manifest.json").write_text(
+        json.dumps(predict_manifest, indent=2) + "\n"
+    )
 
     readme_lines = [
         "# Vesuvius Autoresearch — Primus LeJEPA Fine-tune Submission",
@@ -171,7 +175,9 @@ def build_primus_submission_package(checkpoint_path, package_dir, exported_metad
         "pretrained_lejepa_sha": exported_metadata.get("pretrained_lejepa_sha"),
         "finetune_config_sha": exported_metadata.get("finetune_config_sha"),
     }
-    (package_dir / "submission_manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
+    (package_dir / "submission_manifest.json").write_text(
+        json.dumps(manifest, indent=2) + "\n"
+    )
     return manifest
 
 
@@ -267,7 +273,9 @@ def run_smoke_test(
             f"# predict_manifest: {submission_manifest['predict_manifest']}\n"
         )
         if execute_docker:
-            failures.append("execute_docker=True is invalid for primus_lejepa (no villa loader)")
+            failures.append(
+                "execute_docker=True is invalid for primus_lejepa (no villa loader)"
+            )
     else:
         docker_cmd = build_official_docker_command(
             image=docker_image,
@@ -288,7 +296,9 @@ def run_smoke_test(
                 "stderr_tail": proc.stderr[-4000:],
             }
             if proc.returncode != 0:
-                failures.append(f"official docker command failed with return code {proc.returncode}")
+                failures.append(
+                    f"official docker command failed with return code {proc.returncode}"
+                )
 
     report = {
         "status": "PASS" if not failures else "FAIL",
@@ -316,8 +326,12 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--input", default="best_model.pt")
     parser.add_argument("--output", default="production_model.pt")
-    parser.add_argument("--report", default="reports/villa_optimized_inference_smoke.json")
-    parser.add_argument("--command-out", default="reports/villa_optimized_inference_docker.sh")
+    parser.add_argument(
+        "--report", default="reports/villa_optimized_inference_smoke.json"
+    )
+    parser.add_argument(
+        "--command-out", default="reports/villa_optimized_inference_docker.sh"
+    )
     parser.add_argument("--docker-image", default="ink-detection-optimized-inference")
     parser.add_argument("--model", default="timesformer-scroll5")
     parser.add_argument("--s3-path", default="s3://bucket/path/to/input")

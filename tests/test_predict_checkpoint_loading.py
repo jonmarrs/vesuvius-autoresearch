@@ -1,9 +1,14 @@
-import torch
-import torch.nn as nn
-import numpy as np
 from argparse import Namespace
 
-from predict import load_compatible_state_dict, save_vc3d_zarr, write_prediction_metadata
+import numpy as np
+import torch
+import torch.nn as nn
+
+from predict import (
+    load_compatible_state_dict,
+    save_vc3d_zarr,
+    write_prediction_metadata,
+)
 
 
 def test_load_compatible_state_dict_skips_mismatched_tensors():
@@ -24,11 +29,20 @@ def test_save_vc3d_zarr_writes_ome_scale_metadata(tmp_path):
     out = tmp_path / "fiber.zarr"
     arr = np.full((8, 8), 127, dtype=np.uint8)
 
-    save_vc3d_zarr(out, arr, name="Fiber Prediction", voxel_size_um=7.91, source_uri="local.zarr", origin_xyz=[1, 2, 3])
+    save_vc3d_zarr(
+        out,
+        arr,
+        name="Fiber Prediction",
+        voxel_size_um=7.91,
+        source_uri="local.zarr",
+        origin_xyz=[1, 2, 3],
+    )
 
     zattrs = __import__("json").loads((out / ".zattrs").read_text())
     transform = zattrs["multiscales"][0]["datasets"][0]["coordinateTransformations"][0]
-    translation = zattrs["multiscales"][0]["datasets"][0]["coordinateTransformations"][1]
+    translation = zattrs["multiscales"][0]["datasets"][0]["coordinateTransformations"][
+        1
+    ]
     assert transform == {"type": "scale", "scale": [7.91, 7.91, 7.91]}
     assert translation == {"type": "translation", "translation": [1.0, 2.0, 3.0]}
     assert (out / "meta.json").exists()

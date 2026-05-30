@@ -6,6 +6,7 @@ This is a non-GPU companion to run_post_sprint_villa_handoff.py. It lets us
 review which Scroll 2/3 candidates are ready for inference and why others are
 blocked before spending GPU time.
 """
+
 import argparse
 import csv
 import json
@@ -45,7 +46,12 @@ def summarize_reports(root):
     root = Path(root)
     reports = sorted(root.glob("candidate_*/preflight_report.json"))
     rows = [_load_report(path) for path in reports]
-    rows.sort(key=lambda row: (not row["ready_for_gpu"], row["candidate_index"] if row["candidate_index"] is not None else 10**9))
+    rows.sort(
+        key=lambda row: (
+            not row["ready_for_gpu"],
+            row["candidate_index"] if row["candidate_index"] is not None else 10**9,
+        )
+    )
     return {
         "root": str(root),
         "total": len(rows),
@@ -114,9 +120,15 @@ def write_gpu_queue(path, rows):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--root", default="reports/scroll23_evidence")
-    parser.add_argument("--out-json", default="reports/scroll23_evidence_preflight_summary.json")
-    parser.add_argument("--out-tsv", default="reports/scroll23_evidence_preflight_summary.tsv")
-    parser.add_argument("--gpu-queue", default="reports/scroll23_gpu_inference_queue.tsv")
+    parser.add_argument(
+        "--out-json", default="reports/scroll23_evidence_preflight_summary.json"
+    )
+    parser.add_argument(
+        "--out-tsv", default="reports/scroll23_evidence_preflight_summary.tsv"
+    )
+    parser.add_argument(
+        "--gpu-queue", default="reports/scroll23_gpu_inference_queue.tsv"
+    )
     args = parser.parse_args()
 
     summary = summarize_reports(args.root)

@@ -10,13 +10,13 @@ Usage:
   uv run scripts/export_for_production.py --input best_model.pt --output production_model.pt
 """
 
+import argparse
+import hashlib
 import json
 import os
 import sys
-import argparse
-import hashlib
-import torch
 
+import torch
 
 # Map architecture name -> expected first-key prefix in model_state_dict.
 ARCHITECTURE_STATE_DICT_PREFIXES = {
@@ -73,14 +73,16 @@ def export_checkpoint(input_path, output_path):
     if not os.path.exists(input_path):
         raise FileNotFoundError(f"{input_path} not found")
 
-    print(f"--- Vesuvius Autoresearch Production Export ---")
+    print("--- Vesuvius Autoresearch Production Export ---")
     print(f"Converting: {input_path} -> {output_path}")
 
     checkpoint = torch.load(input_path, map_location="cpu", weights_only=False)
 
     state_dict = checkpoint.get("model_state_dict") or checkpoint.get("state_dict")
     if not isinstance(state_dict, dict) or not state_dict:
-        raise ValueError(f"{input_path}: no usable state_dict found (expected model_state_dict or state_dict).")
+        raise ValueError(
+            f"{input_path}: no usable state_dict found (expected model_state_dict or state_dict)."
+        )
 
     config = dict(checkpoint.get("config", {}) or {})
     declared_arch = config.get("architecture")
@@ -104,7 +106,9 @@ def export_checkpoint(input_path, output_path):
         ft = _load_finetune_marker()
         pretrain_sha = _sha256_of_file(ft.get("pretrained_lejepa_checkpoint"))
         ft_config_sha = _sha256_of_file(ft.get("config_path"))
-        config.setdefault("pretrained_lejepa_checkpoint", ft.get("pretrained_lejepa_checkpoint"))
+        config.setdefault(
+            "pretrained_lejepa_checkpoint", ft.get("pretrained_lejepa_checkpoint")
+        )
         config.setdefault("pretrained_lejepa_sha", pretrain_sha)
         config.setdefault("finetune_config_path", ft.get("config_path"))
         config.setdefault("finetune_config_sha", ft_config_sha)
@@ -120,14 +124,23 @@ def export_checkpoint(input_path, output_path):
 
     torch.save(prod_state, output_path)
     print(f"Architecture: {architecture}")
-    print(f"Success! Model exported. Envelope: {{model_state_dict, config, metadata}}.")
+    print("Success! Model exported. Envelope: {model_state_dict, config, metadata}.")
     return prod_state
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Map Vesuvius-DINO to Grand Prize Inference Format")
-    parser.add_argument("--input", type=str, default="best_model.pt", help="Path to our best_model.pt")
-    parser.add_argument("--output", type=str, required=True, help="Path for the production-ready weight file")
+    parser = argparse.ArgumentParser(
+        description="Map Vesuvius-DINO to Grand Prize Inference Format"
+    )
+    parser.add_argument(
+        "--input", type=str, default="best_model.pt", help="Path to our best_model.pt"
+    )
+    parser.add_argument(
+        "--output",
+        type=str,
+        required=True,
+        help="Path for the production-ready weight file",
+    )
     args = parser.parse_args()
 
     try:
@@ -135,6 +148,7 @@ def main():
     except FileNotFoundError as exc:
         print(f"Error: {exc}")
         sys.exit(1)
+
 
 if __name__ == "__main__":
     main()

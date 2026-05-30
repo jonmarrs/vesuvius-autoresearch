@@ -4,8 +4,8 @@ import numpy as np
 import pytest
 
 from train import (
-    ExperimentConfig,
     SKELETON_DISTANCE_AVAILABLE,
+    ExperimentConfig,
     compute_skeleton_dist,
     evaluate_prize_gates,
 )
@@ -69,7 +69,9 @@ def test_prize_gates_fail_closed_when_skeleton_distance_is_unavailable():
     )
 
     assert gates["submittable"] is False
-    assert any("avg_skel_dist is not finite" in failure for failure in gates["failures"])
+    assert any(
+        "avg_skel_dist is not finite" in failure for failure in gates["failures"]
+    )
     assert any("skeleton-distance samples" in failure for failure in gates["failures"])
 
 
@@ -98,4 +100,6 @@ def test_prize_gates_fail_when_window_exceeds_official_guidance():
 
     assert gates["window_ok"] is False
     assert gates["submittable"] is False
-    assert any("exceeds official prize guidance" in failure for failure in gates["failures"])
+    assert any(
+        "exceeds official prize guidance" in failure for failure in gates["failures"]
+    )

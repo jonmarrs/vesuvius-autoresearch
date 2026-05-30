@@ -1,12 +1,12 @@
 import os
+import sys
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor
-import time
-import sys
 
 BASE_URL = "https://dl.ash2txt.org/fragments/Frag1/PHercParis2Fr47.volpkg/volumes_zarr/54keV_3.24um_.zarr/0/"
 OUT_DIR = "local_data/PHercParis2Fr47/0/"
 os.makedirs(OUT_DIR, exist_ok=True)
+
 
 def download_chunk(task):
     z, y, x = task
@@ -14,12 +14,12 @@ def download_chunk(task):
     out_path = os.path.join(OUT_DIR, str(z), str(y), str(x))
     if os.path.exists(out_path) and os.path.getsize(out_path) > 0:
         return True
-    
+
     os.makedirs(os.path.dirname(out_path), exist_ok=True)
     try:
         req = urllib.request.Request(url)
         with urllib.request.urlopen(req, timeout=30) as response:
-            with open(out_path, 'wb') as f:
+            with open(out_path, "wb") as f:
                 f.write(response.read())
         return True
     except urllib.error.HTTPError as e:
@@ -31,16 +31,17 @@ def download_chunk(task):
         print(f"Failed to download {url}: {e}")
         return False
 
+
 def download_all():
     print("Downloading metadata...")
     sys.stdout.flush()
-    for meta in ['.zarray', '.zgroup', '.zattrs']:
+    for meta in [".zarray", ".zgroup", ".zattrs"]:
         url = f"{BASE_URL}{meta}"
         out_path = os.path.join(OUT_DIR, meta)
         try:
             req = urllib.request.Request(url)
             with urllib.request.urlopen(req) as response:
-                with open(out_path, 'wb') as f:
+                with open(out_path, "wb") as f:
                     f.write(response.read())
             print(f"Downloaded {meta}")
             sys.stdout.flush()
@@ -53,10 +54,10 @@ def download_all():
         for y in range(11):
             for x in range(57):
                 tasks.append((z, y, x))
-                
+
     print(f"Starting download of {len(tasks)} chunks...")
     sys.stdout.flush()
-    
+
     success_count = 0
     with ThreadPoolExecutor(max_workers=32) as executor:
         futures = [executor.submit(download_chunk, t) for t in tasks]
@@ -66,13 +67,16 @@ def download_all():
                     success_count += 1
             except Exception as e:
                 print(f"Warning: chunk worker failed: {e}")
-            
+
             if i % 100 == 0 and i > 0:
-                print(f"Progress: {i}/{len(tasks)} chunks processed. Success: {success_count}")
+                print(
+                    f"Progress: {i}/{len(tasks)} chunks processed. Success: {success_count}"
+                )
                 sys.stdout.flush()
 
     print(f"Finished. Success: {success_count}/{len(tasks)}")
     sys.stdout.flush()
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     download_all()

@@ -5,10 +5,10 @@ Rank concrete ways to use ScrollPrize/villa for prize-facing Autoresearch work.
 Inputs are local and reproducible: the Villa upstream audit plus a curated list
 of official open issue cues that are good matches for this repository.
 """
+
 import argparse
 import json
 from pathlib import Path
-
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
@@ -100,7 +100,7 @@ def _load_audit(path):
         path = REPO_ROOT / path
     if not path.exists():
         return {}
-    with open(path, "r") as f:
+    with open(path) as f:
         return json.load(f)
 
 
@@ -147,7 +147,9 @@ def build_opportunity_plan(audit_path="reports/villa_upstream_audit.json", limit
         "villa_upstream_ref": audit.get("upstream_ref"),
         "villa_behind": bool(audit.get("behind")),
         "villa_diverged": bool(audit.get("diverged")),
-        "villa_upstream_ahead_commits": int(audit.get("upstream_ahead_commits", 0) or 0),
+        "villa_upstream_ahead_commits": int(
+            audit.get("upstream_ahead_commits", 0) or 0
+        ),
         "villa_local_ahead_commits": int(audit.get("local_ahead_commits", 0) or 0),
         "opportunities": rows,
     }

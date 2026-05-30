@@ -13,10 +13,10 @@ bypasses the CLI: it generates a tiny runner under scripts/ that imports
 TrainFineTuneLEJEPA directly. Mirrors the launch_gp_winner.py pattern; keeps
 the villa submodule clean.
 """
+
 from __future__ import annotations
 
 import argparse
-import glob
 import json
 import os
 import subprocess
@@ -43,7 +43,9 @@ def discover_lejepa_checkpoint(explicit: str | None) -> Path | None:
     for run_dir in base.glob("lejepa_foundation_v1*"):
         if not run_dir.is_dir():
             continue
-        finals = sorted(run_dir.glob("*_final.pth"), key=lambda p: p.stat().st_mtime, reverse=True)
+        finals = sorted(
+            run_dir.glob("*_final.pth"), key=lambda p: p.stat().st_mtime, reverse=True
+        )
         if finals:
             candidates.append(finals[0])
             continue
@@ -125,7 +127,9 @@ def build_config(
         },
         # Recorded only — the runner sets these explicitly on the mgr.
         "finetune_lejepa": {
-            "pretrained_lejepa_checkpoint": str(pretrained_ckpt) if pretrained_ckpt else None,
+            "pretrained_lejepa_checkpoint": str(pretrained_ckpt)
+            if pretrained_ckpt
+            else None,
             "freeze_encoder_epochs": freeze_epochs,
             "encoder_lr_mult": encoder_lr_mult,
             "finetune_warmup_epochs": warmup_epochs,
@@ -191,15 +195,27 @@ def _is_submittable(patch: tuple[int, int, int]) -> bool:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Launch villa's LeJEPA→UNet fine-tuner.")
+    parser = argparse.ArgumentParser(
+        description="Launch villa's LeJEPA→UNet fine-tuner."
+    )
     parser.add_argument("--model-name", default="lejepa_finetune_ink_v1")
-    parser.add_argument("--checkpoint", default=None, help="Explicit LeJEPA .pth. Default: auto-discover newest.")
     parser.add_argument(
-        "--patch", type=int, nargs=3, default=[32, 64, 64],
+        "--checkpoint",
+        default=None,
+        help="Explicit LeJEPA .pth. Default: auto-discover newest.",
+    )
+    parser.add_argument(
+        "--patch",
+        type=int,
+        nargs=3,
+        default=[32, 64, 64],
         help="Train patch size (D H W). Default keeps 64x64 ML window (submittable).",
     )
     parser.add_argument(
-        "--embed", type=int, nargs=3, default=[8, 8, 8],
+        "--embed",
+        type=int,
+        nargs=3,
+        default=[8, 8, 8],
         help="patch_embed_size. Should match the pretrain (default [8,8,8]).",
     )
     parser.add_argument("--lr", type=float, default=5e-5)
@@ -209,7 +225,9 @@ def main() -> int:
     parser.add_argument("--max-epoch", type=int, default=30)
     parser.add_argument(
         "--config-out",
-        default=str(PROJECT_ROOT / "configs" / "finetune_lejepa" / "finetune_lejepa_config.yaml"),
+        default=str(
+            PROJECT_ROOT / "configs" / "finetune_lejepa" / "finetune_lejepa_config.yaml"
+        ),
     )
     parser.add_argument(
         "--output-dir",
@@ -252,7 +270,9 @@ def main() -> int:
 
     blockers: list[str] = []
     if pretrained is None:
-        blockers.append("no LeJEPA checkpoint found under checkpoints/lejepa_foundation_v1*")
+        blockers.append(
+            "no LeJEPA checkpoint found under checkpoints/lejepa_foundation_v1*"
+        )
     if not volumes:
         blockers.append("no labeled volume found at local_data/PHercParis2Fr47")
 
@@ -282,7 +302,9 @@ def main() -> int:
     print(f"Fine-tune config: {config_path}")
     print(f"Pretrained LeJEPA: {pretrained}")
     print(f"Labeled volumes ({len(volumes)}): {[v['image'] for v in volumes]}")
-    print(f"Patch {patch} (embed {embed}) — {'SUBMITTABLE' if submittable else 'NOT submittable'}")
+    print(
+        f"Patch {patch} (embed {embed}) — {'SUBMITTABLE' if submittable else 'NOT submittable'}"
+    )
     print(f"Marker: {marker_path}")
     if blockers:
         print("Not ready to launch:")

@@ -1,7 +1,12 @@
-from scripts.build_villa_component_coverage import build_component_coverage, render_markdown
+from scripts.build_villa_component_coverage import (
+    build_component_coverage,
+    render_markdown,
+)
 
 
-def test_villa_component_coverage_marks_covered_partial_blocked_and_unwired(tmp_path, monkeypatch):
+def test_villa_component_coverage_marks_covered_partial_blocked_and_unwired(
+    tmp_path, monkeypatch
+):
     monkeypatch.setattr("scripts.build_villa_component_coverage.REPO_ROOT", tmp_path)
     (tmp_path / "villa" / "vesuvius").mkdir(parents=True)
     (tmp_path / "local").mkdir()

@@ -7,8 +7,8 @@ mark placeholders as ready. The output directory contains the command manifest,
 candidate row, patched prediction metadata, train/predict masks, and a
 PRIZE_READINESS_REPORT.json from scripts.validate_prize_artifact.
 """
+
 import argparse
-import csv
 import json
 import shlex
 import subprocess
@@ -42,7 +42,10 @@ def _as_float(row, key, default=0.0):
 def _artifact_stem(row):
     width = _as_int(row, "width", _as_int(row, "patch_size", 64))
     height = _as_int(row, "height", _as_int(row, "patch_size", 64))
-    return row.get("artifact_stem") or f"pred_{_as_int(row, 'z')}_{_as_int(row, 'y')}_{_as_int(row, 'x')}_{width}x{height}"
+    return (
+        row.get("artifact_stem")
+        or f"pred_{_as_int(row, 'z')}_{_as_int(row, 'y')}_{_as_int(row, 'x')}_{width}x{height}"
+    )
 
 
 def select_candidate(ranked_path, index=0):
@@ -76,7 +79,7 @@ def _write_masks(out_dir, row):
 def patch_prediction_metadata(metadata_path, row, train_mask_path, predict_mask_path):
     metadata_path = Path(metadata_path)
     if metadata_path.exists():
-        with open(metadata_path, "r") as f:
+        with open(metadata_path) as f:
             metadata = json.load(f)
     else:
         metadata = {}
@@ -84,8 +87,14 @@ def patch_prediction_metadata(metadata_path, row, train_mask_path, predict_mask_
     width = _as_int(row, "width", _as_int(row, "patch_size", 64))
     height = _as_int(row, "height", _as_int(row, "patch_size", 64))
     patch_size = _as_int(row, "patch_size", max(width, height))
-    voxel_um = _as_float(row, "voxel_um", _as_float(row, "voxel_size_um", metadata.get("voxel_size_um", 7.91)))
-    source_uri = row.get("local_uri") or row.get("source_uri") or metadata.get("source_uri")
+    voxel_um = _as_float(
+        row,
+        "voxel_um",
+        _as_float(row, "voxel_size_um", metadata.get("voxel_size_um", 7.91)),
+    )
+    source_uri = (
+        row.get("local_uri") or row.get("source_uri") or metadata.get("source_uri")
+    )
 
     metadata.update(
         {
@@ -93,7 +102,9 @@ def patch_prediction_metadata(metadata_path, row, train_mask_path, predict_mask_
             "short_id": row.get("short_id"),
             "division": row.get("division"),
             "source_uri": source_uri,
-            "segmentation_id": row.get("segmentation_id") or metadata.get("segmentation_id") or source_uri,
+            "segmentation_id": row.get("segmentation_id")
+            or metadata.get("segmentation_id")
+            or source_uri,
             "position_xyz": [_as_int(row, "x"), _as_int(row, "y"), _as_int(row, "z")],
             "x": _as_int(row, "x"),
             "y": _as_int(row, "y"),
@@ -189,10 +200,14 @@ def build_evidence_chain(
             f"{metadata_path} does not exist. Re-run with --execute or provide existing prediction artifacts."
         )
     if not image_path.exists():
-        raise FileNotFoundError(f"{image_path} does not exist; prize evidence requires the static prediction image")
+        raise FileNotFoundError(
+            f"{image_path} does not exist; prize evidence requires the static prediction image"
+        )
 
     train_mask_path, predict_mask_path = _write_masks(out_dir, row)
-    metadata = patch_prediction_metadata(metadata_path, row, train_mask_path, predict_mask_path)
+    metadata = patch_prediction_metadata(
+        metadata_path, row, train_mask_path, predict_mask_path
+    )
 
     report = validate(metadata_path)
     _write_json(out_dir / "PRIZE_READINESS_REPORT.json", report)
@@ -211,14 +226,18 @@ def build_evidence_chain(
             "vc3d_zarr_path": metadata.get("vc3d_zarr_path"),
             "readiness_report": str(out_dir / "PRIZE_READINESS_REPORT.json"),
             "predict_command": cmd,
-            "neural_tracing_plan": str(out_dir / "neural_tracing.json") if tracing_plan else None,
+            "neural_tracing_plan": str(out_dir / "neural_tracing.json")
+            if tracing_plan
+            else None,
             "neural_tracing_ready": bool(tracing_plan and tracing_plan.get("ready")),
         },
     )
     return report
 
 
-def preflight_evidence_chain(ranked_path, out_dir, candidate_index=0, execute=False, checkpoint="best_model.pt"):
+def preflight_evidence_chain(
+    ranked_path, out_dir, candidate_index=0, execute=False, checkpoint="best_model.pt"
+):
     out_dir = Path(out_dir)
     prediction_dir = out_dir / "predictions"
     row = select_candidate(ranked_path, candidate_index)
@@ -230,12 +249,16 @@ def preflight_evidence_chain(ranked_path, out_dir, candidate_index=0, execute=Fa
     warnings = []
 
     if not local_uri and execute:
-        failures.append("candidate has no local_uri; execute mode cannot run predict.py locally")
+        failures.append(
+            "candidate has no local_uri; execute mode cannot run predict.py locally"
+        )
     elif local_uri and not Path(local_uri).exists():
         failures.append(f"candidate local_uri does not exist: {local_uri}")
 
     if execute and not Path(checkpoint).exists():
-        failures.append(f"{checkpoint} is missing; run training or place a checkpoint before execute mode")
+        failures.append(
+            f"{checkpoint} is missing; run training or place a checkpoint before execute mode"
+        )
 
     if not execute:
         if not image_path.exists():
@@ -246,7 +269,9 @@ def preflight_evidence_chain(ranked_path, out_dir, candidate_index=0, execute=Fa
     patch_size = _as_int(row, "patch_size", 64)
     voxel_um = _as_float(row, "voxel_um", 7.91)
     if patch_size > 64 and patch_size * voxel_um / 1000.0 > 0.5 + 1e-9:
-        failures.append(f"candidate ML window is not submittable: {patch_size}px at {voxel_um}um")
+        failures.append(
+            f"candidate ML window is not submittable: {patch_size}px at {voxel_um}um"
+        )
     elif patch_size * voxel_um / 1000.0 > 0.5:
         warnings.append(
             f"candidate is {patch_size * voxel_um / 1000.0:.4f}mm; accepted only because it is <=64px per prize guidance"
@@ -272,9 +297,15 @@ def main():
     parser.add_argument("--ranked", default="reports/scroll23_ranked_candidates.tsv")
     parser.add_argument("--candidate-index", type=int, default=0)
     parser.add_argument("--out-dir", default="submission_evidence/candidate_000")
-    parser.add_argument("--execute", action="store_true", help="Run predict.py before validating")
+    parser.add_argument(
+        "--execute", action="store_true", help="Run predict.py before validating"
+    )
     parser.add_argument("--checkpoint", default="best_model.pt")
-    parser.add_argument("--preflight", action="store_true", help="Only check prerequisites and write a preflight report")
+    parser.add_argument(
+        "--preflight",
+        action="store_true",
+        help="Only check prerequisites and write a preflight report",
+    )
     parser.add_argument("--preflight-report", default=None)
     parser.add_argument("--python-executable", default=sys.executable)
     parser.add_argument(

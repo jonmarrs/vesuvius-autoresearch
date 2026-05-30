@@ -1,5 +1,6 @@
 import os
 import sys
+
 # Add villa to path
 VILLA_SRC = os.path.abspath("villa/vesuvius/src")
 if VILLA_SRC not in sys.path:
@@ -15,6 +16,6 @@ vol = Volume(
     path=os.path.abspath(vol_path),
     normalization_scheme="instance_zscore",
     return_as_tensor=True,
-    verbose=True
+    verbose=True,
 )
 print("Volume loaded successfully!")

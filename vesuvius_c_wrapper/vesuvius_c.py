@@ -14,16 +14,15 @@ import os
 from collections import defaultdict
 from pathlib import Path
 from types import ModuleType
-from typing import Optional
 
 import numpy as np
 import zarr
-
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 UPSTREAM_MODULE = REPO_ROOT / "villa" / "vesuvius-c" / "python" / "vesuvius_c.py"
 NATIVE_LIBRARY = UPSTREAM_MODULE.with_name("libvesuvius.so")
 _WARNING_COUNTS = defaultdict(int)
+
 
 def _warn_limited(key: str, message: str, limit: int = 3) -> None:
     _WARNING_COUNTS[key] += 1
@@ -59,7 +58,7 @@ def _load_upstream_module() -> ModuleType:
 class VesuviusVolume:
     """Lazy proxy for the official ``villa/vesuvius-c`` VesuviusVolume."""
 
-    def __init__(self, cache_dir: str | Path, url: Optional[str] = None):
+    def __init__(self, cache_dir: str | Path, url: str | None = None):
         module = _load_upstream_module()
         self._volume = module.VesuviusVolume(str(cache_dir), url=url)
 
@@ -77,39 +76,43 @@ class VesuviusVolume:
         depth = depth or self.chunks[0]
         height = height or self.chunks[1]
         width = width or self.chunks[2]
-        
+
         start = (int(z), int(y), int(x))
         stop = (start[0] + int(depth), start[1] + int(height), start[2] + int(width))
-        
+
         # Check if the requested region is already aligned to block boundaries
         is_aligned = all(
-            start[i] % self.chunks[i] == 0 and (stop[i] - start[i]) % self.chunks[i] == 0
+            start[i] % self.chunks[i] == 0
+            and (stop[i] - start[i]) % self.chunks[i] == 0
             for i in range(3)
         )
-        
+
         if is_aligned:
             return self._volume.get_chunk(
-                start[0], start[1], start[2], 
-                depth=depth, height=height, width=width
+                start[0], start[1], start[2], depth=depth, height=height, width=width
             )
-            
+
         # Unaligned read: Expand to chunk boundaries for the native call
         # and then crop the result to the requested region.
         aligned_start = tuple((s // c) * c for s, c in zip(start, self.chunks))
         aligned_stop = tuple(((e + c - 1) // c) * c for e, c in zip(stop, self.chunks))
         aligned_dims = tuple(st - st_a for st, st_a in zip(aligned_stop, aligned_start))
-        
+
         # Native get_chunk is still faster for full-block reads than pure Python zarr
         # even with the overhead of expansion and cropping.
         block = self._volume.get_chunk(
-            aligned_start[0], aligned_start[1], aligned_start[2],
-            depth=aligned_dims[0], height=aligned_dims[1], width=aligned_dims[2]
+            aligned_start[0],
+            aligned_start[1],
+            aligned_start[2],
+            depth=aligned_dims[0],
+            height=aligned_dims[1],
+            width=aligned_dims[2],
         )
-        
+
         return block[
-            start[0]-aligned_start[0] : stop[0]-aligned_start[0],
-            start[1]-aligned_start[1] : stop[1]-aligned_start[1],
-            start[2]-aligned_start[2] : stop[2]-aligned_start[2]
+            start[0] - aligned_start[0] : stop[0] - aligned_start[0],
+            start[1] - aligned_start[1] : stop[1] - aligned_start[1],
+            start[2] - aligned_start[2] : stop[2] - aligned_start[2],
         ]
 
 
@@ -123,7 +126,7 @@ class FastLocalVolume:
     ``zarr``.
     """
 
-    def __init__(self, path: str | Path, prefer_native: Optional[bool] = None):
+    def __init__(self, path: str | Path, prefer_native: bool | None = None):
         self.path = Path(path)
         self._zarr = zarr.open(str(self.path), mode="r")
         self.shape = tuple(int(value) for value in self._zarr.shape)
@@ -134,12 +137,13 @@ class FastLocalVolume:
 
         if prefer_native is None:
             prefer_native = (
-                NATIVE_LIBRARY.exists()
-                or os.environ.get("VESUVIUS_C_BUILD") == "1"
+                NATIVE_LIBRARY.exists() or os.environ.get("VESUVIUS_C_BUILD") == "1"
             )
         if prefer_native:
             try:
-                self._native = VesuviusVolume(self.path, url=f"file://{self.path.absolute()}")
+                self._native = VesuviusVolume(
+                    self.path, url=f"file://{self.path.absolute()}"
+                )
                 self.backend = "vesuvius-c"
             except (VesuviusCUnavailable, RuntimeError):
                 self._native = None

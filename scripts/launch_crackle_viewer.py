@@ -3,9 +3,11 @@
 Vesuvius Autoresearch: Crackle Viewer Wrapper
 Provides a simple CLI to launch the Crackle Viewer GUI for inspecting ink predictions.
 """
+
 import os
-import sys
 import subprocess
+import sys
+
 
 def main():
     PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
@@ -18,7 +20,7 @@ def main():
 
     print("Launching Crackle Viewer...")
     print("Usage: Use 'File -> Open' to load your prediction and base images.")
-    
+
     try:
         # Run using the current virtual environment's python
         cmd = [sys.executable, gui_script]
@@ -27,6 +29,7 @@ def main():
         print("\nExiting.")
     except Exception as e:
         print(f"Failed to launch Crackle Viewer: {e}")
+
 
 if __name__ == "__main__":
     main()

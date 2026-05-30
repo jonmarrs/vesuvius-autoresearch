@@ -5,6 +5,7 @@ Rank Scroll 2/3 candidate windows for First Letters / First Title review.
 Inputs are the deterministic queue plus optional prediction artifacts. This is a
 cheap metadata/statistics pass: it does not download data or run inference.
 """
+
 import argparse
 import csv
 import json
@@ -20,7 +21,7 @@ def _read_zarr_array_info(local_uri):
     if not zarray_path.exists():
         return None
     try:
-        with open(zarray_path, "r") as f:
+        with open(zarray_path) as f:
             meta = json.load(f)
     except (OSError, ValueError, TypeError):
         return None
@@ -102,7 +103,7 @@ def _load_prediction_stats(prediction_dir, row):
 
     if meta_path.exists():
         try:
-            with open(meta_path, "r") as f:
+            with open(meta_path) as f:
                 meta = json.load(f)
             ink_stats = meta.get("ink_stats", {})
             stats["ink_mean"] = float(ink_stats.get("mean", stats["ink_mean"]))
@@ -133,7 +134,14 @@ def score_row(row, prediction_dir="predictions"):
             - 0.5 * stats["ink_mean"]
         )
 
-    review_score = base_priority + core_bonus + local_bonus + submittable_bonus + ct_occupancy_bonus + prediction_bonus
+    review_score = (
+        base_priority
+        + core_bonus
+        + local_bonus
+        + submittable_bonus
+        + ct_occupancy_bonus
+        + prediction_bonus
+    )
     out = dict(row)
     out.update(
         {
@@ -155,7 +163,7 @@ def score_row(row, prediction_dir="predictions"):
 
 
 def rank_candidates(queue_path, out_path, prediction_dir="predictions", limit=None):
-    with open(queue_path, "r", newline="") as f:
+    with open(queue_path, newline="") as f:
         rows = list(csv.DictReader(f, delimiter="\t"))
 
     ranked = [score_row(row, prediction_dir=prediction_dir) for row in rows]
@@ -167,7 +175,12 @@ def rank_candidates(queue_path, out_path, prediction_dir="predictions", limit=No
     out_path.parent.mkdir(parents=True, exist_ok=True)
     if ranked:
         with open(out_path, "w", newline="") as f:
-            writer = csv.DictWriter(f, fieldnames=list(ranked[0].keys()), delimiter="\t", lineterminator="\n")
+            writer = csv.DictWriter(
+                f,
+                fieldnames=list(ranked[0].keys()),
+                delimiter="\t",
+                lineterminator="\n",
+            )
             writer.writeheader()
             writer.writerows(ranked)
     else:
@@ -186,7 +199,9 @@ def main():
     ranked = rank_candidates(args.queue, args.out, args.prediction_dir, args.limit)
     print(f"Wrote {len(ranked)} ranked candidates to {args.out}")
     if ranked:
-        print(f"Top candidate: {ranked[0]['scroll_id']} {ranked[0]['division']} score={ranked[0]['review_score']}")
+        print(
+            f"Top candidate: {ranked[0]['scroll_id']} {ranked[0]['division']} score={ranked[0]['review_score']}"
+        )
 
 
 if __name__ == "__main__":

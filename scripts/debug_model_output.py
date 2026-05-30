@@ -1,20 +1,21 @@
-import torch
-from vesuvius_model import InkDetectorOptimized, VesuviusConfig
-from train import ExperimentConfig
 import json
 
-with open('config_temp.json', 'r') as f:
+import torch
+
+from vesuvius_model import InkDetectorOptimized, VesuviusConfig
+
+with open("config_temp.json") as f:
     config_dict = json.load(f)
 
 v_config = VesuviusConfig(
-    patch_size=config_dict['patch_size'],
-    num_layers=config_dict['num_layers'],
-    batch_size=config_dict['batch_size'],
-    base_feat=config_dict['base_feat'],
-    num_blocks=config_dict['num_blocks'],
-    num_heads=config_dict['num_heads'],
-    dropout=config_dict['dropout'],
-    architecture=config_dict['architecture']
+    patch_size=config_dict["patch_size"],
+    num_layers=config_dict["num_layers"],
+    batch_size=config_dict["batch_size"],
+    base_feat=config_dict["base_feat"],
+    num_blocks=config_dict["num_blocks"],
+    num_heads=config_dict["num_heads"],
+    dropout=config_dict["dropout"],
+    architecture=config_dict["architecture"],
 )
 
 model = InkDetectorOptimized(v_config)

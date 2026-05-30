@@ -5,6 +5,7 @@ The Lasagna/structure-tensor path must run on a candidate crop, not an entire
 scroll division. This script extracts a bounded [z, y, x] window from an input
 Zarr array and writes a compact Zarr array that downstream villa tools can read.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -41,11 +42,14 @@ def crop_candidate_zarr(
     y0 = _clamp_start(int(y), int(height), int(src.shape[1]))
     x0 = _clamp_start(int(x), int(width), int(src.shape[2]))
     shape = (int(depth), int(height), int(width))
-    chunks = chunks or tuple(min(src_chunk, dim) for src_chunk, dim in zip(src.chunks, shape))
+    chunks = chunks or tuple(
+        min(src_chunk, dim) for src_chunk, dim in zip(src.chunks, shape)
+    )
 
     output_path = Path(output_path)
     if output_path.exists():
         import shutil
+
         shutil.rmtree(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -59,20 +63,26 @@ def crop_candidate_zarr(
         fill_value=getattr(src, "fill_value", 0),
         zarr_format=2,
     )
-    dst[:] = src[z0:z0 + shape[0], y0:y0 + shape[1], x0:x0 + shape[2]]
-    dst.attrs.update({
-        "source_path": str(input_path),
-        "source_start_zyx": [z0, y0, x0],
-        "source_requested_zyx": [int(z), int(y), int(x)],
-        "crop_shape_zyx": list(shape),
-    })
+    dst[:] = src[z0 : z0 + shape[0], y0 : y0 + shape[1], x0 : x0 + shape[2]]
+    dst.attrs.update(
+        {
+            "source_path": str(input_path),
+            "source_start_zyx": [z0, y0, x0],
+            "source_requested_zyx": [int(z), int(y), int(x)],
+            "crop_shape_zyx": list(shape),
+        }
+    )
     return shape
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Crop a candidate Zarr volume for Lasagna/ST processing")
+    parser = argparse.ArgumentParser(
+        description="Crop a candidate Zarr volume for Lasagna/ST processing"
+    )
     parser.add_argument("--input", required=True, help="Input 3D Zarr array path")
-    parser.add_argument("--output", required=True, help="Output cropped 3D Zarr array path")
+    parser.add_argument(
+        "--output", required=True, help="Output cropped 3D Zarr array path"
+    )
     parser.add_argument("--z", type=int, required=True)
     parser.add_argument("--y", type=int, required=True)
     parser.add_argument("--x", type=int, required=True)

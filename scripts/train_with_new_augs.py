@@ -15,6 +15,7 @@ CLI mirrors train.py's --config flag plus an optional --seed that pins
 torch / numpy / random seeds before train.train() is invoked, so the
 ablation can run multiple seeds for statistical confidence.
 """
+
 import argparse
 import os
 import random
@@ -29,12 +30,17 @@ import torch
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--config", required=True, help="Path to configuration JSON")
-    parser.add_argument("--seed", type=int, default=None,
-                        help="Optional global seed for torch / numpy / random.")
+    parser.add_argument(
+        "--seed",
+        type=int,
+        default=None,
+        help="Optional global seed for torch / numpy / random.",
+    )
     args = parser.parse_args()
 
     # Match train.py's own __main__ behavior.
     import torch.multiprocessing as mp
+
     try:
         mp.set_start_method("spawn")
     except RuntimeError:
@@ -48,10 +54,12 @@ def main() -> int:
         random.seed(args.seed)
 
     # Import the project modules then swap the scroll-aug function.
-    import train
     import scroll_augmentations as new_augs
+    import train
 
-    train.apply_scroll_specific_3d_augmentations = new_augs.apply_scroll_specific_3d_augmentations
+    train.apply_scroll_specific_3d_augmentations = (
+        new_augs.apply_scroll_specific_3d_augmentations
+    )
 
     config = train.ExperimentConfig.load(args.config)
     train.train(config)

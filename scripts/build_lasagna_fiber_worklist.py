@@ -6,6 +6,7 @@ The goal is to route hard, occupied candidate windows through surface/fiber
 preprocessing before more ink inference, matching the official villa #191
 opportunity around compressed and highly curved regions.
 """
+
 import argparse
 import csv
 import json
@@ -30,7 +31,10 @@ def _int(row, key, default=0):
 def _artifact_stem(row):
     width = _int(row, "width", _int(row, "patch_size", 64))
     height = _int(row, "height", _int(row, "patch_size", 64))
-    return row.get("artifact_stem") or f"pred_{_int(row, 'z')}_{_int(row, 'y')}_{_int(row, 'x')}_{width}x{height}"
+    return (
+        row.get("artifact_stem")
+        or f"pred_{_int(row, 'z')}_{_int(row, 'y')}_{_int(row, 'x')}_{width}x{height}"
+    )
 
 
 def _candidate_score(row):
@@ -43,11 +47,19 @@ def _candidate_score(row):
     core_bonus = 0.25 if row.get("division") in {"div_90", "div_100"} else 0.0
     # Prefer regions with geometry/fiber signal and some ink structure, but keep
     # high-priority unpredicted candidates eligible for first-pass preprocessing.
-    return review_score + occupied_bonus + prediction_bonus + core_bonus + 2.0 * ink_max + ink_std + 0.5 * fiber_mean
+    return (
+        review_score
+        + occupied_bonus
+        + prediction_bonus
+        + core_bonus
+        + 2.0 * ink_max
+        + ink_std
+        + 0.5 * fiber_mean
+    )
 
 
 def _load_rows(ranked_path):
-    with open(ranked_path, "r", newline="") as f:
+    with open(ranked_path, newline="") as f:
         return list(csv.DictReader(f, delimiter="\t"))
 
 
@@ -144,7 +156,12 @@ def _work_item(row, rank, output_root, python_executable):
     }
 
 
-def build_worklist(ranked_path, output_root="reports/lasagna_fiber_candidates", limit=12, python_executable=".venv/bin/python"):
+def build_worklist(
+    ranked_path,
+    output_root="reports/lasagna_fiber_candidates",
+    limit=12,
+    python_executable=".venv/bin/python",
+):
     rows = _load_rows(ranked_path)
     eligible = [
         row
@@ -154,7 +171,10 @@ def build_worklist(ranked_path, output_root="reports/lasagna_fiber_candidates", 
         and row.get("ct_occupied_status", "unknown") != "false"
     ]
     eligible.sort(key=_candidate_score, reverse=True)
-    return [_work_item(row, rank, output_root, python_executable) for rank, row in enumerate(eligible[:limit])]
+    return [
+        _work_item(row, rank, output_root, python_executable)
+        for rank, row in enumerate(eligible[:limit])
+    ]
 
 
 def _write_tsv(path, rows):
@@ -190,7 +210,9 @@ def _write_tsv(path, rows):
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     with open(path, "w", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=fields, delimiter="\t", lineterminator="\n")
+        writer = csv.DictWriter(
+            f, fieldnames=fields, delimiter="\t", lineterminator="\n"
+        )
         writer.writeheader()
         for row in rows:
             writer.writerow({field: row.get(field, "") for field in fields})
@@ -206,11 +228,21 @@ def main():
     parser.add_argument("--python-executable", default=".venv/bin/python")
     args = parser.parse_args()
 
-    rows = build_worklist(args.ranked, args.output_root, args.limit, args.python_executable)
+    rows = build_worklist(
+        args.ranked, args.output_root, args.limit, args.python_executable
+    )
     out = Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)
     with open(out, "w") as f:
-        json.dump({"ranked_path": args.ranked, "opportunity": "villa-issue-191", "candidates": rows}, f, indent=2)
+        json.dump(
+            {
+                "ranked_path": args.ranked,
+                "opportunity": "villa-issue-191",
+                "candidates": rows,
+            },
+            f,
+            indent=2,
+        )
     _write_tsv(args.tsv, rows)
     print(f"Wrote {len(rows)} Lasagna/fiber candidates to {args.out}")
     print(f"Wrote TSV to {args.tsv}")

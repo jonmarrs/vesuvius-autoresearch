@@ -4,24 +4,29 @@ Performs inference on a specific block of a Vesuvius scroll volume.
 Usage: uv run predict.py --uri "s3://..." --z 1000 --y 2000 --x 3000
 """
 
-import os
 import argparse
 import json
-import torch
-import torch.nn.functional as F
-import numpy as np
+import os
+
 import matplotlib.pyplot as plt
+import numpy as np
+import torch
 from matplotlib.patches import Rectangle
-import torch.nn as nn
-from vesuvius_model import InkDetectorOptimized, VesuviusConfig
-from vesuvius_loader import FastVesuviusVolume
+
 from scripts.swarm_voter import SwarmVoter
+from vesuvius_loader import FastVesuviusVolume
+from vesuvius_model import VesuviusConfig
 
 try:
     from dynamic_network_architectures.architectures.unet import ResidualEncoderUNet
-    from dynamic_network_architectures.building_blocks.helper import convert_dim_to_conv_op, get_matching_instancenorm
+    from dynamic_network_architectures.building_blocks.helper import (
+        convert_dim_to_conv_op,
+        get_matching_instancenorm,
+    )
 except ImportError as exc:
-    print(f"Warning: ResidualEncoderUNet unavailable in predict.py; resenc_unet checkpoints cannot be loaded: {exc}")
+    print(
+        f"Warning: ResidualEncoderUNet unavailable in predict.py; resenc_unet checkpoints cannot be loaded: {exc}"
+    )
     ResidualEncoderUNet = None
 
 
@@ -36,11 +41,13 @@ def load_compatible_state_dict(model, state_dict):
             skipped.append(key)
     model.load_state_dict(compatible, strict=False)
     if skipped:
-        print(f"Warning: skipped {len(skipped)} incompatible checkpoint tensors: {', '.join(skipped[:8])}")
+        print(
+            f"Warning: skipped {len(skipped)} incompatible checkpoint tensors: {', '.join(skipped[:8])}"
+        )
     return skipped
 
 
-from model_wrappers import GenericMultiTaskWrapper, build_inference_model
+from model_wrappers import build_inference_model
 
 
 def build_prediction_model(config_dict, args, use_ridges):
@@ -61,23 +68,39 @@ def build_prediction_model(config_dict, args, use_ridges):
         multi_task_heads=config_dict.get("multi_task_heads", False),
     )
 
+
 def get_weight_window(patch_size, device):
     """Generates a 2D Hanning window for soft-tiling."""
     h = torch.hann_window(patch_size, periodic=False).to(device)
     window = h.unsqueeze(1) * h.unsqueeze(0)
     return window
 
-def save_vc3d_zarr(base_path, array_uint8, name="prediction", voxel_size_um=7.91, source_uri=None, origin_xyz=None):
+
+def save_vc3d_zarr(
+    base_path,
+    array_uint8,
+    name="prediction",
+    voxel_size_um=7.91,
+    source_uri=None,
+    origin_xyz=None,
+):
     """Saves a 2D uint8 array as a VC3D-compatible OME-Zarr volume."""
-    import zarr
-    import uuid
     import json
     import os
-    
+    import uuid
+
+    import zarr
+
     os.makedirs(base_path, exist_ok=True)
-    
+
     # Create Zarr group/array at scale '0'
-    z = zarr.open(os.path.join(base_path, "0"), mode='w', shape=(1, *array_uint8.shape), chunks=(1, 256, 256), dtype='|u1')
+    z = zarr.open(
+        os.path.join(base_path, "0"),
+        mode="w",
+        shape=(1, *array_uint8.shape),
+        chunks=(1, 256, 256),
+        dtype="|u1",
+    )
     z[0] = array_uint8
 
     zattrs = {
@@ -95,11 +118,17 @@ def save_vc3d_zarr(base_path, array_uint8, name="prediction", voxel_size_um=7.91
                         "coordinateTransformations": [
                             {
                                 "type": "scale",
-                                "scale": [float(voxel_size_um), float(voxel_size_um), float(voxel_size_um)],
+                                "scale": [
+                                    float(voxel_size_um),
+                                    float(voxel_size_um),
+                                    float(voxel_size_um),
+                                ],
                             },
                             {
                                 "type": "translation",
-                                "translation": [float(v) for v in (origin_xyz or [0, 0, 0])],
+                                "translation": [
+                                    float(v) for v in (origin_xyz or [0, 0, 0])
+                                ],
                             },
                         ],
                     }
@@ -110,7 +139,7 @@ def save_vc3d_zarr(base_path, array_uint8, name="prediction", voxel_size_um=7.91
     }
     with open(os.path.join(base_path, ".zattrs"), "w") as f:
         json.dump(zattrs, f, indent=2)
-    
+
     # Create VC3D meta.json
     meta = {
         "height": array_uint8.shape[0],
@@ -129,8 +158,22 @@ def save_vc3d_zarr(base_path, array_uint8, name="prediction", voxel_size_um=7.91
     with open(os.path.join(base_path, "meta.json"), "w") as f:
         json.dump(meta, f, indent=2)
 
-def write_prediction_metadata(path, args, config_dict, zarr_path, output_img, ink_stats, fiber_zarr_path=None, fiber_stats=None):
-    voxel_size_um = float(config_dict.get("voxel_size_um", config_dict.get("voxelsize", args.voxel_size_um)))
+
+def write_prediction_metadata(
+    path,
+    args,
+    config_dict,
+    zarr_path,
+    output_img,
+    ink_stats,
+    fiber_zarr_path=None,
+    fiber_stats=None,
+):
+    voxel_size_um = float(
+        config_dict.get(
+            "voxel_size_um", config_dict.get("voxelsize", args.voxel_size_um)
+        )
+    )
     patch_size = int(config_dict.get("patch_size", args.patch_size))
     metadata = {
         "scroll_id": config_dict.get("scroll_id", "unknown"),
@@ -157,24 +200,51 @@ def write_prediction_metadata(path, args, config_dict, zarr_path, output_img, in
     with open(path, "w") as f:
         json.dump(metadata, f, indent=2)
 
+
 def predict():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--uri", type=str, required=True, help="S3 or local path to Zarr volume")
+    parser.add_argument(
+        "--uri", type=str, required=True, help="S3 or local path to Zarr volume"
+    )
     parser.add_argument("--z", type=int, required=True)
     parser.add_argument("--y", type=int, required=True)
     parser.add_argument("--x", type=int, required=True)
-    parser.add_argument("--width", type=int, default=None, help="Total width to predict")
-    parser.add_argument("--height", type=int, default=None, help="Total height to predict")
-    parser.add_argument("--stride", type=int, default=None, help="Stride for soft-tiling")
+    parser.add_argument(
+        "--width", type=int, default=None, help="Total width to predict"
+    )
+    parser.add_argument(
+        "--height", type=int, default=None, help="Total height to predict"
+    )
+    parser.add_argument(
+        "--stride", type=int, default=None, help="Stride for soft-tiling"
+    )
     parser.add_argument("--patch_size", type=int, default=32)
     parser.add_argument("--num_layers", type=int, default=16)
     parser.add_argument("--base_feat", type=int, default=128)
-    parser.add_argument("--use_ridges", action="store_true", help="Use 3D Ridge/Frangi feature channel")
-    parser.add_argument("--output_img", type=str, default=None, help="Force output image path")
-    parser.add_argument("--metadata_out", type=str, default=None, help="Force prediction metadata JSON path")
+    parser.add_argument(
+        "--use_ridges", action="store_true", help="Use 3D Ridge/Frangi feature channel"
+    )
+    parser.add_argument(
+        "--output_img", type=str, default=None, help="Force output image path"
+    )
+    parser.add_argument(
+        "--metadata_out",
+        type=str,
+        default=None,
+        help="Force prediction metadata JSON path",
+    )
     parser.add_argument("--voxel_size_um", type=float, default=7.91)
-    parser.add_argument("--checkpoint", type=str, default="best_model.pt", help="Model checkpoint to use for prediction")
-    parser.add_argument("--skip_active_learning", action="store_true", help="Skip optional proofreader uncertainty export")
+    parser.add_argument(
+        "--checkpoint",
+        type=str,
+        default="best_model.pt",
+        help="Model checkpoint to use for prediction",
+    )
+    parser.add_argument(
+        "--skip_active_learning",
+        action="store_true",
+        help="Skip optional proofreader uncertainty export",
+    )
     args = parser.parse_args()
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -183,100 +253,120 @@ def predict():
     # Load trained model first to get the correct hyperparameters
     checkpoint_path = args.checkpoint
     if not os.path.exists(checkpoint_path):
-        raise FileNotFoundError(f"Trained model not found at {checkpoint_path}. Please run training first.")
-        
+        raise FileNotFoundError(
+            f"Trained model not found at {checkpoint_path}. Please run training first."
+        )
+
     checkpoint = torch.load(checkpoint_path, map_location=device, weights_only=False)
-    config_dict = checkpoint.get('config', {})
-    
+    config_dict = checkpoint.get("config", {})
+
     # Reconstruct VesuviusConfig from checkpoint, overriding args if present
-    patch_size = config_dict.get('patch_size', args.patch_size)
-    num_layers = config_dict.get('num_layers', args.num_layers)
-    base_feat = config_dict.get('base_feat', args.base_feat)
-    num_blocks = config_dict.get('num_blocks', 16)
-    num_heads = config_dict.get('num_heads', 8)
-    dropout = config_dict.get('dropout', 0.0)
-    use_ridges = config_dict.get('use_ridges', args.use_ridges)
-    
+    patch_size = config_dict.get("patch_size", args.patch_size)
+    num_layers = config_dict.get("num_layers", args.num_layers)
+    base_feat = config_dict.get("base_feat", args.base_feat)
+    num_blocks = config_dict.get("num_blocks", 16)
+    num_heads = config_dict.get("num_heads", 8)
+    dropout = config_dict.get("dropout", 0.0)
+    use_ridges = config_dict.get("use_ridges", args.use_ridges)
+
     v_config = VesuviusConfig(
-        patch_size=patch_size, 
-        num_layers=num_layers, 
+        patch_size=patch_size,
+        num_layers=num_layers,
         base_feat=base_feat,
         num_blocks=num_blocks,
         num_heads=num_heads,
         dropout=dropout,
-        in_channels=2 if use_ridges else 1
+        in_channels=2 if use_ridges else 1,
     )
-    
+
     # Initialize Ensemble
     checkpoint_paths = [checkpoint_path]
     ensemble_models = []
-    
+
     for path in checkpoint_paths:
         checkpoint = torch.load(path, map_location=device, weights_only=False)
-        config_dict = checkpoint.get('config', {})
+        config_dict = checkpoint.get("config", {})
         model = build_prediction_model(config_dict, args, use_ridges).to(device)
-        skipped = load_compatible_state_dict(model, checkpoint['model_state_dict'])
+        skipped = load_compatible_state_dict(model, checkpoint["model_state_dict"])
         if len(skipped) > 8:
-            raise RuntimeError(f"checkpoint/model mismatch: skipped {len(skipped)} tensors")
+            raise RuntimeError(
+                f"checkpoint/model mismatch: skipped {len(skipped)} tensors"
+            )
         model.eval()
         ensemble_models.append(model)
-    
+
     model = SwarmVoter(ensemble_models)
     model.eval()
 
     # Open the dataset
     dataset = FastVesuviusVolume(args.uri, use_ridges=use_ridges)
-    
+
     # Determine region and tiling parameters
     predict_width = max(patch_size, args.width if args.width else patch_size)
     predict_height = max(patch_size, args.height if args.height else patch_size)
-    stride = args.stride if args.stride else patch_size // 2 if (args.width or args.height) else patch_size
-    
+    stride = (
+        args.stride
+        if args.stride
+        else patch_size // 2
+        if (args.width or args.height)
+        else patch_size
+    )
+
     # Initialize accumulation buffers
     full_prob_ink = torch.zeros((predict_height, predict_width), device=device)
     full_prob_fiber = torch.zeros((predict_height, predict_width), device=device)
     full_weight = torch.zeros((predict_height, predict_width), device=device)
-    
+
     weight_window = get_weight_window(patch_size, device)
-    
-    print(f"Starting Soft-Tiling Inference: {predict_width}x{predict_height} (stride={stride})...")
+
+    print(
+        f"Starting Soft-Tiling Inference: {predict_width}x{predict_height} (stride={stride})..."
+    )
 
     # Tiling Loop
     for y_off in range(0, predict_height - patch_size + 1, stride):
         for x_off in range(0, predict_width - patch_size + 1, stride):
             curr_y = args.y + y_off
             curr_x = args.x + x_off
-            
+
             # Read the block
             block = dataset[
                 args.z : args.z + num_layers,
                 curr_y : curr_y + patch_size,
-                curr_x : curr_x + patch_size
+                curr_x : curr_x + patch_size,
             ]
 
             # Prepare input
-            x = dataset.normalize(block).unsqueeze(0).to(device) # [B, C, Z, H, W]
+            x = dataset.normalize(block).unsqueeze(0).to(device)  # [B, C, Z, H, W]
             if not use_ridges:
-                x = x.unsqueeze(1) # [B, 1, Z, H, W]
+                x = x.unsqueeze(1)  # [B, 1, Z, H, W]
 
             with torch.no_grad():
-                out_ink_2d, out_fiber, out_qc = model(x, return_fiber=True, return_qc=True)
-                
+                out_ink_2d, out_fiber, out_qc = model(
+                    x, return_fiber=True, return_qc=True
+                )
+
                 # Gate ink prediction with QC score
                 gate = torch.sigmoid(out_qc / 0.1)
                 prob_ink = torch.sigmoid(out_ink_2d).squeeze() * gate.view(-1)
-                
+
                 prob_fiber = torch.sigmoid(out_fiber.mean(dim=2)).squeeze()
-                
+
                 # Accumulate with weight window
-                full_prob_ink[y_off:y_off+patch_size, x_off:x_off+patch_size] += prob_ink * weight_window
-                full_prob_fiber[y_off:y_off+patch_size, x_off:x_off+patch_size] += prob_fiber * weight_window
-                full_weight[y_off:y_off+patch_size, x_off:x_off+patch_size] += weight_window
+                full_prob_ink[
+                    y_off : y_off + patch_size, x_off : x_off + patch_size
+                ] += prob_ink * weight_window
+                full_prob_fiber[
+                    y_off : y_off + patch_size, x_off : x_off + patch_size
+                ] += prob_fiber * weight_window
+                full_weight[y_off : y_off + patch_size, x_off : x_off + patch_size] += (
+                    weight_window
+                )
 
     # Normalize by weights
-    full_prob_ink /= (full_weight + 1e-8)
-    full_prob_fiber /= (full_weight + 1e-8)
-    
+    full_prob_ink /= full_weight + 1e-8
+    full_prob_fiber /= full_weight + 1e-8
+
     prob_ink_final = full_prob_ink.cpu().numpy()
     prob_fiber_final = full_prob_fiber.cpu().numpy()
 
@@ -289,10 +379,13 @@ def predict():
 
     # Save as Crackle-Viewer compatible PNG (8-bit grayscale)
     from PIL import Image
+
     ink_uint8 = (np.clip(prob_ink_final, 0, 1) * 255).astype(np.uint8)
     fiber_uint8 = (np.clip(prob_fiber_final, 0, 1) * 255).astype(np.uint8)
     Image.fromarray(ink_uint8).save(os.path.join(output_dir, f"{base_name}_ink.png"))
-    Image.fromarray(fiber_uint8).save(os.path.join(output_dir, f"{base_name}_fiber.png"))
+    Image.fromarray(fiber_uint8).save(
+        os.path.join(output_dir, f"{base_name}_fiber.png")
+    )
     # Save as VC3D OME-Zarr
     zarr_path = os.path.join(output_dir, f"{base_name}_ink.zarr")
     save_vc3d_zarr(
@@ -317,10 +410,17 @@ def predict():
     # should not fail if this auxiliary tool is not available.
     if not args.skip_active_learning:
         try:
-            from scripts.active_learning_sampler import identify_uncertain_patches, export_for_proofreader
+            from scripts.active_learning_sampler import (
+                export_for_proofreader,
+                identify_uncertain_patches,
+            )
+
             uncertain_mask = identify_uncertain_patches(full_prob_ink, threshold=0.2)
             if uncertain_mask.sum() > 0:
-                export_for_proofreader(uncertain_mask.unsqueeze(0), os.path.join(output_dir, f"{base_name}_uncertain"))
+                export_for_proofreader(
+                    uncertain_mask.unsqueeze(0),
+                    os.path.join(output_dir, f"{base_name}_uncertain"),
+                )
         except ImportError as exc:
             print(f"Warning: skipping active-learning export: {exc}")
 
@@ -330,26 +430,33 @@ def predict():
     # Note: For very large regions, we'd need to fetch the CT slice in parts too.
     # For now, we fetch the middle slice of the entire requested area.
     z_mid = args.z + num_layers // 2
-    ct_full = dataset[z_mid : z_mid + 1, args.y : args.y + predict_height, args.x : args.x + predict_width]
+    ct_full = dataset[
+        z_mid : z_mid + 1,
+        args.y : args.y + predict_height,
+        args.x : args.x + predict_width,
+    ]
     # FastVesuviusVolume returns (D, H, W) for use_ridges=False or
     # (C, D, H, W) for use_ridges=True. The visualization wants a 2D
     # (H, W) CT slice. Drop the channel dim if present (taking the CT
     # channel at index 0), then drop the singleton z dim.
-    if hasattr(ct_full, "dim") and ct_full.dim() == 4:
-        ct_full = ct_full[0]
-    elif hasattr(ct_full, "ndim") and ct_full.ndim == 4:
+    if (
+        hasattr(ct_full, "dim")
+        and ct_full.dim() == 4
+        or hasattr(ct_full, "ndim")
+        and ct_full.ndim == 4
+    ):
         ct_full = ct_full[0]
     ct_slice = np.array(ct_full[0], dtype=np.float32)
 
     fig, axes = plt.subplots(1, 3, figsize=(15, 5))
-    axes[0].imshow(ct_slice, cmap='gray')
+    axes[0].imshow(ct_slice, cmap="gray")
     axes[0].set_title(f"CT Slice (Z={args.z + num_layers // 2})")
-    
-    axes[1].imshow(prob_fiber_final, cmap='magma')
+
+    axes[1].imshow(prob_fiber_final, cmap="magma")
     axes[1].set_title("Fiber Context (Fused)")
-    
-    axes[2].imshow(ct_slice, cmap='gray')
-    axes[2].imshow(prob_ink_final, cmap='jet', alpha=0.5)
+
+    axes[2].imshow(ct_slice, cmap="gray")
+    axes[2].imshow(prob_ink_final, cmap="jet", alpha=0.5)
     axes[2].set_title("Gated Ink Overlay (Soft-Tiled)")
 
     # Add Scale Bar — uses args.voxel_size_um (same source as the OME-Zarr
@@ -361,20 +468,31 @@ def predict():
     pixel_size_um = args.voxel_size_um
     one_cm_px = 10000 / pixel_size_um
     one_mm_px = 1000 / pixel_size_um
-    
+
     for ax in axes:
         bar_px = one_mm_px if predict_width < one_cm_px else one_cm_px
         label = "1mm" if predict_width < one_cm_px else "1cm"
-        rect = Rectangle((10, predict_height - 20), bar_px, 5, facecolor='white', edgecolor='black')
+        rect = Rectangle(
+            (10, predict_height - 20), bar_px, 5, facecolor="white", edgecolor="black"
+        )
         ax.add_patch(rect)
-        ax.text(10, predict_height - 25, label, color='white', fontsize=10, fontweight='bold')
-        ax.axis('off')
+        ax.text(
+            10,
+            predict_height - 25,
+            label,
+            color="white",
+            fontsize=10,
+            fontweight="bold",
+        )
+        ax.axis("off")
 
     plt.tight_layout()
     plt.savefig(out_path)
     plt.close()
 
-    metadata_path = args.metadata_out if args.metadata_out else f"predictions/{base_name}_meta.json"
+    metadata_path = (
+        args.metadata_out if args.metadata_out else f"predictions/{base_name}_meta.json"
+    )
     write_prediction_metadata(
         metadata_path,
         args,
@@ -394,10 +512,13 @@ def predict():
         },
     )
 
-    print(f"\nPrediction Complete!")
-    print(f"Region: {predict_width}x{predict_height} at Z={args.z}, Y={args.y}, X={args.x}")
+    print("\nPrediction Complete!")
+    print(
+        f"Region: {predict_width}x{predict_height} at Z={args.z}, Y={args.y}, X={args.x}"
+    )
     print(f"Visualization saved to {out_path}")
     print(f"Metadata saved to {metadata_path}")
+
 
 if __name__ == "__main__":
     predict()

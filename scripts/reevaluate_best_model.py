@@ -14,33 +14,35 @@ Usage:
     uv run python scripts/reevaluate_best_model.py
     uv run python scripts/reevaluate_best_model.py --update-stored  # rewrites best_model.pt's stored val_bpb fields
 """
+
 import argparse
-import sys
 import os
+import sys
+
 import numpy as np
 import torch
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from torch.utils.data import DataLoader
+
+from model_wrappers import build_inference_model
 from train import (
     ExperimentConfig,
-    load_shape_compatible_state,
+    compute_cc_diff,
+    compute_centerline_dice,
     compute_official_dice,
     compute_skeleton_dist,
-    compute_centerline_dice,
-    compute_cc_diff,
+    load_shape_compatible_state,
 )
-from vesuvius_model import VesuviusConfig
 from vesuvius_loader import VesuviusLabeledDataset
-from model_wrappers import build_inference_model
-from torch.utils.data import DataLoader
 
 
 def reevaluate(update_stored: bool = False) -> None:
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     config = ExperimentConfig.load("config.json")
 
-    print(f"Loading best_model.pt...")
+    print("Loading best_model.pt...")
     chk = torch.load("best_model.pt", map_location="cpu", weights_only=False)
     stored = chk.get("config", {})
     stored_arch = stored.get("architecture", "?")
@@ -63,8 +65,12 @@ def reevaluate(update_stored: bool = False) -> None:
         use_ridges=config.use_ridges,
         multi_task_heads=stored.get("multi_task_heads", False),
     ).to(device)
-    skipped = load_shape_compatible_state(model, chk["model_state_dict"], "best_model.pt")
-    print(f"  load_shape_compatible_state: skipped {len(skipped) if hasattr(skipped, '__len__') else 0} tensors")
+    skipped = load_shape_compatible_state(
+        model, chk["model_state_dict"], "best_model.pt"
+    )
+    print(
+        f"  load_shape_compatible_state: skipped {len(skipped) if hasattr(skipped, '__len__') else 0} tensors"
+    )
 
     parent_dir = os.path.dirname(config.val_uri.rstrip("/"))
     labels_path = os.path.join(parent_dir, "inklabels_filled.png")
@@ -85,7 +91,9 @@ def reevaluate(update_stored: bool = False) -> None:
         use_lasagna=False,
         require_ink=True,
     )
-    val_loader = DataLoader(val_ds, batch_size=config.batch_size, num_workers=0, pin_memory=True)
+    val_loader = DataLoader(
+        val_ds, batch_size=config.batch_size, num_workers=0, pin_memory=True
+    )
     val_iter = iter(val_loader)
 
     model.eval()
@@ -135,7 +143,9 @@ def reevaluate(update_stored: bool = False) -> None:
     for i in range(len(all_probs)):
         prob_2d = all_probs[i]
         tgt = all_targets[i]
-        val_losses.append(1.0 - compute_official_dice(tgt, prob_2d, threshold=best_threshold))
+        val_losses.append(
+            1.0 - compute_official_dice(tgt, prob_2d, threshold=best_threshold)
+        )
         try:
             gt = (tgt > 0.5).numpy().astype(bool)
             pred = (prob_2d > best_threshold).numpy().astype(bool)
@@ -157,7 +167,9 @@ def reevaluate(update_stored: bool = False) -> None:
             except Exception:
                 pass
             try:
-                cd = compute_centerline_dice(gt3, pred3, tolerance_radius=3.0).get("centerline_dice", 0.0)
+                cd = compute_centerline_dice(gt3, pred3, tolerance_radius=3.0).get(
+                    "centerline_dice", 0.0
+                )
                 if not np.isnan(cd):
                     val_cd.append(cd)
             except Exception:
@@ -188,7 +200,9 @@ def reevaluate(update_stored: bool = False) -> None:
             print(f"  {name}: today={today_val} stored=<MISSING>")
         else:
             delta = today_val - stored_val
-            print(f"  {name}: today={today_val:.6f} stored={stored_val:.6f} delta={delta:+.6f}")
+            print(
+                f"  {name}: today={today_val:.6f} stored={stored_val:.6f} delta={delta:+.6f}"
+            )
 
     if update_stored:
         print()
@@ -203,6 +217,10 @@ def reevaluate(update_stored: bool = False) -> None:
 
 if __name__ == "__main__":
     p = argparse.ArgumentParser()
-    p.add_argument("--update-stored", action="store_true", help="rewrite best_model.pt's stored val_bpb/skel/cd/cc to today's values")
+    p.add_argument(
+        "--update-stored",
+        action="store_true",
+        help="rewrite best_model.pt's stored val_bpb/skel/cd/cc to today's values",
+    )
     args = p.parse_args()
     reevaluate(update_stored=args.update_stored)

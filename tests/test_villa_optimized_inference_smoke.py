@@ -11,7 +11,6 @@ from scripts.smoke_test_villa_optimized_inference import (
     validate_exported_checkpoint,
 )
 
-
 # State-dict prefixes the exporter / validator expect per architecture.
 _PREFIX_BY_ARCH = {
     "timesformer": "backbone.layer.weight",
@@ -109,7 +108,7 @@ def test_run_smoke_test_exports_resnet3d_decoder_contract(tmp_path):
 
     assert report["status"] == "PASS"
     assert command_path.exists()
-    
+
     cmd_text = command_path.read_text()
     assert "MODEL_TYPE=resnet3d-152-3d-decoder" in cmd_text
     assert "START_LAYER=0" in cmd_text
@@ -135,7 +134,11 @@ def test_validate_exported_checkpoint_flags_state_dict_prefix_mismatch(tmp_path)
         {
             "model_state_dict": {"encoder.layer.weight": torch.ones(1)},
             "config": {"architecture": "timesformer", "patch_size": 64},
-            "metadata": {"version": "v1", "framework": "vesuvius-autoresearch", "val_bpb": 0.0},
+            "metadata": {
+                "version": "v1",
+                "framework": "vesuvius-autoresearch",
+                "val_bpb": 0.0,
+            },
         },
         bad_path,
     )
@@ -183,7 +186,10 @@ def test_run_smoke_test_emits_submission_package_for_primus_lejepa(tmp_path):
 
 def test_build_primus_submission_package_writes_all_artifacts(tmp_path):
     src_checkpoint = tmp_path / "src.pt"
-    torch.save({"model_state_dict": {"shared_encoder.layer.weight": torch.ones(1)}}, src_checkpoint)
+    torch.save(
+        {"model_state_dict": {"shared_encoder.layer.weight": torch.ones(1)}},
+        src_checkpoint,
+    )
     package_dir = tmp_path / "pkg"
 
     manifest = build_primus_submission_package(
@@ -206,4 +212,3 @@ def test_build_primus_submission_package_writes_all_artifacts(tmp_path):
     assert manifest["finetune_config_sha"] == "def456"
     for key in ("checkpoint", "predict_manifest", "readme", "reproducibility"):
         assert Path(manifest[key]).exists()
-

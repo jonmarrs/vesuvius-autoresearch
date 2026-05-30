@@ -1,6 +1,9 @@
-import torch
 import unittest
-from vesuvius_model import VesuviusConfig, VesuviusTimeSformer, InkDetectorOptimized
+
+import torch
+
+from vesuvius_model import InkDetectorOptimized, VesuviusConfig, VesuviusTimeSformer
+
 
 class TestModelArchitectures(unittest.TestCase):
     def setUp(self):
@@ -11,7 +14,7 @@ class TestModelArchitectures(unittest.TestCase):
             base_feat=32,
             num_blocks=2,
             num_heads=4,
-            dropout=0.0
+            dropout=0.0,
         )
 
     def test_timesformer_output_shape(self):
@@ -19,7 +22,7 @@ class TestModelArchitectures(unittest.TestCase):
         # Input: [B, C, Z, H, W]
         x = torch.randn(1, 1, 16, 64, 64)
         output = model(x)
-        
+
         # Output should be [B, 1, H, W] for ink
         self.assertEqual(output.shape, (1, 1, 64, 64))
 
@@ -27,7 +30,7 @@ class TestModelArchitectures(unittest.TestCase):
         model = VesuviusTimeSformer(self.config)
         x = torch.randn(1, 1, 16, 64, 64)
         ink, fiber, qc = model(x, return_fiber=True, return_qc=True)
-        
+
         self.assertEqual(ink.shape, (1, 1, 64, 64))
         self.assertEqual(fiber.shape, (1, 1, 16, 64, 64))
         self.assertEqual(qc.shape, (1, 1))
@@ -36,20 +39,23 @@ class TestModelArchitectures(unittest.TestCase):
         model = InkDetectorOptimized(self.config)
         x = torch.randn(1, 1, 16, 64, 64)
         ink = model(x)
-        
+
         self.assertEqual(ink.shape, (1, 1, 64, 64))
 
     def test_ink_detector_optimized_multi_task(self):
         model = InkDetectorOptimized(self.config)
         x = torch.randn(1, 1, 16, 64, 64)
         # return_fiber, return_qc, return_proj, return_st
-        ink, fiber, qc, proj, st = model(x, return_fiber=True, return_qc=True, return_proj=True, return_st=True)
-        
+        ink, fiber, qc, proj, st = model(
+            x, return_fiber=True, return_qc=True, return_proj=True, return_st=True
+        )
+
         self.assertEqual(ink.shape, (1, 1, 64, 64))
         self.assertEqual(fiber.shape, (1, 1, 16, 64, 64))
         self.assertEqual(qc.shape, (1, 1))
         self.assertEqual(proj.shape, (1, 256))
         self.assertEqual(st.shape, (1, 6, 16, 64, 64))
+
 
 if __name__ == "__main__":
     unittest.main()

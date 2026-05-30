@@ -4,6 +4,7 @@ These tests confirm each launcher emits a marker JSON, surfaces the correct
 non-submittable / submittable flags, and never invokes a real subprocess in
 default mode. They do NOT spend GPU; --execute is never set.
 """
+
 from __future__ import annotations
 
 import json
@@ -84,7 +85,9 @@ def test_launch_finetune_lejepa_uses_submittable_patch_and_finds_pretrain(tmp_pa
     assert data["executed"] is False
     # In this repo's known state there is a LeJEPA pretrain checkpoint and the
     # labeled Paris2Fr47 fragment; both should be auto-resolved.
-    assert data["pretrained_lejepa_checkpoint"], "expected LeJEPA pretrain ckpt to be discovered"
+    assert data["pretrained_lejepa_checkpoint"], (
+        "expected LeJEPA pretrain ckpt to be discovered"
+    )
     assert data["labeled_volumes"], "expected PHercParis2Fr47 to be discovered"
     assert data["ready"] is True
     assert config_out.exists()

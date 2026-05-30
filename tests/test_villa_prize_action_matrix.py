@@ -53,7 +53,9 @@ def test_villa_prize_action_matrix_joins_opportunities_to_ready_candidates(tmp_p
         )
     )
 
-    matrix = build_action_matrix(opportunities_path=opportunities, preflight_path=preflight)
+    matrix = build_action_matrix(
+        opportunities_path=opportunities, preflight_path=preflight
+    )
 
     assert matrix["villa_diverged"] is True
     assert matrix["candidate_digest"]["ready_for_gpu"] == 1
@@ -80,9 +82,21 @@ def test_villa_prize_action_matrix_markdown_includes_issue_and_queue(tmp_path):
             }
         )
     )
-    preflight.write_text(json.dumps({"total": 0, "ready_for_gpu": 0, "blocked": 0, "gpu_queue": "queue.tsv", "rows": []}))
+    preflight.write_text(
+        json.dumps(
+            {
+                "total": 0,
+                "ready_for_gpu": 0,
+                "blocked": 0,
+                "gpu_queue": "queue.tsv",
+                "rows": [],
+            }
+        )
+    )
 
-    markdown = render_markdown(build_action_matrix(opportunities_path=opportunities, preflight_path=preflight))
+    markdown = render_markdown(
+        build_action_matrix(opportunities_path=opportunities, preflight_path=preflight)
+    )
 
     assert "villa-issue-201" in markdown
     assert "`training_ablation`" in markdown

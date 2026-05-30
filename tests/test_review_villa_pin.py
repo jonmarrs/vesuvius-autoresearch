@@ -13,13 +13,20 @@ def _write_audit(path, *, behind=True, diverged=False, areas=None, local_areas=N
         "upstream_ahead_commits": 5 if behind else 0,
         "local_ahead_commits": 2 if diverged else 0,
         "changed_files": sum((areas or {}).values()),
-        "local_changed_files": sum((local_areas or {}).values()) or (3 if diverged else 0),
+        "local_changed_files": sum((local_areas or {}).values())
+        or (3 if diverged else 0),
         "prize_relevant_areas": {
-            name: {"changed_files": count, "sample_paths": [f"{name}/file.py"] if count else []}
+            name: {
+                "changed_files": count,
+                "sample_paths": [f"{name}/file.py"] if count else [],
+            }
             for name, count in (areas or {}).items()
         },
         "local_prize_relevant_areas": {
-            name: {"changed_files": count, "sample_paths": [f"{name}/local.py"] if count else []}
+            name: {
+                "changed_files": count,
+                "sample_paths": [f"{name}/local.py"] if count else [],
+            }
             for name, count in (local_areas or {}).items()
         },
     }
@@ -38,7 +45,9 @@ def test_review_villa_pin_marks_current_pin_when_not_behind(tmp_path):
 
 
 def test_review_villa_pin_reviews_medium_risk_changed_areas(tmp_path):
-    audit = _write_audit(tmp_path / "audit.json", areas={"lasagna": 5, "volume_cartographer": 13})
+    audit = _write_audit(
+        tmp_path / "audit.json", areas={"lasagna": 5, "volume_cartographer": 13}
+    )
 
     review = build_review(audit)
     lasagna = next(area for area in review["areas"] if area["area"] == "lasagna")
@@ -53,7 +62,9 @@ def test_review_villa_pin_holds_for_high_risk_inference_changes(tmp_path):
     audit = _write_audit(tmp_path / "audit.json", areas={"optimized_inference": 2})
 
     review = build_review(audit)
-    inference = next(area for area in review["areas"] if area["area"] == "optimized_inference")
+    inference = next(
+        area for area in review["areas"] if area["area"] == "optimized_inference"
+    )
 
     assert review["recommendation"] == "hold_pin_until_required_tests_pass"
     assert inference["decision"] == "test_before_pin_update"
@@ -68,7 +79,9 @@ def test_review_villa_pin_preserves_local_patches_for_diverged_checkout(tmp_path
     )
 
     review = build_review(audit)
-    vc3d = next(area for area in review["areas"] if area["area"] == "volume_cartographer")
+    vc3d = next(
+        area for area in review["areas"] if area["area"] == "volume_cartographer"
+    )
 
     assert review["recommendation"] == "preserve_local_patches_before_pin_update"
     assert review["adoption_mode"] == "rebase_or_selectively_port"

@@ -33,6 +33,7 @@ Prerequisites:
   - no autoresearch loop currently using the GPU (the harness assumes the
     full GPU is available for short-train cycles).
 """
+
 from __future__ import annotations
 
 import argparse
@@ -56,7 +57,9 @@ AUGS = ["decohesion", "warping", "squeeze", "z_dropout", "intensity_drift"]
 CONDITIONS = ["baseline"] + AUGS
 
 
-def _build_condition_config(base_config_path: str, condition: str, budget: int) -> ExperimentConfig:
+def _build_condition_config(
+    base_config_path: str, condition: str, budget: int
+) -> ExperimentConfig:
     """Load config.json, force exactly one scroll aug on (or none for baseline)."""
     cfg = ExperimentConfig.load(base_config_path)
     for a in AUGS:
@@ -78,19 +81,34 @@ def _run_one(
     """Run one short-train subprocess. Returns a dict with val_bpb etc."""
     t0 = time.perf_counter()
     cmd = [
-        "uv", "run", "python", "-u",
+        "uv",
+        "run",
+        "python",
+        "-u",
         "scripts/train_with_new_augs.py",
-        "--config", cfg_path,
-        "--seed", str(seed),
+        "--config",
+        cfg_path,
+        "--seed",
+        str(seed),
     ]
     timeout_s = budget + 240  # +4 min for imports / validation / IO
     with open(log_path, "w") as logf:
         try:
-            subprocess.run(cmd, check=True, stdout=logf, stderr=subprocess.STDOUT, timeout=timeout_s)
+            subprocess.run(
+                cmd,
+                check=True,
+                stdout=logf,
+                stderr=subprocess.STDOUT,
+                timeout=timeout_s,
+            )
         except subprocess.TimeoutExpired:
             return {"status": "TIMEOUT", "elapsed_s": time.perf_counter() - t0}
         except subprocess.CalledProcessError as exc:
-            return {"status": "FAILED", "elapsed_s": time.perf_counter() - t0, "rc": exc.returncode}
+            return {
+                "status": "FAILED",
+                "elapsed_s": time.perf_counter() - t0,
+                "rc": exc.returncode,
+            }
     elapsed = time.perf_counter() - t0
 
     result_path = PROJECT_ROOT / "run_result.json"
@@ -133,14 +151,39 @@ def _summarize(rows: list[dict]) -> dict[str, dict]:
 
 def main() -> int:
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    p.add_argument("--budget", type=int, default=300, help="Per-run time budget in seconds (default 300).")
-    p.add_argument("--seeds", type=int, default=3, help="Number of seeds per condition (default 3).")
-    p.add_argument("--config", default="config.json", help="Base config to derive each ablation cell from.")
-    p.add_argument("--out", default=None, help="Output CSV path (default reports/ablation_<timestamp>.csv).")
-    p.add_argument("--conditions", nargs="*", default=None,
-                   help="Limit to these conditions (e.g. --conditions baseline decohesion).")
-    p.add_argument("--dry-run", action="store_true",
-                   help="Print the plan and exit without running anything.")
+    p.add_argument(
+        "--budget",
+        type=int,
+        default=300,
+        help="Per-run time budget in seconds (default 300).",
+    )
+    p.add_argument(
+        "--seeds",
+        type=int,
+        default=3,
+        help="Number of seeds per condition (default 3).",
+    )
+    p.add_argument(
+        "--config",
+        default="config.json",
+        help="Base config to derive each ablation cell from.",
+    )
+    p.add_argument(
+        "--out",
+        default=None,
+        help="Output CSV path (default reports/ablation_<timestamp>.csv).",
+    )
+    p.add_argument(
+        "--conditions",
+        nargs="*",
+        default=None,
+        help="Limit to these conditions (e.g. --conditions baseline decohesion).",
+    )
+    p.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Print the plan and exit without running anything.",
+    )
     args = p.parse_args()
 
     os.chdir(PROJECT_ROOT)  # so relative paths work the same as run_autoresearch_loop
@@ -166,7 +209,7 @@ def main() -> int:
     eta_s = total_runs * (args.budget + 60)
     print(f"# conditions: {chosen}")
     print(f"# seeds: {args.seeds}, budget: {args.budget}s")
-    print(f"# total runs: {total_runs}, rough wall-clock ETA: {eta_s/60:.0f} min")
+    print(f"# total runs: {total_runs}, rough wall-clock ETA: {eta_s / 60:.0f} min")
     print(f"# csv:  {out_path}")
     print(f"# logs: {log_dir}/")
 
@@ -201,8 +244,14 @@ def main() -> int:
                 rows.append(result)
 
                 vb = result.get("val_bpb")
-                vb_s = f"{vb:.6f}" if isinstance(vb, float) and not math.isnan(vb) else "n/a"
-                print(f"  status={result['status']}  val_bpb={vb_s}  elapsed={result['elapsed_s']:.0f}s")
+                vb_s = (
+                    f"{vb:.6f}"
+                    if isinstance(vb, float) and not math.isnan(vb)
+                    else "n/a"
+                )
+                print(
+                    f"  status={result['status']}  val_bpb={vb_s}  elapsed={result['elapsed_s']:.0f}s"
+                )
 
                 # Cleanup temp config
                 try:
@@ -217,27 +266,40 @@ def main() -> int:
 
     # Write CSV
     fieldnames = [
-        "run_id", "condition", "seed", "status",
-        "val_bpb", "train_loss", "avg_skel_dist",
-        "avg_centerline_dice", "avg_cc_diff",
-        "is_success", "elapsed_s",
+        "run_id",
+        "condition",
+        "seed",
+        "status",
+        "val_bpb",
+        "train_loss",
+        "avg_skel_dist",
+        "avg_centerline_dice",
+        "avg_cc_diff",
+        "is_success",
+        "elapsed_s",
     ]
     with open(out_path, "w", newline="") as f:
         w = csv.DictWriter(f, fieldnames=fieldnames, extrasaction="ignore")
         w.writeheader()
         for r in rows:
             w.writerow(r)
-    print(f"\n# wrote {out_path}  ({len(rows)} rows, {total_elapsed/60:.1f} min total)")
+    print(
+        f"\n# wrote {out_path}  ({len(rows)} rows, {total_elapsed / 60:.1f} min total)"
+    )
 
     # Per-condition summary
     summary = _summarize(rows)
     if summary:
         # Sort by mean val_bpb (lower = better)
         ranked = sorted(summary.items(), key=lambda kv: kv[1]["mean"])
-        print(f"\n{'condition':<20s} {'n':>3s} {'mean':>10s} {'stdev':>10s} {'min':>10s} {'max':>10s}")
+        print(
+            f"\n{'condition':<20s} {'n':>3s} {'mean':>10s} {'stdev':>10s} {'min':>10s} {'max':>10s}"
+        )
         print("-" * 64)
         for cond, s in ranked:
-            print(f"{cond:<20s} {s['n']:>3d} {s['mean']:>10.6f} {s['stdev']:>10.6f} {s['min']:>10.6f} {s['max']:>10.6f}")
+            print(
+                f"{cond:<20s} {s['n']:>3d} {s['mean']:>10.6f} {s['stdev']:>10.6f} {s['min']:>10.6f} {s['max']:>10.6f}"
+            )
 
         baseline_mean = summary.get("baseline", {}).get("mean")
         if baseline_mean is not None:

@@ -12,6 +12,7 @@ copy into a TEST_REPORT Verification section.
 Exit 0 if all tests pass or are skipped due to missing data; exit 1
 if any test fails.
 """
+
 import argparse
 import os
 import sys
@@ -21,7 +22,6 @@ import traceback
 os.environ.setdefault("CUDA_VISIBLE_DEVICES", "")
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import numpy as np  # noqa: E402
 import torch  # noqa: E402
 
 TRAIN_URI = "local_data/PHercParis2Fr47/surface_volume.zarr"
@@ -59,19 +59,24 @@ def _run(name, fn):
 
 # -- Tests --
 
+
 def test_imports():
-    import train  # noqa: F401
-    import vesuvius_loader  # noqa: F401
-    import predict  # noqa: F401
     import ensemble_predict  # noqa: F401
     import model_wrappers
+    import predict  # noqa: F401
+    import train  # noqa: F401
+    import vesuvius_loader  # noqa: F401
+
     assert hasattr(model_wrappers, "GenericMultiTaskWrapper")
     assert hasattr(model_wrappers, "build_inference_model")
 
 
 def test_build_resenc_unet():
     from model_wrappers import build_inference_model
-    m = build_inference_model(architecture="resenc_unet", base_feat=32, use_ridges=False)
+
+    m = build_inference_model(
+        architecture="resenc_unet", base_feat=32, use_ridges=False
+    )
     n = sum(p.numel() for p in m.parameters())
     assert n > 0
     assert n < 50_000_000, f"unexpectedly large model ({n} params)"
@@ -79,18 +84,30 @@ def test_build_resenc_unet():
 
 def test_build_gated_unet():
     from model_wrappers import build_inference_model
+
     m = build_inference_model(
-        architecture="gated_unet", base_feat=32, num_blocks=4, num_heads=4, patch_size=64,
+        architecture="gated_unet",
+        base_feat=32,
+        num_blocks=4,
+        num_heads=4,
+        patch_size=64,
     )
     assert sum(p.numel() for p in m.parameters()) > 0
 
 
 def test_multi_task_heads_dummy_default():
     from model_wrappers import build_inference_model
-    m = build_inference_model(architecture="resenc_unet", base_feat=32, use_ridges=False)
+
+    m = build_inference_model(
+        architecture="resenc_unet", base_feat=32, use_ridges=False
+    )
     x = torch.randn(2, 1, 16, 64, 64)
     ink, fiber, qc, proj, st = m(
-        x, return_fiber=True, return_qc=True, return_proj=True, return_st=True,
+        x,
+        return_fiber=True,
+        return_qc=True,
+        return_proj=True,
+        return_st=True,
     )
     assert qc.abs().max().item() == 0.0, "dummy qc head should output zero"
     assert st.abs().max().item() == 0.0, "dummy st head should output zero"
@@ -98,12 +115,20 @@ def test_multi_task_heads_dummy_default():
 
 def test_multi_task_heads_real_outputs():
     from model_wrappers import build_inference_model
+
     m = build_inference_model(
-        architecture="resenc_unet", base_feat=32, use_ridges=True, multi_task_heads=True,
+        architecture="resenc_unet",
+        base_feat=32,
+        use_ridges=True,
+        multi_task_heads=True,
     )
     x = torch.randn(2, 2, 16, 64, 64)
     ink, fiber, qc, proj, st = m(
-        x, return_fiber=True, return_qc=True, return_proj=True, return_st=True,
+        x,
+        return_fiber=True,
+        return_qc=True,
+        return_proj=True,
+        return_st=True,
     )
     assert fiber.abs().max().item() > 0, "real fiber head should be non-zero"
     assert st.abs().max().item() > 0, "real st head should be non-zero"
@@ -115,7 +140,9 @@ def test_multi_task_heads_real_outputs():
         if p.grad is not None and p.grad.abs().max().item() > 0:
             bb_grad = p.grad
             break
-    assert bb_grad is not None, "backbone should receive non-zero gradient from fiber loss"
+    assert bb_grad is not None, (
+        "backbone should receive non-zero gradient from fiber loss"
+    )
 
 
 def test_best_model_loads():
@@ -123,6 +150,7 @@ def test_best_model_loads():
         raise SkipTest("best_model.pt not present")
     from model_wrappers import build_inference_model
     from train import load_shape_compatible_state
+
     chk = torch.load("best_model.pt", map_location="cpu", weights_only=False)
     sc = chk.get("config", {})
     m = build_inference_model(
@@ -139,54 +167,75 @@ def test_best_model_loads():
     skipped = load_shape_compatible_state(m, chk["model_state_dict"], "best_model.pt")
     n_skipped = len(skipped) if hasattr(skipped, "__len__") else 0
     # Allow a small tolerance for stale state-dict keys (e.g. removed aux modules).
-    assert n_skipped <= 8, f"too many skipped tensors ({n_skipped}) — architecture drift"
+    assert n_skipped <= 8, (
+        f"too many skipped tensors ({n_skipped}) — architecture drift"
+    )
 
 
 def test_dataloader_3tuple_sobel():
     if not (os.path.exists(TRAIN_URI) and os.path.exists(TRAIN_INKLABELS)):
         raise SkipTest("training URI / inklabels not present")
     from vesuvius_loader import VesuviusLabeledDataset
+
     ds = VesuviusLabeledDataset(
-        TRAIN_URI, TRAIN_INKLABELS, TRAIN_MASK if os.path.exists(TRAIN_MASK) else None,
-        patch_size=64, num_layers=24, seed=42,
-        use_ridges=False, require_ink=True,
+        TRAIN_URI,
+        TRAIN_INKLABELS,
+        TRAIN_MASK if os.path.exists(TRAIN_MASK) else None,
+        patch_size=64,
+        num_layers=24,
+        seed=42,
+        use_ridges=False,
+        require_ink=True,
         target_fiber_source="sobel_z",
     )
     item = ds[0]
     assert len(item) == 3, f"expected 3-tuple, got {len(item)}-tuple"
     patch, label, fiber = item
     assert patch.shape[-2:] == (64, 64)
-    assert fiber.abs().max().item() == 0.0, "sobel_z source should return zero placeholder"
+    assert fiber.abs().max().item() == 0.0, (
+        "sobel_z source should return zero placeholder"
+    )
 
 
 def test_dataloader_frangi_target():
     if not (os.path.exists(TRAIN_URI) and os.path.exists(TRAIN_INKLABELS)):
         raise SkipTest("training URI / inklabels not present")
     from vesuvius_loader import VesuviusLabeledDataset
+
     ds = VesuviusLabeledDataset(
-        TRAIN_URI, TRAIN_INKLABELS, None,
-        patch_size=64, num_layers=24, seed=42,
-        use_ridges=False, require_ink=True,
-        target_fiber_source="frangi", target_fiber_sigma=2.0,
+        TRAIN_URI,
+        TRAIN_INKLABELS,
+        None,
+        patch_size=64,
+        num_layers=24,
+        seed=42,
+        use_ridges=False,
+        require_ink=True,
+        target_fiber_source="frangi",
+        target_fiber_sigma=2.0,
     )
     _, _, fiber = ds[0]
     assert fiber.abs().max().item() > 0, "frangi source should produce non-zero output"
 
 
 def test_augmentations_albumentations():
-    from train import apply_augmentations, ExperimentConfig
+    from train import ExperimentConfig, apply_augmentations
+
     config = ExperimentConfig()
     config.aug_mode = "albumentations"
     x = torch.rand(2, 1, 16, 64, 64)
     ink = torch.rand(2, 1, 64, 64)
     fiber = torch.rand(2, 1, 1, 64, 64)
-    xa, ia, fa = apply_augmentations(x, ink, fiber, step=0, max_steps=100, config=config)
+    xa, ia, fa = apply_augmentations(
+        x, ink, fiber, step=0, max_steps=100, config=config
+    )
     assert xa.shape == x.shape
     assert ia.shape == ink.shape
 
 
 def test_augmentations_bg2():
-    from train import apply_augmentations, ExperimentConfig, create_training_transforms
+    from train import ExperimentConfig, apply_augmentations, create_training_transforms
+
     if create_training_transforms is None:
         raise SkipTest("create_training_transforms not available")
     config = ExperimentConfig()
@@ -194,18 +243,25 @@ def test_augmentations_bg2():
     x = torch.rand(2, 1, 16, 64, 64)
     ink = torch.rand(2, 1, 64, 64)
     fiber = torch.rand(2, 1, 1, 64, 64)
-    xa, ia, fa = apply_augmentations(x, ink, fiber, step=0, max_steps=100, config=config)
+    xa, ia, fa = apply_augmentations(
+        x, ink, fiber, step=0, max_steps=100, config=config
+    )
     assert xa.shape == x.shape
 
 
 def test_bandit_templates():
     import run_autoresearch_loop as r
+
     families = sorted(set(t["family"] for t in r.tweak_templates))
     for dead in ("auxiliary", "iterative", "foundation"):
-        assert dead not in families, f"dead family '{dead}' resurfaced in tweak_templates"
+        assert dead not in families, (
+            f"dead family '{dead}' resurfaced in tweak_templates"
+        )
     for t in r.tweak_templates:
         if "applies_when" in t:
-            assert callable(t["applies_when"]), f"applies_when not callable on {t['attr']}"
+            assert callable(t["applies_when"]), (
+                f"applies_when not callable on {t['attr']}"
+            )
     # Sanity: the four villa-borrow axes from 2026-05-19/20 are present.
     attrs = {t["attr"] for t in r.tweak_templates}
     for expected in ("aug_mode", "target_fiber_source", "multi_task_heads"):
@@ -229,7 +285,9 @@ TESTS = [
 
 def main():
     p = argparse.ArgumentParser()
-    p.add_argument("--list-only", action="store_true", help="Print test names and exit.")
+    p.add_argument(
+        "--list-only", action="store_true", help="Print test names and exit."
+    )
     args = p.parse_args()
     if args.list_only:
         for name, _ in TESTS:
@@ -246,7 +304,9 @@ def main():
     n_fail = sum(1 for _, status, _, _ in RESULTS if status == "FAIL")
 
     print()
-    print(f"--- {n_pass}/{len(RESULTS)} passed, {n_skip} skipped, {n_fail} failed in {total:.1f}s ---")
+    print(
+        f"--- {n_pass}/{len(RESULTS)} passed, {n_skip} skipped, {n_fail} failed in {total:.1f}s ---"
+    )
     if n_fail:
         print("Failures:")
         for name, status, _, msg in RESULTS:

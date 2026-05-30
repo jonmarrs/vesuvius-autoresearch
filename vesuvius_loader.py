@@ -1,30 +1,32 @@
-import tensorstore as ts
-import numpy as np
-import torch
-from torch.utils.data import IterableDataset, DataLoader
-from PIL import Image
 import os
-import time
-import json
 import sys
 from collections import defaultdict
+
+import numpy as np
+import torch
+from PIL import Image
 
 # Add villa to path for ridge detection and official Volume class
 PROJECT_ROOT = os.path.abspath(os.path.dirname(__file__))
 VILLA_SRC = os.path.join(PROJECT_ROOT, "villa/vesuvius/src")
-FIBER_TOOLS_PATH = os.path.join(PROJECT_ROOT, "villa/foundation/datasets/fibers-dataset")
+FIBER_TOOLS_PATH = os.path.join(
+    PROJECT_ROOT, "villa/foundation/datasets/fibers-dataset"
+)
 
 for p in [VILLA_SRC, FIBER_TOOLS_PATH]:
     if p not in sys.path:
         sys.path.append(p)
 import tools as fiber_tools
+
 try:
     from volume_cartographer_wrapper.volume import (
         FastLocalVolume,
         VolumeCartographerVolume,
     )
 except ImportError as exc:
-    print(f"Warning: volume_cartographer_wrapper unavailable; using direct Zarr fallback: {exc}")
+    print(
+        f"Warning: volume_cartographer_wrapper unavailable; using direct Zarr fallback: {exc}"
+    )
     import zarr
 
     class FastLocalVolume:
@@ -35,14 +37,16 @@ except ImportError as exc:
             self.backend = "zarr"
 
         def get_chunk(self, z, y, x, depth, height, width):
-            return np.asarray(self.arr[z:z + depth, y:y + height, x:x + width])
+            return np.asarray(self.arr[z : z + depth, y : y + height, x : x + width])
 
     class VolumeCartographerVolume(FastLocalVolume):
         def __init__(self, cache_dir=None, url=None):
             super().__init__(url or cache_dir)
 
+
 Image.MAX_IMAGE_PIXELS = None
 _WARNING_COUNTS = defaultdict(int)
+
 
 def _warn_limited(key, message, limit=5):
     _WARNING_COUNTS[key] += 1
@@ -52,11 +56,13 @@ def _warn_limited(key, message, limit=5):
     elif count == limit + 1:
         print(f"Warning: suppressing further {key} warnings")
 
+
 class FastVesuviusVolume:
     """
     Optimized volume loader aligned with Villa Volume Cartographer / VC3D
     OME-Zarr conventions plus CuPy tools for on-the-fly ridge detection.
     """
+
     def __init__(self, volume_uri, cache_dir=None, use_ridges=False, ridge_sigma=2.0):
         self.uri = volume_uri
         self.cache_dir = cache_dir
@@ -81,21 +87,22 @@ class FastVesuviusVolume:
                     print(f"Detected OME-Zarr: Using level 0 at {local_path}")
             self.vol = FastLocalVolume(local_path)
         else:
-            self.vol = VolumeCartographerVolume(cache_dir=self.cache_dir or "test_cache", url=self.uri)
+            self.vol = VolumeCartographerVolume(
+                cache_dir=self.cache_dir or "test_cache", url=self.uri
+            )
 
     def __getstate__(self):
         state = self.__dict__.copy()
-        state.pop('vol', None)
+        state.pop("vol", None)
         return state
 
     def __setstate__(self, state):
         self.__dict__.update(state)
         self._init_vol()
 
-
     def normalize(self, patch):
         if isinstance(patch, torch.Tensor):
-             return patch.float()
+            return patch.float()
         return torch.from_numpy(patch).float()
 
     def __getitem__(self, key) -> torch.Tensor:
@@ -104,7 +111,7 @@ class FastVesuviusVolume:
         Computes ridges on-the-fly if enabled.
         """
         z_slice, y_slice, x_slice = key
-        
+
         depth = z_slice.stop - z_slice.start
         height = y_slice.stop - y_slice.start
         width = x_slice.stop - x_slice.start
@@ -112,8 +119,7 @@ class FastVesuviusVolume:
         # Fetch raw CT data through the Volume Cartographer-aligned local
         # OME-Zarr compatibility layer.
         ct = self.vol.get_chunk(
-            z_slice.start, y_slice.start, x_slice.start,
-            depth, height, width
+            z_slice.start, y_slice.start, x_slice.start, depth, height, width
         )
         # Normalize to [0, 1] based on dtype. Previously hardcoded `/ 255.0`
         # assumed uint8; uint16 / float32 zarrs would silently miscalibrate.
@@ -134,7 +140,10 @@ class FastVesuviusVolume:
         if self.use_ridges:
             # Priority A Integration: CuPy-accelerated ridges on-the-fly
             if depth < 3:
-                _warn_limited("ridge_thin_volume", f"Volume too thin ({depth} slices) for ridge detection; using zero ridges.")
+                _warn_limited(
+                    "ridge_thin_volume",
+                    f"Volume too thin ({depth} slices) for ridge detection; using zero ridges.",
+                )
                 ridges_tensor = torch.zeros_like(ct_tensor)
             else:
                 # Three-tier graceful degradation for ridge detection:
@@ -149,20 +158,29 @@ class FastVesuviusVolume:
                 ridges_tensor = None
                 try:
                     # Pre-load PyTorch bundled NVIDIA libraries so CuPy can find libcusolver.so.11
-                    import ctypes, glob, os, site
+                    import ctypes
+                    import glob
+                    import os
+                    import site
+
                     site_pkgs = site.getsitepackages()
                     if site_pkgs:
-                        for lib_path in glob.glob(os.path.join(site_pkgs[0], "nvidia", "*", "lib", "*.so.*")):
+                        for lib_path in glob.glob(
+                            os.path.join(site_pkgs[0], "nvidia", "*", "lib", "*.so.*")
+                        ):
                             try:
                                 ctypes.cdll.LoadLibrary(lib_path)
                             except Exception:
                                 pass
                     import cupy as cp
                     import cupyx.scipy.ndimage as cup_ndimage
+
                     fiber_tools.xp = cp
                     fiber_tools.xndimage = cup_ndimage
                     ct_gpu = cp.asarray(ct_norm)
-                    ridges_gpu = fiber_tools.detect_ridges(ct_gpu, sigma=self.ridge_sigma)
+                    ridges_gpu = fiber_tools.detect_ridges(
+                        ct_gpu, sigma=self.ridge_sigma
+                    )
                     ridges = cp.asnumpy(ridges_gpu)
                     ridges_tensor = torch.from_numpy(ridges).float()
                 except Exception as exc_gpu:
@@ -173,10 +191,15 @@ class FastVesuviusVolume:
                 if ridges_tensor is None:
                     try:
                         import scipy.ndimage as scipy_ndimage
+
                         fiber_tools.xp = np
                         fiber_tools.xndimage = scipy_ndimage
-                        ridges = fiber_tools.detect_ridges(ct_norm, sigma=self.ridge_sigma)
-                        ridges_tensor = torch.from_numpy(np.asarray(ridges, dtype=np.float32))
+                        ridges = fiber_tools.detect_ridges(
+                            ct_norm, sigma=self.ridge_sigma
+                        )
+                        ridges_tensor = torch.from_numpy(
+                            np.asarray(ridges, dtype=np.float32)
+                        )
                     except Exception as exc_cpu:
                         _warn_limited(
                             "ridge_fallback",
@@ -184,12 +207,34 @@ class FastVesuviusVolume:
                         )
                         ridges_tensor = torch.zeros_like(ct_tensor)
             return torch.stack([ct_tensor, ridges_tensor], dim=0)
-            
+
         return ct_tensor
 
+
 class VesuviusLabeledDataset(torch.utils.data.Dataset):
-    def __init__(self, volume_uri, labels_path, mask_path=None, patch_size=64, num_layers=16, seed=None, cache_dir=None, use_ridges=False, ridge_sigma=2.0, use_lasagna=False, is_unlabeled=False, require_ink=False, target_fiber_source="sobel_z", target_fiber_sigma=2.0):
-        self.volume = FastVesuviusVolume(volume_uri, cache_dir=cache_dir, use_ridges=use_ridges, ridge_sigma=ridge_sigma)
+    def __init__(
+        self,
+        volume_uri,
+        labels_path,
+        mask_path=None,
+        patch_size=64,
+        num_layers=16,
+        seed=None,
+        cache_dir=None,
+        use_ridges=False,
+        ridge_sigma=2.0,
+        use_lasagna=False,
+        is_unlabeled=False,
+        require_ink=False,
+        target_fiber_source="sobel_z",
+        target_fiber_sigma=2.0,
+    ):
+        self.volume = FastVesuviusVolume(
+            volume_uri,
+            cache_dir=cache_dir,
+            use_ridges=use_ridges,
+            ridge_sigma=ridge_sigma,
+        )
         self.patch_size = patch_size
         self.num_layers = min(num_layers, self.volume.shape[0])
         self.shape = self.volume.shape
@@ -205,7 +250,7 @@ class VesuviusLabeledDataset(torch.utils.data.Dataset):
         # CPU, parallelized by num_workers).
         self.target_fiber_source = target_fiber_source
         self.target_fiber_sigma = target_fiber_sigma
-        
+
         # Load Labels (2D PNG)
         if labels_path and os.path.exists(labels_path):
             with Image.open(labels_path) as img:
@@ -223,16 +268,28 @@ class VesuviusLabeledDataset(torch.utils.data.Dataset):
                     img_arr /= 255.0
                 self.mask = img_arr
         else:
-            self.mask = None            
+            self.mask = None
         # Pre-calculate valid coordinates
         stride = 16
-        mask_mtime = int(os.path.getmtime(mask_path)) if mask_path and os.path.exists(mask_path) else 0
-        labels_mtime = int(os.path.getmtime(labels_path)) if labels_path and os.path.exists(labels_path) else 0
-        
+        mask_mtime = (
+            int(os.path.getmtime(mask_path))
+            if mask_path and os.path.exists(mask_path)
+            else 0
+        )
+        labels_mtime = (
+            int(os.path.getmtime(labels_path))
+            if labels_path and os.path.exists(labels_path)
+            else 0
+        )
+
         if cache_dir:
             import hashlib
+
             uri_hash = hashlib.md5(volume_uri.encode()).hexdigest()[:8]
-            cache_path = os.path.join(cache_dir, f"valid_coords_cache_{uri_hash}_{self.patch_size}_{stride}_{mask_mtime}_{labels_mtime}_{1 if require_ink else 0}.npy")
+            cache_path = os.path.join(
+                cache_dir,
+                f"valid_coords_cache_{uri_hash}_{self.patch_size}_{stride}_{mask_mtime}_{labels_mtime}_{1 if require_ink else 0}.npy",
+            )
         else:
             # Clean URI for filename usage
             clean_uri = volume_uri.replace("/", "_").replace(".", "_")
@@ -241,27 +298,35 @@ class VesuviusLabeledDataset(torch.utils.data.Dataset):
         if os.path.exists(cache_path):
             self.valid_coords = np.load(cache_path)
         else:
-            print(f"Finding valid coordinates (require_ink={require_ink}) for {volume_uri}...")
+            print(
+                f"Finding valid coordinates (require_ink={require_ink}) for {volume_uri}..."
+            )
             self.valid_coords = []
-            
+
             H, W = self.shape[1], self.shape[2]
-                
+
             for y in range(0, H - self.patch_size, stride):
                 for x in range(0, W - self.patch_size, stride):
                     # Mask check
                     if self.mask is not None:
-                        if not self.mask[y:y+self.patch_size, x:x+self.patch_size].any():
+                        if not self.mask[
+                            y : y + self.patch_size, x : x + self.patch_size
+                        ].any():
                             continue
-                    
+
                     # Ink check
                     if self.require_ink and self.labels is not None:
-                        if not self.labels[y:y+self.patch_size, x:x+self.patch_size].any():
+                        if not self.labels[
+                            y : y + self.patch_size, x : x + self.patch_size
+                        ].any():
                             continue
-                            
+
                     self.valid_coords.append((y, x))
-            
+
             if not self.valid_coords:
-                print(f"  WARNING: No patches found. Retrying with any non-zero pixels...")
+                print(
+                    "  WARNING: No patches found. Retrying with any non-zero pixels..."
+                )
                 # Fallback to just anything in the volume if nothing matches
                 for y in range(0, H - self.patch_size, stride * 4):
                     for x in range(0, W - self.patch_size, stride * 4):
@@ -270,8 +335,10 @@ class VesuviusLabeledDataset(torch.utils.data.Dataset):
             self.valid_coords = np.array(self.valid_coords, dtype=np.int32)
             print(f"  Found {len(self.valid_coords)} valid patches.")
             np.save(cache_path, self.valid_coords)
-        
-        print(f"Initialized Dataset: Volume {self.shape}, Valid Patches {len(self.valid_coords)}, is_unlabeled={self.is_unlabeled}")
+
+        print(
+            f"Initialized Dataset: Volume {self.shape}, Valid Patches {len(self.valid_coords)}, is_unlabeled={self.is_unlabeled}"
+        )
 
     def _apply_lasagna_flattening(self, patch_vol):
         """Per-pixel surface flattening for papyrus CT patches.
@@ -305,7 +372,9 @@ class VesuviusLabeledDataset(torch.utils.data.Dataset):
 
             # Smooth surface to suppress pixel-level noise from CT artifacts.
             z_surface = z_surface.view(1, 1, H, W)
-            z_surface = torch.nn.functional.avg_pool2d(z_surface, kernel_size=5, stride=1, padding=2).view(H, W)
+            z_surface = torch.nn.functional.avg_pool2d(
+                z_surface, kernel_size=5, stride=1, padding=2
+            ).view(H, W)
 
             # 2. Build sampling grid in normalized [-1, 1] coords.
             # New_z(y, x) = original_z + (z_surface(y, x) - z_center). This
@@ -322,11 +391,16 @@ class VesuviusLabeledDataset(torch.utils.data.Dataset):
             )
             new_z = z_grid + z_offset
             # grid_sample expects (x, y, z) order in the last dim.
-            grid = torch.stack([x_grid, y_grid, new_z], dim=-1).unsqueeze(0)  # [1, Z, H, W, 3]
+            grid = torch.stack([x_grid, y_grid, new_z], dim=-1).unsqueeze(
+                0
+            )  # [1, Z, H, W, 3]
 
             warped = torch.nn.functional.grid_sample(
-                vol.unsqueeze(0), grid,
-                mode="bilinear", padding_mode="border", align_corners=True,
+                vol.unsqueeze(0),
+                grid,
+                mode="bilinear",
+                padding_mode="border",
+                align_corners=True,
             ).squeeze(0)  # [C, Z, H, W]
 
             if is_3d:
@@ -353,25 +427,39 @@ class VesuviusLabeledDataset(torch.utils.data.Dataset):
         rng = np.random.RandomState(idx + (self.seed or 0))
         y0 = max(0, min(self.shape[1] - self.patch_size, y0 + rng.randint(-4, 5)))
         x0 = max(0, min(self.shape[2] - self.patch_size, x0 + rng.randint(-4, 5)))
-        
+
         z_depth = self.shape[0]
         z_request = min(self.num_layers, z_depth)
         z_range = z_depth - z_request
         z0 = rng.randint(0, z_range + 1) if z_range > 0 else 0
-        
+
         try:
-            patch_vol = self.volume[z0:z0+z_request, y0:y0+self.patch_size, x0:x0+self.patch_size]
-            
+            patch_vol = self.volume[
+                z0 : z0 + z_request,
+                y0 : y0 + self.patch_size,
+                x0 : x0 + self.patch_size,
+            ]
+
             # Priority J: Apply Lasagna flattening
             patch_vol = self._apply_lasagna_flattening(patch_vol)
-            
+
             if not self.use_ridges:
-                patch_vol = patch_vol.unsqueeze(0) # [1, Z, H, W]
-            
+                patch_vol = patch_vol.unsqueeze(0)  # [1, Z, H, W]
+
             if self.labels is not None and not self.is_unlabeled:
-                patch_label = torch.tensor(np.array(self.labels[y0:y0+self.patch_size, x0:x0+self.patch_size], copy=False), dtype=torch.float32)
+                patch_label = torch.tensor(
+                    np.array(
+                        self.labels[
+                            y0 : y0 + self.patch_size, x0 : x0 + self.patch_size
+                        ],
+                        copy=False,
+                    ),
+                    dtype=torch.float32,
+                )
             else:
-                patch_label = torch.zeros((self.patch_size, self.patch_size), dtype=torch.float32)
+                patch_label = torch.zeros(
+                    (self.patch_size, self.patch_size), dtype=torch.float32
+                )
             # 3rd return: per-patch fiber target. Always [1, 1, H, W] (z is
             # singleton — train.py expects target_fiber to be z-collapsed to
             # match `torch.mean(out_fiber, dim=2, keepdim=True)`). For
@@ -398,16 +486,21 @@ class VesuviusLabeledDataset(torch.utils.data.Dataset):
         will compute the real Sobel-Z on GPU); Frangi source = on-the-fly
         CPU Frangi z-collapsed via mean."""
         if self.target_fiber_source != "frangi":
-            return torch.zeros((1, 1, self.patch_size, self.patch_size), dtype=torch.float32)
+            return torch.zeros(
+                (1, 1, self.patch_size, self.patch_size), dtype=torch.float32
+            )
         try:
             # Take CT channel only (index 0): patch_vol is [C, Z, H, W] or [Z, H, W]
             ct = patch_vol[0] if patch_vol.dim() == 4 else patch_vol
             ct_np = ct.detach().cpu().numpy().astype(np.float32)
             # Force numpy backend (CPU path, libcusolver-free)
             from scipy import ndimage as scipy_ndimage
+
             fiber_tools.xp = np
             fiber_tools.xndimage = scipy_ndimage
-            vesselness = fiber_tools.detect_vesselness(ct_np, sigma=self.target_fiber_sigma)
+            vesselness = fiber_tools.detect_vesselness(
+                ct_np, sigma=self.target_fiber_sigma
+            )
             vesselness = np.asarray(vesselness, dtype=np.float32)
             # Z-collapse via mean to match train.py's `target_fiber.mean(dim=2)` shape
             v_2d = vesselness.mean(axis=0)  # [H, W]
@@ -417,10 +510,24 @@ class VesuviusLabeledDataset(torch.utils.data.Dataset):
                 "frangi_target_failed",
                 f"Frangi target compute failed for {self.volume.uri}; using zeros: {type(exc).__name__}: {exc}",
             )
-            return torch.zeros((1, 1, self.patch_size, self.patch_size), dtype=torch.float32)
+            return torch.zeros(
+                (1, 1, self.patch_size, self.patch_size), dtype=torch.float32
+            )
+
 
 class VesuviusS3Dataset(torch.utils.data.Dataset):
-    def __init__(self, uri, patch_size=32, num_layers=16, seed=None, cache_dir=None, use_ridges=False, ridge_sigma=2.0, use_lasagna=False, is_unlabeled=True):
+    def __init__(
+        self,
+        uri,
+        patch_size=32,
+        num_layers=16,
+        seed=None,
+        cache_dir=None,
+        use_ridges=False,
+        ridge_sigma=2.0,
+        use_lasagna=False,
+        is_unlabeled=True,
+    ):
         # use_lasagna accepted for API parity with VesuviusLabeledDataset
         # (train.py's get_dataloader passes it unconditionally). The S3Dataset
         # is used for unlabeled volumes (UA-MT) where surface flattening
@@ -433,18 +540,22 @@ class VesuviusS3Dataset(torch.utils.data.Dataset):
         self.ridge_sigma = ridge_sigma
         self.use_lasagna = use_lasagna
         self.is_unlabeled = is_unlabeled
-        
-        self.volume = FastVesuviusVolume(uri, cache_dir=cache_dir, use_ridges=use_ridges, ridge_sigma=ridge_sigma)
+
+        self.volume = FastVesuviusVolume(
+            uri, cache_dir=cache_dir, use_ridges=use_ridges, ridge_sigma=ridge_sigma
+        )
         self.shape = self.volume.shape
         self.num_layers = min(num_layers, self.shape[0])
-        
+
         stride = patch_size // 2
         self.valid_coords = []
         for y in range(0, self.shape[1] - patch_size, stride):
             for x in range(0, self.shape[2] - patch_size, stride):
                 self.valid_coords.append((y, x))
         self.valid_coords = np.array(self.valid_coords, dtype=np.int32)
-        print(f"Initialized S3 Dataset: Volume {self.shape}, Patches {len(self.valid_coords)}, is_unlabeled={self.is_unlabeled}")
+        print(
+            f"Initialized S3 Dataset: Volume {self.shape}, Patches {len(self.valid_coords)}, is_unlabeled={self.is_unlabeled}"
+        )
 
     def __len__(self):
         return len(self.valid_coords)
@@ -462,16 +573,24 @@ class VesuviusS3Dataset(torch.utils.data.Dataset):
         z_request = min(self.num_layers, z_depth)
         z_range = z_depth - z_request
         z0 = rng.randint(0, z_range + 1) if z_range > 0 else 0
-        
+
         try:
-            patch = self.volume[z0:z0+z_request, y0:y0+self.patch_size, x0:x0+self.patch_size]
+            patch = self.volume[
+                z0 : z0 + z_request,
+                y0 : y0 + self.patch_size,
+                x0 : x0 + self.patch_size,
+            ]
             if not self.use_ridges:
                 patch = patch.unsqueeze(0)
-            return patch, torch.zeros((self.patch_size, self.patch_size), dtype=torch.float32)
+            return patch, torch.zeros(
+                (self.patch_size, self.patch_size), dtype=torch.float32
+            )
         except Exception as exc:
             _warn_limited(
                 "s3_zero_patch",
                 f"returning zero S3 patch for sample {idx} from {self.uri}: {type(exc).__name__}: {exc}",
             )
             c = 2 if self.use_ridges else 1
-            return torch.zeros(c, self.num_layers, self.patch_size, self.patch_size), torch.zeros(self.patch_size, self.patch_size)
+            return torch.zeros(
+                c, self.num_layers, self.patch_size, self.patch_size
+            ), torch.zeros(self.patch_size, self.patch_size)

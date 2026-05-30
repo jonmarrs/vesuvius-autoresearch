@@ -74,7 +74,10 @@ def test_villa_review_manifest_builds_candidate_commands(tmp_path):
     assert "scripts/run_villa_prize_evidence_chain.py" in candidate["evidence_command"]
     assert "--ranked ranked.tsv" in candidate["evidence_command"]
     assert "--candidate-index 2" in candidate["evidence_command"]
-    assert "evidence/candidate_002/predictions/pred_18176_4128_4000_64x64_meta.json" in candidate["validate_command"]
+    assert (
+        "evidence/candidate_002/predictions/pred_18176_4128_4000_64x64_meta.json"
+        in candidate["validate_command"]
+    )
     assert any("launch_vc3d.py" in command for command in candidate["review_commands"])
 
 
@@ -84,6 +87,8 @@ def test_villa_review_manifest_markdown_lists_empty_queue(tmp_path):
     queue.write_text("")
     matrix.write_text(json.dumps({"actions": []}))
 
-    markdown = render_markdown(build_review_manifest(gpu_queue=queue, action_matrix=matrix))
+    markdown = render_markdown(
+        build_review_manifest(gpu_queue=queue, action_matrix=matrix)
+    )
 
     assert "No GPU-ready candidates" in markdown

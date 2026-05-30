@@ -65,7 +65,9 @@ from pathlib import Path
 import numpy as np
 
 
-def _load_zarr_window(zarr_path: str, z0: int, z1: int, y0: int, y1: int, x0: int, x1: int) -> np.ndarray:
+def _load_zarr_window(
+    zarr_path: str, z0: int, z1: int, y0: int, y1: int, x0: int, x1: int
+) -> np.ndarray:
     """Read a (z1-z0, y1-y0, x1-x0) window from a zarr; uint8 inputs scaled to float32 [0,1]."""
     import zarr
 
@@ -84,7 +86,9 @@ def _load_zarr_window(zarr_path: str, z0: int, z1: int, y0: int, y1: int, x0: in
     return raw.astype(np.float32)
 
 
-def _load_2d_surface_prediction(zarr_path: str, expected_hw: tuple[int, int]) -> np.ndarray:
+def _load_2d_surface_prediction(
+    zarr_path: str, expected_hw: tuple[int, int]
+) -> np.ndarray:
     """Read the 2D ink-surface probability map and return shape (H, W) float32 in [0, 1].
 
     The prediction zarrs the autoresearch loop emits have shape ``(1, H, W)`` and live
@@ -120,7 +124,9 @@ def _load_2d_surface_prediction(zarr_path: str, expected_hw: tuple[int, int]) ->
     return raw.astype(np.float32)
 
 
-def _ensure_output_zarr(output_path: str, shape: tuple[int, int, int], chunks=(128, 128, 128)):
+def _ensure_output_zarr(
+    output_path: str, shape: tuple[int, int, int], chunks=(128, 128, 128)
+):
     import zarr
 
     if Path(output_path).exists():
@@ -149,7 +155,9 @@ def _apply_surface_manifold_restriction(
         return label_volume, 0
     surface_z = np.argmax(ct, axis=0).astype(np.int32)  # (H, W)
     z_indices = np.arange(ct.shape[0], dtype=np.int32)[:, None, None]  # (D, 1, 1)
-    within_window = np.abs(z_indices - surface_z[None, :, :]) <= surface_window  # (D, H, W)
+    within_window = (
+        np.abs(z_indices - surface_z[None, :, :]) <= surface_window
+    )  # (D, H, W)
     before = int(label_volume.sum())
     restricted = (label_volume.astype(bool) & within_window).astype(np.uint8)
     return restricted, before - int(restricted.sum())
@@ -179,7 +187,9 @@ def _write_debug_png(
     depth = ct.shape[0]
     z_indices = np.linspace(0, depth - 1, num=num_slices, dtype=int)
 
-    fig, axes = plt.subplots(2, num_slices, figsize=(2.4 * num_slices, 5.4), squeeze=False)
+    fig, axes = plt.subplots(
+        2, num_slices, figsize=(2.4 * num_slices, 5.4), squeeze=False
+    )
     fig.suptitle(params_label, fontsize=9)
 
     # CT vmin/vmax: use 1-99 percentile so the contrast is consistent
@@ -188,13 +198,19 @@ def _write_debug_png(
 
     for col, z in enumerate(z_indices):
         ax_top = axes[0, col]
-        ax_top.imshow(ct[z], cmap="gray", vmin=ct_lo, vmax=ct_hi, interpolation="nearest")
+        ax_top.imshow(
+            ct[z], cmap="gray", vmin=ct_lo, vmax=ct_hi, interpolation="nearest"
+        )
         ax_top.set_title(f"CT z={z}", fontsize=8)
         ax_top.axis("off")
 
         ax_bot = axes[1, col]
-        ax_bot.imshow(ct[z], cmap="gray", vmin=ct_lo, vmax=ct_hi, interpolation="nearest")
-        ax_bot.imshow(label_volume[z], cmap=label_cmap, vmin=0, vmax=1, interpolation="nearest")
+        ax_bot.imshow(
+            ct[z], cmap="gray", vmin=ct_lo, vmax=ct_hi, interpolation="nearest"
+        )
+        ax_bot.imshow(
+            label_volume[z], cmap=label_cmap, vmin=0, vmax=1, interpolation="nearest"
+        )
         # Cyan contour of the 2D ink mask (where >= 0.1 by default, hardcoded)
         ax_bot.contour(ink_2d, levels=[0.1], colors="cyan", linewidths=0.6, alpha=0.7)
         n_labels_this_z = int(label_volume[z].sum())
@@ -206,7 +222,9 @@ def _write_debug_png(
     plt.close(fig)
 
 
-def _filter_small_components(label_volume: np.ndarray, min_voxels: int) -> tuple[np.ndarray, int, int]:
+def _filter_small_components(
+    label_volume: np.ndarray, min_voxels: int
+) -> tuple[np.ndarray, int, int]:
     """Drop 26-connected components below ``min_voxels``.
 
     Returns the filtered label volume, the number of CCs found before filtering,
@@ -291,7 +309,11 @@ def generate_3d_ink_labels(
 
     # 3D intensity gate
     if global_ct_threshold:
-        threshold_scalar = float(np.percentile(ct[:, ink_mask_2d] if ink_mask_2d.any() else ct, ct_percentile))
+        threshold_scalar = float(
+            np.percentile(
+                ct[:, ink_mask_2d] if ink_mask_2d.any() else ct, ct_percentile
+            )
+        )
         high_intensity = ct >= threshold_scalar
     else:
         # Per-column threshold: each (y, x) gets its own quantile across z.
@@ -316,11 +338,17 @@ def generate_3d_ink_labels(
     if morphological_close > 0:
         from scipy.ndimage import binary_closing
 
-        structure = np.ones((morphological_close, morphological_close, morphological_close), dtype=bool)
-        label_volume = binary_closing(label_volume, structure=structure).astype(np.uint8)
+        structure = np.ones(
+            (morphological_close, morphological_close, morphological_close), dtype=bool
+        )
+        label_volume = binary_closing(label_volume, structure=structure).astype(
+            np.uint8
+        )
 
     # Refinement 3: drop tiny connected components as noise
-    label_volume, cc_total, cc_kept = _filter_small_components(label_volume, min_component_voxels)
+    label_volume, cc_total, cc_kept = _filter_small_components(
+        label_volume, min_component_voxels
+    )
 
     # Write zarr
     out_arr = _ensure_output_zarr(output_path, _infer_full_shape(ct_path))
@@ -368,8 +396,14 @@ def _infer_full_shape(ct_path: str) -> tuple[int, int, int]:
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--ct", required=True, help="Path to the input CT zarr.")
-    parser.add_argument("--ink-pred", required=True, help="Path to the 2D ink-probability zarr (predict.py output).")
-    parser.add_argument("--output", required=True, help="Path to the output 3D ink-label zarr (uint8).")
+    parser.add_argument(
+        "--ink-pred",
+        required=True,
+        help="Path to the 2D ink-probability zarr (predict.py output).",
+    )
+    parser.add_argument(
+        "--output", required=True, help="Path to the output 3D ink-label zarr (uint8)."
+    )
     parser.add_argument(
         "--bbox",
         type=int,

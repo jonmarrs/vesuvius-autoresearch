@@ -6,11 +6,11 @@ This script initiates the migration of our custom model to the villa/segmentatio
 
 import os
 import sys
-import shutil
+
 
 def main():
     print("--- Vesuvius Autoresearch v3.0.0 Migration ---")
-    
+
     # 1. Ensure villa submodule is available
     villa_path = os.path.abspath("villa/segmentation/models/multi-task-3d-unet")
     if not os.path.exists(villa_path):
@@ -19,7 +19,7 @@ def main():
 
     print("Step 1: Preparing v3.0.0 framework structure...")
     os.makedirs("v3_training", exist_ok=True)
-    
+
     # 2. Setup the config file for the new trainer
     config_content = """
 tr_setup:
@@ -49,10 +49,13 @@ inference_config:
 """
     with open("v3_training/task.yaml", "w") as f:
         f.write(config_content)
-    
+
     print("Step 2: Configuration file created at v3_training/task.yaml")
     print("\nMigration Initialized.")
-    print("Next Step: Integrate our InkDetectorOptimized class into a villa-compatible Trainer subclass.")
+    print(
+        "Next Step: Integrate our InkDetectorOptimized class into a villa-compatible Trainer subclass."
+    )
+
 
 if __name__ == "__main__":
     main()

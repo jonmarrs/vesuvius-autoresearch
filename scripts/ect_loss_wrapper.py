@@ -1,11 +1,13 @@
+import os
+import sys
+
 import torch
 import torch.nn as nn
-import sys
-import os
 
 # Add villa to path to import ECT loss
 sys.path.append(os.path.abspath("villa/vesuvius/src"))
 from vesuvius.models.training.loss.ect_loss import ECTLoss
+
 
 class ECTLossWrapper(nn.Module):
     def __init__(self, weight=0.05, num_directions=16):
@@ -24,7 +26,8 @@ class ECTLossWrapper(nn.Module):
             pred = pred.unsqueeze(1)
         if target.dim() == 4:
             target = target.unsqueeze(1)
-            
+
         return self.loss_fn(pred, target)
+
 
 print("ECT Loss wrapper defined.")
