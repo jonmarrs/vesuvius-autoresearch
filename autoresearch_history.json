@@ -8,11 +8,11 @@
     "spatial": 1.0,
     "temporal": 1.0,
     "width": 1.0,
-    "loss_balance": 1.0,
+    "loss_balance": 7.235303402423412,
     "features": 1.0,
-    "architecture": 2.0,
+    "architecture": 1.2604988194492182,
     "baseline": 18,
-    "uamt": 1.0,
-    "scroll_augmentations": 1.0,
+    "uamt": 1.2950672927332516,
+    "scroll_augmentations": 9.358227632332053,
     "preproc": 1.0
 }

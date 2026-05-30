@@ -1472,6 +1472,15 @@ def train(config: ExperimentConfig):
                 + uamt_loss
             )
 
+        # Pre-backward check
+        if not torch.isfinite(total_loss):
+            print(
+                f"\n[WARNING] NaN loss detected before backward at step {step}. Skipping."
+            )
+            optimizer.zero_grad(set_to_none=True)
+            total_loss = torch.tensor(0.0, device=device, requires_grad=True)
+            # Continue to skip the backward/update steps
+
         if not torch.isfinite(total_loss) or total_loss.item() > 1e6:
             print(
                 f"\n[WARNING] Numerical Instability at Step {step}: Loss {total_loss.item():.2e}"
