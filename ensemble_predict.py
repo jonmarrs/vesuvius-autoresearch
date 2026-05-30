@@ -6,47 +6,34 @@ of multiple architectures to eliminate hallucinations (Sprint 012).
 Usage: uv run ensemble_predict.py --uri "s3://..." --z 1000 --y 2000 --x 3000 --checkpoints best_model.pt other_model.pt
 """
 
-import argparse
 import os
 
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
 from matplotlib.patches import Rectangle
+from tap import Tap
 
 from model_wrappers import build_inference_model
 from predict import get_weight_window, load_compatible_state_dict, save_vc3d_zarr
 from vesuvius_loader import FastVesuviusVolume
 
 
+class EnsembleArgs(Tap):
+    uri: str  # S3 or local path to Zarr volume
+    z: int
+    y: int
+    x: int
+    width: int | None = None  # Total width to predict
+    height: int | None = None  # Total height to predict
+    stride: int | None = None  # Stride for soft-tiling
+    checkpoints: list[str]  # List of checkpoint paths to ensemble
+    patch_size: int = 64
+    output_img: str | None = None  # Force output image path
+
+
 def ensemble_predict():
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--uri", type=str, required=True, help="S3 or local path to Zarr volume"
-    )
-    parser.add_argument("--z", type=int, required=True)
-    parser.add_argument("--y", type=int, required=True)
-    parser.add_argument("--x", type=int, required=True)
-    parser.add_argument(
-        "--width", type=int, default=None, help="Total width to predict"
-    )
-    parser.add_argument(
-        "--height", type=int, default=None, help="Total height to predict"
-    )
-    parser.add_argument(
-        "--stride", type=int, default=None, help="Stride for soft-tiling"
-    )
-    parser.add_argument(
-        "--checkpoints",
-        nargs="+",
-        required=True,
-        help="List of checkpoint paths to ensemble",
-    )
-    parser.add_argument("--patch_size", type=int, default=64)
-    parser.add_argument(
-        "--output_img", type=str, default=None, help="Force output image path"
-    )
-    args = parser.parse_args()
+    args = EnsembleArgs().parse_args()
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Loading volume from {args.uri}...")

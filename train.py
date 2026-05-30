@@ -24,6 +24,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from tap import Tap
 
 original_skeletonize = kimimaro.skeletonize
 
@@ -1859,14 +1860,11 @@ if __name__ == "__main__":
     except RuntimeError:
         pass
 
-    import argparse
+    class TrainArgs(Tap):
+        config: str = "config.json"  # Path to configuration JSON
+        test: bool = False  # Run a 30s smoke test
 
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--config", type=str, default="config.json", help="Path to configuration JSON"
-    )
-    parser.add_argument("--test", action="store_true")
-    args = parser.parse_args()
+    args = TrainArgs().parse_args()
 
     if os.path.exists(args.config):
         config = ExperimentConfig.load(args.config)

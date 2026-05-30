@@ -45,6 +45,7 @@ dependencies = [
     "webknossos>=2.5.0",
     "zarr>=2.18.3",
     "pre-commit",
+    "typed-argument-parser",
 ]
 
 [tool.uv.sources]

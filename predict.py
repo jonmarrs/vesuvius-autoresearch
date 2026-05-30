@@ -4,7 +4,6 @@ Performs inference on a specific block of a Vesuvius scroll volume.
 Usage: uv run predict.py --uri "s3://..." --z 1000 --y 2000 --x 3000
 """
 
-import argparse
 import json
 import os
 
@@ -12,6 +11,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch
 from matplotlib.patches import Rectangle
+from tap import Tap
 
 from scripts.swarm_voter import SwarmVoter
 from vesuvius_loader import FastVesuviusVolume
@@ -201,51 +201,27 @@ def write_prediction_metadata(
         json.dump(metadata, f, indent=2)
 
 
+class PredictionArgs(Tap):
+    uri: str  # S3 or local path to Zarr volume
+    z: int
+    y: int
+    x: int
+    width: int | None = None  # Total width to predict
+    height: int | None = None  # Total height to predict
+    stride: int | None = None  # Stride for soft-tiling
+    patch_size: int = 32
+    num_layers: int = 16
+    base_feat: int = 128
+    use_ridges: bool = False  # Use 3D Ridge/Frangi feature channel
+    output_img: str | None = None  # Force output image path
+    metadata_out: str | None = None  # Force prediction metadata JSON path
+    voxel_size_um: float = 7.91
+    checkpoint: str = "best_model.pt"  # Model checkpoint to use for prediction
+    skip_active_learning: bool = False  # Skip optional proofreader uncertainty export
+
+
 def predict():
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--uri", type=str, required=True, help="S3 or local path to Zarr volume"
-    )
-    parser.add_argument("--z", type=int, required=True)
-    parser.add_argument("--y", type=int, required=True)
-    parser.add_argument("--x", type=int, required=True)
-    parser.add_argument(
-        "--width", type=int, default=None, help="Total width to predict"
-    )
-    parser.add_argument(
-        "--height", type=int, default=None, help="Total height to predict"
-    )
-    parser.add_argument(
-        "--stride", type=int, default=None, help="Stride for soft-tiling"
-    )
-    parser.add_argument("--patch_size", type=int, default=32)
-    parser.add_argument("--num_layers", type=int, default=16)
-    parser.add_argument("--base_feat", type=int, default=128)
-    parser.add_argument(
-        "--use_ridges", action="store_true", help="Use 3D Ridge/Frangi feature channel"
-    )
-    parser.add_argument(
-        "--output_img", type=str, default=None, help="Force output image path"
-    )
-    parser.add_argument(
-        "--metadata_out",
-        type=str,
-        default=None,
-        help="Force prediction metadata JSON path",
-    )
-    parser.add_argument("--voxel_size_um", type=float, default=7.91)
-    parser.add_argument(
-        "--checkpoint",
-        type=str,
-        default="best_model.pt",
-        help="Model checkpoint to use for prediction",
-    )
-    parser.add_argument(
-        "--skip_active_learning",
-        action="store_true",
-        help="Skip optional proofreader uncertainty export",
-    )
-    args = parser.parse_args()
+    args = PredictionArgs().parse_args()
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Loading volume from {args.uri}...")
