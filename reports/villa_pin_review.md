@@ -17,4 +17,3 @@
 
 ### [x] prize_docs (Changed upstream: 0)
 *Prize criteria changes can invalidate packaging assumptions.*
-

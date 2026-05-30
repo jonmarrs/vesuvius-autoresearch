@@ -181,4 +181,3 @@
 - **Config**: batch_size: 16, patch_size: 64, num_layers: 24, lr: 0.001, weight_decay: 0.001, time_budget: 900, base_feat: 64, num_blocks: 16, num_heads: 8, dropout: 0.0
 - **Stats**: val_bpb: 0.2806170701980591, loss: 0.4834808602470121, params: 1.412051M, vram: 7894.63232421875MB, speed: 7.614107535184106Mvps
 - **Result**: No improvement detected. Config reverted.
-

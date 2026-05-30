@@ -42,7 +42,7 @@ uv run run_autoresearch_loop.py
 
 ## Results & Baselines
 
-Our `results.tsv` (included in this repository) and `best_model.pt` (available on [HuggingFace](https://huggingface.co/jonmarrs/vesuvius-autoresearch/blob/main/best_model.pt)) demonstrate that the autonomous loop consistently discovers models that beat our initial fixed baseline. 
+Our `results.tsv` (included in this repository) and `best_model.pt` (available on [HuggingFace](https://huggingface.co/jonmarrs/vesuvius-autoresearch/blob/main/best_model.pt)) demonstrate that the autonomous loop consistently discovers models that beat our initial fixed baseline.
 
 *   **Baseline val_bpb:** ~0.274
 *   **Evolved val_bpb:** ~0.087

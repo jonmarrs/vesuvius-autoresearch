@@ -92,7 +92,7 @@ class FastLocalVolume:
 
         stop = tuple(
             min(axis_start + dim, shape)
-            for axis_start, dim, shape in zip(start, dims, self.shape)
+            for axis_start, dim, shape in zip(start, dims, self.shape, strict=False)
         )
         return np.asarray(
             self._zarr[

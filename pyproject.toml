@@ -44,6 +44,7 @@ dependencies = [
     "warmup-scheduler",
     "webknossos>=2.5.0",
     "zarr>=2.18.3",
+    "pre-commit",
 ]
 
 [tool.uv.sources]
@@ -93,6 +94,21 @@ select = [
 ]
 ignore = [
     "E501", # Line too long (handled by formatter or ignored for extreme cases)
+    "E402", # Module level import not at top of file
+    "SIM102", # Nested if statements
+    "SIM105", # Use contextlib.suppress
+    "SIM108", # Use ternary operator
+    "SIM115", # Use context manager for opening files
+    "SIM117", # Nested with statements
+    "SIM118", # Use key in dict instead of key in dict.keys()
+    "B007",   # Loop control variable not used
+    "F841",   # Local variable assigned but never used
+    "F401",   # Unused import
+    "C414",   # Unnecessary list() within sorted()
+    "C419",   # Unnecessary list comprehension
+    "C401",   # Unnecessary generator (rewrite as set comprehension)
+    "UP038",  # Use X | Y in isinstance
+    "E722",   # Bare except
 ]
 
 [tool.ruff.lint.isort]
@@ -112,4 +128,3 @@ exclude = [
     "villa",
     ".venv",
 ]
-

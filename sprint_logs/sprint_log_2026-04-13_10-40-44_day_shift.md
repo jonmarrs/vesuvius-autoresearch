@@ -22,4 +22,3 @@
 - **Config**: lr: 1e-3, wd: 0.0, blocks: 20, batch_size: 16, patch_size: 96, num_layers: 24, base_feat: 32, heads: 8, dropout: 0.1
 - **Stats**: val_bpb: N/A, loss: N/A, params: N/AM, vram: N/AMB, speed: N/AMvps
 - **Result**: No improvement detected. Changes reverted.
-

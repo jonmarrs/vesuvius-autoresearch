@@ -94,9 +94,15 @@ class VesuviusVolume:
 
         # Unaligned read: Expand to chunk boundaries for the native call
         # and then crop the result to the requested region.
-        aligned_start = tuple((s // c) * c for s, c in zip(start, self.chunks))
-        aligned_stop = tuple(((e + c - 1) // c) * c for e, c in zip(stop, self.chunks))
-        aligned_dims = tuple(st - st_a for st, st_a in zip(aligned_stop, aligned_start))
+        aligned_start = tuple(
+            (s // c) * c for s, c in zip(start, self.chunks, strict=False)
+        )
+        aligned_stop = tuple(
+            ((e + c - 1) // c) * c for e, c in zip(stop, self.chunks, strict=False)
+        )
+        aligned_dims = tuple(
+            st - st_a for st, st_a in zip(aligned_stop, aligned_start, strict=False)
+        )
 
         # Native get_chunk is still faster for full-block reads than pure Python zarr
         # even with the overhead of expansion and cropping.
@@ -173,7 +179,7 @@ class FastLocalVolume:
 
         stop = tuple(
             min(axis_start + dim, shape)
-            for axis_start, dim, shape in zip(start, dims, self.shape)
+            for axis_start, dim, shape in zip(start, dims, self.shape, strict=False)
         )
 
         if self._native is not None:

@@ -43,7 +43,7 @@ def crop_candidate_zarr(
     x0 = _clamp_start(int(x), int(width), int(src.shape[2]))
     shape = (int(depth), int(height), int(width))
     chunks = chunks or tuple(
-        min(src_chunk, dim) for src_chunk, dim in zip(src.chunks, shape)
+        min(src_chunk, dim) for src_chunk, dim in zip(src.chunks, shape, strict=False)
     )
 
     output_path = Path(output_path)

@@ -8,4 +8,3 @@
 - **Config**: lr: 1e-3, wd: 0.01, blocks: 20, batch_size: 8, patch_size: 96, num_layers: 12, base_feat: 128, heads: 8, dropout: 0.1
 - **Stats**: val_bpb: 0.200876, loss: 0.133497, params: 6.047M, vram: 2019.5MB, speed: 5.78Mvps
 - **Result**: No improvement detected. Changes reverted.
-

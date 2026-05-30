@@ -10,14 +10,14 @@ For the granular sprint schedule, priority backlog, and milestone targets, refer
 
 To maintain a sustainable and high-impact research trajectory, all workflows must respect the following limits:
 
-*   **GPU (RTX 4090):** 
-    *   **VRAM:** 24 GB. 
+*   **GPU (RTX 4090):**
+    *   **VRAM:** 24 GB.
     *   **Constraint Compliance:** We strictly adhere to the **0.5x0.5 mm window size (64x64 pixels at 8µm)** recommended by the Vesuvius Challenge. This is our primary defense against model hallucinations.
     *   **Throughput:** Aim for >50M voxels/sec by utilizing the 4090's high compute density even with small patch sizes.
-*   **Storage:** 
-    *   **Project Limit:** 500 GB total. 
+*   **Storage:**
+    *   **Project Limit:** 500 GB total.
     *   **Current Usage:** ~110 GB.
-    *   **Policy:** Prioritize **labeled segment-volume pairs** over full scroll volumes. 
+    *   **Policy:** Prioritize **labeled segment-volume pairs** over full scroll volumes.
 *   **Data Integrity & Hallucination Mitigation:**
     *   **Zero Overlap:** We maintain a strict boundary between training and prediction regions. Prediction regions are never seen by the model during the autoresearch loop.
     *   **Cross-Scroll Validation:** The ultimate proof of signal reality is the model's ability to generalize from training on Fragment 1 to predicting on an entirely unseen scroll (e.g., Scroll 5).
@@ -63,7 +63,7 @@ To win the **First Letters ($60k)** and **First Title ($60k)** prizes, we are de
 ### A. The "Scroll 2/3 First Letters" Sprint
 *   **Target:** Scrolls 2 (PHerc0125) and 3 (PHerc0332).
 *   **Objective:** Discover 10+ legible letters in a 4cm² area.
-*   **Method:** 
+*   **Method:**
     *   Exhaustive inference on our **11x 1GB depth divisions** for these scrolls.
     *   Autoresearch optimization for **extreme denoising** (Scroll 2 is significantly noisier than Scroll 1).
     *   **Ensemble Voting:** Use the top 3 architectures from the Night Shift to "vote" on ink pixels to reduce false positives.

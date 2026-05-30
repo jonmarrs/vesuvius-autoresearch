@@ -14,7 +14,7 @@ fi
 for PID in $PIDS; do
     echo "Sending SIGTERM to PID $PID to trigger graceful shutdown..."
     kill -15 "$PID"
-    
+
     # Wait for the process to exit
     echo "Waiting for process $PID to clean up child process groups and exit..."
     while kill -0 "$PID" 2>/dev/null; do

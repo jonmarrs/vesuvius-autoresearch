@@ -80,7 +80,7 @@ Step 0565 | Loss: 0.045637 | dt: 448ms | Remaining: 2s
 Evaluating val_bpb on validation chunk...
 
 --- Foundation Pretraining Complete ---
-val_bpb:          0.002049 
+val_bpb:          0.002049
 train_loss:       0.039521
 training_seconds: 300.1
 total_seconds:    302.2
@@ -173,7 +173,7 @@ Step 0560 | Loss: 0.013922 | dt: 448ms | Remaining: 0s
 Evaluating val_bpb on validation chunk...
 
 --- Foundation Pretraining Complete ---
-val_bpb:          0.003369 
+val_bpb:          0.003369
 train_loss:       0.013626
 training_seconds: 300.1
 total_seconds:    302.0
@@ -266,7 +266,7 @@ Step 0565 | Loss: 0.010198 | dt: 449ms | Remaining: 1s
 Evaluating val_bpb on validation chunk...
 
 --- Foundation Pretraining Complete ---
-val_bpb:          0.006580 
+val_bpb:          0.006580
 train_loss:       0.011518
 training_seconds: 300.3
 total_seconds:    302.2
@@ -359,7 +359,7 @@ Step 0550 | Loss: 0.014787 | dt: 435ms | Remaining: 3s
 Evaluating val_bpb on validation chunk...
 
 --- Foundation Pretraining Complete ---
-val_bpb:          0.003008 
+val_bpb:          0.003008
 train_loss:       0.013004
 training_seconds: 301.3
 total_seconds:    303.1
@@ -452,7 +452,7 @@ Step 0540 | Loss: 0.046319 | dt: 464ms | Remaining: 1s
 Evaluating val_bpb on validation chunk...
 
 --- Foundation Pretraining Complete ---
-val_bpb:          0.004490 
+val_bpb:          0.004490
 train_loss:       0.045253
 training_seconds: 300.3
 total_seconds:    302.0
@@ -545,7 +545,7 @@ Step 0600 | Loss: 0.023984 | dt: 402ms | Remaining: 1s
 Evaluating val_bpb on validation chunk...
 
 --- Foundation Pretraining Complete ---
-val_bpb:          0.002115 
+val_bpb:          0.002115
 train_loss:       0.025558
 training_seconds: 300.3
 total_seconds:    302.4
@@ -653,4 +653,3 @@ Updated progress.png
 ```
 
 ---
-

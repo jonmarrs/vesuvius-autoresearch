@@ -1493,7 +1493,7 @@ def train(config: ExperimentConfig):
                 with torch.no_grad():
                     decay = config.ema_decay
                     for param_student, param_teacher in zip(
-                        model.parameters(), ema_model.parameters()
+                        model.parameters(), ema_model.parameters(), strict=False
                     ):
                         param_teacher.data.mul_(decay).add_(
                             param_student.data, alpha=1.0 - decay

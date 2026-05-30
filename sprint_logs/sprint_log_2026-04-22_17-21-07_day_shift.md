@@ -43,4 +43,3 @@
 - **Config**: cache_dir: None, use_ridges: False, batch_size: 16, patch_size: 64, num_layers: 24, lr: 0.001, weight_decay: 0.01, time_budget: 900, loss_ink_bce: 0.2, loss_ink_dice: 0.4, loss_fiber_bce: 0.2, base_feat: 64, num_blocks: 16, num_heads: 8, dropout: 0.2
 - **Stats**: val_bpb: 1.0, loss: 0.5777197662320189, params: 1.842707M, vram: 18102.43017578125MB, speed: 4.365735211568856Mvps
 - **Result**: No improvement detected. Config reverted.
-

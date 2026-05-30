@@ -8,7 +8,7 @@
 One of the major bottlenecks in the "Master Plan" Stage 2 is **Unwrapping at Scale**. Processing terabytes of OME-Zarr data efficiently is critical.
 
 ### The Contribution
-We have developed a lightweight, zero-copy `ctypes` wrapper for the official `ScrollPrize/villa/vesuvius-c` library. 
+We have developed a lightweight, zero-copy `ctypes` wrapper for the official `ScrollPrize/villa/vesuvius-c` library.
 - **Efficiency**: Directly parses `.zarray` JSON and reads Blosc2-compressed chunks into NumPy arrays via C pointers, bypassing `fsspec` and standard Zarr overhead.
 - **Integration**: Designed to be a drop-in replacement for the `Volume` class in Python-based loaders.
 - **Speed**: Measured at **31.77M voxels/sec** on local storage, enabling significantly faster training cycles for deep learning models.

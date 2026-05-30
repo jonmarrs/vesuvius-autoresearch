@@ -110,4 +110,3 @@ ACTIVE LEARNING FLYWHEEL: It is highly recommended to run the Proofreader
 on the latest predictions before starting the Day Shift.
 Run: uv run scripts/launch_proofreader.py --volume local_data/PHercParis2Fr47/surface_volume.zarr --predictions predictions/pred_10_1000_1000_64x64_ink.zarr
 ============================================================
-

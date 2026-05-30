@@ -195,7 +195,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -392,7 +392,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -658,7 +658,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -908,7 +908,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -1095,7 +1095,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -1377,7 +1377,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -1649,7 +1649,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -1905,7 +1905,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -2172,7 +2172,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -2444,7 +2444,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -2706,7 +2706,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -2980,7 +2980,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -3432,7 +3432,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.610329 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.433927 
+val_bpb (Official):    0.433927
 avg_skel_dist:         26.253329
 avg_centerline_dice:   0.058625
 avg_cc_diff:           0.028
@@ -3697,7 +3697,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -3969,7 +3969,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -4233,7 +4233,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -4502,7 +4502,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -4763,7 +4763,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -5034,7 +5034,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -5298,7 +5298,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -5570,7 +5570,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -5844,7 +5844,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -6107,7 +6107,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -6378,7 +6378,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -6641,7 +6641,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -6909,7 +6909,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -7093,7 +7093,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -7295,7 +7295,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -7510,7 +7510,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -7763,7 +7763,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -8031,7 +8031,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -8293,7 +8293,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -9240,7 +9240,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -10090,7 +10090,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -10937,7 +10937,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -11784,7 +11784,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -12693,7 +12693,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -13601,7 +13601,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -14509,7 +14509,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -15421,7 +15421,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -16228,7 +16228,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -16401,7 +16401,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -19582,7 +19582,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -19751,7 +19751,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -19921,7 +19921,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -20123,7 +20123,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -20267,7 +20267,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -20419,7 +20419,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -20640,7 +20640,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -20877,7 +20877,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -21110,7 +21110,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -21342,7 +21342,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -21571,7 +21571,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -21799,7 +21799,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -22084,7 +22084,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -22296,7 +22296,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -22597,7 +22597,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -22837,7 +22837,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -23089,7 +23089,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -23351,7 +23351,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -23612,7 +23612,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -23841,7 +23841,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -24104,7 +24104,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -24366,7 +24366,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -24606,7 +24606,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -24854,7 +24854,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -25115,7 +25115,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -25857,7 +25857,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -26592,7 +26592,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -27241,7 +27241,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -28166,7 +28166,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -28692,7 +28692,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -29659,7 +29659,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -30611,7 +30611,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -31567,7 +31567,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -32524,7 +32524,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -33487,7 +33487,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -34440,7 +34440,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -34593,7 +34593,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -34800,7 +34800,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -34981,7 +34981,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -35196,7 +35196,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -35396,7 +35396,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -35597,7 +35597,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -36253,7 +36253,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -36393,7 +36393,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -36537,7 +36537,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -36740,7 +36740,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -36967,7 +36967,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -37223,7 +37223,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -37482,7 +37482,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -37789,7 +37789,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -38217,7 +38217,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.610329 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.433927 
+val_bpb (Official):    0.433927
 avg_skel_dist:         26.253329
 avg_centerline_dice:   0.058625
 avg_cc_diff:           0.028
@@ -38443,7 +38443,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -38656,7 +38656,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -38833,7 +38833,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -39200,7 +39200,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -39422,7 +39422,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -39626,7 +39626,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -39860,7 +39860,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -40119,7 +40119,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -40380,7 +40380,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -40630,7 +40630,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -40833,7 +40833,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -41055,7 +41055,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -41259,7 +41259,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -41519,7 +41519,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -41780,7 +41780,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -42041,7 +42041,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -42289,7 +42289,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -42495,7 +42495,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -42777,7 +42777,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -43032,7 +43032,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -43937,7 +43937,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -44857,7 +44857,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -45368,7 +45368,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -46204,7 +46204,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -47129,7 +47129,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -48058,7 +48058,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -48985,7 +48985,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -49913,7 +49913,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -50844,7 +50844,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -51774,7 +51774,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -52440,7 +52440,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -52601,7 +52601,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -52834,7 +52834,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -53055,7 +53055,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -53292,7 +53292,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -53527,7 +53527,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -53755,7 +53755,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -53960,7 +53960,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -54602,7 +54602,7 @@ Traceback (most recent call last):
     pid, sts = os.waitpid(self.pid, flag)
   File "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/lib/python3.10/site-packages/torch/utils/data/_utils/signal_handling.py", line 73, in handler
     _error_if_any_worker_fails()
-RuntimeError: DataLoader worker (pid 931351) is killed by signal: Terminated. 
+RuntimeError: DataLoader worker (pid 931351) is killed by signal: Terminated.
 
 
 --- DAY SHIFT CYCLE 61: loss_ink_dice_0.6 ---
@@ -54677,7 +54677,7 @@ Traceback (most recent call last):
     pid, sts = os.waitpid(self.pid, flag)
   File "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/lib/python3.10/site-packages/torch/utils/data/_utils/signal_handling.py", line 73, in handler
     _error_if_any_worker_fails()
-RuntimeError: DataLoader worker (pid 931438) is killed by signal: Terminated. 
+RuntimeError: DataLoader worker (pid 931438) is killed by signal: Terminated.
 
 
 --- DAY SHIFT CYCLE 63: ridge_sigma_3.0 ---
@@ -54721,7 +54721,7 @@ Traceback (most recent call last):
     pid, sts = os.waitpid(self.pid, flag)
   File "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/lib/python3.10/site-packages/torch/utils/data/_utils/signal_handling.py", line 73, in handler
     _error_if_any_worker_fails()
-RuntimeError: DataLoader worker (pid 931465) is killed by signal: Terminated. 
+RuntimeError: DataLoader worker (pid 931465) is killed by signal: Terminated.
 
 
 --- DAY SHIFT CYCLE 64: loss_st_0.2 ---
@@ -54765,7 +54765,7 @@ Traceback (most recent call last):
     pid, sts = os.waitpid(self.pid, flag)
   File "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/lib/python3.10/site-packages/torch/utils/data/_utils/signal_handling.py", line 73, in handler
     _error_if_any_worker_fails()
-RuntimeError: DataLoader worker (pid 931493) is killed by signal: Terminated. 
+RuntimeError: DataLoader worker (pid 931493) is killed by signal: Terminated.
 
 
 --- DAY SHIFT CYCLE 65: aug_scroll_squeeze_p_0.0 ---
@@ -54809,7 +54809,7 @@ Traceback (most recent call last):
     pid, sts = os.waitpid(self.pid, flag)
   File "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/lib/python3.10/site-packages/torch/utils/data/_utils/signal_handling.py", line 73, in handler
     _error_if_any_worker_fails()
-RuntimeError: DataLoader worker (pid 931539) is killed by signal: Terminated. 
+RuntimeError: DataLoader worker (pid 931539) is killed by signal: Terminated.
 
 
 --- DAY SHIFT CYCLE 66: aug_mode_batchgeneratorsv2 ---
@@ -54853,7 +54853,7 @@ Traceback (most recent call last):
     pid, sts = os.waitpid(self.pid, flag)
   File "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/lib/python3.10/site-packages/torch/utils/data/_utils/signal_handling.py", line 73, in handler
     _error_if_any_worker_fails()
-RuntimeError: DataLoader worker (pid 931626) is killed by signal: Terminated. 
+RuntimeError: DataLoader worker (pid 931626) is killed by signal: Terminated.
 
 
 --- DAY SHIFT CYCLE 67: ridge_sigma_1.0 ---
@@ -54897,7 +54897,7 @@ Traceback (most recent call last):
     pid, sts = os.waitpid(self.pid, flag)
   File "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/lib/python3.10/site-packages/torch/utils/data/_utils/signal_handling.py", line 73, in handler
     _error_if_any_worker_fails()
-RuntimeError: DataLoader worker (pid 931707) is killed by signal: Terminated. 
+RuntimeError: DataLoader worker (pid 931707) is killed by signal: Terminated.
 
 
 --- DAY SHIFT CYCLE 68: architecture_resenc_unet ---
@@ -54941,7 +54941,7 @@ Traceback (most recent call last):
     pid, sts = os.waitpid(self.pid, flag)
   File "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/lib/python3.10/site-packages/torch/utils/data/_utils/signal_handling.py", line 73, in handler
     _error_if_any_worker_fails()
-RuntimeError: DataLoader worker (pid 931744) is killed by signal: Terminated. 
+RuntimeError: DataLoader worker (pid 931744) is killed by signal: Terminated.
 
 
 --- DAY SHIFT CYCLE 69: pseudo_label_dir_local_data/pseudo_labels ---
@@ -54983,7 +54983,7 @@ Traceback (most recent call last):
     os.kill(self.pid, sig)
   File "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/lib/python3.10/site-packages/torch/utils/data/_utils/signal_handling.py", line 73, in handler
     _error_if_any_worker_fails()
-RuntimeError: DataLoader worker (pid 931770) is killed by signal: Terminated. 
+RuntimeError: DataLoader worker (pid 931770) is killed by signal: Terminated.
 
 
 --- DAY SHIFT CYCLE 71: ridge_sigma_1.0 ---
@@ -55153,7 +55153,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -55332,7 +55332,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -55529,7 +55529,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -55696,7 +55696,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -55888,7 +55888,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -56086,7 +56086,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -56262,7 +56262,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -56497,7 +56497,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -56750,7 +56750,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -56997,7 +56997,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -57248,7 +57248,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -57499,7 +57499,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -57750,7 +57750,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -58002,7 +58002,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -58252,7 +58252,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -58505,7 +58505,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -59259,7 +59259,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -60348,7 +60348,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -61496,7 +61496,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -62651,7 +62651,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -63827,7 +63827,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -64984,7 +64984,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -66144,7 +66144,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -67306,7 +67306,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -68474,7 +68474,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -69483,7 +69483,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -70054,7 +70054,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -70713,7 +70713,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -71381,7 +71381,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -72049,7 +72049,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -72728,7 +72728,7 @@ Warning: suppressing further ridge_fallback warnings
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -73357,7 +73357,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.610329 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.433927 
+val_bpb (Official):    0.433927
 avg_skel_dist:         26.253329
 avg_centerline_dice:   0.058625
 avg_cc_diff:           0.028
@@ -74010,7 +74010,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -74654,7 +74654,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -75324,7 +75324,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -75999,7 +75999,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -76675,7 +76675,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -77352,7 +77352,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -78029,7 +78029,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -78368,7 +78368,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -79045,7 +79045,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -79726,7 +79726,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -80408,7 +80408,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -81087,7 +81087,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -83058,7 +83058,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615296 at threshold 0.172
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414509 
+val_bpb (Official):    0.414509
 avg_skel_dist:         26.008369
 avg_centerline_dice:   0.045808
 avg_cc_diff:           0.031
@@ -84637,7 +84637,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -86769,7 +86769,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -89378,7 +89378,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -91983,7 +91983,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -94604,7 +94604,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -97209,7 +97209,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -99834,7 +99834,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -102437,7 +102437,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -104390,7 +104390,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -104914,7 +104914,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -105409,7 +105409,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -106074,7 +106074,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -106740,7 +106740,7 @@ Warning: suppressing further ridge_fallback warnings
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -107405,7 +107405,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -107806,7 +107806,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -108169,7 +108169,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -108458,7 +108458,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -108833,7 +108833,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -109132,7 +109132,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -109574,7 +109574,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -110149,7 +110149,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -110506,7 +110506,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -111059,7 +111059,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -111651,7 +111651,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -112229,7 +112229,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615357 at threshold 0.152
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414437 
+val_bpb (Official):    0.414437
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -112895,7 +112895,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -113570,7 +113570,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -114248,7 +114248,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -114924,7 +114924,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -115606,7 +115606,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -116285,7 +116285,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -116962,7 +116962,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -117641,7 +117641,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -118318,7 +118318,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -118990,7 +118990,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -119669,7 +119669,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -119834,7 +119834,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.030
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414512 
+val_bpb (Official):    0.414512
 avg_skel_dist:         28.896667
 avg_centerline_dice:   0.035171
 avg_cc_diff:           0.031
@@ -120511,7 +120511,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -121342,7 +121342,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.610329 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.433927 
+val_bpb (Official):    0.433927
 avg_skel_dist:         26.253329
 avg_centerline_dice:   0.058625
 avg_cc_diff:           0.028
@@ -122020,7 +122020,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -122698,7 +122698,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -123373,7 +123373,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -124050,7 +124050,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -124725,7 +124725,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -125401,7 +125401,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -126082,7 +126082,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -126755,7 +126755,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -127463,7 +127463,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -128138,7 +128138,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -128508,7 +128508,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -129026,7 +129026,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -129617,7 +129617,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -132151,7 +132151,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -134702,7 +134702,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -136334,7 +136334,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -136737,7 +136737,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -137163,7 +137163,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -139754,7 +139754,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -140185,7 +140185,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -140388,7 +140388,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -140819,7 +140819,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -141187,7 +141187,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615350 at threshold 0.030
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414460 
+val_bpb (Official):    0.414460
 avg_skel_dist:         28.107732
 avg_centerline_dice:   0.032616
 avg_cc_diff:           0.031
@@ -141615,7 +141615,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -141732,7 +141732,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -141866,7 +141866,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -141991,7 +141991,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615352 at threshold 0.030
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414462 
+val_bpb (Official):    0.414462
 avg_skel_dist:         28.397928
 avg_centerline_dice:   0.037583
 avg_cc_diff:           0.031
@@ -142126,7 +142126,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.616123 at threshold 0.030
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.417419 
+val_bpb (Official):    0.417419
 avg_skel_dist:         25.061682
 avg_centerline_dice:   0.155618
 avg_cc_diff:           0.247
@@ -142261,7 +142261,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615609 at threshold 0.030
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.416812 
+val_bpb (Official):    0.416812
 avg_skel_dist:         20.535070
 avg_centerline_dice:   0.163541
 avg_cc_diff:           0.291
@@ -142386,7 +142386,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615650 at threshold 0.030
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414304 
+val_bpb (Official):    0.414304
 avg_skel_dist:         27.820668
 avg_centerline_dice:   0.035052
 avg_cc_diff:           0.076
@@ -142851,7 +142851,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615535 at threshold 0.051
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.415971 
+val_bpb (Official):    0.415971
 avg_skel_dist:         26.969573
 avg_centerline_dice:   0.023074
 avg_cc_diff:           0.165
@@ -142984,7 +142984,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.616006 at threshold 0.030
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.415443 
+val_bpb (Official):    0.415443
 avg_skel_dist:         26.840471
 avg_centerline_dice:   0.071665
 avg_cc_diff:           0.172
@@ -143119,7 +143119,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615296 at threshold 0.030
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414565 
+val_bpb (Official):    0.414565
 avg_skel_dist:         27.506848
 avg_centerline_dice:   0.042487
 avg_cc_diff:           0.034
@@ -143254,7 +143254,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615472 at threshold 0.030
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.416972 
+val_bpb (Official):    0.416972
 avg_skel_dist:         22.354077
 avg_centerline_dice:   0.112716
 avg_cc_diff:           0.158
@@ -143390,7 +143390,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615290 at threshold 0.030
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414512 
+val_bpb (Official):    0.414512
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -143520,7 +143520,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615744 at threshold 0.030
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414200 
+val_bpb (Official):    0.414200
 avg_skel_dist:         29.200794
 avg_centerline_dice:   0.079567
 avg_cc_diff:           0.042
@@ -143653,7 +143653,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615651 at threshold 0.030
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.415511 
+val_bpb (Official):    0.415511
 avg_skel_dist:         24.516897
 avg_centerline_dice:   0.077099
 avg_cc_diff:           0.327
@@ -143878,7 +143878,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.611485 at threshold 0.051
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.464490 
+val_bpb (Official):    0.464490
 avg_skel_dist:         19.394090
 avg_centerline_dice:   0.120393
 avg_cc_diff:           1.038
@@ -144012,7 +144012,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -144148,7 +144148,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615859 at threshold 0.030
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.415348 
+val_bpb (Official):    0.415348
 avg_skel_dist:         23.780224
 avg_centerline_dice:   0.076380
 avg_cc_diff:           0.145
@@ -144284,7 +144284,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615382 at threshold 0.030
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414436 
+val_bpb (Official):    0.414436
 avg_skel_dist:         27.039165
 avg_centerline_dice:   0.038826
 avg_cc_diff:           0.033
@@ -144419,7 +144419,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -144554,7 +144554,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615433 at threshold 0.030
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.415993 
+val_bpb (Official):    0.415993
 avg_skel_dist:         21.439054
 avg_centerline_dice:   0.114574
 avg_cc_diff:           0.124
@@ -144690,7 +144690,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.616041 at threshold 0.030
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414228 
+val_bpb (Official):    0.414228
 avg_skel_dist:         24.966929
 avg_centerline_dice:   0.075105
 avg_cc_diff:           0.066
@@ -144826,7 +144826,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615331 at threshold 0.030
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.417671 
+val_bpb (Official):    0.417671
 avg_skel_dist:         22.010431
 avg_centerline_dice:   0.117089
 avg_cc_diff:           0.394
@@ -144961,7 +144961,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -145097,7 +145097,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615883 at threshold 0.030
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414110 
+val_bpb (Official):    0.414110
 avg_skel_dist:         22.876576
 avg_centerline_dice:   0.048801
 avg_cc_diff:           0.043
@@ -145232,7 +145232,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615842 at threshold 0.030
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.418130 
+val_bpb (Official):    0.418130
 avg_skel_dist:         24.060047
 avg_centerline_dice:   0.164653
 avg_cc_diff:           0.259
@@ -145368,7 +145368,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.616195 at threshold 0.030
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.413839 
+val_bpb (Official):    0.413839
 avg_skel_dist:         25.505514
 avg_centerline_dice:   0.086046
 avg_cc_diff:           0.048
@@ -145491,7 +145491,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -145627,7 +145627,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -145762,7 +145762,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.616271 at threshold 0.030
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414805 
+val_bpb (Official):    0.414805
 avg_skel_dist:         23.528102
 avg_centerline_dice:   0.102758
 avg_cc_diff:           0.113
@@ -145873,7 +145873,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615647 at threshold 0.030
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414268 
+val_bpb (Official):    0.414268
 avg_skel_dist:         27.409814
 avg_centerline_dice:   0.040325
 avg_cc_diff:           0.032
@@ -145997,7 +145997,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615912 at threshold 0.030
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414105 
+val_bpb (Official):    0.414105
 avg_skel_dist:         29.401875
 avg_centerline_dice:   0.076329
 avg_cc_diff:           0.059
@@ -146127,7 +146127,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -146261,7 +146261,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.616380 at threshold 0.030
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.416731 
+val_bpb (Official):    0.416731
 avg_skel_dist:         21.727882
 avg_centerline_dice:   0.122914
 avg_cc_diff:           0.293
@@ -146385,7 +146385,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615884 at threshold 0.030
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414349 
+val_bpb (Official):    0.414349
 avg_skel_dist:         26.515247
 avg_centerline_dice:   0.067301
 avg_cc_diff:           0.065
@@ -146497,7 +146497,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -146818,7 +146818,7 @@ Warning: suppressing further ridge_fallback warnings
   Best Validation Dice: 0.617049 at threshold 0.071
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.416616 
+val_bpb (Official):    0.416616
 avg_skel_dist:         28.399502
 avg_centerline_dice:   0.155441
 avg_cc_diff:           0.649
@@ -146985,7 +146985,7 @@ Warning: suppressing further ridge_fallback warnings
   Best Validation Dice: 0.615317 at threshold 0.051
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414517 
+val_bpb (Official):    0.414517
 avg_skel_dist:         28.048251
 avg_centerline_dice:   0.035686
 avg_cc_diff:           0.031
@@ -147386,7 +147386,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -147845,7 +147845,7 @@ Warning: suppressing further ridge_fallback warnings
   Best Validation Dice: 0.615601 at threshold 0.152
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414369 
+val_bpb (Official):    0.414369
 avg_skel_dist:         26.188564
 avg_centerline_dice:   0.047366
 avg_cc_diff:           0.034
@@ -148303,7 +148303,7 @@ Warning: suppressing further ridge_fallback warnings
   Best Validation Dice: 0.615290 at threshold 0.213
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414511 
+val_bpb (Official):    0.414511
 avg_skel_dist:         26.980664
 avg_centerline_dice:   0.035354
 avg_cc_diff:           0.031
@@ -148762,7 +148762,7 @@ Warning: suppressing further ridge_fallback warnings
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -149218,7 +149218,7 @@ Warning: suppressing further ridge_fallback warnings
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -149680,7 +149680,7 @@ Warning: suppressing further ridge_fallback warnings
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -150001,7 +150001,7 @@ Warning: suppressing further ridge_fallback warnings
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -150454,7 +150454,7 @@ Warning: suppressing further ridge_fallback warnings
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -150913,7 +150913,7 @@ Warning: suppressing further ridge_fallback warnings
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -151062,7 +151062,7 @@ Warning: suppressing further ridge_fallback warnings
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -151256,7 +151256,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -151567,7 +151567,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.613078 at threshold 0.091
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.463276 
+val_bpb (Official):    0.463276
 avg_skel_dist:         22.386552
 avg_centerline_dice:   0.104032
 avg_cc_diff:           1.123
@@ -151772,7 +151772,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615298 at threshold 0.051
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414530 
+val_bpb (Official):    0.414530
 avg_skel_dist:         31.545246
 avg_centerline_dice:   0.084048
 avg_cc_diff:           0.031
@@ -151976,7 +151976,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615290 at threshold 0.051
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414512 
+val_bpb (Official):    0.414512
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -152180,7 +152180,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615970 at threshold 0.071
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.416452 
+val_bpb (Official):    0.416452
 avg_skel_dist:         29.466348
 avg_centerline_dice:   0.080703
 avg_cc_diff:           0.292
@@ -152384,7 +152384,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -152588,7 +152588,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615519 at threshold 0.051
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414305 
+val_bpb (Official):    0.414305
 avg_skel_dist:         26.350468
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -152790,7 +152790,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.617972 at threshold 0.071
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.415811 
+val_bpb (Official):    0.415811
 avg_skel_dist:         21.571002
 avg_centerline_dice:   0.093893
 avg_cc_diff:           0.168
@@ -152994,7 +152994,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -153197,7 +153197,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615447 at threshold 0.071
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414382 
+val_bpb (Official):    0.414382
 avg_skel_dist:         27.537473
 avg_centerline_dice:   0.046981
 avg_cc_diff:           0.032
@@ -153486,7 +153486,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -153894,7 +153894,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.616031 at threshold 0.051
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414220 
+val_bpb (Official):    0.414220
 avg_skel_dist:         28.108648
 avg_centerline_dice:   0.076379
 avg_cc_diff:           0.052
@@ -154098,7 +154098,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615530 at threshold 0.051
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414413 
+val_bpb (Official):    0.414413
 avg_skel_dist:         28.627489
 avg_centerline_dice:   0.077582
 avg_cc_diff:           0.034
@@ -154302,7 +154302,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -154505,7 +154505,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615370 at threshold 0.071
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414508 
+val_bpb (Official):    0.414508
 avg_skel_dist:         29.023294
 avg_centerline_dice:   0.134120
 avg_cc_diff:           0.031
@@ -154816,7 +154816,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.610329 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.433927 
+val_bpb (Official):    0.433927
 avg_skel_dist:         26.253329
 avg_centerline_dice:   0.058625
 avg_cc_diff:           0.028
@@ -155018,7 +155018,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -155413,7 +155413,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.617858 at threshold 0.071
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414337 
+val_bpb (Official):    0.414337
 avg_skel_dist:         26.341965
 avg_centerline_dice:   0.093451
 avg_cc_diff:           0.085
@@ -155585,7 +155585,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -155779,7 +155779,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615318 at threshold 0.051
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414617 
+val_bpb (Official):    0.414617
 avg_skel_dist:         28.910605
 avg_centerline_dice:   0.040647
 avg_cc_diff:           0.033
@@ -155961,7 +155961,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.616764 at threshold 0.071
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.413873 
+val_bpb (Official):    0.413873
 avg_skel_dist:         26.825096
 avg_centerline_dice:   0.116540
 avg_cc_diff:           0.037
@@ -156159,7 +156159,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -156238,7 +156238,7 @@ Traceback (most recent call last):
     pid, sts = os.waitpid(self.pid, flag)
   File "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/lib/python3.10/site-packages/torch/utils/data/_utils/signal_handling.py", line 73, in handler
     _error_if_any_worker_fails()
-RuntimeError: DataLoader worker (pid 270001) is killed by signal: Terminated. 
+RuntimeError: DataLoader worker (pid 270001) is killed by signal: Terminated.
 
 
 --- DAY SHIFT CYCLE 32: loss_ink_dice_0.6 ---
@@ -156419,7 +156419,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.616919 at threshold 0.071
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.415386 
+val_bpb (Official):    0.415386
 avg_skel_dist:         25.857594
 avg_centerline_dice:   0.120249
 avg_cc_diff:           0.084
@@ -156900,7 +156900,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615780 at threshold 0.071
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414342 
+val_bpb (Official):    0.414342
 avg_skel_dist:         27.044893
 avg_centerline_dice:   0.050140
 avg_cc_diff:           0.034
@@ -157296,7 +157296,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -157703,7 +157703,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -158109,7 +158109,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -158537,7 +158537,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615299 at threshold 0.051
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414523 
+val_bpb (Official):    0.414523
 avg_skel_dist:         29.480238
 avg_centerline_dice:   0.056320
 avg_cc_diff:           0.032
@@ -158967,7 +158967,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -159394,7 +159394,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -159815,7 +159815,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615718 at threshold 0.111
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414366 
+val_bpb (Official):    0.414366
 avg_skel_dist:         28.331134
 avg_centerline_dice:   0.111146
 avg_cc_diff:           0.266
@@ -160243,7 +160243,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -160671,7 +160671,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615300 at threshold 0.051
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414514 
+val_bpb (Official):    0.414514
 avg_skel_dist:         24.093598
 avg_centerline_dice:   0.035079
 avg_cc_diff:           0.032
@@ -161080,7 +161080,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.030
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414510 
+val_bpb (Official):    0.414510
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -161487,7 +161487,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -161901,7 +161901,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -162319,7 +162319,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -162685,7 +162685,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -162848,7 +162848,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -163002,7 +163002,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -163179,7 +163179,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -163337,7 +163337,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -163498,7 +163498,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -163664,7 +163664,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -163861,7 +163861,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -164027,7 +164027,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -164199,7 +164199,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -164365,7 +164365,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -164526,7 +164526,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -164644,7 +164644,7 @@ Traceback (most recent call last):
     pid, sts = os.waitpid(self.pid, flag)
   File "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/lib/python3.10/site-packages/torch/utils/data/_utils/signal_handling.py", line 73, in handler
     _error_if_any_worker_fails()
-RuntimeError: DataLoader worker (pid 314446) is killed by signal: Terminated. 
+RuntimeError: DataLoader worker (pid 314446) is killed by signal: Terminated.
 
 
 --- DAY SHIFT CYCLE 17: use_lasagna_True ---
@@ -164790,7 +164790,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -164973,7 +164973,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.616349 at threshold 0.071
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.413997 
+val_bpb (Official):    0.413997
 avg_skel_dist:         28.976017
 avg_centerline_dice:   0.085388
 avg_cc_diff:           0.041
@@ -165162,7 +165162,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.617218 at threshold 0.071
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.413632 
+val_bpb (Official):    0.413632
 avg_skel_dist:         28.563809
 avg_centerline_dice:   0.097589
 avg_cc_diff:           0.052
@@ -165359,7 +165359,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.616852 at threshold 0.071
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.413720 
+val_bpb (Official):    0.413720
 avg_skel_dist:         29.088756
 avg_centerline_dice:   0.072163
 avg_cc_diff:           0.046
@@ -165562,7 +165562,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615325 at threshold 0.051
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414501 
+val_bpb (Official):    0.414501
 avg_skel_dist:         28.675187
 avg_centerline_dice:   0.044131
 avg_cc_diff:           0.031
@@ -165694,7 +165694,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -165987,7 +165987,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.613486 at threshold 0.071
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.450118 
+val_bpb (Official):    0.450118
 avg_skel_dist:         22.719888
 avg_centerline_dice:   0.127340
 avg_cc_diff:           0.315
@@ -166064,7 +166064,7 @@ Traceback (most recent call last):
     pid, sts = os.waitpid(self.pid, flag)
   File "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/lib/python3.10/site-packages/torch/utils/data/_utils/signal_handling.py", line 73, in handler
     _error_if_any_worker_fails()
-RuntimeError: DataLoader worker (pid 321238) is killed by signal: Terminated. 
+RuntimeError: DataLoader worker (pid 321238) is killed by signal: Terminated.
 
 
 --- DAY SHIFT CYCLE 26: ridge_sigma_3.0 ---
@@ -166256,7 +166256,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615291 at threshold 0.051
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414511 
+val_bpb (Official):    0.414511
 avg_skel_dist:         28.445076
 avg_centerline_dice:   0.039402
 avg_cc_diff:           0.031
@@ -166452,7 +166452,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -166636,7 +166636,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615409 at threshold 0.071
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414405 
+val_bpb (Official):    0.414405
 avg_skel_dist:         28.107509
 avg_centerline_dice:   0.041587
 avg_cc_diff:           0.032
@@ -166838,7 +166838,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615311 at threshold 0.051
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414505 
+val_bpb (Official):    0.414505
 avg_skel_dist:         26.480204
 avg_centerline_dice:   0.039310
 avg_cc_diff:           0.031
@@ -167041,7 +167041,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615291 at threshold 0.051
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414511 
+val_bpb (Official):    0.414511
 avg_skel_dist:         27.266881
 avg_centerline_dice:   0.036173
 avg_cc_diff:           0.031
@@ -167240,7 +167240,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615461 at threshold 0.051
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414453 
+val_bpb (Official):    0.414453
 avg_skel_dist:         30.530169
 avg_centerline_dice:   0.051824
 avg_cc_diff:           0.033
@@ -167441,7 +167441,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.051
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -167637,7 +167637,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.617056 at threshold 0.071
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.416170 
+val_bpb (Official):    0.416170
 avg_skel_dist:         24.546387
 avg_centerline_dice:   0.070139
 avg_cc_diff:           0.148
@@ -167832,7 +167832,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.051
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414514 
+val_bpb (Official):    0.414514
 avg_skel_dist:         26.680584
 avg_centerline_dice:   0.035355
 avg_cc_diff:           0.031
@@ -168028,7 +168028,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.618266 at threshold 0.071
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.415207 
+val_bpb (Official):    0.415207
 avg_skel_dist:         25.008655
 avg_centerline_dice:   0.113545
 avg_cc_diff:           0.128
@@ -168454,7 +168454,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615757 at threshold 0.051
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414269 
+val_bpb (Official):    0.414269
 avg_skel_dist:         27.689662
 avg_centerline_dice:   0.048327
 avg_cc_diff:           0.034
@@ -168972,7 +168972,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615926 at threshold 0.051
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414466 
+val_bpb (Official):    0.414466
 avg_skel_dist:         27.930077
 avg_centerline_dice:   0.070864
 avg_cc_diff:           0.047
@@ -169505,7 +169505,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.617618 at threshold 0.091
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414442 
+val_bpb (Official):    0.414442
 avg_skel_dist:         21.673623
 avg_centerline_dice:   0.122910
 avg_cc_diff:           0.103
@@ -170037,7 +170037,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.616526 at threshold 0.071
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414431 
+val_bpb (Official):    0.414431
 avg_skel_dist:         23.682801
 avg_centerline_dice:   0.110682
 avg_cc_diff:           0.059
@@ -170567,7 +170567,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.616956 at threshold 0.071
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.416022 
+val_bpb (Official):    0.416022
 avg_skel_dist:         21.011680
 avg_centerline_dice:   0.140758
 avg_cc_diff:           0.122
@@ -171097,7 +171097,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.616095 at threshold 0.071
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.417177 
+val_bpb (Official):    0.417177
 avg_skel_dist:         25.666324
 avg_centerline_dice:   0.141200
 avg_cc_diff:           0.133
@@ -171213,7 +171213,7 @@ Traceback (most recent call last):
     pid, sts = os.waitpid(self.pid, flag)
   File "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/lib/python3.10/site-packages/torch/utils/data/_utils/signal_handling.py", line 73, in handler
     _error_if_any_worker_fails()
-RuntimeError: DataLoader worker (pid 343971) is killed by signal: Terminated. 
+RuntimeError: DataLoader worker (pid 343971) is killed by signal: Terminated.
 
 
 --- NIGHT SHIFT CYCLE 8: aug_scroll_z_dropout_p_0.25 ---
@@ -171735,7 +171735,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.616253 at threshold 0.071
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.415581 
+val_bpb (Official):    0.415581
 avg_skel_dist:         23.022699
 avg_centerline_dice:   0.107172
 avg_cc_diff:           0.098
@@ -172268,7 +172268,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.616913 at threshold 0.091
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.415206 
+val_bpb (Official):    0.415206
 avg_skel_dist:         25.622466
 avg_centerline_dice:   0.125610
 avg_cc_diff:           0.128
@@ -172692,7 +172692,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -173222,7 +173222,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.616066 at threshold 0.071
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.417541 
+val_bpb (Official):    0.417541
 avg_skel_dist:         22.216507
 avg_centerline_dice:   0.139159
 avg_cc_diff:           0.137
@@ -173720,7 +173720,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.618543 at threshold 0.111
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.416667 
+val_bpb (Official):    0.416667
 avg_skel_dist:         24.951230
 avg_centerline_dice:   0.143818
 avg_cc_diff:           0.209
@@ -173897,7 +173897,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615462 at threshold 0.091
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.420604 
+val_bpb (Official):    0.420604
 avg_skel_dist:         26.256393
 avg_centerline_dice:   0.090262
 avg_cc_diff:           0.135
@@ -174074,7 +174074,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.616015 at threshold 0.071
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414118 
+val_bpb (Official):    0.414118
 avg_skel_dist:         27.903470
 avg_centerline_dice:   0.043958
 avg_cc_diff:           0.033
@@ -174254,7 +174254,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.616141 at threshold 0.071
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414059 
+val_bpb (Official):    0.414059
 avg_skel_dist:         31.066537
 avg_centerline_dice:   0.053868
 avg_cc_diff:           0.034
@@ -174457,7 +174457,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.617216 at threshold 0.071
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414667 
+val_bpb (Official):    0.414667
 avg_skel_dist:         24.434952
 avg_centerline_dice:   0.131294
 avg_cc_diff:           0.083
@@ -174673,7 +174673,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615327 at threshold 0.213
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414745 
+val_bpb (Official):    0.414745
 avg_skel_dist:         27.868070
 avg_centerline_dice:   0.145896
 avg_cc_diff:           0.111
@@ -174854,7 +174854,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -175044,7 +175044,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.617962 at threshold 0.071
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.413437 
+val_bpb (Official):    0.413437
 avg_skel_dist:         27.566233
 avg_centerline_dice:   0.087162
 avg_cc_diff:           0.063
@@ -175223,7 +175223,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.617459 at threshold 0.071
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.413402 
+val_bpb (Official):    0.413402
 avg_skel_dist:         26.859329
 avg_centerline_dice:   0.099124
 avg_cc_diff:           0.042
@@ -175517,7 +175517,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.616354 at threshold 0.071
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.413830 
+val_bpb (Official):    0.413830
 avg_skel_dist:         28.123407
 avg_centerline_dice:   0.077354
 avg_cc_diff:           0.038
@@ -175694,7 +175694,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.616686 at threshold 0.111
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.415989 
+val_bpb (Official):    0.415989
 avg_skel_dist:         17.750489
 avg_centerline_dice:   0.132652
 avg_cc_diff:           0.121
@@ -175914,7 +175914,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.612567 at threshold 0.152
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.462368 
+val_bpb (Official):    0.462368
 avg_skel_dist:         25.033950
 avg_centerline_dice:   0.116751
 avg_cc_diff:           0.542
@@ -176091,7 +176091,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615922 at threshold 0.071
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414097 
+val_bpb (Official):    0.414097
 avg_skel_dist:         26.499917
 avg_centerline_dice:   0.074576
 avg_cc_diff:           0.032
@@ -176285,7 +176285,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.617088 at threshold 0.071
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414534 
+val_bpb (Official):    0.414534
 avg_skel_dist:         24.445909
 avg_centerline_dice:   0.116199
 avg_cc_diff:           0.095
@@ -176479,7 +176479,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.616410 at threshold 0.071
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.413907 
+val_bpb (Official):    0.413907
 avg_skel_dist:         29.560621
 avg_centerline_dice:   0.076789
 avg_cc_diff:           0.039
@@ -176664,7 +176664,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.616561 at threshold 0.091
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.415355 
+val_bpb (Official):    0.415355
 avg_skel_dist:         28.290111
 avg_centerline_dice:   0.106133
 avg_cc_diff:           0.128
@@ -176825,7 +176825,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615304 at threshold 0.071
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414497 
+val_bpb (Official):    0.414497
 avg_skel_dist:         27.819448
 avg_centerline_dice:   0.035356
 avg_cc_diff:           0.031
@@ -176992,7 +176992,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615385 at threshold 0.071
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414462 
+val_bpb (Official):    0.414462
 avg_skel_dist:         27.624744
 avg_centerline_dice:   0.035057
 avg_cc_diff:           0.031
@@ -177178,7 +177178,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615292 at threshold 0.152
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414546 
+val_bpb (Official):    0.414546
 avg_skel_dist:         27.490366
 avg_centerline_dice:   0.035375
 avg_cc_diff:           0.031
@@ -177350,7 +177350,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615411 at threshold 0.091
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.416246 
+val_bpb (Official):    0.416246
 avg_skel_dist:         25.696837
 avg_centerline_dice:   0.094093
 avg_cc_diff:           0.112
@@ -177514,7 +177514,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615289 at threshold 0.071
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414512 
+val_bpb (Official):    0.414512
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -177692,7 +177692,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.617211 at threshold 0.071
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.413725 
+val_bpb (Official):    0.413725
 avg_skel_dist:         25.149665
 avg_centerline_dice:   0.095737
 avg_cc_diff:           0.045
@@ -177868,7 +177868,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615697 at threshold 0.071
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414277 
+val_bpb (Official):    0.414277
 avg_skel_dist:         27.436165
 avg_centerline_dice:   0.038807
 avg_cc_diff:           0.033
@@ -178273,7 +178273,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.618358 at threshold 0.071
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.412770 
+val_bpb (Official):    0.412770
 avg_skel_dist:         28.653080
 avg_centerline_dice:   0.105117
 avg_cc_diff:           0.054
@@ -178466,7 +178466,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.618218 at threshold 0.071
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.413274 
+val_bpb (Official):    0.413274
 avg_skel_dist:         23.482503
 avg_centerline_dice:   0.046673
 avg_cc_diff:           0.056
@@ -178571,7 +178571,7 @@ Traceback (most recent call last):
     return self._conv_forward(input, self.weight, self.bias)
   File "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/lib/python3.10/site-packages/torch/nn/modules/conv.py", line 712, in _conv_forward
     return F.conv3d(
-RuntimeError: NVML_SUCCESS == DriverAPI::get()->nvmlInit_v2_() INTERNAL ASSERT FAILED at "/pytorch/c10/cuda/CUDACachingAllocator.cpp":1090, please report a bug to PyTorch. 
+RuntimeError: NVML_SUCCESS == DriverAPI::get()->nvmlInit_v2_() INTERNAL ASSERT FAILED at "/pytorch/c10/cuda/CUDACachingAllocator.cpp":1090, please report a bug to PyTorch.
 Exception ignored in atexit callback: <function _exit_function at 0x740137a6e0e0>
 Traceback (most recent call last):
   File "/home/jon/.local/share/uv/python/cpython-3.10-linux-x86_64-gnu/lib/python3.10/multiprocessing/util.py", line 357, in _exit_function
@@ -178584,7 +178584,7 @@ Traceback (most recent call last):
     pid, sts = os.waitpid(self.pid, flag)
   File "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/lib/python3.10/site-packages/torch/utils/data/_utils/signal_handling.py", line 73, in handler
     _error_if_any_worker_fails()
-RuntimeError: DataLoader worker (pid 467835) is killed by signal: Terminated. 
+RuntimeError: DataLoader worker (pid 467835) is killed by signal: Terminated.
 
 
 --- DAY SHIFT CYCLE 35: weight_decay_0.001 ---
@@ -178759,7 +178759,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.617511 at threshold 0.071
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.413300 
+val_bpb (Official):    0.413300
 avg_skel_dist:         25.750926
 avg_centerline_dice:   0.091577
 avg_cc_diff:           0.048
@@ -178943,7 +178943,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.617309 at threshold 0.071
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.413896 
+val_bpb (Official):    0.413896
 avg_skel_dist:         24.940107
 avg_centerline_dice:   0.039405
 avg_cc_diff:           0.053
@@ -179129,7 +179129,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.617832 at threshold 0.071
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.413171 
+val_bpb (Official):    0.413171
 avg_skel_dist:         27.459708
 avg_centerline_dice:   0.039578
 avg_cc_diff:           0.051
@@ -179331,7 +179331,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.617386 at threshold 0.091
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.413861 
+val_bpb (Official):    0.413861
 avg_skel_dist:         25.053831
 avg_centerline_dice:   0.088686
 avg_cc_diff:           0.063
@@ -179466,7 +179466,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615392 at threshold 0.192
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414637 
+val_bpb (Official):    0.414637
 avg_skel_dist:         25.741529
 avg_centerline_dice:   0.113414
 avg_cc_diff:           0.054
@@ -179959,7 +179959,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615454 at threshold 0.111
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414445 
+val_bpb (Official):    0.414445
 avg_skel_dist:         25.392192
 avg_centerline_dice:   0.022659
 avg_cc_diff:           0.033
@@ -180450,7 +180450,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.615288 at threshold 0.010
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414513 
+val_bpb (Official):    0.414513
 avg_skel_dist:         27.171802
 avg_centerline_dice:   0.035448
 avg_cc_diff:           0.031
@@ -180972,7 +180972,7 @@ Evaluating metrics on 100 ink-containing patches (searching for best threshold).
   Best Validation Dice: 0.616524 at threshold 0.071
 
 --- Foundation Pretraining Complete ---
-val_bpb (Official):    0.414828 
+val_bpb (Official):    0.414828
 avg_skel_dist:         23.801587
 avg_centerline_dice:   0.135257
 avg_cc_diff:           0.112
