@@ -5,7 +5,7 @@
   "name": "Ink Prediction pred_10_1000_1000_64x64",
   "slices": 1,
   "type": "vol",
-  "uuid": "57ff5d15-7fcd-4dc6-983a-005fa3fb39b6",
+  "uuid": "0369a704-c1b0-49db-93eb-c43c57fc5601",
   "voxelsize": 7.91,
   "width": 64,
   "format": "zarr",
