@@ -5,7 +5,7 @@
   "name": "Fiber Prediction pred_10_1000_1000_64x64",
   "slices": 1,
   "type": "vol",
-  "uuid": "b33ea6b8-aeee-41fa-9963-e79d633da47d",
+  "uuid": "e7162a94-b1bc-4ce2-927a-e112cf5bbce0",
   "voxelsize": 7.91,
   "width": 64,
   "format": "zarr",

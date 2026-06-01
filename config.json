@@ -50,7 +50,7 @@
     "target_fiber_source": "sobel_z",
     "target_fiber_sigma": 2.0,
     "multi_task_heads": false,
-    "architecture": "resenc_unet",
+    "architecture": "lejepa_unet",
     "base_feat": 64,
     "num_blocks": 16,
     "num_heads": 8,

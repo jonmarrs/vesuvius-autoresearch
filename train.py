@@ -1473,23 +1473,10 @@ def train(config: ExperimentConfig):
             )
 
         # Pre-backward check
-        if not torch.isfinite(total_loss):
-            print(
-                f"\n[WARNING] NaN loss detected before backward at step {step}. Skipping."
-            )
-            optimizer.zero_grad(set_to_none=True)
-            total_loss = torch.tensor(0.0, device=device, requires_grad=True)
-            # Continue to skip the backward/update steps
-
         if not torch.isfinite(total_loss) or total_loss.item() > 1e6:
-            print(
-                f"\n[WARNING] Numerical Instability at Step {step}: Loss {total_loss.item():.2e}"
-            )
-            print(
-                f"Ink: {loss_ink.item():.2e}, Dice: {loss_dice.item():.2e}, Fiber: {loss_fiber.item():.2e}, QC: {loss_qc.item():.2e}, ST: {loss_st_val.item():.2e}, Halluc: {hallucination_penalty.item():.2e}, UAMT: {uamt_loss.item():.2e}"
-            )
+            print(f"\n[WARNING] Invalid loss {total_loss.item() if torch.isfinite(total_loss) else 'NaN'} at step {step}. Skipping update.")
             optimizer.zero_grad(set_to_none=True)
-            total_loss = torch.tensor(0.0, device=device, requires_grad=True)
+            # Skip backward and optimizer step
         else:
             scaler.scale(total_loss).backward()
             scaler.unscale_(optimizer)
@@ -1508,6 +1495,7 @@ def train(config: ExperimentConfig):
                         param_teacher.data.mul_(decay).add_(
                             param_student.data, alpha=1.0 - decay
                         )
+
 
         dt = time.time() - t0
         total_training_time += dt
