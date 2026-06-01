@@ -1185,7 +1185,7 @@ def train(config: ExperimentConfig):
         )
 
     scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda)
-    amp_enabled = device.type == "cuda"
+    amp_enabled = False  # Disabled for NaN debugging
     scaler = GradScaler(device=device.type, enabled=amp_enabled)
 
     # Initialize auxiliary task tools
@@ -1474,28 +1474,42 @@ def train(config: ExperimentConfig):
 
         # Pre-backward check
         if not torch.isfinite(total_loss) or total_loss.item() > 1e6:
-            print(f"\n[WARNING] Invalid loss {total_loss.item() if torch.isfinite(total_loss) else 'NaN'} at step {step}. Skipping update.")
+            print(
+                f"\n[WARNING] Numerical Instability at Step {step}: Loss {total_loss.item() if torch.isfinite(total_loss) else 'NaN'}"
+            )
+            print(
+                f"Ink: {loss_ink.item():.2e}, Dice: {loss_dice.item():.2e}, Fiber: {loss_fiber.item():.2e}, QC: {loss_qc.item():.2e}, ST: {loss_st_val.item():.2e}, Halluc: {hallucination_penalty.item():.2e}, UAMT: {uamt_loss.item():.2e}"
+            )
+            # Detailed NaN source diagnostics
+            if torch.isnan(out_ink_2d).any():
+                print(" -> out_ink_2d has NaN")
+            if torch.isnan(target_ink_aug1).any():
+                print(" -> target_ink_aug1 has NaN")
+            if out_fiber is not None and torch.isnan(out_fiber).any():
+                print(" -> out_fiber has NaN")
+
             optimizer.zero_grad(set_to_none=True)
-            # Skip backward and optimizer step
-        else:
-            scaler.scale(total_loss).backward()
-            scaler.unscale_(optimizer)
-            torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
-            scaler.step(optimizer)
-            scaler.update()
-            scheduler.step()
+            # We MUST provide a dummy backward pass with 0 loss to keep GradScaler state valid,
+            # otherwise it will either crash (AssertionError) or stall.
+            total_loss = torch.tensor(0.0, device=device, requires_grad=True)
 
-            # UAMT: Update Teacher EMA
-            if config.use_uamt and ema_model is not None:
-                with torch.no_grad():
-                    decay = config.ema_decay
-                    for param_student, param_teacher in zip(
-                        model.parameters(), ema_model.parameters(), strict=False
-                    ):
-                        param_teacher.data.mul_(decay).add_(
-                            param_student.data, alpha=1.0 - decay
-                        )
+        scaler.scale(total_loss).backward()
+        scaler.unscale_(optimizer)
+        torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+        scaler.step(optimizer)
+        scaler.update()
+        scheduler.step()
 
+        # UAMT: Update Teacher EMA
+        if config.use_uamt and ema_model is not None:
+            with torch.no_grad():
+                decay = config.ema_decay
+                for param_student, param_teacher in zip(
+                    model.parameters(), ema_model.parameters(), strict=False
+                ):
+                    param_teacher.data.mul_(decay).add_(
+                        param_student.data, alpha=1.0 - decay
+                    )
 
         dt = time.time() - t0
         total_training_time += dt
