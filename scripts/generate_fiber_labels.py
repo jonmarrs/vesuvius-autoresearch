@@ -227,24 +227,17 @@ class _LabelResult:
 
 
 def _select_backend(use_gpu: bool) -> str:
-    """Pin tools.xp / tools.xndimage to the requested backend; return label."""
+    """Return the requested backend name."""
     if use_gpu:
         try:
             import cupy as cp
-            import cupyx.scipy.ndimage as cup_ndimage
 
-            tools.xp = cp
-            tools.xndimage = cup_ndimage
             return "cupy"
         except ImportError:
             print(
                 "warning: --use-gpu requested but cupy not importable; using numpy.",
                 file=sys.stderr,
             )
-    from scipy import ndimage as scipy_ndimage
-
-    tools.xp = np
-    tools.xndimage = scipy_ndimage
     return "numpy"
 
 
@@ -325,14 +318,18 @@ def _generate_label_for(
         )
 
     if backend == "cupy":
-        ct_input = tools.xp.asarray(ct_patch)
+        import cupy as cp
+
+        ct_input = cp.asarray(ct_patch)
     else:
         ct_input = ct_patch
 
     vesselness = detect_vesselness(ct_input)
 
     if backend == "cupy":
-        vesselness_np = tools.xp.asnumpy(vesselness)
+        import cupy as cp
+
+        vesselness_np = cp.asnumpy(vesselness)
     else:
         vesselness_np = vesselness
 

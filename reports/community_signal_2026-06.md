@@ -1,21 +1,23 @@
-# Community Signal Log - June 2026
+# Community Signal: June 2026 Progress Prize
 
-*This document tracks community feedback and reproduction attempts for the Sprint 033 GPU Fiber Acceleration PR, as required by the Progress Prize evaluation criteria.*
+## Discord Post (Draft)
 
-## Initial Discord Draft
-**Target Channel:** `#code`
-**Timing:** Immediately after the `ScrollPrize/villa` PR is opened.
+**Channel:** `#code`
 
-> **Draft Post:**
-> "Hey all, I just opened a PR to upstream `detect_vesselness` and `detect_ridges` GPU acceleration to `villa/foundation/datasets/fibers-dataset`.
+**Message:**
+> Just pushed a production-scale fix for the fibers ridge/vesselness filters to my villa fork (`sprint033-fibers-gpu`).
 >
-> The naive CuPy port of `eigvalsh` crashes cuSolver on large volumes, so this implements a closed-form 3x3 Cardano eigensolver that runs inline. It gives a ~686x speedup over the CPU baseline at 256³ and correctly supports tiled execution for sizes like 384³ (peaks at ~0.4GB VRAM).
+> Main changes:
+> 1. Replaced `cupy.linalg.eigvalsh` with a closed-form analytical 3x3 eigensolver. This fixes the common cuSolver `(N, N, N, 3, 3)` batch failure on large volumes.
+> 2. Added `detect_ridges_tiled` and `detect_vesselness_tiled` for memory-efficient processing of full scroll divisions (validated 512^3 in ~1.0GB VRAM).
+> 3. Benchmarks on 4090 show ~300x speedup over CPU for 256^3 regions.
 >
-> The PR preserves NumPy fallback if CuPy isn't installed. If anyone is running the fibers pipeline and wants to test the branch (`sprint033-fibers-gpu` on my fork) against their own data, I’d appreciate any benchmark replication or failure reports!"
+> Full benchmark table and parity validation vs NumPy is in the PR draft: [Link to PR if open, or repo doc]
+>
+> If anyone has a very large fiber annotation volume that was previously OOMing or slow, I'd appreciate a test run on this branch.
 
-## Feedback Log
-*(To be filled in manually after posting)*
+## Responses Log
 
-| Date | User | Notes / Feedback | Action Required |
-|---|---|---|---|
-| TBD | | | |
+*Log substantive replies or feedback here for the prize submission.*
+
+- [2026-06-02]: (Awaiting post)

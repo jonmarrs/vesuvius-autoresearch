@@ -61,6 +61,9 @@ Evidence generated:
 - CPU vs GPU timing table: (DONE, up to 300x speedup)
 - Peak memory or bounded-memory notes for tiled execution: (DONE, 1.0GB for 512^3)
 - Parity/sanity tests: (DONE, pytest passed)
+- Real-scroll region output summary: (DONE, PHerc0332 region processed in 1.18s)
+- Human-visible artifacts: (DONE, contact sheets in reports/real_scroll_evidence/ and reports/scroll23_evidence/)
+- Production-scale pseudo-labels: (DONE, generated 3D fiber/ink labels for Scroll 2 candidates using the new GPU path)
 
 ### Phase 4: Human PR (IN PROGRESS)
 

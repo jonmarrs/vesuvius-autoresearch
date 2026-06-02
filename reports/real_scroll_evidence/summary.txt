@@ -1,0 +1,5 @@
+Scroll: PHerc0332_div_100_1GB
+Chunk Size: (256, 256, 256)
+GPU Time: 1.1808s
+Max Vesselness: 0.3820
+Mean Vesselness: 0.0009

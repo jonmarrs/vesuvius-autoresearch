@@ -157,27 +157,10 @@ class FastVesuviusVolume:
                 #      every use_ridges=True cycle silently trained on zeros.
                 ridges_tensor = None
                 try:
-                    # Pre-load PyTorch bundled NVIDIA libraries so CuPy can find libcusolver.so.11
-                    import ctypes
-                    import glob
-                    import os
-                    import site
-
-                    site_pkgs = site.getsitepackages()
-                    if site_pkgs:
-                        for lib_path in glob.glob(
-                            os.path.join(site_pkgs[0], "nvidia", "*", "lib", "*.so.*")
-                        ):
-                            try:
-                                ctypes.cdll.LoadLibrary(lib_path)
-                            except Exception:
-                                pass
                     import cupy as cp
-                    import cupyx.scipy.ndimage as cup_ndimage
 
-                    fiber_tools.xp = cp
-                    fiber_tools.xndimage = cup_ndimage
                     ct_gpu = cp.asarray(ct_norm)
+                    # New tools.py automatically detects CP backend and avoids cuSolver
                     ridges_gpu = fiber_tools.detect_ridges(
                         ct_gpu, sigma=self.ridge_sigma
                     )
@@ -190,10 +173,6 @@ class FastVesuviusVolume:
                     )
                 if ridges_tensor is None:
                     try:
-                        import scipy.ndimage as scipy_ndimage
-
-                        fiber_tools.xp = np
-                        fiber_tools.xndimage = scipy_ndimage
                         ridges = fiber_tools.detect_ridges(
                             ct_norm, sigma=self.ridge_sigma
                         )
@@ -493,11 +472,7 @@ class VesuviusLabeledDataset(torch.utils.data.Dataset):
             # Take CT channel only (index 0): patch_vol is [C, Z, H, W] or [Z, H, W]
             ct = patch_vol[0] if patch_vol.dim() == 4 else patch_vol
             ct_np = ct.detach().cpu().numpy().astype(np.float32)
-            # Force numpy backend (CPU path, libcusolver-free)
-            from scipy import ndimage as scipy_ndimage
-
-            fiber_tools.xp = np
-            fiber_tools.xndimage = scipy_ndimage
+            # New tools.py automatically handles NP backend
             vesselness = fiber_tools.detect_vesselness(
                 ct_np, sigma=self.target_fiber_sigma
             )
