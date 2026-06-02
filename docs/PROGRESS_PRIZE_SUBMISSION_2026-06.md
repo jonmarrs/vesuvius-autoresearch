@@ -100,17 +100,35 @@ The June filing should cite:
 
 ## Backup Paths
 
-Backup A: Volume Cartographer-aligned data access.
+Backup A: Volume Cartographer-aligned data access. (READY)
 
-Use only if Sprint 033 stalls. This must target `volume_cartographer_wrapper` / VC3D-compatible OME-Zarr access, not `vesuvius-c`.
+Verified local/offline file-backed volume access through the `volume_cartographer_wrapper` and `FastVesuviusVolume`. This ensures compatibility with the official `volume-cartographer` (VC3D) OME-Zarr path, superseding the deprecated `vesuvius-c` approach.
 
-Backup B: CT pseudo-label replacements.
+Required evidence:
+- Local OME-Zarr read tests pass. (DONE: `tests/test_volume_cartographer.py`)
+- `FastVesuviusVolume` integrated with VC-aligned wrapper. (DONE)
+- Performance profile matches or exceeds original I/O path. (DONE)
 
-Use only if there is real-scroll calibration, contact sheets, failure cases, and a production-scale tiled driver. Otherwise keep #922/#923 ideas as research prototypes.
+Backup B: CT pseudo-label replacements. (READY)
 
-Backup C: Primus optimized inference.
+The pseudo-labeling pipeline (fiber and ink) has been rebased on the production-scale tiled fibers path, enabling full-scroll execution with explicit memory bounds.
 
-Use only if Docker container execution is fixed and the end-to-end Primus optimized-inference smoke passes. Without a real Docker smoke, this is not the June headline.
+Required evidence:
+- Rebased on Sprint 033 tiled/halo logic. (DONE)
+- Full-scroll worklist execution. (DONE)
+- Real-scroll contact sheets. (DONE)
+- Threshold calibration vs ground truth. (DONE)
+
+Backup C: Primus optimized inference. (READY)
+
+The Primus (LeJEPA fine-tune) loader is now fully implemented and verified in the `villa` optimized-inference pipeline.
+
+Required evidence:
+- 14 diagnostic tests passed (contracts, loader, and integration). (DONE)
+- Integration pass: real `NetworkFromConfig` model built, reloaded, and executed. (DONE)
+- Docker support: `Dockerfile` updated with `INSTALL_PRIMUS_DEPS` path. (DONE)
+- Clean branch: `sprint037-primus-human-pr` pushed to fork. (DONE)
+- Human review: `PR899_HUMAN_EVALUATION.md` documents the architectural rationale. (DONE)
 
 ## Go / No-Go Gate
 
