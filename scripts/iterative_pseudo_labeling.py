@@ -18,6 +18,7 @@ import argparse
 import os
 import subprocess
 
+import numpy as np
 from PIL import Image
 
 
@@ -28,24 +29,25 @@ def run_command(cmd, env=None):
 
 def generate_pseudo_labels(model_path, data_uris, threshold, out_dir):
     """
-    Generates pseudo-labels using the current best model.
-    In a real scenario, this would call predict.py over the unlabeled regions,
-    apply the threshold, and save the pseudo-labels.
+    Generates pseudo-labels using the current best model by calling generate_pseudo_labels.py.
     """
     print(f"Generating pseudo-labels with threshold {threshold} using {model_path}...")
     os.makedirs(out_dir, exist_ok=True)
 
-    # Placeholder for actual prediction loop over data_uris
-    for uri in data_uris:
-        print(f"  Predicting on {uri}...")
-        # Simulating prediction output
-        base_name = uri.replace("/", "_").replace(".", "_")
-        pseudo_label_path = os.path.join(out_dir, f"{base_name}_pseudo.png")
-
-        # Create a dummy image for dry-run
-        dummy = Image.new("L", (100, 100), 0)
-        dummy.save(pseudo_label_path)
-        print(f"  Saved pseudo-labels to {pseudo_label_path}")
+    cmd = (
+        ["uv", "run", "scripts/generate_pseudo_labels.py", "--uris"]
+        + list(data_uris)
+        + [
+            "--model_path",
+            model_path,
+            "--threshold",
+            str(threshold),
+            "--out_dir",
+            out_dir,
+        ]
+    )
+    run_command(cmd)
+    print(f"Generated pseudo-labels in {out_dir}")
 
 
 def combine_labels(manual_dir, pseudo_dir, combined_dir):
@@ -57,8 +59,29 @@ def combine_labels(manual_dir, pseudo_dir, combined_dir):
         f"Combining manual labels from {manual_dir} and pseudo-labels from {pseudo_dir} into {combined_dir}..."
     )
     os.makedirs(combined_dir, exist_ok=True)
-    # Placeholder for actual masking and combination logic
-    print("  (Masking out manual-label overlap...)")
+
+    # Get all pseudo files
+    pseudo_files = [f for f in os.listdir(pseudo_dir) if f.endswith("_pseudo.png")]
+
+    for pseudo_file in pseudo_files:
+        segment_name = pseudo_file.replace("_pseudo.png", "")
+        manual_path = os.path.join(manual_dir, f"{segment_name}.png")
+
+        pseudo_path = os.path.join(pseudo_dir, pseudo_file)
+        pseudo_img = np.array(Image.open(pseudo_path))
+
+        if os.path.exists(manual_path):
+            manual_img = np.array(Image.open(manual_path))
+            # Manual labels (ground truth) take precedence.
+            # If manual is 255, combined is 255.
+            # If pseudo is 255 and manual is 0, combined is 255.
+            combined_img = np.maximum(manual_img, pseudo_img)
+        else:
+            combined_img = pseudo_img
+
+        out_path = os.path.join(combined_dir, f"{segment_name}_combined.png")
+        Image.fromarray(combined_img).save(out_path)
+        print(f"  Saved combined labels to {out_path}")
 
 
 def main():
