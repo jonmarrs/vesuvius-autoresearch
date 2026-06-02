@@ -927,7 +927,7 @@ def train(config: ExperimentConfig):
 
         combined_ds = ConcatDataset(datasets) if len(datasets) > 1 else datasets[0]
         # Set num_workers to 0 to prevent semaphore leaks (resource_tracker warnings)
-        num_workers = 0 
+        num_workers = 0
         return DataLoader(
             combined_ds,
             batch_size=config.batch_size,
@@ -1365,14 +1365,20 @@ def train(config: ExperimentConfig):
             else:
                 out_ink_2d = model_out
                 out_fiber = out_qc = p1 = out_st = None
-                
+
             # --- START FIX: Prevent NaN/Inf loss from AMP float16 overflow ---
             if out_ink_2d is not None:
-                out_ink_2d = torch.nan_to_num(out_ink_2d, nan=0.0, posinf=100.0, neginf=-100.0).clamp(-100.0, 100.0)
+                out_ink_2d = torch.nan_to_num(
+                    out_ink_2d, nan=0.0, posinf=100.0, neginf=-100.0
+                ).clamp(-100.0, 100.0)
             if out_fiber is not None:
-                out_fiber = torch.nan_to_num(out_fiber, nan=0.0, posinf=100.0, neginf=-100.0).clamp(-100.0, 100.0)
+                out_fiber = torch.nan_to_num(
+                    out_fiber, nan=0.0, posinf=100.0, neginf=-100.0
+                ).clamp(-100.0, 100.0)
             if out_qc is not None:
-                out_qc = torch.nan_to_num(out_qc, nan=0.0, posinf=100.0, neginf=-100.0).clamp(-100.0, 100.0)
+                out_qc = torch.nan_to_num(
+                    out_qc, nan=0.0, posinf=100.0, neginf=-100.0
+                ).clamp(-100.0, 100.0)
             # --- END FIX ---
 
             # Forward pass for view 2 (consistency only)
@@ -1468,7 +1474,9 @@ def train(config: ExperimentConfig):
 
             consistency_loss = torch.tensor(0.0, device=device)
             if p1 is not None and p2 is not None:
-                consistency_loss = 1.0 - F.cosine_similarity(p1 + 1e-8, p2 + 1e-8, dim=1).mean()
+                consistency_loss = (
+                    1.0 - F.cosine_similarity(p1 + 1e-8, p2 + 1e-8, dim=1).mean()
+                )
 
             total_loss = (
                 config.loss_ink_bce * loss_ink
