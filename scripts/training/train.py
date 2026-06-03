@@ -1420,11 +1420,17 @@ def train(config: ExperimentConfig):
                     teacher_preds = torch.stack(teacher_preds)  # [T, B, 1, H, W]
                     teacher_prob = torch.mean(teacher_preds, dim=0)  # [B, 1, H, W]
                     teacher_var = torch.var(teacher_preds, dim=0)  # [B, 1, H, W]
+                    if torch.isnan(teacher_var).any():
+                        print(f"DEBUG: NaN in teacher_var at step {step}")
                     ema_model.eval()  # Restore eval mode
 
                 # Uncertainty-Aware Consistency Loss: Weight MSE by exp(-variance)
                 uncertainty_weight = torch.exp(-teacher_var)
+                if torch.isnan(uncertainty_weight).any():
+                    print(f"DEBUG: NaN in uncertainty_weight at step {step}")
                 mse_loss = F.mse_loss(student_prob, teacher_prob, reduction="none")
+                if torch.isnan(mse_loss).any():
+                    print(f"DEBUG: NaN in mse_loss at step {step}")
                 uamt_loss = config.consistency_weight * torch.mean(
                     uncertainty_weight * mse_loss
                 )
