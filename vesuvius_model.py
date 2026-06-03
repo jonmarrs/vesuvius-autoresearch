@@ -332,20 +332,28 @@ class InkDetectorOptimized(nn.Module):
         self.patch_size = config.patch_size
         self.num_layers = config.num_layers
 
-        # Encoder: Hierarchical 3D Patch Embedding
-        self.stage1 = nn.Conv3d(
-            self.in_channels,
-            self.base_feat // 2,
-            kernel_size=3,
-            stride=(2, 2, 2),
-            padding=1,
+        # Encoder: Hierarchical 3D Patch Embedding with BatchNorm
+        self.stage1 = nn.Sequential(
+            nn.Conv3d(
+                self.in_channels,
+                self.base_feat // 2,
+                kernel_size=3,
+                stride=(2, 2, 2),
+                padding=1,
+            ),
+            nn.BatchNorm3d(self.base_feat // 2),
+            nn.GELU(),
         )
-        self.stage2 = nn.Conv3d(
-            self.base_feat // 2,
-            self.base_feat,
-            kernel_size=3,
-            stride=(2, 2, 2),
-            padding=1,
+        self.stage2 = nn.Sequential(
+            nn.Conv3d(
+                self.base_feat // 2,
+                self.base_feat,
+                kernel_size=3,
+                stride=(2, 2, 2),
+                padding=1,
+            ),
+            nn.BatchNorm3d(self.base_feat),
+            nn.GELU(),
         )
 
         # Positional Embedding: Canonical 3D grid that is interpolated in forward()
@@ -418,8 +426,7 @@ class InkDetectorOptimized(nn.Module):
         B, C, Z, H, W = x.shape
 
         # 1. Encoder
-        s1 = self.stage1(x)
-        x_emb = self.stage2(s1)
+        x_emb = self.stage2(self.stage1(x))
         lz, lh, lw = x_emb.shape[2:]
 
         # 2. Transformer
@@ -441,10 +448,10 @@ class InkDetectorOptimized(nn.Module):
 
         # Use interpolation for robust size matching in UNet
         x_up1 = F.interpolate(
-            x_trans, size=s1.shape[2:], mode="trilinear", align_corners=False
+            x_trans, size=x_emb.shape[2:], mode="trilinear", align_corners=False
         )
         x_up1 = self.up1_conv(x_up1)
-        x_f1 = self.fusion1(s1, x_up1)
+        x_f1 = self.fusion1(x_emb, x_up1)
 
         x_up2 = F.interpolate(
             x_f1, size=x.shape[2:], mode="trilinear", align_corners=False
