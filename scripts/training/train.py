@@ -1347,9 +1347,8 @@ def train(config: ExperimentConfig):
             else:
                 target_st = None
 
-        # Enable anomaly detection for NaN debugging
-        torch.autograd.set_detect_anomaly(True)
-
+        # Disable anomaly detection for normal training
+        torch.autograd.set_detect_anomaly(False)
         optimizer.zero_grad(set_to_none=True)
         with autocast(device_type=device.type, enabled=amp_enabled):
             # Forward pass for view 1 (full multi-task if supported)
