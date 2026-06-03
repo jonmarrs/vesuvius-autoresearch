@@ -564,8 +564,8 @@ class ResBlock3D(nn.Module):
         self.conv2 = nn.Conv3d(
             channels, channels, kernel_size=(3, 1, 5), padding=(1, 0, 2)
         )
-        self.norm1 = nn.GroupNorm(min(channels, 8), channels)
-        self.norm2 = nn.GroupNorm(min(channels, 8), channels)
+        self.norm1 = nn.BatchNorm3d(channels)
+        self.norm2 = nn.BatchNorm3d(channels)
         self.se = SEBlock3D(channels)
 
     def forward(self, x):
