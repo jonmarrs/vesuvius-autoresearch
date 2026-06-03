@@ -34,8 +34,8 @@
     "aug_scroll_squeeze_p": 0.25,
     "aug_scroll_z_dropout_p": 0.0,
     "aug_scroll_intensity_drift_p": 0.0,
-    "use_betti_loss": true,
-    "betti_loss_weight": 0.05,
+    "use_betti_loss": false,
+    "betti_loss_weight": 0.1,
     "auxiliary_config": {
         "enabled": false,
         "task_types": [
