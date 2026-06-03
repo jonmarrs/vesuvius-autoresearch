@@ -1477,6 +1477,10 @@ def train(config: ExperimentConfig):
 
             consistency_loss = torch.tensor(0.0, device=device)
             if p1 is not None and p2 is not None:
+                # Diagnostic check for NaNs
+                if torch.isnan(p1).any() or torch.isnan(p2).any():
+                    print(f"DEBUG: NaN detected in p1 or p2 at step {step}")
+                
                 # Numerical stability: Ensure vectors are not zero before similarity
                 p1_norm = torch.norm(p1, dim=1, keepdim=True)
                 p2_norm = torch.norm(p2, dim=1, keepdim=True)
