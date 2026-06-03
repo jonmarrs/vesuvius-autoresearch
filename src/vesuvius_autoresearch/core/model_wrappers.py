@@ -59,6 +59,7 @@ class GenericMultiTaskWrapper(nn.Module):
                 nn.AdaptiveAvgPool3d(1),
                 nn.Flatten(),
                 nn.Linear(1, 128),
+                nn.LayerNorm(128),
             )
         if multi_task_heads:
             # Feature input to the heads: cat(input_x, backbone_output)
@@ -127,7 +128,9 @@ class GenericMultiTaskWrapper(nn.Module):
             proj_in = (
                 out if out.dim() == 5 else out.unsqueeze(2).unsqueeze(-1).unsqueeze(-1)
             )
-            results.append(self.projector(proj_in))
+            projection = self.projector(proj_in)
+            # Enforce finiteness to prevent NaN propagation
+            results.append(torch.clamp(projection, min=-1e6, max=1e6))
         if return_st:
             if self.multi_task_heads and feat is not None:
                 results.append(self.st_head(feat))
