@@ -503,7 +503,7 @@ def main():
                 env_unbuffered = env.copy()
                 env_unbuffered["PYTHONUNBUFFERED"] = "1"
                 p = subprocess.Popen(
-                    ["uv", "run", "python", "-u", "train.py", "--config", TEMP_CONFIG],
+                    ["uv", "run", "python", "-u", "scripts/training/train.py", "--config", TEMP_CONFIG],
                     stdout=f,
                     stderr=subprocess.STDOUT,
                     env=env_unbuffered,
