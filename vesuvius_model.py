@@ -213,6 +213,13 @@ class LeJEPAUNet(nn.Module):
         # x: [B, C, Z, H, W]
         out_dict = self.backbone(x)
         out = out_dict["ink"]  # [B, 1, Z, H, W]
+        
+        # Diagnostic check: Isolate if NaN comes from LeJEPA backbone
+        if torch.isnan(out).any():
+             print("DEBUG: NaN detected in LeJEPAUNet backbone output")
+
+        # Structural Stability: Clamp activations to prevent NaN propagation
+        out = torch.clamp(out, min=-1e6, max=1e6)
 
         # Collapse Z dimension to [B, 1, H, W] for ink prediction
         out_2d = torch.mean(out, dim=2)
