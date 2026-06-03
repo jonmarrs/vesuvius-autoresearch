@@ -1477,8 +1477,12 @@ def train(config: ExperimentConfig):
 
             consistency_loss = torch.tensor(0.0, device=device)
             if p1 is not None and p2 is not None:
+                # Numerical stability: Ensure vectors are not zero before similarity
+                p1_norm = torch.norm(p1, dim=1, keepdim=True)
+                p2_norm = torch.norm(p2, dim=1, keepdim=True)
+                # Use a larger epsilon to prevent division by near-zero norms
                 consistency_loss = (
-                    1.0 - F.cosine_similarity(p1 + 1e-8, p2 + 1e-8, dim=1).mean()
+                    1.0 - F.cosine_similarity(p1, p2, dim=1, eps=1e-6).mean()
                 )
 
             total_loss = (
