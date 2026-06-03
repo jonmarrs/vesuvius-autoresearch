@@ -1530,6 +1530,14 @@ def train(config: ExperimentConfig):
 
         scaler.scale(total_loss).backward()
         scaler.unscale_(optimizer)
+        
+        # Diagnostic check for NaNs in gradients or weights
+        for name, param in model.named_parameters():
+            if param.grad is not None and torch.isnan(param.grad).any():
+                print(f"DEBUG: NaN in gradient for {name} at step {step}")
+            if torch.isnan(param).any():
+                print(f"DEBUG: NaN in weights for {name} at step {step}")
+
         torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
         scaler.step(optimizer)
         scaler.update()
