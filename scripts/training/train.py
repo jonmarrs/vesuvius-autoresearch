@@ -1363,7 +1363,7 @@ def train(config: ExperimentConfig):
                 out_ink_2d = model_out[0]
                 # Diagnostic check: Isolate if NaN comes from backbone forward pass
                 if torch.isnan(out_ink_2d).any():
-
+                    print(f"DEBUG: NaN detected in model backbone output (out_ink_2d) at step {step}")
                 # Map remaining outputs if they exist
                 # This is a bit brittle, but works with our current return order
                 out_fiber = model_out[1] if len(model_out) > 1 else None
