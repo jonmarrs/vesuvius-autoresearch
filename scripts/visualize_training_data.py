@@ -6,7 +6,7 @@ import argparse
 
 import matplotlib.pyplot as plt
 
-from vesuvius_loader import VesuviusLabeledDataset
+from vesuvius_autoresearch.core.vesuvius_loader import VesuviusLabeledDataset
 
 
 def visualize_training_samples(

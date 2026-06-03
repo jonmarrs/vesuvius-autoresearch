@@ -14,9 +14,9 @@ import torch
 from matplotlib.patches import Rectangle
 from tap import Tap
 
-from model_wrappers import build_inference_model
 from predict import get_weight_window, load_compatible_state_dict, save_vc3d_zarr
-from vesuvius_loader import FastVesuviusVolume
+from vesuvius_autoresearch.core.model_wrappers import build_inference_model
+from vesuvius_autoresearch.core.vesuvius_loader import FastVesuviusVolume
 
 
 class EnsembleArgs(Tap):

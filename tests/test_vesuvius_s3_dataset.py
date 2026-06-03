@@ -2,7 +2,7 @@ import numpy as np
 import torch
 import zarr
 
-import vesuvius_loader
+import vesuvius_autoresearch.core.vesuvius_loader as vesuvius_loader
 
 
 class DummyVolume:

@@ -60,7 +60,7 @@ def _smoke_loader_slice():
         path = Path(tmp) / "volume.zarr"
         data = _make_smoke_zarr(path)
 
-        from vesuvius_loader import FastVesuviusVolume
+        from vesuvius_autoresearch.core.vesuvius_loader import FastVesuviusVolume
 
         volume = FastVesuviusVolume(str(path))
         patch = volume[1:3, 2:5, 3:7]

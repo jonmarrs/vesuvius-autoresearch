@@ -1,7 +1,7 @@
 import torch
 
 from train import ExperimentConfig
-from vesuvius_loader import VesuviusLabeledDataset
+from vesuvius_autoresearch.core.vesuvius_loader import VesuviusLabeledDataset
 from vesuvius_model import InkDetectorOptimized, VesuviusConfig
 
 

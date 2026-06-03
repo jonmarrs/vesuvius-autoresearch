@@ -1,6 +1,6 @@
 import zarr
 
-from vesuvius_loader import VesuviusLabeledDataset
+from vesuvius_autoresearch.core.vesuvius_loader import VesuviusLabeledDataset
 
 
 def probe_coords():

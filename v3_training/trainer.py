@@ -28,7 +28,10 @@ from vesuvius.models.training.trainers.semi_supervised.two_stream_batch_sampler 
     TwoStreamBatchSampler,
 )
 
-from vesuvius_loader import VesuviusLabeledDataset, VesuviusS3Dataset
+from vesuvius_autoresearch.core.vesuvius_loader import (
+    VesuviusLabeledDataset,
+    VesuviusS3Dataset,
+)
 from vesuvius_model import InkDetectorOptimized, VesuviusConfig
 
 

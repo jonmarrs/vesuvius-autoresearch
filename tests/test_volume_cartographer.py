@@ -53,7 +53,7 @@ def test_volume_cartographer_volume_accepts_file_url(tmp_path):
 
 def test_fast_vesuvius_volume_uses_volume_cartographer_wrapper(tmp_path):
     zarr = pytest.importorskip("zarr")
-    from vesuvius_loader import FastVesuviusVolume
+    from vesuvius_autoresearch.core.vesuvius_loader import FastVesuviusVolume
 
     path = tmp_path / "volume.zarr"
     data = np.arange(4 * 6 * 8, dtype=np.float32).reshape(4, 6, 8)

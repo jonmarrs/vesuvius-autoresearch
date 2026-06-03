@@ -1,6 +1,6 @@
 import numpy as np
 
-from vesuvius_loader import VesuviusLabeledDataset
+from vesuvius_autoresearch.core.vesuvius_loader import VesuviusLabeledDataset
 
 
 def scan_ink_density():

@@ -14,7 +14,7 @@ from matplotlib.patches import Rectangle
 from tap import Tap
 
 from scripts.swarm_voter import SwarmVoter
-from vesuvius_loader import FastVesuviusVolume
+from vesuvius_autoresearch.core.vesuvius_loader import FastVesuviusVolume
 from vesuvius_model import VesuviusConfig
 
 try:
@@ -47,7 +47,7 @@ def load_compatible_state_dict(model, state_dict):
     return skipped
 
 
-from model_wrappers import build_inference_model
+from vesuvius_autoresearch.core.model_wrappers import build_inference_model
 
 
 def build_prediction_model(config_dict, args, use_ridges):

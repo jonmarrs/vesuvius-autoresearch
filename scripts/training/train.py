@@ -396,7 +396,7 @@ try:
 except ImportError:
     ResidualEncoderUNet = None
 
-from model_wrappers import GenericMultiTaskWrapper
+from vesuvius_autoresearch.core.model_wrappers import GenericMultiTaskWrapper
 
 try:
     from vesuvius.models.augmentation.pipelines.training_transforms import (
@@ -501,7 +501,10 @@ def _get_villa_aug(size: int, config: ExperimentConfig):
 
 
 # Import our breakthrough components
-from vesuvius_loader import VesuviusLabeledDataset, VesuviusS3Dataset
+from vesuvius_autoresearch.core.vesuvius_loader import (
+    VesuviusLabeledDataset,
+    VesuviusS3Dataset,
+)
 from vesuvius_model import InkDetectorOptimized, VesuviusConfig, VesuviusTimeSformer
 
 

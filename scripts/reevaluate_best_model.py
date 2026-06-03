@@ -26,7 +26,6 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from torch.utils.data import DataLoader
 
-from model_wrappers import build_inference_model
 from train import (
     ExperimentConfig,
     compute_cc_diff,
@@ -35,7 +34,8 @@ from train import (
     compute_skeleton_dist,
     load_shape_compatible_state,
 )
-from vesuvius_loader import VesuviusLabeledDataset
+from vesuvius_autoresearch.core.model_wrappers import build_inference_model
+from vesuvius_autoresearch.core.vesuvius_loader import VesuviusLabeledDataset
 
 
 def reevaluate(update_stored: bool = False) -> None:

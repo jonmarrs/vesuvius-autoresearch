@@ -62,17 +62,18 @@ def _run(name, fn):
 
 def test_imports():
     import ensemble_predict  # noqa: F401
-    import model_wrappers
+
     import predict  # noqa: F401
     import train  # noqa: F401
-    import vesuvius_loader  # noqa: F401
+    import vesuvius_autoresearch.core.model_wrappers as model_wrappers
+    import vesuvius_autoresearch.core.vesuvius_loader as vesuvius_loader  # noqa: F401
 
     assert hasattr(model_wrappers, "GenericMultiTaskWrapper")
     assert hasattr(model_wrappers, "build_inference_model")
 
 
 def test_build_resenc_unet():
-    from model_wrappers import build_inference_model
+    from vesuvius_autoresearch.core.model_wrappers import build_inference_model
 
     m = build_inference_model(
         architecture="resenc_unet", base_feat=32, use_ridges=False
@@ -83,7 +84,7 @@ def test_build_resenc_unet():
 
 
 def test_build_gated_unet():
-    from model_wrappers import build_inference_model
+    from vesuvius_autoresearch.core.model_wrappers import build_inference_model
 
     m = build_inference_model(
         architecture="gated_unet",
@@ -96,7 +97,7 @@ def test_build_gated_unet():
 
 
 def test_multi_task_heads_dummy_default():
-    from model_wrappers import build_inference_model
+    from vesuvius_autoresearch.core.model_wrappers import build_inference_model
 
     m = build_inference_model(
         architecture="resenc_unet", base_feat=32, use_ridges=False
@@ -114,7 +115,7 @@ def test_multi_task_heads_dummy_default():
 
 
 def test_multi_task_heads_real_outputs():
-    from model_wrappers import build_inference_model
+    from vesuvius_autoresearch.core.model_wrappers import build_inference_model
 
     m = build_inference_model(
         architecture="resenc_unet",
@@ -148,8 +149,8 @@ def test_multi_task_heads_real_outputs():
 def test_best_model_loads():
     if not os.path.exists("best_model.pt"):
         raise SkipTest("best_model.pt not present")
-    from model_wrappers import build_inference_model
     from train import load_shape_compatible_state
+    from vesuvius_autoresearch.core.model_wrappers import build_inference_model
 
     chk = torch.load("best_model.pt", map_location="cpu", weights_only=False)
     sc = chk.get("config", {})
@@ -175,7 +176,7 @@ def test_best_model_loads():
 def test_dataloader_3tuple_sobel():
     if not (os.path.exists(TRAIN_URI) and os.path.exists(TRAIN_INKLABELS)):
         raise SkipTest("training URI / inklabels not present")
-    from vesuvius_loader import VesuviusLabeledDataset
+    from vesuvius_autoresearch.core.vesuvius_loader import VesuviusLabeledDataset
 
     ds = VesuviusLabeledDataset(
         TRAIN_URI,
@@ -200,7 +201,7 @@ def test_dataloader_3tuple_sobel():
 def test_dataloader_frangi_target():
     if not (os.path.exists(TRAIN_URI) and os.path.exists(TRAIN_INKLABELS)):
         raise SkipTest("training URI / inklabels not present")
-    from vesuvius_loader import VesuviusLabeledDataset
+    from vesuvius_autoresearch.core.vesuvius_loader import VesuviusLabeledDataset
 
     ds = VesuviusLabeledDataset(
         TRAIN_URI,

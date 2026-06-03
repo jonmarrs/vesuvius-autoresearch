@@ -7,7 +7,7 @@ sys.path.append(os.getcwd())
 # The correct import is VesuviusLabeledDataset and VesuviusS3Dataset
 from torch.utils.data import DataLoader
 
-from vesuvius_loader import VesuviusLabeledDataset
+from vesuvius_autoresearch.core.vesuvius_loader import VesuviusLabeledDataset
 
 
 # Setup minimal config

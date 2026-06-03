@@ -3,7 +3,10 @@ import unittest
 
 import torch
 
-from vesuvius_loader import FastVesuviusVolume, VesuviusLabeledDataset
+from vesuvius_autoresearch.core.vesuvius_loader import (
+    FastVesuviusVolume,
+    VesuviusLabeledDataset,
+)
 
 
 class TestVesuviusLoader(unittest.TestCase):

@@ -11,7 +11,7 @@ from PIL import Image
 from tqdm import tqdm
 
 from predict import load_compatible_state_dict
-from vesuvius_loader import FastVesuviusVolume
+from vesuvius_autoresearch.core.vesuvius_loader import FastVesuviusVolume
 from vesuvius_model import InkDetectorOptimized, VesuviusConfig, VesuviusTimeSformer
 
 

@@ -9,8 +9,8 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 # Local imports
-from model_wrappers import build_inference_model
-from vesuvius_loader import VesuviusLabeledDataset
+from vesuvius_autoresearch.core.model_wrappers import build_inference_model
+from vesuvius_autoresearch.core.vesuvius_loader import VesuviusLabeledDataset
 
 
 def calculate_entropy(probs):
