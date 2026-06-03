@@ -1554,6 +1554,11 @@ def train(config: ExperimentConfig):
         scaler.update()
         scheduler.step()
 
+        # Debug: Log current learning rate
+        if step % 10 == 0:
+            current_lr = scheduler.get_last_lr()[0]
+            print(f"DEBUG: Learning Rate at step {step}: {current_lr:.2e}")
+
         # UAMT: Update Teacher EMA
         if config.use_uamt and ema_model is not None:
             with torch.no_grad():
