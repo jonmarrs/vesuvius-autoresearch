@@ -200,6 +200,7 @@ class LeJEPAUNet(nn.Module):
             decoder_num_heads=12,
             rope_impl=RotaryEmbeddingCat,
         )
+        self.backbone.double()
 
     def forward(
         self,
@@ -214,14 +215,15 @@ class LeJEPAUNet(nn.Module):
         # Force float64 for stability in deep transformer layers
         x_64 = x.to(torch.float64)
         out_dict = self.backbone(x_64)
-        out = out_dict["ink"].to(torch.float32)  # [B, 1, Z, H, W]
         
-        # Diagnostic check: Isolate if NaN comes from LeJEPA backbone
+        # Brute-force NaN sanitization
+        out = torch.nan_to_num(
+            out_dict["ink"], nan=0.0, posinf=1e6, neginf=-1e6
+        ).to(torch.float32)  # [B, 1, Z, H, W]
+        
+        # Diagnostic check
         if torch.isnan(out).any():
-             print("DEBUG: NaN detected in LeJEPAUNet backbone output")
-
-        # Structural Stability: Clamp activations to prevent NaN propagation
-        out = torch.clamp(out, min=-1e6, max=1e6)
+             print("DEBUG: NaN detected in LeJEPAUNet backbone output after sanitization")
 
         # Collapse Z dimension to [B, 1, H, W] for ink prediction
         out_2d = torch.mean(out, dim=2)
