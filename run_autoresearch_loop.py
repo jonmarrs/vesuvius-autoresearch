@@ -502,6 +502,10 @@ def main():
                 # Robust Process Management: use session group to kill all descendants
                 env_unbuffered = env.copy()
                 env_unbuffered["PYTHONUNBUFFERED"] = "1"
+                # Ensure moved modules and dependencies are discoverable
+                current_pp = env_unbuffered.get("PYTHONPATH", "")
+                env_unbuffered["PYTHONPATH"] = f".:villa/foundation/datasets/fibers-dataset:{current_pp}"
+                
                 p = subprocess.Popen(
                     ["uv", "run", "python", "-u", "scripts/training/train.py", "--config", TEMP_CONFIG],
                     stdout=f,
@@ -635,8 +639,13 @@ def main():
                 "--output_img",
                 benchmark_path,
             ]
+            # Ensure moved modules and dependencies are discoverable
+            bench_env = env.copy()
+            current_pp = bench_env.get("PYTHONPATH", "")
+            bench_env["PYTHONPATH"] = f".:villa/foundation/datasets/fibers-dataset:{current_pp}"
+            
             try:
-                subprocess.run(benchmark_cmd, check=True, timeout=600)
+                subprocess.run(benchmark_cmd, check=True, timeout=600, env=bench_env)
             except subprocess.CalledProcessError as bench_exc:
                 print(
                     f"Cycle {i}: Benchmark inference failed (rc={bench_exc.returncode}). Continuing."
