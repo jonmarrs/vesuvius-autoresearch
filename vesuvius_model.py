@@ -211,8 +211,10 @@ class LeJEPAUNet(nn.Module):
         **kwargs,
     ):
         # x: [B, C, Z, H, W]
-        out_dict = self.backbone(x)
-        out = out_dict["ink"]  # [B, 1, Z, H, W]
+        # Force float64 for stability in deep transformer layers
+        x_64 = x.to(torch.float64)
+        out_dict = self.backbone(x_64)
+        out = out_dict["ink"].to(torch.float32)  # [B, 1, Z, H, W]
         
         # Diagnostic check: Isolate if NaN comes from LeJEPA backbone
         if torch.isnan(out).any():
