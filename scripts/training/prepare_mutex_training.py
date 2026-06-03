@@ -51,10 +51,25 @@ def main():
     os.makedirs(temp_tiff_dir, exist_ok=True)
     os.makedirs(affinity_dir, exist_ok=True)
 
-    # 1. Prepare raw image volume (as Zarr for the trainer)
-    # For now we assume the curated zarr is already the labels,
-    # we need the corresponding raw image too.
-    # ... logic to find raw image ...
+    # 1. Prepare raw image volume
+    # Pair curated zarr (e.g., local_data/Curated/PHercXXX_div_YYY.zarr)
+    # with raw volume (e.g., local_data/PHercXXX_Divisions/div_YYY/0)
+    frag_name = Path(args.curated_zarr).stem
+    # Heuristic for pairing: find a local_data folder matching frag_name prefix
+    raw_vol_path = None
+    for root, dirs, files in os.walk("local_data"):
+        if frag_name.replace("_", "-") in root or frag_name in root:
+            # Look for a numeric folder '0' within this division folder
+            if "0" in dirs and os.path.exists(os.path.join(root, "0", ".zarray")):
+                raw_vol_path = os.path.join(root, "0")
+                break
+
+    if not raw_vol_path:
+        print(f"Error: Could not find raw volume for {frag_name}", file=sys.stderr)
+        return 1
+
+    print(f"Paired curated zarr with raw volume: {raw_vol_path}")
+    export_zarr_to_tiff(raw_vol_path, os.path.join(images_dir, f"{frag_name}_raw.tif"))
 
     # 2. Convert Curated Labels to TIFF for Graph Generation
     frag_name = Path(args.curated_zarr).stem
