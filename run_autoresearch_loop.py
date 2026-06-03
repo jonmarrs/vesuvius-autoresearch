@@ -623,7 +623,7 @@ def main():
             benchmark_cmd = [
                 "uv",
                 "run",
-                "predict.py",
+                "scripts/inference/predict.py",
                 "--uri",
                 "local_data/PHercParis2Fr143/surface_volume.zarr",
                 "--z",
