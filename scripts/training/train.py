@@ -1421,13 +1421,16 @@ def train(config: ExperimentConfig):
                         t_out = ema_model(x_unl_aug_teacher + noise)
                         t_ink = t_out[0] if isinstance(t_out, tuple) else t_out
                         if torch.isnan(t_ink).any():
+                            print(f"DEBUG: NaN detected in t_ink at step {step}")
                         teacher_preds.append(torch.sigmoid(t_ink))
 
                     teacher_preds = torch.stack(teacher_preds)  # [T, B, 1, H, W]
                     if torch.isnan(teacher_preds).any():
+                        print(f"DEBUG: NaN detected in teacher_preds at step {step}")
                     teacher_prob = torch.mean(teacher_preds, dim=0)  # [B, 1, H, W]
                     teacher_var = torch.var(teacher_preds, dim=0)  # [B, 1, H, W]
                     if torch.isnan(teacher_var).any():
+                        print(f"DEBUG: NaN detected in teacher_var at step {step}")
                     ema_model.eval()  # Restore eval mode
 
                 # Uncertainty-Aware Consistency Loss: Weight MSE by exp(-variance)
