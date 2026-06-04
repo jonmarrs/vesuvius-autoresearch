@@ -100,7 +100,7 @@ tweak_templates = [
     {
         "family": "architecture",
         "attr": "architecture",
-        "vals": ["resenc_unet", "gated_unet"],
+        "vals": ["gated_unet"],
     },
     {
         "family": "scroll_augmentations",
