@@ -505,6 +505,8 @@ from vesuvius_autoresearch.core.vesuvius_loader import (
     VesuviusLabeledDataset,
     VesuviusS3Dataset,
 )
+import vesuvius_model
+print(f"DEBUG: Importing vesuvius_model from: {vesuvius_model.__file__}")
 from vesuvius_model import InkDetectorOptimized, VesuviusConfig, VesuviusTimeSformer
 
 
