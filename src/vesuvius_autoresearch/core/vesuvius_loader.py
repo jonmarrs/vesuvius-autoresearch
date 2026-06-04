@@ -19,6 +19,14 @@ for p in [VILLA_SRC, FIBER_TOOLS_PATH]:
 import tools as fiber_tools
 
 try:
+    from vesuvius_c import VesuviusVolume
+
+    VESUVIUS_C_AVAILABLE = True
+except ImportError:
+    VESUVIUS_C_AVAILABLE = False
+
+
+try:
     from volume_cartographer_wrapper.volume import (
         FastLocalVolume,
         VolumeCartographerVolume,
@@ -65,7 +73,7 @@ class FastVesuviusVolume:
 
     def __init__(self, volume_uri, cache_dir=None, use_ridges=False, ridge_sigma=2.0):
         self.uri = volume_uri
-        self.cache_dir = cache_dir
+        self.cache_dir = cache_dir or os.path.join(PROJECT_ROOT, "test_cache")
         self.use_ridges = use_ridges
         self.ridge_sigma = ridge_sigma
 
@@ -73,9 +81,28 @@ class FastVesuviusVolume:
         self.shape = self.vol.shape
 
     def _init_vol(self):
-        # Use local OME-Zarr reads for Python training. Villa's maintained
-        # native path is Volume Cartographer/VC3D; remote/native integration
-        # should be added there rather than through deprecated vesuvius-c.
+        # Prefer high-performance vesuvius-c if available
+        if VESUVIUS_C_AVAILABLE:
+            try:
+                # Handle local paths by converting to file:// URLs
+                url = self.uri
+                if os.path.exists(url):
+                    # OME-Zarr detection
+                    if not os.path.exists(os.path.join(url, ".zarray")):
+                        level0 = os.path.join(url, "0")
+                        if os.path.exists(os.path.join(level0, ".zarray")):
+                            url = level0
+                    url = f"file://{os.path.abspath(url)}"
+
+                self.vol = VesuviusVolume(cache_dir=self.cache_dir, url=url)
+                self.backend = "vesuvius-c"
+                return
+            except Exception as e:
+                _warn_limited(
+                    "vesuvius_c_init_failed",
+                    f"vesuvius-c initialization failed for {self.uri}; falling back to standard Zarr: {e}",
+                )
+
         if os.path.exists(self.uri):
             # Auto-detect OME-Zarr resolution levels
             local_path = self.uri
@@ -86,10 +113,10 @@ class FastVesuviusVolume:
                     local_path = level0_path
                     print(f"Detected OME-Zarr: Using level 0 at {local_path}")
             self.vol = FastLocalVolume(local_path)
+            self.backend = "zarr"
         else:
-            self.vol = VolumeCartographerVolume(
-                cache_dir=self.cache_dir or "test_cache", url=self.uri
-            )
+            self.vol = VolumeCartographerVolume(cache_dir=self.cache_dir, url=self.uri)
+            self.backend = "volume-cartographer"
 
     def __getstate__(self):
         state = self.__dict__.copy()
@@ -116,26 +143,84 @@ class FastVesuviusVolume:
         height = y_slice.stop - y_slice.start
         width = x_slice.stop - x_slice.start
 
-        # Fetch raw CT data through the Volume Cartographer-aligned local
-        # OME-Zarr compatibility layer.
-        ct = self.vol.get_chunk(
-            z_slice.start, y_slice.start, x_slice.start, depth, height, width
-        )
-        # Normalize to [0, 1] based on dtype. Previously hardcoded `/ 255.0`
-        # assumed uint8; uint16 / float32 zarrs would silently miscalibrate.
-        if ct.dtype == np.uint8:
-            ct_norm = ct.astype(np.float32) / 255.0
-        elif ct.dtype == np.uint16:
-            ct_norm = ct.astype(np.float32) / 65535.0
-        elif np.issubdtype(ct.dtype, np.floating):
-            ct_norm = ct.astype(np.float32)
+        if self.backend == "vesuvius-c":
+            try:
+                # vesuvius-c requires requests aligned with Zarr blocks
+                cz, cy, cx = self.vol.chunks
+
+                # Aligned start
+                az = (z_slice.start // cz) * cz
+                ay = (y_slice.start // cy) * cy
+                ax = (x_slice.start // cx) * cx
+
+                # Aligned end (multiple of block size)
+                ez = ((z_slice.stop + cz - 1) // cz) * cz
+                ey = ((y_slice.stop + cy - 1) // cy) * cy
+                ex = ((x_slice.stop + cx - 1) // cx) * cx
+
+                # Clip ez/ey/ex to volume shape to avoid reading out of bounds
+                ez = min(ez, self.vol.shape[0])
+                ey = min(ey, self.vol.shape[1])
+                ex = min(ex, self.vol.shape[2])
+
+                # Note: if clipped, it might not be a multiple of chunk size!
+                # vesuvius-c handles the last chunk correctly.
+                # However, it still wants chunk_dims to be multiples of Zarr block size.
+
+                # Calculate required dimensions that are multiples
+                dz = ((ez - az + cz - 1) // cz) * cz
+                dy = ((ey - ay + cy - 1) // cy) * cy
+                dx = ((ex - ax + cx - 1) // cx) * cx
+
+                # Fetch aligned block
+                ct_block = self.vol.get_chunk(az, ay, ax, dz, dy, dx)
+
+                # Crop to requested slice (relative to aligned start)
+                rz = z_slice.start - az
+                ry = y_slice.start - ay
+                rx = x_slice.start - ax
+
+                ct = ct_block[rz : rz + depth, ry : ry + height, rx : rx + width]
+
+                # vesuvius-c returns float32, usually in [0, 255] or [0, 65535]
+                # We need to normalize based on original dtype if possible,
+                # but vesuvius-c doesn't easily expose original dtype in Python.
+                # Defaulting to 255.0 for uint8 scrolls.
+                ct_norm = ct / 255.0
+                ct_tensor = torch.from_numpy(ct_norm)
+
+            except Exception as e:
+                _warn_limited(
+                    "vesuvius_c_fetch_failed",
+                    f"vesuvius-c fetch failed for {self.uri}; trying fallback: {e}",
+                )
+                # Direct fallback fetch using VolumeCartographer aligned methods
+                ct = self.vol.get_chunk(
+                    z_slice.start, y_slice.start, x_slice.start, depth, height, width
+                )
+                ct_norm = ct.astype(np.float32) / 255.0
+                ct_tensor = torch.from_numpy(ct_norm)
         else:
-            _warn_limited(
-                "ct_unknown_dtype",
-                f"unknown CT dtype {ct.dtype} for {self.uri}; falling back to /255.0 normalization.",
+            # Fetch raw CT data through the Volume Cartographer-aligned local
+            # OME-Zarr compatibility layer.
+            ct = self.vol.get_chunk(
+                z_slice.start, y_slice.start, x_slice.start, depth, height, width
             )
-            ct_norm = ct.astype(np.float32) / 255.0
-        ct_tensor = torch.from_numpy(ct_norm)
+            # Normalize to [0, 1] based on dtype. Previously hardcoded `/ 255.0`
+            # assumed uint8; uint16 / float32 zarrs would silently miscalibrate.
+            if ct.dtype == np.uint8:
+                ct_norm = ct.astype(np.float32) / 255.0
+            elif ct.dtype == np.uint16:
+                ct_norm = ct.astype(np.float32) / 65535.0
+            elif np.issubdtype(ct.dtype, np.floating):
+                ct_norm = ct.astype(np.float32)
+            else:
+                _warn_limited(
+                    "ct_unknown_dtype",
+                    f"unknown CT dtype {ct.dtype} for {self.uri}; falling back to /255.0 normalization.",
+                )
+                ct_norm = ct.astype(np.float32) / 255.0
+            ct_tensor = torch.from_numpy(ct_norm)
 
         if self.use_ridges:
             # Priority A Integration: CuPy-accelerated ridges on-the-fly
