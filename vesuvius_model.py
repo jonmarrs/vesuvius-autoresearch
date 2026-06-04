@@ -416,9 +416,6 @@ class InkDetectorOptimized(nn.Module):
             nn.Linear(self.base_feat // 2, 1),
         )
 
-            nn.Linear(64, 1),
-        )
-
         # Projector Head for DINO-Lite Consistency
         self.projector = nn.Sequential(
             nn.AdaptiveAvgPool3d(1),
