@@ -328,6 +328,7 @@ class InkDetectorOptimized(nn.Module):
 
         # Pull architectural parameters from config
         self.base_feat = config.base_feat
+        print(f"DEBUG: Initializing InkDetectorOptimized with base_feat={self.base_feat}")
         self.num_blocks = config.num_blocks
         self.num_heads = config.num_heads
         self.dropout = config.dropout
