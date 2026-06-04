@@ -395,8 +395,10 @@ class InkDetectorOptimized(nn.Module):
         )
 
         self.up2_conv = nn.Conv3d(self.base_feat, self.base_feat // 4, kernel_size=1)
+        # fusion2 fuses the stage1 skip (base_feat // 2 channels) at half
+        # resolution, so its skip width matches that encoder feature.
         self.fusion2 = GatedFusionBlock(
-            self.base_feat, self.base_feat // 4, self.base_feat // 2
+            self.base_feat // 2, self.base_feat // 4, self.base_feat // 2
         )
 
         self.decoder_res = nn.Sequential(
@@ -438,8 +440,9 @@ class InkDetectorOptimized(nn.Module):
     ):
         B, C, Z, H, W = x.shape
 
-        # 1. Encoder
-        x_emb = self.stage2(self.stage1(x))
+        # 1. Encoder (retain the stage1 output as a half-resolution skip)
+        s1 = self.stage1(x)
+        x_emb = self.stage2(s1)
         lz, lh, lw = x_emb.shape[2:]
 
         # 2. Transformer
@@ -466,19 +469,19 @@ class InkDetectorOptimized(nn.Module):
         x_up1 = self.up1_conv(x_up1)
         x_f1 = self.fusion1(x_emb, x_up1)
 
+        # Level 2: upsample to the stage1 (half) resolution and fuse with the
+        # genuine stage1 skip, then interpolate the decoded features up to the
+        # full input resolution for the dense heads.
         x_up2 = F.interpolate(
-            x_f1, size=x.shape[2:], mode="trilinear", align_corners=False
+            x_f1, size=s1.shape[2:], mode="trilinear", align_corners=False
         )
         x_up2 = self.up2_conv(x_up2)
-        # Bring the skip up to the up-branch resolution before gated fusion.
-        # fusion2 upsamples to full input resolution, so x_f1 (still at the
-        # bottleneck resolution) must be interpolated to match before concat.
-        x_f1_up = F.interpolate(
-            x_f1, size=x.shape[2:], mode="trilinear", align_corners=False
-        )
-        x_f2 = self.fusion2(x_f1_up, x_up2)
+        x_f2 = self.fusion2(s1, x_up2)
 
         x_out = self.decoder_res(x_f2)
+        x_out = F.interpolate(
+            x_out, size=x.shape[2:], mode="trilinear", align_corners=False
+        )
 
         ink_2d = self.final_ink(self.z_proj(x_out))
 
