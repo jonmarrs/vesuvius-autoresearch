@@ -216,18 +216,20 @@ class LeJEPAUNet(nn.Module):
         x_64 = x.to(torch.float64)
         # Diagnostic check: Isolate if NaN comes from input
         if torch.isnan(x_64).any():
-             print("DEBUG: NaN detected in input data before backbone")
+            print("DEBUG: NaN detected in input data before backbone")
 
         out_dict = self.backbone(x_64)
-        
+
         # Brute-force NaN sanitization
-        out = torch.nan_to_num(
-            out_dict["ink"], nan=0.0, posinf=1e6, neginf=-1e6
-        ).to(torch.float32)  # [B, 1, Z, H, W]
-        
+        out = torch.nan_to_num(out_dict["ink"], nan=0.0, posinf=1e6, neginf=-1e6).to(
+            torch.float32
+        )  # [B, 1, Z, H, W]
+
         # Diagnostic check
         if torch.isnan(out).any():
-             print("DEBUG: NaN detected in LeJEPAUNet backbone output after sanitization")
+            print(
+                "DEBUG: NaN detected in LeJEPAUNet backbone output after sanitization"
+            )
 
         # Collapse Z dimension to [B, 1, H, W] for ink prediction
         out_2d = torch.mean(out, dim=2)
@@ -328,8 +330,6 @@ class InkDetectorOptimized(nn.Module):
 
         # Pull architectural parameters from config
         self.base_feat = config.base_feat
-        print(f"DEBUG: Initializing InkDetectorOptimized with base_feat={self.base_feat}")
-        sys.stdout.flush()
         self.num_blocks = config.num_blocks
         self.num_heads = config.num_heads
         self.dropout = config.dropout
@@ -395,8 +395,6 @@ class InkDetectorOptimized(nn.Module):
         )
 
         self.up2_conv = nn.Conv3d(self.base_feat, self.base_feat // 4, kernel_size=1)
-        print(f"DEBUG: up2_conv initialized with in_channels={self.base_feat}")
-        sys.stdout.flush()
         self.fusion2 = GatedFusionBlock(
             self.base_feat, self.base_feat // 4, self.base_feat // 2
         )
