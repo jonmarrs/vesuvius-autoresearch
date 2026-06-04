@@ -1491,14 +1491,12 @@ def train(config: ExperimentConfig):
                 loss_st_val = F.mse_loss(out_st, target_st)
 
             consistency_loss = torch.tensor(0.0, device=device)
-            if p1 is not None and p2 is not None:
+            if config.use_uamt and p1 is not None and p2 is not None:
                 # Diagnostic check for NaNs
                 if torch.isnan(p1).any() or torch.isnan(p2).any():
                     print(f"DEBUG: NaN detected in p1 or p2 at step {step}")
                 
                 # Numerical stability: Ensure vectors are not zero before similarity
-                p1_norm = torch.norm(p1, dim=1, keepdim=True)
-                p2_norm = torch.norm(p2, dim=1, keepdim=True)
                 # Use a larger epsilon to prevent division by near-zero norms
                 consistency_loss = (
                     1.0 - F.cosine_similarity(p1, p2, dim=1, eps=1e-6).mean()
@@ -1512,7 +1510,7 @@ def train(config: ExperimentConfig):
                 + 0.1 * loss_qc
                 + 0.02 * hallucination_penalty
                 + config.loss_st * loss_st_val
-                + 0.05 * consistency_loss
+                + (0.05 * consistency_loss if config.use_uamt else 0.0)
                 + uamt_loss
             )
 
