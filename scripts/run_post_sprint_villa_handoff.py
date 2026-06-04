@@ -37,7 +37,7 @@ def build_handoff_steps(args):
             "gpu": False,
             "command": [
                 python,
-                "scripts/audit_villa_upstream.py",
+                "scripts/archive/audit_villa_upstream.py",
                 "--out",
                 args.villa_audit,
             ],
@@ -96,7 +96,7 @@ def build_handoff_steps(args):
 
     inference_command = [
         python,
-        "scripts/run_ranked_inference.py",
+        "scripts/inference/run_ranked_inference.py",
         "--ranked",
         args.ranked,
         "--limit",

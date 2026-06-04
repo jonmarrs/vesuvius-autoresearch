@@ -17,7 +17,7 @@ This document outlines how we leverage and contribute to the official `ScrollPri
 
 ### [Priority 0.6] Active Villa Evidence Pipeline (STATUS: QUEUE READY)
 *   **Discovery**: `reports/scroll23_ranked_candidates.tsv` and `reports/lasagna_fiber_worklist.tsv` now contain local, occupied, submittable 64x64 Scroll 2/3 candidates. This makes the next Villa-backed step executable instead of exploratory.
-*   **Action**: After the current Night Shift GPU cycle finishes, run `scripts/run_ranked_inference.py --execute`, re-rank prediction statistics, rebuild the Lasagna/fiber worklist, and run `scripts/run_villa_prize_evidence_chain.py` for the top candidates.
+*   **Action**: After the current Night Shift GPU cycle finishes, run `scripts/inference/run_ranked_inference.py --execute`, re-rank prediction statistics, rebuild the Lasagna/fiber worklist, and run `scripts/run_villa_prize_evidence_chain.py` for the top candidates.
 *   **Impact**: Produces a Villa-native evidence directory with ink/fiber overlays, structure tensor outputs, validation reports, and review artifacts for First Letters / First Title triage.
 
 ### [Priority A] CuPy Acceleration for Fiber Tools (STATUS: IMPLEMENTED)
