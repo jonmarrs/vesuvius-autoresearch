@@ -168,6 +168,7 @@ def write_prediction_metadata(
     ink_stats,
     fiber_zarr_path=None,
     fiber_stats=None,
+    fiber_coherence=None,
 ):
     voxel_size_um = float(
         config_dict.get(
@@ -196,6 +197,7 @@ def write_prediction_metadata(
         "model_config": config_dict,
         "ink_stats": ink_stats,
         "fiber_stats": fiber_stats or {},
+        "fiber_coherence": fiber_coherence,
     }
     with open(path, "w") as f:
         json.dump(metadata, f, indent=2)
@@ -218,6 +220,9 @@ class PredictionArgs(Tap):
     voxel_size_um: float = 7.91
     checkpoint: str = "best_model.pt"  # Model checkpoint to use for prediction
     skip_active_learning: bool = False  # Skip optional proofreader uncertainty export
+    compute_coherence: bool = (
+        False  # Enable automated fiber coherence evaluation (Villa ST)
+    )
 
 
 def predict():
@@ -487,6 +492,41 @@ def predict():
             "max": float(prob_fiber_final.max()),
         },
     )
+
+    # Automated Fiber Coherence Evaluation (Villa ST)
+    fiber_coherence = None
+    if args.compute_coherence:
+        try:
+            from scripts.compute_fiber_coherence import compute_coherence
+
+            print("Computing Fiber Coherence score (Villa ST)...", flush=True)
+            # Fetch raw volume data for ST computation (center region)
+            # Using the same data as for prediction visualization for consistency
+            fiber_coherence = compute_coherence(ct_slice, device=str(device))
+            print(f"Fiber Coherence Score: {fiber_coherence:.6f}")
+
+            # Re-write metadata with coherence score
+            write_prediction_metadata(
+                metadata_path,
+                args,
+                config_dict,
+                zarr_path,
+                out_path,
+                {
+                    "mean": float(prob_ink_final.mean()),
+                    "std": float(prob_ink_final.std()),
+                    "max": float(prob_ink_final.max()),
+                },
+                fiber_zarr_path=fiber_zarr_path,
+                fiber_stats={
+                    "mean": float(prob_fiber_final.mean()),
+                    "std": float(prob_fiber_final.std()),
+                    "max": float(prob_fiber_final.max()),
+                },
+                fiber_coherence=fiber_coherence,
+            )
+        except Exception as exc:
+            print(f"Warning: fiber coherence evaluation failed: {exc}")
 
     print("\nPrediction Complete!")
     print(

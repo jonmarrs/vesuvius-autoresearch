@@ -137,11 +137,28 @@ def main():
         elif not run_step(f"Compute ST for cropped Rank {rank}", st_cmd):
             continue
 
-        # 3. Lasagna Preprocessing (Placeholder for official villa lasagna call)
-        # The strategy doc says: "run Lasagna preprocessing/training against this candidate directory"
-        print(f"\n>>> Step: Lasagna Preprocessing (Rank {rank})")
-        print(item["lasagna_note"])
-        # In a real scenario, we would call villa/lasagna/lasagna_analyze.py here
+        # 3. Lasagna Surface Fitting (Official Villa Tool)
+        print(f"\n>>> Step: Lasagna Surface Fitting (Rank {rank})")
+        lasagna_cmd = [
+            sys.executable,
+            "villa/lasagna/lasagna_analyze.py",
+            "--volume",
+            crop_output,
+            "--output-dir",
+            item["lasagna_output_dir"],
+            "--iterations",
+            "50",
+            "--device",
+            "cuda",
+        ]
+        if not args.force and os.path.exists(
+            os.path.join(item["lasagna_output_dir"], "mesh.obj")
+        ):
+            print(
+                f"Skipping Lasagna for Rank {rank}; existing mesh found in {item['lasagna_output_dir']}"
+            )
+        else:
+            run_step(f"Run Lasagna Fitting for Rank {rank}", lasagna_cmd)
 
         # 4. Generate Prize Evidence Chain
         evidence_dir = item["evidence_output_dir"]
