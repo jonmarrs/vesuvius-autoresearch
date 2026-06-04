@@ -523,7 +523,7 @@ class DividedSpaceTimeBlock(nn.Module):
         res = x
         x = self.norm1(x)
         x = x.reshape(B, lz, lh * lw, D).permute(0, 2, 1, 3).reshape(-1, lz, D)
-        x, _ = self.temporal_attn(x, x, x)
+        x, _ = self.temporal_attn(x, x, x, need_weights=False)
         x = x.reshape(B, lh * lw, lz, D).permute(0, 2, 1, 3).reshape(B, -1, D)
         x = x + res
 
@@ -551,7 +551,7 @@ class DividedSpaceTimeBlock(nn.Module):
             )
             x = x.permute(0, 1, 2, 4, 3, 5, 6).reshape(-1, window_size * window_size, D)
 
-            x, _ = self.spatial_attn(x, x, x)
+            x, _ = self.spatial_attn(x, x, x, need_weights=False)
 
             # Reverse partitioning
             x = x.view(
@@ -564,7 +564,7 @@ class DividedSpaceTimeBlock(nn.Module):
             x = x.reshape(B, -1, D)
         else:
             x = x.reshape(-1, lh * lw, D)
-            x, _ = self.spatial_attn(x, x, x)
+            x, _ = self.spatial_attn(x, x, x, need_weights=False)
             x = x.reshape(B, -1, D)
 
         x = x + res
