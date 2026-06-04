@@ -1,9 +1,9 @@
 # Villa Pin Review Checklist
 
-- **Local Ref:** `b01e0e050b8ab498d5b9166b33cbf2e8f535e690`
-- **Upstream Ref:** `f037ffb5b236dcb74112ec33c8843eaa15ff5a85`
-- **Adoption Mode:** `no_update_needed`
-- **Recommendation:** `villa_pin_current`
+- **Local Ref:** `64caeb2aee923a2e304d6a9b2b7bf8fdeac5706f`
+- **Upstream Ref:** `41378e8bbae1c263b39ba89eb5c8f6f9f79a8405`
+- **Adoption Mode:** `rebase_or_selectively_port`
+- **Recommendation:** `preserve_local_patches_before_pin_update`
 
 ## Target Areas
 

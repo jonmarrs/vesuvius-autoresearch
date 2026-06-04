@@ -2,8 +2,8 @@
   "source_gpu_queue": "reports/scroll23_gpu_inference_queue.tsv",
   "source_action_matrix": "reports/villa_prize_action_matrix.json",
   "source_ranked_candidates": "reports/scroll23_ranked_candidates.tsv",
-  "villa_local_ref": "b01e0e050b8ab498d5b9166b33cbf2e8f535e690",
-  "villa_upstream_ref": "f037ffb5b236dcb74112ec33c8843eaa15ff5a85",
+  "villa_local_ref": "64caeb2aee923a2e304d6a9b2b7bf8fdeac5706f",
+  "villa_upstream_ref": "41378e8bbae1c263b39ba89eb5c8f6f9f79a8405",
   "ready_actions": [
     {
       "rank": 1,
@@ -12,7 +12,7 @@
       "title": "Surface and fiber predictions in compressed or highly curved areas",
       "track": "first_letters",
       "villa_area": "lasagna",
-      "priority_score": 98,
+      "priority_score": 101,
       "readiness": "ready_now",
       "local_hook": "reports/scroll23_ranked_candidates.tsv + scripts/launch_crackle_viewer.py",
       "why_it_matters": "Scroll 2/3 high-value candidates often sit in hard geometry where plain ink inference stays low confidence.",
@@ -28,7 +28,7 @@
       "title": "Methods for generating surface, fiber, or ink labels",
       "track": "progress_and_first_letters",
       "villa_area": "lasagna",
-      "priority_score": 95,
+      "priority_score": 98,
       "readiness": "ready_now",
       "local_hook": "scripts/compute_structure_tensors.py + scripts/run_villa_prize_evidence_chain.py",
       "why_it_matters": "Creates better supervision and review evidence for non-metal ink signals in Scrolls 2-3.",
@@ -44,7 +44,7 @@
       "title": "Scroll-specific 3D augmentations for model training",
       "track": "progress_and_first_letters",
       "villa_area": "resnet3d_decoder",
-      "priority_score": 92,
+      "priority_score": 95,
       "readiness": "training_ablation",
       "local_hook": "train.py scroll-specific 3D augmentation preset",
       "why_it_matters": "Targets cross-scroll generalization, the core weakness for First Letters and Title submissions.",
@@ -60,7 +60,7 @@
       "title": "VC3D integrate fiber predictions",
       "track": "progress_prize",
       "villa_area": "volume_cartographer",
-      "priority_score": 90,
+      "priority_score": 93,
       "readiness": "ready_now",
       "local_hook": "predict.py fiber outputs + VC3D-compatible Zarr metadata",
       "why_it_matters": "Turns Autoresearch fiber predictions into a community-usable VC3D review layer.",
@@ -76,7 +76,7 @@
       "title": "Whole-volume deformation from vertical fibers and large meshes",
       "track": "progress_prize",
       "villa_area": "volume_cartographer",
-      "priority_score": 88,
+      "priority_score": 91,
       "readiness": "ready_now",
       "local_hook": "scripts/register_volumes.py + generate_fiber_labels.py",
       "why_it_matters": "Improves surface geometry and deformation correction, a blocker for legible Scroll 2/3 text.",
@@ -104,11 +104,11 @@
       "expected_prediction_metadata": "reports/scroll23_evidence/candidate_000/predictions/pred_18176_4128_4128_64x64_meta.json",
       "expected_evidence_dir": "reports/scroll23_evidence/candidate_000",
       "expected_prize_report": "reports/scroll23_evidence/candidate_000/PRIZE_READINESS_REPORT.json",
-      "evidence_command": ".venv/bin/python scripts/run_villa_prize_evidence_chain.py --ranked reports/scroll23_ranked_candidates.tsv --candidate-index 0 --out-dir reports/scroll23_evidence/candidate_000 --execute --checkpoint best_model.pt",
-      "validate_command": ".venv/bin/python scripts/validate_prize_artifact.py --metadata reports/scroll23_evidence/candidate_000/predictions/pred_18176_4128_4128_64x64_meta.json --out reports/scroll23_evidence/candidate_000/validation_report.json",
+      "evidence_command": "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python3 scripts/run_villa_prize_evidence_chain.py --ranked reports/scroll23_ranked_candidates.tsv --candidate-index 0 --out-dir reports/scroll23_evidence/candidate_000 --execute --checkpoint best_model.pt",
+      "validate_command": "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python3 scripts/validate_prize_artifact.py --metadata reports/scroll23_evidence/candidate_000/predictions/pred_18176_4128_4128_64x64_meta.json --out reports/scroll23_evidence/candidate_000/validation_report.json",
       "review_commands": [
-        ".venv/bin/python scripts/launch_crackle_viewer.py",
-        ".venv/bin/python scripts/launch_vc3d.py"
+        "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python3 scripts/launch_crackle_viewer.py",
+        "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python3 scripts/launch_vc3d.py"
       ],
       "villa_review_route": [
         "Run GPU inference/evidence chain",
@@ -133,11 +133,11 @@
       "expected_prediction_metadata": "reports/scroll23_evidence/candidate_001/predictions/pred_18176_4128_4000_64x64_meta.json",
       "expected_evidence_dir": "reports/scroll23_evidence/candidate_001",
       "expected_prize_report": "reports/scroll23_evidence/candidate_001/PRIZE_READINESS_REPORT.json",
-      "evidence_command": ".venv/bin/python scripts/run_villa_prize_evidence_chain.py --ranked reports/scroll23_ranked_candidates.tsv --candidate-index 1 --out-dir reports/scroll23_evidence/candidate_001 --execute --checkpoint best_model.pt",
-      "validate_command": ".venv/bin/python scripts/validate_prize_artifact.py --metadata reports/scroll23_evidence/candidate_001/predictions/pred_18176_4128_4000_64x64_meta.json --out reports/scroll23_evidence/candidate_001/validation_report.json",
+      "evidence_command": "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python3 scripts/run_villa_prize_evidence_chain.py --ranked reports/scroll23_ranked_candidates.tsv --candidate-index 1 --out-dir reports/scroll23_evidence/candidate_001 --execute --checkpoint best_model.pt",
+      "validate_command": "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python3 scripts/validate_prize_artifact.py --metadata reports/scroll23_evidence/candidate_001/predictions/pred_18176_4128_4000_64x64_meta.json --out reports/scroll23_evidence/candidate_001/validation_report.json",
       "review_commands": [
-        ".venv/bin/python scripts/launch_crackle_viewer.py",
-        ".venv/bin/python scripts/launch_vc3d.py"
+        "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python3 scripts/launch_crackle_viewer.py",
+        "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python3 scripts/launch_vc3d.py"
       ],
       "villa_review_route": [
         "Run GPU inference/evidence chain",
@@ -162,11 +162,11 @@
       "expected_prediction_metadata": "reports/scroll23_evidence/candidate_002/predictions/pred_18176_4000_4128_64x64_meta.json",
       "expected_evidence_dir": "reports/scroll23_evidence/candidate_002",
       "expected_prize_report": "reports/scroll23_evidence/candidate_002/PRIZE_READINESS_REPORT.json",
-      "evidence_command": ".venv/bin/python scripts/run_villa_prize_evidence_chain.py --ranked reports/scroll23_ranked_candidates.tsv --candidate-index 2 --out-dir reports/scroll23_evidence/candidate_002 --execute --checkpoint best_model.pt",
-      "validate_command": ".venv/bin/python scripts/validate_prize_artifact.py --metadata reports/scroll23_evidence/candidate_002/predictions/pred_18176_4000_4128_64x64_meta.json --out reports/scroll23_evidence/candidate_002/validation_report.json",
+      "evidence_command": "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python3 scripts/run_villa_prize_evidence_chain.py --ranked reports/scroll23_ranked_candidates.tsv --candidate-index 2 --out-dir reports/scroll23_evidence/candidate_002 --execute --checkpoint best_model.pt",
+      "validate_command": "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python3 scripts/validate_prize_artifact.py --metadata reports/scroll23_evidence/candidate_002/predictions/pred_18176_4000_4128_64x64_meta.json --out reports/scroll23_evidence/candidate_002/validation_report.json",
       "review_commands": [
-        ".venv/bin/python scripts/launch_crackle_viewer.py",
-        ".venv/bin/python scripts/launch_vc3d.py"
+        "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python3 scripts/launch_crackle_viewer.py",
+        "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python3 scripts/launch_vc3d.py"
       ],
       "villa_review_route": [
         "Run GPU inference/evidence chain",
@@ -191,11 +191,11 @@
       "expected_prediction_metadata": "reports/scroll23_evidence/candidate_003/predictions/pred_20224_4000_4128_64x64_meta.json",
       "expected_evidence_dir": "reports/scroll23_evidence/candidate_003",
       "expected_prize_report": "reports/scroll23_evidence/candidate_003/PRIZE_READINESS_REPORT.json",
-      "evidence_command": ".venv/bin/python scripts/run_villa_prize_evidence_chain.py --ranked reports/scroll23_ranked_candidates.tsv --candidate-index 3 --out-dir reports/scroll23_evidence/candidate_003 --execute --checkpoint best_model.pt",
-      "validate_command": ".venv/bin/python scripts/validate_prize_artifact.py --metadata reports/scroll23_evidence/candidate_003/predictions/pred_20224_4000_4128_64x64_meta.json --out reports/scroll23_evidence/candidate_003/validation_report.json",
+      "evidence_command": "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python3 scripts/run_villa_prize_evidence_chain.py --ranked reports/scroll23_ranked_candidates.tsv --candidate-index 3 --out-dir reports/scroll23_evidence/candidate_003 --execute --checkpoint best_model.pt",
+      "validate_command": "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python3 scripts/validate_prize_artifact.py --metadata reports/scroll23_evidence/candidate_003/predictions/pred_20224_4000_4128_64x64_meta.json --out reports/scroll23_evidence/candidate_003/validation_report.json",
       "review_commands": [
-        ".venv/bin/python scripts/launch_crackle_viewer.py",
-        ".venv/bin/python scripts/launch_vc3d.py"
+        "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python3 scripts/launch_crackle_viewer.py",
+        "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python3 scripts/launch_vc3d.py"
       ],
       "villa_review_route": [
         "Run GPU inference/evidence chain",
@@ -220,11 +220,11 @@
       "expected_prediction_metadata": "reports/scroll23_evidence/candidate_004/predictions/pred_18176_4000_4000_64x64_meta.json",
       "expected_evidence_dir": "reports/scroll23_evidence/candidate_004",
       "expected_prize_report": "reports/scroll23_evidence/candidate_004/PRIZE_READINESS_REPORT.json",
-      "evidence_command": ".venv/bin/python scripts/run_villa_prize_evidence_chain.py --ranked reports/scroll23_ranked_candidates.tsv --candidate-index 4 --out-dir reports/scroll23_evidence/candidate_004 --execute --checkpoint best_model.pt",
-      "validate_command": ".venv/bin/python scripts/validate_prize_artifact.py --metadata reports/scroll23_evidence/candidate_004/predictions/pred_18176_4000_4000_64x64_meta.json --out reports/scroll23_evidence/candidate_004/validation_report.json",
+      "evidence_command": "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python3 scripts/run_villa_prize_evidence_chain.py --ranked reports/scroll23_ranked_candidates.tsv --candidate-index 4 --out-dir reports/scroll23_evidence/candidate_004 --execute --checkpoint best_model.pt",
+      "validate_command": "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python3 scripts/validate_prize_artifact.py --metadata reports/scroll23_evidence/candidate_004/predictions/pred_18176_4000_4000_64x64_meta.json --out reports/scroll23_evidence/candidate_004/validation_report.json",
       "review_commands": [
-        ".venv/bin/python scripts/launch_crackle_viewer.py",
-        ".venv/bin/python scripts/launch_vc3d.py"
+        "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python3 scripts/launch_crackle_viewer.py",
+        "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python3 scripts/launch_vc3d.py"
       ],
       "villa_review_route": [
         "Run GPU inference/evidence chain",
@@ -249,11 +249,11 @@
       "expected_prediction_metadata": "reports/scroll23_evidence/candidate_005/predictions/pred_20224_4128_4128_64x64_meta.json",
       "expected_evidence_dir": "reports/scroll23_evidence/candidate_005",
       "expected_prize_report": "reports/scroll23_evidence/candidate_005/PRIZE_READINESS_REPORT.json",
-      "evidence_command": ".venv/bin/python scripts/run_villa_prize_evidence_chain.py --ranked reports/scroll23_ranked_candidates.tsv --candidate-index 5 --out-dir reports/scroll23_evidence/candidate_005 --execute --checkpoint best_model.pt",
-      "validate_command": ".venv/bin/python scripts/validate_prize_artifact.py --metadata reports/scroll23_evidence/candidate_005/predictions/pred_20224_4128_4128_64x64_meta.json --out reports/scroll23_evidence/candidate_005/validation_report.json",
+      "evidence_command": "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python3 scripts/run_villa_prize_evidence_chain.py --ranked reports/scroll23_ranked_candidates.tsv --candidate-index 5 --out-dir reports/scroll23_evidence/candidate_005 --execute --checkpoint best_model.pt",
+      "validate_command": "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python3 scripts/validate_prize_artifact.py --metadata reports/scroll23_evidence/candidate_005/predictions/pred_20224_4128_4128_64x64_meta.json --out reports/scroll23_evidence/candidate_005/validation_report.json",
       "review_commands": [
-        ".venv/bin/python scripts/launch_crackle_viewer.py",
-        ".venv/bin/python scripts/launch_vc3d.py"
+        "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python3 scripts/launch_crackle_viewer.py",
+        "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python3 scripts/launch_vc3d.py"
       ],
       "villa_review_route": [
         "Run GPU inference/evidence chain",
@@ -278,11 +278,11 @@
       "expected_prediction_metadata": "reports/scroll23_evidence/candidate_006/predictions/pred_18304_4128_4128_64x64_meta.json",
       "expected_evidence_dir": "reports/scroll23_evidence/candidate_006",
       "expected_prize_report": "reports/scroll23_evidence/candidate_006/PRIZE_READINESS_REPORT.json",
-      "evidence_command": ".venv/bin/python scripts/run_villa_prize_evidence_chain.py --ranked reports/scroll23_ranked_candidates.tsv --candidate-index 6 --out-dir reports/scroll23_evidence/candidate_006 --execute --checkpoint best_model.pt",
-      "validate_command": ".venv/bin/python scripts/validate_prize_artifact.py --metadata reports/scroll23_evidence/candidate_006/predictions/pred_18304_4128_4128_64x64_meta.json --out reports/scroll23_evidence/candidate_006/validation_report.json",
+      "evidence_command": "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python3 scripts/run_villa_prize_evidence_chain.py --ranked reports/scroll23_ranked_candidates.tsv --candidate-index 6 --out-dir reports/scroll23_evidence/candidate_006 --execute --checkpoint best_model.pt",
+      "validate_command": "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python3 scripts/validate_prize_artifact.py --metadata reports/scroll23_evidence/candidate_006/predictions/pred_18304_4128_4128_64x64_meta.json --out reports/scroll23_evidence/candidate_006/validation_report.json",
       "review_commands": [
-        ".venv/bin/python scripts/launch_crackle_viewer.py",
-        ".venv/bin/python scripts/launch_vc3d.py"
+        "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python3 scripts/launch_crackle_viewer.py",
+        "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python3 scripts/launch_vc3d.py"
       ],
       "villa_review_route": [
         "Run GPU inference/evidence chain",
@@ -307,11 +307,11 @@
       "expected_prediction_metadata": "reports/scroll23_evidence/candidate_007/predictions/pred_20224_4128_4000_64x64_meta.json",
       "expected_evidence_dir": "reports/scroll23_evidence/candidate_007",
       "expected_prize_report": "reports/scroll23_evidence/candidate_007/PRIZE_READINESS_REPORT.json",
-      "evidence_command": ".venv/bin/python scripts/run_villa_prize_evidence_chain.py --ranked reports/scroll23_ranked_candidates.tsv --candidate-index 7 --out-dir reports/scroll23_evidence/candidate_007 --execute --checkpoint best_model.pt",
-      "validate_command": ".venv/bin/python scripts/validate_prize_artifact.py --metadata reports/scroll23_evidence/candidate_007/predictions/pred_20224_4128_4000_64x64_meta.json --out reports/scroll23_evidence/candidate_007/validation_report.json",
+      "evidence_command": "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python3 scripts/run_villa_prize_evidence_chain.py --ranked reports/scroll23_ranked_candidates.tsv --candidate-index 7 --out-dir reports/scroll23_evidence/candidate_007 --execute --checkpoint best_model.pt",
+      "validate_command": "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python3 scripts/validate_prize_artifact.py --metadata reports/scroll23_evidence/candidate_007/predictions/pred_20224_4128_4000_64x64_meta.json --out reports/scroll23_evidence/candidate_007/validation_report.json",
       "review_commands": [
-        ".venv/bin/python scripts/launch_crackle_viewer.py",
-        ".venv/bin/python scripts/launch_vc3d.py"
+        "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python3 scripts/launch_crackle_viewer.py",
+        "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python3 scripts/launch_vc3d.py"
       ],
       "villa_review_route": [
         "Run GPU inference/evidence chain",
@@ -336,11 +336,11 @@
       "expected_prediction_metadata": "reports/scroll23_evidence/candidate_008/predictions/pred_20224_4000_4000_64x64_meta.json",
       "expected_evidence_dir": "reports/scroll23_evidence/candidate_008",
       "expected_prize_report": "reports/scroll23_evidence/candidate_008/PRIZE_READINESS_REPORT.json",
-      "evidence_command": ".venv/bin/python scripts/run_villa_prize_evidence_chain.py --ranked reports/scroll23_ranked_candidates.tsv --candidate-index 8 --out-dir reports/scroll23_evidence/candidate_008 --execute --checkpoint best_model.pt",
-      "validate_command": ".venv/bin/python scripts/validate_prize_artifact.py --metadata reports/scroll23_evidence/candidate_008/predictions/pred_20224_4000_4000_64x64_meta.json --out reports/scroll23_evidence/candidate_008/validation_report.json",
+      "evidence_command": "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python3 scripts/run_villa_prize_evidence_chain.py --ranked reports/scroll23_ranked_candidates.tsv --candidate-index 8 --out-dir reports/scroll23_evidence/candidate_008 --execute --checkpoint best_model.pt",
+      "validate_command": "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python3 scripts/validate_prize_artifact.py --metadata reports/scroll23_evidence/candidate_008/predictions/pred_20224_4000_4000_64x64_meta.json --out reports/scroll23_evidence/candidate_008/validation_report.json",
       "review_commands": [
-        ".venv/bin/python scripts/launch_crackle_viewer.py",
-        ".venv/bin/python scripts/launch_vc3d.py"
+        "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python3 scripts/launch_crackle_viewer.py",
+        "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python3 scripts/launch_vc3d.py"
       ],
       "villa_review_route": [
         "Run GPU inference/evidence chain",
@@ -365,11 +365,11 @@
       "expected_prediction_metadata": "reports/scroll23_evidence/candidate_009/predictions/pred_20096_4128_4128_64x64_meta.json",
       "expected_evidence_dir": "reports/scroll23_evidence/candidate_009",
       "expected_prize_report": "reports/scroll23_evidence/candidate_009/PRIZE_READINESS_REPORT.json",
-      "evidence_command": ".venv/bin/python scripts/run_villa_prize_evidence_chain.py --ranked reports/scroll23_ranked_candidates.tsv --candidate-index 9 --out-dir reports/scroll23_evidence/candidate_009 --execute --checkpoint best_model.pt",
-      "validate_command": ".venv/bin/python scripts/validate_prize_artifact.py --metadata reports/scroll23_evidence/candidate_009/predictions/pred_20096_4128_4128_64x64_meta.json --out reports/scroll23_evidence/candidate_009/validation_report.json",
+      "evidence_command": "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python3 scripts/run_villa_prize_evidence_chain.py --ranked reports/scroll23_ranked_candidates.tsv --candidate-index 9 --out-dir reports/scroll23_evidence/candidate_009 --execute --checkpoint best_model.pt",
+      "validate_command": "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python3 scripts/validate_prize_artifact.py --metadata reports/scroll23_evidence/candidate_009/predictions/pred_20096_4128_4128_64x64_meta.json --out reports/scroll23_evidence/candidate_009/validation_report.json",
       "review_commands": [
-        ".venv/bin/python scripts/launch_crackle_viewer.py",
-        ".venv/bin/python scripts/launch_vc3d.py"
+        "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python3 scripts/launch_crackle_viewer.py",
+        "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python3 scripts/launch_vc3d.py"
       ],
       "villa_review_route": [
         "Run GPU inference/evidence chain",
@@ -394,11 +394,11 @@
       "expected_prediction_metadata": "reports/scroll23_evidence/candidate_010/predictions/pred_29568_7712_7712_64x64_meta.json",
       "expected_evidence_dir": "reports/scroll23_evidence/candidate_010",
       "expected_prize_report": "reports/scroll23_evidence/candidate_010/PRIZE_READINESS_REPORT.json",
-      "evidence_command": ".venv/bin/python scripts/run_villa_prize_evidence_chain.py --ranked reports/scroll23_ranked_candidates.tsv --candidate-index 10 --out-dir reports/scroll23_evidence/candidate_010 --execute --checkpoint best_model.pt",
-      "validate_command": ".venv/bin/python scripts/validate_prize_artifact.py --metadata reports/scroll23_evidence/candidate_010/predictions/pred_29568_7712_7712_64x64_meta.json --out reports/scroll23_evidence/candidate_010/validation_report.json",
+      "evidence_command": "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python3 scripts/run_villa_prize_evidence_chain.py --ranked reports/scroll23_ranked_candidates.tsv --candidate-index 10 --out-dir reports/scroll23_evidence/candidate_010 --execute --checkpoint best_model.pt",
+      "validate_command": "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python3 scripts/validate_prize_artifact.py --metadata reports/scroll23_evidence/candidate_010/predictions/pred_29568_7712_7712_64x64_meta.json --out reports/scroll23_evidence/candidate_010/validation_report.json",
       "review_commands": [
-        ".venv/bin/python scripts/launch_crackle_viewer.py",
-        ".venv/bin/python scripts/launch_vc3d.py"
+        "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python3 scripts/launch_crackle_viewer.py",
+        "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python3 scripts/launch_vc3d.py"
       ],
       "villa_review_route": [
         "Run GPU inference/evidence chain",
@@ -423,11 +423,11 @@
       "expected_prediction_metadata": "reports/scroll23_evidence/candidate_011/predictions/pred_29568_7712_7840_64x64_meta.json",
       "expected_evidence_dir": "reports/scroll23_evidence/candidate_011",
       "expected_prize_report": "reports/scroll23_evidence/candidate_011/PRIZE_READINESS_REPORT.json",
-      "evidence_command": ".venv/bin/python scripts/run_villa_prize_evidence_chain.py --ranked reports/scroll23_ranked_candidates.tsv --candidate-index 11 --out-dir reports/scroll23_evidence/candidate_011 --execute --checkpoint best_model.pt",
-      "validate_command": ".venv/bin/python scripts/validate_prize_artifact.py --metadata reports/scroll23_evidence/candidate_011/predictions/pred_29568_7712_7840_64x64_meta.json --out reports/scroll23_evidence/candidate_011/validation_report.json",
+      "evidence_command": "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python3 scripts/run_villa_prize_evidence_chain.py --ranked reports/scroll23_ranked_candidates.tsv --candidate-index 11 --out-dir reports/scroll23_evidence/candidate_011 --execute --checkpoint best_model.pt",
+      "validate_command": "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python3 scripts/validate_prize_artifact.py --metadata reports/scroll23_evidence/candidate_011/predictions/pred_29568_7712_7840_64x64_meta.json --out reports/scroll23_evidence/candidate_011/validation_report.json",
       "review_commands": [
-        ".venv/bin/python scripts/launch_crackle_viewer.py",
-        ".venv/bin/python scripts/launch_vc3d.py"
+        "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python3 scripts/launch_crackle_viewer.py",
+        "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python3 scripts/launch_vc3d.py"
       ],
       "villa_review_route": [
         "Run GPU inference/evidence chain",

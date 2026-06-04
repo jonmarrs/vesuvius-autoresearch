@@ -4,10 +4,10 @@ This matrix joins official `ScrollPrize/villa` opportunity tracking with the cur
 
 ## Current State
 
-- Villa local ref: `b01e0e050b8ab498d5b9166b33cbf2e8f535e690`
-- Villa upstream ref: `f037ffb5b236dcb74112ec33c8843eaa15ff5a85`
-- Villa behind upstream: `False`
-- Villa diverged with local patches: `False`
+- Villa local ref: `64caeb2aee923a2e304d6a9b2b7bf8fdeac5706f`
+- Villa upstream ref: `41378e8bbae1c263b39ba89eb5c8f6f9f79a8405`
+- Villa behind upstream: `True`
+- Villa diverged with local patches: `True`
 - Evidence preflight candidates: `12`
 - GPU-ready evidence candidates: `12`
 - Blocked evidence candidates: `0`

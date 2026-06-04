@@ -2,10 +2,10 @@
   "source": "ScrollPrize/villa local checkout",
   "summary": {
     "total_components": 8,
-    "covered": 6,
-    "partial": 2,
+    "covered": 4,
+    "partial": 3,
     "blocked_missing_required_hook": 0,
-    "unwired": 0,
+    "unwired": 1,
     "missing_official_component": 0
   },
   "components": [
@@ -24,7 +24,7 @@
       "local_hook_status": [
         {
           "path": "vesuvius_loader.py",
-          "present": true
+          "present": false
         },
         {
           "path": "v3_training/trainer.py",
@@ -37,7 +37,7 @@
       ],
       "required_hooks": [],
       "missing_required_hooks": [],
-      "present_local_hooks": 2,
+      "present_local_hooks": 1,
       "total_local_hooks": 3,
       "coverage_status": "partial"
     },
@@ -56,11 +56,11 @@
       "local_hook_status": [
         {
           "path": "train.py",
-          "present": true
+          "present": false
         },
         {
           "path": "predict.py",
-          "present": true
+          "present": false
         },
         {
           "path": "scripts/smoke_test_villa_optimized_inference.py",
@@ -69,9 +69,9 @@
       ],
       "required_hooks": [],
       "missing_required_hooks": [],
-      "present_local_hooks": 3,
+      "present_local_hooks": 1,
       "total_local_hooks": 3,
-      "coverage_status": "covered"
+      "coverage_status": "partial"
     },
     {
       "name": "crackle-viewer",
@@ -212,14 +212,14 @@
       "local_hook_status": [
         {
           "path": "scripts/generate_fiber_labels.py",
-          "present": true
+          "present": false
         }
       ],
       "required_hooks": [],
       "missing_required_hooks": [],
-      "present_local_hooks": 1,
+      "present_local_hooks": 0,
       "total_local_hooks": 1,
-      "coverage_status": "covered"
+      "coverage_status": "unwired"
     },
     {
       "name": "thaumato-anakalyptor",
