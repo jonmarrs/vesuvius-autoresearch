@@ -502,14 +502,16 @@ def _get_villa_aug(size: int, config: ExperimentConfig):
 
 # Import our breakthrough components
 import sys
+
 print(f"DEBUG: Executing train.py from: {__file__}")
 sys.stdout.flush()
 
+import vesuvius_model
 from vesuvius_autoresearch.core.vesuvius_loader import (
     VesuviusLabeledDataset,
     VesuviusS3Dataset,
 )
-import vesuvius_model
+
 print(f"DEBUG: Importing vesuvius_model from: {vesuvius_model.__file__}")
 sys.stdout.flush()
 from vesuvius_model import InkDetectorOptimized, VesuviusConfig, VesuviusTimeSformer
@@ -846,12 +848,13 @@ def apply_augmentations(x, target_ink, target_fiber, step, max_steps, config=Non
     return apply_scroll_specific_3d_augmentations(x_aug, ink_aug, fiber_aug, config)
 
 
-def train(config: ExperimentConfig):
-    print("STARTING TRAINING")
-    torch.set_float32_matmul_precision("high")
-    device = torch.device("cuda")
+def build_vconfig(config: ExperimentConfig) -> VesuviusConfig:
+    """Build the VesuviusConfig for an ExperimentConfig.
 
-    v_config = VesuviusConfig(
+    Shared by train() and the --smoke preflight gate so both derive the
+    architecture parameters identically.
+    """
+    return VesuviusConfig(
         patch_size=config.patch_size,
         num_layers=config.num_layers,
         batch_size=config.batch_size,
@@ -862,6 +865,141 @@ def train(config: ExperimentConfig):
         in_channels=2 if config.use_ridges else 1,
         architecture=getattr(config, "architecture", "gated_unet"),
     )
+
+
+def build_model(config: ExperimentConfig, v_config: VesuviusConfig, device):
+    """Construct the model for v_config.architecture and move it to device.
+
+    Shared by train() and the --smoke preflight gate so the gate exercises the
+    exact same construction path as the real run (no drift between them).
+    """
+    if hasattr(v_config, "architecture") and v_config.architecture == "timesformer":
+        print("Instantiating TimeSformer Architecture...")
+        model = VesuviusTimeSformer(v_config).to(device)
+    elif (
+        hasattr(v_config, "architecture")
+        and v_config.architecture == "resnet3d_decoder"
+    ):
+        print("Instantiating ResNet3D-152 3D-Decoder Architecture...")
+        from vesuvius_model import VesuviusResNet3DDecoder
+
+        model = VesuviusResNet3DDecoder(v_config).to(device)
+    elif hasattr(v_config, "architecture") and v_config.architecture == "resnet3d":
+        print("Instantiating ResNet3D-101 Architecture (Grand Prize Variant)...")
+        if generate_resnet3d:
+            backbone = generate_resnet3d(
+                101,
+                n_input_channels=v_config.in_channels,
+                n_classes=1,
+                forward_features=False,
+            )
+            model = GenericMultiTaskWrapper(
+                backbone,
+                multi_task_heads=getattr(config, "multi_task_heads", False),
+                input_channels=v_config.in_channels,
+            ).to(device)
+        else:
+            raise ImportError("ResNet3D model not found in villa submodule.")
+    elif hasattr(v_config, "architecture") and v_config.architecture == "i3d":
+        print("Instantiating Inception-I3D Architecture...")
+        if InceptionI3d:
+            backbone = InceptionI3d(
+                num_classes=1,
+                in_channels=v_config.in_channels,
+                final_endpoint="Logits",
+                forward_features=False,
+            )
+            model = GenericMultiTaskWrapper(
+                backbone,
+                multi_task_heads=getattr(config, "multi_task_heads", False),
+                input_channels=v_config.in_channels,
+            ).to(device)
+        else:
+            raise ImportError("I3D model not found in villa submodule.")
+    elif hasattr(v_config, "architecture") and v_config.architecture == "resenc_unet":
+        print(
+            f"Instantiating nnUNet-style ResEnc UNet (base_feat={v_config.base_feat})..."
+        )
+        if ResidualEncoderUNet:
+            # Shallow 3-stage configuration to avoid dimension mismatch on small patches
+            n_stages = 3
+            features_per_stage = [v_config.base_feat * (2**i) for i in range(n_stages)]
+            strides = [[1, 1, 1]] + [[2, 2, 2]] * (n_stages - 1)
+
+            backbone = ResidualEncoderUNet(
+                input_channels=v_config.in_channels,
+                n_stages=n_stages,
+                features_per_stage=features_per_stage,
+                conv_op=convert_dim_to_conv_op(3),
+                kernel_sizes=[[3, 3, 3]] * n_stages,
+                strides=strides,
+                n_blocks_per_stage=[2] * n_stages,
+                num_classes=1,
+                n_conv_per_stage_decoder=[2] * (n_stages - 1),
+                conv_bias=True,
+                norm_op=get_matching_instancenorm(convert_dim_to_conv_op(3)),
+                norm_op_kwargs={"eps": 1e-5, "affine": True},
+                dropout_op=None,
+                nonlin=nn.LeakyReLU,
+                nonlin_kwargs={"inplace": True},
+                deep_supervision=False,
+            )
+            model = GenericMultiTaskWrapper(
+                backbone,
+                multi_task_heads=getattr(config, "multi_task_heads", False),
+                input_channels=v_config.in_channels,
+            ).to(device)
+        else:
+            raise ImportError(
+                "ResidualEncoderUNet not found. Please install dynamic-network-architectures."
+            )
+    elif hasattr(v_config, "architecture") and v_config.architecture == "lejepa_unet":
+        print("Instantiating LeJEPA Foundation-Backed UNet...")
+        from vesuvius_model import LeJEPAUNet
+
+        model = LeJEPAUNet(v_config).to(device)
+    else:
+        print("Instantiating Gated UNet-Transformer Architecture...")
+        model = InkDetectorOptimized(v_config).to(device)
+    return model
+
+
+def preflight_smoke(config: ExperimentConfig) -> None:
+    """Build the model and run one forward+backward on a synthetic batch.
+
+    Raises on any failure: construction error, shape/channel mismatch, or
+    non-finite output/loss. Runs on CPU so it never contends with a live GPU
+    cycle and so shape bugs surface deterministically. This is the gate that
+    catches model-level breakage in seconds instead of burning a full cycle.
+    """
+    device = torch.device("cpu")
+    v_config = build_vconfig(config)
+    model = build_model(config, v_config, device).train()
+
+    x = torch.randn(
+        2,
+        v_config.in_channels,
+        v_config.num_layers,
+        v_config.patch_size,
+        v_config.patch_size,
+    )
+    out = model(x, return_fiber=True, return_qc=True, return_proj=True, return_st=True)
+    outs = out if isinstance(out, tuple) else (out,)
+    for t in outs:
+        if not torch.isfinite(t).all():
+            raise ValueError("preflight: non-finite values in model output")
+    loss = sum(t.float().mean() for t in outs)
+    loss.backward()
+    if not torch.isfinite(loss):
+        raise ValueError("preflight: non-finite loss")
+
+
+def train(config: ExperimentConfig):
+    print("STARTING TRAINING")
+    torch.set_float32_matmul_precision("high")
+    device = torch.device("cuda")
+
+    v_config = build_vconfig(config)
 
     print(f"Initializing LOCAL TRANSFORMER Training on {config.uris}...")
     sys.stdout.flush()
@@ -987,94 +1125,7 @@ def train(config: ExperimentConfig):
     val_data_loader = get_val_dataloader(config.val_uri)
     val_data_iter = iter(val_data_loader)
 
-    if hasattr(v_config, "architecture") and v_config.architecture == "timesformer":
-        print("Instantiating TimeSformer Architecture...")
-        model = VesuviusTimeSformer(v_config).to(device)
-    elif (
-        hasattr(v_config, "architecture")
-        and v_config.architecture == "resnet3d_decoder"
-    ):
-        print("Instantiating ResNet3D-152 3D-Decoder Architecture...")
-        from vesuvius_model import VesuviusResNet3DDecoder
-
-        model = VesuviusResNet3DDecoder(v_config).to(device)
-    elif hasattr(v_config, "architecture") and v_config.architecture == "resnet3d":
-        print("Instantiating ResNet3D-101 Architecture (Grand Prize Variant)...")
-        if generate_resnet3d:
-            backbone = generate_resnet3d(
-                101,
-                n_input_channels=v_config.in_channels,
-                n_classes=1,
-                forward_features=False,
-            )
-            model = GenericMultiTaskWrapper(
-                backbone,
-                multi_task_heads=getattr(config, "multi_task_heads", False),
-                input_channels=v_config.in_channels,
-            ).to(device)
-        else:
-            raise ImportError("ResNet3D model not found in villa submodule.")
-    elif hasattr(v_config, "architecture") and v_config.architecture == "i3d":
-        print("Instantiating Inception-I3D Architecture...")
-        if InceptionI3d:
-            backbone = InceptionI3d(
-                num_classes=1,
-                in_channels=v_config.in_channels,
-                final_endpoint="Logits",
-                forward_features=False,
-            )
-            model = GenericMultiTaskWrapper(
-                backbone,
-                multi_task_heads=getattr(config, "multi_task_heads", False),
-                input_channels=v_config.in_channels,
-            ).to(device)
-        else:
-            raise ImportError("I3D model not found in villa submodule.")
-    elif hasattr(v_config, "architecture") and v_config.architecture == "resenc_unet":
-        print(
-            f"Instantiating nnUNet-style ResEnc UNet (base_feat={v_config.base_feat})..."
-        )
-        if ResidualEncoderUNet:
-            # Shallow 3-stage configuration to avoid dimension mismatch on small patches
-            n_stages = 3
-            features_per_stage = [v_config.base_feat * (2**i) for i in range(n_stages)]
-            strides = [[1, 1, 1]] + [[2, 2, 2]] * (n_stages - 1)
-
-            backbone = ResidualEncoderUNet(
-                input_channels=v_config.in_channels,
-                n_stages=n_stages,
-                features_per_stage=features_per_stage,
-                conv_op=convert_dim_to_conv_op(3),
-                kernel_sizes=[[3, 3, 3]] * n_stages,
-                strides=strides,
-                n_blocks_per_stage=[2] * n_stages,
-                num_classes=1,
-                n_conv_per_stage_decoder=[2] * (n_stages - 1),
-                conv_bias=True,
-                norm_op=get_matching_instancenorm(convert_dim_to_conv_op(3)),
-                norm_op_kwargs={"eps": 1e-5, "affine": True},
-                dropout_op=None,
-                nonlin=nn.LeakyReLU,
-                nonlin_kwargs={"inplace": True},
-                deep_supervision=False,
-            )
-            model = GenericMultiTaskWrapper(
-                backbone,
-                multi_task_heads=getattr(config, "multi_task_heads", False),
-                input_channels=v_config.in_channels,
-            ).to(device)
-        else:
-            raise ImportError(
-                "ResidualEncoderUNet not found. Please install dynamic-network-architectures."
-            )
-    elif hasattr(v_config, "architecture") and v_config.architecture == "lejepa_unet":
-        print("Instantiating LeJEPA Foundation-Backed UNet...")
-        from vesuvius_model import LeJEPAUNet
-
-        model = LeJEPAUNet(v_config).to(device)
-    else:
-        print("Instantiating Gated UNet-Transformer Architecture...")
-        model = InkDetectorOptimized(v_config).to(device)
+    model = build_model(config, v_config, device)
     betti_loss = (
         BettiLoss(weight=config.betti_loss_weight) if config.use_betti_loss else None
     )
@@ -1370,7 +1421,9 @@ def train(config: ExperimentConfig):
                 out_ink_2d = model_out[0]
                 # Diagnostic check: Isolate if NaN comes from backbone forward pass
                 if torch.isnan(out_ink_2d).any():
-                    print(f"DEBUG: NaN detected in model backbone output (out_ink_2d) at step {step}")
+                    print(
+                        f"DEBUG: NaN detected in model backbone output (out_ink_2d) at step {step}"
+                    )
                 # Map remaining outputs if they exist
                 # This is a bit brittle, but works with our current return order
                 out_fiber = model_out[1] if len(model_out) > 1 else None
@@ -1499,7 +1552,9 @@ def train(config: ExperimentConfig):
 
             consistency_loss = torch.tensor(0.0, device=device)
             if config.use_uamt and p1 is not None and p2 is not None:
-                consistency_loss = 1.0 - F.cosine_similarity(p1, p2, dim=1, eps=1e-6).mean()
+                consistency_loss = (
+                    1.0 - F.cosine_similarity(p1, p2, dim=1, eps=1e-6).mean()
+                )
             total_loss = (
                 config.loss_ink_bce * loss_ink
                 + config.loss_ink_dice * loss_dice
@@ -1508,7 +1563,11 @@ def train(config: ExperimentConfig):
                 + 0.1 * loss_qc
                 + 0.02 * hallucination_penalty
                 + config.loss_st * loss_st_val
-                + (config.consistency_weight * consistency_loss if config.use_uamt else 0.0)
+                + (
+                    config.consistency_weight * consistency_loss
+                    if config.use_uamt
+                    else 0.0
+                )
                 + uamt_loss
             )
 
@@ -1535,7 +1594,7 @@ def train(config: ExperimentConfig):
 
         scaler.scale(total_loss).backward()
         scaler.unscale_(optimizer)
-        
+
         # Diagnostic check for NaNs in gradients or weights
         for name, param in model.named_parameters():
             if param.grad is not None and torch.isnan(param.grad).any():
@@ -1926,6 +1985,7 @@ if __name__ == "__main__":
     class TrainArgs(Tap):
         config: str = "config.json"  # Path to configuration JSON
         test: bool = False  # Run a 30s smoke test
+        smoke: bool = False  # Preflight: build model + one fwd/bwd, then exit
 
     args = TrainArgs().parse_args()
 
@@ -1934,6 +1994,20 @@ if __name__ == "__main__":
     else:
         config = ExperimentConfig()
         config.save(args.config)
+
+    if args.smoke:
+        try:
+            preflight_smoke(config)
+        except Exception as e:
+            import traceback
+
+            traceback.print_exc()
+            print(f"PREFLIGHT FAILED: {e}")
+            sys.stdout.flush()
+            sys.exit(1)
+        print("PREFLIGHT OK")
+        sys.stdout.flush()
+        sys.exit(0)
 
     if args.test:
         config.time_budget = 30
