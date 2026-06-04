@@ -389,32 +389,33 @@ class InkDetectorOptimized(nn.Module):
         # Progressive UNet Decoder with GATED Fusion (Dynamic size matching)
         self.up1_conv = nn.Conv3d(self.base_feat, self.base_feat // 2, kernel_size=1)
         self.fusion1 = GatedFusionBlock(
-            self.base_feat // 2, self.base_feat // 2, self.base_feat // 2
+            self.base_feat, self.base_feat // 2, self.base_feat
         )
 
         self.up2_conv = nn.Conv3d(
             self.base_feat // 2, self.base_feat // 4, kernel_size=1
         )
         self.fusion2 = GatedFusionBlock(
-            self.in_channels, self.base_feat // 4, self.base_feat // 4
+            self.base_feat, self.base_feat // 4, self.base_feat // 2
         )
 
         self.decoder_res = nn.Sequential(
-            ResBlock3D(self.base_feat // 4), ResBlock3D(self.base_feat // 4)
+            ResBlock3D(self.base_feat // 2), ResBlock3D(self.base_feat // 2)
         )
 
         # Multi-task Heads
-        self.z_proj = LearnedZProjection(self.base_feat // 4)
-        self.final_ink = nn.Conv2d(self.base_feat // 4, 1, kernel_size=3, padding=1)
-        self.fiber_head = nn.Conv3d(self.base_feat // 4, 1, kernel_size=3, padding=1)
+        self.z_proj = LearnedZProjection(self.base_feat // 2)
+        self.final_ink = nn.Conv2d(self.base_feat // 2, 1, kernel_size=3, padding=1)
+        self.fiber_head = nn.Conv3d(self.base_feat // 2, 1, kernel_size=3, padding=1)
         self.st_head = nn.Conv3d(
-            self.base_feat // 4, 6, kernel_size=1
+            self.base_feat // 2, 6, kernel_size=1
         )  # 6 symmetric tensor components
         self.qc_head = nn.Sequential(
             nn.AdaptiveAvgPool3d(1),
             nn.Flatten(),
-            nn.Linear(self.base_feat, 64),
-            nn.ReLU(),
+            nn.Linear(self.base_feat // 2, 1),
+        )
+
             nn.Linear(64, 1),
         )
 
@@ -466,6 +467,7 @@ class InkDetectorOptimized(nn.Module):
             x_trans, size=x_emb.shape[2:], mode="trilinear", align_corners=False
         )
         x_up1 = self.up1_conv(x_up1)
+        print(f"DEBUG: x_emb.shape={x_emb.shape}, x_up1.shape={x_up1.shape}")
         x_f1 = self.fusion1(x_emb, x_up1)
 
         x_up2 = F.interpolate(
