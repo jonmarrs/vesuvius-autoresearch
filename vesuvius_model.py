@@ -214,6 +214,10 @@ class LeJEPAUNet(nn.Module):
         # x: [B, C, Z, H, W]
         # Force float64 for stability in deep transformer layers
         x_64 = x.to(torch.float64)
+        # Diagnostic check: Isolate if NaN comes from input
+        if torch.isnan(x_64).any():
+             print("DEBUG: NaN detected in input data before backbone")
+
         out_dict = self.backbone(x_64)
         
         # Brute-force NaN sanitization
