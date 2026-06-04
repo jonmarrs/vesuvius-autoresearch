@@ -1,0 +1,22 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+title: "Vesuvius AutoResearch (bountyhunter)"
+abstract: >-
+  An autonomous, evidence-gated research loop for 3D ink detection on the
+  Vesuvius Challenge: it samples a configuration space (architectures, losses,
+  augmentations), trains candidates under a fixed budget, evaluates them with
+  topological metrics against a fixed cross-fragment baseline, and retains only
+  improvements. All ML outputs use a 64x64 window within the Challenge's
+  hallucination-mitigation cap.
+type: software
+authors:
+  - family-names: Marrs
+    given-names: Jon
+repository-code: "https://github.com/jonmarrs/vesuvius-autoresearch"
+license: MIT
+date-released: "2026-03-23"
+keywords:
+  - vesuvius-challenge
+  - ink-detection
+  - automated-research
+  - 3d-segmentation

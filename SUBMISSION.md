@@ -1,68 +1,98 @@
-# Vesuvius Autoresearch: Progress Prize Submission
+# Vesuvius AutoResearch — Progress Prize Submission
 
-**Submission Tier:** Denarius ($10k) / Gold Aureus ($20k)
-**Deadline:** April 30, 2026
+**Track:** Open-Source Tooling (monthly Progress Prize)
+**What this is:** a tool/methodology submission, not a state-of-the-art ink-model claim.
 
-> **Status note (added 2026-05-15):** This file is the original April 2026
-> framing and was never filed through the April Google Form before it closed.
-> The contributions below (Vesuvius-C bindings + autoresearch loop) were filed
-> as **Part 1 of 2** of the May 2026 Progress Prize cycle; the villa-baseline
-> launchers + `submission_package` path + upstream PR ScrollPrize/villa#899
-> were filed as **Part 2 of 2**. Canonical current filings:
-> - [`docs/PROGRESS_PRIZE_SUBMISSION_2026-05_part1.md`](docs/PROGRESS_PRIZE_SUBMISSION_2026-05_part1.md) — Part 1 (Vesuvius-C + autoresearch loop), filed for May review.
-> - [`docs/PROGRESS_PRIZE_SUBMISSION_2026-05.md`](docs/PROGRESS_PRIZE_SUBMISSION_2026-05.md) — Part 2 (villa launchers + PR #899), filed 2026-05-15.
->
-> This file is kept for historical record only. The May submission deadline is
-> 2026-05-31 11:59pm PT and the form is https://forms.gle/LrpQmSAqdwGpTczLA .
+<!--
+REVIEW BEFORE FILING (internal note, delete before submitting):
+- Verify the current month's form URL + deadline in villa/scrollprize.org/docs/34_prizes.md
+  (the old forms.gle/... link is stale; next deadline is 2026-06-30 11:59pm PT).
+- Do NOT paste any val_bpb improvement number here unless you have re-derived it
+  from a clean run of results.tsv. The earlier "0.274 -> 0.087" claim is unverified
+  and was removed for that reason. Insert a verified figure or leave the qualitative
+  framing below.
+- Record a short walkthrough (setup + one cycle) and link it where marked.
+-->
 
 ## Overview
 
-`bountyhunter` is an autonomous research loop designed to continuously optimize 3D ink detection models for the Vesuvius Challenge. It uses a fully automated pipeline to randomly sample configurations, evaluate them against a fixed baseline on cross-fragment validation, and retain successful architectures.
+`Vesuvius AutoResearch` (project codename `bountyhunter`) is an autonomous research
+loop for 3D ink detection on the Vesuvius Challenge. It samples a configuration
+space (architectures, losses, augmentations), trains each candidate under a fixed
+time budget, evaluates it against a held-out cross-fragment baseline, and keeps only
+configurations that improve on that baseline. Every cycle is gated by an evidence
+check and a preflight model smoke test, so the loop fails fast on broken
+configurations instead of burning a training budget.
 
-This submission packages our framework as a tool for the community. It includes integrated architectural baselines, metric suites, and an automated execution loop.
+The submission packages this as reusable open-source tooling: integrated
+architecture baselines, a metric suite, a reproducible config/evaluation contract,
+and an automated execution loop. All machine-learning outputs use a 64×64 window
+(`patch_size=64`), within the Challenge's 0.5×0.5 mm hallucination-mitigation cap.
 
-## Video Walkthrough
+## Provenance
 
-[Link to Walkthrough Video] (Placeholder: video demonstrating setup, a single 15-minute training cycle, and the automatic logging of results)
+This project has been developed in the open since **2026-03-23** (public MIT repo:
+`github.com/jonmarrs/vesuvius-autoresearch`), with continuous commit history and an
+earlier round of upstream `ScrollPrize/villa` contributions in May 2026. We note
+the date only as factual provenance; the work stands on its own evidence.
 
-## Quick Start
+## What it does that's distinctive
 
-The framework is designed for a single NVIDIA GPU (e.g., RTX 4090 or H100) and uses `uv` for fast dependency management.
+- **Grand-Prize-lineage architectures:** native TimeSformer, ResNet3D-101, and
+  Inception-I3D paths alongside a gated UNet-transformer, selectable per cycle.
+- **Topological evaluation:** models are scored with `centerline_dice` and
+  `skeleton_distance_length`, not just pixel overlap.
+- **Multi-task supervision:** on-the-fly 3D structure-tensor and ridge/fiber targets.
+- **Calibration baseline:** periodic re-evaluation against a fixed reference recipe
+  to detect research drift.
+- **Reproducibility/safety gates:** preflight smoke test per cycle, plus local
+  validators for scale-bar, provenance, ML-window, and train/predict-overlap rules.
+
+## Quick start
+
+Single NVIDIA GPU (e.g. RTX 4090), `uv` for dependencies:
 
 ```bash
-# 1. Install dependencies
 uv sync
-
-# 2. Download sample dataset (PHerc. Paris 2 Fr 47)
-uv run download_data.py --fragment 4
-
-# 3. Kick off the autonomous research loop
-uv run run_autoresearch_loop.py
+# Place Vesuvius scroll data under local_data/ (see https://scrollprize.org/data).
+PYTHONPATH=. uv run python scripts/training/train.py --config config.json --smoke  # preflight: build model + one fwd/bwd
+uv run run_autoresearch_loop.py               # start the autonomous loop
 ```
 
-## Results & Baselines
+See [`REPRODUCE.md`](./REPRODUCE.md) for the exact, verified verification steps.
+A short walkthrough (setup + one cycle): _[link to be added before filing]_.
 
-Our `results.tsv` (included in this repository) and `best_model.pt` (available on [HuggingFace](https://huggingface.co/jonmarrs/vesuvius-autoresearch/blob/main/best_model.pt)) demonstrate that the autonomous loop consistently discovers models that beat our initial fixed baseline.
+## Results
 
-*   **Baseline val_bpb:** ~0.274
-*   **Evolved val_bpb:** ~0.087
+This submission is about the **search-and-evaluation tooling**, not a
+breakthrough detector — and the included evidence is reported honestly.
 
-## Integrations with Villa Components
+The 17 logged cycles in `results.tsv` show the loop's selection mechanism working
+as designed: cross-fragment validation `val_bpb` improves monotonically under the
+keep-only-if-better rule, from **0.4136** (first cycle) to **0.4123** (best). That
+is a small gain — the point demonstrated is the reproducible, evidence-gated search
+process, not a strong ink model. Topological scores over the same run
+(`centerline_dice` ≈ 0.07–0.10) confirm there is substantial headroom; these
+numbers are included precisely so reviewers can see the real state.
 
-This project builds heavily upon the excellent foundation provided by the official Vesuvius Challenge `villa` repository. Explicitly, we have integrated:
+Reviewers can reproduce the table directly from `results.tsv` and the included
+configs; the best checkpoint is published at
+`huggingface.co/jonmarrs/vesuvius-autoresearch`.
 
-*   **[Villa Metrics Suite](https://github.com/ScrollPrize/villa/tree/main/segmentation/evaluation/metrics):** We use `centerline_dice` and `skeleton_distance_length` to rigorously evaluate our models on topological correctness.
-*   **[Villa Volume API](https://github.com/ScrollPrize/villa/tree/main/vesuvius/src/vesuvius/data):** We load OME-Zarr formats directly utilizing the official `Volume` class.
-*   **[Villa Albumentations Recipe](https://github.com/ScrollPrize/villa/blob/main/ink-detection/train_timesformer_og.py):** Our augmentation pipeline evolves from the official recipe tuned for Scroll 2 noise profiles.
-*   **[Villa 3D Structure Tensors](https://github.com/ScrollPrize/villa/blob/main/vesuvius/src/vesuvius/image_proc/geometry/structure_tensor.py):** We use the structure tensor computation to supervise our auxiliary tasks.
+## Built on Villa
 
-## Prize Readiness Tooling
+This project integrates components from the official `ScrollPrize/villa` repository
+(evaluation metrics, the OME-Zarr `Volume` API, the structure-tensor computation,
+and the Scroll-2 augmentation recipe). Full component-level attribution, licenses,
+and original authors are recorded in [`CREDITS.md`](./CREDITS.md).
 
-See [`VILLA_PRIZE_READINESS.md`](./VILLA_PRIZE_READINESS.md) for the current
-Scroll 2/3 search and validation workflow. The package includes a deterministic
-candidate queue builder, VC3D-compatible prediction metadata export, and a local
-validator for scale-bar, provenance, ML-window, and train/predict-overlap checks.
+## Reproducibility & method
+
+See [`METHOD.md`](./METHOD.md) for the search/evaluation methodology and
+[`REPRODUCE.md`](./REPRODUCE.md) for exact environment and reproduction steps.
 
 ## License
 
-This project is licensed under the MIT License. See `README.md` for full details.
+MIT (see [`LICENSE`](./LICENSE)). You may use, modify, and redistribute with
+attribution; if borrowing code, preserve the upstream notices recorded in
+`CREDITS.md`.
