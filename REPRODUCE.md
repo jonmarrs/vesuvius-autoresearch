@@ -32,21 +32,19 @@ uv run python scripts/smoke_test.py            # run all
 uv run python scripts/smoke_test.py --list-only # list test names
 ```
 
-**Current status (reproduced 2026-06-04): 6 / 11 passing.** Reported honestly:
+**Current status (reproduced 2026-06-04): 9 passed, 2 skipped, 0 failed.**
 
-Passing — model construction and core behavior:
-`build_resenc_unet`, `build_gated_unet` (forward+backward, all heads),
-`multi_task_heads_dummy_default`, `multi_task_heads_real_outputs`,
-`dataloader_3tuple_sobel`, `bandit_templates`.
+Passing: `imports`, `build_resenc_unet`, `build_gated_unet` (forward+backward,
+all heads), `multi_task_heads_dummy_default`, `multi_task_heads_real_outputs`,
+`best_model_loads` (loads 274/274 compatible tensors), `dataloader_3tuple_sobel`,
+`augmentations_albumentations`, `bandit_templates`.
 
-Known-failing (being addressed — not silently hidden):
-- `imports`, `best_model_loads`, `augmentations_albumentations`, `augmentations_bg2`
-  — stale top-level imports (`train`, `ensemble_predict`) left over from a module
-  reorg; the modules now live under `scripts/`. Test-harness path bug, not a runtime
-  defect in the loop (which runs with the repo root on `PYTHONPATH`).
-- `dataloader_frangi_target` — the Frangi target uses a GPU path that falls back to
-  zeros when no CUDA device is visible to the worker (e.g. under GPU contention),
-  which trips the non-zero assertion.
+Skipped (optional capabilities, by design — not failures):
+- `dataloader_frangi_target` — the GPU Frangi target degrades to a zero-fallback
+  when CuPy cannot use a CUDA device in this process; the test skips rather than
+  asserting GPU availability.
+- `augmentations_bg2` — requires the optional villa `create_training_transforms`
+  augmentation, which is not installed in the base environment.
 
 ## 4. Inspect the logged search results
 

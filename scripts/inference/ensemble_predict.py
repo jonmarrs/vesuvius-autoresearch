@@ -14,7 +14,18 @@ import torch
 from matplotlib.patches import Rectangle
 from tap import Tap
 
-from predict import get_weight_window, load_compatible_state_dict, save_vc3d_zarr
+try:
+    from scripts.inference.predict import (
+        get_weight_window,
+        load_compatible_state_dict,
+        save_vc3d_zarr,
+    )
+except ModuleNotFoundError:  # when run directly as a script (scripts/inference on path)
+    from predict import (  # type: ignore[no-redef]
+        get_weight_window,
+        load_compatible_state_dict,
+        save_vc3d_zarr,
+    )
 from vesuvius_autoresearch.core.model_wrappers import build_inference_model
 from vesuvius_autoresearch.core.vesuvius_loader import FastVesuviusVolume
 
