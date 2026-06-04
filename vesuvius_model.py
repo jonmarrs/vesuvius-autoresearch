@@ -395,6 +395,8 @@ class InkDetectorOptimized(nn.Module):
         )
 
         self.up2_conv = nn.Conv3d(self.base_feat, self.base_feat // 4, kernel_size=1)
+        print(f"DEBUG: up2_conv initialized with in_channels={self.base_feat}")
+        sys.stdout.flush()
         self.fusion2 = GatedFusionBlock(
             self.base_feat, self.base_feat // 4, self.base_feat // 2
         )
