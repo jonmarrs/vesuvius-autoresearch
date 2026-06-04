@@ -1363,7 +1363,6 @@ def train(config: ExperimentConfig):
                 out_ink_2d = model_out[0]
                 # Diagnostic check: Isolate if NaN comes from backbone forward pass
                 if torch.isnan(out_ink_2d).any():
-                    print(f"DEBUG: NaN detected in model backbone output (out_ink_2d) at step {step}")
                 # Map remaining outputs if they exist
                 # This is a bit brittle, but works with our current return order
                 out_fiber = model_out[1] if len(model_out) > 1 else None
@@ -1421,25 +1420,20 @@ def train(config: ExperimentConfig):
                         t_out = ema_model(x_unl_aug_teacher + noise)
                         t_ink = t_out[0] if isinstance(t_out, tuple) else t_out
                         if torch.isnan(t_ink).any():
-                            print(f"DEBUG: NaN detected in t_ink at step {step}")
                         teacher_preds.append(torch.sigmoid(t_ink))
 
                     teacher_preds = torch.stack(teacher_preds)  # [T, B, 1, H, W]
                     if torch.isnan(teacher_preds).any():
-                        print(f"DEBUG: NaN detected in teacher_preds at step {step}")
                     teacher_prob = torch.mean(teacher_preds, dim=0)  # [B, 1, H, W]
                     teacher_var = torch.var(teacher_preds, dim=0)  # [B, 1, H, W]
                     if torch.isnan(teacher_var).any():
-                        print(f"DEBUG: NaN detected in teacher_var at step {step}")
                     ema_model.eval()  # Restore eval mode
 
                 # Uncertainty-Aware Consistency Loss: Weight MSE by exp(-variance)
                 uncertainty_weight = torch.exp(-teacher_var)
                 if torch.isnan(uncertainty_weight).any():
-                    print(f"DEBUG: NaN in uncertainty_weight at step {step}")
                 mse_loss = F.mse_loss(student_prob, teacher_prob, reduction="none")
                 if torch.isnan(mse_loss).any():
-                    print(f"DEBUG: NaN in mse_loss at step {step}")
                 uamt_loss = config.consistency_weight * torch.mean(
                     uncertainty_weight * mse_loss
                 )
@@ -1494,7 +1488,6 @@ def train(config: ExperimentConfig):
             if config.use_uamt and p1 is not None and p2 is not None:
                 # Diagnostic check for NaNs
                 if torch.isnan(p1).any() or torch.isnan(p2).any():
-                    print(f"DEBUG: NaN detected in p1 or p2 at step {step}")
                 
                 # Numerical stability: Ensure vectors are not zero before similarity
                 # Use a larger epsilon to prevent division by near-zero norms
@@ -1541,9 +1534,7 @@ def train(config: ExperimentConfig):
         # Diagnostic check for NaNs in gradients or weights
         for name, param in model.named_parameters():
             if param.grad is not None and torch.isnan(param.grad).any():
-                print(f"DEBUG: NaN in gradient for {name} at step {step}")
             if torch.isnan(param).any():
-                print(f"DEBUG: NaN in weights for {name} at step {step}")
 
         torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
         scaler.step(optimizer)
