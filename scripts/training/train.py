@@ -501,6 +501,10 @@ def _get_villa_aug(size: int, config: ExperimentConfig):
 
 
 # Import our breakthrough components
+import sys
+print(f"DEBUG: Executing train.py from: {__file__}")
+sys.stdout.flush()
+
 from vesuvius_autoresearch.core.vesuvius_loader import (
     VesuviusLabeledDataset,
     VesuviusS3Dataset,
