@@ -1486,15 +1486,7 @@ def train(config: ExperimentConfig):
 
             consistency_loss = torch.tensor(0.0, device=device)
             if config.use_uamt and p1 is not None and p2 is not None:
-                # Diagnostic check for NaNs
-                if torch.isnan(p1).any() or torch.isnan(p2).any():
-                
-                # Numerical stability: Ensure vectors are not zero before similarity
-                # Use a larger epsilon to prevent division by near-zero norms
-                consistency_loss = (
-                    1.0 - F.cosine_similarity(p1, p2, dim=1, eps=1e-6).mean()
-                )
-
+                consistency_loss = 1.0 - F.cosine_similarity(p1, p2, dim=1, eps=1e-6).mean()
             total_loss = (
                 config.loss_ink_bce * loss_ink
                 + config.loss_ink_dice * loss_dice
@@ -1503,7 +1495,7 @@ def train(config: ExperimentConfig):
                 + 0.1 * loss_qc
                 + 0.02 * hallucination_penalty
                 + config.loss_st * loss_st_val
-                + (0.05 * consistency_loss if config.use_uamt else 0.0)
+                + (config.consistency_weight * consistency_loss if config.use_uamt else 0.0)
                 + uamt_loss
             )
 
