@@ -166,21 +166,39 @@ def main():
             print(
                 f"Skipping evidence for Rank {rank}; PASS metadata already exists in {evidence_dir}"
             )
-            continue
-        evidence_cmd = [
+        else:
+            evidence_cmd = [
+                sys.executable,
+                "scripts/run_villa_prize_evidence_chain.py",
+                "--ranked",
+                args.ranked,
+                "--candidate-index",
+                str(rank),
+                "--out-dir",
+                evidence_dir,
+                "--execute",
+                "--checkpoint",
+                args.checkpoint,
+            ]
+            run_step(f"Generate Evidence for Rank {rank}", evidence_cmd)
+
+        # 5. Validate Prize Readiness (Official Villa-compatible Check)
+        print(f"\n>>> Step: Validate Prize Readiness (Rank {rank})")
+        metadata_path = (
+            Path(evidence_dir) / "predictions" / f"{item['artifact_stem']}_meta.json"
+        )
+        validate_cmd = [
             sys.executable,
-            "scripts/run_villa_prize_evidence_chain.py",
-            "--ranked",
-            args.ranked,
-            "--candidate-index",
-            str(rank),
-            "--out-dir",
-            evidence_dir,
-            "--execute",
-            "--checkpoint",
-            args.checkpoint,
+            "scripts/validate_prize_artifact.py",
+            "--metadata",
+            str(metadata_path),
+            "--out",
+            str(Path(evidence_dir) / "prize_validation.json"),
         ]
-        run_step(f"Generate Evidence for Rank {rank}", evidence_cmd)
+        if metadata_path.exists():
+            run_step(f"Validate Prize Readiness for Rank {rank}", validate_cmd)
+        else:
+            print(f"Warning: Metadata not found for validation at {metadata_path}")
 
     print("\nLasagna Pipeline Execution Complete.")
 
