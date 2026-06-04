@@ -510,35 +510,73 @@ def main():
                     f".:villa/foundation/datasets/fibers-dataset:{current_pp}"
                 )
 
-                p = subprocess.Popen(
-                    [
-                        "uv",
-                        "run",
-                        "python",
-                        "-u",
-                        "scripts/training/train.py",
-                        "--config",
-                        TEMP_CONFIG,
-                    ],
-                    stdout=f,
-                    stderr=subprocess.STDOUT,
-                    env=env_unbuffered,
-                    text=True,
-                    start_new_session=True,
-                )
+                # Preflight smoke gate: build the model and run one
+                # forward/backward in seconds so a broken architecture fails
+                # fast here instead of burning the full training budget.
+                f.write("--- PREFLIGHT SMOKE CHECK ---\n")
                 f.flush()
-                active_child_p = p
                 try:
-                    p.wait(timeout=default_budget + 300)  # 5 minute safety buffer
+                    preflight = subprocess.run(
+                        [
+                            "uv",
+                            "run",
+                            "python",
+                            "-u",
+                            "scripts/training/train.py",
+                            "--config",
+                            TEMP_CONFIG,
+                            "--smoke",
+                        ],
+                        stdout=f,
+                        stderr=subprocess.STDOUT,
+                        env=env_unbuffered,
+                        text=True,
+                        timeout=300,
+                    )
+                    preflight_ok = preflight.returncode == 0
                 except subprocess.TimeoutExpired:
-                    print(f"Cycle {i} timed out. Killing process group...")
+                    f.write("PREFLIGHT TIMED OUT — skipping training.\n")
+                    preflight_ok = False
+                f.flush()
+
+                if not preflight_ok:
+                    f.write("PREFLIGHT FAILED — skipping training for this cycle.\n")
+                    f.flush()
+                    print(
+                        f"Cycle {i}: PREFLIGHT FAILED — skipping 60-min run "
+                        "(model did not pass forward/backward)."
+                    )
+                    sys.stdout.flush()
+                else:
+                    p = subprocess.Popen(
+                        [
+                            "uv",
+                            "run",
+                            "python",
+                            "-u",
+                            "scripts/training/train.py",
+                            "--config",
+                            TEMP_CONFIG,
+                        ],
+                        stdout=f,
+                        stderr=subprocess.STDOUT,
+                        env=env_unbuffered,
+                        text=True,
+                        start_new_session=True,
+                    )
+                    f.flush()
+                    active_child_p = p
                     try:
-                        os.killpg(os.getpgid(p.pid), signal.SIGTERM)
-                    except Exception as e:
-                        print(f"Error killing process group: {e}")
-                    p.wait()
-                finally:
-                    active_child_p = None
+                        p.wait(timeout=default_budget + 300)  # 5 minute safety buffer
+                    except subprocess.TimeoutExpired:
+                        print(f"Cycle {i} timed out. Killing process group...")
+                        try:
+                            os.killpg(os.getpgid(p.pid), signal.SIGTERM)
+                        except Exception as e:
+                            print(f"Error killing process group: {e}")
+                        p.wait()
+                    finally:
+                        active_child_p = None
         except Exception as e:
             print(f"Subprocess error in cycle {i}: {e}")
 

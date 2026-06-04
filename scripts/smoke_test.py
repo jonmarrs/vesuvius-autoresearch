@@ -95,6 +95,18 @@ def test_build_gated_unet():
     )
     assert sum(p.numel() for p in m.parameters()) > 0
 
+    # Exercise the full forward + backward across every head. A param-count
+    # check alone misses decoder shape/channel bugs that only surface at
+    # runtime (e.g. the fusion2 spatial mismatch and qc_head dim mismatch).
+    x = torch.randn(2, 1, 16, 64, 64)
+    ink, fiber, qc, proj, st = m(
+        x, return_fiber=True, return_qc=True, return_proj=True, return_st=True
+    )
+    assert ink.shape == (2, 1, 64, 64), f"unexpected ink shape {tuple(ink.shape)}"
+    loss = sum(t.float().mean() for t in (ink, fiber, qc, proj, st))
+    loss.backward()
+    assert torch.isfinite(loss), "gated_unet produced a non-finite smoke loss"
+
 
 def test_multi_task_heads_dummy_default():
     from vesuvius_autoresearch.core.model_wrappers import build_inference_model
