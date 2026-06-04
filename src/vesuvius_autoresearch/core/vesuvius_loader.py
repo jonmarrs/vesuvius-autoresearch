@@ -7,7 +7,7 @@ import torch
 from PIL import Image
 
 # Add villa to path for ridge detection and official Volume class
-PROJECT_ROOT = os.path.abspath(os.path.dirname(__file__))
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../.."))
 VILLA_SRC = os.path.join(PROJECT_ROOT, "villa/vesuvius/src")
 FIBER_TOOLS_PATH = os.path.join(
     PROJECT_ROOT, "villa/foundation/datasets/fibers-dataset"
