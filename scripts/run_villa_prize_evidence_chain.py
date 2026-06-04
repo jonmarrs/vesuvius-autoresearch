@@ -21,7 +21,10 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from scripts.run_ranked_inference import build_predict_command, load_candidates
+from scripts.inference.run_ranked_inference import (
+    build_predict_command,
+    load_candidates,
+)
 from scripts.validate_prize_artifact import validate
 
 
