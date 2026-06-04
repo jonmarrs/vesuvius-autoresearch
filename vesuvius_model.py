@@ -392,9 +392,7 @@ class InkDetectorOptimized(nn.Module):
             self.base_feat, self.base_feat // 2, self.base_feat
         )
 
-        self.up2_conv = nn.Conv3d(
-            self.base_feat // 2, self.base_feat // 4, kernel_size=1
-        )
+        self.up2_conv = nn.Conv3d(self.base_feat, self.base_feat // 4, kernel_size=1)
         self.fusion2 = GatedFusionBlock(
             self.base_feat, self.base_feat // 4, self.base_feat // 2
         )
@@ -464,14 +462,13 @@ class InkDetectorOptimized(nn.Module):
             x_trans, size=x_emb.shape[2:], mode="trilinear", align_corners=False
         )
         x_up1 = self.up1_conv(x_up1)
-        print(f"DEBUG: x_emb.shape={x_emb.shape}, x_up1.shape={x_up1.shape}")
         x_f1 = self.fusion1(x_emb, x_up1)
 
         x_up2 = F.interpolate(
             x_f1, size=x.shape[2:], mode="trilinear", align_corners=False
         )
         x_up2 = self.up2_conv(x_up2)
-        x_f2 = self.fusion2(x, x_up2)
+        x_f2 = self.fusion2(x_f1, x_up2)
 
         x_out = self.decoder_res(x_f2)
 
