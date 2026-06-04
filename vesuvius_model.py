@@ -413,7 +413,7 @@ class InkDetectorOptimized(nn.Module):
         self.qc_head = nn.Sequential(
             nn.AdaptiveAvgPool3d(1),
             nn.Flatten(),
-            nn.Linear(self.base_feat // 2, 1),
+            nn.Linear(self.base_feat, 1),
         )
 
         # Projector Head for DINO-Lite Consistency
@@ -470,7 +470,13 @@ class InkDetectorOptimized(nn.Module):
             x_f1, size=x.shape[2:], mode="trilinear", align_corners=False
         )
         x_up2 = self.up2_conv(x_up2)
-        x_f2 = self.fusion2(x_f1, x_up2)
+        # Bring the skip up to the up-branch resolution before gated fusion.
+        # fusion2 upsamples to full input resolution, so x_f1 (still at the
+        # bottleneck resolution) must be interpolated to match before concat.
+        x_f1_up = F.interpolate(
+            x_f1, size=x.shape[2:], mode="trilinear", align_corners=False
+        )
+        x_f2 = self.fusion2(x_f1_up, x_up2)
 
         x_out = self.decoder_res(x_f2)
 
