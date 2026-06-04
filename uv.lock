@@ -2031,6 +2031,27 @@ wheels = [
 ]
 
 [[package]]
+name = "posix-ipc"
+version = "1.3.2"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/40/59/56be08bcd98bcb8bd2ec3de7dea4a8da3bde63b17974896ed2b91c9a4fb7/posix_ipc-1.3.2.tar.gz", hash = "sha256:6923232111329954a8349f7d99f212b6e96b5206e77fbd39aaf1b3cb4a5e9260", size = 99370, upload-time = "2025-10-23T02:14:37.234Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/67/1d/801032cf397325bcd10c37f393965e0297017ad897cf7e87059e744d85eb/posix_ipc-1.3.2-cp310-cp310-macosx_10_9_x86_64.whl", hash = "sha256:874cafa41705fe01148655adad35748b7430eedf9403bd9ab418b54e7687729c", size = 11748, upload-time = "2025-10-23T02:13:24.606Z" },
+    { url = "https://files.pythonhosted.org/packages/e7/65/247232ad9172e94e9d6c021cb8aba613f3a04bd67cf8070ffa70a1564374/posix_ipc-1.3.2-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:be96ab8a553ff135cd06fb29f46a5324cd52c6d36598896f2c07e6d5a0dc58c5", size = 12053, upload-time = "2025-10-23T02:13:25.838Z" },
+    { url = "https://files.pythonhosted.org/packages/23/58/cd3ae0520a5ee1a26f9969344c5c65d40f08776bc193624cf2862010b181/posix_ipc-1.3.2-cp310-cp310-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:0eae38de775bade7131b6f4638c634591db2740239581ef9d7b7baebeeac72b9", size = 50638, upload-time = "2025-10-23T02:13:26.932Z" },
+    { url = "https://files.pythonhosted.org/packages/91/4d/a308da8bdd5cbfe006e653596dd4ee4b68eebc816b9521c392021fc7086a/posix_ipc-1.3.2-cp310-cp310-manylinux_2_5_i686.manylinux1_i686.manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:0d678aea92aee928f371333a26625bcb34fe2b39e0360ceb7d0d8ae783ed2bc6", size = 46886, upload-time = "2025-10-23T02:13:27.737Z" },
+    { url = "https://files.pythonhosted.org/packages/bf/de/afa7a75494f5d59fe7dc512998cd567fdc7e62c8e1facf950bf061135182/posix_ipc-1.3.2-cp310-cp310-manylinux_2_5_x86_64.manylinux1_x86_64.manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:a3ccddc7a892135a59b0377a97e30cb1b4ed681330594187c6ca3ab7714fd54b", size = 51306, upload-time = "2025-10-23T02:13:28.927Z" },
+    { url = "https://files.pythonhosted.org/packages/a5/79/f6875dcac93024d2ca10bf2bddfc9a03db4efe035b11cfeff1aa79815335/posix_ipc-1.3.2-cp310-cp310-musllinux_1_2_aarch64.whl", hash = "sha256:4f258d4d14b928a44c37db908faa484477793dbd519b9bf7369f0616ed37cb98", size = 49427, upload-time = "2025-10-23T02:13:30.181Z" },
+    { url = "https://files.pythonhosted.org/packages/00/2c/517a5f58ac07aad14db763e14f99faa7cdf753a248db68ad73b45f613219/posix_ipc-1.3.2-cp310-cp310-musllinux_1_2_i686.whl", hash = "sha256:16266d9739fea17b3bcc331aa3c7785cbd60f34068de57d9a7d1ff2a7e0b3f51", size = 46377, upload-time = "2025-10-23T02:13:31.082Z" },
+    { url = "https://files.pythonhosted.org/packages/3a/f9/2c9581f89f5c4856a7e6b4e21840a622ca393650308ca3373cf9b0c211b2/posix_ipc-1.3.2-cp310-cp310-musllinux_1_2_x86_64.whl", hash = "sha256:0f70e2921a08cadb5c35cd9761f748885f96706fed7b1df911add4dec8795163", size = 49312, upload-time = "2025-10-23T02:13:32.165Z" },
+    { url = "https://files.pythonhosted.org/packages/07/fe/9b5b92f958f5cc318a4a6618a702cb538c91aa6134a17a8c4631d3ff47f8/posix_ipc-1.3.2-pp310-pypy310_pp73-macosx_10_15_x86_64.whl", hash = "sha256:0b50bd6666e852cbc94d211d93b90aa1855060b7c206f49d5fdbdf4757b52bb8", size = 11336, upload-time = "2025-10-23T02:14:17.153Z" },
+    { url = "https://files.pythonhosted.org/packages/4f/7e/a56330c2086684c7a06dd5b324190302723ab7aa1499b94738cdcc071a04/posix_ipc-1.3.2-pp310-pypy310_pp73-macosx_11_0_arm64.whl", hash = "sha256:b5ba32ffd207180548ebcbfd9bb5f7cdc927f73f80c492fb1dc8a91468118969", size = 11535, upload-time = "2025-10-23T02:14:17.861Z" },
+    { url = "https://files.pythonhosted.org/packages/9e/8f/1d884cd1ba5cb80d16f244154bd69479bfffc40328ac45d3026a96a3b9ba/posix_ipc-1.3.2-pp310-pypy310_pp73-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:16637b72cb7e968ebe14a3b21e0390ef973d15824c9191dc13008391135ce977", size = 19684, upload-time = "2025-10-23T02:14:18.546Z" },
+    { url = "https://files.pythonhosted.org/packages/38/a2/698c192f722bd90ba96b059b0dd9141a813d3493c71ca86f3a53df621be2/posix_ipc-1.3.2-pp310-pypy310_pp73-manylinux_2_5_i686.manylinux1_i686.manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:2ff277fe106ef992c14ee8440f835169e6b52851c9fafd36f6c0fea0e109641d", size = 20746, upload-time = "2025-10-23T02:14:19.291Z" },
+    { url = "https://files.pythonhosted.org/packages/1b/77/408b50898e159678d6c587c682aec3549a892a67b1d6f9197937f140cf32/posix_ipc-1.3.2-pp310-pypy310_pp73-manylinux_2_5_x86_64.manylinux1_x86_64.manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:8b5c8b84f4778f0920bda59248bb573541b63e9f628f5d3f5ad9cb5aba155012", size = 20282, upload-time = "2025-10-23T02:14:20.011Z" },
+]
+
+[[package]]
 name = "pox"
 version = "0.3.7"
 source = { registry = "https://pypi.org/simple" }
@@ -3207,6 +3228,7 @@ dependencies = [
     { name = "numpy" },
     { name = "opencv-python-headless" },
     { name = "pandas" },
+    { name = "posix-ipc" },
     { name = "pre-commit" },
     { name = "pyarrow" },
     { name = "pybind11" },
@@ -3253,6 +3275,7 @@ requires-dist = [
     { name = "numpy", specifier = ">=2.2.6" },
     { name = "opencv-python-headless", specifier = ">=4.13.0.92" },
     { name = "pandas", specifier = ">=2.3.3" },
+    { name = "posix-ipc", specifier = ">=1.3.2" },
     { name = "pre-commit" },
     { name = "pyarrow", specifier = ">=21.0.0" },
     { name = "pybind11", specifier = ">=3.0.4" },

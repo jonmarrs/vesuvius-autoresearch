@@ -4,8 +4,11 @@ from pathlib import Path
 import numpy as np
 
 from scripts.build_scroll23_search_queue import _occupied_windows, build_queue
+from scripts.inference.run_ranked_inference import (
+    build_predict_command,
+    load_candidates,
+)
 from scripts.rank_scroll23_candidates import rank_candidates, score_row
-from scripts.run_ranked_inference import build_predict_command, load_candidates
 from scripts.run_villa_prize_evidence_chain import (
     build_evidence_chain,
     preflight_evidence_chain,
