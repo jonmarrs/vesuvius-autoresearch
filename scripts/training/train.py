@@ -1436,8 +1436,10 @@ def train(config: ExperimentConfig):
                 # Uncertainty-Aware Consistency Loss: Weight MSE by exp(-variance)
                 uncertainty_weight = torch.exp(-teacher_var)
                 if torch.isnan(uncertainty_weight).any():
+                    print(f"DEBUG: NaN in uncertainty_weight at step {step}")
                 mse_loss = F.mse_loss(student_prob, teacher_prob, reduction="none")
                 if torch.isnan(mse_loss).any():
+                    print(f"DEBUG: NaN in mse_loss at step {step}")
                 uamt_loss = config.consistency_weight * torch.mean(
                     uncertainty_weight * mse_loss
                 )
