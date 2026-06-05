@@ -204,6 +204,8 @@ class VesuviusLabeledDataset(torch.utils.data.Dataset):
         require_ink=False,
         target_fiber_source="sobel_z",
         target_fiber_sigma=2.0,
+        min_mask_ratio=0.05,
+        min_ink_ratio=0.01,
     ):
         self.volume = FastVesuviusVolume(
             volume_uri,
@@ -219,6 +221,8 @@ class VesuviusLabeledDataset(torch.utils.data.Dataset):
         self.use_lasagna = use_lasagna
         self.is_unlabeled = is_unlabeled
         self.require_ink = require_ink
+        self.min_mask_ratio = min_mask_ratio
+        self.min_ink_ratio = min_ink_ratio
         # target_fiber_source: "sobel_z" (default — train.py computes Sobel-Z
         # of CT inline, dataloader returns a zero placeholder for the 3rd
         # tuple element) or "frangi" (dataloader computes Frangi vesselness
@@ -264,12 +268,12 @@ class VesuviusLabeledDataset(torch.utils.data.Dataset):
             uri_hash = hashlib.md5(volume_uri.encode()).hexdigest()[:8]
             cache_path = os.path.join(
                 cache_dir,
-                f"valid_coords_cache_{uri_hash}_{self.patch_size}_{stride}_{mask_mtime}_{labels_mtime}_{1 if require_ink else 0}.npy",
+                f"valid_coords_cache_{uri_hash}_{self.patch_size}_{stride}_{mask_mtime}_{labels_mtime}_{1 if require_ink else 0}_{self.min_mask_ratio}_{self.min_ink_ratio}.npy",
             )
         else:
             # Clean URI for filename usage
             clean_uri = volume_uri.replace("/", "_").replace(".", "_")
-            cache_path = f"valid_coords_{clean_uri}_{self.patch_size}_{stride}_{mask_mtime}_{labels_mtime}_{1 if require_ink else 0}.npy"
+            cache_path = f"valid_coords_{clean_uri}_{self.patch_size}_{stride}_{mask_mtime}_{labels_mtime}_{1 if require_ink else 0}_{self.min_mask_ratio}_{self.min_ink_ratio}.npy"
 
         if os.path.exists(cache_path):
             self.valid_coords = np.load(cache_path)
@@ -283,18 +287,20 @@ class VesuviusLabeledDataset(torch.utils.data.Dataset):
 
             for y in range(0, H - self.patch_size, stride):
                 for x in range(0, W - self.patch_size, stride):
-                    # Mask check
+                    # Mask check: Ensure patch is mostly inside the scroll bounds
                     if self.mask is not None:
-                        if not self.mask[
+                        mask_patch = self.mask[
                             y : y + self.patch_size, x : x + self.patch_size
-                        ].any():
+                        ]
+                        if mask_patch.mean() < self.min_mask_ratio:
                             continue
 
-                    # Ink check
+                    # Ink check: Ensure patch has sufficient ink density
                     if self.require_ink and self.labels is not None:
-                        if not self.labels[
+                        label_patch = self.labels[
                             y : y + self.patch_size, x : x + self.patch_size
-                        ].any():
+                        ]
+                        if label_patch.mean() < self.min_ink_ratio:
                             continue
 
                     self.valid_coords.append((y, x))
