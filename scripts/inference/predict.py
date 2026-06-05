@@ -219,11 +219,13 @@ class PredictionArgs(Tap):
     metadata_out: str | None = None  # Force prediction metadata JSON path
     voxel_size_um: float = 7.91
     checkpoint: str = "best_model.pt"  # Model checkpoint to use for prediction
+    num_parts: int = 1
+    part_id: int = 0
+    disable_tta: bool = False
     skip_active_learning: bool = False  # Skip optional proofreader uncertainty export
     compute_coherence: bool = (
         False  # Enable automated fiber coherence evaluation (Villa ST)
     )
-    use_tta: bool = False  # Enable Villa test-time augmentation (8 flip combinations)
     gaussian_blend: bool = True  # Use Gaussian blending instead of Hanning window
 
 
@@ -321,45 +323,92 @@ def predict():
         f"Starting Soft-Tiling Inference: {predict_width}x{predict_height} (stride={stride})..."
     )
 
-    # Tiling Loop
+    # Tiling Loop Setup
+    all_chunks = []
     for y_off in range(0, predict_height - patch_size + 1, stride):
         for x_off in range(0, predict_width - patch_size + 1, stride):
-            curr_y = args.y + y_off
-            curr_x = args.x + x_off
+            all_chunks.append((y_off, x_off))
 
-            # Read the block
-            block = dataset[
-                args.z : args.z + num_layers,
-                curr_y : curr_y + patch_size,
-                curr_x : curr_x + patch_size,
-            ]
+    # Shard chunks for Distributed Inference
+    my_chunks = all_chunks[args.part_id :: args.num_parts]
 
-            # Prepare input
-            x = dataset.normalize(block).unsqueeze(0).to(device)  # [B, C, Z, H, W]
-            if not use_ridges:
-                x = x.unsqueeze(1)  # [B, 1, Z, H, W]
+    if args.num_parts > 1:
+        print(
+            f"Distributed Inference: processing part {args.part_id}/{args.num_parts} ({len(my_chunks)}/{len(all_chunks)} chunks)"
+        )
 
-            with torch.no_grad():
+    for y_off, x_off in my_chunks:
+        curr_y = args.y + y_off
+        curr_x = args.x + x_off
+
+        # Read the block
+        block = dataset[
+            args.z : args.z + num_layers,
+            curr_y : curr_y + patch_size,
+            curr_x : curr_x + patch_size,
+        ]
+
+        # Prepare input
+        x = dataset.normalize(block).unsqueeze(0).to(device)  # [B, C, Z, H, W]
+        if not use_ridges:
+            x = x.unsqueeze(1)  # [B, 1, Z, H, W]
+
+        with torch.no_grad():
+            if args.disable_tta:
                 out_ink_2d, out_fiber, out_qc = model(
                     x, return_fiber=True, return_qc=True
                 )
 
-                # Gate ink prediction with QC score
                 gate = torch.sigmoid(out_qc / 0.1)
                 prob_ink = torch.sigmoid(out_ink_2d).squeeze() * gate.view(-1)
-
                 prob_fiber = torch.sigmoid(out_fiber.mean(dim=2)).squeeze()
+            else:
+                prob_ink = 0.0
+                prob_fiber = 0.0
 
-                # Accumulate with weight window
-                full_prob_ink[
-                    y_off : y_off + patch_size, x_off : x_off + patch_size
-                ] += prob_ink * weight_window
-                full_prob_fiber[
-                    y_off : y_off + patch_size, x_off : x_off + patch_size
-                ] += prob_fiber * weight_window
-                full_weight[y_off : y_off + patch_size, x_off : x_off + patch_size] += (
-                    weight_window
+                # 0: no flip
+                i, f, q = model(x, return_fiber=True, return_qc=True)
+                prob_ink += torch.sigmoid(i).squeeze() * torch.sigmoid(q / 0.1).view(-1)
+                prob_fiber += torch.sigmoid(f.mean(dim=2)).squeeze()
+
+                # 1: flip W
+                i, f, q = model(torch.flip(x, [-1]), return_fiber=True, return_qc=True)
+                prob_ink += torch.flip(
+                    torch.sigmoid(i).squeeze(), [-1]
+                ) * torch.sigmoid(q / 0.1).view(-1)
+                prob_fiber += torch.flip(torch.sigmoid(f.mean(dim=2)).squeeze(), [-1])
+
+                # 2: flip H
+                i, f, q = model(torch.flip(x, [-2]), return_fiber=True, return_qc=True)
+                prob_ink += torch.flip(
+                    torch.sigmoid(i).squeeze(), [-2]
+                ) * torch.sigmoid(q / 0.1).view(-1)
+                prob_fiber += torch.flip(torch.sigmoid(f.mean(dim=2)).squeeze(), [-2])
+
+                # 3: flip HW
+                i, f, q = model(
+                    torch.flip(x, [-2, -1]), return_fiber=True, return_qc=True
                 )
+                prob_ink += torch.flip(
+                    torch.sigmoid(i).squeeze(), [-2, -1]
+                ) * torch.sigmoid(q / 0.1).view(-1)
+                prob_fiber += torch.flip(
+                    torch.sigmoid(f.mean(dim=2)).squeeze(), [-2, -1]
+                )
+
+                prob_ink /= 4.0
+                prob_fiber /= 4.0
+
+            # Accumulate with weight window
+            full_prob_ink[y_off : y_off + patch_size, x_off : x_off + patch_size] += (
+                prob_ink * weight_window
+            )
+            full_prob_fiber[y_off : y_off + patch_size, x_off : x_off + patch_size] += (
+                prob_fiber * weight_window
+            )
+            full_weight[y_off : y_off + patch_size, x_off : x_off + patch_size] += (
+                weight_window
+            )
 
     # Normalize by weights
     full_prob_ink /= full_weight + 1e-8
@@ -369,6 +418,8 @@ def predict():
     prob_fiber_final = full_prob_fiber.cpu().numpy()
 
     base_name = f"pred_{args.z}_{args.y}_{args.x}_{predict_width}x{predict_height}"
+    if args.num_parts > 1:
+        base_name += f"_part{args.part_id}of{args.num_parts}"
     out_path = args.output_img if args.output_img else f"predictions/{base_name}.png"
     output_dir = os.path.dirname(out_path) or "predictions"
     os.makedirs(output_dir, exist_ok=True)

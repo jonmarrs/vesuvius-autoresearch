@@ -41,7 +41,9 @@ class EnsembleArgs(Tap):
     checkpoints: list[str]  # List of checkpoint paths to ensemble
     patch_size: int = 64
     output_img: str | None = None  # Force output image path
-    use_tta: bool = False  # Enable Villa test-time augmentation (8 flip combinations)
+    disable_tta: bool = False  # Disable Test-Time Augmentation (4-way mirroring)
+    num_parts: int = 1  # Total number of shards for distributed inference
+    part_id: int = 0  # 0-indexed ID of this shard
     gaussian_blend: bool = True  # Use Gaussian blending instead of Hanning window
 
 
@@ -117,16 +119,7 @@ def ensemble_predict():
     if not models:
         raise ValueError("No valid models loaded for ensemble!")
 
-    # Optionally wrap each model with Villa TTA
-    if args.use_tta:
-        from vesuvius_autoresearch.core.villa_inference import VillaTTAWrapper
-
-        print("Enabling Villa TTA (mirroring, 8 flip combinations)...")
-        wrapped_models = []
-        for mdl, use_r, n_l, p_s in models:
-            wrapped = VillaTTAWrapper(mdl, tta_type="mirroring", use_batched=True)
-            wrapped_models.append((wrapped, use_r, n_l, p_s))
-        models = wrapped_models
+    # Manual TTA is applied directly in the inference loop
 
     # Assuming all models are evaluated on the same patch size for simplicity in this version
     # The max patch size is used for stride and tiling
@@ -161,62 +154,118 @@ def ensemble_predict():
         f"Starting Ensemble Inference ({len(models)} models): {predict_width}x{predict_height}..."
     )
 
-    # Tiling Loop
+    # Tiling Loop Setup
+    all_chunks = []
     for y_off in range(0, predict_height - max_patch_size + 1, stride):
         for x_off in range(0, predict_width - max_patch_size + 1, stride):
-            curr_y = args.y + y_off
-            curr_x = args.x + x_off
+            all_chunks.append((y_off, x_off))
 
-            # Read block capable of satisfying max_layers
-            block = dataset[
-                args.z : args.z + max_layers,
-                curr_y : curr_y + max_patch_size,
-                curr_x : curr_x + max_patch_size,
-            ]
+    my_chunks = all_chunks[args.part_id :: args.num_parts]
+    if args.num_parts > 1:
+        print(
+            f"Distributed Inference: processing part {args.part_id}/{args.num_parts} ({len(my_chunks)}/{len(all_chunks)} chunks)"
+        )
 
-            x_norm = dataset.normalize(block).unsqueeze(0).to(device)  # [B, C, Z, H, W]
+    for y_off, x_off in my_chunks:
+        curr_y = args.y + y_off
+        curr_x = args.x + x_off
 
-            ensemble_ink = 0.0
-            ensemble_fiber = 0.0
+        # Read block capable of satisfying max_layers
+        block = dataset[
+            args.z : args.z + max_layers,
+            curr_y : curr_y + max_patch_size,
+            curr_x : curr_x + max_patch_size,
+        ]
 
-            with torch.no_grad():
-                for model, use_ridges, n_layers, p_size in models:
-                    # Slice input to match model requirements
-                    model_x = x_norm[:, :, :n_layers, :p_size, :p_size]
-                    if not use_ridges:
-                        model_x = model_x[
-                            :, :1, :, :, :
-                        ]  # Take only CT channel if ridges not used
+        x_norm = dataset.normalize(block).unsqueeze(0).to(device)  # [B, C, Z, H, W]
 
-                    if len(model_x.shape) == 4:
-                        # shape is [B, Z, H, W], we need [B, 1, Z, H, W]
-                        model_x = model_x.unsqueeze(1)
+        ensemble_ink = 0.0
+        ensemble_fiber = 0.0
 
+        with torch.no_grad():
+            for model, use_ridges, n_layers, p_size in models:
+                # Slice input to match model requirements
+                model_x = x_norm[:, :, :n_layers, :p_size, :p_size]
+                if not use_ridges:
+                    model_x = model_x[
+                        :, :1, :, :, :
+                    ]  # Take only CT channel if ridges not used
+
+                if len(model_x.shape) == 4:
+                    # shape is [B, Z, H, W], we need [B, 1, Z, H, W]
+                    model_x = model_x.unsqueeze(1)
+
+                if args.disable_tta:
                     out_ink_2d, out_fiber, out_qc = model(
                         model_x, return_fiber=True, return_qc=True
                     )
-
                     gate = torch.sigmoid(out_qc / 0.1)
                     prob_ink = torch.sigmoid(out_ink_2d).squeeze() * gate.view(-1)
                     prob_fiber = torch.sigmoid(out_fiber.mean(dim=2)).squeeze()
+                else:
+                    prob_ink = 0.0
+                    prob_fiber = 0.0
 
-                    ensemble_ink += prob_ink
-                    ensemble_fiber += prob_fiber
+                    # 0: no flip
+                    i, f, q = model(model_x, return_fiber=True, return_qc=True)
+                    prob_ink += torch.sigmoid(i).squeeze() * torch.sigmoid(
+                        q / 0.1
+                    ).view(-1)
+                    prob_fiber += torch.sigmoid(f.mean(dim=2)).squeeze()
 
-                # Average probabilities
-                ensemble_ink /= len(models)
-                ensemble_fiber /= len(models)
+                    # 1: flip W
+                    i, f, q = model(
+                        torch.flip(model_x, [-1]), return_fiber=True, return_qc=True
+                    )
+                    prob_ink += torch.flip(
+                        torch.sigmoid(i).squeeze(), [-1]
+                    ) * torch.sigmoid(q / 0.1).view(-1)
+                    prob_fiber += torch.flip(
+                        torch.sigmoid(f.mean(dim=2)).squeeze(), [-1]
+                    )
 
-                # Accumulate with weight window
-                full_prob_ink[
-                    y_off : y_off + max_patch_size, x_off : x_off + max_patch_size
-                ] += ensemble_ink * weight_window
-                full_prob_fiber[
-                    y_off : y_off + max_patch_size, x_off : x_off + max_patch_size
-                ] += ensemble_fiber * weight_window
-                full_weight[
-                    y_off : y_off + max_patch_size, x_off : x_off + max_patch_size
-                ] += weight_window
+                    # 2: flip H
+                    i, f, q = model(
+                        torch.flip(model_x, [-2]), return_fiber=True, return_qc=True
+                    )
+                    prob_ink += torch.flip(
+                        torch.sigmoid(i).squeeze(), [-2]
+                    ) * torch.sigmoid(q / 0.1).view(-1)
+                    prob_fiber += torch.flip(
+                        torch.sigmoid(f.mean(dim=2)).squeeze(), [-2]
+                    )
+
+                    # 3: flip HW
+                    i, f, q = model(
+                        torch.flip(model_x, [-2, -1]), return_fiber=True, return_qc=True
+                    )
+                    prob_ink += torch.flip(
+                        torch.sigmoid(i).squeeze(), [-2, -1]
+                    ) * torch.sigmoid(q / 0.1).view(-1)
+                    prob_fiber += torch.flip(
+                        torch.sigmoid(f.mean(dim=2)).squeeze(), [-2, -1]
+                    )
+
+                    prob_ink /= 4.0
+                    prob_fiber /= 4.0
+
+                ensemble_ink += prob_ink
+                ensemble_fiber += prob_fiber
+
+            # Average probabilities
+            ensemble_ink /= len(models)
+            ensemble_fiber /= len(models)
+
+            # Accumulate with weight window
+            full_prob_ink[
+                y_off : y_off + max_patch_size, x_off : x_off + max_patch_size
+            ] += ensemble_ink * weight_window
+            full_prob_fiber[
+                y_off : y_off + max_patch_size, x_off : x_off + max_patch_size
+            ] += ensemble_fiber * weight_window
+            full_weight[
+                y_off : y_off + max_patch_size, x_off : x_off + max_patch_size
+            ] += weight_window
 
     # Normalize by weights
     full_prob_ink /= full_weight + 1e-8
@@ -230,6 +279,8 @@ def ensemble_predict():
     base_name = (
         f"ensemble_pred_{args.z}_{args.y}_{args.x}_{predict_width}x{predict_height}"
     )
+    if args.num_parts > 1:
+        base_name += f"_part{args.part_id}of{args.num_parts}"
     np.save(f"predictions/{base_name}_ink.npy", prob_ink_final)
     np.save(f"predictions/{base_name}_fiber.npy", prob_fiber_final)
 
