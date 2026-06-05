@@ -23,6 +23,8 @@ try:
     from metrics.connected_components import compute as compute_cc
     from metrics.critical_components import compute as compute_crit
     from metrics.dice import compute as compute_dice
+    from metrics.dice_multiclass import compute as compute_dice_multiclass
+    from metrics.mean_ap import compute as compute_mean_ap
     from metrics.skeleton_distance_length import compute as compute_skel_dist
 except ImportError as e:
     print(f"Error importing Villa metrics: {e}")
@@ -60,6 +62,17 @@ def main():
         "--threshold", type=float, default=0.5, help="Threshold for hard labels"
     )
     parser.add_argument("--out", help="Path to save results as JSON")
+    parser.add_argument(
+        "--num_classes",
+        type=int,
+        default=2,
+        help="Number of classes for multiclass metrics",
+    )
+    parser.add_argument(
+        "--soft_pred",
+        action="store_true",
+        help="Use soft probability predictions (skip binarization for mean_ap)",
+    )
     args = parser.parse_args()
 
     print(f"Loading Ground Truth: {args.gt}")
@@ -112,6 +125,23 @@ def main():
             results["skeleton_distance"] = float(skel_res)
     except Exception as e:
         print(f"Skeleton distance failed: {e}")
+
+    print("Computing Dice Multiclass...")
+    try:
+        dice_mc = compute_dice_multiclass(
+            gt_bin, pred_bin, num_classes=args.num_classes, ignore_index=0
+        )
+        results["dice_multiclass"] = dice_mc
+    except Exception as e:
+        print(f"Dice multiclass failed: {e}")
+
+    print("Computing Mean AP...")
+    try:
+        pred_for_ap = pred.astype(np.float32) if args.soft_pred else pred_bin
+        ap_res = compute_mean_ap(gt_bin, pred_for_ap, ignore_index=0)
+        results.update(ap_res)
+    except Exception as e:
+        print(f"Mean AP failed: {e}")
 
     print("\n--- Evaluation Results ---")
     for k, v in results.items():

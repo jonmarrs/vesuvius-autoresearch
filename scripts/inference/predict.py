@@ -223,6 +223,8 @@ class PredictionArgs(Tap):
     compute_coherence: bool = (
         False  # Enable automated fiber coherence evaluation (Villa ST)
     )
+    use_tta: bool = False  # Enable Villa test-time augmentation (8 flip combinations)
+    gaussian_blend: bool = False  # Use Gaussian blending instead of Hanning window
 
 
 def predict():
@@ -279,6 +281,13 @@ def predict():
     model = SwarmVoter(ensemble_models)
     model.eval()
 
+    # Optionally wrap model with Villa TTA
+    if args.use_tta:
+        from vesuvius_autoresearch.core.villa_inference import VillaTTAWrapper
+
+        print("Enabling Villa TTA (mirroring, 8 flip combinations)...")
+        model = VillaTTAWrapper(model, tta_type="mirroring", use_batched=True)
+
     # Open the dataset
     dataset = FastVesuviusVolume(args.uri, use_ridges=use_ridges)
 
@@ -298,7 +307,15 @@ def predict():
     full_prob_fiber = torch.zeros((predict_height, predict_width), device=device)
     full_weight = torch.zeros((predict_height, predict_width), device=device)
 
-    weight_window = get_weight_window(patch_size, device)
+    # Choose weight window: Gaussian (smoother) or Hanning (default)
+    if args.gaussian_blend:
+        from vesuvius_autoresearch.core.villa_inference import GaussianBlender
+
+        print("Using Gaussian blending window...")
+        _blender = GaussianBlender(patch_size)
+        weight_window = _blender.get_weight_window(device)
+    else:
+        weight_window = get_weight_window(patch_size, device)
 
     print(
         f"Starting Soft-Tiling Inference: {predict_width}x{predict_height} (stride={stride})..."

@@ -26,8 +26,12 @@ from __future__ import annotations
 import argparse
 import glob
 import json
+import os
 import sys
 from pathlib import Path
+
+# NOTE: This launcher is already fully integrated and working by invoking trace_service.py directly.
+sys.path.insert(0, os.path.abspath("villa/vesuvius/src"))
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 TRACE_SERVICE = (

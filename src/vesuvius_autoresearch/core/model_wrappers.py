@@ -226,5 +226,9 @@ def build_inference_model(
             multi_task_heads=multi_task_heads,
             input_channels=v_config.in_channels,
         )
+    if architecture == "mednext":
+        from vesuvius_model import MedNeXtInkDetector
+
+        return MedNeXtInkDetector(v_config)
 
     return InkDetectorOptimized(v_config)

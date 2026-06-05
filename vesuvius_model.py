@@ -320,6 +320,107 @@ class VesuviusResNet3DDecoder(nn.Module):
         return tuple(results) if len(results) > 1 else results[0]
 
 
+class MedNeXtInkDetector(nn.Module):
+    """
+    MedNeXt-based ink detector using Villa's MedNeXtEncoder + MedNeXtDecoder.
+    Provides full multi-task forward contract (ink, fiber, qc, proj, st).
+    """
+
+    version = "1.0.0-MedNeXt"
+
+    def __init__(self, config: VesuviusConfig):
+        super().__init__()
+        self.config = config
+        import os
+        import sys
+
+        # Add Villa MedNeXt wrapper to sys.path
+        villa_mednext = os.path.join(
+            os.path.dirname(__file__),
+            "villa",
+            "vesuvius",
+            "src",
+            "vesuvius",
+            "models",
+            "build",
+        )
+        if villa_mednext not in sys.path:
+            sys.path.insert(0, villa_mednext)
+
+        from mednext_wrapper import MedNeXtDecoder, MedNeXtEncoder
+
+        n_channels = config.base_feat
+        in_channels = getattr(config, "in_channels", 1)
+
+        self.encoder = MedNeXtEncoder(
+            input_channels=in_channels,
+            n_channels=n_channels,
+            exp_r=[2, 3, 4, 4, 4, 4, 4, 3, 2],
+            block_counts=[2, 2, 2, 2, 2, 2, 2, 2, 2],
+            kernel_size=3,
+            checkpoint_style=None,
+            norm_type="group",
+            grn=True,
+            do_res=True,
+            do_res_up_down=True,
+        )
+
+        self.decoder = MedNeXtDecoder(
+            encoder=self.encoder,
+            num_classes=1,
+            deep_supervision=False,
+        )
+
+        # Multi-task heads matching autoresearch contract
+        self.fiber_head = nn.Conv3d(n_channels, 1, kernel_size=3, padding=1)
+        self.st_head = nn.Conv3d(n_channels, 6, kernel_size=1)
+        self.qc_head = nn.Sequential(
+            nn.AdaptiveAvgPool3d(1),
+            nn.Flatten(),
+            nn.Linear(n_channels, 64),
+            nn.ReLU(),
+            nn.Linear(64, 1),
+        )
+        # Z-projection to collapse decoder features to 2D for ink_2d backup
+        self.z_proj = LearnedZProjection(n_channels)
+
+    def forward(
+        self,
+        x,
+        return_fiber=False,
+        return_qc=False,
+        return_proj=False,
+        return_st=False,
+        **kwargs,
+    ):
+        # x: [B, C, Z, H, W]
+        features = self.encoder(x)
+
+        # Run decoder with num_classes=1 → returns [B, 1, Z, H, W] ink logits
+        ink_3d = self.decoder(features)  # [B, 1, Z, H, W]
+
+        # Collapse Z to get 2D ink map [B, 1, H, W]
+        ink_2d = torch.mean(ink_3d, dim=2)
+
+        results = [ink_2d]
+
+        # Use encoder stage-0 features (full resolution) for auxiliary heads
+        feat_full_res = features[0]  # [B, n_channels, Z, H, W]
+
+        if return_fiber:
+            results.append(self.fiber_head(feat_full_res))
+        if return_qc:
+            results.append(self.qc_head(feat_full_res))
+        if return_proj:
+            proj_2d = self.z_proj(feat_full_res)  # [B, n_channels, H, W]
+            # Reduce to [B, 1, H, W]
+            results.append(proj_2d.mean(dim=1, keepdim=True))
+        if return_st:
+            results.append(self.st_head(feat_full_res))
+
+        return tuple(results) if len(results) > 1 else results[0]
+
+
 class InkDetectorOptimized(nn.Module):
     version = "2.5.0"
 

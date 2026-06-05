@@ -41,6 +41,8 @@ class EnsembleArgs(Tap):
     checkpoints: list[str]  # List of checkpoint paths to ensemble
     patch_size: int = 64
     output_img: str | None = None  # Force output image path
+    use_tta: bool = False  # Enable Villa test-time augmentation (8 flip combinations)
+    gaussian_blend: bool = False  # Use Gaussian blending instead of Hanning window
 
 
 def ensemble_predict():
@@ -115,6 +117,17 @@ def ensemble_predict():
     if not models:
         raise ValueError("No valid models loaded for ensemble!")
 
+    # Optionally wrap each model with Villa TTA
+    if args.use_tta:
+        from vesuvius_autoresearch.core.villa_inference import VillaTTAWrapper
+
+        print("Enabling Villa TTA (mirroring, 8 flip combinations)...")
+        wrapped_models = []
+        for mdl, use_r, n_l, p_s in models:
+            wrapped = VillaTTAWrapper(mdl, tta_type="mirroring", use_batched=True)
+            wrapped_models.append((wrapped, use_r, n_l, p_s))
+        models = wrapped_models
+
     # Assuming all models are evaluated on the same patch size for simplicity in this version
     # The max patch size is used for stride and tiling
     max_patch_size = max([m[3] for m in models])
@@ -134,7 +147,15 @@ def ensemble_predict():
     full_prob_fiber = torch.zeros((predict_height, predict_width), device=device)
     full_weight = torch.zeros((predict_height, predict_width), device=device)
 
-    weight_window = get_weight_window(max_patch_size, device)
+    # Choose weight window: Gaussian (smoother) or Hanning (default)
+    if args.gaussian_blend:
+        from vesuvius_autoresearch.core.villa_inference import GaussianBlender
+
+        print("Using Gaussian blending window...")
+        _blender = GaussianBlender(max_patch_size)
+        weight_window = _blender.get_weight_window(device)
+    else:
+        weight_window = get_weight_window(max_patch_size, device)
 
     print(
         f"Starting Ensemble Inference ({len(models)} models): {predict_width}x{predict_height}..."
