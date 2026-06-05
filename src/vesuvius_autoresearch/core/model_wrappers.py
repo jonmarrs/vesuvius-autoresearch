@@ -230,5 +230,9 @@ def build_inference_model(
         from vesuvius_model import MedNeXtInkDetector
 
         return MedNeXtInkDetector(v_config)
+    if architecture == "neural_tracing_vit":
+        from vesuvius_model import VesuviusNeuralTracingViT
+
+        return VesuviusNeuralTracingViT(v_config)
 
     return InkDetectorOptimized(v_config)

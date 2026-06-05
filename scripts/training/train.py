@@ -1000,6 +1000,14 @@ def build_model(config: ExperimentConfig, v_config: VesuviusConfig, device):
         from vesuvius_model import MedNeXtInkDetector
 
         model = MedNeXtInkDetector(v_config).to(device)
+    elif (
+        hasattr(v_config, "architecture")
+        and v_config.architecture == "neural_tracing_vit"
+    ):
+        print("Instantiating Vesuvius Neural Tracing ViT (Youssef MAE)...")
+        from vesuvius_model import VesuviusNeuralTracingViT
+
+        model = VesuviusNeuralTracingViT(v_config).to(device)
     else:
         print("Instantiating Gated UNet-Transformer Architecture...")
         model = InkDetectorOptimized(v_config).to(device)

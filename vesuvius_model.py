@@ -256,6 +256,70 @@ class LeJEPAUNet(nn.Module):
         return tuple(results) if len(results) > 1 else results[0]
 
 
+class VesuviusNeuralTracingViT(nn.Module):
+    """
+    Wrapper for Youssef MAE (Vesuvius3dViTModel) from Villa's Neural Tracing pipeline.
+    Adapted for 3D-to-2D ink detection native training inside Vesuvius Autoresearch.
+    """
+
+    version = "1.0.0-YoussefMAE"
+
+    def __init__(self, config: VesuviusConfig):
+        super().__init__()
+        self.config = config
+        from vesuvius.neural_tracing.nets.youssef_mae import Vesuvius3dViTModel
+
+        self.backbone = Vesuvius3dViTModel(
+            mae_ckpt_path=None,
+            in_channels=config.in_channels,
+            out_channels=1,
+            input_size=config.patch_size,
+            patch_size=8,
+        )
+
+    def forward(
+        self,
+        x,
+        return_fiber=False,
+        return_qc=False,
+        return_proj=False,
+        return_st=False,
+        **kwargs,
+    ):
+        # Vesuvius3dViTModel expects Z == H == W.
+        # So we pad/interpolate if necessary.
+        B, C, Z, H, W = x.shape
+        if Z != H:
+            x_input = F.interpolate(
+                x, size=(H, H, W), mode="trilinear", align_corners=False
+            )
+        else:
+            x_input = x
+
+        # Vesuvius3dViTModel expects (x, cond) where cond can be None
+        out = self.backbone(x_input, None)  # [B, 1, H, H, W]
+
+        if Z != H:
+            out = F.interpolate(
+                out, size=(Z, H, W), mode="trilinear", align_corners=False
+            )
+
+        # Collapse Z dimension to [B, 1, H, W] for ink prediction
+        out_2d = torch.mean(out, dim=2)
+
+        results = [out_2d]
+        if return_fiber:
+            results.append(out_2d.unsqueeze(2))
+        if return_qc:
+            results.append(torch.zeros((B, 1), device=out.device))
+        if return_proj:
+            results.append(out_2d)
+        if return_st:
+            results.append(torch.zeros((B, 6, Z, H, W), device=out.device))
+
+        return tuple(results) if len(results) > 1 else results[0]
+
+
 class VesuviusResNet3DDecoder(nn.Module):
     """
     Wrapper for the official Villa ResNet3D 3D-Decoder architecture.
