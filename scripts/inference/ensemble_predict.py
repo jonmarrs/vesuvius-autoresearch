@@ -42,7 +42,7 @@ class EnsembleArgs(Tap):
     patch_size: int = 64
     output_img: str | None = None  # Force output image path
     use_tta: bool = False  # Enable Villa test-time augmentation (8 flip combinations)
-    gaussian_blend: bool = False  # Use Gaussian blending instead of Hanning window
+    gaussian_blend: bool = True  # Use Gaussian blending instead of Hanning window
 
 
 def ensemble_predict():
