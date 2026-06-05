@@ -987,6 +987,11 @@ def build_model(config: ExperimentConfig, v_config: VesuviusConfig, device):
         from vesuvius_model import LeJEPAUNet
 
         model = LeJEPAUNet(v_config).to(device)
+    elif hasattr(v_config, "architecture") and v_config.architecture == "mednext":
+        print("Instantiating MedNeXt Architecture...")
+        from vesuvius_model import MedNeXtInkDetector
+
+        model = MedNeXtInkDetector(v_config).to(device)
     else:
         print("Instantiating Gated UNet-Transformer Architecture...")
         model = InkDetectorOptimized(v_config).to(device)
