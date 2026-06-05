@@ -250,7 +250,6 @@ class VesuviusLabeledDataset(torch.utils.data.Dataset):
         else:
             self.mask = None
         # Pre-calculate valid coordinates
-        stride = 16
         mask_mtime = (
             int(os.path.getmtime(mask_path))
             if mask_path and os.path.exists(mask_path)
@@ -268,51 +267,93 @@ class VesuviusLabeledDataset(torch.utils.data.Dataset):
             uri_hash = hashlib.md5(volume_uri.encode()).hexdigest()[:8]
             cache_path = os.path.join(
                 cache_dir,
-                f"valid_coords_cache_{uri_hash}_{self.patch_size}_{stride}_{mask_mtime}_{labels_mtime}_{1 if require_ink else 0}_{self.min_mask_ratio}_{self.min_ink_ratio}.npy",
+                f"valid_coords_villa_{uri_hash}_{self.patch_size}_{mask_mtime}_{labels_mtime}_{1 if require_ink else 0}_{self.min_mask_ratio}_{self.min_ink_ratio}.npy",
             )
         else:
             # Clean URI for filename usage
             clean_uri = volume_uri.replace("/", "_").replace(".", "_")
-            cache_path = f"valid_coords_{clean_uri}_{self.patch_size}_{stride}_{mask_mtime}_{labels_mtime}_{1 if require_ink else 0}_{self.min_mask_ratio}_{self.min_ink_ratio}.npy"
+            cache_path = f"valid_coords_villa_{clean_uri}_{self.patch_size}_{mask_mtime}_{labels_mtime}_{1 if require_ink else 0}_{self.min_mask_ratio}_{self.min_ink_ratio}.npy"
 
         if os.path.exists(cache_path):
             self.valid_coords = np.load(cache_path)
         else:
             print(
-                f"Finding valid coordinates (require_ink={require_ink}) for {volume_uri}..."
+                f"Finding valid coordinates (require_ink={require_ink}) for {volume_uri} using Villa find_valid_patches..."
             )
+
+            import sys
+
+            _VILLA_VESUVIUS_SRC = os.path.normpath(
+                os.path.join(
+                    os.path.dirname(__file__),
+                    os.pardir,
+                    os.pardir,
+                    os.pardir,
+                    "villa",
+                    "vesuvius",
+                    "src",
+                )
+            )
+            if _VILLA_VESUVIUS_SRC not in sys.path:
+                sys.path.insert(0, _VILLA_VESUVIUS_SRC)
+
+            from vesuvius.models.datasets.find_valid_patches import find_valid_patches
+
+            # If require_ink is True, use labels for both bbox and fraction
+            # If require_ink is False, use mask to find foreground patches
+            if self.require_ink and self.labels is not None:
+                target_array = self.labels
+                lbl_thresh = self.min_ink_ratio
+            elif self.mask is not None:
+                target_array = self.mask
+                lbl_thresh = self.min_mask_ratio
+            else:
+                target_array = np.ones((self.shape[1], self.shape[2]), dtype=np.uint8)
+                lbl_thresh = 0.0
+
+            results = find_valid_patches(
+                label_arrays=[target_array],
+                label_names=[volume_uri],
+                patch_size=(self.patch_size, self.patch_size),
+                bbox_threshold=self.min_mask_ratio,
+                label_threshold=lbl_thresh,
+                valid_patch_find_resolution=0,  # Use full-res in-memory arrays directly
+            )
+
             self.valid_coords = []
-
-            H, W = self.shape[1], self.shape[2]
-
-            for y in range(0, H - self.patch_size, stride):
-                for x in range(0, W - self.patch_size, stride):
-                    # Mask check: Ensure patch is mostly inside the scroll bounds
-                    if self.mask is not None:
-                        mask_patch = self.mask[
-                            y : y + self.patch_size, x : x + self.patch_size
-                        ]
-                        if mask_patch.mean() < self.min_mask_ratio:
-                            continue
-
-                    # Ink check: Ensure patch has sufficient ink density
-                    if self.require_ink and self.labels is not None:
-                        label_patch = self.labels[
-                            y : y + self.patch_size, x : x + self.patch_size
-                        ]
-                        if label_patch.mean() < self.min_ink_ratio:
-                            continue
-
+            for patch in results["fg_patches"]:
+                pos = patch["start_pos"]
+                if len(pos) == 3:
+                    z, y, x = pos
+                    self.valid_coords.append((y, x))
+                elif len(pos) == 2:
+                    y, x = pos
                     self.valid_coords.append((y, x))
 
             if not self.valid_coords:
                 print(
                     "  WARNING: No patches found. Retrying with any non-zero pixels..."
                 )
-                # Fallback to just anything in the volume if nothing matches
-                for y in range(0, H - self.patch_size, stride * 4):
-                    for x in range(0, W - self.patch_size, stride * 4):
+                results_fallback = find_valid_patches(
+                    label_arrays=[target_array],
+                    label_names=[volume_uri],
+                    patch_size=(self.patch_size, self.patch_size),
+                    bbox_threshold=0.01,
+                    label_threshold=0.01,
+                    valid_patch_find_resolution=0,
+                )
+                for patch in results_fallback["fg_patches"]:
+                    pos = patch["start_pos"]
+                    if len(pos) == 3:
+                        z, y, x = pos
                         self.valid_coords.append((y, x))
+                    elif len(pos) == 2:
+                        y, x = pos
+                        self.valid_coords.append((y, x))
+
+                # Ultimate fallback
+                if not self.valid_coords:
+                    self.valid_coords.append((0, 0))
 
             self.valid_coords = np.array(self.valid_coords, dtype=np.int32)
             print(f"  Found {len(self.valid_coords)} valid patches.")
@@ -407,8 +448,16 @@ class VesuviusLabeledDataset(torch.utils.data.Dataset):
     def __getitem__(self, idx):
         y0, x0 = self.valid_coords[idx]
         rng = np.random.RandomState(idx + (self.seed or 0))
-        y0 = max(0, min(self.shape[1] - self.patch_size, y0 + rng.randint(-4, 5)))
-        x0 = max(0, min(self.shape[2] - self.patch_size, x0 + rng.randint(-4, 5)))
+        # Large jitter so non-overlapping grid centers from Villa provide continuous coverage
+        half_p = self.patch_size // 2
+        y0 = max(
+            0,
+            min(self.shape[1] - self.patch_size, y0 + rng.randint(-half_p, half_p + 1)),
+        )
+        x0 = max(
+            0,
+            min(self.shape[2] - self.patch_size, x0 + rng.randint(-half_p, half_p + 1)),
+        )
 
         z_depth = self.shape[0]
         z_request = min(self.num_layers, z_depth)
