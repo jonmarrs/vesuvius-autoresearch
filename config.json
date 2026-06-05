@@ -11,7 +11,7 @@
     "batch_size": 16,
     "patch_size": 64,
     "num_layers": 16,
-    "lr": 0.00005,
+    "lr": 5e-05,
     "weight_decay": 0.01,
     "time_budget": 900,
     "pinned": false,
@@ -53,8 +53,6 @@
     "architecture": "gated_unet",
     "base_feat": 64,
     "num_blocks": 16,
-
-
     "num_heads": 8,
     "dropout": 0.0,
     "pseudo_label_dir": "local_data/pseudo_labels",

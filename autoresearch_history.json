@@ -1,5 +1,5 @@
 {
-    "lr": 1.0943254473523911,
+    "lr": 1.0,
     "wd": 1.0,
     "capacity": 1.0,
     "attention": 1.0,
@@ -8,11 +8,11 @@
     "spatial": 1.0,
     "temporal": 1.0,
     "width": 1.0,
-    "loss_balance": 6.300161235195897,
-    "features": 1.9,
+    "loss_balance": 6.682319666971038,
+    "features": 1.4701837812499996,
     "architecture": 1.0,
     "baseline": 18,
     "uamt": 1.0,
-    "scroll_augmentations": 8.580395876738969,
+    "scroll_augmentations": 9.356353015624213,
     "preproc": 1.0
 }
