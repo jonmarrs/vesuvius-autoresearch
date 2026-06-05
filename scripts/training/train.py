@@ -126,6 +126,13 @@ class ExperimentConfig:
     aug_scroll_squeeze_p: float = 0.0
     aug_scroll_z_dropout_p: float = 0.0
     aug_scroll_intensity_drift_p: float = 0.0
+
+    # New Villa Augmentations
+    aug_scroll_sheet_compression_p: float = 0.0
+    aug_scroll_thick_slice_p: float = 0.0
+    aug_scroll_rician_noise_p: float = 0.0
+    aug_scroll_blank_rectangles_p: float = 0.0
+
     use_betti_loss: bool = False
     betti_loss_weight: float = 0.1
     auxiliary_config: AuxiliaryConfig = field(default_factory=AuxiliaryConfig)

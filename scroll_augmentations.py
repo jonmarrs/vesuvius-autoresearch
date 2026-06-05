@@ -278,6 +278,147 @@ def scroll_intensity_drift(
     return x * (1.0 + slope * depth) + bias
 
 
+def scroll_sheet_compression(
+    x: torch.Tensor,
+    compression_strength: tuple[float, float] = (0.1, 0.3),
+) -> torch.Tensor:
+    """Simulates scroll sheets being closer together by compressing low-intensity
+    (gap) regions along Z. Adapted from Villa's SheetCompressionTransform.
+    """
+    B, C, Z, H, W = x.shape
+    device = x.device
+    dtype = x.dtype
+
+    strength = (
+        torch.empty((), dtype=torch.float32, device=device)
+        .uniform_(*compression_strength)
+        .item()
+    )
+
+    x_mean = x.mean(dim=1, keepdim=True)
+    smoothed = F.avg_pool3d(x_mean, kernel_size=3, stride=1, padding=1)
+
+    s_min = smoothed.amin(dim=(2, 3, 4), keepdim=True)
+    s_max = smoothed.amax(dim=(2, 3, 4), keepdim=True)
+    denom = (s_max - s_min).clamp(min=1e-8)
+    gap_weight = 1.0 - ((smoothed - s_min) / denom)
+
+    displacement = torch.cumsum(gap_weight, dim=2) * strength
+    displacement = F.avg_pool3d(
+        displacement, kernel_size=(1, 5, 5), stride=1, padding=(0, 2, 2)
+    )
+    z_disp_norm = displacement / (Z / 2.0)
+
+    z_coords = torch.linspace(-1, 1, Z, device=device, dtype=dtype)
+    y_coords = torch.linspace(-1, 1, H, device=device, dtype=dtype)
+    x_coords = torch.linspace(-1, 1, W, device=device, dtype=dtype)
+
+    grid_z, grid_y, grid_x = torch.meshgrid(z_coords, y_coords, x_coords, indexing="ij")
+    grid_z = grid_z.view(1, Z, H, W).expand(B, Z, H, W)
+    grid_y = grid_y.view(1, Z, H, W).expand(B, Z, H, W)
+    grid_x = grid_x.view(1, Z, H, W).expand(B, Z, H, W)
+
+    grid_z_shifted = grid_z - z_disp_norm.squeeze(1)
+    grid = torch.stack([grid_x, grid_y, grid_z_shifted], dim=-1)
+
+    return F.grid_sample(
+        x, grid, mode="bilinear", padding_mode="border", align_corners=True
+    )
+
+
+def scroll_thick_slice(
+    x: torch.Tensor,
+    target_ink: torch.Tensor,
+    target_fiber: torch.Tensor,
+    scale_range: tuple[float, float] = (0.25, 0.6),
+    candidate_axes: tuple[int, ...] = (0, 1, 2),
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    """Simulates thicker slice acquisition by downsampling and restoring along a single spatial axis.
+    Adapted from Villa's SimulateThickSliceTransform.
+    """
+    B, C, Z, H, W = x.shape
+    spatial_shape = [Z, H, W]
+    valid_axes = [ax for ax in candidate_axes if 0 <= ax < 3]
+    if not valid_axes:
+        return x, target_ink, target_fiber
+
+    chosen_axis = valid_axes[torch.randint(len(valid_axes), (), device=x.device).item()]
+    scale = (
+        torch.empty((), dtype=torch.float32, device=x.device)
+        .uniform_(*scale_range)
+        .item()
+    )
+
+    target_shape = list(spatial_shape)
+    target_dim = max(1, int(round(target_shape[chosen_axis] * scale)))
+
+    if target_dim == target_shape[chosen_axis]:
+        return x, target_ink, target_fiber
+
+    target_shape[chosen_axis] = target_dim
+
+    down_x = F.interpolate(x, size=target_shape, mode="nearest")
+    res_x = F.interpolate(down_x, size=spatial_shape, mode="nearest")
+
+    res_ink = target_ink
+    res_fib = target_fiber
+    if chosen_axis in (1, 2):
+        t_shape_2d = [target_shape[1], target_shape[2]]
+        s_shape_2d = [H, W]
+
+        down_ink = F.interpolate(target_ink, size=t_shape_2d, mode="nearest")
+        res_ink = F.interpolate(down_ink, size=s_shape_2d, mode="nearest")
+
+        down_fib = F.interpolate(target_fiber, size=t_shape_2d, mode="nearest")
+        res_fib = F.interpolate(down_fib, size=s_shape_2d, mode="nearest")
+
+    return res_x, res_ink, res_fib
+
+
+def scroll_rician_noise(
+    x: torch.Tensor, noise_variance: tuple[float, float] = (0.0, 0.1)
+) -> torch.Tensor:
+    """Adds Rician noise typical of MRI/CT magnitude data.
+    Adapted from Villa's RicianNoiseTransform.
+    """
+    variance = (
+        torch.empty((), dtype=torch.float32, device=x.device)
+        .uniform_(*noise_variance)
+        .item()
+    )
+    if variance <= 0:
+        return x
+    std_dev = math.sqrt(variance)
+    real_noise = torch.randn_like(x) * std_dev
+    imag_noise = torch.randn_like(x) * std_dev
+    return torch.sqrt((x + real_noise) ** 2 + imag_noise**2)
+
+
+def scroll_blank_rectangles(
+    x: torch.Tensor, num_rectangles: tuple[int, int] = (1, 3), max_size: int = 16
+) -> torch.Tensor:
+    """Overwrites random 3D regions with the mean intensity.
+    Adapted from Villa's BlankRectangleTransform.
+    """
+    B, C, Z, H, W = x.shape
+    n_rect = torch.randint(
+        num_rectangles[0], num_rectangles[1] + 1, (), device=x.device
+    ).item()
+    res_x = x.clone()
+    for _ in range(n_rect):
+        sz_z = torch.randint(1, min(Z, max_size) + 1, (), device=x.device).item()
+        sz_y = torch.randint(1, min(H, max_size) + 1, (), device=x.device).item()
+        sz_x = torch.randint(1, min(W, max_size) + 1, (), device=x.device).item()
+
+        z0 = torch.randint(0, max(1, Z - sz_z + 1), (), device=x.device).item()
+        y0 = torch.randint(0, max(1, H - sz_y + 1), (), device=x.device).item()
+        x0 = torch.randint(0, max(1, W - sz_x + 1), (), device=x.device).item()
+
+        mean_val = res_x[:, :, z0 : z0 + sz_z, y0 : y0 + sz_y, x0 : x0 + sz_x].mean()
+        res_x[:, :, z0 : z0 + sz_z, y0 : y0 + sz_y, x0 : x0 + sz_x] = mean_val
+    return res_x
+
+
 # ---------------------------------------------------------------------------
 # Convenience composition (API-compatible with train.py's existing function)
 # ---------------------------------------------------------------------------
@@ -309,6 +450,18 @@ def apply_scroll_specific_3d_augmentations(
     z_dropout_p = float(getattr(config, "aug_scroll_z_dropout_p", 0.0))
     intensity_p = float(getattr(config, "aug_scroll_intensity_drift_p", 0.0))
 
+    # New Villa Augmentations
+    sheet_comp_p = float(getattr(config, "aug_scroll_sheet_compression_p", 0.0))
+    thick_slice_p = float(getattr(config, "aug_scroll_thick_slice_p", 0.0))
+    rician_noise_p = float(getattr(config, "aug_scroll_rician_noise_p", 0.0))
+    blank_rects_p = float(getattr(config, "aug_scroll_blank_rectangles_p", 0.0))
+
+    if sheet_comp_p > 0 and torch.rand((), device=x.device).item() < sheet_comp_p:
+        x = scroll_sheet_compression(x)
+
+    if thick_slice_p > 0 and torch.rand((), device=x.device).item() < thick_slice_p:
+        x, target_ink, target_fiber = scroll_thick_slice(x, target_ink, target_fiber)
+
     if decohesion_p > 0 and torch.rand((), device=x.device).item() < decohesion_p:
         alpha = (
             torch.empty((), device=x.device, dtype=x.dtype).uniform_(0.15, 0.45).item()
@@ -326,5 +479,11 @@ def apply_scroll_specific_3d_augmentations(
 
     if intensity_p > 0 and torch.rand((), device=x.device).item() < intensity_p:
         x = scroll_intensity_drift(x)
+
+    if rician_noise_p > 0 and torch.rand((), device=x.device).item() < rician_noise_p:
+        x = scroll_rician_noise(x)
+
+    if blank_rects_p > 0 and torch.rand((), device=x.device).item() < blank_rects_p:
+        x = scroll_blank_rectangles(x)
 
     return x, target_ink.clamp(0, 1), target_fiber.clamp(0, 1)

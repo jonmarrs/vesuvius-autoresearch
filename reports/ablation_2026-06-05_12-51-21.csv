@@ -1,0 +1,5 @@
+run_id,condition,seed,status,val_bpb,train_loss,avg_skel_dist,avg_centerline_dice,avg_cc_diff,is_success,elapsed_s
+sheet_compression_seed0,sheet_compression,0,FAILED,,,,,,,3.2141580320021603
+thick_slice_seed0,thick_slice,0,FAILED,,,,,,,3.911735557994689
+rician_noise_seed0,rician_noise,0,FAILED,,,,,,,2.633944639994297
+blank_rectangles_seed0,blank_rectangles,0,FAILED,,,,,,,3.3019910199946025

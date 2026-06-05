@@ -55,7 +55,7 @@ def main() -> int:
 
     # Import the project modules then swap the scroll-aug function.
     import scroll_augmentations as new_augs
-    import train
+    from scripts.training import train
 
     train.apply_scroll_specific_3d_augmentations = (
         new_augs.apply_scroll_specific_3d_augmentations

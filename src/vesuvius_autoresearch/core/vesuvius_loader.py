@@ -186,6 +186,12 @@ class FastVesuviusVolume:
 
         return ct_tensor
 
+    def get_raw_patch(self, z, y, x, d, h, w) -> torch.Tensor:
+        ct = self.vol.get_chunk(z, y, x, d, h, w)
+        if ct.dtype == np.uint16:
+            ct = ct.astype(np.int32)
+        return torch.from_numpy(ct)
+
 
 class VesuviusLabeledDataset(torch.utils.data.Dataset):
     def __init__(
@@ -388,8 +394,11 @@ class VesuviusLabeledDataset(torch.utils.data.Dataset):
             device, dtype = vol.device, vol.dtype
 
             # 1. Surface estimation: softmax-weighted Z index, averaged across channels.
-            intensity = vol.mean(dim=0)  # [Z, H, W]
-            z_indices = torch.arange(Z, device=device, dtype=dtype).view(Z, 1, 1)
+            vol_f = vol.float() if dtype == torch.uint8 else vol
+            intensity = vol_f.mean(dim=0)  # [Z, H, W]
+            z_indices = torch.arange(Z, device=device, dtype=torch.float32).view(
+                Z, 1, 1
+            )
             weights = torch.nn.functional.softmax(intensity, dim=0)  # [Z, H, W]
             z_surface = (weights * z_indices).sum(dim=0)  # [H, W]
 
@@ -399,32 +408,59 @@ class VesuviusLabeledDataset(torch.utils.data.Dataset):
                 z_surface, kernel_size=5, stride=1, padding=2
             ).view(H, W)
 
-            # 2. Build sampling grid in normalized [-1, 1] coords.
-            # New_z(y, x) = original_z + (z_surface(y, x) - z_center). This
-            # pulls each column's surface to the center Z.
             z_center = (Z - 1) / 2.0
-            z_offset = (z_surface - z_center) * (2.0 / max(1, Z - 1))  # [H, W]
-            z_offset = z_offset.unsqueeze(0).expand(Z, -1, -1)  # [Z, H, W]
 
-            z_grid, y_grid, x_grid = torch.meshgrid(
-                torch.linspace(-1.0, 1.0, Z, device=device, dtype=dtype),
-                torch.linspace(-1.0, 1.0, H, device=device, dtype=dtype),
-                torch.linspace(-1.0, 1.0, W, device=device, dtype=dtype),
-                indexing="ij",
-            )
-            new_z = z_grid + z_offset
-            # grid_sample expects (x, y, z) order in the last dim.
-            grid = torch.stack([x_grid, y_grid, new_z], dim=-1).unsqueeze(
-                0
-            )  # [1, Z, H, W, 3]
+            if dtype == torch.uint8:
+                import sys
 
-            warped = torch.nn.functional.grid_sample(
-                vol.unsqueeze(0),
-                grid,
-                mode="bilinear",
-                padding_mode="border",
-                align_corners=True,
-            ).squeeze(0)  # [C, Z, H, W]
+                if "villa/lasagna" not in sys.path:
+                    sys.path.insert(0, "villa/lasagna")
+                from grid_sample_3d_u8 import grid_sample_3d_u8
+
+                z_offset = z_surface - z_center  # absolute coords
+                z_offset = z_offset.unsqueeze(0).expand(Z, -1, -1)  # [Z, H, W]
+
+                z_grid, y_grid, x_grid = torch.meshgrid(
+                    torch.arange(Z, device=device, dtype=torch.float32),
+                    torch.arange(H, device=device, dtype=torch.float32),
+                    torch.arange(W, device=device, dtype=torch.float32),
+                    indexing="ij",
+                )
+                new_z = z_grid + z_offset
+                grid = torch.stack([x_grid, y_grid, new_z], dim=-1).unsqueeze(0)
+
+                offset = torch.tensor(
+                    [0.0, 0.0, 0.0], device=device, dtype=torch.float32
+                )
+                inv_scale = torch.tensor(
+                    [1.0, 1.0, 1.0], device=device, dtype=torch.float32
+                )
+
+                warped = grid_sample_3d_u8(vol, grid, offset, inv_scale)
+            else:
+                # 2. Build sampling grid in normalized [-1, 1] coords.
+                z_offset = (z_surface - z_center) * (2.0 / max(1, Z - 1))  # [H, W]
+                z_offset = z_offset.unsqueeze(0).expand(Z, -1, -1)  # [Z, H, W]
+
+                z_grid, y_grid, x_grid = torch.meshgrid(
+                    torch.linspace(-1.0, 1.0, Z, device=device, dtype=dtype),
+                    torch.linspace(-1.0, 1.0, H, device=device, dtype=dtype),
+                    torch.linspace(-1.0, 1.0, W, device=device, dtype=dtype),
+                    indexing="ij",
+                )
+                new_z = z_grid + z_offset
+                # grid_sample expects (x, y, z) order in the last dim.
+                grid = torch.stack([x_grid, y_grid, new_z], dim=-1).unsqueeze(
+                    0
+                )  # [1, Z, H, W, 3]
+
+                warped = torch.nn.functional.grid_sample(
+                    vol.unsqueeze(0),
+                    grid,
+                    mode="bilinear",
+                    padding_mode="border",
+                    align_corners=True,
+                ).squeeze(0)  # [C, Z, H, W]
 
             if is_3d:
                 warped = warped.squeeze(0)
@@ -465,16 +501,31 @@ class VesuviusLabeledDataset(torch.utils.data.Dataset):
         z0 = rng.randint(0, z_range + 1) if z_range > 0 else 0
 
         try:
-            patch_vol = self.volume[
-                z0 : z0 + z_request,
-                y0 : y0 + self.patch_size,
-                x0 : x0 + self.patch_size,
-            ]
+            if isinstance(self.volume, FastVesuviusVolume):
+                patch_vol = self.volume.get_raw_patch(
+                    z0, y0, x0, z_request, self.patch_size, self.patch_size
+                )
+            else:
+                patch_vol = self.volume[
+                    z0 : z0 + z_request,
+                    y0 : y0 + self.patch_size,
+                    x0 : x0 + self.patch_size,
+                ]
+
+            patch_vol = patch_vol.to(self.device, non_blocking=True)
 
             # Priority J: Apply Lasagna flattening
             patch_vol = self._apply_lasagna_flattening(patch_vol)
 
-            if not self.use_ridges:
+            # Normalize after flattening
+            if patch_vol.dtype == torch.uint8:
+                patch_vol = patch_vol.float() / 255.0
+            elif patch_vol.dtype == torch.int32:  # previously uint16
+                patch_vol = patch_vol.float() / 65535.0
+
+            if self.use_ridges:
+                patch_vol = self._compute_ridges(patch_vol)
+            else:
                 patch_vol = patch_vol.unsqueeze(0)  # [1, Z, H, W]
 
             if self.labels is not None and not self.is_unlabeled:
@@ -540,6 +591,37 @@ class VesuviusLabeledDataset(torch.utils.data.Dataset):
             return torch.zeros(
                 (1, 1, self.patch_size, self.patch_size), dtype=torch.float32
             )
+
+    def _compute_ridges(self, patch_vol):
+        # Calculate ridges on flattened volume
+        ct_tensor = patch_vol
+        depth = ct_tensor.shape[0]
+        if depth < 3:
+            ridges_tensor = torch.zeros_like(ct_tensor)
+        else:
+            ridges_tensor = None
+            try:
+                import cupy as cp
+
+                ct_gpu = cp.asarray(ct_tensor)
+                ridges_gpu = fiber_tools.detect_ridges(
+                    ct_gpu, sigma=self.volume.ridge_sigma
+                )
+                ridges_tensor = (
+                    torch.from_numpy(cp.asnumpy(ridges_gpu)).float().to(self.device)
+                )
+            except Exception:
+                try:
+                    ct_cpu = ct_tensor.cpu().numpy()
+                    ridges_cpu = fiber_tools.detect_ridges(
+                        ct_cpu, sigma=self.volume.ridge_sigma
+                    )
+                    ridges_tensor = torch.from_numpy(
+                        np.asarray(ridges_cpu, dtype=np.float32)
+                    ).to(self.device)
+                except Exception:
+                    ridges_tensor = torch.zeros_like(ct_tensor)
+        return torch.stack([ct_tensor, ridges_tensor], dim=0)
 
 
 class VesuviusS3Dataset(torch.utils.data.Dataset):

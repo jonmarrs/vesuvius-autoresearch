@@ -122,6 +122,31 @@ tweak_templates = [
         "attr": "aug_scroll_z_dropout_p",
         "vals": [0.0, 0.25, 0.5],
     },
+    {
+        "family": "scroll_augmentations",
+        "attr": "aug_scroll_intensity_drift_p",
+        "vals": [0.0, 0.25, 0.5],
+    },
+    {
+        "family": "scroll_augmentations",
+        "attr": "aug_scroll_sheet_compression_p",
+        "vals": [0.0, 0.25, 0.5],
+    },
+    {
+        "family": "scroll_augmentations",
+        "attr": "aug_scroll_thick_slice_p",
+        "vals": [0.0, 0.25, 0.5],
+    },
+    {
+        "family": "scroll_augmentations",
+        "attr": "aug_scroll_rician_noise_p",
+        "vals": [0.0, 0.25, 0.5],
+    },
+    {
+        "family": "scroll_augmentations",
+        "attr": "aug_scroll_blank_rectangles_p",
+        "vals": [0.0, 0.25, 0.5],
+    },
     # Removed 2026-05-17 after audit confirmed this axis has been a no-op since the
     # loop's inception: train.py:742 expects {segment_name}_pseudo.png in the
     # pseudo_label_dir, but no such file has ever existed on disk (the actual
