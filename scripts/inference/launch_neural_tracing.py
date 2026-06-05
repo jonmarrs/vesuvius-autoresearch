@@ -33,7 +33,7 @@ from pathlib import Path
 # NOTE: This launcher is already fully integrated and working by invoking trace_service.py directly.
 sys.path.insert(0, os.path.abspath("villa/vesuvius/src"))
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 TRACE_SERVICE = (
     PROJECT_ROOT
     / "villa"
@@ -140,9 +140,14 @@ def main() -> int:
     else:
         volume_zarr = _find_volume_for_candidate(args.scroll_id, args.division)
 
-    checkpoint = (
-        Path(args.checkpoint) if args.checkpoint else _find_neural_tracing_checkpoint()
-    )
+    checkpoint_str = args.checkpoint
+    if not checkpoint_str:
+        local_ckpt = _find_neural_tracing_checkpoint()
+        if local_ckpt:
+            checkpoint_str = str(local_ckpt)
+        else:
+            # Fallback to Villa's built-in tracing module HuggingFace sentinel
+            checkpoint_str = "extrap_displacement_latest"
 
     socket_path = Path(args.socket_path)
     socket_path.parent.mkdir(parents=True, exist_ok=True)
@@ -156,18 +161,14 @@ def main() -> int:
         str(args.volume_scale),
         "--socket_path",
         str(socket_path),
+        "--checkpoint_path",
+        checkpoint_str,
     ]
-    if checkpoint is not None:
-        cmd_parts.extend(["--checkpoint_path", str(checkpoint)])
 
     blockers: list[str] = []
     if volume_zarr is None or not volume_zarr.is_dir():
         blockers.append(
             "missing OME-zarr volume; pass --volume-zarr or --scroll-id/--division"
-        )
-    if checkpoint is None:
-        blockers.append(
-            f"no neural_tracing heatmap checkpoint found; train one via {TRACE_TRAINER}"
         )
 
     marker_path = Path(args.marker_out)
@@ -177,7 +178,7 @@ def main() -> int:
         "volume_zarr": str(volume_zarr) if volume_zarr else None,
         "volume_scale": args.volume_scale,
         "socket_path": str(socket_path),
-        "checkpoint": str(checkpoint) if checkpoint else None,
+        "checkpoint": checkpoint_str,
         "scroll_id": args.scroll_id,
         "division": args.division,
         "command": cmd_parts,
