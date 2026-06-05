@@ -1080,9 +1080,11 @@ def train(config: ExperimentConfig):
                     labels_path = pseudo_path
 
             if labels_path is None:
-                labels_path = os.path.join(parent_dir, "inklabels_filled.png")
+                labels_path = os.path.join(parent_dir, "inklabels_refined.png")
                 if not os.path.exists(labels_path):
-                    labels_path = os.path.join(parent_dir, "inklabels.png")
+                    labels_path = os.path.join(parent_dir, "inklabels_filled.png")
+                    if not os.path.exists(labels_path):
+                        labels_path = os.path.join(parent_dir, "inklabels.png")
 
             if os.path.exists(labels_path):
                 mask_path = os.path.join(parent_dir, "mask.png")
@@ -1137,9 +1139,11 @@ def train(config: ExperimentConfig):
     # Use fixed seed and num_workers=0 for validation to ensure absolute determinism
     def get_val_dataloader(uri):
         parent_dir = os.path.dirname(uri.rstrip("/"))
-        labels_path = os.path.join(parent_dir, "inklabels_filled.png")
+        labels_path = os.path.join(parent_dir, "inklabels_refined.png")
         if not os.path.exists(labels_path):
-            labels_path = os.path.join(parent_dir, "inklabels.png")
+            labels_path = os.path.join(parent_dir, "inklabels_filled.png")
+            if not os.path.exists(labels_path):
+                labels_path = os.path.join(parent_dir, "inklabels.png")
 
         mask_path = os.path.join(parent_dir, "mask.png")
         # Use require_ink=True for validation to ensure meaningful Dice scores

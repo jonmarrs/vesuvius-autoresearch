@@ -133,6 +133,15 @@ def _load_volume(path: Path) -> np.ndarray:
 
         return tifffile.imread(str(path))
 
+    if suffix == ".png":
+        from PIL import Image
+
+        with Image.open(path) as img:
+            arr = np.array(img)
+            if arr.ndim == 3:
+                arr = arr[:, :, 0]
+            return arr
+
     raise ValueError(f"Unsupported file format: {path}")
 
 
@@ -148,6 +157,12 @@ def _save_volume(volume: np.ndarray, output_path: Path) -> None:
         import zarr
 
         zarr.save(str(output_path), volume)
+    elif suffix == ".png":
+        from PIL import Image
+
+        if volume.ndim == 3 and volume.shape[0] == 1:
+            volume = volume[0]
+        Image.fromarray((volume * 255).astype(np.uint8)).save(output_path)
     else:
         # Default to TIFF
         import tifffile
@@ -315,7 +330,15 @@ def _process_file(
         )
         stats.filename = path.name
 
-        out_path = Path(output_dir) / path.name
+        if output_dir == "IN_PLACE":
+            if path.name.endswith(".png"):
+                out_path = path.parent / "inklabels_refined.png"
+            elif path.name.endswith(".tif") or path.name.endswith(".tiff"):
+                out_path = path.parent / f"{path.stem}_refined{path.suffix}"
+            else:
+                out_path = path.parent / f"{path.name}_refined"
+        else:
+            out_path = Path(output_dir) / path.name
         _save_volume(refined, out_path)
         log.info(
             "Saved %s  original=%d  refined=%d  +%d/-%d voxels",
@@ -346,7 +369,15 @@ def _process_file_wrapper(args: tuple) -> RefinementStats:
 
 def _discover_label_files(labels_dir: Path) -> list[Path]:
     """Return a sorted list of label volumes found in *labels_dir*."""
-    patterns = ["*.zarr", "*.tif", "*.tiff"]
+    patterns = [
+        "*.zarr",
+        "*.tif",
+        "*.tiff",
+        "*/inklabels.png",
+        "*/inklabels_filled.png",
+        "inklabels.png",
+        "inklabels_filled.png",
+    ]
     files: list[Path] = []
     for pattern in patterns:
         files.extend(labels_dir.glob(pattern))
@@ -429,8 +460,13 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--output_dir",
         type=Path,
-        required=True,
-        help="Directory where refined labels will be saved.",
+        default=None,
+        help="Directory where refined labels will be saved (ignored if --in_place is set).",
+    )
+    parser.add_argument(
+        "--in_place",
+        action="store_true",
+        help="Save refined labels in the same directory as the input (e.g., as inklabels_refined.png).",
     )
     parser.add_argument(
         "--sigma_frangi",
@@ -476,7 +512,14 @@ def main() -> int:
     args = parser.parse_args()
 
     labels_dir: Path = args.labels_dir.resolve()
-    output_dir: Path = args.output_dir.resolve()
+
+    if args.in_place:
+        output_dir = "IN_PLACE"
+    else:
+        if not args.output_dir:
+            log.error("Must specify either --output_dir or --in_place")
+            return 1
+        output_dir = args.output_dir.resolve()
 
     if not labels_dir.is_dir():
         log.error("Labels directory does not exist: %s", labels_dir)
@@ -509,7 +552,8 @@ def main() -> int:
         print()
         return 0
 
-    output_dir.mkdir(parents=True, exist_ok=True)
+    if output_dir != "IN_PLACE":
+        output_dir.mkdir(parents=True, exist_ok=True)
 
     tasks = [
         (
