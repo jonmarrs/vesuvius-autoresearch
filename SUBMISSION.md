@@ -81,10 +81,12 @@ configs; the best checkpoint is published at
 
 ## Built on Villa
 
-This project integrates components from the official `ScrollPrize/villa` repository
-(evaluation metrics, the OME-Zarr `Volume` API, the structure-tensor computation,
-and the Scroll-2 augmentation recipe). Full component-level attribution, licenses,
-and original authors are recorded in [`CREDITS.md`](./CREDITS.md).
+This project integrates components imported from the official `ScrollPrize/villa`
+repository — the evaluation metrics, the structure-tensor computation, and the
+optional Primus/LeJEPA backbone — via the `villa/` submodule (nothing is copied in).
+The scroll augmentation code (`scroll_augmentations.py`) is original work offered
+toward villa issue #201, not borrowed from villa. Full component-level attribution
+and licenses are in [`CREDITS.md`](./CREDITS.md).
 
 ## Reproducibility & method
 
