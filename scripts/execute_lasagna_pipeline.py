@@ -160,6 +160,28 @@ def main():
         else:
             run_step(f"Run Lasagna Fitting for Rank {rank}", lasagna_cmd)
 
+        # 3.5 Midline Refinement (Official Volume Cartographer Tool)
+        print(f"\n>>> Step: Midline Refinement (Rank {rank})")
+        refined_mesh = os.path.join(item["lasagna_output_dir"], "mesh_refined.obj")
+        refine_cmd = [
+            "bash",
+            "villa/volume-cartographer/scripts/batch_objrefine.sh",
+            os.path.join(item["lasagna_output_dir"], "mesh.obj"),
+            item["local_uri"],
+            refined_mesh,
+        ]
+        if not args.force and os.path.exists(refined_mesh):
+            print(f"Skipping Refinement for Rank {rank}; refined mesh exists.")
+        else:
+            # Note: This tool requires volume-cartographer binaries installed in the path.
+            # We wrap it in a try-except to allow the pipeline to continue if binaries are missing.
+            try:
+                run_step(f"Run Midline Refinement for Rank {rank}", refine_cmd)
+            except Exception as e:
+                print(
+                    f"Warning: Midline refinement failed (possibly missing binaries): {e}"
+                )
+
         # 4. Generate Prize Evidence Chain
         evidence_dir = item["evidence_output_dir"]
         if not args.force and _evidence_passed(evidence_dir, item["artifact_stem"]):
