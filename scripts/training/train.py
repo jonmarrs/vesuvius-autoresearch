@@ -1898,6 +1898,20 @@ def train(config: ExperimentConfig):
     print(f"throughput_Mvps:       {throughput_Mvps:.2f}")
     sys.stdout.flush()
 
+    # Log EVERY run to history.tsv for auditability
+    history_file = "history.tsv"
+    history_header = "timestamp\tval_bpb\tavg_skel_dist\tavg_centerline_dice\tavg_cc_diff\tavg_crit_comp\ttrain_loss\tthroughput_Mvps\tnum_params_M\tpeak_vram_mb\tconfig\n"
+    if not os.path.exists(history_file):
+        with open(history_file, "w") as f:
+            f.write(history_header)
+
+    with open(history_file, "a") as f:
+        cfg_json = json.dumps(asdict(config))
+        f.write(
+            f"{time.strftime('%Y-%m-%d %H:%M:%S')}\t{val_bpb:.6f}\t{avg_skel_dist:.6f}\t{avg_centerline_dice:.6f}\t{avg_cc_diff:.3f}\t{avg_crit_comp:.3f}\t{smooth_loss:.6f}\t{throughput_Mvps:.2f}\t{num_params_M:.3f}\t{peak_vram_mb:.1f}\t{cfg_json}\n"
+        )
+        f.flush()
+
     if is_improvement:
         print(f"Saving new best model with val_bpb: {val_bpb:.6f}")
         torch.save(
