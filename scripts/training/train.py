@@ -251,6 +251,14 @@ except ImportError:
 
 
 try:
+    from metrics.mean_ap import compute as compute_mean_ap
+except ImportError:
+
+    def compute_mean_ap(gt_bin, pred, **kwargs):
+        return {"mAP": 0.0}
+
+
+try:
     from metrics.connected_components import compute as compute_cc_official
 
     def compute_cc_diff(gt_bin: np.ndarray, pred_bin: np.ndarray) -> int:
@@ -1685,6 +1693,7 @@ def train(config: ExperimentConfig):
     val_centerline_dices = []
     val_cc_diffs = []
     val_crit_comps = []
+    val_mean_aps = []
     validation_diag = {
         "requested_patches": 100,
         "empty_target_patches": 0,
@@ -1692,6 +1701,7 @@ def train(config: ExperimentConfig):
         "cc_errors": 0,
         "skeleton_errors": 0,
         "centerline_errors": 0,
+        "mean_ap_errors": 0,
     }
 
     all_probs = []
@@ -1770,6 +1780,20 @@ def train(config: ExperimentConfig):
                     val_crit_comps.append(
                         compute_crit_comps(gt_bin_b[b, 0], pred_bin_b[b, 0])
                     )
+
+                    try:
+                        ap_res = compute_mean_ap(
+                            gt_bin_b[b, 0].astype(np.uint8),
+                            prob_2d[b, 0].numpy().astype(np.float32),
+                            ignore_index=0,
+                        )
+                        val_mean_aps.append(ap_res.get("mAP", 0.0))
+                    except Exception as exc:
+                        validation_diag["mean_ap_errors"] += 1
+                        if validation_diag["mean_ap_errors"] <= 3:
+                            print(
+                                f"  Warning: mean_ap metric failed: {type(exc).__name__}: {exc}"
+                            )
             except Exception as exc:
                 validation_diag["cc_errors"] += 1
                 if validation_diag["cc_errors"] <= 3:
@@ -1821,6 +1845,7 @@ def train(config: ExperimentConfig):
     avg_centerline_dice = np.mean(val_centerline_dices) if val_centerline_dices else 0.0
     avg_cc_diff = np.mean(val_cc_diffs) if val_cc_diffs else 0.0
     avg_crit_comp = np.mean(val_crit_comps) if val_crit_comps else 0.0
+    avg_mean_ap = np.mean(val_mean_aps) if val_mean_aps else 0.0
     prize_gates = evaluate_prize_gates(
         config,
         val_bpb,
@@ -1887,6 +1912,7 @@ def train(config: ExperimentConfig):
     print(f"avg_centerline_dice:   {avg_centerline_dice:.6f}")
     print(f"avg_cc_diff:           {avg_cc_diff:.3f}")
     print(f"avg_crit_comp:         {avg_crit_comp:.3f}")
+    print(f"avg_mean_ap:           {avg_mean_ap:.4f}")
     print(f"submittable:           {submittable} (window={window_mm:.3f}mm)")
     if prize_gate_failures:
         print("prize_gate_failures:   " + " | ".join(prize_gate_failures))
@@ -1897,7 +1923,8 @@ def train(config: ExperimentConfig):
         f"batch_errors={validation_diag['batch_errors']}, "
         f"cc_errors={validation_diag['cc_errors']}, "
         f"skeleton_errors={validation_diag['skeleton_errors']}, "
-        f"centerline_errors={validation_diag['centerline_errors']}"
+        f"centerline_errors={validation_diag['centerline_errors']}, "
+        f"mean_ap_errors={validation_diag['mean_ap_errors']}"
     )
     print(f"train_loss:            {smooth_loss:.6f}")
     print(f"throughput_Mvps:       {throughput_Mvps:.2f}")
@@ -1905,7 +1932,7 @@ def train(config: ExperimentConfig):
 
     # Log EVERY run to history.tsv for auditability
     history_file = "history.tsv"
-    history_header = "timestamp\tval_bpb\tavg_skel_dist\tavg_centerline_dice\tavg_cc_diff\tavg_crit_comp\ttrain_loss\tthroughput_Mvps\tnum_params_M\tpeak_vram_mb\tconfig\n"
+    history_header = "timestamp\tval_bpb\tavg_skel_dist\tavg_centerline_dice\tavg_cc_diff\tavg_crit_comp\tavg_mean_ap\ttrain_loss\tthroughput_Mvps\tnum_params_M\tpeak_vram_mb\tconfig\n"
     if not os.path.exists(history_file):
         with open(history_file, "w") as f:
             f.write(history_header)
@@ -1913,7 +1940,7 @@ def train(config: ExperimentConfig):
     with open(history_file, "a") as f:
         cfg_json = json.dumps(asdict(config))
         f.write(
-            f"{time.strftime('%Y-%m-%d %H:%M:%S')}\t{val_bpb:.6f}\t{avg_skel_dist:.6f}\t{avg_centerline_dice:.6f}\t{avg_cc_diff:.3f}\t{avg_crit_comp:.3f}\t{smooth_loss:.6f}\t{throughput_Mvps:.2f}\t{num_params_M:.3f}\t{peak_vram_mb:.1f}\t{cfg_json}\n"
+            f"{time.strftime('%Y-%m-%d %H:%M:%S')}\t{val_bpb:.6f}\t{avg_skel_dist:.6f}\t{avg_centerline_dice:.6f}\t{avg_cc_diff:.3f}\t{avg_crit_comp:.3f}\t{avg_mean_ap:.4f}\t{smooth_loss:.6f}\t{throughput_Mvps:.2f}\t{num_params_M:.3f}\t{peak_vram_mb:.1f}\t{cfg_json}\n"
         )
         f.flush()
 
@@ -1926,6 +1953,7 @@ def train(config: ExperimentConfig):
                 "avg_skel_dist": avg_skel_dist,
                 "avg_centerline_dice": avg_centerline_dice,
                 "avg_cc_diff": avg_cc_diff,
+                "avg_mean_ap": avg_mean_ap,
                 "submittable": submittable,
                 "window_ok": window_ok,
                 "window_mm": window_mm,
@@ -2001,6 +2029,7 @@ def train(config: ExperimentConfig):
         "avg_centerline_dice": float(avg_centerline_dice),
         "avg_cc_diff": float(avg_cc_diff),
         "avg_crit_comp": float(avg_crit_comp),
+        "avg_mean_ap": float(avg_mean_ap),
         "train_loss": float(smooth_loss),
         "throughput_Mvps": float(throughput_Mvps),
         "num_params_M": float(num_params_M),
