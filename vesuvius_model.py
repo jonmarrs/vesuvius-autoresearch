@@ -398,20 +398,12 @@ class MedNeXtInkDetector(nn.Module):
         import os
         import sys
 
-        # Add Villa MedNeXt wrapper to sys.path
-        villa_mednext = os.path.join(
-            os.path.dirname(__file__),
-            "villa",
-            "vesuvius",
-            "src",
-            "vesuvius",
-            "models",
-            "build",
-        )
-        if villa_mednext not in sys.path:
-            sys.path.insert(0, villa_mednext)
+        # Add Villa vesuvius src to sys.path to resolve internal relative imports
+        villa_src = os.path.join(os.path.dirname(__file__), "villa", "vesuvius", "src")
+        if villa_src not in sys.path:
+            sys.path.insert(0, villa_src)
 
-        from mednext_wrapper import MedNeXtDecoder, MedNeXtEncoder
+        from vesuvius.models.build.mednext_wrapper import MedNeXtDecoder, MedNeXtEncoder
 
         n_channels = config.base_feat
         in_channels = getattr(config, "in_channels", 1)
