@@ -742,7 +742,76 @@ def apply_augmentations(x, target_ink, target_fiber, step, max_steps, config=Non
         B, C, D, H, W = x.shape
         patch_size_3d = (D, H, W)
         if patch_size_3d not in _bg2_aug_cache:
-            _bg2_aug_cache[patch_size_3d] = create_training_transforms(patch_size_3d)
+            base_transform = create_training_transforms(patch_size_3d)
+
+            import numpy as np
+            from vesuvius.models.augmentation.transforms.noise.extranoisetransforms import (
+                BlankRectangleTransform,
+                RicianNoiseTransform,
+            )
+            from vesuvius.models.augmentation.transforms.spatial.sheet_compression import (
+                SheetCompressionTransform,
+            )
+            from vesuvius.models.augmentation.transforms.spatial.thick_slice import (
+                ThickSliceTransform,
+            )
+            from vesuvius.models.augmentation.transforms.utils.compose import (
+                ComposeTransforms,
+            )
+            from vesuvius.models.augmentation.transforms.utils.random import (
+                RandomTransform,
+            )
+
+            extra_transforms = []
+            if getattr(config, "aug_scroll_sheet_compression_p", 0.0) > 0:
+                extra_transforms.append(
+                    RandomTransform(
+                        SheetCompressionTransform(),
+                        apply_probability=getattr(
+                            config, "aug_scroll_sheet_compression_p", 0.0
+                        ),
+                    )
+                )
+            if getattr(config, "aug_scroll_thick_slice_p", 0.0) > 0:
+                extra_transforms.append(
+                    RandomTransform(
+                        ThickSliceTransform(),
+                        apply_probability=getattr(
+                            config, "aug_scroll_thick_slice_p", 0.0
+                        ),
+                    )
+                )
+            if getattr(config, "aug_scroll_rician_noise_p", 0.0) > 0:
+                extra_transforms.append(
+                    RandomTransform(
+                        RicianNoiseTransform(),
+                        apply_probability=getattr(
+                            config, "aug_scroll_rician_noise_p", 0.0
+                        ),
+                    )
+                )
+            if getattr(config, "aug_scroll_blank_rectangles_p", 0.0) > 0:
+                extra_transforms.append(
+                    RandomTransform(
+                        BlankRectangleTransform(
+                            rectangle_size=tuple(
+                                (max(1, s // 6), s // 3) for s in patch_size_3d
+                            ),
+                            rectangle_value=np.mean,
+                            num_rectangles=(1, 5),
+                        ),
+                        apply_probability=getattr(
+                            config, "aug_scroll_blank_rectangles_p", 0.0
+                        ),
+                    )
+                )
+
+            if extra_transforms:
+                _bg2_aug_cache[patch_size_3d] = ComposeTransforms(
+                    [base_transform] + extra_transforms
+                )
+            else:
+                _bg2_aug_cache[patch_size_3d] = base_transform
 
         bg_aug = _bg2_aug_cache[patch_size_3d]
 
