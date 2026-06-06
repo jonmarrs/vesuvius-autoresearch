@@ -11,7 +11,7 @@ import tempfile
 from pathlib import Path
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
-from volume_cartographer_wrapper.volume import FastLocalVolume
+import os
 
 
 def run_flattening(vc_flatten_bin, input_uri, output_path, iterations, method):
@@ -35,6 +35,52 @@ def run_flattening(vc_flatten_bin, input_uri, output_path, iterations, method):
         raise RuntimeError(
             f"vc_flatten failed to produce a valid output file at {output_path}"
         )
+    return output_path
+
+
+def run_slim_flattening(input_uri, output_path, iterations):
+    """Executes ThaumatoAnakalyptor slim_uv as a subprocess."""
+    import shutil
+
+    # slim_uv operates in the same directory as the input file and appends _flatboi
+    # To avoid polluting the source, we copy the input to the output_path's directory
+    tmp_input = output_path.with_name(f"slim_input_{iterations}.obj")
+    shutil.copy2(input_uri, tmp_input)
+
+    cmd = [
+        sys.executable,
+        "-m",
+        "ThaumatoAnakalyptor.slim_uv",
+        "--path",
+        str(tmp_input),
+        "--iter",
+        str(iterations),
+        "--ic",
+        "arap",
+    ]
+
+    # We must set PYTHONPATH to find ThaumatoAnakalyptor
+    env = os.environ.copy()
+    repo_root = Path(__file__).resolve().parents[1]
+    thaumato_dir = repo_root / "villa" / "thaumato-anakalyptor"
+    if "PYTHONPATH" in env:
+        env["PYTHONPATH"] = f"{thaumato_dir}:{env['PYTHONPATH']}"
+    else:
+        env["PYTHONPATH"] = str(thaumato_dir)
+
+    result = subprocess.run(cmd, env=env, capture_output=True, text=True, check=False)
+    if result.returncode != 0:
+        raise RuntimeError(f"slim_uv failed: {result.stderr}\n{result.stdout}")
+
+    expected_output = tmp_input.with_name(f"{tmp_input.stem}_flatboi.obj")
+    if not expected_output.exists() or expected_output.stat().st_size == 0:
+        raise RuntimeError(f"slim_uv failed to produce {expected_output}")
+
+    # Move to the requested output path
+    shutil.move(expected_output, output_path)
+    # Cleanup
+    if tmp_input.exists():
+        tmp_input.unlink()
     return output_path
 
 
@@ -71,11 +117,11 @@ def main():
         print(f"Error: {vc_flatten_bin} does not exist.")
         sys.exit(1)
 
-    volume = FastLocalVolume(args.input)
-    print(f"Volume shape: {volume.shape}")
+    # FastLocalVolume doesn't make sense for .obj meshes and often errors, skip it.
+    print(f"Flattening mesh: {args.input}")
 
     iterations_grid = [10, 50, 100]
-    methods = ["LSCM", "ABF++"]
+    methods = ["LSCM", "ABF++", "SLIM"]
     results = []
 
     output_dir = Path(args.output)
@@ -86,7 +132,13 @@ def main():
             for method in methods:
                 tmp_out = Path(tmp_dir) / f"flattened_{iters}_{method}.obj"
                 try:
-                    run_flattening(vc_flatten_bin, args.input, tmp_out, iters, method)
+                    if method == "SLIM":
+                        run_slim_flattening(args.input, tmp_out, iters)
+                    else:
+                        run_flattening(
+                            vc_flatten_bin, args.input, tmp_out, iters, method
+                        )
+
                     score = calculate_flatness_score(tmp_out)
                     results.append(
                         {

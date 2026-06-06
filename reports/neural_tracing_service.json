@@ -1,6 +1,6 @@
 {
   "trace_service_path": "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/villa/vesuvius/src/vesuvius/neural_tracing/trace_service.py",
-  "volume_zarr": "local_data/PHercParis2Fr47/surface_volume.zarr",
+  "volume_zarr": "local_data/PHerc0125_Divisions/div_90/0",
   "volume_scale": 0,
   "socket_path": "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/reports/neural_tracing.sock",
   "checkpoint": "extrap_displacement_latest",
@@ -10,7 +10,7 @@
     "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python3",
     "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/villa/vesuvius/src/vesuvius/neural_tracing/trace_service.py",
     "--volume_zarr",
-    "local_data/PHercParis2Fr47/surface_volume.zarr",
+    "local_data/PHerc0125_Divisions/div_90/0",
     "--volume_scale",
     "0",
     "--socket_path",

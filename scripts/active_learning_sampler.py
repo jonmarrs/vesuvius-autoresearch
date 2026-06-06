@@ -75,9 +75,6 @@ class ActiveLearningSampler:
                 )
                 all_indices.append(indices)
 
-                if i * dataloader.batch_size > 5000:  # Limit search for speed
-                    break
-
         uncertainties = np.concatenate(uncertainties)
         all_indices = np.concatenate(all_indices)
 
@@ -215,6 +212,16 @@ def main():
         use_ridges=arch_kwargs["use_ridges"],
         require_ink=False,
     )
+
+    # Use Villa's pre-computed patch catalog but uniformly sample from it to avoid spatial bias
+    all_coords = dataset.valid_coords
+    max_eval_patches = 5000
+    if len(all_coords) > max_eval_patches:
+        print(
+            f"Subsampling {max_eval_patches} patches from {len(all_coords)} total valid patches..."
+        )
+        idx = np.random.choice(len(all_coords), max_eval_patches, replace=False)
+        dataset.valid_coords = all_coords[idx]
 
     dataloader = DataLoader(dataset, batch_size=8, shuffle=False)
 

@@ -1,0 +1,20 @@
+{
+  "out_dir": "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/checkpoints/neural_tracing",
+  "seed": 42,
+  "batch_size": 2,
+  "num_workers": 2,
+  "val_num_workers": 0,
+  "learning_rate": 0.0001,
+  "num_iterations": 10000,
+  "log_frequency": 50,
+  "ckpt_frequency": 1000,
+  "compile_model": false,
+  "training_mode": "rowcol_hidden",
+  "datasets": [
+    {
+      "volume_path": "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/local_data/PHerc0125_Divisions/div_90/0",
+      "volume_scale": 0,
+      "segments_path": "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/local_data/PHerc0125_Divisions/div_90/segments"
+    }
+  ]
+}

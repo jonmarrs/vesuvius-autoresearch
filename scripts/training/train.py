@@ -1597,10 +1597,8 @@ def train(config: ExperimentConfig):
             loss_qc = torch.tensor(0.0, device=device)
             hallucination_penalty = torch.tensor(0.0, device=device)
             if out_qc is not None:
-                target_qc = target_fiber_aug1.mean(dim=(-3, -2, -1)).squeeze()
-                loss_qc = F.binary_cross_entropy_with_logits(
-                    out_qc.squeeze(-1), target_qc
-                )
+                target_qc = target_fiber_aug1.mean(dim=(-3, -2, -1)).view(-1)
+                loss_qc = F.binary_cross_entropy_with_logits(out_qc.view(-1), target_qc)
                 B = out_ink_2d.shape[0]
                 hallucination_penalty = (
                     torch.sigmoid(out_ink_2d)
