@@ -201,12 +201,20 @@ def main():
     # 2. Setup Dataset
     labels_path = args.labels
     if labels_path is None:
-        # Standard location for Fragments
-        labels_path = os.path.join(os.path.dirname(args.volume), "inklabels.png")
+        base_dir = os.path.dirname(args.volume)
+        labels_path = os.path.join(base_dir, "inklabels_refined.png")
         if not os.path.exists(labels_path):
-            # Fallback to local_data structure
-            frag_name = os.path.basename(os.path.dirname(args.volume))
-            labels_path = f"local_data/{frag_name}/inklabels.png"
+            labels_path = os.path.join(base_dir, "inklabels_filled.png")
+            if not os.path.exists(labels_path):
+                labels_path = os.path.join(base_dir, "inklabels.png")
+
+        if not os.path.exists(labels_path) and "surface_volume.zarr" in args.volume:
+            frag_name = args.volume.split("/")[-2]
+            labels_path = f"local_data/{frag_name}/inklabels_refined.png"
+            if not os.path.exists(labels_path):
+                labels_path = f"local_data/{frag_name}/inklabels_filled.png"
+                if not os.path.exists(labels_path):
+                    labels_path = f"local_data/{frag_name}/inklabels.png"
 
     print(f"Using labels from: {labels_path}")
 

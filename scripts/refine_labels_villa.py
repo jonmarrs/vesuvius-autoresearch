@@ -269,7 +269,8 @@ def refine_single_volume(
     else:
         dilated = _fallback_dilate_by_inverse_edt(binary, edt_threshold)
 
-    dilated_float = dilated.astype(np.float32)
+    # Scale to 0-255 so Hessian eigenvalues are large enough for the background term
+    dilated_float = dilated.astype(np.float32) * 255.0
 
     # 2) Frangi / ridge detection
     if _VILLA_AVAILABLE:
@@ -281,6 +282,11 @@ def refine_single_volume(
             raise ValueError(f"Unsupported dimensionality: {volume.ndim}")
     else:
         ridges = _fallback_detect_ridges(dilated_float, sigma=sigma_frangi)
+
+    # Normalize ridges to [0, 1] to make thresholding robust
+    rmin, rmax = ridges.min(), ridges.max()
+    if rmax > rmin:
+        ridges = (ridges - rmin) / (rmax - rmin)
 
     refined = (ridges > ridge_threshold).astype(np.uint8)
 
