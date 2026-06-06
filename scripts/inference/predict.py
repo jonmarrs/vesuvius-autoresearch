@@ -284,7 +284,7 @@ def predict():
     model.eval()
 
     # Optionally wrap model with Villa TTA
-    if args.use_tta:
+    if not args.disable_tta:
         from vesuvius_autoresearch.core.villa_inference import VillaTTAWrapper
 
         print("Enabling Villa TTA (mirroring, 8 flip combinations)...")
