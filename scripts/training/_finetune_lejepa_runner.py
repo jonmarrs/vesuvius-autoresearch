@@ -1,9 +1,12 @@
 """Auto-generated LeJEPA fine-tune runner. Invoked by scripts/launch_finetune_lejepa.py."""
+
 import argparse
 import sys
 from pathlib import Path
 
-VILLA_PY = Path('/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/villa/vesuvius/src')
+VILLA_PY = Path(
+    "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/villa/vesuvius/src"
+)
 if str(VILLA_PY) not in sys.path:
     sys.path.insert(0, str(VILLA_PY))
 

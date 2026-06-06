@@ -1103,6 +1103,7 @@ def train(config: ExperimentConfig):
 
             if os.path.exists(labels_path):
                 mask_path = os.path.join(parent_dir, "mask.png")
+                patches_json_path = os.path.join(parent_dir, "patches.json")
                 ds = VesuviusLabeledDataset(
                     uri,
                     labels_path,
@@ -1118,6 +1119,9 @@ def train(config: ExperimentConfig):
                         config, "target_fiber_source", "sobel_z"
                     ),
                     target_fiber_sigma=getattr(config, "target_fiber_sigma", 2.0),
+                    patches_json=patches_json_path
+                    if os.path.exists(patches_json_path)
+                    else None,
                 )
             else:
                 ds = VesuviusS3Dataset(
@@ -1161,6 +1165,7 @@ def train(config: ExperimentConfig):
                 labels_path = os.path.join(parent_dir, "inklabels.png")
 
         mask_path = os.path.join(parent_dir, "mask.png")
+        patches_json_path = os.path.join(parent_dir, "patches.json")
         # Use require_ink=True for validation to ensure meaningful Dice scores
         # Validation uses target_fiber_source="sobel_z" regardless of training
         # config — val doesn't use target_fiber (only ink) and we want to avoid
@@ -1178,6 +1183,9 @@ def train(config: ExperimentConfig):
             use_lasagna=getattr(config, "use_lasagna", False),
             require_ink=True,
             target_fiber_source="sobel_z",
+            patches_json=patches_json_path
+            if os.path.exists(patches_json_path)
+            else None,
         )
         return DataLoader(
             ds, batch_size=config.batch_size, num_workers=0, pin_memory=True

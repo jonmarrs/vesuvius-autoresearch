@@ -159,6 +159,12 @@ def main():
         help="Number of uncertain patches to sample",
     )
     parser.add_argument(
+        "--patches_json",
+        type=str,
+        default=None,
+        help="Path to pre-computed optimal patches.json (from vesuvius.find_patches) to override runtime dataset scanning.",
+    )
+    parser.add_argument(
         "--output",
         type=str,
         default="reports/active_learning_queue.json",
@@ -213,8 +219,16 @@ def main():
         require_ink=False,
     )
 
-    # Use Villa's pre-computed patch catalog but uniformly sample from it to avoid spatial bias
-    all_coords = dataset.valid_coords
+    if args.patches_json and os.path.exists(args.patches_json):
+        print(f"Loading pre-computed patch catalog from: {args.patches_json}")
+        with open(args.patches_json) as f:
+            patch_data = json.load(f)
+        all_coords = np.array([[p["y"], p["x"]] for p in patch_data.get("patches", [])])
+        dataset.valid_coords = all_coords
+    else:
+        # Use Villa's pre-computed patch catalog but uniformly sample from it to avoid spatial bias
+        all_coords = dataset.valid_coords
+
     max_eval_patches = 5000
     if len(all_coords) > max_eval_patches:
         print(

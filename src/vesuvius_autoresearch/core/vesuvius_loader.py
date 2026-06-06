@@ -212,6 +212,7 @@ class VesuviusLabeledDataset(torch.utils.data.Dataset):
         target_fiber_sigma=2.0,
         min_mask_ratio=0.05,
         min_ink_ratio=0.01,
+        patches_json=None,
     ):
         self.volume = FastVesuviusVolume(
             volume_uri,
@@ -280,7 +281,16 @@ class VesuviusLabeledDataset(torch.utils.data.Dataset):
             clean_uri = volume_uri.replace("/", "_").replace(".", "_")
             cache_path = f"valid_coords_villa_{clean_uri}_{self.patch_size}_{mask_mtime}_{labels_mtime}_{1 if require_ink else 0}_{self.min_mask_ratio}_{self.min_ink_ratio}.npy"
 
-        if os.path.exists(cache_path):
+        if patches_json and os.path.exists(patches_json):
+            print(f"Loading valid coordinates from JSON patch catalog: {patches_json}")
+            import json
+
+            with open(patches_json) as f:
+                patch_data = json.load(f)
+            self.valid_coords = np.array(
+                [[p["y"], p["x"]] for p in patch_data.get("patches", [])]
+            )
+        elif os.path.exists(cache_path):
             self.valid_coords = np.load(cache_path)
         else:
             print(
