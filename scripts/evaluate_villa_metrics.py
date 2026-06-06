@@ -22,6 +22,7 @@ try:
     from metrics.centerline_dice import compute as compute_centerline_dice
     from metrics.connected_components import compute as compute_cc
     from metrics.critical_components import compute as compute_crit
+    from metrics.critical_components_multiclass import compute as compute_crit_mc
     from metrics.dice import compute as compute_dice
     from metrics.dice_multiclass import compute as compute_dice_multiclass
     from metrics.mean_ap import compute as compute_mean_ap
@@ -109,12 +110,12 @@ def main():
     cc_res = compute_cc(gt_bin, pred_bin, num_classes=2, ignore_index=0)
     results.update(cc_res)
 
-    print("Computing Critical Components...")
+    print("Computing Critical Components (Multiclass)...")
     try:
-        crit_res = compute_crit(gt_bin, pred_bin)
-        results.update(crit_res)
+        crit_mc_res = compute_crit_mc(gt_bin, pred_bin, num_classes=args.num_classes)
+        results.update(crit_mc_res)
     except Exception as e:
-        print(f"Critical components failed: {e}")
+        print(f"Critical components multiclass failed: {e}")
 
     print("Computing Skeleton Distance...")
     try:
