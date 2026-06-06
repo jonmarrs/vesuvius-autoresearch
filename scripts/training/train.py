@@ -744,7 +744,6 @@ def apply_augmentations(x, target_ink, target_fiber, step, max_steps, config=Non
         if patch_size_3d not in _bg2_aug_cache:
             base_transform = create_training_transforms(patch_size_3d)
 
-            import numpy as np
             from vesuvius.models.augmentation.transforms.noise.extranoisetransforms import (
                 BlankRectangleTransform,
                 RicianNoiseTransform,
@@ -753,7 +752,7 @@ def apply_augmentations(x, target_ink, target_fiber, step, max_steps, config=Non
                 SheetCompressionTransform,
             )
             from vesuvius.models.augmentation.transforms.spatial.thick_slice import (
-                ThickSliceTransform,
+                SimulateThickSliceTransform,
             )
             from vesuvius.models.augmentation.transforms.utils.compose import (
                 ComposeTransforms,
@@ -775,7 +774,7 @@ def apply_augmentations(x, target_ink, target_fiber, step, max_steps, config=Non
             if getattr(config, "aug_scroll_thick_slice_p", 0.0) > 0:
                 extra_transforms.append(
                     RandomTransform(
-                        ThickSliceTransform(),
+                        SimulateThickSliceTransform(),
                         apply_probability=getattr(
                             config, "aug_scroll_thick_slice_p", 0.0
                         ),

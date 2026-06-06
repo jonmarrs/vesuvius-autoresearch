@@ -522,7 +522,7 @@ class VesuviusLabeledDataset(torch.utils.data.Dataset):
                     x0 : x0 + self.patch_size,
                 ]
 
-            patch_vol = patch_vol.to(self.device, non_blocking=True)
+            # patch_vol = patch_vol.to(self.device, non_blocking=True)
 
             # Priority J: Apply Lasagna flattening
             patch_vol = self._apply_lasagna_flattening(patch_vol)
@@ -628,7 +628,7 @@ class VesuviusLabeledDataset(torch.utils.data.Dataset):
                     )
                     ridges_tensor = torch.from_numpy(
                         np.asarray(ridges_cpu, dtype=np.float32)
-                    ).to(self.device)
+                    )
                 except Exception:
                     ridges_tensor = torch.zeros_like(ct_tensor)
         return torch.stack([ct_tensor, ridges_tensor], dim=0)
