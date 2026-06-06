@@ -739,4 +739,19 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    # Force unbuffered output
+    import io
+    import os
+    import sys
+
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, write_through=True)
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, write_through=True)
+
+    try:
+        main()
+    except Exception as e:
+        print(f"FATAL ERROR in main loop: {e}")
+        import traceback
+
+        traceback.print_exc()
+        sys.exit(1)
