@@ -49,11 +49,23 @@ def signal_handler(sig, frame):
 
 # Define templates for architectural and hyperparameter tweaks
 # These now map directly to ExperimentConfig attributes
+#
+# PINNED-TO-PRODUCTION (2026-06-09): the structure-defining axes below are pinned
+# to best_model.pt's values (resenc_unet, base_feat=64, num_blocks=16, num_heads=8,
+# num_layers=16, patch_size=64, use_ridges=True). train.py only warm-starts from
+# best_model.pt when ALL of these match (see the arch_match check); any other value
+# forces "Starting fresh", which a 15-min cycle cannot recover. Pinning them keeps
+# every cycle a fine-tune of the production model. To resume free architecture
+# search, restore the original `vals` lists (see git history) for these families.
 tweak_templates = [
     {"family": "lr", "attr": "lr", "vals": [1e-3, 5e-4, 1e-4, 5e-5, 1e-5]},
     {"family": "wd", "attr": "weight_decay", "vals": [0.1, 0.01, 0.001, 0.0]},
-    {"family": "capacity", "attr": "num_blocks", "vals": [8, 10, 12, 16, 20]},
-    {"family": "attention", "attr": "num_heads", "vals": [4, 8, 12]},
+    {
+        "family": "capacity",
+        "attr": "num_blocks",
+        "vals": [16],
+    },  # pinned (was [8,10,12,16,20])
+    {"family": "attention", "attr": "num_heads", "vals": [8]},  # pinned (was [4,8,12])
     {"family": "regularization", "attr": "dropout", "vals": [0.1, 0.2, 0.0]},
     {"family": "preproc", "attr": "use_lasagna", "vals": [True, False]},
     # target_fiber_source: tests whether the fiber head's BCE target benefits
@@ -66,14 +78,22 @@ tweak_templates = [
     # loss_fiber/loss_qc/loss_st now flow back through the backbone.
     {"family": "regularization", "attr": "multi_task_heads", "vals": [True, False]},
     {"family": "batch", "attr": "batch_size", "vals": [8, 16, 24]},
-    {"family": "spatial", "attr": "patch_size", "vals": [64, 96]},
-    {"family": "temporal", "attr": "num_layers", "vals": [16, 24, 32]},
-    {"family": "width", "attr": "base_feat", "vals": [32, 64, 128]},
+    {"family": "spatial", "attr": "patch_size", "vals": [64]},  # pinned (was [64,96])
+    {
+        "family": "temporal",
+        "attr": "num_layers",
+        "vals": [16],
+    },  # pinned (was [16,24,32])
+    {"family": "width", "attr": "base_feat", "vals": [64]},  # pinned (was [32,64,128])
     {"family": "loss_balance", "attr": "loss_ink_bce", "vals": [0.2, 0.4, 0.6]},
     {"family": "loss_balance", "attr": "loss_ink_dice", "vals": [0.2, 0.4, 0.6]},
     {"family": "loss_balance", "attr": "loss_fiber_bce", "vals": [0.1, 0.2, 0.3]},
     {"family": "loss_balance", "attr": "loss_st", "vals": [0.0, 0.1, 0.2]},
-    {"family": "features", "attr": "use_ridges", "vals": [True, False]},
+    {
+        "family": "features",
+        "attr": "use_ridges",
+        "vals": [True],
+    },  # pinned (was [True,False])
     # ridge_sigma is a no-op when use_ridges is False (ridges aren't computed
     # at all); gate the axis so the bandit only samples it when the enabling
     # flag is on. Without the gate, bandit-state analysis showed pure-noise
@@ -100,7 +120,9 @@ tweak_templates = [
     {
         "family": "architecture",
         "attr": "architecture",
-        "vals": ["gated_unet", "mednext", "neural_tracing_vit"],
+        # pinned to the production model so every cycle warm-starts from best_model.pt
+        # (was ["gated_unet", "mednext", "neural_tracing_vit"]).
+        "vals": ["resenc_unet"],
     },
     {
         "family": "scroll_augmentations",
