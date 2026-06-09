@@ -307,6 +307,11 @@ def refine_single_volume(
 # File-level processing (picklable for multiprocessing)
 # ---------------------------------------------------------------------------
 
+# A refined label that retains fewer than this fraction of the original label
+# voxels is treated as degenerate and NOT written (the refinement destroyed the
+# signal). The loader then falls back to the original inklabels.png.
+_MIN_KEEP_FRACTION = 0.05
+
 
 def _process_file(
     input_path: str,
@@ -336,24 +341,47 @@ def _process_file(
         )
         stats.filename = path.name
 
-        if output_dir == "IN_PLACE":
-            if path.name.endswith(".png"):
-                out_path = path.parent / "inklabels_refined.png"
-            elif path.name.endswith(".tif") or path.name.endswith(".tiff"):
-                out_path = path.parent / f"{path.stem}_refined{path.suffix}"
-            else:
-                out_path = path.parent / f"{path.name}_refined"
+        # Safety guard: never silently destroy labels. If refinement collapsed the
+        # label to a degenerate fraction of the original, do NOT write the output —
+        # so the training/validation loader falls back to the trusted original
+        # inklabels.png instead of an all-blank refined file. (A blank refined file
+        # previously froze the whole autoresearch loop: val_bpb pinned at the 1.0
+        # sentinel and training learned against empty targets.)
+        if (
+            stats.original_label_voxels > 0
+            and stats.refined_label_voxels
+            < _MIN_KEEP_FRACTION * stats.original_label_voxels
+        ):
+            stats.status = "SKIPPED_DEGENERATE"
+            stats.note = (
+                f"refined={stats.refined_label_voxels} < "
+                f"{_MIN_KEEP_FRACTION:.0%} of original="
+                f"{stats.original_label_voxels}; not writing to avoid blanking labels"
+            )
+            log.warning(
+                "Refinement degenerate for %s (%s) — keeping original labels.",
+                path.name,
+                stats.note,
+            )
         else:
-            out_path = Path(output_dir) / path.name
-        _save_volume(refined, out_path)
-        log.info(
-            "Saved %s  original=%d  refined=%d  +%d/-%d voxels",
-            out_path.name,
-            stats.original_label_voxels,
-            stats.refined_label_voxels,
-            stats.voxels_added,
-            stats.voxels_removed,
-        )
+            if output_dir == "IN_PLACE":
+                if path.name.endswith(".png"):
+                    out_path = path.parent / "inklabels_refined.png"
+                elif path.name.endswith(".tif") or path.name.endswith(".tiff"):
+                    out_path = path.parent / f"{path.stem}_refined{path.suffix}"
+                else:
+                    out_path = path.parent / f"{path.name}_refined"
+            else:
+                out_path = Path(output_dir) / path.name
+            _save_volume(refined, out_path)
+            log.info(
+                "Saved %s  original=%d  refined=%d  +%d/-%d voxels",
+                out_path.name,
+                stats.original_label_voxels,
+                stats.refined_label_voxels,
+                stats.voxels_added,
+                stats.voxels_removed,
+            )
     except Exception as exc:
         stats.status = "ERROR"
         stats.note = f"{type(exc).__name__}: {exc}"

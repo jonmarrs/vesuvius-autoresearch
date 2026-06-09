@@ -22,7 +22,10 @@ import sys
 import numpy as np
 import torch
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+_REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, _REPO_ROOT)
+# train.py lives in scripts/training/ (moved); keep it importable as `train`.
+sys.path.insert(0, os.path.join(_REPO_ROOT, "scripts", "training"))
 
 from torch.utils.data import DataLoader
 
