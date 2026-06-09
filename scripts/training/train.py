@@ -1584,6 +1584,17 @@ def train(config: ExperimentConfig):
                 out_qc = torch.nan_to_num(
                     out_qc, nan=0.0, posinf=100.0, neginf=-100.0
                 ).clamp(-100.0, 100.0)
+            # out_st (structure-tensor head) and p1 (projection for the consistency
+            # loss) were previously left unsanitized, so a non-finite value in either
+            # NaN'd the ST / Cons loss terms and skipped the step. Sanitize them too.
+            if out_st is not None:
+                out_st = torch.nan_to_num(
+                    out_st, nan=0.0, posinf=100.0, neginf=-100.0
+                ).clamp(-100.0, 100.0)
+            if p1 is not None:
+                p1 = torch.nan_to_num(p1, nan=0.0, posinf=100.0, neginf=-100.0).clamp(
+                    -100.0, 100.0
+                )
             # --- END FIX ---
 
             # Forward pass for view 2 (consistency only)
@@ -1593,6 +1604,10 @@ def train(config: ExperimentConfig):
                     # InkDetectorOptimized returns [ink, fiber, qc, proj, st]
                     # if only return_proj=True: [ink, proj]
                     p2 = p2_out[1]
+                    if p2 is not None:
+                        p2 = torch.nan_to_num(
+                            p2, nan=0.0, posinf=100.0, neginf=-100.0
+                        ).clamp(-100.0, 100.0)
                 else:
                     p2 = None  # Should not happen if return_proj=True
             else:
@@ -1605,6 +1620,11 @@ def train(config: ExperimentConfig):
                 student_ink = (
                     student_out[0] if isinstance(student_out, tuple) else student_out
                 )
+                # Sanitize the UA-MT student forward the same way the main forward is
+                # sanitized (see nan_to_num at the supervised forward): this separate
+                # unlabeled forward pass is otherwise unguarded, so a non-finite student
+                # prediction here NaNs the consistency MSE and the whole loss.
+                student_ink = torch.nan_to_num(student_ink)
                 student_prob = torch.sigmoid(student_ink)
 
                 with torch.no_grad():
@@ -1617,8 +1637,10 @@ def train(config: ExperimentConfig):
                         noise = torch.randn_like(x_unl_aug_teacher) * 0.01
                         t_out = ema_model(x_unl_aug_teacher + noise)
                         t_ink = t_out[0] if isinstance(t_out, tuple) else t_out
-                        if torch.isnan(t_ink).any():
-                            print(f"DEBUG: NaN detected in t_ink at step {step}")
+                        # Belt-and-suspenders: sanitize the teacher output the same way
+                        # the student output is sanitized (see nan_to_num above), so a
+                        # non-finite teacher prediction can never NaN the consistency loss.
+                        t_ink = torch.nan_to_num(t_ink)
                         teacher_preds.append(torch.sigmoid(t_ink))
 
                     teacher_preds = torch.stack(teacher_preds)  # [T, B, 1, H, W]
@@ -1753,6 +1775,11 @@ def train(config: ExperimentConfig):
                 for param_student, param_teacher in zip(
                     model.parameters(), ema_model.parameters(), strict=False
                 ):
+                    # Never absorb a (transiently) non-finite student weight: a single
+                    # NaN/Inf would poison the teacher permanently (NaN * decay == NaN),
+                    # which then NaNs the consistency loss for the rest of the cycle.
+                    if not torch.isfinite(param_student.data).all():
+                        continue
                     param_teacher.data.mul_(decay).add_(
                         param_student.data, alpha=1.0 - decay
                     )
@@ -1975,9 +2002,21 @@ def train(config: ExperimentConfig):
             )
 
     if is_improvement:
-        # Monotonic improvement in val_bpb OR
+        # val_bpb is a weak proxy for topological quality: a degenerate model can
+        # post a lower val_bpb while its centerline dice collapses (observed: a
+        # fresh 1.9M model and the 36.6M production model scored ~identical val_bpb
+        # despite very different segmentation quality). So a lower val_bpb only
+        # counts as an improvement if segmentation quality does not collapse with
+        # it — otherwise the loop could replace a good model with a worse one.
+        # (No-op when there is no prior topo signal, since 0.5 * 0 == 0.)
+        quality_regression_fraction = 0.5
+        quality_held = avg_centerline_dice >= (
+            quality_regression_fraction * best_previous_avg_centerline_dice
+        )
+
+        # Monotonic improvement in val_bpb (without a quality collapse) OR
         # First non-zero topological breakthrough if val_bpb is stuck
-        bpb_improved = val_bpb < best_previous_val_bpb
+        bpb_improved = val_bpb < best_previous_val_bpb and quality_held
         topo_improved = (
             val_bpb <= best_previous_val_bpb
             and avg_centerline_dice > best_previous_avg_centerline_dice + 1e-6
