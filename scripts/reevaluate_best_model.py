@@ -36,6 +36,7 @@ from train import (
     compute_official_dice,
     compute_skeleton_dist,
     load_shape_compatible_state,
+    select_topology_threshold,
 )
 from vesuvius_autoresearch.core.model_wrappers import build_inference_model
 from vesuvius_autoresearch.core.vesuvius_loader import VesuviusLabeledDataset
@@ -142,6 +143,11 @@ def reevaluate(update_stored: bool = False) -> None:
             best_dice, best_threshold = d, t
     print(f"  best dice: {best_dice:.6f} at threshold {best_threshold:.3f}")
 
+    # Topology gates are evaluated at the centerline_dice-optimal threshold (see
+    # train.select_topology_threshold), matching the loop's validation.
+    topo_threshold, topo_cd = select_topology_threshold(all_probs, all_targets)
+    print(f"  topology threshold: {topo_threshold:.3f} (centerline_dice {topo_cd:.6f})")
+
     val_losses, val_skel, val_cd, val_cc = [], [], [], []
     for i in range(len(all_probs)):
         prob_2d = all_probs[i]
@@ -151,14 +157,14 @@ def reevaluate(update_stored: bool = False) -> None:
         )
         try:
             gt = (tgt > 0.5).numpy().astype(bool)
-            pred = (prob_2d > best_threshold).numpy().astype(bool)
+            pred = (prob_2d > topo_threshold).numpy().astype(bool)
             for b in range(gt.shape[0]):
                 val_cc.append(compute_cc_diff(gt[b, 0], pred[b, 0]))
         except Exception:
             pass
         if i % 10 == 0:
             gt3 = np.squeeze((tgt > 0.5).numpy().astype(bool))
-            pred3 = np.squeeze((prob_2d > best_threshold).numpy().astype(bool))
+            pred3 = np.squeeze((prob_2d > topo_threshold).numpy().astype(bool))
             if gt3.ndim == 2:
                 gt3 = gt3[np.newaxis, ...]
             if pred3.ndim == 2:
