@@ -65,9 +65,16 @@ Evidence generated:
 - Human-visible artifacts: (DONE, contact sheets in reports/real_scroll_evidence/ and reports/scroll23_evidence/)
 - Production-scale pseudo-labels: (DONE, generated 3D fiber/ink labels for Scroll 2 candidates using the new GPU path)
 
-### Phase 4: Human PR (DONE)
+### Phase 4: Human PR (CLOSED WITHOUT REVIEW 2026-06-10)
 
 Opened 2026-06-09: https://github.com/ScrollPrize/villa/pull/1033 (`jonmarrs:sprint033-fibers-gpu`, 4 commits).
+**Closed by `jrudolph` 2026-06-10 06:18 UTC with no comment, review, or label** — not a
+technical rejection; no objection was raised. All other PRs closed in the same window
+were merged, including same-day fibers work (#1034). Working assumption: jonmarrs PRs
+are currently closed on sight regardless of content. Consequence: the Villa-PR half of
+the Go/No-Go gate is dead for June; the standalone-artifact path (public repo +
+community signal) is now the primary filing basis. Do not reopen or resubmit the PR;
+the branch and evidence remain public and citable.
 Rebased onto current main; tests 4/4 passing; benches re-run uncontended on the
 RTX 4090 same day. Includes a tiled-vs-dense normalization parity fix found
 during pre-PR review (per-block min-max normalization diverged up to ~3e-2 from
