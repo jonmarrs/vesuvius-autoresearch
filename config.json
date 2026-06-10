@@ -34,6 +34,10 @@
     "aug_scroll_squeeze_p": 0.25,
     "aug_scroll_z_dropout_p": 0.0,
     "aug_scroll_intensity_drift_p": 0.0,
+    "aug_scroll_sheet_compression_p": 0.0,
+    "aug_scroll_thick_slice_p": 0.0,
+    "aug_scroll_rician_noise_p": 0.0,
+    "aug_scroll_blank_rectangles_p": 0.5,
     "use_betti_loss": false,
     "betti_loss_weight": 0.1,
     "auxiliary_config": {
@@ -47,7 +51,7 @@
             "structure_tensor": 0.05
         }
     },
-    "target_fiber_source": "sobel_z",
+    "target_fiber_source": "frangi",
     "target_fiber_sigma": 2.0,
     "multi_task_heads": false,
     "architecture": "resenc_unet",
