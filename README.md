@@ -14,23 +14,44 @@
 - **Topological Metrics:** Evaluates models using topologically-aware signals like `centerline_dice` and `skeleton_distance_length`.
 - **Calibration Baselines:** Periodically re-evaluates against the fixed 2023 Grand Prize recipe to prevent research drift.
 
-## 🛠 Setup
+## Quick start
+
+**Requirements:** A single NVIDIA GPU (tested on RTX 4090/H100), Python 3.10+, [uv](https://docs.astral.sh/uv/).
 
 ```bash
-# 1. Install dependencies (requires uv)
+# 1. Install uv project manager (if you don't already have it)
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# 2. Install dependencies
 uv sync
 
-# 2. Download a sample dataset (Fragment 1)
-uv run download_data.py --fragment 4
+# 3. Download data (~5 min)
+uv run python scripts/archive/download_data.py --fragment 4
 
-# 3. Kick off the research loop
-uv run run_autoresearch_loop.py
+# 4. Run a single training smoke test (~30 s) to verify your setup
+PYTHONPATH=. uv run python scripts/training/train.py --test
+
+# 5. Kick off the autonomous research loop
+./start.sh        # wraps: uv run python run_autoresearch_loop.py
+./stop.sh         # graceful shutdown
 ```
 
-## 📈 Tracking Progress
+## Running the agent
 
-- **`results.tsv`**: Every successful experiment that beats the current baseline is logged here.
-- **`LAB_NOTEBOOK.md`**: High-level strategic record of research milestones and breakthroughs.
+Spin up your coding agent of choice in this repo, then prompt something like:
+
+```
+Hi, have a look at docs/program.md and let's kick off a new experiment!
+```
+
+The `program.md` file is essentially a super lightweight "skill".
+
+## 📈 Tracking progress
+
+- **`history.tsv`**: Every evaluated cycle — `val_bpb`, topology metrics (`avg_skel_dist`, `avg_centerline_dice`), throughput, and the full config JSON.
+- **`results.tsv`**: Experiments that beat the then-current baseline.
+- **`prize_readiness.tsv`**: Per-cycle check of the model against prize submission gates.
+- **`docs/LAB_NOTEBOOK.md`**: High-level strategic record of research milestones.
 - **`sprint_logs/`**: Detailed per-shift execution traces and config samples.
 
 ## ✅ Validation
@@ -52,47 +73,24 @@ uv run python scripts/generate_submission_package.py
 uv run python scripts/validate_prize_artifact.py --metadata submission_package_dry_run/metadata.json
 ```
 
----
+## 🔬 Evidence & upstream contributions
 
-## Quick start
-
-**Requirements:** A single NVIDIA GPU (tested on RTX 4090/H100), Python 3.10+, [uv](https://docs.astral.sh/uv/).
-
-```bash
-# 1. Install uv project manager (if you don't already have it)
-curl -LsSf https://astral.sh/uv/install.sh | sh
-
-# 2. Install dependencies
-uv sync
-
-# 3. Download data (~5 min)
-uv run download_data.py --fragment 4
-
-# 4. Manually run a single training experiment (~15 min)
-uv run train.py
-```
-
-If the above commands all work ok, your setup is working and you can go into autonomous research mode.
-
-## Running the agent
-
-Simply spin up your Claude/Codex or whatever you want in this repo (and disable all permissions), then you can prompt something like:
-
-```
-Hi have a look at program.md and let's kick off a new experiment!
-```
-
-The `program.md` file is essentially a super lightweight "skill".
+- **GPU fiber/ridge detection for villa** ([ScrollPrize/villa#1033](https://github.com/ScrollPrize/villa/pull/1033)): closed-form 3×3 eigensolver replacing the cuSolver path that fails past ~64³, with tiled/halo execution (512³ in ~1 GB VRAM) and tiled-vs-dense parity tests. Validation details in [`reports/fibers_gpu_validation_2026-06.md`](reports/fibers_gpu_validation_2026-06.md).
+- **Real-scroll runs:** vesselness on a 256³ PHerc0332 region in ~1.2 s — [contact sheet](reports/real_scroll_evidence/vesselness_contact_sheet.png), plus Scroll 2/3 candidate evidence under [`reports/scroll23_evidence/`](reports/scroll23_evidence/).
+- **Optimized inference (Primus/LeJEPA loader):** diagnostics in [`reports/primus_optimized_inference_validation_2026-06.md`](reports/primus_optimized_inference_validation_2026-06.md).
+- **Hallucination mitigation:** methodology in [`submission_package_dry_run/HALLUCINATION_MITIGATION.md`](submission_package_dry_run/HALLUCINATION_MITIGATION.md).
 
 ## Project structure
 
 ```
-vesuvius_loader.py  — data loading, ridge computation
-vesuvius_model.py   — model architectures (GatedUNet, TimeSformer, etc.)
-train.py            — main training loop and evaluation
-run_autoresearch_loop.py — autonomous experimentation manager
-program.md          — agent instructions
-pyproject.toml      — dependencies
+run_autoresearch_loop.py — autonomous experimentation manager (day/night shifts)
+scripts/training/train.py — main training loop and evaluation
+src/vesuvius_autoresearch/core/vesuvius_loader.py — data loading, ridge computation
+vesuvius_model.py        — model architectures (ResEnc-UNet, GatedUNet, TimeSformer, ...)
+scroll_augmentations.py  — scroll-specific augmentations (decohesion, squeeze, z-dropout, ...)
+scripts/                 — inference, labeling, evaluation, and prize-packaging tools
+docs/program.md          — agent instructions
+pyproject.toml           — dependencies
 ```
 
 ## Design choices
