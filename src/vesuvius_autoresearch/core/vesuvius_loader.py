@@ -18,6 +18,25 @@ for p in [VILLA_SRC, FIBER_TOOLS_PATH]:
         sys.path.append(p)
 import tools as fiber_tools
 
+
+def frangi_vesselness_zcollapsed(ct_np, sigma=2.0):
+    """Frangi vesselness of a [Z, H, W] CT patch, z-collapsed via mean to [H, W].
+
+    Uses skimage's CPU Frangi filter rather than the villa clone's tools.py: the
+    upstream tools.py binds a single global array backend (cupy when a GPU is
+    present) whose hessian path rejects numpy input AND whose cupy path hits the
+    cuSolver eigvalsh failure (the bug PR #1033 fixed but upstream still carries),
+    so both branches raise here and the fiber target silently fell back to zeros.
+    skimage.filters.frangi is pure-CPU, dependency-light, and matches the
+    original per-patch CPU intent. black_ridges=False detects bright ridges
+    (fibers brighter than background in CT).
+    """
+    from skimage.filters import frangi
+
+    vesselness = frangi(ct_np.astype(np.float32), sigmas=(sigma,), black_ridges=False)
+    return np.nan_to_num(np.asarray(vesselness, dtype=np.float32)).mean(axis=0)
+
+
 try:
     from volume_cartographer_wrapper.volume import (
         FastLocalVolume,
@@ -576,7 +595,7 @@ class VesuviusLabeledDataset(torch.utils.data.Dataset):
     def _compute_fiber_target(self, patch_vol):
         """Return [1, 1, H, W] fiber target. Sobel-Z source = zeros (train.py
         will compute the real Sobel-Z on GPU); Frangi source = on-the-fly
-        CPU Frangi z-collapsed via mean."""
+        Frangi vesselness z-collapsed via mean."""
         if self.target_fiber_source != "frangi":
             return torch.zeros(
                 (1, 1, self.patch_size, self.patch_size), dtype=torch.float32
@@ -585,13 +604,7 @@ class VesuviusLabeledDataset(torch.utils.data.Dataset):
             # Take CT channel only (index 0): patch_vol is [C, Z, H, W] or [Z, H, W]
             ct = patch_vol[0] if patch_vol.dim() == 4 else patch_vol
             ct_np = ct.detach().cpu().numpy().astype(np.float32)
-            # New tools.py automatically handles NP backend
-            vesselness = fiber_tools.detect_vesselness(
-                ct_np, sigma=self.target_fiber_sigma
-            )
-            vesselness = np.asarray(vesselness, dtype=np.float32)
-            # Z-collapse via mean to match train.py's `target_fiber.mean(dim=2)` shape
-            v_2d = vesselness.mean(axis=0)  # [H, W]
+            v_2d = frangi_vesselness_zcollapsed(ct_np, sigma=self.target_fiber_sigma)
             return torch.from_numpy(v_2d).unsqueeze(0).unsqueeze(0)  # [1, 1, H, W]
         except Exception as exc:
             _warn_limited(
