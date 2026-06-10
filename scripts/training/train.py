@@ -349,6 +349,50 @@ def extract_checkpoint_state(checkpoint):
     return checkpoint
 
 
+# Run-to-run val_bpb noise on the fixed Fr143 validation set is ~2e-4 (observed
+# band 0.262564..0.262738 across 2026-06-09/10 cycles), while genuine regressions
+# show up at >1e-2 (e.g. 0.2746). 5e-3 separates the two by an order of
+# magnitude each way. centerline_dice gains below 1e-3 are treated as noise.
+BPB_NOISE_TOLERANCE = 5e-3
+TOPO_MIN_GAIN = 1e-3
+
+
+def is_model_improvement(
+    val_bpb: float,
+    avg_centerline_dice: float,
+    best_val_bpb: float,
+    best_centerline_dice: float,
+) -> bool:
+    """
+    Prize-aligned model selection: topology first, val_bpb as a guard rail.
+
+    val_bpb is a weak discriminator of segmentation quality (a fresh 1.9M model
+    and the 36.6M production model score ~identical val_bpb despite a 10x
+    centerline_dice difference), and the prize gates are topological
+    (skel_dist, centerline_dice). Under the previous bpb-first rule, a cycle
+    with +58% centerline_dice was rejected because its val_bpb was 8e-6 worse
+    than the stored best — i.e. selection on metric noise.
+
+    A candidate improves on the best model iff either:
+    - topo gain: centerline_dice up by > TOPO_MIN_GAIN and val_bpb not worse
+      than the noise tolerance, or
+    - bpb gain: val_bpb strictly lower and centerline_dice not down by more
+      than TOPO_MIN_GAIN (replaces the older 0.5x collapse guard, which still
+      allowed noise-level bpb differences to swap in topologically worse models).
+    """
+    if np.isnan(val_bpb):
+        return False
+    topo_improved = (
+        avg_centerline_dice > best_centerline_dice + TOPO_MIN_GAIN
+        and val_bpb <= best_val_bpb + BPB_NOISE_TOLERANCE
+    )
+    bpb_improved = (
+        val_bpb < best_val_bpb
+        and avg_centerline_dice >= best_centerline_dice - TOPO_MIN_GAIN
+    )
+    return topo_improved or bpb_improved
+
+
 def evaluate_prize_gates(
     config: ExperimentConfig,
     val_bpb: float,
@@ -2002,28 +2046,12 @@ def train(config: ExperimentConfig):
             )
 
     if is_improvement:
-        # val_bpb is a weak proxy for topological quality: a degenerate model can
-        # post a lower val_bpb while its centerline dice collapses (observed: a
-        # fresh 1.9M model and the 36.6M production model scored ~identical val_bpb
-        # despite very different segmentation quality). So a lower val_bpb only
-        # counts as an improvement if segmentation quality does not collapse with
-        # it — otherwise the loop could replace a good model with a worse one.
-        # (No-op when there is no prior topo signal, since 0.5 * 0 == 0.)
-        quality_regression_fraction = 0.5
-        quality_held = avg_centerline_dice >= (
-            quality_regression_fraction * best_previous_avg_centerline_dice
+        is_improvement = is_model_improvement(
+            val_bpb,
+            avg_centerline_dice,
+            best_previous_val_bpb,
+            best_previous_avg_centerline_dice,
         )
-
-        # Monotonic improvement in val_bpb (without a quality collapse) OR
-        # First non-zero topological breakthrough if val_bpb is stuck
-        bpb_improved = val_bpb < best_previous_val_bpb and quality_held
-        topo_improved = (
-            val_bpb <= best_previous_val_bpb
-            and avg_centerline_dice > best_previous_avg_centerline_dice + 1e-6
-        )
-
-        if not (bpb_improved or topo_improved):
-            is_improvement = False
 
     peak_vram_mb = torch.cuda.max_memory_allocated() / 1024**2
     num_params_M = sum(p.numel() for p in model.parameters()) / 1e6
