@@ -65,7 +65,13 @@ Evidence generated:
 - Human-visible artifacts: (DONE, contact sheets in reports/real_scroll_evidence/ and reports/scroll23_evidence/)
 - Production-scale pseudo-labels: (DONE, generated 3D fiber/ink labels for Scroll 2 candidates using the new GPU path)
 
-### Phase 4: Human PR (IN PROGRESS)
+### Phase 4: Human PR (DONE)
+
+Opened 2026-06-09: https://github.com/ScrollPrize/villa/pull/1033 (`jonmarrs:sprint033-fibers-gpu`, 4 commits).
+Rebased onto current main; tests 4/4 passing; benches re-run uncontended on the
+RTX 4090 same day. Includes a tiled-vs-dense normalization parity fix found
+during pre-PR review (per-block min-max normalization diverged up to ~3e-2 from
+dense; now a first pass computes the global smoothed range, with parity tests).
 
 Open a fresh Villa PR only after Phase 3 passes.
 
