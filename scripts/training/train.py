@@ -49,6 +49,7 @@ try:
 except ImportError:
     pass
 
+from cldice_loss import SoftClDiceLoss
 from torch.amp import GradScaler, autocast
 from torch.utils.data import DataLoader
 
@@ -135,6 +136,9 @@ class ExperimentConfig:
 
     use_betti_loss: bool = False
     betti_loss_weight: float = 0.1
+    use_cldice: bool = False
+    cldice_weight: float = 0.1
+    cldice_iters: int = 10
     auxiliary_config: AuxiliaryConfig = field(default_factory=AuxiliaryConfig)
     # Target for the auxiliary fiber head. "sobel_z" (default, current
     # behavior): train.py computes Sobel-Z of CT inline on GPU. "frangi":
@@ -1363,6 +1367,9 @@ def train(config: ExperimentConfig):
     betti_loss = (
         BettiLoss(weight=config.betti_loss_weight) if config.use_betti_loss else None
     )
+    cldice_loss = (
+        SoftClDiceLoss(iters=config.cldice_iters) if config.use_cldice else None
+    )
 
     # Load from foundation model if provided
     if config.foundation_model_path and os.path.exists(config.foundation_model_path):
@@ -1782,6 +1789,12 @@ def train(config: ExperimentConfig):
                 else 0.0
             )
 
+            loss_cldice = (
+                cldice_loss(out_ink_2d, target_ink_aug1)
+                if cldice_loss is not None
+                else torch.tensor(0.0, device=device)
+            )
+
             loss_fiber = torch.tensor(0.0, device=device)
             if out_fiber is not None:
                 out_fiber_2d = torch.mean(out_fiber, dim=2, keepdim=True)
@@ -1814,6 +1827,7 @@ def train(config: ExperimentConfig):
                 + config.loss_ink_dice * loss_dice
                 + config.loss_fiber_bce * loss_fiber
                 + (config.betti_loss_weight * loss_betti)
+                + (config.cldice_weight * loss_cldice)
                 + 0.1 * loss_qc
                 + 0.02 * hallucination_penalty
                 + config.loss_st * loss_st_val
@@ -1831,7 +1845,7 @@ def train(config: ExperimentConfig):
                 f"\n[WARNING] Numerical Instability at Step {step}: Loss {total_loss.item() if torch.isfinite(total_loss) else 'NaN'}"
             )
             print(
-                f"Ink: {loss_ink.item():.2e}, Dice: {loss_dice.item():.2e}, Fiber: {loss_fiber.item():.2e}, QC: {loss_qc.item():.2e}, ST: {loss_st_val.item():.2e}, Halluc: {hallucination_penalty.item():.2e}, UAMT: {uamt_loss.item():.2e}, Cons: {consistency_loss.item():.2e}, Betti: {loss_betti.item() if isinstance(loss_betti, torch.Tensor) else loss_betti:.2e}"
+                f"Ink: {loss_ink.item():.2e}, Dice: {loss_dice.item():.2e}, Fiber: {loss_fiber.item():.2e}, QC: {loss_qc.item():.2e}, ST: {loss_st_val.item():.2e}, Halluc: {hallucination_penalty.item():.2e}, UAMT: {uamt_loss.item():.2e}, Cons: {consistency_loss.item():.2e}, Betti: {loss_betti.item() if isinstance(loss_betti, torch.Tensor) else loss_betti:.2e}, clDice: {loss_cldice.item():.2e}"
             )
             # Detailed NaN source diagnostics
             if torch.isnan(out_ink_2d).any():
