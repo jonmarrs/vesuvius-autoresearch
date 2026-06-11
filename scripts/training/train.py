@@ -52,6 +52,7 @@ except ImportError:
 from torch.amp import GradScaler, autocast
 from torch.utils.data import DataLoader
 
+from scripts import wandb_tracking
 from scripts.betti_loss_module import BettiLoss
 from scripts.cldice_loss import SoftClDiceLoss
 
@@ -139,6 +140,7 @@ class ExperimentConfig:
     use_cldice: bool = False
     cldice_weight: float = 0.1
     cldice_iters: int = 10
+    use_wandb: bool = False
     auxiliary_config: AuxiliaryConfig = field(default_factory=AuxiliaryConfig)
     # Target for the auxiliary fiber head. "sobel_z" (default, current
     # behavior): train.py computes Sobel-Z of CT inline on GPU. "frangi":
@@ -1364,6 +1366,12 @@ def train(config: ExperimentConfig):
     val_data_iter = iter(val_data_loader)
 
     model = build_model(config, v_config, device)
+
+    # Opt-in wandb experiment tracking (default off; online to match villa).
+    # watch_model logs parameter + gradient histograms over training.
+    wandb_run = wandb_tracking.init_run(config)
+    wandb_tracking.watch_model(wandb_run, model)
+
     betti_loss = (
         BettiLoss(weight=config.betti_loss_weight) if config.use_betti_loss else None
     )
@@ -1906,6 +1914,18 @@ def train(config: ExperimentConfig):
                 f"Step {step:04d} | Loss: {smooth_loss:.6f} | dt: {dt * 1000:.0f}ms | Remaining: {remaining:.0f}s"
             )
             sys.stdout.flush()
+            wandb_tracking.log(
+                {
+                    "train/total_loss": loss_val,
+                    "train/smooth_loss": smooth_loss,
+                    "train/loss_ink": float(loss_ink.item()),
+                    "train/loss_dice": float(loss_dice.item()),
+                    "train/loss_fiber": float(loss_fiber.item()),
+                    "train/loss_cldice": float(loss_cldice.item()),
+                    "train/throughput_ms": dt * 1000,
+                },
+                step=step,
+            )
 
         step += 1
         if total_training_time >= config.time_budget:
@@ -2149,6 +2169,26 @@ def train(config: ExperimentConfig):
     print(f"avg_cc_diff:           {avg_cc_diff:.3f}")
     print(f"avg_crit_comp:         {avg_crit_comp:.3f}")
     print(f"avg_mean_ap:           {avg_mean_ap:.4f}")
+
+    wandb_tracking.log(
+        {
+            "val/val_bpb": val_bpb,
+            "val/dice": best_dice,
+            "val/skel_dist": avg_skel_dist,
+            "val/centerline_dice": avg_centerline_dice,
+            "val/cc_diff": avg_cc_diff,
+            "val/mean_ap": avg_mean_ap,
+            "val/peak_vram_mb": peak_vram_mb,
+            "val/throughput_Mvps": throughput_Mvps,
+        }
+    )
+    if wandb_run is not None and all_probs:
+        wandb_tracking.log_prediction_image(
+            wandb_run,
+            all_probs[0][0].numpy(),
+            all_targets[0][0].numpy(),
+            topo_threshold,
+        )
     print(f"submittable:           {submittable} (window={window_mm:.3f}mm)")
     if prize_gate_failures:
         print("prize_gate_failures:   " + " | ".join(prize_gate_failures))
@@ -2293,6 +2333,8 @@ def train(config: ExperimentConfig):
         json.dump(result_data, f, indent=4)
         f.flush()
         os.fsync(f.fileno())
+
+    wandb_tracking.finish_run(wandb_run)
 
 
 if __name__ == "__main__":
