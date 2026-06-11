@@ -49,11 +49,11 @@ try:
 except ImportError:
     pass
 
-from cldice_loss import SoftClDiceLoss
 from torch.amp import GradScaler, autocast
 from torch.utils.data import DataLoader
 
 from scripts.betti_loss_module import BettiLoss
+from scripts.cldice_loss import SoftClDiceLoss
 
 
 # AuxiliaryConfig was previously imported from scripts/auxiliary_manager.py.

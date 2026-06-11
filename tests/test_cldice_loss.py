@@ -3,9 +3,9 @@ from pathlib import Path
 
 import torch
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts" / "training"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from cldice_loss import SoftClDiceLoss, soft_skeletonize
+from scripts.cldice_loss import SoftClDiceLoss, soft_skeletonize
 
 
 def _cross_target(n=32):
