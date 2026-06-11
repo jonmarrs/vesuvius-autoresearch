@@ -7,12 +7,12 @@ direct visual comparison against the issue's reference images:
   https://github.com/ScrollPrize/villa/issues/201
 
 This is a *diagnostic* — it does not modify the augmentations themselves
-(those live in train.py:apply_scroll_specific_3d_augmentations and
-_scroll_squeeze_warp). Output goes to reports/.
+(those live in the scroll_augmentations.py library). Output goes to
+reports/augmentation_demos/.
 
 Usage:
     uv run python scripts/visualize_scroll_augmentations.py
-    uv run python scripts/visualize_scroll_augmentations.py --out reports/scroll_aug_visual.png --n-patches 3
+    uv run python scripts/visualize_scroll_augmentations.py --out reports/augmentation_demos/all_families.png --n-patches 3
 """
 
 import argparse
@@ -35,20 +35,24 @@ TRAIN_MASK = "local_data/PHercParis2Fr47/mask.png"
 
 
 def _resolve_augs(source: str):
-    """Return (apply_fn, aug_names) for the requested source.
+    """Return (apply_fn, aug_names) for all nine scroll augmentation families.
 
-    'train'  - the existing in-tree implementation in train.py (4 augs)
-    'new'    - the standalone scroll_augmentations.py module (5 augs incl. warping)
+    Both legacy source values ('train', 'new') now resolve to the single
+    scroll_augmentations.py library that train.py also uses (post-unification).
     """
-    if source == "train":
-        from train import apply_scroll_specific_3d_augmentations as fn
+    from scroll_augmentations import apply_scroll_specific_3d_augmentations as fn
 
-        return fn, ["decohesion", "squeeze", "z_dropout", "intensity_drift"]
-    if source == "new":
-        from scroll_augmentations import apply_scroll_specific_3d_augmentations as fn
-
-        return fn, ["decohesion", "warping", "squeeze", "z_dropout", "intensity_drift"]
-    raise ValueError(f"unknown source {source!r}")
+    return fn, [
+        "decohesion",
+        "warping",
+        "squeeze",
+        "z_dropout",
+        "intensity_drift",
+        "sheet_compression",
+        "thick_slice",
+        "rician_noise",
+        "blank_rectangles",
+    ]
 
 
 def _config_with_only(name: str, aug_names) -> ExperimentConfig:
@@ -101,7 +105,7 @@ def main() -> int:
 
     apply_fn, AUG_NAMES = _resolve_augs(args.source)
     if args.out is None:
-        args.out = f"reports/scroll_aug_visual_{args.source}.png"
+        args.out = "reports/augmentation_demos/all_families.png"
 
     torch.manual_seed(args.seed)
     np.random.seed(args.seed)
