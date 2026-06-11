@@ -30,11 +30,14 @@ Each cycle of `run_autoresearch_loop.py`:
 
 ## Evaluation metrics
 
+- **`centerline_dice`** (primary selection signal) and **`skeleton_distance_length`** —
+  topological scores that reward correct fiber/stroke structure, not just pixel
+  overlap. Evaluated at the topology-optimal binarization threshold (the
+  Dice-optimal threshold understates them ~2×). Integrated from the Villa metrics
+  suite (see `CREDITS.md`).
 - **`val_bpb`** — bits-per-byte on held-out cross-fragment validation (lower is
-  better); the primary selection signal.
-- **`centerline_dice`** and **`skeleton_distance_length`** — topological scores that
-  reward correct fiber/stroke structure, not just pixel overlap. These are integrated
-  from the Villa metrics suite (see `CREDITS.md`).
+  better); a guard rail with a noise tolerance, not the sole objective. A lower
+  `val_bpb` only counts as an improvement if topology does not regress.
 
 ## Constraints honored
 
@@ -44,8 +47,9 @@ Each cycle of `run_autoresearch_loop.py`:
 
 ## Honest scope
 
-This is research tooling. On the included logged run the loop's selection mechanism
-works as intended (monotonic `val_bpb` improvement under the keep-if-better rule),
-but the absolute gains are small and topological scores show large remaining
-headroom (see `SUBMISSION.md` → Results). The contribution offered here is the
-reproducible, evidence-gated search process, not a state-of-the-art detector.
+This is research tooling. The loop's selection mechanism works as intended
+(topology-first keep-if-better), and `centerline_dice` has climbed from 0.198 to
+~0.30 this cycle window, but absolute performance remains mediocre and
+`skeleton_distance_length` shows large remaining headroom (see `FINDINGS.md`).
+The contribution offered here is the reproducible, evidence-gated search process,
+not a state-of-the-art detector.
