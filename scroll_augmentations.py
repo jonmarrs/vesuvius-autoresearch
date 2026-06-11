@@ -36,6 +36,21 @@ from dataclasses import dataclass
 import torch
 import torch.nn.functional as F
 
+__all__ = [
+    "ScrollAugProbs",
+    "apply_scroll_augmentations",
+    "apply_scroll_specific_3d_augmentations",
+    "scroll_decohesion",
+    "scroll_warping",
+    "scroll_squeeze",
+    "scroll_z_dropout",
+    "scroll_intensity_drift",
+    "scroll_sheet_compression",
+    "scroll_thick_slice",
+    "scroll_rician_noise",
+    "scroll_blank_rectangles",
+]
+
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
@@ -431,63 +446,27 @@ def apply_scroll_specific_3d_augmentations(
     target_fiber: torch.Tensor,
     config,
 ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-    """Apply each scroll augmentation independently based on probabilities
-    pulled from `config`. Returns the (possibly) modified tensors clamped
-    to [0, 1].
+    """Config adapter: read the ``aug_scroll_*_p`` probabilities off ``config``
+    and apply all nine scroll augmentations via :func:`apply_scroll_augmentations`.
 
-    Config attributes (all default 0.0):
-      - aug_scroll_decohesion_p
-      - aug_scroll_warping_p          (new in this module; not in train.py yet)
-      - aug_scroll_squeeze_p
-      - aug_scroll_z_dropout_p
-      - aug_scroll_intensity_drift_p
+    This is what the autoresearch loop calls. External callers should prefer the
+    config-free :func:`apply_scroll_augmentations` with an explicit
+    :class:`ScrollAugProbs`.
     """
     if config is None:
         return x, target_ink, target_fiber
-
-    decohesion_p = float(getattr(config, "aug_scroll_decohesion_p", 0.0))
-    warping_p = float(getattr(config, "aug_scroll_warping_p", 0.0))
-    squeeze_p = float(getattr(config, "aug_scroll_squeeze_p", 0.0))
-    z_dropout_p = float(getattr(config, "aug_scroll_z_dropout_p", 0.0))
-    intensity_p = float(getattr(config, "aug_scroll_intensity_drift_p", 0.0))
-
-    # New Villa Augmentations
-    sheet_comp_p = float(getattr(config, "aug_scroll_sheet_compression_p", 0.0))
-    thick_slice_p = float(getattr(config, "aug_scroll_thick_slice_p", 0.0))
-    rician_noise_p = float(getattr(config, "aug_scroll_rician_noise_p", 0.0))
-    blank_rects_p = float(getattr(config, "aug_scroll_blank_rectangles_p", 0.0))
-
-    if sheet_comp_p > 0 and torch.rand((), device=x.device).item() < sheet_comp_p:
-        x = scroll_sheet_compression(x)
-
-    if thick_slice_p > 0 and torch.rand((), device=x.device).item() < thick_slice_p:
-        x, target_ink, target_fiber = scroll_thick_slice(x, target_ink, target_fiber)
-
-    if decohesion_p > 0 and torch.rand((), device=x.device).item() < decohesion_p:
-        alpha = (
-            torch.empty((), device=x.device, dtype=x.dtype).uniform_(0.15, 0.45).item()
-        )
-        x = scroll_decohesion(x, alpha=alpha)
-
-    if warping_p > 0 and torch.rand((), device=x.device).item() < warping_p:
-        x, target_ink, target_fiber = scroll_warping(x, target_ink, target_fiber)
-
-    if squeeze_p > 0 and torch.rand((), device=x.device).item() < squeeze_p:
-        x, target_ink, target_fiber = scroll_squeeze(x, target_ink, target_fiber)
-
-    if z_dropout_p > 0 and torch.rand((), device=x.device).item() < z_dropout_p:
-        x = scroll_z_dropout(x)
-
-    if intensity_p > 0 and torch.rand((), device=x.device).item() < intensity_p:
-        x = scroll_intensity_drift(x)
-
-    if rician_noise_p > 0 and torch.rand((), device=x.device).item() < rician_noise_p:
-        x = scroll_rician_noise(x)
-
-    if blank_rects_p > 0 and torch.rand((), device=x.device).item() < blank_rects_p:
-        x = scroll_blank_rectangles(x)
-
-    return x, target_ink.clamp(0, 1), target_fiber.clamp(0, 1)
+    probs = ScrollAugProbs(
+        decohesion=float(getattr(config, "aug_scroll_decohesion_p", 0.0)),
+        warping=float(getattr(config, "aug_scroll_warping_p", 0.0)),
+        squeeze=float(getattr(config, "aug_scroll_squeeze_p", 0.0)),
+        z_dropout=float(getattr(config, "aug_scroll_z_dropout_p", 0.0)),
+        intensity_drift=float(getattr(config, "aug_scroll_intensity_drift_p", 0.0)),
+        sheet_compression=float(getattr(config, "aug_scroll_sheet_compression_p", 0.0)),
+        thick_slice=float(getattr(config, "aug_scroll_thick_slice_p", 0.0)),
+        rician_noise=float(getattr(config, "aug_scroll_rician_noise_p", 0.0)),
+        blank_rectangles=float(getattr(config, "aug_scroll_blank_rectangles_p", 0.0)),
+    )
+    return apply_scroll_augmentations(x, target_ink, target_fiber, probs)
 
 
 # ---------------------------------------------------------------------------
