@@ -4,14 +4,17 @@
 
 *The first autonomous research swarm for the Vesuvius Challenge.*
 
+> **Honest results, methodology, and negative results:** see [FINDINGS.md](FINDINGS.md).
+> **Live experiment tracking:** [wandb dashboard](https://wandb.ai/jdmarrs-uc-davis/vesuvius-autoresearch).
+
 `bountyhunter` is an experiment in having AI agents perform their own end-to-end computer vision research. It automates the cycle of hypothesis generation, hyperparameter optimization, model training, and performance evaluation to uncover the "Gold Standard" configurations for reading ancient carbonized scrolls.
 
 ## 🚀 Key Features
 
 - **Autonomous Research Loop:** Automatically samples from a multidimensional configuration space (architectures, loss functions, augmentations).
-- **Grand Prize Architectures:** Native integration of TimeSformer, ResNet3D-101, and Inception-I3D from the 2023 winning solutions.
+- **Architecture zoo:** ResEnc-UNet (production), plus TimeSformer, ResNet3D-101, and Inception-I3D options. Note: at the prize's ~64 px window a full-resolution CNN outperforms the patch-based transformers (see [FINDINGS.md](FINDINGS.md)).
 - **On-the-fly Multi-tasking:** Real-time 3D Structure Tensor and Ridge Map computation for rich structural supervision.
-- **Topological Metrics:** Evaluates models using topologically-aware signals like `centerline_dice` and `skeleton_distance_length`.
+- **Topology-aware evaluation:** `centerline_dice` and `skeleton_distance_length`, evaluated at the topology-optimal binarization threshold (the Dice-optimal threshold understates topology ~2×).
 - **Calibration Baselines:** Periodically re-evaluates against the fixed 2023 Grand Prize recipe to prevent research drift.
 
 ## Quick start
