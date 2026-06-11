@@ -55,6 +55,7 @@ from torch.utils.data import DataLoader
 from scripts import wandb_tracking
 from scripts.betti_loss_module import BettiLoss
 from scripts.cldice_loss import SoftClDiceLoss
+from scroll_augmentations import apply_scroll_specific_3d_augmentations
 
 
 # AuxiliaryConfig was previously imported from scripts/auxiliary_manager.py.
@@ -700,100 +701,6 @@ def cutmix_data(x, y, z, alpha=1.0):
     z[..., bby1:bby2, bbx1:bbx2] = z[index, ..., bby1:bby2, bbx1:bbx2]
 
     return x, y, z, lam
-
-
-def _warp_2d_tensor(tensor, grid):
-    B = tensor.shape[0]
-    if tensor.dim() == 5:
-        squeezed = tensor[:, :, 0]
-        warped = F.grid_sample(
-            squeezed, grid, mode="bilinear", padding_mode="border", align_corners=False
-        )
-        return warped.unsqueeze(2)
-    return F.grid_sample(
-        tensor, grid, mode="bilinear", padding_mode="border", align_corners=False
-    )
-
-
-def _scroll_squeeze_warp(x, target_ink, target_fiber):
-    B, C, D, H, W = x.shape
-    device = x.device
-    dtype = x.dtype
-
-    yy, xx = torch.meshgrid(
-        torch.linspace(-1.0, 1.0, H, device=device, dtype=dtype),
-        torch.linspace(-1.0, 1.0, W, device=device, dtype=dtype),
-        indexing="ij",
-    )
-    scale = torch.empty((B, 1, 1), device=device, dtype=dtype).uniform_(0.72, 0.92)
-    shear = torch.empty((B, 1, 1), device=device, dtype=dtype).uniform_(-0.18, 0.18)
-    phase = torch.empty((B, 1, 1), device=device, dtype=dtype).uniform_(
-        0.0, 2.0 * math.pi
-    )
-    x_map = xx.unsqueeze(0) / scale + shear * torch.sin(
-        math.pi * yy.unsqueeze(0) + phase
-    )
-    y_map = yy.unsqueeze(0) + 0.08 * torch.sin(2.0 * math.pi * xx.unsqueeze(0) + phase)
-    grid2d = torch.stack([x_map.clamp(-1, 1), y_map.clamp(-1, 1)], dim=-1)
-
-    x_flat = x.permute(0, 2, 1, 3, 4).reshape(B * D, C, H, W)
-    grid3d = grid2d[:, None].expand(B, D, H, W, 2).reshape(B * D, H, W, 2)
-    x_warped = F.grid_sample(
-        x_flat, grid3d, mode="bilinear", padding_mode="border", align_corners=False
-    )
-    x_warped = x_warped.reshape(B, D, C, H, W).permute(0, 2, 1, 3, 4)
-
-    ink_warped = _warp_2d_tensor(target_ink, grid2d).clamp(0, 1)
-    fiber_warped = _warp_2d_tensor(target_fiber, grid2d).clamp(0, 1)
-    return x_warped, ink_warped, fiber_warped
-
-
-def apply_scroll_specific_3d_augmentations(x, target_ink, target_fiber, config):
-    """Torch-native augmentations for Villa #201 scroll-specific artifacts."""
-    if config is None:
-        return x, target_ink, target_fiber
-
-    decohesion_p = float(getattr(config, "aug_scroll_decohesion_p", 0.0))
-    squeeze_p = float(getattr(config, "aug_scroll_squeeze_p", 0.0))
-    z_dropout_p = float(getattr(config, "aug_scroll_z_dropout_p", 0.0))
-    intensity_p = float(getattr(config, "aug_scroll_intensity_drift_p", 0.0))
-
-    if (
-        decohesion_p > 0
-        and torch.rand((), device=x.device).item() < decohesion_p
-        and x.shape[2] >= 3
-    ):
-        blurred = F.avg_pool3d(x, kernel_size=(5, 1, 1), stride=1, padding=(2, 0, 0))
-        alpha = torch.empty((), device=x.device, dtype=x.dtype).uniform_(0.15, 0.45)
-        x = (1.0 - alpha) * x + alpha * blurred
-
-    if (
-        z_dropout_p > 0
-        and torch.rand((), device=x.device).item() < z_dropout_p
-        and x.shape[2] >= 3
-    ):
-        keep = (
-            torch.rand((x.shape[0], 1, x.shape[2], 1, 1), device=x.device) > 0.12
-        ).to(dtype=x.dtype)
-        z_mean = x.mean(dim=2, keepdim=True)
-        x = x * keep + z_mean * (1.0 - keep)
-
-    if intensity_p > 0 and torch.rand((), device=x.device).item() < intensity_p:
-        depth = torch.linspace(
-            -1.0, 1.0, x.shape[2], device=x.device, dtype=x.dtype
-        ).view(1, 1, -1, 1, 1)
-        slope = torch.empty(
-            (x.shape[0], 1, 1, 1, 1), device=x.device, dtype=x.dtype
-        ).uniform_(-0.18, 0.18)
-        bias = torch.empty(
-            (x.shape[0], 1, 1, 1, 1), device=x.device, dtype=x.dtype
-        ).uniform_(-0.08, 0.08)
-        x = x * (1.0 + slope * depth) + bias
-
-    if squeeze_p > 0 and torch.rand((), device=x.device).item() < squeeze_p:
-        x, target_ink, target_fiber = _scroll_squeeze_warp(x, target_ink, target_fiber)
-
-    return x, target_ink.clamp(0, 1), target_fiber.clamp(0, 1)
 
 
 def compute_dice_loss(pred_2d, target, smooth=1e-5):
