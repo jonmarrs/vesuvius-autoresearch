@@ -31,6 +31,7 @@ sync with the deformed image.
 from __future__ import annotations
 
 import math
+from dataclasses import dataclass
 
 import torch
 import torch.nn.functional as F
@@ -486,4 +487,63 @@ def apply_scroll_specific_3d_augmentations(
     if blank_rects_p > 0 and torch.rand((), device=x.device).item() < blank_rects_p:
         x = scroll_blank_rectangles(x)
 
+    return x, target_ink.clamp(0, 1), target_fiber.clamp(0, 1)
+
+
+# ---------------------------------------------------------------------------
+# Reusable public API (decoupled from the autoresearch ExperimentConfig)
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class ScrollAugProbs:
+    """Per-augmentation application probabilities (each in [0, 1]).
+
+    Decoupled from the autoresearch ExperimentConfig so external callers can
+    use this library directly.
+    """
+
+    decohesion: float = 0.0
+    warping: float = 0.0
+    squeeze: float = 0.0
+    z_dropout: float = 0.0
+    intensity_drift: float = 0.0
+    sheet_compression: float = 0.0
+    thick_slice: float = 0.0
+    rician_noise: float = 0.0
+    blank_rectangles: float = 0.0
+
+
+def _fires(p: float, device) -> bool:
+    return p > 0.0 and torch.rand((), device=device).item() < p
+
+
+def apply_scroll_augmentations(x, target_ink, target_fiber, probs: ScrollAugProbs):
+    """Apply each scroll augmentation independently with its probability.
+
+    x: [B,C,Z,H,W]; target_ink: [B,1,H,W]; target_fiber: [B,1,1,H,W].
+    Geometric augmentations (warping, squeeze, thick_slice) also transform the
+    targets. Returns the (possibly) modified tensors with labels clamped to
+    [0, 1].
+    """
+    dev = x.device
+    if _fires(probs.sheet_compression, dev):
+        x = scroll_sheet_compression(x)
+    if _fires(probs.thick_slice, dev):
+        x, target_ink, target_fiber = scroll_thick_slice(x, target_ink, target_fiber)
+    if _fires(probs.decohesion, dev):
+        alpha = torch.empty((), device=dev, dtype=x.dtype).uniform_(0.15, 0.45).item()
+        x = scroll_decohesion(x, alpha=alpha)
+    if _fires(probs.warping, dev):
+        x, target_ink, target_fiber = scroll_warping(x, target_ink, target_fiber)
+    if _fires(probs.squeeze, dev):
+        x, target_ink, target_fiber = scroll_squeeze(x, target_ink, target_fiber)
+    if _fires(probs.z_dropout, dev):
+        x = scroll_z_dropout(x)
+    if _fires(probs.intensity_drift, dev):
+        x = scroll_intensity_drift(x)
+    if _fires(probs.rician_noise, dev):
+        x = scroll_rician_noise(x)
+    if _fires(probs.blank_rectangles, dev):
+        x = scroll_blank_rectangles(x)
     return x, target_ink.clamp(0, 1), target_fiber.clamp(0, 1)
