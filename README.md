@@ -99,6 +99,15 @@ pyproject.toml           — dependencies
 - **Fixed Time Budget.** Training runs for a fixed wall-clock budget (default 15 mins for Day Shift, 60 mins for Night Shift). This ensures experiments are comparable and the agent optimizes for the best model *within the available compute*.
 - **Multi-task Supervision.** Models are trained not just on ink labels, but also on auxiliary tasks like 3D ridge detection and structure tensor alignment to improve generalization.
 
+## Scroll-specific augmentations
+
+`scroll_augmentations.py` is a standalone, dependency-light library of nine
+GPU-native augmentations that model scroll-CT artifacts (beam scatter,
+compression, missing slices, Rician noise, …) for ink-detection training —
+addressing [villa issue #201](https://github.com/ScrollPrize/villa/issues/201).
+The training loop uses it directly. See **[docs/SCROLL_AUGMENTATIONS.md](docs/SCROLL_AUGMENTATIONS.md)**
+for the per-family reference, usage, and the [before/after demo](reports/augmentation_demos/all_families.png).
+
 ## License
 
 MIT
