@@ -64,6 +64,14 @@ around it — not a state-of-the-art model.
     ~0.49 train / ~0.56 val. Its strength needs the 256 px context that the
     Challenge's 0.5 mm (~64 px) hallucination window forbids; at 64 px a CNN
     that emits full-resolution per-pixel output is the better fit.
+  - *The LeJEPA self-supervised pretrain is unusable as a 64 px init.* The
+    checkpoint was pretrained at a large input window (positional embeddings for
+    1024 patches at patch-size 8³, i.e. ~64×64×128) so only ~20% of its encoder
+    tensors are shape-compatible with a prize-compliant `lejepa_unet` at
+    16×64×64 (128 patches); matching it would require the same oversized context
+    the 64 px hallucination window forbids (and the checkpoint is an early
+    epoch-9 pretrain). Same structural constraint as the TimeSformer result:
+    large-context approaches don't fit the prize window.
 - **Bugs surfaced by the rigor:** the Frangi fiber target silently trained on
   zeros (a backend bug in the upstream `tools.py`), and 5 of 9 sampled
   augmentation families were silent no-ops until the augmentation code was
