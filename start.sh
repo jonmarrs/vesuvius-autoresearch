@@ -1,6 +1,9 @@
 #!/bin/bash
 # start.sh - Kick off the autoresearch loop in the background
 
+# Starting clears any watchdog pause flag (see scripts/loop_watchdog.sh).
+rm -f "$(dirname "$0")/.loop_paused"
+
 if pgrep -f "python run_autoresearch_loop.py" > /dev/null; then
     echo "Warning: run_autoresearch_loop.py appears to be running already."
     echo "Check background processes before starting a new instance."

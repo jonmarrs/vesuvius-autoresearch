@@ -70,3 +70,5 @@ community_signal_*.md
 # run and were polluting commits. Local-only diagnostic output.
 skeleton_branch_length_hist_sample_*.png
 aggregate_skeleton_branch_length_hist.png
+.loop_paused
+watchdog.log
