@@ -74,5 +74,3 @@ around it — not a state-of-the-art model.
 See the [README](README.md) quick start to install and run a cycle, and the live
 [wandb dashboard](https://wandb.ai/jdmarrs-uc-davis/vesuvius-autoresearch) for
 streaming metrics.
-
-<!-- pre-commit hygiene verified 2026-06-11 -->
