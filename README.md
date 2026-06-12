@@ -102,6 +102,13 @@ pyproject.toml           — dependencies
 - **Fixed Time Budget.** Training runs for a fixed wall-clock budget (default 15 mins for Day Shift, 60 mins for Night Shift). This ensures experiments are comparable and the agent optimizes for the best model *within the available compute*.
 - **Multi-task Supervision.** Models are trained not just on ink labels, but also on auxiliary tasks like 3D ridge detection and structure tensor alignment to improve generalization.
 
+## GPU fiber detection
+
+`vesuvius_autoresearch.fibers` is a standalone GPU fiber/ridge/vesselness
+detector with a closed-form symmetric-3×3 eigensolver that avoids the cuSolver
+`eigvalsh` failure on large Hessian batches (14–94× over NumPy; 512³ tiled in
+~1 GB VRAM). See **[docs/FIBER_DETECTION.md](docs/FIBER_DETECTION.md)**.
+
 ## Scroll-specific augmentations
 
 `scroll_augmentations.py` is a standalone, dependency-light library of nine
