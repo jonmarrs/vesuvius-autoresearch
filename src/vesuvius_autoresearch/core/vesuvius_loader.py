@@ -16,7 +16,7 @@ FIBER_TOOLS_PATH = os.path.join(
 for p in [VILLA_SRC, FIBER_TOOLS_PATH]:
     if p not in sys.path:
         sys.path.append(p)
-import tools as fiber_tools
+from vesuvius_autoresearch.fibers import detect_ridges
 
 
 def frangi_vesselness_zcollapsed(ct_np, sigma=2.0):
@@ -177,9 +177,7 @@ class FastVesuviusVolume:
 
                     ct_gpu = cp.asarray(ct_norm)
                     # New tools.py automatically detects CP backend and avoids cuSolver
-                    ridges_gpu = fiber_tools.detect_ridges(
-                        ct_gpu, sigma=self.ridge_sigma
-                    )
+                    ridges_gpu = detect_ridges(ct_gpu, sigma=self.ridge_sigma)
                     ridges = cp.asnumpy(ridges_gpu)
                     ridges_tensor = torch.from_numpy(ridges).float()
                 except Exception as exc_gpu:
@@ -189,9 +187,7 @@ class FastVesuviusVolume:
                     )
                 if ridges_tensor is None:
                     try:
-                        ridges = fiber_tools.detect_ridges(
-                            ct_norm, sigma=self.ridge_sigma
-                        )
+                        ridges = detect_ridges(ct_norm, sigma=self.ridge_sigma)
                         ridges_tensor = torch.from_numpy(
                             np.asarray(ridges, dtype=np.float32)
                         )
@@ -627,18 +623,14 @@ class VesuviusLabeledDataset(torch.utils.data.Dataset):
                 import cupy as cp
 
                 ct_gpu = cp.asarray(ct_tensor)
-                ridges_gpu = fiber_tools.detect_ridges(
-                    ct_gpu, sigma=self.volume.ridge_sigma
-                )
+                ridges_gpu = detect_ridges(ct_gpu, sigma=self.volume.ridge_sigma)
                 ridges_tensor = (
                     torch.from_numpy(cp.asnumpy(ridges_gpu)).float().to(self.device)
                 )
             except Exception:
                 try:
                     ct_cpu = ct_tensor.cpu().numpy()
-                    ridges_cpu = fiber_tools.detect_ridges(
-                        ct_cpu, sigma=self.volume.ridge_sigma
-                    )
+                    ridges_cpu = detect_ridges(ct_cpu, sigma=self.volume.ridge_sigma)
                     ridges_tensor = torch.from_numpy(
                         np.asarray(ridges_cpu, dtype=np.float32)
                     )
