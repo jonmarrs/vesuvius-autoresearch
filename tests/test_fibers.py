@@ -1,0 +1,62 @@
+import numpy as np
+import pytest
+
+from vesuvius_autoresearch.fibers import (
+    compute_eigenvalues_3x3_batch,
+    detect_ridges,
+    detect_ridges_tiled,
+    detect_vesselness,
+    detect_vesselness_tiled,
+)
+
+try:
+    import cupy as cp
+
+    HAS_CUPY = True
+except ImportError:
+    HAS_CUPY = False
+
+
+def test_eigensolver_matches_numpy():
+    rng = np.random.default_rng(0)
+    A = rng.random((50, 3, 3)).astype(np.float64)
+    A = (A + A.swapaxes(-1, -2)) / 2  # symmetric
+    ours = np.asarray(compute_eigenvalues_3x3_batch(A))
+    ref = np.linalg.eigvalsh(A)
+    np.testing.assert_allclose(
+        np.sort(ours, -1), np.sort(ref, -1), rtol=1e-4, atol=1e-6
+    )
+
+
+def test_vesselness_nonzero_and_finite():
+    rng = np.random.default_rng(0)
+    vol = rng.random((24, 32, 32)).astype(np.float32)
+    out = detect_vesselness(vol)
+    assert out.shape == vol.shape
+    assert np.isfinite(out).all()
+    assert float(np.abs(out).sum()) > 0.0
+
+
+def test_tiled_matches_dense_vesselness():
+    rng = np.random.default_rng(42)
+    vol = rng.random((64, 64, 64)).astype(np.float32)
+    dense = detect_vesselness(vol.copy())
+    tiled = detect_vesselness_tiled(vol.copy(), block_size=32, halo=16)
+    np.testing.assert_allclose(dense, tiled, rtol=1e-3, atol=1e-4)
+
+
+def test_tiled_matches_dense_ridges():
+    rng = np.random.default_rng(7)
+    vol = rng.random((64, 64, 64)).astype(np.float32)
+    dense = detect_ridges(vol.copy())
+    tiled = detect_ridges_tiled(vol.copy(), block_size=32, halo=16)
+    np.testing.assert_allclose(dense, tiled, rtol=1e-3, atol=1e-4)
+
+
+@pytest.mark.skipif(not HAS_CUPY, reason="CuPy not available")
+def test_cpu_gpu_vesselness_parity():
+    rng = np.random.default_rng(42)
+    vol = rng.random((32, 32, 32)).astype(np.float32)
+    res_np = detect_vesselness(vol)
+    res_cp = detect_vesselness(cp.asarray(vol))
+    np.testing.assert_allclose(res_np, cp.asnumpy(res_cp), rtol=1e-3, atol=1e-4)
