@@ -45,6 +45,17 @@ def test_tiled_matches_dense_vesselness():
     np.testing.assert_allclose(dense, tiled, rtol=1e-3, atol=1e-4)
 
 
+def test_constant_volume_is_finite():
+    # Blank CT regions (constant/all-zero patches) must not produce NaN ridges:
+    # normalize() would otherwise divide by (max - min) == 0.
+    zeros = np.zeros((16, 32, 32), dtype=np.float32)
+    rid = detect_ridges(zeros.copy())
+    ves = detect_vesselness(zeros.copy())
+    assert np.isfinite(rid).all() and np.isfinite(ves).all()
+    const = np.full((16, 32, 32), 0.5, dtype=np.float32)
+    assert np.isfinite(detect_ridges(const.copy())).all()
+
+
 def test_tiled_matches_dense_ridges():
     rng = np.random.default_rng(7)
     vol = rng.random((64, 64, 64)).astype(np.float32)

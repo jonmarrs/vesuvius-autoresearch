@@ -51,7 +51,12 @@ def normalize(volume, norm_range=None):
     else:
         minim, maxim = norm_range
     volume -= minim
-    volume /= maxim - minim
+    denom = maxim - minim
+    # Constant input (e.g. blank CT regions outside the mask) would divide by
+    # zero -> NaN, which poisons downstream training/validation. A constant
+    # volume normalizes to all-zeros, so skip the division when the range is 0.
+    if float(denom) != 0.0:
+        volume /= denom
     return volume
 
 
