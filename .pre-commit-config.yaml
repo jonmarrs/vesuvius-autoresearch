@@ -1,3 +1,9 @@
+# Loop-managed state files are rewritten continuously by the autoresearch loop
+# (often without a trailing newline). Excluding them stops end-of-file-fixer /
+# trailing-whitespace from modifying them mid-commit, which otherwise conflicts
+# with pre-commit's stash/restore and blocks commits while the loop runs.
+exclude: '^(config\.json|autoresearch_history\.json|recent_configs\.json|history\.tsv|prize_readiness\.tsv|\.current_day_shift_log)$'
+
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v5.0.0
