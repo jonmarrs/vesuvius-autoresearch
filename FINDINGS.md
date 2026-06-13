@@ -72,6 +72,18 @@ around it — not a state-of-the-art model.
     the 64 px hallucination window forbids (and the checkpoint is an early
     epoch-9 pretrain). Same structural constraint as the TimeSformer result:
     large-context approaches don't fit the prize window.
+  - *The cross-scroll generalization gap is severe — and brief multi-scroll
+    fine-tuning does not close it.* Measured on a genuinely held-out scroll
+    (PHerc1667Fr3, never in training), the production model scores pooled
+    pixel-AUC **0.492 — exactly chance** (vs 0.565 on its own scroll): it has
+    essentially zero cross-scroll transfer. Warm-starting and fine-tuning the
+    64 px resenc CNN on three scrolls (Fr47 + PHercParis1 Fr34/Fr39 + PHerc51
+    Fr8) for an hour left the held-out AUC unchanged (0.492 → 0.492). Caveat:
+    throughput was only ~550 steps/hr — loading patches from four large
+    multi-scroll volumes is the bottleneck — so this tests a *brief* fine-tune,
+    not thorough multi-scroll training. Closing the gap (the Grand Prize
+    bottleneck) will need a faster patch pipeline + far more training, or a
+    fundamentally different transfer approach.
 - **Bugs surfaced by the rigor:** the Frangi fiber target silently trained on
   zeros (a backend bug in the upstream `tools.py`), and 5 of 9 sampled
   augmentation families were silent no-ops until the augmentation code was
