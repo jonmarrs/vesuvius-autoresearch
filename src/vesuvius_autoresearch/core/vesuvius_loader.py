@@ -271,6 +271,31 @@ class VesuviusLabeledDataset(torch.utils.data.Dataset):
                 self.mask = img_arr
         else:
             self.mask = None
+
+        # Guard: the 2D label/mask must spatially correspond to the volume's
+        # (H, W) plane (self.shape == (depth, H, W)). Some fragments store their
+        # CT as (H, depth, W) instead, so a naive load silently misaligns labels
+        # against transposed CT — the model then trains on garbage and scores
+        # ~chance, with the only visible symptom a downstream collate crash. Fail
+        # loudly here instead. Tolerance allows minor resolution/crop differences
+        # that the patch sampler clamps; a gross mismatch (e.g. 5×) is rejected.
+        vol_hw = (self.shape[1], self.shape[2])
+        for _name, _arr in (("labels", self.labels), ("mask", self.mask)):
+            if _arr is None:
+                continue
+            lh, lw = _arr.shape[:2]
+            if (
+                abs(lh - vol_hw[0]) > 0.2 * vol_hw[0]
+                or abs(lw - vol_hw[1]) > 0.2 * vol_hw[1]
+            ):
+                raise ValueError(
+                    f"{_name} shape {(lh, lw)} does not match volume (H, W)="
+                    f"{vol_hw} for {volume_uri}. The CT volume is likely stored "
+                    f"in a different axis order than (depth, H, W) (full shape "
+                    f"{tuple(self.shape)}); align the label to the volume grid "
+                    f"(or transpose the volume) before training."
+                )
+
         # Pre-calculate valid coordinates
         mask_mtime = (
             int(os.path.getmtime(mask_path))
