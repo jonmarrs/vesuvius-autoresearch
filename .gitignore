@@ -72,3 +72,12 @@ skeleton_branch_length_hist_sample_*.png
 aggregate_skeleton_branch_length_hist.png
 .loop_paused
 watchdog.log
+
+# Pseudo-label self-training runtime region fragments (symlinked volumes / generated masks)
+local_data/PHercParis2Fr143_Uregion/
+local_data/PHercParis2Fr143_Vregion/
+local_data/PHercParis2Fr143_Uregion_true/
+local_data/PHercParis2Fr143/mask_Uregion.png
+local_data/PHercParis2Fr143/mask_Vregion.png
+experiments/pseudo_label/*.pt
+experiments/pseudo_label/*.log
