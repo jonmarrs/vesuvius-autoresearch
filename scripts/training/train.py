@@ -109,6 +109,7 @@ class ExperimentConfig:
     loss_st: float = 0.1
     label_smoothing: float = 0.0  # Standard for GP winner is 0.25
     use_confidence_weight: bool = False
+    checkpoint_out: str | None = None
     # Default 2026-05-19: switched from "albumentations" to "batchgeneratorsv2" —
     # villa's full augmentation pipeline (Rot90, BlankRectangle, GaussianBlur,
     # GaussianNoise, Sharpening, Contrast, Brightness, etc.). The bandit can
@@ -2140,21 +2141,42 @@ def train(config: ExperimentConfig):
     print(f"throughput_Mvps:       {throughput_Mvps:.2f}")
     sys.stdout.flush()
 
-    # Log EVERY run to history.tsv for auditability
-    history_file = "history.tsv"
-    history_header = "timestamp\tval_bpb\tavg_skel_dist\tavg_centerline_dice\tavg_cc_diff\tavg_crit_comp\tavg_mean_ap\ttrain_loss\tthroughput_Mvps\tnum_params_M\tpeak_vram_mb\tconfig\n"
-    if not os.path.exists(history_file):
-        with open(history_file, "w") as f:
-            f.write(history_header)
+    # Log EVERY run to history.tsv for auditability — UNLESS this is an isolated
+    # experiment run (checkpoint_out set), which must not touch loop state.
+    if not getattr(config, "checkpoint_out", None):
+        history_file = "history.tsv"
+        history_header = "timestamp\tval_bpb\tavg_skel_dist\tavg_centerline_dice\tavg_cc_diff\tavg_crit_comp\tavg_mean_ap\ttrain_loss\tthroughput_Mvps\tnum_params_M\tpeak_vram_mb\tconfig\n"
+        if not os.path.exists(history_file):
+            with open(history_file, "w") as f:
+                f.write(history_header)
 
-    with open(history_file, "a") as f:
-        cfg_json = json.dumps(asdict(config))
-        f.write(
-            f"{time.strftime('%Y-%m-%d %H:%M:%S')}\t{val_bpb:.6f}\t{avg_skel_dist:.6f}\t{avg_centerline_dice:.6f}\t{avg_cc_diff:.3f}\t{avg_crit_comp:.3f}\t{avg_mean_ap:.4f}\t{smooth_loss:.6f}\t{throughput_Mvps:.2f}\t{num_params_M:.3f}\t{peak_vram_mb:.1f}\t{cfg_json}\n"
+        with open(history_file, "a") as f:
+            cfg_json = json.dumps(asdict(config))
+            f.write(
+                f"{time.strftime('%Y-%m-%d %H:%M:%S')}\t{val_bpb:.6f}\t{avg_skel_dist:.6f}\t{avg_centerline_dice:.6f}\t{avg_cc_diff:.3f}\t{avg_crit_comp:.3f}\t{avg_mean_ap:.4f}\t{smooth_loss:.6f}\t{throughput_Mvps:.2f}\t{num_params_M:.3f}\t{peak_vram_mb:.1f}\t{cfg_json}\n"
+            )
+            f.flush()
+
+    ckpt_out = getattr(config, "checkpoint_out", None)
+    if ckpt_out:
+        torch.save(
+            {
+                "model_state_dict": model.state_dict(),
+                "val_bpb": val_bpb,
+                "avg_skel_dist": avg_skel_dist,
+                "avg_centerline_dice": avg_centerline_dice,
+                "avg_cc_diff": avg_cc_diff,
+                "avg_mean_ap": avg_mean_ap,
+                "submittable": submittable,
+                "window_ok": window_ok,
+                "window_mm": window_mm,
+                "villa_metrics_ok": villa_metrics_ok,
+                "config": asdict(config),
+            },
+            ckpt_out,
         )
-        f.flush()
-
-    if is_improvement:
+        print(f"Saved experiment checkpoint to {ckpt_out} (loop state untouched)")
+    elif is_improvement:
         print(f"Saving new best model with val_bpb: {val_bpb:.6f}")
         torch.save(
             {
