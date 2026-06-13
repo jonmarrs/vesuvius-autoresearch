@@ -228,6 +228,7 @@ class VesuviusLabeledDataset(torch.utils.data.Dataset):
         min_mask_ratio=0.05,
         min_ink_ratio=0.01,
         patches_json=None,
+        jitter=True,
     ):
         self.volume = FastVesuviusVolume(
             volume_uri,
@@ -239,6 +240,7 @@ class VesuviusLabeledDataset(torch.utils.data.Dataset):
         self.num_layers = min(num_layers, self.volume.shape[0])
         self.shape = self.volume.shape
         self.seed = seed
+        self.jitter = jitter
         self.use_ridges = use_ridges
         self.use_lasagna = use_lasagna
         self.is_unlabeled = is_unlabeled
@@ -534,16 +536,23 @@ class VesuviusLabeledDataset(torch.utils.data.Dataset):
     def __getitem__(self, idx):
         y0, x0 = self.valid_coords[idx]
         rng = np.random.RandomState(idx + (self.seed or 0))
-        # Large jitter so non-overlapping grid centers from Villa provide continuous coverage
-        half_p = self.patch_size // 2
-        y0 = max(
-            0,
-            min(self.shape[1] - self.patch_size, y0 + rng.randint(-half_p, half_p + 1)),
-        )
-        x0 = max(
-            0,
-            min(self.shape[2] - self.patch_size, x0 + rng.randint(-half_p, half_p + 1)),
-        )
+        if getattr(self, "jitter", True):
+            # Large jitter so non-overlapping grid centers from Villa provide continuous coverage
+            half_p = self.patch_size // 2
+            y0 = max(
+                0,
+                min(
+                    self.shape[1] - self.patch_size,
+                    y0 + rng.randint(-half_p, half_p + 1),
+                ),
+            )
+            x0 = max(
+                0,
+                min(
+                    self.shape[2] - self.patch_size,
+                    x0 + rng.randint(-half_p, half_p + 1),
+                ),
+            )
 
         z_depth = self.shape[0]
         z_request = min(self.num_layers, z_depth)

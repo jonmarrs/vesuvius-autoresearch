@@ -64,6 +64,7 @@ def _infer_region(checkpoint, frag_dir, region_mask_path, device, tau_high, tau_
         ridge_sigma=getattr(config, "ridge_sigma", 2.0),
         use_lasagna=False,
         require_ink=False,
+        jitter=False,
     )
     H, W = ds.shape[1], ds.shape[2]
     prob_sum = np.zeros((H, W), dtype=np.float32)
