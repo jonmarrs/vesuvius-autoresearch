@@ -2159,6 +2159,9 @@ def train(config: ExperimentConfig):
 
     ckpt_out = getattr(config, "checkpoint_out", None)
     if ckpt_out:
+        ckpt_dir = os.path.dirname(ckpt_out)
+        if ckpt_dir:
+            os.makedirs(ckpt_dir, exist_ok=True)
         torch.save(
             {
                 "model_state_dict": model.state_dict(),
