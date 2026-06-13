@@ -108,6 +108,7 @@ class ExperimentConfig:
     loss_fiber_bce: float = 0.2
     loss_st: float = 0.1
     label_smoothing: float = 0.0  # Standard for GP winner is 0.25
+    use_confidence_weight: bool = False
     # Default 2026-05-19: switched from "albumentations" to "batchgeneratorsv2" —
     # villa's full augmentation pipeline (Rot90, BlankRectangle, GaussianBlur,
     # GaussianNoise, Sharpening, Contrast, Brightness, etc.). The bandit can
@@ -703,16 +704,30 @@ def cutmix_data(x, y, z, alpha=1.0):
     return x, y, z, lam
 
 
-def compute_dice_loss(pred_2d, target, smooth=1e-5):
+def confidence_weight(target):
+    """Per-pixel confidence weight for soft pseudo-labels: 1.0 where the label
+    is confident (0 or 1), 0.0 in the uncertain band (encoded as 0.5). Recomputed
+    from the (possibly augmented) target each step, so it survives mixup/affine
+    interpolation, and is a no-op on true binary labels."""
+    return (2.0 * (target - 0.5).abs()).clamp(0.0, 1.0)
+
+
+def compute_dice_loss(pred_2d, target, smooth=1e-5, weight=None):
     """
-    Standard Dice Loss for 2D ink detection.
+    Standard Dice Loss for 2D ink detection. Optional per-pixel `weight`
+    down-weights pixels (e.g. uncertain pseudo-label band); weight=None is the
+    original unweighted behavior.
     """
     pred_2d = torch.sigmoid(pred_2d)
 
-    # target: [B, 1, H, W]
-    # Ensure target is 4D
     if target.dim() == 3:
         target = target.unsqueeze(1)
+
+    if weight is not None:
+        if weight.dim() == 3:
+            weight = weight.unsqueeze(1)
+        pred_2d = pred_2d * weight
+        target = target * weight
 
     intersection = (pred_2d * target).sum(dim=(-2, -1))
     union = pred_2d.sum(dim=(-2, -1)) + target.sum(dim=(-2, -1))
@@ -1683,7 +1698,19 @@ def train(config: ExperimentConfig):
                 )
 
             # Supervised Losses
-            if config.label_smoothing > 0:
+            if getattr(config, "use_confidence_weight", False):
+                # Soft pseudo-labels encode the uncertain band as 0.5; down-weight
+                # those pixels to ~0 so they contribute no gradient. No-op on true
+                # binary labels (weight == 1 everywhere).
+                conf_w = confidence_weight(target_ink_aug1)
+                bce_map = F.binary_cross_entropy_with_logits(
+                    out_ink_2d, target_ink_aug1.clamp(0, 1), reduction="none"
+                )
+                loss_ink = (bce_map * conf_w).sum() / conf_w.sum().clamp_min(1.0)
+                loss_dice = compute_dice_loss(
+                    out_ink_2d, target_ink_aug1.clamp(0, 1), weight=conf_w
+                )
+            elif config.label_smoothing > 0:
                 smoothed_target = (
                     target_ink_aug1 * (1.0 - config.label_smoothing)
                     + 0.5 * config.label_smoothing
@@ -1691,12 +1718,12 @@ def train(config: ExperimentConfig):
                 loss_ink = F.binary_cross_entropy_with_logits(
                     out_ink_2d, smoothed_target
                 )
+                loss_dice = compute_dice_loss(out_ink_2d, target_ink_aug1)
             else:
                 loss_ink = F.binary_cross_entropy_with_logits(
                     out_ink_2d, target_ink_aug1, pos_weight=None, reduction="mean"
                 )
-
-            loss_dice = compute_dice_loss(out_ink_2d, target_ink_aug1)
+                loss_dice = compute_dice_loss(out_ink_2d, target_ink_aug1)
 
             loss_betti = (
                 betti_loss(out_ink_2d, target_ink_aug1)
