@@ -110,6 +110,8 @@ class ExperimentConfig:
     label_smoothing: float = 0.0  # Standard for GP winner is 0.25
     use_confidence_weight: bool = False
     checkpoint_out: str | None = None
+    eval_every_steps: int = 0
+    eval_sample_patches: int = 250
     # Default 2026-05-19: switched from "albumentations" to "batchgeneratorsv2" —
     # villa's full augmentation pipeline (Rot90, BlankRectangle, GaussianBlur,
     # GaussianNoise, Sharpening, Contrast, Brightness, etc.). The bandit can
@@ -711,6 +713,58 @@ def confidence_weight(target):
     from the (possibly augmented) target each step, so it survives mixup/affine
     interpolation, and is a no-op on true binary labels."""
     return (2.0 * (target - 0.5).abs()).clamp(0.0, 1.0)
+
+
+def periodic_pixel_auc_eval(model, val_dataset, config, device, step, elapsed_s):
+    """Gated learning-curve probe: pooled pixel AUC on a FIXED random sample of
+    validation patches, plus a step-tagged checkpoint and a CSV row. Wrapped so a
+    mid-run eval glitch cannot kill a multi-hour training run. Indices are drawn
+    once (seeded) so every call scores the same patches."""
+    import csv
+
+    from scripts.pixel_auc import pooled_pixel_auc
+
+    prefix = config.checkpoint_out or "long_model.pt"
+    curve_path = f"{prefix}.curve.csv"
+    nl = config.num_layers
+    try:
+        n = min(config.eval_sample_patches, len(val_dataset))
+        idxs = np.random.RandomState(12345).permutation(len(val_dataset))[:n]
+        model.eval()
+        probs, labels = [], []
+        with torch.no_grad():
+            for i in idxs:
+                x_raw, t, _ = val_dataset[int(i)]
+                x = x_raw[:, 4 : 4 + nl].unsqueeze(0).to(device)
+                out = model(x)
+                out = out[0] if isinstance(out, tuple) else out
+                probs.append(torch.sigmoid(out).squeeze().float().cpu().numpy().ravel())
+                labels.append((t.numpy() > 0.5).astype(int).ravel())
+        auc = pooled_pixel_auc(probs, labels)
+    except Exception as exc:  # an eval glitch must not kill a 12h run
+        print(f"  [curve] eval failed at step {step}: {type(exc).__name__}: {exc}")
+        auc = float("nan")
+    finally:
+        model.train()
+
+    write_header = not os.path.exists(curve_path)
+    with open(curve_path, "a", newline="") as f:
+        w = csv.writer(f)
+        if write_header:
+            w.writerow(["step", "elapsed_s", "pixel_auc"])
+        w.writerow([step, round(elapsed_s, 1), f"{auc:.4f}"])
+    try:
+        torch.save(
+            {
+                "model_state_dict": model.state_dict(),
+                "step": step,
+                "config": asdict(config),
+            },
+            f"{prefix}.step{step}.pt",
+        )
+    except Exception as exc:
+        print(f"  [curve] checkpoint save failed at step {step}: {exc}")
+    print(f"  [curve] step={step} elapsed={elapsed_s:.0f}s pooled_pixel_auc={auc:.4f}")
 
 
 def compute_dice_loss(pred_2d, target, smooth=1e-5, weight=None):
@@ -1863,6 +1917,18 @@ def train(config: ExperimentConfig):
             )
 
         step += 1
+        if (
+            getattr(config, "eval_every_steps", 0)
+            and step % config.eval_every_steps == 0
+        ):
+            periodic_pixel_auc_eval(
+                model,
+                val_data_loader.dataset,
+                config,
+                device,
+                step,
+                total_training_time,
+            )
         if total_training_time >= config.time_budget:
             break
 
