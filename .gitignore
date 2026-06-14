@@ -81,3 +81,9 @@ local_data/PHercParis2Fr143/mask_Uregion.png
 local_data/PHercParis2Fr143/mask_Vregion.png
 experiments/pseudo_label/*.pt
 experiments/pseudo_label/*.log
+
+# Long-schedule test runtime artifacts
+experiments/long_schedule/*.pt
+experiments/long_schedule/*.curve.csv
+experiments/long_schedule/*.log
+experiments/long_schedule/cfg_smoke.json
