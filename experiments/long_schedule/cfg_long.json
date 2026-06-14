@@ -78,6 +78,6 @@
   ],
   "use_confidence_weight": false,
   "checkpoint_out": "experiments/long_schedule/long_model.pt",
-  "eval_every_steps": 18000,
+  "eval_every_steps": 1000,
   "eval_sample_patches": 250
 }
