@@ -84,6 +84,26 @@ around it — not a state-of-the-art model.
     experiment needs the loader to handle the `(H, depth, W)` axis order and the
     labels resampled to the volume grid first. (Only the two PHercParis2
     fragments, Fr47/Fr143, are correctly `(depth, H, W)` and aligned.)
+  - *Same-scroll pseudo-label self-training is blocked by the detector's
+    pixel-level non-discrimination — and even true same-scroll labels don't
+    help.* We split the held-out fragment (Fr143) into spatially-disjoint
+    "unlabeled" (U) and validation (V) regions (128 px buffer, no patch
+    overlap), trained a leak-free baseline on Fr47 alone, and compared it on the
+    V-region against (a) self-training on confidence-filtered pseudo-labels of
+    the U-region and (b) an *oracle* trained on the U-region's true labels. The
+    pseudo-labels were chance-quality — the baseline's pooled **pixel** AUC is
+    ~0.49–0.50 (its probabilities collapse into ~[0.17, 0.28]; ink-vs-background
+    means differ by ~0.001), so confidence filtering yields labels with AUC
+    **0.502** and precision ≈ the base ink rate. More tellingly, the oracle —
+    13.5 k patches of *real* same-scroll supervision — did **not** lift V-region
+    pixel AUC over the Fr47-only baseline (0.49 → 0.50). The production model
+    (days of training) reaches only pixel AUC ~0.557 on the same region, so this
+    is the same `model-barely-discriminates-ink` ceiling, not a data-quantity
+    problem: at 64 px, neither pseudo-labels nor extra true same-scroll labels
+    move pixel-level discrimination. (Reusable tooling from this study:
+    `scripts/spatial_split_mask.py`, `scripts/generate_pseudo_labels.py`,
+    `scripts/pseudo_label_quality_report.py`, a confidence-weighted ink loss,
+    and a `jitter=False` deterministic-inference path in the loader.)
 - **Bugs surfaced by the rigor:** the Frangi fiber target silently trained on
   zeros (a backend bug in the upstream `tools.py`), and 5 of 9 sampled
   augmentation families were silent no-ops until the augmentation code was
