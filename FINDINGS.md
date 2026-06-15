@@ -120,6 +120,21 @@ around it — not a state-of-the-art model.
     of whether legible-ink discrimination is even feasible within the 64 px
     window. (Instrument: a gated `eval_every_steps` pixel-AUC learning-curve hook
     in train.py + `scripts/pixel_auc.py`.)
+  - *...but an overfit probe then localizes that ceiling to the **training
+    regime**, not capacity or the architecture.* Before building a bigger model,
+    we ran a feasibility probe: a fresh resenc on a fixed batch of 16 Fr47 ink
+    patches with **no augmentation** drives train pixel AUC from 0.42 to **1.0 in
+    100 steps** and holds it. So the architecture can perfectly represent the
+    CT→ink mapping, and the loss/optimizer pipeline is sound — **capacity and
+    pipeline-bug are ruled out**. Yet under the production regime (full
+    7,345-patch set + heavy augmentation) the same architecture reaches only
+    ~0.58 train / ~0.52 val (Probe 0). The bottleneck is therefore
+    optimization/regularization/generalization — most plausibly augmentation
+    strong enough to suppress the learnable ink signal, plus a generalization gap
+    — **not** model capacity. This corrects the "must be architectural" reading
+    above: a bigger/different network is the wrong lever; the next experiment
+    should target the training recipe (augmentation strength, regularization,
+    objective). (Instrument: `scripts/overfit_probe.py`.)
 - **Bugs surfaced by the rigor:** the Frangi fiber target silently trained on
   zeros (a backend bug in the upstream `tools.py`), and 5 of 9 sampled
   augmentation families were silent no-ops until the augmentation code was
