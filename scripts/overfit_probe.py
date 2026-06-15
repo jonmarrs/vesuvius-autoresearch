@@ -4,7 +4,7 @@ signal-absent / pipeline-bug. Standalone diagnostic — does not touch train.py,
 best_model.pt, or the loop. See docs/superpowers/specs/2026-06-14-overfit-probe-design.md
 """
 
-import argparse  # noqa: F401
+import argparse
 import os
 import sys
 
@@ -72,3 +72,89 @@ def overfit(model, x, target, steps=2000, lr=1e-3, log_every=100):
                     f"  step={step} pooled_auc={pooled:.4f} per_patch_auc={ppm:.4f} loss={loss.item():.4f}"
                 )
     return curve
+
+
+def build_fixed_batch(frag_dir, k, num_layers, patch_size, use_ridges, device, seed=7):
+    """Load the first `k` ink-containing patches of `frag_dir` into ONE fixed
+    batch (jitter=False, no augmentation). Returns (x [K,C,nl,H,W], ink [K,1,H,W])."""
+    from measure_ink_auc import _volume_uri
+
+    from vesuvius_autoresearch.core.vesuvius_loader import VesuviusLabeledDataset
+
+    ds = VesuviusLabeledDataset(
+        _volume_uri(frag_dir),
+        os.path.join(frag_dir, "inklabels.png"),
+        os.path.join(frag_dir, "mask.png"),
+        patch_size,
+        num_layers + 8,
+        seed=seed,
+        cache_dir=None,
+        use_ridges=use_ridges,
+        ridge_sigma=2.0,
+        use_lasagna=False,
+        require_ink=True,
+        jitter=False,
+    )
+    xs, ys = [], []
+    for i in range(min(k, len(ds))):
+        x_raw, t, _ = ds[i]
+        xs.append(x_raw[:, 4 : 4 + num_layers])
+        ys.append(t.unsqueeze(0) if t.dim() == 2 else t)
+    x = torch.stack(xs).to(device)
+    ink = torch.stack(ys).to(device).float()
+    return x, ink
+
+
+def main():
+    from vesuvius_autoresearch.core.model_wrappers import build_inference_model
+
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--target", choices=["real", "brightness"], default="real")
+    ap.add_argument("--frag", default="local_data/PHercParis2Fr47")
+    ap.add_argument("--k", type=int, default=16)
+    ap.add_argument("--steps", type=int, default=2000)
+    ap.add_argument("--lr", type=float, default=1e-3)
+    ap.add_argument("--num-layers", type=int, default=16)
+    ap.add_argument("--patch-size", type=int, default=64)
+    ap.add_argument("--out-csv", default="experiments/overfit_probe/probe.csv")
+    ap.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
+    args = ap.parse_args()
+
+    device = torch.device(args.device)
+    model = build_inference_model(
+        architecture="resenc_unet",
+        patch_size=args.patch_size,
+        num_layers=args.num_layers,
+        base_feat=64,
+        num_blocks=16,
+        num_heads=8,
+        dropout=0.0,
+        use_ridges=True,
+        multi_task_heads=False,
+    ).to(device)
+
+    x, ink = build_fixed_batch(
+        args.frag, args.k, args.num_layers, args.patch_size, True, device
+    )
+    target = ink if args.target == "real" else brightness_control_target(x)
+    print(
+        f"probe target={args.target} batch={tuple(x.shape)} "
+        f"target_ink_frac={float((target > 0.5).float().mean()):.3f}"
+    )
+
+    curve = overfit(model, x, target, steps=args.steps, lr=args.lr, log_every=100)
+
+    os.makedirs(os.path.dirname(args.out_csv), exist_ok=True)
+    import csv
+
+    with open(args.out_csv, "w", newline="") as f:
+        w = csv.writer(f)
+        w.writerow(["step", "pooled_auc", "per_patch_auc"])
+        w.writerows(curve)
+    final = curve[-1][1]
+    verdict = "CAN overfit (>=0.9)" if final >= 0.9 else "STALLS (<0.9)"
+    print(f"FINAL pooled_auc={final:.4f} -> {verdict}  (csv: {args.out_csv})")
+
+
+if __name__ == "__main__":
+    main()
