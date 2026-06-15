@@ -135,6 +135,27 @@ around it — not a state-of-the-art model.
     above: a bigger/different network is the wrong lever; the next experiment
     should target the training recipe (augmentation strength, regularization,
     objective). (Instrument: `scripts/overfit_probe.py`.)
+  - *Augmentation is refuted as the lever — and the deeper problem is that fresh
+    training can't fit even the training set at 64 px.* A clean ablation trained
+    two fresh resenc arms for ~2 h each — full production augmentation vs
+    augmentation fully off (a gated `disable_augmentation` master switch) —
+    measuring train + val pooled pixel AUC. Result: FULL 0.522 train / 0.490 val;
+    NONE 0.509 train / 0.525 val. Removing augmentation did **not** lift train
+    (≈ equal) and the val difference is noise around chance (NONE never fit train,
+    so its 0.525 "val" is not real generalization). So **augmentation is not the
+    bottleneck.** The striking part: *neither* arm fits even its own training data
+    (~0.51) after ~78 epochs, while the overfit probe memorized 16 fixed patches
+    to 1.0 — i.e. the model can memorize tiny sets but cannot fit the full
+    fragment's CT→ink mapping from scratch at 64 px, with or without augmentation
+    (converging with the flat 12 h long-schedule curve). One honest caveat keeps
+    this from being a final "signal-absent" verdict: the overfit probe used a high
+    LR (1e-3) on a fixed batch while these arms use the production LR (5e-5) on the
+    full set, so "can't fit train" is confounded between signal-weakness and the
+    optimization regime. The clean disambiguator is a same-regime control — fit a
+    synthetic learnable target (brightness) on the full set: if it fits but ink
+    doesn't, the 64 px ink signal is genuinely too weak (window-limited); if it
+    also can't fit, the optimization regime (LR/schedule) is the lever.
+    (Instrument: `disable_augmentation` switch + `scripts/overfit_probe.py`.)
 - **Bugs surfaced by the rigor:** the Frangi fiber target silently trained on
   zeros (a backend bug in the upstream `tools.py`), and 5 of 9 sampled
   augmentation families were silent no-ops until the augmentation code was
