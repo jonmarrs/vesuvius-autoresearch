@@ -104,6 +104,22 @@ around it — not a state-of-the-art model.
     `scripts/spatial_split_mask.py`, `scripts/generate_pseudo_labels.py`,
     `scripts/pseudo_label_quality_report.py`, a confidence-weighted ink loss,
     and a `jitter=False` deterministic-inference path in the loader.)
+  - *Training longer from scratch does not lift pixel-level detection — the
+    ceiling is architectural / the 64 px window, not compute budget.* A single
+    clean fresh-init resenc trained for 12 h on one continuous schedule
+    (~13 k steps) produces a **flat** pooled V-region pixel-AUC learning curve:
+    12 hourly probes oscillate in **0.508–0.525 (≈ chance)** from hour 1 through
+    hour 11, with no upward trend. So the detector never learns pixel-level ink
+    discrimination in this regime *regardless of training time* — the loop's slow
+    crawl to ~0.56 is warm-start carry-over across cycles, not training-time
+    headroom. Taken with the pseudo-label result (more same-scroll data, real or
+    pseudo, doesn't help) and the TimeSformer/LeJEPA results (large-context
+    approaches violate the 64 px window), the evidence converges: the bottleneck
+    is the resenc architecture or the 0.5 mm / 64 px hallucination window itself,
+    not data or compute. Next levers must be architectural — or a deliberate test
+    of whether legible-ink discrimination is even feasible within the 64 px
+    window. (Instrument: a gated `eval_every_steps` pixel-AUC learning-curve hook
+    in train.py + `scripts/pixel_auc.py`.)
 - **Bugs surfaced by the rigor:** the Frangi fiber target silently trained on
   zeros (a backend bug in the upstream `tools.py`), and 5 of 9 sampled
   augmentation families were silent no-ops until the augmentation code was
