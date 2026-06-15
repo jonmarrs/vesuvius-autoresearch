@@ -87,3 +87,6 @@ experiments/long_schedule/*.pt
 experiments/long_schedule/*.curve.csv
 experiments/long_schedule/*.log
 experiments/long_schedule/cfg_smoke.json
+
+# Overfit probe artifacts
+experiments/overfit_probe/*.csv
