@@ -112,6 +112,7 @@ class ExperimentConfig:
     checkpoint_out: str | None = None
     eval_every_steps: int = 0
     eval_sample_patches: int = 250
+    disable_augmentation: bool = False
     # Default 2026-05-19: switched from "albumentations" to "batchgeneratorsv2" —
     # villa's full augmentation pipeline (Rot90, BlankRectangle, GaussianBlur,
     # GaussianNoise, Sharpening, Contrast, Brightness, etc.). The bandit can
@@ -816,6 +817,10 @@ def apply_augmentations(x, target_ink, target_fiber, step, max_steps, config=Non
 
     x: (B, 1, D, H, W); target_ink: (B, 1, H, W); target_fiber: (B, 1, 1, H, W).
     """
+    if getattr(config, "disable_augmentation", False):
+        # Ablation master switch: return inputs untouched (no rot90/flip/scroll/etc).
+        return x, target_ink, target_fiber
+
     aug_mode = getattr(config, "aug_mode", "albumentations")
 
     if aug_mode == "batchgeneratorsv2" and create_training_transforms is not None:
@@ -1529,7 +1534,9 @@ def train(config: ExperimentConfig):
             # "Anisotropic Z-Interpolation" comment, z_len is deterministic
             # at max(4, int(num_layers*0.8)) — not random.
             z_start = np.random.randint(0, 8)
-            if np.random.rand() > 0.8:
+            if (
+                not getattr(config, "disable_augmentation", False)
+            ) and np.random.rand() > 0.8:
                 z_len = max(4, int(config.num_layers * 0.8))
                 x_orig = x_raw[:, :, z_start : z_start + z_len]
                 if z_len != config.num_layers:
@@ -1585,7 +1592,7 @@ def train(config: ExperimentConfig):
             tf_max = tf_flat.max(dim=1, keepdim=True)[0].view(b_sz, 1, 1, 1, 1)
             target_fiber = (target_fiber - tf_min) / (tf_max - tf_min + 1e-8)
 
-        if x_orig.size(0) > 1:
+        if (not getattr(config, "disable_augmentation", False)) and x_orig.size(0) > 1:
             r = np.random.rand()
             if r < 0.2:
                 x_orig, target_ink, target_fiber, _ = mixup_data(
