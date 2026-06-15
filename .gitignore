@@ -90,3 +90,9 @@ experiments/long_schedule/cfg_smoke.json
 
 # Overfit probe artifacts
 experiments/overfit_probe/*.csv
+
+# Aug ablation artifacts
+experiments/aug_ablation/*.pt
+experiments/aug_ablation/*.curve.csv
+experiments/aug_ablation/*.log
+experiments/aug_ablation/cfg_smoke*.json
