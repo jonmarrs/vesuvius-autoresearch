@@ -147,15 +147,29 @@ around it — not a state-of-the-art model.
     (~0.51) after ~78 epochs, while the overfit probe memorized 16 fixed patches
     to 1.0 — i.e. the model can memorize tiny sets but cannot fit the full
     fragment's CT→ink mapping from scratch at 64 px, with or without augmentation
-    (converging with the flat 12 h long-schedule curve). One honest caveat keeps
-    this from being a final "signal-absent" verdict: the overfit probe used a high
-    LR (1e-3) on a fixed batch while these arms use the production LR (5e-5) on the
-    full set, so "can't fit train" is confounded between signal-weakness and the
-    optimization regime. The clean disambiguator is a same-regime control — fit a
-    synthetic learnable target (brightness) on the full set: if it fits but ink
-    doesn't, the 64 px ink signal is genuinely too weak (window-limited); if it
-    also can't fit, the optimization regime (LR/schedule) is the lever.
-    (Instrument: `disable_augmentation` switch + `scripts/overfit_probe.py`.)
+    (converging with the flat 12 h long-schedule curve). (Throughput is
+    ridge-bound at ~3 s/step, so each ~2 h arm reached only ~2 k steps ≈ 4–5
+    epochs — under-trained on its own, which a same-regime control then renders
+    moot.)
+  - ***Verdict — detection at 64 px is window-limited: the ink↔CT signal is not a
+    learnable function of the 64 px patch.*** A same-regime control resolves the
+    LR/under-training confound decisively: training the identical regime (full
+    Fr47, lr 5e-5, mini-batch sampling, no aug) on a *synthetic learnable* target
+    (brightness = CT z-mean > patch mean) reaches pooled AUC **0.97 by step 50 and
+    0.99 by step 300** — i.e. the optimizer fits a CT-derived per-pixel target
+    near-instantly at the very LR/regime where ink stalls at ~0.51 after ~2 k
+    steps. So ink's failure to fit is **not** optimization, capacity, pipeline, or
+    augmentation — it is that legible ink is not recoverable from a 64 px CT patch
+    by this approach. This is the convergent conclusion of the whole arc
+    (TimeSformer/LeJEPA: large-context approaches violate the window; pseudo-label/
+    oracle: more same-scroll data doesn't help; long-schedule: more compute
+    doesn't help; overfit probe: capacity/pipeline are fine; this ablation +
+    control: regime and augmentation are fine). The remaining levers are *outside*
+    model accuracy at 64 px: a larger predictive window (which the 0.5 mm
+    hallucination rule forbids for the prize), better source segmentation/flattening
+    upstream, or reframing the contribution around the rigorous negative result
+    itself. (Instruments: `scripts/overfit_probe.py`, the `disable_augmentation`
+    switch, `scripts/control_fulldata_probe.py`.)
 - **Bugs surfaced by the rigor:** the Frangi fiber target silently trained on
   zeros (a backend bug in the upstream `tools.py`), and 5 of 9 sampled
   augmentation families were silent no-ops until the augmentation code was
