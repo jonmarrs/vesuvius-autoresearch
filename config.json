@@ -40,7 +40,7 @@
     "aug_scroll_z_dropout_p": 0.0,
     "aug_scroll_intensity_drift_p": 0.25,
     "aug_scroll_sheet_compression_p": 0.0,
-    "aug_scroll_thick_slice_p": 0.0,
+    "aug_scroll_thick_slice_p": 0.25,
     "aug_scroll_rician_noise_p": 0.0,
     "aug_scroll_blank_rectangles_p": 0.0,
     "use_betti_loss": false,
