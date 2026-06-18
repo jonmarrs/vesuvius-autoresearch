@@ -4,7 +4,7 @@
 **Repository (the submission artifact):** https://github.com/jonmarrs/vesuvius-autoresearch (MIT)
 **Live experiment tracking:** https://wandb.ai/jdmarrs-uc-davis/vesuvius-autoresearch
 
-> Internal notes for filing (delete before submission): no AI-authorship markers anywhere. Lead with the open-source tools and the honest methodology, not the model's accuracy. Cite the public fork branch for the fibers work; do not present the closed May PRs as merged. Numbers below are from `best_model.pt` / committed evidence as of 2026-06-11 — refresh if cycles have moved them before filing.
+> Internal notes for filing (delete before submission): no AI-authorship markers anywhere. Lead with the open-source tools and the honest methodology, not the model's accuracy. Cite the public fork branch for the fibers work; do not present the closed May/June villa PRs (incl. #1033, closed) as merged or open. Numbers below trace to the committed `FINDINGS.md` and the 2026-06 experiment arc (see `reports/ink_detection_64px_window_study_2026-06.md`) — re-skim them against `FINDINGS.md` at file time in case the loop has logged new figures.
 
 ---
 
@@ -26,18 +26,29 @@ A continuously-running, evidence-gated research loop for ink detection on a sing
 
 4. **The autoresearch loop** (`run_autoresearch_loop.py`) — a bandit samples architecture/loss/augmentation/hyperparameter families, trains each candidate under a fixed wall-clock budget, evaluates on a held-out fragment, and promotes only topology-improving configurations. Now with opt-in Weights & Biases tracking (parameter/gradient histograms, per-cycle metrics, prediction images), mirroring villa's setup.
 
+5. **Evaluation & feasibility-probe suite** — the instruments behind the methodological finding, reusable for any ink-detection study: pooled pixel-AUC measurement (`scripts/pixel_auc.py`, the artifact-free metric), an overfit/feasibility probe (`scripts/overfit_probe.py`, "can the model memorize a fixed batch?"), a same-regime learnable-target control (`scripts/control_fulldata_probe.py`, "can the training regime fit *anything*?"), leak-free spatial-split tooling for held-out regions (`scripts/spatial_split_mask.py`, 128 px buffer), and a gated in-training learning-curve hook (`eval_every_steps`). Together these turn "the model is bad" into a falsifiable, attributable diagnosis.
+
 ## Findings (the methodological contribution)
 
-Documented in full at [FINDINGS.md](https://github.com/jonmarrs/vesuvius-autoresearch/blob/main/FINDINGS.md):
+Documented in full at [FINDINGS.md](https://github.com/jonmarrs/vesuvius-autoresearch/blob/main/FINDINGS.md); the headline result has a standalone study at [reports/ink_detection_64px_window_study_2026-06.md](https://github.com/jonmarrs/vesuvius-autoresearch/blob/main/reports/ink_detection_64px_window_study_2026-06.md).
 
-- **Validation metrics are artifact-saturated.** On ink-rich patches (~60% ink), a near-constant predictor scores Dice ≈ 0.75; so Dice/`val_bpb` alone don't prove a model localizes ink. Per-patch AUC is the honest signal (the production model: ≈ 0.74 train / 0.61 val).
-- **Topology metrics depend on the binarization threshold.** At the Dice-optimal threshold they understate topology ~2×; the same model reports `centerline_dice` 0.073 → 0.198 just by thresholding at the topology-optimal point.
-- **Honest negative results.** A clDice late-fine-tune degrades centerline overlap; the 2023 GP-winning TimeSformer, retrained at the 0.5 mm (~64 px) prize window, underperforms a CNN — its strength needs a 256 px context the hallucination rule forbids.
-- **Bugs found and fixed via the rigor.** A Frangi fiber target silently trained on zeros; five of nine sampled augmentations were silent no-ops; the ridge feature channel was silently all-zeros (a cuSolver/backend bug in upstream tooling) — all fixed and decoupled from the broken dependency.
+- **Direct ink detection at the 0.5 mm / 64 px prize window is learnability-limited — a reproducible negative result.** Across six experiments and two controls, a fresh model *memorizes* 16 ink patches to pixel AUC 1.0 in 100 steps, yet cannot learn ink from a full fragment at 64 px (flat ~0.51 pooled pixel AUC, with or without augmentation, across a 12 h schedule). The decisive control: the **identical** training regime fits a synthetic CT-derived target to **0.99** in ~300 steps while real ink stalls at ~0.51 — ruling out capacity, pipeline, data quantity, compute, augmentation, and the optimization regime. The binding constraint is the window itself: at 64 px, ink is not a learnable function of the CT patch for direct supervised detection with this preprocessing (scope stated honestly in the study — not a claim that no representation could). The 0.5 mm hallucination rule that forbids large-context models also forbids the context this signal appears to need.
+- **Validation metrics are artifact-saturated.** On ink-rich patches (~60% ink), a near-constant predictor scores Dice ≈ 0.75; so Dice/`val_bpb` alone don't prove a model localizes ink. Pooled pixel AUC is the honest signal (0.5 = chance), and it is what exposes the result above.
+- **Large-context approaches don't fit the window.** The 2023 GP-winning TimeSformer, retrained at 64 px, reaches only per-patch AUC ~0.49 train / ~0.56 val — its strength needs the 256 px context the rule forbids; a LeJEPA self-supervised checkpoint is likewise window-incompatible (only ~20% of its encoder loads at 64 px). A clDice late-fine-tune degrades centerline overlap.
+- **Bugs found and fixed via the rigor.** A Frangi fiber target silently trained on zeros; five of nine sampled augmentations were silent no-ops; the ridge feature channel was silently all-zeros (a cuSolver/backend bug in upstream tooling); a pseudo-label inference path mis-aligned patches by ±32 px until caught in review — all fixed.
 
 ## Honest current results
 
-Production `resenc_unet` on held-out `PHercParis2Fr143` (disjoint from the training fragment): `val_bpb` 0.2627, `centerline_dice` ~0.30 (topology-optimal threshold), per-patch ink AUC ~0.74 train / 0.61 val. Mediocre but improving (over the recent cycle window: train AUC 0.70→0.74, `centerline_dice` 0.198→0.30). Cross-scroll transfer to Scrolls 2–3 is unproven and is the stated research target, not a claim.
+Measured by the artifact-free metric (pooled pixel AUC, 0.5 = chance), a
+prize-compliant 64 px detector trained from scratch sits at the chance floor on
+held-out data (~0.49–0.52), and the controls above show this is the window, not a
+fixable training problem. The long-running search loop's production checkpoint
+reaches ~0.557 pixel AUC, but that reflects warm-start accumulation across many
+cycles rather than a fresh-trainable signal — it is marginally above chance, not a
+working detector. We state this plainly: **the contribution is the open tooling and
+the rigorous, reproducible negative result, not a state-of-the-art model.** That a
+careful evaluation overturns optimistic Dice-based readings (Dice ≈ 0.75 from a
+near-constant predictor) is itself part of the methodological contribution.
 
 ## Reproducibility
 
@@ -65,6 +76,7 @@ Earlier (May) PRs to villa were closed; this submission does not resubmit them a
 
 - Repo: https://github.com/jonmarrs/vesuvius-autoresearch
 - Findings: .../blob/main/FINDINGS.md
+- 64 px window learnability study: .../blob/main/reports/ink_detection_64px_window_study_2026-06.md
 - Augmentations: .../blob/main/docs/SCROLL_AUGMENTATIONS.md
 - Fiber detection: .../blob/main/docs/FIBER_DETECTION.md
 - wandb: https://wandb.ai/jdmarrs-uc-davis/vesuvius-autoresearch
