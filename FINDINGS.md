@@ -169,7 +169,8 @@ around it — not a state-of-the-art model.
     hallucination rule forbids for the prize), better source segmentation/flattening
     upstream, or reframing the contribution around the rigorous negative result
     itself. (Instruments: `scripts/overfit_probe.py`, the `disable_augmentation`
-    switch, `scripts/control_fulldata_probe.py`.)
+    switch, `scripts/control_fulldata_probe.py`.) Full standalone study:
+    [reports/ink_detection_64px_window_study_2026-06.md](reports/ink_detection_64px_window_study_2026-06.md).
 - **Bugs surfaced by the rigor:** the Frangi fiber target silently trained on
   zeros (a backend bug in the upstream `tools.py`), and 5 of 9 sampled
   augmentation families were silent no-ops until the augmentation code was

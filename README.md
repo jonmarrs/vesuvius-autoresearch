@@ -4,7 +4,7 @@
 
 *The first autonomous research swarm for the Vesuvius Challenge.*
 
-> **Honest results, methodology, and negative results:** see [FINDINGS.md](FINDINGS.md).
+> **Honest results, methodology, and negative results:** see [FINDINGS.md](FINDINGS.md). The headline finding — direct ink detection at the prize's 0.5 mm / 64 px window is learnability-limited — has a standalone, reproducible study: [reports/ink_detection_64px_window_study_2026-06.md](reports/ink_detection_64px_window_study_2026-06.md).
 > **Live experiment tracking:** [wandb dashboard](https://wandb.ai/jdmarrs-uc-davis/vesuvius-autoresearch).
 
 `bountyhunter` is an experiment in having AI agents perform their own end-to-end computer vision research. It automates the cycle of hypothesis generation, hyperparameter optimization, model training, and performance evaluation to uncover the "Gold Standard" configurations for reading ancient carbonized scrolls.
