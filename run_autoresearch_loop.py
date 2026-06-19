@@ -124,51 +124,61 @@ tweak_templates = [
         # (was ["gated_unet", "mednext", "neural_tracing_vit"]).
         "vals": ["resenc_unet"],
     },
-    {
-        "family": "scroll_augmentations",
-        "attr": "aug_scroll_decohesion_p",
-        "vals": [0.0, 0.25, 0.5],
-    },
-    {
-        "family": "scroll_augmentations",
-        "attr": "aug_scroll_warping_p",
-        "vals": [0.0, 0.25, 0.5],
-    },
-    {
-        "family": "scroll_augmentations",
-        "attr": "aug_scroll_squeeze_p",
-        "vals": [0.0, 0.25, 0.5],
-    },
-    {
-        "family": "scroll_augmentations",
-        "attr": "aug_scroll_z_dropout_p",
-        "vals": [0.0, 0.25, 0.5],
-    },
-    {
-        "family": "scroll_augmentations",
-        "attr": "aug_scroll_intensity_drift_p",
-        "vals": [0.0, 0.25, 0.5],
-    },
-    {
-        "family": "scroll_augmentations",
-        "attr": "aug_scroll_sheet_compression_p",
-        "vals": [0.0, 0.25, 0.5],
-    },
-    {
-        "family": "scroll_augmentations",
-        "attr": "aug_scroll_thick_slice_p",
-        "vals": [0.0, 0.25, 0.5],
-    },
-    {
-        "family": "scroll_augmentations",
-        "attr": "aug_scroll_rician_noise_p",
-        "vals": [0.0, 0.25, 0.5],
-    },
-    {
-        "family": "scroll_augmentations",
-        "attr": "aug_scroll_blank_rectangles_p",
-        "vals": [0.0, 0.25, 0.5],
-    },
+    # Disabled 2026-06-19: the scroll_augmentations family was starving the search.
+    # It carries 9 templates (below), and the bandit weights selection per-template
+    # by the family's success_count — so this family had ~9x the structural sampling
+    # mass of single-template families, on top of a runaway weight (17.8 vs ~1.0 for
+    # every other real family). Yet the aug-ablation study found augmentation is NOT
+    # the bottleneck at 64px (both arms ~chance on train AND val); the ceiling is the
+    # 64px window regime, not augmentation. The aug_scroll_*_p attrs keep their
+    # baseline defaults in config (frozen, not swept). The companion success_count
+    # was reset to 1.0 in autoresearch_history.json. Uncomment the block (and re-run
+    # the ablation) to re-enable the sweep.
+    # {
+    #     "family": "scroll_augmentations",
+    #     "attr": "aug_scroll_decohesion_p",
+    #     "vals": [0.0, 0.25, 0.5],
+    # },
+    # {
+    #     "family": "scroll_augmentations",
+    #     "attr": "aug_scroll_warping_p",
+    #     "vals": [0.0, 0.25, 0.5],
+    # },
+    # {
+    #     "family": "scroll_augmentations",
+    #     "attr": "aug_scroll_squeeze_p",
+    #     "vals": [0.0, 0.25, 0.5],
+    # },
+    # {
+    #     "family": "scroll_augmentations",
+    #     "attr": "aug_scroll_z_dropout_p",
+    #     "vals": [0.0, 0.25, 0.5],
+    # },
+    # {
+    #     "family": "scroll_augmentations",
+    #     "attr": "aug_scroll_intensity_drift_p",
+    #     "vals": [0.0, 0.25, 0.5],
+    # },
+    # {
+    #     "family": "scroll_augmentations",
+    #     "attr": "aug_scroll_sheet_compression_p",
+    #     "vals": [0.0, 0.25, 0.5],
+    # },
+    # {
+    #     "family": "scroll_augmentations",
+    #     "attr": "aug_scroll_thick_slice_p",
+    #     "vals": [0.0, 0.25, 0.5],
+    # },
+    # {
+    #     "family": "scroll_augmentations",
+    #     "attr": "aug_scroll_rician_noise_p",
+    #     "vals": [0.0, 0.25, 0.5],
+    # },
+    # {
+    #     "family": "scroll_augmentations",
+    #     "attr": "aug_scroll_blank_rectangles_p",
+    #     "vals": [0.0, 0.25, 0.5],
+    # },
     # Removed 2026-05-17 after audit confirmed this axis has been a no-op since the
     # loop's inception: train.py:742 expects {segment_name}_pseudo.png in the
     # pseudo_label_dir, but no such file has ever existed on disk (the actual
