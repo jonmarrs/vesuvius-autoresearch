@@ -5,7 +5,7 @@ import sys
 
 import numpy as np
 import torch
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, RandomSampler
 
 _R = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, _R)
@@ -23,16 +23,36 @@ def _frag_dirs(cfg, ids):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--val", type=int, default=1, help="held-out fragment id (1/2/3)")
+    ap.add_argument("--val", type=int, default=1, help="held-out fragment id")
     ap.add_argument("--epochs", type=int, default=ReproConfig.epochs)
     ap.add_argument("--out", default="repro/ink_segformer/runs/model_val{val}.pt")
+    ap.add_argument(
+        "--data-root", default=ReproConfig.data_root, help="dir containing frag subdirs"
+    )
+    ap.add_argument(
+        "--frags", type=int, nargs="+", default=[1, 2, 3], help="available fragment ids"
+    )
+    ap.add_argument("--z-start", type=int, default=ReproConfig.z_start)
+    ap.add_argument("--z-count", type=int, default=ReproConfig.z_count)
+    ap.add_argument("--batch-size", type=int, default=ReproConfig.batch_size)
+    ap.add_argument("--num-workers", type=int, default=4)
+    ap.add_argument(
+        "--max-train-tiles",
+        type=int,
+        default=0,
+        help="if >0, randomly sample this many train tiles per epoch (redrawn each epoch)",
+    )
     args = ap.parse_args()
     cfg = ReproConfig(epochs=args.epochs)
+    cfg.data_root = args.data_root
+    cfg.z_start = args.z_start
+    cfg.z_count = args.z_count
+    cfg.batch_size = args.batch_size
     torch.manual_seed(cfg.seed)
     np.random.seed(cfg.seed)
     dev = torch.device("cuda")
 
-    train_ids = [i for i in (1, 2, 3) if i != args.val]
+    train_ids = [i for i in args.frags if i != args.val]
     tr = InkTileDataset(
         _frag_dirs(cfg, train_ids),
         cfg.tile,
@@ -51,15 +71,29 @@ def main():
         cfg.min_papyrus,
         augment=False,
     )
-    tl = DataLoader(
-        tr,
-        batch_size=cfg.batch_size,
-        shuffle=True,
-        num_workers=4,
-        drop_last=True,
-        pin_memory=True,
+    if args.max_train_tiles and args.max_train_tiles < len(tr):
+        # redraws a fresh random subset each epoch (overlapping tiles still cover the frag)
+        sampler = RandomSampler(tr, replacement=False, num_samples=args.max_train_tiles)
+        tl = DataLoader(
+            tr,
+            batch_size=cfg.batch_size,
+            sampler=sampler,
+            num_workers=args.num_workers,
+            drop_last=True,
+            pin_memory=True,
+        )
+    else:
+        tl = DataLoader(
+            tr,
+            batch_size=cfg.batch_size,
+            shuffle=True,
+            num_workers=args.num_workers,
+            drop_last=True,
+            pin_memory=True,
+        )
+    vl = DataLoader(
+        va, batch_size=cfg.batch_size, shuffle=False, num_workers=args.num_workers
     )
-    vl = DataLoader(va, batch_size=cfg.batch_size, shuffle=False, num_workers=4)
     print(
         f"train tiles={len(tr)} (frags {train_ids})  val tiles={len(va)} (frag {args.val})"
     )

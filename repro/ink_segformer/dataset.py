@@ -26,6 +26,24 @@ def read_middle_layers(frag_dir, z_start, z_count):
     return np.stack(layers, axis=0)
 
 
+def read_layers_raw(frag_dir, z_start, z_count):
+    """Like read_middle_layers but keeps the native dtype (uint16/uint8) to halve
+    resident memory for large fragments; returns (vol[D,H,W], denom). Normalize
+    per-tile at access time."""
+    files = sorted(
+        f
+        for f in os.listdir(os.path.join(frag_dir, "surface_volume"))
+        if f.endswith(".tif")
+    )
+    files = files[z_start : z_start + z_count]
+    layers, denom = [], 255.0
+    for f in files:
+        a = np.array(Image.open(os.path.join(frag_dir, "surface_volume", f)))
+        denom = 65535.0 if a.dtype == np.uint16 else 255.0
+        layers.append(a)
+    return np.stack(layers, axis=0), denom
+
+
 def compute_tile_origins(mask, tile, stride, min_papyrus=0.05):
     """List of (y, x) top-left origins on a grid (stride), clamped so a full tile
     fits, keeping only tiles whose papyrus-mask coverage >= min_papyrus."""
@@ -54,9 +72,10 @@ class InkTileDataset(Dataset):
     ):
         self.tile, self.augment = tile, augment
         self.items = []  # (frag_index, y, x)
-        self.vols, self.inks, self.masks = [], [], []
+        self.vols, self.denoms, self.inks, self.masks = [], [], [], []
         for fi, d in enumerate(frag_dirs):
-            vol = read_middle_layers(d, z_start, z_count)  # [D,H,W]
+            vol, denom = read_layers_raw(d, z_start, z_count)  # [D,H,W] native dtype
+            self.denoms.append(denom)
             ink = (
                 np.array(Image.open(os.path.join(d, "inklabels.png")).convert("L"))
                 > 127
@@ -76,7 +95,9 @@ class InkTileDataset(Dataset):
     def __getitem__(self, idx):
         fi, y, x = self.items[idx]
         t = self.tile
-        vol = self.vols[fi][:, y : y + t, x : x + t]  # [D,t,t]
+        vol = (
+            self.vols[fi][:, y : y + t, x : x + t].astype(np.float32) / self.denoms[fi]
+        )  # [D,t,t]
         ink = self.inks[fi][y : y + t, x : x + t]  # [t,t]
         pmask = self.masks[fi][y : y + t, x : x + t]  # [t,t]
         if self.augment:
