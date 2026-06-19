@@ -46,6 +46,37 @@ window: train AUC 0.70→0.74, val 0.60→0.61, `centerline_dice` 0.198→0.30).
 contribution is the reproducible, evidence-gated search process and the tooling
 around it — not a state-of-the-art model.
 
+## Clean-room 2.5D SegFormer reproduction — the window, not the data, is the ceiling
+
+A from-scratch positive control, fully isolated under `repro/ink_segformer/`
+(nothing in it imports the loop or `train.py`). A 2.5D detector — `[B,1,D,H,W]`
+tile → 4-layer 3D-conv stem → max-over-depth → `smp.Segformer(mit_b3)` → per-pixel
+logits — trained **leave-one-fragment-out** (train on `PHercParis2Fr143`, hold out
+`PHercParis2Fr47`) at **224 px** tiles over all 33 local depth layers, BCE+Dice,
+AMP, sliding-window flip/rot90 TTA at inference.
+
+| Metric (held-out Fr47, TTA) | Value | Note |
+| --- | --- | --- |
+| pixel AUC | **0.804** | vs ~0.60 for the production 64 px model; ~0.51 from-scratch at 64 px |
+| Fβ=0.5 | 0.506 | at threshold 0.30 |
+| mean P(ink) on ink vs off-ink | 0.259 vs 0.044 | **5.9×** separation (was 3.0× at 6 epochs) |
+| legibility | **legible** | Greek letterforms (e.g. ΡΑΛΑ) readable in the raw probability map |
+
+Per-epoch held-out AUC climbed monotonically (0.68 → 0.78 over 18 epochs, ~2 h on
+the RTX 4090, ~6 min/epoch with 4 096 sampled tiles/epoch) and was still rising at
+the end. The rendered ink heatmap and a prediction-vs-label overlay are in
+[reports/ink_segformer_repro/](reports/ink_segformer_repro/).
+
+**What this localizes:** the same fragments where our 64 px pipeline sits at chance
+(~0.51 from-scratch, the [overfit-probe](#what-we-learned) showed the 64 px capacity
+and pipeline are fine) become **legibly readable at 224 px context**. So the binding
+constraint is the architecture/receptive-field **regime**, not data quality or ink
+detectability — the same structural story as the TimeSformer and LeJEPA negatives
+below, now with a positive control. The flip side, stated honestly: **224 px is not
+prize-compliant** — it exceeds the Challenge's 0.5 mm (~64 px) hallucination window —
+so this is a detectability proof and a working-detector reset, **not** a prize
+submission. It quantifies exactly what the 64 px window costs.
+
 ## What we learned
 
 - **Validation metrics are artifact-saturated.** On ink-containing patches

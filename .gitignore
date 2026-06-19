@@ -97,3 +97,4 @@ experiments/aug_ablation/*.curve.csv
 experiments/aug_ablation/*.log
 experiments/aug_ablation/cfg_smoke*.json
 experiments/aug_ablation/*.csv
+repro/ink_segformer/runs/
