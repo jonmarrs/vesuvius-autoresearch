@@ -77,6 +77,28 @@ prize-compliant** — it exceeds the Challenge's 0.5 mm (~64 px) hallucination w
 so this is a detectability proof and a working-detector reset, **not** a prize
 submission. It quantifies exactly what the 64 px window costs.
 
+## GP-winner replication (Phase 1) — the winning pipeline reproduces here; our gap is upstream
+
+We ran the **vendored Grand-Prize pipeline** (`villa/ink-detection/inference_timesformer.py`,
+the published canonical "wild15" TimeSformer-small checkpoint, `size=64 stride=32
+start_idx=17 in_chans=26`) on two canonical Scroll-1 segments — `20231210121321` and
+`20231221180251` — in a **dedicated isolated venv** (never the loop's `.venv`), with
+the segments fetched from `dl.ash2txt.org` and weights from the authors' Drive.
+
+**Result: Outcome A — both segments render legibly.** The predictions show clear
+columns of ancient Greek letterforms (matching the winners' public reveal of these
+segments). Renders in [reports/gp_winner_repro/](reports/gp_winner_repro/).
+
+**Why this matters:** the published winning pipeline **works in this environment,
+end-to-end** — so our loop's chance-level result (~0.49/0.56 with a "GP-style" model)
+is **not** an environment/plumbing/GPU/library bug. The gap is *upstream and in the
+recipe*: the winner uses **real flattened Scroll-1 surface-volume segments** with
+**~15 rounds of iteratively-cleaned labels** and a **pretrained** TimeSformer; our loop
+trains a from-scratch `resenc_unet` on the two PHercParis2 *fragments* with our own
+labels/preprocessing. We now have a **trusted, reproducing baseline** — the instrument
+is calibrated. The next step is a direct diff of our pipeline against the winner's
+(data source, label quality, pretraining), not more architecture/hyperparameter search.
+
 ## What we learned
 
 - **Validation metrics are artifact-saturated.** On ink-containing patches

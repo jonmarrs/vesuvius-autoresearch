@@ -98,3 +98,9 @@ experiments/aug_ablation/*.log
 experiments/aug_ablation/cfg_smoke*.json
 experiments/aug_ablation/*.csv
 repro/ink_segformer/runs/
+villa/ink-detection/train_scrolls/
+villa/ink-detection/eval_scrolls/
+villa/ink-detection/.venv-gp/
+villa/ink-detection/gp_weights_dl/
+villa/ink-detection/timesformer_weights.ckpt
+repro/gp_winner/runs/
