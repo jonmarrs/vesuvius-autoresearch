@@ -12,6 +12,10 @@ repos:
       - id: end-of-file-fixer
       - id: check-yaml
       - id: check-added-large-files
+        # Default is 500KB; raised to accommodate verbose autoresearch sprint logs
+        # (per-cycle config dumps push them past 500KB). Still guards against
+        # accidentally committing model weights / large binaries.
+        args: [--maxkb=2048]
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.9.10
