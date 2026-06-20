@@ -352,4 +352,76 @@ Build on the stability of the LeJEPA foundation model and the ResEnc-UNet champi
 
 ---
 
+## [2026-05-24] Night Shift: Vesuvius-ARC Counterpart Launch & Prize Pivot
+
+**Status:** COMPLETE
+
+### Purpose
+Align with the "Prize Money First" mandate. This shift marks the start of the dual-track strategy: Vesuvius Autoresearch (First Letters Prize) and the new **ARC AGI Autoresearch** project. Both apply the Karpathy autoresearch loop to competition leaderboards.
+
+### Configuration
+*   **Hardware:** RTX 4090.
+*   **Priority:** Prize evidence chains (Scroll 2/3 candidates).
+*   **Goal:** Winning prize money, not just research demos.
+
+### Outcomes & Insights
+- **Evidence Chains Run:** 12 ranked Scroll 2/3 candidates processed; all 12 readiness reports passed.
+- **Artifacts:** Generated `reports/scroll23_candidate_contact_sheet.png`.
+- **Blocker identified:** GPU ridge path falling back to CPU due to missing `libcusolver.so.11`.
+
+---
+
+## [2026-05-26] Day Shift: The Pivot to Volume Cartographer (VC3D)
+
+**Status:** COMPLETE
+
+### Purpose
+Major strategic pivot following the closure of multiple Villa PRs. Abandon deprecated `vesuvius-c` dependencies and align fully with the official `volume-cartographer` / VC3D path.
+
+### Key Strategy Changes
+1.  **Dependency Cleanup:** Treat PRs #899, #901, #910, #913, #914, #915, #916 as obsolete/unrecoverable.
+2.  **Native Alignment:** Pivot to `volume_cartographer_wrapper` for compatibility with official OME-Zarr conventions.
+3.  **Human-in-the-Loop recovery:** Established the `docs/VILLA_PR_CLOSURE_RECOVERY_2026-05-26.md` matrix to guide future human-written replacement PRs.
+
+### Outcomes & Insights
+- **Compatibility Layer:** Successfully implemented a local Python wrapper for training over local OME-Zarr data.
+- **Codebase Cleaned:** Removed obsolete `vesuvius_c` readiness artifacts.
+
+---
+
+## [2026-06-16] Day Shift: Config-Driven Optimization & Augmentation Pruning
+
+**Status:** COMPLETE (44 Cycles)
+
+### Purpose
+Execute a high-volume (15m) iteration sprint to optimize `val_bpb` through systematic configuration pruning. Focus on identifying which augmentation families are suppressing the learnable ink signal.
+
+### Configuration
+*   **Hardware:** RTX 4090.
+*   **Cycles:** 44 successful experiments.
+*   **Training Budget:** 900s per cycle.
+*   **Architecture:** `resenc_unet` (Production Champion).
+
+### Outcomes & Insights
+- **Winning Mutation (Cycle 2):** `aug_scroll_decohesion_p: 0.0`. Pruning decohesion noise led to more stable convergence, confirming it was likely artifact-saturating the signal.
+- **Winning Mutation (Cycle 5):** `aug_scroll_thick_slice_p: 0.25`. Thick-slice augmentation provides better volumetric robustness.
+- **Winning Mutation (Cycle 33):** `lr: 1e-05`. Fine-tuning the learning rate to a lower floor yielded the best topological gains.
+- **The "64px Verdict":** Converged on the major finding that legible ink recovery is window-limited at 64px. The bottleneck is not capacity or compute, but the restricted context of the 0.5mm hallucination-mitigation window.
+
+---
+
+## [2026-06-16] Night Shift: High-Budget Scaling & Architectural Stability
+
+**Status:** ACTIVE
+
+### Purpose
+Transition to sustained 60-minute training cycles. The goal is to evaluate if deep 3D backbones (`GatedUNet` vs `ResidualEncoderUNet`) can break the 0.262 `val_bpb` floor under long-term gradient exposure.
+
+### Configuration
+*   **Budget:** 3600s per cycle.
+*   **Architecture:** High-budget scaling of `resenc_unet` and `GatedUNet`.
+*   **Goal:** Establish definitive architectural preference for Phase 4 discovery runs.
+
+---
+
 ## [Future Entry Template]

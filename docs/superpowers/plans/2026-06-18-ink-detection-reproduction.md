@@ -28,42 +28,20 @@
 
 ---
 
-## Task 0: Acquire the Kaggle ink-detection data (USER-GATED)
+## Task 0: Verify the local fragment data (NO download needed)
 
-**Files:** none (data only). This task needs the user's Kaggle credentials and cannot be completed autonomously.
+**Files:** none. The canonical Kaggle ink-detection fragments map directly to the PHerc fragments we already have: **Kaggle Frag1 = PHercParis2Fr47** (train), **Frag2 = PHercParis2Fr143** (val) — both local, clean, aligned, in flat tif format. (Frag3-6 = PHercParis1Fr34/Fr39, PHerc1667Fr3, PHerc51Fr8 are also local but in the misaligned `(H,depth,W)` copies; not needed for this 2-fragment first run. If wanted later, pristine copies download with no Kaggle account from `https://dl.ash2txt.org/fragments/Frag{3..6}/` using basic-auth `registeredusers:only`.)
 
-- [ ] **Step 1: Install the Kaggle CLI (if using Kaggle)**
-
-```bash
-cd /home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch
-.venv/bin/pip install kaggle
-```
-
-- [ ] **Step 2: User provides credentials**
-
-The user places a Kaggle API token at `~/.kaggle/kaggle.json` (from kaggle.com → Account → Create New Token) and accepts the competition rules at https://www.kaggle.com/competitions/vesuvius-challenge-ink-detection/rules . ALTERNATIVELY the user provides a direct download URL from the ScrollPrize data mirror, and we `wget`/`curl` it instead.
-
-- [ ] **Step 3: Download + arrange**
+- [ ] **Step 1: Verify Fr47 (train) and Fr143 (val) layout**
 
 ```bash
 cd /home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch
-mkdir -p local_data/kaggle_ink
-.venv/bin/kaggle competitions download -c vesuvius-challenge-ink-detection -p local_data/kaggle_ink
-cd local_data/kaggle_ink && unzip -q vesuvius-challenge-ink-detection.zip && cd -
-# the archive contains train/{1,2,3}/ and test/; we use train/{1,2,3}
-ls local_data/kaggle_ink/train
-```
-
-- [ ] **Step 4: Verify the expected layout**
-
-```bash
-cd /home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch
-for f in 1 2 3; do
-  d=local_data/kaggle_ink/train/$f
-  echo "fragment $f: layers=$(ls $d/surface_volume/*.tif 2>/dev/null | wc -l) ink=$(test -f $d/inklabels.png && echo yes) mask=$(test -f $d/mask.png && echo yes)"
+for d in PHercParis2Fr47 PHercParis2Fr143; do
+  p=local_data/$d
+  echo "$d: layers=$(ls $p/surface_volume/*.tif 2>/dev/null | wc -l) ink=$(test -f $p/inklabels.png && echo yes) mask=$(test -f $p/mask.png && echo yes)"
 done
 ```
-Expected: each fragment shows `layers=65 ink=yes mask=yes`. If a mirror layout differs, set `data_root`/paths in `config.py` accordingly. **Do not proceed to the training run (Task 6) until this passes**, but Tasks 1-5 (code + synthetic tests) can be built now without the data.
+Expected: each shows `layers=33 ink=yes mask=yes` (the local copies hold the middle 33 depth layers, `16.tif`–`48.tif` — already the useful slab the winners used). The code reads however many tif layers exist, so 33 is fine. No download; proceed directly. (Tasks 1-7 build/test on synthetic fixtures regardless; only the Task 8 run needs this data.)
 
 ---
 
