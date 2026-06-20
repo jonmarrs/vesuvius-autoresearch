@@ -104,3 +104,4 @@ villa/ink-detection/.venv-gp/
 villa/ink-detection/gp_weights_dl/
 villa/ink-detection/timesformer_weights.ckpt
 repro/gp_winner/runs/
+villa/ink-detection/models/
