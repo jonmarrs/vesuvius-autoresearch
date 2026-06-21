@@ -255,9 +255,6 @@ def get_train_valid_dataset(
     fragment_ids=[
         "20231210121321",
         "20230702185753",
-        "20230826170124",
-        "20230903193206",
-        "20231005123336",
         "20230820203112",
     ],
 ):
@@ -458,9 +455,8 @@ class RegressionPLModel(pl.LightningModule):
             out=np.zeros_like(self.mask_pred),
             where=self.mask_count != 0,
         )
-        wandb_logger.log_image(
-            key="masks", images=[np.clip(self.mask_pred, 0, 1)], caption=["probs"]
-        )
+        # CSVLogger has no log_image; the held-out prediction is evaluated separately
+        # via inference_timesformer.py + render_eval.py (Phase-2 Task 5).
 
         # reset mask
         self.mask_pred = np.zeros(self.hparams.pred_shape)
