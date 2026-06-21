@@ -99,6 +99,36 @@ labels/preprocessing. We now have a **trusted, reproducing baseline** — the in
 is calibrated. The next step is a direct diff of our pipeline against the winner's
 (data source, label quality, pretraining), not more architecture/hyperparameter search.
 
+## GP-winner replication (Phase 2) — the recipe *trains* here and learns ink (held-out AUC 0.905)
+
+Beyond running the published weights (Phase 1), we **retrained** the winner's
+TimeSformer recipe from scratch in our environment on a tractable subset — 2 real
+labeled Scroll-1 segments (`20231210121321`, `20230702185753`), held-out
+`20230820203112`, 12 epochs at batch 32 on the single RTX 4090, via an isolated copy
+`repro/gp_winner/train_subset.py` (vendored code untouched, `.venv-gp`).
+
+**Result: PASS (primary).** Loss fell monotonically across 12 epochs (train
+0.707→0.596, val 0.505→0.461) and the **held-out pixel-AUC is 0.905** — the recipe
+demonstrably learns ink from real labeled segments in our environment. Render +
+ground-truth in [reports/gp_winner_repro/](reports/gp_winner_repro/)
+(`phase2_heldout_*`).
+
+**Honest caveat (stretch not met):** the held-out prediction is ink-*structured* but
+not crisply legible letterforms. Expected at this reduced scope — 2 segments / 12
+epochs / single-GPU vs the winner's **41 segments / 30 epochs / ensemble** — and the
+held-out label here is sparse (5.4% ink, a handful of large glyphs), so legibility is
+hard to judge. The high AUC reflects strong pixel-level ink/non-ink separation, not
+full text recovery.
+
+**What this nails down:** our environment and compute can *train* the reference recipe
+on real data to strong held-out discrimination. Combined with Phase 1, the chance-level
+result of our autoresearch loop is conclusively **not** an environment/compute/library
+problem — it is the **data + recipe**: real flattened Scroll-1 *segments* with cleaned
+labels (and ideally pretraining) vs our from-scratch `resenc_unet` on PHercParis2
+*fragments*. The actionable lever is Phase 3: feed our own data/labels through this
+proven pipeline, one variable at a time, to localize exactly which factor collapses our
+result.
+
 ## What we learned
 
 - **Validation metrics are artifact-saturated.** On ink-containing patches
