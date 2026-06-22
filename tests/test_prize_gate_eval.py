@@ -19,6 +19,29 @@ def test_load_crops_to_common_shape(tmp_path):
     assert set(np.unique(label)).issubset({0, 1})
 
 
+def test_sweep_crops_topology_to_label_bbox(monkeypatch):
+    # label occupies a small sub-region of a large frame; metrics must receive the
+    # cropped bbox (not the full frame) so skeletonization stays tractable.
+    seen_shapes = []
+
+    def fake_cd(label, pred, **k):
+        seen_shapes.append(label.shape)
+        return {"centerline_dice": 0.5}
+
+    monkeypatch.setattr(pge, "_centerline_dice", fake_cd)
+    monkeypatch.setattr(pge, "_skel_dist", lambda label, pred, **k: 3.0)
+
+    prob = np.zeros((400, 400), np.float32)
+    label = np.zeros((400, 400), np.uint8)
+    label[100:140, 50:90] = 1  # 40x40 ink island
+    prob[100:140, 50:90] = 0.9
+    mask = np.ones((400, 400), bool)
+    pge.sweep_topology(prob, label, mask, thresholds=[0.5])
+    # metric received a (1, H, W) crop much smaller than the 400x400 frame
+    assert seen_shapes and seen_shapes[0][0] == 1
+    assert seen_shapes[0][1] <= 120 and seen_shapes[0][2] <= 120
+
+
 def test_sweep_picks_topology_optimal(monkeypatch):
     # fake metrics: centerline_dice peaks near coverage 0.25; skel_dist constant
     def fake_cd(label, pred, **k):

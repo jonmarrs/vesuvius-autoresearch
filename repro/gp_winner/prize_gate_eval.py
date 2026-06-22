@@ -54,24 +54,43 @@ def load_pred_label_mask(pred_png, label_png, mask_png=None):
     return prob[:h, :w], label[:h, :w], mask[:h, :w]
 
 
+def _label_bbox(label, mask, margin=16):
+    """Bounding box of label∩mask with a margin (so skeletonization stays tractable on a
+    region containing all GT structure, mirroring how the loop samples patches rather than
+    the full segment). Returns (y0, y1, x0, x1); full frame if there is no ink."""
+    ink = (label > 0) & mask
+    ys, xs = np.where(ink)
+    if ys.size == 0:
+        return 0, label.shape[0], 0, label.shape[1]
+    y0 = max(0, int(ys.min()) - margin)
+    y1 = min(label.shape[0], int(ys.max()) + 1 + margin)
+    x0 = max(0, int(xs.min()) - margin)
+    x1 = min(label.shape[1], int(xs.max()) + 1 + margin)
+    return y0, y1, x0, x1
+
+
 def sweep_topology(prob, label, mask, thresholds):
     """For each threshold, binarize prob*mask and compute villa centerline_dice + skel_dist
-    on (1,H,W) arrays; return the topology-optimal (max centerline_dice) result + pixel-AUC."""
+    on (1,H,W) arrays; return the topology-optimal (max centerline_dice) result + pixel-AUC.
+    The topology metrics run on the label bounding box (full-segment skeletonization is
+    intractable); pixel-AUC is over the full papyrus mask."""
     from sklearn.metrics import roc_auc_score
 
     m = mask.astype(bool)
-    y = label * m
     sel = m.ravel()
     auc = (
         float(roc_auc_score(label.ravel()[sel], prob.ravel()[sel]))
         if label[m].min() != label[m].max()
         else 0.5
     )
-    lab3 = y[None].astype(np.uint8)
+    # crop to the GT bbox for the (heavy) topology metrics
+    y0, y1, x0, x1 = _label_bbox(label, m)
+    pc, lc, mc = prob[y0:y1, x0:x1], label[y0:y1, x0:x1], m[y0:y1, x0:x1]
+    lab3 = (lc * mc)[None].astype(np.uint8)
     per = []
     best = None
     for t in thresholds:
-        pred_bin = ((prob >= t) & m).astype(np.uint8)[None]
+        pred_bin = ((pc >= t) & mc).astype(np.uint8)[None]
         cd = _centerline_dice(lab3, pred_bin)
         cdv = float(cd["centerline_dice"]) if isinstance(cd, dict) else float(cd)
         sk = float(_skel_dist(lab3, pred_bin))
