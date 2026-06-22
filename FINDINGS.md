@@ -162,6 +162,37 @@ makes the winner stack work onto our data — the most pinpointing single experi
 succeeded on; if it still gets ~chance, the defect is concretely in our architecture/training
 code, which we then fix against the TimeSformer recipe as the working reference.
 
+## GP-winner Phase 4a Step A — the prize topology gate is NOT detection-limited
+
+Before scaling the working detector, we scored it through the repo's own prize topology
+gates (`repro/gp_winner/prize_gate_eval.py`, reusing the villa `centerline_dice` /
+`skeleton_distance_length` metrics over a threshold sweep, cropped to the GT-ink bbox —
+full-segment skeletonization is intractable, which matches how the loop samples patches).
+
+**The AUC-0.905 TimeSformer** (the same recipe that rendered legible Greek letters in
+Phase 1) scores, at its topology-optimal threshold (0.6): **centerline_dice 0.121,
+skel_dist 16.8**. Our `resenc_unet` is at **~0.34 / ~19–21**. The prize gate is
+**skel_dist ≤ 2.0**.
+
+| Model | pixel-AUC | centerline_dice | skel_dist | vs gate (≤2.0) |
+| --- | --- | --- | --- | --- |
+| resenc_unet (our loop) | ~0.51–0.60 | ~0.34 | ~19–21 | ✗ (~10×) |
+| TimeSformer (working) | **0.905** | 0.121 | **16.8** | ✗ (~8×) |
+
+**Verdict:** a genuinely-detecting model that *reads legible ink* still misses the
+topology gate by ~8×, barely different from our chance-level detector. So the gate is
+**not detection-limited** — scaling the detector (Step B) cannot reach it. The bottleneck
+is the **topology / post-processing stage** (thin-centerline extraction, connected-component
+cleanup), or the gate itself: `skel_dist ≤ 2.0` is *our repo's invented proxy*, not the
+actual Vesuvius prize criterion (human-readable ink — which the TimeSformer demonstrably
+produces). The autoresearch loop has been gating on a metric that even a
+Grand-Prize-quality model fails, which likely explains why it never declared a model
+"prize-ready." (Caveat: the resenc_unet figures come from the loop's patch-sampled eval on
+a different fragment, so the head-to-head is approximate; the durable point is that both
+sit ~8–10× off the gate regardless of detection quality.) **Step B (scale the detector)
+was paused on this finding** — the next lever is post-processing and/or re-examining whether
+the gate is the right target, not a bigger detector.
+
 ## What we learned
 
 - **Validation metrics are artifact-saturated.** On ink-containing patches
