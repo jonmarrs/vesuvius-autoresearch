@@ -129,6 +129,39 @@ labels (and ideally pretraining) vs our from-scratch `resenc_unet` on PHercParis
 proven pipeline, one variable at a time, to localize exactly which factor collapses our
 result.
 
+## GP-winner replication (Phase 3a) — OUR DATA IS FINE; the gap is our model/training stack
+
+We ran the **proven** winner recipe on **our own data**: `train_ours.py` (the Phase-2
+pipeline, fragment-list diff only) trained from scratch on `PHercParis2Fr47`, held out
+`PHercParis2Fr143` — *the exact split our autoresearch loop uses*. Our uint16 ZSTD layers
+were converted to the winner's 8-bit cv2-readable format (`repro/gp_winner/convert_fragment.py`,
+`//256`; OpenCV cannot read our ZSTD source). 12 epochs, batch 32, single 4090, `.venv-gp`.
+
+**Result (held-out Fr143):** pixel-AUC **0.711 mask-restricted** (0.811 full-frame). That
+is decisively above chance — and the load-bearing comparison: on the **same fragment pair**
+our loop's `resenc_unet` scores ~0.56–0.60, while the proven recipe reaches **0.711**.
+
+| Pipeline (same Fr47→Fr143 data) | Held-out ink AUC |
+| --- | --- |
+| Our autoresearch loop (`resenc_unet` + our `train.py`) | ~0.56–0.60 |
+| Winner recipe (TimeSformer) on our converted data | **0.711** |
+
+**Verdict — the gap is NOT our data/labels.** A known-good modeling stack extracts real,
+transferable ink signal from our exact fragments and labels where our own pipeline sits at
+chance. So the bottleneck is our **model + training stack** (the `resenc_unet` architecture,
+our `scripts/training/train.py` loop, and its recipe), not the data, the labels, the
+fragments, or the 64 px window. (The held-out val *loss* plateaued ~0.57 — a reminder that
+loss is a weak discriminator here; the *ranking* AUC is the honest signal, consistent with
+the dead-val-set finding.) Render in [reports/gp_winner_repro/](reports/gp_winner_repro/)
+(`phase3_heldout_Fr143_thumb.png`): ink-structured, not crisply legible (thin 1-fragment
+train), but the diagnostic is the AUC gap, not legibility.
+
+**Actionable next (Phase 4):** stop tuning the loop's hyperparameters and instead port what
+makes the winner stack work onto our data — the most pinpointing single experiment is to run
+**our** `resenc_unet`/`train.py` on the **same converted winner-format data** the recipe just
+succeeded on; if it still gets ~chance, the defect is concretely in our architecture/training
+code, which we then fix against the TimeSformer recipe as the working reference.
+
 ## What we learned
 
 - **Validation metrics are artifact-saturated.** On ink-containing patches
