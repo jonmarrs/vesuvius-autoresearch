@@ -177,21 +177,28 @@ skel_dist 16.8**. Our `resenc_unet` is at **~0.34 / ~19–21**. The prize gate i
 | Model | pixel-AUC | centerline_dice | skel_dist | vs gate (≤2.0) |
 | --- | --- | --- | --- | --- |
 | resenc_unet (our loop) | ~0.51–0.60 | ~0.34 | ~19–21 | ✗ (~10×) |
-| TimeSformer (working) | **0.905** | 0.121 | **16.8** | ✗ (~8×) |
+| TimeSformer Phase 2 (2 seg, 12 ep) | **0.905** | 0.121 | 16.8 | ✗ (~8×) |
+| TimeSformer Phase 4b (3 seg, 15 ep) | 0.896 | 0.101 | **15.0** | ✗ (~7.5×) |
 
-**Verdict:** a genuinely-detecting model that *reads legible ink* still misses the
-topology gate by ~8×, barely different from our chance-level detector. So the gate is
-**not detection-limited** — scaling the detector (Step B) cannot reach it. The bottleneck
-is the **topology / post-processing stage** (thin-centerline extraction, connected-component
-cleanup), or the gate itself: `skel_dist ≤ 2.0` is *our repo's invented proxy*, not the
-actual Vesuvius prize criterion (human-readable ink — which the TimeSformer demonstrably
-produces). The autoresearch loop has been gating on a metric that even a
-Grand-Prize-quality model fails, which likely explains why it never declared a model
-"prize-ready." (Caveat: the resenc_unet figures come from the loop's patch-sampled eval on
-a different fragment, so the head-to-head is approximate; the durable point is that both
-sit ~8–10× off the gate regardless of detection quality.) **Step B (scale the detector)
-was paused on this finding** — the next lever is post-processing and/or re-examining whether
-the gate is the right target, not a bigger detector.
+**Step B result (Phase 4a Step B):** the scaled production TimeSformer (3 train segments +
+1 holdout, 15 epochs, `repro/gp_winner/train_scaled.py`) scores at its topology-optimal
+threshold (0.6): **pixel-AUC 0.896, centerline_dice 0.101, skel_dist 15.0**. Compared to
+the Phase 2 model (2 train segments, 12 epochs, AUC 0.905, skel_dist 16.8), the scaled
+model is marginally better on skel_dist (15.0 vs 16.8) but marginally worse on pixel-AUC
+(0.896 vs 0.905) and centerline_dice (0.101 vs 0.121). More training data and epochs did
+not meaningfully move the topology gates. Training loss converged at 0.601; val loss
+plateaued ~0.46 from epoch 6.
+
+**Final verdict:** scaling the detector confirms the Step A finding — the prize topology
+gate is **not detection-limited**. Even a 37-hour scaled training run moves skel_dist from
+16.8 to 15.0, still ~7.5× off the ≤2.0 gate. The bottleneck is the **topology /
+post-processing stage** (thin-centerline extraction, connected-component cleanup), or the
+gate itself: `skel_dist ≤ 2.0` is *our repo's invented proxy*, not the actual Vesuvius
+prize criterion (human-readable ink — which the TimeSformer demonstrably produces). The
+autoresearch loop has been gating on a metric that even a Grand-Prize-quality model fails,
+which likely explains why it never declared a model "prize-ready." The next lever is
+post-processing and/or re-examining whether the gate is the right target, not a bigger
+detector.
 
 ## What we learned
 

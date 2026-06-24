@@ -1,0 +1,38 @@
+{
+  "best_threshold": 0.6,
+  "centerline_dice": 0.1007900677200334,
+  "skel_dist": 14.959293935322858,
+  "pixel_auc": 0.8963991944829571,
+  "per_threshold": [
+    {
+      "threshold": 0.2,
+      "centerline_dice": 0.04408437340339317,
+      "skel_dist": 9.994525158493134
+    },
+    {
+      "threshold": 0.3,
+      "centerline_dice": 0.05122674575355705,
+      "skel_dist": 10.439896651028059
+    },
+    {
+      "threshold": 0.4,
+      "centerline_dice": 0.0853521454319604,
+      "skel_dist": 9.501733913208616
+    },
+    {
+      "threshold": 0.5,
+      "centerline_dice": 0.09393647738205296,
+      "skel_dist": 15.219011686605112
+    },
+    {
+      "threshold": 0.6,
+      "centerline_dice": 0.1007900677200334,
+      "skel_dist": 14.959293935322858
+    },
+    {
+      "threshold": 0.7,
+      "centerline_dice": 0.09006777893633337,
+      "skel_dist": 16.10297576913459
+    }
+  ]
+}
