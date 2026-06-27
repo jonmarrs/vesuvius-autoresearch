@@ -200,6 +200,35 @@ which likely explains why it never declared a model "prize-ready." The next leve
 post-processing and/or re-examining whether the gate is the right target, not a bigger
 detector.
 
+## Phase 4b — the gate question is RESOLVED: `skel_dist` is invalid for ink detection
+
+We took the Phase 4 open question ("post-processing, or wrong gate?") and tested the metric
+itself. `skeleton_distance_length.compute` skeletonizes both masks, histograms the **branch
+lengths**, and returns the **symmetric-KL divergence between those two length histograms**.
+It never compares *where* the skeletons are. A 4-case probe on synthetic strokes
+(`scripts/probe_skel_dist_validity.py`) is decisive:
+
+| Prediction | pixel overlap w/ GT | `skel_dist` | gate (≤2.0) |
+| --- | --- | --- | --- |
+| perfect copy | 1.00 | 0.0 | ✓ |
+| shifted entirely off the label (same stroke lengths) | **0.00** | **0.0** | ✓ |
+| 60% recall (3 of 5 strokes, each correct) | 0.60 | ~1e-8 | ✓ |
+| spatially correct but fragmented into pieces | 0.50 | **42.6** | ✗ (~20×) |
+
+**Conclusion.** `skel_dist` is (a) a metric from villa's **3D fiber/surface** track
+(`villa/segmentation/evaluation/metrics/`), not ink detection; (b) a **distribution-shape
+divergence, blind to spatial location and recall** — a prediction with *zero* overlap with
+the GT scores 0.0; (c) **hypersensitive to fragmentation** — the broken centerlines that
+thresholding any real soft probability map produces score catastrophically. villa never
+gates on it (its `evaluate.py` reports dataset-level summary stats); the `≤ 2.0` is a local
+default in `train.py:182`, applied **per-patch** where the symKL is dominated by binning
+noise. **The detector was never the problem: the readiness gate measures something
+uncorrelated with ink-detection quality, so no model — including a Grand-Prize-quality one —
+can pass it.** The honest readiness signal is pixel-AUC + human legibility (which the
+TimeSformer demonstrably produces), not `skel_dist ≤ 2.0`. If a topology proxy is wanted at
+all, it must be *spatial* (e.g. centerline_dice, or a chamfer/Hausdorff skeleton distance)
+and aggregated over a dataset — not symKL of per-patch length histograms.
+
 ## What we learned
 
 - **Validation metrics are artifact-saturated.** On ink-containing patches

@@ -179,7 +179,11 @@ class ExperimentConfig:
     # signals instead of promoting on Dice alone.
     enforce_prize_gates: bool = True
     min_prize_centerline_dice: float = 0.01
-    max_prize_skel_dist: float = 2.0
+    # skel_dist is reported but NOT gated: it is a symmetric-KL divergence of skeleton
+    # branch-LENGTH histograms (villa's 3D fiber/surface track), blind to spatial location
+    # and recall and hypersensitive to fragmentation, so it is uncorrelated with
+    # ink-detection quality. See FINDINGS.md "Phase 4b" and scripts/probe_skel_dist_validity.py.
+    max_prize_skel_dist: float = float("inf")
     max_prize_cc_diff: float = 64.0
     min_prize_topology_samples: int = 1
 
@@ -478,18 +482,13 @@ def evaluate_prize_gates(
         )
     if not np.isfinite(val_bpb):
         failures.append("val_bpb is not finite")
-    if not np.isfinite(avg_skel_dist):
-        failures.append("avg_skel_dist is not finite")
+    # avg_skel_dist is reported but not gated (see field comment / FINDINGS.md Phase 4b)
     if not np.isfinite(avg_centerline_dice):
         failures.append("avg_centerline_dice is not finite")
     if not np.isfinite(avg_cc_diff):
         failures.append("avg_cc_diff is not finite")
 
     min_samples = int(getattr(config, "min_prize_topology_samples", 1))
-    if num_skel_samples < min_samples:
-        failures.append(
-            f"only {num_skel_samples} skeleton-distance samples; expected >= {min_samples}"
-        )
     if num_centerline_samples < min_samples:
         failures.append(
             f"only {num_centerline_samples} centerline-dice samples; expected >= {min_samples}"
@@ -500,14 +499,11 @@ def evaluate_prize_gates(
         )
 
     min_centerline = float(getattr(config, "min_prize_centerline_dice", 0.0))
-    max_skel = float(getattr(config, "max_prize_skel_dist", float("inf")))
     max_cc = float(getattr(config, "max_prize_cc_diff", float("inf")))
     if np.isfinite(avg_centerline_dice) and avg_centerline_dice < min_centerline:
         failures.append(
             f"avg_centerline_dice {avg_centerline_dice:.6f} below gate {min_centerline:.6f}"
         )
-    if np.isfinite(avg_skel_dist) and avg_skel_dist > max_skel:
-        failures.append(f"avg_skel_dist {avg_skel_dist:.6f} above gate {max_skel:.6f}")
     if np.isfinite(avg_cc_diff) and avg_cc_diff > max_cc:
         failures.append(f"avg_cc_diff {avg_cc_diff:.3f} above gate {max_cc:.3f}")
 

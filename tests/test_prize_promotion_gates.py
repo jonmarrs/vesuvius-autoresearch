@@ -50,11 +50,15 @@ def test_prize_gates_fail_when_dice_improves_but_topology_is_missing():
     )
 
     assert gates["submittable"] is False
-    assert any("skeleton-distance samples" in failure for failure in gates["failures"])
+    # skel_dist is no longer a gate (FINDINGS.md Phase 4b); the spatial signal that must
+    # be present is centerline-dice, not skeleton-distance.
     assert any("centerline-dice samples" in failure for failure in gates["failures"])
 
 
-def test_prize_gates_fail_closed_when_skeleton_distance_is_unavailable():
+def test_prize_gates_ignore_skeleton_distance_when_unavailable():
+    # skel_dist is reported but NOT gated (it is uncorrelated with detection quality;
+    # see FINDINGS.md Phase 4b). A NaN / sample-less skel_dist must not block a model
+    # whose window and spatial topology signal (centerline_dice) are fine.
     config = ExperimentConfig(patch_size=64, min_prize_topology_samples=1)
 
     gates = evaluate_prize_gates(
@@ -68,11 +72,9 @@ def test_prize_gates_fail_closed_when_skeleton_distance_is_unavailable():
         num_cc_samples=20,
     )
 
-    assert gates["submittable"] is False
-    assert any(
-        "avg_skel_dist is not finite" in failure for failure in gates["failures"]
-    )
-    assert any("skeleton-distance samples" in failure for failure in gates["failures"])
+    assert gates["submittable"] is True
+    assert not any("skel_dist" in failure for failure in gates["failures"])
+    assert not any("skeleton-distance" in failure for failure in gates["failures"])
 
 
 def test_skeleton_distance_fallback_returns_nan_when_official_metric_is_missing():
