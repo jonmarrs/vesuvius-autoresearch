@@ -24,33 +24,38 @@ A continuously-running, evidence-gated research loop for ink detection on a sing
 
 3. **Topology-aware evaluation toolkit** — selects the binarization threshold that maximizes centerline overlap and reports the prize topology metrics (`centerline_dice`, `skeleton_distance_length`) there, plus a per-patch discrimination-AUC diagnostic. This surfaced that common ink-detection validation metrics are **artifact-saturated** (see Findings).
 
-4. **The autoresearch loop** (`run_autoresearch_loop.py`) — a bandit samples architecture/loss/augmentation/hyperparameter families, trains each candidate under a fixed wall-clock budget, evaluates on a held-out fragment, and promotes only topology-improving configurations. Now with opt-in Weights & Biases tracking (parameter/gradient histograms, per-cycle metrics, prediction images), mirroring villa's setup.
+4. **The autoresearch loop** (`run_autoresearch_loop.py`) — a bandit samples architecture/loss/augmentation/hyperparameter families, trains each candidate under a fixed wall-clock budget, evaluates on a held-out fragment, and keeps only configurations that improve held-out validation loss (`val_bpb`) — itself subject to the metric caveats in Findings, which is why the evaluation suite below exists. Now with opt-in Weights & Biases tracking (parameter/gradient histograms, per-cycle metrics, prediction images), mirroring villa's setup.
 
 5. **Evaluation & feasibility-probe suite** — the instruments behind the methodological finding, reusable for any ink-detection study: pooled pixel-AUC measurement (`scripts/pixel_auc.py`, the artifact-free metric), an overfit/feasibility probe (`scripts/overfit_probe.py`, "can the model memorize a fixed batch?"), a same-regime learnable-target control (`scripts/control_fulldata_probe.py`, "can the training regime fit *anything*?"), leak-free spatial-split tooling for held-out regions (`scripts/spatial_split_mask.py`, 128 px buffer), and a gated in-training learning-curve hook (`eval_every_steps`). Together these turn "the model is bad" into a falsifiable, attributable diagnosis.
 
 ## Findings (the methodological contribution)
 
-Documented in full at [FINDINGS.md](https://github.com/jonmarrs/vesuvius-autoresearch/blob/main/FINDINGS.md); the headline result has a standalone study at [reports/ink_detection_64px_window_study_2026-06.md](https://github.com/jonmarrs/vesuvius-autoresearch/blob/main/reports/ink_detection_64px_window_study_2026-06.md).
+The contribution is a disciplined **localization by elimination**: instead of guessing why autonomous ink detection underperforms, the loop's instruments isolate *where* it fails by ruling out one cause at a time. This arc is documented in full at [FINDINGS.md](https://github.com/jonmarrs/vesuvius-autoresearch/blob/main/FINDINGS.md); the from-scratch 64 px negative result has a standalone study at [reports/ink_detection_64px_window_study_2026-06.md](https://github.com/jonmarrs/vesuvius-autoresearch/blob/main/reports/ink_detection_64px_window_study_2026-06.md), and the cross-pipeline replication at [reports/gp_winner_repro/](https://github.com/jonmarrs/vesuvius-autoresearch/tree/main/reports/gp_winner_repro).
 
-- **Direct ink detection at the 0.5 mm / 64 px prize window is learnability-limited — a reproducible negative result.** Across six experiments and two controls, a fresh model *memorizes* 16 ink patches to pixel AUC 1.0 in 100 steps, yet cannot learn ink from a full fragment at 64 px (flat ~0.51 pooled pixel AUC, with or without augmentation, across a 12 h schedule). The decisive control: the **identical** training regime fits a synthetic CT-derived target to **0.99** in ~300 steps while real ink stalls at ~0.51 — ruling out capacity, pipeline, data quantity, compute, augmentation, and the optimization regime. The binding constraint is the window itself: at 64 px, ink is not a learnable function of the CT patch for direct supervised detection with this preprocessing (scope stated honestly in the study — not a claim that no representation could). The 0.5 mm hallucination rule that forbids large-context models also forbids the context this signal appears to need.
-- **Validation metrics are artifact-saturated.** On ink-rich patches (~60% ink), a near-constant predictor scores Dice ≈ 0.75; so Dice/`val_bpb` alone don't prove a model localizes ink. Pooled pixel AUC is the honest signal (0.5 = chance), and it is what exposes the result above.
-- **Large-context approaches don't fit the window.** The 2023 GP-winning TimeSformer, retrained at 64 px, reaches only per-patch AUC ~0.49 train / ~0.56 val — its strength needs the 256 px context the rule forbids; a LeJEPA self-supervised checkpoint is likewise window-incompatible (only ~20% of its encoder loads at 64 px). A clDice late-fine-tune degrades centerline overlap.
-- **The 2023 Grand-Prize pipeline reproduces here, and the gap was ours, isolated one variable at a time.** Retrained in this environment, the winning TimeSformer recipe reads legible Greek letters and reaches held-out per-patch AUC **0.905**; fed *our* Scroll-1 data through that proven pipeline it still reaches **0.711**, where our own loop sits at ~0.56 on the identical data. So the deficit was never the data, labels, or environment — it was our model/training stack, and the rigor localized it instead of guessing. (Full arc: FINDINGS.md "GP-winner replication" Phases 1–4.)
+- **The ink-detection bottleneck is the modeling recipe/stack — not the data, the environment, the compute, or the 0.5 mm / 64 px window.** We established this by elimination across the June arc:
+  - *Capacity, pipeline, augmentation, optimization regime — ruled out.* A fresh model memorizes 16 ink patches to pixel AUC 1.0 in 100 steps, and the **identical** training regime fits a synthetic CT-derived target to **0.99** in ~300 steps — yet our from-scratch loop cannot learn ink from a full fragment at 64 px (flat ~0.51 pooled pixel AUC, with or without augmentation, across a 12 h schedule).
+  - *Environment and compute — ruled out.* The published 2023 Grand-Prize TimeSformer pipeline reproduces here end-to-end (rendering legible Greek letterforms on canonical Scroll-1 segments) and **retrains from scratch to held-out per-patch AUC 0.905** on real labeled segments, on the single RTX 4090.
+  - *Data, labels, and the 64 px window itself — ruled out.* Fed *our exact* Scroll-1 fragments and labels — the very Fr47→Fr143 split our loop uses — that proven recipe reaches held-out AUC **0.711**, where our own loop sits at **~0.56** on the identical data and window.
+
+  What remains is our **model + training stack** (architecture, recipe, through-surface depth context, label cleaning, pretraining). This *supersedes* our own earlier reading that the window was the binding constraint: a prize-compliant 64 px recipe demonstrably extracts real, transferable ink signal — our lightweight from-scratch loop simply doesn't yet. That is a concrete, attributable, fixable target rather than an intrinsic limit. (Full arc: FINDINGS.md "GP-winner replication" Phases 1–4.)
+- **Validation metrics are artifact-saturated.** On ink-rich patches (~60% ink), a near-constant predictor scores Dice ≈ 0.75; so Dice/`val_bpb` alone don't prove a model localizes ink. Pooled pixel AUC is the honest signal (0.5 = chance), and it is what exposes the chance-floor result above.
 - **A topology "readiness" gate we inherited is provably invalid for ink detection — a second, sharper instance of metrics misleading.** The loop gated submittability on a skeleton-distance metric (`skel_dist ≤ 2.0`) borrowed from villa's *3D fiber/surface* evaluation track. A four-case probe ([scripts/probe_skel_dist_validity.py](https://github.com/jonmarrs/vesuvius-autoresearch/blob/main/scripts/probe_skel_dist_validity.py)) shows it is a symmetric-KL divergence between *skeleton branch-length histograms* — blind to spatial location and recall (a prediction shifted **completely off** the label scores 0.0 and passes; 60 % recall passes) and hypersensitive to the fragmentation that thresholding any real probability map produces (a spatially-correct but broken centerline fails by ~20×). It is uncorrelated with detection quality, so *no* model — including the AUC-0.9 TimeSformer above — can pass it. We removed it as a gate; the honest readiness signal is pixel-AUC plus human legibility. (FINDINGS.md "Phase 4b".)
+- **Some approaches are architecturally incompatible with the 64 px window** (a practical note, not a claim the window forbids signal): a LeJEPA self-supervised checkpoint loads only ~20% of its encoder at 64 px (it was pretrained large-window), and a clDice late-fine-tune degraded centerline overlap rather than helping.
 - **Bugs found and fixed via the rigor.** A Frangi fiber target silently trained on zeros; five of nine sampled augmentations were silent no-ops; the ridge feature channel was silently all-zeros (a cuSolver/backend bug in upstream tooling); a pseudo-label inference path mis-aligned patches by ±32 px until caught in review — all fixed.
 
 ## Honest current results
 
-Measured by the artifact-free metric (pooled pixel AUC, 0.5 = chance), a
-prize-compliant 64 px detector trained from scratch sits at the chance floor on
-held-out data (~0.49–0.52), and the controls above show this is the window, not a
-fixable training problem. The long-running search loop's production checkpoint
-reaches ~0.557 pixel AUC, but that reflects warm-start accumulation across many
-cycles rather than a fresh-trainable signal — it is marginally above chance, not a
+Measured by the artifact-free metric (pooled pixel AUC, 0.5 = chance), our own loop
+does not yet have a working detector: from scratch at 64 px it sits at the chance
+floor on held-out data (~0.49–0.52), and the production checkpoint reaches only
+~0.557 — warm-start accumulation across many cycles, marginally above chance, not a
 working detector. We state this plainly: **the contribution is the open tooling and
-the rigorous, reproducible negative result, not a state-of-the-art model.** That a
-careful evaluation overturns optimistic Dice-based readings (Dice ≈ 0.75 from a
-near-constant predictor) is itself part of the methodological contribution.
+the localization, not a state-of-the-art model.** Crucially, the gap is now
+*attributable* rather than mysterious: a proven recipe extracts AUC 0.711 from the
+same window and the same data, so the deficit is concretely our training stack — a
+fixable target, not an intrinsic limit. And a careful evaluation overturns optimistic
+Dice-based readings (Dice ≈ 0.75 from a near-constant predictor), which is itself part
+of the methodological contribution.
 
 ## Reproducibility
 
