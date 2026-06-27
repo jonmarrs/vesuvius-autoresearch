@@ -4,8 +4,6 @@
 **Repository (the submission artifact):** https://github.com/jonmarrs/vesuvius-autoresearch (MIT)
 **Live experiment tracking:** https://wandb.ai/jdmarrs-uc-davis/vesuvius-autoresearch
 
-> Internal notes for filing (delete before submission): no AI-authorship markers anywhere. Lead with the open-source tools and the honest methodology, not the model's accuracy. Cite the public fork branch for the fibers work; do not present the closed May/June villa PRs (incl. #1033, closed) as merged or open. Numbers below trace to the committed `FINDINGS.md` and the 2026-06 experiment arc (see `reports/ink_detection_64px_window_study_2026-06.md`) — re-skim them against `FINDINGS.md` at file time in case the loop has logged new figures.
-
 ---
 
 ## Title
