@@ -1,0 +1,17 @@
+import numpy as np
+import torch
+
+from vesuvius_autoresearch.detector.config import DetectorConfig
+from vesuvius_autoresearch.detector.model import DetectorModel
+from vesuvius_autoresearch.detector import infer as I
+from test_detector_data import _make_fake_fragment
+
+
+def test_infer_returns_prob_map_in_range(tmp_path):
+    root = str(tmp_path)
+    _make_fake_fragment(root, "PHercParis2Fr143", h=320, w=320)
+    cfg = DetectorConfig(data_root=root)
+    model = DetectorModel(cfg, pred_shape=(320, 320)).eval()
+    prob = I.infer(cfg, checkpoint_path=None, fragment_id="PHercParis2Fr143", model=model)
+    assert prob.ndim == 2
+    assert float(prob.min()) >= 0.0 and float(prob.max()) <= 1.0
