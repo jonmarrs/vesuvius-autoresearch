@@ -48,6 +48,7 @@ dependencies = [
     "posix-ipc>=1.3.2",
     "typed-argument-parser",
     "accelerate>=1.13.0",
+    "albumentations<1.4",
 ]
 
 [tool.uv.sources]
