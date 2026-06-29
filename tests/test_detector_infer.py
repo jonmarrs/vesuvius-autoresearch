@@ -19,6 +19,22 @@ def test_infer_returns_prob_map_in_range(tmp_path):
     assert float(prob.min()) >= 0.0 and float(prob.max()) <= 1.0
 
 
+def test_infer_normalizes_input_like_training(tmp_path):
+    # Root-cause regression: training/valid apply A.Normalize (divide by 255), so the
+    # model is trained on inputs in ~[0,1]. infer() must feed the same scale, not raw
+    # 0-200 pixel values, or the held-out detector collapses to ~chance.
+    root = str(tmp_path)
+    _make_fake_fragment(root, "PHercParis2Fr143", h=320, w=320)  # pixels up to ~200
+    cfg = DetectorConfig(data_root=root)
+    model = DetectorModel(cfg, pred_shape=(320, 320)).eval()
+    seen = []
+    model.backbone.register_forward_pre_hook(
+        lambda m, inp: seen.append(float(inp[0].abs().max())))
+    infer(cfg, checkpoint_path=None, fragment_id="PHercParis2Fr143", model=model)
+    assert seen, "model was never called"
+    assert max(seen) <= 1.5, f"infer fed un-normalized inputs (max={max(seen):.1f})"
+
+
 def test_infer_loads_checkpoint_from_path(tmp_path):
     # Regression: the saved checkpoint embeds the LR scheduler, which PyTorch 2.6's
     # weights_only=True default rejects. infer() must load it (weights_only=False).

@@ -43,7 +43,10 @@ def infer(cfg, checkpoint_path, fragment_id, model=None):
             for x in xs:
                 if np.any(frag_mask[y:y + sz, x:x + sz] == 0):
                     continue
-                patch = images[y:y + sz, x:x + sz, :].astype(np.float32)
+                # Match training/valid A.Normalize(mean=0,std=1) => divide by 255.
+                # Without this the model sees ~255x its trained input scale and the
+                # held-out detector collapses to ~chance.
+                patch = images[y:y + sz, x:x + sz, :].astype(np.float32) / 255.0
                 t = torch.from_numpy(patch).permute(2, 0, 1)[None, None].to(device)
                 logit = model(t)  # (1,1,4,4)
                 up = F.interpolate(logit, scale_factor=16, mode="bilinear",
