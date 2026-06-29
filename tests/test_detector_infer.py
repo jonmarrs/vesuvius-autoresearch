@@ -35,6 +35,18 @@ def test_infer_normalizes_input_like_training(tmp_path):
     assert max(seen) <= 1.5, f"infer fed un-normalized inputs (max={max(seen):.1f})"
 
 
+def test_infer_batching_matches_single_patch(tmp_path):
+    # Batched inference must be numerically equivalent to single-patch (batch_size=1).
+    root = str(tmp_path)
+    _make_fake_fragment(root, "PHercParis2Fr143", h=192, w=192)
+    cfg = DetectorConfig(data_root=root)
+    model = DetectorModel(cfg, pred_shape=(192, 192)).eval()
+    p1 = infer(cfg, None, "PHercParis2Fr143", model=model, batch_size=1)
+    pB = infer(cfg, None, "PHercParis2Fr143", model=model, batch_size=16)
+    assert p1.shape == pB.shape
+    assert np.allclose(p1, pB, atol=1e-4)
+
+
 def test_infer_loads_checkpoint_from_path(tmp_path):
     # Regression: the saved checkpoint embeds the LR scheduler, which PyTorch 2.6's
     # weights_only=True default rejects. infer() must load it (weights_only=False).

@@ -1,5 +1,6 @@
 """Tiled full-segment inference: slide a 64px window, upsample each 4x4 logit grid 16x,
-and accumulate with a Gaussian weight window for smooth blending."""
+and accumulate with a Gaussian weight window for smooth blending. Patches are batched
+through the model so a full segment scores in minutes rather than ~40 min."""
 import os
 import sys
 
@@ -20,7 +21,7 @@ def _blender(patch_size, device):
     return GaussianBlender(patch_size).get_weight_window(device)  # (patch, patch) in (0,1]
 
 
-def infer(cfg, checkpoint_path, fragment_id, model=None):
+def infer(cfg, checkpoint_path, fragment_id, model=None, batch_size=64):
     cfg.validate_window()
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     if model is None:
@@ -36,8 +37,24 @@ def infer(cfg, checkpoint_path, fragment_id, model=None):
     count = np.zeros((H, W), np.float32)
     win = _blender(cfg.size, device).squeeze().cpu().numpy()
     sz = cfg.size
-    ys = list(range(0, H - sz + 1, cfg.stride))
-    xs = list(range(0, W - sz + 1, cfg.stride))
+    ys = range(0, H - sz + 1, cfg.stride)
+    xs = range(0, W - sz + 1, cfg.stride)
+
+    buf_patches, buf_coords = [], []
+
+    def _flush():
+        if not buf_patches:
+            return
+        batch = torch.from_numpy(np.stack(buf_patches))[:, None].to(device)  # (b,1,C,sz,sz)
+        logits = model(batch)  # (b,1,4,4)
+        ups = F.interpolate(logits, scale_factor=16, mode="bilinear", align_corners=False)
+        probs = torch.sigmoid(ups)[:, 0].cpu().numpy()  # (b,sz,sz)
+        for (yy, xx), prob in zip(buf_coords, probs):
+            pred[yy:yy + sz, xx:xx + sz] += prob * win
+            count[yy:yy + sz, xx:xx + sz] += win
+        buf_patches.clear()
+        buf_coords.clear()
+
     with torch.no_grad():
         for y in ys:
             for x in xs:
@@ -47,13 +64,11 @@ def infer(cfg, checkpoint_path, fragment_id, model=None):
                 # Without this the model sees ~255x its trained input scale and the
                 # held-out detector collapses to ~chance.
                 patch = images[y:y + sz, x:x + sz, :].astype(np.float32) / 255.0
-                t = torch.from_numpy(patch).permute(2, 0, 1)[None, None].to(device)
-                logit = model(t)  # (1,1,4,4)
-                up = F.interpolate(logit, scale_factor=16, mode="bilinear",
-                                   align_corners=False)
-                prob = torch.sigmoid(up).squeeze().cpu().numpy()
-                pred[y:y + sz, x:x + sz] += prob * win
-                count[y:y + sz, x:x + sz] += win
+                buf_patches.append(patch.transpose(2, 0, 1))  # (C,sz,sz)
+                buf_coords.append((y, x))
+                if len(buf_patches) >= batch_size:
+                    _flush()
+        _flush()
     out = np.divide(pred, count, out=np.zeros_like(pred), where=count != 0)
     # Crop the padding back off so the prob map matches the fragment label shape.
     out = out[:orig_h, :orig_w]
