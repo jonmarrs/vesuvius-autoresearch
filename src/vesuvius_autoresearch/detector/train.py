@@ -46,8 +46,10 @@ def train(cfg, max_epochs=None, limit_batches=None):
     valid_loader = DataLoader(valid_ds, batch_size=cfg.train_batch_size, shuffle=False,
                               num_workers=cfg.num_workers, pin_memory=True, drop_last=True)
     model = DetectorModel(cfg, pred_shape=pred_shape)
+    # Save every epoch (proven recipe used save_top_k=epochs) so the best epoch can be
+    # selected by held-out AUC afterwards, not just by train loss.
     ckpt_cb = ModelCheckpoint(filename="detector_{epoch}", dirpath=cfg.model_dir,
-                              monitor="train/total_loss", mode="min", save_top_k=1)
+                              monitor="train/total_loss", mode="min", save_top_k=-1)
     trainer = pl.Trainer(
         max_epochs=max_epochs or cfg.epochs, accelerator="auto", devices=1,
         logger=CSVLogger(save_dir=cfg.model_dir, name="logs"),
