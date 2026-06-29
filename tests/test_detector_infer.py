@@ -15,6 +15,7 @@ def test_infer_returns_prob_map_in_range(tmp_path):
     model = DetectorModel(cfg, pred_shape=(320, 320)).eval()
     prob = infer(cfg, checkpoint_path=None, fragment_id="PHercParis2Fr143", model=model)
     assert prob.ndim == 2
+    assert prob.shape == (320, 320)  # unpadded fragment label shape, not the tile-padded shape
     assert float(prob.min()) >= 0.0 and float(prob.max()) <= 1.0
 
 

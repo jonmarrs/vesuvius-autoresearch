@@ -20,6 +20,11 @@ def _eval_fragment(cfg, ckpt, fragment_id):
     from .infer import infer
     prob = infer(cfg, ckpt, fragment_id)
     _, label, mask = read_image_mask(cfg, fragment_id)
+    # read_image_mask pads `mask` (frag_mask) to a tile multiple but leaves `label`
+    # unpadded; crop both prob and mask to the label shape so all three align.
+    h, w = label.shape
+    prob = prob[:h, :w]
+    mask = mask[:h, :w]
     label = (label > 0.5).astype(np.uint8)
     return evaluate(prob, label, mask.astype(bool), cfg, fragment_id=fragment_id)
 
