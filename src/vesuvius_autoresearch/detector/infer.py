@@ -24,8 +24,10 @@ def infer(cfg, checkpoint_path, fragment_id, model=None):
     cfg.validate_window()
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     if model is None:
+        # weights_only=False: our checkpoint embeds the LR scheduler (CosineAnnealingLR),
+        # which PyTorch 2.6's weights_only=True default rejects. We trust our own ckpt.
         model = DetectorModel.load_from_checkpoint(
-            checkpoint_path, cfg=cfg, pred_shape=(1, 1))
+            checkpoint_path, cfg=cfg, pred_shape=(1, 1), weights_only=False)
     model = model.to(device).eval()
     images, _, frag_mask = read_image_mask(cfg, fragment_id)
     H, W = frag_mask.shape
