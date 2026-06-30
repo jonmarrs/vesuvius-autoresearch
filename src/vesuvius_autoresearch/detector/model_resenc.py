@@ -5,7 +5,6 @@ dynamic_network_architectures ResidualEncoderUNet in 2D mode.
 Constraint: cfg.size must be divisible by 2**(resenc_n_stages-1) (64 = 2**4 * 4 for 5 stages)."""
 import pytorch_lightning as pl
 import segmentation_models_pytorch as smp
-import torch
 import torch.nn as nn
 from dynamic_network_architectures.architectures.unet import ResidualEncoderUNet
 from dynamic_network_architectures.building_blocks.helper import (

@@ -35,7 +35,7 @@ def infer(cfg, checkpoint_path, fragment_id, model=None, batch_size=64):
         if not buf_patches:
             return
         batch = torch.from_numpy(np.stack(buf_patches))[:, None].to(device)  # (b,1,C,sz,sz)
-        logits = model(batch)  # (b,1,4,4)
+        logits = model(batch)  # (b,1,4,4) TimeSformer or (b,1,sz,sz) full-res
         ups = F.interpolate(logits, size=(sz, sz), mode="bilinear", align_corners=False)
         probs = torch.sigmoid(ups)[:, 0].cpu().numpy()  # (b,sz,sz)
         for (yy, xx), prob in zip(buf_coords, probs):
