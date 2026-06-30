@@ -35,6 +35,13 @@ def build_scheduler(cfg, optimizer):
                                     after_scheduler=cosine)
 
 
+def build_model(cfg, pred_shape):
+    if cfg.architecture == "resenc":
+        from .model_resenc import ResEncDetectorModel
+        return ResEncDetectorModel(cfg, pred_shape=pred_shape)
+    return DetectorModel(cfg, pred_shape=pred_shape)
+
+
 def train(cfg, max_epochs=None, limit_batches=None):
     cfg.validate_window()
     pl.seed_everything(cfg.seed, workers=True)
@@ -45,7 +52,7 @@ def train(cfg, max_epochs=None, limit_batches=None):
                               num_workers=cfg.num_workers, pin_memory=True, drop_last=True)
     valid_loader = DataLoader(valid_ds, batch_size=cfg.train_batch_size, shuffle=False,
                               num_workers=cfg.num_workers, pin_memory=True, drop_last=True)
-    model = DetectorModel(cfg, pred_shape=pred_shape)
+    model = build_model(cfg, pred_shape=pred_shape)
     # Save every epoch (proven recipe used save_top_k=epochs) so the best epoch can be
     # selected by held-out AUC afterwards, not just by train loss.
     ckpt_cb = ModelCheckpoint(filename="detector_{epoch}", dirpath=cfg.model_dir,
