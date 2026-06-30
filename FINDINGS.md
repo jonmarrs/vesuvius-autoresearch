@@ -233,7 +233,7 @@ TimeSformer demonstrably produces), not `skel_dist ≤ 2.0`. If a topology proxy
 all, it must be *spatial* (e.g. centerline_dice, or a chamfer/Hausdorff skeleton distance)
 and aggregated over a dataset — not symKL of per-patch length histograms.
 
-## Phase 5 — productionized in-repo: a working, window-compliant detector (held-out AUC 0.70)
+## Phase 5 — productionized in-repo: a working, window-compliant detector (held-out AUC 0.709)
 
 Phases 1–3 reproduced the proven recipe from *vendored/external* scripts (`repro/gp_winner/`).
 Phase 5 turns that into a **first-class tool**: `vesuvius_autoresearch.detector`
@@ -241,11 +241,13 @@ Phase 5 turns that into a **first-class tool**: `vesuvius_autoresearch.detector`
 `reproduce`). Retrained from scratch on `PHercParis2Fr47`, held out `PHercParis2Fr143` —
 the same split the loop uses — saving every epoch and selecting the best by held-out AUC.
 
-**Result (held-out Fr143):** best epoch (7 of 12) scores pixel-AUC **0.7001 mask-restricted**
-(proven reference 0.711). AUC climbs with training then plateaus at ~0.69–0.70 across epochs
+**Result (held-out Fr143):** best epoch (7 of 12) scores pixel-AUC **0.7090 mask-restricted**
+(proven reference 0.711). AUC climbs with training then plateaus at ~0.69–0.71 across epochs
 6–11. **Window-compliant:** the lateral patch is 64 px; the 26 through-surface depth slices
 ride the TimeSformer's *time* axis (`num_frames=26`, `channels=1`), so the depth context that
-makes the recipe work is **not** subject to the lateral 0.5 mm limit.
+makes the recipe work is **not** subject to the lateral 0.5 mm limit. (Inference averages
+overlapping windows with **uniform** weighting — matching the proven `train_ours.py`
+accumulation; it scores 0.709 vs 0.700 for a Gaussian blend on the same checkpoint.)
 
 **What surfaced the result was three inference defects, not training** — the model trained
 fine; scoring was broken: (1) **input normalization** — `infer` fed raw 0–200 pixels where

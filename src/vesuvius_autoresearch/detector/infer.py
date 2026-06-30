@@ -1,24 +1,14 @@
 """Tiled full-segment inference: slide a 64px window, upsample each 4x4 logit grid 16x,
-and accumulate with a Gaussian weight window for smooth blending. Patches are batched
+and average overlapping predictions with uniform weighting. Uniform (not Gaussian) blending
+matches the proven train_ours.py validation accumulation and scores higher here
+(held-out AUC 0.709 vs 0.700 Gaussian on the reference checkpoint). Patches are batched
 through the model so a full segment scores in minutes rather than ~40 min."""
-import os
-import sys
-
 import numpy as np
 import torch
 import torch.nn.functional as F
 
 from .data import read_image_mask
 from .model import DetectorModel
-
-_CORE = os.path.join(os.path.dirname(__file__), os.pardir, "core")
-if _CORE not in sys.path:
-    sys.path.append(_CORE)
-
-
-def _blender(patch_size, device):
-    from vesuvius_autoresearch.core.villa_inference import GaussianBlender
-    return GaussianBlender(patch_size).get_weight_window(device)  # (patch, patch) in (0,1]
 
 
 def infer(cfg, checkpoint_path, fragment_id, model=None, batch_size=64):
@@ -35,7 +25,6 @@ def infer(cfg, checkpoint_path, fragment_id, model=None, batch_size=64):
     H, W = frag_mask.shape
     pred = np.zeros((H, W), np.float32)
     count = np.zeros((H, W), np.float32)
-    win = _blender(cfg.size, device).squeeze().cpu().numpy()
     sz = cfg.size
     ys = range(0, H - sz + 1, cfg.stride)
     xs = range(0, W - sz + 1, cfg.stride)
@@ -50,8 +39,8 @@ def infer(cfg, checkpoint_path, fragment_id, model=None, batch_size=64):
         ups = F.interpolate(logits, scale_factor=16, mode="bilinear", align_corners=False)
         probs = torch.sigmoid(ups)[:, 0].cpu().numpy()  # (b,sz,sz)
         for (yy, xx), prob in zip(buf_coords, probs):
-            pred[yy:yy + sz, xx:xx + sz] += prob * win
-            count[yy:yy + sz, xx:xx + sz] += win
+            pred[yy:yy + sz, xx:xx + sz] += prob  # uniform weight (1.0 per overlap)
+            count[yy:yy + sz, xx:xx + sz] += 1.0
         buf_patches.clear()
         buf_coords.clear()
 

@@ -1,7 +1,8 @@
 {
   "fragment_id": "PHercParis2Fr143",
-  "pixel_auc": 0.7000996399163235,
+  "pixel_auc": 0.7090278918944067,
   "threshold": 0.35,
   "centerline_dice": NaN,
-  "checkpoint": "detector_epoch=7.ckpt"
+  "checkpoint": "detector_epoch=7.ckpt",
+  "inference_weighting": "uniform"
 }

@@ -12,7 +12,7 @@
 
 ## Summary
 
-A continuously-running, evidence-gated research loop for ink detection on a single consumer GPU (RTX 4090), released open-source with reusable tools and a candid record of what works and what doesn't. The submission is the **toolset and methodology** — including a working, window-compliant ink detector that reproduces the proven Grand-Prize recipe at held-out pixel-AUC 0.70 — rather than a claim of a state-of-the-art model. Every result is reproducible and tracked.
+A continuously-running, evidence-gated research loop for ink detection on a single consumer GPU (RTX 4090), released open-source with reusable tools and a candid record of what works and what doesn't. The submission is the **toolset and methodology** — including a working, window-compliant ink detector that reproduces the proven Grand-Prize recipe at held-out pixel-AUC 0.709 — rather than a claim of a state-of-the-art model. Every result is reproducible and tracked.
 
 ## What is being released (open tools)
 
@@ -26,7 +26,7 @@ A continuously-running, evidence-gated research loop for ink detection on a sing
 
 5. **Evaluation & feasibility-probe suite** — the instruments behind the methodological finding, reusable for any ink-detection study: pooled pixel-AUC measurement (`scripts/pixel_auc.py`, the artifact-free metric), an overfit/feasibility probe (`scripts/overfit_probe.py`, "can the model memorize a fixed batch?"), a same-regime learnable-target control (`scripts/control_fulldata_probe.py`, "can the training regime fit *anything*?"), leak-free spatial-split tooling for held-out regions (`scripts/spatial_split_mask.py`, 128 px buffer), and a gated in-training learning-curve hook (`eval_every_steps`). Together these turn "the model is bad" into a falsifiable, attributable diagnosis.
 
-6. **Working ink detector** (`vesuvius_autoresearch.detector`) — the proven 2023 Grand-Prize TimeSformer recipe productionized as a first-class, tested subpackage (`config`/`data`/`model`/`train`/`infer`/`eval`/`cli`) with a one-command `reproduce`. On our own Fr47→Fr143 split it reaches **held-out mask-restricted pixel-AUC 0.70** (proven reference 0.711), window-compliant (64 px lateral patch; depth `in_chans=26` is the through-surface signal axis, not subject to the lateral limit). Ships batched tiled inference, a calibrated-threshold scorecard, best-epoch-by-held-out-AUC selection, and 17 unit tests. Surfacing this required fixing three real inference defects (input normalization, PyTorch-2.6 checkpoint loading, padded/unpadded shape alignment) — see the writeup. → [reports/detector/REPRODUCTION.md](https://github.com/jonmarrs/vesuvius-autoresearch/blob/main/reports/detector/REPRODUCTION.md)
+6. **Working ink detector** (`vesuvius_autoresearch.detector`) — the proven 2023 Grand-Prize TimeSformer recipe productionized as a first-class, tested subpackage (`config`/`data`/`model`/`train`/`infer`/`eval`/`cli`) with a one-command `reproduce`. On our own Fr47→Fr143 split it reaches **held-out mask-restricted pixel-AUC 0.709** (proven reference 0.711), window-compliant (64 px lateral patch; depth `in_chans=26` is the through-surface signal axis, not subject to the lateral limit). Ships batched tiled inference, a calibrated-threshold scorecard, best-epoch-by-held-out-AUC selection, and 17 unit tests. Surfacing this required fixing three real inference defects (input normalization, PyTorch-2.6 checkpoint loading, padded/unpadded shape alignment) — see the writeup. → [reports/detector/REPRODUCTION.md](https://github.com/jonmarrs/vesuvius-autoresearch/blob/main/reports/detector/REPRODUCTION.md)
 
 ## Findings (the methodological contribution)
 
@@ -37,7 +37,7 @@ The contribution is a disciplined **localization by elimination**: instead of gu
   - *Environment and compute — ruled out.* The published 2023 Grand-Prize TimeSformer pipeline reproduces here end-to-end (rendering legible Greek letterforms on canonical Scroll-1 segments) and **retrains from scratch to held-out per-patch AUC 0.905** on real labeled segments, on the single RTX 4090.
   - *Data, labels, and the 64 px window itself — ruled out.* Fed *our exact* Scroll-1 fragments and labels — the very Fr47→Fr143 split our loop uses — that proven recipe reaches held-out AUC **0.711**, where our own loop sits at **~0.56** on the identical data and window.
 
-  What remains is our **model + training stack** (architecture, recipe, through-surface depth context, label cleaning, pretraining). This *supersedes* our own earlier reading that the window was the binding constraint: a prize-compliant 64 px recipe demonstrably extracts real, transferable ink signal — our lightweight from-scratch loop simply doesn't yet. We have since **productionized that recipe in-repo** (tool #6, `vesuvius_autoresearch.detector`) and reproduced held-out AUC **0.70** on the same Fr47→Fr143 split — so the gap is now not only attributable but partially closed by a released, one-command-reproducible tool. That is a concrete, fixable target rather than an intrinsic limit. (Full arc: FINDINGS.md "GP-winner replication" Phases 1–4; reproduction: reports/detector/REPRODUCTION.md.)
+  What remains is our **model + training stack** (architecture, recipe, through-surface depth context, label cleaning, pretraining). This *supersedes* our own earlier reading that the window was the binding constraint: a prize-compliant 64 px recipe demonstrably extracts real, transferable ink signal — our lightweight from-scratch loop simply doesn't yet. We have since **productionized that recipe in-repo** (tool #6, `vesuvius_autoresearch.detector`) and reproduced held-out AUC **0.709** on the same Fr47→Fr143 split — so the gap is now not only attributable but partially closed by a released, one-command-reproducible tool. That is a concrete, fixable target rather than an intrinsic limit. (Full arc: FINDINGS.md "GP-winner replication" Phases 1–4; reproduction: reports/detector/REPRODUCTION.md.)
 - **Validation metrics are artifact-saturated.** On ink-rich patches (~60% ink), a near-constant predictor scores Dice ≈ 0.75; so Dice/`val_bpb` alone don't prove a model localizes ink. Pooled pixel AUC is the honest signal (0.5 = chance), and it is what exposes the chance-floor result above.
 - **A topology "readiness" gate we inherited is provably invalid for ink detection — a second, sharper instance of metrics misleading.** The loop gated submittability on a skeleton-distance metric (`skel_dist ≤ 2.0`) borrowed from villa's *3D fiber/surface* evaluation track. A four-case probe ([scripts/probe_skel_dist_validity.py](https://github.com/jonmarrs/vesuvius-autoresearch/blob/main/scripts/probe_skel_dist_validity.py)) shows it is a symmetric-KL divergence between *skeleton branch-length histograms* — blind to spatial location and recall (a prediction shifted **completely off** the label scores 0.0 and passes; 60 % recall passes) and hypersensitive to the fragmentation that thresholding any real probability map produces (a spatially-correct but broken centerline fails by ~20×). It is uncorrelated with detection quality, so *no* model — including the AUC-0.9 TimeSformer above — can pass it. We removed it as a gate; the honest readiness signal is pixel-AUC plus human legibility. (FINDINGS.md "Phase 4b".)
 - **Some approaches are architecturally incompatible with the 64 px window** (a practical note, not a claim the window forbids signal): a LeJEPA self-supervised checkpoint loads only ~20% of its encoder at 64 px (it was pretrained large-window), and a clDice late-fine-tune degraded centerline overlap rather than helping.
@@ -55,7 +55,7 @@ itself.**
 
 That deficit is now not just *attributable* but partially *closed in-repo*: tool #6
 productionizes the proven recipe as `vesuvius_autoresearch.detector` and reproduces a
-**working, window-compliant detector at held-out pixel-AUC 0.70** on the same Fr47→Fr143
+**working, window-compliant detector at held-out pixel-AUC 0.709** on the same Fr47→Fr143
 split where the loop sits at ~0.56. So the repository now contains both halves honestly:
 a rigorous negative result for the lightweight bandit stack, and a positive, one-command-
 reproducible detector that confirms the gap is the bandit's recipe — a fixable target, not
@@ -90,7 +90,7 @@ Earlier (May) PRs to villa were closed; this submission does not resubmit them a
 
 - Repo: https://github.com/jonmarrs/vesuvius-autoresearch
 - Findings: .../blob/main/FINDINGS.md
-- Working detector reproduction (AUC 0.70): .../blob/main/reports/detector/REPRODUCTION.md
+- Working detector reproduction (AUC 0.709): .../blob/main/reports/detector/REPRODUCTION.md
 - 64 px window learnability study: .../blob/main/reports/ink_detection_64px_window_study_2026-06.md
 - Augmentations: .../blob/main/docs/SCROLL_AUGMENTATIONS.md
 - Fiber detection: .../blob/main/docs/FIBER_DETECTION.md

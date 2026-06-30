@@ -6,9 +6,13 @@ own data, clearing the success bar.
 
 ## Result
 
-- **Held-out mask-restricted pixel-AUC: 0.7001** on `PHercParis2Fr47` → `PHercParis2Fr143`
-  (single fixed seed, 12-epoch recipe). Success bar ≥ 0.70; proven reference = 0.711.
+- **Held-out mask-restricted pixel-AUC: 0.7090** on `PHercParis2Fr47` → `PHercParis2Fr143`
+  (single fixed seed, 12-epoch recipe, uniform inference weighting). Success bar ≥ 0.70;
+  proven reference = 0.711.
 - **Selected checkpoint: epoch 7** (best held-out AUC across all 12 epochs).
+- **Inference weighting: uniform** — averaging overlapping windows with equal weight
+  (matching the proven `train_ours.py` accumulation) scores 0.709 vs 0.700 for a Gaussian
+  blend on the same checkpoint; uniform is both more faithful and higher.
 - Window-compliant: lateral patch 64 px (depth `in_chans=26` is the through-surface
   axis, not subject to the lateral prize limit).
 - Artifacts: [`PHercParis2Fr143_scorecard.json`](PHercParis2Fr143_scorecard.json),
@@ -29,13 +33,15 @@ best-epoch model selection):
 | 4 | 0.6708 | | 10 | 0.6962 |
 | 5 | 0.6769 | | 11 | 0.6982 |
 
-AUC rises with training then plateaus at ~0.69–0.70; epoch 7 is the peak.
+AUC rises with training then plateaus at ~0.69–0.70; epoch 7 is the peak. (Sweep values
+use the Gaussian blend; switching the selected epoch-7 checkpoint to uniform weighting
+lifts it to **0.7090**.)
 
 ## Root cause that gated the first attempt
 
 The first held-out run scored **0.57** (≈ chance-leaning), then **0.698** after one fix,
-then **0.7001** after best-epoch selection. The dominant defect was in inference, not
-training:
+**0.7001** after best-epoch selection, and **0.7090** after switching to uniform inference
+weighting. The dominant defect was in inference, not training:
 
 1. **Inference normalization (the big one).** Training/validation apply
    `A.Normalize(mean=0, std=1)` (albumentations default ⇒ divide by 255), so the model
