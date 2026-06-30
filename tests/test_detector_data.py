@@ -43,3 +43,19 @@ def test_build_datasets_subtile_and_label_shapes(tmp_path):
     vimg, vlabel, vxy = valid_ds[0]
     assert tuple(vlabel.shape) == (1, 4, 4)
     assert len(vxy) == 4
+
+
+def test_full_res_label_shape(tmp_path):
+    root = str(tmp_path)
+    _make_fake_fragment(root, "PHercParis2Fr47")
+    _make_fake_fragment(root, "PHercParis2Fr143")
+    cfg = DetectorConfig(data_root=root, architecture="resenc")  # full_res True
+    train_ds, valid_ds, _, _ = D.build_datasets(cfg)
+    _, label = train_ds[0]
+    assert tuple(label.shape) == (1, cfg.size, cfg.size)  # (1,64,64) full-res
+    _, vlabel, _ = valid_ds[0]
+    assert tuple(vlabel.shape) == (1, cfg.size, cfg.size)
+    # default TimeSformer path is still 4x4
+    tr2, _, _, _ = D.build_datasets(DetectorConfig(data_root=root))
+    _, lab2 = tr2[0]
+    assert tuple(lab2.shape) == (1, 4, 4)

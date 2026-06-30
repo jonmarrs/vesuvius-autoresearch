@@ -130,8 +130,11 @@ class CustomDataset(Dataset):
             xy = self.xyxys[idx]
             data = self.transform(image=image, mask=label)
             image = data["image"].unsqueeze(0)
-            label = F.interpolate(data["mask"].unsqueeze(0),
-                                  (self.cfg.size // 16, self.cfg.size // 16)).squeeze(0)
+            if self.cfg.full_res:
+                label = data["mask"]
+            else:
+                label = F.interpolate(data["mask"].unsqueeze(0),
+                                      (self.cfg.size // 16, self.cfg.size // 16)).squeeze(0)
             return image, label, xy
         image = self.images[idx]
         label = self.labels[idx]
@@ -141,6 +144,9 @@ class CustomDataset(Dataset):
         image = self._fourth_augment(image)
         data = self.transform(image=image, mask=label)
         image = data["image"].unsqueeze(0)
-        label = F.interpolate(data["mask"].unsqueeze(0),
-                              (self.cfg.size // 16, self.cfg.size // 16)).squeeze(0)
+        if self.cfg.full_res:
+            label = data["mask"]
+        else:
+            label = F.interpolate(data["mask"].unsqueeze(0),
+                                  (self.cfg.size // 16, self.cfg.size // 16)).squeeze(0)
         return image, label
