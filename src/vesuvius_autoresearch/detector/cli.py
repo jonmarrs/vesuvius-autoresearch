@@ -55,6 +55,10 @@ def main(argv=None):
     p_eval.add_argument("--checkpoint", required=True)
     p_eval.add_argument("--fragment", required=True)
     sub.add_parser("train")
+    p_measure = sub.add_parser("measure")
+    p_measure.add_argument("--checkpoint", default="models/detector/detector_epoch=7.ckpt")
+    p_measure.add_argument("--same", default="PHercParis2Fr143")
+    p_measure.add_argument("--cross", default="20230702185753")
     args = ap.parse_args(argv)
     cfg = DetectorConfig()
     if args.cmd == "reproduce":
@@ -64,6 +68,14 @@ def main(argv=None):
         print(train(cfg))
     elif args.cmd == "eval":
         print(_eval_fragment(cfg, args.checkpoint, args.fragment))
+    elif args.cmd == "measure":
+        from .measure import measure
+        targets = [(args.same, "scroll2_same"), (args.cross, "scroll1_cross")]
+        rows = measure(cfg, args.checkpoint, targets)
+        for fid, m in rows.items():
+            print(f"{fid} [{m.get('scroll_label')}]: "
+                  f"val_f1={m.get('val_f1')} ap={m.get('average_precision')} "
+                  f"lift={m.get('ap_prevalence_lift')}")
     return 0
 
 
