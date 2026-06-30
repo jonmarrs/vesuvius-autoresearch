@@ -1,5 +1,6 @@
 import numpy as np
 import torch
+import torch.nn as nn
 
 from vesuvius_autoresearch.detector.config import DetectorConfig
 from vesuvius_autoresearch.detector.model import DetectorModel
@@ -58,4 +59,24 @@ def test_infer_loads_checkpoint_from_path(tmp_path):
     ckpt = train(cfg, max_epochs=1, limit_batches=2)
     prob = infer(cfg, checkpoint_path=ckpt, fragment_id="PHercParis2Fr143")
     assert prob.ndim == 2
+    assert float(prob.min()) >= 0.0 and float(prob.max()) <= 1.0
+
+
+class _FullResStub(nn.Module):
+    """Minimal full-resolution model: (B,1,C,H,W) -> (B,1,H,W)."""
+    def __init__(self, cfg):
+        super().__init__()
+        self.conv = nn.Conv2d(cfg.in_chans, 1, 3, padding=1)
+
+    def forward(self, x):
+        return self.conv(x[:, 0])
+
+
+def test_infer_handles_full_resolution_output(tmp_path):
+    root = str(tmp_path)
+    _make_fake_fragment(root, "PHercParis2Fr143", h=192, w=192)
+    cfg = DetectorConfig(data_root=root, architecture="resenc")
+    model = _FullResStub(cfg).eval()
+    prob = infer(cfg, checkpoint_path=None, fragment_id="PHercParis2Fr143", model=model)
+    assert prob.shape == (192, 192)
     assert float(prob.min()) >= 0.0 and float(prob.max()) <= 1.0

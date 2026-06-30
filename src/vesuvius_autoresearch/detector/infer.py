@@ -36,7 +36,7 @@ def infer(cfg, checkpoint_path, fragment_id, model=None, batch_size=64):
             return
         batch = torch.from_numpy(np.stack(buf_patches))[:, None].to(device)  # (b,1,C,sz,sz)
         logits = model(batch)  # (b,1,4,4)
-        ups = F.interpolate(logits, scale_factor=16, mode="bilinear", align_corners=False)
+        ups = F.interpolate(logits, size=(sz, sz), mode="bilinear", align_corners=False)
         probs = torch.sigmoid(ups)[:, 0].cpu().numpy()  # (b,sz,sz)
         for (yy, xx), prob in zip(buf_coords, probs):
             pred[yy:yy + sz, xx:xx + sz] += prob  # uniform weight (1.0 per overlap)
