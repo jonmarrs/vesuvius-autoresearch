@@ -424,4 +424,28 @@ Transition to sustained 60-minute training cycles. The goal is to evaluate if de
 
 ---
 
+## [2026-06-29] Working Detector — productionizing the proven recipe (held-out AUC 0.70)
+
+**Status:** COMPLETE
+
+### Purpose
+Stop tuning the bandit loop's `resenc_unet` (stuck ~0.56 on held-out ink) and instead
+**productionize the proven 2023 Grand-Prize TimeSformer recipe** as a first-class,
+tested subpackage, then reproduce a working, window-compliant detector on our own data.
+Executes the Phase-4 "port what makes the winner stack work" action from FINDINGS.
+
+### Configuration
+*   **Hardware:** RTX 4090.
+*   **New subpackage:** `vesuvius_autoresearch.detector` (`config`/`data`/`model`/`train`/`infer`/`eval`/`cli`), 17 unit tests, one-command `reproduce`. TDD; merged to `main` on branch `feat/detector`.
+*   **Recipe (verbatim proven values):** TimeSformer, `in_chans=26`, `size=64`, `tile_size=256`, `stride=32`, batch 32, 12 epochs, lr 3e-5, 0.5·Dice + 0.5·SoftBCE. Train `PHercParis2Fr47` → hold out `PHercParis2Fr143` (the loop's exact split).
+*   **Window compliance:** 64 px lateral patch; the 26 through-surface depth slices ride the TimeSformer *time* axis, so depth context is not subject to the lateral 0.5 mm limit.
+
+### Outcomes & Insights
+- **Held-out pixel-AUC 0.7001** (best of 12 epochs by held-out AUC; epoch 7), vs proven reference 0.711 and the loop's ~0.56 on identical data. Clears the ≥0.70 success bar. AUC climbs then plateaus ~0.69–0.70 across epochs 6–11.
+- **Root cause that gated it (the lesson): inference, not training.** The first run scored **0.57** because `infer()` fed raw 0–200 pixels while training applies `A.Normalize` (÷255) — a ~255× input-scale mismatch that collapses this exact recipe to ~chance. Normalizing inference → **0.698**; best-epoch selection → **0.7001**. Two more inference bugs fixed: PyTorch-2.6 `weights_only=True` checkpoint rejection, and padded-mask/unpadded-label shape misalignment on the real 14830×9506 fragment.
+- **Refines the "64px Verdict" (2026-06-16).** "Legible ink is window-limited at 64 px / our 64 px pipeline sits at chance" was a property of the **loop's stack**, not the window: a prize-compliant 64 px-lateral recipe extracts real, transferable ink signal (0.70). The window costs *legibility* (224 px reads letterforms; 64 px gives detectable-not-legible signal), not detectability. FINDINGS.md Phase 5 + the now-corrected "needs 256 px context" bullet capture this.
+- **Tooling:** batched tiled inference (≈37 min → minutes), calibrated-threshold scorecard, best-epoch selection. Writeup + per-epoch sweep in [reports/detector/REPRODUCTION.md](../reports/detector/REPRODUCTION.md).
+
+---
+
 ## [Future Entry Template]
