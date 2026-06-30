@@ -24,3 +24,12 @@ def test_oversized_lateral_window_raises():
 def test_depth_is_not_window_limited():
     # large in_chans (depth) is allowed; only lateral size is constrained
     DetectorConfig(in_chans=40).validate_window()  # must not raise
+
+
+def test_architecture_defaults_and_full_res_property():
+    assert DetectorConfig().architecture == "timesformer"
+    assert DetectorConfig().full_res is False
+    cfg = DetectorConfig(architecture="resenc")
+    assert cfg.full_res is True
+    assert cfg.resenc_n_stages == 5
+    assert cfg.resenc_base_feat == 32

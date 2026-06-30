@@ -41,6 +41,10 @@ class DetectorConfig:
     # prize window
     max_lateral_px: int = 64
     um_per_px: float = 8.0
+    # architecture selection (Sub-project B)
+    architecture: str = "timesformer"  # "timesformer" | "resenc"
+    resenc_n_stages: int = 5
+    resenc_base_feat: int = 32
 
     def validate_window(self) -> None:
         # The lateral limit is the pixel count (<= 64px @ 8um); its physical width
@@ -52,3 +56,8 @@ class DetectorConfig:
                 f"lateral window {self.size}px/{mm:.3f}mm exceeds prize guidance "
                 f"(<= {self.max_lateral_px}px / {max_mm:.3f}mm)"
             )
+
+    @property
+    def full_res(self) -> bool:
+        """Per-pixel models (resenc) keep full-resolution labels; the TimeSformer uses 4x4."""
+        return self.architecture != "timesformer"
