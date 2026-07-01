@@ -80,3 +80,18 @@ def test_infer_handles_full_resolution_output(tmp_path):
     prob = infer(cfg, checkpoint_path=None, fragment_id="PHercParis2Fr143", model=model)
     assert prob.shape == (192, 192)
     assert float(prob.min()) >= 0.0 and float(prob.max()) <= 1.0
+
+
+def test_infer_loads_resenc_checkpoint_from_path(tmp_path):
+    # Regression: infer must load the ResEnc model class for resenc checkpoints, not the
+    # TimeSformer DetectorModel (which raises a state_dict mismatch). The full-res test
+    # above injects model=, bypassing the checkpoint-load path; this exercises it.
+    root = str(tmp_path / "scrolls")
+    _make_fake_fragment(root, "PHercParis2Fr47")
+    _make_fake_fragment(root, "PHercParis2Fr143", h=320, w=320)
+    cfg = DetectorConfig(data_root=root, model_dir=str(tmp_path / "models"),
+                         architecture="resenc", train_batch_size=2, num_workers=0, seed=0)
+    ckpt = train(cfg, max_epochs=1, limit_batches=2)
+    prob = infer(cfg, checkpoint_path=ckpt, fragment_id="PHercParis2Fr143")
+    assert prob.ndim == 2
+    assert float(prob.min()) >= 0.0 and float(prob.max()) <= 1.0

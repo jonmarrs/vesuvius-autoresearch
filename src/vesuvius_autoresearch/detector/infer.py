@@ -15,9 +15,16 @@ def infer(cfg, checkpoint_path, fragment_id, model=None, batch_size=64):
     cfg.validate_window()
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     if model is None:
+        # Dispatch the model class by architecture so resenc checkpoints load into
+        # ResEncDetectorModel (loading them into DetectorModel is a state_dict mismatch).
+        if cfg.architecture == "resenc":
+            from .model_resenc import ResEncDetectorModel
+            model_cls = ResEncDetectorModel
+        else:
+            model_cls = DetectorModel
         # weights_only=False: our checkpoint embeds the LR scheduler (CosineAnnealingLR),
         # which PyTorch 2.6's weights_only=True default rejects. We trust our own ckpt.
-        model = DetectorModel.load_from_checkpoint(
+        model = model_cls.load_from_checkpoint(
             checkpoint_path, cfg=cfg, pred_shape=(1, 1), weights_only=False)
     model = model.to(device).eval()
     images, label, frag_mask = read_image_mask(cfg, fragment_id)
