@@ -1,0 +1,35 @@
+{
+  "best_checkpoint": "detector_epoch=11.ckpt",
+  "rows": {
+    "PHercParis2Fr143": {
+      "positive_rate": 0.17243752726009862,
+      "n_pixels": 97993501,
+      "val_f1": 0.36934375311989215,
+      "best_threshold": 0.35,
+      "f1_at_0.5": 0.3053889762909487,
+      "val_f05": 0.3562991612721826,
+      "precision": 0.2726293012327804,
+      "recall": 0.5724015323453876,
+      "pred_positive_rate": 0.36204290731484323,
+      "average_precision": 0.336071977678323,
+      "ap_prevalence_lift": 1.9489491818761933,
+      "roc_auc": 0.6795344368296274,
+      "scroll_label": "scroll2_same"
+    },
+    "20230702185753": {
+      "positive_rate": 0.11196686152905401,
+      "n_pixels": 154655295,
+      "val_f1": 0.2194210054658393,
+      "best_threshold": 0.35,
+      "f1_at_0.5": 0.1958557496690503,
+      "val_f05": 0.15665673844862438,
+      "precision": 0.1282898582796577,
+      "recall": 0.7575475269844518,
+      "pred_positive_rate": 0.6611607510754804,
+      "average_precision": 0.12932736455055194,
+      "ap_prevalence_lift": 1.155050367442809,
+      "roc_auc": 0.5696089843866832,
+      "scroll_label": "scroll1_cross"
+    }
+  }
+}
