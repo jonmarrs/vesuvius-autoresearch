@@ -16,6 +16,10 @@ def _read_8bit(path):
         arr = arr[..., 0]
     if arr.dtype == np.uint16:
         arr = (arr // 256).astype(np.uint8)
+    elif np.issubdtype(arr.dtype, np.floating):
+        if float(arr.max()) <= 1.0:
+            arr = arr * 255.0
+        arr = np.clip(arr, 0, 255).astype(np.uint8)
     return arr.astype(np.uint8)
 
 
@@ -36,7 +40,7 @@ def convert_surface_volume(src_dir, seg_id, out_root, n_layers=26, start_idx=17)
         h, w = img.shape
         tifffile.imwrite(os.path.join(out_layers, f"{start_idx + k:02d}.tif"), img)
 
-    ink_files = glob.glob(os.path.join(src_dir, "*inklabels*"))
+    ink_files = sorted(glob.glob(os.path.join(src_dir, "*inklabels*")))
     if not ink_files:
         raise ValueError(f"{seg_id}: no *inklabels* file in {src_dir}")
     label = cv2.imread(ink_files[0], 0)
@@ -47,7 +51,7 @@ def convert_surface_volume(src_dir, seg_id, out_root, n_layers=26, start_idx=17)
     label = cv2.resize(label, (w, h), interpolation=cv2.INTER_NEAREST)
     cv2.imwrite(os.path.join(out_seg, f"{seg_id}_inklabels.png"), label)
 
-    mask_files = [f for f in glob.glob(os.path.join(src_dir, "*mask*"))]
+    mask_files = sorted(glob.glob(os.path.join(src_dir, "*mask*")))
     if mask_files:
         mask = cv2.resize(cv2.imread(mask_files[0], 0), (w, h),
                           interpolation=cv2.INTER_NEAREST)
