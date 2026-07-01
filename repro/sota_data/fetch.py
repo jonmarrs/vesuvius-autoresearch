@@ -19,5 +19,7 @@ def fetch_segment(s3_seg_prefix, out_dir):
 
 
 if __name__ == "__main__":
+    if len(sys.argv) < 3:
+        sys.exit("usage: python -m repro.sota_data.fetch <s3_seg_prefix> <out_dir>")
     fetch_segment(sys.argv[1], sys.argv[2])
     print("fetched to", sys.argv[2])
