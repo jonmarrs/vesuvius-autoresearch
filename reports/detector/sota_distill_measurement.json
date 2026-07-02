@@ -1,0 +1,32 @@
+{
+  "fragment": "20231210121321_y4000_x2500",
+  "best_checkpoint": "detector_epoch=9.ckpt",
+  "baseline_vs_teacher": {
+    "positive_rate": 0.22877264022827148,
+    "n_pixels": 16777216,
+    "val_f1": 0.372359593204764,
+    "best_threshold": 0.05,
+    "f1_at_0.5": 0.3104112460954902,
+    "val_f05": 0.2704953182537643,
+    "precision": 0.22877264022827148,
+    "recall": 1.0,
+    "pred_positive_rate": 1.0,
+    "average_precision": 0.2242161254169932,
+    "ap_prevalence_lift": 0.9800827808485676,
+    "roc_auc": 0.4991574622975443
+  },
+  "distilled_vs_teacher": {
+    "positive_rate": 0.22877264022827148,
+    "n_pixels": 16777216,
+    "val_f1": 0.6616237846641407,
+    "best_threshold": 0.44999999999999996,
+    "f1_at_0.5": 0.6583007749395675,
+    "val_f05": 0.7107063462744189,
+    "precision": 0.6585900479439253,
+    "recall": 0.6646856000050024,
+    "pred_positive_rate": 0.23089003562927246,
+    "average_precision": 0.7416611077075371,
+    "ap_prevalence_lift": 3.241913486540614,
+    "roc_auc": 0.8652055092604742
+  }
+}
