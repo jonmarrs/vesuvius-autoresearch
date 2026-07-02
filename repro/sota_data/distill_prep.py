@@ -2,6 +2,7 @@
 output, not ground truth) to a zarr-level region, and write a detector-format training
 fragment whose label is the binarized teacher. All downstream metrics on these fragments
 are agreement-with-teacher, never ground-truth accuracy."""
+
 import os
 
 import cv2
@@ -17,24 +18,40 @@ def teacher_region_for(teacher_full, level_shape, region_box):
     lh, lw = level_shape
     sy, sx = th / lh, tw / lw
     y0, x0, y1, x1 = region_box
-    return np.asarray(teacher_full[int(round(y0 * sy)):int(round(y1 * sy)),
-                                   int(round(x0 * sx)):int(round(x1 * sx))])
+    return np.asarray(
+        teacher_full[
+            int(round(y0 * sy)) : int(round(y1 * sy)),
+            int(round(x0 * sx)) : int(round(x1 * sx)),
+        ]
+    )
 
 
-def prep_distill_fragment(region_layers, teacher_region, out_root, frag_id, threshold=128):
+def prep_distill_fragment(
+    region_layers, teacher_region, out_root, frag_id, threshold=128
+):
     region_layers = np.asarray(region_layers)
     h, w = region_layers.shape[1], region_layers.shape[2]
     t = np.asarray(teacher_region)
     if t.ndim == 3:
         t = t[..., 0]
     th, tw = t.shape
-    if abs(th - h) / h > 0.2 or abs(tw - w) / w > 0.2:
-        raise ValueError(f"{frag_id}: teacher {th}x{tw} vs region {h}x{w} mismatch > 20%")
+    # The teacher may be at a different pyramid scale than the region (e.g. a level-0
+    # teacher for a level-2 region); a uniform scale difference is fine (the resize
+    # below handles it). Guard against ANISOTROPIC scale (axis-swapped/misaligned crop).
+    sy, sx = th / h, tw / w
+    if abs(sy - sx) / max(sy, sx) > 0.2:
+        raise ValueError(
+            f"{frag_id}: teacher {th}x{tw} vs region {h}x{w} anisotropic scale mismatch"
+        )
     t = to_uint8(t)
     if (th, tw) != (h, w):
         t = cv2.resize(t, (w, h), interpolation=cv2.INTER_NEAREST)
     label = np.where(t >= threshold, 255, 0).astype(np.uint8)
 
-    out_seg = write_fragment(region_layers, out_root, frag_id)  # layers + zero label + mask
-    cv2.imwrite(os.path.join(out_seg, f"{frag_id}_inklabels.png"), label)  # replace label
+    out_seg = write_fragment(
+        region_layers, out_root, frag_id
+    )  # layers + zero label + mask
+    cv2.imwrite(
+        os.path.join(out_seg, f"{frag_id}_inklabels.png"), label
+    )  # replace label
     return out_seg
