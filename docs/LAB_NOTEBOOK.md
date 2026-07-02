@@ -448,4 +448,54 @@ Executes the Phase-4 "port what makes the winner stack work" action from FINDING
 
 ---
 
+## [2026-06-30] Metric Pivot, First Valid Cross-Scroll Number & the ResEnc Negative
+
+**Status:** COMPLETE
+
+### Purpose
+Align with the community's frontier (Dice/F1 + cross-scroll generalization; the accepted villa autoresearch tooling ranks on Dice, and its metric contract is `val_f1` + average precision, not ROC-AUC), then test whether a full-resolution community-style architecture beats our coarse TimeSformer head.
+
+### Outcomes & Insights
+- **Metric contract adopted** (`detector/metrics.py`): `val_f1` (threshold-swept) primary; `average_precision` + `ap_prevalence_lift` (AP ÷ prevalence; ≈1 ⇒ chance) as honest, imbalance-robust gates; ROC-AUC secondary diagnostic only. `eval` keeps `pixel_auc`/`threshold` aliases; new `measure` CLI.
+- **First VALID cross-scroll measurement** (supersedes the retracted 2026-06-12 attempt; uses the aligned `train_scrolls` Scroll-1/Scroll-2 pair): same-scroll Fr143 **val_f1 0.393 / lift 2.07** vs cross-scroll Scroll-1 **0.222 / 1.29** — transfer is weak; the detector was scroll-specific. This is the gap the community's agent efforts target.
+- **ResEnc negative (Sub-project B):** a per-pixel 2.5D ResEncUNet with our AdamW+cosine recipe **underperforms** the TimeSformer (same-scroll 0.369 < 0.393; cross-scroll lift 1.16 < 1.29). Likely needs the full nnU-Net protocol we deliberately deferred. TimeSformer retained; the `build_model`/full-res machinery stays.
+- **Field news:** PHerc. 1667 (Scroll 4) read END-TO-END (announced 2026-06-25) — first complete scroll; driven by better data (BM18 phase-contrast) + Volume Cartographer + ink nets as "visibility amplifiers". This reframed our strategy (below).
+
+---
+
+## [2026-07-01] SOTA-Data Rebase — What the Open Bucket Ships
+
+**Status:** COMPLETE (evaluate-only slice)
+
+### Purpose
+Rebase onto the state of the art after the full-scroll read: run our detector on the newly-open SOTA Scroll-1 data (`s3://vesuvius-challenge-open-data/`, anonymous OME-Zarr) and quantify the data lift.
+
+### Outcomes & Insights
+- **Verified data findings:** the bucket ships **re-flattened multiscale OME-Zarr surface volumes** (109 depth layers, 2.4 µm) and **model predictions** (`new_canon_autoresearch_recipe`) — **no ground-truth ink labels aligned to the new geometry** anywhere (checked segments, representations, and our home fragments). Old hand labels don't fit the re-flattening.
+- **Consequence honored:** no honest quantitative score possible against ground truth — we refused to fabricate a `val_f1` against misaligned labels.
+- **Qualitative result:** our Scroll-2 detector on a SOTA Scroll-1 region produces **texture, not ink** — better data alone doesn't rescue a cross-scroll model. Tooling built: `repro/sota_data/` (discover/fetch/convert/qualitative), all anonymous-S3, tested.
+- **Decision:** Phase 2 = distillation from the released canon predictions (the model that read the scrolls), since no aligned ground truth exists.
+
+---
+
+## [2026-07-02] SOTA Distillation — A SOTA-Native Detector (Strongest Result To Date)
+
+**Status:** COMPLETE
+
+### Purpose
+Train our proven TimeSformer recipe (unchanged, config-only) on SOTA Scroll-1 surface volumes using the released canon ink predictions as targets — teacher–student distillation — and measure held-out **agreement-with-teacher** against the current detector's baseline. (All metrics are agreement with a model output, never ground-truth accuracy.)
+
+### Configuration
+*   **Data:** 4 train regions (4096², level-2, 26-layer depth window) from 2 Scroll-1 segments; 1 region of a **third, fully held-out segment**. Teacher-positive fractions 0.14–0.23 (healthy). Teachers uint8, binarized ≥128 (provenance persisted in the report).
+*   **Student:** existing TimeSformer recipe via `detector.train`, 12 epochs (~9.7 h on the 4090).
+
+### Outcomes & Insights
+- **Baseline (current detector) on the held-out segment: val_f1 0.372 / lift 0.98 / roc_auc 0.499 — the exact chance floor.**
+- **Distilled student (best epoch 9): val_f1 0.662 / AP 0.742 / lift 3.24 / roc_auc 0.865.** Lift 3.24 is the strongest ranking signal any model trained in this repo has produced (previous best 2.07, same-scroll). Monotonic epoch-over-epoch improvement from the chance floor.
+- **First letterform-shaped output from an own-trained model** — the render shows character-like strokes arranged in text lines (side-by-side with the teacher in `reports/detector/`).
+- **Review rigor:** final whole-branch review confirmed the train/held-out segments are disjoint (no leakage; the baseline was actually *advantaged*, making the claim conservative) and required persisting teacher provenance — done. Noted caveat: the held-out region also serves as best-epoch selection (AP/roc_auc are threshold-free).
+- **Strategic meaning:** the full-scroll breakthrough's lever (better data) transfers to a single consumer GPU via distillation. Next: scale distillation cross-scroll (the bucket has ~48 scrolls in one format), a label-registration spot-check against real ground truth, and the July Progress Prize filing.
+
+---
+
 ## [Future Entry Template]

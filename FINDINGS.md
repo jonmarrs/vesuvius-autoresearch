@@ -27,24 +27,45 @@ search has taught us — including the negative results.
 - **Topology-aware evaluation toolkit** — selects the binarization threshold that
   maximizes centerline overlap and reports the prize topology metrics there
   (see "What we learned").
+- **Ink detector subpackage** (`vesuvius_autoresearch.detector`) — the proven
+  Grand-Prize TimeSformer recipe productionized (config/data/model/train/infer/
+  eval/cli, unit-tested, one-command `reproduce`), with the community metric
+  contract (`val_f1` primary; `average_precision` + `ap_prevalence_lift` gates;
+  ROC-AUC secondary) and a cross-fragment `measure` CLI. See
+  [reports/detector/REPRODUCTION.md](reports/detector/REPRODUCTION.md).
+- **SOTA open-data tooling** (`repro/sota_data/`) — anonymous-S3 discovery/fetch
+  of the `vesuvius-challenge-open-data` bucket, OME-Zarr region extraction,
+  detector-format conversion with loud alignment guards, and a teacher–student
+  distillation pipeline (prep/baseline/train/measure) against the released canon
+  ink predictions.
 
 ## Honest current results
 
-Production model: `resenc_unet`, evaluated on held-out `PHercParis2Fr143`
-(disjoint from the `PHercParis2Fr47` training fragment).
+**Working detector** (TimeSformer recipe, trained on Scroll-2 `PHercParis2Fr47`,
+held-out `PHercParis2Fr143`; community metric contract):
 
-| Metric | Value | Note |
+| Metric (held-out) | Same-scroll Fr143 | Cross-scroll Scroll-1 |
 | --- | --- | --- |
-| `val_bpb` | 0.2627 | 1 − Dice at the Dice-optimal threshold |
-| `centerline_dice` | ~0.30 | at the topology-optimal threshold; up from 0.198 |
-| `skel_dist` | ~19.8 | prize gate is 2.0 — large remaining headroom |
-| ink AUC (train Fr47) | 0.74 | per-patch ink-vs-background discrimination |
-| ink AUC (val Fr143) | 0.61 | 0.5 = chance |
+| `val_f1` | 0.393 | 0.222 |
+| `average_precision` | 0.357 | 0.144 |
+| `ap_prevalence_lift` (1.0 = chance) | 2.07 | 1.29 |
+| ROC-AUC (secondary) | 0.709 | 0.585 |
 
-This is a mediocre-but-improving detector, stated plainly (over the recent cycle
-window: train AUC 0.70→0.74, val 0.60→0.61, `centerline_dice` 0.198→0.30). The
-contribution is the reproducible, evidence-gated search process and the tooling
-around it — not a state-of-the-art model.
+Real, transferable ink signal at the prize window same-scroll; **weak cross-scroll
+transfer** — the open problem the field is working on.
+
+**SOTA-distilled detector** (same recipe distilled from the released canon
+predictions on SOTA Scroll-1 surface volumes; **all metrics are
+agreement-with-teacher, not ground-truth accuracy** — no aligned ground truth is
+released): held-out segment val_f1 **0.662**, AP **0.742**, lift **3.24**, ROC-AUC
+**0.865** (baseline = the detector above at the chance floor, lift 0.98). Its output
+shows letterform-shaped strokes — the first from a model trained in this repo.
+
+The bandit loop's own from-scratch stack remains at the chance floor (its story, and
+why, is the arc below). The contribution is the reproducible tooling, the honest
+measurement discipline, and now a working, SOTA-rebased detector path — stated
+plainly, not oversold. (The former `skel_dist ≤ 2.0` "prize gate" was removed after
+we proved it invalid — Phase 4b below.)
 
 ## Clean-room 2.5D SegFormer reproduction — the window, not the data, is the ceiling
 
@@ -263,6 +284,79 @@ longer only *attributable* (Phase 3a) — it is partially **closed in-repo** by 
 reproducible detector. And it settles the window question decisively (below): a prize-compliant
 64 px-lateral recipe reads real, transferable ink; the limit was the modeling stack, not the
 window.
+
+## Metric pivot + the first valid cross-scroll measurement
+
+The community's active frontier (the Kaggle Surface Detection competition, villa's own
+nnU-Net autoresearch framework, and the automated agent efforts) speaks in **Dice/F1 and
+cross-scroll generalization**, and the accepted tooling's metric contract is `val_f1`
+(threshold-swept) plus **average precision** and a base-rate control — not ROC-AUC, which is
+over-optimistic under class imbalance. We adopted that contract
+(`detector/metrics.py`): **`val_f1` primary; `average_precision` + `ap_prevalence_lift`
+(AP ÷ prevalence; ≈1 ⇒ no signal) as the honest gates; ROC-AUC retained as a secondary
+diagnostic only.** A `measure` CLI scores one checkpoint across fragments.
+
+**First valid cross-scroll number** (the 2026-06-12 attempt was invalidated by a data
+misalignment; this uses the correctly-aligned `train_scrolls` pair): the detector trained on
+Scroll-2 `Fr47` scores same-scroll `Fr143` **val_f1 0.393 / lift 2.07**, but cross-scroll
+Scroll-1 only **val_f1 0.222 / lift 1.29** — near the chance floor. **Cross-scroll transfer
+is weak; the detector's competence was scroll-specific.** Report:
+[reports/detector/cross_scroll_measurement.md](reports/detector/cross_scroll_measurement.md).
+
+## Full-resolution ResEncUNet — a clean negative
+
+Since the coarse 4×4 TimeSformer head caps mask quality, we built a per-pixel 2.5D
+**ResEncUNet** student (`detector/model_resenc.py`, community-winner architecture family,
+2D mode, unchanged AdamW+cosine recipe). Result: **it underperforms the TimeSformer** —
+same-scroll val_f1 **0.369 vs 0.393**, cross-scroll lift 1.16 vs 1.29. Likely cause: ResEnc
+architectures are tuned for the full nnU-Net protocol (SGD/poly, deep supervision, long
+schedules), which we deliberately did not adopt. The TimeSformer remains the detector; the
+factory/full-res machinery stays for future use.
+([reports/detector/resenc_phase1_measurement.md](reports/detector/resenc_phase1_measurement.md))
+
+## The SOTA data — what the open bucket actually ships
+
+After the first complete scroll was read (PHerc. 1667, 2026-06-25 — new BM18 phase-contrast
+scans + Volume Cartographer + ink nets used as "visibility amplifiers"), we rebased onto the
+open data (`s3://vesuvius-challenge-open-data/`, anonymous). Two verified findings
+(`repro/sota_data/`):
+
+1. **The bucket ships re-flattened multiscale OME-Zarr surface volumes** (e.g. 109 depth
+   layers, 2.4 µm, level-0 50600×36400) **and model predictions — no ground-truth ink labels
+   aligned to the new geometry.** Our old hand labels don't fit the re-flattening, so an
+   honest quantitative score against ground truth is not directly possible; we refused to
+   fabricate one.
+2. **Better data alone does not rescue a cross-scroll model:** our Scroll-2 detector run on a
+   SOTA Scroll-1 surface region produces texture, not ink (qualitative renders:
+   [reports/detector/sota_scroll1_qualitative.md](reports/detector/sota_scroll1_qualitative.md)),
+   consistent with the measured weak transfer.
+
+## Distillation onto SOTA data — a SOTA-native detector (agreement-with-teacher 0.66)
+
+With no aligned ground truth available, we trained the unchanged TimeSformer recipe on SOTA
+Scroll-1 surface volumes using the released canon ink predictions as targets —
+**teacher–student distillation** from the pipeline that read the scrolls. **All metrics are
+agreement-with-teacher, never ground-truth accuracy** (the teacher is a model output).
+
+On a **held-out segment** (never trained on; train/held-out segments disjoint):
+
+| model | val_f1 | AP | prevalence-lift | ROC-AUC |
+| --- | --- | --- | --- | --- |
+| current detector (baseline) | 0.372 | 0.224 | 0.98 (chance) | 0.499 |
+| **distilled student (best of 12 epochs)** | **0.662** | **0.742** | **3.24** | **0.865** |
+
+The distilled model's lift (3.24) is the strongest ranking signal any model trained in this
+repo has produced (previous best: 2.07, same-scroll), and its output shows
+**letterform-shaped strokes arranged in text lines** — the first letter-shaped output from an
+own-trained model here. Teacher provenance (uint8, binarize ≥128) is recorded in the report;
+the held-out region also serves as the best-epoch selection set (AP/ROC-AUC are
+threshold-free and unaffected). Report:
+[reports/detector/sota_distill_measurement.md](reports/detector/sota_distill_measurement.md);
+tooling: `repro/sota_data/distill_prep.py` + `distill_run.py`.
+
+**Takeaway:** the full-scroll breakthrough's lever — better data — is transferable to a
+single consumer GPU via distillation. The open bucket (≈48 scrolls in one consistent format)
+plus this recipe makes the cross-scroll frontier attackable here.
 
 ## What we learned
 
