@@ -31,7 +31,7 @@ TRAIN = [
     ("pherc0139", "20250108000001-w026_2025010854", 4000, 2500),
 ]
 HELD = ("pherc1667", "20240304141531-w013_20240304141531_flatboi", 4000, 2500)
-SECONDARY_0139_HELD = ("pherc0139", "20250108000002-w027_2025010845", 4000, 2500)
+SECONDARY_0139_HELD = ("pherc0139", "20250108000002-w027_2025010845", 1500, 1500)
 
 REPORT_MD = "reports/detector/cross_scroll_distill.md"
 REPORT_JSON = "reports/detector/cross_scroll_distill.json"
