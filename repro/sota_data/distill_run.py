@@ -128,18 +128,25 @@ def cmd_train():
 
 def cmd_measure():
     fid = frag_id(HELD_SEG, *HELD_REGION)
+    if not os.path.exists(BASELINE_JSON):
+        raise ValueError(f"{BASELINE_JSON} missing; run the baseline step first")
     with open(BASELINE_JSON) as f:
         baseline = json.load(f)["vs_teacher"]
     ckpts = sorted(glob.glob(os.path.join(MODEL_DIR, "detector_epoch=*.ckpt")),
                    key=lambda p: int(p.split("epoch=")[1].split(".")[0]))
+    if not ckpts:
+        raise ValueError(f"no checkpoints found in {MODEL_DIR}; run the train step first")
     best = None
     for ck in ckpts:
         m, prob = _measure(ck, fid)
         print(f"{os.path.basename(ck)}: val_f1={m.get('val_f1', float('nan')):.4f}",
               flush=True)
-        if best is None or m.get("val_f1", 0) > best[0].get("val_f1", 0):
-            best = (m, ck, prob)
-    m, ck, prob = best
+        score = m.get("val_f1", float("nan"))
+        if isinstance(score, float) and score != score:  # NaN
+            score = -1.0
+        if best is None or score > best[3]:
+            best = (m, ck, prob, score)
+    m, ck, prob, _ = best
     Image.fromarray((np.clip(prob, 0, 1) * 255).astype(np.uint8)).resize(
         (prob.shape[1] // 4, prob.shape[0] // 4)).save(
         "reports/detector/sota_distill_ours.png")
