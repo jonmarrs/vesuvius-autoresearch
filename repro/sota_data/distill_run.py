@@ -18,6 +18,23 @@ sys.path.insert(0, os.path.abspath("."))
 from repro.sota_data.distill_prep import prep_distill_fragment, teacher_region_for
 
 BUCKET = "vesuvius-challenge-open-data"
+SCROLLS = {
+    "scroll1": "PHercParis4",
+    "pherc0139": "PHerc0139",
+    "pherc1667": "PHerc1667",
+}
+
+
+def _scroll_prefix(scroll_key, seg, sub):
+    if scroll_key not in SCROLLS:
+        raise ValueError(f"unknown scroll key '{scroll_key}'; known: {sorted(SCROLLS)}")
+    return f"{BUCKET}/{SCROLLS[scroll_key]}/segments/{seg}/{sub}"
+
+
+def xfrag_id(scroll_key, seg, y0, x0):
+    return f"{scroll_key}_{seg}_y{y0}_x{x0}"
+
+
 LEVEL = "2"
 SIZE = 4096
 TRAIN_SEGS = {
@@ -45,13 +62,16 @@ def frag_id(seg, y0, x0):
     return f"{seg}_y{y0}_x{x0}"
 
 
-def fetch_teacher(seg):
+def fetch_teacher(seg, scroll_key="scroll1"):
     os.makedirs(TEACHER_DIR, exist_ok=True)
-    dst = os.path.join(TEACHER_DIR, f"{seg}.tif")
+    dst = os.path.join(TEACHER_DIR, f"{scroll_key}_{seg}.tif")
+    legacy = os.path.join(TEACHER_DIR, f"{seg}.tif")  # Phase-2 cache name (scroll1 only)
     if os.path.exists(dst):
         return dst
+    if scroll_key == "scroll1" and os.path.exists(legacy):
+        return legacy
     fs = _fs()
-    pref = f"{BUCKET}/PHercParis4/segments/{seg}/ink-detection"
+    pref = _scroll_prefix(scroll_key, seg, "ink-detection")
     tifs = sorted(p for p in fs.ls(pref, detail=False) if p.endswith(".tif"))
     if not tifs:
         raise ValueError(f"{seg}: no teacher tif under {pref}")
@@ -59,9 +79,9 @@ def fetch_teacher(seg):
     return dst
 
 
-def extract_region(seg, y0, x0, size=SIZE):
+def extract_region(seg, y0, x0, size=SIZE, scroll_key="scroll1"):
     fs = _fs()
-    pref = f"{BUCKET}/PHercParis4/segments/{seg}/surface-volumes"
+    pref = _scroll_prefix(scroll_key, seg, "surface-volumes")
     zarrs = sorted(p for p in fs.ls(pref, detail=False) if p.endswith(".zarr"))
     if not zarrs:
         raise ValueError(f"{seg}: no .zarr under {pref}")
@@ -105,12 +125,12 @@ def cmd_prep():
         }, f, indent=2)
 
 
-def _measure(ckpt, fid):
+def _measure(ckpt, fid, data_root=DATA_ROOT):
     from vesuvius_autoresearch.detector.config import DetectorConfig
     from vesuvius_autoresearch.detector.data import read_image_mask
     from vesuvius_autoresearch.detector.infer import infer
     from vesuvius_autoresearch.detector.metrics import segmentation_metrics
-    cfg = DetectorConfig(data_root=DATA_ROOT)
+    cfg = DetectorConfig(data_root=data_root)
     prob = infer(cfg, ckpt, fid)
     _, label, mask = read_image_mask(cfg, fid)
     h, w = label.shape
