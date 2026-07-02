@@ -4,18 +4,19 @@
 
 *The first autonomous research swarm for the Vesuvius Challenge.*
 
-> **Honest results, methodology, and negative results:** see [FINDINGS.md](FINDINGS.md). The headline finding — direct ink detection at the prize's 0.5 mm / 64 px window is learnability-limited — has a standalone, reproducible study: [reports/ink_detection_64px_window_study_2026-06.md](reports/ink_detection_64px_window_study_2026-06.md).
+> **Honest results, methodology, and negative results:** see [FINDINGS.md](FINDINGS.md). Current headlines: a **working, window-compliant ink detector** (held-out same-scroll `val_f1` 0.393 / prevalence-lift 2.07, [reproduction](reports/detector/REPRODUCTION.md)), the **first valid cross-scroll measurement** (lift 1.29 — the quantified generalization gap), and a **SOTA-distilled model** (`val_f1` 0.662 / lift 3.24 *agreement-with-teacher* on the open SOTA data, [report](reports/detector/sota_distill_measurement.md)). An earlier "the 64 px window is learnability-limited" reading was corrected: the window costs *legibility*, not detectability — see FINDINGS.
 > **Live experiment tracking:** [wandb dashboard](https://wandb.ai/jdmarrs-uc-davis/vesuvius-autoresearch).
 
 `bountyhunter` is an experiment in having AI agents perform their own end-to-end computer vision research. It automates the cycle of hypothesis generation, hyperparameter optimization, model training, and performance evaluation to uncover the "Gold Standard" configurations for reading ancient carbonized scrolls.
 
 ## 🚀 Key Features
 
-- **Autonomous Research Loop:** Automatically samples from a multidimensional configuration space (architectures, loss functions, augmentations).
-- **Architecture zoo:** ResEnc-UNet (production), plus TimeSformer, ResNet3D-101, and Inception-I3D options. Note: at the prize's ~64 px window a full-resolution CNN outperforms the patch-based transformers (see [FINDINGS.md](FINDINGS.md)).
-- **On-the-fly Multi-tasking:** Real-time 3D Structure Tensor and Ridge Map computation for rich structural supervision.
-- **Topology-aware evaluation:** `centerline_dice` and `skeleton_distance_length`, evaluated at the topology-optimal binarization threshold (the Dice-optimal threshold understates topology ~2×).
-- **Calibration Baselines:** Periodically re-evaluates against the fixed 2023 Grand Prize recipe to prevent research drift.
+- **Working ink detector** (`vesuvius_autoresearch.detector`): the proven 2023 Grand-Prize TimeSformer recipe, productionized and tested, with a one-command `reproduce`. (A full-resolution ResEncUNet alternative was built and *underperformed* it under our recipe — documented, not discarded.)
+- **Honest metric contract** (`detector/metrics.py` + `measure` CLI): threshold-swept F1 primary; average precision + AP-prevalence-lift as imbalance-robust gates; ROC-AUC secondary. The inherited `skeleton_distance_length` "prize gate" was **removed after we proved it invalid** (location-blind; probe included).
+- **SOTA open-data tooling + distillation** (`repro/sota_data/`): anonymous-S3 access to `s3://vesuvius-challenge-open-data/`, OME-Zarr extraction, and a teacher–student distillation pipeline onto the newly-open SOTA surface volumes.
+- **Autonomous Research Loop:** samples a multidimensional configuration space (architectures, loss functions, augmentations) under fixed time budgets, with per-cycle preflight gates.
+- **On-the-fly Multi-tasking:** real-time 3D Structure Tensor and Ridge Map computation for rich structural supervision.
+- **Calibration Baselines:** periodic re-evaluation against the fixed 2023 Grand Prize recipe to prevent research drift.
 
 ## Quick start
 
@@ -86,10 +87,14 @@ uv run python scripts/validate_prize_artifact.py --metadata submission_package_d
 ## Project structure
 
 ```
+src/vesuvius_autoresearch/detector/ — the productionized ink detector (train/infer/eval/metrics/measure CLI)
+repro/sota_data/         — SOTA open-data tooling: S3 discover/fetch, OME-Zarr convert, distillation pipeline
+repro/gp_winner/, repro/ink_segformer/ — replication studies (2023 GP recipe; 224px SegFormer)
 run_autoresearch_loop.py — autonomous experimentation manager (day/night shifts)
-scripts/training/train.py — main training loop and evaluation
+scripts/training/train.py — the loop's training and evaluation
 src/vesuvius_autoresearch/core/vesuvius_loader.py — data loading, ridge computation
-vesuvius_model.py        — model architectures (ResEnc-UNet, GatedUNet, TimeSformer, ...)
+src/vesuvius_autoresearch/fibers/ — GPU fiber/ridge/vesselness detection
+vesuvius_model.py        — the loop's architecture zoo (ResEnc-UNet, GatedUNet, TimeSformer, ...)
 scroll_augmentations.py  — scroll-specific augmentations (decohesion, squeeze, z-dropout, ...)
 scripts/                 — inference, labeling, evaluation, and prize-packaging tools
 docs/program.md          — agent instructions

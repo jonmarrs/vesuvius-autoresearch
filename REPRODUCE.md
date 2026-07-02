@@ -46,17 +46,61 @@ Skipped (optional capabilities, by design — not failures):
 - `augmentations_bg2` — requires the optional villa `create_training_transforms`
   augmentation, which is not installed in the base environment.
 
-## 4. Inspect the logged search results
+## 4. Detector unit tests (CPU)
+
+The productionized detector and the SOTA tooling ship their own suites:
 
 ```bash
-column -t -s$'\t' results.tsv | less   # 17 logged cycles
+CUDA_VISIBLE_DEVICES="" uv run python -m pytest tests/test_detector_*.py -q   # 29 passed (2026-07-01)
+CUDA_VISIBLE_DEVICES="" uv run python -m pytest tests/test_sota_*.py -q      # 17 passed (2026-07-02)
 ```
 
-`val_bpb` (held-out cross-fragment validation, lower is better) over the logged run:
-first cycle **0.4136** → best **0.4123**. Topological `centerline_dice` ≈ 0.07–0.10.
-These are the real numbers; see `SUBMISSION.md` → Results for interpretation.
+## 5. Reproduce the working detector (GPU, ~hours)
 
-## 5. Run the loop (optional, long-running)
+Trains the proven TimeSformer recipe on `PHercParis2Fr47`, evaluates held-out
+`PHercParis2Fr143`, and asserts the result:
+
+```bash
+uv run python -m vesuvius_autoresearch.detector.cli reproduce
+```
+
+Reproduced 2026-06-29 (best epoch by held-out selection: ROC-AUC 0.709; under the
+community contract `val_f1` 0.393 / prevalence-lift 2.07 — see
+`reports/detector/REPRODUCTION.md`). Cross-fragment measurement of any checkpoint:
+
+```bash
+uv run python -m vesuvius_autoresearch.detector.cli measure --checkpoint <ckpt>
+```
+
+Reproduced 2026-06-30 (`reports/detector/cross_scroll_measurement.md`).
+
+## 6. SOTA distillation (network + GPU, ~hours)
+
+End-to-end against the open bucket (`s3://vesuvius-challenge-open-data/`, anonymous —
+no credentials required). Run the subcommands in order:
+
+```bash
+uv run python -m repro.sota_data.distill_run prep      # fetch teachers + extract regions
+uv run python -m repro.sota_data.distill_run baseline  # chance-floor baseline (GPU)
+uv run python -m repro.sota_data.distill_run train     # ~10 h on an RTX 4090
+uv run python -m repro.sota_data.distill_run measure   # best epoch + report + renders
+```
+
+Reproduced 2026-07-02: held-out agreement-with-teacher `val_f1` 0.372 → 0.662,
+lift 0.98 → 3.24 (`reports/detector/sota_distill_measurement.md`). All metrics are
+agreement with the released canon predictions, not ground-truth accuracy.
+
+## 7. Inspect the loop's logged search results
+
+```bash
+column -t -s$'\t' results.tsv | less
+```
+
+The loop's `val_bpb` history is retained for provenance; note that `val_bpb` was
+demonstrated to be a weak discriminator (see `FINDINGS.md`) — the honest numbers are
+the detector reports above.
+
+## 8. Run the loop (optional, long-running)
 
 ```bash
 uv run run_autoresearch_loop.py
