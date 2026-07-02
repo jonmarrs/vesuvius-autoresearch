@@ -87,3 +87,19 @@ def test_convert_float32_tiff_layers(tmp_path):
     layer_17 = tifffile.imread(os.path.join(out, "layers", "17.tif"))
     assert layer_17.dtype == np.uint8, f"Expected uint8, got {layer_17.dtype}"
     assert layer_17.max() > 0, "Output layer should not be all zeros"
+
+
+def test_to_uint8_rejects_unexpected_int_dtype():
+    from repro.sota_data.convert import to_uint8
+    with pytest.raises(ValueError, match="dtype"):
+        to_uint8(np.zeros((4, 4), np.int32))
+
+
+def test_convert_unreadable_label_raises(tmp_path):
+    src = _make_src(str(tmp_path / "src"), "segE")
+    # corrupt the label file so cv2.imread returns None
+    with open(os.path.join(str(tmp_path / "src"), "segE", "segE_inklabels.png"), "wb") as f:
+        f.write(b"not a png")
+    with pytest.raises(ValueError, match="label"):
+        convert_surface_volume(os.path.join(str(tmp_path / "src"), "segE"), "segE",
+                               str(tmp_path / "out"))

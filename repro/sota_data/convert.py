@@ -10,17 +10,26 @@ import numpy as np
 import tifffile
 
 
+def to_uint8(arr):
+    """Scale an array to uint8: uint8 pass-through, uint16 via //256, floats scaled from
+    [0,1] when needed. Any other dtype is an error (loud, not silent wraparound)."""
+    arr = np.asarray(arr)
+    if arr.dtype == np.uint8:
+        return arr
+    if arr.dtype == np.uint16:
+        return (arr // 256).astype(np.uint8)
+    if np.issubdtype(arr.dtype, np.floating):
+        if float(arr.max()) <= 1.0:
+            arr = arr * 255.0
+        return np.clip(arr, 0, 255).astype(np.uint8)
+    raise ValueError(f"unsupported dtype {arr.dtype}; expected uint8/uint16/float")
+
+
 def _read_8bit(path):
     arr = tifffile.imread(path)
     if arr.ndim == 3:
         arr = arr[..., 0]
-    if arr.dtype == np.uint16:
-        arr = (arr // 256).astype(np.uint8)
-    elif np.issubdtype(arr.dtype, np.floating):
-        if float(arr.max()) <= 1.0:
-            arr = arr * 255.0
-        arr = np.clip(arr, 0, 255).astype(np.uint8)
-    return arr.astype(np.uint8)
+    return to_uint8(arr)
 
 
 def convert_surface_volume(src_dir, seg_id, out_root, n_layers=26, start_idx=17):
@@ -44,6 +53,8 @@ def convert_surface_volume(src_dir, seg_id, out_root, n_layers=26, start_idx=17)
     if not ink_files:
         raise ValueError(f"{seg_id}: no *inklabels* file in {src_dir}")
     label = cv2.imread(ink_files[0], 0)
+    if label is None:
+        raise ValueError(f"{seg_id}: label file unreadable: {ink_files[0]}")
     lh, lw = label.shape
     if abs(lh - h) / h > 0.2 or abs(lw - w) / w > 0.2:
         raise ValueError(

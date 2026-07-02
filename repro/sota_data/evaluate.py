@@ -40,7 +40,8 @@ def evaluate_segment(seg_id, data_root="local_data/sota_scroll1",
     with open("reports/detector/sota_scroll1_measurement.md", "w") as f:
         f.write("\n".join(lines) + "\n")
     with open("reports/detector/sota_scroll1_measurement.json", "w") as f:
-        json.dump({"segment": seg_id, "sota": m, "baseline": BASELINE}, f, indent=2)
+        json.dump({"segment": seg_id, "sota": m, "baseline": BASELINE}, f, indent=2,
+                  default=float)
     print(f"SOTA {seg_id}: val_f1={m.get('val_f1', float('nan')):.4f} ap={m.get('average_precision', float('nan')):.4f} "
           f"lift={m.get('ap_prevalence_lift', float('nan')):.4f} (old baseline val_f1={BASELINE['val_f1']})",
           flush=True)

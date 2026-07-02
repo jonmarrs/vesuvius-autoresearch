@@ -28,3 +28,12 @@ def test_write_fragment_layout(tmp_path):
     assert names == [f"{i:02d}.tif" for i in range(17, 43)]
     assert os.path.exists(os.path.join(out, "segX_inklabels.png"))
     assert os.path.exists(os.path.join(out, "segX_mask.png"))
+
+
+def test_write_fragment_scales_uint16(tmp_path):
+    import tifffile
+    layers = (np.random.rand(26, 32, 32) * 60000).astype(np.uint16)
+    out = write_fragment(layers, str(tmp_path), "segU16")
+    img = tifffile.imread(os.path.join(out, "layers", "17.tif"))
+    assert img.dtype == np.uint8
+    assert img.max() > 50  # range-scaled, not clipped to near-black

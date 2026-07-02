@@ -9,6 +9,8 @@ import cv2
 import numpy as np
 import tifffile
 
+from .convert import to_uint8
+
 
 def region_to_layers(vol, n_layers=26, z_center=None):
     """vol: (D, H, W) array-like. Return the centered n_layers depth window (n_layers, H, W)."""
@@ -28,9 +30,7 @@ def write_fragment(layers, out_root, seg_id, start_idx=17):
     out_layers = os.path.join(out_seg, "layers")
     os.makedirs(out_layers, exist_ok=True)
     for k in range(layers.shape[0]):
-        arr = layers[k]
-        if arr.dtype != np.uint8:
-            arr = np.clip(arr, 0, 255).astype(np.uint8)
+        arr = to_uint8(layers[k])
         tifffile.imwrite(os.path.join(out_layers, f"{start_idx + k:02d}.tif"), arr)
     h, w = layers.shape[1], layers.shape[2]
     cv2.imwrite(os.path.join(out_seg, f"{seg_id}_inklabels.png"), np.zeros((h, w), np.uint8))
