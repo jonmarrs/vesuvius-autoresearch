@@ -76,11 +76,18 @@ def extract_region(seg, y0, x0, size=SIZE):
 
 def cmd_prep():
     targets = list(TRAIN_SEGS.items()) + [(HELD_SEG, [HELD_REGION])]
+    provenance = {}
     for seg, regions in targets:
         tpath = fetch_teacher(seg)
         teacher_full = tifffile.imread(tpath)
         print(f"{seg}: teacher shape={teacher_full.shape} dtype={teacher_full.dtype} "
               f"range=[{teacher_full.min()},{teacher_full.max()}]", flush=True)
+        provenance[seg] = {
+            "shape": list(teacher_full.shape),
+            "dtype": str(teacher_full.dtype),
+            "min": int(teacher_full.min()),
+            "max": int(teacher_full.max()),
+        }
         for (y0, x0) in regions:
             region, level_shape, box = extract_region(seg, y0, x0)
             t_region = teacher_region_for(teacher_full, level_shape, box)
@@ -88,6 +95,14 @@ def cmd_prep():
             out = prep_distill_fragment(region, t_region, DATA_ROOT, fid)
             lab = cv2.imread(os.path.join(out, f"{fid}_inklabels.png"), 0)
             print(f"prepped {out} teacher-positive={float((lab > 0).mean()):.3f}", flush=True)
+    os.makedirs(DATA_ROOT, exist_ok=True)
+    with open(os.path.join(DATA_ROOT, "teacher_provenance.json"), "w") as f:
+        json.dump({
+            "binarize_threshold": 128,
+            "note": "teacher = released canon model prediction, binarized at >=128 "
+                    "after uint8 scaling; NOT ground truth",
+            "teachers": provenance,
+        }, f, indent=2)
 
 
 def _measure(ckpt, fid):
@@ -132,6 +147,11 @@ def cmd_measure():
         raise ValueError(f"{BASELINE_JSON} missing; run the baseline step first")
     with open(BASELINE_JSON) as f:
         baseline = json.load(f)["vs_teacher"]
+    prov_path = os.path.join(DATA_ROOT, "teacher_provenance.json")
+    prov = None
+    if os.path.exists(prov_path):
+        with open(prov_path) as f:
+            prov = json.load(f)
     ckpts = sorted(glob.glob(os.path.join(MODEL_DIR, "detector_epoch=*.ckpt")),
                    key=lambda p: int(p.split("epoch=")[1].split(".")[0]))
     if not ckpts:
@@ -155,7 +175,19 @@ def cmd_measure():
         "reports/detector/sota_distill_teacher.png")
     lines = ["# Distilled detector vs teacher (held-out SOTA segment region)", "",
              "**All metrics are agreement-with-teacher (the released canon prediction), "
-             "NOT ground-truth accuracy.**", "",
+             "NOT ground-truth accuracy.**", ""]
+    if prov is not None:
+        lines += [
+            "Teacher provenance: " + "; ".join(
+                f"`{s}` {p['dtype']} range [{p['min']},{p['max']}]"
+                for s, p in prov["teachers"].items())
+            + f". Labels binarized at >= {prov['binarize_threshold']} after uint8 scaling.",
+            "",
+            "Note: the held-out region also serves as the best-epoch selection set; "
+            "AP and roc_auc are threshold-free and unaffected by threshold tuning.",
+            "",
+        ]
+    lines += [
              f"Held-out: `{fid}`  |  best student ckpt: `{os.path.basename(ck)}`", "",
              "| model | " + " | ".join(COLS) + " |",
              "|---|" + "|".join(["---"] * len(COLS)) + "|",
@@ -169,7 +201,8 @@ def cmd_measure():
         f.write("\n".join(lines) + "\n")
     with open(REPORT_JSON, "w") as f:
         json.dump({"fragment": fid, "best_checkpoint": os.path.basename(ck),
-                   "baseline_vs_teacher": baseline, "distilled_vs_teacher": m},
+                   "baseline_vs_teacher": baseline, "distilled_vs_teacher": m,
+                   "teacher_provenance": prov},
                   f, indent=2, default=float)
     print(f"DISTILLED vs teacher: val_f1={m.get('val_f1', float('nan')):.4f} "
           f"(baseline {baseline.get('val_f1', float('nan')):.4f})", flush=True)

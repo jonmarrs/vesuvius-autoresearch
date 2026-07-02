@@ -28,5 +28,29 @@
     "average_precision": 0.7416611077075371,
     "ap_prevalence_lift": 3.241913486540614,
     "roc_auc": 0.8652055092604742
+  },
+  "teacher_provenance": {
+    "binarize_threshold": 128,
+    "note": "teacher = released canon model prediction, binarized at >=128 after uint8 scaling; NOT ground truth",
+    "teachers": {
+      "20230702185753": {
+        "shape": [50600, 36400],
+        "dtype": "uint8",
+        "min": 0,
+        "max": 248
+      },
+      "20231005123336": {
+        "shape": [34880, 97280],
+        "dtype": "uint8",
+        "min": 0,
+        "max": 250
+      },
+      "20231210121321": {
+        "shape": [51000, 39980],
+        "dtype": "uint8",
+        "min": 0,
+        "max": 247
+      }
+    }
   }
 }
