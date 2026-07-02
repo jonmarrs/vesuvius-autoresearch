@@ -2,9 +2,28 @@
 
 ## Goal
 
-Automate the search for good 3D ink-detection configurations on the Vesuvius
-Challenge, with every result gated by reproducible evidence rather than ad-hoc
-judgement.
+Produce honest, reproducible ink-detection results on the Vesuvius Challenge with
+every claim gated by evidence rather than ad-hoc judgement. Two strands: a
+**productionized detector pipeline** (replication → measurement → distillation onto
+the open SOTA data) and an **autonomous search loop** over training configurations.
+
+## Detector pipeline (2026-06/07)
+
+1. **Replicate the proven reference.** The 2023 Grand-Prize TimeSformer recipe was
+   replicated end-to-end (vendored scripts), then re-trained from scratch on our own
+   fragments to verify environment, data, and recipe independently (held-out ROC-AUC
+   0.905 on reference segments; 0.711 on our Fr47→Fr143 split).
+2. **Productionize.** The recipe became the tested `vesuvius_autoresearch.detector`
+   subpackage (config/data/model/train/infer/eval/cli, one-command `reproduce`),
+   with each defect found on the way (inference normalization, checkpoint loading,
+   shape alignment) fixed under a regression test.
+3. **Measure under the community contract** (below), same-scroll and cross-scroll.
+4. **Distill onto the open SOTA data.** With no ground-truth labels aligned to the
+   re-flattened SOTA surface volumes, the recipe is trained against the released
+   canon ink predictions (teacher–student distillation): disjoint train/held-out
+   segments, a chance-floor baseline measured first, teacher provenance
+   (dtype/range/threshold) persisted, and every metric labeled
+   *agreement-with-teacher* — never ground-truth accuracy.
 
 ## Search loop
 
@@ -30,26 +49,45 @@ Each cycle of `run_autoresearch_loop.py`:
 
 ## Evaluation metrics
 
-- **`centerline_dice`** (primary selection signal) and **`skeleton_distance_length`** —
-  topological scores that reward correct fiber/stroke structure, not just pixel
-  overlap. Evaluated at the topology-optimal binarization threshold (the
-  Dice-optimal threshold understates them ~2×). Integrated from the Villa metrics
-  suite (see `CREDITS.md`).
-- **`val_bpb`** — bits-per-byte on held-out cross-fragment validation (lower is
-  better); a guard rail with a noise tolerance, not the sole objective. A lower
-  `val_bpb` only counts as an improvement if topology does not regress.
+The **community metric contract** (`detector/metrics.py`), used for all detector and
+distillation results — mask-restricted and pooled over the fragment:
+
+- **`val_f1`** (threshold-swept F1; = Dice for binary) — primary, with the fixed-0.5
+  counterpart `f1_at_0.5` reported alongside.
+- **`average_precision`** (PR-AUC) and **`ap_prevalence_lift`** (AP ÷ label prevalence;
+  ≈1 ⇒ chance) — the imbalance-robust honesty gates. A paint-everything predictor is
+  not rewarded.
+- **ROC-AUC** — secondary diagnostic only, never an optimization target (it is
+  over-optimistic under class imbalance).
+- **`centerline_dice`** — topological score, evaluated at the topology-optimal
+  binarization threshold (the Dice-optimal threshold understates it ~2×).
+- **Removed: `skeleton_distance_length`.** Formerly used as a selection signal and a
+  "prize gate" (≤ 2.0); we proved it invalid for ink detection — it compares skeleton
+  branch-length *histograms* and is blind to spatial location (a zero-overlap
+  prediction scores 0.0 and passes). Probe: `scripts/probe_skel_dist_validity.py`.
+- **`val_bpb`** — the loop's historic gate (bits-per-byte on held-out validation);
+  retained as a guard rail for the loop, but demonstrated to be a weak discriminator
+  (see `FINDINGS.md`), which is why the contract above exists.
 
 ## Constraints honored
 
-- **ML window ≤ 0.5×0.5 mm** — all outputs use `patch_size=64` (64×64 at 8 µm),
-  within the Challenge's hallucination-mitigation cap.
-- **No train/predict overlap** — training and validation use disjoint fragments.
+- **ML window ≤ 64×64 px lateral at ~8 µm** — within the Challenge's
+  hallucination-mitigation cap; depth (through-surface slices) is not subject to the
+  lateral limit.
+- **No train/predict overlap** — training and validation use disjoint fragments; the
+  distillation run uses disjoint *segments* (verified in review).
+- **No fabricated ground truth** — where no aligned ground-truth label exists (the
+  open SOTA data), results are labeled agreement-with-teacher or reported
+  qualitatively; we do not score against misaligned labels.
 
 ## Honest scope
 
-This is research tooling. The loop's selection mechanism works as intended
-(topology-first keep-if-better), and `centerline_dice` has climbed from 0.198 to
-~0.30 this cycle window, but absolute performance remains mediocre and
-`skeleton_distance_length` shows large remaining headroom (see `FINDINGS.md`).
-The contribution offered here is the reproducible, evidence-gated search process,
-not a state-of-the-art detector.
+This is research tooling plus a working-but-not-legible detector, stated plainly:
+same-scroll detection at the prize window is real (`val_f1` 0.393 / lift 2.07);
+cross-scroll transfer without retraining is weak (lift 1.29) — the quantified open
+problem; the SOTA-distilled model (`val_f1` 0.662 / lift 3.24 *vs teacher*) shows the
+open data + distillation closing that gap on one GPU. The loop's own from-scratch
+stack remains at the chance floor, with the full diagnosis (and every negative
+result) in `FINDINGS.md`. The contribution offered is the reproducible,
+evidence-gated process and the honest measurement discipline — not a
+state-of-the-art model claim.

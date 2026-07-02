@@ -5,12 +5,11 @@
 
 <!--
 REVIEW BEFORE FILING (internal note, delete before submitting):
-- Verify the current month's form URL + deadline in villa/scrollprize.org/docs/34_prizes.md
-  (the old forms.gle/... link is stale; next deadline is 2026-06-30 11:59pm PT).
-- Do NOT paste any val_bpb improvement number here unless you have re-derived it
-  from a clean run of results.tsv. The earlier "0.274 -> 0.087" claim is unverified
-  and was removed for that reason. Insert a verified figure or leave the qualitative
-  framing below.
+- The live monthly filing text is docs/PRIZE_FILING_DRAFT_2026-07.md (deadline
+  2026-07-31 11:59pm PT); this file is the repo-level summary and must stay
+  consistent with it. Verify the current form URL in
+  villa/scrollprize.org/docs/34_prizes.md before filing.
+- Refresh all numbers against the latest committed reports under reports/detector/.
 - Record a short walkthrough (setup + one cycle) and link it where marked.
 -->
 
@@ -38,15 +37,24 @@ the date only as factual provenance; the work stands on its own evidence.
 
 ## What it does that's distinctive
 
-- **Grand-Prize-lineage architectures:** native TimeSformer, ResNet3D-101, and
-  Inception-I3D paths alongside a gated UNet-transformer, selectable per cycle.
-- **Topological evaluation:** models are scored with `centerline_dice` and
-  `skeleton_distance_length`, not just pixel overlap.
-- **Multi-task supervision:** on-the-fly 3D structure-tensor and ridge/fiber targets.
-- **Calibration baseline:** periodic re-evaluation against a fixed reference recipe
-  to detect research drift.
-- **Reproducibility/safety gates:** preflight smoke test per cycle, plus local
-  validators for scale-bar, provenance, ML-window, and train/predict-overlap rules.
+- **A working, reproducible ink detector** (`vesuvius_autoresearch.detector`): the proven
+  2023 Grand-Prize TimeSformer recipe productionized with a one-command `reproduce` —
+  held-out same-scroll `val_f1` 0.393 / prevalence-lift 2.07 (ROC-AUC 0.709) at the
+  prize-compliant 64 px window. See `reports/detector/REPRODUCTION.md`.
+- **Honest metrics as a contract** (`detector/metrics.py` + `measure` CLI): threshold-swept
+  F1 primary, average precision + AP-prevalence-lift as imbalance-robust gates, ROC-AUC
+  secondary — plus the first valid cross-scroll measurement with it (lift 2.07 same-scroll
+  → 1.29 cross-scroll). An inherited `skeleton_distance_length` "prize gate" was **removed
+  after we proved it invalid** (location-blind; probe script included).
+- **SOTA open-data tooling + distillation** (`repro/sota_data/`): anonymous-S3 discovery/
+  fetch/conversion for `s3://vesuvius-challenge-open-data/`, a documented survey of what the
+  bucket ships (no ground-truth labels aligned to the new re-flattening), and a
+  teacher–student distillation pipeline that lifts held-out agreement-with-teacher from the
+  chance floor to `val_f1` 0.662 / lift 3.24 on one GPU.
+- **The autonomous loop:** Grand-Prize-lineage architectures (TimeSformer, ResNet3D-101,
+  Inception-I3D, gated UNet-transformer) selectable per cycle, multi-task supervision
+  (structure-tensor and ridge/fiber targets), calibration baselines, and per-cycle
+  preflight smoke tests plus validators for ML-window and train/predict-overlap rules.
 
 ## Quick start
 
@@ -64,20 +72,24 @@ A short walkthrough (setup + one cycle): _[link to be added before filing]_.
 
 ## Results
 
-This submission is about the **search-and-evaluation tooling**, not a
-breakthrough detector — and the included evidence is reported honestly.
+This submission is about **honest, reproducible tooling** — and, as of July 2026, a
+working detector built with it. All numbers below are from committed reports
+(`reports/detector/`), reproducible from public data on a single RTX 4090:
 
-The 17 logged cycles in `results.tsv` show the loop's selection mechanism working
-as designed: cross-fragment validation `val_bpb` improves monotonically under the
-keep-only-if-better rule, from **0.4136** (first cycle) to **0.4123** (best). That
-is a small gain — the point demonstrated is the reproducible, evidence-gated search
-process, not a strong ink model. Topological scores over the same run
-(`centerline_dice` ≈ 0.07–0.10) confirm there is substantial headroom; these
-numbers are included precisely so reviewers can see the real state.
+| Result (held-out) | val_f1 | AP | prevalence-lift | ROC-AUC |
+| --- | --- | --- | --- | --- |
+| Detector, same-scroll (Fr47→Fr143) | 0.393 | 0.357 | 2.07 | 0.709 |
+| Detector, cross-scroll (→Scroll 1) | 0.222 | 0.144 | 1.29 | 0.585 |
+| SOTA-distilled student (vs teacher)* | 0.662 | 0.742 | 3.24 | 0.865 |
 
-Reviewers can reproduce the table directly from `results.tsv` and the included
-configs; the best checkpoint is published at
-`huggingface.co/jonmarrs/vesuvius-autoresearch`.
+\* Distillation numbers are **agreement with the released canon predictions** (a model
+output), not ground-truth accuracy — no ground-truth labels aligned to the SOTA
+re-flattening are released; this is stated in the report itself. The cross-scroll row
+quantifies the field's central generalization gap; the distilled row shows the SOTA
+data + distillation closing it on consumer hardware, with the repo's first
+letterform-shaped output. Negative results (a full-resolution ResEncUNet that
+underperformed; earlier loop-era chance-floor results and their diagnosis) are kept in
+`FINDINGS.md` — reviewers can see the real state, including what did not work.
 
 ## Built on Villa
 
