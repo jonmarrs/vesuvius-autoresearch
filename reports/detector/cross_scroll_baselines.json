@@ -35,5 +35,6 @@
         "roc_auc": 0.5512290543139754
       }
     }
-  }
+  },
+  "note": "All metrics are agreement-with-teacher (released canon predictions), NOT ground-truth accuracy."
 }

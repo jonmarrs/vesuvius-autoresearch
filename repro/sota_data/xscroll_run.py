@@ -85,7 +85,10 @@ def cmd_baselines():
               f"lift={m.get('ap_prevalence_lift', float('nan')):.4f}", flush=True)
     os.makedirs("reports/detector", exist_ok=True)
     with open(BASELINES_JSON, "w") as f:
-        json.dump({"fragment": held_fid, "arms": rows}, f, indent=2, default=float)
+        json.dump({"fragment": held_fid, "arms": rows,
+                   "note": "All metrics are agreement-with-teacher (released canon "
+                           "predictions), NOT ground-truth accuracy."},
+                  f, indent=2, default=float)
 
 
 def cmd_train():

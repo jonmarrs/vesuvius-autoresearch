@@ -1,6 +1,6 @@
 # Cross-scroll distillation: diversity experiment (held-out PHerc 1667)
 
-**All metrics are agreement-with-teacher (the released canon predictions), NOT ground-truth accuracy.** No arm trained on any PHerc-1667 data. Arms A and B use the same 4-region training budget; training-scroll diversity is the only variable. The held-out region also serves as arm B's best-epoch selection set (AP and roc_auc are threshold-free).
+**All metrics are agreement-with-teacher (the released canon predictions), NOT ground-truth accuracy.** No arm trained on any PHerc-1667 data. Arms A and B use the same 4-region training budget (region *count* held constant; sampling layout differs: A = 2 segments x 2 regions on one scroll, B = 4 segments x 1 region across two scrolls). Caveat: the held-out region also serves as **arm B's** best-epoch selection set, an advantage arms A and the legacy baseline do not get — so the most robust comparison is **arm B vs the legacy baseline** (AP-lift 2.12 vs 1.47, roc_auc 0.689 vs 0.591), which needs no selection asymmetry to hold. AP and roc_auc are threshold-free.
 
 Teacher provenance: `scroll1/20230702185753` uint8 range [0,248]; `scroll1/20231005123336` uint8 range [0,250]; `pherc0139/20250108000000-w025_2025010863` uint8 range [0,245]; `pherc0139/20250108000001-w026_2025010854` uint8 range [0,246]; `pherc1667/20240304141531-w013_20240304141531_flatboi` uint8 range [0,245]; `pherc0139/20250108000002-w027_2025010845` uint8 range [0,244]. Labels binarized at >= 128 after uint8 scaling.
 
