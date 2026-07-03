@@ -36,10 +36,10 @@ SECONDARY_0139_HELD = ("pherc0139", "20250108000002-w027_2025010845", 1500, 1500
 # Arm C (capability run): 3 scrolls x 2 regions. Differs from arm B in BOTH diversity
 # (+pherc0172) and volume (6 vs 4 regions) -- stated in the report.
 TRAIN_C = TRAIN + [
-    ("pherc0172", "20250917143559-w062_20250917143559205_flatboi", 4000, 2500),
-    ("pherc0172", "20250926112011-w078_20250926112011918_flatboi", 4000, 2500),
+    ("pherc0172", "20250917143559-w062_20250917143559205_flatboi", 0, 0),
+    ("pherc0172", "20250926112011-w078_20250926112011918_flatboi", 0, 0),
 ]
-SECONDARY_0172_HELD = ("pherc0172", "20250926113336-w079_20250926113336891_flatboi", 4000, 2500)
+SECONDARY_0172_HELD = ("pherc0172", "20250926113336-w079_20250926113336891_flatboi", 0, 0)
 MODEL_DIR_C = "models/detector_xscroll_c"
 SCALE_REPORT_MD = "reports/detector/cross_scroll_scale.md"
 SCALE_REPORT_JSON = "reports/detector/cross_scroll_scale.json"

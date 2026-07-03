@@ -72,3 +72,12 @@ def test_prep_accepts_uniform_scale_teacher(tmp_path):
     lab = cv2.imread(os.path.join(out, "segS_y0_x0_inklabels.png"), 0)
     assert lab.shape == (64, 64)
     assert lab[32, 32] == 255 and lab[0, 0] == 0  # scaled + binarized correctly
+
+
+def test_prep_empty_region_raises(tmp_path):
+    # A region offset outside the segment extent yields a zero-height region; that must
+    # be a loud ValueError, not a ZeroDivisionError (seen live on small PHerc0172 segs).
+    layers = np.zeros((26, 0, 4096), np.uint8)
+    teacher = np.zeros((64, 64), np.uint8)
+    with pytest.raises(ValueError, match="empty region"):
+        prep_distill_fragment(layers, teacher, str(tmp_path), "segE_y9999_x0")

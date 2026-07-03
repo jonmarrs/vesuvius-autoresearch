@@ -31,6 +31,10 @@ def prep_distill_fragment(
 ):
     region_layers = np.asarray(region_layers)
     h, w = region_layers.shape[1], region_layers.shape[2]
+    if h == 0 or w == 0:
+        raise ValueError(
+            f"{frag_id}: empty region {region_layers.shape} -- the region offset likely "
+            "falls outside the segment's extent; adjust y0/x0")
     t = np.asarray(teacher_region)
     if t.ndim == 3:
         t = t[..., 0]
