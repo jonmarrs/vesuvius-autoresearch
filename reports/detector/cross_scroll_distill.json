@@ -1,0 +1,152 @@
+{
+  "held_out": "pherc1667_20240304141531-w013_20240304141531_flatboi_y4000_x2500",
+  "armB_best_checkpoint": "detector_epoch=7.ckpt",
+  "on_held_1667": {
+    "baseline": {
+      "positive_rate": 0.10003966093063354,
+      "n_pixels": 16777216,
+      "val_f1": 0.20549514937752758,
+      "best_threshold": 0.5499999999999999,
+      "f1_at_0.5": 0.20346245478199462,
+      "val_f05": 0.17490442030476083,
+      "precision": 0.13332466879875685,
+      "recall": 0.4480081173174006,
+      "pred_positive_rate": 0.33616119623184204,
+      "average_precision": 0.14676525042354846,
+      "ap_prevalence_lift": 1.4670706503624993,
+      "roc_auc": 0.5909373567390032
+    },
+    "armA": {
+      "positive_rate": 0.10003966093063354,
+      "n_pixels": 16777216,
+      "val_f1": 0.19247284823688293,
+      "best_threshold": 0.44999999999999996,
+      "f1_at_0.5": 0.19032771805008117,
+      "val_f05": 0.15213599383072834,
+      "precision": 0.12585662252420732,
+      "recall": 0.4089098640539995,
+      "pred_positive_rate": 0.32503020763397217,
+      "average_precision": 0.12166428611151554,
+      "ap_prevalence_lift": 1.2161605205347137,
+      "roc_auc": 0.5512290543139754
+    },
+    "armB": {
+      "positive_rate": 0.10003966093063354,
+      "n_pixels": 16777216,
+      "val_f1": 0.2781411863040736,
+      "best_threshold": 0.6,
+      "f1_at_0.5": 0.274811757561126,
+      "val_f05": 0.2558215780942994,
+      "precision": 0.20892007750604114,
+      "recall": 0.4159606812969834,
+      "pred_positive_rate": 0.19917935132980347,
+      "average_precision": 0.21185919196040523,
+      "ap_prevalence_lift": 2.117751999452559,
+      "roc_auc": 0.6890210427180459
+    }
+  },
+  "secondary": {
+    "armB_on_held0139": {
+      "positive_rate": 0.039965152740478516,
+      "n_pixels": 16777216,
+      "val_f1": 0.26248471971709414,
+      "best_threshold": 0.75,
+      "f1_at_0.5": 0.22745534705448747,
+      "val_f05": 0.3217277468519251,
+      "precision": 0.28246154586400013,
+      "recall": 0.24514693424647727,
+      "pred_positive_rate": 0.03468555212020874,
+      "average_precision": 0.22608350624101495,
+      "ap_prevalence_lift": 5.657015943592962,
+      "roc_auc": 0.7495678141315627
+    },
+    "armB_on_heldScroll1_phase2": {
+      "positive_rate": 0.22877264022827148,
+      "n_pixels": 16777216,
+      "val_f1": 0.5883673380054778,
+      "best_threshold": 0.44999999999999996,
+      "f1_at_0.5": 0.5863221774290118,
+      "val_f05": 0.6136959584723767,
+      "precision": 0.5529673714620331,
+      "recall": 0.6286097950897407,
+      "pred_positive_rate": 0.26006728410720825,
+      "average_precision": 0.6450233399986172,
+      "ap_prevalence_lift": 2.819495108134464,
+      "roc_auc": 0.8201665739764294
+    },
+    "armA_on_heldScroll1_phase2": {
+      "positive_rate": 0.22877264022827148,
+      "n_pixels": 16777216,
+      "val_f1": 0.6616237846641407,
+      "best_threshold": 0.44999999999999996,
+      "f1_at_0.5": 0.6583007749395675,
+      "val_f05": 0.7107063462744189,
+      "precision": 0.6585900479439253,
+      "recall": 0.6646856000050024,
+      "pred_positive_rate": 0.23089003562927246,
+      "average_precision": 0.7416611077075371,
+      "ap_prevalence_lift": 3.241913486540614,
+      "roc_auc": 0.8652055092604742
+    }
+  },
+  "teacher_provenance": {
+    "binarize_threshold": 128,
+    "note": "teacher = released canon model prediction, binarized at >=128 after uint8 scaling; NOT ground truth",
+    "teachers": {
+      "scroll1/20230702185753": {
+        "shape": [
+          50600,
+          36400
+        ],
+        "dtype": "uint8",
+        "min": 0,
+        "max": 248
+      },
+      "scroll1/20231005123336": {
+        "shape": [
+          34880,
+          97280
+        ],
+        "dtype": "uint8",
+        "min": 0,
+        "max": 250
+      },
+      "pherc0139/20250108000000-w025_2025010863": {
+        "shape": [
+          28320,
+          26480
+        ],
+        "dtype": "uint8",
+        "min": 0,
+        "max": 245
+      },
+      "pherc0139/20250108000001-w026_2025010854": {
+        "shape": [
+          28960,
+          28480
+        ],
+        "dtype": "uint8",
+        "min": 0,
+        "max": 246
+      },
+      "pherc1667/20240304141531-w013_20240304141531_flatboi": {
+        "shape": [
+          41600,
+          79600
+        ],
+        "dtype": "uint8",
+        "min": 0,
+        "max": 245
+      },
+      "pherc0139/20250108000002-w027_2025010845": {
+        "shape": [
+          28480,
+          28400
+        ],
+        "dtype": "uint8",
+        "min": 0,
+        "max": 244
+      }
+    }
+  }
+}
