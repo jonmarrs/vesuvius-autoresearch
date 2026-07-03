@@ -22,6 +22,7 @@ SCROLLS = {
     "scroll1": "PHercParis4",
     "pherc0139": "PHerc0139",
     "pherc1667": "PHerc1667",
+    "pherc0172": "PHerc0172",
 }
 
 

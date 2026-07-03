@@ -9,7 +9,7 @@ from repro.sota_data.distill_run import BUCKET, SCROLLS, _scroll_prefix, xfrag_i
 
 def test_scroll_registry_keys():
     assert SCROLLS == {"scroll1": "PHercParis4", "pherc0139": "PHerc0139",
-                       "pherc1667": "PHerc1667"}
+                       "pherc1667": "PHerc1667", "pherc0172": "PHerc0172"}
 
 
 def test_scroll_prefix_builds_bucket_paths():
@@ -19,6 +19,8 @@ def test_scroll_prefix_builds_bucket_paths():
         f"{BUCKET}/PHerc0139/segments/segB/surface-volumes"
     assert _scroll_prefix("pherc1667", "segC", "surface-volumes") == \
         f"{BUCKET}/PHerc1667/segments/segC/surface-volumes"
+    assert _scroll_prefix("pherc0172", "segD", "ink-detection") == \
+        f"{BUCKET}/PHerc0172/segments/segD/ink-detection"
 
 
 def test_scroll_prefix_unknown_key_raises():

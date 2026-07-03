@@ -33,6 +33,17 @@ TRAIN = [
 HELD = ("pherc1667", "20240304141531-w013_20240304141531_flatboi", 4000, 2500)
 SECONDARY_0139_HELD = ("pherc0139", "20250108000002-w027_2025010845", 1500, 1500)
 
+# Arm C (capability run): 3 scrolls x 2 regions. Differs from arm B in BOTH diversity
+# (+pherc0172) and volume (6 vs 4 regions) -- stated in the report.
+TRAIN_C = TRAIN + [
+    ("pherc0172", "20250917143559-w062_20250917143559205_flatboi", 4000, 2500),
+    ("pherc0172", "20250926112011-w078_20250926112011918_flatboi", 4000, 2500),
+]
+SECONDARY_0172_HELD = ("pherc0172", "20250926113336-w079_20250926113336891_flatboi", 4000, 2500)
+MODEL_DIR_C = "models/detector_xscroll_c"
+SCALE_REPORT_MD = "reports/detector/cross_scroll_scale.md"
+SCALE_REPORT_JSON = "reports/detector/cross_scroll_scale.json"
+
 REPORT_MD = "reports/detector/cross_scroll_distill.md"
 REPORT_JSON = "reports/detector/cross_scroll_distill.json"
 BASELINES_JSON = "reports/detector/cross_scroll_baselines.json"
@@ -44,8 +55,9 @@ def _fid(target):
     return dr.xfrag_id(scroll_key, seg, y0, x0)
 
 
-def cmd_prep():
-    targets = TRAIN + [HELD, SECONDARY_0139_HELD]
+def _prep_targets(targets):
+    """Prep detector-format fragments for (scroll_key, seg, y0, x0) targets; return the
+    per-teacher provenance dict for the teachers touched."""
     provenance = {}
     teachers = {}
     for (scroll_key, seg, y0, x0) in targets:
@@ -66,12 +78,28 @@ def cmd_prep():
         out = prep_distill_fragment(region, t_region, DATA_ROOT, fid)
         lab = cv2.imread(os.path.join(out, f"{fid}_inklabels.png"), 0)
         print(f"prepped {out} teacher-positive={float((lab > 0).mean()):.3f}", flush=True)
+    return provenance
+
+
+def _write_provenance(provenance):
+    """Merge new teacher provenance into DATA_ROOT/teacher_provenance.json."""
     os.makedirs(DATA_ROOT, exist_ok=True)
-    with open(os.path.join(DATA_ROOT, "teacher_provenance.json"), "w") as f:
+    path = os.path.join(DATA_ROOT, "teacher_provenance.json")
+    merged = {}
+    if os.path.exists(path):
+        with open(path) as f:
+            merged = json.load(f).get("teachers", {})
+    merged.update(provenance)
+    with open(path, "w") as f:
         json.dump({"binarize_threshold": 128,
                    "note": "teacher = released canon model prediction, binarized at >=128 "
                            "after uint8 scaling; NOT ground truth",
-                   "teachers": provenance}, f, indent=2)
+                   "teachers": merged}, f, indent=2)
+
+
+def cmd_prep():
+    provenance = _prep_targets(TRAIN + [HELD, SECONDARY_0139_HELD])
+    _write_provenance(provenance)
 
 
 def cmd_baselines():
@@ -100,11 +128,11 @@ def cmd_train():
     print(train(cfg))
 
 
-def _best_epoch(fid):
-    ckpts = sorted(glob.glob(os.path.join(MODEL_DIR, "detector_epoch=*.ckpt")),
+def _best_epoch(fid, model_dir=MODEL_DIR):
+    ckpts = sorted(glob.glob(os.path.join(model_dir, "detector_epoch=*.ckpt")),
                    key=lambda p: int(p.split("epoch=")[1].split(".")[0]))
     if not ckpts:
-        raise ValueError(f"no checkpoints found in {MODEL_DIR}; run the train step first")
+        raise ValueError(f"no checkpoints found in {model_dir}; run the train step first")
     best = None
     for ck in ckpts:
         m, prob = dr._measure(ck, fid, data_root=DATA_ROOT)
@@ -206,9 +234,108 @@ def cmd_measure():
           flush=True)
 
 
+def cmd_prep_c():
+    held_dir = os.path.join(DATA_ROOT, _fid(HELD))
+    if not os.path.isdir(held_dir):
+        raise ValueError(f"{held_dir} missing; run the arm-B `prep` step first "
+                         "(the held-out 1667 fragment is shared)")
+    provenance = _prep_targets(TRAIN_C + [SECONDARY_0172_HELD])
+    _write_provenance(provenance)
+
+
+def cmd_train_c():
+    from vesuvius_autoresearch.detector.config import DetectorConfig
+    from vesuvius_autoresearch.detector.train import train
+    cfg = DetectorConfig(data_root=DATA_ROOT, model_dir=MODEL_DIR_C,
+                         train_fragment_ids=[_fid(t) for t in TRAIN_C],
+                         valid_fragment_id=_fid(HELD))
+    print(train(cfg))
+
+
+def cmd_measure_c():
+    held_fid = _fid(HELD)
+    if not os.path.exists(REPORT_JSON):
+        raise ValueError(f"{REPORT_JSON} missing; the committed arm-B report is required "
+                         "(its baseline/armA/armB numbers are cited, not re-run)")
+    with open(REPORT_JSON) as f:
+        prior = json.load(f)
+    m_c, ck_c, prob_c = _best_epoch(held_fid, model_dir=MODEL_DIR_C)
+
+    Image.fromarray((np.clip(prob_c, 0, 1) * 255).astype(np.uint8)).resize(
+        (prob_c.shape[1] // 4, prob_c.shape[0] // 4)).save(
+        "reports/detector/xscroll_armC_1667.png")
+
+    sec = {}
+    m, _ = dr._measure(ck_c, _fid(SECONDARY_0172_HELD), data_root=DATA_ROOT)
+    sec["armC_on_held0172"] = m
+    m, _ = dr._measure(ck_c, _fid(SECONDARY_0139_HELD), data_root=DATA_ROOT)
+    sec["armC_on_held0139"] = m
+    m, _ = dr._measure(ck_c, dr.frag_id(dr.HELD_SEG, *dr.HELD_REGION),
+                       data_root=dr.DATA_ROOT)
+    sec["armC_on_heldScroll1_phase2"] = m
+
+    prov = None
+    prov_path = os.path.join(DATA_ROOT, "teacher_provenance.json")
+    if os.path.exists(prov_path):
+        with open(prov_path) as f:
+            prov = json.load(f)
+
+    def row(label, m):
+        return f"| {label} | " + " | ".join(
+            f"{m.get(c, float('nan')):.4f}" for c in COLS) + " |"
+
+    on1667 = prior["on_held_1667"]
+    lines = ["# Scaled multi-scroll distillation (arm C) on held-out PHerc 1667", "",
+             "**All metrics are agreement-with-teacher (the released canon predictions), "
+             "NOT ground-truth accuracy.** No arm trained on any PHerc-1667 data. Arm C is a "
+             "**capability run**: it differs from arm B in BOTH training-scroll diversity "
+             "(+PHerc0172) and data volume (6 vs 4 regions) -- it is not a single-variable "
+             "experiment. Caveat: the held-out region serves as the best-epoch selection set "
+             "for arms B and C (not for arm A or the legacy baseline) -- the asymmetry-free "
+             "anchor is the **arm-vs-legacy-baseline** comparison. Baseline/A/B rows are "
+             "cited from the committed cross_scroll_distill.json, not re-run.", ""]
+    if prov is not None:
+        lines += ["Teacher provenance: " + "; ".join(
+            f"`{s}` {p['dtype']} range [{p['min']},{p['max']}]"
+            for s, p in prov["teachers"].items())
+            + f". Labels binarized at >= {prov['binarize_threshold']} after uint8 scaling.",
+            ""]
+    lines += [f"Held-out: `{held_fid}`  |  arm C best ckpt: `{os.path.basename(ck_c)}`", "",
+              "| model (on held-out 1667) | " + " | ".join(COLS) + " |",
+              "|---|" + "|".join(["---"] * len(COLS)) + "|",
+              row("legacy detector (cited)", on1667["baseline"]),
+              row("arm A: 1 scroll, 4 regions (cited)", on1667["armA"]),
+              row("arm B: 2 scrolls, 4 regions (cited)", on1667["armB"]),
+              row("arm C: 3 scrolls, 6 regions", m_c),
+              "", "Secondary (arm C same-scroll read-outs):", "",
+              "| model / fragment | " + " | ".join(COLS) + " |",
+              "|---|" + "|".join(["---"] * len(COLS)) + "|",
+              row("arm C on held-out PHerc-0172 region", sec["armC_on_held0172"]),
+              row("arm C on held-out PHerc-0139 region", sec["armC_on_held0139"]),
+              row("arm C on Phase-2 held-out Scroll-1 region",
+                  sec["armC_on_heldScroll1_phase2"]),
+              "", "Renders (held-out 1667): [arm C](xscroll_armC_1667.png) | "
+              "[arm B](xscroll_armB_1667.png) | [arm A](xscroll_armA_1667.png) | "
+              "[teacher](xscroll_teacher_1667.png)."]
+    with open(SCALE_REPORT_MD, "w") as f:
+        f.write("\n".join(lines) + "\n")
+    with open(SCALE_REPORT_JSON, "w") as f:
+        json.dump({"held_out": held_fid, "armC_best_checkpoint": os.path.basename(ck_c),
+                   "on_held_1667": {**on1667, "armC": m_c},
+                   "secondary_armC": sec,
+                   "cited_from": "reports/detector/cross_scroll_distill.json",
+                   "teacher_provenance": prov},
+                  f, indent=2, default=float)
+    print(f"ARM C vs teacher on held-out 1667: val_f1={m_c.get('val_f1', float('nan')):.4f} "
+          f"(armB {on1667['armB'].get('val_f1', float('nan')):.4f}, "
+          f"armA {on1667['armA'].get('val_f1', float('nan')):.4f}, "
+          f"baseline {on1667['baseline'].get('val_f1', float('nan')):.4f})", flush=True)
+
+
 if __name__ == "__main__":
     cmds = {"prep": cmd_prep, "baselines": cmd_baselines, "train": cmd_train,
-            "measure": cmd_measure}
+            "measure": cmd_measure, "prep_c": cmd_prep_c, "train_c": cmd_train_c,
+            "measure_c": cmd_measure_c}
     if len(sys.argv) < 2 or sys.argv[1] not in cmds:
         sys.exit(f"usage: python -m repro.sota_data.xscroll_run {{{'|'.join(cmds)}}}")
     cmds[sys.argv[1]]()
