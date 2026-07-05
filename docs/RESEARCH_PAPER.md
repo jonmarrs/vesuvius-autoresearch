@@ -70,10 +70,20 @@ without review); the maintained version lives in this repo. Earlier `vesuvius-c`
 binding PRs (#914/#916) and CuPy-acceleration PRs (#915) were also closed and are
 superseded by the closed-form path above.
 
+### B2. Cross-scroll distillation (measured, 2026-07-03/04)
+On a held-out PHerc-1667 region no arm trained on (agreement-with-teacher; the undistilled
+detector at lift 1.47 is the selection-asymmetry-free anchor): single-scroll distillation
+*over-specializes* (lift 1.22 — below the anchor); adding a second training scroll at **fixed
+budget** lifts transfer to **2.12** (the controlled diversity result); a third scroll (+50%
+data) **saturates** at ≈2.1 while producing the best all-around model (own-scroll val_f1
+0.587–0.631, ROC-AUC up to 0.919). A full bucket sweep found only 4 of 45 scrolls ship canon
+teacher predictions — the practical scaling frontier is released teachers.
+
 ### C. What's open
-- **Cross-scroll distillation at scale:** the open bucket's ≈48 scrolls in one format make
-  multi-scroll distillation the direct attack on the measured generalization gap
-  (lift 2.07 same-scroll → 1.29 cross-scroll).
+- **Diagnosing the transfer plateau:** agreement-with-teacher cannot distinguish a *teacher*
+  ceiling (student extracted all transferable teacher signal) from a *domain* ceiling
+  (PHerc 1667's distinct preparation); registering real ground truth onto the SOTA
+  re-flattening is the discriminating experiment — and the active next step.
 - **Independent validation of the distilled model:** register legacy hand labels onto the
   SOTA re-flattening to spot-check agreement-with-teacher numbers against real ground truth.
 - **Legibility at the prize window:** same-scroll signal is real (lift 2.07) but not legible

@@ -498,4 +498,34 @@ Train our proven TimeSformer recipe (unchanged, config-only) on SOTA Scroll-1 su
 
 ---
 
+## [2026-07-03] Cross-Scroll Diversity Experiment — Controlled, and Diversity Wins
+
+**Status:** COMPLETE
+
+### Purpose
+Test whether training-scroll **diversity** at *fixed budget* improves distillation transfer to an unseen scroll. Three arms on one held-out PHerc-1667 region no arm trained on: legacy detector (baseline, asymmetry-free anchor), the existing Scroll-1 student (arm A, no new training), and a multi-scroll student (arm B: 2 Scroll-1 + 2 PHerc-0139 regions — same 4-region budget as A; diversity the only variable).
+
+### Outcomes & Insights
+- **Arm B: val_f1 0.278 / lift 2.12 / roc_auc 0.689** vs arm A **0.193 / 1.22 / 0.551** and legacy **0.206 / 1.47 / 0.591** — diversity substantially improves unseen-scroll transfer.
+- **Single-scroll distillation over-specializes:** arm A lands *below* the undistilled detector cross-scroll, despite lift 3.24 on its own scroll.
+- **Cost:** ~11% same-scroll F1 (B 0.588 vs A 0.662 on Scroll-1). Arm B on its own second scroll (0139): lift 5.66.
+- Tooling: scroll registry in `distill_run.py` (verified: PHerc0139/PHerc1667 share the bucket layout); `xscroll_run.py` orchestrator. Report: `reports/detector/cross_scroll_distill.md` (selection-asymmetry caveat disclosed; baseline comparison is the anchor).
+
+---
+
+## [2026-07-04] Arm C — Scaling Saturates on the Unseen Scroll; Best All-Around Model
+
+**Status:** COMPLETE
+
+### Purpose
+Scale to all available teachers: a full bucket sweep found only **4 of 45** scrolls ship canon predictions (adds **PHerc 0172**, 53 segments). Arm C = 3 scrolls × 2 regions (6 total, ~1.5× arm B's budget) — a *capability run* (diversity + volume both change; stated in the report), same held-out 1667 region.
+
+### Outcomes & Insights
+- **Saturation:** arm C **val_f1 0.272 / lift 2.10 / roc_auc 0.672 ≈ arm B (0.278 / 2.12 / 0.689)**. A third scroll and +50% data did not lift 1667 transfer — the lift-≈2.1 plateau looks like this recipe's ceiling for 1667 without 1667-adjacent signal (its distinct preparation is the suspect).
+- **But arm C is the best all-around model built in this project:** Scroll-1 same-scroll 0.631 (nearly erasing arm B's diversity cost vs arm A's 0.662), PHerc-0172 held-out **0.587 / lift 5.37 / roc_auc 0.919**, 0139 held-out lift 4.98. Volume bought back same-scroll performance; diversity kept the transfer.
+- **Live findings:** PHerc-0172 segments are ~4× smaller than the other scrolls' (region offsets → (0,0)); an empty-region crash was hardened into a loud `ValueError` with a regression test.
+- **Open diagnostic:** agreement-with-teacher cannot distinguish a *teacher* ceiling from a *domain* ceiling — resolving the saturation requires ground truth registered onto the SOTA flattening (→ next sub-project). Report: `reports/detector/cross_scroll_scale.md`.
+
+---
+
 ## [Future Entry Template]

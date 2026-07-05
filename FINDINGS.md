@@ -358,6 +358,40 @@ tooling: `repro/sota_data/distill_prep.py` + `distill_run.py`.
 single consumer GPU via distillation. The open bucket (≈48 scrolls in one consistent format)
 plus this recipe makes the cross-scroll frontier attackable here.
 
+## Cross-scroll distillation: diversity wins, then scaling saturates
+
+Two follow-on experiments took the distilled recipe to the cross-scroll frontier, measured on
+**one held-out PHerc-1667 region no arm trained on** (all metrics agreement-with-teacher; the
+legacy-baseline row is the selection-asymmetry-free anchor):
+
+| arm (held-out 1667) | val_f1 | AP-prevalence-lift | ROC-AUC |
+| --- | --- | --- | --- |
+| legacy detector (no distillation) | 0.206 | 1.47 | 0.591 |
+| A: 1 scroll, 4 regions (the Phase-2 student) | 0.193 | 1.22 | 0.551 |
+| B: 2 scrolls, 4 regions (same budget as A) | 0.278 | 2.12 | 0.689 |
+| C: 3 scrolls, 6 regions (capability run) | 0.272 | 2.10 | 0.672 |
+
+1. **Single-scroll distillation over-specializes** — arm A lands *below* the undistilled
+   detector on the unseen scroll, despite dominating on its own scroll (lift 3.24).
+2. **Training-scroll diversity at fixed budget substantially improves transfer** (arm B: the
+   controlled experiment; diversity was the only variable) — at a modest ~11% same-scroll cost.
+3. **Scaling saturates:** a third scroll (PHerc 0172, whose canon teachers were newly
+   available) plus 50% more data did **not** lift 1667 transfer further (C ≈ B). The
+   lift-≈2.1 plateau looks like this recipe's ceiling for 1667 without 1667-adjacent signal —
+   its distinct preparation is the prime suspect. Arm C is nonetheless the **best all-around
+   model built here**: volume bought back most of arm B's same-scroll cost (Scroll-1 0.631 vs
+   arm A's 0.662) while reading its third scroll strongly (0172 held-out val_f1 0.587 /
+   lift 5.37 / ROC-AUC 0.919).
+
+**Data reality:** a full bucket sweep found only **4 of 45** scrolls ship canon teacher
+predictions today (PHercParis4, PHerc0139, PHerc0172, PHerc1667) — the frontier for this
+recipe is *released teachers*, not scan volumes; each new release extends it with no new code.
+An open diagnostic: agreement-with-teacher cannot distinguish a *teacher* ceiling (the student
+extracted all transferable teacher signal) from a *domain* ceiling — resolving that requires
+ground truth registered onto the SOTA flattening (named future work). Reports:
+[cross_scroll_distill.md](reports/detector/cross_scroll_distill.md),
+[cross_scroll_scale.md](reports/detector/cross_scroll_scale.md).
+
 ## What we learned
 
 - **Validation metrics are artifact-saturated.** On ink-containing patches

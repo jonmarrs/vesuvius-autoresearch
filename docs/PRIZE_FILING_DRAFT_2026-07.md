@@ -57,6 +57,14 @@ public data, and the negative results are documented alongside the positive ones
    ROC-AUC 0.499 → 0.865** — the strongest ranking signal any model trained in this repo
    has produced, with the first letterform-shaped output.
    → [reports/detector/sota_distill_measurement.md](https://github.com/jonmarrs/vesuvius-autoresearch/blob/main/reports/detector/sota_distill_measurement.md)
+   **Extended cross-scroll (multi-scroll registry + controlled experiments):** on a held-out
+   PHerc-1667 region no arm trained on, a *fixed-budget* diversity experiment showed
+   multi-scroll training substantially improves unseen-scroll transfer (lift 1.22 → **2.12**
+   vs the 1.47 undistilled anchor), and a scaled 3-scroll run showed the transfer
+   **saturates** at lift ≈ 2.1 while producing the best all-around model (own-scroll
+   read-outs 0.587–0.631 val_f1, ROC-AUC up to 0.919).
+   → [cross_scroll_distill.md](https://github.com/jonmarrs/vesuvius-autoresearch/blob/main/reports/detector/cross_scroll_distill.md),
+   [cross_scroll_scale.md](https://github.com/jonmarrs/vesuvius-autoresearch/blob/main/reports/detector/cross_scroll_scale.md)
 
 5. **Carried forward from June (still maintained):** the scroll-specific 3D augmentation
    library ([villa #201](https://github.com/ScrollPrize/villa/issues/201);
@@ -85,6 +93,13 @@ The through-line is measurement honesty:
   truth released, training against the canon predictions (clearly labeled as
   agreement-with-teacher) lifted the held-out ranking signal from exact chance to
   lift 3.24. A final independent review verified the train/held-out segments are disjoint.
+- **Training-scroll diversity drives generalization; scaling saturates — both measured.**
+  At fixed budget, adding a second training scroll lifted unseen-scroll (PHerc 1667)
+  transfer from lift 1.22 to 2.12 (single-scroll distillation actually *over-specializes*,
+  landing below the undistilled detector cross-scroll); a third scroll plus 50% more data
+  did not lift it further (≈2.1 plateau). A full bucket sweep found only 4 of 45 scrolls
+  ship canon teacher predictions today — the practical frontier is released teachers, not
+  scan volumes.
 - **Negative results, kept honest:** a community-style full-resolution 2.5D ResEncUNet
   *underperformed* the TimeSformer under our recipe (val_f1 0.369 vs 0.393) — the
   architecture likely needs the full nnU-Net protocol; documented rather than discarded.
