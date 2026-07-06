@@ -53,7 +53,12 @@ def cmd_probe():
     for name in (MESH_OLD, MESH_NEW):
         dst = _mesh_path(name)
         if not os.path.exists(dst):
-            fs.get(f"{pref}/{name}", dst)
+            # a .tifxyz is a DIRECTORY (meta.json + x/y/z.tif planes) -- fetch recursively
+            fs.get(f"{pref}/{name}", dst, recursive=True)
+        meta = os.path.join(dst, "meta.json")
+        if os.path.exists(meta):
+            with open(meta) as f:
+                print(f"{name} meta.json: {f.read().strip()}", flush=True)
         xyz = read_tifxyz(dst)
         pts = xyz.reshape(-1, 3)
         finite = np.isfinite(pts).all(axis=1)

@@ -97,3 +97,17 @@ def test_fit_affine_orb_recovers_shift():
     M, inl = fit_affine_orb(img, moved)
     assert inl >= 25
     assert abs(M[0, 2] - 17) < 2 and abs(M[1, 2] + 9) < 2
+
+
+def test_read_tifxyz_directory_layout(tmp_path):
+    # Real bucket format discovered at probe time: a .tifxyz is a DIRECTORY containing
+    # meta.json + x.tif + y.tif + z.tif planes.
+    xyz = _surface(16, 24)
+    d = tmp_path / "seg.tifxyz"
+    d.mkdir()
+    for i, name in enumerate(["x.tif", "y.tif", "z.tif"]):
+        tifffile.imwrite(str(d / name), xyz[..., i])
+    (d / "meta.json").write_text("{}")
+    out = read_tifxyz(str(d))
+    assert out.shape == (16, 24, 3)
+    assert np.allclose(out, xyz, atol=1e-4)

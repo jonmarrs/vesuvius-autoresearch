@@ -2,6 +2,8 @@
 via the published tifxyz meshes. The old<->new 3D transform is estimated FROM THE MESHES
 THEMSELVES (both sample the same physical papyrus surface): PCA-sign-search init + trimmed
 ICP with Umeyama updates. No dependence on undocumented scan-frame conventions."""
+import os
+
 import cv2
 import numpy as np
 import tifffile
@@ -9,6 +11,17 @@ from scipy.spatial import cKDTree
 
 
 def read_tifxyz(path):
+    if os.path.isdir(path):
+        # the released bucket format: a directory of meta.json + x.tif/y.tif/z.tif planes
+        planes = []
+        for name in ("x.tif", "y.tif", "z.tif"):
+            p = os.path.join(path, name)
+            if not os.path.exists(p):
+                raise ValueError(f"not a tifxyz dir (missing {name}): {path}")
+            planes.append(np.asarray(tifffile.imread(p), np.float32))
+        if not (planes[0].shape == planes[1].shape == planes[2].shape):
+            raise ValueError(f"tifxyz planes disagree in shape in {path}")
+        return np.stack(planes, axis=-1)
     arr = np.asarray(tifffile.imread(path), np.float32)
     if arr.ndim == 3 and arr.shape[-1] == 3:
         return arr
