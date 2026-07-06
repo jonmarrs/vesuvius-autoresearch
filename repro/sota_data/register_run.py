@@ -1,7 +1,12 @@
 """Register the old hand ground-truth label onto the SOTA re-flattening (segment
 20230702185753) and, ONLY after the alignment gate passes, score the canon teacher, the
 distilled students, and the legacy detector against registered ground truth. Every score
-is 'vs registered ground truth (method + residuals stated)'."""
+is 'vs registered ground truth (method + residuals stated)'.
+
+The route that produced the committed result is `warp_obj` (region 3D -> nearest vertex of
+the segment's original.obj -> that vertex's vt = 2023 label pixel). The `warp`/similarity
+route is the earlier mesh-bridge attempt, kept and unit-tested but superseded (its coarse
+tifxyz correspondence did not pass the alignment gate)."""
 import json
 import os
 import sys
@@ -149,6 +154,9 @@ def cmd_warp_obj():
                 vts.append([float(x) for x in line.split()[1:3]])
     v = np.array(vs, np.float32)
     vt = np.array(vts, np.float32)
+    # Assumes a 1:1 positional v<->vt export (vt[i] is vertex i's texture coord); `f` faces
+    # are not parsed. Guarded by the len check below AND the enrichment gate downstream (a
+    # bad pairing scatters the label -> enrichment ~= 1 -> gate fails). Holds for this obj.
     if len(v) != len(vt):
         raise ValueError(f"obj v/vt count mismatch: {len(v)} vs {len(vt)}")
     old_label = cv2.imread(os.path.join(OLD_ROOT, f"{SEG}_inklabels.png"), 0)
@@ -306,15 +314,24 @@ def cmd_score():
              "approximate -- residual noise depresses every row about equally, so absolute "
              "values are conservative and the ranking is the robust signal). The 'canon "
              "teacher' row scores the released model prediction itself against human "
-             "labels -- the first ground-truth calibration of the canon prediction.", "",
-             "**Confound (critical):** this region was a TRAINING region for all three "
-             "distilled students, so their rows are *train-region fit-quality vs ground "
-             "truth*, NOT held-out generalization. The **unconfounded** rows are the canon "
-             "teacher and the legacy detector (neither trained here). Read the students "
-             "only as: distillation fit exceeds teacher fidelity on supervised data "
-             "(a denoising effect), which resolves the saturation question in the "
-             "teacher-ceiling direction -- students are not capped at the teacher where "
-             "they have supervision.", "",
+             "labels -- the first ground-truth calibration of the canon prediction. "
+             "(The teacher row's label ORIENTATION was picked among 4 discrete candidates "
+             "by teacher-enrichment, so it is not 100% teacher-independent; the margin was "
+             "decisive -- 5.05 vs 0.90/1.09/1.50 -- and the correspondence geometry and "
+             "residual are teacher-free, so this is at most marginally optimistic.)", "",
+             "**Confound 1 (train region):** this region was a TRAINING region for all "
+             "three distilled students, so their rows are *train-region fit-quality vs "
+             "ground truth*, NOT held-out generalization. The **unconfounded** rows are the "
+             "canon teacher and the legacy detector (neither trained here).", "",
+             "**Confound 2 (binary vs continuous):** the teacher is a BINARY map; ROC-AUC "
+             "and AP reward the ranking that the students' continuous probability maps have "
+             "and a binary map cannot, so they structurally understate the teacher. The "
+             "*fair* teacher-vs-student comparison is F1: teacher 0.437 vs students "
+             "0.44-0.47 -- near parity. So read the students as: distillation roughly "
+             "matches teacher fidelity on supervised data (with a modest ranking-quality "
+             "gain), resolving the saturation question in the teacher-ceiling direction "
+             "(students are not capped BELOW the teacher where they have supervision) -- "
+             "NOT as a large accuracy gain over the teacher.", "",
              f"Segment `{SEG}`, level-2 region (4000,2500)+4096.", "",
              "| model (vs registered ground truth) | " + " | ".join(dr.COLS) + " |",
              "|---|" + "|".join(["---"] * len(dr.COLS)) + "|"]
