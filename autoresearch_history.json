@@ -3,16 +3,16 @@
     "wd": 1.0,
     "capacity": 1.0,
     "attention": 1.0,
-    "regularization": 3.2358719065471315,
+    "regularization": 1.2505170282926452,
     "batch": 1.0,
-    "spatial": 1.0,
+    "spatial": 1.4701837812499996,
     "temporal": 1.0,
     "width": 1.0,
-    "loss_balance": 12.972425774024122,
-    "features": 1.7007762053659679,
+    "loss_balance": 12.76189662872905,
+    "features": 1.0,
     "architecture": 1.0,
     "baseline": 18,
     "uamt": 1.0,
     "scroll_augmentations": 1.0,
-    "preproc": 1.0
+    "preproc": 2.4396521287871176
 }
