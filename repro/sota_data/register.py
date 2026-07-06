@@ -35,6 +35,8 @@ def _valid_points(xyz):
     ok = np.isfinite(pts).all(axis=1)
     # meshes commonly mark off-surface pixels with zeros; drop exact-zero triplets
     ok &= ~(np.abs(pts) < 1e-9).all(axis=1)
+    # real bucket meshes mark invalid pixels as (-1,-1,-1)
+    ok &= ~(np.abs(pts + 1.0) < 1e-6).all(axis=1)
     return pts[ok]
 
 
@@ -117,14 +119,16 @@ def correspondence_field(new_xyz, s, R, t, old_xyz, stride=8):
     orr, occ = np.mgrid[0:oh:stride, 0:ow:stride]
     opts = old_xyz[::stride, ::stride].reshape(-1, 3)
     ocoords = np.stack([orr.reshape(-1), occ.reshape(-1)], axis=1).astype(np.float32)
-    ok = np.isfinite(opts).all(axis=1) & ~(np.abs(opts) < 1e-9).all(axis=1)
+    ok = (np.isfinite(opts).all(axis=1) & ~(np.abs(opts) < 1e-9).all(axis=1)
+          & ~(np.abs(opts + 1.0) < 1e-6).all(axis=1))
     tree = cKDTree(opts[ok])
     ocoords = ocoords[ok]
 
     sub = new_xyz[::stride, ::stride]
     nh, nw = sub.shape[:2]
     npts = sub.reshape(-1, 3)
-    valid = np.isfinite(npts).all(axis=1) & ~(np.abs(npts) < 1e-9).all(axis=1)
+    valid = (np.isfinite(npts).all(axis=1) & ~(np.abs(npts) < 1e-9).all(axis=1)
+             & ~(np.abs(npts + 1.0) < 1e-6).all(axis=1))
     field = np.full((nh, nw, 2), np.nan, np.float32)
     residuals = np.full(nh * nw, np.nan, np.float32)
     if valid.any():

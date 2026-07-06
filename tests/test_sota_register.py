@@ -111,3 +111,13 @@ def test_read_tifxyz_directory_layout(tmp_path):
     out = read_tifxyz(str(d))
     assert out.shape == (16, 24, 3)
     assert np.allclose(out, xyz, atol=1e-4)
+
+
+def test_valid_masks_drop_minus_one_markers():
+    # Real bucket meshes mark invalid pixels as (-1,-1,-1), not zeros.
+    from repro.sota_data.register import _valid_points
+    xyz = _surface(8, 8)
+    xyz[0, 0] = (-1, -1, -1)
+    xyz[1, 1] = (0, 0, 0)
+    pts = _valid_points(xyz)
+    assert len(pts) == 62  # both markers dropped

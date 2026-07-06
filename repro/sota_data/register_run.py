@@ -18,8 +18,8 @@ from repro.sota_data.register import (correspondence_field, fit_similarity, ncc,
 
 SEG = "20230702185753"
 REG_DIR = "local_data/sota_registration"
-MESH_OLD = f"{SEG}-on-20230205180739-7.91um.tifxyz"     # old 2023 scan (labels' frame)
-MESH_NEW = f"{SEG}-on-20260411134726-2.4um.tifxyz"      # the SOTA volume we distill on
+MESH_OLD = "intermediate/tifxyz_original"               # the 2023 label parameterization
+MESH_NEW = f"{SEG}-on-20230205180739-7.91um.tifxyz"     # new UV domain, old-scan frame
 OLD_ROOT = f"villa/ink-detection/train_scrolls/{SEG}"
 LEVEL0_SHAPE = (50600, 36400)   # SOTA surface level-0 (verified)
 REGION_L2 = (4000, 2500, 4096)  # y0, x0, size at level 2 (the measured region)
@@ -92,7 +92,7 @@ def cmd_warp():
     print(f"fit: scale={s:.4f} med_residual={med_fit:.2f} (old-scan units)", flush=True)
 
     region_xyz = _region_in_mesh(new_xyz)
-    field, res = correspondence_field(region_xyz, s, R, t, old_xyz, stride=8)
+    field, res = correspondence_field(region_xyz, s, R, t, old_xyz, stride=1)
     med_res = float(np.nanmedian(res))
     print(f"region correspondence: median residual {med_res:.2f}, "
           f"p90 {float(np.nanquantile(res, 0.9)):.2f}", flush=True)
