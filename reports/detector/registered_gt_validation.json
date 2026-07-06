@@ -1,0 +1,94 @@
+{
+  "segment": "20230702185753",
+  "registration": {
+    "method": "obj-exact: original.obj vt (386108 vertices), NN bridge via on-7.91um tifxyz (same old-scan frame), vt convention rowHv_colu (selected by teacher-enrichment among 4 discrete candidates, disclosed; orientation verified visually)",
+    "region_median_residual": 7.923079129779206,
+    "region_p90_residual": 11.129887690188047,
+    "registered_ink_fraction": 0.12834036350250244,
+    "enrichment_all_candidates": {
+      "rowv_colu": 0.901974501420036,
+      "rowHv_colu": 5.054253065039119,
+      "rowv_colWu": 1.4988262200608051,
+      "rowHv_colWu": 1.0884975552127452
+    },
+    "surface_ncc": 0.04044226364237475,
+    "teacher_enrichment": 5.054253065039119,
+    "gate": {
+      "max_median_residual": 12.0,
+      "min_enrichment": 3.0,
+      "passed": true
+    }
+  },
+  "rows": {
+    "canon teacher (binarized release)": {
+      "positive_rate": 0.12834036350250244,
+      "n_pixels": 16777216,
+      "val_f1": 0.4371779614912478,
+      "best_threshold": 0.05,
+      "f1_at_0.5": 0.4371779614912478,
+      "val_f05": 0.39031006204212476,
+      "precision": 0.3642751835298713,
+      "recall": 0.5465619911628957,
+      "pred_positive_rate": 0.19256311655044556,
+      "average_precision": 0.2572933685213206,
+      "ap_prevalence_lift": 2.00477356849861,
+      "roc_auc": 0.7030602656071632
+    },
+    "legacy detector": {
+      "positive_rate": 0.12834036350250244,
+      "n_pixels": 16777216,
+      "val_f1": 0.22748519445696105,
+      "best_threshold": 0.05,
+      "f1_at_0.5": 0.18448296121462432,
+      "val_f05": 0.15543820543131998,
+      "precision": 0.12834036350250244,
+      "recall": 1.0,
+      "pred_positive_rate": 1.0,
+      "average_precision": 0.12011098013431772,
+      "ap_prevalence_lift": 0.9358784474065771,
+      "roc_auc": 0.485773560642489
+    },
+    "arm A (1-scroll student)": {
+      "positive_rate": 0.12834036350250244,
+      "n_pixels": 16777216,
+      "val_f1": 0.45676865645443304,
+      "best_threshold": 0.49999999999999994,
+      "f1_at_0.5": 0.45676865645443304,
+      "val_f05": 0.45575079161326343,
+      "precision": 0.3558753690196903,
+      "recall": 0.6375064206940945,
+      "pred_positive_rate": 0.22990578413009644,
+      "average_precision": 0.40958910810675037,
+      "ap_prevalence_lift": 3.1914286116133996,
+      "roc_auc": 0.7940810969118284
+    },
+    "arm B (2-scroll student)": {
+      "positive_rate": 0.12834036350250244,
+      "n_pixels": 16777216,
+      "val_f1": 0.440086185355224,
+      "best_threshold": 0.49999999999999994,
+      "f1_at_0.5": 0.440086185355224,
+      "val_f05": 0.4321721153237679,
+      "precision": 0.35581946899408745,
+      "recall": 0.5766512446161377,
+      "pred_positive_rate": 0.2079920768737793,
+      "average_precision": 0.3898270663225101,
+      "ap_prevalence_lift": 3.0374471108219128,
+      "roc_auc": 0.7807128586083403
+    },
+    "arm C (3-scroll student)": {
+      "positive_rate": 0.12834036350250244,
+      "n_pixels": 16777216,
+      "val_f1": 0.4674964722894938,
+      "best_threshold": 0.49999999999999994,
+      "f1_at_0.5": 0.4674964722894938,
+      "val_f05": 0.45311832059344814,
+      "precision": 0.3772920276851504,
+      "recall": 0.6143863488380518,
+      "pred_positive_rate": 0.20899081230163574,
+      "average_precision": 0.4222153005830651,
+      "ap_prevalence_lift": 3.289809137675012,
+      "roc_auc": 0.7995012558553616
+    }
+  }
+}
