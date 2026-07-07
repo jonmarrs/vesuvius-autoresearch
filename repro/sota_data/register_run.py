@@ -21,26 +21,64 @@ from repro.sota_data import distill_run as dr
 from repro.sota_data.register import (correspondence_field, fit_similarity, ncc,
                                       read_tifxyz, warp_via_field)
 
-SEG = "20230702185753"
-REG_DIR = "local_data/sota_registration"
-MESH_OLD = "intermediate/tifxyz_original"               # the 2023 label parameterization
-MESH_NEW = f"{SEG}-on-20230205180739-7.91um.tifxyz"     # new UV domain, old-scan frame
-OLD_ROOT = f"villa/ink-detection/train_scrolls/{SEG}"
 LEVEL0_SHAPE = (50600, 36400)   # SOTA surface level-0 (verified)
-REGION_L2 = (4000, 2500, 4096)  # y0, x0, size at level 2 (the measured region)
-FRAG_ID = f"scroll1_{SEG}_y4000_x2500"
-XSCROLL_ROOT = "local_data/sota_xscroll"
-MARKER = os.path.join(REG_DIR, "VALIDATED")
-REG_LABEL = os.path.join(REG_DIR, "registered_label_l2region.png")
-REG_STATS = os.path.join(REG_DIR, "registration_stats.json")
-REPORT_MD = "reports/detector/registered_gt_validation.md"
-REPORT_JSON = "reports/detector/registered_gt_validation.json"
 CKPTS = [
     ("legacy detector", "models/detector/detector_epoch=7.ckpt"),
     ("arm A (1-scroll student)", "models/detector_sota_distill/detector_epoch=9.ckpt"),
     ("arm B (2-scroll student)", "models/detector_xscroll/detector_epoch=7.ckpt"),
     ("arm C (3-scroll student)", "models/detector_xscroll_c/detector_epoch=11.ckpt"),
 ]
+# Segments carrying all three registration inputs (hand label + original.obj + canon
+# teacher). "orig" = slice-5 (a TRAIN region for all students); "heldout" = arm-A
+# validated but trained by NObody (arms B/C fully clean).
+TARGETS = {
+    "orig": {
+        "seg": "20230702185753", "region": (4000, 2500, 4096),
+        "frag_root": "local_data/sota_xscroll",
+        "frag_id": "scroll1_20230702185753_y4000_x2500",
+        "old_root": "villa/ink-detection/train_scrolls/20230702185753",
+        "report_md": "reports/detector/registered_gt_validation.md",
+        "report_json": "reports/detector/registered_gt_validation.json",
+    },
+    "heldout": {
+        "seg": "20231210121321", "region": (4000, 2500, 4096),
+        "frag_root": "local_data/sota_distill",
+        "frag_id": "20231210121321_y4000_x2500",
+        "old_root": "villa/ink-detection/train_scrolls/20231210121321",
+        "report_md": "reports/detector/registered_gt_heldout_validation.md",
+        "report_json": "reports/detector/registered_gt_heldout_validation.json",
+    },
+}
+
+# module globals rebound by _set_target (declared here so references resolve at import)
+SEG = REG_DIR = OLD_ROOT = MESH_OLD = MESH_NEW = OBJ_PATH = None
+REGION_L2 = FRAG_ID = XSCROLL_ROOT = None
+MARKER = REG_LABEL = REG_STATS = REPORT_MD = REPORT_JSON = None
+
+
+def _set_target(key):
+    global SEG, REG_DIR, OLD_ROOT, MESH_OLD, MESH_NEW, OBJ_PATH, REGION_L2
+    global FRAG_ID, XSCROLL_ROOT, MARKER, REG_LABEL, REG_STATS, REPORT_MD, REPORT_JSON
+    if key not in TARGETS:
+        raise ValueError(f"unknown registration target '{key}'; known: {sorted(TARGETS)}")
+    t = TARGETS[key]
+    SEG = t["seg"]
+    REGION_L2 = t["region"]
+    FRAG_ID = t["frag_id"]
+    XSCROLL_ROOT = t["frag_root"]
+    OLD_ROOT = t["old_root"]
+    REPORT_MD = t["report_md"]
+    REPORT_JSON = t["report_json"]
+    REG_DIR = os.path.join("local_data/sota_registration", key)
+    MESH_OLD = "intermediate/tifxyz_original"          # the 2023 label parameterization
+    MESH_NEW = f"{SEG}-on-20230205180739-7.91um.tifxyz"  # new UV domain, old-scan frame
+    OBJ_PATH = os.path.join(REG_DIR, f"{SEG}_original.obj")
+    MARKER = os.path.join(REG_DIR, "VALIDATED")
+    REG_LABEL = os.path.join(REG_DIR, "registered_label_l2region.png")
+    REG_STATS = os.path.join(REG_DIR, "registration_stats.json")
+
+
+_set_target("orig")  # import-time default = slice-5 behavior
 
 
 def _mesh_path(name):
@@ -130,9 +168,6 @@ def cmd_warp():
                   f, indent=2)
     print(f"registered label ink fraction: {float((reg_label > 127).mean()):.3f} "
           f"(teacher-positive on this region was 0.193)", flush=True)
-
-
-OBJ_PATH = os.path.join(REG_DIR, f"{SEG}_original.obj")
 
 
 def cmd_warp_obj():
@@ -353,5 +388,13 @@ if __name__ == "__main__":
     cmds = {"probe": cmd_probe, "warp": cmd_warp, "warp_obj": cmd_warp_obj,
             "validate": cmd_validate, "score": cmd_score}
     if len(sys.argv) < 2 or sys.argv[1] not in cmds:
-        sys.exit(f"usage: python -m repro.sota_data.register_run {{{'|'.join(cmds)}}}")
+        sys.exit(f"usage: python -m repro.sota_data.register_run "
+                 f"{{{'|'.join(cmds)}}} [orig|heldout] [--flags]")
+    # optional target key as argv[2] (absent or a --flag => default 'orig');
+    # strip it so cmd_validate's argparse (which reads sys.argv[2:]) is unaffected.
+    key = "orig"
+    if len(sys.argv) > 2 and not sys.argv[2].startswith("-"):
+        key = sys.argv[2]
+        del sys.argv[2]
+    _set_target(key)
     cmds[sys.argv[1]]()
