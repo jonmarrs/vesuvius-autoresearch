@@ -103,13 +103,27 @@ The through-line is measurement honesty:
 - **Negative results, kept honest:** a community-style full-resolution 2.5D ResEncUNet
   *underperformed* the TimeSformer under our recipe (val_f1 0.369 vs 0.393) — the
   architecture likely needs the full nnU-Net protocol; documented rather than discarded.
+- **First ground-truth calibration on SOTA data (registered hand label).** By geometrically
+  bridging the 2023 hand label onto the SOTA re-flattening (via the released `original.obj`
+  vertex texture coordinates; alignment gated on visual + enrichment checks before any
+  scoring), we produced the project's first ground-truth numbers on SOTA data — including a
+  datapoint nobody outside the core team has published: **the canon prediction scores
+  ROC-AUC 0.70 / AP 0.26 against human labels.** This anchors every "agreement-with-teacher"
+  figure above (agreement was with a ~0.70-quality proxy). Where students have supervision
+  they *match* the teacher's ground-truth fidelity (fair F1 comparison ≈ parity) rather than
+  being capped below it — evidence the transfer plateau is a domain limit, not an exhausted
+  teacher.
+  → [reports/detector/registered_gt_validation.md](https://github.com/jonmarrs/vesuvius-autoresearch/blob/main/reports/detector/registered_gt_validation.md)
 
 ## Honest limitations (stated plainly)
 
-- The distilled model's numbers are **agreement with a model output (the released canon
-  predictions), not ground-truth accuracy** — no ground-truth labels aligned to the SOTA
-  re-flattening exist in the open bucket. Independent validation (registering old hand
-  labels onto the new flattening) is named future work.
+- Cross-scroll transfer and distillation figures are **agreement with a model output (the
+  released canon predictions), not ground-truth accuracy** — no ground-truth labels aligned
+  to the SOTA re-flattening are *released*. We now calibrate this with a **registered** hand
+  label on one Scroll-1 region (above), but that region was in the students' training set and
+  the teacher there is binary (so its ROC-AUC/AP understate it — the fair comparison is F1);
+  both confounds are stated in the report. A *held-out* ground-truth region (registering
+  PHerc 1667's readings) is the outstanding validation.
 - The held-out region also serves as the best-epoch selection set (AP/ROC-AUC are
   threshold-free and unaffected); noted in the report itself.
 - Same-scroll detection at the 64 px window is real but not legible; cross-scroll transfer

@@ -392,6 +392,44 @@ ground truth registered onto the SOTA flattening (named future work). Reports:
 [cross_scroll_distill.md](reports/detector/cross_scroll_distill.md),
 [cross_scroll_scale.md](reports/detector/cross_scroll_scale.md).
 
+## Ground-truth calibration: registering the 2023 hand label onto SOTA geometry
+
+Every SOTA number above is *agreement-with-teacher* because no ground-truth ink labels aligned
+to the re-flattened surfaces are released. We closed that gap for one region by a **geometric
+bridge**: the bucket ships, per segment, an `original.obj` mesh carrying per-vertex texture
+coordinates (the 2023 label's pixel grid) plus a tifxyz of that segment on the old scan. For
+each pixel of the SOTA region we take its 3D point, find the nearest `original.obj` vertex
+(median residual 7.9 old-scan voxels over 386k vertices), read that vertex's texture coordinate,
+and sample the 2023 hand label there — warping human ground truth onto the SOTA flattening. The
+alignment is **gated before any scoring**: the registered label's ink strokes land on the
+letterforms (visually verified; teacher-enrichment 5.05×), and `score` refuses to run without
+the validation marker.
+
+**First ground-truth numbers on SOTA data** (segment `20230702185753`; two disclosed confounds
+below):
+
+| model (vs registered ground truth) | ROC-AUC | AP | F1 |
+| --- | --- | --- | --- |
+| **canon teacher** (released prediction) | **0.703** | 0.257 | 0.437 |
+| legacy detector | 0.486 | 0.120 | 0.228 |
+| distilled students (arm A/B/C) | 0.79–0.80 | 0.39–0.42 | 0.44–0.47 |
+
+- **The single clean fact:** the canon prediction that read the scrolls scores **ROC-AUC 0.70 /
+  AP 0.26** against human labels — the anchor that finally calibrates every
+  "agreement-with-teacher" we reported (agreement was with a 0.70-quality proxy, not truth). The
+  legacy detector is chance here, cleanly (it trained on a different scroll/flattening).
+- **Confound 1 (train region):** this region was a *training* region for all three students, so
+  their rows are fit-quality, not held-out generalization. Only the teacher and legacy rows are
+  unconfounded.
+- **Confound 2 (binary vs continuous):** the teacher is a binary map, so ROC-AUC/AP structurally
+  understate it; the *fair* teacher-vs-student comparison is F1 (0.44 vs 0.44–0.47, near parity).
+  So the students **match** teacher fidelity with a modest ranking gain — not a large accuracy
+  gain. This resolves the saturation question in the **teacher-ceiling direction where
+  supervised**: students are not capped below the teacher. Whether the cross-scroll plateau is a
+  domain ceiling still needs ground truth on a *held-out* region (PHerc 1667's readings — the
+  next step). Tooling: `repro/sota_data/register.py` + `register_run.py`; report:
+  [registered_gt_validation.md](reports/detector/registered_gt_validation.md).
+
 ## What we learned
 
 - **Validation metrics are artifact-saturated.** On ink-containing patches

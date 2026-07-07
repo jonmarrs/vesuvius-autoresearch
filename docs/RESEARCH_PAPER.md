@@ -79,11 +79,22 @@ data) **saturates** at ≈2.1 while producing the best all-around model (own-scr
 0.587–0.631, ROC-AUC up to 0.919). A full bucket sweep found only 4 of 45 scrolls ship canon
 teacher predictions — the practical scaling frontier is released teachers.
 
+### B3. Ground-truth calibration (registered hand label, 2026-07-06)
+No ground-truth labels aligned to the SOTA flattening are released, so we bridged the 2023
+hand label onto SOTA geometry via the segment's published `original.obj` vertex texture
+coordinates (nearest-vertex map, median residual 7.9 old-scan voxels; alignment gated on
+letterform-overlay + teacher-enrichment before scoring). Against this registered ground truth,
+the **canon prediction scores ROC-AUC 0.70 / AP 0.26 / F1 0.44** — the first ground-truth
+calibration of the released model, and the anchor for every agreement-with-teacher figure. The
+legacy detector is chance (0.49). The distilled students score ROC-AUC 0.79–0.80 but on a
+*training* region and against a *binary* teacher (fair F1 comparison ≈ parity), so they match
+rather than exceed teacher fidelity where supervised.
+
 ### C. What's open
-- **Diagnosing the transfer plateau:** agreement-with-teacher cannot distinguish a *teacher*
-  ceiling (student extracted all transferable teacher signal) from a *domain* ceiling
-  (PHerc 1667's distinct preparation); registering real ground truth onto the SOTA
-  re-flattening is the discriminating experiment — and the active next step.
+- **Diagnosing the transfer plateau (partially resolved):** the registered-label calibration
+  above shows students are *not* capped below the teacher where they have supervision, pointing
+  at a *domain* ceiling over a *teacher* ceiling. Settling it needs ground truth on a
+  **held-out** region — registering PHerc 1667's published readings — the active next step.
 - **Independent validation of the distilled model:** register legacy hand labels onto the
   SOTA re-flattening to spot-check agreement-with-teacher numbers against real ground truth.
 - **Legibility at the prize window:** same-scroll signal is real (lift 2.07) but not legible

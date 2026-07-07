@@ -528,4 +528,22 @@ Scale to all available teachers: a full bucket sweep found only **4 of 45** scro
 
 ---
 
+## [2026-07-06] Ground-Truth Registration — First GT Numbers on SOTA Data
+
+**Status:** COMPLETE
+
+### Purpose
+Close the "agreement-with-teacher" gap: warp the 2023 hand ink-label of Scroll-1 segment `20230702185753` onto the SOTA re-flattening and score models against *registered ground truth*.
+
+### Method
+The mesh-similarity route (plan's Stage 2a) failed the alignment gate on real data. The route that worked (`warp_obj`): the bucket's `mesh/<seg>/intermediate/<seg>_original.obj` carries per-vertex texture coordinates (2023 label pixels); bridge each SOTA region pixel → its 3D point → nearest of 386k obj vertices (median residual 7.9 old-scan voxels) → that vertex's texture coord → sample the hand label. vt orientation `row=H−v, col=u` picked among 4 by teacher-enrichment (decisive 5.05× vs 0.9–1.5; letterforms visually verified). Probe discoveries, each hardened with a regression test: tifxyz entries are *directories* (x/y/z.tif planes); invalid pixels marked `(−1,−1,−1)`; cross-scanner NCC is ~0 even when aligned, so the gate uses teacher-enrichment, not NCC. `score` is hard-gated on a validation marker.
+
+### Outcomes & Insights
+- **Canon teacher vs ground truth: ROC-AUC 0.703 / AP 0.257 / F1 0.437** — the first ground-truth calibration of the released canon prediction, and the anchor for every prior agreement-with-teacher number (agreement was with a 0.70-quality proxy). Legacy detector: 0.486 (clean chance). Both unconfounded.
+- **Students (arm A/B/C): ROC-AUC 0.79–0.80 / F1 0.44–0.47**, but with **two disclosed confounds**: (1) this was a *training* region for all three (fit-quality, not held-out); (2) the teacher is a *binary* map, so ROC-AUC/AP understate it — the fair comparison is F1 (0.44 vs 0.44–0.47, near-parity). So students **match** teacher fidelity with a modest ranking gain, not a large accuracy gain.
+- **Diagnostic value:** resolves the saturation question in the *teacher-ceiling* direction where supervised (students aren't capped below the teacher). The *domain*-ceiling question still needs GT on a held-out region → registering PHerc 1667's readings is the follow-up.
+- **Review rigor:** the final review caught the binary-vs-continuous confound I'd initially over-read; the committed report states both confounds prominently and leads with F1 for the teacher comparison. Reports: `reports/detector/registered_gt_validation.md`, `registered_gt_overlay*.png`.
+
+---
+
 ## [Future Entry Template]
