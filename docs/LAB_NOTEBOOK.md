@@ -546,4 +546,20 @@ The mesh-similarity route (plan's Stage 2a) failed the alignment gate on real da
 
 ---
 
+## [2026-07-07] Held-Out Ground Truth — The Sobering Correction
+
+**Status:** COMPLETE
+
+### Purpose
+Remove the train-region confound: register the hand label of held-out Scroll-1 segment `20231210121321` (a segment **no student trained on** — arm A only best-epoch-selected on it) onto SOTA geometry and score models against held-out human ground truth.
+
+### Outcomes & Insights
+- **Everything reads near chance vs held-out human GT:** canon teacher ROC-AUC **0.563** / lift 1.15 / F1 0.295; legacy 0.501 (predicts-all-positive); arms B/C **0.553–0.558** / lift 1.16–1.17. The distilled students are statistically tied with the weak teacher and the undistilled detector.
+- **This corrects the distillation story.** Slice-6's flattering train-region 0.80 was substantially fit. Distillation reproduces the teacher *faithfully, including its failures* — the teacher reads this segment poorly and the students inherit exactly that. It is fidelity, not independent reading skill.
+- **The low number is real, not a registration artifact:** the same registration quality (residual 7.85 ≈ 7.92) let the good-teacher segment score 0.70, so the geometry preserves signal.
+- **Methodological work under review:** the teacher-dependent enrichment gate false-negatived here (weak teacher), so I added a **codified teacher-free gate** (`gate_mode=teacher_free`: residual + `register.label_line_periodicity`, tested). The final review caught that my first validation was a manual out-of-band marker write and that a slice-6 metric caveat was softening the result; both fixed — the gate is now reproducible from the committed pipeline and the framing states plainly that everything is near chance (F1 is the trivial baseline at this prevalence; students trail the teacher at f1_at_0.5). This self-correction is the point.
+- **Decision made with the user:** on the gate false-negative, the user chose to score on teacher-free validation (option A). The clean cross-scroll GT test stays blocked (PHerc 1667 ships only predictions, no human labels). Reports: `reports/detector/registered_gt_heldout_validation.md`, `registered_gt_heldout_overlay*.png`.
+
+---
+
 ## [Future Entry Template]

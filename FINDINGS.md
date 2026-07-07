@@ -422,13 +422,34 @@ below):
   their rows are fit-quality, not held-out generalization. Only the teacher and legacy rows are
   unconfounded.
 - **Confound 2 (binary vs continuous):** the teacher is a binary map, so ROC-AUC/AP structurally
-  understate it; the *fair* teacher-vs-student comparison is F1 (0.44 vs 0.44–0.47, near parity).
-  So the students **match** teacher fidelity with a modest ranking gain — not a large accuracy
-  gain. This resolves the saturation question in the **teacher-ceiling direction where
-  supervised**: students are not capped below the teacher. Whether the cross-scroll plateau is a
-  domain ceiling still needs ground truth on a *held-out* region (PHerc 1667's readings — the
-  next step). Tooling: `repro/sota_data/register.py` + `register_run.py`; report:
-  [registered_gt_validation.md](reports/detector/registered_gt_validation.md).
+  understate it *on this segment where it reads well*; the fair comparison is F1 (0.44 vs
+  0.44–0.47). On this train region the students match teacher fidelity — but this is fit-quality,
+  and the held-out test below shows it does not generalize.
+
+### The held-out ground-truth test (the correction)
+
+Registering a *held-out* segment's hand label — `20231210121321`, which **no student trained
+on** — settled what the train-region numbers could not. On held-out data vs human ground truth,
+**everything reads near chance**: canon teacher ROC-AUC **0.563** / lift 1.15, arms B/C
+**0.55–0.56** / lift 1.16–1.17, legacy 0.50. Three conclusions:
+
+1. **The train-region 0.80 was substantially fit** — genuine held-out reading is ≈chance.
+2. **Distillation reproduces the teacher faithfully, including its failures.** The teacher reads
+   *this* segment poorly (scattered, non-letterform output); the students inherit exactly that.
+   "Student ≈ teacher" holds — but here at the chance floor. This is fidelity, not independent
+   reading skill.
+3. **The near-chance number is real, not a registration artifact:** the *same* registration
+   quality (residual 7.85 vs 7.92) let the good-teacher segment score 0.70, so the geometry
+   preserves whatever signal exists.
+
+Method notes: the teacher-dependent enrichment gate false-negatived on the held-out segment
+(the teacher is weak there), so alignment was validated by a **codified teacher-free gate**
+(residual + text-line periodicity; the 2D orientation carried from the validated segment as an
+export-pipeline invariant, residual/periodicity being convention-blind). The clean *cross-scroll*
+ground-truth test remains blocked — PHerc 1667 ships only model predictions, no released human
+labels. Tooling: `repro/sota_data/register.py` + `register_run.py`; reports:
+[registered_gt_validation.md](reports/detector/registered_gt_validation.md),
+[registered_gt_heldout_validation.md](reports/detector/registered_gt_heldout_validation.md).
 
 ## What we learned
 

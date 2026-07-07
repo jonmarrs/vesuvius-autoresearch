@@ -10,18 +10,25 @@ draft supersedes `PRIZE_FILING_DRAFT_2026-06.md`.)
 
 ## Title
 
-**Vesuvius Autoresearch: an honest, reproducible path from the open SOTA data to a working
-ink detector on one consumer GPU.**
+**Vesuvius Autoresearch: rigorous, reproducible measurement of what distillation from the
+open SOTA data actually buys — on one consumer GPU, with the honest negative to match.**
 
 ## Summary
 
-An open-source research repo (single RTX 4090) that this month went from "rigorous negative
-results" to a **working, window-compliant ink detector** — and then **rebased it onto the
-newly-open SOTA data by distilling from the released canon predictions**, producing the
-repo's first model whose output shows letterform-shaped strokes. Every metric is defined
-honestly (community F1/AP contract; distillation numbers explicitly labeled
-agreement-with-teacher, never ground-truth accuracy), every result is reproducible from
-public data, and the negative results are documented alongside the positive ones.
+An open-source research repo (single RTX 4090) that this month rebased onto the newly-open
+SOTA data — reproduced the 2023 Grand-Prize detector, distilled it from the released canon
+predictions across multiple scrolls, and then **built the ground-truth measurement to check
+whether any of it reads real ink** by geometrically registering 2023 hand labels onto the
+SOTA re-flattening. The headline contribution is the **measurement discipline and its
+finding**, not a strong detector: on a *held-out* segment scored against human labels,
+the distilled students read **near chance** (ROC-AUC ~0.55), the released canon prediction
+itself scores only **ROC-AUC 0.56–0.70** depending on the segment, and the apparent
+distillation "wins" were largely train-region fit. Every metric is defined honestly
+(community F1/AP contract; distillation numbers explicitly labeled agreement-with-teacher;
+ground-truth numbers gated on validated registration), every result is reproducible from
+public data, and — most importantly — the project **caught and corrected its own over-reads**
+under review. This is a submission about doing honest science on the frontier data, negatives
+included.
 
 ## What is being released (open tools)
 
@@ -49,20 +56,21 @@ public data, and the negative results are documented alongside the positive ones
    ground-truth ink labels aligned to the new geometry** — a practical fact other teams
    will hit too).
 
-4. **SOTA distillation pipeline** (`repro/sota_data/distill_prep.py`, `distill_run.py`) —
-   teacher–student distillation from the released canon ink predictions onto the SOTA
-   surface volumes, with disjoint train/held-out segments, a measured chance-floor
-   baseline, persisted teacher provenance, and side-by-side renders. **Result: held-out
-   agreement-with-teacher val_f1 0.372 → 0.662, AP 0.224 → 0.742, lift 0.98 → 3.24,
-   ROC-AUC 0.499 → 0.865** — the strongest ranking signal any model trained in this repo
-   has produced, with the first letterform-shaped output.
-   → [reports/detector/sota_distill_measurement.md](https://github.com/jonmarrs/vesuvius-autoresearch/blob/main/reports/detector/sota_distill_measurement.md)
-   **Extended cross-scroll (multi-scroll registry + controlled experiments):** on a held-out
-   PHerc-1667 region no arm trained on, a *fixed-budget* diversity experiment showed
-   multi-scroll training substantially improves unseen-scroll transfer (lift 1.22 → **2.12**
-   vs the 1.47 undistilled anchor), and a scaled 3-scroll run showed the transfer
-   **saturates** at lift ≈ 2.1 while producing the best all-around model (own-scroll
-   read-outs 0.587–0.631 val_f1, ROC-AUC up to 0.919).
+4. **SOTA distillation + ground-truth measurement pipeline** (`repro/sota_data/`) —
+   teacher–student distillation from the released canon predictions onto SOTA surface volumes
+   (disjoint train/held-out segments, chance-floor baseline, persisted provenance), the
+   multi-scroll registry + controlled cross-scroll experiments, **and** the ground-truth
+   registration harness (`register.py`, `register_run.py`) that bridges 2023 hand labels onto
+   SOTA geometry and scores against them, gated on validated alignment.
+   - *Agreement-with-teacher* results (fidelity to the released prediction, NOT accuracy):
+     held-out val_f1 0.372 → 0.662 / lift 0.98 → 3.24; multi-scroll diversity lifts unseen-
+     scroll transfer 1.22 → 2.12, saturating at ≈2.1 with a third scroll.
+   - *Ground-truth* results (vs human labels): the canon teacher scores ROC-AUC 0.56–0.70
+     (segment-dependent); on a **held-out** segment the distilled students read **near chance
+     (ROC-AUC ~0.55)** — the agreement-with-teacher gains were largely train-region fit.
+   → [sota_distill_measurement.md](https://github.com/jonmarrs/vesuvius-autoresearch/blob/main/reports/detector/sota_distill_measurement.md),
+   [cross_scroll_scale.md](https://github.com/jonmarrs/vesuvius-autoresearch/blob/main/reports/detector/cross_scroll_scale.md),
+   [registered_gt_heldout_validation.md](https://github.com/jonmarrs/vesuvius-autoresearch/blob/main/reports/detector/registered_gt_heldout_validation.md)
    → [cross_scroll_distill.md](https://github.com/jonmarrs/vesuvius-autoresearch/blob/main/reports/detector/cross_scroll_distill.md),
    [cross_scroll_scale.md](https://github.com/jonmarrs/vesuvius-autoresearch/blob/main/reports/detector/cross_scroll_scale.md)
 
@@ -89,10 +97,12 @@ The through-line is measurement honesty:
 - **Cross-scroll generalization is the bottleneck, quantified:** lift 2.07 same-scroll →
   1.29 cross-scroll for the same detector; and better data alone does not fix it (the
   detector run on SOTA data produced texture, not ink, until retrained).
-- **Distillation transfers SOTA competence to consumer hardware.** With no aligned ground
-  truth released, training against the canon predictions (clearly labeled as
-  agreement-with-teacher) lifted the held-out ranking signal from exact chance to
-  lift 3.24. A final independent review verified the train/held-out segments are disjoint.
+- **Distillation reproduces the teacher on consumer hardware — measured as agreement, then
+  checked against truth.** Training against the canon predictions lifted held-out
+  *agreement-with-teacher* from chance to lift 3.24 (disjoint segments, review-verified). But
+  the ground-truth calibration below shows this is teacher *fidelity*, not reading ability:
+  on held-out data vs human labels the same students are near chance. Read the 3.24 as
+  "faithfully reproduces the teacher," not "reads ink."
 - **Training-scroll diversity drives generalization; scaling saturates — both measured.**
   At fixed budget, adding a second training scroll lifted unseen-scroll (PHerc 1667)
   transfer from lift 1.22 to 2.12 (single-scroll distillation actually *over-specializes*,
@@ -103,32 +113,54 @@ The through-line is measurement honesty:
 - **Negative results, kept honest:** a community-style full-resolution 2.5D ResEncUNet
   *underperformed* the TimeSformer under our recipe (val_f1 0.369 vs 0.393) — the
   architecture likely needs the full nnU-Net protocol; documented rather than discarded.
-- **First ground-truth calibration on SOTA data (registered hand label).** By geometrically
-  bridging the 2023 hand label onto the SOTA re-flattening (via the released `original.obj`
-  vertex texture coordinates; alignment gated on visual + enrichment checks before any
-  scoring), we produced the project's first ground-truth numbers on SOTA data — including a
-  datapoint nobody outside the core team has published: **the canon prediction scores
-  ROC-AUC 0.70 / AP 0.26 against human labels.** This anchors every "agreement-with-teacher"
-  figure above (agreement was with a ~0.70-quality proxy). Where students have supervision
-  they *match* the teacher's ground-truth fidelity (fair F1 comparison ≈ parity) rather than
-  being capped below it — evidence the transfer plateau is a domain limit, not an exhausted
-  teacher.
-  → [reports/detector/registered_gt_validation.md](https://github.com/jonmarrs/vesuvius-autoresearch/blob/main/reports/detector/registered_gt_validation.md)
+- **Ground-truth calibration on SOTA data (registered hand labels) — the load-bearing
+  finding.** No ground-truth labels aligned to the SOTA re-flattening are released, so we
+  built the bridge: register the 2023 hand label onto SOTA geometry via the segment's
+  `original.obj` vertex texture coordinates (nearest-vertex map, ~8 old-scan-voxel residual),
+  gate on validated alignment before scoring, then measure. Two segments:
+  - **A datapoint nobody outside the core team has published:** the released canon prediction
+    scores **ROC-AUC 0.56–0.70 vs human labels**, segment-dependent (0.70 on one, 0.56 on
+    another where it reads the ink poorly). Agreement-with-teacher was therefore agreement
+    with a *variable, often mediocre* proxy — not truth.
+  - **The sobering held-out result:** on a segment **no distilled student trained on**, scored
+    against human ground truth, the students read **near chance (ROC-AUC ~0.55, prevalence-
+    lift ~1.16)** — statistically tied with the (weak) teacher and the undistilled detector.
+    The distilled "wins" reported on training regions (up to ROC-AUC 0.80) were **substantially
+    train-region fit**. Distillation faithfully reproduces the teacher — *including its
+    failures* — rather than learning to read independently. (The same registration quality let
+    the good-teacher segment score 0.70, so the near-chance number is real, not a registration
+    artifact.)
+  - → [registered_gt_validation.md](https://github.com/jonmarrs/vesuvius-autoresearch/blob/main/reports/detector/registered_gt_validation.md),
+    [registered_gt_heldout_validation.md](https://github.com/jonmarrs/vesuvius-autoresearch/blob/main/reports/detector/registered_gt_heldout_validation.md)
+- **We caught and corrected our own over-read.** The first (train-region) ground-truth result
+  was initially framed as students "matching or exceeding" the teacher; internal review flagged
+  a binary-vs-continuous metric confound and the train-region confound, and the held-out
+  measurement then showed the effect was largely fit. The committed reports lead with the
+  corrected framing. This self-correction *is* the methodological contribution.
 
 ## Honest limitations (stated plainly)
 
-- Cross-scroll transfer and distillation figures are **agreement with a model output (the
-  released canon predictions), not ground-truth accuracy** — no ground-truth labels aligned
-  to the SOTA re-flattening are *released*. We now calibrate this with a **registered** hand
-  label on one Scroll-1 region (above), but that region was in the students' training set and
-  the teacher there is binary (so its ROC-AUC/AP understate it — the fair comparison is F1);
-  both confounds are stated in the report. A *held-out* ground-truth region (registering
-  PHerc 1667's readings) is the outstanding validation.
-- The held-out region also serves as the best-epoch selection set (AP/ROC-AUC are
-  threshold-free and unaffected); noted in the report itself.
-- Same-scroll detection at the 64 px window is real but not legible; cross-scroll transfer
-  without retraining remains weak. We do not claim a state-of-the-art model — we claim an
-  honest, reproducible path onto the SOTA data that others can build on.
+- **We do not have a strong ink detector.** On held-out data vs human ground truth the
+  distilled models read near chance. The agreement-with-teacher figures (up to lift 3.24)
+  measure fidelity to a released model output, not reading ability; where that output is weak,
+  matching it is worthless. This is stated so no reader mistakes the distillation numbers for
+  accuracy.
+- **The ground-truth registration is approximate and one validation used a teacher-free gate.**
+  The registration is a nearest-vertex geometric bridge (~8 old-scan-voxel residual); its 2D
+  orientation is carried from a decisively-validated segment as an export-pipeline invariant
+  (the residual/periodicity checks are convention-blind). On the held-out segment the standard
+  (teacher-dependent) alignment gate false-negatived because the teacher is weak there, so
+  validation used a codified teacher-free gate (residual + text-line periodicity) — disclosed
+  in the report and reproducible from the committed code.
+- **The clean cross-scroll ground-truth test is still blocked:** PHerc 1667 (and other
+  non-training scrolls) ship only model predictions, no released human labels, so a fully clean
+  cross-scroll domain-ceiling measurement isn't yet possible. Re-checkable as the bucket grows.
+- The prior distillation held-out region also served as its best-epoch selection set (AP/ROC-AUC
+  are threshold-free and unaffected); noted in that report.
+- We claim an **honest, reproducible measurement apparatus** on the SOTA data — reproduce the
+  reference detector, distill it, and check it against registered ground truth — plus the
+  documented finding that distillation-from-canon does not, on this evidence, yield independent
+  reading. Not a state-of-the-art model.
 
 ## Reproducibility
 

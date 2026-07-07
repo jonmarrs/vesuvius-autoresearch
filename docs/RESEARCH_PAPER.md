@@ -79,22 +79,32 @@ data) **saturates** at ≈2.1 while producing the best all-around model (own-scr
 0.587–0.631, ROC-AUC up to 0.919). A full bucket sweep found only 4 of 45 scrolls ship canon
 teacher predictions — the practical scaling frontier is released teachers.
 
-### B3. Ground-truth calibration (registered hand label, 2026-07-06)
-No ground-truth labels aligned to the SOTA flattening are released, so we bridged the 2023
-hand label onto SOTA geometry via the segment's published `original.obj` vertex texture
-coordinates (nearest-vertex map, median residual 7.9 old-scan voxels; alignment gated on
-letterform-overlay + teacher-enrichment before scoring). Against this registered ground truth,
-the **canon prediction scores ROC-AUC 0.70 / AP 0.26 / F1 0.44** — the first ground-truth
-calibration of the released model, and the anchor for every agreement-with-teacher figure. The
-legacy detector is chance (0.49). The distilled students score ROC-AUC 0.79–0.80 but on a
-*training* region and against a *binary* teacher (fair F1 comparison ≈ parity), so they match
-rather than exceed teacher fidelity where supervised.
+### B3. Ground-truth calibration (registered hand labels, 2026-07-06/07)
+No ground-truth labels aligned to the SOTA flattening are released, so we bridged the 2023 hand
+labels onto SOTA geometry via each segment's published `original.obj` vertex texture coordinates
+(nearest-vertex map, ~8 old-scan-voxel residual; alignment gated before scoring). Two segments:
+- **Train region** (`20230702185753`, in the students' training set): the **canon prediction
+  scores ROC-AUC 0.70 / AP 0.26** vs human labels — the first ground-truth calibration of the
+  released model. Students score 0.79–0.80, but this is *train-region fit* against a *binary*
+  teacher, not generalization.
+- **Held-out region** (`20231210121321`, no student trained on it): **everything reads near
+  chance** — teacher ROC-AUC **0.563**, students **0.55–0.56**, legacy 0.50. The distilled
+  students, held out, are statistically tied with the weak teacher and the undistilled detector.
+
+**Conclusion:** distillation-from-canon reproduces the teacher *faithfully, including its
+failures*, rather than learning to read independently; the agreement-with-teacher gains (up to
+lift 3.24) are fidelity, and where the teacher is weak the students are too. The near-chance
+held-out number is real (the same registration quality gave 0.70 on the good-teacher segment).
 
 ### C. What's open
-- **Diagnosing the transfer plateau (partially resolved):** the registered-label calibration
-  above shows students are *not* capped below the teacher where they have supervision, pointing
-  at a *domain* ceiling over a *teacher* ceiling. Settling it needs ground truth on a
-  **held-out** region — registering PHerc 1667's published readings — the active next step.
+- **A stronger detector than faithful teacher-reproduction.** The held-out ground-truth test
+  shows distillation-from-canon does not yield independent reading on this evidence; closing that
+  gap needs either better teachers (only 4 of 45 scrolls ship canon predictions today) or
+  ground-truth *training* (registered hand labels as fine-tuning targets on SOTA surfaces), not
+  more agreement-with-teacher distillation.
+- **A clean cross-scroll ground-truth test** remains blocked — non-training scrolls (PHerc 1667
+  et al.) ship only model predictions, no released human labels. Re-checkable as the bucket
+  grows.
 - **Independent validation of the distilled model:** register legacy hand labels onto the
   SOTA re-flattening to spot-check agreement-with-teacher numbers against real ground truth.
 - **Legibility at the prize window:** same-scroll signal is real (lift 2.07) but not legible
