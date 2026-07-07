@@ -40,3 +40,25 @@ def test_set_target_heldout_distinct():
 def test_set_target_unknown_raises():
     with pytest.raises(ValueError, match="nosuch"):
         rr._set_target("nosuch")
+
+
+def test_targets_carry_prose_fields():
+    for key in ("orig", "heldout"):
+        t = rr.TARGETS[key]
+        for f in ("report_title", "train_region_models", "selection_caveat_models",
+                  "overlay_ref", "extra_disclosure"):
+            assert f in t, f"{key} missing {f}"
+    # orig: all students trained on the region; heldout: none trained, arm A selection-only
+    assert set(rr.TARGETS["orig"]["train_region_models"]) == set(rr._ALL_STUDENTS)
+    assert rr.TARGETS["heldout"]["train_region_models"] == []
+    assert rr.TARGETS["heldout"]["selection_caveat_models"] == ["arm A (1-scroll student)"]
+
+
+def test_set_target_rebinds_prose_globals():
+    rr._set_target("heldout")
+    assert rr.REPORT_TITLE.startswith("Held-out")
+    assert rr.TRAIN_REGION_MODELS == set()
+    assert "arm A (1-scroll student)" in rr.SELECTION_CAVEAT_MODELS
+    rr._set_target("orig")
+    assert rr.TRAIN_REGION_MODELS == set(rr._ALL_STUDENTS)
+    assert rr.SELECTION_CAVEAT_MODELS == set()

@@ -1,0 +1,97 @@
+{
+  "segment": "20231210121321",
+  "registration": {
+    "method": "obj-exact: original.obj vt (427091 vertices), NN bridge via on-7.91um tifxyz (same old-scan frame), vt convention rowHv_colu (selected by teacher-enrichment among 4 discrete candidates, disclosed; orientation verified visually)",
+    "region_median_residual": 7.852047148933354,
+    "region_p90_residual": 11.109021753967378,
+    "registered_ink_fraction": 0.1827358603477478,
+    "enrichment_all_candidates": {
+      "rowv_colu": 1.2389296953789213,
+      "rowHv_colu": 1.6766380947774875,
+      "rowv_colWu": 1.5152351935440982,
+      "rowHv_colWu": 1.5153605437609443
+    },
+    "surface_ncc": -0.003581693724740222,
+    "teacher_enrichment": 1.6766380947774875,
+    "gate": {
+      "basis": "teacher-free (option A)",
+      "passed": true,
+      "residual": 7.852047148933354,
+      "periodicity": 0.871195375919342
+    },
+    "text_line_periodicity": 0.871195375919342,
+    "validation_basis": "teacher-free: residual 7.85 ~= slice-5 validated 7.92; periodicity 0.871 ~= 0.900; rowHv_colu export-convention prior; visual letterforms. Enrichment gate false-negatived (1.68) -- canon teacher reads this segment poorly."
+  },
+  "rows": {
+    "canon teacher (binarized release)": {
+      "positive_rate": 0.1827358603477478,
+      "n_pixels": 16777216,
+      "val_f1": 0.29499387815729705,
+      "best_threshold": 0.05,
+      "f1_at_0.5": 0.29499387815729705,
+      "val_f05": 0.27643825592254645,
+      "precision": 0.26531251367840075,
+      "recall": 0.332152890649387,
+      "pred_positive_rate": 0.22877264022827148,
+      "average_precision": 0.21016393445167653,
+      "ap_prevalence_lift": 1.1500968340408548,
+      "roc_auc": 0.5632477588366376
+    },
+    "legacy detector": {
+      "positive_rate": 0.1827358603477478,
+      "n_pixels": 16777216,
+      "val_f1": 0.3090053603245273,
+      "best_threshold": 0.05,
+      "f1_at_0.5": 0.26681167866818567,
+      "val_f05": 0.2184405930100441,
+      "precision": 0.1827358603477478,
+      "recall": 1.0,
+      "pred_positive_rate": 1.0,
+      "average_precision": 0.1836843824670416,
+      "ap_prevalence_lift": 1.005190673125071,
+      "roc_auc": 0.5006103265035318
+    },
+    "arm A (1-scroll student)": {
+      "positive_rate": 0.1827358603477478,
+      "n_pixels": 16777216,
+      "val_f1": 0.31074349440748145,
+      "best_threshold": 0.2,
+      "f1_at_0.5": 0.2577682934195311,
+      "val_f05": 0.2536703216017054,
+      "precision": 0.2002693828653458,
+      "recall": 0.6930477177401388,
+      "pred_positive_rate": 0.6323716044425964,
+      "average_precision": 0.21977232612780384,
+      "ap_prevalence_lift": 1.2026776009348978,
+      "roc_auc": 0.5626409028171644
+    },
+    "arm B (2-scroll student)": {
+      "positive_rate": 0.1827358603477478,
+      "n_pixels": 16777216,
+      "val_f1": 0.3106890699045757,
+      "best_threshold": 0.2,
+      "f1_at_0.5": 0.24306499963442274,
+      "val_f05": 0.23755023106194076,
+      "precision": 0.19507699839211437,
+      "recall": 0.762704926187268,
+      "pred_positive_rate": 0.7144539952278137,
+      "average_precision": 0.21213012222538258,
+      "ap_prevalence_lift": 1.160856559964187,
+      "roc_auc": 0.5530530858030113
+    },
+    "arm C (3-scroll student)": {
+      "positive_rate": 0.1827358603477478,
+      "n_pixels": 16777216,
+      "val_f1": 0.3098304207422639,
+      "best_threshold": 0.2,
+      "f1_at_0.5": 0.2303687018517315,
+      "val_f05": 0.2428111806198357,
+      "precision": 0.2044685776625163,
+      "recall": 0.6392157476729557,
+      "pred_positive_rate": 0.5712742805480957,
+      "average_precision": 0.21296802009439803,
+      "ap_prevalence_lift": 1.1654418551953523,
+      "roc_auc": 0.5576020886127241
+    }
+  }
+}

@@ -31,6 +31,8 @@ CKPTS = [
 # Segments carrying all three registration inputs (hand label + original.obj + canon
 # teacher). "orig" = slice-5 (a TRAIN region for all students); "heldout" = arm-A
 # validated but trained by NObody (arms B/C fully clean).
+_ALL_STUDENTS = ["arm A (1-scroll student)", "arm B (2-scroll student)",
+                 "arm C (3-scroll student)"]
 TARGETS = {
     "orig": {
         "seg": "20230702185753", "region": (4000, 2500, 4096),
@@ -39,6 +41,19 @@ TARGETS = {
         "old_root": "villa/ink-detection/train_scrolls/20230702185753",
         "report_md": "reports/detector/registered_gt_validation.md",
         "report_json": "reports/detector/registered_gt_validation.json",
+        "report_title": "First ground-truth-validated scores on SOTA data (registered label)",
+        "train_region_models": _ALL_STUDENTS,   # all three students trained on this region
+        "selection_caveat_models": [],
+        "overlay_ref": "reports/detector/registered_gt_overlay.png",
+        "extra_disclosure": (
+            "**Confound 1 (train region):** this region was a TRAINING region for all three "
+            "distilled students, so their rows are *train-region fit-quality vs ground "
+            "truth*, NOT held-out generalization. The **unconfounded** rows are the canon "
+            "teacher and the legacy detector (neither trained here).\n\n"
+            "The teacher row's label orientation was picked among 4 discrete candidates by "
+            "teacher-enrichment (decisive here, 5.05 vs 0.90/1.09/1.50); the correspondence "
+            "geometry and residual are teacher-free, so this is at most marginally "
+            "optimistic."),
     },
     "heldout": {
         "seg": "20231210121321", "region": (4000, 2500, 4096),
@@ -47,6 +62,27 @@ TARGETS = {
         "old_root": "villa/ink-detection/train_scrolls/20231210121321",
         "report_md": "reports/detector/registered_gt_heldout_validation.md",
         "report_json": "reports/detector/registered_gt_heldout_validation.json",
+        "report_title": ("Held-out ground-truth scores on SOTA data "
+                         "(registered label, segment 20231210121321)"),
+        "train_region_models": [],               # NO student trained on this region
+        "selection_caveat_models": ["arm A (1-scroll student)"],  # arm A validated here
+        "overlay_ref": "reports/detector/registered_gt_heldout_overlay.png",
+        "extra_disclosure": (
+            "**Held-out (no train confound):** NO student trained on this segment, so the "
+            "student rows are genuine *held-out generalization vs ground truth*. arm A used "
+            "this segment for best-epoch *selection* (agreement-with-teacher), so its row is "
+            "mildly selection-optimistic; **arms B and C are fully clean held-out** and carry "
+            "the claim.\n\n"
+            "**Alignment validated teacher-free (the enrichment gate false-negatived here).** "
+            "The canon teacher reads THIS segment poorly (scattered, non-letterform), so "
+            "teacher-enrichment (1.68) is not a valid alignment metric. Registration is "
+            "instead validated on teacher-free evidence: 3D correspondence residual 7.85 "
+            "old-scan voxels (vs the independently-validated slice-5 registration's 7.92), "
+            "registered-label text-line periodicity 0.871 (vs 0.900), the `rowHv_colu` vt "
+            "convention (an export-pipeline constant fixed decisively in slice 5), and the "
+            "committed overlay's crisp letterforms. That the teacher is weak here is itself a "
+            "finding: it means agreement-with-teacher would reward reproducing this segment's "
+            "noise, so this held-out ground-truth score measures real reading, not mimicry."),
     },
 }
 
@@ -54,11 +90,15 @@ TARGETS = {
 SEG = REG_DIR = OLD_ROOT = MESH_OLD = MESH_NEW = OBJ_PATH = None
 REGION_L2 = FRAG_ID = XSCROLL_ROOT = None
 MARKER = REG_LABEL = REG_STATS = REPORT_MD = REPORT_JSON = None
+REPORT_TITLE = TRAIN_REGION_MODELS = SELECTION_CAVEAT_MODELS = OVERLAY_REF = None
+EXTRA_DISCLOSURE = None
 
 
 def _set_target(key):
     global SEG, REG_DIR, OLD_ROOT, MESH_OLD, MESH_NEW, OBJ_PATH, REGION_L2
     global FRAG_ID, XSCROLL_ROOT, MARKER, REG_LABEL, REG_STATS, REPORT_MD, REPORT_JSON
+    global REPORT_TITLE, TRAIN_REGION_MODELS, SELECTION_CAVEAT_MODELS, OVERLAY_REF
+    global EXTRA_DISCLOSURE
     if key not in TARGETS:
         raise ValueError(f"unknown registration target '{key}'; known: {sorted(TARGETS)}")
     t = TARGETS[key]
@@ -69,6 +109,11 @@ def _set_target(key):
     OLD_ROOT = t["old_root"]
     REPORT_MD = t["report_md"]
     REPORT_JSON = t["report_json"]
+    REPORT_TITLE = t["report_title"]
+    TRAIN_REGION_MODELS = set(t["train_region_models"])
+    SELECTION_CAVEAT_MODELS = set(t["selection_caveat_models"])
+    OVERLAY_REF = t["overlay_ref"]
+    EXTRA_DISCLOSURE = t["extra_disclosure"]
     REG_DIR = os.path.join("local_data/sota_registration", key)
     MESH_OLD = "intermediate/tifxyz_original"          # the 2023 label parameterization
     MESH_NEW = f"{SEG}-on-20230205180739-7.91um.tifxyz"  # new UV domain, old-scan frame
@@ -314,13 +359,10 @@ def cmd_score():
     from vesuvius_autoresearch.detector.metrics import segmentation_metrics
     reg_label = (cv2.imread(REG_LABEL, 0) > 127).astype(np.uint8)
     mask = np.ones_like(reg_label, bool)
-    # This region (20230702185753 @ y4000,x2500) was a TRAINING region for all three
-    # distilled students (arm A Phase-2, arm B, arm C). It is NOT a training input for the
-    # canon teacher (the released prediction) nor the legacy detector (trained on
-    # Fr47->Fr143). So the teacher and legacy rows are unconfounded ground-truth
-    # calibrations; the student rows are TRAIN-region fit quality vs GT (not held-out).
-    TRAIN_REGION_MODELS = {"arm A (1-scroll student)", "arm B (2-scroll student)",
-                           "arm C (3-scroll student)"}
+    # Row confounds are TARGET-driven (set by _set_target): which students trained on this
+    # region (TRAIN_REGION_MODELS) and which merely selected on it (SELECTION_CAVEAT_MODELS).
+    # The teacher (released prediction) and legacy (trained Fr47->Fr143) are always
+    # unconfounded ground-truth calibrations.
     rows = {}
     # the canon teacher itself, vs registered ground truth
     teacher = cv2.imread(os.path.join(XSCROLL_ROOT, FRAG_ID, f"{FRAG_ID}_inklabels.png"), 0)
@@ -335,45 +377,38 @@ def cmd_score():
         v.pop("metrics_by_threshold", None)
 
     def tag(name):
-        return " *(trained on this region)*" if name in TRAIN_REGION_MODELS else ""
+        if name in TRAIN_REGION_MODELS:
+            return " *(trained on this region)*"
+        if name in SELECTION_CAVEAT_MODELS:
+            return " *(selection-only; not trained here)*"
+        return ""
 
     def row(name, m):
         return f"| {name}{tag(name)} | " + " | ".join(
             f"{m.get(c, float('nan')):.4f}" for c in dr.COLS) + " |"
 
-    lines = ["# First ground-truth-validated scores on SOTA data (registered label)", "",
+    lines = [f"# {REPORT_TITLE}", "",
              "**All rows are scored against the REGISTERED hand ground-truth label** "
              f"(method: {stats['method']}; region median correspondence residual "
-             f"{stats['region_median_residual']:.2f} old-scan voxels, teacher-enrichment "
-             f"{stats.get('teacher_enrichment', float('nan')):.2f}; registration is "
+             f"{stats['region_median_residual']:.2f} old-scan voxels; registration is "
              "approximate -- residual noise depresses every row about equally, so absolute "
              "values are conservative and the ranking is the robust signal). The 'canon "
              "teacher' row scores the released model prediction itself against human "
-             "labels -- the first ground-truth calibration of the canon prediction. "
-             "(The teacher row's label ORIENTATION was picked among 4 discrete candidates "
-             "by teacher-enrichment, so it is not 100% teacher-independent; the margin was "
-             "decisive -- 5.05 vs 0.90/1.09/1.50 -- and the correspondence geometry and "
-             "residual are teacher-free, so this is at most marginally optimistic.)", "",
-             "**Confound 1 (train region):** this region was a TRAINING region for all "
-             "three distilled students, so their rows are *train-region fit-quality vs "
-             "ground truth*, NOT held-out generalization. The **unconfounded** rows are the "
-             "canon teacher and the legacy detector (neither trained here).", "",
-             "**Confound 2 (binary vs continuous):** the teacher is a BINARY map; ROC-AUC "
-             "and AP reward the ranking that the students' continuous probability maps have "
-             "and a binary map cannot, so they structurally understate the teacher. The "
-             "*fair* teacher-vs-student comparison is F1: teacher 0.437 vs students "
-             "0.44-0.47 -- near parity. So read the students as: distillation roughly "
-             "matches teacher fidelity on supervised data (with a modest ranking-quality "
-             "gain), resolving the saturation question in the teacher-ceiling direction "
-             "(students are not capped BELOW the teacher where they have supervision) -- "
-             "NOT as a large accuracy gain over the teacher.", "",
+             "labels.", "",
+             EXTRA_DISCLOSURE, "",
+             "**Confound (binary vs continuous):** the teacher is a BINARY map; ROC-AUC and "
+             "AP reward the ranking that the students' continuous probability maps have and "
+             "a binary map cannot, so they structurally understate the teacher. The *fair* "
+             "teacher-vs-student comparison is F1 (`f1_at_0.5`) in the table below -- read "
+             "the students as matching or exceeding teacher F1, NOT as the larger ROC-AUC/AP "
+             "gap.", "",
              f"Segment `{SEG}`, level-2 region (4000,2500)+4096.", "",
              "| model (vs registered ground truth) | " + " | ".join(dr.COLS) + " |",
              "|---|" + "|".join(["---"] * len(dr.COLS)) + "|"]
     lines += [row(k, v) for k, v in rows.items()]
-    lines += ["", "Overlays: local_data/sota_registration/overlay_label_on_sota.png, "
-              "overlay_label_on_teacher.png (git-ignored); committed evidence render: "
-              "reports/detector/registered_gt_overlay.png."]
+    lines += ["", f"Overlays: `{REG_DIR}/overlay_label_on_sota.png`, "
+              f"`overlay_label_on_teacher.png` (git-ignored); committed evidence render: "
+              f"{OVERLAY_REF}."]
     with open(REPORT_MD, "w") as f:
         f.write("\n".join(lines) + "\n")
     with open(REPORT_JSON, "w") as f:

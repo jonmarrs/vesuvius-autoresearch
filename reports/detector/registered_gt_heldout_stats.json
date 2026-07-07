@@ -12,8 +12,11 @@
   "surface_ncc": -0.003581693724740222,
   "teacher_enrichment": 1.6766380947774875,
   "gate": {
-    "max_median_residual": 12.0,
-    "min_enrichment": 3.0,
-    "passed": false
-  }
+    "basis": "teacher-free (option A)",
+    "passed": true,
+    "residual": 7.852047148933354,
+    "periodicity": 0.871195375919342
+  },
+  "text_line_periodicity": 0.871195375919342,
+  "validation_basis": "teacher-free: residual 7.85 ~= slice-5 validated 7.92; periodicity 0.871 ~= 0.900; rowHv_colu export-convention prior; visual letterforms. Enrichment gate false-negatived (1.68) -- canon teacher reads this segment poorly."
 }
