@@ -1,0 +1,19 @@
+{
+  "method": "obj-exact: original.obj vt (427091 vertices), NN bridge via on-7.91um tifxyz (same old-scan frame), vt convention rowHv_colu (selected by teacher-enrichment among 4 discrete candidates, disclosed; orientation verified visually)",
+  "region_median_residual": 7.852047148933354,
+  "region_p90_residual": 11.109021753967378,
+  "registered_ink_fraction": 0.1827358603477478,
+  "enrichment_all_candidates": {
+    "rowv_colu": 1.2389296953789213,
+    "rowHv_colu": 1.6766380947774875,
+    "rowv_colWu": 1.5152351935440982,
+    "rowHv_colWu": 1.5153605437609443
+  },
+  "surface_ncc": -0.003581693724740222,
+  "teacher_enrichment": 1.6766380947774875,
+  "gate": {
+    "max_median_residual": 12.0,
+    "min_enrichment": 3.0,
+    "passed": false
+  }
+}
