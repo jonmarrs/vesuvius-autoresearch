@@ -161,6 +161,29 @@ def ncc(a, b):
     return float((a * b).sum() / denom) if denom > 0 else 0.0
 
 
+def label_line_periodicity(label, band=(40, 260)):
+    """Teacher-FREE coherence check: correctly-registered text has strong horizontal
+    line-periodicity (row-wise ink density is periodic at the text-line pitch); a
+    scrambled/off-manifold mapping destroys it. Returns the peak row-autocorrelation in
+    the plausible line-pitch band (0..1). Convention-BLIND (a vertical flip preserves it),
+    so it confirms 'real text landed on the manifold', not the 2D orientation."""
+    lab = np.asarray(label)
+    if lab.ndim == 3:
+        lab = lab[..., 0]
+    ink = (lab > 127).astype(np.float64)
+    rows = ink.mean(axis=1)
+    rows = rows - rows.mean()
+    ac = np.correlate(rows, rows, "full")[len(rows) - 1:]
+    if ac[0] <= 0:
+        return 0.0
+    ac = ac / ac[0]
+    lo, hi = band
+    hi = min(hi, len(ac))
+    if hi <= lo:
+        return 0.0
+    return float(ac[lo:hi].max())
+
+
 def fit_affine_orb(old_img, new_img, n_features=5000):
     orb = cv2.ORB_create(nfeatures=n_features)
     k1, d1 = orb.detectAndCompute(old_img, None)

@@ -14,12 +14,15 @@
     "surface_ncc": -0.003581693724740222,
     "teacher_enrichment": 1.6766380947774875,
     "gate": {
-      "basis": "teacher-free (option A)",
+      "mode": "teacher_free",
+      "max_median_residual": 12.0,
+      "min_periodicity": 0.6,
+      "periodicity": 0.8711954249403211,
+      "enrichment_diagnostic": 1.6766380947774875,
       "passed": true,
-      "residual": 7.852047148933354,
-      "periodicity": 0.871195375919342
+      "note": "teacher-dependent enrichment is only a DIAGNOSTIC here; residual and periodicity are convention-blind (they confirm real text on the manifold, not the 2D orientation, which is carried from the slice-5 export-pipeline convention)."
     },
-    "text_line_periodicity": 0.871195375919342,
+    "text_line_periodicity": 0.8711954249403211,
     "validation_basis": "teacher-free: residual 7.85 ~= slice-5 validated 7.92; periodicity 0.871 ~= 0.900; rowHv_colu export-convention prior; visual letterforms. Enrichment gate false-negatived (1.68) -- canon teacher reads this segment poorly."
   },
   "rows": {

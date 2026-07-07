@@ -121,3 +121,20 @@ def test_valid_masks_drop_minus_one_markers():
     xyz[1, 1] = (0, 0, 0)
     pts = _valid_points(xyz)
     assert len(pts) == 62  # both markers dropped
+
+
+def test_label_line_periodicity_text_vs_scrambled():
+    from repro.sota_data.register import label_line_periodicity
+    # synthetic "text lines": ink stripes every 60 px
+    lab = np.zeros((600, 400), np.uint8)
+    for r in range(10, 600, 60):
+        lab[r:r + 20, 40:360] = 255
+    periodic = label_line_periodicity(lab)
+    # scrambled: same ink pixels, random rows -> no line structure
+    rng = np.random.default_rng(0)
+    scr = np.zeros_like(lab)
+    idx = rng.permutation(600)
+    scr[:] = lab[idx]
+    scrambled = label_line_periodicity(scr)
+    assert periodic > 0.5
+    assert periodic > scrambled + 0.3
