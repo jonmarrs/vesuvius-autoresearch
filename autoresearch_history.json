@@ -1,6 +1,6 @@
 {
     "lr": 1.0,
-    "wd": 1.6290124999999998,
+    "wd": 1.2604988194492182,
     "capacity": 1.0,
     "attention": 1.0,
     "regularization": 1.0,
@@ -8,11 +8,11 @@
     "spatial": 1.0,
     "temporal": 1.0,
     "width": 1.0,
-    "loss_balance": 16.385774798422766,
+    "loss_balance": 16.253381435187435,
     "features": 1.0,
-    "architecture": 1.0,
+    "architecture": 1.9,
     "baseline": 18,
     "uamt": 1.0,
     "scroll_augmentations": 1.0,
-    "preproc": 1.5928142651721109
+    "preproc": 1.2324893153682492
 }
