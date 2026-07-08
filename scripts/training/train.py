@@ -604,7 +604,7 @@ def _get_villa_aug(size: int, config: ExperimentConfig):
                 rotate=(-config.aug_rotate_limit, config.aug_rotate_limit),
                 scale=(1.0 - config.aug_scale_limit, 1.0 + config.aug_scale_limit),
                 translate_percent=(-0.15, 0.15),
-                border_mode=0,
+                mode=0,
                 p=config.aug_affine_p,
             )
         )
@@ -612,7 +612,7 @@ def _get_villa_aug(size: int, config: ExperimentConfig):
     transforms.append(
         A.OneOf(
             [
-                A.GaussNoise(std_range=(0.01, 0.03)),
+                A.GaussNoise(var_limit=(0.01, 0.03)),
                 A.GaussianBlur(),
                 A.MotionBlur(),
             ],
@@ -623,11 +623,11 @@ def _get_villa_aug(size: int, config: ExperimentConfig):
     if config.aug_coarse_dropout_p > 0:
         transforms.append(
             A.CoarseDropout(
-                num_holes_range=(1, 2),
-                hole_height_range=(0.1, 0.2),
-                hole_width_range=(0.1, 0.2),
-                fill=0,
-                fill_mask=0,
+                min_holes=1, max_holes=2,
+                min_height=0.1, max_height=0.2,
+                min_width=0.1, max_width=0.2,
+                fill_value=0,
+                mask_fill_value=0,
                 p=config.aug_coarse_dropout_p,
             )
         )
