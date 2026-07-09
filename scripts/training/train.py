@@ -623,9 +623,12 @@ def _get_villa_aug(size: int, config: ExperimentConfig):
     if config.aug_coarse_dropout_p > 0:
         transforms.append(
             A.CoarseDropout(
-                min_holes=1, max_holes=2,
-                min_height=0.1, max_height=0.2,
-                min_width=0.1, max_width=0.2,
+                min_holes=1,
+                max_holes=2,
+                min_height=0.1,
+                max_height=0.2,
+                min_width=0.1,
+                max_width=0.2,
                 fill_value=0,
                 mask_fill_value=0,
                 p=config.aug_coarse_dropout_p,
