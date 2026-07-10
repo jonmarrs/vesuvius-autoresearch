@@ -1333,7 +1333,7 @@ def train(config: ExperimentConfig):
             use_ridges=config.use_ridges,
             ridge_sigma=getattr(config, "ridge_sigma", 2.0),
             use_lasagna=getattr(config, "use_lasagna", False),
-            require_ink=True,
+            require_ink=False,
             target_fiber_source="sobel_z",
             patches_json=patches_json_path
             if os.path.exists(patches_json_path)

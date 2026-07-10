@@ -385,8 +385,12 @@ def scroll_thick_slice(
         down_ink = F.interpolate(target_ink, size=t_shape_2d, mode="nearest")
         res_ink = F.interpolate(down_ink, size=s_shape_2d, mode="nearest")
 
-        down_fib = F.interpolate(target_fiber, size=t_shape_2d, mode="nearest")
-        res_fib = F.interpolate(down_fib, size=s_shape_2d, mode="nearest")
+        down_fib = F.interpolate(
+            target_fiber.squeeze(2), size=t_shape_2d, mode="nearest"
+        ).unsqueeze(2)
+        res_fib = F.interpolate(
+            down_fib.squeeze(2), size=s_shape_2d, mode="nearest"
+        ).unsqueeze(2)
 
     return res_x, res_ink, res_fib
 
