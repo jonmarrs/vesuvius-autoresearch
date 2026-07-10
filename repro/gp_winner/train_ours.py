@@ -173,7 +173,7 @@ def read_image_mask(fragment_id, start_idx=17, end_idx=43, CFG=CFG):
             "20231016151000",
         ]
     ):
-        images = images[:, :, ::-1]
+        images = images[:, :, ::-1]  # type: ignore[call-overload]
     # Get the list of files that match the pattern
     inklabel_files = glob.glob(f"train_scrolls/{fragment_id}/*inklabels.*")
     if len(inklabel_files) > 0:
@@ -472,6 +472,9 @@ class GradualWarmupSchedulerV2(GradualWarmupScheduler):
     """
     https://www.kaggle.com/code/underwearfitting/single-fold-training-of-resnet200d-lb0-965
     """
+
+    # Declared for the type checker: set in the (untyped) base class.
+    finished: bool
 
     def __init__(self, optimizer, multiplier, total_epoch, after_scheduler=None):
         super(GradualWarmupSchedulerV2, self).__init__(

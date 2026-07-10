@@ -1,6 +1,8 @@
 """Community-aligned segmentation metrics for ink detection: threshold-swept F1 (primary),
 average precision and prevalence-lift (honest, imbalance-robust gates), with ROC-AUC kept
 only as a secondary diagnostic. Mask-restricted, pooled over the fragment."""
+from typing import Any
+
 import numpy as np
 from sklearn.metrics import average_precision_score, roc_auc_score
 
@@ -35,7 +37,7 @@ def segmentation_metrics(prob, label, mask, thresholds=None):
     n = int(y.size)
     pos = int(y.sum())
     positive_rate = pos / n if n else float("nan")
-    card = {"positive_rate": positive_rate, "n_pixels": n}
+    card: dict[str, Any] = {"positive_rate": positive_rate, "n_pixels": n}
 
     if pos == 0 or pos == n or n == 0:
         card.update({k: float("nan") for k in _DEGENERATE_KEYS})

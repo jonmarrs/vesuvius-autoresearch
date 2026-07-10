@@ -187,6 +187,7 @@ def cmd_measure():
             score = -1.0
         if best is None or score > best[3]:
             best = (m, ck, prob, score)
+    assert best is not None  # ckpts is non-empty (guarded above), so the loop ran
     m, ck, prob, _ = best
     Image.fromarray((np.clip(prob, 0, 1) * 255).astype(np.uint8)).resize(
         (prob.shape[1] // 4, prob.shape[0] // 4)).save(

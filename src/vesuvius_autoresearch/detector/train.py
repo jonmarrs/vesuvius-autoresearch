@@ -14,6 +14,10 @@ from .model import DetectorModel
 
 
 class GradualWarmupSchedulerV2(GradualWarmupScheduler):
+    # Declared for the type checker: `finished` is set in the (untyped) base
+    # class, so mypy cannot infer its type at the read below.
+    finished: bool
+
     def get_lr(self):
         if self.last_epoch > self.total_epoch:
             if self.after_scheduler:

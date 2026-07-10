@@ -10,6 +10,7 @@ tifxyz correspondence did not pass the alignment gate)."""
 import json
 import os
 import sys
+from typing import Any
 
 import cv2
 import numpy as np
@@ -109,12 +110,29 @@ TARGETS = {
     },
 }
 
-# module globals rebound by _set_target (declared here so references resolve at import)
-SEG = REG_DIR = OLD_ROOT = MESH_OLD = MESH_NEW = OBJ_PATH = None
-REGION_L2 = FRAG_ID = XSCROLL_ROOT = None
-MARKER = REG_LABEL = REG_STATS = REPORT_MD = REPORT_JSON = None
-REPORT_TITLE = TRAIN_REGION_MODELS = SELECTION_CAVEAT_MODELS = OVERLAY_REF = None
-EXTRA_DISCLOSURE = GATE_MODE = BINARY_CAVEAT = None
+# module globals rebound by _set_target from the TARGETS dict (declared here so
+# references resolve at import; typed Any because _set_target fills them in).
+SEG: Any = None
+REG_DIR: Any = None
+OLD_ROOT: Any = None
+MESH_OLD: Any = None
+MESH_NEW: Any = None
+OBJ_PATH: Any = None
+REGION_L2: Any = None
+FRAG_ID: Any = None
+XSCROLL_ROOT: Any = None
+MARKER: Any = None
+REG_LABEL: Any = None
+REG_STATS: Any = None
+REPORT_MD: Any = None
+REPORT_JSON: Any = None
+REPORT_TITLE: Any = None
+TRAIN_REGION_MODELS: Any = None
+SELECTION_CAVEAT_MODELS: Any = None
+OVERLAY_REF: Any = None
+EXTRA_DISCLOSURE: Any = None
+GATE_MODE: Any = None
+BINARY_CAVEAT: Any = None
 
 
 def _set_target(key):
