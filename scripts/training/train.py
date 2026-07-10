@@ -443,6 +443,22 @@ def is_f1_improvement(val_f1: float, ap_lift: float, best_val_f1: float) -> bool
     return val_f1 > best_val_f1 + F1_NOISE_TOLERANCE
 
 
+def pooled_segmentation_metrics(all_probs, all_targets):
+    """Pool per-patch validation predictions/targets and score them with the
+    detector's honest metric contract (single source of truth). Every pixel is
+    valid here, so the mask is all-True. Returns {} when there are no patches.
+    """
+    if not all_probs:
+        return {}
+    # Lazy import: keep module import light and side-effect-free for the loop.
+    from vesuvius_autoresearch.detector.metrics import segmentation_metrics
+
+    prob = torch.cat([p.reshape(-1) for p in all_probs]).numpy()
+    label = torch.cat([t.reshape(-1) for t in all_targets]).numpy()
+    mask = np.ones_like(label, dtype=bool)
+    return segmentation_metrics(prob, label, mask)
+
+
 # The Dice-optimal binarization threshold is not the topology-optimal one. On
 # the production resenc_unet, forcing the Dice threshold (~0.05, blobby
 # over-prediction) onto the topology metrics reported skel_dist ~21 /
