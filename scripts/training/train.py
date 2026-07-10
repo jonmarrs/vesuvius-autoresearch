@@ -409,6 +409,40 @@ def is_model_improvement(
     return topo_improved or bpb_improved
 
 
+# --- Honest, prize-aligned promotion criterion (2026-07 rewire) --------------
+# Selection now runs on the detector's honest metric contract (threshold-swept
+# F1, gated by AP-prevalence-lift) instead of val_bpb (weak discriminator) and
+# skel_dist (proven location-blind / invalid). val_bpb & topology stay computed
+# and reported but no longer decide promotion. See
+# docs/superpowers/specs/2026-07-10-loop-honest-metric-selection-design.md
+#
+# PROVISIONAL: no empirical run-to-run F1 noise has been measured on the Fr143
+# val set yet. These conservative defaults should be recalibrated after several
+# cycles (mirror the BPB_NOISE_TOLERANCE calibration note above).
+F1_NOISE_TOLERANCE = 5e-3
+LIFT_MARGIN = 0.02
+
+
+def is_f1_improvement(val_f1: float, ap_lift: float, best_val_f1: float) -> bool:
+    """Prize-aligned promotion: threshold-swept F1, gated by a real-signal check.
+
+    A candidate improves on the best model iff all hold:
+    - val_f1 is finite,
+    - ap_lift is finite and > 1 + LIFT_MARGIN (beats the trivial prevalence
+      baseline — kills the constant/all-positive prediction artifact that made
+      Dice/val_bpb untrustworthy), and
+    - val_f1 exceeds the stored best by more than F1_NOISE_TOLERANCE.
+
+    best_val_f1 is -inf on a checkpoint that predates val_f1, so the first
+    submittable, lift-positive cycle bootstraps the baseline.
+    """
+    if not np.isfinite(val_f1):
+        return False
+    if not (np.isfinite(ap_lift) and ap_lift > 1.0 + LIFT_MARGIN):
+        return False
+    return val_f1 > best_val_f1 + F1_NOISE_TOLERANCE
+
+
 # The Dice-optimal binarization threshold is not the topology-optimal one. On
 # the production resenc_unet, forcing the Dice threshold (~0.05, blobby
 # over-prediction) onto the topology metrics reported skel_dist ~21 /
