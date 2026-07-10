@@ -1,4 +1,4 @@
-from scripts import audit_villa_upstream as audit
+from scripts.archive import audit_villa_upstream as audit
 
 
 def test_audit_villa_upstream_groups_prize_relevant_changes(monkeypatch, tmp_path):

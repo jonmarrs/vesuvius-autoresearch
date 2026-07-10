@@ -4,7 +4,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 
-from predict import (
+from scripts.inference.predict import (
     load_compatible_state_dict,
     save_vc3d_zarr,
     write_prediction_metadata,

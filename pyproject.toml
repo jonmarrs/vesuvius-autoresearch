@@ -117,7 +117,7 @@ ignore = [
 
 [tool.ruff.lint.isort]
 combine-as-imports = true
-known-first-party = ["vesuvius_model", "vesuvius_loader", "train", "predict"]
+known-first-party = ["vesuvius_autoresearch", "vesuvius_model", "scroll_augmentations", "scripts"]
 
 [tool.mypy]
 python_version = "3.10"

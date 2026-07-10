@@ -47,6 +47,12 @@ scripts/curated_data/
 scripts/_gp_winner_runner.py
 scripts/_finetune_lejepa_runner.py
 
+# Scratch / debug probes and their outputs (transient, not for the repo)
+/debug_*.py
+/debug_*.png
+/models/
+/outputs/
+
 # Accidental local interpreter symlinks
 /python
 /python3

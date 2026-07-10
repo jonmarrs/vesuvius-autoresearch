@@ -2,7 +2,7 @@ import json
 
 from PIL import Image
 
-from scripts.build_candidate_contact_sheet import build_contact_sheet
+from scripts.archive.build_candidate_contact_sheet import build_contact_sheet
 
 
 def test_build_candidate_contact_sheet(tmp_path):
