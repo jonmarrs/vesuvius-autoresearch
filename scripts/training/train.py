@@ -416,10 +416,16 @@ def is_model_improvement(
 # and reported but no longer decide promotion. See
 # docs/superpowers/specs/2026-07-10-loop-honest-metric-selection-design.md
 #
-# PROVISIONAL: no empirical run-to-run F1 noise has been measured on the Fr143
-# val set yet. These conservative defaults should be recalibrated after several
-# cycles (mirror the BPB_NOISE_TOLERANCE calibration note above).
-F1_NOISE_TOLERANCE = 5e-3
+# Calibrated 2026-07-11 from the first F1-regime day (14 cycles): the spread of
+# val_f1 across REVERTED cycles was std 0.0095 / range 0.0305 (n=11, excluding
+# one real config-effect outlier). That spread is an UPPER bound on run-to-run
+# noise (different tweaks inflate it), so 1e-2 ~= 1 sigma of the upper bound is
+# conservative against noise-promotions. The original 5e-3 sat at ~0.5 sigma —
+# a lucky noise draw could clear it. TODO at next long run: a 3-5x
+# identical-config noise probe to measure true sigma and tighten this.
+# LIFT_MARGIN validated the same day: observed lifts 1.13-1.54, so the >1.02
+# real-signal gate binds only on constant-collapse, as intended.
+F1_NOISE_TOLERANCE = 1e-2
 LIFT_MARGIN = 0.02
 
 
