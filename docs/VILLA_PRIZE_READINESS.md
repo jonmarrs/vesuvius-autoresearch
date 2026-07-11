@@ -1,5 +1,13 @@
 # Villa Prize Readiness Workflow
 
+> **⚠️ ARCHIVED (2026-07-11).** This workflow belongs to the retired villa
+> upstream-contribution era. Audit scripts it cites moved to `scripts/archive/`
+> (`audit_villa_upstream.py` etc.), the villa PR track is closed, and prize-facing
+> evaluation now runs through `src/vesuvius_autoresearch/detector` `measure` +
+> registered ground truth (see **[research_plan.md](./research_plan.md)** and
+> `FINDINGS.md`). The submission-mechanics sections (scale bar, window cap,
+> non-overlap audit via `scripts/validate_prize_artifact.py`) remain accurate.
+
 This repo uses the official `ScrollPrize/villa` checkout as the compatibility
 target for prize-facing outputs: OME-Zarr / VC3D metadata, official evaluation
 metrics, and reproducible Scroll 2/3 search queues.

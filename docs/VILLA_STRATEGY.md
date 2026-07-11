@@ -1,5 +1,12 @@
 # Vesuvius Autoresearch: Villa Strategy Roadmap
 
+> **⚠️ ARCHIVED (2026-07-11).** The villa upstream-contribution strategy this document
+> describes is retired: all our villa PRs were closed unmerged (see
+> `docs/VILLA_PR_CLOSURE_RECOVERY_2026-05-26.md`), and the current path is standalone
+> artifacts + community adoption (see **[research_plan.md](./research_plan.md)**).
+> The audit scripts cited below now live under `scripts/archive/`
+> (e.g. `scripts/archive/audit_villa_upstream.py`). Kept as historical record.
+
 This document outlines how we leverage and contribute to the official `ScrollPrize/villa` repository.
 
 ## 1. Technical Contributions (Progress Prize Track)

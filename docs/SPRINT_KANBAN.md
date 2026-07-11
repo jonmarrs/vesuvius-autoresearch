@@ -1,5 +1,13 @@
 # Vesuvius Autoresearch: Experiment Sprint Kanban
 
+> **⚠️ ARCHIVED (2026-07-11).** This board records the April–May 2026 sprint era and is
+> kept as historical record only. Several referenced paths have moved
+> (`train.py` → `scripts/training/train.py`; `vesuvius_loader.py` →
+> `src/vesuvius_autoresearch/core/vesuvius_loader.py`), the villa upstream-PR track is
+> closed, and the milestone targets below did not survive contact with the evidence
+> (see `FINDINGS.md`). The current plan of record is
+> **[research_plan.md](./research_plan.md)** + **[RESEARCH_STRATEGY.md](./RESEARCH_STRATEGY.md)**.
+
 This board tracks the prioritized research trajectory for the autonomous swarm. Sprints are designed to move from fundamental calibration to prize-winning breakthroughs within a 2-month window.
 
 ## 📋 BACKLOG
