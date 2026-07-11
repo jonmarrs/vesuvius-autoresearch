@@ -1,0 +1,69 @@
+{
+  "before_armC": {
+    "positive_rate": 0.1827358603477478,
+    "n_pixels": 16777216,
+    "val_f1": 0.3098304207422639,
+    "best_threshold": 0.2,
+    "f1_at_0.5": 0.2303687018517315,
+    "val_f05": 0.2428111806198357,
+    "precision": 0.2044685776625163,
+    "recall": 0.6392157476729557,
+    "pred_positive_rate": 0.5712742805480957,
+    "average_precision": 0.21296802009439803,
+    "ap_prevalence_lift": 1.1654418551953523,
+    "roc_auc": 0.5576020886127241
+  },
+  "after_gt_finetune": {
+    "positive_rate": 0.1827358603477478,
+    "n_pixels": 16777216,
+    "val_f1": 0.3090053603245273,
+    "best_threshold": 0.05,
+    "f1_at_0.5": 0.15074116329790338,
+    "val_f05": 0.22636106600158115,
+    "precision": 0.1827358603477478,
+    "recall": 1.0,
+    "pred_positive_rate": 1.0,
+    "average_precision": 0.19913867986110353,
+    "ap_prevalence_lift": 1.0897624553940373,
+    "roc_auc": 0.5308136329310122
+  },
+  "finetune_ckpt": "ft_epoch=5.ckpt",
+  "prep": {
+    "regions": [
+      {
+        "frag_id": "20230702185753_y4000_x2500",
+        "residual": 7.923079129779206,
+        "periodicity": 0.900489331474854,
+        "gt_ink_fraction": 0.12834036350250244,
+        "passed": true
+      },
+      {
+        "frag_id": "20230702185753_y7000_x4000",
+        "residual": 8.068488879746992,
+        "periodicity": 0.8559966586262975,
+        "gt_ink_fraction": 0.12250947952270508,
+        "passed": true
+      },
+      {
+        "frag_id": "20231005123336_y4000_x2500",
+        "residual": 8.02952033464786,
+        "periodicity": 0.9324939178284003,
+        "gt_ink_fraction": 0.12553948163986206,
+        "passed": true
+      },
+      {
+        "frag_id": "20231005123336_y7000_x4000",
+        "residual": 7.875180422138126,
+        "periodicity": 0.9217953708716362,
+        "gt_ink_fraction": 0.0714988112449646,
+        "passed": true
+      }
+    ],
+    "kept": [
+      "20230702185753_y4000_x2500",
+      "20230702185753_y7000_x4000",
+      "20231005123336_y4000_x2500",
+      "20231005123336_y7000_x4000"
+    ]
+  }
+}
