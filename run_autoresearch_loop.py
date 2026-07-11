@@ -9,7 +9,6 @@ import time
 from collections import defaultdict
 from dataclasses import asdict
 
-import pandas as pd
 import torch
 
 sys.path.append(os.getcwd())
@@ -304,29 +303,23 @@ def main():
     with open(CURRENT_LOG_PTR, "w") as f:
         f.write(log_filename)
 
-    # Load best val_bpb baseline at startup
-    best_val_bpb = 1.0
+    # Load best val_f1 baseline at startup (display only — the promotion decision
+    # lives in train.py's is_f1_improvement). A pre-rewire best_model.pt has no
+    # val_f1 key; the first submittable, lift-positive cycle bootstraps it.
+    best_val_f1 = float("nan")
     if os.path.exists("best_model.pt"):
         try:
             best_model_data = torch.load(
                 "best_model.pt", map_location="cpu", weights_only=False
             )
-            best_val_bpb = best_model_data.get("val_bpb", 1.0)
+            best_val_f1 = best_model_data.get("val_f1", float("nan"))
             print(
-                f"Starting with baseline val_bpb from best_model.pt: {best_val_bpb:.6f}"
+                f"Starting with baseline val_f1 from best_model.pt: {best_val_f1:.6f}"
+                if best_val_f1 == best_val_f1
+                else "Baseline best_model.pt predates val_f1; first honest cycle bootstraps it."
             )
         except Exception as e:
             print(f"Warning: Could not load best_model.pt baseline: {e}")
-    elif os.path.exists("results.tsv"):
-        try:
-            df = pd.read_csv("results.tsv", sep="\t")
-            if len(df) > 0:
-                best_val_bpb = df["val_bpb"].min()
-                print(
-                    f"Starting with baseline val_bpb from results.tsv: {best_val_bpb:.6f}"
-                )
-        except Exception as e:
-            print(f"Warning: Could not load results.tsv baseline: {e}")
 
     print(f"--- {shift_name} STARTING AT {time.strftime('%H:%M:%S')} ---")
     print(f"Logging to: {log_filename}")
@@ -337,7 +330,7 @@ def main():
             log.write(f"# {shift_name.title()} Sprint - {time.strftime('%Y-%m-%d')}\n")
             log.write(f"- **Start Time**: {time.strftime('%H:%M:%S')}\n")
             log.write(
-                f"- **Goal**: Monotonic val_bpb optimization via {default_budget // 60}-min cycles (Config-Driven).\n\n"
+                f"- **Goal**: Monotonic val_f1 optimization (honest F1, AP-lift gated) via {default_budget // 60}-min cycles (Config-Driven).\n\n"
             )
 
     env = os.environ.copy()
@@ -346,14 +339,8 @@ def main():
 
     while True:
         i += 1
-        # Refresh best_val_bpb from results.tsv if it changed
-        if os.path.exists("results.tsv"):
-            try:
-                df = pd.read_csv("results.tsv", sep="\t")
-                if len(df) > 0:
-                    best_val_bpb = df["val_bpb"].min()
-            except Exception as e:
-                print(f"Warning: Could not refresh results.tsv baseline: {e}")
+        # (best_val_f1 display refresh happens on SUCCESS below, from
+        # run_result.json — results.tsv's frozen schema has no val_f1 column.)
 
         # Have we crossed out of this shift's bucket? The previous check was
         # `tm_hour == end_hour`, which only matches for the single hour at
@@ -715,16 +702,21 @@ def main():
             log.flush()
 
         if is_success:
-            print(f"IMPROVEMENT FOUND! (val_bpb: {val_bpb}) Committing config.")
+            print(f"IMPROVEMENT FOUND! (val_f1: {val_f1}) Committing config.")
+            if isinstance(val_f1, (int, float)):
+                best_val_f1 = val_f1  # display tracker; authority is train.py
             os.system(
-                f'git add {CONFIG_FILE} reports/figures/ best_model.pt autoresearch_history.json && git commit -m "{shift_name}: {tweak_name} improved model to {val_bpb}"'
+                f'git add {CONFIG_FILE} reports/figures/ best_model.pt autoresearch_history.json && git commit -m "{shift_name}: {tweak_name} improved model to val_f1 {val_f1}"'
             )
         elif is_crash:
             print(
                 f"CYCLE CRASHED ({'OOM' if oom_detected else 'UNKNOWN'}). Reverting but keeping family weight."
             )
         else:
-            print(f"No improvement. (val_bpb: {val_bpb}, best was: {best_val_bpb:.6f})")
+            best_str = (
+                f"{best_val_f1:.6f}" if best_val_f1 == best_val_f1 else "n/a (pre-rewire)"
+            )
+            print(f"No improvement. (val_f1: {val_f1}, best was: {best_str})")
 
         # Benchmark Inference Step (Every 5 cycles).
         # Uses subprocess.run (not os.system) so a predict.py crash surfaces
