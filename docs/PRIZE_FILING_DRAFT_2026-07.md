@@ -2,37 +2,55 @@
 
 **Status:** DRAFT for review. Deadline 2026-07-31 11:59pm PT. Refresh numbers immediately
 before filing via the official Progress Prize form. (The June draft was not filed; this
-draft supersedes `PRIZE_FILING_DRAFT_2026-06.md`.)
-**Repository (the submission artifact):** https://github.com/jonmarrs/vesuvius-autoresearch (MIT)
+draft supersedes `PRIZE_FILING_DRAFT_2026-06.md`. Reframed 2026-07-11 around the ScrollGT
+release.)
+**Primary submission artifact:** https://github.com/jonmarrs/scrollgt (MIT)
+**Methodology/source repo:** https://github.com/jonmarrs/vesuvius-autoresearch (MIT)
 **Live experiment tracking:** https://wandb.ai/jdmarrs-uc-davis/vesuvius-autoresearch
 
 ---
 
 ## Title
 
-**Vesuvius Autoresearch: rigorous, reproducible measurement of what distillation from the
-open SOTA data actually buys — on one consumer GPU, with the honest negative to match.**
+**ScrollGT: registered human ground-truth ink evaluation for the open SOTA scroll data —
+the missing measurement layer, with published baselines that include our own negatives.**
 
 ## Summary
 
-An open-source research repo (single RTX 4090) that this month rebased onto the newly-open
-SOTA data — reproduced the 2023 Grand-Prize detector, distilled it from the released canon
-predictions across multiple scrolls, and then **built the ground-truth measurement to check
-whether any of it reads real ink** by geometrically registering 2023 hand labels onto the
-SOTA re-flattening. The headline contribution is the **measurement discipline and its
-finding**, not a strong detector: on a *held-out* segment scored against human labels,
-the distilled students read **near chance** (ROC-AUC ~0.55), the released canon prediction
-itself scores only **ROC-AUC 0.56–0.70** depending on the segment, and the apparent
-distillation "wins" were largely train-region fit. Every metric is defined honestly
-(community F1/AP contract; distillation numbers explicitly labeled agreement-with-teacher;
-ground-truth numbers gated on validated registration), every result is reproducible from
-public data, and — most importantly — the project **caught and corrected its own over-reads**
-under review. This is a submission about doing honest science on the frontier data, negatives
-included.
+The open-data bucket ships surface volumes and *model predictions* — but no human ground
+truth aligned to the new re-flattened geometry, so nobody outside the core team can answer
+the basic question: **does an ink model actually read, or does it reproduce another
+model?** This month we closed that gap and shipped it as a standalone tool:
+**[ScrollGT](https://github.com/jonmarrs/scrollgt)** registers the 2023 Grand-Prize-era
+human ink labels onto the SOTA geometry (exact `original.obj` UV bridge, ~8-voxel median
+residual, gated alignment validation) and provides a one-command scoring harness
+(threshold-swept F1 primary, AP-prevalence-lift as the anti-gaming gate, ROC-AUC
+secondary) plus a prize-window/overlap compliance checker.
+
+The benchmark's credibility is that it has teeth — demonstrated on its own authors.
+Scored against these targets: the **released canon prediction reads a held-out segment
+near chance** (ROC-AUC 0.56; 0.70 on a friendlier segment — the first such calibration
+published outside the core team); our **distilled students collapse from 0.79+
+train-exposed to ~0.55 held-out** (distillation reproduces the teacher *including its
+failures*); and **fine-tuning on the registered labels made reading worse** (0.558 →
+0.531, collapsing to the trivial all-positive predictor). Every negative is a published
+baseline row. The project also **caught and corrected its own over-reads** under internal
+review before release — that discipline is what the benchmark packages for everyone else.
 
 ## What is being released (open tools)
 
-1. **Ink detector subpackage** (`vesuvius_autoresearch.detector`) — the proven 2023
+1. **ScrollGT** (https://github.com/jonmarrs/scrollgt) — **the headline release.**
+   Registered ground-truth targets on the SOTA data (v0.1: one train-exposed and one
+   held-out Scroll-1 segment, each with full registration provenance, gates, and residual
+   caveats in `meta.json`), the `scrollgt score` harness (PNG/npy probability maps →
+   scorecard; verified to reproduce the published canon-teacher baseline to 4 decimals),
+   the `scrollgt check` prize-compliance pre-check (official ≤64px/0.5mm window rule +
+   train/predict overlap), published baselines including negatives, quickstart notebook,
+   tests, MIT. **v0.2 (August) extends the targets to Scrolls 2–3** — the live First
+   Letters/Title prize scrolls. Anyone can score a model today with `git clone` + one
+   command.
+
+2. **Ink detector subpackage** (`vesuvius_autoresearch.detector`) — the proven 2023
    Grand-Prize TimeSformer recipe productionized as a tested subpackage
    (`config`/`data`/`model`/`train`/`infer`/`eval`/`cli`) with a one-command `reproduce`.
    Held-out same-scroll: **val_f1 0.393 / AP 0.357 / prevalence-lift 2.07 / ROC-AUC 0.709**
@@ -41,46 +59,53 @@ included.
    PyTorch-2.6 checkpoint loading, shape alignment) — each documented with a regression
    test. → [reports/detector/REPRODUCTION.md](https://github.com/jonmarrs/vesuvius-autoresearch/blob/main/reports/detector/REPRODUCTION.md)
 
-2. **Community metric contract + cross-fragment measurement** (`detector/metrics.py`,
-   `measure` CLI) — `val_f1` (threshold-swept) primary; **average precision** and
-   **AP-prevalence-lift** (AP ÷ base rate; ≈1 ⇒ chance) as imbalance-robust honesty gates;
-   ROC-AUC demoted to a secondary diagnostic. Includes the **first valid cross-scroll
-   measurement** for this project: the same detector scores lift 2.07 same-scroll but only
-   **1.29 cross-scroll** — quantifying the generalization gap the field is attacking.
+3. **Community metric contract + cross-fragment measurement** (`detector/metrics.py`,
+   `measure` CLI; the same contract ScrollGT ships) — `val_f1` (threshold-swept) primary;
+   **average precision** and **AP-prevalence-lift** (AP ÷ base rate; ≈1 ⇒ chance) as
+   imbalance-robust honesty gates; ROC-AUC demoted to a secondary diagnostic. Includes the
+   **first valid cross-scroll measurement** for this project: the same detector scores
+   lift 2.07 same-scroll but only **1.29 cross-scroll** — quantifying the generalization
+   gap the field is attacking.
    → [reports/detector/cross_scroll_measurement.md](https://github.com/jonmarrs/vesuvius-autoresearch/blob/main/reports/detector/cross_scroll_measurement.md)
 
-3. **SOTA open-data tooling** (`repro/sota_data/`) — anonymous-S3 discovery/fetch of
+4. **SOTA open-data tooling** (`repro/sota_data/`) — anonymous-S3 discovery/fetch of
    `s3://vesuvius-challenge-open-data/`, OME-Zarr region extraction, detector-format
    conversion with loud alignment guards, and a documented survey of what the bucket
    actually ships (re-flattened multiscale surface volumes + model predictions; **no
-   ground-truth ink labels aligned to the new geometry** — a practical fact other teams
-   will hit too).
+   ground-truth ink labels aligned to the new geometry** — the gap ScrollGT fills).
 
-4. **SOTA distillation + ground-truth measurement pipeline** (`repro/sota_data/`) —
+5. **SOTA distillation + ground-truth measurement pipeline** (`repro/sota_data/`) —
    teacher–student distillation from the released canon predictions onto SOTA surface volumes
    (disjoint train/held-out segments, chance-floor baseline, persisted provenance), the
    multi-scroll registry + controlled cross-scroll experiments, **and** the ground-truth
-   registration harness (`register.py`, `register_run.py`) that bridges 2023 hand labels onto
-   SOTA geometry and scores against them, gated on validated alignment.
+   registration harness (`register.py`, `register_run.py`, `gt_register.py`) that ScrollGT
+   productizes.
    - *Agreement-with-teacher* results (fidelity to the released prediction, NOT accuracy):
      held-out val_f1 0.372 → 0.662 / lift 0.98 → 3.24; multi-scroll diversity lifts unseen-
      scroll transfer 1.22 → 2.12, saturating at ≈2.1 with a third scroll.
    - *Ground-truth* results (vs human labels): the canon teacher scores ROC-AUC 0.56–0.70
      (segment-dependent); on a **held-out** segment the distilled students read **near chance
      (ROC-AUC ~0.55)** — the agreement-with-teacher gains were largely train-region fit.
+   - *Ground-truth fine-tuning* (new this week, a documented negative): fine-tuning the best
+     student on the registered labels **reduced** held-out discrimination (ROC 0.558 → 0.531)
+     and collapsed it to the trivial all-positive predictor — human-label supervision at this
+     scale (2 segments) is not a cheap unlock.
    → [sota_distill_measurement.md](https://github.com/jonmarrs/vesuvius-autoresearch/blob/main/reports/detector/sota_distill_measurement.md),
+   [cross_scroll_distill.md](https://github.com/jonmarrs/vesuvius-autoresearch/blob/main/reports/detector/cross_scroll_distill.md),
    [cross_scroll_scale.md](https://github.com/jonmarrs/vesuvius-autoresearch/blob/main/reports/detector/cross_scroll_scale.md),
-   [registered_gt_heldout_validation.md](https://github.com/jonmarrs/vesuvius-autoresearch/blob/main/reports/detector/registered_gt_heldout_validation.md)
-   → [cross_scroll_distill.md](https://github.com/jonmarrs/vesuvius-autoresearch/blob/main/reports/detector/cross_scroll_distill.md),
-   [cross_scroll_scale.md](https://github.com/jonmarrs/vesuvius-autoresearch/blob/main/reports/detector/cross_scroll_scale.md)
+   [registered_gt_heldout_validation.md](https://github.com/jonmarrs/vesuvius-autoresearch/blob/main/reports/detector/registered_gt_heldout_validation.md),
+   [gt_finetune_heldout.md](https://github.com/jonmarrs/vesuvius-autoresearch/blob/main/reports/detector/gt_finetune_heldout.md)
 
-5. **Carried forward from June (still maintained):** the scroll-specific 3D augmentation
+6. **Carried forward from June (still maintained):** the scroll-specific 3D augmentation
    library ([villa #201](https://github.com/ScrollPrize/villa/issues/201);
    [docs/SCROLL_AUGMENTATIONS.md](https://github.com/jonmarrs/vesuvius-autoresearch/blob/main/docs/SCROLL_AUGMENTATIONS.md)),
    GPU fiber/ridge detection (closed-form 3×3 eigensolver, 14–94× over NumPy;
    [docs/FIBER_DETECTION.md](https://github.com/jonmarrs/vesuvius-autoresearch/blob/main/docs/FIBER_DETECTION.md)),
    the evaluation & feasibility-probe suite (pixel-AUC, overfit probe, learnable-target
-   control, leak-free spatial splits), and the autoresearch loop itself.
+   control, leak-free spatial splits), and the autoresearch loop — which this month was
+   **rewired to select models on the honest F1/AP-lift contract** (its former `val_bpb`
+   selection metric was a weak discriminator, and its inherited topology gate was proven
+   invalid — see Findings).
 
 ## Findings (the methodological contribution)
 
@@ -90,10 +115,11 @@ The through-line is measurement honesty:
 - **The metric matters more than the model.** Dice/`val_bpb` saturate on ink-rich patches
   (a near-constant predictor scores Dice ≈ 0.75); ROC-AUC is over-optimistic under class
   imbalance. The adopted contract (F1-swept + AP + prevalence-lift) exposed both our own
-  chance-floor results and the real improvements.
+  chance-floor results and the real improvements — and as of this month it is also the
+  autonomous loop's model-selection criterion, replacing `val_bpb`.
 - **A "prize topology gate" we inherited is provably invalid** (`skel_dist` is a
   branch-length-histogram divergence, blind to location — a zero-overlap prediction passes).
-  We removed it and published the probe.
+  We removed it from every decision path and published the probe.
 - **Cross-scroll generalization is the bottleneck, quantified:** lift 2.07 same-scroll →
   1.29 cross-scroll for the same detector; and better data alone does not fix it (the
   detector run on SOTA data produced texture, not ink, until retrained).
@@ -111,13 +137,18 @@ The through-line is measurement honesty:
   ship canon teacher predictions today — the practical frontier is released teachers, not
   scan volumes.
 - **Negative results, kept honest:** a community-style full-resolution 2.5D ResEncUNet
-  *underperformed* the TimeSformer under our recipe (val_f1 0.369 vs 0.393) — the
-  architecture likely needs the full nnU-Net protocol; documented rather than discarded.
+  *underperformed* the TimeSformer under our recipe (val_f1 0.369 vs 0.393); and
+  **ground-truth fine-tuning on the registered labels made held-out reading worse**
+  (ROC 0.558 → 0.531, collapsing to the trivial all-positive predictor — recall 1.0,
+  swept F1 exactly 2p/(1+p)). Both documented rather than discarded; the fine-tune
+  negative is what a first injection of human-label signal at POC scale (2 segments,
+  ~8-voxel registration residual) actually buys.
 - **Ground-truth calibration on SOTA data (registered hand labels) — the load-bearing
-  finding.** No ground-truth labels aligned to the SOTA re-flattening are released, so we
-  built the bridge: register the 2023 hand label onto SOTA geometry via the segment's
-  `original.obj` vertex texture coordinates (nearest-vertex map, ~8 old-scan-voxel residual),
-  gate on validated alignment before scoring, then measure. Two segments:
+  finding, now shipped as ScrollGT.** No ground-truth labels aligned to the SOTA
+  re-flattening are released, so we built the bridge: register the 2023 hand label onto SOTA
+  geometry via the segment's `original.obj` vertex texture coordinates (nearest-vertex map,
+  ~8 old-scan-voxel residual), gate on validated alignment before scoring, then measure.
+  Two segments:
   - **A datapoint nobody outside the core team has published:** the released canon prediction
     scores **ROC-AUC 0.56–0.70 vs human labels**, segment-dependent (0.70 on one, 0.56 on
     another where it reads the ink poorly). Agreement-with-teacher was therefore agreement
@@ -136,39 +167,48 @@ The through-line is measurement honesty:
   was initially framed as students "matching or exceeding" the teacher; internal review flagged
   a binary-vs-continuous metric confound and the train-region confound, and the held-out
   measurement then showed the effect was largely fit. The committed reports lead with the
-  corrected framing. This self-correction *is* the methodological contribution.
+  corrected framing. This self-correction *is* the methodological contribution — and the
+  reason ScrollGT's baselines can be trusted: the eval caught its own authors first.
 
 ## Honest limitations (stated plainly)
 
 - **We do not have a strong ink detector.** On held-out data vs human ground truth the
-  distilled models read near chance. The agreement-with-teacher figures (up to lift 3.24)
-  measure fidelity to a released model output, not reading ability; where that output is weak,
-  matching it is worthless. This is stated so no reader mistakes the distillation numbers for
-  accuracy.
+  distilled models read near chance, and ground-truth fine-tuning at POC scale made it
+  worse. The agreement-with-teacher figures (up to lift 3.24) measure fidelity to a
+  released model output, not reading ability; where that output is weak, matching it is
+  worthless. This is stated so no reader mistakes the distillation numbers for accuracy.
 - **The ground-truth registration is approximate and one validation used a teacher-free gate.**
-  The registration is a nearest-vertex geometric bridge (~8 old-scan-voxel residual); its 2D
+  The registration is a nearest-vertex geometric bridge (~8 old-scan-voxel residual; scores
+  are lower bounds on true agreement — stated in every ScrollGT `meta.json`); its 2D
   orientation is carried from a decisively-validated segment as an export-pipeline invariant
   (the residual/periodicity checks are convention-blind). On the held-out segment the standard
   (teacher-dependent) alignment gate false-negatived because the teacher is weak there, so
   validation used a codified teacher-free gate (residual + text-line periodicity) — disclosed
-  in the report and reproducible from the committed code.
+  in the report, in the ScrollGT metadata, and reproducible from the committed code.
 - **The clean cross-scroll ground-truth test is still blocked:** PHerc 1667 (and other
   non-training scrolls) ship only model predictions, no released human labels, so a fully clean
-  cross-scroll domain-ceiling measurement isn't yet possible. Re-checkable as the bucket grows.
+  cross-scroll domain-ceiling measurement isn't yet possible. Re-checkable as the bucket grows;
+  ScrollGT v0.2 (Scrolls 2–3) is the planned next extension.
 - The prior distillation held-out region also served as its best-epoch selection set (AP/ROC-AUC
   are threshold-free and unaffected); noted in that report.
-- We claim an **honest, reproducible measurement apparatus** on the SOTA data — reproduce the
-  reference detector, distill it, and check it against registered ground truth — plus the
-  documented finding that distillation-from-canon does not, on this evidence, yield independent
-  reading. Not a state-of-the-art model.
+- We claim an **honest, reproducible measurement layer** for the SOTA data — registered
+  ground truth, a scoring contract with an anti-gaming gate, published baselines with
+  negatives — plus the documented finding that distillation-from-canon does not, on this
+  evidence, yield independent reading. Not a state-of-the-art model.
 
 ## Reproducibility
 
-Public repo, MIT-licensed. The data path uses only the open bucket (anonymous S3, partial
-OME-Zarr reads — no credentials, no special hardware beyond one 24 GB GPU):
+Public repos, MIT-licensed. The data path uses only the open bucket (anonymous S3, partial
+OME-Zarr reads — no credentials, no special hardware beyond one 24 GB GPU; ScrollGT scoring
+itself is CPU-only):
 
 ```bash
-# unit tests (CPU)
+# ScrollGT: score any prediction against registered ground truth (CPU, seconds)
+git clone https://github.com/jonmarrs/scrollgt && pip install -e scrollgt/
+scrollgt score my_prediction.png scrollgt/data/scroll1_20231210121321
+scrollgt check --window-px 64 --scan-um 8.0
+
+# methodology repo: unit tests (CPU)
 CUDA_VISIBLE_DEVICES="" uv run python -m pytest tests/test_detector_*.py tests/test_sota_*.py -q
 # reproduce the working detector (train + eval, GPU)
 uv run python -m vesuvius_autoresearch.detector.cli reproduce
@@ -180,19 +220,22 @@ uv run python -m repro.sota_data.distill_run prep|baseline|train|measure
 
 ## Links
 
-- Repo: https://github.com/jonmarrs/vesuvius-autoresearch
+- **ScrollGT (headline release): https://github.com/jonmarrs/scrollgt**
+- Methodology repo: https://github.com/jonmarrs/vesuvius-autoresearch
 - Findings: .../blob/main/FINDINGS.md
 - Lab notebook: .../blob/main/docs/LAB_NOTEBOOK.md
 - Detector reproduction: .../blob/main/reports/detector/REPRODUCTION.md
 - Cross-scroll measurement: .../blob/main/reports/detector/cross_scroll_measurement.md
 - SOTA distillation result: .../blob/main/reports/detector/sota_distill_measurement.md
-- SOTA data survey (qualitative slice): .../blob/main/reports/detector/sota_scroll1_qualitative.md
+- Ground-truth calibration: .../blob/main/reports/detector/registered_gt_heldout_validation.md
+- GT fine-tune negative: .../blob/main/reports/detector/gt_finetune_heldout.md
 - wandb: https://wandb.ai/jdmarrs-uc-davis/vesuvius-autoresearch
 
 ## Pre-filing checklist (internal — delete before submission)
 
-- [ ] Refresh all numbers against the latest committed reports (esp. if cross-scroll
-      distillation lands before filing).
-- [ ] Re-verify every repo link resolves on GitHub main.
-- [ ] Confirm no AI-authorship markers anywhere in linked artifacts.
+- [ ] Refresh all numbers against the latest committed reports.
+- [ ] Re-verify every repo link resolves on GitHub main (both repos).
+- [ ] Confirm no AI-authorship markers anywhere in linked artifacts (incl. scrollgt).
+- [ ] Cite any early ScrollGT traction (stars/issues/external scores) if it exists by
+      filing time; do not manufacture or overstate it.
 - [ ] File via the official Progress Prize form before 2026-07-31 11:59pm PT.
