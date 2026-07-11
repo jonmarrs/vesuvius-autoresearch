@@ -382,13 +382,22 @@ Expected: PASS (the old `is_model_improvement` and prize-gate tests are untouche
 
 Preconditions: loop paused; loop data present (`local_data/PHercParis2Fr143/…`), GPU available. If either is missing, SKIP this step and note it.
 
+**NON-DESTRUCTIVE: the smoke MUST set `checkpoint_out` so it routes through the
+`if ckpt_out:` branch, which writes an experiment checkpoint + `run_result.json`
+but does NOT touch `best_model.pt` / `history.tsv` / `results.tsv` /
+`prize_readiness.tsv`.** Running a bare `--test` against the real config is
+destructive: the `-inf` bootstrap makes the first cycle an "improvement", which
+overwrites the tracked production `best_model.pt` and appends loop-state rows.
+
 Run:
 ```bash
 rm -f run_result.json
-PYTHONPATH=.:villa/foundation/datasets/fibers-dataset uv run python scripts/training/train.py --test
+uv run python -c "import json; c=json.load(open('config.json')); c['checkpoint_out']='/tmp/smoke_ckpt.pt'; json.dump(c, open('/tmp/smoke_config.json','w'))"
+PYTHONPATH=.:villa/foundation/datasets/fibers-dataset uv run python scripts/training/train.py --config /tmp/smoke_config.json --test
 uv run python -c "import json; r=json.load(open('run_result.json')); print('val_f1' in r, r.get('val_f1'), 'is_success=', r['is_success'])"
+git status --porcelain best_model.pt history.tsv prize_readiness.tsv  # must be empty
 ```
-Expected: `run_result.json` exists and prints `True <number-or-nan> is_success= <bool>`. A `nan`/`False` here is an acceptable outcome (64px chance regime) — the point is the key is present and the decision ran through F1 without error.
+Expected: `run_result.json` exists and prints `True <number-or-nan> is_success= <bool>`, and the `git status` line is empty (loop state untouched). A `nan`/`False` is an acceptable outcome (64px chance regime) — the point is the key is present and the decision ran through F1 without error. If a bare `--test` was run instead and mutated loop state, restore with `git checkout HEAD -- best_model.pt prize_readiness.tsv` and drop the appended `history.tsv`/`results.tsv` rows.
 
 - [ ] **Step 8: Commit**
 

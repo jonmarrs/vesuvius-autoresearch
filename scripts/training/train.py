@@ -2226,15 +2226,16 @@ def train(config: ExperimentConfig):
     )
 
     print("\n--- Foundation Pretraining Complete ---")
-    print(
-        f"val_bpb (Official):    {val_bpb:.6f} {'[NEW BEST]' if is_improvement else ''}"
-    )
+    print(f"val_bpb (Official):    {val_bpb:.6f}  [reported only]")
     print(f"avg_skel_dist:         {avg_skel_dist:.6f}")
     print(f"avg_centerline_dice:   {avg_centerline_dice:.6f}")
     print(f"avg_cc_diff:           {avg_cc_diff:.3f}")
     print(f"avg_crit_comp:         {avg_crit_comp:.3f}")
     print(f"avg_mean_ap:           {avg_mean_ap:.4f}")
-    print(f"val_f1:                {val_f1:.6f} (thr {val_f1_threshold:.3f})")
+    print(
+        f"val_f1:                {val_f1:.6f} (thr {val_f1_threshold:.3f}) "
+        f"{'[NEW BEST]' if is_improvement else ''}"
+    )
     print(f"ap_prevalence_lift:    {ap_prevalence_lift:.4f}")
     print(f"roc_auc:               {roc_auc:.4f}  [selection: F1 gated by AP-lift]")
 
