@@ -75,7 +75,7 @@
     "max_prize_skel_dist": 2.0,
     "max_prize_cc_diff": 64.0,
     "min_prize_topology_samples": 1,
-    "use_uamt": false,
+    "use_uamt": true,
     "ema_decay": 0.99,
     "consistency_weight": 0.1,
     "unlabeled_uris": [
