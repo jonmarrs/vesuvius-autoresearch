@@ -2163,6 +2163,15 @@ def train(config: ExperimentConfig):
     avg_cc_diff = np.mean(val_cc_diffs) if val_cc_diffs else 0.0
     avg_crit_comp = np.mean(val_crit_comps) if val_crit_comps else 0.0
     avg_mean_ap = np.mean(val_mean_aps) if val_mean_aps else 0.0
+    # Honest, prize-aligned selection metrics (single source of truth:
+    # detector.metrics). val_bpb / skel_dist / centerline_dice above remain
+    # reported but no longer decide promotion.
+    _seg = pooled_segmentation_metrics(all_probs, all_targets)
+    val_f1 = float(_seg.get("val_f1", float("nan")))
+    val_f1_threshold = float(_seg.get("best_threshold", float("nan")))
+    ap_prevalence_lift = float(_seg.get("ap_prevalence_lift", float("nan")))
+    roc_auc = float(_seg.get("roc_auc", float("nan")))
+    val_positive_rate = float(_seg.get("positive_rate", float("nan")))
     prize_gates = evaluate_prize_gates(
         config,
         val_bpb,
@@ -2180,30 +2189,29 @@ def train(config: ExperimentConfig):
     prize_gate_failures = prize_gates["failures"]
     submittable = bool(window_ok and villa_metrics_ok)
     log_file = "results.tsv"
+    # Promotion runs on the honest F1 + AP-lift contract; val_bpb / topology are
+    # reported but no longer decide. Fail closed on a non-finite F1.
     is_improvement = True
-    if np.isnan(val_bpb):
+    if not np.isfinite(val_f1):
         is_improvement = False
     if getattr(config, "enforce_prize_gates", True) and not submittable:
         is_improvement = False
 
-    best_previous_val_bpb = 1.0
-    best_previous_avg_centerline_dice = 0.0
+    best_previous_val_f1 = float("-inf")
     if os.path.exists("best_model.pt"):
         try:
             chk = torch.load("best_model.pt", map_location="cpu", weights_only=False)
-            best_previous_val_bpb = chk.get("val_bpb", 1.0)
-            best_previous_avg_centerline_dice = chk.get("avg_centerline_dice", 0.0)
+            best_previous_val_f1 = chk.get("val_f1", float("-inf"))
         except Exception as exc:
             print(
                 f"Warning: could not load best_model.pt for improvement comparison: {type(exc).__name__}: {exc}"
             )
+    if not np.isfinite(best_previous_val_f1):
+        best_previous_val_f1 = float("-inf")  # NaN/None baseline -> bootstrap
 
     if is_improvement:
-        is_improvement = is_model_improvement(
-            val_bpb,
-            avg_centerline_dice,
-            best_previous_val_bpb,
-            best_previous_avg_centerline_dice,
+        is_improvement = is_f1_improvement(
+            val_f1, ap_prevalence_lift, best_previous_val_f1
         )
 
     peak_vram_mb = torch.cuda.max_memory_allocated() / 1024**2
@@ -2226,6 +2234,9 @@ def train(config: ExperimentConfig):
     print(f"avg_cc_diff:           {avg_cc_diff:.3f}")
     print(f"avg_crit_comp:         {avg_crit_comp:.3f}")
     print(f"avg_mean_ap:           {avg_mean_ap:.4f}")
+    print(f"val_f1:                {val_f1:.6f} (thr {val_f1_threshold:.3f})")
+    print(f"ap_prevalence_lift:    {ap_prevalence_lift:.4f}")
+    print(f"roc_auc:               {roc_auc:.4f}  [selection: F1 gated by AP-lift]")
 
     wandb_tracking.log(
         {
@@ -2292,6 +2303,11 @@ def train(config: ExperimentConfig):
                 "avg_centerline_dice": avg_centerline_dice,
                 "avg_cc_diff": avg_cc_diff,
                 "avg_mean_ap": avg_mean_ap,
+                "val_f1": float(val_f1),
+                "val_f1_threshold": float(val_f1_threshold),
+                "ap_prevalence_lift": float(ap_prevalence_lift),
+                "roc_auc": float(roc_auc),
+                "val_positive_rate": float(val_positive_rate),
                 "submittable": submittable,
                 "window_ok": window_ok,
                 "window_mm": window_mm,
@@ -2302,7 +2318,10 @@ def train(config: ExperimentConfig):
         )
         print(f"Saved experiment checkpoint to {ckpt_out} (loop state untouched)")
     elif is_improvement:
-        print(f"Saving new best model with val_bpb: {val_bpb:.6f}")
+        print(
+            f"Saving new best model — val_f1: {val_f1:.6f} "
+            f"(ap_lift {ap_prevalence_lift:.3f}, thr {val_f1_threshold:.3f})"
+        )
         torch.save(
             {
                 "model_state_dict": model.state_dict(),
@@ -2311,6 +2330,11 @@ def train(config: ExperimentConfig):
                 "avg_centerline_dice": avg_centerline_dice,
                 "avg_cc_diff": avg_cc_diff,
                 "avg_mean_ap": avg_mean_ap,
+                "val_f1": float(val_f1),
+                "val_f1_threshold": float(val_f1_threshold),
+                "ap_prevalence_lift": float(ap_prevalence_lift),
+                "roc_auc": float(roc_auc),
+                "val_positive_rate": float(val_positive_rate),
                 "submittable": submittable,
                 "window_ok": window_ok,
                 "window_mm": window_mm,
@@ -2364,6 +2388,11 @@ def train(config: ExperimentConfig):
                 "avg_skel_dist": avg_skel_dist,
                 "avg_centerline_dice": avg_centerline_dice,
                 "avg_cc_diff": avg_cc_diff,
+                "val_f1": float(val_f1),
+                "val_f1_threshold": float(val_f1_threshold),
+                "ap_prevalence_lift": float(ap_prevalence_lift),
+                "roc_auc": float(roc_auc),
+                "val_positive_rate": float(val_positive_rate),
                 "submittable": submittable,
                 "window_ok": window_ok,
                 "window_mm": window_mm,
@@ -2387,6 +2416,11 @@ def train(config: ExperimentConfig):
         "avg_cc_diff": float(avg_cc_diff),
         "avg_crit_comp": float(avg_crit_comp),
         "avg_mean_ap": float(avg_mean_ap),
+        "val_f1": float(val_f1),
+        "val_f1_threshold": float(val_f1_threshold),
+        "ap_prevalence_lift": float(ap_prevalence_lift),
+        "roc_auc": float(roc_auc),
+        "val_positive_rate": float(val_positive_rate),
         "train_loss": float(smooth_loss),
         "throughput_Mvps": float(throughput_Mvps),
         "num_params_M": float(num_params_M),
