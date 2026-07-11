@@ -637,7 +637,7 @@ def main():
         except Exception as e:
             print(f"Subprocess error in cycle {i}: {e}")
 
-        val_bpb = train_loss = params = vram = vps = "N/A"
+        val_bpb = train_loss = params = vram = vps = val_f1 = "N/A"
         is_success = False
         is_crash = False
         oom_detected = False
@@ -672,6 +672,7 @@ def main():
                 params = res.get("num_params_M", "N/A")  # type: ignore[attr-defined]
                 vram = res.get("peak_vram_mb", "N/A")  # type: ignore[attr-defined]
                 vps = res.get("throughput_Mvps", "N/A")  # type: ignore[attr-defined]
+                val_f1 = res.get("val_f1", "N/A")  # type: ignore[attr-defined]
                 is_success = res.get("is_success", False)  # type: ignore[attr-defined]
             except Exception as e:
                 print(f"Error reading run_result.json: {e}")
@@ -701,7 +702,7 @@ def main():
             log.write(f"- **Timestamp**: {time.strftime('%H:%M:%S')}\n")
             log.write(f"- **Config**: {cfg_str}\n")
             log.write(
-                f"- **Stats**: val_bpb: {val_bpb}, loss: {train_loss}, params: {params}M, vram: {vram}MB, speed: {vps}Mvps\n"
+                f"- **Stats**: val_f1: {val_f1}, val_bpb: {val_bpb}, loss: {train_loss}, params: {params}M, vram: {vram}MB, speed: {vps}Mvps\n"
             )
 
             result_msg = "No improvement detected. Config reverted."
