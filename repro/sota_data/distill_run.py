@@ -86,7 +86,11 @@ def extract_region(seg, y0, x0, size=SIZE, scroll_key="scroll1"):
     zarrs = sorted(p for p in fs.ls(pref, detail=False) if p.endswith(".zarr"))
     if not zarrs:
         raise ValueError(f"{seg}: no .zarr under {pref}")
-    g = zarr.open(zarr.storage.FSStore(zarrs[0], fs=fs), mode="r")  # 2.4um sorts first
+    # Prefer the 2.4um volume EXPLICITLY: "2.4um sorts first" is false for segments
+    # that also ship 1.129um scans (e.g. 20231221180251), where lexicographic sort
+    # would pick a volume whose pyramid lacks the expected levels/scale.
+    preferred = [z for z in zarrs if "2.4um" in z and "-L1" not in z]
+    g = zarr.open(zarr.storage.FSStore((preferred or zarrs)[0], fs=fs), mode="r")
     arr = g[LEVEL]
     d, h, w = arr.shape
     y1, x1 = min(y0 + size, h), min(x0 + size, w)

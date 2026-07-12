@@ -1,0 +1,67 @@
+{
+  "20230929220926": {
+    "region": [
+      1962,
+      2500,
+      4096
+    ],
+    "residual": 8.466860056000165,
+    "teacher_rate": 0.16398745775222778,
+    "candidates": {
+      "rowv_colu": {
+        "enrichment": 0.992339015007019,
+        "ink_frac": 0.01133882999420166,
+        "periodicity": 0.8975095449113647
+      },
+      "rowHv_colu": {
+        "enrichment": 0.8636199831962585,
+        "ink_frac": 0.13886946439743042,
+        "periodicity": 0.9612106209577175
+      },
+      "rowv_colWu": {
+        "enrichment": 0.19603006541728973,
+        "ink_frac": 0.012836337089538574,
+        "periodicity": 0.9215923125726381
+      },
+      "rowHv_colWu": {
+        "enrichment": 0.8455708026885986,
+        "ink_frac": 0.14463162422180176,
+        "periodicity": 0.9606542400039662
+      }
+    }
+  },
+  "20231022170901": {
+    "error": "error: OpenCV(4.13.0) /io/opencv/modules/imgproc/src/imgwarp.cpp:1603: error: (-215:Assertion failed) dst.cols < SHRT_MAX && dst.rows < SHRT_MAX && src.cols < SHRT_MAX && src.rows < SHRT_MAX in function 'remap'\n"
+  },
+  "20231106155351": {
+    "region": [
+      4000,
+      2500,
+      4096
+    ],
+    "residual": 8.292795652611654,
+    "teacher_rate": 0.12941735982894897,
+    "candidates": {
+      "rowv_colu": {
+        "enrichment": 0.8151324987411499,
+        "ink_frac": 0.1290656328201294,
+        "periodicity": 0.9522160788349796
+      },
+      "rowHv_colu": {
+        "enrichment": 1.0270473957061768,
+        "ink_frac": 0.14236432313919067,
+        "periodicity": 0.9498564849904967
+      },
+      "rowv_colWu": {
+        "enrichment": 0.852183997631073,
+        "ink_frac": 0.132976233959198,
+        "periodicity": 0.9547403816332601
+      },
+      "rowHv_colWu": {
+        "enrichment": 1.0401004552841187,
+        "ink_frac": 0.1489214301109314,
+        "periodicity": 0.9526573196315433
+      }
+    }
+  }
+}

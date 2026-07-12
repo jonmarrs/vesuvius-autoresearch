@@ -60,3 +60,23 @@ unverifiable with current tools.**
    per segment instead of trusting the fixed convention; segments with uninformative
    teachers need an independent orientation check before their labels are used for
    anything.
+
+## Addendum (2026-07-12): the three new registrable segments — all blocked
+
+The v0.2 inventory (44 GP-winner 2023 labels × 81 bucket Scroll-1 segments) yields 6
+fully-registrable segments; the 3 unused ones were probed
+(`orientation_probe_new_segments.json`):
+
+| segment | probe result | verdict |
+|---|---|---|
+| 20230929220926 | all candidates ≤ 1 (0.20–0.99) | teacher uninformative → orientation unverifiable → WITHHELD |
+| 20231106155351 | flat (0.82–1.04) | teacher uninformative → orientation unverifiable → WITHHELD |
+| 20231022170901 | probe crashed: its 2023 label exceeds cv2.remap's 32767-px limit | UNRESOLVED (tooling; fixable by tiling the warp) |
+
+**Pattern (now 5 of 7 probed segments):** the released canon prediction is too weak
+off its showcase segments for teacher-enrichment to validate registration orientation.
+ScrollGT expansion is therefore blocked on an **independent orientation check** (candidate:
+warp the old segment's surface texture through the same field per convention and NCC
+against the SOTA surface — convention-sensitive and teacher-free), not on data
+availability. Also fixed en route: `distill_run.extract_region`'s "2.4um sorts first"
+zarr-selection assumption (false for segments with 1.129um scans).
