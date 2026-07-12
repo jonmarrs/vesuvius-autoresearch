@@ -1,0 +1,104 @@
+{
+  "CONTROL-A_20230702185753_y7000_x4000": {
+    "expected": "rowHv_colu (enrichment 3.13)",
+    "residual": 8.068488879746992,
+    "candidates": {
+      "rowv_colu": {
+        "ncc_raw": 0.016162267939412753,
+        "ncc_highpass": -0.0019409633082295937,
+        "tile_ncc_median": -0.0024914238299105964,
+        "n_tiles": 49,
+        "valid_frac": 0.7941544055938721
+      },
+      "rowHv_colu": {
+        "ncc_raw": 0.2802412923527373,
+        "ncc_highpass": -0.01931229202546684,
+        "tile_ncc_median": 0.2305187576965973,
+        "n_tiles": 62,
+        "valid_frac": 0.9870657920837402
+      },
+      "rowv_colWu": {
+        "ncc_raw": -0.0018757608847509754,
+        "ncc_highpass": -0.003106986773670839,
+        "tile_ncc_median": 0.0030824168215214834,
+        "n_tiles": 62,
+        "valid_frac": 0.9870657920837402
+      },
+      "rowHv_colWu": {
+        "ncc_raw": -0.012810591810733315,
+        "ncc_highpass": 0.0006818923919327402,
+        "tile_ncc_median": 0.005653481554396039,
+        "n_tiles": 55,
+        "valid_frac": 0.8770541548728943
+      }
+    }
+  },
+  "CONTROL-B_20231210121321_y4000_x2500": {
+    "expected": "rowHv_colu (heldout, teacher-free validated)",
+    "residual": 7.852047148933354,
+    "candidates": {
+      "rowv_colu": {
+        "ncc_raw": 0.0031095985774556327,
+        "ncc_highpass": 0.0005714882022571368,
+        "tile_ncc_median": -0.006878269681932761,
+        "n_tiles": 64,
+        "valid_frac": 0.9998067021369934
+      },
+      "rowHv_colu": {
+        "ncc_raw": -0.00013055428568893254,
+        "ncc_highpass": 0.0018300119455132594,
+        "tile_ncc_median": -0.016431089440489724,
+        "n_tiles": 64,
+        "valid_frac": 1.0
+      },
+      "rowv_colWu": {
+        "ncc_raw": -0.012243069139096096,
+        "ncc_highpass": 0.0007588856427455528,
+        "tile_ncc_median": 0.0014097280768247402,
+        "n_tiles": 64,
+        "valid_frac": 0.9999998807907104
+      },
+      "rowHv_colWu": {
+        "ncc_raw": 0.0036533967367781725,
+        "ncc_highpass": -0.002354851275187997,
+        "tile_ncc_median": -0.007227942325696245,
+        "n_tiles": 64,
+        "valid_frac": 0.9999999403953552
+      }
+    }
+  },
+  "SUSPECT_20231005123336_y4000_x2500": {
+    "expected": "UNKNOWN (teacher uninformative)",
+    "residual": 8.02952033464786,
+    "candidates": {
+      "rowv_colu": {
+        "ncc_raw": -0.004801307261769114,
+        "ncc_highpass": -0.0007681331405047364,
+        "tile_ncc_median": 0.0009330568842725443,
+        "n_tiles": 64,
+        "valid_frac": 1.0
+      },
+      "rowHv_colu": {
+        "ncc_raw": 0.01235096381820323,
+        "ncc_highpass": -0.0021339504942109095,
+        "tile_ncc_median": 0.004489646136438348,
+        "n_tiles": 64,
+        "valid_frac": 1.0
+      },
+      "rowv_colWu": {
+        "ncc_raw": 0.006988999033902813,
+        "ncc_highpass": 0.002060810973307797,
+        "tile_ncc_median": 0.000396818037730903,
+        "n_tiles": 64,
+        "valid_frac": 0.9998595714569092
+      },
+      "rowHv_colWu": {
+        "ncc_raw": 0.021142257697811088,
+        "ncc_highpass": 0.001351401641657704,
+        "tile_ncc_median": 0.016606255281562888,
+        "n_tiles": 64,
+        "valid_frac": 0.9998325109481812
+      }
+    }
+  }
+}

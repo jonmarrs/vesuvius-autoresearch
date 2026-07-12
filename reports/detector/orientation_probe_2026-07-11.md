@@ -80,3 +80,25 @@ warp the old segment's surface texture through the same field per convention and
 against the SOTA surface — convention-sensitive and teacher-free), not on data
 availability. Also fixed en route: `distill_run.extract_region`'s "2.4um sorts first"
 zarr-selection assumption (false for segments with 1.129um scans).
+
+## Addendum 2 (2026-07-12): independent surface-NCC orientation check — built, segment-conditional
+
+Method (`repro/sota_data/probe_orientation_ncc.py`): warp the OLD segment's depth-averaged
+surface intensity through the same correspondence field per UV convention and compare
+against the SOTA region's depth-averaged surface (global NCC + median of per-512px-tile
+NCC). Teacher-free and convention-sensitive. Results (`surface_ncc_probe.json`):
+
+| case | winner | winner NCC (raw / tile-med) | others |
+|---|---|---|---|
+| CONTROL-A 20230702185753_y7000_x4000 (known rowHv_colu) | **rowHv_colu** ✓ | **0.280 / 0.231** | ≤ 0.016 |
+| CONTROL-B 20231210121321_y4000_x2500 (known rowHv_colu) | none — FLAT | ±0.016 | — |
+| SUSPECT 20231005123336_y4000_x2500 | none — FLAT | ≤ 0.021 | — |
+
+**Operating envelope:** the check is decisive where it fires (Control-A: ~15× over
+runner-up) but can be silent on a correctly-registered segment (Control-B) — so a flat
+profile is NON-EVIDENCE, never refutation. Gate policy: a target ships only when at least
+one independent check fires (teacher-enrichment OR surface-NCC); flat-everywhere targets
+stay withheld. Consequences: `20230702185753_y7000_x4000` is now DOUBLE-validated
+(enrichment 3.13 + NCC 0.28); the withheld `20231005123336` target remains withheld (no
+check fires); applying NCC to the two teacher-uninformative new segments requires their
+SOTA region layers (S3 extraction) — feasible follow-up.
