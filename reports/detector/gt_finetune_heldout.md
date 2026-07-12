@@ -29,3 +29,15 @@ establish: **registered-GT fine-tuning at this scale is not a cheap unlock** —
 the held-out ceiling (~0.55 ROC) survives a first injection of human-label
 signal, consistent with the held-out GT finding that no model in this family
 independently reads this segment.
+
+## Addendum (2026-07-11): additional training-label confound
+
+A post-hoc 4-candidate orientation probe
+([orientation_probe_2026-07-11.md](orientation_probe_2026-07-11.md)) found that segment
+`20231005123336` — which supplied **2 of the 4 GT fine-tune training regions** — has an
+**unverifiable label orientation**: the canon teacher is chance-quality there (enrichment
+≈ 1 for all four UV conventions), and text-line periodicity is flip-invariant, so neither
+check can confirm the carried `rowHv_colu` prior. If that prior is wrong on this segment,
+half the fine-tune training labels were geometric noise. This does not rescue the negative
+(the other half's orientation IS directly validated, probe enrichment 3.13), but it adds a
+third disclosed confound alongside data thinness and registration residual.
