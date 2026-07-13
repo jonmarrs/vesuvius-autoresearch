@@ -82,9 +82,12 @@ def surface_normals(pointmap, valid, sign=1.0):
     return n.astype(np.float32)
 
 
-def sample_layers(pointmap, valid, normals, fetch_subvol, n_layers=26, k0=-13, tile=512):
+def sample_layers(pointmap, valid, normals, fetch_subvol, n_layers=26, k0=-13, tile=128,
+                  max_bbox_voxels=6e8):
     """Sample n_layers depth slices around the surface (p + k*n) tile-by-tile.
-    fetch_subvol(z0,z1,y0,y1,x0,x1)->ndarray injects the volume (in-memory or zarr)."""
+    fetch_subvol(z0,z1,y0,y1,x0,x1)->ndarray injects the volume (in-memory or zarr).
+    `tile` must be small enough that each surface patch is ~locally planar, else its 3D
+    bbox explodes on the wrapped scroll; `max_bbox_voxels` guards that (raise, don't OOM)."""
     H, W = valid.shape
     ks = np.arange(k0, k0 + n_layers)
     out = np.zeros((n_layers, H, W), np.float32)
@@ -108,6 +111,13 @@ def sample_layers(pointmap, valid, normals, fetch_subvol, n_layers=26, k0=-13, t
             y1 = int(np.ceil(cf[1].max())) + 2
             x0 = int(np.floor(cf[2].min()))
             x1 = int(np.ceil(cf[2].max())) + 2
+            bbox_vox = (z1 - max(z0, 0)) * (y1 - max(y0, 0)) * (x1 - max(x0, 0))
+            if bbox_vox > max_bbox_voxels:
+                raise ValueError(
+                    f"tile ({ty},{tx}) 3D bbox is {bbox_vox:.2e} voxels "
+                    f"(z {z1 - z0}, y {y1 - y0}, x {x1 - x0}) > cap {max_bbox_voxels:.0e}: "
+                    "the surface patch is too large/oblique — use a smaller `tile`"
+                )
             sub = np.asarray(fetch_subvol(max(z0, 0), z1, max(y0, 0), y1,
                                           max(x0, 0), x1), np.float32)
             local = np.stack([coords[0] - max(z0, 0), coords[1] - max(y0, 0),

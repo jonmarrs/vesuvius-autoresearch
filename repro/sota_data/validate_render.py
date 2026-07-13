@@ -71,7 +71,7 @@ def main():
     results = {}
     for sign in (1.0, -1.0):
         normals = surface_normals(pm, valid, sign=sign)
-        layers, stats = sample_layers(pm, valid, normals, fetch, tile=256)
+        layers, stats = sample_layers(pm, valid, normals, fetch, tile=32)
         rendered = layers[layers.shape[0] // 2]
         m = valid
         c = ncc(np.where(m, rendered, np.nan), np.where(m, ref, np.nan))
