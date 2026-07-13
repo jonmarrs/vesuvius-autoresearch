@@ -1,0 +1,41 @@
+{
+  "config": "config.json (promoted use_uamt) + checkpoint_out",
+  "runs": [
+    {
+      "run": 1,
+      "rc": 0,
+      "seconds": 989.7,
+      "val_f1": 0.4361620196324144,
+      "val_f1_threshold": 0.1,
+      "ap_prevalence_lift": 1.2099602373573932,
+      "roc_auc": 0.6071886643940607
+    },
+    {
+      "run": 2,
+      "rc": 0,
+      "seconds": 976.8,
+      "val_f1": 0.46234978819054207,
+      "val_f1_threshold": 0.15,
+      "ap_prevalence_lift": 1.3654466969011578,
+      "roc_auc": 0.6409362134498784
+    },
+    {
+      "run": 3,
+      "rc": 0,
+      "seconds": 973.4,
+      "val_f1": 0.4554269158836471,
+      "val_f1_threshold": 0.15,
+      "ap_prevalence_lift": 1.3000871229006856,
+      "roc_auc": 0.626329869863016
+    },
+    {
+      "run": 4,
+      "rc": 0,
+      "seconds": 976.4,
+      "val_f1": 0.4423391115815,
+      "val_f1_threshold": 0.1,
+      "ap_prevalence_lift": 1.2840345742411317,
+      "roc_auc": 0.6181789626747137
+    }
+  ]
+}

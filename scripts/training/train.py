@@ -416,16 +416,20 @@ def is_model_improvement(
 # and reported but no longer decide promotion. See
 # docs/superpowers/specs/2026-07-10-loop-honest-metric-selection-design.md
 #
-# Calibrated 2026-07-11 from the first F1-regime day (14 cycles): the spread of
-# val_f1 across REVERTED cycles was std 0.0095 / range 0.0305 (n=11, excluding
-# one real config-effect outlier). That spread is an UPPER bound on run-to-run
-# noise (different tweaks inflate it), so 1e-2 ~= 1 sigma of the upper bound is
-# conservative against noise-promotions. The original 5e-3 sat at ~0.5 sigma —
-# a lucky noise draw could clear it. TODO at next long run: a 3-5x
-# identical-config noise probe to measure true sigma and tighten this.
-# LIFT_MARGIN validated the same day: observed lifts 1.13-1.54, so the >1.02
-# real-signal gate binds only on constant-collapse, as intended.
-F1_NOISE_TOLERANCE = 1e-2
+# MEASURED 2026-07-12 by the identical-config noise probe (scripts/f1_noise_probe.py,
+# 4 runs of the promoted config at the 900s budget, isolated via checkpoint_out):
+# TRUE run-to-run sigma = 0.0120 (range 0.026; reports/detector/f1_noise_probe.json).
+# A promotion compares two noisy draws (sigma_diff = sqrt(2)*sigma ~= 0.017), so the
+# tolerance for a ~5% false-promotion rate is 1.645*0.017 ~= 0.028 -> 3e-2.
+# History of this constant: 5e-3 (guess) -> 1e-2 (cross-tweak upper-bound estimate,
+# 2026-07-11 — that "upper bound" turned out to UNDERSTATE true noise) -> 3e-2 (measured).
+# HONEST IMPLICATION: at the 900s budget no tweak tried so far separates from noise
+# (the 2026-07-11 cycle-9 "+0.0137 improvement" was 0.8 sigma_diff = noise). Promotions
+# at this budget need either this wide tolerance (rare promotions, honest) or
+# multi-seed averaging per cycle (sigma_mean = sigma/sqrt(k)) — a design change.
+# LIFT_MARGIN validated 2026-07-11: observed lifts 1.13-1.54; the >1.02 real-signal
+# gate binds only on constant-collapse, as intended.
+F1_NOISE_TOLERANCE = 3e-2
 LIFT_MARGIN = 0.02
 
 
