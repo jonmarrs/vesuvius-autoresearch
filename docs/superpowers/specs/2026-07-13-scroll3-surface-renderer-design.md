@@ -12,10 +12,13 @@ Scroll 3.
 
 ## Inputs (all verified present, anonymous S3)
 
-- `PHerc0332/segments/{seg}/mesh/intermediate/tifxyz_normalized/` — `x.tif`, `y.tif`,
-  `z.tif`, `meta.json` (the flattened surface grid of 3D points; same family as the
-  grids `repro/sota_data/register.py:read_tifxyz` already reads). Segments:
-  `20240711124827-20240618142020`, `20240828190516-20240716140050`.
+- `PHerc0332/segments/{seg}/mesh/intermediate/{seg}_original.obj` — the surface mesh:
+  3D vertices `v` (scan coordinates) paired with flattened texture coords `vt` (the UV
+  layout). **This is the geometry source.** Segments: `20240711124827-20240618142020`,
+  `20240828190516-20240716140050`. NOTE (verified 2026-07-13): the sibling
+  `tifxyz_normalized/` directory is an EMPTY 2×2 `-1` placeholder on both segments — it
+  cannot be used; the point map is rebuilt from the obj (see unit 1). `flattened.obj`
+  also exists but is not needed (`original.obj`'s `vt` already carries the flattening).
 - `PHerc0332/volumes/20251211183505-2.399um-0.2m-78keV-masked.zarr` — 6-level pyramid,
   L0 shape (33592, 15761, 15761) uint8, 128³ chunks. **Sample level 2** (L0/4 ≈ 9.6µm
   effective — matches the detector's input scale, which consumes level-2 of the 2.4µm
@@ -36,10 +39,18 @@ Scroll 3.
 
 ## Architecture (5 units)
 
-1. **Grid loader** — `read_tifxyz` on `tifxyz_normalized`; parse `meta.json` for
-   units/scale; **assert** the point-cloud bounds fit inside the volume shape at the
-   assumed scale (loud failure = coordinate-scale bug caught at load, not in output).
-   Handle invalid points (NaN / −1 sentinels) as a validity mask.
+1. **Point-map builder (obj → grid)** — parse `original.obj` with the existing
+   `repro/sota_data/gt_register.parse_obj_vt` → `v[N,3]` (3D) and `vt[N,2]` (flattened
+   UV). Build a regular render grid over the `vt` bounding box at a chosen output
+   resolution (target ≈ 4096² for the region; grid step = vt-range / size), and
+   interpolate the three coordinate channels with
+   `scipy.interpolate.LinearNDInterpolator(vt, v)` evaluated on the grid → an
+   `(H, W, 3)` point map, plus a validity mask (True where the interpolant is inside the
+   mesh convex hull; NaN outside). This is the drop-in replacement for the (empty)
+   tifxyz grid — everything downstream treats it identically. **Assert** the resulting
+   point-cloud bounds fit inside the volume shape at level 2 (loud failure = coordinate-
+   scale bug caught here, not in output). Build the interpolator once per segment; it is
+   reused for both the region grid and any sub-tiling.
 2. **Normals** — tangents via `np.gradient` on the x/y/z channel maps;
    `n = normalize(du × dv)`; propagate NaN where the grid is invalid. Normal SIGN is
    not assumed — it is fixed empirically by the validation harness (a sign flip
@@ -59,8 +70,10 @@ Scroll 3.
    `{frag_id}_render_provenance.json` (segment, region, pyramid level, normal sign,
    spacing, bounds/clamp stats, input URIs).
 5. **Validation harness (acceptance gate)** — render a 4096² region of Scroll-1
-   `20230702185753` from its mesh + the `PHercParis4` volume; compare depth-center
-   slices against the **released** SOTA surface volume for the same region:
+   `20230702185753` from its **`original.obj`** (the same one `parse_obj_vt` already
+   consumes for registration) + the `PHercParis4` volume, using the identical
+   obj→point-map→sample path, and compare depth-center slices against the **released**
+   SOTA surface volume for the same region:
    - normalize scale/offset, compute NCC per depth slice;
    - test BOTH normal signs; the sign with higher center-slice NCC wins and is recorded;
    - **PASS gate: center-slice NCC ≥ 0.8** (papyrus texture must visibly match, not
@@ -90,19 +103,28 @@ Scroll 3.
 
 ## Testing
 
-- **Unit:** normals on a synthetic tilted plane (analytic normal, both winding
+- **Unit:** point-map builder on a synthetic obj (a known tilted quad with vt = its
+  projection → interpolated grid reproduces the analytic plane; points outside the hull
+  are NaN-masked); normals on a synthetic tilted plane (analytic normal, both winding
   orders); sampler against a dense in-memory volume with a known analytic field
   (max abs error bound); writer round-trip (fragment readable by
-  `detector.data.read_image_mask` path conventions); bounds-assertion fires on a
-  deliberately mis-scaled grid.
+  `detector.data.read_image_mask` path conventions, and NO `_inklabels.png` is written);
+  bounds-assertion fires on a deliberately mis-scaled point map.
 - **Integration (the gate):** Scroll-1 NCC harness as above.
 - **Operational:** Scroll-3 renders complete with < 1% clamped samples; arm C runs
   end-to-end; report committed.
 
 ## Risks
 
-- **meta.json scale semantics unknown** until read — mitigated by the load-time bounds
-  assertion and the Scroll-1 gate (both fail loudly, not silently).
+- **obj coordinate scale / units unknown** until read (are `v` in level-0 voxels? a
+  fixed offset?) — mitigated by the load-time bounds assertion and the Scroll-1 gate
+  (both fail loudly, not silently). The Scroll-1 gate is the real safety net: the same
+  obj→point-map path must reproduce a released surface volume before Scroll 3 is trusted.
+- **Interpolation cost / holes** — `LinearNDInterpolator` builds a Delaunay triangulation
+  over ~10⁵–10⁶ vt points; feasible once per segment. Regions of the flattened UV with no
+  mesh coverage interpolate to NaN → masked (a finding about surface completeness, not a
+  bug). If Delaunay memory/time is prohibitive on the full mesh, restrict vt/v to the
+  region's UV bbox (+margin) before building the interpolator.
 - **Depth spacing mismatch** (our unit-voxel steps vs the core team's render spacing)
   — detected by the validation NCC being high at center but degrading off-center;
   provenance records spacing; v1 accepts center-slice validation.
