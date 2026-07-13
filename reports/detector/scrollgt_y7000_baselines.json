@@ -1,0 +1,76 @@
+{
+  "target": "scroll1_20230702185753_y7000_x4000",
+  "note": "TRAIN-EXPOSED for distilled arms + GT-ft (disclosed)",
+  "rows": {
+    "legacy detector": {
+      "positive_rate": 0.12250947952270508,
+      "n_pixels": 16777216,
+      "val_f1": 0.219214479686691,
+      "best_threshold": 0.2,
+      "f1_at_0.5": 0.16324912493935617,
+      "val_f05": 0.1494067412904266,
+      "precision": 0.12311104914494078,
+      "recall": 0.9992633922489793,
+      "pred_positive_rate": 0.9943805932998657,
+      "average_precision": 0.11504688910634177,
+      "ap_prevalence_lift": 0.9390856083509828,
+      "roc_auc": 0.48024158350715695
+    },
+    "arm A (1-scroll student)": {
+      "positive_rate": 0.12250947952270508,
+      "n_pixels": 16777216,
+      "val_f1": 0.487322205043563,
+      "best_threshold": 0.5499999999999999,
+      "f1_at_0.5": 0.48003051718980316,
+      "val_f05": 0.47048434479187534,
+      "precision": 0.3933925566179524,
+      "recall": 0.6401758711821922,
+      "pred_positive_rate": 0.19936221837997437,
+      "average_precision": 0.43273158534916095,
+      "ap_prevalence_lift": 3.532229400002972,
+      "roc_auc": 0.8366677512783299
+    },
+    "arm B (2-scroll student)": {
+      "positive_rate": 0.12250947952270508,
+      "n_pixels": 16777216,
+      "val_f1": 0.392962409610556,
+      "best_threshold": 0.49999999999999994,
+      "f1_at_0.5": 0.392962409610556,
+      "val_f05": 0.37034330288277834,
+      "precision": 0.30002358823152364,
+      "recall": 0.5693223792527664,
+      "pred_positive_rate": 0.23247301578521729,
+      "average_precision": 0.34246943585385925,
+      "ap_prevalence_lift": 2.795452541208358,
+      "roc_auc": 0.7680068925830844
+    },
+    "arm C (3-scroll student)": {
+      "positive_rate": 0.12250947952270508,
+      "n_pixels": 16777216,
+      "val_f1": 0.42162288317895597,
+      "best_threshold": 0.5499999999999999,
+      "f1_at_0.5": 0.4203590945921559,
+      "val_f05": 0.4203799039192217,
+      "precision": 0.3603392971455489,
+      "recall": 0.5080233807279281,
+      "pred_positive_rate": 0.17271965742111206,
+      "average_precision": 0.3767381168150924,
+      "ap_prevalence_lift": 3.0751752295647483,
+      "roc_auc": 0.7816689902486164
+    },
+    "arm C + GT fine-tune": {
+      "positive_rate": 0.12250947952270508,
+      "n_pixels": 16777216,
+      "val_f1": 0.7343438571199261,
+      "best_threshold": 0.6,
+      "f1_at_0.5": 0.7018657230852522,
+      "val_f05": 0.7563736963379422,
+      "precision": 0.7008131547779309,
+      "recall": 0.7712443708377283,
+      "pred_positive_rate": 0.1348215937614441,
+      "average_precision": 0.7919325671385354,
+      "ap_prevalence_lift": 6.464255421081631,
+      "roc_auc": 0.953830115517793
+    }
+  }
+}
