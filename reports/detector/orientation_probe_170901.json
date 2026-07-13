@@ -1,0 +1,32 @@
+{
+  "segment": "20231022170901",
+  "region": [
+    624,
+    2500,
+    4096
+  ],
+  "residual": 7.825646790534365,
+  "teacher_rate": 0.12641000747680664,
+  "candidates": {
+    "rowv_colu": {
+      "enrichment": 0.8042009472846985,
+      "ink_frac": 0.062441229820251465,
+      "periodicity": 0.9788909684442684
+    },
+    "rowHv_colu": {
+      "enrichment": 1.023170828819275,
+      "ink_frac": 0.12001341581344604,
+      "periodicity": 0.976329054781827
+    },
+    "rowv_colWu": {
+      "enrichment": 0.41190963983535767,
+      "ink_frac": 0.06027716398239136,
+      "periodicity": 0.9788815311122372
+    },
+    "rowHv_colWu": {
+      "enrichment": 0.8064368367195129,
+      "ink_frac": 0.11850684881210327,
+      "periodicity": 0.9757390008313727
+    }
+  }
+}

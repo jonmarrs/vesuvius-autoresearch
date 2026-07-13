@@ -102,3 +102,20 @@ stay withheld. Consequences: `20230702185753_y7000_x4000` is now DOUBLE-validate
 (enrichment 3.13 + NCC 0.28); the withheld `20231005123336` target remains withheld (no
 check fires); applying NCC to the two teacher-uninformative new segments requires their
 SOTA region layers (S3 extraction) — feasible follow-up.
+
+## Addendum 3 (2026-07-12): third segment probed via crop-offset warp — also flat; the pattern is complete
+
+`20231022170901` (label 6656×35840 — warped via a crop-offset wrapper around
+`warp_via_field` to clear cv2.remap's 32767px limit): residual 7.83, but enrichment flat
+(rowHv_colu 1.02 vs 0.41–0.81) — teacher uninformative, orientation unverifiable,
+NOT shipped (`orientation_probe_170901.json`).
+
+**Final tally across all 6 registrable Scroll-1 segments:** the teacher-enrichment
+check FIRES on exactly one segment (20230702185753: 5.05 and 3.13 on its two regions);
+it is flat on 20231005123336, 20230929220926, 20231106155351, and 20231022170901, and
+only weakly corroborative (1.68) on the held-out 20231210121321. Combined with the GT
+calibrations (ROC 0.49–0.73 segment-dependent), the released canon prediction is
+enrichment-informative on ~1 of 6 registrable segments — it reads its showcase segment
+family and little else. ScrollGT expansion now requires the surface-NCC check, which
+needs the segments' 2023-era layers (dl.ash2txt.org, credentialed) — or a future
+independent orientation method.
