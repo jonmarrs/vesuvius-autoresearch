@@ -54,6 +54,20 @@ def assert_bounds_fit(pointmap, valid, volume_shape_l2):
         )
 
 
+def pointmap_from_tifxyz(xyz, level_div=4):
+    """Convert a read_tifxyz grid (H,W,3 in (x,y,z), level-0 voxel coords, with -1/0
+    invalid sentinels) into a sampler-ready point map: reordered to (z,y,x) volume-index
+    convention and divided by level_div (4 = level-0 -> level-2). Returns
+    (pointmap[H,W,3] float32, valid[H,W] bool)."""
+    xyz = np.asarray(xyz, np.float64)
+    valid = ~((np.abs(xyz + 1) < 1e-6).all(axis=2) | (np.abs(xyz) < 1e-9).all(axis=2))
+    valid &= np.isfinite(xyz).all(axis=2)
+    zyx = xyz[..., ::-1] / float(level_div)   # (x,y,z) -> (z,y,x), scaled to the level
+    pm = zyx.astype(np.float32)
+    pm[~valid] = np.nan
+    return pm, valid
+
+
 def surface_normals(pointmap, valid, sign=1.0):
     """Unit surface normals from a point map, via cross product of the two grid tangents.
     sign selects the depth direction (fixed empirically by the validation harness)."""

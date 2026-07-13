@@ -57,6 +57,21 @@ def test_assert_bounds_fit_raises_on_overflow():
         assert_bounds_fit(pm, valid, (50, 50, 50))
 
 
+# ---- tifxyz -> sampler-ready point map ----
+
+def test_pointmap_from_tifxyz_reorders_scales_and_masks():
+    from repro.sota_data.render_surface import pointmap_from_tifxyz
+    xyz = np.zeros((3, 3, 3), np.float32)
+    xyz[0, 0] = [400.0, 800.0, 1200.0]   # (x,y,z) at level 0
+    xyz[1, 1] = [-1.0, -1.0, -1.0]        # invalid sentinel
+    # everything else stays (0,0,0) -> also invalid
+    pm, valid = pointmap_from_tifxyz(xyz, level_div=4)
+    assert valid[0, 0] and not valid[1, 1] and not valid[2, 2]
+    # reordered to (z,y,x) and /4: (1200,800,400)/4 = (300,200,100)
+    assert np.allclose(pm[0, 0], [300.0, 200.0, 100.0])
+    assert np.isnan(pm[1, 1]).all()
+
+
 # ---- Task 2: normals ----
 
 def test_normals_on_tilted_plane_are_constant_and_unit():
