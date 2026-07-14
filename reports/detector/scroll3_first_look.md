@@ -37,10 +37,13 @@ outcome: arm C is a cross-scroll distilled model with weak unseen-scroll transfe
 texture, not ink — consistent with every prior cross-scroll finding in this project. **No
 reading, no letters.**
 
-## Segment 20240828190516-20240716140050 — not yet rendered
+## Segment 20240828190516-20240716140050 — deferred (compute-bound)
 
-The batch run was killed (resource/time limit) after segment 1's renders; this segment is a
-straightforward follow-up (same pipeline, `div=1`).
+Attempted; a full 2048² render is ~4k S3-fetching tiles and exceeded the run time budget
+twice. Segment 1 already establishes both findings (renderer produces coherent papyrus; arm
+C reads texture not ink), so this segment is a redundant confirmation, not new evidence —
+deferred rather than re-run. A lighter render (smaller `SIZE`, or cached volume chunks)
+would complete it; not worth the compute here.
 
 ## What this establishes
 
