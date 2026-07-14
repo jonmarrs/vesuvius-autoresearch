@@ -166,15 +166,23 @@ def zarr_fetch(volume_zarr_uri, level):
 
 
 def render_region(seg, obj_path, volume_zarr_uri, y0, x0, size, level, sign, out_root,
-                  frag_id=None, extra_prov=None):
-    """Full pipeline for one region -> label-free fragment dir. Returns (out_seg, stats)."""
+                  frag_id=None, extra_prov=None, obj_level_div=None):
+    """Full pipeline for one region -> label-free fragment dir. Returns (out_seg, stats).
+
+    The obj `v` is (x,y,z); the sampler needs (z,y,x) at the sampled pyramid `level`. We
+    reorder and divide by `obj_level_div` (default 2**level, i.e. obj coords assumed to be
+    level-0 voxels). This convention was validated on Scroll 1 via the tifxyz path
+    (reports/detector/render_validation.md); on scrolls without ground truth it is
+    inferred (see scroll3_render's coherence check)."""
     from repro.sota_data.gt_register import parse_obj_vt
     v, vt = parse_obj_vt(obj_path)
     fetch, vol_shape = zarr_fetch(volume_zarr_uri, level)
-    pm, valid = build_point_map(v, vt, size)
+    pm_xyz, valid = build_point_map(v, vt, size)
+    div = float(obj_level_div if obj_level_div is not None else 2 ** level)
+    pm = pm_xyz[..., ::-1] / div          # (x,y,z) -> (z,y,x), scaled to the level
     assert_bounds_fit(pm, valid, vol_shape)
     normals = surface_normals(pm, valid, sign=sign)
-    layers, stats = sample_layers(pm, valid, normals, fetch)
+    layers, stats = sample_layers(pm, valid, normals, fetch, tile=32)
     fid = frag_id or f"{seg}_render"
     prov = {"segment": seg, "region_px": [y0, x0, size], "level": level,
             "normal_sign": sign, "volume": volume_zarr_uri,
