@@ -40,11 +40,15 @@ class TestVesuviusLoader(unittest.TestCase):
         )
 
         self.assertGreater(len(ds), 0)
-        patch_vol, patch_label = ds[0]
+        # __getitem__ returns (patch_vol, patch_label, patch_fiber): the fiber
+        # target was added for the multi-task head; the test was never updated.
+        patch_vol, patch_label, patch_fiber = ds[0]
 
         # [C, Z, H, W]
         self.assertEqual(patch_vol.shape, (1, 8, 32, 32))
         self.assertEqual(patch_label.shape, (32, 32))
+        # fiber target is z-collapsed to [1, 1, H, W]
+        self.assertEqual(patch_fiber.shape, (1, 1, 32, 32))
 
     def test_ridge_detection_fallback(self):
         # Test if use_ridges=True doesn't crash even without GPU (will warn and return zeros)
