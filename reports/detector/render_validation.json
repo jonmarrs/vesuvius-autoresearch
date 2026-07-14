@@ -1,0 +1,21 @@
+{
+  "seg": "20230702185753",
+  "scan": "20260411134726",
+  "level": 2,
+  "grid_down": 2,
+  "results": {
+    "sign1": {
+      "ncc": 0.5936495366143256,
+      "valid_frac": 0.8749997828258698,
+      "clamped_frac": 0.004673004397711076
+    },
+    "sign-1": {
+      "ncc": 0.5936495366143256,
+      "valid_frac": 0.8749997828258698,
+      "clamped_frac": 0.004673004397711076
+    }
+  },
+  "best_sign": "sign1",
+  "verdict": "FAIL",
+  "gate": "center-layer NCC >= 0.60 vs released surface volume (same frame)"
+}

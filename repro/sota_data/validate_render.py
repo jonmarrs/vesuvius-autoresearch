@@ -36,7 +36,7 @@ TIFXYZ = f"{BASE}/segments/{SEG}/mesh/{SEG}-on-{SCAN}-2.4um.tifxyz"
 RAW_VOL = f"{BASE}/volumes/{SCAN}-2.400um-0.2m-78keV-masked.zarr"
 SURF_VOL = f"{BASE}/segments/{SEG}/surface-volumes/2.4um-0.22m-78keV-volume-{SCAN}.zarr"
 LEVEL = 2
-GRID_DOWN = 4     # render at tifxyz-grid / 4 to keep the Delaunay-free path fast (~630x455)
+GRID_DOWN = 2     # render at tifxyz-grid / 2 (~1265x910); finer than the first pass
 
 
 def _read_tifxyz_s3(fs, path):
@@ -60,23 +60,27 @@ def main():
     # reference: released surface volume, pick the pyramid level whose (H,W) matches our grid
     sg = zarr.open(zarr.storage.FSStore(SURF_VOL, fs=fs), mode="r")
     lv = min((k for k in sg.keys()),
-             key=lambda k: abs(sg[k].shape[1] - xyz.shape[0]) + abs(sg[k].shape[2] - xyz.shape[1]))
+             key=lambda k: abs(sg[k].shape[1] - pm.shape[0]) + abs(sg[k].shape[2] - pm.shape[1]))
     surf = sg[lv]
-    mid = surf[surf.shape[0] // 2]
-    ref = cv2.resize(np.asarray(mid, np.float32), (pm.shape[1], pm.shape[0]),
-                     interpolation=cv2.INTER_AREA)
-    print(f"reference surface-vol level {lv} shape {surf.shape} -> resized {ref.shape}",
-          flush=True)
+    dc = surf.shape[0] // 2
+    # a small window of reference depth slices (surface-vol depth centering is a free
+    # parameter — the mesh surface may sit at any of a few adjacent slices)
+    refs = []
+    for dz in range(-4, 5, 2):
+        sl = np.asarray(surf[dc + dz], np.float32)
+        refs.append(cv2.resize(sl, (pm.shape[1], pm.shape[0]), interpolation=cv2.INTER_AREA))
+    print(f"reference surface-vol level {lv} shape {surf.shape}, "
+          f"{len(refs)} depth slices around {dc}", flush=True)
 
     results = {}
+    m = valid
     for sign in (1.0, -1.0):
         normals = surface_normals(pm, valid, sign=sign)
         layers, stats = sample_layers(pm, valid, normals, fetch, tile=32)
         rendered = layers[layers.shape[0] // 2]
-        m = valid
-        c = ncc(np.where(m, rendered, np.nan), np.where(m, ref, np.nan))
-        results[f"sign{int(sign)}"] = {"ncc": float(c), **stats}
-        print(f"sign={sign:+.0f}: center-layer NCC={c:.4f} "
+        best_c = max(ncc(np.where(m, rendered, np.nan), np.where(m, r, np.nan)) for r in refs)
+        results[f"sign{int(sign)}"] = {"ncc": float(best_c), **stats}
+        print(f"sign={sign:+.0f}: best center-layer NCC={best_c:.4f} "
               f"valid={stats['valid_frac']:.3f} clamped={stats['clamped_frac']:.3f}",
               flush=True)
 
