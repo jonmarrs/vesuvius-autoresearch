@@ -40,15 +40,20 @@ review before release — that discipline is what the benchmark packages for eve
 ## What is being released (open tools)
 
 1. **ScrollGT** (https://github.com/jonmarrs/scrollgt) — **the headline release.**
-   Registered ground-truth targets on the SOTA data (v0.1: one train-exposed and one
-   held-out Scroll-1 segment, each with full registration provenance, gates, and residual
-   caveats in `meta.json`), the `scrollgt score` harness (PNG/npy probability maps →
-   scorecard; verified to reproduce the published canon-teacher baseline to 4 decimals),
-   the `scrollgt check` prize-compliance pre-check (official ≤64px/0.5mm window rule +
-   train/predict overlap), published baselines including negatives, quickstart notebook,
-   tests, MIT. **v0.2 (August) extends the targets to Scrolls 2–3** — the live First
-   Letters/Title prize scrolls. Anyone can score a model today with `git clone` + one
-   command.
+   Three registered ground-truth targets on the SOTA data (two train-exposed regions and a
+   held-out flagship Scroll-1 segment), each with full registration provenance, gates, and
+   residual caveats in `meta.json`; the `scrollgt score` harness (PNG/npy probability maps
+   → scorecard; verified to reproduce the published canon-teacher baseline to 4 decimals
+   *and* to run from a clean clone in one command); the `scrollgt check` prize-compliance
+   pre-check (official ≤64px/0.5mm window rule + train/predict overlap); published baselines
+   including the negatives, a front-page held-out leaderboard, `CONTRIBUTING.md` submit-a-row
+   flow, GitHub Actions CI (py3.10–3.12), a quickstart notebook, 15 tests, MIT. Each target
+   ships only after an **independent, teacher-free orientation validation** — three
+   gate-passing regions were *withheld* because their orientation could not be verified
+   (integrity as a feature, not a limitation). Anyone can score a model today with
+   `git clone` + one command. (An expansion to more Scroll-1 targets is the next step; a
+   Scrolls 2–3 extension is blocked because those scrolls are unread and ship no human
+   ground truth — that gap is *why* First Letters is open.)
 
 2. **Ink detector subpackage** (`vesuvius_autoresearch.detector`) — the proven 2023
    Grand-Prize TimeSformer recipe productionized as a tested subpackage
@@ -96,7 +101,20 @@ review before release — that discipline is what the benchmark packages for eve
    [registered_gt_heldout_validation.md](https://github.com/jonmarrs/vesuvius-autoresearch/blob/main/reports/detector/registered_gt_heldout_validation.md),
    [gt_finetune_heldout.md](https://github.com/jonmarrs/vesuvius-autoresearch/blob/main/reports/detector/gt_finetune_heldout.md)
 
-6. **Carried forward from June (still maintained):** the scroll-specific 3D augmentation
+6. **Scroll-3 surface-volume renderer** (`repro/sota_data/render_surface.py`, new this week)
+   — the two PHerc0332 (Scroll 3) segments in the open bucket are **mesh-only**: no surface
+   volumes, no predictions, so no one can run ink detection on the live First-Letters scroll
+   without a private renderer. This one rebuilds the surface from `original.obj`
+   (`vt`→`xyz` interpolation → normals → tile-wise trilinear volume sampling), **validated
+   against a released Scroll-1 surface volume** (center-layer NCC ~0.59 vs ground truth —
+   placement-correct; reported honestly as validated-in-placement, not pixel-perfect). It
+   produces the first independent surface volumes from a Scroll-3 mesh-only segment
+   (coherent papyrus fibers), and running arm C over them shows **texture, not letterforms**
+   — the cross-scroll ceiling demonstrated on the prize scroll itself, not merely argued.
+   → [render_validation.md](https://github.com/jonmarrs/vesuvius-autoresearch/blob/main/reports/detector/render_validation.md),
+   [scroll3_first_look.md](https://github.com/jonmarrs/vesuvius-autoresearch/blob/main/reports/detector/scroll3_first_look.md)
+
+7. **Carried forward from June (still maintained):** the scroll-specific 3D augmentation
    library ([villa #201](https://github.com/ScrollPrize/villa/issues/201);
    [docs/SCROLL_AUGMENTATIONS.md](https://github.com/jonmarrs/vesuvius-autoresearch/blob/main/docs/SCROLL_AUGMENTATIONS.md)),
    GPU fiber/ridge detection (closed-form 3×3 eigensolver, 14–94× over NumPy;
@@ -163,6 +181,22 @@ The through-line is measurement honesty:
     artifact.)
   - → [registered_gt_validation.md](https://github.com/jonmarrs/vesuvius-autoresearch/blob/main/reports/detector/registered_gt_validation.md),
     [registered_gt_heldout_validation.md](https://github.com/jonmarrs/vesuvius-autoresearch/blob/main/reports/detector/registered_gt_heldout_validation.md)
+- **A per-segment quality map of the released canon prediction (new this week) — it reads
+  its showcase family and little else.** Across all six Scroll-1 segments for which a 2023
+  hand label, an `original.obj`, and a bridge mesh all exist, the teacher-enrichment
+  orientation check fires on **exactly one** segment (20230702185753). On the other five the
+  released prediction is too weak for enrichment to even validate the label's orientation.
+  Combined with the ground-truth ROC-AUCs (0.49–0.73, segment-dependent), this is the first
+  independent, per-segment characterization of *where* the canon release is and isn't
+  trustworthy — a datapoint no one outside the core team has published.
+  → [orientation_probe_2026-07-11.md](https://github.com/jonmarrs/vesuvius-autoresearch/blob/main/reports/detector/orientation_probe_2026-07-11.md)
+- **The fit-vs-reading exhibit (new this week).** The *same* GT-fine-tuned model scores
+  **ROC-AUC 0.954 on its own training region and 0.531 on the held-out target** — a
+  0.42-ROC gap between memorizing labels and reading ink, in one benchmark, from one model.
+  It is the sharpest single demonstration of why an eval must have a held-out surface and
+  why exposed-region scores are never reading ability. (The 0.954 also confirms the
+  registered labels on that region are genuine learnable signal, not registration noise.)
+  → [scrollgt_y7000_baselines.json](https://github.com/jonmarrs/vesuvius-autoresearch/blob/main/reports/detector/scrollgt_y7000_baselines.json)
 - **We caught and corrected our own over-read.** The first (train-region) ground-truth result
   was initially framed as students "matching or exceeding" the teacher; internal review flagged
   a binary-vs-continuous metric confound and the train-region confound, and the held-out
