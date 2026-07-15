@@ -3,8 +3,14 @@
 **Status:** DRAFT for review. Deadline 2026-07-31 11:59pm PT. Refresh numbers immediately
 before filing via the official Progress Prize form. (The June draft was not filed; this
 draft supersedes `PRIZE_FILING_DRAFT_2026-06.md`. Reframed 2026-07-11 around the ScrollGT
-release.)
-**Primary submission artifact:** https://github.com/jonmarrs/scrollgt (MIT)
+release; re-aligned 2026-07-15 to the new monthly prize — *"$20,000 will be awarded every
+month to the best open-source submission that makes the collection easier to read"* — and
+the prizes page's new emphasis on *held-out validation on ground truth data* and
+*false-positive mitigation*.)
+**Primary submission artifacts (open-source, MIT):**
+- https://github.com/jonmarrs/scrollgt — the honest held-out ground-truth evaluation layer
+- the Scroll-3 surface-volume renderer (`repro/sota_data/render_surface.py` in the repo
+  below) — makes the bucket's mesh-only segments readable/detectable for the first time
 **Methodology/source repo:** https://github.com/jonmarrs/vesuvius-autoresearch (MIT)
 **Live experiment tracking:** https://wandb.ai/jdmarrs-uc-davis/vesuvius-autoresearch
 
@@ -12,22 +18,39 @@ release.)
 
 ## Title
 
-**ScrollGT: registered human ground-truth ink evaluation for the open SOTA scroll data —
-the missing measurement layer, with published baselines that include our own negatives.**
+**Two open-source tools that make the collection easier to read: a renderer that turns the
+bucket's mesh-only segments into detector-ready surface volumes, and ScrollGT — the
+held-out human-ground-truth evaluation layer the reading effort has been missing (with
+published baselines that include our own negatives).**
 
 ## Summary
 
-The open-data bucket ships surface volumes and *model predictions* — but no human ground
-truth aligned to the new re-flattened geometry, so nobody outside the core team can answer
-the basic question: **does an ink model actually read, or does it reproduce another
-model?** This month we closed that gap and shipped it as a standalone tool:
-**[ScrollGT](https://github.com/jonmarrs/scrollgt)** registers the 2023 Grand-Prize-era
-human ink labels onto the SOTA geometry (exact `original.obj` UV bridge, ~8-voxel median
-residual, gated alignment validation) and provides a one-command scoring harness
-(threshold-swept F1 primary, AP-prevalence-lift as the anti-gaming gate, ROC-AUC
-secondary) plus a prize-window/overlap compliance checker.
+The July prize rewards *"the best open-source submission that makes the collection easier to
+read,"* and the prizes page now requires *held-out validation on ground truth data* and
+*false-positive mitigation*. This submission is two MIT tools that serve exactly that, plus
+the honest measurement discipline behind them.
 
-The benchmark's credibility is that it has teeth — demonstrated on its own authors.
+**(1) A surface-volume renderer for the bucket's mesh-only segments.** Scroll 3 (PHerc0332)
+ships two segments in the open bucket as *mesh-only* — no surface volumes, no predictions —
+so no one can run ink detection on the live First-Letters scroll without a private renderer.
+Ours rebuilds the surface from `original.obj` (`vt`→`xyz` interpolation → normals → tile-wise
+trilinear sampling), **validated against a released Scroll-1 surface volume** (center-layer
+NCC ~0.59 vs ground truth — placement-correct, reported honestly as validated-in-placement,
+not pixel-perfect), and produces the first independent surface volumes from those segments
+(coherent papyrus fibers). It makes previously-unusable data usable — the most literal
+"easier to read" contribution we have.
+
+**(2) ScrollGT — the held-out ground-truth evaluation layer.** The bucket ships surface
+volumes and *model predictions* but no human ground truth aligned to the new geometry, so
+nobody outside the core team can answer the basic question the new rules now demand held-out
+proof of: **does an ink model actually read, or does it reproduce another model?**
+**[ScrollGT](https://github.com/jonmarrs/scrollgt)** registers the 2023 Grand-Prize-era human
+ink labels onto the SOTA geometry (exact `original.obj` UV bridge, ~8-voxel median residual,
+gated alignment validation) and provides a one-command scoring harness (threshold-swept F1
+primary, AP-prevalence-lift as the anti-gaming / false-positive gate, ROC-AUC secondary), a
+prize-window/overlap compliance checker, CI, and a held-out leaderboard.
+
+ScrollGT's credibility is that it has teeth — demonstrated on its own authors.
 Scored against these targets: the **released canon prediction reads a held-out segment
 near chance** (ROC-AUC 0.56; 0.70 on a friendlier segment — the first such calibration
 published outside the core team); our **distilled students collapse from 0.79+

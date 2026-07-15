@@ -51,11 +51,18 @@ Honest measurement is this project's differentiator:
 
 ## 4. Prize-Specific Workflows
 
-*   **Progress Prizes (primary):** ship ScrollGT v0.1 (July) and v0.2 with Scrolls 2–3
-    (August); file every monthly cycle — deadline discipline after the lapsed June cycle.
-*   **First Letters / First Title, Scrolls 2–3 (secondary, ≤20% GPU):** extract Scroll 2–3
-    surface data (shared with ScrollGT v0.2), run the window-compliant TimeSformer arms,
-    score honestly against registered GT. Escalate only past the pre-registered gate
+*Aligned to the 2026-07-15 announcement: the monthly prize is now "$20,000 … to the best
+open-source submission that makes the collection easier to read," and milestone submissions
+require held-out ground-truth validation + false-positive mitigation.*
+
+*   **Monthly open-source Progress Prizes (primary):** two MIT tools that make the
+    collection easier to read / evaluate — the **surface-volume renderer** (mesh-only
+    segments → detector-ready volumes) and **ScrollGT** (held-out registered-GT evaluation +
+    AP-lift false-positive gate). File every cycle (deadline discipline after the lapsed
+    June cycle). Grow ScrollGT with more *orientation-verifiable* Scroll-1 targets — NOT a
+    Scrolls 2–3 extension, which is impossible (unread scrolls ship no human GT).
+*   **First Letters / Title (secondary, ≤20% GPU):** run the window-compliant arms on
+    rendered Scroll-3 data, score honestly. Escalate only past the pre-registered gate
     (held-out ROC > 0.65 or clearly legible letterforms). Submission mechanics
     (`scripts/generate_submission_package.py` + validator) stay dormant until a real
     discovery exists.
