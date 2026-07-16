@@ -162,6 +162,27 @@ def test_sampler_reads_known_field_along_flat_surface():
     assert stats["valid_frac"] == 1.0
 
 
+def test_sampler_parallel_matches_sequential():
+    # Concurrency must not change results: tiles write disjoint output slices.
+    Z, Y, X = 30, 96, 96
+    rng = np.random.default_rng(1)
+    vol = rng.random((Z, Y, X)).astype(np.float32)
+
+    def fetch(z0, z1, y0, y1, x0, x1):
+        return vol[z0:z1, y0:y1, x0:x1]
+
+    ys, xs = np.meshgrid(np.arange(10, 74), np.arange(10, 74), indexing="ij")
+    pm = np.stack([np.full_like(xs, 15.0, float), ys.astype(float), xs.astype(float)],
+                  axis=-1).astype(np.float32)
+    valid = np.ones(pm.shape[:2], bool)
+    normals = np.zeros_like(pm)
+    normals[..., 0] = 1.0
+    seq, s1 = sample_layers(pm, valid, normals, fetch, n_layers=5, k0=-2, tile=16, workers=1)
+    par, s2 = sample_layers(pm, valid, normals, fetch, n_layers=5, k0=-2, tile=16, workers=8)
+    assert np.array_equal(seq, par)
+    assert s1 == s2
+
+
 def test_sampler_masks_invalid_and_counts_clamp():
     Z, Y, X = 10, 20, 20
     vol = np.zeros((Z, Y, X), np.float32)

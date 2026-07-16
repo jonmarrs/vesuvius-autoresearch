@@ -8,6 +8,7 @@ ever fabricated for an unread scroll.
 """
 import json
 import os
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import cv2
 import numpy as np
@@ -83,52 +84,76 @@ def surface_normals(pointmap, valid, sign=1.0):
 
 
 def sample_layers(pointmap, valid, normals, fetch_subvol, n_layers=26, k0=-13, tile=128,
-                  max_bbox_voxels=6e8):
+                  max_bbox_voxels=6e8, workers=16):
     """Sample n_layers depth slices around the surface (p + k*n) tile-by-tile.
     fetch_subvol(z0,z1,y0,y1,x0,x1)->ndarray injects the volume (in-memory or zarr).
     `tile` must be small enough that each surface patch is ~locally planar, else its 3D
-    bbox explodes on the wrapped scroll; `max_bbox_voxels` guards that (raise, don't OOM)."""
+    bbox explodes on the wrapped scroll; `max_bbox_voxels` guards that (raise, don't OOM).
+    `workers` runs the (S3-latency-bound) per-tile fetches concurrently; set 1 for the
+    sequential path. Tiles write disjoint slices of the output, so this is race-free."""
     H, W = valid.shape
     ks = np.arange(k0, k0 + n_layers)
     out = np.zeros((n_layers, H, W), np.float32)
+
+    def _render_tile(ty, tx):
+        """Fetch + sample one tile. Returns (ty,tx,block,n_finite,n_clamped) or None.
+        Slices the shared read-only arrays (thread-safe); the S3 fetch is the slow part,
+        which is why tiles run concurrently."""
+        vv = valid[ty:ty + tile, tx:tx + tile]
+        if not vv.any():
+            return None
+        p = pointmap[ty:ty + tile, tx:tx + tile]
+        n = normals[ty:ty + tile, tx:tx + tile]
+        coords = (p[None, ..., :] + ks[:, None, None, None] * n[None, ..., :])
+        coords = np.moveaxis(coords, -1, 0)               # (3,k,h,w)
+        finite = np.isfinite(coords).all(axis=0) & vv[None]
+        cf = coords[:, finite]
+        if cf.size == 0:
+            return None
+        z0 = int(np.floor(cf[0].min()))
+        z1 = int(np.ceil(cf[0].max())) + 2
+        y0 = int(np.floor(cf[1].min()))
+        y1 = int(np.ceil(cf[1].max())) + 2
+        x0 = int(np.floor(cf[2].min()))
+        x1 = int(np.ceil(cf[2].max())) + 2
+        bbox_vox = (z1 - max(z0, 0)) * (y1 - max(y0, 0)) * (x1 - max(x0, 0))
+        if bbox_vox > max_bbox_voxels:
+            raise ValueError(
+                f"tile ({ty},{tx}) 3D bbox is {bbox_vox:.2e} voxels "
+                f"(z {z1 - z0}, y {y1 - y0}, x {x1 - x0}) > cap {max_bbox_voxels:.0e}: "
+                "the surface patch is too large/oblique — use a smaller `tile`"
+            )
+        sub = np.asarray(fetch_subvol(max(z0, 0), z1, max(y0, 0), y1,
+                                      max(x0, 0), x1), np.float32)
+        local = np.stack([coords[0] - max(z0, 0), coords[1] - max(y0, 0),
+                          coords[2] - max(x0, 0)], axis=0)
+        bh = min(tile, H - ty)
+        bw = min(tile, W - tx)
+        vals = map_coordinates(sub, local.reshape(3, -1), order=1,
+                               mode="constant", cval=0.0).reshape(n_layers, bh, bw)
+        block = np.where(finite, vals, 0.0).astype(np.float32)
+        n_clamped = int((~np.isfinite(coords).all(axis=0) & vv[None]).sum())
+        return ty, tx, block, int(finite.sum()), n_clamped
+
+    tiles = [(ty, tx) for ty in range(0, H, tile) for tx in range(0, W, tile)]
     total = clamped = 0
-    for ty in range(0, H, tile):
-        for tx in range(0, W, tile):
-            vv = valid[ty:ty + tile, tx:tx + tile]
-            if not vv.any():
+    if workers <= 1:
+        results = (_render_tile(ty, tx) for ty, tx in tiles)
+    else:
+        ex = ThreadPoolExecutor(max_workers=workers)
+        futures = [ex.submit(_render_tile, ty, tx) for ty, tx in tiles]
+        results = (f.result() for f in as_completed(futures))  # .result() re-raises guard
+    try:
+        for res in results:
+            if res is None:
                 continue
-            p = pointmap[ty:ty + tile, tx:tx + tile]
-            n = normals[ty:ty + tile, tx:tx + tile]
-            coords = (p[None, ..., :] + ks[:, None, None, None] * n[None, ..., :])
-            coords = np.moveaxis(coords, -1, 0)               # (3,k,h,w)
-            finite = np.isfinite(coords).all(axis=0) & vv[None]
-            cf = coords[:, finite]
-            if cf.size == 0:
-                continue
-            z0 = int(np.floor(cf[0].min()))
-            z1 = int(np.ceil(cf[0].max())) + 2
-            y0 = int(np.floor(cf[1].min()))
-            y1 = int(np.ceil(cf[1].max())) + 2
-            x0 = int(np.floor(cf[2].min()))
-            x1 = int(np.ceil(cf[2].max())) + 2
-            bbox_vox = (z1 - max(z0, 0)) * (y1 - max(y0, 0)) * (x1 - max(x0, 0))
-            if bbox_vox > max_bbox_voxels:
-                raise ValueError(
-                    f"tile ({ty},{tx}) 3D bbox is {bbox_vox:.2e} voxels "
-                    f"(z {z1 - z0}, y {y1 - y0}, x {x1 - x0}) > cap {max_bbox_voxels:.0e}: "
-                    "the surface patch is too large/oblique — use a smaller `tile`"
-                )
-            sub = np.asarray(fetch_subvol(max(z0, 0), z1, max(y0, 0), y1,
-                                          max(x0, 0), x1), np.float32)
-            local = np.stack([coords[0] - max(z0, 0), coords[1] - max(y0, 0),
-                              coords[2] - max(x0, 0)], axis=0)
-            total += int(finite.sum())
-            clamped += int((~np.isfinite(coords).all(axis=0) & vv[None]).sum())
-            bh = min(tile, H - ty)
-            bw = min(tile, W - tx)
-            vals = map_coordinates(sub, local.reshape(3, -1), order=1,
-                                   mode="constant", cval=0.0).reshape(n_layers, bh, bw)
-            out[:, ty:ty + bh, tx:tx + bw] = np.where(finite, vals, 0.0)
+            ty, tx, block, nf, nc = res
+            out[:, ty:ty + block.shape[1], tx:tx + block.shape[2]] = block
+            total += nf
+            clamped += nc
+    finally:
+        if workers > 1:
+            ex.shutdown(wait=False, cancel_futures=True)
     vf = float(valid.mean())
     return out, {"valid_frac": vf, "clamped_frac": (clamped / total) if total else 0.0}
 
