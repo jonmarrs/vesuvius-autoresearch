@@ -149,6 +149,17 @@ def write_render_fragment(layers, valid, out_root, frag_id, provenance):
     return out_seg
 
 
+def surface_structure(layer, mask):
+    """Papyrus-texture score for a rendered surface layer: high-pass std over valid pixels.
+    Real papyrus fibers give a high value; a wrong coordinate scale / empty render is flat.
+    Used to infer the obj level-scale teacher-free on scrolls without ground truth."""
+    import cv2
+    img = np.asarray(layer, np.float32)
+    hp = img - cv2.GaussianBlur(img, (0, 0), 6)
+    m = np.asarray(mask, bool) & (img > 0)
+    return float(hp[m].std()) if m.any() else 0.0
+
+
 def zarr_fetch(volume_zarr_uri, level):
     """Return a fetch_subvol(z0,z1,y0,y1,x0,x1) closure over a pyramid level of an S3 zarr,
     plus the level's shape."""

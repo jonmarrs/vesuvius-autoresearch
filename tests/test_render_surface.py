@@ -72,6 +72,51 @@ def test_pointmap_from_tifxyz_reorders_scales_and_masks():
     assert np.isnan(pm[1, 1]).all()
 
 
+def test_surface_structure_high_on_texture_zero_on_flat():
+    from repro.sota_data.render_surface import surface_structure
+    rng = np.random.default_rng(0)
+    mask = np.ones((64, 64), bool)
+    textured = rng.integers(40, 200, (64, 64)).astype(np.float32)  # fiber-like noise
+    flat = np.full((64, 64), 100.0, np.float32)
+    assert surface_structure(textured, mask) > 5.0
+    assert surface_structure(flat, mask) < 1e-6
+    # empty (all-zero) render -> no valid pixels -> 0
+    assert surface_structure(np.zeros((64, 64), np.float32), mask) == 0.0
+
+
+def test_cli_wires_args_and_infers_when_auto(monkeypatch, tmp_path):
+    # Mock the (network/GPU-bound) render_region so we test only the CLI's wiring.
+    import repro.sota_data.render_cli as cli
+
+    calls = []
+
+    def fake_render_region(seg, obj, vol, y0, x0, size, level, sign, out_root,
+                           frag_id=None, obj_level_div=None, extra_prov=None):
+        calls.append(dict(seg=seg, y0=y0, x0=x0, size=size, level=level, sign=sign,
+                          div=obj_level_div, fid=frag_id))
+        d = tmp_path / (frag_id or seg)
+        (d / "layers").mkdir(parents=True, exist_ok=True)
+        import numpy as np
+        import tifffile
+        for k in range(26):
+            tifffile.imwrite(str(d / "layers" / f"{17 + k:02d}.tif"),
+                             np.full((8, 8), 100, np.uint8))
+        import cv2
+        cv2.imwrite(str(d / f"{frag_id or seg}_mask.png"), np.full((8, 8), 255, np.uint8))
+        return str(d), {"valid_frac": 1.0, "clamped_frac": 0.0}
+
+    monkeypatch.setattr(cli, "render_region", fake_render_region)
+    obj = tmp_path / "20240711_original.obj"
+    obj.write_text("v 0 0 0\nvt 0 0\n")
+    rc = cli.main(["--obj", str(obj), "--volume", "vesuvius-challenge-open-data/x.zarr",
+                   "--out", str(tmp_path), "--region", "100", "200", "1024",
+                   "--level", "2", "--scale", "2"])
+    assert rc == 0
+    final = calls[-1]
+    assert final["y0"] == 100 and final["x0"] == 200 and final["size"] == 1024
+    assert final["div"] == 2.0 and final["seg"] == "20240711"  # obj basename -> frag id
+
+
 # ---- Task 2: normals ----
 
 def test_normals_on_tilted_plane_are_constant_and_unit():
