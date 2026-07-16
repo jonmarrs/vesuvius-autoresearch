@@ -124,11 +124,14 @@ review before release — that discipline is what the benchmark packages for eve
    [registered_gt_heldout_validation.md](https://github.com/jonmarrs/vesuvius-autoresearch/blob/main/reports/detector/registered_gt_heldout_validation.md),
    [gt_finetune_heldout.md](https://github.com/jonmarrs/vesuvius-autoresearch/blob/main/reports/detector/gt_finetune_heldout.md)
 
-6. **Scroll-3 surface-volume renderer** (`repro/sota_data/render_surface.py`, new this week)
-   — the two PHerc0332 (Scroll 3) segments in the open bucket are **mesh-only**: no surface
+6. **Scroll-3 surface-volume renderer** — a **one-command CLI**
+   (`repro/sota_data/render_cli.py`, new this week; docs at
+   [SURFACE_RENDERER.md](https://github.com/jonmarrs/vesuvius-autoresearch/blob/main/docs/SURFACE_RENDERER.md)).
+   The two PHerc0332 (Scroll 3) segments in the open bucket are **mesh-only**: no surface
    volumes, no predictions, so no one can run ink detection on the live First-Letters scroll
-   without a private renderer. This one rebuilds the surface from `original.obj`
-   (`vt`→`xyz` interpolation → normals → tile-wise trilinear volume sampling), **validated
+   without a renderer. This one rebuilds the surface from `original.obj`
+   (`vt`→`xyz` interpolation → normals → tile-wise trilinear volume sampling; teacher-free
+   coordinate-scale inference; **label-free output** — no fabricated GT), **validated
    against a released Scroll-1 surface volume** (center-layer NCC ~0.59 vs ground truth —
    placement-correct; reported honestly as validated-in-placement, not pixel-perfect). It
    produces the first independent surface volumes from a Scroll-3 mesh-only segment
