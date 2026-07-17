@@ -37,13 +37,22 @@ outcome: arm C is a cross-scroll distilled model with weak unseen-scroll transfe
 texture, not ink — consistent with every prior cross-scroll finding in this project. **No
 reading, no letters.**
 
-## Segment 20240828190516-20240716140050 — deferred (compute-bound)
+## Segment 20240828190516-20240716140050 — rendered (2026-07-16, chunk-cached fetcher)
 
-Attempted; a full 2048² render is ~4k S3-fetching tiles and exceeded the run time budget
-twice. Segment 1 already establishes both findings (renderer produces coherent papyrus; arm
-C reads texture not ink), so this segment is a redundant confirmation, not new evidence —
-deferred rather than re-run. A lighter render (smaller `SIZE`, or cached volume chunks)
-would complete it; not worth the compute here.
+Completed after the fetch layer was rewritten to decode exactly the zarr chunks the surface
+touches (measured 2.2× over per-tile reads; see the renderer docs). Rendered at 1024² via
+the **one-command CLI** (`render_cli.py`, `--scale 1`), i.e. this render is also the CLI's
+live end-to-end demonstration.
+
+- Surface: coherent papyrus, same morphology family as segment 1 (fiber striations across
+  three wraps; texture structure 42.6 vs segment 1's ~41; valid_frac 0.910, clamped 0.004)
+  — [scroll3_seg2_surface.png](scroll3_seg2_surface.png).
+- arm C: predicted-positive rate 0.164, diffuse fiber-grain response, **no letterforms** —
+  [scroll3_seg2_armC_ink.png](scroll3_seg2_armC_ink.png). Same verdict as segment 1:
+  texture, not ink.
+
+Both of Scroll 3's mesh-only bucket segments are now independently rendered, and the
+cross-scroll reading ceiling replicates across both.
 
 ## What this establishes
 
