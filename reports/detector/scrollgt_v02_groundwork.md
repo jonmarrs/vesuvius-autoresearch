@@ -51,3 +51,39 @@ v0.2 (August) re-scoped: **PHerc-1667 path (b) then (a), plus withheld-target co
 now say this. Re-survey the bucket before starting — a labels drop for 1667 (the core team
 has released aligned GT before, for Scroll 1) would collapse path (a) from
 transcription-alignment work into the existing `gt_register.py` flow.
+
+## Addendum 2026-07-17: path (b) DONE; path (a) feasibility CONFIRMED
+
+**(b) is done** — see [merged1667_first_look.md](merged1667_first_look.md): the merged
+full-reading geometry rendered via the new `--tifxyz` CLI path, with the renderer
+gate-PASSING a clean triple on this very scroll (NCC 0.7799 ≥ 0.60 pre-registered,
+[render_validation_1667.md](render_validation_1667.md)).
+
+**(a) is feasible.** Due diligence on the published reading (preprint
+`scrollprize.org/pdf/main.pdf`, Angelotti et al.):
+
+- The transcription is **column-level (Coll. 1–22)** — Coll. 1–4 traces, Coll. 5–22 with
+  diplomatic Greek text + English translation — and is **scholar-validated by eight
+  papyrologists** under explicit acceptance criteria (geometric tightness to the papyrus
+  layer, letterform stability across renderings/inference passes, independent endorsement
+  or consensus). This is exactly the human-GT standard ScrollGT needs.
+- License: **CC BY-NC 4.0** ("tomographic volumes, reconstructed surfaces, flattened
+  renderings, figure source data and transcription artifacts"). Attribution +
+  non-commercial — compatible with a benchmark distribution alongside our MIT code
+  (data under its own license, as ScrollGT already does for the 2023 labels).
+- The paper's mesh design statement is the alignment guarantee: *"any point on the
+  flattened surface has corresponding three-dimensional coordinates in the CT volume"* —
+  i.e. the merged tifxyz geometry we already render from IS the bridge.
+- **Gap as of 2026-07-17:** the machine-readable "transcription artifacts" and "figure
+  source data" advertised for `scrollprize.org/data_browser` are **not yet discoverable in
+  the open S3 bucket** (metadata index has zero transcript/column/figure entries).
+  Fallback: extract Coll. 5–22 from the preprint (CC) and locate column bounding boxes on
+  the flattened strip from the released renderings; preferred: wait for/find the figure
+  source data, which likely carries column coordinates. Re-check before starting.
+- Reference numbers for target design: the winning 1667 detector used a **256 px window at
+  2.4 µm ≈ 614 µm** context; the reading spans ~22 columns over the ~30k-grid-px strip.
+
+Concrete v0.2 (a) shape: column-level targets on the merged geometry — for each column
+bbox, scholar-validated GT of text presence + line structure (periodicity/count), scored
+with the existing contract plus a column-localization metric. Coarser than Scroll-1 pixel
+targets, but the first non-training-scroll ground truth in the benchmark.
