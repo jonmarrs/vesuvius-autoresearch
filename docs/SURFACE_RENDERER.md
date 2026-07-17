@@ -22,14 +22,21 @@ This tool rebuilds the surface volume from the mesh:
 
 ## Validation status (read this)
 
-Validated on Scroll 1 (`20230702185753`) against the segment's **released** surface volume,
-using the clean triple where geometry, volume, and reference share one scan frame
-(`on-20260411134726-2.4um` tifxyz + the matching raw volume + the released surface volume):
-**center-layer NCC ~0.59** — i.e. the sampler lands on the correct surface and reads
-correlated papyrus texture (a wrong axis/scale would score ~0). It is **placement-validated,
-not pixel-perfect**: the residual to 1.0 is independent-render-methodology + resolution
-difference vs the core team's surface volume, not misplacement. Details:
-`reports/detector/render_validation.md`. **Treat outputs qualitatively.**
+Validated on **two scrolls** against **released** surface volumes, using clean triples
+where geometry, volume, and reference share one scan frame:
+
+- **Scroll 1** (`20230702185753`): center-layer **NCC ~0.59**, just under the
+  pre-registered 0.60 gate — placement-correct (a wrong axis/scale would score ~0), with
+  the residual attributed to a resolution-mismatched comparison
+  (`reports/detector/render_validation.md`).
+- **PHerc 1667** (`20260108140509-w011`, tifxyz path): center-layer **NCC 0.78 — gate
+  PASS** at near-matched comparison resolution
+  (`reports/detector/render_validation_1667.md`). The jump from 0.59 with the *same*
+  sampler and conventions confirms the Scroll-1 residual was the comparison, not
+  placement.
+
+Outputs are still independent renders, not reproductions of the core team's pipeline —
+for detector consumption treat them qualitatively.
 
 ## Usage
 
@@ -41,7 +48,18 @@ uv run python -m repro.sota_data.render_cli \
   --out    local_data/rendered --frag-id <seg> --scale auto
 ```
 
+```bash
+# render from a released tifxyz geometry grid (most bucket segments ship one) —
+# no scale inference needed: tifxyz coords are level-0 voxels by validated convention
+uv run python -m repro.sota_data.render_cli \
+  --tifxyz vesuvius-challenge-open-data/PHerc1667/segments/<seg>/mesh/<seg>-on-<scan>.tifxyz \
+  --volume vesuvius-challenge-open-data/PHerc1667/volumes/<vol>.zarr \
+  --out    local_data/rendered --frag-id <seg> --region 512 11888 1024
+```
+
 - `--obj` accepts a local path or an anonymous-S3 key (auto-downloaded).
+- `--tifxyz` renders directly from the released grid geometry; `--region` is then in
+  tifxyz grid pixels and `--scale` is ignored.
 - `--scale auto` renders a small probe at each candidate obj-level-div and keeps the one
   whose surface shows real papyrus texture (high-pass std) — the honest, teacher-free
   substitute for ground truth on unread scrolls; an empty/wrong scale is rejected. Pass a

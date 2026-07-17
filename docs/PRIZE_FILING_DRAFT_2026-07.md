@@ -32,14 +32,18 @@ the honest measurement discipline behind them.
 
 **(1) A surface-volume renderer for the bucket's mesh-only segments.** Scroll 3 (PHerc0332)
 ships two segments in the open bucket as *mesh-only* — no surface volumes, no predictions —
-so no one can run ink detection on the live First-Letters scroll without a private renderer.
-Ours rebuilds the surface from `original.obj` (`vt`→`xyz` interpolation → normals → tile-wise
-trilinear sampling), **validated against a released Scroll-1 surface volume** (center-layer
-NCC 0.59, just under our pre-registered 0.60 gate — placement-correct, reported honestly as
-validated-in-placement, not pixel-perfect; the gate miss and its resolution-mismatch cause
-are documented, not hidden), and produces the first independent surface volumes from those segments
-(coherent papyrus fibers). It makes previously-unusable data usable — the most literal
-"easier to read" contribution we have.
+so no one can run ink detection on the live First-Letters scroll without a private renderer;
+PHerc 1667's merged full-reading geometry (the segment behind the June-2026 complete
+reading) ships the same way. Ours rebuilds the surface from `original.obj` or directly from
+the released tifxyz geometry grids, and is **validated against released surface volumes on
+two scrolls**: Scroll 1 center-layer NCC 0.59 (just under our pre-registered 0.60 gate —
+the miss and its resolution-mismatch cause documented, not hidden) and **PHerc 1667 NCC
+0.78, a gate PASS** at matched comparison resolution — the same sampler scoring higher
+exactly where the comparison is fair, confirming the Scroll-1 residual was the comparison,
+not placement. It has produced the first independent surface volumes from Scroll 3's
+mesh-only segments *and* from the PHerc-1667 merged reading geometry (coherent papyrus
+fibers). It makes previously-unusable data usable — the most literal "easier to read"
+contribution we have.
 
 **(2) ScrollGT — the held-out ground-truth evaluation layer.** The bucket ships surface
 volumes and *model predictions* but no human ground truth aligned to the new geometry, so
@@ -125,22 +129,26 @@ review before release — that discipline is what the benchmark packages for eve
    [registered_gt_heldout_validation.md](https://github.com/jonmarrs/vesuvius-autoresearch/blob/main/reports/detector/registered_gt_heldout_validation.md),
    [gt_finetune_heldout.md](https://github.com/jonmarrs/vesuvius-autoresearch/blob/main/reports/detector/gt_finetune_heldout.md)
 
-6. **Scroll-3 surface-volume renderer** — a **one-command CLI**
-   (`repro/sota_data/render_cli.py`, new this week; docs at
-   [SURFACE_RENDERER.md](https://github.com/jonmarrs/vesuvius-autoresearch/blob/main/docs/SURFACE_RENDERER.md)).
-   The two PHerc0332 (Scroll 3) segments in the open bucket are **mesh-only**: no surface
-   volumes, no predictions, so no one can run ink detection on the live First-Letters scroll
-   without a renderer. This one rebuilds the surface from `original.obj`
-   (`vt`→`xyz` interpolation → normals → tile-wise trilinear volume sampling; teacher-free
-   coordinate-scale inference; **label-free output** — no fabricated GT), **validated
-   against a released Scroll-1 surface volume** (center-layer NCC 0.59, just under the
-   pre-registered 0.60 gate; the validation report leads with that miss and attributes the
-   residual to render-resolution mismatch — placement-correct, not pixel-perfect). It
-   produces the first independent surface volumes from a Scroll-3 mesh-only segment
-   (coherent papyrus fibers), and running arm C over them shows **texture, not letterforms**
-   — the cross-scroll ceiling demonstrated on the prize scroll itself, not merely argued.
+6. **Surface-volume renderer for mesh-only segments** — a **one-command CLI**
+   (`repro/sota_data/render_cli.py`; docs at
+   [SURFACE_RENDERER.md](https://github.com/jonmarrs/vesuvius-autoresearch/blob/main/docs/SURFACE_RENDERER.md)),
+   accepting either a segment `original.obj` (with teacher-free coordinate-scale
+   inference) or, new this week, the **released tifxyz geometry grids** directly — the
+   format most bucket segments ship, with no scale ambiguity. **Label-free output** (no
+   fabricated GT). **Validated against released surface volumes on two scrolls,
+   pre-registered gate NCC ≥ 0.60:** Scroll 1 scored 0.59 (miss, attributed to a
+   resolution-mismatched comparison — reported as FAIL, not spun), and **PHerc 1667 scored
+   0.78 — PASS** at near-matched resolution, confirming the Scroll-1 attribution with the
+   same sampler. Applications: the first independent surface volumes from Scroll 3's two
+   mesh-only segments (the live First-Letters scroll), and — new this week — from **PHerc
+   1667's merged full-reading geometry** (the ~20-gigapixel segment behind the June-2026
+   complete reading, which ships mesh-only). In both cases running arm C over the renders
+   shows **texture, not letterforms** — the cross-scroll ceiling demonstrated on the prize
+   scrolls themselves, not merely argued.
    → [render_validation.md](https://github.com/jonmarrs/vesuvius-autoresearch/blob/main/reports/detector/render_validation.md),
-   [scroll3_first_look.md](https://github.com/jonmarrs/vesuvius-autoresearch/blob/main/reports/detector/scroll3_first_look.md)
+   [render_validation_1667.md](https://github.com/jonmarrs/vesuvius-autoresearch/blob/main/reports/detector/render_validation_1667.md),
+   [scroll3_first_look.md](https://github.com/jonmarrs/vesuvius-autoresearch/blob/main/reports/detector/scroll3_first_look.md),
+   [merged1667_first_look.md](https://github.com/jonmarrs/vesuvius-autoresearch/blob/main/reports/detector/merged1667_first_look.md)
 
 7. **Carried forward from June (still maintained):** the scroll-specific 3D augmentation
    library ([villa #201](https://github.com/ScrollPrize/villa/issues/201);
@@ -253,7 +261,9 @@ The through-line is measurement honesty:
   scrolls are unread, which is why First Letters is open). ScrollGT v0.2 therefore targets
   more Scroll-1 segments plus a PHerc-1667 path: now that 1667 has been read in full, the
   scholar-validated published reading is the first realistic non-Scroll-1 ground-truth
-  source (transcription-level, coarser than pixel labels).
+  source (transcription-level, coarser than pixel labels). The first step is already done:
+  the merged full-reading geometry, which ships mesh-only, now has an independent rendered
+  surface volume (gate-validated on this scroll, NCC 0.78).
 - The prior distillation held-out region also served as its best-epoch selection set (AP/ROC-AUC
   are threshold-free and unaffected); noted in that report.
 - We claim an **honest, reproducible measurement layer** for the SOTA data — registered

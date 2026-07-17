@@ -2,8 +2,9 @@
 
 Turns the open bucket's MESH-ONLY segments (obj + volume, no surface volume, no predictions)
 into a 26-layer surface volume the ink detector can consume. Validated on Scroll 1 against a
-released surface volume (center-layer NCC ~0.59 — placement-correct, not pixel-perfect; see
-reports/detector/render_validation.md). NO ink label is written — the render is label-free.
+released surface volume on two scrolls: Scroll 1 center-layer NCC ~0.59 (placement-correct,
+resolution-limited comparison) and PHerc1667 NCC 0.78 (gate PASS; see
+reports/detector/render_validation_1667.md). NO ink label is written — the render is label-free.
 
 Examples
 --------
@@ -145,8 +146,8 @@ def main(argv=None):
             f"coords / {2**args.level})"
         )
         print(
-            "  label-free (no ink GT fabricated). Renderer is placement-validated on "
-            "Scroll 1 (NCC ~0.59), NOT pixel-perfect — treat outputs qualitatively."
+            "  label-free (no ink GT fabricated). Renderer validated vs released surface "
+            "volumes: Scroll 1 NCC 0.59, PHerc1667 NCC 0.78 (gate PASS)."
         )
         return 0
 
@@ -186,8 +187,8 @@ def main(argv=None):
         f"clamped_frac={stats['clamped_frac']:.3f}  obj_level_div={div}"
     )
     print(
-        "  label-free (no ink GT fabricated). Renderer is placement-validated on Scroll 1 "
-        "(NCC ~0.59), NOT pixel-perfect — treat outputs qualitatively."
+        "  label-free (no ink GT fabricated). Renderer validated vs released surface "
+        "volumes: Scroll 1 NCC 0.59, PHerc1667 NCC 0.78 (gate PASS)."
     )
     return 0
 
