@@ -48,6 +48,12 @@ uv run python -m repro.sota_data.render_cli \
   number (e.g. `--scale 1`) to fix it.
 - `--region Y0 X0 SIZE`, `--level`, `--sign` tune the render.
 
+**Runtime expectation (measured):** a full-surface 1024² render of a Scroll-3 segment takes
+~8 minutes at ~35 MB/s effective S3 throughput (the fetch layer decodes exactly the zarr
+chunks the surface touches, deduplicated per tile group, in concurrent batches — measured
+2.2× over naive per-tile reads; the residual cost is bandwidth-bound, so a faster pipe
+scales it down). Budget accordingly for larger sizes.
+
 The output fragment is directly consumable by the detector
 (`vesuvius_autoresearch.detector`) — e.g. run a model over a Scroll-3 render (note: a
 cross-scroll model reads that segment's **texture, not ink** — see
