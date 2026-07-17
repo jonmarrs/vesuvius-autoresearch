@@ -35,8 +35,9 @@ ships two segments in the open bucket as *mesh-only* — no surface volumes, no 
 so no one can run ink detection on the live First-Letters scroll without a private renderer.
 Ours rebuilds the surface from `original.obj` (`vt`→`xyz` interpolation → normals → tile-wise
 trilinear sampling), **validated against a released Scroll-1 surface volume** (center-layer
-NCC ~0.59 vs ground truth — placement-correct, reported honestly as validated-in-placement,
-not pixel-perfect), and produces the first independent surface volumes from those segments
+NCC 0.59, just under our pre-registered 0.60 gate — placement-correct, reported honestly as
+validated-in-placement, not pixel-perfect; the gate miss and its resolution-mismatch cause
+are documented, not hidden), and produces the first independent surface volumes from those segments
 (coherent papyrus fibers). It makes previously-unusable data usable — the most literal
 "easier to read" contribution we have.
 
@@ -132,8 +133,9 @@ review before release — that discipline is what the benchmark packages for eve
    without a renderer. This one rebuilds the surface from `original.obj`
    (`vt`→`xyz` interpolation → normals → tile-wise trilinear volume sampling; teacher-free
    coordinate-scale inference; **label-free output** — no fabricated GT), **validated
-   against a released Scroll-1 surface volume** (center-layer NCC ~0.59 vs ground truth —
-   placement-correct; reported honestly as validated-in-placement, not pixel-perfect). It
+   against a released Scroll-1 surface volume** (center-layer NCC 0.59, just under the
+   pre-registered 0.60 gate; the validation report leads with that miss and attributes the
+   residual to render-resolution mismatch — placement-correct, not pixel-perfect). It
    produces the first independent surface volumes from a Scroll-3 mesh-only segment
    (coherent papyrus fibers), and running arm C over them shows **texture, not letterforms**
    — the cross-scroll ceiling demonstrated on the prize scroll itself, not merely argued.
@@ -246,9 +248,12 @@ The through-line is measurement honesty:
   validation used a codified teacher-free gate (residual + text-line periodicity) — disclosed
   in the report, in the ScrollGT metadata, and reproducible from the committed code.
 - **The clean cross-scroll ground-truth test is still blocked:** PHerc 1667 (and other
-  non-training scrolls) ship only model predictions, no released human labels, so a fully clean
-  cross-scroll domain-ceiling measurement isn't yet possible. Re-checkable as the bucket grows;
-  ScrollGT v0.2 (Scrolls 2–3) is the planned next extension.
+  non-training scrolls) ship only model predictions, no released human labels (bucket
+  re-surveyed 2026-07-17: Scroll 2 ships no segments at all; Scroll 3 ships no labels — those
+  scrolls are unread, which is why First Letters is open). ScrollGT v0.2 therefore targets
+  more Scroll-1 segments plus a PHerc-1667 path: now that 1667 has been read in full, the
+  scholar-validated published reading is the first realistic non-Scroll-1 ground-truth
+  source (transcription-level, coarser than pixel labels).
 - The prior distillation held-out region also served as its best-epoch selection set (AP/ROC-AUC
   are threshold-free and unaffected); noted in that report.
 - We claim an **honest, reproducible measurement layer** for the SOTA data — registered

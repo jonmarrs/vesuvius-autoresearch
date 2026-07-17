@@ -60,7 +60,11 @@ require held-out ground-truth validation + false-positive mitigation.*
     segments → detector-ready volumes) and **ScrollGT** (held-out registered-GT evaluation +
     AP-lift false-positive gate). File every cycle (deadline discipline after the lapsed
     June cycle). Grow ScrollGT with more *orientation-verifiable* Scroll-1 targets — NOT a
-    Scrolls 2–3 extension, which is impossible (unread scrolls ship no human GT).
+    Scrolls 2–3 extension, which is impossible (unread scrolls ship no human GT; Scroll 2
+    ships no segments at all — bucket survey 2026-07-17). The v0.2 (August) lead is
+    **PHerc 1667**: render its June-2026 merged mesh-only segment, then align the published
+    full-reading transcription as the first non-training-scroll GT — see
+    `reports/detector/scrollgt_v02_groundwork.md`.
 *   **First Letters / Title (secondary, ≤20% GPU):** run the window-compliant arms on
     rendered Scroll-3 data, score honestly. Escalate only past the pre-registered gate
     (held-out ROC > 0.65 or clearly legible letterforms). Submission mechanics
