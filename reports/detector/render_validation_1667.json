@@ -1,0 +1,11 @@
+{
+  "seg": "20260108140509-w011_20260108140509268_flatboi",
+  "scan": "20251217075048",
+  "level": 2,
+  "surf_level": "4",
+  "ncc": 0.7798676029332938,
+  "valid_frac": 0.7977352779306549,
+  "clamped_frac": 0.005424603559982796,
+  "verdict": "PASS",
+  "gate": "center-layer NCC >= 0.6 vs released surface volume (same frame; pre-registered before the run)"
+}
