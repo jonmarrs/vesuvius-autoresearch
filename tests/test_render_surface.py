@@ -162,13 +162,17 @@ def test_sampler_reads_known_field_along_flat_surface():
     assert stats["valid_frac"] == 1.0
 
 
-def test_sampler_parallel_matches_sequential():
-    # Concurrency must not change results: tiles write disjoint output slices.
+def test_sampler_grouped_prefetch_matches_per_tile():
+    # Super-tile prefetching is a pure throughput optimization: results must be
+    # bit-identical whether tiles are fetched individually (group=1 / tiny cap forcing
+    # the fallback) or via one grouped fetch.
     Z, Y, X = 30, 96, 96
     rng = np.random.default_rng(1)
     vol = rng.random((Z, Y, X)).astype(np.float32)
+    fetches = []
 
     def fetch(z0, z1, y0, y1, x0, x1):
+        fetches.append((z1 - z0) * (y1 - y0) * (x1 - x0))
         return vol[z0:z1, y0:y1, x0:x1]
 
     ys, xs = np.meshgrid(np.arange(10, 74), np.arange(10, 74), indexing="ij")
@@ -177,10 +181,50 @@ def test_sampler_parallel_matches_sequential():
     valid = np.ones(pm.shape[:2], bool)
     normals = np.zeros_like(pm)
     normals[..., 0] = 1.0
-    seq, s1 = sample_layers(pm, valid, normals, fetch, n_layers=5, k0=-2, tile=16, workers=1)
-    par, s2 = sample_layers(pm, valid, normals, fetch, n_layers=5, k0=-2, tile=16, workers=8)
-    assert np.array_equal(seq, par)
+    grouped, s1 = sample_layers(pm, valid, normals, fetch, n_layers=5, k0=-2, tile=16,
+                                group=8)
+    n_grouped_fetches = len(fetches)
+    fetches.clear()
+    pertile, s2 = sample_layers(pm, valid, normals, fetch, n_layers=5, k0=-2, tile=16,
+                                group=8, group_max_voxels=1)  # force per-tile fallback
+    n_pertile_fetches = len(fetches)
+    assert np.array_equal(grouped, pertile)
     assert s1 == s2
+    assert n_grouped_fetches < n_pertile_fetches  # grouping actually reduced round-trips
+
+
+def test_sampler_warm_capable_fetcher_matches_plain():
+    # A warm()-capable fetcher (chunk-cached path) must produce identical output to a
+    # plain callable, and warm() must be invoked with the member tile bboxes.
+    Z, Y, X = 30, 96, 96
+    rng = np.random.default_rng(2)
+    vol = rng.random((Z, Y, X)).astype(np.float32)
+
+    def plain(z0, z1, y0, y1, x0, x1):
+        return vol[z0:z1, y0:y1, x0:x1]
+
+    class Warmable:
+        def __init__(self):
+            self.warm_calls = 0
+
+        def warm(self, bboxes):
+            self.warm_calls += 1
+            assert all(len(b) == 6 for b in bboxes)
+
+        def __call__(self, z0, z1, y0, y1, x0, x1):
+            return vol[z0:z1, y0:y1, x0:x1]
+
+    ys, xs = np.meshgrid(np.arange(10, 74), np.arange(10, 74), indexing="ij")
+    pm = np.stack([np.full_like(xs, 15.0, float), ys.astype(float), xs.astype(float)],
+                  axis=-1).astype(np.float32)
+    valid = np.ones(pm.shape[:2], bool)
+    normals = np.zeros_like(pm)
+    normals[..., 0] = 1.0
+    a, s1 = sample_layers(pm, valid, normals, plain, n_layers=5, k0=-2, tile=16, group=4)
+    w = Warmable()
+    b, s2 = sample_layers(pm, valid, normals, w, n_layers=5, k0=-2, tile=16, group=4)
+    assert np.array_equal(a, b) and s1 == s2
+    assert w.warm_calls >= 1
 
 
 def test_sampler_masks_invalid_and_counts_clamp():

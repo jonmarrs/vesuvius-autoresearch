@@ -8,7 +8,6 @@ ever fabricated for an unread scroll.
 """
 import json
 import os
-from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import cv2
 import numpy as np
@@ -83,22 +82,28 @@ def surface_normals(pointmap, valid, sign=1.0):
     return n.astype(np.float32)
 
 
-def sample_layers(pointmap, valid, normals, fetch_subvol, n_layers=26, k0=-13, tile=128,
-                  max_bbox_voxels=6e8, workers=16):
-    """Sample n_layers depth slices around the surface (p + k*n) tile-by-tile.
-    fetch_subvol(z0,z1,y0,y1,x0,x1)->ndarray injects the volume (in-memory or zarr).
-    `tile` must be small enough that each surface patch is ~locally planar, else its 3D
-    bbox explodes on the wrapped scroll; `max_bbox_voxels` guards that (raise, don't OOM).
-    `workers` runs the (S3-latency-bound) per-tile fetches concurrently; set 1 for the
-    sequential path. Tiles write disjoint slices of the output, so this is race-free."""
+def sample_layers(pointmap, valid, normals, fetch_subvol, n_layers=26, k0=-13, tile=32,
+                  max_bbox_voxels=6e8, group=8, group_max_voxels=8e8, workers=None):
+    """Sample n_layers depth slices around the surface (p + k*n).
+
+    Tiles (`tile` px, small enough to be ~locally planar on the wrapped scroll) are the
+    correctness unit: each tile's 3D bbox is guarded by `max_bbox_voxels` (raise, don't
+    OOM). For THROUGHPUT, tiles are grouped into `group`x`group` super-tiles fetched with
+    ONE fetch_subvol call each — a zarr/S3 store parallelizes the chunk reads inside a
+    single big slice request, whereas many small requests serialize on the client
+    (measured: 61M-voxel fetch 1.7s vs 0.15-0.33s per tiny tile x ~1000 tiles). If a
+    group's union bbox exceeds `group_max_voxels` (too oblique/curved), its tiles fall
+    back to individual fetches. `workers` is accepted for backward compatibility and
+    ignored (cross-request threading measured slower — it serializes on the s3fs sync
+    bridge)."""
     H, W = valid.shape
     ks = np.arange(k0, k0 + n_layers)
     out = np.zeros((n_layers, H, W), np.float32)
+    total = clamped = 0
 
-    def _render_tile(ty, tx):
-        """Fetch + sample one tile. Returns (ty,tx,block,n_finite,n_clamped) or None.
-        Slices the shared read-only arrays (thread-safe); the S3 fetch is the slow part,
-        which is why tiles run concurrently."""
+    def _tile_geometry(ty, tx):
+        """coords/finite/bbox for one tile, or None if nothing to sample. Applies the
+        per-tile planarity guard."""
         vv = valid[ty:ty + tile, tx:tx + tile]
         if not vv.any():
             return None
@@ -123,37 +128,59 @@ def sample_layers(pointmap, valid, normals, fetch_subvol, n_layers=26, k0=-13, t
                 f"(z {z1 - z0}, y {y1 - y0}, x {x1 - x0}) > cap {max_bbox_voxels:.0e}: "
                 "the surface patch is too large/oblique — use a smaller `tile`"
             )
-        sub = np.asarray(fetch_subvol(max(z0, 0), z1, max(y0, 0), y1,
-                                      max(x0, 0), x1), np.float32)
-        local = np.stack([coords[0] - max(z0, 0), coords[1] - max(y0, 0),
-                          coords[2] - max(x0, 0)], axis=0)
-        bh = min(tile, H - ty)
-        bw = min(tile, W - tx)
-        vals = map_coordinates(sub, local.reshape(3, -1), order=1,
-                               mode="constant", cval=0.0).reshape(n_layers, bh, bw)
-        block = np.where(finite, vals, 0.0).astype(np.float32)
         n_clamped = int((~np.isfinite(coords).all(axis=0) & vv[None]).sum())
-        return ty, tx, block, int(finite.sum()), n_clamped
+        return coords, finite, (max(z0, 0), z1, max(y0, 0), y1, max(x0, 0), x1), n_clamped
 
-    tiles = [(ty, tx) for ty in range(0, H, tile) for tx in range(0, W, tile)]
-    total = clamped = 0
-    if workers <= 1:
-        results = (_render_tile(ty, tx) for ty, tx in tiles)
-    else:
-        ex = ThreadPoolExecutor(max_workers=workers)
-        futures = [ex.submit(_render_tile, ty, tx) for ty, tx in tiles]
-        results = (f.result() for f in as_completed(futures))  # .result() re-raises guard
-    try:
-        for res in results:
-            if res is None:
+    def _sample_into(ty, tx, coords, finite, sub, off):
+        vals = map_coordinates(
+            np.asarray(sub, np.float32),
+            np.stack([coords[0] - off[0], coords[1] - off[1], coords[2] - off[2]],
+                     axis=0).reshape(3, -1),
+            order=1, mode="constant", cval=0.0,
+        ).reshape(n_layers, min(tile, H - ty), min(tile, W - tx))
+        out[:, ty:ty + vals.shape[1], tx:tx + vals.shape[2]] = np.where(finite, vals, 0.0)
+
+    gpx = max(1, group) * tile
+    for gy in range(0, H, gpx):
+        for gx in range(0, W, gpx):
+            members = []
+            for ty in range(gy, min(gy + gpx, H), tile):
+                for tx in range(gx, min(gx + gpx, W), tile):
+                    geo = _tile_geometry(ty, tx)
+                    if geo is None:
+                        continue
+                    coords, finite, bbox, n_clamped = geo
+                    members.append((ty, tx, coords, finite, bbox))
+                    total += int(finite.sum())
+                    clamped += n_clamped
+            if not members:
                 continue
-            ty, tx, block, nf, nc = res
-            out[:, ty:ty + block.shape[1], tx:tx + block.shape[2]] = block
-            total += nf
-            clamped += nc
-    finally:
-        if workers > 1:
-            ex.shutdown(wait=False, cancel_futures=True)
+            if hasattr(fetch_subvol, "warm"):
+                # chunk-cached fetcher: prefetch exactly the (deduped) chunks the
+                # members touch, concurrently; per-tile reads then hit RAM. This is
+                # the fast path for a wrapped sheet, whose union BBOX is mostly empty
+                # space (measured: 2.7-6.6 GVox unions for 256px groups).
+                fetch_subvol.warm([m[4] for m in members])
+                for ty, tx, coords, finite, bbox in members:
+                    sub = fetch_subvol(bbox[0], bbox[1], bbox[2], bbox[3], bbox[4], bbox[5])
+                    _sample_into(ty, tx, coords, finite, sub, (bbox[0], bbox[2], bbox[4]))
+                continue
+            uz0 = min(m[4][0] for m in members)
+            uz1 = max(m[4][1] for m in members)
+            uy0 = min(m[4][2] for m in members)
+            uy1 = max(m[4][3] for m in members)
+            ux0 = min(m[4][4] for m in members)
+            ux1 = max(m[4][5] for m in members)
+            union_vox = (uz1 - uz0) * (uy1 - uy0) * (ux1 - ux0)
+            if union_vox <= group_max_voxels:
+                sub = fetch_subvol(uz0, uz1, uy0, uy1, ux0, ux1)
+                for ty, tx, coords, finite, _ in members:
+                    _sample_into(ty, tx, coords, finite, sub, (uz0, uy0, ux0))
+            else:
+                # group too curved for one prefetch — per-tile fetches (correct, slower)
+                for ty, tx, coords, finite, bbox in members:
+                    sub = fetch_subvol(bbox[0], bbox[1], bbox[2], bbox[3], bbox[4], bbox[5])
+                    _sample_into(ty, tx, coords, finite, sub, (bbox[0], bbox[2], bbox[4]))
     vf = float(valid.mean())
     return out, {"valid_frac": vf, "clamped_frac": (clamped / total) if total else 0.0}
 
@@ -185,20 +212,108 @@ def surface_structure(layer, mask):
     return float(hp[m].std()) if m.any() else 0.0
 
 
+class ChunkCachedZarrFetch:
+    """fetch_subvol over an S3 zarr level that serves bbox reads from a chunk cache.
+
+    Why: a wrapped papyrus sheet's bounding boxes are mostly empty space, so dense
+    `arr[z0:z1, ...]` reads either explode (billions of voxels for a modest surface
+    patch) or degenerate into ~1000 serial tiny reads (s3fs serializes separate calls).
+    The surface only *touches* a bounded set of 128^3 chunks; `warm()` fetches exactly
+    that set — deduplicated across neighboring tiles — in ONE `fs.cat(keys)` call
+    (s3fs's genuinely concurrent path), and `__call__` assembles bboxes from the cache.
+
+    Zarr v2 format is decoded directly from `.zarray` metadata (chunk shape, dtype,
+    compressor via numcodecs, C order, key separator) — the stable on-disk spec.
+    Missing chunk keys mean fill_value (uninitialized chunks), served as zeros.
+    """
+
+    def __init__(self, volume_zarr_uri, level):
+        import json as _json
+
+        import s3fs
+        self.fs = s3fs.S3FileSystem(anon=True)
+        self.root = volume_zarr_uri.rstrip("/")
+        meta = _json.loads(self.fs.cat(f"{self.root}/{level}/.zarray").decode())
+        self.level = level
+        self.shape = tuple(meta["shape"])
+        self.chunks = tuple(meta["chunks"])
+        self.dtype = np.dtype(meta["dtype"])
+        self.fill_value = meta.get("fill_value") or 0
+        self.sep = meta.get("dimension_separator", ".")
+        self.order = meta.get("order", "C")
+        comp = meta.get("compressor")
+        if comp is not None:
+            import numcodecs
+            self.codec = numcodecs.get_codec(comp)
+        else:
+            self.codec = None
+        if meta.get("filters"):
+            raise ValueError(f"zarr filters not supported by this reader: {meta['filters']}")
+        self.cache: dict = {}
+
+    def _key(self, cz, cy, cx):
+        return f"{self.root}/{self.level}/{cz}{self.sep}{cy}{self.sep}{cx}"
+
+    def _decode(self, raw):
+        buf = self.codec.decode(raw) if self.codec is not None else raw
+        return np.frombuffer(buf, dtype=self.dtype).reshape(self.chunks, order=self.order)
+
+    def _chunk_ids_for_bbox(self, z0, z1, y0, y1, x0, x1):
+        cz0, cz1 = z0 // self.chunks[0], (max(z1 - 1, z0)) // self.chunks[0]
+        cy0, cy1 = y0 // self.chunks[1], (max(y1 - 1, y0)) // self.chunks[1]
+        cx0, cx1 = x0 // self.chunks[2], (max(x1 - 1, x0)) // self.chunks[2]
+        return [(cz, cy, cx)
+                for cz in range(cz0, cz1 + 1)
+                for cy in range(cy0, cy1 + 1)
+                for cx in range(cx0, cx1 + 1)]
+
+    def warm(self, bboxes, batch=768):
+        """Fetch (concurrently) the deduped chunk set covering `bboxes`; replaces the
+        cache (per-group memory bound)."""
+        ids = set()
+        for (z0, z1, y0, y1, x0, x1) in bboxes:
+            ids.update(self._chunk_ids_for_bbox(max(z0, 0), min(z1, self.shape[0]),
+                                                max(y0, 0), min(y1, self.shape[1]),
+                                                max(x0, 0), min(x1, self.shape[2])))
+        self.cache = {}
+        todo = sorted(ids)
+        for i in range(0, len(todo), batch):
+            keys = [self._key(*cid) for cid in todo[i:i + batch]]
+            got = self.fs.cat(keys, on_error="omit")  # concurrent; missing = fill_value
+            for cid, key in zip(todo[i:i + batch], keys):
+                raw = got.get(key)
+                self.cache[cid] = (self._decode(raw) if raw is not None else None)
+        return len(todo)
+
+    def __call__(self, z0, z1, y0, y1, x0, x1):
+        z1 = min(z1, self.shape[0]); y1 = min(y1, self.shape[1]); x1 = min(x1, self.shape[2])
+        out = np.full((z1 - z0, y1 - y0, x1 - x0), self.fill_value, self.dtype)
+        for cid in self._chunk_ids_for_bbox(z0, z1, y0, y1, x0, x1):
+            chunk = self.cache.get(cid, "MISS")
+            if chunk is None:
+                continue  # uninitialized chunk -> fill_value already in out
+            if isinstance(chunk, str):  # not warmed: fetch this one chunk now
+                raw = self.fs.cat(self._key(*cid), on_error="return")
+                chunk = self._decode(raw) if isinstance(raw, bytes) else None
+                self.cache[cid] = chunk
+                if chunk is None:
+                    continue
+            bz0, by0, bx0 = (cid[0] * self.chunks[0], cid[1] * self.chunks[1],
+                             cid[2] * self.chunks[2])
+            sz0, sz1 = max(z0, bz0), min(z1, bz0 + self.chunks[0])
+            sy0, sy1 = max(y0, by0), min(y1, by0 + self.chunks[1])
+            sx0, sx1 = max(x0, bx0), min(x1, bx0 + self.chunks[2])
+            out[sz0 - z0:sz1 - z0, sy0 - y0:sy1 - y0, sx0 - x0:sx1 - x0] = \
+                chunk[sz0 - bz0:sz1 - bz0, sy0 - by0:sy1 - by0, sx0 - bx0:sx1 - bx0]
+        return out
+
+
 def zarr_fetch(volume_zarr_uri, level):
-    """Return a fetch_subvol(z0,z1,y0,y1,x0,x1) closure over a pyramid level of an S3 zarr,
-    plus the level's shape."""
-    import s3fs
-    import zarr
-    fs = s3fs.S3FileSystem(anon=True)
-    g = zarr.open(zarr.storage.FSStore(volume_zarr_uri, fs=fs), mode="r")
-    arr = g[str(level)]
-
-    def fetch(z0, z1, y0, y1, x0, x1):
-        d, h, w = arr.shape
-        return np.asarray(arr[z0:min(z1, d), y0:min(y1, h), x0:min(x1, w)])
-
-    return fetch, arr.shape
+    """Return a chunk-cached fetch_subvol(z0,z1,y0,y1,x0,x1) over a pyramid level of an
+    S3 zarr, plus the level's shape. The returned object also exposes .warm(bboxes) for
+    grouped concurrent prefetch (used by sample_layers)."""
+    fetch = ChunkCachedZarrFetch(volume_zarr_uri, level)
+    return fetch, fetch.shape
 
 
 def render_region(seg, obj_path, volume_zarr_uri, y0, x0, size, level, sign, out_root,
