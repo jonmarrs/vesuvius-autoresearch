@@ -53,3 +53,18 @@ and design the column-level scoring contract.
 
 License note: bracket coordinates derive from the preprint figures (CC BY-NC 4.0) —
 attribution required, non-commercial; consistent with how ScrollGT ships third-party GT.
+
+## Addendum 2026-07-19: measured line pitch — a third independent cross-check
+
+Per-column ink row-profile autocorrelation of the figure strips (the reading itself)
+gives the text-line pitch directly: well-preserved text columns cluster tightly at
+**108–132 grid px (median 120)**, with the strongest periodicity on col 20 (autocorr
+0.73) — whose estimated ~13 lines matches the transcription's attested 11 within the
+span-estimate error. Fragmentary columns give unreliable pitches (low ink; one
+half-harmonic artifact on col 10) — flagged as such. This is a third independent
+consistency check on the registration (after transform agreement and tiling closure):
+the registered geometry carries line structure at the pitch the transcription implies.
+
+Shipped to ScrollGT (commit 0be6e09): per-column `measured_line_pitch` in columns.json,
+and the scoring contract's `line_pitch_range` calibrated [60,220] → **[85,160]** with
+provenance (floor re-measured; only noise periodicity moved, 0.068 → 0.062).
