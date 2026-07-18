@@ -104,11 +104,11 @@ def main(argv=None):
     )
     ap.add_argument(
         "--region",
-        nargs=3,
+        nargs="+",
         type=int,
-        metavar=("Y0", "X0", "SIZE"),
+        metavar="N",
         default=[0, 0, 2048],
-        help="render region + grid size (default 0 0 2048)",
+        help="render region: Y0 X0 SIZE (square) or Y0 X0 H W (default 0 0 2048)",
     )
     ap.add_argument(
         "--level", type=int, default=2, help="volume pyramid level (default 2)"
@@ -120,7 +120,13 @@ def main(argv=None):
         help="obj level-div: a number, or 'auto' to infer teacher-free (default)",
     )
     args = ap.parse_args(argv)
-    y0, x0, size = args.region
+    if len(args.region) == 3:
+        y0, x0, size = args.region
+    elif len(args.region) == 4:
+        y0, x0 = args.region[:2]
+        size = (args.region[2], args.region[3])
+    else:
+        ap.error("--region takes 3 (Y0 X0 SIZE) or 4 (Y0 X0 H W) integers")
 
     if args.tifxyz:
         seg = args.frag_id or os.path.basename(args.tifxyz.rstrip("/")).replace(

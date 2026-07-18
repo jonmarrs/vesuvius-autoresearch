@@ -483,3 +483,84 @@ def test_cli_tifxyz_mode_wires_args_no_scale_probe(monkeypatch, tmp_path):
     c = calls[-1]
     assert c["y0"] == 5 and c["x0"] == 6 and c["size"] == 512 and c["level"] == 1
     assert c["seg"] == "seg-on-scan"  # frag id from tifxyz dirname
+
+
+def test_render_region_tifxyz_accepts_rectangular_size(tmp_path, monkeypatch):
+    import repro.sota_data.render_surface as rs
+
+    n = 48
+    ys, xs = np.meshgrid(
+        np.arange(n, dtype=np.float32), np.arange(n, dtype=np.float32), indexing="ij"
+    )
+    xyz = np.stack([4.0 * xs + 40.0, 4.0 * ys + 40.0, np.full_like(xs, 40.0)], axis=-1)
+    d = _write_tifxyz_dir(tmp_path, xyz)
+    vol = np.zeros((40, 120, 120), np.float32)
+
+    def fake_zarr_fetch(uri, level):
+        def fetch(z0, z1, y0, y1, x0, x1):
+            return vol[z0:z1, y0:y1, x0:x1]
+
+        return fetch, vol.shape
+
+    monkeypatch.setattr(rs, "zarr_fetch", fake_zarr_fetch)
+    out_seg, stats = rs.render_region_tifxyz(
+        "segR",
+        d,
+        "b/v.zarr",
+        y0=4,
+        x0=8,
+        size=(8, 16),
+        level=1,
+        sign=1.0,
+        out_root=str(tmp_path / "o"),
+        frag_id="segR_r",
+    )
+    import cv2
+
+    mask = cv2.imread(f"{out_seg}/segR_r_mask.png", 0)
+    assert mask.shape == (8, 16)
+    import json
+
+    prov = json.load(open(f"{out_seg}/segR_r_render_provenance.json"))
+    assert prov["region_px"] == [4, 8, [8, 16]]
+
+
+def test_cli_region_accepts_four_values(monkeypatch, tmp_path):
+    import repro.sota_data.render_cli as cli
+
+    calls = []
+
+    def fake_rrt(
+        seg,
+        tifxyz,
+        vol,
+        y0,
+        x0,
+        size,
+        level,
+        sign,
+        out_root,
+        frag_id=None,
+        extra_prov=None,
+    ):
+        calls.append((y0, x0, size))
+        return str(tmp_path / "o"), {"valid_frac": 1.0, "clamped_frac": 0.0}
+
+    monkeypatch.setattr(cli, "render_region_tifxyz", fake_rrt)
+    rc = cli.main(
+        [
+            "--tifxyz",
+            "b/seg.tifxyz",
+            "--volume",
+            "b/v.zarr",
+            "--out",
+            str(tmp_path),
+            "--region",
+            "5",
+            "6",
+            "128",
+            "256",
+        ]
+    )
+    assert rc == 0
+    assert calls[-1] == (5, 6, (128, 256))

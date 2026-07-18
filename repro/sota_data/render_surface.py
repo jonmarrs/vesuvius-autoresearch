@@ -420,7 +420,7 @@ def render_region(
     fid = frag_id or f"{seg}_render"
     prov = {
         "segment": seg,
-        "region_px": [y0, x0, size],
+        "region_px": [y0, x0, size if isinstance(size, int) else list(size)],
         "level": level,
         "normal_sign": sign,
         "volume": volume_zarr_uri,
@@ -450,10 +450,12 @@ def render_region_tifxyz(
     Unlike the obj path there is no coordinate-scale ambiguity: tifxyz values are level-0
     voxel coords by bucket convention (validated on Scroll 1,
     reports/detector/render_validation.md), so the level divisor is always 2**level.
-    (y0, x0, size) select a region in tifxyz GRID pixels; size=0 renders the whole grid."""
+    (y0, x0, size) select a region in tifxyz GRID pixels; size is an int (square) or an
+    (h, w) pair; size=0 renders the whole grid."""
     xyz = read_tifxyz(tifxyz_path)
     if size:
-        xyz = xyz[y0 : y0 + size, x0 : x0 + size]
+        h, w = (size, size) if isinstance(size, int) else size
+        xyz = xyz[y0 : y0 + h, x0 : x0 + w]
     if xyz.size == 0:
         raise ValueError(f"region ({y0},{x0},{size}) is outside the tifxyz grid")
     pm, valid = pointmap_from_tifxyz(xyz, level_div=2**level)
@@ -466,7 +468,7 @@ def render_region_tifxyz(
         "segment": seg,
         "geometry": "tifxyz",
         "tifxyz": tifxyz_path,
-        "region_px": [y0, x0, size],
+        "region_px": [y0, x0, size if isinstance(size, int) else list(size)],
         "level": level,
         "normal_sign": sign,
         "volume": volume_zarr_uri,
