@@ -1,0 +1,55 @@
+{
+  "target": "pherc1667_merged_columns",
+  "prediction": "columns_baseline_legacy_pred.npy",
+  "granularity": "column (no pixel GT exists for this target \u2014 see meta.json)",
+  "metrics": {
+    "cols_scored": [
+      17,
+      18,
+      19
+    ],
+    "n_text_cols": 3,
+    "n_traces_cols": 0,
+    "n_gutters": 2,
+    "excluded_gutters": 0,
+    "col_gutter_auc": 0.0,
+    "col_gutter_pixel_auc": 0.3888212343090545,
+    "line_period_peak_mean": 0.43322589269746886
+  },
+  "per_column": [
+    {
+      "col": 17,
+      "status": "text",
+      "mean": 0.7141875614632542,
+      "line_period_peak": 0.38222010904910697
+    },
+    {
+      "col": 18,
+      "status": "text",
+      "mean": 0.6886151161248298,
+      "line_period_peak": 0.5808034908343944
+    },
+    {
+      "col": 19,
+      "status": "text",
+      "mean": 0.7059295671813032,
+      "line_period_peak": 0.33665407820890536
+    }
+  ],
+  "gutters": [
+    {
+      "between": [
+        17,
+        18
+      ],
+      "mean": 0.7446607847551999
+    },
+    {
+      "between": [
+        18,
+        19
+      ],
+      "mean": 0.7735825793490987
+    }
+  ]
+}

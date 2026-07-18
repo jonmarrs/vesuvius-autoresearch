@@ -40,10 +40,21 @@ is done ahead of schedule: ScrollGT now ships its **first non-training-scroll ta
   held-out at column level for every model in scrollgt's baselines); the core team's own
   pipeline trained on this scroll — external submissions must disclose 1667 exposure.
 
-## In flight
+## Model baselines (measured; published in scrollgt BASELINES)
 
-Model baseline rows (arm C, legacy detector) over a rendered cols-17–19 region
-(grid y=100 x=20800, 1710×3990; render running via the rectangular `--region Y0 X0 H W`
-CLI extension). Runner: `repro/sota_data/columns_baseline.py`. Honest expectation given
-every prior cross-scroll result: arm C should sit near the floor — that expectation is
-itself the point of publishing the row.
+Rendered cols-17–19 region (grid y=100 x=20800, 1710×3990, valid 0.999, via the
+rectangular `--region Y0 X0 H W` CLI extension), runner
+`repro/sota_data/columns_baseline.py`; prediction maps committed
+([arm C](columns_baseline_arm_C_pred.png), [legacy](columns_baseline_legacy_pred.png)):
+
+| model | col_gutter_auc | pixel_auc | line_period_peak_mean |
+|---|---|---|---|
+| arm C | 0.667 (n=3v2 — one rank-step from chance) | 0.521 | 0.132 |
+| legacy | 0.000 | 0.389 | 0.433 |
+
+Both maps are texture without letterforms — the honest expectation confirmed on the
+full-reading scroll itself. Legacy's periodicity 0.433 is a **measured confound**
+(broad horizontal banding whose pitch lands in the line-pitch range), which is exactly
+why the contract requires the prediction map with any submission: a periodicity score
+alone can be an artifact. Scorecards: [arm C](columns_baseline_arm_C.json),
+[legacy](columns_baseline_legacy.json).
