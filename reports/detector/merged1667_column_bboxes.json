@@ -125,16 +125,18 @@
   },
   {
    "col": 9,
-   "gx0": 9842,
-   "gx1": 11017,
+   "gx0": 9889,
+   "gx1": 10984,
    "transcription": "text",
    "src": "fig_p3_I4+fig_p3_I5",
    "cross_strip": true,
-   "note": "bbox spans a strip-crop gap; width inflated by up to ~200 grid px \u2014 treat edges as +/-250",
+   "note": "cross-strip bbox refined 2026-07-19 by local junction-window registration (edge windows re-fit at fine step; corrections +47/-33 close the inter-strip gap to <35 px and land the width on the neighbor trend); uncertainty MEASURED at \u00b190 grid px (local correlation plateau width) \u2014 flag retained, adjacent gutters stay excluded",
    "text_band": [
     564,
     1433
-   ]
+   ],
+   "gx0_pre_refine": 9842,
+   "gx1_pre_refine": 11017
   },
   {
    "col": 10,
@@ -210,16 +212,18 @@
   },
   {
    "col": 16,
-   "gx0": 19289,
-   "gx1": 20581,
+   "gx0": 19355,
+   "gx1": 20487,
    "transcription": "text",
    "src": "fig_p3_I5+fig_p3_I6",
    "cross_strip": true,
-   "note": "bbox spans a strip-crop gap; width inflated by up to ~200 grid px \u2014 treat edges as +/-250",
+   "note": "cross-strip bbox refined 2026-07-19 by local junction-window registration (edge windows re-fit at fine step; corrections +66/-94 close the inter-strip gap to <35 px and land the width on the neighbor trend); uncertainty MEASURED at \u00b190 grid px (local correlation plateau width) \u2014 flag retained, adjacent gutters stay excluded",
    "text_band": [
     113,
     1663
-   ]
+   ],
+   "gx0_pre_refine": 19289,
+   "gx1_pre_refine": 20581
   },
   {
    "col": 17,
@@ -294,5 +298,5 @@
    ]
   }
  ],
- "uncertainty": "registration: template step 1 fig px ~ 4.7 grid px; same scale+dy recovered independently on all 3 strips; tiling closure 3 px over 30097. Cross-strip cols (9, 16) carry crop-gap slack, flagged. text_band derived from ink-pixel row distribution (2-98 pctile) in the source strip per column; for cross-strip cols it uses the first strip only; traces cols have sparse ink so their bands are weak evidence."
+ "uncertainty": "registration: template step 1 fig px ~ 4.7 grid px; same scale+dy recovered independently on all 3 strips; tiling closure 3 px over 30097. Cross-strip cols (9, 16) carry crop-gap slack, flagged. text_band derived from ink-pixel row distribution (2-98 pctile) in the source strip per column; for cross-strip cols it uses the first strip only; traces cols have sparse ink so their bands are weak evidence. 2026-07-19: cols 9/16 refined by local junction-window registration; control windows show the registration's intrinsic local wobble is \u00b140-90 grid px (broad plateaus), so per-column edges carry ~\u00b190 even where unflagged-adjacent; the GLOBAL frame stays anchored by the 3-px tiling closure."
 }

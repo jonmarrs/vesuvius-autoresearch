@@ -68,3 +68,17 @@ the registered geometry carries line structure at the pitch the transcription im
 Shipped to ScrollGT (commit 0be6e09): per-column `measured_line_pitch` in columns.json,
 and the scoring contract's `line_pitch_range` calibrated [60,220] → **[85,160]** with
 provenance (floor re-measured; only noise periodicity moved, 0.068 → 0.062).
+
+## Addendum 2026-07-19 (2): flagged cols 9/16 refined; local wobble measured
+
+Local junction-window registration (strip-edge windows re-fit at fine x-step against the
+merged mask, with control windows in shape-rich areas): the corrections (+47/−33 grid px
+for col 9; +66/−94 for col 16) close the inter-strip gaps to <35 px and land both widths
+on the neighbor trend (1095 and 1132 vs neighbors 1062–1189) — a consistency check the
+refinement was not tuned for. The controls also measure the registration's **intrinsic
+local wobble: ±40–90 grid px** (broad correlation plateaus), so the flagged columns'
+uncertainty is now *measured* ±90 rather than *bounded* ±250; flags and scorer gutter
+exclusions are retained (±90 is still comparable to gutter widths). Full-band baseline
+rows re-scored against the refined target: every shift ≤0.007 (noise realization moved
+0.578→0.585, legacy 0.595→0.592, arm C unchanged) — both models remain statistically at
+the noise floor. Shipped in scrollgt commit bc2fe91.
