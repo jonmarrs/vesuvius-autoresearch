@@ -163,11 +163,14 @@ review before release — that discipline is what the benchmark packages for eve
    a **granularity-honest contract** (`score-columns`: column-vs-gutter AUC + line
    periodicity — *consistency with the reading*, never letter accuracy). The measured
    anti-gaming floor: constant **and papyrus-mask** predictions score exactly 0.5. Model
-   baselines: our own arm C and legacy detector sit **at the floor** (0.667 at n=3v2 /
-   0.0; texture, no letterforms) — published as leaderboard rows, per this project's
-   practice of shipping its own negatives. A metric confound (inference banding
-   masquerading as line periodicity) was caught on day one and documented as the reason
-   submissions must include prediction maps.
+   baselines over the **full 22-column band** (rendered end-to-end with the CLI): our own
+   arm C and legacy detector are **statistically at the noise floor** (0.575 / 0.595 vs
+   noise 0.578 at n=18v17; texture, no letterforms) — published as leaderboard rows, per
+   this project's practice of shipping its own negatives. Two integrity demonstrations
+   happened within the first two days: a metric confound (inference banding masquerading
+   as line periodicity) was caught and documented as the reason submissions must include
+   prediction maps, and an early small-n partial-extent measurement (0.667/0.0 at n=3v2)
+   was superseded by the full measurement exactly as its published caveat predicted.
    → [merged1667_column_registration.md](https://github.com/jonmarrs/vesuvius-autoresearch/blob/main/reports/detector/merged1667_column_registration.md),
    [scrollgt_v02_columns.md](https://github.com/jonmarrs/vesuvius-autoresearch/blob/main/reports/detector/scrollgt_v02_columns.md)
 

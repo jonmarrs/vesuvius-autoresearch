@@ -58,3 +58,23 @@ full-reading scroll itself. Legacy's periodicity 0.433 is a **measured confound*
 why the contract requires the prediction map with any submission: a periodicity score
 alone can be an artifact. Scorecards: [arm C](columns_baseline_arm_C.json),
 [legacy](columns_baseline_legacy.json).
+
+### Full-band upgrade (n=18v17) — the definitive rows
+
+The whole band (y=[100,1950) × 30097; 9 overlap-trimmed chunks, seams mid-overlap,
+stitcher TDD'd) was rendered and both models scored over **all 22 columns**:
+
+| model | col_gutter_auc | pixel_auc | periodicity | traces_ratio |
+|---|---|---|---|---|
+| arm C | 0.575 | 0.562 | 0.264 | 0.559 |
+| legacy | 0.595 | 0.590 | 0.350 | 0.400 |
+| *noise floor (same n)* | *0.578* | *0.500* | *0.062* | — |
+
+**Both models are statistically at the noise floor.** The partial-extent extremes
+(0.667 / 0.000 at n=3v2) are superseded — their spread was the small-n quantization
+artifact the published caveat warned about, now demonstrated by measurement. The mildly
+above-chance pixel AUCs read as preservation-correlated texture (both models predict
+*less* on the fragmentary traces columns — damage response, not text detection).
+Full-band maps: [arm C](columns_fullband_arm_C_pred.png),
+[legacy](columns_fullband_legacy_pred.png); scorecards:
+[arm C](columns_fullband_arm_C.json), [legacy](columns_fullband_legacy.json).
