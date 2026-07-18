@@ -1,0 +1,116 @@
+{
+ "provenance": "Angelotti et al. preprint transcription pp. 22-27 (scrollprize.org/pdf/main.pdf), CC BY-NC 4.0; parsed 2026-07-18; max_attested_line is a LOWER BOUND on preserved lines (from printed line-number markers; only every 5th line is numbered), not an exact count",
+ "columns": {
+  "1": {
+   "status": "traces",
+   "source": "Coll. 1-4 traces (p.21)"
+  },
+  "2": {
+   "status": "traces",
+   "source": "Coll. 1-4 traces (p.21)"
+  },
+  "3": {
+   "status": "traces",
+   "source": "Coll. 1-4 traces (p.21)"
+  },
+  "4": {
+   "status": "traces",
+   "source": "Coll. 1-4 traces (p.21)"
+  },
+  "5": {
+   "status": "text",
+   "traces_lines": "1-2",
+   "margin": "lost",
+   "max_attested_line": 5
+  },
+  "6": {
+   "status": "text",
+   "traces_lines": "1-5",
+   "margin": "lost",
+   "max_attested_line": 7
+  },
+  "7": {
+   "status": "text",
+   "traces_lines": "1-6",
+   "margin": "lost",
+   "max_attested_line": 10
+  },
+  "8": {
+   "status": "text",
+   "traces_lines": "1-7",
+   "margin": "lost",
+   "max_attested_line": 10
+  },
+  "9": {
+   "status": "text",
+   "margin": "lost",
+   "max_attested_line": 10
+  },
+  "10": {
+   "status": "text",
+   "margin": "lost",
+   "max_attested_line": 10
+  },
+  "11": {
+   "status": "text",
+   "margin": "lost",
+   "max_attested_line": 10
+  },
+  "12": {
+   "status": "text",
+   "margin": "lost",
+   "max_attested_line": 10
+  },
+  "13": {
+   "status": "text",
+   "margin": "lost",
+   "max_attested_line": 10
+  },
+  "14": {
+   "status": "text",
+   "margin": "lost",
+   "max_attested_line": 10
+  },
+  "15": {
+   "status": "text",
+   "margin": "lost",
+   "max_attested_line": 10
+  },
+  "16": {
+   "status": "text",
+   "margin": "lost",
+   "max_attested_line": 10
+  },
+  "17": {
+   "status": "text",
+   "margin": "lost",
+   "max_attested_line": 10
+  },
+  "18": {
+   "status": "text",
+   "margin": "lost",
+   "max_attested_line": 10
+  },
+  "19": {
+   "status": "text",
+   "margin": "lost",
+   "max_attested_line": 10
+  },
+  "20": {
+   "status": "text",
+   "max_attested_line": 11
+  },
+  "21": {
+   "status": "text",
+   "traces_lines": "4-5",
+   "margin": "lost",
+   "notes": "some lines only vestigia (l. 9)",
+   "max_attested_line": 10
+  },
+  "22": {
+   "status": "text",
+   "margin": "lost",
+   "max_attested_line": 1
+  }
+ }
+}

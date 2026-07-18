@@ -33,7 +33,11 @@
    "gx1": 888,
    "transcription": "traces",
    "src": "fig_p3_I4",
-   "cross_strip": false
+   "cross_strip": false,
+   "text_band": [
+    489,
+    1642
+   ]
   },
   {
    "col": 2,
@@ -41,7 +45,11 @@
    "gx1": 2148,
    "transcription": "traces",
    "src": "fig_p3_I4",
-   "cross_strip": false
+   "cross_strip": false,
+   "text_band": [
+    479,
+    1866
+   ]
   },
   {
    "col": 3,
@@ -49,7 +57,11 @@
    "gx1": 3431,
    "transcription": "traces",
    "src": "fig_p3_I4",
-   "cross_strip": false
+   "cross_strip": false,
+   "text_band": [
+    460,
+    1936
+   ]
   },
   {
    "col": 4,
@@ -57,7 +69,11 @@
    "gx1": 4695,
    "transcription": "traces",
    "src": "fig_p3_I4",
-   "cross_strip": false
+   "cross_strip": false,
+   "text_band": [
+    517,
+    1888
+   ]
   },
   {
    "col": 5,
@@ -65,7 +81,11 @@
    "gx1": 5959,
    "transcription": "text",
    "src": "fig_p3_I4",
-   "cross_strip": false
+   "cross_strip": false,
+   "text_band": [
+    423,
+    1919
+   ]
   },
   {
    "col": 6,
@@ -73,7 +93,11 @@
    "gx1": 7228,
    "transcription": "text",
    "src": "fig_p3_I4",
-   "cross_strip": false
+   "cross_strip": false,
+   "text_band": [
+    465,
+    1852
+   ]
   },
   {
    "col": 7,
@@ -81,7 +105,11 @@
    "gx1": 8493,
    "transcription": "text",
    "src": "fig_p3_I4",
-   "cross_strip": false
+   "cross_strip": false,
+   "text_band": [
+    376,
+    1941
+   ]
   },
   {
    "col": 8,
@@ -89,7 +117,11 @@
    "gx1": 9696,
    "transcription": "text",
    "src": "fig_p3_I4",
-   "cross_strip": false
+   "cross_strip": false,
+   "text_band": [
+    338,
+    1810
+   ]
   },
   {
    "col": 9,
@@ -98,7 +130,11 @@
    "transcription": "text",
    "src": "fig_p3_I4+fig_p3_I5",
    "cross_strip": true,
-   "note": "bbox spans a strip-crop gap; width inflated by up to ~200 grid px \u2014 treat edges as +/-250"
+   "note": "bbox spans a strip-crop gap; width inflated by up to ~200 grid px \u2014 treat edges as +/-250",
+   "text_band": [
+    564,
+    1433
+   ]
   },
   {
    "col": 10,
@@ -106,7 +142,11 @@
    "gx1": 12323,
    "transcription": "text",
    "src": "fig_p3_I5",
-   "cross_strip": false
+   "cross_strip": false,
+   "text_band": [
+    353,
+    1833
+   ]
   },
   {
    "col": 11,
@@ -114,7 +154,11 @@
    "gx1": 13686,
    "transcription": "text",
    "src": "fig_p3_I5",
-   "cross_strip": false
+   "cross_strip": false,
+   "text_band": [
+    357,
+    1767
+   ]
   },
   {
    "col": 12,
@@ -122,7 +166,11 @@
    "gx1": 15049,
    "transcription": "text",
    "src": "fig_p3_I5",
-   "cross_strip": false
+   "cross_strip": false,
+   "text_band": [
+    291,
+    1852
+   ]
   },
   {
    "col": 13,
@@ -130,7 +178,11 @@
    "gx1": 16295,
    "transcription": "text",
    "src": "fig_p3_I5",
-   "cross_strip": false
+   "cross_strip": false,
+   "text_band": [
+    268,
+    1795
+   ]
   },
   {
    "col": 14,
@@ -138,7 +190,11 @@
    "gx1": 17662,
    "transcription": "text",
    "src": "fig_p3_I5",
-   "cross_strip": false
+   "cross_strip": false,
+   "text_band": [
+    235,
+    1678
+   ]
   },
   {
    "col": 15,
@@ -146,7 +202,11 @@
    "gx1": 19026,
    "transcription": "text",
    "src": "fig_p3_I5",
-   "cross_strip": false
+   "cross_strip": false,
+   "text_band": [
+    136,
+    1649
+   ]
   },
   {
    "col": 16,
@@ -155,7 +215,11 @@
    "transcription": "text",
    "src": "fig_p3_I5+fig_p3_I6",
    "cross_strip": true,
-   "note": "bbox spans a strip-crop gap; width inflated by up to ~200 grid px \u2014 treat edges as +/-250"
+   "note": "bbox spans a strip-crop gap; width inflated by up to ~200 grid px \u2014 treat edges as +/-250",
+   "text_band": [
+    113,
+    1663
+   ]
   },
   {
    "col": 17,
@@ -163,7 +227,11 @@
    "gx1": 21991,
    "transcription": "text",
    "src": "fig_p3_I6",
-   "cross_strip": false
+   "cross_strip": false,
+   "text_band": [
+    108,
+    1612
+   ]
   },
   {
    "col": 18,
@@ -171,7 +239,11 @@
    "gx1": 23392,
    "transcription": "text",
    "src": "fig_p3_I6",
-   "cross_strip": false
+   "cross_strip": false,
+   "text_band": [
+    117,
+    1711
+   ]
   },
   {
    "col": 19,
@@ -179,7 +251,11 @@
    "gx1": 24788,
    "transcription": "text",
    "src": "fig_p3_I6",
-   "cross_strip": false
+   "cross_strip": false,
+   "text_band": [
+    136,
+    1433
+   ]
   },
   {
    "col": 20,
@@ -187,7 +263,11 @@
    "gx1": 26301,
    "transcription": "text",
    "src": "fig_p3_I6",
-   "cross_strip": false
+   "cross_strip": false,
+   "text_band": [
+    145,
+    1631
+   ]
   },
   {
    "col": 21,
@@ -195,7 +275,11 @@
    "gx1": 27753,
    "transcription": "text",
    "src": "fig_p3_I6",
-   "cross_strip": false
+   "cross_strip": false,
+   "text_band": [
+    108,
+    1795
+   ]
   },
   {
    "col": 22,
@@ -203,8 +287,12 @@
    "gx1": 29206,
    "transcription": "text",
    "src": "fig_p3_I6",
-   "cross_strip": false
+   "cross_strip": false,
+   "text_band": [
+    122,
+    1786
+   ]
   }
  ],
- "uncertainty": "registration: template step 1 fig px ~ 4.7 grid px; same scale+dy recovered independently on all 3 strips; tiling closure 3 px over 30097. Cross-strip cols (9, 16) carry crop-gap slack, flagged."
+ "uncertainty": "registration: template step 1 fig px ~ 4.7 grid px; same scale+dy recovered independently on all 3 strips; tiling closure 3 px over 30097. Cross-strip cols (9, 16) carry crop-gap slack, flagged. text_band derived from ink-pixel row distribution (2-98 pctile) in the source strip per column; for cross-strip cols it uses the first strip only; traces cols have sparse ink so their bands are weak evidence."
 }
