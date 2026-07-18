@@ -1,0 +1,210 @@
+{
+ "segment": "20260612121456-w011_20260108140509268_merged_v4_flatboi_straightened_v4",
+ "grid_shape": [
+  2061,
+  30097
+ ],
+ "scale_grid_per_figpx": 4.7,
+ "registration": {
+  "fig_p3_I4": {
+   "score": 0.4916,
+   "scale": 4.7,
+   "gx0": 42,
+   "gy0": 19
+  },
+  "fig_p3_I5": {
+   "score": 0.6693,
+   "scale": 4.7,
+   "gx0": 10072,
+   "gy0": 19
+  },
+  "fig_p3_I6": {
+   "score": 0.6681,
+   "scale": 4.7,
+   "gx0": 20177,
+   "gy0": 19
+  }
+ },
+ "provenance": "column brackets from Angelotti et al. preprint p.3 figure strips (CC BY-NC 4.0), shape-registered to the merged tifxyz grid (strip tiling closure 3px/30097)",
+ "columns": [
+  {
+   "col": 1,
+   "gx0": 42,
+   "gx1": 888,
+   "transcription": "traces",
+   "src": "fig_p3_I4",
+   "cross_strip": false
+  },
+  {
+   "col": 2,
+   "gx0": 1067,
+   "gx1": 2148,
+   "transcription": "traces",
+   "src": "fig_p3_I4",
+   "cross_strip": false
+  },
+  {
+   "col": 3,
+   "gx0": 2350,
+   "gx1": 3431,
+   "transcription": "traces",
+   "src": "fig_p3_I4",
+   "cross_strip": false
+  },
+  {
+   "col": 4,
+   "gx0": 3633,
+   "gx1": 4695,
+   "transcription": "traces",
+   "src": "fig_p3_I4",
+   "cross_strip": false
+  },
+  {
+   "col": 5,
+   "gx0": 4897,
+   "gx1": 5959,
+   "transcription": "text",
+   "src": "fig_p3_I4",
+   "cross_strip": false
+  },
+  {
+   "col": 6,
+   "gx0": 6161,
+   "gx1": 7228,
+   "transcription": "text",
+   "src": "fig_p3_I4",
+   "cross_strip": false
+  },
+  {
+   "col": 7,
+   "gx0": 7430,
+   "gx1": 8493,
+   "transcription": "text",
+   "src": "fig_p3_I4",
+   "cross_strip": false
+  },
+  {
+   "col": 8,
+   "gx0": 8634,
+   "gx1": 9696,
+   "transcription": "text",
+   "src": "fig_p3_I4",
+   "cross_strip": false
+  },
+  {
+   "col": 9,
+   "gx0": 9842,
+   "gx1": 11017,
+   "transcription": "text",
+   "src": "fig_p3_I4+fig_p3_I5",
+   "cross_strip": true,
+   "note": "bbox spans a strip-crop gap; width inflated by up to ~200 grid px \u2014 treat edges as +/-250"
+  },
+  {
+   "col": 10,
+   "gx0": 11219,
+   "gx1": 12323,
+   "transcription": "text",
+   "src": "fig_p3_I5",
+   "cross_strip": false
+  },
+  {
+   "col": 11,
+   "gx0": 12582,
+   "gx1": 13686,
+   "transcription": "text",
+   "src": "fig_p3_I5",
+   "cross_strip": false
+  },
+  {
+   "col": 12,
+   "gx0": 13950,
+   "gx1": 15049,
+   "transcription": "text",
+   "src": "fig_p3_I5",
+   "cross_strip": false
+  },
+  {
+   "col": 13,
+   "gx0": 15195,
+   "gx1": 16295,
+   "transcription": "text",
+   "src": "fig_p3_I5",
+   "cross_strip": false
+  },
+  {
+   "col": 14,
+   "gx0": 16558,
+   "gx1": 17662,
+   "transcription": "text",
+   "src": "fig_p3_I5",
+   "cross_strip": false
+  },
+  {
+   "col": 15,
+   "gx0": 17926,
+   "gx1": 19026,
+   "transcription": "text",
+   "src": "fig_p3_I5",
+   "cross_strip": false
+  },
+  {
+   "col": 16,
+   "gx0": 19289,
+   "gx1": 20581,
+   "transcription": "text",
+   "src": "fig_p3_I5+fig_p3_I6",
+   "cross_strip": true,
+   "note": "bbox spans a strip-crop gap; width inflated by up to ~200 grid px \u2014 treat edges as +/-250"
+  },
+  {
+   "col": 17,
+   "gx0": 20802,
+   "gx1": 21991,
+   "transcription": "text",
+   "src": "fig_p3_I6",
+   "cross_strip": false
+  },
+  {
+   "col": 18,
+   "gx0": 22198,
+   "gx1": 23392,
+   "transcription": "text",
+   "src": "fig_p3_I6",
+   "cross_strip": false
+  },
+  {
+   "col": 19,
+   "gx0": 23594,
+   "gx1": 24788,
+   "transcription": "text",
+   "src": "fig_p3_I6",
+   "cross_strip": false
+  },
+  {
+   "col": 20,
+   "gx0": 25051,
+   "gx1": 26301,
+   "transcription": "text",
+   "src": "fig_p3_I6",
+   "cross_strip": false
+  },
+  {
+   "col": 21,
+   "gx0": 26503,
+   "gx1": 27753,
+   "transcription": "text",
+   "src": "fig_p3_I6",
+   "cross_strip": false
+  },
+  {
+   "col": 22,
+   "gx0": 27960,
+   "gx1": 29206,
+   "transcription": "text",
+   "src": "fig_p3_I6",
+   "cross_strip": false
+  }
+ ],
+ "uncertainty": "registration: template step 1 fig px ~ 4.7 grid px; same scale+dy recovered independently on all 3 strips; tiling closure 3 px over 30097. Cross-strip cols (9, 16) carry crop-gap slack, flagged."
+}

@@ -1,0 +1,55 @@
+# PHerc 1667: the 22 reading columns located on the merged geometry — v0.2(a) step 1
+
+The published full reading (Angelotti et al., CC BY-NC 4.0) transcribes **22 columns**
+(Coll. 1–4 traces, Coll. 5–22 text), but no machine-readable column coordinates are in
+the open bucket. This report derives them: the preprint's page-3 figure strips (the
+ink-detection reading over the flattened surface, with labeled `col. N` brackets) are
+registered onto the merged tifxyz geometry, and the bracket extents are mapped into
+merged-grid coordinates.
+
+**Artifact:** [merged1667_column_bboxes.json](merged1667_column_bboxes.json) — per-column
+`gx0..gx1` on the merged grid (2061×30097, scale 0.05 → multiply by 20 for full-res
+flattened px), transcription status, provenance, per-column flags.
+**Overlay:** [merged1667_column_overlay.png](merged1667_column_overlay.png) — the boxes on
+the merged valid mask; the "traces" columns sit exactly on the fragmentary scalloped
+region, gutters land in the wrap-damage notches.
+
+## Method
+
+1. Extract the three page-3 strips from the preprint PDF (2110×475 each; together they
+   tile cols 1–8 / 9–16 / 17–22).
+2. Build papyrus masks (gray threshold, cyan annotations excluded) and register each
+   strip to the merged tifxyz valid mask by template matching over a scale sweep
+   (TM_CCOEFF_NORMED on the shape masks — the scalloped outline is the signal).
+3. Detect the cyan bracket **line** band (rows 24–32; the labels sit above it, ticks
+   below), close sub-bracket gaps, map intervals through each strip's transform, and
+   merge cross-strip truncations in grid space.
+
+## Registration quality (the reasons to believe it)
+
+- All three strips **independently** recover the same scale (4.7 grid px / figure px)
+  and the same vertical offset (gy0 = 19).
+- The three strips tile the grid left-to-right with the **last strip's right edge landing
+  3 px from the grid's true right edge (30094 vs 30097)** — an end-to-end closure over a
+  30k-px strip that a wrong scale or offset could not produce.
+- Match scores 0.49/0.67/0.67 (lowest on the most fragmentary strip, as expected).
+- Bracket extraction yields **exactly 22 columns** after merging the two cross-strip
+  truncation pairs (cols 9 and 16 — flagged in the JSON, widths carry up to ~200 px of
+  strip-crop slack; all other columns are single-strip).
+- Column widths rise monotonically ~1050 → 1250 grid px from interior to exterior —
+  physically expected (outer wraps have larger circumference), and not a property the
+  extraction was told about.
+
+## What this unlocks (ScrollGT v0.2 (a))
+
+Each column is now a **candidate benchmark target region on canonical geometry**, with
+scholar-validated GT at column granularity: text presence (Coll. 5–22 vs 1–4), and — with
+further transcription parsing — line counts and per-line legibility. Combined with the
+gate-validated renderer (NCC 0.78 on this scroll), the full target pipeline exists:
+render any column region → score a model's output against what eight papyrologists say
+is there. Residual work for v0.2: refine bboxes on the two flagged columns, add y-extents
+per column (text band vs full sheet), parse per-column line structure from the preprint,
+and design the column-level scoring contract.
+
+License note: bracket coordinates derive from the preprint figures (CC BY-NC 4.0) —
+attribution required, non-commercial; consistent with how ScrollGT ships third-party GT.
