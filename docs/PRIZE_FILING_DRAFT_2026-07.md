@@ -9,8 +9,9 @@ the prizes page's new emphasis on *held-out validation on ground truth data* and
 *false-positive mitigation*.)
 **Primary submission artifacts (open-source, MIT):**
 - https://github.com/jonmarrs/scrollgt — the honest held-out ground-truth evaluation layer
-- the Scroll-3 surface-volume renderer (`repro/sota_data/render_surface.py` in the repo
-  below) — makes the bucket's mesh-only segments readable/detectable for the first time
+- the surface-volume renderer (`repro/sota_data/render_cli.py` in the repo below) — makes
+  the bucket's mesh-only segments (Scroll 3; PHerc 1667's merged full-reading geometry)
+  readable/detectable for the first time; gate-validated vs released surface volumes
 **Methodology/source repo:** https://github.com/jonmarrs/vesuvius-autoresearch (MIT)
 **Live experiment tracking:** https://wandb.ai/jdmarrs-uc-davis/vesuvius-autoresearch
 
@@ -79,8 +80,10 @@ review before release — that discipline is what the benchmark packages for eve
    ships only after an **independent, teacher-free orientation validation** — three
    gate-passing regions were *withheld* because their orientation could not be verified
    (integrity as a feature, not a limitation). Anyone can score a model today with
-   `git clone` + one command. (An expansion to more Scroll-1 targets is the next step; a
-   Scrolls 2–3 extension is blocked because those scrolls are unread and ship no human
+   `git clone` + one command. **New (2026-07-18): the first non-training-scroll target** —
+   the published PHerc-1667 reading's 22 columns registered onto the merged full-reading
+   geometry (`pherc1667_merged_columns` + the `scrollgt score-columns` contract, below).
+   (A Scrolls 2–3 extension remains impossible: those scrolls are unread and ship no human
    ground truth — that gap is *why* First Letters is open.)
 
 2. **Ink detector subpackage** (`vesuvius_autoresearch.detector`) — the proven 2023
@@ -150,7 +153,25 @@ review before release — that discipline is what the benchmark packages for eve
    [scroll3_first_look.md](https://github.com/jonmarrs/vesuvius-autoresearch/blob/main/reports/detector/scroll3_first_look.md),
    [merged1667_first_look.md](https://github.com/jonmarrs/vesuvius-autoresearch/blob/main/reports/detector/merged1667_first_look.md)
 
-7. **Carried forward from June (still maintained):** the scroll-specific 3D augmentation
+7. **The PHerc-1667 column-level ground truth + scoring contract (new 2026-07-18)** —
+   the concrete answer to "held-out validation on ground truth data" on a scroll where no
+   pixel GT exists. The published reading's 22 columns (eight papyrologists' consensus,
+   CC BY-NC 4.0) were located on the canonical merged geometry by registering the
+   preprint's figure strips (all three independently recover one transform; 3-px tiling
+   closure over 30,097 px; widths rise interior→exterior as physics predicts), packaged
+   with per-column transcription status + text bands as a ScrollGT target, and scored by
+   a **granularity-honest contract** (`score-columns`: column-vs-gutter AUC + line
+   periodicity — *consistency with the reading*, never letter accuracy). The measured
+   anti-gaming floor: constant **and papyrus-mask** predictions score exactly 0.5. Model
+   baselines: our own arm C and legacy detector sit **at the floor** (0.667 at n=3v2 /
+   0.0; texture, no letterforms) — published as leaderboard rows, per this project's
+   practice of shipping its own negatives. A metric confound (inference banding
+   masquerading as line periodicity) was caught on day one and documented as the reason
+   submissions must include prediction maps.
+   → [merged1667_column_registration.md](https://github.com/jonmarrs/vesuvius-autoresearch/blob/main/reports/detector/merged1667_column_registration.md),
+   [scrollgt_v02_columns.md](https://github.com/jonmarrs/vesuvius-autoresearch/blob/main/reports/detector/scrollgt_v02_columns.md)
+
+8. **Carried forward from June (still maintained):** the scroll-specific 3D augmentation
    library ([villa #201](https://github.com/ScrollPrize/villa/issues/201);
    [docs/SCROLL_AUGMENTATIONS.md](https://github.com/jonmarrs/vesuvius-autoresearch/blob/main/docs/SCROLL_AUGMENTATIONS.md)),
    GPU fiber/ridge detection (closed-form 3×3 eigensolver, 14–94× over NumPy;
@@ -261,9 +282,10 @@ The through-line is measurement honesty:
   scrolls are unread, which is why First Letters is open). ScrollGT v0.2 therefore targets
   more Scroll-1 segments plus a PHerc-1667 path: now that 1667 has been read in full, the
   scholar-validated published reading is the first realistic non-Scroll-1 ground-truth
-  source (transcription-level, coarser than pixel labels). The first step is already done:
-  the merged full-reading geometry, which ships mesh-only, now has an independent rendered
-  surface volume (gate-validated on this scroll, NCC 0.78).
+  source (transcription-level, coarser than pixel labels). Both steps are now done and
+  shipped (renderer gate-validated on this scroll at NCC 0.78; the 22-column target +
+  score-columns contract live in ScrollGT as of 2026-07-18) — the clean *pixel-level*
+  cross-scroll test stays blocked until aligned pixel labels exist.
 - The prior distillation held-out region also served as its best-epoch selection set (AP/ROC-AUC
   are threshold-free and unaffected); noted in that report.
 - We claim an **honest, reproducible measurement layer** for the SOTA data — registered

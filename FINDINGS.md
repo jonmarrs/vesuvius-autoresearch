@@ -446,10 +446,49 @@ Method notes: the teacher-dependent enrichment gate false-negatived on the held-
 (the teacher is weak there), so alignment was validated by a **codified teacher-free gate**
 (residual + text-line periodicity; the 2D orientation carried from the validated segment as an
 export-pipeline invariant, residual/periodicity being convention-blind). The clean *cross-scroll*
-ground-truth test remains blocked — PHerc 1667 ships only model predictions, no released human
-labels. Tooling: `repro/sota_data/register.py` + `register_run.py`; reports:
+ground-truth test was blocked at pixel level — PHerc 1667 ships only model predictions, no released
+human labels — until the July column-level workaround (next section). Tooling:
+`repro/sota_data/register.py` + `register_run.py`; reports:
 [registered_gt_validation.md](reports/detector/registered_gt_validation.md),
 [registered_gt_heldout_validation.md](reports/detector/registered_gt_heldout_validation.md).
+
+## The renderer + the first non-training-scroll ground truth (PHerc 1667, July)
+
+Two July results extend the arc onto the scroll that was read in full (PHerc 1667,
+announced 2026-06-25).
+
+**The surface renderer is now gate-validated on released ground truth.** The render CLI
+(`repro/sota_data/render_cli.py`) gained a `--tifxyz` path (the released grid-geometry
+format most bucket segments ship — no obj parsing, no scale ambiguity) and rectangular
+regions. On a PHerc-1667 clean triple (tifxyz geometry + raw volume + released surface
+volume, one scan frame) it scores center-layer **NCC 0.7799 against the pre-registered
+0.60 gate — PASS** ([render_validation_1667.md](reports/detector/render_validation_1667.md)).
+The same sampler had scored 0.59 on Scroll 1 against a resolution-mismatched reference —
+the jump at matched resolution confirms that residual was the comparison, not placement.
+With it we rendered the **first independent surface volumes of the merged full-reading
+geometry** (mesh-only in the bucket; ~20.8 Gpx grid;
+[merged1667_first_look.md](reports/detector/merged1667_first_look.md)).
+
+**The published reading became measurable ground truth — at column granularity.** No
+machine-readable coordinates of the reading exist publicly, so we derived them: the
+preprint's figure strips (the ink reading with labeled `col. 1–22` brackets, CC BY-NC 4.0)
+were shape-registered onto the merged geometry — all three strips independently recover
+the same transform, the tiling closes to 3 px over the 30,097-px grid, and bracket
+extraction yields exactly 22 columns whose widths rise interior→exterior as physics
+predicts ([merged1667_column_registration.md](reports/detector/merged1667_column_registration.md)).
+Combined with the per-column transcription facts (Coll. 1–4 traces, 5–22 text; eight
+papyrologists' consensus), this shipped as **ScrollGT's first non-training-scroll target**
+(`pherc1667_merged_columns` + the `score-columns` contract; measured anti-gaming floor:
+constant *and* papyrus-mask predictions score exactly 0.5).
+
+**And the honest result on it:** our models sit at the floor. On a rendered cols-17–19
+region, arm C scores col-vs-gutter AUC 0.667 (n = 3v2 — one rank-step from chance, pixel
+AUC 0.521) and the legacy detector 0.0; both maps are texture without letterforms
+([scrollgt_v02_columns.md](reports/detector/scrollgt_v02_columns.md)). The legacy model's
+line-periodicity 0.433 is a **measured metric confound** (inference banding whose pitch
+lands in the text-line range) — documented in the benchmark as the reason every
+submission must include its prediction map. The cross-scroll ceiling, now measured
+against scholar-validated ground truth on the very scroll the field just read.
 
 ## What we learned
 
