@@ -41,7 +41,10 @@ two scrolls**: Scroll 1 center-layer NCC 0.59 (just under our pre-registered 0.6
 the miss and its resolution-mismatch cause documented, not hidden) and **PHerc 1667 NCC
 0.78, a gate PASS** at matched comparison resolution — the same sampler scoring higher
 exactly where the comparison is fair, confirming the Scroll-1 residual was the comparison,
-not placement. It has produced the first independent surface volumes from Scroll 3's
+not placement. The emitted 26-layer stacks are additionally **full-3D-validated** on
+PHerc 1667: every layer matches the released stack (NCC 0.84–0.89), with perfectly
+monotonic depth mapping at exactly the slope correct level-2 scaling predicts, and the
+default depth sign confirmed as the released convention. It has produced the first independent surface volumes from Scroll 3's
 mesh-only segments *and* from the PHerc-1667 merged reading geometry (coherent papyrus
 fibers). It makes previously-unusable data usable — the most literal "easier to read"
 contribution we have.

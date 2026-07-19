@@ -34,6 +34,12 @@ where geometry, volume, and reference share one scan frame:
   (`reports/detector/render_validation_1667.md`). The jump from 0.59 with the *same*
   sampler and conventions confirms the Scroll-1 residual was the comparison, not
   placement.
+- **Depth (full stack), PHerc 1667**: every rendered layer matched against every released
+  depth slice — all 26 layers at **NCC 0.84–0.89**, perfectly monotonic mapping (rank
+  corr 1.000) at **slope exactly 4.00** released slices per layer (= correct level-2
+  depth scaling), and **sign=+1 confirmed as the released convention**
+  (`reports/detector/render_validation_1667_depth.md`). The emitted stacks are
+  full-3D-validated: placement, depth direction, and depth spacing.
 
 Outputs are still independent renders, not reproductions of the core team's pipeline —
 for detector consumption treat them qualitatively.
