@@ -24,6 +24,26 @@ bucket's mesh-only segments into detector-ready surface volumes, and ScrollGT �
 held-out human-ground-truth evaluation layer the reading effort has been missing (with
 published baselines that include our own negatives).**
 
+## TL;DR (60-second version)
+
+Two MIT-licensed tools, plus the honest measurement discipline behind them:
+
+1. **A surface-volume renderer** that turns the open bucket's *mesh-only* segments — both
+   Scroll-3 (First-Letters) segments and PHerc 1667's merged full-reading geometry — into
+   detector-ready surface volumes. Validated against released ground truth on two scrolls
+   (full-3D: placement, depth direction, and depth spacing). It makes previously-unusable
+   data usable — the most literal *"easier to read."*
+2. **ScrollGT** — the held-out, human-ground-truth evaluation layer the reading effort
+   lacks. It registers real ink labels onto the SOTA geometry, scores with an anti-gaming
+   (false-positive) gate, and ships published baselines — including our own models, which
+   read **near chance held-out**. It answers the uncomfortable question the new rules now
+   demand held-out proof of: *does your model read, or reproduce another model?*
+
+We do **not** claim a stronger reader — on held-out human ground truth our own models read
+at chance, and we publish that. We make the unreadable segments usable and give the
+community the *held-out validation on ground truth data* and *false-positive mitigation*
+the new rules require — demonstrated first, and hardest, on ourselves.
+
 ## Summary
 
 The July prize rewards *"the best open-source submission that makes the collection easier to
@@ -90,26 +110,21 @@ review before release — that discipline is what the benchmark packages for eve
    (A Scrolls 2–3 extension remains impossible: those scrolls are unread and ship no human
    ground truth — that gap is *why* First Letters is open.)
 
-2. **ScrollGT's PHerc-1667 column-level target (new 2026-07-18)** —
-   the concrete answer to "held-out validation on ground truth data" on a scroll where no
-   pixel GT exists. The published reading's 22 columns (eight papyrologists' consensus,
-   CC BY-NC 4.0) were located on the canonical merged geometry by registering the
-   preprint's figure strips (all three independently recover one transform; 3-px tiling
-   closure over 30,097 px; widths rise interior→exterior as physics predicts), packaged
-   with per-column transcription status + text bands as a ScrollGT target, and scored by
-   a **granularity-honest contract** (`score-columns`: column-vs-gutter AUC + line
-   periodicity — *consistency with the reading*, never letter accuracy). The measured
-   anti-gaming floor: constant **and papyrus-mask** predictions score exactly 0.5. Model
-   baselines over the **full 22-column band** (rendered end-to-end with the CLI): our own
-   arm C and legacy detector are **statistically at the noise floor** (0.575 / 0.595 vs
-   noise 0.578 at n=18v17; texture, no letterforms) — published as leaderboard rows, per
-   this project's practice of shipping its own negatives. Two integrity demonstrations
-   happened within the first two days: a metric confound (inference banding masquerading
-   as line periodicity) was caught and documented as the reason submissions must include
-   prediction maps, and an early small-n partial-extent measurement (0.667/0.0 at n=3v2)
-   was superseded by the full measurement exactly as its published caveat predicted.
-   → [merged1667_column_registration.md](https://github.com/jonmarrs/vesuvius-autoresearch/blob/main/reports/detector/merged1667_column_registration.md),
-   [scrollgt_v02_columns.md](https://github.com/jonmarrs/vesuvius-autoresearch/blob/main/reports/detector/scrollgt_v02_columns.md)
+2. **ScrollGT's PHerc-1667 column-level target (new 2026-07-18)** — the first
+   *non-training-scroll* held-out target, answering "held-out validation on ground truth
+   data" on a scroll where no pixel GT exists. The published reading's 22 scholar-validated
+   columns (eight papyrologists' consensus, CC BY-NC 4.0) are registered onto the canonical
+   merged geometry (method + three independent registration cross-checks in the linked
+   report) and scored by a **granularity-honest contract** (`score-columns`: column-vs-gutter
+   AUC + line periodicity — *consistency with the reading*, never letter accuracy). Measured
+   anti-gaming floor: constant **and papyrus-mask** predictions score exactly 0.5. Scored
+   over the full 22-column band, our own arm C and legacy detector sit **at the noise floor**
+   (0.575 / 0.595 vs 0.578; texture, no letterforms) — published as leaderboard rows. The
+   contract caught a metric confound in its own baseline within two days (inference banding
+   masquerading as line periodicity), which is why every submitted row must include its
+   prediction map.
+   → [registration + method](https://github.com/jonmarrs/vesuvius-autoresearch/blob/main/reports/detector/merged1667_column_registration.md),
+   [column baselines](https://github.com/jonmarrs/vesuvius-autoresearch/blob/main/reports/detector/scrollgt_v02_columns.md)
 
 3. **Surface-volume renderer for mesh-only segments** — a **one-command CLI**
    (`repro/sota_data/render_cli.py`; docs at
