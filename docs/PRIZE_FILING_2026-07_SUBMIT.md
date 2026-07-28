@@ -27,20 +27,20 @@ Two MIT-licensed tools, plus the honest measurement discipline behind them:
 2. **ScrollGT** — the held-out, human-ground-truth evaluation layer the reading effort
    lacks. It registers real ink labels onto the SOTA geometry, scores with an anti-gaming
    (false-positive) gate, and ships published baselines — including our own models, which
-   read **near chance held-out**. It answers the uncomfortable question the new rules now
-   demand held-out proof of: *does your model read, or reproduce another model?*
+   read **near chance held-out**. It answers the uncomfortable question nobody outside the
+   core team could previously test: *does your model read, or reproduce another model?*
 
 We do **not** claim a stronger reader — on held-out human ground truth our own models read
-at chance, and we publish that. We make the unreadable segments usable and give the
-community the *held-out validation on ground truth data* and *false-positive mitigation*
-the new rules require — demonstrated first, and hardest, on ourselves.
+at chance, and we publish that. We make the unreadable segments usable, and we give the
+community held-out validation against human ground truth plus a false-positive gate —
+demonstrated first, and hardest, on ourselves.
 
 ## Summary
 
 The July prize rewards *"the best open-source submission that makes the collection easier to
-read,"* and the prizes page now requires *held-out validation on ground truth data* and
-*false-positive mitigation*. This submission is two MIT tools that serve exactly that, plus
-the honest measurement discipline behind them.
+read."* This submission is two MIT tools that serve exactly that, plus the honest
+measurement discipline behind them: held-out validation against human ground truth, and a
+false-positive gate applied first to our own models.
 
 **(1) A surface-volume renderer for the bucket's mesh-only segments.** Scroll 3 (PHerc0332)
 ships two segments in the open bucket as *mesh-only* — no surface volumes, no predictions —
@@ -62,8 +62,8 @@ contribution we have.
 
 **(2) ScrollGT — the held-out ground-truth evaluation layer.** The bucket ships surface
 volumes and *model predictions* but no human ground truth aligned to the new geometry, so
-nobody outside the core team can answer the basic question the new rules now demand held-out
-proof of: **does an ink model actually read, or does it reproduce another model?**
+nobody outside the core team can answer the basic question anyone building a reader needs
+answered: **does an ink model actually read, or does it reproduce another model?**
 **[ScrollGT](https://github.com/jonmarrs/scrollgt)** registers the 2023 Grand-Prize-era human
 ink labels onto the SOTA geometry (exact `original.obj` UV bridge, ~8-voxel median residual,
 gated alignment validation) and provides a one-command scoring harness (threshold-swept F1
@@ -102,8 +102,8 @@ review before release — that discipline is what the benchmark packages for eve
    ground truth — that gap is *why* First Letters is open.)
 
 2. **ScrollGT's PHerc-1667 column-level target (new 2026-07-18)** — the first
-   *non-training-scroll* held-out target, answering "held-out validation on ground truth
-   data" on a scroll where no pixel GT exists. The published reading's 22 scholar-validated
+   *non-training-scroll* held-out target, delivering held-out validation against ground
+   truth on a scroll where no pixel GT exists. The published reading's 22 scholar-validated
    columns (eight papyrologists' consensus, CC BY-NC 4.0) are registered onto the canonical
    merged geometry (method + three independent registration cross-checks in the linked
    report) and scored by a **granularity-honest contract** (`score-columns`: column-vs-gutter
