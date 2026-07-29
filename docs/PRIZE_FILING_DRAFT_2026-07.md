@@ -93,7 +93,7 @@ review before release — that discipline is what the benchmark packages for eve
 
 1. **ScrollGT** (https://github.com/jonmarrs/scrollgt) — **one of the two headline tools
    (with the renderer, item 3).**
-   Three registered ground-truth targets on the SOTA data (two train-exposed regions and a
+   Three registered pixel-level ground-truth targets on the SOTA data (two train-exposed regions and a
    held-out flagship Scroll-1 segment), each with full registration provenance, gates, and
    residual caveats in `meta.json`; the `scrollgt score` harness (PNG/npy probability maps
    → scorecard; verified to reproduce the published canon-teacher baseline to 4 decimals
@@ -130,7 +130,7 @@ review before release — that discipline is what the benchmark packages for eve
    (`repro/sota_data/render_cli.py`; docs at
    [SURFACE_RENDERER.md](https://github.com/jonmarrs/vesuvius-autoresearch/blob/main/docs/SURFACE_RENDERER.md)),
    accepting either a segment `original.obj` (with teacher-free coordinate-scale
-   inference) or, new this week, the **released tifxyz geometry grids** directly — the
+   inference) or, added 2026-07-18, the **released tifxyz geometry grids** directly — the
    format most bucket segments ship, with no scale ambiguity. **Label-free output** (no
    fabricated GT). **Validated against released surface volumes on two scrolls,
    pre-registered gate NCC ≥ 0.60:** Scroll 1 scored 0.59 (miss, attributed to a
@@ -191,7 +191,7 @@ measurement discipline, not as separate "easier to read" claims.*
    - *Ground-truth* results (vs human labels): the canon teacher scores ROC-AUC 0.56–0.70
      (segment-dependent); on a **held-out** segment the distilled students read **near chance
      (ROC-AUC ~0.55)** — the agreement-with-teacher gains were largely train-region fit.
-   - *Ground-truth fine-tuning* (new this week, a documented negative): fine-tuning the best
+   - *Ground-truth fine-tuning* (2026-07-11, a documented negative): fine-tuning the best
      student on the registered labels **reduced** held-out discrimination (ROC 0.558 → 0.531)
      and collapsed it to the trivial all-positive predictor — human-label supervision at this
      scale (2 segments) is not a cheap unlock.
@@ -268,7 +268,7 @@ The through-line is measurement honesty:
     artifact.)
   - → [registered_gt_validation.md](https://github.com/jonmarrs/vesuvius-autoresearch/blob/main/reports/detector/registered_gt_validation.md),
     [registered_gt_heldout_validation.md](https://github.com/jonmarrs/vesuvius-autoresearch/blob/main/reports/detector/registered_gt_heldout_validation.md)
-- **A per-segment quality map of the released canon prediction (new this week) — it reads
+- **A per-segment quality map of the released canon prediction (2026-07-12) — it reads
   its showcase family and little else.** Across all six Scroll-1 segments for which a 2023
   hand label, an `original.obj`, and a bridge mesh all exist, the teacher-enrichment
   orientation check fires on **exactly one** segment (20230702185753). On the other five the
@@ -277,7 +277,7 @@ The through-line is measurement honesty:
   independent, per-segment characterization of *where* the canon release is and isn't
   trustworthy — a datapoint no one outside the core team has published.
   → [orientation_probe_2026-07-11.md](https://github.com/jonmarrs/vesuvius-autoresearch/blob/main/reports/detector/orientation_probe_2026-07-11.md)
-- **The fit-vs-reading exhibit (new this week).** The *same* GT-fine-tuned model scores
+- **The fit-vs-reading exhibit (2026-07-13).** The *same* GT-fine-tuned model scores
   **ROC-AUC 0.954 on its own training region and 0.531 on the held-out target** — a
   0.42-ROC gap between memorizing labels and reading ink, in one benchmark, from one model.
   It is the sharpest single demonstration of why an eval must have a held-out surface and
