@@ -27,8 +27,8 @@ Two MIT-licensed tools, plus the honest measurement discipline behind them:
 2. **ScrollGT** — the held-out, human-ground-truth evaluation layer the reading effort
    lacks. It registers real ink labels onto the SOTA geometry, scores with an anti-gaming
    (false-positive) gate, and ships published baselines — including our own models, which
-   read **near chance held-out**. It answers the uncomfortable question nobody outside the
-   core team could previously test: *does your model read, or reproduce another model?*
+   read **near chance held-out**. It gives that question a teacher-independent answer:
+   *does your model read, or reproduce another model?*
 
 We do **not** claim a stronger reader — on held-out human ground truth our own models read
 at chance, and we publish that. We make the unreadable segments usable, and we give the
@@ -61,9 +61,14 @@ fibers). It makes previously-unusable data usable — the most literal "easier t
 contribution we have.
 
 **(2) ScrollGT — the held-out ground-truth evaluation layer.** The bucket ships surface
-volumes and *model predictions* but no human ground truth aligned to the new geometry, so
-nobody outside the core team can answer the basic question anyone building a reader needs
-answered: **does an ink model actually read, or does it reproduce another model?**
+volumes and *model predictions* with no aligned human labels. The released `ink-labels`
+(2026-07) dataset does publish masks aligned to sampled surface volumes, but for scrolls
+those labels "begin as hand-annotated ink strokes and are refined through iterative
+pseudo-labeling" — so a model scored against them cannot be told apart from a model that
+agrees with whatever refined them. That is exactly the question anyone building a reader
+needs answered: **does an ink model actually read, or does it reproduce another model?**
+ScrollGT answers it on a teacher-independent surface, by registering the 2023
+pre-pseudo-label human annotations onto the SOTA geometry.
 **[ScrollGT](https://github.com/jonmarrs/scrollgt)** registers the 2023 Grand-Prize-era human
 ink labels onto the SOTA geometry (exact `original.obj` UV bridge, ~8-voxel median residual,
 gated alignment validation) and provides a one-command scoring harness (threshold-swept F1
@@ -103,7 +108,7 @@ review before release — that discipline is what the benchmark packages for eve
 
 2. **ScrollGT's PHerc-1667 column-level target (new 2026-07-18)** — the first
    *non-training-scroll* held-out target, delivering held-out validation against ground
-   truth on a scroll where no pixel GT exists. The published reading's 22 scholar-validated
+   truth on a scroll with no teacher-independent pixel GT. The published reading's 22 scholar-validated
    columns (eight papyrologists' consensus, CC BY-NC 4.0) are registered onto the canonical
    merged geometry (method + three independent registration cross-checks in the linked
    report) and scored by a **granularity-honest contract** (`score-columns`: column-vs-gutter
@@ -168,7 +173,9 @@ measurement discipline, not as separate "easier to read" claims.*
    `s3://vesuvius-challenge-open-data/`, OME-Zarr region extraction, detector-format
    conversion with loud alignment guards, and a documented survey of what the bucket
    actually ships (re-flattened multiscale surface volumes + model predictions; **no
-   ground-truth ink labels aligned to the new geometry** — the gap ScrollGT fills).
+   aligned ground-truth ink labels in the bucket itself** — the separately-released
+   `ink-labels` (2026-07) dataset is pseudo-label-refined for scrolls, which is the gap
+   ScrollGT fills with teacher-independent labels).
 
 7. **SOTA distillation + ground-truth measurement pipeline** (`repro/sota_data/`) —
    teacher–student distillation from the released canon predictions onto SOTA surface volumes
@@ -245,7 +252,7 @@ The through-line is measurement honesty:
   geometry via the segment's `original.obj` vertex texture coordinates (nearest-vertex map,
   ~8 old-scan-voxel residual), gate on validated alignment before scoring, then measure.
   Two segments:
-  - **A datapoint nobody outside the core team has published:** the released canon prediction
+  - **A datapoint we have not seen published elsewhere:** the released canon prediction
     scores **ROC-AUC 0.56–0.70 vs human labels**, segment-dependent (0.70 on one, 0.56 on
     another where it reads the ink poorly). Agreement-with-teacher was therefore agreement
     with a *variable, often mediocre* proxy — not truth.
@@ -266,7 +273,7 @@ The through-line is measurement honesty:
   released prediction is too weak for enrichment to even validate the label's orientation.
   Combined with the ground-truth ROC-AUCs (0.49–0.73, segment-dependent), this is the first
   independent, per-segment characterization of *where* the canon release is and isn't
-  trustworthy — a datapoint no one outside the core team has published.
+  trustworthy — a datapoint we have not seen published elsewhere.
   → [orientation_probe_2026-07-11.md](https://github.com/jonmarrs/vesuvius-autoresearch/blob/main/reports/detector/orientation_probe_2026-07-11.md)
 - **The fit-vs-reading exhibit (2026-07-13).** The *same* GT-fine-tuned model scores
   **ROC-AUC 0.954 on its own training region and 0.531 on the held-out target** — a
@@ -297,11 +304,14 @@ The through-line is measurement honesty:
   (teacher-dependent) alignment gate false-negatived because the teacher is weak there, so
   validation used a codified teacher-free gate (residual + text-line periodicity) — disclosed
   in the report, in the ScrollGT metadata, and reproducible from the committed code.
-- **The clean cross-scroll ground-truth test is still blocked:** PHerc 1667 (and other
-  non-training scrolls) ship only model predictions, no released human labels (bucket
-  re-surveyed 2026-07-24: Scroll 2 ships no segments at all; Scroll 3 ships no labels; the
-  1667 merged segment is still mesh-only with no transcription artifacts in the bucket —
-  those scrolls are unread, which is why First Letters is open). ScrollGT v0.2 therefore targets
+- **The clean cross-scroll ground-truth test is still blocked:** the open bucket ships only
+  model predictions for PHerc 1667 and other non-training scrolls (re-surveyed 2026-07-24:
+  Scroll 2 ships no segments at all; Scroll 3 ships no labels; the 1667 merged segment is
+  still mesh-only with no transcription artifacts in the bucket). The released `ink-labels`
+  (2026-07) dataset **does** include a `1667/` collection, but its scroll labels are refined
+  by iterative pseudo-labeling, so they cannot serve as a teacher-independent surface for the
+  very question this benchmark exists to ask; we treat them as a model-derived reference, not
+  as ground truth. ScrollGT v0.2 therefore targets
   more Scroll-1 segments plus a PHerc-1667 path: now that 1667 has been read in full, the
   scholar-validated published reading is the first realistic non-Scroll-1 ground-truth
   source (transcription-level, coarser than pixel labels). Both steps are now done and
@@ -310,6 +320,16 @@ The through-line is measurement honesty:
   cross-scroll test stays blocked until aligned pixel labels exist.
 - The prior distillation held-out region also served as its best-epoch selection set (AP/ROC-AUC
   are threshold-free and unaffected); noted in that report.
+- **Relationship to the released `ink-labels` (2026-07) dataset.** That dataset publishes
+  binary ink masks aligned to sampled surface volumes, including a `1667/` collection, and we
+  do not claim otherwise. Our contribution is not "labels exist nowhere" but "for scrolls,
+  the published labels are themselves refined through iterative pseudo-labeling" (per the
+  dataset's own README), so scoring a model against them measures agreement with the refining
+  model as much as reading ability. ScrollGT deliberately registers the *2023
+  pre-pseudo-label* human annotations instead, to obtain a surface that no current model has
+  fed into. The two are complementary: `ink-labels` is the larger training resource, ScrollGT
+  is the smaller teacher-independent evaluation surface. Scoring against both is strictly
+  more informative than either alone.
 - We claim an **honest, reproducible measurement layer** for the SOTA data — registered
   ground truth, a scoring contract with an anti-gaming gate, published baselines with
   negatives — plus the documented finding that distillation-from-canon does not, on this
