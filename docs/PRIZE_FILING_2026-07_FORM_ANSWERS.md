@@ -11,7 +11,11 @@ https://github.com/jonmarrs/vesuvius-autoresearch (methodology, renderer)
 **Community listing PR:** https://github.com/ScrollPrize/villa/pull/1280
 **Discord announcement:** posted to `#robots` 2026-07-29 (verbatim record in
 `DISCORD_POSTED_robots_2026-07-29.md`, local-only)
-**Status:** NOT YET FILED as of 2026-07-29.
+**Status:** **FILED 2026-07-29** via https://forms.gle/xoF5C3QsYutKP97x7, two days ahead of
+the 2026-07-31 11:59pm PT deadline. (June 2026 was drafted and never filed; July did not
+lapse.) Submitted text: `PRIZE_FILING_2026-07_SUBMIT.md` as of commit 06e4f4d0, which
+includes the ink-labels claim corrections. Community listing PR #1280 open at filing time;
+Discord announcement already posted to `#robots`.
 
 Why this is a separate file rather than inlined the way `PROGRESS_PRIZE_SUBMISSION_2026-05.md`
 inlined its form metadata: `PRIZE_FILING_2026-07_SUBMIT.md` is pasted verbatim into the form's
