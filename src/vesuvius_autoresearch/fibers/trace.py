@@ -450,3 +450,217 @@ def trace_fibers(
 
     result.stop_counts = counts
     return result
+
+
+# --- fragment re-linking -----------------------------------------------------
+#
+# The connectivity evaluation showed fragmentation, not detection, is what limits
+# this tracer: coverage of ground-truth length reached 0.69-0.88, but each true
+# fiber was recovered as 10-26 separate instances, so expected run length stayed
+# far below a connected-components baseline
+# (`reports/fiber_connectivity_eval.md`).
+#
+# Re-linking joins fragments that are plausibly the same fiber. The asymmetry
+# that governs every threshold here: a wrong link is a MERGE, and a merge
+# corrupts the U/V parameterization fibers are wanted for, whereas the split it
+# would have fixed merely fails to help. So the acceptance test is deliberately
+# strict, and `max_link_angle_deg` defaults tighter than the tracer's own
+# per-step turn limit.
+
+
+@dataclass
+class RelinkParams:
+    max_gap: float = 6.0
+    """Longest gap to bridge, in voxels. Beyond this the evidence that two
+    fragments are one fiber is too weak to act on."""
+
+    max_link_angle_deg: float = 20.0
+    """Each fragment's outgoing tangent must point at the other fragment, and
+    vice versa, within this angle. Tighter than the tracer's per-step limit
+    because a link is a single irreversible commitment rather than one step among
+    many."""
+
+    max_tangent_angle_deg: float = 25.0
+    """The two tangents must additionally be near-antiparallel, which rules out
+    joining fragments that run side by side rather than end to end."""
+
+    endpoint_window: int = 4
+    """Points averaged at each end to estimate the outgoing tangent. One point is
+    too noisy; too many blurs genuine curvature."""
+
+    gap_weight: float = 1.0
+    angle_weight: float = 0.15
+    """Cost is `gap_weight * gap + angle_weight * total_angle_deg`; used only to
+    order candidates, since matching is greedy best-first."""
+
+    gap_fill_step: float = 0.7
+    """Spacing of interpolated points inserted across a bridged gap, matching the
+    tracer's own step. Without filling, a link changes the instance count but no
+    connectivity metric, because the gap stays background in the rasterization."""
+
+
+def _endpoint_tangents(
+    points: np.ndarray, window: int
+) -> tuple[np.ndarray, np.ndarray]:
+    """Outward-pointing unit tangents at the start and end of a polyline."""
+    n = len(points)
+    w = max(1, min(window, n - 1))
+    start_dir = points[0] - points[w]
+    end_dir = points[-1] - points[-1 - w]
+    out = []
+    for d in (start_dir, end_dir):
+        nrm = float(np.linalg.norm(d))
+        out.append(d / nrm if nrm > 1e-9 else np.zeros(3))
+    return out[0], out[1]
+
+
+def _angle_deg(a: np.ndarray, b: np.ndarray) -> float:
+    na, nb = float(np.linalg.norm(a)), float(np.linalg.norm(b))
+    if na < 1e-9 or nb < 1e-9:
+        return 180.0
+    c = float(np.dot(a, b) / (na * nb))
+    return float(np.degrees(np.arccos(max(-1.0, min(1.0, c)))))
+
+
+def relink_fragments(
+    result: TraceResult, params: RelinkParams | None = None
+) -> TraceResult:
+    """Join collinear fragment endpoints into longer fibers.
+
+    Greedy best-first over candidate links. Each endpoint may be used at most
+    once, and links that would close a cycle are rejected, so the output is a set
+    of chains. Fragments are concatenated in order, giving a single instance per
+    chain.
+
+    Returns a new `TraceResult`; the input is not modified, so a caller can score
+    both and report the difference rather than only the improved number.
+    """
+    params = params or RelinkParams()
+    frags = result.fibers
+    n = len(frags)
+    if n < 2:
+        return TraceResult(
+            fibers=list(frags),
+            shape=result.shape,
+            stop_counts=dict(result.stop_counts),
+            n_seeds_tried=result.n_seeds_tried,
+        )
+
+    # endpoint index: 2*i = start of fragment i, 2*i + 1 = end
+    pos = np.zeros((2 * n, 3), dtype=float)
+    tan = np.zeros((2 * n, 3), dtype=float)
+    for i, f in enumerate(frags):
+        t0, t1 = _endpoint_tangents(f.points, params.endpoint_window)
+        pos[2 * i], tan[2 * i] = f.points[0], t0
+        pos[2 * i + 1], tan[2 * i + 1] = f.points[-1], t1
+
+    cands = []
+    for a in range(2 * n):
+        fa = a // 2
+        for b in range(a + 1, 2 * n):
+            if b // 2 == fa:
+                continue
+            d = pos[b] - pos[a]
+            gap = float(np.linalg.norm(d))
+            if gap > params.max_gap or gap <= 0:
+                continue
+            ang_a = _angle_deg(tan[a], d)
+            ang_b = _angle_deg(tan[b], -d)
+            if ang_a > params.max_link_angle_deg or ang_b > params.max_link_angle_deg:
+                continue
+            # Near-antiparallel tangents: end-to-end, not side-by-side.
+            if _angle_deg(tan[a], -tan[b]) > params.max_tangent_angle_deg:
+                continue
+            cost = params.gap_weight * gap + params.angle_weight * (ang_a + ang_b)
+            cands.append((cost, a, b))
+
+    cands.sort()
+    used = np.zeros(2 * n, dtype=bool)
+    parent = list(range(n))
+
+    def find(x):
+        while parent[x] != x:
+            parent[x] = parent[parent[x]]
+            x = parent[x]
+        return x
+
+    links: dict[int, int] = {}
+    for _cost, a, b in cands:
+        if used[a] or used[b]:
+            continue
+        ra, rb = find(a // 2), find(b // 2)
+        if ra == rb:  # would close a cycle
+            continue
+        used[a] = used[b] = True
+        parent[ra] = rb
+        links[a] = b
+        links[b] = a
+
+    # Walk each chain from an unlinked endpoint, concatenating fragments.
+    visited = np.zeros(n, dtype=bool)
+    out: list[TracedFiber] = []
+    order = [i for i in range(n) if not (used[2 * i] and used[2 * i + 1])] + list(
+        range(n)
+    )
+    for seed in order:
+        if visited[seed]:
+            continue
+        # start from whichever end of `seed` is free, if any
+        start_ep = 2 * seed if not used[2 * seed] else 2 * seed + 1
+        chain_pts: list[np.ndarray] = []
+        resp_mean: list[float] = []
+        resp_min: list[float] = []
+        ep = start_ep
+        while True:
+            fi = ep // 2
+            if visited[fi]:
+                break
+            visited[fi] = True
+            pts = frags[fi].points
+            # traverse from the entry endpoint toward the far end
+            if ep % 2 == 1:
+                pts = pts[::-1]
+            chain_pts.append(pts)
+            resp_mean.append(frags[fi].mean_response)
+            resp_min.append(frags[fi].min_response)
+            far = 2 * fi + (0 if ep % 2 == 1 else 1)
+            nxt = links.get(far)
+            if nxt is None:
+                break
+            ep = nxt
+        if not chain_pts:
+            continue
+        # Fill each bridged gap with interpolated points. Concatenating the
+        # fragment polylines alone leaves the gap unlabelled, so a downstream
+        # rasterization still shows background between them and the ground-truth
+        # run stays broken: the link would reduce the instance count while
+        # changing no connectivity metric at all. Asserting the link means
+        # asserting the fiber continues through the gap, so the geometry has to
+        # say so too.
+        bridged: list[np.ndarray] = [chain_pts[0]]
+        for prev_seg, next_seg in zip(chain_pts, chain_pts[1:], strict=False):
+            a, b = prev_seg[-1], next_seg[0]
+            gap = float(np.linalg.norm(b - a))
+            n_fill = int(np.floor(gap / max(params.gap_fill_step, 1e-6)))
+            if n_fill > 0:
+                ts = np.linspace(0.0, 1.0, n_fill + 2)[1:-1]
+                bridged.append(a[None, :] + (b - a)[None, :] * ts[:, None])
+            bridged.append(next_seg)
+        merged = np.concatenate(bridged, axis=0)
+        first, last = frags[start_ep // 2], frags[ep // 2]
+        out.append(
+            TracedFiber(
+                points=merged,
+                mean_response=float(np.mean(resp_mean)),
+                min_response=float(np.min(resp_min)),
+                stop_start=first.stop_start,
+                stop_end=last.stop_end,
+            )
+        )
+
+    return TraceResult(
+        fibers=out,
+        shape=result.shape,
+        stop_counts=dict(result.stop_counts),
+        n_seeds_tried=result.n_seeds_tried,
+    )

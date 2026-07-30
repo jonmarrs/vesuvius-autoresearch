@@ -67,6 +67,51 @@ them. This is a property of the tolerance, not of the harness: at tolerance 0 th
 exact, and a unit test pins that. It also sets a practical ceiling — no method can score better
 than 127.69 / 1 merge at this tolerance on this cube.
 
+## Fragment re-linking: attempted, marginal (2026-07-30)
+
+Re-linking joins fragment endpoints whose tangents are collinear across a short gap, with
+strict thresholds because a wrong link is a merge. Implemented in `trace.relink_fragments`,
+13 tests including every refusal case (perpendicular, side-by-side, over-long gap, three-way
+junction, cycles).
+
+| Row | ERL | ERLpen | coverage | splits | merges | n inst |
+| --- | --- | --- | --- | --- | --- | --- |
+| **floor: connected components** | **110.66** | 22.47 | 0.960 | 24 | 11 | 41 |
+| tracer strict | 27.87 | 24.27 | 0.686 | 220 | 5 | 104 |
+| tracer strict + relink (best) | **29.51** | **25.32** | 0.688 | 214 | 6 | 89 |
+| tracer balanced | 23.14 | 20.17 | 0.827 | 353 | 5 | 200 |
+| tracer balanced + relink (best) | 23.23 | 20.26 | 0.829 | 346 | 5 | 167 |
+
+**A real defect was found and fixed en route.** The first implementation concatenated fragment
+point lists without filling the bridged gap, so the rasterized instance stayed discontinuous:
+the instance count fell 200 -> 167 while ERL moved 23.14 -> 23.17, a link that changed no
+connectivity metric at all. Filling gaps with interpolated points is now done and regression
+tested. It is a good example of why instance count is not a proxy for connectivity.
+
+**The gain is nonetheless marginal: +6% ERL on the strict setting, ~0 on balanced.** Re-linking
+removes only 4-6 splits out of 214-353. The remaining fragments fail the collinearity test
+legitimately: walks stop on `high_curvature`, which means the direction really was changing at
+the endpoint, so the tangents disagree and a strict linker correctly refuses.
+
+## Assessment after three attempts at the limiting error
+
+The tracer is at **29.51 ERL against a 110.66 connected-components baseline**, having gone
+through: classical vesselness (chance), the learned semantic model (detection solved),
+orientation from the probability field (5x coverage), and now re-linking (+6%). The gap is not
+closing incrementally.
+
+Connected components is a genuinely strong method on this data because the semantic model
+already separates most fibers in this cube; it pays 11 merges for that, but 11 merges over 22
+fibers still leaves long runs. Our tracer trades those merges away (5-6) and loses far more to
+fragmentation than it gains.
+
+**The defensible contribution here is the measurement layer, not the tracer.** Specifically: the
+first ERL/split/merge harness for scroll fiber tracing, the anti-gaming floors, the finding that
+all five floors score identical coverage and precision so those metrics cannot rank a tracer,
+and the finding that **connected components is a strong baseline that a real tracer must beat**.
+That is a directly useful result for anyone else entering this lane, and it is the same shape of
+contribution as ScrollGT.
+
 ## Next step, and what it is not
 
 The fix is **not** more tuning: the sweep already shows the knob is monotone and the ceiling on
