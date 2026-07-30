@@ -139,6 +139,131 @@ def compute_eigenvalues_3x3_batch(J):
     return eigenvalues
 
 
+def symmetrize_upper(J):
+    """
+    Mirror the upper triangle of a batched 3x3 into a full symmetric matrix.
+
+    `hessian()` fills only the upper triangle (the lower entries are left at
+    zero, see the commented-out assignments there) because
+    `compute_eigenvalues_3x3_batch` reads only a11/a22/a33/a12/a13/a23. Anything
+    that needs real matrix algebra -- eigenvectors, matrix-vector products --
+    must mirror it first or it silently operates on a non-symmetric matrix.
+    """
+    xp, _ = get_backend(J)
+    A = xp.copy(J)
+    A[..., 1, 0] = A[..., 0, 1]
+    A[..., 2, 0] = A[..., 0, 2]
+    A[..., 2, 1] = A[..., 1, 2]
+    return A
+
+
+def compute_eigenvectors_3x3_batch(J, eigenvalues, index, eps=1e-8):
+    """
+    Closed-form unit eigenvector for one eigenvalue of a batched symmetric 3x3.
+
+    Companion to `compute_eigenvalues_3x3_batch`, which returns eigenvalues
+    only. A fiber tracer needs the local *direction*, so it needs eigenvectors.
+    Same motivation as the eigenvalue solver: CuPy's batched `eigh` fails on
+    large batches of small matrices, so we avoid it entirely.
+
+    Method (Eberly): the eigenvector for eigenvalue L lies in the null space of
+    (A - L*I). Two independent rows of that matrix span its row space, so their
+    cross product spans the null space. All three pairwise cross products are
+    computed and the largest is selected, which is the numerically stable
+    choice.
+
+    Args:
+        J: (..., 3, 3) upper-triangular-symmetric matrices, as `hessian()` emits.
+        eigenvalues: (..., 3) ascending eigenvalues from
+            `compute_eigenvalues_3x3_batch`.
+        index: which eigenvalue to take the eigenvector of (0, 1 or 2 in the
+            ascending order).
+        eps: squared-norm floor below which the null space is treated as
+            degenerate.
+
+    Returns:
+        (vectors, valid) where vectors is (..., 3) unit vectors in the array's
+        own axis order -- component 0 is the axis-2 (x) direction, component 1
+        is axis-1 (y), component 2 is axis-0 (z), matching `hessian()`'s
+        convention -- and valid is a boolean (...) mask. Where valid is False
+        the eigenvalue is repeated (so the eigenvector is not unique) or the
+        voxel is near-isotropic; vectors is set to zero there rather than to an
+        arbitrary direction. Callers must respect the mask: this module has had
+        silent-zero and NaN bugs before, and an arbitrary "direction" is exactly
+        the kind of value a tracer would follow off a fiber.
+    """
+    xp, _ = get_backend(J)
+    A = symmetrize_upper(J)
+    L = eigenvalues[..., index]
+
+    # A - L*I
+    M = xp.copy(A)
+    M[..., 0, 0] -= L
+    M[..., 1, 1] -= L
+    M[..., 2, 2] -= L
+
+    r0 = M[..., 0, :]
+    r1 = M[..., 1, :]
+    r2 = M[..., 2, :]
+
+    c0 = xp.cross(r0, r1)
+    c1 = xp.cross(r0, r2)
+    c2 = xp.cross(r1, r2)
+
+    n0 = xp.sum(c0 * c0, axis=-1)
+    n1 = xp.sum(c1 * c1, axis=-1)
+    n2 = xp.sum(c2 * c2, axis=-1)
+
+    norms = xp.stack([n0, n1, n2], axis=-1)
+    best = xp.argmax(norms, axis=-1)
+    best_norm = xp.max(norms, axis=-1)
+
+    cand = xp.stack([c0, c1, c2], axis=-2)  # (..., 3, 3)
+    vectors = xp.take_along_axis(cand, best[..., None, None], axis=-2)[..., 0, :]
+
+    valid = best_norm > eps
+    # Normalize only where valid; elsewhere emit an explicit zero vector.
+    denom = xp.sqrt(xp.where(valid, best_norm, xp.ones_like(best_norm)))
+    vectors = vectors / denom[..., None]
+    vectors = xp.where(valid[..., None], vectors, xp.zeros_like(vectors))
+    return vectors, valid
+
+
+def fiber_direction(J, eigenvalues=None, eps=1e-8):
+    """
+    Local fiber tangent direction from the Hessian.
+
+    For a tube-like structure the second derivative along the tube is close to
+    zero while the two cross-sectional curvatures are large, so the tangent is
+    the eigenvector of the **smallest-magnitude** eigenvalue. Selecting by
+    magnitude rather than by a fixed index keeps this correct for both bright
+    and dark structures, since the sign pattern flips between them.
+
+    Returns (directions, valid) with the same conventions as
+    `compute_eigenvectors_3x3_batch`.
+    """
+    xp, _ = get_backend(J)
+    if eigenvalues is None:
+        eigenvalues = compute_eigenvalues_3x3_batch(J)
+    idx = xp.argmin(xp.abs(eigenvalues), axis=-1)
+
+    # Gather per-voxel: solve for each of the three indices, then select. The
+    # volumes here are tiled to at most block_size^3, so three passes is a
+    # reasonable trade for keeping the closed form simple and branch-free.
+    vecs = []
+    valids = []
+    for k in range(3):
+        v, ok = compute_eigenvectors_3x3_batch(J, eigenvalues, k, eps=eps)
+        vecs.append(v)
+        valids.append(ok)
+    vecs = xp.stack(vecs, axis=-2)  # (..., 3, 3)
+    valids = xp.stack(valids, axis=-1)  # (..., 3)
+
+    directions = xp.take_along_axis(vecs, idx[..., None, None], axis=-2)[..., 0, :]
+    valid = xp.take_along_axis(valids, idx[..., None], axis=-1)[..., 0]
+    return directions, valid
+
+
 def detect_ridges(
     volume, gamma=1.5, beta1=0.5, beta2=0.5, gauss_sigma=2, sigma=6, norm_range=None
 ):
