@@ -101,6 +101,17 @@ def export(stem: str, out_root: pathlib.Path, bench: dict) -> None:
 
     mask = prob >= THRESHOLD
     n_in_bounds = sum(int(f.in_bounds_mask(shape).sum()) for f in skel.fibers)
+    # Same filter the benchmark uses (bench_cli.py::_load_cube) to decide which
+    # fibers are scoreable: a fiber needs at least two in-bounds nodes to
+    # contribute a measurable run, so 0- and 1-node fibers are excluded.
+    n_fibers_scored = sum(1 for f in skel.fibers if f.in_bounds_mask(shape).sum() > 1)
+    n_gt_fibers = bench["cubes"][stem]["rows"]["oracle"]["n_gt_fibers"]
+    if n_fibers_scored != n_gt_fibers:
+        raise SystemExit(
+            f"{stem}: n_fibers_scored={n_fibers_scored} != floors.oracle.n_gt_fibers="
+            f"{n_gt_fibers} — the scoreable-fiber filter no longer matches the "
+            f"benchmark; do not ship a meta.json with unreconciled fiber counts"
+        )
 
     out = out_root / f"fibers_{stem}"
     out.mkdir(parents=True, exist_ok=True)
@@ -117,6 +128,12 @@ def export(stem: str, out_root: pathlib.Path, bench: dict) -> None:
         "cube": stem,
         "scroll": "Scroll 5" if stem.startswith("s5_") else "Scroll 1 (PHerc. Paris 4)",
         "split": "cross_scroll" if stem == CROSS_SCROLL_SPLIT else "primary",
+        "split_note": (
+            "'cross_scroll' is a labelled reporting convention, not held-out "
+            "secrecy: the ground truth comes from a public villa dataset and "
+            "cannot be hidden. This split exists to report transfer across "
+            "scrolls, not to withhold labels from entrants."
+        ),
         "shape": list(shape),
         "origin_zyx": list(origin_from_stem(stem)),
         "voxel_size_um": VOXEL_UM,
@@ -128,10 +145,14 @@ def export(stem: str, out_root: pathlib.Path, bench: dict) -> None:
             ),
             "source_file": f"nml/{stem}.nml",
             "n_fibers": len(skel.fibers),
+            "n_fibers_scored": n_fibers_scored,
             "n_nodes_in_bounds": n_in_bounds,
             "note": (
-                "Annotators traced beyond the cube boundary, so a substantial "
-                "fraction of nodes fall outside and are excluded from scoring."
+                "n_fibers is every fiber in the raw NML trace. n_fibers_scored "
+                "(and floors.*.n_gt_fibers) is smaller: it excludes fibers with 0 "
+                "or 1 in-bounds nodes, since a fiber needs at least two in-bounds "
+                "nodes to contribute a measurable run. Annotators traced beyond "
+                "the cube boundary, so this gap reaches ~12% on the shipped cubes."
             ),
         },
         "convention_check": {
@@ -157,7 +178,10 @@ def export(stem: str, out_root: pathlib.Path, bench: dict) -> None:
     (out / "meta.json").write_text(json.dumps(meta, indent=2) + "\n")
 
     kb = (out / "mask.npz").stat().st_size / 1e3
-    print(f"{stem}: {len(skel.fibers)} fibers, landing {rate:.4f}, mask {kb:.0f} KB")
+    print(
+        f"{stem}: {len(skel.fibers)} fibers ({n_fibers_scored} scored), "
+        f"landing {rate:.4f}, mask {kb:.0f} KB"
+    )
 
 
 def main() -> None:
