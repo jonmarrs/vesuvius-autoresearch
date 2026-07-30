@@ -231,7 +231,7 @@ def compute_eigenvectors_3x3_batch(J, eigenvalues, index, eps=1e-8):
 
 def fiber_direction(J, eigenvalues=None, eps=1e-8):
     """
-    Local fiber tangent direction from the Hessian.
+    Local fiber tangent direction from the Hessian, in **(z, y, x)** order.
 
     For a tube-like structure the second derivative along the tube is close to
     zero while the two cross-sectional curvatures are large, so the tangent is
@@ -239,7 +239,18 @@ def fiber_direction(J, eigenvalues=None, eps=1e-8):
     magnitude rather than by a fixed index keeps this correct for both bright
     and dark structures, since the sign pattern flips between them.
 
-    Returns (directions, valid) with the same conventions as
+    IMPORTANT, and the source of a real bug during development: `hessian()`
+    builds its matrix with index 0 <-> x, 1 <-> y, 2 <-> z, so the raw
+    eigenvectors from `compute_eigenvectors_3x3_batch` come out in (x, y, z)
+    order -- the reverse of how volumes are indexed everywhere else here
+    (`vol[z, y, x]`). Walking a volume with an (x, y, z) direction vector moves
+    along the wrong axis and looks superficially plausible. This function
+    therefore returns the tangent **reversed into (z, y, x)** so it can be added
+    directly to a (z, y, x) position. Use this for anything that steps through a
+    volume; use `compute_eigenvectors_3x3_batch` directly only if you want the
+    literal eigenvector of J.
+
+    Returns (directions, valid); `valid` semantics are unchanged from
     `compute_eigenvectors_3x3_batch`.
     """
     xp, _ = get_backend(J)
@@ -261,6 +272,10 @@ def fiber_direction(J, eigenvalues=None, eps=1e-8):
 
     directions = xp.take_along_axis(vecs, idx[..., None, None], axis=-2)[..., 0, :]
     valid = xp.take_along_axis(valids, idx[..., None], axis=-1)[..., 0]
+    # (x, y, z) from hessian()'s matrix convention -> (z, y, x) to match volume
+    # indexing. See the note in this function's docstring; getting this wrong
+    # makes a tracer walk along the wrong axis while still looking plausible.
+    directions = directions[..., ::-1]
     return directions, valid
 
 

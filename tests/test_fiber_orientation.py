@@ -104,11 +104,50 @@ def test_upper_triangular_input_matches_full_symmetric():
         np.testing.assert_allclose(cos, np.ones_like(cos), atol=1e-6)
 
 
+def test_fiber_direction_returns_zyx_order():
+    """`fiber_direction` must return (z, y, x), not `hessian()`'s (x, y, z).
+
+    Regression test for a real bug: the raw eigenvector is in the Hessian's
+    matrix order (0<->x, 1<->y, 2<->z), so returning it unreversed made the
+    tracer step along z while following a fiber that ran along x. It looked
+    plausible and produced zero fibers.
+    """
+    n = 48
+    vol = np.zeros((n, n, n), dtype=float)
+    zz, yy = np.mgrid[0:n, 0:n]
+    disc = (zz - n // 2) ** 2 + (yy - n // 2) ** 2 <= 3.0**2
+    vol[disc, :] = 1.0  # tube along axis 2 (x)
+
+    J, _ = hessian(vol, gauss_sigma=1, sigma=2)
+    dirs, valid = fiber_direction(J)
+
+    core = np.zeros((n, n, n), dtype=bool)
+    core[disc, :] = True
+    core[:, :, : n // 4] = False
+    core[:, :, -n // 4 :] = False
+    sel = core & valid
+    assert sel.sum() > 100
+
+    # In (z, y, x) the tube tangent is the LAST component.
+    assert np.median(np.abs(dirs[sel][:, 2])) > 0.95
+    assert np.median(np.abs(dirs[sel][:, 0])) < 0.2
+
+    # It is exactly the reverse of the raw eigenvector for the smallest-|lambda|
+    # index. Note the index is chosen per voxel, so it is not a fixed 2.
+    evals = compute_eigenvalues_3x3_batch(J)
+    idx = np.argmin(np.abs(evals), axis=-1)
+    raw = np.stack(
+        [compute_eigenvectors_3x3_batch(J, evals, k)[0] for k in range(3)], axis=-2
+    )
+    chosen = np.take_along_axis(raw, idx[..., None, None], axis=-2)[..., 0, :]
+    np.testing.assert_allclose(dirs[sel], chosen[sel][:, ::-1], atol=1e-12)
+
+
 def test_fiber_direction_recovers_a_synthetic_tube_axis():
     """A bright cylinder along x must yield a tangent parallel to x.
 
-    This is the end-to-end contract: raw volume -> hessian -> direction. Index
-    0 of the returned vector is the axis-2 (x) component, per `hessian()`.
+    End-to-end contract: raw volume -> hessian -> direction. The returned vector
+    is (z, y, x), so the x component is index 2.
     """
     n = 48
     vol = np.zeros((n, n, n), dtype=float)
@@ -128,7 +167,7 @@ def test_fiber_direction_recovers_a_synthetic_tube_axis():
     sel = core & valid
     assert sel.sum() > 100, "expected a usable number of valid core voxels"
 
-    ax = np.abs(dirs[sel][:, 0])  # x-component
+    ax = np.abs(dirs[sel][:, 2])  # x-component, last in (z, y, x)
     assert np.median(ax) > 0.95, (
         f"tangent not along the tube axis (median |x|={np.median(ax):.3f})"
     )
