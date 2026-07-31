@@ -67,6 +67,39 @@ class TraceParams:
     step: float = 0.7
     """Step length in voxels. Sub-voxel so the walk cannot skip past a thin fiber."""
 
+    tangent_window: int = 1
+    """Compare each step against the mean of the last `tangent_window` directions
+    rather than against the single previous step.
+
+    `step` is sub-voxel while `_direction_at` is nearest-neighbour, so the
+    orientation field is piecewise-constant and jumps at voxel boundaries. With a
+    window of 1, a single noisy voxel ends a walk permanently -- measured as 46%
+    of all stops on a real cube. A window spanning two voxels (`ceil(2 / step)`,
+    i.e. 3 at the default step) averages that out while leaving `max_angle_deg`
+    untouched, so a sustained bend still terminates the walk.
+
+    Defaults to 1, which is exactly the published baseline's behaviour.
+    """
+
+    max_skip_steps: int = 0
+    """Consecutive curvature rejections to coast through before giving up.
+
+    Smoothing the reference cannot reject a bad *sample*: at a wildly-wrong
+    voxel the incoming direction is perpendicular, so the turn test fails
+    however stable the reference is. Coasting steps along the reference instead
+    of terminating, and resumes as soon as the field agrees again.
+
+    2 at the default step of 0.7 voxels spans ~1.4 voxels -- enough to cross one
+    corrupted voxel, not enough to cross a genuine fiber boundary and keep
+    going. The counter resets on any accepted step, so this is a budget for
+    *consecutive* rejections; a walk that keeps coasting is following something
+    the field does not support and must still stop.
+
+    This is the parameter most likely to buy merges, since coasting is exactly
+    how a walk could cross into a neighbour. Defaults to 0, the published
+    baseline's behaviour.
+    """
+
     max_steps: int = 4000
     min_length: float = 8.0
     """Discard walks shorter than this; they are noise, not fibers."""
@@ -256,16 +289,38 @@ def _walk(
     resp: list[float] = []
     p = start.astype(float).copy()
     prev = seed_dir.copy()
+    window = max(1, int(params.tangent_window))
+    budget = max(0, int(params.max_skip_steps))
+    recent: list[np.ndarray] = [seed_dir.copy()]
+    skipped = 0
     reason = StopReason.MAX_LENGTH
 
     for _ in range(params.max_steps):
-        d = _direction_at(dirs, valid, p, prev)
+        # Reference tangent: sign-aligned mean of the recent directions. The
+        # orientation field is defined only up to sign, so each entry is flipped
+        # into the frame of the first before averaging -- otherwise two equally
+        # valid opposing vectors cancel to near-zero.
+        ref = np.zeros(3, dtype=float)
+        for q in recent:
+            ref += q if float(np.dot(q, recent[0])) >= 0.0 else -q
+        n_ref = float(np.linalg.norm(ref))
+        ref = prev if n_ref < 1e-8 else ref / n_ref
+
+        d = _direction_at(dirs, valid, p, ref)
         if d is None:
             reason = StopReason.INVALID_DIRECTION
             break
-        if float(np.dot(d, prev)) < cos_limit:
-            reason = StopReason.HIGH_CURVATURE
-            break
+        if float(np.dot(d, ref)) < cos_limit:
+            # Coast: the sample disagrees, but a bounded run of disagreement is
+            # a corrupted voxel rather than a real turn. Step along the
+            # reference and try again; give up once the budget is spent.
+            skipped += 1
+            if skipped > budget:
+                reason = StopReason.HIGH_CURVATURE
+                break
+            d = ref
+        else:
+            skipped = 0
 
         nxt = p + d * params.step
         idx = tuple(int(round(v)) for v in nxt)
@@ -289,6 +344,9 @@ def _walk(
         pts.append(nxt.copy())
         resp.append(r)
         prev = d
+        recent.append(d.copy())
+        if len(recent) > window:
+            recent.pop(0)
         p = nxt
 
     return pts, resp, reason

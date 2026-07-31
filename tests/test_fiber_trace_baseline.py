@@ -89,3 +89,93 @@ def test_single_corrupted_voxel_splits_the_fiber_today():
         "test no longer pins the defect and must be rewritten before proceeding"
     )
     assert len(res) == 2, f"expected the fiber to be split in two, got {len(res)}"
+
+
+def test_coasting_survives_a_single_corrupted_voxel():
+    """Fix A, mechanism 2: one bad voxel must no longer split the fiber.
+
+    Smoothing alone cannot do this. At the corrupted voxel the incoming
+    direction is perpendicular, so dot(d, ref) fails the threshold whether the
+    reference is smoothed or not. The coast budget is what carries this case.
+    """
+    response, seed, dirs, valid = _straight_tube()
+    dirs[20, 20, 20] = np.array([0.0, 1.0, 0.0])
+
+    res = trace_fibers(
+        response=response,
+        seed_response=seed,
+        directions=dirs,
+        valid=valid,
+        params=TraceParams(tangent_window=3, max_skip_steps=2, **BASE),
+    )
+    assert len(res) == 1, f"expected one unbroken fiber, got {len(res)}"
+    assert res.fibers[0].length > 25.0
+    assert res.stop_counts.get("high_curvature", 0) == 0
+
+
+def test_smoothing_alone_does_not_rescue_an_outlier():
+    """Pins the limit of mechanism 1, so the two are not confused later."""
+    response, seed, dirs, valid = _straight_tube()
+    dirs[20, 20, 20] = np.array([0.0, 1.0, 0.0])
+
+    res = trace_fibers(
+        response=response,
+        seed_response=seed,
+        directions=dirs,
+        valid=valid,
+        params=TraceParams(tangent_window=3, max_skip_steps=0, **BASE),
+    )
+    assert res.stop_counts.get("high_curvature", 0) >= 1, (
+        "smoothing the reference cannot reject a bad sample; if this now passes, "
+        "the coast budget is leaking into the smoothing-only path"
+    )
+
+
+def test_coasting_still_stops_at_a_genuine_bend():
+    """Fix A must not silently disable the curvature test.
+
+    A sustained 90-degree turn is a real direction change, not noise, and must
+    still terminate the walk once the coast budget is exhausted.
+    """
+    shape = (40, 40, 40)
+    response = np.zeros(shape, dtype=float)
+    seed = np.zeros(shape, dtype=float)
+    dirs = np.zeros(shape + (3,), dtype=float)
+    valid = np.zeros(shape, dtype=bool)
+
+    # an L: along z for the first half, along y for the second
+    for z in range(5, 21):
+        response[z, 19:22, 19:22] = 1.0
+        seed[z, 20, 20] = 1.0
+        dirs[z, 19:22, 19:22] = np.array([1.0, 0.0, 0.0])
+        valid[z, 19:22, 19:22] = True
+    for y in range(20, 36):
+        response[19:22, y, 19:22] = 1.0
+        dirs[19:22, y, 19:22] = np.array([0.0, 1.0, 0.0])
+        valid[19:22, y, 19:22] = True
+
+    res = trace_fibers(
+        response=response,
+        seed_response=seed,
+        directions=dirs,
+        valid=valid,
+        params=TraceParams(tangent_window=3, max_skip_steps=2, **BASE),
+    )
+    assert res.stop_counts.get("high_curvature", 0) >= 1, (
+        "a sustained 90-degree bend must still stop a walk"
+    )
+
+
+def test_window_one_and_no_skip_is_exactly_the_old_behaviour():
+    response, seed, dirs, valid = _straight_tube()
+    dirs[20, 20, 20] = np.array([0.0, 1.0, 0.0])
+
+    old = trace_fibers(
+        response=response,
+        seed_response=seed,
+        directions=dirs,
+        valid=valid,
+        params=TraceParams(tangent_window=1, max_skip_steps=0, **BASE),
+    )
+    assert old.stop_counts.get("high_curvature", 0) >= 1
+    assert len(old) == 2
