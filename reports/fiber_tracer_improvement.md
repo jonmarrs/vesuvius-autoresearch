@@ -164,3 +164,97 @@ result and the work proceeds to Task 4.
 
 **Configurations tried so far: 5** (baseline; window 3/skip 0; window 3/skip 2;
 window 5/skip 0; window 3/skip 1).
+
+## Fix B: seed NMS, and both fixes together
+
+Ran the two required configurations from the brief on both dev cubes: NMS alone
+(`--seed-nms-radius 2.0`, window/skip at published baseline) and NMS combined with the
+best smoothing setting Task 3 found (`--tangent-window 5 --max-skip-steps 0
+--seed-nms-radius 2.0`). No additional tuning was performed; this is exactly the 4-run
+menu specified, nothing more.
+
+| cube | window | skip | nms | ERL | ERLpen | cc ERLpen | coverage | splits | merges | n inst | collisions |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| s1_00497_01497_03997 | 1 | 0 | 0.0 (base) | 26.60 | 23.16 | 37.13 | 0.623 | 1872 | 38 | 669 | 455 |
+| s1_00497_01497_03997 | 1 | 0 | 2.0 | 26.43 | 22.93 | 37.13 | 0.621 | 1863 | 38 | 658 | 438 |
+| s1_00497_01497_03997 | 5 | 0 | 2.0 | 29.76 | 25.35 | 37.13 | 0.624 | 1839 | 28 | 661 | 414 |
+| s1_00497_02497_02997 | 1 | 0 | 0.0 (base) | 45.77 | 33.58 | 64.27 | 0.704 | 2185 | 47 | 524 | 427 |
+| s1_00497_02497_02997 | 1 | 0 | 2.0 | 45.59 | 33.32 | 64.27 | 0.699 | 2153 | 49 | 513 | 399 |
+| s1_00497_02497_02997 | 5 | 0 | 2.0 | 45.62 | 35.87 | 64.27 | 0.693 | 2179 | 38 | 523 | 403 |
+
+Stop reasons after each new run:
+
+- s1_00497_01497_03997, NMS alone (window 1 / skip 0 / nms 2.0): `high_curvature` 738,
+  `collision` 438, `low_response` 240, `out_of_bounds` 196.
+- s1_00497_01497_03997, combined (window 5 / skip 0 / nms 2.0): `high_curvature` 853,
+  `collision` 414, `low_response` 207, `out_of_bounds` 188.
+- s1_00497_02497_02997, NMS alone (window 1 / skip 0 / nms 2.0): `high_curvature` 662,
+  `collision` 399, `low_response` 158, `out_of_bounds` 157.
+- s1_00497_02497_02997, combined (window 5 / skip 0 / nms 2.0): `high_curvature` 733,
+  `collision` 403, `low_response` 142, `out_of_bounds` 146.
+
+**Did Fix B move collisions?** Cube 1: 455 -> 438 with NMS alone (-17, -3.7%), -> 414
+with NMS + smoothing combined (-41 vs baseline, -9.0%, though part of that further drop
+is smoothing changing walk geometry, not NMS itself). Cube 2: 427 -> 399 with NMS alone
+(-28, -6.6%), -> 403 combined (-24 vs baseline, -5.6%). The change is small in both
+cases -- single-digit percentage reductions, not the kind of move you'd expect if
+duplicate seeds were a major source of collisions. This matches the brief's prediction:
+the seed loop already skips candidates that land in already-claimed territory before a
+walk ever starts, so most of the 400+ collisions per cube are walks that start from a
+legitimate, non-duplicate seed and then drift into a *neighbouring* fiber's claimed
+territory partway through the walk. Seed NMS can only remove redundant seed points; it
+has no mechanism to stop an already-running walk from wandering into someone else's
+territory, which is where the bulk of these collisions originate. A resampling radius of
+2.0 further limits how many nearby seeds even exist to suppress. Fix B is targeting a
+minority contributor to the collision count, not the dominant one.
+
+**Merge check (pre-registered):**
+
+- s1_00497_01497_03997, NMS alone: merges 38 -> 38 (unchanged). ERLpen 23.16 -> 22.93
+  (worsened, not improved). The automatic-failure condition (ERLpen improving while
+  merges rise) does not apply because ERLpen did not improve. **PASS** by the letter of
+  the contract, but this row is a plain loss for the tracer -- ERLpen is down and merges
+  are flat, so NMS alone provides no benefit on this cube.
+- s1_00497_01497_03997, combined: merges 38 -> 28 (fell). ERLpen 23.16 -> 25.35
+  (improved). **PASS**, and a real gain (fewer merges, higher ERLpen) -- this row is
+  carried by the smoothing component (window 5 / skip 0 alone already reached ERLpen
+  25.61 / merges 28 in Fix A); NMS on top moves ERLpen from 25.61 to 25.35, i.e. slightly
+  *worse* than smoothing alone at identical merges (28), so NMS is not adding value here,
+  it is marginally subtracting it.
+- s1_00497_02497_02997, NMS alone: merges 47 -> 49 (**rose**). ERLpen 33.58 -> 33.32
+  (worsened, not improved). Because ERLpen did not improve, this does not trip the
+  literal automatic-failure wording -- but flagging it directly per the instruction to
+  check merges first: this is a straight double regression, worse on both the primary
+  metric and the merge count, and it is the only row where merges rose. NMS alone is a
+  net negative on this cube.
+- s1_00497_02497_02997, combined: merges 47 -> 38 (fell). ERLpen 33.58 -> 35.87
+  (improved). **PASS**, a real gain -- again essentially the smoothing-alone result from
+  Fix A (ERLpen 35.84 / merges 39) with NMS moving it a negligible amount further
+  (35.84 -> 35.87, merges 39 -> 38). The combined row is indistinguishable from smoothing
+  alone within measurement noise.
+
+**Did merges rise anywhere?** Yes -- s1_00497_02497_02997, NMS alone: 47 -> 49. It is
+the only row of the four where merges increased, and it happened on the row where NMS
+was not paired with smoothing. It does not trigger the automatic-failure clause because
+ERLpen simultaneously worsened rather than improved on that same row, but it is recorded
+here plainly as required, not folded into a "PASS" without comment.
+
+**Floor check:** neither cube clears its floor in any of the four new configurations.
+Cube 1 combined: ERLpen 25.35 vs floor 37.13 (gap 11.78). Cube 2 combined: ERLpen 35.87
+vs floor 64.27 (gap 28.40). Both gaps are essentially unchanged from Fix A's best
+smoothing-only numbers (25.61 and 35.84 respectively) -- NMS contributes at most a few
+hundredths of an ERLpen point on top of smoothing, well inside run-to-run noise, and on
+cube 1 it is very slightly negative.
+
+**Bottom line:** Fix B is a null result. Seed NMS at radius 2.0 produces a small,
+single-digit-percentage reduction in collisions on both cubes (as predicted, since it
+can only remove redundant seeds, not stop drifting walks), no meaningful movement in
+ERLpen beyond what smoothing alone already achieved, and on cube 2 in isolation it is a
+net regression on both ERLpen and merges. Combined with smoothing, the two rows that
+pass the merge check are carried entirely by the smoothing component identified in Fix
+A; NMS adds nothing distinguishable from noise on top of it. Neither cube comes close to
+its connected-components floor with any configuration tried in this task or the last.
+
+**Configurations tried so far: 9** (baseline; window 3/skip 0; window 3/skip 2;
+window 5/skip 0; window 3/skip 1; nms 2.0 alone x2 cubes; window 5/skip 0 + nms 2.0 x2
+cubes).

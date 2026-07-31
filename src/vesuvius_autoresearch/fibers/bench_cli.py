@@ -307,6 +307,7 @@ def cmd_trace(args) -> int:
             claim_radius=args.claim_radius,
             tangent_window=args.tangent_window,
             max_skip_steps=args.max_skip_steps,
+            seed_nms_radius=args.seed_nms_radius,
         ),
     )
     if args.relink:
@@ -394,6 +395,13 @@ def main(argv=None) -> int:
                 default=0,
                 help="coast through this many consecutive curvature "
                 "rejections before stopping (0 = baseline)",
+            )
+            p.add_argument(
+                "--seed-nms-radius",
+                type=float,
+                default=0.0,
+                help="suppress seeds within this perpendicular distance "
+                "of an accepted seed (0 = disabled)",
             )
             p.add_argument("--relink", action="store_true", default=True)
             p.add_argument("--no-relink", dest="relink", action="store_false")
