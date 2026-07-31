@@ -9,9 +9,20 @@ more fibers with a higher error rate."*
 
 This directory provides **the measurement layer for that problem**, plus a baseline tracer.
 
+> **The measurement layer now ships as a ScrollGT target family** — six cubes, scoreable with no
+> GPU, no model download, and no network: <https://github.com/jonmarrs/scrollgt>. This document
+> remains the record of the research and of the baseline tracer, which is the benchmark's
+> *entrant* rather than part of it.
+
 ## The headline finding: coverage and precision cannot rank a fiber tracer
 
-On a real hand-traced cube, five completely different instance labellings were scored:
+Measured on a 128³ sub-volume (22 ground-truth fibers). The finding replicates at full 256³ cube
+scale — where the shared coverage/precision pair is 0.9177/0.2194 and the single-instance floor
+scores ERL 199.18 against an oracle's 258.27 with merge-penalized ERL exactly 0.00 — but the
+numbers below are the sub-volume's. Full-cube figures for all six cubes:
+`reports/fiber_benchmark_all_cubes.json`.
+
+Five completely different instance labellings were scored:
 
 | labelling | coverage | precision |
 | --- | --- | --- |
@@ -124,9 +135,16 @@ Two implementation notes that cost real debugging time and are easy to repeat:
    (x, y, z), because that matrix indexes 0 <-> x. Walking a volume with an unreversed vector
    moves along the wrong axis, finds nothing, and looks plausible.
 
-**Current standing: the tracer does not beat connected components on ERL.** It trades merges for
-fragmentation and loses more than it gains. That is published here rather than hidden, and it is
-the bar a new method should clear.
+**Current standing: the tracer does not beat connected components — on either metric.** Measured
+on all six full 256³ cubes, connected components wins on raw ERL by 4.5-7.4x and on
+merge-penalized ERL by 1.6-3.5x, with no cube going the other way. It trades merges for
+fragmentation and loses more than it gains: coverage is a respectable 0.605-0.704, so the tracer
+finds the fibers, but it cannot hold one identity along them and its runs stay short.
+
+An earlier reading that the tracer was *marginally ahead* on the penalized metric (24.27 vs 22.47)
+came from the 128³ sub-volume and does not survive at full-cube scale; it should not be cited.
+
+That is published here rather than hidden, and it is the bar a new method should clear.
 
 ## Reproducing our numbers
 
