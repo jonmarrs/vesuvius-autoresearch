@@ -111,6 +111,19 @@ class TraceParams:
     seed_stride: int = 2
     """Subsample seed candidates for speed; the walk itself is sub-voxel anyway."""
 
+    seed_nms_radius: float = 0.0
+    """Suppress seed candidates lying within this distance of an accepted seed,
+    measured **perpendicular to that seed's tangent**. 0 disables it.
+
+    Several seeds landing across one fiber's cross-section each start a walk;
+    the first claims the fiber and the rest stop immediately with COLLISION.
+    Suppression is perpendicular-only on purpose: distance *along* the tangent
+    is unconstrained, so a long fiber can still be re-seeded beyond a gap.
+
+    A radius of 2 comes from fiber geometry rather than tuning -- papyrus fibers
+    are roughly 10-20 um at 7.91 um/voxel.
+    """
+
     seed_percentile: float | None = None
     """If set, seed where `seed_response` exceeds this percentile **of the voxels
     that already pass the continuation gate**, instead of using the absolute
@@ -352,6 +365,31 @@ def _walk(
     return pts, resp, reason
 
 
+def _suppress_perpendicular(
+    candidate: np.ndarray, accepted: np.ndarray, tangent: np.ndarray, radius: float
+) -> bool:
+    """True if `candidate` lies within `radius` of `accepted`, perpendicular to `tangent`.
+
+    A candidate far down the same fiber line has zero perpendicular offset
+    (it sits *on* the tangent), so stripping the tangent component alone is
+    not enough to exempt it -- that would suppress the whole line forever.
+    The along-tangent component is instead bounded to a thin band
+    (`|offset . t| <= 0.5`), matching the stamped-disc volume path used in
+    `trace_fibers` so the two stay consistent.
+    """
+    v = np.asarray(candidate, dtype=float) - np.asarray(accepted, dtype=float)
+    t = np.asarray(tangent, dtype=float)
+    n = float(np.linalg.norm(t))
+    if n < 1e-8:
+        return bool(np.linalg.norm(v) < radius)
+    t = t / n
+    along = float(np.dot(v, t))
+    if abs(along) > 0.5:
+        return False
+    perp = v - along * t
+    return bool(np.linalg.norm(perp) < radius)
+
+
 def _claim(claimed: np.ndarray, points: np.ndarray, radius: float, fid: int) -> None:
     r = int(np.ceil(radius))
     idx = np.rint(points).astype(int)
@@ -458,6 +496,44 @@ def trace_fibers(
 
     order = np.argsort(-seed_response[cand[:, 0], cand[:, 1], cand[:, 2]])
     cand = cand[order][:: max(1, params.seed_stride)]
+
+    if params.seed_nms_radius > 0.0:
+        r_nms = float(params.seed_nms_radius)
+        rr = int(np.ceil(r_nms))
+        suppressed = np.zeros(shape, dtype=bool)
+        offsets = np.array(
+            [
+                (dz, dy, dx)
+                for dz in range(-rr, rr + 1)
+                for dy in range(-rr, rr + 1)
+                for dx in range(-rr, rr + 1)
+                if dz * dz + dy * dy + dx * dx <= r_nms * r_nms
+            ],
+            dtype=float,
+        )
+        kept = []
+        for c in cand:
+            cs = tuple(int(v) for v in c)
+            if suppressed[cs]:
+                continue
+            kept.append(c)
+            t = _direction_at(directions, valid, np.array(cs, dtype=float), None)
+            if t is None:
+                continue
+            # stamp a disc perpendicular to the tangent: keep offsets whose
+            # component along t is small, so the mark does not extend down the fiber
+            along = offsets @ t
+            disc = offsets[np.abs(along) <= 0.5]
+            pts = np.rint(np.array(cs, dtype=float) + disc).astype(int)
+            ok = np.ones(len(pts), dtype=bool)
+            for a in range(3):
+                ok &= (pts[:, a] >= 0) & (pts[:, a] < shape[a])
+            pts = pts[ok]
+            if len(pts):
+                suppressed[pts[:, 0], pts[:, 1], pts[:, 2]] = True
+        cand = np.array(kept) if kept else np.zeros((0, 3), dtype=int)
+        if len(cand) == 0:
+            return TraceResult(fibers=[], shape=shape, stop_counts={}, n_seeds_tried=0)
 
     result = TraceResult(shape=shape)
     counts: dict[str, int] = {}
