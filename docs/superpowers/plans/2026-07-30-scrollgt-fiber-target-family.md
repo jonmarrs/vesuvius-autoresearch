@@ -10,7 +10,8 @@
 
 ## Global Constraints
 
-- **Two repositories.** Tasks 1-7 commit in `/home/jon/openclaw-workspace/Neo-VM/projects/scrollgt`. Tasks 0 and 8 commit in `/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch`. Every task states its repo. Never mix the two in one commit.
+- **Two repositories.** Tasks 1-7 commit in `/home/jon/openclaw-workspace/Neo-VM/projects/scrollgt` on branch `feat/fiber-target-family`. Tasks 0 and 8 commit in `/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch` on branch `feat/fiber-benchmark-export`. Every task states its repo. Never mix the two in one commit, and never commit to `main` in either.
+- **Run Python through `uv run` in `vesuvius-autoresearch`.** The system `python3` there lacks `tifffile`, which Tasks 0 and 3 need. In `scrollgt`, use the repo's own environment.
 - **ScrollGT stays lean.** Declared dependencies after this work: `numpy>=1.26`, `scipy>=1.11`, `scikit-learn>=1.4`, `pillow>=10.0`. **No torch, no GPU, no network on any ScrollGT code path.** Adding any other dependency is a plan violation.
 - **Both ERL variants always print together**, never one alone. Raw ERL is gameable to within 23% of the oracle by labelling everything once.
 - **Tolerance is part of every scorecard.** Default `2.0` voxels. A number without its tolerance is meaningless.
@@ -182,15 +183,6 @@ becomes
 ```python
 """Fiber connectivity evaluation: hand-traced ground truth, ERL, and anti-gaming floors."""
 
-from .eval_trace import (
-    ConnectivityScores,
-    floor_connected_components,
-    floor_random_instances,
-    floor_single_instance,
-    floor_voxel_instances,
-    oracle_from_skeleton,
-    score_tracing,
-)
 from .skeleton_io import (
     Fiber,
     Skeleton,
@@ -201,15 +193,8 @@ from .skeleton_io import (
 )
 
 __all__ = [
-    "ConnectivityScores",
     "Fiber",
     "Skeleton",
-    "score_tracing",
-    "oracle_from_skeleton",
-    "floor_single_instance",
-    "floor_voxel_instances",
-    "floor_connected_components",
-    "floor_random_instances",
     "parse_nml",
     "rasterize",
     "origin_from_stem",
@@ -217,7 +202,7 @@ __all__ = [
 ]
 ```
 
-This imports `eval_trace`, which does not exist until Task 2. That is expected — the import error is what Task 2 Step 2 resolves. Do not stub it.
+Export only what this task ships. Task 2 appends the `eval_trace` names. Every commit must leave the package importable and its tests green — do not import a module that does not exist yet.
 
 - [ ] **Step 3: Copy the synthetic tests only**
 
@@ -270,21 +255,16 @@ packages = ["src/scrollgt"]
 
 ```bash
 python -m pytest tests/test_fiber_skeleton_io.py -v
+python -c "from scrollgt.fibers import origin_from_stem; print(origin_from_stem('s1_00497_01497_03997_256'))"
 ```
 
-Expected: 9 passed. A `ModuleNotFoundError` for `scrollgt.fibers.eval_trace` means `__init__.py` is being imported — that is Task 2's job. To confirm this module is sound in isolation before then, run:
+Expected: 9 passed, then `(497, 1497, 3997)` — origin in `(z, y, x)` order.
+
+Then confirm the whole suite is still green, since this task adds a package that every later task imports:
 
 ```bash
-python -c "
-import sys; sys.path.insert(0, 'src')
-import importlib.util
-spec = importlib.util.spec_from_file_location('sio', 'src/scrollgt/fibers/skeleton_io.py')
-m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
-print(m.origin_from_stem('s1_00497_01497_03997_256'))
-"
+python -m pytest tests/ -q
 ```
-
-Expected: `(497, 1497, 3997)` — origin in `(z, y, x)` order.
 
 - [ ] **Step 6: Commit**
 
@@ -360,13 +340,29 @@ Preserve the module docstring in full — it is the argument for why ERL and the
 
 Amend the one cross-repo reference, `(see `reports/fiber_semantic_inference.md`)`, to `(established in jonmarrs/vesuvius-autoresearch, reports/fiber_semantic_inference.md)`.
 
-- [ ] **Step 2: Verify the subpackage now imports cleanly**
+- [ ] **Step 2: Append the eval_trace exports to the subpackage `__init__.py`**
 
-```bash
-python -c "import sys; sys.path.insert(0,'src'); import scrollgt.fibers as f; print(sorted(f.__all__))"
+Task 1 exported only the `skeleton_io` names. Add above the existing `from .skeleton_io import (...)` block:
+
+```python
+from .eval_trace import (
+    ConnectivityScores,
+    floor_connected_components,
+    floor_random_instances,
+    floor_single_instance,
+    floor_voxel_instances,
+    oracle_from_skeleton,
+    score_tracing,
+)
 ```
 
-Expected: the 12 exported names print. This is the step that resolves the deferred import from Task 1 Step 2.
+and add these seven names to `__all__`: `"ConnectivityScores"`, `"score_tracing"`, `"oracle_from_skeleton"`, `"floor_single_instance"`, `"floor_voxel_instances"`, `"floor_connected_components"`, `"floor_random_instances"`.
+
+```bash
+python -c "import scrollgt.fibers as f; print(len(f.__all__), sorted(f.__all__))"
+```
+
+Expected: `13` and the full name list.
 
 - [ ] **Step 3: Copy the tests and repoint their import**
 
@@ -694,7 +690,9 @@ EOF
 - Consumes: the on-disk format from Task 3; `Fiber`, `Skeleton` from Task 1; the floors and `score_tracing` from Task 2.
 - Produces:
   - `load_fiber_target(target_dir) -> tuple[Skeleton, np.ndarray, dict]` returning `(skeleton, mask_bool_3d, meta)`.
-  - `score_fiber_prediction(labels_path, target_dir, with_floors: bool = True) -> dict` returning `{"target": str, "prediction": str, "split": str, "tolerance": float, "metrics": dict, "floors": dict, "below_baseline": bool}`.
+  - `score_fiber_prediction(labels_path, target_dir, recompute_floors: bool = False) -> dict` returning `{"target": str, "prediction": str, "split": str, "tolerance": float, "metrics": dict, "floors": dict, "floors_source": str, "below_baseline": bool}`.
+
+**Floors default to the published values in `meta.json`** (instant). `recompute_floors=True` recomputes all four from the shipped mask, which costs about 45-50 s per cube — measured: 12.4 s for the voxel-instances floor, 11.4 s for connected components. The reproduction guarantee is enforced by the test suite rather than by making every user pay for it on every run. `floors_source` records which path produced the numbers: `"published"` or `"recomputed"`.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -760,7 +758,7 @@ def test_scoring_an_empty_labelling_is_zero_not_an_error(tmp_path):
     _, mask, _ = load_fiber_target(target)
     p = tmp_path / "empty.npy"
     np.save(p, np.zeros(mask.shape, dtype=np.int32))
-    card = score_fiber_prediction(p, target, with_floors=False)
+    card = score_fiber_prediction(p, target)
     assert card["metrics"]["erl"] == 0.0
     assert card["metrics"]["coverage"] == 0.0
 
@@ -770,7 +768,36 @@ def test_shape_mismatch_names_the_expected_shape(tmp_path):
     p = tmp_path / "wrong.npy"
     np.save(p, np.zeros((64, 64, 64), dtype=np.int32))
     with pytest.raises(ValueError, match="256"):
-        score_fiber_prediction(p, target, with_floors=False)
+        score_fiber_prediction(p, target)
+
+
+def test_probability_input_is_rejected_with_a_useful_message(tmp_path):
+    target = TARGETS[0]
+    _, mask, _ = load_fiber_target(target)
+    p = tmp_path / "probs.npy"
+    np.save(p, mask.astype(np.float32))
+    with pytest.raises(ValueError, match="instance ids"):
+        score_fiber_prediction(p, target)
+
+
+def test_floors_default_to_published_and_can_be_recomputed(tmp_path):
+    """The default path must not pay the ~50 s recomputation cost."""
+    target = TARGETS[0]
+    _, mask, _ = load_fiber_target(target)
+    p = tmp_path / "empty.npy"
+    np.save(p, np.zeros(mask.shape, dtype=np.int32))
+
+    published = score_fiber_prediction(p, target)
+    assert published["floors_source"] == "published"
+    assert set(published["floors"]) == {
+        "floor_single_instance", "floor_connected_components",
+        "floor_voxel_instances", "floor_random_instances",
+    }
+
+    recomputed = score_fiber_prediction(p, target, recompute_floors=True)
+    assert recomputed["floors_source"] == "recomputed"
+    for key, row in recomputed["floors"].items():
+        assert row["erl"] == pytest.approx(published["floors"][key]["erl"], rel=1e-3), key
 
 
 def test_below_baseline_flag_is_set_when_entry_trails_connected_components(tmp_path):
@@ -780,7 +807,7 @@ def test_below_baseline_flag_is_set_when_entry_trails_connected_components(tmp_p
     labels[mask] = np.arange(1, int(mask.sum()) + 1)  # one instance per voxel
     p = tmp_path / "voxels.npy"
     np.save(p, labels)
-    card = score_fiber_prediction(p, target, with_floors=True)
+    card = score_fiber_prediction(p, target)
     assert card["below_baseline"] is True
 ```
 
@@ -880,8 +907,14 @@ def _floor_rows(skeleton, mask, tolerance) -> dict:
     }
 
 
-def score_fiber_prediction(labels_path, target_dir, with_floors: bool = True) -> dict:
-    """Score an instance labelling (.npy of ints, 0 = background) against a target."""
+def score_fiber_prediction(labels_path, target_dir, recompute_floors: bool = False) -> dict:
+    """Score an instance labelling (.npy of ints, 0 = background) against a target.
+
+    Floors come from the target's published meta.json by default. Recomputing
+    them from the shipped mask costs ~45-50 s per cube and is what
+    `recompute_floors=True` is for; the test suite already enforces that the
+    published values reproduce, so users do not pay that cost on every run.
+    """
     skeleton, mask, meta = load_fiber_target(target_dir)
     labels = np.load(str(labels_path))
     if labels.shape != mask.shape:
@@ -899,8 +932,14 @@ def score_fiber_prediction(labels_path, target_dir, with_floors: bool = True) ->
     tolerance = float(meta["tolerance"])
     row = score_tracing(skeleton, labels, tolerance=tolerance).as_row()
 
-    floors = meta.get("floors", {}) if not with_floors else _floor_rows(
-        skeleton, mask, tolerance)
+    if recompute_floors:
+        floors = _floor_rows(skeleton, mask, tolerance)
+        floors_source = "recomputed"
+    else:
+        floors = {k: v for k, v in meta.get("floors", {}).items()
+                  if k.startswith("floor_")}
+        floors_source = "published"
+
     cc = floors.get("floor_connected_components", {})
     below = bool(cc) and row["erl"] < cc["erl"]
 
@@ -911,6 +950,7 @@ def score_fiber_prediction(labels_path, target_dir, with_floors: bool = True) ->
         "tolerance": tolerance,
         "metrics": row,
         "floors": floors,
+        "floors_source": floors_source,
         "below_baseline": below,
     }
 ```
@@ -933,7 +973,7 @@ python -m pytest tests/test_fiber_target.py -v
 
 Expected: all pass. `test_published_floors_reproduce_from_shipped_data` is the important one — it proves the shipped mask regenerates the published connected-components floor exactly, so the zero-GPU claim is enforced rather than asserted.
 
-If `test_below_baseline_flag_is_set_when_entry_trails_connected_components` is slow, note that one-instance-per-voxel creates ~1M instances on a 256³ cube; it is expected to take tens of seconds and is the same cost Task 0 Step 3 flagged.
+This file is the slowest in the suite, and that is expected: it recomputes the connected-components floor on all six cubes (~11 s each) and all four floors once (~50 s). Roughly two to three minutes total. Do not "optimize" it by dropping targets or loosening tolerances — the point of these tests is that the published numbers are checked against real recomputation.
 
 - [ ] **Step 6: Commit**
 
@@ -1094,11 +1134,14 @@ def fiber_markdown_report(card: dict) -> str:
             lines.append(_row(label, card["floors"][key]))
 
     split = "cross-scroll split" if card.get("split") == "cross_scroll" else "primary split"
+    source = card.get("floors_source", "published")
     lines += [
         "",
-        f"tolerance {card['tolerance']} voxels ({split}). "
-        f"Splits and merges are reported separately and are never summed: a split "
-        f"fails to help, a merge corrupts the U/V parameterization.",
+        f"tolerance {card['tolerance']} voxels ({split}); floors {source}"
+        + (" — rerun with --recompute-floors to verify them from the shipped mask."
+           if source == "published" else "."),
+        "Splits and merges are reported separately and are never summed: a split "
+        "fails to help, a merge corrupts the U/V parameterization.",
     ]
 
     if card.get("below_baseline"):
@@ -1130,8 +1173,9 @@ Register the parser after the existing `p_cols` block:
     p_fib.add_argument("prediction",
                        help="instance labels (.npy of ints, 0 = background, cube-shaped)")
     p_fib.add_argument("target", help="fiber target directory (data/fibers_<cube>)")
-    p_fib.add_argument("--no-floors", action="store_true",
-                       help="skip recomputing the floors and use the published values")
+    p_fib.add_argument("--recompute-floors", action="store_true",
+                       help="recompute the floors from the shipped mask instead of "
+                            "reading the published values (~50 s per cube)")
     p_fib.add_argument("--json-out", default=None, help="write the scorecard JSON here")
 ```
 
@@ -1140,7 +1184,7 @@ And add the dispatch branch alongside the existing `if args.cmd == ...` chain:
 ```python
     if args.cmd == "score-fibers":
         card = score_fiber_prediction(args.prediction, args.target,
-                                      with_floors=not args.no_floors)
+                                      recompute_floors=args.recompute_floors)
         print(fiber_markdown_report(card))
         if args.json_out:
             with open(args.json_out, "w") as f:

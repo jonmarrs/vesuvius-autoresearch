@@ -16,7 +16,7 @@ ground-truth fiber assigned to one predicted instance. `ERLpen` zeroes every run
 instance that merges two ground-truth fibers. **Splits count runs, not distinct labels**, so a
 fiber traced as two disconnected halves under one id still counts as fragmented.
 
-## Results
+## Results (128³ sub-volume — see the superseding note below)
 
 | Row | ERL | ERLpen | coverage | precision | splits | merges | n inst |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -37,6 +37,14 @@ fusing touching fibers into single long components: it commits **11 merges** whe
 commits **5**, and its merge-penalized ERL collapses from 110.66 to 22.47. On the penalized
 metric the tracer's best (24.27) is marginally ahead of connected components (22.47), but
 "marginally ahead of the naive baseline on one of two metrics" is not a result worth announcing.
+
+> **Superseded at full-cube scale (2026-07-30).** Everything in this section was measured on a
+> 128³ sub-volume with 22 ground-truth fibers. Re-run on all six full 256³ cubes, connected
+> components wins on **both** metrics on every cube — raw ERL by 4.5-7.4x and merge-penalized ERL
+> by 1.6-3.5x. The "marginally ahead on the penalized metric" reading above is an artefact of the
+> sub-volume and **should not be cited**. Full-cube numbers:
+> `reports/fiber_benchmark_all_cubes.json`. The full-cube tracer coverage range is 0.605-0.704,
+> not the 0.686-0.875 quoted below.
 
 **Fragmentation is the whole problem.** 220-577 splits over 22 fibers is 10-26 fragments per
 fiber. Coverage is genuinely good (0.686-0.875 of ground-truth length is claimed by *something*),
@@ -73,6 +81,10 @@ Re-linking joins fragment endpoints whose tangents are collinear across a short 
 strict thresholds because a wrong link is a merge. Implemented in `trace.relink_fragments`,
 13 tests including every refusal case (perpendicular, side-by-side, over-long gap, three-way
 junction, cycles).
+
+**These are 128³ sub-volume numbers.** The table below again shows the tracer's ERLpen above
+connected components (25.32 vs 22.47); that ordering does **not** hold at full 256³ scale, where
+connected components wins on both metrics on all six cubes. See the superseding note above.
 
 | Row | ERL | ERLpen | coverage | splits | merges | n inst |
 | --- | --- | --- | --- | --- | --- | --- |

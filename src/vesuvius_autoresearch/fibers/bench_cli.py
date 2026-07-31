@@ -45,6 +45,17 @@ DATA_URL = (
 DEFAULT_DATA = pathlib.Path("local_data/fiber_skeletons")
 DEFAULT_TOL = 2.0
 
+# The six full 256^3 cubes every published number (README, BASELINES.md,
+# ScrollGT) draws from. No 128^3 sub-volume figure is carried downstream.
+CUBES = [
+    "s1_00497_01497_03997_256",
+    "s1_00497_02497_02997_256",
+    "s1_00997_02497_02997_256",
+    "s1_08997_02997_02497_256",
+    "s1_10997_02997_02997_256",
+    "s5_03997_01497_03997_256",
+]
+
 
 def _load_cube(data_dir: pathlib.Path, cube: str):
     import tifffile
@@ -135,7 +146,81 @@ def cmd_fetch(args) -> int:
     return 0
 
 
+def _floor_rows(ev, gt, img, mask, tolerance: float) -> dict[str, dict]:
+    """Oracle + all four anti-gaming floors for one cube, canonical row keys."""
+    return {
+        "oracle": ev.score_tracing(
+            gt, ev.oracle_from_skeleton(gt, img.shape, 1.0), tolerance=tolerance
+        ).as_row(),
+        "floor_single_instance": ev.score_tracing(
+            gt, ev.floor_single_instance(mask), tolerance=tolerance
+        ).as_row(),
+        "floor_connected_components": ev.score_tracing(
+            gt, ev.floor_connected_components(mask), tolerance=tolerance
+        ).as_row(),
+        "floor_voxel_instances": ev.score_tracing(
+            gt, ev.floor_voxel_instances(mask), tolerance=tolerance
+        ).as_row(),
+        "floor_random_instances": ev.score_tracing(
+            gt, ev.floor_random_instances(mask, 50, 0), tolerance=tolerance
+        ).as_row(),
+    }
+
+
+def _floors_all_cubes(args) -> int:
+    """Run oracle + all four floors on every published cube, refreshing the
+    all-cubes report. `tracer_strict_relink` (produced separately by `trace`)
+    is carried over from any prior report at the same --json-out path rather
+    than recomputed here, since this command only owns the floors."""
+    from vesuvius_autoresearch.fibers import eval_trace as ev
+    from vesuvius_autoresearch.fibers.semantic import FIBER_HZ_VT_REPO
+
+    data_dir = pathlib.Path(args.data_dir)
+    out_path = pathlib.Path(args.json_out) if args.json_out else None
+    prior_cubes: dict = {}
+    if out_path and out_path.exists():
+        prior_cubes = json.loads(out_path.read_text()).get("cubes", {})
+
+    report = {"tolerance": args.tolerance, "model": FIBER_HZ_VT_REPO, "cubes": {}}
+    for cube in CUBES:
+        t0 = time.time()
+        img, gt = _load_cube(data_dir, cube)
+        fp = _fiber_prob(data_dir, cube, img, args.model, args.patch)
+        infer_s = round(time.time() - t0, 1)
+        mask = fp >= args.mask_threshold
+
+        rows = _floor_rows(ev, gt, img, mask, args.tolerance)
+        prior_rows = prior_cubes.get(cube, {}).get("rows", {})
+        if "tracer_strict_relink" in prior_rows:
+            rows["tracer_strict_relink"] = prior_rows["tracer_strict_relink"]
+
+        dt = time.time() - t0
+        print(
+            f"cube={cube}  gt_fibers={len(gt)}  tolerance={args.tolerance}  {dt:.0f}s"
+        )
+        _print_rows(rows)
+        print()
+
+        report["cubes"][cube] = {
+            "shape": list(img.shape),
+            "n_gt": len(gt),
+            "infer_s": infer_s,
+            "rows": rows,
+        }
+
+    if out_path:
+        out_path.write_text(json.dumps(report, indent=1))
+        print(f"report -> {out_path}")
+    return 0
+
+
 def cmd_floors(args) -> int:
+    if args.all_cubes:
+        return _floors_all_cubes(args)
+    if not args.cube:
+        print("ERROR: --cube is required unless --all-cubes is given", file=sys.stderr)
+        return 2
+
     from vesuvius_autoresearch.fibers import eval_trace as ev
 
     data_dir = pathlib.Path(args.data_dir)
@@ -143,23 +228,7 @@ def cmd_floors(args) -> int:
     fp = _fiber_prob(data_dir, args.cube, img, args.model, args.patch)
     mask = fp >= args.mask_threshold
 
-    rows = {
-        "oracle (DISCLOSED, ceiling)": ev.score_tracing(
-            gt, ev.oracle_from_skeleton(gt, img.shape, 1.0), tolerance=args.tolerance
-        ).as_row(),
-        "floor: single instance": ev.score_tracing(
-            gt, ev.floor_single_instance(mask), tolerance=args.tolerance
-        ).as_row(),
-        "floor: connected components": ev.score_tracing(
-            gt, ev.floor_connected_components(mask), tolerance=args.tolerance
-        ).as_row(),
-        "floor: one instance per voxel": ev.score_tracing(
-            gt, ev.floor_voxel_instances(mask), tolerance=args.tolerance
-        ).as_row(),
-        "floor: 50 random instances": ev.score_tracing(
-            gt, ev.floor_random_instances(mask, 50, 0), tolerance=args.tolerance
-        ).as_row(),
-    }
+    rows = _floor_rows(ev, gt, img, mask, args.tolerance)
     print(f"cube={args.cube}  gt_fibers={len(gt)}  tolerance={args.tolerance}")
     _print_rows(rows)
     print(
@@ -288,13 +357,19 @@ def main(argv=None) -> int:
         ("trace", cmd_trace, "run our tracer and score it"),
     ]:
         p = sub.add_parser(name, help=helptext)
-        p.add_argument("--cube", required=True)
+        p.add_argument("--cube", required=(name != "floors"))
         p.add_argument("--tolerance", type=float, default=DEFAULT_TOL)
         p.add_argument("--model", default="local_data/models/fiber_hz_vt")
         p.add_argument("--patch", type=int, default=128)
         p.add_argument("--mask-threshold", type=float, default=0.5)
         p.add_argument("--json-out")
         p.set_defaults(func=fn)
+        if name == "floors":
+            p.add_argument(
+                "--all-cubes",
+                action="store_true",
+                help="run every published cube (ignores --cube) and refresh --json-out",
+            )
         if name == "score":
             p.add_argument("--instances", required=True, help=".npy int labels")
             p.add_argument("--with-floors", action="store_true")
