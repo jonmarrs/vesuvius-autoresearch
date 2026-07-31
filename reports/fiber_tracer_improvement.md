@@ -9,8 +9,9 @@ Dev cubes: `s1_00497_01497_03997_256`, `s1_00497_02497_02997_256`.
 Held out until the final run: the three other Scroll-1 cubes.
 Never used for any decision: `s5_03997_01497_03997_256`.
 
-**Configurations tried so far: 5** (baseline; window 3/skip 0; window 3/skip 2;
-window 5/skip 0; window 3/skip 1 — see Fix A below for the per-configuration results).
+**Configurations tried so far: 9** (baseline; window 3/skip 0; window 3/skip 2;
+window 5/skip 0; window 3/skip 1 — see Fix A below; NMS 2.0 alone; window 5/skip 0 +
+NMS 2.0 — see Fix B below — for the per-configuration results).
 
 ## Baseline (reproduced 2026-07-31)
 
