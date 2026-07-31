@@ -4,7 +4,7 @@
 
 **Goal:** Reduce fiber fragmentation enough that the tracer beats each cube's own connected-components merge-penalized ERL, without buying the gain with merges.
 
-**Architecture:** Two changes to `src/vesuvius_autoresearch/fibers/trace.py`, each targeting a measured stop reason. Fix A compares each walk step against a sign-aligned mean of the last `k` directions instead of the single previous step, so voxel-quantization noise cannot terminate a walk. Fix B suppresses seed candidates lying within a thin disc perpendicular to an accepted seed's tangent. Both default to the current behaviour so the published baseline stays reproducible.
+**Architecture:** Two changes to `src/vesuvius_autoresearch/fibers/trace.py`, each targeting a measured stop reason. Fix A has two separable mechanisms: compare each step against a sign-aligned mean of the last `k` directions (handles mild jitter), and coast through a bounded run of curvature rejections rather than terminating on the first (handles a single wildly-wrong voxel, which smoothing alone cannot rescue). Fix B suppresses seed candidates lying within a thin disc perpendicular to an accepted seed's tangent. Both default to the current behaviour so the published baseline stays reproducible.
 
 **Tech Stack:** Python 3.10, numpy, scipy.ndimage, pytest. GPU only for the semantic model (`fiber_hz_vt`) via `uv run`.
 
@@ -22,7 +22,8 @@
   - **held out** (scored once, at the end, in Task 6 only): `s1_00997_02497_02997_256`, `s1_08997_02997_02497_256`, `s1_10997_02997_02997_256`
   - **never touched** (scored once in Task 6, informs no decision, ever): `s5_03997_01497_03997_256`
 - **Count every configuration you try** and record the running total in each report. This number is published.
-- **Both new parameters default to current behaviour** (`tangent_window=1`, `seed_nms_radius=0.0`) so the published `tracer_strict_relink` row stays reproducible.
+- **All three new parameters default to current behaviour** (`tangent_window=1`, `max_skip_steps=0`, `seed_nms_radius=0.0`) so the published `tracer_strict_relink` row stays reproducible.
+- **`max_skip_steps` is the parameter most likely to buy merges**, since coasting is how a walk could cross into a neighbouring fiber. Check the merge count against baseline on every run that raises it.
 - Commit messages end with `Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>` and no `Claude-Session:` line. No AI-authorship markers in code, comments, or reports.
 - Held-out ERLpen floors, recorded here so they cannot be renegotiated: `s1_00997_02497_02997` 29.8 vs 56.5; `s1_08997_02997_02497` 30.8 vs 106.1; `s1_10997_02997_02997` 34.2 vs 57.7; `s5_03997_01497_03997` 25.4 vs 51.1.
 
@@ -56,58 +57,79 @@ import pytest
 from vesuvius_autoresearch.fibers.trace import TraceParams, trace_fibers
 
 
+BASE = dict(seed_threshold=0.5, continue_threshold=0.25, min_length=3.0,
+            max_angle_deg=25.0, claim_radius=2.5)
+
+
 def _straight_tube(shape=(40, 40, 40), axis=0, centre=(20, 20), radius=2.0):
-    """A single straight fiber along `axis`, with a clean orientation field."""
+    """A single straight fiber along `axis`, with a clean orientation field.
+
+    Returns (response, seed_response, dirs, valid). The two fields differ on
+    purpose and the distinction is load-bearing: `response` is the flat
+    continuation gate a semantic model produces, while `seed_response` is
+    ridge-peaked like Hessian vesselness. Passing the flat field for seeding
+    scatters seeds across the cross-section and yields several parallel
+    instances per fiber -- `trace_fibers`' own docstring records measuring 15
+    instances instead of 3 that way. `claim_radius` is 2.5 (> the tube radius)
+    so one accepted seed claims the whole cross-section.
+    """
     response = np.zeros(shape, dtype=float)
+    seed = np.zeros(shape, dtype=float)
     dirs = np.zeros(shape + (3,), dtype=float)
     valid = np.zeros(shape, dtype=bool)
-    zz, yy, xx = np.indices(shape)
-    coords = [zz, yy, xx]
+    coords = list(np.indices(shape))
     perp = [i for i in range(3) if i != axis]
-    d2 = (coords[perp[0]] - centre[0]) ** 2 + (coords[perp[1]] - centre[1]) ** 2
+    d2 = (coords[perp[0]] - centre[0]) ** 2.0 + (coords[perp[1]] - centre[1]) ** 2.0
     inside = d2 <= radius * radius
     response[inside] = 1.0
+    seed[inside] = np.exp(-d2[inside] / (2.0 * (radius / 2.0) ** 2))
     dirs[inside, axis] = 1.0
     valid[inside] = True
-    return response, dirs, valid
+    return response, seed, dirs, valid
 
 
 def test_defaults_preserve_published_behaviour():
-    """tangent_window and seed_nms_radius must default to a no-op."""
+    """The new parameters must all default to a no-op."""
     p = TraceParams()
     assert p.tangent_window == 1, "default must reproduce the published baseline"
+    assert p.max_skip_steps == 0, "default must reproduce the published baseline"
     assert p.seed_nms_radius == 0.0, "default must reproduce the published baseline"
 
 
 def test_straight_fiber_traces_end_to_end():
-    response, dirs, valid = _straight_tube()
+    response, seed, dirs, valid = _straight_tube()
     res = trace_fibers(
-        response=response, seed_response=response, directions=dirs, valid=valid,
-        params=TraceParams(seed_threshold=0.5, continue_threshold=0.25, min_length=5.0),
+        response=response, seed_response=seed, directions=dirs, valid=valid,
+        params=TraceParams(**BASE),
     )
     assert len(res) == 1, f"expected one fiber, got {len(res)}: {res.stop_counts}"
     assert res.fibers[0].length > 25.0
+    assert res.stop_counts.get("high_curvature", 0) == 0
 
 
-def test_single_corrupted_voxel_terminates_the_walk_today():
+def test_single_corrupted_voxel_splits_the_fiber_today():
     """The defect being fixed, pinned as current behaviour.
 
     One voxel with a wildly wrong orientation splits the fiber in two, because
-    the walk compares against only the immediately previous step.
+    the walk terminates on the first curvature rejection.
     """
-    response, dirs, valid = _straight_tube()
+    response, seed, dirs, valid = _straight_tube()
     dirs[20, 20, 20] = np.array([0.0, 1.0, 0.0])  # perpendicular to the fiber
 
     res = trace_fibers(
-        response=response, seed_response=response, directions=dirs, valid=valid,
-        params=TraceParams(seed_threshold=0.5, continue_threshold=0.25,
-                           min_length=3.0, max_angle_deg=25.0),
+        response=response, seed_response=seed, directions=dirs, valid=valid,
+        params=TraceParams(**BASE),
     )
     assert res.stop_counts.get("high_curvature", 0) >= 1, (
         "the corrupted voxel should currently stop a walk; if it does not, this "
         "test no longer pins the defect and must be rewritten before proceeding"
     )
+    assert len(res) == 2, f"expected the fiber to be split in two, got {len(res)}"
 ```
+
+**These expectations are measured, not guessed.** Running this geometry against the current tracer
+gives: clean tube → 1 fiber, length 38.5, `stops={'out_of_bounds': 2}`; corrupted voxel → 2 fibers,
+`stops={'out_of_bounds': 2, 'high_curvature': 1, 'collision': 1}`.
 
 - [ ] **Step 2: Run it**
 
@@ -180,7 +202,7 @@ EOF
 
 ---
 
-### Task 2: Fix A — tangent smoothing
+### Task 2: Fix A — tangent smoothing and bounded coasting
 
 **Files:**
 - Modify: `src/vesuvius_autoresearch/fibers/trace.py` (`TraceParams`, `_walk`)
@@ -197,61 +219,86 @@ EOF
 Append to `tests/test_fiber_trace_baseline.py`:
 
 ```python
-def test_smoothing_survives_a_single_corrupted_voxel():
-    """Fix A: one bad voxel must no longer end the walk."""
-    response, dirs, valid = _straight_tube()
+def test_coasting_survives_a_single_corrupted_voxel():
+    """Fix A, mechanism 2: one bad voxel must no longer split the fiber.
+
+    Smoothing alone cannot do this. At the corrupted voxel the incoming
+    direction is perpendicular, so dot(d, ref) fails the threshold whether the
+    reference is smoothed or not. The coast budget is what carries this case.
+    """
+    response, seed, dirs, valid = _straight_tube()
     dirs[20, 20, 20] = np.array([0.0, 1.0, 0.0])
 
     res = trace_fibers(
-        response=response, seed_response=response, directions=dirs, valid=valid,
-        params=TraceParams(seed_threshold=0.5, continue_threshold=0.25,
-                           min_length=3.0, max_angle_deg=25.0, tangent_window=3),
+        response=response, seed_response=seed, directions=dirs, valid=valid,
+        params=TraceParams(tangent_window=3, max_skip_steps=2, **BASE),
     )
     assert len(res) == 1, f"expected one unbroken fiber, got {len(res)}"
     assert res.fibers[0].length > 25.0
     assert res.stop_counts.get("high_curvature", 0) == 0
 
 
-def test_smoothing_still_stops_at_a_genuine_bend():
+def test_smoothing_alone_does_not_rescue_an_outlier():
+    """Pins the limit of mechanism 1, so the two are not confused later."""
+    response, seed, dirs, valid = _straight_tube()
+    dirs[20, 20, 20] = np.array([0.0, 1.0, 0.0])
+
+    res = trace_fibers(
+        response=response, seed_response=seed, directions=dirs, valid=valid,
+        params=TraceParams(tangent_window=3, max_skip_steps=0, **BASE),
+    )
+    assert res.stop_counts.get("high_curvature", 0) >= 1, (
+        "smoothing the reference cannot reject a bad sample; if this now passes, "
+        "the coast budget is leaking into the smoothing-only path")
+
+
+def test_coasting_still_stops_at_a_genuine_bend():
     """Fix A must not silently disable the curvature test.
 
-    A sustained 90-degree turn is a real direction change, not quantization
-    noise, and must still terminate the walk.
+    A sustained 90-degree turn is a real direction change, not noise, and must
+    still terminate the walk once the coast budget is exhausted.
     """
     shape = (40, 40, 40)
     response = np.zeros(shape, dtype=float)
+    seed = np.zeros(shape, dtype=float)
     dirs = np.zeros(shape + (3,), dtype=float)
     valid = np.zeros(shape, dtype=bool)
 
     # an L: along z for the first half, along y for the second
-    for z in range(5, 20):
-        response[z, 18:23, 18:23] = 1.0
-        dirs[z, 18:23, 18:23] = np.array([1.0, 0.0, 0.0])
-        valid[z, 18:23, 18:23] = True
-    for y in range(20, 35):
-        response[18:23, y, 18:23] = 1.0
-        dirs[18:23, y, 18:23] = np.array([0.0, 1.0, 0.0])
-        valid[18:23, y, 18:23] = True
+    for z in range(5, 21):
+        response[z, 19:22, 19:22] = 1.0
+        seed[z, 20, 20] = 1.0
+        dirs[z, 19:22, 19:22] = np.array([1.0, 0.0, 0.0])
+        valid[z, 19:22, 19:22] = True
+    for y in range(20, 36):
+        response[19:22, y, 19:22] = 1.0
+        dirs[19:22, y, 19:22] = np.array([0.0, 1.0, 0.0])
+        valid[19:22, y, 19:22] = True
 
     res = trace_fibers(
-        response=response, seed_response=response, directions=dirs, valid=valid,
-        params=TraceParams(seed_threshold=0.5, continue_threshold=0.25,
-                           min_length=3.0, max_angle_deg=25.0, tangent_window=3),
+        response=response, seed_response=seed, directions=dirs, valid=valid,
+        params=TraceParams(tangent_window=3, max_skip_steps=2, **BASE),
     )
     assert res.stop_counts.get("high_curvature", 0) >= 1, (
         "a sustained 90-degree bend must still stop a walk")
 
 
-def test_window_of_one_is_exactly_the_old_behaviour():
-    response, dirs, valid = _straight_tube()
+def test_window_one_and_no_skip_is_exactly_the_old_behaviour():
+    response, seed, dirs, valid = _straight_tube()
     dirs[20, 20, 20] = np.array([0.0, 1.0, 0.0])
-    p = dict(seed_threshold=0.5, continue_threshold=0.25, min_length=3.0,
-             max_angle_deg=25.0)
 
-    old = trace_fibers(response=response, seed_response=response, directions=dirs,
-                       valid=valid, params=TraceParams(tangent_window=1, **p))
+    old = trace_fibers(
+        response=response, seed_response=seed, directions=dirs, valid=valid,
+        params=TraceParams(tangent_window=1, max_skip_steps=0, **BASE),
+    )
     assert old.stop_counts.get("high_curvature", 0) >= 1
+    assert len(old) == 2
 ```
+
+`test_coasting_still_stops_at_a_genuine_bend` is the load-bearing safety test. If the coast budget
+lets a walk turn a corner, it will also let one cross into a neighbouring fiber, which shows up as
+merges — the pre-registered failure condition. If this test does not fail with a large
+`max_skip_steps`, the budget is not actually bounded; check that before proceeding.
 
 - [ ] **Step 2: Run them to verify they fail**
 
@@ -279,6 +326,25 @@ In `TraceParams`, after `max_angle_deg`:
 
     Defaults to 1, which is exactly the published baseline's behaviour.
     """
+
+    max_skip_steps: int = 0
+    """Consecutive curvature rejections to coast through before giving up.
+
+    Smoothing the reference cannot reject a bad *sample*: at a wildly-wrong
+    voxel the incoming direction is perpendicular, so the turn test fails
+    however stable the reference is. Coasting steps along the reference instead
+    of terminating, and resumes as soon as the field agrees again.
+
+    2 at the default step of 0.7 voxels spans ~1.4 voxels -- enough to cross one
+    corrupted voxel, not enough to cross a genuine fiber boundary and keep
+    going. The counter resets on any accepted step, so this is a budget for
+    *consecutive* rejections; a walk that keeps coasting is following something
+    the field does not support and must still stop.
+
+    This is the parameter most likely to buy merges, since coasting is exactly
+    how a walk could cross into a neighbour. Defaults to 0, the published
+    baseline's behaviour.
+    """
 ```
 
 - [ ] **Step 4: Implement the smoothing in `_walk`**
@@ -292,7 +358,9 @@ Replace the body of `_walk` between `prev = seed_dir.copy()` and the loop's `pre
     p = start.astype(float).copy()
     prev = seed_dir.copy()
     window = max(1, int(params.tangent_window))
+    budget = max(0, int(params.max_skip_steps))
     recent: list[np.ndarray] = [seed_dir.copy()]
+    skipped = 0
     reason = StopReason.MAX_LENGTH
 
     for _ in range(params.max_steps):
@@ -311,8 +379,16 @@ Replace the body of `_walk` between `prev = seed_dir.copy()` and the loop's `pre
             reason = StopReason.INVALID_DIRECTION
             break
         if float(np.dot(d, ref)) < cos_limit:
-            reason = StopReason.HIGH_CURVATURE
-            break
+            # Coast: the sample disagrees, but a bounded run of disagreement is
+            # a corrupted voxel rather than a real turn. Step along the
+            # reference and try again; give up once the budget is spent.
+            skipped += 1
+            if skipped > budget:
+                reason = StopReason.HIGH_CURVATURE
+                break
+            d = ref
+        else:
+            skipped = 0
 
         nxt = p + d * params.step
         idx = tuple(int(round(v)) for v in nxt)
@@ -379,7 +455,7 @@ EOF
 
 ---
 
-### Task 3: Measure Fix A on the dev cubes
+### Task 3: Measure Fix A (both mechanisms) on the dev cubes
 
 **Files:**
 - Modify: `src/vesuvius_autoresearch/fibers/bench_cli.py` (add `--tangent-window`)
@@ -391,21 +467,27 @@ EOF
 
 - [ ] **Step 1: Expose the parameter on the CLI**
 
-In `cmd_trace`'s `TraceParams(...)` call, add `tangent_window=args.tangent_window`. In the argparse block alongside `--max-angle`, add:
+In `cmd_trace`'s `TraceParams(...)` call, add `tangent_window=args.tangent_window` and `max_skip_steps=args.max_skip_steps`. In the argparse block alongside `--max-angle`, add:
 
 ```python
             p.add_argument("--tangent-window", type=int, default=1,
                            help="compare each step against the mean of the last N "
                                 "directions (1 = published baseline behaviour)")
+            p.add_argument("--max-skip-steps", type=int, default=0,
+                           help="coast through this many consecutive curvature "
+                                "rejections before stopping (0 = baseline)")
 ```
 
 - [ ] **Step 2: Run the dev cubes at window 3**
 
 ```bash
-uv run python -m vesuvius_autoresearch.fibers.bench_cli trace \
-  --cube s1_00497_01497_03997_256 --tangent-window 3
-uv run python -m vesuvius_autoresearch.fibers.bench_cli trace \
-  --cube s1_00497_02497_02997_256 --tangent-window 3
+# smoothing alone, then smoothing + coasting, on each dev cube
+for CUBE in s1_00497_01497_03997_256 s1_00497_02497_02997_256; do
+  uv run python -m vesuvius_autoresearch.fibers.bench_cli trace --cube $CUBE \
+    --tangent-window 3 --max-skip-steps 0
+  uv run python -m vesuvius_autoresearch.fibers.bench_cli trace --cube $CUBE \
+    --tangent-window 3 --max-skip-steps 2
+done
 ```
 
 Record ERL, ERLpen, coverage, splits, merges, instance count, and the stop-reason breakdown for each.
@@ -414,9 +496,9 @@ Record ERL, ERLpen, coverage, splits, merges, instance count, and the stop-reaso
 
 Compare merges against the baseline for each cube. **If merges rose while ERLpen improved, that is a failure by the contract** — record it as such in the report and do not present it as a win. Do not tune to hide it.
 
-- [ ] **Step 4: If window 3 does not clear the floor, try at most two more windows**
+- [ ] **Step 4: If that does not clear the floor, try at most two more settings**
 
-Permitted values: 2 and 5. Nothing else, and no other parameter may be changed in this task. Each run increments the configuration count. If none clears the floor, that is the result — proceed to Task 4 and report it honestly.
+Permitted: `--tangent-window` in {2, 5} and `--max-skip-steps` in {1, 3}. Nothing else, and no other parameter may be changed in this task. Each run increments the configuration count. If none clears the floor, that is the result — proceed to Task 4 and report it honestly.
 
 - [ ] **Step 5: Append the results**
 
@@ -425,12 +507,17 @@ Add to `reports/fiber_tracer_improvement.md`:
 ```markdown
 ## Fix A: tangent smoothing
 
-| cube | window | ERL | ERLpen | cc ERLpen | coverage | splits | merges | n inst |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| s1_00497_01497_03997 | 1 (base) | 26.60 | 23.16 | 37.13 | 0.623 | 1872 | 38 | 669 |
-| s1_00497_01497_03997 | 3 | | | 37.13 | | | | |
-| s1_00497_02497_02997 | 1 (base) | | | 64.27 | | | | |
-| s1_00497_02497_02997 | 3 | | | 64.27 | | | | |
+| cube | window | skip | ERL | ERLpen | cc ERLpen | coverage | splits | merges | n inst |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| s1_00497_01497_03997 | 1 | 0 (base) | 26.60 | 23.16 | 37.13 | 0.623 | 1872 | 38 | 669 |
+| s1_00497_01497_03997 | 3 | 0 | | | 37.13 | | | | |
+| s1_00497_01497_03997 | 3 | 2 | | | 37.13 | | | | |
+| s1_00497_02497_02997 | 1 | 0 (base) | | | 64.27 | | | | |
+| s1_00497_02497_02997 | 3 | 0 | | | 64.27 | | | | |
+| s1_00497_02497_02997 | 3 | 2 | | | 64.27 | | | | |
+
+The `skip 0` rows isolate smoothing; the `skip 2` rows add coasting. Report which mechanism
+carried the change -- that is the point of keeping them separate.
 
 Stop reasons after: <fill>
 
@@ -475,33 +562,46 @@ Append to `tests/test_fiber_trace_baseline.py`:
 
 ```python
 def test_nms_keeps_one_seed_per_cross_section():
-    """A single fat fiber must not yield several parallel instances."""
-    response, dirs, valid = _straight_tube(radius=3.0)
-    res = trace_fibers(
-        response=response, seed_response=response, directions=dirs, valid=valid,
-        params=TraceParams(seed_threshold=0.5, continue_threshold=0.25,
-                           min_length=5.0, seed_stride=1, claim_radius=0.5,
-                           seed_nms_radius=2.0),
-    )
-    assert len(res) == 1, f"expected one instance, got {len(res)}"
+    """A single fat fiber must not yield several parallel instances.
+
+    claim_radius is deliberately small here (0.5, well under the tube radius) so
+    the existing claimed-territory check cannot mask the effect. Without
+    suppression several offset seeds each walk the full length; with it, one.
+    """
+    response, seed, dirs, valid = _straight_tube(radius=3.0)
+    p = dict(seed_threshold=0.5, continue_threshold=0.25, min_length=5.0,
+             max_angle_deg=25.0, seed_stride=1, claim_radius=0.5)
+
+    without = trace_fibers(response=response, seed_response=seed, directions=dirs,
+                           valid=valid, params=TraceParams(seed_nms_radius=0.0, **p))
+    with_nms = trace_fibers(response=response, seed_response=seed, directions=dirs,
+                            valid=valid, params=TraceParams(seed_nms_radius=2.0, **p))
+
+    assert len(with_nms) == 1, f"expected one instance, got {len(with_nms)}"
+    assert len(with_nms) < len(without), (
+        f"NMS must reduce the instance count here; got {len(without)} -> "
+        f"{len(with_nms)}. If they are equal, claimed-territory skipping is "
+        f"already handling this case and the test proves nothing.")
 
 
 def test_nms_does_not_merge_two_nearby_parallel_fibers():
     """Suppression must not swallow a genuinely separate neighbour."""
     shape = (40, 40, 40)
     response = np.zeros(shape, dtype=float)
+    seed = np.zeros(shape, dtype=float)
     dirs = np.zeros(shape + (3,), dtype=float)
     valid = np.zeros(shape, dtype=bool)
     for cx in (17, 23):  # two fibers 6 voxels apart
         response[:, 20, cx] = 1.0
+        seed[:, 20, cx] = 1.0
         dirs[:, 20, cx] = np.array([1.0, 0.0, 0.0])
         valid[:, 20, cx] = True
 
     res = trace_fibers(
-        response=response, seed_response=response, directions=dirs, valid=valid,
+        response=response, seed_response=seed, directions=dirs, valid=valid,
         params=TraceParams(seed_threshold=0.5, continue_threshold=0.25,
-                           min_length=5.0, seed_stride=1, claim_radius=0.5,
-                           seed_nms_radius=2.0),
+                           min_length=5.0, max_angle_deg=25.0, seed_stride=1,
+                           claim_radius=0.5, seed_nms_radius=2.0),
     )
     assert len(res) == 2, f"expected two fibers, got {len(res)}"
 
@@ -666,7 +766,7 @@ Add `seed_nms_radius=args.seed_nms_radius` to `cmd_trace`'s `TraceParams(...)`, 
 for CUBE in s1_00497_01497_03997_256 s1_00497_02497_02997_256; do
   uv run python -m vesuvius_autoresearch.fibers.bench_cli trace --cube $CUBE --seed-nms-radius 2.0
   uv run python -m vesuvius_autoresearch.fibers.bench_cli trace --cube $CUBE \
-    --tangent-window <best from Task 3> --seed-nms-radius 2.0
+    --tangent-window <best from Task 3> --max-skip-steps <best from Task 3> --seed-nms-radius 2.0
 done
 ```
 
@@ -681,8 +781,8 @@ For every row, compare merges against that cube's baseline. An ERLpen gain with 
 ```markdown
 ## Fix B: seed NMS, and both fixes together
 
-| cube | window | nms | ERL | ERLpen | cc ERLpen | coverage | splits | merges | collisions |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| cube | window | skip | nms | ERL | ERLpen | cc ERLpen | coverage | splits | merges | collisions |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 
 **Did Fix B move collisions?** <baseline collisions> -> <after>. <If the change is
 small, say so plainly: the seed loop already skipped claimed candidates, so most
@@ -717,7 +817,7 @@ This task is the moment the protocol exists for. **Read the whole task before ru
 
 - [ ] **Step 1: Freeze the configuration**
 
-Write the single chosen configuration into the report *before* running: the tangent window, the NMS radius, and every other tracer parameter. **After this point no parameter may change.** If a held-out cube disappoints, that is the result.
+Write the single chosen configuration into the report *before* running: the tangent window, the skip budget, the NMS radius, and every other tracer parameter. **After this point no parameter may change.** If a held-out cube disappoints, that is the result.
 
 - [ ] **Step 2: Run all six cubes once**
 
@@ -726,7 +826,7 @@ for CUBE in s1_00497_01497_03997_256 s1_00497_02497_02997_256 \
             s1_00997_02497_02997_256 s1_08997_02997_02497_256 \
             s1_10997_02997_02997_256 s5_03997_01497_03997_256; do
   uv run python -m vesuvius_autoresearch.fibers.bench_cli trace --cube $CUBE \
-    --tangent-window <frozen> --seed-nms-radius <frozen>
+    --tangent-window <frozen> --max-skip-steps <frozen> --seed-nms-radius <frozen>
 done
 ```
 
@@ -737,7 +837,7 @@ Every cube, every metric, against each cube's own floor:
 ```markdown
 ## Final result (frozen configuration, held-out cubes scored once)
 
-Configuration: tangent_window=<N>, seed_nms_radius=<R>, all other parameters at
+Configuration: tangent_window=<N>, max_skip_steps=<S>, seed_nms_radius=<R>, all other parameters at
 the published defaults. Configurations tried in total: <N>.
 
 | cube | role | ERL | cc ERL | ERLpen | cc ERLpen | beat floor? | coverage | splits | merges |

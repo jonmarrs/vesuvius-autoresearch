@@ -82,8 +82,23 @@ orientation field is piecewise-constant per voxel and jumps discontinuously at v
 noisy voxel, crossed once, terminates the walk permanently. This is quantization noise being read
 as curvature, not fibers bending.
 
-**Change.** Compare the new direction against a sign-aligned mean of the last `k` step directions
-rather than against the single previous one.
+**Correction (2026-07-31, before implementation).** An earlier version of this spec proposed
+tangent smoothing alone. That is insufficient, and the gap was found by probing the synthetic
+geometry before any implementation: smoothing the *reference* tangent does not reject a bad
+*sample*. At a wildly-wrong voxel the incoming direction is perpendicular, so `dot(d, ref)` fails
+the threshold whether `ref` is smoothed or not. Measured on a synthetic tube with one corrupted
+voxel: 2 instances instead of 1, with `high_curvature: 1`.
+
+Two distinct failure modes therefore need two mechanisms, and they are kept as separate parameters
+so their contributions can be measured independently:
+
+| failure mode | mechanism | parameter |
+| --- | --- | --- |
+| mild jitter across many voxels | compare against a smoothed reference | `tangent_window` |
+| a single wildly-wrong voxel | coast past a bounded run of rejections | `max_skip_steps` |
+
+**Change 1 — smoothed reference.** Compare the new direction against a sign-aligned mean of the
+last `k` step directions rather than against the single previous one.
 
 - `k = ceil(2 / step)` = 3 at the default step. Principled: it spans two voxels, so a single bad
   voxel cannot terminate a walk, while a genuine sustained bend still trips the test.
@@ -96,6 +111,22 @@ rather than against the single previous one.
   jump between fibers, which costs merges and fails the pre-registered condition.
 - Before `k` steps have accumulated, compare against the mean of what exists (seeded with
   `seed_dir`), so behaviour at the start of a walk is well defined.
+
+**Change 2 — bounded coast.** On a curvature rejection, do not terminate immediately. Step along
+the reference direction instead, and count consecutive rejections. Resume normally as soon as the
+field agrees again; terminate with `HIGH_CURVATURE` only once `max_skip_steps` consecutive
+rejections have accumulated.
+
+- `max_skip_steps = 2` at the default step of 0.7 voxels, which spans ~1.4 voxels — enough to
+  cross one corrupted voxel, not enough to cross a genuine fiber boundary and keep going.
+- The counter resets on any accepted step, so the budget is for *consecutive* rejections. A walk
+  that repeatedly coasts is following something the field does not support, and must still stop.
+- Coasted steps are still subject to every other gate: response, bounds, and collision. Coasting
+  suspends only the curvature test.
+- **This is the mechanism most likely to buy merges**, since coasting is exactly how a walk could
+  cross into a neighbouring fiber. The pre-registered failure condition — ERLpen up while merges
+  rise — exists to catch precisely this, and `max_skip_steps = 0` must reproduce
+  smoothing-only behaviour so the two are separable.
 
 ## Fix B: seed non-maximum suppression (targets `collision`, 28%)
 
