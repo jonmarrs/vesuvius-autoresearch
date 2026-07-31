@@ -305,6 +305,8 @@ def cmd_trace(args) -> int:
             seed_stride=2,
             max_angle_deg=args.max_angle,
             claim_radius=args.claim_radius,
+            tangent_window=args.tangent_window,
+            max_skip_steps=args.max_skip_steps,
         ),
     )
     if args.relink:
@@ -379,6 +381,20 @@ def main(argv=None) -> int:
             p.add_argument("--min-length", type=float, default=15.0)
             p.add_argument("--max-angle", type=float, default=25.0)
             p.add_argument("--claim-radius", type=float, default=3.5)
+            p.add_argument(
+                "--tangent-window",
+                type=int,
+                default=1,
+                help="compare each step against the mean of the last N "
+                "directions (1 = published baseline behaviour)",
+            )
+            p.add_argument(
+                "--max-skip-steps",
+                type=int,
+                default=0,
+                help="coast through this many consecutive curvature "
+                "rejections before stopping (0 = baseline)",
+            )
             p.add_argument("--relink", action="store_true", default=True)
             p.add_argument("--no-relink", dest="relink", action="store_false")
             p.add_argument("--relink-gap", type=float, default=10.0)
