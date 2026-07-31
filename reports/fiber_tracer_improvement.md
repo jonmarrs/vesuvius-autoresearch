@@ -9,7 +9,8 @@ Dev cubes: `s1_00497_01497_03997_256`, `s1_00497_02497_02997_256`.
 Held out until the final run: the three other Scroll-1 cubes.
 Never used for any decision: `s5_03997_01497_03997_256`.
 
-**Configurations tried so far: 1** (the baseline itself).
+**Configurations tried so far: 5** (baseline; window 3/skip 0; window 3/skip 2;
+window 5/skip 0; window 3/skip 1 — see Fix A below for the per-configuration results).
 
 ## Baseline (reproduced 2026-07-31)
 
@@ -52,19 +53,51 @@ failure seen at skip 2? Both extra settings stayed inside the permitted
 single digits; it does not come close to closing it.
 
 **Which mechanism carried the change:** smoothing (`tangent_window`), not coasting
-(`max_skip_steps`). Every skip-0 row (window 3 and window 5) improved ERLpen on both
-cubes over baseline while merges fell or held (cube 1: 38 -> 37 -> 28; cube 2: 47 -> 43
--> 39) — pure gain, no penalty. Every row with `max_skip_steps > 0` on cube 1 (skip 1
-and skip 2 alike) pushed merges *above* baseline (38 -> 40, 38 -> 41) while still nudging
-ERLpen up, which is the pre-registered failure condition — this held at the smallest
-tested coast budget (skip 1), not just the larger one, so there is no "safe" coast
-budget in this range on cube 1. On cube 2, coasting alone did not reproduce the failure
-(merges stayed at or below baseline in both skip rows), but skip 2 also gave zero ERLpen
-benefit there (32.98 < baseline 33.58) — coasting bought nothing on cube 2 and cost
-merges on cube 1. The reviewer's read from Task 2 (coasting steps along a frozen
+(`max_skip_steps`).
+
+Comparing skip-nonzero rows against the unsmoothed baseline conflates the two
+mechanisms, since window is also different. The clean isolation holds window fixed at
+3 and varies only skip, i.e. window-3/skip-0 vs. window-3/skip-1 vs. window-3/skip-2 —
+smoothing held constant, coasting turned on:
+
+| cube | comparison | ERLpen | merges |
+| --- | --- | --- | --- |
+| cube 1 | skip 0 -> skip 1 (window 3 fixed) | 24.81 -> 23.79 (-1.02) | 37 -> 40 (+3) |
+| cube 1 | skip 0 -> skip 2 (window 3 fixed) | 24.81 -> 24.07 (-0.74) | 37 -> 41 (+4) |
+| cube 2 | skip 0 -> skip 1 (window 3 fixed) | 35.54 -> 34.40 (-1.14) | 43 -> 44 (+1) |
+| cube 2 | skip 0 -> skip 2 (window 3 fixed) | 35.54 -> 32.98 (-2.56) | 43 -> 47 (+4) |
+
+At fixed window, adding coasting **regresses ERLpen and raises merges in all four
+cases, on both cubes, at both tested skip budgets.** This is a materially stronger and
+cleaner result than a baseline-relative comparison gives, because it isolates coasting
+from smoothing entirely: coasting on top of smoothing is not a wash, it is consistently
+worse than smoothing alone.
+
+Every skip-0 row (window 3 and window 5) improved ERLpen on both cubes over baseline
+while merges fell or held (cube 1: 38 -> 37 -> 28; cube 2: 47 -> 43 -> 39) — pure gain,
+no penalty, and the mechanism responsible for every gain reported in this section.
+
+The baseline-relative view is messier and worth stating precisely rather than
+summarizing away: two of the four skip-nonzero rows trip the pre-registered
+failure condition against the unsmoothed baseline (cube 1, skip 1 and skip 2 both) —
+merges rise while ERLpen still ticks up, because the baseline comparison includes both
+mechanisms and smoothing's contribution is muddying a coasting-driven merge increase.
+But one skip-nonzero row, cube 2 / window 3 / skip 1, is a genuine **PASS** against
+baseline in isolation (ERLpen 33.58 -> 34.40, merges 47 -> 44 both improve) — it is not
+a failure and not a wash, it is the same *kind* of result as the smoothing-only gains,
+just smaller, because on that cube the smoothing benefit outweighs the coasting cost at
+that specific budget. That row does not change the same-window verdict above (window-3/
+skip-0 -> skip-1 on cube 2 is still a regression, 35.54 -> 34.40, merges 43 -> 44); it
+means smoothing is carrying that row too, partially offset by coasting, not that
+coasting is contributing positively.
+
+Net picture: smoothing is the only mechanism that produces a same-window, isolated gain
+anywhere in this data. Coasting, isolated the same way, is a regression on both metrics
+in all four tested cases. The reviewer's read from Task 2 (coasting steps along a frozen
 direction and can't absorb a turn) is consistent with this: it does not add real
 connectivity, it just suppresses a stop long enough to occasionally paper over a bad
-segment, at the price of wrong-instance merges.
+segment, at the price of wrong-instance merges and (per the same-window comparison)
+a net ERLpen cost on top of what smoothing alone already achieves.
 
 Stop reasons after each run:
 
@@ -120,12 +153,14 @@ This is not presented as a win where it failed -- the cube 1 / skip >= 1 rows ar
 recorded as failures per the contract, independent of the small ERLpen numbers involved.
 
 **Bottom line:** the cc-ERLpen floor is not cleared on either dev cube by any of the
-five configurations tried. Smoothing alone is a small, safe, real gain (roughly +2 to
-+2.5 ERLpen on both cubes, merges flat-to-down) but nowhere near enough to beat the
-connected-components floor. Coasting adds no net benefit and is actively unsafe on
-cube 1 at every tested budget. Fix A as specified does not beat baseline in the sense
-that matters for this contract; per the brief, this is reported as the honest result
-and the work proceeds to Task 4.
+five configurations tried. Smoothing alone is a small, safe, real gain (+1.65 to
++2.45 ERLpen across the four skip-0 rows on the two cubes, merges flat-to-down) but
+nowhere near enough to beat the connected-components floor. Coasting, isolated from
+smoothing via the same-window comparison above, is a net regression on both ERLpen and
+merges in all four tested cases and is additionally unsafe (against the unsmoothed
+baseline) on cube 1 at every tested budget. Fix A as specified does not beat baseline in
+the sense that matters for this contract; per the brief, this is reported as the honest
+result and the work proceeds to Task 4.
 
 **Configurations tried so far: 5** (baseline; window 3/skip 0; window 3/skip 2;
 window 5/skip 0; window 3/skip 1).
