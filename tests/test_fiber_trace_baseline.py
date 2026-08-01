@@ -161,6 +161,11 @@ def test_coasting_still_stops_at_a_genuine_bend():
         valid=valid,
         params=TraceParams(tangent_window=3, max_skip_steps=2, **BASE),
     )
+    # This assertion is valid for skip budgets 0-3 at this geometry: at
+    # max_skip_steps >= 4 the walk coasts far enough to reach the bend's far side
+    # before the budget is exhausted, and the stop label flips to "low_response"
+    # even though the walk still never actually turns the corner. Not budget-invariant.
+    # (Threshold measured by sweeping budgets 0-8 at tangent_window=3.)
     assert res.stop_counts.get("high_curvature", 0) >= 1, (
         "a sustained 90-degree bend must still stop a walk"
     )
@@ -179,3 +184,92 @@ def test_window_one_and_no_skip_is_exactly_the_old_behaviour():
     )
     assert old.stop_counts.get("high_curvature", 0) >= 1
     assert len(old) == 2
+
+
+def test_nms_keeps_one_seed_per_cross_section():
+    """A single fat fiber must not yield several parallel instances.
+
+    claim_radius is deliberately small here (0.5, well under the tube radius) so
+    the existing claimed-territory check cannot mask the effect. Without
+    suppression several offset seeds each walk the full length; with it, one.
+    """
+    response, seed, dirs, valid = _straight_tube(radius=3.0)
+    p = {
+        "seed_threshold": 0.5,
+        "continue_threshold": 0.25,
+        "min_length": 5.0,
+        "max_angle_deg": 25.0,
+        "seed_stride": 1,
+        "claim_radius": 0.5,
+    }
+
+    without = trace_fibers(
+        response=response,
+        seed_response=seed,
+        directions=dirs,
+        valid=valid,
+        params=TraceParams(seed_nms_radius=0.0, **p),
+    )
+    with_nms = trace_fibers(
+        response=response,
+        seed_response=seed,
+        directions=dirs,
+        valid=valid,
+        params=TraceParams(seed_nms_radius=2.0, **p),
+    )
+
+    assert len(with_nms) == 1, f"expected one instance, got {len(with_nms)}"
+    assert len(with_nms) < len(without), (
+        f"NMS must reduce the instance count here; got {len(without)} -> "
+        f"{len(with_nms)}. If they are equal, claimed-territory skipping is "
+        f"already handling this case and the test proves nothing."
+    )
+
+
+def test_nms_does_not_merge_two_nearby_parallel_fibers():
+    """Suppression must not swallow a genuinely separate neighbour."""
+    shape = (40, 40, 40)
+    response = np.zeros(shape, dtype=float)
+    seed = np.zeros(shape, dtype=float)
+    dirs = np.zeros(shape + (3,), dtype=float)
+    valid = np.zeros(shape, dtype=bool)
+    for cx in (17, 23):  # two fibers 6 voxels apart
+        response[:, 20, cx] = 1.0
+        seed[:, 20, cx] = 1.0
+        dirs[:, 20, cx] = np.array([1.0, 0.0, 0.0])
+        valid[:, 20, cx] = True
+
+    res = trace_fibers(
+        response=response,
+        seed_response=seed,
+        directions=dirs,
+        valid=valid,
+        params=TraceParams(
+            seed_threshold=0.5,
+            continue_threshold=0.25,
+            min_length=5.0,
+            max_angle_deg=25.0,
+            seed_stride=1,
+            claim_radius=0.5,
+            seed_nms_radius=2.0,
+        ),
+    )
+    assert len(res) == 2, f"expected two fibers, got {len(res)}"
+
+
+def test_nms_suppresses_perpendicular_only():
+    """A candidate far along the tangent must still be accepted.
+
+    Suppressing along the tangent would stop a long fiber being re-seeded past
+    a gap, costing coverage.
+    """
+    from vesuvius_autoresearch.fibers.trace import _suppress_perpendicular
+
+    accepted = np.array([20.0, 20.0, 20.0])
+    tangent = np.array([1.0, 0.0, 0.0])
+
+    near_perp = np.array([20.0, 21.0, 20.0])  # 1 voxel perpendicular
+    far_along = np.array([35.0, 20.0, 20.0])  # 15 voxels along the tangent
+
+    assert _suppress_perpendicular(near_perp, accepted, tangent, 2.0) is True
+    assert _suppress_perpendicular(far_along, accepted, tangent, 2.0) is False

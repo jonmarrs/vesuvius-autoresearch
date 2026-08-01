@@ -135,11 +135,32 @@ Two implementation notes that cost real debugging time and are easy to repeat:
    (x, y, z), because that matrix indexes 0 <-> x. Walking a volume with an unreversed vector
    moves along the wrong axis, finds nothing, and looks plausible.
 
-**Current standing: the tracer does not beat connected components — on either metric.** Measured
-on all six full 256³ cubes, connected components wins on raw ERL by 4.5-7.4x and on
-merge-penalized ERL by 1.6-3.5x, with no cube going the other way. It trades merges for
-fragmentation and loses more than it gains: coverage is a respectable 0.605-0.704, so the tracer
-finds the fibers, but it cannot hold one identity along them and its runs stay short.
+**Current standing: the tracer does not beat connected components — on either metric.**
+A follow-on study (`reports/fiber_tracer_improvement.md`) tried tangent-window smoothing,
+skip-step coasting, and seed non-maximum suppression against a pre-registered, per-cube
+connected-components floor, with two dev cubes for tuning and four cubes — three held-out
+Scroll-1 cubes plus one never-touched Scroll-5 cube — scored exactly once at the end under a
+configuration frozen before those runs (`tangent_window=5, max_skip_steps=0,
+seed_nms_radius=0.0`; skip-step coasting was tried and falsified, seed NMS was tried and found
+to be a null result, so neither ships). That configuration is a small, real, safe gain over the
+original baseline **on the primary metric** — merge-penalized ERL up and merge count down on
+all six cubes, no exceptions, including the never-touched cross-scroll cube — but it **does not
+clear the floor on either metric, on any cube**. Measured on all six full 256³ cubes at that
+configuration, connected components wins on raw ERL by 4.6-6.6x and on merge-penalized ERL by
+1.5-3.4x, with no cube going the other way; the smallest remaining merge-penalized-ERL gap is
+11.5 points and the largest is 75.1. It trades merges for fragmentation and loses more than it
+gains: coverage is 0.602-0.697, so the tracer finds the fibers, but it cannot hold one identity
+along them and its runs stay short — most likely because walks drift into a neighbouring
+fiber's claimed territory and get cut off by collisions well before they reach the fiber's true
+extent, a failure mode neither smoothing nor seed NMS reaches into. The merge-penalized-ERL
+gain itself is predominantly a merge-reduction effect rather than a run-length one: raw ERL
+fell or was essentially flat on four of the six cubes (including a dev cube) and splits rose on
+five of six — see `reports/fiber_tracer_improvement.md` for the per-cube breakdown against all
+four contract metrics.
+
+**To get this configuration, it must be requested explicitly** — `bench_cli trace` defaults to
+`--tangent-window 1 --max-skip-steps 0 --seed-nms-radius 0.0`, which is the original,
+unimproved baseline. Pass `--tangent-window 5` to run the frozen configuration measured above.
 
 An earlier reading that the tracer was *marginally ahead* on the penalized metric (24.27 vs 22.47)
 came from the 128³ sub-volume and does not survive at full-cube scale; it should not be cited.
@@ -149,11 +170,20 @@ That is published here rather than hidden, and it is the bar a new method should
 ## Reproducing our numbers
 
 ```bash
-CUDA_VISIBLE_DEVICES="" uv run python -m pytest tests/ -q -k fiber   # 84 tests, CPU
+uv run python -m pytest tests/ -q -k fiber   # 91 tests; needs the GPU visible
+```
+
+Two tests (`test_cpu_gpu_vesselness_parity`, `test_cli_vesselness_roundtrip`) fail under
+`CUDA_VISIBLE_DEVICES=""` — known CUDA-masking failures, not regressions — so run the suite
+with the GPU visible, not with `CUDA_VISIBLE_DEVICES=""`.
+
+```bash
 python -m vesuvius_autoresearch.fibers.bench_cli floors --cube s1_00497_01497_03997_256
 ```
 
 Reports: `reports/fiber_tracing_step0_gt_survey.md` (where the ground truth is),
 `reports/fiber_orientation_validation.md` (the orientation primitive),
 `reports/fiber_semantic_inference.md` (model discrimination),
+`reports/fiber_tracer_improvement.md` (the tangent-smoothing/coasting/seed-NMS study and its
+generalization result),
 `reports/fiber_connectivity_eval.md` (the metric, floors, and our negative result).
