@@ -7,6 +7,8 @@ from vesuvius_autoresearch.fibers.field_quality import (
     NodeKind,
     count_node_kinds,
     gt_tangents,
+    gt_tangents_bisector,
+    tangent_estimator_disagreement,
 )
 from vesuvius_autoresearch.fibers.skeleton_io import Fiber
 
@@ -98,3 +100,145 @@ def test_interior_tangent_uses_a_central_difference():
     mid = tangents[list(kinds).index(NodeKind.INTERIOR)]
     expected = np.array([1.0, 1.0, 0.0]) / np.sqrt(2.0)
     assert abs(abs(float(np.dot(mid, expected))) - 1.0) < 1e-9
+
+
+# --- chord vs. bisector estimator disagreement --------------------------------
+#
+# `gt_tangents` uses a length-weighted chord between a node's two neighbours;
+# it only equals the true angle bisector when both edges are the same length.
+# `gt_tangents_bisector` averages the two *unit* edge directions instead, so it
+# is unaffected by unequal edge lengths. `tangent_estimator_disagreement`
+# measures the gap between them, which is otherwise silently absorbed into
+# whatever angular error we report against the model's orientation field.
+
+
+def test_estimators_agree_exactly_on_an_equal_spacing_straight_line():
+    fib = _line_fiber(n=6, axis=1, spacing=3.0)
+    disagreement = tangent_estimator_disagreement(fib)
+    assert len(disagreement) == 6
+    np.testing.assert_allclose(disagreement, 0.0, atol=1e-9)
+
+
+def test_estimators_agree_exactly_on_an_equal_spacing_corner():
+    """Equal-length edges: the chord and the bisector coincide by construction."""
+    coords = np.array([[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [1.0, 1.0, 0.0]])
+    edges = np.array([[0, 1], [1, 2]], dtype=int)
+    fib = Fiber(id=1, name="corner", node_ids=np.arange(3), coords=coords, edges=edges)
+
+    _, _, kinds = gt_tangents(fib)
+    # gt_tangents and gt_tangents_bisector share ordering/exclusion, so the
+    # disagreement array lines up with gt_tangents' kinds directly.
+    interior_idx = kinds.index(NodeKind.INTERIOR)
+    disagreement = tangent_estimator_disagreement(fib)
+    # `arccos` is ill-conditioned near a dot product of 1.0: even when the two
+    # unit vectors are bit-identical, self-dot rounds to slightly under 1.0
+    # (squaring 1/sqrt(2) does not perfectly invert), so arccos returns
+    # ~sqrt(2*eps) radians instead of exactly 0. That floor is ~1.2e-6 degrees
+    # for float64, so 1e-4 is a tolerance far above the floating-point noise
+    # floor and far below any real disagreement this function is meant to
+    # detect on real data.
+    assert abs(disagreement[interior_idx]) < 1e-4
+
+
+def test_estimators_disagree_by_a_known_amount_on_an_asymmetric_corner():
+    """A right angle with a 0.01-length edge and a 100-length edge.
+
+    The chord leans almost entirely onto the long edge; the bisector still
+    splits the angle in half. The expected disagreement is derived directly
+    from the corner's geometry (not by calling either estimator), so this
+    pins down a specific number rather than merely asserting "disagreement
+    exists".
+    """
+    a = 0.01
+    b = 100.0
+    coords = np.array([[-a, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, b, 0.0]])
+    edges = np.array([[0, 1], [1, 2]], dtype=int)
+    fib = Fiber(
+        id=1,
+        name="asymmetric-corner",
+        node_ids=np.arange(3),
+        coords=coords,
+        edges=edges,
+    )
+
+    chord = np.array([a, b, 0.0])
+    chord = chord / np.linalg.norm(chord)
+    bisector = np.array([1.0, 1.0, 0.0]) / np.sqrt(2.0)
+    expected_deg = float(
+        np.degrees(np.arccos(np.clip(np.dot(chord, bisector), -1.0, 1.0)))
+    )
+    assert abs(expected_deg - 44.994) < 1e-2  # sanity check on the hand geometry
+
+    _, _, kinds = gt_tangents(fib)
+    interior_idx = kinds.index(NodeKind.INTERIOR)
+    disagreement = tangent_estimator_disagreement(fib)
+    assert abs(float(disagreement[interior_idx]) - expected_deg) < 1e-6
+
+
+def test_bisector_falls_back_to_the_chord_when_a_node_doubles_back_on_itself():
+    """Incoming and outgoing unit directions exactly cancel -- no bisector exists."""
+    coords = np.array([[0.0, 0.0, 0.0], [2.0, 0.0, 0.0], [1.0, 0.0, 0.0]])
+    edges = np.array([[0, 1], [1, 2]], dtype=int)
+    fib = Fiber(
+        id=1, name="doubles-back", node_ids=np.arange(3), coords=coords, edges=edges
+    )
+
+    chord_c, chord_t, chord_kinds = gt_tangents(fib)
+    bisector_c, bisector_t, bisector_kinds = gt_tangents_bisector(fib)
+
+    assert chord_kinds == bisector_kinds
+    np.testing.assert_allclose(chord_c, bisector_c)
+
+    interior_idx = chord_kinds.index(NodeKind.INTERIOR)
+    # The bisector sum is exactly zero here, so it must fall back to the chord.
+    np.testing.assert_allclose(
+        bisector_t[interior_idx], chord_t[interior_idx], atol=1e-12
+    )
+    np.testing.assert_allclose(bisector_t[interior_idx], np.array([1.0, 0.0, 0.0]))
+
+    disagreement = tangent_estimator_disagreement(fib)
+    assert abs(float(disagreement[interior_idx])) < 1e-9
+
+
+def test_gt_tangents_bisector_excludes_and_counts_the_same_nodes_as_gt_tangents():
+    coords = np.array(
+        [
+            [0.0, 0.0, 0.0],
+            [1.0, 0.0, 0.0],
+            [2.0, 0.0, 0.0],  # stem
+            [3.0, 1.0, 0.0],
+            [3.0, -1.0, 0.0],  # two arms off node 2 (branch)
+        ]
+    )
+    edges = np.array([[0, 1], [1, 2], [2, 3], [2, 4]], dtype=int)
+    fib = Fiber(id=1, name="y", node_ids=np.arange(5), coords=coords, edges=edges)
+
+    chord_c, _, chord_kinds = gt_tangents(fib)
+    bisector_c, _, bisector_kinds = gt_tangents_bisector(fib)
+
+    assert len(bisector_c) == len(chord_c) == 4
+    np.testing.assert_allclose(bisector_c, chord_c)
+    assert bisector_kinds == chord_kinds
+
+    # Isolated node: excluded and counted the same way by both.
+    dot = Fiber(
+        id=1,
+        name="dot",
+        node_ids=np.arange(1),
+        coords=np.zeros((1, 3)),
+        edges=np.zeros((0, 2), dtype=int),
+    )
+    assert len(gt_tangents_bisector(dot)[0]) == len(gt_tangents(dot)[0]) == 0
+    assert count_node_kinds(dot)[NodeKind.ISOLATED] == 1
+
+    # Degenerate (duplicate coordinates): excluded and counted the same way.
+    dup_coords = np.array([[0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [2.0, 0.0, 0.0]])
+    dup = Fiber(
+        id=1,
+        name="dup",
+        node_ids=np.arange(3),
+        coords=dup_coords,
+        edges=np.array([[0, 1], [1, 2]], dtype=int),
+    )
+    assert len(gt_tangents_bisector(dup)[0]) == len(gt_tangents(dup)[0])
+    assert count_node_kinds(dup)[NodeKind.DEGENERATE] >= 1
