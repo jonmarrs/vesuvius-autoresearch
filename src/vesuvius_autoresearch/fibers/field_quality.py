@@ -239,3 +239,23 @@ def tangent_estimator_disagreement(fiber: Fiber) -> np.ndarray:
         return np.zeros(0)
     dots = np.clip(np.sum(chord_t * bisector_t, axis=1), -1.0, 1.0)
     return np.degrees(np.arccos(dots))
+
+
+def angular_error_deg(a: np.ndarray, b: np.ndarray) -> np.ndarray:
+    """Angle between two orientation fields, in degrees, modulo 180.
+
+    Taking `abs` of the dot product is what makes this an *orientation*
+    comparison rather than a *direction* one. An eigenvector field is defined
+    only up to sign, so `-t` is exactly as correct as `t`; scoring the flip as
+    180 degrees would make a perfectly good field look catastrophic. Errors
+    therefore live in [0, 90], and 90 means "perpendicular", the worst possible.
+    """
+    a = np.atleast_2d(np.asarray(a, dtype=float))
+    b = np.atleast_2d(np.asarray(b, dtype=float))
+    na = np.linalg.norm(a, axis=1, keepdims=True)
+    nb = np.linalg.norm(b, axis=1, keepdims=True)
+    with np.errstate(invalid="ignore", divide="ignore"):
+        a = a / np.where(na < 1e-12, np.nan, na)
+        b = b / np.where(nb < 1e-12, np.nan, nb)
+    cos = np.abs(np.sum(a * b, axis=1))
+    return np.degrees(np.arccos(np.clip(cos, 0.0, 1.0)))

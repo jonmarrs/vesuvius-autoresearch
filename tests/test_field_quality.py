@@ -242,3 +242,44 @@ def test_gt_tangents_bisector_excludes_and_counts_the_same_nodes_as_gt_tangents(
     )
     assert len(gt_tangents_bisector(dup)[0]) == len(gt_tangents(dup)[0])
     assert count_node_kinds(dup)[NodeKind.DEGENERATE] >= 1
+
+
+from vesuvius_autoresearch.fibers.field_quality import angular_error_deg
+
+
+def test_identical_directions_have_zero_error():
+    a = np.array([[1.0, 0.0, 0.0], [0.0, 1.0, 0.0]])
+    np.testing.assert_allclose(angular_error_deg(a, a), 0.0, atol=1e-9)
+
+
+def test_opposite_directions_have_zero_error():
+    """The load-bearing property: orientation is defined only up to sign.
+
+    A field that returns -t where the truth is +t is perfectly correct. Scoring
+    that as 180 degrees would make a good field look catastrophic.
+    """
+    a = np.array([[1.0, 0.0, 0.0]])
+    np.testing.assert_allclose(angular_error_deg(a, -a), 0.0, atol=1e-9)
+
+
+def test_perpendicular_directions_give_ninety_degrees():
+    a = np.array([[1.0, 0.0, 0.0]])
+    b = np.array([[0.0, 1.0, 0.0]])
+    np.testing.assert_allclose(angular_error_deg(a, b), 90.0, atol=1e-9)
+
+
+def test_known_angle_is_recovered_and_never_exceeds_ninety():
+    for deg in (10.0, 25.0, 44.0, 89.0, 91.0, 170.0):
+        r = np.deg2rad(deg)
+        a = np.array([[1.0, 0.0, 0.0]])
+        b = np.array([[np.cos(r), np.sin(r), 0.0]])
+        got = float(angular_error_deg(a, b)[0])
+        expected = min(deg, 180.0 - deg)
+        assert abs(got - expected) < 1e-6, (deg, got, expected)
+        assert 0.0 <= got <= 90.0
+
+
+def test_unnormalised_inputs_are_handled():
+    a = np.array([[3.0, 0.0, 0.0]])
+    b = np.array([[0.0, 7.0, 0.0]])
+    np.testing.assert_allclose(angular_error_deg(a, b), 90.0, atol=1e-9)
