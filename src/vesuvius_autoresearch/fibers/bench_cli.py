@@ -387,21 +387,27 @@ def main(argv=None) -> int:
                 type=int,
                 default=1,
                 help="compare each step against the mean of the last N "
-                "directions (1 = published baseline behaviour)",
+                "directions (1 = published baseline behaviour; 5 measured "
+                "best on both dev cubes and is the frozen, shipped-"
+                "improvement configuration -- see fiber_tracer_improvement.md)",
             )
             p.add_argument(
                 "--max-skip-steps",
                 type=int,
                 default=0,
                 help="coast through this many consecutive curvature "
-                "rejections before stopping (0 = baseline)",
+                "rejections before stopping (0 = baseline; measured and "
+                "REJECTED -- regressed merge-penalized ERL and raised merges "
+                "in same-window isolation on both dev cubes, ships disabled)",
             )
             p.add_argument(
                 "--seed-nms-radius",
                 type=float,
                 default=0.0,
                 help="suppress seeds within this perpendicular distance "
-                "of an accepted seed (0 = disabled)",
+                "of an accepted seed (0 = disabled; measured and REJECTED "
+                "-- no distinguishable ERLpen change and a double regression "
+                "on one dev cube, ships disabled)",
             )
             p.add_argument("--relink", action="store_true", default=True)
             p.add_argument("--no-relink", dest="relink", action="store_false")

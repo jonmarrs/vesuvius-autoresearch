@@ -161,6 +161,10 @@ def test_coasting_still_stops_at_a_genuine_bend():
         valid=valid,
         params=TraceParams(tangent_window=3, max_skip_steps=2, **BASE),
     )
+    # This assertion is valid for skip budgets up to about 4 at this geometry: at
+    # max_skip_steps >= 5 the walk coasts far enough to reach the bend's far side
+    # before the budget is exhausted, and the stop label flips to "low_response"
+    # even though the walk still never actually turns the corner. Not budget-invariant.
     assert res.stop_counts.get("high_curvature", 0) >= 1, (
         "a sustained 90-degree bend must still stop a walk"
     )

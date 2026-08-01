@@ -9,7 +9,7 @@ Dev cubes: `s1_00497_01497_03997_256`, `s1_00497_02497_02997_256`.
 Held out until the final run: the three other Scroll-1 cubes.
 Never used for any decision: `s5_03997_01497_03997_256`.
 
-**Configurations tried so far: 7 parameter configurations (14 dev-cube runs)**
+**Configurations tried so far: 7 parameter configurations (14 dev-cube tuning runs)**
 (baseline; window 3/skip 0; window 3/skip 2; window 5/skip 0; window 3/skip 1 — see
 Fix A below; NMS 2.0 alone; window 5/skip 0 + NMS 2.0 — see Fix B below — for the
 per-configuration results). Each configuration is scored on both dev cubes, hence
@@ -77,8 +77,12 @@ from smoothing entirely: coasting on top of smoothing is not a wash, it is consi
 worse than smoothing alone.
 
 Every skip-0 row (window 3 and window 5) improved ERLpen on both cubes over baseline
-while merges fell or held (cube 1: 38 -> 37 -> 28; cube 2: 47 -> 43 -> 39) — pure gain,
-no penalty, and the mechanism responsible for every gain reported in this section.
+while merges fell or held (cube 1: 38 -> 37 -> 28; cube 2: 47 -> 43 -> 39) — a gain on
+ERLpen and merges specifically, and the mechanism responsible for every ERLpen/merges
+gain reported in this section. It is not a gain on every metric: on cube 2 both skip-0
+rows have raw ERL below baseline (45.19 and 45.47 vs. 45.77), coverage below baseline
+(0.699 and 0.697 vs. 0.704), and splits above baseline (2191 and 2211 vs. 2185). Scoped
+to ERLpen-and-merges, not "pure gain, no penalty" across the board.
 
 The baseline-relative view is messier and worth stating precisely rather than
 summarizing away: two of the four skip-nonzero rows trip the pre-registered
@@ -207,9 +211,12 @@ walk ever starts, so most of the 400+ collisions per cube are walks that start f
 legitimate, non-duplicate seed and then drift into a *neighbouring* fiber's claimed
 territory partway through the walk. Seed NMS can only remove redundant seed points; it
 has no mechanism to stop an already-running walk from wandering into someone else's
-territory, which is where the bulk of these collisions originate. A resampling radius of
-2.0 further limits how many nearby seeds even exist to suppress. Fix B is targeting a
-minority contributor to the collision count, not the dominant one.
+territory, which is where the bulk of these collisions originate. The default
+`seed_stride=2` also limits how many candidates NMS ever sees, but not spatially: `trace.py`
+sorts seed candidates by response and keeps every 2nd one (`cand[order][::2]`), which halves
+the candidate set globally rather than thinning out nearby seeds specifically, so it is not a
+spatial resampling radius. Fix B is targeting a minority contributor to the collision count,
+not the dominant one.
 
 **Merge check (pre-registered):**
 
@@ -398,8 +405,9 @@ regardless of the penalty.
 *Correction (post-review):* an earlier version of this paragraph stated the range as
 "396-434", which silently dropped the cross-scroll cube's 291 and understated the true
 spread by 105 events. As a **share of that cube's own stops**, though, the picture does not
-change: collision is 291/1168 = 24.9% of all stops on the cross-scroll cube, squarely inside
-the 24.9%-31.6% band the other five cubes occupy (25.3%, 29.4%, 28.9%, 29.8%, 31.6%) -- "roughly
+change: collision is 291/1168 = 24.9% of all stops on the cross-scroll cube, fractionally below
+the 25.3%-31.6% band the other five cubes occupy (25.3%, 29.4%, 28.9%, 29.8%, 31.6%) -- by 0.4
+points, the smallest of the six shares but not a different regime -- "roughly
 a quarter to a third of all stops" still holds and collision is still the second-largest stop
 reason on every cube including this one. The lower *raw* count on the cross-scroll cube tracks
 that cube having the fewest ground-truth fibers (68, vs. 87-128 elsewhere) and the fewest total
@@ -418,14 +426,25 @@ Comparing each cube's frozen-configuration ERLpen against its own `tracer_strict
 baseline (the same row `reports/fiber_benchmark_all_cubes.json` publishes, recorded before
 this work began):
 
-| cube | role | baseline ERLpen | frozen ERLpen | delta | baseline merges | frozen merges |
-| --- | --- | --- | --- | --- | --- | --- |
-| s1_00497_01497_03997 | dev | 23.16 | 25.61 | +2.45 | 38 | 28 |
-| s1_00497_02497_02997 | dev | 33.58 | 35.84 | +2.26 | 47 | 39 |
-| s1_00997_02497_02997 | held out | 29.84 | 33.00 | +3.16 | 45 | 34 |
-| s1_08997_02997_02497 | held out | 30.76 | 31.04 | +0.28 | 15 | 12 |
-| s1_10997_02997_02997 | held out | 34.22 | 36.19 | +1.97 | 14 | 6 |
-| s5_03997_01497_03997 | never touched | 25.41 | 31.18 | +5.77 | 13 | 5 |
+| cube | role | ERL base→frozen | ΔERL | ERLpen base→frozen | ΔERLpen | coverage base→frozen | Δcoverage | splits base→frozen | Δsplits | merges base→frozen | Δmerges |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| s1_00497_01497_03997 | dev | 26.60 → 29.97 | +3.37 | 23.16 → 25.61 | +2.45 | 0.623 → 0.623 | 0.0000 | 1872 → 1847 | -25 | 38 → 28 | -10 |
+| s1_00497_02497_02997 | dev | 45.77 → 45.47 | -0.30 | 33.58 → 35.84 | +2.26 | 0.7038 → 0.697 | -0.0068 | 2185 → 2211 | +26 | 47 → 39 | -8 |
+| s1_00997_02497_02997 | held out | 36.32 → 38.44 | +2.12 | 29.84 → 33.00 | +3.16 | 0.6054 → 0.602 | -0.0034 | 2034 → 2044 | +10 | 45 → 34 | -11 |
+| s1_08997_02997_02497 | held out | 34.14 → 33.62 | -0.52 | 30.76 → 31.04 | +0.28 | 0.671 → 0.667 | -0.0040 | 2529 → 2571 | +42 | 15 → 12 | -3 |
+| s1_10997_02997_02997 | held out | 37.43 → 36.64 | -0.79 | 34.22 → 36.19 | +1.97 | 0.6161 → 0.618 | +0.0019 | 1568 → 1579 | +11 | 14 → 6 | -8 |
+| s5_03997_01497_03997 | never touched | 31.54 → 31.57 | +0.03 | 25.41 → 31.18 | +5.77 | 0.6233 → 0.620 | -0.0033 | 1196 → 1209 | +13 | 13 → 5 | -8 |
+
+All four contract metrics against their baselines, per cube, per the reporting requirement in
+the header of this document. **The ERLpen gain is predominantly a merge-reduction effect, not
+a run-length effect.** Raw ERL fell on three of six cubes -- including a dev cube
+(`s1_00497_02497_02997`, -0.30) -- and is essentially flat on a fourth (the cross-scroll cube,
++0.03); it rose meaningfully on only two cubes. Splits, which measure fragmentation directly,
+rose on five of six cubes (only the dev cube that set `tangent_window` improves on splits, and
+even there by only -25 against 1872). Coverage fell on four of six. ERLpen goes up mainly
+because the merge penalty is now being applied to fewer merges on an otherwise similarly (or
+more) fragmented set of runs -- the tracer is tracing about the same distance per run, and in
+several cases a shorter one, while merging less.
 
 Dev-cube mean gain: +2.36 ERLpen. Held-out (three Scroll-1 cubes) mean gain: +1.80 ERLpen --
 smaller than dev on average, but not vanished, and the held-out range (+0.28 to +3.16) spans
@@ -433,13 +452,16 @@ both below and above the dev numbers. One held-out cube, `s1_08997_02997_02497`,
 a wash (+0.28) -- on that cube the gain nearly disappeared, and it is also the cube with by
 far the largest cc-ERLpen floor (106.14), so its 75.10-point gap dwarfs a fraction-of-a-point
 gain either way. The other two held-out cubes show gains comparable to or larger than the dev
-cubes. **Verdict on generalization: directionally consistent (ERLpen up, merges down, on all
-six cubes, no exceptions) but not uniform in size** -- it is not the case that the gain simply
-survived at dev-cube magnitude, nor is it the case that it vanished; it ranged 20x in size
-(+0.28 to +5.77) across cubes never distinguished by any other property in this study, which
-means the "dev gain" was never a single stable number to begin with. In every case the gain is
-one to two orders of magnitude smaller than the remaining floor gap, so this variance does not
-change the outcome.
+cubes. **Verdict on generalization: directionally consistent on the primary metric (ERLpen up,
+merges down, on all six cubes, no exceptions) but not uniform in size, and not directionally
+consistent on the other three contract metrics** -- raw ERL fell or was flat on four of six
+cubes and splits rose on five of six, per the table and mechanism note above. On ERLpen alone,
+it is not the case that the gain simply survived at dev-cube magnitude, nor is it the case that
+it vanished; it ranged 20x in size (+0.28 to +5.77) across cubes never distinguished by any
+other property in this study, which means the "dev gain" was never a single stable number to
+begin with. In every case the gain is smaller than the remaining floor gap, by a factor ranging
+roughly 3x to 270x across the six cubes (smallest on the cross-scroll cube, largest on
+`s1_08997_02997_02497`), so this variance does not change the outcome.
 
 Merges fell on every one of the six cubes (38->28, 47->39, 45->34, 15->12, 14->6, 13->5). The
 *average* proportional reduction is larger on the four cubes not used to pick the
@@ -454,27 +476,44 @@ tripped anywhere in this table -- every row is a **PASS** by that check, consist
 ### The cross-scroll cube, on its own line
 
 `s5_03997_01497_03997_256` (Scroll 5) is the cleanest generalization number in the whole
-study: it informed no tuning decision at any point, in either Fix A or Fix B, and was first
-run under the frozen configuration in this task. ERLpen improved from 25.41 (baseline) to
-31.18 (frozen configuration), a **+5.77 gain -- the single largest gain of any cube in this
-study**, with merges falling from 13 to 5 (-62%). That the largest, most consistent-looking
-gain shows up on the one cube that never fed a decision is a useful sanity check that the
-configuration is not overfit to the two dev cubes -- but the gap to that same cube's own
-connected-components floor is still 19.92 ERLpen points (31.18 vs 51.10) and 150.65 raw-ERL
-points (31.57 vs 182.22), the second-smallest ERLpen gap of the six but still nowhere near
-closed. Cross-scroll transfer of the *improvement* looks fine; cross-scroll transfer to
-*beating the floor* does not happen, because no configuration tried anywhere in this study
-gets within an order of magnitude of doing that.
+study on the primary metric: it informed no tuning decision at any point, in either Fix A or
+Fix B, and was first run under the frozen configuration in this task. ERLpen improved from
+25.41 (baseline) to 31.18 (frozen configuration), a **+5.77 gain -- the single largest ERLpen
+gain of any cube in this study**, with merges falling from 13 to 5 (-62%).
+
+That headline number needs the same mechanism disclosure as the rest of the study, and this
+is the cube it matters most for, since it is the study's best-protected number and the one
+most likely to be quoted on its own. Raw ERL on this cube barely moved at all: 31.54 -> 31.57,
+a +0.03 change, and splits *rose* by 13 (1196 -> 1209). The tracer is not tracing this cube's
+fibers any farther than the baseline tracer did; it is producing a very slightly more
+fragmented set of runs and getting credited for the merge count dropping from 13 to 5. The
++5.77 is essentially all merge-count effect, not run-length effect -- the same pattern as the
+other five cubes, just with the largest ERLpen swing because this cube's baseline merge count
+(13) had the most room to fall in percentage terms.
+
+That the largest, most consistent-looking ERLpen gain shows up on the one cube that never fed
+a decision is still a useful sanity check that the configuration is not overfit to the two dev
+cubes on the primary metric -- but the gap to that same cube's own connected-components floor
+is still 19.92 ERLpen points (31.18 vs 51.10) and 150.65 raw-ERL points (31.57 vs 182.22), the
+second-smallest ERLpen gap of the six but still nowhere near closed. Cross-scroll transfer of
+the *ERLpen improvement* looks fine; cross-scroll transfer of raw tracing length does not
+happen on this cube, and cross-scroll transfer to *beating the floor* does not happen anywhere,
+because no configuration tried anywhere in this study gets within an order of magnitude of
+doing that.
 
 ### Bottom line
 
 The frozen configuration (tangent_window=5, max_skip_steps=0, seed_nms_radius=0.0) is a
-small, safe, real improvement over the published baseline tracer -- ERLpen up and merges down
-on all six cubes with no exceptions, including the never-touched cross-scroll cube -- and it
-**does not come close to beating connected components on either metric, on any cube**. The
-smallest remaining ERLpen gap is 11.52 points (dev cube 1) and the largest is 75.10
-(`s1_08997_02997_02497`); the smallest raw-ERL gap is 150.65 points. This is the final,
-frozen-configuration result against the pre-registered contract. No further tuning follows.
+small, safe, real improvement over the published baseline tracer **on the primary metric** --
+ERLpen up and merges down on all six cubes with no exceptions, including the never-touched
+cross-scroll cube -- and it **does not come close to beating connected components on either
+metric, on any cube**. The gain is not evenly a gain: raw ERL fell or was essentially flat on
+four of six cubes and splits rose on five of six (see "Did the dev-cube gain generalize?"
+above), so most of the ERLpen improvement is the merge penalty being applied to fewer merges
+rather than the tracer tracing farther. The smallest remaining ERLpen gap is 11.52 points (dev
+cube 1) and the largest is 75.10 (`s1_08997_02997_02497`); the smallest raw-ERL gap is 150.65
+points. This is the final, frozen-configuration result against the pre-registered contract. No
+further tuning follows.
 
 **Configurations tried in total: 7 parameter configurations, 20 runs** (14 dev-cube tuning
 runs across Fix A and Fix B, plus 6 frozen-configuration runs in this task -- 2 of which
