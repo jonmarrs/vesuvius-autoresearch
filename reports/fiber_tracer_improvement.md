@@ -9,9 +9,11 @@ Dev cubes: `s1_00497_01497_03997_256`, `s1_00497_02497_02997_256`.
 Held out until the final run: the three other Scroll-1 cubes.
 Never used for any decision: `s5_03997_01497_03997_256`.
 
-**Configurations tried so far: 9** (baseline; window 3/skip 0; window 3/skip 2;
-window 5/skip 0; window 3/skip 1 — see Fix A below; NMS 2.0 alone; window 5/skip 0 +
-NMS 2.0 — see Fix B below — for the per-configuration results).
+**Configurations tried so far: 7 parameter configurations (14 dev-cube runs)**
+(baseline; window 3/skip 0; window 3/skip 2; window 5/skip 0; window 3/skip 1 — see
+Fix A below; NMS 2.0 alone; window 5/skip 0 + NMS 2.0 — see Fix B below — for the
+per-configuration results). Each configuration is scored on both dev cubes, hence
+2x runs per configuration.
 
 ## Baseline (reproduced 2026-07-31)
 
@@ -163,8 +165,8 @@ baseline) on cube 1 at every tested budget. Fix A as specified does not beat bas
 the sense that matters for this contract; per the brief, this is reported as the honest
 result and the work proceeds to Task 4.
 
-**Configurations tried so far: 5** (baseline; window 3/skip 0; window 3/skip 2;
-window 5/skip 0; window 3/skip 1).
+**Configurations tried so far: 5 parameter configurations (10 dev-cube runs)**
+(baseline; window 3/skip 0; window 3/skip 2; window 5/skip 0; window 3/skip 1).
 
 ## Fix B: seed NMS, and both fixes together
 
@@ -256,6 +258,8 @@ pass the merge check are carried entirely by the smoothing component identified 
 A; NMS adds nothing distinguishable from noise on top of it. Neither cube comes close to
 its connected-components floor with any configuration tried in this task or the last.
 
-**Configurations tried so far: 9** (baseline; window 3/skip 0; window 3/skip 2;
-window 5/skip 0; window 3/skip 1; nms 2.0 alone x2 cubes; window 5/skip 0 + nms 2.0 x2
-cubes).
+**Configurations tried so far: 7 parameter configurations (14 dev-cube runs)**
+(baseline; window 3/skip 0; window 3/skip 2; window 5/skip 0; window 3/skip 1;
+NMS 2.0 alone; window 5/skip 0 + NMS 2.0). Each configuration is scored on both dev
+cubes, hence 2x runs per configuration (5 configurations / 10 runs after Fix A, +2
+configurations / +4 runs from Fix B = 7 configurations / 14 runs total).
