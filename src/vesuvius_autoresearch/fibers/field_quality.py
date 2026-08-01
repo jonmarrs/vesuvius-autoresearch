@@ -259,3 +259,159 @@ def angular_error_deg(a: np.ndarray, b: np.ndarray) -> np.ndarray:
         b = b / np.where(nb < 1e-12, np.nan, nb)
     cos = np.abs(np.sum(a * b, axis=1))
     return np.degrees(np.arccos(np.clip(cos, 0.0, 1.0)))
+
+
+def sample_field(
+    dirs: np.ndarray, valid: np.ndarray, coords: np.ndarray
+) -> tuple[np.ndarray, np.ndarray]:
+    """Nearest-voxel lookup of the orientation field at float coordinates.
+
+    Nearest-neighbour rather than interpolation, because that is what
+    ``_direction_at`` does during a walk -- this must characterise the field the
+    tracer actually sees, not a smoothed version of it. Out-of-bounds positions
+    are reported undefined rather than clipped: clipping would silently score an
+    edge voxel against a ground-truth node lying outside the cube.
+    """
+    coords = np.atleast_2d(np.asarray(coords, dtype=float))
+    idx = np.rint(coords).astype(int)
+    shape = np.asarray(valid.shape)
+
+    inb = np.ones(len(idx), dtype=bool)
+    for a in range(3):
+        inb &= (idx[:, a] >= 0) & (idx[:, a] < shape[a])
+
+    out = np.zeros((len(idx), 3), dtype=float)
+    defined = np.zeros(len(idx), dtype=bool)
+    if inb.any():
+        sel = idx[inb]
+        out[inb] = dirs[sel[:, 0], sel[:, 1], sel[:, 2]]
+        defined[inb] = valid[sel[:, 0], sel[:, 1], sel[:, 2]]
+    return out, defined
+
+
+def local_curvature_deg(
+    coords: np.ndarray, tangents: np.ndarray, kinds: list[str]
+) -> np.ndarray:
+    """Turn angle at each interior node, in degrees. NaN at endpoints.
+
+    Separates "the orientation field is noisy" from "the fiber genuinely bends
+    more than the walker's turn limit". If real curvature routinely exceeds
+    ``max_angle_deg``, that limit is simply mis-set and no amount of field
+    improvement will help.
+    """
+    n = len(coords)
+    out = np.full(n, np.nan, dtype=float)
+    for i in range(n):
+        if kinds[i] != NodeKind.INTERIOR or i == 0 or i == n - 1:
+            continue
+        out[i] = float(
+            angular_error_deg(tangents[i - 1][None, :], tangents[i + 1][None, :])[0]
+        )
+    return out
+
+
+def perpendicular_offsets(tangent: np.ndarray, radius: float, n: int = 6) -> np.ndarray:
+    """``n`` vectors of length ``radius``, evenly spaced in the plane normal to ``tangent``."""
+    t = np.asarray(tangent, dtype=float)
+    t = t / max(float(np.linalg.norm(t)), 1e-12)
+    seed = np.array([1.0, 0.0, 0.0]) if abs(t[0]) < 0.9 else np.array([0.0, 1.0, 0.0])
+    u = np.cross(t, seed)
+    u /= max(float(np.linalg.norm(u)), 1e-12)
+    v = np.cross(t, u)
+    ang = np.linspace(0.0, 2.0 * np.pi, n, endpoint=False)
+    return radius * (
+        np.cos(ang)[:, None] * u[None, :] + np.sin(ang)[:, None] * v[None, :]
+    )
+
+
+def analyse_cube(
+    skeleton,
+    dirs: np.ndarray,
+    valid: np.ndarray,
+    shape: tuple[int, int, int],
+    offsets: tuple[float, ...] = (0.0, 1.0, 2.0, 3.0),
+) -> dict:
+    """Angular error of the orientation field against one cube's ground truth."""
+    kind_counts = {
+        k: 0
+        for k in (
+            NodeKind.INTERIOR,
+            NodeKind.ENDPOINT,
+            NodeKind.BRANCH,
+            NodeKind.ISOLATED,
+            NodeKind.DEGENERATE,
+        )
+    }
+    all_err: list[np.ndarray] = []
+    all_curv: list[np.ndarray] = []
+    all_spacing: list[np.ndarray] = []
+    all_disagree: list[np.ndarray] = []
+    n_nodes = 0
+    n_undefined = 0
+    off_err: dict[float, list[np.ndarray]] = {float(o): [] for o in offsets}
+
+    for fib in skeleton.fibers:
+        for k, v in count_node_kinds(fib).items():
+            kind_counts[k] += v
+
+        coords, tangents, kinds = gt_tangents(fib)
+        if len(coords) == 0:
+            continue
+
+        sampled, defined = sample_field(dirs, valid, coords)
+        n_nodes += len(coords)
+        n_undefined += int((~defined).sum())
+        if defined.any():
+            all_err.append(angular_error_deg(tangents[defined], sampled[defined]))
+            curv = local_curvature_deg(coords, tangents, kinds)
+            all_curv.append(curv[defined])
+            dis = tangent_estimator_disagreement(fib)
+            if len(dis) == len(defined):
+                all_disagree.append(dis[defined])
+
+        seg = np.linalg.norm(
+            np.diff(np.asarray(fib.coords, dtype=float), axis=0), axis=1
+        )
+        if len(seg):
+            all_spacing.append(seg)
+
+        # Secondary cut: does the field degrade away from the centreline? Inside
+        # a fiber's cross-section the true tangent is the centreline's tangent.
+        for o in offsets:
+            if o == 0.0:
+                if defined.any():
+                    off_err[0.0].append(
+                        angular_error_deg(tangents[defined], sampled[defined])
+                    )
+                continue
+            pts, tgt = [], []
+            for c, t in zip(coords, tangents, strict=False):
+                for d in perpendicular_offsets(t, o):
+                    pts.append(c + d)
+                    tgt.append(t)
+            if not pts:
+                continue
+            s2, d2 = sample_field(dirs, valid, np.asarray(pts))
+            if d2.any():
+                off_err[float(o)].append(angular_error_deg(np.asarray(tgt)[d2], s2[d2]))
+
+    err = np.concatenate(all_err) if all_err else np.zeros(0)
+    curv = np.concatenate(all_curv) if all_curv else np.zeros(0)
+    spacing = np.concatenate(all_spacing) if all_spacing else np.zeros(0)
+    disagree = np.concatenate(all_disagree) if all_disagree else np.zeros(0)
+
+    return {
+        "n_fibers": len(skeleton.fibers),
+        "node_kinds": kind_counts,
+        "n_scored": int(len(err)),
+        "field_undefined_frac": (float(n_undefined / n_nodes) if n_nodes else 0.0),
+        "error_deg": err,
+        "curvature_deg": curv,
+        "spacing": spacing,
+        "estimator_disagreement_deg": disagree,
+        "offset_error": {
+            o: (float(np.median(np.concatenate(v))) if v else float("nan"))
+            for o, v in off_err.items()
+        },
+        "frac_over_25": (float((err > 25.0).mean()) if len(err) else float("nan")),
+    }

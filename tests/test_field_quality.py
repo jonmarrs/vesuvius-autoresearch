@@ -283,3 +283,100 @@ def test_unnormalised_inputs_are_handled():
     a = np.array([[3.0, 0.0, 0.0]])
     b = np.array([[0.0, 7.0, 0.0]])
     np.testing.assert_allclose(angular_error_deg(a, b), 90.0, atol=1e-9)
+
+
+from vesuvius_autoresearch.fibers.field_quality import (  # noqa: E402
+    analyse_cube,
+    local_curvature_deg,
+    perpendicular_offsets,
+    sample_field,
+)
+from vesuvius_autoresearch.fibers.skeleton_io import Skeleton  # noqa: E402
+
+
+def _tube_field(shape=(32, 32, 32), axis=0, angle_deg=0.0):
+    """A constant orientation field rotated `angle_deg` away from `axis`."""
+    r = np.deg2rad(angle_deg)
+    d = np.zeros(3)
+    d[axis] = np.cos(r)
+    d[(axis + 1) % 3] = np.sin(r)
+    dirs = np.broadcast_to(d, shape + (3,)).copy()
+    valid = np.ones(shape, dtype=bool)
+    return dirs, valid
+
+
+def _centred_line(n=10, axis=0, spacing=2.0):
+    fib = _line_fiber(n=n, axis=axis, spacing=spacing)
+    fib.coords[:, 1] += 10.0
+    fib.coords[:, 2] += 10.0
+    return fib
+
+
+def test_perfect_field_scores_near_zero():
+    """The sanity check that catches an axis-convention error.
+
+    A wrong convention would produce large, plausible-looking errors and read as
+    a real finding about villa's released model. This makes that impossible to
+    miss: a field that is exactly right must score exactly zero.
+    """
+    dirs, valid = _tube_field(axis=0, angle_deg=0.0)
+    res = analyse_cube(Skeleton(fibers=[_centred_line()]), dirs, valid, (32, 32, 32))
+    assert res["n_scored"] == 10
+    assert float(np.median(res["error_deg"])) < 1e-4
+    assert res["field_undefined_frac"] == 0.0
+
+
+def test_known_rotation_is_recovered():
+    dirs, valid = _tube_field(axis=0, angle_deg=17.0)
+    res = analyse_cube(Skeleton(fibers=[_centred_line()]), dirs, valid, (32, 32, 32))
+    assert abs(float(np.median(res["error_deg"])) - 17.0) < 1e-4
+
+
+def test_negating_the_field_changes_nothing():
+    dirs, valid = _tube_field(axis=0, angle_deg=17.0)
+    skel = Skeleton(fibers=[_centred_line()])
+    a = analyse_cube(skel, dirs, valid, (32, 32, 32))
+    b = analyse_cube(skel, -dirs, valid, (32, 32, 32))
+    np.testing.assert_allclose(a["error_deg"], b["error_deg"], atol=1e-12)
+
+
+def test_undefined_field_is_reported_not_scored():
+    dirs, valid = _tube_field(axis=0)
+    valid[:5] = False
+    res = analyse_cube(Skeleton(fibers=[_centred_line()]), dirs, valid, (32, 32, 32))
+    assert 0.0 < res["field_undefined_frac"] < 1.0
+    assert res["n_scored"] < 10
+
+
+def test_out_of_bounds_nodes_count_as_undefined():
+    fib = _centred_line(n=4)
+    fib.coords[:, 0] += 100.0
+    dirs, valid = _tube_field()
+    res = analyse_cube(Skeleton(fibers=[fib]), dirs, valid, (32, 32, 32))
+    assert res["field_undefined_frac"] == 1.0
+    assert res["n_scored"] == 0
+
+
+def test_perpendicular_offsets_are_perpendicular():
+    t = np.array([1.0, 2.0, 3.0])
+    t = t / np.linalg.norm(t)
+    offs = perpendicular_offsets(t, radius=2.0, n=6)
+    assert offs.shape == (6, 3)
+    np.testing.assert_allclose(offs @ t, 0.0, atol=1e-9)
+    np.testing.assert_allclose(np.linalg.norm(offs, axis=1), 2.0, atol=1e-9)
+
+
+def test_local_curvature_is_zero_on_a_straight_line():
+    coords, tangents, kinds = gt_tangents(_line_fiber(n=6))
+    curv = local_curvature_deg(coords, tangents, kinds)
+    interior = np.array([k == NodeKind.INTERIOR for k in kinds])
+    np.testing.assert_allclose(curv[interior], 0.0, atol=1e-4)
+    assert np.all(np.isnan(curv[~interior]))
+
+
+def test_sample_field_uses_nearest_voxel():
+    dirs, valid = _tube_field(shape=(8, 8, 8))
+    dirs[3, 3, 3] = np.array([0.0, 1.0, 0.0])
+    got, defined = sample_field(dirs, valid, np.array([[3.4, 3.4, 2.9]]))
+    assert bool(defined[0]) is True
+    np.testing.assert_allclose(got[0], np.array([0.0, 1.0, 0.0]), atol=1e-12)
