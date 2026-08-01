@@ -388,11 +388,27 @@ Likely reason, consistent with the causal story built across Fix A/B: the tracer
 factor is not local direction noise (what smoothing fixes) or duplicate seeding (what NMS
 targets) but **walks drifting into a neighbouring fiber's claimed territory and getting cut
 off by collisions long before they reach the fiber's true extent** -- `collision` is the
-single largest or second-largest stop reason on every cube in this run (396-434 events,
-roughly a quarter to a third of all stops), and connected components has no such mechanism
-to cut a trace short at all, which is most of why its ERL is 4.6-6.6x higher regardless of
-the penalty. Fixing that would need a different kind of change (e.g. a claim policy that can
-recover from a wrong-fiber excursion, or a walk that reconsiders instead of stopping) than
+single largest or second-largest stop reason on every cube in this run (raw counts 291-434
+across the six cubes: 431, 427, 396, 425, 434, 291 for
+`s1_00497_01497_03997`/`s1_00497_02497_02997`/`s1_00997_02497_02997`/`s1_08997_02997_02497`/
+`s1_10997_02997_02997`/`s5_03997_01497_03997` respectively), and connected components has no
+such mechanism to cut a trace short at all, which is most of why its ERL is 4.6-6.6x higher
+regardless of the penalty.
+
+*Correction (post-review):* an earlier version of this paragraph stated the range as
+"396-434", which silently dropped the cross-scroll cube's 291 and understated the true
+spread by 105 events. As a **share of that cube's own stops**, though, the picture does not
+change: collision is 291/1168 = 24.9% of all stops on the cross-scroll cube, squarely inside
+the 24.9%-31.6% band the other five cubes occupy (25.3%, 29.4%, 28.9%, 29.8%, 31.6%) -- "roughly
+a quarter to a third of all stops" still holds and collision is still the second-largest stop
+reason on every cube including this one. The lower *raw* count on the cross-scroll cube tracks
+that cube having the fewest ground-truth fibers (68, vs. 87-128 elsewhere) and the fewest total
+stops of the six (1168, vs. 1372-1704 elsewhere), not a qualitatively different collision
+dynamic. The causal argument (collisions, not curvature-sensitivity or duplicate seeding, are
+what caps the tracer) is unchanged by the correction; only the absolute-count range was wrong.
+
+Fixing the underlying problem would need a different kind of change (e.g. a claim policy that
+can recover from a wrong-fiber excursion, or a walk that reconsiders instead of stopping) than
 anything tried in this study; smoothing and seed NMS were the two changes budgeted for this
 work and neither reaches into that failure mode.
 
@@ -425,9 +441,13 @@ means the "dev gain" was never a single stable number to begin with. In every ca
 one to two orders of magnitude smaller than the remaining floor gap, so this variance does not
 change the outcome.
 
-Merges fell on every one of the six cubes (38->28, 47->39, 45->34, 15->12, 14->6, 13->5),
-proportionally more on the three cubes not used to pick the configuration (-24%, -20%, -57%)
-and on the cross-scroll cube (-62%) than on the two dev cubes that set it (-26%, -17%). The
+Merges fell on every one of the six cubes (38->28, 47->39, 45->34, 15->12, 14->6, 13->5). The
+*average* proportional reduction is larger on the four cubes not used to pick the
+configuration (-24%, -20%, -57%, -62%; mean -41%) than on the two dev cubes that set it
+(-26%, -17%; mean -22%) -- but this is not true cube-for-cube: the smallest held-out
+reduction, -20% on `s1_08997_02997_02497`, is a smaller proportional drop than the larger of
+the two dev reductions, -26% on `s1_00497_01497_03997`. The six raw counts are shown above;
+read the four-cube figure as an average tendency, not a uniform per-cube ordering. The
 pre-registered merge check (ERLpen improving while merges rise = automatic failure) is never
 tripped anywhere in this table -- every row is a **PASS** by that check, consistently.
 
