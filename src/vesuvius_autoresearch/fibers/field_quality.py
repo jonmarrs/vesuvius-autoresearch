@@ -289,25 +289,39 @@ def sample_field(
     return out, defined
 
 
-def local_curvature_deg(
-    coords: np.ndarray, tangents: np.ndarray, kinds: list[str]
-) -> np.ndarray:
-    """Turn angle at each interior node, in degrees. NaN at endpoints.
+def local_curvature_deg(fiber: Fiber) -> np.ndarray:
+    """Turn angle in degrees at each node `gt_tangents` returns. NaN at endpoints.
+
+    Computed from the fiber's **edge graph**, not from array order. NML node
+    order is arbitrary -- edges on a real cube look like ``[[19, 17], [2, 19],
+    [16, 2], ...]`` -- so comparing tangents at adjacent array positions would
+    compare two essentially unrelated points and report meaningless curvature.
 
     Separates "the orientation field is noisy" from "the fiber genuinely bends
-    more than the walker's turn limit". If real curvature routinely exceeds
-    ``max_angle_deg``, that limit is simply mis-set and no amount of field
-    improvement will help.
+    more than the walker's turn limit". If real curvature routinely exceeded
+    ``max_angle_deg``, that limit would simply be mis-set.
     """
-    n = len(coords)
-    out = np.full(n, np.nan, dtype=float)
-    for i in range(n):
-        if kinds[i] != NodeKind.INTERIOR or i == 0 or i == n - 1:
+    coords = np.asarray(fiber.coords, dtype=float)
+    adj = _adjacency(fiber)
+
+    out: list[float] = []
+    for i in range(len(coords)):
+        nbrs = adj.get(i, [])
+        if len(nbrs) == 0 or len(nbrs) >= 3:
             continue
-        out[i] = float(
-            angular_error_deg(tangents[i - 1][None, :], tangents[i + 1][None, :])[0]
-        )
-    return out
+        raw = _raw_tangent(coords, i, nbrs)
+        if raw is None or float(np.linalg.norm(raw)) < 1e-9:
+            continue
+        if len(nbrs) == 1:
+            out.append(float("nan"))  # endpoint: no turn defined
+            continue
+        incoming = coords[i] - coords[nbrs[0]]
+        outgoing = coords[nbrs[1]] - coords[i]
+        if min(float(np.linalg.norm(incoming)), float(np.linalg.norm(outgoing))) < 1e-9:
+            out.append(float("nan"))
+            continue
+        out.append(float(angular_error_deg(incoming[None, :], outgoing[None, :])[0]))
+    return np.asarray(out, dtype=float)
 
 
 def perpendicular_offsets(tangent: np.ndarray, radius: float, n: int = 6) -> np.ndarray:
@@ -363,15 +377,16 @@ def analyse_cube(
         n_undefined += int((~defined).sum())
         if defined.any():
             all_err.append(angular_error_deg(tangents[defined], sampled[defined]))
-            curv = local_curvature_deg(coords, tangents, kinds)
-            all_curv.append(curv[defined])
+            curv = local_curvature_deg(fib)
+            if len(curv) == len(defined):
+                all_curv.append(curv[defined])
             dis = tangent_estimator_disagreement(fib)
             if len(dis) == len(defined):
                 all_disagree.append(dis[defined])
 
-        seg = np.linalg.norm(
-            np.diff(np.asarray(fib.coords, dtype=float), axis=0), axis=1
-        )
+        # Edge lengths, not consecutive-row differences: NML node order is
+        # arbitrary, so diffing the coords array measures nothing.
+        seg = fib.segment_lengths()
         if len(seg):
             all_spacing.append(seg)
 

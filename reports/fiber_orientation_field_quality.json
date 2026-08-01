@@ -1,0 +1,167 @@
+{
+  "turn_limit_deg": 25.0,
+  "cubes": [
+    {
+      "cube": "s1_00497_01497_03997_256",
+      "n_fibers": 89,
+      "n_scored": 2652,
+      "field_undefined_frac": 0.161,
+      "median_deg": 8.76,
+      "p90_deg": 44.29,
+      "p99_deg": 87.06,
+      "frac_over_25": 0.1686,
+      "median_curvature_deg": 15.7,
+      "median_spacing_vox": 7.48,
+      "median_estimator_disagreement_deg": 0.608,
+      "p90_estimator_disagreement_deg": 2.578,
+      "node_kinds": {
+        "interior": 2983,
+        "endpoint": 178,
+        "branch": 0,
+        "isolated": 0,
+        "degenerate": 0
+      },
+      "offset_median_deg": {
+        "0.0": 8.76,
+        "1.0": 9.09,
+        "2.0": 9.86,
+        "3.0": 10.23
+      }
+    },
+    {
+      "cube": "s1_00497_02497_02997_256",
+      "n_fibers": 110,
+      "n_scored": 2856,
+      "field_undefined_frac": 0.1553,
+      "median_deg": 7.28,
+      "p90_deg": 27.15,
+      "p99_deg": 82.5,
+      "frac_over_25": 0.1127,
+      "median_curvature_deg": 13.16,
+      "median_spacing_vox": 8.06,
+      "median_estimator_disagreement_deg": 0.612,
+      "p90_estimator_disagreement_deg": 2.689,
+      "node_kinds": {
+        "interior": 3160,
+        "endpoint": 221,
+        "branch": 1,
+        "isolated": 0,
+        "degenerate": 0
+      },
+      "offset_median_deg": {
+        "0.0": 7.28,
+        "1.0": 7.57,
+        "2.0": 8.46,
+        "3.0": 8.79
+      }
+    },
+    {
+      "cube": "s1_00997_02497_02997_256",
+      "n_fibers": 136,
+      "n_scored": 1665,
+      "field_undefined_frac": 0.5124,
+      "median_deg": 7.63,
+      "p90_deg": 34.85,
+      "p99_deg": 87.12,
+      "frac_over_25": 0.1387,
+      "median_curvature_deg": 12.85,
+      "median_spacing_vox": 15.07,
+      "median_estimator_disagreement_deg": 0.542,
+      "p90_estimator_disagreement_deg": 2.723,
+      "node_kinds": {
+        "interior": 3142,
+        "endpoint": 273,
+        "branch": 1,
+        "isolated": 0,
+        "degenerate": 0
+      },
+      "offset_median_deg": {
+        "0.0": 7.63,
+        "1.0": 7.91,
+        "2.0": 8.55,
+        "3.0": 8.66
+      }
+    },
+    {
+      "cube": "s1_08997_02997_02497_256",
+      "n_fibers": 120,
+      "n_scored": 4842,
+      "field_undefined_frac": 0.4068,
+      "median_deg": 9.97,
+      "p90_deg": 32.79,
+      "p99_deg": 83.51,
+      "frac_over_25": 0.1382,
+      "median_curvature_deg": 19.37,
+      "median_spacing_vox": 4.9,
+      "median_estimator_disagreement_deg": 0.665,
+      "p90_estimator_disagreement_deg": 3.204,
+      "node_kinds": {
+        "interior": 7922,
+        "endpoint": 240,
+        "branch": 0,
+        "isolated": 0,
+        "degenerate": 0
+      },
+      "offset_median_deg": {
+        "0.0": 9.97,
+        "1.0": 10.46,
+        "2.0": 11.22,
+        "3.0": 11.64
+      }
+    },
+    {
+      "cube": "s1_10997_02997_02997_256",
+      "n_fibers": 95,
+      "n_scored": 2035,
+      "field_undefined_frac": 0.376,
+      "median_deg": 8.11,
+      "p90_deg": 25.4,
+      "p99_deg": 82.21,
+      "frac_over_25": 0.1022,
+      "median_curvature_deg": 11.57,
+      "median_spacing_vox": 10.1,
+      "median_estimator_disagreement_deg": 0.005,
+      "p90_estimator_disagreement_deg": 1.294,
+      "node_kinds": {
+        "interior": 3098,
+        "endpoint": 163,
+        "branch": 4,
+        "isolated": 0,
+        "degenerate": 31
+      },
+      "offset_median_deg": {
+        "0.0": 8.11,
+        "1.0": 8.51,
+        "2.0": 9.03,
+        "3.0": 9.35
+      }
+    },
+    {
+      "cube": "s5_03997_01497_03997_256",
+      "n_fibers": 68,
+      "n_scored": 1936,
+      "field_undefined_frac": 0.3587,
+      "median_deg": 8.83,
+      "p90_deg": 37.93,
+      "p99_deg": 85.39,
+      "frac_over_25": 0.1451,
+      "median_curvature_deg": 15.95,
+      "median_spacing_vox": 7.62,
+      "median_estimator_disagreement_deg": 0.353,
+      "p90_estimator_disagreement_deg": 2.29,
+      "node_kinds": {
+        "interior": 2884,
+        "endpoint": 135,
+        "branch": 10,
+        "isolated": 0,
+        "degenerate": 18
+      },
+      "offset_median_deg": {
+        "0.0": 8.83,
+        "1.0": 9.0,
+        "2.0": 9.4,
+        "3.0": 9.67
+      }
+    }
+  ]
+}

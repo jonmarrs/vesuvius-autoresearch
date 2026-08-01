@@ -367,11 +367,54 @@ def test_perpendicular_offsets_are_perpendicular():
 
 
 def test_local_curvature_is_zero_on_a_straight_line():
-    coords, tangents, kinds = gt_tangents(_line_fiber(n=6))
-    curv = local_curvature_deg(coords, tangents, kinds)
-    interior = np.array([k == NodeKind.INTERIOR for k in kinds])
+    curv = local_curvature_deg(_line_fiber(n=6))
+    assert len(curv) == 6
+    interior = ~np.isnan(curv)
+    assert interior.sum() == 4
     np.testing.assert_allclose(curv[interior], 0.0, atol=1e-4)
-    assert np.all(np.isnan(curv[~interior]))
+
+
+def test_local_curvature_uses_the_edge_graph_not_array_order():
+    """NML node order is arbitrary; array-order curvature is meaningless.
+
+    Same geometry, shuffled node order and remapped edges: curvature must be
+    identical. Comparing tangents at adjacent array positions would not be.
+    """
+    straight = _line_fiber(n=6)
+    perm = np.array([3, 0, 5, 1, 4, 2])
+    inv = np.argsort(perm)
+    shuffled = Fiber(
+        id=1,
+        name="shuffled",
+        node_ids=np.arange(6),
+        coords=straight.coords[perm].copy(),
+        edges=inv[straight.edges],
+    )
+    a = np.sort(local_curvature_deg(straight))
+    b = np.sort(local_curvature_deg(shuffled))
+    np.testing.assert_allclose(a[~np.isnan(a)], b[~np.isnan(b)], atol=1e-6)
+
+
+def test_spacing_uses_edge_lengths_not_row_differences():
+    """A shuffled fiber must report the same node spacing as an ordered one."""
+    straight = _line_fiber(n=6, spacing=2.0)
+    perm = np.array([3, 0, 5, 1, 4, 2])
+    inv = np.argsort(perm)
+    shuffled = Fiber(
+        id=1,
+        name="shuffled",
+        node_ids=np.arange(6),
+        coords=straight.coords[perm].copy(),
+        edges=inv[straight.edges],
+    )
+    dirs, valid = _tube_field()
+    for f in (straight, shuffled):
+        f.coords[:, 1] += 10.0
+        f.coords[:, 2] += 10.0
+    a = analyse_cube(Skeleton(fibers=[straight]), dirs, valid, (32, 32, 32))
+    b = analyse_cube(Skeleton(fibers=[shuffled]), dirs, valid, (32, 32, 32))
+    assert abs(float(np.median(a["spacing"])) - 2.0) < 1e-9
+    np.testing.assert_allclose(np.sort(a["spacing"]), np.sort(b["spacing"]), atol=1e-9)
 
 
 def test_sample_field_uses_nearest_voxel():
