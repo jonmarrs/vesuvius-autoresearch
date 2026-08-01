@@ -286,7 +286,9 @@ All other tracer parameters at the published defaults (`--relink` on, `--seed-pe
 Why each part, decided from dev-cube evidence and not renegotiated here:
 
 - `tangent_window=5`: the best smoothing setting on both dev cubes in Fix A (ERLpen
-  25.61 and 35.84, the two best per-cube numbers found anywhere in this work).
+  25.61 and 35.84 — the best smoothing-only numbers per cube. Cube 1's 25.61 is the
+  best figure found anywhere in this work; cube 2 reached 35.87 in Fix B with seed NMS
+  enabled, a 0.03 difference that did not justify shipping a mechanism measured null).
 - `max_skip_steps=0`: coasting was falsified in Fix A. Isolated from smoothing (fixed
   window, skip on vs. off), it regressed ERLpen and raised merges in all four tested
   cases, on both cubes, at both tested skip budgets. It does not ship.

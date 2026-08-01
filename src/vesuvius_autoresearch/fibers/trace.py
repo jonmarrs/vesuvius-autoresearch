@@ -80,9 +80,11 @@ class TraceParams:
 
     Measured on both dev cubes (`reports/fiber_tracer_improvement.md`, Fix A): window
     3 improves merge-penalized ERL over window 1, but window **5** measured better
-    still on both cubes (ERLpen 25.61 and 35.84, the two best per-cube numbers found
-    anywhere in that study) and is the value the frozen, shipped-improvement
-    configuration actually uses -- 3 is a reasonable prior, not the measured optimum.
+    still on both cubes (ERLpen 25.61 and 35.84 -- the best smoothing-only numbers
+    per cube; cube 1's is the best found anywhere in that study, while cube 2 reached
+    35.87 with seed NMS enabled, which was not shipped because NMS measured null) and
+    is the value the frozen, shipped-improvement configuration actually uses -- 3 is a
+    reasonable prior, not the measured optimum.
 
     Defaults to 1, which is exactly the published baseline's behaviour; pass 5 to get
     the measured, frozen configuration.
