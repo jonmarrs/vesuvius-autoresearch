@@ -74,9 +74,19 @@ class TraceParams:
     `step` is sub-voxel while `_direction_at` is nearest-neighbour, so the
     orientation field is piecewise-constant and jumps at voxel boundaries. With a
     window of 1, a single noisy voxel ends a walk permanently -- measured as 46%
-    of all stops on a real cube. A window spanning two voxels (`ceil(2 / step)`,
-    i.e. 3 at the default step) averages that out while leaving `max_angle_deg`
-    untouched, so a sustained bend still terminates the walk.
+    of all stops on a real cube. That was the motivating hypothesis.
+
+    **What actually happens is the opposite, and it is worth knowing before tuning
+    this.** At the shipped window of 5, `high_curvature` stops *rose* against the
+    window-1 baseline: 750 -> 876 on `s1_00497_01497_03997_256` (+17%) and
+    664 -> 738 on `s1_00497_02497_02997_256` (+11%). A longer window makes the
+    reference tangent lag the true direction, so gently curving fibers trip the
+    turn test more often, not less. Walks become shorter and more numerous --
+    splits rose on five of six cubes.
+
+    The ERLpen gain is therefore bought by **abstention**, not by longer traces:
+    more conservative walks commit fewer merges, and merge-penalized ERL zeroes
+    merged runs. Real, reproducible, and not the mechanism originally proposed.
 
     Measured on both dev cubes (`reports/fiber_tracer_improvement.md`, Fix A): window
     3 improves merge-penalized ERL over window 1, but window **5** measured better

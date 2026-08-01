@@ -439,7 +439,20 @@ this work began):
 
 All four contract metrics against their baselines, per cube, per the reporting requirement in
 the header of this document. **The ERLpen gain is predominantly a merge-reduction effect, not
-a run-length effect.** Raw ERL fell on three of six cubes -- including a dev cube
+a run-length effect.**
+
+> **Correction (2026-08-01) — the stated mechanism was wrong.** Fix A was motivated by the
+> hypothesis that a longer window makes the curvature test robust to voxel-quantization noise,
+> so `high_curvature` stops should fall. They rose. At the shipped window of 5, against the
+> window-1 baseline: **750 → 876 (+17%)** on `s1_00497_01497_03997_256` and **664 → 738 (+11%)**
+> on `s1_00497_02497_02997_256`. A longer window makes the reference tangent *lag* the true
+> direction, so gently curving fibers trip the turn test more often, not less.
+>
+> This explains the merge-reduction finding below rather than competing with it. Smoothing makes
+> walks **more conservative** — they stop sooner and more often, giving more fragments and fewer
+> merges — and merge-penalized ERL pays for that, because it zeroes merged runs. The gain is
+> real and reproducible; it is bought by **abstention**, not by tracing farther. Anyone tuning
+> `tangent_window` expecting longer traces should read this first. Raw ERL fell on three of six cubes -- including a dev cube
 (`s1_00497_02497_02997`, -0.30) -- and is essentially flat on a fourth (the cross-scroll cube,
 +0.03); it rose meaningfully on only two cubes. Splits, which measure fragmentation directly,
 rose on five of six cubes (only the dev cube that set `tangent_window` improves on splits, and

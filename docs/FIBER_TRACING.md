@@ -158,6 +158,17 @@ fell or was essentially flat on four of the six cubes (including a dev cube) and
 five of six — see `reports/fiber_tracer_improvement.md` for the per-cube breakdown against all
 four contract metrics.
 
+**Correction (2026-08-01): smoothing does not do what we said it does.** The stated mechanism
+was that a longer window makes the curvature test robust to voxel-quantization noise. The
+tracer's own instrumentation says the reverse — at the shipped window of 5, `high_curvature`
+stops *rose* against the window-1 baseline, 750 → 876 (+17%) on `s1_00497_01497_03997_256` and
+664 → 738 (+11%) on `s1_00497_02497_02997_256`. A longer window makes the reference tangent lag
+the true direction, so gently curving fibers trip the turn test more often. The configuration is
+more *conservative*, not more robust: shorter, more numerous walks, fewer merges. Merge-penalized
+ERL rewards exactly that. The gain is real and reproducible, but it is bought by abstention
+rather than by tracing farther — which is worth knowing before anyone tunes this knob expecting
+longer traces.
+
 **To get this configuration, it must be requested explicitly** — `bench_cli trace` defaults to
 `--tangent-window 1 --max-skip-steps 0 --seed-nms-radius 0.0`, which is the original,
 unimproved baseline. Pass `--tangent-window 5` to run the frozen configuration measured above.
