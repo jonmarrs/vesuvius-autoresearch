@@ -263,3 +263,200 @@ its connected-components floor with any configuration tried in this task or the 
 NMS 2.0 alone; window 5/skip 0 + NMS 2.0). Each configuration is scored on both dev
 cubes, hence 2x runs per configuration (5 configurations / 10 runs after Fix A, +2
 configurations / +4 runs from Fix B = 7 configurations / 14 runs total).
+
+## Task 6: the frozen configuration, held-out cubes scored once
+
+**Configuration, decided before this section's runs and not changed afterward:**
+
+```
+--tangent-window 5 --max-skip-steps 0 --seed-nms-radius 0.0
+```
+
+All other tracer parameters at the published defaults (`--relink` on, `--seed-percentile
+85.0`, `--continue-threshold 0.5`, `--min-length 15.0`, `--max-angle 25.0`,
+`--claim-radius 3.5`, `--relink-gap 10.0`, `--relink-angle 30.0`, `--tolerance 2.0`).
+
+Why each part, decided from dev-cube evidence and not renegotiated here:
+
+- `tangent_window=5`: the best smoothing setting on both dev cubes in Fix A (ERLpen
+  25.61 and 35.84, the two best per-cube numbers found anywhere in this work).
+- `max_skip_steps=0`: coasting was falsified in Fix A. Isolated from smoothing (fixed
+  window, skip on vs. off), it regressed ERLpen and raised merges in all four tested
+  cases, on both cubes, at both tested skip budgets. It does not ship.
+- `seed_nms_radius=0.0`: NMS was a null result in Fix B. It moved collisions only
+  455 -> 438 (cube 1) and 427 -> 399 (cube 2), single-digit percentage reductions, and
+  combined with smoothing the ERLpen was indistinguishable from smoothing alone --
+  actually slightly worse on cube 1 (25.35 vs 25.61). Shipping a mechanism measured to
+  do nothing would be dishonest packaging, so NMS is off.
+
+**After this point no parameter changes.** All six cubes below -- both dev cubes and
+all four cubes never used to make a tuning decision -- are scored once, at this
+configuration, and reported whatever the result.
+
+### Commands and full output
+
+```
+$ uv run python -m vesuvius_autoresearch.fibers.bench_cli trace --cube s1_00497_01497_03997_256 \
+    --tangent-window 5 --max-skip-steps 0 --seed-nms-radius 0.0
+cube=s1_00497_01497_03997_256  gt_fibers=87  tolerance=2.0  trace=18s  stops={'low_response': 209, 'high_curvature': 876, 'out_of_bounds': 188, 'collision': 431}
+row                                    ERL  ERLpen    cov  splits  merges   ninst
+---------------------------------------------------------------------------------
+tracer                               29.97   25.61  0.623    1847      28     678
+floor: connected components         197.11   37.13  0.918     265      66     299
+
+$ uv run python -m vesuvius_autoresearch.fibers.bench_cli trace --cube s1_00497_02497_02997_256 \
+    --tangent-window 5 --max-skip-steps 0 --seed-nms-radius 0.0
+cube=s1_00497_02497_02997_256  gt_fibers=109  tolerance=2.0  trace=15s  stops={'low_response': 144, 'high_curvature': 738, 'out_of_bounds': 145, 'collision': 427}
+row                                    ERL  ERLpen    cov  splits  merges   ninst
+---------------------------------------------------------------------------------
+tracer                               45.47   35.84  0.697    2211      39     533
+floor: connected components         207.49   64.27  0.932     224      63     214
+
+$ uv run python -m vesuvius_autoresearch.fibers.bench_cli trace --cube s1_00997_02497_02997_256 \
+    --tangent-window 5 --max-skip-steps 0 --seed-nms-radius 0.0
+cube=s1_00997_02497_02997_256  gt_fibers=128  tolerance=2.0  trace=12s  stops={'low_response': 159, 'high_curvature': 672, 'out_of_bounds': 145, 'collision': 396}
+row                                    ERL  ERLpen    cov  splits  merges   ninst
+---------------------------------------------------------------------------------
+tracer                               38.44   33.00  0.602    2044      34     524
+floor: connected components         195.82   56.45  0.823     317      66     220
+
+$ uv run python -m vesuvius_autoresearch.fibers.bench_cli trace --cube s1_08997_02997_02497_256 \
+    --tangent-window 5 --max-skip-steps 0 --seed-nms-radius 0.0
+cube=s1_08997_02997_02497_256  gt_fibers=105  tolerance=2.0  trace=13s  stops={'low_response': 204, 'high_curvature': 646, 'out_of_bounds': 151, 'collision': 425}
+row                                    ERL  ERLpen    cov  splits  merges   ninst
+---------------------------------------------------------------------------------
+tracer                               33.62   31.04  0.667    2571      12     549
+floor: connected components         186.52  106.14  0.900     334      46     290
+
+$ uv run python -m vesuvius_autoresearch.fibers.bench_cli trace --cube s1_10997_02997_02997_256 \
+    --tangent-window 5 --max-skip-steps 0 --seed-nms-radius 0.0
+cube=s1_10997_02997_02997_256  gt_fibers=91  tolerance=2.0  trace=13s  stops={'low_response': 109, 'high_curvature': 634, 'out_of_bounds': 194, 'collision': 434, 'invalid_direction': 1}
+row                                    ERL  ERLpen    cov  splits  merges   ninst
+---------------------------------------------------------------------------------
+tracer                               36.64   36.19  0.618    1579       6     508
+floor: connected components         194.14   57.67  0.855     203      57     148
+
+$ uv run python -m vesuvius_autoresearch.fibers.bench_cli trace --cube s5_03997_01497_03997_256 \
+    --tangent-window 5 --max-skip-steps 0 --seed-nms-radius 0.0
+cube=s5_03997_01497_03997_256  gt_fibers=68  tolerance=2.0  trace=12s  stops={'high_curvature': 526, 'low_response': 174, 'out_of_bounds': 177, 'collision': 291}
+row                                    ERL  ERLpen    cov  splits  merges   ninst
+---------------------------------------------------------------------------------
+tracer                               31.57   31.18  0.620    1209       5     495
+floor: connected components         182.22   51.10  0.867     201      39     267
+```
+
+Six commands, six runs, no retries, no parameter deviations from the frozen configuration
+written above. `s1_00497_01497_03997_256` and `s1_00497_02497_02997_256` reproduce Fix A's
+window-5/skip-0 numbers exactly (29.97/25.61 and 45.47/35.84), which is expected: the frozen
+configuration is not new for those two cubes, only for the four that had never been scored
+under it before.
+
+### Final result (frozen configuration, held-out cubes scored once)
+
+Configuration: tangent_window=5, max_skip_steps=0, seed_nms_radius=0.0, all other parameters
+at the published defaults. **Configurations tried in total: 7** parameter configurations
+(unchanged from the Fix A / Fix B banner above). This task added **zero new configurations** --
+it reruns the configuration Fix A already selected (window 5 / skip 0 / NMS 0, i.e. smoothing
+alone) on the four cubes that had never been scored under it, plus the two dev cubes for
+completeness. Run count: 14 dev-cube tuning runs (Fix A + Fix B) + 6 frozen-configuration runs
+in this task (2 of which reproduce prior dev-cube numbers exactly, 4 of which are genuinely new
+held-out/cross-scroll evaluations) = 20 runs total across the whole study, 7 distinct
+configurations.
+
+| cube | role | ERL | cc ERL | ERLpen | cc ERLpen | beat floor? | coverage | splits | merges |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| s1_00497_01497_03997 | dev | 29.97 | 197.11 | 25.61 | 37.13 | no | 0.623 | 1847 | 28 |
+| s1_00497_02497_02997 | dev | 45.47 | 207.49 | 35.84 | 64.27 | no | 0.697 | 2211 | 39 |
+| s1_00997_02497_02997 | held out | 38.44 | 195.82 | 33.00 | 56.45 | no | 0.602 | 2044 | 34 |
+| s1_08997_02997_02497 | held out | 33.62 | 186.52 | 31.04 | 106.14 | no | 0.667 | 2571 | 12 |
+| s1_10997_02997_02997 | held out | 36.64 | 194.14 | 36.19 | 57.67 | no | 0.618 | 1579 | 6 |
+| s5_03997_01497_03997 | never touched | 31.57 | 182.22 | 31.18 | 51.10 | no | 0.620 | 1209 | 5 |
+
+Neither metric is cleared on any cube. The floor is not close on any cube: the smallest
+ERLpen gap is 11.52 (dev cube 1) and the largest is 75.10 (`s1_08997_02997_02497`); the
+smallest raw-ERL gap is 150.65 and the largest is 167.14. Connected components wins raw ERL
+by 4.56x-6.58x and merge-penalized ERL by 1.45x-3.42x, with no cube going the other way.
+
+### Verdict: did not clear
+
+**Form 3 of the pre-registered options (Step 4): the frozen configuration did not clear the
+connected-components floor, on either metric, on any of the six cubes.** This is published
+in the same style as this project's other negatives (Fix A, Fix B, the 128^3-vs-full-cube
+retraction): the numbers as measured, and the likely reason.
+
+Likely reason, consistent with the causal story built across Fix A/B: the tracer's limiting
+factor is not local direction noise (what smoothing fixes) or duplicate seeding (what NMS
+targets) but **walks drifting into a neighbouring fiber's claimed territory and getting cut
+off by collisions long before they reach the fiber's true extent** -- `collision` is the
+single largest or second-largest stop reason on every cube in this run (396-434 events,
+roughly a quarter to a third of all stops), and connected components has no such mechanism
+to cut a trace short at all, which is most of why its ERL is 4.6-6.6x higher regardless of
+the penalty. Fixing that would need a different kind of change (e.g. a claim policy that can
+recover from a wrong-fiber excursion, or a walk that reconsiders instead of stopping) than
+anything tried in this study; smoothing and seed NMS were the two changes budgeted for this
+work and neither reaches into that failure mode.
+
+### Did the dev-cube gain generalize?
+
+Comparing each cube's frozen-configuration ERLpen against its own `tracer_strict_relink`
+baseline (the same row `reports/fiber_benchmark_all_cubes.json` publishes, recorded before
+this work began):
+
+| cube | role | baseline ERLpen | frozen ERLpen | delta | baseline merges | frozen merges |
+| --- | --- | --- | --- | --- | --- | --- |
+| s1_00497_01497_03997 | dev | 23.16 | 25.61 | +2.45 | 38 | 28 |
+| s1_00497_02497_02997 | dev | 33.58 | 35.84 | +2.26 | 47 | 39 |
+| s1_00997_02497_02997 | held out | 29.84 | 33.00 | +3.16 | 45 | 34 |
+| s1_08997_02997_02497 | held out | 30.76 | 31.04 | +0.28 | 15 | 12 |
+| s1_10997_02997_02997 | held out | 34.22 | 36.19 | +1.97 | 14 | 6 |
+| s5_03997_01497_03997 | never touched | 25.41 | 31.18 | +5.77 | 13 | 5 |
+
+Dev-cube mean gain: +2.36 ERLpen. Held-out (three Scroll-1 cubes) mean gain: +1.80 ERLpen --
+smaller than dev on average, but not vanished, and the held-out range (+0.28 to +3.16) spans
+both below and above the dev numbers. One held-out cube, `s1_08997_02997_02497`, is close to
+a wash (+0.28) -- on that cube the gain nearly disappeared, and it is also the cube with by
+far the largest cc-ERLpen floor (106.14), so its 75.10-point gap dwarfs a fraction-of-a-point
+gain either way. The other two held-out cubes show gains comparable to or larger than the dev
+cubes. **Verdict on generalization: directionally consistent (ERLpen up, merges down, on all
+six cubes, no exceptions) but not uniform in size** -- it is not the case that the gain simply
+survived at dev-cube magnitude, nor is it the case that it vanished; it ranged 20x in size
+(+0.28 to +5.77) across cubes never distinguished by any other property in this study, which
+means the "dev gain" was never a single stable number to begin with. In every case the gain is
+one to two orders of magnitude smaller than the remaining floor gap, so this variance does not
+change the outcome.
+
+Merges fell on every one of the six cubes (38->28, 47->39, 45->34, 15->12, 14->6, 13->5),
+proportionally more on the three cubes not used to pick the configuration (-24%, -20%, -57%)
+and on the cross-scroll cube (-62%) than on the two dev cubes that set it (-26%, -17%). The
+pre-registered merge check (ERLpen improving while merges rise = automatic failure) is never
+tripped anywhere in this table -- every row is a **PASS** by that check, consistently.
+
+### The cross-scroll cube, on its own line
+
+`s5_03997_01497_03997_256` (Scroll 5) is the cleanest generalization number in the whole
+study: it informed no tuning decision at any point, in either Fix A or Fix B, and was first
+run under the frozen configuration in this task. ERLpen improved from 25.41 (baseline) to
+31.18 (frozen configuration), a **+5.77 gain -- the single largest gain of any cube in this
+study**, with merges falling from 13 to 5 (-62%). That the largest, most consistent-looking
+gain shows up on the one cube that never fed a decision is a useful sanity check that the
+configuration is not overfit to the two dev cubes -- but the gap to that same cube's own
+connected-components floor is still 19.92 ERLpen points (31.18 vs 51.10) and 150.65 raw-ERL
+points (31.57 vs 182.22), the second-smallest ERLpen gap of the six but still nowhere near
+closed. Cross-scroll transfer of the *improvement* looks fine; cross-scroll transfer to
+*beating the floor* does not happen, because no configuration tried anywhere in this study
+gets within an order of magnitude of doing that.
+
+### Bottom line
+
+The frozen configuration (tangent_window=5, max_skip_steps=0, seed_nms_radius=0.0) is a
+small, safe, real improvement over the published baseline tracer -- ERLpen up and merges down
+on all six cubes with no exceptions, including the never-touched cross-scroll cube -- and it
+**does not come close to beating connected components on either metric, on any cube**. The
+smallest remaining ERLpen gap is 11.52 points (dev cube 1) and the largest is 75.10
+(`s1_08997_02997_02497`); the smallest raw-ERL gap is 150.65 points. This is the final,
+frozen-configuration result against the pre-registered contract. No further tuning follows.
+
+**Configurations tried in total: 7 parameter configurations, 20 runs** (14 dev-cube tuning
+runs across Fix A and Fix B, plus 6 frozen-configuration runs in this task -- 2 of which
+reproduce dev-cube numbers already counted above, 4 of which are new held-out/cross-scroll
+evaluations of the configuration already selected before this task began).

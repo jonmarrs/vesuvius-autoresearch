@@ -135,11 +135,24 @@ Two implementation notes that cost real debugging time and are easy to repeat:
    (x, y, z), because that matrix indexes 0 <-> x. Walking a volume with an unreversed vector
    moves along the wrong axis, finds nothing, and looks plausible.
 
-**Current standing: the tracer does not beat connected components — on either metric.** Measured
-on all six full 256³ cubes, connected components wins on raw ERL by 4.5-7.4x and on
-merge-penalized ERL by 1.6-3.5x, with no cube going the other way. It trades merges for
-fragmentation and loses more than it gains: coverage is a respectable 0.605-0.704, so the tracer
-finds the fibers, but it cannot hold one identity along them and its runs stay short.
+**Current standing: the tracer does not beat connected components — on either metric.**
+A follow-on study (`reports/fiber_tracer_improvement.md`) tried tangent-window smoothing,
+skip-step coasting, and seed non-maximum suppression against a pre-registered, per-cube
+connected-components floor, with two dev cubes for tuning and four cubes — three held-out
+Scroll-1 cubes plus one never-touched Scroll-5 cube — scored exactly once at the end under a
+configuration frozen before those runs (`tangent_window=5, max_skip_steps=0,
+seed_nms_radius=0.0`; skip-step coasting was tried and falsified, seed NMS was tried and found
+to be a null result, so neither ships). That configuration is a small, real, safe gain over the
+original baseline — merge-penalized ERL up and merge count down on all six cubes, no
+exceptions, including the never-touched cross-scroll cube — but it **does not clear the floor
+on either metric, on any cube**. Measured on all six full 256³ cubes at that configuration,
+connected components wins on raw ERL by 4.6-6.6x and on merge-penalized ERL by 1.5-3.4x, with
+no cube going the other way; the smallest remaining merge-penalized-ERL gap is 11.5 points and
+the largest is 75.1. It trades merges for fragmentation and loses more than it gains: coverage
+is 0.602-0.697, so the tracer finds the fibers, but it cannot hold one identity along them and
+its runs stay short — most likely because walks drift into a neighbouring fiber's claimed
+territory and get cut off by collisions well before they reach the fiber's true extent, a
+failure mode neither smoothing nor seed NMS reaches into.
 
 An earlier reading that the tracer was *marginally ahead* on the penalized metric (24.27 vs 22.47)
 came from the 128³ sub-volume and does not survive at full-cube scale; it should not be cited.
