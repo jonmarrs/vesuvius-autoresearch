@@ -5,12 +5,21 @@ import pytest
 
 from vesuvius_autoresearch.fibers.field_quality import (
     NodeKind,
+    _chains,
+    _in_bounds,
+    _run_lengths,
+    _scored_node_order,
+    analyse_cube,
+    angular_error_deg,
     count_node_kinds,
     gt_tangents,
     gt_tangents_bisector,
+    local_curvature_deg,
+    perpendicular_offsets,
+    sample_field,
     tangent_estimator_disagreement,
 )
-from vesuvius_autoresearch.fibers.skeleton_io import Fiber
+from vesuvius_autoresearch.fibers.skeleton_io import Fiber, Skeleton
 
 
 def _line_fiber(n=6, axis=0, spacing=2.0):
@@ -244,9 +253,6 @@ def test_gt_tangents_bisector_excludes_and_counts_the_same_nodes_as_gt_tangents(
     assert count_node_kinds(dup)[NodeKind.DEGENERATE] >= 1
 
 
-from vesuvius_autoresearch.fibers.field_quality import angular_error_deg
-
-
 def test_identical_directions_have_zero_error():
     a = np.array([[1.0, 0.0, 0.0], [0.0, 1.0, 0.0]])
     np.testing.assert_allclose(angular_error_deg(a, a), 0.0, atol=1e-9)
@@ -285,15 +291,6 @@ def test_unnormalised_inputs_are_handled():
     np.testing.assert_allclose(angular_error_deg(a, b), 90.0, atol=1e-9)
 
 
-from vesuvius_autoresearch.fibers.field_quality import (  # noqa: E402
-    analyse_cube,
-    local_curvature_deg,
-    perpendicular_offsets,
-    sample_field,
-)
-from vesuvius_autoresearch.fibers.skeleton_io import Skeleton  # noqa: E402
-
-
 def _tube_field(shape=(32, 32, 32), axis=0, angle_deg=0.0):
     """A constant orientation field rotated `angle_deg` away from `axis`."""
     r = np.deg2rad(angle_deg)
@@ -324,6 +321,7 @@ def test_perfect_field_scores_near_zero():
     assert res["n_scored"] == 10
     assert float(np.median(res["error_deg"])) < 1e-4
     assert res["field_undefined_frac"] == 0.0
+    assert res["oob_frac"] == 0.0
 
 
 def test_known_rotation_is_recovered():
@@ -348,13 +346,37 @@ def test_undefined_field_is_reported_not_scored():
     assert res["n_scored"] < 10
 
 
-def test_out_of_bounds_nodes_count_as_undefined():
+def test_out_of_bounds_nodes_count_as_oob_not_field_undefined():
+    """A node the annotator traced past the cube edge is OUR data's fault, not
+    the model's -- it must not inflate `field_undefined_frac`, which is a claim
+    about the model. See CRITICAL 1: the two were conflated (a 13x overstatement
+    on the worst cube) and are now reported separately.
+    """
     fib = _centred_line(n=4)
     fib.coords[:, 0] += 100.0
     dirs, valid = _tube_field()
     res = analyse_cube(Skeleton(fibers=[fib]), dirs, valid, (32, 32, 32))
-    assert res["field_undefined_frac"] == 1.0
+    assert res["oob_frac"] == 1.0
+    # No in-bounds nodes exist to judge the field's definedness at all.
+    assert res["field_undefined_frac"] == 0.0
     assert res["n_scored"] == 0
+
+
+def test_field_undefined_frac_excludes_out_of_bounds_nodes():
+    """A cube with both an out-of-bounds node and a genuinely field-invalid
+    in-bounds node must report them in separate statistics, not summed.
+    """
+    fib = _centred_line(n=4)  # in-bounds, axis 0, coords z=0,2,4,6 + (y,x)=10,10
+    oob_fib = _centred_line(n=2)
+    oob_fib.coords[:, 0] += 1000.0  # entirely out of bounds
+    dirs, valid = _tube_field()
+    valid[0, 10, 10] = False  # makes the z=0 node of `fib` field-invalid
+    res = analyse_cube(Skeleton(fibers=[fib, oob_fib]), dirs, valid, (32, 32, 32))
+    # 2 oob nodes out of 6 total ground-truth nodes.
+    assert abs(res["oob_frac"] - (2.0 / 6.0)) < 1e-9
+    # 1 undefined node out of 4 IN-BOUNDS nodes -- oob_fib's nodes must not be
+    # in this denominator.
+    assert abs(res["field_undefined_frac"] - 0.25) < 1e-9
 
 
 def test_perpendicular_offsets_are_perpendicular():
@@ -374,13 +396,45 @@ def test_local_curvature_is_zero_on_a_straight_line():
     np.testing.assert_allclose(curv[interior], 0.0, atol=1e-4)
 
 
+def _zigzag_fiber(n=6):
+    """A chain that steps +1 in x every node and alternates y between 0 and 1.
+
+    Deliberately NOT collinear, unlike `_line_fiber`. On a straight line every
+    triplet of points is collinear regardless of which three you pick, so a bug
+    that reads array-adjacent rows instead of graph neighbours still reports 0
+    degrees everywhere on a shuffled straight line and passes undetected --
+    that is exactly what happened with the original version of this test (see
+    IMPORTANT 6 in the review). A zig-zag has a real, nonzero turn only between
+    genuinely graph-adjacent nodes, so picking the wrong triplet changes the
+    answer.
+    """
+    coords = np.zeros((n, 3), dtype=float)
+    coords[:, 2] = np.arange(n, dtype=float)  # x steps forward every node
+    coords[:, 1] = np.arange(n, dtype=float) % 2.0  # y alternates 0, 1, 0, 1, ...
+    edges = np.array([[i, i + 1] for i in range(n - 1)], dtype=int)
+    return Fiber(id=1, name="zigzag", node_ids=np.arange(n), coords=coords, edges=edges)
+
+
+def test_local_curvature_is_ninety_degrees_on_a_right_angle_zigzag():
+    """Pins down the expected value directly, independent of the mutation test
+    below: each interior node of this zigzag turns a clean right angle."""
+    curv = local_curvature_deg(_zigzag_fiber(n=6))
+    interior = ~np.isnan(curv)
+    assert interior.sum() == 4
+    np.testing.assert_allclose(curv[interior], 90.0, atol=1e-6)
+
+
 def test_local_curvature_uses_the_edge_graph_not_array_order():
     """NML node order is arbitrary; array-order curvature is meaningless.
 
     Same geometry, shuffled node order and remapped edges: curvature must be
-    identical. Comparing tangents at adjacent array positions would not be.
+    identical. Comparing tangents at adjacent array positions would not be --
+    verified by mutation: temporarily reverting `local_curvature_deg` to
+    array-adjacent rows makes this fail (shuffled no longer matches
+    unshuffled), while it left the old (straight-line) version of this test
+    passing along with all 26 other tests in this file.
     """
-    straight = _line_fiber(n=6)
+    straight = _zigzag_fiber(n=6)
     perm = np.array([3, 0, 5, 1, 4, 2])
     inv = np.argsort(perm)
     shuffled = Fiber(
@@ -392,6 +446,9 @@ def test_local_curvature_uses_the_edge_graph_not_array_order():
     )
     a = np.sort(local_curvature_deg(straight))
     b = np.sort(local_curvature_deg(shuffled))
+    # Real, nonzero curvature -- not the degenerate all-zero case a straight
+    # line would give, which is exactly what let the array-order bug through.
+    assert np.nanmax(a) > 30.0
     np.testing.assert_allclose(a[~np.isnan(a)], b[~np.isnan(b)], atol=1e-6)
 
 
@@ -423,3 +480,199 @@ def test_sample_field_uses_nearest_voxel():
     got, defined = sample_field(dirs, valid, np.array([[3.4, 3.4, 2.9]]))
     assert bool(defined[0]) is True
     np.testing.assert_allclose(got[0], np.array([0.0, 1.0, 0.0]), atol=1e-12)
+
+
+# --- in-bounds / out-of-bounds split (CRITICAL 1) ------------------------------
+
+
+def test_in_bounds_matches_sample_field_out_of_bounds_semantics():
+    shape = (8, 8, 8)
+    coords = np.array([[3.0, 3.0, 3.0], [-1.0, 3.0, 3.0], [3.0, 8.0, 3.0]])
+    inb = _in_bounds(coords, shape)
+    np.testing.assert_array_equal(inb, [True, False, False])
+
+
+# --- node index alignment for per-node diagnostics ------------------------------
+
+
+def test_scored_node_order_matches_gt_tangents_positions():
+    coords = np.array(
+        [
+            [0.0, 0.0, 0.0],
+            [1.0, 0.0, 0.0],
+            [2.0, 0.0, 0.0],  # stem
+            [3.0, 1.0, 0.0],
+            [3.0, -1.0, 0.0],  # two arms off node 2 (branch)
+        ]
+    )
+    edges = np.array([[0, 1], [1, 2], [2, 3], [2, 4]], dtype=int)
+    fib = Fiber(id=1, name="y", node_ids=np.arange(5), coords=coords, edges=edges)
+    gt_coords, _, _ = gt_tangents(fib)
+    order = _scored_node_order(fib)
+    assert len(order) == len(gt_coords)
+    np.testing.assert_allclose(fib.coords[order], gt_coords)
+
+
+# --- chain decomposition (IMPORTANT 4 support) ----------------------------------
+
+
+def test_chains_covers_a_straight_line_as_one_chain():
+    fib = _line_fiber(n=6)
+    assert _chains(fib) == [[0, 1, 2, 3, 4, 5]]
+
+
+def test_chains_splits_a_y_junction_at_the_branch_node():
+    coords = np.array(
+        [
+            [0.0, 0.0, 0.0],
+            [1.0, 0.0, 0.0],
+            [2.0, 0.0, 0.0],  # stem
+            [3.0, 1.0, 0.0],
+            [3.0, -1.0, 0.0],  # two arms off node 2 (branch)
+        ]
+    )
+    edges = np.array([[0, 1], [1, 2], [2, 3], [2, 4]], dtype=int)
+    fib = Fiber(id=1, name="y", node_ids=np.arange(5), coords=coords, edges=edges)
+    chains = _chains(fib)
+    assert sorted(tuple(c) for c in chains) == sorted([(0, 1, 2), (2, 3), (2, 4)])
+    # Every edge is covered by exactly one chain -- none dropped, none doubled.
+    assert sum(len(c) - 1 for c in chains) == len(edges)
+
+
+def test_chains_returns_isolated_nodes_as_length_one_chains():
+    fib = Fiber(
+        id=1,
+        name="dot",
+        node_ids=np.arange(1),
+        coords=np.zeros((1, 3)),
+        edges=np.zeros((0, 2), dtype=int),
+    )
+    assert _chains(fib) == [[0]]
+
+
+def test_chains_covers_a_pure_cycle_starting_and_ending_at_the_same_node():
+    coords = np.array(
+        [[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [1.0, 1.0, 0.0], [0.0, 1.0, 0.0]]
+    )
+    edges = np.array([[0, 1], [1, 2], [2, 3], [3, 0]], dtype=int)
+    fib = Fiber(id=1, name="ring", node_ids=np.arange(4), coords=coords, edges=edges)
+    chains = _chains(fib)
+    assert len(chains) == 1
+    (chain,) = chains
+    assert chain[0] == chain[-1]
+    assert len(chain) == 5  # visits all 4 nodes and returns to the start
+    assert sum(len(c) - 1 for c in chains) == len(edges)
+
+
+# --- run-length of consecutive over-25-degree nodes (IMPORTANT 4) --------------
+
+
+def test_run_lengths_finds_consecutive_runs_and_breaks_on_gaps():
+    chain = [0, 1, 2, 3, 4, 5, 6]
+    over25 = {0: True, 1: True, 2: False, 3: True, 5: True, 6: True}
+    # Node 4 is absent from the dict entirely (unscored: e.g. field-undefined),
+    # so it must break the run between node 3 and node 5 even though both are
+    # True -- an isolated bad node either side of a gap is not the same claim
+    # as one 2-node run.
+    assert _run_lengths(chain, over25) == [2, 1, 2]
+
+
+def test_run_lengths_is_empty_when_nothing_is_over_25():
+    assert _run_lengths([0, 1, 2], {0: False, 1: False, 2: False}) == []
+
+
+def test_run_length_stats_distinguish_clustered_from_isolated_bad_nodes():
+    """Same total count of bad nodes, different arrangement: `analyse_cube`
+    must report a longer mean run for the clustered case. This is the data
+    that overturns the branch's "bad nodes are isolated" claim -- see
+    IMPORTANT 4."""
+    shape = (32, 32, 32)
+
+    def _build(bad_indices):
+        fib = _centred_line(n=10, spacing=1.0)
+        dirs, valid = _tube_field(shape=shape, axis=0, angle_deg=0.0)
+        bad_dirs, _ = _tube_field(shape=shape, axis=0, angle_deg=40.0)
+        idx = np.rint(fib.coords).astype(int)
+        for i in bad_indices:
+            z, y, x = idx[i]
+            dirs[z, y, x] = bad_dirs[z, y, x]
+        return analyse_cube(Skeleton(fibers=[fib]), dirs, valid, shape)
+
+    clustered = _build([3, 4, 5])  # one run of length 3
+    isolated = _build([1, 4, 7])  # three runs of length 1
+
+    assert clustered["frac_over_25"] == isolated["frac_over_25"] == pytest.approx(0.3)
+    assert isolated["mean_run_length"] == 1.0
+    assert clustered["mean_run_length"] == 3.0
+    assert clustered["max_run_length"] == 3.0
+    assert isolated["max_run_length"] == 1.0
+    assert clustered["frac_runs_ge_2"] == 1.0
+    assert isolated["frac_runs_ge_2"] == 0.0
+
+
+# --- field self-consistency: the turn the field makes, not the error (IMPORTANT 3) --
+
+
+def test_field_self_consistency_measures_turn_between_adjacent_field_samples():
+    """This is the statistic that actually gates the walker (it compares the
+    field to itself at consecutive positions, never to ground truth) -- unlike
+    `error_deg`, which the walker has no access to at trace time."""
+    shape = (8, 8, 8)
+    dirs = np.zeros(shape + (3,))
+    dirs[..., 0] = 1.0
+    valid = np.ones(shape, dtype=bool)
+    dirs[2, 2, 2] = np.array([0.0, 1.0, 0.0])
+    dirs[2, 2, 5] = np.array([0.0, 0.0, 1.0])  # 90 degrees from the node above
+    fib = Fiber(
+        id=1,
+        name="turn",
+        node_ids=np.arange(2),
+        coords=np.array([[2.0, 2.0, 2.0], [2.0, 2.0, 5.0]]),
+        edges=np.array([[0, 1]], dtype=int),
+    )
+    res = analyse_cube(Skeleton(fibers=[fib]), dirs, valid, shape)
+    assert len(res["field_self_consistency_deg"]) == 1
+    assert abs(float(res["field_self_consistency_deg"][0]) - 90.0) < 1e-9
+    assert res["field_self_consistency_frac_over_25"] == 1.0
+
+
+def test_field_self_consistency_excludes_edges_with_an_undefined_endpoint():
+    shape = (8, 8, 8)
+    dirs, valid = _tube_field(shape=shape, axis=0, angle_deg=0.0)
+    valid[2, 2, 5] = False
+    fib = Fiber(
+        id=1,
+        name="turn",
+        node_ids=np.arange(2),
+        coords=np.array([[2.0, 2.0, 2.0], [2.0, 2.0, 5.0]]),
+        edges=np.array([[0, 1]], dtype=int),
+    )
+    res = analyse_cube(Skeleton(fibers=[fib]), dirs, valid, shape)
+    assert len(res["field_self_consistency_deg"]) == 0
+
+
+# --- fiber-probability distribution at genuinely field-undefined nodes (CRITICAL 2) --
+
+
+def test_prob_distributions_are_sampled_at_defined_and_undefined_nodes():
+    shape = (16, 16, 16)
+    dirs, valid = _tube_field(shape=shape, axis=0, angle_deg=0.0)
+    prob = np.zeros(shape, dtype=float)
+    fib = _centred_line(n=4, spacing=1.0)
+    idx = np.rint(fib.coords).astype(int)
+    valid[tuple(idx[0])] = False
+    prob[tuple(idx[0])] = 0.001
+    for i in range(1, 4):
+        prob[tuple(idx[i])] = 0.99
+    res = analyse_cube(Skeleton(fibers=[fib]), dirs, valid, shape, prob=prob)
+    np.testing.assert_allclose(res["prob_at_undefined_nodes"], [0.001])
+    np.testing.assert_allclose(
+        np.sort(res["prob_at_defined_nodes"]), [0.99, 0.99, 0.99]
+    )
+
+
+def test_prob_arrays_are_empty_when_prob_not_supplied():
+    dirs, valid = _tube_field()
+    res = analyse_cube(Skeleton(fibers=[_centred_line()]), dirs, valid, (32, 32, 32))
+    assert len(res["prob_at_defined_nodes"]) == 0
+    assert len(res["prob_at_undefined_nodes"]) == 0

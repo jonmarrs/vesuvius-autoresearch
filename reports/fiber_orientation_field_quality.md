@@ -39,21 +39,30 @@ reported separately rather than dropped silently — see the undefined-rate colu
 
 ### Validation
 
-The synthetic checks that make a false finding hard: a field constructed to be exactly right
-scores ~0 degrees; a field rotated by a known 17 degrees returns 17; negating the entire field
-changes nothing. A wrong axis convention — the most likely way to produce a large, plausible,
-completely false result — would fail all three.
+Three synthetic checks feed a constructed field straight into the analysis: a field built to be
+exactly right scores ~0 degrees; one rotated by a known 17 degrees returns 17; negating the entire
+field changes nothing. **These prove the analysis does not permute axes; they do not exercise
+`hessian` → `fiber_direction`**, so they cannot catch an axis-convention error in the
+field-production path. That path is covered separately by the pre-existing
+`tests/test_fiber_orientation.py` (see its `(z, y, x)` ordering tests).
+
+A further regression test pins the one bug known to have been introduced here: NML node order is
+arbitrary, so curvature and spacing must come from the edge graph rather than from array-adjacent
+rows. The test is built on a geometry where the two genuinely disagree, and was verified by
+mutation — reverting the fix makes it fail.
 
 ## Results
 
-| cube | median | p90 | p99 | over 25 deg | field undefined | n |
-| --- | --- | --- | --- | --- | --- | --- |
-| s1_00497_01497_03997 | 8.76 | 44.29 | 87.06 | 16.9% | 16.1% | 2652 |
-| s1_00497_02497_02997 | 7.28 | 27.15 | 82.50 | 11.3% | 15.5% | 2856 |
-| s1_00997_02497_02997 | 7.63 | 34.85 | 87.12 | 13.9% | 51.2% | 1665 |
-| s1_08997_02997_02497 | 9.97 | 32.79 | 83.51 | 13.8% | 40.7% | 4842 |
-| s1_10997_02997_02997 | 8.11 | 25.40 | 82.21 | 10.2% | 37.6% | 2035 |
-| s5_03997_01497_03997 (cross-scroll) | 8.83 | 37.93 | 85.39 | 14.5% | 35.9% | 1936 |
+| cube | median | p90 | p99 | over 25 deg | out of bounds | undefined (in-bounds) | n |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| s1_00497_01497_03997 | 8.76 | 44.29 | 87.06 | 16.9% | 14.2% | 2.25% | 2652 |
+| s1_00497_02497_02997 | 7.28 | 27.15 | 82.50 | 11.3% | 13.0% | 2.89% | 2856 |
+| s1_00997_02497_02997 | 7.63 | 34.85 | 87.12 | 13.9% | 47.3% | 7.40% | 1665 |
+| s1_08997_02997_02497 | 9.97 | 32.79 | 83.51 | 13.8% | 39.1% | 2.65% | 4842 |
+| s1_10997_02997_02997 | 8.11 | 25.40 | 82.21 | 10.2% | 35.1% | 3.78% | 2035 |
+| s5_03997_01497_03997 (cross-scroll) | 8.83 | 37.93 | 85.39 | 14.5% | 33.5% | 3.63% | 1936 |
+
+All per-cube summaries below are **unweighted means over cubes**, not node-weighted.
 
 Median-of-medians **8.43 degrees**, against the walker's `max_angle_deg = 25`.
 
@@ -67,22 +76,45 @@ is indistinguishable from the Scroll 1 cubes at 8.83. Multi-scale orientation or
 tensor would be solving a problem that is not the binding one.
 
 **But 10-17% of ground-truth nodes exceed the turn limit outright**, and the tail is severe: p90
-reaches 25-44 degrees and p99 is 82-87 degrees, near the 90-degree maximum. Roughly one node in
-seven is a place where the field points somewhere the walker will refuse to follow.
+reaches 25-44 degrees and p99 is 82-87 degrees, near the 90-degree maximum.
 
-That is enough to explain fragmentation without any other cause. It also means the *idea* behind
-coasting was right and the implementation was wrong — see below.
+**A caveat on what that number does and does not say.** Error-against-ground-truth is a statement
+about field *accuracy*; it is not directly a prediction of walker behaviour, because the walker
+never compares against ground truth. It compares the field at the current voxel against a running
+mean of recent *field* directions, so a field wrong by a consistent 40 degrees but locally smooth
+is perfectly followable.
 
-**Greedy sequential walking is not obviously the wrong algorithm**, which was fork 2. It is the
-right algorithm running on a field with isolated blowouts.
+The walker-relevant quantity is **field self-consistency** — the turn in the field itself between
+adjacent ground-truth nodes. Measured directly: median **7.2-13.2 degrees**, exceeding 25 degrees
+at **12.3-23.9%** of edges. That is higher than the accuracy figure on every cube, so the
+conclusion survives and strengthens: on 1 in 4 to 1 in 8 steps along a real fiber, the field turns
+by more than the walker will follow.
+
+That is enough to explain fragmentation without any other cause.
+
+**Fork 2 is not forced**, but the honest framing is narrower than "greedy is right": the field is
+good enough in the median that a global-assembly rewrite is not *required* to make progress. A
+purely local greedy rule is still fragile against a tail this heavy.
 
 ## Secondary cuts
 
-**Real curvature does not stop walks.** Median local turn per ground-truth node-step is 11.6-19.4
-degrees (mean 14.77) at a mean node spacing of 8.87 voxels. Scaled to the walker's 0.7-voxel step
-that is about **1.2 degrees per step**, against a 25-degree limit. Genuine fiber bending is nowhere
-near the turn limit; `max_angle_deg` is not mis-set, and the stops are field noise rather than real
-bends.
+**Real curvature does not stop walks** *(inference, not measurement)*. Median local turn per
+ground-truth node-step is 11.6-19.4 degrees at node spacings of 4.9-15.1 voxels. Converting that
+to a per-walker-step figure is not straightforward: turn angle *decreases* as spacing increases
+(4.9 vox → 19.4 deg; 15.1 vox → 12.9 deg), which is the signature of annotation jitter rather than
+of curvature — under true curvature the turn over a longer chord would be larger, not smaller. The
+per-cube rate spans 0.85-3.95 degrees per voxel, a 4.6x spread.
+
+The conclusion holds regardless, and holds *a fortiori*: if the measured turn is inflated by
+jitter, true curvature is smaller still. Even taking the largest per-cube rate at face value,
+a 0.7-voxel walker step implies well under 3 degrees against a 25-degree limit. `max_angle_deg`
+is not mis-set, and the stops are field noise rather than real bends.
+
+**Field error is not explained by genuine bending** (spec secondary cut 2). Error and curvature are
+node-aligned, so this is a direct comparison rather than an inference from their marginals:
+Pearson r is **0.029-0.156**, and median error at above-median-curvature nodes exceeds
+below-median-curvature nodes by only **0.7-2.2 degrees**. Curvature explains almost none of the
+error — which is what the paragraph above argues, now measured rather than reasoned.
 
 **The field degrades only gently off the centreline.** Median error at 0, 1, 2 and 3 voxels
 perpendicular to the fiber: 8.43, 8.76, 9.42, 9.72 degrees. Ridge-peaked seeding is therefore
@@ -101,27 +133,60 @@ roughly 8 voxels. Where a fiber is curving, that chord slightly smooths the true
 the reported error a mild **upper bound**. The estimator-disagreement figures above bound how
 much.
 
-## The finding that was not asked for: the field is often undefined
+## Corrected: the field is defined almost everywhere the model detects a fiber
 
-**The orientation field is undefined at 15.5-51.2% of ground-truth fiber nodes** (mean 32.8%).
-On `s1_00997_02497_02997` it is undefined at more than half of them.
+An earlier draft of this report claimed the field was "undefined at 15.5-51.2% of ground-truth
+nodes (mean 32.8%)" and called it arguably larger than the accuracy finding. **That was wrong by
+roughly an order of magnitude, and it was a claim about someone else's model.** It is corrected
+here rather than quietly amended.
 
-These are hand-traced fiber centres — the places a tracer most needs an orientation — and a third
-of them have none. This is separate from the accuracy question and arguably larger: no walker can
-follow a field that does not exist there, whatever its accuracy where it does.
+The defect: `sample_field` reports a position as not-defined when it is *either* out of bounds
+*or* flagged invalid, which is correct for excluding nodes from an error statistic and wrong as a
+coverage-of-the-field statistic. The union was published as the latter. Split apart:
 
-This was not part of the original question and is reported because it fell out of the measurement.
+- **Out of bounds: 13.0-47.3% of nodes.** Annotators traced beyond the cube edge, so these nodes
+  simply lie outside the 256³ volume. This is a fact about our own ground truth, not about
+  `fiber_hz_vt`. It is also already documented in `skeleton_io`, which is why `in_bounds_mask`
+  exists.
+- **Genuinely undefined, among in-bounds nodes: 2.25-7.40% (mean 3.77%).**
+
+**And that residual is a recall observation, not an orientation one.** `fiber_direction`'s `valid`
+flag is `best_norm > 1e-8`, a magnitude guard on a quantity that scales with the fourth power of
+the Hessian and is not normalised by matrix scale — multiplying the Hessian by 1000, a
+mathematical no-op for eigenvector *direction*, moves volume-wide `valid` from 43.5% to 97.1%. So
+`valid=False` means "the response here is numerically weak", not "no orientation exists".
+
+At ground-truth nodes the picture is unambiguous: median model fiber-probability at the
+genuinely-undefined nodes is **0.0003-0.0009**, against **0.994-0.998** at defined nodes. The
+model did not detect a fiber there at all. That is a statement about recall, and a much weaker
+and differently-framed one than what was originally published.
+
+Two positive results fall out of the same measurement. The median probability of ~0.995 at
+ground-truth nodes independently corroborates that the NML-to-cube registration is correct — the
+annotations land where the model sees fibers. And `hessian`'s internal `zero_mask` is empty on
+five of the six cubes (non-empty on `s1_00497_02497_02997` only), so it is not a meaningful
+source of missing orientations.
 
 ## What this implies for the tracer
 
 Stated as inference, not measurement.
 
-The bad nodes are **isolated**, not clustered into long stretches: at 13.4% of nodes and ~8.9
-voxel spacing, a blocking node appears roughly every 66 voxels of fiber. Coasting was designed for
-exactly this — step past a bad region and resume. It failed for two reasons now visible:
-`max_skip_steps=2` spans only 1.4 voxels where a bad *node* represents roughly 8 voxels of
-annotation interval, and while coasting the walk follows a frozen reference direction and cannot
-absorb a corrected one, so it can only continue straight.
+The bad nodes are **clustered**, not isolated — and this is measured, not assumed. Run-lengths of
+consecutive over-25-degree nodes along the annotation chain average **1.28-1.70** against the
+**1.11-1.20** that the per-node rate alone would predict under independence; **21-36%** of runs are
+multi-node, and the longest runs reach **6-10 nodes**, roughly 40-75 voxels of continuously-bad
+field.
+
+(An earlier draft asserted the opposite. Its argument — "a blocking node appears every ~66 voxels",
+from rate divided by spacing — presupposes independence and therefore could not be evidence of
+isolation. The corrected picture reverses the recommendation below.)
+
+Coasting was designed for exactly this shape of problem — step past a bad region and resume — and
+failed for two reasons now visible. `max_skip_steps=2` spans 1.4 voxels against bad regions
+reaching 40-75 voxels, so the budget was short by more than an order of magnitude. And while
+coasting the walk follows a frozen reference direction and cannot absorb a corrected one, so it can
+only continue straight — over 40-75 voxels of a curving fiber, straight is badly wrong, which is
+consistent with coasting having *raised* merges when it was measured.
 
 A mechanism that survives a bad region by **re-acquiring** the field beyond it, rather than
 freezing and hoping, is the shape the data suggests. That is a hypothesis this measurement
@@ -132,7 +197,7 @@ looks right on synthetic geometry can fail on real cubes.
 
 ```bash
 uv run python scripts/analyze_orientation_field.py
-uv run python -m pytest tests/test_field_quality.py -q   # 27 tests, CPU
+uv run python -m pytest tests/test_field_quality.py -q   # 42 tests, CPU
 ```
 
 Nothing under `src/vesuvius_autoresearch/fibers/` was modified by this work except the new

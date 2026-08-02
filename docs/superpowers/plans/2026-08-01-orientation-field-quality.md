@@ -823,7 +823,9 @@ if __name__ == "__main__":
 uv run python scripts/analyze_orientation_field.py --cube s1_00497_01497_03997_256
 ```
 
-Expected: one summary line and a JSON file. Sanity-check before trusting it: `n_scored` should be in the low thousands (the cube has 87 usable fibers), and `field_undefined_frac` should be well under 1.0. If median error is ~90 degrees, stop — that is the signature of an axis or convention error, not a finding.
+Expected: one summary line and a JSON file. Sanity-check before trusting it: `n_scored` should be in the low thousands (the cube has 87 usable fibers). If median error is ~90 degrees, stop — that is the signature of an axis or convention error, not a finding.
+
+**Post-review tightening (whole-branch review, IMPORTANT/M5):** the original check here was "`field_undefined_frac` should be well under 1.0" — far too weak; 51.2% sailed straight through it on `s1_00997_02497_02997` because that number was silently the union of out-of-bounds nodes (an annotation fact) and genuinely field-invalid nodes (a model fact). Check the two *separately* now that `analyse_cube` reports them apart: `oob_frac` should land somewhere in the 14-34% range noted in `skeleton_io`'s docstring (annotators tracing past the cube edge), and `field_undefined_frac` — counted only over in-bounds nodes — should be well under 0.1. If `field_undefined_frac` alone is anywhere near 0.3+, that is the signature this check exists to catch, not a real finding about the model.
 
 - [ ] **Step 3: Run all six**
 
