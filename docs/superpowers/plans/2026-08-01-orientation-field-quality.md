@@ -489,7 +489,7 @@ def test_undefined_field_is_reported_not_scored():
     assert res["n_scored"] < 10
 
 
-def test_out_of_bounds_nodes_count_as_undefined():
+def test_out_of_bounds_nodes_are_counted_separately_from_undefined():
     fib = _line_fiber(n=4, axis=0, spacing=2.0)
     fib.coords[:, 0] += 100.0  # entirely outside a 32^3 cube
     fib.coords[:, 1] += 10.0
@@ -665,7 +665,13 @@ def analyse_cube(
         "n_fibers": len(skeleton.fibers),
         "node_kinds": kind_counts,
         "n_scored": int(len(err)),
-        "field_undefined_frac": (float(n_undefined / n_nodes) if n_nodes else 0.0),
+        # SUPERSEDED: this conflates out-of-bounds with genuinely-invalid and was
+        # published as a false claim about a third party's model. Split these:
+        # oob_frac over all nodes, field_undefined_frac over IN-BOUNDS nodes only.
+        "oob_frac": (float(n_oob / n_nodes) if n_nodes else 0.0),
+        "field_undefined_frac": (
+            float(n_undefined / n_in_bounds) if n_in_bounds else 0.0
+        ),
         "error_deg": err,
         "curvature_deg": curv,
         "spacing": spacing,

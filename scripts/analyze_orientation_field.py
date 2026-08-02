@@ -98,7 +98,7 @@ def run(stem: str) -> dict:
         # CRITICAL 1: out-of-bounds (our annotation running past the cube edge)
         # and field-undefined (a fact about the model) are reported separately.
         "oob_frac": round(res["oob_frac"], 4),
-        "field_undefined_frac": round(res["field_undefined_frac"], 4),
+        "field_undefined_frac_in_bounds": round(res["field_undefined_frac"], 4),
         "median_deg": round(_pct(err, 50), 2),
         "p90_deg": round(_pct(err, 90), 2),
         "p99_deg": round(_pct(err, 99), 2),
@@ -181,7 +181,7 @@ def run(stem: str) -> dict:
     print(
         f"{stem}: median {row['median_deg']}deg  p90 {row['p90_deg']}deg  "
         f"over-{int(TURN_LIMIT_DEG)}deg {row['frac_over_25']:.1%}  "
-        f"undefined(in-bounds) {row['field_undefined_frac']:.1%}  "
+        f"undefined(in-bounds) {row['field_undefined_frac_in_bounds']:.1%}  "
         f"oob {row['oob_frac']:.1%}  n={row['n_scored']}"
     )
     return row

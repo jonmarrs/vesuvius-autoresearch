@@ -62,9 +62,9 @@ mutation — reverting the fix makes it fail.
 | s1_10997_02997_02997 | 8.11 | 25.40 | 82.21 | 10.2% | 35.1% | 3.78% | 2035 |
 | s5_03997_01497_03997 (cross-scroll) | 8.83 | 37.93 | 85.39 | 14.5% | 33.5% | 3.63% | 1936 |
 
-All per-cube summaries below are **unweighted means over cubes**, not node-weighted.
-
-Median-of-medians **8.43 degrees**, against the walker's `max_angle_deg = 25`.
+Ranges quoted below are across cubes; summary figures are **unweighted per-cube aggregates**, not
+node-weighted. The headline is the **median of the six per-cube medians, 8.435 degrees** (their
+unweighted mean is 8.430 — the two coincide here), against the walker's `max_angle_deg = 25`.
 
 ## Verdict: fork 3 — a good field with a fat tail
 
@@ -86,9 +86,17 @@ is perfectly followable.
 
 The walker-relevant quantity is **field self-consistency** — the turn in the field itself between
 adjacent ground-truth nodes. Measured directly: median **7.2-13.2 degrees**, exceeding 25 degrees
-at **12.3-23.9%** of edges. That is higher than the accuracy figure on every cube, so the
-conclusion survives and strengthens: on 1 in 4 to 1 in 8 steps along a real fiber, the field turns
-by more than the walker will follow.
+at **12.3-23.9%** of edges.
+
+The **over-25-degree fraction is higher than the accuracy figure on every cube**, so the conclusion
+survives and strengthens. (The *median* is not uniformly higher — it is lower on
+`s1_08997_02997_02497` (7.57 vs 9.97) and `s1_10997_02997_02997` (7.21 vs 8.11). It is the tail
+that matters here, and the tail is worse.)
+
+**These are ground-truth-node steps of 4.9-15.1 voxels, 7-21x the walker's 0.7-voxel step**, so the
+per-edge rate is not a per-walker-step rate. What it establishes is that a fiber traversed at
+annotation resolution meets a field discontinuity exceeding the turn limit every four to eight
+annotation intervals — not that one walker step in four to eight fails.
 
 That is enough to explain fragmentation without any other cause.
 
@@ -128,6 +136,10 @@ a second estimator that averages *unit* edge directions, the median disagreement
 **0.005-0.665 degrees** (p90 1.3-3.2). That is negligible against errors of 8-44 degrees, so the
 measured field error is genuinely the field's, not an artifact of how we estimate the reference.
 
+**A population note.** Curvature and estimator-disagreement figures are conditioned on nodes where
+the field is defined; node spacing is computed over all edges. The degrees-per-voxel ratio above
+therefore divides one population by the other, which is another reason to treat it as indicative.
+
 **Node spacing** is 4.9-15.1 voxels (median ~8), so the ground-truth tangent is a chord over
 roughly 8 voxels. Where a fiber is curving, that chord slightly smooths the true tangent, making
 the reported error a mild **upper bound**. The estimator-disagreement figures above bound how
@@ -153,7 +165,8 @@ coverage-of-the-field statistic. The union was published as the latter. Split ap
 **And that residual is a recall observation, not an orientation one.** `fiber_direction`'s `valid`
 flag is `best_norm > 1e-8`, a magnitude guard on a quantity that scales with the fourth power of
 the Hessian and is not normalised by matrix scale — multiplying the Hessian by 1000, a
-mathematical no-op for eigenvector *direction*, moves volume-wide `valid` from 43.5% to 97.1%. So
+mathematical no-op for eigenvector *direction*, moves volume-wide `valid` from 43.5% to 97.1% on
+`s1_00497_01497_03997`. So
 `valid=False` means "the response here is numerically weak", not "no orientation exists".
 
 At ground-truth nodes the picture is unambiguous: median model fiber-probability at the
@@ -174,18 +187,25 @@ Stated as inference, not measurement.
 The bad nodes are **clustered**, not isolated — and this is measured, not assumed. Run-lengths of
 consecutive over-25-degree nodes along the annotation chain average **1.28-1.70** against the
 **1.11-1.20** that the per-node rate alone would predict under independence; **21-36%** of runs are
-multi-node, and the longest runs reach **6-10 nodes**, roughly 40-75 voxels of continuously-bad
-field.
+multi-node, and the longest runs reach **6-10 nodes**. Measured by summing the real inter-node
+distances inside each cube's longest run, that is **20.7-94.7 voxels** of continuously-bad field
+(p95 run span 16.7-25.5 voxels).
 
 (An earlier draft asserted the opposite. Its argument — "a blocking node appears every ~66 voxels",
 from rate divided by spacing — presupposes independence and therefore could not be evidence of
 isolation. The corrected picture reverses the recommendation below.)
 
+One caveat carries over from the Verdict section: these runs are runs of field-versus-ground-truth
+error, the quantity disclaimed above as not directly predicting walker behaviour. The
+walker-relevant version — runs of over-25-degree *self-consistency* edges — is not computed here,
+though the machinery now exists. Treat the sizing below as indicative rather than exact.
+
 Coasting was designed for exactly this shape of problem — step past a bad region and resume — and
-failed for two reasons now visible. `max_skip_steps=2` spans 1.4 voxels against bad regions
-reaching 40-75 voxels, so the budget was short by more than an order of magnitude. And while
+failed for two reasons now visible. `max_skip_steps=2` spans 1.4 voxels against bad regions whose
+p95 span is 16.7-25.5 voxels and whose longest reach 20.7-94.7, so the budget was short by an order
+of magnitude. And while
 coasting the walk follows a frozen reference direction and cannot absorb a corrected one, so it can
-only continue straight — over 40-75 voxels of a curving fiber, straight is badly wrong, which is
+only continue straight — over tens of voxels of a curving fiber, straight is badly wrong, which is
 consistent with coasting having *raised* merges when it was measured.
 
 A mechanism that survives a bad region by **re-acquiring** the field beyond it, rather than

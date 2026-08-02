@@ -655,7 +655,7 @@ def analyse_cube(
         "n_fibers": len(skeleton.fibers),
         "node_kinds": kind_counts,
         "n_scored": int(len(err)),
-        # Fraction of ALL ground-truth nodes (in- and out-of-bounds) that lie
+        # Fraction of usable ground-truth nodes (branch/isolated/degenerate already excluded) (in- and out-of-bounds) that lie
         # outside the cube -- a fact about the annotation, not the model.
         "oob_frac": (float(n_oob / n_nodes) if n_nodes else 0.0),
         # Fraction of IN-BOUNDS nodes where the field itself is invalid -- the
