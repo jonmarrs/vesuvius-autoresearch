@@ -31,26 +31,26 @@
     {
       "target": "scroll1_20231210121321",
       "role": "held-out flagship",
-      "dice_zero_shift": 0.32073004854153647,
-      "dice_peak": 0.5296385664695591,
+      "dice_zero_shift": 0.6394500481513591,
+      "dice_peak": 0.7505738315300714,
       "peak_shift_level2_px": [
-        76,
-        435
+        31,
+        -10
       ],
-      "peak_displacement_level0_vx": 1766.3567023678995,
+      "peak_displacement_level0_vx": 130.29197979921864,
       "metrics_zero_shift": {
-        "roc_auc": 0.5817176336186469,
-        "f1": 0.3207300485415365,
-        "precision": 0.29114294304394134,
-        "recall": 0.35701092023405145,
-        "prevalence_lift": 1.5984856088208343
+        "roc_auc": 0.788458710708918,
+        "f1": 0.6394500481513591,
+        "precision": 0.5968721813706755,
+        "recall": 0.688569114045494,
+        "prevalence_lift": 3.08300882997823
       },
       "metrics_shift_corrected": {
-        "roc_auc": 0.7181911135639019,
-        "f1": 0.5296385664695591,
-        "precision": 0.5026073724620621,
-        "recall": 0.5597426034097924,
-        "prevalence_lift": 2.759505840560947
+        "roc_auc": 0.8619367654996389,
+        "f1": 0.7505738315300714,
+        "precision": 0.7023983619443098,
+        "recall": 0.8058443627436572,
+        "prevalence_lift": 3.6280805499489532
       }
     }
   ]
