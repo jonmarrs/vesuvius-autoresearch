@@ -4,15 +4,40 @@
 > falsified by measurement. **The text below is preserved as submitted; the corrections
 > are stated here and marked inline at the affected passages.**
 >
-> **1. The held-out "near chance" result is not established.** ScrollGT's registered
-> ground truth is displaced relative to the canon prediction by a large systematic
-> translation (~1766 level-0 voxels on the held-out flagship, ~190 on the train-exposed
-> segment). Correcting a pure translation moves the canon teacher from roc_auc 0.582 to
-> **0.718** on the held-out target. Every "reads at chance held-out" statement below —
-> and the GT fine-tune negative that follows from it — should be read as **withdrawn
-> pending root-cause, not confirmed**. The filing's explicit rebuttal ("*so the
-> near-chance number is real, not a registration artifact*") does not hold: the offsets
-> are per-segment, so one segment scoring 0.70 says nothing about another.
+> **1. The held-out "near chance" result was our own bug. It is RETRACTED, and it
+> reverses.** Root cause: `register_run.py` used a single hardcoded `LEVEL0_SHAPE`
+> belonging to segment 20230702185753 for *every* segment. The held-out segment's level-0
+> surface volume is 51000×39980, not 50600×36400, so its region crop was scaled wrongly —
+> emitting a label displaced and stretched ~1766 level-0 voxels out of place.
+>
+> Re-registered and re-scored on the fixed pipeline, same segment, same models:
+>
+> | model (clean held-out) | as filed | corrected |
+> |---|---|---|
+> | canon teacher | roc 0.563 / lift 1.15 | **roc 0.753 / lift 2.15** |
+> | arm B (2-scroll student) | roc 0.553 / lift 1.16 | **roc 0.731 / lift 2.34** |
+> | arm C (3-scroll student) | roc 0.558 / lift 1.17 | **roc 0.746 / lift 2.44** |
+> | legacy (all-positive floor) | roc 0.501 | roc 0.518 / lift 1.009 |
+>
+> **The models were reading held-out ink the whole time.** Teacher-enrichment on the same
+> convention went 1.68 → 6.01. The GT fine-tune negative is also retracted — it was
+> fine-tuning on a displaced label — and that model must be retrained before it can be
+> scored at all.
+>
+> The filing's explicit rebuttal ("*so the near-chance number is real, not a registration
+> artifact*") was doubly wrong: the offsets are per-segment, and the segment used as the
+> reassuring reference was the one segment the bug could not affect, because the hardcoded
+> constant was its own geometry.
+>
+> Two process failures worth recording: (a) the enrichment gate **correctly failed** on the
+> bad label at 1.68, and we overrode it by inventing a teacher-free gate on the false
+> premise of a weak teacher; (b) a ~8-voxel correspondence residual was cited as evidence
+> of correct placement while the label sat ~1766 voxels out — residual measures scatter,
+> not placement.
+>
+> Still open: a smaller residual offset (~130 vx held-out, ~190 vx train-exposed) that this
+> bug does not explain, so corrected scores are mild lower bounds and the train-exposed
+> rows remain provisional.
 >
 > **2. The renderer's novelty claim is unsupported.** villa already ships
 > `vc_obj2tifxyz` + `vc_render_tifxyz`, which cover both of our input paths and are
@@ -106,10 +131,10 @@ gated alignment validation) and provides a one-command scoring harness (threshol
 primary, AP-prevalence-lift as the anti-gaming / false-positive gate, ROC-AUC secondary), a
 prize-window/overlap compliance checker, CI, and a held-out leaderboard.
 
-> **⚠ WITHDRAWN 2026-08-07** — the whole of the next paragraph. All three "teeth" numbers
-> (canon 0.56 held-out, students ~0.55, fine-tune 0.558→0.531) are scored against a
-> ground truth now measured to be displaced by ~1766 level-0 voxels on that target.
-> Correcting the translation lifts the canon teacher to 0.718. Pending root-cause.
+> **⚠ RETRACTED 2026-08-07** — the whole of the next paragraph. All three "teeth" numbers
+> (canon 0.56 held-out, students ~0.55, fine-tune 0.558→0.531) were scored against a label
+> displaced ~1766 level-0 voxels by a hardcoded `LEVEL0_SHAPE`. Corrected: canon 0.753,
+> clean students 0.731-0.746. The fine-tune row is void (trained on the bad label).
 > → [registration_offset_2026-08-07.md](../reports/detector/registration_offset_2026-08-07.md)
 
 ScrollGT's credibility is that it has teeth — demonstrated on its own authors.
@@ -301,11 +326,12 @@ The through-line is measurement honesty:
     failures* — rather than learning to read independently. (The same registration quality let
     the good-teacher segment score 0.70, so the near-chance number is real, not a registration
     artifact.)
-    > **⚠ WITHDRAWN 2026-08-07.** The parenthetical is wrong, and it was the load-bearing
-    > rebuttal. Registration offsets are **per-segment** (~190 vx train-exposed vs ~1766 vx
-    > held-out), so the good-teacher segment's 0.70 does not vouch for the held-out target.
-    > Correcting a pure translation lifts the held-out canon teacher to roc_auc 0.718. The
-    > near-chance result is unestablished, not real.
+    > **⚠ RETRACTED 2026-08-07.** The parenthetical is wrong, and it was the load-bearing
+    > rebuttal. A hardcoded `LEVEL0_SHAPE` displaced this segment's label ~1766 voxels;
+    > the "good-teacher segment" was the very segment the constant belonged to, so it
+    > could not have been affected and vouched for nothing. Re-registered, the canon
+    > teacher reads this segment at **roc_auc 0.753 / lift 2.15** and the clean students at
+    > 0.731-0.746. The near-chance result was our bug, and it reverses.
     > → [registration_offset_2026-08-07.md](../reports/detector/registration_offset_2026-08-07.md)
   - → [registered_gt_validation.md](https://github.com/jonmarrs/vesuvius-autoresearch/blob/main/reports/detector/registered_gt_validation.md),
     [registered_gt_heldout_validation.md](https://github.com/jonmarrs/vesuvius-autoresearch/blob/main/reports/detector/registered_gt_heldout_validation.md)
