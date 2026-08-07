@@ -2,12 +2,36 @@
 
 `repro/sota_data/render_surface.py` + `repro/sota_data/render_cli.py`
 
+## Prior art — read this first (added 2026-08-07)
+
+**villa already renders surface volumes, and does it better.** `vc_obj2tifxyz` converts an
+obj with UVs into a tifxyz grid; `vc_render_tifxyz` samples N slices along the surface
+normal and writes tif/zarr. Together they cover **both** of this tool's input paths and add
+capabilities it does not have: remote zarr streaming and prefetch, multi-VM part rendering,
+pyramid generation, composite/accumulation modes, affine chaining. Both are in
+`villa/volume-cartographer/apps/src/`.
+
+This was previously written up as filling a gap in the ecosystem ("no one can run ink
+detection on them without first rendering the surface"). That framing was wrong and has
+been removed — the objection was raised by `erdpx` when closing villa PR
+[#1280](https://github.com/ScrollPrize/villa/pull/1280) and it checked out.
+
+What this tool actually offers over the villa path is narrower and worth stating plainly:
+
+- **no C++ build** — pure Python, `pip`-installable, runs where volume-cartographer isn't built;
+- **detector-format output** — emits `layers/17..42.tif` + `mask.png` directly consumable by
+  `vesuvius_autoresearch.detector`, with no conversion step;
+- **`--scale auto`** — infers the obj coordinate convention teacher-free on scrolls with no
+  released surface volume to calibrate against.
+
+Those are convenience, not capability. If you have volume-cartographer built, use it.
+
 ## What it does
 
 The open bucket (`s3://vesuvius-challenge-open-data/`) ships some segments as **mesh-only**:
 an `original.obj` and a volume zarr, but **no surface volume and no predictions**. The two
-PHerc0332 (Scroll 3) segments — on the live First-Letters scroll — are exactly this, so no
-one can run ink detection on them without first rendering the surface.
+PHerc0332 (Scroll 3) segments — on the live First-Letters scroll — are exactly this, so the
+surface has to be rendered before any ink detection can run on them.
 
 This tool rebuilds the surface volume from the mesh:
 

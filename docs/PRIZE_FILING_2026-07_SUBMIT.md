@@ -1,8 +1,39 @@
+> ## ⚠ CORRECTION — 2026-08-07 (post-submission)
+>
+> This document was submitted 2026-07-29. Two of its central claims have since been
+> falsified by measurement. **The text below is preserved as submitted; the corrections
+> are stated here and marked inline at the affected passages.**
+>
+> **1. The held-out "near chance" result is not established.** ScrollGT's registered
+> ground truth is displaced relative to the canon prediction by a large systematic
+> translation (~1766 level-0 voxels on the held-out flagship, ~190 on the train-exposed
+> segment). Correcting a pure translation moves the canon teacher from roc_auc 0.582 to
+> **0.718** on the held-out target. Every "reads at chance held-out" statement below —
+> and the GT fine-tune negative that follows from it — should be read as **withdrawn
+> pending root-cause, not confirmed**. The filing's explicit rebuttal ("*so the
+> near-chance number is real, not a registration artifact*") does not hold: the offsets
+> are per-segment, so one segment scoring 0.70 says nothing about another.
+>
+> **2. The renderer's novelty claim is unsupported.** villa already ships
+> `vc_obj2tifxyz` + `vc_render_tifxyz`, which cover both of our input paths and are
+> strictly more capable (remote zarr streaming, multi-VM parts, pyramid, zarr+tif
+> output). "Makes the bucket's mesh-only segments readable **for the first time**" is
+> false as written. The honest residual differentiators are pip-installability without a
+> C++ build, and direct detector-format output — convenience, not capability.
+>
+> Evidence: [`reports/detector/registration_offset_2026-08-07.md`](../reports/detector/registration_offset_2026-08-07.md)
+> · reproduce with `uv run python scripts/probe_registration_offset.py`.
+> Both issues were surfaced by `erdpx` closing villa PR
+> [#1280](https://github.com/ScrollPrize/villa/pull/1280) on 2026-08-06; both objections
+> checked out.
+
 **Primary submission artifacts (open-source, MIT):**
 - https://github.com/jonmarrs/scrollgt — the honest held-out ground-truth evaluation layer
 - the surface-volume renderer (`repro/sota_data/render_cli.py` in the repo below) — makes
   the bucket's mesh-only segments (Scroll 3; PHerc 1667's merged full-reading geometry)
   readable/detectable for the first time; gate-validated vs released surface volumes
+  <br>**⚠ CORRECTED 2026-08-07:** "for the first time" is false — villa's
+  `vc_obj2tifxyz` + `vc_render_tifxyz` already cover both input paths, more capably.
 **Methodology/source repo:** https://github.com/jonmarrs/vesuvius-autoresearch (MIT)
 **Live experiment tracking:** https://wandb.ai/jdmarrs-uc-davis/vesuvius-autoresearch
 
@@ -74,6 +105,12 @@ ink labels onto the SOTA geometry (exact `original.obj` UV bridge, ~8-voxel medi
 gated alignment validation) and provides a one-command scoring harness (threshold-swept F1
 primary, AP-prevalence-lift as the anti-gaming / false-positive gate, ROC-AUC secondary), a
 prize-window/overlap compliance checker, CI, and a held-out leaderboard.
+
+> **⚠ WITHDRAWN 2026-08-07** — the whole of the next paragraph. All three "teeth" numbers
+> (canon 0.56 held-out, students ~0.55, fine-tune 0.558→0.531) are scored against a
+> ground truth now measured to be displaced by ~1766 level-0 voxels on that target.
+> Correcting the translation lifts the canon teacher to 0.718. Pending root-cause.
+> → [registration_offset_2026-08-07.md](../reports/detector/registration_offset_2026-08-07.md)
 
 ScrollGT's credibility is that it has teeth — demonstrated on its own authors.
 Scored against these targets: the **released canon prediction reads a held-out segment
@@ -264,6 +301,12 @@ The through-line is measurement honesty:
     failures* — rather than learning to read independently. (The same registration quality let
     the good-teacher segment score 0.70, so the near-chance number is real, not a registration
     artifact.)
+    > **⚠ WITHDRAWN 2026-08-07.** The parenthetical is wrong, and it was the load-bearing
+    > rebuttal. Registration offsets are **per-segment** (~190 vx train-exposed vs ~1766 vx
+    > held-out), so the good-teacher segment's 0.70 does not vouch for the held-out target.
+    > Correcting a pure translation lifts the held-out canon teacher to roc_auc 0.718. The
+    > near-chance result is unestablished, not real.
+    > → [registration_offset_2026-08-07.md](../reports/detector/registration_offset_2026-08-07.md)
   - → [registered_gt_validation.md](https://github.com/jonmarrs/vesuvius-autoresearch/blob/main/reports/detector/registered_gt_validation.md),
     [registered_gt_heldout_validation.md](https://github.com/jonmarrs/vesuvius-autoresearch/blob/main/reports/detector/registered_gt_heldout_validation.md)
 - **A per-segment quality map of the released canon prediction (2026-07-12) — it reads
@@ -281,6 +324,10 @@ The through-line is measurement honesty:
   It is the sharpest single demonstration of why an eval must have a held-out surface and
   why exposed-region scores are never reading ability. (The 0.954 also confirms the
   registered labels on that region are genuine learnable signal, not registration noise.)
+  > **⚠ QUALIFIED 2026-08-07.** The 0.954 shows the labels are *self-consistent* enough to
+  > memorise — a model can fit displaced labels perfectly well. It does **not** show they are
+  > correctly placed, which is the property the 0.531 held-out number depends on. The
+  > fit-vs-reading gap may be partly a fit-vs-*misregistration* gap.
   → [scrollgt_y7000_baselines.json](https://github.com/jonmarrs/vesuvius-autoresearch/blob/main/reports/detector/scrollgt_y7000_baselines.json)
 - **We caught and corrected our own over-read.** The first (train-region) ground-truth result
   was initially framed as students "matching or exceeding" the teacher; internal review flagged

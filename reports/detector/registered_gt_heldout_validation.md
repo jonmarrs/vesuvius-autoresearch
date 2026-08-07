@@ -1,5 +1,26 @@
 # Held-out ground-truth scores on SOTA data (registered label, segment 20231210121321)
 
+> ## ⚠ WITHDRAWN — 2026-08-07
+>
+> **Every score in this report is scored against a ground-truth label now measured to be
+> displaced by ~1766 level-0 voxels (dy=76, dx=435 level-2 px) on this segment.**
+> Correcting a pure translation lifts the canon teacher from roc_auc 0.582 to **0.718**
+> and prevalence-lift 1.60 → 2.76 (binarised-predictor metric). The "everything reads
+> near chance here" conclusion is **not established**.
+>
+> Two assumptions stated below are specifically broken:
+> - *"residual noise depresses every row about equally, so ... the ranking is the robust
+>   signal"* — a **systematic translation** does not depress rows equally and can reorder
+>   them. Rankings from this report are unsafe.
+> - the 7.85-voxel residual was read as evidence of correct placement. It measures
+>   correspondence scatter and never constrained absolute position; the offset is ~230×
+>   the residual.
+>
+> Root-cause is open: either `register_run.py`'s obj/tifxyz bridge or
+> `distill_prep.py`'s `sy = th/lh` teacher crop is misplacing its artifact.
+> → [registration_offset_2026-08-07.md](registration_offset_2026-08-07.md)
+> · `uv run python scripts/probe_registration_offset.py`
+
 **All rows are scored against the REGISTERED hand ground-truth label** (method: obj-exact: original.obj vt (427091 vertices), NN bridge via on-7.91um tifxyz (same old-scan frame), vt convention rowHv_colu (selected by teacher-enrichment among 4 discrete candidates, disclosed; orientation verified visually); region median correspondence residual 7.85 old-scan voxels; registration is approximate -- residual noise depresses every row about equally, so absolute values are conservative and the ranking is the robust signal). The 'canon teacher' row scores the released model prediction itself against human labels.
 
 **Held-out (no train confound):** NO student trained on this segment, so the student rows are genuine *held-out generalization vs ground truth*. arm A used this segment for best-epoch *selection* (agreement-with-teacher), so its row is mildly selection-optimistic; **arms B and C are fully clean held-out** and carry the claim.

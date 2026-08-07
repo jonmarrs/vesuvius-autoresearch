@@ -557,8 +557,26 @@ Remove the train-region confound: register the hand label of held-out Scroll-1 s
 - **Everything reads near chance vs held-out human GT:** canon teacher ROC-AUC **0.563** / lift 1.15 / F1 0.295; legacy 0.501 (predicts-all-positive); arms B/C **0.553–0.558** / lift 1.16–1.17. The distilled students are statistically tied with the weak teacher and the undistilled detector.
 - **This corrects the distillation story.** Slice-6's flattering train-region 0.80 was substantially fit. Distillation reproduces the teacher *faithfully, including its failures* — the teacher reads this segment poorly and the students inherit exactly that. It is fidelity, not independent reading skill.
 - **The low number is real, not a registration artifact:** the same registration quality (residual 7.85 ≈ 7.92) let the good-teacher segment score 0.70, so the geometry preserves signal.
+  - > **⚠ FALSE — corrected 2026-08-07.** This bullet is exactly backwards and it was the reason the result was believed. Registration offsets are **per-segment**: ~190 level-0 voxels on the good-teacher segment vs **~1766** here. Matching residuals do not imply matching placement, because the residual measures correspondence scatter and never constrained absolute position. Correcting a pure translation lifts the canon teacher here to roc_auc 0.718. See the 2026-08-07 entry below.
 - **Methodological work under review:** the teacher-dependent enrichment gate false-negatived here (weak teacher), so I added a **codified teacher-free gate** (`gate_mode=teacher_free`: residual + `register.label_line_periodicity`, tested). The final review caught that my first validation was a manual out-of-band marker write and that a slice-6 metric caveat was softening the result; both fixed — the gate is now reproducible from the committed pipeline and the framing states plainly that everything is near chance (F1 is the trivial baseline at this prevalence; students trail the teacher at f1_at_0.5). This self-correction is the point.
 - **Decision made with the user:** on the gate false-negative, the user chose to score on teacher-free validation (option A). The clean cross-scroll GT test stays blocked (PHerc 1667 ships only predictions, no human labels). Reports: `reports/detector/registered_gt_heldout_validation.md`, `registered_gt_heldout_overlay*.png`.
+
+---
+
+## [2026-08-07] The Held-Out Result Was Misregistration — External Review Was Right
+
+**Status:** CORRECTION FILED; root-cause OPEN
+
+### Purpose
+villa PR [#1280](https://github.com/ScrollPrize/villa/pull/1280) (ScrollGT + renderer community listing) was closed 2026-08-06 by `erdpx`: *"the provided ink registration example doesn't show the alignment working"* and *"not clear what it adds over the rendering tools already available in villa."* Verify both objections instead of assuming a listing-policy rejection.
+
+### Outcomes & Insights
+- **Both objections were correct.** The renderer one is simple: villa ships `vc_obj2tifxyz` + `vc_render_tifxyz`, which cover both our input paths more capably (remote zarr streaming, multi-VM, pyramid). Our doc had *zero* prior-art comparison and claimed the gap "blocks ink detection entirely" — false. Fixed in `docs/SURFACE_RENDERER.md`, scoped down to the honest differentiators (no C++ build, detector-format output, `--scale auto`).
+- **The registration objection went much deeper.** The shipped `overlay_vs_canon.png` paints GT opaquely over a *model prediction* that is itself near chance on the held-out target — it cannot demonstrate alignment in either direction. Replacing the visual with a measurement (Dice scanned over pure translations): **agreement does not peak at zero shift.** Train-exposed peaks at (−18, −44) level-2 px ≈ 190 vx; held-out flagship at (76, **435**) ≈ **1766 vx**.
+- **This likely invalidates the 2026-07-07 headline.** Correcting a pure translation takes the held-out canon teacher from roc_auc 0.582 → **0.718**, lift 1.60 → 2.76. ScrollGT's README called an honest > 0.60 "news"; two free parameters clear it. The GT-fine-tune negative inherits the same doubt — fine-tuning on displaced labels degrades toward the trivial predictor, which is what we published as a finding.
+- **The methodological lesson.** A tight correspondence residual (7.85 vx) was read as evidence of correct placement. It is not: residual measures *scatter*, placement is a separate property, and the offset is 23–230× the residual. The one check that would have caught this — does agreement peak at zero shift — is two lines of code and was never run. Per [[fiber-tracer-preregistered-negative]]'s lesson, the favourable number (0.70 on the good segment) was the one that should have been audited hardest; instead it was used to *rebut* the concern.
+- **Not yet known:** which artifact is misplaced — `register_run.py`'s obj/tifxyz bridge, or `distill_prep.py`'s `sy = th/lh` teacher crop. Both feed the leaderboard, so it is broken either way, but the fix differs entirely. Also unscanned: rotation/scale error (translation-only search).
+- **Corrections filed** to `PRIZE_FILING_2026-07_SUBMIT.md`, `registered_gt_validation.md`, `registered_gt_heldout_validation.md`, `SURFACE_RENDERER.md`, and the published ScrollGT README + BASELINES. Probe committed as `scripts/probe_registration_offset.py`; report `reports/detector/registration_offset_2026-08-07.md`.
 
 ---
 

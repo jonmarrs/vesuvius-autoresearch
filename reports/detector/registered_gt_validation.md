@@ -1,5 +1,18 @@
 # First ground-truth-validated scores on SOTA data (registered label)
 
+> ## ⚠ QUALIFIED — 2026-08-07
+>
+> This region's registered label is also displaced, though far less than the held-out
+> segment's: the GT-vs-teacher agreement peak sits at (dy=−18, dx=−44) level-2 px
+> (~190 level-0 voxels), where Dice rises 0.453 → 0.603 and the canon teacher's roc_auc
+> rises 0.724 → 0.838. Absolute values here are depressed and the near-parity
+> teacher-vs-student reading should be re-derived after root-cause.
+>
+> Critically, the offsets are **per-segment** (~190 vx here vs ~1766 vx on
+> 20231210121321). The filing used this segment's healthy 0.70 to argue the held-out
+> near-chance result was "not a registration artifact" — that inference is invalid.
+> → [registration_offset_2026-08-07.md](registration_offset_2026-08-07.md)
+
 **All rows are scored against the REGISTERED hand ground-truth label** (method: obj-exact: original.obj vt (386108 vertices), NN bridge via on-7.91um tifxyz (same old-scan frame), vt convention rowHv_colu (selected by teacher-enrichment among 4 discrete candidates, disclosed; orientation verified visually); region median correspondence residual 7.92 old-scan voxels, teacher-enrichment 5.05; registration is approximate -- residual noise depresses every row about equally, so absolute values are conservative and the ranking is the robust signal). The 'canon teacher' row scores the released model prediction itself against human labels -- the first ground-truth calibration of the canon prediction. (The teacher row's label ORIENTATION was picked among 4 discrete candidates by teacher-enrichment, so it is not 100% teacher-independent; the margin was decisive -- 5.05 vs 0.90/1.09/1.50 -- and the correspondence geometry and residual are teacher-free, so this is at most marginally optimistic.)
 
 **Confound 1 (train region):** this region was a TRAINING region for all three distilled students, so their rows are *train-region fit-quality vs ground truth*, NOT held-out generalization. The **unconfounded** rows are the canon teacher and the legacy detector (neither trained here).
