@@ -32,7 +32,7 @@ def test_set_target_heldout_distinct():
     assert rr.OBJ_PATH.endswith("20231210121321_original.obj")
     # per-target working dir isolates fetched meshes / outputs
     assert rr.REG_DIR == "local_data/sota_registration/heldout"
-    assert rr.MARKER == os.path.join(rr.REG_DIR, "VALIDATED")
+    assert os.path.join(rr.REG_DIR, "VALIDATED") == rr.MARKER
     # restore default so other tests/imports see slice-5 behavior
     rr._set_target("orig")
 
@@ -45,20 +45,80 @@ def test_set_target_unknown_raises():
 def test_targets_carry_prose_fields():
     for key in ("orig", "heldout"):
         t = rr.TARGETS[key]
-        for f in ("report_title", "train_region_models", "selection_caveat_models",
-                  "overlay_ref", "extra_disclosure"):
+        for f in (
+            "report_title",
+            "train_region_models",
+            "selection_caveat_models",
+            "overlay_ref",
+            "extra_disclosure",
+        ):
             assert f in t, f"{key} missing {f}"
     # orig: all students trained on the region; heldout: none trained, arm A selection-only
     assert set(rr.TARGETS["orig"]["train_region_models"]) == set(rr._ALL_STUDENTS)
     assert rr.TARGETS["heldout"]["train_region_models"] == []
-    assert rr.TARGETS["heldout"]["selection_caveat_models"] == ["arm A (1-scroll student)"]
+    assert rr.TARGETS["heldout"]["selection_caveat_models"] == [
+        "arm A (1-scroll student)"
+    ]
 
 
 def test_set_target_rebinds_prose_globals():
     rr._set_target("heldout")
     assert rr.REPORT_TITLE.startswith("Held-out")
-    assert rr.TRAIN_REGION_MODELS == set()
+    assert set() == rr.TRAIN_REGION_MODELS
     assert "arm A (1-scroll student)" in rr.SELECTION_CAVEAT_MODELS
     rr._set_target("orig")
-    assert rr.TRAIN_REGION_MODELS == set(rr._ALL_STUDENTS)
-    assert rr.SELECTION_CAVEAT_MODELS == set()
+    assert set(rr._ALL_STUDENTS) == rr.TRAIN_REGION_MODELS
+    assert set() == rr.SELECTION_CAVEAT_MODELS
+
+
+# --- regression: the hardcoded LEVEL0_SHAPE bug (2026-08-07) ---------------------------
+# A single module-level LEVEL0_SHAPE pinned to 20230702185753's geometry was applied to
+# every segment, displacing and stretching 20231210121321's registered label and
+# manufacturing the "held-out reads at chance" result. See
+# reports/detector/registration_offset_2026-08-07.md.
+
+
+def test_level0_shape_is_per_segment_and_correct():
+    """Shapes must differ per segment and match the bucket's surface volumes."""
+    assert rr.LEVEL0_SHAPES["20230702185753"] == (50600, 36400)
+    assert rr.LEVEL0_SHAPES["20231210121321"] == (51000, 39980)
+    assert rr.LEVEL0_SHAPES["20230702185753"] != rr.LEVEL0_SHAPES["20231210121321"], (
+        "the two segments have different geometry -- sharing one shape is the 2026-08-07 bug"
+    )
+
+
+def test_set_target_binds_the_matching_shape():
+    for key in ("orig", "heldout"):
+        rr._set_target(key)
+        assert rr.LEVEL0_SHAPES[rr.SEG] == rr.LEVEL0_SHAPE, (
+            f"{key}: LEVEL0_SHAPE must follow the target's segment"
+        )
+
+
+def test_unknown_segment_refuses_to_borrow_geometry():
+    """A segment with no recorded shape must raise, never fall back to a default."""
+    rr.TARGETS["_probe"] = dict(rr.TARGETS["orig"], seg="99999999999999")
+    try:
+        with pytest.raises(ValueError, match="no level-0 shape recorded"):
+            rr._set_target("_probe")
+    finally:
+        del rr.TARGETS["_probe"]
+        rr._set_target("orig")
+
+
+def test_region_in_mesh_tracks_the_segments_own_shape():
+    """The region->mesh crop must move when the segment's level-0 shape changes."""
+    import numpy as np
+
+    mesh = np.zeros((2000, 2000, 3), np.float32)
+    rr._set_target("orig")
+    rr.REGION_L2 = (4000, 2500, 4096)
+
+    rr.LEVEL0_SHAPE = rr.LEVEL0_SHAPES["20230702185753"]
+    a = rr._region_in_mesh(mesh).shape[:2]
+    rr.LEVEL0_SHAPE = rr.LEVEL0_SHAPES["20231210121321"]
+    b = rr._region_in_mesh(mesh).shape[:2]
+    assert a != b, (
+        "crop is insensitive to level-0 shape -- the bug would be unobservable"
+    )
+    rr._set_target("orig")

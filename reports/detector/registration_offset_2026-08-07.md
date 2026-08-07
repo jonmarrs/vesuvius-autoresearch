@@ -78,6 +78,59 @@ that, which means the residual statistic was measuring correspondence scatter an
 constrained absolute placement**. A registration can have tight residuals and still be
 bodily displaced; we shipped the former as evidence for the latter.
 
+## ROOT CAUSE — found and fixed (same day)
+
+**`repro/sota_data/register_run.py:26` — `LEVEL0_SHAPE = (50600, 36400)`**, a single
+module-level constant applied to every segment. It is 20230702185753's level-0 surface
+volume shape. 20231210121321's is **(51000, 39980)**.
+
+Blame was arbitrated by checking the teacher rasters against the bucket: the canon
+prediction tifs are **exactly** the level-0 surface volume shapes (50600×36400 and
+51000×39980), so `distill_prep.py`'s `sy = th/lh` is exactly 4.0 with a shared origin.
+The teacher crop is correct; **the registered GT was the misplaced artifact.**
+
+`_region_in_mesh()` (on the live `warp_obj` path) maps the level-2 region into mesh
+coordinates with `sy, sx = mh / (LEVEL0_SHAPE[0]/4), mw / (LEVEL0_SHAPE[1]/4)`. With the
+wrong constant, **both the crop origin and the crop width** scale wrongly — so the emitted
+label is translated *and stretched*: x by 9995/9100 (+9.8%), y by 12750/12650 (+0.79%).
+That is why a translation-only correction only reached Dice 0.53; a pure shift cannot undo
+a stretch.
+
+Undoing the mapping analytically (`u' = k·u + x0·(k−1)`) confirms it:
+
+| | Dice @ 0 | peak Dice | peak location |
+|---|---|---|---|
+| shipped GT | 0.321 | 0.530 | (76, 435) |
+| corrected GT | **0.677** | 0.751 | **(23, −9)** ← at zero |
+
+**The corrected held-out scores, canon teacher:**
+
+| metric | as published | corrected |
+|---|---|---|
+| roc_auc | 0.582 | **0.814** |
+| prevalence_lift | 1.599 | **3.268** |
+| f1 | 0.321 | **0.677** |
+| precision | 0.291 | 0.630 |
+| recall | 0.357 | 0.730 |
+
+The held-out segment now scores **better** than the train-exposed one (0.814 vs 0.724).
+The "held-out collapse" was entirely an artifact of the constant. 20230702185753 was
+unaffected by this bug — the constant is its own shape — which is exactly why the
+cross-segment sanity check ("the other segment scores 0.70, so registration is fine")
+could not detect it.
+
+**Fix:** `LEVEL0_SHAPES` is now a per-segment dict; `_set_target()` binds it and **raises**
+for any segment without a recorded shape rather than falling back to a default.
+`register_run.py verify_shapes` checks every entry against the bucket (both verified OK).
+Regression tests in `tests/test_sota_register_targets.py` pin per-segment shapes, the
+no-fallback behaviour, and that `_region_in_mesh` actually tracks the shape.
+
+**Still outstanding:** the train-exposed target retains a smaller (−18, −44) offset that
+this bug does not explain, and the corrected held-out peak sits at (23, −9) rather than
+exactly zero. A second, smaller placement error remains. The targets must be regenerated
+from the fixed pipeline and the full leaderboard re-run before any of these numbers are
+republished as final.
+
 ## What this does NOT establish
 
 - **The peak offset is not a correction.** It was fit against a model output, so it
@@ -93,6 +146,11 @@ bodily displaced; we shipped the former as evidence for the latter.
 
 ## Next
 
-Root-cause: re-derive the region crop directly from the level-2 zarr shape to arbitrate
-between the two pipelines, then re-run the full leaderboard against corrected targets.
-Until then, the held-out leaderboard rows should be read as **withdrawn, not confirmed**.
+1. Regenerate all three `scroll1_*` targets from the fixed pipeline (`warp_obj` → `validate`).
+2. Chase the residual (−18, −44) / (23, −9) offsets — a second, smaller placement error.
+3. Re-run the full leaderboard and republish. **The corrected numbers above are a
+   preview from an analytic undo, not a pipeline re-run** — they should not be quoted as
+   final results until step 1 lands.
+
+Until then the published held-out rows stay **withdrawn**, and the corrected ones are
+**provisional**.
