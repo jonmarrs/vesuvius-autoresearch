@@ -234,10 +234,27 @@ def placement_peak(label, reference, max_shift=256, coarse=4, refine=8):
     Returns (dy, dx, dice_at_zero, dice_at_peak) with the shifts in input pixels. A correct
     registration gives (0, 0) up to a couple of pixels.
     """
-    a = np.asarray(label) > 127
-    b = np.asarray(reference) > 127
-    if a.shape != b.shape:
-        raise ValueError(f"placement_peak: shape mismatch {a.shape} vs {b.shape}")
+
+    def _binarise(x, what):
+        x = np.asarray(x)
+        # Accept bool masks as-is. Thresholding a bool array at >127 yields all-False,
+        # which would make every comparison degenerate and return a PERFECT (0, 0) --
+        # a gate silently passing on garbage input. Guard it explicitly.
+        m = x if x.dtype == bool else x > 127
+        if not m.any():
+            raise ValueError(
+                f"placement_peak: {what} is empty after binarisation "
+                f"(dtype={x.dtype}, min={x.min()}, max={x.max()}). Pass a labelled image, "
+                "not an all-zero or already-inverted mask."
+            )
+        return m
+
+    if np.shape(label) != np.shape(reference):
+        raise ValueError(
+            f"placement_peak: shape mismatch {np.shape(label)} vs {np.shape(reference)}"
+        )
+    a = _binarise(label, "label")
+    b = _binarise(reference, "reference")
 
     def dice(g, p):
         s = int(g.sum()) + int(p.sum())

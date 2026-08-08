@@ -235,10 +235,29 @@ The number is derived from the floor above, not reverse-engineered from our data
 rather than glossing. It was *not* affected by the `LEVEL0_SHAPE` bug — the hardcoded
 constant was its own geometry — so its 46.6 px is a separate matter: either the cross-scan
 floor varies by segment more than the held-out figure suggested, or that target carries an
-additional, unisolated defect. Its excess over the mesh-cell-rounding prediction is a
-uniform ~(−30, −31) px on both axes, which is a lead and not a diagnosis; one
-similar-looking numeric coincidence in this investigation (32 vs 31) was chased and turned
-out to be nothing. **The threshold was not raised to give it headroom.**
+additional, unisolated defect. **The threshold was not raised to give it headroom.**
+
+### The offset field is non-rigid — and the global number understates it
+
+The ~(−30, −31) px "uniform excess" logged earlier as a lead is **falsified**. Measuring
+placement per 768 px tile (`scripts/probe_placement_field.py`) shows the offset is not a
+translation at all:
+
+| target | dy mean ± sd | dx mean ± sd | local range | plane fit leaves |
+|---|---|---|---|---|
+| train-exposed | −13.8 ± **26.8** | −38.0 ± **33.0** | dy [−53, +95], dx [−66, +102] | sd 26.6 / 32.8 |
+| held-out | +32.3 ± **8.2** | −6.6 ± **9.5** | dy [+14, +50], dx [−25, +22] | sd 7.2 / 9.1 |
+
+A plane fitted to the field leaves residual scatter essentially equal to the raw scatter, so
+this is neither a constant offset nor a linear scale error. It is **non-rigid**, exactly as
+the cross-scan surface-disagreement account predicts — and it closes the search for a
+convention bug on the train-exposed target. There isn't one.
+
+**The consequence is a disclosure problem, not a code problem.** A single global placement
+figure is optimistic: the train-exposed target reports 46.6 px globally while individual
+tiles run to ~100 px (**~0.96 mm**). Local error there is roughly 3–4× the held-out target's.
+Per-target scatter is therefore now published alongside the global peak; quoting the peak
+alone would understate the uncertainty a user is exposed to.
 
 The honest tension is worth naming: relaxing a gate because our data fails it is exactly
 the move that produced the 2026-07 retraction. What makes this different is that the floor
