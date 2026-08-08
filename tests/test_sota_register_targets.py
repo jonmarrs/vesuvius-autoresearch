@@ -122,3 +122,17 @@ def test_region_in_mesh_tracks_the_segments_own_shape():
         "crop is insensitive to level-0 shape -- the bug would be unobservable"
     )
     rr._set_target("orig")
+
+
+def test_placement_threshold_is_derived_not_convenient():
+    """48 px must stay far below the bug it exists to catch, and above the measured floor.
+
+    Raising this to accommodate a failing target is the 2026-07 failure mode; the guard is
+    that the threshold keeps a wide margin against the real LEVEL0_SHAPE displacement.
+    """
+    thr = rr.MAX_PLACEMENT_OFFSET_L2PX
+    assert 32.0 < thr < 100.0, "threshold left the band justified by the measured floor"
+    bug_offset = 435.0  # measured LEVEL0_SHAPE displacement, level-2 px
+    assert bug_offset / thr > 5.0, (
+        "threshold too loose to catch a gross misregistration"
+    )

@@ -201,4 +201,8 @@ def test_placement_peak_would_have_caught_the_level0_shape_bug():
     a = _speckle_text(h=900, w=900, n=140, seed=2)
     b = np.roll(np.roll(a, 19, 0), 109, 1)  # ~the real (dy,dx) scaled to this canvas
     dy, dx, _, _ = placement_peak(a, b, max_shift=160)
-    assert np.hypot(dy, dx) > 8.0, "gross misplacement slipped through the gate"
+    from repro.sota_data.register_run import MAX_PLACEMENT_OFFSET_L2PX
+
+    assert np.hypot(dy, dx) > MAX_PLACEMENT_OFFSET_L2PX, (
+        "a bug-sized displacement must exceed the shipping gate threshold"
+    )

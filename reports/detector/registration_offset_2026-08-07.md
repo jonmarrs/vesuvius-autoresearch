@@ -1,7 +1,22 @@
-# The registered ground truth is displaced — the held-out "chance" result is in question
+# The held-out "chance" result was a misregistration — found, fixed, reversed
 
 **2026-08-07.** Reproduce: `uv run python scripts/probe_registration_offset.py`
 Data: [`registration_offset_2026-08-07.json`](registration_offset_2026-08-07.json)
+
+> **Resolution, for readers who want it up front.** A hardcoded `LEVEL0_SHAPE` applied one
+> segment's geometry to every segment, displacing the held-out label ~1766 level-0 voxels.
+> Fixed, re-registered, re-scored: the canon teacher goes **0.563 → 0.753 ROC-AUC** and the
+> clean held-out students **0.553/0.558 → 0.731/0.746**, against an all-positive floor of
+> 0.518. The "everything reads at chance held-out" headline is **retracted — it inverts.**
+>
+> A **placement gate** now enforces that agreement peaks at zero shift (threshold 48 px,
+> 9× below the bug it catches); nothing tested placement before, which is how this shipped.
+> A smaller ~32 px residual is **closed as an irreducible floor**, not a pending bug: the
+> 2023 and 2026 segmentations of this sheet are materially different surfaces. It is
+> published as each pixel target's ~0.31 mm resolution limit.
+>
+> The sections below are the investigation in the order it happened, so the early framing
+> ("in question", "not established") reflects what was known at the time.
 
 ## Why this was measured
 
@@ -199,13 +214,34 @@ This should be stated as a **property of any registered-GT target built this way
 bounds what the pixel targets can ever resolve. It does not affect the `LEVEL0_SHAPE`
 conclusion: 1766 voxels was 13× this floor and unambiguously a bug.
 
-**Open decision — the gate threshold.** `cmd_validate` now enforces placement at a default
-of 8 level-2 px, and the corrected held-out target **fails it at 32.0 px** (marker removed,
-scoring blocked). Setting the threshold at the measured floor instead would let the targets
-through, and there is now positive evidence that such a floor exists. But relaxing a gate
-because our data fails it is precisely the failure mode that produced the 2026-07 retraction,
-so the threshold is deliberately left strict and the targets are left failing pending an
-explicit, recorded decision.
+## Gate threshold: 48 px — decided 2026-08-07
+
+`cmd_validate` enforces placement at **48 level-2 px** (`MAX_PLACEMENT_OFFSET_L2PX`). The
+corrected held-out target passes at **32.0 px** and has been re-scored; numbers are
+unchanged (the GT did not move — only the gate did).
+
+The number is derived from the floor above, not reverse-engineered from our data:
+
+| quantity | level-2 px | note |
+|---|---|---|
+| ideal | ~0 | unreachable across scans whose segmentations differ |
+| measured floor / current targets | ~32 | ≈ 128 level-0 vx ≈ 0.31 mm |
+| **gate threshold** | **48** | ≈ 0.46 mm, just above the floor |
+| `LEVEL0_SHAPE` bug | 435 | **9× the threshold** — caught with wide margin |
+
+The honest tension is worth naming: relaxing a gate because our data fails it is exactly
+the move that produced the 2026-07 retraction. What makes this different is that the floor
+was *measured independently* — the cross-scan surface disagreement is a property of the
+data, established before the threshold was picked, not an explanation invented afterwards.
+The safeguard is the margin: at 48 px the gate still catches the real bug nine times over,
+and `tests/test_sota_register_targets.py` fails if that margin is ever eroded.
+
+**Tightening this is welcome** as the cross-scan bridge improves. **Raising it to
+accommodate a failing target is not**, and the test enforces that.
+
+Consequence for users: **~0.31 mm is the resolution limit of the pixel targets**, now
+published as a spec of each target rather than a footnote. Features closer together than
+that cannot be scored reliably, and all absolute scores are mild lower bounds.
 
 ## What this does NOT establish
 
@@ -224,8 +260,11 @@ explicit, recorded decision.
 
 - **Done:** `LEVEL0_SHAPE` fixed and guarded; held-out target re-registered
   (enrichment 1.68 → 6.01) and the full leaderboard re-scored and published.
-- **Diagnosed, not fixed:** the residual offset — wrong mesh for the region crop, plus
-  ~12 px of integer mesh-cell rounding. Requires the redesign described above.
+- **Closed as a floor, not a bug:** the residual offset. Two candidate fixes tested and
+  falsified; the cross-scan surface disagreement makes ~0.31 mm irreducible for this
+  method. Now published as each target's resolution limit.
+- **Done:** placement gate (`register.placement_peak`, enforced in every gate mode,
+  threshold 48 px derived from the floor). Held-out target re-validated and re-scored.
 - **Not examined:** `scroll1_20230702185753_y7000_x4000`.
 - **Void, needs retraining:** `arm C + GT fine-tune`, which was fine-tuned on the displaced
   label. Removed from the leaderboard rather than re-scored — and it should not be

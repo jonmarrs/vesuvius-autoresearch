@@ -21,7 +21,22 @@
       "periodicity": 0.8667507884043404,
       "enrichment_diagnostic": 6.014411062207735,
       "passed": true,
-      "note": "teacher-dependent enrichment is only a DIAGNOSTIC here; residual and periodicity are convention-blind (they confirm real text on the manifold, not the 2D orientation, which is carried from the slice-5 export-pipeline convention)."
+      "note": "teacher-dependent enrichment is only a DIAGNOSTIC here; residual and periodicity are convention-blind (they confirm real text on the manifold, not the 2D orientation, which is carried from the slice-5 export-pipeline convention).",
+      "placement_offset_level2_px": 32.01562118716424,
+      "placement_passed": true
+    },
+    "placement": {
+      "peak_shift_level2_px": [
+        31,
+        -8
+      ],
+      "offset_level2_px": 32.01562118716424,
+      "offset_level0_vx": 128.06248474865697,
+      "dice_at_zero": 0.5900860916483247,
+      "dice_at_peak": 0.6878113015531016,
+      "max_offset": 48.0,
+      "passed": true,
+      "note": "teacher-dependent: it localises the label against the canon prediction. The peak LOCATION is far more robust than enrichment's magnitude, but on a genuinely chance-quality teacher it is meaningless -- such a target should not ship at all (see the withheld-target policy)."
     }
   },
   "rows": {
