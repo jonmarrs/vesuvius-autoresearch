@@ -164,15 +164,48 @@ voxels, 4.6% of the surface's 46,474-voxel extent** (fitted scale 3.236 vs the 3
 by 7.91/2.4). The two are independent flattenings of the same physical surface. Same-UV
 sampling is not a valid bridge.
 
-**What the fix actually requires** (design change, not a patch): define the region on the
-2.4 µm grid so level-2 indexing is exact and sub-cell precise, obtain the region's 3D points
-in the 2.4 µm scan frame, then transform them into the old-scan frame with a similarity
-fitted from *unpaired* 3D geometry (`fit_similarity` already does PCA + trimmed ICP and is
-used this way in `cmd_warp`) before the NN bridge onto `original.obj`. The physical
-scan-to-scan transform is well posed; only the UV pairing was not.
+**And the redesign that would follow from it was ALSO tested, and it does not work.** The
+plan was: define the region on the 2.4 µm grid (exact), then carry the points into the
+old-scan frame with an *unpaired* 3D similarity before the NN bridge onto `original.obj`.
+`original.obj`'s vertices are in the old frame (v spans 2294–4835 / 1850–5390 / 7–13695,
+matching the 7.91 µm mesh bbox, not the 2.4 µm one), so crossing scan frames is unavoidable.
 
-Until that lands, all pixel-target scores are **mild lower bounds**, and the train-exposed
-target — untouched by the `LEVEL0_SHAPE` fix — remains **provisional**.
+Fitting that transform (PCA + trimmed ICP, 4.03M vs 381k points) gives scale 0.30466 —
+close to the 0.30341 implied by 2.4/7.91, so the fit is not wildly wrong — but a **median
+residual of 81 old-scan voxels**. For comparison, the existing obj NN bridge has a residual
+of **7.95** old voxels, and the current placement error is ~32 level-2 px ≈ **39 old
+voxels**. Routing through the scan transform would therefore be *worse than what we have*.
+
+**Why: the two scans' surfaces genuinely differ.** The residual is not bimodal (which would
+indicate a trimmed-extent mismatch that better ICP could fix). It is broad:
+
+| quantile | 5% | 25% | 50% | 75% | 90% | 99% |
+|---|---|---|---|---|---|---|
+| residual (old-scan vx) | 7.4 | 16.4 | 64.4 | 156.9 | 249.2 | 452.5 |
+
+Only 32% of points land within 25 voxels; 17% are beyond 200. The 2023 and 2026
+segmentations of this sheet are **materially different surfaces**, not the same surface in
+two coordinate systems. No rigid or similarity transform can bridge them tightly.
+
+## What this means: the residual is a floor, not a bug
+
+The remaining ~30 level-2 px (~130 level-0 voxels ≈ 0.31 mm) offset is **not a defect
+awaiting a fix**. It is an intrinsic uncertainty of the method — bridging 2023 hand labels
+onto 2026 re-flattened geometry across two scans whose surface segmentations disagree by
+tens to hundreds of voxels. The current proportional-grid mapping, crude as it is, is
+already outperforming a principled 3D transform.
+
+This should be stated as a **property of any registered-GT target built this way**, and it
+bounds what the pixel targets can ever resolve. It does not affect the `LEVEL0_SHAPE`
+conclusion: 1766 voxels was 13× this floor and unambiguously a bug.
+
+**Open decision — the gate threshold.** `cmd_validate` now enforces placement at a default
+of 8 level-2 px, and the corrected held-out target **fails it at 32.0 px** (marker removed,
+scoring blocked). Setting the threshold at the measured floor instead would let the targets
+through, and there is now positive evidence that such a floor exists. But relaxing a gate
+because our data fails it is precisely the failure mode that produced the 2026-07 retraction,
+so the threshold is deliberately left strict and the targets are left failing pending an
+explicit, recorded decision.
 
 ## What this does NOT establish
 

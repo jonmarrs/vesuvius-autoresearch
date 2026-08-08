@@ -25,6 +25,7 @@ from repro.sota_data.register import (
     fit_similarity,
     label_line_periodicity,
     ncc,
+    placement_peak,
     read_tifxyz,
     warp_via_field,
 )
@@ -482,6 +483,15 @@ def cmd_validate():
     ap.add_argument("--max-median-residual", type=float, required=True)
     ap.add_argument("--min-enrichment", type=float, default=0.0)
     ap.add_argument("--min-periodicity", type=float, default=0.0)
+    ap.add_argument(
+        "--max-placement-offset",
+        type=float,
+        default=8.0,
+        help="max |(dy,dx)| in level-2 px between the registered label and the teacher's "
+        "agreement peak. A correct registration peaks at ZERO shift; the residual does "
+        "NOT test this (see reports/detector/registration_offset_2026-08-07.md). "
+        "Applies in every gate mode.",
+    )
     args = ap.parse_args(sys.argv[2:])
 
     frag_mid = cv2.imread(os.path.join(XSCROLL_ROOT, FRAG_ID, "layers", "30.tif"), 0)
@@ -516,9 +526,30 @@ def cmd_validate():
     periodicity = label_line_periodicity(reg_label)
     stats["teacher_enrichment"] = enrichment
     stats["text_line_periodicity"] = periodicity
+
+    # PLACEMENT GATE (all modes). The residual measures correspondence scatter, not
+    # absolute position; nothing here tested position until 2026-08-07, which is how a
+    # ~1766-voxel displacement shipped. Agreement must peak at zero shift.
+    pdy, pdx, pdice0, pdice_peak = placement_peak(reg_label, teacher)
+    placement_offset = float(np.hypot(pdy, pdx))
+    placement_ok = placement_offset <= args.max_placement_offset
+    stats["placement"] = {
+        "peak_shift_level2_px": [pdy, pdx],
+        "offset_level2_px": placement_offset,
+        "offset_level0_vx": placement_offset * 4,
+        "dice_at_zero": pdice0,
+        "dice_at_peak": pdice_peak,
+        "max_offset": args.max_placement_offset,
+        "passed": bool(placement_ok),
+        "note": "teacher-dependent: it localises the label against the canon prediction. "
+        "The peak LOCATION is far more robust than enrichment's magnitude, but on a "
+        "genuinely chance-quality teacher it is meaningless -- such a target should not "
+        "ship at all (see the withheld-target policy).",
+    }
+
     res_ok = stats["region_median_residual"] <= args.max_median_residual
     if GATE_MODE == "teacher_free":
-        passed = res_ok and periodicity >= args.min_periodicity
+        passed = res_ok and periodicity >= args.min_periodicity and placement_ok
         gate = {
             "mode": "teacher_free",
             "max_median_residual": args.max_median_residual,
@@ -531,20 +562,26 @@ def cmd_validate():
             "the manifold, not the 2D orientation, which is carried from the "
             "slice-5 export-pipeline convention).",
         }
+        gate["placement_offset_level2_px"] = placement_offset
+        gate["placement_passed"] = bool(placement_ok)
     else:
-        passed = res_ok and enrichment >= args.min_enrichment
+        passed = res_ok and enrichment >= args.min_enrichment and placement_ok
         gate = {
             "mode": "enrichment",
             "max_median_residual": args.max_median_residual,
             "min_enrichment": args.min_enrichment,
             "passed": bool(passed),
+            "placement_offset_level2_px": placement_offset,
+            "placement_passed": bool(placement_ok),
         }
     stats["gate"] = gate
     with open(REG_STATS, "w") as f:
         json.dump(stats, f, indent=2)
     tail = (
         f"median_res={stats['region_median_residual']:.2f}, enrichment={enrichment:.2f}"
-        f", periodicity={periodicity:.3f}, mode={GATE_MODE}"
+        f", periodicity={periodicity:.3f}, placement=({pdy},{pdx})"
+        f"={placement_offset:.1f}px{'' if placement_ok else ' FAIL'}"
+        f", mode={GATE_MODE}"
     )
     if passed:
         with open(MARKER, "w") as f:

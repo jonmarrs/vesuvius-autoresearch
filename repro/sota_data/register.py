@@ -2,6 +2,7 @@
 via the published tifxyz meshes. The old<->new 3D transform is estimated FROM THE MESHES
 THEMSELVES (both sample the same physical papyrus surface): PCA-sign-search init + trimmed
 ICP with Umeyama updates. No dependence on undocumented scan-frame conventions."""
+
 import os
 
 import cv2
@@ -27,7 +28,9 @@ def read_tifxyz(path):
         return arr
     if arr.ndim == 3 and arr.shape[0] == 3:
         return np.ascontiguousarray(arr.transpose(1, 2, 0))
-    raise ValueError(f"not a tifxyz (expected HxWx3 or 3xHxW): shape {arr.shape} in {path}")
+    raise ValueError(
+        f"not a tifxyz (expected HxWx3 or 3xHxW): shape {arr.shape} in {path}"
+    )
 
 
 def _valid_points(xyz):
@@ -49,7 +52,7 @@ def _umeyama(src, dst):
     if np.linalg.det(U @ Vt) < 0:
         S[2, 2] = -1
     R = U @ S @ Vt
-    var_s = (sc ** 2).sum() / len(src)
+    var_s = (sc**2).sum() / len(src)
     s = float(np.trace(np.diag(D) @ S) / var_s)
     t = mu_d - s * R @ mu_s
     return s, R.astype(np.float32), t.astype(np.float32)
@@ -79,7 +82,7 @@ def fit_similarity(src, dst, iters=3, sample=20000, trim=0.8, seed=0):
 
     mu_s, cs, Vs = centered_axes(src_s)
     mu_d, cd, Vd = centered_axes(dst_s)
-    s0 = float(np.sqrt((cd ** 2).sum() / len(cd)) / np.sqrt((cs ** 2).sum() / len(cs)))
+    s0 = float(np.sqrt((cd**2).sum() / len(cd)) / np.sqrt((cs**2).sum() / len(cs)))
 
     # det(R0) = det(Vd) * det(F) * det(Vs). np.linalg.svd's sign convention for Vt is
     # arbitrary (LAPACK does not guarantee det(Vt)=+1), so det(Vs)*det(Vd) can come out
@@ -119,16 +122,22 @@ def correspondence_field(new_xyz, s, R, t, old_xyz, stride=8):
     orr, occ = np.mgrid[0:oh:stride, 0:ow:stride]
     opts = old_xyz[::stride, ::stride].reshape(-1, 3)
     ocoords = np.stack([orr.reshape(-1), occ.reshape(-1)], axis=1).astype(np.float32)
-    ok = (np.isfinite(opts).all(axis=1) & ~(np.abs(opts) < 1e-9).all(axis=1)
-          & ~(np.abs(opts + 1.0) < 1e-6).all(axis=1))
+    ok = (
+        np.isfinite(opts).all(axis=1)
+        & ~(np.abs(opts) < 1e-9).all(axis=1)
+        & ~(np.abs(opts + 1.0) < 1e-6).all(axis=1)
+    )
     tree = cKDTree(opts[ok])
     ocoords = ocoords[ok]
 
     sub = new_xyz[::stride, ::stride]
     nh, nw = sub.shape[:2]
     npts = sub.reshape(-1, 3)
-    valid = (np.isfinite(npts).all(axis=1) & ~(np.abs(npts) < 1e-9).all(axis=1)
-             & ~(np.abs(npts + 1.0) < 1e-6).all(axis=1))
+    valid = (
+        np.isfinite(npts).all(axis=1)
+        & ~(np.abs(npts) < 1e-9).all(axis=1)
+        & ~(np.abs(npts + 1.0) < 1e-6).all(axis=1)
+    )
     field = np.full((nh, nw, 2), np.nan, np.float32)
     residuals = np.full(nh * nw, np.nan, np.float32)
     if valid.any():
@@ -141,13 +150,18 @@ def correspondence_field(new_xyz, s, R, t, old_xyz, stride=8):
 
 def warp_via_field(image, field, out_shape, interpolation=cv2.INTER_LINEAR):
     """Sample `image` at the field's (row, col) coords, upscaled to out_shape."""
-    fh = cv2.resize(field[..., 0], (out_shape[1], out_shape[0]), interpolation=cv2.INTER_LINEAR)
-    fw = cv2.resize(field[..., 1], (out_shape[1], out_shape[0]), interpolation=cv2.INTER_LINEAR)
+    fh = cv2.resize(
+        field[..., 0], (out_shape[1], out_shape[0]), interpolation=cv2.INTER_LINEAR
+    )
+    fw = cv2.resize(
+        field[..., 1], (out_shape[1], out_shape[0]), interpolation=cv2.INTER_LINEAR
+    )
     bad = ~np.isfinite(fh) | ~np.isfinite(fw)
     mapx = np.nan_to_num(fw, nan=-1.0).astype(np.float32)  # cv2.remap: x = col
     mapy = np.nan_to_num(fh, nan=-1.0).astype(np.float32)
-    out = cv2.remap(image, mapx, mapy, interpolation,
-                    borderMode=cv2.BORDER_CONSTANT, borderValue=0)
+    out = cv2.remap(
+        image, mapx, mapy, interpolation, borderMode=cv2.BORDER_CONSTANT, borderValue=0
+    )
     out[bad] = 0
     return out
 
@@ -157,7 +171,7 @@ def ncc(a, b):
     b = np.asarray(b, np.float64).ravel()
     ok = np.isfinite(a) & np.isfinite(b)
     a, b = a[ok] - a[ok].mean(), b[ok] - b[ok].mean()
-    denom = np.sqrt((a ** 2).sum() * (b ** 2).sum())
+    denom = np.sqrt((a**2).sum() * (b**2).sum())
     return float((a * b).sum() / denom) if denom > 0 else 0.0
 
 
@@ -173,7 +187,7 @@ def label_line_periodicity(label, band=(40, 260)):
     ink = (lab > 127).astype(np.float64)
     rows = ink.mean(axis=1)
     rows = rows - rows.mean()
-    ac = np.correlate(rows, rows, "full")[len(rows) - 1:]
+    ac = np.correlate(rows, rows, "full")[len(rows) - 1 :]
     if ac[0] <= 0:
         return 0.0
     ac = ac / ac[0]
@@ -195,9 +209,87 @@ def fit_affine_orb(old_img, new_img, n_features=5000):
         raise ValueError(f"only {len(matches)} ORB matches")
     src = np.float32([k1[m.queryIdx].pt for m in matches])
     dst = np.float32([k2[m.trainIdx].pt for m in matches])
-    M, mask = cv2.estimateAffinePartial2D(src, dst, method=cv2.RANSAC,
-                                          ransacReprojThreshold=3.0)
+    M, mask = cv2.estimateAffinePartial2D(
+        src, dst, method=cv2.RANSAC, ransacReprojThreshold=3.0
+    )
     n_inl = int(mask.sum()) if mask is not None else 0
     if M is None or n_inl < 25:
         raise ValueError(f"affine fit failed ({n_inl} inliers)")
     return M, n_inl
+
+
+def placement_peak(label, reference, max_shift=256, coarse=4, refine=8):
+    """Where does label-vs-reference agreement actually peak, in label pixels?
+
+    A registration is only correct if agreement is maximised at ZERO shift. Residual
+    statistics do NOT test this: they measure correspondence scatter, and a label can have
+    a tight residual while sitting bodily displaced. That conflation is exactly what let a
+    ~1766-voxel misplacement ship in 2026-07 (see
+    reports/detector/registration_offset_2026-08-07.md), so this is a gate, not a diagnostic.
+
+    Both inputs are boolean-ised at >127 and compared on a common interior crop -- never
+    via np.roll, whose wraparound would contaminate the score. Searches a downsampled grid
+    first, then refines at full resolution.
+
+    Returns (dy, dx, dice_at_zero, dice_at_peak) with the shifts in input pixels. A correct
+    registration gives (0, 0) up to a couple of pixels.
+    """
+    a = np.asarray(label) > 127
+    b = np.asarray(reference) > 127
+    if a.shape != b.shape:
+        raise ValueError(f"placement_peak: shape mismatch {a.shape} vs {b.shape}")
+
+    def dice(g, p):
+        s = int(g.sum()) + int(p.sum())
+        return 2.0 * float((g & p).sum()) / s if s else float("nan")
+
+    def scan(g_img, p_img, margin, lo, hi, step):
+        h, w = g_img.shape
+        core = g_img[margin : h - margin, margin : w - margin]
+        best = (-1.0, 0, 0)
+        for dy in range(lo[0], hi[0] + 1, step):
+            for dx in range(lo[1], hi[1] + 1, step):
+                d = dice(
+                    core,
+                    p_img[margin + dy : h - margin + dy, margin + dx : w - margin + dx],
+                )
+                if d > best[0]:
+                    best = (d, dy, dx)
+        return best
+
+    # coarse pass on a downsampled copy -- same peak, far cheaper
+    ds = max(int(coarse), 1)
+    if ds > 1:
+        small = (a.shape[0] // ds, a.shape[1] // ds)
+        a_s = (
+            cv2.resize(a.astype(np.uint8), small[::-1], interpolation=cv2.INTER_NEAREST)
+            > 0
+        )
+        b_s = (
+            cv2.resize(b.astype(np.uint8), small[::-1], interpolation=cv2.INTER_NEAREST)
+            > 0
+        )
+    else:
+        a_s, b_s = a, b
+    m_s = max_shift // ds + 2
+    if min(a_s.shape) <= 2 * m_s + 2:
+        m_s = max(min(a_s.shape) // 4, 1)
+    _, cy, cx = scan(a_s, b_s, m_s, (-m_s, -m_s), (m_s, m_s), 1)
+    cy, cx = cy * ds, cx * ds
+
+    # refine at full resolution around the coarse peak
+    margin = max_shift + refine + 2
+    if min(a.shape) <= 2 * margin + 2:
+        margin = max(min(a.shape) // 4, 1)
+    cy = int(np.clip(cy, -margin + refine, margin - refine))
+    cx = int(np.clip(cx, -margin + refine, margin - refine))
+    peak, by, bx = scan(
+        a, b, margin, (cy - refine, cx - refine), (cy + refine, cx + refine), 1
+    )
+
+    h, w = a.shape
+    zero = dice(
+        a[margin : h - margin, margin : w - margin],
+        b[margin : h - margin, margin : w - margin],
+    )
+    return int(by), int(bx), float(zero), float(peak)

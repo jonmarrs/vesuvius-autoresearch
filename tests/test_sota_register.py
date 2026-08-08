@@ -7,8 +7,14 @@ import pytest
 import tifffile
 
 sys.path.insert(0, os.path.abspath("."))  # repo root, so `repro.*` is importable
-from repro.sota_data.register import (correspondence_field, fit_affine_orb,
-                                      fit_similarity, ncc, read_tifxyz, warp_via_field)
+from repro.sota_data.register import (
+    correspondence_field,
+    fit_affine_orb,
+    fit_similarity,
+    ncc,
+    read_tifxyz,
+    warp_via_field,
+)
 
 
 def _surface(h=80, w=120):
@@ -24,16 +30,17 @@ def _apply_sim(xyz, s, R, t):
 
 def _rot(deg_z):
     a = np.deg2rad(deg_z)
-    return np.array([[np.cos(a), -np.sin(a), 0], [np.sin(a), np.cos(a), 0],
-                     [0, 0, 1]], np.float32)
+    return np.array(
+        [[np.cos(a), -np.sin(a), 0], [np.sin(a), np.cos(a), 0], [0, 0, 1]], np.float32
+    )
 
 
 def test_read_tifxyz_both_layouts(tmp_path):
     xyz = _surface(16, 24)
     p1 = str(tmp_path / "hw3.tifxyz")
-    tifffile.imwrite(p1, xyz)                      # (H, W, 3)
+    tifffile.imwrite(p1, xyz)  # (H, W, 3)
     p2 = str(tmp_path / "planes.tifxyz")
-    tifffile.imwrite(p2, xyz.transpose(2, 0, 1))   # (3, H, W)
+    tifffile.imwrite(p2, xyz.transpose(2, 0, 1))  # (3, H, W)
     for p in (p1, p2):
         out = read_tifxyz(p)
         assert out.shape == (16, 24, 3)
@@ -49,7 +56,7 @@ def test_read_tifxyz_bad_shape_raises(tmp_path):
 
 def test_fit_similarity_recovers_known_transform():
     xyz = _surface()
-    s_true, R_true, t_true = 3.3, _rot(30), np.array([100., -40., 7.], np.float32)
+    s_true, R_true, t_true = 3.3, _rot(30), np.array([100.0, -40.0, 7.0], np.float32)
     dst = _apply_sim(xyz, s_true, R_true, t_true)
     src_pts = xyz.reshape(-1, 3)
     dst_pts = dst.reshape(-1, 3)
@@ -63,9 +70,10 @@ def test_fit_similarity_recovers_known_transform():
 
 def test_correspondence_and_warp_roundtrip():
     old_xyz = _surface()
-    s_true, R_true, t_true = 2.0, _rot(-20), np.array([-15., 30., 2.], np.float32)
-    new_xyz = _apply_sim(old_xyz, 1.0 / s_true,
-                         R_true.T, -(1.0 / s_true) * (R_true.T @ t_true))
+    s_true, R_true, t_true = 2.0, _rot(-20), np.array([-15.0, 30.0, 2.0], np.float32)
+    new_xyz = _apply_sim(
+        old_xyz, 1.0 / s_true, R_true.T, -(1.0 / s_true) * (R_true.T @ t_true)
+    )
     # new = inverse-sim of old, so old = sim(new); fit new->old
     s, R, t, _ = fit_similarity(new_xyz.reshape(-1, 3), old_xyz.reshape(-1, 3), seed=0)
     field, res = correspondence_field(new_xyz, s, R, t, old_xyz, stride=2)
@@ -74,8 +82,9 @@ def test_correspondence_and_warp_roundtrip():
     # spatial pattern (here grids are aligned index-wise by construction)
     old_label = np.zeros(old_xyz.shape[:2], np.uint8)
     old_label[20:40, 30:60] = 255
-    warped = warp_via_field(old_label, field, old_label.shape,
-                            interpolation=cv2.INTER_NEAREST)
+    warped = warp_via_field(
+        old_label, field, old_label.shape, interpolation=cv2.INTER_NEAREST
+    )
     inter = np.logical_and(warped > 127, old_label > 127).sum()
     union = np.logical_or(warped > 127, old_label > 127).sum()
     assert inter / union > 0.9  # IoU of the recovered block
@@ -116,6 +125,7 @@ def test_read_tifxyz_directory_layout(tmp_path):
 def test_valid_masks_drop_minus_one_markers():
     # Real bucket meshes mark invalid pixels as (-1,-1,-1), not zeros.
     from repro.sota_data.register import _valid_points
+
     xyz = _surface(8, 8)
     xyz[0, 0] = (-1, -1, -1)
     xyz[1, 1] = (0, 0, 0)
@@ -125,10 +135,11 @@ def test_valid_masks_drop_minus_one_markers():
 
 def test_label_line_periodicity_text_vs_scrambled():
     from repro.sota_data.register import label_line_periodicity
+
     # synthetic "text lines": ink stripes every 60 px
     lab = np.zeros((600, 400), np.uint8)
     for r in range(10, 600, 60):
-        lab[r:r + 20, 40:360] = 255
+        lab[r : r + 20, 40:360] = 255
     periodic = label_line_periodicity(lab)
     # scrambled: same ink pixels, random rows -> no line structure
     rng = np.random.default_rng(0)
@@ -138,3 +149,56 @@ def test_label_line_periodicity_text_vs_scrambled():
     scrambled = label_line_periodicity(scr)
     assert periodic > 0.5
     assert periodic > scrambled + 0.3
+
+
+# --- placement gate (2026-08-07) -------------------------------------------------------
+# Nothing in the registration gate tested absolute PLACEMENT until a ~1766-voxel
+# displacement shipped. placement_peak is that missing check: agreement must peak at zero
+# shift. See reports/detector/registration_offset_2026-08-07.md.
+
+
+def _speckle_text(h=600, w=600, n=90, seed=0):
+    rng = np.random.default_rng(seed)
+    img = np.zeros((h, w), np.uint8)
+    for _ in range(n):
+        y, x = rng.integers(80, h - 100), rng.integers(80, w - 100)
+        img[y : y + 20, x : x + 8] = 255
+    return img
+
+
+def test_placement_peak_zero_for_identical():
+    from repro.sota_data.register import placement_peak
+
+    a = _speckle_text()
+    dy, dx, d0, dpk = placement_peak(a, a, max_shift=48)
+    assert (dy, dx) == (0, 0)
+    assert d0 == pytest.approx(1.0)
+    assert dpk == pytest.approx(1.0)
+
+
+@pytest.mark.parametrize("shift", [(13, -21), (-9, 17)])
+def test_placement_peak_recovers_known_shift(shift):
+    from repro.sota_data.register import placement_peak
+
+    a = _speckle_text(seed=1)
+    b = np.roll(np.roll(a, shift[0], 0), shift[1], 1)
+    dy, dx, d0, dpk = placement_peak(a, b, max_shift=48)
+    assert (dy, dx) == shift, f"expected {shift}, got {(dy, dx)}"
+    assert dpk > d0, "peak must beat zero-shift agreement for a displaced label"
+
+
+def test_placement_peak_rejects_shape_mismatch():
+    from repro.sota_data.register import placement_peak
+
+    with pytest.raises(ValueError, match="shape mismatch"):
+        placement_peak(np.zeros((100, 100), np.uint8), np.zeros((100, 90), np.uint8))
+
+
+def test_placement_peak_would_have_caught_the_level0_shape_bug():
+    """A displacement of the magnitude that shipped must be detected, not tolerated."""
+    from repro.sota_data.register import placement_peak
+
+    a = _speckle_text(h=900, w=900, n=140, seed=2)
+    b = np.roll(np.roll(a, 19, 0), 109, 1)  # ~the real (dy,dx) scaled to this canvas
+    dy, dx, _, _ = placement_peak(a, b, max_shift=160)
+    assert np.hypot(dy, dx) > 8.0, "gross misplacement slipped through the gate"
