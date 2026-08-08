@@ -125,11 +125,54 @@ for any segment without a recorded shape rather than falling back to a default.
 Regression tests in `tests/test_sota_register_targets.py` pin per-segment shapes, the
 no-fallback behaviour, and that `_region_in_mesh` actually tracks the shape.
 
-**Still outstanding:** the train-exposed target retains a smaller (−18, −44) offset that
-this bug does not explain, and the corrected held-out peak sits at (23, −9) rather than
-exactly zero. A second, smaller placement error remains. The targets must be regenerated
-from the fixed pipeline and the full leaderboard re-run before any of these numbers are
-republished as final.
+**Still outstanding:** a second, smaller placement error remains — train-exposed (−18, −44),
+corrected held-out (31, −10). Diagnosed below, not yet fixed.
+
+## The residual offset — mechanism identified, fix NOT yet applied
+
+`_region_in_mesh` converts the level-2 region into grid coordinates of `MESH_NEW` =
+`<seg>-on-20230205180739-7.91um.tifxyz`, assuming that grid's extent is proportional to the
+2.4 µm level-2 volume. **That assumption is false**, for two compounding reasons.
+
+**1. Wrong mesh for the job.** Every segment also ships
+`<seg>-on-20260411134726-2.4um.tifxyz` — and `20260411134726` is precisely the scan behind
+the surface volume we score against (`2.4um-...-volume-20260411134726.zarr`). Both meshes
+declare `scale: [0.05, 0.05]`, but each *relative to its own scan's level-0 grid*:
+
+| mesh | grid | level-2 px per cell |
+|---|---|---|
+| `…-on-20260411134726-2.4um` (volume's own scan) | 2530×1820 | **exactly 5.00 × 5.00** |
+| `…-on-20230205180739-7.91um` (2023 scan, what we use) | 776×559 | 16.30 × 16.28, anisotropic |
+
+The 2.4 µm grid indexes the level-2 volume exactly. The 7.91 µm grid sits on a different
+scan's pixel lattice, so mapping level-2 → grid through it is an approximation whose error
+is segment-specific — which is exactly the signature we see (offsets differ in both
+magnitude and sign between the two targets).
+
+**2. Integer mesh-cell rounding.** With ~16 level-2 px per cell, `int(round(...))` on the
+crop bounds shifts the content and mis-scales the crop span. Quantified: predicted net
+displacement at region centre **(+11.7, −12.0)** px for held-out, **(+12.1, −12.0)** for
+train-exposed. That matches the held-out `dx` (−10 measured) well, but the predictions are
+nearly identical for both targets while the measurements are not — so rounding is a real
+~12 px contributor, **not** the dominant term. The mesh choice is.
+
+**A tempting fix was tested and FALSIFIED.** The natural repair — crop on the 2.4 µm grid
+and read the old-frame xyz from the 7.91 µm grid at the *same normalised UV* — assumes the
+two grids share a UV domain. They do not. Sampling both on a common normalised lattice
+(83,668 paired points) and fitting a global similarity leaves a **median residual of 2137
+voxels, 4.6% of the surface's 46,474-voxel extent** (fitted scale 3.236 vs the 3.296 implied
+by 7.91/2.4). The two are independent flattenings of the same physical surface. Same-UV
+sampling is not a valid bridge.
+
+**What the fix actually requires** (design change, not a patch): define the region on the
+2.4 µm grid so level-2 indexing is exact and sub-cell precise, obtain the region's 3D points
+in the 2.4 µm scan frame, then transform them into the old-scan frame with a similarity
+fitted from *unpaired* 3D geometry (`fit_similarity` already does PCA + trimmed ICP and is
+used this way in `cmd_warp`) before the NN bridge onto `original.obj`. The physical
+scan-to-scan transform is well posed; only the UV pairing was not.
+
+Until that lands, all pixel-target scores are **mild lower bounds**, and the train-exposed
+target — untouched by the `LEVEL0_SHAPE` fix — remains **provisional**.
 
 ## What this does NOT establish
 
@@ -144,13 +187,13 @@ republished as final.
 - **A translation-only model may be incomplete.** Only pure shifts were scanned. Residual
   scale or rotation error would not show up here.
 
-## Next
+## Status
 
-1. Regenerate all three `scroll1_*` targets from the fixed pipeline (`warp_obj` → `validate`).
-2. Chase the residual (−18, −44) / (23, −9) offsets — a second, smaller placement error.
-3. Re-run the full leaderboard and republish. **The corrected numbers above are a
-   preview from an analytic undo, not a pipeline re-run** — they should not be quoted as
-   final results until step 1 lands.
-
-Until then the published held-out rows stay **withdrawn**, and the corrected ones are
-**provisional**.
+- **Done:** `LEVEL0_SHAPE` fixed and guarded; held-out target re-registered
+  (enrichment 1.68 → 6.01) and the full leaderboard re-scored and published.
+- **Diagnosed, not fixed:** the residual offset — wrong mesh for the region crop, plus
+  ~12 px of integer mesh-cell rounding. Requires the redesign described above.
+- **Not examined:** `scroll1_20230702185753_y7000_x4000`.
+- **Void, needs retraining:** `arm C + GT fine-tune`, which was fine-tuned on the displaced
+  label. Removed from the leaderboard rather than re-scored — and it should not be
+  retrained until the residual is fixed, or it will just bake in the smaller error.
