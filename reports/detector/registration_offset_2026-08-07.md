@@ -11,9 +11,10 @@ Data: [`registration_offset_2026-08-07.json`](registration_offset_2026-08-07.jso
 >
 > A **placement gate** now enforces that agreement peaks at zero shift (threshold 48 px,
 > 9× below the bug it catches); nothing tested placement before, which is how this shipped.
-> A smaller ~32 px residual is **closed as an irreducible floor**, not a pending bug: the
-> 2023 and 2026 segmentations of this sheet are materially different surfaces. It is
-> published as each pixel target's ~0.31 mm resolution limit.
+> A smaller residual is **closed as an irreducible floor**, not a pending bug: the 2023 and
+> 2026 segmentations of this sheet are materially different surfaces. It is published as
+> each target's resolution limit — **0.31 mm** held-out, **0.45 mm** train-exposed. The
+> train-exposed target clears the gate by only 1.4 px; the threshold was not raised for it.
 >
 > The sections below are the investigation in the order it happened, so the early framing
 > ("in question", "not established") reflects what was known at the time.
@@ -222,12 +223,22 @@ unchanged (the GT did not move — only the gate did).
 
 The number is derived from the floor above, not reverse-engineered from our data:
 
-| quantity | level-2 px | note |
-|---|---|---|
-| ideal | ~0 | unreachable across scans whose segmentations differ |
-| measured floor / current targets | ~32 | ≈ 128 level-0 vx ≈ 0.31 mm |
-| **gate threshold** | **48** | ≈ 0.46 mm, just above the floor |
-| `LEVEL0_SHAPE` bug | 435 | **9× the threshold** — caught with wide margin |
+| quantity | level-2 px | level-0 vx | mm | note |
+|---|---|---|---|---|
+| ideal | ~0 | 0 | 0 | unreachable across scans whose segmentations differ |
+| held-out target | 32.0 | 128 | 0.31 | PASSES, comfortable margin |
+| train-exposed target | **46.6** | 186 | **0.45** | PASSES by only **1.4 px** |
+| **gate threshold** | **48** | 192 | 0.46 | |
+| `LEVEL0_SHAPE` bug | 435 | 1740 | 4.18 | **9× the threshold** — caught wide |
+
+**The train-exposed target is uncomfortably close to the line**, and that is worth stating
+rather than glossing. It was *not* affected by the `LEVEL0_SHAPE` bug — the hardcoded
+constant was its own geometry — so its 46.6 px is a separate matter: either the cross-scan
+floor varies by segment more than the held-out figure suggested, or that target carries an
+additional, unisolated defect. Its excess over the mesh-cell-rounding prediction is a
+uniform ~(−30, −31) px on both axes, which is a lead and not a diagnosis; one
+similar-looking numeric coincidence in this investigation (32 vs 31) was chased and turned
+out to be nothing. **The threshold was not raised to give it headroom.**
 
 The honest tension is worth naming: relaxing a gate because our data fails it is exactly
 the move that produced the 2026-07 retraction. What makes this different is that the floor

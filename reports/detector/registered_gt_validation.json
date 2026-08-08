@@ -14,9 +14,26 @@
     "surface_ncc": 0.04044226364237475,
     "teacher_enrichment": 5.054253065039119,
     "gate": {
+      "mode": "enrichment",
       "max_median_residual": 12.0,
-      "min_enrichment": 3.0,
-      "passed": true
+      "min_enrichment": 2.0,
+      "passed": true,
+      "placement_offset_level2_px": 46.61544808322666,
+      "placement_passed": true
+    },
+    "text_line_periodicity": 0.900489331474854,
+    "placement": {
+      "peak_shift_level2_px": [
+        -18,
+        -43
+      ],
+      "offset_level2_px": 46.61544808322666,
+      "offset_level0_vx": 186.46179233290664,
+      "dice_at_zero": 0.46206471556306644,
+      "dice_at_peak": 0.6088162740447761,
+      "max_offset": 48.0,
+      "passed": true,
+      "note": "teacher-dependent: it localises the label against the canon prediction. The peak LOCATION is far more robust than enrichment's magnitude, but on a genuinely chance-quality teacher it is meaningless -- such a target should not ship at all (see the withheld-target policy)."
     }
   },
   "rows": {
