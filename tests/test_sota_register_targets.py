@@ -179,3 +179,32 @@ def test_level0_shapes_are_distinct_per_segment():
     assert len(set(LEVEL0_SHAPES.values())) == len(LEVEL0_SHAPES), (
         "two segments sharing a shape suggests a copy-paste, which is the original bug"
     )
+
+
+def test_every_configured_segment_has_a_recorded_level0_shape():
+    """A segment referenced by a pipeline but absent from LEVEL0_SHAPES fails at runtime.
+
+    level0_shape() raises rather than guessing, which is right, but the raise lands deep
+    inside a registration job rather than at config time. This surfaces the same problem
+    as a fast test: add a region, forget its shape, find out here instead of an hour in.
+    """
+    import re
+    from pathlib import Path
+
+    from repro.sota_data import gt_finetune as gf
+    from repro.sota_data.register import LEVEL0_SHAPES
+
+    segs: set[str] = {str(t["seg"]) for t in rr.TARGETS.values()}
+    segs |= {str(region[0]) for region in gf.TRAIN_REGIONS}
+    probe = (
+        Path(__file__).resolve().parents[1] / "repro/sota_data/probe_orientation_ncc.py"
+    )
+    if probe.exists():
+        segs |= set(re.findall(r'"(20\d{12})"', probe.read_text()))
+
+    missing = sorted(segs - set(LEVEL0_SHAPES))
+    assert not missing, (
+        f"segments referenced by a configured pipeline but absent from "
+        f"register.LEVEL0_SHAPES: {missing}. Add them (get the shape with "
+        "register_run.fetch_level0_shape) rather than letting the job raise mid-run."
+    )
