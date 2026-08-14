@@ -136,3 +136,46 @@ def test_placement_threshold_is_derived_not_convenient():
     assert bug_offset / thr > 5.0, (
         "threshold too loose to catch a gross misregistration"
     )
+
+
+def test_no_module_carries_its_own_level0_shape_copy():
+    """There must be exactly ONE definition of the per-segment level-0 shapes.
+
+    gt_register.py carried a second hardcoded copy pinned to 20230702185753 and applied to
+    every segment. It survived the 2026-08-07 fix to register_run.py because nobody grepped
+    for other copies, leaving the GT fine-tune training on labels misplaced by 167% in x on
+    20231005123336. Fail if a literal shape tuple reappears outside register.LEVEL0_SHAPES.
+    """
+    import pathlib
+    import re
+
+    src = pathlib.Path(__file__).resolve().parents[1] / "repro" / "sota_data"
+    offenders = []
+    for f in src.glob("*.py"):
+        if f.name == "register.py":
+            continue  # the one legitimate home
+        for i, line in enumerate(f.read_text().splitlines(), 1):
+            if re.search(r"^\s*LEVEL0_SHAPE\s*=\s*\(", line):
+                offenders.append(f"{f.name}:{i}: {line.strip()}")
+    assert not offenders, (
+        "hardcoded level-0 shape outside register.LEVEL0_SHAPES:\n"
+        + "\n".join(offenders)
+    )
+
+
+def test_gt_register_uses_the_shared_shapes():
+    from repro.sota_data import gt_register as gr
+    from repro.sota_data.register import LEVEL0_SHAPES, level0_shape
+
+    assert gr.level0_shape is level0_shape
+    # the fine-tune's training segments must all be recorded, or prep must refuse
+    for seg in ("20230702185753", "20231005123336"):
+        assert seg in LEVEL0_SHAPES, f"{seg} is a GT fine-tune training segment"
+
+
+def test_level0_shapes_are_distinct_per_segment():
+    from repro.sota_data.register import LEVEL0_SHAPES
+
+    assert len(set(LEVEL0_SHAPES.values())) == len(LEVEL0_SHAPES), (
+        "two segments sharing a shape suggests a copy-paste, which is the original bug"
+    )

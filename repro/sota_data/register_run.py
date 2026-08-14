@@ -21,6 +21,7 @@ from PIL import Image
 sys.path.insert(0, os.path.abspath("."))
 from repro.sota_data import distill_run as dr
 from repro.sota_data.register import (
+    LEVEL0_SHAPES as _LEVEL0_SHAPES,
     correspondence_field,
     fit_similarity,
     label_line_periodicity,
@@ -38,10 +39,9 @@ from repro.sota_data.register import (
 # label -- which is what produced the bogus "held-out reads at chance" result
 # (reports/detector/registration_offset_2026-08-07.md). Never reintroduce a shared default:
 # a missing entry must raise, not silently borrow another segment's geometry.
-LEVEL0_SHAPES = {
-    "20230702185753": (50600, 36400),
-    "20231210121321": (51000, 39980),
-}
+# Moved to register.LEVEL0_SHAPES so gt_register.py shares one definition; a duplicate copy
+# there went unfixed when this one was corrected. Re-exported for existing callers/tests.
+LEVEL0_SHAPES = _LEVEL0_SHAPES
 LEVEL0_SHAPE: Any = None  # set per-target by _set_target()
 
 # Placement gate threshold, level-2 px. Decision recorded 2026-08-07 (user call).

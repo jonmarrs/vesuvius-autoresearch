@@ -10,6 +10,34 @@ import numpy as np
 import tifffile
 from scipy.spatial import cKDTree
 
+# Per-segment SOTA surface-volume level-0 shape (y, x), from the 2.4um OME-Zarr.
+#
+# SINGLE SOURCE OF TRUTH. This lived as a hardcoded module constant in TWO places
+# (register_run.py and gt_register.py), each pinned to 20230702185753's geometry and applied
+# to every segment. That produced the retracted 2026-07 held-out result, and the second copy
+# went unnoticed when the first was fixed. It is defined here, in the dependency-free
+# library module, so there is one place to be wrong.
+#
+# A missing entry must RAISE, never fall back to a default: silently borrowing another
+# segment's geometry is precisely the failure mode. Verify entries against the bucket with
+# `python -m repro.sota_data.register_run verify_shapes`.
+LEVEL0_SHAPES = {
+    "20230702185753": (50600, 36400),
+    "20231005123336": (34880, 97280),
+    "20231210121321": (51000, 39980),
+}
+
+
+def level0_shape(seg):
+    """Level-0 (y, x) for a segment. Raises rather than guessing."""
+    if seg not in LEVEL0_SHAPES:
+        raise ValueError(
+            f"no level-0 shape recorded for segment {seg}. Add it to "
+            "register.LEVEL0_SHAPES (get it with register_run.fetch_level0_shape). "
+            "Refusing to fall back to another segment's geometry."
+        )
+    return LEVEL0_SHAPES[seg]
+
 
 def read_tifxyz(path):
     if os.path.isdir(path):

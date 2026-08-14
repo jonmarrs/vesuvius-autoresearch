@@ -6,6 +6,7 @@ validated), then the withheld suspect.
 Signal model: where the correspondence (incl. 2D orientation) is right, papyrus fiber
 texture correlates; a flipped/mirrored convention decorrelates. Report raw NCC and
 high-pass NCC (Gaussian-highpass emphasizes fiber texture over illumination)."""
+
 import json
 import os
 import sys
@@ -21,18 +22,33 @@ from repro.sota_data.register import ncc, read_tifxyz, warp_via_field
 SIZE = 4096
 CASES = [
     # (tag, seg, y0, x0, obj_path, mesh_path, expected)
-    ("CONTROL-A", "20230702185753", 7000, 4000,
-     "local_data/sota_gt_meshes/20230702185753/20230702185753_original.obj",
-     "local_data/sota_gt_meshes/20230702185753/20230702185753-on-20230205180739-7.91um.tifxyz",
-     "rowHv_colu (enrichment 3.13)"),
-    ("CONTROL-B", "20231210121321", 4000, 2500,
-     "local_data/sota_registration/heldout/20231210121321_original.obj",
-     "local_data/sota_registration/heldout/20231210121321-on-20230205180739-7.91um.tifxyz",
-     "rowHv_colu (heldout, teacher-free validated)"),
-    ("SUSPECT", "20231005123336", 4000, 2500,
-     "local_data/sota_gt_meshes/20231005123336/20231005123336_original.obj",
-     "local_data/sota_gt_meshes/20231005123336/20231005123336-on-20230205180739-7.91um.tifxyz",
-     "UNKNOWN (teacher uninformative)"),
+    (
+        "CONTROL-A",
+        "20230702185753",
+        7000,
+        4000,
+        "local_data/sota_gt_meshes/20230702185753/20230702185753_original.obj",
+        "local_data/sota_gt_meshes/20230702185753/20230702185753-on-20230205180739-7.91um.tifxyz",
+        "rowHv_colu (enrichment 3.13)",
+    ),
+    (
+        "CONTROL-B",
+        "20231210121321",
+        4000,
+        2500,
+        "local_data/sota_registration/heldout/20231210121321_original.obj",
+        "local_data/sota_registration/heldout/20231210121321-on-20230205180739-7.91um.tifxyz",
+        "rowHv_colu (heldout, teacher-free validated)",
+    ),
+    (
+        "SUSPECT",
+        "20231005123336",
+        4000,
+        2500,
+        "local_data/sota_gt_meshes/20231005123336/20231005123336_original.obj",
+        "local_data/sota_gt_meshes/20231005123336/20231005123336-on-20230205180739-7.91um.tifxyz",
+        "UNKNOWN (teacher uninformative)",
+    ),
 ]
 
 
@@ -56,11 +72,15 @@ def tile_ncc_median(a, b, m, tile=512):
     vals = []
     for y in range(0, a.shape[0] - tile + 1, tile):
         for x in range(0, a.shape[1] - tile + 1, tile):
-            mm = m[y:y + tile, x:x + tile]
+            mm = m[y : y + tile, x : x + tile]
             if mm.mean() < 0.8:
                 continue
-            vals.append(ncc(np.where(mm, a[y:y + tile, x:x + tile], np.nan),
-                            np.where(mm, b[y:y + tile, x:x + tile], np.nan)))
+            vals.append(
+                ncc(
+                    np.where(mm, a[y : y + tile, x : x + tile], np.nan),
+                    np.where(mm, b[y : y + tile, x : x + tile], np.nan),
+                )
+            )
     return float(np.median(vals)) if vals else float("nan"), len(vals)
 
 
@@ -75,7 +95,7 @@ for tag, seg, y0, x0, obj_path, mesh_path, expected in CASES:
     print(f"===== {tag} {frag} (expected: {expected}) =====", flush=True)
     obj_v, obj_vt = parse_obj_vt(obj_path)
     new_xyz = read_tifxyz(mesh_path)
-    region_xyz = np.asarray(_region_in_mesh(new_xyz, y0, x0, SIZE), np.float32)
+    region_xyz = np.asarray(_region_in_mesh(new_xyz, seg, y0, x0, SIZE), np.float32)
     old_mid = depth_mean(f"villa/ink-detection/train_scrolls/{seg}/layers")
     new_mid = depth_mean(f"local_data/sota_distill/{frag}/layers")
     if new_mid.shape != (SIZE, SIZE):
@@ -85,8 +105,11 @@ for tag, seg, y0, x0, obj_path, mesh_path, expected in CASES:
 
     rh, rw = region_xyz.shape[:2]
     pts = region_xyz.reshape(-1, 3)
-    valid = (np.isfinite(pts).all(1) & ~(np.abs(pts + 1) < 1e-6).all(1)
-             & ~(np.abs(pts) < 1e-9).all(1))
+    valid = (
+        np.isfinite(pts).all(1)
+        & ~(np.abs(pts + 1) < 1e-6).all(1)
+        & ~(np.abs(pts) < 1e-9).all(1)
+    )
     d, idx = cKDTree(obj_v).query(pts[valid], k=1)
     uv = obj_vt[idx]
     H, W = old_mid.shape
@@ -101,18 +124,25 @@ for tag, seg, y0, x0, obj_path, mesh_path, expected in CASES:
     for name, rc in cands.items():
         field = np.full((rh, rw, 2), np.nan, np.float32)
         field.reshape(-1, 2)[valid] = rc
-        warped = warp_via_field(old_mid, field, (SIZE, SIZE),
-                                interpolation=cv2.INTER_LINEAR).astype(np.float32)
+        warped = warp_via_field(
+            old_mid, field, (SIZE, SIZE), interpolation=cv2.INTER_LINEAR
+        ).astype(np.float32)
         m = warped > 0  # warp fills invalid with 0
         raw = ncc(np.where(m, warped, np.nan), np.where(m, new_mid, np.nan))
         hp = ncc(np.where(m, highpass(warped), np.nan), np.where(m, new_hp, np.nan))
         tmed, ntiles = tile_ncc_median(warped, new_mid, m)
-        row["candidates"][name] = {"ncc_raw": raw, "ncc_highpass": hp,
-                                   "tile_ncc_median": tmed, "n_tiles": ntiles,
-                                   "valid_frac": float(m.mean())}
-        print(f"  {name:13s} ncc_raw={raw:7.4f}  ncc_hp={hp:7.4f}  "
-              f"tile_med={tmed:7.4f} ({ntiles} tiles)  valid={m.mean():.3f}",
-              flush=True)
+        row["candidates"][name] = {
+            "ncc_raw": raw,
+            "ncc_highpass": hp,
+            "tile_ncc_median": tmed,
+            "n_tiles": ntiles,
+            "valid_frac": float(m.mean()),
+        }
+        print(
+            f"  {name:13s} ncc_raw={raw:7.4f}  ncc_hp={hp:7.4f}  "
+            f"tile_med={tmed:7.4f} ({ntiles} tiles)  valid={m.mean():.3f}",
+            flush=True,
+        )
     results[f"{tag}_{frag}"] = row
 
 with open("reports/detector/surface_ncc_probe.json", "w") as f:

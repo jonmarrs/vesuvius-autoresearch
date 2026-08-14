@@ -215,6 +215,39 @@ This should be stated as a **property of any registered-GT target built this way
 bounds what the pixel targets can ever resolve. It does not affect the `LEVEL0_SHAPE`
 conclusion: 1766 voxels was 13× this floor and unambiguously a bug.
 
+## A SECOND copy of the bug, found 2026-08-14
+
+Fixing `register_run.py` was not enough. **`gt_register.py` carried its own hardcoded
+`LEVEL0_SHAPE = (50600, 36400)`**, applied to every segment, and it survived the original
+fix because nobody grepped for other copies.
+
+It feeds the GT fine-tune, whose four training regions are:
+
+| region | true level-0 | assumed | error |
+|---|---|---|---|
+| `20230702185753` ×2 | (50600, 36400) | (50600, 36400) | none from this bug |
+| `20231005123336` ×2 | **(34880, 97280)** | (50600, 36400) | **x off by 167%**, y by 31% |
+
+So the GT fine-tune trained on two regions whose labels were displaced by a 167% x-scale
+error, plus two regions on the segment we now know is the worse-placed one (46.6 px and a
+gate-failing 53.3 px). **That is very likely the whole of the "fine-tuning on GT makes
+reading worse" negative** — the model was fitting garbage, and the result was already
+retracted on weaker grounds.
+
+Note the shape of `20231005123336`: 34880×97280 is *wide*, where 20230702185753 is *tall*.
+The assumed shape was not merely wrong, it was the wrong aspect entirely.
+
+**Fix.** `LEVEL0_SHAPES` now lives once, in the dependency-free `register.py`, with a
+`level0_shape(seg)` accessor that raises rather than guessing. `register_run.py` re-exports
+it; `gt_register.py` imports it and now takes `seg` in `_region_in_mesh`. All three shapes
+verified against the bucket. Three regression tests: one greps the package for any
+reappearing `LEVEL0_SHAPE = (...)` literal outside its home, one pins that `gt_register`
+uses the shared accessor and that both fine-tune training segments are recorded, one fails
+if two segments share a shape (the copy-paste signature).
+
+The lesson generalises past this constant: **when a bug is caused by a hardcoded value,
+grep for other copies before calling it fixed.**
+
 ## Gate threshold: 48 px — decided 2026-08-07
 
 `cmd_validate` enforces placement at **48 level-2 px** (`MAX_PLACEMENT_OFFSET_L2PX`). The
