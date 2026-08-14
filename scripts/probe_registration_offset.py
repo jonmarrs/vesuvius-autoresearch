@@ -39,6 +39,9 @@ import sys
 import numpy as np
 from PIL import Image
 
+sys.path.insert(0, os.path.abspath("."))
+from repro.sota_data.register import placement_peak
+
 Image.MAX_IMAGE_PIXELS = None
 
 SCROLLGT_DATA = os.environ.get(
@@ -52,11 +55,6 @@ PAIRS = [
     ("scroll1_20230702185753", "20230702185753_y4000_x2500", "train-exposed"),
     ("scroll1_20231210121321", "20231210121321_y4000_x2500", "held-out flagship"),
 ]
-
-
-def dice(g, p):
-    s = int(g.sum()) + int(p.sum())
-    return 2.0 * float((g & p).sum()) / s if s else float("nan")
 
 
 def binary_stats(g, p):
@@ -80,27 +78,6 @@ def binary_stats(g, p):
         "recall": sens,
         "prevalence_lift": prec / max(float(g.mean()), 1e-9),
     }
-
-
-def scan(gt, pred, margin, coarse):
-    """Coarse-to-fine Dice scan over integer translations. Returns (best, at_zero)."""
-    H, W = gt.shape
-    core = gt[margin : H - margin, margin : W - margin]
-
-    def at(dy, dx):
-        return dice(
-            core, pred[margin + dy : H - margin + dy, margin + dx : W - margin + dx]
-        )
-
-    grid = range(-margin, margin + 1, coarse)
-    best = max((at(dy, dx), dy, dx) for dy in grid for dx in grid)
-    _, by, bx = best
-
-    def window(v):
-        return range(max(-margin, v - coarse), min(margin, v + coarse) + 1)
-
-    best = max((at(dy, dx), dy, dx) for dy in window(by) for dx in window(bx))
-    return best, at(0, 0)
 
 
 def main():
@@ -135,7 +112,10 @@ def main():
         if gt.shape != pred.shape:
             sys.exit(f"{frag}: shape mismatch {gt.shape} vs {pred.shape}")
 
-        (bd, by, bx), zd = scan(gt, pred, args.margin, args.coarse)
+        # placement_peak is the single implementation, shared with the cmd_validate gate.
+        # This script used to carry its own copy of the scan, which is exactly the
+        # duplicate-implementation hazard that let a second hardcoded LEVEL0_SHAPE survive.
+        by, bx, zd, bd = placement_peak(gt, pred, max_shift=args.margin)
         if max(abs(by), abs(bx)) >= args.margin:
             print(
                 "  !! peak hit the search boundary -- rerun with a larger --margin",
