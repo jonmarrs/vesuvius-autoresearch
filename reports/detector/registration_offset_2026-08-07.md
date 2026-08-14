@@ -248,6 +248,62 @@ if two segments share a shape (the copy-paste signature).
 The lesson generalises past this constant: **when a bug is caused by a hardcoded value,
 grep for other copies before calling it fixed.**
 
+## The withheld target was withheld for the wrong reason (2026-08-14)
+
+`20231005123336_y4000_x2500` was withheld in 2026-07 on the stated grounds that *the canon
+teacher is chance-quality there* (enrichment ≈ 1 for all four orientation candidates,
+0.79–1.02), leaving the label's orientation unverifiable.
+
+That enrichment collapse was the `gt_register.py` copy of the hardcoded-shape bug. This
+segment's true level-0 is 34880×97280 against the assumed 50600×36400 — a **167% x-scale
+error** — so the label was scattered, and a scattered label enriches at ≈1 against any
+teacher. Re-registered with the fix:
+
+| | 2026-07 (buggy) | corrected |
+|---|---|---|
+| teacher-enrichment | ≈1 (0.79–1.02, all four conventions) | **4.88** |
+| residual | — | 8.10 |
+| periodicity | — | 0.865 |
+| **placement** | not measured | **55.1 px / 0.53 mm — FAILS the 48 px gate** |
+
+**The teacher was never chance-quality on that segment; our registration was broken.** The
+target stays withheld, but now on a measured criterion (placement) rather than a mistaken
+one.
+
+Its sibling `20231005123336_y7000_x4000` drops earlier, at prep: periodicity 0.556 and a
+registered ink fraction of **0.0005** — essentially no ink lands in the region at all.
+
+### Consequence: the GT fine-tune cannot be retrained on current data
+
+All four of `gt_finetune.py`'s training regions are now measured:
+
+| training region | status |
+|---|---|
+| `20230702185753` y4000_x2500 | placement 46.6 px — marginal pass (1.4 px of headroom) |
+| `20230702185753` y7000_x4000 | placement 53.3 px — **fails** |
+| `20231005123336` y4000_x2500 | placement 55.1 px — **fails** |
+| `20231005123336` y7000_x4000 | **drops at prep** (periodicity 0.556, ink 0.0005) |
+
+At best one marginal region survives. Retraining would repeat the original mistake with a
+smaller error, so the fine-tune stays retired until there is training GT that passes
+placement — which, given the cross-scan floor, likely means a different segment rather than
+a better bridge.
+
+### The pattern, third instance
+
+Three times now a gate or diagnostic fired correctly and the failure was attributed to the
+data instead of the code:
+
+1. the enrichment gate failed at 1.68 on the held-out target → blamed a "weak teacher",
+   worked around with a teacher-free gate. It reads 6.01 on the fixed pipeline.
+2. this segment's enrichment sat at ≈1 → blamed a "chance-quality teacher", target withheld.
+   It reads 4.88 on the fixed pipeline.
+3. a tight 8-voxel residual was read as evidence of correct placement → it never measured
+   placement at all.
+
+The common shape is not carelessness about measurement; it is **explaining away an
+instrument that disagrees with us**. The instruments were right every time.
+
 ## Gate threshold: 48 px — decided 2026-08-07
 
 `cmd_validate` enforces placement at **48 level-2 px** (`MAX_PLACEMENT_OFFSET_L2PX`). The
