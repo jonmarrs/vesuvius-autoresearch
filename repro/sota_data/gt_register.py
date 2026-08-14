@@ -18,6 +18,7 @@ from repro.sota_data.qualitative import write_fragment
 from repro.sota_data.register import (
     label_line_periodicity,
     level0_shape,
+    placement_peak,
     read_tifxyz,
     warp_via_field,
 )
@@ -91,9 +92,45 @@ def _fetch(seg, reg_dir):
     return obj, mesh
 
 
+def _teacher_crop_for(frag_id):
+    """Locate the canon-teacher crop for a region, or None.
+
+    NOTE `local_data/sota_gt/<frag>/*_inklabels.png` is the registered GT itself, i.e. this
+    function's own output, NOT the teacher. Scoring GT against it yields a meaningless
+    perfect placement, so that root is deliberately excluded here.
+    """
+    for cand in (
+        f"local_data/sota_distill/{frag_id}/{frag_id}_inklabels.png",
+        f"local_data/sota_xscroll/scroll1_{frag_id}/scroll1_{frag_id}_inklabels.png",
+    ):
+        if os.path.exists(cand):
+            return cand
+    return None
+
+
 def gt_prep_fragment(
-    seg, y0, x0, size, out_root, max_residual=12.0, min_periodicity=0.6
+    seg,
+    y0,
+    x0,
+    size,
+    out_root,
+    max_residual=12.0,
+    min_periodicity=0.6,
+    max_placement_offset=None,
+    allow_unverified_placement=False,
 ):
+    """Register one GT training region, keeping it only if it passes every gate.
+
+    PLACEMENT is gated here, not only in register_run's cmd_validate. The training path had
+    no placement check at all, which is how the GT fine-tune came to train on labels
+    displaced by up to a 167% scale error: residual and periodicity both looked fine.
+    Residual measures correspondence scatter and never constrained position.
+
+    A region whose placement cannot be checked (no teacher crop on disk) is DROPPED rather
+    than assumed good, matching the withheld-target policy. Pass
+    `allow_unverified_placement=True` to override; the region then records
+    `placement_verified: False` so the gap stays visible downstream.
+    """
     reg_dir = os.path.join("local_data/sota_gt_meshes", seg)
     obj_path, mesh_path = _fetch(seg, reg_dir)
     obj_v, obj_vt = parse_obj_vt(obj_path)
@@ -122,6 +159,41 @@ def gt_prep_fragment(
             flush=True,
         )
         return info
+
+    if max_placement_offset is None:
+        from repro.sota_data.register_run import MAX_PLACEMENT_OFFSET_L2PX
+
+        max_placement_offset = MAX_PLACEMENT_OFFSET_L2PX
+
+    # Agreement with the teacher must peak at ZERO shift; residual and periodicity are both
+    # blind to a bodily displaced label.
+    teacher_path = _teacher_crop_for(frag_id)
+    if teacher_path is None:
+        info["placement_verified"] = False
+        if not allow_unverified_placement:
+            info["passed"] = False
+            info["placement_note"] = (
+                f"no teacher crop for {frag_id}, so placement could not be checked; "
+                "dropped rather than assumed good"
+            )
+            print(
+                f"DROP {frag_id}: placement UNVERIFIABLE (no teacher crop)", flush=True
+            )
+            return info
+        print(f"WARN {frag_id}: placement unverified (no teacher crop)", flush=True)
+    else:
+        dy, dx, _, _ = placement_peak(reg_label, cv2.imread(teacher_path, 0))
+        offset = float(np.hypot(dy, dx))
+        info["placement_offset_level2_px"] = offset
+        info["placement_verified"] = True
+        if offset > max_placement_offset:
+            info["passed"] = False
+            print(
+                f"DROP {frag_id}: placement {offset:.1f} px (dy={dy}, dx={dx}) exceeds "
+                f"{max_placement_offset:.0f} px",
+                flush=True,
+            )
+            return info
     # SOTA surface layers: reuse the Phase-2 distill fragment if present, else extract.
     src_layers = os.path.join("local_data/sota_distill", frag_id, "layers")
     out_seg = os.path.join(out_root, frag_id)
