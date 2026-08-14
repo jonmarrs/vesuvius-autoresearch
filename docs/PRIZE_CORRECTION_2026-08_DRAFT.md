@@ -2,6 +2,11 @@
 
 **Status: DRAFT, NOT SENT.** Awaiting Jon's review and explicit go-ahead.
 
+**Updated 2026-08-14** to describe the final state. The first draft was written on 08-07,
+before a second copy of the same bug was found, before the third pixel target was measured,
+and before both `20230702185753` targets were retired. Sending the earlier version would
+have required a follow-up correction to the correction.
+
 **Why a correction is owed.** The July filing (submitted 2026-07-29 via
 https://forms.gle/xoF5C3QsYutKP97x7) built its headline on a result that was wrong, and the
 `#robots` announcement of 2026-07-29 repeated it publicly. The cause was our own bug. The
@@ -17,8 +22,8 @@ drafts below follow it.
 2. `#robots`, which is public and where people may have acted on the wrong number.
 
 Of the two, the Discord correction is the more urgent: the post tells readers that beating
-ROC-AUC 0.60 on the held-out target "would be news," when in fact several already published
-models were over that bar the whole time.
+ROC-AUC 0.60 on the held-out target "would be news," when several already published models
+were over that bar the whole time.
 
 ---
 
@@ -49,19 +54,29 @@ models were over that bar the whole time.
 >
 > AP-prevalence-lift moves from about 1.15 (chance) to 2.15 through 2.44. Our filing said
 > "we do not have a strong ink detector" and "on held-out human ground truth our own models
-> read at chance." The first is still fair; the second is false. The models were reading
-> held-out ink the whole time and our benchmark was measuring its own misalignment.
+> read at chance." The first is still fair. The second is false: the models were reading
+> held-out ink the whole time and our benchmark was measuring its own misalignment. We would
+> not claim more than that, since the students land at or just below the teacher's 0.753, so
+> this is faithful distillation of a teacher that reads, not evidence of beating it.
 >
-> The GT fine-tuning negative result in the filing is also retracted: it was fine-tuning on
-> the displaced label, so it measured nothing.
+> The GT fine-tuning negative in the filing is also retracted. A **second copy** of the same
+> hardcoded constant, in a different module, fed its training data. On one of its training
+> segments (20231005123336) the assumed surface-volume shape was 50600x36400 against a true
+> 34880x97280, a 167% error in x and the wrong aspect entirely. That model trained on
+> badly misplaced labels, so its result measured nothing.
 >
-> Worth stating plainly, since the filing leaned on measurement discipline: our own
-> alignment gate caught this and we overrode it. The gate failed at teacher-enrichment 1.68,
-> we attributed that to a weak teacher, and we built a teacher-free gate to get past it. On
-> the fixed pipeline the same check scores 6.01. The gate was right and we explained away a
-> true positive. We also cited an 8-voxel correspondence residual as evidence of correct
-> placement; a residual measures scatter, not position, and it sat at 8 voxels while the
-> label was 1766 voxels out.
+> Worth stating plainly, since the filing leaned on measurement discipline: **three separate
+> times, an instrument told us something was wrong and we attributed it to the data instead
+> of our code.**
+>
+> - the alignment gate failed at teacher-enrichment 1.68 on the held-out segment. We called
+>   the teacher weak and built a teacher-free gate to get past it. It scores 6.01 on the
+>   fixed pipeline.
+> - a fourth region was withheld from the benchmark because enrichment sat near 1 for all
+>   four orientation candidates, which we read as a chance-quality teacher. It scores 4.88
+>   on the fixed pipeline. The teacher was fine; our registration was broken.
+> - we cited an 8-voxel correspondence residual as evidence of correct placement. A residual
+>   measures scatter, not position. It sat at 8 voxels while the label was 1766 voxels out.
 >
 > **2. The renderer's novelty claim is unsupported.** We wrote that our surface renderer
 > makes the bucket's mesh-only segments readable "for the first time." That is false. villa
@@ -70,18 +85,31 @@ models were over that bar the whole time.
 > honest remaining differences are that ours is pure Python with no C++ build and emits
 > detector-format output directly. That is convenience, not capability.
 >
-> **What changed as a result.** The pipeline now gates on placement directly: a registration
-> is rejected unless label-versus-prediction agreement peaks at zero shift. Nothing tested
-> that before, which is how the error shipped. We also publish each target's resolution
-> limit, about 0.31 mm on the held-out target, since a residual placement uncertainty
-> remains that is irreducible for this method (the 2023 and 2026 segmentations of the same
-> sheet are materially different surfaces).
+> **What changed as a result.**
+>
+> - Registration is now gated on **placement** directly: a label is rejected unless its
+>   agreement with the reference peaks at zero shift. Nothing tested that before, which is
+>   how the error shipped.
+> - The level-0 shapes now live in one place, with an accessor that raises rather than
+>   guessing, and a test that fails if a hardcoded copy reappears anywhere in the package.
+> - Each target publishes its **resolution limit** rather than burying it. On the held-out
+>   target that is about 0.31 mm.
+> - **Both 20230702185753 pixel targets have been retired as non-scoring.** Local placement
+>   error there reaches about 1.9x the 512 micron prize analysis window, so within one window
+>   a model could be scored against ground truth from a different part of the sheet. The
+>   scorer refuses them. Their published rows are kept as a train-region contrast, clearly
+>   marked as a record rather than a leaderboard.
+>
+> **This leaves ScrollGT with one scoreable pixel target, not three.** That is a real
+> reduction in what the submission offers, and we would rather state it than let the earlier
+> framing stand. The column-level and fiber-connectivity target families are unaffected:
+> they use different ground truth and no registration bridge.
 >
 > Full detail, reproduction steps, and the corrected leaderboard:
 > https://github.com/jonmarrs/vesuvius-autoresearch/blob/main/reports/detector/registration_offset_2026-08-07.md
 >
-> Both objections were surfaced by erdpx closing villa PR #1280 on 2026-08-06. We checked
-> the objections instead of assuming a listing-policy rejection, and both were correct.
+> Both original objections were surfaced by erdpx closing villa PR #1280 on 2026-08-06. We
+> checked them instead of assuming a listing-policy rejection, and both were correct.
 >
 > Jon Marrs, jdmarrs@gmail.com
 
@@ -115,10 +143,22 @@ rule that the July post only satisfied implicitly).
 > all-positive floor          0.501 -> 0.518
 > ```
 >
-> So the 0.60 bar was not a challenge; published models were already well past it and our
-> benchmark was measuring its own misalignment. If you scored against the ScrollGT pixel
+> So the 0.60 bar was not a challenge. Published models were already well past it and our
+> benchmark was measuring its own misalignment. **If you scored against the ScrollGT pixel
 > targets before 2026-08-07, your number was wrong and probably too low. Please re-pull and
-> re-score.
+> re-score.**
+>
+> Two further changes worth knowing before you do:
+>
+> - Registration is now gated on **placement**, meaning agreement has to peak at zero shift.
+>   The old gate checked correspondence residual, which measures scatter and never
+>   constrained position: ours read 8 voxels while the label was 1766 voxels out. If you
+>   build registered ground truth, this check is about ten lines and we would suggest adding
+>   it.
+> - **Both 20230702185753 pixel targets are now non-scoring** and the scorer refuses them.
+>   Local placement error there is about 1.9x the 512 micron analysis window, so a score
+>   there can be against a different part of the sheet. That leaves one scoreable pixel
+>   target, 20231210121321. Column and fiber targets are unaffected.
 >
 > ──── MODEL OUTPUT ENDS ────
 
@@ -126,26 +166,28 @@ rule that the July post only satisfied implicitly).
 
 Left deliberately blank. Suggested substance, in your words rather than mine:
 
-- that you are the one who chose to publish the retraction rather than quietly re-run;
+- that you chose to publish the retraction rather than quietly re-run;
 - that erdpx's review on villa PR #1280 is what prompted the check, and it was correct;
-- anything you want to say about how the benchmark now gates placement.
+- anything you want to say about the placement gate, which is the reusable part.
 
 ---
 
-## C. What is now different, if asked
+## C. Current state, if asked
 
-- **Placement gate.** `register.placement_peak` is enforced in every gate mode: agreement
-  must peak at zero shift. Threshold 48 level-2 px, derived from a measured floor and about
-  9x below the 435 px bug it exists to catch. A regression test fails if that margin erodes.
-- **Published resolution limits.** 0.31 mm on the held-out target, 0.45 mm global on the
-  train-exposed one, with per-tile scatter published too because the global figure is
-  optimistic (worst tile about 0.96 mm).
-- **Retracted, not re-scored:** the GT fine-tune row, which was trained on the displaced
-  label and needs retraining before it can be scored at all.
+| | |
+|---|---|
+| scoreable pixel targets | **1** (`20231210121321`, 0.31 mm resolution limit) |
+| retired as non-scoring | both `20230702185753` regions (local error ~1.9 analysis windows) |
+| withheld | `20231005123336` (placement 55.1 px, over the 48 px gate) |
+| unaffected | PHerc 1667 column targets, all six fiber targets |
+| GT fine-tune | retired, cannot be retrained: all four training regions fail or drop |
 
-## D. Open question for Jon before sending
+## D. Settled, no longer blocking
 
-The train-exposed target carries about 1 mm local placement error. We already withheld a
-fourth region for a weaker reason (unverifiable orientation). If we are going to withhold
-it, that should happen **before** this correction goes out, so the correction describes the
-final state rather than needing a follow-up.
+The earlier draft asked whether to withhold the marginal targets before sending. **Decided
+2026-08-14: both `20230702185753` targets are non-scoring**, implemented behind a
+`scoring.enabled` flag with the scorer refusing them. This draft describes that final state,
+so it can go out without needing a follow-up.
+
+Nothing else is outstanding. The remaining judgement is Jon's: whether to send, and whether
+both channels or only `#robots`.
