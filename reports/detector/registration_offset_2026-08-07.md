@@ -243,10 +243,23 @@ The ~(−30, −31) px "uniform excess" logged earlier as a lead is **falsified*
 placement per 768 px tile (`scripts/probe_placement_field.py`) shows the offset is not a
 translation at all:
 
-| target | dy mean ± sd | dx mean ± sd | local range | plane fit leaves |
-|---|---|---|---|---|
-| train-exposed | −13.8 ± **26.8** | −38.0 ± **33.0** | dy [−53, +95], dx [−66, +102] | sd 26.6 / 32.8 |
-| held-out | +32.3 ± **8.2** | −6.6 ± **9.5** | dy [+14, +50], dx [−25, +22] | sd 7.2 / 9.1 |
+| target | global | dy mean ± sd | dx mean ± sd | worst tile | gate |
+|---|---|---|---|---|---|
+| `20230702185753` y4000_x2500 | 46.6 px | −13.8 ± **26.8** | −38.0 ± **33.0** | ~102 px | passes by 1.4 px |
+| `20230702185753` y7000_x4000 | **53.3 px** | −22.3 ± 21.9 | −51.7 ± 13.2 | ~102 px | **FAILS** |
+| `20231210121321` held-out | 32.0 px | +32.3 ± 8.2 | −6.6 ± 9.5 | ~50 px | passes |
+
+### It is segment-wide, not region-wide
+
+The third pixel target (`y7000_x4000`) had shipped with **no placement verification at all**.
+Measured, it fails the gate at 53.3 px / 0.51 mm. So **both** regions of segment
+`20230702185753` are poorly placed, while `20231210121321` is 3–4× tighter. This is a
+property of that segment's 2023-vs-2026 surface disagreement, not of any one region, and it
+means `20231210121321` is currently the only pixel target worth standing behind.
+
+Note the irony: `20230702185753` is the segment the original filing used as its reassuring
+reference ("the other segment scores 0.70, so registration is fine"). It is in fact the
+worse-registered of the two.
 
 A plane fitted to the field leaves residual scatter essentially equal to the raw scatter, so
 this is neither a constant offset nor a linear scale error. It is **non-rigid**, exactly as

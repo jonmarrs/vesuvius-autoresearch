@@ -38,6 +38,12 @@ TARGETS = [
         "scroll1_20230702185753_y4000_x2500_inklabels.png",
     ),
     (
+        "train-exposed 20230702185753_y7000_x4000",
+        "../scrollgt/data/scroll1_20230702185753_y7000_x4000/gt_ink.png",
+        "local_data/sota_distill/20230702185753_y7000_x4000/"
+        "20230702185753_y7000_x4000_inklabels.png",
+    ),
+    (
         "held-out 20231210121321",
         "local_data/sota_registration/heldout/registered_label_l2region.png",
         "local_data/sota_distill/20231210121321_y4000_x2500/"
