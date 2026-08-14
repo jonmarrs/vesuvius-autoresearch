@@ -119,3 +119,41 @@ def test_unverifiable_placement_drops_by_default_and_is_recorded_when_overridden
         "an unverified region must be marked, not silently indistinguishable from a "
         "verified one"
     )
+
+
+# --- fine-tune train/validate disjointness (2026-08-14) --------------------------------
+
+
+def test_finetune_validation_is_disjoint_from_training():
+    """gt_finetune validated on kept[0], a TRAINING region. Every other pipeline holds one out.
+
+    Selection monitored train loss so nothing published was chosen on it, but a val metric
+    measured on training data is the train-region-fit confusion this project was burned by,
+    and it becomes a selection bug the moment `monitor` changes.
+    """
+    import inspect
+
+    from repro.sota_data import gt_finetune as gf
+
+    # strip comments: the fix documents the old pattern in prose, and a naive substring
+    # check would trip on that explanation rather than on real code
+    code = "\n".join(
+        ln.split("#")[0] for ln in inspect.getsource(gf.cmd_finetune).splitlines()
+    )
+    assert "valid_fragment_id=kept[0]" not in code, (
+        "validation set is a training region"
+    )
+    assert "train_ids, valid_id = kept[:-1], kept[-1]" in code
+
+
+def test_finetune_refuses_a_split_too_small_to_validate():
+    import inspect
+
+    from repro.sota_data import gt_finetune as gf
+
+    code = "\n".join(
+        ln.split("#")[0] for ln in inspect.getsource(gf.cmd_finetune).splitlines()
+    )
+    assert "len(kept) < 2" in code, (
+        "one kept region means train and validate are the same data; must refuse"
+    )
