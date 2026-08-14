@@ -87,14 +87,23 @@ labels onto SOTA geometry via each segment's published `original.obj` vertex tex
   scores ROC-AUC 0.70 / AP 0.26** vs human labels — the first ground-truth calibration of the
   released model. Students score 0.79–0.80, but this is *train-region fit* against a *binary*
   teacher, not generalization.
-- **Held-out region** (`20231210121321`, no student trained on it): **everything reads near
-  chance** — teacher ROC-AUC **0.563**, students **0.55–0.56**, legacy 0.50. The distilled
-  students, held out, are statistically tied with the weak teacher and the undistilled detector.
+- **Held-out region** (`20231210121321`, no student trained on it): teacher ROC-AUC **0.753**
+  / lift 2.15; clean students **0.731–0.746** / lift 2.34–2.44; all-positive floor 0.518.
+  The students generalize to a segment none of them trained on, landing at or just under the
+  teacher.
 
-**Conclusion:** distillation-from-canon reproduces the teacher *faithfully, including its
-failures*, rather than learning to read independently; the agreement-with-teacher gains (up to
-lift 3.24) are fidelity, and where the teacher is weak the students are too. The near-chance
-held-out number is real (the same registration quality gave 0.70 on the good-teacher segment).
+  > **Corrected 2026-08-07.** This previously read "everything reads near chance — teacher
+  > 0.563, students 0.55–0.56," and that was an artifact of our own registration: a hardcoded
+  > `LEVEL0_SHAPE` belonging to a different segment displaced this label ~1766 level-0 voxels.
+  > See [`registration_offset_2026-08-07.md`](../reports/detector/registration_offset_2026-08-07.md).
+
+**Conclusion:** distillation-from-canon reproduces the teacher faithfully, and on this segment
+the teacher *does* read — so the students read too. Take this as fidelity to a working teacher,
+**not** as evidence the students beat it: they sit at or just below it. The earlier claim that
+distillation reproduces the teacher's *failures* was drawn from the misregistered scores and is
+withdrawn, as is the rebuttal that "the same registration quality gave 0.70 on the good-teacher
+segment" — offsets are per-segment, and that segment was the one the hardcoded constant
+belonged to, so it could not have been affected.
 
 ### C. What's open
 - **A stronger detector than faithful teacher-reproduction.** The held-out ground-truth test

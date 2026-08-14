@@ -426,7 +426,37 @@ below):
   0.44–0.47). On this train region the students match teacher fidelity — but this is fit-quality,
   and the held-out test below shows it does not generalize.
 
-### The held-out ground-truth test (the correction)
+### The held-out ground-truth test — RETRACTED 2026-08-07, and it reverses
+
+> **This section previously reported that everything reads near chance held-out. That was our
+> own bug.** `register_run.py` applied one segment's hardcoded `LEVEL0_SHAPE` to every segment,
+> leaving `20231210121321`'s label displaced ~1766 level-0 voxels. Re-registered and re-scored,
+> same segment, same models:
+>
+> | model (clean held-out) | as published | corrected |
+> |---|---|---|
+> | canon teacher | ROC-AUC 0.563 / lift 1.15 | **0.753 / 2.15** |
+> | arm B (2-scroll student) | 0.553 / 1.16 | **0.731 / 2.34** |
+> | arm C (3-scroll student) | 0.558 / 1.17 | **0.746 / 2.44** |
+> | legacy (all-positive floor) | 0.501 | 0.518 / 1.009 |
+>
+> **The students were reading held-out ink the whole time.** The three conclusions below are
+> withdrawn: the train-region number was not purely fit, distillation was not reproducing a
+> failure, and the "not a registration artifact" rebuttal was exactly backwards — the offsets
+> are per-segment, and the reassuring reference segment was the one the constant belonged to,
+> so it could not have been affected.
+>
+> The GT fine-tune negative is retracted too: it trained on labels displaced by a second copy
+> of the same bug in `gt_register.py` (167% x-scale error on `20231005123336`).
+>
+> Two process failures worth keeping: the enrichment gate **correctly failed** at 1.68 and we
+> overrode it with a teacher-free gate on the false premise of a weak teacher (it scores 6.01
+> on the fixed pipeline); and an 8-voxel *residual* was cited as evidence of correct
+> *placement*, which it never was. Registration is now gated on placement directly.
+>
+> → [`reports/detector/registration_offset_2026-08-07.md`](reports/detector/registration_offset_2026-08-07.md)
+
+The original text follows, for the record.
 
 Registering a *held-out* segment's hand label — `20231210121321`, which **no student trained
 on** — settled what the train-region numbers could not. On held-out data vs human ground truth,
