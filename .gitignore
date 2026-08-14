@@ -69,6 +69,11 @@ DISCORD_*.md
 # from Discord / GitHub; keep local-only to avoid re-publishing others'
 # content without consent.
 reports/community_signal_*.md
+# Generated daily-report PDFs. Regenerated with an embedded timestamp, so they show up
+# dirty and produce a meaningless commit every time the generator runs (the 2026-08-14
+# file's entire diff was 2 bytes of timestamp). Untracked 2026-08-14; the files stay on
+# disk and remain in git history if an old one is ever needed.
+reports/Vesuvius_Research_Report_*.pdf
 community_signal_*.md
 
 # Skeleton-distance metric writes histogram PNGs to cwd every validation
