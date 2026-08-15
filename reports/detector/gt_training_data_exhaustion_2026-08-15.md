@@ -72,7 +72,7 @@ three absent segments and the six/three/three split are from
 One figure in the table is an acknowledged exception to the citation rule stated at the top:
 the retirement **date**, 2026-08-14, appears in neither permitted source. The probe JSON
 records the fact of the retirement (`retired: ["20230702185753"]`) but carries no date; the
-date is at `../scrollgt/README.md:126` and at `scripts/probe_labeled_segment_availability.py:51-53`,
+date is at `../scrollgt/README.md:126` and at `scripts/probe_labeled_segment_availability.py:61-65`,
 where the exclusion and its reason are kept together as data.
 
 **Two disclosures about the table's provenance, so a reader does not have to reconcile it
@@ -156,8 +156,9 @@ arithmetic as the headline, seen from the experiment's side.
 [`gt_finetune_heldout.md`](gt_finetune_heldout.md), is kept rather than deleted, with a
 retraction banner at the top marking both its headline and its "4/4 regions passed" claim as
 void; its companion `gt_finetune_heldout.json` and the prep artifact `gt_finetune_prep.json`
-carry `superseded` blocks saying the same in machine-readable form, and
-`repro.sota_data.gt_finetune finetune` refuses to run at all. A retraction that leaves the
+carry `superseded` blocks saying the same in machine-readable form, and both
+`repro.sota_data.gt_finetune finetune` and `repro.sota_data.gt_finetune score` refuse to run at
+all. A retraction that leaves the
 original text readable is deliberate: the point is that no record keeps *asserting* the
 retracted claim, not that the claim disappears from the history.
 

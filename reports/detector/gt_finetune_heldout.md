@@ -89,7 +89,7 @@ independently reads this segment.
 > disclosed confound" on top of a standing negative, it is one more symptom of the defect that
 > retracted the negative outright
 > (`registration_offset_2026-08-07.md:257-271`;
-> [`gt_training_data_exhaustion_2026-08-15.md`](gt_training_data_exhaustion_2026-08-15.md)`:241-259`).
+> [`gt_training_data_exhaustion_2026-08-15.md`](gt_training_data_exhaustion_2026-08-15.md)`:283-301`).
 
 A post-hoc 4-candidate orientation probe
 ([orientation_probe_2026-07-11.md](orientation_probe_2026-07-11.md)) found that segment
