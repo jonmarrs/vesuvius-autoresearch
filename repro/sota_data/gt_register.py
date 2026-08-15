@@ -22,6 +22,7 @@ from repro.sota_data.register import (
     read_tifxyz,
     warp_via_field,
 )
+from repro.sota_data.retirement import RETIREMENT_REASON, is_retired
 
 # Level-0 shapes now come from register.LEVEL0_SHAPES (single source of truth). This module
 # used to carry its own hardcoded copy pinned to 20230702185753, applied to every segment --
@@ -130,7 +131,22 @@ def gt_prep_fragment(
     than assumed good, matching the withheld-target policy. Pass
     `allow_unverified_placement=True` to override; the region then records
     `placement_verified: False` so the gap stays visible downstream.
+
+    RETIREMENT is checked first, before any fetch. A retired segment clears the placement
+    gate and is still unusable, so a check that ran after the gate would never fire; a check
+    that ran after `_fetch` would cost a mesh download to say no. Running it first is also
+    what makes it testable without data.
     """
+    frag_id = f"{seg}_y{y0}_x{x0}"
+    if is_retired(seg):
+        print(f"DROP {frag_id}: {RETIREMENT_REASON}", flush=True)
+        return {
+            "frag_id": frag_id,
+            "passed": False,
+            "retired": True,
+            "retirement_note": RETIREMENT_REASON,
+        }
+
     reg_dir = os.path.join("local_data/sota_gt_meshes", seg)
     obj_path, mesh_path = _fetch(seg, reg_dir)
     obj_v, obj_vt = parse_obj_vt(obj_path)
@@ -144,7 +160,6 @@ def gt_prep_fragment(
     reg_label, residual, periodicity = register_label_to_region(
         region_xyz, obj_v, obj_vt, old_label, size
     )
-    frag_id = f"{seg}_y{y0}_x{x0}"
     passed = residual <= max_residual and periodicity >= min_periodicity
     info = {
         "frag_id": frag_id,

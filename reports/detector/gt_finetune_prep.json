@@ -3,8 +3,37 @@
     "date": "2026-08-15",
     "reason": "This file was written before the 2026-08-14 placement gate existed. It recorded all four regions as passing, which is exactly how the GT fine-tune came to train on displaced labels. Three of the four fail the gate and the fourth passes by 1.4 px on a gate whose own per-tile scatter is +/- 27 to 33 px. Its former numbers are void and have been removed rather than left readable.",
     "report": "reports/detector/gt_training_data_exhaustion_2026-08-15.md",
-    "regenerate": "DO NOT. `uv run python -m repro.sota_data.gt_finetune prep` would undo this correction: it calls gt_prep_fragment, which applies the 48 px placement gate but has no concept of the retired-non-scoring exclusion, so 20230702185753_y4000_x2500 at 46.6 px returns passed:true and lands back in `kept` -- recreating the record removed here and failing tests/test_gt_finetune_prep_superseded.py. This file is hand-maintained from now on. Teaching gt_prep_fragment about retirement is open follow-up work, not done here."
+    "regenerate": "SAFE as of 2026-08-15: `uv run python -m repro.sota_data.gt_finetune prep`. It reproduces this file's empty `kept` rather than undoing the correction, and it raises afterwards because no region qualifies -- which is the finding, not a failure. Two fixes made it safe, both previously required to be understood by hand: gt_prep_fragment now honours the shared retired-non-scoring list (repro/sota_data/retirement.py), so 20230702185753 no longer returns passed:true by clearing the 48 px gate at 46.6 px; and cmd_prep now carries this `superseded` block forward instead of overwriting it. Before those, running it recreated a void record and failed tests/test_gt_finetune_prep_superseded.py. Verified by running it: superseded preserved, kept empty, all four regions passed:false. NOTE the live placement for 20231005123336_y4000_x2500 measures 57.5 px here against the 55.1 px recorded in registration_offset_2026-08-07.md; both are well over the 48 px gate so the exclusion is unaffected, but the discrepancy is unexplained and should not be quoted as agreement."
   },
-  "regions": [],
+  "regions": [
+    {
+      "frag_id": "20230702185753_y4000_x2500",
+      "passed": false,
+      "retired": true,
+      "retirement_note": "segment retired non-scoring 2026-08-14: it clears the 48 level-2 px placement gate by 1.4 px globally, but per-tile local error reaches ~1.9x the 512 um analysis window, so a score can be against a different part of the sheet"
+    },
+    {
+      "frag_id": "20230702185753_y7000_x4000",
+      "passed": false,
+      "retired": true,
+      "retirement_note": "segment retired non-scoring 2026-08-14: it clears the 48 level-2 px placement gate by 1.4 px globally, but per-tile local error reaches ~1.9x the 512 um analysis window, so a score can be against a different part of the sheet"
+    },
+    {
+      "frag_id": "20231005123336_y4000_x2500",
+      "residual": 8.102627616986114,
+      "periodicity": 0.8648376538127872,
+      "gt_ink_fraction": 0.0576593279838562,
+      "passed": false,
+      "placement_offset_level2_px": 57.48912940721924,
+      "placement_verified": true
+    },
+    {
+      "frag_id": "20231005123336_y7000_x4000",
+      "residual": 8.156902626937253,
+      "periodicity": 0.5562386385879232,
+      "gt_ink_fraction": 0.0005281567573547363,
+      "passed": false
+    }
+  ],
   "kept": []
 }

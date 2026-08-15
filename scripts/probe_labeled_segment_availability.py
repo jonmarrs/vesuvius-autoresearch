@@ -58,11 +58,11 @@ GATE_PX = 48.0
 # GP-winner reproduction; counting them would inflate this survey from 6 to 8.
 SEGMENT_ID = re.compile(r"^\d{14}$")
 
-# Segments that clear the placement gate and are still unusable. 20230702185753 passes by
-# 1.4 px globally while its worst 768px tile reaches ~1.9x the 512um analysis window, so a
-# score there can land on a different part of the sheet; retired non-scoring 2026-08-14.
-# Kept as data, not a special case in the logic, so the reason travels with the exclusion.
-RETIRED_NON_SCORING = ("20230702185753",)
+# Segments that clear the placement gate and are still unusable. Imported, never redefined:
+# `gt_prep_fragment` gates training on the same list, and a second copy of a constant is the
+# shape of the bug that started all of this. See the module for the reasoning.
+sys.path.insert(0, str(REPO_ROOT))
+from repro.sota_data.retirement import RETIRED_NON_SCORING  # noqa: E402
 
 
 def labeled_segments(train_scrolls_root):

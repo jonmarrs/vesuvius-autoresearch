@@ -52,8 +52,21 @@ def cmd_prep():
         gt_prep_fragment(seg, y0, x0, SIZE, GT_ROOT) for (seg, y0, x0) in TRAIN_REGIONS
     ]
     kept = [i["frag_id"] for i in infos if i["passed"]]
+    # Carry any existing `superseded` marker forward. It is metadata about the artifact,
+    # not about this run, and a rewrite that silently dropped it would erase the record of
+    # why the file was emptied -- the same class of self-undoing correction as `cmd_score`
+    # rewriting the retraction it lives under.
+    out = {"regions": infos, "kept": kept}
+    if os.path.exists(PREP_JSON):
+        try:
+            with open(PREP_JSON) as f:
+                prior = json.load(f)
+        except (OSError, json.JSONDecodeError):
+            prior = {}
+        if "superseded" in prior:
+            out = {"superseded": prior["superseded"], **out}
     with open(PREP_JSON, "w") as f:
-        json.dump({"regions": infos, "kept": kept}, f, indent=2)
+        json.dump(out, f, indent=2)
     print(f"kept {len(kept)}/{len(infos)} GT training regions: {kept}", flush=True)
     if not kept:
         raise ValueError("no GT training region passed the alignment gate")
