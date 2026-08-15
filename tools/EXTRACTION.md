@@ -1,4 +1,28 @@
-# Extracting `placement_check` into its own repository
+# `placement_check`: EXTRACTED 2026-08-15
+
+**Done.** Now published at <https://github.com/jonmarrs/placement-check> (public, MIT), via
+`git subtree split`, so both commits and their reasoning carried over. CI green on Python
+3.9 and 3.12.
+
+`tools/placement_check/` is retained here as the **subtree**, not as a stale copy. Keeping
+it means the shareable module stays present locally, which is what lets
+`tests/test_placement_impl_parity.py` check that the published tool and the implementation
+we actually run (`repro/sota_data/register.py::placement_peak`) still return the same
+answer. They are deliberately different code, numpy-only versus OpenCV, so only the answers
+are compared.
+
+To push later changes out:
+
+```bash
+git subtree push --prefix=tools/placement_check \
+    https://github.com/jonmarrs/placement-check.git main
+```
+
+Everything below is the original plan, kept for the record.
+
+---
+
+## Original plan: extracting into its own repository
 
 `tools/placement_check/` is self-contained: numpy only, no import from this repo, its own
 LICENSE, `.gitignore`, CI and `pyproject.toml`. Verified by copying it outside the repo,
