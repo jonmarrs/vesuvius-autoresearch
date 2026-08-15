@@ -15,7 +15,11 @@ import pathlib
 import pytest
 
 SCRIPTS = pathlib.Path(__file__).resolve().parents[1] / "scripts"
-PROBES = ["probe_placement_field.py", "probe_registration_offset.py"]
+PROBES = [
+    "probe_labeled_segment_availability.py",
+    "probe_placement_field.py",
+    "probe_registration_offset.py",
+]
 
 
 def _code_only(path):
@@ -75,8 +79,13 @@ def test_probe_repo_root_points_at_the_repo(name):
     ns: dict = {}
     for line in src.splitlines():
         if line.startswith("REPO_ROOT"):
+            # Both spellings must be executable here: the older probes build REPO_ROOT with
+            # os.path.dirname, probe_labeled_segment_availability uses pathlib. The test
+            # checks where REPO_ROOT lands, which is independent of how it is spelled.
             exec(
-                "import os\n" + line.replace("__file__", repr(str(SCRIPTS / name))), ns
+                "import os\nimport pathlib\n"
+                + line.replace("__file__", repr(str(SCRIPTS / name))),
+                ns,
             )
             break
     assert "REPO_ROOT" in ns, f"{name} defines no REPO_ROOT"
