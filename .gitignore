@@ -61,9 +61,13 @@ scripts/_finetune_lejepa_runner.py
 checkpoints/
 autoresearch.out
 
-# Discord drafts (kept local-only; not for the public repo)
+# Discord DRAFTS stay local-only. What was actually POSTED is tracked: a file that calls
+# itself "the public artifact of record" is not a record if it only exists on one machine.
+# Negations must come after the pattern they exempt.
 docs/DISCORD_*.md
 DISCORD_*.md
+!docs/DISCORD_POSTED_*.md
+!DISCORD_POSTED_*.md
 
 # Community-signal logs may include third-party handles + message text
 # from Discord / GitHub; keep local-only to avoid re-publishing others'
