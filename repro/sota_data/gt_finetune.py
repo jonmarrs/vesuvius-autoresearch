@@ -158,6 +158,23 @@ def _score_ckpt(ckpt):
 
 
 def cmd_score():
+    # cmd_score() overwrites REPORT_MD and REPORT_JSON wholesale, and the fine-tuned
+    # checkpoints from the 2026-07 run are still on disk -- so this command was one
+    # invocation away from erasing the retraction banner and the `superseded` block that
+    # are now the entire content of those two files, and re-emitting the "N/4 regions
+    # passed the teacher-free alignment gate" line. Re-scoring would not rehabilitate
+    # anything either: that model was fine-tuned on displaced labels, so a fresh number
+    # from it is a fresh void number.
+    raise ValueError(
+        f"refusing to regenerate {REPORT_MD} and {REPORT_JSON}: both are now retraction "
+        "records, and this command would overwrite them with the retracted claim. The "
+        "ft_epoch=*.ckpt models were fine-tuned on labels displaced by the LEVEL0_SHAPE "
+        "bug (2026-08-07, second copy 2026-08-14), so re-scoring them measures nothing. "
+        "The experiment cannot be re-run either -- see "
+        "reports/detector/gt_training_data_exhaustion_2026-08-15.md. To score some other "
+        "model against the held-out GT, use repro.sota_data.distill_run, which is not "
+        "wired to these artifacts."
+    )
     if not os.path.exists(HELDOUT_LABEL):
         raise ValueError(
             f"{HELDOUT_LABEL} missing; the slice-6 held-out registration is "
