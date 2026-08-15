@@ -398,6 +398,10 @@ that cannot be scored reliably, and all absolute scores are mild lower bounds.
 - **Done:** placement gate (`register.placement_peak`, enforced in every gate mode,
   threshold 48 px derived from the floor). Held-out target re-validated and re-scored.
 - **Not examined:** `scroll1_20230702185753_y7000_x4000`.
-- **Void, needs retraining:** `arm C + GT fine-tune`, which was fine-tuned on the displaced
-  label. Removed from the leaderboard rather than re-scored — and it should not be
-  retrained until the residual is fixed, or it will just bake in the smaller error.
+- **Void, NOT retrainable:** `arm C + GT fine-tune`, which was fine-tuned on the displaced
+  label. Removed from the leaderboard rather than re-scored. This entry previously made
+  retraining conditional on fixing the residual; that condition was moot, because the
+  residual is closed above as an irreducible floor. Overriding it on 2026-08-15 exposed the
+  real blocker: there is no training set. Exactly one Scroll-1 segment is labelled,
+  re-flattened and correctly placed, and it is spent as the held-out evaluation target. See
+  [gt_training_data_exhaustion_2026-08-15.md](gt_training_data_exhaustion_2026-08-15.md).

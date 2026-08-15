@@ -1,38 +1,10 @@
 {
-  "regions": [
-    {
-      "frag_id": "20230702185753_y4000_x2500",
-      "residual": 7.923079129779206,
-      "periodicity": 0.900489331474854,
-      "gt_ink_fraction": 0.12834036350250244,
-      "passed": true
-    },
-    {
-      "frag_id": "20230702185753_y7000_x4000",
-      "residual": 8.068488879746992,
-      "periodicity": 0.8559966586262975,
-      "gt_ink_fraction": 0.12250947952270508,
-      "passed": true
-    },
-    {
-      "frag_id": "20231005123336_y4000_x2500",
-      "residual": 8.02952033464786,
-      "periodicity": 0.9324939178284003,
-      "gt_ink_fraction": 0.12553948163986206,
-      "passed": true
-    },
-    {
-      "frag_id": "20231005123336_y7000_x4000",
-      "residual": 7.875180422138126,
-      "periodicity": 0.9217953708716362,
-      "gt_ink_fraction": 0.0714988112449646,
-      "passed": true
-    }
-  ],
-  "kept": [
-    "20230702185753_y4000_x2500",
-    "20230702185753_y7000_x4000",
-    "20231005123336_y4000_x2500",
-    "20231005123336_y7000_x4000"
-  ]
+  "superseded": {
+    "date": "2026-08-15",
+    "reason": "This file was written before the 2026-08-14 placement gate existed. It recorded all four regions as passing, which is exactly how the GT fine-tune came to train on displaced labels. Three of the four fail the gate and the fourth passes by 1.4 px on a gate whose own per-tile scatter is +/- 27 to 33 px. Its former numbers are void and have been removed rather than left readable.",
+    "report": "reports/detector/gt_training_data_exhaustion_2026-08-15.md",
+    "regenerate": "uv run python -m repro.sota_data.gt_finetune prep"
+  },
+  "regions": [],
+  "kept": []
 }

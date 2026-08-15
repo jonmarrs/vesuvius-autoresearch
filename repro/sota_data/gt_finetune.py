@@ -73,10 +73,12 @@ def cmd_finetune():
     if len(kept) < 2:
         raise ValueError(
             f"{PREP_JSON} kept only {len(kept)} region(s): {kept}. Fine-tuning needs at "
-            "least 2 so validation can be disjoint from training. As of 2026-08-14 three "
-            "of the four configured regions fail the placement gate, so this experiment "
-            "needs new training GT rather than a smaller split -- see "
-            "reports/detector/registration_offset_2026-08-07.md."
+            "least 2 so validation can be disjoint from training. Three of the four "
+            "configured regions fail the 2026-08-14 placement gate, and as of 2026-08-15 "
+            "no replacement exists: exactly one Scroll-1 segment is labelled, re-flattened "
+            "and correctly placed, and it is spent as the held-out evaluation target. This "
+            "is not fixable with a smaller split or more compute -- see "
+            "reports/detector/gt_training_data_exhaustion_2026-08-15.md."
         )
     train_ids, valid_id = kept[:-1], kept[-1]
     print(f"finetune: train={train_ids} valid={valid_id} (disjoint)", flush=True)
