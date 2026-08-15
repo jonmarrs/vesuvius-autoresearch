@@ -33,9 +33,19 @@ section shows — not a problem a better registration would solve either.
 
 Surveyed 2026-08-15. Six Scroll-1 segments carry a 2023 hand ink label; three of those are
 present in the open data and three are absent; eleven segments in the open data are 2023-era,
-of which eight are re-flattened but carry no hand label (all five counts from
+of which eight carry no hand label (all five counts from
 `labeled_segment_availability.json`: `labeled`, `present`, `absent`, `era_2023`,
 `unlabeled_2023`).
+
+**What the probe's bucket half does and does not establish.** `era_2023` and
+`unlabeled_2023` are derived from a listing of `PHercParis4/segments/`, so they prove those
+eight segments are *published*, not that each one resolves a `surface-volumes/` prefix and is
+therefore usable geometry. That stronger claim was checked directly against the bucket on
+**2026-08-15**, as a separate step outside the probe: all eight resolve both
+`surface-volumes/` and `ink-detection/`, and the three absent segments do not appear under
+`segments/` at all. Where this report says the geometry for those eight already exists, it
+rests on that dated check, not on the probe — and re-running the probe alone will not
+re-establish it.
 
 | segment | hand label | in open data | placement | usable as training GT |
 |---|---|---|---|---|
@@ -53,6 +63,12 @@ Placement figures: 46.6 px and 53.3 px at `registration_offset_2026-08-07.md:282
 registered ink fraction 0.0005) at `:273-274` and `:285`; 32.0 px at `:318` and `:339`. The
 three absent segments and the six/three/three split are from
 `labeled_segment_availability.json`.
+
+One figure in the table is an acknowledged exception to the citation rule stated at the top:
+the retirement **date**, 2026-08-14, appears in neither permitted source. The probe JSON
+records the fact of the retirement (`retired: ["20230702185753"]`) but carries no date; the
+date is at `../scrollgt/README.md:126` and at `scripts/probe_labeled_segment_availability.py:51-53`,
+where the exclusion and its reason are kept together as data.
 
 **Two disclosures about the table's provenance, so a reader does not have to reconcile it
 against the probe by hand.**
@@ -105,13 +121,27 @@ published upstream) and neither is downstream of the other.
 The correct statement is **not testable, for want of a training set**.
 
 It is specifically *not* "GT fine-tuning does not help". That was the 2026-07-11 claim, it was
-published, and it was retracted on 2026-08-07 because the model had been fine-tuned on
-displaced labels — two of its four training regions carried a 167% x-scale error from a second
-hardcoded level-0 shape, and the other two sat on the segment now known to be the worse-placed
-one (`registration_offset_2026-08-07.md:224-235`). Replacing a false negative with a stronger
-negative pointed the same direction would repeat the original error with more confidence. The
-honest replacement is narrower: the experiment cannot be run, and here is precisely which
-resource is missing.
+published, and it was retracted on 2026-08-07. The reason it was retracted *that day* is
+narrower than the reason we would give now, and the two should not be run together. What was
+known on 08-07 is that the **evaluation** label was displaced: the 08-07 report states that
+every conclusion resting on the held-out misregistration inherits the doubt, the GT fine-tune
+negative included, because a model scored against displaced labels degrades toward the trivial
+predictor — which is exactly what had been observed
+(`registration_offset_2026-08-07.md:77-81`).
+
+A week later the account got worse rather than different. On **2026-08-14** a second copy of
+the same hardcoded constant was found, in `gt_register.py`, having survived the first fix
+because nobody grepped for other copies (`registration_offset_2026-08-07.md:218-222`). That
+put the fine-tune's **training** labels in the same condition as its evaluation label: two of
+its four regions carried a 167% x-scale error, and the other two sat on the segment now known
+to be the worse-placed one. The 08-07 report calls this "very likely the whole of" the
+negative, and says in the same breath that the result "was already retracted on weaker
+grounds" (`registration_offset_2026-08-07.md:224-235`) — the retraction did not wait on this
+discovery, and did not depend on it.
+
+Replacing a false negative with a stronger negative pointed the same direction would repeat
+the original error with more confidence. The honest replacement is narrower: the experiment
+cannot be run, and here is precisely which resource is missing.
 
 All four of the fine-tune's configured training regions are now measured, and at best one
 marginal region survives (`registration_offset_2026-08-07.md:278-290`). That is the same
@@ -119,7 +149,10 @@ arithmetic as the headline, seen from the experiment's side.
 
 **The experiment's original premise is void independently of the data question.** It asked
 whether human GT supervision could unlock held-out reading where distillation could not,
-citing arm C at ROC-AUC **0.558** as the bar to beat. That number was produced against the
+citing arm C — the 3-scroll student, identified as such at
+`docs/PRIZE_FILING_2026-07_SUBMIT.md:19`, since the 08-07 report gives the two students'
+figures without naming which is which — at ROC-AUC **0.558** as the bar to beat. That number
+was produced against the
 misregistered label. Post-correction, the 08-07 report records the two clean held-out students
 going **0.553/0.558 → 0.731/0.746**, and the canon teacher **0.563 → 0.753**, against an
 all-positive floor of 0.518 (`registration_offset_2026-08-07.md:8-10`). The figure the
@@ -130,7 +163,7 @@ artifact of our own constant.
 So even with a training set in hand, the question would have to be re-posed before it was
 worth asking.
 
-## Consequence 2: ScrollGT's pixel target family is n=1 and cannot be expanded
+## Consequence 2: ScrollGT's pixel target family is n=1 and cannot be expanded today
 
 This is the half that reaches users, and it is the reason this finding ships outward rather
 than staying in the lab notebook.
@@ -140,9 +173,13 @@ ScrollGT already discloses that the pixel family has one scoreable target — `R
 `20230702185753` regions were marked non-scoring on 2026-08-14: local placement error there
 reaches roughly 1.9× the 512 µm prize analysis window, so within one window a model can be
 scored against ground truth from a different part of the sheet. The underlying measurement is
-in the 08-07 report: that segment reports 46.6 px globally while individual 768 px tiles run
-to **~102 px (~0.96 mm)**, against ~50 px worst-tile on the held-out target
-(`registration_offset_2026-08-07.md:337-339`, `:358-362`).
+in the 08-07 report, and it is two figures rather than one: per-tile, that segment's worst
+768 px tile is **~102 px** against ~50 px on the held-out target
+(`registration_offset_2026-08-07.md:337-339`), and the disclosure paragraph puts the same
+worst case at **~100 px, ~0.96 mm** (`:360`). Globally the segment reports 46.6 px, which is
+the number that understates it. (ScrollGT states 0.98 mm for that tile at
+`../scrollgt/README.md:142`, a rounding difference against the 08-07 report's 0.96 mm and
+worth reconciling whenever that file is next edited.)
 
 What the README does not yet say is that the family is *closed*. At `README.md:149` the
 disclosure is qualified — `20231210121321` is "currently the only pixel target we would stand
@@ -165,13 +202,14 @@ than a dead end. Either path would yield a second candidate:
 1. **Re-flatten** any of the three labelled-but-absent segments — `20230820203112`,
    `20230826170124`, `20230903193206` (`labeled_segment_availability.json`, `absent`). The
    hand labels already exist; the geometry does not.
-2. **Hand-label** any of the eight re-flattened 2023-era segments that carry no label —
+2. **Hand-label** any of the eight published 2023-era segments that carry no label —
    `20230929220926`, `20231007101619`, `20231012184424`, `20231016151002`, `20231022170901`,
    `20231031143852`, `20231106155351`, `20231221180251`
-   (`labeled_segment_availability.json`, `unlabeled_2023`). The geometry already exists; the
-   labels do not.
+   (`labeled_segment_availability.json`, `unlabeled_2023`; all eight confirmed to resolve
+   `surface-volumes/` by the direct bucket check dated 2026-08-15 above, which the probe does
+   not perform). The geometry already exists; the labels do not.
 
-**Both are necessary, neither is sufficient.** A new segment still has to pass the placement
+**Each is necessary but not sufficient.** A new segment still has to pass the placement
 gate, and that is not a formality. The measured base rate so far is **1 of 3**: of the three
 labelled segments present in the open data, `20231210121321` passes at 32.0 px,
 `20231005123336` fails at 55.1 px, and `20230702185753` clears the threshold by 1.4 px yet is
