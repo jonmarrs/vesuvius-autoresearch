@@ -1,22 +1,37 @@
-# `placement_check`: EXTRACTED 2026-08-15
+# Extracted tools
 
-**Done.** Now published at <https://github.com/jonmarrs/placement-check> (public, MIT), via
-`git subtree split`, so both commits and their reasoning carried over. CI green on Python
-3.9 and 3.12.
+Two tools have been split out of `tools/` into their own public repositories, both via
+`git subtree split` so their commits and reasoning travelled with them.
 
-`tools/placement_check/` is retained here as the **subtree**, not as a stale copy. Keeping
-it means the shareable module stays present locally, which is what lets
-`tests/test_placement_impl_parity.py` check that the published tool and the implementation
-we actually run (`repro/sota_data/register.py::placement_peak`) still return the same
-answer. They are deliberately different code, numpy-only versus OpenCV, so only the answers
-are compared.
+| tool | repo | CI | local copy |
+|---|---|---|---|
+| `placement_check` | <https://github.com/jonmarrs/placement-check> | green 3.9 + 3.12 | subtree, **parity-tested** |
+| `scroll_frames` | <https://github.com/jonmarrs/scroll-frames> | green 3.9 + 3.12 | subtree |
 
-To push later changes out:
+Both local copies are retained as subtrees rather than deleted, so the shareable module
+stays present and pushable:
 
 ```bash
 git subtree push --prefix=tools/placement_check \
     https://github.com/jonmarrs/placement-check.git main
+git subtree push --prefix=tools/scroll_frames \
+    https://github.com/jonmarrs/scroll-frames.git main
 ```
+
+## Why only one of them is parity-tested
+
+`placement_check` has a **second implementation** in this repo:
+`repro/sota_data/register.py::placement_peak`, which is what actually gates our
+registration. Two copies of one check that must not drift is the exact shape of the bug
+that started this work, so `tests/test_placement_impl_parity.py` pins them to the same
+answers. They are allowed to differ in code (numpy-only versus the OpenCV already here), so
+it compares outputs rather than source.
+
+`scroll_frames` has no second implementation. Nothing in `repro/` duplicates it, so there is
+nothing to pin, and adding a test would be theatre. If a second copy ever appears, add the
+parity test then.
+
+---
 
 Everything below is the original plan, kept for the record.
 
