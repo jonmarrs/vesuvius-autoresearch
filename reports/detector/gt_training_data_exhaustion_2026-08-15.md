@@ -13,9 +13,12 @@ On Scroll 1, the intersection of three requirements
 
 - carries a 2023 hand ink label,
 - has a SOTA re-flattening in the open data,
-- passes the 48 level-2 px placement gate,
+- is placed well enough to score against — which means clearing the 48 level-2 px placement
+  gate **and** not having been retired non-scoring for local placement error,
 
-contains **exactly one segment**: `20231210121321`, measured at **32.0 px**
+contains **exactly one segment**. Two segments clear the gate; the third criterion is stated
+with its second half because that half is what excludes one of them. The survivor is
+`20231210121321`, measured at **32.0 px**
 (`registration_offset_2026-08-07.md:318`, `:339`). That segment is already spent — it is the
 held-out evaluation target, the only pixel target the 08-07 report is willing to stand behind
 (`registration_offset_2026-08-07.md:345-347`).
@@ -24,7 +27,9 @@ One segment cannot be both the training set and the held-out test. The survey re
 `"measured_passing": ["20231210121321"]` and `"exhausted": true`, where `exhausted` is defined
 as fewer than two usable segments, two being the minimum a train/held-out split requires
 (`labeled_segment_availability.json`; the definition lives in `classify()` in
-`scripts/probe_labeled_segment_availability.py`).
+`scripts/probe_labeled_segment_availability.py`). The same record carries `"status":
+"exhausted_pending_measurement"`, which says *why* it is exhausted — see Limitations for what
+moves when the upstream data changes, since `exhausted` alone will not move on its own.
 
 This is a pigeonhole. It is not a budget problem, not a compute problem, and — as the next
 section shows — not a problem a better registration would solve either.
@@ -147,6 +152,15 @@ All four of the fine-tune's configured training regions are now measured, and at
 marginal region survives (`registration_offset_2026-08-07.md:278-290`). That is the same
 arithmetic as the headline, seen from the experiment's side.
 
+**Where the retracted record lives.** The published report of that result,
+[`gt_finetune_heldout.md`](gt_finetune_heldout.md), is kept rather than deleted, with a
+retraction banner at the top marking both its headline and its "4/4 regions passed" claim as
+void; its companion `gt_finetune_heldout.json` and the prep artifact `gt_finetune_prep.json`
+carry `superseded` blocks saying the same in machine-readable form, and
+`repro.sota_data.gt_finetune finetune` refuses to run at all. A retraction that leaves the
+original text readable is deliberate: the point is that no record keeps *asserting* the
+retracted claim, not that the claim disappears from the history.
+
 **The experiment's original premise is void independently of the data question.** It asked
 whether human GT supervision could unlock held-out reading where distillation could not,
 citing arm C — the 3-scroll student, identified as such at
@@ -177,22 +191,27 @@ in the 08-07 report, and it is two figures rather than one: per-tile, that segme
 768 px tile is **~102 px** against ~50 px on the held-out target
 (`registration_offset_2026-08-07.md:337-339`), and the disclosure paragraph puts the same
 worst case at **~100 px, ~0.96 mm** (`:360`). Globally the segment reports 46.6 px, which is
-the number that understates it. (ScrollGT states 0.98 mm for that tile at
-`../scrollgt/README.md:142`, a rounding difference against the 08-07 report's 0.96 mm and
-worth reconciling whenever that file is next edited.)
+the number that understates it. (ScrollGT used to state 0.98 mm for that tile, a rounding
+difference against the 08-07 report's 0.96 mm; corrected by ScrollGT commit `6123e5a`
+2026-08-15, and `../scrollgt/README.md:142` now reads "worst tile ~0.96 mm = 1.9 windows".)
 
-What the README does not yet say is that the family is *closed*. At `README.md:149` the
-disclosure is qualified — `20231210121321` is "currently the only pixel target we would stand
-behind". *Currently* implies the family grows with more processing effort on our side. This
-survey rules that out: the candidate pool is exhausted at n=1, and expansion requires new
-upstream data that does not exist today. A reader who takes "currently" at face value will
-plan around a benchmark that is about to get broader, and it is not.
+The README also did not say that the family is *closed*. Its disclosure was qualified —
+`20231210121321` was "**currently** the only pixel target we would stand behind" — and
+*currently* implies the family grows with more processing effort on our side. This survey
+rules that out: the candidate pool is exhausted at n=1, and expansion requires new upstream
+data that does not exist today. A reader who took "currently" at face value would plan around
+a benchmark that was about to get broader, and it is not. The same ScrollGT commit `6123e5a`
+dropped the word (`README.md:149-150`) and added the exhaustion paragraph — "And the pool is
+exhausted, not merely unprocessed" (`README.md:152-159`) — which carries the six/three/three
+split, the two blockers, and a pointer to the re-runnable probe. Both corrections are made;
+what follows is why they matter to a reader, not an outstanding action.
 
 This matters for interpretation, not just for bookkeeping. A single-target pixel family cannot
 separate model quality from segment idiosyncrasy — any score is a score on one sheet, and
 nothing in the benchmark distinguishes a model that reads ink from a model that suits
 `20231210121321`. Anyone re-pulling and re-scoring against ScrollGT deserves that stated
-alongside the number.
+alongside the number, which `6123e5a` also does — `README.md:161`, "What this costs you as a
+user".
 
 ## Two unblock paths, both upstream
 
@@ -209,26 +228,49 @@ than a dead end. Either path would yield a second candidate:
    `surface-volumes/` by the direct bucket check dated 2026-08-15 above, which the probe does
    not perform). The geometry already exists; the labels do not.
 
-**Each is necessary but not sufficient.** A new segment still has to pass the placement
-gate, and that is not a formality. The measured base rate so far is **1 of 3**: of the three
-labelled segments present in the open data, `20231210121321` passes at 32.0 px,
-`20231005123336` fails at 55.1 px, and `20230702185753` clears the threshold by 1.4 px yet is
-retired non-scoring anyway (`registration_offset_2026-08-07.md:318-320`, `:267`;
-`labeled_segment_availability.json`, `in_gate` vs `retired` vs `measured_passing`). That last
-case is worth dwelling on: **clearing the gate is necessary but not sufficient.** The survey
-keeps `in_gate` and `measured_passing` as separate fields for exactly this reason, so the
-exclusion is visible in the data rather than buried inside a single count.
+**Each is necessary but not sufficient.** A new segment still has to be placed well enough to
+use, and that is not a formality. Two base rates, kept apart because conflating them is the
+error this project has already had to fix once in ScrollGT:
+
+- **gate-pass, 2 of 3** (`in_gate`): of the three labelled segments present in the open data,
+  `20231210121321` passes at 32.0 px and `20230702185753` at 46.6 px, while `20231005123336`
+  fails at 55.1 px.
+- **usable, 1 of 3** (`measured_passing`): `20230702185753` clears the threshold by 1.4 px
+  and is retired non-scoring anyway.
+
+(`registration_offset_2026-08-07.md:318-320`, `:267`; `labeled_segment_availability.json`,
+`in_gate` vs `retired` vs `measured_passing`.) That last case is worth dwelling on:
+**clearing the gate is necessary but not sufficient.** The survey keeps `in_gate` and
+`measured_passing` as separate fields for exactly this reason, so the exclusion is visible in
+the data rather than buried inside a single count.
 
 ## Limitations
 
-**This is a point-in-time observation, stamped 2026-08-15.** The open data changes. The three
-absent segments could be published next month, and if they are, this finding stops being true.
+**This is a point-in-time observation, established 2026-08-15.** The open data changes. The
+three absent segments could be published next month — but publication alone would **not** end
+the exhaustion, for the same reason stated in the unblock paths above: a new segment still has
+to be placed well enough to use, and that is measured here, not upstream. Publication is
+necessary and not sufficient.
+
+So be specific about what a re-run would show, rather than watching the headline. On
+publication, `absent` shrinks and `present` grows immediately, and the newly published segment
+appears in `unmeasured` — present, not retired, and carrying no committed placement. `status`
+reads `exhausted_pending_measurement` whenever such a candidate exists, against
+`exhausted_no_candidate` when none does. `exhausted` itself flips only after someone registers
+that segment here and its placement lands inside the gate; it cannot be flipped by upstream
+alone, and the probe is built that way deliberately — it never reports an unmeasured segment
+as fine. `20231005123336` sits in `unmeasured` today for exactly that reason (see the
+provenance disclosure above): the probe declines to call it a failure on a measurement it does
+not hold, even though the 08-07 report has one.
+
 That is why the survey is a committed probe rather than a constant in a document:
 `scripts/probe_labeled_segment_availability.py` re-runs both halves — the local label scan and
-the live bucket listing — and rewrites `labeled_segment_availability.json`. Anyone acting on
-this report should re-run it rather than trust the date. The probe treats an unreachable
-bucket as a hard error rather than an empty result, precisely so that a network failure cannot
-manufacture the exhaustion finding.
+the live bucket listing — and rewrites `labeled_segment_availability.json`, stamping the run
+date and whether the run was live or `--offline` (a reused listing carries the date it was
+listed, so a stale availability claim cannot wear a fresh stamp). Anyone acting on this report
+should re-run it rather than trust the date. The probe treats an unreachable bucket as a hard
+error rather than an empty result, precisely so that a network failure cannot manufacture the
+exhaustion finding.
 
 **Placement verification is relative, not absolute.** `placement_peak` measures where GT-vs-
 prediction agreement is maximised against the canon teacher's own region crop
