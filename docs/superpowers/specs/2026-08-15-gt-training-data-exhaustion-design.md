@@ -197,10 +197,16 @@ Framed as a limitation of the benchmark, not as a finding about anyone's model.
   segments could be published later. D1 exists so the claim can be re-checked rather than
   trusted, and D2 must date-stamp it.
 - **Placement verification is relative, not absolute.** `placement_peak` measures label
-  agreement against the canon teacher crop. Where the teacher is chance-quality (as on
-  `20231005123336`, enrichment ~1 for all four orientations), the peak is weakly determined
-  and the resulting number should not be read as a precise placement estimate. This does not
-  affect the finding, which turns on data absence for three segments and on a floor already
-  established independently for the other two.
+  agreement against the canon teacher crop, so it localises disagreement between two
+  artifacts rather than establishing truth. This is a general caveat on every placement
+  figure quoted here, and it does not single out any one segment.
+
+  It is specifically *not* a caveat on `20231005123336`, and an earlier draft of this spec
+  wrongly said it was. The chance-quality teacher there (enrichment ~1 across all four
+  orientation candidates) was our own second hardcoded level-0 shape; re-registered with the
+  fix, teacher-enrichment is **4.88** and the orientation is decisively determined
+  (`../scrollgt/baselines/BASELINES.md:119-131`). Its 55.1 px placement is a properly
+  measured failure, not a weakly determined one. That strengthens the finding rather than
+  qualifying it.
 - **The base rate for a new segment passing the gate is 1 of 3 measured.** The unblock paths
   in D2 should be stated as necessary, not sufficient.
