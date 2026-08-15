@@ -24,6 +24,8 @@
   - 81 segments under `PHercParis4/segments`, 11 of them 2023-era.
   - 8 re-flattened 2023-era segments carry no label: `20230929220926`, `20231007101619`, `20231012184424`, `20231016151002`, `20231022170901`, `20231031143852`, `20231106155351`, `20231221180251`.
   - Placement: `20230702185753` y4000_x2500 = 46.6 px, y7000_x4000 = 53.3 px, `20231005123336` y4000_x2500 = 55.1 px, y7000_x4000 drops at prep, `20231210121321` = 32.0 px. Gate = 48 px.
+  - **Clearing the gate is necessary but not sufficient.** `20230702185753` clears it by 1.4 px and is still retired non-scoring (2026-08-14, worst tile ~1.9x the 512 um analysis window). Usable segments = exactly **1** (`20231210121321`), which is why the experiment is exhausted.
+  - `villa/ink-detection/train_scrolls/` contains **8** labelled directories, of which **6** are Scroll-1 segments. `PHercParis2Fr47` and `PHercParis2Fr143` are fragments of a different object, retained for the GP-winner reproduction, and must never be counted in this survey or deleted from the checkout.
 
 ---
 
@@ -39,8 +41,10 @@
   - `REPO_ROOT: pathlib.Path`
   - `labeled_segments(train_scrolls_root: pathlib.Path) -> list[str]`
   - `placements_on_disk(reports_dir: pathlib.Path) -> dict[str, float]`
-  - `classify(labeled: Iterable[str], bucket_segments: Iterable[str], placements: Mapping[str, float], gate_px: float = 48.0) -> dict`
-    returning keys `labeled`, `present`, `absent`, `era_2023`, `unlabeled_2023`, `measured_passing`, `exhausted`.
+  - `RETIRED_NON_SCORING: tuple[str, ...]` — segments excluded even when they clear the gate.
+  - `classify(labeled: Iterable[str], bucket_segments: Iterable[str], placements: Mapping[str, float], retired: Iterable[str] = (), gate_px: float = 48.0) -> dict`
+    returning keys `surveyed`, `gate_px`, `labeled`, `present`, `absent`, `era_2023`, `unlabeled_2023`, `in_gate`, `retired`, `measured_passing`, `exhausted`.
+    Note `in_gate` (cleared the placement gate) and `measured_passing` (cleared it *and* not retired) are deliberately separate, so the JSON shows the exclusion instead of hiding it in one number.
   - `bucket_segments(fs) -> list[str]` (network)
 - Task 2 consumes the probe's JSON output at `reports/detector/labeled_segment_availability.json`.
 
@@ -67,6 +71,7 @@ REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
 
 from probe_labeled_segment_availability import (  # noqa: E402
+    RETIRED_NON_SCORING,
     classify,
     labeled_segments,
     placements_on_disk,
@@ -103,15 +108,23 @@ def test_classify_partitions_labelled_segments_by_availability():
     assert out["unlabeled_2023"] == UNLABELED_2023
 
 
-def test_only_one_segment_passes_the_placement_gate():
-    """The pigeonhole: one well-placed segment cannot be both train set and held-out test."""
+def test_clearing_the_gate_is_necessary_but_not_sufficient():
+    """20230702185753 clears the gate by 1.4px and is still unusable.
+
+    It was retired as non-scoring on 2026-08-14 because its worst tile reaches ~1.9x the
+    512um analysis window. A probe that counted it would report exhausted=False and
+    contradict the report it exists to support.
+    """
     placements = {
-        "20230702185753": 46.6,  # passes by 1.4px, but retired non-scoring 2026-08-14
+        "20230702185753": 46.6,
         "20231005123336": 55.1,
         "20231210121321": 32.0,
     }
-    out = classify(LABELED, BUCKET_2023, placements, gate_px=48.0)
-    assert out["measured_passing"] == ["20230702185753", "20231210121321"]
+    out = classify(
+        LABELED, BUCKET_2023, placements, retired=RETIRED_NON_SCORING, gate_px=48.0
+    )
+    assert out["in_gate"] == ["20230702185753", "20231210121321"]
+    assert out["measured_passing"] == ["20231210121321"]
     assert out["exhausted"] is True
 
 
@@ -119,8 +132,25 @@ def test_a_second_well_placed_segment_would_lift_exhaustion():
     """Guard against the claim silently outliving the condition that produced it."""
     bucket = BUCKET_2023 + ["20230820203112"]
     placements = {"20231210121321": 32.0, "20230820203112": 30.0}
-    out = classify(LABELED, bucket, placements, gate_px=48.0)
+    out = classify(
+        LABELED, bucket, placements, retired=RETIRED_NON_SCORING, gate_px=48.0
+    )
+    assert out["measured_passing"] == ["20230820203112", "20231210121321"]
     assert out["exhausted"] is False
+
+
+def test_fragments_of_other_objects_are_not_counted_as_scroll1_segments():
+    """train_scrolls/ also holds PHercParis2Fr47 and PHercParis2Fr143.
+
+    Those are fragments of a different object, retained for the GP-winner reproduction.
+    Counting them would inflate the Scroll-1 survey from 6 to 8.
+    """
+    root = REPO_ROOT / "villa" / "ink-detection" / "train_scrolls"
+    if not root.is_dir():
+        pytest.skip("villa/ink-detection/train_scrolls not present")
+    got = labeled_segments(root)
+    assert not [s for s in got if not s.isdigit()]
+    assert "PHercParis2Fr47" not in got and "PHercParis2Fr143" not in got
 
 
 def test_placements_are_read_from_committed_validation_json():
@@ -188,6 +218,7 @@ Usage:
 import argparse
 import json
 import pathlib
+import re
 import sys
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
@@ -197,12 +228,25 @@ OUT_JSON = REPORTS_DIR / "labeled_segment_availability.json"
 SURVEY_DATE = "2026-08-15"
 GATE_PX = 48.0
 
+# A Scroll-1 segment id is a 14-digit scan timestamp. train_scrolls/ also holds
+# PHercParis2Fr47 and PHercParis2Fr143, fragments of a different object kept for the
+# GP-winner reproduction; counting them would inflate this survey from 6 to 8.
+SEGMENT_ID = re.compile(r"^\d{14}$")
+
+# Segments that clear the placement gate and are still unusable. 20230702185753 passes by
+# 1.4 px globally while its worst 768px tile reaches ~1.9x the 512um analysis window, so a
+# score there can land on a different part of the sheet; retired non-scoring 2026-08-14.
+# Kept as data, not a special case in the logic, so the reason travels with the exclusion.
+RETIRED_NON_SCORING = ("20230702185753",)
+
 
 def labeled_segments(train_scrolls_root):
-    """Segments carrying a 2023 hand ink label, sorted."""
+    """Scroll-1 segments carrying a 2023 hand ink label, sorted."""
     root = pathlib.Path(train_scrolls_root)
     return sorted(
-        p.name for p in root.iterdir() if (p / f"{p.name}_inklabels.png").is_file()
+        p.name
+        for p in root.iterdir()
+        if SEGMENT_ID.match(p.name) and (p / f"{p.name}_inklabels.png").is_file()
     )
 
 
@@ -223,16 +267,21 @@ def placements_on_disk(reports_dir):
     return out
 
 
-def classify(labeled, bucket_segments, placements, gate_px=GATE_PX):
+def classify(labeled, bucket_segments, placements, retired=(), gate_px=GATE_PX):
     """Partition labelled segments by data availability and measured placement."""
     labeled, bucket = sorted(set(labeled)), set(bucket_segments)
+    retired = set(retired)
     present = sorted(s for s in labeled if s in bucket)
     era_2023 = sorted(s for s in bucket if s.startswith("2023"))
-    passing = sorted(
+    in_gate = sorted(
         s
         for s in present
         if placements.get(s) is not None and placements[s] <= gate_px
     )
+    # Clearing the gate is necessary, not sufficient: a retired segment is excluded even
+    # though it passes. Keeping the two sets separate means the JSON shows the difference
+    # rather than hiding an exclusion inside a single number.
+    usable = sorted(s for s in in_gate if s not in retired)
     return {
         "surveyed": SURVEY_DATE,
         "gate_px": gate_px,
@@ -241,10 +290,12 @@ def classify(labeled, bucket_segments, placements, gate_px=GATE_PX):
         "absent": sorted(s for s in labeled if s not in bucket),
         "era_2023": era_2023,
         "unlabeled_2023": sorted(s for s in era_2023 if s not in set(labeled)),
-        "measured_passing": passing,
-        # One passing segment is required as the held-out eval target, so a training split
+        "in_gate": in_gate,
+        "retired": sorted(retired),
+        "measured_passing": usable,
+        # One usable segment is required as the held-out eval target, so a training split
         # needs at least two. Fewer means the experiment has no training set at all.
-        "exhausted": len(passing) < 2,
+        "exhausted": len(usable) < 2,
     }
 
 
@@ -278,7 +329,7 @@ def main():
 
         bucket = bucket_segments(s3fs.S3FileSystem(anon=True))
 
-    out = classify(labeled, bucket, placements)
+    out = classify(labeled, bucket, placements, retired=RETIRED_NON_SCORING)
     OUT_JSON.write_text(json.dumps(out, indent=2) + "\n")
 
     print(f"survey {out['surveyed']}  gate {out['gate_px']:.0f} px")
@@ -292,7 +343,9 @@ def main():
     print(f"\nlabelled: {len(out['labeled'])}  present: {len(out['present'])}  "
           f"absent: {len(out['absent'])}")
     print(f"re-flattened 2023-era without a label: {len(out['unlabeled_2023'])}")
-    print(f"measured inside the gate: {out['measured_passing']}")
+    print(f"inside the gate: {out['in_gate']}")
+    print(f"retired despite passing: {out['retired']}")
+    print(f"usable: {out['measured_passing']}")
     print(f"EXHAUSTED: {out['exhausted']}  (needs >= 2 for a train/held-out split)")
     print(f"\nwrote {OUT_JSON}")
 
@@ -330,7 +383,7 @@ Expected: PASS
 - [ ] **Step 6: Run the probe against live data**
 
 Run: `uv run python scripts/probe_labeled_segment_availability.py`
-Expected: `EXHAUSTED: True`, `absent` lists the three segments, `unlabeled_2023` has 8 entries. Writes `reports/detector/labeled_segment_availability.json`.
+Expected: 6 labelled, 3 present, `absent` lists the three segments, `unlabeled_2023` has 8 entries, `in_gate` is `['20230702185753', '20231210121321']`, `retired` is `['20230702185753']`, `usable` is `['20231210121321']`, `EXHAUSTED: True`. Writes `reports/detector/labeled_segment_availability.json`.
 
 If any count disagrees with Global Constraints, STOP and report — the finding has changed and the report in Task 2 must be rewritten, not adjusted.
 
@@ -737,6 +790,6 @@ Expected: `## main...origin/main [ahead 1]`
 
 **Placeholder scan:** no TBD/TODO. Every code step carries literal content. Task 2's report is specified as seven required elements with sources rather than pasted prose, because it is a prose deliverable whose numbers must be re-verified at write time (Step 2) rather than copied from a plan that could drift.
 
-**Type consistency:** `classify` returns the same seven keys used by the tests, the probe's `main`, and Task 2's verification snippet. `labeled_segments` and `placements_on_disk` take a path and return `list[str]` / `dict[str, float]` consistently in the probe and the test import. `REPO_ROOT` is derived from `__file__` in both files, satisfying `test_probe_paths.py`.
+**Type consistency:** `classify` returns the same eleven keys used by the tests, the probe's `main`, and Task 2's verification snippet, including the `in_gate`/`measured_passing` pair and `RETIRED_NON_SCORING`. `labeled_segments` and `placements_on_disk` take a path and return `list[str]` / `dict[str, float]` consistently in the probe and the test import. `REPO_ROOT` is derived from `__file__` in both files, satisfying `test_probe_paths.py`.
 
 **One risk carried deliberately:** Task 1 Step 6 can invalidate Task 2 before it is written, if the bucket has changed since 2026-08-15. The step says STOP and report rather than adjust, because a changed survey means a different finding, not a different sentence.
