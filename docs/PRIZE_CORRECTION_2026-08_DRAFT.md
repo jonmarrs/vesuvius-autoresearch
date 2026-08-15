@@ -6,8 +6,25 @@
   announcement. Verbatim record: `DISCORD_POSTED_robots_2026-08-14_CORRECTION.md`. Posted
   as a reply rather than an edit, because the original was already near Discord's
   2000-character limit; the trimmed reply came to 1931 characters.
-- **Section A (form / organiser): NOT SENT.** The July filing's central evidence is still
-  uncorrected in the official record. This is the remaining action.
+- **Section A (form / organiser): WILL NOT BE SENT.** Decided by Jon, 2026-08-14: the July
+  review window closed on 07-31 and the judges are most likely done, so a separate email
+  would not reach a live decision and risks reading as angling for reconsideration.
+  Deliberate call, not an oversight.
+
+  Residual exposure, for the record: of the two retracted claims, the held-out result
+  *understated* our models, so leaving it uncorrected costs us rather than flatters us. The
+  renderer's "for the first time" novelty claim is the one that runs the other way, and it
+  remains in the official record unchallenged.
+
+  **If an August submission is filed, open it with a short corrections note covering both.**
+  Same reviewers, no separate outreach, reads as diligence. If nothing is filed, this lapses
+  and the public record (repos + `#robots`) stands corrected regardless.
+
+  The identified channel, should it ever be needed, is `team@scrollprize.org` (the FAQ
+  designates it for reaching organisers about progress and submissions). NOT
+  `grandprize@scrollprize.org`, which is the Grand Prize / First Letters submission intake,
+  and not the Google Form, whose July window is closed and which would read a correction as
+  a new entry.
 
 **Updated 2026-08-14** to describe the final state. The first draft was written on 08-07,
 before a second copy of the same bug was found, before the third pixel target was measured,
