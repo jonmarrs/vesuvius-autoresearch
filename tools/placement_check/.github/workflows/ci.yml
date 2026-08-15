@@ -1,0 +1,22 @@
+name: CI
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        # Floor and ceiling: the floor is what pyproject claims to support, and an
+        # untested claim is how you end up shipping something that does not install.
+        python-version: ["3.9", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install from the package definition, not from source
+        run: pip install ".[test,images]"
+      - name: Test
+        run: pytest -q
+      - name: The console script must exist and run
+        run: placement-check --help

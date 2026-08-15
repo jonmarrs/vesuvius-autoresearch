@@ -1,0 +1,9 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+build/
+dist/
+*.egg-info/
+# No lockfile: this is a library, so consumers resolve their own dependency versions.
+uv.lock
