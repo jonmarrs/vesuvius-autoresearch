@@ -1,7 +1,18 @@
-"""Ground-truth fine-tuning POC (operational): register human labels for 2 Scroll-1 segments
-onto SOTA geometry, fine-tune the best distilled model (arm C) on them, and measure on the
-held-out 20231210121321 GT -- a before/after test of whether ground-truth supervision reads
-held-out ink where distillation-from-canon (arm C, 0.558) could not."""
+"""Ground-truth fine-tuning POC (operational; no longer runnable): register human labels for
+2 Scroll-1 segments onto SOTA geometry, fine-tune the best distilled model (arm C) on them,
+and measure on the held-out 20231210121321 GT.
+
+The question it was posed to answer is void. It asked whether ground-truth supervision reads
+held-out ink where distillation-from-canon could not, taking arm C at ROC-AUC 0.558 as the
+bar. That figure was produced against a misregistered label; post-correction arm C reads
+~0.746, so there is no chance-level gap left to unlock. Nor can the experiment be re-posed
+today: three of the four configured training regions fail the 2026-08-14 placement gate, and
+exactly one Scroll-1 segment is labelled, re-flattened and correctly placed -- already spent
+as the held-out eval target. `cmd_finetune` refuses for that reason (guard below).
+
+Kept as the record of how the retracted result was produced. See
+reports/detector/gt_training_data_exhaustion_2026-08-15.md.
+"""
 
 import glob
 import json
