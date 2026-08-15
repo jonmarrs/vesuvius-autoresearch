@@ -1,4 +1,12 @@
 {
+  "superseded": {
+    "date": "2026-08-15",
+    "reason": "Retracted. Both models here were scored against a displaced held-out label, and the after_gt_finetune model was itself fine-tuned on displaced training labels (a hardcoded LEVEL0_SHAPE, found 2026-08-07, plus a second copy in gt_register.py found 2026-08-14). A model measured against a mislocated label degrades toward the trivial all-positive predictor, which is the 'degenerate signature' this file was published as evidence of. The bar it was posed against, arm C at roc_auc 0.558, reads ~0.746 post-correction. before_armC and after_gt_finetune are void as evidence about ground-truth supervision.",
+    "prep_block_is_void": "The 'prep' block below is a verbatim copy of the four region records that were removed from reports/detector/gt_finetune_prep.json on 2026-08-15. Its four passed:true values are VOID and must not be read as placement passes: that gate tested residual and periodicity, never placement. Under the 2026-08-14 placement gate three of the four regions fail (53.3 px, 55.1 px against a 48 px threshold, and one that drops at prep on periodicity 0.556 / ink fraction 0.0005) and the fourth clears by 1.4 px on a segment retired non-scoring the same day. It is kept rather than deleted because this file is the evidentiary record of what was published.",
+    "report": "reports/detector/gt_training_data_exhaustion_2026-08-15.md",
+    "retraction_notice": "reports/detector/gt_finetune_heldout.md",
+    "regenerate": "not regenerable: `repro.sota_data.gt_finetune finetune` now refuses to run, because fewer than two training regions survive the placement gate and no replacement segment exists."
+  },
   "before_armC": {
     "positive_rate": 0.1827358603477478,
     "n_pixels": 16777216,
