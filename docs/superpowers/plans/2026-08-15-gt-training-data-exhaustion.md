@@ -723,6 +723,59 @@ segment still has to pass the placement gate, and the measured base rate for tha
 [probe]: https://github.com/jonmarrs/vesuvius-autoresearch/blob/main/reports/detector/gt_training_data_exhaustion_2026-08-15.md
 ```
 
+- [ ] **Step 2b: Correct the stale withheld-region reason in the README**
+
+Found during Task 2's review. `../scrollgt/README.md:154-155` still gives the pre-2026-08-07
+reason for withholding the fourth region, which this branch's own report now says is false.
+`BASELINES.md` was corrected at the time; the README was missed.
+
+Replace:
+
+```markdown
+A fourth region was **withheld** because its orientation is unverifiable (chance-quality
+teacher there defeats the enrichment check) — see `baselines/BASELINES.md`. Targets only ship
+when validation is real.
+```
+
+with:
+
+```markdown
+A fourth region (`20231005123336_y4000_x2500`) is **withheld**, but not for the reason this
+README used to give. We said its orientation was unverifiable because the canon teacher was
+chance-quality there; that collapse was our own second hardcoded level-0 shape, and
+re-registered with the fix, teacher-enrichment is 4.88 and the orientation is decisively
+determined. It stays withheld on a properly measured criterion instead: placement 55.1
+level-2 px, over the 48 px gate — see `baselines/BASELINES.md`. Targets only ship when
+validation is real, and so do the reasons we give for holding them back.
+```
+
+Verify the stale phrase is gone:
+
+```bash
+grep -n "chance-quality teacher there defeats" ../scrollgt/README.md
+```
+
+Expected: no output.
+
+- [ ] **Step 2c: Reconcile the worst-tile figure with itself**
+
+Also found during Task 2's review. The same tile is quoted at two values inside one file:
+`../scrollgt/README.md:52` says `~100 px / 0.96 mm`, `:142` says `worst tile ~0.98 mm`. The
+source of truth is `reports/detector/registration_offset_2026-08-07.md:360`, "tiles run to
+~100 px (**~0.96 mm**)", so `:52` is right and `:142` is the outlier.
+
+In `../scrollgt/README.md:142`, change `worst tile ~0.98 mm = 1.9 windows` to
+`worst tile ~0.96 mm = 1.9 windows`. The `1.9 windows` figure is unaffected (0.96 / 0.512 =
+1.88, 0.98 / 0.512 = 1.91; both round to 1.9).
+
+Verify:
+
+```bash
+grep -n "0.98 mm" ../scrollgt/README.md
+```
+
+Expected: no output.
+
 - [ ] **Step 3: Add the same fact where the withheld region is discussed**
 
 Run `sed -n '119,131p' ../scrollgt/baselines/BASELINES.md` to see the current text, then append this paragraph at the end of that withheld-region discussion:
