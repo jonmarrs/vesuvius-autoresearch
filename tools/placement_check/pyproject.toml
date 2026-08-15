@@ -1,0 +1,22 @@
+[project]
+name = "placement-check"
+version = "0.1.0"
+description = "Verify that a registered label actually sits where it claims to: agreement must peak at zero shift."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+dependencies = ["numpy>=1.21"]
+
+[project.optional-dependencies]
+images = ["pillow>=9"]          # only needed to read .png/.tif; .npy works without it
+test = ["pytest>=7"]
+
+[project.scripts]
+placement-check = "placement_check:main"
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+py-modules = ["placement_check"]
