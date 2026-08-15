@@ -361,7 +361,9 @@ Expected: PASS (the probe-JSON test skips until Step 6)
 
 - [ ] **Step 5: Register the probe with the path-discipline test**
 
-In `tests/test_probe_paths.py:18`, change:
+Two edits in `tests/test_probe_paths.py`.
+
+First, at line 18, change:
 
 ```python
 PROBES = ["probe_placement_field.py", "probe_registration_offset.py"]
@@ -377,8 +379,34 @@ PROBES = [
 ]
 ```
 
+Second, in `test_probe_repo_root_points_at_the_repo`, the `exec` namespace imports only
+`os`, so it raises `NameError` on any probe whose `REPO_ROOT` is spelled with `pathlib`.
+The two pre-existing probes use `os.path.dirname`, which is why this was never hit. Change:
+
+```python
+            exec(
+                "import os\n" + line.replace("__file__", repr(str(SCRIPTS / name))), ns
+            )
+```
+
+to:
+
+```python
+            # Both spellings must be executable here: the older probes build REPO_ROOT with
+            # os.path.dirname, probe_labeled_segment_availability uses pathlib. The test
+            # checks where REPO_ROOT lands, which is independent of how it is spelled.
+            exec(
+                "import os\nimport pathlib\n"
+                + line.replace("__file__", repr(str(SCRIPTS / name))),
+                ns,
+            )
+```
+
+`os.path.isdir` and `os.path.join` both accept a `Path`, so the assertion below needs no
+change.
+
 Run: `uv run python -m pytest -q tests/test_probe_paths.py`
-Expected: PASS
+Expected: PASS, all three probes parametrized (9 passed)
 
 - [ ] **Step 6: Run the probe against live data**
 
