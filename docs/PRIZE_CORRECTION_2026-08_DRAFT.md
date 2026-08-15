@@ -1,6 +1,13 @@
 # Correction to the July 2026 Progress Prize submission
 
-**Status: DRAFT, NOT SENT.** Awaiting Jon's review and explicit go-ahead.
+**Status: PARTIALLY SENT.**
+
+- **Section B (`#robots`): POSTED 2026-08-14** as a thread reply under the 2026-07-29
+  announcement. Verbatim record: `DISCORD_POSTED_robots_2026-08-14_CORRECTION.md`. Posted
+  as a reply rather than an edit, because the original was already near Discord's
+  2000-character limit; the trimmed reply came to 1931 characters.
+- **Section A (form / organiser): NOT SENT.** The July filing's central evidence is still
+  uncorrected in the official record. This is the remaining action.
 
 **Updated 2026-08-14** to describe the final state. The first draft was written on 08-07,
 before a second copy of the same bug was found, before the third pixel target was measured,
