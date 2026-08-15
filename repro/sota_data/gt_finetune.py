@@ -61,8 +61,6 @@ def cmd_finetune():
 
     with open(PREP_JSON) as f:
         kept = json.load(f)["kept"]
-    if not kept:
-        raise ValueError(f"{PREP_JSON} has no kept regions; run prep")
     # Validation must be DISJOINT from training. This previously passed
     # `valid_fragment_id=kept[0]`, i.e. validated on the first training region -- the only
     # place in the repo doing so (distill_run and xscroll_run both hold a fragment out).
