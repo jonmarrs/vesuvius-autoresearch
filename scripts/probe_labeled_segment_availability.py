@@ -23,12 +23,21 @@ Interpretation: `exhausted: true` means fewer than two labelled segments have a 
 placement inside the gate, so no training/held-out split exists. This is point-in-time --
 the open data changes, which is why this is a probe and not a constant.
 
+Reading `exhausted` alone is not enough, and the probe says so in `status`. Placement is
+read from committed measurements made in this repo, so a newly published segment arrives
+unmeasured and cannot lift `exhausted` by itself -- upstream publication is necessary, not
+sufficient. `status` separates the two states that matters: `exhausted_no_candidate` (no
+labelled segment is even waiting to be measured) from `exhausted_pending_measurement` (one
+is, and the next move is ours). `unmeasured` names them, and `present`/`absent` move the
+moment upstream publishes, so a re-run after publication visibly changes state.
+
 Usage:
     uv run python scripts/probe_labeled_segment_availability.py
     uv run python scripts/probe_labeled_segment_availability.py --offline
 """
 
 import argparse
+import datetime
 import json
 import pathlib
 import re
@@ -38,7 +47,10 @@ REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
 TRAIN_SCROLLS = REPO_ROOT / "villa" / "ink-detection" / "train_scrolls"
 REPORTS_DIR = REPO_ROOT / "reports" / "detector"
 OUT_JSON = REPORTS_DIR / "labeled_segment_availability.json"
-SURVEY_DATE = "2026-08-15"
+# When the exhaustion finding was established, for the report's historical record only. The
+# JSON stamps the actual run date instead: a frozen stamp on freshly-listed bucket contents
+# is the "measured once, never re-checked" failure this probe exists to prevent.
+FINDING_DATE = "2026-08-15"
 GATE_PX = 48.0
 
 # A Scroll-1 segment id is a 14-digit scan timestamp. train_scrolls/ also holds
@@ -80,7 +92,15 @@ def placements_on_disk(reports_dir):
     return out
 
 
-def classify(labeled, bucket_segments, placements, retired=(), gate_px=GATE_PX):
+def classify(
+    labeled,
+    bucket_segments,
+    placements,
+    retired=(),
+    gate_px=GATE_PX,
+    surveyed=None,
+    mode="live",
+):
     """Partition labelled segments by data availability and measured placement."""
     labeled, bucket = sorted(set(labeled)), set(bucket_segments)
     retired = set(retired)
@@ -93,8 +113,23 @@ def classify(labeled, bucket_segments, placements, retired=(), gate_px=GATE_PX):
     # though it passes. Keeping the two sets separate means the JSON shows the difference
     # rather than hiding an exclusion inside a single number.
     usable = sorted(s for s in in_gate if s not in retired)
+    # A segment upstream publishes tomorrow arrives here with no committed placement, so it
+    # can never lift `exhausted` on its own -- publication is necessary, not sufficient, and
+    # the remaining step is ours. Naming those segments keeps `exhausted: true` from reading
+    # as "nothing changed upstream" when something did.
+    unmeasured = sorted(
+        s for s in present if s not in retired and placements.get(s) is None
+    )
+    exhausted = len(usable) < 2
+    if not exhausted:
+        status = "not_exhausted"
+    elif unmeasured:
+        status = "exhausted_pending_measurement"
+    else:
+        status = "exhausted_no_candidate"
     return {
-        "surveyed": SURVEY_DATE,
+        "surveyed": surveyed or datetime.date.today().isoformat(),
+        "survey_mode": mode,
         "gate_px": gate_px,
         "labeled": labeled,
         "present": present,
@@ -104,9 +139,11 @@ def classify(labeled, bucket_segments, placements, retired=(), gate_px=GATE_PX):
         "in_gate": in_gate,
         "retired": sorted(retired),
         "measured_passing": usable,
+        "unmeasured": unmeasured,
         # One usable segment is required as the held-out eval target, so a training split
         # needs at least two. Fewer means the experiment has no training set at all.
-        "exhausted": len(usable) < 2,
+        "exhausted": exhausted,
+        "status": status,
     }
 
 
@@ -134,16 +171,29 @@ def main():
     if args.offline:
         if not OUT_JSON.exists():
             raise SystemExit(f"--offline needs a previous run at {OUT_JSON}")
-        bucket = json.loads(OUT_JSON.read_text())["era_2023"]
+        previous = json.loads(OUT_JSON.read_text())
+        bucket = previous["era_2023"]
+        mode = "offline"
     else:
         import s3fs
 
         bucket = bucket_segments(s3fs.S3FileSystem(anon=True))
+        mode = "live"
 
-    out = classify(labeled, bucket, placements, retired=RETIRED_NON_SCORING)
+    out = classify(labeled, bucket, placements, retired=RETIRED_NON_SCORING, mode=mode)
+    if args.offline:
+        # An offline run stamps today but its bucket half is as old as whatever it reused.
+        # Without this the two are indistinguishable, and a stale availability claim would
+        # wear a fresh date -- the exact failure this probe is here to prevent.
+        out["bucket_listed"] = previous.get("bucket_listed", previous.get("surveyed"))
+    else:
+        out["bucket_listed"] = out["surveyed"]
     OUT_JSON.write_text(json.dumps(out, indent=2) + "\n")
 
-    print(f"survey {out['surveyed']}  gate {out['gate_px']:.0f} px")
+    print(
+        f"survey {out['surveyed']} ({out['survey_mode']}, bucket listing "
+        f"{out['bucket_listed']})  gate {out['gate_px']:.0f} px"
+    )
     print(f"{'segment':<20} {'label':<6} {'in data':<8} placement")
     for seg in out["labeled"]:
         p = placements.get(seg)
@@ -158,8 +208,10 @@ def main():
     print(f"re-flattened 2023-era without a label: {len(out['unlabeled_2023'])}")
     print(f"inside the gate: {out['in_gate']}")
     print(f"retired despite passing: {out['retired']}")
+    print(f"present but unmeasured (ours to measure): {out['unmeasured']}")
     print(f"usable: {out['measured_passing']}")
     print(f"EXHAUSTED: {out['exhausted']}  (needs >= 2 for a train/held-out split)")
+    print(f"status: {out['status']}")
     print(f"\nwrote {OUT_JSON}")
 
 
