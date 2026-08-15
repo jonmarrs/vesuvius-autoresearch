@@ -1,0 +1,22 @@
+[project]
+name = "scroll-frames"
+version = "0.1.0"
+description = "Which coordinate frame are these scroll mesh coordinates in? 79% of multi-mesh segments in the Vesuvius open data declare identical scale metadata for frames differing up to 40x."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+dependencies = []
+
+[project.optional-dependencies]
+s3 = ["s3fs>=2023.1"]        # only needed for the live `list` command
+test = ["pytest>=7"]
+
+[project.scripts]
+scrollframes = "scroll_frames:main"
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+py-modules = ["scroll_frames"]
