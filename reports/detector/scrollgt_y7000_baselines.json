@@ -1,6 +1,14 @@
 {
+  "superseded": {
+    "date": "2026-08-15",
+    "reason": "Two independent defects, either one sufficient. (1) The TARGET is retired non-scoring as of 2026-08-14: placement 53.3 level-2 px against a 48 px gate, with local error reaching ~1.9x the 512 um analysis window, so a score here can be against a different part of the sheet. (2) The 'arm C + GT fine-tune' row below is a VOID MODEL: it was fine-tuned on a displaced label, and its roc_auc 0.9538 here is fit against the same displacement, not reading. That model was removed from the leaderboard rather than re-scored, and it cannot be retrained because no training set exists.",
+    "void_rows": ["arm C + GT fine-tune"],
+    "target_status": "non-scoring since 2026-08-14",
+    "report": "reports/detector/gt_training_data_exhaustion_2026-08-15.md",
+    "note": "Data retained, not deleted: this is the evidentiary record of what was published. Do not cite any row as a measurement of reading quality."
+  },
   "target": "scroll1_20230702185753_y7000_x4000",
-  "note": "TRAIN-EXPOSED for distilled arms + GT-ft (disclosed)",
+  "note": "TRAIN-EXPOSED for distilled arms + GT-ft (disclosed). SEE superseded BLOCK ABOVE -- target retired non-scoring, GT-ft row void.",
   "rows": {
     "legacy detector": {
       "positive_rate": 0.12250947952270508,

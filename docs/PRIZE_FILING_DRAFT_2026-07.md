@@ -1,3 +1,31 @@
+> ## ⚠ CORRECTION — 2026-08-15. Claims in this draft are retracted.
+>
+> This is the working draft behind the filing submitted 2026-07-29. The submitted version,
+> [`PRIZE_FILING_2026-07_SUBMIT.md`](PRIZE_FILING_2026-07_SUBMIT.md), carries a full
+> correction banner and inline marks; this draft had neither, so it was the last place the
+> retracted claims still stood unqualified. **The text below is preserved as drafted.**
+>
+> **Retracted — the held-out "near chance" result was our own bug, and it reverses.** A
+> hardcoded `LEVEL0_SHAPE` in `register_run.py` applied one segment's geometry to every
+> segment, displacing the held-out label ~1766 level-0 voxels. Re-registered and re-scored,
+> same segment, same models: canon teacher **0.563 → 0.753**, arm B **0.553 → 0.731**, arm C
+> **0.558 → 0.746**, all-positive floor 0.501 → 0.518. **Every "near chance held-out",
+> "ROC-AUC ~0.55", and "collapse from 0.79+ train-exposed to ~0.55 held-out" statement below
+> is void, wherever it appears.** (Quoted rather than cited by line, because adding this
+> banner shifts every line number in the file — which is the same drift this branch spent
+> two commits repairing elsewhere.)
+>
+> **Retracted — the GT fine-tune negative.** Every form below of "fine-tuning on the
+> registered labels made reading worse (0.558 → 0.531)" measured a model
+> fine-tuned on a displaced label against a displaced label. Collapse toward the trivial
+> all-positive predictor is what that produces. The experiment has since been shown **not
+> testable**: exactly one Scroll-1 segment is hand-labelled, re-flattened and correctly
+> placed, and it is spent as the held-out evaluation target, so no training set exists.
+> See [`gt_training_data_exhaustion_2026-08-15.md`](../reports/detector/gt_training_data_exhaustion_2026-08-15.md).
+>
+> Nothing below is deleted, per this project's convention for corrections: what was drafted
+> stays auditable.
+
 # July 2026 Progress Prize — Filing Draft
 
 **Status:** DRAFT for review. Deadline 2026-07-31 11:59pm PT. Refresh numbers immediately

@@ -41,13 +41,37 @@ Honest measurement is this project's differentiator:
 
 *   Fresh 64px training sits near chance on our data; capacity/pipeline are proven fine.
 *   Distillation from the released canon predictions reproduces the teacher **including its
-    failures** — distilled students read near chance on held-out human GT (~0.55 ROC).
-*   GT fine-tuning on registered labels (POC, 2 segments) made held-out reading *worse*.
+    failures**. ⚠ **CORRECTED 2026-08-15.** This bullet used to end "distilled students read
+    near chance on held-out human GT (~0.55 ROC)". That was a misregistration artifact, not a
+    result: a hardcoded `LEVEL0_SHAPE` put the held-out label ~1766 voxels out of place.
+    Re-registered, the same students score **roc 0.731 (arm B) / 0.746 (arm C)** against
+    **0.518** for the all-positive floor, and the canon teacher **0.753**. The students were
+    reading held-out ink the whole time. The teacher-reproduction half of the bullet stands;
+    the near-chance half is retracted
+    ([`registration_offset_2026-08-07.md`](../reports/detector/registration_offset_2026-08-07.md)).
+*   ~~GT fine-tuning on registered labels (POC, 2 segments) made held-out reading *worse*.~~
+    ⚠ **RETRACTED 2026-08-15.** That model was fine-tuned on a displaced label and scored
+    against a displaced label; degradation toward the trivial all-positive predictor is the
+    expected behaviour of a model measured against a mislocated target. The experiment has
+    not been re-run and **cannot be**: exactly one Scroll-1 segment is hand-labelled,
+    re-flattened and correctly placed, and it is spent as the held-out evaluation target, so
+    there is no training set
+    ([`gt_training_data_exhaustion_2026-08-15.md`](../reports/detector/gt_training_data_exhaustion_2026-08-15.md)).
 *   Cross-scroll transfer is weak (lift 2.07 same-scroll → 1.29 cross); training-scroll
     diversity helps (1.22 → 2.12 on an unseen scroll) but saturates at ~2.1.
-*   Consequence: **independent letter-reading at the prize window is not currently within
-    reach**; reading-prize work is a capped exploration behind a pre-registered escalation
-    gate, not the primary lane.
+*   ⚠ **Consequence NEEDS RE-DERIVATION 2026-08-15.** It previously read: "independent
+    letter-reading at the prize window is not currently within reach; reading-prize work is a
+    capped exploration behind a pre-registered escalation gate, not the primary lane." Two of
+    the three findings it rested on are corrected or retracted above, so the conclusion is no
+    longer supported by its own premises.
+
+    It is **not** thereby reversed, and nothing here should be read as claiming it is. The
+    corrected numbers are ROC-AUC against registered ground truth on SOTA-flattened geometry;
+    that is a different question from legible letter-reading inside the 64 px @ 8 µm prize
+    window, and the ~0.31 mm registration floor is ~60% of that window. What changed is that
+    the premise "our models do not read held-out ink" is false. Whether the strategic
+    conclusion survives on other grounds has not been worked through, and this bullet should
+    not be cited either way until it has been.
 
 ## 4. Prize-Specific Workflows
 
