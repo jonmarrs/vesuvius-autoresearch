@@ -39,16 +39,20 @@ import sys
 import numpy as np
 from PIL import Image
 
-sys.path.insert(0, os.path.abspath("."))
+# Resolve everything from this file, not the process cwd. Both probes previously did
+# sys.path.insert(0, os.path.abspath(".")) and used cwd-relative data paths, so they only
+# worked when launched from the repo root and failed obscurely otherwise.
+REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, REPO_ROOT)
 from repro.sota_data.register import placement_peak
 
 Image.MAX_IMAGE_PIXELS = None
 
 SCROLLGT_DATA = os.environ.get(
     "SCROLLGT_DATA",
-    os.path.join(os.path.dirname(__file__), "..", "..", "scrollgt", "data"),
+    os.path.join(REPO_ROOT, "..", "scrollgt", "data"),
 )
-DISTILL_ROOT = "local_data/sota_distill"
+DISTILL_ROOT = os.path.join(REPO_ROOT, "local_data", "sota_distill")
 
 # (scrollgt target dir, distill fragment id, role)
 PAIRS = [

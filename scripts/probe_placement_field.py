@@ -25,29 +25,53 @@ import sys
 import numpy as np
 from PIL import Image
 
-sys.path.insert(0, os.path.abspath("."))
+# Resolve everything from this file, not the process cwd. Both probes previously did
+# sys.path.insert(0, os.path.abspath(".")) and used cwd-relative data paths, so they only
+# worked when launched from the repo root and failed obscurely otherwise.
+REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, REPO_ROOT)
 from repro.sota_data.register import placement_peak
 
 Image.MAX_IMAGE_PIXELS = None
 
+# Matches scripts/probe_registration_offset.py so the two probes resolve the sibling
+# checkout the same way. This entry previously hardcoded "../scrollgt/data/...", which
+# silently resolved to nothing when run from anywhere but the repo root -- and a probe that
+# quietly skips a target is worse than one that fails, since it reports on fewer targets
+# than the reader assumes.
+SCROLLGT_DATA = os.environ.get(
+    "SCROLLGT_DATA", os.path.join(REPO_ROOT, "..", "scrollgt", "data")
+)
+
 TARGETS = [
     (
         "train-exposed 20230702185753",
-        "local_data/sota_registration/orig/registered_label_l2region.png",
-        "local_data/sota_xscroll/scroll1_20230702185753_y4000_x2500/"
-        "scroll1_20230702185753_y4000_x2500_inklabels.png",
+        os.path.join(
+            REPO_ROOT, "local_data/sota_registration/orig/registered_label_l2region.png"
+        ),
+        os.path.join(
+            REPO_ROOT,
+            "local_data/sota_xscroll/scroll1_20230702185753_y4000_x2500/scroll1_20230702185753_y4000_x2500_inklabels.png",
+        ),
     ),
     (
         "train-exposed 20230702185753_y7000_x4000",
-        "../scrollgt/data/scroll1_20230702185753_y7000_x4000/gt_ink.png",
-        "local_data/sota_distill/20230702185753_y7000_x4000/"
-        "20230702185753_y7000_x4000_inklabels.png",
+        os.path.join(SCROLLGT_DATA, "scroll1_20230702185753_y7000_x4000", "gt_ink.png"),
+        os.path.join(
+            REPO_ROOT,
+            "local_data/sota_distill/20230702185753_y7000_x4000/20230702185753_y7000_x4000_inklabels.png",
+        ),
     ),
     (
         "held-out 20231210121321",
-        "local_data/sota_registration/heldout/registered_label_l2region.png",
-        "local_data/sota_distill/20231210121321_y4000_x2500/"
-        "20231210121321_y4000_x2500_inklabels.png",
+        os.path.join(
+            REPO_ROOT,
+            "local_data/sota_registration/heldout/registered_label_l2region.png",
+        ),
+        os.path.join(
+            REPO_ROOT,
+            "local_data/sota_distill/20231210121321_y4000_x2500/20231210121321_y4000_x2500_inklabels.png",
+        ),
     ),
 ]
 
@@ -65,10 +89,12 @@ def main():
     ap.add_argument("--json-out")
     args = ap.parse_args()
 
-    out = []
+    out, skipped = [], []
     for name, lab_path, ref_path in TARGETS:
-        if not (os.path.exists(lab_path) and os.path.exists(ref_path)):
-            print(f"{name}: inputs missing, skipped")
+        missing = [q for q in (lab_path, ref_path) if not os.path.exists(q)]
+        if missing:
+            skipped.append(name)
+            print(f"SKIP {name}: missing {missing}", flush=True)
             continue
         lab = np.array(Image.open(lab_path))
         ref = np.array(Image.open(ref_path))
@@ -151,6 +177,13 @@ def main():
                     for r in rows
                 ],
             }
+        )
+
+    if skipped:
+        print(
+            f"\n!! {len(skipped)} of {len(TARGETS)} targets were SKIPPED: {skipped}\n"
+            "   Results below cover only the rest. Set SCROLLGT_DATA if the sibling "
+            "checkout is elsewhere."
         )
 
     if args.json_out and out:
