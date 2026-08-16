@@ -218,12 +218,27 @@ def test_every_fiber_target_declares_its_size_class(target):
     assert meta["shape"][0] == meta["size_class"]
 
 
-@pytest.mark.parametrize("target", FIBER_TARGETS, ids=lambda p: p.name)
-def test_scorecard_reports_the_class_and_its_oracle(target):
-    from scrollgt.fibers.target import load_fiber_target
+def test_scorecard_reports_the_class_and_its_oracle(tmp_path):
+    """Exercise the scorer, not just the metadata.
 
-    _, _, meta = load_fiber_target(str(target))
-    assert meta["size_class"] == meta["shape"][0]
+    A prediction of all-background is a legitimate input (it labels nothing), so this
+    reaches `score_fiber_prediction` without needing a real tracer output. What is being
+    pinned is that the card carries the class and its ceiling -- assert on `meta` alone and
+    the scorer could stop emitting either without a test noticing.
+    """
+    import numpy as np
+
+    from scrollgt.fibers.target import load_fiber_target, score_fiber_prediction
+
+    target = FIBER_TARGETS[0]
+    _, mask, meta = load_fiber_target(str(target))
+
+    pred = tmp_path / "empty.npy"
+    np.save(pred, np.zeros(mask.shape, dtype=np.int32))
+
+    card = score_fiber_prediction(str(pred), str(target))
+    assert card["size_class"] == meta["size_class"]
+    assert "class_oracle_erl" in card, "a score is unreadable without its class ceiling"
 ```
 
 - [ ] **Step 2: Run it to verify it fails**
