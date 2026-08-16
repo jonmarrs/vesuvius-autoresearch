@@ -29,7 +29,28 @@ from vesuvius_autoresearch.fibers.skeleton_io import (
 SRC = pathlib.Path("local_data/fiber_skeletons")
 VOXEL_UM = 7.91
 THRESHOLD = 0.5
-CROSS_SCROLL_SPLIT = "s5_03997_01497_03997_256"
+
+
+def split_for_stem(stem: str) -> str:
+    """Reporting split, derived from the scroll rather than a hardcoded cube list.
+
+    This was `"cross_scroll" if stem == CROSS_SCROLL_SPLIT else "primary"` -- a single
+    stem, so every additional Scroll-5 cube would have been labelled "primary". An unknown
+    scroll raises rather than defaulting, because defaulting is exactly how a cross-scroll
+    cube gets silently reported as same-scroll.
+    """
+    prefix = stem.split("_", 1)[0]
+    if prefix == "s1":
+        return "primary"
+    if prefix == "s5":
+        return "cross_scroll"
+    raise ValueError(f"unknown scroll prefix {prefix!r} in cube stem {stem!r}")
+
+
+def size_class_for_stem(stem: str) -> int:
+    """Cube edge in voxels. ERL is a length statistic and does not compare across these."""
+    return size_from_stem(stem)
+
 
 CUBES = [
     "s1_00497_01497_03997_256",
@@ -127,7 +148,8 @@ def export(stem: str, out_root: pathlib.Path, bench: dict) -> None:
         "family": "fiber_connectivity",
         "cube": stem,
         "scroll": "Scroll 5" if stem.startswith("s5_") else "Scroll 1 (PHerc. Paris 4)",
-        "split": "cross_scroll" if stem == CROSS_SCROLL_SPLIT else "primary",
+        "split": split_for_stem(stem),
+        "size_class": size_class_for_stem(stem),
         "split_note": (
             "'cross_scroll' is a labelled reporting convention, not held-out "
             "secrecy: the ground truth comes from a public villa dataset and "
