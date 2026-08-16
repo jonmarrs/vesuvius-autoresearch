@@ -1,3 +1,35 @@
+> **⚠ PARTIALLY RETRACTED — 2026-08-15.** This probe's premise for `20231005123336` was our
+> own bug, so its conclusions about that segment are void. What it says about
+> `20230702185753` stands.
+>
+> **Void: "the canon teacher is chance-quality on `20231005123336`".** The enrichment
+> collapse there (≈1 across all four candidates) was a *second* hardcoded `LEVEL0_SHAPE`, in
+> `gt_register.py`, found 2026-08-14 — a month after this probe ran. That segment's true
+> level-0 is 34880×97280 against the assumed 50600×36400, a 167% x-scale error that
+> scattered the label, and a scattered label enriches at ≈1 against **any** teacher,
+> including a good one. Re-registered with the fix, teacher-enrichment is **4.88** and the
+> orientation is decisively determined. The teacher was never chance-quality there; the
+> registration was broken.
+>
+> **Therefore void, in the Consequences below:**
+> * Consequence 2's claim that half the GT fine-tune's training labels may have been
+>   "geometric noise". The labels were fine. That negative was retracted outright on other
+>   grounds, and the experiment is now known to be **not testable** at all — see
+>   [`gt_training_data_exhaustion_2026-08-15.md`](gt_training_data_exhaustion_2026-08-15.md).
+> * Consequence 3's distillation narrative, which rests on students imitating a
+>   chance-quality teacher on this segment.
+> * Consequence 1's *reason* for withholding `20231005123336_y4000_x2500`. It stays
+>   withheld, but on placement (57.5 level-2 px, ±1 px, against a 48 px gate), not on
+>   unverifiable orientation. ScrollGT was corrected 2026-08-15.
+>
+> **What survives.** The method is sound, and `20230702185753` was never affected: the
+> hardcoded constant was its own geometry, so its direct probe result (enrichment 3.13
+> against ≤1.50 for the alternatives) is unchanged and still validates that orientation.
+>
+> The lesson is the one this project keeps relearning: a diagnostic that reads "chance" is
+> evidence about the *measurement* as much as the subject, and the favourable reading is not
+> the one to trust. Nothing below is deleted.
+
 # 4-candidate orientation probe (2026-07-11)
 
 **Question:** the GT registrations produced by `repro/sota_data/gt_register.py` carry the
@@ -102,6 +134,13 @@ stay withheld. Consequences: `20230702185753_y7000_x4000` is now DOUBLE-validate
 (enrichment 3.13 + NCC 0.28); the withheld `20231005123336` target remains withheld (no
 check fires); applying NCC to the two teacher-uninformative new segments requires their
 SOTA region layers (S3 extraction) — feasible follow-up.
+
+> **⚠ See the retraction banner.** "No check fires" on `20231005123336` is void: the checks
+> were being run against a label scattered by the second hardcoded `LEVEL0_SHAPE`.
+> Re-registered, teacher-enrichment fires decisively at 4.88. The target does remain
+> withheld, but on placement (57.5 ±1 level-2 px vs a 48 px gate), not for want of a check.
+> The gate policy stated here — ship only when an independent check fires — is unaffected
+> and still correct.
 
 ## Addendum 3 (2026-07-12): third segment probed via crop-offset warp — also flat; the pattern is complete
 
