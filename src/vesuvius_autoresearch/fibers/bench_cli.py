@@ -45,8 +45,11 @@ DATA_URL = (
 DEFAULT_DATA = pathlib.Path("local_data/fiber_skeletons")
 DEFAULT_TOL = 2.0
 
-# The six full 256^3 cubes every published number (README, BASELINES.md,
-# ScrollGT) draws from. No 128^3 sub-volume figure is carried downstream.
+# The eleven full cubes every published number (README, BASELINES.md, ScrollGT)
+# draws from. No 128^3 sub-volume figure is carried downstream. Five of these
+# are Scroll 5 cross-scroll cubes added alongside the original single one;
+# three of the five are 512^3, so their ERL is not comparable to the 256^3 rows
+# (see size_class in the exported meta.json).
 CUBES = [
     "s1_00497_01497_03997_256",
     "s1_00497_02497_02997_256",
@@ -54,6 +57,11 @@ CUBES = [
     "s1_08997_02997_02497_256",
     "s1_10997_02997_02997_256",
     "s5_03997_01497_03997_256",
+    "s5_07997_02997_05497_256",
+    "s5_14997_01497_01497_256",
+    "s5_06494_01994_03994_512",
+    "s5_06994_00994_04994_512",
+    "s5_07994_01994_05494_512",
 ]
 
 

@@ -59,6 +59,11 @@ CUBES = [
     "s1_08997_02997_02497_256",
     "s1_10997_02997_02997_256",
     "s5_03997_01497_03997_256",
+    "s5_07997_02997_05497_256",
+    "s5_14997_01497_01497_256",
+    "s5_06494_01994_03994_512",
+    "s5_06994_00994_04994_512",
+    "s5_07994_01994_05494_512",
 ]
 
 
@@ -101,6 +106,35 @@ def landing_rate(skel, semantic) -> float:
     return hits / total if total else 0.0
 
 
+def scoring_mask_landing_stats(skel, mask) -> tuple[float, float, float, float]:
+    """Same measurement as scrollgt's
+    tests/test_fiber_target.py::test_skeleton_lands_on_the_scoring_mask_far_above_chance
+    (its `_mask_and_nodes` helper): round every node to the nearest voxel, keep
+    the in-bounds ones, and compare their landing rate on the scoring mask to
+    the mask's overall density. Reimplemented here (not imported -- the two
+    repos don't share a dependency) but kept bit-for-bit identical on purpose:
+    same coords array (float32, same source), same np.round, same in-bounds
+    test, same rate/density/enrichment arithmetic. If this ever drifts from
+    the test, the numbers recorded in meta.json stop meaning what they claim.
+
+    Returns (rate, density, enrichment, in_bounds_node_fraction).
+    """
+    coords = (
+        np.concatenate([np.asarray(f.coords, dtype=np.float32) for f in skel.fibers])
+        if skel.fibers
+        else np.zeros((0, 3), np.float32)
+    )
+    shape = np.asarray(mask.shape)
+    idx = np.round(coords).astype(int)
+    inb = ((idx >= 0) & (idx < shape)).all(axis=1)
+    nodes = idx[inb]
+    rate = float(mask[nodes[:, 0], nodes[:, 1], nodes[:, 2]].mean())
+    density = float(mask.mean())
+    enrichment = rate / density if density else float("inf")
+    in_bounds_fraction = float(inb.sum() / len(idx)) if len(idx) else 0.0
+    return rate, density, enrichment, in_bounds_fraction
+
+
 def export(stem: str, out_root: pathlib.Path, bench: dict) -> None:
     size = size_from_stem(stem)
     shape = (size, size, size)
@@ -121,6 +155,9 @@ def export(stem: str, out_root: pathlib.Path, bench: dict) -> None:
         )
 
     mask = prob >= THRESHOLD
+    scoring_rate, scoring_density, scoring_enrichment, scoring_in_bounds_fraction = (
+        scoring_mask_landing_stats(skel, mask)
+    )
     n_in_bounds = sum(int(f.in_bounds_mask(shape).sum()) for f in skel.fibers)
     # Same filter the benchmark uses (bench_cli.py::_load_cube) to decide which
     # fibers are scoreable: a fiber needs at least two in-bounds nodes to
@@ -184,6 +221,21 @@ def export(stem: str, out_root: pathlib.Path, bench: dict) -> None:
             ),
             "measured_node_landing_rate_on_semantic_label": round(rate, 6),
             "verified_against": f"labelsTr/{stem}.tif (shipped semantic label)",
+            "measured_node_landing_rate_on_scoring_mask": round(scoring_rate, 6),
+            "scoring_mask_density": round(scoring_density, 6),
+            "landing_enrichment_vs_chance": round(scoring_enrichment, 6),
+            "in_bounds_node_fraction": round(scoring_in_bounds_fraction, 6),
+            "note_on_the_two_rates": (
+                "measured_node_landing_rate_on_semantic_label is against labelsTr, "
+                "villa's shipped semantic mask, and is 1.0. That artifact is NOT what "
+                "scoring uses. The figure that matters for scoring is "
+                "measured_node_landing_rate_on_scoring_mask, against the fiber_hz_vt "
+                "reference mask: lower, because the mask is a thresholded model output "
+                "rather than a hand label, but many times chance, which is what "
+                "establishes that skeleton and mask share a coordinate frame. "
+                "Recomputed from shipped data by tests/test_fiber_target.py rather than "
+                "trusted from this file."
+            ),
         },
         "mask": {
             "model": "scrollprize/fiber_hz_vt (Apache-2.0)",
