@@ -121,3 +121,7 @@ villa/ink-detection/timesformer_weights.ckpt
 repro/gp_winner/runs/
 villa/ink-detection/models/
 villa/ink-detection/outputs/
+
+# Agent scratch: SDD ledgers, task briefs, review packages, fix reports.
+# Working files, never deliverables. Was assumed ignored and was not.
+.superpowers/
