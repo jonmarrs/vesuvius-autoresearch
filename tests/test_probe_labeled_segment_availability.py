@@ -63,7 +63,7 @@ def test_clearing_the_gate_is_necessary_but_not_sufficient():
     """
     placements = {
         "20230702185753": 46.6,
-        "20231005123336": 55.1,
+        "20231005123336": 57.5,
         "20231210121321": 32.0,
     }
     out = classify(

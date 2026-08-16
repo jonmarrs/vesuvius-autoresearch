@@ -264,7 +264,7 @@ teacher. Re-registered with the fix:
 | teacher-enrichment | ≈1 (0.79–1.02, all four conventions) | **4.88** |
 | residual | — | 8.10 |
 | periodicity | — | 0.865 |
-| **placement** | not measured | **55.1 px / 0.53 mm — FAILS the 48 px gate** |
+| **placement** | not measured | **57.5 px / 0.55 mm — FAILS the 48 px gate** (corrected 2026-08-15, see the end of this report) |
 
 **The teacher was never chance-quality on that segment; our registration was broken.** The
 target stays withheld, but now on a measured criterion (placement) rather than a mistaken
@@ -281,7 +281,7 @@ All four of `gt_finetune.py`'s training regions are now measured:
 |---|---|
 | `20230702185753` y4000_x2500 | placement 46.6 px — marginal pass (1.4 px of headroom) |
 | `20230702185753` y7000_x4000 | placement 53.3 px — **fails** |
-| `20231005123336` y4000_x2500 | placement 55.1 px — **fails** |
+| `20231005123336` y4000_x2500 | placement 57.5 px, ±1 px (corrected 2026-08-15) — **fails** |
 | `20231005123336` y7000_x4000 | **drops at prep** (periodicity 0.556, ink 0.0005) |
 
 At best one marginal region survives. Retraining would repeat the original mistake with a
@@ -405,3 +405,32 @@ that cannot be scored reliably, and all absolute scores are mild lower bounds.
   real blocker: there is no training set. Exactly one Scroll-1 segment is labelled,
   re-flattened and correctly placed, and it is spent as the held-out evaluation target. See
   [gt_training_data_exhaustion_2026-08-15.md](gt_training_data_exhaustion_2026-08-15.md).
+
+## Correction: the withheld region's placement is 57.5 px, ±1 px (2026-08-15)
+
+The `20231005123336_y4000_x2500` placement published above as 55.1 px / 0.53 mm was a
+hand-run measurement that no committed path reproduces. The commit that recorded it changed
+only this report — no script, no code. The segment is not in `register_run.TARGETS`, so
+`cmd_validate` never measured it, and `gt_prep_fragment` did not gain a placement check
+until after that commit landed.
+
+Re-run from committed code, the registered label itself is unchanged: `residual` 8.1026 and
+`periodicity` 0.8648 reproduce the figures in the table above exactly, and the teacher crops
+in `sota_distill` and `sota_xscroll` are byte-identical. The label and the reference are not
+the difference. The search window is, because the agreement peak is broad:
+
+| `placement_peak` parameters | peak | offset |
+|---|---|---|
+| defaults (`max_shift=256, coarse=4, refine=8`) | dy=56, dx=−13 | **57.49 px** |
+| `coarse=2, refine=4` | dy=56, dx=−13 | 57.49 px |
+| `max_shift=128` | dy=55, dx=−13 | 56.52 px |
+
+**The reproducible figure from committed code at default parameters is 57.5 px / 0.55 mm.**
+Across search windows the peak sits between roughly 56.5 and 57.5 px, so this offset is
+determined to about ±1 px and should not be quoted to three significant figures.
+
+A broad peak is itself consistent with a poorly placed label — a correctly placed one peaks
+sharply at zero. Every value above fails the 48 px gate, so **no conclusion anywhere
+changes**: the ScrollGT target stays withheld, the region stays excluded from
+`gt_finetune.py`'s training set, and the 2026-08-15 exhaustion finding is unaffected. Only
+the number and the precision it may be quoted to change.

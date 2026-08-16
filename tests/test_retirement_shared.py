@@ -31,7 +31,7 @@ def test_the_retired_segment_is_the_one_that_clears_the_gate_and_is_still_unusab
     assert not is_retired("20231210121321")  # the flagship, 32.0 px, genuinely usable
     assert not is_retired(
         "20231005123336"
-    )  # excluded by the gate at 55.1 px, not retired
+    )  # excluded by the gate at 57.5 px, not retired
 
 
 def test_probe_imports_the_shared_definition_rather_than_redefining_it():

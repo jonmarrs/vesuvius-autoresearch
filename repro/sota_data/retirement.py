@@ -29,7 +29,7 @@ while `20231210121321` is 3-4x tighter), so retiring one region and keeping its 
 misrepresent it.
 
 Do not confuse retirement with failing the gate. `20231005123336` is excluded because it
-measures 55.1 px against a 48 px threshold -- an ordinary gate failure. Retirement is for
+measures 57.5 px against a 48 px threshold -- an ordinary gate failure. Retirement is for
 segments the gate lets through and we still will not use.
 
 See `reports/detector/registration_offset_2026-08-07.md` and

@@ -56,7 +56,7 @@ re-establish it.
 |---|---|---|---|---|
 | `20230702185753` y4000_x2500 | yes | yes | 46.6 px | no, retired non-scoring 2026-08-14 |
 | `20230702185753` y7000_x4000 | yes | yes | 53.3 px | no, fails gate |
-| `20231005123336` y4000_x2500 | yes | yes | 55.1 px | no, fails gate |
+| `20231005123336` y4000_x2500 | yes | yes | 57.5 px (±1 px) | no, fails gate |
 | `20231005123336` y7000_x4000 | yes | yes | drops at prep | no, periodicity 0.556, ink 0.0005 |
 | `20231210121321` y4000_x2500 | yes | yes | 32.0 px | **passes, but spent as held-out eval** |
 | `20230820203112` | yes | **no** | n/a | no, no SOTA geometry exists |
@@ -64,7 +64,7 @@ re-establish it.
 | `20230903193206` | yes | **no** | n/a | no, no SOTA geometry exists |
 
 Placement figures: 46.6 px and 53.3 px at `registration_offset_2026-08-07.md:282-283` and
-`:337-338`; 55.1 px at `:267` and `:284`; the y7000_x4000 prep drop (periodicity 0.556,
+`:337-338`; 57.5 px at `:267` and `:284`; the y7000_x4000 prep drop (periodicity 0.556,
 registered ink fraction 0.0005) at `:273-274` and `:285`; 32.0 px at `:318` and `:339`. The
 three absent segments and the six/three/three split are from
 `labeled_segment_availability.json`.
@@ -82,9 +82,19 @@ against the probe by hand.**
 from committed `*_validation.json` gate blocks, and no such file carries a placement for that
 segment, so the probe leaves it `null` — by design it never reports an unmeasured segment as
 fine (see the probe's docstring: "it does not judge placement for segments it has no committed
-measurement for"). The 55.1 px figure in the table comes from the 08-07 report. Both routes
+measurement for"). The 57.5 px figure in the table comes from the 08-07 report. Both routes
 exclude the segment; they differ only in whether the exclusion is recorded as a measured
 failure or as an absence of measurement, and the stricter of the two is the one in the table.
+
+That figure was corrected on 2026-08-15, after this report was first written, from the 55.1 px
+originally published in the 08-07 report. The 55.1 px was a hand-run measurement no committed
+path reproduces; re-run from committed code at default parameters the peak sits at 57.5 px,
+and across search windows it moves between roughly 56.5 and 57.5 px, so it is determined to
+about ±1 px and is quoted here to two significant figures for that reason. The registered
+label is byte-for-byte the one the 08-07 report measured (`residual` 8.1026 and `periodicity`
+0.8648 reproduce exactly), so nothing about the label changed. Every value in that range fails
+the 48 px gate, so the row's verdict and every count below it are unaffected. The full
+provenance is in the correction section at the end of the 08-07 report.
 
 *The probe is segment-level; the table is region-level.* The probe reports one placement per
 segment (46.6 px for `20230702185753`, from that segment's y4000_x2500 validation record),
@@ -235,7 +245,7 @@ error this project has already had to fix once in ScrollGT:
 
 - **gate-pass, 2 of 3** (`in_gate`): of the three labelled segments present in the open data,
   `20231210121321` passes at 32.0 px and `20230702185753` at 46.6 px, while `20231005123336`
-  fails at 55.1 px.
+  fails at 57.5 px.
 - **usable, 1 of 3** (`measured_passing`): `20230702185753` clears the threshold by 1.4 px
   and is retired non-scoring anyway.
 
@@ -278,7 +288,7 @@ prediction agreement is maximised against the canon teacher's own region crop
 (`registration_offset_2026-08-07.md:39-47`). It therefore localises *disagreement between two
 artifacts* — a registered label and a model prediction — rather than establishing truth about
 where the ink is. This is a general caveat on **every** placement figure in this report, the
-32.0 px pass as much as the 55.1 px failure. It does not single out any one segment, and it is
+32.0 px pass as much as the 57.5 px failure. It does not single out any one segment, and it is
 not a reason to discount a specific inconvenient number.
 
 **In particular, it is not a caveat on `20231005123336`.** The record used to say the canon
@@ -290,8 +300,14 @@ that scattered the label, and a scattered label enriches at ≈1 against any tea
 Re-registered with the fix, **teacher-enrichment is 4.88** with residual 8.10 and periodicity
 0.865, and the orientation is decisively determined
 (`registration_offset_2026-08-07.md:257-271`; also `../scrollgt/baselines/BASELINES.md:119-131`).
-Its 55.1 px placement is a **properly measured failure**, not a weakly determined one. That
-strengthens this finding rather than qualifying it.
+Its placement failure is therefore **properly measured** — against a teacher now known to be
+strong on that segment, not inferred from the discredited chance-teacher account. Be exact
+about what is and is not sharp here. The *figure* is 57.5 px determined to about ±1 px, not to
+three significant figures (see the provenance note above); the *failure* is not marginal, because
+the whole of that range sits more than eight px clear of the 48 px gate. The peak's breadth is
+itself what a poorly placed label looks like — a correctly placed one peaks sharply at zero — so
+it is a further sign of the failure, not a reason to doubt it. That strengthens this finding
+rather than qualifying it.
 
 The same correction retires a claim in the 2026-07-11 orientation addendum
 (`orientation_probe_2026-07-11.md:51-52`): that if the orientation prior were wrong on that

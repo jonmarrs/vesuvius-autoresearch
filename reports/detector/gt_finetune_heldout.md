@@ -16,7 +16,7 @@
 > * **"4/4 regions passed the teacher-free alignment gate" is retracted.** That gate tested
 >   residual and label-line periodicity; it never tested *placement*, which is how this
 >   shipped. Under the 2026-08-14 placement gate three of the four regions fail (53.3 px and
->   55.1 px against a 48 px threshold, plus one that drops at prep on periodicity 0.556 /
+>   57.5 px against a 48 px threshold, plus one that drops at prep on periodicity 0.556 /
 >   registered ink fraction 0.0005), and the fourth clears by 1.4 px on the segment retired
 >   non-scoring the same day. The four `passed: true` records are void wherever they appear,
 >   including in this report's companion

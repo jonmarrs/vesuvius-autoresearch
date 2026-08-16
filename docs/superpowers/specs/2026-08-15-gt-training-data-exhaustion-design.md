@@ -46,7 +46,7 @@ Intersecting them:
 |---|---|---|---|---|
 | `20230702185753` y4000_x2500 | yes | yes | 46.6 px | no, retired non-scoring 2026-08-14 |
 | `20230702185753` y7000_x4000 | yes | yes | 53.3 px | no, fails gate |
-| `20231005123336` y4000_x2500 | yes | yes | 55.1 px | no, fails gate |
+| `20231005123336` y4000_x2500 | yes | yes | 57.5 px | no, fails gate |
 | `20231005123336` y7000_x4000 | yes | yes | drops at prep | no, periodicity 0.556, ink 0.0005 |
 | `20231210121321` y4000_x2500 | yes | yes | 32.0 px | **passes, but spent as held-out eval** |
 | `20230820203112` | yes | **no** | n/a | no, no SOTA geometry exists |
@@ -205,7 +205,7 @@ Framed as a limitation of the benchmark, not as a finding about anyone's model.
   wrongly said it was. The chance-quality teacher there (enrichment ~1 across all four
   orientation candidates) was our own second hardcoded level-0 shape; re-registered with the
   fix, teacher-enrichment is **4.88** and the orientation is decisively determined
-  (`../scrollgt/baselines/BASELINES.md:119-131`). Its 55.1 px placement is a properly
+  (`../scrollgt/baselines/BASELINES.md:119-131`). Its 57.5 px placement is a properly
   measured failure, not a weakly determined one. That strengthens the finding rather than
   qualifying it.
 - **The base rate for a new segment passing the gate is 1 of 3 measured.** The unblock paths

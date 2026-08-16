@@ -23,7 +23,7 @@
   - 3 are absent: `20230820203112`, `20230826170124`, `20230903193206`.
   - 81 segments under `PHercParis4/segments`, 11 of them 2023-era.
   - 8 re-flattened 2023-era segments carry no label: `20230929220926`, `20231007101619`, `20231012184424`, `20231016151002`, `20231022170901`, `20231031143852`, `20231106155351`, `20231221180251`.
-  - Placement: `20230702185753` y4000_x2500 = 46.6 px, y7000_x4000 = 53.3 px, `20231005123336` y4000_x2500 = 55.1 px, y7000_x4000 drops at prep, `20231210121321` = 32.0 px. Gate = 48 px.
+  - Placement: `20230702185753` y4000_x2500 = 46.6 px, y7000_x4000 = 53.3 px, `20231005123336` y4000_x2500 = 57.5 px, y7000_x4000 drops at prep, `20231210121321` = 32.0 px. Gate = 48 px.
   - **Clearing the gate is necessary but not sufficient.** `20230702185753` clears it by 1.4 px and is still retired non-scoring (2026-08-14, worst tile ~1.9x the 512 um analysis window). Usable segments = exactly **1** (`20231210121321`), which is why the experiment is exhausted.
   - `villa/ink-detection/train_scrolls/` contains **8** labelled directories, of which **6** are Scroll-1 segments. `PHercParis2Fr47` and `PHercParis2Fr143` are fragments of a different object, retained for the GP-winner reproduction, and must never be counted in this survey or deleted from the checkout.
 
@@ -117,7 +117,7 @@ def test_clearing_the_gate_is_necessary_but_not_sufficient():
     """
     placements = {
         "20230702185753": 46.6,
-        "20231005123336": 55.1,
+        "20231005123336": 57.5,
         "20231210121321": 32.0,
     }
     out = classify(
@@ -473,7 +473,7 @@ Create `reports/detector/gt_training_data_exhaustion_2026-08-15.md`. It must con
 
 7. **Limitations.** Point-in-time (cite the probe as the re-check mechanism, and the `2026-08-15` stamp). Placement verification is relative — `placement_peak` scores against the canon teacher crop, so it localises disagreement between two artifacts rather than establishing truth. State this as a general caveat on every placement figure, not as a caveat on any one segment.
 
-   **Do not write that `20231005123336` has a chance-quality teacher.** That was true before 2026-08-07 and is now false: the enrichment collapse there was our own second hardcoded level-0 shape, and re-registered with the fix, teacher-enrichment is **4.88** with the orientation decisively determined (`../scrollgt/baselines/BASELINES.md:119-131`). Its 55.1 px placement is a properly measured failure. The same correction retires the 2026-07-11 orientation addendum's claim that half the fine-tune's training labels may have been geometric noise — the labels were fine, the registration was broken.
+   **Do not write that `20231005123336` has a chance-quality teacher.** That was true before 2026-08-07 and is now false: the enrichment collapse there was our own second hardcoded level-0 shape, and re-registered with the fix, teacher-enrichment is **4.88** with the orientation decisively determined (`../scrollgt/baselines/BASELINES.md:119-131`). Its 57.5 px placement (corrected 2026-08-15 from a hand-run 55.1 px; determined to about ±1 px) is a properly measured failure. The same correction retires the 2026-07-11 orientation addendum's claim that half the fine-tune's training labels may have been geometric noise — the labels were fine, the registration was broken.
 
 Every number must cite either `labeled_segment_availability.json` or `registration_offset_2026-08-07.md`. No number appears without one.
 
@@ -488,7 +488,7 @@ d=json.loads(pathlib.Path('reports/detector/labeled_segment_availability.json').
 print('labeled',len(d['labeled']),'present',len(d['present']),'absent',len(d['absent']))
 print('unlabeled_2023',len(d['unlabeled_2023']),'exhausted',d['exhausted'])
 "
-grep -n "46.6\|53.3\|55.1\|32.0" reports/detector/registration_offset_2026-08-07.md | head
+grep -n "46.6\|53.3\|57.5\|32.0" reports/detector/registration_offset_2026-08-07.md | head
 ```
 
 Expected: 6 / 3 / 3, 8, `True`; and all four placement figures present in the 08-07 report. Any mismatch means fix the report text, not the sources.
@@ -744,7 +744,7 @@ A fourth region (`20231005123336_y4000_x2500`) is **withheld**, but not for the 
 README used to give. We said its orientation was unverifiable because the canon teacher was
 chance-quality there; that collapse was our own second hardcoded level-0 shape, and
 re-registered with the fix, teacher-enrichment is 4.88 and the orientation is decisively
-determined. It stays withheld on a properly measured criterion instead: placement 55.1
+determined. It stays withheld on a properly measured criterion instead: placement 57.5
 level-2 px, over the 48 px gate — see `baselines/BASELINES.md`. Targets only ship when
 validation is real, and so do the reasons we give for holding them back.
 ```
