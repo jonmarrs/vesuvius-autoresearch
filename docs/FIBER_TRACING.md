@@ -9,7 +9,8 @@ more fibers with a higher error rate."*
 
 This directory provides **the measurement layer for that problem**, plus a baseline tracer.
 
-> **The measurement layer now ships as a ScrollGT target family** — six cubes, scoreable with no
+> **The measurement layer now ships as a ScrollGT target family** — eleven cubes in two size
+> classes (eight 256³, three 512³), scoreable with no
 > GPU, no model download, and no network: <https://github.com/jonmarrs/scrollgt>. This document
 > remains the record of the research and of the baseline tracer, which is the benchmark's
 > *entrant* rather than part of it.
@@ -19,8 +20,10 @@ This directory provides **the measurement layer for that problem**, plus a basel
 Measured on a 128³ sub-volume (22 ground-truth fibers). The finding replicates at full 256³ cube
 scale — where the shared coverage/precision pair is 0.9177/0.2194 and the single-instance floor
 scores ERL 199.18 against an oracle's 258.27 with merge-penalized ERL exactly 0.00 — but the
-numbers below are the sub-volume's. Full-cube figures for all six cubes:
-`reports/fiber_benchmark_all_cubes.json`.
+numbers below are the sub-volume's. Full-cube figures for all eleven cubes (eight 256³, three
+512³): `reports/fiber_benchmark_all_cubes.json`. ERL is a length statistic (`Σr²/Σr` in voxels)
+and does not compare across the two size classes: the 512³ oracles sit near 500 where the 256³
+oracles sit near 250, for purely geometric reasons.
 
 Five completely different instance labellings were scored:
 

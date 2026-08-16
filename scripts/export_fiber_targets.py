@@ -30,6 +30,29 @@ SRC = pathlib.Path("local_data/fiber_skeletons")
 VOXEL_UM = 7.91
 THRESHOLD = 0.5
 
+MASK_GENERATED_NOTE = (
+    "probability volume produced locally by running scrollprize/fiber_hz_vt over the "
+    "cube, not downloaded from the villa dataset; thresholded at 0.5 to give the "
+    "shipped mask"
+)
+
+# The semantic-label landing rate is checked per cube and refused below 0.999, but it is
+# not exactly 1.0 on every cube (s5_06494_01994_03994_512 measures 0.999936). The note
+# must therefore point at the recorded number instead of asserting a value it cannot know.
+TWO_RATES_NOTE = (
+    "measured_node_landing_rate_on_semantic_label is against labelsTr, "
+    "villa's shipped semantic mask, and is at or above 0.999 on every shipped "
+    "cube — the exporter refuses to ship one below that; the value measured for "
+    "this cube is recorded above. That artifact is NOT what scoring uses. The "
+    "figure that matters for scoring is "
+    "measured_node_landing_rate_on_scoring_mask, against the fiber_hz_vt "
+    "reference mask: lower, because the mask is a thresholded model output "
+    "rather than a hand label, but many times chance, which is what "
+    "establishes that skeleton and mask share a coordinate frame. "
+    "Recomputed from shipped data by tests/test_fiber_target.py rather than "
+    "trusted from this file."
+)
+
 
 def split_for_stem(stem: str) -> str:
     """Reporting split, derived from the scroll rather than a hardcoded cube list.
@@ -225,17 +248,7 @@ def export(stem: str, out_root: pathlib.Path, bench: dict) -> None:
             "scoring_mask_density": round(scoring_density, 6),
             "landing_enrichment_vs_chance": round(scoring_enrichment, 6),
             "in_bounds_node_fraction": round(scoring_in_bounds_fraction, 6),
-            "note_on_the_two_rates": (
-                "measured_node_landing_rate_on_semantic_label is against labelsTr, "
-                "villa's shipped semantic mask, and is 1.0. That artifact is NOT what "
-                "scoring uses. The figure that matters for scoring is "
-                "measured_node_landing_rate_on_scoring_mask, against the fiber_hz_vt "
-                "reference mask: lower, because the mask is a thresholded model output "
-                "rather than a hand label, but many times chance, which is what "
-                "establishes that skeleton and mask share a coordinate frame. "
-                "Recomputed from shipped data by tests/test_fiber_target.py rather than "
-                "trusted from this file."
-            ),
+            "note_on_the_two_rates": TWO_RATES_NOTE,
         },
         "mask": {
             "model": "scrollprize/fiber_hz_vt (Apache-2.0)",
@@ -246,6 +259,12 @@ def export(stem: str, out_root: pathlib.Path, bench: dict) -> None:
                 "differences come from the instance labelling rather than from a "
                 "better or worse segmentation."
             ),
+            # Provenance of the probability volume this mask is thresholded from. Added
+            # to the shipped metas by hand once; emitted here so the next re-export does
+            # not silently delete it again -- the same failure mode that dropped five
+            # convention_check fields. scrollgt's
+            # tests/test_fiber_meta_keys.py pins the full key set of both blocks.
+            "generated": MASK_GENERATED_NOTE,
         },
         "floors": bench["cubes"][stem]["rows"],
     }

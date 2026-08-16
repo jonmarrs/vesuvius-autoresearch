@@ -203,7 +203,7 @@ Left deliberately blank. Suggested substance, in your words rather than mine:
 | scoreable pixel targets | **1** (`20231210121321`, 0.31 mm resolution limit) |
 | retired as non-scoring | both `20230702185753` regions (local error ~1.9 analysis windows) |
 | withheld | `20231005123336` (placement 57.5 px, over the 48 px gate) |
-| unaffected | PHerc 1667 column targets, all six fiber targets |
+| unaffected | PHerc 1667 column targets, all eleven fiber targets (eight 256³, three 512³) |
 | GT fine-tune | retired, cannot be retrained: all four training regions fail or drop |
 
 ## D. Settled, no longer blocking
