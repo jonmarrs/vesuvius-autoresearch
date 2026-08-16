@@ -59,19 +59,45 @@ Honest measurement is this project's differentiator:
     ([`gt_training_data_exhaustion_2026-08-15.md`](../reports/detector/gt_training_data_exhaustion_2026-08-15.md)).
 *   Cross-scroll transfer is weak (lift 2.07 same-scroll → 1.29 cross); training-scroll
     diversity helps (1.22 → 2.12 on an unseen scroll) but saturates at ~2.1.
-*   ⚠ **Consequence NEEDS RE-DERIVATION 2026-08-15.** It previously read: "independent
-    letter-reading at the prize window is not currently within reach; reading-prize work is a
-    capped exploration behind a pre-registered escalation gate, not the primary lane." Two of
-    the three findings it rested on are corrected or retracted above, so the conclusion is no
-    longer supported by its own premises.
+*   **Detection at the prize window is real and held-out; legibility is not, and the
+    detection we have is borrowed.** (Re-derived 2026-08-15, replacing the bullet retired
+    below.)
 
-    It is **not** thereby reversed, and nothing here should be read as claiming it is. The
-    corrected numbers are ROC-AUC against registered ground truth on SOTA-flattened geometry;
-    that is a different question from legible letter-reading inside the 64 px @ 8 µm prize
-    window, and the ~0.31 mm registration floor is ~60% of that window. What changed is that
-    the premise "our models do not read held-out ink" is false. Whether the strategic
-    conclusion survives on other grounds has not been worked through, and this bullet should
-    not be cited either way until it has been.
+    Distilled students run at `size = 64`, and `DetectorConfig.validate_window()` hard-fails
+    anything wider, so every number here is **inside** the 64 px @ 8 µm prize window. Against
+    registered human ground truth on held-out `20231210121321` (all-positive floor 0.518):
+    arm B **0.7305**, arm C **0.7462**, canon teacher **0.7526** roc_auc, AP-lift 2.3–2.4.
+    Arm A scores 0.7716 but was best-epoch-selected on this segment, so read B and C as the
+    clean rows. That is genuine held-out detection at the prize window, and it retires the
+    "near chance" premise outright.
+
+    Three things nonetheless keep the strategic conclusion standing, on new grounds:
+
+    1.  **The capability is inherited, not learned.** Fresh 64 px training still sits at
+        chance (first bullet, unretracted). The students match the teacher rather than
+        beating it — 0.73–0.75 against its 0.753 — which is distillation fidelity, exactly
+        what the second bullet says. Nothing here demonstrates *independent* reading.
+    2.  **The window costs legibility, not detectability.** 224 px reads letterforms; 64 px
+        yields detectable-not-legible signal (`LAB_NOTEBOOK.md`, 2026-06-16 verdict as
+        refined). Detection at 0.75 roc_auc is not letter-reading, and the gap between them
+        is the window itself, which the prize fixes.
+    3.  **Our instrument cannot certify legibility at this scale anyway.** The registered-GT
+        floor is ~0.31 mm against a 0.512 mm window — ~60%. Registered-GT evaluation can
+        establish detection but is structurally unable to resolve within-window letterform
+        structure, so "we read letters at 64 px" is not a claim this evidence *could* support
+        even if it were true.
+
+    **Conclusion, re-derived: independent letter-reading at the prize window is still not
+    within reach** — but for a materially different reason than before. It is no longer "our
+    models do not read held-out ink," which was false. It is that detection ≠ legibility, and
+    what detection we have is the teacher's.
+
+    **Escalation gate, updated.** The old implicit trigger was "can we get off chance?" —
+    already passed, and it passed a month ago without anyone noticing because the
+    misregistration hid it. The trigger that now means something: **a model that beats the
+    canon teacher held-out at ≤64 px by a margin wider than the selection caveat.** Matching
+    it is fidelity; beating it is independence. Reading-prize work stays a capped exploration
+    behind that gate, not the primary lane.
 
 ## 4. Prize-Specific Workflows
 
