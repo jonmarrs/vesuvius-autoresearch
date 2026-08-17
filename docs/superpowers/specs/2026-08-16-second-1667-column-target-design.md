@@ -1,7 +1,14 @@
 # A second column target: the same reading on a different flattening
 
 **Date:** 2026-08-16
-**Status:** design, awaiting review
+**Status:** SUPERSEDED 2026-08-17 -- the premise below is factually wrong. `merged_v4` is a
+whole-scroll merge across multiple windings, not a different flattening of the same material
+as `w011_flatboi`; `w011_flatboi` is one winding inside that merge. Measured, not inferred:
+the pre-registered transfer run found 0 of 22 columns clear all gates (floor 5), 21 of 22
+had no real destination correspondence, and the one exception (col 22) still missed this
+project's own genuine-correspondence benchmark by ~23x. No target was built; the family
+stays at n=1. Full account: `reports/detector/w011_column_transfer.md`. This document is
+kept as a record of the (incorrect) premise and is not corrected in place.
 **Repos:** derivation in `vesuvius-autoresearch`, target ships to `../scrollgt` (public)
 
 ## Problem

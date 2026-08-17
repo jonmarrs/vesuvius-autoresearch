@@ -16,6 +16,7 @@ import pytest
 
 SCRIPTS = pathlib.Path(__file__).resolve().parents[1] / "scripts"
 PROBES = [
+    "evaluate_w011_column_target.py",
     "probe_labeled_segment_availability.py",
     "probe_placement_field.py",
     "probe_registration_offset.py",

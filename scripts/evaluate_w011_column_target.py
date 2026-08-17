@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 """Task 2 of the second-1667-column-target plan: run the tifxyz transfer against the
-real w011 flatboi flattening, apply the coverage and teacher-free gates, and decide
-whether a second column target is even buildable.
+real w011 flatboi flattening, apply the coverage and teacher-free gates, and evaluate
+whether a second column target is even feasible. This script decides feasibility; it
+does not build a target. (Formerly named build_w011_column_target.py -- renamed because
+the run it produced was BLOCKED, and a script named "build" that never builds anything
+is a misleading name for what actually happened.)
 
 This does NOT read ink to place columns (see transfer_columns_to_flattening.py). It
 does, for the SUPPORTING check only, read the destination segment's own published
@@ -29,43 +32,26 @@ import sys
 
 import numpy as np
 import tifffile
-from scipy.spatial import cKDTree
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
 SCROLLGT_ROOT = REPO_ROOT.parent / "scrollgt"
 sys.path.insert(0, str(REPO_ROOT))
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
 
-import transfer_columns_to_flattening as _tcf  # noqa: E402
-from transfer_columns_to_flattening import _valid_mask, transfer_columns  # noqa: E402
+from transfer_columns_to_flattening import transfer_columns, valid_mask  # noqa: E402
 
 from repro.sota_data.distill_run import _fs  # noqa: E402
 from repro.sota_data.register import label_line_periodicity, read_tifxyz  # noqa: E402
 
-
-class _ParallelKDTree(cKDTree):
-    """cKDTree with tree.query(..., k=1) defaulting to workers=-1.
-
-    bridge_points() (Task 1, committed) calls tree.query(query, k=1) with scipy's
-    single-threaded default. Measured on the real merged-1667 grid: one column's
-    query set (~580k points against a ~1.16M-point tree) took ~73s single-threaded
-    in a direct timing and a similar wall time with workers=-1 on 4 cores in one
-    run, but isolated micro-benchmarks showed workers=-1 roughly 2.4x faster per
-    query -- across 22 columns (~27M query points total) that is the difference
-    between multiple hours and roughly one. This subclasses cKDTree (the class
-    itself can't be monkeypatched: it's an immutable Cython extension type) and
-    rebinds the name inside the ALREADY-IMPORTED transfer_columns_to_flattening
-    module, so bridge_points()'s `cKDTree(...)` calls build this subclass instead.
-    It does not change transfer_columns_to_flattening.py on disk or its tested
-    behavior -- only how many cores answer the same query.
-    """
-
-    def query(self, x, k=1, **kwargs):
-        kwargs.setdefault("workers", -1)
-        return super().query(x, k=k, **kwargs)
-
-
-_tcf.cKDTree = _ParallelKDTree
+# NOTE ON THE SHIPPED REPORT NUMBERS: the run that produced reports/detector/
+# w011_column_transfer.{md,json} used a since-removed monkeypatch here that rebuilt the
+# destination KD-tree once per column via a workers=-1 cKDTree subclass, patched onto
+# transfer_columns_to_flattening's already-imported module. transfer_columns() itself now
+# builds the tree once (see _dst_tree() there) and bridge_points() queries with
+# workers=-1 directly, so this script's code path and the tested code path are the same
+# path going forward. The already-shipped numbers are NOT being regenerated to match --
+# re-running the transfer is out of scope here and the fix is for correctness on any
+# future run, not for reproducing this one.
 
 BUCKET = "vesuvius-challenge-open-data"
 SRC_SEG = "20260612121456-w011_20260108140509268_merged_v4_flatboi_straightened_v4"
@@ -281,16 +267,24 @@ def main():
 
     print(f"transferring {len(columns)} columns ...", flush=True)
     mapped, stats = transfer_columns(src_xyz, dst_xyz, columns, max_residual=None)
-    src_valid = _valid_mask(src_xyz)
+    src_valid = valid_mask(src_xyz)
 
     fs = _fs()
     ensure_dst_ink_tif()
     ink_full = np.asarray(tifffile.imread(str(DST_INK_LOCAL)))
+    # GRID_TO_LEVEL0 (20) is asserted, not just assumed: it drives the box arithmetic in
+    # surface_periodicity() and column_gutter_enrichment() below, and is only correct
+    # because the destination ink tif's raster shape is an exact GRID_TO_LEVEL0 multiple of
+    # the tifxyz grid shape.
+    assert ink_full.shape[:2] == (dh * GRID_TO_LEVEL0, dw * GRID_TO_LEVEL0), (
+        f"ink tif shape {ink_full.shape[:2]} is not dst grid {(dh, dw)} scaled by "
+        f"GRID_TO_LEVEL0={GRID_TO_LEVEL0}; the box arithmetic below assumes this exactly"
+    )
 
     rows = []
     n_fully_inside = n_coverage_pass = n_periodicity_pass = n_all_pass = 0
     n_edge_exclusion_only = n_no_cells = 0
-    for c, m in zip(columns, mapped, strict=False):
+    for c, m in zip(columns, mapped, strict=True):
         nsc = n_source_cells(src_valid, c)
         n_mapped = m["n_mapped"]
         coverage = (n_mapped / nsc) if nsc > 0 else 0.0
@@ -345,6 +339,7 @@ def main():
                 "n_mapped": n_mapped,
                 "coverage": coverage,
                 "median_residual": m["median_residual"],
+                "residual_suspect": m["residual_suspect"],
                 "fully_inside": fully_inside,
                 "edge_exclusion_only": edge_exclusion_only,
                 "coverage_ok": coverage_ok,
@@ -373,6 +368,7 @@ def main():
         "n_all_gates_pass": n_all_pass,
         "n_edge_exclusion_only": n_edge_exclusion_only,
         "n_no_source_correspondence": n_no_cells,
+        "n_residual_suspect": stats["n_residual_suspect"],
     }
     result = "CONTINUE" if n_all_pass >= STOP_FLOOR else "BLOCKED"
     report["stop"] = {

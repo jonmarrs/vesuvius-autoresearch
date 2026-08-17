@@ -57,6 +57,17 @@ Source column widths (846–1250 grid px, measured from `columns.json`) already
 exceed the destination's total width (736 grid px), which was the first visible
 symptom before any transfer ran.
 
+**Provenance note on the source mesh actually used:** this run's source tifxyz was not
+fetched fresh from the bucket path in the table above. `scripts/evaluate_w011_column_target.py`
+(`ensure_src_tifxyz()`) reuses a local, already-z-overrun-corrected copy at
+`local_data/merged_w011_tifxyz` (from a prior render task, `repro/sota_data/merged_fullband_render.py`)
+in preference to the raw bucket mesh, because it excludes points where the straightened
+merged mesh's z overruns the scan volume — points that have no valid destination
+correspondence either way, so this is strictly more correct for a transfer, not less. A
+reader reproducing this run from the bare bucket path will get a different (very likely
+larger) `n_source_cells` per column than tabulated here, because the raw bucket mesh has not
+had those overrun points excluded.
+
 ## Method note: this run applied no residual filtering
 
 Step 2's specified invocation runs `transfer_columns` with `max_residual=None`. Under
@@ -164,13 +175,18 @@ ink-annotation label** warped into the target geometry — a near-binary mask, w
 correct placement scores 0.5–0.87 in this project's own validated runs. Column boxes
 have no pixel-level ink label to warp, so this run applies the same function to raw
 CT grayscale texture instead — a materially weaker signal (carbon ink is largely
-invisible in raw CT without a trained detector). Column 22, the best-residual
-column, still scores only 0.110 — consistent with either genuine misplacement (which
-the residual and x-collapse independently already show) or a texture channel that
-would score low even for a correctly-placed column. Given the residual and x-collapse
-evidence stand on their own, this run does not need to resolve that ambiguity to
-reach BLOCKED, but it should not be over-read as a second independent confirmation —
-it is corroborating, not decisive on its own.
+invisible in raw CT without a trained detector). Concretely, the mechanism is a
+binarization: `label_line_periodicity` thresholds its input with `lab > 127` before
+computing the row-wise autocorrelation (`repro/sota_data/register.py`), which is a
+sound way to turn a near-binary ink mask into a periodic signal but is a different
+operation entirely on raw CT grayscale — there, `> 127` just means "pixels brighter
+than the middle of the 8-bit range," with no relationship to ink. Column 22, the
+best-residual column, still scores only 0.110 — consistent with either genuine
+misplacement (which the residual and x-collapse independently already show) or a
+texture channel that would score low even for a correctly-placed column. Given the
+residual and x-collapse evidence stand on their own, this run does not need to
+resolve that ambiguity to reach BLOCKED, but it should not be over-read as a second
+independent confirmation — it is corroborating, not decisive on its own.
 
 ## Supporting check: column-vs-gutter enrichment (teacher-dependent) — informational only
 
@@ -235,7 +251,42 @@ columns' true papyrus is measurably absent from it (residuals 1000–2990 voxels
 1.7–7.2mm, and every one of the 21 collapses onto the same narrow destination band
 regardless of source identity), and even the one column nearest a real match
 (column 22) falls ~23× short of this project's own genuine-correspondence
-benchmark. Any future attempt at a second column target needs a destination that
-demonstrably covers the source columns' actual physical material — checkable in
-advance by comparing the two segments' `bbox` metadata or 3D extents before running
-a full transfer, rather than discovering it after the fact via residual.
+benchmark.
+
+**Inference vs. measurement, stated separately.** That `merged_v4` is a whole-scroll
+merge across multiple windings is **inferred**, not measured here — from the segment
+name (`merged_v4`, "straightened") and from the 41× width ratio between the two grids
+(30097 vs. 736 grid px). This run did not open a third source (a scroll-level winding
+map, say) to confirm the multi-winding claim directly. What **is measured**, and is the
+load-bearing claim for the BLOCKED result regardless of the inferred one: the destination
+does not contain most of the source material, full stop — that is what the residuals and
+the x-collapse show directly, independent of why. Also worth naming, because it is
+exactly the trap that produced this spec error in the first place: both segment names
+contain `w011` (`20260612121456-w011_20260108140509268_merged_v4_flatboi_straightened_v4`
+and `20260108140509-w011_20260108140509268_flatboi`). That shared substring is why the two
+looked like "the same winding, differently flattened" at a glance — the premise this task
+was given. Naming it here so the next person doesn't fall into the same read of the name.
+
+**What to check before spending 20 minutes on the next attempt, in increasing order of
+cost:**
+
+1. **Two ~1 KB reads, seconds.** Every tifxyz directory ships a `meta.json` with an
+   explicit 3D `bbox` (`[[xmin,ymin,zmin],[xmax,ymax,zmax]]`), and — as in this run — it is
+   already on disk once the mesh is fetched, before any transfer runs. Read both candidate
+   segments' `meta.json` and check that the destination's `bbox` actually contains (or
+   substantially overlaps) the source columns' `bbox`. If it doesn't, stop there; a full
+   transfer will not change that answer.
+2. **A cheap empirical check, seconds, if step 1 looks plausible.** Subsample ~10k source
+   cells (not all of them — that's most of the cost of a full run), bridge them through
+   `transfer_columns_to_flattening.bridge_points` against the candidate destination, and
+   look at the median residual. Compare it to this project's own validated correspondence
+   benchmark of ~7.95 voxels (`repro/sota_data/register.py`, exercised in
+   `register_run.py`) — a candidate whose subsampled median residual is anywhere near that
+   is worth a full run; one that is 100s–1000s of voxels off, as this pair was, is not.
+   Same answer this 20-minute run reached, in seconds.
+3. **What kind of destination to look for.** Not another single-winding segment like
+   `w011_flatboi` — look for another **whole-scroll merge or flattening** of PHerc 1667
+   (i.e. something in the same class as `merged_v4` itself, covering all windings), since
+   that is the class of object that can plausibly contain all 22 columns' material. A
+   shared `w011`-style substring in two segment names is not evidence of shared coverage;
+   step 1 or step 2 above is.

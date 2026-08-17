@@ -2,6 +2,13 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+**Outcome (2026-08-17):** Stopped after Task 2 by the plan's own pre-registered stop
+condition (fewer than 5 columns passing all gates) -- 0 of 22 columns passed, against a
+floor of 5. Root cause: the flattening pair this plan was built on does not cover the same
+material (see the spec's superseded-status banner). Tasks 3 and 4 (ship to `../scrollgt`,
+document the pair) never ran; `../scrollgt` was not touched. Task 1's transfer tool and
+tests stand on their own regardless. Full account: `reports/detector/w011_column_transfer.md`.
+
 **Goal:** Ship a second ScrollGT column target carrying the same PHerc 1667 reading on a different flattening, so the family can test whether a column-level score survives a change of geometry.
 
 **Architecture:** Both flattenings are surfaces over the same 3D scan, so column boxes transfer by a nearest-neighbour tifxyz bridge rather than by re-registering figure strips or reading ink. A derivation script in `vesuvius-autoresearch` produces the mapped columns and a gate report; the target then ships to `../scrollgt` in the existing 4-file column-target format.
