@@ -389,6 +389,25 @@ uv run python scripts/transfer_columns_to_flattening.py \
 
 Record how many of the 22 columns come back `fully_inside`.
 
+**`fully_inside` is necessary but NOT sufficient — apply a coverage floor too.** Task 1's
+review established that `max_residual` filtering has no minimum-coverage floor: a column
+whose correspondences are mostly outliers can end up with `n_mapped` as low as 1 and still
+satisfy `fully_inside`, because a single well-placed point trivially clears the bounds test.
+A one-point column is not a column.
+
+For each column, compute `coverage = n_mapped / n_source_cells`, where `n_source_cells` is
+the count of valid source cells in that column's `(gx0..gx1, text_band)` box — the same count
+`transfer_columns` starts from. **Require `coverage >= 0.5` and `n_mapped >= 1000`** to
+consider a column mapped at all. Both figures go in the report per column, so a column
+excluded for thin coverage is visible rather than absent.
+
+**Also distinguish edge-exclusion from clipping.** `fully_inside` is a strict-interior test
+(`gx0 > 0`, `gx1 < dw-1`), which cannot tell a genuinely clipped column from a legitimate one
+whose true nearest destination cell happens to be column 0 or `dw-1`. It fails safe — toward
+excluding — but a wrongly excluded column reduces the count against the stop condition. Report
+any column excluded *solely* because its envelope touches a grid edge under its own heading,
+so that case is visible rather than folded into "clipped".
+
 - [ ] **Step 3: Apply the teacher-free gate (line periodicity)**
 
 For each fully-inside column, render or fetch the destination segment's surface and measure
@@ -417,7 +436,11 @@ this pair tests robustness to flattening and **not** independence of reading.
 
 - [ ] **Step 6: Evaluate the pre-registered stop condition**
 
-**If fewer than 5 columns pass both gates, STOP.** Do not build a target. Finish the report
+A column counts toward the floor only if it clears **all** of: `fully_inside`,
+`coverage >= 0.5`, `n_mapped >= 1000`, and the teacher-free periodicity gate. The
+teacher-dependent enrichment figure is recorded but does not gate.
+
+**If fewer than 5 columns pass, STOP.** Do not build a target. Finish the report
 with the finding, commit it, and report BLOCKED to the coordinator — the family stays at
 n=1 and that is a legitimate outcome, not a failure. The merged target records ~±0.08
 statistical granularity at n=18 text columns vs 17 gutters, so a much smaller n publishes
