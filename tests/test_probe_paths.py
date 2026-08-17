@@ -19,6 +19,7 @@ PROBES = [
     "probe_labeled_segment_availability.py",
     "probe_placement_field.py",
     "probe_registration_offset.py",
+    "transfer_columns_to_flattening.py",
 ]
 
 
