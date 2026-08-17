@@ -69,13 +69,11 @@ sys.path.insert(0, str(REPO_ROOT / "scripts"))
 from transfer_columns_to_flattening import bridge_points, transfer_columns  # noqa: E402
 
 
-def _grid(h, w, x0=0.0, y0=0.0, flip=False):
+def _grid(h, w, x0=0.0, y0=0.0):
     """A synthetic flattening: grid cell (r, c) holds a known 3D point."""
     rr, cc = np.meshgrid(np.arange(h), np.arange(w), indexing="ij")
     xs = (cc + x0).astype(np.float32)
     ys = (rr + y0).astype(np.float32)
-    if flip:
-        xs = xs[:, ::-1].copy()
     zs = np.zeros_like(xs)
     return np.stack([xs, ys, zs], axis=-1)
 
