@@ -1,0 +1,640 @@
+{
+  "src": {
+    "segment": "20260612121456-w011_20260108140509268_merged_v4_flatboi_straightened_v4",
+    "tifxyz": "mesh/20260612121456-on-20251217075048-2.399um.tifxyz",
+    "grid_shape": [
+      2061,
+      30097
+    ]
+  },
+  "dst": {
+    "segment": "20260108140509-w011_20260108140509268_flatboi",
+    "tifxyz": "mesh/20260108140509-on-20251217075048-2.399um.tifxyz",
+    "grid_shape": [
+      1975,
+      736
+    ],
+    "ink_detection_tif": "ink-detection/PHerc1667-20260108140509-2.399um-0.22m-78keV-volume-20251217075048-20260417190342-new_canon_autoresearch_recipe-tile256-stride128.tif"
+  },
+  "gates": {
+    "min_coverage": 0.5,
+    "min_n_mapped": 1000,
+    "periodicity_band_grid_px": [
+      85,
+      160
+    ],
+    "min_periodicity": 0.5,
+    "periodicity_note": "measured on the destination segment's RAW surface texture (surface-volumes zarr level 2, block-downsampled to grid resolution), not a human-labeled ink mask -- weaker signal than this project's prior validated use of label_line_periodicity on registered GT labels; see report",
+    "stop_floor": 5
+  },
+  "columns": [
+    {
+      "col": 1,
+      "cross_strip": false,
+      "src_gx0": 42,
+      "src_gx1": 888,
+      "src_text_band": [
+        489,
+        1642
+      ],
+      "n_source_cells": 583761,
+      "n_mapped": 583761,
+      "coverage": 1.0,
+      "median_residual": 2990.706419592734,
+      "fully_inside": true,
+      "edge_exclusion_only": false,
+      "coverage_ok": true,
+      "dst_gx0": 5,
+      "dst_gx1": 596,
+      "dst_text_band": [
+        412,
+        1786
+      ],
+      "periodicity_teacher_free": 0.0697148662105455,
+      "periodicity_pass": false,
+      "enrichment_teacher_dependent_supporting_only": 1.631409849863277,
+      "passes_all_gates": false
+    },
+    {
+      "col": 2,
+      "cross_strip": false,
+      "src_gx0": 1067,
+      "src_gx1": 2148,
+      "src_text_band": [
+        479,
+        1866
+      ],
+      "n_source_cells": 962990,
+      "n_mapped": 962990,
+      "coverage": 1.0,
+      "median_residual": 2948.4895779600156,
+      "fully_inside": true,
+      "edge_exclusion_only": false,
+      "coverage_ok": true,
+      "dst_gx0": 5,
+      "dst_gx1": 655,
+      "dst_text_band": [
+        385,
+        1877
+      ],
+      "periodicity_teacher_free": 0.11806290299070059,
+      "periodicity_pass": false,
+      "enrichment_teacher_dependent_supporting_only": 2.2640476646178396,
+      "passes_all_gates": false
+    },
+    {
+      "col": 3,
+      "cross_strip": false,
+      "src_gx0": 2350,
+      "src_gx1": 3431,
+      "src_text_band": [
+        460,
+        1936
+      ],
+      "n_source_cells": 1125203,
+      "n_mapped": 1125203,
+      "coverage": 1.0,
+      "median_residual": 2970.840558191483,
+      "fully_inside": true,
+      "edge_exclusion_only": false,
+      "coverage_ok": true,
+      "dst_gx0": 5,
+      "dst_gx1": 656,
+      "dst_text_band": [
+        352,
+        1969
+      ],
+      "periodicity_teacher_free": 0.2454726746750085,
+      "periodicity_pass": false,
+      "enrichment_teacher_dependent_supporting_only": 2.3770725200346825,
+      "passes_all_gates": false
+    },
+    {
+      "col": 4,
+      "cross_strip": false,
+      "src_gx0": 3633,
+      "src_gx1": 4695,
+      "src_text_band": [
+        517,
+        1888
+      ],
+      "n_source_cells": 1005539,
+      "n_mapped": 1005539,
+      "coverage": 1.0,
+      "median_residual": 2954.2597974326004,
+      "fully_inside": true,
+      "edge_exclusion_only": false,
+      "coverage_ok": true,
+      "dst_gx0": 5,
+      "dst_gx1": 593,
+      "dst_text_band": [
+        444,
+        1969
+      ],
+      "periodicity_teacher_free": 0.16751492959161182,
+      "periodicity_pass": false,
+      "enrichment_teacher_dependent_supporting_only": 1.6204667321845334,
+      "passes_all_gates": false
+    },
+    {
+      "col": 5,
+      "cross_strip": false,
+      "src_gx0": 4897,
+      "src_gx1": 5959,
+      "src_text_band": [
+        423,
+        1919
+      ],
+      "n_source_cells": 1089812,
+      "n_mapped": 1089812,
+      "coverage": 1.0,
+      "median_residual": 2922.5634929620346,
+      "fully_inside": true,
+      "edge_exclusion_only": false,
+      "coverage_ok": true,
+      "dst_gx0": 5,
+      "dst_gx1": 596,
+      "dst_text_band": [
+        266,
+        1969
+      ],
+      "periodicity_teacher_free": 0.16679391397008958,
+      "periodicity_pass": false,
+      "enrichment_teacher_dependent_supporting_only": 1.796516021182101,
+      "passes_all_gates": false
+    },
+    {
+      "col": 6,
+      "cross_strip": false,
+      "src_gx0": 6161,
+      "src_gx1": 7228,
+      "src_text_band": [
+        465,
+        1852
+      ],
+      "n_source_cells": 1066538,
+      "n_mapped": 1066538,
+      "coverage": 1.0,
+      "median_residual": 2824.274244183521,
+      "fully_inside": true,
+      "edge_exclusion_only": false,
+      "coverage_ok": true,
+      "dst_gx0": 5,
+      "dst_gx1": 590,
+      "dst_text_band": [
+        352,
+        1969
+      ],
+      "periodicity_teacher_free": 0.1715255042323201,
+      "periodicity_pass": false,
+      "enrichment_teacher_dependent_supporting_only": 1.689311616261213,
+      "passes_all_gates": false
+    },
+    {
+      "col": 7,
+      "cross_strip": false,
+      "src_gx0": 7430,
+      "src_gx1": 8493,
+      "src_text_band": [
+        376,
+        1941
+      ],
+      "n_source_cells": 1392943,
+      "n_mapped": 1392943,
+      "coverage": 1.0,
+      "median_residual": 2734.099241332973,
+      "fully_inside": true,
+      "edge_exclusion_only": false,
+      "coverage_ok": true,
+      "dst_gx0": 5,
+      "dst_gx1": 656,
+      "dst_text_band": [
+        217,
+        1969
+      ],
+      "periodicity_teacher_free": 0.1848738271204673,
+      "periodicity_pass": false,
+      "enrichment_teacher_dependent_supporting_only": 2.5936779474121567,
+      "passes_all_gates": false
+    },
+    {
+      "col": 8,
+      "cross_strip": false,
+      "src_gx0": 8634,
+      "src_gx1": 9696,
+      "src_text_band": [
+        338,
+        1810
+      ],
+      "n_source_cells": 1313412,
+      "n_mapped": 1313412,
+      "coverage": 1.0,
+      "median_residual": 2597.3252542351415,
+      "fully_inside": true,
+      "edge_exclusion_only": false,
+      "coverage_ok": true,
+      "dst_gx0": 5,
+      "dst_gx1": 596,
+      "dst_text_band": [
+        135,
+        1913
+      ],
+      "periodicity_teacher_free": 0.07958590428236381,
+      "periodicity_pass": false,
+      "enrichment_teacher_dependent_supporting_only": 1.8515837903903405,
+      "passes_all_gates": false
+    },
+    {
+      "col": 9,
+      "cross_strip": true,
+      "src_gx0": 9889,
+      "src_gx1": 10984,
+      "src_text_band": [
+        564,
+        1433
+      ],
+      "n_source_cells": 952751,
+      "n_mapped": 952751,
+      "coverage": 1.0,
+      "median_residual": 2467.3848043397647,
+      "fully_inside": true,
+      "edge_exclusion_only": false,
+      "coverage_ok": true,
+      "dst_gx0": 5,
+      "dst_gx1": 609,
+      "dst_text_band": [
+        411,
+        1487
+      ],
+      "periodicity_teacher_free": 0.06542423601914939,
+      "periodicity_pass": false,
+      "enrichment_teacher_dependent_supporting_only": 1.8956542695287775,
+      "passes_all_gates": false
+    },
+    {
+      "col": 10,
+      "cross_strip": false,
+      "src_gx0": 11219,
+      "src_gx1": 12323,
+      "src_text_band": [
+        353,
+        1833
+      ],
+      "n_source_cells": 1561647,
+      "n_mapped": 1561647,
+      "coverage": 1.0,
+      "median_residual": 2378.217087368856,
+      "fully_inside": true,
+      "edge_exclusion_only": false,
+      "coverage_ok": true,
+      "dst_gx0": 5,
+      "dst_gx1": 656,
+      "dst_text_band": [
+        136,
+        1913
+      ],
+      "periodicity_teacher_free": 0.13946857218790606,
+      "periodicity_pass": false,
+      "enrichment_teacher_dependent_supporting_only": 2.706593015739396,
+      "passes_all_gates": false
+    },
+    {
+      "col": 11,
+      "cross_strip": false,
+      "src_gx0": 12582,
+      "src_gx1": 13686,
+      "src_text_band": [
+        357,
+        1767
+      ],
+      "n_source_cells": 1500267,
+      "n_mapped": 1500267,
+      "coverage": 1.0,
+      "median_residual": 2259.470722814546,
+      "fully_inside": true,
+      "edge_exclusion_only": false,
+      "coverage_ok": true,
+      "dst_gx0": 5,
+      "dst_gx1": 610,
+      "dst_text_band": [
+        136,
+        1838
+      ],
+      "periodicity_teacher_free": 0.09663132481731558,
+      "periodicity_pass": false,
+      "enrichment_teacher_dependent_supporting_only": 1.9668150653395629,
+      "passes_all_gates": false
+    },
+    {
+      "col": 12,
+      "cross_strip": false,
+      "src_gx0": 13950,
+      "src_gx1": 15049,
+      "src_text_band": [
+        291,
+        1852
+      ],
+      "n_source_cells": 1679390,
+      "n_mapped": 1679390,
+      "coverage": 1.0,
+      "median_residual": 2148.1818836526268,
+      "fully_inside": true,
+      "edge_exclusion_only": false,
+      "coverage_ok": true,
+      "dst_gx0": 5,
+      "dst_gx1": 656,
+      "dst_text_band": [
+        126,
+        1877
+      ],
+      "periodicity_teacher_free": 0.12859887537088707,
+      "periodicity_pass": false,
+      "enrichment_teacher_dependent_supporting_only": 2.693202692489643,
+      "passes_all_gates": false
+    },
+    {
+      "col": 13,
+      "cross_strip": false,
+      "src_gx0": 15195,
+      "src_gx1": 16295,
+      "src_text_band": [
+        268,
+        1795
+      ],
+      "n_source_cells": 1651858,
+      "n_mapped": 1651858,
+      "coverage": 1.0,
+      "median_residual": 2024.7161972656347,
+      "fully_inside": true,
+      "edge_exclusion_only": false,
+      "coverage_ok": true,
+      "dst_gx0": 5,
+      "dst_gx1": 656,
+      "dst_text_band": [
+        83,
+        1845
+      ],
+      "periodicity_teacher_free": 0.16915352035396816,
+      "periodicity_pass": false,
+      "enrichment_teacher_dependent_supporting_only": 2.7616971502369583,
+      "passes_all_gates": false
+    },
+    {
+      "col": 14,
+      "cross_strip": false,
+      "src_gx0": 16558,
+      "src_gx1": 17662,
+      "src_text_band": [
+        235,
+        1678
+      ],
+      "n_source_cells": 1595620,
+      "n_mapped": 1595620,
+      "coverage": 1.0,
+      "median_residual": 1892.2078635233636,
+      "fully_inside": true,
+      "edge_exclusion_only": false,
+      "coverage_ok": true,
+      "dst_gx0": 5,
+      "dst_gx1": 610,
+      "dst_text_band": [
+        70,
+        1720
+      ],
+      "periodicity_teacher_free": 0.10020819221902781,
+      "periodicity_pass": false,
+      "enrichment_teacher_dependent_supporting_only": 2.0792476803021587,
+      "passes_all_gates": false
+    },
+    {
+      "col": 15,
+      "cross_strip": false,
+      "src_gx0": 17926,
+      "src_gx1": 19026,
+      "src_text_band": [
+        136,
+        1649
+      ],
+      "n_source_cells": 1666156,
+      "n_mapped": 1666156,
+      "coverage": 1.0,
+      "median_residual": 1679.5335293488401,
+      "fully_inside": true,
+      "edge_exclusion_only": false,
+      "coverage_ok": true,
+      "dst_gx0": 5,
+      "dst_gx1": 610,
+      "dst_text_band": [
+        14,
+        1682
+      ],
+      "periodicity_teacher_free": 0.035781289436623925,
+      "periodicity_pass": false,
+      "enrichment_teacher_dependent_supporting_only": 2.144173783554552,
+      "passes_all_gates": false
+    },
+    {
+      "col": 16,
+      "cross_strip": true,
+      "src_gx0": 19355,
+      "src_gx1": 20487,
+      "src_text_band": [
+        113,
+        1663
+      ],
+      "n_source_cells": 1753186,
+      "n_mapped": 1753186,
+      "coverage": 1.0,
+      "median_residual": 1518.9477282370603,
+      "fully_inside": true,
+      "edge_exclusion_only": false,
+      "coverage_ok": true,
+      "dst_gx0": 5,
+      "dst_gx1": 610,
+      "dst_text_band": [
+        14,
+        1702
+      ],
+      "periodicity_teacher_free": 0.03669905375466539,
+      "periodicity_pass": false,
+      "enrichment_teacher_dependent_supporting_only": 2.110605199086649,
+      "passes_all_gates": false
+    },
+    {
+      "col": 17,
+      "cross_strip": false,
+      "src_gx0": 20802,
+      "src_gx1": 21991,
+      "src_text_band": [
+        108,
+        1612
+      ],
+      "n_source_cells": 1787861,
+      "n_mapped": 1787861,
+      "coverage": 1.0,
+      "median_residual": 1305.2945596462555,
+      "fully_inside": true,
+      "edge_exclusion_only": false,
+      "coverage_ok": true,
+      "dst_gx0": 5,
+      "dst_gx1": 610,
+      "dst_text_band": [
+        13,
+        1648
+      ],
+      "periodicity_teacher_free": 0.02638198090744161,
+      "periodicity_pass": false,
+      "enrichment_teacher_dependent_supporting_only": 2.1923312115362985,
+      "passes_all_gates": false
+    },
+    {
+      "col": 18,
+      "cross_strip": false,
+      "src_gx0": 22198,
+      "src_gx1": 23392,
+      "src_text_band": [
+        117,
+        1711
+      ],
+      "n_source_cells": 1906025,
+      "n_mapped": 1906025,
+      "coverage": 1.0,
+      "median_residual": 1118.4936902142563,
+      "fully_inside": true,
+      "edge_exclusion_only": false,
+      "coverage_ok": true,
+      "dst_gx0": 5,
+      "dst_gx1": 610,
+      "dst_text_band": [
+        14,
+        1743
+      ],
+      "periodicity_teacher_free": 0.048016495909742274,
+      "periodicity_pass": false,
+      "enrichment_teacher_dependent_supporting_only": 2.082702818097777,
+      "passes_all_gates": false
+    },
+    {
+      "col": 19,
+      "cross_strip": false,
+      "src_gx0": 23594,
+      "src_gx1": 24788,
+      "src_text_band": [
+        136,
+        1433
+      ],
+      "n_source_cells": 1551110,
+      "n_mapped": 1551110,
+      "coverage": 1.0,
+      "median_residual": 958.3704809986343,
+      "fully_inside": true,
+      "edge_exclusion_only": false,
+      "coverage_ok": true,
+      "dst_gx0": 5,
+      "dst_gx1": 610,
+      "dst_text_band": [
+        34,
+        1458
+      ],
+      "periodicity_teacher_free": 0.07289615437799647,
+      "periodicity_pass": false,
+      "enrichment_teacher_dependent_supporting_only": 2.3542538592034807,
+      "passes_all_gates": false
+    },
+    {
+      "col": 20,
+      "cross_strip": false,
+      "src_gx0": 25051,
+      "src_gx1": 26301,
+      "src_text_band": [
+        145,
+        1631
+      ],
+      "n_source_cells": 1860135,
+      "n_mapped": 1860135,
+      "coverage": 1.0,
+      "median_residual": 704.9367517272362,
+      "fully_inside": true,
+      "edge_exclusion_only": false,
+      "coverage_ok": true,
+      "dst_gx0": 5,
+      "dst_gx1": 610,
+      "dst_text_band": [
+        37,
+        1651
+      ],
+      "periodicity_teacher_free": 0.05583430616469954,
+      "periodicity_pass": false,
+      "enrichment_teacher_dependent_supporting_only": 2.1887403355298938,
+      "passes_all_gates": false
+    },
+    {
+      "col": 21,
+      "cross_strip": false,
+      "src_gx0": 26503,
+      "src_gx1": 27753,
+      "src_text_band": [
+        108,
+        1795
+      ],
+      "n_source_cells": 2111674,
+      "n_mapped": 2111674,
+      "coverage": 1.0,
+      "median_residual": 435.5095529960643,
+      "fully_inside": true,
+      "edge_exclusion_only": false,
+      "coverage_ok": true,
+      "dst_gx0": 5,
+      "dst_gx1": 659,
+      "dst_text_band": [
+        14,
+        1835
+      ],
+      "periodicity_teacher_free": 0.08993819897273751,
+      "periodicity_pass": false,
+      "enrichment_teacher_dependent_supporting_only": 2.9430012487220596,
+      "passes_all_gates": false
+    },
+    {
+      "col": 22,
+      "cross_strip": false,
+      "src_gx0": 27960,
+      "src_gx1": 29206,
+      "src_text_band": [
+        122,
+        1786
+      ],
+      "n_source_cells": 2066716,
+      "n_mapped": 2066716,
+      "coverage": 1.0,
+      "median_residual": 185.35455846843172,
+      "fully_inside": true,
+      "edge_exclusion_only": false,
+      "coverage_ok": true,
+      "dst_gx0": 5,
+      "dst_gx1": 661,
+      "dst_text_band": [
+        22,
+        1832
+      ],
+      "periodicity_teacher_free": 0.10978950818510891,
+      "periodicity_pass": false,
+      "enrichment_teacher_dependent_supporting_only": 3.0426336531720666,
+      "passes_all_gates": false
+    }
+  ],
+  "stats": {
+    "n_columns": 22,
+    "n_fully_inside": 22,
+    "n_coverage_pass": 22,
+    "n_periodicity_pass": 0,
+    "n_all_gates_pass": 0,
+    "n_edge_exclusion_only": 0,
+    "n_no_source_correspondence": 0
+  },
+  "stop": {
+    "floor": 5,
+    "n_passing": 0,
+    "result": "BLOCKED"
+  }
+}
