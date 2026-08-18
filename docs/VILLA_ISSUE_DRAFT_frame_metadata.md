@@ -1,6 +1,8 @@
 # DRAFT (NOT FILED) — villa issue: mesh scale metadata does not distinguish frames
 
-**Status: drafted 2026-08-18, NOT filed.** Jon's call on whether and when.
+**Status: FILED 2026-08-18** as https://github.com/ScrollPrize/villa/issues/1522 (open, author jonmarrs).
+Body as filed is byte-identical to the Body section below; GitHub appended one trailing
+blank line. This is our first issue on villa, against ten PRs all closed.
 
 Target: a **new issue** on `ScrollPrize/villa`, not a PR. Modelled on the contribution
 pattern the accepted community listings share: `scroll-data-audit` reported a real catalog
