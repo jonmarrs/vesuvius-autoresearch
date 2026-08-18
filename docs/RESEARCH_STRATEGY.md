@@ -116,8 +116,15 @@ require held-out ground-truth validation + false-positive mitigation.*
     full-reading transcription as the first non-training-scroll GT — see
     `reports/detector/scrollgt_v02_groundwork.md`.
 *   **First Letters / Title (secondary, ≤20% GPU):** run the window-compliant arms on
-    rendered Scroll-3 data, score honestly. Escalate only past the pre-registered gate
-    (held-out ROC > 0.65 or clearly legible letterforms). Submission mechanics
+    rendered Scroll-3 data, score honestly. ⚠ **This bullet's gate was superseded 2026-08-16
+    and the two must not be read together.** It said "held-out ROC > 0.65 or clearly legible
+    letterforms", which the corrected numbers now *clear* (arms B/C at 0.7305/0.7462), while
+    the gate re-derived in section 3 above (**beat the canon teacher, 0.7526, by more than
+    the selection caveat**) is *not* cleared. Two gates giving opposite answers is an
+    artifact of adding the second without reconciling the first; **section 3's gate
+    governs.** This one is also inapplicable on its own terms: it was written for rendered
+    Scroll-3 data, which ships no human ground truth at all, so it was never testable there
+    and the Scroll-1 substitute is a single held-out target. Submission mechanics
     (`scripts/generate_submission_package.py` + validator) stay dormant until a real
     discovery exists.
 
