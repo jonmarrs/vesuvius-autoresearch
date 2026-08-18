@@ -36,8 +36,11 @@ nowhere in `meta.json` at all.
 
 So coordinates from two meshes of one segment look interchangeable, and are not.
 
-Measured across the catalog: **257 of 311** segments carry multiple frames, **204** of those
-are indistinguishable from their metadata, median spread **7x**, worst **40.3x**.
+Measured across the catalog (re-verified against the live bucket 2026-08-18): **257 of 311**
+segments carry multiple frames, **204** of those are indistinguishable from their metadata,
+worst spread **40.33x**. Voxel-size spread across the 257 multi-frame segments has a median
+of **8.3x**; an earlier revision of this line said 7x without stating a denominator and did
+not reproduce.
 
 ## Why existing auditors do not flag it
 
