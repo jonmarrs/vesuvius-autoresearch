@@ -6,6 +6,15 @@ submitted.
 
 House style throughout: no em-dashes or en-dashes as punctuation (Jon's call, 2026-07-29).
 
+Short per-field answers for the form live in `PRIZE_FILING_2026-08_FORM_ANSWERS.md`. This
+file is the long writeup that goes into the single main field.
+
+<!-- ============================================================================
+     PASTE BOUNDARY. Everything ABOVE this line is internal metadata and must NOT
+     be pasted into the form. Copy from the "Corrections to our July 2026
+     submission" heading below through the end of the file.
+     ============================================================================ -->
+
 ---
 
 ## Corrections to our July 2026 submission, stated first
@@ -23,13 +32,23 @@ level-0 voxels out of place. Everything scored against it looked like chance.
 
 Re-registered and re-scored, same segment, same models, `scrollgt score` semantics:
 
-| model (held-out `20231210121321`) | as filed | corrected | AP-lift |
-|---|---|---|---|
-| released canon prediction | roc_auc 0.5632 | **0.7526** | 2.15 |
-| our 1-scroll student (arm A) | 0.5626 | **0.7716** | 2.67 |
-| our 2-scroll student (arm B) | 0.5531 | **0.7305** | 2.34 |
-| our 3-scroll student (arm C) | 0.5576 | **0.7462** | 2.44 |
-| all-positive floor | 0.5006 | 0.5176 | 1.01 |
+| model (held-out `20231210121321`) | as filed | corrected | AP-lift | exposure to this segment |
+|---|---|---|---|---|
+| released canon prediction | roc_auc 0.5632 | **0.7526** | 2.15 | none |
+| our 1-scroll student (arm A) | 0.5626 | **0.7716** | 2.67 | **used it as its best-epoch selection set** |
+| our 2-scroll student (arm B) | 0.5531 | **0.7305** | 2.34 | none |
+| our 3-scroll student (arm C) | 0.5576 | **0.7462** | 2.44 | none |
+| legacy detector, our near-chance reference | 0.5006 | 0.5176 | 1.01 | none |
+
+Read the exposure column before the arm A row. Arm A is the only model above the canon
+teacher here, and it is the one row whose margin is selection-optimistic, because this
+segment picked its checkpoint. ScrollGT's own leaderboard marks it "selection-set only". We
+do not claim a student that beats the released canon prediction; the two fully clean arms sit
+at 0.7305 and 0.7462, at or just below the teacher's 0.7526.
+
+The reference row is the legacy detector, not a constructed all-positive predictor: a true
+all-positive predictor scores ROC-AUC exactly 0.5 by construction and would not move under
+re-registration. This one moved from 0.5006 to 0.5176, which is what a weak model does.
 
 The models were reading held-out ink the whole time. Our benchmark was measuring its own
 misalignment. Teacher-enrichment on the same convention went 1.68 to 6.01.
@@ -41,12 +60,11 @@ assumed surface-volume shape was 50600x36400 against a true 34880x97280: an erro
 x and the wrong aspect entirely. That model trained on badly misplaced labels, so its result
 measured nothing.
 
-**Both corrections improved our own numbers rather than flattering them.** The held-out result
-went from chance to genuine held-out generalization. The fine-tune negative was a claim
-against a lever, and retracting it reopens the lever rather than closing it. We say this
-plainly because it is the strongest available evidence that these corrections are honest
-rather than defensive: a project correcting itself to look better than it filed is not
-managing a narrative.
+**Two retractions, neither of which flattered us.** One raised our own numbers: the held-out
+result went from chance to genuine held-out generalization. The other removed a negative we
+can no longer test: the fine-tune claim was a claim against a lever, and retracting it
+reopens that lever nominally rather than usefully, since Finding 5 shows the experiment is
+now unanswerable for want of registered training data.
 
 **Both original objections were correct.** `erdpx` closed villa PR
 [#1280](https://github.com/ScrollPrize/villa/pull/1280) on 2026-08-06 saying the registration
@@ -85,18 +103,15 @@ Full detail and reproduction:
 
 ## Title
 
-**We audited our own benchmark in public and it got more honest: a registration bug found,
-fixed and guarded in code; two retractions that both improved our numbers; a fiber-target
-family expanded from six cubes to eleven with a size-class rule that stops a misleading mean;
-two measured data ceilings published instead of assumed; and two small tools extracted so the
-checks travel.**
+**We audited our own benchmark in public and it got more honest.**
 
 ## TL;DR (60-second version)
 
 1. **We broke our own headline result and published the break.** A hardcoded level-0 shape
    displaced our held-out ground truth by about 1766 voxels. Fixed, the "everything reads at
    chance" finding inverts: the canon teacher reads that segment at ROC-AUC 0.753 and our
-   clean students at 0.731 to 0.746, against an all-positive floor of 0.518. A second copy of
+   clean students at 0.731 to 0.746, against our legacy detector, a near-chance reference, at
+   0.518. A second copy of
    the same constant, found a week later, voided our GT fine-tuning negative too.
 2. **Every retraction ships with the guard that prevents its recurrence.** Placement is now a
    gate rather than a diagnostic (`placement_peak`: agreement must peak at zero shift, not
@@ -114,6 +129,9 @@ checks travel.**
    gaming, and villa issue [#1522](https://github.com/ScrollPrize/villa/issues/1522),
    reporting a catalog-wide metadata defect that costs anyone bridging between two meshes of
    one segment.
+6. **Two small tools were extracted so the checks travel** rather than staying inside our
+   pipeline: `placement-check` (2026-08-15) and `scroll-frames` (2026-08-18), both MIT, both
+   installable standalone.
 
 We still do not claim an independent letter-reading capability, and we still lose to
 connected components on fiber tracing. Both are stated below.
@@ -126,17 +144,17 @@ easier, and in July ours did exactly that for anyone who scored against it. This
 work is the correction of that, done in public, plus the engineering that keeps it from
 happening again.
 
-Nearly every submission to a prize like this claims progress. We are claiming correction.
-The three things that make that a contribution rather than a confession:
+Three things are worth pulling out of it.
 
 **The corrections were found by us, published by us, and made our own numbers better.** We
 told the community that beating ROC-AUC 0.60 on our held-out target "would be news." Several
 already-published models were over that bar the whole time, ours included. We retracted that
 publicly and asked anyone who had scored before 2026-08-07 to re-pull and re-score.
 
-**Each retraction is paired with a guard in code.** A retraction without a guard is an
-apology. The guards are enumerated below, and each one names the specific failure it
-prevents. Every one of them is a test that fails CI, not a note in a document.
+**Each retraction is paired with a guard in code.** The guards are enumerated below, and each
+one names the specific failure it prevents. Every one of them is a test in the suite, run
+locally, rather than a note in a document; the ScrollGT ones additionally run in CI on every
+push.
 
 **The pattern behind the bug was named and is now the thing being defended against.** Three
 separate times, an instrument fired correctly and we attributed the failure to the data
@@ -263,6 +281,42 @@ could act on. This month:
   The mesh coordinate-frame defect above. A defect report with no ask attached: no listing
   request, no link to a prize submission.
 
+## Where each criterion is evidenced
+
+**Released early.** Public repository dates, all MIT, all installable now:
+[ScrollGT](https://github.com/jonmarrs/scrollgt) **2026-07-11**,
+[placement-check](https://github.com/jonmarrs/placement-check) **2026-08-15**,
+[scroll-frames](https://github.com/jonmarrs/scroll-frames) **2026-08-18**. ScrollGT has been
+public for five weeks and carries its own retraction and correction history in the repo, so
+what a reader sees is the record rather than a cleaned-up snapshot. The two extracted tools
+are recent; scroll-frames is same-day as this filing, and we would rather say so than round it
+up.
+
+**Gets used.** This is our weakest criterion and we will not dress it up. **No external
+adoption is yet demonstrated.** The `#robots` top-level post and villa issue #1522 are both
+dated 2026-08-18, the same day as this filing, and neither has a response yet. They are
+outbound contributions, not evidence of use. The one piece of engagement with a prior audience
+is the 2026-08-14 correction reply, and its content is that our earlier published numbers were
+wrong. In July we scored nothing here; this month we have put falsifiable claims and a defect
+report in front of people, and whether that turns into use is not ours to assert.
+
+**Solves a real problem.** No human ground truth is aligned to the SOTA geometry in the open
+bucket, so "my model reads ink" and "my model reproduces another model" are not separable
+outside the core team; ScrollGT supplies registered held-out ground truth that separates them,
+and its scorecards ship the placement and resolution caveats alongside the number.
+placement-check is the ten-line check whose absence produced our own retraction, extracted so
+the next person bridging old labels onto re-flattened geometry does not repeat it.
+scroll-frames and villa issue #1522 address a defect affecting 204 segments in the open
+bucket, where `meta.json` cannot tell you which scan frame a mesh's coordinates are in.
+
+**Well documented.** Each ScrollGT target publishes its resolution limit as a spec rather than
+a footnote, and its `meta.json` records the enrichment figure that establishes a shared
+coordinate frame. `baselines/BASELINES.md` carries every baseline row including our own
+negatives and our withdrawn 2026-07 values. `CONTRIBUTING.md` documents the submit-a-row flow.
+The reproduction commands in the block at the end of this document are the same ones we run.
+Every retraction in this submission links to the report that establishes it and to the probe
+that reproduces it.
+
 ## Findings
 
 ### Finding 1: the registration bug, root cause and blast radius
@@ -300,8 +354,11 @@ for other copies before calling it fixed.**
 
 ### Finding 2: the guards now in code
 
-This is the load-bearing section. Each guard names the failure it prevents, and each is a test
-that fails CI.
+Each guard names the failure it prevents, and each is a test rather than a note in a
+document. Six of the seven live in the methodology repo and run locally with
+`CUDA_VISIBLE_DEVICES="" uv run python -m pytest tests/ -q`; that repo has no CI workflow, so
+"run locally" is the honest description. The seventh, `tests/test_fiber_meta_keys.py`, lives
+in ScrollGT, which does run its suite in CI on every push and pull request.
 
 | guard | the specific failure it prevents |
 |---|---|
@@ -401,7 +458,7 @@ A benchmark reporting coverage and precision alone cannot distinguish a correct 
 `numpy.random`. Raw ERL alone is gameable too: labelling everything once scores 199.18 against
 an oracle's 258.27, within 23%, while its merge-penalized ERL is exactly 0.00. So both ERL and
 the merge count are required, and `scrollgt score-fibers` never prints one without the other.
-`tests/test_fiber_gaming.py` pins this, so a change that breaks it fails CI.
+ScrollGT's `tests/test_fiber_gaming.py` pins this, and it runs in CI on every push.
 
 **Our own tracer loses to connected components on both metrics, on every cube it has been
 scored against.** The tracer finds the fibers (coverage 0.605 to 0.704 of ground-truth length
@@ -486,14 +543,23 @@ reached the same answer before the run.
 
 ## Honest limitations (stated plainly)
 
-- **The pre-registered escalation gate is not currently testable as written.** It reads
-  "held-out ROC > 0.65 or clearly legible letterforms," and was written for a capped
-  First-Letters swing on rendered Scroll-3 data. Scroll 3 ships no human ground truth, so no
-  ROC can be computed there at all. On Scroll 1, the pixel family is n=1, so one number cannot
-  separate model quality from one sheet's idiosyncrasy. And the only model that scores above
-  the canon teacher on that target (arm A, 0.7716 vs 0.7526) used it as its best-epoch
-  selection set, so its margin is selection-optimistic; the two fully clean arms sit at 0.7305
-  and 0.7462, at or just below the teacher. The swing stays capped.
+- **We caught our own escalation gate contradicting itself, and the version that governs is
+  not cleared.** Our strategy document carried two gates for the capped First-Letters swing.
+  The older one read "held-out ROC > 0.65 or clearly legible letterforms." The governing one,
+  re-derived on 2026-08-16 after the correction, is to beat the canon teacher (0.7526) on the
+  held-out target by more than the selection caveat. **On the corrected numbers the two gave
+  opposite answers, and they sat side by side saying opposite things until 2026-08-18, when we
+  found it and reconciled it** (commit `4e722eea`): arms B and C at 0.7305 and 0.7462 clear
+  the old gate and do not clear the governing one. The second gate had been added without
+  grepping for the first, which is the same enumeration failure described in Finding 1. A
+  strategy document that answers "escalate?" both ways is worse than either answer, so the
+  older bullet is now marked superseded rather than deleted. The old gate was also never
+  testable on its own terms: it was written for rendered Scroll-3 data, and Scroll 3 ships no
+  human ground truth, so no ROC can be computed there at all. On the Scroll-1 substitute the
+  pixel family is n=1, so one number cannot separate model quality from one sheet's
+  idiosyncrasy, and the only model above the teacher there (arm A, 0.7716 vs 0.7526) used that
+  segment as its best-epoch selection set, so its margin is selection-optimistic. **The swing
+  stays capped.**
 - **We do not claim an independent letter-reading capability.** The corrected held-out numbers
   show genuine generalization, and they show our students landing at or just below the teacher
   they were distilled from. That is faithful distillation of a teacher that reads, not evidence
@@ -542,7 +608,7 @@ ScrollGT scoring itself is CPU-only).
 # ScrollGT: score a prediction against registered ground truth (CPU, seconds)
 git clone https://github.com/jonmarrs/scrollgt && cd scrollgt && pip install -e .
 scrollgt score pred.png data/scroll1_20231210121321 --json-out card.json
-scrollgt score-fibers labels.npy data/fibers_s1_00497_01497_03997 --json-out card.json
+scrollgt score-fibers labels.npy data/fibers_s1_00497_01497_03997_256 --json-out card.json
 scrollgt check --window-px 64 --scan-um 8.0
 
 # placement-check: does this label actually sit where it claims to?
