@@ -1,5 +1,12 @@
 # POSTED — `#robots`, 2026-07-29 (verbatim record)
 
+**⚠ Two claims in the post below were retracted on 2026-08-07 and corrected publicly
+in `#robots` on 2026-08-14** (verbatim reply: `DISCORD_POSTED_robots_2026-08-14_CORRECTION.md`).
+The held-out "reads at chance" result was our own misregistration and reverses: the canon
+teacher scores 0.753 and our clean students 0.731 and 0.746. **The body below is deliberately
+left unedited**, because it is the verbatim record of what was posted; this header is the
+pointer a later reader needs.
+
 This is the exact text Jon posted to the ScrollPrize Discord `#robots` channel for the July
 2026 Progress Prize. Recorded verbatim as the public artifact of record — do not edit this
 file to "improve" it. Working drafts live in `DISCORD_ANNOUNCEMENT_DRAFT_2026-07.md`.
