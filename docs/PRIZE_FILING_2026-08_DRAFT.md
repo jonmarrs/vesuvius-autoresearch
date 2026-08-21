@@ -628,9 +628,9 @@ CUDA_VISIBLE_DEVICES="" uv run python -m pytest tests/ -q
 
 ## Links
 
-- **ScrollGT: https://github.com/jonmarrs/scrollgt**
-- **placement-check: https://github.com/jonmarrs/placement-check**
-- **scroll-frames: https://github.com/jonmarrs/scroll-frames**
+- **ScrollGT:** https://github.com/jonmarrs/scrollgt
+- **placement-check:** https://github.com/jonmarrs/placement-check
+- **scroll-frames:** https://github.com/jonmarrs/scroll-frames
 - Methodology repo: https://github.com/jonmarrs/vesuvius-autoresearch
 - The registration bug, found, fixed and reversed:
   https://github.com/jonmarrs/vesuvius-autoresearch/blob/main/reports/detector/registration_offset_2026-08-07.md
