@@ -1,6 +1,7 @@
 # August 2026 Progress Prize, form field answers
 
-**Status: DRAFT, NOT FILED.** Jon files it.
+**Status: FILED 2026-08-23** by Jon, at commit `ed1a27c2`, eight days ahead of the
+deadline. Version A (120 words) was used for the contribution description.
 
 **Submission Date:** 2026-08 (deadline 11:59pm Pacific, August 31st 2026, confirmed live)
 **Submission Form:** https://docs.google.com/forms/d/e/1FAIpQLSev2vJobu521iB6OuyehDktzYTEo131F4iUGwt3Qxa9a1fk6A/viewform

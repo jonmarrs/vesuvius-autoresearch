@@ -1,6 +1,12 @@
-# DRAFT (NOT FILED): August 2026 Progress Prize submission
+# FILED: August 2026 Progress Prize submission
 
-**Status: drafted 2026-08-18, NOT filed.** Jon files it himself, via
+**Status: FILED 2026-08-23**, eight days ahead of the 11:59pm Pacific, August 31st 2026
+deadline. Submitted by Jon as of commit `ed1a27c2`. Text below the paste boundary is what
+went into the form's main field; short per-field answers came from
+`PRIZE_FILING_2026-08_FORM_ANSWERS.md` (Version A, 120 words). Contribution URLs given:
+scrollgt, vesuvius-autoresearch, placement-check, scroll-frames, and villa issue #1522.
+
+Filed via
 https://docs.google.com/forms/d/e/1FAIpQLSev2vJobu521iB6OuyehDktzYTEo131F4iUGwt3Qxa9a1fk6A/viewform
 (the Progress Prize form linked from https://scrollprize.org/prizes; the
 `forms.gle/xoF5C3QsYutKP97x7` address used in July is stale and no longer appears on that
