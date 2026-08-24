@@ -1,7 +1,10 @@
 # DRAFT (NOT FILED): August 2026 Progress Prize submission
 
 **Status: drafted 2026-08-18, NOT filed.** Jon files it himself, via
-https://forms.gle/xoF5C3QsYutKP97x7. Nothing in this document has been sent, posted, or
+https://docs.google.com/forms/d/e/1FAIpQLSev2vJobu521iB6OuyehDktzYTEo131F4iUGwt3Qxa9a1fk6A/viewform
+(the Progress Prize form linked from https://scrollprize.org/prizes; the
+`forms.gle/xoF5C3QsYutKP97x7` address used in July is stale and no longer appears on that
+page). Nothing in this document has been sent, posted, or
 submitted.
 
 House style throughout: no em-dashes or en-dashes as punctuation (Jon's call, 2026-07-29).

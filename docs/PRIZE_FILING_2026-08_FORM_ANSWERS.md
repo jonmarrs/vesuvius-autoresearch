@@ -2,8 +2,10 @@
 
 **Status: DRAFT, NOT FILED.** Jon files it.
 
-**Submission Date:** 2026-08 (deadline 2026-08-31 11:59pm PT)
-**Submission Form:** https://forms.gle/xoF5C3QsYutKP97x7
+**Submission Date:** 2026-08 (deadline 11:59pm Pacific, August 31st 2026, confirmed live)
+**Submission Form:** https://docs.google.com/forms/d/e/1FAIpQLSev2vJobu521iB6OuyehDktzYTEo131F4iUGwt3Qxa9a1fk6A/viewform
+(verified against https://scrollprize.org/prizes on 2026-08-23. July's
+`forms.gle/xoF5C3QsYutKP97x7` is stale and is NOT the August form.)
 **Target Prize Tier:** open to review-team judgment
 **Submitter:** Jon Marrs <jdmarrs@gmail.com>
 **Artifacts:** https://github.com/jonmarrs/scrollgt (headline),
