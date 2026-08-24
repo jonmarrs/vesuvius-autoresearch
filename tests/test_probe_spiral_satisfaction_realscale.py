@@ -11,6 +11,8 @@ os.environ["CUDA_VISIBLE_DEVICES"] = ""
 _REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(_REPO, "scripts"))
 
+import re
+
 import pytest
 import torch
 from probe_spiral_satisfaction_realscale import (
@@ -18,6 +20,8 @@ from probe_spiral_satisfaction_realscale import (
     REAL_DR,
     SCALE_DRS,
     WINDING,
+    format_report,
+    max_ratio_deviation,
     run_cell,
 )
 from probe_spiral_satisfaction_winding import (
@@ -112,3 +116,102 @@ def test_half_winding_control_still_rejected_at_real_dr():
     exercising the metric at all."""
     result = run_cell(dr=REAL_DR, n_windings=0.5)
     assert result["disp_combined"] < 0.5
+
+
+# --- Fix round 1: CRITICAL -- a hand-typed narrative statistic ("about
+# 0.28-0.38 of a winding") that did not actually track RATIO_LEVELS (the
+# original text was wrong even at the time it was written: the true max
+# deviation across the pinned grid is 0.38 at ratio=1.38, not a "0.28-0.38"
+# range -- 0.28 was the deviation of a DIFFERENT row, ratio=0.72). The tests
+# below anchor the fix: the helper's own arithmetic, and that the rendered
+# report text agrees with what RATIO_LEVELS actually implies.
+
+
+def test_max_ratio_deviation_matches_hand_computed_values():
+    """max_ratio_deviation must return the (deviation, ratio) pair for
+    whichever row's n_windings sits FARTHEST from the nearest integer
+    winding -- checked against a small hand-built rows_b, not against
+    RATIO_LEVELS itself."""
+    rows_b = [{"n_windings": v} for v in [0.72, 0.9985, 1.38]]
+    dev, ratio = max_ratio_deviation(rows_b)
+    # |0.72-1|=0.28, |0.9985-1|=0.0015, |1.38-1|=0.38 -- 1.38 is farthest.
+    assert dev == pytest.approx(0.38, abs=1e-9)
+    assert ratio == pytest.approx(1.38, abs=1e-9)
+
+
+def test_max_ratio_deviation_on_pinned_ratio_levels():
+    """Sanity anchor on the actual pinned RATIO_LEVELS grid: the true
+    farthest-from-integer point is ratio=1.38 (deviation 0.38), which is
+    coincidentally one of the two numbers the original hand-typed text used
+    -- but the text wrongly implied a RANGE (0.28-0.38) rather than the
+    single correct max-deviation value."""
+    rows_b = [{"n_windings": r} for r in RATIO_LEVELS]
+    dev, ratio = max_ratio_deviation(rows_b)
+    assert ratio == pytest.approx(1.38, abs=1e-9)
+    assert dev == pytest.approx(0.38, abs=1e-9)
+
+
+def _synthetic_rows(drs_or_ratios, dr_key_is_ratio, fixed_dr=None):
+    """Build minimal synthetic row dicts carrying only the fields
+    format_report() reads, all pinned to the "everything satisfied, zero
+    delta" case -- used to render the report text WITHOUT re-deriving the
+    fields from a real get_patch_satisfied_areas call, since this helper
+    exists only to test format_report()'s TEXT RENDERING, which is already
+    covered elsewhere by tests that go through the real metric."""
+    rows = []
+    for v in drs_or_ratios:
+        dr = fixed_dr if dr_key_is_ratio else v
+        n_windings = v if dr_key_is_ratio else 1.0
+        rows.append(
+            {
+                "dr": dr,
+                "n_windings": n_windings,
+                "ref_spiral": 1.0,
+                "ref_scan": 1.0,
+                "ref_combined": 1.0,
+                "disp_spiral": 1.0,
+                "disp_scan": 1.0,
+                "disp_combined": 1.0,
+                "delta_combined": 0.0,
+            }
+        )
+    return rows
+
+
+def test_narrative_deviation_matches_ratio_levels_not_hardcoded():
+    """Drift guard for the CRITICAL fix: the Experiment B Result paragraph's
+    quoted 'largest observed deviation ... of a winding' figure must match
+    what RATIO_LEVELS actually implies. The expected value is computed here
+    INDEPENDENTLY of max_ratio_deviation (by hand, from RATIO_LEVELS
+    directly) and then compared against what is parsed out of the rendered
+    report TEXT -- exactly what a reviewer reading only the .txt file would
+    have to redo by hand, automated. This is the same technique
+    measure_real_winding_nonlinearity.py's sibling drift-guard test uses."""
+    rows_a = _synthetic_rows(SCALE_DRS, dr_key_is_ratio=False)
+    rows_b = _synthetic_rows(RATIO_LEVELS, dr_key_is_ratio=True, fixed_dr=REAL_DR)
+    report = format_report(rows_a, rows_b)
+
+    expected_ratio = max(RATIO_LEVELS, key=lambda r: abs(r - round(r)))
+    expected_dev = abs(expected_ratio - round(expected_ratio))
+
+    m = re.search(r"quantiles is ([\d.]+) of a winding \(at ratio=([\d.]+)\)", report)
+    assert m is not None, "expected deviation sentence not found in rendered report"
+    parsed_dev = float(m.group(1))
+    parsed_ratio = float(m.group(2))
+    assert parsed_dev == pytest.approx(expected_dev, abs=5e-5)
+    assert parsed_ratio == pytest.approx(expected_ratio, abs=5e-5)
+
+
+def test_report_column_header_does_not_overclaim_rejection():
+    """IMPORTANT fix guard: the scale-sweep table's tolerance-comparison
+    column must be headed something that states it is a tolerance-magnitude
+    comparison (e.g. 'tighter_tol'), never the unqualified 'binds', and the
+    report must state near that table that scatter is zero so nothing was
+    empirically observed to reject anything there."""
+    rows_a = _synthetic_rows(SCALE_DRS, dr_key_is_ratio=False)
+    rows_b = _synthetic_rows(RATIO_LEVELS, dr_key_is_ratio=True, fixed_dr=REAL_DR)
+    report = format_report(rows_a, rows_b)
+
+    assert "tighter_tol" in report
+    assert "binds" not in report
+    assert "scatter is held at zero" in report.lower()

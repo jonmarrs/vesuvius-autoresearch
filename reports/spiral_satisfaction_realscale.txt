@@ -3,21 +3,22 @@ Real-scale re-run of the whole-winding-blindness measurement (see reports/spiral
 === Experiment A: scale sweep ===
 no scatter, IdentityTransform, exact whole-winding displacement (n_windings=1.0); dr swept from the original pinned value down to the real field's measured p05 gap
 winding = 5; tolerances read from villa's own metrics_config: satisfaction_radius_tolerance = 0.45, satisfaction_distance_tolerance = 6.0 voxels
+Scatter is held at zero throughout this experiment, so no condition is empirically observed rejecting anything below -- ref_* and disp_* all read 1.0 in every row. The tighter_tol column reports which of villa's two tolerances (read from its own metrics_config, above) is numerically SMALLER at that dr; it is a magnitude comparison of the constants, not a claim that either condition fired.
 
-      dr spiral_tol  scan_tol     binds | ref_spiral  ref_scan  ref_comb | disp_spiral disp_scan disp_comb |  delta_comb
-------------------------------------------------------------------------------------------------------------------------
-  100.00   45.0000    6.0000      scan |  1.000000  1.000000  1.000000 |  1.000000  1.000000  1.000000 |   +0.000000
-   50.00   22.5000    6.0000      scan |  1.000000  1.000000  1.000000 |  1.000000  1.000000  1.000000 |   +0.000000
-   25.00   11.2500    6.0000      scan |  1.000000  1.000000  1.000000 |  1.000000  1.000000  1.000000 |   +0.000000
-   12.81    5.7645    6.0000    spiral |  1.000000  1.000000  1.000000 |  1.000000  1.000000  1.000000 |   +0.000000
-    8.04    3.6180    6.0000    spiral |  1.000000  1.000000  1.000000 |  1.000000  1.000000  1.000000 |   +0.000000
+      dr spiral_tol  scan_tol tighter_tol | ref_spiral  ref_scan  ref_comb | disp_spiral disp_scan disp_comb |  delta_comb
+--------------------------------------------------------------------------------------------------------------------------
+  100.00   45.0000    6.0000        scan |  1.000000  1.000000  1.000000 |  1.000000  1.000000  1.000000 |   +0.000000
+   50.00   22.5000    6.0000        scan |  1.000000  1.000000  1.000000 |  1.000000  1.000000  1.000000 |   +0.000000
+   25.00   11.2500    6.0000        scan |  1.000000  1.000000  1.000000 |  1.000000  1.000000  1.000000 |   +0.000000
+   12.81    5.7645    6.0000      spiral |  1.000000  1.000000  1.000000 |  1.000000  1.000000  1.000000 |   +0.000000
+    8.04    3.6180    6.0000      spiral |  1.000000  1.000000  1.000000 |  1.000000  1.000000  1.000000 |   +0.000000
 
 worst-case |delta_combined| across the scale sweep = 0.000000 at dr=100.0
 Result: the whole-winding invariance is EXACT at every scale tested, matching the pre-registered algebra (the transform and the scale both cancel for an ideal, unscattered patch under IdentityTransform). This CONFIRMS the earlier sweep's finding is not an artifact of the DR=100 scale it happened to be run at -- the blindness is scale-invariant.
 
 === Experiment B: realistic displacement at the real scale ===
 dr = 12.81 (real measured median inter-winding gap, voxels); displacement = n_windings * dr where n_windings is drawn from the measured real adjacent-gap ratio quantiles (reports/real_winding_nonlinearity.txt section 2), via the original probe's own displace(patch, dr, n_windings=ratio) -- no new displacement formula
-at dr=12.81: spiral_tolerance = 5.7645 voxels, scan_tolerance = 6.0000 voxels (spiral is tighter)
+at dr=12.81: spiral_tolerance = 5.7645 voxels, scan_tolerance = 6.0000 voxels (spiral has the numerically smaller/tighter magnitude here -- again a comparison of villa's constants, not an observed rejection: scatter is zero in this experiment too, see below)
 
    ratio displacement | ref_spiral  ref_scan  ref_comb | disp_spiral disp_scan disp_comb |  delta_comb
 ------------------------------------------------------------------------------------------------------
@@ -31,6 +32,6 @@ at dr=12.81: spiral_tolerance = 5.7645 voxels, scan_tolerance = 6.0000 voxels (s
 
 worst-case |delta_combined| across the realistic-ratio sweep = 0.000000 at ratio=0.72
 7/7 of the measured real ratio quantiles leave the displaced patch scoring satisfied (>=0.95) by villa's own combined criterion
-Result: the metric accepts a patch displaced by EVERY measured real adjacent-gap ratio quantile in this sweep (p05 through p95), not only an exact whole-winding offset -- because the largest observed deviation from an exact winding at these quantiles (about 0.28-0.38 of a winding) still sits inside villa's 0.45*dr spiral-space tolerance and its 6.0-voxel scan-space tolerance at this real dr. The blindness measured on the idealized sweep is NOT weaker in practice: at the real scale, a displaced patch does not need to land precisely on the adjacent wrap to be scored satisfied -- the real field's typical local gap noise already fits inside the metric's acceptance band.
+Result: the metric accepts a patch displaced by EVERY measured real adjacent-gap ratio quantile in this sweep (p05 through p95), not only an exact whole-winding offset -- because the largest observed deviation from an exact winding across these quantiles is 0.3800 of a winding (at ratio=1.3800), which still sits inside villa's 0.45*dr spiral-space tolerance (5.7645 voxels here) and its 6.0000-voxel scan-space tolerance at this real dr. The blindness measured on the idealized sweep is NOT weaker in practice: at the real scale, a displaced patch does not need to land precisely on the adjacent wrap to be scored satisfied -- the real field's typical local gap noise already fits inside the metric's acceptance band.
 
 CAVEAT: RATIO_LEVELS covers only the pinned quantile grid (p05 through p95 of the measured adjacent-gap ratio distribution). The measured distribution has real tails beyond this grid (min 0.0446, max 23.8006, and 21.6% of all ratios fall outside [0.8, 1.25] -- see reports/real_winding_nonlinearity.txt section 2); this sweep does not claim the invariance holds for those more extreme, less-typical local deviations.

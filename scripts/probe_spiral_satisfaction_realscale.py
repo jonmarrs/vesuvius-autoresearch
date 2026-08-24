@@ -126,17 +126,30 @@ def tolerances_at(dr):
     return spiral_tolerance, scan_tolerance
 
 
-def binding_condition(dr):
-    """Which of the two tolerances is numerically tighter at this dr -- a
+def tighter_tolerance(dr):
+    """Which of the two tolerances is numerically SMALLER at this dr -- a
     magnitude comparison of villa's own constants, used only to describe the
     scale crossover the task calls out (spiral tolerance shrinks with dr,
     scan tolerance is fixed). Not itself a claim about which condition
     rejected anything in this experiment (both conditions read 1.0
-    throughout, since there is no scatter here -- see module docstring)."""
+    throughout, since there is no scatter here -- see module docstring, and
+    the disclaimer printed alongside the table this feeds)."""
     spiral_tolerance, scan_tolerance = tolerances_at(dr)
     if abs(spiral_tolerance - scan_tolerance) < 1e-6:
         return "comparable"
     return "spiral" if spiral_tolerance < scan_tolerance else "scan"
+
+
+def max_ratio_deviation(rows_b):
+    """The largest observed deviation of a swept `n_windings` (ratio) value
+    from the nearest integer winding, and the ratio that produced it --
+    computed from the actual `rows_b` data (never hand-typed), so a change
+    to RATIO_LEVELS can never leave a stale number in the report. Returns
+    (max_deviation, ratio_at_max_deviation)."""
+    deviations = [
+        (abs(r["n_windings"] - round(r["n_windings"])), r["n_windings"]) for r in rows_b
+    ]
+    return max(deviations, key=lambda pair: pair[0])
 
 
 def run_experiment_a():
@@ -151,7 +164,7 @@ def _fmt_row_a(r):
     spiral_tolerance, scan_tolerance = tolerances_at(r["dr"])
     return (
         f"{r['dr']:8.2f} {spiral_tolerance:9.4f} {scan_tolerance:9.4f} "
-        f"{binding_condition(r['dr']):>9s} | "
+        f"{tighter_tolerance(r['dr']):>11s} | "
         f"{r['ref_spiral']:9.6f} {r['ref_scan']:9.6f} {r['ref_combined']:9.6f} | "
         f"{r['disp_spiral']:9.6f} {r['disp_scan']:9.6f} {r['disp_combined']:9.6f} | "
         f"{r['delta_combined']:+11.6f}"
@@ -190,9 +203,18 @@ def format_report(rows_a, rows_b):
         f"satisfaction_distance_tolerance = "
         f"{metrics_config['satisfaction_distance_tolerance']} voxels"
     )
+    lines.append(
+        "Scatter is held at zero throughout this experiment, so no condition "
+        "is empirically observed rejecting anything below -- ref_* and "
+        "disp_* all read 1.0 in every row. The tighter_tol column reports "
+        "which of villa's two tolerances (read from its own metrics_config, "
+        "above) is numerically SMALLER at that dr; it is a magnitude "
+        "comparison of the constants, not a claim that either condition "
+        "fired."
+    )
     lines.append("")
     header_a = (
-        f"{'dr':>8} {'spiral_tol':>9} {'scan_tol':>9} {'binds':>9} | "
+        f"{'dr':>8} {'spiral_tol':>9} {'scan_tol':>9} {'tighter_tol':>11} | "
         f"{'ref_spiral':>9} {'ref_scan':>9} {'ref_comb':>9} | "
         f"{'disp_spiral':>9} {'disp_scan':>9} {'disp_comb':>9} | "
         f"{'delta_comb':>11}"
@@ -242,8 +264,10 @@ def format_report(rows_a, rows_b):
     spiral_tolerance_b, scan_tolerance_b = tolerances_at(REAL_DR)
     lines.append(
         f"at dr={REAL_DR}: spiral_tolerance = {spiral_tolerance_b:.4f} voxels, "
-        f"scan_tolerance = {scan_tolerance_b:.4f} voxels ({binding_condition(REAL_DR)} "
-        "is tighter)"
+        f"scan_tolerance = {scan_tolerance_b:.4f} voxels ({tighter_tolerance(REAL_DR)} "
+        "has the numerically smaller/tighter magnitude here -- again a "
+        "comparison of villa's constants, not an observed rejection: "
+        "scatter is zero in this experiment too, see below)"
     )
     lines.append("")
     header_b = (
@@ -269,19 +293,23 @@ def format_report(rows_a, rows_b):
         f"(>=0.95) by villa's own combined criterion"
     )
     if len(still_satisfied_b) == len(rows_b):
+        max_dev_b, max_dev_ratio_b = max_ratio_deviation(rows_b)
+        spiral_frac_tol = metrics_config["satisfaction_radius_tolerance"]
         lines.append(
             "Result: the metric accepts a patch displaced by EVERY measured "
             "real adjacent-gap ratio quantile in this sweep (p05 through "
             "p95), not only an exact whole-winding offset -- because the "
-            "largest observed deviation from an exact winding at these "
-            "quantiles (about 0.28-0.38 of a winding) still sits inside "
-            "villa's 0.45*dr spiral-space tolerance and its 6.0-voxel "
-            "scan-space tolerance at this real dr. The blindness measured "
-            "on the idealized sweep is NOT weaker in practice: at the real "
-            "scale, a displaced patch does not need to land precisely on "
-            "the adjacent wrap to be scored satisfied -- the real field's "
-            "typical local gap noise already fits inside the metric's "
-            "acceptance band."
+            "largest observed deviation from an exact winding across these "
+            f"quantiles is {max_dev_b:.4f} of a winding (at ratio="
+            f"{max_dev_ratio_b:.4f}), which still sits inside villa's "
+            f"{spiral_frac_tol}*dr spiral-space tolerance "
+            f"({spiral_tolerance_b:.4f} voxels here) and its "
+            f"{scan_tolerance_b:.4f}-voxel scan-space tolerance at this "
+            "real dr. The blindness measured on the idealized sweep is NOT "
+            "weaker in practice: at the real scale, a displaced patch does "
+            "not need to land precisely on the adjacent wrap to be scored "
+            "satisfied -- the real field's typical local gap noise already "
+            "fits inside the metric's acceptance band."
         )
     else:
         lines.append(
