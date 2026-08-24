@@ -1,0 +1,82 @@
+Real inter-winding nonlinearity of PHercParis4
+Source: https://dl.ash2txt.org/datasets/spiral_datasets/PHercParis4/winding_model/ (shard sha256 verified against each shard's manifest.json before use)
+Shards: shard_0, shard_1, shard_2, shard_3, shard_4, shard_5, shard_6
+
+=== 1. Inter-winding gap distribution (scale-0 voxels), pooled ===
+gaps                         n=25,283,382  min=      2.6662  p05=    8.0441  p25=   10.4326  p50=   12.8099  p75=   16.3058  p95=   25.1224  max=    163.2435
+
+Per-shard gap median:
+  shard_0    n= 3,683,057  median=12.9184
+  shard_1    n= 4,449,533  median=11.3213
+  shard_2    n= 4,601,040  median=11.3820
+  shard_3    n= 4,257,473  median=12.2147
+  shard_4    n= 3,541,011  median=13.5366
+  shard_5    n= 2,851,236  median=15.0662
+  shard_6    n= 1,900,032  median=16.7426
+
+=== 2. Adjacent-gap ratio distribution, pooled ===
+ratios (g[k+1]/g[k])         n=23,823,211  min=      0.0446  p05=    0.7171  p25=    0.8939  p50=    0.9985  p75=    1.1155  p95=    1.3799  max=     23.8006
+
+Per-shard ratio median:
+  shard_0    n= 3,460,972  median=0.9837
+  shard_1    n= 4,227,993  median=0.9899
+  shard_2    n= 4,380,429  median=0.9963
+  shard_3    n= 4,038,806  median=1.0046
+  shard_4    n= 3,332,572  median=1.0052
+  shard_5    n= 2,658,864  median=1.0060
+  shard_6    n= 1,723,575  median=1.0019
+
+Tail explicitly: fraction of ratios outside [0.5, 2.0] (a 2x asymmetry between consecutive gaps) = 0.009990; outside [0.8, 1.25] = 0.216330
+
+=== 3. Equivalent alpha (power-law model fit per triple; see script docstring for the algebraic derivation) ===
+equivalent alpha             n=12,451,745  min=      0.0200  p05=    0.0315  p25=    0.0630  p50=    0.1171  p75=    0.2582  p95=    1.2923  max=     49.9999
+
+Per-shard equivalent-alpha median:
+  shard_0    n= 1,807,405  median=0.1846
+  shard_1    n= 2,156,147  median=0.1303
+  shard_2    n= 2,285,737  median=0.1286
+  shard_3    n= 2,185,048  median=0.1148
+  shard_4    n= 1,766,309  median=0.0959
+  shard_5    n= 1,389,144  median=0.0797
+  shard_6    n=   861,955  median=0.0703
+
+Comparison to the pinned sweep grid [1.0, 0.95, 0.90, 0.80, 0.60] and the informally-probed breaking regime (~0.2):
+  p05              equivalent alpha = 0.0315
+  p25              equivalent alpha = 0.0630
+  p50 (median)     equivalent alpha = 0.1171
+  p75              equivalent alpha = 0.2582
+  p95              equivalent alpha = 1.2923
+
+Equivalent alpha stratified by absolute local winding number n0 (diagnostic: this convention (r0 = n0*D, one-winding step) makes R less sensitive to alpha as n0 grows -- see derivation docstring -- so the SAME real local ratio noise maps to increasingly extreme alpha at larger n0, independent of any change in the true field):
+  n0 in [  0,  20) n=   186,922  median alpha=0.3310
+  n0 in [ 20,  40) n=   929,632  median alpha=0.1940
+  n0 in [ 40,  60) n= 1,840,940  median alpha=0.1375
+  n0 in [ 60,  80) n= 2,608,590  median alpha=0.1313
+  n0 in [ 80, 100) n= 3,365,194  median alpha=0.1162
+  n0 in [100, 200) n= 3,520,467  median alpha=0.0798
+
+=== Exclusions (counted, not silently dropped) ===
+  n_rays                                  1,460,171
+  n_crossings                            26,743,553
+  n_rays_degenerate_step                          0
+  n_rays_lt2_crossings                            0
+  n_rays_lt3_crossings                       11,049
+  n_pairs_total                          25,283,382
+  excluded_nonadjacent_level_pairs                0
+  excluded_degenerate_t_pairs                     0
+  excluded_degenerate_step_pairs                  0
+  n_gaps_valid                           25,283,382
+  n_ratio_slots_total                    26,743,539
+  n_ratios_valid                         23,823,211
+
+  --- equivalent-alpha inversion ---
+  n_input                                23,823,211
+  excluded_nonpositive_anchor_winding           405
+  excluded_ratio_out_of_bracket_range    11,371,061
+  excluded_below_floor                   11,193,569
+  excluded_above_ceiling                    177,492
+  n_resolved                             12,451,745
+
+MODELING CAVEAT: equivalent alpha assumes the real scan<->spiral map is locally a power law anchored at the lower-level crossing of each observed triple, in the SAME convention probe_spiral_satisfaction_robustness.py's sweep used (r0 = winding * dr). This is a modeling choice made to put the real field's nonlinearity on the same scale the sweep used -- it is NOT a claim that the real winding geometry truly follows a power law.
+
+PLAIN READING: the directly-observed adjacent-gap ratio is close to uniform in the middle (pooled median 0.9985, every per-shard median within 0.98-1.01) but has a real, substantial local spread (p05/p95 = 0.72/1.38; 21.6% of ratios fall outside [0.8, 1.25]) -- this spread is the directly measured, convention-free quantity and is the most trustworthy number in this report. The derived equivalent-alpha (median 0.117, IQR 0.063-0.258) sits BELOW the pinned sweep's most conservative tested point (0.60) and mostly below the informally-probed breaking regime (~0.2) -- but the n0 stratification above shows this number is strongly convention-dependent (it falls monotonically from 0.33 to 0.08 as n0 alone rises from <20 to 100-200, with no change in the underlying ratio noise), and 93% of the 11.4M unresolvable ratios are BELOW the model's floor (i.e. the observed gap shrinks by MORE than even maximal compression in this one-winding-step convention can produce), which points to local fiber waviness / winding-inference noise rather than a smooth global power-law drift. Read together: the real field's local irregularity is real and substantial, is at least as large as (and plausibly larger than) the informally-probed breaking case in a sizeable fraction of triples, but is probably not well described as a single smooth alpha at all -- so the pinned sweep's clean 'safe within alpha>=0.60' story should be read as characterizing SMOOTH systematic nonlinearity only, and should NOT be read as bounding the real field's local irregularity, which this measurement suggests is comparable to or beyond the sweep's breaking regime for a meaningful fraction of local winding triples.
