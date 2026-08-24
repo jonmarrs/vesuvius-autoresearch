@@ -33,4 +33,8 @@ transform: RadialPowerLawTransform  s = r0*(r/r0)**alpha, r0 = winding*dr = 500.
 
 worst-case |delta_combined| = 0.042424 at scatter_std_frac=0.05, alpha=0.6
 
+villa patch-level VERDICT flips (satisfaction_metrics.py:317, satisfied_patch_quad_fraction = 0.95 of 165 valid quads = 156.75 quads):
+  scatter_std_frac=0.05, alpha=0.8: ref 0.963636 (159/165) SATISFIED -> disp 0.945455 (156/165) NOT SATISFIED (delta_combined -0.018182)
+  1 of 25 cells flip. |delta_combined| is NOT a proxy for a flip: what decides one is how close the two arms sit to the patch threshold, not the size of the delta. The flipping cell above has a SMALLER |delta| than the worst-case cell reported above it, which does not flip because both of its arms already sit far below threshold.
+
 CAVEAT: alpha is intentionally bounded at 0.60 above. Informal, UNPINNED probing one step past this bound (scatter_std_frac=0.02, alpha=0.2) found delta_combined around -0.36 -- roughly 8x the worst-case above. This finding does not establish that the invariant survives nonlinearity more aggressive than alpha=0.60; it establishes only that it survives within the pinned grid.

@@ -8,6 +8,8 @@ os.environ["CUDA_VISIBLE_DEVICES"] = ""
 _REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(_REPO, "scripts"))
 
+import re
+
 import pytest
 import torch
 from probe_spiral_satisfaction_robustness import (
@@ -16,7 +18,11 @@ from probe_spiral_satisfaction_robustness import (
     RadialPowerLawTransform,
     add_radius_scatter,
     build_transform,
+    format_report,
     run_cell,
+    run_sweep,
+    total_valid_quads,
+    verdict_flips,
 )
 from probe_spiral_satisfaction_winding import IdentityTransform, build_synthetic_patch
 
@@ -127,3 +133,89 @@ def test_a_half_winding_offset_control_still_rejected_at_zero_knobs():
         scatter_std_frac=0.0, alpha=1.0, unit_noise=unit_noise, n_windings=0.5
     )
     assert result["disp_combined"] < 0.5
+
+
+def _fake_row(scatter, alpha, ref_combined, disp_combined):
+    """A minimal sweep row for the drift guard. Only the fields
+    format_report/verdict_flips read are populated; the per-condition columns
+    are filled with the combined value because they are not under test here."""
+    return {
+        "scatter_std_frac": scatter,
+        "alpha": alpha,
+        "ref_spiral": 1.0,
+        "ref_scan": ref_combined,
+        "ref_combined": ref_combined,
+        "disp_spiral": 1.0,
+        "disp_scan": disp_combined,
+        "disp_combined": disp_combined,
+        "delta_combined": disp_combined - ref_combined,
+    }
+
+
+def test_verdict_flip_is_not_predicted_by_delta_magnitude():
+    """The reasoning error this guard exists to prevent: using |delta| as a
+    proxy for 'does villa's verdict change'. Two hand-built cells, one with a
+    LARGE delta whose arms both sit far below threshold (no flip) and one with
+    a SMALLER delta straddling it (flip). If verdict_flips ever starts ranking
+    by delta magnitude, this fails."""
+    total = total_valid_quads()
+    threshold = 0.95
+    big_delta_no_flip = _fake_row(0.10, 0.60, 0.60, 0.20)
+    small_delta_flip = _fake_row(0.05, 0.80, 159 / total, 156 / total)
+    assert abs(big_delta_no_flip["delta_combined"]) > abs(
+        small_delta_flip["delta_combined"]
+    )
+
+    flips = verdict_flips(
+        [big_delta_no_flip, small_delta_flip], total_quads=total, threshold=threshold
+    )
+    assert len(flips) == 1
+    assert flips[0]["scatter_std_frac"] == 0.05
+    assert flips[0]["ref_satisfied"] is True
+    assert flips[0]["disp_satisfied"] is False
+
+
+def test_report_verdict_flip_line_matches_the_rows_not_a_literal():
+    """Drift guard in the style of the realscale probe's: render the report
+    from known rows and re-derive the expected flip count HERE, independently
+    of verdict_flips, straight from villa's rule applied to integer quad
+    counts. Then compare it against what is parsed out of the rendered report
+    TEXT -- the arithmetic a reviewer reading only the .txt would have to redo
+    by hand, automated."""
+    total = total_valid_quads()
+    rows = [
+        _fake_row(0.00, 1.00, 1.0, 1.0),
+        _fake_row(0.10, 0.60, 0.60, 0.20),
+        _fake_row(0.05, 0.80, 159 / total, 156 / total),
+    ]
+    expected = sum(
+        1
+        for r in rows
+        if (int(round(r["ref_combined"] * total)) >= 0.95 * total)
+        != (int(round(r["disp_combined"] * total)) >= 0.95 * total)
+    )
+    assert expected == 1
+
+    report = format_report(rows)
+    m = re.search(r"^\s*(\d+) of (\d+) cells flip\.", report, re.MULTILINE)
+    assert m is not None, "expected verdict-flip count sentence in rendered report"
+    assert int(m.group(1)) == expected
+    assert int(m.group(2)) == len(rows)
+
+
+def test_pinned_sweep_has_exactly_one_verdict_flip():
+    """Pins the measured finding itself: on the pinned grid, villa's
+    patch-level verdict differs between the correctly-placed and the
+    one-winding-displaced patch in exactly one cell -- scatter 0.05,
+    alpha 0.80. This is the narrow counterexample to unconditional blindness
+    under combined scatter and nonlinearity, and it must not silently move."""
+    flips = verdict_flips(run_sweep())
+    assert len(flips) == 1
+    flip = flips[0]
+    assert flip["scatter_std_frac"] == pytest.approx(0.05)
+    assert flip["alpha"] == pytest.approx(0.80)
+    assert flip["ref_satisfied"] is True
+    assert flip["disp_satisfied"] is False
+    assert flip["ref_quads"] == 159
+    assert flip["disp_quads"] == 156
+    assert flip["total_quads"] == 165

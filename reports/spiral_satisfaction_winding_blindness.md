@@ -18,6 +18,17 @@ in the fit — `losses.get_patch_abs_winding_loss` selects point collections on
 3373 — but `satisfaction_metrics.py` never reads them. Ground truth is consumed by the fit and
 never used to score it, so the score cannot distinguish "on the right wrap" from "on a wrap".
 
+That blindness is exact for a patch lying on a winding, and it survives scatter and smooth
+nonlinearity across almost all of the range swept — but not quite all of it. §4 reports the one
+pinned-grid cell where villa's verdict does change, and reports it as the counterexample it is.
+
+**What villa already has.** `find_inconsistent_windings.py` in the same directory *does* derive a
+patch's expected absolute winding by propagating `winding_is_absolute` annotations across the
+patch graph — the very remedy this report ends by pointing at. It is a standalone debug tool,
+invoked manually one `--patch-id` at a time, and it is wired into neither the fit loop nor the
+scored metric. So the annotation-propagation machinery exists; what does not use it is the
+metric. See Limits 8.
+
 **What this is not.** This says nothing about how often real spiral fits actually misplace a
 patch by a winding, and it is not a claim that any published fit is wrong. It is a statement
 about what one metric can and cannot detect. Everything below was measured on synthetic patches
@@ -45,9 +56,9 @@ From `docs/superpowers/plans/2026-08-24-spiral-satisfaction-winding-probe.md`, v
 
 | Result | Interpretation |
 | --- | --- |
-| \|Δ satisfied fraction\| ≤ 1e-6 **and** the control shows a drop > 0.5 | **H1 confirmed.** The metric is blind to one-winding displacement. |
-| \|Δ satisfied fraction\| > 1e-6 | **H1 falsified.** Report the negative, drop the lane. |
-| Control shows no drop | **Probe is uninformative.** Fix the harness before interpreting anything. |
+| \|Δ satisfied fraction\| ≤ 1e-6 **and** the control in Task 3 shows a drop > 0.5 | **H1 confirmed.** The metric is blind to one-winding displacement. Finding is real; proceed to write it up. |
+| \|Δ satisfied fraction\| > 1e-6 | **H1 falsified.** The metric detects the displacement. Report the negative, drop the lane, do not publish a claim. |
+| Control shows no drop | **Probe is uninformative.** The instrument is not exercising the metric at all. Fix the harness before interpreting anything. |
 
 **Outcome: H1 confirmed.** Δ = `+0.000000e+00` (row 1 of the gate), and the control drops from
 1.000000 to 0.000000 — a drop of 1.0, well past the required 0.5.
@@ -127,8 +138,10 @@ exercising the metric.
 
 The metric ANDs two checks: a spiral-space radius residual against
 `satisfaction_radius_tolerance = 0.45` (in units of `dr`) and a scan-space distance against
-`satisfaction_distance_tolerance = 6.0` (absolute voxels), both read from villa's own
-`metrics_config`. If only one were fooled while the other saturated, the combined null would be
+`satisfaction_distance_tolerance = 6.0` (absolute voxels). Both values are read from villa's own
+`metrics_config` **by the computation**; the header line of
+`reports/spiral_satisfaction_winding_probe.txt` restates them as typed text (see the process
+section, residual instances). If only one were fooled while the other saturated, the combined null would be
 an artifact. It is not. Separating them (via villa's own `metrics_overrides` hook, neutralizing
 one tolerance at a time rather than reimplementing villa's math) gives, at dr = 100:
 
@@ -181,11 +194,44 @@ dispatches to the real `IdentityTransform`.
 
 Degradation requires *both* knobs. Δ is exactly zero in every cell where scatter is 0 (any
 alpha) or alpha is 1.0 (any scatter), matching the algebra. Worst case on the pinned grid:
-`|Δ| = 0.042424` at scatter 0.05, alpha 0.60 — small enough that the satisfied/unsatisfied
-verdict at villa's 0.95 patch threshold does not flip.
+`|Δ| = 0.042424` at scatter 0.05, alpha 0.60.
 
 `ref_spiral` and `disp_spiral` are `1.000000` in every row of this sweep: at dr = 100, all
 degradation is in the scan condition. §6 corrects the reading we first drew from that.
+
+### One cell in the pinned grid *does* flip villa's verdict
+
+This is the sweep's real bound on the finding, and it is a counterexample to unconditional
+blindness, so it gets its own heading.
+
+Δ in satisfied *fraction* is not what villa acts on. villa's patch-level rule
+(`satisfaction_metrics.py:317`) is `num_satisfied_quads >= satisfied_patch_quad_fraction *
+total_valid_quads` — integer quad counts against a threshold. The swept patch is 12x16 points,
+so 11 x 15 = **165** valid quads, and the default threshold is `0.95 * 165 = 156.75` quads.
+Applying that rule to every cell of the sweep, computed by `verdict_flips()` in
+`scripts/probe_spiral_satisfaction_robustness.py` and printed in the artifact:
+
+| cell | reference | displaced | Δ combined | verdict |
+| --- | --- | --- | --- | --- |
+| scatter 0.05, alpha 0.80 | 0.963636 = 159/165 → **satisfied** | 0.945455 = 156/165 → **not satisfied** | -0.018182 | **FLIPS** |
+
+**One of 25 cells flips.** Under combined scatter and nonlinearity at that setting, villa's
+metric does report the one-winding-displaced patch as unsatisfied while reporting the correctly
+placed one as satisfied. The blindness is not unconditional once both knobs are on.
+
+The reasoning trap here is worth naming, because this report previously fell into it: **|Δ| is
+not a proxy for whether the verdict changes.** The flip happens at Δ = -0.018182 — *less than
+half* the grid's worst-case Δ. What decides a flip is proximity to the threshold, not the size
+of the delta. The alpha = 0.60 cells have larger Δ and do not flip only because both of their
+arms already sit far below threshold (136/165 and 129/165 at scatter 0.05). An earlier draft of
+this document argued from the worst-case Δ that no verdict could flip; that inference was
+invalid and its conclusion was false. See the process section.
+
+Two things this cell does not establish. It is one cell of a 25-cell synthetic grid, not a rate.
+And it is a flip under the *reporting* configuration; the splicing configuration that actually
+gates the output mesh (Limits 3) uses a looser 0.90 patch threshold, i.e. 148.5 quads, which
+both 159 and 156 clear — so this particular flip would not occur there. That configuration also
+loosens both tolerances, which would change the fractions themselves; we did not measure it.
 
 **The bound is real and the invariant does break past it.** Informal, **unpinned** probing one
 step beyond the grid (scatter 0.02, alpha 0.20) found Δ combined around **-0.36**, roughly 8x
@@ -318,19 +364,38 @@ Stated plainly, because each is a place this work could mislead.
    *cannot detect*. It does **not** establish how often real fits actually misplace patches, and
    nothing here should be read as a claim about the quality of anyone's fit.
 
-3. **Scatter was never combined with the real scale.** §4 swept scatter at dr = 100; §6 ran at
+3. **We measured the configuration that prints, not the one that gates the mesh.** Every number
+   in this report uses villa's *default* `metrics_config` (`satisfaction_metrics.py:24-26`:
+   radius tolerance 0.45, distance tolerance 6.0, patch fraction 0.95). That is the
+   configuration of the reporting call site, `satisfaction_metrics.py:529` inside
+   `save_overlay_and_print_satisfaction`. There is a second call site:
+   `spiral_helpers.py:1314`, inside `save_mesh`, which decides which patches are **spliced into
+   the output mesh**, and it overrides all three thresholds (`spiral_helpers.py:1308-1312`):
+   radius tolerance **0.495**, distance tolerance **12.0**, patch fraction **0.90**. villa's own
+   comment there says splicing "is deliberately more permissive than the reported satisfaction
+   metrics".
+
+   Both directions matter. Our framing is *understated*: at 0.495 the spiral acceptance bands
+   tile all but roughly a 1% strip around each half-winding midpoint, and the scan tolerance
+   doubles, so the splicing path is more blind than anything measured here, not less. But §6's
+   binding-condition table, the 47%-of-winding-spacing figure, the `0.45*dr = 5.7645`
+   arithmetic, and §4's 0.95-threshold flip analysis are all for the *reporting* configuration.
+   A maintainer could accurately reply that we measured the config that prints numbers, not the
+   one that gates the mesh, and they would be right. The splicing configuration was not swept.
+
+4. **Scatter was never combined with the real scale.** §4 swept scatter at dr = 100; §6 ran at
    dr = 12.81 with scatter held at zero. The cross of the two is untested, and it is the cell a
    sceptic should ask for first.
 
-4. **Ratio tails beyond p05-p95 are untested.** The measured distribution runs from 0.0446 to
+5. **Ratio tails beyond p05-p95 are untested.** The measured distribution runs from 0.0446 to
    23.8006 and 21.6330% of ratios fall outside [0.8, 1.25]. Experiment B covers the pinned
    quantile grid only; the invariance is not claimed for the more extreme local deviations.
 
-5. **The theta = 0 seam is not exercised.** The synthetic patch spans theta 0.30-1.30 rad, so it
+6. **The theta = 0 seam is not exercised.** The synthetic patch spans theta 0.30-1.30 rad, so it
    never crosses the seam and `get_theta_crossing_step_adjustments` is never invoked. The
    invariance argument does not depend on seam handling, but the probe does not test it.
 
-6. **The nonlinearity sweep tests the wrong *shape* for the real field.** §4 perturbs smoothly
+7. **The nonlinearity sweep tests the wrong *shape* for the real field.** §4 perturbs smoothly
    (a global power law); §5 shows the real field's irregularity is local and noisy, with roughly
    half of the ratio population failing to invert under the power-law model at all. The pinned
    sweep's clean "safe for alpha ≥ 0.60" story characterises smooth systematic nonlinearity
@@ -338,7 +403,19 @@ Stated plainly, because each is a place this work could mislead.
    measurement suggests is comparable to or beyond the (unpinned) breaking regime for a
    meaningful fraction of local winding triples.
 
-7. **Two import-time stubs were required.** `kornia` (absent from the environment) and villa's
+8. **villa already contains annotation-propagation machinery; the metric just does not use it.**
+   `find_inconsistent_windings.py` derives a patch's expected absolute winding by propagating
+   `winding_is_absolute` annotations across the patch graph — direct votes from absolute-winding
+   pcls attached to the seed patch, plus long-range votes reached by BFS over relative-winding
+   pcl edges. That is materially the remedy this report proposes. It does not weaken the
+   finding: it is a standalone debug tool that "does no fitting/training" (its own docstring),
+   requires `--patch-id` and so runs one seed patch at a time by hand, and nothing imports it
+   (`plot_winding_graph.py` consumes its output JSON rather than calling it). It is wired into
+   neither the fit loop nor `get_patch_satisfied_areas`. The correct reading is therefore
+   sharper than "villa cannot detect sheet switches": villa has the annotation-propagation
+   machinery already, and the scored metric does not consult it.
+
+9. **Two import-time stubs were required.** `kornia` (absent from the environment) and villa's
    own `visualization.py` (a `SyntaxError` under the project's pinned Python: PEP 646
    subscript-unpacking needs 3.14) were stubbed into `sys.modules`. Neither is reachable from
    `get_patch_satisfied_areas`: it spans lines 31-325, while `kornia` is reached only via
@@ -360,16 +437,19 @@ Stated plainly, because each is a place this work could mislead.
   well described by a single alpha. Measuring the invariance directly against the observed local
   gap sequence, rather than against a fitted alpha, would settle it.
 - **Reading the absolute winding annotations in `satisfaction_metrics.py`.** The annotations
-  already exist and already drive `get_patch_abs_winding_loss`. If the metric compared against
-  them instead of against a self-derived snap, this entire finding would evaporate — which is
-  the practical point of reporting it.
+  already exist, already drive `get_patch_abs_winding_loss`, and are already propagated across
+  the patch graph by `find_inconsistent_windings.py` (Limits 8). None of that reaches the scored
+  metric, which still derives its target from the patch's own median. If the metric compared
+  against a propagated absolute winding instead of against a self-derived snap, this entire
+  finding would evaporate — which is the practical point of reporting it.
 
 ## A process finding
 
 Reported as a finding, not an apology, because the pattern is the useful part.
 
-Two hand-typed statistics shipped into committed reports in this series, and **both were wrong
-on substance**, not merely unanchored to their source data:
+Three hand-asserted statistics shipped into committed reports in this series, and **all three
+were wrong on substance**, not merely unanchored to their source data. The third was in this
+document — the one written to describe the pattern.
 
 - In `real_winding_nonlinearity.txt`, the fraction of unresolvable ratios sitting below the
   model floor was written as "93%". The counts say 11,193,569 / 11,371,061 = **98.4%**. The
@@ -380,16 +460,28 @@ on substance**, not merely unanchored to their source data:
   0.28, 0.38. A superlative — one value — had been written as a range, and the range's lower
   bound was the *second-largest* value, not a bound at all; the true spread bottoms out at
   0.0015. The conclusion survived only because 0.38 happened to be the upper end.
+- In the first draft of **this report**, §4 asserted that the worst-case `|Δ| = 0.042424` was
+  "small enough that the satisfied/unsatisfied verdict at villa's 0.95 patch threshold does not
+  flip." It does flip, at scatter 0.05 / alpha 0.80: 159/165 satisfied → 156/165 not satisfied.
+  The failure here was not a mistyped digit but an **invalid inference**: |Δ| was used as a
+  proxy for "does the verdict change", and it is not one — the flip occurs at less than half the
+  worst-case Δ, because what governs a flip is proximity to the threshold. The claim was made
+  about data already printed in the artifact it cited, and it happened to be the most favourable
+  reading available.
 
-Both survived an implementer and a full review. Both were caught only by a second pass that
-re-did the arithmetic or re-read the claim as written. The second occurred in a new file *one
-task after* the first was fixed, and after the task brief had explicitly forbidden it and named
-the fix to follow — the lesson did not transfer across files on its own.
+All three survived an implementer and a full review. All three were caught only by a second pass
+that re-did the arithmetic or re-read the claim as written. The second occurred in a new file
+*one task after* the first was fixed, and after the task brief had explicitly forbidden it and
+named the fix to follow. The third occurred in the very document whose process section, as first
+drafted, said this keeps happening — written by an author who had just read both prior
+instances. The lesson does not transfer on its own, not across files and not even across
+paragraphs.
 
 The asymmetry is the finding: **every measurement in this investigation held up under scrutiny.
 What repeatedly failed was the prose describing it** — which is the half a reader actually
-consumes. A reader who trusts a report's numbers and skims its narrative was, twice, reading the
-less reliable half.
+consumes. A reader who trusts a report's numbers and skims its narrative was, three times,
+reading the less reliable half. Note also the direction: each of the three errors, uncorrected,
+would have made the work look better than it was.
 
 The durable fix is structural, not vigilance. It is now implemented in both scripts:
 
@@ -400,9 +492,27 @@ The durable fix is structural, not vigilance. It is now implemented in both scri
 - `max_ratio_deviation(rows_b)` in `scripts/probe_spiral_satisfaction_realscale.py` (line 143) —
   the deviation statistic is computed from the swept data, so changing `RATIO_LEVELS` cannot
   leave a stale number in the prose.
+- `verdict_flips(rows)` in `scripts/probe_spiral_satisfaction_robustness.py` — added for the
+  third instance. It applies villa's own patch-level rule to integer quad counts across the
+  sweep, so the flip set is computed rather than inferred from Δ, and the count is printed in
+  the artifact itself.
 - Drift-guard tests that parse the **rendered report text** by regex and compare the quoted
-  figure against independently computed counts. Both were mutation-verified: they fail on the
-  reintroduced bad literal and pass on revert.
+  figure against independently computed counts. All were mutation-verified: they fail on the
+  reintroduced bad literal (or, for `verdict_flips`, on a version that ranks by Δ magnitude) and
+  pass on revert.
+
+**Residual instances, disclosed rather than fixed.** Two hand-typed figures remain in committed
+artifacts. Both were checked and are correct; neither is anchored to its source, and they are
+listed here rather than repaired because four downstream artifacts were measured against those
+pinned scripts and editing them for cosmetics is not worth invalidating that chain.
+
+- `scripts/probe_spiral_satisfaction_winding.py` types its report header as
+  `"spiral-space 0.45*dr=45 units vs scan-space 6.0 voxels absolute"`. The computation reads
+  villa's `metrics_config`; only this display line restates the values.
+- `reports/spiral_satisfaction_realscale.txt` hardcodes `0.0446`, `23.8006` and `21.6%` in its
+  closing caveat, sourced from `measure_real_winding_nonlinearity.py`'s output rather than
+  computed in the script that prints them. A cross-file drift of exactly the kind the `pct()`
+  pattern prevents within a file.
 
 ## Reproduction
 
@@ -415,7 +525,7 @@ CUDA_VISIBLE_DEVICES="" uv run pytest \
   tests/test_probe_spiral_satisfaction_winding.py \
   tests/test_probe_spiral_satisfaction_robustness.py \
   tests/test_probe_spiral_satisfaction_realscale.py \
-  tests/test_measure_real_winding_nonlinearity.py -q      # 44 passed
+  tests/test_measure_real_winding_nonlinearity.py -q      # 47 passed
 ```
 
 Full execution history, including every ruling, every reviewer objection and both corrections

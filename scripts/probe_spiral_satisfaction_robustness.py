@@ -93,6 +93,7 @@ from probe_spiral_satisfaction_winding import (  # noqa: E402
     displace,
     get_patch_satisfied_areas,
 )
+from satisfaction_metrics import metrics_config  # noqa: E402
 
 WINDING = 5
 SCATTER_SEED = 20260824
@@ -281,6 +282,69 @@ SCATTER_LEVELS = [0.0, 0.01, 0.02, 0.05, 0.10]
 ALPHA_LEVELS = [1.0, 0.95, 0.90, 0.80, 0.60]
 
 
+def total_valid_quads(dr=DR, winding=WINDING):
+    """The number of valid quads in the swept patch geometry, read from the
+    patch itself rather than hand-typed, because villa's patch-level verdict
+    (`satisfaction_metrics.py:317`) compares integer quad COUNTS against
+    `satisfied_patch_quad_fraction * total_valid_quads`, not fractions."""
+    return int(
+        build_synthetic_patch(dr=dr, winding=winding).valid_quad_mask.sum().item()
+    )
+
+
+def _patch_is_satisfied(fraction, total_quads, threshold):
+    """villa's own patch-level rule, `satisfaction_metrics.py:317`:
+
+        num_satisfied_quads >= satisfied_patch_quad_fraction * total_valid_quads
+
+    applied to the integer quad count, not to the fraction directly. The two
+    are not interchangeable whenever `threshold * total_quads` is not an
+    integer -- with the default 0.95 and this patch's quad count it is 156.75,
+    so a count of 156 fails while the fraction 156/165 = 0.945455 is only
+    0.0045 below 0.95.
+    """
+    num_satisfied = int(round(fraction * total_quads))
+    return num_satisfied >= threshold * total_quads
+
+
+def verdict_flips(rows, total_quads=None, threshold=None):
+    """The sweep cells where villa's SATISFIED/NOT-SATISFIED verdict for the
+    patch differs between the reference and the one-winding-displaced patch.
+
+    This is the quantity that matters, and `|delta_combined|` is NOT a proxy
+    for it: whether a cell flips is governed by how close the two arms sit to
+    the patch threshold, not by the size of the delta. A cell with a large
+    delta whose arms are both far below threshold does not flip; a cell with a
+    much smaller delta straddling the threshold does. Computed from the swept
+    rows here (never hand-typed) so no narrative sentence can drift from the
+    table above it.
+
+    Returns the flipping rows, each augmented with the integer quad counts and
+    the two boolean verdicts.
+    """
+    if total_quads is None:
+        total_quads = total_valid_quads()
+    if threshold is None:
+        threshold = metrics_config["satisfied_patch_quad_fraction"]
+    flips = []
+    for r in rows:
+        ref_ok = _patch_is_satisfied(r["ref_combined"], total_quads, threshold)
+        disp_ok = _patch_is_satisfied(r["disp_combined"], total_quads, threshold)
+        if ref_ok != disp_ok:
+            flips.append(
+                dict(
+                    r,
+                    total_quads=total_quads,
+                    threshold=threshold,
+                    ref_quads=int(round(r["ref_combined"] * total_quads)),
+                    disp_quads=int(round(r["disp_combined"] * total_quads)),
+                    ref_satisfied=ref_ok,
+                    disp_satisfied=disp_ok,
+                )
+            )
+    return flips
+
+
 def run_sweep():
     # build_synthetic_patch's defaults are n_rows=12, n_cols=16 -> zyxs shape
     # (12, 16, 3); unit_noise is per-POINT, matching that shape exactly.
@@ -334,6 +398,39 @@ def format_report(rows):
         f"{abs(worst['delta_combined']):.6f} at scatter_std_frac="
         f"{worst['scatter_std_frac']}, alpha={worst['alpha']}"
     )
+    lines.append("")
+
+    total_quads = total_valid_quads()
+    threshold = metrics_config["satisfied_patch_quad_fraction"]
+    flips = verdict_flips(rows, total_quads=total_quads, threshold=threshold)
+    lines.append(
+        "villa patch-level VERDICT flips (satisfaction_metrics.py:317, "
+        f"satisfied_patch_quad_fraction = {threshold} of {total_quads} valid "
+        f"quads = {threshold * total_quads:.2f} quads):"
+    )
+    if not flips:
+        lines.append(
+            f"  none -- 0 of {len(rows)} cells change villa's satisfied/"
+            "not-satisfied verdict between the reference and displaced patch"
+        )
+    else:
+        for f in flips:
+            lines.append(
+                f"  scatter_std_frac={f['scatter_std_frac']}, alpha={f['alpha']}: "
+                f"ref {f['ref_combined']:.6f} ({f['ref_quads']}/{f['total_quads']}) "
+                f"{'SATISFIED' if f['ref_satisfied'] else 'NOT SATISFIED'} -> "
+                f"disp {f['disp_combined']:.6f} ({f['disp_quads']}/{f['total_quads']}) "
+                f"{'SATISFIED' if f['disp_satisfied'] else 'NOT SATISFIED'} "
+                f"(delta_combined {f['delta_combined']:+.6f})"
+            )
+        lines.append(
+            f"  {len(flips)} of {len(rows)} cells flip. |delta_combined| is NOT a "
+            "proxy for a flip: what decides one is how close the two arms sit to "
+            "the patch threshold, not the size of the delta. The flipping cell "
+            "above has a SMALLER |delta| than the worst-case cell reported above "
+            "it, which does not flip because both of its arms already sit far "
+            "below threshold."
+        )
     lines.append("")
     lines.append(
         "CAVEAT: alpha is intentionally bounded at 0.60 above. Informal, "
