@@ -515,6 +515,18 @@ def format_quantile_line(label: str, q: dict) -> str:
     )
 
 
+def pct(numerator: int, denominator: int) -> float:
+    """A percentage, computed -- never hand-typed -- from a numerator/
+    denominator pair that also feeds a table elsewhere in the report. Any
+    narrative sentence quoting a percentage derived from the counts dicts
+    must call this (or reference a value computed the same way the table
+    above it was), rather than embedding a literal, so the two can never
+    drift apart on a rerun."""
+    if denominator == 0:
+        return float("nan")
+    return 100.0 * numerator / denominator
+
+
 def run_shard(shard: str) -> dict:
     arrays = load_shard(shard)
     result = compute_gaps_and_ratios(
@@ -559,21 +571,24 @@ def build_report(shard_results: list[dict]) -> str:
         lines.append(f"  {r['shard']:10s} n={len(g):>10,}  median={med:.4f}")
     lines.append("")
 
+    ratio_q = quantiles(all_ratios)
     lines.append("=== 2. Adjacent-gap ratio distribution, pooled ===")
-    lines.append(format_quantile_line("ratios (g[k+1]/g[k])", quantiles(all_ratios)))
+    lines.append(format_quantile_line("ratios (g[k+1]/g[k])", ratio_q))
     lines.append("")
     lines.append("Per-shard ratio median:")
+    per_shard_ratio_medians = []
     for r in shard_results:
         rt = r["gap_result"].ratios
         med = float(np.median(rt)) if len(rt) else float("nan")
+        per_shard_ratio_medians.append(med)
         lines.append(f"  {r['shard']:10s} n={len(rt):>10,}  median={med:.4f}")
     lines.append("")
+    tail_2x_frac = float(np.mean((all_ratios < 0.5) | (all_ratios > 2.0)))
+    tail_narrow_frac = float(np.mean((all_ratios < 0.8) | (all_ratios > 1.25)))
     lines.append(
         "Tail explicitly: fraction of ratios outside [0.5, 2.0] (a 2x "
-        f"asymmetry between consecutive gaps) = "
-        f"{float(np.mean((all_ratios < 0.5) | (all_ratios > 2.0))):.6f}; "
-        "outside [0.8, 1.25] = "
-        f"{float(np.mean((all_ratios < 0.8) | (all_ratios > 1.25))):.6f}"
+        f"asymmetry between consecutive gaps) = {tail_2x_frac:.6f}; "
+        f"outside [0.8, 1.25] = {tail_narrow_frac:.6f}"
     )
     lines.append("")
 
@@ -581,7 +596,18 @@ def build_report(shard_results: list[dict]) -> str:
         "=== 3. Equivalent alpha (power-law model fit per triple; see script "
         "docstring for the algebraic derivation) ==="
     )
-    lines.append(format_quantile_line("equivalent alpha", quantiles(all_alphas)))
+    lines.append(
+        "CAVEAT -- READ BEFORE THE NUMBERS BELOW: this figure is strongly "
+        "convention-sensitive (it grows more extreme purely as the absolute "
+        "winding number n0 grows, with NO change in the underlying ratio "
+        "noise -- see the n0 stratification and PLAIN READING later in this "
+        "report). Do not read the medians below at face value as "
+        "'the real field's alpha'; the ratio distribution in section 2 is "
+        "the more trustworthy, convention-free quantity."
+    )
+    lines.append("")
+    alpha_q = quantiles(all_alphas)
+    lines.append(format_quantile_line("equivalent alpha", alpha_q))
     lines.append("")
     lines.append("Per-shard equivalent-alpha median:")
     for r in shard_results:
@@ -593,7 +619,6 @@ def build_report(shard_results: list[dict]) -> str:
         "Comparison to the pinned sweep grid [1.0, 0.95, 0.90, 0.80, 0.60] and "
         "the informally-probed breaking regime (~0.2):"
     )
-    q = quantiles(all_alphas)
     for label, level in [
         ("p05", "q05"),
         ("p25", "q25"),
@@ -601,7 +626,7 @@ def build_report(shard_results: list[dict]) -> str:
         ("p75", "q75"),
         ("p95", "q95"),
     ]:
-        lines.append(f"  {label:16s} equivalent alpha = {q[level]:.4f}")
+        lines.append(f"  {label:16s} equivalent alpha = {alpha_q[level]:.4f}")
     lines.append("")
 
     all_n0 = np.concatenate([r["alpha_result"].anchor_winding for r in shard_results])
@@ -613,10 +638,12 @@ def build_report(shard_results: list[dict]) -> str:
         "alpha at larger n0, independent of any change in the true field):"
     )
     n0_edges = [0, 20, 40, 60, 80, 100, 200]
+    n0_bucket_medians = []
     for lo_edge, hi_edge in zip(n0_edges[:-1], n0_edges[1:], strict=False):
         bucket_mask = (all_n0 >= lo_edge) & (all_n0 < hi_edge)
         bucket_alpha = all_alphas[bucket_mask]
         med = float(np.median(bucket_alpha)) if len(bucket_alpha) else float("nan")
+        n0_bucket_medians.append(med)
         lines.append(
             f"  n0 in [{lo_edge:>3d},{hi_edge:>4d}) n={len(bucket_alpha):>10,}  "
             f"median alpha={med:.4f}"
@@ -640,6 +667,17 @@ def build_report(shard_results: list[dict]) -> str:
         lines.append(f"  {k:36s} {v:>12,}")
     lines.append("")
 
+    # Every number in the two narrative paragraphs below that also appears in
+    # a table above is computed from that SAME table's underlying variable
+    # (ratio_q, tail_narrow_frac, per_shard_ratio_medians, alpha_q,
+    # n0_bucket_medians, alpha_counts) rather than hand-typed, so it cannot
+    # silently drift out of sync with the tables on a rerun.
+    below_floor_of_unresolved_pct = pct(
+        alpha_counts["excluded_below_floor"],
+        alpha_counts["excluded_ratio_out_of_bracket_range"],
+    )
+    frac_alpha_below_breaking = pct(int(np.sum(all_alphas < 0.2)), len(all_alphas))
+
     lines.append(
         "MODELING CAVEAT: equivalent alpha assumes the real scan<->spiral map "
         "is locally a power law anchored at the lower-level crossing of each "
@@ -652,32 +690,38 @@ def build_report(shard_results: list[dict]) -> str:
     lines.append("")
     lines.append(
         "PLAIN READING: the directly-observed adjacent-gap ratio is close to "
-        "uniform in the middle (pooled median 0.9985, every per-shard median "
-        "within 0.98-1.01) but has a real, substantial local spread (p05/p95 "
-        "= 0.72/1.38; 21.6% of ratios fall outside [0.8, 1.25]) -- this "
-        "spread is the directly measured, convention-free quantity and is "
-        "the most trustworthy number in this report. The derived "
-        "equivalent-alpha (median 0.117, IQR 0.063-0.258) sits BELOW the "
-        "pinned sweep's most conservative tested point (0.60) and mostly "
-        "below the informally-probed breaking regime (~0.2) -- but the n0 "
+        f"uniform in the middle (pooled median {ratio_q['q50']:.4f}, every "
+        f"per-shard median within {min(per_shard_ratio_medians):.2f}-"
+        f"{max(per_shard_ratio_medians):.2f}) but has a real, substantial "
+        f"local spread (p05/p95 = {ratio_q['q05']:.2f}/{ratio_q['q95']:.2f}; "
+        f"{tail_narrow_frac * 100:.1f}% of ratios fall outside [0.8, 1.25]) "
+        "-- this spread is the directly measured, convention-free quantity "
+        "and is the most trustworthy number in this report. The derived "
+        f"equivalent-alpha (median {alpha_q['q50']:.3f}, IQR "
+        f"{alpha_q['q25']:.3f}-{alpha_q['q75']:.3f}) sits BELOW the pinned "
+        "sweep's most conservative tested point (0.60) and "
+        f"{frac_alpha_below_breaking:.1f}% of resolved triples sit below "
+        "the informally-probed breaking regime (~0.2) -- but the n0 "
         "stratification above shows this number is strongly convention-"
-        "dependent (it falls monotonically from 0.33 to 0.08 as n0 alone "
-        "rises from <20 to 100-200, with no change in the underlying ratio "
-        "noise), and 93% of the 11.4M unresolvable ratios are BELOW the "
-        "model's floor (i.e. the observed gap shrinks by MORE than even "
-        "maximal compression in this one-winding-step convention can "
-        "produce), which points to local fiber waviness / winding-inference "
-        "noise rather than a smooth global power-law drift. Read together: "
-        "the real field's local irregularity is real and substantial, is at "
-        "least as large as (and plausibly larger than) the informally-"
-        "probed breaking case in a sizeable fraction of triples, but is "
-        "probably not well described as a single smooth alpha at all -- so "
-        "the pinned sweep's clean 'safe within alpha>=0.60' story should be "
-        "read as characterizing SMOOTH systematic nonlinearity only, and "
-        "should NOT be read as bounding the real field's local irregularity, "
-        "which this measurement suggests is comparable to or beyond the "
-        "sweep's breaking regime for a meaningful fraction of local winding "
-        "triples."
+        "dependent (it falls monotonically from "
+        f"{n0_bucket_medians[0]:.2f} to {n0_bucket_medians[-1]:.2f} as n0 "
+        "alone rises from <20 to 100-200, with no change in the underlying "
+        f"ratio noise), and {below_floor_of_unresolved_pct:.1f}% of the "
+        f"{alpha_counts['excluded_ratio_out_of_bracket_range']:,} "
+        "unresolvable ratios are BELOW the model's floor (i.e. the observed "
+        "gap shrinks by MORE than even maximal compression in this "
+        "one-winding-step convention can produce), which points to local "
+        "fiber waviness / winding-inference noise rather than a smooth "
+        "global power-law drift. Read together: the real field's local "
+        "irregularity is real and substantial, is at least as large as (and "
+        "plausibly larger than) the informally-probed breaking case in a "
+        "sizeable fraction of triples, but is probably not well described "
+        "as a single smooth alpha at all -- so the pinned sweep's clean "
+        "'safe within alpha>=0.60' story should be read as characterizing "
+        "SMOOTH systematic nonlinearity only, and should NOT be read as "
+        "bounding the real field's local irregularity, which this "
+        "measurement suggests is comparable to or beyond the sweep's "
+        "breaking regime for a meaningful fraction of local winding triples."
     )
     return "\n".join(lines) + "\n"
 

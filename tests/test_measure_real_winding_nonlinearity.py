@@ -7,6 +7,7 @@ per the task's TDD requirement.
 """
 
 import os
+import re
 import sys
 
 import numpy as np
@@ -22,8 +23,10 @@ sys.path.insert(
 
 from measure_real_winding_nonlinearity import (  # noqa: E402
     _R_model,
+    build_report,
     compute_gaps_and_ratios,
     equivalent_alpha,
+    pct,
     sha256_of_file,
 )
 
@@ -381,3 +384,85 @@ def test_sha256_of_file_detects_mismatch(tmp_path):
     p = tmp_path / "sample.bin"
     p.write_bytes(b"hello winding data")
     assert sha256_of_file(str(p)) != "0" * 64
+
+
+# ---------------------------------------------------------------------------
+# Report narrative <-> counts-dict consistency (regression coverage for the
+# class of bug where a percentage in prose is hand-typed instead of computed
+# from the same counts dict a table above it reports, and silently drifts
+# out of sync on a rerun)
+# ---------------------------------------------------------------------------
+
+
+def test_pct_helper_matches_manual_division():
+    assert pct(1, 4) == pytest.approx(25.0)
+    assert pct(0, 5) == pytest.approx(0.0)
+    import math
+
+    assert math.isnan(pct(3, 0))
+
+
+def test_narrative_below_floor_percentage_matches_the_counts_it_quotes():
+    """Regression test for the class of bug where a narrative percentage is
+    hand-typed instead of computed from the same counts dict the Exclusions
+    table above it reports. Builds a small synthetic multi-ray scenario
+    engineered to produce a non-round below-floor percentage (so a stale
+    hardcoded value from an earlier draft could not coincidentally match),
+    then parses BOTH the quoted percentage and the two counts it is derived
+    from directly out of the RENDERED REPORT TEXT (not the Python objects
+    that produced it), and asserts they agree -- exactly what a reviewer
+    reading only the .txt file would do."""
+    rng = np.random.default_rng(7)
+    rays = []
+    seeds = []
+    for i in range(40):
+        n_crossings = 6
+        gaps = rng.uniform(
+            2.0, 60.0, size=n_crossings - 1
+        )  # irregular -> some extreme ratios
+        t = np.concatenate([[0.0], np.cumsum(gaps)]).astype(np.float32)
+        level = np.arange(n_crossings, dtype=np.int16)
+        rays.append((t, level))
+        seeds.append(20 + i)  # moderate-to-large absolute winding numbers
+
+    arrays = _stack_rays(rays, seed_winding=np.array(seeds, dtype=np.int16))
+    gap_result = compute_gaps_and_ratios(
+        arrays["crossing_t"],
+        arrays["crossing_level"],
+        arrays["crossing_offsets"],
+        arrays["ray_step_zyx"],
+        arrays["seed_winding"],
+    )
+    alpha_result = equivalent_alpha(
+        gap_result.ratios, gap_result.ratio_anchor_winding, gap_result.ratio_ray_index
+    )
+    shard_results = [
+        {"shard": "shard_test", "gap_result": gap_result, "alpha_result": alpha_result}
+    ]
+
+    report = build_report(shard_results)
+
+    below_floor = int(
+        re.search(r"excluded_below_floor\s+([\d,]+)", report).group(1).replace(",", "")
+    )
+    out_of_bracket = int(
+        re.search(r"excluded_ratio_out_of_bracket_range\s+([\d,]+)", report)
+        .group(1)
+        .replace(",", "")
+    )
+    assert out_of_bracket > 0, "test scenario must actually produce unresolved ratios"
+    expected_pct = pct(below_floor, out_of_bracket)
+
+    quoted = re.search(
+        r"and ([\d.]+)% of the ([\d,]+) "
+        r"unresolvable ratios are BELOW the model's floor",
+        report,
+    )
+    assert quoted is not None, (
+        "PLAIN READING paragraph's below-floor sentence not found"
+    )
+    quoted_pct = float(quoted.group(1))
+    quoted_count = int(quoted.group(2).replace(",", ""))
+
+    assert quoted_count == out_of_bracket
+    assert quoted_pct == pytest.approx(expected_pct, abs=0.05)
