@@ -1,0 +1,13 @@
+reference (winding 5)          satisfied = 1.000000
+displaced by 1 winding         satisfied = 1.000000
+delta                                    = +0.000000e+00
+
+control sweep (fractional displacements):
+   0.00 winding  satisfied = 1.000000
+   0.25 winding  satisfied = 0.000000
+   0.40 winding  satisfied = 0.000000
+   0.50 winding  satisfied = 0.000000
+   0.60 winding  satisfied = 0.000000
+   0.75 winding  satisfied = 0.000000
+   1.00 winding  satisfied = 1.000000
+   2.00 winding  satisfied = 1.000000
