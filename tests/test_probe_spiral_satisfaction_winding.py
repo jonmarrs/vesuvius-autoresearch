@@ -37,3 +37,19 @@ def test_displacement_is_exactly_one_winding():
     _, _, before = get_theta_and_radii(patch.zyxs[..., 1:], dr_t)
     _, _, after = get_theta_and_radii(moved.zyxs[..., 1:], dr_t)
     assert torch.allclose(after - before, torch.full_like(before, DR), atol=1e-4)
+
+
+def test_metric_does_detect_a_half_winding_displacement():
+    """The control. A half-winding offset sits outside the 0.45*dr tolerance,
+    so the metric MUST reject it. If this passes as satisfied, the probe is not
+    exercising the metric and the one-winding null means nothing."""
+    patch = build_synthetic_patch(dr=DR, winding=5)
+    half = displace(patch, DR, n_windings=0.5)
+    assert score(half, DR) < 0.5
+
+
+def test_metric_does_not_detect_a_whole_winding_displacement():
+    """The finding itself, pinned as a regression test."""
+    patch = build_synthetic_patch(dr=DR, winding=5)
+    whole = displace(patch, DR, n_windings=1.0)
+    assert abs(score(whole, DR) - score(patch, DR)) <= 1e-6
