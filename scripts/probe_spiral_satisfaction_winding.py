@@ -14,6 +14,14 @@ fit. This script measures the consequence:
 The 0.5-winding control is what makes the null interpretable: it shows the
 instrument is capable of reporting dissatisfaction at all.
 
+The metric ANDs two independent per-quad conditions -- a spiral-space
+shifted-radius tolerance (0.45*dr = 45 units at DR=100) and an absolute
+scan-space distance tolerance (6.0 voxels, unscaled by dr). `score_conditions`
+reads each one out separately (see its docstring for how, honestly, without
+reimplementing villa's arithmetic). At a whole-winding offset BOTH conditions
+independently read 1.0 -- the blind spot is not an artifact of one condition
+saturating while the other actually fired.
+
 Run:
     CUDA_VISIBLE_DEVICES="" uv run python scripts/probe_spiral_satisfaction_winding.py
 """
@@ -158,6 +166,46 @@ def score(patch, dr):
     return int(mask.sum().item()) / max(total, 1)
 
 
+# A tolerance override large enough that the condition it gates can never
+# bind (spiral_tolerance = dr * satisfaction_radius_tolerance, and
+# satisfaction_distance_tolerance is itself a voxel distance -- either way,
+# 1e9 dwarfs every displacement this probe exercises).
+_NEUTRAL_TOLERANCE = 1e9
+
+
+def score_conditions(patch, dr):
+    """The two satisfaction conditions villa's metric ANDs together, read out
+    separately, plus their combination (which must equal `score(patch, dr)`).
+
+    get_patch_satisfied_areas requires a quad to pass BOTH (a) a spiral-space
+    shifted-radius tolerance (`satisfaction_radius_tolerance * dr`) and (b) an
+    absolute scan-space distance tolerance (`satisfaction_distance_tolerance`
+    voxels) before counting it satisfied; it never exposes the two masks
+    separately. Rather than reimplementing that arithmetic here -- which would
+    make this probe measure its own copy of the logic instead of villa's --
+    we call the real function three times, using its `metrics_overrides` hook
+    to neutralize one tolerance at a time so only the other condition can
+    still reject a quad.
+    """
+    total = int(patch.valid_quad_mask.sum().item())
+
+    def _fraction(overrides):
+        _, _, _, masks, _, _ = get_patch_satisfied_areas(
+            IdentityTransform(),
+            torch.tensor(dr),
+            [patch],
+            Z_BEGIN,
+            Z_END,
+            metrics_overrides=overrides,
+        )
+        return int(masks[0].sum().item()) / max(total, 1)
+
+    spiral_fraction = _fraction({"satisfaction_distance_tolerance": _NEUTRAL_TOLERANCE})
+    scan_fraction = _fraction({"satisfaction_radius_tolerance": _NEUTRAL_TOLERANCE})
+    combined_fraction = score(patch, dr)
+    return spiral_fraction, scan_fraction, combined_fraction
+
+
 def main():
     ref = build_synthetic_patch(dr=DR, winding=5)
     ref_score = score(ref, DR)
@@ -173,6 +221,18 @@ def main():
     for frac in [0.0, 0.25, 0.40, 0.50, 0.60, 0.75, 1.0, 2.0]:
         s = score(displace(ref, DR, n_windings=frac), DR)
         print(f"  {frac:5.2f} winding  satisfied = {s:.6f}")
+
+    print()
+    print(
+        "control sweep, by condition (spiral-space 0.45*dr=45 units vs "
+        "scan-space 6.0 voxels absolute):"
+    )
+    print(f"  {'winding':>7}  {'spiral':>8}  {'scan':>8}  {'combined':>8}")
+    for frac in [0.0, 0.25, 0.40, 0.50, 0.60, 0.75, 1.0, 2.0]:
+        spiral_f, scan_f, combined_f = score_conditions(
+            displace(ref, DR, n_windings=frac), DR
+        )
+        print(f"  {frac:7.2f}  {spiral_f:8.6f}  {scan_f:8.6f}  {combined_f:8.6f}")
 
 
 if __name__ == "__main__":

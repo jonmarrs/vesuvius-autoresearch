@@ -15,6 +15,7 @@ from probe_spiral_satisfaction_winding import (
     build_synthetic_patch,
     displace,
     score,
+    score_conditions,
 )
 
 
@@ -53,3 +54,20 @@ def test_metric_does_not_detect_a_whole_winding_displacement():
     patch = build_synthetic_patch(dr=DR, winding=5)
     whole = displace(patch, DR, n_windings=1.0)
     assert abs(score(whole, DR) - score(patch, DR)) <= 1e-6
+
+
+def test_both_conditions_independently_satisfied_at_one_winding():
+    """The actual finding, broken out by condition. get_patch_satisfied_areas
+    ANDs a spiral-space shifted-radius tolerance (0.45*dr = 45 units, which a
+    one-winding/100-unit offset would fail) with an absolute scan-space
+    tolerance (6.0 voxels, which a one-winding offset trivially passes because
+    every point lands on the identical geometry one winding over). The blind
+    spot is real only if BOTH conditions pass independently, not just their
+    AND -- otherwise the combined 1.0 could be hiding a saturated scan-space
+    check riding on a spiral-space check that actually fired."""
+    patch = build_synthetic_patch(dr=DR, winding=5)
+    whole = displace(patch, DR, n_windings=1.0)
+    spiral_fraction, scan_fraction, combined_fraction = score_conditions(whole, DR)
+    assert spiral_fraction == pytest.approx(1.0, abs=1e-9)
+    assert scan_fraction == pytest.approx(1.0, abs=1e-9)
+    assert combined_fraction == pytest.approx(score(whole, DR), abs=1e-9)

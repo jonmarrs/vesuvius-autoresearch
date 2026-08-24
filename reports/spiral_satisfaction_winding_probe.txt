@@ -11,3 +11,14 @@ control sweep (fractional displacements):
    0.75 winding  satisfied = 0.000000
    1.00 winding  satisfied = 1.000000
    2.00 winding  satisfied = 1.000000
+
+control sweep, by condition (spiral-space 0.45*dr=45 units vs scan-space 6.0 voxels absolute):
+  winding    spiral      scan  combined
+     0.00  1.000000  1.000000  1.000000
+     0.25  1.000000  0.000000  0.000000
+     0.40  1.000000  0.000000  0.000000
+     0.50  0.000000  0.000000  0.000000
+     0.60  1.000000  0.000000  0.000000
+     0.75  1.000000  0.000000  0.000000
+     1.00  1.000000  1.000000  1.000000
+     2.00  1.000000  1.000000  1.000000
