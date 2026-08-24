@@ -32,3 +32,5 @@ transform: RadialPowerLawTransform  s = r0*(r/r0)**alpha, r0 = winding*dr = 500.
     0.10   0.60 |   1.000000  0.484848  0.484848 |    1.000000  0.460606  0.460606 |   -0.024242
 
 worst-case |delta_combined| = 0.042424 at scatter_std_frac=0.05, alpha=0.6
+
+CAVEAT: alpha is intentionally bounded at 0.60 above. Informal, UNPINNED probing one step past this bound (scatter_std_frac=0.02, alpha=0.2) found delta_combined around -0.36 -- roughly 8x the worst-case above. This finding does not establish that the invariant survives nonlinearity more aggressive than alpha=0.60; it establishes only that it survives within the pinned grid.

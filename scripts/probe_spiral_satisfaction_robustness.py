@@ -45,6 +45,22 @@ and base patch geometry (unchanged from the ideal probe):
    probe (not the power-law's own alpha=1 case), so the zero/zero cell is
    bit-exact with the original finding, not merely numerically close to it.
 
+CAVEAT -- the alpha sweep is intentionally bounded at 0.60, and the finding
+does NOT extrapolate past that bound
+--------------------------------------------------------------------------
+`ALPHA_LEVELS` stops at 0.60 (a fairly aggressive but not extreme radial
+compression). That bound was a deliberate choice, not a discovery that
+degradation vanishes beyond it. Informal probing below the pinned bound
+(scatter_std_frac=0.02, alpha=0.2 -- one step past the sweep's most
+aggressive cell) found the invariant break substantially more, with
+delta_combined around -0.36, roughly 8x the pinned worst case of -0.042.
+That number is NOT part of the pinned sweep grid and is NOT re-derived by
+this script (no test pins it) -- it is reported here only so a reader of
+this file, or of the generated report's footer, does not conclude the
+whole-winding blindness is unconditional across realistic nonlinearity. It
+survives comfortably within the pinned grid; it is not proven to survive
+arbitrarily aggressive nonlinearity.
+
 For each (scatter, alpha) cell we report the reference (winding=5) satisfied
 fraction, the +1-winding-displaced satisfied fraction, their delta, and the
 per-condition breakdown (spiral-space tolerance / scan-space tolerance) for
@@ -317,6 +333,15 @@ def format_report(rows):
         "worst-case |delta_combined| = "
         f"{abs(worst['delta_combined']):.6f} at scatter_std_frac="
         f"{worst['scatter_std_frac']}, alpha={worst['alpha']}"
+    )
+    lines.append("")
+    lines.append(
+        "CAVEAT: alpha is intentionally bounded at 0.60 above. Informal, "
+        "UNPINNED probing one step past this bound (scatter_std_frac=0.02, "
+        "alpha=0.2) found delta_combined around -0.36 -- roughly 8x the "
+        "worst-case above. This finding does not establish that the "
+        "invariant survives nonlinearity more aggressive than alpha=0.60; "
+        "it establishes only that it survives within the pinned grid."
     )
     return "\n".join(lines) + "\n"
 
