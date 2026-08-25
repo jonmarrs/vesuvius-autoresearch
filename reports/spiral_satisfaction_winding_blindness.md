@@ -41,10 +41,27 @@ reporting configuration, the satisfied fraction first moves at 2.50 voxels of pa
 patch verdict first flips at 3.25, and the correctly placed reference itself first fails at 4.00
 (per-ray median 3.75, `reports/spiral_satisfaction_onset.txt`). §9 measures what real traced
 patches actually carry at the comparable window: median 0.846 voxels, p95 2.179, with only 0.82%
-of windows at or above the verdict-flip onset (`reports/real_patch_scatter.txt`). Real patches
-therefore sit below the threshold at which this report's own counterexamples start to appear —
-but the threshold is real, it is now measured rather than bracketed, and the one verdict-flipping
-cell in §4 still stands.
+of windows at or above the verdict-flip onset (`reports/real_patch_scatter.txt`).
+
+⚠ **CORRECTED 2026-08-25.** This paragraph previously concluded that real patches "therefore sit
+below the threshold at which this report's own counterexamples start to appear". **That comparison
+was made on unlike terms and the conclusion does not survive it.** The onsets above were measured
+with INDEPENDENT per-point Gaussian noise. Real patch residuals are not independent: measured on
+the same patches, their lag-1 autocorrelation across the grid has median **+0.357**, positive in
+**73.2%** of windows, where white noise would sit near zero
+(`reports/spiral_satisfaction_correlated_scatter.txt`).
+
+Noise shape matters at equal magnitude, and it matters in the unfavourable direction. Swept at
+identical RMS over the same 40 rays, the first level at which any patch verdict flips is **3.5
+voxels for independent noise and 1.5 voxels for correlated noise**. At 2.5 voxels RMS the
+independent arm flips nothing while the correlated arms flip 6 of 40. Real patch scatter has p95
+**2.179 voxels**, which is inside that band, not below it.
+
+So the honest statement is weaker than the one this paragraph originally made: real patches sit
+below the onset **as measured with white noise**, and within the range where **correlated** noise
+of their own measured magnitude already flips verdicts on a minority of rays. The threshold is
+real, it is measured rather than bracketed, the §4 verdict-flipping cell still stands, and whether
+real patches clear it is now **unresolved** rather than answered favourably.
 
 **What villa already has.** `find_inconsistent_windings.py` in the same directory *does* derive a
 patch's expected absolute winding by propagating `winding_is_absolute` annotations across the

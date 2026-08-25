@@ -1,0 +1,24 @@
+Onset under correlated versus independent scatter, at equal RMS
+The onset probe used INDEPENDENT per-point noise. Real patch residuals are not independent, so the comparison between the measured onset and real patch scatter was made on unlike terms. Both noise shapes are swept here at identical RMS.
+
+=== Is the real residual actually correlated? ===
+  lag-1 autocorrelation across the grid, n=400 windows from real patches:
+    median +0.357   p25 -0.019   p75 +0.604   share positive 73.2%
+  Independent noise would sit near 0.000 with about half positive. It does not, so the correlated arms below are the relevant comparison and the independent arm is not.
+
+=== Verdict flips out of 40 rays, at equal RMS ===
+   rms |  sigma=0  (independent)|  sigma=1   (correlated)|  sigma=2   (correlated)
+  --------------------------------------------------------------------------------
+   1.5 |   0/40  max|d| 0.0000|   0/40  max|d| 0.0364|   1/40  max|d| 0.0545
+   2.0 |   0/40  max|d| 0.0000|   3/40  max|d| 0.0606|   4/40  max|d| 0.1636
+   2.5 |   0/40  max|d| 0.0121|   6/40  max|d| 0.1455|   6/40  max|d| 0.1879
+   3.0 |   0/40  max|d| 0.0364|   6/40  max|d| 0.2121|   6/40  max|d| 0.2788
+   3.5 |   4/40  max|d| 0.0727|   7/40  max|d| 0.3030|   5/40  max|d| 0.2121
+   4.0 |   5/40  max|d| 0.1212|   4/40  max|d| 0.2182|   6/40  max|d| 0.2242
+   5.0 |   5/40  max|d| 0.5333|   0/40  max|d| 0.3455|   0/40  max|d| 0.4000
+   6.0 |   5/40  max|d| 0.3818|   0/40  max|d| 0.3030|   0/40  max|d| 0.1818
+
+  First RMS at which any verdict flips: independent 3.5v, correlated 1.5v.
+  So at equal RMS the correlated arms break the metric EARLIER. Any onset quoted against real patch scatter must come from a correlated arm.
+
+  Non-monotonicity, stated rather than hidden: at the largest RMS levels the correlated arms flip FEWER verdicts than the independent arm. A strongly correlated perturbation displaces the patch nearly coherently, and a coherent radial shift is precisely what villa's median-snap absorbs. The correlated arms are worst in the middle of the range, not at the top.
