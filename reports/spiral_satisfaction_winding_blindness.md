@@ -567,6 +567,22 @@ real-space extent — reports 97.7% of windows above the verdict-flip onset, the
 comparable window's answer. **Both rows are measured on the same data; only the window differs,
 and the conclusion inverts.**
 
+**Two checks on this figure, both run 2026-08-25 after review raised them.**
+
+*Pooling.* One sampled patch (`0000_top_band`, 241x13168) is orders of magnitude larger in grid
+extent than the other nine, so a pooled statistic could have been its statistic. It is not: the
+probe caps sampling at 400 windows per patch, so that patch contributes 10.3% of pooled windows.
+Dropping it entirely moves the pooled median from 0.812 to 0.822 and p95 from 2.071 to 2.086.
+Per-patch medians run 0.635 to 1.084, median-of-medians 0.843. The headline is not one patch's
+number.
+
+*Trend model.* A plane over a 3x4 window is 12 points fitting 3 parameters, and the fit order
+moves the answer by more than 3x: plane gives median 0.846, quadratic 0.255. Neither is obviously
+correct. A plane under-removes real surface curvature and so over-states scatter; a quadratic
+absorbs some genuine roughness and so under-states it. **The truthful reading is that real patch
+scatter at this window is bracketed between roughly 0.26 and 0.85 voxels**, and the plane figure
+quoted throughout is the conservative end of that bracket. Both rows are in the table above.
+
 **At the comparable window (3x4, plane fit):** median 0.846 voxels, p95 2.179, max 5.406, n =
 3897. Against §8's three onsets:
 
