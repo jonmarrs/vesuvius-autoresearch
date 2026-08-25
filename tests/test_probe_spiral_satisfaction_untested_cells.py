@@ -83,6 +83,17 @@ def test_acceptance_edge_is_villas_own_radius_tolerance():
     assert run_cell(REAL_DR, 0.46)["disp_verdict"] is False
 
 
+def test_the_edge_is_magnitude_independent():
+    """The edge itself, not just the periodicity, must not move with displacement
+    size. villa's spiral tolerance is `dr * 0.45` and so is magnitude-independent
+    by construction -- this measures it rather than inferring it from source, by
+    re-resolving the same edge five windings out."""
+    assert run_cell(REAL_DR, 5.44)["disp_verdict"] is True
+    assert run_cell(REAL_DR, 5.46)["disp_verdict"] is False
+    assert run_cell(REAL_DR, 0.44)["disp_verdict"] is True
+    assert run_cell(REAL_DR, 0.46)["disp_verdict"] is False
+
+
 def test_every_rejected_ratio_sits_nearer_the_midpoint_than_every_accepted_one():
     """The structural claim: acceptance is a function of offset from the nearest
     winding alone. Were any accepted row to sit further from an integer than any

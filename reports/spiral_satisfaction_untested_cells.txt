@@ -56,8 +56,10 @@ dr = 12.81; no scatter; ratios span the measured real distribution (0.0446 to 23
    0.4400   0.4400 | 1.000000   SAT |  1.000000    SAT |   +0.000000
    0.4600   0.4600 | 1.000000   SAT |  0.000000  unsat |   -1.000000
    0.4800   0.4800 | 1.000000   SAT |  0.000000  unsat |   -1.000000
+   5.4400   0.4400 | 1.000000   SAT |  1.000000    SAT |   +0.000000
+   5.4600   0.4600 | 1.000000   SAT |  0.000000  unsat |   -1.000000
 
-Displaced patch accepted in 12 of 19 ratio cells; rejected in 7.
+Displaced patch accepted in 13 of 21 ratio cells; rejected in 8.
   accepted offsets from the nearest integer winding: 0.0000 to 0.4400
   rejected offsets from the nearest integer winding: 0.4600 to 0.5000
   Read the off_int column, not the ratio column: if acceptance tracks distance from the nearest integer winding rather than the size of the displacement, the metric's blindness is PERIODIC -- an arbitrarily large displacement passes whenever it lands near some winding.

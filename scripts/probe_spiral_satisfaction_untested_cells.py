@@ -99,6 +99,13 @@ RATIO_TAIL_LEVELS = [
     0.44,
     0.46,
     0.48,
+    # The same edge, re-resolved five windings out. villa's spiral tolerance is
+    # `dr * 0.45` and so is magnitude-independent by construction, but the edge
+    # points above sit near ratio 0 only; without these the claim that the EDGE
+    # (as opposed to the periodicity) is magnitude-independent would rest on
+    # source reading rather than measurement.
+    5.44,
+    5.46,
 ]
 
 
