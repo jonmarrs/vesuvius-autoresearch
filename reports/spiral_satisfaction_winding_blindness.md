@@ -476,6 +476,12 @@ Stated plainly, because each is a place this work could mislead.
    *cannot detect*. It does **not** establish how often real fits actually misplace patches, and
    nothing here should be read as a claim about the quality of anyone's fit.
 
+   **This is the one substantive limit still open**, and it may stay open. Limit 7 closes the
+   nearest reachable approximation — the deformation is now taken from real measured winding
+   positions rather than a synthetic model — but measured radial geometry is not a fitted
+   transform, and a reconstruction from published crossings is not the thing a maintainer would
+   run. Treat every result here as a statement about the metric, never about a fit.
+
 3. **We measured the configuration that prints, not the one that gates the mesh.** Every number
    in this report uses villa's *default* `metrics_config` (`satisfaction_metrics.py:24-26`:
    radius tolerance 0.45, distance tolerance 6.0, patch fraction 0.95). That is the
@@ -487,13 +493,18 @@ Stated plainly, because each is a place this work could mislead.
    comment there says splicing "is deliberately more permissive than the reported satisfaction
    metrics".
 
-   Both directions matter. Our framing is *understated*: at 0.495 the spiral acceptance bands
-   tile all but roughly a 1% strip around each half-winding midpoint, and the scan tolerance
-   doubles, so the splicing path is more blind than anything measured here, not less. But §6's
-   binding-condition table, the 47%-of-winding-spacing figure, the `0.45*dr = 5.7645`
-   arithmetic, and §4's 0.95-threshold flip analysis are all for the *reporting* configuration.
-   A maintainer could accurately reply that we measured the config that prints numbers, not the
-   one that gates the mesh, and they would be right. The splicing configuration was not swept.
+   ✅ **CLOSED 2026-08-25** (`reports/spiral_satisfaction_splicing_and_seam.txt`, section A).
+   The splicing configuration was swept, and the finding holds there. The whole-winding delta
+   is still exactly `0.000000`, and the acceptance edge moves **outward**, from a bracket of
+   `(0.44, 0.46]` under reporting to `(0.49, 0.499]` under splicing. So the configuration with
+   downstream consequences is the *more* permissive of the two: it rejects roughly one percent
+   of each inter-winding period against the reporting config's eight to twelve. Our framing was
+   understated, as suspected, and is now measured rather than suspected.
+
+   What remains true, and is why this entry stays: §6's binding-condition table, the
+   47%-of-winding-spacing figure, the `0.45*dr = 5.7645` arithmetic, and §4's threshold flip
+   analysis are all still stated for the *reporting* configuration. A reader should not
+   transplant those specific numbers onto the splicing path.
 
 4. **Scatter combined with the real scale — closed for the identity transform, in §7.** §4
    swept scatter at dr = 100 under smooth nonlinearity; §6 ran at dr = 12.81 with scatter held at
@@ -514,17 +525,34 @@ Stated plainly, because each is a place this work could mislead.
    and five windings out. This closes the tail gap for the identity transform; it says nothing
    about the tails under nonlinearity, which Limits 7 still covers.
 
-6. **The theta = 0 seam is not exercised.** The synthetic patch spans theta 0.30-1.30 rad, so it
-   never crosses the seam and `get_theta_crossing_step_adjustments` is never invoked. The
-   invariance argument does not depend on seam handling, but the probe does not test it.
+6. **The theta = 0 seam — closed** (`reports/spiral_satisfaction_splicing_and_seam.txt`,
+   section B). The patches used elsewhere span theta 0.30-1.30 rad and never cross the branch
+   cut, so `get_theta_crossing_step_adjustments` and the branch-offset unwrap were never
+   invoked. A patch spanning theta 6.0-6.6 rad does cross it: its recovered shifted-radius
+   jumps a whole `dr` mid-patch purely as an artifact of `theta % 2pi`, which is exactly what
+   that unwrap exists to repair. Both acceptance edges reproduce exactly, under both
+   configurations. The blindness is not an artifact of avoiding the seam.
 
-7. **The nonlinearity sweep tests the wrong *shape* for the real field.** §4 perturbs smoothly
-   (a global power law); §5 shows the real field's irregularity is local and noisy, with roughly
-   half of the ratio population failing to invert under the power-law model at all. The pinned
-   sweep's clean "safe for alpha ≥ 0.60" story characterises smooth systematic nonlinearity
-   only, and must **not** be read as bounding the real field's local irregularity — which the
-   measurement suggests is comparable to or beyond the (unpinned) breaking regime for a
-   meaningful fraction of local winding triples.
+7. **The nonlinearity sweep tested a smooth shape where the real field is locally noisy —
+   closed** (`reports/spiral_satisfaction_empirical_transform.txt`). §4 perturbs smoothly (a
+   global power law); §5 shows the real field's irregularity is local and noisy, with roughly
+   half of the ratio population failing to invert under the power-law model at all. A power law
+   has a slowly varying derivative by construction and structurally cannot represent that.
+
+   The published `winding_model` export records where successive windings actually sit along
+   each ray, so the cumulative sums of those measured gaps *are* a real radial map, with no
+   smoothness imposed anywhere. Across 40 rays drawn under a fixed seed, each carrying at least
+   10 crossings at strictly consecutive winding levels, with local irregularity reaching
+   **1.4394** in units of `dr`: max |Δ| is exactly **0.000000**, zero rays show a verdict
+   disagreement, and zero rays put the correctly placed patch below threshold, under both
+   configurations.
+
+   Two ways that result could have been vacuous are guarded by tests: a warp that is secretly
+   an identity, and a ray filter that admits skipped windings, which would fold two gaps into
+   one and manufacture the very smoothness the probe exists to avoid.
+
+   This is real measured radial geometry. It is **not** a fitted transform, and does not
+   discharge Limit 2.
 
 8. **villa already contains annotation-propagation machinery; the metric just does not use it.**
    `find_inconsistent_windings.py` derives a patch's expected absolute winding by propagating
@@ -559,10 +587,13 @@ Stated plainly, because each is a place this work could mislead.
   the nonlinear transform that produces §4's one flip. If that combination flips a larger share of
   the grid, or flips even at scatter levels below §4's, the flip would look less like an edge
   case.
-- **A demonstration that the real transform's local irregularity does break the invariance.**
-  §4 shows it breaks at alpha ≈ 0.2 under a smooth power law; §5 argues the real field is not
-  well described by a single alpha. Measuring the invariance directly against the observed local
-  gap sequence, rather than against a fitted alpha, would settle it.
+- ~~**A demonstration that the real transform's local irregularity does break the invariance.**
+  Measuring the invariance directly against the observed local gap sequence, rather than against
+  a fitted alpha, would settle it.~~ **Answered, and it did not break it** (Limits 7). Measured
+  against radial maps interpolated from the observed gap sequences of 40 real rays, with local
+  irregularity up to 1.4394 `dr`, max |Δ| is exactly `0.000000` under both configurations. What
+  would *still* change the conclusion here is a real fitted transform, whose deformation is not
+  purely radial and could couple theta and z in ways a radial map cannot express.
 - **Reading the absolute winding annotations in `satisfaction_metrics.py`.** The annotations
   already exist, already drive `get_patch_abs_winding_loss`, and are already propagated across
   the patch graph by `find_inconsistent_windings.py` (Limits 8). None of that reaches the scored
