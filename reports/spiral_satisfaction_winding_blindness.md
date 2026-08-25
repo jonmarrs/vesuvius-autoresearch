@@ -240,10 +240,19 @@ this document argued from the worst-case Δ that no verdict could flip; that inf
 invalid and its conclusion was false. See the process section.
 
 Two things this cell does not establish. It is one cell of a 25-cell synthetic grid, not a rate.
-And it is a flip under the *reporting* configuration; the splicing configuration that actually
-gates the output mesh (Limits 3) uses a looser 0.90 patch threshold, i.e. 148.5 quads, which
-both 159 and 156 clear — so this particular flip would not occur there. That configuration also
-loosens both tolerances, which would change the fractions themselves; we did not measure it.
+And it is a flip under the *reporting* configuration. The splicing configuration that actually
+gates the output mesh (Limits 3) does not reproduce it.
+
+⚠ **CORRECTED 2026-08-25.** This paragraph previously argued the flip would not occur under
+splicing because "148.5 quads, which both 159 and 156 clear", while noting that the looser
+tolerances would also change the fractions themselves and that we had not measured it. That
+caveat was well placed: the reasoning was wrong. 159 and 156 are the *reporting* configuration's
+quad counts, and comparing them against the *splicing* threshold mixes two configurations.
+Measured properly (`reports/spiral_satisfaction_splicing_and_seam.txt`, section C), under
+splicing both arms score **165/165** against a 148.50-quad threshold — not 159 and 156. The
+conclusion is unchanged, the flip does not recur there, but it holds because the looser
+tolerances satisfy *every* quad in both arms, not because two borderline counts clear a lower
+bar.
 
 **The bound is real and the invariant does break past it.** Informal, **unpinned** probing one
 step beyond the grid (scatter 0.02, alpha 0.20) found Δ combined around **-0.36**, roughly 8x
