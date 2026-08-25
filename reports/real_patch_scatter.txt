@@ -1,0 +1,39 @@
+Scatter carried by real traced patches, against the measured onset
+Scatter is the per-point deviation of a patch's radius from the smooth local surface, in voxels: fit a trend across a grid window, take the RMS residual. Radii are measured from the published umbilicus. No villa code is involved; this measures the data, not the metric.
+
+Patches: 10 from the published verified_patches set.
+   patch                                              grid        valid   median r   step (i,j) vox
+  ------------------------------------------------------------------------------------------------
+  0000_top_band                                     (241, 13168)   38.5%       942     20.1,  19.7
+  auto_grown_20260421165403705_sel_20260604_081020    (193, 256)   10.3%      3016     20.0,  20.0
+  band-seed11136018-20260729-173023-789.tifxyz          (21, 22)   42.0%      1119     20.0,  20.0
+  band-seed11276434-20260729-161922-124.tifxyz         (112, 76)   56.2%      1159     20.0,  20.0
+  band-seed14614536-20260729-230518-455.tifxyz          (29, 30)   39.1%      2779     20.0,  20.0
+  band-seed15009420-20260729-193920-935.tifxyz          (17, 27)   38.1%      2253     20.0,  20.1
+  band-seed17224616-20260729-174852-749.tifxyz          (45, 48)   46.6%      1942     20.0,  20.0
+  band-seed19414599-20260729-190053-582.tifxyz         (109, 69)   35.9%      2661     20.0,  20.0
+  band-seed3336934-20260729-203326-960.tifxyz           (33, 45)   57.2%      1535     20.0,  20.0
+  band-seed8310632-20260729-190255-834.tifxyz           (14, 49)   32.5%       739     20.0,  20.0
+
+Median grid step across patches: 20.0 voxels down, 20.0 across. The synthetic patch used throughout this investigation spans about 22 x 64 voxels.
+
+=== The answer depends on the window, which is the point ===
+  window   extent (vox)   fit  |     n |    p50 |    p95 | share >= 2.50v | >= 3.25v | >= 4.00v
+  --------------------------------------------------------------------------------------------------------
+   3x4          60x80   plane  |  3897 |  0.846 |  2.179 |           2.7%           0.8%           0.1%  <-- comparable
+   3x4          60x80    quad  |  3904 |  0.255 |  0.633 |           0.0%           0.0%           0.0%  <-- comparable
+   4x6         80x120   plane  |  3890 |  1.595 |  3.836 |          21.5%          10.3%           3.8%
+   4x6         80x120    quad  |  3885 |  0.624 |  1.291 |           0.2%           0.0%           0.0%
+   6x8        120x160   plane  |  3595 |  2.828 |  7.125 |          58.4%          39.4%          27.8%
+   6x8        120x160    quad  |  3610 |  1.210 |  2.452 |           4.3%           0.8%           0.3%
+  12x16       240x320   plane  |  2074 |  8.135 | 15.374 |          99.0%          97.7%          95.5%
+  12x16       240x320    quad  |  2077 |  3.475 |  7.342 |          81.2%          54.8%          38.7%
+
+  The comparable window is 3x4 grid cells, whose real-space extent is closest to the synthetic patch's. A 12x16 window spans roughly 240x320 voxels, some five to fifteen times the synthetic patch, and its residual is dominated by genuine surface curvature rather than roughness. Reading the 12x16 row as 'real patch scatter' inverts the conclusion, which is why every row is printed.
+
+=== Bottom line at the comparable window, plane fit ===
+  median 0.846 vox, p95 2.179 vox, max 5.406 vox, n = 3897
+  share of windows at or above the 2.50v onset (fraction moves): 2.67%
+  share of windows at or above the 3.25v onset (verdict flips): 0.82%
+  share of windows at or above the 4.00v onset (reference fails): 0.13%
+  So the scatter real traced patches carry, at the scale the synthetic probes operate on, sits below the level at which the metric begins to degrade. The break located by the onset probe is real, and on this evidence it is not reached by well-traced patches.
