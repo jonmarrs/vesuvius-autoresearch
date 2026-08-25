@@ -1,0 +1,21 @@
+Winding-blindness under a transform built from REAL measured winding positions
+Radial warp interpolates the cumulative inter-winding distances measured along one real ray of the published PHercParis4 winding_model export. No smoothness imposed: the map is exactly as locally irregular as the measurement. This is NOT a fitted transform; no fitted spiral checkpoint is published.
+Rays: 40 requested, drawn under seed 20260825 from shard_0, each required to carry at least 10 crossings at strictly consecutive winding levels.
+
+=== reporting configuration ===
+  rays scored                        40
+  median dr across rays (voxels)     14.7734
+  max local irregularity (|d2 gap|/dr) 1.4394
+  max |delta| over rays              0.000000
+  rays where the VERDICT differs     0 of 40
+  rays where the REFERENCE fails     0 of 40
+
+=== splicing configuration ===
+  rays scored                        40
+  median dr across rays (voxels)     14.7734
+  max local irregularity (|d2 gap|/dr) 1.4394
+  max |delta| over rays              0.000000
+  rays where the VERDICT differs     0 of 40
+  rays where the REFERENCE fails     0 of 40
+
+The local-irregularity column is the largest second difference of the measured gap sequence, in units of dr. It is the quantity the smooth power-law sweep structurally could not represent: a power law has a slowly varying derivative by construction, while these knots wander gap to gap.
