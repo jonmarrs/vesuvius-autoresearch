@@ -1,0 +1,68 @@
+Where the winding-blindness starts to break, at 0.25-voxel resolution
+Rays: 40 drawn under seed 20260825 from shard_0, each carrying at least 10 crossings at strictly consecutive winding levels. Warp is the empirical one: measured inter-winding spacing sequences read as radial knots (see reports/spiral_satisfaction_empirical_transform.txt for what that idealization is and is not).
+Displacement is exactly one winding throughout; only the patch's scatter varies.
+
+=== reporting configuration ===
+  scatter |    max|delta| | verdict differs | reference fails
+  --------------------------------------------------------------
+    1.50v |     0.000000 |      0 of 40    |      0 of 40
+    1.75v |     0.000000 |      0 of 40    |      0 of 40
+    2.00v |     0.000000 |      0 of 40    |      0 of 40
+    2.25v |     0.000000 |      0 of 40    |      0 of 40
+    2.50v |     0.012121 |      0 of 40    |      0 of 40
+    2.75v |     0.018182 |      0 of 40    |      0 of 40
+    3.00v |     0.030303 |      0 of 40    |      0 of 40
+    3.25v |     0.054545 |      1 of 40    |      0 of 40
+    3.50v |     0.078788 |      2 of 40    |      0 of 40
+    3.75v |     0.109091 |      3 of 40    |      0 of 40
+    4.00v |     0.121212 |      5 of 40    |      1 of 40
+    4.25v |     0.133333 |      5 of 40    |      1 of 40
+
+  onset, satisfied fraction first moves : 2.5
+  onset, a patch VERDICT first flips    : 3.25
+  onset, the REFERENCE first fails      : 4.0
+  rays whose verdict flips anywhere in range: 5 of 40
+  per-ray onset, median 3.75v, range 3.25v to 4.00v
+  The headline onset is a MIN over the sampled rays and can only fall as more rays are drawn, so it is a property of this sample as much as of the metric. The per-ray median is the sample-size-stable figure.
+
+=== splicing configuration ===
+  scatter |    max|delta| | verdict differs | reference fails
+  --------------------------------------------------------------
+    1.50v |     0.000000 |      0 of 40    |      0 of 40
+    1.75v |     0.000000 |      0 of 40    |      0 of 40
+    2.00v |     0.000000 |      0 of 40    |      0 of 40
+    2.25v |     0.000000 |      0 of 40    |      0 of 40
+    2.50v |     0.000000 |      0 of 40    |      0 of 40
+    2.75v |     0.000000 |      0 of 40    |      0 of 40
+    3.00v |     0.000000 |      0 of 40    |      0 of 40
+    3.25v |     0.000000 |      0 of 40    |      0 of 40
+    3.50v |     0.000000 |      0 of 40    |      0 of 40
+    3.75v |     0.000000 |      0 of 40    |      0 of 40
+    4.00v |     0.006061 |      0 of 40    |      0 of 40
+    4.25v |     0.006061 |      0 of 40    |      0 of 40
+
+  onset, satisfied fraction first moves : 4.0
+  onset, a patch VERDICT first flips    : not in range
+  onset, the REFERENCE first fails      : not in range
+  rays whose verdict flips anywhere in range: 0 of 40
+  The headline onset is a MIN over the sampled rays and can only fall as more rays are drawn, so it is a property of this sample as much as of the metric. The per-ray median is the sample-size-stable figure.
+
+=== Is the onset absolute (scan tolerance) or relative (spiral tolerance)? ===
+villa's scan tolerance is 6.0 voxels ABSOLUTE; its spiral tolerance is 0.45*dr RELATIVE. A verdict onset that is flat across dr bins points at the absolute check; one that rises with dr points at the relative check.
+   dr bin (voxels) | rays | median dr | verdict onset
+  --------------------------------------------------------
+     0.0 -   12.0 |   11 |    10.052 | 4.00v
+    12.0 -   16.0 |   14 |    13.922 | 3.50v
+    16.0 -  100.0 |   15 |    19.611 | 3.25v
+
+  CONFOUNDED, do not read a dr effect off the table above. Across the selected rays dr is strongly anti-correlated with knot count (pearson -0.882) and mildly correlated with local irregularity (+0.147; bin medians 0.547 / 0.605 / 0.653), so these bins vary several things at once.
+
+=== The same question with dr isolated ===
+Each ray's warp SHAPE rescaled to a target dr, holding relative irregularity fixed and moving only the winding spacing.
+   target dr | verdict onset | onset as fraction of dr
+  ----------------------------------------------------
+        10.0 |         3.50v |                   0.350
+        13.0 |         3.50v |                   0.269
+        16.0 |         3.25v |                   0.203
+        20.0 |         3.25v |                   0.163
+        25.0 |         3.25v |                   0.130
