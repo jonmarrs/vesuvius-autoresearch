@@ -1,0 +1,63 @@
+Closing the two untested cells of reports/spiral_satisfaction_winding_blindness.md
+villa patch verdict = integer satisfied-quad count >= 0.95 * 165 valid quads = 156.75 quads (satisfaction_metrics.py:317)
+
+=== Cell 1a: scatter as a FRACTION of dr, at the real scale ===
+dr = 12.81 (real measured median gap); exact whole-winding displacement; identity transform
+  frac    vox | ref_comb ref_v | disp_comb disp_v |  delta_comb
+------------------------------------------------------------------
+  0.00  0.000 | 1.000000   SAT |  1.000000    SAT |   +0.000000
+  0.01  0.128 | 1.000000   SAT |  1.000000    SAT |   +0.000000
+  0.02  0.256 | 1.000000   SAT |  1.000000    SAT |   +0.000000
+  0.05  0.641 | 1.000000   SAT |  1.000000    SAT |   +0.000000
+  0.10  1.281 | 1.000000   SAT |  1.000000    SAT |   +0.000000
+
+Note the voxel column: the pinned fractional levels correspond to only 0.000-1.281 voxels at this dr, against villa's 6.0-voxel scan tolerance. The same fractions at dr=100 span 0.0-10.0 voxels. This is why the fractional parameterization alone cannot compare the two scales, and why Cell 1b sweeps absolute voxels instead.
+
+=== Cell 1b: scatter in ABSOLUTE VOXELS, both scales ===
+the comparable parameterization: real patch scatter is physical and does not shrink with winding spacing
+      dr    vox | ref_comb ref_v | disp_comb disp_v |  delta_comb
+----------------------------------------------------------------------
+   12.81   0.00 | 1.000000   SAT |  1.000000    SAT |   +0.000000
+   12.81   0.50 | 1.000000   SAT |  1.000000    SAT |   +0.000000
+   12.81   1.00 | 1.000000   SAT |  1.000000    SAT |   +0.000000
+   12.81   2.00 | 1.000000   SAT |  1.000000    SAT |   +0.000000
+   12.81   4.00 | 1.000000   SAT |  1.000000    SAT |   +0.000000
+   12.81   6.00 | 0.969697   SAT |  0.969697    SAT |   +0.000000
+  100.00   0.00 | 1.000000   SAT |  1.000000    SAT |   +0.000000
+  100.00   0.50 | 1.000000   SAT |  1.000000    SAT |   +0.000000
+  100.00   1.00 | 1.000000   SAT |  1.000000    SAT |   +0.000000
+  100.00   2.00 | 1.000000   SAT |  1.000000    SAT |   +0.000000
+  100.00   4.00 | 1.000000   SAT |  1.000000    SAT |   +0.000000
+  100.00   6.00 | 0.975758   SAT |  0.975758    SAT |   +0.000000
+
+Verdict disagreements in Cell 1b: 0 of 12 cells (the metric never notices the displacement)
+Cells where the CORRECTLY PLACED patch already fails villa's verdict: 0 of 12
+
+=== Cell 2: displacement ratios across the full measured span ===
+dr = 12.81; no scatter; ratios span the measured real distribution (0.0446 to 23.8006), with half-integers and integers included to resolve the periodicity prediction
+   ratio  off_int | ref_comb ref_v | disp_comb disp_v |  delta_comb
+------------------------------------------------------------------------
+   0.0446   0.0446 | 1.000000   SAT |  1.000000    SAT |   +0.000000
+   0.2500   0.2500 | 1.000000   SAT |  1.000000    SAT |   +0.000000
+   0.5000   0.5000 | 1.000000   SAT |  0.000000  unsat |   -1.000000
+   0.7500   0.2500 | 1.000000   SAT |  1.000000    SAT |   +0.000000
+   1.0000   0.0000 | 1.000000   SAT |  1.000000    SAT |   +0.000000
+   1.2500   0.2500 | 1.000000   SAT |  1.000000    SAT |   +0.000000
+   1.5000   0.5000 | 1.000000   SAT |  0.000000  unsat |   -1.000000
+   1.7500   0.2500 | 1.000000   SAT |  1.000000    SAT |   +0.000000
+   2.0000   0.0000 | 1.000000   SAT |  1.000000    SAT |   +0.000000
+   2.5000   0.5000 | 1.000000   SAT |  0.000000  unsat |   -1.000000
+   3.0000   0.0000 | 1.000000   SAT |  1.000000    SAT |   +0.000000
+   3.5000   0.5000 | 1.000000   SAT |  0.000000  unsat |   -1.000000
+   5.0000   0.0000 | 1.000000   SAT |  1.000000    SAT |   +0.000000
+   5.5000   0.5000 | 1.000000   SAT |  0.000000  unsat |   -1.000000
+  23.8006   0.1994 | 1.000000   SAT |  1.000000    SAT |   +0.000000
+   0.4000   0.4000 | 1.000000   SAT |  1.000000    SAT |   +0.000000
+   0.4400   0.4400 | 1.000000   SAT |  1.000000    SAT |   +0.000000
+   0.4600   0.4600 | 1.000000   SAT |  0.000000  unsat |   -1.000000
+   0.4800   0.4800 | 1.000000   SAT |  0.000000  unsat |   -1.000000
+
+Displaced patch accepted in 12 of 19 ratio cells; rejected in 7.
+  accepted offsets from the nearest integer winding: 0.0000 to 0.4400
+  rejected offsets from the nearest integer winding: 0.4600 to 0.5000
+  Read the off_int column, not the ratio column: if acceptance tracks distance from the nearest integer winding rather than the size of the displacement, the metric's blindness is PERIODIC -- an arbitrarily large displacement passes whenever it lands near some winding.
