@@ -1,13 +1,19 @@
-# villa's spiral-fit satisfaction metric cannot see a one-winding displacement
+# villa's spiral-fit satisfaction metric cannot see a whole-winding displacement, at any magnitude
 
 **Bottom line.** `get_patch_satisfied_areas` — the function villa uses to decide whether a
 patch is "satisfied" by a fitted spiral — scores a patch moved exactly one whole winding off
 its true position *identically* to the correctly placed patch. Measured delta in satisfied-quad
-fraction: `+0.000000e+00`. That is the "sheet switch" failure mode villa's own
+fraction: `+0.000000e+00`. The blindness is not a one-winding special case: it is periodic in the
+displacement's distance from the nearest integer winding, and indifferent to the displacement's
+magnitude. A patch displaced by 23.8006 windings — roughly 305 voxels, at the real measured
+winding spacing — scores identically satisfied (`1.000000`) to the correctly placed patch,
+because it lands only 0.1994 of a winding from the nearest integer, while a patch displaced by
+exactly half a winding is rejected outright (`0.000000`) regardless of how small that
+displacement is in absolute terms (§2, §7). That is the "sheet switch" failure mode villa's own
 `scrollprize.org/docs/37_2026_open_problems.md` bottleneck table lists fourth ("Meshes can jump
 from one wrap to another"), and for which that same row asks for "stronger local continuity
 constraints and **conservative failure detection**". The metric is not a conservative failure
-detector for this mode; it is exactly blind to it.
+detector for this mode; it is exactly blind to it, across the full displacement range measured.
 
 The mechanism is that the metric derives its target from the patch's *own* position. It takes
 the patch's median shifted-radius and snaps it to the nearest integer winding
@@ -21,6 +27,10 @@ never used to score it, so the score cannot distinguish "on the right wrap" from
 That blindness is exact for a patch lying on a winding, and it survives scatter and smooth
 nonlinearity across almost all of the range swept — but not quite all of it. §4 reports the one
 pinned-grid cell where villa's verdict does change, and reports it as the counterexample it is.
+Two gaps this report originally left open — whether real-scale scatter alone starves the
+correctly placed patch, and whether the blindness holds across the full measured displacement
+span rather than just near one winding — are closed in §7, and both close in the direction that
+strengthens the finding rather than narrowing it.
 
 **What villa already has.** `find_inconsistent_windings.py` in the same directory *does* derive a
 patch's expected absolute winding by propagating `winding_is_absolute` annotations across the
@@ -78,7 +88,9 @@ Sources for every number below, all committed on branch `probe/spiral-satisfacti
 `reports/spiral_satisfaction_winding_probe.txt`,
 `reports/spiral_satisfaction_winding_robustness.txt`,
 `reports/real_winding_nonlinearity.txt`,
-`reports/spiral_satisfaction_realscale.txt`.
+`reports/spiral_satisfaction_realscale.txt`. §7's numbers come from
+`reports/spiral_satisfaction_untested_cells.txt`, committed on branch
+`probe/spiral-winding-untested-cells` (commits `2b73bbb9`, `5726b809`).
 
 ---
 
@@ -346,6 +358,97 @@ the adjacent wrap to be scored satisfied; the real field's own typical local gap
 fits inside the acceptance band. The blindness measured on the idealized sweep is not an
 idealization that reality would soften.
 
+## 7. Closing the two untested cells
+
+Limits 4 and 5 named the two biggest remaining gaps and said a sceptic would ask for them first.
+Both are now measured (`reports/spiral_satisfaction_untested_cells.txt`,
+`scripts/probe_spiral_satisfaction_untested_cells.py`), through the same pinned
+`get_patch_satisfied_areas` call, reporting villa's own patch-level verdict
+(`satisfaction_metrics.py:317`, 165 valid quads, threshold 156.75 quads) alongside the satisfied
+fraction. Both cells use the identity transform only — no nonlinearity. They extend §1-§3 and the
+`alpha = 1.00` column of §4's grid; they do not touch §4's nonlinear robustness sweep, and in
+particular do not bear on the one verdict flip §4 reports (more on this below).
+
+### Cell 1 — scatter crossed with the real scale
+
+The fractional parameterization (`scatter_std_frac * dr`) §4 used is not comparable across
+scales: 0.05*dr is 0.64 voxels at the real dr = 12.81 but 5 voxels at dr = 100, against the same
+6.0-voxel absolute scan tolerance in both cases. Re-running the pinned fractional levels at the
+real scale (Cell 1a) makes this concrete: the same fractions that spanned 0-10 voxels at dr=100
+now span only 0.000-1.281 voxels, and every cell — reference and displaced alike — stays
+satisfied (`Δ = +0.000000` throughout).
+
+Because real patch scatter is physical and does not shrink with winding spacing, Cell 1b sweeps
+scatter in **absolute voxels** instead, at both dr = 12.81 and dr = 100, up to and including 6.0
+voxels — villa's entire scan tolerance:
+
+| dr | scatter (vox) | ref combined | ref verdict | disp combined | disp verdict | Δ combined |
+| --- | --- | --- | --- | --- | --- | --- |
+| 12.81 | 0.00 | 1.000000 | SAT | 1.000000 | SAT | +0.000000 |
+| 12.81 | 6.00 | 0.969697 | SAT | 0.969697 | SAT | +0.000000 |
+| 100.00 | 0.00 | 1.000000 | SAT | 1.000000 | SAT | +0.000000 |
+| 100.00 | 6.00 | 0.975758 | SAT | 0.975758 | SAT | +0.000000 |
+
+(Intermediate levels 0.5, 1.0, 2.0, 4.0 voxels read the same pattern; the full 12-row table is in
+the artifact.) Across all 12 cells: **0 of 12 show villa's verdict distinguishing the two arms,
+and 0 of 12 push the correctly placed reference patch below threshold** — even with scatter equal
+to the entire 6.0-voxel scan tolerance, the reference stays satisfied (0.969697 and 0.975758,
+both above the 0.95 quad-fraction bar). The report's own question — does the metric stop
+accepting anything at real scale, which would change the question from "can it detect a wrong
+wrap" to "does it accept anything at all" — is answered: no, it keeps accepting both arms.
+
+This does not touch §4's one verdict flip. That flip required combining scatter *with*
+nonlinearity (alpha = 0.80); every alpha = 1.00 row in §4's own table already reads Δ = 0 at
+every scatter level, and Cell 1 only ever ran the identity transform. Cell 1 extends the
+alpha = 1.00 column to the real scale and to absolute-voxel scatter; it says nothing about, and
+does not retract, §4's finding that nonlinearity combined with scatter can flip the verdict. The
+harder cross — real-scale scatter *combined with* nonlinearity — remains untested (Limits 4,
+updated below).
+
+### Cell 2 — displacement ratios across the full measured span
+
+Experiment B (§6) swept only the p05-p95 quantile band (ratio 0.72-1.38). Cell 2 sweeps the full
+measured adjacent-gap ratio distribution (0.0446 to 23.8006, §5), at dr = 12.81, no scatter,
+including integers and half-integers, to resolve whether acceptance tracks displacement
+*magnitude* or distance to the *nearest integer winding*.
+
+It is the latter. Selected rows (full 21-row table in the artifact):
+
+| ratio (windings) | offset from nearest integer | displaced verdict |
+| --- | --- | --- |
+| 0.50 | 0.5000 | **unsat** |
+| 1.00 | 0.0000 | SAT |
+| 1.50 | 0.5000 | **unsat** |
+| 5.00 | 0.0000 | SAT |
+| 5.50 | 0.5000 | **unsat** |
+| 23.8006 | 0.1994 | SAT |
+
+The largest displacement tested, 23.8006 windings (≈304.9 voxels at this dr), is accepted because
+it lands only 0.1994 of a winding from the nearest integer — smaller than every half-winding
+case, which is rejected regardless of how small its absolute displacement is (0.5 windings, only
+≈6.4 voxels, is already enough to reject). Across all 21 cells, the displaced patch is **accepted
+in 13 and rejected in 8**; every acceptance has an offset of 0.44 or less, every rejection an
+offset of 0.46 or more. Displacement magnitude does not appear in that split at all — only
+proximity to an integer winding does. That is the periodicity Limits 5 flagged as untested, now
+measured directly rather than assumed from villa's snap-to-nearest logic.
+
+**The acceptance edge, bracketed and re-resolved.** Four points bracket the edge near ratio 0:
+0.40 and 0.44 accepted, 0.46 and 0.48 rejected — so the edge sits strictly between an offset of
+0.44 and 0.46. The same bracket, re-run five windings out (5.44 accepted, 5.46 rejected), lands
+identically: the edge does not move with displacement magnitude, confirming by direct
+measurement — not by reading `spiral_tolerance = dr * 0.45` in source alone — that only the
+offset from the nearest integer winding governs the verdict.
+
+That measured bracket is also what makes the "~10% strip" figure quotable. The offset ranges from
+0 to 0.5 within each winding period, by symmetry around the nearest integer, and the measured
+edge sits in `(0.44, 0.46]`. The rejected span per period is therefore `2 * (0.5 - edge)`, which
+the bracket confines to between `2*(0.5-0.46) = 0.08` and `2*(0.5-0.44) = 0.12` — roughly a tenth
+of each winding's span rejected, and roughly nine tenths accepted. An earlier draft of this
+investigation derived this figure from villa's tolerance constant (`0.45*dr`) alone, with no
+measured cell behind it, and correctly declined to report it (see the process section). It is
+reported here only because Cell 2's bracket now measures, rather than assumes, the number that
+constant predicts.
+
 ---
 
 ## Limits
@@ -383,13 +486,24 @@ Stated plainly, because each is a place this work could mislead.
    A maintainer could accurately reply that we measured the config that prints numbers, not the
    one that gates the mesh, and they would be right. The splicing configuration was not swept.
 
-4. **Scatter was never combined with the real scale.** §4 swept scatter at dr = 100; §6 ran at
-   dr = 12.81 with scatter held at zero. The cross of the two is untested, and it is the cell a
-   sceptic should ask for first.
+4. **Scatter combined with the real scale — closed for the identity transform, in §7.** §4
+   swept scatter at dr = 100 under smooth nonlinearity; §6 ran at dr = 12.81 with scatter held at
+   zero. The cross of the two was flagged as the cell a sceptic should ask for first. §7 Cell 1
+   measured it under the identity transform: 0 of 12 cells show villa's verdict distinguishing
+   the reference from the displaced patch, and 0 of 12 push the correctly placed reference below
+   threshold, even at scatter equal to the full 6.0-voxel scan tolerance. What remains untested is
+   the harder, three-way cross — real-scale scatter *combined with* the nonlinearity that produces
+   §4's one verdict flip. That combination was not run.
 
-5. **Ratio tails beyond p05-p95 are untested.** The measured distribution runs from 0.0446 to
-   23.8006 and 21.6330% of ratios fall outside [0.8, 1.25]. Experiment B covers the pinned
-   quantile grid only; the invariance is not claimed for the more extreme local deviations.
+5. **Ratio tails beyond p05-p95 — closed, in §7.** Experiment B covered only the pinned quantile
+   grid (0.72-1.38). §7 Cell 2 swept the full measured span, 0.0446 to 23.8006, plus
+   half-integers, and re-resolved the acceptance edge five windings out. The invariance is
+   periodic, not magnitude-bounded: the largest displacement tested (23.8006 windings, ≈304.9
+   voxels) is accepted because it lands 0.1994 of a winding from the nearest integer, while a
+   0.5-winding displacement (≈6.4 voxels) is rejected outright. The acceptance edge sits between
+   an offset of 0.44 and 0.46 from the nearest integer winding, measured identically near ratio 0
+   and five windings out. This closes the tail gap for the identity transform; it says nothing
+   about the tails under nonlinearity, which Limits 7 still covers.
 
 6. **The theta = 0 seam is not exercised.** The synthetic patch spans theta 0.30-1.30 rad, so it
    never crosses the seam and `get_theta_crossing_step_adjustments` is never invoked. The
@@ -429,9 +543,13 @@ Stated plainly, because each is a place this work could mislead.
   one winding and rescored. If Δ there is materially nonzero, the synthetic result would be
   shown to be an idealization. §1's algebra says it should not be, and §6 says the real
   tolerance/spacing ratio makes it less likely rather than more — but it has not been run.
-- **A scatter × real-scale cross.** If a patch's real scatter at dr ≈ 12.8 already pushes the
-  reference below the 0.95 threshold, the practical question changes from "can the metric detect
-  a wrong wrap" to "does the metric accept anything at all at this scale".
+- **A scatter × real-scale × nonlinearity cross.** §7 answered the two-way version of this
+  question (real-scale scatter alone, identity transform): the reference patch never fails and no
+  verdict disagreement appears in 12 cells, even at scatter equal to the full scan tolerance. What
+  would still change the conclusion is the three-way cross — real-scale scatter *combined with*
+  the nonlinear transform that produces §4's one flip. If that combination flips a larger share of
+  the grid, or flips even at scatter levels below §4's, the flip would look less like an edge
+  case.
 - **A demonstration that the real transform's local irregularity does break the invariance.**
   §4 shows it breaks at alpha ≈ 0.2 under a smooth power law; §5 argues the real field is not
   well described by a single alpha. Measuring the invariance directly against the observed local
@@ -477,6 +595,16 @@ drafted, said this keeps happening — written by an author who had just read bo
 instances. The lesson does not transfer on its own, not across files and not even across
 paragraphs.
 
+One related decision cuts the other way and is worth recording alongside the three failures. An
+earlier draft of this report computed a "~10% rejected strip" figure from villa's tolerance
+constant (`0.45*dr`) and declined to state it, because no cell had actually measured the edge —
+only the constant implied it. §7's Cell 2 has since bracketed the acceptance edge directly (0.44
+accepted, 0.46 rejected, unchanged five windings out), and the figure is quoted there now because
+it is measured rather than derived. The refusal was not a hedge that later turned out
+unnecessary: it was correct at the time it was made, and it stayed correct until the missing
+measurement existed. Withholding an unmeasured number is not the failure mode the rest of this
+section is about; asserting one without checking it is.
+
 The asymmetry is the finding: **every measurement in this investigation held up under scrutiny.
 What repeatedly failed was the prose describing it** — which is the half a reader actually
 consumes. A reader who trusts a report's numbers and skims its narrative was, three times,
@@ -521,11 +649,13 @@ CUDA_VISIBLE_DEVICES="" uv run python scripts/probe_spiral_satisfaction_winding.
 CUDA_VISIBLE_DEVICES="" uv run python scripts/probe_spiral_satisfaction_robustness.py
 CUDA_VISIBLE_DEVICES="" uv run python scripts/probe_spiral_satisfaction_realscale.py
 uv run python scripts/measure_real_winding_nonlinearity.py   # pulls 210 MB, sha256-verified
+CUDA_VISIBLE_DEVICES="" uv run python scripts/probe_spiral_satisfaction_untested_cells.py  # §7
 CUDA_VISIBLE_DEVICES="" uv run pytest \
   tests/test_probe_spiral_satisfaction_winding.py \
   tests/test_probe_spiral_satisfaction_robustness.py \
   tests/test_probe_spiral_satisfaction_realscale.py \
-  tests/test_measure_real_winding_nonlinearity.py -q      # 47 passed
+  tests/test_measure_real_winding_nonlinearity.py \
+  tests/test_probe_spiral_satisfaction_untested_cells.py -q      # 56 passed
 ```
 
 Full execution history, including every ruling, every reviewer objection and both corrections
