@@ -70,15 +70,25 @@ def test_transform_rejects_non_monotonic_knots():
 
 def test_ray_filter_rejects_skipped_winding_levels():
     """A ray whose crossings skip a winding would fold two inter-winding gaps
-    into one, corrupting the measured radial map. The filter must refuse it."""
+    into one, corrupting the measured spacing sequence.
+
+    The earlier version of this test used ray index 0, which has 8 crossings and
+    is rejected by the >=10 crossing check BEFORE the consecutiveness guard is
+    ever reached -- so it passed with the guard deleted entirely. It is pinned
+    here to a ray that actually reaches the guard.
+    """
     shard = load_shard()
-    shard = {k: v.copy() for k, v in shard.items()}
-    lo = int(shard["crossing_offsets"][0])
-    good = ray_winding_radii(shard, 0)
-    shard["crossing_level"][lo + 2] += 5  # break consecutiveness
-    assert ray_winding_radii(shard, 0) is None
-    if good is not None:
-        assert len(good) >= 2
+    idx = next(
+        i
+        for i in range(len(shard["crossing_offsets"]) - 1)
+        if ray_winding_radii(shard, i) is not None
+    )
+    assert ray_winding_radii(shard, idx) is not None
+
+    mutated = {k: v.copy() for k, v in shard.items()}
+    lo = int(mutated["crossing_offsets"][idx])
+    mutated["crossing_level"][lo + 2] += 5
+    assert ray_winding_radii(mutated, idx) is None
 
 
 def test_real_rays_are_actually_irregular():
@@ -94,14 +104,42 @@ def test_real_rays_are_actually_irregular():
     assert worst > 0.1
 
 
-def test_blindness_survives_real_measured_geometry():
-    """The finding, under real locally-irregular winding geometry, in both of
-    villa's configurations."""
+def test_zero_scatter_is_degenerate_and_is_labelled_as_such():
+    """At zero scatter the delta is zero for ANY invertible transform by the
+    section-1 algebra, so this row carries no information about the empirical
+    warp. Pinned so nobody reads it as evidence again."""
     shard = load_shard()
-    rays = usable_rays(shard, n_rays=10)
-    for cfg in (REPORTING, SPLICING):
-        for _, radii in rays:
-            row = run_ray(radii, cfg)
-            assert row["delta"] == pytest.approx(0.0, abs=1e-9)
-            assert row["ref_verdict"] is True
-            assert row["disp_verdict"] is True
+    rays = usable_rays(shard, n_rays=8)
+    for _, radii in rays:
+        assert run_ray(radii, REPORTING, scatter_voxels=0.0)["delta"] == pytest.approx(
+            0.0, abs=1e-9
+        )
+
+
+def test_the_invariance_breaks_under_real_warps_once_scatter_is_present():
+    """The actual finding of this probe, and the opposite of what its first
+    version reported. Under the reporting configuration at 6 voxels of scatter,
+    villa's entire scan tolerance, the empirical warps produce a delta far above
+    the pinned smooth-sweep worst case of 0.042424, and the verdict differs on
+    several rays."""
+    shard = load_shard()
+    rays = usable_rays(shard, n_rays=40)
+    rows = [run_ray(radii, REPORTING, scatter_voxels=6.0) for _, radii in rays]
+    assert max(abs(r["delta"]) for r in rows) > 0.2
+    assert sum(1 for r in rows if r["ref_verdict"] != r["disp_verdict"]) >= 5
+
+
+def test_the_break_is_monotone_in_scatter():
+    """Guard against a one-off: the departure should grow with scatter, not
+    appear at a single cherry-picked level."""
+    shard = load_shard()
+    rays = usable_rays(shard, n_rays=15)
+    worst = [
+        max(
+            abs(run_ray(radii, REPORTING, scatter_voxels=vox)["delta"])
+            for _, radii in rays
+        )
+        for vox in (0.0, 3.0, 6.0)
+    ]
+    assert worst[0] <= worst[1] <= worst[2]
+    assert worst[2] > worst[0]

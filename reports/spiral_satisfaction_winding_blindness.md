@@ -24,13 +24,17 @@ in the fit — `losses.get_patch_abs_winding_loss` selects point collections on
 3373 — but `satisfaction_metrics.py` never reads them. Ground truth is consumed by the fit and
 never used to score it, so the score cannot distinguish "on the right wrap" from "on a wrap".
 
-That blindness is exact for a patch lying on a winding, and it survives scatter and smooth
-nonlinearity across almost all of the range swept — but not quite all of it. §4 reports the one
-pinned-grid cell where villa's verdict does change, and reports it as the counterexample it is.
-Two gaps this report originally left open — whether real-scale scatter alone starves the
-correctly placed patch, and whether the blindness holds across the full measured displacement
-span rather than just near one winding — are closed in §7, and both close in the direction that
-strengthens the finding rather than narrowing it.
+**The blindness is exact for a patch lying on a winding. It is not unconditional for a noisy
+one.** For a well-placed patch the result is an algebraic identity (§1) and holds at every scale,
+every measured displacement ratio, both of villa's configurations, and across the theta=0 seam.
+Once the patch carries scatter, counterexamples appear: §4 reports the one pinned-grid cell where
+villa's verdict changes under smooth nonlinearity, and Limits 7 reports the substantially larger
+break under warps built from real measured winding spacings — 5 of 40 rays disagree at 4 voxels of
+scatter and 8 of 40 at 6 voxels, with max |Δ| reaching 0.284848, some 6.7× the smooth sweep's
+worst case. Two gaps this report originally left open — whether real-scale scatter alone starves
+the correctly placed patch, and whether the blindness holds across the full measured displacement
+span — are closed in §7 in the direction that strengthens the finding. The scatter-plus-real-warp
+cell is the one that cuts the other way, and it is reported in Limits 7 rather than buried.
 
 **What villa already has.** `find_inconsistent_windings.py` in the same directory *does* derive a
 patch's expected absolute winding by propagating `winding_is_absolute` annotations across the
@@ -534,25 +538,50 @@ Stated plainly, because each is a place this work could mislead.
    configurations. The blindness is not an artifact of avoiding the seam.
 
 7. **The nonlinearity sweep tested a smooth shape where the real field is locally noisy —
-   closed** (`reports/spiral_satisfaction_empirical_transform.txt`). §4 perturbs smoothly (a
-   global power law); §5 shows the real field's irregularity is local and noisy, with roughly
-   half of the ratio population failing to invert under the power-law model at all. A power law
-   has a slowly varying derivative by construction and structurally cannot represent that.
+   NARROWED, not closed, and the invariance does break here.** §4 perturbs smoothly (a global
+   power law), which has a slowly varying derivative by construction; §5 shows the real field's
+   irregularity is local and noisy. A warp interpolated from the measured inter-winding spacing
+   sequences of 40 real rays (`reports/spiral_satisfaction_empirical_transform.txt`) supplies
+   the shape a power law cannot, and it is a *stronger* perturbation than any pinned alpha,
+   displacing points by a median of ~0.87 `dr` against 0.067 `dr` at alpha 0.95 and 0.514 `dr`
+   at alpha 0.60.
 
-   The published `winding_model` export records where successive windings actually sit along
-   each ray, so the cumulative sums of those measured gaps *are* a real radial map, with no
-   smoothness imposed anywhere. Across 40 rays drawn under a fixed seed, each carrying at least
-   10 crossings at strictly consecutive winding levels, with local irregularity reaching
-   **1.4394** in units of `dr`: max |Δ| is exactly **0.000000**, zero rays show a verdict
-   disagreement, and zero rays put the correctly placed patch below threshold, under both
-   configurations.
+   ⚠ **CORRECTED 2026-08-25.** This entry was briefly marked **closed** on the strength of that
+   probe reporting max |Δ| = `0.000000` across all 40 rays. That was wrong, and wrong in the
+   flattering direction. **The probe ran at zero scatter**, and at zero scatter §1's algebra
+   *guarantees* Δ = 0 for any invertible transform — §4's own `scatter 0.00` row already
+   publishes `+0.000000` at every alpha. The probe could not have failed. A zero over empirical
+   warps was not evidence about those warps.
 
-   Two ways that result could have been vacuous are guarded by tests: a warp that is secretly
-   an identity, and a ray filter that admits skipped windings, which would fold two gaps into
-   one and manufacture the very smoothness the probe exists to avoid.
+   Measured with scatter present, under the reporting configuration:
 
-   This is real measured radial geometry. It is **not** a fitted transform, and does not
-   discharge Limit 2.
+   | scatter (voxels) | max abs Δ | verdict differs | reference fails |
+   |---|---|---|---|
+   | 0.0 | 0.000000 | 0/40 | 0/40 (degenerate) |
+   | 3.0 | 0.030303 | 0/40 | 0/40 |
+   | 4.0 | 0.121212 | **5/40** | 1/40 |
+   | 6.0 | **0.284848** | **8/40** | 25/40 |
+
+   At 6.0 voxels — villa's entire scan tolerance — max |Δ| is **6.7× §4's pinned worst case**
+   of 0.042424. The splicing configuration is more robust, holding to 4–5 voxels (Δ 0.006061)
+   before breaking at 6.0 (Δ 0.260606, 3/40), which is consistent with its looser tolerances.
+
+   So the version of this limit that this report originally carried — that the smooth sweep
+   "must not be read as bounding the real field's local irregularity, which is comparable to or
+   beyond the breaking regime" — **was correct**, and the correction restores it. What the
+   empirical probe legitimately establishes is narrower: §1's exactness holds against a real,
+   non-analytic, locally irregular warp, and the *degenerate* row confirms the algebra rather
+   than the geometry.
+
+   **What the knots are.** The measured *sequence of inter-winding spacings* along each ray,
+   re-anchored at zero and read as radial knots — not the scroll's radial map. The rays are
+   oblique (median |step_z| 0.215 across the selected rays, max 0.826) and this code places the
+   first crossing at radius 0 though it sits at a real radius in the scan, so part of the
+   measured irregularity is crossing-*angle* variation rather than radial spacing. The probe
+   needs only that the warp be real, monotone and locally irregular, which it is.
+
+   This does **not** discharge Limit 2. It is real measured spacing geometry, not a fitted
+   transform, and a real fitted transform would not be purely radial.
 
 8. **villa already contains annotation-propagation machinery; the metric just does not use it.**
    `find_inconsistent_windings.py` derives a patch's expected absolute winding by propagating
@@ -587,13 +616,13 @@ Stated plainly, because each is a place this work could mislead.
   the nonlinear transform that produces §4's one flip. If that combination flips a larger share of
   the grid, or flips even at scatter levels below §4's, the flip would look less like an edge
   case.
-- ~~**A demonstration that the real transform's local irregularity does break the invariance.**
-  Measuring the invariance directly against the observed local gap sequence, rather than against
-  a fitted alpha, would settle it.~~ **Answered, and it did not break it** (Limits 7). Measured
-  against radial maps interpolated from the observed gap sequences of 40 real rays, with local
-  irregularity up to 1.4394 `dr`, max |Δ| is exactly `0.000000` under both configurations. What
-  would *still* change the conclusion here is a real fitted transform, whose deformation is not
-  purely radial and could couple theta and z in ways a radial map cannot express.
+- **A three-way cross: real-scale scatter, combined with a real locally-irregular warp, swept
+  finely enough to locate the onset.** Limits 7 now shows the invariance *does* break under
+  empirical warps once scatter is present — 5/40 rays disagree at 4 voxels, 8/40 at 6. What is
+  not yet known is where the onset sits between 2.0 and 4.0 voxels, how it moves with `dr`, and
+  whether real patch scatter is anywhere near that magnitude. Until that is measured, the
+  headline claim should be read as holding for well-placed patches, not for noisy ones.
+
 - **Reading the absolute winding annotations in `satisfaction_metrics.py`.** The annotations
   already exist, already drive `get_patch_abs_winding_loss`, and are already propagated across
   the patch graph by `find_inconsistent_windings.py` (Limits 8). None of that reaches the scored
