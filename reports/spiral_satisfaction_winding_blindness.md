@@ -36,6 +36,16 @@ the correctly placed patch, and whether the blindness holds across the full meas
 span — are closed in §7 in the direction that strengthens the finding. The scatter-plus-real-warp
 cell is the one that cuts the other way, and it is reported in Limits 7 rather than buried.
 
+§8 now locates that break precisely instead of bracketing it: under the empirical warp and the
+reporting configuration, the satisfied fraction first moves at 2.50 voxels of patch scatter, a
+patch verdict first flips at 3.25, and the correctly placed reference itself first fails at 4.00
+(per-ray median 3.75, `reports/spiral_satisfaction_onset.txt`). §9 measures what real traced
+patches actually carry at the comparable window: median 0.846 voxels, p95 2.179, with only 0.82%
+of windows at or above the verdict-flip onset (`reports/real_patch_scatter.txt`). Real patches
+therefore sit below the threshold at which this report's own counterexamples start to appear —
+but the threshold is real, it is now measured rather than bracketed, and the one verdict-flipping
+cell in §4 still stands.
+
 **What villa already has.** `find_inconsistent_windings.py` in the same directory *does* derive a
 patch's expected absolute winding by propagating `winding_is_absolute` annotations across the
 patch graph — the very remedy this report ends by pointing at. It is a standalone debug tool,
@@ -94,7 +104,9 @@ Sources for every number below, all committed on branch `probe/spiral-satisfacti
 `reports/real_winding_nonlinearity.txt`,
 `reports/spiral_satisfaction_realscale.txt`. §7's numbers come from
 `reports/spiral_satisfaction_untested_cells.txt`, committed on branch
-`probe/spiral-winding-untested-cells` (commits `2b73bbb9`, `5726b809`).
+`probe/spiral-winding-untested-cells` (commits `2b73bbb9`, `5726b809`). §8's numbers come from
+`reports/spiral_satisfaction_onset.txt` (commit `7ae060d5`), and §9's from
+`reports/real_patch_scatter.txt` (commit `ebeb9235`).
 
 ---
 
@@ -462,6 +474,97 @@ measured cell behind it, and correctly declined to report it (see the process se
 reported here only because Cell 2's bracket now measures, rather than assumes, the number that
 constant predicts.
 
+## 8. Locating the onset
+
+Limits 7 bracketed the break between 2 and 4 voxels of scatter. This locates it at 0.25-voxel
+resolution (`reports/spiral_satisfaction_onset.txt`), using the same empirical warp (40 rays,
+seed 20260825, shard_0, ≥10 crossings each) and a one-winding displacement throughout, varying
+only the patch's scatter.
+
+**Three distinct thresholds, under the reporting configuration.** The satisfied fraction moving
+at all, a patch verdict flipping, and the correctly placed reference itself failing are not the
+same event:
+
+| onset | scatter (voxels) |
+| --- | --- |
+| satisfied fraction first moves | 2.50 |
+| a patch verdict first flips | 3.25 |
+| the correctly placed reference first fails | 4.00 |
+
+5 of 40 rays flip somewhere in the swept range; per-ray onset has median 3.75v, range 3.25-4.00v.
+These headline figures are a `min` over the 40 sampled rays and can only fall as more rays are
+drawn — a property of the sample as much as of the metric. The per-ray median (3.75v) is the
+sample-size-stable figure and should be preferred when the exact number matters.
+
+**The splicing configuration is more robust**, consistent with its looser tolerances (Limits 3):
+the satisfied fraction does not move until 4.00 voxels, and neither a verdict flip nor a
+reference failure occurs anywhere in the swept range (0 of 40 rays flip, up to 4.25v).
+
+**Absolute scan tolerance, not relative spiral tolerance, governs the onset.** Binning the 40
+real rays by their own `dr` is confounded — across this population `dr` is strongly
+anti-correlated with knot count (Pearson −0.882) and mildly correlated with local irregularity
+(+0.147; bin medians 0.547/0.605/0.653) — so the artifact prints that table labelled confounded
+and it must not be read as a `dr` effect. The clean test rescales each ray's warp *shape* to a
+target `dr`, holding relative irregularity fixed and moving only the spacing:
+
+| target dr | verdict onset (voxels) | onset as fraction of dr |
+| --- | --- | --- |
+| 10.0 | 3.50 | 0.350 |
+| 13.0 | 3.50 | 0.269 |
+| 16.0 | 3.25 | 0.203 |
+| 20.0 | 3.25 | 0.163 |
+| 25.0 | 3.25 | 0.130 |
+
+The onset in absolute voxels is nearly flat (3.25-3.50) across a 2.5x range of `dr`, while the
+onset as a fraction of `dr` falls by more than half (0.350 to 0.130). A relative check would hold
+the fraction roughly constant as `dr` varies; this does the opposite. villa's 6.0-voxel absolute
+scan tolerance, not its 0.45×dr relative spiral tolerance, is what sets the onset.
+
+## 9. Does real patch scatter reach the onset?
+
+§8 locates the break; it says nothing about whether real traced patches ever carry enough
+scatter to reach it. `reports/real_patch_scatter.txt` measures that directly on 10 patches from
+the published `verified_patches` set, with radii taken from the published umbilicus — data, not
+metric; no villa code involved.
+
+**The window size decides the answer, and this is the load-bearing methodological point.** Scatter
+is the RMS residual of a patch's radius after removing a smooth trend fit across a grid window.
+One grid step is ~20.0 voxels (median, both axes, across all 10 patches), so a window sized to
+match the synthetic patch's 12x16 *point* grid spans roughly 240x320 real voxels — five to fifteen
+times the synthetic patch's own ~22x64-voxel extent. At that mismatched scale the "residual" is
+dominated by genuine surface curvature rather than roughness, and it inverts the conclusion. The
+probe therefore prints the full sensitivity surface, four window sizes crossed with two fit orders
+(plane, quadratic), and marks the comparable cell:
+
+| window (grid cells) | extent (voxels) | fit | p50 (vox) | p95 (vox) | share ≥ 3.25v (verdict-flip onset) |
+| --- | --- | --- | --- | --- | --- |
+| 3x4 | 60x80 | plane | 0.846 | 2.179 | 0.8% ← comparable |
+| 3x4 | 60x80 | quad | 0.255 | 0.633 | 0.0% |
+| 4x6 | 80x120 | plane | 1.595 | 3.836 | 10.3% |
+| 6x8 | 120x160 | plane | 2.828 | 7.125 | 39.4% |
+| 12x16 | 240x320 | plane | 8.135 | 15.374 | 97.7% |
+
+The 3x4 window is the one whose real-space extent (60x80 voxels) is closest to the synthetic
+patch's (~22x64); the 12x16 row — the naive choice matching point-grid dimensions rather than
+real-space extent — reports 97.7% of windows above the verdict-flip onset, the opposite of the
+comparable window's answer. **Both rows are measured on the same data; only the window differs,
+and the conclusion inverts.**
+
+**At the comparable window (3x4, plane fit):** median 0.846 voxels, p95 2.179, max 5.406, n =
+3897. Against §8's three onsets:
+
+| onset | scatter (voxels) | share of real windows at or above it |
+| --- | --- | --- |
+| fraction moves | 2.50 | 2.67% |
+| verdict flips | 3.25 | 0.82% |
+| reference fails | 4.00 | 0.13% |
+
+So real traced patches, measured at the scale the synthetic probes actually operate on, carry
+scatter that sits below the onset located in §8 — the overwhelming majority of windows (99.18%)
+never reach the level at which villa's verdict can flip. This does not soften §4's counterexample
+cell or the fact that the empirical-warp break is real (both stand): it says that on this
+evidence, well-traced real patches do not typically carry enough scatter to reach it.
+
 ---
 
 ## Limits
@@ -583,6 +686,25 @@ Stated plainly, because each is a place this work could mislead.
    This does **not** discharge Limit 2. It is real measured spacing geometry, not a fitted
    transform, and a real fitted transform would not be purely radial.
 
+   **The onset is now located, not bracketed (§8).** Under the reporting configuration: the
+   satisfied fraction first moves at 2.50 voxels of patch scatter, a patch verdict first flips at
+   3.25, and the correctly placed reference itself first fails at 4.00 (per-ray median 3.75,
+   sample-size-stable; the 3.25 figure is a min over 40 sampled rays and can only fall with more
+   rays). Under the splicing configuration the onset is later and, within the swept range up to
+   4.25 voxels, no verdict ever flips. The onset is set by villa's **absolute** 6.0-voxel scan
+   tolerance, not its **relative** 0.45×dr spiral tolerance: rescaling each ray's warp shape to a
+   fixed target dr while holding relative irregularity constant leaves the onset nearly flat in
+   absolute voxels (3.25-3.50 across dr 10-25) while it falls sharply as a fraction of dr
+   (0.350 to 0.130) — the opposite of what a relative check would produce.
+
+   **Whether that onset matters in practice is answered, separately, in §9.** Real traced patches
+   from the published `verified_patches` set, measured at the window whose real-space extent
+   matches the synthetic patch (3x4 grid cells, plane fit), carry median scatter 0.846 voxels
+   (p95 2.179) — below all three onsets above. Only 0.82% of measured windows reach the
+   verdict-flip onset. That is real evidence that well-traced patches do not typically carry
+   enough scatter to trigger the break §4 and this entry describe — it is not a claim that the
+   break is unreachable, only that it sits above what these 10 patches, at this window, show.
+
 8. **villa already contains annotation-propagation machinery; the metric just does not use it.**
    `find_inconsistent_windings.py` derives a patch's expected absolute winding by propagating
    `winding_is_absolute` annotations across the patch graph — direct votes from absolute-winding
@@ -617,11 +739,19 @@ Stated plainly, because each is a place this work could mislead.
   the grid, or flips even at scatter levels below §4's, the flip would look less like an edge
   case.
 - **A three-way cross: real-scale scatter, combined with a real locally-irregular warp, swept
-  finely enough to locate the onset.** Limits 7 now shows the invariance *does* break under
-  empirical warps once scatter is present — 5/40 rays disagree at 4 voxels, 8/40 at 6. What is
-  not yet known is where the onset sits between 2.0 and 4.0 voxels, how it moves with `dr`, and
-  whether real patch scatter is anywhere near that magnitude. Until that is measured, the
-  headline claim should be read as holding for well-placed patches, not for noisy ones.
+  finely enough to locate the onset — SUBSTANTIALLY ANSWERED, §8 and §9.** The onset is now
+  located at 0.25-voxel resolution rather than bracketed: under the reporting configuration the
+  satisfied fraction first moves at 2.50 voxels, a verdict first flips at 3.25, the reference
+  first fails at 4.00 (per-ray median 3.75); the onset is governed by villa's absolute 6.0-voxel
+  scan tolerance, not its relative spiral tolerance (§8). And real patch scatter, measured on 10
+  patches from the published `verified_patches` set at the window matching the synthetic patch's
+  real-space extent, has median 0.846 voxels — below all three onsets, with only 0.82% of
+  measured windows reaching the verdict-flip onset (§9). What is still open: this is 10 patches
+  at one comparable window, the 3.25v figure is a min over 40 synthetic rays that can only fall
+  with more rays, and the empirical-warp cross was not run together with the *smooth alpha*
+  nonlinearity that produced §4's specific verdict flip — that remains the harder cross named in
+  the bullet above. With those caveats, the headline claim now has direct evidence, not just an
+  algebraic argument, that it holds for the patches this investigation was able to measure.
 
 - **Reading the absolute winding annotations in `satisfaction_metrics.py`.** The annotations
   already exist, already drive `get_patch_abs_winding_loss`, and are already propagated across
@@ -719,12 +849,20 @@ CUDA_VISIBLE_DEVICES="" uv run python scripts/probe_spiral_satisfaction_robustne
 CUDA_VISIBLE_DEVICES="" uv run python scripts/probe_spiral_satisfaction_realscale.py
 uv run python scripts/measure_real_winding_nonlinearity.py   # pulls 210 MB, sha256-verified
 CUDA_VISIBLE_DEVICES="" uv run python scripts/probe_spiral_satisfaction_untested_cells.py  # §7
+CUDA_VISIBLE_DEVICES="" uv run python scripts/probe_spiral_satisfaction_empirical_transform.py  # Limits 7
+CUDA_VISIBLE_DEVICES="" uv run python scripts/probe_spiral_satisfaction_splicing_and_seam.py     # Limits 3, 6
+CUDA_VISIBLE_DEVICES="" uv run python scripts/probe_spiral_satisfaction_onset.py  # §8
+CUDA_VISIBLE_DEVICES="" uv run python scripts/probe_real_patch_scatter.py         # §9
 CUDA_VISIBLE_DEVICES="" uv run pytest \
   tests/test_probe_spiral_satisfaction_winding.py \
   tests/test_probe_spiral_satisfaction_robustness.py \
   tests/test_probe_spiral_satisfaction_realscale.py \
   tests/test_measure_real_winding_nonlinearity.py \
-  tests/test_probe_spiral_satisfaction_untested_cells.py -q      # 56 passed
+  tests/test_probe_spiral_satisfaction_untested_cells.py \
+  tests/test_probe_spiral_satisfaction_empirical_transform.py \
+  tests/test_probe_spiral_satisfaction_splicing_and_seam.py \
+  tests/test_probe_spiral_satisfaction_onset.py \
+  tests/test_probe_real_patch_scatter.py -q      # 80 passed
 ```
 
 Full execution history, including every ruling, every reviewer objection and both corrections
