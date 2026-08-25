@@ -1,6 +1,16 @@
 # DRAFT (NOT POSTED) — villa issue: spiral satisfaction cannot detect a sheet switch
 
-**Status: drafted 2026-08-25, NOT posted.** Jon's call.
+**Status: drafted 2026-08-25, NOT posted. HELD 2026-08-25 — Jon reviewed the body and
+judged it not ready.** Do not post. Do not treat a later "continue" as authorization; this
+needs an explicit fresh decision after the open engineering below lands.
+
+Known-open engineering that bears on this draft:
+  - the splicing configuration (0.495 / 12.0 / 0.90) is what gates the output mesh, and every
+    number in the body is for the reporting configuration (0.45 / 6.0 / 0.95). "You measured
+    the config that prints, not the one that gates the mesh" is the strongest available
+    objection and it is not yet answered.
+  - the theta=0 seam is still unexercised.
+  - no real fit has ever been run.
 
 Target: a **new issue** on `ScrollPrize/villa`, not a PR. Modelled on the pattern that landed
 issue #1522 (our only accepted contribution, against ten closed PRs): report a real defect,
