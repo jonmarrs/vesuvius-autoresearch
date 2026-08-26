@@ -7,10 +7,13 @@ default mode. They do NOT spend GPU; --execute is never set.
 
 from __future__ import annotations
 
+import importlib.util
 import json
 import subprocess
 import sys
 from pathlib import Path
+
+import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
@@ -18,11 +21,16 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 def _script(name: str) -> Path:
     """Locate a launcher under scripts/, wherever it currently lives.
 
-    The launchers moved into scripts/training/ and scripts/inference/ in June
-    2026 (4d9388e1, a0a1b10b) and this file kept pointing at scripts/<name>,
-    so all five tests have been failing on a missing file ever since --
-    passing the `check=True` subprocess a path that does not exist. Resolving
-    the name means the next reorganisation cannot silently re-break them.
+    The launchers moved out of scripts/ on 2026-06-02 and this file kept
+    pointing at scripts/<name>, so every test here has been failing on a
+    missing file ever since -- handing the `check=True` subprocess a path that
+    does not exist. The move took three commits, and the break lands in two of
+    them: 4d9388e1 renamed launch_neural_tracing.py into scripts/inference/,
+    while a0a1b10b only ADDED copies of the three training launchers under
+    scripts/training/ (926 insertions, 0 deletions) and c4be4c17 is what
+    deleted the originals. So neural-tracing broke at 4d9388e1 and the other
+    three at c4be4c17. Resolving the name means the next reorganisation cannot
+    silently re-break them.
     """
     hits = sorted((REPO_ROOT / "scripts").rglob(name))
     assert len(hits) == 1, f"expected exactly one {name} under scripts/, found {hits}"
@@ -30,6 +38,9 @@ def _script(name: str) -> Path:
 
 
 def _run(script: str, *args: str) -> subprocess.CompletedProcess:
+    """Runs with check=True, so a non-zero exit raises here rather than being
+    asserted by each caller -- those `assert proc.returncode == 0` lines were
+    unreachable."""
     return subprocess.run(
         [sys.executable, str(_script(script)), *args],
         check=True,
@@ -41,7 +52,7 @@ def _run(script: str, *args: str) -> subprocess.CompletedProcess:
 
 def test_launch_gp_winner_writes_baseline_marker(tmp_path):
     config_out = tmp_path / "gp.yaml"
-    proc = _run(
+    _run(
         "launch_gp_winner.py",
         "--config-out",
         str(config_out),
@@ -52,7 +63,6 @@ def test_launch_gp_winner_writes_baseline_marker(tmp_path):
         "--marker-out",
         str(tmp_path / "gp_marker.json"),
     )
-    assert proc.returncode == 0
     marker = tmp_path / "gp_marker.json"
     assert marker.exists()
     data = json.loads(marker.read_text())
@@ -65,7 +75,7 @@ def test_launch_gp_winner_writes_baseline_marker(tmp_path):
 def test_launch_mutex_writes_marker_and_blocks_execute_without_data(tmp_path):
     data_path = tmp_path / "mutex_data"  # intentionally empty
     config_out = tmp_path / "mutex.yaml"
-    proc = _run(
+    _run(
         "launch_mutex.py",
         "--data-path",
         str(data_path),
@@ -76,7 +86,6 @@ def test_launch_mutex_writes_marker_and_blocks_execute_without_data(tmp_path):
         "--marker-out",
         str(tmp_path / "mutex_marker.json"),
     )
-    assert proc.returncode == 0
     marker = tmp_path / "mutex_marker.json"
     data = json.loads(marker.read_text())
     assert data["submittable"] is True  # default patch=64
@@ -86,7 +95,7 @@ def test_launch_mutex_writes_marker_and_blocks_execute_without_data(tmp_path):
 
 def test_launch_finetune_lejepa_uses_submittable_patch_and_finds_pretrain(tmp_path):
     config_out = tmp_path / "ft.yaml"
-    proc = _run(
+    _run(
         "launch_finetune_lejepa.py",
         "--config-out",
         str(config_out),
@@ -97,7 +106,6 @@ def test_launch_finetune_lejepa_uses_submittable_patch_and_finds_pretrain(tmp_pa
         "--marker-out",
         str(tmp_path / "ft_marker.json"),
     )
-    assert proc.returncode == 0
     marker = tmp_path / "ft_marker.json"
     data = json.loads(marker.read_text())
     assert data["patch_size"] == [32, 64, 64]
@@ -115,7 +123,7 @@ def test_launch_finetune_lejepa_uses_submittable_patch_and_finds_pretrain(tmp_pa
 
 def test_launch_finetune_lejepa_flags_non_submittable_when_patch_too_large(tmp_path):
     config_out = tmp_path / "ft_big.yaml"
-    proc = _run(
+    _run(
         "launch_finetune_lejepa.py",
         "--config-out",
         str(config_out),
@@ -130,7 +138,6 @@ def test_launch_finetune_lejepa_flags_non_submittable_when_patch_too_large(tmp_p
         "--marker-out",
         str(tmp_path / "ft_big_marker.json"),
     )
-    assert proc.returncode == 0
     marker = tmp_path / "ft_big_marker.json"
     data = json.loads(marker.read_text())
     assert data["patch_size"] == [32, 128, 128]
@@ -150,14 +157,25 @@ def test_launch_neural_tracing_falls_back_to_the_hf_sentinel(tmp_path):
     What is pinned now is the new contract: the launcher always resolves SOME
     checkpoint, wires it into the command, and never blocks on it.
     """
-    sys.path.insert(0, str(REPO_ROOT / "scripts" / "inference"))
-    from launch_neural_tracing import _find_neural_tracing_checkpoint
+    # Loaded by path rather than via sys.path.insert: that insert was never
+    # undone, and both scripts/production_predict.py and
+    # scripts/inference/production_predict.py exist with different contents, so
+    # leaving entries at index 0 decides which one a later bare import gets.
+    spec = importlib.util.spec_from_file_location(
+        "_lnt_probe", REPO_ROOT / "scripts" / "inference" / "launch_neural_tracing.py"
+    )
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
 
-    local = _find_neural_tracing_checkpoint()
-    expected = str(local) if local else "extrap_displacement_latest"
+    if mod._find_neural_tracing_checkpoint() is not None:
+        pytest.skip(
+            "a local tracing checkpoint exists, so the sentinel fallback cannot "
+            "be exercised; the assertion below would degrade to comparing the "
+            "launcher against its own resolver"
+        )
 
     marker_out = tmp_path / "trace.json"
-    proc = _run(
+    _run(
         "launch_neural_tracing.py",
         "--scroll-id",
         "0125",
@@ -166,13 +184,12 @@ def test_launch_neural_tracing_falls_back_to_the_hf_sentinel(tmp_path):
         "--marker-out",
         str(marker_out),
     )
-    assert proc.returncode == 0
     assert marker_out.exists()
     data = json.loads(marker_out.read_text())
 
-    assert data["checkpoint"] == expected
+    assert data["checkpoint"] == "extrap_displacement_latest"
     cmd = data["command"]
-    assert cmd[cmd.index("--checkpoint_path") + 1] == expected
+    assert cmd[cmd.index("--checkpoint_path") + 1] == "extrap_displacement_latest"
     assert not any("checkpoint" in b for b in data["blockers"])
     assert data["socket_path"].endswith(".sock")
     # `ready` is not asserted: it turns on whether this machine happens to have

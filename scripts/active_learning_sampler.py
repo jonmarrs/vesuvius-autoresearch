@@ -40,9 +40,16 @@ class ActiveLearningSampler:
         # dataset order. Under a shuffling sampler the arithmetic still produces
         # in-range indices, so the failure would be silent: plausible-looking
         # coordinates pointing at patches the model never saw.
+        # Inverted deliberately: an earlier version enumerated RandomSampler and
+        # checked `dataloader.shuffle`, which no DataLoader exposes, so half the
+        # condition was dead and SubsetRandomSampler, WeightedRandomSampler and
+        # DistributedSampler(shuffle=True) all slipped through. Requiring
+        # sequential order rejects every shuffling variant instead.
+        # A loader with no `.sampler` cannot be introspected (duck-typed test
+        # doubles); only an explicit non-sequential sampler is rejected.
         sampler = getattr(dataloader, "sampler", None)
-        if isinstance(sampler, torch.utils.data.RandomSampler) or getattr(
-            dataloader, "shuffle", False
+        if sampler is not None and not isinstance(
+            sampler, torch.utils.data.SequentialSampler
         ):
             raise ValueError(
                 "sample_uncertain_regions needs a dataloader in dataset order; "

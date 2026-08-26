@@ -3,10 +3,13 @@ import sys
 
 import numpy as np
 import pytest
-from conftest import machine_has_gpu
+from conftest import gpu_available_ambiently
 
 
-@pytest.mark.skipif(not machine_has_gpu(), reason="machine has no CUDA device")
+@pytest.mark.skipif(
+    not gpu_available_ambiently(),
+    reason="no CUDA device (absent, or masked by the shell)",
+)
 def test_cli_vesselness_roundtrip(tmp_path, ambient_env):
     vol = np.random.default_rng(0).random((16, 32, 32)).astype(np.float32)
     inp = tmp_path / "vol.npy"

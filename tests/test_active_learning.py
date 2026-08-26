@@ -15,12 +15,16 @@ class MockModel(torch.nn.Module):
         super().__init__()
 
     def forward(self, x, return_qc=False):
-        # Return mock logits [B, 1, H, W]
+        # Return mock logits [B, 1, H, W]. Scaled by the input so that different
+        # samples get different uncertainty scores: an earlier mock ignored `x`
+        # entirely, which made every score identical and left the "scores are
+        # descending" and "coords match the argmax" assertions unfalsifiable.
+        scale = 1.0 + float(x.mean())
         logits = torch.zeros(x.shape[0], 1, x.shape[3], x.shape[4])
         # High uncertainty in the middle (logits close to 0 -> prob close to 0.5)
-        logits[:, :, 16:48, 16:48] = 0.01
+        logits[:, :, 16:48, 16:48] = 0.01 * scale
         # Low uncertainty elsewhere
-        logits[:, :, :16, :] = 10.0
+        logits[:, :, :16, :] = 10.0 * scale
 
         if return_qc:
             # Low confidence (high uncertainty) mock QC [B, 1]
@@ -81,9 +85,15 @@ class TestActiveLearning(unittest.TestCase):
                 # returns (patch_vol, patch_label, patch_fiber). The old mock
                 # yielded coordinates there, which described a dataset that does
                 # not exist and would have hidden a real misuse of that slot.
-                for _ in range(len(self.dataset)):
+                # Deterministic and distinct per sample: MockModel scales its
+                # logits by the input mean, so sample i gets logits further
+                # from zero as i grows, hence LOWER entropy and a lower
+                # uncertainty score. Sample 0 is therefore the most uncertain
+                # and sample 1 the second, which is what makes the coordinate
+                # assertion below falsifiable by an off-by-one.
+                for i in range(len(self.dataset)):
                     yield (
-                        torch.randn(1, 1, 8, 64, 64),
+                        torch.full((1, 1, 8, 64, 64), float(i)),
                         torch.zeros(1, 64, 64),
                         torch.zeros(1, 64, 64),
                     )
@@ -94,10 +104,15 @@ class TestActiveLearning(unittest.TestCase):
         self.assertEqual(len(coords), 2)
         self.assertEqual(len(scores), 2)
         # Scores should be descending
-        self.assertGreaterEqual(scores[0], scores[1])
-        # Coordinates come from the dataset, not invented
-        for c in coords:
-            self.assertIn(list(c), loader.dataset.valid_coords.tolist())
+        self.assertGreater(scores[0], scores[1])
+
+        # The coordinates must be the ones belonging to the two highest-scoring
+        # samples, in order. Asserting only that each coord is SOME member of
+        # valid_coords is a tautology -- production builds them by indexing that
+        # array, so any off-by-one survives it, which is exactly the misindexing
+        # this test exists to catch.
+        np.testing.assert_array_equal(coords[0], loader.dataset.valid_coords[0])
+        np.testing.assert_array_equal(coords[1], loader.dataset.valid_coords[1])
 
     def test_sampler_refuses_a_shuffled_loader(self):
         """The index arithmetic assumes dataset order. Under shuffling it still

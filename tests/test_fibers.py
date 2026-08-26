@@ -1,6 +1,10 @@
 import numpy as np
 import pytest
-from conftest import gpu_is_available
+from conftest import (
+    ambient_cuda_is_masked,
+    gpu_available_ambiently,
+    process_cuda_is_masked,
+)
 
 from vesuvius_autoresearch.fibers import (
     compute_eigenvalues_3x3_batch,
@@ -9,11 +13,6 @@ from vesuvius_autoresearch.fibers import (
     detect_vesselness,
     detect_vesselness_tiled,
 )
-
-# Guarding on the cupy import alone was not enough: cupy imports fine with no
-# visible device, so the parity test FAILED rather than skipped whenever the
-# GPU was masked -- a long-standing caveat that read as "not a regression".
-HAS_CUPY = gpu_is_available()
 
 
 def test_eigensolver_matches_numpy():
@@ -63,8 +62,30 @@ def test_tiled_matches_dense_ridges():
     np.testing.assert_allclose(dense, tiled, rtol=1e-3, atol=1e-4)
 
 
-@pytest.mark.skipif(not HAS_CUPY, reason="no visible CUDA device")
+@pytest.mark.skipif(
+    not gpu_available_ambiently(),
+    reason="no CUDA device (absent, or masked by the shell)",
+)
 def test_cpu_gpu_vesselness_parity():
+    """Real GPU/CPU parity. The guard is deliberately three-way.
+
+    Guarding on `import cupy` succeeding was wrong: it succeeds with no device,
+    so this FAILED instead of skipping under masking. Guarding on an in-process
+    device count was wrong in the other direction -- evaluated at collection
+    time, so importing a probe module first would skip this test on a perfectly
+    good GPU, deleting the coverage with no signal. So: skip if the machine has
+    no GPU, skip if the SHELL asked for CPU-only, and FAIL if the machine has a
+    GPU and the shell did not mask it but something in-process did. That is
+    contamination, not a reason to go quiet.
+    """
+    if ambient_cuda_is_masked():
+        pytest.skip("shell set CUDA_VISIBLE_DEVICES=''")
+    if process_cuda_is_masked():
+        pytest.fail(
+            "CUDA was masked in-process by an unrelated test module; this test "
+            "must not silently skip on a machine that has a GPU"
+        )
+
     import cupy as cp  # imported here: at module scope it runs with no device
 
     rng = np.random.default_rng(42)

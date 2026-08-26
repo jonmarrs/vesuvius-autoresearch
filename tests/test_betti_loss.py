@@ -11,7 +11,7 @@ would have been certifying a loss that trains nothing.
 
 import unittest
 
-from scripts.betti_loss_module import RETIRED_MESSAGE, BettiLoss
+from scripts.betti_loss_module import BettiLoss
 
 
 class TestBettiLoss(unittest.TestCase):
@@ -20,12 +20,19 @@ class TestBettiLoss(unittest.TestCase):
             BettiLoss(weight=1.0)
         self.assertIn("cldice", str(ctx.exception).lower())
 
-    def test_the_message_names_both_defects(self):
-        """The retirement is only useful if it says why, so a future reader does
-        not 'fix' the visible TypeError and re-enable a zero-gradient term."""
-        msg = RETIRED_MESSAGE.lower()
-        self.assertIn("gradient", msg)
-        self.assertIn("argument types", msg)
+    def test_train_py_refuses_before_the_epoch_loop(self):
+        """The property that matters to a caller: a config with
+        use_betti_loss=True fails at setup, not part-way through training. The
+        earlier version of this test asserted the wording of a string constant
+        against itself, which no production change could break."""
+        import inspect
+
+        import scripts.training.train as train
+
+        src = inspect.getsource(train)
+        construction = src.index("BettiLoss(weight=config.betti_loss_weight)")
+        training_loop = src.index("    while True:")
+        self.assertLess(construction, training_loop)
 
 
 if __name__ == "__main__":

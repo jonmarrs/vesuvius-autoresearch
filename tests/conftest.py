@@ -38,31 +38,46 @@ def ambient_env():
     return env
 
 
+def ambient_cuda_is_masked() -> bool:
+    """True if the SHELL asked for CPU-only, as opposed to a test module doing it."""
+    return _AMBIENT_CUDA_VISIBLE_DEVICES == ""
+
+
+def process_cuda_is_masked() -> bool:
+    """True if CUDA is masked in this process right now, by whoever."""
+    return os.environ.get("CUDA_VISIBLE_DEVICES") == ""
+
+
 def gpu_is_available() -> bool:
-    """True if THIS process can use a CUDA device, not merely import cupy.
+    """True if THIS process can use a CUDA device.
 
-    `import cupy` succeeds on a masked or absent GPU, so guarding on the import
-    alone turns "no device" into a test failure instead of a skip. Use this for
-    tests that touch the GPU in-process; they are bound by whatever this
-    process's environment is by the time they run.
+    Deliberately does NOT touch cupy or torch. An earlier version called
+    ``cp.cuda.runtime.getDeviceCount()``, which initialises CUDA; because this
+    runs at collection time and test_fibers sorts before test_probe_*, that
+    initialisation happened BEFORE the thirteen probe modules set
+    CUDA_VISIBLE_DEVICES="", so their masking silently stopped working. Worse,
+    it left the state that breaks the usual guard: torch.cuda.is_available()
+    True with device_count() 0, so `if is_available(): .cuda()` passes and then
+    dies. Measured directly; `import cupy` alone does not poison, the runtime
+    call does. So this answers from the environment plus an out-of-process
+    probe, and initialises nothing here.
     """
-    try:
-        import cupy as cp
-
-        return cp.cuda.runtime.getDeviceCount() > 0
-    except Exception:
-        return False
+    return not process_cuda_is_masked() and gpu_available_ambiently()
 
 
 @functools.lru_cache(maxsize=1)
-def machine_has_gpu() -> bool:
-    """True if the MACHINE has a CUDA device, independent of this process.
+def gpu_available_ambiently() -> bool:
+    """True if a CUDA device is usable under the SHELL's environment.
 
     A test that shells out with `ambient_env` is not bound by the current
     process's masking, so it must not be skipped on account of it. Asking
     in-process would make the answer depend on whether a probe module happened
     to be imported first, which is collection order -- exactly the fragility
     this file exists to remove. So ask a child that has the ambient env.
+
+    Note the deliberate asymmetry: this returns False when the SHELL masked
+    CUDA, because that is the caller asking for CPU-only and should be
+    honoured, and True/False on device presence otherwise.
     """
     probe = (
         "import cupy;"
