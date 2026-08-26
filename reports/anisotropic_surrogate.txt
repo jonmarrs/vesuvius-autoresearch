@@ -1,0 +1,21 @@
+An anisotropic scatter surrogate, and whether the anisotropy mattered
+Every earlier probe used an isotropic Gaussian surrogate and carried the caveat that the real residual is anisotropic, so no isotropic field reproduces it and the results bracket rather than pin. That caveat is now testable.
+
+=== The two statistics, and why one was unreachable ===
+  real across-column lag-1 (axis 1): +0.357
+  real across-row    lag-1 (axis 0): -0.076
+  the SAME pipeline on pure white noise returns: column -0.327, row -0.252
+  That last line is the one that matters and the one an earlier version of this probe lacked. A plane fit over three rows with three parameters induces negative row correlation on ANY field, so the real -0.076 does not indicate anti-correlated data; it indicates positive intrinsic row correlation partly cancelling the fit's own artifact. Reasoning from the sign alone sent the first attempt after a high-pass filter, which converged to its boundary and missed the target by half.
+
+  fitted sigma_col = 1.450, sigma_row = 1.050 (joint 2-D search; residual cost 0.008)
+  achieved: across-column +0.341 (target +0.357), across-row -0.048 (target -0.076)
+
+=== Does it change the answer? ===
+  isotropic (as published)   rays flipping 16 of 40, median among flippers  3.88v, exceedance 2.7%
+  anisotropic (this probe)   rays flipping 26 of 40, median among flippers  3.00v, exceedance 7.1%
+
+  exceedance moves by 4.4 percentage points when the surrogate is corrected from isotropic to anisotropic.
+  That is NOT small. Every earlier number produced with an isotropic surrogate is biased by roughly this much, and the anisotropy caveat was load-bearing rather than precautionary. The anisotropic figure supersedes them.
+
+  Real corrected scatter used for both: median 1.328v, p95 3.601v, n=3890.
+  Remaining limit: lag-1 on two axes is still only two numbers describing a 2-D field. Matching them does not guarantee matching the full correlation structure, and this probe does not claim it does.

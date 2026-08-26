@@ -669,9 +669,36 @@ Three corrections to this section's own earlier text, all of which ran in the fl
   injected on a 12×16 grid, where the same σ induces lag-1 +0.514 rather than the +0.357 it was
   fitted to. Now fitted on the injection grid (σ ≈ 0.56).
 
-*The remaining limit on all of this.* The real residual is **anisotropic** (+0.357 along columns,
-−0.076 along rows) and an isotropic Gaussian surrogate cannot reproduce that at any sigma. The
-sweep therefore brackets the onset across correlation length rather than pinning it.
+*The anisotropy caveat was LOAD-BEARING, and correcting it raises the exceedance* — measured
+2026-08-26, `reports/anisotropic_surrogate.txt`. Every earlier probe used an isotropic Gaussian
+surrogate and carried this caveat precautionarily. It was not precautionary.
+
+A surrogate fitted to **both** measured statistics (sigma_col 1.45, sigma_row 1.05, joint 2-D
+search) reaches column +0.341 and row −0.048 against targets +0.357 and −0.076. Against the
+published isotropic arm, on the same rays and the same real scatter:
+
+| surrogate | rays flipping | exceedance |
+|---|---|---|
+| isotropic (as published) | 16/40 | **2.7%** |
+| anisotropic (fitted to both axes) | 26/40 | **7.1%** |
+
+**The exceedance rises by 4.4 points, a factor of 2.6.** So every earlier figure produced with an
+isotropic surrogate — including the 2.5% quoted above — **understates** how often the metric
+notices the displacement. The anisotropic figure supersedes them.
+
+The direction of the headline is unchanged: at the corrected median real patches essentially never
+reach their onset, and 7.1% is still a minority. But the margin is materially smaller than the
+isotropic numbers implied.
+
+*Why the negative target was misread at first.* The row statistic is measured on the residual of a
+plane fit over a 3×4 window — three rows, three parameters — and that pipeline induces negative row
+correlation on **any** field: pure white noise through it returns −0.252. So the real −0.076 never
+indicated anti-correlated data; it indicated data with *positive* intrinsic row correlation partly
+cancelling the fit's own artifact. A first attempt reasoned from the sign alone, went after a
+high-pass filter, and converged to its boundary missing the target by half.
+
+*What remains.* Lag-1 on two axes is still two numbers describing a 2-D field. Matching them does
+not guarantee matching the full correlation structure, and this is not claimed.
 
 **At the comparable window (3x4, plane fit):** median 0.846 voxels, p95 2.179, max 5.406, n =
 3897. Against §8's three onsets:
