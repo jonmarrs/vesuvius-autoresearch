@@ -1,5 +1,6 @@
 import numpy as np
 import pytest
+from conftest import gpu_is_available
 
 from vesuvius_autoresearch.fibers import (
     compute_eigenvalues_3x3_batch,
@@ -9,12 +10,10 @@ from vesuvius_autoresearch.fibers import (
     detect_vesselness_tiled,
 )
 
-try:
-    import cupy as cp
-
-    HAS_CUPY = True
-except ImportError:
-    HAS_CUPY = False
+# Guarding on the cupy import alone was not enough: cupy imports fine with no
+# visible device, so the parity test FAILED rather than skipped whenever the
+# GPU was masked -- a long-standing caveat that read as "not a regression".
+HAS_CUPY = gpu_is_available()
 
 
 def test_eigensolver_matches_numpy():
@@ -64,8 +63,10 @@ def test_tiled_matches_dense_ridges():
     np.testing.assert_allclose(dense, tiled, rtol=1e-3, atol=1e-4)
 
 
-@pytest.mark.skipif(not HAS_CUPY, reason="CuPy not available")
+@pytest.mark.skipif(not HAS_CUPY, reason="no visible CUDA device")
 def test_cpu_gpu_vesselness_parity():
+    import cupy as cp  # imported here: at module scope it runs with no device
+
     rng = np.random.default_rng(42)
     vol = rng.random((32, 32, 32)).astype(np.float32)
     res_np = detect_vesselness(vol)
