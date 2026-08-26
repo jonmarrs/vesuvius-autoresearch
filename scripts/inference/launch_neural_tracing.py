@@ -14,10 +14,12 @@ because trace_service is a foreground process intended to be paired with an
 interactive review tool.
 
 Status of the trace-service checkpoint: there is no trained neural_tracing
-heatmap checkpoint in this repo yet (only LeJEPA self-sup checkpoints). The
-launcher therefore degrades gracefully: with no checkpoint, it surfaces the
-plan and explains what to train (see ``villa/vesuvius/.../neural_tracing/
-trainers/train_rowcol_cond.py``), and emits a marker so the evidence chain can
+heatmap checkpoint in this repo yet (only LeJEPA self-sup checkpoints). Since
+2026-06-05 the launcher falls back to villa's HuggingFace sentinel
+``extrap_displacement_latest`` rather than treating that as a blocker, so a
+missing local checkpoint no longer stops a launch; to train a local one see
+``villa/vesuvius/.../neural_tracing/trainers/train_rowcol_cond.py``. It emits
+a marker so the evidence chain can
 report the gap.
 """
 

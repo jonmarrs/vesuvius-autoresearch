@@ -27,7 +27,7 @@ from pathlib import Path
 
 import yaml
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 VILLA_ROOT = PROJECT_ROOT / "villa"
 GP_WINNER_ROOT = VILLA_ROOT / "segmentation" / "models" / "multi-task-3d-unet"
 
