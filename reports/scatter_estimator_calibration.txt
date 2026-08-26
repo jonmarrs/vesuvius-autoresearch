@@ -1,32 +1,60 @@
 Which trend model recovers a known scatter, on real patch geometry
 Injection recovery: take a real patch's radius field, smooth it heavily so it keeps curvature and loses roughness (sigma=6 grid cells), inject a perturbation of known rms and known correlation length, and see what each estimator reports. More than injected means curvature contamination; less means the estimator is eating the signal.
-Window 3x4 grid cells, the one the report treats as comparable to the synthetic patch. Injected fields are CORRELATED at sigma=1 because real residuals are. The injected correlation length is CALIBRATED to reproduce the real residual's lag-1 of +0.357 on this window, not chosen: that lands at sigma=0.65. An earlier version used sigma=1.00, which gives lag-1 about +0.725 and would have roughly doubled the correction. The white-noise arm is shown only to demonstrate that calibrating on it gives a different answer.
+Window 3x4 grid cells, the one the report treats as comparable to the synthetic patch. The injected field's smoothing sigma is FITTED to a statistic (landing at 0.65), not calibrated to the real field, and the difference matters:
+  * the fit targets lag-1 on the RAW injected field. The real +0.357 it is matched against was measured on a plane-fit RESIDUAL. Those are different statistics: this same field, windowed and detrended the same way, has residual lag-1 near -0.110. The real value is unreachable for any isotropic Gaussian sigma.
+  * the real residual is ANISOTROPIC (+0.357 along columns, about -0.08 along rows) while this surrogate is isotropic.
+  Both are disclosed limitations of unknown sign. They matter less than they might: the correction's DIRECTION is robust across the whole plausible correlation range, white through the fitted sigma, so the conclusion survives them even though the point estimate should not be read to three digits.
 
 === Contamination floor: nothing injected ===
   Any nonzero value is curvature the estimator failed to remove.
-      plane: median across patches 0.2146 vox  (range 0.0513 to 0.3617, n=10)
-  quadratic: median across patches 0.0105 vox  (range 0.0050 to 0.0226, n=10)
+      plane: median across patches 0.2194 vox  (range 0.0464 to 0.3835, n=10)
+  quadratic: median across patches 0.0116 vox  (range 0.0050 to 0.0228, n=10)
 
 === Recovery of a known injected scatter ===
   injected | corr |     plane reports  ratio |  quadratic reports  ratio
   --------------------------------------------------------------------------
-      0.25 | white |          0.3017     1.21x |          0.1663     0.67x
-      0.25 | s=0.65 |          0.2765     1.11x |          0.0937     0.37x
-      0.50 | white |          0.4749     0.95x |          0.3378     0.68x
-      0.50 | s=0.65 |          0.3806     0.76x |          0.1943     0.39x
-      1.00 | white |          0.8837     0.88x |          0.6684     0.67x
-      1.00 | s=0.65 |          0.6730     0.67x |          0.3780     0.38x
-      2.00 | white |          1.6695     0.83x |          1.3267     0.66x
-      2.00 | s=0.65 |          1.2420     0.62x |          0.7416     0.37x
+      0.25 | white |          0.3087     1.23x |          0.1662     0.66x
+      0.25 | s=0.65 |          0.2730     1.09x |          0.0969     0.39x
+      0.50 | white |          0.4645     0.93x |          0.3311     0.66x
+      0.50 | s=0.65 |          0.3892     0.78x |          0.1894     0.38x
+      1.00 | white |          0.8770     0.88x |          0.6893     0.69x
+      1.00 | s=0.65 |          0.6199     0.62x |          0.3820     0.38x
+      2.00 | white |          1.6960     0.85x |          1.3308     0.67x
+      2.00 | s=0.65 |          1.2253     0.61x |          0.7485     0.37x
+      3.00 | white |          2.5240     0.84x |          1.9732     0.66x
+      3.00 | s=0.65 |          1.7840     0.59x |          1.1104     0.37x
+      4.00 | white |          3.3510     0.84x |          2.6364     0.66x
+      4.00 | s=0.65 |          2.4177     0.60x |          1.5126     0.38x
 
 === Bias at the applicable (correlated) arm ===
-      plane: recovery ratio 0.62x to 1.11x across the injected range
-  quadratic: recovery ratio 0.37x to 0.39x across the injected range
-  Read the ratio as the correction to apply to the reported real-patch figure: a ratio above 1 means the estimator over-reports and the true scatter is lower than measured, below 1 means it under-reports and the truth is higher.
+  The raw reported/injected ratio is NOT a bias range. It falls across the sweep only because a constant floor dominates at low injection. Modelling reported^2 = floor^2 + (k*rms)^2 recovers a k that is flat, which is the honest summary.
+      plane: constant attenuation k = 0.602 (range 0.580 to 0.650) above a 0.2194 vox floor
+  quadratic: constant attenuation k = 0.378 (range 0.370 to 0.385) above a 0.0116 vox floor
+  Most of the plane's shortfall is definitional rather than the fit absorbing a trend: a window carries less variance than the whole field, and `window_residuals` normalises by n rather than n-p, which alone returns sqrt(9/12)=0.866 on white noise. Only a modest remainder is genuine absorption of correlated structure. The NUMBER is unaffected -- the units match the onset probe's global-rms convention -- but the mechanism is not the simple one an earlier version of this file asserted.
 
 === Corrected real-patch scatter ===
   Inverting the calibration curve at the values the real-patch probe reported with a plane fit (0.846 median, 2.179 p95):
-    reported median 0.846 vox  ->  true scatter about  1.30 vox
-    reported p95    2.179 vox  ->  true scatter about  3.65 vox  (EXTRAPOLATED beyond the swept range, weaker evidence)
+    reported median 0.846 vox  ->  true scatter about  1.37 vox
+    reported p95    2.179 vox  ->  true scatter about  3.62 vox
   So the plane estimator UNDER-reports correlated scatter, and the real-patch figures quoted in the report are low rather than high. This is the opposite of the direction the report currently assumes when it calls the plane figure 'the conservative end' of its bracket.
   For comparison, the correlated-noise onset (reports/spiral_satisfaction_correlated_scatter.txt) first flips a verdict at 1.5 voxels.
+
+=== Does the reference still carry roughness? ===
+  The design assumes smoothing separates curvature from roughness. Previously that was asserted. Measured: inject roughness at the real measured magnitude, smooth, and see how much leaks back into a window residual.
+   ref sigma | leaked roughness | floor observed on real data
+  ----------------------------------------------------------
+         2.0 |           0.0338 |                          -
+         4.0 |           0.0125 |                          -
+         6.0 |           0.0094 |                     0.2193
+        12.0 |           0.0024 |                     0.0385
+  At the chosen reference sigma the leak is a small fraction of the floor and negligible in quadrature, so the floor is curvature rather than the probe's own injected roughness. The design does not beg its question.
+
+=== How much of the answer is the reference-smoothing choice? ===
+  The floor is a monotone function of an unargued parameter with no plateau, so calling it 'curvature the estimator failed to remove' states a definitional choice as a measurement. What matters is that k, and hence the correction, barely moves.
+   ref sigma |   floor |      k | corrected median
+  ----------------------------------------------------
+         6.0 |  0.2193 |  0.592 |             1.37
+         9.0 |  0.0823 |  0.588 |             1.41
+        12.0 |  0.0385 |  0.588 |             1.43
+        20.0 |  0.0060 |  0.589 |             1.44
+  The chosen reference sigma yields the SMALLEST correction of the defensible set, so the figure quoted is the conservative end of this sensitivity, not the flattering one.

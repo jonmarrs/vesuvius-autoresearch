@@ -16,6 +16,7 @@ sys.path.insert(0, os.path.join(_REPO, "scripts"))
 
 import numpy as np  # noqa: E402
 import pytest  # noqa: E402
+from probe_real_patch_scatter import patch_dirs  # noqa: E402
 from probe_scatter_estimator_calibration import (  # noqa: E402
     INJECT_RMS,
     REAL_LAG1,
@@ -27,11 +28,18 @@ from probe_scatter_estimator_calibration import (  # noqa: E402
     matched_sigma,
 )
 
+needs_data = pytest.mark.skipif(
+    not patch_dirs(),
+    reason="real patch data absent; see local_data/spiral_patches_phercparis4",
+)
 
-def test_matched_sigma_reproduces_the_real_autocorrelation():
-    """The calibration's premise. If the injected field's correlation does not
-    match the real residual's, the recovery ratio is measured for the wrong
-    signal and the correction it yields is a guess."""
+
+def test_matched_sigma_bisection_converges():
+    """This pins ONLY that the bisection converges on its own target. It does NOT
+    show the surrogate matches the real field: the fit targets lag-1 on the raw
+    injected field, while the real +0.357 was measured on a plane-fit residual,
+    and that residual statistic is unreachable for any isotropic sigma. An
+    earlier docstring here claimed the stronger thing."""
     sig = matched_sigma(WINDOW)
     got = field_lag1(WINDOW, sig, np.random.default_rng(5), trials=800)
     assert got == pytest.approx(REAL_LAG1, abs=0.06)
@@ -45,7 +53,11 @@ def test_an_arbitrary_sigma_would_have_been_wrong():
 
 
 def test_injected_field_has_exactly_the_requested_rms():
-    """Otherwise a shape effect and a magnitude effect are confounded."""
+    """A change-detector on `correlated_field`'s final line, kept only because a
+    silent regression there would corrupt every ratio. It does NOT prevent
+    confounding shape with magnitude: that confound lives in the PER-WINDOW rms
+    (about 0.79 for the fitted sigma against 0.93 for white), which this does not
+    touch and which the report now accounts for explicitly."""
     rng = np.random.default_rng(7)
     for rms in (0.25, 2.0):
         for sigma in (0.0, matched_sigma(WINDOW)):
@@ -53,6 +65,7 @@ def test_injected_field_has_exactly_the_requested_rms():
             assert float(f.std()) == pytest.approx(rms, rel=1e-9)
 
 
+@needs_data
 def test_the_calibration_curve_is_monotone_and_invertible():
     """`invert` interpolates the curve, which is only meaningful if reported
     scatter rises with injected scatter."""
@@ -69,6 +82,7 @@ def test_the_calibration_curve_is_monotone_and_invertible():
     assert INJECT_RMS[0] <= est <= INJECT_RMS[-1]
 
 
+@needs_data
 def test_the_plane_estimator_under_reports_correlated_scatter():
     """The finding, and the reason the report's bracket points the wrong way.
     At the largest injected level the plane returns materially less than was put
@@ -79,6 +93,7 @@ def test_the_plane_estimator_under_reports_correlated_scatter():
     assert got < 0.8 * largest
 
 
+@needs_data
 def test_the_quadratic_eats_most_of_the_signal():
     """Why the quadratic column must not be read as a tighter estimate: it
     recovers well under half of what is injected."""
@@ -89,6 +104,7 @@ def test_the_quadratic_eats_most_of_the_signal():
             assert float(np.median(v)) < 0.5 * rms
 
 
+@needs_data
 def test_plane_carries_curvature_contamination_and_quadratic_does_not():
     """The two failure modes are real and opposite, which is why neither order is
     simply correct."""

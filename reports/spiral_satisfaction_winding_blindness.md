@@ -581,33 +581,54 @@ moves the answer by more than 3x: plane gives median 0.846, quadratic 0.255.
 
 ⚠ **CORRECTED 2026-08-25.** This paragraph originally concluded that real scatter is "bracketed
 between roughly 0.26 and 0.85 voxels" with the plane figure as "the conservative end". **The
-bracket points the wrong way and the plane figure is not conservative.** That reasoning assumed a
-plane under-removes curvature and therefore over-states scatter. Injection recovery on real patch
-geometry says otherwise (`reports/scatter_estimator_calibration.txt`): inject a perturbation of
-known magnitude and of the correlation length actually measured in real residuals, and see what
-each estimator returns.
+bracket points the wrong way and the plane figure is not conservative.** Injection recovery on
+real patch geometry (`reports/scatter_estimator_calibration.txt`) — inject a perturbation of known
+magnitude and correlation length into a curvature-only reference, and see what each estimator
+returns:
 
-| estimator | contamination floor, nothing injected | recovery of injected correlated scatter |
+| estimator | contamination floor | constant attenuation k |
 |---|---|---|
-| plane | 0.2146 vox | 0.62x to 1.11x |
-| quadratic | 0.0105 vox | 0.37x to 0.39x |
+| plane | 0.2193 vox | **0.602** |
+| quadratic | 0.0116 vox | **0.378** |
 
-Both estimators **under**-report correlated scatter, the quadratic severely. Short-correlation-length
-noise over a 3x4 window looks like a trend to the fitter, so the fit absorbs it. Inverting the
-plane's calibration curve at the values actually reported:
+Both estimators **under**-report correlated scatter. Correcting the reported figures:
 
-- reported median **0.846** vox → true scatter about **1.30** vox
-- reported p95 **2.179** vox → true scatter about **3.65** vox *(extrapolated beyond the swept
-  range, weaker evidence)*
+- reported median **0.846** vox → true **≈1.4** vox
+- reported p95 **2.179** vox → true **≈3.6** vox
 
-For comparison, correlated noise first flips a patch verdict at **1.5 voxels**. So the corrected
-median sits just below the onset and the corrected upper tail well above it. The figures quoted
-elsewhere in this report as real patch scatter are **low, not high**.
+**Quote these as a band, not a point.** Across defensible reference smoothing the corrected median
+runs 1.37 to 1.44 and the tail 3.6 to 3.8; seed variation adds a little more. The direction is the
+well-established part; the third digit is not.
 
-The injected correlation length is calibrated rather than chosen: it is fitted to reproduce the
-real residual's lag-1 of +0.357 on this window, landing at sigma 0.65. An earlier version of that
-calibration used sigma 1.0, which gives lag-1 about +0.725 and would have roughly doubled the
-correction reported here.
+**Three caveats on the mechanism, each of which corrects an earlier overstatement here.**
+
+*The shortfall is mostly definitional, not "the fit absorbing a trend."* Of the plane's ≈1.6x
+under-report, a factor of ~1.26 is that a 3x4 window carries less variance than the whole field,
+and ~1.15 is that the estimator normalises by n rather than n−p (which alone returns √(9/12)=0.866
+on white noise). Only the modest remainder is genuine absorption of correlated structure. The
+number is unaffected — the units match the onset probe's global-rms convention — but the earlier
+one-line explanation was a post-hoc story.
+
+*The correlation length is fitted to a statistic, not calibrated to the real field.* It targets
+lag-1 on the raw injected field; the real +0.357 was measured on a plane-fit *residual*. The same
+surrogate, windowed and detrended identically, has residual lag-1 near −0.10, and the real value is
+**unreachable** for any isotropic Gaussian sigma. The real residual is also **anisotropic** (+0.357
+along columns, −0.076 along rows) where the surrogate is isotropic. Both are limitations of unknown
+sign. They matter less than they might: the correction's direction holds across the whole plausible
+correlation range, white through the fitted sigma.
+
+*The floor is a definitional choice, not a measurement.* It falls monotonically from 0.55 to 0.006
+as the reference smoothing goes from σ=2 to σ=20, with no plateau — the boundary between "curvature
+the fit should remove" and "scatter it should keep" is set by that parameter. What survives is that
+k barely moves (0.588–0.602) and the correction with it (1.37 to 1.44). The chosen σ=6 yields the
+**smallest** correction of the defensible set, so the quoted figure is the conservative end of that
+sensitivity. Separately measured: at σ=6 real-magnitude roughness leaks back into the residual at
+0.0094 vox against a 0.2193 floor, so the floor is curvature rather than the probe's own injected
+signal, and the design does not beg its question.
+
+*Both sides of the onset comparison are not yet at the same correlation length.* The 1.5-voxel
+onset comes from the correlated-scatter probe's σ=1 arm, a correlation length this calibration
+argues is too high.
 
 **At the comparable window (3x4, plane fit):** median 0.846 voxels, p95 2.179, max 5.406, n =
 3897. Against §8's three onsets:
