@@ -234,6 +234,15 @@ def main() -> int:
         default=str(PROJECT_ROOT / "checkpoints" / "finetune_lejepa"),
     )
     parser.add_argument("--execute", action="store_true")
+    parser.add_argument(
+        "--marker-out",
+        default=str(PROJECT_ROOT / "reports" / "finetune_lejepa_run.json"),
+        help=(
+            "Where to write the run marker. Defaults to the repo copy; the "
+            "tests point it at a tmpdir, so running the suite cannot "
+            "overwrite the committed record with smoke-test values."
+        ),
+    )
     args = parser.parse_args()
 
     pretrained = discover_lejepa_checkpoint(args.checkpoint)
@@ -276,7 +285,7 @@ def main() -> int:
     if not volumes:
         blockers.append("no labeled volume found at local_data/PHercParis2Fr47")
 
-    marker_path = PROJECT_ROOT / "reports" / "finetune_lejepa_run.json"
+    marker_path = Path(args.marker_out)
     marker_path.parent.mkdir(parents=True, exist_ok=True)
     marker = {
         "model_name": args.model_name,

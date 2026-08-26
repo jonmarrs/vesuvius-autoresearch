@@ -49,9 +49,11 @@ def test_launch_gp_winner_writes_baseline_marker(tmp_path):
         str(tmp_path / "ckpt"),
         "--model-name",
         "gp_smoke",
+        "--marker-out",
+        str(tmp_path / "gp_marker.json"),
     )
     assert proc.returncode == 0
-    marker = REPO_ROOT / "reports" / "gp_winner_baseline.json"
+    marker = tmp_path / "gp_marker.json"
     assert marker.exists()
     data = json.loads(marker.read_text())
     assert data["submittable"] is False
@@ -71,9 +73,11 @@ def test_launch_mutex_writes_marker_and_blocks_execute_without_data(tmp_path):
         str(config_out),
         "--model-name",
         "mutex_smoke",
+        "--marker-out",
+        str(tmp_path / "mutex_marker.json"),
     )
     assert proc.returncode == 0
-    marker = REPO_ROOT / "reports" / "mutex_affinity_run.json"
+    marker = tmp_path / "mutex_marker.json"
     data = json.loads(marker.read_text())
     assert data["submittable"] is True  # default patch=64
     assert data["data_prepared"] is False
@@ -90,9 +94,11 @@ def test_launch_finetune_lejepa_uses_submittable_patch_and_finds_pretrain(tmp_pa
         str(tmp_path / "ckpt"),
         "--model-name",
         "ft_smoke",
+        "--marker-out",
+        str(tmp_path / "ft_marker.json"),
     )
     assert proc.returncode == 0
-    marker = REPO_ROOT / "reports" / "finetune_lejepa_run.json"
+    marker = tmp_path / "ft_marker.json"
     data = json.loads(marker.read_text())
     assert data["patch_size"] == [32, 64, 64]
     assert data["submittable"] is True
@@ -121,9 +127,11 @@ def test_launch_finetune_lejepa_flags_non_submittable_when_patch_too_large(tmp_p
         "32",
         "128",
         "128",
+        "--marker-out",
+        str(tmp_path / "ft_big_marker.json"),
     )
     assert proc.returncode == 0
-    marker = REPO_ROOT / "reports" / "finetune_lejepa_run.json"
+    marker = tmp_path / "ft_big_marker.json"
     data = json.loads(marker.read_text())
     assert data["patch_size"] == [32, 128, 128]
     assert data["submittable"] is False

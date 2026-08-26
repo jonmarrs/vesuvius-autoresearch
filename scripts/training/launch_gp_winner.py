@@ -155,6 +155,15 @@ def main() -> int:
         action="store_true",
         help="Run training. Default is dry-run that only writes config + prints command.",
     )
+    parser.add_argument(
+        "--marker-out",
+        default=str(PROJECT_ROOT / "reports" / "gp_winner_baseline.json"),
+        help=(
+            "Where to write the run marker. Defaults to the repo copy; the "
+            "tests point it at a tmpdir, so running the suite cannot "
+            "overwrite the committed record with smoke-test values."
+        ),
+    )
     args = parser.parse_args()
 
     config_path = Path(args.config_out)
@@ -192,7 +201,7 @@ def main() -> int:
     )
     print()
 
-    baseline_marker = PROJECT_ROOT / "reports" / "gp_winner_baseline.json"
+    baseline_marker = Path(args.marker_out)
     baseline_marker.parent.mkdir(parents=True, exist_ok=True)
     marker = {
         "model_name": args.model_name,

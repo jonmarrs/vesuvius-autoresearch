@@ -118,6 +118,15 @@ def main() -> int:
         action="store_true",
         help="Actually run the trainer (otherwise dry-run).",
     )
+    parser.add_argument(
+        "--marker-out",
+        default=str(PROJECT_ROOT / "reports" / "mutex_affinity_run.json"),
+        help=(
+            "Where to write the run marker. Defaults to the repo copy; the "
+            "tests point it at a tmpdir, so running the suite cannot "
+            "overwrite the committed record with smoke-test values."
+        ),
+    )
     args = parser.parse_args()
 
     if not VILLA_TRAINING_CLI.exists():
@@ -152,7 +161,7 @@ def main() -> int:
         str(args.max_epoch),
     ]
 
-    marker_path = PROJECT_ROOT / "reports" / "mutex_affinity_run.json"
+    marker_path = Path(args.marker_out)
     marker_path.parent.mkdir(parents=True, exist_ok=True)
     marker = {
         "model_name": args.model_name,
