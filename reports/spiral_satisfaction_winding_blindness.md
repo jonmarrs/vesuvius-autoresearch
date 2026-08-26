@@ -669,6 +669,40 @@ Three corrections to this section's own earlier text, all of which ran in the fl
   injected on a 12×16 grid, where the same σ induces lag-1 +0.514 rather than the +0.357 it was
   fitted to. Now fitted on the injection grid (σ ≈ 0.56).
 
+⚠ **THE EXCEEDANCE IS NOT DETERMINED BY THIS WORK — added 2026-08-26**
+(`reports/self_consistent_exceedance.txt`). Every exceedance in this report, including the ≈6.8%
+below, compared two quantities measured under **different** surrogates: real scatter corrected by
+an attenuation `k` fitted under one field, against an onset measured under another. Recomputing
+**both sides under the same field**, across the plausible range of fields:
+
+| surrogate | k | corrected median scatter | self-consistent exceedance |
+|---|---|---|---|
+| isotropic 0.561 (published) | 0.690 | 1.16v | **1.91%** |
+| isotropic 0.90 | 0.416 | 1.92v | **12.85%** |
+| isotropic 1.236 | 0.271 | 2.95v | **28.61%** |
+| anisotropic 1.45 / 1.05 | 0.263 | 3.05v | **29.77%** |
+
+**A factor of 15.6.** I predicted in advance that the two effects would cancel — a more correlated
+field lowers `k` (raising corrected scatter) but also lowers the onset, so I expected the exceedance
+to be roughly stable. **That prediction was wrong.** They compound.
+
+So the practical question this report has spent six revisions refining — *how often does a real
+patch carry enough scatter for the metric to notice a whole-winding displacement?* — **is not
+answered by this evidence**. It is somewhere between 2% and 30%, and which end depends entirely on
+an unmeasured modelling choice about the scatter field's correlation structure. Every single figure
+previously quoted (2.5%, 6.8%, 7.1%) is one point inside that range, and the ≈6.8% hybrid landed
+mid-range only by accident: it paired a high `k` (pushing the estimate down) with a low onset
+(pushing it up).
+
+**What this does not touch.** The core finding is surrogate-independent and unaffected: for a
+well-placed patch the metric cannot detect a whole-winding displacement, exactly, at every scale,
+under both of villa's configurations, across the theta=0 seam, and under warps built from real
+measured winding geometry. That result involves no scatter model at all. What is undetermined is
+only the practical frequency with which real patches escape the blindness.
+
+Pinning the frequency would need the real scatter field's correlation structure measured directly
+rather than surrogate-fitted — which two lag-1 numbers cannot do.
+
 *The published surrogate was fitted to the wrong statistic; anisotropy was almost irrelevant* —
 measured 2026-08-26, `reports/anisotropic_surrogate.txt`.
 

@@ -1,0 +1,20 @@
+The exceedance with one surrogate on both sides
+Every exceedance published so far divided real scatter by an attenuation fitted under the OLD isotropic surrogate while measuring the onset under a different one. This recomputes both sides under the same field, for a range of fields.
+Real reported scatter (surrogate-independent): median 0.829 vox, p95 2.179, n=3890.
+
+   surrogate                            floor       k   corrected median   exceedance
+  ----------------------------------------------------------------------------------
+  isotropic 0.561 (published)         0.2159   0.690             1.16v    1.91% +- 0.24
+  isotropic 0.90                      0.2159   0.416             1.92v   12.85% +- 0.61
+  isotropic 1.236 (ESS control)       0.2159   0.271             2.95v   28.61% +- 1.53
+  anisotropic 1.45 / 1.05 (corrected)  0.2159   0.263             3.05v   29.77% +- 2.11
+
+  For comparison, the HYBRID figure published on main -- onset under the corrected surrogate, k from the old one -- is 6.73%.
+
+=== Do the two sides cancel? ===
+  k falls 0.690 -> 0.263 across the sweep, so corrected scatter RISES 1.16 -> 3.05 voxels. Taken alone that would raise the exceedance sharply.
+  But the same fields also lower the onset, and the self-consistent exceedance moves 1.91% -> 29.77%, a factor of 15.55.
+  The two effects do NOT cancel. The surrogate choice remains a first-order lever on the exceedance even when applied consistently, and no single figure should be quoted without naming the field it was computed under.
+
+  Note the direction of the residual bias in the hybrid: it used a HIGH k (weak correction, low corrected scatter) with a LOW onset (correlated field). Those are the two choices that each push the exceedance in opposite directions, which is why the hybrid happened to land inside the self-consistent range rather than outside it.
+  Unchanged limit: the estimator floor is still set by an unargued reference-smoothing choice, and lag-1 on two axes still does not pin a 2-D field.
