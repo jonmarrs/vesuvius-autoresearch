@@ -56,26 +56,61 @@ class TestActiveLearning(unittest.TestCase):
         model = MockModel()
         sampler = ActiveLearningSampler(model, device="cpu")
 
-        # Create a mock dataloader
+        class MockDataset:
+            """The sampler recovers positions from `dataset.valid_coords`, so the
+            mock needs one. The previous mock had no `.dataset` at all and the
+            test failed with AttributeError before reaching any assertion."""
+
+            def __init__(self):
+                self.valid_coords = np.array([[i * 64, 0] for i in range(5)])
+
+            def __len__(self):
+                return len(self.valid_coords)
+
         class MockDataloader:
             def __init__(self):
                 self.batch_size = 1
+                self.dataset = MockDataset()
+
+            def __len__(self):
+                return len(self.dataset)
 
             def __iter__(self):
-                # x: [B, 1, Z, H, W], labels, coords: [B, 3]
-                for i in range(5):
+                # (volume, label, fiber target). The third element is the FIBER
+                # target, not coordinates -- VesuviusLabeledDataset.__getitem__
+                # returns (patch_vol, patch_label, patch_fiber). The old mock
+                # yielded coordinates there, which described a dataset that does
+                # not exist and would have hidden a real misuse of that slot.
+                for _ in range(len(self.dataset)):
                     yield (
                         torch.randn(1, 1, 8, 64, 64),
                         torch.zeros(1, 64, 64),
-                        torch.tensor([[i, 0, 0]]),
+                        torch.zeros(1, 64, 64),
                     )
 
-        coords, scores = sampler.sample_uncertain_regions(MockDataloader(), n_samples=2)
+        loader = MockDataloader()
+        coords, scores = sampler.sample_uncertain_regions(loader, n_samples=2)
 
         self.assertEqual(len(coords), 2)
         self.assertEqual(len(scores), 2)
         # Scores should be descending
         self.assertGreaterEqual(scores[0], scores[1])
+        # Coordinates come from the dataset, not invented
+        for c in coords:
+            self.assertIn(list(c), loader.dataset.valid_coords.tolist())
+
+    def test_sampler_refuses_a_shuffled_loader(self):
+        """The index arithmetic assumes dataset order. Under shuffling it still
+        yields in-range indices, so a wrong answer would look like a right one."""
+        model = MockModel()
+        sampler = ActiveLearningSampler(model, device="cpu")
+
+        dataset = torch.utils.data.TensorDataset(
+            torch.randn(4, 1, 8, 64, 64), torch.zeros(4, 64, 64), torch.zeros(4, 64, 64)
+        )
+        loader = torch.utils.data.DataLoader(dataset, batch_size=1, shuffle=True)
+        with self.assertRaises(ValueError):
+            sampler.sample_uncertain_regions(loader, n_samples=2)
 
 
 if __name__ == "__main__":

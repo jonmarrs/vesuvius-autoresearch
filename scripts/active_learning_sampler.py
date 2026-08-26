@@ -35,6 +35,21 @@ class ActiveLearningSampler:
         uncertainties = []
         all_indices = []
 
+        # Positions are recovered as `dataset.valid_coords[i * batch_size + k]`,
+        # which is only the patch that was scored if the loader emits samples in
+        # dataset order. Under a shuffling sampler the arithmetic still produces
+        # in-range indices, so the failure would be silent: plausible-looking
+        # coordinates pointing at patches the model never saw.
+        sampler = getattr(dataloader, "sampler", None)
+        if isinstance(sampler, torch.utils.data.RandomSampler) or getattr(
+            dataloader, "shuffle", False
+        ):
+            raise ValueError(
+                "sample_uncertain_regions needs a dataloader in dataset order; "
+                "build it with shuffle=False, or the returned coordinates will "
+                "not correspond to the patches that were scored."
+            )
+
         print(f"Sampling {n_samples} high-uncertainty regions...")
 
         with torch.no_grad():
