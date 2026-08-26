@@ -275,8 +275,9 @@ def format_report(scales, totals, locals_, power):
             if bracket
             else "local fraction outside the calibrated range"
         )
-        + " -- not at the observed number itself. Reading 0.81 as 'about 80 percent genuinely "
-        "perturbs' inverts the answer: most of the deviation is shared curvature after all."
+        + f" -- not at the observed number itself. Reading {obs:.2f} as 'about "
+        f"{obs * 100:.0f} percent genuinely perturbs' inverts the answer: most of the "
+        "deviation is shared curvature after all."
     )
     out.append(
         "  So the branch this probe carried for 'most of it is shared curvature, therefore the "

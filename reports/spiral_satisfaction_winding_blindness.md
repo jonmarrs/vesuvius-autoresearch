@@ -719,15 +719,15 @@ withdrawn them.
 **The concern, restated correctly.** The corrected p95 is **8.24 voxels**. It is not an independent
 quantity — it *is* the analysis-window plane-fit residual divided by the attenuation, so it
 describes deviation inside a **60×80 voxel** window. The directly observed deviation at that *same*
-window is p95 **1.78**. The gap is **4.6×**, and nothing measured so far explains it.
+window is p95 **2.025**. The gap is **4.1×**, and nothing measured so far explains it.
 
-**Why the closure failed.** It answered that gap by pointing at 11.3 measured over a **180×240**
+**Why the closure failed.** It answered that gap by pointing at 12.1 measured over a **180×240**
 window — nine times the area, a different quantity. That comparison is unstable as well as invalid:
 with the largest window at 7×9 instead of 9×12, the same argument **fails outright**. And it is
 self-refuting, because the large-window deviation is precisely the long-wavelength curvature the
 same section argued the spiral *follows* and which therefore cannot perturb anything.
 
-**The second half was worse.** The "84% of deviation is local, so the exceedance treats the right
+**The second half was worse.** The "85% of deviation is local, so the exceedance treats the right
 quantity" claim rested on a statistic with no power. Calibrated against fields of known composition:
 
 | true local fraction | statistic reports |

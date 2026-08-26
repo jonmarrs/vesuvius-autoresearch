@@ -25,7 +25,7 @@ The exceedance rests on a corrected real-scatter distribution reaching p95 about
                              0.10 |             0.698
                              0.20 |             0.905
                              0.50 |             0.978
-  It saturates, and steeply. Inverting the curve at the observed value puts the TRUE local fraction between 0.10 and 0.20 -- not at the observed number itself. Reading 0.81 as 'about 80 percent genuinely perturbs' inverts the answer: most of the deviation is shared curvature after all.
+  It saturates, and steeply. Inverting the curve at the observed value puts the TRUE local fraction between 0.10 and 0.20 -- not at the observed number itself. Reading 0.85 as 'about 85 percent genuinely perturbs' inverts the answer: most of the deviation is shared curvature after all.
   So the branch this probe carried for 'most of it is shared curvature, therefore the exceedance is an overestimate' did not fail to fire. It could not fire, and its silence was not evidence. On this calibration it should have fired.
   Note also that the split is not a partition: 35.7 percent of samples have local exceeding total, which an orthogonal decomposition cannot do. 'X percent of the deviation' has no variance interpretation here.
 

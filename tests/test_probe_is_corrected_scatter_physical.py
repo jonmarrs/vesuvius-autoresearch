@@ -120,3 +120,29 @@ def test_removing_shared_curvature_cannot_increase_the_median():
     rng = np.random.default_rng(6)
     totals, locals_ = shared_vs_local(rng, n=300)
     assert float(np.median(locals_)) <= float(np.median(totals))
+
+
+def test_the_report_quotes_the_artifact_it_cites():
+    """Drift guard. Every number the finding's report states about this probe is
+    hand-typed from the artifact, and hand-typed cross-file statistics are the most
+    repeated defect in this series -- the first draft of this very withdrawal typed
+    a stale 1.78 and 4.6x from a pre-pooling-fix run. Both files must agree."""
+    import re
+
+    art = open(os.path.join(_REPO, "reports/is_corrected_scatter_physical.txt")).read()
+    md = open(
+        os.path.join(_REPO, "reports/spiral_satisfaction_winding_blindness.md")
+    ).read()
+
+    obs = re.search(r"SAME window: p95 (\d+\.\d+)", art).group(1)
+    gap = re.search(r"Gap: (\d+\.\d+)x", art).group(1)
+    corrected = re.search(r"under scrutiny is (\d+\.\d+) voxels", art).group(1)
+    section = md[md.index("The open physical check is NOT closed") :][:3000]
+
+    assert f"p95 **{obs}**" in section
+    assert f"**{gap}×**" in section
+    assert f"**{corrected} voxels**" in section
+
+    for frac, reported in re.findall(r"^\s+(0\.\d+) \|\s+(0\.\d+)$", art, re.M):
+        if f"| {frac} |" in section:
+            assert f"| {frac} | {reported} |" in section, f"{frac} row drifted"
