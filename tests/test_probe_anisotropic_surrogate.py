@@ -21,6 +21,8 @@ from probe_anisotropic_surrogate import (  # noqa: E402
     TARGET_COL_LAG1,
     TARGET_ROW_LAG1,
     anisotropic_field,
+    effective_sample_size,
+    ess_matched_isotropic,
     fit_surrogate,
     surrogate_lag1s,
     white_noise_baseline,
@@ -85,3 +87,24 @@ def test_the_isotropic_arm_smooths_both_axes():
         return float(np.corrcoef(a[..., :-1].ravel(), a[..., 1:].ravel())[0, 1])
 
     assert lag(both, 0) > lag(one, 0) + 0.2
+
+
+def test_ess_matched_control_really_matches():
+    """The control arm only isolates anisotropy if its effective sample size
+    equals the anisotropic arm's. If it did not, the 'magnitude alone' comparison
+    would itself be confounded -- which is exactly the error this control exists
+    to correct."""
+    sc, sr = 1.45, 1.05
+    control = ess_matched_isotropic(INJECTION_GRID, sc, sr)
+    target = effective_sample_size(INJECTION_GRID, sc, sr)
+    got = effective_sample_size(INJECTION_GRID, control, control)
+    assert got == pytest.approx(target, rel=0.10)
+
+
+def test_the_published_arm_has_far_more_effective_dof():
+    """The premise of the whole correction: the published isotropic arm and the
+    anisotropic arm are NOT comparable in magnitude, so attributing their gap to
+    the axis ratio was invalid."""
+    published = effective_sample_size(INJECTION_GRID, ISOTROPIC_SIGMA, ISOTROPIC_SIGMA)
+    fitted = effective_sample_size(INJECTION_GRID, 1.45, 1.05)
+    assert published > 3 * fitted

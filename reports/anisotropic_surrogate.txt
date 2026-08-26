@@ -1,21 +1,35 @@
-An anisotropic scatter surrogate, and whether the anisotropy mattered
-Every earlier probe used an isotropic Gaussian surrogate and carried the caveat that the real residual is anisotropic, so no isotropic field reproduces it and the results bracket rather than pin. That caveat is now testable.
+What moves the exceedance: correlation magnitude, not anisotropy
+This probe originally concluded that fitting a surrogate to both measured axis statistics raised the exceedance 2.6x, and attributed that to anisotropy. Review showed the comparison confounded the axis RATIO with the correlation MAGNITUDE: the anisotropic arm smooths both axes far harder than the published isotropic one. Holding effective sample size fixed and varying only the ratio separates them.
 
-=== The two statistics, and why one was unreachable ===
+=== The two statistics, and the pipeline artifact behind the negative one ===
   real across-column lag-1 (axis 1): +0.357
   real across-row    lag-1 (axis 0): -0.076
-  the SAME pipeline on pure white noise returns: column -0.327, row -0.252
-  That last line is the one that matters and the one an earlier version of this probe lacked. A plane fit over three rows with three parameters induces negative row correlation on ANY field, so the real -0.076 does not indicate anti-correlated data; it indicates positive intrinsic row correlation partly cancelling the fit's own artifact. Reasoning from the sign alone sent the first attempt after a high-pass filter, which converged to its boundary and missed the target by half.
+  the SAME pipeline on pure white noise:    column -0.327, row -0.252
+  A plane fit over three rows with three parameters induces negative row correlation on ANY field, so the real -0.076 indicates POSITIVE intrinsic row correlation partly cancelling that artifact, not anti-correlated data. Reasoning from the sign alone sent a first attempt after a high-pass filter, which converged to its boundary.
 
-  fitted sigma_col = 1.450, sigma_row = 1.050 (joint 2-D search; residual cost 0.008)
-  achieved: across-column +0.341 (target +0.357), across-row -0.048 (target -0.076)
+  fitted sigma_col = 1.450, sigma_row = 1.050 (joint 2-D search, residual cost 0.008)
+  achieved: across-column +0.365 (target +0.357), across-row -0.047 (target -0.076)
 
-=== Does it change the answer? ===
-  isotropic (as published)   rays flipping 16 of 40, median among flippers  3.88v, exceedance 2.7%
-  anisotropic (this probe)   rays flipping 26 of 40, median among flippers  3.00v, exceedance 7.1%
+=== Three arms, with a magnitude-only control ===
+  Effective sample size on the 12x16 injection grid (1/Var of the grid mean; white noise would be the cell count):
+    A isotropic (published fit)        sigma (0.561, 0.561)   ESS   60.66
+    B isotropic (ESS-matched control)  sigma (1.236, 1.236)   ESS   12.61
+    C anisotropic (both axes fitted)   sigma (1.450, 1.050)   ESS   12.61
 
-  exceedance moves by 4.4 percentage points when the surrogate is corrected from isotropic to anisotropic.
-  That is NOT small. Every earlier number produced with an isotropic surrogate is biased by roughly this much, and the anisotropy caveat was load-bearing rather than precautionary. The anisotropic figure supersedes them.
+  Exceedance, mean +- sd over 8 seeds, same rays and same real scatter:
+    arm                                 rays flipping   exceedance
+    ----------------------------------------------------------
+    A isotropic (published fit)          15.1 of 40    2.86% +- 0.35
+    B isotropic (ESS-matched control)    23.0 of 40    6.75% +- 0.44
+    C anisotropic (both axes fitted)     23.4 of 40    6.79% +- 0.51
 
-  Real corrected scatter used for both: median 1.328v, p95 3.601v, n=3890.
-  Remaining limit: lag-1 on two axes is still only two numbers describing a 2-D field. Matching them does not guarantee matching the full correlation structure, and this probe does not claim it does.
+  A to C (originally claimed for anisotropy): x2.38
+  A to B (MAGNITUDE alone, ratio fixed at 1): x2.36
+  B to C (ANISOTROPY alone, ESS fixed):       x1.01
+  => anisotropy accounts for about 1% of the log-effect. The mover is total correlation.
+
+  Why the magnitude changed at all: the two arms were fitted to DIFFERENT statistics. The published surrogate fitted lag-1 on the RAW field; this one fits lag-1 on the PLANE-FIT RESIDUAL, which is how the real target was measured. That, not the axis count, moved sigma from 0.56 to about 1.45. Correcting the fitting criterion is the real finding here.
+
+=== What this does NOT settle ===
+  The exceedance divides real reported scatter by CAL_K = 0.602, an attenuation fitted under the OLD isotropic surrogate. Refitting it under this one gives k near 0.257, which would put corrected real scatter near 3.2 voxels rather than 1.33 and push every exceedance above well past what is quoted. So these figures are a hybrid of two incompatible surrogates and belong to neither. Flagged rather than resolved.
+  Also unresolved: lag-1 on two axes is two numbers describing a 2-D field, and an isotropic field CAN reach the column target alone at sigma about 3.5 -- so the isotropic family does not bound this from below. These arms widen a bracket; none supersedes the others.

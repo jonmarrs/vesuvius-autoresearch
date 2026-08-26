@@ -669,33 +669,52 @@ Three corrections to this section's own earlier text, all of which ran in the fl
   injected on a 12×16 grid, where the same σ induces lag-1 +0.514 rather than the +0.357 it was
   fitted to. Now fitted on the injection grid (σ ≈ 0.56).
 
-*The anisotropy caveat was LOAD-BEARING, and correcting it raises the exceedance* — measured
-2026-08-26, `reports/anisotropic_surrogate.txt`. Every earlier probe used an isotropic Gaussian
-surrogate and carried this caveat precautionarily. It was not precautionary.
+*The published surrogate was fitted to the wrong statistic; anisotropy was almost irrelevant* —
+measured 2026-08-26, `reports/anisotropic_surrogate.txt`.
 
-A surrogate fitted to **both** measured statistics (sigma_col 1.45, sigma_row 1.05, joint 2-D
-search) reaches column +0.341 and row −0.048 against targets +0.357 and −0.076. Against the
-published isotropic arm, on the same rays and the same real scatter:
+⚠ This section briefly claimed the opposite: that fitting a surrogate to both measured axis
+statistics raised the exceedance 2.6× and that "the anisotropy caveat was load-bearing". **The
+attribution was wrong.** The anisotropic arm smooths *both* axes far harder than the published
+isotropic one, so the comparison changed correlation magnitude and axis ratio at the same time and
+credited the whole effect to the ratio. Holding effective sample size fixed and varying only the
+ratio separates them:
 
-| surrogate | rays flipping | exceedance |
+| arm | ESS | exceedance (8 seeds) |
 |---|---|---|
-| isotropic (as published) | 16/40 | **2.7%** |
-| anisotropic (fitted to both axes) | 26/40 | **7.1%** |
+| A isotropic 0.561 (published fit) | 60.66 | 2.86% ± 0.35 |
+| B isotropic 1.236 (**ESS-matched control**) | 12.61 | 6.75% ± 0.44 |
+| C anisotropic 1.45 / 1.05 | 12.61 | 6.79% ± 0.51 |
 
-**The exceedance rises by 4.4 points, a factor of 2.6.** So every earlier figure produced with an
-isotropic surrogate — including the 2.5% quoted above — **understates** how often the metric
-notices the displacement. The anisotropic figure supersedes them.
+A→C is ×2.38 — the figure originally credited to anisotropy. **A→B, which changes only magnitude,
+is ×2.36. B→C, which changes only the ratio with ESS held fixed, is ×1.01.** Anisotropy accounts
+for about 1% of the effect. A ratio sweep at fixed ESS is non-monotonic, and the *most* anisotropic
+arm scores lower than isotropic.
 
-The direction of the headline is unchanged: at the corrected median real patches essentially never
-reach their onset, and 7.1% is still a minority. But the margin is materially smaller than the
-isotropic numbers implied.
+**The real finding, which stands.** The two arms were fitted to different statistics and nothing
+said so. The published surrogate fitted lag-1 on the **raw field**; the corrected one fits lag-1 on
+the **plane-fit residual**, which is how the real target was measured. That, not the axis count,
+moved sigma from 0.56 to 1.45. Correcting the fitting criterion raises the exceedance ~2.4×, so the
+**2.5% quoted above understates it** — the better estimate is **≈6.8%**, still a minority.
 
-*Why the negative target was misread at first.* The row statistic is measured on the residual of a
-plane fit over a 3×4 window — three rows, three parameters — and that pipeline induces negative row
-correlation on **any** field: pure white noise through it returns −0.252. So the real −0.076 never
-indicated anti-correlated data; it indicated data with *positive* intrinsic row correlation partly
-cancelling the fit's own artifact. A first attempt reasoned from the sign alone, went after a
-high-pass filter, and converged to its boundary missing the target by half.
+It also follows that the earlier claim "no isotropic surrogate reproduces the real statistics at any
+sigma" was too strong. An isotropic field reaches the column target alone at sigma ≈ 3.5 (giving a
+*higher* exceedance still, ~10%). What no isotropic field does is match **both** statistics at once.
+So the isotropic family does not bound this from below, and none of these arms supersedes the
+others — they widen a bracket.
+
+⚠ **An inconsistency this does not resolve.** The exceedance divides real scatter by an attenuation
+`k = 0.602` fitted under the *old* isotropic surrogate. Refitting `k` under the corrected surrogate
+gives ≈0.257, which would put corrected real scatter near **3.2 voxels rather than 1.33** and push
+every exceedance well above anything quoted here. So all these figures are a hybrid of two
+incompatible surrogates and belong to neither. Flagged rather than papered over; resolving it is its
+own piece of work and would move the headline again.
+
+*Why the negative row target was misread at first.* The row statistic is measured on the residual of
+a plane fit over a 3×4 window — three rows, three parameters — and that pipeline induces negative row
+correlation on **any** field: white noise through it returns −0.25. So −0.076 never indicated
+anti-correlated data; it indicated *positive* intrinsic row correlation partly cancelling the fit's
+artifact. A first attempt reasoned from the sign alone, went after a high-pass filter, and converged
+to its boundary missing the target by half.
 
 *What remains.* Lag-1 on two axes is still two numbers describing a 2-D field. Matching them does
 not guarantee matching the full correlation structure, and this is not claimed.
