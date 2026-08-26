@@ -1,0 +1,23 @@
+Is the corrected real scatter physical, and is it the right quantity?
+The exceedance rests on a corrected real-scatter distribution reaching p95 about 8 voxels against a winding spacing of about 12.81. This checks that figure without reusing the correction model, and then asks whether the quantity is the one the exceedance needs.
+
+=== Half one: is the magnitude possible? ===
+  Raw deviation from a plane, no surrogate and no attenuation applied. If sheets really wander this far, it is directly observable at a large enough window.
+   window    real extent (vox)     rms p50     p95      max
+  ------------------------------------------------------------
+   3x4       60 x 80          0.726    1.908     5.25
+   5x6      100 x 120         1.968    4.343     9.64
+   9x12     180 x 240         5.777   12.046    23.14
+
+  A corrected p95 near 8 voxels at the 60x80 scale sits inside the directly observed range, below the 12.05 measured at 180x240. The magnitude is physical: real sheets do wander that far, and the corrected figure is not an artifact of dividing by a small k.
+
+=== Half two: is it the RIGHT quantity? ===
+  Deviation grows steeply with window size, which is the signature of long-wavelength curvature rather than local roughness. Curvature the sheet genuinely has is curvature the fitted spiral follows too, so it is SHARED between the patch and the surface it is scored against and should not drive a verdict flip. Only the part a large smooth fit does NOT account for genuinely perturbs the patch relative to its winding.
+
+  total deviation at the analysis window : p50 0.748 vox, p95 1.864
+  local part only (shared curvature removed): p50 0.629 vox, p95 1.681
+  local as a fraction of total            : p50 0.841, p95 1.793
+
+  So most of the deviation is local rather than shared curvature, and the exceedance model's treatment of it as a genuine perturbation is sound.
+
+  Caveat on this split: 'shared' is defined by what a quadratic over a 9x12 window removes, which is a modelling choice about where the spiral stops following the sheet. A different choice moves the split. The direction of the conclusion is robust to it; the magnitude is not.

@@ -705,11 +705,38 @@ available: a *lower* onset and a *higher* corrected scatter both raise the excee
 probes had already established that more correlation lowers the onset. The measurement supplies the
 magnitudes (≈×8.7 from scatter, ≈×2.4 from onset), not the direction.
 
-*Open physical check, disclosed.* Under the admissible surrogate the corrected p95 is ≈8 voxels and
-the max ≈20, against a measured winding spacing of ≈12.8. A tail patch wandering two-thirds of a
-winding is not obviously physical. It is not a refutation — the alternative fails two independent
-consistency tests (cross-estimator agreement 2.1× vs 1.10×, cross-window 2.5× vs 1.29×) — but it is
-the loose end.
+*The open physical check is CLOSED, in favour of the figure* (`reports/is_corrected_scatter_physical.txt`).
+The concern was that a corrected p95 of ≈8 voxels against a ≈12.8-voxel winding spacing implies a
+patch wandering two-thirds of a winding. Two independent checks, neither reusing the correction
+model:
+
+**The magnitude is physical.** Raw deviation from a plane, with no surrogate and no attenuation
+applied, measured across window scales on real patches:
+
+| window | real extent | raw rms p50 | p95 |
+|---|---|---|---|
+| 3×4 | 60×80 vox | 0.73 | 1.91 |
+| 5×6 | 100×120 | 1.97 | 4.34 |
+| 9×12 | 180×240 | 5.78 | **12.05** |
+
+A corrected p95 near 8 voxels at the 60×80 scale sits *inside* that directly observed range. Real
+sheets do wander that far; the figure is not an artifact of dividing by a small `k`.
+
+**And it is the right quantity.** Deviation growing steeply with window size is the signature of
+long-wavelength curvature — and curvature the sheet genuinely has is curvature the fitted spiral
+follows too, so it is *shared* and should not drive a verdict flip. Only the part a large smooth fit
+does **not** account for genuinely perturbs the patch. Measured, the local fraction is **0.841**
+(p50): about 84% of the analysis-window deviation is genuinely local. The exceedance model's
+treatment of it as a real perturbation is sound.
+
+I expected the opposite — the probe was written with a branch for "most of it is shared curvature,
+so ≈30% is an overestimate", and that branch did not fire. Noting it because this is the first check
+in this chain to resolve *for* the figure, and a favourable surprise deserves the same suspicion as
+a favourable measurement.
+
+*Residual limit on the split:* "shared" is defined by what a quadratic over a 9×12 window removes,
+which is a modelling choice about where the spiral stops following the sheet. The direction is
+robust to that choice; the magnitude is not.
 
 **What this does not touch.** The core finding uses no scatter model at all: for a well-placed patch
 the metric cannot detect a whole-winding displacement, exactly, at every scale, under both villa
