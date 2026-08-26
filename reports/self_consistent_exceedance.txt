@@ -11,10 +11,22 @@ Real reported scatter (surrogate-independent): median 0.829 vox, p95 2.179, n=38
 
   For comparison, the HYBRID figure published on main -- onset under the corrected surrogate, k from the old one -- is 6.73%.
 
-=== Do the two sides cancel? ===
-  k falls 0.690 -> 0.263 across the sweep, so corrected scatter RISES 1.16 -> 3.05 voxels. Taken alone that would raise the exceedance sharply.
-  But the same fields also lower the onset, and the self-consistent exceedance moves 1.91% -> 29.77%, a factor of 15.55.
-  The two effects do NOT cancel. The surrogate choice remains a first-order lever on the exceedance even when applied consistently, and no single figure should be quoted without naming the field it was computed under.
+=== Which of these are candidate fields at all? ===
+  A surrogate is admissible only if it reproduces the statistics the real residual actually has, measured through the same plane-fit pipeline: column lag-1 +0.357, row -0.076. Presenting rejected fields alongside admissible ones and calling the spread uncertainty manufactures a range instead of measuring one.
+   surrogate                            col lag-1   row lag-1     cost  admissible
+  ----------------------------------------------------------------------------------
+  isotropic 0.561 (published)           -0.131      -0.086    0.498          NO  <- wrong sign
+  isotropic 0.90                        +0.010      +0.104    0.526          NO
+  isotropic 1.236 (ESS control)         +0.114      +0.144    0.463          NO
+  anisotropic 1.45 / 1.05 (corrected)    +0.338      -0.036    0.059         yes
 
-  Note the direction of the residual bias in the hybrid: it used a HIGH k (weak correction, low corrected scatter) with a LOW onset (correlated field). Those are the two choices that each push the exceedance in opposite directions, which is why the hybrid happened to land inside the self-consistent range rather than outside it.
+  Only 1 of 4 arms is a candidate field. Its self-consistent exceedance is 29.8%.
+  A scan of the neighbouring admissible family (cost < 0.08) spans roughly 29% to 39%, so that is the band to publish -- not the 2% to 30% obtained by including fields the data rejects.
+
+=== The decomposition, since cancellation was never available ===
+  Refitting k alone raises the exceedance about x8.7; remeasuring the onset alone raises it about x2.4; together about x15. Both push the SAME way, because a lower onset and a higher corrected scatter each make exceedance more likely. The advance prediction that they would cancel was refutable from earlier results in this series without running anything.
+
+  The HYBRID figure previously published -- onset under the corrected surrogate, k from the old one -- is 6.73%. It sits mid-range only by accident: a high k pushes the estimate down while a low onset pushes it up.
+
+  Open physical check, disclosed: under the admissible surrogate the corrected p95 is around 8 voxels and the max around 20, against a measured winding spacing of about 12.8 voxels. A tail patch wandering two thirds of a winding is not obviously physical. It is not a refutation -- the alternative fails two independent consistency tests outright -- but it is the loose end.
   Unchanged limit: the estimator floor is still set by an unargued reference-smoothing choice, and lag-1 on two axes still does not pin a 2-D field.

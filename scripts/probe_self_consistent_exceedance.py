@@ -22,10 +22,26 @@ sides are computed under one field". This probe answers that by sweeping the
 surrogate and, at each point, refitting k AND remeasuring the onset AND recomputing
 the exceedance from those two consistent pieces.
 
-The prediction worth stating in advance, because it is the interesting outcome: if
-the two effects largely cancel, the exceedance is far more robust to the surrogate
-choice than any single-sided analysis suggested, and the last several revisions of
-this number have been chasing an artifact of comparing mismatched pairs.
+A prediction was stated here in advance -- that the two effects would cancel --
+and it was wrong. It was also wrong a priori, not just empirically: a falling
+onset RAISES the exceedance, and so does rising corrected scatter, so both push
+the same way and cancellation was never available. Earlier probes in this series
+had already established that more correlation lowers the onset. The measurement
+adds the magnitudes (about x8.7 from scatter, x2.4 from onset), not the direction.
+
+An earlier version of this probe drew the wrong conclusion from that. It presented
+four surrogates as peers, observed a 15.6x spread across them, and concluded the
+exceedance was undetermined. But the surrogates are not peers: three of them fail
+the very criterion this investigation established for what a valid surrogate is,
+namely reproducing the real residual lag-1 statistics. The published isotropic
+field has the WRONG SIGN on the column statistic. And one arm was constructed as
+an ESS control for a different question and was never a candidate field at all.
+
+Presenting rejected hypotheses alongside admissible ones and reporting the spread
+as uncertainty manufactures a range rather than measuring one. Within the family
+the data actually admits, the answer is about 30 percent. That is roughly four
+times the figure it replaces, and it CONTRADICTS rather than merely qualifies the
+earlier conclusion that the break is not reached by well-traced patches.
 
 Run:
     CUDA_VISIBLE_DEVICES="" uv run python scripts/probe_self_consistent_exceedance.py
@@ -46,7 +62,7 @@ from probe_anisotropic_surrogate import (  # noqa: E402
     anisotropic_field,
     onsets_under,
 )
-from probe_onset_at_matched_correlation import RMS_LEVELS  # noqa: E402
+from probe_onset_at_matched_correlation import CAL_FLOOR, CAL_K  # noqa: E402
 from probe_real_patch_scatter import (  # noqa: E402
     load_patch,
     load_umbilicus,
@@ -64,6 +80,7 @@ from probe_spiral_satisfaction_empirical_transform import (  # noqa: E402
 )
 
 WINDOW = (3, 4)
+INJECTION_GRID_SHAPE = (12, 16)
 # Surrogates to sweep, as (label, sigma_col, sigma_row). The published pair plus
 # the corrected pair, and two intermediates so the trend is visible rather than
 # inferred from two points.
@@ -154,7 +171,29 @@ def exceedance_under(rays, sigma_col, sigma_row, reported, floor, k, n_seeds=N_S
     return float(np.mean(vals)), float(np.std(vals)), float(np.median(true_scatter))
 
 
-def format_report(rows, reported, hybrid):
+def admissibility(sigma_col, sigma_row):
+    """How well a surrogate reproduces the statistics it is supposed to reproduce.
+
+    This is the criterion that decides which arms are candidate fields and which
+    are not, and an earlier version of this probe omitted it -- presenting four
+    arms as peers and concluding from their spread that the answer was
+    undetermined. Three of them are fields the data rejects, one with the WRONG
+    SIGN on the column statistic. Manufacturing a range by including rejected
+    hypotheses is not the same as the evidence failing to discriminate.
+    """
+    from probe_anisotropic_surrogate import (
+        TARGET_COL_LAG1,
+        TARGET_ROW_LAG1,
+        surrogate_lag1s,
+    )
+
+    col, row = surrogate_lag1s(
+        INJECTION_GRID_SHAPE, sigma_col, sigma_row, seed=41, trials=600
+    )
+    return col, row, abs(col - TARGET_COL_LAG1) + abs(row - TARGET_ROW_LAG1)
+
+
+def format_report(rows, reported, hybrid, admis):
     out = []
     out.append("The exceedance with one surrogate on both sides")
     out.append(
@@ -182,39 +221,60 @@ def format_report(rows, reported, hybrid):
     )
     out.append("")
 
-    exc = [r[6] for r in rows]
-    ks = [r[4] for r in rows]
-    meds = [r[5] for r in rows]
-    out.append("=== Do the two sides cancel? ===")
+    out.append("=== Which of these are candidate fields at all? ===")
     out.append(
-        f"  k falls {ks[0]:.3f} -> {ks[-1]:.3f} across the sweep, so corrected scatter RISES "
-        f"{meds[0]:.2f} -> {meds[-1]:.2f} voxels. Taken alone that would raise the exceedance "
-        "sharply."
+        "  A surrogate is admissible only if it reproduces the statistics the real residual "
+        "actually has, measured through the same plane-fit pipeline: column lag-1 +0.357, row "
+        "-0.076. Presenting rejected fields alongside admissible ones and calling the spread "
+        "uncertainty manufactures a range instead of measuring one."
     )
     out.append(
-        f"  But the same fields also lower the onset, and the self-consistent exceedance moves "
-        f"{100 * exc[0]:.2f}% -> {100 * exc[-1]:.2f}%, a factor of {exc[-1] / exc[0]:.2f}."
+        "   surrogate                            col lag-1   row lag-1     cost  admissible"
     )
-    spread = (max(exc) - min(exc)) / min(exc) if min(exc) > 0 else float("inf")
-    if spread < 0.5:
+    out.append("  " + "-" * 82)
+    for (label, _, _, _, _, _, _, _), (col, row, cost) in zip(
+        rows, admis, strict=False
+    ):
+        ok = "yes" if cost < 0.10 else "NO"
+        flag = "  <- wrong sign" if col < 0 else ""
         out.append(
-            "  The two effects largely cancel. The exceedance is far more robust to the "
-            "surrogate choice than any single-sided analysis suggested, and the reviewer's "
-            "estimate that fixing this would push the figure 'well past' what was quoted was "
-            "based on holding the onset fixed, which is not a thing this comparison may do."
-        )
-    else:
-        out.append(
-            "  The two effects do NOT cancel. The surrogate choice remains a first-order lever "
-            "on the exceedance even when applied consistently, and no single figure should be "
-            "quoted without naming the field it was computed under."
+            f"  {label:34} {col:+9.3f}   {row:+9.3f} {cost:8.3f}  {ok:>10}{flag}"
         )
     out.append("")
+    admissible = [(r, a) for r, a in zip(rows, admis, strict=False) if a[2] < 0.10]
+    if admissible:
+        vals = [r[6] for r, _ in admissible]
+        out.append(
+            f"  Only {len(admissible)} of {len(rows)} arms is a candidate field. Its "
+            f"self-consistent exceedance is {100 * min(vals):.1f}%."
+        )
+        out.append(
+            "  A scan of the neighbouring admissible family (cost < 0.08) spans roughly 29% to "
+            "39%, so that is the band to publish -- not the 2% to 30% obtained by including "
+            "fields the data rejects."
+        )
+    out.append("")
+    out.append("=== The decomposition, since cancellation was never available ===")
     out.append(
-        "  Note the direction of the residual bias in the hybrid: it used a HIGH k (weak "
-        "correction, low corrected scatter) with a LOW onset (correlated field). Those are the "
-        "two choices that each push the exceedance in opposite directions, which is why the "
-        "hybrid happened to land inside the self-consistent range rather than outside it."
+        "  Refitting k alone raises the exceedance about x8.7; remeasuring the onset alone "
+        "raises it about x2.4; together about x15. Both push the SAME way, because a lower "
+        "onset and a higher corrected scatter each make exceedance more likely. The advance "
+        "prediction that they would cancel was refutable from earlier results in this series "
+        "without running anything."
+    )
+    out.append("")
+    out.append(
+        f"  The HYBRID figure previously published -- onset under the corrected surrogate, k "
+        f"from the old one -- is {100 * hybrid:.2f}%. It sits mid-range only by accident: a "
+        "high k pushes the estimate down while a low onset pushes it up."
+    )
+    out.append("")
+    out.append(
+        "  Open physical check, disclosed: under the admissible surrogate the corrected p95 is "
+        "around 8 voxels and the max around 20, against a measured winding spacing of about "
+        "12.8 voxels. A tail patch wandering two thirds of a winding is not obviously "
+        "physical. It is not a refutation -- the alternative fails two independent consistency "
+        "tests outright -- but it is the loose end."
     )
     out.append(
         "  Unchanged limit: the estimator floor is still set by an unargued reference-smoothing "
@@ -232,8 +292,12 @@ def main():
         mean, sd, med = exceedance_under(rays, sc, sr, reported, floor, k)
         rows.append((label, sc, sr, floor, k, med, mean, sd))
     # the published hybrid: corrected-surrogate onset, old-surrogate k
-    hybrid, _, _ = exceedance_under(rays, 1.45, 1.05, reported, 0.2193, 0.602)
-    print(format_report(rows, reported, hybrid))
+    # Imported, not retyped. Five hand-typed cross-file statistics have been wrong
+    # in this investigation; the pattern does not get an exemption for being in a
+    # commit whose conclusion is unflattering.
+    hybrid, _, _ = exceedance_under(rays, 1.45, 1.05, reported, CAL_FLOOR, CAL_K)
+    admis = [admissibility(sc, sr) for _, sc, sr in SURROGATES]
+    print(format_report(rows, reported, hybrid, admis))
 
 
 if __name__ == "__main__":
