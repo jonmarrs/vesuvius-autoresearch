@@ -1,0 +1,21 @@
+The scatter onset as a function of correlation length
+Both sides of the report's 'corrected scatter versus onset' comparison were previously measured at different correlation lengths, so the comparison was not valid. The onset is swept here across correlation length, including the value the calibration fitted (sigma about 0.65), so it can be read at the matching length.
+Rays: 40 from shard_0 under seed 20260825; displacement exactly one winding; reporting configuration.
+
+   sigma | first flip (min over rays) | per-ray median | rays flipping
+  ----------------------------------------------------------------------
+    0.00 |                      3.25v |          3.50v |  6 of 40
+    0.50 |                      2.50v |          3.50v | 13 of 40
+    0.65 |                      2.00v |          3.25v | 18 of 40  <- fitted
+    1.00 |                      1.50v |          3.25v | 20 of 40
+    2.00 |                      1.25v |          2.75v | 23 of 40
+
+  The first-flip column is a MIN over the sampled rays and can only fall as more rays are drawn; the per-ray median is the sample-size-stable figure. Read the median.
+
+=== The comparison, finally on like terms ===
+  onset at the fitted correlation length: first flip 2.00v, per-ray median 3.25v
+  corrected real scatter: median 1.30 to 1.44v, tail 3.60 to 3.80v
+  => the corrected median sits BELOW the onset.
+  The corrected tail (3.6 to 3.8v) is above every onset in this sweep, so the upper tail of real patches reaches the regime where the metric does notice the displacement, at any correlation length tested.
+
+  CAVEAT that limits all of this: the real residual is ANISOTROPIC (+0.357 along columns, -0.076 along rows) and an isotropic Gaussian surrogate cannot reproduce that at any sigma. This sweep brackets the onset across correlation length rather than pinning it, and the bracket is the honest answer.

@@ -626,9 +626,36 @@ sensitivity. Separately measured: at σ=6 real-magnitude roughness leaks back in
 0.0094 vox against a 0.2193 floor, so the floor is curvature rather than the probe's own injected
 signal, and the design does not beg its question.
 
-*Both sides of the onset comparison are not yet at the same correlation length.* The 1.5-voxel
-onset comes from the correlated-scatter probe's σ=1 arm, a correlation length this calibration
-argues is too high.
+*Both sides of the onset comparison are now at the same correlation length — RESOLVED
+2026-08-25* (`reports/onset_at_matched_correlation.txt`). This previously read "not yet at the same
+correlation length", and the mismatch mattered more than expected: the 1.5-voxel figure the report
+compared against was drawn from the σ=1 arm **and** was a minimum-over-rays statistic — the most
+unfavourable number available on both axes at once.
+
+Measured across correlation length, at the reporting configuration:
+
+| sigma | first flip (min over rays) | per-ray median onset | rays flipping |
+|---|---|---|---|
+| 0.00 | 3.25v | 3.50v | 6/40 |
+| 0.50 | 2.50v | 3.50v | 13/40 |
+| **0.65 (fitted)** | **2.00v** | **3.25v** | 18/40 |
+| 1.00 | 1.50v | 3.25v | 20/40 |
+| 2.00 | 1.25v | 2.75v | 23/40 |
+
+Like-for-like at the fitted correlation length, the per-ray median onset is **3.25 voxels** against
+a corrected real-patch median of **1.30–1.44**. So the typical real patch sits **below** the onset,
+not straddling it — and by a wider margin than any earlier version of this report allowed.
+
+The upper tail is the part that does reach it: corrected p95 **3.6–3.8 voxels** exceeds every onset
+in the sweep, at every correlation length tested. So a minority of real patches are in the regime
+where the metric does notice a whole-winding displacement, and most are not.
+
+Read the per-ray median rather than the first-flip column: the latter is a minimum over sampled
+rays and can only fall as more are drawn.
+
+*The remaining limit on all of this.* The real residual is **anisotropic** (+0.357 along columns,
+−0.076 along rows) and an isotropic Gaussian surrogate cannot reproduce that at any sigma. The
+sweep therefore brackets the onset across correlation length rather than pinning it.
 
 **At the comparable window (3x4, plane fit):** median 0.846 voxels, p95 2.179, max 5.406, n =
 3897. Against §8's three onsets:
