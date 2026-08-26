@@ -626,32 +626,48 @@ sensitivity. Separately measured: at σ=6 real-magnitude roughness leaks back in
 0.0094 vox against a 0.2193 floor, so the floor is curvature rather than the probe's own injected
 signal, and the design does not beg its question.
 
-*Both sides of the onset comparison are now at the same correlation length — RESOLVED
-2026-08-25* (`reports/onset_at_matched_correlation.txt`). This previously read "not yet at the same
-correlation length", and the mismatch mattered more than expected: the 1.5-voxel figure the report
-compared against was drawn from the σ=1 arm **and** was a minimum-over-rays statistic — the most
-unfavourable number available on both axes at once.
+*The onset comparison is NARROWED, not resolved* (`reports/onset_at_matched_correlation.txt`).
+The report previously compared a corrected real-patch scatter against an onset measured at a
+different correlation length, and the mismatch was worse than a mismatch: the 1.5-voxel figure was
+drawn from a σ=1 arm **and** was a minimum-over-rays statistic, the most unfavourable number
+available on two independent axes at once.
 
-Measured across correlation length, at the reporting configuration:
+Fixing it required fixing the comparison itself, not just the correlation length. **A median onset
+against a median scatter is not like-for-like either** — the quantity of interest is an
+*exceedance*: how often a real patch's corrected scatter reaches its own ray's onset.
 
-| sigma | first flip (min over rays) | per-ray median onset | rays flipping |
-|---|---|---|---|
-| 0.00 | 3.25v | 3.50v | 6/40 |
-| 0.50 | 2.50v | 3.50v | 13/40 |
-| **0.65 (fitted)** | **2.00v** | **3.25v** | 18/40 |
-| 1.00 | 1.50v | 3.25v | 20/40 |
-| 2.00 | 1.25v | 2.75v | 23/40 |
+| corrected scatter | P(the metric notices the displacement) |
+|---|---|
+| 1.44 (corrected median band) | **0.0%** |
+| 2.00 | 0.0% |
+| 2.50 | 10.0% |
+| 3.25 | 15.0% |
+| 3.80 (corrected tail band) | 22.5% |
 
-Like-for-like at the fitted correlation length, the per-ray median onset is **3.25 voxels** against
-a corrected real-patch median of **1.30–1.44**. So the typical real patch sits **below** the onset,
-not straddling it — and by a wider margin than any earlier version of this report allowed.
+**Integrated over the real scatter distribution: 2.5%** of real windows carry enough scatter to
+reach their ray's onset.
 
-The upper tail is the part that does reach it: corrected p95 **3.6–3.8 voxels** exceeds every onset
-in the sweep, at every correlation length tested. So a minority of real patches are in the regime
-where the metric does notice a whole-winding displacement, and most are not.
+So at the typical real patch the metric essentially never notices a whole-winding displacement,
+and even at the upper tail it notices in a minority of rays. **Two earlier framings in this report
+both overstated their directions** — "straddles the onset" understated how far below the median
+sits, and "the tail is above every onset in this sweep" overstated the tail. That second claim is
+withdrawn: it held only against a *conditional* median (taken among rays that flip at all, which is
+fewer than half), and is false against the unconditional one, which is censored above the swept
+range at four of five correlation lengths.
 
-Read the per-ray median rather than the first-flip column: the latter is a minimum over sampled
-rays and can only fall as more are drawn.
+Three corrections to this section's own earlier text, all of which ran in the flattering direction:
+
+- The corrected-median band was written as **1.30**–1.44. No artifact contains 1.30; the
+  calibration's sensitivity row is 1.37 / 1.41 / 1.43 / 1.44, and this report says "1.37 to 1.44"
+  twice, 23 lines above. Now **1.37–1.44**. That was the fourth hand-typed statistic in this
+  investigation to be wrong, and the fourth to be wrong flatteringly.
+- The onset sweep gated its per-ray measurement behind a pooled result, which could lose any ray
+  whose onset fell below the pooled first flip. Measured: no loss at the fitted correlation length,
+  but real loss at σ=0 and σ=2. The gate is removed and every ray now runs at every level on its
+  own random stream.
+- The correlation length was fitted on the calibration's 3×4 analysis window while the noise is
+  injected on a 12×16 grid, where the same σ induces lag-1 +0.514 rather than the +0.357 it was
+  fitted to. Now fitted on the injection grid (σ ≈ 0.56).
 
 *The remaining limit on all of this.* The real residual is **anisotropic** (+0.357 along columns,
 −0.076 along rows) and an isotropic Gaussian surrogate cannot reproduce that at any sigma. The

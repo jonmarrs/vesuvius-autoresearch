@@ -1,21 +1,33 @@
 The scatter onset as a function of correlation length
-Both sides of the report's 'corrected scatter versus onset' comparison were previously measured at different correlation lengths, so the comparison was not valid. The onset is swept here across correlation length, including the value the calibration fitted (sigma about 0.65), so it can be read at the matching length.
+Both sides of the report's 'corrected scatter versus onset' comparison were previously measured at different correlation lengths, so the comparison was not valid. The onset is swept here across correlation length, including the value the calibration fitted (sigma about 0.56), so it can be read at the matching length.
 Rays: 40 from shard_0 under seed 20260825; displacement exactly one winding; reporting configuration.
 
-   sigma | first flip (min over rays) | per-ray median | rays flipping
+   sigma | first flip (min over rays) | median AMONG FLIPPERS | rays flipping
   ----------------------------------------------------------------------
-    0.00 |                      3.25v |          3.50v |  6 of 40
-    0.50 |                      2.50v |          3.50v | 13 of 40
-    0.65 |                      2.00v |          3.25v | 18 of 40  <- fitted
-    1.00 |                      1.50v |          3.25v | 20 of 40
-    2.00 |                      1.25v |          2.75v | 23 of 40
+    0.00 |                      3.00v |          3.50v |  5 of 40
+    0.50 |                      2.50v |          3.00v |  9 of 40
+    0.56 |                      2.25v |          3.50v | 13 of 40  <- fitted
+    1.00 |                      1.75v |          3.25v | 25 of 40
+    2.00 |                      1.75v |          2.75v | 23 of 40
 
-  The first-flip column is a MIN over the sampled rays and can only fall as more rays are drawn; the per-ray median is the sample-size-stable figure. Read the median.
+  Both columns need care. The first-flip column is a MIN over sampled rays and can only fall as more are drawn. The median column is CONDITIONAL: it is the median among rays that flip somewhere in the swept range, and fewer than half do at most sigmas. The UNCONDITIONAL per-ray median onset therefore exceeds the top of the swept range (4.00v, censored) wherever the flipping count is under half of 40. Neither column is the right basis for comparing against a scatter distribution; the exceedance below is.
 
 === The comparison, finally on like terms ===
-  onset at the fitted correlation length: first flip 2.00v, per-ray median 3.25v
-  corrected real scatter: median 1.30 to 1.44v, tail 3.60 to 3.80v
+  onset at the fitted correlation length: first flip 2.25v, per-ray median 3.50v
+  corrected real scatter: median 1.37 to 1.44v, tail 3.60 to 3.80v
   => the corrected median sits BELOW the onset.
-  The corrected tail (3.6 to 3.8v) is above every onset in this sweep, so the upper tail of real patches reaches the regime where the metric does notice the displacement, at any correlation length tested.
+  WITHDRAWN: an earlier version of this line said the corrected tail is 'above every onset in this sweep'. That was true only against the CONDITIONAL medians. Against the unconditional ones, which are censored above the swept range at four of five sigmas, it is false. The exceedance below replaces it.
+
+=== The like-for-like comparison: exceedance ===
+  The quantity of interest is not a median against a median, it is how often a real patch's corrected scatter reaches its own ray's onset.
+  P(a real window's corrected scatter >= that ray's onset) = 2.5%
+     corrected scatter | P(flips)
+    --------------------------------
+                 1.44 |     0.0%  <- corrected median band
+                 2.00 |     0.0%
+                 2.50 |    10.0%
+                 3.25 |    15.0%
+                 3.80 |    22.5%  <- corrected tail band
+  So at the corrected median the metric essentially never notices the displacement, and even at the corrected tail it notices it in a minority of rays. Both the earlier 'straddles the onset' framing and the 'tail is above every onset' framing overstated their respective directions.
 
   CAVEAT that limits all of this: the real residual is ANISOTROPIC (+0.357 along columns, -0.076 along rows) and an isotropic Gaussian surrogate cannot reproduce that at any sigma. This sweep brackets the onset across correlation length rather than pinning it, and the bracket is the honest answer.
