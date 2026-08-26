@@ -1,0 +1,32 @@
+Which trend model recovers a known scatter, on real patch geometry
+Injection recovery: take a real patch's radius field, smooth it heavily so it keeps curvature and loses roughness (sigma=6 grid cells), inject a perturbation of known rms and known correlation length, and see what each estimator reports. More than injected means curvature contamination; less means the estimator is eating the signal.
+Window 3x4 grid cells, the one the report treats as comparable to the synthetic patch. Injected fields are CORRELATED at sigma=1 because real residuals are. The injected correlation length is CALIBRATED to reproduce the real residual's lag-1 of +0.357 on this window, not chosen: that lands at sigma=0.65. An earlier version used sigma=1.00, which gives lag-1 about +0.725 and would have roughly doubled the correction. The white-noise arm is shown only to demonstrate that calibrating on it gives a different answer.
+
+=== Contamination floor: nothing injected ===
+  Any nonzero value is curvature the estimator failed to remove.
+      plane: median across patches 0.2146 vox  (range 0.0513 to 0.3617, n=10)
+  quadratic: median across patches 0.0105 vox  (range 0.0050 to 0.0226, n=10)
+
+=== Recovery of a known injected scatter ===
+  injected | corr |     plane reports  ratio |  quadratic reports  ratio
+  --------------------------------------------------------------------------
+      0.25 | white |          0.3017     1.21x |          0.1663     0.67x
+      0.25 | s=0.65 |          0.2765     1.11x |          0.0937     0.37x
+      0.50 | white |          0.4749     0.95x |          0.3378     0.68x
+      0.50 | s=0.65 |          0.3806     0.76x |          0.1943     0.39x
+      1.00 | white |          0.8837     0.88x |          0.6684     0.67x
+      1.00 | s=0.65 |          0.6730     0.67x |          0.3780     0.38x
+      2.00 | white |          1.6695     0.83x |          1.3267     0.66x
+      2.00 | s=0.65 |          1.2420     0.62x |          0.7416     0.37x
+
+=== Bias at the applicable (correlated) arm ===
+      plane: recovery ratio 0.62x to 1.11x across the injected range
+  quadratic: recovery ratio 0.37x to 0.39x across the injected range
+  Read the ratio as the correction to apply to the reported real-patch figure: a ratio above 1 means the estimator over-reports and the true scatter is lower than measured, below 1 means it under-reports and the truth is higher.
+
+=== Corrected real-patch scatter ===
+  Inverting the calibration curve at the values the real-patch probe reported with a plane fit (0.846 median, 2.179 p95):
+    reported median 0.846 vox  ->  true scatter about  1.30 vox
+    reported p95    2.179 vox  ->  true scatter about  3.65 vox  (EXTRAPOLATED beyond the swept range, weaker evidence)
+  So the plane estimator UNDER-reports correlated scatter, and the real-patch figures quoted in the report are low rather than high. This is the opposite of the direction the report currently assumes when it calls the plane figure 'the conservative end' of its bracket.
+  For comparison, the correlated-noise onset (reports/spiral_satisfaction_correlated_scatter.txt) first flips a verdict at 1.5 voxels.

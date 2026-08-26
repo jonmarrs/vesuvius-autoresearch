@@ -577,11 +577,37 @@ Per-patch medians run 0.635 to 1.084, median-of-medians 0.843. The headline is n
 number.
 
 *Trend model.* A plane over a 3x4 window is 12 points fitting 3 parameters, and the fit order
-moves the answer by more than 3x: plane gives median 0.846, quadratic 0.255. Neither is obviously
-correct. A plane under-removes real surface curvature and so over-states scatter; a quadratic
-absorbs some genuine roughness and so under-states it. **The truthful reading is that real patch
-scatter at this window is bracketed between roughly 0.26 and 0.85 voxels**, and the plane figure
-quoted throughout is the conservative end of that bracket. Both rows are in the table above.
+moves the answer by more than 3x: plane gives median 0.846, quadratic 0.255.
+
+⚠ **CORRECTED 2026-08-25.** This paragraph originally concluded that real scatter is "bracketed
+between roughly 0.26 and 0.85 voxels" with the plane figure as "the conservative end". **The
+bracket points the wrong way and the plane figure is not conservative.** That reasoning assumed a
+plane under-removes curvature and therefore over-states scatter. Injection recovery on real patch
+geometry says otherwise (`reports/scatter_estimator_calibration.txt`): inject a perturbation of
+known magnitude and of the correlation length actually measured in real residuals, and see what
+each estimator returns.
+
+| estimator | contamination floor, nothing injected | recovery of injected correlated scatter |
+|---|---|---|
+| plane | 0.2146 vox | 0.62x to 1.11x |
+| quadratic | 0.0105 vox | 0.37x to 0.39x |
+
+Both estimators **under**-report correlated scatter, the quadratic severely. Short-correlation-length
+noise over a 3x4 window looks like a trend to the fitter, so the fit absorbs it. Inverting the
+plane's calibration curve at the values actually reported:
+
+- reported median **0.846** vox → true scatter about **1.30** vox
+- reported p95 **2.179** vox → true scatter about **3.65** vox *(extrapolated beyond the swept
+  range, weaker evidence)*
+
+For comparison, correlated noise first flips a patch verdict at **1.5 voxels**. So the corrected
+median sits just below the onset and the corrected upper tail well above it. The figures quoted
+elsewhere in this report as real patch scatter are **low, not high**.
+
+The injected correlation length is calibrated rather than chosen: it is fitted to reproduce the
+real residual's lag-1 of +0.357 on this window, landing at sigma 0.65. An earlier version of that
+calibration used sigma 1.0, which gives lag-1 about +0.725 and would have roughly doubled the
+correction reported here.
 
 **At the comparable window (3x4, plane fit):** median 0.846 voxels, p95 2.179, max 5.406, n =
 3897. Against §8's three onsets:
