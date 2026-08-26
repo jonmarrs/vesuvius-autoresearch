@@ -694,6 +694,12 @@ roughly four times the ≈6.8% it replaces, and it **contradicts** rather than q
 conclusion that the break "is not reached by well-traced patches" — under the only admissible
 surrogate, it is reached by a substantial minority.
 
+⚠ **Read this together with the withdrawn closure below.** The band above is the spread across
+admissible *surrogates*; it is not a confidence interval on the exceedance. The attenuation the
+figure divides by has never been validated against a quantity measured at the analysis window, and
+the evidence assembled while trying to validate it points to ≈30% being an **overestimate**. Treat
+≈30% as the largest defensible figure, not the best one.
+
 ⚠ **§9's own figures below (2.5%, and the P(notices) table) are superseded by this.** They are left
 in place for the record of how the number moved, not as current estimates.
 

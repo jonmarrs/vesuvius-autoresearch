@@ -1,6 +1,6 @@
 # DRAFT (NOT POSTED) — villa issue: spiral satisfaction cannot detect a sheet switch
 
-**Status: rewritten 2026-08-26, NOT posted. HELD pending Jon's explicit approval.**
+**Status: revised 2026-08-26 (second pass), NOT posted. HELD pending Jon's explicit approval.**
 Do not post. Do not treat a later "continue" as authorization.
 
 This supersedes the 2026-08-25 draft, which was written when the practical qualification
@@ -104,19 +104,26 @@ expected absolute winding by direct votes from attached absolute anchors plus a 
 relative-winding edges. It is a standalone debug tool, run one `--patch-id` at a time and outside the
 fit loop, so nothing in the scored path benefits from it today.
 
-**How often this matters in practice, with the uncertainty stated.** The exactness above is for a
-patch lying on a winding. Real patches carry surface noise, and once that noise is large enough the
-two verdicts do diverge. Estimating the frequency requires a model of the noise, and the answer is
-sensitive to it: our best estimate is that roughly **30 percent** of real patch windows carry enough
-scatter that the verdict would differ, with a band of about 29 to 39 percent across the surrogate
-family our measurements admit.
+**How often this matters in practice, and why we are not putting a number on it.** The exactness
+above is for a patch lying on a winding. Real patches carry surface noise, and once that noise is
+large enough the two verdicts do diverge. We tried to estimate how often, and we are reporting the
+attempt rather than its output, because the estimate did not survive our own checks.
 
-Two honest caveats on that number. It rests on a scatter surrogate fitted to two lag-1 statistics of
-real patch residuals, and two numbers do not pin a two-dimensional correlation structure. And when
-noise does cause the verdicts to differ, that is the metric rejecting a noisy patch, not detecting a
-sheet switch. So the practical reading is that the blindness is exact for clean patches, and real
-noise incidentally exposes a minority of displacements without the metric ever testing for the thing
-that went wrong.
+The chain is: measure the residual scatter of real traced patches, correct it for the attenuation
+our estimator introduces, and compare it against the scatter at which villa's verdict first flips.
+The largest defensible answer that chain produces is about 30 percent of patch windows. We do not
+believe it. The corrected scatter it rests on is roughly four times larger than any deviation we can
+observe directly at the same window extent, and that gap is unexplained. Separately, the statistic
+we used to argue that the deviation is local perturbation rather than long-wavelength curvature
+turns out to saturate: calibrated against fields of known composition it reports 0.50 for a field
+that is 5 percent local, so the 0.85 we measured is consistent with 10 to 20 percent local, meaning
+most of what we corrected is probably curvature the spiral legitimately follows.
+
+So: the blindness is exact for clean patches, real noise exposes some unknown minority of
+displacements, and the honest upper bound we can defend is 30 percent while our own evidence
+suggests the true figure is lower. Note also that when noise does cause the verdicts to differ, that
+is the metric rejecting a noisy patch, not detecting a sheet switch. The metric never tests for the
+thing that went wrong.
 
 **Scope, stated plainly.** This says nothing about how often real spiral fits actually misplace a
 patch by a winding, and it is not a claim that any published fit is wrong. It is a statement about
@@ -161,14 +168,17 @@ Full write-up, including the limits and the corrections we made to our own earli
 
 Three judgement calls worth challenging:
 
-1. **The 30 percent paragraph is included even though it weakens the story.** The alternative is to
-   report only the exact result and say nothing about frequency, which would be defensible and
-   cleaner. It is in because a maintainer's first question will be "does this ever matter", and
-   because omitting a number we measured, in the direction that helps us, is the failure mode this
-   project has corrected repeatedly.
-2. **The reproduction points at one probe**, not the whole chain. The 30 percent figure comes from a
-   different and much longer pipeline. A reader who runs the command sees the periodicity result
-   only. That is honest as written, but it means the weakest claim is the least reproducible one.
+1. **The frequency paragraph now reports a failed estimate rather than a number.** Since the last
+   revision the 30 percent figure lost its support: the closure that defended it was withdrawn on
+   review, on both of its arguments. The alternative is to say nothing about frequency at all, which
+   would be cleaner and defensible. It is in because a maintainer's first question will be "does
+   this ever matter", and because reporting only the exact result would let a reader assume the
+   practical rate is high. Publishing an upper bound we openly disbelieve is unusual; the case for
+   it is that it is the true state of our evidence.
+2. **The reproduction points at one probe**, not the whole chain. The frequency discussion comes
+   from a different and much longer pipeline. A reader who runs the command sees the periodicity
+   result only. That is honest as written, but it means the weakest claim is the least reproducible
+   one.
 3. **Nothing here mentions the mesh-splicing config's practical consequence.** It gates what enters
    the output mesh, which is arguably the most concerning part, and the draft states the fact
    without drawing the inference. That restraint may be right for a first contact, or may be
