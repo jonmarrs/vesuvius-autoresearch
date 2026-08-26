@@ -705,38 +705,48 @@ available: a *lower* onset and a *higher* corrected scatter both raise the excee
 probes had already established that more correlation lowers the onset. The measurement supplies the
 magnitudes (≈×8.7 from scatter, ≈×2.4 from onset), not the direction.
 
-*The open physical check is CLOSED, in favour of the figure* (`reports/is_corrected_scatter_physical.txt`).
-The concern was that a corrected p95 of ≈8 voxels against a ≈12.8-voxel winding spacing implies a
-patch wandering two-thirds of a winding. Two independent checks, neither reusing the correction
-model:
+⚠ **The open physical check is NOT closed — the closure was withdrawn 2026-08-26**
+(`reports/is_corrected_scatter_physical.txt`). An earlier version of this section claimed to close
+it in favour of the ≈30% figure. Review found both halves of that closure invalid, and I have
+withdrawn them.
 
-**The magnitude is physical.** Raw deviation from a plane, with no surrogate and no attenuation
-applied, measured across window scales on real patches:
+**The concern, restated correctly.** The corrected p95 is **8.24 voxels**. It is not an independent
+quantity — it *is* the analysis-window plane-fit residual divided by the attenuation, so it
+describes deviation inside a **60×80 voxel** window. The directly observed deviation at that *same*
+window is p95 **1.78**. The gap is **4.6×**, and nothing measured so far explains it.
 
-| window | real extent | raw rms p50 | p95 |
-|---|---|---|---|
-| 3×4 | 60×80 vox | 0.73 | 1.91 |
-| 5×6 | 100×120 | 1.97 | 4.34 |
-| 9×12 | 180×240 | 5.78 | **12.05** |
+**Why the closure failed.** It answered that gap by pointing at 11.3 measured over a **180×240**
+window — nine times the area, a different quantity. That comparison is unstable as well as invalid:
+with the largest window at 7×9 instead of 9×12, the same argument **fails outright**. And it is
+self-refuting, because the large-window deviation is precisely the long-wavelength curvature the
+same section argued the spiral *follows* and which therefore cannot perturb anything.
 
-A corrected p95 near 8 voxels at the 60×80 scale sits *inside* that directly observed range. Real
-sheets do wander that far; the figure is not an artifact of dividing by a small `k`.
+**The second half was worse.** The "84% of deviation is local, so the exceedance treats the right
+quantity" claim rested on a statistic with no power. Calibrated against fields of known composition:
 
-**And it is the right quantity.** Deviation growing steeply with window size is the signature of
-long-wavelength curvature — and curvature the sheet genuinely has is curvature the fitted spiral
-follows too, so it is *shared* and should not drive a verdict flip. Only the part a large smooth fit
-does **not** account for genuinely perturbs the patch. Measured, the local fraction is **0.841**
-(p50): about 84% of the analysis-window deviation is genuinely local. The exceedance model's
-treatment of it as a real perturbation is sound.
+| true local fraction | statistic reports |
+|---|---|
+| 0.05 | 0.495 |
+| 0.10 | 0.698 |
+| 0.20 | 0.905 |
+| 0.50 | 0.978 |
 
-I expected the opposite — the probe was written with a branch for "most of it is shared curvature,
-so ≈30% is an overestimate", and that branch did not fire. Noting it because this is the first check
-in this chain to resolve *for* the figure, and a favourable surprise deserves the same suspicion as
-a favourable measurement.
+It saturates steeply. Inverting at the observed 0.846 puts the **true** local fraction between
+**0.10 and 0.20** — so most of the deviation *is* shared curvature, the opposite of what was
+claimed. The branch I wrote for "most is shared curvature, therefore ≈30% is an overestimate" did
+not fail to fire; **it could not fire**, and on this calibration it should have. The split is also
+not a partition: 35.7% of samples have local exceeding total.
 
-*Residual limit on the split:* "shared" is defined by what a quadratic over a 9×12 window removes,
-which is a modelling choice about where the spiral stops following the sheet. The direction is
-robust to that choice; the magnitude is not.
+**Two sampling defects also corrected.** Every sample previously came from a *single* patch (the
+loop broke out of the outer patch loop), and that patch was the second-highest of eight for this
+statistic — one of the eight would have failed the check outright. Sampling is now capped per patch.
+And `CORRECTED_P95` was hand-typed as 8.0 from prose in another artifact; it is now derived (8.24).
+
+**Consequence for the headline.** The ≈30% exceedance still rests on a corrected distribution
+roughly 4× larger than anything observed at its own scale, and the evidence now suggests most of
+that deviation is curvature the spiral follows rather than perturbation. **≈30% is more likely an
+overestimate than not**, and the honest status is unresolved pending an attenuation validated
+against a quantity measured at the analysis window.
 
 **What this does not touch.** The core finding uses no scatter model at all: for a well-placed patch
 the metric cannot detect a whole-winding displacement, exactly, at every scale, under both villa

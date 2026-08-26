@@ -18,10 +18,12 @@ sys.path.insert(0, os.path.join(_REPO, "scripts"))
 import numpy as np  # noqa: E402
 import pytest  # noqa: E402
 from probe_is_corrected_scatter_physical import (  # noqa: E402
-    CORRECTED_P95,
+    ANALYSIS,
     SCALES,
+    corrected_p95,
     raw_deviation,
     shared_vs_local,
+    statistic_power,
 )
 from probe_real_patch_scatter import patch_dirs  # noqa: E402
 
@@ -40,14 +42,47 @@ def test_deviation_grows_with_window_extent():
 
 
 @needs_data
-def test_the_corrected_magnitude_is_reachable_in_raw_geometry():
-    """The physicality check. The corrected p95 must sit inside what the raw
-    geometry does at some observable scale; if it exceeded everything measurable,
-    it would be an artifact of dividing by a small attenuation."""
+def test_the_concern_is_open_at_the_analysis_scale():
+    """The check that matters, and the one an earlier version got backwards. The
+    corrected figure describes deviation inside the ANALYSIS window, so it must be
+    compared against raw deviation at that same window -- not at a nine times
+    larger one. It is several times larger, and that gap is the open concern."""
     rng = np.random.default_rng(4)
-    h, w = SCALES[-1]
-    biggest = raw_deviation(h, w, rng, n=300)
-    assert float(np.percentile(biggest, 95)) > CORRECTED_P95
+    h, w = ANALYSIS
+    raw = raw_deviation(h, w, rng, n=800)
+    assert float(np.percentile(raw, 95)) * 2 < corrected_p95()
+
+
+@needs_data
+def test_the_cross_scale_argument_is_unstable():
+    """Pins why the earlier closure was invalid rather than merely unlucky: its
+    conclusion flips on an unargued constant. A check whose outcome is set by which
+    window the author picked is not a check."""
+    rng = np.random.default_rng(9)
+    small = raw_deviation(7, 9, rng, n=400)
+    big = raw_deviation(9, 12, rng, n=400)
+    assert float(np.percentile(small, 95)) < corrected_p95()
+    assert float(np.percentile(big, 95)) > corrected_p95()
+
+
+def test_the_local_fraction_statistic_saturates():
+    """The power calibration whose absence let 0.85 be read as '85 percent
+    perturbs'. On fields of known composition the statistic must be shown to
+    compress a wide range of true fractions into a narrow reported band, or the
+    observed value would carry the information it was assumed to."""
+    rng = np.random.default_rng(12)
+    power = statistic_power(rng, fractions=(0.05, 0.50), trials=120)
+    (_, low), (_, high) = power
+    assert low > 0.3, "a 5% local field should already report a large fraction"
+    assert high / low < 3.0, "statistic does not compress; it may have real power"
+
+
+def test_the_split_is_not_a_partition():
+    """Pins the symptom that shows the decomposition is a vector subtraction, not
+    an orthogonal split: local can exceed total, which a partition cannot do."""
+    rng = np.random.default_rng(13)
+    totals, locals_ = shared_vs_local(rng, n=400)
+    assert float((locals_ > totals).mean()) > 0.05
 
 
 @needs_data
@@ -64,16 +99,17 @@ def test_the_raw_check_uses_no_correction_model():
 
 
 @needs_data
-def test_most_deviation_is_local_not_shared_curvature():
-    """The second claim, and the one that decides whether the exceedance model is
-    treating the right quantity. If the local fraction were small, most of the
-    corrected scatter would be curvature the spiral follows and the exceedance
-    would be an overestimate."""
+def test_samples_are_pooled_across_patches():
+    """An earlier version drew every sample from one patch, because the loop broke
+    out of the outer patch loop. That patch was the second-highest of eight for
+    this statistic."""
+    import probe_is_corrected_scatter_physical as mod
+
     rng = np.random.default_rng(5)
-    totals, locals_ = shared_vs_local(rng, n=300)
-    frac = float(np.median(locals_ / np.maximum(totals, 1e-12)))
-    assert 0.0 < frac <= 1.05
-    assert frac > 0.6
+    per_patch = 20
+    v = raw_deviation(*ANALYSIS, rng, per_patch=per_patch)
+    assert len(v) > per_patch, "all samples came from a single patch"
+    assert len(v) <= per_patch * len(mod.patch_dirs())
 
 
 @needs_data
