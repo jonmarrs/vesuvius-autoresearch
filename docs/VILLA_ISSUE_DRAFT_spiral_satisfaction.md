@@ -1,6 +1,20 @@
 # POSTED — villa issue #1621: spiral satisfaction cannot detect a sheet switch
 
-**Status: POSTED 2026-08-27 as <https://github.com/ScrollPrize/villa/issues/1621>.**
+**Status: POSTED 2026-08-27 as <https://github.com/ScrollPrize/villa/issues/1621>. ONE REPLY, ANSWERED.**
+
+**2026-08-27, @Bullo27 replied** (<https://github.com/ScrollPrize/villa/issues/1621#issuecomment-5438421103>)
+and it stands up. They reproduced through villa's native `unwrap_targets` rather than a
+reimplementation, bisected the acceptance edge to `(0.450002]` / `(0.495004]` -- the half-width IS
+the tolerance to six decimals, sharper than our bracket -- and found a second instance we missed:
+`get_track_satisfied_counts` builds its target the same self-referential way.
+
+**We answered** (<https://github.com/ScrollPrize/villa/issues/1621#issuecomment-5442331855>) by
+measuring the half they flagged as algebra-only: the track metric is blind under both configs and
+through the chunked entry point, with half-winding controls rejecting. Two additions: the metric
+already returns `mode_winding_per_track`, which tracks the displacement exactly, and the chunked
+wrapper discards it -- so the track-side fix is "stop dropping the winding you already have", not
+"derive one". Artifact `reports/track_satisfaction_winding.txt`, probe
+`scripts/probe_track_satisfaction_winding.py`.
 
 Posted on Jon's explicit instruction, after a day-of re-verification against upstream `6847063f`:
 `satisfaction_metrics.py` still 1092 lines, `metrics_config` still 0.45 / 6.0 / 0.95, the splicing
