@@ -98,6 +98,14 @@ VOID_IF_NO_ONSET_ABOVE = 0.25
 # after seeing where the onsets fell.
 RMS_LEVELS = [0.75, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0]
 RMS_LEVELS += [5.0, 6.5, 8.0, 10.0, 13.0, 16.0, 20.0, 26.0, 32.0, 40.0, 52.0, 64.0]
+# A second ladder reaching 32x further, used only to establish whether a failure
+# to find an onset is a sweep-length problem or a property of the field. It must
+# be a strict SUPERSET of the first: a first version was merely longer and also
+# coarser, which reported MORE rays without an onset on the longer ladder -- an
+# impossibility that was a resolution artifact, and would have been published as
+# "extending the ladder changes nothing" had the two numbers not disagreed in the
+# wrong direction. As a superset, no-onset can only fall or stay equal.
+LADDER_LONG = RMS_LEVELS + [96.0, 192.0, 384.0, 768.0, 1536.0, 2048.0]
 
 INJECT_RMS = [0.25, 0.5, 1.0, 2.0, 3.0, 4.0]
 N_SAMPLES = 200
@@ -106,16 +114,24 @@ SEED = 20260826
 OUT = os.path.join(_REPO, "reports", "real_residual_exceedance.txt")
 
 
-def make_field_fn(bank, jitter):
+def make_field_fn(donor):
     """A drop-in replacement for `probe_correlated_scatter.noise_field`.
 
     Same signature and same contract -- a field of the requested shape scaled to
     the requested GLOBAL rms -- so the scoring path is untouched and every number
     still comes from villa's own metric.
+
+    The donor is FIXED by the caller, deliberately. A first version drew a new
+    donor inside this function on every call, so walking up the rms ladder
+    changed the field's shape at each rung as well as its amplitude: the scan was
+    over donor x amplitude jointly, and any onset it found was partly a lottery
+    over donors. The symptom was a |delta| that jumped 0.0000, 0.2545, 0.0000,
+    0.1030 across successive rungs instead of rising. Amplitude must be the only
+    thing that varies along a ladder whose first crossing is being read as an
+    onset.
     """
 
     def field(shape, rms, _sigma, rng):
-        donor = bank[int(jitter.integers(len(bank)))][1]
         return transplant(donor, shape, rms, rng)
 
     return field
@@ -126,12 +142,13 @@ def onsets_under_real(rays, bank, seed):
     import probe_correlated_scatter as pcs
     from probe_correlated_scatter import run_level
 
-    jitter = np.random.default_rng(seed)
     original = pcs.noise_field
-    pcs.noise_field = make_field_fn(bank, jitter)
     try:
         per_ray = []
         for i, ray in enumerate(rays):
+            # One donor per ray, held across the whole ladder.
+            donor = bank[(seed + i) % len(bank)][1]
+            pcs.noise_field = make_field_fn(donor)
             hit = None
             for rms in RMS_LEVELS:
                 _, flipped = run_level(
@@ -197,6 +214,21 @@ def refit_under_real(bank, seed):
     return floor, (float(np.median(ks)) if ks else float("nan"))
 
 
+def no_onset_fraction(rays, bank, ladder, seeds=3):
+    """Share of rays whose verdict never differs anywhere on `ladder`."""
+    global RMS_LEVELS
+    saved = RMS_LEVELS
+    RMS_LEVELS = ladder
+    try:
+        out = []
+        for s in range(seeds):
+            per = onsets_under_real(rays, bank, seed=1 + 97 * s)
+            out.append(sum(o is None for o in per) / max(len(per), 1))
+        return float(np.mean(out)), [float(x) for x in out]
+    finally:
+        RMS_LEVELS = saved
+
+
 def main():
     bank = residual_bank()
     rays = usable_rays(load_shard(), n_rays=N_RAYS)
@@ -252,11 +284,72 @@ def main():
     ]
     void = void_frac > VOID_IF_NO_ONSET_ABOVE
     if void:
+        short_f, short_each = no_onset_fraction(rays, bank, RMS_LEVELS)
+        long_f, long_each = no_onset_fraction(rays, bank, LADDER_LONG)
+        from probe_anisotropic_surrogate import onsets_under
+
+        g = [
+            sum(o is None for o in onsets_under(rays, 1.20, 1.00, seed=1 + 97 * s))
+            / max(len(rays), 1)
+            for s in range(3)
+        ]
         lines.append(
-            f"  ⚠ ABOVE the pre-registered {VOID_IF_NO_ONSET_ABOVE:.0%} limit: THIS RESULT IS"
-            " VOID. The sweep is too short, and the exceedance below reflects that rather"
-            " than the data. Re-run with a wider ladder."
+            f"  ⚠ ABOVE the pre-registered {VOID_IF_NO_ONSET_ABOVE:.0%} limit: the exceedance"
+            " below is VOID and carries no verdict."
         )
+        lines.append("")
+        lines.append("=== But the gate's failure is itself the result ===")
+        lines.append(
+            "  The obvious explanation is a sweep that stops too early. It is not. Extending"
+            " the ladder 32x changes nothing:"
+        )
+        lines.append(
+            f"    real residual, ladder to {RMS_LEVELS[-1]:.0f}:   no onset for "
+            f"{short_f:.0%} of rays  ({', '.join(f'{x:.0%}' for x in short_each)})"
+        )
+        lines.append(
+            f"    real residual, ladder to {LADDER_LONG[-1]:.0f}: no onset for "
+            f"{long_f:.0%} of rays  ({', '.join(f'{x:.0%}' for x in long_each)})"
+        )
+        lines.append(
+            f"    Gaussian 1.20/1.00, its own ladder:  no onset for "
+            f"{float(np.mean(g)):.0%} of rays"
+        )
+        lines.append(
+            "  So for the great majority of rays a real-residual-shaped perturbation never"
+        )
+        lines.append(
+            "  makes villa's verdict differ between the correct and the whole-winding-"
+        )
+        ratio = (1 - float(np.mean(g))) / max(1 - long_f, 1e-9)
+        lines.append(
+            "  displaced patch, at ANY amplitude tested. The admissible Gaussian, which is"
+        )
+        lines.append(
+            f"  what the published exceedance is computed with, diverges the verdict on"
+            f" {ratio:.1f}x as many rays ({1 - float(np.mean(g)):.0%} against"
+            f" {1 - long_f:.0%})."
+        )
+        lines.append("")
+        lines.append(
+            "  This bears directly on the ~24% headline and not in its favour. The exceedance"
+        )
+        lines.append(
+            "  presumes an onset exists, then asks how often real scatter reaches it. Under a"
+        )
+        lines.append(
+            "  field shaped like the real residual, the onset usually does not exist, which"
+        )
+        lines.append(
+            "  suggests the surrogate perturbs the verdict more readily than the real"
+        )
+        lines.append(
+            "  thing does, and that the true rate is well below 24%. It does not say what the"
+        )
+        lines.append(
+            "  rate IS: the framework cannot be transported to a field with no onset, so this"
+        )
+        lines.append("  is a direction, not a replacement figure.")
     else:
         lines.append("  Within the pre-registered limit; the sweep reaches the onset.")
     lines.append("")

@@ -1,0 +1,42 @@
+The exceedance with the REAL residual field on both sides
+
+The follow-up the withdrawn non-parametric probe named. Comparing bare k values
+across fields was invalid because k is measured against an injected GLOBAL rms;
+here BOTH the corrected scatter and the onset are in those same units, so the
+normalisation cancels and the comparison is legitimate.
+
+  injected field: real patch residuals, 10 donors, tiled and cross-paired
+  windowed/global for these fields: 0.158 to 0.162  (Gaussian 1.20/1.00 is 0.308)
+
+  plane floor 0.2176, k 0.0849
+  corrected real scatter, median 9.42v
+
+=== Validity gate, read before the verdict ===
+  rays with no onset inside the swept range: 78.8% (ladder 0.75 to 64.0)
+  ⚠ ABOVE the pre-registered 25% limit: the exceedance below is VOID and carries no verdict.
+
+=== But the gate's failure is itself the result ===
+  The obvious explanation is a sweep that stops too early. It is not. Extending the ladder 32x changes nothing:
+    real residual, ladder to 64:   no onset for 77% of rays  (75%, 75%, 80%)
+    real residual, ladder to 2048: no onset for 77% of rays  (75%, 75%, 80%)
+    Gaussian 1.20/1.00, its own ladder:  no onset for 46% of rays
+  So for the great majority of rays a real-residual-shaped perturbation never
+  makes villa's verdict differ between the correct and the whole-winding-
+  displaced patch, at ANY amplitude tested. The admissible Gaussian, which is
+  what the published exceedance is computed with, diverges the verdict on 2.3x as many rays (54% against 23%).
+
+  This bears directly on the ~24% headline and not in its favour. The exceedance
+  presumes an onset exists, then asks how often real scatter reaches it. Under a
+  field shaped like the real residual, the onset usually does not exist, which
+  suggests the surrogate perturbs the verdict far more readily than the real
+  thing does, and that the true rate is well below 24%. It does not say what the
+  rate IS: the framework cannot be transported to a field with no onset, so this
+  is a direction, not a replacement figure.
+
+=== Result ===
+  exceedance under the REAL residual field: 20.52%  (seed spread 7.38)
+  published Gaussian figure:                23.59%
+  pre-registered band:                      11.79% to 47.18%
+  No verdict: the validity gate above failed.
+
+Limits. The injected residual excludes wavelengths longer than the reference smoothing by construction, and donors are tiled to fill the injection grid, which adds seams the real field does not have. Neither is fixed here; both would have to be addressed before calling the surrogate question closed rather than tested.
