@@ -35,7 +35,7 @@ entire ink family to find what they came for.
 so the first impression of the tool was a reversed headline in the ink family — for a reader who
 came for fibers and is unaffected by it.
 
-The fix is a jump table directly under the summary: three rows, one per target family, each with
+**Shipped as `jonmarrs/scrollgt@44e9311`, verified live from a second cold clone.** The fix is a jump table directly under the summary: three rows, one per target family, each with
 its command, its section link and what it needs. Under it, the three-line cold-clone recipe, and
 one sentence stating that the retraction below concerns the ink family only. All three anchors
 verified to resolve against the actual headings.
