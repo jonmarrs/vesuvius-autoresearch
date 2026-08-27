@@ -213,6 +213,32 @@ def main():
             "  no-onset rays are genuine immunity, which is exactly what a non-exceedance"
         )
         lines.append("  should mean, and 23.59% stands as computed.")
+        lines.append("")
+        lines.append(
+            "  ⚠ But be clear about how much of that was ever in doubt. `build_synthetic_patch`"
+        )
+        lines.append(
+            "  places the patch EXACTLY on a winding, so at zero scatter the reference scores a"
+        )
+        lines.append(
+            f"  satisfied-quad fraction of exactly 1.0 on all {len(rays)} rays against a"
+            f" {REPORTING['satisfied_patch_quad_fraction']:.2f} threshold -- measured, not"
+        )
+        lines.append(
+            "  assumed. The degenerate class is therefore empty by construction of the test"
+        )
+        lines.append(
+            "  patch rather than as a discovered property of the data, and this half of the"
+        )
+        lines.append(
+            "  rule could not have fired. The informative output is the immune/diverges split"
+        )
+        lines.append(
+            "  below it, which was not predetermined. A real traced patch could well fail at"
+        )
+        lines.append(
+            "  zero scatter; that question is not asked here and is not answered by this."
+        )
     lines.append("")
     lines.append(
         "This says nothing about whether the corrected scatter is right, which is the k"

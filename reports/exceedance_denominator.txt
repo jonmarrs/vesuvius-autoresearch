@@ -1,0 +1,30 @@
+What is in the denominator of the published exceedance?
+
+About 46% of rays produce no divergence threshold, and the exceedance counts
+them as non-exceedances. Two very different things were being counted together:
+a ray whose correctly placed patch already fails at zero scatter was never
+eligible for the test, while a ray whose reference passes and whose verdicts
+still never differ is a genuine case of the metric not noticing.
+
+  rays: 40, seeds: 3, surrogate 1.2/1.0
+
+   class        share    meaning
+  --------------------------------------------------------------------
+   degenerate    0.0%    reference already unsatisfied at zero scatter
+   immune       50.8%    reference passes, verdicts never differ
+   diverges     49.2%    verdicts differ somewhere on the ladder
+
+  Degenerate rays are 0.0%, within the pre-registered 10% limit. The published denominator is sound: the
+  no-onset rays are genuine immunity, which is exactly what a non-exceedance
+  should mean, and 23.59% stands as computed.
+
+  ⚠ But be clear about how much of that was ever in doubt. `build_synthetic_patch`
+  places the patch EXACTLY on a winding, so at zero scatter the reference scores a
+  satisfied-quad fraction of exactly 1.0 on all 40 rays against a 0.95 threshold -- measured, not
+  assumed. The degenerate class is therefore empty by construction of the test
+  patch rather than as a discovered property of the data, and this half of the
+  rule could not have fired. The informative output is the immune/diverges split
+  below it, which was not predetermined. A real traced patch could well fail at
+  zero scatter; that question is not asked here and is not answered by this.
+
+This says nothing about whether the corrected scatter is right, which is the k question examined elsewhere. It asks only what population the average is over.

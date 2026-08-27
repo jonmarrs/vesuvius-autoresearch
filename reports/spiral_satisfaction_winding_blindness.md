@@ -727,7 +727,21 @@ here, and the claim that ≈24% is biased high is **withdrawn**.
 What the repaired probe does expose is different and stands: **about half the rays have no
 divergence threshold under either field** (46% for the Gaussian). `exceedance_under` counts a ray
 with no onset as contributing zero, so roughly half the population underlying ≈23.6% cannot
-contribute to it. That is a property of the published figure worth knowing, and it is not addressed.
+contribute to it.
+
+**That half is now classified** (`reports/exceedance_denominator.txt`). A ray can fail to diverge for
+two reasons that deserve opposite treatment: because the correctly placed patch already fails at zero
+scatter, so the test never applied and counting it as a non-exceedance dilutes the figure; or because
+the reference passes and the verdicts genuinely never differ, which is exactly what a non-exceedance
+should mean. Measured over 40 rays and 3 seeds: **0.0% degenerate, 50.8% immune, 49.2% diverges**. So
+the denominator is sound and ≈23.6% stands as computed.
+
+⚠ **Half that rule could not have fired, and the artifact says so.** `build_synthetic_patch` places
+the patch exactly on a winding, so at zero scatter the reference scores a satisfied-quad fraction of
+exactly 1.0 on all 40 rays against a 0.95 threshold — measured, not assumed. The degenerate class is
+empty by construction of the test patch, not as a discovered property of the data. The informative
+half is the immune/diverges split, which was not predetermined. Whether a *real* traced patch passes
+at zero scatter is a different question and is not asked anywhere in this report.
 
 ⚠ **The independent support for *k* is weaker than this report claimed yesterday.** A pre-registered
 cross-estimator test (below) asks whether a plane fit and a quadratic fit, which have very different
