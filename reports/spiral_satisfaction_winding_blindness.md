@@ -870,8 +870,35 @@ statistic is not reported at all.
 ≈22×66 voxels — 165 quads in a small area, because its cells sit 2.0 and 4.4 voxels apart. Real
 patches are sampled at ≈20 voxels per cell, so a real window matches **extent** (2×4 cells, 20×60
 vox, but only 3 quads) or **quad count** (12×16 cells, 165 quads, but 220×300 vox — ten times the
-area), never both. §9's description of a 3×4-cell window as "comparable to the synthetic patch"
-matches extent in one axis and has never been stated with the quad count beside it.
+area), never both.
+
+**And on the axis the metric actually cares about, nothing matches at all**
+(`reports/radial_span_mismatch.txt`). villa snaps a patch to the *nearest integer winding*, so what
+governs satisfiability is how many windings the patch spans radially:
+
+| window | radial span (vox) | in windings |
+|---|---|---|
+| **synthetic 12×16** | 2.04 | **0.159** |
+| real 2×2 (smallest with any quads) | 11.43 | 0.89 |
+| real 2×4 *("extent-matched")* | 21.36 | 1.67 |
+| real 3×4 *(§9's "comparable" window)* | 27.07 | **2.11** |
+| real 12×16 *("quad-matched")* | 117.68 | 9.19 |
+
+The synthetic patch sits inside a *sixth* of a winding. The **smallest window the published data can
+form** spans 0.89 — a factor of 5.6 — and that is a floor, not a sampling choice: at ≈20 voxels per
+cell, 2×2 is the smallest object with any quads. This explains the 0% satisfied at the quad-matched
+scale with no appeal to noise or to dr: a window spanning 9.2 windings contains points belonging to
+nine different windings.
+
+⚠ **§9's "comparable to the synthetic patch" is wrong on this axis by 13×**, its third correction:
+first the quad count (55× at matched extent), now radial span. The phrase should not be used again
+without naming the axis.
+
+**Read narrowly.** These are windows of published *traced surfaces*, not villa spiral-fit patches —
+no fitted spiral checkpoint is published, so villa's own patches cannot be measured here and may be
+small sub-winding objects that look nothing like these. What this establishes is what the published
+data can be used to build, and that the test patch's representativeness rests on something other
+than measurement.
 
 **What this does not touch.** The core finding uses no scatter model at all: for a well-placed patch
 the metric cannot detect a whole-winding displacement, exactly, at every scale, under both villa

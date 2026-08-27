@@ -1,0 +1,29 @@
+How many windings does a real window span, and how many does the test patch?
+
+villa's metric snaps a patch to the NEAREST INTEGER winding. A window whose
+points straddle more than one winding contains points belonging to different
+windings, so it cannot be satisfied at any spacing. Spans below are at dr =
+12.81 voxels.
+
+   window                  radial span (vox)   in windings
+  --------------------------------------------------------------
+   synthetic 12x16 cells               2.04         0.159
+
+   real  2x2  cells (n=40)              11.43          0.89
+   real  2x4  cells (n=40)              21.36          1.67
+   real  3x4  cells (n=40)              27.07          2.11
+   real  4x6  cells (n=40)              43.96          3.43
+   real  6x8  cells (n=40)              71.74          5.60
+   real 12x16 cells (n=24)             117.68          9.19
+
+  The smallest real window available, 2x2 cells, spans 0.89 windings.
+  The synthetic test patch spans 0.159. That is a factor of 5.6, and it is not a
+  sampling choice: real traced surfaces step about 20 voxels per grid cell, so
+  a two-by-two window is the smallest object that has any quads at all.
+
+  So no window of the published traced surfaces resembles the test patch on the
+  axis the satisfaction metric cares about. That explains the 0% satisfied at
+  the quad-matched scale, which spans about 9.2 windings, without needing any
+  appeal to noise or to the choice of dr.
+
+Read this narrowly. These are windows of published traced surfaces, not villa spiral-fit patches, and no fitted spiral checkpoint is published, so villa's own patches cannot be measured here. They may be small sub-winding objects that look nothing like these. What is established is what the published data can be used to build, and that the report's description of a 3x4-cell window as comparable to the synthetic patch is wrong on this axis by a factor of 13.
