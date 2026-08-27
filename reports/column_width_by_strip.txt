@@ -45,6 +45,14 @@ boundaries would therefore be our artifact, not the scribe's hand.
   supported by the widths, and the tiling closure cannot be cited as evidence
   against this because it cannot see it.
 
+DISCLOSED PUBLICLY. This is not only a note to ourselves: the target ships in a
+published repository, so the caveat is in the data users actually get. ScrollGT
+commit 7d86713 (2026-08-27) adds it to the README's column section, to the
+per-target README, and to the `uncertainty` field of columns.json itself, so it
+travels with the file for anyone scoring programmatically. The same commit marks
+the tiling-closure argument as unable to rule this out, attached to the claim it
+undermines rather than only to the new notice. No column coordinate was altered.
+
 Limits. Column width is measured from the registered boxes, so this detects a
 scale discrepancy between strips, not an absolute error common to all three. And
 it cannot separate a magnification difference from a genuine physical change that

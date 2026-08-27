@@ -6,10 +6,10 @@ once already, when a script reorganisation left every reference to the old
 locations pointing at nothing and no one was looking.
 
   documents scanned:        69
-  paths cited:              288
-  commits cited:            43
+  paths cited:              289
+  commits cited:            44
   paths that do not exist:  14  (1 in live documents, 13 in dated ones)
-  commits unreachable:      2
+  commits unreachable:      3
 
 === Stale paths in live documents ===
   These are worth fixing: a reader following them finds nothing.
@@ -36,5 +36,6 @@ locations pointing at nothing and no one was looking.
   A commit on a deleted branch or in a reflog is not something a reader can
   look up, even though it may resolve locally. Commits belonging to the villa
   submodule are a different repository's history and are not listed.
+   reports/column_registration_external_audit.md        7d86713                                    nowhere
    reports/spiral_satisfaction_winding_blindness.md     6847063f                                   nowhere
    docs/VILLA_ISSUE_DRAFT_spiral_satisfaction.md        6847063f                                   nowhere

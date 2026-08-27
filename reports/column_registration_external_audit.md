@@ -79,6 +79,13 @@ different region and would not be expected to land here either.
 measurement that is independent of the fitting procedure, to within a few percent. The 22-column
 count matches exactly. The physical dimensions it implies are ordinary for a Herculaneum roll.
 
+**Superseded in part, 2026-08-27:** a follow-up audit
+(`reports/column_width_by_strip.txt`) found that the three figure strips do **not** share one
+scale — column width steps at the strip boundaries, strip 3 being 1.14× strip 1 with permutation
+p < 0.0001. That does not disturb the area result above, because compensating per-strip errors
+preserve total length by construction and strip 3 is only 6 of 22 columns, but it does mean the
+per-column caveat here was not hypothetical. Disclosed publicly in ScrollGT commit `7d86713`.
+
 **Does not establish:** per-column boundary accuracy. An area agreement to 1% is compatible with
 individual column edges being off by tens of grid pixels in compensating directions, and the
 registration report already flags cols 9 and 16 as spanning strip-crop gaps with bbox edges ±250
