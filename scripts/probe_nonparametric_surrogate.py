@@ -135,6 +135,52 @@ def transplant(donor, shape, rms, rng):
     return tiled / sd * rms if sd > 0 else tiled
 
 
+def windowed_over_global(field, rng, n=400):
+    """Windowed 3x4 plane-fit residual rms, as a fraction of the field's own std.
+
+    This is the number that decides whether two fields' k values can be compared
+    at all. k is (recovered windowed residual) / (injected GLOBAL rms), so a field
+    whose power sits at wavelengths longer than the window contributes almost
+    nothing inside it and yields a tiny k for reasons that have nothing to do with
+    the estimator's attenuation.
+    """
+    valid = np.ones(field.shape, bool)
+    res = window_residuals(field, valid, WINDOW[0], WINDOW[1], 1, rng, n_samples=n)
+    sd = float(field.std())
+    return float(np.median(res)) / sd if sd > 0 and res.size else float("nan")
+
+
+def spectral_diagnostic(bank, seed=SEED):
+    """windowed/global for each candidate field, measured identically."""
+    from probe_anisotropic_surrogate import anisotropic_field
+
+    rng = np.random.default_rng(seed)
+    shape = (120, 160)
+    rows = [
+        ("white Gaussian", anisotropic_field(shape, 1.0, 0.0, 0.0, rng)),
+        (
+            "Gaussian 0.561/0.561 (old fit)",
+            anisotropic_field(shape, 1.0, 0.561, 0.561, rng),
+        ),
+        (
+            "Gaussian 1.20/1.00 (current fit)",
+            anisotropic_field(shape, 1.0, 1.20, 1.00, rng),
+        ),
+    ]
+    for name, resid, _ in bank[:3]:
+        rows.append(
+            (f"REAL residual ({name[:26]})", transplant(resid, shape, 1.0, rng))
+        )
+    out = []
+    for label, f in rows:
+        ratio = windowed_over_global(f, rng)
+        # A donor crop can come out so nearly planar that the window residual, or
+        # the field's own std, underflows. Reported rather than dropped: a field
+        # that degenerate is itself the finding.
+        out.append((label, ratio))
+    return out
+
+
 def refit_nonparametric(order, bank, seed):
     """Floor and k for one estimator, injecting real residuals cross-patch."""
     rng = np.random.default_rng(seed)
@@ -250,51 +296,98 @@ def main():
         )
     lines.append("")
 
+    diag = spectral_diagnostic(bank)
+    lines.append("=== Why this probe's k is NOT comparable to the Gaussian ones ===")
+    lines.append(
+        "  k is (recovered windowed residual) / (injected GLOBAL rms). That ratio is only"
+    )
+    lines.append(
+        "  meaningful across fields whose power sits at comparable wavelengths. Measured:"
+    )
+    lines.append(
+        "     field                                windowed 3x4 residual / global std"
+    )
+    lines.append("    " + "-" * 72)
+    for label, ratio in diag:
+        shown = "degenerate" if not np.isfinite(ratio) else f"{ratio:8.3f}"
+        lines.append(f"    {label:36s} {shown:>10s}")
+    lines.append(
+        "  The real residual contributes essentially nothing inside a 3x4 window once it is"
+    )
+    lines.append(
+        "  normalised by its global std: its power is at wavelengths a plane fit over three"
+    )
+    lines.append(
+        "  by four cells removes wholesale. So a small k here is a statement about the"
+    )
+    lines.append(
+        "  field's spectrum and the normalisation convention, NOT about the estimator's"
+    )
+    lines.append(
+        "  attenuation, and it cannot be set against the Gaussian surrogates' k."
+    )
+    lines.append("")
+
     ks = np.array([r["k"] for r in per["plane"]])
     k_np = float(np.median(ks))
     spread = float(ks.max() - ks.min())
-    inside = lo <= k_np <= hi
-    distance = 0.0 if inside else min(abs(k_np - lo), abs(k_np - hi))
     lines.append(
         f"  plane k under the real-residual injection: {k_np:.4f} "
         f"(seed range {ks.min():.4f} to {ks.max():.4f}, spread {spread:.4f})"
     )
     lines.append(f"  published Gaussian-surrogate k: {K_PAR}")
-    if inside:
-        lines.append(
-            "  INSIDE the pre-registered interval: the Gaussian surrogate is an adequate "
-            "stand-in for the real field as far as this correction is concerned."
-        )
-    elif distance > spread:
-        direction = (
-            "LARGER k means less attenuation, so the true correction is SMALLER and the "
-            "~30 percent exceedance is an OVERESTIMATE."
-            if k_np > K_PAR
-            else "SMALLER k means more attenuation, so the true correction is LARGER and "
-            "the ~30 percent exceedance is an UNDERESTIMATE."
-        )
-        lines.append(
-            f"  OUTSIDE the pre-registered interval by more than the seed spread. "
-            f"The surrogate family is driving the correction. {direction}"
-        )
-    else:
-        lines.append(
-            "  Outside the interval but by less than the seed spread: INCONCLUSIVE. "
-            "Not to be read in either direction."
-        )
+    lines.append("")
+    lines.append(
+        "  ⚠ THE PRE-REGISTERED VERDICT IS WITHDRAWN. The rule fired -- k is far below the"
+    )
+    lines.append(
+        "  interval, far beyond the seed spread -- and an earlier version of this artifact"
+    )
+    lines.append(
+        "  read that as 'the surrogate family is driving the correction, and ~30 percent is"
+    )
+    lines.append(
+        "  an underestimate'. The table above shows the rule fired on an artifact: the two"
+    )
+    lines.append(
+        "  k values are not the same quantity. A pre-registered rule protects against"
+    )
+    lines.append(
+        "  choosing the threshold after the fact. It does not make the comparison valid, and"
+    )
+    lines.append("  this one was not.")
+    lines.append("")
+    lines.append(
+        "  What would make it valid: normalise every injected field by its own WINDOWED"
+    )
+    lines.append(
+        "  residual rms so 'injected magnitude' means one thing, or -- better, because the"
+    )
+    lines.append(
+        "  onset uses the same global-rms convention -- recompute BOTH sides of the"
+    )
+    lines.append(
+        "  exceedance under the real-residual field, the way probe_self_consistent_exceedance"
+    )
+    lines.append(
+        "  does for the Gaussian arms. Until one of those is done, this probe reports a"
+    )
+    lines.append("  diagnostic and no verdict.")
+    lines.append("")
 
     r = np.median([r["corr"] for r in per["plane"]]) / max(
         np.median([r["corr"] for r in per["quadratic"]]), 1e-12
     )
-    lines.append("")
     lines.append(
-        f"  Secondary, same band [{BAND[0]}, {BAND[1]}]: cross-estimator ratio under this "
-        f"injection R = {r:.3f} -> "
-        + ("consistent." if BAND[0] <= r <= BAND[1] else "INCONSISTENT.")
+        f"  Secondary, and withdrawn for the same reason: the cross-estimator ratio under "
+        f"this injection is R = {r:.3f}, which would read as inconsistent against the "
+        f"[{BAND[0]}, {BAND[1]}] band. Both estimators are being scored against an injected "
+        "magnitude defined on a scale neither of them measures, so the ratio inherits the "
+        "same defect as the k comparison above and carries no verdict either."
     )
     lines.append("")
     lines.append(
-        "Limits, stated before the run: tiling a donor residual to the recipient's grid "
+        "Limits. The first was stated before the run and is now known to be swamped: tiling a donor residual to the recipient's grid "
         "introduces seams the real field does not have, which can only add high-frequency "
         "content and so biases k upward, against the direction that would support the "
         "published figure. And the residual excludes wavelengths longer than the reference "
