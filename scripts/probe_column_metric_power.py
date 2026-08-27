@@ -159,12 +159,21 @@ def main():
         )
     ind = column_indicator(cols, shape)
 
+    # The noise field depends only on the seed, not the amplitude. Building it
+    # once per seed rather than once per (seed, amplitude) is a tenfold saving on
+    # a 2061 x 30097 grid, and guarantees every amplitude sees the SAME
+    # background, so the column is a clean sweep in amplitude rather than a sweep
+    # in amplitude crossed with noise draw.
+    noises = [
+        correlated_noise(shape, np.random.default_rng(SEED + 97 * s))
+        for s in range(N_SEEDS)
+    ]
+
     rows = []
     for amp in AMPLITUDES:
         aucs = []
         for s in range(N_SEEDS):
-            rng = np.random.default_rng(SEED + 97 * s)
-            pred = 0.5 + 0.1 * (correlated_noise(shape, rng) + amp * ind)
+            pred = 0.5 + 0.1 * (noises[s] + amp * ind)
             pred = np.clip(pred, 0.0, 1.0) * valid
             r = score(pred, TARGET)
             aucs.append(float(r["metrics"].get("col_gutter_auc", float("nan"))))

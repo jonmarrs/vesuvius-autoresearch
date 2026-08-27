@@ -1,0 +1,35 @@
+If a detector had signal on PHerc 1667, would col_gutter_auc see it?
+
+Near-chance from a metric means nothing until you know what it would take to make
+it speak. The column family's controls are all negative -- constant 0.5, papyrus
+mask 0.5, random noise showing the 18-versus-17 granularity -- and its one positive
+control, the geometry oracle at 1.0, is built from the same boxes the metric scores
+against, so it cannot tell us whether an imperfect real signal would register.
+
+Injected here: a column-concentrated signal of known amplitude on a spatially
+correlated background (smoothing 40 grid px, because a real
+detector's errors are correlated over patches and white noise would average away
+inside a region of thousands of pixels, flattering the metric).
+
+  grid 2061 x 30097, 20415 px of text column
+  5 seeds per amplitude
+
+   amplitude (x noise sd)   col_gutter_auc   (min .. max over seeds)
+  --------------------------------------------------------------------
+                  0.000           0.5065   (0.4444 .. 0.5621)
+                  0.125           0.7288   (0.6275 .. 0.8072)
+                  0.250           0.9216   (0.7876 .. 0.9314)
+                  0.500           0.9967   (0.9967 .. 1.0000)
+                  0.750           1.0000   (1.0000 .. 1.0000)
+                  1.000           1.0000   (1.0000 .. 1.0000)
+                  1.500           1.0000   (1.0000 .. 1.0000)
+                  2.000           1.0000   (1.0000 .. 1.0000)
+                  3.000           1.0000   (1.0000 .. 1.0000)
+                  4.000           1.0000   (1.0000 .. 1.0000)
+
+  The metric first exceeds 0.75 at amplitude 0.25x the noise, at or below the pre-registered 0.5x. It is SENSITIVE:
+  a signal at half the noise level is already detected, so near-chance from a
+  real model means that model has little column-concentrated signal on this
+  scroll. The published results stand as a finding about the models.
+
+This says nothing about whether the column registration is correct. That has its own evidence -- three figure strips independently recovering the same transform, tiling closure of 3 px over 30,097 -- and is a separate question. This asks only what the metric can see given that registration.
