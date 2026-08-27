@@ -1,0 +1,56 @@
+The track metric has the same blindness, measured rather than argued
+
+@Bullo27 found this by reading tracks.py and flagged it as algebra, not a
+measurement, saying it would need a fit context. It does not: villa's own
+get_track_satisfied_counts runs on a synthetic track directly.
+
+  track on winding 40, dr = 12.81, 24 points, theta 0.3 to 1.3
+  villa's unmodified tracks.py; no reimplementation of the snap
+
+=== reporting config ===
+   displacement   satisfied   mode_winding   note
+  --------------------------------------------------------------
+         0.0       24/24           40
+         0.5        0/24           40       <- CONTROL, rejects
+         1.0       24/24           41
+         2.0       24/24           42
+         5.5        0/24           46       <- CONTROL, rejects
+        23.0       24/24           63
+
+=== splicing config ===
+   displacement   satisfied   mode_winding   note
+  --------------------------------------------------------------
+         0.0       24/24           40
+         0.5        0/24           40       <- CONTROL, rejects
+         1.0       24/24           41
+         2.0       24/24           42
+         5.5        0/24           46       <- CONTROL, rejects
+        23.0       24/24           63
+
+The controls are what make the zeros mean something: half-winding displacements
+drive the satisfied count to zero under both configs, so the harness can produce
+a rejection. Whole and double windings, and 23 windings, leave it untouched.
+
+=== Through the entry point satisfaction_metrics.py actually imports ===
+   get_track_satisfied_counts_in_chunks,   0.0 -> 24/24
+   get_track_satisfied_counts_in_chunks,   0.5 -> 0/24
+   get_track_satisfied_counts_in_chunks,   1.0 -> 24/24
+   get_track_satisfied_counts_in_chunks,   2.0 -> 24/24
+   get_track_satisfied_counts_in_chunks,   5.5 -> 0/24
+   get_track_satisfied_counts_in_chunks,  23.0 -> 24/24
+
+Two things the source reading alone does not show.
+
+  The mode_winding column tracks the displacement exactly: 40, 41, 42, 63 for 0,
+  1, 2 and 23 windings. The metric COMPUTES AND RETURNS the number that would
+  expose the displacement. It simply never compares it to anything.
+
+  And get_track_satisfied_counts_in_chunks discards it. It unpacks five values
+  and returns two, keeping the counts and dropping the winding. So the quantity a
+  conservative failure check needs already exists one call below the boundary and
+  is thrown away at it. For tracks the proposed fix is cheaper than for patches:
+  the caller does not need to derive anything, only to stop discarding it.
+
+Limits. Synthetic flat track, one geometry, displacement varied and shape not.
+No fit was run. This measures what the metric does with a track placed on a
+winding; it says nothing about how often a real fit misplaces one.
