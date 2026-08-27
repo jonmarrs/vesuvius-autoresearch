@@ -59,6 +59,8 @@ sys.path.insert(0, os.path.join(_REPO, "scripts"))
 
 from probe_anisotropic_surrogate import (  # noqa: E402
     ISOTROPIC_SIGMA,
+    TARGET_COL_LAG1,
+    TARGET_ROW_LAG1,
     anisotropic_field,
     onsets_under,
 )
@@ -88,7 +90,7 @@ SURROGATES = [
     ("isotropic 0.561 (published)", ISOTROPIC_SIGMA, ISOTROPIC_SIGMA),
     ("isotropic 0.90", 0.90, 0.90),
     ("isotropic 1.236 (ESS control)", 1.236, 1.236),
-    ("anisotropic 1.45 / 1.05 (corrected)", 1.45, 1.05),
+    ("anisotropic 1.20 / 1.00 (refit to pooled targets)", 1.20, 1.00),
 ]
 INJECT_RMS = [0.25, 0.5, 1.0, 2.0, 3.0, 4.0]
 N_RAYS = 40
@@ -224,9 +226,11 @@ def format_report(rows, reported, hybrid, admis):
     out.append("=== Which of these are candidate fields at all? ===")
     out.append(
         "  A surrogate is admissible only if it reproduces the statistics the real residual "
-        "actually has, measured through the same plane-fit pipeline: column lag-1 +0.357, row "
-        "-0.076. Presenting rejected fields alongside admissible ones and calling the spread "
-        "uncertainty manufactures a range instead of measuring one."
+        "actually has, measured through the same plane-fit pipeline: column lag-1 "
+        f"{TARGET_COL_LAG1:+.3f}, row {TARGET_ROW_LAG1:+.3f} (pooled across all patches; the "
+        "single-patch figures published earlier were +0.357 and -0.076). Presenting rejected "
+        "fields alongside admissible ones and calling the spread uncertainty manufactures a "
+        "range instead of measuring one."
     )
     out.append(
         "   surrogate                            col lag-1   row lag-1     cost  admissible"
@@ -295,7 +299,7 @@ def main():
     # Imported, not retyped. Five hand-typed cross-file statistics have been wrong
     # in this investigation; the pattern does not get an exemption for being in a
     # commit whose conclusion is unflattering.
-    hybrid, _, _ = exceedance_under(rays, 1.45, 1.05, reported, CAL_FLOOR, CAL_K)
+    hybrid, _, _ = exceedance_under(rays, 1.20, 1.00, reported, CAL_FLOOR, CAL_K)
     admis = [admissibility(sc, sr) for _, sc, sr in SURROGATES]
     print(format_report(rows, reported, hybrid, admis))
 

@@ -89,7 +89,7 @@ WINDOW = (3, 4)
 ORDERS = {"plane": 1, "quadratic": 2}
 SURROGATES = [
     ("isotropic 0.561 (published)", ISOTROPIC_SIGMA, ISOTROPIC_SIGMA),
-    ("anisotropic 1.45 / 1.05 (admissible)", 1.45, 1.05),
+    ("anisotropic 1.20 / 1.00 (admissible)", 1.20, 1.00),
 ]
 INJECT_RMS = [0.25, 0.5, 1.0, 2.0, 3.0, 4.0]
 N_SAMPLES = 200

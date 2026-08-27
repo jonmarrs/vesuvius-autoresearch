@@ -106,26 +106,30 @@ fit loop, so nothing in the scored path benefits from it today.
 
 **How often this matters in practice.** The exactness above is for a patch lying on a winding. Real
 patches carry surface noise, and once that noise is large enough the two verdicts do diverge. Our
-estimate is that roughly **30 percent** of real patch windows carry enough scatter for the verdict to
-differ, and the honest version of that number needs two sentences of provenance.
+estimate is that roughly **24 percent** of real patch windows carry enough scatter for the verdict to
+differ. That number has moved several times as we found errors in our own chain, so it is worth
+saying plainly what it rests on.
 
 The chain is: measure the residual scatter of real traced patches, correct it for the attenuation
 the estimator introduces, and compare against the scatter at which villa's verdict first flips. The
-correction is the load-bearing step, and it is large: the estimator recovers about a quarter of a
-known injected signal at this window, so the correction multiplies by roughly four. We tested that
-correction the only way we could without a second ground truth, by measuring the same windows with a
-second estimator that has a very different attenuation, a much smaller floor, and a raw answer three
-times smaller. If the correction model is right the two must agree afterwards. Under the noise model
-our data selects they agree to within 9 percent; under the noise model we had originally published
-they disagree by a factor of 2.2, which is what ruled that one out. The decision rule was fixed
-before the test was run.
+correction is the load-bearing step and it is large, roughly a factor of three, because a plane fit
+over a small window absorbs much of the signal it is trying to measure. The correction depends on a
+noise model, and that model is fitted to two correlation statistics of the real residual.
 
-Two caveats we would rather state than have found. Agreement between two estimators is necessary,
-not sufficient: both use the same surrogate family, so a surrogate wrong in a way that biases both
-fits together would produce agreement and still be wrong. And when noise does cause the verdicts to
-differ, that is the metric rejecting a noisy patch, not detecting a sheet switch. The blindness is
+We tested the correction the only way available without a second ground truth, by measuring the same
+windows with a second estimator that has a very different attenuation and a raw answer three times
+smaller. If the correction model is right, both must agree afterwards. The result is that the noise
+model we had originally published is decisively rejected, by a factor of 2.2, while the model our
+data selects lands 27 percent apart rather than the 25 percent we had pre-registered as agreement,
+which is inconclusive rather than confirming. So the correction is better constrained than it was,
+and it is not confirmed.
+
+Two caveats we would rather state than have found for us. When noise does cause the verdicts to
+differ, that is the metric rejecting a noisy patch, not detecting a sheet switch; the blindness is
 exact for clean patches, and real noise incidentally exposes a minority of displacements without the
-metric ever testing for the thing that went wrong.
+metric ever testing for the thing that went wrong. And a reader who wants the frequency claim to be
+load-bearing should treat it as the weakest part of this report. The exact result above needs none
+of it.
 
 **Scope, stated plainly.** This says nothing about how often real spiral fits actually misplace a
 patch by a winding, and it is not a claim that any published fit is wrong. It is a statement about
@@ -170,12 +174,12 @@ Full write-up, including the limits and the corrections we made to our own earli
 
 Three judgement calls worth challenging:
 
-1. **The 30 percent figure is back to being stated as an estimate.** It lost its support on review
-   and has now regained it from a different direction: a pre-registered cross-estimator test that
-   passes the noise model our data selects and rejects the one we had originally published. The
-   frequency paragraph is longer than a maintainer may want because it carries that provenance. The
-   alternative is to state the exact result only and say nothing about frequency, which stays
-   defensible.
+1. **The frequency figure is now 24 percent and is stated with its provenance.** It has moved from
+   6.8 to 30 to 24 percent as we found successive errors in our own chain, most recently a sampling
+   bug that made a ten-patch statistic into a one-patch statistic. The paragraph is longer than a
+   maintainer may want because it carries that history, and it says the cross-estimator test is
+   inconclusive rather than confirming. The alternative is to state the exact result only and say
+   nothing about frequency, which stays defensible and is cleaner.
 2. **The reproduction points at one probe**, not the whole chain. The frequency discussion comes
    from a different and much longer pipeline. A reader who runs the command sees the periodicity
    result only. That is honest as written, but it means the weakest claim is the least reproducible

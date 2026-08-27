@@ -21,13 +21,13 @@ not discrepancy.
   FAILS the pre-registered band by more than the seed spread: the two estimators do NOT measure the same corrected scatter, so a single k per estimator above a floor does not describe these data.
   Supplementary (not pre-registered): the same ratio at p95, the quantile the exceedance actually uses, is 2.315 (seed range 2.256 to 2.349). OUTSIDE the band, so the agreement above does not extend to the tail the exceedance is computed from.
 
-=== anisotropic 1.45 / 1.05 (admissible) ===
+=== anisotropic 1.20 / 1.00 (admissible) ===
   estimator   |  floor |      k | rep p50 | corr p50 | rep p95 | corr p95
   --------------------------------------------------------------------------
-  plane       | 0.2155 | 0.2649 |  0.8321 |   2.9798 |  2.1211 |   7.9219
-  quadratic   | 0.0112 | 0.0925 |  0.2554 |   2.7647 |  0.6250 |   6.7543
-  R = corrected(plane) / corrected(quadratic) = 1.087   (seed range 1.059 to 1.115, spread 0.056)
-  PASSES the pre-registered band: the two estimators agree.
-  Supplementary (not pre-registered): the same ratio at p95, the quantile the exceedance actually uses, is 1.170 (seed range 1.148 to 1.183). Also inside the band.
+  plane       | 0.2155 | 0.3182 |  0.8321 |   2.5559 |  2.1211 |   6.7068
+  quadratic   | 0.0112 | 0.1274 |  0.2554 |   2.0077 |  0.6250 |   4.8881
+  R = corrected(plane) / corrected(quadratic) = 1.268   (seed range 1.233 to 1.320, spread 0.087)
+  OUTSIDE the band but by less than the seed spread: INCONCLUSIVE. Do not read this in either direction.
+  Supplementary (not pre-registered): the same ratio at p95, the quantile the exceedance actually uses, is 1.370 (seed range 1.326 to 1.401). OUTSIDE the band, so the agreement above does not extend to the tail the exceedance is computed from.
 
 Reminder of what this cannot show: two estimators sharing a wrong assumption would agree and both be wrong, so agreement is necessary and not sufficient. Disagreement is the decisive direction, because one quantity cannot be two.

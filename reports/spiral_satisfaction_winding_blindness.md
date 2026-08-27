@@ -669,40 +669,53 @@ Three corrections to this section's own earlier text, all of which ran in the fl
   injected on a 12×16 grid, where the same σ induces lag-1 +0.514 rather than the +0.357 it was
   fitted to. Now fitted on the injection grid (σ ≈ 0.56).
 
-⚠ **THE EXCEEDANCE IS ≈30%, NOT ≈6.8% — corrected 2026-08-26**
-(`reports/self_consistent_exceedance.txt`). Every exceedance previously in this report compared
-two quantities measured under **different** scatter surrogates: real scatter corrected by an
-estimator attenuation `k` fitted under one field, against an onset measured under another. That
-hybrid belongs to neither surrogate and is retracted.
+⚠ **THE EXCEEDANCE IS ≈24% — revised 2026-08-26 (second revision that day)**
+(`reports/self_consistent_exceedance.txt`). Two separate defects were corrected here in one day and
+both are recorded, because the second was found while checking the first.
 
-Recomputing **both sides under the same field**:
+**Defect one.** Every exceedance previously in this report compared two quantities measured under
+**different** scatter surrogates: real scatter corrected by an estimator attenuation *k* fitted
+under one field, against an onset measured under another. That hybrid belongs to neither surrogate
+and is retracted. Recomputing both sides under one field raised the figure from ≈6.8%.
+
+**Defect two, the more serious one.** The surrogate was fitted to two lag-1 statistics of the real
+residual, published as col **+0.357** and row **−0.076**. The column figure came from
+`measure_real_autocorrelation`, which broke out of its **outer** patch loop once a 400-window quota
+was met. `0000_top_band` is 241×13168 and filled that quota alone, so the "real" statistic was one
+patch's. Its own value is +0.353; the ten patches span **+0.057 to +0.494**; pooled properly the
+answer is **+0.213**. The row figure was hand-typed and had no measurement function anywhere in the
+repo; pooled, it is **+0.017**. This is the same outer-break pooling defect already fixed once in
+this series, in a different probe, and it sat under the chain's most load-bearing constant.
+
+Refitting to the pooled targets moves the surrogate from 1.45/1.05 to **1.20/1.00** and *k* from
+0.263 to **0.318**, shrinking the correction by about 19%.
 
 | surrogate | reproduces the real statistics? | k | corrected median | exceedance |
 |---|---|---|---|---|
-| isotropic 0.561 (published) | **no — wrong sign** (col −0.13 vs +0.357) | 0.690 | 1.16v | 1.91% |
-| isotropic 0.90 | no (col +0.01) | 0.416 | 1.92v | 12.85% |
-| isotropic 1.236 | no (col +0.11); an ESS *control*, never a candidate field | 0.271 | 2.95v | 28.61% |
-| **anisotropic 1.45 / 1.05** | **yes** (col +0.34, row −0.04) | 0.263 | 3.05v | **29.77%** |
+| isotropic 0.561 (published) | **no — wrong sign** (col −0.131 vs +0.213) | 0.690 | 1.16v | 1.91% |
+| isotropic 0.90 | no (col +0.010) | 0.416 | 1.92v | 12.85% |
+| isotropic 1.236 | no (col +0.114); an ESS *control*, never a candidate field | 0.271 | 2.95v | 28.61% |
+| **anisotropic 1.20 / 1.00** | **yes** (col +0.202, row +0.016; cost 0.012) | 0.318 | 2.52v | **23.59%** |
 
-**Only one of these is a candidate field.** A surrogate is admissible only if it reproduces the
-statistics the real residual actually has, measured through the same pipeline — the criterion this
-report established. Three fail it, the published one with the wrong sign. Reporting the spread
-across rejected hypotheses would manufacture a range rather than measure one.
+**Only one of these is a candidate field**, on the same admissibility criterion as before. Three
+fail it, the published one with the wrong sign. Reporting the spread across rejected hypotheses
+would manufacture a range rather than measure one.
 
-**The published figure is ≈30%, band ≈29–39%** across the neighbouring admissible family. That is
-roughly four times the ≈6.8% it replaces, and it **contradicts** rather than qualifies §9's
-conclusion that the break "is not reached by well-traced patches" — under the only admissible
-surrogate, it is reached by a substantial minority.
+**The figure is ≈23.6%, ±0.7 seed error.** The previously published "≈30%, band ≈29–39%" is
+superseded; that band came from a neighbouring-surrogate family around the old, mis-fitted centre
+and has **not** been recomputed around the new one, so no surrogate-family band is currently
+published. It still contradicts rather than qualifies §9's conclusion that the break "is not reached
+by well-traced patches": under the only admissible surrogate it is reached by a substantial minority.
 
-⚠ **Read the band for what it is.** It is the spread across admissible *surrogates*, not a
-confidence interval on the exceedance. As of 2026-08-26 the attenuation it divides by has
-independent support: a cross-estimator consistency test, pre-registered and detailed below, is
-passed by the admissible anisotropic surrogate (R = 1.09) and **failed** by the published isotropic
-one (R = 2.15). An earlier version of this note said the evidence pointed to ≈30% being an
-overestimate; that is retracted, and the reasoning behind it is set out below.
-
-⚠ **§9's own figures below (2.5%, and the P(notices) table) are superseded by this.** They are left
-in place for the record of how the number moved, not as current estimates.
+⚠ **The independent support for *k* is weaker than this report claimed yesterday.** A pre-registered
+cross-estimator test (below) asks whether a plane fit and a quadratic fit, which have very different
+attenuations, agree after correction. Under the corrected surrogate they do **not** quite: R = 1.268
+against a pre-registered band of [0.80, 1.25], outside it but by less than the seed spread, so the
+verdict is **inconclusive** — and at p95, the quantile the exceedance actually uses, R = 1.370,
+outside the band. Yesterday's report of that test passing (R = 1.087) was computed under the
+mis-fitted surrogate and is withdrawn. What survives is the **rejection**: the published isotropic
+arm gives R = 2.152, far outside the band and far outside its spread, so that arm — the one that
+yields ≈1.9% — is decisively excluded by a criterion that knows nothing about lag-1.
 
 *Two corrections to this section's own first version.* It concluded the exceedance was
 "undetermined, 2–30%". That was wrong in the opposite direction from the errors before it: it
@@ -725,9 +738,9 @@ observed residual divided by *k*, so their ratio is 1/*k* by construction. 1/0.2
 1.08 sampling difference between two measurements of the same quantity, is 4.09 against the 4.07
 "gap" reported. Definition, not discrepancy. The section has now been wrong in both directions.
 
-**The question was only ever whether *k* is right.** *k* = 0.263 says the plane estimator recovers
-26% of injected scatter, so real scatter is ≈3.8× what we observe. Nothing tested that
-independently.
+**The question was only ever whether *k* is right.** *k* = 0.318 (0.263 before the target defect was
+found) says the plane estimator recovers about a third of injected scatter, so real scatter is ≈3×
+what we observe. Nothing tested that independently.
 
 **The test that does.** The same real windows can be measured with a *quadratic* fit, which has a
 very different attenuation, a floor an order of magnitude smaller, and a very different raw answer
@@ -738,18 +751,21 @@ corrected(quadratic) inside [0.80, 1.25] — was committed **before** the run (`
 
 | surrogate | k plane | k quad | corrected p50 plane | corrected p50 quad | **R** | verdict |
 |---|---|---|---|---|---|---|
-| isotropic 0.561 (published) | 0.686 | 0.468 | 1.17 | 0.55 | **2.15** | fails |
-| anisotropic 1.45 / 1.05 (admissible) | 0.265 | 0.093 | 2.98 | 2.76 | **1.09** | passes |
+| isotropic 0.561 (published) | 0.686 | 0.468 | 1.17 | 0.55 | **2.15** | **fails** |
+| anisotropic 1.20 / 1.00 (admissible) | 0.318 | 0.127 | 2.56 | 2.01 | **1.27** | inconclusive |
 
-Seed spread on R is 0.026 and 0.056 respectively, so neither verdict is a sampling artifact. At p95 —
-the quantile the exceedance actually uses, added *after* seeing the p50 result and labelled as not
-pre-registered — R is 2.32 (isotropic) and 1.17 (anisotropic), the same split.
+Seed spreads are 0.026 and 0.087. The isotropic arm misses the band by 0.90 against a spread of
+0.026, which is decisive. The admissible arm misses it by 0.018 against a spread of 0.087, which is
+not — hence *inconclusive*, not *passes*. At p95, the quantile the exceedance actually uses (added
+*after* seeing the p50 result, labelled as not pre-registered), R is 2.32 and 1.37; the second is
+outside the band by more than its spread, so the tail is the less favourable of the two readings.
 
-**What this changes.** The correction underlying ≈30% now has support from a criterion that knows
-nothing about lag-1 autocorrelation, and the previously published isotropic arm — the one that gave
-≈1.9% — is the arm this test **rejects**. Two independent criteria now select the same surrogate.
-The withdrawal's closing line, that "≈30% is more likely an overestimate than not", is retracted: it
-rested on the saturation finding below plus a gap that turned out to be definitional.
+**What this changes, stated at its true strength.** An earlier version of this section reported this
+test as *passed* by the admissible surrogate at R = 1.087. That was computed under the mis-fitted
+1.45/1.05 surrogate and is **withdrawn**. What survives is the rejection, which is the direction
+this test is actually good for: the published isotropic arm — the one that yields ≈1.9% — is
+excluded by a criterion that knows nothing about lag-1. So *k* is better constrained than it was,
+but it is not confirmed, and the correction model is not shown to describe these data.
 
 **What it does not establish.** Agreement is necessary, not sufficient. Two estimators sharing a
 wrong assumption — a surrogate that misrepresents the real correlation structure in a way that
@@ -785,6 +801,12 @@ ratio separates them:
 | A isotropic 0.561 (published fit) | 60.66 | 2.86% ± 0.35 |
 | B isotropic 1.236 (**ESS-matched control**) | 12.61 | 6.75% ± 0.44 |
 | C anisotropic 1.45 / 1.05 | 12.61 | 6.79% ± 0.51 |
+
+*These three exceedances are hybrid-era and predate both the same-field correction and the
+correlation-target fix, so their absolute levels are superseded; arm C's surrogate is the
+now-retired 1.45/1.05. They are retained because what this section measures is the **decomposition**
+between magnitude and ratio, which is a comparison among the three arms rather than a level, and
+re-running it would not change which of the two effects dominates.*
 
 A→C is ×2.38 — the figure originally credited to anisotropy. **A→B, which changes only magnitude,
 is ×2.36. B→C, which changes only the ratio with ESS held fixed, is ×1.01.** Anisotropy accounts

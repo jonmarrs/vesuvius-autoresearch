@@ -88,7 +88,7 @@ INJECT_RMS = [0.25, 0.5, 1.0, 2.0, 3.0, 4.0]
 N_SAMPLES = 200
 N_SEEDS = 4
 SEED = 20260826
-K_PAR = 0.265  # plane, anisotropic 1.45/1.05, reports/cross_estimator_consistency.txt
+K_PAR = 0.318  # plane, anisotropic 1.20/1.00, reports/cross_estimator_consistency.txt
 K_TOLERANCE = 0.25
 OUT = os.path.join(_REPO, "reports", "nonparametric_surrogate.txt")
 

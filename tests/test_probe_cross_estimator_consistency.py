@@ -89,17 +89,21 @@ def test_the_rule_can_return_the_unfavourable_verdict():
     isotropic surrogate is rejected by it. A criterion that passed every arm
     would be decoration."""
     text = open(ARTIFACT).read()
-    iso = text[text.index("isotropic 0.561") : text.index("anisotropic 1.45")]
+    iso = text[text.index("isotropic 0.561") : text.index("anisotropic 1.20")]
     assert "FAILS the pre-registered band" in iso
 
 
-def test_the_artifact_reports_a_pass_only_for_the_admissible_surrogate():
-    """The discriminating result, pinned. Two independent criteria now select the
-    same surrogate: the lag-1 admissibility test used earlier, and this one,
-    which knows nothing about lag-1."""
+def test_the_admissible_arm_is_not_claimed_to_pass():
+    """What this test pins changed when the correlation-target defect was fixed.
+    Under the mis-fitted 1.45/1.05 surrogate the admissible arm PASSED at
+    R = 1.087, and that was published. Refitting to the pooled targets moves it to
+    R = 1.268, outside the band but by less than the seed spread. The artifact
+    must say inconclusive, and must not be allowed to drift back to a pass
+    without the numbers earning it."""
     text = open(ARTIFACT).read()
-    aniso = text[text.index("anisotropic 1.45") :]
-    assert "PASSES the pre-registered band" in aniso
+    aniso = text[text.index("anisotropic 1.20") :]
+    assert "INCONCLUSIVE" in aniso
+    assert "PASSES the pre-registered band" not in aniso
 
 
 def test_the_supplementary_p95_is_labelled_as_not_pre_registered():

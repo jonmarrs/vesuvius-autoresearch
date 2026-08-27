@@ -81,8 +81,32 @@ from probe_spiral_satisfaction_empirical_transform import (  # noqa: E402
 # The two statistics the surrogate must reproduce, measured on real 3x4 plane-fit
 # residual windows. The analysis window, not the injection grid: these are
 # properties of the real data, and the fit below targets them on the same shape.
-TARGET_COL_LAG1 = 0.357
-TARGET_ROW_LAG1 = -0.076
+#
+# ⚠ CORRECTED 2026-08-26, and these were the most load-bearing numbers in the
+# chain. The published pair was (+0.357, -0.076). The column figure came from
+# `measure_real_autocorrelation`, which broke out of its OUTER patch loop once a
+# 400-window quota was met -- `0000_top_band` is 241x13168 and filled that quota
+# alone, so the "real" statistic was one patch's (+0.353 on its own; the ten
+# patches span +0.057 to +0.494). The row figure was hand-typed and had no
+# measurement function anywhere in the repo. Pooled properly across all patches:
+#
+#     probe_correlated_scatter.measure_real_autocorrelation(n_windows=2000, axis=1)
+#     probe_correlated_scatter.measure_real_autocorrelation(n_windows=2000, axis=0)
+#
+# give +0.213 and +0.017. Refitting to these moves the surrogate from 1.45/1.05
+# to 1.20/1.00 (cost 0.012-0.027 across four seeds) and k from 0.2625 to 0.3176,
+# so the correction shrinks about 19%. The two target errors partly cancel: the
+# column target falls while the row target rises. Do not hand-edit these;
+# re-measure.
+#
+# A note on the fit itself, since it bit once: `fit_surrogate` at trials=300 is
+# noisy enough to land on a sigma that scores well under its own seed and badly
+# under another. A first refit returned 1.20/1.10, which costs 0.011 at seed 7
+# and 0.135 at seed 41 -- outside the admissibility threshold. The published
+# choice is taken from a grid search at trials=600 and confirmed across four
+# seeds.
+TARGET_COL_LAG1 = 0.213
+TARGET_ROW_LAG1 = 0.017
 ANALYSIS_WINDOW = (3, 4)
 
 N_RAYS = 40
