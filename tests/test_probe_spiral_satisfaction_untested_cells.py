@@ -10,11 +10,12 @@ import os
 import re
 import sys
 
-os.environ["CUDA_VISIBLE_DEVICES"] = ""
+os.environ["CUDA_VISIBLE_DEVICES"] = ""  # CPU-only for the imports below
 _REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(_REPO, "scripts"))
 
 import pytest  # noqa: E402
+from conftest import restore_cuda_env  # noqa: E402
 from probe_spiral_satisfaction_untested_cells import (  # noqa: E402
     DR,
     REAL_DR,
@@ -27,6 +28,8 @@ from probe_spiral_satisfaction_untested_cells import (  # noqa: E402
     run_cell2,
     verdict_disagreements,
 )
+
+restore_cuda_env()  # do not leave the mask for other test modules
 
 
 def test_anchors_to_the_pinned_zero_delta():

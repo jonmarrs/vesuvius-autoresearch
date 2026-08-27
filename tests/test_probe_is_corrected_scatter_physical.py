@@ -11,12 +11,13 @@ model, so it is not the model checking itself.
 import os
 import sys
 
-os.environ["CUDA_VISIBLE_DEVICES"] = ""
+os.environ["CUDA_VISIBLE_DEVICES"] = ""  # CPU-only for the imports below
 _REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(_REPO, "scripts"))
 
 import numpy as np  # noqa: E402
 import pytest  # noqa: E402
+from conftest import restore_cuda_env  # noqa: E402
 from probe_is_corrected_scatter_physical import (  # noqa: E402
     ANALYSIS,
     SCALES,
@@ -26,6 +27,8 @@ from probe_is_corrected_scatter_physical import (  # noqa: E402
     statistic_power,
 )
 from probe_real_patch_scatter import patch_dirs  # noqa: E402
+
+restore_cuda_env()  # do not leave the mask for other test modules
 
 needs_data = pytest.mark.skipif(not patch_dirs(), reason="real patch data absent")
 

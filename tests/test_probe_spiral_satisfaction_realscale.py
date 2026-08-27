@@ -7,7 +7,7 @@ directly, before trusting anything it reports about DR=12.81."""
 import os
 import sys
 
-os.environ["CUDA_VISIBLE_DEVICES"] = ""
+os.environ["CUDA_VISIBLE_DEVICES"] = ""  # CPU-only for the imports below
 _REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(_REPO, "scripts"))
 
@@ -15,6 +15,7 @@ import re
 
 import pytest
 import torch
+from conftest import restore_cuda_env  # noqa: E402
 from probe_spiral_satisfaction_realscale import (
     RATIO_LEVELS,
     REAL_DR,
@@ -29,6 +30,8 @@ from probe_spiral_satisfaction_winding import (
     displace,
     score,
 )
+
+restore_cuda_env()  # do not leave the mask for other test modules
 
 
 def test_run_cell_at_dr100_ratio1_reproduces_pinned_finding():

@@ -9,12 +9,13 @@ equal RMS, and the real residual not actually being correlated. Both are pinned.
 import os
 import sys
 
-os.environ["CUDA_VISIBLE_DEVICES"] = ""
+os.environ["CUDA_VISIBLE_DEVICES"] = ""  # CPU-only for the imports below
 _REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(_REPO, "scripts"))
 
 import numpy as np  # noqa: E402
 import pytest  # noqa: E402
+from conftest import restore_cuda_env  # noqa: E402
 from probe_correlated_scatter import (  # noqa: E402
     RMS_LEVELS,
     SIGMAS,
@@ -26,6 +27,8 @@ from probe_spiral_satisfaction_empirical_transform import (  # noqa: E402
     load_shard,
     usable_rays,
 )
+
+restore_cuda_env()  # do not leave the mask for other test modules
 
 
 def test_all_arms_have_identical_rms():

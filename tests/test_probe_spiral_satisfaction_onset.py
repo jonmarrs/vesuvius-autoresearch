@@ -10,12 +10,13 @@ does hold irregularity fixed.
 import os
 import sys
 
-os.environ["CUDA_VISIBLE_DEVICES"] = ""
+os.environ["CUDA_VISIBLE_DEVICES"] = ""  # CPU-only for the imports below
 _REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(_REPO, "scripts"))
 
 import numpy as np  # noqa: E402
 import pytest  # noqa: E402
+from conftest import restore_cuda_env  # noqa: E402
 from probe_spiral_satisfaction_empirical_transform import (  # noqa: E402
     load_shard,
     usable_rays,
@@ -27,6 +28,8 @@ from probe_spiral_satisfaction_onset import (  # noqa: E402
     sweep,
 )
 from probe_spiral_satisfaction_splicing_and_seam import REPORTING  # noqa: E402
+
+restore_cuda_env()  # do not leave the mask for other test modules
 
 
 def _rays(n=40):

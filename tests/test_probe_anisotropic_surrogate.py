@@ -10,12 +10,13 @@ Both are pinned here.
 import os
 import sys
 
-os.environ["CUDA_VISIBLE_DEVICES"] = ""
+os.environ["CUDA_VISIBLE_DEVICES"] = ""  # CPU-only for the imports below
 _REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(_REPO, "scripts"))
 
 import numpy as np  # noqa: E402
 import pytest  # noqa: E402
+from conftest import restore_cuda_env  # noqa: E402
 from probe_anisotropic_surrogate import (  # noqa: E402
     ISOTROPIC_SIGMA,
     TARGET_COL_LAG1,
@@ -28,6 +29,8 @@ from probe_anisotropic_surrogate import (  # noqa: E402
     white_noise_baseline,
 )
 from probe_onset_at_matched_correlation import INJECTION_GRID  # noqa: E402
+
+restore_cuda_env()  # do not leave the mask for other test modules
 
 
 def test_the_pipeline_induces_negative_row_correlation_on_white_noise():

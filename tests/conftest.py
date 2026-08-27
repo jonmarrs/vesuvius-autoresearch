@@ -38,6 +38,31 @@ def ambient_env():
     return env
 
 
+def restore_cuda_env() -> None:
+    """Put CUDA_VISIBLE_DEVICES back to the shell's value.
+
+    The probe modules mask CUDA so that importing villa and the probe scripts
+    cannot grab the GPU. They do not need, and must not have, a permanent
+    process-wide mask: pytest imports every test module during collection,
+    before running any test, so a mask left in place is inherited by every
+    later test body and every subprocess. Mask, import, then call this.
+
+    Be precise about what this costs. torch resolves CUDA lazily, not at
+    import: measured, `import torch` under a mask then restoring the env gives
+    is_available() True again. So this does NOT leave those modules with a
+    permanently CPU-only torch -- a later CUDA call inside a probe would see
+    the GPU. It is safe here because the probes are numpy/CPU throughout (no
+    `cuda` or `is_available` anywhere in scripts/probe_*.py); the mask is doing
+    its real job during import, which is where villa would otherwise
+    initialise. If a probe ever needs a guaranteed CPU-only torch for its whole
+    run, it must mask for the duration rather than rely on this.
+    """
+    if _AMBIENT_CUDA_VISIBLE_DEVICES is None:
+        os.environ.pop("CUDA_VISIBLE_DEVICES", None)
+    else:
+        os.environ["CUDA_VISIBLE_DEVICES"] = _AMBIENT_CUDA_VISIBLE_DEVICES
+
+
 def ambient_cuda_is_masked() -> bool:
     """True if the SHELL asked for CPU-only, as opposed to a test module doing it."""
     return _AMBIENT_CUDA_VISIBLE_DEVICES == ""

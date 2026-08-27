@@ -10,7 +10,7 @@ set, and that the min-over-rays and per-ray-median statistics are not confused.
 import os
 import sys
 
-os.environ["CUDA_VISIBLE_DEVICES"] = ""
+os.environ["CUDA_VISIBLE_DEVICES"] = ""  # CPU-only for the imports below
 _REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(_REPO, "scripts"))
 
@@ -19,6 +19,7 @@ import re  # noqa: E402
 
 import numpy as np  # noqa: E402
 import pytest  # noqa: E402
+from conftest import restore_cuda_env  # noqa: E402
 from probe_correlated_scatter import run_level  # noqa: E402
 from probe_onset_at_matched_correlation import (  # noqa: E402
     CORRECTED_MEDIAN,
@@ -33,6 +34,8 @@ from probe_spiral_satisfaction_empirical_transform import (  # noqa: E402
     load_shard,
     usable_rays,
 )
+
+restore_cuda_env()  # do not leave the mask for other test modules
 
 
 def _rays(n=40):

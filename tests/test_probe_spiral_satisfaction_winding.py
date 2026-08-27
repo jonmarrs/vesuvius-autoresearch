@@ -3,13 +3,14 @@
 import os
 import sys
 
-os.environ["CUDA_VISIBLE_DEVICES"] = ""
+os.environ["CUDA_VISIBLE_DEVICES"] = ""  # CPU-only for the imports below
 _REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(_REPO, "scripts"))
 
 import numpy as np
 import pytest
 import torch
+from conftest import restore_cuda_env  # noqa: E402
 from probe_spiral_satisfaction_winding import (
     DR,
     build_synthetic_patch,
@@ -17,6 +18,8 @@ from probe_spiral_satisfaction_winding import (
     score,
     score_conditions,
 )
+
+restore_cuda_env()  # do not leave the mask for other test modules
 
 
 def test_reference_patch_is_fully_satisfied():

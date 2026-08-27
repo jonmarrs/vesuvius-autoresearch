@@ -10,12 +10,13 @@ and a sweep too narrow to show the spread. Both are pinned.
 import os
 import sys
 
-os.environ["CUDA_VISIBLE_DEVICES"] = ""
+os.environ["CUDA_VISIBLE_DEVICES"] = ""  # CPU-only for the imports below
 _REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(_REPO, "scripts"))
 
 import numpy as np  # noqa: E402
 import pytest  # noqa: E402
+from conftest import restore_cuda_env  # noqa: E402
 from probe_real_patch_scatter import patch_dirs  # noqa: E402
 from probe_self_consistent_exceedance import (  # noqa: E402
     SURROGATES,
@@ -23,6 +24,8 @@ from probe_self_consistent_exceedance import (  # noqa: E402
     real_reported_scatter,
     refit_attenuation,
 )
+
+restore_cuda_env()  # do not leave the mask for other test modules
 
 needs_data = pytest.mark.skipif(not patch_dirs(), reason="real patch data absent")
 

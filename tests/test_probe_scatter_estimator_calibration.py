@@ -10,7 +10,7 @@ which would have roughly doubled the correction.
 import os
 import sys
 
-os.environ["CUDA_VISIBLE_DEVICES"] = ""
+os.environ["CUDA_VISIBLE_DEVICES"] = ""  # CPU-only for the imports below
 _REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(_REPO, "scripts"))
 
@@ -32,6 +32,10 @@ needs_data = pytest.mark.skipif(
     not patch_dirs(),
     reason="real patch data absent; see local_data/spiral_patches_phercparis4",
 )
+
+from conftest import restore_cuda_env  # noqa: E402
+
+restore_cuda_env()  # do not leave the mask for other test modules
 
 
 def test_matched_sigma_bisection_converges():
