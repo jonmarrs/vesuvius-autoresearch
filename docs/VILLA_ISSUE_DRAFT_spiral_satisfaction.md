@@ -1,6 +1,6 @@
 # DRAFT (NOT POSTED) — villa issue: spiral satisfaction cannot detect a sheet switch
 
-**Status: revised 2026-08-26 (fifth pass), NOT posted. HELD pending Jon's explicit approval.**
+**Status: revised 2026-08-27 (sixth pass), NOT posted. HELD pending Jon's explicit approval.**
 Do not post. Do not treat a later "continue" as authorization.
 
 This supersedes the 2026-08-25 draft and the three earlier passes of 2026-08-26. The core claim is
@@ -23,26 +23,19 @@ nothing, propose the cheapest fix without demanding it, credit the prior art.
 
 ## What changed since the last pass
 
-Realigned with the restructured report (`reports/spiral_satisfaction_winding_blindness.md`, commit
-`68bf3b28`), which now separates what stands without a scatter model from an unfinished calibration.
-The draft follows that split.
+**The proposed fix is now implemented and demonstrated, not just described.** The issue previously
+ended by suggesting a remedy and leaving a maintainer to judge whether it would work. It now shows
+it working: six cases that `get_patch_satisfied_areas` scores identically, which the check separates,
+including two with realistic scatter to show it does not fire on noise. About thirty lines.
 
-**Added: the real-geometry result**, which was the strongest evidence we had and was not in the
-draft at all. villa's unmodified function on windows of published traced surfaces, with a
-half-winding control that moves the score on 48 and 92 percent of windows while whole windings move
-it on none. Until this the whole issue rested on an analytic spiral.
+That changes what this issue is. It was a defect report; it is now a defect report with a working
+detector attached, and the detector's limits stated. The one thing it still cannot show is whether
+annotations reach enough patches in practice, which needs a fit we do not have.
 
-**Added: the two limits that come with it** — those windows are traced surfaces rather than
-spiral-fit patches, and they are coarse enough that the smallest one available spans 0.89 of a
-winding where the synthetic patch spans 0.16. Both are stated in the body rather than left for a
-maintainer to discover.
-
-**Removed as a headline: the frequency figure.** It is described, with its provenance and the fact
-that we do not trust it, instead of being asserted. This is the second time it has come out and the
-reasoning is different: last time it was removed because a check said it was biased high, and that
-check turned out to be broken. This time it is demoted because the estimate has moved five times in
-a day on our own defects and the machinery behind it is an unfinished calibration. The number is
-still in the text; it is no longer the answer to "does this matter".
+Also added: the implementation note about reproducing villa's snap arithmetic rather than
+substituting a rounding call. That is the kind of detail that decides whether someone
+reimplementing the check gets phantom reports, and it cost us a wrong claim to find -- we had
+documented the tie behaviour as "rounds up", which it is not.
 
 Constraints held, unchanged:
 
@@ -170,12 +163,42 @@ The `12.81` voxel spacing is measured, not assumed: it is the median inter-windi
 medians run 11.32 to 16.74. That puts villa's 6.0 voxel scan tolerance at about 47 percent of the
 real winding spacing.
 
-**Cheapest fix first.** For patches reachable from an absolute-winding annotation, compare the
-snapped target winding against the annotation-derived expectation and report the disagreement
-alongside the existing satisfaction figure. That is a report-only change: it adds a signal without
-altering what the metric accepts, and the propagation logic already exists in
-`find_inconsistent_windings.py`. A stricter version, failing such patches outright, would be a
-behaviour change and is not what this issue asks for.
+**Cheapest fix first, and it is about thirty lines.** For patches reachable from an absolute-winding
+annotation, compare the snapped target winding against the annotation-derived expectation and report
+the disagreement alongside the existing satisfaction figure. That is a report-only change: it adds a
+signal without altering what the metric accepts, and the propagation logic already exists in
+`find_inconsistent_windings.py`.
+
+We implemented it rather than only proposing it. The left column below is scored by
+`get_patch_satisfied_areas` itself, unmodified:
+
+| case | satisfied fraction | the check |
+|---|---|---|
+| correctly placed | 1.000000 | agrees |
+| displaced one whole winding | 1.000000 | disagrees by +1 |
+| displaced two whole windings | 1.000000 | disagrees by +2 |
+| displaced 23 whole windings | 1.000000 | disagrees by +23 |
+| correctly placed, 2.0 voxel scatter | 1.000000 | agrees |
+| displaced one winding, 2.0 voxel scatter | 1.000000 | disagrees by +1 |
+
+The satisfied fraction is identical across every row, spread `0.00e+00`. The check separates them
+without looking at the patch's shape, because it adds nothing about the patch's geometry: the
+snapped winding comes from the patch, the expected winding has to come from an annotation, and the
+check is only the comparison between the two. The scatter rows matter as much as the displaced ones,
+since a check that fired on noise would be unusable.
+
+One implementation detail, because getting it wrong produces phantom reports. Reproduce the snap as
+villa's own arithmetic rather than as a rounding call. Swept over 120,060 medians the two disagree
+52 times, always at an exact half-winding tie, and villa's direction at a tie is decided by whether
+`median % dr` lands just below or just above `dr / 2` in floating point rather than by any rule.
+Measure zero on real data, but a detector that disagreed with the metric at the boundary would
+report a disagreement the metric does not have.
+
+What we cannot show is whether this is useful in practice. It has never been run against a real
+annotated patch, because no fitted spiral checkpoint is published. Whether annotations reach enough
+patches to make the signal worth printing is a question for someone with the fit. A stricter
+version, failing such patches outright, would be a behaviour change and is not what this issue asks
+for.
 
 **Reproduction.** Offline, no GPU, no downloads, against villa's unmodified function:
 
@@ -199,6 +222,10 @@ Full write-up, including the limits and the corrections we made to our own earli
 - [ ] Decide whether the real-geometry table needs its own reproduction command. It currently has
       none: the single command reproduces the analytic result only, and the real-geometry work needs
       the `verified_patches` data, which is a download rather than an offline run.
+- [ ] Add the fix demonstration to the reproduction block. It runs offline with no downloads
+      (`scripts/winding_disagreement_check.py`), so unlike the real-geometry table there is no
+      reason for it to be unreproducible, and a maintainer is more likely to try a fix than a
+      defect.
 - [ ] Jon reads and approves the body verbatim
 
 ## Notes for the reviewer of this draft
@@ -216,7 +243,13 @@ Three judgement calls worth challenging:
    what is claimed and what is reproducible is better than in earlier drafts. The discarded
    frequency work is not reproducible from the one command, and is no longer relied on.
 
-3. **Nothing here mentions the mesh-splicing config's practical consequence.** It gates what enters
+3. **The body is now about 1,600 words**, up from roughly 1,100, and most of the growth is the
+   real-geometry table and the fix demonstration. Both earn their place, but a first contact this
+   long may get skimmed, and the two things a maintainer most needs to see are the periodicity table
+   and the fix. If it wants cutting, the frequency paragraph and the splicing-config paragraph are
+   the two that can go without losing the argument.
+
+4. **Nothing here mentions the mesh-splicing config's practical consequence.** It gates what enters
    the output mesh, which is arguably the most concerning part, and the draft states the fact without
    drawing the inference. That restraint may be right for a first contact, or may be burying the
    lede.
