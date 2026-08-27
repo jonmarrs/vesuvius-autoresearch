@@ -30,8 +30,9 @@
 # NOT a behaviour change: return_mode_windings defaults to False and the single
 # real call site, satisfaction_metrics.py:581, is untouched.
 #
-# Offered in https://github.com/ScrollPrize/villa/issues/1621 rather than as a
-# pull request.
+# POSTED 2026-08-27 to
+# https://github.com/ScrollPrize/villa/issues/1621#issuecomment-5442455172
+# as a comment, deliberately not as a pull request.
 
 --- a/spiral-fitting/tracks.py
 +++ b/spiral-fitting/tracks.py
