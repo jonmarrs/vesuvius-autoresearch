@@ -1,6 +1,6 @@
 # DRAFT (NOT POSTED) — villa issue: spiral satisfaction cannot detect a sheet switch
 
-**Status: revised 2026-08-27 (sixth pass), NOT posted. HELD pending Jon's explicit approval.**
+**Status: revised 2026-08-27 (seventh pass), NOT posted. HELD pending Jon's explicit approval.**
 Do not post. Do not treat a later "continue" as authorization.
 
 This supersedes the 2026-08-25 draft and the three earlier passes of 2026-08-26. The core claim is
@@ -23,19 +23,17 @@ nothing, propose the cheapest fix without demanding it, credit the prior art.
 
 ## What changed since the last pass
 
-**The proposed fix is now implemented and demonstrated, not just described.** The issue previously
-ended by suggesting a remedy and leaving a maintainer to judge whether it would work. It now shows
-it working: six cases that `get_patch_satisfied_areas` scores identically, which the check separates,
-including two with realistic scatter to show it does not fire on noise. About thirty lines.
+**The frequency paragraph is cut**, on Jon's instruction. 294 words out; the body is back to about
+1,330 from 1,630. Nothing else depended on it, which was the argument for cutting it.
 
-That changes what this issue is. It was a defect report; it is now a defect report with a working
-detector attached, and the detector's limits stated. The one thing it still cannot show is whether
-annotations reach enough patches in practice, which needs a fit we do not have.
+What survives of it is two sentences moved into Scope, because dropping the number should not leave
+a reader thinking the blindness is unconditional: it is exact for a patch lying on a winding, real
+noise makes the verdicts diverge on some cases, and when that happens the metric is rejecting a
+noisy patch rather than detecting a sheet switch. No figure is given, and the draft says we could
+not produce one we trust.
 
-Also added: the implementation note about reproducing villa's snap arithmetic rather than
-substituting a rounding call. That is the kind of detail that decides whether someone
-reimplementing the check gets phantom reports, and it cost us a wrong claim to find -- we had
-documented the tie behaviour as "rounds up", which it is not.
+Scope also had to be corrected rather than just trimmed. It claimed every number above was measured
+on synthetic patches, which stopped being true when the real-geometry table went in two passes ago.
 
 Constraints held, unchanged:
 
@@ -131,32 +129,19 @@ expected absolute winding by direct votes from attached absolute anchors plus a 
 relative-winding edges. It is a standalone debug tool, run one `--patch-id` at a time and outside the
 fit loop, so nothing in the scored path benefits from it today.
 
-**How often this matters in practice: we cannot give you a defensible number.** The exactness above
-is for a patch lying on a winding. Real patches carry surface noise, and once that noise is large
-enough the two verdicts do diverge, so the blindness is not total in practice.
-
-We built the machinery to estimate the rate and we do not trust its output. The estimate needs the
-residual scatter of real patches corrected for the attenuation the estimator introduces, and that
-correction is large, roughly a factor of three, and depends on a fitted noise model. Our figure has
-taken five values in a single day, and every move came from a defect we found in our own code rather
-than from new evidence: an attenuation fitted under one noise field and compared against a threshold
-measured under another; a correlation target that turned out to be a one-patch statistic because a
-loop broke out of the wrong level; a transplant that injected an empty field for half its donors.
-Three of those were written down before we caught them. The current figure is about 24 percent, the
-attenuation behind it is better constrained than it was but is not confirmed, and one of the
-arguments we had used to support it has been withdrawn outright.
-
-Publishing that as a headline would be claiming more than we have. What we can say without any of
-that machinery: the blindness is exact for a patch lying on a winding, real noise incidentally
-exposes some minority of displacements, and in those cases the metric is rejecting a noisy patch
-rather than detecting a sheet switch. It never tests for the thing that went wrong. Everything else
-in this report needs no noise model at all.
-
 **Scope, stated plainly.** This says nothing about how often real spiral fits actually misplace a
 patch by a winding, and it is not a claim that any published fit is wrong. It is a statement about
-what the metric can and cannot detect. Every number above was measured on synthetic patches scored by
-villa's real unmodified function. We did not run a fit, because no fitted spiral checkpoint is
-published under `dl.ash2txt.org/datasets/spiral_datasets/`.
+what the metric can and cannot detect. The numbers above come from synthetic patches and from
+windows of published traced surfaces, all scored by villa's real unmodified function. We did not run
+a fit, because no fitted spiral checkpoint is published under
+`dl.ash2txt.org/datasets/spiral_datasets/`.
+
+One qualification the exactness above deserves: it is exact for a patch lying on a winding. Real
+patches carry surface noise, and with enough of it the two verdicts do diverge, so the blindness is
+not total in practice. We tried to estimate how often and could not do it to our own satisfaction,
+so we are not putting a figure on it here. When noise does cause a divergence, note what is
+happening: the metric is rejecting a noisy patch, not detecting a sheet switch. It never tests for
+the thing that went wrong.
 
 The `12.81` voxel spacing is measured, not assumed: it is the median inter-winding gap across
 25,283,382 adjacent-winding gaps in the published `winding_model` crossing export, whose per-shard
@@ -232,11 +217,12 @@ Full write-up, including the limits and the corrections we made to our own earli
 
 Three judgement calls worth challenging:
 
-1. **The frequency figure is present but demoted, rather than either asserted or deleted.** A
-   maintainer's first question will be "does this ever matter", so saying nothing is unsatisfying;
-   asserting a number that has moved five times in a day on our own defects would be worse. The
-   middle course, describing the estimate and why we distrust it, risks reading as hedging. If you
-   want it gone entirely, the body loses one paragraph and nothing else depends on it.
+1. **The frequency figure is gone from the body entirely**, and the revision table below now records
+   six values for it across two days, ending in deletion. What remains is two sentences in Scope
+   saying the blindness is not total in practice and that we have no figure we trust. A maintainer
+   asking "does this ever matter" gets an honest non-answer rather than a number. If that reads as
+   too thin, the alternative is to restore one sentence naming the order of magnitude, but every
+   version of that sentence we have written has had to be retracted.
 
 2. **The reproduction points at one probe**, not the whole chain. That probe covers the exact,
    surrogate-free result, which is now the only quantitative claim in the body, so the match between
@@ -266,4 +252,5 @@ Not for the issue body. Kept because the sequence is the reason the number was d
 | 2026-08-26 | 24% | the correlation target was a one-patch statistic, not a ten-patch one |
 | 2026-08-26 | dropped | real-residual-shaped noise appeared to produce no divergence threshold |
 | 2026-08-26 | 24% | that check was broken: half the donors injected an all-zero field. Repaired, real-residual noise diverges the verdict as often as the fitted model (53% vs 54%) |
+| 2026-08-27 | cut from the body | Jon's call. Two sentences survive in Scope: the blindness is not total in practice, and we have no figure we trust |
 | 2026-08-26 | 24%, demoted | not a new defect: the report was restructured, and the whole scatter-model chain moved to an appendix marked unfinished. The figure stays in the text and stops being the answer to "does this matter" |
