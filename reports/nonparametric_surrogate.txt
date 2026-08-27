@@ -12,27 +12,27 @@ Residual bank: 10 real patches.
 
   estimator   |  floor |      k | reported p50 | corrected p50
   ----------------------------------------------------------------
-  plane       | 0.2192 | 0.0751 |       0.8321 |       10.8095
-  quadratic   | 0.0112 | 0.0088 |       0.2554 |       29.0682
+  plane       | 0.2207 | 0.0659 |       0.8321 |       12.4817
+  quadratic   | 0.0108 | 0.0117 |       0.2554 |       21.7928
 
 === Why this probe's k is NOT comparable to the Gaussian ones ===
   k is (recovered windowed residual) / (injected GLOBAL rms). That ratio is only
   meaningful across fields whose power sits at comparable wavelengths. Measured:
      field                                windowed 3x4 residual / global std
     ------------------------------------------------------------------------
-    white Gaussian                            0.831
-    Gaussian 0.561/0.561 (old fit)            0.663
-    Gaussian 1.20/1.00 (current fit)          0.308
-    REAL residual (0000_top_band)             0.000
-    REAL residual (auto_grown_202604211654037) degenerate
-    REAL residual (band-seed11136018-20260729)      0.055
+    white Gaussian                            0.823
+    Gaussian 0.561/0.561 (old fit)            0.662
+    Gaussian 1.20/1.00 (current fit)          0.317
+    REAL residual (0000_top_band)             0.013
+    REAL residual (auto_grown_202604211654037)      0.000
+    REAL residual (band-seed11136018-20260729)      0.070
   The real residual contributes essentially nothing inside a 3x4 window once it is
   normalised by its global std: its power is at wavelengths a plane fit over three
   by four cells removes wholesale. So a small k here is a statement about the
   field's spectrum and the normalisation convention, NOT about the estimator's
   attenuation, and it cannot be set against the Gaussian surrogates' k.
 
-  plane k under the real-residual injection: 0.0751 (seed range 0.0661 to 0.0849, spread 0.0188)
+  plane k under the real-residual injection: 0.0659 (seed range 0.0528 to 0.0896, spread 0.0368)
   published Gaussian-surrogate k: 0.318
 
   ⚠ THE PRE-REGISTERED VERDICT IS WITHDRAWN. The rule fired -- k is far below the
@@ -50,6 +50,6 @@ Residual bank: 10 real patches.
   does for the Gaussian arms. Until one of those is done, this probe reports a
   diagnostic and no verdict.
 
-  Secondary, and withdrawn for the same reason: the cross-estimator ratio under this injection is R = 0.372, which would read as inconsistent against the [0.8, 1.25] band. Both estimators are being scored against an injected magnitude defined on a scale neither of them measures, so the ratio inherits the same defect as the k comparison above and carries no verdict either.
+  Secondary, and withdrawn for the same reason: the cross-estimator ratio under this injection is R = 0.573, which would read as inconsistent against the [0.8, 1.25] band. Both estimators are being scored against an injected magnitude defined on a scale neither of them measures, so the ratio inherits the same defect as the k comparison above and carries no verdict either.
 
 Limits. The first was stated before the run and is now known to be swamped: tiling a donor residual to the recipient's grid introduces seams the real field does not have, which can only add high-frequency content and so biases k upward, against the direction that would support the published figure. And the residual excludes wavelengths longer than the reference smoothing by construction, so this tests the SHAPE of the roughness against a real sample, not the separation of roughness from curvature.

@@ -114,7 +114,7 @@ SEED = 20260826
 OUT = os.path.join(_REPO, "reports", "real_residual_exceedance.txt")
 
 
-def make_field_fn(donor):
+def make_field_fn(donor, donor_valid=None):
     """A drop-in replacement for `probe_correlated_scatter.noise_field`.
 
     Same signature and same contract -- a field of the requested shape scaled to
@@ -132,7 +132,7 @@ def make_field_fn(donor):
     """
 
     def field(shape, rms, _sigma, rng):
-        return transplant(donor, shape, rms, rng)
+        return transplant(donor, shape, rms, rng, valid=donor_valid)
 
     return field
 
@@ -147,8 +147,8 @@ def onsets_under_real(rays, bank, seed):
         per_ray = []
         for i, ray in enumerate(rays):
             # One donor per ray, held across the whole ladder.
-            donor = bank[(seed + i) % len(bank)][1]
-            pcs.noise_field = make_field_fn(donor)
+            _, donor, donor_valid = bank[(seed + i) % len(bank)]
+            pcs.noise_field = make_field_fn(donor, donor_valid)
             hit = None
             for rms in RMS_LEVELS:
                 _, flipped = run_level(
@@ -193,10 +193,10 @@ def refit_under_real(bank, seed):
         if base.size:
             floors.append(float(np.median(base)))
         here = names.index(os.path.basename(d))
-        donor_name, donor, _ = bank[(here + 1) % len(bank)]
+        donor_name, donor, donor_valid = bank[(here + 1) % len(bank)]
         assert donor_name != os.path.basename(d), "self-injection"
         for rms in INJECT_RMS:
-            field = transplant(donor, ref.shape, rms, rng)
+            field = transplant(donor, ref.shape, rms, rng, valid=donor_valid)
             res = window_residuals(
                 ref + field, valid, WINDOW[0], WINDOW[1], 1, rng, n_samples=N_SAMPLES
             )
@@ -257,8 +257,10 @@ def main():
 
     rng = np.random.default_rng(SEED)
     ratios = [
-        windowed_over_global(transplant(r, INJECTION_GRID_SHAPE, 1.0, rng), rng)
-        for _, r, _ in bank[:5]
+        windowed_over_global(
+            transplant(r, INJECTION_GRID_SHAPE, 1.0, rng, valid=v), rng
+        )
+        for _, r, v in bank[:5]
     ]
     finite = [x for x in ratios if np.isfinite(x)]
 
@@ -298,11 +300,30 @@ def main():
             " below is VOID and carries no verdict."
         )
         lines.append("")
-        lines.append("=== But the gate's failure is itself the result ===")
+        lines.append("=== What the gate's failure does and does not mean ===")
         lines.append(
-            "  The obvious explanation is a sweep that stops too early. It is not. Extending"
-            " the ladder 32x changes nothing:"
+            "  ⚠ An earlier version of this artifact read the gate's failure as a finding:"
         )
+        lines.append(
+            "  that a real-residual-shaped perturbation mostly cannot diverge villa's verdict,"
+        )
+        lines.append(
+            "  that the surrogate perturbs 2.3x as readily, and therefore that ~24% is biased"
+        )
+        lines.append(
+            "  high. That was an artifact of a broken injection: `transplant` cropped the"
+        )
+        lines.append(
+            "  donor's TOP-LEFT corner, which for these patches lies outside the traced region,"
+        )
+        lines.append(
+            "  so five of ten donors injected an all-zero field and the rest were 43 to 67"
+        )
+        lines.append(
+            "  percent zeros. Most of those rays diverged no verdict because nothing was"
+        )
+        lines.append("  added to them. Corrected, the comparison inverts:")
+        lines.append("")
         lines.append(
             f"    real residual, ladder to {RMS_LEVELS[-1]:.0f}:   no onset for "
             f"{short_f:.0%} of rays  ({', '.join(f'{x:.0%}' for x in short_each)})"
@@ -315,41 +336,40 @@ def main():
             f"    Gaussian 1.20/1.00, its own ladder:  no onset for "
             f"{float(np.mean(g)):.0%} of rays"
         )
-        lines.append(
-            "  So for the great majority of rays a real-residual-shaped perturbation never"
-        )
-        lines.append(
-            "  makes villa's verdict differ between the correct and the whole-winding-"
-        )
         ratio = (1 - float(np.mean(g))) / max(1 - long_f, 1e-9)
-        lines.append(
-            "  displaced patch, at ANY amplitude tested. The admissible Gaussian, which is"
-        )
-        lines.append(
-            f"  what the published exceedance is computed with, diverges the verdict on"
-            f" {ratio:.1f}x as many rays ({1 - float(np.mean(g)):.0%} against"
-            f" {1 - long_f:.0%})."
-        )
         lines.append("")
         lines.append(
-            "  This bears directly on the ~24% headline and not in its favour. The exceedance"
+            f"  The two agree: the Gaussian diverges the verdict on {ratio:.1f}x as many rays"
+            f" ({1 - float(np.mean(g)):.0%} against {1 - long_f:.0%}). So a field with the real"
         )
         lines.append(
-            "  presumes an onset exists, then asks how often real scatter reaches it. Under a"
+            "  residual's shape perturbs villa's verdict about as often as the fitted"
         )
         lines.append(
-            "  field shaped like the real residual, the onset usually does not exist, which"
+            "  surrogate does, which is evidence FOR the surrogate being an adequate stand-in"
         )
         lines.append(
-            "  suggests the surrogate perturbs the verdict more readily than the real"
+            "  for this purpose, and removes the basis for the withdrawn claim that ~24% is"
+        )
+        lines.append("  biased high.")
+        lines.append("")
+        lines.append(
+            "  The gate still fails, and what it now exposes is different and worth stating:"
         )
         lines.append(
-            "  thing does, and that the true rate is well below 24%. It does not say what the"
+            f"  about half the rays have no onset under EITHER field ({float(np.mean(g)):.0%}"
+            " for the Gaussian). The published exceedance treats a ray with no onset as"
         )
         lines.append(
-            "  rate IS: the framework cannot be transported to a field with no onset, so this"
+            "  contributing zero, so roughly half of the 23.59% figure's denominator is rays"
         )
-        lines.append("  is a direction, not a replacement figure.")
+        lines.append(
+            "  that can never contribute. That is a property of the published number worth"
+        )
+        lines.append(
+            "  knowing; it is not addressed here, and the 25% gate was set without knowing"
+        )
+        lines.append("  the Gaussian arm would fail it too.")
     else:
         lines.append("  Within the pre-registered limit; the sweep reaches the onset.")
     lines.append("")

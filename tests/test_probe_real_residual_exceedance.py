@@ -50,10 +50,30 @@ def test_the_artifact_refuses_a_verdict():
     assert "No verdict: the validity gate above failed." in text
 
 
-def test_the_artifact_does_not_claim_a_replacement_figure():
-    """The finding is a direction, not a number, and must not drift into one."""
+def test_the_artifact_records_the_withdrawn_reading():
+    """This probe's first published reading was wrong, and the artifact must carry
+    the withdrawal rather than quietly presenting the corrected numbers as if they
+    had always been there."""
     text = open(ARTIFACT).read()
-    assert "direction, not a replacement figure" in text
+    assert (
+        "An earlier version of this artifact read the gate's failure as a finding"
+        in text
+    )
+    assert "all-zero field" in text
+    assert "removes the basis for the withdrawn claim" in text
+
+
+def test_the_two_fields_are_reported_as_agreeing():
+    """The corrected comparison. A field shaped like the real residual diverges the
+    verdict about as often as the fitted surrogate, which is the opposite of what
+    was published an hour earlier."""
+    import re
+
+    text = open(ARTIFACT).read()
+    m = re.search(r"on ([\d.]+)x as many rays \((\d+)% against (\d+)%\)", text)
+    assert m, "the comparison sentence changed shape; re-check by hand"
+    ratio = float(m.group(1))
+    assert 0.8 <= ratio <= 1.25, f"ratio {ratio} no longer supports 'they agree'"
 
 
 def test_the_narrative_ratio_matches_the_table():
@@ -81,7 +101,7 @@ def test_the_field_generator_holds_the_donor_fixed():
 
     src = inspect.getsource(mod.make_field_fn)
     assert "jitter" not in src
-    assert "def make_field_fn(donor)" in src
+    assert "def make_field_fn(donor" in src
 
 
 @needs_data

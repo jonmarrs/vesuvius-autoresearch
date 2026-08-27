@@ -80,6 +80,37 @@ def test_the_artifact_says_what_would_make_it_valid():
 
 
 @needs_data
+def test_the_transplant_actually_injects_something():
+    """The defect that invalidated a published result. `transplant` used to crop
+    the donor's top-left corner, which for these patches is outside the traced
+    region where the residual is zero: five of ten donors injected an all-zero
+    field at the synthetic patch's shape, and every conclusion drawn from that was
+    measuring the absence of an injection."""
+    import numpy as np
+
+    bank = mod.residual_bank()
+    for name, resid, valid in bank:
+        rng = np.random.default_rng(1)
+        field = mod.transplant(resid, (12, 16), 1.0, rng, valid=valid)
+        assert float(field.std()) > 0.5, f"{name} injects a degenerate field"
+
+
+@needs_data
+def test_the_transplant_prefers_valid_windows():
+    """The mechanism of the fix, not just its effect: the chosen window must be
+    mostly inside the traced region."""
+    import numpy as np
+
+    bank = mod.residual_bank()
+    fracs = [
+        mod.transplant_validity(r, (12, 16), np.random.default_rng(1), valid=v)
+        for _, r, v in bank
+    ]
+    assert min(fracs) > 0.5
+    assert sum(f >= 1.0 for f in fracs) >= len(fracs) // 2
+
+
+@needs_data
 def test_the_donor_is_never_the_recipient():
     """Self-injection is the flattering failure here, and the assertion that
     prevents it must actually be reachable rather than decorative."""

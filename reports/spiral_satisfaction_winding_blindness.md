@@ -709,6 +709,26 @@ and has **not** been recomputed around the new one, so no surrogate-family band 
 published. It still contradicts rather than qualifies §9's conclusion that the break "is not reached
 by well-traced patches": under the only admissible surrogate it is reached by a substantial minority.
 
+⚠ **A same-day retraction of a same-day claim, recorded because the sequence matters more than
+either number** (`reports/real_residual_exceedance.txt`). A probe run this afternoon reported that a
+perturbation shaped like a real patch residual almost never diverges villa's verdict — 77% of rays
+with no threshold at any amplitude, against 46% for the fitted surrogate — and concluded that the
+surrogate over-perturbs and that ≈24% is biased high by an unknown amount. That was published, and
+the villa draft was rewritten to drop its frequency figure on the strength of it.
+
+It was a bug in the injection. `transplant` cropped the donor's **top-left corner**, which for these
+patches lies outside the traced region where the residual is zero by construction: **five of ten
+donors injected an all-zero field**, and the remainder were 43–67% zeros. Most of those rays
+diverged nothing because nothing was added to them. Repaired to search for a valid window, the
+comparison reverses — real-residual-shaped noise diverges the verdict on **53%** of rays against the
+surrogate's **54%**, a ratio of 1.0. That is evidence *for* the surrogate being an adequate stand-in
+here, and the claim that ≈24% is biased high is **withdrawn**.
+
+What the repaired probe does expose is different and stands: **about half the rays have no
+divergence threshold under either field** (46% for the Gaussian). `exceedance_under` counts a ray
+with no onset as contributing zero, so roughly half the population underlying ≈23.6% cannot
+contribute to it. That is a property of the published figure worth knowing, and it is not addressed.
+
 ⚠ **The independent support for *k* is weaker than this report claimed yesterday.** A pre-registered
 cross-estimator test (below) asks whether a plane fit and a quadratic fit, which have very different
 attenuations, agree after correction. Under the corrected surrogate they do **not** quite: R = 1.268

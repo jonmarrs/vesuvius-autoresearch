@@ -112,27 +112,73 @@ def residual_bank():
     return bank
 
 
-def transplant(donor, shape, rms, rng):
-    """Donor residual tiled and cropped to `shape`, rescaled to `rms`.
+def transplant(donor, shape, rms, rng, valid=None, tries=64):
+    """A patch of donor residual, resized to `shape` and rescaled to `rms`.
 
-    Tiling introduces seams the real field does not have. Disclosed, and it cuts
-    against this probe's favourable direction: added high-frequency content
-    raises apparent recovery, which would make k look LARGER and the correction
-    smaller.
+    ⚠ REWRITTEN 2026-08-26 after the original silently injected nothing.
+
+    The first version tiled the donor and then took `[:h, :w]` -- the TOP-LEFT
+    corner. For a donor larger than the target that is not a tile at all, it is a
+    crop, and for these patches the top-left corner is outside the traced region,
+    where the residual is zero by construction. Measured: five of ten donors
+    injected an all-zero field at the synthetic patch's 12x16 shape, and the other
+    five were 43 to 67 percent zeros. The random roll applied afterwards could not
+    help, because it rolled the already-cropped window rather than moving the
+    window over the donor.
+
+    Everything built on the old behaviour was measuring the absence of an
+    injection: the "77 percent of rays never diverge" result, and the
+    windowed-over-global table whose zero entries were read as evidence that the
+    real residual carries no window-scale power.
+
+    This version searches for an offset whose window is fully valid, and falls
+    back to the most-valid window it found rather than returning zeros silently.
     """
-    reps = (
-        int(np.ceil(shape[0] / donor.shape[0])),
-        int(np.ceil(shape[1] / donor.shape[1])),
-    )
-    tiled = np.tile(donor, reps)[: shape[0], : shape[1]]
-    # A random roll so a fixed pairing does not always present the same corner.
-    tiled = np.roll(
-        tiled,
-        (int(rng.integers(0, shape[0])), int(rng.integers(0, shape[1]))),
-        axis=(0, 1),
-    )
-    sd = float(tiled.std())
-    return tiled / sd * rms if sd > 0 else tiled
+    h, w = shape
+    if valid is None:
+        valid = donor != 0.0
+    dh, dw = donor.shape
+    # Seeded with a real offset rather than None: the loop always runs, but the
+    # type should not depend on that and mypy is right to object.
+    best, best_score = (0, 0), -1.0
+    for _ in range(tries):
+        if dh > h:
+            i = int(rng.integers(0, dh - h + 1))
+        else:
+            i = 0
+        if dw > w:
+            j = int(rng.integers(0, dw - w + 1))
+        else:
+            j = 0
+        reps = (int(np.ceil(h / max(dh, 1))), int(np.ceil(w / max(dw, 1))))
+        win_v = np.tile(valid[i:, j:], reps)[:h, :w]
+        score = float(win_v.mean())
+        if score > best_score:
+            best_score, best = score, (i, j)
+        if score >= 1.0:
+            break
+    i, j = best
+    reps = (int(np.ceil(h / max(dh, 1))), int(np.ceil(w / max(dw, 1))))
+    win = np.tile(donor[i:, j:], reps)[:h, :w]
+    sd = float(win.std())
+    return win / sd * rms if sd > 0 else win
+
+
+def transplant_validity(donor, shape, rng, valid=None, tries=64):
+    """The valid fraction the chosen window achieved. Reported, not assumed."""
+    h, w = shape
+    if valid is None:
+        valid = donor != 0.0
+    dh, dw = donor.shape
+    best = 0.0
+    for _ in range(tries):
+        i = int(rng.integers(0, dh - h + 1)) if dh > h else 0
+        j = int(rng.integers(0, dw - w + 1)) if dw > w else 0
+        reps = (int(np.ceil(h / max(dh, 1))), int(np.ceil(w / max(dw, 1))))
+        best = max(best, float(np.tile(valid[i:, j:], reps)[:h, :w].mean()))
+        if best >= 1.0:
+            break
+    return best
 
 
 def windowed_over_global(field, rng, n=400):
@@ -167,18 +213,14 @@ def spectral_diagnostic(bank, seed=SEED):
             anisotropic_field(shape, 1.0, 1.20, 1.00, rng),
         ),
     ]
-    for name, resid, _ in bank[:3]:
+    for name, resid, valid in bank[:3]:
         rows.append(
-            (f"REAL residual ({name[:26]})", transplant(resid, shape, 1.0, rng))
+            (
+                f"REAL residual ({name[:26]})",
+                transplant(resid, shape, 1.0, rng, valid=valid),
+            )
         )
-    out = []
-    for label, f in rows:
-        ratio = windowed_over_global(f, rng)
-        # A donor crop can come out so nearly planar that the window residual, or
-        # the field's own std, underflows. Reported rather than dropped: a field
-        # that degenerate is itself the finding.
-        out.append((label, ratio))
-    return out
+    return [(label, windowed_over_global(f, rng)) for label, f in rows]
 
 
 def refit_nonparametric(order, bank, seed):
@@ -207,10 +249,10 @@ def refit_nonparametric(order, bank, seed):
             continue
         # Fixed pairing: the next patch in the bank, never the patch itself.
         here = names.index(os.path.basename(d))
-        donor_name, donor, _ = bank[(here + 1) % len(bank)]
+        donor_name, donor, donor_valid = bank[(here + 1) % len(bank)]
         assert donor_name != os.path.basename(d), "self-injection"
         for rms in INJECT_RMS:
-            field = transplant(donor, ref.shape, rms, rng)
+            field = transplant(donor, ref.shape, rms, rng, valid=donor_valid)
             res = window_residuals(
                 ref + field,
                 valid,
