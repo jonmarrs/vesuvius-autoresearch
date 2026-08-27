@@ -140,8 +140,13 @@ def refit_nonparametric(order, bank, seed):
     rng = np.random.default_rng(seed)
     floors, reported = [], {r: [] for r in INJECT_RMS}
     umb = load_umbilicus()
-    dirs = list(patch_dirs())
-    for idx, d in enumerate(dirs):
+    # Index into the BANK, not into patch_dirs(). The bank is built with the
+    # same size filter, so a skipped patch would shift the two apart and a
+    # patch could then receive its own residual -- self-injection, which
+    # inflates apparent recovery and would push k upward. The donor is chosen
+    # by the recipient's position in the bank and asserted to differ.
+    names = [b[0] for b in bank]
+    for d in patch_dirs():
         xs, ys, zs, valid = load_patch(d)
         if not valid.any() or valid.shape[0] < WINDOW[0] or valid.shape[1] < WINDOW[1]:
             continue
@@ -155,7 +160,9 @@ def refit_nonparametric(order, bank, seed):
         if len(bank) < 2:
             continue
         # Fixed pairing: the next patch in the bank, never the patch itself.
-        donor = bank[(idx + 1) % len(bank)][1]
+        here = names.index(os.path.basename(d))
+        donor_name, donor, _ = bank[(here + 1) % len(bank)]
+        assert donor_name != os.path.basename(d), "self-injection"
         for rms in INJECT_RMS:
             field = transplant(donor, ref.shape, rms, rng)
             res = window_residuals(
