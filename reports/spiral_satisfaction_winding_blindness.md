@@ -115,15 +115,17 @@ pre-registration as *stated in advance and recorded late*, and weight it accordi
 no argument that repairs this; it is a process defect in a run whose whole point was
 pre-registration discipline.
 
-Sources for every number below, all committed on branch `probe/spiral-satisfaction-winding`:
+Sources for every number below, all now on `main` (they were developed on short-lived probe
+branches, which have since been deleted; provenance is cited by commit, which survives branch
+deletion, rather than by branch name, which does not):
 `reports/spiral_satisfaction_winding_probe.txt`,
 `reports/spiral_satisfaction_winding_robustness.txt`,
 `reports/real_winding_nonlinearity.txt`,
-`reports/spiral_satisfaction_realscale.txt`. §7's numbers come from
-`reports/spiral_satisfaction_untested_cells.txt`, committed on branch
-`probe/spiral-winding-untested-cells` (commits `2b73bbb9`, `5726b809`). §8's numbers come from
-`reports/spiral_satisfaction_onset.txt` (commit `7ae060d5`), and §9's from
-`reports/real_patch_scatter.txt` (commit `ebeb9235`).
+`reports/spiral_satisfaction_realscale.txt` (through commit `6aafab60`). §7's numbers come from
+`reports/spiral_satisfaction_untested_cells.txt` (commits `2b73bbb9`, `5726b809`, `2cb81286`).
+§8's numbers come from `reports/spiral_satisfaction_onset.txt` (commit `7ae060d5`), and §9's from
+`reports/real_patch_scatter.txt` (commit `ebeb9235`). §10's physicality material is at commit
+`efa6a5db`, superseded by `d130d70e` and `8245f7bc`.
 
 ---
 
