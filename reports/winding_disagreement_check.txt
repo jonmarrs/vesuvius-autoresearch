@@ -1,0 +1,34 @@
+The proposed fix, implemented and demonstrated
+
+The report proposes comparing the winding the metric snapped to against the
+winding an absolute annotation implies. This is that comparison. It adds nothing
+about the patch's own geometry, which is the point: the snapped winding comes
+from the patch, the expected winding must come from an annotation, and the check
+is the comparison the metric never makes.
+
+  dr = 12.81 voxels, patch belongs on winding 5
+  villa's column is scored by its own unmodified function, not asserted.
+
+   case                                     villa says   the check says
+  --------------------------------------------------------------------------
+   correctly placed                           1.000000   agrees
+   displaced one whole winding                1.000000   DISAGREES by +1
+   displaced two whole windings               1.000000   DISAGREES by +2
+   displaced 23 whole windings                1.000000   DISAGREES by +23
+   correctly placed, 2.0 vox scatter          1.000000   agrees
+   displaced one winding, 2.0 vox scatter     1.000000   DISAGREES by +1
+
+  villa's scores across every row: IDENTICAL (spread 0.00e+00).
+  That is the finding this check answers, and it is computed here rather than
+  quoted: one number for a patch in the right place and for the same patch 23
+  windings away. The check separates them without looking at the patch's shape.
+
+  The scatter rows matter as much as the displaced ones. A noisy patch in the
+  right place still reports agreement, so the check does not fire on noise, and a
+  noisy patch in the wrong place still reports the displacement.
+
+Limit. This cannot be validated end to end here: no fitted spiral checkpoint is
+published, so there are no real annotated patches to run it against. What is
+shown is that the check fires on the displacement the metric scores identically
+and stays silent on a patch that is merely noisy. Whether annotations reach
+enough patches in practice is a question for someone with the fit.

@@ -1016,6 +1016,45 @@ evidence, well-traced real patches do not typically carry enough scatter to reac
 
 ---
 
+## 5. The proposed fix, implemented
+
+*Source: `reports/winding_disagreement_check.txt`, `scripts/winding_disagreement_check.py`.*
+
+This report proposes a remedy — compare the winding the metric snapped to against the winding an
+absolute annotation implies, and report the disagreement. Proposing a fix without implementing it
+leaves the reader to judge whether it would work, so here it is, in one function.
+
+| case | villa's satisfied fraction | the check |
+|---|---|---|
+| correctly placed | 1.000000 | agrees |
+| displaced one whole winding | 1.000000 | **DISAGREES by +1** |
+| displaced two whole windings | 1.000000 | **DISAGREES by +2** |
+| displaced 23 whole windings | 1.000000 | **DISAGREES by +23** |
+| correctly placed, 2.0 vox scatter | 1.000000 | agrees |
+| displaced one winding, 2.0 vox scatter | 1.000000 | **DISAGREES by +1** |
+
+villa's column is **scored by its own unmodified function at runtime**, not quoted: the spread
+across all six rows is `0.00e+00`. The check separates them without looking at the patch's shape at
+all, because it adds nothing about the patch's geometry — the snapped winding comes from the patch,
+the expected winding must come from an annotation, and the check is only the comparison between
+them.
+
+The scatter rows matter as much as the displaced ones: a noisy patch in the right place still
+reports agreement, so the check does not fire on noise.
+
+**One implementation detail worth stating**, because getting it wrong would produce phantom reports.
+The snap is reproduced as villa's own arithmetic (`modulus = median % dr`, then a two-branch
+select), not as `round()`. Swept over 120,060 medians the two disagree 52 times, always at an exact
+half-winding tie, and villa's direction at a tie is decided by floating-point residue rather than by
+a rule — at *w*+0.5 it can fall either way. Measure-zero on real data, and reproduced exactly anyway,
+since a detector that disagreed with the metric at the boundary would report a disagreement the
+metric does not have.
+
+⚠ **Not validated end to end.** No fitted spiral checkpoint is published, so there are no real
+annotated patches to run this against. What is shown is that the check fires on the displacement the
+metric scores identically and stays silent on a patch that is merely noisy. Whether annotations
+reach enough patches in practice is a question for someone with the fit.
+
 ## Limits
 
 Stated plainly, because each is a place this work could mislead.
