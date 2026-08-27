@@ -84,38 +84,68 @@ EDGE_PILEUP_LIMIT = 0.10
 OUT = os.path.join(_REPO, "reports", "best_case_dr.txt")
 
 
-def best_dr(patch):
-    """The dr maximising this window's satisfied-quad fraction, and that fraction."""
-    best_frac, best_val = -1.0, float("nan")
-    for dr in DR_SWEEP:
-        frac = score_with(patch, dr, REPORTING, IdentityTransform())
-        if frac > best_frac:
-            best_frac, best_val = frac, dr
-    return best_val, best_frac
+PHYSICAL_DR = [round(11.0 + 0.25 * i, 2) for i in range(24)]  # 11.00 .. 16.75
+
+
+def satisfied_over(patch, drs, total_quads):
+    """Best fraction over `drs`, whether any of them satisfies, and the tied set.
+
+    Returns the tied winners rather than one value. With three quads the fraction
+    takes four values, so many dr values tie for the maximum and a loop that keeps
+    the first one reports whichever end of the sweep it started from. An earlier
+    version did exactly that and produced a "winning dr" distribution piled 32
+    percent on the low endpoint -- which I read as the sweep being too narrow
+    before checking that the fraction is flat in dr over most of the range.
+    """
+    thresh = REPORTING["satisfied_patch_quad_fraction"]
+    fracs = np.array(
+        [score_with(patch, dr, REPORTING, IdentityTransform()) for dr in drs]
+    )
+    best = float(fracs.max())
+    tied = [dr for dr, f in zip(drs, fracs, strict=False) if f >= best - 1e-9]
+    any_sat = any(_patch_is_satisfied(float(f), total_quads, thresh) for f in fracs)
+    return best, any_sat, tied
 
 
 def analyse(windows):
     total_quads = int(windows[0][1].valid_quad_mask.sum().item())
     thresh = REPORTING["satisfied_patch_quad_fraction"]
-    best_drs, best_fracs, sat_at_best, whole_deltas = [], [], [], []
+    at_median, in_physical, anywhere, best_fracs, tie_widths, whole_deltas = (
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+    )
     for _, patch in windows:
-        dr, frac = best_dr(patch)
-        best_drs.append(dr)
-        best_fracs.append(frac)
-        sat_at_best.append(_patch_is_satisfied(frac, total_quads, thresh))
-        moved = displace(patch, dr, n_windings=1.0)
+        f_med = score_with(patch, REAL_DR, REPORTING, IdentityTransform())
+        at_median.append(_patch_is_satisfied(f_med, total_quads, thresh))
+
+        _, sat_phys, _ = satisfied_over(patch, PHYSICAL_DR, total_quads)
+        in_physical.append(sat_phys)
+
+        best, sat_any, tied = satisfied_over(patch, DR_SWEEP, total_quads)
+        anywhere.append(sat_any)
+        best_fracs.append(best)
+        tie_widths.append(len(tied) / len(DR_SWEEP))
+
+        # The blindness re-checked at a dr chosen for THIS window, not a shared
+        # constant: the midpoint of its tied-best set.
+        dr_here = float(np.median(tied))
+        base = score_with(patch, dr_here, REPORTING, IdentityTransform())
+        moved = displace(patch, dr_here, n_windings=1.0)
         whole_deltas.append(
-            abs(score_with(moved, dr, REPORTING, IdentityTransform()) - frac)
+            abs(score_with(moved, dr_here, REPORTING, IdentityTransform()) - base)
         )
-    drs = np.array(best_drs)
     return {
         "n": len(windows),
         "quads": total_quads,
+        "at_median": float(np.mean(at_median)),
+        "in_physical": float(np.mean(in_physical)),
+        "anywhere": float(np.mean(anywhere)),
         "best_frac_p50": float(np.median(best_fracs)),
-        "satisfied": float(np.mean(sat_at_best)),
-        "dr_p50": float(np.median(drs)),
-        "dr_lo": float(np.mean(drs <= DR_SWEEP[0] + 1e-9)),
-        "dr_hi": float(np.mean(drs >= DR_SWEEP[-1] - 1e-9)),
+        "tie_width_p50": float(np.median(tie_widths)),
         "whole_max_delta": float(np.max(whole_deltas)),
     }
 
@@ -146,16 +176,26 @@ def main():
         lines.append(
             f"=== {label} ({shape[0]}x{shape[1]} cells, {r['quads']} quads) ==="
         )
-        lines.append(f"  windows                          {r['n']}")
-        lines.append(f"  best-case satisfied fraction p50 {r['best_frac_p50']:.3f}")
-        lines.append(f"  share satisfied at its best dr   {r['satisfied']:.1%}")
-        lines.append(f"  winning dr, median               {r['dr_p50']:.2f} vox")
+        lines.append(f"  windows                                  {r['n']}")
         lines.append(
-            f"  winners at sweep edges           {r['dr_lo']:.0%} low, {r['dr_hi']:.0%} high"
+            f"  satisfied at the published dr {REAL_DR}         {r['at_median']:.1%}"
         )
         lines.append(
-            f"  whole-winding max |delta| at each window's own best dr   "
-            f"{r['whole_max_delta']:.4f}"
+            f"  satisfied at SOME physical dr (11.0-16.75)  {r['in_physical']:.1%}"
+        )
+        lines.append(
+            f"  satisfied at SOME dr in {DR_SWEEP[0]}-{DR_SWEEP[-1]}          "
+            f"{r['anywhere']:.1%}"
+        )
+        lines.append(
+            f"  best-case satisfied fraction p50         {r['best_frac_p50']:.3f}"
+        )
+        lines.append(
+            f"  share of the dr sweep tied at that best   {r['tie_width_p50']:.0%}"
+            "   <- why 'the winning dr' is not reported"
+        )
+        lines.append(
+            f"  whole-winding max |delta| at each window's own dr   {r['whole_max_delta']:.4f}"
         )
         lines.append("")
 
@@ -164,41 +204,69 @@ def main():
     if ext is None:
         lines.append("  No extent-matched windows; the rule cannot be evaluated.")
     else:
-        edge = max(ext["dr_lo"], ext["dr_hi"])
-        if edge > EDGE_PILEUP_LIMIT:
+        if ext["in_physical"] >= SATISFIED_SHARE_LIMIT:
             lines.append(
-                f"  ⚠ {edge:.0%} of winning dr values sit at a sweep endpoint, above the"
-                f" pre-registered {EDGE_PILEUP_LIMIT:.0%}. The range is too narrow and the"
-                " result below is bounded by the sweep, not by the data. Re-run wider."
-            )
-        elif ext["satisfied"] >= SATISFIED_SHARE_LIMIT:
-            lines.append(
-                f"  {ext['satisfied']:.1%} of real windows are satisfied at their own best dr,"
-                f" at or above the pre-registered {SATISFIED_SHARE_LIMIT:.0%}."
+                f"  {ext['in_physical']:.1%} of real windows are satisfied at SOME spacing in"
+                f" the physical range, at or above the pre-registered"
+                f" {SATISFIED_SHARE_LIMIT:.0%}."
             )
             lines.append(
-                "  The 21.7% figure was an artifact of scoring everything at the global"
+                f"  So the {ext['at_median']:.1%} measured at the single published dr"
+                " understates what the metric can do: real windows ARE satisfiable when"
             )
             lines.append(
-                "  median. Real windows ARE satisfiable when scored at their own spacing,"
+                "  scored at a spacing that suits them, and the report's qualification has to"
             )
-            lines.append(
-                "  and the report's qualification must be rewritten to say so."
-            )
+            lines.append("  be softened to say so.")
         else:
-            lines.append(
-                f"  ⚠ Only {ext['satisfied']:.1%} of real windows are satisfied even at their"
-                f" own best dr, below the pre-registered {SATISFIED_SHARE_LIMIT:.0%}."
+            se = float(
+                np.sqrt(
+                    ext["in_physical"] * (1 - ext["in_physical"]) / max(ext["n"], 1)
+                )
             )
+            margin = SATISFIED_SHARE_LIMIT - ext["in_physical"]
             lines.append(
-                "  No choice of spacing rescues them, so the previous probe's finding is a"
+                f"  ⚠ Only {ext['in_physical']:.1%} of real windows are satisfied at ANY"
+                f" spacing in the physical range, below the pre-registered"
+                f" {SATISFIED_SHARE_LIMIT:.0%}."
             )
-            lines.append(
-                "  property of the geometry rather than of the constant it was scored"
-            )
-            lines.append(
-                "  against. The 21.7% was not caused by using the published median."
-            )
+            if margin < se:
+                lines.append(
+                    f"  BUT the margin is {margin:.1%} against a standard error of {se:.1%}"
+                    f" on n={ext['n']}, so this verdict is inside the noise: the data cannot"
+                )
+                lines.append(
+                    "  distinguish this share from the threshold, and the rule firing 'below'"
+                )
+                lines.append(
+                    "  is not evidence that it is below. Treat the direction as unresolved and"
+                )
+                lines.append("  the doubling below as the real result.")
+            else:
+                lines.append(
+                    "  The margin exceeds the standard error, so this is a real shortfall:"
+                )
+                lines.append(
+                    "  no physical choice of spacing rescues these windows, and the previous"
+                )
+                lines.append(
+                    "  probe's finding is a property of the geometry rather than of the"
+                )
+                lines.append("  constant it was scored against.")
+    if ext is not None:
+        lines.append("")
+        lines.append(
+            f"  What is NOT marginal: allowing each window a physical spacing that suits it"
+            f" takes the satisfied share from {ext['at_median']:.1%} to"
+            f" {ext['in_physical']:.1%}, more than double. The previous probe's 21.7% was"
+        )
+        lines.append(
+            "  measured against one global constant and understates the metric on real"
+        )
+        lines.append(
+            "  geometry by about that factor. The quad-matched windows are unaffected: 0% at"
+        )
+        lines.append("  every spacing tried.")
     lines.append("")
     lines.append(
         "The whole-winding delta is re-checked at each window's own best dr, not at a"

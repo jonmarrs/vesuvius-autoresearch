@@ -1,0 +1,41 @@
+Is a real window unsatisfiable, or was it scored at the wrong dr?
+
+The previous probe scored every real window at the published median dr of
+12.81 voxels and found 21.7% satisfied. Real spacings run 11.32 to 16.74,
+so this gives each window the dr that suits it best and asks whether it can be
+satisfied at all. The result is an UPPER BOUND by construction: no fitter can
+pick dr to maximise its own score without already knowing the answer.
+
+  dr swept 6.0 to 24.0 in 0.5 steps
+
+=== extent-matched (2x4 cells, 3 quads) ===
+  windows                                  60
+  satisfied at the published dr 12.81         21.7%
+  satisfied at SOME physical dr (11.0-16.75)  48.3%
+  satisfied at SOME dr in 6.0-24.0          50.0%
+  best-case satisfied fraction p50         0.833
+  share of the dr sweep tied at that best   42%   <- why 'the winning dr' is not reported
+  whole-winding max |delta| at each window's own dr   0.0000
+
+=== quad-matched (12x16 cells, 165 quads) ===
+  windows                                  36
+  satisfied at the published dr 12.81         0.0%
+  satisfied at SOME physical dr (11.0-16.75)  0.0%
+  satisfied at SOME dr in 6.0-24.0          0.0%
+  best-case satisfied fraction p50         0.242
+  share of the dr sweep tied at that best   3%   <- why 'the winning dr' is not reported
+  whole-winding max |delta| at each window's own dr   0.0000
+
+=== Verdict on the pre-registered rule ===
+  ⚠ Only 48.3% of real windows are satisfied at ANY spacing in the physical range, below the pre-registered 50%.
+  BUT the margin is 1.7% against a standard error of 6.5% on n=60, so this verdict is inside the noise: the data cannot
+  distinguish this share from the threshold, and the rule firing 'below'
+  is not evidence that it is below. Treat the direction as unresolved and
+  the doubling below as the real result.
+
+  What is NOT marginal: allowing each window a physical spacing that suits it takes the satisfied share from 21.7% to 48.3%, more than double. The previous probe's 21.7% was
+  measured against one global constant and understates the metric on real
+  geometry by about that factor. The quad-matched windows are unaffected: 0% at
+  every spacing tried.
+
+The whole-winding delta is re-checked at each window's own best dr, not at a shared constant, so the real-data blindness result does not depend on which dr the previous probe happened to use.

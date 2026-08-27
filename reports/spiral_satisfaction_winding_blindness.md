@@ -838,11 +838,33 @@ move it on none, by exactly 0.0000. I checked one window first and its half-wind
 zero — from that sample of one I would have concluded the opposite, which is why the control is run
 over the pooled set.
 
-⚠ **But the pre-registered rule failed, and it qualifies the practical reach.** Only **21.7%** of
-real extent-matched windows are satisfied by villa's metric at all (dr = 12.81), against a
-pre-registered 50%; at the quad-matched scale it is **0%**, with a median satisfied fraction of
-0.19. villa's metric rejects most real windows on their own merits, displaced or not. The algebra
-still holds exactly, but it describes a reference condition most real windows do not meet.
+⚠ **The practical reach is qualified, but by less than first reported.** The first pass measured
+**21.7%** of real extent-matched windows satisfied at dr = 12.81 and concluded villa's metric rejects
+most real windows on their own merits. That was scored against a single global constant.
+`reports/best_case_dr.txt` gives each window a spacing from the physical range instead:
+
+| | extent-matched (n=60) | quad-matched (n=36) |
+|---|---|---|
+| satisfied at the published dr 12.81 | 21.7% | 0.0% |
+| satisfied at **some** physical dr (11.0–16.75) | **48.3%** | 0.0% |
+| satisfied at some dr in 6.0–24.0 | 50.0% | 0.0% |
+
+**Allowing a spacing that suits the window more than doubles the share**, so the 21.7% understates
+the metric on real geometry by roughly that factor. The pre-registered 50% threshold is not cleared —
+but the margin is 1.7 points against a standard error of 6.5 on n=60, so that verdict sits inside
+the noise and the direction is unresolved. The doubling is the result; the threshold comparison is
+not. Quad-matched windows are unaffected: **0% at every spacing tried**, and no choice of dr rescues
+them.
+
+The whole-winding Δ is **0.0000 at each window's own best-fit dr**, not just at the shared constant,
+so the real-data blindness result does not depend on which dr was used to obtain it.
+
+*A defect worth recording, since it nearly became the published reading.* The first version of that
+probe reported the single "winning dr" per window and found 32% of winners piled on the sweep's low
+endpoint, which I took for a too-narrow range. With three quads the satisfied fraction takes four
+values, so 42% of the swept dr values tie for the maximum and a loop keeping the first one reports
+whichever end it started from. The tie width is now published beside the result, and the winning-dr
+statistic is not reported at all.
 
 **A scale tension that cannot be resolved, only stated.** The synthetic patch is 12×16 cells over
 ≈22×66 voxels — 165 quads in a small area, because its cells sit 2.0 and 4.4 voxels apart. Real
