@@ -1,13 +1,28 @@
 # DRAFT (NOT POSTED) — comment on villa #191, fiber half
 
-**Status: drafted 2026-08-23, NOT posted.** Jon's call.
+**Status: drafted 2026-08-23, re-verified 2026-08-27, NOT posted.** Jon's call.
+
+Re-verification on 2026-08-27, the day villa #1621 was posted:
+
+- the thread is now at **89 comments**, up from ~80. The nine added since this draft was written
+  are all on the surface side: a facing-pairs harness, a voxel-size finding, a stale-binary
+  diagnosis. **The fiber gap the comment names still exists** -- searching all 89 for `ERL`,
+  `run length`, `run-length` and `branching` returns one hit, and it is Jinhojeong retracting a
+  thickness map, not a connectivity measurement
+- the floor table below **matches `baselines/BASELINES.md` in scrollgt exactly**: 258.27/239.46
+  oracle, 199.18/0.00 one-instance, 197.11/37.13 connected components, 0.94/0.94 per-voxel,
+  0.98/0.00 random, with coverage 0.9177 and precision 0.2194 shared across every floor
+- `github.com/jonmarrs/scrollgt` is **public**, local is in sync with origin, `score-fibers` runs,
+  and the 11 cubes the comment offers are present
+- the thread remains fast and rigorous (pinned-revision reproductions, public corrections within
+  hours), which is the reason this comment claims no result of its own
 
 Target: a comment on https://github.com/ScrollPrize/villa/issues/191.
 
 Why this and not the surface half: the surface work in that thread is crowded and expert
 (5-6 people, preregistered hash-verified ablations, active 2026-08-22). We would add nothing.
 The fiber half is different: the issue's own success criterion is "long connected components
-without branching", and across ~80 comments the words ERL, run length and branching never
+without branching", and across all 89 comments the words ERL, run length and branching never
 appear. Nobody has tested against the criterion the issue itself states.
 
 Constraints held deliberately:
