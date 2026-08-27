@@ -96,7 +96,21 @@ from probe_spiral_satisfaction_winding import (  # noqa: E402
 )
 
 RMS_LEVELS = [0.0, 0.75, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0]
+# A ladder that reaches well past the point where the reference itself starts to
+# fail. Immunity can only FALL as the ladder extends -- more chances to flip --
+# so a wider sweep gives a lower bound on it rather than a different answer.
+WIDE_LEVELS = RMS_LEVELS + [5.0, 6.0, 8.0, 10.0, 14.0, 20.0]
 SIGMA_COL, SIGMA_ROW = 1.20, 1.00
+# The immune fraction needs no attenuation, but it is NOT free of the surrogate:
+# it is a property of the metric and the injected field's shape. Swept, because
+# the report now leans on it as the one practical number that survives without
+# the calibration.
+SURROGATE_SWEEP = [
+    ("white", 0.0, 0.0),
+    ("isotropic 0.561 (published)", 0.561, 0.561),
+    ("isotropic 1.236", 1.236, 1.236),
+    ("anisotropic 1.20 / 1.00 (admissible)", 1.20, 1.00),
+]
 N_RAYS = 40
 N_SEEDS = 3
 SEED = 20260826
@@ -104,14 +118,20 @@ DEGENERATE_LIMIT = 0.10
 OUT = os.path.join(_REPO, "reports", "exceedance_denominator.txt")
 
 
-def verdicts(ray, rms, rng):
+def verdicts(ray, rms, rng, sigma_col=None, sigma_row=None):
     """(reference satisfied, displaced satisfied) under villa's own metric."""
     _, radii = ray
     dr = float(np.mean(np.diff(radii)))
     transform = EmpiricalRadialTransform(np.arange(len(radii)) * dr, radii)
     base = build_synthetic_patch(dr=dr, winding=WINDING)
     field = (
-        anisotropic_field(base.zyxs.shape[:2], rms, SIGMA_COL, SIGMA_ROW, rng)
+        anisotropic_field(
+            base.zyxs.shape[:2],
+            rms,
+            SIGMA_COL if sigma_col is None else sigma_col,
+            SIGMA_ROW if sigma_row is None else sigma_row,
+            rng,
+        )
         if rms > 0
         else np.zeros(base.zyxs.shape[:2])
     )
@@ -128,18 +148,20 @@ def verdicts(ray, rms, rng):
     )
 
 
-def classify(rays, seed):
+def classify(rays, seed, sigma=None, levels=None):
     """One of degenerate / immune / diverges for every ray."""
+    levels = levels or RMS_LEVELS
+    sc, sr = sigma or (SIGMA_COL, SIGMA_ROW)
     out = []
     for i, ray in enumerate(rays):
         rng = np.random.default_rng(seed + 1000 * i)
-        ref0, _ = verdicts(ray, 0.0, rng)
+        ref0, _ = verdicts(ray, 0.0, rng, sc, sr)
         if not ref0:
             out.append("degenerate")
             continue
         label = "immune"
-        for rms in RMS_LEVELS[1:]:
-            a, b = verdicts(ray, rms, np.random.default_rng(seed + 1000 * i))
+        for rms in levels[1:]:
+            a, b = verdicts(ray, rms, np.random.default_rng(seed + 1000 * i), sc, sr)
             if a != b:
                 label = "diverges"
                 break
@@ -239,6 +261,66 @@ def main():
         lines.append(
             "  zero scatter; that question is not asked here and is not answered by this."
         )
+    lines.append("")
+    lines.append("=== How robust is the immune fraction? ===")
+    lines.append(
+        "  The report leans on this one as the practical number that survives without the"
+    )
+    lines.append(
+        "  calibration, so it is worth knowing what it does depend on. Not attenuation --"
+    )
+    lines.append(
+        "  no corrected scatter enters it. But it IS a property of the injected field's"
+    )
+    lines.append("  shape and of how far the ladder reaches, and both are swept here.")
+    lines.append("")
+    lines.append(
+        "   surrogate                              ladder to 4.0   ladder to 20.0"
+    )
+    lines.append("  " + "-" * 74)
+    immune_by_arm = []
+    for label, sc, sr in SURROGATE_SWEEP:
+        narrow = [
+            classify(rays, SEED + 97 * s, (sc, sr), RMS_LEVELS).count("immune")
+            / len(rays)
+            for s in range(N_SEEDS)
+        ]
+        wide = [
+            classify(rays, SEED + 97 * s, (sc, sr), WIDE_LEVELS).count("immune")
+            / len(rays)
+            for s in range(N_SEEDS)
+        ]
+        n, w = float(np.mean(narrow)), float(np.mean(wide))
+        immune_by_arm.append((label, n, w))
+        lines.append(f"   {label:36s}  {n:12.1%}   {w:14.1%}")
+    lines.append("")
+    wides = [w for _, _, w in immune_by_arm]
+    spread = max(wides) - min(wides)
+    lines.append(
+        f"  Across surrogates, at the wider ladder, immunity spans {min(wides):.1%} to"
+        f" {max(wides):.1%}, a spread of {spread:.1%}."
+    )
+    if spread <= 0.10:
+        lines.append(
+            "  Within 10 points, so the figure is a property of the metric rather than of"
+        )
+        lines.append(
+            "  which field is injected, and quoting one number for it is fair."
+        )
+    else:
+        lines.append(
+            "  ⚠ Wider than 10 points, so it is NOT safe to quote a single immune fraction:"
+        )
+        lines.append(
+            "  it depends materially on the injected field, and the report must give the"
+        )
+        lines.append("  range rather than the admissible arm's value alone.")
+    lines.append(
+        "  Extending the ladder can only lower immunity, since it offers more chances to"
+    )
+    lines.append(
+        "  flip, so the wide column is a lower bound and the narrow one is not the answer."
+    )
     lines.append("")
     lines.append(
         "This says nothing about whether the corrected scatter is right, which is the k"

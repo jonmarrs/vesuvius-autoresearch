@@ -27,4 +27,23 @@ still never differ is a genuine case of the metric not noticing.
   below it, which was not predetermined. A real traced patch could well fail at
   zero scatter; that question is not asked here and is not answered by this.
 
+=== How robust is the immune fraction? ===
+  The report leans on this one as the practical number that survives without the
+  calibration, so it is worth knowing what it does depend on. Not attenuation --
+  no corrected scatter enters it. But it IS a property of the injected field's
+  shape and of how far the ladder reaches, and both are swept here.
+
+   surrogate                              ladder to 4.0   ladder to 20.0
+  --------------------------------------------------------------------------
+   white                                        88.3%            56.7%
+   isotropic 0.561 (published)                  65.0%            52.5%
+   isotropic 1.236                              50.8%            50.8%
+   anisotropic 1.20 / 1.00 (admissible)         50.8%            48.3%
+
+  Across surrogates, at the wider ladder, immunity spans 48.3% to 56.7%, a spread of 8.3%.
+  Within 10 points, so the figure is a property of the metric rather than of
+  which field is injected, and quoting one number for it is fair.
+  Extending the ladder can only lower immunity, since it offers more chances to
+  flip, so the wide column is a lower bound and the narrow one is not the answer.
+
 This says nothing about whether the corrected scatter is right, which is the k question examined elsewhere. It asks only what population the average is over.

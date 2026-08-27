@@ -83,3 +83,31 @@ def test_the_split_is_reported_with_both_classes_nonzero():
     assert imm and div
     assert float(imm.group(1)) > 5.0
     assert float(div.group(1)) > 5.0
+
+
+def test_immunity_is_surrogate_sensitive_at_a_short_ladder():
+    """The qualification the report needed. A first version called the immune
+    fraction free of the surrogate because no attenuation enters it. True, and
+    misleading: at a ladder stopping at 4.0 voxels it runs from about 51 to 88
+    percent depending purely on which field is injected."""
+    rays = usable_rays(load_shard(), n_rays=12)
+    white = mod.classify(rays, mod.SEED, (0.0, 0.0), mod.RMS_LEVELS).count("immune")
+    aniso = mod.classify(rays, mod.SEED, (1.20, 1.00), mod.RMS_LEVELS).count("immune")
+    assert white > aniso, "a white field should look far more immune at a short ladder"
+
+
+def test_a_wider_ladder_cannot_raise_immunity():
+    """The monotonicity that makes the wide column a lower bound: more rungs give
+    more chances to flip, so immunity can only fall."""
+    rays = usable_rays(load_shard(), n_rays=12)
+    narrow = mod.classify(rays, mod.SEED, (0.0, 0.0), mod.RMS_LEVELS).count("immune")
+    wide = mod.classify(rays, mod.SEED, (0.0, 0.0), mod.WIDE_LEVELS).count("immune")
+    assert wide <= narrow
+
+
+def test_the_wide_ladder_arms_agree_within_ten_points():
+    """What licenses quoting a single range. If the arms disagreed by more at the
+    wide ladder, the report would have to give per-surrogate values."""
+    text = open(ARTIFACT).read()
+    assert "a spread of" in text
+    assert "Within 10 points" in text

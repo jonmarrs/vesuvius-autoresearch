@@ -840,10 +840,30 @@ invites a reader to think three quarters of the problem is handled, when the ari
 opposite: three quarters of the time the metric still cannot tell.
 
 One component of it needs **no attenuation at all** and is worth separating out. From
-`reports/exceedance_denominator.txt`: **50.8% of rays are immune** — the correctly placed patch
-passes, and the two verdicts never differ anywhere on the ladder, at any noise level swept. No
-corrected scatter enters that number; it is a property of the metric and the field shape. For half
-the rays, noise never exposes the displacement however much of it there is.
+`reports/exceedance_denominator.txt`: a ray is **immune** when the correctly placed patch passes and
+the two verdicts never differ anywhere on the ladder, at any noise level swept. No corrected scatter
+enters that number.
+
+⚠ **But it is not free of the surrogate, and the first version of this paragraph implied it was.**
+Immunity depends on the injected field's shape and on how far the ladder reaches, and at a short
+ladder those matter a lot:
+
+| surrogate | ladder to 4.0 | ladder to 20.0 |
+|---|---|---|
+| white | 88.3% | 56.7% |
+| isotropic 0.561 (published) | 65.0% | 52.5% |
+| isotropic 1.236 | 50.8% | 50.8% |
+| **anisotropic 1.20 / 1.00 (admissible)** | 50.8% | **48.3%** |
+
+At a ladder that stops at 4.0 voxels the answer runs from 50.8% to 88.3% depending purely on which
+field is injected. Extended to 20.0 — well past where the reference itself starts failing — the arms
+converge to **48.3%–56.7%, a spread of 8.3 points**, and immunity becomes a property of the metric
+rather than of the field. Extending the ladder can only *lower* immunity, since it offers more
+chances to flip, so the wide column is a lower bound.
+
+**The defensible statement is therefore "roughly half, 48–57%"**, not the 50.8% first quoted here,
+which was the admissible arm at the short ladder. For about half the rays, noise never exposes the
+displacement however much of it there is.
 
 **Only one of these is a candidate field**, on the same admissibility criterion as before. Three
 fail it, the published one with the wrong sign. Reporting the spread across rejected hypotheses
