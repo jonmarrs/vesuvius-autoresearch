@@ -22,8 +22,18 @@ radius. Some part of the measured irregularity is therefore crossing-ANGLE
 variation rather than radial-spacing variation. What the probe needs from the warp
 is only that it be real, monotone, and locally irregular, which it is, and it is a
 STRONGER perturbation than any pinned alpha: at the patch radii it displaces
-points by a median of about 0.87 dr against the power law's 0.067 dr at alpha=0.95
-and 0.514 dr at alpha=0.60.
+points by a median of 0.737 dr against the power law's 0.007 dr at alpha=0.95
+and 0.087 dr at alpha=0.60 -- computed by this probe and printed in its artifact
+since 2026-08-27.
+
+Those three figures previously read 0.87, 0.067 and 0.514, and lived only here in
+this docstring: the published run never computed them, so the report's Limits 7
+cited an artifact that did not contain them. An automated audit of
+report-versus-artifact numbers found the gap. Recomputing the stated quantity
+gives the values above. They are not a correction of a measurement, since no
+published measurement existed to correct; they are the first computation of it.
+The qualitative claim they support gets stronger, not weaker: the empirical warp
+is about 8x the strongest power law rather than 1.7x.
 
 **Scatter is the measurement; zero scatter is degenerate.** At zero scatter the
 patch lies exactly on a winding and the report's section 1 proves the delta is
@@ -290,6 +300,38 @@ def format_report(results):
     return "\n".join(out) + "\n"
 
 
+def displacement_magnitudes(rays, alphas=(0.95, 0.60)):
+    """Median radial displacement the empirical warp applies, against power laws.
+
+    Added 2026-08-27. The report's Limits 7 has always cited this artifact for
+    "a median of ~0.87 dr against 0.067 dr at alpha 0.95 and 0.514 dr at alpha
+    0.60". Those three numbers lived only in this file's module docstring: the
+    published run never computed them, so the citation pointed at an artifact
+    that did not contain them. An automated audit of report-versus-artifact
+    numbers found it. Computing them here makes the citation real.
+    """
+    from probe_spiral_satisfaction_robustness import build_transform
+
+    emp, per_alpha = [], {a: [] for a in alphas}
+    for _, radii in rays:
+        dr = float(np.mean(np.diff(radii)))
+        base = build_synthetic_patch(dr=dr, winding=WINDING)
+        r = np.sqrt(
+            base.zyxs[..., 1].numpy() ** 2 + base.zyxs[..., 2].numpy() ** 2
+        ).ravel()
+        ideal = np.arange(len(radii)) * dr
+        warped = np.interp(r, ideal, radii)
+        emp.append(float(np.median(np.abs(warped - r))) / dr)
+        for a in alphas:
+            t = build_transform(a, WINDING * dr)
+            moved = t.inv(base.zyxs)
+            r2 = np.sqrt(
+                moved[..., 1].numpy() ** 2 + moved[..., 2].numpy() ** 2
+            ).ravel()
+            per_alpha[a].append(float(np.median(np.abs(r2 - r))) / dr)
+    return float(np.median(emp)), {a: float(np.median(v)) for a, v in per_alpha.items()}
+
+
 def main():
     shard = load_shard()
     rays = usable_rays(shard)
@@ -302,7 +344,25 @@ def main():
             for vox in SCATTER_VOXEL_LEVELS
         ]
         results.append((name, per_scatter))
-    print(format_report(results))
+    report = format_report(results)
+
+    emp, per_alpha = displacement_magnitudes(rays)
+    extra = [
+        "",
+        "=== How strong is this warp, against the power law it replaces? ===",
+        "  Median radial displacement at the patch radii, in units of dr:",
+        f"    empirical warp from real spacings   {emp:.3f} dr",
+    ]
+    for a in sorted(per_alpha, reverse=True):
+        extra.append(f"    power law, alpha = {a:.2f}            {per_alpha[a]:.3f} dr")
+    extra.append(
+        "  The report's Limits 7 cites this artifact for these three figures. Until"
+    )
+    extra.append(
+        "  2026-08-27 they existed only in this script's docstring and were never computed"
+    )
+    extra.append("  by the published run, so the citation pointed at numbers not here.")
+    print(report + "\n".join(extra))
 
 
 if __name__ == "__main__":

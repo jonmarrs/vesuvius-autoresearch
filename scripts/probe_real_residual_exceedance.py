@@ -305,7 +305,10 @@ def main():
             "  ⚠ An earlier version of this artifact read the gate's failure as a finding:"
         )
         lines.append(
-            "  that a real-residual-shaped perturbation mostly cannot diverge villa's verdict,"
+            "  that a real-residual-shaped perturbation mostly cannot diverge villa's verdict"
+        )
+        lines.append(
+            "  -- 77% of rays with no threshold at any amplitude, against the surrogate's 46 --"
         )
         lines.append(
             "  that the surrogate perturbs 2.3x as readily, and therefore that ~24% is biased"

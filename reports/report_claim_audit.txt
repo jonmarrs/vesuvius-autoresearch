@@ -1,0 +1,28 @@
+Numbers in the report that do not appear in the artifact they cite
+
+A review aid, not a gate. A flagged number can be correct and merely derived --
+a ratio of two artifact figures, a percentage the artifact prints as a fraction,
+or a number quoted from a different artifact in the same paragraph. What this
+cannot miss is the case that matters: a number that used to come from an
+artifact and no longer matches it.
+
+  report:   reports/spiral_satisfaction_winding_blindness.md
+  numbers checked against a cited artifact: 58
+  flagged:  5
+
+  Five residual flags are expected and are annotated in the report where they
+  appear: a retracted figure whose source artifact is named in the sentence, a
+  bracket end the cited artifact reports in different units, and the patch's
+  angular span, which is a property of the construction rather than of any
+  artifact. A count above five is worth reading.
+
+=== onset_at_matched_correlation.txt ===
+            1.5   different correlation length, and the mismatch was worse than a mismatch: the 1.5-voxel figure
+
+=== scatter_estimator_calibration.txt ===
+           0.26   between roughly 0.26 and 0.85 voxels" (the 0.26 end came from the quadratic fit, which this
+           0.26   between roughly 0.26 and 0.85 voxels" (the 0.26 end came from the quadratic fit, which this
+
+=== spiral_satisfaction_splicing_and_seam.txt ===
+           0.30   section B). The patches used elsewhere span theta 0.30-1.30 rad and never cross the branch
+           1.30   section B). The patches used elsewhere span theta 0.30-1.30 rad and never cross the branch

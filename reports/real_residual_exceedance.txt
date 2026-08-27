@@ -17,7 +17,8 @@ normalisation cancels and the comparison is legitimate.
 
 === What the gate's failure does and does not mean ===
   ⚠ An earlier version of this artifact read the gate's failure as a finding:
-  that a real-residual-shaped perturbation mostly cannot diverge villa's verdict,
+  that a real-residual-shaped perturbation mostly cannot diverge villa's verdict
+  -- 77% of rays with no threshold at any amplitude, against the surrogate's 46 --
   that the surrogate perturbs 2.3x as readily, and therefore that ~24% is biased
   high. That was an artifact of a broken injection: `transplant` cropped the
   donor's TOP-LEFT corner, which for these patches lies outside the traced region,

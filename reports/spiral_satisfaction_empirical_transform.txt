@@ -26,3 +26,12 @@ SCATTER IS THE MEASUREMENT. At zero scatter the patch lies exactly on a winding 
 
 Median dr across the selected rays: 14.7734 voxels. This is a per-ray MEAN gap, then a median across rays, so it sits above the global MEDIAN gap of 12.81 reported elsewhere: shard_0's gap distribution is right-skewed (median 12.92, mean 14.92), and the >= 10-crossing filter moves the figure down, not up. The difference is a statistic-choice artifact, not a selection bias.
 Max local irregularity across the selected rays: 1.4394 in units of dr (largest second difference of the measured gap sequence). A power law has a slowly varying derivative by construction and structurally cannot represent it.
+
+=== How strong is this warp, against the power law it replaces? ===
+  Median radial displacement at the patch radii, in units of dr:
+    empirical warp from real spacings   0.737 dr
+    power law, alpha = 0.95            0.007 dr
+    power law, alpha = 0.60            0.087 dr
+  The report's Limits 7 cites this artifact for these three figures. Until
+  2026-08-27 they existed only in this script's docstring and were never computed
+  by the published run, so the citation pointed at numbers not here.

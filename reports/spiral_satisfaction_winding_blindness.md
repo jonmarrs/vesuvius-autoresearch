@@ -705,7 +705,9 @@ number.
 moves the answer by more than 3x: plane gives median 0.846, quadratic 0.255.
 
 ⚠ **CORRECTED 2026-08-25.** This paragraph originally concluded that real scatter is "bracketed
-between roughly 0.26 and 0.85 voxels" with the plane figure as "the conservative end". **The
+between roughly 0.26 and 0.85 voxels" (the 0.26 end came from the quadratic fit, which this
+artifact reports as a bias ratio rather than as a voxel figure) with the plane figure as "the
+conservative end". **The
 bracket points the wrong way and the plane figure is not conservative.** Injection recovery on
 real patch geometry (`reports/scatter_estimator_calibration.txt`) — inject a perturbation of known
 magnitude and correlation length into a curvature-only reference, and see what each estimator
@@ -753,7 +755,8 @@ signal, and the design does not beg its question.
 
 *The onset comparison is NARROWED, not resolved* (`reports/onset_at_matched_correlation.txt`).
 The report previously compared a corrected real-patch scatter against an onset measured at a
-different correlation length, and the mismatch was worse than a mismatch: the 1.5-voxel figure was
+different correlation length, and the mismatch was worse than a mismatch: the 1.5-voxel figure
+(from `reports/spiral_satisfaction_correlated_scatter.txt`, not from the artifact cited here) was
 drawn from a σ=1 arm **and** was a minimum-over-rays statistic, the most unfavourable number
 available on two independent axes at once.
 
@@ -1136,8 +1139,17 @@ Stated plainly, because each is a place this work could mislead.
    irregularity is local and noisy. A warp interpolated from the measured inter-winding spacing
    sequences of 40 real rays (`reports/spiral_satisfaction_empirical_transform.txt`) supplies
    the shape a power law cannot, and it is a *stronger* perturbation than any pinned alpha,
-   displacing points by a median of ~0.87 `dr` against 0.067 `dr` at alpha 0.95 and 0.514 `dr`
-   at alpha 0.60.
+   displacing points by a median of **0.737 `dr`** against **0.007 `dr`** at alpha 0.95 and
+   **0.087 `dr`** at alpha 0.60 — about **8×** the strongest power law in the sweep.
+
+   ⚠ **These three figures were unsourced until 2026-08-27.** They previously read 0.87, 0.067 and
+   0.514, and existed only in the probe's module docstring: the published run never computed them,
+   so this entry cited an artifact that did not contain them. `scripts/audit_report_claims.py`, which
+   checks every number in this report against the artifact beside it, found the gap. The probe now
+   computes and prints the quantity, and the values above are that computation. They are not a
+   corrected measurement — there was no published measurement to correct — and the claim they
+   support gets **stronger**: 8× the strongest power law rather than the 1.7× the old figures
+   implied.
 
    ⚠ **CORRECTED 2026-08-25.** This entry was briefly marked **closed** on the strength of that
    probe reporting max |Δ| = `0.000000` across all 40 rays. That was wrong, and wrong in the
