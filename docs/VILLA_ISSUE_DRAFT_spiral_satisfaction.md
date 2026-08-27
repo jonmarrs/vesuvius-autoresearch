@@ -1,6 +1,6 @@
 # DRAFT (NOT POSTED) — villa issue: spiral satisfaction cannot detect a sheet switch
 
-**Status: revised 2026-08-26 (fourth pass), NOT posted. HELD pending Jon's explicit approval.**
+**Status: revised 2026-08-26 (fifth pass), NOT posted. HELD pending Jon's explicit approval.**
 Do not post. Do not treat a later "continue" as authorization.
 
 This supersedes the 2026-08-25 draft and the three earlier passes of 2026-08-26. The core claim is
@@ -23,26 +23,26 @@ nothing, propose the cheapest fix without demanding it, credit the prior art.
 
 ## What changed since the last pass
 
-Everything structural is unchanged and is what the issue actually reports:
+Realigned with the restructured report (`reports/spiral_satisfaction_winding_blindness.md`, commit
+`68bf3b28`), which now separates what stands without a scatter model from an unfinished calibration.
+The draft follows that split.
 
-- the blindness holds under **both** villa configurations, and the mesh-gating one is the *more*
-  permissive of the two;
-- it holds across the theta = 0 seam, and under warps built from real measured winding geometry;
-- under realistic patch noise the verdicts **do** diverge on some fraction of cases, so the
-  blindness is not total in practice.
+**Added: the real-geometry result**, which was the strongest evidence we had and was not in the
+draft at all. villa's unmodified function on windows of published traced surfaces, with a
+half-winding control that moves the score on 48 and 92 percent of windows while whole windings move
+it on none. Until this the whole issue rested on an analytic spiral.
 
-The frequency number came out of the previous pass and is now back at roughly **24 percent**. The
-reason it was removed was a check that said a perturbation shaped like a real patch residual almost
-never diverges the verdict, implying our surrogate over-perturbs and 24 percent was biased high.
-That check was broken: the code that transplanted a real residual into the test patch took the
-donor's top-left corner, which for these patches lies outside the traced region, so half the donors
-injected an all-zero field. Repaired, the comparison reverses: a real-residual-shaped perturbation
-diverges the verdict on 53 percent of cases against the surrogate's 54, which is evidence *for* the
-surrogate being an adequate stand-in.
+**Added: the two limits that come with it** — those windows are traced surfaces rather than
+spiral-fit patches, and they are coarse enough that the smallest one available spans 0.89 of a
+winding where the synthetic patch spans 0.16. Both are stated in the body rather than left for a
+maintainer to discover.
 
-So the number returns, and the body states what it rests on rather than asserting it. One further
-property of it is now known and is disclosed there: about half the test cases have no divergence
-threshold under either field, and the estimate counts those as never diverging.
+**Removed as a headline: the frequency figure.** It is described, with its provenance and the fact
+that we do not trust it, instead of being asserted. This is the second time it has come out and the
+reasoning is different: last time it was removed because a check said it was biased high, and that
+check turned out to be broken. This time it is demoted because the estimate has moved five times in
+a day on our own defects and the machinery behind it is an unfinished calibration. The number is
+still in the text; it is no longer the answer to "does this matter".
 
 Constraints held, unchanged:
 
@@ -101,6 +101,31 @@ It also holds across the theta = 0 seam, where the branch-offset unwrap is exerc
 radial warps interpolated from the inter-winding spacings actually measured along rays in the
 published PHercParis4 `winding_model` export.
 
+**Confirmed on real traced geometry, not only on an analytic spiral.** The numbers above come from
+a synthetic patch. Scoring the same unmodified function on windows taken from published traced
+surfaces, translated into the umbilicus-centred frame, gives the same answer, and a control shows
+the test could have come out otherwise:
+
+| displacement | 2x4-cell windows (n=60) | 12x16-cell windows (n=36) |
+|---|---|---|
+| 0.5 windings (control) | max change 1.0000, 48 percent of windows | 0.1576, 92 percent |
+| 1.0 windings | 0.0000, none | 0.0000, none |
+| 2.0 windings | 0.0000, none | 0.0000, none |
+| 5.5 windings (control) | 1.0000, 48 percent | 0.1636, 92 percent |
+
+A half winding moves the score on half to nearly all real windows, so the construction plainly can
+move it. Whole and double windings move it on none, by exactly zero, and that holds at each window's
+own best-fit spacing rather than at a shared constant.
+
+Two things about those windows are worth stating rather than leaving for a reader to find. They are
+windows of traced surfaces, not spiral-fit patches, because no fitted spiral checkpoint is published
+under `dl.ash2txt.org/datasets/spiral_datasets/`. And they are coarse: traced surfaces step about 20
+voxels per grid cell, so the smallest window with any quads spans about 0.89 of a winding radially,
+where the synthetic patch spans 0.16. No window the published data can form resembles the synthetic
+patch on that axis, which is a limit on what can be checked with what is public, and it is also why
+larger real windows are never satisfied at any spacing: a window spanning nine windings contains
+points belonging to nine different windings.
+
 **The annotations that would fix this already exist and are already load-bearing elsewhere.**
 `get_patch_abs_winding_loss` selects point collections on `metadata.winding_is_absolute` and pins
 each annotated point's shifted radius to `winding_annotation * dr_per_winding`. So absolute winding
@@ -113,33 +138,26 @@ expected absolute winding by direct votes from attached absolute anchors plus a 
 relative-winding edges. It is a standalone debug tool, run one `--patch-id` at a time and outside the
 fit loop, so nothing in the scored path benefits from it today.
 
-**How often this matters in practice.** The exactness above is for a patch lying on a winding. Real
-patches carry surface noise, and once that noise is large enough the two verdicts do diverge, so the
-blindness is not total in practice. Our estimate is that roughly **24 percent** of real patch windows
-carry enough scatter for the verdict to differ. That estimate has moved several times as we found
-errors in our own chain, so the body of it is the provenance rather than the figure.
+**How often this matters in practice: we cannot give you a defensible number.** The exactness above
+is for a patch lying on a winding. Real patches carry surface noise, and once that noise is large
+enough the two verdicts do diverge, so the blindness is not total in practice.
 
-The approach is: measure the residual scatter of real traced patches, correct it for the attenuation
-the estimator introduces, and compare against the scatter at which villa's verdict first flips. The
-correction is the load-bearing step and it is large, roughly a factor of three, because a plane fit
-over a small window absorbs much of the signal it is measuring. It depends on a noise model fitted
-to correlation statistics of the real residual.
+We built the machinery to estimate the rate and we do not trust its output. The estimate needs the
+residual scatter of real patches corrected for the attenuation the estimator introduces, and that
+correction is large, roughly a factor of three, and depends on a fitted noise model. Our figure has
+taken five values in a single day, and every move came from a defect we found in our own code rather
+than from new evidence: an attenuation fitted under one noise field and compared against a threshold
+measured under another; a correlation target that turned out to be a one-patch statistic because a
+loop broke out of the wrong level; a transplant that injected an empty field for half its donors.
+Three of those were written down before we caught them. The current figure is about 24 percent, the
+attenuation behind it is better constrained than it was but is not confirmed, and one of the
+arguments we had used to support it has been withdrawn outright.
 
-Three checks on that chain, reported whichever way they came out. A second estimator with very
-different attenuation should agree with the first after correction; it decisively rejects the noise
-model we originally published, and neither confirms nor rejects the one our data selects. Replacing
-the fitted noise model with a perturbation shaped like an actual patch residual diverges the verdict
-on 53 percent of test cases against the fitted model's 54, so the model is an adequate stand-in for
-this purpose. And one property of the estimate is worth stating plainly: about half the test cases
-have no divergence threshold at all under either field, and the calculation counts those as never
-diverging, so the figure is an average over a population half of which cannot contribute to it.
-
-Two caveats we would rather state than have found for us. When noise does cause the verdicts to
-differ, that is the metric rejecting a noisy patch, not detecting a sheet switch; the blindness is
-exact for clean patches, and real noise incidentally exposes a minority of displacements without the
-metric ever testing for the thing that went wrong. And a reader who wants the frequency claim to be
-load-bearing should treat it as the weakest part of this report. The exact result above needs none
-of it.
+Publishing that as a headline would be claiming more than we have. What we can say without any of
+that machinery: the blindness is exact for a patch lying on a winding, real noise incidentally
+exposes some minority of displacements, and in those cases the metric is rejecting a noisy patch
+rather than detecting a sheet switch. It never tests for the thing that went wrong. Everything else
+in this report needs no noise model at all.
 
 **Scope, stated plainly.** This says nothing about how often real spiral fits actually misplace a
 patch by a winding, and it is not a claim that any published fit is wrong. It is a statement about
@@ -178,18 +196,20 @@ Full write-up, including the limits and the corrections we made to our own earli
       lines over three days and its directory moved once; treat any path here as stale until checked.
 - [ ] Confirm no newer issue reports this
 - [ ] Confirm the reproduction command runs clean from a fresh clone
+- [ ] Decide whether the real-geometry table needs its own reproduction command. It currently has
+      none: the single command reproduces the analytic result only, and the real-geometry work needs
+      the `verified_patches` data, which is a download rather than an offline run.
 - [ ] Jon reads and approves the body verbatim
 
 ## Notes for the reviewer of this draft
 
 Three judgement calls worth challenging:
 
-1. **The frequency number is back, after being removed three hours earlier.** It was removed on the
-   strength of a check that turned out to be broken in our own code, and restoring it is the right
-   response to that. But the sequence below should make a reviewer uneasy, and it should: the figure
-   has been 6.8, 30, 24, absent, and 24 again in a single day. The alternative is still to state the
-   exact result only and say nothing about frequency, which stays defensible and is cleaner. It is
-   in because a maintainer's first question will be "does this ever matter".
+1. **The frequency figure is present but demoted, rather than either asserted or deleted.** A
+   maintainer's first question will be "does this ever matter", so saying nothing is unsatisfying;
+   asserting a number that has moved five times in a day on our own defects would be worse. The
+   middle course, describing the estimate and why we distrust it, risks reading as hedging. If you
+   want it gone entirely, the body loses one paragraph and nothing else depends on it.
 
 2. **The reproduction points at one probe**, not the whole chain. That probe covers the exact,
    surrogate-free result, which is now the only quantitative claim in the body, so the match between
@@ -213,3 +233,4 @@ Not for the issue body. Kept because the sequence is the reason the number was d
 | 2026-08-26 | 24% | the correlation target was a one-patch statistic, not a ten-patch one |
 | 2026-08-26 | dropped | real-residual-shaped noise appeared to produce no divergence threshold |
 | 2026-08-26 | 24% | that check was broken: half the donors injected an all-zero field. Repaired, real-residual noise diverges the verdict as often as the fitted model (53% vs 54%) |
+| 2026-08-26 | 24%, demoted | not a new defect: the report was restructured, and the whole scatter-model chain moved to an appendix marked unfinished. The figure stays in the text and stops being the answer to "does this matter" |
