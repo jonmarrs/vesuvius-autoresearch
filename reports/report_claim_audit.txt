@@ -7,7 +7,7 @@ cannot miss is the case that matters: a number that used to come from an
 artifact and no longer matches it.
 
   report:   reports/spiral_satisfaction_winding_blindness.md
-  numbers checked against a cited artifact: 58
+  numbers checked against a cited artifact: 59
   flagged:  5
 
   Five residual flags are expected and are annotated in the report where they

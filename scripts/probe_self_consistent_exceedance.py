@@ -155,7 +155,16 @@ def real_reported_scatter(seed=SEED):
 
 
 def exceedance_under(rays, sigma_col, sigma_row, reported, floor, k, n_seeds=N_SEEDS):
-    """Exceedance with BOTH sides computed under the same surrogate."""
+    """Exceedance with BOTH sides computed under the same surrogate.
+
+    What this returns is P(the two verdicts DIFFER): per ray, the fraction of real
+    patch windows whose scatter reaches that ray's flip threshold, averaged over
+    rays, a ray that never flips contributing zero. Its complement is the quantity
+    a reader usually wants -- how often a whole-winding displacement goes
+    UNDETECTED with real noise present -- and at 23.59% that complement is about
+    76%. Same measurement, read the other way up, and it carries every caveat the
+    exceedance carries.
+    """
     true_scatter = np.sqrt(np.maximum(reported**2 - floor**2, 0.0)) / k
     vals = []
     for s in range(n_seeds):

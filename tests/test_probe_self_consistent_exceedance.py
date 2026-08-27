@@ -21,8 +21,13 @@ from probe_real_patch_scatter import patch_dirs  # noqa: E402
 from probe_self_consistent_exceedance import (  # noqa: E402
     SURROGATES,
     admissibility,
+    exceedance_under,
     real_reported_scatter,
     refit_attenuation,
+)
+from probe_spiral_satisfaction_empirical_transform import (  # noqa: E402
+    load_shard,
+    usable_rays,
 )
 
 restore_cuda_env()  # do not leave the mask for other test modules
@@ -95,3 +100,25 @@ def test_the_sweep_spans_a_meaningful_surrogate_range():
     sigmas = [max(sc, sr) for _, sc, sr in SURROGATES]
     assert max(sigmas) > 2 * min(sigmas)
     assert len(SURROGATES) >= 3
+
+
+def test_the_exceedance_is_the_differ_probability_not_its_complement():
+    """Pins the direction of the statistic, because the report now quotes both.
+
+    A ray with no onset contributes ZERO, which means "the verdicts never differ",
+    which means the displacement went undetected. So the returned number counts
+    detection, and 1 minus it counts blindness. Getting this backwards would flip
+    a headline in the most embarrassing possible direction, so it is asserted on a
+    construction whose answer is known: a scatter distribution far below every
+    onset must give an exceedance near zero, not near one.
+    """
+    import numpy as np
+
+    reported = np.full(200, 1e-6)  # far below any onset in the ladder
+    floor, k = 0.0, 1.0
+    rays = usable_rays(load_shard(), n_rays=6)
+    value, _, _ = exceedance_under(rays, 1.20, 1.00, reported, floor, k, n_seeds=1)
+    assert value < 0.05, (
+        "scatter far below every onset must give a near-zero exceedance; "
+        "if this is near one, the statistic is the complement of what the report says"
+    )

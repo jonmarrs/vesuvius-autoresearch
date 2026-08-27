@@ -825,6 +825,26 @@ Refitting to the pooled targets moves the surrogate from 1.45/1.05 to **1.20/1.0
 | isotropic 1.236 | no (col +0.114); an ESS *control*, never a candidate field | 0.271 | 2.95v | 28.61% |
 | **anisotropic 1.20 / 1.00** | **yes** (col +0.202, row +0.016; cost 0.012) | 0.318 | 2.52v | **23.59%** |
 
+**Read the number the other way up.** The exceedance is `P(the two verdicts differ)` — for each ray,
+the fraction of real patch windows whose scatter reaches that ray's flip threshold, averaged over
+rays, with a ray that never flips contributing zero. Its complement is therefore the quantity a
+reader actually wants:
+
+> Under the admissible surrogate, a whole-winding displacement goes **undetected in ≈76% of
+> ray-window pairs even with real patch noise present.**
+
+That is the same measurement, not a new one, and it inherits **every** caveat attached to ≈23.6%
+below — the attenuation is not confirmed, the calibration is unfinished, and the figure has moved
+five times. It stays in Part B for exactly that reason. It is written here because "24% exposure"
+invites a reader to think three quarters of the problem is handled, when the arithmetic says the
+opposite: three quarters of the time the metric still cannot tell.
+
+One component of it needs **no attenuation at all** and is worth separating out. From
+`reports/exceedance_denominator.txt`: **50.8% of rays are immune** — the correctly placed patch
+passes, and the two verdicts never differ anywhere on the ladder, at any noise level swept. No
+corrected scatter enters that number; it is a property of the metric and the field shape. For half
+the rays, noise never exposes the displacement however much of it there is.
+
 **Only one of these is a candidate field**, on the same admissibility criterion as before. Three
 fail it, the published one with the wrong sign. Reporting the spread across rejected hypotheses
 would manufacture a range rather than measure one.
