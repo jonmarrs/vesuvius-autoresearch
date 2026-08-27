@@ -93,6 +93,12 @@ QUAD_MATCHED = (12, 16)
 N_WINDOWS = 60
 SEED = 20260826
 SATISFIED_SHARE_LIMIT = 0.50
+# Whole numbers are the claim; the half-integers are the CONTROL. Without them a
+# zero delta at 1.0 windings could mean the metric is blind, or equally that this
+# construction cannot move the score at all -- and on the first real window I
+# looked at, the half-winding delta was also zero, which would have been read as
+# the latter from a sample of one.
+DISPLACEMENTS = [0.5, 1.0, 2.0, 5.5]
 OUT = os.path.join(_REPO, "reports", "real_patch_satisfaction.txt")
 
 
@@ -204,6 +210,47 @@ def main():
         f"~{(QUAD_MATCHED[0] - 1) * 20} x {(QUAD_MATCHED[1] - 1) * 20}",
         "",
     ]
+
+    lines.append(
+        "=== Does a whole-winding displacement move the score on REAL geometry? ==="
+    )
+    lines.append(
+        "  The 0.5 and 5.5 rows are the control: if they were also zero, this construction"
+    )
+    lines.append(
+        "  could not move the score and the zeros at 1.0 and 2.0 would mean nothing."
+    )
+    lines.append("")
+    for label, shape in (
+        ("extent-matched", EXTENT_MATCHED),
+        ("quad-matched", QUAD_MATCHED),
+    ):
+        windows = real_windows(shape)
+        if not windows:
+            continue
+        lines.append(f"  {label} ({shape[0]}x{shape[1]} cells, {len(windows)} windows)")
+        lines.append(
+            "     displacement (windings)   max |delta|   share of windows changed"
+        )
+        lines.append("    " + "-" * 68)
+        for nw in DISPLACEMENTS:
+            deltas = []
+            for _, patch in windows:
+                a = score_with(patch, REAL_DR, REPORTING, IdentityTransform())
+                b = score_with(
+                    displace(patch, REAL_DR, n_windings=nw),
+                    REAL_DR,
+                    REPORTING,
+                    IdentityTransform(),
+                )
+                deltas.append(abs(b - a))
+            arr = np.array(deltas)
+            tag = "  <- control" if abs(nw - round(nw)) > 1e-9 else ""
+            lines.append(
+                f"     {nw:19.1f}   {arr.max():11.4f}   {float((arr > 1e-9).mean()):22.0%}"
+                f"{tag}"
+            )
+        lines.append("")
 
     results = {}
     for label, shape in (

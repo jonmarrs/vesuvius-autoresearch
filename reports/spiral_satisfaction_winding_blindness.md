@@ -817,6 +817,40 @@ puts the true local fraction between 0.10 and 0.20. The split
 is also not a partition: 35.7% of samples have local exceeding total. That claim is withdrawn and is
 not reinstated by anything above.
 
+### The real-data leg, run 2026-08-26 (`reports/real_patch_satisfaction.txt`)
+
+Every number above is measured on a synthetic patch. This is the first test on **real traced
+geometry**, scored by villa's unmodified function in the umbilicus-centred frame, with no synthetic
+patch anywhere in it.
+
+**The core finding holds on real patches, and the control proves the test could have failed.**
+
+| displacement | max \|Δ\| (extent-matched, n=60) | changed | max \|Δ\| (quad-matched, n=36) | changed |
+|---|---|---|---|---|
+| 0.5 windings *(control)* | 1.0000 | 48% | 0.1576 | 92% |
+| **1.0 windings** | **0.0000** | **0%** | **0.0000** | **0%** |
+| **2.0 windings** | **0.0000** | **0%** | **0.0000** | **0%** |
+| 5.5 windings *(control)* | 1.0000 | 48% | 0.1636 | 92% |
+
+The controls matter more than the zeros. A half-winding displacement moves the score on 48% and 92%
+of real windows respectively, so the construction plainly *can* move it; whole and double windings
+move it on none, by exactly 0.0000. I checked one window first and its half-winding delta was also
+zero — from that sample of one I would have concluded the opposite, which is why the control is run
+over the pooled set.
+
+⚠ **But the pre-registered rule failed, and it qualifies the practical reach.** Only **21.7%** of
+real extent-matched windows are satisfied by villa's metric at all (dr = 12.81), against a
+pre-registered 50%; at the quad-matched scale it is **0%**, with a median satisfied fraction of
+0.19. villa's metric rejects most real windows on their own merits, displaced or not. The algebra
+still holds exactly, but it describes a reference condition most real windows do not meet.
+
+**A scale tension that cannot be resolved, only stated.** The synthetic patch is 12×16 cells over
+≈22×66 voxels — 165 quads in a small area, because its cells sit 2.0 and 4.4 voxels apart. Real
+patches are sampled at ≈20 voxels per cell, so a real window matches **extent** (2×4 cells, 20×60
+vox, but only 3 quads) or **quad count** (12×16 cells, 165 quads, but 220×300 vox — ten times the
+area), never both. §9's description of a 3×4-cell window as "comparable to the synthetic patch"
+matches extent in one axis and has never been stated with the quad count beside it.
+
 **What this does not touch.** The core finding uses no scatter model at all: for a well-placed patch
 the metric cannot detect a whole-winding displacement, exactly, at every scale, under both villa
 configurations, across the theta=0 seam, and under warps built from real measured winding geometry.

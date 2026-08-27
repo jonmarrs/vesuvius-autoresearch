@@ -1,0 +1,61 @@
+Does villa's metric satisfy a REAL traced patch?
+
+Every number in the winding-blindness report is measured on a synthetic patch
+placed exactly on a winding. This scores villa's unmodified function on real
+traced geometry instead, in the umbilicus-centred frame, with no synthetic
+patch involved.
+
+=== The scale problem, which cannot be resolved, only stated ===
+  The synthetic patch is 12x16 cells over about 22 x 66 voxels: 165 quads in a
+  small area, because its cells sit 2.0 and 4.4 voxels apart. Real traced patches
+  are sampled at about 20 voxels per cell, so a real window matches extent or quad
+  count, never both.
+
+   window        cells     quads   extent (vox)
+  ----------------------------------------------------------
+   synthetic     12x16       165   ~22 x 66
+   extent-matched 2x4           3   ~20 x 60
+   quad-matched  12x16       165   ~220 x 300
+
+=== Does a whole-winding displacement move the score on REAL geometry? ===
+  The 0.5 and 5.5 rows are the control: if they were also zero, this construction
+  could not move the score and the zeros at 1.0 and 2.0 would mean nothing.
+
+  extent-matched (2x4 cells, 60 windows)
+     displacement (windings)   max |delta|   share of windows changed
+    --------------------------------------------------------------------
+                     0.5        1.0000                      48%  <- control
+                     1.0        0.0000                       0%
+                     2.0        0.0000                       0%
+                     5.5        1.0000                      48%  <- control
+
+  quad-matched (12x16 cells, 36 windows)
+     displacement (windings)   max |delta|   share of windows changed
+    --------------------------------------------------------------------
+                     0.5        0.1576                      92%  <- control
+                     1.0        0.0000                       0%
+                     2.0        0.0000                       0%
+                     5.5        0.1636                      92%  <- control
+
+=== extent-matched windows (2x4 cells) ===
+     dr      n   satisfied-frac p50   share satisfied   verdict differs   max |delta|
+  ----------------------------------------------------------------------------------------
+   11.32    60              0.667            21.7%              0.0%        0.0000
+   12.81    60              0.667            21.7%              0.0%        0.0000
+   16.74    60              0.333            23.3%              0.0%        0.0000
+
+=== quad-matched windows (12x16 cells) ===
+     dr      n   satisfied-frac p50   share satisfied   verdict differs   max |delta|
+  ----------------------------------------------------------------------------------------
+   11.32    36              0.170             0.0%              0.0%        0.0000
+   12.81    36              0.188             0.0%              0.0%        0.0000
+   16.74    36              0.158             0.0%              0.0%        0.0000
+
+=== Verdict on the pre-registered rule ===
+  ⚠ Only 21.7% of real extent-matched windows are satisfied at dr=12.81, below the pre-registered 50%.
+  villa's metric rejects most real patches at this scale on their own merits,
+  displaced or not. The exact algebra of the report still holds, but it
+  describes a reference condition most real windows do not meet, and the report
+  must carry that qualification.
+
+Limits. dr is swept over [11.32, 12.81, 16.74] rather than fitted per patch, because the real spacing varies 11.32 to 16.74 across shards and a patch scored against a spacing it does not have would fail for the wrong reason. A per-patch fit is the follow-up. Windows are pooled with a per-patch cap, not a global quota.
