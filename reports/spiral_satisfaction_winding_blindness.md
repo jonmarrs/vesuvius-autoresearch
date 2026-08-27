@@ -9,7 +9,7 @@ magnitude. A patch displaced by 23.8006 windings — roughly 305 voxels, at the 
 winding spacing — scores identically satisfied (`1.000000`) to the correctly placed patch,
 because it lands only 0.1994 of a winding from the nearest integer, while a patch displaced by
 exactly half a winding is rejected outright (`0.000000`) regardless of how small that
-displacement is in absolute terms (§2, §7). That is the "sheet switch" failure mode villa's own
+displacement is in absolute terms (§2, §B7). That is the "sheet switch" failure mode villa's own
 `scrollprize.org/docs/37_2026_open_problems.md` bottleneck table lists fourth ("Meshes can jump
 from one wrap to another"), and for which that same row asks for "stronger local continuity
 constraints and **conservative failure detection**". The metric is not a conservative failure
@@ -27,41 +27,32 @@ never used to score it, so the score cannot distinguish "on the right wrap" from
 **The blindness is exact for a patch lying on a winding. It is not unconditional for a noisy
 one.** For a well-placed patch the result is an algebraic identity (§1) and holds at every scale,
 every measured displacement ratio, both of villa's configurations, and across the theta=0 seam.
-Once the patch carries scatter, counterexamples appear: §4 reports the one pinned-grid cell where
-villa's verdict changes under smooth nonlinearity, and Limits 7 reports the substantially larger
-break under warps built from real measured winding spacings — 5 of 40 rays disagree at 4 voxels of
-scatter and 8 of 40 at 6 voxels, with max |Δ| reaching 0.284848, some 6.7× the smooth sweep's
-worst case. Two gaps this report originally left open — whether real-scale scatter alone starves
-the correctly placed patch, and whether the blindness holds across the full measured displacement
-span — are closed in §7 in the direction that strengthens the finding. The scatter-plus-real-warp
-cell is the one that cuts the other way, and it is reported in Limits 7 rather than buried.
+Once the patch carries scatter, counterexamples appear, and they are reported in Part B and in
+Limits 7 rather than buried.
 
-§8 now locates that break precisely instead of bracketing it: under the empirical warp and the
-reporting configuration, the satisfied fraction first moves at 2.50 voxels of patch scatter, a
-patch verdict first flips at 3.25, and the correctly placed reference itself first fails at 4.00
-(per-ray median 3.75, `reports/spiral_satisfaction_onset.txt`). §9 measures what real traced
-patches actually carry at the comparable window: median 0.846 voxels, p95 2.179, with only 0.82%
-of windows at or above the verdict-flip onset (`reports/real_patch_scatter.txt`).
+**Confirmed on real traced geometry, with a control that could have failed (§4).** Scoring villa's
+unmodified function on windows of published traced surfaces — no synthetic patch involved — a
+half-winding displacement moves the satisfied fraction on 48% and 92% of windows at two scales,
+while whole and double windings move it on **none**, by exactly `0.0000`, at each window's own
+best-fit spacing. The controls are what make the zeros mean something.
 
-⚠ **CORRECTED 2026-08-25.** This paragraph previously concluded that real patches "therefore sit
-below the threshold at which this report's own counterexamples start to appear". **That comparison
-was made on unlike terms and the conclusion does not survive it.** The onsets above were measured
-with INDEPENDENT per-point Gaussian noise. Real patch residuals are not independent: measured on
-the same patches, their lag-1 autocorrelation across the grid has median **+0.357**, positive in
-**73.2%** of windows, where white noise would sit near zero
-(`reports/spiral_satisfaction_correlated_scatter.txt`).
+## How to read this report
 
-Noise shape matters at equal magnitude, and it matters in the unfavourable direction. Swept at
-identical RMS over the same 40 rays, the first level at which any patch verdict flips is **3.5
-voxels for independent noise and 1.5 voxels for correlated noise**. At 2.5 voxels RMS the
-independent arm flips nothing while the correlated arms flip 6 of 40. Real patch scatter has p95
-**2.179 voxels**, which is inside that band, not below it.
+The report is in two parts, and the division is the most important thing in it.
 
-So the honest statement is weaker than the one this paragraph originally made: real patches sit
-below the onset **as measured with white noise**, and within the range where **correlated** noise
-of their own measured magnitude already flips verdicts on a minority of rays. The threshold is
-real, it is measured rather than bracketed, the §4 verdict-flipping cell still stands, and whether
-real patches clear it is now **unresolved** rather than answered favourably.
+**Part A (§§1-4) is what stands without a scatter model.** An algebraic identity, its control, both
+satisfaction conditions independently fooled, and the real-geometry confirmation. No noise model,
+no surrogate, no fitted attenuation, no estimated constant. This is the finding.
+
+**Part B (§§B4-B9) is a scatter-model chain that is not settled**, kept in full as a record. It
+attempts to answer "how often does this matter in practice", and that estimate has taken five
+values in one day — ≈6.8%, ≈30%, ≈23.6%, withdrawn, ≈23.6% — each move caused by a defect found in
+this project's own code rather than by new evidence. Its current figure is ≈23.6%, its attenuation
+is *not confirmed*, and one of its supporting arguments has been withdrawn outright. Treat it as an
+unfinished calibration, not as support for a number.
+
+If you read only one thing, read §1 and §4 (the real-data leg). If you are checking the work, Part B is where the
+corrections live and it is deliberately not summarised away.
 
 **What villa already has.** `find_inconsistent_windings.py` in the same directory *does* derive a
 patch's expected absolute winding by propagating `winding_is_absolute` annotations across the
@@ -121,11 +112,21 @@ deletion, rather than by branch name, which does not):
 `reports/spiral_satisfaction_winding_probe.txt`,
 `reports/spiral_satisfaction_winding_robustness.txt`,
 `reports/real_winding_nonlinearity.txt`,
-`reports/spiral_satisfaction_realscale.txt` (through commit `6aafab60`). §7's numbers come from
+`reports/spiral_satisfaction_realscale.txt` (through commit `6aafab60`). §B7's numbers come from
 `reports/spiral_satisfaction_untested_cells.txt` (commits `2b73bbb9`, `5726b809`, `2cb81286`).
-§8's numbers come from `reports/spiral_satisfaction_onset.txt` (commit `7ae060d5`), and §9's from
+§B8's numbers come from `reports/spiral_satisfaction_onset.txt` (commit `7ae060d5`), and §B9's from
 `reports/real_patch_scatter.txt` (commit `ebeb9235`). §10's physicality material is at commit
 `efa6a5db`, superseded by `d130d70e` and `8245f7bc`.
+
+---
+
+---
+
+# Part A — what stands without a scatter model
+
+The results in this part use no noise model, no surrogate, no attenuation and no fitted
+constant. Each is either an algebraic identity, or a measurement made with villa's unmodified
+function against a control that could have failed.
 
 ---
 
@@ -213,7 +214,127 @@ snap uses a strict `modulus < dr/2` (line 244), so an exact half-winding tie sna
 a residual of 50 against a tolerance of 45. That is a real boundary behaviour in villa's code,
 not a harness artifact.
 
-## 4. Robustness: scatter and nonlinearity
+## 4. The real-data leg
+
+*Sources: `reports/real_patch_satisfaction.txt`, `reports/best_case_dr.txt`,
+`reports/radial_span_mismatch.txt`.*
+
+Everything in §§1-3 is measured on a synthetic patch. This is the first test on **real traced
+geometry**, scored by villa's unmodified function in the umbilicus-centred frame, with no synthetic
+patch anywhere in it.
+
+**The core finding holds on real patches, and the control proves the test could have failed.**
+
+| displacement | max \|Δ\| (extent-matched, n=60) | changed | max \|Δ\| (quad-matched, n=36) | changed |
+|---|---|---|---|---|
+| 0.5 windings *(control)* | 1.0000 | 48% | 0.1576 | 92% |
+| **1.0 windings** | **0.0000** | **0%** | **0.0000** | **0%** |
+| **2.0 windings** | **0.0000** | **0%** | **0.0000** | **0%** |
+| 5.5 windings *(control)* | 1.0000 | 48% | 0.1636 | 92% |
+
+The controls matter more than the zeros. A half-winding displacement moves the score on 48% and 92%
+of real windows respectively, so the construction plainly *can* move it; whole and double windings
+move it on none, by exactly 0.0000. I checked one window first and its half-winding delta was also
+zero — from that sample of one I would have concluded the opposite, which is why the control is run
+over the pooled set.
+
+⚠ **The practical reach is qualified, but by less than first reported.** The first pass measured
+**21.7%** of real extent-matched windows satisfied at dr = 12.81 and concluded villa's metric rejects
+most real windows on their own merits. That was scored against a single global constant.
+`reports/best_case_dr.txt` gives each window a spacing from the physical range instead:
+
+| | extent-matched (n=60) | quad-matched (n=36) |
+|---|---|---|
+| satisfied at the published dr 12.81 | 21.7% | 0.0% |
+| satisfied at **some** physical dr (11.0–16.75) | **48.3%** | 0.0% |
+| satisfied at some dr in 6.0–24.0 | 50.0% | 0.0% |
+
+**Allowing a spacing that suits the window more than doubles the share**, so the 21.7% understates
+the metric on real geometry by roughly that factor. The pre-registered 50% threshold is not cleared —
+but the margin is 1.7 points against a standard error of 6.5 on n=60, so that verdict sits inside
+the noise and the direction is unresolved. The doubling is the result; the threshold comparison is
+not. Quad-matched windows are unaffected: **0% at every spacing tried**, and no choice of dr rescues
+them.
+
+The whole-winding Δ is **0.0000 at each window's own best-fit dr**, not just at the shared constant,
+so the real-data blindness result does not depend on which dr was used to obtain it.
+
+*A defect worth recording, since it nearly became the published reading.* The first version of that
+probe reported the single "winning dr" per window and found 32% of winners piled on the sweep's low
+endpoint, which I took for a too-narrow range. With three quads the satisfied fraction takes four
+values, so 42% of the swept dr values tie for the maximum and a loop keeping the first one reports
+whichever end it started from. The tie width is now published beside the result, and the winning-dr
+statistic is not reported at all.
+
+**A scale tension that cannot be resolved, only stated.** The synthetic patch is 12×16 cells over
+≈22×66 voxels — 165 quads in a small area, because its cells sit 2.0 and 4.4 voxels apart. Real
+patches are sampled at ≈20 voxels per cell, so a real window matches **extent** (2×4 cells, 20×60
+vox, but only 3 quads) or **quad count** (12×16 cells, 165 quads, but 220×300 vox — ten times the
+area), never both.
+
+**And on the axis the metric actually cares about, nothing matches at all**
+(`reports/radial_span_mismatch.txt`). villa snaps a patch to the *nearest integer winding*, so what
+governs satisfiability is how many windings the patch spans radially:
+
+| window | radial span (vox) | in windings |
+|---|---|---|
+| **synthetic 12×16** | 2.04 | **0.159** |
+| real 2×2 (smallest with any quads) | 11.43 | 0.89 |
+| real 2×4 *("extent-matched")* | 21.36 | 1.67 |
+| real 3×4 *(§B9's "comparable" window)* | 27.07 | **2.11** |
+| real 12×16 *("quad-matched")* | 117.68 | 9.19 |
+
+The synthetic patch sits inside a *sixth* of a winding. The **smallest window the published data can
+form** spans 0.89 — a factor of 5.6 — and that is a floor, not a sampling choice: at ≈20 voxels per
+cell, 2×2 is the smallest object with any quads. This explains the 0% satisfied at the quad-matched
+scale with no appeal to noise or to dr: a window spanning 9.2 windings contains points belonging to
+nine different windings.
+
+⚠ **§B9's "comparable to the synthetic patch" is wrong on this axis by 13×**, its third correction:
+first the quad count (55× at matched extent), now radial span. The phrase should not be used again
+without naming the axis.
+
+**Read narrowly.** These are windows of published *traced surfaces*, not villa spiral-fit patches —
+no fitted spiral checkpoint is published, so villa's own patches cannot be measured here and may be
+small sub-winding objects that look nothing like these. What this establishes is what the published
+data can be used to build, and that the test patch's representativeness rests on something other
+than measurement.
+
+---
+
+# Part B — the scatter model, and why it is an appendix
+
+⚠ **Everything from here to the Limits section is downstream of a scatter model whose calibration
+has been corrected repeatedly and is not settled.** It is kept in full, because the corrections are
+part of the record and because a reader checking the work needs the chain that produced each number.
+It is no longer presented as a headline.
+
+The short version of why. The practical-frequency estimate has taken five values in a single day —
+≈6.8%, ≈30%, ≈23.6%, withdrawn, ≈23.6% — and each move came from a defect found in this project's
+own code, not from new data: an estimator attenuation fitted under one field and applied against an
+onset measured under another; a correlation target that was a one-patch statistic because a loop
+broke out of the wrong level; a donor transplant that injected an all-zero field for half its
+donors. Three of those were published before being caught.
+
+What survives the churn is in Part A, and needs none of this machinery. What is genuinely unresolved
+is stated where it arises:
+
+- the attenuation *k* is better constrained than it was but is **not confirmed** — a pre-registered
+  cross-estimator test rejects the previously published surrogate decisively and returns
+  *inconclusive* on the admissible one;
+- the locality statistic used to argue the correction treats the right quantity **has no power** and
+  that argument is withdrawn;
+- roughly half of all rays never diverge under any field, which is genuine immunity rather than an
+  artifact, but means the exceedance averages over a population half of which cannot contribute.
+
+Read Part B as a worked record of an unfinished calibration, not as support for a number.
+
+*Its sections keep the numbers they were written with — B4 through B9 — so that every existing
+cross-reference of the form "§B7" still resolves. Part A's four sections are new numbering.*
+
+---
+
+## B4. Robustness: scatter and nonlinearity
 
 The exactness argument in §1 assumes a patch lying exactly on a winding. A real patch has
 scatter and sits some nonzero distance `d` from its winding, and for a *nonlinear* `T_inv` the
@@ -244,7 +365,7 @@ alpha) or alpha is 1.0 (any scatter), matching the algebra. Worst case on the pi
 `|Δ| = 0.042424` at scatter 0.05, alpha 0.60.
 
 `ref_spiral` and `disp_spiral` are `1.000000` in every row of this sweep: at dr = 100, all
-degradation is in the scan condition. §6 corrects the reading we first drew from that.
+degradation is in the scan condition. §B6 corrects the reading we first drew from that.
 
 ### One cell in the pinned grid *does* flip villa's verdict
 
@@ -303,7 +424,7 @@ is reported as not satisfied. A *clean* patch a whole winding out of place score
 and is reported as satisfied. Under this metric a correctly-placed noisy patch can fail while a
 cleanly-placed wrong-wrap patch passes.
 
-## 5. The real field
+## B5. The real field
 
 To find out whether alpha = 0.60 is a conservative or a generous stand-in for the real
 scroll, the actual inter-winding geometry of PHercParis4 was measured from the published
@@ -319,8 +440,8 @@ p50 **0.9985**, p75 1.1155, p95 **1.3799**, max 23.8006. Per-shard medians all w
 0.9837-1.0060. 21.6330% of ratios fall outside [0.8, 1.25]; 0.9990% fall outside [0.5, 2.0].
 
 Read plainly: the real field is close to uniform in the middle but carries real, substantial
-*local* spread. That spread is a different perturbation from the smooth power-law warp §4 swept,
-and §6 records the consequence.
+*local* spread. That spread is a different perturbation from the smooth power-law warp §B4 swept,
+and §B6 records the consequence.
 
 **The equivalent-alpha number is deliberately not quoted as a result.** The measurement report
 does derive one (median 0.1171, IQR 0.0630-0.2582) by fitting a local power law per crossing
@@ -338,7 +459,7 @@ this data, and a statistic derived from the wrong shape should not be the headli
 adjacent-gap ratio distribution above is the directly observed, convention-free quantity and is
 the trustworthy one.
 
-## 6. At the real scale, the finding is stronger, not weaker
+## B6. At the real scale, the finding is stronger, not weaker
 
 Two things about the original sweep did not match the measured field, and both were corrected
 (`spiral_satisfaction_realscale.txt`).
@@ -402,7 +523,7 @@ the adjacent wrap to be scored satisfied; the real field's own typical local gap
 fits inside the acceptance band. The blindness measured on the idealized sweep is not an
 idealization that reality would soften.
 
-## 7. Closing the two untested cells
+## B7. Closing the two untested cells
 
 Limits 4 and 5 named the two biggest remaining gaps and said a sceptic would ask for them first.
 Both are now measured (`reports/spiral_satisfaction_untested_cells.txt`,
@@ -410,12 +531,12 @@ Both are now measured (`reports/spiral_satisfaction_untested_cells.txt`,
 `get_patch_satisfied_areas` call, reporting villa's own patch-level verdict
 (`satisfaction_metrics.py:317`, 165 valid quads, threshold 156.75 quads) alongside the satisfied
 fraction. Both cells use the identity transform only — no nonlinearity. They extend §1-§3 and the
-`alpha = 1.00` column of §4's grid; they do not touch §4's nonlinear robustness sweep, and in
-particular do not bear on the one verdict flip §4 reports (more on this below).
+`alpha = 1.00` column of §B4's grid; they do not touch §B4's nonlinear robustness sweep, and in
+particular do not bear on the one verdict flip §B4 reports (more on this below).
 
 ### Cell 1 — scatter crossed with the real scale
 
-The fractional parameterization (`scatter_std_frac * dr`) §4 used is not comparable across
+The fractional parameterization (`scatter_std_frac * dr`) §B4 used is not comparable across
 scales: 0.05*dr is 0.64 voxels at the real dr = 12.81 but 5 voxels at dr = 100, against the same
 6.0-voxel absolute scan tolerance in both cases. Re-running the pinned fractional levels at the
 real scale (Cell 1a) makes this concrete: the same fractions that spanned 0-10 voxels at dr=100
@@ -441,18 +562,18 @@ both above the 0.95 quad-fraction bar). The report's own question — does the m
 accepting anything at real scale, which would change the question from "can it detect a wrong
 wrap" to "does it accept anything at all" — is answered: no, it keeps accepting both arms.
 
-This does not touch §4's one verdict flip. That flip required combining scatter *with*
-nonlinearity (alpha = 0.80); every alpha = 1.00 row in §4's own table already reads Δ = 0 at
+This does not touch §B4's one verdict flip. That flip required combining scatter *with*
+nonlinearity (alpha = 0.80); every alpha = 1.00 row in §B4's own table already reads Δ = 0 at
 every scatter level, and Cell 1 only ever ran the identity transform. Cell 1 extends the
 alpha = 1.00 column to the real scale and to absolute-voxel scatter; it says nothing about, and
-does not retract, §4's finding that nonlinearity combined with scatter can flip the verdict. The
+does not retract, §B4's finding that nonlinearity combined with scatter can flip the verdict. The
 harder cross — real-scale scatter *combined with* nonlinearity — remains untested (Limits 4,
 updated below).
 
 ### Cell 2 — displacement ratios across the full measured span
 
-Experiment B (§6) swept only the p05-p95 quantile band (ratio 0.72-1.38). Cell 2 sweeps the full
-measured adjacent-gap ratio distribution (0.0446 to 23.8006, §5), at dr = 12.81, no scatter,
+Experiment B (§B6) swept only the p05-p95 quantile band (ratio 0.72-1.38). Cell 2 sweeps the full
+measured adjacent-gap ratio distribution (0.0446 to 23.8006, §B5), at dr = 12.81, no scatter,
 including integers and half-integers, to resolve whether acceptance tracks displacement
 *magnitude* or distance to the *nearest integer winding*.
 
@@ -493,7 +614,7 @@ measured cell behind it, and correctly declined to report it (see the process se
 reported here only because Cell 2's bracket now measures, rather than assumes, the number that
 constant predicts.
 
-## 8. Locating the onset
+## B8. Locating the onset
 
 Limits 7 bracketed the break between 2 and 4 voxels of scatter. This locates it at 0.25-voxel
 resolution (`reports/spiral_satisfaction_onset.txt`), using the same empirical warp (40 rays,
@@ -539,9 +660,9 @@ onset as a fraction of `dr` falls by more than half (0.350 to 0.130). A relative
 the fraction roughly constant as `dr` varies; this does the opposite. villa's 6.0-voxel absolute
 scan tolerance, not its 0.45×dr relative spiral tolerance, is what sets the onset.
 
-## 9. Does real patch scatter reach the onset?
+## B9. Does real patch scatter reach the onset?
 
-§8 locates the break; it says nothing about whether real traced patches ever carry enough
+§B8 locates the break; it says nothing about whether real traced patches ever carry enough
 scatter to reach it. `reports/real_patch_scatter.txt` measures that directly on 10 patches from
 the published `verified_patches` set, with radii taken from the published umbilicus — data, not
 metric; no villa code involved.
@@ -706,7 +827,7 @@ would manufacture a range rather than measure one.
 **The figure is ≈23.6%, ±0.7 seed error.** The previously published "≈30%, band ≈29–39%" is
 superseded; that band came from a neighbouring-surrogate family around the old, mis-fitted centre
 and has **not** been recomputed around the new one, so no surrogate-family band is currently
-published. It still contradicts rather than qualifies §9's conclusion that the break "is not reached
+published. It still contradicts rather than qualifies §B9's conclusion that the break "is not reached
 by well-traced patches": under the only admissible surrogate it is reached by a substantial minority.
 
 ⚠ **A same-day retraction of a same-day claim, recorded because the sequence matters more than
@@ -817,89 +938,6 @@ puts the true local fraction between 0.10 and 0.20. The split
 is also not a partition: 35.7% of samples have local exceeding total. That claim is withdrawn and is
 not reinstated by anything above.
 
-### The real-data leg, run 2026-08-26 (`reports/real_patch_satisfaction.txt`)
-
-Every number above is measured on a synthetic patch. This is the first test on **real traced
-geometry**, scored by villa's unmodified function in the umbilicus-centred frame, with no synthetic
-patch anywhere in it.
-
-**The core finding holds on real patches, and the control proves the test could have failed.**
-
-| displacement | max \|Δ\| (extent-matched, n=60) | changed | max \|Δ\| (quad-matched, n=36) | changed |
-|---|---|---|---|---|
-| 0.5 windings *(control)* | 1.0000 | 48% | 0.1576 | 92% |
-| **1.0 windings** | **0.0000** | **0%** | **0.0000** | **0%** |
-| **2.0 windings** | **0.0000** | **0%** | **0.0000** | **0%** |
-| 5.5 windings *(control)* | 1.0000 | 48% | 0.1636 | 92% |
-
-The controls matter more than the zeros. A half-winding displacement moves the score on 48% and 92%
-of real windows respectively, so the construction plainly *can* move it; whole and double windings
-move it on none, by exactly 0.0000. I checked one window first and its half-winding delta was also
-zero — from that sample of one I would have concluded the opposite, which is why the control is run
-over the pooled set.
-
-⚠ **The practical reach is qualified, but by less than first reported.** The first pass measured
-**21.7%** of real extent-matched windows satisfied at dr = 12.81 and concluded villa's metric rejects
-most real windows on their own merits. That was scored against a single global constant.
-`reports/best_case_dr.txt` gives each window a spacing from the physical range instead:
-
-| | extent-matched (n=60) | quad-matched (n=36) |
-|---|---|---|
-| satisfied at the published dr 12.81 | 21.7% | 0.0% |
-| satisfied at **some** physical dr (11.0–16.75) | **48.3%** | 0.0% |
-| satisfied at some dr in 6.0–24.0 | 50.0% | 0.0% |
-
-**Allowing a spacing that suits the window more than doubles the share**, so the 21.7% understates
-the metric on real geometry by roughly that factor. The pre-registered 50% threshold is not cleared —
-but the margin is 1.7 points against a standard error of 6.5 on n=60, so that verdict sits inside
-the noise and the direction is unresolved. The doubling is the result; the threshold comparison is
-not. Quad-matched windows are unaffected: **0% at every spacing tried**, and no choice of dr rescues
-them.
-
-The whole-winding Δ is **0.0000 at each window's own best-fit dr**, not just at the shared constant,
-so the real-data blindness result does not depend on which dr was used to obtain it.
-
-*A defect worth recording, since it nearly became the published reading.* The first version of that
-probe reported the single "winning dr" per window and found 32% of winners piled on the sweep's low
-endpoint, which I took for a too-narrow range. With three quads the satisfied fraction takes four
-values, so 42% of the swept dr values tie for the maximum and a loop keeping the first one reports
-whichever end it started from. The tie width is now published beside the result, and the winning-dr
-statistic is not reported at all.
-
-**A scale tension that cannot be resolved, only stated.** The synthetic patch is 12×16 cells over
-≈22×66 voxels — 165 quads in a small area, because its cells sit 2.0 and 4.4 voxels apart. Real
-patches are sampled at ≈20 voxels per cell, so a real window matches **extent** (2×4 cells, 20×60
-vox, but only 3 quads) or **quad count** (12×16 cells, 165 quads, but 220×300 vox — ten times the
-area), never both.
-
-**And on the axis the metric actually cares about, nothing matches at all**
-(`reports/radial_span_mismatch.txt`). villa snaps a patch to the *nearest integer winding*, so what
-governs satisfiability is how many windings the patch spans radially:
-
-| window | radial span (vox) | in windings |
-|---|---|---|
-| **synthetic 12×16** | 2.04 | **0.159** |
-| real 2×2 (smallest with any quads) | 11.43 | 0.89 |
-| real 2×4 *("extent-matched")* | 21.36 | 1.67 |
-| real 3×4 *(§9's "comparable" window)* | 27.07 | **2.11** |
-| real 12×16 *("quad-matched")* | 117.68 | 9.19 |
-
-The synthetic patch sits inside a *sixth* of a winding. The **smallest window the published data can
-form** spans 0.89 — a factor of 5.6 — and that is a floor, not a sampling choice: at ≈20 voxels per
-cell, 2×2 is the smallest object with any quads. This explains the 0% satisfied at the quad-matched
-scale with no appeal to noise or to dr: a window spanning 9.2 windings contains points belonging to
-nine different windings.
-
-⚠ **§9's "comparable to the synthetic patch" is wrong on this axis by 13×**, its third correction:
-first the quad count (55× at matched extent), now radial span. The phrase should not be used again
-without naming the axis.
-
-**Read narrowly.** These are windows of published *traced surfaces*, not villa spiral-fit patches —
-no fitted spiral checkpoint is published, so villa's own patches cannot be measured here and may be
-small sub-winding objects that look nothing like these. What this establishes is what the published
-data can be used to build, and that the test patch's representativeness rests on something other
-than measurement.
-
 **What this does not touch.** The core finding uses no scatter model at all: for a well-placed patch
 the metric cannot detect a whole-winding displacement, exactly, at every scale, under both villa
 configurations, across the theta=0 seam, and under warps built from real measured winding geometry.
@@ -962,7 +1000,7 @@ to its boundary missing the target by half.
 not guarantee matching the full correlation structure, and this is not claimed.
 
 **At the comparable window (3x4, plane fit):** median 0.846 voxels, p95 2.179, max 5.406, n =
-3897. Against §8's three onsets:
+3897. Against §B8's three onsets:
 
 | onset | scatter (voxels) | share of real windows at or above it |
 | --- | --- | --- |
@@ -971,8 +1009,8 @@ not guarantee matching the full correlation structure, and this is not claimed.
 | reference fails | 4.00 | 0.13% |
 
 So real traced patches, measured at the scale the synthetic probes actually operate on, carry
-scatter that sits below the onset located in §8 — the overwhelming majority of windows (99.18%)
-never reach the level at which villa's verdict can flip. This does not soften §4's counterexample
+scatter that sits below the onset located in §B8 — the overwhelming majority of windows (99.18%)
+never reach the level at which villa's verdict can flip. This does not soften §B4's counterexample
 cell or the fact that the empirical-warp break is real (both stand): it says that on this
 evidence, well-traced real patches do not typically carry enough scatter to reach it.
 
@@ -988,7 +1026,7 @@ Stated plainly, because each is a place this work could mislead.
 
 2. **Everything is synthetic patches scored by villa's real, unmodified function.** No fitted
    spiral checkpoint is published anywhere under `dl.ash2txt.org/datasets/spiral_datasets/` —
-   the `winding_model/` product used in §5 is ray/crossing inference output, not a
+   the `winding_model/` product used in §B5 is ray/crossing inference output, not a
    `checkpoint_fitted.ckpt` — so producing one would require running `fit_spiral.py` ourselves
    (~60 GB pull, GPU, editing constants in a 3886-line script). This establishes what the metric
    *cannot detect*. It does **not** establish how often real fits actually misplace patches, and
@@ -1019,22 +1057,22 @@ Stated plainly, because each is a place this work could mislead.
    of each inter-winding period against the reporting config's eight to twelve. Our framing was
    understated, as suspected, and is now measured rather than suspected.
 
-   What remains true, and is why this entry stays: §6's binding-condition table, the
-   47%-of-winding-spacing figure, the `0.45*dr = 5.7645` arithmetic, and §4's threshold flip
+   What remains true, and is why this entry stays: §B6's binding-condition table, the
+   47%-of-winding-spacing figure, the `0.45*dr = 5.7645` arithmetic, and §B4's threshold flip
    analysis are all still stated for the *reporting* configuration. A reader should not
    transplant those specific numbers onto the splicing path.
 
-4. **Scatter combined with the real scale — closed for the identity transform, in §7.** §4
-   swept scatter at dr = 100 under smooth nonlinearity; §6 ran at dr = 12.81 with scatter held at
-   zero. The cross of the two was flagged as the cell a sceptic should ask for first. §7 Cell 1
+4. **Scatter combined with the real scale — closed for the identity transform, in §B7.** §B4
+   swept scatter at dr = 100 under smooth nonlinearity; §B6 ran at dr = 12.81 with scatter held at
+   zero. The cross of the two was flagged as the cell a sceptic should ask for first. §B7 Cell 1
    measured it under the identity transform: 0 of 12 cells show villa's verdict distinguishing
    the reference from the displaced patch, and 0 of 12 push the correctly placed reference below
    threshold, even at scatter equal to the full 6.0-voxel scan tolerance. What remains untested is
    the harder, three-way cross — real-scale scatter *combined with* the nonlinearity that produces
-   §4's one verdict flip. That combination was not run.
+   §B4's one verdict flip. That combination was not run.
 
-5. **Ratio tails beyond p05-p95 — closed, in §7.** Experiment B covered only the pinned quantile
-   grid (0.72-1.38). §7 Cell 2 swept the full measured span, 0.0446 to 23.8006, plus
+5. **Ratio tails beyond p05-p95 — closed, in §B7.** Experiment B covered only the pinned quantile
+   grid (0.72-1.38). §B7 Cell 2 swept the full measured span, 0.0446 to 23.8006, plus
    half-integers, and re-resolved the acceptance edge five windings out. The invariance is
    periodic, not magnitude-bounded: the largest displacement tested (23.8006 windings, ≈304.9
    voxels) is accepted because it lands 0.1994 of a winding from the nearest integer, while a
@@ -1052,8 +1090,8 @@ Stated plainly, because each is a place this work could mislead.
    configurations. The blindness is not an artifact of avoiding the seam.
 
 7. **The nonlinearity sweep tested a smooth shape where the real field is locally noisy —
-   NARROWED, not closed, and the invariance does break here.** §4 perturbs smoothly (a global
-   power law), which has a slowly varying derivative by construction; §5 shows the real field's
+   NARROWED, not closed, and the invariance does break here.** §B4 perturbs smoothly (a global
+   power law), which has a slowly varying derivative by construction; §B5 shows the real field's
    irregularity is local and noisy. A warp interpolated from the measured inter-winding spacing
    sequences of 40 real rays (`reports/spiral_satisfaction_empirical_transform.txt`) supplies
    the shape a power law cannot, and it is a *stronger* perturbation than any pinned alpha,
@@ -1063,7 +1101,7 @@ Stated plainly, because each is a place this work could mislead.
    ⚠ **CORRECTED 2026-08-25.** This entry was briefly marked **closed** on the strength of that
    probe reporting max |Δ| = `0.000000` across all 40 rays. That was wrong, and wrong in the
    flattering direction. **The probe ran at zero scatter**, and at zero scatter §1's algebra
-   *guarantees* Δ = 0 for any invertible transform — §4's own `scatter 0.00` row already
+   *guarantees* Δ = 0 for any invertible transform — §B4's own `scatter 0.00` row already
    publishes `+0.000000` at every alpha. The probe could not have failed. A zero over empirical
    warps was not evidence about those warps.
 
@@ -1076,7 +1114,7 @@ Stated plainly, because each is a place this work could mislead.
    | 4.0 | 0.121212 | **5/40** | 1/40 |
    | 6.0 | **0.284848** | **8/40** | 25/40 |
 
-   At 6.0 voxels — villa's entire scan tolerance — max |Δ| is **6.7× §4's pinned worst case**
+   At 6.0 voxels — villa's entire scan tolerance — max |Δ| is **6.7× §B4's pinned worst case**
    of 0.042424. The splicing configuration is more robust, holding to 4–5 voxels (Δ 0.006061)
    before breaking at 6.0 (Δ 0.260606, 3/40), which is consistent with its looser tolerances.
 
@@ -1097,7 +1135,7 @@ Stated plainly, because each is a place this work could mislead.
    This does **not** discharge Limit 2. It is real measured spacing geometry, not a fitted
    transform, and a real fitted transform would not be purely radial.
 
-   **The onset is now located, not bracketed (§8).** Under the reporting configuration: the
+   **The onset is now located, not bracketed (§B8).** Under the reporting configuration: the
    satisfied fraction first moves at 2.50 voxels of patch scatter, a patch verdict first flips at
    3.25, and the correctly placed reference itself first fails at 4.00 (per-ray median 3.75,
    sample-size-stable; the 3.25 figure is a min over 40 sampled rays and can only fall with more
@@ -1108,12 +1146,12 @@ Stated plainly, because each is a place this work could mislead.
    absolute voxels (3.25-3.50 across dr 10-25) while it falls sharply as a fraction of dr
    (0.350 to 0.130) — the opposite of what a relative check would produce.
 
-   **Whether that onset matters in practice is answered, separately, in §9.** Real traced patches
+   **Whether that onset matters in practice is answered, separately, in §B9.** Real traced patches
    from the published `verified_patches` set, measured at the window whose real-space extent
    matches the synthetic patch (3x4 grid cells, plane fit), carry median scatter 0.846 voxels
    (p95 2.179) — below all three onsets above. Only 0.82% of measured windows reach the
    verdict-flip onset. That is real evidence that well-traced patches do not typically carry
-   enough scatter to trigger the break §4 and this entry describe — it is not a claim that the
+   enough scatter to trigger the break §B4 and this entry describe — it is not a claim that the
    break is unreachable, only that it sits above what these 10 patches, at this window, show.
 
 8. **villa already contains annotation-propagation machinery; the metric just does not use it.**
@@ -1140,27 +1178,27 @@ Stated plainly, because each is a place this work could mislead.
 
 - **A real fitted PHercParis4 spiral**, with real patches carrying real scatter, displaced by
   one winding and rescored. If Δ there is materially nonzero, the synthetic result would be
-  shown to be an idealization. §1's algebra says it should not be, and §6 says the real
+  shown to be an idealization. §1's algebra says it should not be, and §B6 says the real
   tolerance/spacing ratio makes it less likely rather than more — but it has not been run.
-- **A scatter × real-scale × nonlinearity cross.** §7 answered the two-way version of this
+- **A scatter × real-scale × nonlinearity cross.** §B7 answered the two-way version of this
   question (real-scale scatter alone, identity transform): the reference patch never fails and no
   verdict disagreement appears in 12 cells, even at scatter equal to the full scan tolerance. What
   would still change the conclusion is the three-way cross — real-scale scatter *combined with*
-  the nonlinear transform that produces §4's one flip. If that combination flips a larger share of
-  the grid, or flips even at scatter levels below §4's, the flip would look less like an edge
+  the nonlinear transform that produces §B4's one flip. If that combination flips a larger share of
+  the grid, or flips even at scatter levels below §B4's, the flip would look less like an edge
   case.
 - **A three-way cross: real-scale scatter, combined with a real locally-irregular warp, swept
-  finely enough to locate the onset — SUBSTANTIALLY ANSWERED, §8 and §9.** The onset is now
+  finely enough to locate the onset — SUBSTANTIALLY ANSWERED, §B8 and §B9.** The onset is now
   located at 0.25-voxel resolution rather than bracketed: under the reporting configuration the
   satisfied fraction first moves at 2.50 voxels, a verdict first flips at 3.25, the reference
   first fails at 4.00 (per-ray median 3.75); the onset is governed by villa's absolute 6.0-voxel
-  scan tolerance, not its relative spiral tolerance (§8). And real patch scatter, measured on 10
+  scan tolerance, not its relative spiral tolerance (§B8). And real patch scatter, measured on 10
   patches from the published `verified_patches` set at the window matching the synthetic patch's
   real-space extent, has median 0.846 voxels — below all three onsets, with only 0.82% of
-  measured windows reaching the verdict-flip onset (§9). What is still open: this is 10 patches
+  measured windows reaching the verdict-flip onset (§B9). What is still open: this is 10 patches
   at one comparable window, the 3.25v figure is a min over 40 synthetic rays that can only fall
   with more rays, and the empirical-warp cross was not run together with the *smooth alpha*
-  nonlinearity that produced §4's specific verdict flip — that remains the harder cross named in
+  nonlinearity that produced §B4's specific verdict flip — that remains the harder cross named in
   the bullet above. With those caveats, the headline claim now has direct evidence, not just an
   algebraic argument, that it holds for the patches this investigation was able to measure.
 
@@ -1188,7 +1226,7 @@ document — the one written to describe the pattern.
   0.28, 0.38. A superlative — one value — had been written as a range, and the range's lower
   bound was the *second-largest* value, not a bound at all; the true spread bottoms out at
   0.0015. The conclusion survived only because 0.38 happened to be the upper end.
-- In the first draft of **this report**, §4 asserted that the worst-case `|Δ| = 0.042424` was
+- In the first draft of **this report**, §B4 asserted that the worst-case `|Δ| = 0.042424` was
   "small enough that the satisfied/unsatisfied verdict at villa's 0.95 patch threshold does not
   flip." It does flip, at scatter 0.05 / alpha 0.80: 159/165 satisfied → 156/165 not satisfied.
   The failure here was not a mistyped digit but an **invalid inference**: |Δ| was used as a
@@ -1208,7 +1246,7 @@ paragraphs.
 One related decision cuts the other way and is worth recording alongside the three failures. An
 earlier draft of this report computed a "~10% rejected strip" figure from villa's tolerance
 constant (`0.45*dr`) and declined to state it, because no cell had actually measured the edge —
-only the constant implied it. §7's Cell 2 has since bracketed the acceptance edge directly (0.44
+only the constant implied it. §B7's Cell 2 has since bracketed the acceptance edge directly (0.44
 accepted, 0.46 rejected, unchanged five windings out), and the figure is quoted there now because
 it is measured rather than derived. The refusal was not a hedge that later turned out
 unnecessary: it was correct at the time it was made, and it stayed correct until the missing
@@ -1259,11 +1297,11 @@ CUDA_VISIBLE_DEVICES="" uv run python scripts/probe_spiral_satisfaction_winding.
 CUDA_VISIBLE_DEVICES="" uv run python scripts/probe_spiral_satisfaction_robustness.py
 CUDA_VISIBLE_DEVICES="" uv run python scripts/probe_spiral_satisfaction_realscale.py
 uv run python scripts/measure_real_winding_nonlinearity.py   # pulls 210 MB, sha256-verified
-CUDA_VISIBLE_DEVICES="" uv run python scripts/probe_spiral_satisfaction_untested_cells.py  # §7
+CUDA_VISIBLE_DEVICES="" uv run python scripts/probe_spiral_satisfaction_untested_cells.py  # §B7
 CUDA_VISIBLE_DEVICES="" uv run python scripts/probe_spiral_satisfaction_empirical_transform.py  # Limits 7
 CUDA_VISIBLE_DEVICES="" uv run python scripts/probe_spiral_satisfaction_splicing_and_seam.py     # Limits 3, 6
-CUDA_VISIBLE_DEVICES="" uv run python scripts/probe_spiral_satisfaction_onset.py  # §8
-CUDA_VISIBLE_DEVICES="" uv run python scripts/probe_real_patch_scatter.py         # §9
+CUDA_VISIBLE_DEVICES="" uv run python scripts/probe_spiral_satisfaction_onset.py  # §B8
+CUDA_VISIBLE_DEVICES="" uv run python scripts/probe_real_patch_scatter.py         # §B9
 CUDA_VISIBLE_DEVICES="" uv run pytest \
   tests/test_probe_spiral_satisfaction_winding.py \
   tests/test_probe_spiral_satisfaction_robustness.py \
