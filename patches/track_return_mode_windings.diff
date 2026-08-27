@@ -1,0 +1,74 @@
+# Track-side conservative failure signal: return the winding already computed
+#
+# Against villa at our pin ced62390e, where the file is
+# volume-cartographer/scripts/spiral/tracks.py; upstream moved it to
+# spiral-fitting/ in PR #1548, which is the path in the header below.
+#
+# WHAT IT DOES. get_track_satisfied_counts already computes and returns
+# mode_winding_per_track. get_track_satisfied_counts_in_chunks -- the entry
+# point satisfaction_metrics.py imports -- unpacks five values and returns two,
+# discarding it. This makes it available behind an opt-in kwarg.
+#
+# WHY IT IS THE CHEAPEST FIX. The satisfied count is invariant under a whole
+# winding displacement, because the target is derived from the track's own
+# position. The mode winding is NOT: it moves by exactly the displacement. So a
+# caller holding an absolute winding annotation already has everything needed to
+# report a disagreement, once the value stops being thrown away.
+#
+# MEASURED, not argued. Applied to a copy and driven with villa's own tracks.py:
+#
+#   backwards compatible   existing 2-tuple call still unpacks
+#   counts bit-identical   torch.equal on both satisfied and total, before/after
+#   winding surfaces       [40, 40, 41, 42, 63] for displacements 0, .5, 1, 2, 23
+#   the check works        disagreement [0, 0, 1, 2, 23] against an expected 40
+#
+# Note the two signals are complementary rather than redundant. The half-winding
+# case (row 2) is already rejected by the count, and shows zero winding
+# disagreement, correctly: the count catches fractional displacement, the winding
+# check catches whole displacement, and neither catches the other.
+#
+# NOT a behaviour change: return_mode_windings defaults to False and the single
+# real call site, satisfaction_metrics.py:581, is untouched.
+#
+# Offered in https://github.com/ScrollPrize/villa/issues/1621 rather than as a
+# pull request.
+
+--- a/spiral-fitting/tracks.py
++++ b/spiral-fitting/tracks.py
+@@ -2131,20 +2131,34 @@
+     )
+
+
+-def get_track_satisfied_counts_in_chunks(slice_to_spiral_transform, dr_per_winding, tracks, metrics_config, chunk_size=500_000):
+-    sat_parts, tot_parts = [], []
++def get_track_satisfied_counts_in_chunks(slice_to_spiral_transform, dr_per_winding, tracks, metrics_config, chunk_size=500_000, return_mode_windings=False):
++    """...
++
++    `return_mode_windings=True` additionally returns the per-track mode winding
++    that `get_track_satisfied_counts` already computes. The satisfied count is
++    invariant under a whole-winding displacement of a track -- the target is
++    derived from the track's own position -- so the count alone cannot
++    distinguish a track on the right wrap from one on the wrong wrap. The mode
++    winding does move with the displacement, so a caller holding an absolute
++    winding annotation can compare the two and report the disagreement. Default
++    is False, so existing callers are unaffected.
++    """
++    sat_parts, tot_parts, mode_parts = [], [], []
+     for start in range(0, len(tracks), chunk_size):
+         chunk = tracks[start:start + chunk_size]
+-        _, sat, tot, _, _ = get_track_satisfied_counts(
++        _, sat, tot, _, mode = get_track_satisfied_counts(
+             slice_to_spiral_transform, dr_per_winding, chunk, metrics_config,
+         )
+         sat_parts.append(sat)
+         tot_parts.append(tot)
++        mode_parts.append(mode)
+         if torch.cuda.is_available():
+             torch.cuda.empty_cache()
+     if not sat_parts:
+         empty = torch.zeros(0, dtype=torch.int64)
+-        return empty, empty
++        return (empty, empty, empty) if return_mode_windings else (empty, empty)
++    if return_mode_windings:
++        return torch.cat(sat_parts), torch.cat(tot_parts), torch.cat(mode_parts)
+     return torch.cat(sat_parts), torch.cat(tot_parts)
