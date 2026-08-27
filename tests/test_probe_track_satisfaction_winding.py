@@ -70,3 +70,37 @@ def test_the_artifact_keeps_its_limits():
     """Synthetic, one geometry, no fit run."""
     text = open(ARTIFACT).read()
     assert "No fit was run" in text
+
+
+def test_the_mode_shifts_with_displacement_even_across_windings():
+    """The property the proposed check depends on, tested where it was most likely
+    to fail: a track that genuinely spans several windings, so the mode is
+    choosing among them rather than returning the only value present."""
+    for drift in (0.0, 0.6, 1.5, 2.0):
+        _, _, base = mod._score_drift(drift)
+        _, _, moved = mod._score_drift(drift, winding=mod.WINDING + 1)
+        assert moved - base == 1, f"drift {drift}: mode moved {moved - base}, not 1"
+
+
+def test_mode_ambiguity_is_confined_to_tracks_the_count_rejects():
+    """The boundary that makes the caveat resolvable. Near a full winding of drift
+    the mode flips under small jitter, but only where the satisfied count has
+    already collapsed. A fully satisfied track must have a stable mode, or the
+    check would be unreliable exactly where it is needed."""
+    for drift in (0.0, 0.2, 0.4):
+        sat, tot, _ = mod._score_drift(drift)
+        assert sat == tot, "this drift should be fully satisfied"
+        modes = {
+            mod._score_drift(drift, jitter=0.05 * mod.DR, seed=k)[2] for k in range(12)
+        }
+        assert len(modes) == 1, f"fully satisfied track has ambiguous mode {modes}"
+
+
+def test_the_ambiguous_band_exists_and_is_reported():
+    """Guard against the caveat being closed too cleanly. There IS a band where the
+    mode is unstable; the artifact must say so rather than claiming it away."""
+    modes = {mod._score_drift(1.0, jitter=0.05 * mod.DR, seed=k)[2] for k in range(12)}
+    assert len(modes) > 1, "expected the transition band to be ambiguous"
+    text = open(ARTIFACT).read()
+    assert "AMBIGUOUS" in text
+    assert "already rejects" in text

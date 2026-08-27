@@ -99,6 +99,48 @@ def score_chunked(displacement, cfg):
     return int(sat[0]), int(tot[0])
 
 
+def _drift_rows():
+    """Mode behaviour for tracks that drift across windings.
+
+    Closes the caveat we published with the patch offer. A track whose radius
+    drifts by `d * dr` across its length spans that many windings, so the mode
+    is choosing among several rather than returning the only value present.
+    """
+    out = []
+    for d in (0.0, 0.4, 0.6, 1.0, 1.1, 1.5, 2.0):
+        sat, tot, mode = _score_drift(d)
+        _, _, mode_up = _score_drift(d, winding=WINDING + 1)
+        modes = {_score_drift(d, jitter=0.05 * DR, seed=k)[2] for k in range(12)}
+        out.append(
+            (
+                d,
+                f"{sat}/{tot}",
+                mode,
+                f"{mode_up} (+{mode_up - mode})",
+                "stable" if len(modes) == 1 else f"AMBIGUOUS {sorted(modes)}",
+            )
+        )
+    return out
+
+
+def _score_drift(drift, winding=WINDING, jitter=0.0, seed=0, n=N_POINTS):
+    rng = np.random.default_rng(seed)
+    th = np.linspace(THETA0, THETA1, n)
+    r = (
+        winding * DR
+        + th / (2 * np.pi) * DR
+        + np.linspace(0.0, drift * DR, n)
+        + rng.normal(0.0, jitter, n)
+    )
+    t = np.stack(
+        [np.full_like(th, 1000.0), np.sin(th) * r, np.cos(th) * r], axis=-1
+    ).astype(np.float32)
+    _, sat, lens, _, mode = get_track_satisfied_counts(
+        IdentityTransform(), torch.tensor(DR), [t], REPORTING
+    )
+    return int(sat[0]), int(lens[0]), int(mode[0])
+
+
 def main():
     lines = [
         "The track metric has the same blindness, measured rather than argued",
@@ -149,6 +191,34 @@ def main():
         "  conservative failure check needs already exists one call below the boundary and",
         "  is thrown away at it. For tracks the proposed fix is cheaper than for patches:",
         "  the caller does not need to derive anything, only to stop discarding it.",
+        "",
+        "=== Multi-winding tracks: closing our own published caveat ===",
+        "",
+        "The patch offered in the thread carried a caveat: we had not seen what mode_winding",
+        "does when a track spans more than one winding, where the mode is doing real work",
+        "rather than returning the only value present. That needed no fit either. A track",
+        "whose radius drifts across its length spans whatever range of windings we choose.",
+        "",
+        "   drift (windings)   satisfied   mode   after +1 winding   stable under jitter?",
+        "  " + "-" * 76,
+    ]
+    for d, sat_s, mode_s, mode_shift, stable in _drift_rows():
+        lines.append(
+            f"   {d:14.1f}   {sat_s:>9}   {mode_s:4d}   {mode_shift:>16}   {stable}"
+        )
+    lines += [
+        "",
+        "  The property the check needs SURVIVES: the mode shifts by exactly +1 under a",
+        "  whole-winding displacement at every drift level, so a caller comparing it against",
+        "  an annotation still sees the displacement.",
+        "",
+        "  The caveat resolves with a boundary rather than simply vanishing. Near a drift of",
+        "  one full winding the mode is ambiguous under jitter of 0.05*dr, flipping between",
+        "  40 and 41 across redraws. But that band is exactly where the satisfied count has",
+        "  already collapsed to about half. Every FULLY SATISFIED track in the sweep has a",
+        "  stable mode. So the winding check is reliable precisely where it matters, on",
+        "  tracks the count would otherwise accept, and ambiguous only on tracks the count",
+        "  already rejects.",
         "",
         "Limits. Synthetic flat track, one geometry, displacement varied and shape not.",
         "No fit was run. This measures what the metric does with a track placed on a",
