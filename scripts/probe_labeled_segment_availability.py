@@ -76,7 +76,25 @@ def labeled_segments(train_scrolls_root):
 
 
 def placements_on_disk(reports_dir):
-    """Committed placement offsets, keyed by segment, from *_validation.json gate blocks."""
+    """Committed placement offsets, keyed by segment.
+
+    Reads two shapes, because the measurements live in two shapes.
+
+    ⚠ FIXED 2026-08-27. This used to read only `*_validation.json` gate blocks,
+    and so reported `20231005123336` as "present but unmeasured (ours to
+    measure)" -- an unblock path a reader would reasonably chase. It is measured,
+    and has been since 2026-08-15: 57.5 px against a 48 px gate, recorded in
+    `gt_finetune_prep.json` under `regions[].placement_offset_level2_px` and
+    written up in `gt_training_data_exhaustion_2026-08-15.md`. A probe whose job
+    is to say what is left to try must not invent work that is already done; that
+    error points the same way as wishful thinking, which is why it is worth
+    naming rather than quietly patching.
+
+    Region ids carry a `_y####_x####` suffix, so the segment is the leading field.
+    Where a segment has several regions the WORST (largest) offset is kept: a
+    segment is only usable if its regions are usable, and taking the best would
+    let one good region hide a bad one.
+    """
     out = {}
     for path in sorted(pathlib.Path(reports_dir).glob("*_validation.json")):
         try:
@@ -89,6 +107,20 @@ def placements_on_disk(reports_dir):
         )
         if seg and offset is not None:
             out[seg] = float(offset)
+
+    prep = pathlib.Path(reports_dir) / "gt_finetune_prep.json"
+    if prep.exists():
+        try:
+            d = json.loads(prep.read_text())
+        except json.JSONDecodeError:
+            d = {}
+        for region in d.get("regions", []):
+            frag = region.get("frag_id") or ""
+            offset = region.get("placement_offset_level2_px")
+            if not frag or offset is None:
+                continue
+            seg = frag.split("_y")[0]
+            out[seg] = max(out.get(seg, float("-inf")), float(offset))
     return out
 
 

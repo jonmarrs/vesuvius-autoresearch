@@ -206,3 +206,44 @@ def test_probe_json_if_present_agrees_with_the_recorded_survey():
     # would fail whoever re-runs the probe, which is the one thing the report asks for.
     assert re.fullmatch(r"\d{4}-\d{2}-\d{2}", d["surveyed"])
     assert d["survey_mode"] in ("live", "offline")
+
+
+def test_placements_are_read_from_both_shapes():
+    """The fix. Measurements live in *_validation.json gate blocks AND in
+    gt_finetune_prep.json regions. Reading only the first made the probe report
+    20231005123336 as "present but unmeasured (ours to measure)" when it has been
+    measured since 2026-08-15 at 57.5 px against a 48 px gate. That invented an
+    unblock path which was already closed, an error pointing the same way as
+    wishful thinking."""
+    placements = placements_on_disk(REPO_ROOT / "reports" / "detector")
+    assert "20231005123336" in placements
+    assert 56.0 < placements["20231005123336"] < 58.5
+
+
+def test_a_segment_with_several_regions_takes_its_worst():
+    """A segment is usable only if its regions are. Taking the best offset would
+    let one good region hide a bad one."""
+    prep = json.loads(
+        (REPO_ROOT / "reports" / "detector" / "gt_finetune_prep.json").read_text()
+    )
+    offsets = [
+        r["placement_offset_level2_px"]
+        for r in prep.get("regions", [])
+        if (r.get("frag_id") or "").startswith("20231005123336")
+        and r.get("placement_offset_level2_px") is not None
+    ]
+    placements = placements_on_disk(REPO_ROOT / "reports" / "detector")
+    assert placements["20231005123336"] == max(offsets)
+
+
+def test_nothing_is_left_to_measure():
+    """The state this records. If it ever fails, something upstream published and
+    there IS a next thing to try, which is the whole point of keeping the probe
+    re-runnable rather than trusting the 2026-08-15 answer."""
+    out = json.loads(
+        (
+            REPO_ROOT / "reports" / "detector" / "labeled_segment_availability.json"
+        ).read_text()
+    )
+    assert out["status"] == "exhausted_no_candidate"
+    assert out["unmeasured"] == []
