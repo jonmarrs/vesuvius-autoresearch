@@ -1,7 +1,15 @@
-# DRAFT (NOT POSTED) — villa issue: spiral satisfaction cannot detect a sheet switch
+# POSTED — villa issue #1621: spiral satisfaction cannot detect a sheet switch
 
-**Status: revised 2026-08-27 (eighth pass), NOT posted. HELD pending Jon's explicit approval.**
-Do not post. Do not treat a later "continue" as authorization.
+**Status: POSTED 2026-08-27 as <https://github.com/ScrollPrize/villa/issues/1621>.**
+
+Posted on Jon's explicit instruction, after a day-of re-verification against upstream `6847063f`:
+`satisfaction_metrics.py` still 1092 lines, `metrics_config` still 0.45 / 6.0 / 0.95, the splicing
+override still 0.495 / 12.0 / 0.90, `winding_is_absolute` and `winding_annotation` still 0
+occurrences in that file while `losses.py:935` still selects on the former, and no existing issue
+reports this. The body posted is the text below, verbatim, 1,519 words.
+
+This file is now a record rather than a draft. Do not edit the body to match later findings: if
+something in it turns out to be wrong, that is a comment on the issue, not a silent revision here.
 
 This supersedes the 2026-08-25 draft and the three earlier passes of 2026-08-26. The core claim is
 unchanged and has now survived about ten review cycles untouched. The third pass removed the
