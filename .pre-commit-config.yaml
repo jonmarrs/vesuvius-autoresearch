@@ -2,7 +2,13 @@
 # (often without a trailing newline). Excluding them stops end-of-file-fixer /
 # trailing-whitespace from modifying them mid-commit, which otherwise conflicts
 # with pre-commit's stash/restore and blocks commits while the loop runs.
-exclude: '^(config\.json|autoresearch_history\.json|recent_configs\.json|history\.tsv|prize_readiness\.tsv|\.current_day_shift_log)$'
+# repro/villa_preserved/ holds byte-identical copies of upstream villa files that
+# upstream has since DELETED. Linting or reformatting them defeats the point: a
+# silently reformatted copy of someone else's file is worse than no copy, because
+# it looks authoritative and is not. Learned the hard way -- ruff auto-fixed 53
+# issues across them on the first commit attempt, and tests/test_villa_preserved.py
+# caught the drift.
+exclude: '^(config\.json|autoresearch_history\.json|recent_configs\.json|history\.tsv|prize_readiness\.tsv|\.current_day_shift_log|repro/villa_preserved/.*)$'
 
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
