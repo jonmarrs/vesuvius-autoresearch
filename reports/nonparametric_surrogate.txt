@@ -1,0 +1,24 @@
+Does k survive replacing the Gaussian surrogate with the real residual?
+
+Pre-registered: the injected field is a REAL residual, taken cross-patch (patch
+A's residual into patch B's reference, fixed pairing) so nothing is measured
+against a field it has already seen. No parameter is fitted to the real data.
+Rule fixed in advance: plane k within 25% of the published
+0.265 (that is 0.199 to 0.331) and the Gaussian surrogate is an
+adequate stand-in. Outside by more than the seed spread and the surrogate
+family is driving the correction; the direction is reported either way.
+
+Residual bank: 10 real patches.
+
+  estimator   |  floor |      k | reported p50 | corrected p50
+  ----------------------------------------------------------------
+  plane       | 0.2192 | 0.0751 |       0.8321 |       10.8095
+  quadratic   | 0.0112 | 0.0088 |       0.2554 |       29.0682
+
+  plane k under the real-residual injection: 0.0751 (seed range 0.0661 to 0.0849, spread 0.0188)
+  published Gaussian-surrogate k: 0.265
+  OUTSIDE the pre-registered interval by more than the seed spread. The surrogate family is driving the correction. SMALLER k means more attenuation, so the true correction is LARGER and the ~30 percent exceedance is an UNDERESTIMATE.
+
+  Secondary, same band [0.8, 1.25]: cross-estimator ratio under this injection R = 0.372 -> INCONSISTENT.
+
+Limits, stated before the run: tiling a donor residual to the recipient's grid introduces seams the real field does not have, which can only add high-frequency content and so biases k upward, against the direction that would support the published figure. And the residual excludes wavelengths longer than the reference smoothing by construction, so this tests the SHAPE of the roughness against a real sample, not the separation of roughness from curvature.

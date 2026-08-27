@@ -120,23 +120,39 @@ def run_level(rays, rms, sigma, rng):
     return worst, flips
 
 
-def measure_real_autocorrelation(n_windows=400, h=3, w=4, seed=3):
-    """Lag-1 autocorrelation of a real patch's residual across the grid.
+def measure_real_autocorrelation(n_windows=400, h=3, w=4, seed=3, axis=1):
+    """Lag-1 autocorrelation of real patch residuals across the grid.
 
     This is the number that decides which arm of the sweep is the relevant one. If
     real residuals were white, the independent arm would be the right comparison
     and the earlier conclusion would stand as written.
+
+    ⚠ FIXED 2026-08-26. This function used to break out of the OUTER patch loop
+    once the quota was met, so every window came from whichever patch happened to
+    be first -- `0000_top_band`, which is enormous (241x13168) and filled the
+    quota alone. Its own value is +0.353; pooled across all ten patches the answer
+    is +0.213, and the per-patch spread runs +0.057 to +0.494. The single-patch
+    +0.357 was published as TARGET_COL_LAG1 and the anisotropic surrogate was
+    fitted to it, so this defect propagated into the attenuation k and everything
+    downstream of it. Sampling is now capped per patch and pooled.
+
+    This is the same outer-break pooling defect already fixed once in
+    probe_is_corrected_scatter_physical.py. It was worth grepping for the pattern
+    then, and was not.
     """
     umb = load_umbilicus()
     rng = np.random.default_rng(seed)
     ii, jj = np.mgrid[0:h, 0:w]
     A = np.c_[ii.ravel(), jj.ravel(), np.ones(h * w)]
     out = []
-    for d in patch_dirs():
+    dirs = list(patch_dirs())
+    per_patch = max(1, n_windows // max(1, len(dirs)))
+    for d in dirs:
         xs, ys, zs, valid = load_patch(d)
         if not valid.any() or valid.shape[0] < h or valid.shape[1] < w:
             continue
         r = radius_field(xs, ys, zs, umb)
+        got = 0
         for _ in range(4000):
             i = int(rng.integers(0, r.shape[0] - h + 1))
             j = int(rng.integers(0, r.shape[1] - w + 1))
@@ -147,13 +163,13 @@ def measure_real_autocorrelation(n_windows=400, h=3, w=4, seed=3):
             res = (win - A @ coef).reshape(h, w)
             if res.std() < 1e-9:
                 continue
+            a = np.moveaxis(res, axis, -1)
             out.append(
-                float(np.corrcoef(res[:, :-1].ravel(), res[:, 1:].ravel())[0, 1])
+                float(np.corrcoef(a[..., :-1].ravel(), a[..., 1:].ravel())[0, 1])
             )
-            if len(out) >= n_windows:
-                break
-        if len(out) >= n_windows:
-            break
+            got += 1
+            if got >= per_patch:
+                break  # inner loop only: the outer break is what broke this
     return np.array(out)
 
 

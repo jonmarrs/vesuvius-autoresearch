@@ -3,7 +3,7 @@ The onset probe used INDEPENDENT per-point noise. Real patch residuals are not i
 
 === Is the real residual actually correlated? ===
   lag-1 autocorrelation across the grid, n=400 windows from real patches:
-    median +0.357   p25 -0.019   p75 +0.604   share positive 73.2%
+    median +0.214   p25 -0.220   p75 +0.495   share positive 62.3%
   Independent noise would sit near 0.000 with about half positive. It does not, so the correlated arms below are the relevant comparison and the independent arm is not.
 
 === Verdict flips out of 40 rays, at equal RMS ===
