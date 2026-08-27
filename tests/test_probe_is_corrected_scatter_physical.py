@@ -126,26 +126,42 @@ def test_removing_shared_curvature_cannot_increase_the_median():
 
 
 def test_the_report_quotes_the_artifact_it_cites():
-    """Drift guard. Every number the finding's report states about this probe is
-    hand-typed from the artifact, and hand-typed cross-file statistics are the most
-    repeated defect in this series -- the first draft of this very withdrawal typed
-    a stale 1.78 and 4.6x from a pre-pooling-fix run. Both files must agree."""
+    """Drift guard. The report hand-copies numbers out of this artifact, and
+    hand-typed cross-file statistics are the most repeated defect in this series
+    -- the first draft of the withdrawal typed a stale 1.78 and 4.6x from a
+    pre-pooling-fix run. What the report quotes has changed: the ratio claim is
+    gone (it was definitional, not a finding), and what survives is the
+    saturation calibration, so that is what is pinned."""
     import re
 
     art = open(os.path.join(_REPO, "reports/is_corrected_scatter_physical.txt")).read()
     md = open(
         os.path.join(_REPO, "reports/spiral_satisfaction_winding_blindness.md")
     ).read()
+    section = md[md.index("the locality statistic has no power") :]
+    section = section[: section.index("\n\n")]
 
-    obs = re.search(r"SAME window: p95 (\d+\.\d+)", art).group(1)
-    gap = re.search(r"Gap: (\d+\.\d+)x", art).group(1)
-    corrected = re.search(r"under scrutiny is (\d+\.\d+) voxels", art).group(1)
-    section = md[md.index("The open physical check is NOT closed") :][:3000]
+    rows = dict(re.findall(r"^\s+(0\.\d+) \|\s+(0\.\d+)$", art, re.M))
+    assert rows, "the calibration table vanished from the artifact"
 
-    assert f"p95 **{obs}**" in section
-    assert f"**{gap}×**" in section
-    assert f"**{corrected} voxels**" in section
+    # Read the direction that cannot false-positive: every "true -> reported"
+    # pair the report prints must be one the artifact actually produced.
+    # Checking bare fractions instead would trip over "0.10 and 0.20" written as
+    # a range, which is how an earlier version of this guard failed.
+    quoted = re.findall(r"(0\.\d+) -> (0\.\d+)", section)
+    assert len(quoted) >= 2, (
+        "the report should still quote the calibration it relies on"
+    )
+    for frac, reported in quoted:
+        assert frac in rows, f"{frac} is not a row this artifact computes"
+        assert rows[frac] == reported, f"{frac} row drifted: artifact says {rows[frac]}"
 
-    for frac, reported in re.findall(r"^\s+(0\.\d+) \|\s+(0\.\d+)$", art, re.M):
-        if f"| {frac} |" in section:
-            assert f"| {frac} | {reported} |" in section, f"{frac} row drifted"
+
+def test_the_artifact_no_longer_calls_the_ratio_unexplained():
+    """The claim this probe was published on is withdrawn, and the artifact must
+    say so rather than quietly dropping it. The ratio is 1/k by construction, so
+    the comparison cannot test k."""
+    art = open(os.path.join(_REPO, "reports/is_corrected_scatter_physical.txt")).read()
+    assert "unexplained by anything measured here" not in art
+    assert "VACUOUS" in art
+    assert "cross_estimator_consistency" in art

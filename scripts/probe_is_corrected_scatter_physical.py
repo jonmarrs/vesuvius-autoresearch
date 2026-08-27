@@ -229,7 +229,9 @@ def format_report(scales, totals, locals_, power):
         )
     analysis = next(v for (h, w), v in scales if (h, w) == ANALYSIS)
     out.append("")
-    out.append("=== The concern is NOT closed ===")
+    out.append(
+        "=== The comparison this probe was built on cannot test what it was meant to ==="
+    )
     out.append(
         f"  The corrected p95 under scrutiny is {corrected_p95():.2f} voxels. It is not an "
         "independent quantity: it IS the analysis-window plane-fit residual, divided by the "
@@ -240,14 +242,21 @@ def format_report(scales, totals, locals_, power):
         f"  Directly observed deviation at that SAME window: p95 {np.percentile(analysis, 95):.3f}."
     )
     out.append(
-        f"  Gap: {corrected_p95() / max(np.percentile(analysis, 95), 1e-9):.1f}x, unexplained by "
-        "anything measured here."
+        f"  Ratio: {corrected_p95() / max(np.percentile(analysis, 95), 1e-9):.1f}x -- and this "
+        f"comparison is VACUOUS, which is the point of this section now. The corrected value is "
+        f"the observed residual divided by k, so the ratio is 1/k = {1 / CAL_K_REF:.2f} times the "
+        "sampling difference between two measurements of the same quantity. It cannot test k, "
+        "because it is built from k."
     )
     out.append(
-        "  An earlier version answered this by pointing at the largest window's p95, over a nine "
-        "times larger area. That is a different quantity, and the comparison is a category "
-        "error. It is also unstable: with the largest window at 7x9 rather than 9x12 the same "
-        "argument fails outright. The concern stands."
+        "  Both earlier versions of this section were wrong. The first answered the question by "
+        "pointing at the largest window's p95, over a nine times larger area: a different "
+        "quantity, and unstable, since with the largest window at 7x9 rather than 9x12 the same "
+        "argument fails outright. The replacement then called the ratio above an unexplained gap, "
+        "when it is a definition. The real question -- is k right -- is tested in "
+        "reports/cross_estimator_consistency.txt, by measuring the same windows with a second "
+        "estimator whose attenuation is very different and checking whether the two agree after "
+        "correction. They do under the admissible surrogate and do not under the published one."
     )
     out.append("")
     out.append("=== And the shared-vs-local statistic has no power ===")

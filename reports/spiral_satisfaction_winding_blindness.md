@@ -694,11 +694,12 @@ roughly four times the ≈6.8% it replaces, and it **contradicts** rather than q
 conclusion that the break "is not reached by well-traced patches" — under the only admissible
 surrogate, it is reached by a substantial minority.
 
-⚠ **Read this together with the withdrawn closure below.** The band above is the spread across
-admissible *surrogates*; it is not a confidence interval on the exceedance. The attenuation the
-figure divides by has never been validated against a quantity measured at the analysis window, and
-the evidence assembled while trying to validate it points to ≈30% being an **overestimate**. Treat
-≈30% as the largest defensible figure, not the best one.
+⚠ **Read the band for what it is.** It is the spread across admissible *surrogates*, not a
+confidence interval on the exceedance. As of 2026-08-26 the attenuation it divides by has
+independent support: a cross-estimator consistency test, pre-registered and detailed below, is
+passed by the admissible anisotropic surrogate (R = 1.09) and **failed** by the published isotropic
+one (R = 2.15). An earlier version of this note said the evidence pointed to ≈30% being an
+overestimate; that is retracted, and the reasoning behind it is set out below.
 
 ⚠ **§9's own figures below (2.5%, and the P(notices) table) are superseded by this.** They are left
 in place for the record of how the number moved, not as current estimates.
@@ -711,48 +712,58 @@ available: a *lower* onset and a *higher* corrected scatter both raise the excee
 probes had already established that more correlation lowers the onset. The measurement supplies the
 magnitudes (≈×8.7 from scatter, ≈×2.4 from onset), not the direction.
 
-⚠ **The open physical check is NOT closed — the closure was withdrawn 2026-08-26**
-(`reports/is_corrected_scatter_physical.txt`). An earlier version of this section claimed to close
-it in favour of the ≈30% figure. Review found both halves of that closure invalid, and I have
-withdrawn them.
+⚠ **The physical check: both earlier versions of this paragraph were wrong. Resolved 2026-08-26
+by a different test** (`reports/cross_estimator_consistency.txt`).
 
-**The concern, restated correctly.** The corrected p95 is **8.24 voxels**. It is not an independent
-quantity — it *is* the analysis-window plane-fit residual divided by the attenuation, so it
-describes deviation inside a **60×80 voxel** window. The directly observed deviation at that *same*
-window is p95 **2.025**. The gap is **4.1×**, and nothing measured so far explains it.
+**What the two wrong versions were.** The first claimed to close the concern by comparing the
+corrected p95 (8.24 voxels, describing a 60×80 window) against deviation measured over a **180×240**
+window — nine times the area, a different quantity, and an argument that flips outright if the
+largest window is 7×9 instead of 9×12. Review rejected it. The replacement I wrote then compared the
+corrected value against raw deviation at the *same* window and called the 4.1× ratio "unexplained".
+That was also wrong, and it is arithmetic I should have caught: the corrected value **is** the
+observed residual divided by *k*, so their ratio is 1/*k* by construction. 1/0.263 = 3.80, times the
+1.08 sampling difference between two measurements of the same quantity, is 4.09 against the 4.07
+"gap" reported. Definition, not discrepancy. The section has now been wrong in both directions.
 
-**Why the closure failed.** It answered that gap by pointing at 12.1 measured over a **180×240**
-window — nine times the area, a different quantity. That comparison is unstable as well as invalid:
-with the largest window at 7×9 instead of 9×12, the same argument **fails outright**. And it is
-self-refuting, because the large-window deviation is precisely the long-wavelength curvature the
-same section argued the spiral *follows* and which therefore cannot perturb anything.
+**The question was only ever whether *k* is right.** *k* = 0.263 says the plane estimator recovers
+26% of injected scatter, so real scatter is ≈3.8× what we observe. Nothing tested that
+independently.
 
-**The second half was worse.** The "85% of deviation is local, so the exceedance treats the right
-quantity" claim rested on a statistic with no power. Calibrated against fields of known composition:
+**The test that does.** The same real windows can be measured with a *quadratic* fit, which has a
+very different attenuation, a floor an order of magnitude smaller, and a very different raw answer
+(median 0.255 against the plane's 0.832). If one *k* above a floor describes the data, both
+estimators see the same physical scatter through different attenuation and must agree after
+correction. Nothing in correcting one uses the other. The decision rule — R = corrected(plane) /
+corrected(quadratic) inside [0.80, 1.25] — was committed **before** the run (`1c4e4070`).
 
-| true local fraction | statistic reports |
-|---|---|
-| 0.05 | 0.495 |
-| 0.10 | 0.698 |
-| 0.20 | 0.905 |
-| 0.50 | 0.978 |
+| surrogate | k plane | k quad | corrected p50 plane | corrected p50 quad | **R** | verdict |
+|---|---|---|---|---|---|---|
+| isotropic 0.561 (published) | 0.686 | 0.468 | 1.17 | 0.55 | **2.15** | fails |
+| anisotropic 1.45 / 1.05 (admissible) | 0.265 | 0.093 | 2.98 | 2.76 | **1.09** | passes |
 
-It saturates steeply. Inverting at the observed 0.846 puts the **true** local fraction between
-**0.10 and 0.20** — so most of the deviation *is* shared curvature, the opposite of what was
-claimed. The branch I wrote for "most is shared curvature, therefore ≈30% is an overestimate" did
-not fail to fire; **it could not fire**, and on this calibration it should have. The split is also
-not a partition: 35.7% of samples have local exceeding total.
+Seed spread on R is 0.026 and 0.056 respectively, so neither verdict is a sampling artifact. At p95 —
+the quantile the exceedance actually uses, added *after* seeing the p50 result and labelled as not
+pre-registered — R is 2.32 (isotropic) and 1.17 (anisotropic), the same split.
 
-**Two sampling defects also corrected.** Every sample previously came from a *single* patch (the
-loop broke out of the outer patch loop), and that patch was the second-highest of eight for this
-statistic — one of the eight would have failed the check outright. Sampling is now capped per patch.
-And `CORRECTED_P95` was hand-typed as 8.0 from prose in another artifact; it is now derived (8.24).
+**What this changes.** The correction underlying ≈30% now has support from a criterion that knows
+nothing about lag-1 autocorrelation, and the previously published isotropic arm — the one that gave
+≈1.9% — is the arm this test **rejects**. Two independent criteria now select the same surrogate.
+The withdrawal's closing line, that "≈30% is more likely an overestimate than not", is retracted: it
+rested on the saturation finding below plus a gap that turned out to be definitional.
 
-**Consequence for the headline.** The ≈30% exceedance still rests on a corrected distribution
-roughly 4× larger than anything observed at its own scale, and the evidence now suggests most of
-that deviation is curvature the spiral follows rather than perturbation. **≈30% is more likely an
-overestimate than not**, and the honest status is unresolved pending an attenuation validated
-against a quantity measured at the analysis window.
+**What it does not establish.** Agreement is necessary, not sufficient. Two estimators sharing a
+wrong assumption — a surrogate that misrepresents the real correlation structure in a way that
+biases both fits together — would agree and both be wrong. Both use the same reference-smoothing and
+the same surrogate family. Disagreement is the decisive direction here, because one quantity cannot
+be two, and disagreement is what the isotropic arm shows.
+
+**Separately, and still standing: the locality statistic has no power.** The claim that "85% of
+deviation is local, so the exceedance treats the right quantity" rested on a statistic that
+saturates. Calibrated against fields of known composition, true local fraction → what the statistic
+reports: 0.05 -> 0.495, 0.10 -> 0.698, 0.20 -> 0.905, 0.50 -> 0.978. Inverting at the observed 0.846
+puts the true local fraction between 0.10 and 0.20. The split
+is also not a partition: 35.7% of samples have local exceeding total. That claim is withdrawn and is
+not reinstated by anything above.
 
 **What this does not touch.** The core finding uses no scatter model at all: for a well-placed patch
 the metric cannot detect a whole-winding displacement, exactly, at every scale, under both villa

@@ -1,0 +1,33 @@
+Do two estimators with different attenuations agree after correction?
+Pre-registered decision rule (committed before the run): if the corrected
+plane / corrected quadratic ratio R lies in [0.8, 1.25] under the
+admissible surrogate, the constant-k-above-a-floor correction survives this
+test. Outside it by more than the seed spread, the model the ~30 percent
+exceedance depends on is falsified as a description of these data. Outside it
+by less than the seed spread, the test is inconclusive and says so.
+
+First, why the previous physicality check could not have worked: the corrected
+value IS the observed residual divided by k, so comparing the two recovers 1/k
+and nothing else. The '4.1x unexplained gap' was 1/0.263 = 3.80 times a 1.08
+sampling difference between two measurements of the same quantity. Definition,
+not discrepancy.
+
+=== isotropic 0.561 (published) ===
+  estimator   |  floor |      k | rep p50 | corr p50 | rep p95 | corr p95
+  --------------------------------------------------------------------------
+  plane       | 0.2155 | 0.6863 |  0.8321 |   1.1694 |  2.1211 |   3.0762
+  quadratic   | 0.0112 | 0.4683 |  0.2554 |   0.5456 |  0.6250 |   1.3342
+  R = corrected(plane) / corrected(quadratic) = 2.152   (seed range 2.132 to 2.158, spread 0.026)
+  FAILS the pre-registered band by more than the seed spread: the two estimators do NOT measure the same corrected scatter, so a single k per estimator above a floor does not describe these data.
+  Supplementary (not pre-registered): the same ratio at p95, the quantile the exceedance actually uses, is 2.315 (seed range 2.256 to 2.349). OUTSIDE the band, so the agreement above does not extend to the tail the exceedance is computed from.
+
+=== anisotropic 1.45 / 1.05 (admissible) ===
+  estimator   |  floor |      k | rep p50 | corr p50 | rep p95 | corr p95
+  --------------------------------------------------------------------------
+  plane       | 0.2155 | 0.2649 |  0.8321 |   2.9798 |  2.1211 |   7.9219
+  quadratic   | 0.0112 | 0.0925 |  0.2554 |   2.7647 |  0.6250 |   6.7543
+  R = corrected(plane) / corrected(quadratic) = 1.087   (seed range 1.059 to 1.115, spread 0.056)
+  PASSES the pre-registered band: the two estimators agree.
+  Supplementary (not pre-registered): the same ratio at p95, the quantile the exceedance actually uses, is 1.170 (seed range 1.148 to 1.183). Also inside the band.
+
+Reminder of what this cannot show: two estimators sharing a wrong assumption would agree and both be wrong, so agreement is necessary and not sufficient. Disagreement is the decisive direction, because one quantity cannot be two.

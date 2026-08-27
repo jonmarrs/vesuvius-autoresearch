@@ -176,9 +176,14 @@ def one_seed(sigma_col, sigma_row, seed):
             "k": k,
             "reported_p50": float(np.median(rep)),
             "corrected_p50": corrected(float(np.median(rep)), floor, k),
+            "reported_p95": float(np.percentile(rep, 95)),
+            "corrected_p95": corrected(float(np.percentile(rep, 95)), floor, k),
         }
     row["ratio"] = row["plane"]["corrected_p50"] / max(
         row["quadratic"]["corrected_p50"], 1e-12
+    )
+    row["ratio_p95"] = row["plane"]["corrected_p95"] / max(
+        row["quadratic"]["corrected_p95"], 1e-12
     )
     return row
 
@@ -203,15 +208,20 @@ def main():
     for label, sc, sr in SURROGATES:
         seeds = [one_seed(sc, sr, SEED + 100 * i) for i in range(N_SEEDS)]
         lines.append(f"=== {label} ===")
-        lines.append("  estimator   |  floor |      k | reported p50 | corrected p50")
-        lines.append("  " + "-" * 62)
+        lines.append(
+            "  estimator   |  floor |      k | rep p50 | corr p50 | rep p95 | corr p95"
+        )
+        lines.append("  " + "-" * 74)
         for name in ORDERS:
             f = np.median([s[name]["floor"] for s in seeds])
             k = np.median([s[name]["k"] for s in seeds])
             rep = np.median([s[name]["reported_p50"] for s in seeds])
             cor = np.median([s[name]["corrected_p50"] for s in seeds])
+            r95 = np.median([s[name]["reported_p95"] for s in seeds])
+            c95 = np.median([s[name]["corrected_p95"] for s in seeds])
             lines.append(
-                f"  {name:11s} | {f:6.4f} | {k:6.4f} | {rep:12.4f} | {cor:13.4f}"
+                f"  {name:11s} | {f:6.4f} | {k:6.4f} | {rep:7.4f} | {cor:8.4f} "
+                f"| {r95:7.4f} | {c95:8.4f}"
             )
         ratios = np.array([s["ratio"] for s in seeds])
         r_med = float(np.median(ratios))
@@ -236,6 +246,25 @@ def main():
                 "Do not read this in either direction."
             )
         lines.append(f"  {verdict}")
+
+        # Supplementary, and NOT pre-registered: the rule above was fixed on the
+        # median before the run and is reported as such. The exceedance actually
+        # uses the upper tail, so the same ratio is shown at p95, added after
+        # seeing the p50 result. It is reported whichever way it comes out, but
+        # it must not be described as having been pre-registered.
+        r95s = np.array([s["ratio_p95"] for s in seeds])
+        r95_med = float(np.median(r95s))
+        lines.append(
+            f"  Supplementary (not pre-registered): the same ratio at p95, the "
+            f"quantile the exceedance actually uses, is {r95_med:.3f} "
+            f"(seed range {r95s.min():.3f} to {r95s.max():.3f}). "
+            + (
+                "Also inside the band."
+                if BAND[0] <= r95_med <= BAND[1]
+                else "OUTSIDE the band, so the agreement above does not extend to "
+                "the tail the exceedance is computed from."
+            )
+        )
         lines.append("")
 
     lines.append(

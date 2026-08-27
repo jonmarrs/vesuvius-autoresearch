@@ -9,11 +9,11 @@ The exceedance rests on a corrected real-scatter distribution reaching p95 about
    5x6      100 x 120         1.897    4.540     6.90      209
    9x12     180 x 240         5.656   12.132    25.18      207
 
-=== The concern is NOT closed ===
+=== The comparison this probe was built on cannot test what it was meant to ===
   The corrected p95 under scrutiny is 8.24 voxels. It is not an independent quantity: it IS the analysis-window plane-fit residual, divided by the attenuation. So it describes deviation inside a 60x80 voxel window.
   Directly observed deviation at that SAME window: p95 2.025.
-  Gap: 4.1x, unexplained by anything measured here.
-  An earlier version answered this by pointing at the largest window's p95, over a nine times larger area. That is a different quantity, and the comparison is a category error. It is also unstable: with the largest window at 7x9 rather than 9x12 the same argument fails outright. The concern stands.
+  Ratio: 4.1x -- and this comparison is VACUOUS, which is the point of this section now. The corrected value is the observed residual divided by k, so the ratio is 1/k = 3.80 times the sampling difference between two measurements of the same quantity. It cannot test k, because it is built from k.
+  Both earlier versions of this section were wrong. The first answered the question by pointing at the largest window's p95, over a nine times larger area: a different quantity, and unstable, since with the largest window at 7x9 rather than 9x12 the same argument fails outright. The replacement then called the ratio above an unexplained gap, when it is a definition. The real question -- is k right -- is tested in reports/cross_estimator_consistency.txt, by measuring the same windows with a second estimator whose attenuation is very different and checking whether the two agree after correction. They do under the admissible surrogate and do not under the published one.
 
 === And the shared-vs-local statistic has no power ===
   Observed on real data: local as a fraction of total, p50 0.846.
