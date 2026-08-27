@@ -1,6 +1,12 @@
-# DRAFT (NOT POSTED) — comment on villa #191, fiber half
+# POSTED — comment on villa #191, fiber half
 
-**Status: drafted 2026-08-23, re-verified 2026-08-27, NOT posted.** Jon's call.
+**Status: POSTED 2026-08-27** as
+<https://github.com/ScrollPrize/villa/issues/191#issuecomment-5438579912>, on Jon's instruction,
+after the re-verification below. The body posted is the text under "Comment body", verbatim, 379
+words.
+
+This file is now a record. If something in it turns out to be wrong, that is a follow-up comment on
+the thread, not a silent edit here.
 
 Re-verification on 2026-08-27, the day villa #1621 was posted:
 
