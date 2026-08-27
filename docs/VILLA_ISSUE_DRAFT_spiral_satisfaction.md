@@ -12,7 +12,7 @@ Target: a **new issue** on `ScrollPrize/villa`, not a PR. Modelled on the patter
 issue #1522 (our only accepted contribution, against ten closed PRs): report a defect, ask for
 nothing, propose the cheapest fix without demanding it, credit the prior art.
 
-**Re-verified against upstream `main` on 2026-08-27**, at commit `6847063f` (2026-08-26), by
+**Re-verified against upstream `main` on 2026-08-27**, at villa commit `6847063f` (2026-08-26; upstream, not in our pinned submodule), by
 sparse-cloning `spiral-fitting/` rather than trusting our pin:
 
 | claim | upstream now | status |

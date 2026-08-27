@@ -27,10 +27,10 @@ This matrix joins official `ScrollPrize/villa` opportunity tracking with the cur
 
 | ID | Status | Purpose | Marker | Launcher |
 | --- | --- | --- | --- | --- |
-| gp_winner_baseline | `dry_run` | fixed research-only comparator (patch 16x256x256, not submittable) | `reports/gp_winner_baseline.json` | `scripts/launch_gp_winner.py` |
-| mutex_affinity | `dry_run` | Grand-Prize-aligned lane; submittable when patch<=64 | `reports/mutex_affinity_run.json` | `scripts/launch_mutex.py` |
-| neural_tracing_service | `dry_run` | Review-time tracing daemon for VC3D / Crackle Viewer | `reports/neural_tracing_service.json` | `scripts/launch_neural_tracing.py` |
-| finetune_lejepa | `ready` | Convert pretrained LeJEPA encoder into a submittable ink model (patch 64) | `reports/finetune_lejepa_run.json` | `scripts/launch_finetune_lejepa.py` |
+| gp_winner_baseline | `dry_run` | fixed research-only comparator (patch 16x256x256, not submittable) | `reports/gp_winner_baseline.json` | `scripts/training/launch_gp_winner.py` |
+| mutex_affinity | `dry_run` | Grand-Prize-aligned lane; submittable when patch<=64 | `reports/mutex_affinity_run.json` | `scripts/training/launch_mutex.py` |
+| neural_tracing_service | `dry_run` | Review-time tracing daemon for VC3D / Crackle Viewer | `reports/neural_tracing_service.json` | `scripts/inference/launch_neural_tracing.py` |
+| finetune_lejepa | `ready` | Convert pretrained LeJEPA encoder into a submittable ink model (patch 64) | `reports/finetune_lejepa_run.json` | `scripts/training/launch_finetune_lejepa.py` |
 
 ## Top GPU-Ready Candidates
 

@@ -1,0 +1,40 @@
+Do the paths and commits our reports cite still exist?
+
+The other half of a citation: not whether the number still matches, but whether
+the thing cited is still there. This repository lost three months to that rot
+once already, when a script reorganisation left every reference to the old
+locations pointing at nothing and no one was looking.
+
+  documents scanned:        66
+  paths cited:              285
+  commits cited:            42
+  paths that do not exist:  14  (1 in live documents, 13 in dated ones)
+  commits unreachable:      2
+
+=== Stale paths in live documents ===
+  These are worth fixing: a reader following them finds nothing.
+   docs/VILLA_STRATEGY.md                               villa/segmentation/model_optimization_framework/run_autoresearch_nnunet.py
+
+=== Stale paths in dated documents ===
+  A dated document records what was true on its date. These are history,
+  not defects, and editing them would destroy the record.
+   reports/villa_autoresearch_prize_plan_2026-05-07.md  scripts/run_ranked_inference.py
+   docs/PRIZE_FILING_2026-08_DRAFT.md                   tests/test_fiber_gaming.py
+   docs/PRIZE_FILING_2026-08_DRAFT.md                   tests/test_fiber_meta_keys.py
+   docs/PROGRESS_PRIZE_SUBMISSION_2026-05.md            models/run/inference.py
+   docs/PROGRESS_PRIZE_SUBMISSION_2026-05.md            scripts/launch_finetune_lejepa.py
+   docs/PROGRESS_PRIZE_SUBMISSION_2026-05.md            scripts/launch_gp_winner.py
+   docs/PROGRESS_PRIZE_SUBMISSION_2026-05.md            scripts/launch_mutex.py
+   docs/PROGRESS_PRIZE_SUBMISSION_2026-05.md            scripts/launch_neural_tracing.py
+   docs/PROGRESS_PRIZE_SUBMISSION_2026-05.md            scripts/prepare_mutex_training.py
+   docs/PROGRESS_PRIZE_SUBMISSION_2026-05.md            tests/test_runtime_contracts.py
+   docs/PROGRESS_PRIZE_SUBMISSION_2026-05_part1.md      scripts/benchmark_vesuvius_c.py
+   docs/PROGRESS_PRIZE_SUBMISSION_2026-05_part1.md      tests/test_vesuvius_c_readiness.py
+   docs/VILLA_PR_SPRINT033_BODY_2026-06.md              tests/test_gpu.py
+
+=== Commits not reachable from main ===
+  A commit on a deleted branch or in a reflog is not something a reader can
+  look up, even though it may resolve locally. Commits belonging to the villa
+  submodule are a different repository's history and are not listed.
+   reports/spiral_satisfaction_winding_blindness.md     6847063f                                   nowhere
+   docs/VILLA_ISSUE_DRAFT_spiral_satisfaction.md        6847063f                                   nowhere

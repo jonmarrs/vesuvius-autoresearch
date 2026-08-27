@@ -40,7 +40,7 @@ This document outlines how we leverage and contribute to the official `ScrollPri
 *Increasing the robustness and reproducibility of our models.*
 
 ### [Priority C] Autoresearch for nnUNet (STATUS: IMPLEMENTED)
-*   **Action**: Created `villa/segmentation/model_optimization_framework/run_autoresearch_nnunet.py`.
+*   **Action**: Created `villa/segmentation/model_optimization_framework/run_autoresearch_nnunet.py` (absent at our pin `ced62390e`; the segmentation tree was reorganised upstream).
 *   **Impact**: Intelligent hyperparameter evolution for official nnUNet baselines.
 
 ### [Priority D] Betti Loss for multi-task-3d-unet (STATUS: INTEGRATED)
@@ -101,7 +101,7 @@ This document outlines how we leverage and contribute to the official `ScrollPri
 *Leveraging the full collective intelligence of the Vesuvius Challenge.*
 
 ### [Priority N] LeJEPA Foundation Pretraining (STATUS: IMPLEMENTED)
-*   **Action**: Created `scripts/launch_lejepa.py` to interface with the official `lejepa` trainer.
+*   **Action**: Created `scripts/training/launch_lejepa.py` to interface with the official `lejepa` trainer.
 *   **Strategy**: Pretrain a single massive encoder on ALL unlabeled scroll volumes (Scrolls 1-4). This creates a "Foundation Model" for papyrus texture that makes fine-tuning on limited labels significantly more effective.
 *   **Impact**: Essential for the **$200,000 Grand Prize**. Foundation models are the only proven way to generalize across different scan energies.
 
@@ -114,11 +114,11 @@ This document outlines how we leverage and contribute to the official `ScrollPri
 *   **Impact**: A "Wildcard" strategy for the **First Letters Prize** in regions where segmentation is currently impossible.
 
 ### [Priority Q] Graph-Based Sheet Stitching (STATUS: IMPLEMENTED)
-*   **Discovery**: Found formal problem definition in `villa/thaumato-anakalyptor/documentation/Sheet_Stitching_Problem_Definition.pdf`.
+*   **Discovery**: Found formal problem definition in `villa/deprecated/thaumato-anakalyptor/documentation/Sheet_Stitching_Problem_Definition.pdf`.
 *   **Action**: Implemented the winding-angle assignment function $f: N \to \mathbb{R}$ natively in `scripts/sheet_stitcher.py` and integrated it into the `scripts/autoresearch_thaumato_solver.py` hyperparameter sweep loop.
 *   **Impact**: Solves the "Winding Gap" problem, allowing for the massive, multi-winding segments needed for the **$200,000 Grand Prize**.
 
 ### [Priority R] Foundation Model Pretraining (STATUS: IMPLEMENTED)
 *   **Discovery**: Official LeJEPA and MAE trainers located in `villa/vesuvius/src/vesuvius/models/training/trainers/self_supervised/`.
-*   **Action**: Updated `scripts/launch_lejepa.py` to automatically discover all unlabeled chunks from Scrolls 1-4 (`RealScroll_1`, `PHerc0125`, `PHerc0332`, `RealScroll_4_Large`) using `glob`, and added an `--execute` flag to execute large-scale self-supervised pretraining natively.
+*   **Action**: Updated `scripts/training/launch_lejepa.py` to automatically discover all unlabeled chunks from Scrolls 1-4 (`RealScroll_1`, `PHerc0125`, `PHerc0332`, `RealScroll_4_Large`) using `glob`, and added an `--execute` flag to execute large-scale self-supervised pretraining natively.
 *   **Impact**: Radical improvement in generalization. This is the "Foundation Model" approach that the Challenge organizers have explicitly called for in Stage Two.
