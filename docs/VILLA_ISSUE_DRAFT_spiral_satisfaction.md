@@ -1,6 +1,6 @@
 # DRAFT (NOT POSTED) — villa issue: spiral satisfaction cannot detect a sheet switch
 
-**Status: revised 2026-08-27 (seventh pass), NOT posted. HELD pending Jon's explicit approval.**
+**Status: revised 2026-08-27 (eighth pass), NOT posted. HELD pending Jon's explicit approval.**
 Do not post. Do not treat a later "continue" as authorization.
 
 This supersedes the 2026-08-25 draft and the three earlier passes of 2026-08-26. The core claim is
@@ -12,28 +12,34 @@ Target: a **new issue** on `ScrollPrize/villa`, not a PR. Modelled on the patter
 issue #1522 (our only accepted contribution, against ten closed PRs): report a defect, ask for
 nothing, propose the cheapest fix without demanding it, credit the prior art.
 
-**Re-verified against upstream `main` on 2026-08-26**, not against our pin:
+**Re-verified against upstream `main` on 2026-08-27**, at commit `6847063f` (2026-08-26), by
+sparse-cloning `spiral-fitting/` rather than trusting our pin:
 
-- `spiral-fitting/satisfaction_metrics.py`, now **1092 lines** (1052 yesterday, 714 at our pin —
-  the file is under active development, so re-verify again on the day of posting)
-- `metrics_config` still `0.45` / `6.0` / `0.95`; splicing override still `0.495` / `12.0` / `0.90`
-- `winding_is_absolute` and `winding_annotation`: **0 occurrences** in that file
-- `spiral-fitting/find_inconsistent_windings.py` still present
-- no existing issue reports this
+| claim | upstream now | status |
+|---|---|---|
+| `spiral-fitting/satisfaction_metrics.py` is 1092 lines | 1092 | ✅ |
+| `metrics_config` = `0.45` / `6.0` / `0.95` | 0.45 / 6.0 / 0.95 | ✅ |
+| `SPLICING_METRICS_CONFIG` = `0.495` / `12.0` / `0.90` | 0.495 / 12.0 / 0.90 | ✅ |
+| `winding_is_absolute` / `winding_annotation` in that file | 0 occurrences | ✅ |
+| `spiral-fitting/find_inconsistent_windings.py` present | present, 74 KB | ✅ |
+| no existing issue reports this | searched `sheet switch`, `wrap jump`, `get_patch_satisfied_areas`, `winding satisfaction`, `spiral fit winding` across open and closed: nothing | ✅ |
+
+⚠ **One thing moved.** The snap block we cite sits at lines 242-248 in our pin and at **551-555**
+upstream. The arithmetic is unchanged. Nothing in the body cites a line number, and the report and
+the fix script now give both with a note that the file has grown 714 to 1092 lines in three days and
+changed directory once. Cite by symbol name, not by line.
 
 ## What changed since the last pass
 
-**The frequency paragraph is cut**, on Jon's instruction. 294 words out; the body is back to about
-1,330 from 1,630. Nothing else depended on it, which was the argument for cutting it.
+**Upstream facts re-verified** against a fresh sparse clone at `6847063f`, not against our pin. All
+six claims hold. One thing moved: the snap block is at lines 551-555 upstream against 242-248 at our
+pin, same arithmetic. The body cites no line numbers; the report and fix script now give both and
+say to cite by symbol.
 
-What survives of it is two sentences moved into Scope, because dropping the number should not leave
-a reader thinking the blindness is unconditional: it is exact for a patch lying on a winding, real
-noise makes the verdicts diverge on some cases, and when that happens the metric is rejecting a
-noisy patch rather than detecting a sheet switch. No figure is given, and the draft says we could
-not produce one we trust.
-
-Scope also had to be corrected rather than just trimmed. It claimed every number above was measured
-on synthetic patches, which stopped being true when the real-geometry table went in two passes ago.
+**Reproduction block now covers two of the three results.** The fix demonstration runs offline with
+no downloads, so it joins the periodicity probe; both were re-run clean from this checkout. The
+real-geometry table is called out as the exception, with the reason (it needs the `verified_patches`
+download) and the script name, rather than leaving someone to find that out.
 
 Constraints held, unchanged:
 
@@ -185,13 +191,24 @@ patches to make the signal worth printing is a question for someone with the fit
 version, failing such patches outright, would be a behaviour change and is not what this issue asks
 for.
 
-**Reproduction.** Offline, no GPU, no downloads, against villa's unmodified function:
+**Reproduction.** Two of the three results run offline, no GPU, no downloads, against villa's
+unmodified function:
 
 ```
 git clone https://github.com/jonmarrs/vesuvius-autoresearch
 cd vesuvius-autoresearch
+
+# the periodicity result, and the acceptance edge
 CUDA_VISIBLE_DEVICES="" uv run python scripts/probe_spiral_satisfaction_untested_cells.py
+
+# the fix demonstration: six cases the metric scores identically, separated
+CUDA_VISIBLE_DEVICES="" uv run python scripts/winding_disagreement_check.py
 ```
+
+The real-geometry table is the exception and we would rather say so than let someone discover it:
+reproducing it needs the published `verified_patches` tifxyz data and the umbilicus, which is a
+download rather than an offline run, so there is no single command for it here. The script is
+`scripts/probe_real_patch_satisfaction.py` and it names the paths it expects.
 
 Full write-up, including the limits and the corrections we made to our own earlier claims, is in
 `reports/spiral_satisfaction_winding_blindness.md` in that repository.
@@ -200,17 +217,15 @@ Full write-up, including the limits and the corrections we made to our own earli
 
 ## Pre-post checklist
 
-- [ ] Re-verify the upstream facts again on the day of posting. The file grew 714 to 1052 to 1092
-      lines over three days and its directory moved once; treat any path here as stale until checked.
-- [ ] Confirm no newer issue reports this
-- [ ] Confirm the reproduction command runs clean from a fresh clone
-- [ ] Decide whether the real-geometry table needs its own reproduction command. It currently has
-      none: the single command reproduces the analytic result only, and the real-geometry work needs
-      the `verified_patches` data, which is a download rather than an offline run.
-- [ ] Add the fix demonstration to the reproduction block. It runs offline with no downloads
-      (`scripts/winding_disagreement_check.py`), so unlike the real-geometry table there is no
-      reason for it to be unreproducible, and a maintainer is more likely to try a fix than a
-      defect.
+- [x] Upstream facts re-verified 2026-08-27 at `6847063f`; all six hold, see the table above.
+      Re-check on the day of posting anyway: the file grew 714 to 1052 to 1092 lines over three days
+      and its directory moved once, so treat any path as stale until checked.
+- [x] No existing issue reports this, five searches across open and closed, 2026-08-27
+- [x] Both reproduction commands run clean from this checkout; still worth one run from a
+      genuinely fresh clone before posting
+- [x] Real-geometry reproduction: resolved by stating the limitation in the body rather than hiding
+      it. No command; the script is named and the data requirement is explicit.
+- [x] Fix demonstration added to the reproduction block.
 - [ ] Jon reads and approves the body verbatim
 
 ## Notes for the reviewer of this draft

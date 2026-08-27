@@ -12,9 +12,12 @@ would work. This implements it in one function, demonstrates that it fires
 exactly where the metric is blind, and pins that with tests. It is a
 demonstration rather than a patch: villa's own code is pinned and untouched.
 
-WHAT IT REPLICATES. `satisfaction_metrics.py` (pinned at ced62390e, lines
-242-248) derives its target by taking the median shifted radius of the patch's
-centre-column component and snapping it to the nearest multiple of dr:
+WHAT IT REPLICATES. `satisfaction_metrics.py` derives its target by taking the
+median shifted radius of the patch's centre-column component and snapping it to
+the nearest multiple of dr. The block is at lines 242-248 in our pin
+`ced62390e` and at lines 551-555 upstream as of `6847063f` (2026-08-26); cite it
+by name rather than by line, because the file has grown 714 -> 1092 lines in
+three days and moved directory once:
 
     modulus = median_shifted_radius % dr
     target  = median - modulus            if modulus < dr/2

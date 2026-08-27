@@ -17,7 +17,9 @@ detector for this mode; it is exactly blind to it, across the full displacement 
 
 The mechanism is that the metric derives its target from the patch's *own* position. It takes
 the patch's median shifted-radius and snaps it to the nearest integer winding
-(`satisfaction_metrics.py` lines 242-248), then checks two residuals against that
+(`satisfaction_metrics.py` lines 242-248 at our pin `ced62390e`; the same block is at
+lines 551-555 upstream as of `6847063f`, 2026-08-26 — the line numbers move, the arithmetic does
+not), then checks two residuals against that
 self-derived target. Absolute winding annotations do exist in the codebase and are load-bearing
 in the fit — `losses.get_patch_abs_winding_loss` selects point collections on
 `metadata.winding_is_absolute` (line 1059) and is called from `fit_spiral.py` at lines 2720 and
