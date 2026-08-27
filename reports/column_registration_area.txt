@@ -1,0 +1,36 @@
+Does the registered column geometry reproduce the published area?
+
+The registration's own checks are internal: three strips fitted the same way
+agreeing, and a tiling closure. The mask-correspondence check that looks external
+is circular, because the registration was FITTED onto that mask. This uses the
+published writing-surface area, which the fit never saw.
+
+  voxel size 2.399 um, grid scale 0.05  ->  1 grid px = 47.98 um
+  grid 2061 x 30097, 22 registered columns (published: 22)
+
+  valid mask, whole grid                1078 cm2
+  valid mask, inside the columns         867 cm2
+  published preserved writing surface     860 cm2
+  ratio                                 1.01x
+
+Area is quadratic in the scale, so this is a tight constraint:
+
+   scale error   implied area   ratio to published
+      -20%           555 cm2       0.64x
+      -10%           702 cm2       0.82x
+       -5%           782 cm2       0.91x
+       +0%           867 cm2       1.01x
+       +5%           955 cm2       1.11x
+      +10%          1049 cm2       1.22x
+      +20%          1248 cm2       1.45x
+
+  Landing within 10% of the published area requires the scale to be right to about 4.9%.
+
+What this does not establish: per-column boundary accuracy. An area agreement is
+compatible with individual edges being off in compensating directions, and the
+registration report already flags cols 9 and 16 as spanning strip-crop gaps with
+bbox edges +/-250 grid px. This is about the global transform.
+
+Exploratory, not pre-registered: the numbers were computed to see whether they
+were plausible. The strength is in the size of the agreement, not in a threshold
+chosen in advance.
