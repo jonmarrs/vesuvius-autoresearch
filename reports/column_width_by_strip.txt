@@ -1,0 +1,52 @@
+Do the three figure strips really share one scale?
+
+The area audit corroborated the global transform to 1% and said it could not see
+per-column accuracy. This looks there. A tiling closure constrains total length,
+so per-strip scale errors in opposite directions cancel and leave it intact: the
+closure is structurally blind to this.
+
+A scribe's column width can drift along a roll. It cannot know where a modern
+publisher cropped a figure into rows. Flat within strips and stepping at the
+boundaries would therefore be our artifact, not the scribe's hand.
+
+  1 grid px = 47.98 um; cols (1, 9, 16) excluded (grid edge, and the two flagged as spanning strip crops)
+
+   strip   cols            n   width mm (mean +/- sd)
+  ------------------------------------------------------------
+   1        2-8           7     51.3 +/- 0.4
+   2       10-15          6     52.9 +/- 0.1
+   3       17-22          6     58.6 +/- 1.4
+
+  strip 3 is 1.142x strip 1, a difference of 7.3 mm.
+  permutation test on that difference: p = 0.0000 over 20000 shuffles.
+
+  Step versus trend, same data, same n:
+    per-strip constant (the artifact model):   RSS  12.17
+    single linear trend (the scribe model):    RSS  38.54
+
+  ⚠ The step model fits better and the difference is not chance. Column width
+  is flat inside each strip and jumps at the boundaries, which a physical drift
+  along the roll does not predict: it would have to change abruptly at exactly
+  the two points where a modern figure was cropped.
+
+  The most likely mechanism is that the strips are NOT at one magnification. Strips 1 and 2 carry 8 columns each and strip 3 carries 6; if each row of the
+  figure spans the same page width, strip 3 is magnified relative to the others,
+  and fitting one shared scale to all three would stretch its columns. The
+  observed 1.14x sits between 1 and the 8/6 = 1.33x that equal page
+  widths would imply.
+
+  This does not overturn the area audit. Compensating per-strip errors preserve
+  total length by construction, and strip 3 is 6 of 22 columns, so a 14% width
+  error there inflates total area by roughly 3%, inside what that check could
+  resolve.
+
+  What it does mean: per-column boundaries in strip 3 are suspect, the
+  'same scale on all three strips' claim in the registration report is not
+  supported by the widths, and the tiling closure cannot be cited as evidence
+  against this because it cannot see it.
+
+Limits. Column width is measured from the registered boxes, so this detects a
+scale discrepancy between strips, not an absolute error common to all three. And
+it cannot separate a magnification difference from a genuine physical change that
+happens to coincide with a crop boundary; it only shows that the coincidence would
+have to be exact.

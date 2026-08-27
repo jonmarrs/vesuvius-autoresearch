@@ -27,7 +27,20 @@ region, gutters land in the wrap-damage notches.
 
 ## Registration quality (the reasons to believe it)
 
-- All three strips **independently** recover the same scale (4.7 grid px / figure px)
+⚠ **CONTRADICTED 2026-08-27 by the column widths themselves**
+(`reports/column_width_by_strip.txt`). Registered column width is flat inside each strip and steps
+at the boundaries: **51.3 ± 0.4 mm** (cols 2-8), **52.9 ± 0.1 mm** (10-15), **58.6 ± 1.4 mm**
+(17-22). Strip 3 is **1.14×** strip 1, permutation p < 0.0001, and a per-strip-constant model fits
+three times better than a single linear trend (RSS 12.2 vs 38.5). A scribe's column width can drift
+along a roll but cannot change abruptly at exactly the two points where a modern figure was cropped.
+The likely mechanism is that the strips are not at one magnification — strips 1 and 2 carry 8
+columns each and strip 3 carries 6, so equal page widths would magnify strip 3 by 8/6 = 1.33×, and
+the observed 1.14× sits between that and unity. **The tiling closure cannot be cited against this**:
+it constrains total length, so per-strip errors in opposite directions cancel and leave it intact.
+Per-column boundaries in strip 3 should be treated as suspect. The global scale is unaffected —
+see `reports/column_registration_area.md`, which matches an independently published area to 1%.
+
+- All three strips recover the same scale (4.7 grid px / figure px) *as fitted*
   and the same vertical offset (gy0 = 19).
 - The three strips tile the grid left-to-right with the **last strip's right edge landing
   3 px from the grid's true right edge (30094 vs 30097)** — an end-to-end closure over a
