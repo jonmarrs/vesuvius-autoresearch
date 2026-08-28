@@ -1,101 +1,79 @@
-# DRAFT, NOT POSTED
+# DRAFT, NOT POSTED, AND SUBSTANTIALLY WEAKENED
 
-Status: local draft. Nothing here has been sent to villa. It needs Jon's approval before it goes
-anywhere, and per the standing rule on issue #1621 (three messages from us in one day) it should not
-be posted into that thread until someone replies there. If it is posted at all it may be better as
-its own issue, since the subject is the autoresearch guard rather than the metric identity.
+Status: local draft. Nothing here has been sent to villa.
 
-House style enforced below: no em dashes, no en dashes, no prize or submission language.
+**Revised 2026-08-28 after @TAUIL-Abd-Elilah's real-checkpoint measurement on #1621.** The first
+version of this draft argued that the autoresearch loop's anti-gaming guard cannot see a whole
+winding error, and implied that this leaves the optimizer an unguarded direction. That evidence now
+points the other way, and most of this draft's original value is gone. Keeping it as a record of
+what changed rather than deleting it.
+
+House style if any of it is ever used: no em dashes, no en dashes, no prize or submission language.
 
 ---
 
-## The winding check the autoresearch loop is missing
+## What the original draft claimed
 
 `spiral-fitting/autoresearch.md` sets up an autonomous optimizer whose objective is
-`total_fg_pixels`, the ink area recovered by rendering fitted meshes through a frozen scorer. It
-names two guards against that objective being gamed. One is `overall_fg_fraction`. The other is the
-satisfaction metrics:
+`total_fg_pixels`, ink area recovered through a frozen scorer, and names the satisfaction metrics as
+the guard against that objective being gamed:
 
 > if ink coverage climbs while the satisfaction metrics fall off a cliff, be suspicious that you are
 > contorting the surface to catch stray ink rather than fitting the scroll better.
 
-That second guard has a blind spot in one specific direction, and it is a direction the optimizer is
-free to move in.
+The draft argued that this guard has a blind spot in a direction the optimizer is free to move in,
+because #1621 measured the satisfaction statistic as invariant to a whole winding displacement.
 
-### What was measured
+## Why that is now overstated
 
-On issue #1621 we reported that `get_patch_satisfied_areas` snaps the median shifted radius to the
-nearest integer winding, which makes it blind to a whole winding displacement. @Bullo27 reproduced
-that through the native `unwrap_targets`, bisected the acceptance edge to the tolerance, and pointed
-out that `get_track_satisfied_counts` builds its target the same self referential way.
+@TAUIL-Abd-Elilah ran the check against two real 5,000-step PHercParis4 checkpoints with
+point-collection supervision withheld. At the one usable real anchor the self-derived winding
+disagreed with the annotation by +8 and +6, replicated across seeds as +8, +7, +7 and +6, +6, +5.
 
-We then ran the track half against villa's own unmodified `tracks.py`. A synthetic track on winding
-40 at dr 12.81, displaced and rescored, under the reporting config:
+But the native strict metric rejected those patches anyway, at 13.15% and 24.98% strict satisfied
+area, and all six patch verdicts were false. The statistic is invariant; the surrounding
+computation still refused the patches. A guard that rejects by a different route is not an
+unguarded direction.
 
-```
- displacement   satisfied   mode_winding
-      0.0         24/24          40
-      0.5          0/24          40     <- control, rejects
-      1.0         24/24          41
-      2.0         24/24          42
-      5.5          0/24          46     <- control, rejects
-     23.0         24/24          63
-```
+Two further limits from that work, both of which apply to our synthetic result as well:
 
-The half winding controls reject, so the harness can produce a rejection and the zeros mean
-something. Whole winding displacements, including 23 windings, leave the count untouched.
+* A difference sitting at a near-constant +6 to +8 across seeds is more consistent with a global
+  integer gauge offset than with a localized sheet switch, and neither our probe nor that one can
+  distinguish them. We imposed the displacement, so we measured invariance under a displacement we
+  chose, not prevalence in fits.
+* `abs_winding.json` ships 59 anchors across 6 collections, and only one was directly attached in
+  that z window. The binding constraint on any prevalence claim is annotation supply, not the
+  diagnostic.
 
-Two details beyond the source reading. `get_track_satisfied_counts` already returns
-`mode_winding_per_track`, and it tracks the displacement exactly. And
-`get_track_satisfied_counts_in_chunks`, the entry point `satisfaction_metrics.py` imports, unpacks
-five values and returns two, discarding the winding. The quantity a conservative check needs exists
-one call below the boundary and is dropped at it.
+## What survives
 
-### The annotation already exists, and is already public
+Narrowly, and only this:
 
-`spiral_datasets/PHercParis4/abs_winding.json` ships 59 annotated points across 6 collections. Every
-collection carries `metadata.winding_is_absolute: true`, and every point carries `wind_a`, an
-absolute winding number, alongside its 3D position.
+* The acceptance half-width is exactly the radius tolerance in units of `dr_per_winding`, under
+  both the reporting and splicing configs, to six decimals.
+* The invariance is exact rather than approximate, and the half-winding controls reject, so the
+  zeros are informative rather than an inert harness.
+* `get_track_satisfied_counts` computes `mode_winding_per_track` and the chunked wrapper that
+  `satisfaction_metrics.py` imports discards it, so the quantity a conservative check needs exists
+  one call below the boundary.
+* `winding_is_absolute` is read by six modules plus a test at `6847063ff`, and zero times by
+  `satisfaction_metrics.py` or `tracks.py`.
 
-At `6847063ff`, `winding_is_absolute` is read by `fit_spiral.py` (10 occurrences), `losses.py`,
-`spiral_helpers.py`, `fit_session.py`, `connect_overlapping_patches.py`,
-`find_inconsistent_windings.py`, and one test. It is read zero times by `satisfaction_metrics.py` and
-zero times by `tracks.py`.
+## What does not survive, and should not be repeated
 
-So the fit is supervised by absolute winding, and the statistic used to police the fit is not.
+* That the guard leaves the optimizer an unguarded direction. Not shown, and the real-fit evidence
+  is against it.
+* That villa cannot detect this. `find_inconsistent_windings.py` already implements the full
+  propagation. It is a standalone tool rather than part of the metric, which is a much weaker
+  statement than the one the first draft implied.
 
-### What villa already has, so that this is not overstated
+## If anything here is still worth posting
 
-`find_inconsistent_windings.py` already implements the propagation this would need: absolute anchors
-vote directly, relative winding point collections act as graph edges, a backwards BFS over the patch
-graph carries anchors to a seed, and within patch transport counts discrete theta zero branch
-crossings. That is a complete solution to the underlying problem.
+The one open thread is quad level rather than patch level: in seed 101's second fit an anchor quad
+was native-strict-true while disagreeing by +5, inside a patch that still failed. That is a single
+quad and does not support a claim on its own. It would need either more anchors or a deliberate
+injection study, and the anchor supply says the first is not available.
 
-It is a standalone debug tool that does no fitting or training. So the accurate statement is not
-that villa cannot detect a whole winding error. It is that the detection exists in a tool a human
-runs deliberately, while the statistic wired into the metric, and named in `autoresearch.md` as the
-anti gaming cross check, cannot see it.
-
-### The narrow suggestion
-
-Stop discarding the value that already exists. Have
-`get_track_satisfied_counts_in_chunks` optionally return the mode windings it currently drops, and
-let the satisfaction report compare them against the absolute anchors that are already loaded. A
-patch level equivalent needs the caller to derive a winding rather than just forward one, so the
-track side is the cheaper starting point.
-
-A diff for the additive part of that change is on #1621. It is strictly additive, with the new
-return gated behind a default off flag, so existing two value call sites are unaffected.
-
-### Limits
-
-Synthetic flat track, one geometry, displacement varied and shape held fixed. No fit was run, so
-this measures what the metric does with a track placed on a winding, not how often a real fit
-misplaces one. The multi winding behaviour was checked separately: the mode shifts by exactly +1
-under a whole winding displacement at every drift level tested, and is ambiguous under jitter only
-near a drift of one full winding, which is where the satisfied count has already collapsed. So every
-fully satisfied track in that sweep had a stable mode.
-
-We have not run the spiral fit ourselves, and cannot yet, so we have not observed an optimizer
-actually exploiting this. The claim is about what the guard can and cannot see, not about an
-occurrence.
+The honest summary is that this line of argument has been answered better by someone with real
+checkpoints than we could answer it ourselves, and the useful next contribution is probably
+measurement of something else.
