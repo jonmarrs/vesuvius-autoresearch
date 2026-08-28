@@ -44,17 +44,41 @@ def test_a_villa_commit_is_not_called_dangling():
     assert mod.where("ced62390e") == "villa submodule"
 
 
-def test_a_commit_on_main_is_recognised():
-    """The other direction: a commit this repository actually has."""
+def _rev(ref):
     import subprocess
 
-    head = subprocess.run(
-        ["git", "rev-parse", "--short", "HEAD"],
+    return subprocess.run(
+        ["git", "rev-parse", "--short", ref],
         cwd=_REPO,
         capture_output=True,
         text=True,
     ).stdout.strip()
-    assert mod.where(head) == "this repo"
+
+
+def test_a_commit_on_main_is_recognised():
+    """The other direction: a commit this repository actually has.
+
+    Resolves `main`, not `HEAD`. The first version used HEAD, which asserted
+    "I am currently on main" rather than anything about `where()`, and failed on
+    every feature branch: on a branch, HEAD is genuinely not an ancestor of main,
+    so `where()` correctly returned "this repo, not on main" and the test called
+    correct behaviour a failure.
+    """
+    assert mod.where(_rev("main")) == "this repo"
+
+
+def test_a_commit_off_main_is_recognised_as_off_main():
+    """The branch `where()` has that nothing covered until a feature branch found it.
+
+    A commit this repo has but main does not must be reported as present and off
+    main, not as dangling. Asserted only when HEAD is actually off main, so this
+    is a real assertion on a branch and a no-op on main rather than a test that
+    quietly changes meaning.
+    """
+    head = _rev("HEAD")
+    if mod._is_ancestor(head, "main", _REPO):
+        return
+    assert mod.where(head) == "this repo, not on main"
 
 
 def test_an_invented_commit_resolves_nowhere():
