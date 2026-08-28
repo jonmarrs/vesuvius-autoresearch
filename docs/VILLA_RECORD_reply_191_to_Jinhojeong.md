@@ -1,6 +1,10 @@
-# DRAFT, NOT POSTED. Reply to @Jinhojeong on ScrollPrize/villa#191
+# RECORD, POSTED 2026-08-28
 
-Needs Jon's approval before posting. House style: no em dashes, no en dashes.
+Posted to ScrollPrize/villa#191 as issuecomment-5457329119
+https://github.com/ScrollPrize/villa/issues/191#issuecomment-5457329119
+
+This is now a record of what was said, not a draft. Corrections go to the thread as a new comment,
+never as a silent edit here. No nudges: await a reply.
 
 ---
 

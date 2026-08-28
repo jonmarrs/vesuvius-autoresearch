@@ -1,6 +1,10 @@
-# DRAFT, NOT POSTED. Reply to @TAUIL-Abd-Elilah on ScrollPrize/villa#1621
+# RECORD, POSTED 2026-08-28
 
-Needs Jon's approval before posting. House style: no em dashes, no en dashes.
+Posted to ScrollPrize/villa#1621 as issuecomment-5457328126
+https://github.com/ScrollPrize/villa/issues/1621#issuecomment-5457328126
+
+This is now a record of what was said, not a draft. Corrections go to the thread as a new comment,
+never as a silent edit here. No nudges: await a reply.
 
 ---
 
