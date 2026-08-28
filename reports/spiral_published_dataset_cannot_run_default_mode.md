@@ -1,81 +1,77 @@
-# The published spiral dataset cannot run the fit's default configuration
+# RETRACTED: "the published spiral dataset cannot run the fit's default mode"
 
-**Measured 2026-08-28** against villa `6847063ff` and
-`dl.ash2txt.org/datasets/spiral_datasets/PHercParis4/`. Not yet reported upstream.
+**Retracted 2026-08-28, the same day it was written, before it was reported anywhere.** The claim
+was false. The original text is summarised below rather than preserved, since nothing in it survived.
 
-## The finding
+## What was claimed, and why it was wrong
 
-`dense_spacing_mode` defaults to `"phase"` (`fit_session.py:261`). Phase mode requires the surf-SDT
-store, and `prepare_surf_sdt_volume` opens the **source OME-Zarr**:
+The claim: `dense_spacing_mode` defaults to `"phase"`, phase mode requires the surf-SDT source
+OME-Zarr, that store is not published, therefore the published dataset cannot run the default
+configuration.
+
+Two independent errors, either of which alone breaks it.
+
+**1. The default is not `"phase"`.** I read this line
 
 ```python
-root = zarr.open_group(sdt_zarr_path, mode='r')      # lasagna_data.py:338
-...
-raise RuntimeError(f'no OME multiscales scale for group {group_name!r} in {sdt_zarr_path}; '
-                   'the fitter refuses to infer the store geometry')
+mode = str(config.get("dense_spacing_mode", "phase"))     # fit_session.py:259
 ```
 
-**That store is not published.** `lasagna_inputs/` ships exactly three entries, all resident-pool
-sidecars:
+and took `"phase"` for the default. It is the fallback for an *absent* key. The key is never absent:
+`Config().as_dict()["dense_spacing_mode"]` is **`"winding_model"`**. I read a default out of a
+`.get()` fallback instead of instantiating the config and looking.
+
+**2. Even under phase mode, the SDT is off by default.** `_phase_bundle_enabled` is a conjunction:
+
+```python
+return (_dense_spacing_mode(config) == "phase"
+        and input_source_enabled(config, "normals")
+        and input_source_enabled(config, "surf_sdt"))
+```
+
+and `input_use_surf_sdt` is `False` in the default config. I quoted the first clause of a
+three-clause `and` and stopped reading.
+
+Evaluated rather than read:
 
 ```
-las_008_grad_mag.ome.zarr.respool_g4/
-las_008_nx.ome.zarr.respool_g4_pair/
-las_008_surf_sdt.ome.zarr.respool_g1/
+dense_spacing_mode      : winding_model
+input_use_surf_sdt      : False
+_phase_bundle_enabled() : False        <- so use_sdt is False
+_winding_model_enabled(): True
 ```
 
-and a bare `las_008_surf_sdt.ome.zarr/`, its `.zattrs`, and its `zarr.json` all return 404.
+`use_sdt` passed to `ensure_fit_sparse_stores` is `_phase_bundle_enabled(config)`, so **the
+`os.path.exists(sdt_zarr_path)` check never runs on the default config.** The absent source zarr
+blocks nothing.
 
-## Why this looks like an inconsistency rather than a missing download
+## What is actually true
 
-The two paths treat geometry differently:
+* The surf-SDT source OME-Zarr genuinely is not published (that part was checked correctly: a bare
+  `las_008_surf_sdt.ome.zarr`, its `.zattrs` and its `zarr.json` all 404). It is simply **not
+  required**, because the SDT input is disabled by default.
+* The **32.58 GiB SDT sidecar we downloaded is not needed for the default configuration.** It was
+  69% of the payload. Harmless, and required if anyone enables phase mode, but it was not necessary
+  for this.
+* The asymmetry between the stores is real and still worth knowing: normals and grad_mag read
+  geometry from the sidecar's `meta.json`, while surf_sdt opens the raw zarr. It is just not a
+  blocker.
+* The real gap for the default mode is a **naming mismatch, not a missing file.** The default mode
+  is `winding_model`, which requires the `winding_inference` input at conventional relative
+  `winding_inference`. The dataset publishes that content as `winding_model/` (seven shards plus
+  `manifest.json`). `path_overrides` in `spiral-scroll.json` exists for exactly this.
 
-| store | how geometry is obtained | works from published data |
-|---|---|---|
-| normals, grad_mag | `_require_sidecar` + `_read_sidecar_meta`, i.e. the sidecar's own `meta.json` | yes |
-| surf_sdt | `zarr.open_group(sdt_zarr_path)`, OME attrs, `array.shape[0]` | **no** |
+## The lesson, which is the reason this file still exists
 
-`ensure_fit_sparse_stores` shows the same split: the normals and grad_mag branches check only that
-the path *string* is set, while the SDT branch alone calls `os.path.exists(sdt_zarr_path)`
-(`lasagna_data.py:115`).
+Both errors are the same move: **reading a default off a fallback expression, and reading one clause
+of a conjunction.** In both cases the correct action was to instantiate the object and print the
+value, which took one command and immediately contradicted the write-up.
 
-The data itself is not the problem. `prepare_surf_sdt_volume` reads the raw zarr only for geometry
-and coverage, then calls `_require_sidecar(...)` and takes the voxels from the sidecar. So the
-32.58 GiB SDT sidecar that ships publicly is the real payload and is usable; what is absent is
-metadata.
+This is the sixth instance today of a check that could not see what it was being used for, and the
+first where I was the check. The others were tools; this was reasoning. It reached a committed
+report because it was plausible, internally consistent, and never executed.
 
-## Why I did not synthesise the metadata
-
-A metadata-only zarr would satisfy it: a group `1`, an array of shape `[9473, 4087, 4087]`, OME
-multiscales attrs giving the scale, and either `complete: true` or `built_z_ranges_working`
-covering the fit range.
-
-Three of those four I can state from measurement. `complete` I cannot. The fitter's own error says
-what a wrong answer costs:
-
-> unbuilt tiles read as no-data and would silently disable the SDT losses there
-
-Stamping a trust flag to get past a check, where being wrong degrades the fit silently, is the exact
-failure this project keeps recording. The honest version would declare `built_z_ranges_working` from
-the sidecar's measured occupancy (occupied brick-z 56 to 288, so pool z 1792 to 9216, working z 3584
-to 18432 at the factor 2), and even that asserts a correspondence between two coordinate systems
-that has been confirmed but never exercised by a fit.
-
-## What this means for the work here
-
-The baseline fit should run with `dense_spacing_mode` set to `grad_mag`, which uses only
-sidecar-native paths and requires no fabricated metadata. `use_sdt` is gated on
-`phase_bundle_enabled(config)`, which is `_dense_spacing_mode(config) == "phase"`, so a non-phase
-mode skips the SDT branch entirely.
-
-That is a deviation from villa's default and is one more reason our numbers are not comparable to
-theirs, on top of the reduced z-ROI. Recorded so the deviation is visible rather than discovered
-later in a result.
-
-## Limits
-
-Read from source and from HTTP status codes; **no fit has been run**, so this is a code-and-
-availability claim, not an observed failure. The obvious way it could be wrong is a path override or
-an alternate layout that supplies the source zarr from elsewhere, which is exactly what
-`path_overrides` in `spiral-scroll.json` exists for. Before reporting this upstream, run the fit and
-show the actual error.
+The rule that would have caught it: **a claim about runtime behaviour gets evaluated at runtime
+before it gets written down**, not read out of source. The commit that introduced it did note "no
+fit has been run" and deferred reporting upstream for that reason, which is the only thing that kept
+it off villa.
