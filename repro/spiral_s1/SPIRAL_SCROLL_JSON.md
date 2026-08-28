@@ -62,3 +62,51 @@ if it entered the geometry.
 fixture. **This is the weakest of the four**: it is a binary with no independent corroboration, and
 a wrong sense would mirror the winding direction. If a first fit produces windings that count in the
 wrong direction, this is the field to flip before suspecting anything else.
+
+## Added 2026-08-28: the `winding_inference` path override
+
+```json
+"paths": { "winding_inference": "winding_model" }
+```
+
+The default `dense_spacing_mode` is `winding_model` (not `phase`, see the retraction in
+`reports/spiral_published_dataset_cannot_run_default_mode.md`), and `_winding_model_enabled()` is
+`True` on the default config. It requires the `winding_inference` input, whose conventional relative
+is `winding_inference`.
+
+The dataset publishes that content as **`winding_model/`**: seven shards plus a `manifest.json`
+whose `artifact_type` is `"winding_inference_crossings"`, which is what identifies it as this input
+rather than something else. 201 MiB, fetched by `fetch_winding_model.sh`.
+
+`winding_inference` is one of the eleven allow-listed keys in `SCROLL_SPEC_PATH_OVERRIDE_KEYS`, so
+this is the supported mechanism rather than a workaround, and the directory is left under its
+published name instead of being renamed.
+
+That manifest also states `coordinate_space: "reference zarr scale-0 voxels"` and
+`coordinate_order: "zyx"`, a third independent confirmation of the patch-to-pool factor of 2.
+
+### The four paths that are *supposed* to be missing
+
+`normal_x`, `normal_y`, `gradient_magnitude` and `surf_sdt` resolve to source `.ome.zarr` stores
+that are not published, and that is fine: the load path calls `sidecar_path()`, which appends
+`.respool_g<group>[_pair]`, and those sidecars exist. Verified:
+
+```
+normals nx/ny (pair) -> las_008_nx.ome.zarr.respool_g4_pair        OK
+grad_mag             -> las_008_grad_mag.ome.zarr.respool_g4       OK
+surf_sdt             -> las_008_surf_sdt.ome.zarr.respool_g1       OK
+```
+
+Only the SDT branch additionally calls `os.path.exists` on the source zarr, and only when phase mode
+is enabled, which it is not by default.
+
+### Inputs disabled for the baseline, and why
+
+* `input_use_pcl_drawn_control_points` -> `drawn_control_points.json` is **404**, published nowhere.
+* `input_use_tracks` -> `tracks/` is 35+ GiB (`.dbm.db` 12.9 GB, `m7_..._surf.dbm` 18.5 GB,
+  `.crossings.npz` 3.1 GB, plus two directories).
+* `input_use_fibers` -> conventional relative `fibers`; the dataset ships `eval_fibers/`.
+
+Upstream ships `configs/no_fibers.json` and `configs/no_tracks.json` as ablations, so running
+without them is a supported configuration. It is still a deviation from the default and is recorded
+as one.
