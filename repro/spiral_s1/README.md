@@ -108,3 +108,39 @@ absent `generations.tif` separately in `patch_no_generations.txt` as a count rat
 The run that produced those 627 lines was left undisturbed rather than restarted, since editing a
 script while bash is reading it risks corrupting the running parse. Its log is filtered by file
 name instead.
+
+## Running the fit
+
+`fetch_winding_model.sh` gets the 201 MiB `winding_inference` input (published as `winding_model/`).
+`run_smoke.sh` is the smoke configuration: does the fit start and take steps on this box, with this
+dataset? It is **not a result**, and runs 100 steps against the default 30,000 purely to reach the
+training loop.
+
+Configuration is by environment, not CLI. `fit_spiral.py` takes only `--dataset`, `--scroll-spec`
+and `--cache`; everything else arrives through `FIT_SPIRAL_CONFIG_OVERRIDES` as JSON, and unknown
+keys raise, so typos fail loudly rather than being ignored.
+
+```
+z_begin 13056, z_end 18432          the ROI patches were fetched for
+input_use_fibers                    false, no directory under the conventional name
+input_use_tracks                    false, tracks/ is 35+ GiB
+input_use_pcl_drawn_control_points  false, drawn_control_points.json is 404 everywhere
+optimizer_num_training_steps        100, smoke only
+```
+
+`optimizer_num_training_steps` may be *reduced* but never raised above 30,000: upstream's
+`autoresearch.md` fixes that ceiling.
+
+### What the smoke run confirmed
+
+Reaching the training loop exercises things this repository had only asserted:
+
+* the constructed `spiral-scroll.json` parses and drives a real run
+* the `winding_inference` path override resolves to the published `winding_model/`
+* all 38,616 fetched patches are found, 38,442 surviving the z filter
+* the three point collections load from the published JSONs, 460 collections linked
+* the z-range machinery scales per-step sample counts by 0.566 for the 5,376-slice range against a
+  9,500-slice reference, exactly as documented
+
+Still unproven at that point: GPU headroom once activations allocate, and whether
+`spiral_outward_sense: "CW"` is the correct sense.
