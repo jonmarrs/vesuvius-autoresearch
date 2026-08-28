@@ -1,19 +1,41 @@
-# Files upstream deleted that our work depends on
+# Byte-identical copies of the villa files our reproductions cite
 
-Preserved 2026-08-27 from villa at our pin `ced62390e` (2026-08-13), because upstream `main`
-(`6847063ff`, 2026-08-26) deletes them. Nothing here is our work: every file is a byte-identical
-copy, verified by md5 against `git show ced62390e:<path>`.
+Copied 2026-08-27 from villa at our pin `ced62390e` (2026-08-13). Nothing here is our work: every
+file is a byte-identical copy, verified by md5 against `git show ced62390e:<path>`.
 
-## Why this exists
+## Correction, 2026-08-28: these files were MOVED, not deleted
 
-Upstream removed 110 files from `ink-detection/` between our pin and 2026-08-26 — 19,342 deletions.
-Six of them are referenced by our reproductions or reports, and one directory is ground truth.
+The first version of this file, and the commit message that introduced it (`492e2cb0`), said
+upstream had **deleted** 110 files from `ink-detection/`. That was wrong, and the error was mine:
+I ran `git diff --stat ced62390e origin/main -- ink-detection/`, and a path-scoped diff renders a
+**move out of that path** as a deletion. It cannot see the destination.
 
-Our own submodule-update procedure says to verify `ink-detection/` is untouched before pinning
-forward, precisely because GT is read from there. That check now fails. This directory is what makes
-a future pin bump safe rather than silently destructive.
+What upstream actually did between `ced62390e` and `6847063ff` is relocate the 2023-era
+ink-detection tree to `deprecated/ink-detection/`. Checked at upstream HEAD:
 
-## What is here, and why each
+```
+labels at our pin,  ink-detection/all_labels:              46
+labels upstream, deprecated/ink-detection/all_labels:      46
+```
+
+All three segments this project names as its unblock path (`20230820203112`, `20230826170124`,
+`20230903193206`) are present upstream, as are `train_timesformer_og.py` and
+`train_resnet3d_3d_decoder.py`. **Nothing was lost, and nothing here was rescued.**
+
+## So why keep this directory?
+
+A weaker reason than the one it was created for, but a real one.
+
+- Our reports cite these files at `villa/ink-detection/<name>`. That path does not exist upstream any
+  more. A pin bump silently breaks every one of those citations, and a byte-identical local copy at a
+  stable path is what keeps a report reproducible across the bump.
+- `deprecated/` is a declared intention. Upstream is free to delete the directory later, and the
+  labels are the input to the only unblock path this project has identified.
+
+That is a reproducibility convenience and a low-cost hedge. It is **not** a rescue, and this file
+should not be read as evidence that upstream is discarding data.
+
+## What is here
 
 | file | why it matters |
 |---|---|
@@ -22,37 +44,27 @@ a future pin bump safe rather than silently destructive.
 | `train_resnet3d_3d_decoder.py` | referenced by our ResEnc comparison |
 | `inference_timesformer.py` | the inference half of the same recipe |
 | `download.sh`, `requirements.txt` | provenance: how the data and environment were obtained |
-| `all_labels/2023082{0113,61701}*.png`, `all_labels/20230903193206_inklabels.png` | see below |
+| `all_labels/{20230820203112,20230826170124,20230903193206}_inklabels.png` | the three segments named in the unblock path |
 
-## The three labels are the unblock path, which is why they are here
-
-`reports/detector/gt_training_data_exhaustion_2026-08-15.md` records that registered-GT training
-data on Scroll-1 is exhausted, and names the unblock path: *re-flatten one of the three absent
-labelled segments*. Those three are `20230820203112`, `20230826170124`, `20230903193206`. Their
-**geometry** is absent from the open bucket; their **labels** existed only in
-`villa/ink-detection/all_labels/`, which upstream has now deleted.
-
-So if that geometry is ever published, the labels are what turns it into a usable segment. Losing
-them would close the only unblock path this project has identified.
-
-## The other 42 labels are not copied, deliberately
-
-`all_labels/` holds 45 label PNGs at our pin, 45 MB in total. Copying all of them would put 45 MB of
-binaries into this repository to guard against a risk that is already low: **deleted files remain in
-villa's history**, and are recoverable at any time with
+The other 43 of the 46 labels are not copied. They are 45 MB, they are in upstream at
+`deprecated/ink-detection/all_labels/`, and they are also in villa's history at our pin:
 
 ```bash
 git -C villa show ced62390e:ink-detection/all_labels/<segment>_inklabels.png > <out>.png
 ```
 
-Verified working for all three copied labels. The three here are copied because they are named in a
-live unblock path and are the ones we would reach for first; the rest are one command away.
+## The lesson, which is the part worth keeping
 
-That recovery depends on villa's history remaining available. If that ever looks uncertain, copy the
-remaining 42 — but a 45 MB commit to hedge against upstream rewriting published history is not a
-trade worth making today.
+A path-scoped diff cannot distinguish a deletion from a move out of the scope. I read
+`19,342 deletions` as loss and wrote a commit message asserting it, without running the one command
+that would have distinguished the two: search for the filenames across the whole tree.
+
+This is the same shape as several defects already recorded in this project: a check that is
+structurally blind to the alternative it is being used to rule out. The tiling closure could not see
+per-strip scale error; `col_gutter_auc`'s negative controls could not see metric blindness; a
+path-scoped diff cannot see a move. In each case the fix was to ask what the check *cannot* see
+before citing it.
 
 ## What this does NOT do
 
-It does not update the pin. The pin is still `ced62390e`, and our reports reproduce against it. This
-only means that when someone does bump it, the files above survive the bump.
+It does not update the pin. The pin is still `ced62390e`, and our reports reproduce against it.
