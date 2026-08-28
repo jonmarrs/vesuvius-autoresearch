@@ -67,3 +67,44 @@ at `ced62390e` and is never touched.
 `CXX=/usr/bin/g++-13 CC=/usr/bin/gcc-13` works. **The source of that `g++-12` was never found**:
 it is not in `pyproject.toml`, `cpp/CMakeLists.txt`, uv's config, or the shell environment in
 either sandboxed or unsandboxed shells. A working workaround over an unexplained cause.
+
+## Job control, and a self-matching bug that bit twice
+
+`fetch_patches.sh` fetches the five files of each in-ROI patch (16 concurrent, resumable,
+skips complete files). `run_after_sweep.sh` chains the whole tail: wait for the metadata sweep,
+run `scripts/select_spiral_patches.py`, then fetch. `status.sh` reports job state.
+
+`status.sh` exists because process checks reported a job that had never started as RUNNING, twice,
+for two different reasons:
+
+1. **`pgrep -f fetch_patches.sh` typed at a shell matches that shell's own command line**, because
+   the command line contains the literal pattern. This is the same failure as the earlier
+   `pkill -f probe_column_metric_power` that killed its own parent shell.
+2. The obvious fix, `ps -eo args= | grep -F "<pattern>"`, **matches the grep's own argv**, since the
+   pattern is one of grep's arguments.
+
+What works is calling `pgrep` from inside a script whose own argv does not contain the pattern:
+`pgrep` excludes itself, and the script's command line is just `bash .../status.sh`.
+
+No conclusion in this work rested on those labels (patch counts come from `ls`, and the 47.5 GiB
+download was confirmed against the server's `content-length`), but the labels themselves were
+unreliable and one was flatly wrong. Use `status.sh`, not an ad-hoc `pgrep`.
+
+## `generations.tif` is optional, and logging it as a miss was a mistake
+
+The first patch-fetch run logged 627 misses in its first ~730 directories, all of them
+`generations.tif` and nothing else. They are not failures:
+
+* the server genuinely lists only `meta.json` and `x/y/z.tif` for those patches, and
+* nothing in `spiral-fitting` reads `generations` as a file (the sole grep hit is an unrelated word
+  in a `spiral_service.py` docstring).
+
+The cost was not the failed requests, which are cheap because curl does not retry a 404. The cost is
+that a miss log which is ~100% expected noise cannot surface a real miss, which is the same defect
+shape recorded elsewhere in this project: a check that is structurally blind to the thing it exists
+to catch. `fetch_patches.sh` now lets only the four required files produce a `MISS`, and records
+absent `generations.tif` separately in `patch_no_generations.txt` as a count rather than an alarm.
+
+The run that produced those 627 lines was left undisturbed rather than restarted, since editing a
+script while bash is reading it risks corrupting the running parse. Its log is filtered by file
+name instead.
