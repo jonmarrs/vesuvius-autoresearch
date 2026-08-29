@@ -62,6 +62,11 @@ Two things follow. The injection study must run against a **converged** fit, not
 the converged `N` is still marginal, the honest outcome is UNPOWERED, which rule 1 already commits
 us to reporting rather than working around.
 
+> **SUPERSEDED 2026-08-29.** The converged fit gave `N = 25,148`, so the smoke run's 29 was an
+> artifact of stopping early and rule 1 never bound. The study was then shelved unrun for an
+> unrelated reason: @pmh47 confirmed the periodicity is intended. Both statements above stand as
+> written; neither outcome they anticipated is what happened.
+
 Note `satisfied_area` is 10.0% while `satisfied_patches` is 0.1%: area-level and patch-level
 acceptance differ by two orders of magnitude, so **which unit the study counts is load-bearing**.
 The pre-registration says quads and patches are scored separately, which now looks like the right

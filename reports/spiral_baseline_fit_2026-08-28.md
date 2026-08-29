@@ -13,7 +13,12 @@ Config as `repro/spiral_s1/run_smoke.sh` with the step override removed.
 satisfied_patches = 25,148 / 38,439   (65.4%)
 ```
 
-**N = 25,148.** The gate is cleared by three orders of magnitude. The study is powered and proceeds.
+**N = 25,148.** The gate is cleared by three orders of magnitude.
+
+> **SUPERSEDED 2026-08-29.** The study was powered and was still **shelved without being run**. On
+> villa#1621 @pmh47 stated as design authority that the periodicity is intended, which dissolved the
+> question rather than answering it. Clearing a power gate says the study *could* have run, not that
+> it *should* have. See `docs/preregistration/2026-08-28_winding_injection_conditional_on_acceptance.md`.
 
 The 100-step smoke fit gave `N = 29`, one under the floor. That was entirely an artifact of stopping
 at 100 steps, and it is worth recording that a number which looked like a study-ending result was
