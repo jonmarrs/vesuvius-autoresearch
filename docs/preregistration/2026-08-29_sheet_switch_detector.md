@@ -151,3 +151,69 @@ locations, which is the only handle available on the true/false split.
 
 **If a future amendment is ever made, it must be dated, must state that it was made with knowledge
 of the 7.6% baseline, and must not be applied retroactively to results already scored.**
+
+---
+
+# DESIGN FREEZE, 2026-08-29, before any injection or seed-agreement run
+
+The detector specified at the top of this document used **connected-boundary length** `L`. Baseline
+measurement showed that statistic is wrong for this signal: the split is bimodal and consists of two
+large regions, so `L` barely moved the flag rate (7.6% at `L=1` to 6.2% at `L=16`). The statistic is
+replaced here, and the replacement is frozen before any validation runs.
+
+**Disclosed:** the new statistic was chosen **after** seeing the baseline distributions in
+`reports/sheet_switch_baseline_signal.md`. That is legitimate development, not validation, but every
+write-up must state it, and no result below may be presented as if the statistic had been chosen
+blind.
+
+## The frozen detector
+
+For each patch, over **satisfied quads only** (quads the metric accepts, where the winding
+assignment is meaningful):
+
+```
+minority_fraction = 1 - (count of quads on the patch's most common winding) / (satisfied quads)
+```
+
+A patch is **flagged** when both hold:
+
+* `minority_fraction >= 0.10`
+* the minority region is at least **16 satisfied quads**
+
+Nothing else. No boundary-length term, no shape term, no per-patch tuning.
+
+## Why 0.10, and what it costs us
+
+0.10 is chosen as "a substantial region of the patch sits on another winding": a tenth is well past
+any plausible single-quad noise, and 16 quads is the minimum patch size already used throughout.
+
+**At 0.10 the baseline flag rate is 5.12%, which FAILS rule 3's 5% bar.** A threshold of 0.20 would
+give 3.74% and pass. **0.20 is not chosen, precisely because passing is the only reason to prefer
+it.** Selecting a threshold because it clears our own bar is the same failure as extending the `L`
+sweep to 32, and that one is already recorded three sections above.
+
+So this detector is frozen in the expectation that it fails rule 3 as written. Rule 3 stands.
+
+## Added control: seed agreement
+
+A flag that does not survive a re-fit is measuring optimizer noise, not geometry. A second fit of
+the same data, identical except `optimizer_random_seed: 2`, is running now.
+
+**Measure:** of patches flagged in fit A, what fraction are flagged in fit B, and vice versa
+(Jaccard over flagged patch ids). **Floor:** the agreement expected if the same number of patches
+were flagged at random, computed from the two flag counts and the patch population.
+
+**Pre-committed reading, fixed before the numbers exist:**
+
+* agreement at or below the random floor means the detector is measuring fit noise, and it is
+  reported as such regardless of injection recall;
+* high agreement does not prove the flags are switches, only that they are properties of the
+  geometry rather than of the seed.
+
+This control can fail, and if it does it ends the line of work.
+
+## What remains unfrozen
+
+The injection study's parameters are already fixed at the top of this document (`k in
+{0.5, 1, 1.5, 2}`, contiguous half-patch displacement, `k = 0` null arm, three seeds). Nothing there
+changes.
