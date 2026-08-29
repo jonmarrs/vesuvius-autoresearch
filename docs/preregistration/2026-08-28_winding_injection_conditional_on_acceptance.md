@@ -1,5 +1,44 @@
 # PRE-REGISTRATION: does a whole-winding injection survive *acceptance*?
 
+## SHELVED 2026-08-29, NOT RUN. Reason recorded below.
+
+This study was pre-registered, the instrument was built, the baseline fit converged, and rule 1's
+power gate was cleared decisively (`satisfied_patches` = 25,148/38,439, against a floor of 30). It
+is being shelved anyway, because its motivating premise did not survive.
+
+On villa#1621 @pmh47, replying as the design authority, stated that the periodicity is intended:
+
+> There is in general no known exact (absolute) winding for a patch. The exception is if it's
+> attached to an absolute winding pcl, but the metric is not designed to check that. Tracks also
+> don't have a 'true' winding number, this is something the fit assigns. So periodicity of the
+> metric is right.
+
+That dissolves the question this study was built to answer. "Among accepted units, does a
+whole-winding displacement keep them accepted?" has the answer *yes, by design*: the metric measures
+spacing self-consistency, not absolute placement, and for a patch with no attached absolute pcl there
+is no true winding to compare against. Measuring a designed invariance and reporting it as a finding
+would be misleading regardless of the number that came out.
+
+Our own converged fit corroborates the design intent rather than our concern: `abs_winding` falls
+from 888.1 at initialisation to 2.3. The fit already agrees with the absolute anchors because the
+loss puts it there, so the satisfaction metric has nothing left to police.
+
+Combined with @TAUIL-Abd-Elilah's real-checkpoint evidence, where the native strict metric rejected
+the disagreeing patches anyway at 13.15% and 24.98% strict satisfied area, there is no live claim
+left for this design to test.
+
+**What is kept.** The instrument is real and reusable: a reproducible 48 GB dataset fetch, a
+justified `spiral-scroll.json`, ROI patch selection, and a converged 30,000-step checkpoint at
+65.4% satisfaction, in about 1h 34m. Whatever the next spiral question is, it can be run.
+
+**Why this file is not deleted.** A pre-registration abandoned for a stated reason is a legitimate
+outcome and part of the record. Deleting it would leave no trace that a decision rule was fixed in
+advance and then set aside, which is precisely the trace worth keeping. Nothing below was run, and
+no number below was ever computed.
+
+---
+
+
 **Committed UNRUN, 2026-08-28.** No fit has been run, no checkpoint exists, and no outcome has been
 observed. Design and decision rule are fixed here before the instrument is capable of producing a
 number.
