@@ -1,0 +1,40 @@
+Do patches with disconnected subrow components score differently?
+
+Quads in a subrow the branch BFS cannot reach are skipped by the scoring loop but
+stay in the denominator, so they are unsatisfied regardless of geometry. That is a
+defensible conservative choice (an unreachable component has no known winding
+frame). The question is how much of the unsatisfied remainder it accounts for.
+
+  run  2026-08-28_s1_slice-13056-18432_38442-patch_baseline01
+  38439 patches scored, 4272 warned (11.1%)
+
+group                        n   mean frac    median   frac==0     mean area
+  --------------------------------------------------------------------------
+warned (disconnected)     4272      0.8751    0.9968      0.1%        464325
+unwarned                 34167      0.7909    0.9935      3.7%        473761
+
+  difference in mean satisfied fraction: -0.0842  (unwarned minus warned)
+
+Within-area-decile comparison, because a larger patch has more rows and so more
+chances to contain a disconnected subrow. If the gap survives here it is not
+purely a size effect; it still is not causal.
+
+  area decile     n warn  n unwarn   mean warn  mean unwarn     diff
+  --------------------------------------------------------------------
+  1                  399      3414      0.8550       0.7263  -0.1286
+  2                  460      3415      0.8432       0.7452  -0.0980
+  3                  428      3380      0.8658       0.7582  -0.1077
+  4                  439      3434      0.8568       0.7703  -0.0866
+  5                  386      3444      0.8695       0.7815  -0.0880
+  6                  458      3390      0.8866       0.8156  -0.0710
+  7                  434      3426      0.9051       0.8206  -0.0845
+  8                  402      3442      0.8821       0.8214  -0.0607
+  9                  471      3371      0.8986       0.8304  -0.0682
+  10                 395      3451      0.8875       0.8396  -0.0479
+
+  deciles where unwarned scores higher: 0/10
+
+Limits. One fit, one scroll, one z-ROI, three inputs disabled. Observational: the
+warning is not randomly assigned, so this compares populations, not treatments.
+The decile control addresses size only, and any other property that both causes
+disconnection and lowers satisfaction would produce this pattern too.
