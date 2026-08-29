@@ -103,3 +103,51 @@ write-up must say so wherever a number is quoted.
   failure rather than a result.
 * Quietly widening the injection until it becomes detectable. `k` is fixed here at {0.5, 1, 1.5, 2}.
 * Filing a tool that does not beat its own floor. Rule 2 says file nothing instead.
+
+---
+
+# POST-OBSERVATION NOTE, 2026-08-29. The rule is NOT amended.
+
+Added after measuring the baseline flag rate and before any injection. It records two things and
+changes nothing: the decision rule above stands exactly as written.
+
+## 1. An excursion outside the pre-registered sweep, not adopted
+
+The sweep fixed above is `L in {1, 2, 4, 8, 16}`. While measuring, I also ran `L = 32`. Results on
+the converged baseline fit, 38,442 patches:
+
+| L | patches flagged | rate |
+|---:|---:|---:|
+| 1 | 2,914 | 7.6% |
+| 2 | 2,914 | 7.6% |
+| 4 | 2,851 | 7.4% |
+| 8 | 2,712 | 7.1% |
+| 16 | 2,367 | 6.2% |
+| **32** *(not pre-registered)* | 1,665 | **4.3%** |
+
+**Within the pre-registered sweep, no operating point reaches the 5% bar.** `L = 32` is the only
+value that does, and it was not pre-registered. **It is not adopted, and it must not become the
+reported operating point.** Extending a sweep until a threshold is met, having seen that the
+registered values fail, is the precise failure this document exists to prevent. It is recorded here
+rather than deleted so the temptation is part of the record.
+
+## 2. A flaw in rule 3, recorded and deliberately not fixed
+
+Rule 3 treats the flag rate on un-injected patches as a **false-alarm** rate. That assumes flagged
+patches are clean. Sheet switches are a real failure mode that VC3D users currently correct by hand,
+so some of those 2,914 patches are plausibly **genuine switches**. With no labelled switches in
+public data, true detections and false alarms are not separable in that number.
+
+So 7.6% is an **upper bound on false alarms**, not a measurement of them, and rule 3 as written can
+fail a detector for correctly finding real defects.
+
+**Decision: rule 3 stands as written.** The flaw was found *after* seeing the baseline rate, so any
+amendment now would be made with knowledge of the number it would relax, which is indistinguishable
+from tuning the standard to fit the result. Keeping a known-conservative bar costs us a possible
+true finding; moving it would cost the credibility of every number under it.
+
+The injection study is what makes the numerator meaningful: it supplies known positives at known
+locations, which is the only handle available on the true/false split.
+
+**If a future amendment is ever made, it must be dated, must state that it was made with knowledge
+of the 7.6% baseline, and must not be applied retroactively to results already scored.**
