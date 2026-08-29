@@ -144,3 +144,32 @@ Reaching the training loop exercises things this repository had only asserted:
 
 Still unproven at that point: GPU headroom once activations allocate, and whether
 `spiral_outward_sense: "CW"` is the correct sense.
+
+## The converged baseline
+
+`run_baseline.sh` produced the checkpoint the pre-registered injection study runs against. It is
+`run_smoke.sh` with `optimizer_num_training_steps` removed, so the default 30,000 applies. Nothing
+else differs, deliberately: the smoke run's only job was to prove the same configuration reaches the
+training loop.
+
+```
+30,000 steps, 1h 34m, 5.3 it/s average including ~6m startup
+satisfied_patches 25,148/38,439 (65.4%)      loss 3182.7 -> 43.5
+checkpoint: spiral_out/2026-08-28_s1_slice-13056-18432_38442-patch_baseline01/checkpoint_fitted.ckpt
+```
+
+The run directory name encodes the configuration that produced it
+(`s1_slice-13056-18432_38442-patch_baseline01`), which is worth knowing before running variants:
+two runs differing only in a config override land in directories distinguished solely by run tag, so
+**the tag is the only thing separating an injection arm from the baseline on disk.** Give every arm
+its own tag.
+
+### A check that fooled itself, again
+
+Verifying that the step override was absent, I ran `grep -c optimizer_num_training_steps
+run_baseline.sh` and got 1, which looks like the override is present. It matched the *comment*
+explaining that the override was removed. The real verification is the exported JSON, and the run's
+own log, which reported 30,000 iterations.
+
+Seventh instance today of a check blind to what it was for, and the same shape as the rest: the
+pattern being searched for appears in something other than the thing being tested.
