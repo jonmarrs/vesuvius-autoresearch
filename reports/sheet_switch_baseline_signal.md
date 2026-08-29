@@ -73,3 +73,57 @@ Either a better signal is needed (the jump geometry, not merely its length), or 
 the negative result rule 2 already commits us to publishing.
 
 That is the plan working as intended. The go/no-go gate is 2026-09-15 and this is 2026-08-29.
+
+---
+
+## Follow-up, same day: the signal survives, and the innocent explanation does not
+
+**Restricting to quads the metric ACCEPTS changes almost nothing.**
+
+| | all targeted quads | satisfied quads only |
+|---|---:|---:|
+| patches | 38,195 | 35,318 |
+| 1 winding | 92.4% | 92.5% |
+| 2 windings | 7.4% | 7.4% |
+| minority fraction p99 | 0.4273 | 0.4250 |
+| minority > 0.20 | 3.76% | 3.74% |
+
+So this is not assignment noise in unfitted regions: the satisfaction metric **accepts** quads sitting
+on two different windings inside one patch.
+
+**The distribution is bimodal, which retires run length as the statistic.** 90% of patches have zero
+minority quads; when a patch does split, the minority side is typically 10 to 45% of it. That is why
+the pre-registered boundary-length sweep barely moved the flag rate (7.6% to 6.2% across
+`L in {1..16}`): the split is not a thin filament to filter away, it is two large coherent regions.
+Minority fraction is the right measure and boundary length was the wrong one.
+
+**The obvious innocent explanation is largely ruled out.** `target_raw_shifted_all` carries
+`branch_offset`, so a patch wrapping past the theta=0 cut legitimately spans two winding indices,
+which would produce exactly this bimodality. But a branch cut partitions a patch along a curve
+spanning its full extent, so it should appear as a full-height band:
+
+```
+winding span (max-min) among 2+ winding patches   span 1 = 98.2%
+minority region spans a contiguous column range    95.2%
+minority region covers ALL rows (full-height band)  0.6%   <- decisive
+median coverage                                    27% of columns, 48% of rows
+```
+
+**Only 0.6% are full-height bands.** The minority regions are localized blobs, which is not a branch
+cut and is what a local sheet switch looks like.
+
+## What is and is not established
+
+**Established:** a converged fit contains ~7.4% of patches where the satisfaction metric accepts
+quads on two adjacent windings, in localized regions rather than full-extent partitions, and this is
+not explained by the theta=0 branch cut or by unfitted-region assignment noise.
+
+**Not established:** that these are sheet switches. Localized two-winding regions are *consistent*
+with switches and inconsistent with the one innocent mechanism tested, which is weaker than a
+positive identification. Other mechanisms have not been enumerated, let alone excluded.
+
+**Method note.** Everything after the first flag-rate table is exploratory analysis on the same fit
+the detector will later be validated against. It informed the design (minority fraction rather than
+boundary length), which is legitimate development, but it means the design was chosen with these
+distributions in view. The design must be frozen before the injection study runs, and the write-up
+must say that the statistic was selected after seeing baseline data.
