@@ -1,4 +1,8 @@
-# Ranking transfers across scrolls; calibration does not
+# Ranking transfers; these models over-fire on Scroll 1 specifically
+
+*(Filename kept as `ink_calibration_does_not_transfer.md` because other commits and reports cite it.
+The original title claimed a general cross-scroll calibration failure. That is falsified below and
+the title is corrected here rather than the file being renamed, so the citations still resolve.)*
 
 > ## ⚠ NARROWED TWICE, 2026-08-30: it is Scroll 1, not "crossing scrolls" and not one segment
 >
