@@ -48,6 +48,22 @@ sys.path.insert(
 )
 
 
+def _verdict(moved, dr):
+    """A floor could not see an overshoot.
+
+    The first version read `moved > 0.5 * dr`, written to catch a silent no-op,
+    and so it printed OK on a 5.6x error (91 voxels where dr was 16). The
+    displacement must land in a BAND around the expected magnitude, not merely
+    above a floor. The band is wide because the scan-to-spiral transform carries
+    a scale, so the scan-space magnitude is not expected to equal dr exactly.
+    """
+    if moved < 0.1 * dr:
+        return "NO-OP, everything below is meaningless"
+    if moved > 10.0 * dr:
+        return f"OVERSHOOT {moved / dr:.1f}x dr, suspect the coordinate construction"
+    return f"in band ({moved / dr:.2f}x dr)"
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--run", required=True)
@@ -112,7 +128,7 @@ def main():
     moved = (disp(patches[p0], 1.0).zyxs - before).abs().max().item()
     print(
         f"sanity: max |zyx| change at k=1: {moved:.3f}  (dr={dr:.3f})"
-        f"   {'OK' if moved > 0.5 * dr else 'NO-OP, everything below is meaningless'}"
+        f"   {_verdict(moved, dr)}"
     )
 
     def summarise(plist, label):

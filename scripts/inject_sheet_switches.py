@@ -75,8 +75,19 @@ def displace_half_spiral(patch, transform, dr, k, torch, device=None):
     z = patch.zyxs.clone()
     h, w = z.shape[:2]
     valid = torch.any(z != -1, dim=-1)
+    # The displaced region must NOT contain the metric's anchor column, or the
+    # injection moves the reference frame instead of creating a discontinuity.
+    # satisfaction_metrics derives its per-patch target from `center_col`, the
+    # MEDIAN VALID COLUMN (satisfaction_metrics.py:440). Displacing a half that
+    # includes it made the displaced side "correct" on its new winding and the
+    # untouched side wrong, so satisfied quads halved, the winding count stayed
+    # at 1 and the minority fraction was exactly 0. Measured 2026-08-30.
+    cols_with_valid = torch.where(valid.any(dim=0))[0]
+    if len(cols_with_valid) < 4:
+        return None
+    center_col = int(cols_with_valid[len(cols_with_valid) // 2].item())
     half = torch.zeros_like(valid)
-    half[:, w // 2 :] = True
+    half[:, center_col + 1 :] = True
     sel = valid & half
     if not bool(sel.any()):
         return None
@@ -106,8 +117,19 @@ def displace_half(patch, umb_zyx_to_yx, dr, k, torch):
     z = patch.zyxs.clone()
     h, w = z.shape[:2]
     valid = torch.any(z != -1, dim=-1)
+    # The displaced region must NOT contain the metric's anchor column, or the
+    # injection moves the reference frame instead of creating a discontinuity.
+    # satisfaction_metrics derives its per-patch target from `center_col`, the
+    # MEDIAN VALID COLUMN (satisfaction_metrics.py:440). Displacing a half that
+    # includes it made the displaced side "correct" on its new winding and the
+    # untouched side wrong, so satisfied quads halved, the winding count stayed
+    # at 1 and the minority fraction was exactly 0. Measured 2026-08-30.
+    cols_with_valid = torch.where(valid.any(dim=0))[0]
+    if len(cols_with_valid) < 4:
+        return None
+    center_col = int(cols_with_valid[len(cols_with_valid) // 2].item())
     half = torch.zeros_like(valid)
-    half[:, w // 2 :] = True
+    half[:, center_col + 1 :] = True
     sel = valid & half
     if not bool(sel.any()):
         return None
