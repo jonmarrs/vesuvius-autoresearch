@@ -55,3 +55,35 @@ per-tile mean: 0.060  0.065  0.062  0.066
 
 Well-behaved rather than degenerate: full probability range, a plausible firing rate, and consistent
 per-tile means without collapsing to a constant.
+
+## Calibration references, which is what the pipeline must be judged against
+
+The open-data bucket publishes canon predictions for both segments used here, on the same volumes,
+at `tile256-stride128`, with `ds8` previews. They are the only available known-answers:
+
+| segment | published canon fires above 0.5 | our pipeline |
+|---|---:|---:|
+| `PHerc1667/...w011` (models' home scroll) | 2.82% | 7.0% |
+| `PHercParis4/20231210121321` (our GT target) | **14.06%** | **59 to 82%** |
+
+**Our pipeline runs hot everywhere and much hotter on Scroll 1.** Any result computed on it is
+suspect until those rates are close, because saturation compresses the probability range and destroys
+rank-based statistics regardless of whether a signal exists. See
+`reports/ink_absence_vs_unrecovered_result.md`.
+
+Known differences from the published recipe, in the order worth trying:
+
+1. **stride 128, not 256.** The published runs overlap-average 2x; ours scored each tile once.
+   Averaging alone reduces extremes.
+2. **the fragment mask.** The published snippet skips any window touching a zero mask pixel; ours
+   scored every tile including edges.
+3. **the intensity convention.** Three are documented and they disagree; `clip(0,200)/255` was chosen
+   because it alone lands near the published rate on the home scroll, not because the card is clear.
+
+## Fetchers
+
+`fetch_checkpoints.sh` pulls all six members (~1.9 GB). `fetch_region.py` pulls a region from a
+surface-volume zarr; chunks carry full depth, so a `[:, y0:y1, x0:x1]` slice costs only the tiles it
+covers. Note the region for a level-0 run is 4x the level-2 extent per axis: ScrollGT's 4096^2
+level-2 target is 16384^2 at level 0, about 16 GiB across 62 depth slices, which is why
+`scripts/run_ink_ablation.py` streams by row-block instead of materialising it.
