@@ -1,37 +1,37 @@
 # Ranking transfers across scrolls; calibration does not
 
-> ## ⚠ NARROWED 2026-08-30, same day: the title's general claim is NOT supported
+> ## ⚠ NARROWED TWICE, 2026-08-30: it is Scroll 1, not "crossing scrolls" and not one segment
 >
-> A third scroll was tested and it does not show the effect. On PHerc 0139, which publishes at the
-> models' native 2.399 um, the shift is **0.86x (it3)** and **0.52x (it5)**: the models fire at or
-> BELOW their home rate, not above it.
+> The title's general claim is **not supported**. Two follow-up tests, in order:
 >
-> ```
-> it3   home 0.2053  ->  PHerc0139 0.1756   0.86x
-> it5   home 0.1867  ->  PHerc0139 0.0964   0.52x
-> ```
+> **A third scroll does not show the effect.** On PHerc 0139, at the models' native 2.399 um, the
+> shift is **0.86x (it3)** and **0.52x (it5)**: they fire at or BELOW their home rate.
 >
-> So the 3.3x to 7.4x shift documented below is **specific to Scroll 1 segment
-> `20231210121321`**, not a property of crossing scrolls. "Calibration does not transfer" is
-> unsupported as a general statement and must not be repeated.
+> **Three Scroll 1 segments all do show it**, including a 2026 re-segmentation of the same sheet as
+> one of the 2023-era ones, all rendered from the *same* 2.4 um CT volume (it5, median of six
+> 1024^2 regions):
 >
-> **What survives:** the ranking result, which is measured against ground truth and unaffected
-> (four of six members read that segment at AUC 0.68 to 0.72, monotone in pseudo-label density);
-> and the fact that on that one segment all six members over-fire by 3.3x to 7.4x, which is real
-> and reproducible but of unknown generality.
+> | segment | vintage | it5 fires above 0.5 |
+> |---|---|---:|
+> | PHerc1667 `w011` (home) | - | 0.1867 |
+> | `20231210121321` | 2023 | 0.7253 |
+> | `20230702185753` | 2023 | 0.7129 |
+> | `...-20230702185753_v14` | **2026 re-seg** | 0.6670 |
 >
-> **Open, and cheap to settle:** whether this is the segment or the scroll. `20231210121321` is a
-> 2023-era segmentation, and its own target metadata records that "the 2023/2026 segmentations of
-> this sheet are materially different surfaces". Testing a second Scroll 1 segment would separate
-> those.
+> So the effect is **not** segmentation vintage (the 2026 re-seg of the same sheet behaves like the
+> 2023 ones), **not** one anomalous segment (three segments agree), and **not** general to crossing
+> scrolls (PHerc 0139 does not show it).
 >
-> The implication drawn below for villa's open problem is correspondingly weaker: thresholds
-> largely DID transfer to the third scroll, so the argument that absence determinations fail
-> cross-scroll does not hold in the general form stated.
-
-
-**2026-08-30.** Measured on the six released `PHerc.1667-iteration-*` checkpoints, public data
-throughout, one consumer GPU.
+> **What it is:** these models are out of distribution on **Scroll 1**, firing at roughly 3.6x to
+> 3.9x their home rate there while behaving normally on another non-home scroll.
+>
+> **A candidate mechanism, untested:** PHerc 1667 and PHerc 0139 both publish their surface volumes
+> as `2.399um-0.22m-78keV`, while Scroll 1's is `2.4um-0.22m-78keV`, a different reconstruction. The
+> effect may track the volume rather than the scroll. Distinguishing those would need a second
+> non-home scroll sharing Scroll 1's reconstruction, or Scroll 1 data under the 2.399 um pipeline.
+>
+> **Unaffected by any of this:** the ranking result, which is measured against ground truth. Four of
+> six members read `20231210121321` at AUC 0.68 to 0.72, monotone in pseudo-label density.
 
 ## The two halves
 
