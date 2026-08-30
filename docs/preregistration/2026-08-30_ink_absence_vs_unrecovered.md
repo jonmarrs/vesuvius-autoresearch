@@ -128,3 +128,32 @@ apparent signal does not depend on the labels being in the right place, and the 
 
 No other rule changes. Thresholds, floors, the p_std-must-beat-p_mean requirement, the exclusion
 policy and the UNPOWERED floor all stand as written above.
+
+---
+
+# ADDENDUM 2, 2026-08-30, still before any scoring: it0 is not on the ladder
+
+The exclusion check was run and **no member is excluded**: no config lists `20231210121321` as a
+training segment, so the held-out property holds for all six.
+
+Reading those configs did show something the design above glossed over:
+
+| member | train tiles | training segment |
+|---|---:|---|
+| it0 | 20,075 | `500p2a + 658 + 20250910185200 + 20250919125754*` |
+| it1 | 3,396 | `l_2` |
+| it2 | 8,970 | `l_2` |
+| it3 | 15,286 | `l_2` |
+| it4 | 24,773 | `l_2` |
+| it5 | 33,061 | `l_2` |
+
+**it0 differs in training data, not in label density.** it1 through it5 are the clean ladder, one
+variable, monotone in tiles. it0 is a cross-segment baseline and belongs to a different comparison.
+
+So `p_std` is computed **two ways and both are reported**: over all six as pre-registered (primary,
+unchanged), and over it1..it5 only, which is the pure density ladder. The `slope` statistic is
+computed on **it1..it5 only**, because fitting probability against an index that mixes a data change
+into a density ladder measures neither.
+
+No decision rule changes. This is a reporting refinement fixed before any prediction meets ground
+truth.
