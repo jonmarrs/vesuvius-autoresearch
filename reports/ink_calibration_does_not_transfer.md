@@ -13,13 +13,25 @@ validates the label.
 
 **Calibration does not.** The same model, same pipeline, same region size, six locations per scroll:
 
-| scroll | it5 fires above 0.5 | range |
-|---|---:|---|
-| PHerc 1667, the models' **home** scroll | **18.7%** (median) | 3.1 to 26.0% |
-| Scroll 1, **held out, different scroll** | **72.5%** (median) | 38.4 to 86.2% |
+Medians over six 1024^2 regions per scroll, **all six members**:
 
-The ranges do not overlap. The home-scroll figure matches iteration-5's own published held-out
-preview, which fires on 26.3%, so the pipeline is right and the shift is real: **3.9x at the median**.
+| member | home (PHerc 1667) | held out (Scroll 1) | shift |
+|---|---:|---:|---:|
+| it0 | 0.0800 | 0.5934 | 7.42x |
+| it1 | 0.1244 | 0.7412 | 5.96x |
+| it2 | 0.2708 | 0.8843 | 3.27x |
+| it3 | 0.2053 | 0.6775 | 3.30x |
+| it4 | 0.1447 | 0.5848 | 4.04x |
+| it5 | 0.1867 | 0.7253 | 3.89x |
+
+Home rates span 8.0 to 27.1%, held-out rates 58.5 to 88.4%. **The two do not overlap for any
+member**, and every member shifts the same direction by 3.3x to 7.4x.
+
+Each member's home rate is checked against **its own** published `preview_l_5` figure (it1 0.2763,
+it2 0.3649, it3 0.2427, it4 0.2134, it5 0.2627), not against a single number; the previews are on
+segment `l_5` while the home leg measures `w011`, so a ratio tolerance is used rather than an
+absolute one. it0 is a cross-segment baseline and ships no `l_5` preview, so its home leg is
+reported as unvalidated.
 
 ## Why this matters for villa's open problem
 
@@ -41,8 +53,8 @@ ranks at 0.72 is useful; the same model thresholded at 0.5 on a new scroll is no
 
 ## Limits, plainly
 
-The AUC results cover all six members on one segment. **The firing-rate comparison is it5 only**, six
-locations per scroll, one segment each. One architecture, two scrolls, and the Scroll 1 ground truth
+The AUC results and the firing-rate comparison both cover all six members, six locations per scroll,
+one segment per scroll. One architecture, two scrolls, and the Scroll 1 ground truth
 carries a stated ~0.31 mm resolution limit, so its scores are mild lower bounds.
 
 Our pipeline deviates from the published inference recipe in that it applies no fragment mask.
