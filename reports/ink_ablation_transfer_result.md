@@ -64,3 +64,32 @@ the ordering is suggestive rather than established, and it1/it2 sitting at chanc
 threshold effect rather than a genuine floor. Our pipeline still deviates from the published recipe
 in stride, masking and possibly intensity convention, all recorded in
 `repro/ink_ablation/README.md`.
+
+## Calibration, corrected a second time: 26% is the right reference, not 14%
+
+I twice called this pipeline badly miscalibrated by comparing its firing rate to the **canon** model's
+14.06% on this segment. Canon is a different model. The right reference is what these checkpoints
+themselves publish, and the model card ships it:
+
+| reference | above 0.5 |
+|---|---:|
+| iteration-5 preview on `l_2`, its **training** segment | 8.71% |
+| iteration-5 preview on `l_5`, a **held-out** segment | **26.27%** |
+| canon model on our Scroll 1 segment | 14.06% |
+| **our it5 on our Scroll 1 segment** | **69.65%** |
+
+So these models legitimately fire far more than canon, and 26% rather than 14% is the number our
+held-out rate should be judged against. We are 2.7x that, not 5x a universal target, on a *different
+scroll* where more mid-range uncertainty is expected. (The previews are downsampled 16x, which
+smooths extremes, so even 2.7x is an upper bound on the discrepancy.)
+
+**Twice now I have overstated a calibration problem**: first by calling the null uninformative when
+AUC is rank-based and unaffected, then by benchmarking against the wrong model. The underlying
+lesson is the same each time, that a reference has to be the right reference, and "published number
+on the same segment" was not sufficient when the publisher was a different model.
+
+What survives unchanged: the threshold caveat on the absence-versus-failure null. It defines
+negatives as `p_mean < 0.5`, which selects the bottom 30% of our pixels where the models' own
+held-out behaviour would put roughly 74% below that line. That comparison is threshold-dependent in
+a way the AUC results are not, and it is the one place where matching the published recipe would
+still change something.
