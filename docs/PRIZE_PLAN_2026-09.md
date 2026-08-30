@@ -1,5 +1,17 @@
 # September 2026 Progress Prize: plan
 
+> ## CLOSED 2026-08-30: the bet below is dead, and nothing is filed on it
+>
+> The sheet-switch detector's premise does not survive reading the satisfaction metric: the
+> two-winding condition it detects cannot be produced by displaced geometry, so neither an injected
+> switch nor a real one would register. See `reports/sheet_switch_detector_premise_broken.md` and the
+> closure note in `docs/preregistration/2026-08-29_sheet_switch_detector.md`.
+>
+> Pre-registered rule 2 committed us to filing nothing if the detector could not be shown to beat its
+> floors. It cannot, so nothing is filed on it. **September has no bet as of this date**, and 16 days
+> remain. What survives is reusable: the offline winding extractor, the reproducible spiral fit, the
+> seed-agreement tooling, and `docs/RUNNING_THE_SPIRAL_FIT.md`.
+
 **Written 2026-08-29, unstarted.** Deadline is the end of September; August was filed on the 23rd.
 
 ## What the prize actually says, checked rather than remembered

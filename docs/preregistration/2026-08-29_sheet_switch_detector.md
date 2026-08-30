@@ -217,3 +217,43 @@ This control can fail, and if it does it ends the line of work.
 The injection study's parameters are already fixed at the top of this document (`k in
 {0.5, 1, 1.5, 2}`, contiguous half-patch displacement, `k = 0` null arm, three seeds). Nothing there
 changes.
+
+---
+
+# CLOSED 2026-08-30. Not filed. The premise did not survive.
+
+The study ends here, before its 2026-09-15 gate, and not because the gate was failed on evidence.
+The condition it was designed to test turns out to be unreachable.
+
+`get_patch_satisfied_areas` computes ONE target per patch and accepts a quad only within
+`0.45 * dr` of it. Geometry displaced by a whole winding sits `1.0 * dr` away, so it cannot be
+satisfied on the neighbouring winding, only fail. And the per-quad winding index is
+`round((target_shifted_radius - cum_adj + branch_offset) / dr)`, where both correction terms are
+theta-wrapping bookkeeping rather than statements about where the surface lies.
+
+So the two-winding condition this detector looks for cannot be produced by displacing geometry, by
+us or by a real sheet switch. Three injection designs failed for three different-looking reasons;
+the fourth would have too. Full argument and numbers:
+`reports/sheet_switch_detector_premise_broken.md`.
+
+**Rule 2 is honoured, not evaded.** It committed us to filing nothing if the detector could not be
+shown to beat its floors. It cannot be shown to beat anything, because recall is not measurable
+here.
+
+**What the pre-registration bought.** Every constraint in it held under pressure and each one cost
+something:
+
+* `L = 32` cleared the 5% bar, was outside the registered sweep, and was recorded and not adopted;
+* the frozen threshold failed rule 3 at 5.02% and the 0.20 threshold that passes was declined,
+  because passing was its only merit;
+* rule 3's own flaw was found after seeing the baseline and left unamended for that reason;
+* the seed-agreement control's reading was fixed before the numbers existed, which is why a 0.9696
+  Jaccard was reported as "geometry, not noise" rather than as vindication.
+
+Without those written down first, this session would have produced a filed submission resting on a
+detector that cannot detect the thing it names.
+
+**What was not caught.** None of it questioned the premise. The pre-registration specified how to
+validate the detector and never asked whether the condition it detects is reachable. That question
+was answerable on day one by reading what makes a quad satisfied, and cost about a day by not being
+asked.
