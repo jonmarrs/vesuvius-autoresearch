@@ -88,3 +88,43 @@ being characterised rather than a nuisance to be excused.
 * Dropping ablation members that behave awkwardly. Only a documented training-segment overlap
   justifies exclusion, and it must be reported.
 * Treating a monotone slope as the result. Rule 4 forbids it.
+
+---
+
+# ADDENDUM, 2026-08-30, before any scoring: handling the known registration offset
+
+Added after reading the target's own metadata and before any prediction is compared to ground truth.
+It adds a control; it does not change any decision rule above.
+
+## The problem
+
+`scroll1_20231210121321`'s placement record says agreement with the canon prediction peaks
+**32 level-2 px off zero**, at `peak_shift_level2_px [31, -8]`, and calls that the target's
+**resolution limit** rather than a pending bug: features closer than ~0.31 mm cannot be scored
+reliably, and all scores are mild lower bounds. The target passes its gate (32 against a 48 px
+threshold).
+
+That is tolerable for area-level scoring and dangerous here. This study works at the models' output
+resolution, 64x64 per 256x256 tile, which is level-2 downsampled 4x, so **32 level-2 px is 8 analysis
+pixels** and comparable to a stroke width. Ink-labelled pixels displaced off the real ink would enter
+the analysis as false negatives that are registration artifacts, contaminating precisely the class
+the hypothesis is about.
+
+## What is fixed now
+
+**Both alignments are run and both are reported.**
+
+* **primary**: ground truth shifted by the recorded `peak_shift_level2_px [31, -8]`, since the
+  target's own metadata identifies that as where agreement peaks;
+* **secondary**: unshifted, as ScrollGT's own scorer uses it.
+
+**If the two disagree on the rule-2 verdict, there is no verdict.** A conclusion that survives only
+one alignment is a conclusion about the registration, not about the ablation series, and reporting
+the favourable one would be indistinguishable from choosing it.
+
+**A third arm is added as a control that can fail**: ground truth shifted by the same *magnitude* in
+a deliberately wrong direction, `[-31, 8]`. If the primary result does not beat this arm, the
+apparent signal does not depend on the labels being in the right place, and the study is void.
+
+No other rule changes. Thresholds, floors, the p_std-must-beat-p_mean requirement, the exclusion
+policy and the UNPOWERED floor all stand as written above.
