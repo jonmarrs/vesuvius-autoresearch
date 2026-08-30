@@ -54,6 +54,49 @@ sys.path.insert(
 K_ARMS = [0.0, 0.5, 1.0, 1.5, 2.0]  # frozen in the pre-registration
 
 
+def displace_half_spiral(patch, transform, dr, k, torch):
+    """Move one contiguous half by k windings, IN SPIRAL SPACE.
+
+    The scan-space version below is retained but invalid: a rigid radial shift in
+    scan coordinates is not a winding shift, because the scan-to-spiral mapping is
+    a learned deformation. Measured consequence (2026-08-29): injected patches lost
+    more than half their satisfied quads while their winding count stayed flat, so
+    the displaced region became UNSATISFIED instead of satisfied on a neighbouring
+    wrap. See `reports/sheet_switch_injection_pilot_void.md`.
+
+    This uses the metric's own construction, so the displaced region lands on
+    winding w+k in the frame the metric scores in:
+
+        spiral = transform(scan);  r = hypot(sy, sx);  th = atan2(sy, sx)
+        r' = r + k*dr;  spiral' = (z, sin(th)*r', cos(th)*r');  scan' = transform.inv(spiral')
+
+    which mirrors satisfaction_metrics' target build (y = sin(theta)*r, x = cos(theta)*r).
+    """
+    z = patch.zyxs.clone()
+    h, w = z.shape[:2]
+    valid = torch.any(z != -1, dim=-1)
+    half = torch.zeros_like(valid)
+    half[:, w // 2 :] = True
+    sel = valid & half
+    if not bool(sel.any()):
+        return None
+    idx = torch.stack(torch.where(sel), dim=-1)
+    pts = z[sel].to(dtype=torch.float32)
+    spiral = transform(pts)
+    r = torch.hypot(spiral[:, 1], spiral[:, 2])
+    th = torch.atan2(spiral[:, 1], spiral[:, 2])
+    r2 = r + k * dr
+    spiral2 = torch.stack(
+        [spiral[:, 0], torch.sin(th) * r2, torch.cos(th) * r2], dim=-1
+    )
+    back = transform.inv(spiral2).to(dtype=z.dtype)
+    z[idx[:, 0], idx[:, 1]] = back
+    new = copy.copy(patch)
+    object.__setattr__(new, "zyxs", z)
+    new.__post_init__()
+    return new
+
+
 def displace_half(patch, umb_zyx_to_yx, dr, k, torch):
     """Move the valid vertices of one contiguous half radially by k*dr."""
     z = patch.zyxs.clone()
@@ -97,6 +140,14 @@ def main():
     ap.add_argument("--out", required=True)
     ap.add_argument("--n-inject", type=int, default=200)
     ap.add_argument("--seeds", type=int, default=3)
+    ap.add_argument(
+        "--space",
+        choices=("spiral", "scan"),
+        default="spiral",
+        help="spiral: displace in the frame the metric scores in (correct). "
+        "scan: the original radial shift, retained only to reproduce the "
+        "void pilot of 2026-08-29.",
+    )
     ap.add_argument("--z-begin", type=int, default=13056)
     ap.add_argument("--z-end", type=int, default=18432)
     args = ap.parse_args()
@@ -162,7 +213,11 @@ def main():
             for p in ids:
                 pt = patches[p]
                 if p in chosen and k > 0:
-                    new = displace_half(pt, umb, dr, k, torch)
+                    new = (
+                        displace_half_spiral(pt, transform, dr, k, torch)
+                        if args.space == "spiral"
+                        else displace_half(pt, umb, dr, k, torch)
+                    )
                     if new is not None:
                         plist.append(new)
                         injected.append(p)
