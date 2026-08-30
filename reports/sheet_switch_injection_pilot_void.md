@@ -73,3 +73,71 @@ This is a real setback. The injection study is the only handle on recall, the ga
 the harness that was supposed to deliver it needs rebuilding in a coordinate space I have not yet
 worked in. Seventeen days remain. The pilot cost about ten minutes of compute and found the flaw
 before three seeds were spent on it, which is the argument for running pilots.
+
+---
+
+## Second attempt, 2026-08-30: the spiral-space injection is ALSO invalid
+
+Rebuilt to displace in spiral space and map back through `transform.inv()`, on the reasoning that a
+rigid radial shift in scan coordinates is not a winding shift. It ran to completion:
+
+```
+transform device: cuda:0
+k=0.0   injected   0   recall  0.0%   flags elsewhere 1773
+k=0.5   injected 200   recall  0.5%
+k=1.0   injected 200   recall  1.0%
+k=1.5   injected 200   recall  1.0%
+k=2.0   injected 200   recall  1.0%
+```
+
+Recall flat at ~1%, which is 2 patches in 200, i.e. noise. Flatness *across magnitudes* is the tell:
+if geometry were landing on neighbouring wraps, integer windings should behave differently from half
+windings. The diagnostic confirms it:
+
+```
+sanity: max |zyx| change at k=1: 90.948  (dr = 16.173)   <- 5.6x too large
+
+                    satisfied quads (median)   mean #windings   mean minority fraction
+baseline                           293              0.950              0.0000
+injected k=1.0                     141              1.000              0.0000
+injected k=2.0                      82              0.950              0.0000
+```
+
+Displacing by one winding should move a point about `dr` = 16 voxels. It moved **91**. Satisfied
+quads collapse as before, the winding count stays flat, and the minority fraction is exactly zero.
+
+**The cause is mine and specific.** I took `th = atan2(spiral_y, spiral_x)`, which is the *wrapped*
+angle in `(-pi, pi]`. The spiral's radius depends on the *unwrapped* angle, which accumulates across
+windings, so reconstructing a point from a wrapped theta lands it somewhere else entirely. The
+metric's own target build uses `theta_all`, an unwrapped quantity it maintains, not an `atan2`.
+
+## The sanity check said OK, and should not have
+
+```
+'OK' if moved > 0.5 * dr else 'NO-OP, everything below is meaningless'
+```
+
+It was written to catch a silent no-op, which was the previous failure, and so it could not see an
+overshoot. It printed **OK** on a 5.6x error.
+
+That is the same defect this project keeps recording: a check that cannot see the thing it is being
+used to rule out. It is now the second time in this specific work, after the pre-registered `L`
+sweep that could not see that boundary length was the wrong statistic. The check should assert a
+*band* around `dr`, not a floor.
+
+## Where this leaves the September bet
+
+**Recall remains unmeasured after three attempts**, and the honest reading is that I do not yet
+understand the spiral coordinate system well enough to construct a valid injection. Two designs have
+failed for two different reasons, and each cost roughly half an hour of build plus a four-minute run.
+
+What has NOT changed: the detector is frozen and untouched, the seed-agreement result stands, and
+the baseline characterisation stands. Every failure so far is in the validation harness.
+
+The gate is 2026-09-15. Rule 2 commits us to filing nothing if the detector cannot be shown to beat
+its floors, and a detector whose recall cannot be measured cannot be shown to beat anything. That
+outcome is now more likely than not, and saying so is cheaper than discovering it on the 15th.
+
+The next attempt, if there is one, must use the metric's own unwrapped theta rather than
+reconstructing an angle, and must assert the displacement lands within a band around `dr` before any
+arm is scored.
