@@ -54,7 +54,7 @@ sys.path.insert(
 K_ARMS = [0.0, 0.5, 1.0, 1.5, 2.0]  # frozen in the pre-registration
 
 
-def displace_half_spiral(patch, transform, dr, k, torch):
+def displace_half_spiral(patch, transform, dr, k, torch, device=None):
     """Move one contiguous half by k windings, IN SPIRAL SPACE.
 
     The scan-space version below is retained but invalid: a rigid radial shift in
@@ -81,7 +81,11 @@ def displace_half_spiral(patch, transform, dr, k, torch):
     if not bool(sel.any()):
         return None
     idx = torch.stack(torch.where(sel), dim=-1)
+    # The transform's internals live on the fit device while patch zyxs are on the
+    # host; calling it with CPU tensors raises a device mismatch inside interp1d.
     pts = z[sel].to(dtype=torch.float32)
+    if device is not None:
+        pts = pts.to(device)
     spiral = transform(pts)
     r = torch.hypot(spiral[:, 1], spiral[:, 2])
     th = torch.atan2(spiral[:, 1], spiral[:, 2])
@@ -89,7 +93,7 @@ def displace_half_spiral(patch, transform, dr, k, torch):
     spiral2 = torch.stack(
         [spiral[:, 0], torch.sin(th) * r2, torch.cos(th) * r2], dim=-1
     )
-    back = transform.inv(spiral2).to(dtype=z.dtype)
+    back = transform.inv(spiral2).to(dtype=z.dtype, device=z.device)
     z[idx[:, 0], idx[:, 1]] = back
     new = copy.copy(patch)
     object.__setattr__(new, "zyxs", z)
