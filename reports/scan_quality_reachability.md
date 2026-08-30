@@ -75,3 +75,67 @@ tractable end of the difficulty range, and the write-up must say so wherever a n
 Reachability: **established**. Data is public, self-contained, needs no registration, and the
 outcome varies 5.3x. Nothing is built yet, and the next step is to measure boundary definition
 against a CT-only predictor on the 12 cubes already fetched.
+
+---
+
+# RESULT, same day: the outcome is saturated. This design cannot work on this data.
+
+Ran on the 12 fetched cubes. Two findings, one fatal.
+
+## 1. Fatal: there is nothing to predict
+
+```
+separability_auc over 12 cubes:  min 0.9946   median 0.9992   max 0.9997
+```
+
+The label-derived outcome, ROC-AUC of CT intensity separating sheet interior from inter-sheet gap,
+is **saturated at ~0.999 in every cube**. Total spread is 0.005. Every annotated cube has cleanly
+separable layers.
+
+So there is no difficulty gradient for a CT-only predictor to track. The correlations the script
+printed (-0.36 to -0.57) are fitted to a 0.005-wide band of noise and mean nothing.
+
+**This is the annotatability selection effect, arriving exactly where it was predicted.** The
+reachability note above said: *"these cubes were hand-annotated, so they were selected for being
+annotatable. Regions where layers dissolve entirely are plausibly the ones nobody could label and
+are therefore systematically absent."* They are absent. The set contains no bad-quality examples,
+so it cannot calibrate a metric whose purpose is to find them.
+
+Worth being precise about what this does and does not say. It does **not** say scan quality is
+uniform in Scroll 1; the open-problems doc's own figures show a compressed region before and after
+rescanning. It says the *labelled* subset carries none of that variation, and a supervised handle on
+scan quality cannot be built from labels that only exist where the scan was already good.
+
+## 2. Incidental, and worth passing on: the cubes mix dtypes
+
+```
+00000_02408_04560   uint16   0..65535
+00064_02664_04304   uint8    8..255
+00768_02152_03536   uint16   0..65535
+```
+
+`instance-labels-harmonized` harmonises **instance IDs**, not intensities. The volumes are a mix of
+`uint8` and `uint16`, so raw-intensity statistics differ by ~250x across cubes for reasons that have
+nothing to do with the scan. Our `intensity_std` ranged 42.7 to 12901.7 purely from this.
+
+Anyone computing intensity features, or training without per-cube normalisation, silently gets a
+two-cluster dataset. The name invites the assumption that the cubes are comparable. This is a small,
+checkable observation and is the only part of today's work that might be worth reporting upstream.
+
+## What would be needed to do this properly
+
+Labelled examples **from compressed regions**, which by construction barely exist: the regions worth
+measuring are the ones nobody could annotate. Options, none cheap:
+
+* use a downstream proxy for difficulty rather than labels, e.g. where a published surface model's
+  confidence collapses, accepting that this measures the model as much as the scan;
+* use the paired DLS 7.91 um and ESRF 2.4 um acquisitions of the same region as a
+  quality contrast, if a registered pair is ever published;
+* treat it as unsupervised, and validate against acquisition metadata rather than labels.
+
+## Cost
+
+About two hours, including the reachability check that predicted this failure mode and the
+population characterisation that did not catch it. The mask-level outcome (contact fraction) varied
+5.3x and looked promising; the CT-level outcome that actually matters does not vary at all. Those
+are different quantities and only the second one was ever the target.
