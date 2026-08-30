@@ -54,6 +54,7 @@ def main():
     ap.add_argument("--dataset", required=True)
     ap.add_argument("--flags", required=True)
     ap.add_argument("--n-sample", type=int, default=60)
+    ap.add_argument("--space", choices=("spiral", "scan"), default="spiral")
     ap.add_argument("--z-begin", type=int, default=13056)
     ap.add_argument("--z-end", type=int, default=18432)
     args = ap.parse_args()
@@ -63,7 +64,7 @@ def main():
     from checkpoint_io import load_checkpoint_cpu
     from find_inconsistent_windings import build_fit_inputs, build_transform
     from fit_session import conventional_input_paths, load_scroll_spec
-    from inject_sheet_switches import displace_half
+    from inject_sheet_switches import displace_half, displace_half_spiral
     from satisfaction_metrics import get_patch_satisfied_areas
 
     ckpt = load_checkpoint_cpu(os.path.join(args.run, "checkpoint_fitted.ckpt"))
@@ -93,14 +94,22 @@ def main():
         rng.choice(clean, min(args.n_sample, len(clean)), replace=False).tolist()
     )
 
+    dev = None
+    for cand in (getattr(transform, "_z", None), getattr(transform, "_yx", None), dr_t):
+        if hasattr(cand, "device"):
+            dev = cand.device
+            break
+
+    def disp(pt, k):
+        return (
+            displace_half_spiral(pt, transform, dr, k, torch, dev)
+            if args.space == "spiral"
+            else displace_half(pt, umb, dr, k, torch)
+        )
+
     p0 = next(iter(chosen))
     before = patches[p0].zyxs.clone()
-    moved = (
-        (displace_half(patches[p0], umb, dr, 1.0, torch).zyxs - before)
-        .abs()
-        .max()
-        .item()
-    )
+    moved = (disp(patches[p0], 1.0).zyxs - before).abs().max().item()
     print(
         f"sanity: max |zyx| change at k=1: {moved:.3f}  (dr={dr:.3f})"
         f"   {'OK' if moved > 0.5 * dr else 'NO-OP, everything below is meaningless'}"
@@ -142,7 +151,7 @@ def main():
         plist = []
         for p in ids:
             if p in chosen:
-                n = displace_half(patches[p], umb, dr, k, torch)
+                n = disp(patches[p], k)
                 plist.append(n if n is not None else patches[p])
             else:
                 plist.append(patches[p])
