@@ -184,6 +184,14 @@ def main():
     transform, dr_t = build_transform(ckpt, cfg, context, mz0, mz1)
     dr = float(dr_t.detach())
     umb = context.umbilicus_z_to_yx()
+    # Resolve the device from a tensor the TRANSFORM owns. dr_t is not a reliable
+    # proxy, and a CPU/CUDA mismatch inside interp1d is how the last two pilots died.
+    dev = None
+    for cand in (getattr(transform, "_z", None), getattr(transform, "_yx", None), dr_t):
+        if hasattr(cand, "device"):
+            dev = cand.device
+            break
+    print(f"transform device: {dev}", flush=True)
     print(f"patches {len(ids)}  dr {dr:.3f}", flush=True)
 
     baseline_flagged = set(json.load(open(args.flags))["flagged"])
@@ -218,7 +226,7 @@ def main():
                 pt = patches[p]
                 if p in chosen and k > 0:
                     new = (
-                        displace_half_spiral(pt, transform, dr, k, torch)
+                        displace_half_spiral(pt, transform, dr, k, torch, dev)
                         if args.space == "spiral"
                         else displace_half(pt, umb, dr, k, torch)
                     )
