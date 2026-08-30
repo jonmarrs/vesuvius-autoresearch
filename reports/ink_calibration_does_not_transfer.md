@@ -1,5 +1,35 @@
 # Ranking transfers across scrolls; calibration does not
 
+> ## ⚠ NARROWED 2026-08-30, same day: the title's general claim is NOT supported
+>
+> A third scroll was tested and it does not show the effect. On PHerc 0139, which publishes at the
+> models' native 2.399 um, the shift is **0.86x (it3)** and **0.52x (it5)**: the models fire at or
+> BELOW their home rate, not above it.
+>
+> ```
+> it3   home 0.2053  ->  PHerc0139 0.1756   0.86x
+> it5   home 0.1867  ->  PHerc0139 0.0964   0.52x
+> ```
+>
+> So the 3.3x to 7.4x shift documented below is **specific to Scroll 1 segment
+> `20231210121321`**, not a property of crossing scrolls. "Calibration does not transfer" is
+> unsupported as a general statement and must not be repeated.
+>
+> **What survives:** the ranking result, which is measured against ground truth and unaffected
+> (four of six members read that segment at AUC 0.68 to 0.72, monotone in pseudo-label density);
+> and the fact that on that one segment all six members over-fire by 3.3x to 7.4x, which is real
+> and reproducible but of unknown generality.
+>
+> **Open, and cheap to settle:** whether this is the segment or the scroll. `20231210121321` is a
+> 2023-era segmentation, and its own target metadata records that "the 2023/2026 segmentations of
+> this sheet are materially different surfaces". Testing a second Scroll 1 segment would separate
+> those.
+>
+> The implication drawn below for villa's open problem is correspondingly weaker: thresholds
+> largely DID transfer to the third scroll, so the argument that absence determinations fail
+> cross-scroll does not hold in the general form stated.
+
+
 **2026-08-30.** Measured on the six released `PHerc.1667-iteration-*` checkpoints, public data
 throughout, one consumer GPU.
 
