@@ -34,8 +34,25 @@ error: unknown option '--keep=6.2500'
 ```
 
 so `--flatten-keep 6.25` cannot work with this image whatever else is present, and the only
-usable setting is `--flatten-keep 100`. That leaves flatboi flattening a full-resolution mesh:
-200,196 vertices ran over 20 minutes single-threaded for ten windings.
+setting the image accepts is `--flatten-keep 100`.
+
+**`--flatten-keep 100` is not a usable fallback.** It is the case render_ink.py's own help warns
+about: "smaller mesh is less prone to SLIM divergence". Measured here, single-threaded:
+
+| windings | vertices | flatten-iters | flatboi runtime |
+|---:|---:|---:|---|
+| 10 | 200,196 | 50 | killed at 1h51m, still running |
+| 3 | ~60,000 | 10 | killed at 1h13m, still running |
+
+Three windings at ten iterations not finishing in over an hour is not slowness, it is the
+divergence the flag exists to avoid. So the practical position is that **the published container
+cannot render a spiral fit at all**: the documented decimation default is rejected by its
+`vc_tifxyz2obj`, and the only setting it accepts does not converge.
+
+Unblocking this needs `vc_tifxyz2obj` rebuilt from current source. Unlike `vc_obj_uv_lift` it is
+not standalone: it includes `vc/core/util/{Geometry,InpaintSurface,Slicing,Surface,QuadSurface}.hpp`
+and `vc/core/types/VcDataset.hpp`, and the runtime image ships no VC headers and no `libvc_core`
+(checked). That means the `builder-ubuntu-*` image plus a full VC3D build. Not attempted here.
 
 ## 3. The published mesh frame and the published ink volume differ by exactly 4x
 
