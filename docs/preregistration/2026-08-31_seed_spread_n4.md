@@ -55,3 +55,37 @@ coverage must be near 0%, confirming it is not duplicate-inflated.
 
 Four seeds is a small sample. A CV from n=4 has wide uncertainty, and it will be reported as an
 estimate from four fits, never as "the" noise floor.
+
+---
+
+## Addendum 3, 2026-08-31: comparability controls, recorded before any seed 3 or 4 score exists
+
+Seed 4 is still fitting and neither new arm has been rendered. These are checks on whether the four
+arms are measurable against each other at all, which is worth recording now rather than after the
+numbers land.
+
+**The render and scoring tooling is byte-identical across all four arms.** Seeds 1 and 2 were
+rendered with `spiral-fitting` extracted at villa `5479453a`. The pin has since advanced to
+`c935851c3`, so this was checked rather than assumed:
+
+```
+render_ink.py        identical
+get_ink_metrics.py   identical
+tifxyz.py            identical
+```
+
+The three intervening upstream commits touch only volume-cartographer C++ and the fiber-merge and
+vc-sync scripts, none of which is on the render path. Seeds 3 and 4 are nonetheless extracted from
+`5479453a` explicitly, so comparability does not depend on that having been true. The container
+binaries are unchanged: `vc-render:local` pins `VILLA_SHA=5479453a` and its VC tools come from the
+frozen 2026-05-13 published image.
+
+**Seed 3 clears both pre-registered controls.**
+
+| control | seed03 | reference | verdict |
+|---|---|---|---|
+| quality gate, satisfied area within 0.01 | 0.8382 | 0.8398, 0.8404 | within band, pools |
+| not duplicate-inflated, gap>=2 overlap | 0.00% (1 cell) | baseline 0.00% | clean |
+| comparable surface | 206,847 cells | 206,321, 206,838 | within 0.3% |
+
+Seed 4 gets the same three checks before it is pooled, and is excluded if it fails any of them.
