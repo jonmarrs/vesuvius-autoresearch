@@ -74,3 +74,56 @@ in for what an optimiser would find.
 
 `repro/spiral_render/` for the render path. Arms are built by copying `w015_spliced_*` to
 `w020d_spliced_*`; overlap is checked with `scripts/measure_winding_overlap.py --quant 4`.
+
+
+---
+
+# Repeat and ceiling arms (addendum 2), 2026-08-31
+
+Predictions were fixed in the pre-registration before either arm was built. One met, one missed.
+
+| arm | meshes | occupied cells | gap>=2 dup | total_fg_pixels | total_pixels | fg_fraction | line | column |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| A baseline | 10 | 206,321 | 0.00% | 240,088 | 26,754,900 | 0.00897 | 0.438 | 0.232 |
+| B dup w015 | 11 | 206,321 | 10.32% | 270,314 | 29,792,000 | 0.00907 | 0.436 | 0.209 |
+| C honest | 11 | 234,495 | 0.00% | 270,899 | 30,704,000 | 0.00882 | 0.388 | 0.161 |
+| D dup w012 | 11 | 206,321 | 8.37% | 282,405 | 29,214,400 | 0.00967 | 0.415 | 0.155 |
+| **E dup all ten** | 20 | **206,321** | **100.00%** | **462,109** | 54,154,800 | 0.00853 | 0.409 | 0.192 |
+
+```
+B  dT +0.1259   dF +0.00010     D  dT +0.1763   dF +0.00069
+C  dT +0.1283   dF -0.00015     E  dT +0.9247   dF -0.00044
+```
+
+## The ceiling: the objective nearly doubles for nothing
+
+Arm E duplicates every winding. Its occupied cells are identical to A's 206,321, so **not one new
+voxel of papyrus is read**, and 100.00% of cells are claimed by windings >=2 apart. `total_fg_pixels`
+rises **92.47%**, and `overall_fg_fraction` moves by -0.00044.
+
+The pre-registered weakening outcome, `dF(E) < -0.02`, **did not occur**. The fraction guard does not
+bite even under total duplication. In the range tested the exploit is unbounded: the objective can
+be driven to nearly double with no new reading at all, and the documented guard never fires.
+
+## The arm D prediction MISSED
+
+I predicted `dT(D)` within 0.04 of B's +0.126. It is **+0.1763**, a gap of **0.0504**, outside my own
+window. Reported as a miss.
+
+What survives: duplicating any winding substantially inflates the objective. What does not: the size
+of the gain is winding-independent. It plainly scales with the duplicated winding's ink content, and
+w012 carries more than w015. The window was too tight for a quantity I had no reason to expect to be
+constant. Without the number written down first I could have called +0.176 "consistent with" +0.126.
+
+## The structure metrics, again, are not the missing guard
+
+D moves line/column by -0.023/-0.077 and honest C by -0.050/-0.072. They are comparable, so these
+scores do not separate duplicated from real coverage here either. This further weakens the
+suggestion I made in villa#1658.
+
+## Unchanged limits
+
+All five arms duplicate at the MESH level, post-fit. The fit and its satisfaction metrics are
+untouched by construction, so `autoresearch.md`'s third check remains untested. An optimiser that
+produced duplicate coverage *through the fit* might well be caught by it. Still one fit, one
+ten-winding span, one scroll, no seed repeats.
