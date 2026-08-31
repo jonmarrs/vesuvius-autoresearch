@@ -16,43 +16,45 @@ docker pull ghcr.io/scrollprize/villa/volume-cartographer:edge
 
 It ships `vc_render_tifxyz`, `vc_tifxyz_trim`, `vc_tifxyz2obj`, `vc_obj2tifxyz` and `flatboi`.
 
-## 2. That image is missing `vc_obj_uv_lift`, and is older than `render_ink.py`
+## 2. That image cannot render, and `Dockerfile` here fixes it
 
 `:edge` and `:main` are the same digest
-(`sha256:bad516f66001abca759454cc43e4fd11e5b19aa55d36bdc2043817291c8083c4`, built 2026-05-13).
-Neither carries `vc_obj_uv_lift`, which `render_ink.py` invokes whenever `--flatten-keep < 100`
-(the default is 6.25). Its source is in current `main`, so the image predates it.
+(`sha256:bad516f66001abca759454cc43e4fd11e5b19aa55d36bdc2043817291c8083c4`, built 2026-05-13) and
+are older than `render_ink.py`. Two tools are wrong:
 
-`Dockerfile` here builds it. Unlike the rest of VC3D it is 381 lines depending only on
-header-only libigl plus Eigen plus OpenMP, so it compiles on its own in seconds.
+* **`vc_obj_uv_lift` is absent.** `render_ink.py` invokes it whenever `--flatten-keep < 100` (the
+  default is 6.25). It is 381 lines depending only on header-only libigl, Eigen and OpenMP, so it
+  builds standalone in seconds.
+* **`vc_tifxyz2obj` predates `--keep`**, and answers `error: unknown option '--keep=6.2500'`.
 
-**That is not sufficient to reach the documented default.** The same image's `vc_tifxyz2obj`
-rejects `--keep`:
+The second is the fatal one. Without `--keep` the only accepted setting is `--flatten-keep 100`,
+which is the case the option's own help warns about ("smaller mesh is less prone to SLIM
+divergence"), and it does not converge:
 
-```
-error: unknown option '--keep=6.2500'
-```
-
-so `--flatten-keep 6.25` cannot work with this image whatever else is present, and the only
-setting the image accepts is `--flatten-keep 100`.
-
-**`--flatten-keep 100` is not a usable fallback.** It is the case render_ink.py's own help warns
-about: "smaller mesh is less prone to SLIM divergence". Measured here, single-threaded:
-
-| windings | vertices | flatten-iters | flatboi runtime |
+| windings | vertices into flatboi | `--flatten-iters` | result |
 |---:|---:|---:|---|
 | 10 | 200,196 | 50 | killed at 1h51m, still running |
 | 3 | ~60,000 | 10 | killed at 1h13m, still running |
 
-Three windings at ten iterations not finishing in over an hour is not slowness, it is the
-divergence the flag exists to avoid. So the practical position is that **the published container
-cannot render a spiral fit at all**: the documented decimation default is rejected by its
-`vc_tifxyz2obj`, and the only setting it accepts does not converge.
+`Dockerfile` rebuilds `vc_tifxyz2obj` from villa source pinned by `VILLA_SHA` and grafts it plus
+its five shared libraries onto the published runtime image, shadowing the stale binary on PATH. The
+key economy is building **one CMake target**, not VC3D: `--target vc_tifxyz2obj` pulls in
+`libvc_core` and skips the Qt UI, flatboi, python bindings and tests, so configure takes seconds and
+the compile a few minutes rather than the hour a full build costs. The `builder-ubuntu-24.04` image
+supplies Ceres, OpenCV, CGAL and Boost, so no root and no apt on the host.
 
-Unblocking this needs `vc_tifxyz2obj` rebuilt from current source. Unlike `vc_obj_uv_lift` it is
-not standalone: it includes `vc/core/util/{Geometry,InpaintSurface,Slicing,Surface,QuadSurface}.hpp`
-and `vc/core/types/VcDataset.hpp`, and the runtime image ships no VC headers and no `libvc_core`
-(checked). That means the `builder-ubuntu-*` image plus a full VC3D build. Not attempted here.
+The build asserts `vc_tifxyz2obj` accepts `--keep` and fails if not, so it cannot silently revert to
+the broken path.
+
+With that in place `--keep` does what it exists to do, emitting the coarse/fine pair:
+
+```
+w010-019_coarse.obj    12,521 verts   <- flatboi flattens this
+w010-019.obj          200,196 verts   <- vc_obj_uv_lift lifts the UVs back onto this
+```
+
+Reported upstream as ScrollPrize/villa#1660; a refreshed published image would make this whole
+directory unnecessary.
 
 ## 3. The published mesh frame and the published ink volume differ by exactly 4x
 
@@ -97,12 +99,18 @@ exec vc_render_tifxyz --scale-segmentation 4 "$@"
 ## Putting it together
 
 ```sh
-docker build -t vc-render:local .
+docker build -t vc-render:local .            # ~5 min: one CMake target, not all of VC3D
 docker run --rm -v "$WORK":/work --entrypoint sh vc-render:local -c "
   cd /work/sf_main && python3 -u render_ink.py /work/meshes \
     --volume /work/inkcache --remote-url '$INK_URL' \
     --vc-render-bin /work/bin/vc_render_scaled \
-    --strips --no-full-scroll --flatten-keep 100 --num-processes 1"
+    --strips --no-full-scroll --num-processes 1"
 ```
 
-`sf_main` must be a `spiral-fitting` tree recent enough to have `--remote-url`.
+`--flatten-keep` is left at its documented default, which the rebuilt `vc_tifxyz2obj` accepts.
+`sf_main` must be a `spiral-fitting` tree recent enough to have `--remote-url`; the checkout in
+`villa-spiral` was 13 commits behind and did not.
+
+Two costs worth knowing before starting. flatboi is single threaded and still slow even on the
+decimated mesh, so a full 120 winding fit is a long job on a 4 core box. And `vc_render_scaled` must
+be on a path visible inside the container.
