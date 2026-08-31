@@ -105,8 +105,16 @@ This document outlines how we leverage and contribute to the official `ScrollPri
 *   **Strategy**: Pretrain a single massive encoder on ALL unlabeled scroll volumes (Scrolls 1-4). This creates a "Foundation Model" for papyrus texture that makes fine-tuning on limited labels significantly more effective.
 *   **Impact**: Essential for the **$200,000 Grand Prize**. Foundation models are the only proven way to generalize across different scan energies.
 
-### [Priority O] RAG-Guided Autoresearch (STATUS: INTEGRATED)
-*   **Action**: Created `scripts/rag_researcher.py` using the official `Discord RAG Chatbot`.
+### [Priority O] RAG-Guided Autoresearch (STATUS: REMOVED 2026-08-31)
+*   **Action**: Created a RAG researcher script using the official `Discord RAG Chatbot`.
+*   **Removed**: both RAG scripts under `scripts/` were deleted when the villa pin was advanced to
+    `c935851c3`, which moves the Discord chatbot directory under `deprecated/`. Their filenames are
+    deliberately not repeated here: this is a live document, and naming deleted files in one is what
+    `tests/test_audit_doc_references.py` exists to catch. The full record, with the paths, is in
+    `reports/villa_pin_bump_impact_2026-08-31.md`.
+    Neither script had run in months: both depend on a `discord_vector_store` that was never built
+    locally, so they failed on a missing path regardless of the pin. The impact claimed below was
+    never realised.
 *   **Impact**: Allows the Autoresearch loop to "ask the community" for the best hyperparameters. Instead of a random search, we use AI to retrieve successful strategies from the Discord knowledge base, saving thousands of GPU hours.
 
 ### [Priority P] 3D (Volumetric) Ink Detection (STATUS: IMPLEMENTED)

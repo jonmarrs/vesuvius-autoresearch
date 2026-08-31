@@ -21,7 +21,7 @@ The hypothesis was half right and the conclusion was wrong.
 
 ## What villa actually does
 
-`villa/volume-cartographer/scripts/spiral/find_inconsistent_windings.py` (1,400 lines, at
+`villa/spiral-fitting/find_inconsistent_windings.py` (1,400 lines, at
 our pin `ced62390e`; upstream moved it to `spiral-fitting/` in PR #1548):
 
 1. **BFS spanning tree** for the initial assignment — as expected.

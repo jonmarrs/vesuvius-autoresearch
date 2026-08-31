@@ -28,13 +28,30 @@ def test_reference_patch_is_fully_satisfied():
     assert score(patch, DR) == pytest.approx(1.0, abs=1e-9)
 
 
+def _villa_spiral_dir(repo):
+    """Locate villa's spiral module directory, which MOVED upstream.
+
+    Until villa `ced62390e` it was `volume-cartographer/scripts/spiral`; from the
+    ink-detection deprecation onward it is `spiral-fitting`. Both are checked so a
+    pin in either era works, and so this does not silently import nothing.
+    """
+    import os
+
+    for rel in (("spiral-fitting",), ("volume-cartographer", "scripts", "spiral")):
+        cand = os.path.join(repo, "villa", *rel)
+        if os.path.isfile(os.path.join(cand, "satisfaction_metrics.py")):
+            return cand
+    raise RuntimeError(
+        "villa spiral modules not found under either spiral-fitting/ or "
+        "volume-cartographer/scripts/spiral/; is the villa submodule checked out?"
+    )
+
+
 def test_displacement_is_exactly_one_winding():
     """displace() must move every point's shifted radius by exactly dr."""
     patch = build_synthetic_patch(dr=DR, winding=5)
     moved = displace(patch, DR, n_windings=1)
-    sys.path.insert(
-        0, os.path.join(_REPO, "villa", "volume-cartographer", "scripts", "spiral")
-    )
+    sys.path.insert(0, _villa_spiral_dir(_REPO))
     from sample_spiral import get_theta_and_radii
 
     dr_t = torch.tensor(DR)

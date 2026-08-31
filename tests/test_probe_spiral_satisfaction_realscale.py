@@ -90,14 +90,31 @@ def test_ratio_one_at_real_dr_matches_whole_winding_invariance():
     assert result["disp_combined"] == pytest.approx(1.0, abs=1e-9)
 
 
+def _villa_spiral_dir(repo):
+    """Locate villa's spiral module directory, which MOVED upstream.
+
+    Until villa `ced62390e` it was `volume-cartographer/scripts/spiral`; from the
+    ink-detection deprecation onward it is `spiral-fitting`. Both are checked so a
+    pin in either era works, and so this does not silently import nothing.
+    """
+    import os
+
+    for rel in (("spiral-fitting",), ("volume-cartographer", "scripts", "spiral")):
+        cand = os.path.join(repo, "villa", *rel)
+        if os.path.isfile(os.path.join(cand, "satisfaction_metrics.py")):
+            return cand
+    raise RuntimeError(
+        "villa spiral modules not found under either spiral-fitting/ or "
+        "volume-cartographer/scripts/spiral/; is the villa submodule checked out?"
+    )
+
+
 def test_run_cell_displacement_is_dr_times_ratio_not_flat_dr():
     """run_cell's displacement for a fractional ratio must move the patch's
     shifted radius by exactly ratio * dr, not by a flat dr -- this is the
     conceptual correction this task makes over the idealized sweep (moving
     to the adjacent wrap means moving by the LOCAL gap, which varies)."""
-    sys.path.insert(
-        0, os.path.join(_REPO, "villa", "volume-cartographer", "scripts", "spiral")
-    )
+    sys.path.insert(0, _villa_spiral_dir(_REPO))
     from sample_spiral import get_theta_and_radii
 
     ratio = 0.72

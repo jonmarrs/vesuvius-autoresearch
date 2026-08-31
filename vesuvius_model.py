@@ -337,11 +337,39 @@ class VesuviusResNet3DDecoder(nn.Module):
         villa_optimized = os.path.join(
             os.path.dirname(__file__), "villa", "ink-detection", "optimized_inference"
         )
-        if villa_optimized not in sys.path:
-            sys.path.append(villa_optimized)
-
-        # Bypass __init__.py bug by appending optimized_inference directly to sys.path
-        from model_resnet3d_3d_decoder import RegressionModel
+        # `models` is a generic package name and this repo root holds a DATA
+        # directory called models/ (detector checkpoints, no __init__.py) which
+        # still shadows as a namespace package. Appending villa's path leaves it
+        # last, so the shadow wins and `models.resnetall` is not found.
+        #
+        # This used to work by accident: benchmark_harness.py puts
+        # villa/ink-detection on sys.path, and until villa ced62390e that
+        # directory contained models/resnetall.py. The pin bump to c935851c3
+        # moved ink-detection/models/ into deprecated/ and removed the fallback,
+        # after which this import passed alone and failed in the full suite,
+        # purely on test ordering.
+        #
+        # Resolve it deterministically instead: put villa's path FIRST and drop
+        # any cached shadowing `models` for the duration of this import only,
+        # then restore sys.path and sys.modules exactly as they were.
+        _saved_path = list(sys.path)
+        _saved_models = {
+            k: v
+            for k, v in sys.modules.items()
+            if k == "models" or k.startswith("models.")
+        }
+        for k in _saved_models:
+            del sys.modules[k]
+        sys.path.insert(0, villa_optimized)
+        try:
+            from model_resnet3d_3d_decoder import RegressionModel
+        finally:
+            sys.path[:] = _saved_path
+            for k in [
+                k for k in sys.modules if k == "models" or k.startswith("models.")
+            ]:
+                del sys.modules[k]
+            sys.modules.update(_saved_models)
 
         self.backbone = RegressionModel(with_norm=True)
         # Multi-task heads to match autoresearch contract

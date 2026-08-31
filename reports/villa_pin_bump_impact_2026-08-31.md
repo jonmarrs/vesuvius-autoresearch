@@ -43,12 +43,58 @@ is not evidence the GT is at risk.
 | `crackle-viewer` | 0 | 0 | 7 | not ours to lose |
 | `discord_chatbot` | 16 | **0** | 16 | **moves to `deprecated/discord_chatbot`** |
 
-Only one path our code names would move. `scripts/rag_guided_search.py` hardcodes
-`villa/discord_chatbot` in five places.
+Only one path our code names would move, and **two** scripts hardcode it, not one:
+`scripts/rag_guided_search.py` and `scripts/rag_researcher.py`.
 
-**It is already dead code.** Nothing in the repo references `rag_guided_search`, its vector store
-`villa/discord_chatbot/discord_vector_store` does not exist locally, so the script cannot run today
-either, and it was last touched 2026-06-04. The bump would break something already broken.
+> **Corrected while acting on this report.** It originally named only `rag_guided_search.py`,
+> because the grep behind it was piped through `head -5` and the second file fell off the end. A
+> truncated search reported as a complete one. The same mistake in the other direction would have
+> left a broken import behind after the bump.
+
+**Both are already dead code.** They depend on a vector store at
+`villa/discord_chatbot/discord_vector_store` that does not exist locally, so neither can run today
+regardless of the pin. `rag_guided_search.py` was last touched 2026-06-04 and is referenced nowhere;
+`rag_researcher.py` was last touched by a lint sweep on 2026-05-29 and is cited only by
+`docs/VILLA_STRATEGY.md`. The bump would break something already broken.
+
+## The verification below was INCOMPLETE, and the bump proved it
+
+Everything above was written before the bump. Doing it broke the suite twice, and both misses
+came from the same flaw in how the paths were found.
+
+**The check grepped for literal `villa/...` strings.** It therefore could not see a path assembled
+from components:
+
+```python
+_SPIRAL = os.path.join(_REPO, "villa", "volume-cartographer", "scripts", "spiral")
+```
+
+`satisfaction_metrics.py` moved from `volume-cartographer/scripts/spiral/` to `spiral-fitting/`, and
+four files hardcoded the old location. Result: **19 test collection errors**. Fixed by resolving
+either location and raising if neither holds the module.
+
+**A second failure was ordering-dependent and no path check would have caught it.**
+`tests/test_resnet3d_decoder.py` passed alone and failed in the suite. The repo root holds a DATA
+directory `models/` with no `__init__.py`, which still shadows as a namespace package, and
+`vesuvius_model.py` used `sys.path.append`, leaving villa's real `models` package last. It had only
+ever worked because `benchmark_harness.py` puts `villa/ink-detection` on `sys.path` and the OLD pin
+had `models/resnetall.py` there. The bump moved that into `deprecated/` and removed the accidental
+fallback. Fixed by putting villa's path first and evicting any shadowing `models` for the duration
+of that import, restoring both afterwards.
+
+**And the repo already had an automated version of this audit.**
+`tests/test_audit_doc_references.py` flagged five stale paths introduced by these very changes. It
+does mechanically what the analysis above did by hand, and it was not consulted first.
+
+Lesson: a path audit that greps one spelling of a path is not an audit, and no static path check
+detects a dependency that resolves through `sys.path` ordering. The suite is the check that works.
+
+| suite run | result |
+|---|---|
+| before the bump | 718 passed |
+| after the bump | **19 collection errors** |
+| after the path fix | 2 failed, 730 passed |
+| after both fixes | **732 passed, 1 skipped** |
 
 ## Recommendation
 

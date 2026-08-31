@@ -45,11 +45,29 @@ os.environ.setdefault("CUDA_VISIBLE_DEVICES", "")
 import numpy as np  # noqa: E402
 import torch  # noqa: E402
 
+
+def _villa_spiral_dir(repo):
+    """Locate villa's spiral module directory, which MOVED upstream.
+
+    Until villa `ced62390e` it was `volume-cartographer/scripts/spiral`; from the
+    ink-detection deprecation onward it is `spiral-fitting`. Both are checked so a
+    pin in either era works, and so this does not silently import nothing.
+    """
+    import os
+
+    for rel in (("spiral-fitting",), ("volume-cartographer", "scripts", "spiral")):
+        cand = os.path.join(repo, "villa", *rel)
+        if os.path.isfile(os.path.join(cand, "satisfaction_metrics.py")):
+            return cand
+    raise RuntimeError(
+        "villa spiral modules not found under either spiral-fitting/ or "
+        "volume-cartographer/scripts/spiral/; is the villa submodule checked out?"
+    )
+
+
 _REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(_REPO, "scripts"))
-sys.path.insert(
-    0, os.path.join(_REPO, "villa", "volume-cartographer", "scripts", "spiral")
-)
+sys.path.insert(0, _villa_spiral_dir(_REPO))
 
 from probe_spiral_satisfaction_winding import IdentityTransform  # noqa: E402
 from tracks import (  # noqa: E402  # type: ignore[import-not-found]
