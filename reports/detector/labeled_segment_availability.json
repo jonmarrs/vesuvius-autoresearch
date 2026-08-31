@@ -1,5 +1,5 @@
 {
-  "surveyed": "2026-08-27",
+  "surveyed": "2026-08-30",
   "survey_mode": "live",
   "gate_px": 48.0,
   "labeled": [
@@ -56,5 +56,5 @@
   "unmeasured": [],
   "exhausted": true,
   "status": "exhausted_no_candidate",
-  "bucket_listed": "2026-08-27"
+  "bucket_listed": "2026-08-30"
 }
