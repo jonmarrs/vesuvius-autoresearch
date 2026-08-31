@@ -87,3 +87,26 @@ surface-volume zarr; chunks carry full depth, so a `[:, y0:y1, x0:x1]` slice cos
 covers. Note the region for a level-0 run is 4x the level-2 extent per axis: ScrollGT's 4096^2
 level-2 target is 16384^2 at level 0, about 16 GiB across 62 depth slices, which is why
 `scripts/run_ink_ablation.py` streams by row-block instead of materialising it.
+
+## Second-segment corroboration and the nulls (2026-08-30)
+
+Run order, all in the isolated venv described above, from the data directory that holds the
+checkpoints (`it0`..`it5`) and the cached predictions:
+
+```
+ladder_second_segment.py    # predict on segment 20231012184424, score against published canon
+ladder_null_control.py      # 4 hand-picked misalignments + canon from another segment
+ladder_permutation_null.py  # 400 torus rolls -> proper null for segment B
+ladder_segA_null.py         # the same 400-roll null on segment A, the claim in the report
+ladder_two_nulls.py         # exact label-permutation test over all 720 orderings
+```
+
+The canon references are the published `new_canon_autoresearch_recipe` ds8 JPEGs under
+`PHercParis4/segments/<seg>/ink-detection/downsampled/`. `ladder_null_control.py` caches the six
+prediction maps to `preds_segB.npz`, and the two null scripts read that cache rather than re-running
+inference, so only the first is GPU-bound.
+
+Findings and the reasoning are in `reports/ink_ablation_second_segment.md`. The short version: the
+roll null is the right null for "does this member read", and the label-permutation null is the right
+null for "does reading track tile count". Using the first for the second question understates the
+dose-response; using neither, as the original report did, overstates the ordering.

@@ -17,7 +17,8 @@ third-party model reads at 0.82 is a working label.
 
 ## Four of six members read held-out Scroll 1 ink
 
-Same frame, no shift, 2048^2:
+Same frame, no shift, full 4096^2 (this line originally said 2048^2, which was wrong; see
+`reports/ink_ablation_second_segment.md`):
 
 | member | training tiles | AUC vs our GT |
 |---|---:|---:|
@@ -56,6 +57,16 @@ One genuine caveat survives: the negative set is defined by `p_mean < 0.5`, and 
 on 59 to 82% that threshold selects only the lowest fifth to two-fifths of pixels. That split is
 calibration-sensitive even though AUC is not, so the null should be re-run once firing rates match
 the published 14%.
+
+## The ordering has since been tested against a null, and is weaker than stated here
+
+See `reports/ink_ablation_second_segment.md` (2026-08-30). Summary of what changed:
+
+* the per-member readings hold, and now clear a 400-draw misalignment null on two segments
+  (it3/it0/it4/it5 at p<0.0025; it1 and it2 do not clear on the second segment);
+* the monotone relationship survives an exact label-permutation test, p 0.0014 here;
+* but the *rank* statistic on six correlated models has a null standard deviation of 0.65 to 0.72,
+  so "monotone" is close to free. The dose-response rests on the magnitudes, not the ordering.
 
 ## Limits
 
