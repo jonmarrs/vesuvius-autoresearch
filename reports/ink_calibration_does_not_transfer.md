@@ -29,10 +29,30 @@ the title is corrected here rather than the file being renamed, so the citations
 > **What it is:** these models are out of distribution on **Scroll 1**, firing at roughly 3.6x to
 > 3.9x their home rate there while behaving normally on another non-home scroll.
 >
-> **A candidate mechanism, untested:** PHerc 1667 and PHerc 0139 both publish their surface volumes
-> as `2.399um-0.22m-78keV`, while Scroll 1's is `2.4um-0.22m-78keV`, a different reconstruction. The
-> effect may track the volume rather than the scroll. Distinguishing those would need a second
-> non-home scroll sharing Scroll 1's reconstruction, or Scroll 1 data under the 2.399 um pipeline.
+> **The reconstruction hypothesis was tested and does not hold.** I proposed that the effect might
+> track the volume rather than the scroll, since 1667 and 0139 both publish as
+> `2.399um-0.22m-78keV` while Scroll 1's is `2.4um-0.22m-78keV`.
+>
+> First, the direct test is **impossible with public data**: no other scroll publishes Scroll 1's
+> reconstruction, and Scroll 1 publishes no 2.399 um volume, so scroll and reconstruction are
+> perfectly confounded.
+>
+> The nearest substitute, PHerc 0500P2 at `2.215um-0.4m-111keV`, argues *against* the hypothesis:
+>
+> | scroll | reconstruction | shift vs home |
+> |---|---|---:|
+> | PHerc 0139 | `2.399um-0.22m-78keV`, identical to home | 0.52 to 0.86x |
+> | PHerc 0500P2 | `2.215um-0.4m-111keV`, very different | 1.91x |
+> | **Scroll 1** | `2.4um-0.22m-78keV`, nearly identical to home | **3.6 to 3.9x** |
+>
+> If unfamiliar reconstructions caused the over-firing, Scroll 1 should shift *least*: its parameters
+> differ from home only in the fourth significant figure. It shifts **most**, while 0500P2 differs in
+> resolution, energy and detector distance yet shifts half as much. Nominal scan parameters do not
+> order the effect.
+>
+> **So the mechanism is unexplained.** Scroll 1 is anomalous for these models and neither the scroll
+> boundary nor the reconstruction parameters account for it. 0500P2 varies several things at once, so
+> it is a weak test, but it is the only one the public data allows.
 >
 > **Unaffected by any of this:** the ranking result, which is measured against ground truth. Four of
 > six members read `20231210121321` at AUC 0.68 to 0.72, monotone in pseudo-label density.
