@@ -77,8 +77,20 @@ Known differences from the published recipe, in the order worth trying:
    Averaging alone reduces extremes.
 2. **the fragment mask.** The published snippet skips any window touching a zero mask pixel; ours
    scored every tile including edges.
-3. **the intensity convention.** Three are documented and they disagree; `clip(0,200)/255` was chosen
-   because it alone lands near the published rate on the home scroll, not because the card is clear.
+3. **the intensity convention.** Three are documented, they disagree, and all three saturate the
+   model. Measured with `conventions_home.py` on one 2048^2 level-0 window of the models' own scroll
+   (PHerc 1667 `w011`), iteration-5:
+
+   | convention | fires above 0.5 | mean prob |
+   |---|---:|---:|
+   | docstring: z-score per tile | 99.11% | 0.7675 |
+   | card prose: clip to [0,200] then `Normalize(mean=0, std=1)`, which is the identity | 92.13% | 0.9172 |
+   | card snippet: raw uint8 | 91.43% | 0.9102 |
+   | `clip(0,200)/255`, documented nowhere | **18.06%** | 0.3644 |
+
+   Published canon on that segment fires at 2.82%. So `clip(0,200)/255` is not merely the closest of
+   the four, it is the only one that is not saturated, and it is the one convention the card never
+   states. Reported upstream as villa#1659.
 
 ## Fetchers
 
