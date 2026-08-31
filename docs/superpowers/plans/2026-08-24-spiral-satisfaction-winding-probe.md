@@ -1,5 +1,11 @@
 # Spiral Satisfaction Winding-Blindness Probe — Implementation Plan
 
+> **NOT EXECUTED. The study this plan belongs to was SHELVED, see
+> `docs/preregistration/2026-08-28_winding_injection_conditional_on_acceptance.md`.** @pmh47 stated
+> on villa#1621 that the winding periodicity is intended, which dissolved the premise. The outputs
+> this plan names, including `reports/spiral_satisfaction_winding_real.md`, were never created and
+> references to them will not resolve. Kept as a record that a plan was written and set aside.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Determine whether villa's spiral-fit satisfaction metric can detect a patch placed exactly one winding away from where it belongs — the "sheet switch" failure mode the maintainers rank fourth in their own bottleneck table.

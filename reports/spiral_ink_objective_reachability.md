@@ -1,5 +1,20 @@
 # The spiral ink objective: what is checkable here, and where it stops
 
+> **SUPERSEDED IN ITS CENTRAL VERDICT, 2026-08-31. Do not cite the reachability table below.**
+> This report concluded the ink objective could not be measured here. That was wrong on both counts.
+> The binaries are not absent upstream: they ship in the container the volume-cartographer README
+> recommends, and the one genuinely missing tool builds from source in minutes. The ink volume is
+> published, at `representations/predictions/ink-3d/`. The render now works end to end and reads
+> legible Greek: see `reports/spiral_ink_render_works.md` and `repro/spiral_render/`.
+>
+> The experiment this report calls "specified but unrun" HAS been run:
+> `reports/duplicate_coverage_inflates_the_objective.md`.
+>
+> **What remains valid and is not superseded**: the winding-overlap measurement, the seed control,
+> and the smoke-fit comparison showing duplicate coverage is introduced by fitting rather than
+> present in its input. Those are geometric measurements and stand on their own.
+
+
 **2026-08-30.** villa's spiral-fitting track runs its own LLM loop
 (`spiral-fitting/autoresearch.md`) that optimises a frozen scorer. We have been wrong about a frozen
 scorer twice, in both directions: `val_bpb` was dead and we selected on it for weeks, and `skel_dist`
@@ -136,9 +151,14 @@ Two readings remain open and this measurement does not separate them: the fit is
 topological error in those places, or the fit is correctly representing genuinely ambiguous
 geometry that the input patches simply left unresolved.
 
-## To go further, someone needs
+## To go further, someone needs (RESOLVED, see the banner)
 
-The five native VC binaries built, and the ink volume. With those, the test is direct: render and
-score a fit, then render and score the same fit with a region deliberately double-covered, and read
+This section asked for the native binaries and the ink volume, and specified the experiment: render
+and score a fit, then the same fit with a region deliberately double-covered, and read
 `total_fg_pixels`, `overall_fg_fraction`, `overall_line_score` and `overall_column_score` off both.
-That experiment is specified but unrun, and should not be written up as though the answer is known.
+
+All of it was obtained and the experiment was run the next day. The answer is that duplicated
+coverage raises `total_fg_pixels` by 92.47% with zero new papyrus while `overall_fg_fraction` moves
+-0.00044, and that neither structure score catches it either. See
+`reports/duplicate_coverage_inflates_the_objective.md` and
+`reports/a_cheap_guard_the_metrics_lack.md`.

@@ -3,6 +3,12 @@
 **2026-08-31.** Pre-registered in `docs/preregistration/2026-08-31_objective_seed_noise_floor.md`
 before the arm was rendered. **My prediction failed, and the registered withdrawal branch fired.**
 
+> **The withdrawal it triggered was later REVERSED, 2026-08-31.** The 18.9% measurement below stands
+> and is the correct floor for comparing two different FITS. Applying it to arms B and D was a
+> category error: those come from one fit, so seed variation cannot enter them. See
+> `reports/pipeline_determinism_and_which_floor_applies.md`. Read that before using this number to
+> judge any same-fit result.
+
 ## Result
 
 Same ten windings, same render and scoring settings, two converged fits differing only in seed:

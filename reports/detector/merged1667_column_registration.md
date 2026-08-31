@@ -38,7 +38,7 @@ columns each and strip 3 carries 6, so equal page widths would magnify strip 3 b
 the observed 1.14× sits between that and unity. **The tiling closure cannot be cited against this**:
 it constrains total length, so per-strip errors in opposite directions cancel and leave it intact.
 Per-column boundaries in strip 3 should be treated as suspect. The global scale is unaffected —
-see `reports/column_registration_area.md`, which matches an independently published area to 1%.
+see `reports/column_registration_area.txt`, which matches an independently published area to 1%.
 
 - All three strips recover the same scale (4.7 grid px / figure px) *as fitted*
   and the same vertical offset (gy0 = 19).
