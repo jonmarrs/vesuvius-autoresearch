@@ -101,3 +101,30 @@ the UNRESOLVED branch are unchanged and were fixed before A was scored.
 **Control, restated concretely.** `scripts/measure_winding_overlap.py` on B's mesh set must show
 gap>=2 duplicate coverage far above A's 0.09%, since w020d's cells coincide with w015's, a gap of 5.
 C must stay near A's 0.09%. If either fails, the arms are not what they claim and the run is void.
+
+---
+
+## Addendum 2, 2026-08-31, written after A/B/C were scored and before D/E were built
+
+A/B/C returned SUPPORTED, and its stated weakness is that it rests on one duplicated winding with
+no repeat. Two more arms address that. Predictions are fixed here, before either is built.
+
+* **D, different winding**: w010..w019 plus a copy of **w012** carried at index 20. Tests whether
+  the effect is specific to w015. **Prediction: `dT(D)` within 0.04 of `dT(B)` = +0.126, and
+  `|dF(D)| < 0.02`.** If D lands far from B, the effect depends on which winding is duplicated and
+  the single-arm result was a fluke of w015's ink content.
+* **E, ceiling**: all ten windings duplicated, twenty meshes, w010..w019 plus w110d..w119d carrying
+  copies of each at indices 110..119. Adds zero new papyrus and roughly doubles rendered area.
+  **Prediction: `dT(E) > +0.80` with `|dF(E)| < 0.02`.** This measures how far the objective can be
+  driven with no new reading at all.
+
+Arm E's index choice matters and is deliberate: the copies must not collide with the originals'
+indices, and 110..119 keeps them ordered after the originals so the concat stays contiguous.
+
+**Controls, same as before and applied to each arm**: the copy set must register a large rise in
+gap>=2 duplicate coverage; occupied cells must be unchanged against A, since duplication adds no
+papyrus; and the arm must render non-blank.
+
+**A result that would weaken the main finding**: if `dF(E)` falls below -0.02 while `dT(E)` is
+large, then the fraction guard does bite once duplication is heavy, and the exploit is bounded
+rather than free. That is a real possible outcome and would be reported as such.
