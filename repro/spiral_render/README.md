@@ -1,5 +1,16 @@
 # Rendering ink from a spiral fit, using only published artifacts
 
+**Status: this works.** `./setup_workdir.sh <work> <fitted_meshes>` then `./run_render.sh <work>`
+renders legible Greek from our own 30k-step fit, ten windings, against the published ink-3d volume.
+Lasagna flatten 1m34s on one 4090, render about 8 minutes streaming from S3.
+
+**Read this first: use the LASAGNA path, not flatboi.** `run_single.py` passes no `--strips`, so
+villa's real pipeline is the default full-scroll concat flattened by `lasagna/fit.py`. The
+`--strips` path uses flatboi instead and is a dead end here: on a clean mesh (12,521 verts,
+manifold, single component, zero degenerate faces) flatboi ran **9h12m without converging**, at both
+`--flatten-keep 100` and the decimated default. Everything in section 2 below concerns tools only
+the flatboi path needs, so it is real but not on the critical path.
+
 What this directory is for: `render_ink.py` and `get_ink_metrics.py` turn a spiral fit into
 `total_fg_pixels`, the number villa's spiral autoresearch loop optimises. Getting there from
 published data alone takes four things that are not written down anywhere, recorded here so the
@@ -91,7 +102,24 @@ it. Inject it with a wrapper via `--vc-render-bin`:
 exec vc_render_tifxyz --scale-segmentation 4 "$@"
 ```
 
-## 4. The ink volume is streamable, no bulk download
+## 4. `lasagna/fit.py` imports a module that is not in `lasagna/`
+
+```
+ModuleNotFoundError: No module named 'vc3d_fiber_format'
+```
+
+It lives in villa's `vesuvius/src/vc3d_fiber_format/`, so the flatten dies on import unless
+`vesuvius/src` is on `PYTHONPATH`. `setup_workdir.sh` extracts it alongside `lasagna`.
+
+## 5. GPU: split host and container
+
+There is no nvidia container runtime here, so lasagna cannot use the GPU from inside the image.
+`run_render.sh` runs the python on the HOST (its venv has torch 2.11.0+cu128 on a 4090) and calls
+the native binaries in the container through `bin/` wrappers. Those mount the workspace at an
+**identical** path so absolute arguments need no translation, and pass `--user` so outputs are not
+root owned.
+
+## 6. The ink volume is streamable, no bulk download
 
 `--volume <empty local cache dir> --remote-url <the s3 zarr url>`. Level 0 is 75784 x 32693 x
 32693 uint8 in 256^3 chunks, so only the chunks under the mesh are fetched.

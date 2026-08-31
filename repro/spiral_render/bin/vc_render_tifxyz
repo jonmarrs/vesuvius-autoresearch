@@ -1,0 +1,7 @@
+#!/bin/sh
+# Run the native VC tool from the local image, with the host workspace mounted at
+# an IDENTICAL path so absolute paths in the arguments need no translation.
+# --user keeps outputs owned by the caller instead of root.
+exec docker run --rm --user "$(id -u):$(id -g)" \
+  -v /home/jon/openclaw-workspace:/home/jon/openclaw-workspace \
+  --entrypoint vc_render_tifxyz vc-render:local --scale-segmentation 4 "$@"
