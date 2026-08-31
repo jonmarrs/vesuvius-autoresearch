@@ -1,4 +1,13 @@
-# What advancing the villa pin from `ced62390e` to `5479453a` would actually do
+# Advancing the villa pin from `ced62390e` to `c935851c3`: analysis, and what it actually broke
+
+> **The bump is DONE**, at commit `d4433fa5`. Everything from here to "The verification below was
+> INCOMPLETE" was written *before* it, as a hypothetical, and is left in that tense deliberately so
+> the prediction can be read against the outcome.
+>
+> **The pin analysed was `5479453a`; the pin actually taken was `c935851c3`.** Upstream moved three
+> commits further while this was being written, so every path check below was re-run against
+> `c935851c3` before the bump and gave identical answers. References to `5479453a` in the
+> pre-bump text are left as written rather than retro-edited.
 
 **2026-08-31.** Read-only analysis, no pin was moved. This exists because "bump the pin, but first
 verify `ink-detection/` is untouched" has been the standing rule, and the naive form of that check
@@ -23,7 +32,7 @@ was lost upstream.
 
 ## The ground truth is untouched, and not for the reason the rule assumes
 
-| path | tracked at `ced62390e` | tracked at `5479453a` |
+| path | tracked at `ced62390e` | tracked at `5479453a` (re-verified identical at `c935851c3`) |
 |---|---:|---:|
 | `ink-detection/train_scrolls` | **0** | **0** |
 | `ink-detection/eval_scrolls` | **0** | **0** |
@@ -96,7 +105,19 @@ detects a dependency that resolves through `sys.path` ordering. The suite is the
 | after the path fix | 2 failed, 730 passed |
 | after both fixes | **732 passed, 1 skipped** |
 
-## Recommendation
+## Outcome, and what is still not done
+
+The recommendation below was followed: both dead RAG scripts deleted, pin advanced, ground truth
+verified intact (55 GB, 9 segment dirs, all three labelled segments present by name, availability
+probe unchanged at `exhausted_no_candidate`). The suite went 718 passed, then 19 collection errors,
+then 732 passed once both breakages were fixed.
+
+**Still deferred and NOT done: the GPU detector, sota and loader tests.** The card is running the
+seed-spread fits. Until those run, this bump is verified by the CPU suite only, and the standing
+note that the parity test fails under CUDA masking rather than as a regression has not been
+re-checked at the new pin.
+
+## Recommendation (written pre-bump, followed)
 
 The bump is safe for everything that matters: ground truth, `optimized_inference`, and `foundation`
 are all unaffected. Before bumping, either repoint `rag_guided_search.py` at
