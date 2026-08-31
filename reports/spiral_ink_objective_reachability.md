@@ -95,11 +95,46 @@ defensible statement is the weak one: **the rate is stable across seeds, the spe
 are not.** For contrast, the sheet-switch flags reached Jaccard 0.9696 across seeds; this is a
 different regime entirely.
 
+**Quality control, which reversed the reading.** The 100-step smoke run is the same dataset and the
+same 120 windings, fitted almost not at all: satisfied-area fraction 0.100 against 0.840 for both
+converged runs. I expected a worse fit to show more duplicate coverage. It shows none.
+
+| run | steps | satisfied area | occupied cells | multi-claimed | gap>=2 |
+|---|---:|---:|---:|---:|---:|
+| smoke01 | 100 | 0.100 | 11,360,032 | 2,535 (0.02%) | **0** (0.00%) |
+| baseline01 | 30,000 | 0.840 | 11,539,167 | 22,881 (0.20%) | 10,345 (0.09%) |
+| seed02 | 30,000 | 0.840 | 11,559,283 | 24,248 (0.21%) | 11,895 (0.10%) |
+
+The obvious confound is that the near-unfitted run might simply be more spread out, so
+`scripts/measure_spiral_comparability.py` checks it. It cuts the other way:
+
+```
+smoke01      centre ( 4362.2, 4841.0)  radius  354.8..2261.3  median inter-winding step 16.62  monotone 119/119
+baseline01   centre ( 4348.8, 4844.4)  radius  389.3..2503.6  median inter-winding step 17.79  monotone 119/119
+seed02       centre ( 4348.6, 4844.2)  radius  389.0..2503.6  median inter-winding step 17.94  monotone 119/119
+```
+
+Same spiral, same centre, all three monotone in winding order. The smoke run's windings are packed
+*tighter* (16.62 vs 17.79), which makes overlap more likely at a fixed 4-voxel cell, not less. It
+still has exactly zero.
+
+So the direction is the opposite of what I assumed when I wrote this section: **duplicate coverage is
+absent from the starting configuration and is introduced by fitting.** The patch observations the fit
+begins from are distinct surfaces that do not double-cover; 30,000 steps of optimisation put 0.09% of
+the surface into a state where two windings two or more apart claim the same papyrus.
+
 ## What this is and is not
 
-It is a measurement and a tool. It is **not** a finding that the fit is defective: 0.1% may be
-perfectly normal, and there is no reference value for what a good fit should show. Establishing that
-would need fits of differing quality scored the same way, which needs the render path.
+The reference value I said was missing turned out to be available without the render path, and it is
+zero: the 100-step configuration has no far-overlap at all. That makes this more than a bare
+measurement. What it still is **not** is a demonstration that the double coverage costs anything.
+0.09% of surface is small, nothing here connects it to ink recovery, and the quantity that would
+connect it is `total_fg_pixels`, which is exactly what the missing binaries block. A fit that
+double-covers 0.09% of the papyrus may be paying nothing for it.
+
+Two readings remain open and this measurement does not separate them: the fit is making a
+topological error in those places, or the fit is correctly representing genuinely ambiguous
+geometry that the input patches simply left unresolved.
 
 ## To go further, someone needs
 
