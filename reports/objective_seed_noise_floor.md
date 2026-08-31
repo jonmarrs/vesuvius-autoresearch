@@ -27,16 +27,22 @@ ink. Whatever `total_fg_pixels` is responding to here, it is not tracking the sa
 
 Every arm re-expressed as a multiple of this floor:
 
-| arm | dT | multiple of floor | status |
-|---|---:|---:|---|
-| B, duplicate w015 | +0.1259 | 0.7x | **withdrawn, inside the noise** |
-| D, duplicate w012 | +0.1763 | 0.9x | **withdrawn, inside the noise** |
-| E, duplicate all ten | +0.9247 | 4.9x | stands |
-| BAD, 100-step fit | -0.5951 | 3.1x | stands |
+> **CORRECTED 2026-08-31.** The table below applied this floor to arms B, C, D and E. That was
+> wrong: those arms all come from ONE fit, so seed variation cannot enter them, and the applicable
+> floor is pipeline non-determinism at 1.42%. B and D are reinstated. See
+> `reports/pipeline_determinism_and_which_floor_applies.md`. This floor remains correct for
+> comparisons between DIFFERENT fits, which is what it was measured on, and the BAD-fit row below is
+> such a comparison and is unaffected.
 
-`reports/duplicate_coverage_inflates_the_objective.md` is amended at the top accordingly. The claim
-that duplicating a *single* winding measurably inflates the objective is withdrawn. What survives is
-the total-duplication arm: doubling the surface with zero new papyrus raises the objective 92.47%,
+| arm | dT | kind | applicable floor | status |
+|---|---:|---|---|---|
+| B, duplicate w015 | +0.1259 | same fit | pipeline 1.42%, 8.9x | reinstated |
+| D, duplicate w012 | +0.1763 | same fit | pipeline 1.42%, 12.4x | reinstated |
+| E, duplicate all ten | +0.9247 | same fit | pipeline 1.42%, 65.1x | stands |
+| BAD, 100-step fit | -0.5951 | different fits | **seed 18.93%, 3.1x** | stands |
+
+The claim that duplicating a single winding inflates the objective was withdrawn here and has since
+been reinstated, for the floor-mismatch reason above. The strongest arm remains: doubling the surface with zero new papyrus raises the objective 92.47%,
 which is 4.9x the floor and not attributable to seed spread.
 
 I registered this withdrawal branch in advance precisely because it was the outcome I would

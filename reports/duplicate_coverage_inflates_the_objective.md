@@ -1,11 +1,11 @@
 # Duplicated coverage is worth as much as real coverage to the spiral ink objective
 
-> **AMENDED 2026-08-31, arms B and D WITHDRAWN.** A seed-noise control run after this report
-> (`reports/objective_seed_noise_floor.md`) found that two fits of indistinguishable quality differ
-> by **18.9%** in `total_fg_pixels`. Arms B (+12.59%) and D (+17.63%) are 0.7x and 0.9x that floor,
-> so they are **inside the noise and are withdrawn as evidence**. Only arm E, at +92.47% and 4.9x
-> the floor, survives. The single-winding numbers below should not be cited. The control that would
-> have caught this belonged before publication, not after.
+> **AMENDED TWICE, 2026-08-31. Arms B and D were withdrawn, then REINSTATED.** A seed-noise control
+> found 18.9% between two different fits, and I withdrew B and D against it. That was the wrong
+> floor: A, B, C, D and E all come from ONE fit, so seed variation cannot enter those comparisons.
+> The applicable floor is pipeline non-determinism, measured at 1.42% on byte-identical input, which
+> B and D clear by 8.9x and 12.4x. See `reports/pipeline_determinism_and_which_floor_applies.md`,
+> including why that floor is a lower bound and why the B-versus-C comparison needs no floor at all.
 
 
 **2026-08-31.** Pre-registered in `docs/preregistration/2026-08-31_duplicate_coverage_cost.md` and
