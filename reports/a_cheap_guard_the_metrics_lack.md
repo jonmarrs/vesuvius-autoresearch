@@ -5,6 +5,12 @@ the spiral ink objective rises 92.47% under fully duplicated coverage that reads
 report is a criticism. This is the constructive half: the condition is cheaply detectable from the
 meshes the pipeline already writes.
 
+> **Note added 2026-08-31.** Arms B and D were later withdrawn from the duplicate-coverage report
+> as inside the seed-noise floor. The separation below is unaffected: it is a geometric measurement
+> of the meshes, not of the ink score, and B and D remain genuinely duplicate-coveraged regardless
+> of what their ink numbers meant. If anything the seed noise strengthens the case for a guard that
+> does not depend on rendering at all.
+
 ## The separation
 
 Five arms off one fit. "Honest" arms add real papyrus or none; "duplicate" arms add rendered surface
