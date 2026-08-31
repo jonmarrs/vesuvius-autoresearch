@@ -70,3 +70,34 @@ One fit, one ten-winding span, one scroll, no repeats. A single duplicated windi
 in for what an optimiser would do if it were exploiting this, and finding the signature here does
 NOT show villa's loop has ever produced it. The satisfaction metrics, which the doc also directs the
 loop to watch, are outside this test and might catch what the fraction misses.
+
+---
+
+## Addendum 1, 2026-08-31, written before any arm was built or rendered
+
+**A defect in the arms as registered above, found while reading `render_ink.py`.**
+
+The registered arm B inserts the copy of w015 as `w015d`. `winding_idx` parses `^w(\d+)`, so that
+copy carries index 15, identical to its original. The registered control requires B to show a rise
+in **gap>=2** duplicate coverage, and two meshes at the same index produce gap **0**. The control as
+written could never have fired, and I would have had to weaken it after seeing the data, which is
+exactly what pre-registration exists to prevent.
+
+**Corrected arms.** The copy is inserted as `w020d` instead, carrying index 20:
+
+* **A**: w010..w019, ten distinct windings. (Already rendered and scored: `total_fg_pixels` 240,088,
+  `overall_fg_fraction` 0.008974, line 0.438, column 0.232.)
+* **B**: w010..w019 plus `w020d`, a copy of w015's geometry at index 20. Eleven meshes.
+* **C**: w010..w020, eleven distinct windings.
+
+This is strictly better than what I registered, and not only because the control now works. B and C
+now hold everything constant except the one thing under test: both have eleven meshes spanning
+indices 010..020, and they differ only in whether the eleventh is duplicated geometry or genuinely
+new papyrus. The registered version compared eleven meshes against ten.
+
+Arm A's numbers are already known and are quoted above. The decision rule, its 0.02 thresholds and
+the UNRESOLVED branch are unchanged and were fixed before A was scored.
+
+**Control, restated concretely.** `scripts/measure_winding_overlap.py` on B's mesh set must show
+gap>=2 duplicate coverage far above A's 0.09%, since w020d's cells coincide with w015's, a gap of 5.
+C must stay near A's 0.09%. If either fails, the arms are not what they claim and the run is void.
