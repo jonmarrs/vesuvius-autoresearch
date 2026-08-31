@@ -1,0 +1,9 @@
+#!/bin/sh
+# The published spiral dataset's lasagna inputs are a 9.6um frame (las_008 level 0
+# = [18946, 8174, 8174]); the published ink-3d volume's level 0 is the 2.4um frame
+# ([75784, 32693, 32693]), exactly 4x. render_ink.py assumes the mesh is already in
+# the volume's level-0 frame and exposes no way to say otherwise, so inject
+# vc_render_tifxyz's own --scale-segmentation. Without it the render samples a
+# region 4x too close to the origin and writes a blank strip (p95=0.0) while
+# exiting 0.
+exec vc_render_tifxyz --scale-segmentation 4 "$@"
