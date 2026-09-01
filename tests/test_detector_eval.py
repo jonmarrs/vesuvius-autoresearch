@@ -3,8 +3,8 @@ import os
 
 import numpy as np
 
-from vesuvius_autoresearch.detector.config import DetectorConfig
 from vesuvius_autoresearch.detector import eval as E
+from vesuvius_autoresearch.detector.config import DetectorConfig
 
 
 def test_perfect_pred_scores_f1_and_keeps_auc_alias(tmp_path):
@@ -14,9 +14,9 @@ def test_perfect_pred_scores_f1_and_keeps_auc_alias(tmp_path):
     mask = np.ones((64, 64), bool)
     prob = label.astype(np.float32)
     card = E.evaluate(prob, label, mask, cfg)
-    assert card["val_f1"] > 0.99               # new primary metric
+    assert card["val_f1"] > 0.99  # new primary metric
     assert abs(card["pixel_auc"] - 1.0) < 1e-6  # backward-compat alias (= roc_auc)
-    assert 0.0 <= card["threshold"] <= 1.0      # backward-compat alias (= best_threshold)
+    assert 0.0 <= card["threshold"] <= 1.0  # backward-compat alias (= best_threshold)
     assert os.path.exists(os.path.join(str(tmp_path), "frag_metrics_by_threshold.csv"))
 
 

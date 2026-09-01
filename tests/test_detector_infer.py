@@ -1,12 +1,11 @@
 import numpy as np
 import torch
 import torch.nn as nn
+from test_detector_data import _make_fake_fragment
 
+from vesuvius_autoresearch.detector import infer, train
 from vesuvius_autoresearch.detector.config import DetectorConfig
 from vesuvius_autoresearch.detector.model import DetectorModel
-from vesuvius_autoresearch.detector import infer
-from vesuvius_autoresearch.detector import train
-from test_detector_data import _make_fake_fragment
 
 
 def test_infer_returns_prob_map_in_range(tmp_path):
@@ -16,7 +15,10 @@ def test_infer_returns_prob_map_in_range(tmp_path):
     model = DetectorModel(cfg, pred_shape=(320, 320)).eval()
     prob = infer(cfg, checkpoint_path=None, fragment_id="PHercParis2Fr143", model=model)
     assert prob.ndim == 2
-    assert prob.shape == (320, 320)  # unpadded fragment label shape, not the tile-padded shape
+    assert prob.shape == (
+        320,
+        320,
+    )  # unpadded fragment label shape, not the tile-padded shape
     assert float(prob.min()) >= 0.0 and float(prob.max()) <= 1.0
 
 
@@ -30,7 +32,8 @@ def test_infer_normalizes_input_like_training(tmp_path):
     model = DetectorModel(cfg, pred_shape=(320, 320)).eval()
     seen = []
     model.backbone.register_forward_pre_hook(
-        lambda m, inp: seen.append(float(inp[0].abs().max())))
+        lambda m, inp: seen.append(float(inp[0].abs().max()))
+    )
     infer(cfg, checkpoint_path=None, fragment_id="PHercParis2Fr143", model=model)
     assert seen, "model was never called"
     assert max(seen) <= 1.5, f"infer fed un-normalized inputs (max={max(seen):.1f})"
@@ -54,8 +57,13 @@ def test_infer_loads_checkpoint_from_path(tmp_path):
     root = str(tmp_path / "scrolls")
     _make_fake_fragment(root, "PHercParis2Fr47")
     _make_fake_fragment(root, "PHercParis2Fr143", h=320, w=320)
-    cfg = DetectorConfig(data_root=root, model_dir=str(tmp_path / "models"),
-                         train_batch_size=2, num_workers=0, seed=0)
+    cfg = DetectorConfig(
+        data_root=root,
+        model_dir=str(tmp_path / "models"),
+        train_batch_size=2,
+        num_workers=0,
+        seed=0,
+    )
     ckpt = train(cfg, max_epochs=1, limit_batches=2)
     prob = infer(cfg, checkpoint_path=ckpt, fragment_id="PHercParis2Fr143")
     assert prob.ndim == 2
@@ -64,6 +72,7 @@ def test_infer_loads_checkpoint_from_path(tmp_path):
 
 class _FullResStub(nn.Module):
     """Minimal full-resolution model: (B,1,C,H,W) -> (B,1,H,W)."""
+
     def __init__(self, cfg):
         super().__init__()
         self.conv = nn.Conv2d(cfg.in_chans, 1, 3, padding=1)
@@ -89,8 +98,14 @@ def test_infer_loads_resenc_checkpoint_from_path(tmp_path):
     root = str(tmp_path / "scrolls")
     _make_fake_fragment(root, "PHercParis2Fr47")
     _make_fake_fragment(root, "PHercParis2Fr143", h=320, w=320)
-    cfg = DetectorConfig(data_root=root, model_dir=str(tmp_path / "models"),
-                         architecture="resenc", train_batch_size=2, num_workers=0, seed=0)
+    cfg = DetectorConfig(
+        data_root=root,
+        model_dir=str(tmp_path / "models"),
+        architecture="resenc",
+        train_batch_size=2,
+        num_workers=0,
+        seed=0,
+    )
     ckpt = train(cfg, max_epochs=1, limit_batches=2)
     prob = infer(cfg, checkpoint_path=ckpt, fragment_id="PHercParis2Fr143")
     assert prob.ndim == 2

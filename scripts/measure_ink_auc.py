@@ -22,8 +22,8 @@ sys.path.insert(0, _R)
 sys.path.insert(0, os.path.join(_R, "scripts", "training"))
 
 from torch.utils.data import DataLoader
-
 from train import ExperimentConfig, load_shape_compatible_state
+
 from vesuvius_autoresearch.core.model_wrappers import build_inference_model
 from vesuvius_autoresearch.core.vesuvius_loader import VesuviusLabeledDataset
 

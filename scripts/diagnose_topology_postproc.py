@@ -22,7 +22,6 @@ sys.path.insert(0, _REPO_ROOT)
 sys.path.insert(0, os.path.join(_REPO_ROOT, "scripts", "training"))
 
 from torch.utils.data import DataLoader
-
 from train import (
     ExperimentConfig,
     compute_cc_diff,
@@ -31,6 +30,7 @@ from train import (
     compute_skeleton_dist,
     load_shape_compatible_state,
 )
+
 from vesuvius_autoresearch.core.model_wrappers import build_inference_model
 from vesuvius_autoresearch.core.vesuvius_loader import VesuviusLabeledDataset
 

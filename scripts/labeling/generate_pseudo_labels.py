@@ -8,9 +8,9 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import numpy as np
 import torch
 from PIL import Image
+from predict import load_compatible_state_dict
 from tqdm import tqdm
 
-from predict import load_compatible_state_dict
 from vesuvius_autoresearch.core.vesuvius_loader import FastVesuviusVolume
 from vesuvius_model import InkDetectorOptimized, VesuviusConfig, VesuviusTimeSformer
 

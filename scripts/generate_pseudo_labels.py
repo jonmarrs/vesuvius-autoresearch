@@ -29,8 +29,9 @@ def prob_to_pseudo_png(prob, region, tau_high=0.65, tau_low=0.15):
 
 
 def _infer_region(checkpoint, frag_dir, region_mask_path, device, tau_high, tau_low):
-    from scripts.measure_ink_auc import _volume_uri
     from train import ExperimentConfig, load_shape_compatible_state
+
+    from scripts.measure_ink_auc import _volume_uri
     from vesuvius_autoresearch.core.model_wrappers import build_inference_model
     from vesuvius_autoresearch.core.vesuvius_loader import VesuviusLabeledDataset
 

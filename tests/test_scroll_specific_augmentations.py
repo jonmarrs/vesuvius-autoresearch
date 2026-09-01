@@ -1,7 +1,7 @@
 import torch
+from train import ExperimentConfig
 
 from scroll_augmentations import apply_scroll_specific_3d_augmentations
-from train import ExperimentConfig
 
 
 def test_scroll_specific_augmentations_preserve_shapes_and_label_bounds():

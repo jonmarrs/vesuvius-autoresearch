@@ -1,4 +1,5 @@
 import pytest
+
 from vesuvius_autoresearch.detector.config import DetectorConfig
 
 
