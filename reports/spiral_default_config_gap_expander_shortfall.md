@@ -60,6 +60,15 @@ default run is affected. Either way the current state is a defect.
 ## Limits
 
 One dataset and one dataset json, though the values in question are read from villa's own config
-rather than ours, and no shipped config overrides them. I have not run villa's pipeline end to end
-under its own runner, so I cannot rule out that `run_single.py` or the autoresearch loop sets these
-some other way; I searched the configs directory, not every possible call path.
+rather than ours.
+
+**The call-path limit is now closed.** Every mention of either key anywhere in the villa tree, across
+`*.py`, `*.json`, `*.sh`, `*.md` and `*.toml`, was checked. Outside `config.py`, which holds the
+defaults, and the two files that read them (`spiral_helpers.py`, `flatten_spiral_checkpoint.py`),
+every occurrence is a **consumer**: `phase_tuning.py` reads the index, `fit_spiral.py` passes it to
+`get_progressive_dt_max_winding` and warns separately at line 2219 when a weight is positive but the
+index leaves it inactive. **Nothing assigns either key** in any runner, script or config, so
+`run_single.py` and the autoresearch loop take the defaults unchanged.
+
+What remains untested is the consequence, not the reach: I still have not run villa's pipeline end to
+end under its own runner and observed what the shortfall does.
