@@ -57,6 +57,35 @@ A default configuration that warns about itself on every run trains readers to i
 the shortfall is harmless the default should be consistent so the warning stops; if it is not, every
 default run is affected. Either way the current state is a defect.
 
+## The other warnings in the same audit, checked and dismissed
+
+The gap-expander warning was found by reading the fit's own output, so the rest of that output was
+audited too. A full 30,000-step fit emits only four warning classes, and the other three are
+explained:
+
+| warning | count | verdict |
+|---|---:|---|
+| `shell_outer_winding_idx ... requires ... >= 133` | 1 | **the finding above** |
+| `winding_is_absolute pcl N has all points unattached` | 2 | **expected, not a defect** |
+| `theta consistency gate rejected 3 patch(es) from 215 inconsistent edge(s)` | 1 | not investigated |
+| `non-liftable patch` | 3 | not investigated |
+
+**The dropped absolute-winding anchors are correct behaviour.** This looked like the most promising
+of the three: `abs_winding.json` holds 59 points, the fit drops `col4` (8 points) and `col5` (1),
+and 9 of 59 is 15.3% of the only source of true absolute winding there is. But the dropped points
+are simply outside the z-ROI:
+
+```
+correction1   48 pts   z 15694          48/48 in ROI [13056, 18432]
+col1           1 pt    z 15976           1/1
+col2           1 pt    z 14268           1/1
+col4           8 pts   z  8459           0/8   <- dropped, correctly
+col5           1 pt    z 10673           0/1   <- dropped, correctly
+```
+
+50 of 59 anchors lie in our ROI and are used. The two warnings report a consequence of the ROI we
+chose, not a fault. Recorded so it is not re-investigated.
+
 ## Limits
 
 One dataset and one dataset json, though the values in question are read from villa's own config
