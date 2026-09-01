@@ -67,8 +67,8 @@ explained:
 |---|---:|---|
 | `shell_outer_winding_idx ... requires ... >= 133` | 1 | **the finding above** |
 | `winding_is_absolute pcl N has all points unattached` | 2 | **expected, not a defect** |
-| `theta consistency gate rejected 3 patch(es) from 215 inconsistent edge(s)` | 1 | not investigated |
-| `non-liftable patch` | 3 | not investigated |
+| `theta consistency gate rejected 3 patch(es) from 215 inconsistent edge(s)` | 1 | **working as designed** |
+| `non-liftable patch` | 3 | **the same 3 patches** |
 
 **The dropped absolute-winding anchors are correct behaviour.** This looked like the most promising
 of the three: `abs_winding.json` holds 59 points, the fit drops `col4` (8 points) and `col5` (1),
@@ -85,6 +85,16 @@ col5           1 pt    z 10673           0/1   <- dropped, correctly
 
 50 of 59 anchors lie in our ROI and are used. The two warnings report a consequence of the ROI we
 chose, not a fault. Recorded so it is not re-investigated.
+
+**The theta gate is also working, not failing.** `_enforce_theta_liftability` loops: find edges whose
+tree potential is path-dependent, attribute them to patches, exclude those, rebuild, and repeat until
+`inconsistent_edges == 0`. The warning reports one iteration of that loop. Three patches out of
+38,616 (**0.0078%**) accounted for all 215 inconsistent edges, and one pass removed them;
+`non_liftable_patches.txt` lists exactly those three. A gate that reports what it excluded is doing
+its job, and 215 edges resolved by 3 patches says the inconsistency was concentrated, not endemic.
+
+**So the audit is complete and the gap-expander shortfall is the only genuine defect in the fit's
+output.** Everything else it warns about is either correct behaviour or a consequence of our own ROI.
 
 ## Limits
 
