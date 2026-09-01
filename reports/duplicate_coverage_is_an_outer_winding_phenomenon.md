@@ -27,10 +27,30 @@ The median radius varies by **13 voxels across five independent fits**, includin
 min-spacing barrier disabled. Whatever produces this is a stable property of the fitted geometry,
 not seed noise and not the barrier.
 
+## The winding indices, MEASURED rather than inferred
+
+This report originally inferred "about w123" from radius and median spacing, and flagged that as
+arithmetic rather than observation. The indices are now recorded directly
+(`measure_winding_overlap.py --dump-windings`). The inference held:
+
+```
+median wmin 120   median wmax 126      (the radius inference said "about w123")
+wmin range 45..127   wmax range 47..129
+
+79.9% of cells involve a winding >= w120, the outermost ten
+51.7% have BOTH windings >= w120
+
+top pairs   w127+w129 533 cells,  w126+w128 357,  w126+w129 342,  w125+w128 289
+gaps        2 -> 2,723,  3 -> 1,925,  4 -> 1,219,  5 -> 907, declining
+```
+
+So it is the outermost windings overlapping **each other** at small index gaps of 2 to 4, not
+distant windings colliding. Half of all overlapping cells are claimed by two windings both inside
+the last ten of the ROI.
+
 ## The likely explanation is a boundary effect, and that matters
 
-At roughly 17.6 radius units per winding, radius 2376 corresponds to about winding **w123** of the
-w010..w129 range. So the overlap concentrates in the **outermost ten windings of the fitted ROI**.
+The overlap concentrates in the **outermost ten windings of the fitted ROI**.
 
 That is the edge of the fit, where the outermost windings have neighbours on one side only and the
 least constraint from surrounding patches. **This is more likely an artefact of where the ROI stops
@@ -57,6 +77,7 @@ of the spiral and concentrated in a band at its edge.
 
 One ROI, one scroll, five fits that share it. The boundary explanation is a hypothesis this data
 cannot separate from a genuine radial effect: both predict exactly what is seen here. Distinguishing
-them needs a fit over a different radial range, which has not been run. The winding indices claiming
-each overlapping cell were not recorded, so "about w123" is inferred from radius and median spacing
-rather than measured directly.
+them needs a fit over a different radial range, which has not been run. The winding indices are now measured
+directly rather than inferred, and they confirm the radial picture. What remains unmeasured is
+whether the same concentration appears at a different ROI boundary, which is the test that would
+separate the two hypotheses.
