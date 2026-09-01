@@ -146,3 +146,32 @@ spacing weight, and the honest conclusion would be that fit-produced duplication
 induced by the obvious means, not that a third or fourth knob is worth trying. That limit is set now,
 before the result, because "try the next weight" is exactly the kind of search that eventually finds
 a false positive.
+
+---
+
+## Addendum 4, 2026-08-31: how DENSESPACE0's manipulation will be verified, and a false alarm
+
+MINSPACE0's null was only trustworthy because the manipulation was shown to have taken effect:
+`min_spacing` appeared 150 times in every honest fit log and 0 times in the arm. The same check is
+required here, and it must be done **after the fit completes**.
+
+**A false alarm, recorded because the reasoning was wrong in an instructive way.** Mid-run, the
+DENSESPACE0 log showed zero mentions of `dense_spacing_winding_model_relative` *and* zero of
+`min_spacing`, which I had left at its default. That looked like the manipulation having disabled
+more than the single variable intended, which would confound the arm.
+
+It is an artefact of reading a running log. The fit runs `uv run python fit_spiral.py` with no `-u`,
+so its per-step `step N: loss = ...` lines go to **block-buffered stdout** when redirected, while the
+`PROGRESS` lines go to unbuffered stderr. At 4,480 steps the arm's log was 24 KB of almost entirely
+stderr; the completed MINSPACE0 log is 662 KB because its buffers flushed at exit. Nothing was
+disabled, and nothing could be concluded either way.
+
+**Verification is therefore deferred to completion**, with the pass condition fixed now:
+
+* `dense_spacing_winding_model_relative` and `dense_spacing_winding_model_density` must appear
+  **0 times** in the completed DENSESPACE0 log, against 150 each in honest fits;
+* `min_spacing` must appear **150 times**, confirming the change was single-variable and the barrier
+  stayed on.
+
+If `min_spacing` is absent from the completed log, the arm IS confounded and must be reported as
+such rather than as a result about dense spacing.
