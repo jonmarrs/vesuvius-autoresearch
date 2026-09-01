@@ -120,3 +120,29 @@ For the full-fit comparison, MINSPACE0 must therefore clear **0.0897% to 0.1042%
 registered ten-winding threshold of 1.0% against 0.00% is unchanged and remains the primary test;
 this is a secondary reading with its own baseline, stated before the arm exists so neither can be
 chosen after the fact.
+
+---
+
+## Addendum 3, 2026-08-31: second arm, DENSESPACE0, registered before it is fitted
+
+MINSPACE0 returned a null and its registered branch says nothing was learned about satisfaction. The
+manipulation demonstrably took effect (`min_spacing` appears 150 times in every honest fit log and 0
+times in MINSPACE0), so the barrier is simply not what controls overlap.
+
+**Arm DENSESPACE0**: identical to `baseline01` except `"loss_weight_dense_spacing": 0`, default 12.0,
+six times heavier than the barrier. Confirmed live in this configuration:
+`dense_spacing_winding_model_density` and `dense_spacing_winding_model_relative` each appear 150
+times in every fit log, via `dense_spacing_mode = "winding_model"`.
+
+**Everything else is carried over unchanged**: prediction 1 is gap>=2 above **1.0%** on the
+ten-winding span against 0.00%, with the full-fit secondary baseline 0.0897 to 0.1042%; I again
+**decline to predict satisfaction**; `total_fg_pixels` is judged against `2*CV = 21.7%`; and the same
+four decision branches apply, including VOID if the fit collapses and "nothing learned" if
+duplication does not rise.
+
+**One thing I will not do**: if this arm also returns a null, I will not keep zeroing loss weights
+until something moves. Two failures would mean duplicate coverage is not controlled by any single
+spacing weight, and the honest conclusion would be that fit-produced duplication could not be
+induced by the obvious means, not that a third or fourth knob is worth trying. That limit is set now,
+before the result, because "try the next weight" is exactly the kind of search that eventually finds
+a false positive.

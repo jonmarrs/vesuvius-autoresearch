@@ -38,6 +38,19 @@ The registered rule for this outcome:
 
 That is the branch that fires. The open limit in the duplicate-coverage report **stays open**.
 
+## The manipulation demonstrably took effect
+
+A null is worthless if the knob was inert. It was not. The fit's own logging mentions `min_spacing`
+**150 times** in every honest fit (`baseline01`, `seed03`, `seed04`) and **zero times** in
+MINSPACE0. The barrier was active by default and was genuinely switched off.
+
+So this is a real null: disabling an *active* min-spacing barrier leaves duplicate coverage where it
+was. The hypothesis was wrong, not the intervention.
+
+For contrast, `dense_spacing_winding_model_density` and `dense_spacing_winding_model_relative` each
+appear 150 times in the same logs, so those losses are also live in this configuration and are
+testable next.
+
 ## The tempting misreading, stated so it is not made later
 
 Satisfied area did drift outside the band, 0.8295 against 0.8398. It would be easy to present that
