@@ -45,9 +45,12 @@ duplicated and honest; gap>=2 winding overlap separates cleanly (8.37 to 100% ag
 costs 3 s on a 120-winding fit against ~12 min for one render and score, needs no ink volume, scorer
 or GPU, and runs before any render. `reports/a_cheap_guard_the_metrics_lack.md`.
 
-**7. Duplicate coverage is introduced by fitting, not inherited.**
-Absent from the 100-step configuration (0.00%), present at 0.09 to 0.10% in every converged fit, and
-*more* seed-reproducible than the objective it can inflate (CV 0.0667 against 0.1086).
+**7. Duplicate coverage is introduced by fitting, not inherited, at every scale tested.**
+Exactly 0 gap>=2 cells in the 100-step configuration at quant 1, 2 AND 4; nonzero at all three in
+converged fits (242 / 1,764 / 10,345). gap-1 is background, near-identical between the two (627 vs
+623 at quant 1), which is why it is excluded. Duplicate coverage is also *more* seed-reproducible
+than the objective it can inflate (CV 0.0667 against 0.1086). The absolute figure is a proximity
+measure at the chosen quantisation and must be quoted with it.
 
 ## What is NOT established, and matters
 

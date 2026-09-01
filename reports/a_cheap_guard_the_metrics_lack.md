@@ -56,6 +56,33 @@ sit `dr_per_winding` apart, 16.17 voxels in this fit, so at 4-voxel cells they l
 cells. Gap-1 coincidences are a quantisation artefact and scale steeply with cell size (12,536 cells
 at 4 vx against 808,596 at 16 vx); they are reported separately and are not the signal.
 
+## The gap>=2 choice is validated by a scale sweep, not asserted
+
+The measure excludes gap-1 co-location as a quantisation artefact. That was originally justified by
+the steep scaling of gap-1 with cell size, which is an argument, not evidence. Measured across
+quantisations on the converged `baseline01` fit and the 100-step `smoke01` control:
+
+| quant | converged gap>=2 | smoke gap>=2 | converged gap-1 | smoke gap-1 |
+|---:|---:|---:|---:|---:|
+| 1 vx | 242 | **0** | 627 | 623 |
+| 2 vx | 1,764 | **0** | 2,728 | 1,267 |
+| 4 vx | 10,345 | **0** | 12,536 | 2,535 |
+
+**gap-1 is background.** At 1-voxel cells it is 627 in the converged fit against 623 in the
+near-unfitted one, essentially identical. A signal present equally in a fit that has barely moved is
+not produced by fitting, so excluding it is correct. This also disposes of a worry worth stating:
+if a patch were displaced by exactly one winding, the invariance @pmh47 described on villa#1621, it
+would land on the adjacent sheet and register as gap-1. Real co-location of that kind would persist
+at 1-voxel resolution. It does not.
+
+**gap>=2 is entirely fit-introduced.** Exactly zero at every scale for the 100-step configuration,
+nonzero at every scale for the converged fit. The contrast is not a quantisation effect.
+
+**But the absolute number is a proximity measure at the chosen tolerance.** gap>=2 runs 242, 1,764,
+10,345 for quant 1, 2, 4, so "0.09%" means "two windings two or more apart come within about four
+voxels", not a scale-free property. Always report the quantisation beside the number; the arms in
+this report are all quant 4 and are comparable to each other.
+
 ## Limits, and what not to do with it
 
 **Report the number, do not hard-code a threshold.** A converged 120-winding fit here reads 0.09%,
