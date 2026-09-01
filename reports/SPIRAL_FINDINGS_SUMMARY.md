@@ -58,6 +58,38 @@ converged fits (242 / 1,764 / 10,345). gap-1 is background, near-identical betwe
 than the objective it can inflate (CV 0.0667 against 0.1086). The absolute figure is a proximity
 measure at the chosen quantisation and must be quoted with it.
 
+## Findings about the loop's decision procedure, not just its metric
+
+These came later and are the most directly actionable, because they concern a procedure
+`autoresearch.md` already prescribes rather than a property of the metric alone.
+
+**8. The prescribed two-seed check lets through one null change in six.**
+At the measured CV, the strict reading (both change runs beat both baseline runs) accepts **16.6%**
+of changes with zero true effect; the loose reading (mean of two beats mean of two) is a **coin
+flip** at 49.9% and is not a filter at all. An assumption-free enumeration over the four measured
+values gives 1/6 and 3/6, agreeing with a 200,000-run simulation to a decimal. It also *discards*
+59% of genuine +10% gains. `reports/two_seed_check_lets_through_one_in_six.md`.
+
+**9. Two fixes, one of them free.** Three seeds per arm brings the strict rule to **5%**, at two
+extra fits. Requiring `total_fg` AND `line` to both survive is stronger across the entire plausible
+correlation range and never weaker, at **zero** extra fits, because the scorer already writes line
+score. That correlation cannot be estimated at n=4, so the result is bounded (0.9% to 16.7%) rather
+than claimed.
+
+**10. Geometry quality and recovered ink decouple at seed scale.**
+`satisfied_area` has CV 0.00114 against the objective's 0.10863: the ink metric is **96x noisier**.
+Among converged fits whose geometry is indistinguishable, ink varies 25%. So the premise "a better
+fit recovers more ink" holds at coarse scale, where we measured it, and not at the scale the loop
+operates. The prescribed satisfaction cross-check is correspondingly stiff: **passing it rules out
+catastrophe, not error.** `reports/geometry_and_ink_decouple_at_seed_scale.md`.
+
+**11. villa's default spiral config warns about itself on every run.**
+`shell_outer_winding_idx` defaults to 130 and requires `model_gap_expander_num_windings >= 133`,
+which defaults to 130. No shipped config overrides either, nothing anywhere assigns them, and the
+inference path cannot fire because the default is not None. Consequence unestablished; a
+pre-registered arm testing one candidate consequence returned a null on duplication.
+`reports/spiral_default_config_gap_expander_shortfall.md`.
+
 ## What is NOT established, and matters
 
 **Reachability through a fit is unproven, and the search for it is CLOSED.** Every duplicate arm
@@ -76,6 +108,15 @@ buried. `reports/two_nulls_fit_produced_duplication_not_induced.md`.
 **A third arm (`output_winding_margin` 4 -> 0) is VOID**, not a null: its verification condition
 could not fire, because the observable is clamped by a config constant.
 `reports/margin_arm_void_and_a_premise_withdrawn.md`.
+
+**A fourth arm (`model_gap_expander_num_windings` 130 -> 133) also returned a null** on duplication,
+0.0909% against the honest 0.0897 to 0.1042%. Four explanations proposed for the outer-winding
+concentration, four dead. The cause is unknown and the search is stopped.
+
+**The outer boundary is a configured constant, not the end of the data.** Input patches reach radius
+6510 while the outermost output winding sits at ~2504, so 27.5% of patches extend past where the fit
+stops. Extrapolation is ruled out as the explanation.
+`reports/the_outer_boundary_is_configured_not_data.md`.
 
 **The satisfaction guard is untested.** `autoresearch.md` names three checks; this work tests two.
 Mesh-level duplication leaves the fit untouched by construction, so satisfaction cannot respond. It
