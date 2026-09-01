@@ -112,10 +112,22 @@ verified intact (55 GB, 9 segment dirs, all three labelled segments present by n
 probe unchanged at `exhausted_no_candidate`). The suite went 718 passed, then 19 collection errors,
 then 732 passed once both breakages were fixed.
 
-**Still deferred and NOT done: the GPU detector, sota and loader tests.** The card is running the
-seed-spread fits. Until those run, this bump is verified by the CPU suite only, and the standing
-note that the parity test fails under CUDA masking rather than as a regression has not been
-re-checked at the new pin.
+**The GPU tests are now DONE and green.** Run once the seed fits released the card:
+
+```
+tests/test_detector_*.py tests/test_sota_*.py tests/test_vesuvius_loader.py
+  -> 93 passed, EXIT=0, with CUDA available
+parity tests, with GPU        -> 7 passed
+parity tests, CUDA masked     -> 6 passed, 1 SKIPPED
+```
+
+So the bump is verified by the full CPU suite (732 passed) and by the GPU suites.
+
+**A standing note is out of date, in a good way.** The record said the parity test *fails* under
+CUDA masking rather than as a regression. It no longer fails: `test_cpu_gpu_vesselness_parity` now
+skips with an explicit reason, `no CUDA device (absent, or masked by the shell)`. A skip that
+explains itself is strictly better than a failure that has to be remembered as benign, and the note
+warning about it can go.
 
 ## Recommendation (written pre-bump, followed)
 
