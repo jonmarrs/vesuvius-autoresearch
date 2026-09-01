@@ -1,5 +1,18 @@
 # Duplicate coverage is not diffuse: 98% of it sits in the outermost windings
 
+> **The EXPLANATION below is withdrawn, 2026-09-01. The measurement stands.**
+> This report attributed the concentration to windings extrapolated past the patch data, reasoning
+> that output `[10, 130)` with `output_winding_margin = 4` implies data ending at w125. That
+> arithmetic is invalid: `spiral_helpers.py:1372` clamps the range by `shell_outer_winding_idx`,
+> which `config.py:489` sets to the constant **130**. The bound says nothing about where the data
+> ends, nothing logs the observed patch winding maximum, and the "52.5% of cells involve an
+> extrapolated winding" figure is withdrawn.
+>
+> What survives is the measurement: the concentration in the outermost windings, median wmax 126,
+> reproducible across five fits. Its cause is unknown. See
+> `reports/margin_arm_void_and_a_premise_withdrawn.md`.
+
+
 **2026-08-31.** Characterisation of the 0.09 to 0.10% gap>=2 overlap present in every converged fit
 (`reports/a_cheap_guard_the_metrics_lack.md`). The question was whether it is diffuse background or
 localised, because a few localised topology errors and uniform noise call for different responses.
