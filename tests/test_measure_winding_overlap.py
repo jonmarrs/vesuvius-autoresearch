@@ -153,3 +153,61 @@ def test_it_detects_approximate_not_only_exact_overlap(tmp_path):
     assert fracs[0.0] > fracs[4.0] > fracs[8.0], (
         "detection must fall monotonically with displacement"
     )
+
+
+def run_dump(meshes: Path, tmp: Path, quant: int = 4):
+    """Run with --dump-windings and return the (N,3) [cell, wmin, wmax] array."""
+    out = tmp / "w.npy"
+    subprocess.run(
+        [
+            sys.executable,
+            str(SCRIPT),
+            str(meshes),
+            "--quant",
+            str(quant),
+            "--dump-windings",
+            str(out),
+        ],
+        check=True,
+        capture_output=True,
+    )
+    return np.load(out)
+
+
+def test_dump_windings_records_the_actual_overlapping_pair(tmp_path):
+    """The flag exists to replace an inference with a measurement, so it must
+    report the true indices. Two windings 5 apart sharing all geometry: every row
+    must say exactly (10, 15)."""
+    m = tmp_path / "meshes"
+    pts = np.stack([np.arange(16, dtype=float) * 8, np.zeros(16), np.zeros(16)], 1)
+    write_mesh(m / "w010_spliced_t", pts)
+    write_mesh(m / "w015_spliced_t", pts)
+    rows = run_dump(m, tmp_path)
+    assert rows.shape == (16, 3)
+    assert set(rows[:, 1].tolist()) == {10}, "wmin must be the lower winding"
+    assert set(rows[:, 2].tolist()) == {15}, "wmax must be the upper winding"
+
+
+def test_dump_windings_excludes_gap_one(tmp_path):
+    """Adjacent windings are the quantisation background the report sets aside.
+    They must not appear in the dump, or the measured pair distribution would be
+    contaminated by the very thing gap>=2 exists to exclude."""
+    m = tmp_path / "meshes"
+    pts = np.stack([np.arange(16, dtype=float) * 8, np.zeros(16), np.zeros(16)], 1)
+    write_mesh(m / "w010_spliced_t", pts)
+    write_mesh(m / "w011_spliced_t", pts)  # gap 1, must be dropped
+    rows = run_dump(m, tmp_path)
+    assert rows.size == 0, "gap-1 overlap must not be dumped"
+
+
+def test_dump_windings_row_count_matches_the_reported_gap2_total(tmp_path):
+    """The dump and the headline number must not disagree: a mismatch would mean
+    the report and the spatial analysis were describing different cell sets."""
+    m = tmp_path / "meshes"
+    pts = np.stack([np.arange(24, dtype=float) * 8, np.zeros(24), np.zeros(24)], 1)
+    write_mesh(m / "w010_spliced_t", pts)
+    write_mesh(m / "w014_spliced_t", pts)
+    write_mesh(m / "w030_spliced_t", pts + np.array([10_000.0, 0.0, 0.0]))  # disjoint
+    rows = run_dump(m, tmp_path)
+    stats = run(m, tmp_path / "o.json")
+    assert len(rows) == stats["far_gap2"]
