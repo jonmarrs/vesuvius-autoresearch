@@ -58,6 +58,39 @@ are discarded, while one null in six is kept.
 **Three seeds per arm brings rule A to 5%** for two extra fits. That is the cheap change. No number
 of seeds helps rule B, because averaging does not alter a 50/50 comparison of equal distributions.
 
+## A cheaper fix than more seeds: require two metrics
+
+The scorer already writes `overall_line_score` and `overall_column_score` on every run, at no extra
+cost. Their seed CVs differ sharply from the objective's:
+
+```
+total_fg_pixels  CV 0.1086
+line score       CV 0.0342     <- three times more seed-stable
+column score     CV 0.1343
+```
+
+A rule of "accept only if `total_fg` AND `line` both survive both seeds" is stronger, but by how much
+depends on how the two co-vary across seeds. **At n=4 that correlation cannot be estimated**: the
+observed values are +0.55, -0.56 and +0.29 for the three pairs, and a correlation from four points
+has a 95% interval spanning almost the whole range. So the answer is **bounded, not estimated**:
+
+| assumed correlation | false positives |
+|---:|---:|
+| -0.5 | 0.9% |
+| 0.0 | 2.8% |
+| +0.5 | 6.1% |
+| +0.9 | 11.4% |
+| +1.0 (perfectly redundant) | 16.7% |
+
+Against 16.6% for `total_fg` alone. The two-metric rule is **stronger across the whole plausible
+range and never weaker**, even in the worst case where the metrics are perfectly redundant and it
+degenerates to the single-metric rule. It costs no extra fits, unlike a third seed.
+
+**This is a corroborating filter, not a substitute objective.** Line score measures text-line
+periodicity, not recovered ink, and
+`reports/duplicate_coverage_inflates_the_objective.md` showed it fails to catch duplicated coverage.
+It is being used here for its low seed variance, not as a measure of the thing being optimised.
+
 ## Limits
 
 Four fits, one dataset, one ROI, one architecture. The parametric arm assumes approximate

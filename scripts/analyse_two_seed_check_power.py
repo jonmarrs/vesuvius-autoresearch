@@ -113,9 +113,50 @@ def main():
     print("   rule B is a coin flip at EVERY k: comparing two means of equal")
     print("   distributions is 50/50 however many seeds you average.")
 
+    two_metric_bound()
+
     print("\nLimits: four fits, one dataset, one ROI. The parametric arm assumes")
     print("approximate log-normality, which n=4 cannot test. Both arms assume the")
     print("change alters only the mean, not the seed spread itself.")
+
+
+# ---------------------------------------------------------------------------
+# Extension, 2026-09-01: would requiring TWO metrics to improve help?
+#
+# The loop scores total_fg_pixels but the scorer also writes line and column
+# scores. A rule of "accept only if two metrics both improve" is intuitively
+# stronger. How much stronger depends on how correlated the metrics are across
+# seeds, and at n=4 that correlation CANNOT be estimated: the observed values
+# (+0.55, -0.56, +0.29) have 95% intervals spanning nearly the whole range.
+#
+# So the answer is bounded rather than estimated. Sweep the assumed correlation
+# and report the false-positive rate at each, which brackets the truth without
+# pretending to know it.
+# ---------------------------------------------------------------------------
+
+CV_BY_METRIC = {"total_fg": 0.1086, "line": 0.0342, "column": 0.1343}
+
+
+def two_metric_bound(n_sim=200_000, seed=20260901):
+    rng = np.random.default_rng(seed)
+    s_fg = np.log1p(CV_BY_METRIC["total_fg"])
+    s_ln = np.log1p(CV_BY_METRIC["line"])
+    print(
+        "\n4. TWO-METRIC RULE: accept only if total_fg AND line both survive both seeds"
+    )
+    print("   (true effect zero on both; correlation across seeds is unknown at n=4)")
+    print(f"   {'assumed rho':>12}{'false positives':>18}")
+    for rho in (-0.5, 0.0, 0.5, 0.9, 1.0):
+        cov = np.array([[s_fg**2, rho * s_fg * s_ln], [rho * s_fg * s_ln, s_ln**2]])
+        base = rng.multivariate_normal([0, 0], cov, (n_sim, 2))
+        chg = rng.multivariate_normal([0, 0], cov, (n_sim, 2))
+        ok_fg = chg[:, :, 0].min(1) > base[:, :, 0].max(1)
+        ok_ln = chg[:, :, 1].min(1) > base[:, :, 1].max(1)
+        print(f"   {rho:>12.1f}{(ok_fg & ok_ln).mean():>17.1%}")
+    print("   single-metric total_fg alone was 16.6%. The two-metric rule is")
+    print("   stronger across the whole plausible range, and never weaker.")
+    print("   NOTE: line score measures text-line periodicity, not ink recovered,")
+    print("   so this is a corroborating filter, not a substitute objective.")
 
 
 if __name__ == "__main__":
