@@ -109,11 +109,11 @@ honest baseline there is not zero, so it is recorded now rather than after.
 | seed04 | 11,546,847 | 0.20% | 11,319 (0.0980%) |
 
 ```
-gap>=2 fraction   mean 0.0987%   sd 0.0064%   CV 0.0649   range 0.0897% .. 0.1042%
+gap>=2 fraction   mean 0.0987%   sd 0.0066%   CV 0.0667   range 0.0897% .. 0.1042%
 ```
 
 **Duplicate coverage is markedly more reproducible across seeds than the objective it can inflate**:
-CV 0.065 against 0.1086 for `total_fg_pixels`. A property of the fit that varies by 6% seed to seed
+CV 0.0667 against 0.1086 for `total_fg_pixels`. A property of the fit that varies by 6% seed to seed
 is a better-behaved quantity than the ink count that varies by 11%.
 
 For the full-fit comparison, MINSPACE0 must therefore clear **0.0897% to 0.1042%**, not zero. The
