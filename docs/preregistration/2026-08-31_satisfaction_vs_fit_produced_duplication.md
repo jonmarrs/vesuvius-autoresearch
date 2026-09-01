@@ -91,3 +91,32 @@ sheet spacing is 16.17 voxels, and even a full spacing still registers 4.56%.
    therefore conservative in the right direction, and I am not moving it.
 
 Guarded by `tests/test_measure_winding_overlap.py::test_it_detects_approximate_not_only_exact_overlap`.
+
+
+---
+
+## Addendum 2, 2026-08-31, full-fit duplication baseline, before MINSPACE0 is measured
+
+The registered comparison is the ten-winding span w010..w019, where all four honest fits read
+**0.00%**. That stands. But MINSPACE0 will also be measurable over its full 120 windings, and the
+honest baseline there is not zero, so it is recorded now rather than after.
+
+| fit | occupied cells | multi-claimed | gap>=2 |
+|---|---:|---:|---:|
+| baseline01 | 11,539,167 | 0.20% | 10,345 (0.0897%) |
+| seed02 | 11,559,283 | 0.21% | 11,895 (0.1029%) |
+| seed03 | 11,556,455 | 0.20% | 12,040 (0.1042%) |
+| seed04 | 11,546,847 | 0.20% | 11,319 (0.0980%) |
+
+```
+gap>=2 fraction   mean 0.0987%   sd 0.0064%   CV 0.0649   range 0.0897% .. 0.1042%
+```
+
+**Duplicate coverage is markedly more reproducible across seeds than the objective it can inflate**:
+CV 0.065 against 0.1086 for `total_fg_pixels`. A property of the fit that varies by 6% seed to seed
+is a better-behaved quantity than the ink count that varies by 11%.
+
+For the full-fit comparison, MINSPACE0 must therefore clear **0.0897% to 0.1042%**, not zero. The
+registered ten-winding threshold of 1.0% against 0.00% is unchanged and remains the primary test;
+this is a secondary reading with its own baseline, stated before the arm exists so neither can be
+chosen after the fact.
