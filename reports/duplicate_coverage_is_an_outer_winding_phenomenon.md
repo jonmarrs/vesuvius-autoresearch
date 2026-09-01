@@ -1,0 +1,62 @@
+# Duplicate coverage is not diffuse: 98% of it sits in the outermost windings
+
+**2026-08-31.** Characterisation of the 0.09 to 0.10% gap>=2 overlap present in every converged fit
+(`reports/a_cheap_guard_the_metrics_lack.md`). The question was whether it is diffuse background or
+localised, because a few localised topology errors and uniform noise call for different responses.
+
+It is localised, and the localisation reproduces across every fit measured.
+
+## Result
+
+Cell centres decoded from `measure_winding_overlap.py --dump-cells` at quant 4, radius taken from
+the spiral centre (4348.8, 4844.4) measured by `scripts/measure_spiral_comparability.py`:
+
+| fit | gap>=2 cells | median radius | beyond r=2000 | beyond r=2400 |
+|---|---:|---:|---:|---:|
+| baseline01 | 10,345 | 2376 | 98.3% | 45.9% |
+| seed02 | 11,895 | 2381 | 98.9% | 47.3% |
+| seed03 | 12,040 | 2388 | 98.7% | 47.9% |
+| seed04 | 11,319 | 2376 | 98.8% | 46.1% |
+| minspace0 | 11,237 | 2375 | 99.1% | 45.6% |
+
+The fit's windings span radius ~389 (w010) to ~2504 (w129) by median. **The inner two thirds of the
+spiral contain essentially no duplicate coverage**: for baseline01, 8 cells out of 10,345 sit below
+radius 1735.
+
+The median radius varies by **13 voxels across five independent fits**, including one with the
+min-spacing barrier disabled. Whatever produces this is a stable property of the fitted geometry,
+not seed noise and not the barrier.
+
+## The likely explanation is a boundary effect, and that matters
+
+At roughly 17.6 radius units per winding, radius 2376 corresponds to about winding **w123** of the
+w010..w129 range. So the overlap concentrates in the **outermost ten windings of the fitted ROI**.
+
+That is the edge of the fit, where the outermost windings have neighbours on one side only and the
+least constraint from surrounding patches. **This is more likely an artefact of where the ROI stops
+than a statement about scroll geometry**, and it should not be read as "the outer scroll is harder
+to fit" without a fit whose ROI ends somewhere else.
+
+A z-distribution is also non-uniform, peaking at 16819-17357 within the 13056..18432 ROI, but with a
+broad spread rather than the sharp radial concentration.
+
+## What this changes
+
+**For the guard**: the signal it detects is concentrated and reproducible, which is a point in its
+favour as a diagnostic. A fit could be checked at its outer windings specifically and far more
+cheaply than 3 s.
+
+**For the duplicate-coverage finding**: unchanged. The arms that demonstrated the metric cannot
+price duplication used deliberately constructed mesh duplicates, not this background, and the
+0.09% baseline is subtracted in every comparison.
+
+**For interpreting the 0.09%**: it is not a uniform 0.09% tax on the fit. It is near-zero over most
+of the spiral and concentrated in a band at its edge.
+
+## Limits
+
+One ROI, one scroll, five fits that share it. The boundary explanation is a hypothesis this data
+cannot separate from a genuine radial effect: both predict exactly what is seen here. Distinguishing
+them needs a fit over a different radial range, which has not been run. The winding indices claiming
+each overlapping cell were not recorded, so "about w123" is inferred from radius and median spacing
+rather than measured directly.
