@@ -3,6 +3,11 @@
 **2026-08-31.** Pre-registered in `docs/preregistration/2026-08-31_objective_seed_noise_floor.md`
 before the arm was rendered. **My prediction failed, and the registered withdrawal branch fired.**
 
+> **SUPERSEDED as a floor, 2026-08-31: use `reports/seed_spread_four_fits.md`.** This is ONE pair.
+> Four fits give CV 0.1086 with pairwise differences from 0.0442 to 0.2527, and the 18.93% here
+> ranks fifth of six, so it understated the worst case rather than overstating it. The threshold for
+> different-fit comparisons is 2*CV = 21.7%, not this number.
+>
 > **The withdrawal it triggered was later REVERSED, 2026-08-31.** The 18.9% measurement below stands
 > and is the correct floor for comparing two different FITS. Applying it to arms B and D was a
 > category error: those come from one fit, so seed variation cannot enter them. See

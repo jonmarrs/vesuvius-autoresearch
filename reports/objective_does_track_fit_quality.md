@@ -1,7 +1,7 @@
 # The objective is not broken, it is gameable. Both are true.
 
 **2026-08-31.** Pre-registered in `docs/preregistration/2026-08-31_objective_tracks_fit_quality.md`
-before either arm was rendered. **Verdict: premise HOLDS.** (Confirmed against the seed-noise floor measured afterwards: -59.5% is 3.1x the 18.9% seed-to-seed spread, so this result survives that control.)
+before either arm was rendered. **Verdict: premise HOLDS.** (Confirmed against the seed spread measured afterwards over FOUR fits, `reports/seed_spread_four_fits.md`: -59.5% is **2.7x** the 2*CV = 21.7% threshold for different-fit comparisons. The earlier statement of 3.1x was against a single pair and is superseded; the margin is smaller but the result still clears it.)
 
 This is the counterweight to `reports/duplicate_coverage_inflates_the_objective.md`. Reporting that
 the objective can be inflated 92% by duplicated coverage, without also reporting that it strongly
