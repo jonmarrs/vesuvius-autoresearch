@@ -49,6 +49,13 @@ def main():
     ap.add_argument("--quant", type=int, nargs="+", default=[4, 8, 16])
     ap.add_argument("--out", default=None)
     ap.add_argument(
+        "--dump-windings",
+        default=None,
+        help="save an (N,3) array of [cell_id, winding_min, winding_max] for the "
+        "gap>=2 cells at the FIRST --quant value, answering WHICH windings overlap "
+        "rather than inferring it from radius.",
+    )
+    ap.add_argument(
         "--dump-cells",
         default=None,
         help="save the gap>=2 multiply-claimed cell ids at the FIRST "
@@ -94,6 +101,20 @@ def main():
             ws = owner[s : s + c]
             gaps[int(ws.max() - ws.min())] += 1
         far = sum(v for g, v in gaps.items() if g >= 2)
+        if args.dump_windings and args.quant[0] == Q:
+            rows = [
+                (
+                    int(cells[s]),
+                    int(owner[s : s + c].min()),
+                    int(owner[s : s + c].max()),
+                )
+                for s, c in zip(starts[multi], counts[multi], strict=False)
+                if (owner[s : s + c].max() - owner[s : s + c].min()) >= 2
+            ]
+            np.save(args.dump_windings, np.array(rows, np.int64))
+            print(
+                f"      dumped {len(rows):,} [cell, wmin, wmax] rows -> {args.dump_windings}"
+            )
         if args.dump_cells and args.quant[0] == Q:
             far_ids = [
                 int(cells[s])
