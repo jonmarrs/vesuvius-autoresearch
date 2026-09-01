@@ -45,7 +45,13 @@ duplicated and honest; gap>=2 winding overlap separates cleanly (8.37 to 100% ag
 costs 3 s on a 120-winding fit against ~12 min for one render and score, needs no ink volume, scorer
 or GPU, and runs before any render. `reports/a_cheap_guard_the_metrics_lack.md`.
 
-**7. Duplicate coverage is introduced by fitting, not inherited, at every scale tested.**
+**7. Duplicate coverage is introduced by fitting, and concentrates in the outermost windings.**
+Median wmax 126, 79.9% involving a winding at or beyond w120, reproducible across five fits with
+median radius varying by 13 voxels. **Its cause is unknown**: the extrapolation explanation first
+offered was withdrawn on 2026-09-01 when the arithmetic behind it proved invalid.
+`reports/duplicate_coverage_is_an_outer_winding_phenomenon.md`.
+
+**7b. It is introduced by fitting, not inherited, at every scale tested.**
 Exactly 0 gap>=2 cells in the 100-step configuration at quant 1, 2 AND 4; nonzero at all three in
 converged fits (242 / 1,764 / 10,345). gap-1 is background, near-identical between the two (627 vs
 623 at quant 1), which is why it is excluded. Duplicate coverage is also *more* seed-reproducible
@@ -54,12 +60,22 @@ measure at the chosen quantisation and must be quoted with it.
 
 ## What is NOT established, and matters
 
-**Reachability through a fit is unproven.** Every duplicate arm copies mesh folders, which villa's
-loop cannot do; it edits `fit_spiral.py`. The first attempt to induce overlap through a fit
-(`loss_weight_min_spacing` 2.0 -> 0, verified active: 150 log mentions in honest fits, 0 in the arm)
-**did not move duplicate coverage at all**.
-`reports/minspacing_barrier_does_not_control_duplication.md`. A second arm is running. A stopping
-rule is registered: two nulls end the search rather than prompting a third knob.
+**Reachability through a fit is unproven, and the search for it is CLOSED.** Every duplicate arm
+copies mesh folders, which villa's loop cannot do; it edits `fit_spiral.py`. Two attempts to induce
+overlap through a fit, each a verified single-variable change:
+
+* `loss_weight_min_spacing` 2.0 -> 0: duplicate coverage **unchanged** (0.10%);
+* `loss_weight_dense_spacing` 12.0 -> 0: duplicate coverage **fell** to 0.04%, the opposite of the
+  registered prediction.
+
+Under the stopping rule registered before the second arm, the search ends rather than continuing to a
+third knob. **Fit-produced duplication could not be induced by the obvious means.** That is weak
+evidence an optimiser would not stumble into the exploit, and it belongs beside finding 1 rather than
+buried. `reports/two_nulls_fit_produced_duplication_not_induced.md`.
+
+**A third arm (`output_winding_margin` 4 -> 0) is VOID**, not a null: its verification condition
+could not fire, because the observable is clamped by a config constant.
+`reports/margin_arm_void_and_a_premise_withdrawn.md`.
 
 **The satisfaction guard is untested.** `autoresearch.md` names three checks; this work tests two.
 Mesh-level duplication leaves the fit untouched by construction, so satisfaction cannot respond. It
@@ -71,9 +87,15 @@ exploited them.
 ## Provenance
 
 Every finding is pre-registered with its decision rule fixed before the data, and the analysis code
-for the seed spread was written before the fits finished. Two results were withdrawn and one
-reinstated during this work; the corrections are in the reports rather than tidied away. One
-prediction (arm D) is recorded as a miss.
+for the seed spread was written before the fits finished. The corrections are in the reports rather
+than tidied away: two results withdrawn and one reinstated, one prediction (arm D) recorded as a
+miss, two nulls against predictions, one arm voided, and one explanation withdrawn.
+
+**A pattern worth carrying forward:** all three verification conditions registered for the fit arms
+were mis-specified, each written from a plausible reading of the code rather than from checking what
+the observable actually does. Two were caught, one produced a void arm and a withdrawn premise. The
+fix is to confirm an observable responds to a manipulation before spending the GPU time, not to
+guess better.
 
 Reproduce: `repro/spiral_render/`, `scripts/measure_winding_overlap.py`,
 `scripts/analyse_seed_spread.py`. All from published artifacts.
