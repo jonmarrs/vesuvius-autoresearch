@@ -110,3 +110,46 @@ def test_invalid_cells_are_dropped(tmp_path):
     write_mesh(m / "w014_spliced_t", b)
     r = run(m, tmp_path / "o.json")
     assert r["occupied"] == 16 and r["multi"] == 0
+
+
+def test_it_detects_approximate_not_only_exact_overlap(tmp_path):
+    """Every duplicate arm measured so far used an EXACT mesh copy, so cells
+    coincided perfectly. Fit-produced overlap is approximate: two sheets near each
+    other, not identical. If the detector only fired on near-exact coincidence, a
+    null on a real fit would be an instrument limit misread as absence.
+
+    It degrades gracefully instead. Two windings five apart in index, one displaced
+    by delta voxels, quant 4:
+
+        delta 0 vx -> 100%   delta 4 vx -> 28%
+        delta 2 vx ->  56%   delta 8 vx -> 10%
+
+    so detection falls with displacement but never to zero over the range that
+    matters (the fit's own sheet spacing is 16.17 vx).
+    """
+
+    def build(root, delta):
+        th = np.linspace(0, 2 * np.pi, 2000, endpoint=False)
+        base = np.stack(
+            [
+                1000 + 1000 * np.cos(th),
+                1000 + 1000 * np.sin(th),
+                np.full(th.size, 500.0),
+            ],
+            1,
+        )
+        for name, off in (("w010_spliced_t", 0.0), ("w015_spliced_t", delta)):
+            write_mesh(root / name, base + np.array([off, 0.0, 0.0]))
+
+    fracs = {}
+    for delta in (0.0, 4.0, 8.0):
+        root = tmp_path / f"d{int(delta)}"
+        build(root, delta)
+        fracs[delta] = run(root, tmp_path / f"o{int(delta)}.json")["far_frac"]
+
+    assert fracs[0.0] > 0.95, "an exact copy must read as near-total overlap"
+    assert fracs[4.0] > 0.10, "a 4-voxel displacement must still be clearly detected"
+    assert fracs[8.0] > 0.02, "even half the sheet spacing must not read as zero"
+    assert fracs[0.0] > fracs[4.0] > fracs[8.0], (
+        "detection must fall monotonically with displacement"
+    )

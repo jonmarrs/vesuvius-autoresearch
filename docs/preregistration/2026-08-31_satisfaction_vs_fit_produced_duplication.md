@@ -54,3 +54,40 @@ evaded, not that it *would* be. And with a 21.7% different-fit noise floor, only
 invisible here and must not be reported as absence.
 
 One fit, one seed, one ROI, no repeat.
+
+
+---
+
+## Addendum 1, 2026-08-31, written while the arm is fitting and before it is measured
+
+**Instrument sensitivity, checked because the arms differ in kind.** Every duplicate arm measured so
+far used an exact mesh copy, so cells coincided perfectly at any quantisation. Fit-produced overlap
+is approximate. If `measure_winding_overlap.py` only fired on near-exact coincidence, a null here
+would be an instrument limit misread as absence.
+
+Two synthetic windings five apart in index, one displaced by delta voxels, quant 4:
+
+| displacement | gap>=2 detected |
+|---:|---:|
+| 0 vx | 100.00% |
+| 1 vx | 75.84% |
+| 2 vx | 56.41% |
+| 3 vx | 41.24% |
+| 4 vx | 28.36% |
+| 6 vx | 15.28% |
+| 8 vx | 10.09% |
+| 12 vx | 6.48% |
+| 16 vx | 4.56% |
+
+Detection falls with displacement but never to zero across the range that matters: the fit's own
+sheet spacing is 16.17 voxels, and even a full spacing still registers 4.56%.
+
+**Two consequences for reading the result, fixed now.**
+
+1. **A null is real.** The 0.00% on all four honest arms is genuine absence of co-location, not
+   co-location too diffuse to see.
+2. **A positive understates.** Any percentage reported for MINSPACE0 is a lower bound on true
+   overlap, because displaced sheets are counted at a discount. Prediction 1's 1.0% threshold is
+   therefore conservative in the right direction, and I am not moving it.
+
+Guarded by `tests/test_measure_winding_overlap.py::test_it_detects_approximate_not_only_exact_overlap`.
