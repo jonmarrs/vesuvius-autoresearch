@@ -54,6 +54,17 @@ one.
 > checkout at `5479453a`, not from this submodule. But the two trees are no longer interchangeable on
 > the render path, so the shortcut of treating them as one is dead: a work dir built from the
 > submodule would flatten with different code from every arm measured so far.
+>
+> **The divergence is wider than the four files this survey originally checked.**
+> `scripts/check_villa_render_path.py` diffs every executable file under the trees
+> `setup_workdir.sh` actually extracts, and finds **15 changed** between `5479453a` and `908aa7f06`,
+> not one: `lasagna/fit.py` on the hot path, plus `model.py`, `fit2tifxyz.py`, `fit_data.py`,
+> `cyl_sdf_volume.py`, `init_shell_index.py`, `approval_inpaint.py`,
+> `labels_to_winding_volume.py`, `predict3d_holescan.py`, `tifxyz_lasagna_dataset.py`,
+> `train_tifxyz.py`, two lasagna tests, a prefetch script, and
+> `vesuvius/src/vesuvius/tifxyz_label_transfer/io.py`. Several are squarely on the flatten path.
+> Hand-checking a named list of files was the weakness; the checker enumerates the trees instead and
+> exits nonzero, so it can gate a bump.
 
 ## `satisfaction_metrics.py` was substantially reworked, and my reasoning about it predates that
 
