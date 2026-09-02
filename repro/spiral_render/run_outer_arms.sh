@@ -49,19 +49,30 @@
 # whether a render is actually in trouble, compare its band-6 elapsed against the
 # table above, not against the ETA it prints.
 #
-# Reading /proc for health: it is the CPU that discriminates, NOT the fault rate.
-# Three samples, same workload:
+# Reading /proc for health needs BOTH counters and the network, not one of them.
+# Four modes, all observed on this workload:
 #
-#   1559 CPU ticks/20s with  1,436 major faults   <- healthy, little swapping
-#   2060 CPU ticks/20s with 22,145 major faults   <- healthy, swapping hard
-#    184 CPU ticks/20s with 31,435 major faults   <- 12 min from an OOM kill
+#   CPU    faults   network   meaning
+#   high   low      any       computing, healthy
+#   high   high     any       working THROUGH swap, healthy
+#   low    high     any       swap death spiral -- OOM kill follows in minutes
+#   low    low      busy      streaming zarr chunks from S3, healthy
 #
-# The middle sample is the one that matters: 22k faults with a core saturated is a
-# process working THROUGH swap, and it is fine. The kill signature is faults high
-# AND CPU COLLAPSED -- 184 ticks is 9% of a core, i.e. no longer making progress.
-# An earlier version of this comment said a fault spike alone means "about to
-# die"; that is wrong as a sufficient condition and the middle row is the
-# counterexample.
+# Measured examples, per 20-30s:
+#   1559 ticks /  1,436 faults              <- computing
+#   2060 ticks / 22,145 faults              <- through swap, fine
+#    184 ticks / 31,435 faults              <- died 12 minutes later
+#    509 ticks /  1,919 faults, 3.5 MB/s rx <- waiting on S3, fine
+#
+# The last row is why CPU alone is not the discriminator either: the render
+# STREAMS its ink volume (section 6 of the README), so a sleeping process with 17
+# open sockets pulling 3.5 MB/s is doing exactly what it should. Check
+# /proc/<pid>/stat field 3 for state and /proc/net/dev for throughput before
+# concluding anything from a low CPU number.
+#
+# Two earlier versions of this comment each promoted one counter to a rule and
+# each was wrong: first "a fault spike means dying", then "CPU is what
+# discriminates". It takes both, plus knowing the job is network-bound.
 #
 # The band counter advancing means alive, but it LAGS: band 7 completed normally
 # at 73m32s and the process was killed during band 8.
