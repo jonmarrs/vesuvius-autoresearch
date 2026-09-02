@@ -21,6 +21,15 @@
 #
 # The snapshot directory is printed and kept: it is the exact code a run used, so
 # it is also the record of what produced that arm.
+#
+# The highest-risk caller is a DEFERRED one -- a waiter that sits for hours and
+# then invokes a driver. The gap between launching that waiter and it actually
+# running the driver is precisely the window in which edits land, and the waiter
+# looks harmless while it waits. A chained job that resolves a path like
+# "$REPO/repro/spiral_render/run_outer_arms.sh" at exec time gets whatever the
+# repo contains by then, which may be mid-edit. Route those through here too, and
+# note that editing the WAITER while it waits has the same failure: stop it, edit,
+# relaunch.
 set -uo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 
