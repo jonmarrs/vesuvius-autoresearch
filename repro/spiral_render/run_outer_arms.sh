@@ -59,12 +59,16 @@ for SPEC in "$@"; do
 
   echo "[render] $TAG $(date -Is)"
   "$HERE/run_render.sh" "$W" > "$ROOT/outer_${TAG}_render.log" 2>&1
-  echo "[render] $TAG rc=$? $(date -Is)"
+  rc=$?   # captured on its own line; a $(...) in the echo would clobber $? first
+  echo "[render] $TAG rc=$rc $(date -Is)"
   ls "$W"/meshes/ink/*.jpg >/dev/null 2>&1 \
     || { echo "[fail] no strips for $TAG"; continue; }
 
   echo "[score] $TAG $(date -Is)"
   "$HERE/score_arms.sh" "$W" >> "$ROOT/outer_${TAG}_render.log" 2>&1
-  echo "[score] $TAG rc=$? $(date -Is)"
+  rc=$?
+  echo "[score] $TAG rc=$rc $(date -Is)"
+  [ -f "$W/ink_metric/metrics.json" ] \
+    || echo "[fail] $TAG produced no metrics.json; re-score it before analysing"
 done
 echo "=================== ARMS DONE $(date -Is) ==================="
