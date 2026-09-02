@@ -90,3 +90,46 @@ because I trust it.
 
 One fit (~2.5h, running), two outer renders (~2h each), two scorings (~15 min each). About 7 hours,
 strictly sequential.
+
+
+---
+
+## Addendum A, added 2026-09-02 14:15, before `gap133s2` and `gap133s3` were rendered
+
+**A post-hoc observation, registered as a prediction so it can be scored honestly.**
+
+Having established that the outer column score's noise is entirely its `col_width_conformity` term
+(`reports/outer_winding_noise_floor.md`), I looked at the other term, `col_gap_contrast`, across the
+four base seeds and `gap133`. It is the **only** quantity whose gap-vs-base delta clears its own
+floor:
+
+| quantity | BASE CV | floor `2*CV` | gap133 delta | clears |
+|---|---:|---:|---:|---|
+| `col_gap_contrast` | 0.0082 | **1.6%** | **-3.9%** | **YES** |
+| `col_width_conformity` | 0.2151 | 43.0% | -29.2% | no |
+| `col_score` | 0.2139 | 42.8% | -32.0% | no |
+| `line_score` | 0.0356 | 7.1% | -3.8% | no |
+| `overall_fg_fraction` | 0.0521 | 10.4% | -7.4% | no |
+| `total_fg_pixels` | 0.0421 | 8.4% | -6.7% | no |
+
+It clears not by moving more — it moves *less* than the objective — but by being **5x steadier**.
+
+**This is weak evidence and I am not claiming it.** Six quantities were inspected and one cleared, on
+a single gap fit; that is a selection risk, not a result. What makes it worth registering rather than
+discarding is that the arm already running will produce two more gap fits, so it can be tested at
+n=4 vs 3 for free.
+
+**Prediction, fixed now:** GAP shows a **reduction** in `col_gap_contrast`, significant at
+alpha = 0.05 by the same Welch test as the primary.
+
+**Decision rule:**
+
+* significant and negative -> the prediction is MET. Reported as a **hypothesis-generating**
+  observation only: one config, one dataset, post-hoc origin. It licenses a properly registered arm
+  on a *different* change, not a recommendation to villa.
+* anything else -> MISS, recorded as such, and the observation is **retired** as selection across the
+  six quantities.
+
+**Status: SECONDARY.** It cannot alter the primary `total_fg_pixels` verdict, and
+`scripts/analyse_gap_contrast_exploratory.py` reuses the primary's own `welch` so the statistic is
+the same code, not a second implementation tuned to a hoped-for answer.
