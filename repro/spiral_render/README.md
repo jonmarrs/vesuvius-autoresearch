@@ -169,6 +169,37 @@ ensemble accumulates in place rather than stacking three arrays and calling `np.
 path is untouched. `score_arms.sh` sets the variable and traces memory alongside, because an OOM is
 otherwise silent.
 
+**`setup_workdir.sh` applies the patch, and you should not do it by hand.** The script extracts a
+fresh *stock* `spiral-fitting` tree from villa, so a work dir does not carry the gate unless
+something puts it there. Two arms were scored with `INK_METRIC_SERIAL_FOLDS=1` exported and nothing
+in the code reading it: the variable was set, the folds ran concurrently anyway, memory reached
+30.6GB and nnU-Net's export workers were OOM-killed with
+
+```
+RuntimeError: Segmentation export worker died. It was likely killed by
+your OS because of insufficient available CPU RAM.
+```
+
+which reads like a `--procs` problem and is not one. `--procs` stays at the scorer's default of 8;
+once folds are serial, 8 fits in about 19-20GB. The diagnostic that distinguishes the two causes is
+the launch line: serial mode prints `launching fold 0/1/2` minutes apart, concurrent mode prints
+them together. Peak memory says it more reliably than the log ordering does, since those lines are
+written at launch either way.
+
+`setup_workdir.sh` now applies `serial_folds.patch` and then greps for the gate, failing if it is
+absent, so a work dir cannot be built without it.
+
+**Check the exit code, not just the log.** `get_ink_metrics.py` fails cleanly, but
+
+```sh
+echo "[exit] $(basename "$ARM") scoring rc=$?"     # WRONG
+```
+
+expands left to right: the command substitution runs and overwrites `$?` with *its* status before
+`rc=$?` is read, printing `rc=0` over a run that had just lost two of three folds. Capture `rc=$?`
+on its own line, and assert `metrics.json` exists as well -- the file check catches this class
+regardless of the shell subtlety.
+
 **The scorer is not bit-deterministic, patched or not.** Three runs over one fixed strip:
 
 | run | `total_fg_pixels` | `line_score` |
@@ -184,5 +215,6 @@ render, and a re-score is close to free of noise. `line_score` is bit-identical 
 being computed the same way from the averaged probabilities.
 
 Rendering an outer strip is also slow for the same reason. `vc_render_tifxyz` reached 26.1GB RSS and
-the box began swapping, taking band times from 26s to 18m; the ten outer windings took **2h02m**
-against about 8 minutes for ten inner ones.
+the box began swapping, taking band times from 26s to 18m. Four ten-winding outer renders took
+**1h55m, 2h00m, 2h02m and 2h32m**, against about 8 minutes for ten inner ones. Budget ~2h per outer
+arm plus ~15 min to score it, and run them strictly one at a time.
