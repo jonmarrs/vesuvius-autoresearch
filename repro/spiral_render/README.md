@@ -214,6 +214,20 @@ floor for a full render+score re-run on identical meshes: essentially all of tha
 render, and a re-score is close to free of noise. `line_score` is bit-identical across all three,
 being computed the same way from the averaged probabilities.
 
+**Careful where you run git.** The scratch output root used throughout this work,
+`openclaw-workspace/Neo-VM/spiral_out`, sits *inside another git repository* -- the workspace repo,
+which has a live remote. `spiral_out` is neither tracked nor gitignored there, so it shows up as
+**33 GB of untracked content** (including eleven ~2 GB fit checkpoints).
+
+Two consequences. A `git add -A` or a careless `git commit -a` from that directory would try to
+commit tens of gigabytes of render output to an unrelated remote. And any `git` command run after
+`cd`-ing there acts on the workspace repo, not on this one -- I ran `git add`/`commit`/`push` from
+there by accident; the add failed on a non-matching pathspec so nothing happened, but the push was
+aimed at the wrong remote and would not have been a no-op had that branch been ahead.
+
+Check `git rev-parse --show-toplevel` before any git operation in a session that also touches
+`spiral_out`, and never trust that a `cd` earlier in a compound command left you where you think.
+
 **An outer render can be OOM-killed, and there is no resume.** One of five outer renders here died
 that way: `vc_render_tifxyz` reached 26.9GB on a 32GB box and was SIGKILLed, surfacing as
 `CalledProcessError ... returned non-zero exit status 137` from `render_ink.py`. Ninety-one minutes
