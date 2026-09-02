@@ -142,3 +142,47 @@ docker run --rm -v "$WORK":/work --entrypoint sh vc-render:local -c "
 Two costs worth knowing before starting. flatboi is single threaded and still slow even on the
 decimated mesh, so a full 120 winding fit is a long job on a 4 core box. And `vc_render_scaled` must
 be on a path visible inside the container.
+
+## 7. Scoring an OUTER-winding strip OOMs the stock scorer
+
+The four obstacles above are about getting a render at all. A fifth appears only at the outer
+windings, because those strips are an order of magnitude bigger:
+
+| arm | flat grid | rendered strip |
+|---|---|---|
+| w010-w019 (inner) | 881 x 304 | 8,810 x 3,040 = 26.8M px |
+| w120-w129 (outer) | 8267 x 426 | 82,670 x 4,260 = 352M px |
+
+`get_ink_metrics.py` launches one subprocess per fold and waits for all three, so at 352M px three
+copies of the strip's logits are live at once. On a 32GB box that is fatal, and it is fatal in a way
+the fold logs do not explain:
+
+```
+[mem] used= 8706MB avail=23386MB    <- before launch
+[mem] used=30878MB avail= 1214MB    <- three folds live
+  fold 0 (GPU 0) FAILED (rc=1)
+  fold 1 (GPU 0) FAILED (rc=-9)     <- SIGKILL, the OOM killer
+```
+
+`serial_folds.patch` adds an opt-in `INK_METRIC_SERIAL_FOLDS=1`: folds run one at a time, and the
+ensemble accumulates in place rather than stacking three arrays and calling `np.mean`. The default
+path is untouched. `score_arms.sh` sets the variable and traces memory alongside, because an OOM is
+otherwise silent.
+
+**The scorer is not bit-deterministic, patched or not.** Three runs over one fixed strip:
+
+| run | `total_fg_pixels` | `line_score` |
+|---|---:|---|
+| on record | 249,913 | 0.40331167445607574 |
+| stock path, re-run | 249,905 | 0.40331167445607574 |
+| serial path | 249,906 | 0.40331167445607574 |
+
+The **stock** path also fails to reproduce its own earlier number, so the drift is nnU-Net run-to-run
+nondeterminism on GPU and not the patch. The spread is 0.0032%, against a documented **1.42%**
+floor for a full render+score re-run on identical meshes: essentially all of that 1.42% is the
+render, and a re-score is close to free of noise. `line_score` is bit-identical across all three,
+being computed the same way from the averaged probabilities.
+
+Rendering an outer strip is also slow for the same reason. `vc_render_tifxyz` reached 26.1GB RSS and
+the box began swapping, taking band times from 26s to 18m; the ten outer windings took **2h02m**
+against about 8 minutes for ten inner ones.

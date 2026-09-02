@@ -86,9 +86,24 @@ catastrophe, not error.** `reports/geometry_and_ink_decouple_at_seed_scale.md`.
 **11. villa's default spiral config warns about itself on every run.**
 `shell_outer_winding_idx` defaults to 130 and requires `model_gap_expander_num_windings >= 133`,
 which defaults to 130. No shipped config overrides either, nothing anywhere assigns them, and the
-inference path cannot fire because the default is not None. Consequence unestablished; a
-pre-registered arm testing one candidate consequence returned a null on duplication.
+inference path cannot fire because the default is not None.
 `reports/spiral_default_config_gap_expander_shortfall.md`.
+
+**12. Setting it to 133 measurably improves the fit, on two seeds.** `satisfied_area` rises to
+0.8480 and 0.8465 against an honest four-seed 0.8382-0.8404, **+7.3 to +8.8 sd**, and the two sets
+are disjoint, so it passes the strict two-seed rule. Sizing the test with our own noise measurement
+is what made two seeds enough: this quantity's CV is 0.00114, not the objective's 0.1086. So the
+finding is no longer "a default that warns about itself", which could be dismissed as cosmetic; it
+is a one-line config change that improves villa's own geometry diagnostic.
+`reports/gap_expander_fix_improves_the_fit.md`.
+
+**13. Whether that fix helps INK is still not established, now measured in the right place.**
+The first ink measurement of the fix was aimed at the wrong region: the shortfall acts on the
+outermost windings, and every render in this work covered the innermost ten. Re-measured on
+w120-w129 of the same two fits, `dT` = **-11.03%**, inside the 21.7% different-fit floor, so it is
+uninterpretable in either direction. Registered before the data as the likely outcome, precisely so
+a null could not later be dressed up as evidence of no effect. Answering it needs three seeds per
+arm, six fits, about nine hours. `reports/gap_fix_outer_windings_still_not_established.md`.
 
 ## What is NOT established, and matters
 
@@ -137,6 +152,12 @@ were mis-specified, each written from a plausible reading of the code rather tha
 the observable actually does. Two were caught, one produced a void arm and a withdrawn premise. The
 fix is to confirm an observable responds to a manipulation before spending the GPU time, not to
 guess better.
+
+**A fourth instance of the same class, caught late:** the first ink measurement of the gap-expander
+fix was aimed at the innermost ten windings while the change acts on the outermost. The observable
+was fine and the *region* was wrong, so the arm would have read null whether or not the fix works.
+The question to ask before registering is not only "does this observable respond?" but "where can
+this manipulation express itself?" (finding 13).
 
 Reproduce: `repro/spiral_render/`, `scripts/measure_winding_overlap.py`,
 `scripts/analyse_seed_spread.py`. All from published artifacts.

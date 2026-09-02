@@ -15,6 +15,12 @@ repos:
     rev: v5.0.0
     hooks:
       - id: trailing-whitespace
+        # A unified diff encodes a blank context line as a single space. Trimming
+        # it rewrites the patch's payload, and a patch that silently stops applying
+        # is exactly the failure repro/spiral_render/serial_folds.patch exists to
+        # avoid. GNU patch and git apply both tolerated the trimmed form when this
+        # first happened, which is worse, not better: it would have rotted quietly.
+        exclude: '\.patch$'
       - id: end-of-file-fixer
       - id: check-yaml
       - id: check-added-large-files

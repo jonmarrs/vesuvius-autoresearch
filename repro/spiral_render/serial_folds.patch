@@ -1,0 +1,40 @@
+--- a/spiral-fitting/get_ink_metrics.py
++++ b/spiral-fitting/get_ink_metrics.py
+@@ -382,6 +382,9 @@
+     return [str(i) for i in range(n)] if n > 0 else ['0']
+ 
+ 
++SERIAL_FOLDS = os.environ.get('INK_METRIC_SERIAL_FOLDS') == '1'
++
++
+ def load_fold_prob(npz_path):
+     """Load a fold's saved softmax probabilities as (num_classes, H, W) float32."""
+     with np.load(npz_path) as d:
+@@ -545,6 +548,8 @@
+         logf = open(os.path.join(log_dir, f'fold_{fold}.log'), 'w')
+         print(f'  launching fold {fold} on GPU {gpu} -> {os.path.basename(fold_out[fold])}')
+         procs.append((fold, gpu, subprocess.Popen(cmd, env=env, stdout=logf, stderr=subprocess.STDOUT), logf))
++        if SERIAL_FOLDS:
++            procs[-1][2].wait()   # one fold at a time; the wait() loop below re-reads the cached rc
+ 
+     failed = []
+     for fold, gpu, proc, logf in procs:
+@@ -572,8 +577,16 @@
+     if len(line_band) != 2 or line_band[0] >= line_band[1]:
+         ap.error(f'--line-pitch-px must be "min,max", got {args.line_pitch_px!r}')
+ 
+-    probs = [load_fold_prob(os.path.join(fold_out[f], f'{name}.npz')) for f in folds]
+-    avg = np.mean(probs, axis=0)          # (num_classes, H, W)
++    if SERIAL_FOLDS:
++        # Same value as np.mean below (verified bit-identical at n=3 float32), but
++        # never holds more than two folds at once.
++        avg = load_fold_prob(os.path.join(fold_out[folds[0]], f'{name}.npz'))
++        for f in folds[1:]:
++            avg += load_fold_prob(os.path.join(fold_out[f], f'{name}.npz'))
++        avg /= len(folds)
++    else:
++        probs = [load_fold_prob(os.path.join(fold_out[f], f'{name}.npz')) for f in folds]
++        avg = np.mean(probs, axis=0)      # (num_classes, H, W)
+     fg_prob = avg[1]                       # class 1 == ink
+     mask = fg_prob >= args.fg_threshold
+     col_metrics, col_detail = score_columns(fg_prob, args.col_width_px, args.col_width_tol)
