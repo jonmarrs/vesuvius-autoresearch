@@ -49,17 +49,22 @@
 # whether a render is actually in trouble, compare its band-6 elapsed against the
 # table above, not against the ETA it prints.
 #
-# A /proc liveness sample swings widely, but a FAULT SPIKE IS A REAL WARNING.
-# The same render, sampled an hour apart:
+# Reading /proc for health: it is the CPU that discriminates, NOT the fault rate.
+# Three samples, same workload:
 #
-#   1559 CPU ticks/20s with  1,436 major faults   <- healthy
-#    184 CPU ticks/20s with 31,435 major faults   <- 12 minutes from an OOM kill
+#   1559 CPU ticks/20s with  1,436 major faults   <- healthy, little swapping
+#   2060 CPU ticks/20s with 22,145 major faults   <- healthy, swapping hard
+#    184 CPU ticks/20s with 31,435 major faults   <- 12 min from an OOM kill
 #
-# I read the second as a harmless phase and said so. It was the death spiral:
-# vc_render_tifxyz was killed at 26.9GB and render_ink.py reported exit 137. Treat
-# a 20x jump in major faults as "about to die", not as a mood. The band counter
-# advancing is still the signal that it is alive, but it is a LAGGING one -- band 7
-# completed normally and the process was killed during band 8.
+# The middle sample is the one that matters: 22k faults with a core saturated is a
+# process working THROUGH swap, and it is fine. The kill signature is faults high
+# AND CPU COLLAPSED -- 184 ticks is 9% of a core, i.e. no longer making progress.
+# An earlier version of this comment said a fault spike alone means "about to
+# die"; that is wrong as a sufficient condition and the middle row is the
+# counterexample.
+#
+# The band counter advancing means alive, but it LAGS: band 7 completed normally
+# at 73m32s and the process was killed during band 8.
 # (Fields: 14+15 of /proc/<pid>/stat for CPU ticks, field 10 for major faults.)
 #
 # NEVER EDIT THIS FILE WHILE A RUN IS IN PROGRESS. bash reads a script
