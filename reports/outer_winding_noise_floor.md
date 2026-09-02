@@ -79,6 +79,18 @@ not rescue the comparison -- `overall_fg_fraction` has CV **0.0521**, *higher* t
 0.0421, and gap133's deficit on that measure is -13.48% against a 10.4% floor. The verdict is the
 same either way, which is the useful part: the answer does not depend on which of the two is chosen.
 
+Worth noting because it is counterintuitive: **normalising by canvas ADDS noise here rather than
+cancelling it.** A ratio sheds variance only when numerator and denominator move together, and these
+do not. Across the four seeds `corr(total_fg, canvas)` is **-0.29**, and the observed ratio CV
+(0.0521) sits above even the independence prediction of `sqrt(0.0421^2 + 0.0199^2)` = 0.0466. So a
+bigger canvas does not bring proportionally more ink with it.
+
+**The correlation itself is not claimed.** At n=4 an r of -0.29 has a 95% interval spanning almost
+the whole range, so the mechanism -- whether canvas and ink are genuinely anti-correlated or merely
+uncorrelated -- is unestablished. What *is* measured is the practical consequence: `total_fg_pixels`,
+villa's own objective, is the better-behaved of the two out here, and swapping to `fg_fraction` on
+the intuition that normalising must help would make a comparison noisier, not cleaner.
+
 ## Limits
 
 Seed noise within one config, one dataset, one ROI, one winding decade. It fixes the yardstick and
