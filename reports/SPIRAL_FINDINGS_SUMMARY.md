@@ -123,6 +123,17 @@ stated margin does not: -11.03% is borderline, and a properly powered arm could 
 gap fix COSTS ink where it acts. `line` is unchanged between regions (0.0356 vs 0.0342), so this is
 specific to the objective. `reports/outer_winding_noise_floor.md`.
 
+**15. The column score's noise is one of its two terms, evaluated 3x outside its design range.**
+`col_score` has outer CV **0.2139**; its `col_width_conformity` term has **0.2152** and its
+`col_gap_contrast` term has **0.0082**. The score's noise is entirely conformity, which asks what
+fraction of detected columns fall in 722-977 px while the detected median width out there is
+240-293 px -- a tail count three widths from the distribution's centre. `col_gap_contrast` is by
+contrast one of the steadiest quantities in this work, steadier than the objective by 5x. So "the
+column score is noisy" was never true of the whole score, and reading it in this region means
+reading a term outside the regime it was tuned for. Whether the outer windings really carry ~270 px
+columns or the detector mis-segments them there is **unresolved**.
+`reports/outer_winding_noise_floor.md`.
+
 ## What is NOT established, and matters
 
 **Reachability through a fit is unproven, and the search for it is CLOSED.** Every duplicate arm
