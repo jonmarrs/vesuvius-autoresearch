@@ -12,6 +12,14 @@
 # Resumable: a fit whose ink_metric/metrics.json already exists is skipped, so an
 # interrupted run picks up where it stopped rather than re-rendering two hours.
 #
+# If you chain this behind something else, WAIT ON A FILE, not on a process name.
+# `pgrep -f <script>.sh` matches every command line that merely contains that
+# string: the shell whose heredoc wrote the script, a monitor whose grep pattern
+# mentions it, even the `pgrep` invocation itself. Two failures came from this in
+# one session -- a driver that waited two hours for its own reflection, and a
+# `pkill -f` that killed the shell issuing it. `until compgen -G <the artifact the
+# job actually produces>` cannot self-match; give it a deadline and fail loudly.
+#
 # Usage:
 #   run_outer_arms.sh <out_root> <first_winding> <last_winding> <tag>=<fitted_meshes_dir> ...
 #
