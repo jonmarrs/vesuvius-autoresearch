@@ -5,11 +5,11 @@ the thing cited is still there. This repository lost three months to that rot
 once already, when a script reorganisation left every reference to the old
 locations pointing at nothing and no one was looking.
 
-  documents scanned:        79
-  paths cited:              303
-  commits cited:            46
-  paths that do not exist:  14  (1 in live documents, 13 in dated ones)
-  commits unreachable:      1
+  documents scanned:        117
+  paths cited:              406
+  commits cited:            59
+  paths that do not exist:  18  (1 in live documents, 17 in dated ones)
+  commits unreachable:      3
 
 === Stale paths in live documents ===
   These are worth fixing: a reader following them finds nothing.
@@ -19,6 +19,10 @@ locations pointing at nothing and no one was looking.
   A dated document records what was true on its date. These are history,
   not defects, and editing them would destroy the record.
    reports/villa_autoresearch_prize_plan_2026-05-07.md  scripts/run_ranked_inference.py
+   reports/villa_pin_bump_impact_2026-08-31.md          models/resnetall.py
+   reports/villa_pin_bump_impact_2026-08-31.md          scripts/rag_guided_search.py
+   reports/villa_pin_bump_impact_2026-08-31.md          scripts/rag_researcher.py
+   reports/villa_pin_bump_impact_2026-08-31.md          villa/discord_chatbot/discord_vector_store
    docs/PRIZE_FILING_2026-08_DRAFT.md                   tests/test_fiber_gaming.py
    docs/PRIZE_FILING_2026-08_DRAFT.md                   tests/test_fiber_meta_keys.py
    docs/PROGRESS_PRIZE_SUBMISSION_2026-05.md            models/run/inference.py
@@ -37,3 +41,5 @@ locations pointing at nothing and no one was looking.
   look up, even though it may resolve locally. Commits belonging to the villa
   submodule are a different repository's history and are not listed.
    reports/column_registration_external_audit.md        7d86713                                    nowhere
+   reports/villa_upstream_survey_2026-08-31.md          a04825d9                                   nowhere
+   reports/villa_upstream_survey_2026-08-31.md          d092a339                                   nowhere
