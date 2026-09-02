@@ -31,7 +31,12 @@ that different has no claim on the same noise.
 Render and score **w120-w129** for `seed02`, `seed03`, `seed04`. `baseline01` (seed 1) is already
 done and is reused unchanged. n = 4, matching the inner-winding measurement exactly.
 
-Identical tooling to both arms of the previous report: villa pin `c935851c3`, the LASAGNA path,
+Identical tooling to both arms of the previous report: spiral-fitting extracted at villa
+**`5479453a`** (corrected 2026-09-02; this document first said `c935851c3`, which is the *submodule*
+pin and not what renders run from -- `setup_workdir.sh` extracts from the separate `villa-spiral`
+checkout, whose `origin/main` is 5479453a and does not even contain `c935851c3`. The arms are
+unaffected: every arm in this work used 5479453a, which is what comparability depends on), the
+LASAGNA path,
 `INK_METRIC_SERIAL_FOLDS=1`, scoring from `data/ink_scorer_venv`.
 
 ## Predictions, fixed now

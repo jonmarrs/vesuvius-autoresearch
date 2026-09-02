@@ -17,7 +17,13 @@ The fix is not a better floor, it is more fits.
 
 All differ only in `optimizer_random_seed`; GAP additionally sets
 `model_gap_expander_num_windings` 130 -> 133. All measured on **w120-w129**, identical tooling,
-villa pin `c935851c3`, serial-fold scoring.
+spiral-fitting extracted at villa **`5479453a`**, serial-fold scoring.
+
+*Corrected 2026-09-02, before any new render was scored: this line first said `c935851c3`, the
+submodule pin. Renders do not come from the submodule. `setup_workdir.sh` extracts from the separate
+`villa-spiral` checkout, whose `origin/main` is `5479453a` (last fetched 2026-08-30) and which does
+not contain `c935851c3` at all. No measurement changes -- every arm in this study, old and new, is
+built from 5479453a. It also means the submodule bump to `908aa7f06` cannot touch this arm.*
 
 **Disclosure, because it cannot be avoided: 5 of the 7 values are already known to me.** The four
 BASE values and `gap133` are published in `reports/outer_winding_noise_floor.md` and

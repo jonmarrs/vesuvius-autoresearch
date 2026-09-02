@@ -3,6 +3,12 @@
 set -euo pipefail
 W="${1:?usage: setup_workdir.sh <workdir> <fitted_meshes_dir> [winding...]}"
 MESHES="${2:?}"; shift 2
+# NOTE the provenance: work dirs are built from THIS checkout's origin/main, which
+# is a different thing from the villa SUBMODULE pinned in this repo. They can and
+# do differ (villa-spiral is at 5479453a; the submodule has been bumped past it and
+# does not even contain that commit). Quote this one when recording what a render
+# ran on, and do NOT fetch it mid-study: every arm of a comparison must be built
+# from the same tree, and a fetch silently changes what future work dirs get.
 VILLA="${VILLA:-/home/jon/openclaw-workspace/Neo-VM/villa-spiral}"
 HERE="$(cd "$(dirname "$0")" && pwd)"
 mkdir -p "$W/meshes" "$W/inkcache"
