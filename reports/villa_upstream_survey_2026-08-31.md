@@ -35,6 +35,26 @@ one.
 `c935851c3`, which is what makes the four seed arms comparable
 (`docs/preregistration/2026-08-31_seed_spread_n4.md`, addendum 3).
 
+> **Update 2026-09-02, after bumping the pin to `908aa7f06`: this equivalence is now PARTIALLY
+> BROKEN.** Re-checked against the new pin:
+>
+> | file | `5479453a` vs `908aa7f06` |
+> |---|---|
+> | `spiral-fitting/render_ink.py` | identical |
+> | `spiral-fitting/tifxyz.py` | identical |
+> | `spiral-fitting/get_ink_metrics.py` | identical |
+> | `lasagna/fit.py` | **DIFFERS** |
+>
+> `lasagna/fit.py` gained `from dtypes import torch_float_hi` (villa #1639, lasagna on the mps
+> backend, which also adds `lasagna/dtypes.py`). That file is the **flatten** step, so it determines
+> the mesh geometry a render is scored on -- the one place a silent difference would move
+> `total_fg_pixels` without touching the scorer.
+>
+> **No existing arm is affected**, because work dirs are built from the separate `villa-spiral`
+> checkout at `5479453a`, not from this submodule. But the two trees are no longer interchangeable on
+> the render path, so the shortcut of treating them as one is dead: a work dir built from the
+> submodule would flatten with different code from every arm measured so far.
+
 ## `satisfaction_metrics.py` was substantially reworked, and my reasoning about it predates that
 
 **456 changed lines.** New: a packed evaluation path (`evaluate_patch_satisfaction_packed`,
