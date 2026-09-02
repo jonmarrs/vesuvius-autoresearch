@@ -49,6 +49,17 @@
 # whether a render is actually in trouble, compare its band-6 elapsed against the
 # table above, not against the ETA it prints.
 #
+# A /proc liveness sample is BIMODAL and one reading proves nothing. The same
+# healthy render, sampled an hour apart:
+#
+#   1559 CPU ticks/20s with  1,436 major faults   <- compute phase
+#    184 CPU ticks/20s with 31,435 major faults   <- fault-bound phase
+#
+# Neither means wedged; it alternates. vmstat over the second window still showed
+# the box 78% idle with 0% iowait. If you want a liveness signal, take several
+# samples over minutes, or just watch the band counter advance. (Fields: 14+15 of
+# /proc/<pid>/stat for CPU ticks, field 10 for major faults.)
+#
 # Usage:
 #   run_outer_arms.sh <out_root> <first_winding> <last_winding> <tag>=<fitted_meshes_dir> ...
 #
