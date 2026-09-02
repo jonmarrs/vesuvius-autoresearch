@@ -65,8 +65,9 @@
 # NEVER EDIT THIS FILE WHILE A RUN IS IN PROGRESS. bash reads a script
 # incrementally by byte offset, so committing a doc change to a driver that has
 # been executing for 90 minutes makes it resume mid-token; two edits to these
-# comments corrupted a live run into `line 82: syntax error`. Copy the directory
-# and run the copy if a study is in flight.
+# comments corrupted a live run into `line 82: syntax error`. Use
+# `run_snapshot.sh`, which freezes a copy of this directory and runs that, so the
+# repo stays editable during a study instead of relying on remembering not to.
 #
 # Usage:
 #   run_outer_arms.sh <out_root> <first_winding> <last_winding> <tag>=<fitted_meshes_dir> ...
