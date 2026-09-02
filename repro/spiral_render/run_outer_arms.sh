@@ -28,6 +28,14 @@
 # consume -- here, the ten w12?_spliced_* directories -- and say how many you
 # found.
 #
+# Size a watchdog deadline for "this will NEVER finish", not for "this is slower
+# than I expected". Outer renders degrade nonlinearly once the box swaps: band
+# times on one arm went 6m -> 8m -> 20m -> 46m, roughly doubling, pushing a ~2h
+# render past 4h. Deadlines set from the optimistic estimate would have failed a
+# chain of waiters while the study was most of the way done, throwing away hours
+# of rendering to a timer rather than to a fault. 24h costs nothing and still
+# catches a genuinely wedged job.
+#
 # Usage:
 #   run_outer_arms.sh <out_root> <first_winding> <last_winding> <tag>=<fitted_meshes_dir> ...
 #
