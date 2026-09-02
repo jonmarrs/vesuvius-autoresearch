@@ -20,6 +20,14 @@
 # `pkill -f` that killed the shell issuing it. `until compgen -G <the artifact the
 # job actually produces>` cannot self-match; give it a deadline and fail loudly.
 #
+# And wait on the LAST thing the job writes, or better, on the artifact you
+# actually need. fit_spiral.py writes satisfaction_metrics_fitted.json about a
+# minute BEFORE it writes its meshes, so a driver keyed to that json woke early,
+# found no meshes and dropped an arm from a seven-arm study. The completion signal
+# you can see is not always the completion. Check for the inputs you are about to
+# consume -- here, the ten w12?_spliced_* directories -- and say how many you
+# found.
+#
 # Usage:
 #   run_outer_arms.sh <out_root> <first_winding> <last_winding> <tag>=<fitted_meshes_dir> ...
 #
