@@ -123,7 +123,7 @@ def test_end_to_end_over_written_metrics_files(tmp_path):
                 }
             )
         )
-        args.append(f"seed0{i + 1}={p}")
+        args.append(f"{mod.REGISTERED_ARMS[i]}={p}")
     out = tmp_path / "out.json"
     sys.argv = ["analyse_outer_floor.py", *args, "--out", str(out)]
     mod.main()
@@ -135,3 +135,87 @@ def test_end_to_end_over_written_metrics_files(tmp_path):
         "REVERSES",
         "UNRESOLVED",
     }
+
+
+def _metrics_file(tmp_path, name, fg, sat=None):
+    p = tmp_path / f"{name}.json"
+    p.write_text(
+        json.dumps(
+            {
+                "summary": {
+                    "total_fg_pixels": fg,
+                    "overall_line_score": 0.34,
+                    "overall_column_score": 0.24,
+                }
+            }
+        )
+    )
+    if sat is None:
+        return str(p)
+    s = tmp_path / f"{name}_sat.json"
+    s.write_text(json.dumps({"summary": {"satisfied_area_fraction": sat}}))
+    return f"{p},{s}"
+
+
+def test_an_unregistered_arm_is_refused(tmp_path):
+    """The trap this gate exists for. gap133 is a CONFIG arm; pooling it would put
+    a config effect into a seed floor, and a wider floor is exactly what leaves the
+    published conclusion standing -- failure in the flattering direction."""
+    sys.argv = [
+        "analyse_outer_floor.py",
+        f"baseline01={_metrics_file(tmp_path, 'a', 1_789_206)}",
+        f"gap133={_metrics_file(tmp_path, 'b', 1_591_857)}",
+    ]
+    with pytest.raises(SystemExit) as e:
+        mod.main()
+    assert "gap133" in str(e.value)
+
+
+def test_quality_alone_would_not_have_caught_gap133():
+    """Documents why the allowlist is needed on top of the quality gate: gap133's
+    satisfied_area is 0.0082 from baseline01, inside the 0.01 band."""
+    assert abs(0.8480 - 0.8398) < mod.QUALITY_BAND
+
+
+def test_a_duplicated_arm_is_refused(tmp_path):
+    """Passing one arm twice shrinks the CV toward zero, which pushes the verdict
+    toward REVERSES. Refuse rather than compute it."""
+    f = _metrics_file(tmp_path, "a", 1_789_206)
+    sys.argv = ["analyse_outer_floor.py", f"seed02={f}", f"seed02={f}"]
+    with pytest.raises(SystemExit) as e:
+        mod.main()
+    assert "twice" in str(e.value)
+
+
+def test_the_quality_gate_drops_an_outlying_fit(tmp_path, capsys):
+    """A fit whose satisfied_area sits outside the band is not a like-for-like
+    member of the sample and must be named, not averaged in."""
+    rows = [
+        {"tag": "baseline01", "satisfied_area_fraction": 0.8398},
+        {"tag": "seed02", "satisfied_area_fraction": 0.8402},
+        {"tag": "seed03", "satisfied_area_fraction": 0.8390},
+        {"tag": "seed04", "satisfied_area_fraction": 0.9600},
+    ]
+    kept = mod.quality_gate(rows)
+    assert [r["tag"] for r in kept] == ["baseline01", "seed02", "seed03"]
+    assert "seed04" in capsys.readouterr().out
+
+
+def test_the_quality_gate_pools_four_honest_seeds(tmp_path, capsys):
+    """The real values: spread 0.0022, comfortably inside the band."""
+    rows = [
+        {"tag": t, "satisfied_area_fraction": s}
+        for t, s in zip(
+            mod.REGISTERED_ARMS, [0.8398, 0.8382, 0.8404, 0.8390], strict=False
+        )
+    ]
+    assert len(mod.quality_gate(rows)) == 4
+    assert "pooled" in capsys.readouterr().out
+
+
+def test_the_quality_gate_skips_when_satisfaction_is_not_supplied(capsys):
+    """It must announce that it skipped, so a missing gate is visible rather than
+    mistaken for a pass."""
+    rows = [{"tag": "seed02"}, {"tag": "seed03"}]
+    assert len(mod.quality_gate(rows)) == 2
+    assert "SKIPPED" in capsys.readouterr().out

@@ -75,6 +75,19 @@ numbers existed**, because the band made STANDS almost unreachable — a floor t
 is a comfortable pass, not a tie. The interval version is implemented in
 `scripts/analyse_outer_floor.py`, also written before the data.*
 
+## Which arms may be pooled, fixed now
+
+The four arms above and **nothing else**. `scripts/analyse_outer_floor.py` refuses any tag outside
+`(baseline01, seed02, seed03, seed04)`, refuses a duplicate, and applies the same 0.01
+`satisfied_area` quality gate `analyse_seed_spread.py` uses, naming any fit it drops.
+
+The trap being closed is specific. `gap133` is a **config** arm, and pooling it would put a config
+effect inside a seed floor. That widens the floor, and a wider floor is precisely what leaves my
+published conclusion STANDING, so the error would fail in the flattering direction. Quality alone
+would not catch it: gap133's `satisfied_area` is 0.0082 from baseline01's, **inside** the 0.01 band.
+Hence an allowlist on top of the gate. Added while seed02 was still rendering, before any of the
+three arms produced a number.
+
 ## What this cannot do
 
 It measures seed noise within one config, on one dataset, one ROI, one winding decade. It says

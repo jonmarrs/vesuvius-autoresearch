@@ -47,6 +47,18 @@ CANDIDATE = "overall_column_score"
 # a floor twice the observation is a comfortable pass, not a tie.
 CI = 0.95
 
+# The arms the pre-registration names, fixed before any of them was rendered. This
+# is a SEED spread: pooling anything else makes the "floor" absorb a config effect
+# and, since a wider floor is what leaves my published conclusion standing, it
+# would fail in the flattering direction. gap133 is the specific trap -- its
+# satisfied_area sits 0.0082 from baseline01, inside the 0.01 quality band that
+# guards analyse_seed_spread.py, so quality alone would NOT catch it.
+REGISTERED_ARMS = ("baseline01", "seed02", "seed03", "seed04")
+
+# Same band analyse_seed_spread.py uses: fits of differing quality are not
+# like-for-like members of one seed sample.
+QUALITY_BAND = 0.01
+
 # The inner-winding CVs the previous report's floors were transferred from.
 INNER_CV = {
     "total_fg_pixels": 0.1086,
@@ -77,6 +89,35 @@ def cv_interval(point: float, n: int) -> tuple[float, float]:
     lo = point * math.sqrt(df / chi2.ppf(1 - tail, df))
     hi = point * math.sqrt(df / chi2.ppf(tail, df))
     return lo, hi
+
+
+def quality_gate(rows: list[dict]) -> list[dict]:
+    """Refuse to pool fits of differing quality, the gate analyse_seed_spread.py
+    already applies. Optional: it only fires when every arm was given a
+    satisfaction json. Outliers are dropped from the pool and named, not silently
+    averaged in."""
+    sats = [
+        r["satisfied_area_fraction"] for r in rows if "satisfied_area_fraction" in r
+    ]
+    if len(sats) != len(rows) or len(sats) < 2:
+        print("quality gate: not all arms carried a satisfaction json, gate SKIPPED")
+        return rows
+    spread = max(sats) - min(sats)
+    if spread <= QUALITY_BAND:
+        print(
+            f"quality gate: satisfied_area spread {spread:.4f} <= {QUALITY_BAND} -> pooled"
+        )
+        return rows
+    centre = statistics.median(sats)
+    keep = [
+        r for r in rows if abs(r["satisfied_area_fraction"] - centre) <= QUALITY_BAND
+    ]
+    dropped = [r["tag"] for r in rows if r not in keep]
+    print(
+        f"quality gate: satisfied_area spread {spread:.4f} > {QUALITY_BAND}; "
+        f"NOT pooling {', '.join(dropped)}"
+    )
+    return keep
 
 
 def rule(metric: str, floor: float, n: int, cv_point: float) -> tuple[str, str]:
@@ -138,10 +179,30 @@ def main():
 
     rows = []
     for spec in args.arms:
-        tag, _, path = spec.partition("=")
-        m = json.loads(Path(path).read_text())["summary"]
-        rows.append({"tag": tag, **{k: m[k] for k in INNER_CV}})
+        tag, _, paths = spec.partition("=")
+        mp, _, sp = paths.partition(",")
+        if tag not in REGISTERED_ARMS:
+            raise SystemExit(
+                f"arm {tag!r} is not one of the registered arms {REGISTERED_ARMS}. "
+                "This measures SEED noise; pooling a config arm would report a config "
+                "effect as noise, widening the floor in the direction that flatters the "
+                "published conclusion. Refusing."
+            )
+        m = json.loads(Path(mp).read_text())["summary"]
+        row = {"tag": tag, **{k: m[k] for k in INNER_CV}}
+        if sp:
+            row["satisfied_area_fraction"] = json.loads(Path(sp).read_text())[
+                "summary"
+            ]["satisfied_area_fraction"]
+        rows.append(row)
 
+    tags = [r["tag"] for r in rows]
+    if len(set(tags)) != len(tags):
+        raise SystemExit(
+            f"an arm was passed twice: {tags}. A duplicate shrinks the CV."
+        )
+
+    rows = quality_gate(rows)
     n = len(rows)
     print(f"{'fit':<14}{'total_fg':>12}{'line':>9}{'col':>9}")
     for r in rows:
