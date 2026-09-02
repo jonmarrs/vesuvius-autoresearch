@@ -1,5 +1,12 @@
 # The gap-expander fix, measured where it acts: still not established
 
+> **Correction, 2026-09-02.** The conclusion below stands; **the margin it quotes does not.** The
+> 21.7% floor used here was measured on the INNER windings and is 2.6x too wide for the outer ones.
+> The measured outer floor is **8.4%**, which the observed -11.03% EXCEEDS. The verdict is UNRESOLVED
+> rather than reversed only because a floor from n=4 is an interval (4.8% to 31.4%) that straddles
+> the observation. Read "far inside its floor" below as **borderline**.
+> `reports/outer_winding_noise_floor.md`.
+
 **2026-09-01.** Registered in `docs/preregistration/2026-09-01_gap_fix_measured_where_it_acts.md`,
 before either render. **The registered expectation is met, and it was an expectation of a null**: one
 fit per arm cannot clear the different-fit floor except for a large effect, and it did not.

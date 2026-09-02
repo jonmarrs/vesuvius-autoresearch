@@ -9,11 +9,17 @@ floor wrong caused two reversals in a single afternoon.
 | floor | value | applies to |
 |---|---:|---|
 | pipeline non-determinism | **1.42%** | two renders of the SAME meshes, and same-fit comparisons |
-| seed spread, `2*CV`, n=4 | **21.7%** | two DIFFERENT fits |
+| seed spread, `2*CV`, n=4, **inner** w010-w019 | **21.7%** | two DIFFERENT fits, inner windings |
+| seed spread, `2*CV`, n=4, **outer** w120-w129 | **8.4%** | two DIFFERENT fits, outer windings |
 | duplicate-coverage baseline (full fit) | **0.0897 to 0.1042%** | gap>=2 overlap in any converged fit |
 | duplicate-coverage baseline (10-winding span) | **0.00%** | the span all arms are measured on |
 
-`reports/pipeline_determinism_and_which_floor_applies.md`, `reports/seed_spread_four_fits.md`.
+`reports/pipeline_determinism_and_which_floor_applies.md`, `reports/seed_spread_four_fits.md`,
+`reports/outer_winding_noise_floor.md`.
+
+**The floor is region-specific and the difference is large.** A floor measured on the inner windings
+is 2.6x too wide for the outer ones. Quote the one for the region you measured in; transferring
+across regions is what made finding 13's stated margin wrong.
 
 ## Findings
 
@@ -100,10 +106,21 @@ is a one-line config change that improves villa's own geometry diagnostic.
 **13. Whether that fix helps INK is still not established, now measured in the right place.**
 The first ink measurement of the fix was aimed at the wrong region: the shortfall acts on the
 outermost windings, and every render in this work covered the innermost ten. Re-measured on
-w120-w129 of the same two fits, `dT` = **-11.03%**, inside the 21.7% different-fit floor, so it is
-uninterpretable in either direction. Registered before the data as the likely outcome, precisely so
-a null could not later be dressed up as evidence of no effect. Answering it needs three seeds per
-arm, six fits, about nine hours. `reports/gap_fix_outer_windings_still_not_established.md`.
+w120-w129 of the same two fits, `dT` = **-11.03%**. Registered before the data as the likely
+outcome, precisely so a null could not later be dressed up as evidence of no effect.
+`reports/gap_fix_outer_windings_still_not_established.md`. **The margin that report quoted was
+wrong; see finding 14.**
+
+**14. The outer windings are two and a half times QUIETER than the inner ones, and that makes
+finding 13 borderline rather than comfortable.** Four honest seeds rendered and scored on
+w120-w129 give `total_fg_pixels` CV **0.0421** against the inner 0.1086 -- the opposite of the
+registered prediction, recorded as a **miss**. The floor out there is **8.4%**, not the 21.7%
+transferred from the inner windings, and the observed **-11.03% exceeds it**: on the point estimate
+the rule returns REVERSES. It is nonetheless **UNRESOLVED**, because a floor from n=4 is an interval
+(95% CI 4.8% to 31.4%) that straddles the observation. So finding 13 survives in letter while its
+stated margin does not: -11.03% is borderline, and a properly powered arm could plausibly find the
+gap fix COSTS ink where it acts. `line` is unchanged between regions (0.0356 vs 0.0342), so this is
+specific to the objective. `reports/outer_winding_noise_floor.md`.
 
 ## What is NOT established, and matters
 
