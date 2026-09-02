@@ -214,6 +214,17 @@ floor for a full render+score re-run on identical meshes: essentially all of tha
 render, and a re-score is close to free of noise. `line_score` is bit-identical across all three,
 being computed the same way from the averaged probabilities.
 
+**An outer render can be OOM-killed, and there is no resume.** One of five outer renders here died
+that way: `vc_render_tifxyz` reached 26.9GB on a 32GB box and was SIGKILLed, surfacing as
+`CalledProcessError ... returned non-zero exit status 137` from `render_ink.py`. Ninety-one minutes
+of banding were lost, because nothing is checkpointed -- a failure costs the whole render, not the
+remaining part. The four that succeeded peaked around 26GB, so the margin is thin rather than
+comfortable, and whether a given run survives depends on what else is resident.
+
+Before starting one, get the box as empty as you can and keep it that way; the desktop applications
+that were resident during the failure came to about 1.8GB, which is the same order as the margin.
+Do not run the test suite, another render, or a scoring job alongside it.
+
 Rendering an outer strip is also slow for the same reason. `vc_render_tifxyz` reached 26.1GB RSS and
 the box began swapping, taking band times from 26s to 18m. Four ten-winding outer renders took
 **1h55m, 2h00m, 2h02m and 2h32m**, against about 8 minutes for ten inner ones. Budget ~2h per outer
