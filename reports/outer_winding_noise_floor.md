@@ -71,6 +71,36 @@ the interval test the column would be unresolved too, and by a wide margin: its 
 **24.2% to 159.5%**. The column is the noisiest quantity measured anywhere in this work, and
 "survives" here means "not excluded by a test that could barely exclude anything".
 
+### Why the column score is the noisy one, from the detail the scorer already writes
+
+`col_score` combines two terms, and they behave completely differently across the four seeds:
+
+| quantity | mean | CV |
+|---|---:|---:|
+| `col_score` | 0.1906 | **0.2139** |
+| `col_width_conformity` | 0.2343 | **0.2152** |
+| `col_gap_contrast` | 0.8133 | **0.0082** |
+| `col_median_width_px` | 271.5 | 0.0826 |
+| `line_median_pitch_px` | 211.3 | 0.0288 |
+
+`col_score`'s CV (0.2139) is essentially `col_width_conformity`'s (0.2152); the gap-contrast term is
+one of the *steadiest* things measured here at CV 0.0082. So the whole of the column score's noise is
+the conformity term.
+
+And conformity is noisy for a structural reason: it asks what fraction of detected columns fall in
+**722 to 977 px** (850 +/- 15%), while the detected median column width out here is **240 to 293 px**
+— about **3x narrower than the target**. A statistic that counts how much of a distribution lands in
+a band three widths away from its centre is a tail statistic, and tail statistics are noisy. The line
+side shows the same mismatch (expected pitch 80-120 px, detected 204-218 px) but is far steadier,
+CV 0.0288.
+
+**What this does and does not establish.** It explains the noise mechanically, from numbers the
+scorer already writes, and it strengthens the case for treating the -46.57% column observation as
+weak: the quantity is dominated by a term evaluated far outside its design range. What it does *not*
+settle is which side is wrong — whether the outer windings genuinely carry ~270 px columns, or the
+detector mis-segments them out there. Either way the score is being read outside the regime it was
+tuned for, and `col_gap_contrast` looks like the more informative half for this region.
+
 ## A caution for reading `total_fg_pixels` out here
 
 Strip area is itself seed-varying: **352.2M to 368.7M px, CV 0.0199**, across fits differing only in
