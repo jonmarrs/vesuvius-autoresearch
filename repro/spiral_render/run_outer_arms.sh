@@ -49,16 +49,24 @@
 # whether a render is actually in trouble, compare its band-6 elapsed against the
 # table above, not against the ETA it prints.
 #
-# A /proc liveness sample is BIMODAL and one reading proves nothing. The same
-# healthy render, sampled an hour apart:
+# A /proc liveness sample swings widely, but a FAULT SPIKE IS A REAL WARNING.
+# The same render, sampled an hour apart:
 #
-#   1559 CPU ticks/20s with  1,436 major faults   <- compute phase
-#    184 CPU ticks/20s with 31,435 major faults   <- fault-bound phase
+#   1559 CPU ticks/20s with  1,436 major faults   <- healthy
+#    184 CPU ticks/20s with 31,435 major faults   <- 12 minutes from an OOM kill
 #
-# Neither means wedged; it alternates. vmstat over the second window still showed
-# the box 78% idle with 0% iowait. If you want a liveness signal, take several
-# samples over minutes, or just watch the band counter advance. (Fields: 14+15 of
-# /proc/<pid>/stat for CPU ticks, field 10 for major faults.)
+# I read the second as a harmless phase and said so. It was the death spiral:
+# vc_render_tifxyz was killed at 26.9GB and render_ink.py reported exit 137. Treat
+# a 20x jump in major faults as "about to die", not as a mood. The band counter
+# advancing is still the signal that it is alive, but it is a LAGGING one -- band 7
+# completed normally and the process was killed during band 8.
+# (Fields: 14+15 of /proc/<pid>/stat for CPU ticks, field 10 for major faults.)
+#
+# NEVER EDIT THIS FILE WHILE A RUN IS IN PROGRESS. bash reads a script
+# incrementally by byte offset, so committing a doc change to a driver that has
+# been executing for 90 minutes makes it resume mid-token; two edits to these
+# comments corrupted a live run into `line 82: syntax error`. Copy the directory
+# and run the copy if a study is in flight.
 #
 # Usage:
 #   run_outer_arms.sh <out_root> <first_winding> <last_winding> <tag>=<fitted_meshes_dir> ...
