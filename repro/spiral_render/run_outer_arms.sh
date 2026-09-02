@@ -29,12 +29,25 @@
 # found.
 #
 # Size a watchdog deadline for "this will NEVER finish", not for "this is slower
-# than I expected". Outer renders degrade nonlinearly once the box swaps: band
-# times on one arm went 6m -> 8m -> 20m -> 46m, roughly doubling, pushing a ~2h
-# render past 4h. Deadlines set from the optimistic estimate would have failed a
-# chain of waiters while the study was most of the way done, throwing away hours
-# of rendering to a timer rather than to a fault. 24h costs nothing and still
-# catches a genuinely wedged job.
+# than I expected". 24h costs nothing and still catches a genuinely wedged job,
+# whereas a deadline sized to the optimistic estimate can fail a chain of waiters
+# while the study is nearly done, throwing away hours of good rendering to a timer
+# rather than to a fault.
+#
+# DO NOT panic at the in-tool ETA, and do not read cumulative elapsed as per-band
+# cost. These renders are FRONT-LOADED: the early bands are slow while the box
+# builds swap pressure, and the late ones are quick. Two finished arms, cumulative
+# elapsed:
+#
+#   band:        1       3       6      10      20      30     total
+#   gap133     0m26s   2m33s  39m41s  75m12s 113m58s 118m32s  2h02m
+#   seed03     0m27s   7m45s  45m49s  83m39s 111m33s 116m34s  2h00m
+#
+# Bands 20->30 cost about 5 minutes between them; bands 3->6 cost over half an
+# hour. The progress line's ETA is a linear extrapolation from the slow part, so
+# at band 6 it reads three to four hours for a job that finishes in two. To judge
+# whether a render is actually in trouble, compare its band-6 elapsed against the
+# table above, not against the ETA it prints.
 #
 # Usage:
 #   run_outer_arms.sh <out_root> <first_winding> <last_winding> <tag>=<fitted_meshes_dir> ...
