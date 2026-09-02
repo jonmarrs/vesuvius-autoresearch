@@ -95,9 +95,10 @@ which defaults to 130. No shipped config overrides either, nothing anywhere assi
 inference path cannot fire because the default is not None.
 `reports/spiral_default_config_gap_expander_shortfall.md`.
 
-**12. Setting it to 133 measurably improves the fit, on two seeds.** `satisfied_area` rises to
-0.8480 and 0.8465 against an honest four-seed 0.8382-0.8404, **+7.3 to +8.8 sd**, and the two sets
-are disjoint, so it passes the strict two-seed rule. Sizing the test with our own noise measurement
+**12. Setting it to 133 measurably improves the fit, on three seeds.** `satisfied_area` rises to
+0.8480, 0.8465 and 0.8489 against an honest four-seed 0.8382-0.8404, **+7.3 to +9.8 sd**, and the two
+sets are completely disjoint at 3 against 4, so it passes the strict rule with a seed to spare. The
+third seed was fitted for the ink arm and re-tested this as its registered control. Sizing the test with our own noise measurement
 is what made two seeds enough: this quantity's CV is 0.00114, not the objective's 0.1086. So the
 finding is no longer "a default that warns about itself", which could be dismissed as cosmetic; it
 is a one-line config change that improves villa's own geometry diagnostic.

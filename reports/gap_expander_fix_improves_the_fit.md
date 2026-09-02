@@ -1,4 +1,9 @@
-# Fixing villa's config warning measurably improves the fit, on two seeds
+# Fixing villa's config warning measurably improves the fit, on three seeds
+
+> **Update, 2026-09-02.** A third seed, `gap133s3`, was fitted to supply the ink arm registered in
+> `2026-09-02_gap_fix_ink_six_fits.md`, and its pre-registered control re-tested this result:
+> `satisfied_area` **0.8489**, **+9.8 sd**. The two sets remain completely disjoint at 3 against 4.
+> The table below is the two-seed version as originally published; the third seed is added to it.
 
 **2026-09-01.** Confirmation arm registered in
 `docs/preregistration/2026-09-01_gap133_confirmation_seed.md`. **Prediction met.** The satisfaction
@@ -13,12 +18,13 @@ for, changing nothing else:
 | fit | satisfied_area | vs honest mean |
 |---|---:|---:|
 | honest seeds (4, default config) | 0.8382 to 0.8404 | — |
-| **GAP133**, default seed | **0.8480** | **+8.8 sd** |
+| **GAP133**, default seed | **0.8480** | **+8.9 sd** |
 | **GAP133S2**, seed 2 | **0.8465** | **+7.3 sd** |
+| **GAP133S3**, seed 3 | **0.8489** | **+9.8 sd** |
 
 ```
 honest four seeds   mean 0.83957   sd 0.00095   range 0.8382-0.8404
-gap=133 two seeds   mean 0.84725                range 0.8465-0.8480
+gap=133 three seeds mean 0.84779                range 0.8465-0.8489
 ```
 
 **The two sets are disjoint**: the lowest gap=133 fit exceeds the highest honest fit. It therefore
@@ -48,7 +54,7 @@ exists.
 villa's shipped default asks for a capacity it does not provide: `shell_outer_winding_idx = 130`
 requires `model_gap_expander_num_windings >= 133`, and the default is 130. Setting it to 133 raises
 the fit's own geometry diagnostic by about 0.008, seven to nine standard deviations above seed noise,
-reproducibly across two seeds.
+reproducibly across three seeds.
 
 So the finding is no longer "a default that warns about itself", which could be dismissed as cosmetic.
 It is a one-line config change that measurably improves fit quality on villa's own metric.
