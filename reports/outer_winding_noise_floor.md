@@ -79,6 +79,22 @@ not rescue the comparison -- `overall_fg_fraction` has CV **0.0521**, *higher* t
 0.0421, and gap133's deficit on that measure is -13.48% against a 10.4% floor. The verdict is the
 same either way, which is the useful part: the answer does not depend on which of the two is chosen.
 
+**Part of that canvas spread is not seed variation at all.** `gap133s2`'s render was OOM-killed and
+re-run, which re-flattened the *identical* mesh set with identical code on the same machine, and gave
+a different grid:
+
+| flatten of gap133s2 | flat grid |
+|---|---|
+| first attempt | 8268 x 447 |
+| after the retry | 8267 x 452 |
+
+**5 rows in 447, 1.1%**, from re-running the pipeline rather than from changing anything. That sits
+inside the 1.42% pipeline re-run floor already on record, corroborating it from an independent angle
+-- at the mesh level rather than the metric level. Against a canvas CV of 0.0199 across seeds, it
+means a substantial share of what looks like seed-driven canvas variation is flatten
+nondeterminism instead. One re-flatten pair bounds nothing precisely, so this is a demonstration, not
+a decomposition.
+
 Worth noting because it is counterintuitive: **normalising by canvas ADDS noise here rather than
 cancelling it.** A ratio sheds variance only when numerator and denominator move together, and these
 do not. Across the four seeds `corr(total_fg, canvas)` is **-0.29**, and the observed ratio CV
