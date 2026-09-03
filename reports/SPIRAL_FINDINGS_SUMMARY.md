@@ -166,8 +166,19 @@ fraction of detected columns fall in 722-977 px while the detected median width 
 contrast one of the steadiest quantities in this work, steadier than the objective by 5x. So "the
 column score is noisy" was never true of the whole score, and reading it in this region means
 reading a term outside the regime it was tuned for. Whether the outer windings really carry ~270 px
-columns or the detector mis-segments them there is **unresolved**.
+columns or the detector mis-segments them there is **RESOLVED by finding 16**.
 `reports/outer_winding_noise_floor.md`.
+
+**16. The outer windings genuinely lack column structure, and the detector under-measures width 4x
+everywhere.** Measured without the detector, from the strips' own ink profile: the inner windings
+carry a dominant, very stable **944-956 px** periodicity across 7 independent strips, while the same
+band on the outer windings collapses to a quarter of that power with a peak wandering 736-825 px.
+The outer strips are 9x wider, so they have ~10x more power to detect that period and find less of
+it. **So finding 15's open question resolves as "the data, not the detector".** Two corollaries:
+villa's 850 px expectation is well calibrated for the inner region (944-956 px is inside its own
+722-977 band), and its `col_median_width_px` of 227-293 is about **4x too small in BOTH regions** --
+it segments sub-column runs, which is why `col_width_conformity` is a tail count by construction.
+`reports/column_structure_is_absent_outer_not_missegmented.md`.
 
 ## What is NOT established, and matters
 
