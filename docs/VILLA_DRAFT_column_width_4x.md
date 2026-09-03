@@ -1,3 +1,16 @@
+# WITHDRAWN 2026-09-03 — DO NOT POST. The claim is false.
+
+A positive control run after this draft was written shows villa's `score_columns` recovers known
+column widths accurately (850->868, 600->622, 300->296) and is robust to text-like broken ink
+(945 px pitch -> 954-965 px). The "4x under-measurement" was inferred from a spectral peak that
+turned out to be my own high-pass residual, scaling with strip width (peak/width = 0.1071 across
+four strips). See `reports/column_structure_is_absent_outer_not_missegmented.md`.
+
+Kept as a record of a draft that passed every process check -- prior art, staleness, word count, no
+AI markers -- and was still wrong, because none of those checks test whether the finding is true.
+
+---
+
 # DRAFT villa issue — not posted. Slot: 2026-09-07 (1 new issue/week).
 
 Checks done before drafting:
