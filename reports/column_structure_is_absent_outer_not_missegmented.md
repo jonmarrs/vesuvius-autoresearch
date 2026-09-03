@@ -97,6 +97,31 @@ No real strip reaches the level a genuine line produces, and the inner peaks *st
 fraction of strip width (0.11940, 0.11937, 0.11945 for widths 8810/8830/8840) — the signature of no
 line at all, now with a validated instrument.
 
+### One more hypothesis, tested and refuted before it was written up
+
+ScrollGT carries positional column ground truth (`data/pherc1667_merged_columns`, 22 columns) — for
+PHerc. 1667, not PHercParis4, but on a grid at the *same* 0.05 scale as our flattening. Its columns
+are **846-1250 grid px** (median 1100), while villa's `COL_WIDTH_PX = 850` would be 85 grid px at our
+render's 10 strip-px-per-grid-cell. That suggested a clean story: villa's 850 assumes ~1 strip px per
+grid cell, our renders are 10x that, so the detector fragments real columns.
+
+**Directly tested on a saved prediction mask, no GPU needed, and it is wrong.** Re-scoring
+`outer_baseline01` at wider targets does not merge the runs — it finds none at all:
+
+| `col_width_px` | detected median | n cols | conformity |
+|---:|---:|---:|---:|
+| 850 | 210 | 87 | 0.112 |
+| 2000 | 0 | 0 | 0.000 |
+| 5000 | 0 | 0 | 0.000 |
+| 8500 | 0 | 0 | 0.000 |
+| 11000 | 0 | 0 | 0.000 |
+
+So the 210-306 px runs are not fragments of a wider column waiting for the right target width;
+`col_width_px` gates detection itself. The scale story is dead, and this line of investigation is
+**closed** — not "open pending a better idea", closed, because four hypotheses have now been tested
+against it and the only remaining route needs positional ground truth on *this* scroll, which does
+not exist.
+
 **So the conclusion is not "the outer windings lack column structure" but "an ink profile has no
 single dominant column period to find".** Spectral periodicity is the wrong tool for finding 15.
 Answering it needs positional ground truth — where the columns actually are on a strip — against
