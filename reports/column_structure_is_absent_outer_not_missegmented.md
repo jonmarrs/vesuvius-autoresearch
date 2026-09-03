@@ -73,19 +73,35 @@ length, gives the precise reason it failed:
 | 850 | 82,670 (outer) | 854 | ok |
 | 945 | 82,670 (outer) | 947 | ok |
 
-**At inner-strip length this method cannot distinguish 850 px from 945 px — it reports ~952 for
-both.** The band is too near the resolution limit for a 8,810 px window. So the "stable 944-956 px
-peak across seven inner fits" was the method's floor, which is exactly why it was so stable and why
-it scaled with strip width.
+At inner-strip length that method returns ~952 px whether the truth is 850 or 945.
 
-At outer-strip length the method is sound: it recovers 300, 850 and 945 px to within 1%. So the
-**outer** measurement stands on its own — those strips show no strong 700-1000 px periodicity — but
-there is no valid inner number to compare it against, which is what the retracted finding did.
+**Correction to this section, same day.** I first read that as a resolution limit of an 8,810 px
+strip. It is not. It was the `hp = 2500` high-pass *trimming 5,000 of 8,810 points*. A linear
+detrend with a zero-padded FFT — no moving average, no trimming — recovers 300, 850 and 945 px to
+within 0.6% at BOTH strip lengths. That estimator is now
+`scripts/measure_strip_periodicity.py`, with the control as a test.
 
-**What would actually answer finding 15:** render the inner windings at comparable width to the outer
-ones (or use an estimator with better low-frequency resolution than a 8.8k-point FFT), so both
-regions are measured by an instrument demonstrated to work at both lengths. Until then the question
-stays open, and this report is a record of how not to approach it.
+**And with a working estimator the answer is still no, for a better reason.** Calibrating the
+band-power share of the dominant peak:
+
+| input | share of band power |
+|---|---:|
+| synthetic sine, SNR 2:1 | 8.3% |
+| synthetic sine, SNR 1:3 | 6.8% |
+| pure noise, inner length | 0.9% |
+| pure noise, outer length | 0.1% |
+| **real inner strips** | **4.2-4.4%** |
+| **real outer strips** | **1.1-1.2%** |
+
+No real strip reaches the level a genuine line produces, and the inner peaks *still* sit at a fixed
+fraction of strip width (0.11940, 0.11937, 0.11945 for widths 8810/8830/8840) — the signature of no
+line at all, now with a validated instrument.
+
+**So the conclusion is not "the outer windings lack column structure" but "an ink profile has no
+single dominant column period to find".** Spectral periodicity is the wrong tool for finding 15.
+Answering it needs positional ground truth — where the columns actually are on a strip — against
+which the detector's runs can be compared. That is a labelling problem, not a signal-processing one,
+and this report is a record of spending a day discovering it.
 
 ## The lesson, which is not the one I would have chosen
 
