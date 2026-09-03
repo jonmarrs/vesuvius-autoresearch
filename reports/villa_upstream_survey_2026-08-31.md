@@ -83,10 +83,11 @@ one.
 > hopefully: its fits and renders both come from the separate `villa-spiral` checkout at `5479453a`,
 > which was deliberately not fetched. The submodule is used only by this repo's tests.
 >
-> Full-suite verification is **deferred again** for the same reason as last time: a 26GB render was
-> in flight and loading torch alongside it risks an OOM kill of a multi-hour arm. Queued to run when
-> the sequence finishes. Until then the bump is verified only by the gate and by the hot-path check
-> above.
+> Full-suite verification was deferred while a 26GB render was in flight, and **completed
+> 2026-09-03 14:23 once the second-look study finished: 822 passed, 1 skipped, 0 failed** in 4m21s.
+> Both the `908aa7f06` and `1ee7f94d3` bumps are now verified by the full suite, not only by the
+> gate. (Suite grown 784 -> 823 over two days, all of it tests added beside the tooling written for
+> the outer-winding work.)
 
 > **Third bump, 2026-09-03 09:40: `9daa477e0` -> `1ee7f94d3`** (three commits: VC3D line-annotation
 > fixes #1685, plus two website edits). The gate returns **render path identical** -- nothing under
