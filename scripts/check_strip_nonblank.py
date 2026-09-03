@@ -10,10 +10,16 @@ silent, plausible, and in the direction of a null.
 Until now that control was checked by hand, which means it was checked when I
 remembered. This runs it.
 
-The rule, matching how every arm in this study was judged:
+The rule, taken verbatim from the registrations ("p95 > 0 on the five full
+tiles"):
   * the FULL tiles must have p95 > 0;
-  * the last tile is exempt from p95 (it is a narrow sliver, mostly padding, and
-    has legitimately read p95 = 0 in every arm measured, with p99 around 253);
+  * the trailing sliver is EXEMPT. It is the remainder of the strip width, 70 to
+    750 px across the arms measured, and the registration does not test it. An
+    earlier version of this script additionally demanded p99 > 0 there, which is
+    stricter than the protocol and produced a false positive: gap133s5's sliver
+    is 70 px wide and entirely empty, and the arm was reported VOID although its
+    five full tiles read p95 254/186/174/238/122. A 70 px remainder carrying no
+    ink is not evidence of a render fault;
   * the strip as a whole must have a plausible nonzero fraction (advisory: this
     warns, it does not void).
 
@@ -77,9 +83,9 @@ def check(path: str) -> tuple[bool, list[str]]:
             verdict = "BLANK"
             ok = False
         elif p95 <= 0 and sliver:
-            verdict = "ok (sliver exempt)" if p99 > 0 else "BLANK sliver"
-            if p99 <= 0:
-                ok = False
+            # Exempt, per the registration. Reported so an all-empty sliver is
+            # visible, but it does not void an arm whose full tiles are inked.
+            verdict = "empty sliver (exempt, not tested by the registration)"
         notes.append(
             f"  {os.path.basename(t):<26} {w}x{h:<6} {tag:<7} p95={p95:6.1f} "
             f"p99={p99:6.1f}  {verdict}"

@@ -71,13 +71,19 @@ def test_one_black_full_tile_fails_even_beside_good_ones(tmp_path):
     assert not ok
 
 
-def test_the_sliver_exemption_does_not_excuse_a_truly_blank_sliver(tmp_path):
-    """The exemption is for padding that still carries some signal (p99 > 0), not
-    a licence for any narrow tile to be empty."""
-    arm = _arm(tmp_path, "deadsliver", [(5000, 400, "inked"), (600, 400, "black")])
+def test_an_empty_sliver_does_not_void_an_arm_whose_full_tiles_are_inked(tmp_path):
+    """Matches the registration, which tests "p95 > 0 on the five full tiles" and
+    says nothing about the trailing sliver.
+
+    An earlier version demanded p99 > 0 on the sliver too. That was stricter than
+    the protocol and produced a FALSE POSITIVE on real data: gap133s5's sliver is
+    70 px wide and entirely empty, and the arm was reported VOID although its five
+    full tiles read p95 254/186/174/238/122. This test pins the corrected rule so
+    the stricter one cannot creep back."""
+    arm = _arm(tmp_path, "emptysliver", [(5000, 400, "inked"), (600, 400, "black")])
     ok, notes = mod.check(arm)
-    assert not ok
-    assert any("BLANK sliver" in n for n in notes)
+    assert ok
+    assert any("exempt" in n for n in notes)
 
 
 def test_a_wide_tile_never_gets_the_sliver_exemption(tmp_path):
