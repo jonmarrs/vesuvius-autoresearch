@@ -9,8 +9,8 @@ floor wrong caused two reversals in a single afternoon.
 | floor | value | applies to |
 |---|---:|---|
 | pipeline non-determinism | **1.42%** | two renders of the SAME meshes, and same-fit comparisons |
-| seed spread, `2*CV`, n=4, **inner** w010-w019 | **21.7%** | two DIFFERENT fits, inner windings |
-| seed spread, `2*CV`, n=4, **outer** w120-w129 | **8.4%** | two DIFFERENT fits, outer windings |
+| seed spread, `2*CV`, n=4, **inner** w010-w019 | **21.7%** (95% CI 12.3-81.0%) | two DIFFERENT fits, inner windings |
+| seed spread, `2*CV`, n=4, **outer** w120-w129 | **8.4%** (95% CI 4.8-31.4%) | two DIFFERENT fits, outer windings |
 | duplicate-coverage baseline (full fit) | **0.0897 to 0.1042%** | gap>=2 overlap in any converged fit |
 | duplicate-coverage baseline (10-winding span) | **0.00%** | the span all arms are measured on |
 
@@ -19,7 +19,16 @@ floor wrong caused two reversals in a single afternoon.
 
 **The floor is region-specific and the difference is large.** A floor measured on the inner windings
 is 2.6x too wide for the outer ones. Quote the one for the region you measured in; transferring
-across regions is what made finding 13's stated margin wrong.
+across regions is what made finding 13a's stated margin wrong.
+
+**Every floor here is an n=4 variance, and those are far softer than a bare percentage suggests.**
+The 95% interval on a CV at n=4 spans **0.57x to 3.73x** the point estimate, which is why the
+intervals are now printed beside the numbers. This is not a technicality: an n=4 variance has misled
+this work **twice, in opposite directions** -- it made the outer floor look 2.6x wider than it is
+(finding 14), and it made the geometry effect's sd multiple look nearly twice as large as it is
+(finding 12, corrected 2026-09-03). Use a floor to decide whether a comparison is worth taking
+seriously, not to decide a result; where a difference lands near one, the honest answer is a test
+with a stated alpha, not a ratio against a soft denominator.
 
 ## Findings
 
