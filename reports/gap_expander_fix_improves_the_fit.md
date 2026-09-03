@@ -1,9 +1,25 @@
 # Fixing villa's config warning measurably improves the fit, on three seeds
 
-> **Update, 2026-09-02.** A third seed, `gap133s3`, was fitted to supply the ink arm registered in
-> `2026-09-02_gap_fix_ink_six_fits.md`, and its pre-registered control re-tested this result:
-> `satisfied_area` **0.8489**, **+9.8 sd**. The two sets remain completely disjoint at 3 against 4.
-> The table below is the two-seed version as originally published; the third seed is added to it.
+> **Update, 2026-09-03: now 5 gap seeds against 6 base seeds, and the sd figures below are
+> CORRECTED DOWNWARD.** Fits run for the ink arms accumulated controls on this quantity, and with a
+> larger base sample the effect is unchanged while its standardisation shrinks:
+>
+> | | n | mean | sd | range |
+> |---|---:|---:|---:|---|
+> | BASE | 6 | 0.83897 | 0.00167 | 0.8359-0.8404 |
+> | GAP | 5 | 0.84764 | 0.00105 | 0.8465-0.8489 |
+>
+> Welch: **+1.034%** (absolute +0.00867), t = 10.46, df = 8.48, **p = 3.9e-06**, and the two sets are
+> **completely disjoint** with 0.0061 between the highest base and the lowest gap fit.
+>
+> **The "+7.3 to +9.8 sd" quoted below is too large.** It divided by a base sd of 0.00095 estimated
+> from only four fits. Six fits give 0.00167, and the same gap fits then sit **4.5 to 5.9 sd** above
+> the base mean. The effect did not shrink; my estimate of the noise it had to clear was too small,
+> which is the ordinary behaviour of a variance estimated from n=4 and the same trap that made the
+> outer-winding floor wrong in the other direction.
+>
+> Prefer the Welch p-value to any sd multiple: it does not depend on which sample the denominator
+> came from. This is an accumulating control rather than a registered arm, and no fit was excluded.
 
 **2026-09-01.** Confirmation arm registered in
 `docs/preregistration/2026-09-01_gap133_confirmation_seed.md`. **Prediction met.** The satisfaction
