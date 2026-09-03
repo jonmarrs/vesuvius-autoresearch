@@ -65,6 +65,12 @@ one.
 > `vesuvius/src/vesuvius/tifxyz_label_transfer/io.py`. Several are squarely on the flatten path.
 > Hand-checking a named list of files was the weakness; the checker enumerates the trees instead and
 > exits nonzero, so it can gate a bump.
+>
+> **Bump verification, completed 2026-09-02 18:32.** The bump commit deferred the full suite because
+> a 26GB render was in flight and said so rather than implying a clean bill of health. It has now
+> run on an idle box: **802 passed, 1 skipped, 0 failed** in 4m29s, against 803 collected. Nothing
+> the `908aa7f06` bump changed breaks anything here, which is the check the previous 153-commit bump
+> failed (19 collection errors). The deferred claim is closed.
 
 ## `satisfaction_metrics.py` was substantially reworked, and my reasoning about it predates that
 
