@@ -91,9 +91,36 @@ re-mined from these arms: answering it needs **multiple seeds per config arm**, 
 had, not a re-reading of single fits.
 
 **Exploratory, not claimed:** within each arm `corr(satisfied_area, total_fg_pixels)` is -0.40 (BASE)
-and -0.59 (GAP), n=6 each, where a correlation is near-uninformative. The pooled -0.85 is driven by
-the between-arm difference and is not additional evidence. A within-fit anti-correlation would be a
-much stronger claim than this arm can support, and is not made.
+and -0.59 (GAP), n=6 each, where a correlation is near-uninformative. Pooling both arms *centred*, so
+the between-arm effect cannot drive it, gives **r = -0.452, 95% CI -0.828 to +0.203** over twelve
+fits — the interval spans zero. Suggestive and worthless as evidence; the pooled uncentred -0.85 is
+just the arm difference restated. No within-fit anti-correlation is claimed.
+
+### What a generalisation study would cost, costed 2026-09-03
+
+The six baseline fits are reusable, so a new config arm costs only its own seeds:
+
+| seeds per new arm | SE on d ink | detects effects >= |
+|---:|---:|---:|
+| 3 | 3.0% | **8.3%** |
+| 4 | 2.7% | 7.6% |
+| 6 | 2.4% | 6.8% |
+
+k=3 resolves an effect the size of the one measured here (10.35%) with margin, at ~12.5h per arm
+(3 fits + 3 renders + 3 scores, sequential — this box cannot parallelise renders).
+
+| scope | new arms | wall-clock | strongest possible conclusion |
+|---|---:|---:|---|
+| minimal | 2 | ~25h | 3 of 3 oppose -> p = 0.125, **not significant** |
+| moderate | 4 | ~50h | 5 of 5 -> p = 0.031 |
+| thorough | 5 | ~63h | 6 of 6 -> p = 0.016 |
+
+**Recommendation: do not run it.** ~50h buys one borderline binomial p-value that a single
+contrary arm destroys, and it answers the wrong question anyway — what would matter is how often the
+guard misleads across the changes villa's *loop* actually proposes, which villa can measure inside
+their own loop far more cheaply than we can from outside. The single well-established case is already
+enough for a maintainer to check their own guard. Note also that any new fit must pin villa-spiral
+`6847063f` or all twelve arms need re-running, since current villa defaults to 2 flow stages.
 
 ## Provenance
 
