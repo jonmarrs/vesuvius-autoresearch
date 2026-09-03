@@ -59,6 +59,34 @@ different filters, and I attributed the difference between them to the scroll.
   the strips rather than about the detector. What that something is remains **open** — which is where
   finding 15 left it, and where it goes back.
 
+## What the method can and cannot measure, established afterwards by control
+
+Running the same spectral method on synthetic profiles of **known** period, at each real strip
+length, gives the precise reason it failed:
+
+| true period | strip length | recovered | |
+|---:|---:|---:|---|
+| 300 | 8,810 (inner) | 293 | ok |
+| **850** | **8,810 (inner)** | **952** | **FAIL, 12% out** |
+| 945 | 8,810 (inner) | 952 | ok |
+| 300 | 82,670 (outer) | 300 | ok |
+| 850 | 82,670 (outer) | 854 | ok |
+| 945 | 82,670 (outer) | 947 | ok |
+
+**At inner-strip length this method cannot distinguish 850 px from 945 px — it reports ~952 for
+both.** The band is too near the resolution limit for a 8,810 px window. So the "stable 944-956 px
+peak across seven inner fits" was the method's floor, which is exactly why it was so stable and why
+it scaled with strip width.
+
+At outer-strip length the method is sound: it recovers 300, 850 and 945 px to within 1%. So the
+**outer** measurement stands on its own — those strips show no strong 700-1000 px periodicity — but
+there is no valid inner number to compare it against, which is what the retracted finding did.
+
+**What would actually answer finding 15:** render the inner windings at comparable width to the outer
+ones (or use an estimator with better low-frequency resolution than a 8.8k-point FFT), so both
+regions are measured by an instrument demonstrated to work at both lengths. Until then the question
+stays open, and this report is a record of how not to approach it.
+
 ## The lesson, which is not the one I would have chosen
 
 I did run controls. I ran them *after* writing the report and drafting an issue for publication.
