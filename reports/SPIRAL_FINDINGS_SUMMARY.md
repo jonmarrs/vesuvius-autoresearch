@@ -128,7 +128,17 @@ finding is no longer "a default that warns about itself", which could be dismiss
 is a one-line config change that improves villa's own geometry diagnostic.
 `reports/gap_expander_fix_improves_the_fit.md`.
 
-**13. Whether that fix helps INK is still not established at n=7, and now LEANING NEGATIVE.**
+**13. RESOLVED at n=12: the change COSTS about 10% of recovered ink, while improving the geometry
+score.** Six fits per arm on w120-w129, second look at the registered Pocock alpha 0.0294:
+`total_fg_pixels` **-10.35%, 95% CI -15.68% to -5.03%, p = 0.0018**, with complete separation (all
+six GAP below all six BASE, null probability 0.108%) and `fg_fraction` agreeing at -10.78%. The
+registered prediction was MET. **The same change raises `satisfied_area` by 7-10 sd and lowers the
+ink objective by a tenth** — both established on the same twelve fits, which sharpens finding 10 from
+"decoupled" to "opposite for this change", and means a satisfaction cross-check would have passed
+enthusiastically on a real regression. Not a live villa defect: the fits predate upstream #1625.
+`reports/gap_fix_costs_ink_established.md`. The earlier looks stand as history:
+
+**13b. At n=7 it was not established, and leaning.**
 Seven fits (4 base, 3 gap) on w120-w129: `total_fg_pixels` **-9.25%**, 95% CI -19.35% to +0.85%,
 **p = 0.0637** -- does not clear alpha 0.05, so not established. The arm sees effects of ~9.0% and no
 smaller, and the observed effect is 9.25%, so its power ran out at exactly the size in question. Every
