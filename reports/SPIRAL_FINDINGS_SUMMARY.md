@@ -104,7 +104,16 @@ finding is no longer "a default that warns about itself", which could be dismiss
 is a one-line config change that improves villa's own geometry diagnostic.
 `reports/gap_expander_fix_improves_the_fit.md`.
 
-**13. Whether that fix helps INK is still not established, now measured in the right place.**
+**13. Whether that fix helps INK is still not established at n=7, and now LEANING NEGATIVE.**
+Seven fits (4 base, 3 gap) on w120-w129: `total_fg_pixels` **-9.25%**, 95% CI -19.35% to +0.85%,
+**p = 0.0637** -- does not clear alpha 0.05, so not established. The arm sees effects of ~9.0% and no
+smaller, and the observed effect is 9.25%, so its power ran out at exactly the size in question. Every
+gap fit scores below every baseline fit (complete separation, p = 2.86%), and the registered
+prediction of a negative direction was MET -- but separation was registered as confirmatory only and
+does not override the primary. Settling it needs ~6 per arm, about a day of compute.
+`reports/gap_fix_ink_six_fits.md`. The earlier single-pair version below stands as history:
+
+**13a. The first measurement in the right region (one fit per arm).**
 The first ink measurement of the fix was aimed at the wrong region: the shortfall acts on the
 outermost windings, and every render in this work covered the innermost ten. Re-measured on
 w120-w129 of the same two fits, `dT` = **-11.03%**. Registered before the data as the likely
