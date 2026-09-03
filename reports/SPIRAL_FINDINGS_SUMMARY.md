@@ -121,15 +121,17 @@ outcome, precisely so a null could not later be dressed up as evidence of no eff
 `reports/gap_fix_outer_windings_still_not_established.md`. **The margin that report quoted was
 wrong; see finding 14.**
 
-**14. The outer windings are two and a half times QUIETER than the inner ones, and that makes
-finding 13 borderline rather than comfortable.** Four honest seeds rendered and scored on
+**14. The outer windings are two and a half times QUIETER than the inner ones, and that made
+finding 13a borderline rather than comfortable.** Four honest seeds rendered and scored on
 w120-w129 give `total_fg_pixels` CV **0.0421** against the inner 0.1086 -- the opposite of the
 registered prediction, recorded as a **miss**. The floor out there is **8.4%**, not the 21.7%
 transferred from the inner windings, and the observed **-11.03% exceeds it**: on the point estimate
 the rule returns REVERSES. It is nonetheless **UNRESOLVED**, because a floor from n=4 is an interval
-(95% CI 4.8% to 31.4%) that straddles the observation. So finding 13 survives in letter while its
-stated margin does not: -11.03% is borderline, and a properly powered arm could plausibly find the
-gap fix COSTS ink where it acts. `line` is unchanged between regions (0.0356 vs 0.0342), so this is
+(95% CI 4.8% to 31.4%) that straddles the observation. So finding 13a survived in letter while its
+stated margin did not: -11.03% was borderline, and a properly powered arm could plausibly find the
+gap fix COSTS ink where it acts. **The arm was then run: finding 13.** It did not clear either, so
+this floor did its job -- it turned "comfortably null" into "borderline", which is what the seven-fit
+result went on to confirm. `line` is unchanged between regions (0.0356 vs 0.0342), so this is
 specific to the objective. `reports/outer_winding_noise_floor.md`.
 
 **15. The column score's noise is one of its two terms, evaluated 3x outside its design range.**

@@ -5,9 +5,9 @@ the thing cited is still there. This repository lost three months to that rot
 once already, when a script reorganisation left every reference to the old
 locations pointing at nothing and no one was looking.
 
-  documents scanned:        117
-  paths cited:              406
-  commits cited:            59
+  documents scanned:        119
+  paths cited:              415
+  commits cited:            60
   paths that do not exist:  18  (1 in live documents, 17 in dated ones)
   commits unreachable:      3
 
