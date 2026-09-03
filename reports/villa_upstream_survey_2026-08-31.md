@@ -89,6 +89,25 @@ one.
 > gate. (Suite grown 784 -> 823 over two days, all of it tests added beside the tooling written for
 > the outer-winding work.)
 
+> **Fourth bump, 2026-09-03 14:50: `1ee7f94d3` -> `23adee047`** (#1693, "fit_spiral: default to 2
+> flow stages"). The gate flags it, and this is the **first bump that changes how a fit is built**:
+>
+> ```
+> -        self.model_num_flow_stages = 1
+> +        self.model_num_flow_stages = 2
+> ```
+>
+> `model_num_flow_stages` is in villa's own `MODEL_STAGE_KEYS`, so this is a real behavioural change,
+> not a doc or GUI edit like the previous three.
+>
+> **The twelve completed fits are unaffected** -- they ran on `villa-spiral`'s working tree
+> `6847063f`, untouched and deliberately unfetched. But **a new fit built from this pin is no longer
+> comparable with those twelve**: a 2-flow-stage fit is a different fit, so a thirteenth arm appended
+> to the second look would vary two things at once. Any continuation of that study must either pin
+> the old tree or re-run every arm.
+>
+> Verified on an idle box, no deferral this time: **822 passed, 1 skipped, 0 failed** in 6m27s.
+
 > **Third bump, 2026-09-03 09:40: `9daa477e0` -> `1ee7f94d3`** (three commits: VC3D line-annotation
 > fixes #1685, plus two website edits). The gate returns **render path identical** -- nothing under
 > `spiral-fitting`, `lasagna` or `vesuvius/src` moved, so work dirs from either ref are
