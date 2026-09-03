@@ -66,6 +66,28 @@ one.
 > Hand-checking a named list of files was the weakness; the checker enumerates the trees instead and
 > exits nonzero, so it can gate a bump.
 >
+> **Second bump, 2026-09-02 21:22: `908aa7f06` -> `9daa477e0`** (villa #1684, "make cylindrical as
+> fast (or faster) than cartesian"). The render-path gate fires, and for the first time the changed
+> files are in **`spiral-fitting/` itself**: `flow_fields.py`, `flow_triton.py`, `transforms.py`,
+> plus two added files (`bench_cylindrical_rk4.py`, `tests/test_cylindrical_triton.py`). Those are
+> FIT-side; the four hot-path files are still byte-identical to `908aa7f06`:
+>
+> | file | `908aa7f06` vs `9daa477e0` |
+> |---|---|
+> | `spiral-fitting/render_ink.py` | identical |
+> | `spiral-fitting/get_ink_metrics.py` | identical |
+> | `spiral-fitting/tifxyz.py` | identical |
+> | `lasagna/fit.py` | identical |
+>
+> **The second-look study running at the time is unaffected**, and provably so rather than
+> hopefully: its fits and renders both come from the separate `villa-spiral` checkout at `5479453a`,
+> which was deliberately not fetched. The submodule is used only by this repo's tests.
+>
+> Full-suite verification is **deferred again** for the same reason as last time: a 26GB render was
+> in flight and loading torch alongside it risks an OOM kill of a multi-hour arm. Queued to run when
+> the sequence finishes. Until then the bump is verified only by the gate and by the hot-path check
+> above.
+
 > **Bump verification, completed 2026-09-02 18:32.** The bump commit deferred the full suite because
 > a 26GB render was in flight and said so rather than implying a clean bill of health. It has now
 > run on an idle box: **802 passed, 1 skipped, 0 failed** in 4m29s, against 803 collected. Nothing
