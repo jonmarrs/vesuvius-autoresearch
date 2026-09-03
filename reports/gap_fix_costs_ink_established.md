@@ -76,6 +76,20 @@ after an OOM kill. Nothing here says the change costs ink on the inner windings,
 measured for it, nor that the direction generalises to other config changes — finding 10's decoupling
 already implies it need not.
 
+**Does the opposition generalise to other config changes? The existing arms cannot say.** Three
+single-fit config arms carry both metrics on the inner windings, against an n=2 honest baseline:
+
+| arm | d `satisfied_area` | d `total_fg_pixels` | direction |
+|---|---:|---:|---|
+| densespace0 | +0.63% | -13.0% | opposite |
+| minspace0 | -1.14% | +2.5% | opposite |
+| margin0 | +0.22% | +5.1% | same |
+
+**Every ink delta is inside the 21.7% inner-winding floor**, so none is established, and 2-of-3
+directional agreement is what coin flips produce. This is recorded to stop the question being
+re-mined from these arms: answering it needs **multiple seeds per config arm**, as the gap133 study
+had, not a re-reading of single fits.
+
 **Exploratory, not claimed:** within each arm `corr(satisfied_area, total_fg_pixels)` is -0.40 (BASE)
 and -0.59 (GAP), n=6 each, where a correlation is near-uninformative. The pooled -0.85 is driven by
 the between-arm difference and is not additional evidence. A within-fit anti-correlation would be a
