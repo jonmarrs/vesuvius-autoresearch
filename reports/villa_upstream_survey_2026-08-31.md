@@ -88,6 +88,17 @@ one.
 > the sequence finishes. Until then the bump is verified only by the gate and by the hot-path check
 > above.
 
+> **Third bump, 2026-09-03 09:40: `9daa477e0` -> `1ee7f94d3`** (three commits: VC3D line-annotation
+> fixes #1685, plus two website edits). The gate returns **render path identical** -- nothing under
+> `spiral-fitting`, `lasagna` or `vesuvius/src` moved, so work dirs from either ref are
+> interchangeable and no equivalence check is owed. These were the first upstream moves caught by
+> `scripts/watch_villa_upstream.sh` rather than by asking; all three arrived pre-gated, and the
+> correct response to each was visibly nothing.
+>
+> Taken while the second-look study was mid-flight, which is safe for the same reason as the last
+> two: fits and renders come from the separate `villa-spiral` checkout at `5479453a`, deliberately
+> not fetched. Full-suite verification stays queued behind the study.
+
 > **Bump verification, completed 2026-09-02 18:32.** The bump commit deferred the full suite because
 > a 26GB render was in flight and said so rather than implying a clean bill of health. It has now
 > run on an idle box: **802 passed, 1 skipped, 0 failed** in 4m29s, against 803 collected. Nothing
