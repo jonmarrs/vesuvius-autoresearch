@@ -98,13 +98,24 @@ fit recovers more ink" holds at coarse scale, where we measured it, and not at t
 operates. The prescribed satisfaction cross-check is correspondingly stiff: **passing it rules out
 catastrophe, not error.** `reports/geometry_and_ink_decouple_at_seed_scale.md`.
 
-**11. villa's default spiral config warns about itself on every run.**
+**11. villa's default spiral config warned about itself — UPSTREAM FIXED IT on 2026-08-27.**
+> Commit `61a62c445` (#1625) split the parameter: `model_gap_expander_capacity_windings` now
+> allocates the lattice with default **144** (>= 130+3, so consistent), and
+> `model_gap_expander_num_windings` is documented as legacy and inert. **There is no live villa bug
+> here and it must not be reported as one.** Our fits ran on a pre-fix tree, so findings 11 and 12
+> are valid for villa as of 2026-08-26 and describe the value of a fix upstream has already made.
+> Our tooling provenance was also wrong: fits used the villa-spiral WORKING TREE `6847063f`, renders
+> used its `origin/main` `5479453a`. `reports/gap_expander_finding_is_stale_upstream_fixed_it.md`.
+
+**11a. As originally written (true before 2026-08-27):**
 `shell_outer_winding_idx` defaults to 130 and requires `model_gap_expander_num_windings >= 133`,
 which defaults to 130. No shipped config overrides either, nothing anywhere assigns them, and the
 inference path cannot fire because the default is not None.
 `reports/spiral_default_config_gap_expander_shortfall.md`.
 
-**12. Setting it to 133 measurably improves the fit: 5 seeds against 6, p = 3.9e-06.**
+**12. Setting it to 133 measurably improves the fit: 5 seeds against 6, p = 3.9e-06 — which
+measures the worth of upstream's #1625, not a change villa still needs.** See finding 11.
+
 `satisfied_area` 0.84764 (n=5, sd 0.00105) against 0.83897 (n=6, sd 0.00167), **+1.034%**,
 Welch t = 10.46, and the two sets are **completely disjoint** with 0.0061 between the highest base
 and lowest gap fit. Every gap fit was run for the ink arms, so each is an independent re-test of

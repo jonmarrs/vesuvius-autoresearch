@@ -1,5 +1,12 @@
 # Pre-registration: does the gap-expander fix help ink in the windings it actually affects?
 
+> **⚠ PROVENANCE CORRECTED 2026-09-03.** This document names a single villa ref for its tooling.
+> That is wrong: **fits ran on the `villa-spiral` WORKING TREE at `6847063f` (2026-08-26)** while
+> **renders and scoring ran on its `origin/main` at `5479453a` (2026-08-30)**. Two refs, one
+> pipeline. The measurements are unaffected -- every arm shares both refs -- but any claim here about
+> which villa the code came from should be read against
+> `reports/gap_expander_finding_is_stale_upstream_fixed_it.md`.
+
 **Written 2026-09-01, before either render.** No outer-winding ink render exists for any fit.
 
 ## The flaw in my own measurement

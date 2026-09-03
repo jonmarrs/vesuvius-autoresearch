@@ -1,5 +1,12 @@
 # Pre-registration: second look at the gap-expander ink question, n=6 per arm
 
+> **⚠ PROVENANCE CORRECTED 2026-09-03.** This document names a single villa ref for its tooling.
+> That is wrong: **fits ran on the `villa-spiral` WORKING TREE at `6847063f` (2026-08-26)** while
+> **renders and scoring ran on its `origin/main` at `5479453a` (2026-08-30)**. Two refs, one
+> pipeline. The measurements are unaffected -- every arm shares both refs -- but any claim here about
+> which villa the code came from should be read against
+> `reports/gap_expander_finding_is_stale_upstream_fixed_it.md`.
+
 **Written 2026-09-02, before any of the five new fits is started.** This extends
 `2026-09-02_gap_fix_ink_six_fits.md`, which returned `total_fg_pixels` **-9.25%, p = 0.0637** at 4
 vs 3 and did not clear.
