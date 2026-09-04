@@ -26,7 +26,7 @@ tiles"):
 KNOWN LIMITATION: `p95 > 0` cannot separate "sparse ink" from "no render". A strip
 that is only a few percent inked has p95 = 0 and is voided as BLANK even though it
 carries signal. That is safe HERE only because every measured arm sits at 44.8% to
-47.2% nonzero, nowhere near the boundary. A future ROI that renders genuinely
+48.6% nonzero, nowhere near the boundary. A future ROI that renders genuinely
 sparse strips would need this control re-specified before it is trusted, because
 it would void real data.
 
@@ -44,8 +44,13 @@ from PIL import Image
 
 Image.MAX_IMAGE_PIXELS = None
 
-# The four measured arms ran 44.8% to 47.2% nonzero. A strip far outside that is
-# not necessarily wrong, but it is not the thing the other arms are, so say so.
+# Observed nonzero fraction across measured arms, kept current rather than
+# recorded once: the first four ran 44.8-47.2%, and the 2026-09-04 bootstrap arms
+# ran 48.0 / 47.9 / 48.6%, so the range is now 44.8-48.6%. The bootstrap arms sit
+# consistently just above the earlier ones, which is expected -- a different patch
+# set gives a different fit and so a slightly different flattened coverage -- and
+# is a coverage figure, not the ink endpoint. The advisory band below stays wide
+# on purpose; it exists to catch a render that broke, not to police this drift.
 NONZERO_LO = 0.20
 NONZERO_HI = 0.80
 
