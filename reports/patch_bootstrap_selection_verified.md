@@ -51,6 +51,25 @@ within 0.26 points across ten radial bands, against 3.59 points for BOOTSTRAP. S
 `patch_bootstrap_outer_evidence_deficit.md`. Winding proper and trace provenance remain unchecked,
 and the sentence above stood correctly at the time it was written.
 
+## The arms differ in the dataset and nothing else
+
+The checks above are about *which patches* went in. They say nothing about whether the six fits were
+otherwise configured alike, which is the other half of "one variable at a time". Normalising the
+dataset path, the run tag and `optimizer_random_seed` out of the six generated `fit_*.sh` scripts
+leaves them **byte-identical to one another**.
+
+Since that normalisation hides exactly the three fields that must be *correct* rather than merely
+consistent, they are pinned separately:
+
+| arm | dataset | seed |
+|---|---|---:|
+| boot090s1/s2/s3 | `spiral_s1_boot090` | 1, 2, 3 |
+| rand090s1/s2/s3 | `spiral_s1_rand090` | 1, 2, 3 |
+
+Three distinct seeds per arm, the same three in both, and no arm pointed at the wrong dataset. Taken
+with the pinned fit tree (villa-spiral `6847063f`) and render ref (`5479453a`), both now enforced by
+`tests/test_villa_spiral_refs_pinned.py`, the arms differ in their patch set and nothing else.
+
 ## What this does not tell you
 
 Nothing about the outcome. The endpoints stay unread until all six arms exist, because
