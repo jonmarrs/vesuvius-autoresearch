@@ -267,3 +267,34 @@ Rendering an outer strip is also slow for the same reason. `vc_render_tifxyz` re
 the box began swapping, taking band times from 26s to 18m. Four ten-winding outer renders took
 **1h55m, 2h00m, 2h02m and 2h32m**, against about 8 minutes for ten inner ones. Budget ~2h per outer
 arm plus ~15 min to score it, and run them strictly one at a time.
+
+## 8. The render step leaves about 1GB of headroom, so do not run anything else
+
+Section 7 is about the *scoring* step OOMing. The *render* step has the same problem for a different
+reason, and it is easy to miss because nothing fails:
+
+```
+total 31G  used 29G  available 1G
+  25.3G vc_render_tifxyz
+```
+
+measured mid-render on 2026-09-04, with `serial_folds` already in force. `vc_render_tifxyz` holds
+roughly 25GB for the whole ~3h45m outer render. `preflight.sh` reports `RAM: 31G` as **ok**, and by
+its own rule that is correct -- the render fits. What it cannot know is that the margin is about a
+gigabyte, so anything else memory-hungry started during that window is competing for it.
+
+**Practical rule: while a render is in flight, do not start the test suite, a second arm, a
+container build, or another render.** A multi-arm study is running unattended for tens of hours, and
+the cost of losing an arm is the arm plus everything queued behind it.
+
+Two honesty notes, because the obvious inference here is wrong:
+
+* **No OOM kill has actually occurred during a render.** `journalctl -k` over the whole
+  patch-bootstrap study window reports zero `oom_kill` events. The risk above is inferred from the
+  headroom number, not from a corpse.
+* A full test-suite run launched during the first arm's render *was* killed, and it is tempting to
+  present that as the OOM. It was not -- the kernel log is clean and the harness stopped it. Do not
+  cite it as evidence.
+
+The reason to write the rule down anyway is that 1GB of headroom is not a margin, and the failure it
+would produce is the expensive kind: a dead arm partway through an unattended multi-day comparison.
