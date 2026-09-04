@@ -154,3 +154,52 @@ def test_the_nonzero_band_warns_without_voting_on_its_own(tmp_path):
     ok, notes = mod.check(str(tmp_path / "dense"))
     assert ok
     assert any("WARNING" in n for n in notes)
+
+
+# --- "no tiles" is not "blank" -------------------------------------------------
+#
+# Found 2026-09-04 while checking the first bootstrap arm: pointing the script at
+# an arm directory printed "the arm is VOID and must not be scored" when the only
+# real problem was that the tiles live under a different root. VOID is the most
+# destructive verdict this script has, and it was being asserted on a mistyped
+# path. The two cases need opposite responses -- re-point vs discard the arm.
+
+
+def _predictions_arm(tmp_path, name, tiles):
+    """The layout the render pipeline actually writes: ink_metric/predictions."""
+    d = tmp_path / name / "ink_metric" / "predictions"
+    d.mkdir(parents=True)
+    for i, (w, h, kind) in enumerate(tiles):
+        _tile(str(d / f"w120-129_flat_overlay.{i:03d}.jpg"), w, h, kind)
+    return str(tmp_path / name)
+
+
+def test_the_render_pipeline_layout_is_resolved(tmp_path):
+    """Passing the render dir must find ink_metric/predictions without the caller
+    knowing the internal layout."""
+    arm = _predictions_arm(
+        tmp_path, "outer_x", [(5000, 400, "inked"), (5000, 400, "inked")]
+    )
+    ok, notes = mod.check(arm)
+    assert ok, notes
+
+
+def test_no_tiles_is_reported_separately_from_a_blank_strip(tmp_path):
+    d = tmp_path / "empty"
+    d.mkdir()
+    ok, notes = mod.check(str(d))
+    assert not ok
+    assert notes[0].startswith(mod._NO_TILES)
+    joined = " ".join(notes)
+    assert "NOT a blank-strip verdict" in joined
+    assert "VOID" not in joined
+
+
+def test_a_blank_strip_still_says_void(tmp_path):
+    """The softening must not have weakened the verdict that matters."""
+    arm = _predictions_arm(
+        tmp_path, "outer_blank", [(5000, 400, "black"), (5000, 400, "black")]
+    )
+    ok, notes = mod.check(arm)
+    assert not ok
+    assert not any(n.startswith(mod._NO_TILES) for n in notes)

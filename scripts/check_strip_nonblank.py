@@ -53,10 +53,25 @@ NONZERO_HI = 0.80
 # the p95 rule. Real tiles in this study are 16,384 px wide.
 SLIVER_MAX_WIDTH = 4000
 
+# Distinguishes "wrong path / render absent" from "render wrote black".
+_NO_TILES = "NO TILES"
+
+
+# Layouts that have actually held the tiles. `ink_metric/predictions` is what the
+# render pipeline writes for the outer arms; `meshes/ink` was the earlier layout.
+# Passing an ARM directory used to resolve to the arm directory itself, find no
+# tiles, and report the arm VOID -- see `_NO_TILES` below for why that is bad.
+_TILE_SUBDIRS = (
+    ("ink_metric", "predictions"),
+    ("meshes", "ink"),
+)
+
 
 def ink_dir(path: str) -> str:
-    if os.path.isdir(os.path.join(path, "meshes", "ink")):
-        return os.path.join(path, "meshes", "ink")
+    for parts in _TILE_SUBDIRS:
+        cand = os.path.join(path, *parts)
+        if os.path.isdir(cand):
+            return cand
     return path
 
 
@@ -65,7 +80,18 @@ def check(path: str) -> tuple[bool, list[str]]:
     tiles = sorted(glob.glob(os.path.join(d, "*_flat*.jpg")))
     notes: list[str] = []
     if not tiles:
-        return False, [f"no *_flat*.jpg tiles in {d}"]
+        # NOT "void". No tiles means the render did not write here, or this is the
+        # wrong directory; a blank strip means the render wrote black. Those demand
+        # opposite responses -- re-point vs discard the arm -- and this script used
+        # to call both VOID, which is a confident destructive verdict on what is
+        # usually a mistyped path.
+        return False, [
+            f"{_NO_TILES}: no *_flat*.jpg tiles under {d}",
+            f"  looked for {' and '.join('/'.join(x) for x in _TILE_SUBDIRS)} under the "
+            "given path, then the path itself",
+            "  this is NOT a blank-strip verdict; check the path before voiding "
+            "anything",
+        ]
 
     total = nonzero = 0
     ok = True
@@ -108,19 +134,32 @@ def main() -> int:
     args = ap.parse_args()
 
     failed = []
+    missing = []
     for a in args.arms:
         ok, notes = check(a)
-        print(f"{os.path.basename(os.path.normpath(a))}: {'PASS' if ok else 'FAIL'}")
+        no_tiles = any(n.startswith(_NO_TILES) for n in notes)
+        label = "PASS" if ok else (_NO_TILES if no_tiles else "FAIL")
+        print(f"{os.path.basename(os.path.normpath(a))}: {label}")
         for n in notes:
             print(n)
         if not ok:
             failed.append(a)
+            if no_tiles:
+                missing.append(a)
 
     if failed:
-        print(
-            f"\nCONTROL FAILED for {len(failed)} arm(s). A blank strip means a render "
-            "fault, not absent ink; the arm is VOID and must not be scored."
-        )
+        blank = [a for a in failed if a not in missing]
+        if blank:
+            print(
+                f"\nCONTROL FAILED for {len(blank)} arm(s). A blank strip means a "
+                "render fault, not absent ink; the arm is VOID and must not be scored."
+            )
+        if missing:
+            print(
+                f"\nNO TILES FOUND for {len(missing)} path(s). This is not a blank "
+                "strip and says NOTHING about the arm: the render may not have run "
+                "yet, or the path may be wrong. Do not void an arm on this."
+            )
         return 1
     print("\nregistered non-blank control: PASS")
     return 0
