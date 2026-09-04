@@ -42,9 +42,29 @@ not be trusted, and this one did not.
 | 8 | 2,229 | 10.11 | 11.51 | -1.40 |
 | 9 | outermost | 12.26 | 14.21 | **-1.95** |
 
-Monotone in sign: BOOTSTRAP is inner-heavy and outer-light. In the outermost band -- the region
-w120-w129 is scored on -- it carries **12.26% of its area against RANDOM's 14.21%, about 14% less in
-relative terms**. Mean midpoint radius 1,571 vs 1,655.
+Monotone in sign: BOOTSTRAP is inner-heavy and outer-light. Mean midpoint radius 1,571 vs 1,655.
+
+**Correction, made the same day against the winding meshes.** This section first read "the outermost
+band -- the region w120-w129 is scored on". That identification is wrong. Calibrating radius against
+the fitted meshes (`scripts/calibrate_radius_to_winding.py`) shows the scored strip spans radius
+**1,593 to 3,311** (p5 to p95, median 2,532), while band 9 is everything beyond 2,229 -- a *subset*
+of the scored region, not the same thing. A single winding sweeps a median of 1,683 vx of radius,
+because the spiral is not a circle, so **radius orders windings but cannot identify one**.
+
+What survives the correction is the number, because the deficit does not depend on the cut:
+
+| definition of the scored region | BOOT | RAND | relative |
+|---|---:|---:|---:|
+| strip p5-p95, radius 1,593-3,311 | 41.20% | 46.39% | **-11.2%** |
+| strip median outward, radius > 2,532 | 5.05% | 5.97% | -15.4% |
+| band 9 as originally quoted, radius > 2,229 | 12.26% | 14.21% | -13.7% |
+
+The originally published -13.7% sits inside the range rather than at its edge, so it was not a
+favourable cut, but **-11.2% over the strip's actual radial support is the figure to quote**.
+
+The calibration also validates the proxy's direction: median radius rises without exception from w010
+(882) to w129 (2,576) across thirteen sampled windings. Had it not, the band table above would have
+had to be withdrawn rather than corrected.
 
 ## The mechanism, measured rather than assumed
 
