@@ -61,6 +61,24 @@ Satisfaction falls with radius across the full population:
 reconcile, so a 0.90 threshold removes them preferentially. The spatial skew is not an accident of
 this build; it is what selecting on satisfaction *does*.
 
+## The control is not the thing that is skewed
+
+The obvious objection to the table above is that RANDOM, a single draw, might itself be the
+unrepresentative one. It is not. Against the full 38,439-patch population on the same band edges:
+
+| | largest band gap |
+|---|---:|
+| RANDOM vs FULL population | **0.26 points** |
+| BOOTSTRAP vs RANDOM | 3.59 points |
+
+Seven of ten bands agree to within 0.12 points. The draw tracks the population it came from, so
+BOOTSTRAP vs RANDOM is close to BOOTSTRAP vs everything, and the skew belongs to the selection rather
+than to the control.
+
+This measures the dimension `patch_bootstrap_selection_verified.md` explicitly left open, having
+discharged only the quality dimension. Provenance and winding proper remain unmeasured; the radial
+proxy is not a winding number.
+
 ## What this means for the verdict, stated before the verdict exists
 
 1. **The registered decision rule is unaffected.** Outer thinning is a property of the method under

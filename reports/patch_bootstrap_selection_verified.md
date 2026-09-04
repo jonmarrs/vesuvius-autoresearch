@@ -45,6 +45,12 @@ it was drawn against* and says nothing about any other dimension -- spatial posi
 trace provenance -- on which this particular subset could still be unrepresentative. The registered
 follow-up if the result is close remains a second RANDOM draw, not more seeds.
 
+**Addendum, same day, after this was written:** the spatial dimension named above has since been
+measured and RANDOM is representative there too -- its area profile matches the full population to
+within 0.26 points across ten radial bands, against 3.59 points for BOOTSTRAP. See
+`patch_bootstrap_outer_evidence_deficit.md`. Winding proper and trace provenance remain unchecked,
+and the sentence above stood correctly at the time it was written.
+
 ## What this does not tell you
 
 Nothing about the outcome. The endpoints stay unread until all six arms exist, because

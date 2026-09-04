@@ -123,6 +123,13 @@ def main() -> int:
     ap.add_argument("--reference", required=True)
     ap.add_argument("--bootstrap", required=True)
     ap.add_argument("--random", required=True, dest="random_dir")
+    ap.add_argument(
+        "--full",
+        default=None,
+        help="the UNFILTERED source dataset. When given, the full patch "
+        "population is added as a third row, which is how a single RANDOM draw "
+        "is checked for spatial representativeness.",
+    )
     args = ap.parse_args()
 
     ref = json.load(open(args.reference))["patches"]
@@ -158,15 +165,32 @@ def main() -> int:
     sb, _ = area_share_by_band(boot & extent.keys(), extent, edges, area)
     sr, _ = area_share_by_band(rand & extent.keys(), extent, edges, area)
 
+    # Band edges stay derived from BOOTSTRAP | RANDOM even when --full is given.
+    # That union is 93.6% of patches, so the edges barely move, and holding them
+    # fixed keeps these numbers comparable with
+    # reports/patch_bootstrap_outer_evidence_deficit.md rather than silently
+    # restating a published table on a new axis.
+    sa = None
+    if args.full:
+        full_boxes = load_boxes(args.full, set(area))
+        full_extent = {i: radial_extent(full_boxes[i], cx, cy) for i in full_boxes}
+        sa, _ = area_share_by_band(set(full_extent), full_extent, edges, area)
+
     print(
         f"{'band':<6}{'radius <=':>12}{'BOOT area%':>12}{'RAND area%':>12}{'gap pts':>10}"
+        + (f"{'ALL area%':>11}{'RAND-ALL':>10}" if sa else "")
     )
-    gaps = []
+    gaps, gaps_ra = [], []
     for b in range(N_BANDS):
         lim = f"{edges[b]:,.0f}" if b < len(edges) else "outermost"
         g = 100 * (sb[b] - sr[b])
         gaps.append(abs(g))
-        print(f"{b:<6}{lim:>12}{100 * sb[b]:>12.2f}{100 * sr[b]:>12.2f}{g:>+10.2f}")
+        row = f"{b:<6}{lim:>12}{100 * sb[b]:>12.2f}{100 * sr[b]:>12.2f}{g:>+10.2f}"
+        if sa:
+            d = 100 * (sr[b] - sa[b])
+            gaps_ra.append(abs(d))
+            row += f"{100 * sa[b]:>11.2f}{d:>+10.2f}"
+        print(row)
 
     print(
         f"\nlargest per-band gap: {max(gaps):.2f} points "
@@ -180,6 +204,13 @@ def main() -> int:
     mr = st.mean([0.5 * (extent[i][0] + extent[i][1]) for i in rand & extent.keys()])
     print(f"\nmean midpoint radius  BOOT {mb:,.0f}  RAND {mr:,.0f}")
 
+    if sa:
+        print(
+            f"\nRANDOM vs FULL population: largest band gap {max(gaps_ra):.2f} points, "
+            f"against {max(gaps):.2f} for BOOTSTRAP vs RANDOM. A draw that tracks the "
+            "population across every radial band is not spatially extreme -- the "
+            "dimension reports/patch_bootstrap_selection_verified.md left unchecked."
+        )
     print(
         "\nREPORTED, NOT GATED: no spatial balance criterion was pre-registered, and "
         "picking one now would be choosing a threshold after seeing the data. The "
