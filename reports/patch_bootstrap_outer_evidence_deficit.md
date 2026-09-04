@@ -1,0 +1,80 @@
+# The bootstrap arm is thinnest exactly where the ink is scored
+
+**2026-09-04, written while arms 3-6 were still fitting, with every endpoint unread.** This is an
+input-side property of the datasets. `scripts/check_patch_spatial_balance.py`, tests in
+`tests/test_check_patch_spatial_balance.py`.
+
+## Why this was worth measuring
+
+`reports/patch_bootstrap_selection_verified.md` establishes that the arms hold the same total patch
+area, 76.36% vs 76.37%. That is a **global** match. The ink endpoint is not global: `total_fg_pixels`
+is scored only on **w120-w129**, the outer strip.
+
+A global match can therefore hide the very confound the RANDOM control exists to remove.
+
+## The instrument, and the version of it that was wrong
+
+Patch records carry no winding, and `abs_winding.json` is correction anchors rather than a
+patch->winding map, so this uses a radial proxy from each patch's `meta.json` bbox.
+
+**The first version assigned each patch to the band containing its centroid, and that measurement was
+invalid.** The median patch spans **602 vx** radially against a median band width of **149 vx**; 37.9%
+of patches exceed 1,000 vx across their XY diagonal. A patch four times wider than a band cannot be
+located by its midpoint. The corrected version spreads each patch's area across the whole radial
+interval its footprint covers.
+
+The pattern below **survived that correction** -- the largest band gap moved from 4.63 to 3.59 points
+and the monotone shape held. Reported because a finding that changes under a fixed instrument should
+not be trusted, and this one did not.
+
+## The measurement
+
+| band | radius <= | BOOT area% | RAND area% | gap (pts) |
+|---:|---:|---:|---:|---:|
+| 0 | 834 | 18.68 | 15.09 | **+3.59** |
+| 1 | 981 | 6.31 | 5.49 | +0.83 |
+| 2 | 1,174 | 9.77 | 8.91 | +0.86 |
+| 3 | 1,388 | 12.14 | 11.75 | +0.39 |
+| 4 | 1,529 | 8.19 | 8.38 | -0.19 |
+| 5 | 1,677 | 8.16 | 8.70 | -0.55 |
+| 6 | 1,827 | 7.75 | 8.56 | -0.81 |
+| 7 | 1,967 | 6.62 | 7.40 | -0.78 |
+| 8 | 2,229 | 10.11 | 11.51 | -1.40 |
+| 9 | outermost | 12.26 | 14.21 | **-1.95** |
+
+Monotone in sign: BOOTSTRAP is inner-heavy and outer-light. In the outermost band -- the region
+w120-w129 is scored on -- it carries **12.26% of its area against RANDOM's 14.21%, about 14% less in
+relative terms**. Mean midpoint radius 1,571 vs 1,655.
+
+## The mechanism, measured rather than assumed
+
+Satisfaction falls with radius across the full population:
+
+| radial decile | median radius | mean satisfied fraction |
+|---:|---:|---:|
+| 0 | 676 | 0.9421 |
+| 3 | 1,396 | 0.8366 |
+| 6 | 1,896 | 0.8086 |
+| 9 | 2,613 | **0.7198** |
+
+**Pearson r(radius, satisfied fraction) = -0.21** over 35,963 patches. Outer patches are harder to
+reconcile, so a 0.90 threshold removes them preferentially. The spatial skew is not an accident of
+this build; it is what selecting on satisfaction *does*.
+
+## What this means for the verdict, stated before the verdict exists
+
+1. **The registered decision rule is unaffected.** Outer thinning is a property of the method under
+   test, not an error in the experiment. If ink does not rise, the method has not worked, and
+   `scripts/analyse_patch_bootstrap.py` will say so regardless of mechanism.
+2. **The mechanism behind any ink deficit would be ambiguous.** RANDOM matches BOOTSTRAP on global
+   area but not on area *within the scored strip*, so a BOOTSTRAP ink loss could be worse selection
+   OR simply less evidence where the measurement happens. This report cannot separate them, and
+   neither will the verdict.
+3. **The clean design is a control matched inside the scored region**, not globally. That was not
+   pre-registered and will not be retrofitted onto this study; it is the honest follow-up if the
+   result turns on this point.
+
+Recorded now precisely so that it cannot be produced later as an explanation for an unwelcome
+number. The endpoints remain unread: arms 3-6 are still fitting, and the decision rule -- including
+that a geometry-only gain is a FAILURE rather than a partial success -- was committed to code before
+any arm produced a value.
