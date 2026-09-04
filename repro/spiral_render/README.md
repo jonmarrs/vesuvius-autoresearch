@@ -16,6 +16,30 @@ What this directory is for: `render_ink.py` and `get_ink_metrics.py` turn a spir
 published data alone takes four things that are not written down anywhere, recorded here so the
 next person does not rediscover them.
 
+## 0. Run `preflight.sh` first
+
+Every obstacle in this README surfaced partway through a two-hour render. `./preflight.sh` checks
+all of them in seconds and names what is missing: both interpreters, the villa checkout and the trees
+renders extract from it, the rebuilt `vc_tifxyz2obj`, whether `serial_folds.patch` still applies, and
+GPU/disk/RAM headroom. It exits non-zero, so it can gate a run.
+
+**Environment, and the one trap worth stating twice:**
+
+| variable | what it must point at | default |
+|---|---|---|
+| `RENDER_VENV` | python with **torch** — runs `render_ink.py` and the lasagna flatten | villa-spiral's `spiral-fitting/.venv` |
+| `SCORE_VENV` | python with **huggingface_hub + nnunetv2** — runs `get_ink_metrics.py` | `data/ink_scorer_venv` |
+| `VILLA` | a villa checkout; renders extract `origin/main`, fits run the **working tree** | `../villa-spiral` |
+| `VC_IMAGE` | container with the rebuilt VC tools | `vc-render:local` |
+
+**`VENV` means different things in different scripts** — the fit/render one in `run_render.sh`, the
+scoring one in `score_arms.sh`. Setting it globally satisfies one and breaks the other, and the
+failure arrives *after* the render has already run, as `No module named huggingface_hub`. Preflight
+fails loudly if the two resolve to the same path.
+
+The preflight also prints both villa refs, because fits and renders genuinely use different ones
+(worktree vs `origin/main`) and quoting a single ref for "the tooling" has been wrong here twice.
+
 ## 1. The native binaries come from the published container, not a source build
 
 Building VC3D from source pulls Ceres, OpenCV, CGAL and Qt. The published image has the tools
