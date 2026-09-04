@@ -89,6 +89,20 @@ never "no effect". `satisfied_area` has CV 0.00167 and needs no such caveat.
 BOOTSTRAP vs BASELINE and RANDOM vs BASELINE are reported for context and **carry no claim**: they
 confound quality with quantity, which is the whole reason RANDOM exists.
 
+## A limitation of the control, stated before the data
+
+**RANDOM is one draw, not a distribution over draws.** All three RANDOM fits use the same randomly
+selected patch set (built with `--seed 0`), varying only `optimizer_random_seed`, exactly as
+BOOTSTRAP uses one fixed selection. So the comparison is against *that particular* random subset, not
+against random selection in general, and an unusually good or bad draw would bias it.
+
+Considered and rejected: three different draws, one per seed. It would generalise better but would
+add draw variance to RANDOM only, inflating the pooled SE at an n where power is already marginal
+(MDE 9.6%). Area-matching constrains the draw and a random 78% subset of 38,439 patches is unlikely
+to be extreme, so the single draw is accepted with this limit recorded rather than discovered later.
+
+If the result is close, the cheap follow-up is a second RANDOM draw rather than more seeds.
+
 ## Prediction, fixed now
 
 **I predict ink is null and geometry rises** — i.e. the third row, a failure. Reasoning: satisfaction
