@@ -1,4 +1,14 @@
-# DRAFT villa issue — not posted. Slot: 2026-09-07 (1 new issue/week).
+# DRAFT villa issue — HELD, not scheduled.
+
+**Decision 2026-09-05 (user): do not post until more of our existing villa posts are closed or
+resolved.** This supersedes the weekly-slot rule — an open slot is no longer sufficient. At the time
+of the decision: six issues open, five with zero comments (#1659, #1658, #1655, #1654, #1522; only
+#1660 ever drew a reply). **Re-check that list before proposing this again; if it has not shrunk, the
+answer is still no.** Do not nudge the open issues to make it shrink.
+
+Held on backlog, **not** for lack of evidence: the content below is finished and its prior-art claim
+was re-verified by search on 2026-09-05. Nothing here decays by waiting, and a third study
+(STRIPMATCH) is in flight that would strengthen it further.
 
 Checks re-run 2026-09-05, because the previous withdrawn draft
 (`VILLA_DRAFT_column_width_4x.md`) passed every process check and was still false:
