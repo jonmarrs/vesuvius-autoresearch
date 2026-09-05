@@ -82,6 +82,38 @@ def select(pool, area, weight, target_area, target_share, seed=0):
     return keep
 
 
+def draw_stability(pool, area, weight, target_area, target_share, seeds, frac=None):
+    """Re-draw under the same constraints across seeds and report what moves.
+
+    The registration inherits a single-draw limitation from the parent study. For
+    RANDOM that was discharged by showing the draw tracked the full population;
+    that argument does NOT transfer here, because STRIPMATCH is deliberately
+    unrepresentative -- it is pinned to BOOTSTRAP's in-strip share, which is below
+    the population's. The right question is instead whether independent draws
+    under the same constraints agree on the quantities the comparison rests on.
+    """
+    rows = []
+    first = None
+    for seed in seeds:
+        keep = select(pool, area, weight, target_area, target_share, seed=seed)
+        a, sh = profile(set(keep), area, weight)
+        row = {
+            "seed": seed,
+            "n": len(keep),
+            "area_frac_of_target": a / target_area,
+            "in_strip": sh,
+        }
+        if frac is not None:
+            row["mean_satisfaction"] = sum(frac[i] for i in keep) / len(keep)
+        if first is None:
+            first = set(keep)
+            row["overlap_with_first"] = 1.0
+        else:
+            row["overlap_with_first"] = len(first & set(keep)) / len(first)
+        rows.append(row)
+    return rows
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--reference", required=True)
@@ -89,10 +121,19 @@ def main() -> int:
     ap.add_argument("--full", required=True, help="unfiltered source dataset")
     ap.add_argument("--out", required=True, help="dataset directory to create")
     ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument(
+        "--stability",
+        type=int,
+        default=0,
+        metavar="N",
+        help="draw N times under the same constraints and report agreement "
+        "instead of writing a dataset; tests the single-draw limitation",
+    )
     args = ap.parse_args()
 
     ref = json.load(open(args.reference))["patches"]
     area = {p["id"]: p["total_area"] for p in ref}
+    frac = {p["id"]: p["fraction"] for p in ref}
     boot = (
         set(os.listdir(os.path.join(args.bootstrap, "verified_patches"))) & area.keys()
     )
@@ -102,6 +143,31 @@ def main() -> int:
 
     ta, ts = profile(boot, area, weight)
     print(f"BOOTSTRAP  area {ta:,.0f}  in-strip share {ts:.4f}")
+
+    if args.stability:
+        rows = draw_stability(
+            set(boxes), area, weight, ta, ts, range(args.stability), frac
+        )
+        print(
+            f"\n{'seed':<6}{'n':>9}{'area %target':>14}{'in-strip':>10}"
+            f"{'mean satisf':>13}{'overlap':>10}"
+        )
+        for r in rows:
+            print(
+                f"{r['seed']:<6}{r['n']:>9,}{100 * r['area_frac_of_target']:>13.2f}%"
+                f"{r['in_strip']:>10.4f}{r['mean_satisfaction']:>13.4f}"
+                f"{100 * r['overlap_with_first']:>9.1f}%"
+            )
+        sh = [r["in_strip"] for r in rows]
+        ms = [r["mean_satisfaction"] for r in rows]
+        print(
+            f"\nin-strip share spans {max(sh) - min(sh):.4f}; mean satisfaction spans "
+            f"{max(ms) - min(ms):.4f}. Draws overlap only "
+            f"{100 * min(r['overlap_with_first'] for r in rows[1:]):.0f}-"
+            f"{100 * max(r['overlap_with_first'] for r in rows[1:]):.0f}%, so these are "
+            "genuinely different subsets agreeing on what the comparison rests on."
+        )
+        return 0
 
     keep = select(set(boxes), area, weight, ta, ts, seed=args.seed)
     ka, ks = profile(set(keep), area, weight)

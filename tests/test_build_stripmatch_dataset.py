@@ -69,3 +69,42 @@ def test_select_is_deterministic_under_a_seed():
     a = mod.select(set(area), area, weight, 400.0, 0.5, seed=7)
     b = mod.select(set(area), area, weight, 400.0, 0.5, seed=7)
     assert a == b
+
+
+# --- the single-draw limitation ------------------------------------------------
+
+
+def test_draw_stability_reports_one_row_per_seed():
+    area = {str(i): 10.0 for i in range(400)}
+    weight = {str(i): (1.0 if i % 2 == 0 else 0.0) for i in range(400)}
+    rows = mod.draw_stability(set(area), area, weight, 2000.0, 0.40, range(3))
+    assert [r["seed"] for r in rows] == [0, 1, 2]
+    assert rows[0]["overlap_with_first"] == 1.0
+
+
+def test_every_draw_meets_the_constraints():
+    """The point of the check: different subsets, same pinned properties."""
+    area = {str(i): 10.0 for i in range(600)}
+    weight = {str(i): (1.0 if i % 2 == 0 else 0.0) for i in range(600)}
+    rows = mod.draw_stability(set(area), area, weight, 3000.0, 0.40, range(4))
+    for r in rows:
+        assert r["area_frac_of_target"] == pytest.approx(1.0, rel=0.02)
+        assert r["in_strip"] == pytest.approx(0.40, abs=0.01)
+
+
+def test_different_seeds_give_genuinely_different_subsets():
+    """If every draw were the same set, agreement would prove nothing."""
+    area = {str(i): 10.0 for i in range(600)}
+    weight = {str(i): (1.0 if i % 2 == 0 else 0.0) for i in range(600)}
+    rows = mod.draw_stability(set(area), area, weight, 3000.0, 0.40, range(3))
+    assert all(r["overlap_with_first"] < 0.99 for r in rows[1:])
+
+
+def test_mean_satisfaction_is_only_reported_when_asked_for():
+    area = {str(i): 10.0 for i in range(200)}
+    weight = {str(i): (i % 2) * 1.0 for i in range(200)}
+    rows = mod.draw_stability(set(area), area, weight, 1000.0, 0.5, range(2))
+    assert "mean_satisfaction" not in rows[0]
+    frac = {str(i): 0.5 for i in range(200)}
+    rows = mod.draw_stability(set(area), area, weight, 1000.0, 0.5, range(2), frac=frac)
+    assert rows[0]["mean_satisfaction"] == pytest.approx(0.5)
