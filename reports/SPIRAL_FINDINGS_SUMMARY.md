@@ -1,6 +1,6 @@
 # Spiral ink objective: what we measured, with every floor attached
 
-**2026-08-31.** One page over nine reports written across two days. Each claim is paired with the
+**2026-08-31, extended 2026-09-05.** One page over thirteen reports. Each claim is paired with the
 floor it must clear, because the floor is what several of these results turned on, and getting the
 floor wrong caused two reversals in a single afternoon.
 
@@ -190,6 +190,44 @@ and outer strips had been analysed with different cutoffs (1101 vs 2500 px) beca
 `hp = min(2500, p.size//8)`. Finding 15's question is **open again**.
 `reports/column_structure_is_absent_outer_not_missegmented.md`.
 
+**17. Refitting on the fit's own well-satisfied patches is a registered FAILURE.**
+villa names the avenue in `37_2026_open_problems.md` ("automatically crop 'good' regions of the
+spiral fit, and use these as surface patch inputs to a subsequent run"). Six fits, three per arm,
+against a control matched on total patch area: `satisfied_area` **+17.66% (p < 1e-4)**,
+`total_fg_pixels` **-0.83% (p = 0.89)**. Registered in advance as a failure rather than a partial
+success, because selecting patches BY satisfaction and scoring the result ON satisfaction is close to
+circular. Prediction met. The null is bounded, not empty: no ink effect larger than ~10% at n=3 per
+arm. `reports/patch_bootstrap_verdict.md`.
+
+**18. The two metrics now disagree in BOTH directions, which is the load-bearing result.**
+Finding 13 showed the guard passing a real 10% ink regression. Finding 17 shows it firing at +17.66%
+for no ink gain at all.
+
+| case | `satisfied_area` | `total_fg_pixels` |
+|---|---|---|
+| gap-expander config, n=12 | +1.03% | **-10.35%** |
+| patch bootstrap, n=6 | **+17.66%** | -0.83% (null) |
+
+A cross-check that can move confidently the wrong way *and* confidently the useless way is
+uninformative about ink in either direction. This is what the unposted villa draft argues;
+`docs/VILLA_DRAFT_metrics_disagree.md`.
+
+**19. Satisfaction falls with radius, so selecting on it starves the region the ink is scored in.**
+Mean per-patch satisfied `fraction` runs **0.9421** in the innermost radial decile to **0.7198** in
+the outermost, Pearson **r = -0.21** over 35,963 patches. A 0.90 threshold therefore drops outer
+patches preferentially: the bootstrap arm matched its control on TOTAL area to 0.01 points while
+carrying **~11% less relative area inside the scored strip w120-w129**. **A global area match does
+not imply a match where the endpoint is measured.** Measured and published before any endpoint of
+finding 17 was read. `reports/patch_bootstrap_outer_evidence_deficit.md`.
+
+**20. Radius orders windings but cannot identify one.**
+Median radius is monotone across thirteen sampled windings (w010 882 -> w129 2,576), so a radial band
+table reads inner-to-outer. But a single winding sweeps a median **1,683 vx** of radius because the
+spiral is not a circle -- w129 spans 1,715-3,358 and overlaps w100 entirely. The scored strip
+w120-w129 covers radius **1,593-3,311**. Finding 19's report originally called its outermost band
+"the region w120-w129 is scored on" and was corrected; the deficit survived at -11.2%, -15.4% and
+-13.7% across three definitions of that region. `scripts/calibrate_radius_to_winding.py`.
+
 ## What is NOT established, and matters
 
 **Reachability through a fit is unproven, and the search for it is CLOSED.** Every duplicate arm
@@ -243,6 +281,18 @@ fix was aimed at the innermost ten windings while the change acts on the outermo
 was fine and the *region* was wrong, so the arm would have read null whether or not the fix works.
 The question to ask before registering is not only "does this observable respond?" but "where can
 this manipulation express itself?" (finding 13).
+
+**A fifth instance, caught by a control rather than by luck:** finding 19's band table was first
+built by assigning each patch to the band holding its centroid. The median patch spans 602 vx of
+radius against 149 vx bands, so that measured almost nothing. Positive-controlling the instrument
+before writing it up exposed it; spreading each patch's area across the bands it covers fixed it, and
+the finding survived. Had it not survived, the table would have been withdrawn rather than corrected.
+
+**One open ambiguity, recorded before the verdict that raised it:** finding 17's control matches
+globally and not inside the scored strip, so a bootstrap ink deficit could be worse evidence OR less
+evidence. There was none to explain -- the comparison is null -- but the parity was reached on ~11%
+thinner strip coverage. `docs/preregistration/2026-09-04_stripmatch_followup.md`, written while the
+endpoints were still unread, fixed "run on FAILURE" in advance; that follow-up is running.
 
 Reproduce: `repro/spiral_render/`, `scripts/measure_winding_overlap.py`,
 `scripts/analyse_seed_spread.py`. All from published artifacts.
