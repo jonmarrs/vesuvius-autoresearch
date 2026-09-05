@@ -13,6 +13,28 @@ Checks re-run 2026-09-05, because the previous withdrawn draft
   (`docs/preregistration/2026-09-02_gap_ink_second_look.md`, `2026-09-03_patch_bootstrap.md`).
 * no AI-authorship markers.
 
+**Prior art re-checked 2026-09-05 by search, not by memory** (the instrument was positive-controlled
+first -- "spiral" returns hits and #1621 fetches, so an empty result means absence rather than a
+broken query):
+
+* `satisfied_area` -> **zero issues**, open or closed;
+* `total_fg_pixels` -> #1658 and #1660, both ours;
+* `satisfaction` -> #1641, #1658, #1621 (all ours) and #191 (villa's, unrelated -- surface/fiber
+  predictions in curved areas).
+
+Nobody has reported the two metrics disagreeing. **Not a duplicate of our own #1658 either:** that one
+is about `autoresearch.md` naming a missing script and omitting metrics, a documentation defect. This
+is an empirical claim about the metrics' behaviour.
+
+**An argument AGAINST posting, which the reader should weigh before the slot.** We currently have
+**six issues open on villa and five have zero comments** -- #1659, #1658, #1655, #1654 and #1522 are
+all unanswered, the oldest since August. Only #1660 drew a reply. A seventh issue into that silence
+reads as volume rather than engagement, and the standing policy here is fewer and deeper. The case
+FOR posting is that this one is different in kind: it is not a bug report but a measured property of
+the objective their loop optimises, backed by two pre-registered studies totalling eighteen fits. The
+case AGAINST is that the five unanswered issues suggest the audience is not reading, and nothing is
+lost by holding. **No nudging of the existing issues either way.**
+
 Reviewer note: ~380 words. #1621 was called "excessively verbose"; detail stays collapsed.
 
 ---
