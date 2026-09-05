@@ -76,3 +76,48 @@ def test_the_registered_arm_names_match_the_analysis(tmp_path):
 
     assert mod.BOOT == an.BOOTSTRAP_ARMS
     assert mod.RAND == an.RANDOM_ARMS
+
+
+# --- two studies, one resolver ------------------------------------------------
+#
+# The STRIPMATCH follow-up reuses the BOOTSTRAP arms and compares them against a
+# differently-built control. It shares this resolver rather than copying it, so
+# the ambiguity guard cannot drift between two versions.
+
+
+def test_the_registered_studies_are_declared():
+    assert set(mod.STUDIES) == {"bootstrap", "stripmatch"}
+    assert mod.STUDIES["bootstrap"][0] == mod.BOOT + mod.RAND
+    assert mod.STUDIES["stripmatch"][0] == mod.BOOT + mod.STRIP
+
+
+def test_each_study_names_its_own_analysis_script():
+    scripts = {name: a for name, (_, a) in mod.STUDIES.items()}
+    assert scripts["bootstrap"] == "analyse_patch_bootstrap.py"
+    assert scripts["stripmatch"] == "analyse_stripmatch.py"
+    assert len(set(scripts.values())) == 2
+
+
+def test_stripmatch_reuses_the_bootstrap_arms_and_adds_no_new_ones(tmp_path):
+    """The follow-up must NOT refit BOOTSTRAP; reusing those arms is the design."""
+    tags = mod.STUDIES["stripmatch"][0]
+    assert set(mod.BOOT) < set(tags)
+    assert not set(mod.RAND) & set(tags)
+    for t in tags:
+        _arm(tmp_path, t)
+    specs = mod.build_args(str(tmp_path), tags)
+    assert [s.split("=")[0] for s in specs] == list(tags)
+
+
+def test_the_stripmatch_arm_names_match_its_analysis():
+    import analyse_stripmatch as an
+
+    assert mod.BOOT == an.BOOTSTRAP_ARMS
+    assert mod.STRIP == an.STRIPMATCH_ARMS
+
+
+def test_the_ambiguity_guard_applies_to_stripmatch_too(tmp_path):
+    _arm(tmp_path, "strip090s1", dirs=2)
+    with pytest.raises(SystemExit) as e:
+        mod.resolve(str(tmp_path), "strip090s1")
+    assert "Refusing to guess" in str(e.value)

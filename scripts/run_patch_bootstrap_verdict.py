@@ -21,6 +21,16 @@ import sys
 
 BOOT = ("boot090s1", "boot090s2", "boot090s3")
 RAND = ("rand090s1", "rand090s2", "rand090s3")
+STRIP = ("strip090s1", "strip090s2", "strip090s3")
+
+# One resolver, two studies. The STRIPMATCH follow-up reuses the BOOTSTRAP arms
+# rather than refitting them, so its comparison is BOOT vs STRIP. Duplicating the
+# resolver into a second script would leave two copies of the ambiguity guard to
+# drift apart, which is exactly the failure it exists to prevent.
+STUDIES = {
+    "bootstrap": (BOOT + RAND, "analyse_patch_bootstrap.py"),
+    "stripmatch": (BOOT + STRIP, "analyse_stripmatch.py"),
+}
 
 
 def resolve(spiral_out, tag):
@@ -56,16 +66,23 @@ def main() -> int:
     ap.add_argument(
         "--spiral-out", default="/home/jon/openclaw-workspace/Neo-VM/spiral_out"
     )
+    ap.add_argument(
+        "--study",
+        default="bootstrap",
+        choices=sorted(STUDIES),
+        help="which registered comparison to run (default: the parent study)",
+    )
     ap.add_argument("--out", default=None, help="write the verdict json here")
     args = ap.parse_args()
 
-    specs = build_args(args.spiral_out)
+    tags, analysis = STUDIES[args.study]
+    specs = build_args(args.spiral_out, tags)
     here = os.path.dirname(os.path.abspath(__file__))
-    cmd = [sys.executable, os.path.join(here, "analyse_patch_bootstrap.py"), *specs]
+    cmd = [sys.executable, os.path.join(here, analysis), *specs]
     if args.out:
         cmd += ["--out", args.out]
 
-    print("resolved all six arms:")
+    print(f"resolved all {len(specs)} arms for study '{args.study}':")
     for s in specs:
         print(f"  {s.split('=')[0]}")
     print()
