@@ -520,6 +520,63 @@ lands in the text-line range) — documented in the benchmark as the reason ever
 submission must include its prediction map. The cross-scroll ceiling, now measured
 against scholar-validated ground truth on the very scroll the field just read.
 
+## The spiral-fitting track (late August - September)
+
+villa deprecated `ink-detection/` in late August and moved development to `spiral-fitting/`,
+so the work above ends there and this track begins. Everything below is measured on the
+published `spiral_datasets/PHercParis4` on one consumer GPU, from published artifacts only.
+Full detail with every noise floor attached:
+[SPIRAL_FINDINGS_SUMMARY.md](reports/SPIRAL_FINDINGS_SUMMARY.md).
+
+**The headline is a metric result, not a model result.** villa's loop optimises
+`total_fg_pixels` (recovered ink) with a `satisfied_area` (geometry) cross-check. We have two
+pre-registered cases where those two move independently **in opposite directions**:
+
+| case | `satisfied_area` | `total_fg_pixels` | what the guard does |
+|---|---:|---:|---|
+| gap-expander config, n=12 | +1.03% (p=3.9e-06) | **-10.35%** (p=0.0018) | passes a real ink regression |
+| patch bootstrap, n=6 | **+17.66%** (p<1e-4) | -0.83% (p=0.89, null) | cheers for no ink gain |
+
+A cross-check that can move confidently the wrong way *and* confidently the useless way is
+uninformative about ink in either direction.
+
+**We answered one avenue villa names in `37_2026_open_problems.md`** — "automatically crop
+'good' regions of the spiral fit, and use these as surface patch inputs to a subsequent run".
+Refitting on patches the previous fit satisfied at >= 0.90, against a control matched on total
+patch area, is a **registered FAILURE**: the geometry diagnostic rose 17.66% and recovered ink
+did not follow ([patch_bootstrap_verdict.md](reports/patch_bootstrap_verdict.md)). The geometry
+gain is close to circular — the arm was selected on satisfaction and then scored on it — which is
+exactly why a loop using that guard would read it as success. The null is bounded, not empty: no
+ink effect larger than ~10% at three fits per arm.
+
+**A property of the data that generalises past this study.** Per-patch satisfaction falls with
+radius (mean 0.9421 innermost decile to 0.7198 outermost, Pearson r = -0.21 over 35,963 patches),
+so any selection thresholded on satisfaction is inner-biased. The bootstrap arm matched its
+control on *total* area to 0.01 points while carrying **~11% less relative area inside the strip
+where ink is actually scored**. A global area match does not imply a match where the endpoint is
+measured — check the scored region separately
+([patch_bootstrap_outer_evidence_deficit.md](reports/patch_bootstrap_outer_evidence_deficit.md)).
+
+**Negative and corrected results, kept honest:**
+
+- The spiral satisfaction metric is winding-blind by design — we raised it, the design authority
+  said the periodicity is intended, and we **conceded** (villa#1621).
+- A suspected "disconnected subrow" defect is a **null**: warned patches score *higher*, via a
+  selection effect.
+- Our fiber tracer **loses to connected components** on both coverage and precision; coasting was
+  falsified and seed NMS was a null.
+- The column-metric line is **closed** after four hypotheses were each refuted, one of which was a
+  finding we published and **retracted the same day** when its instrument turned out to be
+  measuring our own high-pass residual.
+- A radial band table was first built by assigning each patch to the band holding its centroid;
+  the median patch spans four bands, so that measured almost nothing. Caught by positive-controlling
+  the instrument *before* writing it up, and the finding survived the fix.
+
+**Tooling, all tested and reusable:** `scripts/check_patch_selection.py`,
+`check_patch_spatial_balance.py`, `calibrate_radius_to_winding.py`, `check_strip_nonblank.py`,
+`analyse_patch_bootstrap.py`, `run_patch_bootstrap_verdict.py`, and `repro/spiral_render/` which
+renders legible Greek from published artifacts on one 4090.
+
 ## What we learned
 
 - **Validation metrics are artifact-saturated.** On ink-containing patches
