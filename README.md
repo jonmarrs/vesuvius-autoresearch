@@ -13,7 +13,10 @@
 > **+17.66% for no ink gain at all** (n=6). The second answers an avenue villa names in its open
 > problems ("automatically crop 'good' regions of the spiral fit... as surface patch inputs to a
 > subsequent run") with a **registered FAILURE — twice**, the second study built to rule out the
-> obvious confound in the first and designed while the first's results were still unread. Detail:
+> obvious confound in the first and designed while the first's results were still unread. Both
+> geometry gains are **circular by construction** — the arm is selected on satisfaction and then
+> scored on it — which is exactly why a loop using that guard would read either as success; and both
+> ink nulls are bounded at ~10%, not zero. Detail:
 > [SPIRAL_FINDINGS_SUMMARY.md](reports/SPIRAL_FINDINGS_SUMMARY.md),
 > [verdict](reports/patch_bootstrap_verdict.md). Runs on one consumer GPU from published artifacts.
 > **Live experiment tracking:** [wandb dashboard](https://wandb.ai/jdmarrs-uc-davis/vesuvius-autoresearch).
