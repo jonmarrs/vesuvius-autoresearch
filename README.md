@@ -12,7 +12,8 @@
 > geometry +1.03% while costing **-10.35% of the ink** (n=12), and a refit that raised geometry
 > **+17.66% for no ink gain at all** (n=6). The second answers an avenue villa names in its open
 > problems ("automatically crop 'good' regions of the spiral fit... as surface patch inputs to a
-> subsequent run") with a **registered FAILURE**. Detail:
+> subsequent run") with a **registered FAILURE — twice**, the second study built to rule out the
+> obvious confound in the first and designed while the first's results were still unread. Detail:
 > [SPIRAL_FINDINGS_SUMMARY.md](reports/SPIRAL_FINDINGS_SUMMARY.md),
 > [verdict](reports/patch_bootstrap_verdict.md). Runs on one consumer GPU from published artifacts.
 > **Live experiment tracking:** [wandb dashboard](https://wandb.ai/jdmarrs-uc-davis/vesuvius-autoresearch).

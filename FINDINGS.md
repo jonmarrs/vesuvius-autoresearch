@@ -541,13 +541,20 @@ A cross-check that can move confidently the wrong way *and* confidently the usel
 uninformative about ink in either direction.
 
 **We answered one avenue villa names in `37_2026_open_problems.md`** — "automatically crop
-'good' regions of the spiral fit, and use these as surface patch inputs to a subsequent run".
-Refitting on patches the previous fit satisfied at >= 0.90, against a control matched on total
-patch area, is a **registered FAILURE**: the geometry diagnostic rose 17.66% and recovered ink
-did not follow ([patch_bootstrap_verdict.md](reports/patch_bootstrap_verdict.md)). The geometry
-gain is close to circular — the arm was selected on satisfaction and then scored on it — which is
-exactly why a loop using that guard would read it as success. The null is bounded, not empty: no
-ink effect larger than ~10% at three fits per arm.
+'good' regions of the spiral fit, and use these as surface patch inputs to a subsequent run" —
+with **two pre-registered studies, both FAILURE**. Refitting on patches the previous fit satisfied
+at >= 0.90 raised the geometry diagnostic 17.66% while recovered ink did not follow
+([verdict](reports/patch_bootstrap_verdict.md)). Because that first control matched on *global*
+area while the refit carried ~11% less area inside the strip where ink is scored, a masked benefit
+remained possible — so a second study, **designed and registered while the first study's endpoints
+were still unread**, built a control matched on total area *and* in-strip share and compared it
+against the same arms. Ink -3.80% (p=0.55), geometry +16.24%: **FAILURE again**, with the ink
+estimate moving further against the method rather than toward a hidden benefit
+([verdict](reports/stripmatch_verdict.md)). The outer deficit was a side effect of selecting on
+satisfaction, not the cause. Both geometry gains are circular by construction — the arm is selected
+on satisfaction and then scored on it — which is exactly why a loop using that guard would read
+either as success. Both nulls are bounded, not empty: no ink effect larger than ~10% at three fits
+per arm.
 
 **A property of the data that generalises past this study.** Per-patch satisfaction falls with
 radius (mean 0.9421 innermost decile to 0.7198 outermost, Pearson r = -0.21 over 35,963 patches),

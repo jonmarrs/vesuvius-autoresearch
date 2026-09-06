@@ -1,6 +1,6 @@
 # Spiral ink objective: what we measured, with every floor attached
 
-**2026-08-31, extended 2026-09-05.** One page over thirteen reports. Each claim is paired with the
+**2026-08-31, extended 2026-09-05.** One page over fifteen reports. Each claim is paired with the
 floor it must clear, because the floor is what several of these results turned on, and getting the
 floor wrong caused two reversals in a single afternoon.
 
@@ -228,6 +228,25 @@ w120-w129 covers radius **1,593-3,311**. Finding 19's report originally called i
 "the region w120-w129 is scored on" and was corrected; the deficit survived at -11.2%, -15.4% and
 -13.7% across three definitions of that region. `scripts/calibrate_radius_to_winding.py`.
 
+**21. Equalising the evidence in the scored strip does not rescue the method either.**
+Finding 17's control matched BOOTSTRAP on *global* area while BOOTSTRAP carried ~11% less area inside
+the strip the ink is scored on, which left open that a real selection benefit was being masked. A
+second registered study built a control matched on **both** total area (100.00%) and in-strip share
+(0.4120, gap 0.0000), then compared it against the same three BOOTSTRAP arms:
+
+| endpoint | STRIPMATCH | BOOTSTRAP | rel | p |
+|---|---:|---:|---:|---:|
+| `total_fg_pixels` | 1,693,013 | 1,628,729 | **-3.80%** | 0.5527 |
+| `satisfied_area_fraction` | 0.8430 | 0.9799 | +16.24% | 0.0000 |
+
+**FAILURE again, prediction met.** With the deficit removed, BOOTSTRAP's ink estimate moves *further
+against* it (-0.83% -> -3.80%), the opposite direction from a masked benefit. **The outer deficit of
+finding 19 is a side effect of selecting on satisfaction, not the cause of finding 17's null.** The
++16.24% geometry number carries no credit: BOOTSTRAP is selected ON satisfaction and the control is
+not, so it is guaranteed by construction. Three BOOTSTRAP arms, two independently-built controls,
+neither favouring them. Both nulls bounded at ~9.6%, not empty.
+`reports/stripmatch_verdict.md`, `reports/stripmatch_draw_stability.md`.
+
 ## What is NOT established, and matters
 
 **Reachability through a fit is unproven, and the search for it is CLOSED.** Every duplicate arm
@@ -288,11 +307,12 @@ radius against 149 vx bands, so that measured almost nothing. Positive-controlli
 before writing it up exposed it; spreading each patch's area across the bands it covers fixed it, and
 the finding survived. Had it not survived, the table would have been withdrawn rather than corrected.
 
-**One open ambiguity, recorded before the verdict that raised it:** finding 17's control matches
-globally and not inside the scored strip, so a bootstrap ink deficit could be worse evidence OR less
-evidence. There was none to explain -- the comparison is null -- but the parity was reached on ~11%
-thinner strip coverage. `docs/preregistration/2026-09-04_stripmatch_followup.md`, written while the
-endpoints were still unread, fixed "run on FAILURE" in advance; that follow-up is running.
+**That ambiguity is now CLOSED, and the blind design is why it could be.** Finding 17's control
+matched globally and not inside the scored strip, so its null could have hidden a selection benefit.
+`docs/preregistration/2026-09-04_stripmatch_followup.md` was written while those endpoints were still
+unread -- fixing both the design and the "run on FAILURE" trigger before the result that would
+motivate them existed -- and finding 21 answers it: no benefit with the strip equalised. A follow-up
+designed after seeing the verdict would have been shaped by the verdict it was meant to explain.
 
 Reproduce: `repro/spiral_render/`, `scripts/measure_winding_overlap.py`,
 `scripts/analyse_seed_spread.py`. All from published artifacts.
