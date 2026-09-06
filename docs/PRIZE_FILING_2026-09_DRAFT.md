@@ -87,6 +87,15 @@ MIT, public on GitHub. ScrollGT reached **v0.3.2** this month and now has tagged
 diffed. Its 206 tests pass; the documented quickstart is exercised by a test after a cold clone once
 failed.
 
+**It now ships a Docker image** (153 MB), which is the criteria's requested reproduction path:
+
+```bash
+docker build -t scrollgt . && docker run --rm --network none scrollgt pytest -q
+```
+
+The offline claim is demonstrated rather than asserted — 20 core tests pass inside the container with
+networking disabled. System requirements: any x86-64 host with Docker, no GPU, ~200 MB of disk.
+
 New reusable tooling this month, all tested: patch-selection and radial-balance verification, a
 radius/winding calibration, per-study verdict runners that refuse partial samples, and a checkpoint
 pruner that refuses to delete any artifact a report cites.
