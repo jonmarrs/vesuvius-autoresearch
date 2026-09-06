@@ -51,8 +51,8 @@ Skipped (optional capabilities, by design — not failures):
 The productionized detector and the SOTA tooling ship their own suites:
 
 ```bash
-CUDA_VISIBLE_DEVICES="" uv run python -m pytest tests/test_detector_*.py -q   # 29 passed (2026-07-01)
-CUDA_VISIBLE_DEVICES="" uv run python -m pytest tests/test_sota_*.py -q      # 17 passed (2026-07-02)
+CUDA_VISIBLE_DEVICES="" uv run python -m pytest tests/test_detector_*.py -q   # 30 passed, ~4m35s (re-run 2026-09-06)
+CUDA_VISIBLE_DEVICES="" uv run python -m pytest tests/test_sota_*.py -q      # 60 passed, ~10s (re-run 2026-09-06)
 ```
 
 ## 5. Reproduce the working detector (GPU, ~hours)
@@ -108,6 +108,25 @@ uv run run_autoresearch_loop.py
 
 Each cycle samples a configuration, preflights it, trains under a fixed budget,
 evaluates on the held-out fragment, and appends a row to `results.tsv`.
+
+## 9. Spiral fitting (the current track)
+
+The sections above are the detector work. Since villa deprecated `ink-detection/` in late August the
+active track is spiral fitting, which has its own reproduce guide because it needs a villa checkout,
+a container and ~10 GB per arm:
+
+**[repro/spiral_render/README.md](repro/spiral_render/README.md)** — renders legible Greek from
+published `spiral_datasets` artifacts on one consumer GPU, and documents nine obstacles that each
+cost hours to find (wrong scale writing a black strip, the scorer OOMing at outer windings, a stale
+published container binary, ~1 GB of RAM headroom during a render).
+
+```bash
+./repro/spiral_render/preflight.sh    # checks every prerequisite, ~5s, names what is missing
+```
+
+Run that first; it fails in seconds rather than at band 18 of a two-hour render. The pre-registered
+studies built on this path are in `reports/` — start with
+[SPIRAL_FINDINGS_SUMMARY.md](reports/SPIRAL_FINDINGS_SUMMARY.md).
 
 ## Related: GPU fiber/ridge tooling
 
