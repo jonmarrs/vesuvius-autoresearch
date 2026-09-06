@@ -40,7 +40,12 @@ sys.path.insert(0, os.path.join(_REPO, "scripts"))
 REPORT = os.path.join(_REPO, "reports", "spiral_satisfaction_winding_blindness.md")
 OUT = os.path.join(_REPO, "reports", "report_claim_audit.txt")
 
-ARTIFACT_RE = re.compile(r"reports/([A-Za-z0-9_]+\.txt)")
+# .json as well as .txt. The verdict reports produced by the pre-registered
+# studies cite machine-readable json artifacts, and a .txt-only pattern skipped
+# them SILENTLY -- the exact "audit checks nothing" failure this file's tests
+# warn about. Numbers are extracted from the raw bytes either way, so json needs
+# no special parsing.
+ARTIFACT_RE = re.compile(r"reports/([A-Za-z0-9_]+\.(?:txt|json))")
 NUMBER_RE = re.compile(r"(?<![\w.])(\d+\.\d+|\d{2,})(?![\w.])")
 
 # Numbers that carry no artifact meaning: years, commit-ish digit runs, section
@@ -107,9 +112,10 @@ def appears(num, strings, values):
     return False
 
 
-def audit():
+def audit(report=None):
+    """Audit one report. Defaults to REPORT so existing callers are unchanged."""
     text = SECTION_RE.sub(
-        " ", DATE_RE.sub(" ", COMMIT_RE.sub(" ", open(REPORT).read()))
+        " ", DATE_RE.sub(" ", COMMIT_RE.sub(" ", open(report or REPORT).read()))
     )
     findings = []
     checked = 0
