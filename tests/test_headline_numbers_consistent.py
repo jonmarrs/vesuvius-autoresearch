@@ -30,11 +30,16 @@ CASES = [
     ("stripmatch_verdict.json", "stripmatch_verdict.md", "-3.80%", "16.24%"),
 ]
 
-# Documents that quote the headline figures in prose.
+# Documents that quote the headline figures in prose. Prize filings are globbed
+# rather than listed: a filing is the one document that leaves the building, and
+# a future one must not be able to quote these figures without the caveats simply
+# by not being named here. Filings predating these studies quote none of the
+# figures, so the checks below are inert for them.
 QUOTING_DOCS = [
     _REPORTS / "SPIRAL_FINDINGS_SUMMARY.md",
     _REPO / "FINDINGS.md",
     _REPO / "README.md",
+    *sorted((_REPO / "docs").glob("PRIZE_FILING_*.md")),
 ]
 
 
