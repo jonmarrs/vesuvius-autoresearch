@@ -23,6 +23,7 @@ SCORE_VENV="${SCORE_VENV:-/home/jon/openclaw-workspace/Neo-VM/data/ink_scorer_ve
 VILLA="${VILLA:-/home/jon/openclaw-workspace/Neo-VM/villa-spiral}"
 IMAGE="${VC_IMAGE:-vc-render:local}"
 MIN_FREE_GB="${MIN_FREE_GB:-10}"
+ARMS_PER_STUDY="${ARMS_PER_STUDY:-3}"
 
 fail=0
 ok()   { printf '  \033[32mok\033[0m   %s\n' "$1"; }
@@ -91,12 +92,27 @@ echo "resources"
 if command -v nvidia-smi >/dev/null 2>&1 && nvidia-smi >/dev/null 2>&1; then
   ok "GPU: $(nvidia-smi --query-gpu=name,memory.total --format=csv,noheader | head -1)"
 else warn "no GPU visible; the lasagna flatten will be very slow"; fi
+# Studies are multi-arm, so "enough for one arm" is the wrong question: a 3-arm
+# run that dies at arm 2 costs the arms already spent. 2026-09-06 this passed at
+# 17G free (99% full) -- enough for one arm, not for the three a study needs.
 free_gb=$(df -BG --output=avail "$HERE" 2>/dev/null | tail -1 | tr -dc '0-9')
-[ "${free_gb:-0}" -ge "$MIN_FREE_GB" ] && ok "disk: ${free_gb}G free (need >= ${MIN_FREE_GB}G per arm)" \
-  || bad "disk: only ${free_gb}G free; an arm needs about ${MIN_FREE_GB}G"
+study_gb=$(( MIN_FREE_GB * ARMS_PER_STUDY ))
+if [ "${free_gb:-0}" -lt "$MIN_FREE_GB" ]; then
+  bad "disk: only ${free_gb}G free; a single arm needs about ${MIN_FREE_GB}G"
+elif [ "${free_gb:-0}" -lt "$study_gb" ]; then
+  warn "disk: ${free_gb}G free is enough for one arm but NOT for a ${ARMS_PER_STUDY}-arm study (~${study_gb}G); it will die partway"
+else
+  ok "disk: ${free_gb}G free (>= ${study_gb}G, a ${ARMS_PER_STUDY}-arm study)"
+fi
+
 tot_gb=$(free -g | awk '/^Mem:/{print $2}')
-[ "${tot_gb:-0}" -ge 30 ] && ok "RAM: ${tot_gb}G (an outer render peaks near 26G)" \
-  || warn "RAM ${tot_gb}G; outer renders peak near 26G and have been OOM-killed at 32G"
+if [ "${tot_gb:-0}" -ge 30 ]; then
+  ok "RAM: ${tot_gb}G total -- fits, but an outer render holds ~26G"
+  warn "  measured headroom DURING a render is ~1G. Do not start the test suite,"
+  warn "  a second arm, or a container build while one is in flight (README section 8)."
+else
+  warn "RAM ${tot_gb}G; outer renders peak near 26G and have been OOM-killed at 32G"
+fi
 
 echo
 [ "$fail" -eq 0 ] && echo "PREFLIGHT PASS" || echo "PREFLIGHT FAIL — fix the above before starting a multi-hour render"
