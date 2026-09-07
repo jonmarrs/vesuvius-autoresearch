@@ -536,9 +536,17 @@ pre-registered cases where those two move independently **in opposite directions
 |---|---:|---:|---|
 | gap-expander config, n=12 | +1.03% (p=3.9e-06) | **-10.35%** (p=0.0018) | passes a real ink regression |
 | patch bootstrap, n=6 | **+17.66%** (p<1e-4) | -0.83% (p=0.89, null) | cheers for no ink gain |
+| stripmatch, n=6 | +16.24% (p<1e-4) | -3.80% (p=0.55, null) | same, with coverage equalised |
+| same-winding ablation, 3v6 | **-0.69%** (p=0.0027) | -1.74% (p=0.61, null) | drops without ink following |
 
-A cross-check that can move confidently the wrong way *and* confidently the useless way is
-uninformative about ink in either direction.
+A cross-check that can move confidently the wrong way, confidently the useless way, *and* fall while
+reading holds is uninformative about ink in any direction.
+
+**The fourth case is the one that bears on strategy.** villa names winding constraints as the fastest
+path to unrolling at scale. Removing 5,413 same-winding constraints measurably degrades the fit and
+leaves recovered ink unchanged within ~8.3% ([verdict](reports/samewinding_verdict.md)) — and that
+geometry fall is *stronger* evidence than a rise, because the "less left to satisfy" confound the
+registration guarded against can only manufacture a rise.
 
 **We answered one avenue villa names in `37_2026_open_problems.md`** — "automatically crop
 'good' regions of the spiral fit, and use these as surface patch inputs to a subsequent run" —

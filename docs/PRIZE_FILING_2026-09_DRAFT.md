@@ -15,27 +15,28 @@ Tag the submitted commit `submission/2026-09`, matching `submission/2026-07` (06
 
 ## "Short description of how your contributions substantially increase the probability of reading complete scrolls"
 
-### Version A (118 words), use this one
+### Version A (124 words), use this one
 
 `autoresearch.md` has villa's spiral loop optimise recovered ink with a satisfaction cross-check.
-We measured, twice and pre-registered, that those two move independently — in opposite directions.
-A config change raised `satisfied_area` 1.03% while costing **10.35% of the ink** (n=12). Refitting
-on the fit's own well-satisfied patches raised it **17.66% for no ink gain at all** (n=6).
+We measured, four times and pre-registered, that those two move independently. A config change raised
+`satisfied_area` 1.03% while costing **10.35% of the ink** (n=12). Two refits raised it **17.66% and
+16.24% for no ink gain at all**.
 
-The second answers an avenue villa names in its open problems, and answers it with a registered
-FAILURE. A third study, designed while the first's results were still unread, ruled out the obvious
-confound: equalising evidence in the scored strip does not rescue it.
+The fourth is the one that bears on strategy. Removing **5,413 same-winding constraints** —
+the evidence villa calls the fastest path to unrolling at scale — measurably *degraded* the fit
+(-0.69%, p=0.0027) and left reading unchanged within 8.3%.
 
-A guard that can move confidently the wrong way, and confidently the useless way, is not guarding.
+A guard that moves confidently the wrong way, confidently the useless way, and downward while reading
+holds is not guarding.
 
-### Version B (74 words), if the field is tight
+### Version B (79 words), if the field is tight
 
-villa's spiral loop optimises recovered ink with a satisfaction cross-check. We pre-registered two
-cases where they come apart in opposite directions: +1.03% satisfaction for **-10.35% ink** (n=12),
-and **+17.66% satisfaction for no ink gain** (n=6).
+villa's spiral loop optimises recovered ink with a satisfaction cross-check. We pre-registered four
+cases where they come apart: +1.03% satisfaction for **-10.35% ink**; two refits at +17.66% and
++16.24% for no ink gain; and removing **5,413 winding constraints** — villa's stated scaling path —
+which *degraded* the fit (p=0.0027) while reading held within 8.3%.
 
-The second answers a villa-named open problem with a registered FAILURE, and a third study —
-designed before the second's results were read — rules out the obvious confound.
+Two of the four answer a villa-named open problem with a registered FAILURE.
 
 ### Long version (298 words), if a field allows detail
 
@@ -47,6 +48,8 @@ opposite directions:
 |---|---|---|
 | one config flag, n=12 | +1.03% (p=3.9e-06) | **-10.35%** (p=0.0018) |
 | refit on well-satisfied patches, n=6 | **+17.66%** (p<1e-4) | -0.83% (p=0.89) |
+| same, with coverage equalised, n=6 | +16.24% (p<1e-4) | -3.80% (p=0.55) |
+| **5,413 winding constraints removed, 3v6** | **-0.69%** (p=0.0027) | -1.74% (p=0.61) |
 
 The second answers an avenue villa names directly — "automatically crop 'good' regions of the spiral
 fit, and use these as surface patch inputs to a subsequent run" — with a **registered FAILURE**. The

@@ -1,6 +1,6 @@
 # Spiral ink objective: what we measured, with every floor attached
 
-**2026-08-31, extended 2026-09-05.** One page over fifteen reports. Each claim is paired with the
+**2026-08-31, extended 2026-09-07.** One page over sixteen reports. Each claim is paired with the
 floor it must clear, because the floor is what several of these results turned on, and getting the
 floor wrong caused two reversals in a single afternoon.
 
@@ -247,6 +247,34 @@ not, so it is guaranteed by construction. Three BOOTSTRAP arms, two independentl
 neither favouring them. Both nulls bounded at ~9.6%, not empty.
 `reports/stripmatch_verdict.md`, `reports/stripmatch_draw_stability.md`.
 
+**22. Winding constraints improve the geometry and do not reach the reading.**
+villa names winding constraints as the scaling path ("the fastest way to unroll scrolls at scale").
+`data/spiral_s1` ships **5,413 same-winding** and 2,173 relative constraints against 59 absolute
+ones. Emptying `same_windings.json`, three arms against the six existing baselines:
+
+| endpoint | BASELINE | ABLATED | rel | p |
+|---|---:|---:|---:|---:|
+| `total_fg_pixels` | 1,720,000 | 1,690,000 | -1.74% | 0.6114 |
+| `satisfied_area_fraction` | 0.8390 | 0.8331 | **-0.69%** | **0.0027** |
+
+**NULL on reading**, bounded at 8.3%, not zero. The geometry fall is *stronger* evidence than a rise
+would have been: the registration made `satisfied_area` report-only because removing 5,413 inputs
+could inflate it trivially ("less left to satisfy"), and that confound can only manufacture a RISE.
+It fell — the fit satisfies its remaining inputs less well despite having fewer of them.
+`reports/samewinding_verdict.md`.
+
+**23. The two metrics have now come apart four times, in three different directions.**
+
+| case | `satisfied_area` | `total_fg_pixels` |
+|---|---|---|
+| gap-expander config, n=12 | +1.03% | **-10.35%** |
+| patch bootstrap, n=6 | **+17.66%** | -0.83% (null) |
+| stripmatch, n=6 | +16.24% | -3.80% (null) |
+| same-winding ablation, 3v6 | **-0.69%** | -1.74% (null) |
+
+The first three concern fitting choices. **The fourth concerns the winding evidence villa is
+investing in**, which makes it the one that bears on strategy rather than on tuning.
+
 ## What is NOT established, and matters
 
 **Reachability through a fit is unproven, and the search for it is CLOSED.** Every duplicate arm
@@ -300,6 +328,12 @@ fix was aimed at the innermost ten windings while the change acts on the outermo
 was fine and the *region* was wrong, so the arm would have read null whether or not the fix works.
 The question to ask before registering is not only "does this observable respond?" but "where can
 this manipulation express itself?" (finding 13).
+
+**A sixth instance, and the cheapest lesson of the three studies:** the same-winding registration
+predicted `satisfied_area` would RISE, reasoning from a 200-step smoke fit that showed a rise. It
+fell at convergence. **A smoke fit establishes that an observable RESPONDS; it does not establish
+which way it MOVES.** The same registration already recorded that limitation for its drift
+measurements and I failed to apply it to effect direction.
 
 **A fifth instance, caught by a control rather than by luck:** finding 19's band table was first
 built by assigning each patch to the band holding its centroid. The median patch spans 602 vx of
