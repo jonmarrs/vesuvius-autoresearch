@@ -23,7 +23,17 @@ documentation only — merged in about an hour.
 | [`repro/spiral_render/README.md`](../repro/spiral_render/README.md) | nine obstacles hit running villa from published data; several we already solved, so the patch predates the PR |
 | anything that breaks while running their code | every hour lost to an undocumented obstacle |
 
-## Verify before writing, every time
+## Verify before writing, every time — issues included
+
+**This applies to issues as much as PRs, and the one time it was skipped it cost us.** #1655 reported
+four obstacles as undocumented. Three were documented: `spiral-scroll.json` and its required keys had
+been in `spiral-fitting/README.md` since #1628 on **2026-08-28, two days before we filed**, along with
+the `paths.winding_inference` override and the `input_use_*` switches — whose README example uses the
+same three toggles we needed. Only one obstacle was real. The issue has zero comments, which is the
+likeliest reason.
+
+Converting it into [#1723](https://github.com/ScrollPrize/villa/pull/1723) meant narrowing four
+claims to one and correcting the record in the PR body.
 
 **Check current upstream, never our own notes.** Our README records that `lasagna/fit.py` imports a
 module absent from `lasagna/` and calls it undocumented. The import defect is still live, but
