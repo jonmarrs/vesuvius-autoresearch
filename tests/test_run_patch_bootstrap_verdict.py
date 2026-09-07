@@ -86,16 +86,30 @@ def test_the_registered_arm_names_match_the_analysis(tmp_path):
 
 
 def test_the_registered_studies_are_declared():
-    assert set(mod.STUDIES) == {"bootstrap", "stripmatch"}
+    assert set(mod.STUDIES) == {"bootstrap", "stripmatch", "samewinding"}
     assert mod.STUDIES["bootstrap"][0] == mod.BOOT + mod.RAND
     assert mod.STUDIES["stripmatch"][0] == mod.BOOT + mod.STRIP
+    assert mod.STUDIES["samewinding"][0] == mod.NOSAME + mod.BASE6
+
+
+def test_the_samewinding_study_is_three_versus_six():
+    """Unlike the other two, its control is the six existing full-input
+    baselines rather than a purpose-built arm, so the comparison is 3v6."""
+    tags = mod.STUDIES["samewinding"][0]
+    assert len(mod.NOSAME) == 3
+    assert len(mod.BASE6) == 6
+    assert len(tags) == 9
+    assert not set(mod.NOSAME) & set(mod.BASE6)
 
 
 def test_each_study_names_its_own_analysis_script():
     scripts = {name: a for name, (_, a) in mod.STUDIES.items()}
     assert scripts["bootstrap"] == "analyse_patch_bootstrap.py"
     assert scripts["stripmatch"] == "analyse_stripmatch.py"
-    assert len(set(scripts.values())) == 2
+    assert scripts["samewinding"] == "analyse_same_winding.py"
+    # every study must have its OWN analysis: sharing one would let a rule
+    # registered for one comparison silently decide another.
+    assert len(set(scripts.values())) == len(mod.STUDIES)
 
 
 def test_stripmatch_reuses_the_bootstrap_arms_and_adds_no_new_ones(tmp_path):

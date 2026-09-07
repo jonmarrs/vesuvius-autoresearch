@@ -22,6 +22,10 @@ import sys
 BOOT = ("boot090s1", "boot090s2", "boot090s3")
 RAND = ("rand090s1", "rand090s2", "rand090s3")
 STRIP = ("strip090s1", "strip090s2", "strip090s3")
+NOSAME = ("nosame_s1", "nosame_s2", "nosame_s3")
+# The same-winding ablation compares against the six FULL-INPUT baselines rather
+# than a purpose-built control, so its comparison is 3 vs 6.
+BASE6 = ("baseline01", "seed02", "seed03", "seed04", "seed05", "seed06")
 
 # One resolver, two studies. The STRIPMATCH follow-up reuses the BOOTSTRAP arms
 # rather than refitting them, so its comparison is BOOT vs STRIP. Duplicating the
@@ -30,6 +34,7 @@ STRIP = ("strip090s1", "strip090s2", "strip090s3")
 STUDIES = {
     "bootstrap": (BOOT + RAND, "analyse_patch_bootstrap.py"),
     "stripmatch": (BOOT + STRIP, "analyse_stripmatch.py"),
+    "samewinding": (NOSAME + BASE6, "analyse_same_winding.py"),
 }
 
 
