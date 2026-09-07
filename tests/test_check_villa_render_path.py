@@ -132,3 +132,37 @@ def test_a_missing_checkout_is_refused_clearly(tmp_path):
     )
     assert rc.returncode != 0
     assert "no villa checkout" in rc.stderr + rc.stdout
+
+
+# --- documentation is not the render path -------------------------------------
+#
+# Our own merged docs PR (villa#1721, autoresearch.md) flipped the verdict to
+# DIFFERS on 2026-09-07. A markdown change cannot alter a render, and a gate that
+# fires on documentation trains its reader to ignore it -- which is exactly how
+# the 908aa7f06 case it was built for would slip past.
+
+
+def test_markdown_and_images_are_classified_as_docs():
+    for p in (
+        "spiral-fitting/autoresearch.md",
+        "spiral-fitting/README.txt",
+        "lasagna/docs/diagram.png",
+        "vesuvius/src/x.SVG",
+    ):
+        assert mod.is_docs(p), p
+
+
+def test_code_is_not_classified_as_docs():
+    for p in (
+        "spiral-fitting/get_ink_metrics.py",
+        "lasagna/fit.py",
+        "vesuvius/src/tifxyz.cpp",
+        "spiral-fitting/run.sh",
+    ):
+        assert not mod.is_docs(p), p
+
+
+def test_a_hot_path_file_is_never_treated_as_docs():
+    """Defence in depth: nothing in HOT_PATH may be excused as documentation."""
+    for p in mod.HOT_PATH:
+        assert not mod.is_docs(p), p

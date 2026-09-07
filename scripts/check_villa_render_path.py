@@ -62,6 +62,17 @@ def blobs(repo: Path, ref: str, tree: str) -> dict[str, str]:
     return found
 
 
+# Documentation cannot change a render. Counting it as a render-path difference
+# makes the gate cry wolf, and a gate that cries wolf gets ignored -- which is
+# how the 908aa7f06 case it exists for would slip through. Found 2026-09-07 when
+# our own merged docs PR (#1721, autoresearch.md) flipped the verdict to DIFFERS.
+DOC_SUFFIXES = (".md", ".txt", ".rst", ".png", ".jpg", ".jpeg", ".webp", ".gif", ".svg")
+
+
+def is_docs(path: str) -> bool:
+    return path.lower().endswith(DOC_SUFFIXES)
+
+
 def compare(repo: Path, old: str, new: str) -> tuple[list[str], list[str], list[str]]:
     """Returns (changed, added, removed) paths across the extracted trees."""
     before, after = {}, {}
@@ -94,7 +105,8 @@ def main() -> int:
     print(f"  trees compared: {', '.join(EXTRACTED_TREES)}")
 
     hot = [p for p in changed if p in HOT_PATH]
-    other = [p for p in changed if p not in HOT_PATH]
+    other = [p for p in changed if p not in HOT_PATH and not is_docs(p)]
+    docs = [p for p in changed if is_docs(p)]
 
     if hot:
         print(f"\n  HOT PATH CHANGED ({len(hot)}):")
@@ -106,6 +118,10 @@ def main() -> int:
             print(f"    {p}")
         if len(other) > 20:
             print(f"    ... and {len(other) - 20} more")
+    if docs:
+        print(f"\n  documentation changed ({len(docs)}), does NOT affect the render:")
+        for d in docs[:10]:
+            print(f"    {d}")
     if removed:
         print(f"\n  REMOVED ({len(removed)}):")
         for p in removed[:20]:
@@ -113,7 +129,10 @@ def main() -> int:
     if added:
         print(f"\n  added ({len(added)}): {len(added)} file(s)")
 
-    if changed or removed:
+    # Docs are excluded from the verdict but still printed above: a markdown or
+    # image change cannot alter a render, and letting it flip the verdict trains
+    # the reader to ignore this gate.
+    if hot or other or removed:
         print(
             "\nVERDICT: the render path DIFFERS between these refs. Work dirs built "
             "from them are not interchangeable, and arms measured across the two are "
