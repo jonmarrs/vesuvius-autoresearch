@@ -1,0 +1,24 @@
+--- a/spiral-fitting/get_ink_metrics.py
++++ b/spiral-fitting/get_ink_metrics.py
+@@ -585,6 +585,21 @@
+     save_predictions(pred_dir, name, gray, mask,
+                      [(r['start'], r['end']) for r in col_detail['runs']])
+ 
++    # Opt-in: persist the ensembled ink probability map.
++    #
++    # The scorer computes fg_prob, thresholds it into a binary mask, and drops
++    # it. Fine for scoring, but a binary mask cannot answer whether ink forms
++    # long runs ALONG a winding -- the gradation is already gone. That question
++    # is the "ink as same-winding evidence" avenue in villa's
++    # winding_annotations doc.
++    #
++    # Gated on an env var so the default path, and every number it produces,
++    # stays byte-identical to upstream. float16 halves the file for a
++    # probability that never needed 32-bit precision.
++    if os.environ.get('INK_METRIC_KEEP_PROB') == '1':
++        np.save(os.path.join(pred_dir, f'{name}_flat_prob.npy'),
++                fg_prob.astype(np.float16))
++
+     fg = int(mask.sum())
+     n = int(mask.size)
+     row = {
