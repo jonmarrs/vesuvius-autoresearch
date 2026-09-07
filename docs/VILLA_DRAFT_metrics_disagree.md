@@ -49,13 +49,19 @@ Reviewer note: ~380 words. #1621 was called "excessively verbose"; detail stays 
 
 ---
 
-**Title:** spiral: `satisfied_area` and `total_fg_pixels` can move independently in both directions,
-so the satisfaction cross-check is uninformative about ink
+**Title:** spiral: across 24 fits `satisfied_area` does not track `total_fg_pixels`
+(r = -0.12, 95% CI [-0.50, +0.30]), so the satisfaction cross-check cannot be relied on as an ink guard
 
 **Body:**
 
-`autoresearch.md` prescribes optimising `total_fg_pixels` with a satisfaction cross-check. We now
-have two pre-registered cases where the two come apart — in opposite directions.
+`autoresearch.md` prescribes optimising `total_fg_pixels` with a satisfaction cross-check. Across
+**every scored fit we hold — 24 of them, spanning a 27% range in recovered ink** — the two do not
+track each other: **r = -0.121, 95% CI [-0.50, +0.30]**.
+
+That interval does not prove there is no relationship, and we are not claiming it does. It does
+exclude a *strong positive* one, which is what a guard needs: higher satisfaction ought to mean more
+ink. Below are two of the individual pre-registered cases, showing the two directions the failure
+takes.
 
 **Case 1 — the guard passes on a real ink regression.** Twelve fits of `spiral_datasets/PHercParis4`,
 six per arm, differing only in `optimizer_random_seed` and one config flag, rendered and scored

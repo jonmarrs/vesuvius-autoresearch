@@ -1,6 +1,6 @@
 # Spiral ink objective: what we measured, with every floor attached
 
-**2026-08-31, extended 2026-09-07.** One page over sixteen reports. Each claim is paired with the
+**2026-08-31, extended 2026-09-07.** One page over seventeen reports. Each claim is paired with the
 floor it must clear, because the floor is what several of these results turned on, and getting the
 floor wrong caused two reversals in a single afternoon.
 
@@ -274,6 +274,23 @@ It fell — the fit satisfies its remaining inputs less well despite having fewe
 
 The first three concern fitting choices. **The fourth concerns the winding evidence villa is
 investing in**, which makes it the one that bears on strategy rather than on tuning.
+
+**24. Over the whole corpus, the guard cannot be shown to track the objective.**
+Findings 13, 17, 21 and 22 each ask "did this change move both metrics together?". This asks
+"across everything we have measured, does `satisfied_area` predict `total_fg_pixels` at all?" —
+24 scored fits, 27% spread in ink, satisfaction 0.8308-0.9804.
+
+**r = -0.121, 95% CI [-0.50, +0.30].**
+
+The interval is the finding. It does NOT establish "no relationship". It DOES exclude a strong
+positive one, which is what a usable guard requires — higher satisfaction meaning more ink. Capped at
++0.30 optimistically with a negative point estimate, it is not doing the job `autoresearch.md`
+assigns it. Observational across heterogeneous manipulations, not causal.
+`reports/geometry_ink_correlation_corpus.md`.
+
+**Not attempted, and why:** searching for a geometric quantity that *does* predict ink needs to tell
+candidate proxies apart, and at n=24 every candidate carries an interval about this wide. That needs
+~40-60 fits or a manipulation varying ink beyond 27%.
 
 ## What is NOT established, and matters
 

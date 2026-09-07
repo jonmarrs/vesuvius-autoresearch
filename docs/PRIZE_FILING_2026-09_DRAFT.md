@@ -15,12 +15,14 @@ Tag the submitted commit `submission/2026-09`, matching `submission/2026-07` (06
 
 ## "Short description of how your contributions substantially increase the probability of reading complete scrolls"
 
-### Version A (124 words), use this one
+### Version A (126 words), use this one
 
 `autoresearch.md` has villa's spiral loop optimise recovered ink with a satisfaction cross-check.
-We measured, four times and pre-registered, that those two move independently. A config change raised
-`satisfied_area` 1.03% while costing **10.35% of the ink** (n=12). Two refits raised it **17.66% and
-16.24% for no ink gain at all**.
+**Across all 24 fits we have scored, spanning a 27% range in ink, the two do not track each other:
+r = -0.12, 95% CI [-0.50, +0.30]** — which excludes the strong positive relationship a guard needs.
+Four pre-registered studies show the individual failures: a config change raised `satisfied_area`
+1.03% while costing **10.35% of the ink** (n=12); two refits raised it **17.66% and 16.24% for no ink
+gain**.
 
 The fourth is the one that bears on strategy. Removing **5,413 same-winding constraints** —
 the evidence villa calls the fastest path to unrolling at scale — measurably *degraded* the fit
