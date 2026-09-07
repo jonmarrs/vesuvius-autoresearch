@@ -82,6 +82,24 @@ batch-dump a backlog in a day.
 villa to action issues, and villa does not work issues — it merges patches. A PR self-resolves;
 an issue without a patch has no terminus, which is why ours accumulated and the winners' did not.
 
-`#1658 → #1721 (merged) + #1722 (open)` is the pattern. Still convertible: #1660, #1659, #1655,
-#1654, #1522. Draining the backlog by fixing what we reported is legitimate; nudging maintainers to
-close things is not, and stays forbidden.
+`#1658 → #1721 (merged) + #1722 (open)` is the pattern. Draining the backlog by fixing what we
+reported is legitimate; nudging maintainers to close things is not, and stays forbidden.
+
+### Not every issue converts, and the inventory was checked rather than assumed
+
+An earlier draft of this document said "four of the five remaining are similarly convertible". That
+was asserted without checking — the same failure this document warns about, committed while writing
+the warning. Verified 2026-09-07:
+
+| issue | converts? | why |
+|---|---|---|
+| #1655 | done → [#1723](https://github.com/ScrollPrize/villa/pull/1723) | narrowed from four claims to the one still undocumented |
+| #1660 | done → [#1728](https://github.com/ScrollPrize/villa/pull/1728) | live code defect in `render_ink.py` |
+| #1659 | **no** | `modeling_inkdetection.py` is not in villa; the checkpoints live on HuggingFace |
+| #1654 | **no** | dtype defect in published data; villa's only surface is a 2-line zip script |
+| #1522 | **no** | mesh `meta.json` is published data, same category |
+
+**A defect in published DATA has no villa code to patch.** Those issues are correctly filed as
+issues and should stay open; converting them would mean documenting someone's data defect in their
+own docs, which presumes agreement we do not have. The backlog will not reach zero, and it should
+not be forced to.
