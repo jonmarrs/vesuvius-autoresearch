@@ -46,7 +46,32 @@ have been wrong in public.
   overrides the repo's own commit convention for villa-facing work: PRs #922 and #923 were rejected
   over exactly that.
 
-## Cadence
+## The ratio that justifies this
 
-Fixes are not governed by the new-issue backlog gate. Still one thing per PR, and do not batch-dump
-a backlog in a day.
+PRs vs issues opened in `ScrollPrize/villa`, ~60 days to 2026-09-07:
+
+| contributor | PRs | issues |
+|---|---:|---:|
+| axiosdevs | 19 | 2 |
+| erdpx | 14 | 0 |
+| 7jycwjmbfn-eng | 11 | 1 |
+| spelufo | 9 | 0 |
+| Nieuwlaar | 6 | 1 |
+| pscamillo | 5 | 2 |
+| **us** | **3** | **7** |
+
+Every August prize winner runs 2.5:1 or better toward PRs. We were the only inverted contributor —
+1:7 before today. We were filing issues in a community that rewards patches.
+
+## Cadence, and how the issue backlog drains
+
+Fixes are **not** governed by the new-issue backlog gate. Still one thing per PR, and do not
+batch-dump a backlog in a day.
+
+**Converting our own open issues into PRs is the primary queue.** The gate as first written waited on
+villa to action issues, and villa does not work issues — it merges patches. A PR self-resolves;
+an issue without a patch has no terminus, which is why ours accumulated and the winners' did not.
+
+`#1658 → #1721 (merged) + #1722 (open)` is the pattern. Still convertible: #1660, #1659, #1655,
+#1654, #1522. Draining the backlog by fixing what we reported is legitimate; nudging maintainers to
+close things is not, and stays forbidden.
