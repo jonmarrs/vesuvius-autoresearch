@@ -4,6 +4,13 @@
 floor it must clear, because the floor is what several of these results turned on, and getting the
 floor wrong caused two reversals in a single afternoon.
 
+> **Provenance, read this before quoting anything below.** Findings 1-23 were measured on
+> villa-spiral `6847063f`. Current villa recovers **67.6% more ink** through a byte-identical
+> renderer and scorer (`reports/current_code_baseline.md`), so everything here describes superseded
+> code. The arithmetic stands and the registrations were honoured; what is open is whether the
+> relationships hold on the current tree, which
+> `docs/preregistration/2026-09-11_decoupling_on_current_code.md` is measuring.
+
 ## The floors, established first
 
 | floor | value | applies to |

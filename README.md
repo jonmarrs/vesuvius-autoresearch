@@ -18,7 +18,9 @@
 > obvious confound in the first and designed while the first's results were still unread. Both
 > geometry gains are **circular by construction** — the arm is selected on satisfaction and then
 > scored on it — which is exactly why a loop using that guard would read either as success; and both
-> ink nulls are bounded at ~10%, not zero. Detail:
+> ink nulls are bounded at ~10%, not zero. **All of it measured on villa-spiral `6847063f`;
+> current villa recovers 67.6% more ink through a byte-identical scorer, so these describe
+> superseded code and are being re-measured.** Detail:
 > [SPIRAL_FINDINGS_SUMMARY.md](reports/SPIRAL_FINDINGS_SUMMARY.md),
 > [verdict](reports/patch_bootstrap_verdict.md). Runs on one consumer GPU from published artifacts.
 > **Live experiment tracking:** [wandb dashboard](https://wandb.ai/jdmarrs-uc-davis/vesuvius-autoresearch).

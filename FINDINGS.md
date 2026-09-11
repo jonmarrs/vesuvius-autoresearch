@@ -528,6 +528,8 @@ published `spiral_datasets/PHercParis4` on one consumer GPU, from published arti
 Full detail with every noise floor attached:
 [SPIRAL_FINDINGS_SUMMARY.md](reports/SPIRAL_FINDINGS_SUMMARY.md).
 
+**These findings were measured on villa-spiral `6847063f`. Current villa recovers 67.6% more ink through a byte-identical renderer and scorer** ([measurement](reports/current_code_baseline.md)), so they are measurements of superseded code. Whether the guard still fails to track ink on current villa is being re-measured under `docs/preregistration/2026-09-11_decoupling_on_current_code.md`.
+
 **The headline is a metric result, not a model result.** villa's loop optimises
 `total_fg_pixels` (recovered ink) with a `satisfied_area` (geometry) cross-check. We have two
 pre-registered cases where those two move independently **in opposite directions**:
