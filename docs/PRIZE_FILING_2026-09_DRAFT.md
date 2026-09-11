@@ -110,9 +110,32 @@ network; the spiral work needs one consumer GPU and only published villa artifac
 
 ---
 
+## Disclosure that must appear in any version filed
+
+**Every number above was measured on villa-spiral `6847063f`, and villa has moved past it.** Three
+baselines on current villa (`d8c5f488a`, seeds 1-3, 30,000 steps, same dataset, byte-identical
+renderer and scorer) recover **67.6% more ink**: 2,882,256 against 1,720,000, with ink *density* up
+48%. That is villa's own fitting work, measured through the same apparatus
+(`reports/current_code_baseline.md`).
+
+So the four studies and the r = -0.121 corpus correlation are **measurements of superseded code**.
+They stand as such — the arithmetic is unchanged and the registrations were honoured — but whether
+the guard still fails to track ink *on current villa* is an open question.
+
+**We are re-measuring it rather than filing around it.**
+`docs/preregistration/2026-09-11_decoupling_on_current_code.md` repeats the same-winding ablation on
+current code against those baselines, registered before the arms ran, with the outcome that would
+force a retraction named in advance. If it lands before the deadline the filing should carry the
+result; if it does not, the filing should say the re-measurement is in flight.
+
+Stating this unprompted costs a little and is worth more: a reviewer who checks will find the gap
+anyway, and finding it disclosed is different from finding it hidden.
+
 ## What NOT to claim
 
 * Not "the metrics are broken" — we measured two disagreements, not a general property.
 * Not "the avenue is refuted" — both nulls are bounded at ~10%; a smaller effect survives.
 * Not any adoption. There is none, and August's filing said so too.
+* **Not that these results describe current villa.** They describe `6847063f`. See the disclosure
+  above; do not drop it to save words.
 * The geometry gains are **circular by construction**; do not present either as a partial win.
