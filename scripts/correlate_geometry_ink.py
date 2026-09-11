@@ -26,6 +26,17 @@ import sys
 
 BASELINES = ("baseline01", "seed02", "seed03", "seed04", "seed05", "seed06")
 
+# Fits come in two NON-COMPARABLE tiers. Current villa recovers 67.6% more ink
+# than the pinned tree through a byte-identical scorer
+# (reports/current_code_baseline.md), so pooling them manufactures a spread that
+# is the code change rather than a relationship. Before this split the script
+# silently reported 27 fits at "100% spread" and r = -0.090, an artefact.
+CURRENT_TREE_PREFIXES = ("curbase_", "nosamecur_")
+
+
+def tier_of(tag: str) -> str:
+    return "current" if tag.startswith(CURRENT_TREE_PREFIXES) else "pinned"
+
 
 def collect(spiral_out):
     rows = []
@@ -66,7 +77,7 @@ def fisher_ci(r, n, z=1.96):
 
 def subgroups(rows):
     return {
-        "ALL fits": rows,
+        "all fits in tier": rows,
         "seed-only baselines": [r for r in rows if r["tag"] in BASELINES],
         "patch-selection arms": [
             r for r in rows if r["tag"].startswith(("boot090", "rand090", "strip090"))
@@ -88,33 +99,51 @@ def main() -> int:
             f"no scored fits with satisfaction found under {args.spiral_out}"
         )
 
-    inks = [r["total_fg_pixels"] for r in rows]
-    print(f"{len(rows)} fits with both endpoints")
+    tiers = {"pinned": [], "current": []}
+    for r in rows:
+        tiers[tier_of(r["tag"])].append(r)
+
+    print(f"{len(rows)} fits with both endpoints, in TWO NON-COMPARABLE TIERS.")
     print(
-        f"  ink {min(inks):,.0f} .. {max(inks):,.0f} "
-        f"({100 * (max(inks) - min(inks)) / min(inks):.0f}% spread)"
+        "  Current villa recovers 67.6% more ink than the pinned tree through a\n"
+        "  byte-identical scorer, so a POOLED correlation is an artefact and is\n"
+        "  deliberately not computed."
     )
 
-    print(f"\n  {'group':<26}{'n':>4}{'r':>9}{'95% CI':>22}")
-    for name, g in subgroups(rows).items():
-        if len(g) < 3:
+    for tier in ("pinned", "current"):
+        trows = tiers[tier]
+        if not trows:
             continue
-        r = pearson([x["satisfied_area"] for x in g], [x["total_fg_pixels"] for x in g])
-        c = fisher_ci(r, len(g))
-        cs = f"[{c[0]:+.2f}, {c[1]:+.2f}]" if c else "n too small for a CI"
-        print(f"  {name:<26}{len(g):>4}{r:>9.3f}{cs:>22}")
+        inks = [x["total_fg_pixels"] for x in trows]
+        print(
+            f"\n=== {tier} tree: {len(trows)} fits, "
+            f"ink {min(inks):,.0f} .. {max(inks):,.0f} ==="
+        )
+        print(f"  {'group':<26}{'n':>4}{'r':>9}{'95% CI':>22}")
+        for name, g in subgroups(trows).items():
+            if len(g) < 3:
+                continue
+            r = pearson(
+                [x["satisfied_area"] for x in g], [x["total_fg_pixels"] for x in g]
+            )
+            c = fisher_ci(r, len(g))
+            cs = f"[{c[0]:+.2f}, {c[1]:+.2f}]" if c else "n too small for a CI"
+            print(f"  {name:<26}{len(g):>4}{r:>9.3f}{cs:>22}")
+        if len(trows) >= 4:
+            r_t = pearson(
+                [x["satisfied_area"] for x in trows],
+                [x["total_fg_pixels"] for x in trows],
+            )
+            c = fisher_ci(r_t, len(trows))
+            print(
+                f"  a guard needs a meaningfully POSITIVE r; this tier tops out "
+                f"at {c[1]:+.2f}"
+            )
+        else:
+            print("  too few fits in this tier for a tier-level interval")
 
-    r_all = pearson(
-        [x["satisfied_area"] for x in rows], [x["total_fg_pixels"] for x in rows]
-    )
-    c = fisher_ci(r_all, len(rows))
     print(
-        f"\n  A guard needs a MEANINGFULLY POSITIVE r. The interval on the full "
-        f"corpus tops out at {c[1]:+.2f},\n  so a strong positive relationship is "
-        f"excluded; a weak one is not, and neither is a negative one."
-    )
-    print(
-        "  Observational across heterogeneous manipulations -- not a controlled "
+        "\n  Observational across heterogeneous manipulations -- not a controlled "
         "comparison."
     )
     return 0

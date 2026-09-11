@@ -26,6 +26,23 @@ higher satisfaction to mean more ink; the data cap that at r = +0.30 even at the
 the interval, with a negative point estimate. A guard with r <= 0.3 against the quantity it is
 guarding is not doing the job the loop assigns it.
 
+## Amended 2026-09-11: the corpus is now two tiers, and they must not be pooled
+
+Current villa recovers **67.6% more ink** than the tree these 24 fits were measured on, through a
+byte-identical scorer (`reports/current_code_baseline.md`). Pooling the new current-code arms with
+these manufactures a spread that is the *code change*, not a relationship.
+
+The script did exactly that once the new arms landed — reporting **27 fits, "100% spread",
+r = -0.090** — before it was made tier-aware. That number is an artefact and was never published.
+
+**The figure in this report is and remains the PINNED tier: r = -0.121, 95% CI [-0.50, +0.30] over
+24 fits.** `correlate_geometry_ink.py` now separates the tiers, refuses to compute a pooled
+correlation at all, and is tested against the near-miss that `nosame_s*` (pinned) and `nosamecur_s*`
+(current) differ by three characters.
+
+Whether this relationship holds on current code is **open**, and is what
+`docs/preregistration/2026-09-11_decoupling_on_current_code.md` is measuring.
+
 ## What this is not
 
 * **Not causal.** The 24 fits differ in patch selection, config flags and constraint sets. This is a
