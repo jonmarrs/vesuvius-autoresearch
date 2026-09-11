@@ -287,11 +287,32 @@ gigabyte, so anything else memory-hungry started during that window is competing
 container build, or another render.**
 
 **Amended 2026-09-11: the FIT phase is no longer safe either, on current villa.** The original rule
-exempted fits because the old fit code was GPU-bound. Current villa's fit is **CPU-bound on this
-4-core host** — GPU at 0% utilisation with memory merely allocated, python steady at ~124% CPU, and
-2.4 it/s against the old tree's 5.3. A test-suite chunk that took **31 s** alongside an idle machine
-exceeded **6m40s** alongside a current-code fit. Nothing CPU-heavy should run beside either phase
-now; the practical rule is simply *do not run anything substantial while an arm is in flight*. A multi-arm study is running unattended for tens of hours, and
+exempted fits because the old fit code left CPU free. A test-suite chunk that took **31 s** on an
+idle machine exceeded **6m40s** beside a current-code fit and had to be abandoned. Nothing
+substantial should run beside either phase now.
+
+**What the profile actually is, measured over 30 samples rather than one.** This host is
+**CPU-starved, not GPU-starved**:
+
+| | measured during a fit |
+|---|---|
+| GPU utilisation | mean **35.8%**, max 86%, active in 27 of 30 samples |
+| GPU power | 105 W of a 450 W limit |
+| VRAM | 12 GB of 24 GB — never the constraint |
+| fit process | 123% of 400% possible, 18 threads |
+| system CPU | ~96% busy on 4 cores |
+
+The fit alternates GPU kernels with CPU work and, on four cores, cannot keep the card fed — which is
+why current villa runs 2.4 it/s here against the old tree's 5.3. **More cores would buy more
+throughput than a better GPU**, and any wall-clock number quoted from this host should be read as a
+CPU-limited figure.
+
+*Correction: an earlier version of this section said "GPU at 0% utilisation". That came from single
+instantaneous `nvidia-smi` samples landing in CPU phases. Sampled properly the GPU is active in 27 of
+30 samples. Do not characterise utilisation from one sample.*
+
+Also measured: `spice-vdagent` holds ~26.7% of a core continuously (27 days uptime), which is real
+waste on a host where CPU is the binding constraint. A multi-arm study is running unattended for tens of hours, and
 the cost of losing an arm is the arm plus everything queued behind it.
 
 Two honesty notes, because the obvious inference here is wrong:
