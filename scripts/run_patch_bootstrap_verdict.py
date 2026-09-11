@@ -23,6 +23,8 @@ BOOT = ("boot090s1", "boot090s2", "boot090s3")
 RAND = ("rand090s1", "rand090s2", "rand090s3")
 STRIP = ("strip090s1", "strip090s2", "strip090s3")
 NOSAME = ("nosame_s1", "nosame_s2", "nosame_s3")
+NOSAMECUR = ("nosamecur_s1", "nosamecur_s2", "nosamecur_s3")
+CURBASE = ("curbase_s1", "curbase_s2", "curbase_s3")
 # The same-winding ablation compares against the six FULL-INPUT baselines rather
 # than a purpose-built control, so its comparison is 3 vs 6.
 BASE6 = ("baseline01", "seed02", "seed03", "seed04", "seed05", "seed06")
@@ -35,6 +37,7 @@ STUDIES = {
     "bootstrap": (BOOT + RAND, "analyse_patch_bootstrap.py"),
     "stripmatch": (BOOT + STRIP, "analyse_stripmatch.py"),
     "samewinding": (NOSAME + BASE6, "analyse_same_winding.py"),
+    "samewinding-current": (NOSAMECUR + CURBASE, "analyse_same_winding_current.py"),
 }
 
 

@@ -86,7 +86,12 @@ def test_the_registered_arm_names_match_the_analysis(tmp_path):
 
 
 def test_the_registered_studies_are_declared():
-    assert set(mod.STUDIES) == {"bootstrap", "stripmatch", "samewinding"}
+    assert set(mod.STUDIES) == {
+        "bootstrap",
+        "stripmatch",
+        "samewinding",
+        "samewinding-current",
+    }
     assert mod.STUDIES["bootstrap"][0] == mod.BOOT + mod.RAND
     assert mod.STUDIES["stripmatch"][0] == mod.BOOT + mod.STRIP
     assert mod.STUDIES["samewinding"][0] == mod.NOSAME + mod.BASE6
@@ -107,6 +112,7 @@ def test_each_study_names_its_own_analysis_script():
     assert scripts["bootstrap"] == "analyse_patch_bootstrap.py"
     assert scripts["stripmatch"] == "analyse_stripmatch.py"
     assert scripts["samewinding"] == "analyse_same_winding.py"
+    assert scripts["samewinding-current"] == "analyse_same_winding_current.py"
     # every study must have its OWN analysis: sharing one would let a rule
     # registered for one comparison silently decide another.
     assert len(set(scripts.values())) == len(mod.STUDIES)
