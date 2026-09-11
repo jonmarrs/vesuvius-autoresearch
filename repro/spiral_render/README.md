@@ -284,7 +284,14 @@ its own rule that is correct -- the render fits. What it cannot know is that the
 gigabyte, so anything else memory-hungry started during that window is competing for it.
 
 **Practical rule: while a render is in flight, do not start the test suite, a second arm, a
-container build, or another render.** A multi-arm study is running unattended for tens of hours, and
+container build, or another render.**
+
+**Amended 2026-09-11: the FIT phase is no longer safe either, on current villa.** The original rule
+exempted fits because the old fit code was GPU-bound. Current villa's fit is **CPU-bound on this
+4-core host** — GPU at 0% utilisation with memory merely allocated, python steady at ~124% CPU, and
+2.4 it/s against the old tree's 5.3. A test-suite chunk that took **31 s** alongside an idle machine
+exceeded **6m40s** alongside a current-code fit. Nothing CPU-heavy should run beside either phase
+now; the practical rule is simply *do not run anything substantial while an arm is in flight*. A multi-arm study is running unattended for tens of hours, and
 the cost of losing an arm is the arm plus everything queued behind it.
 
 Two honesty notes, because the obvious inference here is wrong:
