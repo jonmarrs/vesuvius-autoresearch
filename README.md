@@ -20,7 +20,9 @@
 > scored on it — which is exactly why a loop using that guard would read either as success; and both
 > ink nulls are bounded at ~10%, not zero. **All of it measured on villa-spiral `6847063f`;
 > current villa recovers 67.6% more ink through a byte-identical scorer, so these describe
-> superseded code and are being re-measured.** Detail:
+> superseded code. Re-measured 2026-09-12 and the extension FAILED: on current code the ink null
+> reproduces but the geometry evidence does not, so the decoupling is a claim about `6847063f`
+> alone.** Detail:
 > [SPIRAL_FINDINGS_SUMMARY.md](reports/SPIRAL_FINDINGS_SUMMARY.md),
 > [verdict](reports/patch_bootstrap_verdict.md). Runs on one consumer GPU from published artifacts.
 > **Live experiment tracking:** [wandb dashboard](https://wandb.ai/jdmarrs-uc-davis/vesuvius-autoresearch).

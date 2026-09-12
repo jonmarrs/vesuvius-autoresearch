@@ -528,7 +528,7 @@ published `spiral_datasets/PHercParis4` on one consumer GPU, from published arti
 Full detail with every noise floor attached:
 [SPIRAL_FINDINGS_SUMMARY.md](reports/SPIRAL_FINDINGS_SUMMARY.md).
 
-**These findings were measured on villa-spiral `6847063f`. Current villa recovers 67.6% more ink through a byte-identical renderer and scorer** ([measurement](reports/current_code_baseline.md)), so they are measurements of superseded code. Whether the guard still fails to track ink on current villa is being re-measured under `docs/preregistration/2026-09-11_decoupling_on_current_code.md`.
+**These findings were measured on villa-spiral `6847063f`. Current villa recovers 67.6% more ink through a byte-identical renderer and scorer** ([measurement](reports/current_code_baseline.md)), so they are measurements of superseded code. **Re-measured 2026-09-12, and the extension FAILED.** On current code the ink null reproduces (+0.28%, p=0.80, bounded at 9.6%) but the geometry evidence does not: `satisfied_area` ROSE 1.18%, the direction our own registration declared uninterpretable because the manipulation removes inputs the metric scores. The decoupling is a statement about `6847063f` and must not be reported as holding on current villa ([verdict](reports/decoupling_does_not_cleanly_reproduce.md)).
 
 **The headline is a metric result, not a model result.** villa's loop optimises
 `total_fg_pixels` (recovered ink) with a `satisfied_area` (geometry) cross-check. We have two

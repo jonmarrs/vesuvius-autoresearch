@@ -9,7 +9,10 @@ floor wrong caused two reversals in a single afternoon.
 > renderer and scorer (`reports/current_code_baseline.md`), so everything here describes superseded
 > code. The arithmetic stands and the registrations were honoured; what is open is whether the
 > relationships hold on the current tree, which
-> `docs/preregistration/2026-09-11_decoupling_on_current_code.md` is measuring.
+> `docs/preregistration/2026-09-11_decoupling_on_current_code.md` measured — **and the extension
+> failed.** Ink null reproduces (+0.28%, p=0.80); `satisfied_area` ROSE 1.18%, the direction the
+> registration itself called uninterpretable. Nothing below may be described as holding on current
+> villa. [Verdict](decoupling_does_not_cleanly_reproduce.md).
 
 ## The floors, established first
 

@@ -1,4 +1,19 @@
-# DRAFT villa issue — HELD, not scheduled.
+# DRAFT villa issue — HELD, and now substantially weakened. Re-read before ever posting.
+
+**2026-09-12: the central claim did not extend to current villa.** Everything below was measured on
+villa-spiral `6847063f`. Current villa recovers **67.6% more ink** through a byte-identical renderer
+and scorer, and a registered re-measurement on current code
+(`reports/decoupling_does_not_cleanly_reproduce.md`) found the **ink null reproduces but the geometry
+evidence does not** — `satisfied_area` ROSE 1.18% (p=0.0175), which our own registration had declared
+uninterpretable because removing 5,413 scored inputs can inflate it trivially.
+
+**So we can no longer tell villa their satisfaction cross-check fails to track ink on the loop they
+actually run.** We can say it failed to track ink on a tree they have since improved past. That is a
+much smaller claim, and arguably not worth an issue.
+
+**Do not post this as written.** Either reframe it around what current-code evidence actually
+supports, or drop it. The sections below are retained as the record of what was measured, not as a
+ready draft.
 
 **Decision 2026-09-05 (user): do not post until more of our existing villa posts are closed or
 resolved.** This supersedes the weekly-slot rule — an open slot is no longer sufficient. At the time

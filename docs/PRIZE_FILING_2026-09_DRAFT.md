@@ -122,11 +122,18 @@ So the four studies and the r = -0.121 corpus correlation are **measurements of 
 They stand as such — the arithmetic is unchanged and the registrations were honoured — but whether
 the guard still fails to track ink *on current villa* is an open question.
 
-**We are re-measuring it rather than filing around it.**
-`docs/preregistration/2026-09-11_decoupling_on_current_code.md` repeats the same-winding ablation on
-current code against those baselines, registered before the arms ran, with the outcome that would
-force a retraction named in advance. If it lands before the deadline the filing should carry the
-result; if it does not, the filing should say the re-measurement is in flight.
+**The re-measurement has landed, and it went against us.**
+`docs/preregistration/2026-09-11_decoupling_on_current_code.md` repeated the same-winding ablation on
+current code. Result (`reports/decoupling_does_not_cleanly_reproduce.md`): **the ink null reproduces
+(+0.28%, p=0.80, bounded at 9.6%), the decoupling evidence does not.** On the old tree
+`satisfied_area` FELL 0.69% (p=0.0027) while ink held, and that fall was the evidence because the
+"less left to satisfy" confound can only produce a rise. On current code it ROSE 1.18% (p=0.0175) —
+the uninterpretable direction.
+
+**So the filing must not claim the guard fails to track ink on current villa.** What is defensible:
+it failed to do so on `6847063f`, over four pre-registered studies and 24 fits; and on current code,
+removing 5,413 same-winding constraints does not measurably change reading. The stronger, more
+quotable version is not supported and must not be written.
 
 Stating this unprompted costs a little and is worth more: a reviewer who checks will find the gap
 anyway, and finding it disclosed is different from finding it hidden.
@@ -138,4 +145,7 @@ anyway, and finding it disclosed is different from finding it hidden.
 * Not any adoption. There is none, and August's filing said so too.
 * **Not that these results describe current villa.** They describe `6847063f`. See the disclosure
   above; do not drop it to save words.
+* **Not that the decoupling holds on current code.** It was tested and it did not extend. Saying
+  "four pre-registered cases" without that correction would be the single most misleading sentence
+  available here.
 * The geometry gains are **circular by construction**; do not present either as a partial win.
