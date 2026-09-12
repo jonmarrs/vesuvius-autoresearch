@@ -26,13 +26,39 @@ absolute anchors**, which are far fewer, higher-leverage, and the ones villa ask
 
 | arm | `abs_winding.json` | n | status |
 |---|---|---:|---|
-| **BASELINE** | all 59 anchors | 3 | already fitted and scored (`curbase_s1..s3`) |
-| **ABLATED** | 10 anchors | 3 | new (`anchor10_s1..s3`, seeds 1-3) |
+| **BASELINE** | all 59 anchors (**50 inside the fit's z-ROI**) | 3 | already fitted and scored (`curbase_s1..s3`) |
+| **ABLATED** | 10 anchors, **z-coverage matched** | 3 | new (`anchor10_s1..s3`, seeds 1-3) |
+
+### Amendment, 2026-09-12, before any arm was started
+
+Inspecting the anchor coordinates — which this registration should have done before quoting a number
+— found two things wrong with the paragraph above as first written:
+
+1. **Nine of the 59 anchors lie outside the fit's z-ROI** (z 8459 and 10673, against a ROI of
+   13056-18432) and are never used. The manipulation is **50 → 10**, not 59 → 10.
+2. **The hand-built `data/spiral_s1_anchor10` keeps all ten anchors on a single z-plane.** Of the 50
+   in-ROI anchors, 48 already sit at z=15694 and the other two planes hold exactly one each, so
+   "keep the first 10" drops **both** lone anchors. That cuts 80% of the count **and 100% of the
+   longitudinal spread at once**, and no result could separate the two.
+
+The arms therefore use **`data/spiral_s1_anchor10cov`**, built by
+`scripts/build_anchor_subset.py --keep 10 --strategy coverage --z-roi 13056 18432`: 1 anchor at
+z=14268, 8 at z=15694, 1 at z=15976. **Every populated z-plane is still represented**, so the
+manipulation is count at matched coverage — which is the question villa asks.
+
+That script also carries a `crowded` strategy that reproduces the hand-built set **exactly**
+(positive-controlled in `tests/test_build_anchor_subset.py`), so the old artifact stays explainable
+rather than merely discarded.
+
+**The gate pilot ran on the OLD, z-collapsed dataset.** That is the more disruptive configuration, so
+passing it is the conservative direction: if numbering survives losing all longitudinal spread, it
+survives keeping it. This is disclosed rather than re-run, and it changes nothing about the
+per-arm gate — **every ablated arm is still checked individually**, so a numbering failure in the
+actual arms is caught regardless of what the pilot showed.
 
 Current villa, 30,000 steps, `z` 13056-18432, identical in every other respect. The reduced dataset
-is a symlink farm (`data/spiral_s1_anchor10`) carrying a real reduced `abs_winding.json`; the patch
-set is unchanged at **38,442 in both arms**, verified in the fit logs, so this manipulation is
-anchors-only.
+is a symlink farm carrying a real reduced `abs_winding.json`; the patch set is unchanged at **38,442
+in both arms**, verified in the fit logs, so this manipulation is anchors-only.
 
 **Anchor count is fixed at 10 and will not be swept.** Trying counts until one gives a publishable
 answer is the failure mode this sentence exists to prevent.

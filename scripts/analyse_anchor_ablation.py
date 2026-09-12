@@ -48,7 +48,9 @@ REQUIRED_BASELINE = 3
 
 # reports/noise_floor_by_tier.md -- CURRENT tier, pooled within-arm, df=4.
 CURRENT_CV = 0.0125
-N_ANCHORS_FULL = 59
+# 59 anchors exist but 9 lie outside the fit's z-ROI and are never used;
+# the manipulation is 50 -> 10. See the 2026-09-12 amendment.
+N_ANCHORS_FULL = 50
 N_ANCHORS_ABLATED = 10
 
 PREDICTION = "NONE registered on either endpoint"

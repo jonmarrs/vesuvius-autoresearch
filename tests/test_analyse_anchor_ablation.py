@@ -54,7 +54,8 @@ def _files(tmp_path, ink_by_tag, geom_by_tag=None):
 def test_the_registered_arms_and_anchor_counts_are_constants():
     assert mod.ABLATED_ARMS == ("anchor10_s1", "anchor10_s2", "anchor10_s3")
     assert mod.BASELINE_ARMS == ("curbase_s1", "curbase_s2", "curbase_s3")
-    assert (mod.N_ANCHORS_FULL, mod.N_ANCHORS_ABLATED) == (59, 10)
+    # 50, not 59: nine anchors lie outside the fit's z-ROI and are never used.
+    assert (mod.N_ANCHORS_FULL, mod.N_ANCHORS_ABLATED) == (50, 10)
 
 
 def test_it_uses_the_CURRENT_tier_noise_not_the_pinned_constant():
@@ -133,4 +134,4 @@ def test_end_to_end_records_the_verdict_and_the_null_reading(tmp_path, capsys):
     assert "interpretable here" in text
     assert "quote the CI on the observed effect" in text
     got = json.loads(out.read_text())
-    assert got["cv"] == 0.0125 and got["n_anchors"] == [59, 10]
+    assert got["cv"] == 0.0125 and got["n_anchors"] == [50, 10]
