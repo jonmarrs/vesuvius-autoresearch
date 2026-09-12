@@ -104,3 +104,59 @@ This describes the metric's behaviour under the measured noise. It does not obse
 makes no claim about what it has accepted.
 
 Reproduce: `scripts/analyse_two_seed_check_power.py`.
+
+---
+
+# Correction and strengthening, 2026-09-12
+
+Re-checked after `reports/noise_floor_by_tier.md` found the noise estimate behind the power table was
+from the wrong tier. **Half of this report was obsolete and the other half is stronger than it knew.**
+
+## The power table above is obsolete for current villa
+
+It was computed at the **inner** CV of 0.1086. Current villa's seed noise on `total_fg_pixels` is
+**0.0125** — 8.7× quieter. Rerun at that noise:
+
+| true effect | rule A @ 0.1086 | rule A @ 0.0125 |
+|---:|---:|---:|
+| 2% | 21.1% | **66.4%** |
+| 3% | 23.6% | **86.1%** |
+| 5% | 28.6% | **99.2%** |
+| 10% | 43.7% | **100%** |
+
+**On current code the two-seed check has excellent power.** The "it cannot see a 10% gain" half of
+this criticism does not apply to the loop villa runs today, and should not be repeated.
+
+## The false-positive half is not merely intact, it is exact and distribution-free
+
+The acceptance rate under a true effect of zero is a **rank** statistic. If the change and baseline
+runs are exchangeable under the null, the chance that all *k* change runs land above all *k* baseline
+runs is exactly
+
+> **1 / C(2k, k)**
+
+| seeds per arm | false positives | simulated (300k) |
+|---:|---:|---:|
+| 2 | **1/6 = 16.67%** | 16.60% |
+| 3 | **1/20 = 5.00%** | 4.98% |
+| 4 | **1/70 = 1.43%** | 1.38% |
+
+**This does not depend on the CV, the metric, the code version, or how good the fits get.** It is why
+the 16.6% simulated at 0.1086 and the 16.7% simulated at 0.0125 agree: there was never any noise
+dependence to find. A loop cannot fix this by fitting better.
+
+That makes the finding sharper than first stated. The original framing invited "this matters because
+the fits are noisy". The correct framing is the opposite: **it matters no matter how quiet the fits
+get, and villa's fits just got 4× quieter without moving it at all.**
+
+## The fix is one extra seed
+
+Going from two seeds to three takes the false-positive rate from **1 in 6 to 1 in 20** — a
+conventional 5% — at 1.5× the compute. On current code three seeds also detects a 3% effect 86% of
+the time, so the extra seed costs little and buys both halves at once.
+
+## What changed in what we would say outward
+
+* **Drop:** "the check cannot detect realistic gains." False on current code.
+* **Keep and sharpen:** "the check accepts 1 null in 6, exactly, for structural reasons no amount of
+  fitting improves; three seeds makes it 1 in 20."

@@ -93,7 +93,7 @@ At the measured CV, the strict reading (both change runs beat both baseline runs
 of changes with zero true effect; the loose reading (mean of two beats mean of two) is a **coin
 flip** at 49.9% and is not a filter at all. An assumption-free enumeration over the four measured
 values gives 1/6 and 3/6, agreeing with a 200,000-run simulation to a decimal. It also *discards*
-59% of genuine +10% gains. `reports/two_seed_check_lets_through_one_in_six.md`.
+59% of genuine +10% gains. **Corrected 2026-09-12:** the power half is obsolete for current villa (that table used the inner CV 0.1086; current seed noise is 0.0125, where two seeds detect a 5% gain 99% of the time). The false-positive half is *stronger* than stated — it is exactly **1/C(2k,k)**, distribution-free, so it depends on nothing and no amount of better fitting improves it; three seeds takes 1-in-6 to 1-in-20. `reports/two_seed_check_lets_through_one_in_six.md`.
 
 **9. Two fixes, one of them free.** Three seeds per arm brings the strict rule to **5%**, at two
 extra fits. Requiring `total_fg` AND `line` to both survive is stronger across the entire plausible
