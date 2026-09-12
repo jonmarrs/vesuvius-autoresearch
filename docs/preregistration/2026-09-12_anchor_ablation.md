@@ -27,7 +27,7 @@ absolute anchors**, which are far fewer, higher-leverage, and the ones villa ask
 | arm | `abs_winding.json` | n | status |
 |---|---|---:|---|
 | **BASELINE** | all 59 anchors (**50 inside the fit's z-ROI**) | 3 | already fitted and scored (`curbase_s1..s3`) |
-| **ABLATED** | 10 anchors, **z-coverage matched** | 3 | new (`anchor10_s1..s3`, seeds 1-3) |
+| **ABLATED** | 10 anchors, **z-coverage matched** | 3 | new (`anchor10cov_s1..s3`, seeds 1-3) |
 
 ### Amendment, 2026-09-12, before any arm was started
 

@@ -52,7 +52,9 @@ def _files(tmp_path, ink_by_tag, geom_by_tag=None):
 
 
 def test_the_registered_arms_and_anchor_counts_are_constants():
-    assert mod.ABLATED_ARMS == ("anchor10_s1", "anchor10_s2", "anchor10_s3")
+    # NOT "anchor10_s*": that names the superseded z-collapsed dataset.
+    assert mod.ABLATED_ARMS == ("anchor10cov_s1", "anchor10cov_s2", "anchor10cov_s3")
+    assert all("cov" in a for a in mod.ABLATED_ARMS)
     assert mod.BASELINE_ARMS == ("curbase_s1", "curbase_s2", "curbase_s3")
     # 50, not 59: nine anchors lie outside the fit's z-ROI and are never used.
     assert (mod.N_ANCHORS_FULL, mod.N_ANCHORS_ABLATED) == (50, 10)
@@ -114,10 +116,10 @@ def test_an_unregistered_arm_is_refused(tmp_path):
 def test_an_excluded_arm_is_printed_not_hidden(tmp_path, capsys):
     ink = dict(zip(mod.ABLATED_ARMS, [2.89e6, 2.87e6, 2.91e6], strict=False))
     ink.update(dict(zip(mod.BASELINE_ARMS, [2.88e6, 2.90e6, 2.86e6], strict=False)))
-    sys.argv = ["x", *_files(tmp_path, ink), "--excluded", "anchor10_s4"]
+    sys.argv = ["x", *_files(tmp_path, ink), "--excluded", "anchor10cov_s4"]
     mod.main()
     out = capsys.readouterr().out
-    assert "EXCLUDED" in out and "anchor10_s4" in out
+    assert "EXCLUDED" in out and "anchor10cov_s4" in out
     assert "different papyrus" in out
 
 
