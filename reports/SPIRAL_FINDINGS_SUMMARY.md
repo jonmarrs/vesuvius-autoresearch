@@ -206,7 +206,7 @@ spiral fit, and use these as surface patch inputs to a subsequent run"). Six fit
 against a control matched on total patch area: `satisfied_area` **+17.66% (p < 1e-4)**,
 `total_fg_pixels` **-0.83% (p = 0.89)**. Registered in advance as a failure rather than a partial
 success, because selecting patches BY satisfaction and scoring the result ON satisfaction is close to
-circular. Prediction met. The null is bounded, not empty: no ink effect larger than ~10% at n=3 per
+circular. Prediction met. The null is bounded, not empty: no ink effect larger than ~10% *(corrected 2026-09-12 to ~12%: the registered MDE used a df=3 CV that was optimistic — `reports/noise_floor_by_tier.md`)* at n=3 per
 arm. `reports/patch_bootstrap_verdict.md`.
 
 **18. The two metrics now disagree in BOTH directions, which is the load-bearing result.**
@@ -254,7 +254,7 @@ against* it (-0.83% -> -3.80%), the opposite direction from a masked benefit. **
 finding 19 is a side effect of selecting on satisfaction, not the cause of finding 17's null.** The
 +16.24% geometry number carries no credit: BOOTSTRAP is selected ON satisfaction and the control is
 not, so it is guaranteed by construction. Three BOOTSTRAP arms, two independently-built controls,
-neither favouring them. Both nulls bounded at ~9.6%, not empty.
+neither favouring them. Both nulls bounded at ~9.6% as registered, ~12% corrected, not empty. *(corrected 2026-09-12 to ~12%: the registered MDE used a df=3 CV that was optimistic — `reports/noise_floor_by_tier.md`)*
 `reports/stripmatch_verdict.md`, `reports/stripmatch_draw_stability.md`.
 
 **22. Winding constraints improve the geometry and do not reach the reading.**

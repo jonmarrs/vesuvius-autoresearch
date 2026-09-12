@@ -50,7 +50,7 @@ using `satisfied_area` as its guard for an ink objective should treat that as a 
 
 ## What the null does and does not say
 
-**No ink effect larger than about 10%.** Not "no effect". At three per arm and the measured outer
+**No ink effect larger than about 10%.** *(corrected 2026-09-12 to ~12%: the registered MDE used a df=3 CV that was optimistic — `reports/noise_floor_by_tier.md`)* Not "no effect". At three per arm and the measured outer
 CV of 0.0421, 80% power reaches only ~9.6%, which was computed and recorded before the fits ran. The
 arms are not separated on ink at all (no separation; per-fit ranges overlap heavily), so this is a
 genuine null rather than a near miss.

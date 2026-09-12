@@ -125,7 +125,7 @@ the guard still fails to track ink *on current villa* is an open question.
 **The re-measurement has landed, and it went against us.**
 `docs/preregistration/2026-09-11_decoupling_on_current_code.md` repeated the same-winding ablation on
 current code. Result (`reports/decoupling_does_not_cleanly_reproduce.md`): **the ink null reproduces
-(+0.28%, p=0.80, bounded at 9.6%), the decoupling evidence does not.** On the old tree
+(+0.28%, p=0.80, 95% CI [-2.56%, +3.13%]), the decoupling evidence does not.** On the old tree
 `satisfied_area` FELL 0.69% (p=0.0027) while ink held, and that fall was the evidence because the
 "less left to satisfy" confound can only produce a rise. On current code it ROSE 1.18% (p=0.0175) —
 the uninterpretable direction.

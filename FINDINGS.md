@@ -528,7 +528,7 @@ published `spiral_datasets/PHercParis4` on one consumer GPU, from published arti
 Full detail with every noise floor attached:
 [SPIRAL_FINDINGS_SUMMARY.md](reports/SPIRAL_FINDINGS_SUMMARY.md).
 
-**These findings were measured on villa-spiral `6847063f`. Current villa recovers 67.6% more ink through a byte-identical renderer and scorer** ([measurement](reports/current_code_baseline.md)), so they are measurements of superseded code. **Re-measured 2026-09-12, and the extension FAILED.** On current code the ink null reproduces (+0.28%, p=0.80, bounded at 9.6%) but the geometry evidence does not: `satisfied_area` ROSE 1.18%, the direction our own registration declared uninterpretable because the manipulation removes inputs the metric scores. The decoupling is a statement about `6847063f` and must not be reported as holding on current villa ([verdict](reports/decoupling_does_not_cleanly_reproduce.md)).
+**These findings were measured on villa-spiral `6847063f`. Current villa recovers 67.6% more ink through a byte-identical renderer and scorer** ([measurement](reports/current_code_baseline.md)), so they are measurements of superseded code. **Re-measured 2026-09-12, and the extension FAILED.** On current code the ink null reproduces (+0.28%, p=0.80, 95% CI [-2.56%, +3.13%]) but the geometry evidence does not: `satisfied_area` ROSE 1.18%, the direction our own registration declared uninterpretable because the manipulation removes inputs the metric scores. The decoupling is a statement about `6847063f` and must not be reported as holding on current villa ([verdict](reports/decoupling_does_not_cleanly_reproduce.md)).
 
 **The headline is a metric result, not a model result.** villa's loop optimises
 `total_fg_pixels` (recovered ink) with a `satisfied_area` (geometry) cross-check. We have two
@@ -563,7 +563,7 @@ estimate moving further against the method rather than toward a hidden benefit
 ([verdict](reports/stripmatch_verdict.md)). The outer deficit was a side effect of selecting on
 satisfaction, not the cause. Both geometry gains are circular by construction — the arm is selected
 on satisfaction and then scored on it — which is exactly why a loop using that guard would read
-either as success. Both nulls are bounded, not empty: no ink effect larger than ~10% at three fits
+either as success. Both nulls are bounded, not empty: no ink effect larger than ~10% *(corrected 2026-09-12 to ~12%: the registered MDE used a df=3 CV that was optimistic — `reports/noise_floor_by_tier.md`)* at three fits
 per arm.
 
 **A property of the data that generalises past this study.** Per-patch satisfaction falls with
