@@ -375,5 +375,41 @@ unread -- fixing both the design and the "run on FAILURE" trigger before the res
 motivate them existed -- and finding 21 answers it: no benefit with the strip equalised. A follow-up
 designed after seeing the verdict would have been shaped by the verdict it was meant to explain.
 
+**25. The decoupling does NOT extend to current villa — the ink null reproduces, the evidence
+does not.**
+Registered re-measurement of the same-winding ablation on current code
+(`docs/preregistration/2026-09-11_decoupling_on_current_code.md`). Ink **+0.28%, 95% CI
+[−2.56%, +3.13%]** — null, and a strong one. But `satisfied_area` **ROSE** 1.18% (p=0.0175), and the
+registration had pre-declared a rise uninterpretable: removing 5,413 of the inputs the metric scores
+can inflate it trivially, which is why the pinned tree's **fall** was evidence and this is not.
+Findings 22–24 are claims about `6847063f` alone. `reports/decoupling_does_not_cleanly_reproduce.md`.
+
+**26. The noise floor every study here quoted was wrong, in both directions.**
+Every analysis script hardcodes `OUTER_CV = 0.0421`, measured at **df=3**. Pooling within-arm
+deviations across the whole corpus gives the pinned tier **0.0514 (df=18)** — so pinned-tier nulls
+bound **~12%, not ~10%**, and excluded less than they claimed. Current villa is **0.0125 (df=4)**,
+**4.1× quieter** (F(18,4)=16.79, p=0.0143, post-hoc), credible because both current arms agree
+independently (0.0124, 0.0127). At 3v3 a current-code study now sees **2.9%**, which reopens levers
+previously dismissed as underpowered. **Do not normalise ink by strip area**: `overall_fg_fraction`
+is 2.6× noisier than the raw count, because `total_fg_pixels` (0.0125) is quieter than the strip it
+sits on (0.0242). `reports/noise_floor_by_tier.md`.
+
+**27. Half of the two-seed criticism expired; the other half turned out to be exact.**
+Finding 9's power table used the inner CV 0.1086. At current noise two seeds catch a 5% gain
+**99.2%** of the time, so "the check cannot detect realistic gains" is **false for the loop villa runs
+today** and we have stopped saying it. The false-positive half is *stronger* than first stated: it is
+a rank statistic, exactly **1/C(2k,k)** under exchangeability — 2 seeds **1/6**, 3 seeds **1/20**,
+4 seeds **1/70** — independent of the CV, the metric and the code version. That is why 16.6% at CV
+0.1086 and 16.7% at CV 0.0125 agree. **No amount of better fitting improves it**, and villa's fits
+just got 4× quieter without moving it at all. One extra seed buys 1-in-6 → 1-in-20.
+
+**A sixth self-correction, and the one that cost the most credibility to catch:** finding 25 was
+published quoting a bound of 9.6% that came from the *wrong tree's* constant. Checking where that
+number came from produced finding 26, which showed the same null actually excludes ±3% — three times
+stronger — while also showing every pinned-tier null was ~12% rather than ~10%. **A constant copied
+between scripts stops being a measurement and becomes an assumption**; this one had been carried into
+studies on a tree it was never measured on. `scripts/measure_noise_floor.py` replaces it with
+something that is recomputed from the fits and refuses to pool the tiers.
+
 Reproduce: `repro/spiral_render/`, `scripts/measure_winding_overlap.py`,
 `scripts/analyse_seed_spread.py`. All from published artifacts.
