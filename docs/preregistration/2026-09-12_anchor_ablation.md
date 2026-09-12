@@ -57,8 +57,19 @@ per-arm gate — **every ablated arm is still checked individually**, so a numbe
 actual arms is caught regardless of what the pilot showed.
 
 Current villa, 30,000 steps, `z` 13056-18432, identical in every other respect. The reduced dataset
-is a symlink farm carrying a real reduced `abs_winding.json`; the patch set is unchanged at **38,442
-in both arms**, verified in the fit logs, so this manipulation is anchors-only.
+is a symlink farm carrying a real reduced `abs_winding.json`.
+
+**Verified in the fit logs that the manipulation is anchors-only**, by comparing the pilot against
+`fit_curbase_s1.log`:
+
+| collection | baseline | ablated |
+|---|---:|---:|
+| absolute winding (`abs_winding.json`) | 59 points | **10 points** |
+| relative winding | 2,173 | 2,173 |
+| same-winding | 5,413 | 5,413 |
+| patches after filtering | 38,442 | 38,442 |
+
+Only the anchors differ. Everything the fit otherwise consumes is identical.
 
 **Anchor count is fixed at 10 and will not be swept.** Trying counts until one gives a publishable
 answer is the failure mode this sentence exists to prevent.
