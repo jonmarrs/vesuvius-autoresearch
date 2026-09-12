@@ -83,8 +83,13 @@ and state no directional expectation for `satisfied_area`.
 * 240 mesh entries each, all ten outer windings, full 38,442-patch input — the manipulation is
   constraints-only;
 * arms differ only in `same_windings.json` and seed; `abs_winding.json` untouched;
-* fits and renders on villa `be09a8503`, whose sole hot-path delta from the baselines' `d8c5f488a`
-  is inert here (shell-dir-crop, never exercised);
+* **all six arms ran on one unchanging tree** — `villa-spiral-current/`, written 2026-09-07 10:00 and
+  not modified since, against arm fits dated 09-07 21:25 through 09-12 02:52. *Corrected 2026-09-12:*
+  this previously said the ablated arms ran on `be09a8503` and the baselines on `d8c5f488a`, and
+  argued the delta was inert. There was no version difference between the arms to argue about, which
+  is a simpler and stronger validity claim. The tree is a **mix of two upstream commits** —
+  `spiral-fitting` at `be09a8503`, `lasagna` and `vesuvius` at `d8c5f488a` — recovered by content
+  with `scripts/identify_fit_tree_provenance.py`, since the tree is a copy with no `.git`;
 * uncontended fit times match the baselines (2h57m vs ~3h), so no arm was advantaged by scheduling.
 
 Machine-readable: `reports/samewinding_current_verdict.json`.
