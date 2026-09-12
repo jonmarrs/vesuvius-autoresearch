@@ -20,7 +20,18 @@ Registration: `docs/preregistration/2026-09-11_decoupling_on_current_code.md`.
 | `total_fg_pixels` | 2,882,256 | 2,890,443 | +0.28% | 0.7956 |
 | `satisfied_area_fraction` | 0.8490 | 0.8590 | **+1.18%** | **0.0175** |
 
-**VERDICT: NULL on reading**, no ink effect larger than **9.6%**. Bounded, not zero.
+**VERDICT: NULL on reading.** Bounded, not zero.
+
+*Bound corrected 2026-09-12.* As registered this read "no effect larger than 9.6%", from the
+design-stage MDE — which used `OUTER_CV = 0.0421`, measured on the **pinned** tree. Current-code seed
+noise is 4.1× tighter (`reports/noise_floor_by_tier.md`), so that bound was far too loose. The honest
+post-hoc statement is the interval actually observed:
+
+> **+0.28%, 95% CI [−2.56%, +3.13%]** (Welch, df = 4.0)
+
+**The data exclude any ink effect beyond about ±3%.** The registered 9.6% stays on the record as what
+the design promised. The verdict is unchanged; the null is three times more informative than first
+published.
 
 ## The honest reading: this is weaker than the original, not a confirmation
 
