@@ -15,57 +15,72 @@ Tag the submitted commit `submission/2026-09`, matching `submission/2026-07` (06
 
 ## "Short description of how your contributions substantially increase the probability of reading complete scrolls"
 
-### Version A (126 words), use this one
+> **Rewritten 2026-09-12.** The earlier drafts led with "villa's satisfaction guard does not track
+> ink", stated flat. That is true of villa-spiral `6847063f` and **was not established on current
+> villa** — the registered attempt to extend it failed
+> (`reports/decoupling_does_not_cleanly_reproduce.md`). Leading with it would have invited villa to
+> check on the code they actually run and find it unsupported. These versions lead with the
+> **current-code** results instead, which turn out to be the stronger material anyway.
 
-`autoresearch.md` has villa's spiral loop optimise recovered ink with a satisfaction cross-check.
-**Across all 24 fits we have scored, spanning a 27% range in ink, the two do not track each other:
-r = -0.12, 95% CI [-0.50, +0.30]** — which excludes the strong positive relationship a guard needs.
-Four pre-registered studies show the individual failures: a config change raised `satisfied_area`
-1.03% while costing **10.35% of the ink** (n=12); two refits raised it **17.66% and 16.24% for no ink
-gain**.
+### Version A (~133 words), use this one
 
-The fourth is the one that bears on strategy. Removing **5,413 same-winding constraints** —
-the evidence villa calls the fastest path to unrolling at scale — measurably *degraded* the fit
-(-0.69%, p=0.0027) and left reading unchanged within 8.3%.
+Three measurements on the villa spiral loop **as it runs today**.
 
-A guard that moves confidently the wrong way, confidently the useless way, and downward while reading
-holds is not guarding.
+**The robustness check `autoresearch.md` prescribes accepts one null change in six.** Requiring both
+runs of a change to beat both baseline runs is a rank test: under no effect it passes with
+probability exactly **1/C(2k,k)**, independent of noise, metric or code version. Two seeds is 1/6;
+**three seeds is 1/20**, for 1.5× compute.
 
-### Version B (79 words), if the field is tight
+**Its seed noise is now 0.0125** on `total_fg_pixels` (six 30,000-step fits), 4× quieter than the
+superseded tree. So the loop can resolve ~3% effects — worth knowing before chasing smaller ones.
 
-villa's spiral loop optimises recovered ink with a satisfaction cross-check. We pre-registered four
-cases where they come apart: +1.03% satisfaction for **-10.35% ink**; two refits at +17.66% and
-+16.24% for no ink gain; and removing **5,413 winding constraints** — villa's stated scaling path —
-which *degraded* the fit (p=0.0027) while reading held within 8.3%.
+**Removing 5,413 same-winding constraints changes reading by +0.28%, 95% CI [−2.56%, +3.13%].**
+villa names winding constraints the fastest path to unrolling at scale; this bounds what that class
+buys for *reading*, which nobody had measured.
 
-Two of the four answer a villa-named open problem with a registered FAILURE.
+### Version B (~72 words), if the field is tight
 
-### Long version (298 words), if a field allows detail
+Three measurements on villa's spiral loop as it runs today. The two-seed robustness check in
+`autoresearch.md` accepts a null change **1 time in 6** — exactly 1/C(2k,k), a rank test no amount of
+better fitting improves; **three seeds makes it 1 in 20**. Current seed noise is **0.0125**, so the
+loop resolves ~3%. And removing **5,413 same-winding constraints** — villa's stated scaling path —
+changes reading by **+0.28%, 95% CI [−2.56%, +3.13%]**.
 
-villa's spiral-fitting loop optimises `total_fg_pixels` with a `satisfied_area` cross-check. We have
-two pre-registered measurements, eighteen fits in total, where those endpoints move independently in
-opposite directions:
+### Long version (~410 words), if a field allows detail
 
-| case | `satisfied_area` | `total_fg_pixels` |
-|---|---|---|
-| one config flag, n=12 | +1.03% (p=3.9e-06) | **-10.35%** (p=0.0018) |
-| refit on well-satisfied patches, n=6 | **+17.66%** (p<1e-4) | -0.83% (p=0.89) |
-| same, with coverage equalised, n=6 | +16.24% (p<1e-4) | -3.80% (p=0.55) |
-| **5,413 winding constraints removed, 3v6** | **-0.69%** (p=0.0027) | -1.74% (p=0.61) |
+Everything below is on **current villa**, with pre-registered decision rules and analysis code
+committed before the data existed.
 
-The second answers an avenue villa names directly — "automatically crop 'good' regions of the spiral
-fit, and use these as surface patch inputs to a subsequent run" — with a **registered FAILURE**. The
-geometry gain there is circular by construction, since the arm is selected on satisfaction and then
-scored on it, which is exactly why a loop using that guard would read it as success.
+**1. The prescribed robustness check accepts one null in six.** `autoresearch.md` suggests running a
+change under two seeds and keeping it if the gain survives. Under no effect, the chance that both
+change runs beat both baseline runs is exactly **1/C(2k, k)** — a rank statistic, so it depends on
+nothing: not the noise, the metric, or the code version. Two seeds = **1/6**. **Three seeds = 1/20**,
+at 1.5× compute. A loop evaluating many changes accumulates false wins in proportion to how many it
+tries.
 
-We then found the confound in our own design and published it before knowing the outcome: because
-satisfaction falls with radius (r = -0.21 over 35,963 patches), a 0.90 threshold matched total patch
-area to 0.01 points while carrying **11% less area inside the strip where ink is scored**. A third
-study, registered while those endpoints were still unread, built a control matched on in-strip area
-too. Ink moved further against the method, not toward a hidden benefit.
+**2. Its noise floor, measured.** Pooling within-arm deviations over six 30,000-step fits gives a
+seed CV of **0.0125** on `total_fg_pixels` — 4.1× quieter than the superseded tree (F(18,4)=16.79,
+p=0.0143). At three fits per arm the loop resolves about **2.9%**. Also: **do not normalise ink by
+strip area.** `overall_fg_fraction` is 2.6× noisier, because the ink count is quieter than the strip
+it sits on and dividing injects the canvas's jitter.
 
-Both nulls are bounded, not empty: at three fits per arm, 80% power reaches only ~10%. We say so
-rather than claiming no effect.
+**3. What winding constraints buy for reading.** Removing **5,413 same-winding constraints** — the
+evidence villa calls the fastest path to unrolling at scale — changes recovered ink by **+0.28%, 95%
+CI [−2.56%, +3.13%]**. Every winding-constraint project in villa's catalogue validates on geometry;
+this is the bound against *reading*.
+
+**On the superseded tree** (`6847063f`, 24 scored fits) we additionally found the satisfaction guard
+failing to track ink in four pre-registered cases, including a config change costing **10.35% of the
+ink** while improving satisfaction. We re-ran that on current code and **it did not extend** — the
+ink null reproduced, the geometry evidence did not. We report the failure rather than the headline.
+
+The same habit caught our own errors. We published that re-measurement quoting a bound taken from
+the superseded tree's noise constant; tracing where that number came from produced measurement 2, and
+showed the null actually excludes ±3% rather than ±10% — and that every earlier bound on the old tree
+was ~12%, not ~10%, so those nulls had excluded *less* than we claimed. Both corrections are
+published, one in our favour and one against.
+
+Nulls here are bounded, not empty, and we give the interval rather than claiming no effect.
 
 Everything is MIT, runs from published artifacts on one consumer GPU, and every decision rule was
 committed to code before the data existed. The analyses refuse a partial sample rather than reporting
@@ -141,7 +156,7 @@ anyway, and finding it disclosed is different from finding it hidden.
 ## What NOT to claim
 
 * Not "the metrics are broken" — we measured two disagreements, not a general property.
-* Not "the avenue is refuted" — both nulls are bounded at ~10%; a smaller effect survives.
+* Not "the avenue is refuted" — the current-code null bounds ±3% and the pinned-tier ones ~12%; a smaller effect survives.
 * Not any adoption. There is none, and August's filing said so too.
 * **Not that these results describe current villa.** They describe `6847063f`. See the disclosure
   above; do not drop it to save words.
