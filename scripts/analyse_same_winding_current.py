@@ -42,6 +42,12 @@ BASELINE_ARMS = ("curbase_s1", "curbase_s2", "curbase_s3")
 REQUIRED_ABLATED = 3
 REQUIRED_BASELINE = 3
 
+# SUPERSEDED CONSTANT -- do not copy into new code.
+# This is the PINNED tier's CV used in a CURRENT-code study, which is the exact
+# error that made this study's published bound 3x too loose (9.6% where the data
+# exclude +/-3%). Current-tier CV is 0.0125. Retained only to reproduce the
+# registered MDE; the report quotes the observed CI instead.
+# reports/noise_floor_by_tier.md, reports/decoupling_does_not_cleanly_reproduce.md
 OUTER_CV = 0.0421
 PREDICTION = (
     "ink NULL and satisfied_area FALLS — the decoupling reproduces on current code"

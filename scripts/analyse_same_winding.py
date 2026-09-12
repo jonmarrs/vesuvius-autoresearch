@@ -37,6 +37,11 @@ BASELINE_ARMS = ("baseline01", "seed02", "seed03", "seed04", "seed05", "seed06")
 REQUIRED_ABLATED = 3
 REQUIRED_BASELINE = 6
 
+# SUPERSEDED CONSTANT -- do not copy into new code.
+# The pinned tier's real seed CV is 0.0514 (df=18, reports/noise_floor_by_tier.md);
+# this df=3 value understates the MDE by ~23%. Retained ONLY so this script still
+# reproduces the MDE its registration promised. New studies must take the CV from
+# scripts/measure_noise_floor.py for the tier they actually run on.
 OUTER_CV = 0.0421
 PREDICTION = "ink NULL and satisfied_area RISES (constraints buy geometry, not reading)"
 

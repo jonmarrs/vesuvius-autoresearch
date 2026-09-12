@@ -37,7 +37,12 @@ GAP_ARMS = ("gap133", "gap133s2", "gap133s3")
 QUALITY_BAND = 0.01  # within an arm, never pooled across arms
 BASE_SAT_MAX = 0.8404  # the control gap133s3 should clear, from finding 12
 ALPHA = 0.05
-OUTER_CV = 0.0421  # reports/outer_winding_noise_floor.md
+# SUPERSEDED CONSTANT -- do not copy into new code.
+# The pinned tier's real seed CV is 0.0514 (df=18, reports/noise_floor_by_tier.md);
+# this df=3 value understates the MDE by ~23%. Retained ONLY so this script still
+# reproduces the MDE its registration promised. New studies must take the CV from
+# scripts/measure_noise_floor.py for the tier they actually run on.
+OUTER_CV = 0.0421
 
 
 def detectable_effect(n_base: int, n_gap: int, cv: float = OUTER_CV) -> float:

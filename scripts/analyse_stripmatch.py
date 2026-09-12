@@ -37,6 +37,11 @@ BOOTSTRAP_ARMS = ("boot090s1", "boot090s2", "boot090s3")
 STRIPMATCH_ARMS = ("strip090s1", "strip090s2", "strip090s3")
 REQUIRED_PER_ARM = 3
 
+# SUPERSEDED CONSTANT -- do not copy into new code.
+# The pinned tier's real seed CV is 0.0514 (df=18, reports/noise_floor_by_tier.md);
+# this df=3 value understates the MDE by ~23%. Retained ONLY so this script still
+# reproduces the MDE its registration promised. New studies must take the CV from
+# scripts/measure_noise_floor.py for the tier they actually run on.
 OUTER_CV = 0.0421
 PREDICTION = "no ink advantage for BOOTSTRAP; equalising outer evidence does not rescue the method"
 
