@@ -74,6 +74,27 @@ Only the anchors differ. Everything the fit otherwise consumes is identical.
 **Anchor count is fixed at 10 and will not be swept.** Trying counts until one gives a publishable
 answer is the failure mode this sentence exists to prevent.
 
+### Amendment 2: the pilot IS arm 1, and is reused rather than refitted
+
+`anchor10cov_pilot` runs the coverage-matched dataset at **seed 1** — configurationally identical to
+what `anchor10cov_s1` would be. Refitting it would burn ~2h to reproduce a fit we already have, so it
+is **reused as arm 1** and rendered under the tag `anchor10cov_s1`.
+
+Two reasons this does not compromise the design, stated before the gate was read:
+
+* **It carries no ink number.** The pilot was deliberately not rendered, so nothing about the
+  decision to reuse it can be conditioned on the endpoint — there is no endpoint yet to condition on.
+* **The gate it was run for applies to every arm anyway.** The registration already requires each
+  ablated arm to pass the winding-identity check, with failures excluded by name. Arm 1 being
+  conditioned on passing is the rule applied uniformly, not an extra filter on one arm.
+
+What this *does* mean is stated plainly: **the study is conditioned on arm 1's numbering surviving**,
+because if it had not, the study would not run at all. That is the registered gate doing its job, and
+it is a property of winding numbering, not of recovered ink.
+
+Arms 2 and 3 are fresh fits at seeds 2 and 3 (`spiral_out/fit_anchor10cov_s{2,3}.sh`), matching
+`curbase_s2` and `curbase_s3`.
+
 ## Endpoints
 
 * **Primary: `total_fg_pixels`** on w120-w129, ABLATED vs BASELINE, Welch two-sided, alpha = 0.05.
