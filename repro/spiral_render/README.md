@@ -326,3 +326,22 @@ Two honesty notes, because the obvious inference here is wrong:
 
 The reason to write the rule down anyway is that 1GB of headroom is not a margin, and the failure it
 would produce is the expensive kind: a dead arm partway through an unattended multi-day comparison.
+
+## 10. Preflight and the current-code tree (2026-09-12)
+
+`preflight.sh` defaults to the **pinned** `villa-spiral` paths. For a current-code study point it at
+the tree the arms actually use:
+
+```bash
+RENDER_VENV=<...>/villa-spiral-current/spiral-fitting/.venv/bin/python \
+VILLA=<repo>/villa ARMS_PER_STUDY=3 ./preflight.sh
+```
+
+**A submodule used to fail this check.** It tested `[ -d "$VILLA/.git" ]`, and a submodule's `.git` is
+a *file* containing `gitdir: ...`. So the one checkout the current-code study reads was rejected while
+every git command against it worked. It now asks `git rev-parse --git-dir` instead of inferring from
+the filesystem. A preflight that cries wolf stops being run.
+
+**Measured disk cost per complete arm: ~4.9 GB** (4.3 GB fit output + ~0.6 GB render/score), so a
+3-arm study needs ~15 GB. `MIN_FREE_GB` defaults to 10 GB/arm, which is deliberately conservative —
+it is a *guard*, not an estimate, and the margin covers render scratch.

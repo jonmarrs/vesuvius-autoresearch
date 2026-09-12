@@ -57,12 +57,15 @@ else bad "SCORE_VENV not executable: $SCORE_VENV"; fi
 
 echo
 echo "villa checkout (renders extract origin/main; fits run the WORKING TREE)"
-if [ -d "$VILLA/.git" ]; then
+# A SUBMODULE's .git is a FILE (a "gitdir:" gitlink), not a directory, so the
+# obvious -d test rejects a perfectly good checkout. Ask git instead of guessing
+# from the filesystem layout.
+if git -C "$VILLA" rev-parse --git-dir >/dev/null 2>&1; then
   ok "villa checkout at $VILLA  (worktree $(git -C "$VILLA" rev-parse --short HEAD 2>/dev/null), origin/main $(git -C "$VILLA" rev-parse --short origin/main 2>/dev/null))"
   for t in spiral-fitting lasagna vesuvius/src; do
     git -C "$VILLA" cat-file -e "origin/main:$t" 2>/dev/null && ok "  origin/main has $t" || bad "  origin/main missing $t"
   done
-else bad "no villa checkout at $VILLA"; fi
+else bad "no villa checkout at $VILLA (git does not recognise it as a work tree)"; fi
 
 echo
 echo "container tooling"
