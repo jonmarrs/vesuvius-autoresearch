@@ -1,0 +1,259 @@
+{
+ "common_length": 8192,
+ "arms": {
+  "curbase_s1": {
+   "native_width": 89820,
+   "total_fg": 2904520
+  },
+  "curbase_s2": {
+   "native_width": 90970,
+   "total_fg": 2901177
+  },
+  "curbase_s3": {
+   "native_width": 92280,
+   "total_fg": 2841071
+  },
+  "nosamecur_s1": {
+   "native_width": 92590,
+   "total_fg": 2893440
+  },
+  "nosamecur_s2": {
+   "native_width": 90140,
+   "total_fg": 2925553
+  },
+  "nosamecur_s3": {
+   "native_width": 91010,
+   "total_fg": 2852335
+  },
+  "anchor10cov_pilot": {
+   "native_width": 89370,
+   "total_fg": 2898843
+  },
+  "anchor10cov_s2": {
+   "native_width": 89840,
+   "total_fg": 2722693
+  },
+  "anchor10cov_s3": {
+   "native_width": 89660,
+   "total_fg": 2951176
+  }
+ },
+ "pairs": [
+  {
+   "a": "curbase_s1",
+   "b": "curbase_s2",
+   "r": 0.6764279473907605,
+   "lag": 0
+  },
+  {
+   "a": "curbase_s1",
+   "b": "curbase_s3",
+   "r": 0.711215732605792,
+   "lag": -3
+  },
+  {
+   "a": "curbase_s1",
+   "b": "nosamecur_s1",
+   "r": 0.6083126114200434,
+   "lag": 5
+  },
+  {
+   "a": "curbase_s1",
+   "b": "nosamecur_s2",
+   "r": 0.6707853207624683,
+   "lag": 2
+  },
+  {
+   "a": "curbase_s1",
+   "b": "nosamecur_s3",
+   "r": 0.5643132903868621,
+   "lag": -1
+  },
+  {
+   "a": "curbase_s1",
+   "b": "anchor10cov_pilot",
+   "r": 0.6325330235017639,
+   "lag": -2
+  },
+  {
+   "a": "curbase_s1",
+   "b": "anchor10cov_s2",
+   "r": 0.6259826879530588,
+   "lag": 4
+  },
+  {
+   "a": "curbase_s1",
+   "b": "anchor10cov_s3",
+   "r": 0.6570699720601157,
+   "lag": 4
+  },
+  {
+   "a": "curbase_s2",
+   "b": "curbase_s3",
+   "r": 0.7016988151415685,
+   "lag": -3
+  },
+  {
+   "a": "curbase_s2",
+   "b": "nosamecur_s1",
+   "r": 0.6529808840780434,
+   "lag": 5
+  },
+  {
+   "a": "curbase_s2",
+   "b": "nosamecur_s2",
+   "r": 0.6545177507493481,
+   "lag": 3
+  },
+  {
+   "a": "curbase_s2",
+   "b": "nosamecur_s3",
+   "r": 0.6348549472094579,
+   "lag": -1
+  },
+  {
+   "a": "curbase_s2",
+   "b": "anchor10cov_pilot",
+   "r": 0.6061786348064302,
+   "lag": -2
+  },
+  {
+   "a": "curbase_s2",
+   "b": "anchor10cov_s2",
+   "r": 0.6060106317101592,
+   "lag": 2
+  },
+  {
+   "a": "curbase_s2",
+   "b": "anchor10cov_s3",
+   "r": 0.704201394687563,
+   "lag": 3
+  },
+  {
+   "a": "curbase_s3",
+   "b": "nosamecur_s1",
+   "r": 0.6415480931105235,
+   "lag": 9
+  },
+  {
+   "a": "curbase_s3",
+   "b": "nosamecur_s2",
+   "r": 0.6409363954586819,
+   "lag": 6
+  },
+  {
+   "a": "curbase_s3",
+   "b": "nosamecur_s3",
+   "r": 0.5669955529599761,
+   "lag": 2
+  },
+  {
+   "a": "curbase_s3",
+   "b": "anchor10cov_pilot",
+   "r": 0.5629240133212935,
+   "lag": 0
+  },
+  {
+   "a": "curbase_s3",
+   "b": "anchor10cov_s2",
+   "r": 0.6002895182495379,
+   "lag": 6
+  },
+  {
+   "a": "curbase_s3",
+   "b": "anchor10cov_s3",
+   "r": 0.6324705020177323,
+   "lag": 7
+  },
+  {
+   "a": "nosamecur_s1",
+   "b": "nosamecur_s2",
+   "r": 0.6435891157454076,
+   "lag": -1
+  },
+  {
+   "a": "nosamecur_s1",
+   "b": "nosamecur_s3",
+   "r": 0.5638411774644053,
+   "lag": -6
+  },
+  {
+   "a": "nosamecur_s1",
+   "b": "anchor10cov_pilot",
+   "r": 0.5631417028086326,
+   "lag": -7
+  },
+  {
+   "a": "nosamecur_s1",
+   "b": "anchor10cov_s2",
+   "r": 0.5905654231082988,
+   "lag": -2
+  },
+  {
+   "a": "nosamecur_s1",
+   "b": "anchor10cov_s3",
+   "r": 0.6342297591519375,
+   "lag": 0
+  },
+  {
+   "a": "nosamecur_s2",
+   "b": "nosamecur_s3",
+   "r": 0.5860095363893367,
+   "lag": -5
+  },
+  {
+   "a": "nosamecur_s2",
+   "b": "anchor10cov_pilot",
+   "r": 0.5958745996971694,
+   "lag": -5
+  },
+  {
+   "a": "nosamecur_s2",
+   "b": "anchor10cov_s2",
+   "r": 0.5719318251851334,
+   "lag": -1
+  },
+  {
+   "a": "nosamecur_s2",
+   "b": "anchor10cov_s3",
+   "r": 0.6172155215537192,
+   "lag": -1
+  },
+  {
+   "a": "nosamecur_s3",
+   "b": "anchor10cov_pilot",
+   "r": 0.5379398778256195,
+   "lag": -1
+  },
+  {
+   "a": "nosamecur_s3",
+   "b": "anchor10cov_s2",
+   "r": 0.5477380452457858,
+   "lag": 4
+  },
+  {
+   "a": "nosamecur_s3",
+   "b": "anchor10cov_s3",
+   "r": 0.5645310830421545,
+   "lag": 3
+  },
+  {
+   "a": "anchor10cov_pilot",
+   "b": "anchor10cov_s2",
+   "r": 0.6235306984754431,
+   "lag": 5
+  },
+  {
+   "a": "anchor10cov_pilot",
+   "b": "anchor10cov_s3",
+   "r": 0.678625404543223,
+   "lag": 4
+  },
+  {
+   "a": "anchor10cov_s2",
+   "b": "anchor10cov_s3",
+   "r": 0.7086068098544136,
+   "lag": 1
+  }
+ ]
+}

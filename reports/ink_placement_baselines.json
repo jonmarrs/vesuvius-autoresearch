@@ -1,0 +1,37 @@
+{
+ "common_length": 8192,
+ "arms": {
+  "curbase_s1": {
+   "native_width": 89820,
+   "total_fg": 2904520
+  },
+  "curbase_s2": {
+   "native_width": 90970,
+   "total_fg": 2901177
+  },
+  "curbase_s3": {
+   "native_width": 92280,
+   "total_fg": 2841071
+  }
+ },
+ "pairs": [
+  {
+   "a": "curbase_s1",
+   "b": "curbase_s2",
+   "r": 0.6764279473907605,
+   "lag": 0
+  },
+  {
+   "a": "curbase_s1",
+   "b": "curbase_s3",
+   "r": 0.711215732605792,
+   "lag": -3
+  },
+  {
+   "a": "curbase_s2",
+   "b": "curbase_s3",
+   "r": 0.7016988151415685,
+   "lag": -3
+  }
+ ]
+}
