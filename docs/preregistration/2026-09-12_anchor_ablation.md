@@ -107,6 +107,15 @@ satisfaction report-only because the manipulation removed 5,413 of the patches t
 a rise could mean "less left to satisfy". **This manipulation touches `abs_winding.json` only and
 leaves the patch set identical**, so satisfaction is like-for-like and is allowed to carry weight.
 
+> **CORRECTION, 2026-09-13, after the data.** This paragraph is wrong, and it is recorded rather than
+> edited away. Leaving the patch set identical removes the "less left to satisfy" confound, but
+> `fit_spiral.py:4345` adds `abs_winding` as a **loss term at weight 5.0 competing with the
+> patch-fitting losses**. Deleting 40 of 50 anchors reduces that competing pull, so the optimiser
+> satisfies patches better and `satisfied_area` rises **mechanically**. The rise is not evidence of
+> better geometry, and this study is **not** a clean instance of the geometry/ink decoupling. The
+> check that would have caught it — read the loss the metric is scored against, not just the inputs
+> it is computed over — cost five minutes after the fact.
+
 It still does not decide. A geometry move with a null ink result does **not** license "thinning
 anchors is harmless for reading", and `verdict()` takes ink as the deciding input with a test pinning
 that.
