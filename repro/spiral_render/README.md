@@ -364,6 +364,28 @@ predecessors, while its ETA reads as if it were three times slower.
 
 Budget renders at **~1h45m–2h**, not the ~3h the ETA suggests at band 7.
 
+### Per-band cost varies ~15x, so one slow band is not a stall
+
+Measured band durations, same render pipeline, two arms:
+
+| band | `curbase_s1` | `anchor10cov_pilot` |
+|---|---:|---:|
+| 2 | 7.7 min | 1.7 min |
+| 3 | 2.3 min | 1.5 min |
+| 5 | **22.4 min** | **19.7 min** |
+| 7 | 7.2 min | 8.8 min |
+| 8 | 6.2 min | **23.6 min** |
+| cumulative at band 8 | 61.5 min | 68.0 min |
+| total | **104.8 min** | — |
+
+Bands 9–36 of `curbase_s1` took only 43 min together, about 1.5 min each: **the late bands are
+cheap and the early-middle ones are not.** Band 5 cost over 20 minutes in *both* arms.
+
+**A band that has not advanced for 20 minutes is therefore normal.** Diagnose a suspected stall by
+(a) checking `vc_render_tifxyz` is consuming CPU, and (b) comparing *cumulative* elapsed at the same
+band against a previous arm — never by timing one band against the average, which is what made a
+healthy render look 8x slow here on 2026-09-12.
+
 ### Memory pressure during a render is the box's normal state, not a fault
 
 A render sits at **~29 GB of 31 GB RAM with swap essentially full** (7,995 MB of 8,191 MB). Both
