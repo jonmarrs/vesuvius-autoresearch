@@ -1,0 +1,87 @@
+{
+ "verdict": "NUMBERING PRESERVED",
+ "rows": [
+  {
+   "ref": 120,
+   "best": 120,
+   "offset": 0,
+   "dist": 23.671758109114748,
+   "runner_up": 121,
+   "runner_up_dist": 26.842999544781847
+  },
+  {
+   "ref": 121,
+   "best": 121,
+   "offset": 0,
+   "dist": 23.61997370491114,
+   "runner_up": 122,
+   "runner_up_dist": 26.34804636785583
+  },
+  {
+   "ref": 122,
+   "best": 122,
+   "offset": 0,
+   "dist": 23.761103186114404,
+   "runner_up": 123,
+   "runner_up_dist": 26.496907334959744
+  },
+  {
+   "ref": 123,
+   "best": 123,
+   "offset": 0,
+   "dist": 24.20143094307167,
+   "runner_up": 124,
+   "runner_up_dist": 27.33499584168051
+  },
+  {
+   "ref": 124,
+   "best": 124,
+   "offset": 0,
+   "dist": 24.01372165243172,
+   "runner_up": 125,
+   "runner_up_dist": 26.972412780764458
+  },
+  {
+   "ref": 125,
+   "best": 125,
+   "offset": 0,
+   "dist": 24.252520815319716,
+   "runner_up": 126,
+   "runner_up_dist": 28.01205444823192
+  },
+  {
+   "ref": 126,
+   "best": 126,
+   "offset": 0,
+   "dist": 24.50495574900944,
+   "runner_up": 127,
+   "runner_up_dist": 27.072034531906226
+  },
+  {
+   "ref": 127,
+   "best": 127,
+   "offset": 0,
+   "dist": 24.397653463903612,
+   "runner_up": 128,
+   "runner_up_dist": 27.14430611106654
+  },
+  {
+   "ref": 128,
+   "best": 128,
+   "offset": 0,
+   "dist": 24.11229616594347,
+   "runner_up": 129,
+   "runner_up_dist": 26.135993326235635
+  },
+  {
+   "ref": 129,
+   "best": 129,
+   "offset": 0,
+   "dist": 23.82234465067821,
+   "runner_up": 128,
+   "runner_up_dist": 29.33105848761803
+  }
+ ],
+ "ref": "curbase_s1",
+ "alt": "anchor10cov_pilot"
+}
