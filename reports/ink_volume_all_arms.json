@@ -1,0 +1,232 @@
+{
+ "bins": [
+  96,
+  256
+ ],
+ "axis": [
+  4155.152812074681,
+  5056.385691237408
+ ],
+ "pairs": [
+  {
+   "a": "curbase_s1",
+   "b": "curbase_s2",
+   "r": 0.8076270225349665,
+   "kind": "within"
+  },
+  {
+   "a": "curbase_s1",
+   "b": "curbase_s3",
+   "r": 0.6843254177197465,
+   "kind": "within"
+  },
+  {
+   "a": "curbase_s1",
+   "b": "nosamecur_s1",
+   "r": 0.7412231127897845,
+   "kind": "between"
+  },
+  {
+   "a": "curbase_s1",
+   "b": "nosamecur_s2",
+   "r": 0.7433050922797694,
+   "kind": "between"
+  },
+  {
+   "a": "curbase_s1",
+   "b": "nosamecur_s3",
+   "r": 0.7082910517198954,
+   "kind": "between"
+  },
+  {
+   "a": "curbase_s1",
+   "b": "anchor10cov_pilot",
+   "r": 0.718888030100958,
+   "kind": "between"
+  },
+  {
+   "a": "curbase_s1",
+   "b": "anchor10cov_s2",
+   "r": 0.7053077933284261,
+   "kind": "between"
+  },
+  {
+   "a": "curbase_s1",
+   "b": "anchor10cov_s3",
+   "r": 0.7138196667722199,
+   "kind": "between"
+  },
+  {
+   "a": "curbase_s2",
+   "b": "curbase_s3",
+   "r": 0.6613887075683659,
+   "kind": "within"
+  },
+  {
+   "a": "curbase_s2",
+   "b": "nosamecur_s1",
+   "r": 0.7394493173046635,
+   "kind": "between"
+  },
+  {
+   "a": "curbase_s2",
+   "b": "nosamecur_s2",
+   "r": 0.7688182573428958,
+   "kind": "between"
+  },
+  {
+   "a": "curbase_s2",
+   "b": "nosamecur_s3",
+   "r": 0.7059629969427734,
+   "kind": "between"
+  },
+  {
+   "a": "curbase_s2",
+   "b": "anchor10cov_pilot",
+   "r": 0.7483553276396971,
+   "kind": "between"
+  },
+  {
+   "a": "curbase_s2",
+   "b": "anchor10cov_s2",
+   "r": 0.7153752080583876,
+   "kind": "between"
+  },
+  {
+   "a": "curbase_s2",
+   "b": "anchor10cov_s3",
+   "r": 0.7141699580584655,
+   "kind": "between"
+  },
+  {
+   "a": "curbase_s3",
+   "b": "nosamecur_s1",
+   "r": 0.5640133134151344,
+   "kind": "between"
+  },
+  {
+   "a": "curbase_s3",
+   "b": "nosamecur_s2",
+   "r": 0.645145816852901,
+   "kind": "between"
+  },
+  {
+   "a": "curbase_s3",
+   "b": "nosamecur_s3",
+   "r": 0.7546617844851148,
+   "kind": "between"
+  },
+  {
+   "a": "curbase_s3",
+   "b": "anchor10cov_pilot",
+   "r": 0.7052064826840788,
+   "kind": "between"
+  },
+  {
+   "a": "curbase_s3",
+   "b": "anchor10cov_s2",
+   "r": 0.6439358803660216,
+   "kind": "between"
+  },
+  {
+   "a": "curbase_s3",
+   "b": "anchor10cov_s3",
+   "r": 0.6648301261501879,
+   "kind": "between"
+  },
+  {
+   "a": "nosamecur_s1",
+   "b": "nosamecur_s2",
+   "r": 0.6431722813175583,
+   "kind": "within"
+  },
+  {
+   "a": "nosamecur_s1",
+   "b": "nosamecur_s3",
+   "r": 0.6358932993336717,
+   "kind": "within"
+  },
+  {
+   "a": "nosamecur_s1",
+   "b": "anchor10cov_pilot",
+   "r": 0.6314615415748556,
+   "kind": "between"
+  },
+  {
+   "a": "nosamecur_s1",
+   "b": "anchor10cov_s2",
+   "r": 0.5675938146361591,
+   "kind": "between"
+  },
+  {
+   "a": "nosamecur_s1",
+   "b": "anchor10cov_s3",
+   "r": 0.6950842480184337,
+   "kind": "between"
+  },
+  {
+   "a": "nosamecur_s2",
+   "b": "nosamecur_s3",
+   "r": 0.6722243115762166,
+   "kind": "within"
+  },
+  {
+   "a": "nosamecur_s2",
+   "b": "anchor10cov_pilot",
+   "r": 0.7628219053162416,
+   "kind": "between"
+  },
+  {
+   "a": "nosamecur_s2",
+   "b": "anchor10cov_s2",
+   "r": 0.7288228867445529,
+   "kind": "between"
+  },
+  {
+   "a": "nosamecur_s2",
+   "b": "anchor10cov_s3",
+   "r": 0.703838330670136,
+   "kind": "between"
+  },
+  {
+   "a": "nosamecur_s3",
+   "b": "anchor10cov_pilot",
+   "r": 0.7163258025305959,
+   "kind": "between"
+  },
+  {
+   "a": "nosamecur_s3",
+   "b": "anchor10cov_s2",
+   "r": 0.7089823158186633,
+   "kind": "between"
+  },
+  {
+   "a": "nosamecur_s3",
+   "b": "anchor10cov_s3",
+   "r": 0.7095192844273522,
+   "kind": "between"
+  },
+  {
+   "a": "anchor10cov_pilot",
+   "b": "anchor10cov_s2",
+   "r": 0.754040482293316,
+   "kind": "within"
+  },
+  {
+   "a": "anchor10cov_pilot",
+   "b": "anchor10cov_s3",
+   "r": 0.7363781087070693,
+   "kind": "within"
+  },
+  {
+   "a": "anchor10cov_s2",
+   "b": "anchor10cov_s3",
+   "r": 0.6941318657252745,
+   "kind": "within"
+  }
+ ],
+ "null_rotated": [
+  -0.09205194259123094,
+  -0.08279547346211254
+ ]
+}

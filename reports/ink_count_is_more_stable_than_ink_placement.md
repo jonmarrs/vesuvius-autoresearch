@@ -23,8 +23,14 @@ exactly (2,904,520 / 2,901,177 / 2,841,071 for the baselines).
 | **within config** (same manipulation, different seed) | 9 | **0.655** | 0.564–0.711 |
 | **between configs** (different manipulation) | 27 | **0.611** | 0.538–0.704 |
 
-Welch t = 2.24, **p = 0.046** — so changing the constraints moves the ink barely more than changing
-the RNG seed does.
+Welch t = 2.24, **p = 0.046**.
+
+> **SUPERSEDED 2026-09-13.** That within/between gap is an artefact of comparing in strip
+> space: different manipulations produce different flattenings, and this comparison was partly
+> measuring that. In **volume** coordinates the gap vanishes — 0.699 within against 0.701
+> between — so changing the constraints moves the ink *no more at all* than reseeding does.
+> See `reports/ink_placement_in_volume.md`. The p = 0.046 was flagged as marginal and post-hoc
+> when published; it did not survive.
 
 ## The finding, and it is about the within-config number
 
@@ -82,8 +88,10 @@ confound (uniform length differences) is excluded by control.
 would produce the same number, and this analysis cannot separate the two.
 
 **The test that would separate them** is comparing ink placement in *volume* coordinates rather than
-strip coordinates — mapping each ink pixel back through the flattening to the scroll — which the
-tifxyz meshes make possible and which this does not attempt.
+strip coordinates. **That test has now been run** (`reports/ink_placement_in_volume.md`): the
+disagreement **persists in the scroll's own frame** at r = 0.699 against a null of −0.09, so it is
+not a flattening artefact. The central finding here survives; only the within/between contrast
+above did not.
 
 ## Why it is worth recording anyway
 
