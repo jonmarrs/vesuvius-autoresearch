@@ -72,10 +72,18 @@ p=0.0143). At three fits per arm the loop resolves about **2.9%**. Also: **do no
 strip area.** `overall_fg_fraction` is 2.6× noisier, because the ink count is quieter than the strip
 it sits on and dividing injects the canvas's jitter.
 
-**3. What winding constraints buy for reading.** Removing **5,413 same-winding constraints** — the
-evidence villa calls the fastest path to unrolling at scale — changes recovered ink by **+0.28%, 95%
-CI [−2.56%, +3.13%]**. Every winding-constraint project in villa's catalogue validates on geometry;
-this is the bound against *reading*.
+**3. What winding constraints buy for reading.** Two registered ablations, both on current villa,
+both against recovered ink — the endpoint every winding-constraint project in villa's catalogue
+leaves unmeasured, since they all validate on geometry.
+
+| removed | effect on reading | 95% CI |
+|---|---:|---|
+| 5,413 **same-winding** constraints | +0.28% | [−2.56%, +3.13%] |
+| 40 of 50 **absolute anchors** (hand-drawn) | −0.86% | [−10.21%, +8.50%] |
+
+The second is the one villa asks humans to draw and wants automated. **Ten anchors read as well as
+fifty** on this ROI — but that interval is wide, because the ablated arm turned out 3.4× noisier than
+the baselines, and we report the bound we got rather than the one we designed for.
 
 **On the superseded tree** (`6847063f`, 24 scored fits) we additionally found the satisfaction guard
 failing to track ink in four pre-registered cases, including a config change costing **10.35% of the

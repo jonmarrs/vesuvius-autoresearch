@@ -411,5 +411,29 @@ between scripts stops being a measurement and becomes an assumption**; this one 
 studies on a tree it was never measured on. `scripts/measure_noise_floor.py` replaces it with
 something that is recomputed from the fits and refuses to pool the tiers.
 
+**28. Ten absolute winding anchors read as well as fifty — within ±10%, which is the honest limit.**
+villa asks people to draw absolute winding annotations by hand and names automating them the fastest
+path to unrolling at scale; every project in their catalogue that produces them validates on
+**geometry**. Cutting the 50 in-ROI anchors to 10 (z-coverage matched) on current villa changes
+recovered ink by **−0.86%, p=0.76**. All three ablated arms passed a winding-identity gate at 10/10 —
+the strip denotes the same papyrus in every arm — and the non-blank control.
+
+**But the registered 2.9% bound did not hold.** The data exclude only **[−10.21%, +8.50%]** (Welch
+df 2.4), because the ablated arm is **3.4× noisier** than the baselines (CV 0.0419 vs 0.0124), driven
+by one arm 6.9% below its siblings that passed every validity check. The power calculation assumed the
+manipulation would not change the variance. **Budget a future anchor study from the ablated arm's
+spread, not the baselines'.** `reports/anchor_ablation_verdict.md`.
+
+**A seventh self-correction, and this one was my own pre-registration.** The same study moved
+`satisfied_area` **+1.39% at p=0.0032**, and the registration argued that was interpretable here —
+unlike finding 25's manipulation, this one leaves the patch set identical at 38,442. That removed one
+confound and missed another: `fit_spiral.py:4345` adds `abs_winding` as a **loss term at weight 5.0
+competing with the patch-fitting losses**, so deleting 40 of 50 anchors reduces a competing pull and
+the optimiser satisfies patches better. **A rise in patch satisfaction when you delete a competing
+constraint is mechanically expected, so this is NOT a fifth decoupling case** and is not reported as
+one. The correction sits in the registration at the point the wrong claim was made. The check that
+would have caught it — read the *loss* the metric is scored against, not only the inputs it is
+computed over — took five minutes after the fact.
+
 Reproduce: `repro/spiral_render/`, `scripts/measure_winding_overlap.py`,
 `scripts/analyse_seed_spread.py`. All from published artifacts.
