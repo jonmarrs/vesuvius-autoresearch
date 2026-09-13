@@ -433,5 +433,37 @@ one. The correction sits in the registration at the point the wrong claim was ma
 would have caught it — read the *loss* the metric is scored against, not only the inputs it is
 computed over — took five minutes after the fact.
 
+**29. villa's objective is far more reproducible than the ink it counts.** *(exploratory)*
+`total_fg_pixels` is a count, and every ablation here returns null on it — but a count is silent about
+placement. Comparing ink maps in **volume coordinates**, in the scroll's own frame, fits differing
+only by RNG seed agree on the count to **1.2%** and on ink placement at **r ≈ 0.70**, against a
+θ-rotated null of **−0.09**. Two runs scoring identically are not reading the same text.
+**And constraint changes move the ink no more than reseeding does** (0.701 between configs vs 0.699
+within), which *strengthens* findings 25 and 28 rather than undermining them: "+0.28% on a count" does
+not hide ink relocating. `reports/ink_placement_in_volume.md`.
+
+**30. Two attempts to explain that instability failed, and one of them was caught by a validity gate.**
+The *tangential* form — the sheet sliding between runs — is **refused** by a registered coherence test
+whose positive control detects a planted 3° shift at p<0.001 (`ink_offsets_are_not_coherent.md`). The
+*normal* form has been attempted twice and **remains untested**: the first frame averaged surface
+radius across bins holding several windings (`separation_test_was_confounded.md`); the second returned
+**ρ = +0.18 to +0.25 at p<0.001 on all three pairs, in exactly the predicted direction, and was an
+artefact** — caught only because the registration fixed a *validity threshold* alongside its decision
+rule (`the_sanity_check_caught_a_false_positive.md`). Misaligned grids manufacture precisely the
+correlation the hypothesis predicts. **Register what the answer must look like to be believable, not
+only what counts as a yes.**
+
+**31. The instability is independent noise, so averaging removes it — replicated on three triplets.**
+*(exploratory)* Leave-one-out consensus beats a single map by **+0.065**, against **+0.057** predicted
+by treating seed differences as independent noise. Replicated free on the `nosamecur` and
+`anchor10cov` triplets: **1.10–1.15× predicted on all three**, agreement tighter across triplets than
+any one is to theory. The registered statistic (gain vs the *better* single) turned out to be
+selection-biased and gave the least favourable of the three numbers — a decision rule fixes what
+counts as a yes, not whether the statistic is right. Projection: a **3-seed consensus reaches r ≈ 0.88**
+where a single run sits at 0.72, so a loop already running two seeds should keep the consensus rather
+than the winner. **A forward test is running** (`2026-09-13_consensus_forward_prediction.md`): three
+fresh baseline seeds, predicted 0.884, refuted below 0.80.
+`reports/averaging_seeds_buys_what_noise_theory_predicts.md`.
+
 Reproduce: `repro/spiral_render/`, `scripts/measure_winding_overlap.py`,
 `scripts/analyse_seed_spread.py`. All from published artifacts.
