@@ -2,11 +2,19 @@
 
 **Deadline: 11:59pm Pacific, 2026-09-30.** Nothing here is filed. Needs review before submission.
 
-**Check the form URL against villa `scrollprize.org/docs/34_prizes.md` at current upstream before
-filing.** It has changed every month — July was a `forms.gle` short link, August and September are
-different `docs.google.com` IDs. As of villa `739eefd71` the September form is
-`docs.google.com/forms/d/e/1FAIpQLScNBMj25FMnphngRG1Ciryv_2_Mkdq2YPJOD9WqPfZExII2iQ/viewform`,
-but re-read it rather than trusting this line.
+**VERIFIED 2026-09-12 against villa `be09a8503`** (current upstream HEAD), in
+`villa/scrollprize.org/docs/34_prizes.md`:
+
+* **Form:** `docs.google.com/forms/d/e/1FAIpQLScNBMj25FMnphngRG1Ciryv_2_Mkdq2YPJOD9WqPfZExII2iQ/viewform`
+  — sits directly under the `{/* progress-prizes:form:start */}` marker, so it is the Progress Prize
+  form and not one of the three other `forms.gle` links in that file (those are Grand Prize / First
+  Letters / Title).
+* **Deadline:** "11:59pm Pacific, September 30th, 2026", under `progress-prizes:deadline:start`.
+
+**Re-verify anyway immediately before filing.** The URL has changed every month — July was a
+`forms.gle` short link, August and September are different `docs.google.com` IDs — and this check is
+only as fresh as the submodule pin. Identify it by the `progress-prizes:form:start` marker, not by
+position in the file.
 
 Tag the submitted commit `submission/2026-09`, matching `submission/2026-07` (06e4f4d0) and
 `submission/2026-08` (ed1a27c2).
@@ -90,7 +98,24 @@ one.
 
 ## "Has this been used by anyone else?"
 
-No external adoption is demonstrated, and the writeup says so plainly.
+No external adoption of the *measurements* is demonstrated, and the writeup says so plainly.
+
+**What is upstream: one merged fix, three pending.** The criteria reward resolving bugs in tools you
+use yourself, so these are named rather than left out:
+
+| PR | status | what it fixes |
+|---|---|---|
+| **#1721** | **MERGED** | `spiral-fitting/autoresearch.md` instructed readers to run a script that does not exist |
+| #1722 | open | `get_ink_metrics.py` writes two metrics; neither was documented |
+| #1723 | open | which resident-pool sidecars the defaults actually load |
+| #1728 | open | `render_ink` silently produced an entirely black strip; now warns |
+
+Every one came out of running villa's own pipeline here. #1728 in particular is the fix for a failure
+that cost us hours: a blank render is indistinguishable from a successful one in the logs, which is
+how we first mis-diagnosed a mistyped path as a VOID result.
+
+**This is four PRs against a merged total of one, and the merged one is a documentation fix.** It is
+offered as evidence of the practice, not as an adoption claim.
 
 What exists is outbound and, honestly, unanswered: six villa issues are open from us and five have
 zero comments, the oldest since August. We checked upstream and none has been resolved. We are not
