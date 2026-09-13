@@ -50,6 +50,30 @@ that a 5% gain in `total_fg_pixels` carries no information about whether the tex
 and for treating consensus across seeds (which the placement work shows recovers ~0.88 reproducibility
 at k=3) as the cheaper route to stability than more seeds per arm.
 
+## This answers a question another report left explicitly open
+
+`reports/gap_fix_outer_windings_still_not_established.md` declined to claim a 46.6% column-score fall,
+and gave as its second reason:
+
+> *"The floor is transferred from a different region. Every CV on record was measured on w010-w019.
+> Nothing establishes that the outer windings are equally stable, and there is positive reason to
+> doubt it."*
+
+**Every arm measured here is w120-w129 — the outer region.** So:
+
+| region | `overall_column_score` CV | implied floor at that arm's n |
+|---|---:|---:|
+| inner, w010-w019 (as used there) | 0.1343 | 26.9% |
+| **outer, w120-w129 (measured here)** | **0.1505** | **~30%** |
+
+**The doubt was justified in direction:** the outer windings are *less* stable on column score, by
+about 12%, so the floor that report transferred was too generous. Its observed −46.57% still exceeds
+the corrected ~30% floor, so its **decision does not change** — but it declined to claim the result
+for a reason that has now turned out to be right, rather than merely cautious.
+
+That is worth recording as a small vindication of refusing to promote an unregistered observable: the
+caveat it attached was not boilerplate, it was load-bearing, and the data arrived eleven days later.
+
 ## Limits
 
 * Three seeds per triplet, so each CV has df = 2 and is itself unstable. The **ordering** is
