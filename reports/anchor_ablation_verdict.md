@@ -61,6 +61,36 @@ satisfy", arrived at by a different route, and I did not see it until after the 
 as one. The correct statement is narrower: removing the anchors improves the metric that scores the
 constraint they compete with, and does not measurably change reading.
 
+## Where the extra variance came from — a post-hoc observation, labelled as one
+
+The ablated arm's spread is what widened the interval, and there is a second manipulated arm to
+compare it against:
+
+| arm | manipulation | CV |
+|---|---|---:|
+| `curbase` | none | 0.0124 |
+| `nosamecur` | −5,413 same-winding constraints | 0.0127 |
+| **`anchor10cov`** | **−40 of 50 absolute anchors** | **0.0419** |
+
+Against the two non-anchor arms pooled (CV 0.0125, df=4): **F(2,4) = 11.2, two-sided p = 0.046**.
+
+**The contrast is the interesting part.** Removing 5,413 same-winding constraints did not inflate the
+variance at all; removing 40 anchors tripled it. That is consistent with the anchors acting as a
+strong global constraint whose removal lets the fit wander — the same role that makes them pin the
+absolute winding index — rather than the spread being bad luck.
+
+**Stated with its limits, because they are severe:**
+
+* **Post-hoc.** I noticed this in the data after the verdict. A one-sided test would give p = 0.023,
+  and choosing one-sided *after* seeing the direction is not legitimate, so the two-sided 0.046 is
+  quoted — which is marginal.
+* **df = 2** for the anchor arm. A CV from three fits is barely an estimate.
+* **One manipulation of each kind.** "Constraint removal doesn't destabilise, anchor removal does"
+  is a story about two arms, not a result.
+
+**The practical consequence stands regardless of the p-value:** a future anchor study must budget its
+power from the *ablated* arm's spread. This one budgeted 2.9% from the baselines and delivered ±10%.
+
 ## What villa can take from this
 
 * **Ten anchors read as well as fifty, within ±10%.** villa asks people to draw absolute winding
