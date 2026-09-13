@@ -1,0 +1,43 @@
+{
+ "block": 8,
+ "n_shuffle": 1000,
+ "sanity_vx": [
+  10.0,
+  30.0
+ ],
+ "pairs": [
+  {
+   "n_blocks": 3487,
+   "rho": 0.20934078565731387,
+   "p": 0.0,
+   "sep_median": 153.53233864266113,
+   "sep_p90": 362.3252467134984,
+   "dis_median": 1.0,
+   "void": true,
+   "a": "curbase_s1",
+   "b": "curbase_s2"
+  },
+  {
+   "n_blocks": 3554,
+   "rho": 0.18091016890109385,
+   "p": 0.0,
+   "sep_median": 194.05765407991402,
+   "sep_p90": 419.0524031982937,
+   "dis_median": 1.0,
+   "void": true,
+   "a": "curbase_s1",
+   "b": "curbase_s3"
+  },
+  {
+   "n_blocks": 3386,
+   "rho": 0.2448215966958048,
+   "p": 0.0,
+   "sep_median": 148.25683427139447,
+   "sep_p90": 375.416678656562,
+   "dis_median": 1.0,
+   "void": true,
+   "a": "curbase_s2",
+   "b": "curbase_s3"
+  }
+ ]
+}
