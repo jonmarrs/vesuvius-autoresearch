@@ -95,6 +95,41 @@ def test_the_null_text_says_bounded_not_zero():
     assert "Bounded, not zero" in mod.verdict(ink, None)[1]
 
 
+def test_the_sign_convention_is_pinned_WITHOUT_calling_welch():
+    """Every other test here builds its input by calling welch(), so if welch's
+    sign convention were ever flipped the tests would flip with it and keep
+    passing while the verdict inverted. This one states the contract literally.
+
+    welch(base, gap) returns rel_diff = (mean_gap - mean_base) / mean_base, and
+    the analysis passes BASELINE as `base` and ABLATED as `gap`. So a NEGATIVE
+    rel_diff means the ablated arm -- the one with 10 anchors instead of 50 --
+    recovered LESS ink, which is anchors mattering.
+    """
+    less_ink = {
+        "mean_base": 2.88e6,
+        "mean_gap": 2.50e6,
+        "rel_diff": -0.132,
+        "p": 0.001,
+        "degenerate": False,
+    }
+    more_ink = {
+        "mean_base": 2.50e6,
+        "mean_gap": 2.88e6,
+        "rel_diff": +0.152,
+        "p": 0.001,
+        "degenerate": False,
+    }
+    assert mod.verdict(less_ink, None)[0] == "ANCHORS MATTER FOR READING"
+    assert mod.verdict(more_ink, None)[0] == "FEWER ANCHORS READ BETTER"
+
+
+def test_welch_still_has_the_convention_this_module_assumes():
+    """Guards the other half: if welch changes, the literal test above becomes a
+    lie about the real pipeline. Checked against the real function, once."""
+    got = welch([100.0, 100.0, 100.0], [90.0, 90.0, 90.0])
+    assert got["rel_diff"] < 0, "welch(base, gap) must be (gap - base) / base"
+
+
 def test_a_partial_sample_is_refused(tmp_path):
     ink = {t: 2.88e6 for t in mod.ABLATED_ARMS[:2]}
     ink.update({t: 2.88e6 for t in mod.BASELINE_ARMS})
