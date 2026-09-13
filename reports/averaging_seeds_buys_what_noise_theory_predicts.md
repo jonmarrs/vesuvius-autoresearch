@@ -61,6 +61,43 @@ If the noise is independent, the reproducibility of a *k*-seed consensus follows
 seeds, keeping the consensus rather than the winner is close to free, and a third seed buys more than
 the second did on this curve.
 
+## Replicated on two further triplets, which were free
+
+The registration limited itself to the baseline arms. But `nosamecur` and `anchor10cov` are also
+three-seed groups, so the same measurement runs on them at no compute cost — a replication before
+spending anything on new fits.
+
+| triplet | r single | r consensus | observed gain | predicted | obs/pred |
+|---|---:|---:|---:|---:|---:|
+| `curbase` | 0.718 | 0.783 | +0.065 | +0.057 | 1.15 |
+| `nosamecur` | 0.650 | 0.724 | +0.074 | +0.066 | 1.13 |
+| `anchor10cov` | 0.730 | 0.790 | +0.060 | +0.055 | 1.10 |
+
+**The independent-noise model holds on all three, at 1.10–1.15× predicted.** The agreement is tighter
+across triplets than any single one is to theory, which is what a real regularity looks like and what
+a coincidence generally does not.
+
+The consistent ~12% excess over prediction is unexplained and not chased here. It would follow from
+the noise being slightly *anti*-correlated between runs, or from the model's assumption of a perfectly
+shared signal being a little wrong. Either way it makes averaging marginally *better* than theory, not
+worse.
+
+**Note the registered statistic's spread:** gain against the *better* single is +0.016, +0.064 and
++0.041 across the three, so the triplet the registration happened to use produced the **least**
+favourable number of the three. Against a typical single the three agree closely (+0.065, +0.074,
++0.060). That is further evidence the `max()` comparator was adding noise rather than conservatism.
+
+**Placement reproducibility is not the same for every configuration:**
+
+| triplet | r single | noise/signal |
+|---|---:|---:|
+| `anchor10cov` | 0.730 | 0.370 |
+| `curbase` | 0.718 | 0.393 |
+| `nosamecur` | 0.650 | 0.539 |
+
+One triplet each, so this ordering is an observation, not a result — but `nosamecur` being the least
+reproducible is worth remembering if that arm is ever reused.
+
 ## Limits
 
 * The extrapolation rests on the independent-noise model, which is supported here by **one** data
