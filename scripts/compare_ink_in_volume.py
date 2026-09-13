@@ -76,10 +76,18 @@ def ink_per_cell(arm_dir: str, shape: tuple[int, int]) -> np.ndarray | None:
 
 
 def load_xyz(arm_dir: str):
+    """Eager, not a generator.
+
+    This returned a generator expression, so the try/except never fired: nothing
+    was read inside the try, and the FileNotFoundError escaped later when a
+    caller consumed it. An arm that had not been rendered yet crashed the script
+    instead of being reported as missing -- which only surfaced when
+    `analyse_consensus_forward.py` was run against a study still in flight.
+    """
     d = f"{arm_dir}/meshes/concat/w120-129_flat"
     try:
-        return (tifffile.imread(f"{d}/{c}.tif").astype(np.float64) for c in "xyz")
-    except (FileNotFoundError, ValueError):
+        return tuple(tifffile.imread(f"{d}/{c}.tif").astype(np.float64) for c in "xyz")
+    except (FileNotFoundError, ValueError, OSError):
         return None
 
 
