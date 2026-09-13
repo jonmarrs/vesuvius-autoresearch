@@ -135,13 +135,27 @@ def main() -> int:
             "partial sample. The study does not report a verdict."
         )
     else:
+        # Passing the gate means the FIT is sound. It says nothing about whether
+        # the arm has been rendered and scored, and an arm sits fitted for hours
+        # while its render runs. Emitting a command containing "<MISSING>"
+        # invites someone to run it, or worse to fill it in with the nearest
+        # plausible path.
+        needed = passed + ["curbase_s1", "curbase_s2", "curbase_s3"]
+        found = {tag: metrics_for(spiral_out, tag) for tag in needed}
+        unscored = [t for t, (m, _) in found.items() if m is None]
+        if unscored:
+            print(
+                f"\nall three ablated arms passed the gate, but {len(unscored)} of "
+                f"{len(needed)} arms are not scored yet: {', '.join(unscored)}"
+            )
+            print("  The gate is about the FIT. These still need render+score.")
+            print("  No invocation is emitted while any input is missing.")
+            return 0
         print("\nall three ablated arms passed. Analysis invocation:")
         parts = []
-        for tag in passed + ["curbase_s1", "curbase_s2", "curbase_s3"]:
-            m, s = metrics_for(spiral_out, tag)
-            parts.append(
-                f"{tag}={m or '<metrics.json MISSING>'},{s or '<satisfaction MISSING>'}"
-            )
+        for tag in needed:
+            m, s = found[tag]
+            parts.append(f"{tag}={m},{s or '<satisfaction MISSING>'}")
         ex = f" --excluded {' '.join(excluded)}" if excluded else ""
         print(
             "\n  python scripts/analyse_anchor_ablation.py \\\n    "

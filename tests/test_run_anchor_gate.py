@@ -120,6 +120,38 @@ def test_an_unfitted_arm_stops_the_gate_rather_than_analysing_two(
     assert "analyse_anchor_ablation.py" not in out
 
 
+def test_a_fitted_but_unscored_arm_blocks_the_invocation(monkeypatch, capsys, tmp_path):
+    """Passing the gate means the FIT is sound; it says nothing about scoring.
+    An arm sits fitted for hours while its render runs, and a command emitted
+    with "<MISSING>" in it invites someone to run it or to fill in the nearest
+    plausible path."""
+    _stub(monkeypatch, {t: _pass(t) for t in mod.ABLATED})
+    monkeypatch.setattr(
+        mod,
+        "metrics_for",
+        lambda so, tag: (
+            (None, Path("/s.json"))
+            if tag == "anchor10cov_s3"
+            else (Path(f"/m/{tag}.json"), Path(f"/s/{tag}.json"))
+        ),
+    )
+    sys.argv = ["x", "--spiral-out", str(tmp_path)]
+    mod.main()
+    out = capsys.readouterr().out
+    assert "not scored yet: anchor10cov_s3" in out
+    assert "MISSING" not in out
+    assert "analyse_anchor_ablation.py" not in out
+
+
+def test_a_fully_scored_study_does_emit_the_invocation(monkeypatch, capsys, tmp_path):
+    _stub(monkeypatch, {t: _pass(t) for t in mod.ABLATED})
+    sys.argv = ["x", "--spiral-out", str(tmp_path)]
+    mod.main()
+    out = capsys.readouterr().out
+    assert "analyse_anchor_ablation.py" in out
+    assert "MISSING" not in out
+
+
 def test_the_json_record_lists_excluded_and_passed_separately(monkeypatch, tmp_path):
     per = {t: _pass(t) for t in mod.ABLATED}
     per["anchor10cov_s2"] = _fail("anchor10cov_s2")

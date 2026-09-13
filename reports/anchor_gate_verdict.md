@@ -94,6 +94,22 @@ leaves the patch set identical at 38,442.
 be most tempted to narrate after seeing the ink.** The registered verdict takes ink alone. Whatever
 the ink does, this table was written before it existed.
 
+## All three arms pass (final, 2026-09-13)
+
+| arm | offsets at 0 | positive margins |
+|---|---:|---:|
+| `anchor10cov_pilot` | 10/10 | 10/10 |
+| `anchor10cov_s2` | 10/10 | 10/10 |
+| `anchor10cov_s3` | 10/10 | 10/10 |
+
+**No arm is excluded.** The registered gate is satisfied for the whole study, so the ink comparison is
+between strips that denote the same papyrus in every arm.
+
+Arm 3 fitted `rc=0` in 2h52m and is rendering. Arms 1 and 2 are scored and both pass the registered
+non-blank control (**46.9%** and **48.0%** nonzero, against baselines at 47.3–47.9%).
+
+`reports/anchor_gate_identity.json` holds the per-winding detail.
+
 ## What happens next
 
 Arms 2 and 3 (`fit_anchor10cov_s{2,3}.sh`, seeds 2 and 3) are launched. The pilot serves as arm 1 per
