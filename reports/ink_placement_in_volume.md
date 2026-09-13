@@ -68,3 +68,62 @@ A loop optimising `total_fg_pixels` is optimising a number that reproduces to ~1
 it reproduces to ~0.70. Two runs scoring identically are not reading the same text. That is not an
 argument against the objective — it is a measurement of how much of a scored improvement could be
 relocation rather than gain, and it says a two-seed check on the count cannot see that at all.
+
+---
+
+# At what scale do the seeds disagree? About the scale the surface moves
+
+**Added 2026-09-13.** Same three baseline arms, same volume frame, varying only the bin size.
+
+## The number I nearly reported, and why I did not
+
+At the 96×256 binning used above, **74.5%** of ink sits in bins all three seeds agree on, 17.0% in
+bins two of three found, and 8.5% in bins only one found. That looked like a clean decomposition into
+a stable core and a marginal fringe.
+
+**It is an artifact of the bin size.** Sweeping the binning:
+
+| bins (z × θ) | bin footprint | unanimous | 2 of 3 | 1 only |
+|---|---|---:|---:|---:|
+| 24 × 64 | 224 × 236 vx | 89.7% | 8.1% | 2.2% |
+| 48 × 128 | 112 × 118 vx | 82.1% | 12.8% | 5.1% |
+| 96 × 256 | 56 × 59 vx | 74.5% | 17.0% | 8.5% |
+| 192 × 512 | 28 × 29 vx | 66.0% | 21.7% | 12.3% |
+| 384 × 1024 | 14 × 15 vx | **43.2%** | 31.2% | 25.6% |
+
+Quoting any single figure would have been quoting a choice. **"74.5% of recovered ink is stable" is
+not a fact about the scroll; it is a fact about a bin.**
+
+## The dependence is the finding
+
+Agreement holds above ~50 vx and collapses as the bin approaches ~15 vx. **So the seeds place ink
+consistently at coarse scale and inconsistently at fine scale, with the transition in the tens of
+voxels.**
+
+That is the same scale as something already measured. `reports/anchor_gate_verdict.md` found the
+seed-to-seed **surface** displacement to be **~24 vx** (median point-to-surface distance between two
+baselines, 24.01 and 23.98 across resampling seeds).
+
+**The ink appears to move because the surface does.** The detector reads a sheet whose fitted position
+differs by tens of voxels between seeds, so the ink it finds lands tens of voxels apart — which is
+exactly where agreement breaks down.
+
+## Stated as consistency, not causation
+
+Two quantities agreeing in magnitude is not a mechanism. What would raise this above coincidence:
+
+* the displacement is **directional** — if ink offsets between a pair of arms align with that pair's
+  surface displacement vector, the link is established; this compares magnitudes only;
+* ~24 vx is a **point-to-surface** distance, predominantly normal to the sheet, while ink offsets are
+  tangential. These are different components of the same disagreement and need not match.
+
+**What this does settle** is that the instability is not a uniform smear: it has a characteristic
+scale, and that scale is small — tens of voxels on a strip spanning 2,337–2,466 in radius and 5,376
+in z.
+
+## Consequence
+
+A two-seed check on `total_fg_pixels` compares totals. Two runs can score identically while disagreeing
+about the location of a quarter of the ink at 56 vx resolution, and more than half of it at 15 vx. If
+what matters is *where* the text is, the count cannot see that, and neither can the check villa
+prescribes.
