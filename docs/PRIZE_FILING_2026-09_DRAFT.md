@@ -30,7 +30,7 @@ Tag the submitted commit `submission/2026-09`, matching `submission/2026-07` (06
 > check on the code they actually run and find it unsupported. These versions lead with the
 > **current-code** results instead, which turn out to be the stronger material anyway.
 
-### Version A (~133 words), use this one
+### Version A (~179 words), use this one
 
 Three measurements on the villa spiral loop **as it runs today**.
 
@@ -44,17 +44,20 @@ loop resolves about **6%** at three fits per arm — worth knowing before chasin
 first published 0.0125 from six fits and withdrew it when a third arm doubled the estimate; the
 number here is the one that survived.
 
-**Removing 5,413 same-winding constraints changes reading by +0.28%, 95% CI [−2.56%, +3.13%].**
-villa names winding constraints the fastest path to unrolling at scale; this bounds what that class
-buys for *reading*, which nobody had measured.
+**Two registered ablations bound what winding constraints buy for *reading*** — the endpoint every
+such project in villa's catalogue leaves unmeasured. Removing 5,413 same-winding constraints:
+**+0.28%, CI [−2.56%, +3.13%]**. Cutting the hand-drawn absolute anchors from 50 to 10, the ones
+villa wants automated: **−0.86%, CI [−10.21%, +8.50%]** — ten read as well as fifty, though that
+interval is wide.
 
-### Version B (~72 words), if the field is tight
+### Version B (~89 words), if the field is tight
 
 Three measurements on villa's spiral loop as it runs today. The two-seed robustness check in
 `autoresearch.md` accepts a null change **1 time in 6** — exactly 1/C(2k,k), a rank test no amount of
 better fitting improves; **three seeds makes it 1 in 20**. Current seed noise is **0.0263**, so the
-loop resolves ~6%. And removing **5,413 same-winding constraints** — villa's stated scaling path —
-changes reading by **+0.28%, 95% CI [−2.56%, +3.13%]**.
+loop resolves ~6%. And two ablations bound what winding constraints buy for
+*reading*: removing 5,413 same-winding constraints gives **+0.28%, CI [−2.56%, +3.13%]**, and cutting
+the hand-drawn anchors 50 → 10 gives **−0.86%, CI [−10.21%, +8.50%]**.
 
 ### Long version (~410 words), if a field allows detail
 
@@ -143,7 +146,7 @@ MIT, public on GitHub. ScrollGT reached **v0.3.2** this month and now has tagged
 diffed. Its 206 tests pass; the documented quickstart is exercised by a test after a cold clone once
 failed.
 
-**It now ships a Docker image** (153 MB), which is the criteria's requested reproduction path:
+**It now ships a Docker image** (660 MB), which is the criteria's requested reproduction path:
 
 ```bash
 docker build -t scrollgt . && docker run --rm --network none scrollgt pytest -q
