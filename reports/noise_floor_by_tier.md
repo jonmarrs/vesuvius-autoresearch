@@ -70,3 +70,47 @@ the canvas fluctuates in regions holding no ink. Dividing by it injects that noi
    keep their registered constant so they still reproduce what was published; the correction lives
    here and in the reports.
 3. Registering a new current-code study against 0.0421 would over-provision seeds by ~16×.
+
+---
+
+# RETRACTION, 2026-09-13: the "4.1× quieter" claim does not survive a third arm
+
+The current-tier figures above were computed from **two arms (df=4)**. The anchor ablation added a
+third, and the estimate moved a long way:
+
+| | arms | CV | df | MDE 3v3 | vs pinned |
+|---|---:|---:|---:|---:|---|
+| as published 2026-09-12 | 2 | 0.0125 | 4 | **2.9%** | 4.1×, F(18,4)=16.79, **p=0.0143** |
+| with the anchor arm | 3 | **0.0263** | 6 | **6.0%** | 2.0×, F(18,6)=3.83, **p=0.104** |
+
+**Both headline claims are withdrawn.** Current-code seed noise is not established as 0.0125, and
+current code is **not** established as quieter than the pinned tree. Per-arm:
+
+| arm | CV |
+|---|---:|
+| `curbase` (unmanipulated baseline) | 0.0124 |
+| `nosamecur` | 0.0127 |
+| **`anchor10cov`** | **0.0419** |
+
+## What went wrong, given I flagged the risk myself
+
+The original report called the estimate "credible because both current arms agree independently
+(0.0124, 0.0127) — not one lucky arm." Two agreeing arms felt like replication. **It was two draws
+from a df=2 distribution landing near each other**, and the published 95% CI [0.0075, 0.0360] already
+contained 0.0263 — the new estimate was inside the old interval the whole time. The interval was
+right; the sentence claiming confidence beyond it was not.
+
+## The open question this raises
+
+The anchor arm may be noisier **because of its manipulation**, not because seed noise is higher —
+removing a competing loss term plausibly widens the spread of where the optimiser lands. If so,
+pooling it into a "seed noise" figure conflates two things.
+
+That cannot be settled at n=3 per arm. So both numbers are reported and used for different purposes:
+
+* **`curbase` alone, CV 0.0124** — the best estimate of pure seed noise, from the only unmanipulated arm.
+* **Pooled, CV 0.0263** — what to budget a *design* against, because a real study runs manipulated
+  arms and those are the variances it will face.
+
+**Design from the pooled figure.** The anchor study budgeted 2.9% from the two-arm estimate and
+delivered a ±10% bound; budgeting from 0.0263 would have predicted 6.0% and been closer to honest.

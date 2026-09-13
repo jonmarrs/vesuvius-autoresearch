@@ -55,6 +55,10 @@ REQUIRED_ABLATED = 3
 REQUIRED_BASELINE = 3
 
 # reports/noise_floor_by_tier.md -- CURRENT tier, pooled within-arm, df=4.
+# SUPERSEDED after this study: a third arm moved the current-tier pooled CV
+# to 0.0263 (df=6), so the 2.9% MDE below was optimistic and the study
+# actually bounded +/-10%. Kept because it is the value the registration
+# used. reports/noise_floor_by_tier.md carries the retraction.
 CURRENT_CV = 0.0125
 # 59 anchors exist but 9 lie outside the fit's z-ROI and are never used;
 # the manipulation is 50 -> 10. See the 2026-09-12 amendment.

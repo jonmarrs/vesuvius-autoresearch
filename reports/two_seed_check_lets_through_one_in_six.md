@@ -115,14 +115,14 @@ from the wrong tier. **Half of this report was obsolete and the other half is st
 ## The power table above is obsolete for current villa
 
 It was computed at the **inner** CV of 0.1086. Current villa's seed noise on `total_fg_pixels` is
-**0.0125** — 8.7× quieter. Rerun at that noise:
+**0.0263** — 8.7× quieter. Rerun at that noise:
 
 | true effect | rule A @ 0.1086 | rule A @ 0.0125 |
 |---:|---:|---:|
-| 2% | 21.1% | **66.4%** |
-| 3% | 23.6% | **86.1%** |
-| 5% | 28.6% | **99.2%** |
-| 10% | 43.7% | **100%** |
+| 2% | 21.1% | **32.6%** |
+| 3% | 23.6% | **51.0%** |
+| 5% | 28.6% | **75.0%** |
+| 10% | 43.7% | **98.7%** |
 
 **On current code the two-seed check has excellent power.** The "it cannot see a 10% gain" half of
 this criticism does not apply to the loop villa runs today, and should not be repeated.
@@ -160,3 +160,12 @@ the time, so the extra seed costs little and buys both halves at once.
 * **Drop:** "the check cannot detect realistic gains." False on current code.
 * **Keep and sharpen:** "the check accepts 1 null in 6, exactly, for structural reasons no amount of
   fitting improves; three seeds makes it 1 in 20."
+
+### Power figures revised 2026-09-13
+
+The right-hand column above was first computed at CV **0.0125**, from two arms. A third arm moved the
+current-tier estimate to **0.0263** (`reports/noise_floor_by_tier.md`), and these are the revised
+numbers. **The direction of the correction stands** — two seeds on current code detect a 5% gain 75%
+of the time against 28.6% on the superseded tree — but "99.2%" was overstated and is withdrawn.
+
+The false-positive half is unaffected, as it must be: 1/C(2k,k) has no CV in it.

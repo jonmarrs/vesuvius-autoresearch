@@ -39,8 +39,10 @@ runs of a change to beat both baseline runs is a rank test: under no effect it p
 probability exactly **1/C(2k,k)**, independent of noise, metric or code version. Two seeds is 1/6;
 **three seeds is 1/20**, for 1.5× compute.
 
-**Its seed noise is now 0.0125** on `total_fg_pixels` (six 30,000-step fits), 4× quieter than the
-superseded tree. So the loop can resolve ~3% effects — worth knowing before chasing smaller ones.
+**Its seed noise is 0.0263** on `total_fg_pixels` (nine 30,000-step fits, pooled within-arm), so the
+loop resolves about **6%** at three fits per arm — worth knowing before chasing smaller ones. We
+first published 0.0125 from six fits and withdrew it when a third arm doubled the estimate; the
+number here is the one that survived.
 
 **Removing 5,413 same-winding constraints changes reading by +0.28%, 95% CI [−2.56%, +3.13%].**
 villa names winding constraints the fastest path to unrolling at scale; this bounds what that class
@@ -50,8 +52,8 @@ buys for *reading*, which nobody had measured.
 
 Three measurements on villa's spiral loop as it runs today. The two-seed robustness check in
 `autoresearch.md` accepts a null change **1 time in 6** — exactly 1/C(2k,k), a rank test no amount of
-better fitting improves; **three seeds makes it 1 in 20**. Current seed noise is **0.0125**, so the
-loop resolves ~3%. And removing **5,413 same-winding constraints** — villa's stated scaling path —
+better fitting improves; **three seeds makes it 1 in 20**. Current seed noise is **0.0263**, so the
+loop resolves ~6%. And removing **5,413 same-winding constraints** — villa's stated scaling path —
 changes reading by **+0.28%, 95% CI [−2.56%, +3.13%]**.
 
 ### Long version (~410 words), if a field allows detail
@@ -66,9 +68,10 @@ nothing: not the noise, the metric, or the code version. Two seeds = **1/6**. **
 at 1.5× compute. A loop evaluating many changes accumulates false wins in proportion to how many it
 tries.
 
-**2. Its noise floor, measured.** Pooling within-arm deviations over six 30,000-step fits gives a
-seed CV of **0.0125** on `total_fg_pixels` — 4.1× quieter than the superseded tree (F(18,4)=16.79,
-p=0.0143). At three fits per arm the loop resolves about **2.9%**. Also: **do not normalise ink by
+**2. Its noise floor, measured.** Pooling within-arm deviations over nine 30,000-step fits gives a
+seed CV of **0.0263** on `total_fg_pixels`, so at three fits per arm the loop resolves about **6%**.
+We published 0.0125 from six fits, and a third arm moved it to 0.0263 — the new value sat inside the
+old confidence interval all along, so we withdrew the claim rather than defend it. Also: **do not normalise ink by
 strip area.** `overall_fg_fraction` is 2.6× noisier, because the ink count is quieter than the strip
 it sits on and dividing injects the canvas's jitter.
 

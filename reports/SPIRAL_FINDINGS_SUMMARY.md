@@ -93,7 +93,7 @@ At the measured CV, the strict reading (both change runs beat both baseline runs
 of changes with zero true effect; the loose reading (mean of two beats mean of two) is a **coin
 flip** at 49.9% and is not a filter at all. An assumption-free enumeration over the four measured
 values gives 1/6 and 3/6, agreeing with a 200,000-run simulation to a decimal. It also *discards*
-59% of genuine +10% gains. **Corrected 2026-09-12:** the power half is obsolete for current villa (that table used the inner CV 0.1086; current seed noise is 0.0125, where two seeds detect a 5% gain 99% of the time). The false-positive half is *stronger* than stated — it is exactly **1/C(2k,k)**, distribution-free, so it depends on nothing and no amount of better fitting improves it; three seeds takes 1-in-6 to 1-in-20. `reports/two_seed_check_lets_through_one_in_six.md`.
+59% of genuine +10% gains. **Corrected 2026-09-12:** the power half is obsolete for current villa (that table used the inner CV 0.1086; current seed noise is **0.0263**, where two seeds detect a 5% gain **75%** of the time — we first said 0.0125/99%, withdrawn 2026-09-13). The false-positive half is *stronger* than stated — it is exactly **1/C(2k,k)**, distribution-free, so it depends on nothing and no amount of better fitting improves it; three seeds takes 1-in-6 to 1-in-20. `reports/two_seed_check_lets_through_one_in_six.md`.
 
 **9. Two fixes, one of them free.** Three seeds per arm brings the strict rule to **5%**, at two
 extra fits. Requiring `total_fg` AND `line` to both survive is stronger across the entire plausible
@@ -387,16 +387,14 @@ Findings 22–24 are claims about `6847063f` alone. `reports/decoupling_does_not
 **26. The noise floor every study here quoted was wrong, in both directions.**
 Every analysis script hardcodes `OUTER_CV = 0.0421`, measured at **df=3**. Pooling within-arm
 deviations across the whole corpus gives the pinned tier **0.0514 (df=18)** — so pinned-tier nulls
-bound **~12%, not ~10%**, and excluded less than they claimed. Current villa is **0.0125 (df=4)**,
-**4.1× quieter** (F(18,4)=16.79, p=0.0143, post-hoc), credible because both current arms agree
-independently (0.0124, 0.0127). At 3v3 a current-code study now sees **2.9%**, which reopens levers
-previously dismissed as underpowered. **Do not normalise ink by strip area**: `overall_fg_fraction`
+bound **~12%, not ~10%**, and excluded less than they claimed. Current villa is **0.0263 (df=6)** — first published as 0.0125 (df=4) and withdrawn when a third arm doubled it,
+**2.0× quieter, NOT established** (F(18,6)=3.83, p=0.104). At 3v3 a current-code study sees **6.0%**. The original claim of 4.1× at p=0.0143 rested on two arms agreeing at df=2; `reports/noise_floor_by_tier.md` carries the retraction. **Do not normalise ink by strip area**: `overall_fg_fraction`
 is 2.6× noisier than the raw count, because `total_fg_pixels` (0.0125) is quieter than the strip it
 sits on (0.0242). `reports/noise_floor_by_tier.md`.
 
 **27. Half of the two-seed criticism expired; the other half turned out to be exact.**
 Finding 9's power table used the inner CV 0.1086. At current noise two seeds catch a 5% gain
-**99.2%** of the time, so "the check cannot detect realistic gains" is **false for the loop villa runs
+**75%** of the time (first published as 99.2% at the withdrawn CV 0.0125), so "the check cannot detect realistic gains" is **false for the loop villa runs
 today** and we have stopped saying it. The false-positive half is *stronger* than first stated: it is
 a rank statistic, exactly **1/C(2k,k)** under exchangeability — 2 seeds **1/6**, 3 seeds **1/20**,
 4 seeds **1/70** — independent of the CV, the metric and the code version. That is why 16.6% at CV
