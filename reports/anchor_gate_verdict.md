@@ -65,6 +65,35 @@ seen before the study completed.** Unavoidable — it is fit output, not a rende
 verdict: the registered decision takes ink alone, no prediction was registered on either endpoint, and
 the pilot is still unrendered so no ink number exists.
 
+## Arm 2 also passes (added 2026-09-12 20:25)
+
+`anchor10cov_s2` (seed 2, 30,000/30,000, 120 windings) against `curbase_s1`: **10/10 offsets at 0,
+10/10 positive margins**. Two of three ablated arms have now cleared the gate; arm 3 is not yet
+fitted, and `scripts/run_anchor_gate.py` refuses to emit an analysis invocation until it is.
+
+Run the gate with that script rather than by hand — it applies the registered rule and generates the
+`analyse_anchor_ablation.py` command with `--excluded` already filled in, so an exclusion cannot be
+lost between the check and the analysis.
+
+## Geometry so far, recorded because it is visible and because it will be tempting later
+
+The fit logs print `satisfied_area` before any render exists:
+
+| arm | `satisfied_area` | |
+|---|---:|---|
+| `curbase_s1..s3` | 0.8472 / 0.8494 / 0.8503 | baselines, from the earlier study |
+| `anchor10cov_pilot` | **0.859** | arm 1 |
+| `anchor10cov_s2` | **0.860** | arm 2 |
+
+Both ablated arms sit ~1.3% above every baseline. **Unlike the same-winding study, this number is
+interpretable here** — that manipulation removed 5,413 of the patches satisfaction is computed
+against, so a rise could mean "less left to satisfy"; this one changes only `abs_winding.json` and
+leaves the patch set identical at 38,442.
+
+**It is recorded now, with no interpretation, precisely because a geometry rise is the result I would
+be most tempted to narrate after seeing the ink.** The registered verdict takes ink alone. Whatever
+the ink does, this table was written before it existed.
+
 ## What happens next
 
 Arms 2 and 3 (`fit_anchor10cov_s{2,3}.sh`, seeds 2 and 3) are launched. The pilot serves as arm 1 per
