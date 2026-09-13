@@ -1,0 +1,32 @@
+{
+ "thresholds": {
+  "worth_it": 0.05,
+  "marginal": 0.01
+ },
+ "rows": [
+  {
+   "held_out": "curbase_s1",
+   "single_a": 0.8076270225349665,
+   "single_b": 0.6843254177197465,
+   "consensus": 0.8263309957881374,
+   "gain_vs_best_single": 0.018703973253170858
+  },
+  {
+   "held_out": "curbase_s2",
+   "single_a": 0.8076270225349665,
+   "single_b": 0.6613887075683659,
+   "consensus": 0.8072185609173289,
+   "gain_vs_best_single": -0.00040846161763763433
+  },
+  {
+   "held_out": "curbase_s3",
+   "single_a": 0.6843254177197465,
+   "single_b": 0.6613887075683659,
+   "consensus": 0.7145417032098763,
+   "gain_vs_best_single": 0.03021628549012978
+  }
+ ],
+ "mean_single": 0.717780382607693,
+ "mean_gain": 0.016170599041887668,
+ "verdict": "MARGINAL"
+}
