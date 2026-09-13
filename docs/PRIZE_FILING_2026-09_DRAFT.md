@@ -152,8 +152,9 @@ failed.
 docker build -t scrollgt . && docker run --rm --network none scrollgt pytest -q
 ```
 
-The offline claim is demonstrated rather than asserted — 20 core tests pass inside the container with
-networking disabled. System requirements: any x86-64 host with Docker, no GPU, ~200 MB of disk.
+The offline claim is demonstrated rather than asserted — **all 206 tests pass inside the container
+with networking disabled**, in 8m02s, verified 2026-09-13. An earlier draft said "20 core tests",
+inherited from the project README, which understated it. System requirements: any x86-64 host with Docker, no GPU, ~200 MB of disk.
 
 New reusable tooling this month, all tested: patch-selection and radial-balance verification, a
 radius/winding calibration, per-study verdict runners that refuse partial samples, and a checkpoint
