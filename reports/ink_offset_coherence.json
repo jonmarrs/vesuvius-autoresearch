@@ -1,0 +1,43 @@
+{
+ "n_slices": 24,
+ "max_shift_deg": 15.0,
+ "n_shuffle": 1000,
+ "pairs": [
+  {
+   "n_slices": 24,
+   "lag1": -0.025491189218567557,
+   "p": 0.597,
+   "null_mean": -0.04382112468118862,
+   "shift_range_bins": [
+    -1.0,
+    7.0
+   ],
+   "a": "curbase_s1",
+   "b": "curbase_s2"
+  },
+  {
+   "n_slices": 24,
+   "lag1": -0.09672969918597248,
+   "p": 0.611,
+   "null_mean": -0.03484373817892301,
+   "shift_range_bins": [
+    -2.0,
+    2.0
+   ],
+   "a": "curbase_s1",
+   "b": "curbase_s3"
+  },
+  {
+   "n_slices": 24,
+   "lag1": -0.13023690689433673,
+   "p": 0.724,
+   "null_mean": -0.045742469005824946,
+   "shift_range_bins": [
+    -1.0,
+    2.0
+   ],
+   "a": "curbase_s2",
+   "b": "curbase_s3"
+  }
+ ]
+}
