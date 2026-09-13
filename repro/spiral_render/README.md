@@ -345,3 +345,28 @@ the filesystem. A preflight that cries wolf stops being run.
 **Measured disk cost per complete arm: ~4.9 GB** (4.3 GB fit output + ~0.6 GB render/score), so a
 3-arm study needs ~15 GB. `MIN_FREE_GB` defaults to 10 GB/arm, which is deliberately conservative —
 it is a *guard*, not an estimate, and the margin covers render scratch.
+
+## 11. The render's own ETA is not a schedule (2026-09-12)
+
+`run_render.sh` prints `eta` by extrapolating from bands completed so far. **The early bands are much
+slower than the late ones, so that figure over-predicts by a factor of two and then falls.** Measured
+across three arms:
+
+| arm | elapsed at band 7/36 | ETA it printed there | actual total |
+|---|---:|---:|---:|
+| `curbase_s1` | 55m13s | 228m | **104m46s** |
+| `nosamecur_s1` | 63m19s | 262m | **112m08s** |
+| `anchor10cov_pilot` | 44m22s | 184m | — |
+
+**To judge whether a render is healthy, compare its elapsed time at the same band against a previous
+arm — not against its own ETA.** By that measure the anchor arm above is running *faster* than both
+predecessors, while its ETA reads as if it were three times slower.
+
+Budget renders at **~1h45m–2h**, not the ~3h the ETA suggests at band 7.
+
+### Memory pressure during a render is the box's normal state, not a fault
+
+A render sits at **~29 GB of 31 GB RAM with swap essentially full** (7,995 MB of 8,191 MB). Both
+earlier arms completed `rc=0` under comparable pressure, so this is the operating point rather than a
+problem — but it is exactly why section 8's rule holds: **start nothing substantial beside a render**,
+including the test suite. There is no headroom to give.
