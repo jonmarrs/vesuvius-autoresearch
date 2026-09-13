@@ -392,3 +392,44 @@ A render sits at **~29 GB of 31 GB RAM with swap essentially full** (7,995 MB of
 earlier arms completed `rc=0` under comparable pressure, so this is the operating point rather than a
 problem — but it is exactly why section 8's rule holds: **start nothing substantial beside a render**,
 including the test suite. There is no headroom to give.
+
+## 12. Retry history is NOT in the render log (2026-09-13)
+
+`run_with_retry.sh` restarts a failed render, and **each attempt truncates and rewrites
+`outer_<tag>_render.log`.** So the render log always looks like a single clean run, whatever happened
+before it.
+
+Counting `band 1/` occurrences in that log therefore proves nothing: one occurrence is what both a
+first attempt and a third attempt look like. On 2026-09-13 that reasoning produced a confident "no
+restart" for a render whose predecessor had been OOM-killed 20 minutes earlier.
+
+**Retry history lives in `sequence_<tag>.log`:**
+
+```
+=========== attempt 1 of 3 ...
+[render] anchor10cov_s3 rc=1 ...
+[fail] no strips for anchor10cov_s3
+[retry] arms still unscored after attempt 1
+=========== attempt 2 of 3 ...
+```
+
+**And the kill itself is only in the kernel log**, because the OOM killer leaves nothing in the
+render's own output — it dies mid-write:
+
+```bash
+journalctl -k --since "6 hours ago" | grep -i "oom-kill\|Killed process"
+# Out of memory: Killed process ... (vc_render_tifxy) ... anon-rss:29722904kB
+```
+
+### The tell that a render restarted
+
+The band count can change between attempts — 37 bands on one, 36 on the next, because the flatten
+trims to a slightly different grid (`trim grid 9121x459 -> 8966x457`). **A changed denominator on the
+same arm means a new attempt**, and it is a more reliable signal than anything inside the log body.
+
+### Confirmed OOM budget
+
+One attempt died at **29.7 GB anon-RSS on a 31 GB box** — above the ~26 GB steady state quoted in
+section 11, so the peak is transient and higher than the number a `ps` sample usually shows. This is
+the concrete reason for section 8's rule: the headroom that absorbs that spike is the same headroom
+anything else you start would consume.
