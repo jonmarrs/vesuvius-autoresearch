@@ -29,6 +29,10 @@ import pytest
 
 _REPO = Path(__file__).resolve().parent.parent
 _FILING = _REPO / "docs/PRIZE_FILING_2026-09_DRAFT.md"
+# The SUBMIT file is the text that actually gets pasted into the form, so it
+# needs the same guarantees as the draft -- arguably more, since nobody
+# re-reads it before submitting.
+_SUBMIT = _REPO / "docs/PRIZE_FILING_2026-09_SUBMIT.md"
 _REPORTS = _REPO / "reports"
 
 pytestmark = pytest.mark.skipif(not _FILING.exists(), reason="filing draft removed")
@@ -107,3 +111,43 @@ def test_the_two_seed_rates_are_exact_and_quoted_as_such():
 
 def test_the_filing_names_the_tree_its_pinned_results_came_from():
     assert "6847063f" in _text()
+
+
+def _submit_text() -> str:
+    return _SUBMIT.read_text().replace(_MINUS, "-")
+
+
+@pytest.mark.skipif(not _SUBMIT.exists(), reason="submit file not prepared")
+@pytest.mark.parametrize(
+    "withdrawn,why",
+    [
+        ("0.0125", "current-tier CV, withdrawn when a third arm moved it to 0.0263"),
+        ("2.9%", "MDE implied by the withdrawn CV"),
+        ("99.2%", "two-seed power at the withdrawn CV"),
+        ("153 MB", "scrollgt image size, measured at 660 MB"),
+        ("20 core tests", "offline claim, actually all 206"),
+    ],
+)
+def test_the_submit_text_carries_no_withdrawn_figure(withdrawn, why):
+    """The draft may name a withdrawn number beside its withdrawal, for the
+    record. The SUBMIT text is pasted into a form and has no room for that
+    nuance, so the figure must simply not appear."""
+    assert withdrawn not in _submit_text(), (
+        f"{withdrawn!r} ({why}) is in the submit text"
+    )
+
+
+@pytest.mark.skipif(not _SUBMIT.exists(), reason="submit file not prepared")
+def test_the_submit_text_keeps_the_disclosure_and_the_tier():
+    t = _submit_text()
+    assert "6847063f" in t, "the tier the pinned results came from must be named"
+    assert "superseded" in t
+    assert "went against us" in t, "the failed re-measurement must stay disclosed"
+
+
+@pytest.mark.skipif(not _SUBMIT.exists(), reason="submit file not prepared")
+def test_the_submit_text_excludes_the_unfinished_placement_work():
+    """It is exploratory, its mechanism is unexplained, and its forward test was
+    still running. It must not reach a submission by being nearby."""
+    t = _submit_text()
+    assert "0.884" not in t and "consensus" not in t.lower().split("## do not add")[0]
