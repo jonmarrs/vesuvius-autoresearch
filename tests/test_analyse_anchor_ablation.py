@@ -95,6 +95,39 @@ def test_the_null_text_says_bounded_not_zero():
     assert "Bounded, not zero" in mod.verdict(ink, None)[1]
 
 
+def test_relative_ci_reproduces_the_hand_computed_same_winding_interval():
+    """Positive control against a number published from a different script.
+
+    reports/decoupling_does_not_cleanly_reproduce.md quotes +0.28%, 95% CI
+    [-2.56%, +3.13%], Welch df 4.0, computed by hand for the same-winding arms.
+    An instrument that cannot reproduce a known interval measures nothing.
+    """
+    ci = mod.relative_ci([2904520, 2901177, 2841071], [2893440, 2925553, 2852335])
+    assert ci["rel"] == pytest.approx(0.0028, abs=0.0002)
+    assert ci["lo"] == pytest.approx(-0.0256, abs=0.0005)
+    assert ci["hi"] == pytest.approx(0.0313, abs=0.0005)
+    assert ci["df"] == pytest.approx(4.0, abs=0.2)
+
+
+def test_the_ci_brackets_the_point_estimate():
+    ci = mod.relative_ci([100.0, 102.0, 98.0], [90.0, 92.0, 88.0])
+    assert ci["lo"] < ci["rel"] < ci["hi"]
+    assert ci["rel"] < 0, "ablated lower than base must give a negative relative effect"
+
+
+def test_the_ci_is_None_rather_than_wrong_when_it_cannot_be_computed():
+    assert mod.relative_ci([1.0], [2.0]) is None  # too few
+    assert mod.relative_ci([5.0, 5.0, 5.0], [5.0, 5.0, 5.0]) is None  # zero spread
+
+
+def test_adding_the_ci_did_not_change_what_decides_the_verdict():
+    """The CI is reporting. If it ever becomes an input to verdict(), the
+    registered rule -- ink decides -- has been changed after the fact."""
+    assert set(inspect.signature(mod.verdict).parameters) == {"ink", "geom"}
+    src = inspect.getsource(mod.verdict)
+    assert "relative_ci" not in src and "ci" not in src.split("def ")[0]
+
+
 def test_the_sign_convention_is_pinned_WITHOUT_calling_welch():
     """Every other test here builds its input by calling welch(), so if welch's
     sign convention were ever flipped the tests would flip with it and keep
@@ -169,6 +202,11 @@ def test_end_to_end_records_the_verdict_and_the_null_reading(tmp_path, capsys):
     text = capsys.readouterr().out
     assert "VERDICT: NULL" in text
     assert "interpretable here" in text
-    assert "quote the CI on the observed effect" in text
+    # the null must now carry a real interval, not just advice to compute one
+    assert "The data EXCLUDE any ink effect outside" in text
+    assert "QUOTE THAT INTERVAL, not the MDE" in text
+    assert "Welch df=" in text
     got = json.loads(out.read_text())
     assert got["cv"] == 0.0125 and got["n_anchors"] == [50, 10]
+    ci = got["ink_relative_ci"]
+    assert ci is not None and ci["lo"] < ci["rel"] < ci["hi"]

@@ -78,6 +78,46 @@ def mde(n_a: int, n_b: int, cv: float = CURRENT_CV) -> float:
     return 2.802 * cv * (1 / n_a + 1 / n_b) ** 0.5
 
 
+def relative_ci(base: list[float], abl: list[float], alpha: float = 0.05):
+    """Welch confidence interval on the RELATIVE difference (abl - base) / base.
+
+    The registration says a null is reported post-hoc as the interval the data
+    actually exclude, not as the design-stage MDE. That instruction was written
+    because `decoupling_does_not_cleanly_reproduce.md` published a bound of 9.6%
+    -- computed from the wrong tier's CV -- for data that excluded +/-3%. An MDE
+    describes what the design could have seen; only the interval describes what
+    these numbers rule out.
+
+    Implemented here so it is produced automatically rather than recomputed by
+    hand next to the verdict, which is how the wrong bound got published.
+    """
+    import statistics as st
+
+    try:
+        from scipy import stats
+    except ImportError:  # pragma: no cover
+        return None
+    n_a, n_b = len(base), len(abl)
+    if n_a < 2 or n_b < 2:
+        return None
+    mb, ma = st.mean(base), st.mean(abl)
+    vb, va = st.variance(base), st.variance(abl)
+    se = (vb / n_a + va / n_b) ** 0.5
+    if se == 0.0 or mb == 0.0:
+        return None
+    num = (vb / n_a + va / n_b) ** 2
+    den = (vb / n_a) ** 2 / (n_a - 1) + (va / n_b) ** 2 / (n_b - 1)
+    df = num / den if den else float("nan")
+    tcrit = stats.t.ppf(1 - alpha / 2, df)
+    d = ma - mb
+    return {
+        "rel": d / mb,
+        "lo": (d - tcrit * se) / mb,
+        "hi": (d + tcrit * se) / mb,
+        "df": df,
+    }
+
+
 def verdict(ink: dict, geom: dict | None) -> tuple[str, str]:
     """The registered rule.
 
@@ -181,8 +221,15 @@ def main() -> int:
     tag, why = verdict(ink, geom)
     print(f"\nVERDICT: {tag}\n  {why}")
     if not ((not ink["degenerate"]) and ink["p"] < ALPHA):
-        print(f"  NULL READING on ink: no effect larger than about {m:.1%}.")
-        print("  Post-hoc, quote the CI on the observed effect rather than this MDE.")
+        print(f"  NULL READING on ink: design-stage MDE was about {m:.1%}.")
+        ci = relative_ci([r[INK] for r in base], [r[INK] for r in abl])
+        if ci:
+            print(
+                f"  The data EXCLUDE any ink effect outside "
+                f"[{ci['lo']:+.2%}, {ci['hi']:+.2%}] (Welch df={ci['df']:.1f})."
+            )
+            print("  QUOTE THAT INTERVAL, not the MDE: the MDE describes the design,")
+            print("  the interval describes these numbers.")
     print(f"\nregistered prediction: {PREDICTION}")
 
     if args.out:
@@ -193,6 +240,9 @@ def main() -> int:
                     "mde": m,
                     "cv": CURRENT_CV,
                     "ink": ink,
+                    "ink_relative_ci": relative_ci(
+                        [r[INK] for r in base], [r[INK] for r in abl]
+                    ),
                     "geometry": geom,
                     "verdict": tag,
                     "excluded_arms": args.excluded,
