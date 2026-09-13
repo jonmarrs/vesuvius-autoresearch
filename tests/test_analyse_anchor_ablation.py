@@ -53,7 +53,7 @@ def _files(tmp_path, ink_by_tag, geom_by_tag=None):
 
 def test_the_registered_arms_and_anchor_counts_are_constants():
     # NOT "anchor10_s*": that names the superseded z-collapsed dataset.
-    assert mod.ABLATED_ARMS == ("anchor10cov_s1", "anchor10cov_s2", "anchor10cov_s3")
+    assert mod.ABLATED_ARMS == ("anchor10cov_pilot", "anchor10cov_s2", "anchor10cov_s3")
     assert all("cov" in a for a in mod.ABLATED_ARMS)
     assert mod.BASELINE_ARMS == ("curbase_s1", "curbase_s2", "curbase_s3")
     # 50, not 59: nine anchors lie outside the fit's z-ROI and are never used.

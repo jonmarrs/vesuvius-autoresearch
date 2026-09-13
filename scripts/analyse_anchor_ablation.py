@@ -44,7 +44,12 @@ SECONDARY = ("overall_fg_fraction", "overall_line_score", "overall_column_score"
 # Tags match the dataset they use (spiral_s1_anchor10cov) and the pilot tag.
 # The bare "anchor10" name belongs to the SUPERSEDED z-collapsed dataset and
 # must not be reused, or an arm from the wrong dataset would analyse cleanly.
-ABLATED_ARMS = ("anchor10cov_s1", "anchor10cov_s2", "anchor10cov_s3")
+# Arm 1 keeps the tag of the fit that IS arm 1 -- anchor10cov_pilot, seed 1 on
+# the coverage-matched dataset (preregistration amendment 2). Naming it
+# "anchor10cov_s1" would mean passing a file whose path says "pilot" under a tag
+# that does not, with nothing checking the two agreed. The honest tag is
+# self-verifying, and the 3-arm count still refuses both being passed.
+ABLATED_ARMS = ("anchor10cov_pilot", "anchor10cov_s2", "anchor10cov_s3")
 BASELINE_ARMS = ("curbase_s1", "curbase_s2", "curbase_s3")
 REQUIRED_ABLATED = 3
 REQUIRED_BASELINE = 3

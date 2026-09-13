@@ -27,7 +27,7 @@ absolute anchors**, which are far fewer, higher-leverage, and the ones villa ask
 | arm | `abs_winding.json` | n | status |
 |---|---|---:|---|
 | **BASELINE** | all 59 anchors (**50 inside the fit's z-ROI**) | 3 | already fitted and scored (`curbase_s1..s3`) |
-| **ABLATED** | 10 anchors, **z-coverage matched** | 3 | new (`anchor10cov_s1..s3`, seeds 1-3) |
+| **ABLATED** | 10 anchors, **z-coverage matched** | 3 | `anchor10cov_pilot` (=arm 1, seed 1) + `anchor10cov_s{2,3}` |
 
 ### Amendment, 2026-09-12, before any arm was started
 
@@ -78,7 +78,9 @@ answer is the failure mode this sentence exists to prevent.
 
 `anchor10cov_pilot` runs the coverage-matched dataset at **seed 1** — configurationally identical to
 what `anchor10cov_s1` would be. Refitting it would burn ~2h to reproduce a fit we already have, so it
-is **reused as arm 1** and rendered under the tag `anchor10cov_s1`.
+is **reused as arm 1** and keeps its own tag, `anchor10cov_pilot`, which the analysis registers
+as arm 1. Renaming it to `anchor10cov_s1` would mean passing a file whose path says "pilot"
+under a tag that does not, with nothing checking the two agreed.
 
 Two reasons this does not compromise the design, stated before the gate was read:
 

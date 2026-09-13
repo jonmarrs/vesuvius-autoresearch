@@ -51,7 +51,7 @@ CURRENT_GROUPS = {
     "nosamecur": ("nosamecur_s1", "nosamecur_s2", "nosamecur_s3"),
     # Registered but not yet run; contributes nothing until three exist, and a
     # group with fewer than two fits is skipped rather than counted.
-    "anchor10cov": ("anchor10cov_s1", "anchor10cov_s2", "anchor10cov_s3"),
+    "anchor10cov": ("anchor10cov_pilot", "anchor10cov_s2", "anchor10cov_s3"),
 }
 TIERS = {"pinned": PINNED_GROUPS, "current": CURRENT_GROUPS}
 
