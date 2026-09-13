@@ -24,12 +24,18 @@ Registration: `docs/preregistration/2026-09-11_decoupling_on_current_code.md`.
 
 *Bound corrected 2026-09-12.* As registered this read "no effect larger than 9.6%", from the
 design-stage MDE — which used `OUTER_CV = 0.0421`, measured on the **pinned** tree. Current-code seed
-noise is 4.1× tighter (`reports/noise_floor_by_tier.md`), so that bound was far too loose. The honest
+noise is tighter (`reports/noise_floor_by_tier.md`), so that bound was far too loose. The honest
 post-hoc statement is the interval actually observed:
 
 > **+0.28%, 95% CI [−2.56%, +3.13%]** (Welch, df = 4.0)
 
-**The data exclude any ink effect beyond about ±3%.** The registered 9.6% stays on the record as what
+**The data exclude any ink effect beyond about ±3%.**
+
+*Corrected 2026-09-13.* This paragraph originally said current-code noise is "4.1× tighter". **That
+ratio is withdrawn** — a third arm moved the current-tier CV from 0.0125 (df=4) to 0.0263 (df=6), and
+quieter-than-pinned is no longer established (2.0×, F(18,6)=3.83, p=0.104). **The interval above is
+unaffected**, because it is computed by Welch from these six fits and never used the CV at all. Only
+the explanation for why the registered bound was loose has changed. The registered 9.6% stays on the record as what
 the design promised. The verdict is unchanged; the null is three times more informative than first
 published.
 

@@ -27,9 +27,14 @@ Every "no effect larger than about 10%" we published on that tree should have re
 The nulls stand — this widens what they failed to exclude, it does not move any verdict — but they
 exclude less than they claimed, and that is the direction an error should never be left uncorrected.
 
-## Correction 2, in our favour, and it is post-hoc
+## Correction 2, in our favour, and it is post-hoc — **SUPERSEDED, see the retraction below**
 
-Current-code seed noise is **4.1× tighter** (F(18,4) = 16.79, p = 0.0143). Both current arms agree
+> **This whole section is withdrawn (2026-09-13).** A third arm moved the current-tier CV to 0.0263
+> and the ratio to 2.0× at p = 0.104, which is not established. The paragraphs below are kept as the
+> record of what was claimed on 2026-09-12, not as a current statement. Read the retraction at the
+> end of this file before quoting anything here.
+
+**[WITHDRAWN 2026-09-13 — see the retraction at the end of this file.]** Current-code seed noise is **4.1× tighter** (F(18,4) = 16.79, p = 0.0143). Both current arms agree
 independently — 0.0124 and 0.0127 — which is what makes it credible at n=3 per arm; it is not one
 lucky arm. The larger canvas cannot explain it: strips are 14% bigger, worth only a 1.07× reduction
 under the averaging argument, not 4.1×.
