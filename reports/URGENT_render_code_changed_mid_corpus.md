@@ -86,3 +86,43 @@ mid-flight and whose box cannot be shared.
    test that would settle it takes two hours.
 3. **`0242fd99`'s claim that "baselines remain valid" was asserted, not tested.** Bumping a submodule
    mid-corpus is exactly the kind of change that needs a re-render check, and it did not get one.
+
+---
+
+# It happened again, twelve hours later, from a background job
+
+**2026-09-14 01:13.** A monitor watching villa upstream fetched, and the submodule's `origin/main`
+moved from `be09a8503` to `38c2b4278` — **while `curbase_s6` was mid-fit and had not yet rendered.**
+s6 would have been rendered with a *third* villa version while s4 and s5 used the second.
+
+**Caught and prevented:** `origin/main` was reset to `be09a8503` before s6's render began, verified
+identical to what s4 and s5 used.
+
+**As it happens, `38c2b4278` was harmless** — its 660 insertions are entirely in
+`volume-cartographer/` (C++), and the diff restricted to what `setup_workdir.sh` extracts
+(`spiral-fitting`, `lasagna`, `vesuvius/src`) is **empty**. The monitor's own verdict said so, and
+checking confirmed it. Pinning first was still right: the cost of pinning is nothing, the cost of
+being wrong is a corrupted study, and a commit titled `fix(render)` is not one to take on trust.
+
+## The part that matters
+
+`setup_workdir.sh` already carried this comment, in capitals, before either incident:
+
+> *"do NOT fetch it mid-study: every arm of a comparison must be built from the same tree, and a
+> fetch silently changes what future work dirs get."*
+
+**It was addressed to a human, and a background monitor does not read comments.** The first incident
+was a submodule bump I made; the second was an automated job. The warning was correct, prominent, and
+useless both times.
+
+## The structural fix
+
+`setup_workdir.sh` now resolves the ref to a SHA **once**, archives that SHA rather than a moving ref,
+writes it to `<workdir>/VILLA_SHA`, and accepts `VILLA_REF` so a study can pin one commit for all its
+arms.
+
+Behaviour today is unchanged — `origin/main` currently *is* `be09a8503`, so s6 renders exactly as s4
+and s5 did — but from now on **a work dir states its own provenance**. The 09-11 split took
+reconstructing render order from file mtimes to find; the next one is a `cat`.
+
+`tests/test_render_provenance_is_recorded.sh` pins all of that.
