@@ -1,0 +1,10 @@
+{
+ "original": 2904520,
+ "rerender": 2946318,
+ "rel": 0.0143906738462809,
+ "area_rel": -0.00579679527329835,
+ "band": 0.02,
+ "villa_sha": "d82e13edf3390df0f3e3791b6c9a3ddae16d3360",
+ "gate_failures": [],
+ "verdict": "RENDER CHANGE IS INERT"
+}
