@@ -166,6 +166,31 @@ def test_a_lasagna_change_is_never_called_inert():
     assert "lasagna/fit.py" in out.stdout, "the flatten must be named explicitly"
 
 
+def test_documentation_is_not_a_render_suspect():
+    """A .md inside a pipeline stage cannot change a render. The stage rule
+    flagged lasagna/docs/flatten.md, which is obviously wrong and makes the six
+    genuine entries beside it look less trustworthy."""
+    assert ".md" in mod.DOC_SUFFIXES
+
+
+@_needs
+def test_a_docs_only_change_in_a_stage_is_not_flagged():
+    out = subprocess.run(
+        [
+            sys.executable,
+            str(_REPO / "scripts/check_render_equivalence.py"),
+            "--from-ref",
+            "be09a8503",
+            "--to-ref",
+            "0e01fe1c7",
+        ],
+        capture_output=True,
+        text=True,
+    )
+    assert "flatten.md" not in out.stdout, "documentation named as a render suspect"
+    assert "lasagna/fit.py" in out.stdout, "the real flatten change must still be named"
+
+
 def test_test_files_are_excluded_from_suspects():
     """43 changed files reduced to 1 only because tests are dropped. If that
     stopped working the output would be unusable rather than wrong."""

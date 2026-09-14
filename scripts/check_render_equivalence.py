@@ -36,6 +36,11 @@ ENTRY_POINTS = ("spiral-fitting/render_ink.py", "spiral-fitting/get_ink_metrics.
 # failure this tool exists to prevent. Any non-test change here is a suspect.
 STAGE_PATHS = ("lasagna",)
 
+# Documentation cannot change a render. Excluding it is not a weakening: the
+# guard is about executable content, and naming a .md file as a suspect makes
+# a reader trust the genuine entries beside it less.
+DOC_SUFFIXES = (".md", ".rst", ".txt")
+
 
 def git(repo: str, *args: str) -> str:
     r = subprocess.run(["git", "-C", repo, *args], capture_output=True, text=True)
@@ -114,7 +119,10 @@ def main() -> int:
     suspects = [f for f in non_test if Path(f).stem in imported]
     # A change inside a pipeline stage counts whether or not anything imports it.
     stage_hits = [
-        f for f in non_test if any(f.startswith(s + "/") for s in STAGE_PATHS)
+        f
+        for f in non_test
+        if any(f.startswith(s + "/") for s in STAGE_PATHS)
+        and not f.endswith(DOC_SUFFIXES)
     ]
     for f in stage_hits:
         if f not in suspects:
