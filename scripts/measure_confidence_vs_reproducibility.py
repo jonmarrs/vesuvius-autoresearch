@@ -38,23 +38,32 @@ INK_TOLERANCE = 0.001  # re-scored total_fg_pixels must match to 0.1%
 
 
 def load_prob(arm_dir: str, shape: tuple[int, int]) -> np.ndarray | None:
-    """Per-cell mean detector probability, from the patched scorer's .npy tiles."""
-    fs = sorted(
-        glob.glob(f"{arm_dir}/ink_metric/predictions/*_prob.npy"), key=tile_index
-    )
+    """Per-cell mean detector probability, downsampled to the tifxyz grid.
+
+    Written before any probability map existed, and wrong in three ways that only
+    running against the real artifact revealed:
+
+      * the patch saves ONE array for the whole strip, not one per mask tile, so
+        the tile-index sort crashed on `w120-129_flat_flat_prob.npy`;
+      * it lands in `ink_metric_prob/predictions/`, not `ink_metric/`, because
+        re-scoring in place would have deleted the published metrics;
+      * it is (4490, 89820) float16 -- 806 MB -- so it is read by memory-map and
+        reduced in column blocks rather than cast to float32 whole.
+    """
+    fs = sorted(glob.glob(f"{arm_dir}/ink_metric_prob/predictions/*_prob.npy"))
     if not fs:
         return None
+    a = np.load(fs[0], mmap_mode="r")
     h, w = shape
-    rows = []
-    for f in fs:
-        a = np.load(f).astype(np.float32)
-        if a.shape[0] != h * 10:
-            return None
-        rows.append(a[: h * 10].reshape(h, 10, a.shape[1]).mean(axis=1))
-    full = np.concatenate(rows, axis=1)
-    if full.shape[1] != w * 10:
+    if a.shape != (h * 10, w * 10):
         return None
-    return full.reshape(h, w, 10).mean(axis=2)
+    out = np.empty((h, w), dtype=np.float32)
+    step = 512  # columns of OUTPUT per block
+    for c0 in range(0, w, step):
+        c1 = min(c0 + step, w)
+        blk = np.asarray(a[:, c0 * 10 : c1 * 10], dtype=np.float32)
+        out[:, c0:c1] = blk.reshape(h, 10, c1 - c0, 10).mean(axis=(1, 3))
+    return out
 
 
 def binned_maps(arm_dir: str, axis, nz: int, nt: int):

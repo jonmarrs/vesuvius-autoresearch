@@ -77,5 +77,29 @@ def test_missing_probability_maps_are_refused_not_skipped(tmp_path):
 def test_load_prob_returns_None_when_the_patch_was_not_applied(tmp_path):
     """The default scorer writes no *_prob.npy at all; that must read as absent
     rather than raise, so the refusal message above is what the user sees."""
-    (tmp_path / "ink_metric" / "predictions").mkdir(parents=True)
+    (tmp_path / "ink_metric_prob" / "predictions").mkdir(parents=True)
+    assert mod.load_prob(str(tmp_path), (449, 8982)) is None
+
+
+def test_load_prob_reads_one_whole_strip_not_tiles(tmp_path):
+    """The artifact is a SINGLE (h*10, w*10) array, not one file per mask tile.
+    The first version of this function sorted by tile index and crashed on
+    `w120-129_flat_flat_prob.npy`; only running it against a real re-score found
+    that."""
+    d = tmp_path / "ink_metric_prob" / "predictions"
+    d.mkdir(parents=True)
+    h, w = 8, 12
+    full = np.zeros((h * 10, w * 10), dtype=np.float16)
+    full[:, : 10 * (w // 2)] = 0.8  # left half high, right half zero
+    np.save(d / "w120-129_flat_flat_prob.npy", full)
+    got = mod.load_prob(str(tmp_path), (h, w))
+    assert got is not None and got.shape == (h, w)
+    assert got[:, : w // 2] == pytest.approx(0.8, abs=1e-3)
+    assert got[:, w // 2 :] == pytest.approx(0.0, abs=1e-6)
+
+
+def test_load_prob_rejects_a_shape_that_does_not_match_the_grid(tmp_path):
+    d = tmp_path / "ink_metric_prob" / "predictions"
+    d.mkdir(parents=True)
+    np.save(d / "x_prob.npy", np.zeros((37, 41), dtype=np.float16))
     assert mod.load_prob(str(tmp_path), (449, 8982)) is None
