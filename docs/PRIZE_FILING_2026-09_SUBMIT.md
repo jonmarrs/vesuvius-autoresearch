@@ -46,13 +46,13 @@ interval is wide.
 
 No external adoption of the *measurements* is demonstrated, and the writeup says so plainly.
 
-**What is upstream: one merged fix, three pending.** The criteria reward resolving bugs in tools you
+**What is upstream: two merged fixes, two pending.** The criteria reward resolving bugs in tools you
 use yourself, so these are named rather than left out:
 
 | PR | status | what it fixes |
 |---|---|---|
-| **#1721** | **MERGED** | `spiral-fitting/autoresearch.md` instructed readers to run a script that does not exist |
-| #1722 | open | `get_ink_metrics.py` writes two metrics; neither was documented |
+| **#1721** | **MERGED** 2026-09-07 | `spiral-fitting/autoresearch.md` instructed readers to run a script that does not exist |
+| **#1722** | **MERGED** 2026-09-14 | `get_ink_metrics.py` writes two metrics; neither was documented |
 | #1723 | open | which resident-pool sidecars the defaults actually load |
 | #1728 | open | `render_ink` silently produced an entirely black strip; now warns |
 
@@ -60,7 +60,7 @@ Every one came out of running villa's own pipeline here. #1728 in particular is 
 that cost us hours: a blank render is indistinguishable from a successful one in the logs, which is
 how we first mis-diagnosed a mistyped path as a VOID result.
 
-**This is four PRs against a merged total of one, and the merged one is a documentation fix.** It is
+**This is four PRs against a merged total of two, both documentation fixes.** It is
 offered as evidence of the practice, not as an adoption claim.
 
 What exists is outbound and, honestly, unanswered: six villa issues are open from us and five have
