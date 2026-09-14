@@ -40,6 +40,24 @@ that is not comparable, and s4 is inside it.
 for `curbase`. If s5 and s6 also land high, that figure is too tight and the studies budgeting from it
 were under-powered — the same correction already applied once today.
 
+## s4's geometry is normal, which narrows it
+
+`satisfied_area` across the five baseline arms fitted so far — including `s5`, whose fit finished
+while this was being written:
+
+| arm | s1 | s2 | s3 | **s4** | s5 |
+|---|---:|---:|---:|---:|---:|
+| `satisfied_area` | 84.7% | 84.9% | 85.0% | **84.8%** | 85.2% |
+
+**s4 is unremarkable on geometry** — mid-range, in a set spanning 0.5 percentage points. So whatever
+made its ink high did not show up in how well the fit satisfied its patches.
+
+That also puts a number on something measured before on the pinned tree: on current code
+`satisfied_area` has a seed CV of **0.00227** against the ink count's **0.0256** across four arms
+— **ink is ~11× more variable than geometry**. Consistent with the placement finding:
+geometry aggregates over every patch and is stable, while ink depends on *where* the detector fires
+and is not.
+
 ## What would settle it
 
 Three outcomes, named before the data:
