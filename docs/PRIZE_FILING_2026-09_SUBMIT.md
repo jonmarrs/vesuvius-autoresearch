@@ -46,7 +46,7 @@ interval is wide.
 
 No external adoption of the *measurements* is demonstrated, and the writeup says so plainly.
 
-**What is upstream: two merged fixes, two pending.** The criteria reward resolving bugs in tools you
+**What is upstream: two merged fixes, three pending.** The criteria reward resolving bugs in tools you
 use yourself, so these are named rather than left out:
 
 | PR | status | what it fixes |
@@ -55,15 +55,16 @@ use yourself, so these are named rather than left out:
 | **#1722** | **MERGED** 2026-09-14 | `get_ink_metrics.py` writes two metrics; neither was documented |
 | #1723 | open | which resident-pool sidecars the defaults actually load |
 | #1728 | open | `render_ink` silently produced an entirely black strip; now warns |
+| #1780 | open | `autoresearch.md` overstated what the two-seed robustness check accepts |
 
 Every one came out of running villa's own pipeline here. #1728 in particular is the fix for a failure
 that cost us hours: a blank render is indistinguishable from a successful one in the logs, which is
 how we first mis-diagnosed a mistyped path as a VOID result.
 
-**This is four PRs against a merged total of two, both documentation fixes.** It is
+**This is five PRs against a merged total of two, both documentation fixes.** It is
 offered as evidence of the practice, not as an adoption claim.
 
-What exists is outbound and, honestly, unanswered: six villa issues are open from us and five have
+What exists is outbound and, honestly, unanswered: six villa issues are open from us and four have
 zero comments, the oldest since August. We checked upstream and none has been resolved. We are not
 filing more issues while that backlog stands.
 
