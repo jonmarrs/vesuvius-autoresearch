@@ -247,3 +247,39 @@ I escalated to a report titled URGENT on a difference in a *count*, having spent
 establishing that `total_fg_pixels` is the wrong quantity to reason about placement with, and having
 written that "the count is measurable because it is insensitive to placement". **The decomposition
 into area and density takes one command and I ran it eighteen hours late.**
+
+## The monitor's first HOT PATH CHANGED, and what it turned out to be (2026-09-14 13:44)
+
+After four consecutive "render path identical" verdicts, the monitor reported a real one for
+`d9d70bef1`. It was right, and the escalation was correct — but the practical effect is nil, which
+took four checks to establish rather than assume in either direction.
+
+**1. Which subtree.** By tree object: `spiral-fitting` DIFFERS, `lasagna` and `vesuvius/src`
+identical. 43 files, 8,623 insertions.
+
+**2. Which files the render touches.** `render_ink.py` **identical**. `get_ink_metrics.py`
+**identical**. `tifxyz.py` **differs** — and `render_ink.py:53` does
+`from tifxyz import load_tifxyz, save_tifxyz`, so the dependency is real.
+
+**3. What changed inside it.** Signatures unchanged for both imported functions. The hunks split
+cleanly: `load_tifxyz` gained **10 lines of input validation** (reject a `meta.json` whose `scale` is
+not two finite positive numbers), and every other change is in `save_combined_tifxyz`, which
+`render_ink` does not import.
+
+**4. Whether it fires on our data.** Six `meta.json` files across fitted and concatenated meshes, all
+**pass** the new rule. The validation is inert here.
+
+**Conclusion: a render from `d9d70bef1` would behave identically to one from `be09a8503` on this
+corpus.** Not because the hot path is unchanged — it is changed — but because the change only rejects
+inputs we do not have.
+
+### Why this is worth recording
+
+The previous four moves were dismissable by one tree-object comparison. This one required tracing an
+import, splitting a diff by function, and testing real metadata against a new rule. **"Hot path
+changed" and "our results are affected" are different questions, and the gap between them is four
+commands.**
+
+It also validates the monitor: it did not cry wolf for four moves and then flagged the one that
+genuinely touched the render path. Its verdict — *"not comparable without an explicit equivalence
+check"* — is exactly right, and this is that check.
