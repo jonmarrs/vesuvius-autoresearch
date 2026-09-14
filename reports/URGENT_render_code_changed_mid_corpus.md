@@ -150,3 +150,30 @@ code.
 **The monitor's own verdict said "render path identical" both times and was right both times.** It is
 doing exactly the right check; the failure on 09-11 was a submodule bump *I* made, which no monitor
 was watching for.
+
+## The provenance record earned its keep on its first use (2026-09-14 03:13)
+
+`curbase_s6` rendered from **`bfef6abe0`**, not `be09a8503` — a monitor fetch undid the 01:43 re-pin
+before the render began at 02:37. `<workdir>/VILLA_SHA` says so, which is the entire point: this is
+now a fact read from the artifact rather than reconstructed from mtimes.
+
+**And it does not matter, provably.** Comparing *tree objects* rather than diffs, the three paths
+`setup_workdir.sh` extracts are the same object in both commits:
+
+| path | `be09a8503` | `bfef6abe0` | |
+|---|---|---|---|
+| `spiral-fitting` | `bd5a462d9` | `bd5a462d9` | identical |
+| `lasagna` | `16da5ceb9` | `16da5ceb9` | identical |
+| `vesuvius/src` | `d856e9407` | `d856e9407` | identical |
+
+Identical tree hashes are stronger than an empty diff: they mean the extracted content is the same
+object, so the archive is byte-identical. **s6's render code is the same as s4's and s5's.** The same
+holds for `3b398f7cc`, four commits past our pin.
+
+So the second triplet is internally consistent and the forward test is not compromised by *these*
+moves. The 09-11 split, which crossed a real change in `lasagna/fit.py` and the tifxyz reader, is a
+different matter and still needs the re-render test.
+
+**Method note worth keeping: compare tree objects, not diffs.** `git rev-parse <ref>:<path>` answers
+"is the extracted content identical" in one step, with no chance of a diff filter quietly omitting a
+file. It is also the check that should have been run at the 09-11 bump, and would have failed there.
