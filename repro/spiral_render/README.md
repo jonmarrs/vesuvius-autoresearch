@@ -126,14 +126,32 @@ it. Inject it with a wrapper via `--vc-render-bin`:
 exec vc_render_tifxyz --scale-segmentation 4 "$@"
 ```
 
-## 4. `lasagna/fit.py` imports a module that is not in `lasagna/`
+## 4. ~~`lasagna/fit.py` imports a module that is not in `lasagna/`~~ — FIXED UPSTREAM
 
 ```
 ModuleNotFoundError: No module named 'vc3d_fiber_format'
 ```
 
-It lives in villa's `vesuvius/src/vc3d_fiber_format/`, so the flatten dies on import unless
-`vesuvius/src` is on `PYTHONPATH`. `setup_workdir.sh` extracts it alongside `lasagna`.
+It lived in villa's `vesuvius/src/vc3d_fiber_format/`, so the flatten died on import unless
+`vesuvius/src` was on `PYTHONPATH`. `setup_workdir.sh` extracts it alongside `lasagna`, which is why
+this pipeline never hit it after the first time.
+
+**Re-checked against upstream `76370e1a6` on 2026-09-14: villa fixed this.** `lasagna/fit.py` no
+longer references the module at all, and `lasagna/vc3d_fiber_format_adapter.py` (added in
+`99eb13150`, "Fiber 3d tracing", #1294) resolves the path itself before importing:
+
+```python
+_VESUVIUS_SRC = Path(__file__).resolve().parents[1] / "vesuvius" / "src"
+if str(_VESUVIUS_SRC) not in sys.path:
+    sys.path.insert(0, str(_VESUVIUS_SRC))
+```
+
+That works in our extracted work dir too, where `lasagna/` and `vesuvius/src/` are siblings under
+`$W` — verified present in `outer_curbase_s1/`.
+
+**Kept rather than deleted**, because a reader hitting this error on an older checkout still needs the
+explanation, and because the correction is the point: this note was a live PR candidate until it was
+checked against current upstream. **Verify an obstacle still exists before proposing a fix for it.**
 
 ## 5. GPU: split host and container
 
