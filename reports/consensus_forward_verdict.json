@@ -1,0 +1,21 @@
+{
+ "predicted": 0.884,
+ "band": [
+  0.884,
+  0.904
+ ],
+ "r_consensus": 0.8759631766895649,
+ "mean_cross_single": 0.7000647340758122,
+ "ink": {
+  "curbase_s1": 2898625.0,
+  "curbase_s2": 2895194.0,
+  "curbase_s3": 2834781.0,
+  "curbase_s4": 3012392.0,
+  "curbase_s5": 2984000.0,
+  "curbase_s6": 3446490.0
+ },
+ "gate_failures": [
+  "ink outside the current-tier spread: curbase_s6"
+ ],
+ "verdict": "VOID"
+}
