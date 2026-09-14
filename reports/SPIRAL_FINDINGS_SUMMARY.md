@@ -465,5 +465,43 @@ than the winner. **A forward test is running** (`2026-09-13_consensus_forward_pr
 fresh baseline seeds, predicted 0.884, refuted below 0.80.
 `reports/averaging_seeds_buys_what_noise_theory_predicts.md`.
 
+**32. The consensus forward test is VOID, and the gate I built is why.**
+Three fresh baseline seeds, predicted r = 0.884 for a 3-seed consensus. `curbase_s6` scored 3,454,937,
+outside a registered ink gate of 2.70M–3.05M, so the verdict is **VOID — not a null**. Disclosed and
+not claimed: consensus-vs-consensus came out **0.876**, inside the registered CONFIRM range. But s6
+shows no independent sign of being a bad arm — normal `satisfied_area`, strip size, non-blank control,
+one render attempt, and the **highest** mean placement correlation of all six. The gate's bound came
+from the `s1–s3` spread alone (CV 0.0124, df=2) against **0.0740 across six**, and I had flagged that
+spread as too tight *before* s5 and s6 existed. **Two days after a validity threshold saved a result
+from being a false positive, one destroyed a result that was probably fine.** Gates are not free and
+not automatically conservative. `reports/consensus_forward_verdict.md`.
+
+**33. The 09-11 render-code split does not bias ink; both published nulls stand.**
+`setup_workdir.sh` builds renders from the submodule's `origin/main`, which moved mid-corpus, leaving
+`curbase_s1–s3` the only arms rendered on the old code — so every comparison against them crossed a
+change touching `lasagna/fit.py` and the tifxyz reader. Re-rendering `s1`'s existing meshes with
+current code: **+1.44%**, inside a registered ±2% band. Adjusting both affected verdicts by the full
+amount leaves same-winding at −1.16% and anchor at −2.30%, each inside its own CI. **I escalated this
+as URGENT on a difference in a count without decomposing it** — most of the ~4% that alarmed me was
+strip area and ordinary density spread. `reports/rerender_test_verdict.md`.
+
+**34. The scorer is deterministic; essentially all variance is upstream of it.**
+Re-scoring the same strip with the same code moves `total_fg_pixels` by **26 pixels in 2.9 million
+(0.0009%)**. Against 1.44% for a render-code change and ~2.5% CV seed-to-seed, **the fit dominates and
+there is nothing to stabilise in the scoring step.** This also sharpens finding 29: placement
+reproducing at only r ≈ 0.70 is a property of fitting and flattening, not of a noisy detector — given
+the same strip twice, the detector returns the same answer.
+
+**35. Detector confidence predicts which ink reproduces — and thresholding on it does not help.**
+*(exploratory)* Ink in bins all three seeds agree on is more confident than ink only one found:
+**+0.132 / +0.151 / +0.159** at the three registered binnings, all p<0.001, and **stable across bin
+size** where the consensus fraction was not. But the actionable inference in that verdict's own text
+is refuted: at **matched sparsity**, top-N% by confidence is *worse* than a random N% of the same ink
+(−0.033 at 50%, −0.061 at 20%). Confidence carries real information about which bins agree; selecting
+by it changes the spatial distribution that placement correlation depends on. **Thresholding is not a
+free stability lever — averaging remains the only one.** A registered result licenses what it
+measured; the sentence after it is a new claim.
+`reports/confidence_predicts_but_thresholding_does_not_help.md`.
+
 Reproduce: `repro/spiral_render/`, `scripts/measure_winding_overlap.py`,
 `scripts/analyse_seed_spread.py`. All from published artifacts.
