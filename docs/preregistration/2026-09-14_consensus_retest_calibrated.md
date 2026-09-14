@@ -85,3 +85,36 @@ Also required, unchanged:
 **r = 0.877 for both comparisons**, band 0.85–0.91, refuted below 0.79. I expect confirmation — the
 retired comparison landed at 0.876 against a 0.877 model prediction — and that expectation is exactly
 why the band, the gate and the INCONSISTENT rule are all written down first.
+
+---
+
+## Amendment, 2026-09-14, made while `curbase_s7` is at 76% and triplet C does not exist
+
+Smoke-testing `scripts/analyse_consensus_retest.py` before the data lands — it had never
+been executed, and a crash after 18 hours of compute is the expensive kind of mistake —
+turned up a defect in the gate, and a second, smaller discrepancy in its constants.
+
+**The gate was applied to the wrong quantity.** `GATE_INK` was computed from
+`total_fg_pixels` in `<arm>/ink_metric/metrics.json`, whose `s1–s6` mean is **3,019,001
+exactly**, reproducing the registered constant. The module gated `H.sum()` from the volume
+map instead. That runs about **0.2% lower on every arm**, because the histogram's validity
+mask drops non-finite and non-positive coordinates before binning.
+
+Against a ±20% gate this changes nothing — every arm passes either way, and the tightest
+margin is **14.9% of the gate width** — but calibrating on one measurement and applying it
+to another is precisely what voided the previous run. It is fixed rather than tolerated:
+the gate now reads `total_fg_pixels`, `H.sum()` is still reported as a diagnostic, and the
+module refuses outright if an arm is rendered but has no metrics file, rather than falling
+back to the other quantity. `tests/test_consensus_gate_quantity.py` holds the two apart and
+was confirmed to fail when the defect is reintroduced.
+
+**The registered bounds carry a rounding slop of about 100 units.** Recomputing the interval
+gives `2,398,817–3,639,184` against the registered `2,398,918–3,639,084`; the original
+computation rounded `sqrt(7/6)` to 1.07994 instead of 1.08012. That is **0.008% of a
+1.24M-wide gate**. The registered constants are kept unchanged. Adjusting a pre-registered
+threshold by 0.008%, when no arm sits within 14.9% of an edge and no verdict could turn on
+it, would be tampering with a registration for no gain.
+
+**Nothing about the prediction, the band, the retirement of A-vs-B, or the INCONSISTENT rule
+is touched.** The prediction stands at **r = 0.877 for both comparisons, band 0.85–0.91,
+refuted below 0.79**.

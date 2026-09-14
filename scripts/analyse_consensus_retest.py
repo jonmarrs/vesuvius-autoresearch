@@ -47,7 +47,18 @@ REFUTE_BELOW = 0.79
 
 # 95% prediction interval for a new draw from s1-s6 (mean 3,019,001, sd 223,329,
 # n=6, t=2.571). Contains all six existing arms including s6.
+#
+# THE QUANTITY MATTERS. These constants were computed from `total_fg_pixels` in
+# `<arm>/ink_metric/metrics.json`, whose s1-s6 mean is 3,019,001 exactly. An
+# earlier version of this module gated `H.sum()` from the volume map instead,
+# which runs ~0.2% lower on every arm because the histogram's validity mask drops
+# non-finite and non-positive coordinates. Immaterial against a +/-20% gate, and
+# no arm's verdict changed -- but calibrating on one quantity and gating another
+# is the exact class of error that voided the previous run, so it is fixed here
+# rather than tolerated. The gate is applied to the quantity it was calibrated
+# on; H.sum() is still reported as a diagnostic.
 GATE_INK = (2_398_918.0, 3_639_084.0)
+GATE_SOURCE = "ink_metric/metrics.json:summary.total_fg_pixels"
 GATE_NONBLANK = (0.40, 0.55)
 
 
@@ -91,28 +102,38 @@ def main() -> int:
     args = ap.parse_args()
 
     needed = [a for t in TRIPLETS.values() for a in t]
-    maps, ink, axis, missing = {}, {}, None, []
+    maps, ink, fg, axis, missing, no_metrics = {}, {}, {}, None, [], []
     for tag in needed:
         H, axis = volume_map(f"{args.spiral_out}/outer_{tag}", axis)
         if H is None:
             missing.append(tag)
             continue
         maps[tag], ink[tag] = H, float(H.sum())
+        mp = Path(f"{args.spiral_out}/outer_{tag}/ink_metric/metrics.json")
+        if not mp.exists():
+            no_metrics.append(tag)
+            continue
+        fg[tag] = float(json.loads(mp.read_text())["summary"]["total_fg_pixels"])
     if missing:
         raise SystemExit(
             f"not scored yet: {', '.join(missing)}. A partial sample is refused, "
             "not reported."
         )
+    if no_metrics:
+        raise SystemExit(
+            f"rendered but no {GATE_SOURCE} for: {', '.join(no_metrics)}. The gate "
+            "is calibrated on that quantity and will not fall back to another."
+        )
 
-    print(f"{'arm':<16}{'ink in map':>14}")
+    print(f"{'arm':<16}{'total_fg_pixels':>18}{'H.sum() (diag)':>18}")
     for t in needed:
-        print(f"{t:<16}{ink[t]:>14,.0f}")
+        print(f"{t:<16}{fg[t]:>18,.0f}{ink[t]:>18,.0f}")
 
     # ---- validity gate, calibrated before any comparison -----------------
-    gate = [t for t, v in ink.items() if not (GATE_INK[0] <= v <= GATE_INK[1])]
+    gate = [t for t, v in fg.items() if not (GATE_INK[0] <= v <= GATE_INK[1])]
     print(
-        f"\nvalidity gate: ink within {GATE_INK[0]:,.0f}-{GATE_INK[1]:,.0f} "
-        f"(95% PI from s1-s6)"
+        f"\nvalidity gate: {GATE_SOURCE} within "
+        f"{GATE_INK[0]:,.0f}-{GATE_INK[1]:,.0f} (95% PI from s1-s6)"
     )
     print(f"  {'all arms inside' if not gate else 'OUTSIDE: ' + ', '.join(gate)}")
 
@@ -153,7 +174,8 @@ def main() -> int:
                     "confirm": CONFIRM,
                     "gate_ink": GATE_INK,
                     "comparisons": rows,
-                    "ink": ink,
+                    "total_fg_pixels": fg,
+                    "h_sum_diagnostic": ink,
                     "gate_failures": gate,
                     "verdict": tag,
                 },
