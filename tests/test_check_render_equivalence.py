@@ -128,6 +128,44 @@ def test_imports_of_finds_a_known_import():
     assert "tifxyz" in mods, "render_ink.py imports tifxyz; the tracer missed it"
 
 
+def test_lasagna_is_treated_as_a_pipeline_stage_not_a_library():
+    """The bug this tool shipped with. `lasagna` is the flatten, invoked by
+    run_render.sh as its own step, so NOTHING in ENTRY_POINTS imports it. The
+    first version only flagged files the entry points import, so a commit titled
+    "lasagna flatten memory" that rewrote 571 lines of it came back with only
+    tifxyz.py named -- and a lasagna-ONLY change would have read RENDER-INERT.
+
+    A false INTERCHANGEABLE is the failure that lets a corpus split silently,
+    which is what happened on 2026-09-11.
+    """
+    assert "lasagna" in mod.STAGE_PATHS
+    assert not any("lasagna" in e for e in mod.ENTRY_POINTS), (
+        "if an entry point ever imports lasagna, the stage/library split needs "
+        "rethinking rather than both applying"
+    )
+
+
+@_needs
+def test_a_lasagna_change_is_never_called_inert():
+    """1f544fa71 changes lasagna/fit.py, fit2tifxyz.py, model.py and optimizer.py.
+    Whatever else it reports, it must not report that a render is unaffected."""
+    out = subprocess.run(
+        [
+            sys.executable,
+            str(_REPO / "scripts/check_render_equivalence.py"),
+            "--from-ref",
+            "be09a8503",
+            "--to-ref",
+            "1f544fa71",
+        ],
+        capture_output=True,
+        text=True,
+    )
+    assert "RENDER-INERT" not in out.stdout
+    assert "INTERCHANGEABLE" not in out.stdout
+    assert "lasagna/fit.py" in out.stdout, "the flatten must be named explicitly"
+
+
 def test_test_files_are_excluded_from_suspects():
     """43 changed files reduced to 1 only because tests are dropped. If that
     stopped working the output would be unusable rather than wrong."""

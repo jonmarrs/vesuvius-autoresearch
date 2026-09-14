@@ -28,6 +28,14 @@ from pathlib import Path
 EXTRACTED = ("spiral-fitting", "lasagna", "vesuvius/src")
 ENTRY_POINTS = ("spiral-fitting/render_ink.py", "spiral-fitting/get_ink_metrics.py")
 
+# Paths that are PIPELINE STAGES rather than libraries the entry points import.
+# `lasagna` is the flatten: run_render.sh invokes it as its own step, so nothing
+# in ENTRY_POINTS imports it and the import trace below cannot see it. Treating
+# it as import-traced reported RENDER-INERT for a commit titled "lasagna flatten
+# memory" that rewrote 571 lines of it -- a false INTERCHANGEABLE, which is the
+# failure this tool exists to prevent. Any non-test change here is a suspect.
+STAGE_PATHS = ("lasagna",)
+
 
 def git(repo: str, *args: str) -> str:
     r = subprocess.run(["git", "-C", repo, *args], capture_output=True, text=True)
@@ -104,21 +112,28 @@ def main() -> int:
         if "/tests/" not in f and not Path(f).name.startswith("test_")
     ]
     suspects = [f for f in non_test if Path(f).stem in imported]
+    # A change inside a pipeline stage counts whether or not anything imports it.
+    stage_hits = [
+        f for f in non_test if any(f.startswith(s + "/") for s in STAGE_PATHS)
+    ]
+    for f in stage_hits:
+        if f not in suspects:
+            suspects.append(f)
 
     print(
         f"changed files in the differing paths: {len(changed)} "
         f"({len(non_test)} excluding tests)"
     )
     print(
-        f"of those, imported by a render entry point: "
+        f"of those, imported by an entry point or inside a pipeline stage: "
         f"{', '.join(suspects) if suspects else 'NONE'}"
     )
 
     if not suspects:
         print(
-            "\nVERDICT: RENDER-INERT — the entry points are unchanged and import none"
+            "\nVERDICT: RENDER-INERT — entry points unchanged, nothing changed that they"
         )
-        print("of the changed modules, so the change cannot reach a render.")
+        print("import, and no pipeline stage changed.")
         return 0
 
     print("\nVERDICT: NEEDS A HUMAN — these modules changed AND are imported:")
