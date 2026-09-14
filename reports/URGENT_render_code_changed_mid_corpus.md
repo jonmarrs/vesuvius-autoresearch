@@ -177,3 +177,26 @@ different matter and still needs the re-render test.
 **Method note worth keeping: compare tree objects, not diffs.** `git rev-parse <ref>:<path>` answers
 "is the extracted content identical" in one step, with no chance of a diff filter quietly omitting a
 file. It is also the check that should have been run at the 09-11 bump, and would have failed there.
+
+## Pre-result observation: the flatten demonstrably differs on identical input (2026-09-14 09:30)
+
+Recorded **while the re-render is still at band 9 of 35**, before its ink number exists, so it cannot
+be shaped by the outcome.
+
+`curbase_s1`'s meshes flattened under the two code versions:
+
+| | pre-trim grid | post-trim | bands |
+|---|---|---|---:|
+| original, `d8c5f488a` | 9143 × **451** | 8982 × 449 | 36 |
+| re-render, `d82e13edf` | 9143 × **449** | 8990 × 446 | 35 |
+
+**Identical input meshes, different output grid.** The pre-trim width matches exactly (9143), so this
+is not a different fit being read — it is the same surface flattened differently. Strip area moves
+from 4,032,918 to 4,009,540 cells, **-0.58%**.
+
+So the 09-11 change is **not inert for rendering**, which the earlier tree-object comparison already
+implied and this now demonstrates end to end on real data.
+
+**It does not yet say the ink moves.** A 0.58% area change cannot by itself produce
+the ~4% ink excess that raised this. The registered endpoint is `total_fg_pixels` against 2,904,520
+with a ±2% band, and that number is still ~1 hour away.
