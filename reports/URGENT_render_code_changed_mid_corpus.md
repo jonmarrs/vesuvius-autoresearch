@@ -200,3 +200,50 @@ implied and this now demonstrates end to end on real data.
 **It does not yet say the ink moves.** A 0.58% area change cannot by itself produce
 the ~4% ink excess that raised this. The registered endpoint is `total_fg_pixels` against 2,904,520
 with a ±2% band, and that number is still ~1 hour away.
+
+## Correction to my own alarm: most of the "+4%" is strip area, not detector output
+
+**Recorded 2026-09-14 09:50, while the re-render is at band 12 of 35** — before its ink number exists.
+
+When `curbase_s4` came in high I raised this on `total_fg_pixels` alone. **I did not decompose it**,
+and the decomposition changes the picture:
+
+| comparison | ink | strip area | **density** |
+|---|---:|---:|---:|
+| triplet B vs A, all six | +9.49% | +1.83% | +7.54% |
+| **B vs A, excluding `s6`** | **+4.30%** | +2.21% | **+2.02%** |
+
+Per-arm density tells it more plainly:
+
+| arm | density |
+|---|---:|
+| s1 / s2 / s3 | 0.00720 / 0.00709 / **0.00681** |
+| **s4** | **0.00713** — inside the baseline range |
+| **s5** | **0.00722** — 0.3% above the baseline max |
+| s6 | **0.00834** — the only genuine outlier |
+
+**s4 and s5's ink excess is roughly half larger strips and half density variation that sits within
+the baselines' own spread.** The baselines themselves span 5.7% in density (0.00681–0.00720), so a
+0.00713 and a 0.00722 are unremarkable.
+
+### What this does to the alarm
+
+It **weakens it substantially**. The headline that prompted this report — "the second triplet is 4.3%
+higher, and it was rendered with different code" — is mostly a strip-size difference plus ordinary
+density variation, not the detector firing more per pixel.
+
+**The confound is still real**: the extracted trees genuinely differ, the flatten genuinely produces a
+different grid on identical input (−0.58% area), and `curbase_s1–s3` really are the only arms rendered
+before the change. Those facts stand. What is weaker is my inference that a ~4% ink bias follows from
+them.
+
+**The re-render test remains the right test** and is unaffected by this — it measures the render
+effect directly on one fit rather than inferring it from a triplet comparison. Its ±2% band was
+registered before any of this and is not being revised.
+
+### The process failure worth naming
+
+I escalated to a report titled URGENT on a difference in a *count*, having spent the previous day
+establishing that `total_fg_pixels` is the wrong quantity to reason about placement with, and having
+written that "the count is measurable because it is insensitive to placement". **The decomposition
+into area and density takes one command and I ran it eighteen hours late.**
