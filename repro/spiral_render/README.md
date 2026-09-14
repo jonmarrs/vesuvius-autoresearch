@@ -451,3 +451,36 @@ One attempt died at **29.7 GB anon-RSS on a 31 GB box** — above the ~26 GB ste
 section 11, so the peak is transient and higher than the number a `ps` sample usually shows. This is
 the concrete reason for section 8's rule: the headroom that absorbs that spike is the same headroom
 anything else you start would consume.
+
+## 13. When villa moves: is a render from the new ref comparable? (2026-09-14)
+
+The monitor answers whether the **hot path** changed. That is not the same as whether **our renders**
+would differ, and on 2026-09-14 the two had different answers.
+
+```bash
+python scripts/check_render_equivalence.py --from-ref <what we rendered with> --to-ref origin/main
+```
+
+It narrows in the order that makes each step cheap:
+
+| step | what it settles |
+|---|---|
+| 1. tree objects for the three extracted paths | identical hashes ⇒ byte-identical archive. Most moves stop here |
+| 2. do `render_ink.py` / `get_ink_metrics.py` themselves differ | if not, the change can only arrive through an import |
+| 3. which changed modules do those entry points import | a module nothing imports cannot affect output |
+| 4. what remains | the two or three files a human must actually read |
+
+**It does not judge whether the remaining change matters** — that needs knowing your inputs. On
+`d9d70bef1` it reduced **43 changed files to one** (`tifxyz.py`), which turned out to be input
+validation that all our `meta.json` files pass, so inert in practice.
+
+Verdicts on the refs seen so far:
+
+| ref | verdict |
+|---|---|
+| `38c2b4278`, `bfef6abe0`, `3b398f7cc`, `d82e13edf` | INTERCHANGEABLE |
+| `d9d70bef1` | NEEDS A HUMAN → `tifxyz.py` → inert on our data |
+| **`d8c5f488a` → `be09a8503`** (the 09-11 bump) | **NOT interchangeable** — `lasagna` and `vesuvius/src` both differ |
+
+That last row is the point: **had this existed on 2026-09-11 it would have flagged the bump that split
+the corpus**, instead of that being found weeks later by reconstructing render order from file mtimes.
