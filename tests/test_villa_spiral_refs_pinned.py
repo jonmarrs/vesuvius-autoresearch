@@ -110,8 +110,30 @@ def test_setup_workdir_still_archives_origin_main():
         / "setup_workdir.sh"
     )
     text = script.read_text()
-    assert "git archive origin/main" in text or "archive origin/main" in text, (
-        "setup_workdir.sh no longer archives `origin/main`. RENDER_REF in this "
-        "file pins origin/main, so it now guards something renders do not use. "
-        "Update both together."
+
+    # 2026-09-14: setup_workdir.sh no longer archives `origin/main` LITERALLY.
+    # It resolves a ref to a SHA once and archives that, so a fetch mid-study
+    # cannot silently change what a work dir gets -- which happened twice, once
+    # from a pin bump and once from a background monitor.
+    #
+    # The binding this test exists to protect is unchanged and is re-asserted
+    # here rather than relaxed: RENDER_REF must still describe what renders use
+    # BY DEFAULT, which requires VILLA_REF to default to origin/main and the
+    # archive to use the ref that was resolved from it.
+    assert 'VILLA_REF="${VILLA_REF:-origin/main}"' in text, (
+        "setup_workdir.sh no longer defaults to origin/main, so RENDER_REF in "
+        "this file has stopped describing what renders use. Update both together."
+    )
+    assert 'rev-parse "$VILLA_REF"' in text, (
+        "setup_workdir.sh no longer resolves VILLA_REF to a SHA; a moving ref "
+        "can again change what a work dir gets mid-study."
+    )
+    assert 'archive "$VILLA_SHA"' in text, (
+        "setup_workdir.sh archives something other than the resolved SHA, so the "
+        "ref it reports and the code it extracts can disagree."
+    )
+    assert '> "$W/VILLA_SHA"' in text, (
+        "setup_workdir.sh no longer records VILLA_SHA in the work dir. Without "
+        "it, a mid-corpus render split is only findable from file mtimes -- which "
+        "is how the 2026-09-11 one had to be found."
     )
