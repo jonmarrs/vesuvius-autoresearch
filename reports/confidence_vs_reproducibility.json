@@ -1,0 +1,56 @@
+{
+ "binnings": [
+  [
+   48,
+   128
+  ],
+  [
+   96,
+   256
+  ],
+  [
+   192,
+   512
+  ]
+ ],
+ "threshold": 0.05,
+ "results": [
+  {
+   "bins": [
+    48,
+    128
+   ],
+   "n_unanimous": 857,
+   "n_lone": 672,
+   "mean_unanimous": 0.6696042581059165,
+   "mean_lone": 0.5374589119491707,
+   "diff": 0.13214534615674578,
+   "p": 0.0
+  },
+  {
+   "bins": [
+    96,
+    256
+   ],
+   "n_unanimous": 1957,
+   "n_lone": 2388,
+   "mean_unanimous": 0.682033101927203,
+   "mean_lone": 0.5315477670750216,
+   "diff": 0.1504853348521814,
+   "p": 0.0
+  },
+  {
+   "bins": [
+    192,
+    512
+   ],
+   "n_unanimous": 4946,
+   "n_lone": 7998,
+   "mean_unanimous": 0.6997631432676068,
+   "mean_lone": 0.5406400594407672,
+   "diff": 0.1591230838268396,
+   "p": 0.0
+  }
+ ],
+ "verdict": "CONFIDENCE PREDICTS REPRODUCIBILITY"
+}
