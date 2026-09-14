@@ -126,3 +126,27 @@ and s5 did — but from now on **a work dir states its own provenance**. The 09-
 reconstructing render order from file mtimes to find; the next one is a `cat`.
 
 `tests/test_render_provenance_is_recorded.sh` pins all of that.
+
+## Two more upstream moves, both verified inert (2026-09-14 01:13 and 01:43)
+
+The monitor fetched twice more, moving `origin/main` to `38c2b4278` and then `bfef6abe0`. **Both are
+inert for rendering**, verified rather than assumed:
+
+| from `be09a8503` to | files changed in `spiral-fitting`, `lasagna`, `vesuvius/src` | total files changed |
+|---|---:|---:|
+| `38c2b4278` | **0** | 8 (660 insertions, all `volume-cartographer/`) |
+| `bfef6abe0` | **0** | 8 (660 insertions, all `volume-cartographer/`) |
+
+`setup_workdir.sh` extracts only those three paths, so a render from any of the three refs produces
+byte-identical code. Both commits are titled `fix(render)`, which is why the check was run rather than
+the titles trusted — villa's `render` there means the C++ volume-cartographer renderer, not the
+spiral ink render this pipeline uses.
+
+`origin/main` has been re-pinned to `be09a8503` anyway, so all three arms of the triplet **record the
+same SHA**. That is cosmetic given the paths are identical, but a future auditor reading
+`VILLA_SHA` should not have to repeat this diff to find out that two different values meant the same
+code.
+
+**The monitor's own verdict said "render path identical" both times and was right both times.** It is
+doing exactly the right check; the failure on 09-11 was a submodule bump *I* made, which no monitor
+was watching for.
