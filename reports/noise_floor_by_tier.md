@@ -119,3 +119,41 @@ That cannot be settled at n=3 per arm. So both numbers are reported and used for
 
 **Design from the pooled figure.** The anchor study budgeted 2.9% from the two-arm estimate and
 delivered a ±10% bound; budgeting from 0.0263 would have predicted 6.0% and been closer to honest.
+
+---
+
+# Where the variance actually comes from (2026-09-14)
+
+Re-scoring `curbase_s1`'s existing rendered strip with the **same** scorer code, as a side effect of
+the probability re-score, measures something nothing else here had: **the scorer's own
+reproducibility.**
+
+| metric | published | re-scored | relative |
+|---|---:|---:|---:|
+| `total_fg_pixels` | 2,904,520 | 2,904,494 | **−0.0009%** |
+| `total_pixels` | 403,291,800 | 403,291,800 | 0.0000% |
+| `overall_fg_fraction` | 0.00720 | 0.00720 | −0.0009% |
+| `overall_line_score` | 0.32914 | 0.32915 | +0.0023% |
+| `overall_column_score` | 0.14101 | 0.14105 | +0.0307% |
+
+26 pixels out of 2.9 million. **The scorer is effectively deterministic**, and the residual is GPU
+floating-point nondeterminism across a three-fold ensemble.
+
+## The decomposition
+
+| stage | variation in `total_fg_pixels` |
+|---|---:|
+| **scoring**, same strip and same code | **0.0009%** |
+| **render**, same fit across the 09-11 code change | 1.44% |
+| **fit**, seed to seed (current tier, 6 baselines) | ~2.5% CV |
+
+**Essentially all the variance is upstream of the scorer**, and most of it is the fit. That is worth
+knowing before anyone proposes stabilising results by touching the scoring step: there is nothing
+there to stabilise.
+
+It also means the placement instability (`ink_placement_in_volume.md`, r ≈ 0.70 between seeds) is a
+property of **fitting and flattening**, not of the ink detector being noisy on a fixed input. The
+detector, given the same strip twice, returns the same answer.
+
+*Measured incidentally: this was the registered validity check on the probability patch — confirming
+it is inert on the default path — and the determinism figure fell out of it.*
