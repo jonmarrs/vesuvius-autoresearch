@@ -208,3 +208,32 @@ It did not. Checked rather than assumed:
 So the fit stage introduces no version difference between triplets, and the fit code agrees with the
 pinned render code. **The only cross-triplet difference remains the render tree separating A from
 B/C**, bounded in the third amendment at roughly a tenth of the seed scale.
+
+---
+
+## Fifth amendment, 2026-09-14: the scorer weights are the same for every arm
+
+Third and last leg of the provenance question. `get_ink_metrics.py` pulls its nnU-Net model with
+`snapshot_download(repo_id='scrollprize/ink-coverage-32um')` and **no `revision=`**, so it follows
+that repo's `main` — a moving reference, the same hazard as rendering from `origin/main`, and one
+that would change the ink numbers with nothing in any log to show for it.
+
+Checked: the cache holds **exactly one revision**, `d79c5860674fddd53370a59ee92f229c9b9de88c`, with
+every blob dated **2026-08-31 07:42** — a week before `curbase_s1` fitted, and never refreshed since.
+So all nine arms score against identical weights. `scripts/check_scorer_weights_pinned.py` asserts it,
+and fails on either dangerous case: a second revision appearing, or a single revision that is not the
+one existing measurements used.
+
+The scorer *code* needs no separate check: `get_ink_metrics.py` is extracted into the work dir from
+`VILLA_REF`, so it is pinned by the same mechanism as the render.
+
+**Provenance, complete:**
+
+| stage | pinned by | status across the three triplets |
+|---|---|---|
+| fit code | nothing — but the tree is frozen | **identical**; all 121 `spiral-fitting/*.py` byte-match `be09a8503` |
+| render code | `VILLA_REF` | **A differs** from B/C; bounded at ~1/10 of the seed scale |
+| scorer code | `VILLA_REF` (extracted with the render) | identical |
+| scorer weights | nothing — but downloaded once, 2026-08-31 | **identical** |
+
+The render tree separating A from B/C is the only version difference in the study.
