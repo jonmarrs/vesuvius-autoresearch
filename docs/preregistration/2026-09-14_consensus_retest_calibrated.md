@@ -164,3 +164,22 @@ A-vs-C is therefore unbounded at this endpoint**, and will be reported that way.
 A clean A is purchasable — `outer_curbase_s1rr` already exists on an interchangeable tree, so it
 would cost two renders (`s2`, `s3`, about 4.4 hours) rather than three fits. Not started: that is
 a scope decision, and it is not mine to take mid-study.
+
+---
+
+## Third amendment, 2026-09-14, same day, still before any arm of C is scored
+
+The second amendment called the A-vs-C render confound **unbounded at the placement endpoint**.
+It is now bounded, by a measurement registered separately in
+`2026-09-14_render_confound_at_placement.md` and reported in
+`reports/render_confound_is_bounded_and_minor.md`.
+
+`curbase_s1` against `curbase_s1rr` — same fit, same seed, same meshes, differing only in render and
+scoring code, across exactly the tree change that separates A from C — gives **r = 0.9715**. The
+within-A seed pairs on the same instrument average **0.7178**. In decorrelation, **0.0285 for the
+render change against 0.2822 for a reseed: the render moves placement 9.9× less than reseeding.**
+
+**A-vs-C is therefore interpretable, with that bound attached.** It remains the comparison carrying a
+difference that B-vs-C does not, both are still computed and reported, and the INCONSISTENT rule is
+unchanged. Replace "unbounded" with "bounded at roughly a tenth of the seed scale, n = 1 arm"
+wherever the second amendment is quoted.
