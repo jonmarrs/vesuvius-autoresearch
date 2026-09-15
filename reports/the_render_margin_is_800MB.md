@@ -180,3 +180,28 @@ fitting in RAM rather than one thrashing, and dismissed it. It described this.
 made the difference between s7 dying three times and s8 finishing. What does not stand is the
 conclusion drawn from it — that thrashing makes a render effectively unfinishable. It makes it about
 2× slower, not 6×.
+
+### Confirmed: working set, not band count, sets the render time
+
+`curbase_s9` rendered and scored while `curbase_s8`'s result was still fresh, giving a clean contrast
+on nearly identical strips:
+
+| arm | bands | render time | peak working set | |
+|---|---:|---:|---:|---|
+| `s8` | 37 | **194 m** | **32.8 G** | exceeds 31.3 G of RAM — thrashed |
+| `s9` | 36 | **88 m** | **~26 G** | fits — no thrashing |
+
+**One band apart, 2.2× the wall time**, and the difference is entirely whether the working set fits in
+RAM. This settles the question the earlier sections were guessing at: band count is not the
+discriminator (`s6` rendered fine with 36, `s7` died with 35, `s8` has 37), the working set is.
+
+That is precisely what `scripts/sample_render_footprint.py` exists to make predictable, and it is why
+the sampler records resident **and** swapped pages: resident alone *falls* as a render thrashes
+harder, so it would have read as pressure easing at the exact moment things got worse.
+
+Both arms cleared the registered validity gate: `s8` 2,881,173 and `s9` 2,818,864, against
+2,398,918–3,639,084.
+
+`curbase_s7`'s recovery render began automatically when the chain cleared, and its own log confirms
+the pin held: `[setup_workdir] villa be09a8503 -> be09a85035059fd8...`. So the recovered arm is
+render-equivalent to `s8` and `s9`, and triplet C stays internally clean.
