@@ -503,5 +503,31 @@ free stability lever — averaging remains the only one.** A registered result l
 measured; the sentence after it is a new claim.
 `reports/confidence_predicts_but_thresholding_does_not_help.md`.
 
+**36. Averaging seeds buys exactly what independent-noise theory predicts — pre-registered, confirmed
+forward, twice.** The prediction was fixed from the model `r_k = 1/(1 + ratio/k)` with `ratio = 0.4204`,
+derived from `r_single = 0.7040` measured over all 15 pairs of `s1–s6` (that input later reproduced
+exactly). At **k = 3**, predicted **0.877**, measured **0.875** and **0.893** — both inside the
+registered 0.85–0.91 band, on arms that did not exist when the number was written down. At **k = 2**,
+the case villa's loop actually runs, predicted **0.826**, measured mean **0.8516**. Every control
+passed: strip non-blank 48.2/45.6/47.1% against a 0.40–0.55 band, all nine arms inside the ink gate,
+and the one previously-seen comparison structurally retired so it could not be re-reported. The
+**analysis ran unattended** — decision rule, gate and retirement all committed before the arms
+existed, so nobody stood between seeing a number and deciding what it meant.
+
+So the measured curve is **0.7040 → 0.8516 → 0.875/0.893** at k = 1, 2, 3. **A loop already paying for
+two seeds is better off keeping the consensus than using them to pick a winner.** Two honest caveats
+kept with the result: the model *under*-predicts slightly at both k (+0.026 at k=2, +0.007 at k=3), and
+at k=2 two of the three comparisons fell *above* their band while the mean sat inside it.
+`reports/consensus_retest_confirmed.md`, `reports/two_seed_consensus_confirmed.md`.
+
+**37. The render-tree split moves placement ten times less than reseeding does.** Triplet A rendered
+from `d8c5f488a` while B and C are on `be09a8503`, so A-vs-C carried a confound B-vs-C did not. Bounded
+rather than argued away: the *same fit, same seed, same meshes* rendered across that tree change gives
+**r = 0.9715**, against within-A seed pairs averaging **0.7178** — decorrelation 0.0285 versus 0.2822.
+The earlier +1.44% inert verdict could not be borrowed for this, because it bounds a **count** and this
+endpoint is **placement**, the very quantity that comes apart from the count. Registered as unbounded
+first, then bounded when the data allowed.
+`reports/render_confound_is_bounded_and_minor.md`.
+
 Reproduce: `repro/spiral_render/`, `scripts/measure_winding_overlap.py`,
 `scripts/analyse_seed_spread.py`. All from published artifacts.
