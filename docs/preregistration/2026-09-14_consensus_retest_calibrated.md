@@ -237,3 +237,23 @@ The scorer *code* needs no separate check: `get_ink_metrics.py` is extracted int
 | scorer weights | nothing — but downloaded once, 2026-08-31 | **identical** |
 
 The render tree separating A from B/C is the only version difference in the study.
+
+---
+
+## Sixth amendment, 2026-09-15: the recovered `s7` is not contaminated by its failed renders
+
+`curbase_s7` was OOM-killed three times before being re-rendered, and the recovery writes into the
+**same `outer_curbase_s7/` directory those attempts used**. A stale flattened `x/y/z.tif` left beside
+fresh ink would be read straight into `volume_map` with nothing to flag it, so this was checked rather
+than assumed.
+
+* **`meshes/concat/` contains 14 files and none predate the recovery render.** Every output is fresh.
+* The 30 older `.tif` files are all under `meshes/w12?_spliced_curbase_s7/` — the ten per-winding
+  **input** meshes copied from s7's own fit, unchanged since 2026-09-14 17:17. They are inputs, they
+  come from the fit rather than from any render, and they are identical whichever attempt consumes
+  them.
+* The directory layout matches `curbase_s9`, an arm that rendered cleanly first time.
+
+The recovery also rendered from the pinned tree — its own log records
+`[setup_workdir] villa be09a8503 -> be09a85035059fd8...` — so `s7` is render-equivalent to `s8` and
+`s9`, and **triplet C is internally clean**.
