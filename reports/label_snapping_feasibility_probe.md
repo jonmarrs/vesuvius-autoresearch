@@ -73,3 +73,54 @@ question has been asked and the premise does not hold for the bulk of them.
 If the direction is pursued, the two openings this probe leaves are (a) the **11–18% off-mode points**,
 and (b) **full-resolution** data, where sub-voxel drift would be visible. Both are narrower and better
 posed than the general question, which is the point of having run this first.
+
+---
+
+## Addendum: the off-mode minority is not scattered — it sits further out
+
+The probe named the 11–18% of off-mode points as the one opening it left. Characterising them
+(14 patches sampled, 9 usable, ~9,500 resolved points):
+
+**Not a few bad patches.** Off-mode fraction runs 0.044–0.253 with a median of 0.144 — every patch
+carries some, none dominates.
+
+**Not an edge artefact.** Points within 3 rows/columns of a patch's valid bounding box are off-mode at
+**0.140**, the interior at **0.152** — edges are 0.92× the interior rate, if anything slightly cleaner.
+
+**They are further out.** Against an axis *derived from the sampled points* (cx 3874, cy 5461):
+
+| | n | radius median | radius mean |
+|---|---:|---:|---:|
+| on-mode | 8,062 | 1107 | 1126 |
+| **off-mode** | 1,427 | **1209** | **1307** |
+
+**d = +0.32**, observed gap **181 voxels** against a point-shuffle null whose p95 is **30 voxels**.
+
+This coheres with two things already measured: patch satisfaction falls with radius (**r = −0.21**,
+`reports/patch_bootstrap_verdict.md`), and selecting on satisfaction starves the outer windings *where
+ink is scored* (`reports/SPIRAL_FINDINGS_SUMMARY.md`). **The labels that are off-surface are
+concentrated where the reading happens.**
+
+### The caveat that limits this
+
+**The shuffle null overstates significance.** It permutes point labels independently, but points
+within a patch are spatially correlated, so the effective sample is far smaller than 9,489. **Treat
+`d = +0.32` as the honest summary and the p-value as decorative.** A patch-aware null is the right
+test and was not run.
+
+Also unchanged from above: level-1 resolution only, a ±2 off-mode threshold that is arbitrary, and
+9 patches.
+
+### What this does to the recommendation
+
+The recommendation not to start a *general* snapping study stands — 85% of label points are already on
+the surface, and moving them is moving nothing.
+
+But the narrow question is now **better posed than when this probe began**: *do the outer-winding
+labels, where reading is scored and where labels are measurably worse, repay snapping?* That is a
+smaller study with a named population, a known endpoint (`total_fg_pixels` on w120–129), and a
+plausible mechanism. It is the version worth registering, if the direction is pursued at all.
+
+**I also had to correct myself mid-probe.** The first radius comparison used a hardcoded axis guess of
+(4500, 4700). The derived axis is (3874, 5461), and the effect it gives is roughly twice the size. A
+geometric claim resting on an unverified centre is not a measurement.
