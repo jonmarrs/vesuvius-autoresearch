@@ -257,3 +257,31 @@ than assumed.
 The recovery also rendered from the pinned tree — its own log records
 `[setup_workdir] villa be09a8503 -> be09a85035059fd8...` — so `s7` is render-equivalent to `s8` and
 `s9`, and **triplet C is internally clean**.
+
+---
+
+## Seventh amendment, 2026-09-15: the prediction's arithmetic, checked before the data
+
+`GATE_INK` turned out to have been calibrated on one quantity and applied to another (first
+amendment), so the other registered constant was checked the same way rather than trusted.
+
+From `r_single = 0.7040`, the independent-noise model `r_k = 1 / (1 + ratio/k)` with
+`ratio = 1/r − 1 = 0.4205` gives:
+
+| k | model | registered |
+|---:|---:|---:|
+| 1 | 0.7040 | 0.704 |
+| 2 | 0.8263 | 0.826 |
+| **3** | **0.8771** | **0.877** |
+
+All three agree; the `0.4204` in the text is a rounding of `0.4205`. **The prediction of 0.877 follows
+from the stated model and input.**
+
+The input is corroborated independently, too. `reports/render_confound_is_bounded_and_minor.md`
+measured the three within-A seed pairs for a different purpose — bounding the render confound — and
+got **0.8076, 0.6843, 0.6614**, every one inside the 0.630–0.808 range this registration reports
+across all 15 pairs.
+
+Recomputing all 15 pairs would mean loading six arms while `curbase_s7` renders;
+`guard_heavy_analysis.py` refuses, and that refusal is respected. The check above is the part that
+could be done without putting the in-flight arm at risk.
