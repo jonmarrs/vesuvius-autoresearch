@@ -103,3 +103,36 @@ because that is what was discovered; this section is the correction.
 
 What remains is largely not reclaimable — `claude` (491 M) is the working session, and `agy` ×3 plus
 `gnome-shell` total ~680 M. **A decisive margin still needs the larger swapfile, which needs root.**
+
+---
+
+## Lever 1 taken, 2026-09-15: swap 8 G → 24 G, and the mechanism confirmed
+
+A second swapfile was added — `/swap2.img`, 16 G, `fallocate` on ext4 — rather than resizing the
+existing one. **Resizing would have required `swapoff`**, forcing ~5 G of swapped pages back into RAM
+when only 1.6 Gi was available with a render at 26 G resident. That would very likely have killed the
+render and possibly wedged the box. Adding is additive and safe while a render runs.
+
+**The mechanism showed itself immediately.** With swap available, `curbase_s8`'s render RSS *fell*
+from 26.0 G to 24.8 G as pages moved out — the kernel spilling instead of having nowhere to put them.
+That is exactly what was missing when `curbase_s7` was killed three times against a nearly-full 8 G
+swap.
+
+| | before | after |
+|---|---:|---:|
+| swap | 8 G (5.5 G used) | **24 G** (5.6 G used, ~17 G free) |
+| effective capacity | 31.3 G | **~55 G** vs a 28.5 G peak |
+| OOM kills during s8's render | — | **0** |
+
+**The trade is speed.** Paging makes a render markedly slower, and the log can go minutes between
+writes — the same thrashing signature misread as a deadlock earlier that day. Quiet is not stalled.
+
+Not yet persistent: `/swap2.img` is active but absent from `/etc/fstab`, so it will not survive a
+reboot until `/swap2.img none swap sw 0 0` is added.
+
+### A defect this exposed in `recover_arm.sh`
+
+Its precheck compared **`MemAvailable` alone** against 30 G. On a 31.3 G box that is never true once
+anything is running, so it would have refused forever — and it ignored the quantity that actually
+decides the outcome. Capacity is **RAM plus free swap**: a render that can spill survives its peak,
+one that cannot is killed at it. Now fixed to sum both and report the split.

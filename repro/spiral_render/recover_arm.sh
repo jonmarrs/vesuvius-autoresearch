@@ -22,9 +22,18 @@ ROOT="${1:?usage: recover_arm.sh <spiral_out> <first_winding> <last_winding> <ta
 FIRST="${2:?}"; LAST="${3:?}"; shift 3
 [ "$#" -gt 0 ] || { echo "no arms given" >&2; exit 2; }
 
-NEED_GB="${NEED_GB:-30}"
-avail=$(awk '/^MemAvailable/{printf "%.1f", $2/1048576}' /proc/meminfo)
-echo "[precheck] MemAvailable ${avail}G, render peak needs about ${NEED_GB}G"
+# CAPACITY IS RAM PLUS FREE SWAP, not RAM alone. The first version of this check
+# compared MemAvailable against 30G, which on a 31.3G box is never true once
+# anything at all is running -- it would have refused forever. It also ignored the
+# thing that actually decides the outcome: a render that can spill to swap survives
+# the peak, and one that cannot is killed at it. curbase_s7 died three times with
+# swap nearly full; s8 got through after swap went 8G -> 24G, its RSS FALLING from
+# 26.0G to 24.8G as pages moved out.
+NEED_GB="${NEED_GB:-32}"          # 28.5G measured peak plus headroom
+ram=$(awk '/^MemAvailable/{printf "%.1f", $2/1048576}' /proc/meminfo)
+swp=$(awk '/^SwapFree/{printf "%.1f", $2/1048576}' /proc/meminfo)
+avail=$(awk -v a="$ram" -v b="$swp" 'BEGIN{printf "%.1f", a+b}')
+echo "[precheck] capacity ${avail}G = ${ram}G RAM + ${swp}G free swap; peak needs about ${NEED_GB}G"
 
 # Refuse while anything heavy is already running; the guard knows about the
 # containerised renderer, which a venv-only match misses entirely.
@@ -35,9 +44,9 @@ if ! "$REPO/.venv/bin/python" "$REPO/scripts/guard_heavy_analysis.py" --fail-if-
 fi
 
 if awk -v a="$avail" -v n="$NEED_GB" 'BEGIN{exit !(a < n)}'; then
-  echo "[precheck] FAIL: ${avail}G available, need ~${NEED_GB}G." >&2
-  echo "           The margin has been 0.8GB; re-rendering now just buys another OOM." >&2
-  echo "           Free memory first (the desktop apps hold ~2.1G of RSS), or add swap." >&2
+  echo "[precheck] FAIL: ${avail}G capacity (${ram}G RAM + ${swp}G swap), need ~${NEED_GB}G." >&2
+  echo "           A render that cannot spill is killed at its peak: that is how" >&2
+  echo "           curbase_s7 was lost three times. Free RAM or add swap first." >&2
   echo "           Override with NEED_GB=<n> only if you know why." >&2
   exit 1
 fi
