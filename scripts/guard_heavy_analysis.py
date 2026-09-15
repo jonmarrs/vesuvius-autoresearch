@@ -25,7 +25,17 @@ import argparse
 import sys
 from pathlib import Path
 
+# Two markers, because the render spans two process families and the heavy one is
+# NOT a villa-venv python. The band renderer runs as `vc_render_tifxyz` inside a
+# Docker container and shares none of the venv path, so matching the interpreter
+# alone reports "no render in flight" during the single most memory-hungry stage --
+# 25GB RSS, the stage that has OOM-killed this box three times. That is the
+# dangerous direction, and this guard shipped with it. Match BOTH families.
 VILLA_VENV_MARK = "villa-spiral/spiral-fitting/.venv"
+RENDER_BINARIES = (
+    "vc_render_tifxyz",
+    "vc_render_tifxy",
+)  # comm is truncated to 15 chars
 DEFAULT_NEED_GB = 6.0
 
 
@@ -44,8 +54,25 @@ def render_in_flight() -> list[tuple[int, str]]:
             )
         except (FileNotFoundError, PermissionError, ProcessLookupError, OSError):
             continue
-        if VILLA_VENV_MARK in cmd:
+        # argv[0] ONLY, never the whole command line. A shell whose arguments
+        # merely MENTION the venv path matches a substring search -- this guard
+        # counted the very shell that invoked it, the fourth instance of that
+        # error here after three pgrep variants. What runs is argv[0].
+        argv0 = cmd.split(" ", 1)[0]
+        if VILLA_VENV_MARK in argv0 or any(b in argv0 for b in RENDER_BINARIES):
             found.append((int(p.name), cmd.strip()[:70]))
+            continue
+        # `docker run ... vc_render_tifxyz` has argv[0] = docker, so the binary it
+        # is asked to run is checked separately, and only for a docker argv[0].
+        if argv0.endswith("docker") and any(b in cmd for b in RENDER_BINARIES):
+            found.append((int(p.name), cmd.strip()[:70]))
+            continue
+        try:
+            comm = (p / "comm").read_text().strip()
+        except (FileNotFoundError, PermissionError, ProcessLookupError, OSError):
+            continue
+        if any(comm.startswith(b[:15]) for b in RENDER_BINARIES):
+            found.append((int(p.name), comm))
     return found
 
 

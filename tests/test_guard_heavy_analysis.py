@@ -60,3 +60,22 @@ def test_force_overrides_but_says_what_it_costs(capsys, monkeypatch):
 def test_render_in_flight_survives_vanishing_processes():
     """/proc entries disappear mid-scan; that must not raise."""
     assert isinstance(gha.render_in_flight(), list)
+
+
+def test_detects_the_containerised_band_renderer():
+    """The blind spot this guard SHIPPED with.
+
+    The heavy stage is `vc_render_tifxyz` in a Docker container -- 25GB RSS, the
+    stage that OOM-killed this box three times -- and it shares none of the villa
+    venv path. Matching the interpreter alone reported "no render in flight"
+    during exactly the stage where proceeding is most damaging.
+    """
+    assert gha.RENDER_BINARIES, "no render binary is matched at all"
+    assert any("vc_render_tifxyz" in b for b in gha.RENDER_BINARIES)
+
+
+def test_does_not_match_a_shell_that_merely_mentions_the_path(tmp_path, monkeypatch):
+    """argv[0] only: the guard once counted the shell that invoked it."""
+    src = Path(gha.__file__).read_text() if hasattr(gha, "__file__") else ""
+    assert "argv0" in src, "detection must key on argv[0], not the whole cmdline"
+    assert 'cmd.split(" ", 1)[0]' in src
