@@ -127,8 +127,10 @@ swap.
 **The trade is speed.** Paging makes a render markedly slower, and the log can go minutes between
 writes — the same thrashing signature misread as a deadlock earlier that day. Quiet is not stalled.
 
-Not yet persistent: `/swap2.img` is active but absent from `/etc/fstab`, so it will not survive a
-reboot until `/swap2.img none swap sw 0 0` is added.
+Made persistent the same night: `/swap2.img none swap sw 0 0` was appended to `/etc/fstab` and the
+entry verified — six fields in the right order, no duplicate of either swapfile, and the file itself
+`root:root` mode `600`. Worth verifying rather than assuming, since a malformed `fstab` can block a
+boot.
 
 ### A defect this exposed in `recover_arm.sh`
 
@@ -136,3 +138,17 @@ Its precheck compared **`MemAvailable` alone** against 30 G. On a 31.3 G box tha
 anything is running, so it would have refused forever — and it ignored the quantity that actually
 decides the outcome. Capacity is **RAM plus free swap**: a render that can spill survives its peak,
 one that cannot is killed at it. Now fixed to sum both and report the split.
+
+
+### Outcome: s8's render survived the peak
+
+With 24 G of swap, `curbase_s8`'s render held steady at **24.8 G resident with zero OOM kills**,
+against the 28.2–28.7 G band that killed `curbase_s7` three times. 1.13 M major faults confirm it was
+paging steadily rather than hitting a wall.
+
+The cost is exactly the predicted one: **band 4 of 37 at 30 minutes, ETA ~3 h**, against s7's ~2.2 h
+for a comparable strip. A slow render instead of a dead one.
+
+(s8 has **37** bands, not s7's 35 — a detail worth knowing before writing any progress check that
+matches a band count, which is how one ad-hoc check of mine reported no progress on a render that was
+progressing fine.)
