@@ -46,7 +46,8 @@ claimed**. They agree, so the confound does not have to be adjudicated.
 
 **A loop that already runs two seeds should keep the consensus rather than the winner.** The gain is
 real, predictable in advance, and costs nothing beyond the fits already being run. Three seeds reach
-0.88; two reach 0.83 by the same model.
+0.88; two reach **0.8516, since measured directly** (`reports/two_seed_consensus_confirmed.md`) rather
+than projected — the model predicted 0.826 for that case and slightly under-predicted it.
 
 ## What it does not license
 
