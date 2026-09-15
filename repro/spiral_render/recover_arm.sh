@@ -29,6 +29,29 @@ FIRST="${2:?}"; LAST="${3:?}"; shift 3
 # the peak, and one that cannot is killed at it. curbase_s7 died three times with
 # swap nearly full; s8 got through after swap went 8G -> 24G, its RSS FALLING from
 # 26.0G to 24.8G as pages moved out.
+# VILLA MUST BE SET HERE, and to the checkout the study actually used.
+# setup_workdir.sh defaults VILLA to .../Neo-VM/villa-spiral, but the consensus
+# chain exported the SUBMODULE instead, and the two are not interchangeable:
+# villa-spiral does not contain be09a8503 at all. Left unset, a recovery passes
+# this precheck and then dies ~30s later inside setup_workdir with "unknown
+# revision" -- loud, but only after the operator believes it has started.
+VILLA="${VILLA:-$REPO/villa}"
+export VILLA
+if [ -n "${VILLA_REF:-}" ]; then
+  if ! git -C "$VILLA" rev-parse --verify "${VILLA_REF}^{commit}" >/dev/null 2>&1; then
+    echo "[precheck] FAIL: VILLA_REF=$VILLA_REF does not resolve in $VILLA." >&2
+    echo "           The arms being matched were rendered from a specific tree; a" >&2
+    echo "           different checkout is not a substitute. Point VILLA at the one" >&2
+    echo "           that has it." >&2
+    exit 1
+  fi
+  export VILLA_REF
+  echo "[precheck] villa $VILLA_REF resolves in ${VILLA##*/Neo-VM/}"
+else
+  echo "[precheck] WARNING: VILLA_REF unset; setup_workdir will follow a MOVING ref." >&2
+  echo "           Arms rendered from different trees are not comparable. Pin it." >&2
+fi
+
 NEED_GB="${NEED_GB:-32}"          # 28.5G measured peak plus headroom
 ram=$(awk '/^MemAvailable/{printf "%.1f", $2/1048576}' /proc/meminfo)
 swp=$(awk '/^SwapFree/{printf "%.1f", $2/1048576}' /proc/meminfo)
