@@ -84,6 +84,17 @@ def main() -> int:
     )
     ap.add_argument("--interval", type=float, default=60.0)
     ap.add_argument("--max-hours", type=float, default=48.0)
+    # EACH BAND SPAWNS A FRESH vc_render_tifxyz, so there are gaps of seconds to
+    # minutes with no such process while a render is perfectly healthy. The first
+    # version exited on the first gap and silently stopped collecting 41 minutes
+    # into an 88-minute render -- the failure looked exactly like success.
+    ap.add_argument(
+        "--gone-for",
+        type=int,
+        default=15,
+        help="consecutive absent samples before concluding the render "
+        "has finished (default 15, i.e. 15 min at the 60s interval)",
+    )
     args = ap.parse_args()
 
     out = Path(args.out)
@@ -93,16 +104,19 @@ def main() -> int:
 
     start = time.time()
     seen = False
+    missing = 0
     while time.time() - start < args.max_hours * 3600:
         pid = render_pid()
         if pid is None:
-            # Exit once a render we actually saw has finished; keep waiting if none
-            # has started yet, so this can be launched slightly early.
-            if seen:
-                print("render finished; sampler exiting")
+            missing += 1
+            # Only conclude the render is over after a RUN of absences: a single
+            # gap is the normal handover between bands.
+            if seen and missing >= args.gone_for:
+                print(f"no renderer for {missing} samples; sampler exiting")
                 return 0
         else:
             seen = True
+            missing = 0
             fp = footprint(pid)
             if fp:
                 rss, swp = fp
