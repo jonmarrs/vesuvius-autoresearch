@@ -53,3 +53,30 @@ where starting heavy work is most damaging. Fixed the same day; see the commit.
 `curbase_s8`'s fit started 20:17 and takes about 3 hours. **Its render then meets the same 0.8 GB
 margin**, as will s9's. Unless the margin is widened first, the chain spends roughly 12 more hours
 producing two more unscored arms and the study cannot complete.
+
+---
+
+## What was actually reclaimed, 2026-09-14 (executed, not proposed)
+
+Disk went **9.2 G free (100% full) → 52 G (95%)**, reclaiming **41.1 G**:
+
+| what | freed | notes |
+|---|---:|---|
+| 13 fit checkpoints | 39.7 G | `baseline01`, `nosame_s1-3`, `nosamecur_s1-3`, `anchor10cov_pilot/s2/s3`, `smoke_current`, `smoke_absw5`, `smoke_nosamewind` |
+| 12 stopped containers | 1.0 G | all exited 7 weeks–3 months prior, from an unrelated `marketing-engine` project |
+| dangling image layers | 0.35 G | plain `image prune`, **not** `-a`, which would have deleted `vc-render:local` (13.6 GB) and cost a rebuild |
+
+**What those 13 arms lost, precisely: the ability to RESUME their fit.** Nothing else. Verified after
+the fact, not merely intended:
+
+* 13/13 still have `meshes/fitted_<tag>/` **and** `satisfied_fitted.json` — every one remains
+  re-renderable and usable for patch-selection work;
+* 8/8 live-study checkpoints survive, `curbase_s8` included, whose fit was running at the time;
+* the 9 `outer_*` directories (7.5 G) the analyses actually read are untouched.
+
+Nothing in this project resumes a fit — fits always run fresh from the dataset — so the capability
+given up is one that was never used. **If a future study does need to resume one of those 13, it must
+refit (~3 h), and that is the whole cost.**
+
+**Disk is no longer a constraint, and it was never the thing that killed an arm.** The 0.8 GB memory
+margin above is unchanged by any of this.
