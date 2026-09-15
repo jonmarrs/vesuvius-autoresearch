@@ -532,7 +532,8 @@ Full detail with every noise floor attached:
 
 **2026-09-13, anchor ablation:** cutting villa's 50 in-ROI absolute winding anchors to 10 changes reading by −0.86%, p=0.76 — but bounded only at [−10.21%, +8.50%], because the ablated arm is 3.4× noisier than the baselines. Its geometry rise (+1.39%, p=0.0032) is **not** a decoupling: `abs_winding` is a loss term competing with patch fitting, so deleting anchors mechanically improves patch satisfaction. Our own registration claimed otherwise and is corrected in place ([verdict](reports/anchor_ablation_verdict.md)). On current code the ink null reproduces (+0.28%, p=0.80, 95% CI [-2.56%, +3.13%]) but the geometry evidence does not: `satisfied_area` ROSE 1.18%, the direction our own registration declared uninterpretable because the manipulation removes inputs the metric scores. The decoupling is a statement about `6847063f` and must not be reported as holding on current villa ([verdict](reports/decoupling_does_not_cleanly_reproduce.md)).
 
-**2026-09-14, the objective is more reproducible than the ink it counts** *(exploratory)*. Comparing
+**2026-09-14, the objective is more reproducible than the ink it counts** *(exploratory, except the
+averaging result, which was pre-registered and confirmed forward)*. Comparing
 ink maps in **volume coordinates** — the scroll's own frame, so no flattening artefact — fits
 differing *only by RNG seed* agree on `total_fg_pixels` to **1.2%** but on ink **placement** at only
 **r ≈ 0.70**, against a θ-rotated null of −0.09. Two runs scoring identically are not reading the same
@@ -544,7 +545,12 @@ text. Three things follow, each measured:
 * **The differences behave like independent noise**, replicated on three separate triplets at
   1.10–1.15× the gain independence predicts. So averaging works: a **3-seed consensus reaches
   r ≈ 0.88** where a single run sits at 0.70. A loop already running two seeds should keep the
-  consensus rather than the winner. *A forward test of that projection is in flight.*
+  consensus rather than the winner. **That projection was then tested forward and CONFIRMED**
+  (`reports/consensus_retest_confirmed.md`): against a prediction of **0.877** fixed before the arms
+  existed, the two comparisons came in at **0.875** and **0.893**, both inside the registered
+  0.85–0.91 band, with every control passing and the one previously-seen comparison structurally
+  retired. The analysis ran unattended, so nobody stood between seeing a number and deciding what it
+  meant.
 * **Thresholding does not substitute for it.** Ink that all three seeds find is genuinely more
   confident (+0.13 to +0.16, stable across bin size), but at **matched sparsity** the top-confidence
   ink is *worse* than a random selection of the same size. Averaging is the only lever that works.
