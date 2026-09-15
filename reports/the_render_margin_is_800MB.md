@@ -152,3 +152,31 @@ for a comparable strip. A slow render instead of a dead one.
 (s8 has **37** bands, not s7's 35 — a detail worth knowing before writing any progress check that
 matches a band count, which is how one ad-hoc check of mine reported no progress on a render that was
 progressing fine.)
+
+### Overnight outcome: s8 rendered in 194 minutes, and my extrapolation was wrong
+
+`curbase_s8` rendered and scored: **`total_fg_pixels` 2,881,173**, inside the registered validity
+gate, with **zero OOM kills** all night. `curbase_s9`'s fit then completed `rc=0` and its render
+began.
+
+**The 13+ hour estimate was badly wrong — it took 3h14m.** These renders are *front-loaded*, exactly
+as `run_outer_arms.sh` says in a comment written for this purpose:
+
+```
+band 31/37  194m01s      band 34/37  194m06s
+band 32/37  194m03s      band 36/37  194m07s
+band 33/37  194m05s      band 37/37  194m08s
+```
+
+Bands 31–37 finished **within eight seconds of each other**. The early bands are slow while the box
+builds swap pressure; the late ones are nearly free.
+
+The failure was not the arithmetic but overriding a correct, documented warning with an inference
+from five early samples. The driver comment says in terms: *"DO NOT panic at the in-tool ETA, and do
+not read cumulative elapsed as per-band cost."* Having read that, I reasoned that it described renders
+fitting in RAM rather than one thrashing, and dismissed it. It described this.
+
+**What stands:** the working-set measurement (32.8 G against 31.3 G of RAM) is real, and swap is what
+made the difference between s7 dying three times and s8 finishing. What does not stand is the
+conclusion drawn from it — that thrashing makes a render effectively unfinishable. It makes it about
+2× slower, not 6×.
