@@ -183,3 +183,28 @@ render change against 0.2822 for a reseed: the render moves placement 9.9× less
 difference that B-vs-C does not, both are still computed and reported, and the INCONSISTENT rule is
 unchanged. Replace "unbounded" with "bounded at roughly a tenth of the seed scale, n = 1 arm"
 wherever the second amendment is quoted.
+
+---
+
+## Fourth amendment, 2026-09-14: the FIT code carries no confound
+
+The render-provenance work raised an obvious companion question that had not been asked. `VILLA_REF`
+pins what renders extract, but `preflight.sh` notes that **fits run a working tree**, and that tree is
+a different checkout: fits run from `villa-spiral-current`, renders from `villa-spiral`. Nothing
+pinned the former, so it could have moved across the study exactly as `origin/main` did.
+
+It did not. Checked rather than assumed:
+
+* `villa-spiral-current` is **not a git checkout at all** — it is a plain extracted tree holding the
+  same three paths `setup_workdir.sh` archives, created 2026-09-07 17:09. (`git -C` there answers
+  about the *enclosing* workspace repo, which nearly produced a false alarm about commits that turned
+  out to belong to an unrelated project.)
+* **Zero of its 825 python files have been modified since 2026-09-07 18:00.** The tree is frozen, and
+  `curbase_s1`'s fit predates only its own render on 09-07, so every arm from `s1` to `s9` fitted with
+  the same code.
+* **All 121 tracked `.py` files under `spiral-fitting` are byte-identical to `be09a8503`** — the very
+  ref the renders are pinned to. Compared file by file against the git objects, not by diffing.
+
+So the fit stage introduces no version difference between triplets, and the fit code agrees with the
+pinned render code. **The only cross-triplet difference remains the render tree separating A from
+B/C**, bounded in the third amendment at roughly a tenth of the seed scale.
