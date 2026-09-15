@@ -118,3 +118,49 @@ it, would be tampering with a registration for no gain.
 **Nothing about the prediction, the band, the retirement of A-vs-B, or the INCONSISTENT rule
 is touched.** The prediction stands at **r = 0.877 for both comparisons, band 0.85–0.91,
 refuted below 0.79**.
+
+---
+
+## Second amendment, 2026-09-14, while `curbase_s7` is rendering and no arm of C is scored
+
+A monitor reported villa upstream moving with two hot-path changes. The study is pinned, so
+that is benign — but checking *why* it was benign exposed something that is not.
+
+**The three triplets were not all rendered from the same villa tree.** `VILLA_SHA` only began
+being recorded on 2026-09-14, and work dirs are deleted after scoring, so this had to be
+reconstructed from `[render]` timestamps in the sequence logs intersected with the `origin/main`
+reflog (`scripts/reconstruct_render_provenance.py`, validated by reproducing the one unpinned
+arm that does carry a logged SHA):
+
+| triplet | arms | render tree | vs C's tree (`be09a8503`) |
+|---|---|---|---|
+| **A** | `s1`, `s2`, `s3` | `d8c5f488a` | **DIFFERS** — `lasagna` and `vesuvius/src` |
+| **B** | `s4`, `s5` | `be09a8503` | identical (same commit) |
+| **B** | `s6` | `bfef6abe0` | **INTERCHANGEABLE** — every extracted path is the same tree object |
+| **C** | `s7`, `s8`, `s9` | `be09a8503` (pinned) | — |
+
+So **B-vs-C is render-clean and A-vs-C is not.** `s3` is the weakest row: its setup ran 20
+minutes before `origin/main` moved, and the tool flags it.
+
+**What this does not change.** Both comparisons are still computed and still reported. A-vs-C is
+**not** dropped: dropping the confounded one after learning which it is, and keeping the clean
+one, would be choosing the comparison — the same move the A-vs-B retirement exists to prevent.
+The INCONSISTENT rule stands exactly as written.
+
+**What it does change** is what a disagreement licenses. If A-vs-C and B-vs-C disagree, there is
+now a named candidate mechanism. That mechanism was written down *before* either number existed,
+which is the only thing that makes it evidence rather than a story told afterwards. It still may
+not be used to pick a winner.
+
+**The existing control does not cover this endpoint, and that must not be glossed.**
+`reports/rerender_test_verdict.md` measured exactly this tree change — `d8c5f488a` re-rendered at
+`d82e13edf`, which *is* interchangeable with `be09a8503` — and found **+1.44%** on
+`total_fg_pixels`, inert against a registered ±2% band. But that bounds the effect on a **count**.
+This study's endpoint is the **correlation of ink placement**, and the central finding motivating
+it is that the count reproduces to 1.2% while placement reproduces only to r ≈ 0.70. A change too
+small to move the count is not thereby too small to move placement. **The render confound on
+A-vs-C is therefore unbounded at this endpoint**, and will be reported that way.
+
+A clean A is purchasable — `outer_curbase_s1rr` already exists on an interchangeable tree, so it
+would cost two renders (`s2`, `s3`, about 4.4 hours) rather than three fits. Not started: that is
+a scope decision, and it is not mine to take mid-study.
