@@ -1,9 +1,12 @@
-# villa PR candidate — QUEUED, not opened (we are at the 3-open-PR cap)
+# villa PR candidate — OPENED 2026-09-15 as #1805
 
-Open when a slot frees. Verified against upstream `b82895bf1` on 2026-09-15; re-verify before
-opening, since `get_ink_metrics.py` is in an actively changing tree.
+**Opened as https://github.com/ScrollPrize/villa/pull/1805** when #1780 merged and freed a slot.
+Re-verified against upstream `d8feb9724` immediately before opening: the anchor was unchanged and
+`model_dir` still in scope in the same function. The branch differs from upstream by exactly
+**+1/−0** in one file.
 
-**Blocked by:** #1723, #1728, #1780 all open. Do not exceed the cap.
+Pushed through the GitHub API rather than a local checkout, because the only villa checkout here is
+pinned to `be09a8503` for the running study and must not be fetched or branched.
 
 ---
 
