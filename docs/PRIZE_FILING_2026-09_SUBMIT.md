@@ -4,18 +4,24 @@
 The reasoning, alternatives and guardrails live in `PRIZE_FILING_2026-09_DRAFT.md`; nothing here
 should be edited without editing that too.
 
-**Before pasting, do these three things:**
+**Before pasting, do these four things:**
 
 1. **Re-read the form URL** from villa `scrollprize.org/docs/34_prizes.md` at *current* upstream, and
    identify it by the `{/* progress-prizes:form:start */}` marker — that file contains three other
    `forms.gle` links belonging to the Grand Prize, First Letters and Title prizes. Verified
    2026-09-12 against `be09a8503` as
    `docs.google.com/forms/d/e/1FAIpQLScNBMj25FMnphngRG1Ciryv_2_Mkdq2YPJOD9WqPfZExII2iQ/viewform`,
-   but that check is only as fresh as the submodule pin.
+   and re-verified 2026-09-14 against current upstream `983c20fef` through the GitHub API
+   (unchanged). The file carries four form links, so the marker is what distinguishes them.
 2. **Confirm the deadline still reads 11:59pm Pacific, September 30th, 2026** under
-   `progress-prizes:deadline:start`.
+   `progress-prizes:deadline:start`. Verified at `983c20fef` on 2026-09-14.
 3. **Run `pytest tests/test_filing_numbers_match_sources.py`** — every figure below is bound to a json
    artifact, and that test fails if any has drifted or if a withdrawn one has crept back.
+4. **Run `./.venv/bin/python scripts/check_filing_upstream_claims.py`** — check 3 covers figures
+   bound to json artifacts, which the claims about *upstream* are not. Those are live GitHub state
+   and go stale whenever a maintainer acts or we open something; two of them were stale on
+   2026-09-14. Exit 1 means a claim is stale, exit 2 means a claim could not be located in the
+   text, which is a failure and not a pass.
 
 After submitting, tag the commit `submission/2026-09`, matching `submission/2026-07` (06e4f4d0) and
 `submission/2026-08` (ed1a27c2).
