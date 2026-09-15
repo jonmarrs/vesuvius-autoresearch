@@ -80,3 +80,26 @@ refit (~3 h), and that is the whole cost.**
 
 **Disk is no longer a constraint, and it was never the thing that killed an arm.** The 0.8 GB memory
 margin above is unchanged by any of this.
+
+---
+
+## Margin widened to 1.4 GB, 2026-09-14 (lever 2 taken)
+
+The ChatGPT app was closed — 12 processes, SIGTERM not SIGKILL, all exited cleanly.
+
+| | before | after |
+|---|---:|---:|
+| non-villa resident | 2.1 G | **1.5 G** |
+| available to a render | 29.3 G | **29.9 G** |
+| render peak (measured across 3 kills) | 28.5 G | 28.5 G |
+| **margin** | **0.8 G** | **1.4 G** |
+
+Freed ~1.0 G of RSS and ~1.2 G of swap; swap pressure fell from 6.4/8 G to 5.2/8 G, which matters as
+much as the RSS — a render that can spill survives where one that cannot is killed.
+
+**This makes a render likely, not safe.** The three kills landed at 28.2, 28.5 and 28.7 G: the peak
+itself wanders by about 0.5 G, roughly a third of the new margin. The filename still says 800MB
+because that is what was discovered; this section is the correction.
+
+What remains is largely not reclaimable — `claude` (491 M) is the working session, and `agy` ×3 plus
+`gnome-shell` total ~680 M. **A decisive margin still needs the larger swapfile, which needs root.**
