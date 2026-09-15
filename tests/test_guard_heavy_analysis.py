@@ -79,3 +79,32 @@ def test_does_not_match_a_shell_that_merely_mentions_the_path(tmp_path, monkeypa
     src = Path(gha.__file__).read_text() if hasattr(gha, "__file__") else ""
     assert "argv0" in src, "detection must key on argv[0], not the whole cmdline"
     assert 'cmd.split(" ", 1)[0]' in src
+
+
+def test_marker_covers_both_villa_checkouts():
+    """Third detection gap: fits run from villa-spiral-CURRENT, renders from
+    villa-spiral. A marker naming either one ignores the other entirely."""
+    assert "villa-spiral/" not in gha.VILLA_VENV_MARK, (
+        "marker pins one checkout; villa-spiral-current fits would go undetected"
+    )
+    for checkout in ("villa-spiral", "villa-spiral-current"):
+        path = f"/home/jon/ws/{checkout}/spiral-fitting/.venv/bin/python"
+        assert gha.VILLA_VENV_MARK in path, f"{checkout} not matched"
+
+
+def test_fail_if_any_refuses_regardless_of_free_memory(monkeypatch, capsys):
+    """Headroom is the wrong question for a job that must not run concurrently.
+    A caller using --need-gb 2 to mean 'is anything running' passes whenever
+    memory is plentiful, which is exactly when a second render is most tempting."""
+    monkeypatch.setattr(gha, "render_in_flight", lambda: [(7, "villa python")])
+    monkeypatch.setattr(gha, "free_gb", lambda: 999.0)
+    monkeypatch.setattr("sys.argv", ["x", "--fail-if-any"])
+    assert gha.main() == 1
+    assert "must not run alongside" in capsys.readouterr().out
+
+
+def test_fail_if_any_passes_when_nothing_runs(monkeypatch, capsys):
+    monkeypatch.setattr(gha, "render_in_flight", lambda: [])
+    monkeypatch.setattr("sys.argv", ["x", "--fail-if-any"])
+    assert gha.main() == 0
+    assert "no villa job in flight" in capsys.readouterr().out

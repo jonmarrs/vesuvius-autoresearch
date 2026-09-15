@@ -31,7 +31,13 @@ from pathlib import Path
 # alone reports "no render in flight" during the single most memory-hungry stage --
 # 25GB RSS, the stage that has OOM-killed this box three times. That is the
 # dangerous direction, and this guard shipped with it. Match BOTH families.
-VILLA_VENV_MARK = "villa-spiral/spiral-fitting/.venv"
+# NOT "villa-spiral/spiral-fitting/.venv". There are TWO checkouts on this box --
+# renders run from villa-spiral, fits from villa-spiral-CURRENT -- and a marker
+# naming one silently ignored every fit. Match the path they share, which also
+# covers any future checkout name. Third detection gap in this guard, all the same
+# family: a pattern inferred from one observed example rather than enumerated
+# against what actually runs.
+VILLA_VENV_MARK = "spiral-fitting/.venv"
 RENDER_BINARIES = (
     "vc_render_tifxyz",
     "vc_render_tifxy",
@@ -116,7 +122,26 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--need-gb", type=float, default=DEFAULT_NEED_GB)
     ap.add_argument("--force", action="store_true")
+    ap.add_argument(
+        "--fail-if-any",
+        action="store_true",
+        help="refuse whenever ANY villa job is running, however much RAM is free. "
+        "Headroom is the wrong question for a job that must not run concurrently: "
+        "renders are sequential by design, and a caller asking --need-gb 2 to mean "
+        "'is anything running' gets a pass whenever memory happens to be plentiful.",
+    )
     args = ap.parse_args()
+    if args.fail_if_any:
+        procs = render_in_flight()
+        if procs and not args.force:
+            print(
+                f"guard: {len(procs)} villa job(s) in flight; this must not run alongside one"
+            )
+            for pid, cmd in procs[:3]:
+                print(f"         pid {pid}  {cmd}")
+            return 1
+        print("guard: no villa job in flight")
+        return 0
     return 0 if require_headroom(args.need_gb, args.force) else 1
 
 
