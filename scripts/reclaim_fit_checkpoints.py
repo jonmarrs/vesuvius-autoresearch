@@ -3,7 +3,19 @@ re-render or re-analysis needs.
 
 2026-09-14: `/` reached 99% full with 14G free while a 3-arm study had two arms
 still to render. Each arm costs ~5G persistently, so the chain was projected to
-finish its last arm at ~3G -- below the 10G `preflight.sh` wants for a single arm.
+finish its last arm at ~3G.
+
+**Corrected the same day, and the correction matters for how urgently to use this.**
+I first called that certain failure by quoting `MIN_FREE_GB=10` from `preflight.sh`
+as though a render needs 10G. It is a conservative DEFAULT, not a measurement.
+Measured: the villa archive is 0.02G, the meshes copied in are 287M, and an arm's
+persistent output is 639M, so a render wants low single-digit GB. Reading a safety
+constant as a hard requirement is the same error as quoting a bound measured on
+one quantity for a different one.
+
+Disk is still worth reclaiming -- 99% full leaves no room for a mistake, and fits
+swing ~8G while checkpointing -- but this is maintenance, not a rescue. The thing
+that actually killed an arm was MEMORY: see reports/the_render_margin_is_800MB.md.
 
 A fit directory is ~4.3G, and it decomposes:
 
