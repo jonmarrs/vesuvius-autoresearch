@@ -124,3 +124,50 @@ plausible mechanism. It is the version worth registering, if the direction is pu
 **I also had to correct myself mid-probe.** The first radius comparison used a hardcoded axis guess of
 (4500, 4700). The derived axis is (3874, 5461), and the effect it gives is roughly twice the size. A
 geometric claim resting on an unverified centre is not a measurement.
+
+---
+
+## Second addendum: the off-mode points are one voxel away — that is quantisation, not drift
+
+Before proposing the narrow study above, the gating question was how far a snap would actually move a
+label. For every off-mode point, the nearest voxel at the modal value was located by direct search
+(±6 level-1 voxels, offsets ordered by distance so the first hit is the nearest):
+
+| | level-1 voxels | level-0 voxels |
+|---|---:|---:|
+| median | **1.00** | 2.00 |
+| p25 / p75 | 1.00 / 1.00 | 2.00 / 2.00 |
+| p90 | 1.41 | 2.83 |
+
+**100%** of off-mode points had an on-surface voxel within the search radius.
+
+**The median is exactly 1.00, the smallest non-zero distance a voxel grid admits**, and p75 is also
+1.00 — about three quarters of off-mode points are simply *adjacent* to an on-surface voxel. That is
+what **discretisation** looks like: a label lying on the surface but falling the wrong side of a voxel
+boundary reads as off-mode. Genuine drift — labels sitting in the wrong fibre layer, which is what
+villa's figures show — would give larger and far more varied distances.
+
+### This weakens the narrow study proposed above, and probably kills it
+
+The first addendum proposed registering "do the outer-winding labels repay snapping?" on the strength
+of the off-mode population being real and spatially concentrated. **It is spatially concentrated and
+probably not real.** Snapping would move those points by one voxel, into an adjacent voxel that the
+fit's own interpolation already spans.
+
+It also supplies a competing explanation for the radius effect, and a duller one: surfaces at larger
+radius meet the voxel grid more obliquely, so more of their points land off-voxel. **The radius
+finding may be measuring grid geometry rather than label quality.** That was not tested and is not
+distinguished by anything measured here.
+
+### Standing conclusion
+
+**Do not run a label-snapping study on this dataset at this resolution** — neither the general version
+nor the narrow one. 85–91% of labels sit exactly on the surface, and the remainder sit one voxel off,
+which is the resolution floor rather than an error to correct.
+
+The only version that could still be live needs **full-resolution data**, where sub-voxel drift is
+distinguishable from voxel-boundary rounding. That is a different dataset, not a different analysis.
+
+**Recorded because it reverses my own proposal from an hour earlier.** The first addendum should have
+asked how far snapping would move things *before* declaring the question well-posed — the same
+ordering error the parent probe exists to prevent, repeated one level down.
