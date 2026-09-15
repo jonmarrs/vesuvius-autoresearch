@@ -146,8 +146,17 @@ def test_the_submit_text_keeps_the_disclosure_and_the_tier():
 
 
 @pytest.mark.skipif(not _SUBMIT.exists(), reason="submit file not prepared")
-def test_the_submit_text_excludes_the_unfinished_placement_work():
-    """It is exploratory, its mechanism is unexplained, and its forward test was
-    still running. It must not reach a submission by being nearby."""
+def test_the_submit_text_may_cite_the_placement_work_but_never_its_mechanism():
+    """The exclusion was CONDITIONAL -- "does not go in a submission until it has
+    survived that test" -- and on 2026-09-15 it survived: predicted 0.877, measured
+    0.875 and 0.893. So the result is admissible.
+
+    What stays excluded is the part that is still unknown. Why placement reproduces
+    at 0.70 while the count reproduces to 1.2% is unexplained after two failed
+    tests, and a submission must not imply otherwise."""
     t = _submit_text()
-    assert "0.884" not in t and "consensus" not in t.lower().split("## do not add")[0]
+    body = t.lower().split("## do not add")[0]
+    # 0.884 was the superseded three-arm prediction; only 0.877 was registered.
+    assert "0.884" not in t, "cites the superseded prediction"
+    for claim in ("because the fit", "mechanism is", "explained by", "the cause is"):
+        assert claim not in body, f"submission implies a mechanism: {claim!r}"

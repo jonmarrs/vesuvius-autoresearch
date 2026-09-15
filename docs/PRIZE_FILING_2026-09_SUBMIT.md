@@ -30,7 +30,7 @@ After submitting, tag the commit `submission/2026-09`, matching `submission/2026
 
 ## Field 1 — "Short description of how your contributions substantially increase the probability of reading complete scrolls"
 
-Three measurements on the villa spiral loop **as it runs today**.
+Four measurements on the villa spiral loop **as it runs today**.
 
 **The robustness check `autoresearch.md` prescribes accepts one null change in six.** Requiring both
 runs of a change to beat both baseline runs is a rank test: under no effect it passes with
@@ -39,6 +39,15 @@ probability exactly **1/C(2k,k)**, independent of noise, metric or code version.
 
 **Its seed noise is 0.0263** on `total_fg_pixels` (nine 30,000-step fits, pooled within-arm), so the
 loop resolves about **6%** at three fits per arm — worth knowing before chasing smaller ones.
+
+**Those two seeds are worth more averaged than compared.** Fits differing only by RNG seed agree on
+`total_fg_pixels` to 1.2% but on ink *placement* to only **r = 0.70** — two runs scoring identically
+are not reading the same text. The differences behave like independent noise, so averaging recovers
+what theory says it should. Pre-registered at **r = 0.877** for a 3-seed consensus before the arms
+existed, then measured at **0.875** and **0.893**, both inside the registered band, with the analysis
+run unattended and one earlier comparison structurally retired. **A loop already paying for two seeds
+should keep the consensus rather than the winner.** Thresholding on detector confidence was tested as
+an alternative and refuted: at matched sparsity it is worse than random.
 
 **Two registered ablations bound what winding constraints buy for *reading*** — the endpoint every
 such project in villa's catalogue leaves unmeasured. Removing 5,413 same-winding constraints:
@@ -52,7 +61,7 @@ interval is wide.
 
 No external adoption of the *measurements* is demonstrated, and the writeup says so plainly.
 
-**What is upstream: two merged fixes, three pending.** The criteria reward resolving bugs in tools you
+**What is upstream: four merged fixes, two pending.** The criteria reward resolving bugs in tools you
 use yourself, so these are named rather than left out:
 
 | PR | status | what it fixes |
@@ -61,16 +70,17 @@ use yourself, so these are named rather than left out:
 | **#1722** | **MERGED** 2026-09-14 | `get_ink_metrics.py` writes two metrics; neither was documented |
 | #1723 | open | which resident-pool sidecars the defaults actually load |
 | #1728 | open | `render_ink` silently produced an entirely black strip; now warns |
-| #1780 | open | `autoresearch.md` overstated what the two-seed robustness check accepts |
+| **#1780** | **MERGED** 2026-09-15 | `autoresearch.md` overstated what the two-seed robustness check accepts |
+| **#1805** | **MERGED** 2026-09-15 | `metrics.json` recorded the model repo id but not which snapshot produced the score |
 
 Every one came out of running villa's own pipeline here. #1728 in particular is the fix for a failure
 that cost us hours: a blank render is indistinguishable from a successful one in the logs, which is
 how we first mis-diagnosed a mistyped path as a VOID result.
 
-**This is five PRs against a merged total of two, both documentation fixes.** It is
+**This is six PRs against a merged total of four.** #1805 was one line and merged in about thirty minutes. It is
 offered as evidence of the practice, not as an adoption claim.
 
-What exists is outbound and, honestly, unanswered: six villa issues are open from us and four have
+What exists is outbound and, honestly, unanswered: six villa issues are open from us and three have
 zero comments, the oldest since August. We checked upstream and none has been resolved. We are not
 filing more issues while that backlog stands.
 
@@ -131,6 +141,9 @@ hidden.
 * Not "the avenue is refuted" — the current-code null bounds ±3%, the pinned-tier ones ~12%.
 * Not any adoption claim. There is none.
 * Not that these results describe current villa. They describe `6847063f`.
-* **Not the ink-placement work.** It is exploratory, its mechanism is unexplained after two failed
-  tests, and its forward prediction was still running when this was written. It does not go in a
-  submission until it has survived that test.
+* **The ink-placement work is now admissible, because it met this rule's own condition.** The rule
+  said it "does not go in a submission until it has survived that test". The forward test ran on
+  2026-09-15 and CONFIRMED: predicted 0.877, measured 0.875 and 0.893. It is in Field 1.
+* **But still not any mechanism claim.** *Why* placement reproduces at 0.70 while the count
+  reproduces to 1.2% remains unexplained after two failed tests. Field 1 says what averaging buys,
+  never why the instability exists.

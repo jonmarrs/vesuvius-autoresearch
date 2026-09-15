@@ -19,7 +19,22 @@ The six released `PHerc.1667-iteration-N` checkpoints document their input conve
 
 > Intensity should already be in roughly [0, 1] (the training pipeline clipped raw uint8 layers to [0, 200] then applied Normalize(mean=0, std=1) which keeps the magnitude small).
 
-`Normalize(mean=0, std=1)` computes `(x - 0) / 1`, so it is the identity. Clipping raw uint8 to [0, 200] and applying it leaves values in [0, 200], not "roughly [0, 1]". The sentence contradicts itself.
+~~`Normalize(mean=0, std=1)` computes `(x - 0) / 1`, so it is the identity. Clipping raw uint8 to
+[0, 200] and applying it leaves values in [0, 200], not "roughly [0, 1]". The sentence contradicts
+itself.~~
+
+**RETRACTED 2026-09-15. This was wrong, and it was wrong in public on #1659.** Albumentations'
+`Normalize` divides by `max_pixel_value` (default **255.0**) *before* applying mean and std, so
+`Normalize(mean=0, std=1)` is **`x/255`**, not the identity. Verified here on albumentations 1.3.1:
+`[0, 100, 200, 255]` → `[0.0, 0.3922, 0.7843, 1.0]`, exactly `x/255`.
+
+So the card's prose was **correct** — clip to [0, 200] then Normalize does land in roughly [0, 0.78] —
+and the sentence did not contradict itself; we misread the transform. The `clip(0,200)/255` we
+reported as "undocumented" **is** the documented one, computed correctly.
+
+Caught by @khj1222 on #1659, who also reproduced the ranking against annotation ground truth (AP 0.47
+raw → 0.88 for `clip/200`) rather than by firing rate alone. Our *ranking* stands; our *mechanism*
+did not.
 
 **3. The model card's own full-segment inference snippet**, which normalises nothing:
 
