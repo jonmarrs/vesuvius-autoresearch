@@ -205,3 +205,27 @@ Both arms cleared the registered validity gate: `s8` 2,881,173 and `s9` 2,818,86
 `curbase_s7`'s recovery render began automatically when the chain cleared, and its own log confirms
 the pin held: `[setup_workdir] villa be09a8503 -> be09a85035059fd8...`. So the recovered arm is
 render-equivalent to `s8` and `s9`, and triplet C stays internally clean.
+
+### s7 measured: 31.3 G, and why resident alone would have misled
+
+`curbase_s7`'s recovery render was sampled directly rather than inferred from its kills:
+
+```
+rss 20.42 G  +  swap 10.92 G  =  working set 31.34 G
+```
+
+That completes the picture across three arms of the same study:
+
+| arm | working set | render | |
+|---|---:|---:|---|
+| `s9` | ~26 G | 88 m | fits in RAM |
+| `s7` | **31.3 G** | in progress, band 12/35 at 102 m | thrashes |
+| `s8` | 32.8 G | 194 m | thrashes |
+
+Yesterday's estimate of s7's footprint came from the OOM kills, which report **anon-rss** — 28.2–28.7 G,
+resident only, at the moment of death. The true working set is higher because it excludes what was
+already paged out. The kills were not wrong; they measure a different thing.
+
+**This is the clearest argument for sampling both numbers.** At the moment above, resident alone reads
+**20.4 G** — comfortable, on a 31.3 G box — while a third of the job sits in swap. Anything watching
+RSS would have called this arm healthier than `s9`, which actually fits.
