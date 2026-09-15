@@ -274,8 +274,12 @@ From `r_single = 0.7040`, the independent-noise model `r_k = 1 / (1 + ratio/k)` 
 | 2 | 0.8263 | 0.826 |
 | **3** | **0.8771** | **0.877** |
 
-All three agree; the `0.4204` in the text is a rounding of `0.4205`. **The prediction of 0.877 follows
-from the stated model and input.**
+All three agree. **The prediction of 0.877 follows from the stated model and input.**
+
+*Corrected 2026-09-15, after the box was free:* this section originally said the registration's
+`0.4204` was "a rounding of `0.4205`". It is the other way round. Recomputing all 15 pairs gives a
+ratio of **0.4204** from the unrounded mean; the `0.4205` came from feeding the *displayed* four-digit
+`0.7040` back into the formula. The registration was right and the amendment checking it was wrong.
 
 The input is corroborated independently, too. `reports/render_confound_is_bounded_and_minor.md`
 measured the three within-A seed pairs for a different purpose — bounding the render confound — and
@@ -285,3 +289,7 @@ across all 15 pairs.
 Recomputing all 15 pairs would mean loading six arms while `curbase_s7` renders;
 `guard_heavy_analysis.py` refuses, and that refusal is respected. The check above is the part that
 could be done without putting the in-flight arm at risk.
+
+**Done once the box was free, and it reproduces exactly:** mean `r = 0.7040` over 15 pairs, range
+`0.630–0.808`, ratio `0.4204`, k=3 prediction `0.8771`. Every figure the registration states is
+reproducible from the arms, so the prediction's input is verified rather than merely corroborated.
