@@ -166,7 +166,11 @@ nor the narrow one. 85–91% of labels sit exactly on the surface, and the remai
 which is the resolution floor rather than an error to correct.
 
 The only version that could still be live needs **full-resolution data**, where sub-voxel drift is
-distinguishable from voxel-boundary rounding. That is a different dataset, not a different analysis.
+distinguishable from voxel-boundary rounding. That is a different dataset, not a different analysis —
+**and it does not fit on this machine.** The level-1 field alone is 32.6 GiB of the 51 GiB dataset;
+level 0 is 8× the voxels, and a surface-sparse store scales roughly with area, so the same field at
+full resolution is **~130–260 GiB** against **30 GiB** free. So the remaining version of this question
+is not merely unstarted here, it is not runnable here.
 
 **Recorded because it reverses my own proposal from an hour earlier.** The first addendum should have
 asked how far snapping would move things *before* declaring the question well-posed — the same
