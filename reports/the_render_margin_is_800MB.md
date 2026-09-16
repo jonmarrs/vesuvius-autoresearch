@@ -229,3 +229,29 @@ already paged out. The kills were not wrong; they measure a different thing.
 **This is the clearest argument for sampling both numbers.** At the moment above, resident alone reads
 **20.4 G** — comfortable, on a 31.3 G box — while a third of the job sits in swap. Anything watching
 RSS would have called this arm healthier than `s9`, which actually fits.
+
+## Second reclaim, 2026-09-16: the finished study's checkpoints
+
+With the consensus study complete — 9/9 arms scored, verdict CONFIRMED and written, k=2 follow-up
+done — the protection `reclaim_fit_checkpoints.py` placed on `curbase_s1–s9` was lifted with `--also`
+and their checkpoints removed: **35.6 G freed, 30 G → 65 G (97% → 94% full)**.
+
+**Verified by re-deriving the result, not by listing files.** After the reclaim the registered analysis
+was re-run and reproduced its verdict exactly — **A-vs-C 0.875, B-vs-C 0.893, CONFIRMED** — which is
+the only check that proves nothing the study depends on was deleted. All nine arms keep their meshes
+and `satisfied_fitted.json`, and the 8.8 G of `outer_*` directories the analysis actually reads are
+untouched.
+
+Cumulative across both reclaims: **76.7 G**, with every arm still re-renderable.
+
+### What was deliberately left, and one trap
+
+* **`~/.cache/uv` (43 G), `pre-commit` (3.9 G), `ms-playwright` (3.7 G)** — regenerable, but they
+  belong to the wider environment rather than this project. Clearing them would slow or break other
+  work for space that is no longer needed.
+* **Docker reports 18.98 G of "reclaimable" images — do not `docker image prune -a`.** That figure
+  counts every image not bound to a *running* container, and with no render in flight it includes
+  **`vc-render:local` (13.6 G)**, which every render needs and which costs a rebuild to replace. The
+  plain `docker image prune` used yesterday only removes dangling layers and is safe.
+* **Docker volumes show 4.754 G "100% reclaimable"** — not touched, because a volume's contents are
+  not identifiable from that summary.
