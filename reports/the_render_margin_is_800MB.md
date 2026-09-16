@@ -255,3 +255,30 @@ Cumulative across both reclaims: **76.7 G**, with every arm still re-renderable.
   plain `docker image prune` used yesterday only removes dangling layers and is safe.
 * **Docker volumes show 4.754 G "100% reclaimable"** — not touched, because a volume's contents are
   not identifiable from that summary.
+
+
+## The disk constraint is gone, 2026-09-16 — memory is not
+
+The VM's virtual disk was grown **1 TiB → 2 TiB** on the KVM host; the guest kernel logged
+`vda: detected capacity change`, and `growpart /dev/vda 2` + `resize2fs /dev/vda2` extended the
+partition and filesystem to fill it.
+
+| | before | after |
+|---|---:|---:|
+| filesystem | 1006.85 GiB | **2014.79 GiB** |
+| available | 64.86 GiB | **1031.84 GiB** |
+| full | 94% | **47%** |
+| ext4 reserved | 51.22 GiB | **92.17 GiB** |
+
+**Everything in this report about disk pressure is now historical.** The 41.1 G and 35.6 G reclaims
+were correct when made and their verification still stands, but neither should be cited as evidence
+the box is short of space, and no future study needs to budget 5 G per arm against a tight margin.
+
+Two things did *not* change, and they are the ones that matter:
+
+* **Memory is still the binding constraint.** 31.3 GiB of RAM against a measured ~28.5 GiB render
+  peak. That is what killed `curbase_s7` three times, and a larger disk does nothing for it. The
+  24 GiB of swap is what makes a thrashing render survive, at roughly 2× the wall time.
+* **ext4's reserve scales with the filesystem**, so growing the disk silently set aside another
+  ~41 GiB: 51.22 → 92.17 GiB. `tune2fs -m 1 /dev/vda2` would return ~72 GiB of that. Not urgent at
+  47% full, recorded so it is not rediscovered as a mystery.

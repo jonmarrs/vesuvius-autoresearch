@@ -17,6 +17,13 @@ Disk is still worth reclaiming -- 99% full leaves no room for a mistake, and fit
 swing ~8G while checkpointing -- but this is maintenance, not a rescue. The thing
 that actually killed an arm was MEMORY: see reports/the_render_margin_is_800MB.md.
 
+**SUPERSEDED as an urgency, 2026-09-16.** The VM's virtual disk was grown from 1 TiB
+to 2 TiB on the host, and the partition and filesystem extended to match: ~1.03 TiB
+free at 47% full. This tool is still correct and still worth running on finished
+studies, but the pressure that motivated it is gone. Do not invoke it as a rescue,
+and do not let its 2026-09-14 framing imply the box is short of disk. **Memory is
+still the binding constraint** -- 31.3 GiB against a ~28.5 GiB render peak.
+
 A fit directory is ~4.3G, and it decomposes:
 
     checkpoint_fitted.ckpt   4.0G   optimizer state; needed only to RESUME a fit
