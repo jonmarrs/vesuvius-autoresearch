@@ -529,5 +529,32 @@ endpoint is **placement**, the very quantity that comes apart from the count. Re
 first, then bounded when the data allowed.
 `reports/render_confound_is_bounded_and_minor.md`.
 
+**38. Why the count reproduces when the placement does not — and one named mechanism, measured
+small.** The earlier offsets work killed the *tangential* surface explanation and named the test it
+had not run: ink agreement against local **normal** surface separation, to which an angular test is
+blind by construction. Run on three disjoint render-clean pairs: median Spearman **ρ = −0.117**, all
+three negative, all clearing a shuffled control, with the two fitted surfaces sitting a median
+**3.5–5.0 voxels** apart. WEAK by the registered rule, and the registered prediction of WEAK was met.
+**So normal displacement is a real contributor and not the mechanism** — it narrows what remains
+rather than explaining it.
+
+The bigger number came from a control the registration forced. **About half the ink-bearing bins hold
+ink in only one arm**, yet those bins carry only **14–20% of the pair's ink**. That reconciles the
+finding this whole line rests on: the count reproduces to 1.2% while placement reproduces at 0.70
+because **the disagreement is concentrated in sparse, low-ink bins** while the bulk of the ink lands
+where both arms agree. Dropping those bins silently would have hidden it.
+`reports/normal_separation_contributes_but_does_not_explain.md`.
+
+**39. Label snapping has no headroom on this dataset — closed by three cheap probes, not a study.**
+villa names label quality "one of the main unwrapping bottlenecks" and proposes snapping labels onto
+the CT-derived surface. Against `surf_sdt` — independent of the fit, so not circular the way selecting
+on the fit's own residual was — label points have **IQR 0.0** and sit on a single value, against IQR
+6.0 for random points in a field spanning 0–167: **12× more concentrated, 3.1× enriched.** The 11–18%
+that are off-mode sit a median of **exactly 1.00 level-1 voxel** from an on-surface voxel, which is
+the resolution floor and the signature of **quantisation, not drift**. The finest surface field
+published is the one analysed, so no larger disk changes this; deriving a full-resolution one means
+segmenting the surface, which is the unsolved problem labels exist to approximate.
+`reports/label_snapping_feasibility_probe.md`.
+
 Reproduce: `repro/spiral_render/`, `scripts/measure_winding_overlap.py`,
 `scripts/analyse_seed_spread.py`. All from published artifacts.
