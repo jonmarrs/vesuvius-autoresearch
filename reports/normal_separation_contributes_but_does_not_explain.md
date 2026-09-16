@@ -1,0 +1,67 @@
+# Normal surface separation is a real contributor to seed disagreement — and a small one
+
+**2026-09-16.** Registered in `docs/preregistration/2026-09-16_normal_separation_explains_disagreement.md`,
+written before the statistic was computed.
+
+## What this tested, and why it was the next thing
+
+`reports/ink_offsets_are_not_coherent.md` killed the *tangential* form of the surface explanation and
+named the test it had not run: **ink agreement as a function of local normal surface separation**. A
+purely normal displacement moves the sheet through the volume without rotating it — changing which
+voxels the detector samples while shifting nothing angularly — so the earlier test was blind to it by
+construction.
+
+This matters because placement reproduces between seeds at only **r ≈ 0.70** while the count
+reproduces to **1.2%**, and the mechanism had survived two attempts. The scorer is already excluded:
+re-scoring one strip moves the count by **0.0009%**.
+
+## Result
+
+Render-clean arms only (`s4–s9`, all `be09a8503`), three disjoint pairs, compared in volume (z, θ)
+bins about an axis **derived from the data** (cx 4163, cy 5004):
+
+| pair | bins | median separation | ρ | shuffled 95% | |
+|---|---:|---:|---:|---|---|
+| s4–s7 | 2,429 | 3.98 vx | **−0.117** | [−0.039, +0.037] | exceeds |
+| s5–s8 | 2,753 | 3.52 vx | **−0.074** | [−0.034, +0.041] | exceeds |
+| s6–s9 | 2,323 | 4.98 vx | **−0.172** | [−0.036, +0.034] | exceeds |
+
+**Median ρ = −0.117 → WEAK** by the registered rule. **Registered prediction (WEAK, −0.10 to −0.30):
+MET.**
+
+All three pairs are negative, all three clear the shuffled control, and the sign is the mechanically
+sensible one: bins where the two fitted surfaces sit further apart agree less about ink.
+
+## What it means
+
+**The surface explanation survives, in its normal form, as a contributor — not as the mechanism.**
+ρ ≈ −0.12 is a real but small association. Two seeds' surfaces sit a median **3.5–5.0 voxels** apart,
+and that separation accounts for a minor part of where they disagree about ink.
+
+This moves the open question from *"unexplained after two failed tests"* to *"one named mechanism
+confirmed present and measured small"*, which is progress of a modest kind: it narrows what remains to
+be explained rather than explaining it.
+
+## The number the registration forced me to report
+
+**About half the ink-bearing bins have ink in only one arm** (2,506–2,882 excluded per pair, against
+2,323–2,753 kept). Those bins are numerous but **ink-poor: they hold only 14–20% of each pair's ink.**
+
+Both halves matter. Half the bins disagreeing outright is a stark restatement of how unstable
+placement is. Their holding only ~17% of the ink is why the *count* can still reproduce to 1.2% —
+the disagreement is concentrated in sparse, low-ink bins while the bulk of the ink lands in bins both
+arms find.
+
+Excluding them was registered in advance precisely because dropping them silently would have biased
+the correlation toward agreement.
+
+## Limits
+
+* **It cannot separate fitting from flattening.** Both move the surface; this measures the surface,
+  not its cause.
+* **ρ ≈ −0.12 leaves most of the disagreement unaccounted for.** Nothing here identifies what does
+  account for it.
+* Three pairs from one scroll region. Disjoint in arms, but not independent evidence about scrolls.
+* The per-bin agreement statistic (`min/max` of binned ink) is one reasonable choice among several and
+  was fixed in advance; other choices were not tried, and trying several would be exactly the sweep
+  this project's registrations exist to prevent.
