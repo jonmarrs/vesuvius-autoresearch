@@ -490,7 +490,8 @@ Re-scoring the same strip with the same code moves `total_fg_pixels` by **26 pix
 (0.0009%)**. Against 1.44% for a render-code change and ~2.5% CV seed-to-seed, **the fit dominates and
 there is nothing to stabilise in the scoring step.** This also sharpens finding 29: placement
 reproducing at only r ≈ 0.70 is a property of fitting and flattening, not of a noisy detector — given
-the same strip twice, the detector returns the same answer.
+the same strip twice, the detector returns the same answer. *(Qualified by finding 40: part of that
+0.70 is the binning, not the pipeline.)*
 
 **35. Detector confidence predicts which ink reproduces — and thresholding on it does not help.**
 *(exploratory)* Ink in bins all three seeds agree on is more confident than ink only one found:
@@ -555,6 +556,24 @@ the resolution floor and the signature of **quantisation, not drift**. The fines
 published is the one analysed, so no larger disk changes this; deriving a full-resolution one means
 segmenting the surface, which is the unsolved problem labels exist to approximate.
 `reports/label_snapping_feasibility_probe.md`.
+
+**40. Part of the "placement instability" is the measurement, not the pipeline.** Fitting
+`log|ink_A − ink_B| = a + b·log(mean ink)` per bin across three disjoint render-clean pairs gives
+median **b = 0.723**, against **0.5** for pure counting noise and **1.0** for proportional scatter.
+MIXED by the registered rule, prediction met. Scatter grows *faster* than √mean — so something
+systematic moves ink in proportion to content — but *slower* than proportionally, so a meaningful
+share of the disagreement is sparse bins flipping between present and absent with nothing having
+moved.
+
+The shuffled control, registered as a guard, answered a second question: **randomly paired bins give
+b ≈ 1.0**, so proportional scatter is what *no relationship* looks like, and the observed 0.72 sitting
+far below it on all three pairs shows the arms share real structure.
+
+**Consequence for the headline: r ≈ 0.70 UNDERSTATES how much the pipeline agrees**, and should be
+read as a property of the measurement as well as of fitting and flattening — a different binning
+would move it. Nothing in findings 36–38 is overturned: averaging works whether the residual noise is
+Poisson or geometric, and that was confirmed forward at two values of k.
+`reports/the_disagreement_is_part_counting_noise.md`.
 
 Reproduce: `repro/spiral_render/`, `scripts/measure_winding_overlap.py`,
 `scripts/analyse_seed_spread.py`. All from published artifacts.

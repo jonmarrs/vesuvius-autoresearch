@@ -42,7 +42,9 @@ loop resolves about **6%** at three fits per arm — worth knowing before chasin
 
 **Those two seeds are worth more averaged than compared.** Fits differing only by RNG seed agree on
 `total_fg_pixels` to 1.2% but on ink *placement* to only **r = 0.70** — two runs scoring identically
-are not reading the same text. The differences behave like independent noise, so averaging recovers
+are not reading the same text. (Part of that gap is the binning rather than the pipeline: per-bin
+scatter scales as mean^0.72, between counting noise at 0.5 and proportional at 1.0, so 0.70
+understates true agreement. It does not affect what follows.) The differences behave like independent noise, so averaging recovers
 what theory says it should. Pre-registered at **r = 0.877** for a 3-seed consensus before the arms
 existed, then measured at **0.875** and **0.893**, both inside the registered band, with the analysis
 run unattended and one earlier comparison structurally retired. **A loop already paying for two seeds
