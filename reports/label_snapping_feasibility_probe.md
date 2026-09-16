@@ -166,11 +166,24 @@ nor the narrow one. 85–91% of labels sit exactly on the surface, and the remai
 which is the resolution floor rather than an error to correct.
 
 The only version that could still be live needs **full-resolution data**, where sub-voxel drift is
-distinguishable from voxel-boundary rounding. That is a different dataset, not a different analysis —
-**and it does not fit on this machine.** The level-1 field alone is 32.6 GiB of the 51 GiB dataset;
-level 0 is 8× the voxels, and a surface-sparse store scales roughly with area, so the same field at
-full resolution is **~130–260 GiB** against **30 GiB** free. So the remaining version of this question
-is not merely unstarted here, it is not runnable here.
+distinguishable from voxel-boundary rounding.
+
+**Corrected 2026-09-16 — I closed this for the wrong reason.** The original argument was capacity:
+level 0 would be ~130–260 GiB against 30 GiB free. The VM's disk has since been grown to 2 TiB with
+**1,031 GiB free**, so that argument is simply void.
+
+The real blocker is **data, and it does not depend on disk at all**. Checking what is actually
+published: `lasagna_inputs/` offers exactly three fields — `grad_mag` at `respool_g4`, `nx` at
+`respool_g4_pair`, and `surf_sdt` at **`respool_g1`, which is the finest surface field published**
+and is the one already analysed here. There is no level-0 surface field to download at any disk size.
+
+Full-resolution **CT** *is* published (`full-scrolls/Scroll1/PHercParis4.volpkg/volumes/`), but that
+is raw intensity, not a surface field. Deriving a full-resolution surface distance transform from it
+means segmenting the papyrus surface at full resolution — **which is the unsolved problem villa's
+open-problems page is about**, and the thing labels exist to approximate. Snapping labels to a surface
+you would first have to find is circular in the same way the patch-bootstrap selection was.
+
+So this closes more firmly than before, and for a reason a bigger machine cannot fix.
 
 **Recorded because it reverses my own proposal from an hour earlier.** The first addendum should have
 asked how far snapping would move things *before* declaring the question well-posed — the same
