@@ -1,4 +1,4 @@
-# Draft reply to @ge-al on villa issue #1655 — UNPOSTED, needs approval
+# Reply to @ge-al on villa issue #1655 — POSTED 2026-09-16
 
 **Why this exists.** On 2026-09-08 a contributor (`ge-al`) turned the four obstacles
 I reported in #1655 into a README section on their own branch and offered it to us
@@ -11,9 +11,15 @@ four items were already documented. That comment did not answer their offer, and
 has now been six days. Their branch `6ebe5b3a` is untouched since 09-08, so they may
 still be waiting.
 
-**Rate check.** This is a reply in an existing thread, not a new issue or PR — inside
-the 1-per-day reply allowance. We are at villa's 3-open-PR cap (#1723, #1728, #1780),
-so nothing here could become a PR anyway.
+**Posted** 2026-09-16 as `issuecomment-5698707880`, eight days after the offer.
+
+Re-verified against current upstream `757f70c01` immediately before posting, since the README had
+grown from 40 KB to 55 KB in the interim: all three sections are still present, and each item still
+sits under the heading the reply attributes it to. Only the quoted SHA needed updating.
+
+**Rate basis.** A reply in an existing thread, inside the standing 1-per-day allowance, on a day whose
+allowance was unused — yesterday's went to the #1659 correction. Not treated as approved by silence;
+applied under the standing rule.
 
 **Verification done before drafting**, against villa `983c20fef` (2026-09-14), read
 through the API so the pinned local checkout the running study depends on was not
