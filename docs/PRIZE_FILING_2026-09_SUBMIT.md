@@ -11,10 +11,11 @@ should be edited without editing that too.
    `forms.gle` links belonging to the Grand Prize, First Letters and Title prizes. Verified
    2026-09-12 against `be09a8503` as
    `docs.google.com/forms/d/e/1FAIpQLScNBMj25FMnphngRG1Ciryv_2_Mkdq2YPJOD9WqPfZExII2iQ/viewform`,
-   and re-verified 2026-09-14 against current upstream `983c20fef` through the GitHub API
-   (unchanged). The file carries four form links, so the marker is what distinguishes them.
+   and re-verified 2026-09-18 against current upstream `b1ef996e3` through the GitHub API
+   (unchanged across 32 commits). The file carries four form links, so the marker is what
+   distinguishes them.
 2. **Confirm the deadline still reads 11:59pm Pacific, September 30th, 2026** under
-   `progress-prizes:deadline:start`. Verified at `983c20fef` on 2026-09-14.
+   `progress-prizes:deadline:start`. Re-verified at `b1ef996e3` on 2026-09-18 — twelve days out.
 3. **Run `pytest tests/test_filing_numbers_match_sources.py`** — every figure below is bound to a json
    artifact, and that test fails if any has drifted or if a withdrawn one has crept back.
 4. **Run `./.venv/bin/python scripts/check_filing_upstream_claims.py`** — check 3 covers figures
