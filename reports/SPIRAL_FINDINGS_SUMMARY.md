@@ -593,5 +593,25 @@ sampling excluded; normal separation present but small (ρ = −0.117); small-bi
 and substantial (b = 0.72); **the systematic remainder still unattributed.**
 `reports/the_layer_route_is_refuted.md`.
 
+**42. How much surface an arm puts in a bin dominates the ink disagreement — and the registered
+mechanism does not explain it.** Ink is predicted on the flattened strip in *pixels* and attributed to
+volume bins, so an arm whose parameterisation is locally denser contributes more ink pixels for the
+same papyrus. Registered as the candidate for finding 40's systematic component. The slope of
+`log(ink ratio)` on `log(density ratio)` is **+0.656, +1.252, +1.952** across the three pairs, all
+clearing shuffled nulls, with genuine density variation to regress on (±0.23 at p5/p95).
+
+**Median 1.252 reads DENSITY DOMINATES by the rule, and that verdict overstates it.** A pure density
+artefact predicts exactly **1.0** — twice the samples, twice the ink pixels. Two slopes exceed that
+and the three disagree by **3×**, so the association is real while the named mechanism accounts for
+neither its size nor its instability. **Partial coverage** is the leading alternative — bins where a
+surface does not extend get both fewer samples and less ink — and it was deliberately **not** tested,
+because restricting to full-coverage bins after seeing a result that needs rescuing is the sweep these
+registrations exist to prevent.
+
+So the remainder is **no longer unattributed and not explained either.** The registration's own stated
+limit is the one that bites: this cannot separate a difference in surface *extent* from a difference
+in parameterisation *density*, since both change the sample count.
+`reports/sampling_density_tracks_ink_but_not_proportionally.md`.
+
 Reproduce: `repro/spiral_render/`, `scripts/measure_winding_overlap.py`,
 `scripts/analyse_seed_spread.py`. All from published artifacts.
