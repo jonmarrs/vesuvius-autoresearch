@@ -1,0 +1,74 @@
+# Coverage is refuted — and "density" still does not mechanically explain the effect
+
+**2026-09-18.** Registered in `docs/preregistration/2026-09-18_coverage_or_density.md`, written before
+the statistic was computed. **I predicted COVERAGE and was wrong — the third missed prediction in a
+row in this line.**
+
+## Result
+
+Render-clean arms (`s4–s9`), three disjoint pairs, slope `s` of `log(ink_A/ink_B)` on
+`log(n_A/n_B)`, stratified by quartiles of `c = min(n_A, n_B)` — a bin is well covered only if *both*
+arms put surface there.
+
+| pair | Q1 (sparsest) | Q2 | Q3 | Q4 (best covered) |
+|---|---:|---:|---:|---:|
+| s4–s7 | −0.32 (n=598, ns) | +0.84 (585, ns) | +1.17 (637, sig) | **+0.81** (609, sig) |
+| s5–s8 | +1.00 (633, ns) | +1.06 (720, ns) | +1.41 (702, sig) | **+1.32** (698, sig) |
+| s6–s9 | +1.19 (573, sig) | +2.17 (559, sig) | +1.20 (597, sig) | **+2.22** (594, sig) |
+
+**Q4 median s = +1.321 → DENSITY** by the registered rule. **Prediction (COVERAGE, Q4 s < 0.30):
+MISSED.**
+
+The registration committed to reporting all four quartiles and to treating a monotone Q1→Q4 decline as
+evidence for coverage whatever Q4 landed at. **There is no such decline** — the slope is flat to
+rising. Quartiles are near-equal in size (559–720 bins), so no thin stratum is driving the median.
+
+## What this settles
+
+**Coverage is refuted as the explanation.** The association is strongest, not weakest, in bins both
+arms cover fully. It is an interior effect, not an artefact of surface edges.
+
+**That is a useful negative for villa's objective**, and the reason this sixth test was worth running:
+the concern it was built to check — that `total_fg_pixels` partly counts *how much surface was
+fitted* rather than how well it reads — **is not supported**. The ink ratio does not track the sample
+ratio because one arm's surface stops sooner.
+
+## What it does not settle
+
+**`s > 1` persists in the best-covered bins on two of three pairs (+1.32, +2.22).** A pure
+parameterisation-density artefact predicts exactly 1.0: twice the grid samples over the same papyrus
+is at most twice the ink pixels. Doubling density cannot more than double the ink.
+
+So by the registered rule this reads DENSITY, and mechanically it still cannot be only density. The
+slopes also remain unstable across pairs (0.81 → 2.22), as they were in the parent study.
+
+**The honest position: the effect is real, interior, strongly significant, and unexplained by either
+candidate tested.** Coverage is excluded. Density is named but cannot produce slopes above 1.
+
+## Three wrong predictions in a row, which is worth stating
+
+| test | predicted | observed |
+|---|---|---|
+| layer/depth route | CHAIN SUPPORTED (ρ ≥ 0.30) | REFUTED (ρ = −0.006) |
+| sampling density | SUBSTANTIAL (0.30–0.70) | DENSITY DOMINATES (1.252) |
+| coverage vs density | COVERAGE (Q4 s < 0.30) | DENSITY (Q4 s = 1.321) |
+
+Each was reasoned from the previous result and each was wrong. The registrations still did their work
+— every verdict was fixed before the data, the counter-cases were written down, and one of those
+counter-cases turned out to be the finding. But a run of three says the mechanism here is not yielding
+to the intuition being applied to it, and that is a reason to stop proposing mechanisms from the
+armchair rather than to propose a fourth.
+
+## Where this leaves the ledger
+
+| contribution | status |
+|---|---|
+| scorer | excluded |
+| tangential slide | excluded |
+| depth/layer sampling | excluded |
+| **partial coverage** | **excluded — this result** |
+| normal separation | present, small (ρ = −0.117) |
+| small-bin counting noise | present, substantial (b = 0.72) |
+| **interior sample-count association** | **real, strong, super-proportional, unexplained** |
+
+Four routes closed. The one live factor is quantified and mechanically unaccounted for.
