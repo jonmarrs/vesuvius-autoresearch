@@ -613,5 +613,37 @@ limit is the one that bites: this cannot separate a difference in surface *exten
 in parameterisation *density*, since both change the sample count.
 `reports/sampling_density_tracks_ink_but_not_proportionally.md`.
 
+**43. The sample-count effect is interior, not an edge artefact — and `total_fg_pixels` is not
+quietly counting fitted surface extent.** Finding 42 could not separate surface *extent* from
+parameterisation *density*. Stratifying the slope by quartiles of `min(n_A, n_B)` separates them:
+coverage effects must concentrate where one arm is sparse. **Q4 median s = +1.321, with no monotone
+Q1→Q4 decline** — the slope is flat to rising, quartiles near-equal in size (559–720 bins).
+**Coverage refuted.**
+
+That is the negative worth having: the concern that villa's objective partly counts *how much surface
+was fitted* rather than how well it reads is **not supported**. The ink ratio does not track the
+sample ratio because one arm's surface stops sooner.
+
+**The mechanism remains open.** `s > 1` persists in the best-covered bins on two of three pairs
+(+1.32, +2.22), and pure density predicts exactly 1.0 — twice the samples over the same papyrus is at
+most twice the ink pixels. Real, interior, strongly significant, unexplained by either candidate.
+`reports/coverage_refuted_density_still_unexplained.md`.
+
+## Closing note on the mechanism line
+
+Six registered tests (findings 38–43) took the placement instability from "unexplained after two
+failed attempts" to: **four routes excluded** — scorer, tangential slide, depth sampling, partial
+coverage — **two contributors quantified** — normal separation ρ = −0.117, small-bin counting noise
+b = 0.72 — and **one live factor that is real and mechanically unaccounted for**. All from artifacts
+already on disk; no new compute.
+
+**The last three predictions were all wrong**, each reasoned from the result before it. The
+registrations held — verdicts fixed before the data, counter-cases written down, and one counter-case
+turned out to be the finding — but a run of three says this mechanism is not yielding to the intuition
+being applied to it. **The line is stopped here deliberately**, not exhausted: resolving the remaining
+factor plausibly needs instrumenting the fit itself, which is a different and much larger undertaking
+than analysing retained outputs, and proposing a fourth armchair mechanism is the thing the record
+argues against.
+
 Reproduce: `repro/spiral_render/`, `scripts/measure_winding_overlap.py`,
 `scripts/analyse_seed_spread.py`. All from published artifacts.
