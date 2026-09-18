@@ -575,5 +575,23 @@ would move it. Nothing in findings 36–38 is overturned: averaging works whethe
 Poisson or geometric, and that was confirmed forward at two values of k.
 `reports/the_disagreement_is_part_counting_noise.md`.
 
+**41. The two seeds are not reading the same surface at different depths — they are reading two
+different surfaces, each faithfully.** Registered prediction: a normal surface shift moves which of
+the five retained depth layers the detector reads, which would scale with ink content and so explain
+finding 40's `b = 0.72`. **Refuted, and the prediction missed.** Median Spearman ρ between per-bin
+normal separation and layer-centroid shift is **−0.006**, two of three pairs inside their shuffled
+null, with centroids differing by a median of **0.022 of a layer index** out of five and signed means
+of +0.0000 / +0.0011 / +0.0007 — no systematic direction.
+
+The registration had named this counter-case and called it the more interesting outcome: the render
+resamples *relative to each arm's own surface*, so both centre their stack on their own sheet
+regardless of where those sheets sit. **So the disagreement is not depth sampling; it is what the fit
+decides the surface is.** Whatever scales with ink content must act before the detector.
+
+That closes a third route. The ledger: scorer excluded (0.0009%), tangential slide excluded, depth
+sampling excluded; normal separation present but small (ρ = −0.117); small-bin counting noise present
+and substantial (b = 0.72); **the systematic remainder still unattributed.**
+`reports/the_layer_route_is_refuted.md`.
+
 Reproduce: `repro/spiral_render/`, `scripts/measure_winding_overlap.py`,
 `scripts/analyse_seed_spread.py`. All from published artifacts.
