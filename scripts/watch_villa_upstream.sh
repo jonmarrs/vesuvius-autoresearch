@@ -6,8 +6,9 @@
 # a running comparison depends on move underneath it". This gives you the facts
 # to make that call and stops there.
 #
-# It also never touches the villa-spiral checkout. That tree is where renders and
-# fits are built from, and fetching it mid-study would silently change what future
+# It also never touches the villa-spiral checkout. That tree is what the PINNED-TIER
+# corpus (6847063f, 24 fits) is reproduced from -- renders and fits now default to the
+# submodule instead (corrected 2026-09-19) -- and fetching it would silently change what future
 # work dirs contain, breaking comparability between arms of one comparison. Only
 # the submodule is fetched here. See repro/spiral_render/setup_workdir.sh.
 #

@@ -36,6 +36,16 @@ if [ "$#" -gt 0 ]; then for w in "$@"; do cp -r "$MESHES"/w${w}_spliced_* "$W/me
 else cp -r "$MESHES"/*_spliced_* "$W/meshes/"; fi
 # spiral-fitting must be recent enough to have --remote-url; lasagna and
 # vesuvius/src are siblings it needs.
+# WARN LOUDLY WHEN UNPINNED. Moving the default to the submodule (2026-09-19) put
+# renders on the one checkout the upstream monitor fetches -- origin/main there moved
+# four times on 2026-09-18 alone. The old default was static only because nothing
+# fetched it. So an unpinned run is now materially riskier than it was, and silence
+# is the wrong response to the exact condition that split this project's corpus twice.
+if [ "$VILLA_REF" = "origin/main" ] && [ -z "${VILLA_REF_EXPLICIT:-}" ]; then
+  echo "[setup_workdir] WARNING: VILLA_REF unset, following origin/main -- a MOVING ref." >&2
+  echo "[setup_workdir]   The upstream monitor fetches this checkout; arms built minutes" >&2
+  echo "[setup_workdir]   apart can differ. Set VILLA_REF=<sha> for the whole of a study." >&2
+fi
 VILLA_SHA="$(git -C "$VILLA" rev-parse "$VILLA_REF")"
 git -C "$VILLA" archive "$VILLA_SHA" spiral-fitting lasagna vesuvius/src | tar -x -C "$W"
 # Written before anything else can fail, so even a work dir from a crashed render
