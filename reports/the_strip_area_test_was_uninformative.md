@@ -46,13 +46,22 @@ detected a moderate effect either. What it rules out is a large one.
 
 ## What would actually answer it
 
-Arms with **deliberately varied strip extent** — a config change that grows or shrinks the surface on
-purpose, rather than the incidental 6% spread that fitting produces. Three arms at each of two
-deliberately different extents would carry more information about this than the 39 arms here do,
-because the predictor would actually move.
+~~Arms with **deliberately varied strip extent** — a config change that grows or shrinks the surface
+on purpose. Three arms at each of two extents would carry more information than the 39 here, because
+the predictor would actually move. That is a tractable study on this hardware.~~
 
-That is a tractable study on this hardware. It is not one I should design in the same session that
-produced this one.
+**WITHDRAWN the same day. There is no such config change.**
+`reports/the_knobs_do_not_move_the_strip.md`: seven arms at w010–011, including four distinct
+manipulations — the dense-spacing loss zeroed, the min-spacing loss zeroed, the winding margin zeroed,
+the gap expander changed — span **1.35%** in strip area, against 0.44% for seeds alone.
+
+So the predictor does not move because **nothing the loop tunes moves it**, and no amount of care with
+the statistic would have rescued this test. The follow-up study is not merely hard to size; it has
+nothing to vary, and proposing it as "tractable" was wrong.
+
+The negative this report reaches weakly — no detectable relationship between area and ink — is
+better founded there: villa's loop cannot raise `total_fg_pixels` by enlarging the strip **because its
+knobs do not enlarge the strip**.
 
 ## Record
 
