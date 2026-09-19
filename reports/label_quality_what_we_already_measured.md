@@ -55,9 +55,10 @@ A test with the same structure as the studies above, but with a **non-circular**
    now recurred four times.
 3. Include an **area-matched control**, because changing labels also changes how much evidence the fit
    gets, and a two-arm design cannot separate "better labels" from "different amounts of label".
-4. Power it honestly: at the current-tier seed CV of **0.0263** and three fits per arm, the loop
-   resolves about **6%**. A null below that bounds nothing and must be reported as "no effect larger
-   than ~6%".
+4. Power it honestly: at the current-tier seed CV of **0.0536** and three fits per arm, the loop
+   resolves about **12%**. A null below that bounds nothing and must be reported as "no effect larger
+   than ~12%". *(Corrected 2026-09-19 from 0.0263/6%: six unused `curbase` seeds doubled the floor —
+   `reports/six_unused_seeds_double_the_current_floor.md`. This makes the design MORE demanding.)*
 
 Points 2–4 are the parts this project has already paid to learn, and they are transferable regardless
 of who runs the study.

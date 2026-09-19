@@ -1,5 +1,14 @@
 # The noise floor every study here quotes is wrong in both directions
 
+> **SUPERSEDED for the current tier, 2026-09-19.** Six more `curbase` seeds (`s4`-`s9`) were on disk
+> the whole time and were never in the group. With all nine, the current-tier pooled CV is
+> **0.0536 (df=11, CI [0.0380, 0.0911])**, not 0.0263 — MDE at 3v3 **12.3%**, not 6.0%, so designs
+> budgeted here are optimistic by **2.0×**. The published CI [0.0169, 0.0578] contained 0.0536, which
+> is the **third** time this report's interval was right while its point estimate was not.
+> **"Current code is quieter" is now dead**, not merely unestablished: 0.0514 vs 0.0536, F(18,11)=0.92,
+> **p=0.8416**, and the "this REOPENS research" conclusion below is withdrawn with it.
+> `reports/six_unused_seeds_double_the_current_floor.md`. The pinned-tier figures are unaffected.
+
 **2026-09-12.** Exploratory, prompted by noticing that yesterday's verdict quoted a bound derived
 from a constant measured on a different tree. `scripts/measure_noise_floor.py`,
 `reports/noise_floor_by_tier.json`.

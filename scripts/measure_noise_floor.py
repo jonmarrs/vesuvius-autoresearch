@@ -49,7 +49,23 @@ PINNED_GROUPS = {
     "strip090": ("strip090s1", "strip090s2", "strip090s3"),
 }
 CURRENT_GROUPS = {
-    "curbase": ("curbase_s1", "curbase_s2", "curbase_s3"),
+    # SPLIT BY VILLA TREE, 2026-09-19. Nine curbase seeds exist and only these
+    # first three were ever used, which is how the tier's CV came to be quoted as
+    # 0.0124. s1-s3 were fitted 09-07/08 on submodule d8c5f488a; s4-s9 on 09-13/15,
+    # AFTER the 09-11 13:22 bump to be09a8503 (their script header still says
+    # d8c5f488a -- it was copied from s1 and is stale, the directory dates are the
+    # reliable record). Their means differ by 4.91%, so pooling them as one group
+    # would book a code difference as seed noise. Kept as two groups: the pooled
+    # WITHIN-group statistic is what the floor needs, and it takes both.
+    "curbase_d8c5f488a": ("curbase_s1", "curbase_s2", "curbase_s3"),
+    "curbase_be09a8503": (
+        "curbase_s4",
+        "curbase_s5",
+        "curbase_s6",
+        "curbase_s7",
+        "curbase_s8",
+        "curbase_s9",
+    ),
     "nosamecur": ("nosamecur_s1", "nosamecur_s2", "nosamecur_s3"),
     # Registered but not yet run; contributes nothing until three exist, and a
     # group with fewer than two fits is skipped rather than counted.

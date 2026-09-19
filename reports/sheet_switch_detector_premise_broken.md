@@ -52,7 +52,7 @@ are full-height bands". That test assumed a branch cut must span the patch heigh
 accumulates along **columns** and `branch_offset` is per **subrow**, so wrapping bookkeeping can
 produce localized regions too. The 0.6% figure does not exclude what I claimed it excluded.
 
-**Still standing, and now more puzzling:** seed agreement of 0.9696 against a 0.0263 floor. Whatever
+**Still standing, and now more puzzling:** seed agreement of 0.9696 against a **0.0536** floor *(corrected 2026-09-19 from 0.0263; the contrast is STRONGER, not weaker)*. Whatever
 the flags are, they reproduce across independent fits. Theta bookkeeping is deterministic given the
 geometry, so a bookkeeping artefact would also reproduce perfectly. That result never distinguished
 the two, and its own write-up said so.
