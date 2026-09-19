@@ -32,8 +32,9 @@ against a metric chosen for that track, while the live work is elsewhere.
 
 * **Not that the loop is broken.** It is untested against current dependencies and no claim is made
   either way; that check was not run, because the answer does not change the recommendation.
-* **Not that ink-detection is worthless.** `reports/ink_detection_reproduction_result.md` records
-  reading legible ink at 224px on real Scroll-1 segments, and that result stands. The track being
+* **Not that ink-detection is worthless.** The clean-room 2.5D SegFormer reproduction read legible
+  ink at 224px on real Scroll-1 segments (held-out AUC 0.804) — see `FINDINGS.md` and the code in
+  `repro/ink_segformer/` — and that result stands. The track being
   undeveloped upstream is a statement about villa's direction, not about the physics.
 * **Not a decision.** Retiring a component is the owner's call. This records the evidence that the
   question exists.
