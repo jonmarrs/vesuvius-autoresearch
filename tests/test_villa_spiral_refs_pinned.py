@@ -3,9 +3,21 @@
 **This test guards a rule that was previously enforced by nothing.**
 `scripts/watch_villa_upstream.sh` is careful never to fetch villa-spiral, and says
 so in its header -- but that is one script's good behaviour, not a guarantee. A
-manual `git fetch` in that tree, by anyone, moves `origin/main` and silently
-changes what every FUTURE work dir contains, because
-`repro/spiral_render/setup_workdir.sh` archives `origin/main` by name.
+manual `git fetch` in that tree moves `origin/main`, and these refs are what the
+**pinned-tier corpus** (`6847063f`, 24 fits) is reproduced from.
+
+**Scope corrected 2026-09-19.** This docstring used to add that such a fetch
+"silently changes what every FUTURE work dir contains, because setup_workdir.sh
+archives origin/main by name". That is no longer so: `setup_workdir.sh` now
+defaults `VILLA` to the **submodule**, not villa-spiral, because villa-spiral does
+not contain `be09a8503` and could not serve the pin.
+
+So this tripwire protects **reproducibility of the old corpus**, which is still
+worth protecting, and no longer protects current renders. Those are protected
+differently and deliberately: studies set `VILLA_REF` to a fixed commit, and
+`setup_workdir.sh` records the resolved SHA in `<workdir>/VILLA_SHA`. The submodule's
+`origin/main` DOES move -- the upstream monitor fetches it -- and pinning is what
+makes that safe, rather than freezing the checkout.
 
 The failure mode is the expensive one: arms rendered before the move and arms
 rendered after it are scored by different code, inside a single comparison, with
