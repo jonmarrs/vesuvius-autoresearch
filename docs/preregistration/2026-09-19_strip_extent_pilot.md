@@ -55,8 +55,23 @@ makes no claim that they can.
 
 ## Cost and status
 
-**LAUNCHED 2026-09-19 11:01:49**, `spiral_out/run_bounds_pilot.sh`, arms `bounds_lo` (radius 2720)
-and `bounds_hi` (3680), pinned to `VILLA_REF=be09a8503`. ~11 h of otherwise-idle compute, killable.
+**ABANDONED 2026-09-19 11:41, forty minutes after launching.** The premise was wrong, and the
+decision rule above would have returned GO for a mechanism that does not serve the study:
+`bounds_hi` (3680) excludes **0.0%** of the scored surface and the 3200 default excludes 0.5%, so the
+"high" arm *is* the default, while `bounds_lo` (2720) **clips away 14.8%** of the region the metric
+scores. One-sided clipping, not a symmetric extent knob.
+
+**The rule below is left exactly as registered and was never applied.** No artifact exists;
+`scripts/analyse_bounds_pilot.py` refuses the partial sample. Full account:
+`reports/the_bounds_knob_clips_it_does_not_reshape.md`.
+
+**What this registration failed to check:** it verified the key was *reachable* by the loop, and it
+is. It never asked what the key does to the **scored region** — one percentile of radius about the
+umbilicus, two minutes, and it invalidates the design. Reachability of the knob is not reachability
+of the manipulation.
+
+Originally: launched as `spiral_out/run_bounds_pilot.sh`, arms `bounds_lo` and `bounds_hi`, pinned to
+`VILLA_REF=be09a8503`, ~11 h of otherwise-idle compute, killable.
 
 Two checks made before launching, both from failures earlier the same day:
 
