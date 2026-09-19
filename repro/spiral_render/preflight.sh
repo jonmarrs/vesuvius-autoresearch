@@ -20,7 +20,8 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 
 RENDER_VENV="${RENDER_VENV:-${VENV:-/home/jon/openclaw-workspace/Neo-VM/villa-spiral/spiral-fitting/.venv/bin/python}}"
 SCORE_VENV="${SCORE_VENV:-/home/jon/openclaw-workspace/Neo-VM/data/ink_scorer_venv/bin/python}"
-VILLA="${VILLA:-/home/jon/openclaw-workspace/Neo-VM/villa-spiral}"
+# Must match setup_workdir.sh, or this validates a tree the render will not use.
+VILLA="${VILLA:-$(cd "$HERE/../../villa" && pwd)}"
 IMAGE="${VC_IMAGE:-vc-render:local}"
 MIN_FREE_GB="${MIN_FREE_GB:-10}"
 ARMS_PER_STUDY="${ARMS_PER_STUDY:-3}"

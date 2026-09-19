@@ -3,12 +3,20 @@
 set -euo pipefail
 W="${1:?usage: setup_workdir.sh <workdir> <fitted_meshes_dir> [winding...]}"
 MESHES="${2:?}"; shift 2
-# NOTE the provenance: work dirs are built from THIS checkout's origin/main, which
-# is a different thing from the villa SUBMODULE pinned in this repo. They can and
-# do differ (villa-spiral is at 5479453a; the submodule has been bumped past it and
-# does not even contain that commit). Quote this one when recording what a render
-# ran on, and do NOT fetch it mid-study: every arm of a comparison must be built
-# from the same tree, and a fetch silently changes what future work dirs get.
+# NOTE the provenance: work dirs are built from VILLA's origin/main by default, and
+# a fetch silently changes what future work dirs get -- so do NOT fetch mid-study.
+# Every arm of a comparison must be built from the same tree.
+#
+# VILLA DEFAULTS TO THE SUBMODULE, corrected 2026-09-19. It used to default to
+# .../Neo-VM/villa-spiral, justified by a comment claiming the submodule "does not
+# even contain" villa-spiral's commits. That was false when checked: none of
+# villa-spiral's last 60 origin/main commits is missing from the submodule, and the
+# three extracted trees at the pinned-tier ref 6847063f are IDENTICAL in both. The
+# submodule is a strict superset -- it also has be09a8503, which villa-spiral lacks
+# and which every current pinned study renders from.
+#
+# So the old default could not serve the pin, and a run that set VILLA_REF died
+# inside this script with "unknown revision" after preflight had already passed.
 #
 # That warning was here, addressed to a human, and it did not work. On 2026-09-11
 # a submodule bump moved origin/main mid-corpus and split the arms across two
@@ -20,7 +28,7 @@ MESHES="${2:?}"; shift 2
 # multi-arm study and every arm provably shares a tree; leave it and at least the
 # provenance is auditable afterwards instead of being reconstructed from file
 # mtimes, which is how the 09-11 split was eventually found.
-VILLA="${VILLA:-/home/jon/openclaw-workspace/Neo-VM/villa-spiral}"
+VILLA="${VILLA:-$(cd "$(dirname "$0")/../../villa" && pwd)}"
 VILLA_REF="${VILLA_REF:-origin/main}"
 HERE="$(cd "$(dirname "$0")" && pwd)"
 mkdir -p "$W/meshes" "$W/inkcache"
