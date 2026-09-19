@@ -282,3 +282,32 @@ Two things did *not* change, and they are the ones that matter:
 * **ext4's reserve scales with the filesystem**, so growing the disk silently set aside another
   ~41 GiB: 51.22 → 92.17 GiB. `tune2fs -m 1 /dev/vda2` would return ~72 GiB of that. Not urgent at
   47% full, recorded so it is not rediscovered as a mystery.
+
+## Preflight was validating the checkout studies do not use, 2026-09-19
+
+`preflight.sh` reported **PASS** while checking `villa-spiral`, whose `origin/main` sits at
+`5479453a` — 34 commits behind — and which **does not contain `be09a8503`**, the ref every pinned
+study here renders from. The submodule does contain it and is current at `f07d33be6`.
+
+| | `origin/main` | has `be09a8503`? | who uses it |
+|---|---|---|---|
+| `villa-spiral` | 5479453a | **no** | `preflight.sh`, `setup_workdir.sh` defaults |
+| `projects/…/villa` | f07d33be6 | yes | the consensus chain, `recover_arm.sh` |
+
+So a PASS said nothing about whether the pin could be served. A run that set `VILLA_REF` would die
+inside `setup_workdir` with `unknown revision` **after** preflight had declared everything fine — the
+same defect fixed in `recover_arm.sh` on 2026-09-18, still live one layer up.
+
+**Fixed:** preflight now verifies `VILLA_REF` resolves in the `VILLA` it is checking and **fails** if
+not, warns when `VILLA_REF` is unset that setup will follow a moving ref, and reports when the two
+checkouts disagree. Against `villa-spiral` with the real pin it now fails, correctly, before a
+multi-hour render rather than after:
+
+```
+FAIL VILLA_REF=be09a8503 does NOT resolve in .../villa-spiral -- a render would die at setup
+warn two villa checkouts disagree: villa-spiral origin/main=5479453a7, submodule=f07d33be6
+```
+
+With the submodule and the pin it passes, and `serial_folds.patch` still applies to both that
+checkout and to current upstream — so the reproduction path itself is intact; only the check was
+pointed at the wrong tree.

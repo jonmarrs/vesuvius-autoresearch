@@ -57,6 +57,31 @@ else bad "SCORE_VENV not executable: $SCORE_VENV"; fi
 
 echo
 echo "villa checkout (renders extract origin/main; fits run the WORKING TREE)"
+# THERE ARE TWO CHECKOUTS AND THEY ARE NOT INTERCHANGEABLE. This script, and
+# setup_workdir.sh, default VILLA to villa-spiral. The consensus chain and
+# recover_arm.sh use the SUBMODULE instead, because villa-spiral does not contain
+# be09a8503 -- the ref every pinned study here renders from. So a PASS from this
+# script said nothing about whether the pin could be served, and a run that set
+# VILLA_REF would die inside setup_workdir with "unknown revision" after preflight
+# had already said everything was fine.
+if [ -n "${VILLA_REF:-}" ]; then
+  if git -C "$VILLA" rev-parse --verify -q "${VILLA_REF}^{commit}" >/dev/null 2>&1; then
+    ok "VILLA_REF=$VILLA_REF resolves in $VILLA"
+  else
+    bad "VILLA_REF=$VILLA_REF does NOT resolve in $VILLA -- a render would die at setup"
+  fi
+else
+  warn "VILLA_REF unset: setup_workdir will follow a MOVING ref. Pin it for a study."
+fi
+_SUB="$HERE/../../villa"
+if [ -d "$_SUB/.git" ] || [ -f "$_SUB/.git" ]; then
+  _a=$(git -C "$VILLA" rev-parse --short=9 origin/main 2>/dev/null)
+  _b=$(git -C "$_SUB" rev-parse --short=9 origin/main 2>/dev/null)
+  if [ "$_a" != "$_b" ]; then
+    warn "two villa checkouts disagree: $(basename "$VILLA") origin/main=$_a, submodule=$_b"
+    warn "  studies pinned to a ref only one of them has must set VILLA explicitly"
+  fi
+fi
 # A SUBMODULE's .git is a FILE (a "gitdir:" gitlink), not a directory, so the
 # obvious -d test rejects a perfectly good checkout. Ask git instead of guessing
 # from the filesystem layout.
