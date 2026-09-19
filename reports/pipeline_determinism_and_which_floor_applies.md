@@ -1,5 +1,15 @@
 # The pipeline is deterministic to 1.4%, and I applied the wrong floor to arms B and D
 
+> **The title overstates what was measured, 2026-09-19.** This is **one draw**. A second measurement
+> of the same quantity — `probe_innerprob` re-rendering `seedarm_04`'s meshes, byte-identical by md5,
+> same threshold, folds and model — agrees to **four pixels, +0.0016%**, which is **892× tighter**
+> than the 1.42% below.
+>
+> Nothing here is withdrawn: 1.42% is the larger number, so using it as a floor was conservative and
+> arms B and D clear it either way. But "the pipeline is deterministic to 1.4%" is not established —
+> the spread was never sampled, and neither pair recorded a `VILLA_SHA`, so a render-code difference
+> cannot be excluded. `reports/the_determinism_floor_rests_on_one_draw.md`.
+
 **2026-08-31.** Pre-registered in `docs/preregistration/2026-08-31_pipeline_determinism.md`.
 Prediction met: `|dT| = 0.0142 < 0.02`.
 
