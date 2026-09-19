@@ -47,3 +47,35 @@ governs.
 **If this is ever revisited**, the thing that would change the answer is an accuracy result: evidence
 that a consensus map reads *better*, not just more repeatably. That needs positional ground truth on
 PHercParis4, which `reports/` records as not existing.
+
+---
+
+## Second decision, 2026-09-19: the label-snapping result does not go to #193 either
+
+**Considered:** commenting on villa's `help wanted` issue **#193, "Methods for generating surface,
+fiber, or ink labels"**, with `reports/label_snapping_feasibility_probe.md` — that on the spiral
+dataset's `verified_patches`, labels already sit on the CT-derived surface (IQR 0.0, 12× more
+concentrated than random) and the off-mode minority is a median of exactly one voxel away, which is
+quantisation rather than drift.
+
+**Declined.** #193 asks for something else. Its stated problem is a catch-22 about *generating*
+labels:
+
+> "we need labels from hard-to-segment regions that likely do not contain segmentations"
+
+and its stated deliverable is "image/label pairs … higher quality than simple voxelization of
+existing obj meshes". **Our measurement is about the quality of labels in regions that already have
+segmentations** — the opposite end of their problem.
+
+It does rule out one adjacent path: improving existing labels by snapping them has no headroom on that
+dataset, so effort belongs on their actual ask rather than on polishing what is already on-surface.
+That is a real narrowing, but it is a **tangential negative volunteered onto a prize-flagged issue**,
+and the bar there is higher than "related and true".
+
+**What would change this:** a result about labels where no segmentation exists — which is what #193
+asks for and what `reports/label_snapping_feasibility_probe.md` explicitly could not reach, since the
+finest published surface field is the one already analysed.
+
+**Also checked and unchanged:** villa's `help wanted` set is still exactly #191, #192, #193, all
+opened 2025-04-18, none added since our last check on 2026-08-30. So no newly sanctioned direction
+exists to pick up.
