@@ -55,6 +55,19 @@ makes no claim that they can.
 
 ## Cost and status
 
-**~11 h of otherwise-idle compute, and it is not launched.** Memory is the binding constraint
+**LAUNCHED 2026-09-19 11:01:49**, `spiral_out/run_bounds_pilot.sh`, arms `bounds_lo` (radius 2720)
+and `bounds_hi` (3680), pinned to `VILLA_REF=be09a8503`. ~11 h of otherwise-idle compute, killable.
+
+Two checks made before launching, both from failures earlier the same day:
+
+* **The arms were diffed, not assumed identical.** Normalised for tag and radius they are byte-equal
+  — the check the nine consensus arms needed and did not get until an audit on 2026-09-18.
+* **The radius was chosen over the z_margin deliberately.** `config.py` lists
+  `model_flow_bounds_radius` in `MODEL_STAGE_KEYS`, the audited allowlist of keys that trigger a
+  proper model rebuild, and **excludes** `model_flow_bounds_z_margin` because it is read during host
+  preparation. Varying the excluded key would have produced a fit that quietly did not honour the
+  override.
+
+Memory is the binding constraint
 (31.3 GiB against a ~28.5 GiB render peak) so the arms must run sequentially, and
 `complete_triplet_c.sh`-style chaining plus `recover_arm.sh`'s precheck already handle that.
