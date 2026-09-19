@@ -1,4 +1,4 @@
-# villa PR candidate — DRAFTED, not opened. Needs a judgment call.
+# villa PR candidate — OPENED 2026-09-19 as #1842
 
 A slot is free (2 of 3 open). This is the strongest candidate found since #1805, and it is more
 borderline than the four that merged — hence drafted rather than sent.
@@ -57,5 +57,10 @@ understood.
 **The case for sending it anyway** is that #1780 was the same shape — it said the doc did not state
 what its own robustness rule accepts — and that merged.
 
-**Decision needed.** If sent: re-verify the paragraph against current upstream first, no AI-authorship
-marker, and cite the numbers rather than the report.
+**Sent** as https://github.com/ScrollPrize/villa/pull/1842, +1/-1 in one file.
+
+The judgment call went to sending, on the grounds that #1780 is the same shape — "the doc does not
+state what its own check accepts" — and merged in hours. Re-verified against upstream `f07d33be6`
+immediately before opening: the target sentence is present and unchanged. The body cites the arm
+numbers directly rather than pointing at our reports, and offers to drop the sentence if they would
+rather the paragraph stayed short.
