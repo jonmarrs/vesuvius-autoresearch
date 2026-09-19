@@ -573,6 +573,19 @@ pre-registered cases where those two move independently **in opposite directions
 A cross-check that can move confidently the wrong way, confidently the useless way, *and* fall while
 reading holds is uninformative about ink in any direction.
 
+**Part of why, added 2026-09-19: the two numbers describe different stages of the pipeline.**
+`total_fg_pixels` is computed by `get_ink_metrics.py` on the **rendered strip**;
+`satisfied_area` comes from `satisfaction_metrics_fitted.json`, written into the **fit** directory,
+and the render directories hold no satisfaction file at all. So nothing in the pipeline requires them
+to track, and a defect introduced after fitting is invisible to the guard by construction — a
+duplicated winding raised `total_fg_pixels` 12.59% while leaving `satisfied_area` necessarily
+untouched, because every arm in that experiment was rendered from one fit
+(`reports/the_guard_and_the_objective_measure_different_stages.md`).
+
+This does not dissolve the four cases above. Each altered the **fit**, which does propagate to the
+render, so those two metrics genuinely could have moved together and did not. But the structural fact
+belongs next to them: the guard is not a second opinion on the same quantity.
+
 **The fourth case is the one that bears on strategy.** villa names winding constraints as the fastest
 path to unrolling at scale. Removing 5,413 same-winding constraints measurably degrades the fit and
 leaves recovered ink unchanged within ~8.3% ([verdict](reports/samewinding_verdict.md)) — and that
