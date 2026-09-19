@@ -1,0 +1,41 @@
+{
+ "rows": [
+  {
+   "pair": "s4-s7",
+   "bins": 2429,
+   "one_armed_bins": 2621,
+   "one_armed_ink_fraction": 0.159,
+   "median_separation_vx": 3.981,
+   "rho": -0.1168,
+   "p": 7.843818792507453e-09
+  },
+  {
+   "pair": "s5-s8",
+   "bins": 2753,
+   "one_armed_bins": 2506,
+   "one_armed_ink_fraction": 0.143,
+   "median_separation_vx": 3.521,
+   "rho": -0.0745,
+   "p": 9.164979802526145e-05
+  },
+  {
+   "pair": "s6-s9",
+   "bins": 2323,
+   "one_armed_bins": 2882,
+   "one_armed_ink_fraction": 0.2004,
+   "median_separation_vx": 4.979,
+   "rho": -0.1717,
+   "p": 8.042971229948214e-17
+  }
+ ],
+ "median_rho": -0.1168,
+ "axis": [
+  4163.5,
+  5003.9
+ ],
+ "pairs": [
+  "curbase_s4-curbase_s7",
+  "curbase_s5-curbase_s8",
+  "curbase_s6-curbase_s9"
+ ]
+}

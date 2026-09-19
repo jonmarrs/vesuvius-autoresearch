@@ -1,0 +1,44 @@
+{
+ "rows": [
+  {
+   "pair": "s4-s7",
+   "bins": 2398,
+   "ties_dropped": 31,
+   "b": 0.7231,
+   "shuffled_b_95": [
+    1.009,
+    1.0723
+   ]
+  },
+  {
+   "pair": "s5-s8",
+   "bins": 2722,
+   "ties_dropped": 31,
+   "b": 0.686,
+   "shuffled_b_95": [
+    0.9754,
+    1.0392
+   ]
+  },
+  {
+   "pair": "s6-s9",
+   "bins": 2290,
+   "ties_dropped": 33,
+   "b": 0.8019,
+   "shuffled_b_95": [
+    1.0285,
+    1.0829
+   ]
+  }
+ ],
+ "median_b": 0.7231,
+ "axis": [
+  4163.5,
+  5003.9
+ ],
+ "pairs": [
+  "curbase_s4-curbase_s7",
+  "curbase_s5-curbase_s8",
+  "curbase_s6-curbase_s9"
+ ]
+}

@@ -1,0 +1,53 @@
+{
+ "rows": [
+  {
+   "pair": "s4-s7",
+   "bins": 2429,
+   "s": 0.6563,
+   "log_density_ratio_p5_p95": [
+    -0.2467,
+    0.2345
+   ],
+   "shuffled_s_95": [
+    -0.2386,
+    0.3419
+   ]
+  },
+  {
+   "pair": "s5-s8",
+   "bins": 2753,
+   "s": 1.2518,
+   "log_density_ratio_p5_p95": [
+    -0.2335,
+    0.1989
+   ],
+   "shuffled_s_95": [
+    -0.2475,
+    0.2754
+   ]
+  },
+  {
+   "pair": "s6-s9",
+   "bins": 2323,
+   "s": 1.9516,
+   "log_density_ratio_p5_p95": [
+    -0.2249,
+    0.2495
+   ],
+   "shuffled_s_95": [
+    -0.2937,
+    0.2506
+   ]
+  }
+ ],
+ "median_s": 1.2518,
+ "axis": [
+  4163.5,
+  5003.9
+ ],
+ "pairs": [
+  "curbase_s4-curbase_s7",
+  "curbase_s5-curbase_s8",
+  "curbase_s6-curbase_s9"
+ ]
+}

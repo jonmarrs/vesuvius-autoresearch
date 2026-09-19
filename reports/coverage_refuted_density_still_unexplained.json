@@ -1,0 +1,101 @@
+{
+ "rows": [
+  {
+   "pair": "s4-s7",
+   "quartiles": [
+    {
+     "q": 1,
+     "n": 598,
+     "s": -0.3221,
+     "significant": false
+    },
+    {
+     "q": 2,
+     "n": 585,
+     "s": 0.8359,
+     "significant": false
+    },
+    {
+     "q": 3,
+     "n": 637,
+     "s": 1.1729,
+     "significant": true
+    },
+    {
+     "q": 4,
+     "n": 609,
+     "s": 0.8133,
+     "significant": true
+    }
+   ]
+  },
+  {
+   "pair": "s5-s8",
+   "quartiles": [
+    {
+     "q": 1,
+     "n": 633,
+     "s": 0.9966,
+     "significant": false
+    },
+    {
+     "q": 2,
+     "n": 720,
+     "s": 1.0639,
+     "significant": false
+    },
+    {
+     "q": 3,
+     "n": 702,
+     "s": 1.4056,
+     "significant": true
+    },
+    {
+     "q": 4,
+     "n": 698,
+     "s": 1.3207,
+     "significant": true
+    }
+   ]
+  },
+  {
+   "pair": "s6-s9",
+   "quartiles": [
+    {
+     "q": 1,
+     "n": 573,
+     "s": 1.1861,
+     "significant": true
+    },
+    {
+     "q": 2,
+     "n": 559,
+     "s": 2.1665,
+     "significant": true
+    },
+    {
+     "q": 3,
+     "n": 597,
+     "s": 1.1995,
+     "significant": true
+    },
+    {
+     "q": 4,
+     "n": 594,
+     "s": 2.2224,
+     "significant": true
+    }
+   ]
+  }
+ ],
+ "q4_median_s": 1.3207,
+ "axis": [
+  4163.5,
+  5003.9
+ ],
+ "pairs": [
+  "curbase_s4-curbase_s7",
+  "curbase_s5-curbase_s8",
+  "curbase_s6-curbase_s9"
+ ]
+}
