@@ -28,6 +28,8 @@ import statistics as st
 import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
 try:
     from scipy import stats
 except ImportError:  # pragma: no cover
@@ -54,6 +56,32 @@ CURRENT_GROUPS = {
     "anchor10cov": ("anchor10cov_pilot", "anchor10cov_s2", "anchor10cov_s3"),
 }
 TIERS = {"pinned": PINNED_GROUPS, "current": CURRENT_GROUPS}
+
+
+# Cross-check against the single tier table. These groups and
+# scripts/arm_tiers.py encode the same fact in two shapes, and the last time
+# that fact lived in two places it drifted for three arms without anyone
+# noticing (see arm_tiers.py). Checking at import makes a future divergence
+# fail here, loudly, instead of silently skewing a correlation.
+def _check_groups_against_tier_table() -> None:
+    from arm_tiers import UnknownArm, tier_of
+
+    for tier, groups in TIERS.items():
+        for group, arms in groups.items():
+            for arm in arms:
+                try:
+                    got = tier_of(arm)
+                except UnknownArm as e:
+                    raise SystemExit(f"{group}/{arm}: {e}") from None
+                if got != tier:
+                    raise SystemExit(
+                        f"TIER DISAGREEMENT: measure_noise_floor puts {arm!r} in "
+                        f"{tier!r}, arm_tiers.py says {got!r}. One is wrong; fix "
+                        f"the table, do not paper over it."
+                    )
+
+
+_check_groups_against_tier_table()
 
 # The published df=3 figure, kept so the script can show what it is replacing.
 PUBLISHED_PINNED_CV = 0.0421

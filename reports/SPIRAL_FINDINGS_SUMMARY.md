@@ -298,6 +298,13 @@ positive one, which is what a usable guard requires — higher satisfaction mean
 assigns it. Observational across heterogeneous manipulations, not causal.
 `reports/geometry_ink_correlation_corpus.md`.
 
+**Updated 2026-09-19 — it now holds on current villa too, and more tightly.** This figure is the
+PINNED tier and is unchanged. Three `anchor10cov` fits that ran on current villa had been silently
+misfiled into pinned by a drifted prefix list, which is fixed (`scripts/arm_tiers.py`, and an
+unclassified arm now raises rather than defaulting). With them restored, the **current tier reads
+n=15, r = -0.424, 95% CI [-0.77, +0.11]** — capping a guard's correlation at **+0.11** against
++0.30 on the pinned tree. The question this finding left open is answered in the same direction.
+
 **Not attempted, and why:** searching for a geometric quantity that *does* predict ink needs to tell
 candidate proxies apart, and at n=24 every candidate carries an interval about this wide. That needs
 ~40-60 fits or a manipulation varying ink beyond 27%.

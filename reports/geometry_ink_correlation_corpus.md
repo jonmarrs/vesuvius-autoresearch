@@ -43,6 +43,47 @@ correlation at all, and is tested against the near-miss that `nosame_s*` (pinned
 Whether this relationship holds on current code is **open**, and is what
 `docs/preregistration/2026-09-11_decoupling_on_current_code.md` is measuring.
 
+## Amended 2026-09-19: three arms were misfiled, and the current tier can now be reported
+
+**The published pinned figure was never wrong, but re-running the script would have contradicted
+it.** `correlate_geometry_ink.py` carried its own `CURRENT_TREE_PREFIXES = ("curbase_",
+"nosamecur_")` and defaulted everything else to pinned. `anchor10cov` ran on **current** villa
+(`docs/preregistration/2026-09-12_anchor_ablation.md`: "Current villa, 30,000 steps"), nobody added
+it to the tuple, and the `else "pinned"` branch absorbed its three fits:
+
+| pinned tier | n | r | 95% CI | ink range |
+|---|---:|---:|---|---|
+| as the drifted script had it | 27 | **-0.008** | [-0.39, +0.37] | 1.45M .. **2.95M** |
+| corrected (this report's figure) | 24 | **-0.121** | [-0.50, +0.30] | 1.45M .. 1.83M |
+
+The ink range is the tell: a 2x span is two populations, not one. `anchor10cov_s3` alone was setting
+the pinned maximum. Nothing failed — the number just moved, and it moved the reported guard bound
+from +0.30 to +0.37, i.e. **the drift loosened a bound in the direction that flatters us**.
+
+This is the SECOND time this script pooled tiers and reported 27 fits; the note above records the
+first. A defect that recurs after being fixed is structural, so the fix is structural: tier
+membership now lives once, in `scripts/arm_tiers.py`, `measure_noise_floor.py` cross-checks it at
+import, and **an unclassified arm raises instead of defaulting** — the silent default, not the wrong
+prefix, was the actual bug. `tests/test_arm_tiers.py` covers it, including a verified check that
+reintroducing a local prefix list fails.
+
+### The open question above is now answerable
+
+With its three rightful fits restored, the current tier reads:
+
+| tier | n | r | 95% CI | a guard's best case |
+|---|---:|---:|---|---|
+| pinned `6847063f` | 24 | -0.121 | [-0.50, +0.30] | +0.30 |
+| **current villa** | **15** | **-0.424** | **[-0.77, +0.11]** | **+0.11** |
+
+**The relationship does not appear on current code either, and the bound is tighter there.** The
+current tier caps a positive correlation at **+0.11**, against +0.30 on the pinned tree. A guard
+needs a meaningfully positive r to do the job `autoresearch.md` assigns it, and +0.11 is not that.
+
+Same caveats as the pinned figure, and one more: these 15 fits span fewer distinct manipulations
+(current baselines, one constraint ablation, one anchor ablation) than the pinned 24, so the
+heterogeneity that makes the pinned number observational is *narrower* here, not absent.
+
 ## What this is not
 
 * **Not causal.** The 24 fits differ in patch selection, config flags and constraint sets. This is a

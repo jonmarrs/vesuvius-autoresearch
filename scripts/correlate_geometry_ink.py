@@ -23,6 +23,9 @@ import json
 import math
 import statistics as st
 import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 BASELINES = ("baseline01", "seed02", "seed03", "seed04", "seed05", "seed06")
 
@@ -31,11 +34,15 @@ BASELINES = ("baseline01", "seed02", "seed03", "seed04", "seed05", "seed06")
 # (reports/current_code_baseline.md), so pooling them manufactures a spread that
 # is the code change rather than a relationship. Before this split the script
 # silently reported 27 fits at "100% spread" and r = -0.090, an artefact.
-CURRENT_TREE_PREFIXES = ("curbase_", "nosamecur_")
+# Tier membership lives in ONE place, scripts/arm_tiers.py. It used to be a local
+# `CURRENT_TREE_PREFIXES` tuple here, and it DRIFTED: when the anchor study ran on
+# current villa nobody updated the tuple, so three current-tier fits fell through
+# the `else "pinned"` default and were pooled into the pinned correlation. That
+# moved r from -0.121 to -0.008 and stretched the tier's ink range from
+# 1.45-1.83M to 1.45-2.95M. An unknown arm now RAISES instead of defaulting.
+from arm_tiers import tier_of  # noqa: E402  (re-exported; callers import it here)
 
-
-def tier_of(tag: str) -> str:
-    return "current" if tag.startswith(CURRENT_TREE_PREFIXES) else "pinned"
+__all__ = ["collect", "pearson", "tier_of"]
 
 
 def collect(spiral_out):
