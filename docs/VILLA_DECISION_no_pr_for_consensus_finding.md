@@ -79,3 +79,24 @@ finest published surface field is the one already analysed.
 **Also checked and unchanged:** villa's `help wanted` set is still exactly #191, #192, #193, all
 opened 2025-04-18, none added since our last check on 2026-08-30. So no newly sanctioned direction
 exists to pick up.
+
+---
+
+## Third check, 2026-09-19: autoresearch.md scanned for a fifth contribution — clean
+
+A PR slot is free and all four merges came from reading villa's docs against their code, so
+`spiral-fitting/autoresearch.md` was scanned again at upstream `f07d33be6`. **No defect found.**
+
+* **Every file it names exists** — 19 of them checked against the full `spiral-fitting/` tree.
+* **`launch.sh` and `summarize.sh` do not exist, and that is correct.** Line 166 says "The very first
+  time you use the experiment loop, **write these two scripts** (with the Write tool) before launching
+  anything." They are the reader's to create. Reporting them as missing would have been the #1721
+  defect profile applied to text that says the opposite — caught by reading the surrounding
+  paragraph rather than trusting the file-existence scan.
+* **Every environment variable it names is read by the code**: `FIT_SPIRAL_OUT_DIR`,
+  `FIT_SPIRAL_RUN_TAG`, `WANDB_MODE`, `CUDA_VISIBLE_DEVICES`.
+
+The document is in good shape, partly because two of its defects were ours to find: #1721 (named a
+script that did not exist) and #1780 (mis-stated what its own robustness check accepts).
+
+**The slot stays open.** Manufacturing a PR to fill it is the pattern that got eleven closed.
