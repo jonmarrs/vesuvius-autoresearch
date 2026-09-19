@@ -44,3 +44,17 @@ repos:
         language: system
         types: [python]
         pass_filenames: false
+
+  - repo: local
+    hooks:
+      - id: doc-guards
+        name: doc reference and claim guards
+        # These caught a report citing a file that does not exist, on 2026-09-19 --
+        # after it had already been committed, because the guard was run by hand in a
+        # statement that was not chained to the commit. 2.9s is cheap insurance
+        # against a stale reference reaching main, which is the failure this repo's
+        # own docstring says cost it three months.
+        entry: ./.venv/bin/python -m pytest tests/test_audit_doc_references.py tests/test_audit_report_claims.py tests/test_withdrawn_claims_stay_withdrawn.py -q --no-header
+        language: system
+        pass_filenames: false
+        files: '\.(md|py)$'
