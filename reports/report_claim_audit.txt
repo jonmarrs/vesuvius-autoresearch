@@ -10,6 +10,17 @@ artifact and no longer matches it.
   numbers checked against a cited artifact: 58
   flagged:  5
 
+  SCOPE: the figures above are for that ONE report. Repository-wide:
+    reports citing an artifact: 5 of 108
+    numbers checked:            77
+    flagged:                    13
+
+    column_registration_external_audit.md: 1 flagged of 3 checked
+    fiber_connectivity_eval.md: 4 flagged of 7 checked
+    rerender_test_verdict.md: 1 flagged of 1 checked
+    spiral_satisfaction_winding_blindness.md: 5 flagged of 58 checked
+    villa_prize_action_matrix.md: 2 flagged of 8 checked
+
   Five residual flags are expected and are annotated in the report where they
   appear: a retracted figure whose source artifact is named in the sentence, a
   bracket end the cited artifact reports in different units, and the patch's

@@ -28,6 +28,7 @@ Run:
     CUDA_VISIBLE_DEVICES="" uv run python scripts/audit_report_claims.py
 """
 
+import glob
 import os
 import re
 import sys
@@ -53,7 +54,11 @@ NUMBER_RE = re.compile(r"(?<![\w.])(\d+\.\d+|\d{2,})(?![\w.])")
 IGNORE = {"2026", "2025", "1092", "1052", "714"}
 
 
-DATE_RE = re.compile(r"\b20\d\d-\d\d-\d\d\b")
+# NOT a trailing \b: a date followed by "_" -- as in every registration filename,
+# `2026-09-13_consensus_forward_prediction.md` -- has no word boundary after the
+# day, so the date survived and leaked "09" and "13" into the number scan. Six of
+# the repository-wide flags were that, and nothing else.
+DATE_RE = re.compile(r"\b20\d\d-\d\d-\d\d(?!\d)")
 SECTION_RE = re.compile(r"§B?\d+")
 COMMIT_RE = re.compile(r"`[0-9a-f]{7,40}`")
 
@@ -140,6 +145,28 @@ def audit(report=None):
     return findings, checked
 
 
+def audit_all():
+    """Audit every report that cites an artifact, not just REPORT.
+
+    The default target is one report, chosen when this tool was written. That made
+    its headline -- "numbers checked against a cited artifact: 58" -- read as a
+    property of the repository when it is a property of one file: 22 of that
+    report's 248 blocks cite an artifact, and no other report is examined at all.
+
+    Adding artifacts for five new reports on 2026-09-18 left the count at exactly
+    58, which is how the gap surfaced.
+    """
+    rows = []
+    for path in sorted(glob.glob(os.path.join(_REPO, "reports", "*.md"))):
+        try:
+            findings, checked = audit(path)
+        except (OSError, UnicodeDecodeError):
+            continue
+        if checked or findings:
+            rows.append((os.path.basename(path), checked, findings))
+    return rows
+
+
 def main():
     findings, checked = audit()
     lines = [
@@ -155,7 +182,22 @@ def main():
         f"  numbers checked against a cited artifact: {checked}",
         f"  flagged:  {len(findings)}",
         "",
+        "  SCOPE: the figures above are for that ONE report. Repository-wide:",
     ]
+    rows = audit_all()
+    tot_checked = sum(c for _, c, _ in rows)
+    tot_flagged = sum(len(f) for _, _, f in rows)
+    all_md = len(glob.glob(os.path.join(_REPO, "reports", "*.md")))
+    lines += [
+        f"    reports citing an artifact: {len(rows)} of {all_md}",
+        f"    numbers checked:            {tot_checked}",
+        f"    flagged:                    {tot_flagged}",
+        "",
+    ]
+    for name, c, f in rows:
+        if f:
+            lines.append(f"    {name}: {len(f)} flagged of {c} checked")
+    lines.append("")
     lines.append(
         "  Five residual flags are expected and are annotated in the report where they"
     )
