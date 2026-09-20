@@ -67,28 +67,41 @@ def main() -> int:
         if k in vals:
             print(f"  {k:<10}{vals[k]:>14,.0f}")
 
+    # DIAGNOSTIC, not a void gate. Amended 2026-09-19 BEFORE any arm was scored.
+    # The registration called this a hard gate; that was wrong. `baseline` was
+    # rendered 2026-09-01 on an older villa tree, so a mismatch here can mean
+    # render-code drift rather than a broken rebuild, and this number alone cannot
+    # separate them. It is reported and interpreted, never used to void IN/OUT --
+    # those are measured against ZERO on one pinned tree and do not depend on it.
     gate = rel(vals["baseline"], vals["zero"])
     ok = abs(gate) <= PIPELINE_FLOOR
     print(
-        f"\nZERO GATE: {gate:+.2%} vs baseline  (allowed +/-{PIPELINE_FLOOR:.2%})  -> "
-        f"{'PASS' if ok else 'FAIL'}"
+        f"\nDRIFT CHECK: ZERO vs baseline {gate:+.2%} (pipeline floor {PIPELINE_FLOOR:.2%})"
     )
-    if not ok:
-        print("\nVERDICT: VOID -- the rebuild path does not reproduce its own source.")
+    if ok:
+        print("  within the floor: the rebuild reproduces a render from 2026-09-01,")
+        print("  so no render-code drift is detectable across that interval either.")
+    else:
+        print("  OUTSIDE the floor. Two explanations, NOT separable from this number:")
         print(
-            "  No claim is made about displacement. This is a pipeline defect report."
+            "    (a) render code changed since 2026-09-01 -- rerender_test_verdict.md"
         )
-        if a.out:
-            Path(a.out).write_text(
-                json.dumps({"verdict": "VOID", "zero_gate": gate}, indent=1) + "\n"
-            )
-        return 1
+        print("        measured +1.44% from one such change, wider than this floor; or")
+        print("    (b) the rebuild path alters the surface even at delta=0.")
+        print("  IN/OUT remain interpretable: all three arms rendered today on one")
+        print("  pinned tree and are compared against ZERO, never against baseline.")
     if missing:
-        print("\nZERO gate only; IN/OUT not yet scored. No verdict.")
+        print("\nDrift check only; IN/OUT not yet scored. No verdict.")
         return 0
 
-    d_in, d_out = rel(vals["baseline"], vals["in"]), rel(vals["baseline"], vals["out"])
-    print(f"\n{'arm':<10}{'delta vs baseline':>20}")
+    # AGAINST ZERO, NOT BASELINE. Amended 2026-09-19 before any arm was scored.
+    # `baseline` was rendered 2026-09-01 on an older villa tree; ZERO, IN and OUT
+    # all render today on pinned be09a8503. Comparing to `baseline` would import a
+    # render-code difference -- reports/rerender_test_verdict.md measured +1.44%
+    # from exactly such a change, larger than this study's whole floor. ZERO is the
+    # same-tree, same-day, same-meshes control, so it is the only valid reference.
+    d_in, d_out = rel(vals["zero"], vals["in"]), rel(vals["zero"], vals["out"])
+    print(f"\n{'arm':<10}{'delta vs ZERO':>20}")
     print(f"{'IN  (-4vx)':<10}{d_in:>19.2%}")
     print(f"{'OUT (+4vx)':<10}{d_out:>19.2%}")
 

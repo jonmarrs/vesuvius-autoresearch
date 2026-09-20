@@ -38,18 +38,30 @@ def run(tmp_path, *, zero, inn=None, out=None, extra=()):
     return subprocess.run(args, capture_output=True, text=True)
 
 
-def test_zero_gate_failure_voids_the_study(tmp_path):
-    """A rebuild that does not reproduce its source makes IN/OUT meaningless."""
-    r = run(tmp_path, zero=BASE * 0.90, inn=BASE * 0.90, out=BASE * 1.05)
-    assert r.returncode == 1
-    assert "VOID" in r.stdout
-    assert "SUFFICIENT" not in r.stdout, "voided study must not also report an effect"
+def test_drift_outside_the_floor_is_reported_but_does_not_void(tmp_path):
+    """AMENDED 2026-09-19, before any arm scored. baseline was rendered on an
+    older villa tree, so a mismatch can be render-code drift rather than a broken
+    rebuild -- and this number cannot tell them apart. IN/OUT are measured against
+    ZERO on one pinned tree, so they stay interpretable either way."""
+    r = run(tmp_path, zero=BASE * 0.90, inn=BASE * 0.81, out=BASE * 0.90)
+    assert r.returncode == 0
+    assert "OUTSIDE the floor" in r.stdout
+    assert "not separable" in r.stdout.lower()
+    assert "SUFFICIENT" in r.stdout, "IN vs ZERO must still be evaluated"
 
 
-def test_zero_gate_passes_within_the_pipeline_floor(tmp_path):
+def test_drift_within_the_floor_is_reported_as_clean(tmp_path):
     r = run(tmp_path, zero=BASE * 1.005, inn=BASE * 0.90, out=BASE * 1.02)
     assert r.returncode == 0
-    assert "PASS" in r.stdout
+    assert "within the floor" in r.stdout
+
+
+def test_effects_are_measured_against_zero_not_baseline(tmp_path):
+    """THE amendment. With baseline 1e6 and ZERO 0.9e6, an IN of 0.81e6 is -10%
+    against ZERO and -19% against baseline. Only the former is the manipulation."""
+    r = run(tmp_path, zero=BASE * 0.90, inn=BASE * 0.81, out=BASE * 0.90)
+    assert "-10.00%" in r.stdout, r.stdout
+    assert "-19" not in r.stdout
 
 
 def test_in_inside_the_registered_band_is_sufficient(tmp_path):
@@ -76,7 +88,7 @@ def test_partial_sample_is_refused(tmp_path):
 def test_allow_partial_reports_the_gate_only(tmp_path):
     r = run(tmp_path, zero=BASE, extra=("--allow-partial",))
     assert r.returncode == 0
-    assert "ZERO gate only" in r.stdout
+    assert "Drift check only" in r.stdout
     assert "VERDICT: SUFFICIENT" not in r.stdout
 
 

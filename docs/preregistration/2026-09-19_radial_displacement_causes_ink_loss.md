@@ -41,6 +41,33 @@ reachable before pre-registering how to validate it. Checked, in order:
 The builder also **asserts** its achieved shift matches the request to 0.01 vx and exits non-zero
 otherwise, so an arm cannot be silently built wrong.
 
+## Amendment, 2026-09-19, made BEFORE any arm was scored
+
+**The ZERO gate as registered above is wrong, and is downgraded to a diagnostic.**
+
+The registration says ZERO "must reproduce `baseline01`'s existing w120-w129 score" or the study is
+VOID. But `baseline01`'s stored score was **rendered 2026-09-01 on an older villa tree**, while ZERO,
+IN and OUT all render today on pinned `be09a8503`. `reports/rerender_test_verdict.md` measured
+**+1.44% from a render-code change** — wider than this study's entire 1.42% floor. So a ZERO/baseline
+mismatch cannot distinguish:
+
+* render code changed across that interval, from
+* the displacement rebuild path altering the surface at delta = 0.
+
+Voiding the study on a number that conflates those would discard a valid experiment for an unrelated
+reason.
+
+**The fix, and it makes the study stronger rather than weaker: IN and OUT are measured against ZERO,
+not against `baseline`.** All three arms are one fit's meshes, rendered the same day on one pinned
+tree, differing only in `--delta`. That is a cleaner control than `baseline` ever was — it removes
+the render-tree difference from every effect instead of importing it.
+
+`baseline` vs ZERO is still computed and reported, as a **render-code drift diagnostic**: if it lands
+inside the floor, that is independent evidence the render path has not drifted since 2026-09-01.
+
+Made before `radial_work_rad0/ink_metric/metrics.json` existed; `scripts/analyse_radial_displacement.py`
+and its tests were amended in the same commit, and a test asserts effects are computed against ZERO.
+
 ## Arms
 
 All from `baseline01`'s `fitted_baseline01` meshes, windings **w120-w129**, one axis derived once
