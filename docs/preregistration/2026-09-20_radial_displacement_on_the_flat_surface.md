@@ -72,6 +72,27 @@ fixed — the first such measurement in this project.
 **F is that number. It is not yet known.** Everything below is expressed in multiples of F, so the
 rule is fixed before both the floor and the effects.
 
+## A free side-measurement, claimed before the number exists
+
+`flat_study_probe` and `flat_study_zero` are both delta-0 renders of the same flat surface, reusing a
+flatten, on one pinned tree. They differ in **exactly one thing**: the probe carries villa's original
+tifs, `zero` carries the rebuild, whose float32 rounding leaves `x,y` up to **0.000244 vx** different
+(`z` byte-identical).
+
+**So `|probe − zero|` isolates the writer effect**, on top of the render+score floor F = 0.0014%.
+
+**Prediction: they agree to within ~0.002%**, i.e. the writer contributes nothing measurable. The
+reasoning is proportional — the 0.535 vx flatten wobble moves ink 1.42%, so 0.000244 vx should move
+it ~0.0007%, below F.
+
+**If they disagree by more than ~0.01%, that is a finding and it matters**: it would mean ink
+recovery responds to surface changes three orders of magnitude below a voxel, which would make
+*every* comparison in this corpus sensitive to float formatting. I do not expect it, and the arms
+were rebuilt to be writer-identical precisely so the study does not depend on the answer.
+
+Recorded now because a null here is only meaningful if it was predicted, and because the alternative
+would be to notice the agreement afterwards and call it confirmation.
+
 ## Decision rule, in multiples of the measured floor F
 
 | outcome | conclusion |
