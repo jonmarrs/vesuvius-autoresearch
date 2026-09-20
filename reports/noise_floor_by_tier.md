@@ -2,7 +2,7 @@
 
 > **NOT PURELY SEED NOISE, 2026-09-20.** Every arm here is a separate fit **and** a separate
 > render+score, and the render alone moves `total_fg_pixels` by **3.04%** on identical geometry and
-> identical code — **59% of the pinned tier's 5.14%**. Three renders of the same meshes span 5.32%,
+> identical code. Three renders of the same meshes span 5.32%,
 > indistinguishable from what six differently-seeded fits produce. **Adding fit seeds therefore buys
 > much less than these tables imply**, because the variance is downstream of the fit.
 > `reports/the_render_is_the_noise_floor.md`.

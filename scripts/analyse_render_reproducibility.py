@@ -95,9 +95,16 @@ def main() -> int:
         print(
             f"\n  render/scorer ratio: {d / SCORER_ONLY:,.0f}x -- the scorer is not the source"
         )
+        # NOT a variance share. d is ONE PAIR DIFFERENCE and SEED_CV_PINNED is a
+        # CV; dividing them compares different quantities. Done properly a single
+        # difference gives sigma = |d|/(2/sqrt(pi)), whose df=1 chi-square interval
+        # spans [0.96%, 68.6%] here -- a variance share anywhere from 3% to 100%.
+        # One pair cannot apportion the seed CV, so no share is printed.
         print(
-            f"  this pair explains {min(d / SEED_CV_PINNED, 1.0):.0%} of the pinned 'seed' CV"
+            f"  pinned 'seed' CV is {SEED_CV_PINNED:.2%}, shown for SCALE ONLY: a pair"
         )
+        print("  difference and a CV are different quantities, and one pair cannot")
+        print("  apportion that variance (df=1 CI on sigma spans 0.96%-68.6%).")
 
     if args.json:
         Path(args.json).write_text(

@@ -43,7 +43,13 @@ held the same evidence unnoticed: `curbase_s1` and its rerender `curbase_s1rr` f
 ## The consequence that reaches the whole corpus
 
 **Every arm here is a separate fit AND a separate render+score, so the "seed CV" has always contained
-both, and was never decomposed.** This pair explains **59%** of the pinned-tier 5.14%.
+both, and was never decomposed.**
+
+> **Corrected 2026-09-20.** This originally read "this pair explains **59%** of the pinned-tier
+> 5.14%", computed as 3.04/5.14. That divides a **single pair difference** by a **CV** — different
+> quantities. Done properly, one difference gives sigma = |d|/(2/sqrt(pi)) = **2.69%**, a variance
+> share of **27%**, with a df=1 interval on sigma of **[0.96%, 68.6%]** — a share anywhere from 3%
+> to 100%. **One pair cannot apportion the seed CV**, and no percentage-explained is claimed.
 
 Three renders of geometry identical to float32 ULP span **5.32%** (1,698,831 / 1,750,482 / 1,789,206)
 — a range indistinguishable from the seed CV that six differently-seeded *fits* produce.
