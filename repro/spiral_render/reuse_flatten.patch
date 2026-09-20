@@ -1,0 +1,31 @@
+--- a/spiral-fitting/render_ink.py	2026-09-20 08:01:23.720037345 -0700
++++ b/spiral-fitting/render_ink.py	2026-09-20 08:01:23.793655915 -0700
+@@ -278,6 +278,28 @@
+     """
+     concat_abs = os.path.abspath(concat_path)
+     flat_abs = os.path.abspath(flat_path)
++
++    # REUSE AN EXISTING FLATTEN. Off unless RENDER_REUSE_FLATTEN=1, so stock
++    # behaviour is unchanged.
++    #
++    # The lasagna flatten is a stochastic optimisation: two runs on byte-identical
++    # meshes land on surfaces 7.15 vx apart in w120-w129 and 0.535 vx apart in
++    # w010-w019, moving total_fg_pixels by 3.04% and 1.42%
++    # (reports/the_flatten_lands_on_different_surfaces.md). A study that varies its
++    # input and re-flattens therefore measures its manipulation PLUS a re-solve
++    # wider than the manipulation -- which is what invalidated the radial
++    # displacement design (reports/the_radial_study_design_is_invalid.md).
++    #
++    # With this gate a study flattens ONCE and branches downstream: every arm
++    # renders the same flat surface, so the flatten's variance is removed by
++    # construction rather than averaged down at ~2h per render.
++    if os.environ.get('RENDER_REUSE_FLATTEN') == '1':
++        if is_tifxyz(flat_abs):
++            print(f'[reuse-flatten] using existing {flat_abs}; NOT re-running the '
++                  f'lasagna flatten', flush=True)
++            return flat_abs
++        print(f'[reuse-flatten] RENDER_REUSE_FLATTEN=1 but {flat_abs} is not a '
++              f'tifxyz; flattening normally', flush=True)
+     scratch = concat_abs + '_lasagna'
+     overlay_path = concat_abs + '_lasagna_overlay.json'
+     overlay = {'external_surfaces': [{'path': concat_abs}]}
