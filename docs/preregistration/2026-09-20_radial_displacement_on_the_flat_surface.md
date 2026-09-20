@@ -31,6 +31,35 @@ computed — displaced radially about an axis derived from that surface's own po
 Radial displacement moves only `x,y`, so `z.tif` being byte-identical is a positive control that the
 manipulation did what it says. Valid-point counts are unchanged, so no geometry is dropped.
 
+## Amendment, made before any arm scored: the ZERO arm is rebuilt, not reused
+
+The arms table above named `flat_study_probe` as ZERO. **It is demoted to the floor measurement
+only**, because it is not writer-identical to IN and OUT.
+
+`build_radial_displacement_arm.py` recomputes coordinates as `cx + dx/r*(r+delta)`. At `delta = 0`
+that is algebraically the identity, but **not** bitwise: float32 rounding leaves `x` and `y` differing
+from villa's originals by up to **0.000244 vx** (`z` is untouched and byte-identical). The probe
+carries villa-written tifs; IN and OUT carry rewritten ones. Comparing them would fold a
+writer difference into every effect.
+
+The difference is physically negligible — 16,000× smaller than the 4 vx manipulation and ~2000×
+smaller than the 0.535 vx flatten wobble that moves ink 1.42%, implying an effect near 0.0007%. **It
+is removed anyway rather than argued away**, because two assumptions of negligibility have already
+been wrong today, and the fix costs one render on tooling that already exists.
+
+**So there are two distinct references, and they answer different questions:**
+
+| | arms | what it measures |
+|---|---|---|
+| **F, the floor** | `flat_study_probe` vs `radial_work_rad0` | render + score noise on **byte-identical** input, flatten held fixed |
+| **the effects** | IN and OUT vs `flat_study_zero` | displacement alone, all three written by one tool |
+
+`flat_study_zero` is `flat0` — the same rebuild at `delta = 0`. Verified across all three effect
+arms: identical valid-point counts (2,564,050), identical array shapes, **`z.tif` byte-identical**,
+and mean radii of exactly +0.000 / −4.000 / +4.000.
+
+Cost rises from two renders to three (~6h). The decision rule is unchanged.
+
 ## The floor is measured, not assumed — that is the lesson from the first attempt
 
 The first registration assumed **1.42%** from a report that attributed the spread to the nnU-Net
