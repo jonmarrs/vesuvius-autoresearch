@@ -48,6 +48,29 @@ measuring its manipulation *plus* a re-solve that moved the surface 7.15 vx in t
 (`reports/the_flatten_lands_on_different_surfaces.md`). Flatten once, branch downstream, and the
 variance is gone by construction rather than averaged down.
 
+## Where this does NOT apply, which is most of the corpus
+
+The collapse works because ZERO, IN and OUT all derive from **one** flat surface. That is only
+possible when the manipulation acts on a **fixed** surface.
+
+**A study comparing different FITS cannot use it.** Each fit produces different meshes, each set needs
+its own flatten, and the 3.04% returns in full. That covers nearly every study here — the six
+manipulations in `reports/no_lever_has_improved_reading.md`, every seed replicate, every arm in the
+`curbase`/`gap133`/`nosame` families — and it covers **villa's own autoresearch loop**, which accepts
+or rejects candidate *fits*.
+
+So the rule splits cleanly:
+
+| study compares | flatten | floor |
+|---|---|---:|
+| a manipulation of one fixed surface | reuse one | **0.0014%** |
+| different fits | one per arm, unavoidable | **~3.04%** (outer) |
+
+**The 2000× is not a general speedup and must not be quoted as one.** It buys resolving power for
+surface-manipulation studies only. For fit comparisons the honest position is unchanged: the floor is
+large, it is mostly flatten, and the way to reduce it is to make the flattener reproducible — not to
+add fit seeds, which do not touch it.
+
 ## What it does not show
 
 **It is one pair.** F is a point estimate with no interval, exactly like the 3.04% it replaces. What
