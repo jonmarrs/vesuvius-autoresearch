@@ -56,6 +56,31 @@ rendered **5.5 hours apart** on one day. More elapsed time, tighter agreement.
 which villa tree each ran on is unrecoverable, and the question cannot be settled from what is on
 disk.
 
+## A third measurement exists, and it splits the question in two
+
+**Found 2026-09-19 in `repro/spiral_render/score_arms.sh`'s own header**, where it has sat
+undisturbed: *"three runs over one fixed strip gave `total_fg_pixels` 249913 / 249905 / 249906, a
+spread of **0.0032%**"*.
+
+That is a **scorer-only** measurement — one fixed strip, re-scored three times — where the two above
+are **render+score**, rebuilt from meshes. Laid out by what varies:
+
+| what is repeated | measurement | spread |
+|---|---|---:|
+| scorer only, one fixed strip, n=3 | `score_arms.sh` header | **0.0032%** |
+| render + score, `baseline01` meshes | `render_lasagna` vs `dup_armREPEAT` | **1.4182%** |
+| render + score, `seedarm_04` meshes | `seedarm_04` vs `probe_innerprob` | **0.0016%** |
+
+**The scorer is not the source of the 1.42%.** Re-scoring the same strip moves the answer by three
+thousandths of a percent, so whatever produced a 1.42% difference happened in the **render**, not in
+the nnU-Net ensemble. The original report attributed the spread to "threshold-boundary pixels under
+three-fold ensembling and GPU non-determinism" — that mechanism is now measured, and it is ~440×
+too small.
+
+This narrows the two candidate explanations rather than deciding between them: a render-stage
+non-determinism, or a render-code difference between two runs whose `VILLA_SHA` was never recorded.
+Both remain live.
+
 ## What would settle it
 
 Re-render one mesh set twice under a pinned `VILLA_REF`, back to back. That is ~5 h and it is the kind
