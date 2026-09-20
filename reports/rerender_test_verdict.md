@@ -21,6 +21,21 @@ Validity gate passed: `VILLA_SHA` = `d82e13edf` (not the old code), strip area w
 
 **VERDICT: RENDER CHANGE IS INERT** — +1.44% is inside the registered ±2% band.
 
+## Amended 2026-09-20: there was no same-code control, and the noise is larger than the effect
+
+This compared `d8c5f488a` with `d82e13edf` and booked the whole **+1.44%** to the code change. **A
+same-code repeat was never run**, so that number is (code effect + render noise) with the split
+unknown.
+
+It is now measured: two renders of one mesh set on **one** tree differ by **3.04%**
+(`reports/the_render_is_the_noise_floor.md`). **The noise is larger than the effect this report
+attributes to code.** The trim grids here differ too — 9143×451 → 8982×449 against 9143×449 →
+8990×446 — which is the flatten's stochasticity, not necessarily the code's.
+
+**The verdict "render change is inert" stands and is if anything strengthened**: +1.44% sits inside
+both the registered ±2% band and the render's own noise. What is withdrawn is the reading that the
+render change *adds about 1.4% ink* — it cannot be distinguished from a re-run.
+
 ## +1.44% is not zero, and that is worth saying
 
 The verdict is "inert" by a threshold I set in advance, not because nothing moved. The render change

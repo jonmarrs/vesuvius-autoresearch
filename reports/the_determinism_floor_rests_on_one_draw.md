@@ -56,6 +56,12 @@ rendered **5.5 hours apart** on one day. More elapsed time, tighter agreement.
 which villa tree each ran on is unrecoverable, and the question cannot be settled from what is on
 disk.
 
+> **MECHANISM RESOLVED 2026-09-20, and the floor is too small.** A same-tree, same-meshes,
+> byte-identical-code repeat differs by **3.04%** — so "the pipeline is deterministic to 1.4%" is not
+> just one draw, it is **at least 2× too tight**. The cause is the **lasagna flatten**, a stochastic
+> optimisation that produced different output grids (82660×4260 vs 82660×4250) from identical input;
+> the scorer is 950× too small to be responsible. `reports/the_render_is_the_noise_floor.md`.
+
 ## A third measurement exists, and it splits the question in two
 
 **Found 2026-09-19 in `repro/spiral_render/score_arms.sh`'s own header**, where it has sat
