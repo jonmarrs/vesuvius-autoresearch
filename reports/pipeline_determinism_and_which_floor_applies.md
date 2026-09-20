@@ -52,6 +52,19 @@ eleventh winding. No new fitting happens, so seed-to-seed variation cannot enter
 
 **Arms B and D are reinstated.** They clear the applicable floor by 8.9x and 12.4x.
 
+> **What that floor IS, established 2026-09-20 — and the verdict survives it.** The 1.42% is
+> **lasagna flatten** noise, not scorer noise: each arm is separately flattened, and two flattens of
+> one mesh set land 0.535 vx apart in this inner region (7.15 vx in the outer), while the scorer
+> alone moves a fixed strip by 0.0032%. The floor used here is therefore the *right kind* of floor —
+> it is a flatten+render+score pair from the same region — but it is **one pair**, so it is a point
+> estimate with no interval. **B and D clear it by 8.9x and 12.4x, so they would still clear it if
+> the true spread were two or three times larger.** No reinstatement changes.
+>
+> **A future version of this study should not pay this floor at all.**
+> `repro/spiral_render/reuse_flatten.patch` (`RENDER_REUSE_FLATTEN=1`) lets every arm render one
+> shared flatten, which drops the floor from 1.42% to **0.0014%** — measured, 24 pixels.
+> `reports/holding_the_flatten_fixed_collapses_the_floor.md`.
+
 ## Being careful, because this correction favours me
 
 A correction that restores my own withdrawn results deserves more scepticism than one that costs me,
