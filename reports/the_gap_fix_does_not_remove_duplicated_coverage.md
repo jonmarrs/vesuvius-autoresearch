@@ -44,6 +44,8 @@ That is the finding. The fix does not remove surface and does not remove double-
 **relocates or re-samples** the surface it produces. The same area of papyrus is rendered, and 10%
 less ink is found on it.
 
+**ANSWERED 2026-09-19: it re-samples.** The surface moves **radially inward by 3.96 voxels**, 24.5% of one winding gap, in 10 of 10 scored windings with θ and z coverage unchanged — `reports/the_gap_fix_moves_the_surface_radially.md`.
+
 Consistent with `reports/SPIRAL_FINDINGS_SUMMARY.md` finding 19 (satisfaction falls with radius) — the outer windings where scoring
 happens are exactly where the fit is least constrained, so a correctness change there can move the
 sheet a little without changing how much sheet there is. **Which of relocation or depth re-sampling
