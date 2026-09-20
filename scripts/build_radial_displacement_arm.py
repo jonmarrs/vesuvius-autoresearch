@@ -95,17 +95,32 @@ def main() -> int:
         "--delta", type=float, required=True, help="radial shift in voxels, +outward"
     )
     ap.add_argument("--pattern", default="w1[23]*_spliced_*")
+    ap.add_argument(
+        "--single",
+        action="store_true",
+        help="--src is ONE tifxyz (e.g. a lasagna flat surface) rather than a "
+        "folder of winding meshes. Used by the redesigned radial study, which "
+        "displaces the FLATTENED surface so the stochastic flatten sits upstream "
+        "of the branch point (reports/the_radial_study_design_is_invalid.md).",
+    )
     ap.add_argument("--tag", default="baseline01")
     ap.add_argument("--json", default=None)
     a = ap.parse_args()
 
     src, out = Path(a.src), Path(a.out)
-    dirs = sorted(src.glob(a.pattern))
-    if not dirs:
-        raise SystemExit(f"no meshes matched {a.pattern} under {src}")
-    cx, cy = derive_axis(src, a.pattern)
-    print(f"axis derived from {len(dirs)} source meshes: cx={cx:.1f} cy={cy:.1f}")
-    print(f"displacing {len(dirs)} windings by {a.delta:+g} voxels\n")
+    if a.single:
+        # One tifxyz in, one displaced tifxyz out. The axis comes from this
+        # surface's own points, so a flat surface works exactly as a winding set does.
+        dirs = [src]
+        cx, cy = derive_axis(src.parent, src.name)
+    else:
+        dirs = sorted(src.glob(a.pattern))
+        if not dirs:
+            raise SystemExit(f"no meshes matched {a.pattern} under {src}")
+        cx, cy = derive_axis(src, a.pattern)
+    what = "tifxyz" if a.single else "windings"
+    print(f"axis derived from {len(dirs)} source mesh(es): cx={cx:.1f} cy={cy:.1f}")
+    print(f"displacing {len(dirs)} {what} by {a.delta:+g} voxels\n")
 
     if out.exists():
         shutil.rmtree(out)
