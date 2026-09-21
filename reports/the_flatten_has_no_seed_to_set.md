@@ -53,6 +53,14 @@ design and expensive in runtime: run the flatten twice under `CUBLAS_WORKSPACE_C
 the run errors on an unsupported op. Either outcome is informative. ~2h per flatten on this box, so
 ~4h; not run today.
 
+## TESTED 2026-09-21: sufficient, and bit-exact
+
+The experiment above ran. Two flattens under `torch.use_deterministic_algorithms(True)` produced
+**byte-identical `x/y/z.tif`** — mean NN distance 0.0000 vx, zero escaped-op warnings, at a 9.5×
+throughput cost. Reduction order is the **whole** cause; there is no other source.
+`reports/the_flatten_is_reproducible_when_asked.md`. The "not established" paragraph above is now
+established, and the prediction that a Triton residual would survive was a miss.
+
 ## What it changes downstream
 
 **For villa's loop:** "run two seeds" — the robustness check `autoresearch.md` prescribes — varies
