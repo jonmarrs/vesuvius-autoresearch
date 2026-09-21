@@ -41,3 +41,19 @@ It reports "hot path changed" against `VILLA_REF` — the Python-stage pin — s
 `lasagna/` commits (real, and already checked: the flatten is still stochastic) and then #1828, which
 is not on the Python path at all. It sits on the *image* path, which the monitor does not know
 exists. That is the same gap from the other side.
+
+## Addendum, same day: #1695 is about this binary, and the study is clean
+
+Upstream #1695 — "`vc_render_tifxyz`: do not treat torn per-slice TIFFs as finished output" —
+lands on the image path an hour after this report. The mechanism: a render killed mid-way leaves
+slices with a header but no IFD (written in `close()`), and the old binary's "skip if all slices
+exist" check accepted them on rerun. `reports/the_scorer_reads_texture_not_brightness.md` read those
+per-slice TIFFs directly, so this had to be checked.
+
+**0 torn of 30.** Every slice in all six work dirs opens with a valid IFD and full shape; every
+render log ends in `Done. Strips`; no log ever printed the "all slices exist, skipping" line the bug
+requires. `radial_work_rad0` was rendered twice in place and both runs completed.
+
+**And a bonus from the same check**: `rad0` and `probe` — same flat surface, rendered on different
+days — have **byte-identical per-slice TIFFs by md5**. The sampler is deterministic, which closes the
+one attribution the floor report had left open.

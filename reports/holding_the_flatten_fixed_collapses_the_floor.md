@@ -76,10 +76,12 @@ add fit seeds, which do not touch it.
 **It is one pair.** F is a point estimate with no interval, exactly like the 3.04% it replaces. What
 is established is that F is *small* — 24 pixels — not its distribution.
 
-**It does not make `vc_render_tifxyz` proven deterministic.** 24 pixels is not zero. The sampler
-streams from S3 and the scorer is known non-deterministic at 0.0032%; this pair cannot separate those
-two contributions, and does not need to, because both are negligible against any effect this study
-could care about.
+**`vc_render_tifxyz` IS deterministic — settled 2026-09-21.** This paragraph originally said the
+pair "cannot separate" sampler from scorer. It can: `rad0` and `probe` rendered the same flat surface,
+and their five per-slice TIFFs are **byte-identical by md5** (all of `00.tif`–`04.tif`). The sampler
+produced the same bytes twice, so **all 24 px of F is the scorer** — consistent with the scorer's own
+0.0032%. Every stage is now attributed: flatten stochastic (3.04%), sampler deterministic (0),
+scorer ~0.003%.
 
 **It says nothing about displacement.** The three effect arms (ZERO/IN/OUT at 0, −4, +4 vx) are
 running now. This result only establishes that the floor is tight enough to interpret them, which is
