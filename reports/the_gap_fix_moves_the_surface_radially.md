@@ -70,6 +70,15 @@ and the ink loss follow. This does not isolate displacement as the cause — a s
 surface radially by a controlled amount, holding everything else fixed, would. Nothing here does that,
 and the co-occurrence is not a demonstration.
 
+## Tested causally 2026-09-20: displacement alone over-explains the loss
+
+The controlled version ran: one flattened surface shifted **4.0 vx inward** with everything else
+fixed loses **19.77%** — `reports/displacing_the_surface_costs_ink_in_both_directions.md`. So the
+3.96 vx shift measured here is **sufficient** to produce a loss of this order, and in fact produces
+**1.91×** the gap fix's 10.35%. The gap fix is therefore not a pure radial shift; whatever else it
+does recovers about half of what the shift alone would cost. Outward displacement also loses (4.48%),
+so the fitted surface sits near a local maximum that is steep inward and shallow outward.
+
 ## Why the direction is worth noting
 
 The fix **raises** gap-expander capacity 130 → 133, clearing a warning that capacity was short of
