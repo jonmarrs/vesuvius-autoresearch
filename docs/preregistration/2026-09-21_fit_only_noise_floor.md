@@ -48,6 +48,18 @@ for free.
 **Always report the chi-square interval at df=5.** A CV at df=5 has a 95% interval spanning roughly
 a factor of three; the point estimate alone is what this project has been burned by three times.
 
+## Prediction 2 sharpened, before `detfit_s6` scored
+
+`s6`'s deterministic trim grid differs from its stock grid (`9146x453` → `9147x449`), so by the
+grid heuristic a few-percent shift is expected. But `s6`'s stock score leads the next-highest
+(`s4`, 3,019,583) by **14%**, and a few-percent flatten shift cannot close a 14% gap. So the two
+readings separate cleanly:
+
+* **fit outlier** → `s6` stays top by a wide margin, shifted a few percent either way;
+* **flatten draw** → `s6` regresses toward ~3.0M and loses the top spot.
+
+There is no ambiguous middle. Prediction 2 stands as registered: fit outlier.
+
 ## What the result cannot do, computed before it arrives
 
 The obvious over-reading — "a tighter floor reopens the nulls" — does not survive arithmetic. At 3v3
