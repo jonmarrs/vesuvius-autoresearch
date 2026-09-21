@@ -681,9 +681,13 @@ corpus correlation says that quantity does not predict ink (current tier r = −
 **46. The gap fix's ink loss is not duplicate removal; it pulls the surface 4 voxels inward.** Every
 coverage measure is flat (strip area +0.45%, 3D surface −0.46%, duplication −3.3% n.s.) while ink
 falls 10.35% — the same canvas yields less ink. The surface moves **radially inward 3.96 vx**, 24.5%
-of a winding gap, in 10/10 scored windings with θ and z unchanged. Villa's own anti-gaming guard
-`overall_fg_fraction` falls 10.78% on villa's own correctness fix: it cannot tell geometry-got-worse
-from geometry-got-righter-and-moved-off-ink.
+of a winding gap, in 10/10 scored windings with θ and z unchanged. **Corrected 2026-09-21:** an
+earlier draft said villa's guard "fires" on villa's own fix. It does not — the guard is defined to
+flag a *gain* in `total_fg_pixels` bought with a fraction *drop*, and the gap fix is a *loss* on both,
+which the loop discards on the primary metric alone. The accurate statement is about the rule, not the
+guard: `autoresearch.md` says "a change that lifts total while holding fraction steady is a real
+win", and the converse — total and fraction both down — reads as a plain regression. On this
+correctness fix that reading is wrong, and nothing in the rule can detect it.
 `reports/the_gap_fix_does_not_remove_duplicated_coverage.md`,
 `reports/the_gap_fix_moves_the_surface_radially.md`.
 

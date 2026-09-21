@@ -56,13 +56,20 @@ it is, this does not settle.**
 `spiral-fitting/autoresearch.md` names `overall_fg_fraction` as its anti-gaming guard: it "will
 collapse" if a change inflates the surface with garbage geometry.
 
-**On this change that guard falls 10.78% (p=0.0015) — and the change is villa's own correctness fix.**
+**On this change that fraction falls 10.78% (p=0.0015) — and the change is villa's own correctness fix.**
 
-The guard is built to catch surface added over blank papyrus. It fires identically when *correct*
-geometry moves off inked papyrus, because both look like "less ink per unit surface". It cannot
-distinguish a change that made the geometry worse from one that made it more right and moved it away
-from ink. A loop optimising `total_fg_pixels` under that guard would reject this fix twice over: once
-on the objective, once on the guard.
+> **Corrected 2026-09-21.** This section originally said the guard "fires" on the fix and that the
+> loop would "reject this fix twice over". Re-reading `autoresearch.md`: the guard is defined
+> directionally — it flags a `total_fg_pixels` *gain* bought with a fraction *drop*. The gap fix is
+> a *loss* on both, so the guard never enters; the loop discards on the primary metric alone. The
+> claim below is restated to what the rule actually does.
+
+The rule's stated reading is: total up with fraction steady is a real win; total up with fraction
+down is gaming. By symmetry, total down with fraction down reads as a plain regression — *the
+surface got worse and reads less*. On this change that reading is wrong. The geometry got *more*
+correct (finding: 130→133 clears a capacity warning, satisfied area rises 7-10 sd), the surface moved
+4 vx inward, and it reads less. Nothing in the rule can tell that apart from a genuine regression,
+because the rule has no input that measures where the surface sits — only how much it reads.
 
 ## An independent confirmation, noted in passing
 
