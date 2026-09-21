@@ -51,6 +51,18 @@ git -C "$VILLA" archive "$VILLA_SHA" spiral-fitting lasagna vesuvius/src | tar -
 # Written before anything else can fail, so even a work dir from a crashed render
 # says what it was built from.
 printf '%s\n' "$VILLA_SHA" > "$W/VILLA_SHA"
+# THE RENDER HAS A SECOND PIN. VILLA_SHA covers the Python stage (render_ink.py,
+# lasagna, scoring). vc_render_tifxyz -- the C++ sampler that reads the ink volume
+# -- is built INTO the docker image from a DIFFERENT villa commit, recorded only
+# as ARG VILLA_SHA in the Dockerfile. Found 2026-09-21 when upstream #1828 changed
+# volume-cartographer/utils/src/zarr.cpp: every VILLA_SHA file said be09a8503 and
+# none of them described the binary that actually samples voxels. Record both.
+IMG="${VC_IMAGE:-vc-render:local}"
+{ printf 'image=%s\n' "$IMG"
+  printf 'image_id=%s\n' "$(docker image inspect "$IMG" --format '{{.Id}}' 2>/dev/null || echo unknown)"
+  printf 'image_built=%s\n' "$(docker image inspect "$IMG" --format '{{.Created}}' 2>/dev/null || echo unknown)"
+  printf 'image_villa_sha=%s\n' "$(grep -m1 '^ARG VILLA_SHA=' "$HERE/Dockerfile" | cut -d= -f2)"
+} > "$W/RENDER_IMAGE"
 echo "[setup_workdir] villa $VILLA_REF -> $VILLA_SHA" >&2
 cp -r "$HERE/bin" "$W/bin"; chmod +x "$W"/bin/*
 # The extracted tree is stock villa, so the serial-fold gate is NOT in it. Applying
