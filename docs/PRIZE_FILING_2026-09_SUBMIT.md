@@ -38,11 +38,16 @@ runs of a change to beat both baseline runs is a rank test: under no effect it p
 probability exactly **1/C(2k,k)**, independent of noise, metric or code version. Two seeds is 1/6;
 **three seeds is 1/20**, for 1.5× compute.
 
-**Its seed noise is 0.0263** on `total_fg_pixels` (nine 30,000-step fits, pooled within-arm), so the
-loop resolves about **6%** at three fits per arm — worth knowing before chasing smaller ones.
+**Its run-to-run noise is 0.0536** on `total_fg_pixels` (fifteen 30,000-step fits on current villa,
+pooled within-arm), so the loop resolves about **12%** at three fits per arm — worth knowing before
+chasing smaller ones. **And most of it is not the fit.** Two renders of byte-identical meshes on one
+pinned tree differ by **3.04%**, because the lasagna flatten is a stochastic optimisation: identical
+input lands on surfaces **7 voxels apart**. The sampler and scorer are near-deterministic (per-slice
+TIFFs byte-identical; scorer 0.003%). So adding fit seeds buys less than the arithmetic suggests —
+the variance is downstream of the fit, and the lever is a reproducible flattener.
 
 **Those two seeds are worth more averaged than compared.** Fits differing only by RNG seed agree on
-`total_fg_pixels` to 1.2% but on ink *placement* to only **r = 0.70** — two runs scoring identically
+`total_fg_pixels` to a few percent but on ink *placement* to only **r = 0.70** — two runs scoring identically
 are not reading the same text. (Part of that gap is the binning rather than the pipeline: per-bin
 scatter scales as mean^0.72, between counting noise at 0.5 and proportional at 1.0, so 0.70
 understates true agreement. It does not affect what follows.) The differences behave like independent noise, so averaging recovers
@@ -147,6 +152,10 @@ hidden.
 * **The ink-placement work is now admissible, because it met this rule's own condition.** The rule
   said it "does not go in a submission until it has survived that test". The forward test ran on
   2026-09-15 and CONFIRMED: predicted 0.877, measured 0.875 and 0.893. It is in Field 1.
-* **But still not any mechanism claim.** *Why* placement reproduces at 0.70 while the count
-  reproduces to 1.2% remains unexplained after two failed tests. Field 1 says what averaging buys,
-  never why the instability exists.
+* **A mechanism claim, but only the one that was measured.** *Why* placement reproduces at 0.70
+  while the count reproduces to a few percent was unexplained after two failed tests. It is now
+  localised: the lasagna flatten is stochastic, and two flattens of identical meshes land on
+  surfaces 7 voxels apart. That moves *where* ink is found far more than *how much* — which is the
+  count/placement split. What is NOT claimed is why the flattener is stochastic, or that fixing it
+  would improve reading; only that the instability sits there and not in the fit, the sampler, or
+  the scorer.
