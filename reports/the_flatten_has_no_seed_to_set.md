@@ -63,10 +63,14 @@ established, and the prediction that a Triton residual would survive was a miss.
 
 ## What it changes downstream
 
-**For villa's loop:** "run two seeds" — the robustness check `autoresearch.md` prescribes — varies
-the *fit* seed. The flatten downstream of both fits then adds ~3% of noise that no fit seed touches.
-The two-seed check is measuring fit variance plus flatten variance and attributing all of it to the
-fit.
+**For villa's loop — stated precisely, 2026-09-21.** `autoresearch.md` line 52 already says the
+code "is sensitive to the random seed **and CUDA non-determinism**" and prescribes robustness across
+"seeds/runs". So villa knows both sources exist; an earlier draft here said the loop "attributes all
+of it to the fit", which overstates it. What villa's doc does not have is the **decomposition** —
+that the CUDA part lives in the *flatten*, not the fit; its **magnitude** — 3.04% on the objective,
+7 vx on the surface; and that it is **switchable**. "Run two seeds" varies the fit seed and re-runs
+the flatten, so it samples both sources at once and cannot tell a fit that is robust from a flatten
+that happened to land twice in the same place.
 
 **For this project:** `RENDER_REUSE_FLATTEN=1` remains the only available lever, and it only helps
 studies that branch from one surface. Fit comparisons cannot use it and there is nothing cheaper

@@ -703,8 +703,10 @@ code — give `total_fg_pixels` +3.04%, and their surfaces sit **7.15 vx apart**
 (0.535 vx inner). Three renders of geometry identical to float32 ULP span 5.32%, indistinguishable
 from what six differently-seeded *fits* produce. So the "seed CV" always contained render noise and
 was never decomposed — though **one pair cannot apportion it** (a "59%" share was computed, withdrawn:
-its df=1 interval spans 3–100%). Villa's `test_flatten_state_handoff.py` tests export determinism;
-this is optimisation determinism, and it is the one that moves the ink count.
+its df=1 interval spans 3–100%). Villa's `autoresearch.md` already names "CUDA non-determinism"
+alongside the seed; what it lacks is the location (flatten, not fit), the magnitude, and the switch.
+Its `test_flatten_state_handoff.py` tests export determinism; this is optimisation determinism, and
+it is the one that moves the ink count.
 `reports/the_render_is_the_noise_floor.md`, `reports/the_flatten_lands_on_different_surfaces.md`.
 
 **49. Holding the flatten fixed collapses the floor 2000×, to 24 pixels.** Reusing one flatten via
