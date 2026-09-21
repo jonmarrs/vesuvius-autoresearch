@@ -58,3 +58,14 @@ whose fits ran on a different tree.
 
 Six arms, strictly serial (renders hold ~24 GB): ~11 min flatten + ~2 h render + ~15 min score each,
 **~14 h**. No fits, no scoring-model changes, no new data.
+
+## Side-prediction recorded mid-chain, BEFORE detfit_s5 scored
+
+The flatten's trim grid is a cheap signature of which surface it landed on. `detfit_s5`'s
+deterministic grid coincides with its stock grid to the pixel (`9108x455` both); `detfit_s4`'s did
+not (`9147x463` → `9157x461`) and its ink shifted **+4.80%**.
+
+**Prediction: `detfit_s5`'s ink shift from stock is small — under 1%.** A coinciding trim grid does
+not prove a coinciding surface (the grid is a bounding box, not the geometry), but a surface that
+differs by 7 vx should rarely produce the identical bounding box. If the shift is instead ~3–5%, the
+grid is not the signature I think it is, and that is worth knowing too.
