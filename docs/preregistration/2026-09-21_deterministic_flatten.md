@@ -56,3 +56,17 @@ answer to "is it fixable".
 
 Two flattens plus renders, ~2h each, strictly serial: **~4-5h**. No fits, no scoring — the surfaces
 are compared directly, so `vc_render_tifxyz` need not run at all. The chain stops after the flatten.
+
+## Observed during DET-A, before any comparison exists
+
+Recorded now because it narrows the outcome bands before the surfaces are compared.
+
+* **Zero escaped-op warnings** through both optimiser stages (5,500 steps). Every op the flatten
+  calls either has a deterministic path in torch 2.11 or is outside torch's determinism scope. So if
+  the surfaces still differ, the "≥ 1 vx, with warnings" band is already ruled out — a residual would
+  have to come from something torch does not police, which is the Triton kernel the prediction named.
+* **Throughput ~10× lower**, like-for-like at matched steps: 13.3–18.0 it/s against 142–176 stock.
+  The export step after stage1 is also visibly slower.
+
+Neither observation changes the prediction (0.01–1 vx). Both were possible to record honestly only
+before DET-B ran.
