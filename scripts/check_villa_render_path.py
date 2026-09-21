@@ -29,6 +29,20 @@ EXTRACTED_TREES = ("spiral-fitting", "lasagna", "vesuvius/src")
 
 # Files known to be on the hot path, called out by name so a change to one of
 # them is reported first rather than buried in a long list.
+# THE SAMPLER IS NOT IN THE EXTRACTED TREES. vc_render_tifxyz, which reads the
+# voxels, is compiled into the vc-render:local image from the Dockerfile's own
+# ARG VILLA_SHA -- a second, independent pin (reports/the_render_has_a_second_pin.md).
+# Changes under these paths do NOT reach a render until the image is rebuilt, and
+# an image rebuild changes the sampler without moving VILLA_REF at all. So this
+# check reports them SEPARATELY, as "image path", rather than folding them into
+# HOT_PATH where they would look like something a VILLA_REF bump could fix.
+IMAGE_PATH_PREFIXES = (
+    "volume-cartographer/apps/src/vc_render_tifxyz",
+    "volume-cartographer/apps/src/vc_tifxyz",
+    "volume-cartographer/core/",
+    "volume-cartographer/utils/",
+)
+
 HOT_PATH = (
     "spiral-fitting/render_ink.py",
     "spiral-fitting/get_ink_metrics.py",
@@ -73,6 +87,27 @@ def is_docs(path: str) -> bool:
     return path.lower().endswith(DOC_SUFFIXES)
 
 
+def image_path_changes(repo: Path, old: str, new: str) -> list[str]:
+    """Files on the sampler's build path that changed between two refs."""
+    out = subprocess.run(
+        [
+            "git",
+            "-C",
+            str(repo),
+            "diff",
+            "--name-only",
+            old,
+            new,
+            "--",
+            "volume-cartographer",
+        ],
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.split()
+    return [p for p in out if p.startswith(IMAGE_PATH_PREFIXES)]
+
+
 def compare(repo: Path, old: str, new: str) -> tuple[list[str], list[str], list[str]]:
     """Returns (changed, added, removed) paths across the extracted trees."""
     before, after = {}, {}
@@ -107,6 +142,21 @@ def main() -> int:
     hot = [p for p in changed if p in HOT_PATH]
     other = [p for p in changed if p not in HOT_PATH and not is_docs(p)]
     docs = [p for p in changed if is_docs(p)]
+
+    # The image path is outside EXTRACTED_TREES, so `changed` never contains it;
+    # ask git directly for the same revision range.
+    image_changed = image_path_changes(repo, args.old, args.new)
+    if image_changed:
+        print(
+            f"\n  IMAGE PATH CHANGED ({len(image_changed)}) -- the vc_render_tifxyz sampler:"
+        )
+        for p in image_changed[:12]:
+            print(f"    {p}")
+        print("    these reach a render ONLY via a docker image rebuild, and a rebuild")
+        print("    changes the sampler under every study without moving VILLA_REF.")
+        print(
+            "    Compare RENDER_IMAGE files, not VILLA_SHA, to know which sampler ran."
+        )
 
     if hot:
         print(f"\n  HOT PATH CHANGED ({len(hot)}):")
