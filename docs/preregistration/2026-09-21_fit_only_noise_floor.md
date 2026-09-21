@@ -69,3 +69,10 @@ not (`9147x463` → `9157x461`) and its ink shifted **+4.80%**.
 not prove a coinciding surface (the grid is a bounding box, not the geometry), but a surface that
 differs by 7 vx should rarely produce the identical bounding box. If the shift is instead ~3–5%, the
 grid is not the signature I think it is, and that is worth knowing too.
+
+**Resolved 2026-09-21 15:11, when `detfit_s5` scored: −0.97%. MET — by 0.03 points.** The bound
+was 1%; the result cleared it by three hundredths. That margin is not evidence of anything; a
+different draw could have put it on the other side. What the two arms do support is the qualitative
+reading: `s4`'s grid changed (`9147x463 → 9157x461`) and it shifted +4.80%; `s5`'s grid coincided
+and it shifted −0.97%. The trim grid is a usable signature of whether the flatten landed near its
+previous surface — a heuristic with one confirmation, not a law.
