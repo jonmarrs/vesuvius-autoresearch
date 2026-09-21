@@ -57,6 +57,27 @@ Three renders of geometry identical to float32 ULP span **5.32%** (1,698,831 / 1
 **So extra fit seeds buy much less than assumed: the variance is downstream of the fit.** A study that
 adds seeds to tighten its floor is mostly paying for more renders of the same noise.
 
+## Does this still hold against current villa? Checked 2026-09-21
+
+The measurement was made at pinned `be09a8503`. Upstream is now 37 commits ahead and the hot path
+has changed — almost entirely in **`lasagna/`**, the flattener this report names as the noise source
+(`model.py` alone +391/−166). Two checks on that diff:
+
+* **No commit touches seeding or determinism.** A grep of the `lasagna/model.py` and `optimizer.py`
+  diffs for `seed`, `manual_seed`, `deterministic`, `random`, `rng`, `generator`, `benchmark` returns
+  nothing. The three hot-path commits are a flush-worker fix (#1752), flatten memory (#1783), and
+  recording which model snapshot scored (#1805). **The flatten is as stochastic on current villa as
+  on the pin.**
+* **Villa's new `test_flatten_state_handoff.py` tests the wrong stage for this.** It asserts an
+  in-memory checkpoint handoff reproduces the file-driven export "bit for bit". That is *export*
+  determinism — the same optimised state written two ways. The non-reproducibility measured here is
+  in the *optimisation itself*: two runs from identical input reach different states. Villa's test
+  would pass on a flattener that lands 7 vx apart every run, and it does.
+
+So the finding is not an artifact of the pin. It is a property of the current flattener, and the
+test that would catch it — flatten the same input twice, compare the surfaces — does not exist
+upstream.
+
 ## What it does NOT overturn
 
 **No published verdict flips.** Every null in `reports/no_lever_has_improved_reading.md` was already
