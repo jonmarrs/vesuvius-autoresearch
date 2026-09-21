@@ -62,6 +62,9 @@ IMG="${VC_IMAGE:-vc-render:local}"
   printf 'image_id=%s\n' "$(docker image inspect "$IMG" --format '{{.Id}}' 2>/dev/null || echo unknown)"
   printf 'image_built=%s\n' "$(docker image inspect "$IMG" --format '{{.Created}}' 2>/dev/null || echo unknown)"
   printf 'image_villa_sha=%s\n' "$(grep -m1 '^ARG VILLA_SHA=' "$HERE/Dockerfile" | cut -d= -f2)"
+  # Whether the flatten will be deterministic is provenance too: a deterministic
+  # arm and a stock arm are not the same instrument, even on one villa tree.
+  printf 'flatten_deterministic=%s\n' "${FLATTEN_DETERMINISTIC:-0}"
 } > "$W/RENDER_IMAGE"
 echo "[setup_workdir] villa $VILLA_REF -> $VILLA_SHA" >&2
 cp -r "$HERE/bin" "$W/bin"; chmod +x "$W"/bin/*

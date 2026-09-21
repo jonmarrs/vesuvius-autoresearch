@@ -19,7 +19,20 @@ INK_URL="${INK_URL:-https://vesuvius-challenge-open-data.s3.amazonaws.com/PHercP
 cd "$W/spiral-fitting"
 # lasagna/fit.py imports vc3d_fiber_format, which lives in villa's vesuvius/src,
 # NOT in lasagna/. Without this the flatten dies on import.
-PYTHONPATH="$W/vesuvius/src" exec "$VENV" -u render_ink.py "$W/meshes" \
+#
+# FLATTEN_DETERMINISTIC=1 makes the lasagna flatten BIT-REPRODUCIBLE. Its
+# run-to-run variation is CUDA reduction order and nothing else (no RNG on the
+# path): two stock flattens of one mesh set land 7.15 vx apart and move
+# total_fg_pixels 3.04%; under deterministic algorithms they are byte-identical.
+# Cost ~9.5x on the flatten, ~11 min instead of ~4, against 2h renders. The shim
+# is a sitecustomize.py that activates only when the variable is set, so
+# leaving it on PYTHONPATH unconditionally changes nothing for stock runs.
+# reports/the_flatten_is_reproducible_when_asked.md
+HERE_RR="$(cd "$(dirname "$0")" && pwd)"
+if [ "${FLATTEN_DETERMINISTIC:-}" = "1" ]; then
+  echo "[run_render] FLATTEN_DETERMINISTIC=1: flatten will be bit-reproducible (~9.5x slower)" >&2
+fi
+PYTHONPATH="$HERE_RR/determinism_shim:$W/vesuvius/src" exec "$VENV" -u render_ink.py "$W/meshes" \
   --volume "$W/inkcache" --remote-url "$INK_URL" \
   --vc-render-bin "$W/bin/vc_render_tifxyz" \
   --tifxyz-trim-bin "$W/bin/vc_tifxyz_trim" \

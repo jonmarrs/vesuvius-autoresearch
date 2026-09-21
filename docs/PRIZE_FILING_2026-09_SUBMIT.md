@@ -44,7 +44,10 @@ chasing smaller ones. **And most of it is not the fit.** Two renders of byte-ide
 pinned tree differ by **3.04%**, because the lasagna flatten is a stochastic optimisation: identical
 input lands on surfaces **7 voxels apart**. The sampler and scorer are near-deterministic (per-slice
 TIFFs byte-identical; scorer 0.003%). So adding fit seeds buys less than the arithmetic suggests —
-the variance is downstream of the fit, and the lever is a reproducible flattener.
+the variance is downstream of the fit. **And it is removable.** The flatten has no RNG; its
+non-determinism is CUDA reduction order, and two flattens under
+`torch.use_deterministic_algorithms(True)` produce **byte-identical surfaces** at a 9.5× flatten
+cost (~11 min against 2 h renders). The 3% is optional, for the loop as much as for us.
 
 **Those two seeds are worth more averaged than compared.** Fits differing only by RNG seed agree on
 `total_fg_pixels` to a few percent but on ink *placement* to only **r = 0.70** — two runs scoring identically
