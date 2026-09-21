@@ -70,3 +70,28 @@ Recorded now because it narrows the outcome bands before the surfaces are compar
 
 Neither observation changes the prediction (0.01–1 vx). Both were possible to record honestly only
 before DET-B ran.
+
+## Observed after DET-A, still before DET-B: deterministic mode does not find the stock answer
+
+Unregistered comparison, carries no verdict, recorded because it changes what the registered one
+can mean.
+
+| pair | mean NN distance | grids |
+|---|---:|---|
+| rad0 vs rad0b (stock, stock) | 7.151 vx | 426×8266, 425×8266 |
+| **DET-A vs rad0** | **7.348 vx** | 427×8264, 426×8266 |
+| **DET-A vs rad0b** | **6.606 vx** | 427×8264, 425×8266 |
+
+DET-A sits as far from each stock surface as they sit from each other, on a third grid shape. So
+deterministic mode does not converge the optimiser toward some canonical surface the stock runs
+scatter around — it produces a *different* run, with its own reduction order fixed. **Which is
+exactly what determinism means**: reproducible, not "correct". Two stock runs and one deterministic
+run are three draws from the same distribution of converged surfaces.
+
+**What this narrows:** if DET-B reproduces DET-A closely, the registered "WHOLE CAUSE" band is
+confirmed *and* it is established that the reproducible surface is an arbitrary member of the
+distribution, not a privileged one. If DET-B lands ~7 vx from DET-A, deterministic mode did nothing
+and the third grid shape was coincidence.
+
+The prediction (0.01–1 vx) is unchanged. DET-A's flatten wall time: **637 s** including export,
+against ~4 min stock.
