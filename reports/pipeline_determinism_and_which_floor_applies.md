@@ -1,4 +1,4 @@
-# The pipeline is deterministic to 1.4%, and I applied the wrong floor to arms B and D
+# The pipeline determinism floor (originally stated as 1.4%, since withdrawn), and the wrong floor applied to arms B and D
 
 > **The title overstates what was measured, 2026-09-19.** This is **one draw**. A second measurement
 > of the same quantity — `probe_innerprob` re-rendering `seedarm_04`'s meshes, byte-identical by md5,

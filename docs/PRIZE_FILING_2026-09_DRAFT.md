@@ -1,5 +1,11 @@
 # September 2026 Progress Prize — DRAFT, not submitted
 
+> **SUPERSEDED 2026-09-21 — do not edit or file from this document.** The submit-ready text is
+> `docs/PRIZE_FILING_2026-09_SUBMIT.md`. This draft is kept for history only and contains figures
+> that have since been **withdrawn** (the 0.0263 seed CV, the 6% resolution, the "1.2%" count
+> agreement); the withdrawn-claims guard flagged it on 2026-09-21. Every number below is stale as
+> of the SUBMIT file's last correction.
+
 **Deadline: 11:59pm Pacific, 2026-09-30.** Nothing here is filed. Needs review before submission.
 
 **VERIFIED 2026-09-12 against villa `be09a8503`** (current upstream HEAD), in
@@ -39,7 +45,7 @@ runs of a change to beat both baseline runs is a rank test: under no effect it p
 probability exactly **1/C(2k,k)**, independent of noise, metric or code version. Two seeds is 1/6;
 **three seeds is 1/20**, for 1.5× compute.
 
-**Its seed noise is 0.0263** on `total_fg_pixels` (nine 30,000-step fits, pooled within-arm), so the
+**Its seed noise is 0.0263** *(withdrawn 2026-09-19; now 0.0536)* on `total_fg_pixels` (nine 30,000-step fits, pooled within-arm), so the
 loop resolves about **6%** at three fits per arm — worth knowing before chasing smaller ones. We
 first published 0.0125 from six fits and withdrew it when a third arm doubled the estimate; the
 number here is the one that survived.
@@ -54,7 +60,7 @@ interval is wide.
 
 Three measurements on villa's spiral loop as it runs today. The two-seed robustness check in
 `autoresearch.md` accepts a null change **1 time in 6** — exactly 1/C(2k,k), a rank test no amount of
-better fitting improves; **three seeds makes it 1 in 20**. Current seed noise is **0.0263**, so the
+better fitting improves; **three seeds makes it 1 in 20**. Current seed noise is **0.0263** *(withdrawn 2026-09-19; now 0.0536)*, so the
 loop resolves ~6%. And two ablations bound what winding constraints buy for
 *reading*: removing 5,413 same-winding constraints gives **+0.28%, CI [−2.56%, +3.13%]**, and cutting
 the hand-drawn anchors 50 → 10 gives **−0.86%, CI [−10.21%, +8.50%]**.
