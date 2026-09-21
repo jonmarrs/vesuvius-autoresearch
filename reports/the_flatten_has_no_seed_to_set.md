@@ -68,8 +68,8 @@ code "is sensitive to the random seed **and CUDA non-determinism**" and prescrib
 "seeds/runs". So villa knows both sources exist; an earlier draft here said the loop "attributes all
 of it to the fit", which overstates it. What villa's doc does not have is the **decomposition** —
 that the CUDA part lives in the *flatten*, not the fit; its **magnitude** — 3.04% on the objective,
-7 vx on the surface; and that it is **switchable**. "Run two seeds" varies the fit seed and re-runs
-the flatten, so it samples both sources at once and cannot tell a fit that is robust from a flatten
+7 vx on the surface; and that it is **switchable**. Running a change twice across seeds — villa's "robust across seeds/runs" — varies the fit seed
+and re-runs the flatten, so it samples both sources at once and cannot tell a fit that is robust from a flatten
 that happened to land twice in the same place.
 
 **For this project:** `RENDER_REUSE_FLATTEN=1` remains the only available lever, and it only helps

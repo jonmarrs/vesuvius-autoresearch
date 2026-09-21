@@ -685,8 +685,8 @@ of a winding gap, in 10/10 scored windings with θ and z unchanged. **Corrected 
 earlier draft said villa's guard "fires" on villa's own fix. It does not — the guard is defined to
 flag a *gain* in `total_fg_pixels` bought with a fraction *drop*, and the gap fix is a *loss* on both,
 which the loop discards on the primary metric alone. The accurate statement is about the rule, not the
-guard: `autoresearch.md` says "a change that lifts total while holding fraction steady is a real
-win", and the converse — total and fraction both down — reads as a plain regression. On this
+guard: `autoresearch.md` says a change that "lifts total while holding fraction roughly steady, is a
+real win", and the converse — total and fraction both down — reads as a plain regression. On this
 correctness fix that reading is wrong, and nothing in the rule can detect it.
 `reports/the_gap_fix_does_not_remove_duplicated_coverage.md`,
 `reports/the_gap_fix_moves_the_surface_radially.md`.
