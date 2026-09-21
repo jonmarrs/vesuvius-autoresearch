@@ -654,3 +654,103 @@ argues against.
 
 Reproduce: `repro/spiral_render/`, `scripts/measure_winding_overlap.py`,
 `scripts/analyse_seed_spread.py`. All from published artifacts.
+
+## The noise floor line, 2026-09-19 to 21: where the variance actually lives
+
+**44. Three arms were filed in the wrong code tier, and six replicate seeds sat unused.** Two
+scripts disagreed on which tier `anchor10cov` belonged to; the correlation script's local prefix list
+defaulted unknown arms to pinned and pooled three current-tier fits into the wrong population. The
+ink range gave it away: 1.45M..2.95M is two populations, not one. Removing them reproduces the
+published n=24 figure exactly, so the *report* was right and the *script* had drifted. Separately,
+`measure_noise_floor.py` used three `curbase` seeds when nine were on disk. With all nine, the
+current-tier CV goes **0.0263 → 0.0536** (df=11), the MDE at 3v3 from 6% to **12.3%**, and "current
+code is quieter than pinned" dies (F(18,11)=0.92, p=0.84). The published interval contained the new
+value — for the *third* time. Tier membership now lives in one place (`scripts/arm_tiers.py`) and an
+unclassified arm raises. `reports/six_unused_seeds_double_the_current_floor.md`.
+
+**45. Six manipulations, zero improved reading, one made it worse.** Across every registered study
+with tree-matched controls: gap-expander −10.35% (p=0.002, HARMED); bootstrap, stripmatch, two
+same-winding ablations and the anchor ablation all null, bounding 3–18%. The nulls are not equal —
+same-winding-current bounds ±3% against a 12.3% design MDE, patch bootstrap only ±18% at a nominal
+11.8%. The anchor study's registered control was fitted on a different villa tree than its
+treatment; tree-matched, its ink estimate moves −0.86% → −5.49% (verdict still NULL) while its
+geometry result strengthens. Every lever tried manipulates the geometry the fit solves for, and the
+corpus correlation says that quantity does not predict ink (current tier r = −0.424, capped +0.11).
+`reports/no_lever_has_improved_reading.md`, `reports/the_anchor_control_was_cross_tree.md`.
+
+**46. The gap fix's ink loss is not duplicate removal; it pulls the surface 4 voxels inward.** Every
+coverage measure is flat (strip area +0.45%, 3D surface −0.46%, duplication −3.3% n.s.) while ink
+falls 10.35% — the same canvas yields less ink. The surface moves **radially inward 3.96 vx**, 24.5%
+of a winding gap, in 10/10 scored windings with θ and z unchanged. Villa's own anti-gaming guard
+`overall_fg_fraction` falls 10.78% on villa's own correctness fix: it cannot tell geometry-got-worse
+from geometry-got-righter-and-moved-off-ink.
+`reports/the_gap_fix_does_not_remove_duplicated_coverage.md`,
+`reports/the_gap_fix_moves_the_surface_radially.md`.
+
+**47. The "1.42% pipeline determinism floor" was one draw, and its mechanism was wrong.** A second
+same-mesh pair agreed to four pixels — 892× tighter — because it only re-*scored*. The scorer alone
+moves a fixed strip by 0.0032%, 950× too small to produce 1.42%. The four measurements split cleanly:
+scorer-only 0.0032%/0.0016%; flatten+render+score 1.42%/3.04%.
+`reports/the_determinism_floor_rests_on_one_draw.md`.
+
+**48. The lasagna flatten is stochastic: 3.04% ink and 7.15 voxels from identical input.** Two
+renders differing in nothing but being run twice — same meshes, same pinned tree, byte-identical
+code — give `total_fg_pixels` +3.04%, and their surfaces sit **7.15 vx apart** in the outer region
+(0.535 vx inner). Three renders of geometry identical to float32 ULP span 5.32%, indistinguishable
+from what six differently-seeded *fits* produce. So the "seed CV" always contained render noise and
+was never decomposed — though **one pair cannot apportion it** (a "59%" share was computed, withdrawn:
+its df=1 interval spans 3–100%). Villa's `test_flatten_state_handoff.py` tests export determinism;
+this is optimisation determinism, and it is the one that moves the ink count.
+`reports/the_render_is_the_noise_floor.md`, `reports/the_flatten_lands_on_different_surfaces.md`.
+
+**49. Holding the flatten fixed collapses the floor 2000×, to 24 pixels.** Reusing one flatten via
+`RENDER_REUSE_FLATTEN=1` (`repro/spiral_render/reuse_flatten.patch`), two renders of a byte-identical
+flat surface differ by **0.0014%**. The sampler is byte-deterministic (per-slice TIFFs identical by
+md5); all 24 px is the scorer. Every stage is now attributed. **This applies only to studies that
+branch from one surface** — fit comparisons need a flatten per arm and get no benefit from reuse.
+`reports/holding_the_flatten_fixed_collapses_the_floor.md`.
+
+**50. Displacing the flattened surface 4 voxels costs ink in both directions: −19.77% inward,
+−4.48% outward.** The controlled version of finding 46, on one flat surface with the flatten held
+fixed. IN loses **1.91×** what the gap fix lost from the same shift, so displacement alone
+*over-explains* the fix's cost — the fix is not a pure radial shift. OUT had no prediction and lost
+anyway: the fitted surface sits near a local maximum, steep inside, shallow outside. The first design
+displaced *input* meshes and let the flatten re-solve; its own ZERO control exposed that the flatten
+moves the surface 7.15 vx by itself, 1.8× the manipulation, and the design was declared invalid before
+its treatment arms ran. `reports/displacing_the_surface_costs_ink_in_both_directions.md`,
+`reports/the_radial_study_design_is_invalid.md`.
+
+**51. The scorer reads texture, not brightness: IN renders brighter than ZERO and scores 20% less.**
+Composite bright-pixel fraction IN 1.783% > ZERO 1.751% > OUT 1.435%, yet IN scores lowest. A
+brightness reading of the inward loss has the wrong sign. `total_fg_pixels` is "how much looks like
+writing to this model", not "how much ink the surface passed through". The first draft of this
+finding was built on per-slice intensity profiles and would have concluded the window slid off the
+layer; it was overturned only by checking whether the probe tracked the target.
+`reports/the_scorer_reads_texture_not_brightness.md`.
+
+**52. The flatten has no seed to set — and is bit-reproducible when asked.** No RNG exists on the
+flatten path; every "seed" is a geometric init point. What it has is 174 scatter/atomic sites,
+`grid_sample`, a fused Triton kernel, and no request for determinism. Two flattens under
+`torch.use_deterministic_algorithms(True)` + `CUBLAS_WORKSPACE_CONFIG` produce **byte-identical
+`x/y/z.tif`**, zero escaped-op warnings, at 9.5× flatten cost (~11 min vs ~4, against 2 h renders).
+Reduction order is the *whole* cause. The registered prediction — a residual from the Triton
+kernel — missed in the good direction. **Reproducible is not correct**: the deterministic surface
+sits 6.6–7.3 vx from *both* stock surfaces, an arbitrary member of the same distribution. Available
+as `FLATTEN_DETERMINISTIC=1` in `run_render.sh`; the first wiring of it was inert (path resolved after
+a `cd`) and was caught by reading the flatten process's environment rather than its banner.
+`reports/the_flatten_has_no_seed_to_set.md`, `reports/the_flatten_is_reproducible_when_asked.md`.
+
+## Closing note on the noise line, superseding the one above
+
+Findings 38–43 excluded four routes for the placement instability and left it unexplained. Findings
+47–52 explain it: **the lasagna flatten is a stochastic optimiser whose run-to-run variation comes
+entirely from CUDA reduction order**, landing on surfaces 7 voxels apart from identical input and
+moving the count 3% and the placement far more. It can be switched off. What remains open is the
+**fit-only** floor — what six seeds of one config give with the flatten held deterministic — which is
+registered (`docs/preregistration/2026-09-21_fit_only_noise_floor.md`) and running.
+
+Three lessons this line paid for, each more than once: **quote the interval, never the point
+estimate** (three retractions of one number, each new value inside the prior CI); **measure the floor,
+never inherit it** (a study design invalidated by a floor from a report that named an unmeasured
+mechanism); and **validate the probe against the target before interpreting it** (an intensity
+analysis with the wrong sign, a `%/vx` law that failed three times in a day).
