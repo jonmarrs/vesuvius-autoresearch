@@ -48,6 +48,25 @@ for free.
 **Always report the chi-square interval at df=5.** A CV at df=5 has a 95% interval spanning roughly
 a factor of three; the point estimate alone is what this project has been burned by three times.
 
+## What the result cannot do, computed before it arrives
+
+The obvious over-reading — "a tighter floor reopens the nulls" — does not survive arithmetic. At 3v3
+the design MDE for each registered band, against the effect each null study *observed*:
+
+| study | observed | CV<0.030 → MDE 5.7% | 0.030–0.055 → 9.6% | >0.055 → 14.9% |
+|---|---:|---|---|---|
+| patch bootstrap | 0.83% | null | null | null |
+| stripmatch | 3.08% | null | null | null |
+| same-winding (pinned) | 1.74% | null | null | null |
+| same-winding (current) | 0.28% | null | null | null |
+| anchor ablation | 5.49% | null (just) | null | null |
+
+**No published null becomes decisive in any band.** The largest observed null effect, the anchor
+ablation's 5.49%, falls short of even the most favourable MDE; the other four sit an order of
+magnitude below any achievable floor. So this study's result bears on **how many seeds future
+studies need**, not on whether any past null was secretly a finding. Recorded now so the number is
+not over-read when it lands.
+
 ## What this does not settle
 
 Whether the residual is *fit RNG* or *fit + something else undecomposed*. Six seeds of one config on
