@@ -37,8 +37,14 @@ that was never printed.
 
 ## Arms
 
-| arm | what varies | what is held fixed | verified how |
-|---|---|---|---|
+| arm | work dir | what varies | what is held fixed | verified how |
+|---|---|---|---|---|
+
+**Name every work dir by its on-disk name, here, before launch.** The coverage auditor
+(`scripts/audit_arm_coverage.py`, in the pre-commit hook) blocks any commit while a scored arm is
+named by nothing — and the study's report cannot exist until all arms have scored. A chain of six
+arms blocked a commit at arm four because the registration said "curbase_s4..s9" and the dirs were
+`detfit_s4..s9`. The registration is the document that can name them from the start.
 
 Every arm on one pinned `VILLA_REF` **and** one `RENDER_IMAGE` — there are two pins, and `VILLA_SHA`
 alone described the Python stage while the C++ sampler lived in a Docker image built from a different
