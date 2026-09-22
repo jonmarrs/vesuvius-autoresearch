@@ -1,6 +1,10 @@
-# Draft correction comment for villa PR #1866 — NOT POSTED
+# Correction comment for villa PR #1866 — POSTED 2026-09-22
 
-**Status: draft only.** Posting is an outward action and needs the owner's approval. Under the
+**Status: POSTED 2026-09-22 21:37 UTC with the owner's approval**, text unchanged from the draft below:
+https://github.com/ScrollPrize/villa/pull/1866#issuecomment-5784589961 . It used that day's one
+reply slot. Before posting: PR open, only a bot comment, no other villa reply that day.
+
+Original status note: posting is an outward action and needs the owner's approval. Under the
 standing rules it is a reply in an existing thread (allowed up to one per day), it must carry no
 AI-authorship markers, and it should go out only if the PR is still open.
 
