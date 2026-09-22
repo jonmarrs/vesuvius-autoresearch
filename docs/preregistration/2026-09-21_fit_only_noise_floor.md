@@ -60,6 +60,13 @@ readings separate cleanly:
 
 There is no ambiguous middle. Prediction 2 stands as registered: fit outlier.
 
+**Resolved 2026-09-21 17:01: FIT OUTLIER. Prediction 2 MET.** `s6` deterministic scores 3,583,420
+(+3.72% from stock) and leads the next-highest by **+13.2%**, against a 14.4% stock lead — the gap
+survived re-flattening almost unchanged. The fit itself produces more ink; the flatten had nothing to
+do with it. This settles the question left open in
+`reports/six_unused_seeds_double_the_current_floor.md`, which kept `s6` in the floor on principle
+without knowing whether it was a fit or flatten artefact. Keeping it was right.
+
 ## What the result cannot do, computed before it arrives
 
 The obvious over-reading — "a tighter floor reopens the nulls" — does not survive arithmetic. At 3v3
