@@ -45,7 +45,8 @@ probability exactly **1/C(2k,k)**, independent of noise, metric or code version.
 pooled within-arm), so the loop resolves about **12%** at three fits per arm — worth knowing before
 chasing smaller ones. **Part of that is not the fit.** Two renders of byte-identical meshes on one
 pinned tree differ by **3.04%**, because the lasagna flatten is a stochastic optimisation: identical
-input lands on surfaces **7 voxels apart**. The sampler and scorer are near-deterministic (per-slice
+input lands on the same surface (0.25 vx apart along its normal) but lays it out on a grid
+offset **~7 voxels in-plane**. The sampler and scorer are near-deterministic (per-slice
 TIFFs byte-identical; scorer 0.003%). **And it is removable.** The flatten has no RNG; its
 non-determinism is CUDA reduction order, and two flattens under
 `torch.use_deterministic_algorithms(True)` produce **byte-identical surfaces** at a 9.5× flatten
@@ -174,8 +175,8 @@ hidden.
   2026-09-15 and CONFIRMED: predicted 0.877, measured 0.875 and 0.893. It is in Field 1.
 * **A mechanism claim, but only the one that was measured.** *Why* placement reproduces at 0.70
   while the count reproduces to a few percent was unexplained after two failed tests. It is now
-  localised: the lasagna flatten is stochastic, and two flattens of identical meshes land on
-  surfaces 7 voxels apart. That moves *where* ink is found far more than *how much* — which is the
-  count/placement split. What is NOT claimed is why the flattener is stochastic, or that fixing it
+  localised: the lasagna flatten is stochastic, and two flattens of identical meshes lay the same
+  surface out differently (0.25 vx apart along the normal, ~7 vx re-parametrised in-plane). That
+  moves *where* ink is found far more than *how much* — which is the count/placement split. What is NOT claimed is why the flattener is stochastic, or that fixing it
   would improve reading; only that the instability sits there and not in the fit, the sampler, or
   the scorer.

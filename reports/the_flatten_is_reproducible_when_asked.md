@@ -44,7 +44,10 @@ flatten. On this box that is ~11 minutes per arm instead of ~4, against renders 
 **The cost is negligible relative to the pipeline it sits in.**
 
 **Reproducible is not the same as correct.** `det_a` sits 6.6–7.3 vx from *both* stock surfaces —
-as far as they sit from each other. Deterministic mode does not find a canonical answer; it fixes
+as far as they sit from each other. *(Corrected 2026-09-22: all three lie on the same surface,
+0.23–0.26 vx apart along the normal; the 6.6–7.3 vx is an in-plane re-parametrisation. The point below
+holds for the layout rather than the position.
+`reports/the_flatten_moves_the_grid_not_the_surface.md`.)* Deterministic mode does not find a canonical answer; it fixes
 one reduction order and lands on an arbitrary member of the same distribution the stock runs
 sample from. Two studies on deterministic flattens are comparable *to each other*; neither is more
 right than a stock run.

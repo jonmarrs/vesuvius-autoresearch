@@ -27,6 +27,13 @@ be read.
 
 ## The proposed addition
 
+> **CORRECTION 2026-09-22, after this was posted as villa PR #1866.** "Land on surfaces about 7 voxels
+> apart" and "7.15 vx … 6.6–7.3 vx" below misdescribe the geometry. The flattens lie on the **same
+> surface** (0.25 vx apart along the normal) and differ by a ~7 vx **in-plane re-parametrisation**
+> (`reports/the_flatten_moves_the_grid_not_the_surface.md`). The 3.04%, the cause and the switch are
+> unaffected. A correction comment is drafted in `docs/VILLA_PR_1866_CORRECTION_DRAFT.md` and is
+> **NOT posted**: that needs the owner's approval.
+
 > The CUDA half of that is the **lasagna flatten**, and it is larger than it looks. Two renders of
 > byte-identical meshes on one commit, same GPU, same code, land on surfaces about **7 voxels apart**
 > and differ by **3.04%** on `total_fg_pixels` — the scorer itself contributes 0.003%, so almost none

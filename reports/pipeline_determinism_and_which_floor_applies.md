@@ -54,7 +54,8 @@ eleventh winding. No new fitting happens, so seed-to-seed variation cannot enter
 
 > **What that floor IS, established 2026-09-20 — and the verdict survives it.** The 1.42% is
 > **lasagna flatten** noise, not scorer noise: each arm is separately flattened, and two flattens of
-> one mesh set land 0.535 vx apart in this inner region (7.15 vx in the outer), while the scorer
+> one mesh set land 0.535 vx apart in this inner region (7.15 vx in the outer; *corrected 2026-09-22:
+> in-plane re-parametrisation of one surface, 0.01 / 0.25 vx along the normal*), while the scorer
 > alone moves a fixed strip by 0.0032%. The floor used here is therefore the *right kind* of floor —
 > it is a flatten+render+score pair from the same region — but it is **one pair**, so it is a point
 > estimate with no interval. **B and D clear it by 8.9x and 12.4x, so they would still clear it if

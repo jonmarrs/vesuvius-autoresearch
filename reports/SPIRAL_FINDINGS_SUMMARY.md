@@ -700,7 +700,10 @@ scorer-only 0.0032%/0.0016%; flatten+render+score 1.42%/3.04%.
 **48. The lasagna flatten is stochastic: 3.04% ink and 7.15 voxels from identical input.** Two
 renders differing in nothing but being run twice — same meshes, same pinned tree, byte-identical
 code — give `total_fg_pixels` +3.04%, and their surfaces sit **7.15 vx apart** in the outer region
-(0.535 vx inner). Three renders of geometry identical to float32 ULP span 5.32%, indistinguishable
+(0.535 vx inner). *(Corrected 2026-09-22: that is a nearest-neighbour distance between two samplings
+of the **same** sheet on a 20 vx grid. Along the normal they are **0.25 vx** apart outer and
+**0.01 vx** inner. The flatten re-parametrises the surface; it does not move it. The 3.04% stands.
+`reports/the_flatten_moves_the_grid_not_the_surface.md`.)* Three renders of geometry identical to float32 ULP span 5.32%, indistinguishable
 from what six differently-seeded *fits* produce. So the "seed CV" always contained render noise and
 was never decomposed — though **one pair cannot apportion it** (a "59%" share was computed, withdrawn:
 its df=1 interval spans 3–100%). Villa's `autoresearch.md` already names "CUDA non-determinism"
@@ -723,7 +726,9 @@ fixed. IN loses **1.91×** what the gap fix lost from the same shift, so displac
 anyway: the fitted surface sits near a local maximum, steep inside, shallow outside. The first design
 displaced *input* meshes and let the flatten re-solve; its own ZERO control exposed that the flatten
 moves the surface 7.15 vx by itself, 1.8× the manipulation, and the design was declared invalid before
-its treatment arms ran. `reports/displacing_the_surface_costs_ink_in_both_directions.md`,
+its treatment arms ran. *(Corrected 2026-09-22: the re-flatten re-parametrises rather than moves the
+surface, 0.25 vx along the normal. The design was still invalid for the restated reason that each
+re-flatten adds 3.04% of ink noise, which a single arm cannot separate from the effect.)* `reports/displacing_the_surface_costs_ink_in_both_directions.md`,
 `reports/the_radial_study_design_is_invalid.md`.
 
 **51. The scorer reads texture, not brightness: IN renders brighter than ZERO and scores 20% less.**
@@ -762,7 +767,8 @@ loop. `reports/fit_rng_dominates_the_flatten_was_never_binding.md`.
 
 Findings 38–43 excluded four routes for the placement instability and left it unexplained. Findings
 47–52 explain it: **the lasagna flatten is a stochastic optimiser whose run-to-run variation comes
-entirely from CUDA reduction order**, landing on surfaces 7 voxels apart from identical input and
+entirely from CUDA reduction order**, laying the same surface out on a grid offset ~7 voxels in-plane
+(0.25 vx along the normal; corrected 2026-09-22) from identical input and
 moving the count 3% and the placement far more. It can be switched off. The fit-only floor is now measured (finding 53): **0.09 [0.06, 0.22]**, fit RNG,
 indistinguishable from the stock spread. The flatten was the whole explanation for *placement*
 instability and *no* part of the binding constraint on *fit comparisons* — two different questions

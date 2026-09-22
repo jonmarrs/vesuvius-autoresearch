@@ -1,5 +1,12 @@
 # The flatten lands on different surfaces: 0.5 voxels inner, 7.2 outer, from identical input
 
+> **CORRECTED 2026-09-22: the title's claim is wrong.** The two flattens lie on the **same surface**:
+> **0.25 vx** apart along the surface normal (outer) and **0.01 vx** (inner). The 7.15 vx below is a
+> nearest-neighbour distance between two samplings of one sheet on a 20 vx grid, offset in-plane.
+> It is a re-parametrisation, not a displacement. The ink changes (3.04%, 1.42%) are real; the
+> per-voxel sensitivities below divided them by a re-sampling distance and are void. See
+> `reports/the_flatten_moves_the_grid_not_the_surface.md`. The text below is kept as written.
+
 **2026-09-20.** Follow-up to `reports/the_render_is_the_noise_floor.md`, which established that
 re-rendering one mesh set on one pinned tree moves `total_fg_pixels` by 3.04%. This measures the
 geometric cause. `scripts/measure_flatten_divergence.py`.

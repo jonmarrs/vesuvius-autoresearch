@@ -27,7 +27,9 @@
 > [verdict](reports/patch_bootstrap_verdict.md). Runs on one consumer GPU from published artifacts.
 > **Sept 19-22 — where the noise actually lives, and one part of it is switchable.** The lasagna
 > flatten is a **stochastic optimiser**: two renders of byte-identical meshes, one pinned tree,
-> byte-identical code, land on surfaces **7.15 voxels apart** and move `total_fg_pixels` **3.04%**.
+> byte-identical code, lay the **same surface** out on grids offset ~7 voxels in-plane (0.25 vx apart
+> along the normal — [correction](reports/the_flatten_moves_the_grid_not_the_surface.md)) and move
+> `total_fg_pixels` **3.04%**.
 > It has no RNG to seed — the cause is CUDA reduction order alone — and asking PyTorch for
 > deterministic algorithms makes it **bit-reproducible** (identical `x/y/z.tif` by md5) at a 9.5×
 > flatten cost, ~11 min against 2 h renders
