@@ -40,6 +40,20 @@ df=5. Every number below is reported with it.
 Pooled with the existing `detfit_s4..s9`. **No new fits.** One pinned `VILLA_REF` and one
 `RENDER_IMAGE` across all twelve.
 
+## A scale check the registration did not anticipate, done before any arm scored
+
+`detfit_ns1`'s flatten loss is **8.60** where `curbase`'s was **1.55** — the three configs optimise
+objectives 5.5× apart in magnitude. Pooling relative deviations assumes the groups are commensurable;
+that difference is large enough to be worth checking rather than waving through.
+
+**It does not enter the statistic.** The pooled CV is computed on `total_fg_pixels`, not on the
+flatten loss, and on that endpoint the three configs sit within **1.27×** of each other (stock means:
+`curbase` 3,023,710; `nosamecur` 2,890,443; `anchor10cov` 2,857,571; `fg_fraction` 0.00728/0.00706/
+0.00702). One scale, one instrument, one endpoint — relative deviations are commensurable.
+
+Recorded because noticing it after the result and asserting it was fine would be indistinguishable
+from not having checked.
+
 ## Predictions, fixed now
 
 1. **Pooled fit-only CV in [0.040, 0.075].** Reasoning: `curbase`'s 0.0909 and the two quieter
