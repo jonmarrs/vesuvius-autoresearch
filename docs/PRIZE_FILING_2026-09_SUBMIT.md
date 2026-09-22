@@ -40,14 +40,18 @@ probability exactly **1/C(2k,k)**, independent of noise, metric or code version.
 
 **Its run-to-run noise is 0.0536** on `total_fg_pixels` (fifteen 30,000-step fits on current villa,
 pooled within-arm), so the loop resolves about **12%** at three fits per arm — worth knowing before
-chasing smaller ones. **And most of it is not the fit.** Two renders of byte-identical meshes on one
+chasing smaller ones. **Part of that is not the fit.** Two renders of byte-identical meshes on one
 pinned tree differ by **3.04%**, because the lasagna flatten is a stochastic optimisation: identical
 input lands on surfaces **7 voxels apart**. The sampler and scorer are near-deterministic (per-slice
-TIFFs byte-identical; scorer 0.003%). So adding fit seeds buys less than the arithmetic suggests —
-the variance is downstream of the fit. **And it is removable.** The flatten has no RNG; its
+TIFFs byte-identical; scorer 0.003%). **And it is removable.** The flatten has no RNG; its
 non-determinism is CUDA reduction order, and two flattens under
 `torch.use_deterministic_algorithms(True)` produce **byte-identical surfaces** at a 9.5× flatten
-cost (~11 min against 2 h renders). The 3% is optional, for the loop as much as for us.
+cost (~11 min against 2 h renders). **But removing it does not make fit comparisons cheaper.** Six
+seeds of one config re-flattened deterministically give a seed CV of **0.09 [0.06, 0.22]**,
+indistinguishable from the same six with stock flattens (F(5,5) p=0.67). The fit's own RNG
+dominates; at three seeds per arm the loop resolves ~20%, and no lever short of more seeds moves
+that. Where the switch is decisive is studies that manipulate one *fixed* surface — there it takes
+the floor from 3% to **0.0014%**.
 
 **Those two seeds are worth more averaged than compared.** Fits differing only by RNG seed agree on
 `total_fg_pixels` to a few percent but on ink *placement* to only **r = 0.70** — two runs scoring identically
