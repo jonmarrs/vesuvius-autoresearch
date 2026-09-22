@@ -115,3 +115,9 @@ different draw could have put it on the other side. What the two arms do support
 reading: `s4`'s grid changed (`9147x463 → 9157x461`) and it shifted +4.80%; `s5`'s grid coincided
 and it shifted −0.97%. The trim grid is a usable signature of whether the flatten landed near its
 previous surface — a heuristic with one confirmation, not a law.
+
+## RESOLVED 2026-09-22 — band FIT RNG DOMINATES, prediction 1 MISS
+
+Fit-only CV **0.0909 [0.0568, 0.2230]** at df=5, against stock 0.0742 [0.0463, 0.1820] on the same
+six fits: indistinguishable (F(5,5) p = 0.666). Making the flatten deterministic does not detectably
+tighten fit comparisons; at 3v3 the MDE is ~20%. `reports/fit_rng_dominates_the_flatten_was_never_binding.md`.

@@ -1,0 +1,28 @@
+{
+ "cv": 0.09092781837669928,
+ "ci": [
+  0.05675787185868705,
+  0.22301083929887158
+ ],
+ "df": 5,
+ "stock_cv": 0.0742,
+ "band": "FIT RNG DOMINATES",
+ "det": {
+  "curbase_s4": 3164499,
+  "curbase_s5": 2963832,
+  "curbase_s6": 3583420,
+  "curbase_s7": 3018973,
+  "curbase_s8": 2837373,
+  "curbase_s9": 2848719
+ },
+ "stock": {
+  "curbase_s4": 3019583,
+  "curbase_s5": 2992717,
+  "curbase_s6": 3454937,
+  "curbase_s7": 2974987,
+  "curbase_s8": 2881173,
+  "curbase_s9": 2818864
+ },
+ "top": "curbase_s6",
+ "mde_3v3": 0.20802679238984978
+}

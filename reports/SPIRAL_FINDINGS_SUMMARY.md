@@ -746,14 +746,25 @@ as `FLATTEN_DETERMINISTIC=1` in `run_render.sh`; the first wiring of it was iner
 a `cd`) and was caught by reading the flatten process's environment rather than its banner.
 `reports/the_flatten_has_no_seed_to_set.md`, `reports/the_flatten_is_reproducible_when_asked.md`.
 
+**53. With the flatten made deterministic, fit RNG dominates: seed CV 0.09 [0.06, 0.22].** Six
+`curbase` seeds re-flattened under `FLATTEN_DETERMINISTIC=1` give a within-group CV of 0.0909
+against 0.0742 on the same fits with stock flattens — indistinguishable, F(5,5) p=0.666. So the
+flatten's 3% was never the binding constraint on fit comparisons; at 3v3 the floor is ~20% and it is
+the fit's own RNG, with no cheap lever. Prediction (a CV in [0.030, 0.055]) missed, the fourth missed
+magnitude in a week. `curbase_s6` survived re-flattening as top scorer by +13.2%: a genuine fit
+outlier, kept in the floor. The deterministic switch remains decisive for surface-manipulation
+studies (finding 49) and irrelevant for fit comparisons — which is most of the corpus and villa's
+loop. `reports/fit_rng_dominates_the_flatten_was_never_binding.md`.
+
 ## Closing note on the noise line, superseding the one above
 
 Findings 38–43 excluded four routes for the placement instability and left it unexplained. Findings
 47–52 explain it: **the lasagna flatten is a stochastic optimiser whose run-to-run variation comes
 entirely from CUDA reduction order**, landing on surfaces 7 voxels apart from identical input and
-moving the count 3% and the placement far more. It can be switched off. What remains open is the
-**fit-only** floor — what six seeds of one config give with the flatten held deterministic — which is
-registered (`docs/preregistration/2026-09-21_fit_only_noise_floor.md`) and running.
+moving the count 3% and the placement far more. It can be switched off. The fit-only floor is now measured (finding 53): **0.09 [0.06, 0.22]**, fit RNG,
+indistinguishable from the stock spread. The flatten was the whole explanation for *placement*
+instability and *no* part of the binding constraint on *fit comparisons* — two different questions
+with two different answers.
 
 Three lessons this line paid for, each more than once: **quote the interval, never the point
 estimate** (three retractions of one number, each new value inside the prior CI); **measure the floor,
