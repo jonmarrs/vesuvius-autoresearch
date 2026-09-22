@@ -749,8 +749,10 @@ a `cd`) and was caught by reading the flatten process's environment rather than 
 **53. With the flatten made deterministic, fit RNG dominates: seed CV 0.09 [0.06, 0.22].** Six
 `curbase` seeds re-flattened under `FLATTEN_DETERMINISTIC=1` give a within-group CV of 0.0909
 against 0.0742 on the same fits with stock flattens — indistinguishable, F(5,5) p=0.666. So the
-flatten's 3% was never the binding constraint on fit comparisons; at 3v3 the floor is ~20% and it is
-the fit's own RNG, with no cheap lever. Prediction (a CV in [0.030, 0.055]) missed, the fourth missed
+flatten's 3% was never the binding constraint on fit comparisons; at 3v3 the floor is ~20% on this
+config and it is the fit's own RNG, with no cheap lever. (`curbase` is the tier's noisiest group on
+stock flattens, so this is a config floor, not a tier floor — the tier-wide figure is unmeasured and
+likely better.) Prediction (a CV in [0.030, 0.055]) missed, the fourth missed
 magnitude in a week. `curbase_s6` survived re-flattening as top scorer by +13.2%: a genuine fit
 outlier, kept in the floor. The deterministic switch remains decisive for surface-manipulation
 studies (finding 49) and irrelevant for fit comparisons — which is most of the corpus and villa's

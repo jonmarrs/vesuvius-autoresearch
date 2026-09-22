@@ -76,8 +76,17 @@ test it.
 **Nothing about `FLATTEN_DETERMINISTIC=1` for surface-manipulation studies**, where it took the floor
 from 3.04% to 0.0014% and the ±4 vx displacement result stands on it.
 
-**For fit comparisons, the honest position is now measured rather than inferred:** at 3v3 the floor is
-~20%, it is fit RNG, and there is no cheap lever for it — not the flatten, not more render care. A
+**For fit comparisons of THIS config, the honest position is now measured rather than inferred:**
+at 3v3 the floor is ~20%, it is fit RNG, and there is no cheap lever for it — not the flatten, not
+more render care.
+
+**Scope, added 2026-09-22 before this number propagates:** 0.0909 was measured on `curbase` alone,
+which is the noisiest group in the current tier on stock flattens (0.0742 vs `nosamecur` 0.0127 and
+`anchor10cov` 0.0419) and the only one with a genuine outlier. Whether it is *significantly* noisier
+is **not established** — F(5,2) p = 0.057 and 0.518 against df=2 groups can establish nothing — but
+the tier's pooled stock estimate (0.0536, df=11) is *below* `curbase`'s, so **0.0909 is a floor for
+this config, not for the tier.** "The loop resolves ~20%" overreaches; "a fit comparison on this
+config resolves ~20%, and the tier is probably somewhat better" is what the data say. A
 fit comparison that needs to see 5% needs roughly **n=13 per arm** at this CV, which is the number
 villa's loop and this project's studies have never had. Every null in
 `reports/no_lever_has_improved_reading.md` was already quoted against a 10–12% MDE; this says even

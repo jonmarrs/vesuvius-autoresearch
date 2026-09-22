@@ -49,8 +49,9 @@ non-determinism is CUDA reduction order, and two flattens under
 cost (~11 min against 2 h renders). **But removing it does not make fit comparisons cheaper.** Six
 seeds of one config re-flattened deterministically give a seed CV of **0.09 [0.06, 0.22]**,
 indistinguishable from the same six with stock flattens (F(5,5) p=0.67). The fit's own RNG
-dominates; at three seeds per arm the loop resolves ~20%, and no lever short of more seeds moves
-that. Where the switch is decisive is studies that manipulate one *fixed* surface — there it takes
+dominates on that config; at three seeds per arm it resolves ~20%, and no lever short of more seeds
+moves that. (That config is the tier's noisiest on stock flattens; the tier-wide figure is likely
+somewhat better and is not measured.) Where the switch is decisive is studies that manipulate one *fixed* surface — there it takes
 the floor from 3% to **0.0014%**.
 
 **Those two seeds are worth more averaged than compared.** Fits differing only by RNG seed agree on
@@ -76,21 +77,23 @@ interval is wide.
 
 No external adoption of the *measurements* is demonstrated, and the writeup says so plainly.
 
-**What is upstream: four merged fixes, two pending.** The criteria reward resolving bugs in tools you
+**What is upstream: four merged fixes, zero pending; two more were auto-closed unreviewed.** The criteria reward resolving bugs in tools you
 use yourself, so these are named rather than left out:
 
 | PR | status | what it fixes |
 |---|---|---|
 | **#1721** | **MERGED** 2026-09-07 | `spiral-fitting/autoresearch.md` instructed readers to run a script that does not exist |
 | **#1722** | **MERGED** 2026-09-14 | `get_ink_metrics.py` writes two metrics; neither was documented |
-| #1723 | open | which resident-pool sidecars the defaults actually load |
-| #1728 | open | `render_ink` silently produced an entirely black strip; now warns |
+| #1723 | CLOSED — by the 14-day inactivity bot on 2026-09-22, no review | which resident-pool sidecars the defaults actually load |
+| #1728 | CLOSED — by the 14-day inactivity bot on 2026-09-22, no review | `render_ink` silently produced an entirely black strip; now warns |
 | **#1780** | **MERGED** 2026-09-15 | `autoresearch.md` overstated what the two-seed robustness check accepts |
 | **#1805** | **MERGED** 2026-09-15 | `metrics.json` recorded the model repo id but not which snapshot produced the score |
 
 Every one came out of running villa's own pipeline here. #1728 in particular is the fix for a failure
 that cost us hours: a blank render is indistinguishable from a successful one in the logs, which is
-how we first mis-diagnosed a mistyped path as a VOID result.
+how we first mis-diagnosed a mistyped path as a VOID result. Both auto-closed PRs were shut by the
+repository's 14-day inactivity bot with no maintainer comment; the fixes stand in this repo's
+patches and are resubmittable.
 
 **This is six PRs against a merged total of four.** #1805 was one line and merged in about thirty minutes. It is
 offered as evidence of the practice, not as an adoption claim.
