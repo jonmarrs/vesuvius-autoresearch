@@ -11,11 +11,14 @@ should be edited without editing that too.
    `forms.gle` links belonging to the Grand Prize, First Letters and Title prizes. Verified
    2026-09-12 against `be09a8503` as
    `docs.google.com/forms/d/e/1FAIpQLScNBMj25FMnphngRG1Ciryv_2_Mkdq2YPJOD9WqPfZExII2iQ/viewform`,
-   and re-verified 2026-09-18 against current upstream `b1ef996e3` through the GitHub API
-   (unchanged across 32 commits). The file carries four form links, so the marker is what
-   distinguishes them.
+   re-verified 2026-09-18 against `b1ef996e3`, and **re-verified 2026-09-22 against current
+   upstream `d285029ab`** — unchanged. The file carries four form links, so the marker is what
+   distinguishes them. (August's form was a different id, `1FAIpQLSev...`; do not reuse a
+   previous month's.)
 2. **Confirm the deadline still reads 11:59pm Pacific, September 30th, 2026** under
-   `progress-prizes:deadline:start`. Re-verified at `b1ef996e3` on 2026-09-18 — twelve days out.
+   `progress-prizes:deadline:start`. Re-verified at `d285029ab` on 2026-09-22 — **eight days out**.
+   The whole Progress Prize section is byte-identical between the pin and upstream, so the
+   criteria this text answers have not moved.
 3. **Run `pytest tests/test_filing_numbers_match_sources.py`** — every figure below is bound to a json
    artifact, and that test fails if any has drifted or if a withdrawn one has crept back.
 4. **Run `./.venv/bin/python scripts/check_filing_upstream_claims.py`** — check 3 covers figures
@@ -77,29 +80,36 @@ interval is wide.
 
 No external adoption of the *measurements* is demonstrated, and the writeup says so plainly.
 
-**What is upstream: four merged fixes, zero pending; two more were auto-closed unreviewed.** The criteria reward resolving bugs in tools you
+**What is upstream: four merged fixes, two awaiting review, two auto-closed unreviewed.** The criteria reward resolving bugs in tools you
 use yourself, so these are named rather than left out:
 
 | PR | status | what it fixes |
 |---|---|---|
 | **#1721** | **MERGED** 2026-09-07 | `spiral-fitting/autoresearch.md` instructed readers to run a script that does not exist |
 | **#1722** | **MERGED** 2026-09-14 | `get_ink_metrics.py` writes two metrics; neither was documented |
-| #1723 | CLOSED — by the 14-day inactivity bot on 2026-09-22, no review | which resident-pool sidecars the defaults actually load |
-| #1728 | CLOSED — by the 14-day inactivity bot on 2026-09-22, no review | `render_ink` silently produced an entirely black strip; now warns |
+| #1723 | CLOSED — by the 14-day inactivity bot on 2026-09-22 | which resident-pool sidecars the defaults actually load |
+| #1728 | CLOSED — by the 14-day inactivity bot on 2026-09-22 | `render_ink` silently produced an entirely black strip; now warns |
 | **#1780** | **MERGED** 2026-09-15 | `autoresearch.md` overstated what the two-seed robustness check accepts |
 | **#1805** | **MERGED** 2026-09-15 | `metrics.json` recorded the model repo id but not which snapshot produced the score |
+| #1842 | open, opened 2026-09-19 | `autoresearch.md`'s coverage guard is directional and does not catch duplicated coverage |
+| #1866 | open, opened 2026-09-22 | `autoresearch.md` did not say where the CUDA non-determinism lives, or that it can be switched off |
 
 Every one came out of running villa's own pipeline here. #1728 in particular is the fix for a failure
 that cost us hours: a blank render is indistinguishable from a successful one in the logs, which is
 how we first mis-diagnosed a mistyped path as a VOID result. Both auto-closed PRs were shut by the
-repository's 14-day inactivity bot with no maintainer comment; the fixes stand in this repo's
-patches and are resubmittable.
+repository's 14-day inactivity bot rather than by a maintainer declining them; the fixes stand in
+this repo's patches and are resubmittable. We are deliberately not dressing that up: villa carries
+**no review record and no human comment on any of these eight, the four merged ones included**, so
+we cannot and do not claim the closed two were judged and found wanting, nor that they were
+ignored. The only thing the record supports is who performed the close.
 
-**This is six PRs against a merged total of four.** #1805 was one line and merged in about thirty minutes. It is
-offered as evidence of the practice, not as an adoption claim.
+**This is eight PRs against a merged total of four.** #1805 was one line and merged in about thirty minutes. It is
+offered as evidence of the practice, not as an adoption claim. The two open ones carry no
+expectation: on the record above, an unreviewed villa PR is auto-closed at fourteen days.
 
 What exists is outbound and, honestly, unanswered: six villa issues are open from us and three have
-zero comments, the oldest since August. We checked upstream and none has been resolved. We are not
+zero comments, the oldest since August. No maintainer has resolved any of them, though #1658's
+substance was fixed by our own #1721 and #1722 and it simply has not been closed. We are not
 filing more issues while that backlog stands.
 
 The one substantive external exchange remains @Bullo27's reply on #1660, which correctly identified

@@ -1,0 +1,98 @@
+{
+  "generated_utc": "2026-09-22T19:48:08Z",
+  "source": "gh pr view --repo ScrollPrize/villa (per PR)",
+  "scope": "PRs numbered >= 1700 (the spiral-fitting campaign the filing describes)",
+  "caveat": "reviews==0 and comments_human==0 hold for ALL of these, INCLUDING the ones that merged. villa merges without a review record, so neither field distinguishes 'never looked at' from 'accepted'. The only discriminator is who closed it: a maintainer merge vs the 14-day inactivity bot. Do not cite reviews:0 as evidence.",
+  "total": 8,
+  "merged": [
+    1721,
+    1722,
+    1780,
+    1805
+  ],
+  "open": [
+    1842,
+    1866
+  ],
+  "closed_unmerged": [
+    1723,
+    1728
+  ],
+  "prs": {
+    "1721": {
+      "state": "MERGED",
+      "mergedAt": "2026-09-07T17:00:28Z",
+      "createdAt": "2026-09-07T16:54:24Z",
+      "reviews": 0,
+      "comments_total": 1,
+      "comments_human": 0,
+      "title": "spiral-fitting: fix autoresearch.md naming a script that does not exist"
+    },
+    "1722": {
+      "state": "MERGED",
+      "mergedAt": "2026-09-14T18:31:53Z",
+      "createdAt": "2026-09-07T17:42:36Z",
+      "reviews": 0,
+      "comments_total": 1,
+      "comments_human": 0,
+      "title": "spiral-fitting: document the two metrics get_ink_metrics.py already writes"
+    },
+    "1723": {
+      "state": "CLOSED",
+      "mergedAt": null,
+      "createdAt": "2026-09-07T18:25:38Z",
+      "reviews": 0,
+      "comments_total": 2,
+      "comments_human": 0,
+      "title": "spiral-fitting: note which resident-pool sidecars the defaults load"
+    },
+    "1728": {
+      "state": "CLOSED",
+      "mergedAt": null,
+      "createdAt": "2026-09-07T23:22:52Z",
+      "reviews": 0,
+      "comments_total": 2,
+      "comments_human": 0,
+      "title": "render_ink: warn when a rendered strip is entirely black"
+    },
+    "1780": {
+      "state": "MERGED",
+      "mergedAt": "2026-09-15T16:48:13Z",
+      "createdAt": "2026-09-14T19:38:44Z",
+      "reviews": 0,
+      "comments_total": 1,
+      "comments_human": 0,
+      "title": "spiral-fitting: say what the two-seed robustness check actually buys"
+    },
+    "1805": {
+      "state": "MERGED",
+      "mergedAt": "2026-09-15T17:30:40Z",
+      "createdAt": "2026-09-15T17:20:15Z",
+      "reviews": 0,
+      "comments_total": 1,
+      "comments_human": 0,
+      "title": "get_ink_metrics: record which model snapshot produced a score"
+    },
+    "1842": {
+      "state": "OPEN",
+      "mergedAt": null,
+      "createdAt": "2026-09-19T21:02:12Z",
+      "reviews": 0,
+      "comments_total": 1,
+      "comments_human": 0,
+      "title": "autoresearch: note that the fraction guard does not catch duplicated coverage"
+    },
+    "1866": {
+      "state": "OPEN",
+      "mergedAt": null,
+      "createdAt": "2026-09-22T18:49:24Z",
+      "reviews": 0,
+      "comments_total": 1,
+      "comments_human": 0,
+      "title": "spiral-fitting: say where the CUDA non-determinism lives and how to turn it off"
+    }
+  },
+  "n_merged": 4,
+  "n_open": 2,
+  "n_closed_unmerged": 2
+}
