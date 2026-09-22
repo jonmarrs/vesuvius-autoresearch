@@ -57,3 +57,17 @@ requires. `radial_work_rad0` was rendered twice in place and both runs completed
 **And a bonus from the same check**: `rad0` and `probe` — same flat surface, rendered on different
 days — have **byte-identical per-slice TIFFs by md5**. The sampler is deterministic, which closes the
 one attribution the floor report had left open.
+
+## Addendum 2026-09-22: #1676, a heap-buffer-overflow in the sampler's dataset class, does not reach our renders
+
+Upstream #1676 fixes `VcDataset::readRegion` writing past the caller's buffer when a region extends
+beyond the dataset — a bug the unfixed binary hides, "exits 0 and reports every test passing". Our
+image is built from `5479453a`, pre-fix, and `vc_render_tifxyz` uses `VcDataset` directly.
+
+**Checked, not assumed.** The overflow needs `offset + regionShape > dataset shape`. The ink volume
+at the render's level 1 is `[37892, 16347, 16347]`; the sampled surface's bounding box is
+`x ≤ 3752, y ≤ 3936, z ≤ 9216` at that level, plus a ±2-voxel slice margin. Every render here sits
+thousands of voxels inside every edge. The buggy path was never entered; the sampled values stand.
+
+**The fixed monitor classified this correctly** as IMAGE PATH (41 files) rather than HOT PATH — the
+first live confirmation that yesterday's fix reports the right remedy.
