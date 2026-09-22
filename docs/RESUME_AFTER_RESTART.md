@@ -49,6 +49,20 @@ Needs four arms built (`offset_m2`, `offset_p1`, `offset_p2`, `offset_p3`) from
 **Build them only when the machine is idle** — mid-chain there is ~1 GB RAM free and 12 GB of swap
 in use; see the pre-launch checklist in `docs/preregistration/TEMPLATE.md`.
 
+**QUEUED 2026-09-22 13:14, detached** (pid 3980709, own session, off the claude tree):
+`spiral_out/run_offset_sweep_after_pooled.sh` (committed copy:
+`repro/spiral_render/run_offset_sweep_after_pooled.sh`), log `spiral_out/offset_sweep.log`,
+per-arm render logs `spiral_out/offset_<arm>.render.log`. It waits for the pooled chain's pid, and
+**only if the log ends in `POOLED_CHAIN_DONE`**: runs the pooled analysis first (step 3 above —
+so that step is already done when you arrive), then builds and verifies all four surfaces (achieved
+shift, `z.tif` byte-identical to `flat0`, same valid points and axis), stages each from
+`flat_study_zero`, renders serially with `RENDER_REUSE_FLATTEN=1`, **kills the arm if the reuse
+line does not appear** (the fallback silently re-flattens), checks the docker image id against the
+pinned one, and finally runs `analyse_ink_maximum_offset.py --json reports/ink_maximum_offset.json`.
+Expect results ~09:00–10:00 on 09-23. Markers to grep: `OFFSET_SWEEP_ABORTED|BUILD_FAILED|GUARD_FAILED|RENDER_FAILED|SCORE_FAILED|ARM_DONE|OFFSET_SWEEP_DONE`.
+If the pooled chain FAILS, the sweep does nothing (exit 3) — decide whether to re-run the pooled
+arm first, then relaunch with `CHAIN_PID=<new chain pid>` or, with no chain running, remove the wait.
+
 ## Outward state
 
 - **villa PR #1866** open (flatten determinism), posted 2026-09-22. **Do not nudge.**
