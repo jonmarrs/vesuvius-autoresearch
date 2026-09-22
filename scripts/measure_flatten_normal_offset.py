@@ -61,8 +61,13 @@ def normal_offset(
     mB: np.ndarray,
     frac: float = 1.0,
     seed: int = 0,
+    axis: tuple[float, float] | None = None,
 ) -> dict[str, float]:
-    """Statistics of B's points relative to surface A, split along A's normal."""
+    """Statistics of B's points relative to surface A, split along A's normal.
+
+    With `axis` = (cx, cy), also report the displacement along the OUTWARD normal
+    (the grid normal flipped where it points toward the axis). The grid normal's
+    own sign is arbitrary, so only the outward reading compares across surfaces."""
     n = grid_normals(PA, mA)
     good = mA & np.isfinite(n).all(-1)
     A, NA = PA[good], n[good]
@@ -76,7 +81,13 @@ def normal_offset(
     v = B - A[idx]
     dn = (v * NA[idx]).sum(-1)
     dt = np.linalg.norm(v - dn[:, None] * NA[idx], axis=-1)
-    return {
+    extra: dict[str, float] = {}
+    if axis is not None:
+        q = A[idx]
+        radial = np.stack([q[:, 0] - axis[0], q[:, 1] - axis[1]], -1)
+        outward = np.sign((NA[idx][:, :2] * radial).sum(-1))
+        extra["normal_outward_median"] = float(np.median(dn * outward))
+    return extra | {
         "n_a": int(len(A)),
         "n_b": int(len(B)),
         "nn_p50": float(np.median(dist)),

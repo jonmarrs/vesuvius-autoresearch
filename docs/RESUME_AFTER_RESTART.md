@@ -70,6 +70,14 @@ and byte-compares all 11 outputs. `IDENTICAL` means future studies may adopt the
 should stop the swap thrash. `NOT_IDENTICAL` means they may not. **Never adopt it mid-study either
 way.** Reasoning: `reports/holding_the_flatten_fixed_collapses_the_floor.md`, 2026-09-22 addendum.
 
+**Third in line, detached (pid 4013391):** `spiral_out/run_flatten_transmission_after_cache_check.sh`
+(committed copy in `repro/spiral_render/`), log `spiral_out/flatten_transmission.log`. It implements
+`docs/preregistration/2026-09-22_does_the_flatten_transmit_a_mesh_offset.md`: two deterministic
+flatten-only arms (render stubbed, about 11 min each) of the ±4 vx pre-flatten meshes. It runs only
+if the cache check logged `CACHE_CHECK_DONE`. It answers whether villa's loop could REACH an offset
+lever from fitting code. T ≈ 1 is expected by construction (the flattener optimises only a 2D map), so
+a T ≈ 1 result is a confirmation.
+
 If the pooled chain FAILS, the sweep does nothing (exit 3) — decide whether to re-run the pooled
 arm first, then relaunch with `CHAIN_PID=<new chain pid>` or, with no chain running, remove the wait.
 

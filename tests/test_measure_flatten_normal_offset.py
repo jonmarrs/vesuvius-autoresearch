@@ -52,3 +52,16 @@ def test_an_in_plane_resample_of_one_sheet_is_not_a_displacement():
     assert r["nn_p50"] > 8.0, r
     assert r["normal_abs_p50"] < 0.2, r
     assert r["in_plane_p50"] > 8.0, r
+
+
+def test_outward_sign_does_not_depend_on_grid_orientation():
+    """The grid normal's sign is arbitrary (it flips with column order), so a
+    displacement must be read along the OUTWARD normal about an axis for 'in'
+    and 'out' to be comparable across surfaces."""
+    PA, m = cylinder()
+    for flip in (False, True):
+        A = PA[:, ::-1] if flip else PA
+        out = normal_offset(A, m, cylinder(radius=R + 4.0)[0], m, axis=(0.0, 0.0))
+        inn = normal_offset(A, m, cylinder(radius=R - 4.0)[0], m, axis=(0.0, 0.0))
+        assert abs(out["normal_outward_median"] - 4.0) < 0.1, (flip, out)
+        assert abs(inn["normal_outward_median"] + 4.0) < 0.1, (flip, inn)
