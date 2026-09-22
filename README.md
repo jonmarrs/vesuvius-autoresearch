@@ -25,6 +25,28 @@
 > alone.** Detail:
 > [SPIRAL_FINDINGS_SUMMARY.md](reports/SPIRAL_FINDINGS_SUMMARY.md),
 > [verdict](reports/patch_bootstrap_verdict.md). Runs on one consumer GPU from published artifacts.
+> **Sept 19-22 — where the noise actually lives, and one part of it is switchable.** The lasagna
+> flatten is a **stochastic optimiser**: two renders of byte-identical meshes, one pinned tree,
+> byte-identical code, land on surfaces **7.15 voxels apart** and move `total_fg_pixels` **3.04%**.
+> It has no RNG to seed — the cause is CUDA reduction order alone — and asking PyTorch for
+> deterministic algorithms makes it **bit-reproducible** (identical `x/y/z.tif` by md5) at a 9.5×
+> flatten cost, ~11 min against 2 h renders
+> ([measurement](reports/the_flatten_is_reproducible_when_asked.md)). That collapses the floor for
+> studies manipulating **one fixed surface** from 3.04% to **0.0014%** — 24 pixels — which is what
+> made a controlled result possible: displacing the flattened surface **4 voxels** costs ink in
+> **both** directions, −19.77% inward and −4.48% outward, so the fitted surface sits near a local
+> maximum, steep inside and shallow outside
+> ([report](reports/displacing_the_surface_costs_ink_in_both_directions.md)). It does **not** help
+> comparisons between different *fits* — six seeds re-flattened deterministically give a CV of
+> **0.09 [0.06, 0.22]**, statistically indistinguishable from stock (F(5,5) p=0.67), so fit RNG
+> dominates there and the flatten was never the binding constraint
+> ([report](reports/fit_rng_dominates_the_flatten_was_never_binding.md)). Along the way the
+> project's own "pipeline is deterministic to 1.4%" floor turned out to be one draw with the wrong
+> mechanism attached — the scorer it blamed contributes **0.0032%**, ~950× too little — and three
+> successive seed-noise figures (0.0125 → 0.0263 → 0.0536) were each retracted when the next arm
+> landed inside the interval that had never been printed. Everything is registered before the data
+> exists, with the decision script committed while the first arm is still rendering; the
+> [template](docs/preregistration/TEMPLATE.md) encodes what each of those cost.
 > **Live experiment tracking:** [wandb dashboard](https://wandb.ai/jdmarrs-uc-davis/vesuvius-autoresearch).
 
 `bountyhunter` is an experiment in having AI agents perform their own end-to-end computer vision research. It automates the cycle of hypothesis generation, hyperparameter optimization, model training, and performance evaluation to uncover the "Gold Standard" configurations for reading ancient carbonized scrolls.
