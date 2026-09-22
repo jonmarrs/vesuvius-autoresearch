@@ -15,6 +15,8 @@ import json
 import sys
 from pathlib import Path
 
+import numpy as np
+
 SRC = "radial_work_rad0"  # the source strip; scored from its jpg tiles: 1,698,831
 ARMS = {  # name -> (dx, dy)
     "stx_d0a": (0, 0),
@@ -32,6 +34,41 @@ F_RECORDED = 24 / 1_698_831  # reports/holding_the_flatten_fixed_collapses_the_f
 MARGIN = 3.0
 BIG = 0.01  # registered: >= 1% spread is layout-sensitive
 INK = "total_fg_pixels"
+
+
+# Per-block rescoring (descriptive). The rad0 vs rad0b reference was measured at
+# BLOCK px: same surface re-laid-out, ink-weighted, 40 blocks.
+BLOCK = 2048
+REF_BLOCK_SD = 0.135
+
+
+def _mask(pred_dir) -> np.ndarray:
+    from PIL import Image
+
+    Image.MAX_IMAGE_PIXELS = None
+    parts = []
+    for p in sorted(Path(pred_dir).glob("*_mask*.png")):
+        a = np.asarray(Image.open(p))
+        parts.append((a[..., 0] if a.ndim == 3 else a) > 0)
+    h = max(x.shape[0] for x in parts)
+    parts = [np.pad(x, ((0, h - x.shape[0]), (0, 0))) for x in parts]
+    return np.concatenate(parts, axis=1)
+
+
+def block_sd(pred_a, pred_b, dx: int, dy: int, block: int = BLOCK) -> float:
+    """Ink-weighted sd of the per-block relative change from prediction A (at the
+    source position) to prediction B (offset by dy, dx), after undoing the offset.
+    DESCRIPTIVE ONLY: it asks whether a pure shift reproduces the block-level
+    rescoring seen between two layouts of the same surface; it is not in the verdict."""
+    a = _mask(pred_a).sum(0).astype(float)
+    b = _mask(pred_b)[dy:, dx:].sum(0).astype(float)
+    n = min(len(a), len(b)) // block
+    ba = a[: n * block].reshape(n, block).sum(1)
+    bb = b[: n * block].reshape(n, block).sum(1)
+    ok = ba > 0
+    d = (bb[ok] - ba[ok]) / ba[ok]
+    w = ba[ok] / ba[ok].sum()
+    return float(np.sqrt(np.average((d - np.average(d, weights=w)) ** 2, weights=w)))
 
 
 def verdict(spread: float, floor: float) -> tuple[str, str]:
@@ -89,6 +126,21 @@ def main() -> int:
         f"  pipeline check: PNG d0 vs the source's JPEG score {src:,}: {(base - src) / src:+.5%}"
     )
     print(f"  spread (max - min) / mean over all arms: {spread:.4%}")
+    print(
+        f"\n  DESCRIPTIVE (not in the verdict): per-block sd vs stx_d0a, {BLOCK}-px blocks;"
+        f" reference rad0b vs rad0 = {REF_BLOCK_SD:.3f}"
+    )
+    bsd = {}
+    for n, (dx, dy) in ARMS.items():
+        if n == "stx_d0a":
+            continue
+        bsd[n] = block_sd(
+            so / "stx_d0a" / "ink_metric" / "predictions",
+            so / n / "ink_metric" / "predictions",
+            dx,
+            dy,
+        )
+        print(f"    {n:<10} {bsd[n]:.4f}")
     name, read = verdict(spread, floor)
     print(f"\nVERDICT: {name}\n  {read}")
     print(
@@ -104,6 +156,7 @@ def main() -> int:
                     "floor": floor,
                     "spread": spread,
                     "verdict": name,
+                    "block_sd": bsd,
                 },
                 indent=1,
             )

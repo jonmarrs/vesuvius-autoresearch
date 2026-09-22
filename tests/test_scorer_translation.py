@@ -60,3 +60,22 @@ def test_verdict_bands():
     assert verdict(spread=0.02, floor=F)[0] == "LAYOUT-SENSITIVE"
     assert verdict(spread=0.004, floor=F)[0] == "SENSITIVE, SMALL"
     assert verdict(spread=2 * F, floor=F)[0] == "INSENSITIVE"
+
+
+def test_block_sd_aligns_a_shifted_mask_back_to_source_coordinates(tmp_path):
+    """A shifted arm's mask is offset by (dy, dx). After undoing the offset an
+    identical prediction must read a per-block change of exactly 0."""
+    from analyse_scorer_translation import block_sd
+
+    rng = np.random.default_rng(3)
+    m = (rng.random((50, 6000)) > 0.9).astype(np.uint8) * 255
+    a, b = tmp_path / "a", tmp_path / "b"
+    a.mkdir()
+    b.mkdir()
+    Image.fromarray(m).save(a / "w120-129_flat_mask.png")
+    Image.fromarray(np.pad(m, ((4, 0), (7, 0)))).save(b / "w120-129_flat_mask.png")
+    assert block_sd(a, b, dx=7, dy=4, block=1000) == 0.0
+    m2 = m.copy()
+    m2[:, :1000] = 0  # wipe one block of the second prediction
+    Image.fromarray(np.pad(m2, ((4, 0), (7, 0)))).save(b / "w120-129_flat_mask.png")
+    assert block_sd(a, b, dx=7, dy=4, block=1000) > 0.1

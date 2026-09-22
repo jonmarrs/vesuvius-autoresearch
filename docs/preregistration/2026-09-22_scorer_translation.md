@@ -53,6 +53,30 @@ blends every pixel from several tiles, which should damp position effects, but n
 0.5 threshold is not translation-equivariant, so zero effect would surprise me. Confidence
 **moderate at best**. My magnitude predictions have missed repeatedly this week.
 
+## Revised prediction, dated 2026-09-22 ~17:10, before any arm was built (original kept above)
+
+A block-level look at `rad0` vs `rad0b`, done after registering and before any arm existed, changes
+what I expect. Over 40 blocks of 2048 px the ink change is **not** uniform:
+
+* the ink-weighted sd per block is **0.135**, and 16 of 40 blocks *lose* ink;
+* neighbouring blocks are uncorrelated (lag-1 −0.01);
+* brightness (132.6 vs 132.2) and coverage per block (0.9986) are unchanged;
+* the scorer's own repeat noise at this block size (`rad0` vs `flat_study_probe`, identical strips)
+  is **0.000093**, about 1,450× smaller.
+
+Independent blocks at sd 0.135 imply ±2.6% on the total. The observed 3.07% is a 1.2-sd draw. So the
+3.04% between two flattens is what uncorrelated local rescoring produces.
+
+**Revised prediction: LAYOUT-SENSITIVE (≥ 1%), confidence low.** If even a 1-pixel shift re-draws the
+per-block rescoring at anything like 0.135, the ten arms will spread by several percent. If only
+local distortion does it, they stay near the floor. The original "SENSITIVE, SMALL" stays on record
+as the prediction made first.
+
+**Added, descriptive only, not in the verdict:** the analysis now reports each arm's per-block sd
+against `stx_d0a`, after undoing the offset, beside the 0.135 reference. That tests the mechanism
+directly. Checked on real data before adding it: it reproduces 0.1352 for `rad0`/`rad0b` and 0.000093
+for the identical-strip pair.
+
 ## Decision rule
 
 `spread` = (max − min) / mean of `total_fg_pixels` over all ten arms.
