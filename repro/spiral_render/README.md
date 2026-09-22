@@ -368,6 +368,11 @@ it is a *guard*, not an estimate, and the margin covers render scratch.
 
 `run_render.sh` prints `eta` by extrapolating from bands completed so far. **The early bands are much
 
+**Schedule builds before the chain, not during it.** Mid-chain the box measures **~1 GB RAM
+free with ~12 GB of swap in use** (2026-09-22): the render alone holds 26 GB. Building the
+next study's arms — a few hundred MB of tif I/O plus a `git archive` — is not safe there, and
+an OOM kill costs the arm in flight. Build everything while the machine is idle.
+
 **Measured 2026-09-21, six outer-winding arms in one serial chain:** total wall time per arm was
 80, 118, 109, 134 min (and counting), with the whole spread in bands 4→8 — 27, 49, 28, 59 min. The
 variation is **not** monotone with time of day (`s6` was fast between two slow arms), so it is

@@ -104,6 +104,10 @@ data if true — say so, it changes what the study can claim.
 - [ ] if deterministic: the shim's **own activation line** appears in the flatten subprocess's log,
       and `/proc/<pid>/environ` shows `CUBLAS_WORKSPACE_CONFIG` — the `run_render` banner is not
       evidence; it printed while the flatten ran at stock speed
+- [ ] **arms for the NEXT study built before this chain launches.** Once a render is in flight the
+      box has **~1 GB RAM free and ~12 GB of swap in use** (measured 2026-09-22 mid-chain), so even
+      a few-hundred-MB mesh build is unsafe. Build every arm you will need while the machine is
+      idle; a chain that must pause for a build has been scheduled wrong.
 - [ ] launched with `setsid nohup … & disown`; `run_in_background` gets reaped
 - [ ] monitor filter includes failure signatures, not only the success line
 - [ ] kill loops match on `/proc/*/comm` or exclude `$$` — `pgrep -f <string>` matched the shell
