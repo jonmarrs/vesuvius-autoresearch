@@ -58,7 +58,7 @@ repos:
         # test_audit_arm_coverage: an arm scored but used by nothing, or named but
         # absent, means an analysis is quietly running on a different sample than
         # its author thinks -- the cause of both corrections made that same day.
-        entry: ./.venv/bin/python -m pytest tests/test_audit_doc_references.py tests/test_audit_report_claims.py tests/test_withdrawn_claims_stay_withdrawn.py tests/test_arm_tiers.py tests/test_audit_arm_coverage.py tests/test_analyse_flat_displacement.py tests/test_quotations_match_source.py tests/test_analyse_pooled_fit_only_floor.py -q --no-header
+        entry: ./.venv/bin/python -m pytest tests/test_audit_doc_references.py tests/test_audit_report_claims.py tests/test_withdrawn_claims_stay_withdrawn.py tests/test_arm_tiers.py tests/test_audit_arm_coverage.py tests/test_analyse_flat_displacement.py tests/test_quotations_match_source.py tests/test_analyse_pooled_fit_only_floor.py tests/test_analyse_ink_maximum_offset.py -q --no-header
         language: system
         pass_filenames: false
         files: '\.(md|py)$'
