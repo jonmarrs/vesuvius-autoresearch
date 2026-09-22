@@ -104,3 +104,44 @@ def test_live_documents_stay_clean():
         f"{len(live)} stale paths in live documents: "
         + ", ".join(f"{p} in {d}" for d, p in live)
     )
+
+
+def test_an_empty_villa_dir_does_not_claim_the_parents_commits(tmp_path, monkeypatch):
+    """An uninitialised submodule is an empty directory, and git run inside it
+    answers about the ENCLOSING repository. Unguarded, `where()` attributed this
+    repo's own commits to villa -- found on a worktree whose villa/ was empty."""
+    import subprocess as sp
+
+    parent = tmp_path / "parent"
+    (parent / "villa").mkdir(parents=True)
+    env = {
+        "GIT_AUTHOR_NAME": "t",
+        "GIT_AUTHOR_EMAIL": "t@t",
+        "GIT_COMMITTER_NAME": "t",
+        "GIT_COMMITTER_EMAIL": "t@t",
+        "PATH": os.environ["PATH"],
+        "HOME": str(tmp_path),
+    }
+    git = ["git", "-c", "commit.gpgsign=false"]
+    sp.run(git + ["init", "-q"], cwd=parent, check=True, env=env)
+    sp.run(
+        git + ["commit", "-q", "--allow-empty", "-m", "x"],
+        cwd=parent,
+        check=True,
+        env=env,
+    )
+    head = sp.run(
+        git + ["rev-parse", "HEAD"],
+        cwd=parent,
+        check=True,
+        env=env,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    monkeypatch.setattr(mod, "VILLA", str(parent / "villa"))
+    assert mod.where(head) != "villa submodule"
+    # Git exports GIT_DIR to hooks run from a linked worktree, and with it set every
+    # git call ignores its cwd -- villa/ then "is" a checkout of the parent. The
+    # first fix passed under plain pytest and still failed inside the hook.
+    monkeypatch.setenv("GIT_DIR", str(parent / ".git"))
+    assert mod.where(head) != "villa submodule"

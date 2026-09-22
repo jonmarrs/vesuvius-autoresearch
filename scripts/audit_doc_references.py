@@ -68,12 +68,30 @@ def cited(path):
 
 VILLA = os.path.join(_REPO, "villa")
 
+# Variables that make git ignore its cwd. Git exports GIT_DIR (and friends) to
+# hooks run from a linked worktree; inherited, they point EVERY call below at this
+# repository, so asking "does villa/ have this commit?" asked this repo instead.
+_GIT_LOCATORS = (
+    "GIT_DIR",
+    "GIT_WORK_TREE",
+    "GIT_INDEX_FILE",
+    "GIT_COMMON_DIR",
+    "GIT_OBJECT_DIRECTORY",
+    "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+    "GIT_PREFIX",
+)
+
+
+def _git_env():
+    return {k: v for k, v in os.environ.items() if k not in _GIT_LOCATORS}
+
 
 def _is_ancestor(sha, ref, cwd):
     try:
         r = subprocess.run(
             ["git", "merge-base", "--is-ancestor", sha, ref],
             cwd=cwd,
+            env=_git_env(),
             capture_output=True,
             timeout=30,
         )
@@ -87,10 +105,32 @@ def _exists(sha, cwd):
         r = subprocess.run(
             ["git", "cat-file", "-e", f"{sha}^{{commit}}"],
             cwd=cwd,
+            env=_git_env(),
             capture_output=True,
             timeout=30,
         )
         return r.returncode == 0
+    except Exception:
+        return False
+
+
+def _is_own_checkout(path):
+    """True only if `path` is the TOP of a git checkout. An uninitialised
+    submodule is an empty directory, and git run inside it silently answers
+    about the enclosing repository -- which made this repo's own commits read as
+    villa's on a worktree with an empty villa/."""
+    try:
+        r = subprocess.run(
+            ["git", "rev-parse", "--show-toplevel"],
+            cwd=path,
+            env=_git_env(),
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        return r.returncode == 0 and os.path.realpath(
+            r.stdout.strip()
+        ) == os.path.realpath(path)
     except Exception:
         return False
 
@@ -106,7 +146,7 @@ def where(sha):
     """
     if _is_ancestor(sha, "main", _REPO):
         return "this repo"
-    if os.path.isdir(VILLA) and _exists(sha, VILLA):
+    if os.path.isdir(VILLA) and _is_own_checkout(VILLA) and _exists(sha, VILLA):
         return "villa submodule"
     if _exists(sha, _REPO):
         return "this repo, not on main"
