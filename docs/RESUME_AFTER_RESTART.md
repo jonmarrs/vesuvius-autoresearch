@@ -78,6 +78,13 @@ if the cache check logged `CACHE_CHECK_DONE`. It answers whether villa's loop co
 lever from fitting code. T ≈ 1 is expected by construction (the flattener optimises only a 2D map), so
 a T ≈ 1 result is a confirmation.
 
+**Fifth, detached (pid 4026659):** `spiral_out/run_scorer_translation_after_transmission.sh`
+(committed copy in `repro/spiral_render/`), log `spiral_out/scorer_translation.log`. It implements
+`docs/preregistration/2026-09-22_scorer_translation.md`: ten scoring-only arms of `rad0`'s strip,
+offset by up to 512 px as lossless PNG, about 3 h. It runs only if the transmission study logged
+`TRANSMISSION_DONE`. Why: `rad0`/`rad0b` cover the same strip area (0.998) yet differ 3.04% in ink
+DENSITY, so this asks whether the scorer's tile placement alone moves the objective.
+
 If the pooled chain FAILS, the sweep does nothing (exit 3) — decide whether to re-run the pooled
 arm first, then relaunch with `CHAIN_PID=<new chain pid>` or, with no chain running, remove the wait.
 
