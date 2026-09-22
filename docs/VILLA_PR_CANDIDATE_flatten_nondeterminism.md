@@ -1,4 +1,13 @@
-# PR candidate — NOT POSTED. Needs the user's approval.
+# POSTED 2026-09-22 as villa PR #1866 — https://github.com/ScrollPrize/villa/pull/1866
+
+> Approved by the user, verified, and posted. Landed as **1 file, +2/−0**, branch
+> `jonmarrs:flatten-determinism-note`, zero AI-authorship markers. The pinned submodule never
+> moved: the commit was built with a temporary index so the running chain's `be09a8503` checkout
+> was untouched. Open PRs now 2 of villa's 3-open cap (#1842, #1866).
+>
+> Prior-art search done at post time: #1317 reports the same class of problem in the **tracer**
+> (`vc_grow_seg_from_seed`), with an RNG seed knob the flatten does not have. Complementary, not
+> duplicate, and cited in the body.
 
 **Target:** `spiral-fitting/autoresearch.md`, the `**Stochasticity**` paragraph (line 52).
 **Shape:** one doc paragraph, ~6 lines added, no behaviour change. Same shape as #1721 and #1722,
