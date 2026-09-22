@@ -56,6 +56,12 @@ def word(m: str) -> int:
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--filing", default="docs/PRIZE_FILING_2026-09_SUBMIT.md")
+    ap.add_argument(
+        "--since",
+        type=int,
+        default=1700,
+        help="lowest PR number in scope; the filing describes the spiral-fitting campaign",
+    )
     args = ap.parse_args()
     text = Path(args.filing).read_text()
 
@@ -88,15 +94,24 @@ def main() -> int:
         "number,comments",
     )
 
+    # Scope from LIVE GitHub, never from what the filing happens to mention.
+    # Until 2026-09-22 this filtered the live PRs down to the ones already cited
+    # in the text, which made every count below circular: a PR the filing left
+    # out simply vanished from the check. It passed cleanly on a filing that
+    # said "zero pending" while two PRs were open, because neither was cited.
     cited = {int(n) for n in re.findall(r"#(\d{3,5})", text)}
     by_num = {p["number"]: p["state"] for p in prs}
-    cited_prs = {n: s for n, s in by_num.items() if n in cited}
-    merged = sorted(n for n, s in cited_prs.items() if s == "MERGED")
-    openpr = sorted(n for n, s in cited_prs.items() if s == "OPEN")
+    scope_prs = {n: s for n, s in by_num.items() if n >= args.since}
+    merged = sorted(n for n, s in scope_prs.items() if s == "MERGED")
+    openpr = sorted(n for n, s in scope_prs.items() if s == "OPEN")
+    closedpr = sorted(n for n, s in scope_prs.items() if s == "CLOSED")
+    uncited = sorted(n for n in scope_prs if n not in cited)
     n_open_iss = len(issues)
     n_silent = sum(1 for i in issues if len(i["comments"]) == 0)
 
-    print(f"live: cited PRs merged={merged} open={openpr}")
+    print(
+        f"live: in-scope PRs (>= {args.since}) merged={merged} open={openpr} closed={closedpr}"
+    )
     print(f"live: open issues={n_open_iss}, of which zero-comment={n_silent}\n")
 
     checks: list[tuple[str, bool, str]] = []
@@ -113,13 +128,20 @@ def main() -> int:
 
     claim(
         "merged/pending tally",
-        r"(\w+) merged fixes?, (\w+) pending",
-        (len(merged), len(openpr)),
+        r"(\w+) merged fixes?, (\w+) awaiting review, (\w+) auto-closed",
+        (len(merged), len(openpr), len(closedpr)),
+    )
+    checks.append(
+        (
+            "every live PR is cited",
+            not uncited,
+            f"in-scope PRs missing from the filing: {uncited}",
+        )
     )
     claim(
         "total PRs vs merged",
         r"This is (\w+) PRs against a merged total of (\w+)",
-        (len(cited_prs), len(merged)),
+        (len(scope_prs), len(merged)),
     )
     claim(
         "open issues and silence",
@@ -127,7 +149,7 @@ def main() -> int:
         (n_open_iss, n_silent),
     )
 
-    for num, state in sorted(cited_prs.items()):
+    for num, state in sorted(scope_prs.items()):
         row = re.search(rf"\|\s*\**#{num}\**\s*\|\s*\**([A-Za-z]+)\**", text)
         if not row:
             unlocatable.append(f"table row for #{num}")
