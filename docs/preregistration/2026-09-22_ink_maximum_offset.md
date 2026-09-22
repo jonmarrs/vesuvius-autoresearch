@@ -82,6 +82,42 @@ Fit a parabola to all seven points; report the vertex `x̂0` and the gain at it.
 | \|x̂0\| > 1 but outside the predicted band | **Lever exists, prediction missed.** Report both. |
 | the parabola fits badly (R² < 0.8) | **The quadratic assumption is refused by the data.** Report the sweep as a curve and make no vertex claim — this is the branch where my model, not the hypothesis, is what the data speak to. |
 
+## Amendment, made 2026-09-22 ~14:00 before any offset arm was built or rendered
+
+**The decision rule above could not tell a lever from asymmetry. It is replaced; the original stays
+visible above so the change can be audited.**
+
+**The defect.** The rule took the gain from the fitted parabola's vertex. The response is already
+known to be asymmetric (−19.77% at −4 vx, −4.48% at +4 vx). A symmetric quadratic fitted through an
+asymmetric curve moves its vertex toward the shallow side even when the true maximum is exactly at
+0 vx. The code was run, unmodified, on a synthetic sweep built to match the three measured arms, with
+its maximum **exactly at 0 vx** (quadratic on each side, steeper inward). Every displaced arm scores
+*below* 0 vx, and the rule returned **LEVER EXISTS, PREDICTION MET**: R² 0.975, vertex +1.13 vx,
+"gain" +0.51%. **Prediction 1 inherits the same flaw.** It was derived from the same symmetric
+assumption, so a curve with no lever at all lands inside its band.
+
+**A second defect, in the code only:** `F` was typed as `0.000141`. The measured floor is
+24 px / 1,698,831 = **1.4127e-05** (`reports/flat_displacement_floor.json`), so the 3F margin was
+10× too lax. The constants test asserted the wrong literal, so it locked the bug in.
+
+**Replacement rule — model-free, on the observed arms:**
+
+| outcome | conclusion |
+|---|---|
+| some displaced arm scores ≥ 0 vx × (1 + 3F) | **Lever exists** at that offset; report the observed gain. |
+| no displaced arm does | **No free lever** at this sweep's resolution (1 vx outward, 2 vx inward). |
+
+The parabola's R² and vertex are still reported, **as description only**, under the same R² ≥ 0.8
+and opens-downward conditions. Prediction 1 is still reported, with the note that it cannot
+discriminate. Prediction 2 is reported against the best *observed* arm.
+
+**What the new rule cannot see:** a maximum strictly between two sampled offsets that beats 0 vx
+there while every sampled arm falls short of 3F. With the floor at 0.0042% of ink, the only case
+that matters is a peak almost exactly on 0. That is "no lever" in every practical sense.
+
+Implemented in `scripts/analyse_ink_maximum_offset.py`; the case that broke the old rule is now
+`test_asymmetry_alone_is_not_a_lever`.
+
 ## What the result cannot do — computed before it arrives
 
 **It cannot show more text is readable.** A gain in `total_fg_pixels` at an offset is a metric

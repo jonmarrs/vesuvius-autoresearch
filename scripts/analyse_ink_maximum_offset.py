@@ -6,6 +6,15 @@ before any new arm was built**, while the pooled-floor chain held the GPU.
 Seven offsets of ONE flattened surface, rendered with the flatten held fixed, so
 the floor is F = 0.0014% (24 px) rather than the 3.04% a re-flatten would cost.
 
+**Amended 2026-09-22, before any new arm was built** (see the registration's
+amendment): the lever verdict is read off the OBSERVED arms -- does any displaced
+offset out-score 0 vx by MARGIN * F? The parabola is kept as description only.
+The registered rule took the gain from the fitted vertex, and a symmetric
+quadratic through the known-asymmetric response (-19.77% in, -4.48% out) puts
+its vertex outward even when the true maximum is exactly 0 vx: on such a curve it
+returned LEVER EXISTS, PREDICTION MET with every displaced arm below 0 vx
+(tests/test_analyse_ink_maximum_offset.py::test_asymmetry_alone_is_not_a_lever).
+
 The branch worth stating in code: **if the parabola fits badly the vertex is not
 reported at all.** A quadratic is a local convenience assumed from two points,
 not a law, and this project has watched a per-voxel ratio fail to extrapolate
@@ -30,7 +39,7 @@ ARMS = {
     3.0: "offset_p3",
     4.0: "flat_study_out",
 }
-F = 0.000141  # measured floor, holding_the_flatten_fixed_collapses_the_floor.md
+F = 1.4127e-05  # 24 px / 1,698,831 -- reports/flat_displacement_floor.json (was typed 10x too big)
 MARGIN = 3.0  # an effect must clear MARGIN * F
 PRED_LO, PRED_HI = 0.4, 2.4  # registered band for the vertex
 R2_MIN = 0.8  # below this, no vertex is claimed
@@ -102,81 +111,75 @@ def main() -> int:
     for x, y in zip(xs, ys, strict=False):
         print(f"{x:>+8.0f}{y:>14,.0f}{(y - zero) / zero:>+10.2%}")
 
+    # ---- the decision: model-free, on the observed arms ----------------------
+    displaced = [(x, y) for x, y in zip(xs, ys, strict=True) if x != 0.0]
+    best_x, best_y = max(displaced, key=lambda p: p[1])
+    obs_gain = (best_y - zero) / zero
+    lever = obs_gain >= MARGIN * F
+    print(
+        f"\n  best displaced arm: {best_x:+.0f} vx at {obs_gain:+.4%} vs 0 vx "
+        f"(lever needs >= {MARGIN * F:+.4%} = {MARGIN:g} x F)"
+    )
+
+    # ---- the parabola: DESCRIPTION ONLY ----------------------------------------
     c = np.polyfit(xs, ys, 2)
     fit = np.polyval(c, xs)
     ss_res = float(((ys - fit) ** 2).sum())
     ss_tot = float(((ys - ys.mean()) ** 2).sum())
     r2 = 1 - ss_res / ss_tot
-    print(f"\n  parabola R^2 = {r2:.4f}   (vertex claimed only if >= {R2_MIN})")
-
+    print(f"  parabola R^2 = {r2:.4f}   (vertex described only if >= {R2_MIN})")
     out: dict[str, object] = {
-        "offsets": dict(zip(map(float, xs), map(float, ys), strict=False)),
+        "offsets": dict(zip(map(float, xs), map(float, ys), strict=True)),
+        "best_displaced_offset": float(best_x),
+        "observed_gain": float(obs_gain),
+        "margin": MARGIN * F,
         "r2": r2,
     }
-
+    x0 = None
     if r2 < R2_MIN or c[0] >= 0:
         why = (
             "the parabola does not describe the sweep"
             if r2 < R2_MIN
             else "the fitted quadratic opens upward -- there is no maximum"
         )
-        print(f"\nVERDICT: NO VERTEX CLAIMED -- {why}.")
+        print(f"  NO VERTEX CLAIMED -- {why}; the sweep is reported as a curve.")
+    else:
+        x0 = float(-c[1] / (2 * c[0]))
+        model_gain = float((np.polyval(c, x0) - zero) / zero)
         print(
-            "  Reported as a curve. The quadratic was assumed from two points and the"
+            f"  vertex x0 = {x0:+.2f} vx, model gain {model_gain:+.2%} "
+            f"(registered: +1.42 vx, 1.36%) -- NOT used for the verdict"
         )
-        print(
-            "  data refuse it; this is the branch where my model, not the hypothesis,"
-        )
-        print("  is what the data speak to.")
-        out["verdict"] = "NO VERTEX"
-        if a.json:
-            Path(a.json).write_text(json.dumps(out, indent=1) + "\n")
-        return 0
+        out.update({"x0": x0, "model_gain": model_gain})
 
-    x0 = -c[1] / (2 * c[0])
-    peak = float(np.polyval(c, x0))
-    gain = (peak - zero) / zero
-    print(f"  vertex x0 = {x0:+.2f} vx     predicted gain over 0 vx = {gain:+.2%}")
-    print("  registered prediction: x0 = +1.42 vx, gain 1.36%")
-
-    big = gain >= MARGIN * F
-    if abs(x0) <= 1.0 and not big:
-        v, read = (
-            "NO FREE LEVER",
-            (
-                "The fit lands on the ink maximum; a global offset cannot move the objective."
-            ),
-        )
-    elif PRED_LO <= x0 <= PRED_HI and big:
-        v, read = (
-            "LEVER EXISTS, PREDICTION MET",
-            (
-                "A fixed outward offset buys objective points with no change to the fit -- an "
-                "objective-gaming route in the duplicate-coverage class."
-            ),
-        )
-    elif big:
-        v, read = (
-            "LEVER EXISTS, PREDICTION MISSED",
-            ("The offset moves the objective, but not where the quadratic model said."),
+    if lever:
+        v = "LEVER EXISTS"
+        read = (
+            f"Rendering at {best_x:+.0f} vx scores {obs_gain:+.2%} over the fitted surface "
+            f"with no change to the fit -- an objective-gaming route in the "
+            f"duplicate-coverage class."
         )
     else:
-        v, read = (
-            "NO FREE LEVER",
-            "Any vertex offset buys less than 3x the measured floor.",
+        v = "NO FREE LEVER"
+        read = (
+            f"No displaced offset beats the fitted surface by {MARGIN:g} x F; a global "
+            f"offset cannot move the objective at this resolution."
         )
     print(f"\nVERDICT: {v}\n  {read}")
-    print(
-        f"  prediction 1 (vertex in [{PRED_LO}, {PRED_HI}] vx): "
-        f"{'MET' if PRED_LO <= x0 <= PRED_HI else 'MISS, recorded as a miss'}"
-    )
-    print(f"  prediction 2 (gain ~1.4%): observed {gain:+.2%}")
+    if x0 is not None:
+        met = PRED_LO <= x0 <= PRED_HI
+        print(
+            f"  prediction 1 (vertex in [{PRED_LO}, {PRED_HI}] vx): "
+            f"{'in band' if met else 'MISS, recorded as a miss'} -- but asymmetry alone"
+        )
+        print("  puts a symmetric fit's vertex outward, so this does not discriminate.")
+    print(f"  prediction 2 (gain ~1.4%): best observed arm {obs_gain:+.2%}")
     print(
         "\n  A gain here is the METRIC moving. The scorer reads texture, and this study"
     )
     print("  has no legibility endpoint -- it does not show more text is readable.")
 
-    out.update({"x0": float(x0), "gain": float(gain), "verdict": v})
+    out["verdict"] = v
     if a.json:
         Path(a.json).write_text(json.dumps(out, indent=1) + "\n")
         print(f"\nwrote {a.json}")
