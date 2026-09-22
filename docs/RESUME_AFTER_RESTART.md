@@ -60,6 +60,16 @@ shift, `z.tif` byte-identical to `flat0`, same valid points and axis), stages ea
 line does not appear** (the fallback silently re-flattens), checks the docker image id against the
 pinned one, and finally runs `analyse_ink_maximum_offset.py --json reports/ink_maximum_offset.json`.
 Expect results ~09:00–10:00 on 09-23. Markers to grep: `OFFSET_SWEEP_ABORTED|BUILD_FAILED|GUARD_FAILED|RENDER_FAILED|SCORE_FAILED|ARM_DONE|OFFSET_SWEEP_DONE`.
+
+**Behind the sweep, also detached (pid 3984839):** `spiral_out/run_cache_gb_check_after_sweep.sh`
+(committed copy in `repro/spiral_render/`), log `spiral_out/cache_gb_check.log`; its result goes to
+reports/cache_gb_check.json, which does not exist until the check has run. An engineering
+check, not a study. It runs only if the sweep logged
+`OFFSET_SWEEP_DONE`, re-renders `flat_study_zero`'s surface into `cachetest_g8` with `--cache-gb 8`,
+and byte-compares all 11 outputs. `IDENTICAL` means future studies may adopt the setting, which
+should stop the swap thrash. `NOT_IDENTICAL` means they may not. **Never adopt it mid-study either
+way.** Reasoning: `reports/holding_the_flatten_fixed_collapses_the_floor.md`, 2026-09-22 addendum.
+
 If the pooled chain FAILS, the sweep does nothing (exit 3) — decide whether to re-run the pooled
 arm first, then relaunch with `CHAIN_PID=<new chain pid>` or, with no chain running, remove the wait.
 

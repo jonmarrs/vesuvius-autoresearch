@@ -86,3 +86,31 @@ scorer ~0.003%.
 **It says nothing about displacement.** The three effect arms (ZERO/IN/OUT at 0, −4, +4 vx) are
 running now. This result only establishes that the floor is tight enough to interpret them, which is
 the gate the registration put in front of them.
+
+## Addendum 2026-09-22: the render's share is exactly zero, measured by bytes
+
+The table above attributes the 24 px to "a deterministic sampler plus a near-deterministic scorer" —
+an inference from the scores. It is now checked directly: the two renders' outputs were compared
+byte for byte.
+
+| outputs compared (`radial_work_rad0` vs `flat_study_probe`) | identical |
+|---|---:|
+| strips, `meshes/ink/*.jpg` | **6 / 6** |
+| slice TIFFs, `meshes/concat/w120-129_flat/ink/*.tif` | **5 / 5** |
+
+**Given a fixed flat surface, `vc_render_tifxyz` is bit-deterministic.** Both arms scored identical
+input bytes and still differed by 24 px, so the whole floor is the scorer's.
+
+**What this buys: a zero-tolerance test for any change to how a render runs.** A setting that does
+not change the instrument must reproduce every output byte. That is stronger than comparing scores,
+which carry the scorer's ~24 px even when nothing else moved. The first use is queued:
+`repro/spiral_render/run_cache_gb_check_after_sweep.sh`, which re-renders `flat_study_zero`'s
+surface with `--cache-gb 8` (default 16). Mid-chain the sampler holds ~27 GB on a 31 GB box and
+faults its own chunk cache back from swap: 2.79M major faults and ~32 GB of block reads, against
+~0.3 GB read through syscalls (HTTP included), in 70 min. The remote path caches chunks only in
+memory, sized by `--cache-gb`. The `--volume` dir only records the URL, so every render downloads
+the ROI again (villa `5479453a`, `vc_render_tifxyz.cpp` ~L1344). The check was positive-controlled
+before launch: known-identical renders give 11/11 identical, known-different renders give 0/11.
+
+**Scope:** one surface, one ROI, one image (`sha256:1f3a79…`). It does not extend to re-flattening
+runs, where the flatten is stochastic unless `FLATTEN_DETERMINISTIC=1`.
