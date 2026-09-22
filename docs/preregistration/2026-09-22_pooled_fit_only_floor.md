@@ -77,6 +77,19 @@ from not having checked.
 **Failure branch:** if any arm's guard fails, or the twelve do not share one `VILLA_SHA` and
 `RENDER_IMAGE`, the pooled figure is not computed — a floor pooled across instruments is not a floor.
 
+## Correction, made 2026-09-22 ~14:15 while arm 2 of 6 was scoring, before the pooled figure exists
+
+**The degrees of freedom are 9, not 11.** Pooling within three groups spends one df per group mean:
+12 arms − 3 groups = **9**. At df=9 the chi-square interval spans **2.65×**, not the 2.4× quoted in
+"The floor" and "Limits" above. The decision-table header's "(df=11)" is wrong for the same reason.
+**The analysis code was always right:** `pooled_cv()` derives df from the groups and prints df=9. Only
+this document misstated it. The mistake would have surfaced as a report quoting a tighter interval
+than the one computed. Pinned by `test_the_twelve_arms_give_df_9_not_11`.
+
+Nothing else changes. The bands, the predictions and the failure branch are untouched, and the
+"cannot reopen a published null" arithmetic uses the CV, not df. The tier's stock figure "0.0536,
+df=11" quoted under "The question" is a different sample (fifteen fits) and is unaffected.
+
 ## What the result cannot do — computed before it arrives
 
 **It cannot reopen a published null.** At 3v3 even the most favourable band here (CV 0.040) gives an

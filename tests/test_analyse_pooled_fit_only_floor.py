@@ -102,3 +102,15 @@ def test_interval_is_chi_square_at_df11():
     lo, hi = ci(0.06, 11)
     assert 0.041 < lo < 0.043 and 0.099 < hi < 0.104
     assert 2.3 < hi / lo < 2.5
+
+
+def test_the_twelve_arms_give_df_9_not_11(tmp_path):
+    """Twelve arms in three groups leave 12 - 3 = 9 degrees of freedom. The
+    registration said df=11 (a 2.4x interval); at df=9 it is 2.65x. The script
+    derives df from the groups, so pin what it derives rather than a typed df."""
+    assert sum(len(v) for v in GROUPS.values()) - len(GROUPS) == 9
+    r = run(_tree(tmp_path))
+    pooled = next(ln for ln in r.stdout.splitlines() if "POOLED fit-only CV" in ln)
+    assert "df=9" in pooled, pooled
+    lo, hi = ci(0.06, 9)
+    assert 2.6 < hi / lo < 2.7
