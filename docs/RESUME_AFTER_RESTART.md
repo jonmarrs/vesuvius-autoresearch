@@ -78,8 +78,10 @@ if the cache check logged `CACHE_CHECK_DONE`. It answers whether villa's loop co
 lever from fitting code. T ≈ 1 is expected by construction (the flattener optimises only a 2D map), so
 a T ≈ 1 result is a confirmation.
 
-**Fifth, detached (pid 4026659):** `spiral_out/run_scorer_translation_after_transmission.sh`
-(committed copy in `repro/spiral_render/`), log `spiral_out/scorer_translation.log`. It implements
+**Fifth, detached (pid 4028148):** `spiral_out/run_scorer_translation_after_transmission.sh`
+(committed copy in `repro/spiral_render/`), log `spiral_out/scorer_translation.log`. It runs its
+builder and analysis from byte-identical copies in `spiral_out/stx_scripts/`, NOT from the repo, so it
+does not depend on its branch being merged. It implements
 `docs/preregistration/2026-09-22_scorer_translation.md`: ten scoring-only arms of `rad0`'s strip,
 offset by up to 512 px as lossless PNG, about 3 h. It runs only if the transmission study logged
 `TRANSMISSION_DONE`. Why: `rad0`/`rad0b` cover the same strip area (0.998) yet differ 3.04% in ink

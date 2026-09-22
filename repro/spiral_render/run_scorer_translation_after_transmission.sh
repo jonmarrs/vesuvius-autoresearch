@@ -7,6 +7,13 @@ set -uo pipefail
 SO=/home/jon/openclaw-workspace/Neo-VM/spiral_out
 REPO=/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch
 PY=$REPO/.venv/bin/python
+# The builder and the analysis run from copies kept beside this waiter, NOT from the repo checkout:
+# the waiter must not depend on when (or whether) its branch is merged. Copies are verified
+# byte-identical to the committed ones at launch.
+SCRIPTS="${SCRIPTS:-$SO/stx_scripts}"
+for f in build_shifted_strip_arm.py analyse_scorer_translation.py; do
+  [ -f "$SCRIPTS/$f" ] || { echo "missing $SCRIPTS/$f" >&2; exit 4; }
+done
 SCORER=/home/jon/openclaw-workspace/Neo-VM/data/ink_scorer_venv/bin/python
 export INK_METRIC_SERIAL_FOLDS=1
 WAIT_PID="${WAIT_PID:?set WAIT_PID to the pid of run_flatten_transmission_after_cache_check.sh}"
@@ -23,7 +30,7 @@ sleep 30
 ARMS="stx_d0a:0:0 stx_d0b:0:0 stx_x1:1:0 stx_x2:2:0 stx_x8:8:0 stx_x64:64:0 stx_x512:512:0 stx_y1:0:1 stx_y8:0:8 stx_y64:0:64"
 for spec in $ARMS; do
   IFS=: read -r N DX DY <<< "$spec"
-  "$PY" "$REPO/scripts/build_shifted_strip_arm.py" "$SO/radial_work_rad0" "$SO/$N" --dx "$DX" --dy "$DY" \
+  "$PY" "$SCRIPTS/build_shifted_strip_arm.py" "$SO/radial_work_rad0" "$SO/$N" --dx "$DX" --dy "$DY" \
     || { say "BUILD_FAILED $N"; exit 1; }
 done
 say "BUILT all ten"
@@ -40,5 +47,5 @@ for spec in $ARMS; do
 done
 
 cd "$REPO"
-"$PY" scripts/analyse_scorer_translation.py --json reports/scorer_translation.json \
+"$PY" "$SCRIPTS/analyse_scorer_translation.py" --json reports/scorer_translation.json \
   && say "SCORER_TRANSLATION_DONE" || say "SCORER_TRANSLATION_ANALYSIS_FAILED rc=$?"
