@@ -530,7 +530,7 @@ Full detail with every noise floor attached:
 
 **These findings were measured on villa-spiral `6847063f`. Current villa recovers 67.6% more ink through a byte-identical renderer and scorer** ([measurement](reports/current_code_baseline.md)), so they are measurements of superseded code. **Re-measured 2026-09-12, and the extension FAILED.**
 
-**2026-09-13, anchor ablation:** cutting villa's 50 in-ROI absolute winding anchors to 10 changes reading by −0.86%, p=0.76 — but bounded only at [−10.21%, +8.50%], because the ablated arm is 3.4× noisier than the baselines. Its geometry rise (+1.39%, p=0.0032) is **not** a decoupling: `abs_winding` is a loss term competing with patch fitting, so deleting anchors mechanically improves patch satisfaction. Our own registration claimed otherwise and is corrected in place ([verdict](reports/anchor_ablation_verdict.md)). On current code the ink null reproduces (+0.28%, p=0.80, 95% CI [-2.56%, +3.13%]) but the geometry evidence does not: `satisfied_area` ROSE 1.18%, the direction our own registration declared uninterpretable because the manipulation removes inputs the metric scores. The decoupling is a statement about `6847063f` and must not be reported as holding on current villa ([verdict](reports/decoupling_does_not_cleanly_reproduce.md)).
+**2026-09-13, anchor ablation:** cutting villa's 50 in-ROI absolute winding anchors to 10 changes reading by −0.86%, p=0.76 — but bounded only at [−10.21%, +8.50%], because the ablated arm is 3.4× noisier than the baselines. Its geometry rise (+1.39%, p=0.0032) is **not** a decoupling: `abs_winding` is a loss term competing with patch fitting, so deleting anchors mechanically improves patch satisfaction. Our own registration claimed otherwise and is corrected in place ([verdict](reports/anchor_ablation_verdict.md)). On current code the ink null reproduces (+0.28%, p=0.80, 95% CI [-2.56%, +3.13%]) but the geometry evidence does not: `satisfied_area` ROSE 1.18%, the direction our own registration declared uninterpretable because the manipulation removes inputs the metric scores. The decoupling is a statement about `6847063f` and must not be reported as holding on current villa ([verdict](reports/decoupling_does_not_cleanly_reproduce.md)). **Corrected 2026-09-21: that study's control was cross-tree.** Its registered baseline `curbase_s1..s3` was fitted before a villa submodule bump and its ablated arms after; against the tree-matched `curbase_s4..s9` the ink estimate moves **−0.86% → −5.49%** (verdict still NULL) while the geometry result strengthens to +1.32%, p=0.0013. The registration's "identical in every other respect" did not hold ([correction](reports/the_anchor_control_was_cross_tree.md)).
 
 **2026-09-14, the objective is more reproducible than the ink it counts** *(exploratory, except the
 averaging result, which was pre-registered and confirmed forward)*. Comparing
@@ -556,8 +556,20 @@ text. Three things follow, each measured:
   ink is *worse* than a random selection of the same size. Averaging is the only lever that works.
 
 The instability lives **upstream of the detector**: re-scoring one strip with the same code moves the
-count by 26 pixels in 2.9 million (0.0009%), against ~2.5% seed-to-seed. Given the same strip twice,
-the detector returns the same answer — it is fitting and flattening that vary.
+count by 26 pixels in 2.9 million (0.0009%). Given the same strip twice, the detector returns the
+same answer — it is fitting and flattening that vary.
+
+**Decomposed 2026-09-21/22, and the two halves behave differently.** *Flattening*: the lasagna
+flatten is a stochastic optimiser — two runs on byte-identical meshes, same pinned tree, same code,
+land on surfaces **7.15 vx apart** and move the count **3.04%**. It has no RNG to seed; the cause is
+CUDA reduction order alone, and asking for deterministic algorithms makes it **bit-reproducible** at
+a 9.5× flatten cost ([measurement](reports/the_flatten_is_reproducible_when_asked.md)). *Fitting*:
+with the flatten held deterministic, six seeds of one config give a CV of **0.0909 [0.0568, 0.2230]**
+— statistically indistinguishable from the same six with stock flattens (F(5,5) p=0.67), so fit RNG
+dominates and the flatten was never the binding constraint on *fit* comparisons
+([measurement](reports/fit_rng_dominates_the_flatten_was_never_binding.md)). Older single-figure seed
+estimates in this document are superseded by the per-tier measurements in
+[noise_floor_by_tier.md](reports/noise_floor_by_tier.md).
 
 **The headline is a metric result, not a model result.** villa's loop optimises
 `total_fg_pixels` (recovered ink) with a `satisfied_area` (geometry) cross-check. We have two
