@@ -17,7 +17,8 @@ the flatten's contribution at exactly zero, what remains is fit RNG plus the ~0.
 ## Arms
 
 The six `curbase_s4..s9` fits: identical config, seeds 4–9, one villa tree (`be09a8503`), meshes on
-disk. **No new fits.** Each is re-flattened under `FLATTEN_DETERMINISTIC=1`, rendered on the pinned
+disk. **No new fits.** Work dirs `detfit_s4`, `detfit_s5`, `detfit_s6`, `detfit_s7`, `detfit_s8`,
+`detfit_s9`, each scored against its stock counterpart `outer_curbase_s<n>`. Each is re-flattened under `FLATTEN_DETERMINISTIC=1`, rendered on the pinned
 image, and scored — the same pipeline as their stock scores, with one variable changed.
 
 This group is chosen deliberately: its stock CV is **0.0742 (df=5)**, the noisy set that carried

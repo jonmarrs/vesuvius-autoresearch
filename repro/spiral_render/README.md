@@ -367,6 +367,13 @@ it is a *guard*, not an estimate, and the margin covers render scratch.
 ## 11. The render's own ETA is not a schedule (2026-09-12)
 
 `run_render.sh` prints `eta` by extrapolating from bands completed so far. **The early bands are much
+
+**Measured 2026-09-21, six outer-winding arms in one serial chain:** total wall time per arm was
+80, 118, 109, 134 min (and counting), with the whole spread in bands 4→8 — 27, 49, 28, 59 min. The
+variation is **not** monotone with time of day (`s6` was fast between two slow arms), so it is
+per-band fetch variance from S3 rather than degradation. Budget **~2 h per outer arm**, treat 80 min
+as the floor, and do not read a slow band as a stall: the process holds ~24 GB and writes files
+throughout.
 slower than the late ones, so that figure over-predicts by a factor of two and then falls.** Measured
 across three arms:
 
