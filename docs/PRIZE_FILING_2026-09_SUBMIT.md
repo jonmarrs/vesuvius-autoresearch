@@ -173,10 +173,13 @@ hidden.
 * **The ink-placement work is now admissible, because it met this rule's own condition.** The rule
   said it "does not go in a submission until it has survived that test". The forward test ran on
   2026-09-15 and CONFIRMED: predicted 0.877, measured 0.875 and 0.893. It is in Field 1.
-* **A mechanism claim, but only the one that was measured.** *Why* placement reproduces at 0.70
-  while the count reproduces to a few percent was unexplained after two failed tests. It is now
-  localised: the lasagna flatten is stochastic, and two flattens of identical meshes lay the same
-  surface out differently (0.25 vx apart along the normal, ~7 vx re-parametrised in-plane). That
-  moves *where* ink is found far more than *how much* — which is the count/placement split. What is NOT claimed is why the flattener is stochastic, or that fixing it
-  would improve reading; only that the instability sits there and not in the fit, the sampler, or
-  the scorer.
+* **A mechanism claim, measured, and it overturned an earlier draft of this one.** *Why* placement
+  reproduces at 0.70 while the count reproduces to a few percent: in the scroll's own frame, the
+  **same fit** laid out by two different flattens agrees on ink placement at **r = 0.94–0.97**, while
+  **different fits** agree at **~0.72**, whether flattened stochastically (0.716) or deterministically
+  (0.728). So placement instability belongs to the **fit**. The flatten's non-determinism does
+  something else: it lays the same surface out differently (0.25 vx apart along the normal, ~7 vx
+  in-plane), and the scorer re-reads that layout locally, ±13% per 2 kpx block and ±3% net. It moves
+  *how much* ink is found far more than *where*. An earlier draft of this filing said the opposite,
+  that the instability "sits in the flatten and not in the fit". That was an inference; this is the
+  measurement (`reports/the_flatten_noise_is_local_rescoring.md`).

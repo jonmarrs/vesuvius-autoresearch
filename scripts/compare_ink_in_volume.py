@@ -45,6 +45,12 @@ SCALE = 10  # mask pixels per tifxyz cell, per axis; verified per arm
 NZ, NTHETA = 96, 256
 
 
+def arm_path(spiral_out: str, tag: str, prefix: str = "outer_") -> str:
+    """The corpus arms are named outer_<tag>; other work dirs (detfit_*, radial_work_*)
+    are not, so the prefix is an option rather than baked into every lookup."""
+    return f"{spiral_out}/{prefix}{tag}"
+
+
 def tile_index(path: str) -> int:
     return int(Path(path).stem.split(".")[-1])
 
@@ -132,6 +138,11 @@ def main() -> int:
         "--spiral-out", default="/home/jon/openclaw-workspace/Neo-VM/spiral_out"
     )
     ap.add_argument("--arms", nargs="+", required=True)
+    ap.add_argument(
+        "--prefix",
+        default="outer_",
+        help="work-dir prefix; '' for dirs named exactly as the tag",
+    )
     ap.add_argument("--json", default=None)
     args = ap.parse_args()
     if tifffile is None:
@@ -139,7 +150,7 @@ def main() -> int:
 
     maps, axis = {}, None
     for tag in args.arms:
-        H, axis = volume_map(f"{args.spiral_out}/outer_{tag}", axis)
+        H, axis = volume_map(arm_path(args.spiral_out, tag, args.prefix), axis)
         if H is None:
             print(
                 f"{tag}: unusable (missing artifacts or bad mask/tifxyz ratio), skipped"
@@ -149,11 +160,10 @@ def main() -> int:
         print(
             f"{tag:<20} ink in map {H.sum():>12,.0f}  occupied bins {int((H > 0).sum()):>6,}"
         )
-    print(f"shared axis (from {args.arms[0]}): ({axis[0]:.0f}, {axis[1]:.0f})")
-
     tags = list(maps)
-    if len(tags) < 2:
+    if len(tags) < 2 or axis is None:
         raise SystemExit("need two usable arms")
+    print(f"shared axis (from {tags[0]}): ({axis[0]:.0f}, {axis[1]:.0f})")
 
     def grp(t: str) -> str:
         return t.rsplit("_s", 1)[0].replace("_pilot", "")

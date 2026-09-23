@@ -770,7 +770,11 @@ Findings 38–43 excluded four routes for the placement instability and left it 
 entirely from CUDA reduction order**, laying the same surface out on a grid offset ~7 voxels in-plane
 (0.25 vx along the normal; corrected 2026-09-22) from identical input and
 moving the count 3% and the placement far more. It can be switched off. The fit-only floor is now measured (finding 53): **0.09 [0.06, 0.22]**, fit RNG,
-indistinguishable from the stock spread. The flatten was the whole explanation for *placement*
+indistinguishable from the stock spread. *(Corrected 2026-09-22: the next sentence is wrong. Measured in
+the volume frame, the same fit re-laid-out by the flatten agrees on placement at 0.94–0.97, while
+different fits agree at ~0.72 whether the flatten is stochastic or deterministic. Placement instability
+belongs to the FIT; the flatten re-draws the local ink COUNT.
+`reports/the_flatten_noise_is_local_rescoring.md`. Original text kept:)* The flatten was the whole explanation for *placement*
 instability and *no* part of the binding constraint on *fit comparisons* — two different questions
 with two different answers.
 

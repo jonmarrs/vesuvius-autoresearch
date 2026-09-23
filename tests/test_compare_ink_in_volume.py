@@ -104,3 +104,29 @@ def test_the_published_result_has_a_null_far_below_its_signal():
     rs = [p["r"] for p in d["pairs"]]
     assert min(rs) > 0.5, "every arm pair must agree far above the null"
     assert max(d["null_rotated"]) < 0.1, "the theta-rotated null must be near zero"
+
+
+def test_arm_paths_default_to_outer_prefix_and_accept_none():
+    assert mod.arm_path("/so", "curbase_s4") == "/so/outer_curbase_s4"
+    assert mod.arm_path("/so", "detfit_s4", prefix="") == "/so/detfit_s4"
+
+
+def test_no_usable_arm_is_refused_cleanly_not_a_typeerror(tmp_path):
+    import subprocess
+
+    r = subprocess.run(
+        [
+            sys.executable,
+            os.path.join(_REPO, "scripts", "compare_ink_in_volume.py"),
+            "--spiral-out",
+            str(tmp_path),
+            "--arms",
+            "a",
+            "b",
+        ],
+        capture_output=True,
+        text=True,
+    )
+    assert r.returncode != 0
+    assert "TypeError" not in r.stderr, r.stderr
+    assert "need two usable arms" in (r.stdout + r.stderr)
