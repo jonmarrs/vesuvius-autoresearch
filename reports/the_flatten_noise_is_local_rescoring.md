@@ -84,6 +84,25 @@ and the **fit** decides where the ink is. Corrected in place, with dates, in bot
 My expectation for this step, written first, was r in 0.75–0.9 for `rad0`/`rad0b`. It missed high
 (0.940).
 
+## 5. The block model predicts six more pairs it never saw
+
+Sections 1–3 rest on one pair. Six more same-fit, layout-only pairs exist: each `curbase` fit
+flattened stock (`outer_curbase_sN`) and deterministically (`detfit_sN`), same meshes, same surface.
+The one-pair block model predicts the spread of a re-layout's effect on the count at **0.026–0.030**.
+A band of 0.015–0.045 was written down before any count was read. `scripts/measure_same_fit_relayout.py`,
+`reports/layout_rescoring/same_fit_relayout_replication.json`:
+
+| | value |
+|---|---|
+| sd of ln(det / stock), n = 6 | **0.0246**, 95% CI [0.015, 0.060] — **in band** |
+| mean ln(det / stock) | +0.0139 (t = 1.39; not distinguishable from 0 at n = 6) |
+| layout noise as a share of the fit-only variance (CV 0.0909) | **7.3%** |
+
+**The model, fitted on one pair, predicts the other six.** It also answers a question left open by
+`reports/fit_rng_dominates_the_flatten_was_never_binding.md`: why a deterministic flatten does not
+make fit comparisons cheaper. Layout noise is real, about 2.5% of the count, but it is only about 7%
+of the variance that separates two fits. The other 93% is the fit.
+
 ## What it means
 
 * **Re-laying out a strip re-draws its ink score locally, by ±13% per 2 kpx block, and the total
