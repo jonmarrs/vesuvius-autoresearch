@@ -9,16 +9,23 @@ SO=/home/jon/openclaw-workspace/Neo-VM/spiral_out
 REPO=/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch
 SHIM=$REPO/repro/spiral_render/determinism_shim
 RENDER_VENV=/home/jon/openclaw-workspace/Neo-VM/villa-spiral/spiral-fitting/.venv/bin/python
-WAIT_PID="${WAIT_PID:?set WAIT_PID to the pid of run_cache_gb_check_after_sweep.sh}"
 say() { echo "$*  $(date -Is)"; }
 
-say "TRANSMISSION waiting for cache check pid $WAIT_PID"
-while [ -d /proc/$WAIT_PID ] && tr '\0' ' ' < /proc/$WAIT_PID/cmdline 2>/dev/null | grep -q run_cache_gb_check; do
-  sleep 60
-done
-grep -q '^CACHE_CHECK_DONE' "$SO/cache_gb_check.log" || {
-  say "TRANSMISSION_ABORTED cache check did not end with CACHE_CHECK_DONE -- the box may be needed"; exit 3; }
-sleep 30
+# NO_WAIT=1 starts at once, for when the job ahead was stopped by the operator (it is logged, never
+# silent). Otherwise wait for the cache check and require it to have finished cleanly.
+if [ "${NO_WAIT:-}" = "1" ]; then
+  pgrep -x vc_render_tifxy >/dev/null && { say "TRANSMISSION_ABORTED NO_WAIT but a render is running"; exit 3; }
+  say "TRANSMISSION starting WITHOUT waiting (NO_WAIT=1, operator decision)"
+else
+  WAIT_PID="${WAIT_PID:?set WAIT_PID to the pid of run_cache_gb_check_after_sweep.sh, or NO_WAIT=1}"
+  say "TRANSMISSION waiting for cache check pid $WAIT_PID"
+  while [ -d /proc/$WAIT_PID ] && tr '\0' ' ' < /proc/$WAIT_PID/cmdline 2>/dev/null | grep -q run_cache_gb_check; do
+    sleep 60
+  done
+  grep -q '^CACHE_CHECK_DONE' "$SO/cache_gb_check.log" || {
+    say "TRANSMISSION_ABORTED cache check did not end with CACHE_CHECK_DONE -- the box may be needed"; exit 3; }
+  sleep 30
+fi
 
 for pair in "rin radial_work_in" "rout radial_work_out"; do
   set -- $pair; A=$1; SRC=$SO/$2; W=$SO/flatten_$A

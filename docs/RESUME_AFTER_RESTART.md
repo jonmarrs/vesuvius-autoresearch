@@ -64,7 +64,14 @@ line does not appear** (the fallback silently re-flattens), checks the docker im
 pinned one, and finally runs `analyse_ink_maximum_offset.py --json reports/ink_maximum_offset.json`.
 Expect results ~09:00–10:00 on 09-23. Markers to grep: `OFFSET_SWEEP_ABORTED|BUILD_FAILED|GUARD_FAILED|RENDER_FAILED|SCORE_FAILED|ARM_DONE|OFFSET_SWEEP_DONE`.
 
-**Behind the sweep, also detached (pid 3984839):** `spiral_out/run_cache_gb_check_after_sweep.sh`
+**STATUS 2026-09-23 10:58.** Offset sweep DONE: NO FREE LEVER (`reports/no_free_offset_lever.md`). The
+`--cache-gb 8` check was **STOPPED by the operator** at band 7/34 after ~4 h (bands of 75–84 min,
+~15 h ETA). NOT a result: byte identity is untested. It is logged in `spiral_out/cache_gb_check.log`;
+remove `spiral_out/cachetest_g8` before any re-run. Interim: at 8 GB the sampler still held ~23.7 GB
+with 2.58M faults, so the cache is not the main consumer. The transmission study was relaunched at
+once with `NO_WAIT=1` (pid 4145720), and the scorer test was re-queued behind it (pid 4145827).
+
+**Behind the sweep, also detached (pid 3984839, since stopped, see above):** `spiral_out/run_cache_gb_check_after_sweep.sh`
 (committed copy in `repro/spiral_render/`), log `spiral_out/cache_gb_check.log`; its result goes to
 reports/cache_gb_check.json, which does not exist until the check has run. An engineering
 check, not a study. It runs only if the sweep logged
