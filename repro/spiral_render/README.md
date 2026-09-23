@@ -496,3 +496,24 @@ Verdicts on the refs seen so far:
 
 That last row is the point: **had this existed on 2026-09-11 it would have flagged the bump that split
 the corpus**, instead of that being found weeks later by reconstructing render order from file mtimes.
+
+## 14. Render cache size: why the sampler swaps, and the opt-in fix (2026-09-22)
+
+The sampler's remote path caches ink-volume chunks **only in memory**, sized by `--cache-gb`
+(default **16**); the `--volume` dir only records the remote URL, so every render downloads its ROI
+again (villa `5479453a`, `vc_render_tifxyz.cpp` ~L1344). With ~11 GB of other buffers, a render peaks
+at **~27.8 GB** on this 31 GB box and faults its own cache back from swap: 2.79M major faults and
+~32 GB of block reads in 70 min, against ~0.3 GB read through syscalls. That is the section 11
+"slow band": memory, not the network.
+
+**Test before adoption, with zero tolerance.** Given a fixed flattened surface the renderer is
+bit-deterministic (6/6 strips and 5/5 slice TIFFs byte-identical across two renders), so a setting
+that does not change the instrument reproduces every output byte.
+`run_cache_gb_check_after_sweep.sh` re-renders `flat_study_zero` with `--cache-gb 8` and byte-compares
+all 11 outputs. Its result lands in `reports/cache_gb_check.json` once the check has run.
+
+**To adopt, only if that says IDENTICAL:** set `VC_CACHE_GB=8` when running `setup_workdir.sh`.
+`set_cache_gb.sh` bakes `--cache-gb 8` into that work dir's wrapper and appends `cache_gb=8` to its
+`RENDER_IMAGE`, so the setting travels with the arm and cannot drift with the environment. Unset, it
+changes nothing. **Never mix settings within one study**, even if the check passes, because
+`RENDER_IMAGE` must match across arms.

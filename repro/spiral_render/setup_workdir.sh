@@ -68,6 +68,12 @@ IMG="${VC_IMAGE:-vc-render:local}"
 } > "$W/RENDER_IMAGE"
 echo "[setup_workdir] villa $VILLA_REF -> $VILLA_SHA" >&2
 cp -r "$HERE/bin" "$W/bin"; chmod +x "$W"/bin/*
+# Opt-in render cache size, baked into THIS work dir and recorded in RENDER_IMAGE.
+# Unset (the default) changes nothing. Adopt only after reports/cache_gb_check.json
+# reads IDENTICAL for that size, and never partway through a study.
+if [ -n "${VC_CACHE_GB:-}" ]; then
+  "$HERE/set_cache_gb.sh" "$W" "$VC_CACHE_GB" || { echo "FAILED to set --cache-gb" >&2; exit 1; }
+fi
 # The extracted tree is stock villa, so the serial-fold gate is NOT in it. Applying
 # it here, at the one place work dirs are created, is the fix for an outer-winding
 # arm that ran three folds concurrently and was OOM-killed while the environment
