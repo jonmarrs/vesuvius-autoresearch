@@ -506,6 +506,13 @@ at **~27.8 GB** on this 31 GB box and faults its own cache back from swap: 2.79M
 ~32 GB of block reads in 70 min, against ~0.3 GB read through syscalls. That is the section 11
 "slow band": memory, not the network.
 
+> **Interim correction, 2026-09-23 10:45, while the check was still rendering:** the cache is **not**
+> the main consumer. At `--cache-gb 8` the sampler still held **~23.7 GB** (peak ~25 GB, against 27.8 GB
+> at 16), with 2.58M major faults and bands of ~75 min, the same as the default. Halving the cache
+> saves ~3–4 GB of peak, not the thrash. The run also shared the box with another project's test suite
+> and other agents, so its speed says little about the cache either way. **Adopt 8 GB, if at all, only
+> on the byte-identity verdict, and do not expect it to fix render speed.**
+
 **Test before adoption, with zero tolerance.** Given a fixed flattened surface the renderer is
 bit-deterministic (6/6 strips and 5/5 slice TIFFs byte-identical across two renders), so a setting
 that does not change the instrument reproduces every output byte.
