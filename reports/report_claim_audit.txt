@@ -11,7 +11,7 @@ artifact and no longer matches it.
   flagged:  5
 
   SCOPE: the figures above are for that ONE report. Repository-wide:
-    reports citing an artifact: 5 of 108
+    reports citing an artifact: 5 of 134
     numbers checked:            77
     flagged:                    13
 
