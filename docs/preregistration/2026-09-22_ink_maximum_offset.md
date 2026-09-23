@@ -115,6 +115,13 @@ discriminate. Prediction 2 is reported against the best *observed* arm.
 there while every sampled arm falls short of 3F. With the floor at 0.0042% of ink, the only case
 that matters is a peak almost exactly on 0. That is "no lever" in every practical sense.
 
+> **Correction 2026-09-23, after the result (the verdict is unaffected):** the two sentences above
+> overclaim. F is the repeat floor for **identical** content; each displaced arm renders **different**
+> content, which the scorer re-reads with ~±2.5% noise on a strip total
+> (`reports/the_flatten_noise_is_local_rescoring.md`). So this sweep resolves levers of roughly 2–3%,
+> not 0.0042%. "No arm beats 0 vx" stands; smaller levers are not excluded.
+> `reports/no_free_offset_lever.md`.
+
 Implemented in `scripts/analyse_ink_maximum_offset.py`; the case that broke the old rule is now
 `test_asymmetry_alone_is_not_a_lever`.
 
