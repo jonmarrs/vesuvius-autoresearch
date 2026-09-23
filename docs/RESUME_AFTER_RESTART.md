@@ -64,6 +64,13 @@ line does not appear** (the fallback silently re-flattens), checks the docker im
 pinned one, and finally runs `analyse_ink_maximum_offset.py --json reports/ink_maximum_offset.json`.
 Expect results ~09:00–10:00 on 09-23. Markers to grep: `OFFSET_SWEEP_ABORTED|BUILD_FAILED|GUARD_FAILED|RENDER_FAILED|SCORE_FAILED|ARM_DONE|OFFSET_SWEEP_DONE`.
 
+**RUNNING 2026-09-23 15:24 (pid 2954):** `spiral_out/run_resampling_or_distortion.sh`, log
+`spiral_out/resampling_or_distortion.log`, registration
+`docs/preregistration/2026-09-23_resampling_or_distortion.md`. Two renders with the flatten reused:
+`rs_t005` (half-pixel re-sample, primary) then `rs_t05`, then the analysis. Results due ~19:30–20:00.
+Scripts run from byte-identical copies in `spiral_out/rsd_scripts/`. Markers:
+`GUARD_OK|ARM_DONE|RSD_DONE|FAILED|ABORTED`. All earlier queued studies are DONE and on main.
+
 **STATUS 2026-09-23 10:58.** Offset sweep DONE: NO FREE LEVER (`reports/no_free_offset_lever.md`). The
 `--cache-gb 8` check was **STOPPED by the operator** at band 7/34 after ~4 h (bands of 75–84 min,
 ~15 h ETA). NOT a result: byte identity is untested. It is logged in `spiral_out/cache_gb_check.log`;
