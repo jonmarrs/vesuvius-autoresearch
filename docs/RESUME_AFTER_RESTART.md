@@ -15,7 +15,10 @@
 ## What is in flight
 
 **Pooled fit-only floor study** — `docs/preregistration/2026-09-22_pooled_fit_only_floor.md`.
-Six arms, one done (`detfit_ns1`, −0.56% vs stock), five to go: `ns2 ns3 an1 an2 an3`.
+**DONE 2026-09-22 22:30:** pooled fit-only CV **0.0736 [0.0506, 0.1344]**, df = 9, band BETWEEN (the
+point estimate is 0.0014 under the 0.075 edge; the interval spans all three bands), MDE 3v3 **16.8%**.
+Predictions 1 and 2 met. `reports/the_pooled_fit_only_floor.md`. Step 3 below ran automatically.
+(Original note: six arms, one done (`detfit_ns1`, −0.56% vs stock), five to go.)
 Log: `spiral_out/pooled_chain.log`. Each arm ~2.5 h, so the twelve-arm sample lands ~01:00 on 09-23.
 
 **Do not compute anything from a partial sample** — `scripts/analyse_pooled_fit_only_floor.py`
