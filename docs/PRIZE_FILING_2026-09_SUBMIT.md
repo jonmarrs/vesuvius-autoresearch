@@ -54,8 +54,12 @@ cost (~11 min against 2 h renders). **But removing it does not make fit comparis
 seeds of one config re-flattened deterministically give a seed CV of **0.09 [0.06, 0.22]**,
 indistinguishable from the same six with stock flattens (F(5,5) p=0.67). The fit's own RNG
 dominates on that config; at three seeds per arm it resolves ~20%, and no lever short of more seeds
-moves that. (That config is the tier's noisiest on stock flattens; the tier-wide figure is likely
-somewhat better and is not measured.) Where the switch is decisive is studies that manipulate one *fixed* surface — there it takes
+moves that. That config is the tier's noisiest. **Pooled over three configs (twelve fits, all
+deterministic, one tree), the tier-wide figure is 0.074 [0.051, 0.134]**, so three seeds per arm
+resolve **~17%**. The interval is wide enough that this should be quoted as a range, not a number
+(`reports/the_pooled_fit_only_floor.md`). The ~12% above comes from a different sample (fifteen
+stock-flattened fits); the same twelve fits give 0.059 on stock flattens. The intervals overlap, so
+the two figures bracket the tier rather than contradict each other. Where the switch is decisive is studies that manipulate one *fixed* surface — there it takes
 the floor from 3% to **0.0014%**.
 
 **Those two seeds are worth more averaged than compared.** Fits differing only by RNG seed agree on
