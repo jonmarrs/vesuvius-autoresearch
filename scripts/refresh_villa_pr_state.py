@@ -94,15 +94,21 @@ def main() -> None:
         }
 
     by = lambda st: sorted(int(k) for k, v in prs.items() if v["state"] == st)  # noqa: E731
+    # Derived, not asserted: the first version hard-coded "comments_human==0 hold for
+    # ALL", which went false the day a maintainer commented (#1866, 2026-09-23). Note
+    # comments_human counts OUR comments too, so > 0 does not mean a maintainer spoke.
+    reviewed = sorted(int(k) for k, v in prs.items() if v["reviews"] > 0)
+    commented = sorted(int(k) for k, v in prs.items() if v["comments_human"] > 0)
     out = {
         "generated_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         "source": f"gh pr view --repo {a.repo} (per PR)",
         "scope": f"PRs numbered >= {a.since} (the spiral-fitting campaign the filing describes)",
         "caveat": (
-            "reviews==0 and comments_human==0 hold for ALL of these, INCLUDING the ones that "
-            "merged. villa merges without a review record, so neither field distinguishes "
-            "'never looked at' from 'accepted'. The only discriminator is who closed it: a "
-            "maintainer merge vs the 14-day inactivity bot. Do not cite reviews:0 as evidence."
+            f"PRs with any review record: {reviewed or 'none'}; with any non-bot comment "
+            f"(ours included): {commented or 'none'}. villa merges without a review record, so "
+            "reviews==0 does not distinguish 'never looked at' from 'accepted' -- it is 0 on "
+            "the merged PRs too. The discriminator is who closed it and why: a maintainer merge, "
+            "a maintainer close (read its comment), or the 14-day inactivity bot."
         ),
         "total": len(prs),
         "merged": by("MERGED"),

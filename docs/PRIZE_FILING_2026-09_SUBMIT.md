@@ -85,7 +85,8 @@ interval is wide.
 
 No external adoption of the *measurements* is demonstrated, and the writeup says so plainly.
 
-**What is upstream: four merged fixes, two awaiting review, two auto-closed unreviewed.** The criteria reward resolving bugs in tools you
+**What is upstream: five merged fixes, zero awaiting review, three closed unmerged.** One was closed by a maintainer with a
+reason, and two by the inactivity bot. The criteria reward resolving bugs in tools you
 use yourself, so these are named rather than left out:
 
 | PR | status | what it fixes |
@@ -96,21 +97,29 @@ use yourself, so these are named rather than left out:
 | #1728 | CLOSED — by the 14-day inactivity bot on 2026-09-22 | `render_ink` silently produced an entirely black strip; now warns |
 | **#1780** | **MERGED** 2026-09-15 | `autoresearch.md` overstated what the two-seed robustness check accepts |
 | **#1805** | **MERGED** 2026-09-15 | `metrics.json` recorded the model repo id but not which snapshot produced the score |
-| #1842 | open, opened 2026-09-19 | `autoresearch.md`'s coverage guard is directional and does not catch duplicated coverage |
-| #1866 | open, opened 2026-09-22 | `autoresearch.md` did not say where the CUDA non-determinism lives, or that it can be switched off |
+| **#1842** | **MERGED** 2026-09-23 | `autoresearch.md`'s coverage guard is directional and does not catch duplicated coverage |
+| #1866 | CLOSED by a maintainer (@pmh47) on 2026-09-23, with a reason | `autoresearch.md` note on where the CUDA non-determinism lives and how to switch it off |
 
 Every one came out of running villa's own pipeline here. #1728 in particular is the fix for a failure
 that cost us hours: a blank render is indistinguishable from a successful one in the logs, which is
 how we first mis-diagnosed a mistyped path as a VOID result. Both auto-closed PRs were shut by the
 repository's 14-day inactivity bot rather than by a maintainer declining them; the fixes stand in
 this repo's patches and are resubmittable. We are deliberately not dressing that up: villa carries
-**no review record and no human comment on any of these eight, the four merged ones included**, so
-we cannot and do not claim the closed two were judged and found wanting, nor that they were
-ignored. The only thing the record supports is who performed the close.
+**no review record on any of these eight, the five merged ones included**, so we cannot and do not
+claim the bot-closed two were judged and found wanting, nor that they were ignored. The only thing
+the record supports is who performed the close.
 
-**This is eight PRs against a merged total of four.** #1805 was one line and merged in about thirty minutes. It is
-offered as evidence of the practice, not as an adoption claim. The two open ones carry no
-expectation: on the record above, an unreviewed villa PR is auto-closed at fourteen days.
+**#1866 is different: a maintainer closed it and said why.** @pmh47: "This is misleading as-is --
+there is also non-determinism in the spiral stage due to similar factors. Even if this stated that
+fact, I don't think it would be valuable information for autoresearch agents." **He is right.** The
+note located the CUDA non-determinism in the lasagna flatten and said nothing of the spiral fit.
+Our own measurements since then show the fit's run-to-run variation is the larger part: re-layout
+noise from the flatten is ~7% of the seed-to-seed variance of `total_fg_pixels`
+(`reports/the_flatten_noise_is_local_rescoring.md`). It is the one substantive maintainer judgement
+on our PRs, and it is recorded here as a correction, not argued with.
+
+**This is eight PRs against a merged total of five.** #1805 was one line and merged in about thirty minutes. It is
+offered as evidence of the practice, not as an adoption claim. None is open now.
 
 What exists is outbound and, honestly, unanswered: six villa issues are open from us and three have
 zero comments, the oldest since August. No maintainer has resolved any of them, though #1658's

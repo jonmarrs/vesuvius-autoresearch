@@ -31,6 +31,7 @@ pytestmark = pytest.mark.skipif(
 )
 
 _WORD = {
+    0: "zero",
     1: "one",
     2: "two",
     3: "three",
@@ -57,8 +58,19 @@ def test_headline_counts_match_the_artifact():
     expect = (
         f"**What is upstream: {_WORD[st['n_merged']]} merged fixes, "
         f"{_WORD[st['n_open']]} awaiting review, "
-        f"{_WORD[st['n_closed_unmerged']]} auto-closed unreviewed.**"
+        f"{_WORD[st['n_closed_unmerged']]} closed unmerged.**"
     )
+    # "auto-closed unreviewed" was true until 2026-09-23, when a maintainer closed #1866
+    # with a reason. Pin that the headline does not quietly call every close automatic.
+    maintainer_closed = [
+        n
+        for n, p in st["prs"].items()
+        if p["state"] == "CLOSED" and p["comments_human"] >= 2
+    ]
+    if maintainer_closed:
+        assert "auto-closed unreviewed" not in txt, (
+            f"{maintainer_closed} were closed with a human comment; not all closes are automatic"
+        )
     assert expect in txt, f"filing headline does not match gh state; expected: {expect}"
 
 

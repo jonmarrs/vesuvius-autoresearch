@@ -128,7 +128,7 @@ def main() -> int:
 
     claim(
         "merged/pending tally",
-        r"(\w+) merged fixes?, (\w+) awaiting review, (\w+) auto-closed",
+        r"(\w+) merged fixes?, (\w+) awaiting review, (\w+) (?:auto-)?closed",
         (len(merged), len(openpr), len(closedpr)),
     )
     checks.append(

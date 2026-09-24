@@ -1,22 +1,21 @@
 {
-  "generated_utc": "2026-09-22T19:48:08Z",
+  "generated_utc": "2026-09-24T17:10:43Z",
   "source": "gh pr view --repo ScrollPrize/villa (per PR)",
   "scope": "PRs numbered >= 1700 (the spiral-fitting campaign the filing describes)",
-  "caveat": "reviews==0 and comments_human==0 hold for ALL of these, INCLUDING the ones that merged. villa merges without a review record, so neither field distinguishes 'never looked at' from 'accepted'. The only discriminator is who closed it: a maintainer merge vs the 14-day inactivity bot. Do not cite reviews:0 as evidence.",
+  "caveat": "PRs with any review record: none; with any non-bot comment (ours included): [1866]. villa merges without a review record, so reviews==0 does not distinguish 'never looked at' from 'accepted' -- it is 0 on the merged PRs too. The discriminator is who closed it and why: a maintainer merge, a maintainer close (read its comment), or the 14-day inactivity bot.",
   "total": 8,
   "merged": [
     1721,
     1722,
     1780,
-    1805
+    1805,
+    1842
   ],
-  "open": [
-    1842,
-    1866
-  ],
+  "open": [],
   "closed_unmerged": [
     1723,
-    1728
+    1728,
+    1866
   ],
   "prs": {
     "1721": {
@@ -74,8 +73,8 @@
       "title": "get_ink_metrics: record which model snapshot produced a score"
     },
     "1842": {
-      "state": "OPEN",
-      "mergedAt": null,
+      "state": "MERGED",
+      "mergedAt": "2026-09-23T15:50:52Z",
       "createdAt": "2026-09-19T21:02:12Z",
       "reviews": 0,
       "comments_total": 1,
@@ -83,16 +82,16 @@
       "title": "autoresearch: note that the fraction guard does not catch duplicated coverage"
     },
     "1866": {
-      "state": "OPEN",
+      "state": "CLOSED",
       "mergedAt": null,
       "createdAt": "2026-09-22T18:49:24Z",
       "reviews": 0,
-      "comments_total": 1,
-      "comments_human": 0,
+      "comments_total": 3,
+      "comments_human": 2,
       "title": "spiral-fitting: say where the CUDA non-determinism lives and how to turn it off"
     }
   },
-  "n_merged": 4,
-  "n_open": 2,
-  "n_closed_unmerged": 2
+  "n_merged": 5,
+  "n_open": 0,
+  "n_closed_unmerged": 3
 }
