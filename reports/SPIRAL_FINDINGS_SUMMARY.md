@@ -757,7 +757,7 @@ against 0.0742 on the same fits with stock flattens — indistinguishable, F(5,5
 flatten's 3% was never the binding constraint on fit comparisons; at 3v3 the floor is ~20% on this
 config and it is the fit's own RNG, with no cheap lever. (`curbase` is the tier's noisiest group on
 stock flattens, so this is a config floor, not a tier floor — the tier-wide figure is unmeasured and
-likely better.) Prediction (a CV in [0.030, 0.055]) missed, the fourth missed
+likely better. *Measured 2026-09-22: 0.0736 [0.051, 0.134], finding 57.*) Prediction (a CV in [0.030, 0.055]) missed, the fourth missed
 magnitude in a week. `curbase_s6` survived re-flattening as top scorer by +13.2%: a genuine fit
 outlier, kept in the floor. The deterministic switch remains decisive for surface-manipulation
 studies (finding 49) and irrelevant for fit comparisons — which is most of the corpus and villa's
@@ -783,3 +783,59 @@ estimate** (three retractions of one number, each new value inside the prior CI)
 never inherit it** (a study design invalidated by a floor from a report that named an unmeasured
 mechanism); and **validate the probe against the target before interpreting it** (an intensity
 analysis with the wrong sign, a `%/vx` law that failed three times in a day).
+
+## The rescoring line, 2026-09-22 to 24: what the flatten's 3% actually is
+
+**54. The flatten moves the grid, not the surface.** Two stock flattens of identical meshes, read
+"7.15 vx apart" by nearest neighbour, lie **0.25 vx** apart along the normal (0.01 vx in the inner
+region). The 7 vx is in-plane re-parametrisation on a 20 vx grid. The ink change (3.04%) stands; the
+per-voxel sensitivities built on 7.15 are void. `reports/the_flatten_moves_the_grid_not_the_surface.md`.
+
+**55. The 3% is local, uncorrelated rescoring of the same sheet.** Covered strip area agrees to 0.2%;
+the gain is all ink density. Per 2 kpx block it is **0.135** (sd), 16 of 40 blocks lose ink, and
+neighbouring blocks are uncorrelated, so the net 3% is a 1.2-sd residual. The model, built on one
+pair, predicted six more same-fit pairs (sd ln ratio **0.0246**, inside the band written in advance).
+Layout noise is **~7%** of fit-to-fit variance. `reports/the_flatten_noise_is_local_rescoring.md`.
+
+**56. Placement instability is the fit's, not the flatten's.** In the volume frame, the same fit
+re-laid-out agrees at **0.969**, while different fits agree at **~0.72** with a deterministic flatten
+too. This corrects the closing note above and the September filing, which had inferred the
+opposite. `reports/the_flatten_noise_is_local_rescoring.md` (section 4).
+
+**57. The current tier's fit-only floor, pooled: 0.0736 [0.051, 0.134], df = 9.** Three configs,
+twelve deterministic fits. BETWEEN, as registered, but the interval spans all three bands. **3v3
+resolves ~17%** at the point estimate (~30% at the interval's top). `reports/the_pooled_fit_only_floor.md`.
+
+**58. No free offset lever, and a mesh offset would reach the render anyway.** Seven radial offsets of
+one flattened surface all score below the fitted one (−2.2% to −19.8%). The resolution is ~2–3%, not
+the 0.0042% first claimed, because each displaced arm is different content. The flatten passes a mesh
+offset through at **T = 0.94**. `reports/no_free_offset_lever.md`,
+`reports/the_flatten_transmits_a_mesh_offset.md`.
+
+**59. The scorer ignores position; half a pixel of re-sampling is enough.** Moving identical pixels by
+1–512 px changes nothing (spread 0.0032%, per-block 0.0001). Re-sampling the same layout by **half a
+strip pixel**, with no distortion, re-draws **0.088** per block, two-thirds of the flatten's 0.135.
+`reports/the_scorer_is_translation_invariant.md`, `reports/re_sampling_is_enough.md`.
+
+**60. Both the scorer and the render amplify.** The same strip shifted half a pixel as an image, with no
+render, re-draws **0.030**, about 300× the floor. The render's re-sample changes pixels more and
+re-draws ~3× that. Open and deliberately not pursued: rescoring does not track pixel-change size (a
+re-render that changed pixels *less* re-drew *more*). `reports/scorer_and_render_both_amplify.md`.
+
+## Closing note on the rescoring line
+
+**`total_fg_pixels` carries a sampling term no fit controls.** Any change in where the ink volume is
+sampled (a re-flatten, a different grid, half a pixel) re-draws local ink by ~9–13% per 2 kpx block
+and moves the strip total by ~±2–3%, through the render's re-sampling amplified by a scorer that
+reacts to sub-pixel change. It is small next to the fit's own run-to-run spread (~7% of it), which is
+why a deterministic flatten does not make fit comparisons cheaper. It is also why villa's maintainer
+closed our #1866 as incomplete: the spiral stage is non-deterministic too, and he judged noise notes
+unhelpful to agents (recorded in the September filing; not argued).
+
+What this line cost in method, recorded so it is not paid twice: **five consecutive magnitude
+predictions on scorer and render sensitivity missed**, so measure and report rather than predict
+here. **Four instrument defects were caught before they decided a verdict**: a floor constant typed
+10× too large, a df of 11 that was 9, a 10 px render-trim misalignment that faked 0.013, and three
+sweep arms I mislabelled by reading parallel `grep` (ugrep) output positionally. None was found by
+luck. Each surfaced because a checker, a control, or a script's own table disagreed with a number read
+by hand.
