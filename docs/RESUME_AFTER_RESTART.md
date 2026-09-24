@@ -1,5 +1,29 @@
 # Resume note — written 2026-09-22 before a deliberate Claude restart
 
+## CURRENT STATE, 2026-09-24 ~10:30 — read this first; everything below is history
+
+**Running (detached, pid 81433):** the `--cache-gb 8` byte-identity check, **re-run** on an idle box
+(`spiral_out/run_cache_gb_check_after_sweep.sh`, log `spiral_out/cache_gb_check.log`). The 09-23 run
+was stopped by the operator and is **not a result**; its partial dir went to the trash. The result lands
+in reports/cache_gb_check.json, which does not exist until the check finishes (verdict IDENTICAL or
+NOT_IDENTICAL over 11 files). **It is not a speed
+fix:** at 8 GB the sampler still held ~23.7 GB. Adopt only on IDENTICAL, via `VC_CACHE_GB`
+(`repro/spiral_render/set_cache_gb.sh`), never within a study.
+
+**Done and on main this week** (see `reports/SPIRAL_FINDINGS_SUMMARY.md`, findings 54–60): pooled
+fit-only floor 0.0736 [0.051, 0.134]; no free offset lever; flatten transmits a mesh offset (T = 0.94);
+scorer translation-invariant; half-pixel re-sampling suffices; scorer and render both amplify.
+**Nothing else is queued.**
+
+**Outward:** villa 5 merged (#1721/#1722/#1780/#1805/#1842), **0 open**, #1866 **closed by @pmh47 with a
+reason** (spiral stage non-deterministic too; noise notes not useful to agents): do not reply, do not
+propose another noise note. #1723/#1728 bot-closed. The September filing
+(`docs/PRIZE_FILING_2026-09_SUBMIT.md`) is current and its live checker passes. **Deadline 09-30.
+Re-read villa's `34_prizes.md` for the form URL at filing time.**
+
+**The pin** is still `be09a8503`. Upstream has moved; a bump needs `scripts/check_villa_render_path.py`
+and must not happen mid-study.
+
 ## What survives the restart, and what does not
 
 | | survives? | why |
