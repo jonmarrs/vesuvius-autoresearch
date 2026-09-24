@@ -48,6 +48,25 @@ would have.
   about 5 px on, roughly on the original sample positions, so I expected it to re-sample *less*. Either
   its re-interpolated surface (a Catmull-Rom correction of 0.106 vx p50 against 0.024 for the primary)
   matters, or the renderer does not sample exactly at 10 px per cell. **Not investigated.**
+
+  **Sharpened 2026-09-24 (exploratory, not registered).** The renderer does sample at 10 px per cell
+  (`render_scale=0.5` over a 0.05 grid scale). And by every pixel measure the half-cell arm changed
+  **less** than the half-pixel arm, yet re-drew **more**
+  (`scripts/describe_rendered_pixel_change.py`, `reports/resampling_or_distortion_pixel_change.json`):
+
+  | arm | mean \|Δ\| | \|Δ\| ≥ 50 | r | per-block rescoring |
+  |---|---:|---:|---:|---:|
+  | `rs_t005` (½ px) | 12.9 | 7.8% | 0.947 | 0.088 |
+  | `rs_t05` (½ cell) | 5.6 | 2.3% | 0.979 | 0.107 |
+  | image ½-px shift, no render (`reports/scorer_and_render_both_amplify.md`) | — | — | 0.970 | 0.030 |
+
+  Neither arm is brighter or darker (signed means −0.70 and −0.73, medians 0). **So the scorer's
+  block-level rescoring is not predicted by how much the pixels change.** A genuine re-render that
+  barely changes the pixels re-draws as much as one that changes them a lot, and far more than an
+  image edit of similar size. That points at the *structure* of render changes rather than their
+  magnitude. **Untested.** The render also samples 5 slices along each normal, and normals recomputed
+  from a re-sampled grid move those slices even where the surface points coincide. That is one
+  candidate, not a finding.
 * **Whether the effect is in the render or the scorer.** Half-pixel re-sampling changes the strip's
   pixel values, and the scorer reads the change. This does not separate an amplifying scorer from a
   rough volume.
