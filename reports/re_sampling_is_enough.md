@@ -67,6 +67,14 @@ would have.
   magnitude. **Untested.** The render also samples 5 slices along each normal, and normals recomputed
   from a re-sampled grid move those slices even where the surface points coincide. That is one
   candidate, not a finding.
+
+  **That candidate is weakened (checked 2026-09-24, geometry only, no render).** Re-sampling rotates the
+  grid normals by p50 0.30° / p90 0.96° at t = 0.5, against 0.08° / 0.24° at t = 0.05. That moves the
+  outermost slices (~2 units off the surface; `--slice-step` defaults to 1) by only ~0.01–0.03 vx for
+  typical cells. The exception is a ~1% tail of irregular cells (p99 19° at t = 0.5), which may add a
+  few large pixel changes. It cannot explain why the half-cell arm re-draws more overall, when the
+  half-pixel arm changes its pixels more everywhere, tails included. **The puzzle stays open. It is
+  not pursued further,** because it does not bear on the main result (re-sampling alone suffices).
 * **Whether the effect is in the render or the scorer.** Half-pixel re-sampling changes the strip's
   pixel values, and the scorer reads the change. This does not separate an amplifying scorer from a
   rough volume.
