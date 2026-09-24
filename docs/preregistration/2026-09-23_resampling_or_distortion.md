@@ -69,6 +69,29 @@ pixel, which argues for small re-sampling effects. But a fixed-threshold scorer 
 pixels on small value changes, and it re-read a 0.25 vx difference at 0.135. My two predictions on the
 scorer this week both missed, so I am not confident either way.
 
+## Amendment, 2026-09-23 — made before any arm's score, mask or strip was read
+
+**Timing, stated exactly.** The problem was found ~17:00 from the primary arm's render log (its trim
+line) while it was still rendering. The fix was written and installed ~18:00–19:00, which is
+**after** the primary arm was scored (17:37). No arm's `metrics.json`, mask or strip had been opened.
+The checks below used only the reference arm's (`flat_study_zero`) masks, and the registered analysis
+had not run.
+
+**The decision code compared columns without aligning them.** The re-sampled surfaces lose their
+border columns (the Catmull-Rom stencil needs neighbours), and the render trims to the valid region.
+The primary arm's log shows `rect c=1+8263 r=0+424`: its strip starts **one cell (10 px) later** than
+the reference's and has 20 fewer rows at the bottom. On the reference's own masks, a pure 10 px
+misalignment fakes a per-block sd of **0.0133**, two-thirds of the 0.02 boundary. That bias favours
+"re-sampling", so left in it could have manufactured the verdict.
+
+**Fix:** read each arm's trim (`c`, `r`) from its render log, sum the reference's columns over the rows
+both strips share, and compare arm column k with reference column k + 10c + round(10t): 10 px for the
+primary arm, 15 for the secondary. The half pixel of the primary arm is the manipulation and is
+deliberately not aligned away. The verdict uses the aligned sd; the unaligned sd is still reported.
+Checked on real data before adding it: the reference's own masks, trimmed by 10 px, read **0.0
+aligned vs 0.0133 unaligned**. Pinned by two new tests (trim parsing; a pure offset reads 0 aligned and
+> 0.005 unaligned on run-structured ink). Bands and prediction unchanged.
+
 ## What the result cannot do
 
 * **It cannot identify which distortion**, if DISTORTION REQUIRED. It only rules re-sampling in or out.
