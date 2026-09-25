@@ -4,7 +4,7 @@
 
 `docs/preregistration/2026-09-24_upstream_fitter.md` (committed `2cb28f84` before any arm). Three fits
 on villa `75c79ac5f` (`villa-spiral-upstream`), each rendered on the pinned `be09a8503` path, compared
-with `detfit_s4..s9`. Chain pid 136389, parent systemd (detached). ~13–14 h serial, due ~09-25 09:00.
+with `detfit_s4..s9`. Chain pid 136389, parent systemd (detached). ~17 h serial, due ~09-25 12:30 (the upstream fitter runs at 2.5 it/s, not the 3.7–4.1 of the current tree, so a fit takes ~3.3 h).
 
 * Log: `spiral_out/upstream_fitter_chain.log`. Terminal lines: `ARM_DONE`, `UPSTREAM_CHAIN_DONE`;
   failures: `FIT_FAILED|FIT_OUTPUT_MISSING|FIT_WINDINGS_WRONG|SETUP_FAILED|GUARD_FAILED|RENDER_FAILED|SCORE_FAILED|WORKDIR_EXISTS`.
