@@ -93,4 +93,10 @@ def test_correlation_script_uses_the_shared_table():
 
 
 def test_every_tier_name_is_known():
-    assert set(TIERS) == {"pinned", "current"}
+    assert set(TIERS) == {"pinned", "current", "upstream"}
+
+
+def test_upstream_fits_are_their_own_tier():
+    """Fitted on 75c79ac5f (2026-09-24); pooling them with `current` before the
+    registered comparison would assume its answer."""
+    assert tier_of("upfit_s1") == "upstream"

@@ -42,9 +42,14 @@ _RULES: tuple[tuple[str, str], ...] = (
     # docs/preregistration/2026-09-12_anchor_ablation.md: "Current villa,
     # 30,000 steps". THIS is the entry whose absence caused the drift.
     ("anchor10cov", "current"),
+    # --- upstream villa 75c79ac5f FITTER, pinned be09a8503 render ----------
+    # docs/preregistration/2026-09-24_upstream_fitter.md. Fitted on the tree after
+    # the 09-14 series and #1871; flattened/rendered/scored on the current tier's
+    # path. Its own tier until the registered comparison says otherwise.
+    ("upfit_", "upstream"),
 )
 
-TIERS = ("pinned", "current")
+TIERS = ("pinned", "current", "upstream")
 
 
 class UnknownArm(KeyError):
