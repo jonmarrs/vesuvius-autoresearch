@@ -17,8 +17,10 @@ should be edited without editing that too.
    previous month's.)
 2. **Confirm the deadline still reads 11:59pm Pacific, September 30th, 2026** under
    `progress-prizes:deadline:start`. Re-verified at `d285029ab` on 2026-09-22 — **eight days out**.
-   The whole Progress Prize section is byte-identical between the pin and upstream, so the
-   criteria this text answers have not moved.
+   **The Progress Prize criteria changed on 2026-09-24** (villa #1887, `75c79ac5f`): "released or
+   open-sourced early" now adds "This includes releasing model weights and training data where
+   applicable." Field 3 answers it. Form URL and deadline are unchanged at `75c79ac5f`; no other
+   criterion moved. Diff the section again at filing time.
 3. **Run `pytest tests/test_filing_numbers_match_sources.py`** — every figure below is bound to a json
    artifact, and that test fails if any has drifted or if a withdrawn one has crept back.
 4. **Run `./.venv/bin/python scripts/check_filing_upstream_claims.py`** — check 3 covers figures
@@ -34,12 +36,14 @@ After submitting, tag the commit `submission/2026-09`, matching `submission/2026
 
 ## Field 1 — "Short description of how your contributions substantially increase the probability of reading complete scrolls"
 
-Four measurements on the villa spiral loop **as it runs today**.
+Four measurements on the villa spiral loop, on villa `be09a8503` (2026-09-12). Upstream has since
+simplified the fitter (#1871, 2026-09-23) and they have not been re-measured on it; both constraint types
+ablated below are still supervised there.
 
 **The robustness check `autoresearch.md` prescribes accepts one null change in six.** Requiring both
 runs of a change to beat both baseline runs is a rank test: under no effect it passes with
 probability exactly **1/C(2k,k)**, independent of noise, metric or code version. Two seeds is 1/6;
-**three seeds is 1/20**, for 1.5× compute.
+**three seeds is 1/20**, for 1.5× compute. `autoresearch.md` now states this, via our merged #1780.
 
 **Its run-to-run noise is 0.0536** on `total_fg_pixels` (fifteen 30,000-step fits on current villa,
 pooled within-arm), so the loop resolves about **12%** at three fits per arm — worth knowing before
@@ -160,6 +164,10 @@ pruner that refuses to delete any artifact a report cites.
 
 All data needed to reproduce every published number ships in-repo. Scoring needs no GPU and no
 network; the spiral work needs one consumer GPU and only published villa artifacts.
+
+No model weights or training data are released this month because none were trained: the spiral
+work scores with villa's published ink model, and since our merged #1805 every score records which
+snapshot of it produced the number.
 
 ---
 

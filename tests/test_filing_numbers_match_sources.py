@@ -174,3 +174,15 @@ def test_the_spiralcheck_figures_match_the_validation_artifacts():
     for text in (_text(), _submit_text()):
         assert cv in text, f"spiralcheck seed CV {cv} not quoted"
         assert "p ≥ 0.10" in text, "the p floor is not quoted"
+
+
+@pytest.mark.skipif(not _SUBMIT.exists(), reason="submit file not prepared")
+def test_the_submit_text_answers_the_weights_criterion_added_upstream():
+    """villa #1887 (2026-09-24) added "This includes releasing model weights and
+    training data where applicable" to the Progress criteria. The pre-paste note
+    had said the section was byte-identical to the pin; that went false that day."""
+    t = _submit_text()
+    field3 = t.split("## Field 3")[1].split("## Required disclosure")[0]
+    assert "model weights" in field3 and "training data" in field3
+    assert "byte-identical between the pin and upstream" not in t
+    assert "#1871" in t, "results must be dated against the upstream simplification"

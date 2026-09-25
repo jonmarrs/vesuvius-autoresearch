@@ -2,6 +2,12 @@
 
 ## CURRENT STATE, 2026-09-24 ~17:15 — read this first; everything below is history
 
+**Upstream moved 2026-09-23/24 (checked at villa `75c79ac5f`).** #1887 added "release model weights and
+training data where applicable" to the Progress criteria (filing's Field 3 now answers it; form URL and
+deadline unchanged). #1871 "Spiral simplification" removed dense-spacing, unverified patches and the
+influence anchor loss; absolute- and same-winding supervision survive. The filing now dates its
+numbers to `be09a8503`; **nothing has been re-measured on the simplified fitter.**
+
 **Added 2026-09-24 evening: spiralcheck validated (finding 61).** The community evaluator, run on the
 twelve pooled-floor fits under a pre-registration, is **NOT DISCRIMINATING HERE**: no config separation,
 no within-config ink tracking, seed CV 7.4% on its violated fraction. One post hoc lead (outer-winding

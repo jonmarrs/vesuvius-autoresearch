@@ -38,12 +38,14 @@ Tag the submitted commit `submission/2026-09`, matching `submission/2026-07` (06
 
 ### Version A (~179 words), use this one
 
-Three measurements on the villa spiral loop **as it runs today**.
+Three measurements on the villa spiral loop, on villa `be09a8503` (2026-09-12). Upstream has since
+simplified the fitter (#1871, 2026-09-23) and they have not been re-measured on it; both constraint types
+ablated below are still supervised there.
 
 **The robustness check `autoresearch.md` prescribes accepts one null change in six.** Requiring both
 runs of a change to beat both baseline runs is a rank test: under no effect it passes with
 probability exactly **1/C(2k,k)**, independent of noise, metric or code version. Two seeds is 1/6;
-**three seeds is 1/20**, for 1.5× compute.
+**three seeds is 1/20**, for 1.5× compute. `autoresearch.md` now states this, via our merged #1780.
 
 **Its seed noise is 0.0263** *(withdrawn 2026-09-19; now 0.0536)* on `total_fg_pixels` (nine 30,000-step fits, pooled within-arm), so the
 loop resolves about **6%** at three fits per arm — worth knowing before chasing smaller ones. We
@@ -174,6 +176,10 @@ pruner that refuses to delete any artifact a report cites.
 
 All data needed to reproduce every published number ships in-repo. Scoring needs no GPU and no
 network; the spiral work needs one consumer GPU and only published villa artifacts.
+
+No model weights or training data are released this month because none were trained: the spiral
+work scores with villa's published ink model, and since our merged #1805 every score records which
+snapshot of it produced the number.
 
 ---
 
