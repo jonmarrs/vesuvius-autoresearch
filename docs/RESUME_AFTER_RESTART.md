@@ -1,14 +1,13 @@
 # Resume note — written 2026-09-22 before a deliberate Claude restart
 
-## CURRENT STATE, 2026-09-24 ~10:30 — read this first; everything below is history
+## CURRENT STATE, 2026-09-24 ~17:15 — read this first; everything below is history
 
-**Running (detached, pid 81433):** the `--cache-gb 8` byte-identity check, **re-run** on an idle box
-(`spiral_out/run_cache_gb_check_after_sweep.sh`, log `spiral_out/cache_gb_check.log`). The 09-23 run
-was stopped by the operator and is **not a result**; its partial dir went to the trash. The result lands
-in reports/cache_gb_check.json, which does not exist until the check finishes (verdict IDENTICAL or
-NOT_IDENTICAL over 11 files). **It is not a speed
-fix:** at 8 GB the sampler still held ~23.7 GB. Adopt only on IDENTICAL, via `VC_CACHE_GB`
-(`repro/spiral_render/set_cache_gb.sh`), never within a study.
+**Nothing is running and nothing is queued.**
+
+**`--cache-gb 8`: NOT ADOPTED (decided 2026-09-24).** The re-run on an idle box showed no useful memory
+saving (27.2 GB vs 27.8 GB) and ~3× slower bands, so the byte-identity check was stopped as moot. It is
+**not a result**; both stops are logged in `spiral_out/cache_gb_check.log`. Keep the default. See
+`repro/spiral_render/README.md` section 14.
 
 **Done and on main this week** (see `reports/SPIRAL_FINDINGS_SUMMARY.md`, findings 54–60): pooled
 fit-only floor 0.0736 [0.051, 0.134]; no free offset lever; flatten transmits a mesh offset (T = 0.94);

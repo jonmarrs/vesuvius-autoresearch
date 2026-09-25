@@ -499,6 +499,15 @@ the corpus**, instead of that being found weeks later by reconstructing render o
 
 ## 14. Render cache size: why the sampler swaps, and the opt-in fix (2026-09-22)
 
+> **DECISION 2026-09-24: `--cache-gb 8` is NOT ADOPTED.** Keep the default. Re-run on an **idle**
+> box, the sampler at 8 GB held **27.2 GB**, against 27.8 GB at the default 16, so it saves no useful
+> memory. It also ran **~3× slower**: band 7 took 234 min at 8 GB against ~80 min at 16, and the re-run
+> had not finished band 5 after ~6.8 h, plausibly because the smaller cache forces re-fetches. The
+> byte-identity check was stopped twice and never completed. Since nothing is adopted it is moot, **not
+> a result** (both stops are logged in `spiral_out/cache_gb_check.log`). `set_cache_gb.sh` and the
+> `VC_CACHE_GB` hook stay, inert, for any future size that the evidence supports. The rest of this
+> section is history.
+
 The sampler's remote path caches ink-volume chunks **only in memory**, sized by `--cache-gb`
 (default **16**); the `--volume` dir only records the remote URL, so every render downloads its ROI
 again (villa `5479453a`, `vc_render_tifxyz.cpp` ~L1344). With ~11 GB of other buffers, a render peaks
