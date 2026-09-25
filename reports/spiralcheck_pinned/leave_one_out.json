@@ -1,0 +1,50 @@
+{
+  "violated_bin_fraction": {
+    "loo_r_min": [
+      0.232,
+      0.3535,
+      "nosame_s1"
+    ],
+    "loo_r_max": [
+      0.438,
+      0.069,
+      "boot090s2"
+    ]
+  },
+  "collapsed_bin_fraction": {
+    "loo_r_min": [
+      -0.171,
+      0.4965,
+      "boot090s2"
+    ],
+    "loo_r_max": [
+      0.102,
+      0.6879,
+      "boot090s1"
+    ]
+  },
+  "inflated_bin_fraction": {
+    "loo_r_min": [
+      0.044,
+      0.8613,
+      "seed06"
+    ],
+    "loo_r_max": [
+      0.332,
+      0.1788,
+      "rand090s3"
+    ]
+  },
+  "median_pitch": {
+    "loo_r_min": [
+      -0.036,
+      0.8862,
+      "strip090s1"
+    ],
+    "loo_r_max": [
+      0.126,
+      0.6191,
+      "gap133s3"
+    ]
+  }
+}

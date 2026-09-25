@@ -1,0 +1,293 @@
+{
+  "spiralcheck_commit": "d1b50e2957409a870225fb9f5dcc5e25f7a0f9da",
+  "fits": {
+    "baseline01": {
+      "fit_dir": "/home/jon/openclaw-workspace/Neo-VM/spiral_out/2026-08-28_s1_slice-13056-18432_38442-patch_baseline01/meshes/fitted_baseline01",
+      "deterministic": true,
+      "meshes_match": true,
+      "scored": {
+        "violated_bin_fraction": 0.024537037037037038,
+        "collapsed_bin_fraction": 0.031712962962962964,
+        "inflated_bin_fraction": 0.052083333333333336,
+        "median_pitch": 14.920747484581852
+      },
+      "total_fg_pixels": 1789206
+    },
+    "seed02": {
+      "fit_dir": "/home/jon/openclaw-workspace/Neo-VM/spiral_out/2026-08-29_s1_slice-13056-18432_38442-patch_seed02/meshes/fitted_seed02",
+      "deterministic": true,
+      "meshes_match": true,
+      "scored": {
+        "violated_bin_fraction": 0.024305555555555556,
+        "collapsed_bin_fraction": 0.033101851851851855,
+        "inflated_bin_fraction": 0.05115740740740741,
+        "median_pitch": 15.002406605942497
+      },
+      "total_fg_pixels": 1732741
+    },
+    "seed03": {
+      "fit_dir": "/home/jon/openclaw-workspace/Neo-VM/spiral_out/2026-08-31_s1_slice-13056-18432_38442-patch_seed03/meshes/fitted_seed03",
+      "deterministic": true,
+      "meshes_match": true,
+      "scored": {
+        "violated_bin_fraction": 0.022453703703703705,
+        "collapsed_bin_fraction": 0.03564814814814815,
+        "inflated_bin_fraction": 0.05462962962962963,
+        "median_pitch": 14.958794771890325
+      },
+      "total_fg_pixels": 1620364
+    },
+    "seed04": {
+      "fit_dir": "/home/jon/openclaw-workspace/Neo-VM/spiral_out/2026-08-31_s1_slice-13056-18432_38442-patch_seed04/meshes/fitted_seed04",
+      "deterministic": true,
+      "meshes_match": true,
+      "scored": {
+        "violated_bin_fraction": 0.019675925925925927,
+        "collapsed_bin_fraction": 0.038425925925925926,
+        "inflated_bin_fraction": 0.05138888888888889,
+        "median_pitch": 15.008470966231016
+      },
+      "total_fg_pixels": 1682825
+    },
+    "seed05": {
+      "fit_dir": "/home/jon/openclaw-workspace/Neo-VM/spiral_out/2026-09-02_s1_slice-13056-18432_38442-patch_seed05/meshes/fitted_seed05",
+      "deterministic": true,
+      "meshes_match": true,
+      "scored": {
+        "violated_bin_fraction": 0.022685185185185187,
+        "collapsed_bin_fraction": 0.03356481481481482,
+        "inflated_bin_fraction": 0.0525462962962963,
+        "median_pitch": 14.89508216793638
+      },
+      "total_fg_pixels": 1658297
+    },
+    "seed06": {
+      "fit_dir": "/home/jon/openclaw-workspace/Neo-VM/spiral_out/2026-09-02_s1_slice-13056-18432_38442-patch_seed06/meshes/fitted_seed06",
+      "deterministic": true,
+      "meshes_match": true,
+      "scored": {
+        "violated_bin_fraction": 0.022453703703703705,
+        "collapsed_bin_fraction": 0.03356481481481482,
+        "inflated_bin_fraction": 0.05486111111111111,
+        "median_pitch": 14.977326133409406
+      },
+      "total_fg_pixels": 1834470
+    },
+    "gap133": {
+      "fit_dir": "/home/jon/openclaw-workspace/Neo-VM/spiral_out/2026-09-01_s1_slice-13056-18432_38442-patch_gap133/meshes/fitted_gap133",
+      "deterministic": true,
+      "meshes_match": true,
+      "scored": {
+        "violated_bin_fraction": 0.022685185185185187,
+        "collapsed_bin_fraction": 0.0375,
+        "inflated_bin_fraction": 0.05462962962962963,
+        "median_pitch": 14.932908200336897
+      },
+      "total_fg_pixels": 1591857
+    },
+    "gap133s2": {
+      "fit_dir": "/home/jon/openclaw-workspace/Neo-VM/spiral_out/2026-09-01_s1_slice-13056-18432_38442-patch_gap133s2/meshes/fitted_gap133s2",
+      "deterministic": true,
+      "meshes_match": true,
+      "scored": {
+        "violated_bin_fraction": 0.022685185185185187,
+        "collapsed_bin_fraction": 0.03796296296296296,
+        "inflated_bin_fraction": 0.05763888888888889,
+        "median_pitch": 14.888828403232992
+      },
+      "total_fg_pixels": 1604683
+    },
+    "gap133s3": {
+      "fit_dir": "/home/jon/openclaw-workspace/Neo-VM/spiral_out/2026-09-02_s1_slice-13056-18432_38442-patch_gap133s3/meshes/fitted_gap133s3",
+      "deterministic": true,
+      "meshes_match": true,
+      "scored": {
+        "violated_bin_fraction": 0.021296296296296296,
+        "collapsed_bin_fraction": 0.03518518518518519,
+        "inflated_bin_fraction": 0.053009259259259256,
+        "median_pitch": 14.936216547877507
+      },
+      "total_fg_pixels": 1448920
+    },
+    "gap133s4": {
+      "fit_dir": "/home/jon/openclaw-workspace/Neo-VM/spiral_out/2026-09-03_s1_slice-13056-18432_38442-patch_gap133s4/meshes/fitted_gap133s4",
+      "deterministic": true,
+      "meshes_match": true,
+      "scored": {
+        "violated_bin_fraction": 0.021527777777777778,
+        "collapsed_bin_fraction": 0.03796296296296296,
+        "inflated_bin_fraction": 0.055324074074074074,
+        "median_pitch": 14.945585443357686
+      },
+      "total_fg_pixels": 1527554
+    },
+    "gap133s5": {
+      "fit_dir": "/home/jon/openclaw-workspace/Neo-VM/spiral_out/2026-09-03_s1_slice-13056-18432_38442-patch_gap133s5/meshes/fitted_gap133s5",
+      "deterministic": true,
+      "meshes_match": true,
+      "scored": {
+        "violated_bin_fraction": 0.021527777777777778,
+        "collapsed_bin_fraction": 0.03611111111111111,
+        "inflated_bin_fraction": 0.055324074074074074,
+        "median_pitch": 14.849500177592518
+      },
+      "total_fg_pixels": 1554826
+    },
+    "gap133s6": {
+      "fit_dir": "/home/jon/openclaw-workspace/Neo-VM/spiral_out/2026-09-03_s1_slice-13056-18432_38442-patch_gap133s6/meshes/fitted_gap133s6",
+      "deterministic": true,
+      "meshes_match": true,
+      "scored": {
+        "violated_bin_fraction": 0.02175925925925926,
+        "collapsed_bin_fraction": 0.03611111111111111,
+        "inflated_bin_fraction": 0.05625,
+        "median_pitch": 14.863607406028677
+      },
+      "total_fg_pixels": 1521735
+    },
+    "boot090s1": {
+      "fit_dir": "/home/jon/openclaw-workspace/Neo-VM/spiral_out/2026-09-03_s1_slice-13056-18432_26728-patch_boot090s1/meshes/fitted_boot090s1",
+      "deterministic": true,
+      "meshes_match": true,
+      "scored": {
+        "violated_bin_fraction": 0.022222222222222223,
+        "collapsed_bin_fraction": 0.03449074074074074,
+        "inflated_bin_fraction": 0.04027777777777778,
+        "median_pitch": 15.103092836883434
+      },
+      "total_fg_pixels": 1488420
+    },
+    "boot090s2": {
+      "fit_dir": "/home/jon/openclaw-workspace/Neo-VM/spiral_out/2026-09-04_s1_slice-13056-18432_26728-patch_boot090s2/meshes/fitted_boot090s2",
+      "deterministic": true,
+      "meshes_match": true,
+      "scored": {
+        "violated_bin_fraction": 0.022916666666666665,
+        "collapsed_bin_fraction": 0.03356481481481482,
+        "inflated_bin_fraction": 0.040740740740740744,
+        "median_pitch": 15.08528488249226
+      },
+      "total_fg_pixels": 1768292
+    },
+    "boot090s3": {
+      "fit_dir": "/home/jon/openclaw-workspace/Neo-VM/spiral_out/2026-09-04_s1_slice-13056-18432_26728-patch_boot090s3/meshes/fitted_boot090s3",
+      "deterministic": true,
+      "meshes_match": true,
+      "scored": {
+        "violated_bin_fraction": 0.025,
+        "collapsed_bin_fraction": 0.02962962962962963,
+        "inflated_bin_fraction": 0.04050925925925926,
+        "median_pitch": 15.091544536868696
+      },
+      "total_fg_pixels": 1629476
+    },
+    "rand090s1": {
+      "fit_dir": "/home/jon/openclaw-workspace/Neo-VM/spiral_out/2026-09-04_s1_slice-13056-18432_30071-patch_rand090s1/meshes/fitted_rand090s1",
+      "deterministic": true,
+      "meshes_match": true,
+      "scored": {
+        "violated_bin_fraction": 0.024537037037037038,
+        "collapsed_bin_fraction": 0.03587962962962963,
+        "inflated_bin_fraction": 0.05717592592592593,
+        "median_pitch": 14.722482511033832
+      },
+      "total_fg_pixels": 1564627
+    },
+    "rand090s2": {
+      "fit_dir": "/home/jon/openclaw-workspace/Neo-VM/spiral_out/2026-09-04_s1_slice-13056-18432_30071-patch_rand090s2/meshes/fitted_rand090s2",
+      "deterministic": true,
+      "meshes_match": true,
+      "scored": {
+        "violated_bin_fraction": 0.02361111111111111,
+        "collapsed_bin_fraction": 0.0349537037037037,
+        "inflated_bin_fraction": 0.056712962962962965,
+        "median_pitch": 14.798540600803562
+      },
+      "total_fg_pixels": 1644149
+    },
+    "rand090s3": {
+      "fit_dir": "/home/jon/openclaw-workspace/Neo-VM/spiral_out/2026-09-04_s1_slice-13056-18432_30071-patch_rand090s3/meshes/fitted_rand090s3",
+      "deterministic": true,
+      "meshes_match": true,
+      "scored": {
+        "violated_bin_fraction": 0.023148148148148147,
+        "collapsed_bin_fraction": 0.03564814814814815,
+        "inflated_bin_fraction": 0.05324074074074074,
+        "median_pitch": 14.765638575423736
+      },
+      "total_fg_pixels": 1718300
+    },
+    "strip090s1": {
+      "fit_dir": "/home/jon/openclaw-workspace/Neo-VM/spiral_out/2026-09-05_s1_slice-13056-18432_29661-patch_strip090s1/meshes/fitted_strip090s1",
+      "deterministic": true,
+      "meshes_match": true,
+      "scored": {
+        "violated_bin_fraction": 0.022453703703703705,
+        "collapsed_bin_fraction": 0.03726851851851852,
+        "inflated_bin_fraction": 0.05277777777777778,
+        "median_pitch": 14.836342244255775
+      },
+      "total_fg_pixels": 1757237
+    },
+    "strip090s2": {
+      "fit_dir": "/home/jon/openclaw-workspace/Neo-VM/spiral_out/2026-09-05_s1_slice-13056-18432_29661-patch_strip090s2/meshes/fitted_strip090s2",
+      "deterministic": true,
+      "meshes_match": true,
+      "scored": {
+        "violated_bin_fraction": 0.021296296296296296,
+        "collapsed_bin_fraction": 0.03657407407407407,
+        "inflated_bin_fraction": 0.05185185185185185,
+        "median_pitch": 14.767553258445105
+      },
+      "total_fg_pixels": 1581728
+    },
+    "strip090s3": {
+      "fit_dir": "/home/jon/openclaw-workspace/Neo-VM/spiral_out/2026-09-05_s1_slice-13056-18432_29661-patch_strip090s3/meshes/fitted_strip090s3",
+      "deterministic": true,
+      "meshes_match": true,
+      "scored": {
+        "violated_bin_fraction": 0.02175925925925926,
+        "collapsed_bin_fraction": 0.038657407407407404,
+        "inflated_bin_fraction": 0.05347222222222222,
+        "median_pitch": 14.728818736773292
+      },
+      "total_fg_pixels": 1740073
+    },
+    "nosame_s1": {
+      "fit_dir": "/home/jon/openclaw-workspace/Neo-VM/spiral_out/2026-09-06_s1_slice-13056-18432_38442-patch_nosame_s1/meshes/fitted_nosame_s1",
+      "deterministic": true,
+      "meshes_match": true,
+      "scored": {
+        "violated_bin_fraction": 0.025925925925925925,
+        "collapsed_bin_fraction": 0.037037037037037035,
+        "inflated_bin_fraction": 0.05949074074074074,
+        "median_pitch": 14.666380535724556
+      },
+      "total_fg_pixels": 1768918
+    },
+    "nosame_s2": {
+      "fit_dir": "/home/jon/openclaw-workspace/Neo-VM/spiral_out/2026-09-07_s1_slice-13056-18432_38442-patch_nosame_s2/meshes/fitted_nosame_s2",
+      "deterministic": true,
+      "meshes_match": true,
+      "scored": {
+        "violated_bin_fraction": 0.02199074074074074,
+        "collapsed_bin_fraction": 0.03587962962962963,
+        "inflated_bin_fraction": 0.05763888888888889,
+        "median_pitch": 14.659599656954924
+      },
+      "total_fg_pixels": 1618704
+    },
+    "nosame_s3": {
+      "fit_dir": "/home/jon/openclaw-workspace/Neo-VM/spiral_out/2026-09-07_s1_slice-13056-18432_38442-patch_nosame_s3/meshes/fitted_nosame_s3",
+      "deterministic": true,
+      "meshes_match": true,
+      "scored": {
+        "violated_bin_fraction": 0.019444444444444445,
+        "collapsed_bin_fraction": 0.034722222222222224,
+        "inflated_bin_fraction": 0.06111111111111111,
+        "median_pitch": 14.603771279833836
+      },
+      "total_fg_pixels": 1681542
+    }
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "verdict": "NO DETECTED RELATION",
+  "alpha": 0.0125,
+  "df": 17,
+  "r_critical": 0.5607752465879603,
+  "q3_scored": {
+    "violated_bin_fraction": {
+      "verdict": "NO DETECTED RELATION",
+      "r": 0.34395361860513235,
+      "p": 0.14932879187972056,
+      "df": 17
+    },
+    "collapsed_bin_fraction": {
+      "verdict": "NO DETECTED RELATION",
+      "r": -0.06920134048888016,
+      "p": 0.7783263511713736,
+      "df": 17
+    },
+    "inflated_bin_fraction": {
+      "verdict": "NO DETECTED RELATION",
+      "r": 0.1622258360448838,
+      "p": 0.5069865868952561,
+      "df": 17
+    },
+    "median_pitch": {
+      "verdict": "NO DETECTED RELATION",
+      "r": 0.0583872487131982,
+      "p": 0.8123247473722536,
+      "df": 17
+    }
+  }
+}

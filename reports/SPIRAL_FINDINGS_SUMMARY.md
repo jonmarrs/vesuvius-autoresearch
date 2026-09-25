@@ -864,3 +864,9 @@ NO DETECTED CHANGE. The resolution was about ±15%, registered beforehand. Every
 scored meshes are byte-identical to the fits. The verdict survives dropping the baseline outlier (+8.46%,
 [−3.84%, +20.75%]). Geometry is indistinguishable. Unregistered: the new fitter iterates ~35% slower.
 `reports/upstream_fitter_no_detected_change.md`.
+
+**63. The spiralcheck ink null replicates on the pinned tier.** Pre-registered on 24 independent pinned
+fits in six configs (df 17, critical |r| 0.561): NO DETECTED RELATION on all four metrics (largest
++0.344, p 0.149; no leave-one-fit-out |r| above 0.438). The tiers disagree in sign on three of the four.
+Across 36 fits, spiralcheck's winding checks do not predict how much ink a fit reads.
+`reports/spiralcheck_null_replicates_on_pinned.md`.
