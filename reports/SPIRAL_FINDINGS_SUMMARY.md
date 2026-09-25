@@ -839,3 +839,20 @@ here. **Four instrument defects were caught before they decided a verdict**: a f
 sweep arms I mislabelled by reading parallel `grep` (ugrep) output positionally. None was found by
 luck. Each surfaced because a checker, a control, or a script's own table disagreed with a number read
 by hand.
+
+## External evaluator check, 2026-09-24
+
+**61. The community `spiralcheck` evaluator does not separate our configs or track ink.** A
+pre-registered run on the twelve pooled-floor fits (v0.4.0 at `d1b50e29`, deterministic on all 24
+inputs) gave **NOT DISCRIMINATING HERE**:
+
+* **Whole family:** no metric separates anchor10cov, nosamecur and curbase (all p ≥ 0.11).
+* **Scored windings w120–w129:** within a config, no metric tracks ink (df 8; the largest |r| of
+  0.54 comes from one fit, `curbase_s6`).
+* **Seed noise:** its violated-bin fraction moves 7.4% between seeds, a figure its own validation
+  (seed held fixed) could not give.
+* **Post hoc only:** on the scored windings its median pitch separates the anchor ablation with no
+  overlap. This is a change of gap-distribution *shape* (the mean gap does not separate), not
+  composition, and ink did not follow.
+
+`reports/spiralcheck_is_not_discriminating_here.md`.

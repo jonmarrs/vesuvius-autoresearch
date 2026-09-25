@@ -1,0 +1,282 @@
+{
+  "spiralcheck_commit": "d1b50e2957409a870225fb9f5dcc5e25f7a0f9da",
+  "umbilicus": "/home/jon/openclaw-workspace/Neo-VM/data/spiral_s1/umbilicus.json",
+  "fits": {
+    "anchor10cov_pilot": {
+      "fit_dir": "/home/jon/openclaw-workspace/Neo-VM/spiral_out/2026-09-12_s1_slice-13056-18432_38442-patch_anchor10cov_pilot/meshes/fitted_anchor10cov_pilot",
+      "deterministic": {
+        "all": true,
+        "scored": true
+      },
+      "all": {
+        "violated_bin_fraction": 0.002696078431372549,
+        "collapsed_bin_fraction": 0.008876050420168067,
+        "inflated_bin_fraction": 0.01050420168067227,
+        "median_pitch": 18.116258072555922
+      },
+      "all_n_windings": 120,
+      "scored": {
+        "violated_bin_fraction": 0.023842592592592592,
+        "collapsed_bin_fraction": 0.03958333333333333,
+        "inflated_bin_fraction": 0.1099537037037037,
+        "median_pitch": 12.712536855050985
+      },
+      "scored_n_windings": 10,
+      "total_fg_pixels": 2925004,
+      "satisfied_area_fraction": 0.8589685095231487
+    },
+    "anchor10cov_s2": {
+      "fit_dir": "/home/jon/openclaw-workspace/Neo-VM/spiral_out/2026-09-12_s1_slice-13056-18432_38442-patch_anchor10cov_s2/meshes/fitted_anchor10cov_s2",
+      "deterministic": {
+        "all": true,
+        "scored": true
+      },
+      "all": {
+        "violated_bin_fraction": 0.002923669467787115,
+        "collapsed_bin_fraction": 0.00859593837535014,
+        "inflated_bin_fraction": 0.01052170868347339,
+        "median_pitch": 18.124395600728462
+      },
+      "all_n_windings": 120,
+      "scored": {
+        "violated_bin_fraction": 0.02546296296296296,
+        "collapsed_bin_fraction": 0.03819444444444445,
+        "inflated_bin_fraction": 0.1076388888888889,
+        "median_pitch": 12.636765643285116
+      },
+      "scored_n_windings": 10,
+      "total_fg_pixels": 2697322,
+      "satisfied_area_fraction": 0.859833917662374
+    },
+    "anchor10cov_s3": {
+      "fit_dir": "/home/jon/openclaw-workspace/Neo-VM/spiral_out/2026-09-13_s1_slice-13056-18432_38442-patch_anchor10cov_s3/meshes/fitted_anchor10cov_s3",
+      "deterministic": {
+        "all": true,
+        "scored": true
+      },
+      "all": {
+        "violated_bin_fraction": 0.0024509803921568627,
+        "collapsed_bin_fraction": 0.008928571428571428,
+        "inflated_bin_fraction": 0.010346638655462185,
+        "median_pitch": 18.07325621564553
+      },
+      "all_n_windings": 120,
+      "scored": {
+        "violated_bin_fraction": 0.022916666666666665,
+        "collapsed_bin_fraction": 0.04375,
+        "inflated_bin_fraction": 0.10555555555555556,
+        "median_pitch": 12.673188325234605
+      },
+      "scored_n_windings": 10,
+      "total_fg_pixels": 2996520,
+      "satisfied_area_fraction": 0.8634060478540135
+    },
+    "nosamecur_s1": {
+      "fit_dir": "/home/jon/openclaw-workspace/Neo-VM/spiral_out/2026-09-11_s1_slice-13056-18432_38442-patch_nosamecur_s1/meshes/fitted_nosamecur_s1",
+      "deterministic": {
+        "all": true,
+        "scored": true
+      },
+      "all": {
+        "violated_bin_fraction": 0.0031512605042016808,
+        "collapsed_bin_fraction": 0.009243697478991597,
+        "inflated_bin_fraction": 0.010924369747899159,
+        "median_pitch": 18.146461801619694
+      },
+      "all_n_windings": 120,
+      "scored": {
+        "violated_bin_fraction": 0.027546296296296298,
+        "collapsed_bin_fraction": 0.038657407407407404,
+        "inflated_bin_fraction": 0.09791666666666667,
+        "median_pitch": 13.016231939340969
+      },
+      "scored_n_windings": 10,
+      "total_fg_pixels": 2877312,
+      "satisfied_area_fraction": 0.8556590398243797
+    },
+    "nosamecur_s2": {
+      "fit_dir": "/home/jon/openclaw-workspace/Neo-VM/spiral_out/2026-09-11_s1_slice-13056-18432_38442-patch_nosamecur_s2/meshes/fitted_nosamecur_s2",
+      "deterministic": {
+        "all": true,
+        "scored": true
+      },
+      "all": {
+        "violated_bin_fraction": 0.003431372549019608,
+        "collapsed_bin_fraction": 0.008368347338935574,
+        "inflated_bin_fraction": 0.010784313725490196,
+        "median_pitch": 18.097173070851568
+      },
+      "all_n_windings": 120,
+      "scored": {
+        "violated_bin_fraction": 0.032407407407407406,
+        "collapsed_bin_fraction": 0.03634259259259259,
+        "inflated_bin_fraction": 0.09444444444444444,
+        "median_pitch": 12.944943065703342
+      },
+      "scored_n_windings": 10,
+      "total_fg_pixels": 3036013,
+      "satisfied_area_fraction": 0.8620553116075986
+    },
+    "nosamecur_s3": {
+      "fit_dir": "/home/jon/openclaw-workspace/Neo-VM/spiral_out/2026-09-11_s1_slice-13056-18432_38442-patch_nosamecur_s3/meshes/fitted_nosamecur_s3",
+      "deterministic": {
+        "all": true,
+        "scored": true
+      },
+      "all": {
+        "violated_bin_fraction": 0.0027311402510548153,
+        "collapsed_bin_fraction": 0.008788669269419984,
+        "inflated_bin_fraction": 0.01025928325075719,
+        "median_pitch": 18.11835201743429
+      },
+      "all_n_windings": 120,
+      "scored": {
+        "violated_bin_fraction": 0.027314814814814816,
+        "collapsed_bin_fraction": 0.040046296296296295,
+        "inflated_bin_fraction": 0.09074074074074075,
+        "median_pitch": 13.078100592123292
+      },
+      "scored_n_windings": 10,
+      "total_fg_pixels": 2923680,
+      "satisfied_area_fraction": 0.8593264201342902
+    },
+    "curbase_s4": {
+      "fit_dir": "/home/jon/openclaw-workspace/Neo-VM/spiral_out/2026-09-13_s1_slice-13056-18432_38442-patch_curbase_s4/meshes/fitted_curbase_s4",
+      "deterministic": {
+        "all": true,
+        "scored": true
+      },
+      "all": {
+        "violated_bin_fraction": 0.0030287114845938376,
+        "collapsed_bin_fraction": 0.008788515406162465,
+        "inflated_bin_fraction": 0.010066526610644258,
+        "median_pitch": 18.122067723812734
+      },
+      "all_n_windings": 120,
+      "scored": {
+        "violated_bin_fraction": 0.031712962962962964,
+        "collapsed_bin_fraction": 0.03449074074074074,
+        "inflated_bin_fraction": 0.09606481481481481,
+        "median_pitch": 13.071304737117316
+      },
+      "scored_n_windings": 10,
+      "total_fg_pixels": 3164499,
+      "satisfied_area_fraction": 0.8479106088189174
+    },
+    "curbase_s5": {
+      "fit_dir": "/home/jon/openclaw-workspace/Neo-VM/spiral_out/2026-09-13_s1_slice-13056-18432_38442-patch_curbase_s5/meshes/fitted_curbase_s5",
+      "deterministic": {
+        "all": true,
+        "scored": true
+      },
+      "all": {
+        "violated_bin_fraction": 0.0029411764705882353,
+        "collapsed_bin_fraction": 0.009243697478991597,
+        "inflated_bin_fraction": 0.010206582633053221,
+        "median_pitch": 18.132707880420185
+      },
+      "all_n_windings": 120,
+      "scored": {
+        "violated_bin_fraction": 0.026157407407407407,
+        "collapsed_bin_fraction": 0.04236111111111111,
+        "inflated_bin_fraction": 0.08935185185185185,
+        "median_pitch": 13.178708593293095
+      },
+      "scored_n_windings": 10,
+      "total_fg_pixels": 2963832,
+      "satisfied_area_fraction": 0.8515116201723628
+    },
+    "curbase_s6": {
+      "fit_dir": "/home/jon/openclaw-workspace/Neo-VM/spiral_out/2026-09-13_s1_slice-13056-18432_38442-patch_curbase_s6/meshes/fitted_curbase_s6",
+      "deterministic": {
+        "all": true,
+        "scored": true
+      },
+      "all": {
+        "violated_bin_fraction": 0.0028011204481792717,
+        "collapsed_bin_fraction": 0.008490896358543417,
+        "inflated_bin_fraction": 0.010679271708683474,
+        "median_pitch": 18.126268016447796
+      },
+      "all_n_windings": 120,
+      "scored": {
+        "violated_bin_fraction": 0.02546296296296296,
+        "collapsed_bin_fraction": 0.040740740740740744,
+        "inflated_bin_fraction": 0.08912037037037036,
+        "median_pitch": 13.245221588874529
+      },
+      "scored_n_windings": 10,
+      "total_fg_pixels": 3583420,
+      "satisfied_area_fraction": 0.8468477761319174
+    },
+    "curbase_s7": {
+      "fit_dir": "/home/jon/openclaw-workspace/Neo-VM/spiral_out/2026-09-14_s1_slice-13056-18432_38442-patch_curbase_s7/meshes/fitted_curbase_s7",
+      "deterministic": {
+        "all": true,
+        "scored": true
+      },
+      "all": {
+        "violated_bin_fraction": 0.0029061624649859945,
+        "collapsed_bin_fraction": 0.009173669467787115,
+        "inflated_bin_fraction": 0.010416666666666666,
+        "median_pitch": 18.131380622976053
+      },
+      "all_n_windings": 120,
+      "scored": {
+        "violated_bin_fraction": 0.026851851851851852,
+        "collapsed_bin_fraction": 0.040740740740740744,
+        "inflated_bin_fraction": 0.09421296296296296,
+        "median_pitch": 13.122861228533793
+      },
+      "scored_n_windings": 10,
+      "total_fg_pixels": 3018973,
+      "satisfied_area_fraction": 0.8457188083839697
+    },
+    "curbase_s8": {
+      "fit_dir": "/home/jon/openclaw-workspace/Neo-VM/spiral_out/2026-09-14_s1_slice-13056-18432_38442-patch_curbase_s8/meshes/fitted_curbase_s8",
+      "deterministic": {
+        "all": true,
+        "scored": true
+      },
+      "all": {
+        "violated_bin_fraction": 0.002923669467787115,
+        "collapsed_bin_fraction": 0.008858543417366947,
+        "inflated_bin_fraction": 0.01011904761904762,
+        "median_pitch": 18.155757506926847
+      },
+      "all_n_windings": 120,
+      "scored": {
+        "violated_bin_fraction": 0.02847222222222222,
+        "collapsed_bin_fraction": 0.03958333333333333,
+        "inflated_bin_fraction": 0.09814814814814815,
+        "median_pitch": 12.931097783053247
+      },
+      "scored_n_windings": 10,
+      "total_fg_pixels": 2837373,
+      "satisfied_area_fraction": 0.8507665645416752
+    },
+    "curbase_s9": {
+      "fit_dir": "/home/jon/openclaw-workspace/Neo-VM/spiral_out/2026-09-15_s1_slice-13056-18432_38442-patch_curbase_s9/meshes/fitted_curbase_s9",
+      "deterministic": {
+        "all": true,
+        "scored": true
+      },
+      "all": {
+        "violated_bin_fraction": 0.0031337535014005604,
+        "collapsed_bin_fraction": 0.008123249299719889,
+        "inflated_bin_fraction": 0.01052170868347339,
+        "median_pitch": 18.133586003399955
+      },
+      "all_n_windings": 120,
+      "scored": {
+        "violated_bin_fraction": 0.028009259259259258,
+        "collapsed_bin_fraction": 0.037731481481481484,
+        "inflated_bin_fraction": 0.09606481481481481,
+        "median_pitch": 13.129972831907935
+      },
+      "scored_n_windings": 10,
+      "total_fg_pixels": 2848719,
+      "satisfied_area_fraction": 0.8543166677138283
+    }
+  }
+}

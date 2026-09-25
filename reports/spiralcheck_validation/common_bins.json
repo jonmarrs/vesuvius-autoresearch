@@ -1,0 +1,221 @@
+{
+  "n_common": 4320,
+  "rows": {
+    "anchor10cov_pilot": {
+      "config": "anchor10cov",
+      "median_gap_common": 12.667548097858344,
+      "mean_gap_common": 16.213086299829477,
+      "frac_gap_gt_2.5x13": 0.10138888888888889,
+      "per_pair_median": [
+        15.57,
+        14.17,
+        13.02,
+        13.34,
+        12.37,
+        11.42,
+        11.2,
+        11.03,
+        11.27
+      ],
+      "gate_median_radius_step": 14.113360565376752
+    },
+    "anchor10cov_s2": {
+      "config": "anchor10cov",
+      "median_gap_common": 12.654925204549045,
+      "mean_gap_common": 16.16422499317492,
+      "frac_gap_gt_2.5x13": 0.09814814814814815,
+      "per_pair_median": [
+        15.7,
+        14.71,
+        13.1,
+        13.25,
+        12.33,
+        11.92,
+        11.45,
+        11.01,
+        11.24
+      ],
+      "gate_median_radius_step": 14.502651608826909
+    },
+    "anchor10cov_s3": {
+      "config": "anchor10cov",
+      "median_gap_common": 12.70412087900786,
+      "mean_gap_common": 16.208789445853444,
+      "frac_gap_gt_2.5x13": 0.10023148148148148,
+      "per_pair_median": [
+        15.84,
+        14.8,
+        12.97,
+        13.05,
+        12.26,
+        11.7,
+        11.03,
+        10.89,
+        10.96
+      ],
+      "gate_median_radius_step": 14.480223418615424
+    },
+    "curbase_s4": {
+      "config": "curbase",
+      "median_gap_common": 13.084941966864562,
+      "mean_gap_common": 16.326583926803963,
+      "frac_gap_gt_2.5x13": 0.09884259259259259,
+      "per_pair_median": [
+        16.61,
+        14.86,
+        13.65,
+        13.35,
+        12.71,
+        12.4,
+        11.36,
+        11.24,
+        11.3
+      ],
+      "gate_median_radius_step": 15.574495011290765
+    },
+    "curbase_s5": {
+      "config": "curbase",
+      "median_gap_common": 13.149628844491986,
+      "mean_gap_common": 16.363982298464766,
+      "frac_gap_gt_2.5x13": 0.0962962962962963,
+      "per_pair_median": [
+        16.5,
+        14.85,
+        13.93,
+        13.32,
+        12.69,
+        12.26,
+        11.96,
+        11.53,
+        11.14
+      ],
+      "gate_median_radius_step": 15.75963140388285
+    },
+    "curbase_s6": {
+      "config": "curbase",
+      "median_gap_common": 13.243382401394456,
+      "mean_gap_common": 16.45141424729049,
+      "frac_gap_gt_2.5x13": 0.0962962962962963,
+      "per_pair_median": [
+        16.3,
+        14.91,
+        14.33,
+        13.82,
+        13.13,
+        12.54,
+        11.96,
+        11.44,
+        11.2
+      ],
+      "gate_median_radius_step": 16.08231281732742
+    },
+    "curbase_s7": {
+      "config": "curbase",
+      "median_gap_common": 13.111714201997529,
+      "mean_gap_common": 16.30797335664059,
+      "frac_gap_gt_2.5x13": 0.09652777777777778,
+      "per_pair_median": [
+        15.86,
+        14.54,
+        13.71,
+        13.29,
+        13.31,
+        12.35,
+        11.76,
+        11.24,
+        11.24
+      ],
+      "gate_median_radius_step": 15.049422668620537
+    },
+    "curbase_s8": {
+      "config": "curbase",
+      "median_gap_common": 12.970394426761914,
+      "mean_gap_common": 16.259086338752073,
+      "frac_gap_gt_2.5x13": 0.09652777777777778,
+      "per_pair_median": [
+        16.55,
+        14.56,
+        13.68,
+        13.47,
+        12.65,
+        12.54,
+        11.43,
+        11.28,
+        11.01
+      ],
+      "gate_median_radius_step": 14.60342610967109
+    },
+    "curbase_s9": {
+      "config": "curbase",
+      "median_gap_common": 13.162053942751527,
+      "mean_gap_common": 16.35442164047547,
+      "frac_gap_gt_2.5x13": 0.09930555555555555,
+      "per_pair_median": [
+        17.0,
+        14.87,
+        13.13,
+        13.47,
+        12.82,
+        12.27,
+        11.38,
+        11.63,
+        11.41
+      ],
+      "gate_median_radius_step": 13.870848085529815
+    },
+    "nosamecur_s1": {
+      "config": "nosamecur",
+      "median_gap_common": 13.010001523198298,
+      "mean_gap_common": 16.38120248591753,
+      "frac_gap_gt_2.5x13": 0.09861111111111111,
+      "per_pair_median": [
+        16.07,
+        14.76,
+        13.32,
+        13.43,
+        12.67,
+        12.29,
+        11.55,
+        11.37,
+        11.24
+      ],
+      "gate_median_radius_step": 13.818759548826165
+    },
+    "nosamecur_s2": {
+      "config": "nosamecur",
+      "median_gap_common": 12.961170509064232,
+      "mean_gap_common": 16.12283973374736,
+      "frac_gap_gt_2.5x13": 0.09282407407407407,
+      "per_pair_median": [
+        16.14,
+        14.68,
+        13.23,
+        13.22,
+        12.91,
+        12.21,
+        11.52,
+        11.3,
+        11.12
+      ],
+      "gate_median_radius_step": 14.239119731726987
+    },
+    "nosamecur_s3": {
+      "config": "nosamecur",
+      "median_gap_common": 13.099624497060631,
+      "mean_gap_common": 16.330274511182747,
+      "frac_gap_gt_2.5x13": 0.09351851851851851,
+      "per_pair_median": [
+        16.02,
+        14.57,
+        14.07,
+        13.68,
+        12.73,
+        12.07,
+        12.14,
+        11.23,
+        11.17
+      ],
+      "gate_median_radius_step": 15.596732463912304
+    }
+  }
+}

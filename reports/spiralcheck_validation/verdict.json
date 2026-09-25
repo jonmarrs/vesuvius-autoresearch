@@ -1,0 +1,166 @@
+{
+  "verdict": "NOT DISCRIMINATING HERE",
+  "detail": "spiralcheck neither separates these three configs nor tracks ink within them.",
+  "alpha": 0.0125,
+  "r_critical_df8": 0.7498792919432392,
+  "q2_all": {
+    "violated_bin_fraction": {
+      "verdict": "DOES NOT SEPARATE",
+      "F": 2.836116664039425,
+      "p": 0.11088129276135436,
+      "df_between": 2,
+      "df_within": 9,
+      "pooled_within_sd": 0.0002172601212150529,
+      "grand_mean": 0.0029265912860939702,
+      "group_means": {
+        "anchor10cov": 0.002690242763772175,
+        "curbase": 0.002955765639589169,
+        "nosamecur": 0.003104591101425368
+      }
+    },
+    "collapsed_bin_fraction": {
+      "verdict": "DOES NOT SEPARATE",
+      "F": 0.004218451957943313,
+      "p": 0.9957924009208009,
+      "df_between": 2,
+      "df_within": 9,
+      "pooled_within_sd": 0.00038563218644055766,
+      "grand_mean": 0.008789987145000684,
+      "group_means": {
+        "anchor10cov": 0.008800186741363212,
+        "curbase": 0.008779761904761903,
+        "nosamecur": 0.008800238029115719
+      }
+    },
+    "inflated_bin_fraction": {
+      "verdict": "DOES NOT SEPARATE",
+      "F": 1.6614310484919659,
+      "p": 0.24315832591037356,
+      "df_between": 2,
+      "df_within": 9,
+      "pooled_within_sd": 0.00024938188990329257,
+      "grand_mean": 0.010445859972110253,
+      "group_means": {
+        "anchor10cov": 0.01045751633986928,
+        "curbase": 0.010334967320261438,
+        "nosamecur": 0.01065598890804885
+      }
+    },
+    "median_pitch": {
+      "verdict": "DOES NOT SEPARATE",
+      "F": 2.2465261343330605,
+      "p": 0.1616573220881943,
+      "df_between": 2,
+      "df_within": 9,
+      "pooled_within_sd": 0.01948311046124554,
+      "grand_mean": 18.123138711068254,
+      "group_means": {
+        "anchor10cov": 18.104636629643306,
+        "curbase": 18.133627958997263,
+        "nosamecur": 18.120662296635185
+      }
+    }
+  },
+  "q3_scored": {
+    "violated_bin_fraction": {
+      "verdict": "NO DETECTED RELATION",
+      "r": -0.17017621928788318,
+      "p": 0.6383341310894743,
+      "df": 8
+    },
+    "collapsed_bin_fraction": {
+      "verdict": "NO DETECTED RELATION",
+      "r": 0.12888053667643165,
+      "p": 0.7227101888714227,
+      "df": 8
+    },
+    "inflated_bin_fraction": {
+      "verdict": "NO DETECTED RELATION",
+      "r": -0.5109546849170223,
+      "p": 0.13122466027553986,
+      "df": 8
+    },
+    "median_pitch": {
+      "verdict": "NO DETECTED RELATION",
+      "r": 0.5428801713118178,
+      "p": 0.10489620413674805,
+      "df": 8
+    }
+  },
+  "q4_all_vs_satisfaction": {
+    "violated_bin_fraction": {
+      "r": 0.18873142518256494,
+      "p": 0.6015439214486326,
+      "df": 8
+    },
+    "collapsed_bin_fraction": {
+      "r": -0.4966932417654232,
+      "p": 0.14418512497284883,
+      "df": 8
+    },
+    "inflated_bin_fraction": {
+      "r": -0.21801270543945095,
+      "p": 0.5451250818490865,
+      "df": 8
+    },
+    "median_pitch": {
+      "r": -0.3883421868975161,
+      "p": 0.2674379257667738,
+      "df": 8
+    }
+  },
+  "q1_scored": {
+    "violated_bin_fraction": {
+      "F": 4.228184904153363,
+      "p": 0.050733939959363795,
+      "df_between": 2,
+      "df_within": 9,
+      "pooled_within_sd": 0.002229212827162598,
+      "grand_mean": 0.027179783950617282,
+      "group_means": {
+        "anchor10cov": 0.02407407407407407,
+        "curbase": 0.027777777777777776,
+        "nosamecur": 0.029089506172839508
+      }
+    },
+    "collapsed_bin_fraction": {
+      "F": 0.5059625212947215,
+      "p": 0.6191019043170378,
+      "df_between": 2,
+      "df_within": 9,
+      "pooled_within_sd": 0.0026438027313289837,
+      "grand_mean": 0.03935185185185185,
+      "group_means": {
+        "anchor10cov": 0.04050925925925926,
+        "curbase": 0.03927469135802469,
+        "nosamecur": 0.03834876543209876
+      }
+    },
+    "inflated_bin_fraction": {
+      "F": 17.899391778523533,
+      "p": 0.0007301184035195461,
+      "df_between": 2,
+      "df_within": 9,
+      "pooled_within_sd": 0.0034392005453594203,
+      "grand_mean": 0.0974344135802469,
+      "group_means": {
+        "anchor10cov": 0.10771604938271606,
+        "curbase": 0.09382716049382715,
+        "nosamecur": 0.09436728395061728
+      }
+    },
+    "median_pitch": {
+      "F": 25.541996476424124,
+      "p": 0.00019483938639627967,
+      "df_between": 2,
+      "df_within": 9,
+      "pooled_within_sd": 0.08740994844292913,
+      "grand_mean": 12.978411098626518,
+      "group_means": {
+        "anchor10cov": 12.674163607856903,
+        "curbase": 13.113194460463319,
+        "nosamecur": 13.013091865722535
+      }
+    }
+  }
+}

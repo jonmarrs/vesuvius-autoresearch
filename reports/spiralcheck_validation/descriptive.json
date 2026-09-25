@@ -1,0 +1,86 @@
+{
+  "q3 drop=None violated_bin_fraction": [
+    -0.17,
+    0.6383,
+    8
+  ],
+  "q3 drop=None collapsed_bin_fraction": [
+    0.129,
+    0.7227,
+    8
+  ],
+  "q3 drop=None inflated_bin_fraction": [
+    -0.511,
+    0.1312,
+    8
+  ],
+  "q3 drop=None median_pitch": [
+    0.543,
+    0.1049,
+    8
+  ],
+  "q3 drop=curbase_s6 violated_bin_fraction": [
+    0.292,
+    0.446,
+    7
+  ],
+  "q3 drop=curbase_s6 collapsed_bin_fraction": [
+    -0.076,
+    0.8455,
+    7
+  ],
+  "q3 drop=curbase_s6 inflated_bin_fraction": [
+    -0.195,
+    0.6149,
+    7
+  ],
+  "q3 drop=curbase_s6 median_pitch": [
+    0.177,
+    0.6478,
+    7
+  ],
+  "cv all violated_bin_fraction": 0.0742,
+  "cv all collapsed_bin_fraction": 0.0439,
+  "cv all inflated_bin_fraction": 0.0239,
+  "cv all median_pitch": 0.0011,
+  "cv scored violated_bin_fraction": 0.082,
+  "cv scored collapsed_bin_fraction": 0.0672,
+  "cv scored inflated_bin_fraction": 0.0353,
+  "cv scored median_pitch": 0.0067,
+  "q1s drop s6 median_pitch": [
+    27.89,
+    0.00025
+  ],
+  "per-fit scored median_pitch": {
+    "anchor10cov_pilot": 12.7125,
+    "anchor10cov_s2": 12.6368,
+    "anchor10cov_s3": 12.6732,
+    "curbase_s4": 13.0713,
+    "curbase_s5": 13.1787,
+    "curbase_s6": 13.2452,
+    "curbase_s7": 13.1229,
+    "curbase_s8": 12.9311,
+    "curbase_s9": 13.13,
+    "nosamecur_s1": 13.0162,
+    "nosamecur_s2": 12.9449,
+    "nosamecur_s3": 13.0781
+  },
+  "q1s drop s6 inflated_bin_fraction": [
+    18.76,
+    0.00095
+  ],
+  "per-fit scored inflated_bin_fraction": {
+    "anchor10cov_pilot": 0.11,
+    "anchor10cov_s2": 0.1076,
+    "anchor10cov_s3": 0.1056,
+    "curbase_s4": 0.0961,
+    "curbase_s5": 0.0894,
+    "curbase_s6": 0.0891,
+    "curbase_s7": 0.0942,
+    "curbase_s8": 0.0981,
+    "curbase_s9": 0.0961,
+    "nosamecur_s1": 0.0979,
+    "nosamecur_s2": 0.0944,
+    "nosamecur_s3": 0.0907
+  }
+}
