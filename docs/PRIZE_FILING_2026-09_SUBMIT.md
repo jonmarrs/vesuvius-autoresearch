@@ -37,8 +37,10 @@ After submitting, tag the commit `submission/2026-09`, matching `submission/2026
 ## Field 1 — "Short description of how your contributions substantially increase the probability of reading complete scrolls"
 
 Four measurements on the villa spiral loop, on villa `be09a8503` (2026-09-12). Upstream has since
-simplified the fitter (#1871, 2026-09-23) and they have not been re-measured on it; both constraint types
-ablated below are still supervised there.
+simplified the fitter (#1871, 2026-09-23). We re-measured on it (pre-registered; three fits on
+`75c79ac5f`, everything after the fit held at the pin): reading moved **+4.82%, CI [−7.51%, +17.15%]**,
+no detected change at a resolution of about ±15%. Both constraint types ablated below are still
+supervised there.
 
 **The robustness check `autoresearch.md` prescribes accepts one null change in six.** Requiring both
 runs of a change to beat both baseline runs is a rank test: under no effect it passes with

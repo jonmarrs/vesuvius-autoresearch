@@ -856,3 +856,11 @@ inputs) gave **NOT DISCRIMINATING HERE**:
   composition, and ink did not follow.
 
 `reports/spiralcheck_is_not_discriminating_here.md`.
+
+**62. villa's updated fitter does not detectably change what we read.** Pre-registered: three fits on
+villa `75c79ac5f` (the 09-14 series plus #1871), each flattened, rendered and scored on the pinned
+`be09a8503` path, against the six deterministic `curbase_s4..s9`. **+4.82%, 95% CI [−7.51%, +17.15%]**,
+NO DETECTED CHANGE. The resolution was about ±15%, registered beforehand. Every gate passed and the
+scored meshes are byte-identical to the fits. The verdict survives dropping the baseline outlier (+8.46%,
+[−3.84%, +20.75%]). Geometry is indistinguishable. Unregistered: the new fitter iterates ~35% slower.
+`reports/upstream_fitter_no_detected_change.md`.

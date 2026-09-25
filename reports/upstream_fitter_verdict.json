@@ -1,0 +1,29 @@
+{
+  "verdict": "NO DETECTED CHANGE",
+  "relative_ci": {
+    "rel": 0.04823244148174147,
+    "lo": -0.07505308838537167,
+    "hi": 0.1715179713488546,
+    "df": 6.085345764758165
+  },
+  "baseline_mean": 3069469.3333333335,
+  "upstream_mean": 3217517.3333333335,
+  "baseline_cv": 0.09092781837669928,
+  "upstream_cv_df2": 0.05670923391784984,
+  "per_arm": {
+    "detfit_s4": 3164499.0,
+    "detfit_s5": 2963832.0,
+    "detfit_s6": 3583420.0,
+    "detfit_s7": 3018973.0,
+    "detfit_s8": 2837373.0,
+    "detfit_s9": 2848719.0,
+    "detfit_up1": 3279498.0,
+    "detfit_up2": 3360916.0,
+    "detfit_up3": 3012138.0
+  },
+  "upstream_satisfied_area_fraction": {
+    "detfit_up1": 0.8465117989846823,
+    "detfit_up2": 0.8518318655037896,
+    "detfit_up3": 0.8503894102571578
+  }
+}

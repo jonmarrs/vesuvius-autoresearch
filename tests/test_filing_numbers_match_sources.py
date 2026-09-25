@@ -186,3 +186,15 @@ def test_the_submit_text_answers_the_weights_criterion_added_upstream():
     assert "model weights" in field3 and "training data" in field3
     assert "byte-identical between the pin and upstream" not in t
     assert "#1871" in t, "results must be dated against the upstream simplification"
+
+
+def test_the_upstream_fitter_interval_matches_its_verdict():
+    """Added 2026-09-25 when the registered re-measurement landed: the filing's
+    "re-measured" sentence must quote the verdict's own interval, in both files."""
+    v = _artifact("upstream_fitter_verdict.json")
+    assert v["verdict"] == "NO DETECTED CHANGE"
+    c = v["relative_ci"]
+    for text in (_text(), _submit_text()):
+        assert f"{c['rel']:+.2%}" in text
+        assert f"{c['lo']:.2%}" in text and f"{c['hi']:+.2%}" in text
+        assert "not been re-measured" not in text
