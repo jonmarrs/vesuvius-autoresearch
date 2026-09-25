@@ -160,3 +160,17 @@ def test_the_submit_text_may_cite_the_placement_work_but_never_its_mechanism():
     assert "0.884" not in t, "cites the superseded prediction"
     for claim in ("because the fit", "mechanism is", "explained by", "the cause is"):
         assert claim not in body, f"submission implies a mechanism: {claim!r}"
+
+
+def test_the_spiralcheck_figures_match_the_validation_artifacts():
+    """Added 2026-09-24 with the paragraph. The seed CV and the "every p >= 0.10"
+    floor both come from the registered verdict and its descriptive companion."""
+    v = _artifact("spiralcheck_validation/verdict.json")
+    d = _artifact("spiralcheck_validation/descriptive.json")
+    assert v["verdict"] == "NOT DISCRIMINATING HERE"
+    ps = [m["p"] for q in ("q2_all", "q3_scored") for m in v[q].values()]
+    assert min(ps) >= 0.10, "the filing says every p >= 0.10"
+    cv = f"{d['cv all violated_bin_fraction']:.1%}"
+    for text in (_text(), _submit_text()):
+        assert cv in text, f"spiralcheck seed CV {cv} not quoted"
+        assert "p ≥ 0.10" in text, "the p floor is not quoted"

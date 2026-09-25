@@ -56,6 +56,12 @@ such project in villa's catalogue leaves unmeasured. Removing 5,413 same-winding
 villa wants automated: **−0.86%, CI [−10.21%, +8.50%]** — ten read as well as fifty, though that
 interval is wide.
 
+**We also ran the one community geometry evaluator against reading.** spiralcheck's intrinsic winding
+checks (pre-registered, on the same twelve current-villa fits) separate none of three constraint
+configs on the whole family, and within a config none of its four metrics tracks recovered ink (every
+p ≥ 0.10). Its violated-bin fraction moves **7.4%** between fits that differ only by seed — a figure
+its own validation, run at a fixed seed, could not give.
+
 ### Version B (~89 words), if the field is tight
 
 Three measurements on villa's spiral loop as it runs today. The two-seed robustness check in

@@ -2,6 +2,13 @@
 
 ## CURRENT STATE, 2026-09-24 ~17:15 — read this first; everything below is history
 
+**Added 2026-09-24 evening: spiralcheck validated (finding 61).** The community evaluator, run on the
+twelve pooled-floor fits under a pre-registration, is **NOT DISCRIMINATING HERE**: no config separation,
+no within-config ink tracking, seed CV 7.4% on its violated fraction. One post hoc lead (outer-winding
+gap *shape* changes under the anchor ablation; the mean gap does not). `reports/spiralcheck_is_not_discriminating_here.md`.
+The September filing's Field 1 now carries one test-bound paragraph on it (**review before pasting**).
+No note to spiralcheck's author has been sent; that needs approval.
+
 **Nothing is running and nothing is queued.**
 
 **`--cache-gb 8`: NOT ADOPTED (decided 2026-09-24).** The re-run on an idle box showed no useful memory
