@@ -1,5 +1,20 @@
 # Resume note — written 2026-09-22 before a deliberate Claude restart
 
+## IN FLIGHT since 2026-09-24 19:11 — upstream-fitter re-measurement
+
+`docs/preregistration/2026-09-24_upstream_fitter.md` (committed `2cb28f84` before any arm). Three fits
+on villa `75c79ac5f` (`villa-spiral-upstream`), each rendered on the pinned `be09a8503` path, compared
+with `detfit_s4..s9`. Chain pid 136389, parent systemd (detached). ~13–14 h serial, due ~09-25 09:00.
+
+* Log: `spiral_out/upstream_fitter_chain.log`. Terminal lines: `ARM_DONE`, `UPSTREAM_CHAIN_DONE`;
+  failures: `FIT_FAILED|FIT_OUTPUT_MISSING|FIT_WINDINGS_WRONG|SETUP_FAILED|GUARD_FAILED|RENDER_FAILED|SCORE_FAILED|WORKDIR_EXISTS`.
+* **Check the shim line for arm 1** (`determinism-shim] torch.use_deterministic`) once its render starts,
+  ~2 h after launch; the chain's own guard kills the render if it never appears.
+* When done: `.venv/bin/python scripts/analyse_upstream_fitter.py --out reports/upstream_fitter_verdict.json`.
+  Do not compute anything from fewer than three arms; the script refuses.
+* Installed copies: `spiral_out/upstream_fitter_scripts/` (byte-identical to `repro/` at `2cb28f84`).
+* The GPU is taken until it finishes. Start nothing else on it.
+
 ## CURRENT STATE, 2026-09-24 ~17:15 — read this first; everything below is history
 
 **Upstream moved 2026-09-23/24 (checked at villa `75c79ac5f`).** #1887 added "release model weights and
