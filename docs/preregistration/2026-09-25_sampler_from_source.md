@@ -84,3 +84,44 @@ The effect is mean(source) / `smp_pub` − 1.
 
 Image build (one CMake target plus a dependency). Three renders with a reused flatten, so no
 flatten runs. Roughly 1–1.5 h per arm, based on `rs_*`-style reuse renders. Serial on the GPU.
+
+---
+
+## Amendment, 2026-09-26 — before any source arm produced a score
+
+**What happened.**
+
+* `smp_pub` completed: 3,279,498.
+* `smp_src_a` was SIGKILLed (exit 137) after 16 min, at 2/35 bands. No source arm ever scored.
+* The chain stopped, and the rule refused a verdict, as designed.
+
+**Cause, established from upstream source at `75c79ac5f`.** This is not a guess.
+
+* With `--remote-url`, which villa's `render_ink.py` always passes, the new `vc_render_tifxyz`
+  ignores `--volume` (our pre-filled `inkcache`). It streams the zarr into VC3D's remote-cache root
+  instead: `vc_render_tifxyz.cpp` around line 1405, `Volume::NewFromUrl`.
+* That root is `$VC3D_CONFIG_DIR/VC3D.ini [viewer] remote_cache_dir`, else `/volpkgs` or
+  `/ephemeral`, else `$HOME/.VC3D/remote_cache` (`core/src/RemoteCacheSettings.cpp`).
+* In our `--rm` container none of the first three exists and `HOME=/home/ubuntu` is discarded, so
+  every run re-streamed the region from S3.
+* The published May binary instead prefetches into "the existing staged cache", which is the
+  `--volume` dir.
+* The SIGKILL's cause (host OOM, or something else) is **not** confirmed.
+
+**Change: the source arms' sampler wrapper only.**
+
+* `HOME` is set to a persistent host dir, `spiral_out/vc3d_src_home`, so the streamed chunks
+  persist. Arm a streams cold and arm b reads warm, so their agreement also tests cold vs warm.
+* A hard `--memory 24g` is added, so an overrun fails inside the container.
+* **Not changed:** the binary, `--cache-gb` (default 16, as in `smp_pub`), the flat surface, the
+  Python stage and the scorer.
+
+The failed attempt's dirs are kept as `smp_src_a_attempt1` / `smp_src_b_attempt1`. The decision rule
+and predictions are unchanged.
+
+**Separately reportable, whatever the verdict.** The two install routes read the ink volume from
+different places: the staged `--volume` cache versus a remote-cache root keyed on `HOME`. A
+container user of the from-source binary pays a full re-stream per render unless they persist that
+root. This was found by running villa's pipeline and is not a sampling result.
+
+Chain for the amended run: `repro/spiral_render/run_sampler_from_source_rerun.sh`.
