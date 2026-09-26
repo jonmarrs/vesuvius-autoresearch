@@ -2,7 +2,13 @@
 
 ## CURRENT STATE, 2026-09-25 ~21:40 — read this first
 
-**IN FLIGHT since 2026-09-25 22:05: sampler-from-source study** (`docs/preregistration/2026-09-25_sampler_from_source.md`,
+**STOPPED 2026-09-25 22:42 — sampler-from-source chain: `RENDER_FAILED smp_src_a`, exit 137 (SIGKILL,
+likely OOM — the source-built sampler defaults to `--cache-gb 16` and ran ~6× slower than the
+published one, 2/35 bands in 8 min).** `smp_pub` completed. No verdict: the rule needs both source
+arms. Nothing is running. Next: re-run the source arms with a bounded cache (a registered
+amendment, since it changes a sampler setting) — ask first. Original entry:
+
+**(was) IN FLIGHT since 2026-09-25 22:05: sampler-from-source study** (`docs/preregistration/2026-09-25_sampler_from_source.md`,
 committed `1a8c685c` before any arm). `detfit_up1`'s own flat surface is re-sampled by the published
 sampler (`smp_pub`) and by `vc_render_tifxyz` built from villa `75c79ac5f` (`smp_src_a/b`, image
 `vc-render:sampler-75c79ac5f`). Chain pid 282526 (parent systemd --user). Log
