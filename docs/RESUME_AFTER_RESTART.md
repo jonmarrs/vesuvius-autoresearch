@@ -2,7 +2,15 @@
 
 ## CURRENT STATE, 2026-09-25 ~21:40 — read this first
 
-**Nothing is running; the GPU is free.** The upstream render-path study is DONE (finding 64):
+**IN FLIGHT since 2026-09-25 22:05: sampler-from-source study** (`docs/preregistration/2026-09-25_sampler_from_source.md`,
+committed `1a8c685c` before any arm). `detfit_up1`'s own flat surface is re-sampled by the published
+sampler (`smp_pub`) and by `vc_render_tifxyz` built from villa `75c79ac5f` (`smp_src_a/b`, image
+`vc-render:sampler-75c79ac5f`). Chain pid 282526 (parent systemd --user). Log
+`spiral_out/sampler_src_chain.log`; terminal `SAMPLER_CHAIN_DONE`; failures
+`*_FAILED|SMP_ABORTED|WRAPPER_EDIT_FAILED|PATCH_FAILED`. When done:
+`.venv/bin/python scripts/analyse_sampler_from_source.py --out reports/sampler_from_source_verdict.json`.
+
+The upstream render-path study is DONE (finding 64):
 RENDER PATH INERT, +0.0005% on fixed meshes. `reports/upstream_render_path_is_inert.md`.
 Filing Field 1 now carries one test-bound clause on it.
 
