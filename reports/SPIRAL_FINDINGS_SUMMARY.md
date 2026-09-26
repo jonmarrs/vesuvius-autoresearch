@@ -870,3 +870,11 @@ fits in six configs (df 17, critical |r| 0.561): NO DETECTED RELATION on all fou
 +0.344, p 0.149; no leave-one-fit-out |r| above 0.438). The tiers disagree in sign on three of the four.
 Across 36 fits, spiralcheck's winding checks do not predict how much ink a fit reads.
 `reports/spiralcheck_null_replicates_on_pinned.md`.
+
+**64. villa's updated Python render stage is inert on fixed meshes.** Pre-registered: the `upfit_s1`
+meshes rendered on the `75c79ac5f` stage twice and on the pinned stage again. The upstream stage
+changes `lasagna/fit.py` by 78 lines and `tifxyz.py` by 26. **Effect +0.0005%**; upstream
+repeatability 0.0002%; the pinned re-render reproduces to 0.0015%. The meshes were byte-identical
+across arms and the code verified different. With finding 62, villa `75c79ac5f` end to end on the
+Python side does not detectably change what our region reads. The C++ sampler (published image) is
+not covered. `reports/upstream_render_path_is_inert.md`.

@@ -198,3 +198,12 @@ def test_the_upstream_fitter_interval_matches_its_verdict():
         assert f"{c['rel']:+.2%}" in text
         assert f"{c['lo']:.2%}" in text and f"{c['hi']:+.2%}" in text
         assert "not been re-measured" not in text
+
+
+def test_the_render_stage_effect_matches_its_verdict():
+    """Added 2026-09-25: the render-stage clause quotes the registered verdict."""
+    v = _artifact("upstream_render_path_verdict.json")
+    assert v["verdict"] == "RENDER PATH INERT (within 0.5%)"
+    quoted = f"{v['effect']:+.4%}"  # +0.0005%
+    for text in (_text(), _submit_text()):
+        assert quoted in text, f"render-stage effect {quoted} not quoted"

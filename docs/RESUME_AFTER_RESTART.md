@@ -1,14 +1,10 @@
 # Resume note — written 2026-09-22 before a deliberate Claude restart
 
-## CURRENT STATE, 2026-09-25 ~10:30 — read this first
+## CURRENT STATE, 2026-09-25 ~21:40 — read this first
 
-**IN FLIGHT since 2026-09-25 11:05: upstream render-path study** (`docs/preregistration/2026-09-25_upstream_render_path.md`,
-committed `ac51063e` before any arm). The `upfit_s1` meshes are rendered on the `75c79ac5f` Python stage
-×2 and on the pinned stage ×1. Chain pid 200272 (wrapper parent: systemd --user), ~5.5 h, due
-~16:30. Log `spiral_out/upstream_render_path_chain.log`; terminal `RENDER_PATH_CHAIN_DONE`; failures
-`*_FAILED|SHA_WRONG|WORKDIR_EXISTS|VILLA_REF_MISSING|MESHES_MISSING`. When done:
-`.venv/bin/python scripts/analyse_upstream_render_path.py --out reports/upstream_render_path_verdict.json`.
-The GPU is taken until then.
+**Nothing is running; the GPU is free.** The upstream render-path study is DONE (finding 64):
+RENDER PATH INERT, +0.0005% on fixed meshes. `reports/upstream_render_path_is_inert.md`.
+Filing Field 1 now carries one test-bound clause on it.
 
 **Upstream-fitter re-measurement DONE (finding 62).** Chain finished 09-25 09:33, all gates passed.
 NO DETECTED CHANGE: **+4.82%, CI [−7.51%, +17.15%]** for three fits on villa `75c79ac5f` vs

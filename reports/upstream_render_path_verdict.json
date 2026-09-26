@@ -1,0 +1,15 @@
+{
+  "pin_reproducibility": 1.524623585691387e-05,
+  "upstream_reproducibility": 2.4393687279022913e-06,
+  "effect": 5.488603068259934e-06,
+  "upstream_mean": 3279541.0,
+  "pinned_mean": 3279523.0,
+  "upstream_deterministic": true,
+  "verdict": "RENDER PATH INERT (within 0.5%)",
+  "per_arm": {
+    "rpath_up_a": 3279537.0,
+    "rpath_up_b": 3279545.0,
+    "rpath_pin_a": 3279548.0,
+    "detfit_up1": 3279498.0
+  }
+}
