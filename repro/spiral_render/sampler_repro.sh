@@ -31,6 +31,11 @@ for spec in "$@"; do
   PEAK=0
   while [ "$(docker inspect -f '{{.State.Running}}' "$NAME" 2>/dev/null)" = true ]; do
     [ -r "$CG/memory.peak" ] && PEAK=$(cat "$CG/memory.peak")
+    # anon (process heap) vs file (page cache) vs dirty: decides whether an OOM is the program's own
+    # memory or writeback pressure from what it persists.
+    [ -r "$CG/memory.stat" ] && awk -v t="$(date +%s)" 'BEGIN{printf "%s", t}
+      $1=="anon"||$1=="file"||$1=="file_dirty"||$1=="file_writeback"||$1=="shmem"{printf " %s=%.2f", $1, $2/1073741824}
+      END{print ""}' "$CG/memory.stat" >> "$R/memstat.txt"
     HG=$(du -s --block-size=1G "$R/home" 2>/dev/null | cut -f1)
     if [ "${HG:-0}" -gt "$DISK_CAP_GB" ]; then echo "DISK_CAP $LAB: home ${HG}G > ${DISK_CAP_GB}G, killing"; docker kill "$NAME" >/dev/null; fi
     sleep 2

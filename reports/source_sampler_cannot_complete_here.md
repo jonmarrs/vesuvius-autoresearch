@@ -30,6 +30,23 @@
 > both binaries' timings. The source runs (default cache, then `--cache-gb 4`) are still in
 > progress.
 >
+> **Reproduction complete for the source binary, 2026-09-26 08:19.** Same 2-band crop, fresh dirs,
+> 24 GB cap (`spiral_out/sampler_repro*/results.tsv`, `sampler_memstat/src4m/memstat.txt`):
+>
+> | run | exit | wall | peak | persisted |
+> |---|---|---|---|---|
+> | published, default cache | 0 | 6,710 s | 24.01 GiB | 0 GB |
+> | source, default cache | **137 OOMKilled** | 1,166 s | 24.03 GiB | 102.6 GB |
+> | source, `--cache-gb 4` | **137 OOMKilled** | 1,174 s | 24.07 GiB | 115.3 GB |
+> | source, `--cache-gb 4`, cgroup `memory.stat` sampled | **137 OOMKilled** | 1,386 s | 24.14 GiB | 125.0 GB |
+>
+> **The kill is the program's own memory, not page cache.** At the kill, `anon` = **23.35 GiB** and
+> `file` = 0.01 GiB, with essentially nothing dirty. Anonymous memory climbed 7.6 → 14.2 → 23.4 GiB
+> over ~23 min while the page cache stayed below 8 GiB. **`--cache-gb` does not bound it:** at 4 GB it
+> reaches ~6× that. The published binary at `--cache-gb 4`, with the same sampling, is running now; it
+> decides whether this differs from the old build. Villa `main` has not touched the sampler, render
+> cache, `Volume` or remote-cache settings since `75c79ac5f` (checked at `f4570bfa6`).
+>
 > Original title: *The from-source sampler (villa `75c79ac5f`) cannot complete our render: ~35× slower, >24 GB, 88 GB on disk by band 2*
 
 
