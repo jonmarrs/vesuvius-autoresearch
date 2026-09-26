@@ -878,3 +878,13 @@ repeatability 0.0002%; the pinned re-render reproduces to 0.0015%. The meshes we
 across arms and the code verified different. With finding 62, villa `75c79ac5f` end to end on the
 Python side does not detectably change what our region reads. The C++ sampler (published image) is
 not covered. `reports/upstream_render_path_is_inert.md`.
+
+**65. villa's current sampler, built from source, cannot complete our render here.** Pre-registered
+(with an amendment made before any source arm scored). The same flat surface and S3 zarr were
+sampled by two binaries:
+
+* The published May binary renders all 35 bands in ~3.5 min.
+* `vc_render_tifxyz` built from `75c79ac5f` managed 2 bands in 7.5 min (ETA 124 min). It wrote
+  88 GB to disk and was SIGKILLed at band 2 twice, the second time under a 24 GB container cap.
+
+**Whether it samples differently is unanswered.** `reports/source_sampler_cannot_complete_here.md`.

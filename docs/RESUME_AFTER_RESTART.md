@@ -1,8 +1,12 @@
 # Resume note — written 2026-09-22 before a deliberate Claude restart
 
-## CURRENT STATE, 2026-09-25 ~21:40 — read this first
+## CURRENT STATE, 2026-09-26 ~05:10 — read this first
 
-**IN FLIGHT since 2026-09-26 04:42: amended re-run of the two SOURCE sampler arms** (amendment in
+**STOPPED 2026-09-26 04:59 — the amended source-sampler re-run died the same way (exit 137 at band 2,
+now under a 24 GB cap; 88 GB cache written). No sampling verdict; finding 65 records the resource
+regression. Nothing is running. `spiral_out/vc3d_src_home` (88 GB) kept pending a decision.**
+
+(was) **IN FLIGHT since 2026-09-26 04:42: amended re-run of the two SOURCE sampler arms** (amendment in
 `docs/preregistration/2026-09-25_sampler_from_source.md`, committed `cc5c6e0b`). Persistent remote
 cache at `spiral_out/vc3d_src_home`, `--memory 24g`. Log `spiral_out/sampler_rerun_chain.log`;
 terminal `SAMPLER_RERUN_DONE`. When done:
