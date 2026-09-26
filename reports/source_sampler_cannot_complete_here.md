@@ -1,4 +1,28 @@
-# The from-source sampler (villa `75c79ac5f`) cannot complete our render: ~35× slower, >24 GB, 88 GB on disk by band 2
+# The from-source sampler (villa `75c79ac5f`) did not complete our render; the speed comparison is WITHDRAWN
+
+> **CORRECTION 2026-09-26, found while verifying before any outward contact.** The published-sampler arm
+> `smp_pub` **never sampled**. Its render log says `[tif] all slices exist, skipping.` The chain built it
+> with `cp -a` from `detfit_up1` and removed `meshes/ink` and `ink_metric`, but **not** the per-slice TIFFs
+> under `concat/w120-129_flat/ink`. The published binary skips when those exist. The source-built binary
+> does not skip, so both source arms really rendered.
+>
+> **Withdrawn:**
+> * "published renders 35 bands in ~3.5 min" (it rendered none);
+> * "~35× slower";
+> * "`smp_pub` reproduces `detfit_up1` to 0.0015%" (it re-scored `detfit_up1`'s own TIFFs, so the
+>   agreement is trivial).
+>
+> **Stands:**
+> * the source binary was SIGKILLed at band 2 twice, the second time under a 24 GB cap;
+> * it wrote 88 GB;
+> * it ignores `--volume` under `--remote-url`.
+>
+> **Unmeasured:** how the published binary behaves on the same work. A fresh-directory, same-crop
+> comparison of both binaries is running (`repro/spiral_render/sampler_repro.sh`). Finding 64 is
+> unaffected: its work dirs were built fresh and its log has no skip lines.
+>
+> Original title: *The from-source sampler (villa `75c79ac5f`) cannot complete our render: ~35× slower, >24 GB, 88 GB on disk by band 2*
+
 
 **2026-09-26.** Outcome of `docs/preregistration/2026-09-25_sampler_from_source.md`, including its
 2026-09-26 amendment. **No sampling verdict.** The registered rule needs both source arms scored, and

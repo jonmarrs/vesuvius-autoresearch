@@ -879,7 +879,7 @@ across arms and the code verified different. With finding 62, villa `75c79ac5f` 
 Python side does not detectably change what our region reads. The C++ sampler (published image) is
 not covered. `reports/upstream_render_path_is_inert.md`.
 
-**65. villa's current sampler, built from source, cannot complete our render here.** Pre-registered
+**65. villa's current sampler, built from source, cannot complete our render here.** *(Corrected 2026-09-26: the published arm never sampled; it skipped on copied TIFFs. So the "~3.5 min" and "~35× slower" comparison below is WITHDRAWN. The source binary's two SIGKILLs at band 2 and its 88 GB stand. See the report.)* Pre-registered
 (with an amendment made before any source arm scored). The same flat surface and S3 zarr were
 sampled by two binaries:
 
