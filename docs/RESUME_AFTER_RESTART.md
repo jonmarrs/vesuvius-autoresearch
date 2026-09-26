@@ -1,6 +1,14 @@
 # Resume note — written 2026-09-22 before a deliberate Claude restart
 
-## CURRENT STATE, 2026-09-26 ~05:10 — read this first
+## CURRENT STATE, 2026-09-26 ~07:20 — read this first
+
+**RUNNING (detached): the fresh-directory sampler reproduction.** `repro/spiral_render/sampler_repro.sh`,
+driver `spiral_out/sampler_repro_scripts/`, log `spiral_out/sampler_repro.log`, results
+`spiral_out/sampler_repro/results.tsv`. Published done (exit 0, 112 min, 24.01 GiB = the cap); source
+at default cache running, then `--cache-gb 4`. **Finding 65's speed claim is WITHDRAWN** (the published arm
+had skipped on copied TIFFs). **Villa contact is approved by the user ONLY after full verification** —
+nothing has been posted.
+
 
 **STOPPED 2026-09-26 04:59 — the amended source-sampler re-run died the same way (exit 137 at band 2,
 now under a 24 GB cap; 88 GB cache written). No sampling verdict; finding 65 records the resource

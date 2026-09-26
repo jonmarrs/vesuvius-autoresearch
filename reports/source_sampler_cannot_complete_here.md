@@ -21,6 +21,15 @@
 > comparison of both binaries is running (`repro/spiral_render/sampler_repro.sh`). Finding 64 is
 > unaffected: its work dirs were built fresh and its log has no skip lines.
 >
+> **Interim, 2026-09-26 07:1x: the fresh-directory reproduction (same 2-band crop, empty `--volume`
+> and `HOME`, 24 GB container cap).** The published binary completed with exit 0 in **6,710 s
+> (112 min)**, at **peak memory 24.01 GiB, pinned at the cap**. Bands 1–4 took 7 min, then band 5
+> alone took 22 min, which is consistent with reclaim at the ceiling. **So the published sampler
+> also wants more than 24 GB at its default 16 GB cache when it really streams from S3.** The
+> source binary's failure is therefore not evidence of a regression by itself. The cap distorts
+> both binaries' timings. The source runs (default cache, then `--cache-gb 4`) are still in
+> progress.
+>
 > Original title: *The from-source sampler (villa `75c79ac5f`) cannot complete our render: ~35× slower, >24 GB, 88 GB on disk by band 2*
 
 
