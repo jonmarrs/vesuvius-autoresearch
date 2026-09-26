@@ -1,0 +1,45 @@
+# vc-render:local with ONE change: vc_render_tifxyz built from villa source at SAMPLER_SHA.
+#
+# Why: every render in this repo samples the ink volume with the vc_render_tifxyz shipped in
+# villa's PUBLISHED runtime image (:edge == :main == sha256:bad516f6..., built 2026-05-13, still
+# current on 2026-09-25). Our VILLA_REF pins never governed the sampler. A villa user who builds
+# volume-cartographer from source gets a different binary. This image isolates that difference.
+#
+# The new binary and ITS shared libraries live under /opt/vcsrc, reached through a wrapper that
+# sets LD_LIBRARY_PATH for that one process, so the grafted vc_tifxyz2obj (built from 5479453a,
+# libs in /usr/local/lib/vc) is untouched.
+#
+#   docker build -f Dockerfile.sampler_src --build-arg SAMPLER_SHA=<sha> -t vc-render:sampler-<short> .
+ARG SAMPLER_SHA=75c79ac5f506d4b9a89bcfbef8e8c0f2f0c3acb3
+
+FROM ghcr.io/scrollprize/villa/volume-cartographer:builder-ubuntu-24.04 AS vcbuild
+ARG SAMPLER_SHA
+RUN git clone --filter=blob:none --sparse https://github.com/ScrollPrize/villa.git /src \
+ && cd /src && git sparse-checkout set volume-cartographer && git checkout ${SAMPLER_SHA}
+RUN cmake -S /src/volume-cartographer -B /build -DCMAKE_BUILD_TYPE=Release \
+      -DVC_BUILD_APPS=ON -DVC_BUILD_UI_TRACER=OFF -DVC_BUILD_FLATBOI=OFF \
+      -DVC_BUILD_PYTHON=OFF -DVC_TESTING=OFF
+# At 75c79ac5f a target-only build races: core's autogen step needs
+# _deps/libbacktrace-install/lib/libbacktrace.a, whose ExternalProject is not a declared
+# dependency ("No rule to make target ..."). Build every libbacktrace target first, found from
+# the build's own target list rather than a guessed name.
+RUN T=$(cmake --build /build --target help | grep -oiE '[A-Za-z0-9_.-]*backtrace[A-Za-z0-9_.-]*' | sort -u) \
+ && echo "prebuilding: $T" && [ -n "$T" ] \
+ && for t in $T; do cmake --build /build --target "$t" -j"$(nproc)" || exit 1; done \
+ && cmake --build /build --target vc_render_tifxyz -j"$(nproc)"
+RUN mkdir -p /out/bin /out/lib \
+ && cp /build/bin/vc_render_tifxyz /out/bin/ \
+ && find /build -name '*.so*' -type f -not -path '*/_deps/*' -exec cp {} /out/lib/ \; \
+ && echo "${SAMPLER_SHA}" > /out/SAMPLER_SHA
+
+FROM vc-render:local
+COPY --from=vcbuild /out/ /opt/vcsrc/
+RUN printf '#!/bin/sh\nLD_LIBRARY_PATH=/opt/vcsrc/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH} exec /opt/vcsrc/bin/vc_render_tifxyz "$@"\n' \
+      > /usr/local/bin/vc_render_tifxyz \
+ && chmod +x /usr/local/bin/vc_render_tifxyz \
+ && [ "$(command -v vc_render_tifxyz)" = /usr/local/bin/vc_render_tifxyz ] \
+ && LD_LIBRARY_PATH=/opt/vcsrc/lib ldd /opt/vcsrc/bin/vc_render_tifxyz | grep -q "not found" \
+      && { echo "FATAL: unresolved libs"; exit 1; } || true
+RUN vc_render_tifxyz --help >/dev/null 2>&1 || vc_render_tifxyz -h >/dev/null 2>&1 \
+ || { echo "FATAL: source-built vc_render_tifxyz does not run"; exit 1; }
+RUN echo "sampler from source $(cat /opt/vcsrc/SAMPLER_SHA) installed ahead of the published one"
