@@ -2,7 +2,13 @@
 
 ## CURRENT STATE, 2026-09-25 ~21:40 — read this first
 
-**STOPPED 2026-09-25 22:42 — sampler-from-source chain: `RENDER_FAILED smp_src_a`, exit 137 (SIGKILL,
+**IN FLIGHT since 2026-09-26 04:42: amended re-run of the two SOURCE sampler arms** (amendment in
+`docs/preregistration/2026-09-25_sampler_from_source.md`, committed `cc5c6e0b`). Persistent remote
+cache at `spiral_out/vc3d_src_home`, `--memory 24g`. Log `spiral_out/sampler_rerun_chain.log`;
+terminal `SAMPLER_RERUN_DONE`. When done:
+`.venv/bin/python scripts/analyse_sampler_from_source.py --out reports/sampler_from_source_verdict.json`.
+
+**(earlier) STOPPED 2026-09-25 22:42 — sampler-from-source chain: `RENDER_FAILED smp_src_a`, exit 137 (SIGKILL,
 likely OOM — the source-built sampler defaults to `--cache-gb 16` and ran ~6× slower than the
 published one, 2/35 bands in 8 min).** `smp_pub` completed. No verdict: the rule needs both source
 arms. Nothing is running. Next: re-run the source arms with a bounded cache (a registered
