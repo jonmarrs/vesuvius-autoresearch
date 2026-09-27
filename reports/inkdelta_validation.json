@@ -1,0 +1,188 @@
+{
+  "all_pass": true,
+  "cases": {
+    "1_stale_slices_invalid": {
+      "expected": "INVALID",
+      "extra": "STALE_SLICES on B",
+      "pass": true,
+      "verdict": "INVALID",
+      "detail": "a run failed an integrity check; its score is not a fresh render",
+      "interval": null,
+      "findings": [
+        {
+          "level": "WARN",
+          "code": "SCORER_SNAPSHOT_UNRECORDED",
+          "detail": "A /home/jon/openclaw-workspace/Neo-VM/spiral_out/detfit_up1: metrics.json has no model_dir, so the scoring model snapshot is unknown (villa #1805, 2026-09-15, records it)"
+        },
+        {
+          "level": "FAIL",
+          "code": "STALE_SLICES",
+          "detail": "B /home/jon/openclaw-workspace/Neo-VM/spiral_out/smp_pub: the render re-used existing per-slice TIFFs ('all slices exist, skipping'): this score is an OLD render re-scored, not this run"
+        },
+        {
+          "level": "WARN",
+          "code": "SCORER_SNAPSHOT_UNRECORDED",
+          "detail": "B /home/jon/openclaw-workspace/Neo-VM/spiral_out/smp_pub: metrics.json has no model_dir, so the scoring model snapshot is unknown (villa #1805, 2026-09-15, records it)"
+        }
+      ],
+      "seed_rule_null_rate": null
+    },
+    "2_reproduces_finding_62": {
+      "expected": "NOT RESOLVED",
+      "extra": "interval == +4.82% [-7.51%, +17.15%]",
+      "pass": true,
+      "verdict": "NOT RESOLVED",
+      "detail": "+4.82%, 95% interval [-7.51%, +17.15%] (welch)",
+      "interval": {
+        "rel": 0.04823244148174147,
+        "lo": -0.0750530883853716,
+        "hi": 0.17151797134885452,
+        "df": 6.085345764758165,
+        "method": "welch"
+      },
+      "findings": [
+        {
+          "level": "WARN",
+          "code": "SCORER_SNAPSHOT_UNRECORDED",
+          "detail": "A /home/jon/openclaw-workspace/Neo-VM/spiral_out/detfit_s4: metrics.json has no model_dir, so the scoring model snapshot is unknown (villa #1805, 2026-09-15, records it)"
+        },
+        {
+          "level": "WARN",
+          "code": "SCORER_SNAPSHOT_UNRECORDED",
+          "detail": "A /home/jon/openclaw-workspace/Neo-VM/spiral_out/detfit_s5: metrics.json has no model_dir, so the scoring model snapshot is unknown (villa #1805, 2026-09-15, records it)"
+        },
+        {
+          "level": "WARN",
+          "code": "SCORER_SNAPSHOT_UNRECORDED",
+          "detail": "A /home/jon/openclaw-workspace/Neo-VM/spiral_out/detfit_s6: metrics.json has no model_dir, so the scoring model snapshot is unknown (villa #1805, 2026-09-15, records it)"
+        },
+        {
+          "level": "WARN",
+          "code": "SCORER_SNAPSHOT_UNRECORDED",
+          "detail": "A /home/jon/openclaw-workspace/Neo-VM/spiral_out/detfit_s7: metrics.json has no model_dir, so the scoring model snapshot is unknown (villa #1805, 2026-09-15, records it)"
+        },
+        {
+          "level": "WARN",
+          "code": "SCORER_SNAPSHOT_UNRECORDED",
+          "detail": "A /home/jon/openclaw-workspace/Neo-VM/spiral_out/detfit_s8: metrics.json has no model_dir, so the scoring model snapshot is unknown (villa #1805, 2026-09-15, records it)"
+        },
+        {
+          "level": "WARN",
+          "code": "SCORER_SNAPSHOT_UNRECORDED",
+          "detail": "A /home/jon/openclaw-workspace/Neo-VM/spiral_out/detfit_s9: metrics.json has no model_dir, so the scoring model snapshot is unknown (villa #1805, 2026-09-15, records it)"
+        },
+        {
+          "level": "WARN",
+          "code": "SCORER_SNAPSHOT_UNRECORDED",
+          "detail": "B /home/jon/openclaw-workspace/Neo-VM/spiral_out/detfit_up1: metrics.json has no model_dir, so the scoring model snapshot is unknown (villa #1805, 2026-09-15, records it)"
+        },
+        {
+          "level": "WARN",
+          "code": "SCORER_SNAPSHOT_UNRECORDED",
+          "detail": "B /home/jon/openclaw-workspace/Neo-VM/spiral_out/detfit_up2: metrics.json has no model_dir, so the scoring model snapshot is unknown (villa #1805, 2026-09-15, records it)"
+        },
+        {
+          "level": "WARN",
+          "code": "SCORER_SNAPSHOT_UNRECORDED",
+          "detail": "B /home/jon/openclaw-workspace/Neo-VM/spiral_out/detfit_up3: metrics.json has no model_dir, so the scoring model snapshot is unknown (villa #1805, 2026-09-15, records it)"
+        }
+      ],
+      "seed_rule_null_rate": null
+    },
+    "3_declared_route_incomparable": {
+      "expected": "INCOMPARABLE",
+      "extra": "",
+      "pass": true,
+      "verdict": "INCOMPARABLE",
+      "detail": "sides were sampled by different vc_render_tifxyz builds ('edge-0513' vs 'post-1146'). The published image and a post-villa#1146 build differ by +5.0% to +9.2% (mean +6.5%) on 4 PHercParis4 surfaces on the same surface, so this difference would mix the change with the build",
+      "interval": null,
+      "findings": [
+        {
+          "level": "WARN",
+          "code": "SCORER_SNAPSHOT_UNRECORDED",
+          "detail": "A /home/jon/openclaw-workspace/Neo-VM/spiral_out/detfit_s4: metrics.json has no model_dir, so the scoring model snapshot is unknown (villa #1805, 2026-09-15, records it)"
+        },
+        {
+          "level": "WARN",
+          "code": "SCORER_SNAPSHOT_UNRECORDED",
+          "detail": "B /home/jon/openclaw-workspace/Neo-VM/spiral_out/step2_s4: metrics.json has no model_dir, so the scoring model snapshot is unknown (villa #1805, 2026-09-15, records it)"
+        }
+      ],
+      "seed_rule_null_rate": null
+    },
+    "4_undeclared_route_single_runs": {
+      "expected": "NOT RESOLVED",
+      "extra": "SAMPLER_BUILD_UNDECLARED warning",
+      "pass": true,
+      "verdict": "NOT RESOLVED",
+      "detail": "+6.45%, 95% interval [-14.06%, +26.96%] (cv)",
+      "interval": {
+        "rel": 0.06450341744459398,
+        "lo": -0.1406103485591583,
+        "hi": 0.2696171834483463,
+        "cv": 0.074,
+        "method": "cv"
+      },
+      "findings": [
+        {
+          "level": "WARN",
+          "code": "SCORER_SNAPSHOT_UNRECORDED",
+          "detail": "A /home/jon/openclaw-workspace/Neo-VM/spiral_out/detfit_s4: metrics.json has no model_dir, so the scoring model snapshot is unknown (villa #1805, 2026-09-15, records it)"
+        },
+        {
+          "level": "WARN",
+          "code": "SCORER_SNAPSHOT_UNRECORDED",
+          "detail": "B /home/jon/openclaw-workspace/Neo-VM/spiral_out/step2_s4: metrics.json has no model_dir, so the scoring model snapshot is unknown (villa #1805, 2026-09-15, records it)"
+        },
+        {
+          "level": "WARN",
+          "code": "SAMPLER_BUILD_UNDECLARED",
+          "detail": "the vc_render_tifxyz build is not declared for both sides (--build-a/--build-b). If they differ (published image vs a post-villa#1146 build), expect +5.0% to +9.2% (mean +6.5%) on 4 PHercParis4 surfaces from that alone"
+        }
+      ],
+      "seed_rule_null_rate": 0.5
+    },
+    "5_deterministic_repeats_pass": {
+      "expected": "NOT RESOLVED",
+      "extra": "|rel| < 0.01%",
+      "pass": true,
+      "verdict": "NOT RESOLVED",
+      "detail": "+0.00%, 95% interval [-20.51%, +20.51%] (cv)",
+      "interval": {
+        "rel": 2.4393687279022913e-06,
+        "lo": -0.20511132663502438,
+        "hi": 0.20511620537248018,
+        "cv": 0.074,
+        "method": "cv"
+      },
+      "findings": [],
+      "seed_rule_null_rate": 0.5
+    },
+    "6_deliberate_rescore_flagged": {
+      "expected": "INVALID",
+      "extra": "STALE_SLICES on B",
+      "pass": true,
+      "verdict": "INVALID",
+      "detail": "a run failed an integrity check; its score is not a fresh render",
+      "interval": null,
+      "findings": [
+        {
+          "level": "WARN",
+          "code": "SCORER_SNAPSHOT_UNRECORDED",
+          "detail": "A /home/jon/openclaw-workspace/Neo-VM/spiral_out/detfit_up1: metrics.json has no model_dir, so the scoring model snapshot is unknown (villa #1805, 2026-09-15, records it)"
+        },
+        {
+          "level": "FAIL",
+          "code": "STALE_SLICES",
+          "detail": "B /home/jon/openclaw-workspace/Neo-VM/spiral_out/tif_score_pr1905: the render re-used existing per-slice TIFFs ('all slices exist, skipping'): this score is an OLD render re-scored, not this run"
+        },
+        {
+          "level": "WARN",
+          "code": "SCORER_SNAPSHOT_UNRECORDED",
+          "detail": "B /home/jon/openclaw-workspace/Neo-VM/spiral_out/tif_score_pr1905: metrics.json has no model_dir, so the scoring model snapshot is unknown (villa #1805, 2026-09-15, records it)"
+        }
+      ],
+      "seed_rule_null_rate": null
+    }
+  }
+}

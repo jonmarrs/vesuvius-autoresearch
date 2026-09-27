@@ -2,7 +2,7 @@
 
 **Written 2026-09-27, before inkdelta was run on any real run directory.** Runner:
 `scripts/validate_inkdelta.py`, committed with this file. The tool is `projects/inkdelta` 0.1.0 (local
-commit `f68dd95`), with 18 unit tests on synthetic villa-layout runs.
+commit f68dd95 in that repository), with 18 unit tests on synthetic villa-layout runs.
 
 ## The question
 
