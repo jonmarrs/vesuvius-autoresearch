@@ -22,6 +22,9 @@ for spec in "$@"; do
   mkdir -p "$H" "$R/volume" "$R/tif"
   NAME=samplerrepro_${LAB}_$$
   EXTRA=(); [ -n "${CACHE_GB:-}" ] && EXTRA=(--cache-gb "$CACHE_GB")
+  # SLICE_STEP: e.g. 2 makes the PUBLISHED (pre-#1146) binary step one level-1 voxel at group 1,
+  # which is what post-#1146 builds do at the default step of 1.
+  [ -n "${SLICE_STEP:-}" ] && EXTRA+=(--slice-step "$SLICE_STEP")
   T0=$(date +%s)
   docker run -d --name "$NAME" --user "$(id -u):$(id -g)" --memory "$MEM_CAP" -e HOME="$H" \
     -v /home/jon/openclaw-workspace:/home/jon/openclaw-workspace --entrypoint vc_render_tifxyz "$IMG" \
