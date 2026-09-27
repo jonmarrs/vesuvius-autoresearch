@@ -98,6 +98,19 @@
 > **Posted to villa as a reply on #1588** (the stale-image tracker), with the user's approval after
 > verification: `docs/VILLA_DRAFT_1588_slice_step.md`.
 >
+> **Equivalence verified, 2026-09-26 23:5x: the published image with `--slice-step 2` = a post-#1146
+> build.** #1146 removed `dsScale` from the offsets (`zi*sliceStep*dsScale` → `zi*sliceStep`), so at
+> group 1 (`dsScale` 0.5) the pre-#1146 binary with `--slice-step 2` should step exactly like a
+> post-#1146 build at step 1. The published image rendered the same surface with `SLICE_STEP=2`
+> (exit 0, 7,957 s, 24 GB cap) and was compared with the PR #1905 build's TIFFs
+> (`reports/sampler_repro/compare_pr1905_vs_published_step2.json`):
+> * the centre slice is **byte-identical**;
+> * each other slice differs in **12–24 of ~404 M pixels, by at most 1 grey level**, which is float
+>   rounding of an identical offset.
+>
+> **So the install-route effect can be measured on any surface with the published image and one
+> flag.** No source build, no 100+ GB remote cache and no PR #1905 are needed.
+>
 > Original title: *The from-source sampler (villa `75c79ac5f`) cannot complete our render: ~35× slower, >24 GB, 88 GB on disk by band 2*
 
 

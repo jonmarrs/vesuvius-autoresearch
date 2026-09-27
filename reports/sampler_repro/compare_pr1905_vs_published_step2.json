@@ -1,0 +1,47 @@
+{
+  "ref": "/home/jon/openclaw-workspace/Neo-VM/spiral_out/sampler_memstat/pr1905w/tif",
+  "test": "/home/jon/openclaw-workspace/Neo-VM/spiral_out/sampler_memstat/pubstep2/tif",
+  "verdict": "SAMPLED VALUES DIFFER",
+  "slices": {
+    "00.tif": {
+      "comparable": true,
+      "identical": false,
+      "frac_px_differ": 5.9342367879163115e-08,
+      "max_abs_diff": 1,
+      "mean_abs_diff_covered": 1.2783581858326817e-07,
+      "r_covered": 0.9999999999698677
+    },
+    "01.tif": {
+      "comparable": true,
+      "identical": false,
+      "frac_px_differ": 2.9671183939581557e-08,
+      "max_abs_diff": 1,
+      "mean_abs_diff_covered": 6.393711111650788e-08,
+      "r_covered": 0.9999999999847562
+    },
+    "02.tif": {
+      "comparable": true,
+      "identical": true,
+      "frac_px_differ": 0.0,
+      "max_abs_diff": 0,
+      "mean_abs_diff_covered": 0.0,
+      "r_covered": 0.9999999999999999
+    },
+    "03.tif": {
+      "comparable": true,
+      "identical": false,
+      "frac_px_differ": 3.2143782601213355e-08,
+      "max_abs_diff": 1,
+      "mean_abs_diff_covered": 6.930693386017977e-08,
+      "r_covered": 0.9999999999828657
+    },
+    "04.tif": {
+      "comparable": true,
+      "identical": false,
+      "frac_px_differ": 4.945197323263593e-08,
+      "max_abs_diff": 1,
+      "mean_abs_diff_covered": 1.0665848837820046e-07,
+      "r_covered": 0.9999999999728997
+    }
+  }
+}
