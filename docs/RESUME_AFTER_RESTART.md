@@ -2,7 +2,7 @@
 
 ## CURRENT STATE, 2026-09-26 ~21:40 — read this first
 
-**Nothing is running.**
+**RUNNING (detached, since 2026-09-26 23:47): step-2 across surfaces** (`docs/preregistration/2026-09-27_step2_across_surfaces.md`). Arms `step2_s4/s5/s6`, log `spiral_out/step2_chain.log`, terminal `STEP2_CHAIN_DONE`; failures `*_FAILED|SKIPPED_SAMPLING|REUSE_NOT_ENGAGED|FLAT_DIFFERS|STEP2_ABORTED`. When done: `.venv/bin/python scripts/analyse_step2_surfaces.py --out reports/step2_across_surfaces.json`.
 
 **Sampler line concluded (finding 65, `reports/source_sampler_cannot_complete_here.md`):**
 * `--cache-gb` does not bound resident memory in either the published or the source build.
