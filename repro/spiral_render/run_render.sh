@@ -24,6 +24,21 @@ INK_URL="${INK_URL:-https://vesuvius-challenge-open-data.s3.amazonaws.com/PHercP
 SHIM_DIR="$(cd "$(dirname "$0")" && pwd)/determinism_shim"
 [ -f "$SHIM_DIR/sitecustomize.py" ] || { echo "run_render: determinism shim missing at $SHIM_DIR" >&2; exit 1; }
 
+# REFUSE TO "RENDER" OVER EXISTING PER-SLICE TIFFS. The published vc_render_tifxyz prints
+# "[tif] all slices exist, skipping." and exits 0 when <flat>/ink/*.tif are already there, so
+# a work dir copied (cp -a) from a scored one re-scores the OLD slices under a new label. That
+# is how finding 65's withdrawn "~35x slower" comparison was built (smp_pub, 2026-09-25).
+# Set RENDER_ALLOW_EXISTING_SLICES=1 only when re-scoring given slices is the point.
+shopt -s nullglob
+existing=("$W"/meshes/concat/*_flat/ink/*.tif)
+shopt -u nullglob
+if [ "${#existing[@]}" -gt 0 ] && [ "${RENDER_ALLOW_EXISTING_SLICES:-}" != "1" ]; then
+  echo "run_render: $W already holds ${#existing[@]} per-slice TIFF(s) under meshes/concat/*_flat/ink/;" >&2
+  echo "run_render:   the sampler would SKIP and re-score them. Delete them, or set" >&2
+  echo "run_render:   RENDER_ALLOW_EXISTING_SLICES=1 if re-scoring those slices is intended." >&2
+  exit 3
+fi
+
 cd "$W/spiral-fitting"
 # lasagna/fit.py imports vc3d_fiber_format, which lives in villa's vesuvius/src,
 # NOT in lasagna/. Without this the flatten dies on import.

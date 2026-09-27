@@ -533,3 +533,18 @@ all 11 outputs. Its result lands in `reports/cache_gb_check.json` once the check
 `RENDER_IMAGE`, so the setting travels with the arm and cannot drift with the environment. Unset, it
 changes nothing. **Never mix settings within one study**, even if the check passes, because
 `RENDER_IMAGE` must match across arms.
+
+## 15. `run_render.sh` refuses a work dir that already has per-slice TIFFs (2026-09-27)
+
+Given existing `meshes/concat/<name>_flat/ink/*.tif`, the published `vc_render_tifxyz` prints
+`[tif] all slices exist, skipping.` and exits 0. So a work dir copied (`cp -a`) from a scored one
+**re-scores the old slices under a new label**. Finding 65's withdrawn "~35× slower" comparison was
+built that way (`smp_pub`, 2026-09-25): it "reproduced" its template to 0.0015% because it *was* the
+template.
+
+`run_render.sh` now exits 3 before starting if any such TIFF exists. Set
+`RENDER_ALLOW_EXISTING_SLICES=1` only when re-scoring given slices is the point, as in scoring another
+sampler's output through this path. Tested in `tests/test_run_render_slice_guard.py`, and checked to
+discriminate: the unguarded script lets the same work dir through with exit 0.
+
+A post-copy work dir must delete `concat/*_flat/ink`, not just `meshes/ink` and `ink_metric`.
