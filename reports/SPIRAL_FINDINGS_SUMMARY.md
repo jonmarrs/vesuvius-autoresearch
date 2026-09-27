@@ -888,3 +888,15 @@ sampled by two binaries:
   88 GB to disk and was SIGKILLed at band 2 twice, the second time under a 24 GB container cap.
 
 **Whether it samples differently is unanswered.** `reports/source_sampler_cannot_complete_here.md`.
+
+**66. The post-#1146 slice step raises `total_fg_pixels` by +5.0% to +9.2%, surface-dependent.**
+Pre-registered on four surfaces:
+
+* Method: the published image at `--slice-step 2`, verified equal to a post-#1146 build to
+  rounding, against its default step.
+* Result: up1 +5.32%, s4 +6.45%, s5 +9.19%, s6 +4.97%; **mean +6.48%**. All positive, all far above
+  the 59 px scoring floor.
+
+The install route (published image vs a source build after 2026-07-14) therefore moves villa's metric
+by about as much as our fit-only noise (CV 0.074), and not by a constant.
+`reports/step2_across_surfaces.md`.
