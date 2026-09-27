@@ -20,8 +20,7 @@ it. The filing's Field 2 credits it as "a report acted on, not a measurement ado
 stale-image tracker) with that measurement, comment 5852564965, 2026-09-26. **Do not add to it or nudge.**
 No new issue was opened; the weekly new-item slot is still 2026-09-29.
 
-Scratch caches (user approved deleting the earlier 88 GB one): `spiral_out/sampler_repro/src16|src4/home`
-(~219 GB) and `sampler_memstat/src4m/home` (~125 GB) are deletable once the #1905 test is done.
+Scratch caches (user approved deleting the earlier 88 GB one): **530 GB measured 2026-09-27** -- `spiral_out/sampler_repro/src16|src4/home` (219 GB), `sampler_memstat/src4m/home` (125 GB), `sampler_memstat/pr1905/home` (187 GB). Results committed; deletable on the user's say-so.
 
 **STOPPED 2026-09-26 04:59 — the amended source-sampler re-run died the same way (exit 137 at band 2,
 now under a 24 GB cap; 88 GB cache written). No sampling verdict; finding 65 records the resource
