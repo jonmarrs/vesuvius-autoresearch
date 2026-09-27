@@ -170,6 +170,18 @@ docker build -t scrollgt . && docker run --rm --network none scrollgt pytest -q
 The offline claim is demonstrated rather than asserted — **all 206 tests pass inside the container
 with networking disabled**, in 8m02s, verified 2026-09-13. System requirements: any x86-64 host with Docker, no GPU, ~200 MB of disk.
 
+**New this month: [inkdelta](https://github.com/jonmarrs/inkdelta)** (MIT, standard library only, CPU).
+It answers the question the autoresearch loop's keep/discard step skips: is a `total_fg_pixels`
+difference real?
+
+* It refuses a score that re-used old slices or rendered an all-zero strip.
+* It flags runs scored or sampled differently, including the published-image vs source-build route.
+* It reports an interval, not a win.
+
+It passed six pre-registered known-answer cases from this project's corpus. It reproduces a
+registered interval exactly, and correctly calls a real +6.45% build effect unresolved from one run
+per side.
+
 New reusable tooling this month, all tested: patch-selection and radial-balance verification, a
 radius/winding calibration, per-study verdict runners that refuse partial samples, and a checkpoint
 pruner that refuses to delete any artifact a report cites.

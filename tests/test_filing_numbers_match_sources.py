@@ -216,3 +216,14 @@ def test_the_install_route_range_matches_the_step2_artifact():
     for text in (_text(), _submit_text()):
         for k in ("min", "max", "mean"):
             assert f"{d[k]:+.2%}" in text, f"step-2 {k} {d[k]:+.2%} not quoted"
+
+
+def test_the_inkdelta_claims_match_its_validation():
+    """Added 2026-09-27: Field 3 cites inkdelta's validation; it must have passed, and the
+    quoted build effect is case 4's relative difference."""
+    v = _artifact("inkdelta_validation.json")
+    assert v["all_pass"] is True
+    rel = v["cases"]["4_undeclared_route_single_runs"]["interval"]["rel"]
+    for text in (_text(), _submit_text()):
+        assert "github.com/jonmarrs/inkdelta" in text
+        assert f"{rel:+.2%}" in text, f"inkdelta build effect {rel:+.2%} not quoted"
