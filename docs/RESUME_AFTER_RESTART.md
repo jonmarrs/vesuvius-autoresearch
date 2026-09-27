@@ -1,20 +1,19 @@
 # Resume note — written 2026-09-22 before a deliberate Claude restart
 
-## CURRENT STATE, 2026-09-26 ~20:50 — read this first
+## CURRENT STATE, 2026-09-26 ~21:40 — read this first
 
-**RUNNING (detached): villa PR #1905's sampler on our full render.** Image `vc-render:sampler-pr1905`
-(built from PR head 280379c2, not on villa main; `Dockerfile.sampler_src` with `SAMPLER_FETCH=pull/1905/head`). Output
-`spiral_out/sampler_memstat/pr1905/`, log `spiral_out/sampler_memstat.log`. When done, compare its TIFFs
-with `spiral_out/sampler_repro/pub/tif` (published build, deterministic: byte-identical to detfit_up1).
+**Nothing is running.**
 
-**Finding 65, final state:** in BOTH builds `--cache-gb` does not bound resident memory (~24 GiB anon at
-4 GB). The May build crawls at the ceiling; `75c79ac5f` is OOM-killed. The "~35× slower" claim is WITHDRAWN.
-All "crop" runs were full renders (`--crop-height 0` made the crop inert).
+**Sampler line concluded (finding 65, `reports/source_sampler_cannot_complete_here.md`):**
+* `--cache-gb` does not bound resident memory in either the published or the source build.
+* villa PR #1905 lets the current source build complete our render.
+* The current sampler reads the volume identically, but steps 2× along the normal (villa #1146, 07-14,
+  after the 05-13 image). That makes `total_fg_pixels` **+5.32%** on our surface (3,279,498 → 3,453,819;
+  re-score floor 59 px).
 
-**Villa:** the mechanism is already diagnosed and fixed in open PR #1905 (ShribyrLabs, 2026-09-26), so we
-will NOT open an issue. The user approved contact only after verification. At most, an independent-validation
-comment on #1905 once the test above completes. Nothing has been posted. The weekly new-item slot is
-2026-09-29 (a reply does not use it).
+**Outward, POSTED with the user's approval after verification:** a reply on villa **#1588** (the
+stale-image tracker) with that measurement, comment 5852564965, 2026-09-26. **Do not add to it or nudge.**
+No new issue was opened; the weekly new-item slot is still 2026-09-29.
 
 Scratch caches (user approved deleting the earlier 88 GB one): `spiral_out/sampler_repro/src16|src4/home`
 (~219 GB) and `sampler_memstat/src4m/home` (~125 GB) are deletable once the #1905 test is done.

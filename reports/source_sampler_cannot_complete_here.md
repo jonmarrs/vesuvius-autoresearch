@@ -91,8 +91,12 @@
 >
 > **Consequence:** `render_ink.py` (`--num-slices 5`, default step) max-composites a stack twice as
 > thick on a source build as on the published image, so `total_fg_pixels` for the same surface depends
-> on the install route. Its size on this surface is being measured now: the source TIFFs scored
-> through the pinned path, against `detfit_up1`'s 3,279,498.
+> on the install route. **Measured, 2026-09-26 21:16:** the source build's TIFFs scored through the
+> pinned path (`spiral_out/tif_score_pr1905`; reuse-flatten and the deliberate slice-skip both
+> confirmed in its log) give **3,453,819 against 3,279,498 = +5.32%**. Re-scoring identical slices
+> moves the count by 59 px (`smp_pub` 3,279,557), so the effect is ~3,000× the scoring floor.
+> **Posted to villa as a reply on #1588** (the stale-image tracker), with the user's approval after
+> verification: `docs/VILLA_DRAFT_1588_slice_step.md`.
 >
 > Original title: *The from-source sampler (villa `75c79ac5f`) cannot complete our render: ~35× slower, >24 GB, 88 GB on disk by band 2*
 

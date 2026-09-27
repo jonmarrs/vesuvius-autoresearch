@@ -1,4 +1,4 @@
-# Draft reply for ScrollPrize/villa#1588 (not yet posted)
+# Reply to ScrollPrize/villa#1588 — POSTED 2026-09-26 (https://github.com/ScrollPrize/villa/issues/1588#issuecomment-5852564965)
 
 Target: comment on #1588, the stale-image tracker. Not a new issue: a new issue would duplicate #1588, and
 the weekly new-item slot is not needed for a reply. Every number below is bound to a file in
