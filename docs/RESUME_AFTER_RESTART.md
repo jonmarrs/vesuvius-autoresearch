@@ -1,6 +1,15 @@
 # Resume note — written 2026-09-22 before a deliberate Claude restart
 
-## CURRENT STATE, 2026-09-27 ~04:40 — read this first
+## CURRENT STATE, 2026-09-27 evening — read this first
+
+**October plan (user chose "A, then B"):**
+
+* **A: DONE.** `inkdelta` 0.1.0 is public at https://github.com/jonmarrs/inkdelta, validated 6/6
+  pre-registered (`reports/inkdelta_validation.md`). A cold clone installs and passes.
+* **B: step 3 is TODO on or after 2026-09-29.** Run a duplicate search, then open the villa catalogue
+  PR from `docs/VILLA_DRAFT_catalogue_inkdelta.md`, with no AI markers.
+* **The September filing** now cites inkdelta in Field 3 (test-bound). **File by 09-30.**
+
 
 **2026-09-27 later:** villa PR **#1886** (@ItIsCuthNotCup, merged by @pmh47 09-25) fixes our **#1660**, citing
 it. The filing's Field 2 credits it as "a report acted on, not a measurement adopted", and
