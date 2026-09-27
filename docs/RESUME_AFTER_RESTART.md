@@ -2,6 +2,11 @@
 
 ## CURRENT STATE, 2026-09-27 ~04:40 — read this first
 
+**2026-09-27 later:** villa PR **#1886** (@ItIsCuthNotCup, merged by @pmh47 09-25) fixes our **#1660**, citing
+it. The filing's Field 2 credits it as "a report acted on, not a measurement adopted", and
+`scripts/check_filing_upstream_claims.py` live-verifies it (PASS). Field 1 also carries findings 65–66.
+**The filing is complete: re-read Fields 1–2 and file by 09-30.** No comment posted on #1660 or #1886.
+
 **Nothing is running.** Step-2 across surfaces DONE (finding 66): +4.97% to +9.19%, mean +6.48%, all positive. `reports/step2_across_surfaces.md`. Not posted to villa (no-nudge rule on #1588).
 
 **Sampler line concluded (finding 65, `reports/source_sampler_cannot_complete_here.md`):**
