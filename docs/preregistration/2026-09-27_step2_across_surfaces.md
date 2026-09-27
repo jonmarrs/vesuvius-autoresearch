@@ -23,7 +23,7 @@ This characterises that range. It is descriptive: no hypothesis test, and no bou
   * the chain **failing if the log shows a skip**;
   * `--slice-step 2` added to the sampler wrapper, the only change.
 * **Default-step comparators:** the same dirs' existing scores (published image, same render tree
-  `be09a8503`, same image `1f3a7985`, deterministic flatten).
+  `be09a8503`, same image `sha256:1f3a7985…`, deterministic flatten).
 * **Fourth surface:** `up1` enters via its measured source-build score.
 
 ## Reported
