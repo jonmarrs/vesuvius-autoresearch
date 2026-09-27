@@ -39,3 +39,7 @@ Recent third-party listings (#1896, #1718) merged as plain one-entry PRs, so thi
 > reproduces a registered interval exactly and correctly calls a real +6.45% build effect unresolved
 > from single runs.
 > (https://github.com/jonmarrs/vesuvius-autoresearch/blob/main/reports/inkdelta_validation.md)
+>
+> On our own 102 scored runs it found exactly two stale renders: the one behind a claim we had already
+> withdrawn, and one deliberate re-score. It found no empty renders
+> (https://github.com/jonmarrs/vesuvius-autoresearch/blob/main/reports/corpus_integrity_audit.md).
