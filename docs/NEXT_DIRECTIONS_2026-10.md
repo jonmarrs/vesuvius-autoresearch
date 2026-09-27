@@ -68,12 +68,13 @@ Tools, pointing at the checker and at ScrollGT.
 * **Anything that depends on unmerged villa PRs** (#1905) or a refreshed published image (#1588).
   Wait for upstream.
 
-## Housekeeping pending the user
+## Housekeeping: DONE 2026-09-27 (user approved)
 
-* **530 GB of scratch caches** (measured 2026-09-27; free disk 445 GB) under `spiral_out/`:
-  * `sampler_repro/src16/home` 103 GB and `src4/home` 116 GB;
-  * `sampler_memstat/src4m/home` 125 GB and `pr1905/home` 187 GB;
-  * the `smp_*` / `rpath_*` / `step2_*` work dirs are small in comparison.
+* **Deleted the 530 GB of scratch caches** (`sampler_repro/src16|src4/home`, `sampler_memstat/src4m|pr1905/home`).
+  Free disk went from 445 to 975 GB. Every result from them is committed.
+* **Removed 18 merged worktrees and their local branches.** An earlier draft said "nineteen", which
+  wrongly counted this one. Before removal each branch was verified to be on `origin/main` and to
+  have nothing uncommitted besides the `.venv` symlink; `branch -d` re-checked the merge. The remote
+  `worktree-*` branches on GitHub were not touched.
 
-  These are safe to delete; the results are committed.
-* **Nineteen merged worktrees** under `.claude/worktrees/`; every branch is already on main.
+**User decision 2026-09-27: A, then B.**
