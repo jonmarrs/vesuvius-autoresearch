@@ -3,7 +3,7 @@
 ## CURRENT STATE, 2026-09-26 ~20:50 — read this first
 
 **RUNNING (detached): villa PR #1905's sampler on our full render.** Image `vc-render:sampler-pr1905`
-(built from PR head `280379c2`, `Dockerfile.sampler_src` with `SAMPLER_FETCH=pull/1905/head`). Output
+(built from PR head 280379c2, not on villa main; `Dockerfile.sampler_src` with `SAMPLER_FETCH=pull/1905/head`). Output
 `spiral_out/sampler_memstat/pr1905/`, log `spiral_out/sampler_memstat.log`. When done, compare its TIFFs
 with `spiral_out/sampler_repro/pub/tif` (published build, deterministic: byte-identical to detfit_up1).
 

@@ -67,6 +67,33 @@
 > identical input. Also verified: the published build's fresh full render is **byte-identical** on all 5
 > slices to `detfit_up1`'s TIFFs from 2026-09-24, so the published sampler is deterministic.
 >
+> **Villa PR #1905 on our surface, and the sampling question answered, 2026-09-26 21:00.**
+> PR #1905 (open, ShribyrLabs) makes each 128-row band prefetch only the chunks it samples. It was
+> built at its head 280379c2, a PR commit not on villa main (`vc-render:sampler-pr1905`):
+> * **Cold:** not OOM-killed. It reached band 16/35 in 43.5 min, where unpatched `75c79ac5f` was
+>   OOM-killed at band 2. Our own 150 GB disk guard stopped it.
+> * **Warm, reusing that cache:** **completed, exit 0, in 2,447 s**, peak anon 23.5 GiB under the
+>   24 GB cap. So on this surface the patch turns an OOM kill into a completed render.
+>
+> **Pixel comparison** with the published build's full render, which is deterministic
+> (`scripts/compare_sampler_tifs.py`, `reports/sampler_repro/`):
+> * the centre slice is **byte-identical**;
+> * off-surface slices differ (6–8% of pixels);
+> * but **new slice 1 = published slice 0 and new slice 3 = published slice 4** (12 of ~404 M pixels
+>   differ, i.e. rounding).
+>
+> **So the current sampler reads and interpolates the volume identically and steps twice as far along
+> the normal.** At `--group-idx 1` the published build steps one level-0 voxel; current source steps
+> one level-1 voxel. **Cause, from villa's history:** #1146 (2026-07-14, *"use correct isotropic
+> scaling when group_idx > 0"*, commit `8ae89fdcd`) stopped scaling the normal offsets by `ds_scale`.
+> That is intentional and documented in the code; it landed two months after the published image
+> (2026-05-13).
+>
+> **Consequence:** `render_ink.py` (`--num-slices 5`, default step) max-composites a stack twice as
+> thick on a source build as on the published image, so `total_fg_pixels` for the same surface depends
+> on the install route. Its size on this surface is being measured now: the source TIFFs scored
+> through the pinned path, against `detfit_up1`'s 3,279,498.
+>
 > Original title: *The from-source sampler (villa `75c79ac5f`) cannot complete our render: ~35× slower, >24 GB, 88 GB on disk by band 2*
 
 
