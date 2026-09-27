@@ -18,11 +18,12 @@ mkdir -p "$OUT"
 for spec in "$@"; do
   IMG=${spec%:*}; LAB=${spec##*:}
   R=$OUT/$LAB; [ -e "$R" ] && { echo "exists: $R"; exit 3; }
-  mkdir -p "$R/home" "$R/volume" "$R/tif"
+  H=${HOME_DIR:-$R/home}   # HOME_DIR reuses an existing remote cache (a warm run)
+  mkdir -p "$H" "$R/volume" "$R/tif"
   NAME=samplerrepro_${LAB}_$$
   EXTRA=(); [ -n "${CACHE_GB:-}" ] && EXTRA=(--cache-gb "$CACHE_GB")
   T0=$(date +%s)
-  docker run -d --name "$NAME" --user "$(id -u):$(id -g)" --memory "$MEM_CAP" -e HOME="$R/home" \
+  docker run -d --name "$NAME" --user "$(id -u):$(id -g)" --memory "$MEM_CAP" -e HOME="$H" \
     -v /home/jon/openclaw-workspace:/home/jon/openclaw-workspace --entrypoint vc_render_tifxyz "$IMG" \
     --scale-segmentation 4 --segmentation "$FLAT" --scale 0.25 --group-idx 1 --volume "$R/volume" \
     --tif-output "$R/tif" --num-slices 5 --remote-url "$URL" \
@@ -36,14 +37,14 @@ for spec in "$@"; do
     [ -r "$CG/memory.stat" ] && awk -v t="$(date +%s)" 'BEGIN{printf "%s", t}
       $1=="anon"||$1=="file"||$1=="file_dirty"||$1=="file_writeback"||$1=="shmem"{printf " %s=%.2f", $1, $2/1073741824}
       END{print ""}' "$CG/memory.stat" >> "$R/memstat.txt"
-    HG=$(du -s --block-size=1G "$R/home" 2>/dev/null | cut -f1)
+    HG=$(du -s --block-size=1G "$H" 2>/dev/null | cut -f1)
     if [ "${HG:-0}" -gt "$DISK_CAP_GB" ]; then echo "DISK_CAP $LAB: home ${HG}G > ${DISK_CAP_GB}G, killing"; docker kill "$NAME" >/dev/null; fi
     sleep 2
   done
   EXIT=$(docker inspect -f '{{.State.ExitCode}}' "$NAME"); OOM=$(docker inspect -f '{{.State.OOMKilled}}' "$NAME")
   docker logs "$NAME" > "$R/log.txt" 2>&1; docker rm "$NAME" >/dev/null
   WALL=$(( $(date +%s) - T0 ))
-  HGB=$(du -s --block-size=1M "$R/home" | awk '{printf "%.2f", $1/1024}')
+  HGB=$(du -s --block-size=1M "$H" | awk '{printf "%.2f", $1/1024}')
   printf '%s\t%s\t%s\t%s%s\t%s\t%s\t%s\n' "$LAB" "$(docker image inspect "$IMG" -f '{{.Id}}' | cut -c8-19)" \
     "${CACHE_GB:-default}" "$EXIT" "$([ "$OOM" = true ] && echo ' OOMKilled')" "$WALL" \
     "$(awk -v p="$PEAK" 'BEGIN{printf "%.2f", p/1073741824}')" "$HGB" >> "$OUT/results.tsv"
