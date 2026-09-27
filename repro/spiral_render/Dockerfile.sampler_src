@@ -14,8 +14,12 @@ ARG SAMPLER_SHA=75c79ac5f506d4b9a89bcfbef8e8c0f2f0c3acb3
 
 FROM ghcr.io/scrollprize/villa/volume-cartographer:builder-ubuntu-24.04 AS vcbuild
 ARG SAMPLER_SHA
+# Optional extra ref to fetch first, e.g. SAMPLER_FETCH=pull/1905/head for an unmerged PR's commit.
+ARG SAMPLER_FETCH=
 RUN git clone --filter=blob:none --sparse https://github.com/ScrollPrize/villa.git /src \
- && cd /src && git sparse-checkout set volume-cartographer && git checkout ${SAMPLER_SHA}
+ && cd /src && git sparse-checkout set volume-cartographer \
+ && if [ -n "${SAMPLER_FETCH}" ]; then git fetch --filter=blob:none origin "${SAMPLER_FETCH}"; fi \
+ && git checkout ${SAMPLER_SHA} && [ "$(git rev-parse HEAD)" = "${SAMPLER_SHA}" ]
 RUN cmake -S /src/volume-cartographer -B /build -DCMAKE_BUILD_TYPE=Release \
       -DVC_BUILD_APPS=ON -DVC_BUILD_UI_TRACER=OFF -DVC_BUILD_FLATBOI=OFF \
       -DVC_BUILD_PYTHON=OFF -DVC_TESTING=OFF

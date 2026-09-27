@@ -21,7 +21,7 @@
 > comparison of both binaries is running (`repro/spiral_render/sampler_repro.sh`). Finding 64 is
 > unaffected: its work dirs were built fresh and its log has no skip lines.
 >
-> **Interim, 2026-09-26 07:1x: the fresh-directory reproduction (same 2-band crop, empty `--volume`
+> **Interim, 2026-09-26 07:1x: the fresh-directory reproduction (same full-width render (see crop note), empty `--volume`
 > and `HOME`, 24 GB container cap).** The published binary completed with exit 0 in **6,710 s
 > (112 min)**, at **peak memory 24.01 GiB, pinned at the cap**. Bands 1–4 took 7 min, then band 5
 > alone took 22 min, which is consistent with reclaim at the ceiling. **So the published sampler
@@ -30,7 +30,7 @@
 > both binaries' timings. The source runs (default cache, then `--cache-gb 4`) are still in
 > progress.
 >
-> **Reproduction complete for the source binary, 2026-09-26 08:19.** Same 2-band crop, fresh dirs,
+> **Reproduction complete for the source binary, 2026-09-26 08:19.** Same full-width render (see crop note), fresh dirs,
 > 24 GB cap (`spiral_out/sampler_repro*/results.tsv`, `sampler_memstat/src4m/memstat.txt`):
 >
 > | run | exit | wall | peak | persisted |
@@ -46,6 +46,26 @@
 > reaches ~6× that. The published binary at `--cache-gb 4`, with the same sampling, is running now; it
 > decides whether this differs from the old build. Villa `main` has not touched the sampler, render
 > cache, `Volume` or remote-cache settings since `75c79ac5f` (checked at `f4570bfa6`).
+>
+> **Published build under the same sampling, 2026-09-26 19:21.** `--cache-gb 4`, same input, same cap: its
+> anonymous memory **also** climbed to **23.93 GiB** (page cache ~0.2 GiB). It was not OOM-killed, but
+> after **11 h** (39,680 s) it had not finished, and I stopped it. At the default cache it finished in
+> 112 min.
+>
+> **Final reading:**
+> * **In both builds, `--cache-gb` does not bound resident memory.** At 4 GB each reaches ~24 GiB of
+>   anonymous memory on this surface.
+> * **This is shared, not a regression.**
+> * **What differs is the failure at the ceiling.** The May build survives and crawls; the
+>   `75c79ac5f` build is OOM-killed within ~20 min, while persisting ~100–125 GB. The persisting is by
+>   design (its remote-cache comment).
+> * **The sampling comparison remains unanswered.** It needs a machine with more RAM.
+>
+> **Crop note, 2026-09-26 evening.** `sampler_repro.sh` passed `--crop-height 0`. The published output is
+> full width (4460 × 90680, ~46% covered), so the crop flags were ignored. Every "crop" run above is the
+> **full render of the same flat surface.** The conclusions are unaffected, because all runs had
+> identical input. Also verified: the published build's fresh full render is **byte-identical** on all 5
+> slices to `detfit_up1`'s TIFFs from 2026-09-24, so the published sampler is deterministic.
 >
 > Original title: *The from-source sampler (villa `75c79ac5f`) cannot complete our render: ~35× slower, >24 GB, 88 GB on disk by band 2*
 
