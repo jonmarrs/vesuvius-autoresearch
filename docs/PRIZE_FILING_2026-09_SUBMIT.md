@@ -42,6 +42,13 @@ simplified the fitter (#1871, 2026-09-23). We re-measured on it (pre-registered;
 no detected change at a resolution of about ±15%. Its updated Python render stage, on identical meshes,
 moved the count by **+0.0005%**. Both constraint types ablated below are still supervised there.
 
+**The metric itself depends on how `vc_render_tifxyz` was installed.** Villa #1146 (2026-07-14) doubled
+the slice step along the surface normal, after the published runtime image was built (2026-05-13). On
+the same flat surface, the step a current source build takes raises `total_fg_pixels` by
+**+4.97% to +9.19% (mean +6.48%)** across four surfaces. That is the size of the fit-to-fit noise, and
+not a constant. A loop comparing runs rendered by different builds sees a spurious gain of that size.
+Pre-registered; reported on villa #1588.
+
 **The robustness check `autoresearch.md` prescribes accepts one null change in six.** Requiring both
 runs of a change to beat both baseline runs is a rank test: under no effect it passes with
 probability exactly **1/C(2k,k)**, independent of noise, metric or code version. Two seeds is 1/6;

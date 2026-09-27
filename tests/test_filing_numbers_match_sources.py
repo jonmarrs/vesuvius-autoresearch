@@ -207,3 +207,12 @@ def test_the_render_stage_effect_matches_its_verdict():
     quoted = f"{v['effect']:+.4%}"  # +0.0005%
     for text in (_text(), _submit_text()):
         assert quoted in text, f"render-stage effect {quoted} not quoted"
+
+
+def test_the_install_route_range_matches_the_step2_artifact():
+    """Added 2026-09-27 (finding 66): min, max and mean are quoted from the registered summary."""
+    d = _artifact("step2_across_surfaces.json")
+    assert d["all_positive"] and d["all_clear_floor"]
+    for text in (_text(), _submit_text()):
+        for k in ("min", "max", "mean"):
+            assert f"{d[k]:+.2%}" in text, f"step-2 {k} {d[k]:+.2%} not quoted"
