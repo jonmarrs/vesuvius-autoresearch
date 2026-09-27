@@ -154,9 +154,13 @@ how we first mis-diagnosed a mistyped path as a VOID result.
 **This is four PRs against a merged total of two, both documentation fixes.** It is
 offered as evidence of the practice, not as an adoption claim.
 
-What exists is outbound and, honestly, unanswered: six villa issues are open from us and five have
-zero comments, the oldest since August. We checked upstream and none has been resolved. We are not
-filing more issues while that backlog stands.
+What exists is outbound: six villa issues are open from us and three have
+zero comments, the oldest since August. Two are fixed in substance, though neither is closed. #1658 was
+fixed by our own #1721 and #1722. **#1660 was fixed by someone else: PR #1886, from @ItIsCuthNotCup,
+merged by @pmh47 on 2026-09-25, cites #1660 in its title.** It makes `render_ink.py` fail on an
+all-zero strip and pass `--scale-segmentation` through, the two things #1660 asked for. It is the one
+instance of our work being taken up by another contributor, and it is recorded here as exactly that:
+a report acted on, not a measurement adopted. We are not filing more issues while the backlog stands.
 
 The one substantive external exchange remains @Bullo27's reply on #1660, which correctly identified
 that half of it duplicated #1588. We verified this month that the fix referenced there, PR #1619, was

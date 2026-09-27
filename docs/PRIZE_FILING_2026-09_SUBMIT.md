@@ -140,10 +140,13 @@ on our PRs, and it is recorded here as a correction, not argued with.
 **This is eight PRs against a merged total of five.** #1805 was one line and merged in about thirty minutes. It is
 offered as evidence of the practice, not as an adoption claim. None is open now.
 
-What exists is outbound and, honestly, unanswered: six villa issues are open from us and three have
-zero comments, the oldest since August. No maintainer has resolved any of them, though #1658's
-substance was fixed by our own #1721 and #1722 and it simply has not been closed. We are not
-filing more issues while that backlog stands.
+What exists is outbound: six villa issues are open from us and three have
+zero comments, the oldest since August. Two are fixed in substance, though neither is closed. #1658 was
+fixed by our own #1721 and #1722. **#1660 was fixed by someone else: PR #1886, from @ItIsCuthNotCup,
+merged by @pmh47 on 2026-09-25, cites #1660 in its title.** It makes `render_ink.py` fail on an
+all-zero strip and pass `--scale-segmentation` through, the two things #1660 asked for. It is the one
+instance of our work being taken up by another contributor, and it is recorded here as exactly that:
+a report acted on, not a measurement adopted. We are not filing more issues while the backlog stands.
 
 The one substantive external exchange remains @Bullo27's reply on #1660, which correctly identified
 that half of it duplicated #1588. We verified this month that the fix referenced there, PR #1619, was
@@ -204,7 +207,7 @@ hidden.
 
 * Not "the metrics are broken" — two measured disagreements, not a general property.
 * Not "the avenue is refuted" — the current-code null bounds ±3%, the pinned-tier ones ~12%.
-* Not any adoption claim. There is none.
+* Not any adoption claim for the measurements. There is none. #1886 is a bug report acted on by another contributor; say only that.
 * Not that these results describe current villa. They describe `6847063f`.
 * **The ink-placement work is now admissible, because it met this rule's own condition.** The rule
   said it "does not go in a submission until it has survived that test". The forward test ran on

@@ -149,6 +149,21 @@ def main() -> int:
         (n_open_iss, n_silent),
     )
 
+    # Third-party take-up (added 2026-09-27): the filing credits #1886 with fixing our #1660.
+    # Live-verify that it is merged and still cites #1660, or the credit is stale.
+    if "#1886" in text:
+        out = subprocess.run(
+            ["gh", "pr", "view", "1886", "--repo", REPO, "--json", "state,title"],
+            capture_output=True, text=True, timeout=120,
+        )  # fmt: skip
+        if out.returncode != 0:
+            raise SystemExit(f"gh failed: pr view 1886\n{out.stderr.strip()}")
+        pr = json.loads(out.stdout)
+        ok = pr["state"] == "MERGED" and "#1660" in pr["title"]
+        checks.append(
+            ("#1886 credited fix", ok, f"live: {pr['state']} / {pr['title']!r}")
+        )
+
     for num, state in sorted(scope_prs.items()):
         row = re.search(rf"\|\s*\**#{num}\**\s*\|\s*\**([A-Za-z]+)\**", text)
         if not row:
