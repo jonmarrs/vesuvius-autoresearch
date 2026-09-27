@@ -1,0 +1,974 @@
+[
+ {
+  "arm": "detfit_an1",
+  "fg": 2925004.0,
+  "fail": [],
+  "warn": [
+   "LOG_NOT_FOUND",
+   "SCORER_SNAPSHOT_UNRECORDED"
+  ],
+  "log": null
+ },
+ {
+  "arm": "detfit_an2",
+  "fg": 2697322.0,
+  "fail": [],
+  "warn": [
+   "LOG_NOT_FOUND",
+   "SCORER_SNAPSHOT_UNRECORDED"
+  ],
+  "log": null
+ },
+ {
+  "arm": "detfit_an3",
+  "fg": 2996520.0,
+  "fail": [],
+  "warn": [
+   "LOG_NOT_FOUND",
+   "SCORER_SNAPSHOT_UNRECORDED"
+  ],
+  "log": null
+ },
+ {
+  "arm": "detfit_ns1",
+  "fg": 2877312.0,
+  "fail": [],
+  "warn": [
+   "LOG_NOT_FOUND",
+   "SCORER_SNAPSHOT_UNRECORDED"
+  ],
+  "log": null
+ },
+ {
+  "arm": "detfit_ns2",
+  "fg": 3036013.0,
+  "fail": [],
+  "warn": [
+   "LOG_NOT_FOUND",
+   "SCORER_SNAPSHOT_UNRECORDED"
+  ],
+  "log": null
+ },
+ {
+  "arm": "detfit_ns3",
+  "fg": 2923680.0,
+  "fail": [],
+  "warn": [
+   "LOG_NOT_FOUND",
+   "SCORER_SNAPSHOT_UNRECORDED"
+  ],
+  "log": null
+ },
+ {
+  "arm": "detfit_s4",
+  "fg": 3164499.0,
+  "fail": [],
+  "warn": [
+   "LOG_NOT_FOUND",
+   "SCORER_SNAPSHOT_UNRECORDED"
+  ],
+  "log": null
+ },
+ {
+  "arm": "detfit_s5",
+  "fg": 2963832.0,
+  "fail": [],
+  "warn": [
+   "LOG_NOT_FOUND",
+   "SCORER_SNAPSHOT_UNRECORDED"
+  ],
+  "log": null
+ },
+ {
+  "arm": "detfit_s6",
+  "fg": 3583420.0,
+  "fail": [],
+  "warn": [
+   "LOG_NOT_FOUND",
+   "SCORER_SNAPSHOT_UNRECORDED"
+  ],
+  "log": null
+ },
+ {
+  "arm": "detfit_s7",
+  "fg": 3018973.0,
+  "fail": [],
+  "warn": [
+   "LOG_NOT_FOUND",
+   "SCORER_SNAPSHOT_UNRECORDED"
+  ],
+  "log": null
+ },
+ {
+  "arm": "detfit_s8",
+  "fg": 2837373.0,
+  "fail": [],
+  "warn": [
+   "LOG_NOT_FOUND",
+   "SCORER_SNAPSHOT_UNRECORDED"
+  ],
+  "log": null
+ },
+ {
+  "arm": "detfit_s9",
+  "fg": 2848719.0,
+  "fail": [],
+  "warn": [
+   "LOG_NOT_FOUND",
+   "SCORER_SNAPSHOT_UNRECORDED"
+  ],
+  "log": null
+ },
+ {
+  "arm": "detfit_up1",
+  "fg": 3279498.0,
+  "fail": [],
+  "warn": [
+   "LOG_NOT_FOUND",
+   "SCORER_SNAPSHOT_UNRECORDED"
+  ],
+  "log": null
+ },
+ {
+  "arm": "detfit_up2",
+  "fg": 3360916.0,
+  "fail": [],
+  "warn": [
+   "LOG_NOT_FOUND",
+   "SCORER_SNAPSHOT_UNRECORDED"
+  ],
+  "log": null
+ },
+ {
+  "arm": "detfit_up3",
+  "fg": 3012138.0,
+  "fail": [],
+  "warn": [
+   "LOG_NOT_FOUND",
+   "SCORER_SNAPSHOT_UNRECORDED"
+  ],
+  "log": null
+ },
+ {
+  "arm": "dup_armB",
+  "fg": 270314.0,
+  "fail": [],
+  "warn": [
+   "LOG_NOT_FOUND",
+   "SCORER_SNAPSHOT_UNRECORDED"
+  ],
+  "log": null
+ },
+ {
+  "arm": "dup_armBAD",
+  "fg": 97202.0,
+  "fail": [],
+  "warn": [
+   "LOG_NOT_FOUND",
+   "SCORER_SNAPSHOT_UNRECORDED"
+  ],
+  "log": null
+ },
+ {
+  "arm": "dup_armC",
+  "fg": 270899.0,
+  "fail": [],
+  "warn": [
+   "LOG_NOT_FOUND",
+   "SCORER_SNAPSHOT_UNRECORDED"
+  ],
+  "log": null
+ },
+ {
+  "arm": "dup_armD",
+  "fg": 282405.0,
+  "fail": [],
+  "warn": [
+   "LOG_NOT_FOUND",
+   "SCORER_SNAPSHOT_UNRECORDED"
+  ],
+  "log": null
+ },
+ {
+  "arm": "dup_armE",
+  "fg": 462109.0,
+  "fail": [],
+  "warn": [
+   "LOG_NOT_FOUND",
+   "SCORER_SNAPSHOT_UNRECORDED"
+  ],
+  "log": null
+ },
+ {
+  "arm": "dup_armREPEAT",
+  "fg": 236683.0,
+  "fail": [],
+  "warn": [
+   "LOG_NOT_FOUND",
+   "SCORER_SNAPSHOT_UNRECORDED"
+  ],
+  "log": null
+ },
+ {
+  "arm": "dup_armSEED",
+  "fg": 194634.0,
+  "fail": [],
+  "warn": [
+   "LOG_NOT_FOUND",
+   "SCORER_SNAPSHOT_UNRECORDED"
+  ],
+  "log": null
+ },
+ {
+  "arm": "flat_study_in",
+  "fg": 1363076.0,
+  "fail": [],
+  "warn": [
+   "LOG_NOT_FOUND",
+   "SCORER_SNAPSHOT_UNRECORDED"
+  ],
+  "log": null
+ },
+ {
+  "arm": "flat_study_out",
+  "fg": 1622775.0,
+  "fail": [],
+  "warn": [
+   "LOG_NOT_FOUND",
+   "SCORER_SNAPSHOT_UNRECORDED"
+  ],
+  "log": null
+ },
+ {
+  "arm": "flat_study_probe",
+  "fg": 1698807.0,
+  "fail": [],
+  "warn": [
+   "LOG_NOT_FOUND",
+   "SCORER_SNAPSHOT_UNRECORDED"
+  ],
+  "log": null
+ },
+ {
+  "arm": "flat_study_zero",
+  "fg": 1698914.0,
+  "fail": [],
+  "warn": [
+   "LOG_NOT_FOUND",
+   "SCORER_SNAPSHOT_UNRECORDED"
+  ],
+  "log": null
+ },
+ {
+  "arm": "offset_m2",
+  "fg": 1547917.0,
+  "fail": [],
+  "warn": [
+   "SCORER_SNAPSHOT_UNRECORDED"
+  ],
+  "log": "/home/jon/openclaw-workspace/Neo-VM/spiral_out/offset_m2.render.log"
+ },
+ {
+  "arm": "offset_p1",
+  "fg": 1650750.0,
+  "fail": [],
+  "warn": [
+   "SCORER_SNAPSHOT_UNRECORDED"
+  ],
+  "log": "/home/jon/openclaw-workspace/Neo-VM/spiral_out/offset_p1.render.log"
+ },
+ {
+  "arm": "offset_p2",
+  "fg": 1661419.0,
+  "fail": [],
+  "warn": [
+   "SCORER_SNAPSHOT_UNRECORDED"
+  ],
+  "log": "/home/jon/openclaw-workspace/Neo-VM/spiral_out/offset_p2.render.log"
+ },
+ {
+  "arm": "offset_p3",
+  "fg": 1642112.0,
+  "fail": [],
+  "warn": [
+   "SCORER_SNAPSHOT_UNRECORDED"
+  ],
+  "log": "/home/jon/openclaw-workspace/Neo-VM/spiral_out/offset_p3.render.log"
+ },
+ {
+  "arm": "outer_anchor10cov_pilot",
+  "fg": 2898843.0,
+  "fail": [],
+  "warn": [
+   "SCORER_SNAPSHOT_UNRECORDED"
+  ],
+  "log": "/home/jon/openclaw-workspace/Neo-VM/spiral_out/outer_anchor10cov_pilot_render.log"
+ },
+ {
+  "arm": "outer_anchor10cov_s2",
+  "fg": 2722693.0,
+  "fail": [],
+  "warn": [
+   "SCORER_SNAPSHOT_UNRECORDED"
+  ],
+  "log": "/home/jon/openclaw-workspace/Neo-VM/spiral_out/outer_anchor10cov_s2_render.log"
+ },
+ {
+  "arm": "outer_anchor10cov_s3",
+  "fg": 2951176.0,
+  "fail": [],
+  "warn": [
+   "SCORER_SNAPSHOT_UNRECORDED"
+  ],
+  "log": "/home/jon/openclaw-workspace/Neo-VM/spiral_out/outer_anchor10cov_s3_render.log"
+ },
+ {
+  "arm": "outer_baseline01",
+  "fg": 1789206.0,
+  "fail": [],
+  "warn": [
+   "LOG_NOT_FOUND",
+   "SCORER_SNAPSHOT_UNRECORDED"
+  ],
+  "log": null
+ },
+ {
+  "arm": "outer_boot090s1",
+  "fg": 1488420.0,
+  "fail": [],
+  "warn": [
+   "SCORER_SNAPSHOT_UNRECORDED"
+  ],
+  "log": "/home/jon/openclaw-workspace/Neo-VM/spiral_out/outer_boot090s1_render.log"
+ },
+ {
+  "arm": "outer_boot090s2",
+  "fg": 1768292.0,
+  "fail": [],
+  "warn": [
+   "SCORER_SNAPSHOT_UNRECORDED"
+  ],
+  "log": "/home/jon/openclaw-workspace/Neo-VM/spiral_out/outer_boot090s2_render.log"
+ },
+ {
+  "arm": "outer_boot090s3",
+  "fg": 1629476.0,
+  "fail": [],
+  "warn": [
+   "SCORER_SNAPSHOT_UNRECORDED"
+  ],
+  "log": "/home/jon/openclaw-workspace/Neo-VM/spiral_out/outer_boot090s3_render.log"
+ },
+ {
+  "arm": "outer_curbase_s1",
+  "fg": 2904520.0,
+  "fail": [],
+  "warn": [
+   "SCORER_SNAPSHOT_UNRECORDED"
+  ],
+  "log": "/home/jon/openclaw-workspace/Neo-VM/spiral_out/outer_curbase_s1_render.log"
+ },
+ {
+  "arm": "outer_curbase_s1rr",
+  "fg": 2946318.0,
+  "fail": [],
+  "warn": [
+   "SCORER_SNAPSHOT_UNRECORDED"
+  ],
+  "log": "/home/jon/openclaw-workspace/Neo-VM/spiral_out/outer_curbase_s1rr_render.log"
+ },
+ {
+  "arm": "outer_curbase_s2",
+  "fg": 2901177.0,
+  "fail": [],
+  "warn": [
+   "SCORER_SNAPSHOT_UNRECORDED"
+  ],
+  "log": "/home/jon/openclaw-workspace/Neo-VM/spiral_out/outer_curbase_s2_render.log"
+ },
+ {
+  "arm": "outer_curbase_s3",
+  "fg": 2841071.0,
+  "fail": [],
+  "warn": [
+   "SCORER_SNAPSHOT_UNRECORDED"
+  ],
+  "log": "/home/jon/openclaw-workspace/Neo-VM/spiral_out/outer_curbase_s3_render.log"
+ },
+ {
+  "arm": "outer_curbase_s4",
+  "fg": 3019583.0,
+  "fail": [],
+  "warn": [
+   "SCORER_SNAPSHOT_UNRECORDED"
+  ],
+  "log": "/home/jon/openclaw-workspace/Neo-VM/spiral_out/outer_curbase_s4_render.log"
+ },
+ {
+  "arm": "outer_curbase_s5",
+  "fg": 2992717.0,
+  "fail": [],
+  "warn": [
+   "SCORER_SNAPSHOT_UNRECORDED"
+  ],
+  "log": "/home/jon/openclaw-workspace/Neo-VM/spiral_out/outer_curbase_s5_render.log"
+ },
+ {
+  "arm": "outer_curbase_s6",
+  "fg": 3454937.0,
+  "fail": [],
+  "warn": [
+   "SCORER_SNAPSHOT_UNRECORDED"
+  ],
+  "log": "/home/jon/openclaw-workspace/Neo-VM/spiral_out/outer_curbase_s6_render.log"
+ },
+ {
+  "arm": "outer_curbase_s7",
+  "fg": 2974987.0,
+  "fail": [],
+  "warn": [
+   "SCORER_SNAPSHOT_UNRECORDED"
+  ],
+  "log": "/home/jon/openclaw-workspace/Neo-VM/spiral_out/outer_curbase_s7_render.log"
+ },
+ {
+  "arm": "outer_curbase_s8",
+  "fg": 2881173.0,
+  "fail": [],
+  "warn": [
+   "SCORER_SNAPSHOT_UNRECORDED"
+  ],
+  "log": "/home/jon/openclaw-workspace/Neo-VM/spiral_out/outer_curbase_s8_render.log"
+ },
+ {
+  "arm": "outer_curbase_s9",
+  "fg": 2818864.0,
+  "fail": [],
+  "warn": [
+   "SCORER_SNAPSHOT_UNRECORDED"
+  ],
+  "log": "/home/jon/openclaw-workspace/Neo-VM/spiral_out/outer_curbase_s9_render.log"
+ },
+ {
+  "arm": "outer_gap133",
+  "fg": 1591857.0,
+  "fail": [],
+  "warn": [
+   "SCORER_SNAPSHOT_UNRECORDED"
+  ],
+  "log": "/home/jon/openclaw-workspace/Neo-VM/spiral_out/outer_gap133_render.log"
+ },
+ {
+  "arm": "outer_gap133s2",
+  "fg": 1604683.0,
+  "fail": [],
+  "warn": [
+   "SCORER_SNAPSHOT_UNRECORDED"
+  ],
+  "log": "/home/jon/openclaw-workspace/Neo-VM/spiral_out/outer_gap133s2_render.log"
+ },
+ {
+  "arm": "outer_gap133s3",
+  "fg": 1448920.0,
+  "fail": [],
+  "warn": [
+   "SCORER_SNAPSHOT_UNRECORDED"
+  ],
+  "log": "/home/jon/openclaw-workspace/Neo-VM/spiral_out/outer_gap133s3_render.log"
+ },
+ {
+  "arm": "outer_gap133s4",
+  "fg": 1527554.0,
+  "fail": [],
+  "warn": [
+   "SCORER_SNAPSHOT_UNRECORDED"
+  ],
+  "log": "/home/jon/openclaw-workspace/Neo-VM/spiral_out/outer_gap133s4_render.log"
+ },
+ {
+  "arm": "outer_gap133s5",
+  "fg": 1554826.0,
+  "fail": [],
+  "warn": [
+   "SCORER_SNAPSHOT_UNRECORDED"
+  ],
+  "log": "/home/jon/openclaw-workspace/Neo-VM/spiral_out/outer_gap133s5_render.log"
+ },
+ {
+  "arm": "outer_gap133s6",
+  "fg": 1521735.0,
+  "fail": [],
+  "warn": [
+   "SCORER_SNAPSHOT_UNRECORDED"
+  ],
+  "log": "/home/jon/openclaw-workspace/Neo-VM/spiral_out/outer_gap133s6_render.log"
+ },
+ {
+  "arm": "outer_nosame_s1",
+  "fg": 1768918.0,
+  "fail": [],
+  "warn": [
+   "SCORER_SNAPSHOT_UNRECORDED"
+  ],
+  "log": "/home/jon/openclaw-workspace/Neo-VM/spiral_out/outer_nosame_s1_render.log"
+ },
+ {
+  "arm": "outer_nosame_s2",
+  "fg": 1618704.0,
+  "fail": [],
+  "warn": [
+   "SCORER_SNAPSHOT_UNRECORDED"
+  ],
+  "log": "/home/jon/openclaw-workspace/Neo-VM/spiral_out/outer_nosame_s2_render.log"
+ },
+ {
+  "arm": "outer_nosame_s3",
+  "fg": 1681542.0,
+  "fail": [],
+  "warn": [
+   "SCORER_SNAPSHOT_UNRECORDED"
+  ],
+  "log": "/home/jon/openclaw-workspace/Neo-VM/spiral_out/outer_nosame_s3_render.log"
+ },
+ {
+  "arm": "outer_nosamecur_s1",
+  "fg": 2893440.0,
+  "fail": [],
+  "warn": [
+   "SCORER_SNAPSHOT_UNRECORDED"
+  ],
+  "log": "/home/jon/openclaw-workspace/Neo-VM/spiral_out/outer_nosamecur_s1_render.log"
+ },
+ {
+  "arm": "outer_nosamecur_s2",
+  "fg": 2925553.0,
+  "fail": [],
+  "warn": [
+   "SCORER_SNAPSHOT_UNRECORDED"
+  ],
+  "log": "/home/jon/openclaw-workspace/Neo-VM/spiral_out/outer_nosamecur_s2_render.log"
+ },
+ {
+  "arm": "outer_nosamecur_s3",
+  "fg": 2852335.0,
+  "fail": [],
+  "warn": [
+   "SCORER_SNAPSHOT_UNRECORDED"
+  ],
+  "log": "/home/jon/openclaw-workspace/Neo-VM/spiral_out/outer_nosamecur_s3_render.log"
+ },
+ {
+  "arm": "outer_rand090s1",
+  "fg": 1564627.0,
+  "fail": [],
+  "warn": [
+   "SCORER_SNAPSHOT_UNRECORDED"
+  ],
+  "log": "/home/jon/openclaw-workspace/Neo-VM/spiral_out/outer_rand090s1_render.log"
+ },
+ {
+  "arm": "outer_rand090s2",
+  "fg": 1644149.0,
+  "fail": [],
+  "warn": [
+   "SCORER_SNAPSHOT_UNRECORDED"
+  ],
+  "log": "/home/jon/openclaw-workspace/Neo-VM/spiral_out/outer_rand090s2_render.log"
+ },
+ {
+  "arm": "outer_rand090s3",
+  "fg": 1718300.0,
+  "fail": [],
+  "warn": [
+   "SCORER_SNAPSHOT_UNRECORDED"
+  ],
+  "log": "/home/jon/openclaw-workspace/Neo-VM/spiral_out/outer_rand090s3_render.log"
+ },
+ {
+  "arm": "outer_seed02",
+  "fg": 1732741.0,
+  "fail": [],
+  "warn": [
+   "SCORER_SNAPSHOT_UNRECORDED"
+  ],
+  "log": "/home/jon/openclaw-workspace/Neo-VM/spiral_out/outer_seed02_render.log"
+ },
+ {
+  "arm": "outer_seed03",
+  "fg": 1620364.0,
+  "fail": [],
+  "warn": [
+   "SCORER_SNAPSHOT_UNRECORDED"
+  ],
+  "log": "/home/jon/openclaw-workspace/Neo-VM/spiral_out/outer_seed03_render.log"
+ },
+ {
+  "arm": "outer_seed04",
+  "fg": 1682825.0,
+  "fail": [],
+  "warn": [
+   "SCORER_SNAPSHOT_UNRECORDED"
+  ],
+  "log": "/home/jon/openclaw-workspace/Neo-VM/spiral_out/outer_seed04_render.log"
+ },
+ {
+  "arm": "outer_seed05",
+  "fg": 1658297.0,
+  "fail": [],
+  "warn": [
+   "SCORER_SNAPSHOT_UNRECORDED"
+  ],
+  "log": "/home/jon/openclaw-workspace/Neo-VM/spiral_out/outer_seed05_render.log"
+ },
+ {
+  "arm": "outer_seed06",
+  "fg": 1834470.0,
+  "fail": [],
+  "warn": [
+   "SCORER_SNAPSHOT_UNRECORDED"
+  ],
+  "log": "/home/jon/openclaw-workspace/Neo-VM/spiral_out/outer_seed06_render.log"
+ },
+ {
+  "arm": "outer_strip090s1",
+  "fg": 1757237.0,
+  "fail": [],
+  "warn": [
+   "SCORER_SNAPSHOT_UNRECORDED"
+  ],
+  "log": "/home/jon/openclaw-workspace/Neo-VM/spiral_out/outer_strip090s1_render.log"
+ },
+ {
+  "arm": "outer_strip090s2",
+  "fg": 1581728.0,
+  "fail": [],
+  "warn": [
+   "SCORER_SNAPSHOT_UNRECORDED"
+  ],
+  "log": "/home/jon/openclaw-workspace/Neo-VM/spiral_out/outer_strip090s2_render.log"
+ },
+ {
+  "arm": "outer_strip090s3",
+  "fg": 1740073.0,
+  "fail": [],
+  "warn": [
+   "SCORER_SNAPSHOT_UNRECORDED"
+  ],
+  "log": "/home/jon/openclaw-workspace/Neo-VM/spiral_out/outer_strip090s3_render.log"
+ },
+ {
+  "arm": "probe_innerprob",
+  "fg": 250940.0,
+  "fail": [],
+  "warn": [
+   "LOG_NOT_FOUND",
+   "SCORER_SNAPSHOT_UNRECORDED"
+  ],
+  "log": null
+ },
+ {
+  "arm": "radial_work_rad0",
+  "fg": 1698831.0,
+  "fail": [],
+  "warn": [
+   "LOG_NOT_FOUND",
+   "SCORER_SNAPSHOT_UNRECORDED"
+  ],
+  "log": null
+ },
+ {
+  "arm": "radial_work_rad0b",
+  "fg": 1750482.0,
+  "fail": [],
+  "warn": [
+   "LOG_NOT_FOUND",
+   "SCORER_SNAPSHOT_UNRECORDED"
+  ],
+  "log": null
+ },
+ {
+  "arm": "render_lasagna",
+  "fg": 240088.0,
+  "fail": [],
+  "warn": [
+   "LOG_NOT_FOUND",
+   "SCORER_SNAPSHOT_UNRECORDED"
+  ],
+  "log": null
+ },
+ {
+  "arm": "rpath_pin_a",
+  "fg": 3279548.0,
+  "fail": [],
+  "warn": [
+   "LOG_NOT_FOUND",
+   "SCORER_SNAPSHOT_UNRECORDED"
+  ],
+  "log": null
+ },
+ {
+  "arm": "rpath_up_a",
+  "fg": 3279537.0,
+  "fail": [],
+  "warn": [
+   "LOG_NOT_FOUND"
+  ],
+  "log": null
+ },
+ {
+  "arm": "rpath_up_b",
+  "fg": 3279545.0,
+  "fail": [],
+  "warn": [
+   "LOG_NOT_FOUND"
+  ],
+  "log": null
+ },
+ {
+  "arm": "rs_t005",
+  "fg": 1731672.0,
+  "fail": [],
+  "warn": [
+   "SCORER_SNAPSHOT_UNRECORDED"
+  ],
+  "log": "/home/jon/openclaw-workspace/Neo-VM/spiral_out/rs_t005.render.log"
+ },
+ {
+  "arm": "rs_t05",
+  "fg": 1731365.0,
+  "fail": [],
+  "warn": [
+   "SCORER_SNAPSHOT_UNRECORDED"
+  ],
+  "log": "/home/jon/openclaw-workspace/Neo-VM/spiral_out/rs_t05.render.log"
+ },
+ {
+  "arm": "seedarm_03",
+  "fg": 221576.0,
+  "fail": [],
+  "warn": [
+   "LOG_NOT_FOUND",
+   "SCORER_SNAPSHOT_UNRECORDED"
+  ],
+  "log": null
+ },
+ {
+  "arm": "seedarm_04",
+  "fg": 250936.0,
+  "fail": [],
+  "warn": [
+   "LOG_NOT_FOUND",
+   "SCORER_SNAPSHOT_UNRECORDED"
+  ],
+  "log": null
+ },
+ {
+  "arm": "seedarm_densespace0",
+  "fg": 205455.0,
+  "fail": [],
+  "warn": [
+   "LOG_NOT_FOUND",
+   "SCORER_SNAPSHOT_UNRECORDED"
+  ],
+  "log": null
+ },
+ {
+  "arm": "seedarm_gap133",
+  "fg": 249913.0,
+  "fail": [],
+  "warn": [
+   "LOG_NOT_FOUND",
+   "SCORER_SNAPSHOT_UNRECORDED"
+  ],
+  "log": null
+ },
+ {
+  "arm": "seedarm_gap133s2",
+  "fg": 214923.0,
+  "fail": [],
+  "warn": [
+   "LOG_NOT_FOUND",
+   "SCORER_SNAPSHOT_UNRECORDED"
+  ],
+  "log": null
+ },
+ {
+  "arm": "seedarm_margin0",
+  "fg": 248365.0,
+  "fail": [],
+  "warn": [
+   "LOG_NOT_FOUND",
+   "SCORER_SNAPSHOT_UNRECORDED"
+  ],
+  "log": null
+ },
+ {
+  "arm": "seedarm_minspace0",
+  "fg": 242128.0,
+  "fail": [],
+  "warn": [
+   "LOG_NOT_FOUND",
+   "SCORER_SNAPSHOT_UNRECORDED"
+  ],
+  "log": null
+ },
+ {
+  "arm": "smp_pub",
+  "fg": 3279557.0,
+  "fail": [
+   "STALE_SLICES"
+  ],
+  "warn": [
+   "SCORER_SNAPSHOT_UNRECORDED"
+  ],
+  "log": "/home/jon/openclaw-workspace/Neo-VM/spiral_out/smp_pub.render.log"
+ },
+ {
+  "arm": "sp_half",
+  "fg": 1689992.0,
+  "fail": [],
+  "warn": [
+   "LOG_NOT_FOUND",
+   "SCORER_SNAPSHOT_UNRECORDED"
+  ],
+  "log": null
+ },
+ {
+  "arm": "step2_s4",
+  "fg": 3368620.0,
+  "fail": [],
+  "warn": [
+   "SCORER_SNAPSHOT_UNRECORDED"
+  ],
+  "log": "/home/jon/openclaw-workspace/Neo-VM/spiral_out/step2_s4.render.log"
+ },
+ {
+  "arm": "step2_s5",
+  "fg": 3236196.0,
+  "fail": [],
+  "warn": [
+   "SCORER_SNAPSHOT_UNRECORDED"
+  ],
+  "log": "/home/jon/openclaw-workspace/Neo-VM/spiral_out/step2_s5.render.log"
+ },
+ {
+  "arm": "step2_s6",
+  "fg": 3761359.0,
+  "fail": [],
+  "warn": [
+   "SCORER_SNAPSHOT_UNRECORDED"
+  ],
+  "log": "/home/jon/openclaw-workspace/Neo-VM/spiral_out/step2_s6.render.log"
+ },
+ {
+  "arm": "stx_d0a",
+  "fg": 1698796.0,
+  "fail": [],
+  "warn": [
+   "LOG_NOT_FOUND",
+   "SCORER_SNAPSHOT_UNRECORDED"
+  ],
+  "log": null
+ },
+ {
+  "arm": "stx_d0b",
+  "fg": 1698815.0,
+  "fail": [],
+  "warn": [
+   "LOG_NOT_FOUND",
+   "SCORER_SNAPSHOT_UNRECORDED"
+  ],
+  "log": null
+ },
+ {
+  "arm": "stx_x1",
+  "fg": 1698809.0,
+  "fail": [],
+  "warn": [
+   "LOG_NOT_FOUND",
+   "SCORER_SNAPSHOT_UNRECORDED"
+  ],
+  "log": null
+ },
+ {
+  "arm": "stx_x2",
+  "fg": 1698842.0,
+  "fail": [],
+  "warn": [
+   "LOG_NOT_FOUND",
+   "SCORER_SNAPSHOT_UNRECORDED"
+  ],
+  "log": null
+ },
+ {
+  "arm": "stx_x512",
+  "fg": 1698813.0,
+  "fail": [],
+  "warn": [
+   "LOG_NOT_FOUND",
+   "SCORER_SNAPSHOT_UNRECORDED"
+  ],
+  "log": null
+ },
+ {
+  "arm": "stx_x64",
+  "fg": 1698828.0,
+  "fail": [],
+  "warn": [
+   "LOG_NOT_FOUND",
+   "SCORER_SNAPSHOT_UNRECORDED"
+  ],
+  "log": null
+ },
+ {
+  "arm": "stx_x8",
+  "fg": 1698814.0,
+  "fail": [],
+  "warn": [
+   "LOG_NOT_FOUND",
+   "SCORER_SNAPSHOT_UNRECORDED"
+  ],
+  "log": null
+ },
+ {
+  "arm": "stx_y1",
+  "fg": 1698787.0,
+  "fail": [],
+  "warn": [
+   "LOG_NOT_FOUND",
+   "SCORER_SNAPSHOT_UNRECORDED"
+  ],
+  "log": null
+ },
+ {
+  "arm": "stx_y64",
+  "fg": 1698833.0,
+  "fail": [],
+  "warn": [
+   "LOG_NOT_FOUND",
+   "SCORER_SNAPSHOT_UNRECORDED"
+  ],
+  "log": null
+ },
+ {
+  "arm": "stx_y8",
+  "fg": 1698811.0,
+  "fail": [],
+  "warn": [
+   "LOG_NOT_FOUND",
+   "SCORER_SNAPSHOT_UNRECORDED"
+  ],
+  "log": null
+ },
+ {
+  "arm": "tif_score_pr1905",
+  "fg": 3453819.0,
+  "fail": [
+   "STALE_SLICES"
+  ],
+  "warn": [
+   "SCORER_SNAPSHOT_UNRECORDED"
+  ],
+  "log": "/home/jon/openclaw-workspace/Neo-VM/spiral_out/tif_score_pr1905.render.log"
+ }
+]
