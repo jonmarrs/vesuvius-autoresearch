@@ -44,7 +44,7 @@ def gates(tag, control_area):
         bad.append("no sequence log, so stale-slice/zero-strip checks could not run")
     m = json.loads((d / "ink_metric" / "metrics.json").read_text())["summary"]
     area = m["total_pixels"]
-    if abs(area / control_area - 1) > 0.05:
+    if abs(area / control_area - 1) > 0.10:  # amended 2026-09-28 before data: was 0.05
         bad.append(f"strip area {area:,} is {area / control_area - 1:+.1%} from the control mean")
     return bad
 

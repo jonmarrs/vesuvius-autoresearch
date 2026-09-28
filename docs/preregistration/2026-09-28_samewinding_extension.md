@@ -30,7 +30,7 @@ the stock stochastic flatten, as for every arm compared here.
 1. `VILLA_SHA` equals `be09a85035059fd83471b1632b5898c62f2c65b1`.
 2. `inkdelta check`, run against the arm's sequence log, reports no FAIL: no stale slices, no all-zero
    strip, no zero score.
-3. Strip area (`total_pixels`) is within ±5% of the `curbase_s4-s9` mean.
+3. Strip area (`total_pixels`) is within ±5% of the `curbase_s4-s9` mean *(amended to ±10%, see below)*.
 
 ## Analysis (inkdelta 0.3.0, `--cv 0.0536` as floor, alpha 0.05)
 
@@ -62,6 +62,17 @@ design can give, and it holds only if the replicates are no noisier than the flo
 It answers for one ROI, one dataset and w120–w129. `total_fg_pixels` is a count, not legibility. The
 control and ablated arms were fitted days apart on the same code, and they are rendered on the same
 render tree only for the 19 files checked plus the pin.
+
+## Amendment, 2026-09-28 ~14:30 PDT, before any new arm was rendered or scored
+
+**Gate 3 widened from ±5% to ±10%.** The existing strip areas were checked (all already published):
+the 15 current-tier arms span **−4.0% to +2.3%** of the `curbase_s4-s9` mean, and `nosamecur_s2`
+sits at −3.96%. A ±5% gate would false-fail an ordinary ablated fit a few percent of the time. The
+remedy it registered, re-rendering, cannot fix that, because strip area is set by the fit (a
+re-render moves it ~0.6%, `reports/rerender_test_verdict.md`). The gate exists to catch gross render
+errors: a wrong winding range, or a blank or truncated strip. ±10% catches those and sits at more
+than twice the observed range. Gates 1 and 2 are unchanged. The first fit was still running when this
+was written, and no new arm had been rendered.
 
 ## Cost
 
