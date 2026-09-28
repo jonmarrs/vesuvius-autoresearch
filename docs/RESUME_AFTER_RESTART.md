@@ -2,6 +2,15 @@
 
 ## CURRENT STATE, 2026-09-28 — read this first
 
+* **RUNNING since 2026-09-28 13:49 PDT, detached:** the same-winding extension
+  (`docs/preregistration/2026-09-28_samewinding_extension.md`, committed 2a3db396 before the first
+  fit). `run_arm_sequence.sh` fits, renders and scores `nosamecur_s4`, `s5` and `s6`, with
+  `VILLA_REF=be09a8503`. Log: `spiral_out/samewinding_ext_chain.log`. It takes ~18 h, and the chain
+  resumes if restarted with the same command. When `SEQUENCE DONE` appears, run
+  `python3 scripts/analyse_samewinding_extension.py`. It applies the gates, and a failing arm is
+  re-rendered, not dropped.
+* **inkdelta 0.3.0** (d5e6e0f) is released: a measured `--cv` floors the Welch interval.
+
 * **B tomorrow (2026-09-29 or later):** the draft is ready and pre-checked. The duplicate search was
   clean on 09-28, and `pip install git+…` was tested. Re-run the search on the day, read the live
   Segmentation → Tools section, then open the PR. No AI markers. A maintainer has 14 days before the
