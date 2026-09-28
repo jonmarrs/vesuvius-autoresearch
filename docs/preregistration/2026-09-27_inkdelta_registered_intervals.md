@@ -47,3 +47,12 @@ published image, and a mismatch is not what is being tested here.
 ## Cost
 
 Seconds on CPU.
+
+## Amendment, 2026-09-27, after the run (the table above is not edited)
+
+Case 3 failed as registered: +3.95% [−13.65%, +21.55%] against the required −3.80% [−20.73%, +13.14%],
+same df. **The table's direction for case 3 is wrong, not the tool.** `scripts/analyse_stripmatch.py`
+calls `welch(strip, boot)`, so its rel is (BOOTSTRAP − STRIPMATCH) / STRIPMATCH; I transcribed A and
+B the other way round. Run post-hoc with the registered direction, inkdelta reproduces
+−3.80% [−20.73%, +13.14%], df 3.56 exactly. Reported as 5/6 registered plus 1 post-hoc in
+`reports/inkdelta_registered_intervals.md`.

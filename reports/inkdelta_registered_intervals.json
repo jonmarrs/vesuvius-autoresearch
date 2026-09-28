@@ -1,0 +1,471 @@
+{
+ "inkdelta_src": "/home/jon/openclaw-workspace/Neo-VM/projects/inkdelta/src",
+ "cases": [
+  {
+   "case": "1_gap_expander",
+   "pass": true,
+   "required": {
+    "verdict": "RESOLVED (-)",
+    "interval": [
+     -0.1035,
+     -0.1568,
+     -0.0503
+    ],
+    "df": 8.89
+   },
+   "a": [
+    "baseline01",
+    "seed02",
+    "seed03",
+    "seed04",
+    "seed05",
+    "seed06"
+   ],
+   "b": [
+    "gap133",
+    "gap133s2",
+    "gap133s3",
+    "gap133s4",
+    "gap133s5",
+    "gap133s6"
+   ],
+   "result": {
+    "verdict": "RESOLVED (-)",
+    "detail": "-10.35%, 95% interval [-15.68%, -5.03%] (welch)",
+    "interval": {
+     "rel": -0.10354119436866197,
+     "lo": -0.15682193833075375,
+     "hi": -0.05026045040657019,
+     "df": 8.891883435183955,
+     "method": "welch"
+    },
+    "findings": [
+     {
+      "level": "WARN",
+      "code": "LOG_NOT_FOUND",
+      "detail": "A /home/jon/openclaw-workspace/Neo-VM/spiral_out/outer_baseline01: render log not found; stale-slice and zero-strip checks were NOT run (pass --log)"
+     },
+     {
+      "level": "WARN",
+      "code": "SCORER_SNAPSHOT_UNRECORDED",
+      "detail": "A /home/jon/openclaw-workspace/Neo-VM/spiral_out/outer_baseline01: metrics.json has no model_dir, so the scoring model snapshot is unknown (villa #1805, 2026-09-15, records it)"
+     },
+     {
+      "level": "WARN",
+      "code": "SCORER_SNAPSHOT_UNRECORDED",
+      "detail": "A /home/jon/openclaw-workspace/Neo-VM/spiral_out/outer_seed02: metrics.json has no model_dir, so the scoring model snapshot is unknown (villa #1805, 2026-09-15, records it)"
+     },
+     {
+      "level": "WARN",
+      "code": "SCORER_SNAPSHOT_UNRECORDED",
+      "detail": "A /home/jon/openclaw-workspace/Neo-VM/spiral_out/outer_seed03: metrics.json has no model_dir, so the scoring model snapshot is unknown (villa #1805, 2026-09-15, records it)"
+     },
+     {
+      "level": "WARN",
+      "code": "SCORER_SNAPSHOT_UNRECORDED",
+      "detail": "A /home/jon/openclaw-workspace/Neo-VM/spiral_out/outer_seed04: metrics.json has no model_dir, so the scoring model snapshot is unknown (villa #1805, 2026-09-15, records it)"
+     },
+     {
+      "level": "WARN",
+      "code": "SCORER_SNAPSHOT_UNRECORDED",
+      "detail": "A /home/jon/openclaw-workspace/Neo-VM/spiral_out/outer_seed05: metrics.json has no model_dir, so the scoring model snapshot is unknown (villa #1805, 2026-09-15, records it)"
+     },
+     {
+      "level": "WARN",
+      "code": "SCORER_SNAPSHOT_UNRECORDED",
+      "detail": "A /home/jon/openclaw-workspace/Neo-VM/spiral_out/outer_seed06: metrics.json has no model_dir, so the scoring model snapshot is unknown (villa #1805, 2026-09-15, records it)"
+     },
+     {
+      "level": "WARN",
+      "code": "SCORER_SNAPSHOT_UNRECORDED",
+      "detail": "B /home/jon/openclaw-workspace/Neo-VM/spiral_out/outer_gap133: metrics.json has no model_dir, so the scoring model snapshot is unknown (villa #1805, 2026-09-15, records it)"
+     },
+     {
+      "level": "WARN",
+      "code": "SCORER_SNAPSHOT_UNRECORDED",
+      "detail": "B /home/jon/openclaw-workspace/Neo-VM/spiral_out/outer_gap133s2: metrics.json has no model_dir, so the scoring model snapshot is unknown (villa #1805, 2026-09-15, records it)"
+     },
+     {
+      "level": "WARN",
+      "code": "SCORER_SNAPSHOT_UNRECORDED",
+      "detail": "B /home/jon/openclaw-workspace/Neo-VM/spiral_out/outer_gap133s3: metrics.json has no model_dir, so the scoring model snapshot is unknown (villa #1805, 2026-09-15, records it)"
+     },
+     {
+      "level": "WARN",
+      "code": "SCORER_SNAPSHOT_UNRECORDED",
+      "detail": "B /home/jon/openclaw-workspace/Neo-VM/spiral_out/outer_gap133s4: metrics.json has no model_dir, so the scoring model snapshot is unknown (villa #1805, 2026-09-15, records it)"
+     },
+     {
+      "level": "WARN",
+      "code": "SCORER_SNAPSHOT_UNRECORDED",
+      "detail": "B /home/jon/openclaw-workspace/Neo-VM/spiral_out/outer_gap133s5: metrics.json has no model_dir, so the scoring model snapshot is unknown (villa #1805, 2026-09-15, records it)"
+     },
+     {
+      "level": "WARN",
+      "code": "SCORER_SNAPSHOT_UNRECORDED",
+      "detail": "B /home/jon/openclaw-workspace/Neo-VM/spiral_out/outer_gap133s6: metrics.json has no model_dir, so the scoring model snapshot is unknown (villa #1805, 2026-09-15, records it)"
+     }
+    ],
+    "seed_rule_null_rate": null
+   }
+  },
+  {
+   "case": "2_patch_bootstrap",
+   "pass": true,
+   "required": {
+    "verdict": "NOT RESOLVED",
+    "interval": [
+     -0.0083,
+     -0.1835,
+     0.1669
+    ],
+    "df": 3.11
+   },
+   "a": [
+    "rand090s1",
+    "rand090s2",
+    "rand090s3"
+   ],
+   "b": [
+    "boot090s1",
+    "boot090s2",
+    "boot090s3"
+   ],
+   "result": {
+    "verdict": "NOT RESOLVED",
+    "detail": "-0.83%, 95% interval [-18.35%, +16.69%] (welch)",
+    "interval": {
+     "rel": -0.008298633915937255,
+     "lo": -0.1835146216031427,
+     "hi": 0.1669173537712682,
+     "df": 3.1058388373631747,
+     "method": "welch"
+    },
+    "findings": [
+     {
+      "level": "WARN",
+      "code": "SCORER_SNAPSHOT_UNRECORDED",
+      "detail": "A /home/jon/openclaw-workspace/Neo-VM/spiral_out/outer_rand090s1: metrics.json has no model_dir, so the scoring model snapshot is unknown (villa #1805, 2026-09-15, records it)"
+     },
+     {
+      "level": "WARN",
+      "code": "SCORER_SNAPSHOT_UNRECORDED",
+      "detail": "A /home/jon/openclaw-workspace/Neo-VM/spiral_out/outer_rand090s2: metrics.json has no model_dir, so the scoring model snapshot is unknown (villa #1805, 2026-09-15, records it)"
+     },
+     {
+      "level": "WARN",
+      "code": "SCORER_SNAPSHOT_UNRECORDED",
+      "detail": "A /home/jon/openclaw-workspace/Neo-VM/spiral_out/outer_rand090s3: metrics.json has no model_dir, so the scoring model snapshot is unknown (villa #1805, 2026-09-15, records it)"
+     },
+     {
+      "level": "WARN",
+      "code": "SCORER_SNAPSHOT_UNRECORDED",
+      "detail": "B /home/jon/openclaw-workspace/Neo-VM/spiral_out/outer_boot090s1: metrics.json has no model_dir, so the scoring model snapshot is unknown (villa #1805, 2026-09-15, records it)"
+     },
+     {
+      "level": "WARN",
+      "code": "SCORER_SNAPSHOT_UNRECORDED",
+      "detail": "B /home/jon/openclaw-workspace/Neo-VM/spiral_out/outer_boot090s2: metrics.json has no model_dir, so the scoring model snapshot is unknown (villa #1805, 2026-09-15, records it)"
+     },
+     {
+      "level": "WARN",
+      "code": "SCORER_SNAPSHOT_UNRECORDED",
+      "detail": "B /home/jon/openclaw-workspace/Neo-VM/spiral_out/outer_boot090s3: metrics.json has no model_dir, so the scoring model snapshot is unknown (villa #1805, 2026-09-15, records it)"
+     }
+    ],
+    "seed_rule_null_rate": null
+   }
+  },
+  {
+   "case": "3_stripmatch",
+   "pass": false,
+   "required": {
+    "verdict": "NOT RESOLVED",
+    "interval": [
+     -0.038,
+     -0.2073,
+     0.1314
+    ],
+    "df": 3.56
+   },
+   "a": [
+    "boot090s1",
+    "boot090s2",
+    "boot090s3"
+   ],
+   "b": [
+    "strip090s1",
+    "strip090s2",
+    "strip090s3"
+   ],
+   "result": {
+    "verdict": "NOT RESOLVED",
+    "detail": "+3.95%, 95% interval [-13.65%, +21.55%] (welch)",
+    "interval": {
+     "rel": 0.03946839540353349,
+     "lo": -0.1365367049643915,
+     "hi": 0.21547349577145847,
+     "df": 3.556538347166757,
+     "method": "welch"
+    },
+    "findings": [
+     {
+      "level": "WARN",
+      "code": "SCORER_SNAPSHOT_UNRECORDED",
+      "detail": "A /home/jon/openclaw-workspace/Neo-VM/spiral_out/outer_boot090s1: metrics.json has no model_dir, so the scoring model snapshot is unknown (villa #1805, 2026-09-15, records it)"
+     },
+     {
+      "level": "WARN",
+      "code": "SCORER_SNAPSHOT_UNRECORDED",
+      "detail": "A /home/jon/openclaw-workspace/Neo-VM/spiral_out/outer_boot090s2: metrics.json has no model_dir, so the scoring model snapshot is unknown (villa #1805, 2026-09-15, records it)"
+     },
+     {
+      "level": "WARN",
+      "code": "SCORER_SNAPSHOT_UNRECORDED",
+      "detail": "A /home/jon/openclaw-workspace/Neo-VM/spiral_out/outer_boot090s3: metrics.json has no model_dir, so the scoring model snapshot is unknown (villa #1805, 2026-09-15, records it)"
+     },
+     {
+      "level": "WARN",
+      "code": "SCORER_SNAPSHOT_UNRECORDED",
+      "detail": "B /home/jon/openclaw-workspace/Neo-VM/spiral_out/outer_strip090s1: metrics.json has no model_dir, so the scoring model snapshot is unknown (villa #1805, 2026-09-15, records it)"
+     },
+     {
+      "level": "WARN",
+      "code": "SCORER_SNAPSHOT_UNRECORDED",
+      "detail": "B /home/jon/openclaw-workspace/Neo-VM/spiral_out/outer_strip090s2: metrics.json has no model_dir, so the scoring model snapshot is unknown (villa #1805, 2026-09-15, records it)"
+     },
+     {
+      "level": "WARN",
+      "code": "SCORER_SNAPSHOT_UNRECORDED",
+      "detail": "B /home/jon/openclaw-workspace/Neo-VM/spiral_out/outer_strip090s3: metrics.json has no model_dir, so the scoring model snapshot is unknown (villa #1805, 2026-09-15, records it)"
+     }
+    ],
+    "seed_rule_null_rate": null
+   }
+  },
+  {
+   "case": "4_samewinding_pinned",
+   "pass": true,
+   "required": {
+    "verdict": "NOT RESOLVED",
+    "interval": [
+     -0.0174,
+     -0.1027,
+     0.0679
+    ],
+    "df": 4.41
+   },
+   "a": [
+    "baseline01",
+    "seed02",
+    "seed03",
+    "seed04",
+    "seed05",
+    "seed06"
+   ],
+   "b": [
+    "nosame_s1",
+    "nosame_s2",
+    "nosame_s3"
+   ],
+   "result": {
+    "verdict": "NOT RESOLVED",
+    "detail": "-1.74%, 95% interval [-10.27%, +6.79%] (welch)",
+    "interval": {
+     "rel": -0.017404214790544208,
+     "lo": -0.10271658341606878,
+     "hi": 0.06790815383498036,
+     "df": 4.4113610488482555,
+     "method": "welch"
+    },
+    "findings": [
+     {
+      "level": "WARN",
+      "code": "LOG_NOT_FOUND",
+      "detail": "A /home/jon/openclaw-workspace/Neo-VM/spiral_out/outer_baseline01: render log not found; stale-slice and zero-strip checks were NOT run (pass --log)"
+     },
+     {
+      "level": "WARN",
+      "code": "SCORER_SNAPSHOT_UNRECORDED",
+      "detail": "A /home/jon/openclaw-workspace/Neo-VM/spiral_out/outer_baseline01: metrics.json has no model_dir, so the scoring model snapshot is unknown (villa #1805, 2026-09-15, records it)"
+     },
+     {
+      "level": "WARN",
+      "code": "SCORER_SNAPSHOT_UNRECORDED",
+      "detail": "A /home/jon/openclaw-workspace/Neo-VM/spiral_out/outer_seed02: metrics.json has no model_dir, so the scoring model snapshot is unknown (villa #1805, 2026-09-15, records it)"
+     },
+     {
+      "level": "WARN",
+      "code": "SCORER_SNAPSHOT_UNRECORDED",
+      "detail": "A /home/jon/openclaw-workspace/Neo-VM/spiral_out/outer_seed03: metrics.json has no model_dir, so the scoring model snapshot is unknown (villa #1805, 2026-09-15, records it)"
+     },
+     {
+      "level": "WARN",
+      "code": "SCORER_SNAPSHOT_UNRECORDED",
+      "detail": "A /home/jon/openclaw-workspace/Neo-VM/spiral_out/outer_seed04: metrics.json has no model_dir, so the scoring model snapshot is unknown (villa #1805, 2026-09-15, records it)"
+     },
+     {
+      "level": "WARN",
+      "code": "SCORER_SNAPSHOT_UNRECORDED",
+      "detail": "A /home/jon/openclaw-workspace/Neo-VM/spiral_out/outer_seed05: metrics.json has no model_dir, so the scoring model snapshot is unknown (villa #1805, 2026-09-15, records it)"
+     },
+     {
+      "level": "WARN",
+      "code": "SCORER_SNAPSHOT_UNRECORDED",
+      "detail": "A /home/jon/openclaw-workspace/Neo-VM/spiral_out/outer_seed06: metrics.json has no model_dir, so the scoring model snapshot is unknown (villa #1805, 2026-09-15, records it)"
+     },
+     {
+      "level": "WARN",
+      "code": "SCORER_SNAPSHOT_UNRECORDED",
+      "detail": "B /home/jon/openclaw-workspace/Neo-VM/spiral_out/outer_nosame_s1: metrics.json has no model_dir, so the scoring model snapshot is unknown (villa #1805, 2026-09-15, records it)"
+     },
+     {
+      "level": "WARN",
+      "code": "SCORER_SNAPSHOT_UNRECORDED",
+      "detail": "B /home/jon/openclaw-workspace/Neo-VM/spiral_out/outer_nosame_s2: metrics.json has no model_dir, so the scoring model snapshot is unknown (villa #1805, 2026-09-15, records it)"
+     },
+     {
+      "level": "WARN",
+      "code": "SCORER_SNAPSHOT_UNRECORDED",
+      "detail": "B /home/jon/openclaw-workspace/Neo-VM/spiral_out/outer_nosame_s3: metrics.json has no model_dir, so the scoring model snapshot is unknown (villa #1805, 2026-09-15, records it)"
+     }
+    ],
+    "seed_rule_null_rate": null
+   }
+  },
+  {
+   "case": "5_samewinding_current",
+   "pass": true,
+   "required": {
+    "verdict": "NOT RESOLVED",
+    "interval": [
+     0.0028,
+     -0.0256,
+     0.0313
+    ],
+    "df": 4.0
+   },
+   "a": [
+    "curbase_s1",
+    "curbase_s2",
+    "curbase_s3"
+   ],
+   "b": [
+    "nosamecur_s1",
+    "nosamecur_s2",
+    "nosamecur_s3"
+   ],
+   "result": {
+    "verdict": "NOT RESOLVED",
+    "detail": "+0.28%, 95% interval [-2.56%, +3.13%] (welch)",
+    "interval": {
+     "rel": 0.002840367637942817,
+     "lo": -0.025645766141420653,
+     "hi": 0.031326501417306286,
+     "df": 3.9969850352796628,
+     "method": "welch"
+    },
+    "findings": [
+     {
+      "level": "WARN",
+      "code": "SCORER_SNAPSHOT_UNRECORDED",
+      "detail": "A /home/jon/openclaw-workspace/Neo-VM/spiral_out/outer_curbase_s1: metrics.json has no model_dir, so the scoring model snapshot is unknown (villa #1805, 2026-09-15, records it)"
+     },
+     {
+      "level": "WARN",
+      "code": "SCORER_SNAPSHOT_UNRECORDED",
+      "detail": "A /home/jon/openclaw-workspace/Neo-VM/spiral_out/outer_curbase_s2: metrics.json has no model_dir, so the scoring model snapshot is unknown (villa #1805, 2026-09-15, records it)"
+     },
+     {
+      "level": "WARN",
+      "code": "SCORER_SNAPSHOT_UNRECORDED",
+      "detail": "A /home/jon/openclaw-workspace/Neo-VM/spiral_out/outer_curbase_s3: metrics.json has no model_dir, so the scoring model snapshot is unknown (villa #1805, 2026-09-15, records it)"
+     },
+     {
+      "level": "WARN",
+      "code": "SCORER_SNAPSHOT_UNRECORDED",
+      "detail": "B /home/jon/openclaw-workspace/Neo-VM/spiral_out/outer_nosamecur_s1: metrics.json has no model_dir, so the scoring model snapshot is unknown (villa #1805, 2026-09-15, records it)"
+     },
+     {
+      "level": "WARN",
+      "code": "SCORER_SNAPSHOT_UNRECORDED",
+      "detail": "B /home/jon/openclaw-workspace/Neo-VM/spiral_out/outer_nosamecur_s2: metrics.json has no model_dir, so the scoring model snapshot is unknown (villa #1805, 2026-09-15, records it)"
+     },
+     {
+      "level": "WARN",
+      "code": "SCORER_SNAPSHOT_UNRECORDED",
+      "detail": "B /home/jon/openclaw-workspace/Neo-VM/spiral_out/outer_nosamecur_s3: metrics.json has no model_dir, so the scoring model snapshot is unknown (villa #1805, 2026-09-15, records it)"
+     }
+    ],
+    "seed_rule_null_rate": null
+   }
+  },
+  {
+   "case": "6_anchor_ablation",
+   "pass": true,
+   "required": {
+    "verdict": "NOT RESOLVED",
+    "interval": [
+     -0.0086,
+     -0.1021,
+     0.085
+    ],
+    "df": 2.35
+   },
+   "a": [
+    "curbase_s1",
+    "curbase_s2",
+    "curbase_s3"
+   ],
+   "b": [
+    "anchor10cov_pilot",
+    "anchor10cov_s2",
+    "anchor10cov_s3"
+   ],
+   "result": {
+    "verdict": "NOT RESOLVED",
+    "detail": "-0.86%, 95% interval [-10.21%, +8.50%] (welch)",
+    "interval": {
+     "rel": -0.008564587369523556,
+     "lo": -0.10213286598259291,
+     "hi": 0.08500369124354579,
+     "df": 2.353119152205052,
+     "method": "welch"
+    },
+    "findings": [
+     {
+      "level": "WARN",
+      "code": "SCORER_SNAPSHOT_UNRECORDED",
+      "detail": "A /home/jon/openclaw-workspace/Neo-VM/spiral_out/outer_curbase_s1: metrics.json has no model_dir, so the scoring model snapshot is unknown (villa #1805, 2026-09-15, records it)"
+     },
+     {
+      "level": "WARN",
+      "code": "SCORER_SNAPSHOT_UNRECORDED",
+      "detail": "A /home/jon/openclaw-workspace/Neo-VM/spiral_out/outer_curbase_s2: metrics.json has no model_dir, so the scoring model snapshot is unknown (villa #1805, 2026-09-15, records it)"
+     },
+     {
+      "level": "WARN",
+      "code": "SCORER_SNAPSHOT_UNRECORDED",
+      "detail": "A /home/jon/openclaw-workspace/Neo-VM/spiral_out/outer_curbase_s3: metrics.json has no model_dir, so the scoring model snapshot is unknown (villa #1805, 2026-09-15, records it)"
+     },
+     {
+      "level": "WARN",
+      "code": "SCORER_SNAPSHOT_UNRECORDED",
+      "detail": "B /home/jon/openclaw-workspace/Neo-VM/spiral_out/outer_anchor10cov_pilot: metrics.json has no model_dir, so the scoring model snapshot is unknown (villa #1805, 2026-09-15, records it)"
+     },
+     {
+      "level": "WARN",
+      "code": "SCORER_SNAPSHOT_UNRECORDED",
+      "detail": "B /home/jon/openclaw-workspace/Neo-VM/spiral_out/outer_anchor10cov_s2: metrics.json has no model_dir, so the scoring model snapshot is unknown (villa #1805, 2026-09-15, records it)"
+     },
+     {
+      "level": "WARN",
+      "code": "SCORER_SNAPSHOT_UNRECORDED",
+      "detail": "B /home/jon/openclaw-workspace/Neo-VM/spiral_out/outer_anchor10cov_s3: metrics.json has no model_dir, so the scoring model snapshot is unknown (villa #1805, 2026-09-15, records it)"
+     }
+    ],
+    "seed_rule_null_rate": null
+   }
+  }
+ ]
+}
