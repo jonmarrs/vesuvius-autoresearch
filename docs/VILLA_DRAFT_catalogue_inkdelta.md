@@ -29,7 +29,7 @@ Recent third-party listings (#1896, #1718) merged as plain one-entry PRs, so thi
 ## The entry (one bullet, `scrollprize.org/docs/20_community_projects.md`, Segmentation → Tools, after spiralcheck)
 
 ```markdown
-- [inkdelta](https://github.com/jonmarrs/inkdelta) by Jon Marrs. Checks whether a `total_fg_pixels` difference between `spiral-fitting` runs is real before the autoresearch loop keeps it. From the files a run already leaves, it refuses a score that re-used old slices (`all slices exist, skipping`) or rendered an all-zero strip, flags runs scored by different models or sampled by different `vc_render_tifxyz` builds, and reports the difference with an interval (Welch from seed replicates, or a CV you measure with `inkdelta noise`). Measured on PHercParis4: the published image and a post-#1146 source build differ by +5.0% to +9.2% on the same surface, and one run per side cannot resolve an effect that size. `pip install git+https://github.com/jonmarrs/inkdelta`, then `inkdelta compare --a out/*_base_s? --b out/*_change_s?`. Validated on six pre-registered known-answer cases and reproduces seven previously registered intervals exactly. Standard library only, MIT.
+- [inkdelta](https://github.com/jonmarrs/inkdelta) by Jon Marrs. Checks whether a `total_fg_pixels` difference between `spiral-fitting` runs is real before the autoresearch loop keeps it. From the files a run already leaves, it refuses a score that re-used old slices (`all slices exist, skipping`) or rendered an all-zero strip, flags runs scored by different models or sampled by different `vc_render_tifxyz` builds, and reports the difference with an interval: Welch from seed replicates, never narrower than the run-to-run CV you measure with `inkdelta noise` (three seeds can land tight by chance). Measured on PHercParis4: the published image and a post-#1146 source build differ by +5.0% to +9.2% on the same surface, and one run per side cannot resolve an effect that size. `pip install git+https://github.com/jonmarrs/inkdelta`, `inkdelta noise --group out/*_base_s?` to measure your CV, then `inkdelta compare --a out/*_base_s? --b out/*_change_s? --cv <that CV>`. Validated on six pre-registered known-answer cases and reproduces seven previously registered intervals exactly. Standard library only, MIT.
 ```
 
 ## PR title
@@ -48,7 +48,10 @@ Recent third-party listings (#1896, #1718) merged as plain one-entry PRs, so thi
 > - **Install route.** Since #1146, source builds step one level-g voxel along the normal, and the
 >   05-13 image steps one level-0 voxel. On four surfaces that moves `total_fg_pixels` +5.0% to +9.2%
 >   (reported on #1588).
-> - **Noise.** It reports an interval, not a win.
+> - **Noise.** It reports an interval, not a win, and never one narrower than your measured run-to-run
+>   CV allows. In our corpus three control seeds landed at CV 0.0124 against a floor of 0.0536, which
+>   made a ±9% null look like a ±3% one
+>   (https://github.com/jonmarrs/vesuvius-autoresearch/blob/main/reports/control_sensitivity.md).
 >
 > Validation: six known-answer cases from our corpus, registered before the tool ran on real data. It
 > reproduces a registered interval exactly and correctly calls a real +6.45% build effect unresolved
