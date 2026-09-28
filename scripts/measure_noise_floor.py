@@ -55,7 +55,11 @@ CURRENT_GROUPS = {
     # AFTER the 09-11 13:22 bump to be09a8503 (their script header still says
     # d8c5f488a -- it was copied from s1 and is stale, the directory dates are the
     # reliable record). Their means differ by 4.91%, so pooling them as one group
-    # would book a code difference as seed noise. Kept as two groups: the pooled
+    # would book a code difference as seed noise. (09-28: the split is the RENDER,
+    # measured inert; one group gives 0.0556 vs 0.0536, so this choice is
+    # immaterial -- reports/six_unused_seeds_double_the_current_floor.md. The
+    # "stale" d8c5f488a header was in fact RIGHT about the fit.)
+    # Kept as two groups: the pooled
     # WITHIN-group statistic is what the floor needs, and it takes both.
     "curbase_d8c5f488a": ("curbase_s1", "curbase_s2", "curbase_s3"),
     "curbase_be09a8503": (

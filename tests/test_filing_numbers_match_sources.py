@@ -63,11 +63,18 @@ def test_the_same_winding_effect_matches_the_artifact():
 
 
 def test_the_current_tier_cv_and_mde_match_the_noise_floor_artifact():
+    """Fixed 2026-09-28: the artifact had not been regenerated since the 09-19 nine-seed
+    re-measurement and still held the WITHDRAWN 0.0263. Only the draft was checked, and the draft
+    quotes 0.0263 beside its withdrawal, so the test passed while the submit text's 0.0536 was bound
+    to nothing. Now both texts, against the regenerated artifact."""
     n = _artifact("noise_floor_by_tier.json")["current"]
-    t = _text()
-    assert f"{n['cv']:.4f}" in t, f"filing must quote the current CV {n['cv']:.4f}"
+    assert n["n_fits"] == 15 and n["df"] == 11, (
+        "artifact is stale: regenerate measure_noise_floor.py"
+    )
     mde = 2.802 * n["cv"] * (2 / 3) ** 0.5
-    assert f"{mde:.0%}" in t, f"filing must quote the implied MDE {mde:.0%}"
+    for t in (_text(), _submit_text()):
+        assert f"{n['cv']:.4f}" in t, f"filing must quote the current CV {n['cv']:.4f}"
+        assert f"{mde:.0%}" in t, f"filing must quote the implied MDE {mde:.0%}"
 
 
 @pytest.mark.parametrize(
@@ -232,7 +239,11 @@ def test_the_inkdelta_claims_match_its_validation():
 def test_the_same_winding_control_sensitivity_matches_its_artifact():
     """Added 2026-09-27: the registered +0.28% [-2.56%, +3.13%] rests on three unusually tight
     control seeds. Both filings must carry the all-nine-seed interval beside it, from the artifact."""
-    e = _artifact("control_sensitivity.json")["effects"]["same-winding ablation (current)"]["all nine s1-s9"]
+    e = _artifact("control_sensitivity.json")["effects"][
+        "same-winding ablation (current)"
+    ]["all nine s1-s9"]
     for text in (_text(), _submit_text()):
         assert f"{e['rel']:+.2%}" in text, "all-nine same-winding estimate not quoted"
-        assert f"[{e['lo']:+.2%}, {e['hi']:+.2%}]" in text, "all-nine same-winding interval not quoted"
+        assert f"[{e['lo']:+.2%}, {e['hi']:+.2%}]" in text, (
+            "all-nine same-winding interval not quoted"
+        )

@@ -30,6 +30,15 @@ updated. The directory dates are the reliable record; no `VILLA_SHA` was written
 would book a code difference as seed noise. They are kept as two groups, and the pooled
 **within**-group statistic takes both.
 
+> **Corrected 2026-09-28.** The table above dates the *fit directories*, but every current-tier fit
+> ran from one unchanged `d8c5f488a` copy (`villa-spiral-current`). The split between s1-s3 and s4-s9
+> is at the **render** (`reports/control_sensitivity.md`), and it was measured inert on 09-14. Keeping
+> two groups is still the conservative choice. Counting the split as seed noise instead (s1-s9 as one
+> group) gives **0.0556 [0.0398, 0.0917], df 12**, against 0.0536 [0.0380, 0.0911], df 11, so the
+> floor does not depend on it. Both were reproduced independently with `inkdelta noise`. Also on
+> 09-28: `reports/noise_floor_by_tier.json` had never been regenerated after this report and still
+> held 0.0263. It is regenerated now, and the filing test checks its staleness.
+
 ## The floor
 
 | | arms | pooled CV | df | 95% CI | MDE at 3v3 |
