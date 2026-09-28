@@ -65,7 +65,10 @@ number here is the one that survived.
 such project in villa's catalogue leaves unmeasured. Removing 5,413 same-winding constraints:
 **+0.28%, CI [−2.56%, +3.13%]**. Cutting the hand-drawn absolute anchors from 50 to 10, the ones
 villa wants automated: **−0.86%, CI [−10.21%, +8.50%]** — ten read as well as fifty, though that
-interval is wide.
+interval is wide. Both rule out a *gain* from removing constraints. The loss side is sensitive to
+which baseline seeds are used: the three registered seeds agree unusually closely. Against all nine
+seeds of the same configuration, the same-winding result is **−2.89%, CI [−7.98%, +2.19%]**, so the
+constraints may be buying up to ~8% of reading.
 
 **We also ran the one community geometry evaluator against reading.** spiralcheck's intrinsic winding
 checks (pre-registered, on the same twelve current-villa fits) separate none of three constraint
@@ -109,6 +112,11 @@ leaves unmeasured, since they all validate on geometry.
 |---|---:|---|
 | 5,413 **same-winding** constraints | +0.28% | [−2.56%, +3.13%] |
 | 40 of 50 **absolute anchors** (hand-drawn) | −0.86% | [−10.21%, +8.50%] |
+
+*Added 2026-09-27:* both rows use the three registered baseline seeds (CV 0.0124, against 0.0644
+across all nine seeds of the configuration). Against all nine, same-winding is −2.89%
+[−7.98%, +2.19%] and anchors −4.00% [−11.79%, +3.80%]. Neither becomes significant, and neither
+admits a gain. The loss side is wider than the table shows (`reports/control_sensitivity.md`).
 
 The second is the one villa asks humans to draw and wants automated. **Ten anchors read as well as
 fifty** on this ROI — but that interval is wide, because the ablated arm turned out 3.4× noisier than

@@ -90,7 +90,10 @@ an alternative and refuted: at matched sparsity it is worse than random.
 such project in villa's catalogue leaves unmeasured. Removing 5,413 same-winding constraints:
 **+0.28%, CI [−2.56%, +3.13%]**. Cutting the hand-drawn absolute anchors from 50 to 10, the ones
 villa wants automated: **−0.86%, CI [−10.21%, +8.50%]** — ten read as well as fifty, though that
-interval is wide.
+interval is wide. Both rule out a *gain* from removing constraints. The loss side is sensitive to
+which baseline seeds are used: the three registered seeds agree unusually closely. Against all nine
+seeds of the same configuration, the same-winding result is **−2.89%, CI [−7.98%, +2.19%]**, so the
+constraints may be buying up to ~8% of reading.
 
 **We also ran the one community geometry evaluator against reading.** spiralcheck's intrinsic winding
 checks (pre-registered, on the same twelve current-villa fits) separate none of three constraint

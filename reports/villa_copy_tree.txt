@@ -1,0 +1,37 @@
+d8c5f488a..be09a8503: 16 commits, 125 files
+OLD      lasagna/cli_data.py
+OLD      lasagna/fit.py
+OLD      lasagna/fit_data.py
+OLD      lasagna/sparse_tensorstore_cache.py
+OLD      lasagna/tests/test_fit_data_manifest_lazy.py
+OLD      lasagna/tests/test_init_shell_index.py
+OLD      vesuvius/src/vesuvius/ink_detection/preprocessing/create_label_zarrs.py
+OLD      vesuvius/src/vesuvius/tifxyz/reader.py
+OLD      vesuvius/src/vesuvius/tifxyz/test_reader_bbox.py
+OLD      vesuvius/src/vesuvius/tifxyz_label_transfer/core.py
+OLD      vesuvius/src/vesuvius/tifxyz_label_transfer/docs/reference.md
+OLD      vesuvius/src/vesuvius/tifxyz_label_transfer/docs/theory.md
+OLD      vesuvius/src/vesuvius/tifxyz_label_transfer/estimate_canvas_offset.py
+OLD      vesuvius/src/vesuvius/tifxyz_label_transfer/native.py
+OLD      vesuvius/src/vesuvius/tifxyz_label_transfer/native_rasterizer.cpp
+OLD      vesuvius/src/vesuvius/tifxyz_label_transfer/planar.py
+OLD      vesuvius/src/vesuvius/tifxyz_label_transfer/transfer.py
+OLD      vesuvius/src/vesuvius/tifxyz_label_transfer/view_alignment_napari.py
+OLD      vesuvius/src/vesuvius/utils/io/zarr_utils.py
+{'OLD': 19}
+outer_anchor10cov_pilot      {'NEW': 19}  VILLA_SHA=-
+outer_anchor10cov_s2         {'NEW': 19}  VILLA_SHA=-
+outer_anchor10cov_s3         {'NEW': 19}  VILLA_SHA=-
+outer_curbase_s1             {'OLD': 19}  VILLA_SHA=-
+outer_curbase_s1rr           {'NEW': 19}  VILLA_SHA=d82e13edf3390df0f3e3791b6c9a3ddae16d3360
+outer_curbase_s2             {'OLD': 19}  VILLA_SHA=-
+outer_curbase_s3             {'OLD': 19}  VILLA_SHA=-
+outer_curbase_s4             {'NEW': 19}  VILLA_SHA=-
+outer_curbase_s5             {'NEW': 19}  VILLA_SHA=-
+outer_curbase_s6             {'NEW': 19}  VILLA_SHA=bfef6abe073510ee8b595da390ed1d639316abc8
+outer_curbase_s7             {'NEW': 19}  VILLA_SHA=be09a85035059fd83471b1632b5898c62f2c65b1
+outer_curbase_s8             {'NEW': 19}  VILLA_SHA=be09a85035059fd83471b1632b5898c62f2c65b1
+outer_curbase_s9             {'NEW': 19}  VILLA_SHA=be09a85035059fd83471b1632b5898c62f2c65b1
+outer_nosamecur_s1           {'NEW': 19}  VILLA_SHA=-
+outer_nosamecur_s2           {'NEW': 19}  VILLA_SHA=-
+outer_nosamecur_s3           {'NEW': 19}  VILLA_SHA=-

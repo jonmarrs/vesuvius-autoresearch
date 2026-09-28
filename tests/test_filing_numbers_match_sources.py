@@ -227,3 +227,12 @@ def test_the_inkdelta_claims_match_its_validation():
     for text in (_text(), _submit_text()):
         assert "github.com/jonmarrs/inkdelta" in text
         assert f"{rel:+.2%}" in text, f"inkdelta build effect {rel:+.2%} not quoted"
+
+
+def test_the_same_winding_control_sensitivity_matches_its_artifact():
+    """Added 2026-09-27: the registered +0.28% [-2.56%, +3.13%] rests on three unusually tight
+    control seeds. Both filings must carry the all-nine-seed interval beside it, from the artifact."""
+    e = _artifact("control_sensitivity.json")["effects"]["same-winding ablation (current)"]["all nine s1-s9"]
+    for text in (_text(), _submit_text()):
+        assert f"{e['rel']:+.2%}" in text, "all-nine same-winding estimate not quoted"
+        assert f"[{e['lo']:+.2%}, {e['hi']:+.2%}]" in text, "all-nine same-winding interval not quoted"

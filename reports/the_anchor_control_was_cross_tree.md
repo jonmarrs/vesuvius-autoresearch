@@ -4,6 +4,21 @@
 corrected noise floor (`reports/six_unused_seeds_double_the_current_floor.md`), when the anchor
 study's ink effect recomputed to −5.49% where the published verdict says −0.86%.
 
+> **Corrected 2026-09-27: the split is at the RENDER, not the fit, and it was already measured
+> inert.** Every current-tier fit (`curbase_s1-s9`, `nosamecur_*`, `anchor10cov_*`) ran from
+> `villa-spiral-current`, a plain copy of `d8c5f488a` made on 09-07. That copy was never refreshed: no
+> file in it is newer than 09-07. All 19 files that differ between `d8c5f488a` and `be09a8503` still
+> hold the `d8c5f488a` version, and no `spiral-fitting/` file differs between the two trees at all.
+> The render work dirs do split (`setup_workdir.sh` extracts the submodule's `origin/main`).
+> `curbase_s1-s3` carry the old `lasagna`/`vesuvius` files and every other arm here carries the new
+> ones. That split is the one `reports/URGENT_render_code_changed_mid_corpus.md` raised and
+> `reports/rerender_test_verdict.md` measured: +1.44%, inside 3.04% same-code render noise.
+>
+> So the "fitted" column below is wrong. The −0.86% → −5.49% move is **control-choice sensitivity
+> between two defensible sets of seeds**, not the removal of a bias. The same sensitivity applies to
+> the same-winding (current) study, which this report did not examine: +0.28% → −4.41%.
+> `reports/control_sensitivity.md` shows both controls, and all nine seeds pooled.
+
 ## The mismatch
 
 `docs/preregistration/2026-09-12_anchor_ablation.md` names `curbase_s1..s3` as BASELINE, "already

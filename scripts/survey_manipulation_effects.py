@@ -42,9 +42,12 @@ STUDIES: dict[str, tuple[tuple[str, ...], tuple[str, ...], str]] = {
         ("boot090s1", "boot090s2", "boot090s3"),
         "pinned",
     ),
+    # Corrected 2026-09-27: this row compared STRIP against RAND, i.e. two random
+    # controls, and published +3.08%. The registered STRIPMATCH comparison is
+    # BOOTSTRAP against its strip-matched control (scripts/analyse_stripmatch.py).
     "stripmatch": (
-        ("rand090s1", "rand090s2", "rand090s3"),
         ("strip090s1", "strip090s2", "strip090s3"),
+        ("boot090s1", "boot090s2", "boot090s3"),
         "pinned",
     ),
     "same-winding ablation (pinned)": (
@@ -52,13 +55,18 @@ STUDIES: dict[str, tuple[tuple[str, ...], tuple[str, ...], str]] = {
         ("nosame_s1", "nosame_s2", "nosame_s3"),
         "pinned",
     ),
+    # Corrected 2026-09-27: same render split as the anchor study below, so the
+    # same control. It had kept curbase_s1-s3 (+0.28%, CI [-2.56%, +3.13%]).
     "same-winding ablation (current)": (
-        ("curbase_s1", "curbase_s2", "curbase_s3"),
+        tuple(f"curbase_s{i}" for i in range(4, 10)),
         ("nosamecur_s1", "nosamecur_s2", "nosamecur_s3"),
         "current",
     ),
-    # TREE-MATCHED, and deliberately NOT the registered curbase_s1-s3: those were
-    # fitted on d8c5f488a, the ablated arms on be09a8503.
+    # Deliberately NOT the registered curbase_s1-s3: those were RENDERED on
+    # d8c5f488a, the ablated arms on be09a8503. (Corrected 2026-09-27: every
+    # current-tier FIT ran from one unchanged d8c5f488a copy; the split is the
+    # render only, measured inert in reports/rerender_test_verdict.md. The
+    # sensitivity to this choice is in reports/control_sensitivity.md.)
     "anchor ablation 59->10": (
         (
             "curbase_s4",

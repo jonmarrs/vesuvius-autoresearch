@@ -386,7 +386,7 @@ designed after seeing the verdict would have been shaped by the verdict it was m
 does not.**
 Registered re-measurement of the same-winding ablation on current code
 (`docs/preregistration/2026-09-11_decoupling_on_current_code.md`). Ink **+0.28%, 95% CI
-[−2.56%, +3.13%]** — null, and a strong one. But `satisfied_area` **ROSE** 1.18% (p=0.0175), and the
+[−2.56%, +3.13%]** — null ~~and a strong one~~ *(corrected 2026-09-27: the strength belonged to three unusually tight control seeds. Against all nine seeds of the configuration it is −2.89% [−7.98%, +2.19%]. It still rules out a gain; see finding 67)*. But `satisfied_area` **ROSE** 1.18% (p=0.0175), and the
 registration had pre-declared a rise uninterpretable: removing 5,413 of the inputs the metric scores
 can inflate it trivially, which is why the pinned tree's **fall** was evidence and this is not.
 Findings 22–24 are claims about `6847063f` alone. `reports/decoupling_does_not_cleanly_reproduce.md`.
@@ -668,7 +668,10 @@ code is quieter than pinned" dies (F(18,11)=0.92, p=0.84). The published interva
 value — for the *third* time. Tier membership now lives in one place (`scripts/arm_tiers.py`) and an
 unclassified arm raises. `reports/six_unused_seeds_double_the_current_floor.md`.
 
-**45. Six manipulations, zero improved reading, one made it worse.** Across every registered study
+**45. Six manipulations, zero improved reading, one made it worse.** *(Corrected 2026-09-27, finding
+67: the stripmatch row compared two controls and is now −3.80%, not +3.08%. The split is at the render
+not the fit, and was measured inert. Same-winding-current is now render-matched too, −4.41%
+[−12.18%, +3.37%]; its "±3%" is withdrawn. The headline stands.)* Across every registered study
 with tree-matched controls: gap-expander −10.35% (p=0.002, HARMED); bootstrap, stripmatch, two
 same-winding ablations and the anchor ablation all null, bounding 3–18%. The nulls are not equal —
 same-winding-current bounds ±3% against a 12.3% design MDE, patch bootstrap only ±18% at a nominal
@@ -900,3 +903,22 @@ Pre-registered on four surfaces:
 The install route (published image vs a source build after 2026-07-14) therefore moves villa's metric
 by about as much as our fit-only noise (CV 0.074), and not by a constant.
 `reports/step2_across_surfaces.md`.
+
+**67. inkdelta reproduces every registered interval; the corpus's tightest null was its control
+seeds.** A second pre-registered validation re-derived six more registered Welch intervals. Five
+reproduced exactly as registered. The sixth (STRIPMATCH) failed because I transcribed the direction
+the wrong way round in the pre-registration; in the registered direction it reproduces exactly
+(post-hoc, disclosed). Seven registered intervals are now reproduced to 4 d.p.
+`reports/inkdelta_registered_intervals.md`.
+
+Following the miss up exposed three problems in the 09-19 synthesis (finding 45):
+* its stripmatch row compared two *controls*;
+* it attributed the anchor study's control split to the *fit*, although every current-tier fit ran
+  from one unchanged `d8c5f488a` copy (the split is the render, measured inert on 09-14);
+* it kept a control for the same-winding study that it had rejected for the anchor study.
+
+The same-winding (current) interval [−2.56%, +3.13%] rests on three control seeds at CV 0.0124.
+Across all nine seeds of the configuration the CV is 0.0644, and the result is −2.89% [−7.98%, +2.19%].
+**No verdict changes, and no lever improved reading under any control.** But "what winding
+constraints buy for reading" is bounded at ~8–12%, not ~3%. The filing now says so.
+`reports/control_sensitivity.md`.
