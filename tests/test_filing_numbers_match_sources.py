@@ -247,3 +247,21 @@ def test_the_same_winding_control_sensitivity_matches_its_artifact():
         assert f"[{e['lo']:+.2%}, {e['hi']:+.2%}]" in text, (
             "all-nine same-winding interval not quoted"
         )
+
+
+def test_the_filing_carries_the_six_seed_same_winding_result_once_it_exists():
+    """Added 2026-09-28, before the data: the six-seed extension
+    (docs/preregistration/2026-09-28_samewinding_extension.md) supersedes the three-seed bound the
+    filing currently discloses. Skipped until its verdict artifact exists; then both texts must quote
+    the primary interval, so the filing cannot go out with a bound the data have already replaced."""
+    p = _REPORTS / "samewinding_extension_verdict.json"
+    if not p.exists():
+        pytest.skip("extension not analysed yet")
+    v = json.loads(p.read_text())
+    if v.get("verdict") == "GATE FAILURE":
+        pytest.fail("extension gate failure: re-render the failing arm before filing")
+    prim = v["primary 6v6 render-matched"]
+    for text in (_text(), _submit_text()):
+        assert f"[{prim['lo']:+.2%}, {prim['hi']:+.2%}]" in text, (
+            "six-seed interval not quoted"
+        )
