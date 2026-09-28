@@ -1,6 +1,20 @@
 # Resume note — written 2026-09-22 before a deliberate Claude restart
 
-## CURRENT STATE, 2026-09-27 evening — read this first
+## CURRENT STATE, 2026-09-28 — read this first
+
+* **B tomorrow (2026-09-29 or later):** the draft is ready and pre-checked. The duplicate search was
+  clean on 09-28, and `pip install git+…` was tested. Re-run the search on the day, read the live
+  Segmentation → Tools section, then open the PR. No AI markers. A maintainer has 14 days before the
+  bot auto-closes it; **do not nudge**.
+* **Filing (user files by 09-30):** the SUBMIT text changed on 09-27. It now adds the all-nine-seed
+  same-winding interval, −2.89% [−7.98%, +2.19%] (`reports/control_sensitivity.md`). All ten artifacts
+  the filing test reads were regenerated on 09-28. Nine were identical. `noise_floor_by_tier.json` was
+  stale (it still held the withdrawn 0.0263); it is fixed, and the test now catches staleness.
+* **Research, 09-27/28:** inkdelta's second validation passed (7 registered intervals reproduced). It
+  found the survey's two wrong rows and the "cross-tree" stage error: every current-tier fit ran from
+  one unchanged `d8c5f488a` copy, and the split is at the render. Findings 67 and 45 are corrected.
+
+## (previous) CURRENT STATE, 2026-09-27 evening
 
 **October plan (user chose "A, then B"):**
 
