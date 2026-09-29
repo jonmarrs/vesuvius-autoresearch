@@ -1,0 +1,53 @@
+{
+ "primary 6v6 render-matched": {
+  "verdict": "NOT RESOLVED",
+  "rel": 0.007222859377891264,
+  "lo": -0.08129546779883952,
+  "hi": 0.09574118655462203,
+  "method": "welch",
+  "welch": {
+   "lo": -0.08129546779883952,
+   "hi": 0.09574118655462203,
+   "df": 9.71368527941707
+  },
+  "findings": [
+   "SCORER_SNAPSHOT_UNRECORDED"
+  ]
+ },
+ "secondary 6v9 all nine controls": {
+  "verdict": "NOT RESOLVED",
+  "rel": 0.02317818238204894,
+  "lo": -0.050817383956820505,
+  "hi": 0.0971737487209184,
+  "method": "welch",
+  "welch": {
+   "lo": -0.050817383956820505,
+   "hi": 0.0971737487209184,
+   "df": 11.00058121217493
+  },
+  "findings": [
+   "SCORER_SNAPSHOT_UNRECORDED"
+  ]
+ },
+ "replication new seeds only (3v6)": {
+  "verdict": "NOT RESOLVED",
+  "rel": 0.05851988349191988,
+  "lo": -0.03322329690074971,
+  "hi": 0.1502630638845895,
+  "method": "welch",
+  "welch": {
+   "lo": -0.03322329690074971,
+   "hi": 0.1502630638845895,
+   "df": 6.70895147648816
+  },
+  "findings": [
+   "SCORER_SNAPSHOT_UNRECORDED"
+  ]
+ },
+ "gates": {
+  "nosamecur_s4": [],
+  "nosamecur_s5": [],
+  "nosamecur_s6": []
+ },
+ "verdict": "NULL, constraints buy at most 8.1%"
+}

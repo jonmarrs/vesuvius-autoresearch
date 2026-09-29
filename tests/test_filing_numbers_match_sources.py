@@ -133,6 +133,10 @@ def _submit_text() -> str:
         ("99.2%", "two-seed power at the withdrawn CV"),
         ("153 MB", "scrollgt image size, measured at 660 MB"),
         ("20 core tests", "offline claim, actually all 206"),
+        (
+            "rule out a *gain*",
+            "withdrawn 09-29: the anchor (+8.50%) and six-seed same-winding (+9.57%) uppers admit one",
+        ),
     ],
 )
 def test_the_submit_text_carries_no_withdrawn_figure(withdrawn, why):
@@ -238,11 +242,13 @@ def test_the_inkdelta_claims_match_its_validation():
 
 def test_the_same_winding_control_sensitivity_matches_its_artifact():
     """Added 2026-09-27: the registered +0.28% [-2.56%, +3.13%] rests on three unusually tight
-    control seeds. Both filings must carry the all-nine-seed interval beside it, from the artifact."""
+    control seeds. The draft must carry the all-nine-seed interval beside it, from the artifact.
+    (Narrowed to the draft 2026-09-29: the submit text now carries the registered six-seed result,
+    which supersedes it; see the six-seed test below.)"""
     e = _artifact("control_sensitivity.json")["effects"][
         "same-winding ablation (current)"
     ]["all nine s1-s9"]
-    for text in (_text(), _submit_text()):
+    for text in (_text(),):
         assert f"{e['rel']:+.2%}" in text, "all-nine same-winding estimate not quoted"
         assert f"[{e['lo']:+.2%}, {e['hi']:+.2%}]" in text, (
             "all-nine same-winding interval not quoted"

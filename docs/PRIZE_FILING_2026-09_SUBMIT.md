@@ -87,13 +87,14 @@ should keep the consensus rather than the winner.** Thresholding on detector con
 an alternative and refuted: at matched sparsity it is worse than random.
 
 **Two registered ablations bound what winding constraints buy for *reading*** — the endpoint every
-such project in villa's catalogue leaves unmeasured. Removing 5,413 same-winding constraints:
-**+0.28%, CI [−2.56%, +3.13%]**. Cutting the hand-drawn absolute anchors from 50 to 10, the ones
-villa wants automated: **−0.86%, CI [−10.21%, +8.50%]** — ten read as well as fifty, though that
-interval is wide. Both rule out a *gain* from removing constraints. The loss side is sensitive to
-which baseline seeds are used: the three registered seeds agree unusually closely. Against all nine
-seeds of the same configuration, the same-winding result is **−2.89%, CI [−7.98%, +2.19%]**, so the
-constraints may be buying up to ~8% of reading.
+such project in villa's catalogue leaves unmeasured. Removing 5,413 same-winding constraints, six
+seeds per side against render-matched baselines: **+0.72%, CI [−8.13%, +9.57%]**. That extension
+was registered in advance, because a first three-seed run's narrow +0.28%, CI [−2.56%, +3.13%],
+turned out to rest on three baseline seeds that agreed unusually closely. Cutting the hand-drawn
+absolute anchors from 50 to 10, the ones villa wants automated: **−0.86%, CI [−10.21%, +8.50%]**.
+Neither ablation resolves an effect in either direction. Each bounds what those constraints do for
+reading at roughly ±8–10% on this ROI. That is not zero, and it is not the gain their geometry
+validation would suggest.
 
 **We also ran the one community geometry evaluator against reading.** spiralcheck's intrinsic winding
 checks (pre-registered, on the same twelve current-villa fits) separate none of three constraint

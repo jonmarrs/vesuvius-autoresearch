@@ -1,0 +1,53 @@
+{
+ "gate_original_5pct": {
+  "nosamecur_s4": {
+   "area_dev": 0.051765671280082914,
+   "fails_5pct": true
+  },
+  "nosamecur_s5": {
+   "area_dev": 0.05235850527590191,
+   "fails_5pct": true
+  },
+  "nosamecur_s6": {
+   "area_dev": -0.02865869364399387,
+   "fails_5pct": false
+  }
+ },
+ "paired": {
+  "seeds": [
+   1,
+   2,
+   3,
+   4,
+   5,
+   6
+  ],
+  "per_seed_rel": [
+   -0.0038147439163785934,
+   0.00840210714478995,
+   0.003964702043701029,
+   0.0466481630079385,
+   0.036391346057779606,
+   -0.03329496312089053
+  ],
+  "mean": 0.009716101869489993,
+  "lo": -0.020493745355609258,
+  "hi": 0.03992594909458925,
+  "df": 5,
+  "r_ink_across_datasets": 0.9156705147758588,
+  "note": "s1-s3 controls were rendered on d8c5f488a, the rest on be09a8503 (measured inert)"
+ },
+ "primary_without_5pct_failures": {
+  "ablated_seeds": [
+   1,
+   2,
+   3,
+   6
+  ],
+  "rel": -0.006912672020317593,
+  "lo": -0.12257696533274588,
+  "hi": 0.1087516212921107,
+  "df": 6.525722807845065,
+  "method": "welch"
+ }
+}

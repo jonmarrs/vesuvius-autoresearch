@@ -62,13 +62,19 @@ first published 0.0125 from six fits and withdrew it when a third arm doubled th
 number here is the one that survived.
 
 **Two registered ablations bound what winding constraints buy for *reading*** — the endpoint every
-such project in villa's catalogue leaves unmeasured. Removing 5,413 same-winding constraints:
-**+0.28%, CI [−2.56%, +3.13%]**. Cutting the hand-drawn absolute anchors from 50 to 10, the ones
-villa wants automated: **−0.86%, CI [−10.21%, +8.50%]** — ten read as well as fifty, though that
-interval is wide. Both rule out a *gain* from removing constraints. The loss side is sensitive to
-which baseline seeds are used: the three registered seeds agree unusually closely. Against all nine
-seeds of the same configuration, the same-winding result is **−2.89%, CI [−7.98%, +2.19%]**, so the
-constraints may be buying up to ~8% of reading.
+such project in villa's catalogue leaves unmeasured. Removing 5,413 same-winding constraints, six
+seeds per side against render-matched baselines: **+0.72%, CI [−8.13%, +9.57%]**. That extension
+was registered in advance, because a first three-seed run's narrow +0.28%, CI [−2.56%, +3.13%],
+turned out to rest on three baseline seeds that agreed unusually closely. Cutting the hand-drawn
+absolute anchors from 50 to 10, the ones villa wants automated: **−0.86%, CI [−10.21%, +8.50%]**.
+Neither ablation resolves an effect in either direction. Each bounds what those constraints do for
+reading at roughly ±8–10% on this ROI. That is not zero, and it is not the gain their geometry
+validation would suggest.
+
+*2026-09-29: this replaces the 09-27 text. That text quoted the all-nine-seed interval, −2.89%
+[−7.98%, +2.19%], and said both ablations "rule out a gain". That was already too strong for the
+anchors (+8.50% upper), and the six-seed result's +9.57% upper removes it for same-winding
+(`reports/samewinding_extension_verdict.md`).*
 
 **We also ran the one community geometry evaluator against reading.** spiralcheck's intrinsic winding
 checks (pre-registered, on the same twelve current-villa fits) separate none of three constraint
@@ -82,7 +88,7 @@ Three measurements on villa's spiral loop as it runs today. The two-seed robustn
 `autoresearch.md` accepts a null change **1 time in 6** — exactly 1/C(2k,k), a rank test no amount of
 better fitting improves; **three seeds makes it 1 in 20**. Current seed noise is **0.0263** *(withdrawn 2026-09-19; now 0.0536)*, so the
 loop resolves ~6%. And two ablations bound what winding constraints buy for
-*reading*: removing 5,413 same-winding constraints gives **+0.28%, CI [−2.56%, +3.13%]**, and cutting
+*reading*: removing 5,413 same-winding constraints gives **+0.72%, CI [−8.13%, +9.57%]** (six seeds a side), and cutting
 the hand-drawn anchors 50 → 10 gives **−0.86%, CI [−10.21%, +8.50%]**.
 
 ### Long version (~410 words), if a field allows detail
@@ -110,13 +116,14 @@ leaves unmeasured, since they all validate on geometry.
 
 | removed | effect on reading | 95% CI |
 |---|---:|---|
-| 5,413 **same-winding** constraints | +0.28% | [−2.56%, +3.13%] |
-| 40 of 50 **absolute anchors** (hand-drawn) | −0.86% | [−10.21%, +8.50%] |
+| 5,413 **same-winding** constraints, 6 v 6 seeds | +0.72% | [−8.13%, +9.57%] |
+| 40 of 50 **absolute anchors** (hand-drawn), 3 v 3 | −0.86% | [−10.21%, +8.50%] |
 
-*Added 2026-09-27:* both rows use the three registered baseline seeds (CV 0.0124, against 0.0644
-across all nine seeds of the configuration). Against all nine, same-winding is −2.89%
-[−7.98%, +2.19%] and anchors −4.00% [−11.79%, +3.80%]. Neither becomes significant, and neither
-admits a gain. The loss side is wider than the table shows (`reports/control_sensitivity.md`).
+*Updated 2026-09-29:* the same-winding row is the registered six-seed extension. It replaces
++0.28% [−2.56%, +3.13%], whose narrowness came from three baseline seeds at CV 0.0124 against
+0.0644 across all nine (`reports/control_sensitivity.md`). The anchor row still uses those three
+seeds; against all nine it is −4.00% [−11.79%, +3.80%]. Neither row resolves an effect in either
+direction.
 
 The second is the one villa asks humans to draw and wants automated. **Ten anchors read as well as
 fifty** on this ROI — but that interval is wide, because the ablated arm turned out 3.4× noisier than

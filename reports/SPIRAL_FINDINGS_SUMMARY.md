@@ -922,3 +922,19 @@ Across all nine seeds of the configuration the CV is 0.0644, and the result is �
 **No verdict changes, and no lever improved reading under any control.** But "what winding
 constraints buy for reading" is bounded at ~8–12%, not ~3%. The filing now says so.
 `reports/control_sensitivity.md`.
+
+**68. Same-winding constraints, six seeds a side: NULL, bounded at about ±9% on reading.** This extends
+finding 23 on current code, pre-registered before the first fit. `nosamecur_s1-s6` against the
+render-matched `curbase_s4-s9` gives **+0.72% [−8.13%, +9.57%]**, so the constraints buy at most
+8.1% of reading and removing them gains at most 9.6%.
+
+* **Prediction:** the NULL and the bound were met; the point estimate was missed.
+* **Gate amendment:** two of the three new arms would have failed the originally registered ±5%
+  strip-area gate, which was widened to ±10% before any render. Without them the result is still NULL.
+* **Seed pairing:** a post-hoc lead said same-seed ink pairs across the ablation (r = 0.916). It was
+  tested on independent arms and failed: F(seed) = 0.23, p = 0.80 on the pinned tier, and 0.26,
+  p = 0.79 on current seeds 1–3.
+* **Filing:** it now quotes the six-seed interval and drops "rule out a gain", which was never true
+  for the anchors.
+
+`reports/samewinding_extension_verdict.md`.
