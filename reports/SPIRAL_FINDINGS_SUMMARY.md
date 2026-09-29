@@ -943,7 +943,9 @@ render-matched `curbase_s4-s9` gives **+0.72% [−8.13%, +9.57%]**, so the const
 0.3.0 rejected the real one.** `autoresearch.md` describes a `run_single.py` driven by environment
 variables that writes `<out_dir>/logs/<tag>.*.log`. The runner villa ships (`runners/run_single.py`,
 #1553) takes required flags, keeps no logs, and with `--seeds` writes `seed-<s>/` sub-runs plus a
-population-SD aggregate. Launched as documented, it exits 2 before starting.
+population-SD aggregate. Launched as documented, it exits 2 before starting. Given the flags but pinned by
+`CUDA_VISIBLE_DEVICES` as documented, it silently runs the fit as one process: only `--gpus` gives one
+rank per device. The documented runner was never in villa's tree.
 
 * On a tree produced by villa's own runner with its subprocess steps stubbed
   (`scripts/gen_villa_runner_layout.py`), inkdelta 0.3.0 called `compare` and `noise` INVALID

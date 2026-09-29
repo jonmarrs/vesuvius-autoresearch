@@ -29,6 +29,12 @@ added in #1553 (2026-08-21) and is unchanged in shape since #1612 (08-26). It:
 * under `runners/run_sweep.py`, writes one combined log per config at
   `<sweep>/.sweep/logs/<config>.log`.
 
+**Silent variant** (`scripts/probe_villa_runner_gpus.py`): with the required flags added but the GPUs
+still pinned by `CUDA_VISIBLE_DEVICES=4,5,6,7` as the doc says, the runner launches
+`python fit_spiral.py` as **one process**. Only `--gpus` produces `torch.distributed.run
+--nproc-per-node=4`. Nothing warns. `autoresearch.md` itself arrived in #1088/#1140, when no runner of
+any kind was in the tree. The runner it describes was never published.
+
 Our own corpus used the documented layout, through our wrapper. So inkdelta's validations passed, and
 this gap never showed.
 

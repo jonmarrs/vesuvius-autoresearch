@@ -25,27 +25,68 @@ It takes `--output`, not `FIT_SPIRAL_OUT_DIR`, which it overwrites (`run_single.
 no log files. It enables W&B unless `--no-wandb` is given. Line 16 also names `run_single.py` without
 its `runners/` directory. The text dates from #1140 (07-14), when villa had no runner in the tree.
 
-## Open question before drafting a diff
+## The open question, answered 2026-09-29: the doc's runner was never published
 
-**The maintainers' own loop may use a different, unpublished runner that does match the doc.** If
-so, the fix is one sentence ("this section describes the internal runner; the published one is
-`runners/run_single.py` with flags …"), not a rewrite. That would be a question to ask, not a PR to
-open. Look for evidence first, e.g. recent commits by the loop's authors that reference
-`FIT_SPIRAL_RUN_TAG` launches.
+* `autoresearch.md` was added in #1088 (06-30) and revised in #1140 (07-14, pmh47).
+* No `run_single` of any kind existed in villa's tree until #1553 (08-21). The only
+  `autoresearch` branch on the remote, `spiral-autoresearch-giorgio` (07-08), has no runner either.
+* So the doc was written against a runner that was never published, and the published one has a
+  different interface.
+* The fix therefore **adds the published runner's flags**. It does not claim the doc was wrong for
+  whatever runs internally.
 
-## Shape if it is a PR (same shape as #1721)
+## A silent failure, not just a loud one (`scripts/probe_villa_runner_gpus.py`)
 
-The smallest correct change, about 6 lines in one file:
+Launched with the doc's environment variables plus the required flags, but without `--gpus`:
 
-* line 16: `run_single.py` → `runners/run_single.py`;
-* lines 62–66: replace the three environment variables with the flags actually needed:
-  `--dataset`, `--ink-volume`, `--output`, `--gpus 0,1,2,3`, `--no-wandb`;
-* line 70: logs are whatever the caller redirects; the metric is at
-  `<output>/<datedir>/meshes/fitted/ink_metric/metrics.json`, or
-  `<output>/seed-<s>/…` with `--seeds`.
+| launch | fit command | `CUDA_VISIBLE_DEVICES` | tag | `FIT_SPIRAL_OUT_DIR` |
+|---|---|---|---|---|
+| env vars, no `--gpus` | `python fit_spiral.py`: **one process** | 4,5,6,7 passed | passed | **overridden** |
+| `--gpus 0,1,2,3` | `torch.distributed.run --nproc-per-node=4` | 0,1,2,3 | passed | overridden |
 
-Lines 32, 74, 102, 124, 147 and 160 also cite the per-tag logs or `FIT_SPIRAL_RUN_TAG`. Changing all
-of them is a rewrite, and rewrites don't merge. The minimal PR fixes
-the launch interface and says the logs are the caller's redirect.
+The doc's instruction to "pin with `CUDA_VISIBLE_DEVICES`" therefore yields a single-process fit, and
+nothing warns. How that process uses four visible devices was not measured.
 
-No AI markers. Evidence goes in the body. Do not nudge.
+## The patch (7 lines changed each way, 1 file; same shape as #1721)
+
+```diff
+--- a/spiral-fitting/autoresearch.md
++++ b/spiral-fitting/autoresearch.md
+@@ -13,7 +13,7 @@
+    - `point_collection.py` — helper for loading sets of annotated points, and linking them to nearby patches.
+    - `losses.py`, `spiral_helpers.py`, `geom_utils.py`, `transforms.py`, `flow_fields.py` — fitting-side helper modules on the fit path (`flow_fields.py` is used via `transforms.py`) and NOT used by the metric/render pipeline. These are also fair game to edit (see scope below).
+    - `tifxyz.py` — helper for loading/saving grid-topo quad-mesh patches. Read it for context, but it is **frozen** (see scope): it is shared with `render_ink.py`, so editing it changes the metric.
+-   - `run_single.py` — the pipeline runner you launch (fit → render ink → score ink). You do NOT edit this or the scoring scripts; just understand what it does.
++   - `runners/run_single.py` — the pipeline runner you launch (fit → render ink → score ink). You do NOT edit this or the scoring scripts; just understand what it does.
+ 4. **Initialize results.tsv**: Create `results_jul9.tsv` with just the header row (see "Logging results"). The baseline will be recorded after the first run. Change `jul9` to whatever branch tag is chosen.
+ 5. **Confirm and go**: Confirm setup looks good.
+
+@@ -59,15 +59,15 @@
+ 2. `render_ink.py <meshes_dir>` — renders ink strips into `<meshes_dir>/ink`.
+ 3. `get_ink_metrics.py <meshes_dir>/ink` — scores ink coverage into `<meshes_dir>/ink_metric`.
+
+-`run_single.py` reads three things from the environment, which the caller sets:
++`runners/run_single.py` takes these flags:
+
+-- `CUDA_VISIBLE_DEVICES` — the GPU subset for this run. `run_single.py` honours it: `--nproc_per_node` is set to the number of visible GPUs, and the pin is passed straight through to every step.
+-- `FIT_SPIRAL_RUN_TAG` — the run tag (names the output dir and the fitted-mesh folder).
+-- `FIT_SPIRAL_OUT_DIR` — the base output dir.
++- `--gpus 0,1,2,3` — the GPU subset for this run: one fit rank per device, and the pin is passed straight through to every step. Setting `CUDA_VISIBLE_DEVICES` alone is not enough; without `--gpus` the fit runs as a single process.
++- `--output <dir>` — the output dir for this run (it sets `FIT_SPIRAL_OUT_DIR` itself). `FIT_SPIRAL_RUN_TAG`, if set in the environment, still suffixes the run and fitted-mesh folders.
++- `--dataset` and `--ink-volume` (required), and `--no-wandb`.
+
+-**Run two experiments at a time, each on four GPUs.** On an 8-GPU box that means one run pinned to `CUDA_VISIBLE_DEVICES=0,1,2,3` and one to `4,5,6,7`, launched concurrently. Each run is fully self-contained on its four GPUs (fit, render, and score all stay within the pin), so the two never collide.
++**Run two experiments at a time, each on four GPUs.** On an 8-GPU box that means one run with `--gpus 0,1,2,3` and one with `--gpus 4,5,6,7`, launched concurrently. Each run is fully self-contained on its four GPUs (fit, render, and score all stay within the pin), so the two never collide.
+
+-Per-step logs go to `<out_dir>/logs/<tag>.{fit,ink,coverage}.log`, and the ink metric is written to `<out_dir>/<datedir>_<tag>/meshes/fitted_<tag>/ink_metric/metrics.json`.
++`run_single.py` writes no log files: redirect its output yourself, and read the per-step logs this document mentions from that file. The ink metric is written to `<output>/<run dir>/meshes/fitted_<tag>/ink_metric/metrics.json` (`fitted` if no tag is set).
+
+ ## Output format — reading the metric
+
+```
+
+The remaining per-tag log mentions (lines 32, 74, 102, 124, 147, 160) are covered by the one
+sentence "read the per-step logs this document mentions from that file". Rewriting them would be a
+rewrite, and rewrites don't merge.
+
+No AI markers. Evidence goes in the body (the table above). Do not nudge.
