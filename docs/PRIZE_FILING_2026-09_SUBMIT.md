@@ -21,6 +21,9 @@ should be edited without editing that too.
    open-sourced early" now adds "This includes releasing model weights and training data where
    applicable." Field 3 answers it. Form URL and deadline are unchanged at `75c79ac5f`; no other
    criterion moved. Diff the section again at filing time.
+   **Re-verified 2026-09-29 against live upstream main (417199cc5):** the form URL and deadline are
+   unchanged, and the Progress Prizes section is byte-identical to `75c79ac5f`. No commit has
+   touched `34_prizes.md` since #1887. Steps 3 and 4 passed the same day, after #1928 was added to Field 2.
 3. **Run `pytest tests/test_filing_numbers_match_sources.py`** — every figure below is bound to a json
    artifact, and that test fails if any has drifted or if a withdrawn one has crept back.
 4. **Run `./.venv/bin/python scripts/check_filing_upstream_claims.py`** — check 3 covers figures
@@ -108,9 +111,10 @@ its own validation, run at a fixed seed, could not give.
 
 No external adoption of the *measurements* is demonstrated, and the writeup says so plainly.
 
-**What is upstream: five merged fixes, zero awaiting review, three closed unmerged.** One was closed by a maintainer with a
-reason, and two by the inactivity bot. The criteria reward resolving bugs in tools you
-use yourself, so these are named rather than left out:
+**What is upstream: five merged fixes, one awaiting review, three closed unmerged.** One was closed by a maintainer with a
+reason, and two by the inactivity bot. The one awaiting review is not a fix: it is #1928, which
+lists inkdelta in the community catalogue. The criteria reward resolving bugs in tools you use
+yourself, so these are named rather than left out:
 
 | PR | status | what it fixes |
 |---|---|---|
@@ -122,13 +126,14 @@ use yourself, so these are named rather than left out:
 | **#1805** | **MERGED** 2026-09-15 | `metrics.json` recorded the model repo id but not which snapshot produced the score |
 | **#1842** | **MERGED** 2026-09-23 | `autoresearch.md`'s coverage guard is directional and does not catch duplicated coverage |
 | #1866 | CLOSED by a maintainer (@pmh47) on 2026-09-23, with a reason | `autoresearch.md` note on where the CUDA non-determinism lives and how to switch it off |
+| #1928 | OPEN since 2026-09-29 | not a fix: a one-entry community-catalogue listing for inkdelta (Field 3) |
 
-Every one came out of running villa's own pipeline here. #1728 in particular is the fix for a failure
+Every fix came out of running villa's own pipeline here. #1728 in particular is the fix for a failure
 that cost us hours: a blank render is indistinguishable from a successful one in the logs, which is
 how we first mis-diagnosed a mistyped path as a VOID result. Both auto-closed PRs were shut by the
 repository's 14-day inactivity bot rather than by a maintainer declining them; the fixes stand in
 this repo's patches and are resubmittable. We are deliberately not dressing that up: villa carries
-**no review record on any of these eight, the five merged ones included**, so we cannot and do not
+**no review record on any of the eight fixes, the five merged ones included**, so we cannot and do not
 claim the bot-closed two were judged and found wanting, nor that they were ignored. The only thing
 the record supports is who performed the close.
 
@@ -141,8 +146,8 @@ noise from the flatten is ~7% of the seed-to-seed variance of `total_fg_pixels`
 (`reports/the_flatten_noise_is_local_rescoring.md`). It is the one substantive maintainer judgement
 on our PRs, and it is recorded here as a correction, not argued with.
 
-**This is eight PRs against a merged total of five.** #1805 was one line and merged in about thirty minutes. It is
-offered as evidence of the practice, not as an adoption claim. None is open now.
+**This is nine PRs against a merged total of five.** #1805 was one line and merged in about thirty minutes. It is
+offered as evidence of the practice, not as an adoption claim. The only one open is the #1928 listing.
 
 What exists is outbound: six villa issues are open from us and three have
 zero comments, the oldest since August. Two are fixed in substance, though neither is closed. #1658 was
@@ -184,7 +189,11 @@ difference real?
 
 It passed six pre-registered known-answer cases from this project's corpus. It reproduces a
 registered interval exactly, and correctly calls a real +6.45% build effect unresolved from one run
-per side.
+per side. A second pass re-derived every other registered interval here: seven reproduce to 4 d.p.,
+one of them only after we corrected the direction in our own pre-registration. Version 0.3.0 never
+reports an interval narrower than a measured run-to-run CV allows. Without that rule, three
+luckily-close control seeds made one of our own nulls look three times tighter than it was. It is
+proposed for villa's community catalogue in #1928.
 
 New reusable tooling this month, all tested: patch-selection and radial-balance verification, a
 radius/winding calibration, per-study verdict runners that refuse partial samples, and a checkpoint
