@@ -59,6 +59,48 @@ If only one URL fits, use `https://github.com/jonmarrs/vesuvius-autoresearch`; i
 
 ---
 
+## Form field — "What is your contribution?" (answer (1)–(4))
+
+**(1) Which scroll data.** PHerc. Paris 4 (Scroll 1), through villa's published spiral-fitting dataset
+for it: z 13056–18432, with recovered ink scored on windings w120–w129 by villa's published ink model.
+We used only published villa artifacts and one consumer GPU.
+
+**(2) How it increases the probability of reading.** Villa runs an autoresearch loop that keeps or
+discards changes to the spiral fit by one number, the recovered ink area (`total_fg_pixels`). We
+measured when that number can be trusted:
+* Its run-to-run noise is 0.0536, so three fits per arm resolve about 12%.
+* Its prescribed two-seed check accepts a null change 1 time in 6. We got the fix merged as #1780.
+* How `vc_render_tifxyz` was installed moves the number by +4.97% to +9.19% on the same surface.
+* A re-used or blank render can score silently.
+
+We also measured which levers move reading at all. Six registered manipulations, including removing
+5,413 same-winding constraints (+0.72%, CI [−8.13%, +9.57%], six seeds a side), improved none. The one
+that moved it, villa's gap-expander fix, lowered it. A loop or a person steering by this metric wastes
+less compute on changes that are noise.
+
+**(3) What it enables that was not possible before.**
+* [inkdelta](https://github.com/jonmarrs/inkdelta), MIT and standard library only, tells a loop user
+  before they keep a change whether a `total_fg_pixels` difference is real. It refuses stale or empty
+  renders, flags scorer and sampler-build mismatches, and reports an interval never narrower than
+  the measured noise allows.
+* A bit-reproducible flatten (`torch.use_deterministic_algorithms`) takes fixed-surface studies from
+  a 3.04% floor to 0.0014%.
+* A pre-registered rule: keep the consensus of seeds, not the winner. It was predicted at r = 0.877
+  and measured at 0.875 and 0.893.
+* Reading-based bounds on what winding constraints are worth, which geometry validation alone cannot
+  give.
+
+**(4) Evidence.**
+* Every result has a pre-registration committed before its data and a report with its script, in
+  https://github.com/jonmarrs/vesuvius-autoresearch, indexed by `reports/SPIRAL_FINDINGS_SUMMARY.md`.
+* Every figure in this submission is bound by a test to the file that produced it.
+* Five fixes merged into villa this month: #1721, #1722, #1780, #1805, #1842.
+* inkdelta passed six pre-registered known-answer cases and reproduces seven registered intervals.
+  CI covers Python 3.10–3.13.
+* Missed predictions and retracted claims stay in the reports, marked as such, not dropped.
+
+---
+
 ## Field 1 — "Short description of how your contributions substantially increase the probability of reading complete scrolls"
 
 Four measurements on the villa spiral loop, on villa `be09a8503` (2026-09-12). Upstream has since
@@ -243,7 +285,8 @@ The re-measurement on current code **went against us**: the ink null reproduces 
 [−2.56%, +3.13%]) but the decoupling evidence does not. So this submission does **not** claim the
 satisfaction guard fails to track ink on current villa. What it claims is narrower and defensible: it
 failed to on `6847063f`, across four pre-registered studies and 24 fits; and on current code, removing
-5,413 same-winding constraints does not measurably change reading.
+5,413 same-winding constraints does not measurably change reading (six seeds a side, registered:
++0.72%, CI [−8.13%, +9.57%]).
 
 A reviewer who checks will find that gap anyway. Finding it disclosed is different from finding it
 hidden.
@@ -253,7 +296,8 @@ hidden.
 ## Do not add any of these
 
 * Not "the metrics are broken" — two measured disagreements, not a general property.
-* Not "the avenue is refuted" — the current-code null bounds ±3%, the pinned-tier ones ~12%.
+* Not "the avenue is refuted": the current-code nulls bound roughly ±8–10%, the pinned-tier ones ~12%.
+  (A "±3%" once written here rested on three unusually tight control seeds; withdrawn 2026-09-29.)
 * Not any adoption claim for the measurements. There is none. #1886 is a bug report acted on by another contributor; say only that.
 * Not that these results describe current villa. They describe `6847063f`.
 * **The ink-placement work is now admissible, because it met this rule's own condition.** The rule
