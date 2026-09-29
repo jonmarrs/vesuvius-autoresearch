@@ -1,5 +1,12 @@
 # Resume note — written 2026-09-22 before a deliberate Claude restart
 
+## 2026-09-29 — SEPTEMBER PRIZE FILED
+
+* Filed by the user on 2026-09-29; tagged `submission/2026-09` at 93df6a26. The form asked for URLs
+  plus a four-part contribution answer. The October form URL will differ again, so re-read
+  `34_prizes.md` next month.
+* **Nothing is running.** Villa #1928 is open; do not nudge.
+
 ## 2026-09-29 update
 
 * **B is DONE:** villa catalogue PR **#1928** is open (+2/−0). Do not nudge; the bot auto-closes it
