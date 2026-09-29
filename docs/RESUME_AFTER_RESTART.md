@@ -7,8 +7,10 @@
   (`65f63ba`, pushed, CI 8/8) reads it.** Both corpus validations are unchanged.
   `reports/villa_runner_layout_vs_autoresearch_doc.md`.
 * villa doc-defect PR **drafted only**: `docs/VILLA_DRAFT_autoresearch_runner_section.md`. It needs
-  the user's approval and the next weekly slot (≥ 10-06), and first answers the open question of
-  whether maintainers use an unpublished runner.
+  the user's approval and the next weekly slot (≥ 10-06). The open question is answered: the
+  documented runner was never in villa's tree. The draft now carries a 7-line patch. It also records
+  a silent failure: pinned by `CUDA_VISIBLE_DEVICES` without `--gpus`, the shipped runner fits as one
+  process (`scripts/probe_villa_runner_gpus.py`).
 * #1928: open, vercel comment only. Do not nudge or push to it. **Nothing is running.**
 
 ## 2026-09-29 — SEPTEMBER PRIZE FILED
