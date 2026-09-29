@@ -26,6 +26,13 @@
 #   <work_root>/*patch_<tag>/meshes/fitted_<tag>/    where it puts its meshes
 set -uo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
+# Resolve the villa checkout HERE, before anything snapshots the scripts. The
+# renders run from a frozen copy under <work_root>/_driver_snapshot_*, where
+# setup_workdir.sh's fallback ($0/../../villa) points nowhere. Without this every
+# render fails at setup in the same second (2026-09-28, nosamecur_s4: 3 attempts,
+# 0 renders). The other chain drivers already export VILLA; this one did not.
+export VILLA="${VILLA:-$(cd "$HERE/../../villa" && pwd)}"
+[ -d "$VILLA/.git" ] || [ -f "$VILLA/.git" ] || { echo "no villa checkout at $VILLA; set VILLA" >&2; exit 2; }
 
 ROOT="${1:?usage: run_arm_sequence.sh <work_root> <first> <last> <tag> [tag...]}"
 FIRST="${2:?}"
