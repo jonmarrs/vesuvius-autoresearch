@@ -37,6 +37,28 @@ After submitting, tag the commit `submission/2026-09`, matching `submission/2026
 
 ---
 
+## URL field — "URL of your open source / publicly available contribution (you can add multiple)"
+
+All verified 200 and public on 2026-09-29. Our own work only: #1886, credited in Field 2, is another
+contributor's PR and is deliberately not listed.
+
+```
+https://github.com/jonmarrs/vesuvius-autoresearch
+https://github.com/jonmarrs/inkdelta
+https://github.com/jonmarrs/scrollgt
+https://github.com/ScrollPrize/villa/pull/1721
+https://github.com/ScrollPrize/villa/pull/1722
+https://github.com/ScrollPrize/villa/pull/1780
+https://github.com/ScrollPrize/villa/pull/1805
+https://github.com/ScrollPrize/villa/pull/1842
+https://github.com/ScrollPrize/villa/pull/1928
+```
+
+If only one URL fits, use `https://github.com/jonmarrs/vesuvius-autoresearch`; its
+`reports/SPIRAL_FINDINGS_SUMMARY.md` indexes everything else.
+
+---
+
 ## Field 1 — "Short description of how your contributions substantially increase the probability of reading complete scrolls"
 
 Four measurements on the villa spiral loop, on villa `be09a8503` (2026-09-12). Upstream has since
