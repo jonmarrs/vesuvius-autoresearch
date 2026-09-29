@@ -1,5 +1,16 @@
 # Resume note — written 2026-09-22 before a deliberate Claude restart
 
+## 2026-09-29 (evening): inkdelta 0.4.0, finding 69
+
+* villa's shipped `runners/run_single.py` does not write the layout `autoresearch.md` documents. It
+  writes `seed-<s>/` dirs and no logs. inkdelta 0.3.0 called runs in that layout INVALID. **0.4.0
+  (`65f63ba`, pushed, CI 8/8) reads it.** Both corpus validations are unchanged.
+  `reports/villa_runner_layout_vs_autoresearch_doc.md`.
+* villa doc-defect PR **drafted only**: `docs/VILLA_DRAFT_autoresearch_runner_section.md`. It needs
+  the user's approval and the next weekly slot (≥ 10-06), and first answers the open question of
+  whether maintainers use an unpublished runner.
+* #1928: open, vercel comment only. Do not nudge or push to it. **Nothing is running.**
+
 ## 2026-09-29 — SEPTEMBER PRIZE FILED
 
 * Filed by the user on 2026-09-29; tagged `submission/2026-09` at 93df6a26. The form asked for URLs

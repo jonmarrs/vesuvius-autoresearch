@@ -938,3 +938,18 @@ render-matched `curbase_s4-s9` gives **+0.72% [−8.13%, +9.57%]**, so the const
   for the anchors.
 
 `reports/samewinding_extension_verdict.md`.
+
+**69. villa's shipped runner does not write the layout its autoresearch doc describes; inkdelta
+0.3.0 rejected the real one.** `autoresearch.md` describes a `run_single.py` driven by environment
+variables that writes `<out_dir>/logs/<tag>.*.log`. The runner villa ships (`runners/run_single.py`,
+#1553) takes required flags, keeps no logs, and with `--seeds` writes `seed-<s>/` sub-runs plus a
+population-SD aggregate. Launched as documented, it exits 2 before starting.
+
+* On a tree produced by villa's own runner with its subprocess steps stubbed
+  (`scripts/gen_villa_runner_layout.py`), inkdelta 0.3.0 called `compare` and `noise` INVALID
+  ("not a fresh render"). That was false: it was a layout problem.
+* **inkdelta 0.4.0** (`65f63ba`, CI 8/8) expands seed dirs, finds the sweep log and cross-checks the
+  aggregate. Both corpus validations are unchanged.
+* The villa doc defect is drafted, not posted: `docs/VILLA_DRAFT_autoresearch_runner_section.md`.
+
+`reports/villa_runner_layout_vs_autoresearch_doc.md`.
