@@ -2,9 +2,14 @@
 
 **FILED 2026-09-29, a day before the deadline, by Jon Marrs; tag `submission/2026-09` at 93df6a26.** The form
 this month asked for a URL list and a four-part "What is your contribution?" answer. Both were pasted
-from the two sections below. The pasted copy the user shared shows (2)'s "merged as #1780" cut to "#17".
-That is either display wrapping or a real truncation; the email copy decides. #1780 is also named in
-(4). Fields 1–3 and the disclosure were not separate form fields this month.
+from the two sections below. **Confirmed by the Google Forms receipt email: (2)'s "merged as #1780"
+arrived as "#17".** The cause was copying from the terminal-rendered chat reply, which hard-wraps
+long lines. The received lines end in fixed-width trailing spaces, and the #1780 line was clipped at
+the terminal edge; the text in this file is intact. #1780 is named in full in (4) and in the URL
+list, and every other figure arrived intact. It was left as filed: the receipt has no edit link, and
+a resubmission to fix one clipped reference is not worth looking like a duplicate. **Next month, paste
+from this file, never from terminal output.** Fields 1–3 and the disclosure were not separate form
+fields this month.
 
 This file is the exact text to paste into the form, with no internal commentary.
 The reasoning, alternatives and guardrails live in `PRIZE_FILING_2026-09_DRAFT.md`; nothing here
