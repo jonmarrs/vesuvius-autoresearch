@@ -1,5 +1,17 @@
 # Resume note — written 2026-09-22 before a deliberate Claude restart
 
+## 2026-09-29 (late): villa runner PR APPROVED for ≥ 2026-10-06, conditional on re-checks
+
+* The user approved opening the autoresearch.md runner PR once the weekly slot opens, on condition
+  that everything is double-checked on the day. Procedure: top of
+  `docs/VILLA_DRAFT_autoresearch_runner_section.md`. Gate:
+  `scripts/check_villa_runner_pr.py`, which passed 33/33 on 09-29 and fails correctly at an older ref.
+* The pre-post audit found three more silent failures, all now in the patch:
+  * `FIT_SPIRAL_CONFIG_OVERRIDES` from the environment is dropped, so variants run as the baseline;
+  * `WANDB_MODE=disabled` is overridden;
+  * `--output` must be empty.
+  The patch now also fixes the launch.sh recipe (line 160), which it had left contradicting itself.
+
 ## 2026-09-29 (evening): inkdelta 0.4.0, finding 69
 
 * villa's shipped `runners/run_single.py` does not write the layout `autoresearch.md` documents. It

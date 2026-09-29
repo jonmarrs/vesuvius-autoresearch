@@ -1,4 +1,23 @@
 # DRAFT (not posted): autoresearch.md describes a runner villa does not ship
+## STATUS 2026-09-29: APPROVED BY THE USER to open once the weekly slot opens (≥ 2026-10-06)
+
+The approval is conditional on everything being re-checked on the day ("make sure we don't
+embarrass ourselves"). **Posting-day procedure. Any failure means do not post:**
+
+1. `.venv/bin/python scripts/check_villa_runner_pr.py` must pass every check (33/33 on 09-29 at
+   `6e53201ac`). It re-fetches villa, regenerates `docs/villa_pr_autoresearch_runner.patch` against
+   the current `origin/main`, re-proves every behaviour by running the current runner with stubbed
+   steps, checks the PR body's cited functions and SHA, and searches for duplicates. If only the SHA
+   check fails, update the SHA in the body and re-run. Anything else: stop and re-examine.
+2. Look at every new number in the `INFO` search hits.
+3. Re-read the generated patch and `docs/villa_pr_autoresearch_runner_body.md` in full.
+4. Confirm #1928's state and that no other villa item of ours was opened within 7 days.
+5. Open the PR from a branch on `jonmarrs/villa` off the current `origin/main`, with only this one
+   file changed. Title: `spiral-fitting: autoresearch.md launches runners/run_single.py with the
+   flags it takes`. Body = the body file, verbatim. No AI markers. Do not nudge afterwards.
+
+The patch and body below this line are the 09-29 working drafts. The generated files are
+authoritative.
 
 **Status:** draft, 2026-09-29. **Not posted, and not to be posted without the user's explicit
 approval.** Gates:
