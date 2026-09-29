@@ -1,6 +1,13 @@
-# Draft: villa catalogue listing for inkdelta (option B). NOT POSTED
+# Villa catalogue listing for inkdelta (option B). POSTED 2026-09-29 as ScrollPrize/villa#1928
 
-**Post no earlier than 2026-09-29** (weekly new-item slot). **Prerequisites:**
+**POSTED 2026-09-29: https://github.com/ScrollPrize/villa/pull/1928** (branch `jonmarrs:community-projects-inkdelta`,
+commit 430020259 on upstream 417199cc5, +2/−0, via the GitHub API; no local villa checkout touched). Checks
+re-run that morning: the duplicate search was clean (new #1916 Volumen, unrelated, inserts at line 77); 0 of our
+PRs open; all 5 cited URLs returned 200; there were no AI markers in the body or the commit. One body sentence was
+tightened before posting ("five matched as registered; the sixth after its direction was corrected"). **Do not
+nudge.** The bot auto-closes after 14 days idle, around 10-13; if that happens, record it and let it go.
+
+**Original instructions:** post no earlier than 2026-09-29 (weekly new-item slot). **Prerequisites:**
 
 1. `jonmarrs/inkdelta` is public on GitHub.
 2. `reports/inkdelta_validation.md` and the step-2 report are on this repo's `main`, so the README's
@@ -57,8 +64,9 @@ Recent third-party listings (#1896, #1718) merged as plain one-entry PRs, so thi
 > reproduces a registered interval exactly and correctly calls a real +6.45% build effect unresolved
 > from single runs.
 > (https://github.com/jonmarrs/vesuvius-autoresearch/blob/main/reports/inkdelta_validation.md)
-> A second pass re-derived every other registered interval in our corpus. All reproduce to 4 d.p.
-> The one miss was a transcription error in our own pre-registration, which is disclosed
+> A second pass re-derived the six other registered Welch intervals in our corpus. Five matched as
+> registered, to 4 d.p. The sixth failed only because our pre-registration had the comparison's
+> direction reversed; in the registered direction it matches too. The miss is disclosed
 > (https://github.com/jonmarrs/vesuvius-autoresearch/blob/main/reports/inkdelta_registered_intervals.md).
 >
 > On our own 102 scored runs it found exactly two stale renders: the one behind a claim we had already

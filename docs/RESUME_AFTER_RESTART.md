@@ -1,6 +1,14 @@
 # Resume note — written 2026-09-22 before a deliberate Claude restart
 
-## CURRENT STATE, 2026-09-28 — read this first
+## 2026-09-29 update
+
+* **B is DONE:** villa catalogue PR **#1928** is open (+2/−0). Do not nudge; the bot auto-closes it
+  after 14 idle days.
+* **The same-winding extension** has `s4` and `s5` scored; `s6` has been rendering since 03:50.
+  Run `scripts/analyse_samewinding_extension.py` when `SEQUENCE DONE` appears. The filing test
+  then fails until both filing texts quote the new primary interval.
+
+## CURRENT STATE, 2026-09-28
 
 * **RUNNING since 2026-09-28 13:49 PDT, detached:** the same-winding extension
   (`docs/preregistration/2026-09-28_samewinding_extension.md`, committed 2a3db396 before the first
