@@ -1,9 +1,9 @@
 {
-  "generated_utc": "2026-09-24T17:10:43Z",
+  "generated_utc": "2026-10-02T16:14:51Z",
   "source": "gh pr view --repo ScrollPrize/villa (per PR)",
   "scope": "PRs numbered >= 1700 (the spiral-fitting campaign the filing describes)",
   "caveat": "PRs with any review record: none; with any non-bot comment (ours included): [1866]. villa merges without a review record, so reviews==0 does not distinguish 'never looked at' from 'accepted' -- it is 0 on the merged PRs too. The discriminator is who closed it and why: a maintainer merge, a maintainer close (read its comment), or the 14-day inactivity bot.",
-  "total": 8,
+  "total": 9,
   "merged": [
     1721,
     1722,
@@ -11,7 +11,9 @@
     1805,
     1842
   ],
-  "open": [],
+  "open": [
+    1928
+  ],
   "closed_unmerged": [
     1723,
     1728,
@@ -89,9 +91,18 @@
       "comments_total": 3,
       "comments_human": 2,
       "title": "spiral-fitting: say where the CUDA non-determinism lives and how to turn it off"
+    },
+    "1928": {
+      "state": "OPEN",
+      "mergedAt": null,
+      "createdAt": "2026-09-29T11:37:35Z",
+      "reviews": 0,
+      "comments_total": 1,
+      "comments_human": 0,
+      "title": "community projects: add inkdelta (is a total_fg_pixels difference real?)"
     }
   },
   "n_merged": 5,
-  "n_open": 0,
+  "n_open": 1,
   "n_closed_unmerged": 3
 }
