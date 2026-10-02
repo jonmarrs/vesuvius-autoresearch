@@ -21,6 +21,7 @@
 # Usage: score_arms.sh <arm_dir> [arm_dir...]
 #   each arm_dir holds meshes/ink/ (render output) and spiral-fitting/
 set -uo pipefail
+HERE="$(cd "$(dirname "$0")" && pwd)"
 FAILED=0
 VENV="${SCORE_VENV:-${VENV:-/home/jon/openclaw-workspace/Neo-VM/data/ink_scorer_venv/bin/python}}"
 [[ "$VENV" = /* ]] || VENV="$PWD/$VENV"
@@ -61,7 +62,7 @@ for ARM in "$@"; do
   # scoring run that had just lost two of three folds.
   rc=$?
   echo "[exit] $(basename "$ARM") scoring rc=$rc"
-  [ "$rc" -eq 0 ] && [ -f "$ARM/ink_metric/metrics.json" ] \
+  [ "$rc" -eq 0 ] && python3 "$HERE/artifacts.py" metrics "$ARM/ink_metric/metrics.json" \
     || { echo "[fail] $(basename "$ARM"): scoring did NOT succeed";
          rm -f "$ARM/ink_metric/metrics.json"; FAILED=1; }
   cleanup

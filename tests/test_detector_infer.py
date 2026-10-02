@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 import torch
 import torch.nn as nn
 from test_detector_data import _make_fake_fragment
@@ -110,3 +111,23 @@ def test_infer_loads_resenc_checkpoint_from_path(tmp_path):
     prob = infer(cfg, checkpoint_path=ckpt, fragment_id="PHercParis2Fr143")
     assert prob.ndim == 2
     assert float(prob.min()) >= 0.0 and float(prob.max()) <= 1.0
+
+
+def test_infer_accepts_fragments_without_ink_labels(tmp_path):
+    _make_fake_fragment(str(tmp_path), "unlabeled", h=64, w=96)
+    for path in (tmp_path / "unlabeled").glob("*inklabels.*"):
+        path.unlink()
+    cfg = DetectorConfig(data_root=str(tmp_path))
+    model = _FullResStub(cfg)
+    with torch.no_grad():
+        model.conv.weight.zero_()
+        model.conv.bias.zero_()
+    prob = infer(cfg, None, "unlabeled", model=model)
+    np.testing.assert_array_equal(prob, np.full((64, 96), 0.5))
+
+
+def test_infer_rejects_fragment_without_usable_windows(tmp_path):
+    _make_fake_fragment(str(tmp_path), "too_small", h=32, w=32)
+    cfg = DetectorConfig(data_root=str(tmp_path))
+    with pytest.raises(ValueError, match="no usable inference"):
+        infer(cfg, None, "too_small", model=_FullResStub(cfg))

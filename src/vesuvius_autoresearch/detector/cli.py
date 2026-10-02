@@ -1,8 +1,10 @@
 """CLI: train / infer / eval / reproduce. `reproduce` runs convert (if needed) -> train ->
 infer -> eval and asserts pixel-AUC >= 0.70 (proven recipe = 0.711)."""
 import argparse
+import json
 import os
 import sys
+from pathlib import Path
 
 import numpy as np
 
@@ -49,18 +51,35 @@ def main(argv=None):
     if argv == ["--help-check"]:
         return 0
     ap = argparse.ArgumentParser(prog="detector")
+    common = argparse.ArgumentParser(add_help=False)
+    common.add_argument("--config", help="JSON DetectorConfig overrides (defaults otherwise)")
     sub = ap.add_subparsers(dest="cmd", required=True)
-    sub.add_parser("reproduce")
-    p_eval = sub.add_parser("eval")
+    sub.add_parser("reproduce", parents=[common])
+    p_eval = sub.add_parser("eval", parents=[common])
     p_eval.add_argument("--checkpoint", required=True)
     p_eval.add_argument("--fragment", required=True)
-    sub.add_parser("train")
-    p_measure = sub.add_parser("measure")
+    sub.add_parser("train", parents=[common])
+    p_infer = sub.add_parser("infer", parents=[common])
+    p_infer.add_argument("--checkpoint", required=True)
+    p_infer.add_argument("--fragment", required=True)
+    p_infer.add_argument("--output", required=True, help="path for the float32 NumPy probability map")
+    p_infer.add_argument("--batch-size", type=int, default=64)
+    p_measure = sub.add_parser("measure", parents=[common])
     p_measure.add_argument("--checkpoint", default="models/detector/detector_epoch=7.ckpt")
     p_measure.add_argument("--same", default="PHercParis2Fr143")
     p_measure.add_argument("--cross", default="20230702185753")
     args = ap.parse_args(argv)
-    cfg = DetectorConfig()
+    try:
+        overrides = {}
+        if args.config:
+            with open(args.config) as f:
+                overrides = json.load(f)
+            if not isinstance(overrides, dict):
+                raise ValueError("configuration must be a JSON object")
+        cfg = DetectorConfig(**overrides)
+        cfg.validate()
+    except (OSError, TypeError, ValueError) as exc:
+        ap.error(f"invalid detector configuration: {exc}")
     if args.cmd == "reproduce":
         _reproduce(cfg)
     elif args.cmd == "train":
@@ -68,14 +87,26 @@ def main(argv=None):
         print(train(cfg))
     elif args.cmd == "eval":
         print(_eval_fragment(cfg, args.checkpoint, args.fragment))
+    elif args.cmd == "infer":
+        from .infer import infer
+        prob = infer(cfg, args.checkpoint, args.fragment, batch_size=args.batch_size)
+        output = Path(args.output)
+        output.parent.mkdir(parents=True, exist_ok=True)
+        with output.open("wb") as f:
+            np.save(f, prob, allow_pickle=False)
+        print(output)
     elif args.cmd == "measure":
         from .measure import measure
         targets = [(args.same, "scroll2_same"), (args.cross, "scroll1_cross")]
         rows = measure(cfg, args.checkpoint, targets)
         for fid, m in rows.items():
+            if "error" in m:
+                print(f"{fid} [{m.get('scroll_label')}]: ERROR: {m['error']}", file=sys.stderr)
+                continue
             print(f"{fid} [{m.get('scroll_label')}]: "
                   f"val_f1={m.get('val_f1')} ap={m.get('average_precision')} "
                   f"lift={m.get('ap_prevalence_lift')}")
+        return int(any("error" in m for m in rows.values()))
     return 0
 
 

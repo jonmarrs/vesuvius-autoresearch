@@ -12,6 +12,7 @@ import sys
 VALIDATION_TESTS = [
     "tests/test_loop_lifecycle.py",
     "tests/test_spiral_driver_failures.py",
+    "tests/test_spiral_artifacts.py",
     "tests/test_run_render_slice_guard.py",
     "tests/test_import.py",
     "tests/test_imports.py",

@@ -55,6 +55,11 @@ def train(cfg, max_epochs=None, limit_batches=None):
     train_ds, valid_ds, _, pred_shape = build_datasets(cfg)
     train_loader = DataLoader(train_ds, batch_size=cfg.train_batch_size, shuffle=True,
                               num_workers=cfg.num_workers, pin_memory=True, drop_last=True)
+    if not len(train_loader):
+        raise ValueError(
+            f"train_batch_size={cfg.train_batch_size} drops all {len(train_ds)} training samples; "
+            "reduce train_batch_size or provide more usable training tiles"
+        )
     valid_loader = DataLoader(valid_ds, batch_size=cfg.train_batch_size, shuffle=False,
                               num_workers=cfg.num_workers, pin_memory=True, drop_last=False)
     model = build_model(cfg, pred_shape=pred_shape)
@@ -71,4 +76,7 @@ def train(cfg, max_epochs=None, limit_batches=None):
         callbacks=[ckpt_cb], enable_progress_bar=False,
     )
     trainer.fit(model, train_dataloaders=train_loader, val_dataloaders=valid_loader)
-    return ckpt_cb.best_model_path or os.path.join(cfg.model_dir, "last.ckpt")
+    checkpoint = ckpt_cb.best_model_path
+    if not checkpoint or not os.path.isfile(checkpoint):
+        raise RuntimeError("training completed without a checkpoint; check epochs and batch limits")
+    return checkpoint

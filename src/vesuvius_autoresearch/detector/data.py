@@ -39,7 +39,13 @@ def _valid_aug(cfg):
     ])
 
 
-def read_image_mask(cfg, fragment_id):
+def read_volume_mask(cfg, fragment_id):
+    """Load layers and the fragment mask without requiring ground-truth ink.
+
+    Return padded arrays and the original (height, width). Training and labeled
+    evaluation add ink labels through read_image_mask; prediction needs only this
+    input contract. Keep clipping and padding identical to the training recipe.
+    """
     cfg.validate()
     root = cfg.data_root
     images = []
@@ -58,18 +64,27 @@ def read_image_mask(cfg, fragment_id):
         image = np.clip(image, 0, 200)
         images.append(image)
     images = np.stack(images, axis=2)
-    ink = glob.glob(os.path.join(root, fragment_id, "*inklabels.*"))
+    mask_path = os.path.join(root, fragment_id, f"{fragment_id}_mask.png")
+    frag_mask = cv2.imread(mask_path, 0)
+    if frag_mask is None:
+        raise FileNotFoundError(f"could not read mask: {mask_path}")
+    if frag_mask.shape != original_shape:
+        raise ValueError(f"mask shape mismatch: {mask_path} has {frag_mask.shape}, expected {original_shape}")
+    frag_mask = np.pad(frag_mask, [(0, pad0), (0, pad1)], constant_values=0)
+    return images, frag_mask, original_shape
+
+
+def read_image_mask(cfg, fragment_id):
+    """Load the volume, ink labels and fragment mask for supervised workflows."""
+    images, frag_mask, original_shape = read_volume_mask(cfg, fragment_id)
+    ink = glob.glob(os.path.join(cfg.data_root, fragment_id, "*inklabels.*"))
     if len(ink) != 1:
         raise ValueError(f"expected exactly one inklabels file for {fragment_id}, found {len(ink)}")
     mask = cv2.imread(ink[0], 0)
-    mask_path = os.path.join(root, fragment_id, f"{fragment_id}_mask.png")
-    frag_mask = cv2.imread(mask_path, 0)
-    for name, array in ((ink[0], mask), (mask_path, frag_mask)):
-        if array is None:
-            raise FileNotFoundError(f"could not read mask: {name}")
-        if array.shape != original_shape:
-            raise ValueError(f"mask shape mismatch: {name} has {array.shape}, expected {original_shape}")
-    frag_mask = np.pad(frag_mask, [(0, pad0), (0, pad1)], constant_values=0)
+    if mask is None:
+        raise FileNotFoundError(f"could not read mask: {ink[0]}")
+    if mask.shape != original_shape:
+        raise ValueError(f"mask shape mismatch: {ink[0]} has {mask.shape}, expected {original_shape}")
     mask = mask.astype("float32") / 255.0
     return images, mask, frag_mask
 

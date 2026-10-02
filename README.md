@@ -94,6 +94,30 @@ PYTHONPATH=. uv run python scripts/training/train.py --test
 from any directory. `start.sh` clears the pause; `make shift` uses the same
 launcher. The watchdog respects the pause even when the loop is already stopped.
 
+### Detector prediction and measurement
+
+Each detector command accepts `--config path/to/config.json` after the subcommand.
+The JSON object overrides `DetectorConfig` defaults; use the same architecture,
+depth and window settings used to train the checkpoint. For example:
+
+```json
+{"data_root": "/path/to/converted_fragments", "architecture": "timesformer"}
+```
+
+Predict a converted fragment with layers and a fragment mask; ink labels are optional:
+
+```bash
+uv run python -m vesuvius_autoresearch.detector.cli infer \
+  --config detector_config.json --checkpoint models/detector/detector_epoch=7.ckpt \
+  --fragment PHercParis2Fr143 --output predictions/PHercParis2Fr143.npy
+```
+
+The float32 NumPy map has the original layer dimensions. Prediction keeps the
+existing full-window mask rule: pixels not covered by a usable window are zero;
+a fragment with no usable windows is an error. `eval`, `measure`, and training
+still require ink labels. `measure` writes its partial report and exits nonzero
+if any target fails, printing the target and error to stderr.
+
 ## Running the agent
 
 Spin up your coding agent of choice in this repo, then prompt something like:
