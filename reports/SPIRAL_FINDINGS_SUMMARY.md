@@ -955,3 +955,21 @@ rank per device. The documented runner was never in villa's tree.
 * The villa doc defect is drafted, not posted: `docs/VILLA_DRAFT_autoresearch_runner_section.md`.
 
 `reports/villa_runner_layout_vs_autoresearch_doc.md`.
+
+**70. villa #1818's smooth surface interpolation moves ink locally by up to ±20%; its default is
+inert.** Pre-registered (`docs/preregistration/2026-10-02_surface_interpolation_windows.md`).
+
+* **Default inert, measured:** on one crop, the pre-#1818 source build, the post-#1818 build and the
+  PR #1905 full render are byte-identical, so the loop is unaffected.
+* **Smooth vs linear,** on 8 full-height windows of one flat chosen on coverage alone: per-window
+  Δ`total_fg_pixels` from −20.2% to +17.6% (median |Δ| 5.2%), **pooled −1.27%**.
+* **My prediction (|Δ| < 1% every window) FAILED.** The one-crop smoke (−0.09%) was unrepresentative.
+* **A post-hoc control rules out scorer jitter:** a JPEG re-pass, ±1-grey noise on 8% of pixels and a
+  1-px shift move fg by ≤ 2.8%, while smooth moves the extreme windows 7–20× that. One window (+1.7%)
+  is within the control range.
+* **Not coverage** (+0.2–0.5%) and **not p95 normalisation**. Most plausibly the scorer's known
+  sensitivity to sub-voxel surface shifts. There is no sign smooth reads text better: line score
+  falls in 7 of 8 windows.
+
+inkdelta 0.5.0 makes mixed-mode comparisons INCOMPARABLE, read from the render log.
+`reports/surface_interpolation_relocates_ink.md`.

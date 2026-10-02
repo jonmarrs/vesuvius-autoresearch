@@ -1,5 +1,19 @@
 # Resume note — written 2026-09-22 before a deliberate Claude restart
 
+## 2026-10-02: finding 70 (villa #1818 smooth interpolation), inkdelta 0.5.0, merges
+
+* **Finding 70:** #1818's default is byte-identical to earlier builds. `smooth` moves per-window ink
+  from −20% to +18% (pooled −1.3%), beyond a post-hoc control (≤ 2.8%). My registered prediction
+  failed. `reports/surface_interpolation_relocates_ink.md`. **inkdelta 0.5.0** (`1b5b7df`) flags
+  mixed modes. Not posted to villa: it would be a candidate item, and it needs approval and a slot.
+* Image `vc-render:sampler-f637f3b35` is built. The remote chunk cache
+  `spiral_out/interp_smoke/vchome` is **118 GB** and can be deleted with the user's OK.
+* Merged two upstream changes today (`bd8b95f7`; PR #1 `20df4cb0`) and fixed the mypy/ruff errors
+  that blocked every Python commit (`90739342`).
+* **Villa runner PR:** the gate passes except the SHA check (upstream moved). On 10-06, update the
+  body SHA and re-run `scripts/check_villa_runner_pr.py`.
+
+
 ## 2026-09-29 (late): villa runner PR APPROVED for ≥ 2026-10-06, conditional on re-checks
 
 * The user approved opening the autoresearch.md runner PR once the weekly slot opens, on condition
