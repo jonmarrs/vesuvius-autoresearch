@@ -62,3 +62,17 @@ objective and does not, on this evidence, read text better. Then **no full-strip
 
 16 crop renders on the new build (each a few minutes, cold windows longer) and 16 crop scorings.
 About 1.5–3 h, unattended. No fits, no full-strip renders.
+
+## Amendment, 2026-10-02 10:35, before any window was scored (procedural only)
+
+The first launch (10:23) rendered `w37376/linear` and then died at the strip step with
+`STRIP_FAILED`. The chain called `scripts/analyse_interp_windows.py` from the working tree, and a
+`git rebase` onto a newly merged PR briefly removed that file at the moment it was needed. Fixes:
+
+* the chain now freezes its helpers (the analysis script, `score_arms.sh`, `artifacts.py`) at start;
+* it is launched through `run_snapshot.sh`.
+
+The attempt is kept as `spiral_out/interp_windows_attempt1`. Its completed render is **not** reused:
+all 16 arms are rendered fresh. The method, windows, arms, scoring and predictions are unchanged.
+`score_arms.sh` now validates `metrics.json` with `artifacts.py` (from the merged PR). That is a
+stricter success check and changes no score; both smoke metrics pass it.
