@@ -1,6 +1,7 @@
 """Data pipeline for the TimeSformer detector: read 8-bit converted layers, tile into
 64px subtiles with depth-as-channels, and apply the proven augmentations. Lifted from
 repro/gp_winner/train_ours.py with globals removed and cfg injected."""
+
 import glob
 import os
 import random
@@ -17,26 +18,40 @@ _ROTATE = A.Compose([A.Rotate(5, p=1)])
 
 
 def _train_aug(cfg):
-    return A.Compose([
-        A.Resize(cfg.size, cfg.size),
-        A.HorizontalFlip(p=0.5),
-        A.VerticalFlip(p=0.5),
-        A.RandomBrightnessContrast(p=0.75),
-        A.ShiftScaleRotate(rotate_limit=360, shift_limit=0.15, scale_limit=0.15, p=0.75),
-        A.OneOf([A.GaussNoise(var_limit=[10, 50]), A.GaussianBlur(), A.MotionBlur()], p=0.4),
-        A.CoarseDropout(max_holes=2, max_width=int(cfg.size * 0.2),
-                        max_height=int(cfg.size * 0.2), mask_fill_value=0, p=0.5),
-        A.Normalize(mean=[0] * cfg.in_chans, std=[1] * cfg.in_chans),
-        ToTensorV2(transpose_mask=True),
-    ])
+    return A.Compose(
+        [
+            A.Resize(cfg.size, cfg.size),
+            A.HorizontalFlip(p=0.5),
+            A.VerticalFlip(p=0.5),
+            A.RandomBrightnessContrast(p=0.75),
+            A.ShiftScaleRotate(
+                rotate_limit=360, shift_limit=0.15, scale_limit=0.15, p=0.75
+            ),
+            A.OneOf(
+                [A.GaussNoise(var_limit=[10, 50]), A.GaussianBlur(), A.MotionBlur()],
+                p=0.4,
+            ),
+            A.CoarseDropout(
+                max_holes=2,
+                max_width=int(cfg.size * 0.2),
+                max_height=int(cfg.size * 0.2),
+                mask_fill_value=0,
+                p=0.5,
+            ),
+            A.Normalize(mean=[0] * cfg.in_chans, std=[1] * cfg.in_chans),
+            ToTensorV2(transpose_mask=True),
+        ]
+    )
 
 
 def _valid_aug(cfg):
-    return A.Compose([
-        A.Resize(cfg.size, cfg.size),
-        A.Normalize(mean=[0] * cfg.in_chans, std=[1] * cfg.in_chans),
-        ToTensorV2(transpose_mask=True),
-    ])
+    return A.Compose(
+        [
+            A.Resize(cfg.size, cfg.size),
+            A.Normalize(mean=[0] * cfg.in_chans, std=[1] * cfg.in_chans),
+            ToTensorV2(transpose_mask=True),
+        ]
+    )
 
 
 def read_volume_mask(cfg, fragment_id):
@@ -50,13 +65,16 @@ def read_volume_mask(cfg, fragment_id):
     root = cfg.data_root
     images = []
     pad0 = pad1 = 0
+    original_shape: tuple[int, ...] | None = None
     for i in range(cfg.start_idx, cfg.end_idx):
         p = os.path.join(root, fragment_id, "layers", f"{i:02d}.tif")
         image = cv2.imread(p, 0)
         if image is None:
             raise FileNotFoundError(f"could not read layer: {p}")
-        if images and image.shape != original_shape:
-            raise ValueError(f"layer shape mismatch: {p} has {image.shape}, expected {original_shape}")
+        if original_shape is not None and image.shape != original_shape:
+            raise ValueError(
+                f"layer shape mismatch: {p} has {image.shape}, expected {original_shape}"
+            )
         original_shape = image.shape
         pad0 = cfg.tile_size - image.shape[0] % cfg.tile_size
         pad1 = cfg.tile_size - image.shape[1] % cfg.tile_size
@@ -69,7 +87,9 @@ def read_volume_mask(cfg, fragment_id):
     if frag_mask is None:
         raise FileNotFoundError(f"could not read mask: {mask_path}")
     if frag_mask.shape != original_shape:
-        raise ValueError(f"mask shape mismatch: {mask_path} has {frag_mask.shape}, expected {original_shape}")
+        raise ValueError(
+            f"mask shape mismatch: {mask_path} has {frag_mask.shape}, expected {original_shape}"
+        )
     frag_mask = np.pad(frag_mask, [(0, pad0), (0, pad1)], constant_values=0)
     return images, frag_mask, original_shape
 
@@ -79,12 +99,16 @@ def read_image_mask(cfg, fragment_id):
     images, frag_mask, original_shape = read_volume_mask(cfg, fragment_id)
     ink = glob.glob(os.path.join(cfg.data_root, fragment_id, "*inklabels.*"))
     if len(ink) != 1:
-        raise ValueError(f"expected exactly one inklabels file for {fragment_id}, found {len(ink)}")
+        raise ValueError(
+            f"expected exactly one inklabels file for {fragment_id}, found {len(ink)}"
+        )
     mask = cv2.imread(ink[0], 0)
     if mask is None:
         raise FileNotFoundError(f"could not read mask: {ink[0]}")
     if mask.shape != original_shape:
-        raise ValueError(f"mask shape mismatch: {ink[0]} has {mask.shape}, expected {original_shape}")
+        raise ValueError(
+            f"mask shape mismatch: {ink[0]} has {mask.shape}, expected {original_shape}"
+        )
     mask = mask.astype("float32") / 255.0
     return images, mask, frag_mask
 
@@ -97,9 +121,9 @@ def _tiles_for_fragment(cfg, fragment_id, is_valid):
     y1_list = range(0, image.shape[0] - ts + 1, cfg.stride)
     for a in y1_list:
         for b in x1_list:
-            if np.any(frag_mask[a:a + ts, b:b + ts] == 0):
+            if np.any(frag_mask[a : a + ts, b : b + ts] == 0):
                 continue
-            if not is_valid and np.all(mask[a:a + ts, b:b + ts] < 0.05):
+            if not is_valid and np.all(mask[a : a + ts, b : b + ts] < 0.05):
                 continue
             for yi in range(0, ts, sz):
                 for xi in range(0, ts, sz):
@@ -118,16 +142,20 @@ def build_datasets(cfg):
         raise ValueError("valid_fragment_id must not occur in train_fragment_ids")
     tr_imgs, tr_labels = [], []
     for fid in cfg.train_fragment_ids:
-        i, l, _, _ = _tiles_for_fragment(cfg, fid, is_valid=False)
-        tr_imgs += i
-        tr_labels += l
+        frag_imgs, frag_labels, _, _ = _tiles_for_fragment(cfg, fid, is_valid=False)
+        tr_imgs += frag_imgs
+        tr_labels += frag_labels
     v_imgs, v_labels, v_xyxys, pred_shape = _tiles_for_fragment(
-        cfg, cfg.valid_fragment_id, is_valid=True)
+        cfg, cfg.valid_fragment_id, is_valid=True
+    )
     if not tr_imgs or not v_imgs:
-        raise ValueError("no usable training or validation tiles; check fragment masks and tile_size")
+        raise ValueError(
+            "no usable training or validation tiles; check fragment masks and tile_size"
+        )
     train_ds = CustomDataset(tr_imgs, cfg, labels=tr_labels, transform=_train_aug(cfg))
-    valid_ds = CustomDataset(v_imgs, cfg, xyxys=np.stack(v_xyxys), labels=v_labels,
-                             transform=_valid_aug(cfg))
+    valid_ds = CustomDataset(
+        v_imgs, cfg, xyxys=np.stack(v_xyxys), labels=v_labels, transform=_valid_aug(cfg)
+    )
     return train_ds, valid_ds, np.stack(v_xyxys), pred_shape
 
 
@@ -144,7 +172,9 @@ class CustomDataset(Dataset):
 
     def _fourth_augment(self, image):
         image_tmp = np.zeros_like(image)
-        cropping_num = random.randint(min(18, self.cfg.in_chans), min(26, self.cfg.in_chans))
+        cropping_num = random.randint(
+            min(18, self.cfg.in_chans), min(26, self.cfg.in_chans)
+        )
         start_idx = random.randint(0, self.cfg.in_chans - cropping_num)
         crop_indices = np.arange(start_idx, start_idx + cropping_num)
         start_paste_idx = random.randint(0, self.cfg.in_chans - cropping_num)
@@ -152,7 +182,9 @@ class CustomDataset(Dataset):
         np.random.shuffle(tmp)
         cutout_idx = random.randint(0, 2)
         temporal_random_cutout_idx = tmp[:cutout_idx]
-        image_tmp[..., start_paste_idx:start_paste_idx + cropping_num] = image[..., crop_indices]
+        image_tmp[..., start_paste_idx : start_paste_idx + cropping_num] = image[
+            ..., crop_indices
+        ]
         if random.random() > 0.4:
             image_tmp[..., temporal_random_cutout_idx] = 0
         return image_tmp
@@ -167,8 +199,10 @@ class CustomDataset(Dataset):
             if self.cfg.full_res:
                 label = data["mask"]
             else:
-                label = F.interpolate(data["mask"].unsqueeze(0),
-                                      (self.cfg.size // 16, self.cfg.size // 16)).squeeze(0)
+                label = F.interpolate(
+                    data["mask"].unsqueeze(0),
+                    (self.cfg.size // 16, self.cfg.size // 16),
+                ).squeeze(0)
             return image, label, xy
         image = self.images[idx]
         label = self.labels[idx]
@@ -181,6 +215,7 @@ class CustomDataset(Dataset):
         if self.cfg.full_res:
             label = data["mask"]
         else:
-            label = F.interpolate(data["mask"].unsqueeze(0),
-                                  (self.cfg.size // 16, self.cfg.size // 16)).squeeze(0)
+            label = F.interpolate(
+                data["mask"].unsqueeze(0), (self.cfg.size // 16, self.cfg.size // 16)
+            ).squeeze(0)
         return image, label

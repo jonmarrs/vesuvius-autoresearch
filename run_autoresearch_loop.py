@@ -7,6 +7,7 @@ import sys
 import time
 from collections import Counter, defaultdict
 from dataclasses import asdict
+from typing import Any
 
 from scripts.loop_control import acquire_lock
 from scripts.process_supervisor import ProcessSupervisor
@@ -44,7 +45,7 @@ def signal_handler(sig, frame):
 # forces "Starting fresh", which a 15-min cycle cannot recover. Pinning them keeps
 # every cycle a fine-tune of the production model. To resume free architecture
 # search, restore the original `vals` lists (see git history) for these families.
-tweak_templates = [
+tweak_templates: list[dict[str, Any]] = [
     {"family": "lr", "attr": "lr", "vals": [1e-3, 5e-4, 1e-4, 5e-5, 1e-5]},
     {"family": "wd", "attr": "weight_decay", "vals": [0.1, 0.01, 0.001, 0.0]},
     {
@@ -605,8 +606,13 @@ def main():
                     try:
                         training = supervisor.run(
                             [
-                                "uv", "run", "python", "-u",
-                                "scripts/training/train.py", "--config", TEMP_CONFIG,
+                                "uv",
+                                "run",
+                                "python",
+                                "-u",
+                                "scripts/training/train.py",
+                                "--config",
+                                TEMP_CONFIG,
                             ],
                             stdout=f,
                             stderr=subprocess.STDOUT,
@@ -710,7 +716,9 @@ def main():
             )
         else:
             best_str = (
-                f"{best_val_f1:.6f}" if best_val_f1 == best_val_f1 else "n/a (pre-rewire)"
+                f"{best_val_f1:.6f}"
+                if best_val_f1 == best_val_f1
+                else "n/a (pre-rewire)"
             )
             print(f"No improvement. (val_f1: {val_f1}, best was: {best_str})")
 
