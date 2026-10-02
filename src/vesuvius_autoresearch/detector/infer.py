@@ -7,7 +7,7 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 
-from .data import read_image_mask
+from .data import read_volume_mask
 from .model import DetectorModel
 
 
@@ -29,8 +29,7 @@ def infer(cfg, checkpoint_path, fragment_id, model=None, batch_size=64):
         model = model_cls.load_from_checkpoint(
             checkpoint_path, cfg=cfg, pred_shape=(1, 1), weights_only=False)
     model = model.to(device).eval()
-    images, label, frag_mask = read_image_mask(cfg, fragment_id)
-    orig_h, orig_w = label.shape  # label is unpadded; frag_mask is padded to tile_size
+    images, frag_mask, (orig_h, orig_w) = read_volume_mask(cfg, fragment_id)
     H, W = frag_mask.shape
     pred = np.zeros((H, W), np.float32)
     count = np.zeros((H, W), np.float32)
@@ -67,7 +66,11 @@ def infer(cfg, checkpoint_path, fragment_id, model=None, batch_size=64):
                 if len(buf_patches) >= batch_size:
                     _flush()
         _flush()
+    if not np.any(count):
+        raise ValueError(
+            f"no usable inference windows for {fragment_id}; check the fragment mask and size"
+        )
     out = np.divide(pred, count, out=np.zeros_like(pred), where=count != 0)
-    # Crop the padding back off so the prob map matches the fragment label shape.
+    # Crop the padding back off to the original layer shape, even without labels.
     out = out[:orig_h, :orig_w]
     return np.clip(out, 0.0, 1.0)

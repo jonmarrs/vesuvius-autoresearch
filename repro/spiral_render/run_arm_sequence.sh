@@ -12,7 +12,7 @@
 # writes satisfaction_metrics_fitted.json about a minute BEFORE it writes its
 # meshes. A driver keyed to that json wakes early, finds no meshes and silently
 # drops the arm. This waits on the MESHES -- the artifact it is about to consume --
-# and counts them.
+# and verifies each requested winding.
 #
 # Resumable at every stage: an arm already scored is skipped, an arm already
 # fitted is not refitted. Renders go through run_with_retry.sh because one render
@@ -39,57 +39,73 @@ FIRST="${2:?}"
 LAST="${3:?}"
 shift 3
 [ "$#" -gt 0 ] || { echo "no tags given" >&2; exit 2; }
+[[ "$FIRST" =~ ^[0-9]+$ && "$LAST" =~ ^[0-9]+$ ]] && (( 10#$FIRST <= 10#$LAST )) \
+  || { echo "windings must be ordered non-negative integers" >&2; exit 2; }
+FIT_MESH_WAIT_SECONDS="${FIT_MESH_WAIT_SECONDS:-3600}"
+[[ "$FIT_MESH_WAIT_SECONDS" =~ ^[0-9]+$ ]] \
+  || { echo "FIT_MESH_WAIT_SECONDS must be a non-negative integer" >&2; exit 2; }
+FAILED=0
 
 WINDINGS=()
 for ((w = 10#$FIRST; w <= 10#$LAST; w++)); do WINDINGS+=("$(printf '%03d' "$w")"); done
 EXPECT=${#WINDINGS[@]}
 
 meshes_for() {  # tag -> mesh dir, empty if absent
-  local t="$1" d
-  d=$(ls -d "$ROOT"/*patch_"$t" 2>/dev/null | head -1) || return 0
-  [ -n "$d" ] && ls -d "$d/meshes/fitted_$t" 2>/dev/null || true
+  local t="$1"
+  local candidates=()
+  shopt -s nullglob
+  candidates=("$ROOT"/*patch_"$t"/meshes/fitted_"$t")
+  shopt -u nullglob
+  [ "${#candidates[@]}" -le 1 ] \
+    || { echo "[fail] ambiguous fitted mesh directories for $t" >&2; return 1; }
+  if [ "${#candidates[@]}" -eq 1 ]; then printf '%s\n' "${candidates[0]}"; fi
 }
 
-count_meshes() {
-  [ -n "$1" ] || { echo 0; return; }
-  find "$1" -maxdepth 1 -name "w${WINDINGS[0]:0:1}*_spliced_*" 2>/dev/null | wc -l
+meshes_ready() {
+  python3 "$HERE/artifacts.py" meshes "$1" "$FIRST" "$LAST" 2>/dev/null
 }
 
 for TAG in "$@"; do
+  [[ "$TAG" =~ ^[a-zA-Z0-9_-]+$ ]] \
+    || { echo "[fail] invalid arm tag: $TAG" >&2; FAILED=1; continue; }
   echo "################ $TAG $(date -Is) ################"
 
-  if [ -f "$ROOT/outer_$TAG/ink_metric/metrics.json" ]; then
+  if python3 "$HERE/artifacts.py" arm "$ROOT/outer_$TAG" "$FIRST" "$LAST" 2>/dev/null; then
     echo "[skip] $TAG already scored"; continue
   fi
 
-  MESHES=$(meshes_for "$TAG")
-  if [ "$(count_meshes "$MESHES")" -lt "$EXPECT" ]; then
-    [ -x "$ROOT/fit_$TAG.sh" ] || { echo "[fail] no $ROOT/fit_$TAG.sh"; continue; }
+  MESHES=$(meshes_for "$TAG") || { FAILED=1; continue; }
+  if ! meshes_ready "$MESHES"; then
+    [ -x "$ROOT/fit_$TAG.sh" ] || { echo "[fail] no $ROOT/fit_$TAG.sh"; FAILED=1; continue; }
     echo "[fit] $TAG $(date -Is)"
     "$ROOT/fit_$TAG.sh" > "$ROOT/fit_$TAG.log" 2>&1
-    echo "[fit] $TAG rc=$? $(date -Is)"
+    rc=$?
+    echo "[fit] $TAG rc=$rc $(date -Is)"
+    [ "$rc" -eq 0 ] || { echo "[fail] fit $TAG"; FAILED=1; continue; }
     # Wait on the MESHES, not on the satisfaction json. See the note above.
-    DEADLINE=$(( $(date +%s) + 3600 ))
-    until [ "$(count_meshes "$(meshes_for "$TAG")")" -ge "$EXPECT" ]; do
+    DEADLINE=$(( $(date +%s) + 10#$FIT_MESH_WAIT_SECONDS ))
+    while true; do
+      MESHES=$(meshes_for "$TAG") || { FAILED=1; break; }
+      meshes_ready "$MESHES" && break
       [ "$(date +%s)" -lt "$DEADLINE" ] || { echo "[fail] $TAG meshes never appeared"; break; }
       sleep 30
     done
-    MESHES=$(meshes_for "$TAG")
   else
     echo "[skip] $TAG already fitted"
   fi
 
-  n=$(count_meshes "$MESHES")
-  [ "$n" -ge "$EXPECT" ] || { echo "[fail] $TAG has $n/$EXPECT meshes, skipping"; continue; }
-  echo "[check] $TAG meshes $n/$EXPECT"
+  meshes_ready "$MESHES" || { echo "[fail] $TAG is missing requested meshes, skipping"; FAILED=1; continue; }
+  echo "[check] $TAG has all $EXPECT requested winding meshes"
 
   echo "[render+score] $TAG $(date -Is)"
   RETRY_WAIT_FIRST=0 "$HERE/run_with_retry.sh" 3 "$ROOT" "$FIRST" "$LAST" "$TAG=$MESHES" \
     >> "$ROOT/sequence_$TAG.log" 2>&1
-  echo "[render+score] $TAG rc=$? $(date -Is)"
+  rc=$?
+  echo "[render+score] $TAG rc=$rc $(date -Is)"
 
-  [ -f "$ROOT/outer_$TAG/ink_metric/metrics.json" ] \
+  [ "$rc" -eq 0 ] && python3 "$HERE/artifacts.py" arm "$ROOT/outer_$TAG" "$FIRST" "$LAST" \
     && echo "[ok] $TAG scored" \
-    || echo "[fail] $TAG NOT scored after retries"
+    || { echo "[fail] $TAG NOT scored after retries"; FAILED=1; }
 done
-echo "################ SEQUENCE DONE $(date -Is) ################"
+echo "################ SEQUENCE DONE $(date -Is) rc=$FAILED ################"
+exit "$FAILED"

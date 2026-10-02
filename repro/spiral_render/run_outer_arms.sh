@@ -117,7 +117,7 @@ for SPEC in "$@"; do
   W="$ROOT/outer_$TAG"
   echo "=================== ARM $TAG $(date -Is) ==================="
 
-  if [ -f "$W/ink_metric/metrics.json" ]; then
+  if python3 "$HERE/artifacts.py" arm "$W" "$FIRST" "$LAST" 2>/dev/null; then
     echo "[skip] $TAG already scored"
     continue
   fi
@@ -131,11 +131,11 @@ for SPEC in "$@"; do
       || { echo "[fail] setup $TAG"; FAILED=1; continue; }
   fi
 
-  # Guard the count: setup_workdir globs, and a silently short copy would be
-  # scored as though it were the full range.
-  n=$(find "$W/meshes" -maxdepth 1 -name 'w*_spliced_*' | wc -l)
-  echo "[check] $TAG has $n spliced meshes (expect $EXPECT)"
-  [ "$n" -eq "$EXPECT" ] || { echo "[fail] wrong mesh count for $TAG"; FAILED=1; continue; }
+  # Check winding identities as well as the count: a different range can have
+  # exactly the expected number of meshes and still render the wrong experiment.
+  python3 "$HERE/artifacts.py" meshes "$W/meshes" "$FIRST" "$LAST" --exact \
+    || { echo "[fail] wrong mesh set for $TAG"; FAILED=1; continue; }
+  echo "[check] $TAG has all $EXPECT requested winding meshes"
 
   echo "[render] $TAG $(date -Is)"
   "$HERE/run_render.sh" "$W" > "$ROOT/outer_${TAG}_render.log" 2>&1
@@ -149,7 +149,7 @@ for SPEC in "$@"; do
   "$HERE/score_arms.sh" "$W" >> "$ROOT/outer_${TAG}_render.log" 2>&1
   rc=$?
   echo "[score] $TAG rc=$rc $(date -Is)"
-  [ "$rc" -eq 0 ] && [ -f "$W/ink_metric/metrics.json" ] \
+  [ "$rc" -eq 0 ] && python3 "$HERE/artifacts.py" metrics "$W/ink_metric/metrics.json" \
     || { echo "[fail] $TAG scoring did not complete; re-score it before analysing"; FAILED=1; }
 done
 echo "=================== ARMS DONE $(date -Is) rc=$FAILED ==================="

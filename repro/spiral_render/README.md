@@ -243,8 +243,9 @@ echo "[exit] $(basename "$ARM") scoring rc=$?"     # WRONG
 
 expands left to right: the command substitution runs and overwrites `$?` with *its* status before
 `rc=$?` is read, printing `rc=0` over a run that had just lost two of three folds. Capture `rc=$?`
-on its own line, and assert `metrics.json` exists as well -- the file check catches this class
-regardless of the shell subtlety.
+on its own line, and validate `metrics.json` as well. The shared `artifacts.py` check requires
+positive pixel counts, bounded foreground counts, and strip totals matching the summary.
+An empty, truncated, or inconsistent file is not completion; a coherent zero-ink result is.
 
 **The scorer is not bit-deterministic, patched or not.** Three runs over one fixed strip:
 
@@ -552,3 +553,25 @@ sampler's output through this path. Tested in `tests/test_run_render_slice_guard
 discriminate: the unguarded script lets the same work dir through with exit 0.
 
 A post-copy work dir must delete `concat/*_flat/ink`, not just `meshes/ink` and `ink_metric`.
+
+## 16. Completion and failure contracts (2026-10-02)
+
+`score_arms.sh`, `run_outer_arms.sh`, `run_with_retry.sh`, and `run_arm_sequence.sh`
+share the metrics checks in `artifacts.py`. A new scoring attempt needs both a
+successful command exit and valid metrics. Resuming an arm validates both its
+metrics and the requested mesh range. Frozen driver snapshots include
+the validator and need only the host's `python3` standard library for these checks.
+
+Mesh checks require exactly one directory for each requested winding. The source
+fit can contain additional windings; the render work directory must contain only
+the requested set. Ambiguous fitted directories are rejected rather than taking
+the first filesystem match.
+
+The end-to-end sequence returns nonzero if any arm fails setup, fit, mesh readiness,
+render, or scoring. A failed fit exits that arm immediately. After a successful
+fit, mesh readiness is bounded by `FIT_MESH_WAIT_SECONDS` (default 3600), allowing
+fit wrappers that finish writing meshes asynchronously. Later arms still run.
+
+The existing-slice guard remains in force during retries. A failed attempt that
+leaves TIFFs needs deliberate recovery under section 15; retry does not silently
+delete artifacts or authorize reuse of those slices.
