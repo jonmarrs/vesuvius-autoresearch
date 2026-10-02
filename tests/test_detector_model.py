@@ -13,3 +13,11 @@ def test_forward_shape_and_finite_loss():
     target = torch.rand(2, 1, 4, 4)
     loss = model.loss_func(out, target)
     assert torch.isfinite(loss)
+
+
+def test_smaller_window_preserves_batch_and_matches_label_grid():
+    cfg = DetectorConfig(size=32, in_chans=8, start_idx=0, end_idx=8)
+    model = DetectorModel(cfg, pred_shape=(32, 32))
+    output = model(torch.randn(2, 1, 8, 32, 32))
+    assert output.shape == (2, 1, 2, 2)
+    assert torch.isfinite(model.loss_func(output, torch.zeros_like(output)))

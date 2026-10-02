@@ -30,18 +30,11 @@ reeval:
 # Spawn a shift via nohup so it survives terminal disconnect. The loop
 # auto-detects DAY (07-19 PT) vs NIGHT (19-07 PT) from system clock.
 shift:
-	@if pgrep -f "uv run python run_autoresearch_loop" > /dev/null; then \
-		echo "A shift is already running (pgrep matched run_autoresearch_loop). Refusing to spawn a duplicate."; \
-		exit 1; \
-	fi
-	@ts=$$(date +%Y-%m-%d_%H-%M-%S); \
-	out="shift_stdout_$$ts.log"; \
-	nohup uv run python run_autoresearch_loop.py > "$$out" 2>&1 & \
-	echo "Spawned PID $$! — stdout: $$out"
+	@bash start.sh
 
 check-deps:
 	@uv run python -c "import torch; print('torch:', torch.__version__, 'cuda:', torch.cuda.is_available())"
-	@uv run python -c "import train, vesuvius_loader, model_wrappers, run_autoresearch_loop; print('main modules import OK')"
+	@uv run python -c "import scripts.training.train, vesuvius_autoresearch.core.vesuvius_loader, vesuvius_autoresearch.core.model_wrappers, run_autoresearch_loop; print('main modules import OK')"
 	@nvidia-smi --query-gpu=name,memory.total --format=csv,noheader 2>/dev/null || echo "(no GPU detected; CPU-only mode)"
 
 clean:

@@ -100,6 +100,10 @@ FIRST="${2:?first winding, e.g. 120}"
 LAST="${3:?last winding, e.g. 129}"
 shift 3
 [ "$#" -gt 0 ] || { echo "no arms given" >&2; exit 2; }
+[[ "$FIRST" =~ ^[0-9]+$ && "$LAST" =~ ^[0-9]+$ ]] \
+  || { echo "windings must be non-negative integers" >&2; exit 2; }
+(( 10#$FIRST <= 10#$LAST )) || { echo "first winding exceeds last winding" >&2; exit 2; }
+FAILED=0
 
 WINDINGS=()
 for ((w = 10#$FIRST; w <= 10#$LAST; w++)); do WINDINGS+=("$(printf '%03d' "$w")"); done
@@ -108,6 +112,8 @@ EXPECT=${#WINDINGS[@]}
 for SPEC in "$@"; do
   TAG="${SPEC%%=*}"
   MESHES="${SPEC#*=}"
+  [[ "$SPEC" == *=* && "$TAG" =~ ^[a-zA-Z0-9_-]+$ && -n "$MESHES" ]] \
+    || { echo "[fail] invalid arm specification: $SPEC" >&2; FAILED=1; continue; }
   W="$ROOT/outer_$TAG"
   echo "=================== ARM $TAG $(date -Is) ==================="
 
@@ -117,31 +123,34 @@ for SPEC in "$@"; do
   fi
   if [ ! -d "$MESHES" ]; then
     echo "[fail] $TAG: no such meshes dir: $MESHES"
+    FAILED=1
     continue
   fi
   if [ ! -d "$W/meshes" ]; then
     "$HERE/setup_workdir.sh" "$W" "$MESHES" "${WINDINGS[@]}" \
-      || { echo "[fail] setup $TAG"; continue; }
+      || { echo "[fail] setup $TAG"; FAILED=1; continue; }
   fi
 
   # Guard the count: setup_workdir globs, and a silently short copy would be
   # scored as though it were the full range.
   n=$(find "$W/meshes" -maxdepth 1 -name 'w*_spliced_*' | wc -l)
   echo "[check] $TAG has $n spliced meshes (expect $EXPECT)"
-  [ "$n" -eq "$EXPECT" ] || { echo "[fail] wrong mesh count for $TAG"; continue; }
+  [ "$n" -eq "$EXPECT" ] || { echo "[fail] wrong mesh count for $TAG"; FAILED=1; continue; }
 
   echo "[render] $TAG $(date -Is)"
   "$HERE/run_render.sh" "$W" > "$ROOT/outer_${TAG}_render.log" 2>&1
   rc=$?   # captured on its own line; a $(...) in the echo would clobber $? first
   echo "[render] $TAG rc=$rc $(date -Is)"
+  [ "$rc" -eq 0 ] || { echo "[fail] render $TAG; refusing to score leftover strips"; FAILED=1; continue; }
   ls "$W"/meshes/ink/*.jpg >/dev/null 2>&1 \
-    || { echo "[fail] no strips for $TAG"; continue; }
+    || { echo "[fail] no strips for $TAG"; FAILED=1; continue; }
 
   echo "[score] $TAG $(date -Is)"
   "$HERE/score_arms.sh" "$W" >> "$ROOT/outer_${TAG}_render.log" 2>&1
   rc=$?
   echo "[score] $TAG rc=$rc $(date -Is)"
-  [ -f "$W/ink_metric/metrics.json" ] \
-    || echo "[fail] $TAG produced no metrics.json; re-score it before analysing"
+  [ "$rc" -eq 0 ] && [ -f "$W/ink_metric/metrics.json" ] \
+    || { echo "[fail] $TAG scoring did not complete; re-score it before analysing"; FAILED=1; }
 done
-echo "=================== ARMS DONE $(date -Is) ==================="
+echo "=================== ARMS DONE $(date -Is) rc=$FAILED ==================="
+exit "$FAILED"

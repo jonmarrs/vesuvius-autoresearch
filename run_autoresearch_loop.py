@@ -1,4 +1,3 @@
-import fcntl
 import json
 import os
 import random
@@ -6,43 +5,32 @@ import signal
 import subprocess
 import sys
 import time
-from collections import defaultdict
+from collections import Counter, defaultdict
 from dataclasses import asdict
 
-import torch
-
-sys.path.append(os.getcwd())
-sys.path.append(os.path.join(os.getcwd(), "villa/foundation/datasets/fibers-dataset"))
-from scripts.training.train import ExperimentConfig
+from scripts.loop_control import acquire_lock
+from scripts.process_supervisor import ProcessSupervisor
+from scripts.training.config import ExperimentConfig
 
 LOCK_FILE = "autoresearch.lock"
 
 
 def check_lock():
-    fp = open(LOCK_FILE, "w")
     try:
-        fcntl.lockf(fp, fcntl.LOCK_EX | fcntl.LOCK_NB)
-    except OSError:
+        return acquire_lock(LOCK_FILE)
+    except BlockingIOError:
         print(
             "Another instance of run_autoresearch_loop.py is already running. Exiting."
         )
         sys.exit(1)
-    return fp
 
 
-active_child_p = None
+supervisor = ProcessSupervisor()
 
 
 def signal_handler(sig, frame):
-    global active_child_p
     print(f"\nCaught signal {sig}. Cleaning up...")
-    if active_child_p:
-        print("Killing active child process group...")
-        try:
-            os.killpg(os.getpgid(active_child_p.pid), signal.SIGTERM)
-            active_child_p.wait(timeout=5)
-        except Exception as e:
-            print(f"Error during cleanup: {e}")
+    supervisor.stop()
     sys.exit(0)
 
 
@@ -216,6 +204,24 @@ CURRENT_LOG_PTR = ".current_day_shift_log"
 TEMP_CONFIG = "config_temp.json"
 
 
+def active_tweaks(config):
+    """Exclude gated axes and values that leave the baseline unchanged."""
+    active = []
+    for template in tweak_templates:
+        if not template.get("applies_when", lambda _c: True)(config):
+            continue
+        values = [v for v in template["vals"] if v != getattr(config, template["attr"])]
+        if values:
+            active.append({**template, "vals": values})
+    return active
+
+
+def template_weights(templates, success_counts):
+    """Give each family its stated weight regardless of its number of axes."""
+    sizes = Counter(t["family"] for t in templates)
+    return [success_counts[t["family"]] / sizes[t["family"]] for t in templates]
+
+
 def load_history():
     counts = defaultdict(lambda: 1)
     if os.path.exists(HISTORY_FILE):
@@ -267,9 +273,14 @@ def main():
     any importer (test runner, syntax-check, IDE introspection) to acquire
     the lock and write a sprint-log header; see 2026-05-16 incident notes.
     """
-    global active_child_p
+    # The controller can be imported without loading torch or mutating training
+    # modules. Resolve all run artifacts relative to this checkout.
+    os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
     lock_fp = check_lock()  # noqa: F841 (kept open for the duration of the process)
+    if os.path.exists(".loop_paused"):
+        print("Autoresearch is paused. Use ./start.sh to resume.")
+        return
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
 
@@ -309,6 +320,8 @@ def main():
     best_val_f1 = float("nan")
     if os.path.exists("best_model.pt"):
         try:
+            import torch
+
             best_model_data = torch.load(
                 "best_model.pt", map_location="cpu", weights_only=False
             )
@@ -416,14 +429,10 @@ def main():
                 if os.path.exists(CONFIG_FILE)
                 else ExperimentConfig()
             )
-            active_templates = [
-                t
-                for t in tweak_templates
-                if t.get("applies_when", lambda _c: True)(baseline_for_gate)
-            ]
+            active_templates = active_tweaks(baseline_for_gate)
             if not active_templates:
-                # Defensive: should never happen (architecture/lr/etc are unconditional).
-                active_templates = tweak_templates
+                print("No active tweaks differ from the baseline. Ending sprint.")
+                break
 
             # Success-Biased Decay: Every cycle, all (active) families decay slightly.
             # This ensures that even successful families eventually lose their dominance
@@ -432,7 +441,7 @@ def main():
             for f in set(families):
                 success_counts[f] = max(1.0, success_counts[f] * 0.95)
 
-            weights = [success_counts[f] for f in families]
+            weights = template_weights(active_templates, success_counts)
 
             # Frontier-V: Config-Space Entropy Protection
             # Avoid testing the exact same thing twice in a row if it failed recently
@@ -540,6 +549,7 @@ def main():
                 os.remove("run.log.old")
             os.rename("run.log", "run.log.old")
 
+        training_returncode = None
         try:
             with open("run.log", "a") as f:
                 f.write(f"\n\n--- {shift_name} CYCLE {i}: {tweak_name} ---\n")
@@ -560,7 +570,7 @@ def main():
                 f.write("--- PREFLIGHT SMOKE CHECK ---\n")
                 f.flush()
                 try:
-                    preflight = subprocess.run(
+                    preflight = supervisor.run(
                         [
                             "uv",
                             "run",
@@ -592,35 +602,21 @@ def main():
                     )
                     sys.stdout.flush()
                 else:
-                    p = subprocess.Popen(
-                        [
-                            "uv",
-                            "run",
-                            "python",
-                            "-u",
-                            "scripts/training/train.py",
-                            "--config",
-                            TEMP_CONFIG,
-                        ],
-                        stdout=f,
-                        stderr=subprocess.STDOUT,
-                        env=env_unbuffered,
-                        text=True,
-                        start_new_session=True,
-                    )
-                    f.flush()
-                    active_child_p = p
                     try:
-                        p.wait(timeout=default_budget + 300)  # 5 minute safety buffer
+                        training = supervisor.run(
+                            [
+                                "uv", "run", "python", "-u",
+                                "scripts/training/train.py", "--config", TEMP_CONFIG,
+                            ],
+                            stdout=f,
+                            stderr=subprocess.STDOUT,
+                            env=env_unbuffered,
+                            text=True,
+                            timeout=default_budget + 300,
+                        )
+                        training_returncode = training.returncode
                     except subprocess.TimeoutExpired:
-                        print(f"Cycle {i} timed out. Killing process group...")
-                        try:
-                            os.killpg(os.getpgid(p.pid), signal.SIGTERM)
-                        except Exception as e:
-                            print(f"Error killing process group: {e}")
-                        p.wait()
-                    finally:
-                        active_child_p = None
+                        print(f"Cycle {i} timed out. Process group stopped.")
         except Exception as e:
             print(f"Subprocess error in cycle {i}: {e}")
 
@@ -629,7 +625,7 @@ def main():
         is_crash = False
         oom_detected = False
 
-        if not os.path.exists("run_result.json"):
+        if training_returncode != 0 or not os.path.exists("run_result.json"):
             is_crash = True
             if os.path.exists("run.log"):
                 try:
@@ -673,8 +669,8 @@ def main():
             os.rename(TEMP_CONFIG, CONFIG_FILE)
         elif is_crash:
             status = "CRASHED (OOM)" if oom_detected else "CRASHED"
-            # "do NOT penalize" -> Increment so it stays in the rotation
-            success_counts[family] += 1
+            # A crash is not evidence of improvement. Keep the exploration floor
+            # without rewarding repeatedly broken configurations.
             save_history(success_counts)
             if os.path.exists(TEMP_CONFIG):
                 os.remove(TEMP_CONFIG)
@@ -696,7 +692,7 @@ def main():
             if is_success:
                 result_msg = "Improvement detected. Config updated."
             elif is_crash:
-                result_msg = f"Training crashed ({'OOM' if oom_detected else 'Unknown error'}). Family weight preserved/incremented to retry other values."
+                result_msg = f"Training crashed ({'OOM' if oom_detected else 'Unknown error'}). No success reward; family remains eligible for exploration."
 
             log.write(f"- **Result**: {result_msg}\n\n")
             log.flush()
@@ -747,7 +743,7 @@ def main():
             )
 
             try:
-                subprocess.run(benchmark_cmd, check=True, timeout=600, env=bench_env)
+                supervisor.run(benchmark_cmd, check=True, timeout=600, env=bench_env)
             except subprocess.CalledProcessError as bench_exc:
                 print(
                     f"Cycle {i}: Benchmark inference failed (rc={bench_exc.returncode}). Continuing."

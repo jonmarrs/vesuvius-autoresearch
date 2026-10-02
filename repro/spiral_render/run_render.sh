@@ -13,7 +13,9 @@
 set -euo pipefail
 
 W="${1:?usage: run_render.sh <workdir with meshes/ spiral-fitting/ lasagna/ vesuvius/ bin/>}"
-VENV="${VENV:-/home/jon/openclaw-workspace/Neo-VM/villa-spiral/spiral-fitting/.venv/bin/python}"
+W="$(cd "$W" && pwd)"
+VENV="${RENDER_VENV:-${VENV:-/home/jon/openclaw-workspace/Neo-VM/villa-spiral/spiral-fitting/.venv/bin/python}}"
+[[ "$VENV" = /* ]] || VENV="$PWD/$VENV"
 INK_URL="${INK_URL:-https://vesuvius-challenge-open-data.s3.amazonaws.com/PHercParis4/representations/predictions/ink-3d/20260411134726-ink3d-20260428123845-v3-78k-fullsup.zarr}"
 
 # Resolve the shim's ABSOLUTE path BEFORE the cd below. The first version put

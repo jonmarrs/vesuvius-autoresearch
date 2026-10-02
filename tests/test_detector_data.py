@@ -2,6 +2,7 @@ import os
 
 import cv2
 import numpy as np
+import pytest
 
 from vesuvius_autoresearch.detector import data as D
 from vesuvius_autoresearch.detector.config import DetectorConfig
@@ -62,3 +63,27 @@ def test_full_res_label_shape(tmp_path):
     tr2, _, _, _ = D.build_datasets(DetectorConfig(data_root=root))
     _, lab2 = tr2[0]
     assert tuple(lab2.shape) == (1, 4, 4)
+
+
+def test_missing_layer_reports_the_path(tmp_path):
+    with pytest.raises(FileNotFoundError, match="layers/17.tif"):
+        D.read_image_mask(DetectorConfig(data_root=str(tmp_path)), "absent")
+
+
+def test_ambiguous_labels_are_rejected(tmp_path):
+    _make_fake_fragment(str(tmp_path), "frag", h=64, w=64)
+    cv2.imwrite(str(tmp_path / "frag/other_inklabels.png"), np.zeros((64, 64), np.uint8))
+    with pytest.raises(ValueError, match="exactly one inklabels"):
+        D.read_image_mask(DetectorConfig(data_root=str(tmp_path)), "frag")
+
+
+def test_small_depth_augmentation_stays_in_bounds():
+    cfg = DetectorConfig(in_chans=8, start_idx=0, end_idx=8)
+    dataset = D.CustomDataset([], cfg)
+    assert dataset._fourth_augment(np.ones((64, 64, 8), np.uint8)).shape == (64, 64, 8)
+
+
+def test_training_validation_overlap_fails_before_reading_data():
+    cfg = DetectorConfig(train_fragment_ids=["same"], valid_fragment_id="same")
+    with pytest.raises(ValueError, match="must not occur"):
+        D.build_datasets(cfg)

@@ -11,6 +11,7 @@ from torch.optim import AdamW
 class DetectorModel(pl.LightningModule):
     def __init__(self, cfg, pred_shape):
         super().__init__()
+        cfg.validate()
         self.cfg = cfg
         self.pred_shape = pred_shape
         self.mask_pred = np.zeros(pred_shape)
@@ -19,7 +20,7 @@ class DetectorModel(pl.LightningModule):
         self.loss_func2 = smp.losses.SoftBCEWithLogitsLoss(smooth_factor=cfg.bce_smooth)
         self.backbone = TimeSformer(
             dim=512, image_size=cfg.size, patch_size=16, num_frames=cfg.in_chans,
-            num_classes=16, channels=1, depth=8, heads=6, dim_head=64,
+            num_classes=(cfg.size // 16) ** 2, channels=1, depth=8, heads=6, dim_head=64,
             attn_dropout=0.1, ff_dropout=0.1,
         )
 
@@ -31,7 +32,8 @@ class DetectorModel(pl.LightningModule):
         if x.ndim == 4:
             x = x[:, None]
         x = self.backbone(torch.permute(x, (0, 2, 1, 3, 4)))
-        return x.view(-1, 1, 4, 4)
+        grid_size = self.cfg.size // 16
+        return x.view(-1, 1, grid_size, grid_size)
 
     def training_step(self, batch, batch_idx):
         x, y = batch

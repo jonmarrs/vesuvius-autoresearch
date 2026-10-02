@@ -1,4 +1,5 @@
 import os
+import importlib
 
 from test_detector_data import _make_fake_fragment
 
@@ -19,3 +20,22 @@ def test_smoke_train_returns_checkpoint(tmp_path):
     )
     ckpt = train(cfg, max_epochs=1, limit_batches=2)
     assert os.path.exists(ckpt)
+
+
+def test_validation_keeps_the_incomplete_batch(tmp_path, monkeypatch):
+    module = importlib.import_module("vesuvius_autoresearch.detector.train")
+    monkeypatch.setattr(module, "build_datasets", lambda cfg: ([0, 1], [0, 1, 2], [], (64, 64)))
+    monkeypatch.setattr(module, "build_model", lambda *args, **kwargs: None)
+    seen = []
+
+    class Trainer:
+        def __init__(self, **kwargs):
+            pass
+
+        def fit(self, model, *, train_dataloaders, val_dataloaders):
+            for batch in val_dataloaders:
+                seen.extend(batch.tolist())
+
+    monkeypatch.setattr(module.pl, "Trainer", Trainer)
+    module.train(DetectorConfig(model_dir=str(tmp_path), train_batch_size=2, num_workers=0))
+    assert seen == [0, 1, 2]

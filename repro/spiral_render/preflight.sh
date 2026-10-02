@@ -19,9 +19,10 @@ set -uo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 
 RENDER_VENV="${RENDER_VENV:-${VENV:-/home/jon/openclaw-workspace/Neo-VM/villa-spiral/spiral-fitting/.venv/bin/python}}"
-SCORE_VENV="${SCORE_VENV:-/home/jon/openclaw-workspace/Neo-VM/data/ink_scorer_venv/bin/python}"
+SCORE_VENV="${SCORE_VENV:-${VENV:-/home/jon/openclaw-workspace/Neo-VM/data/ink_scorer_venv/bin/python}}"
 # Must match setup_workdir.sh, or this validates a tree the render will not use.
 VILLA="${VILLA:-$(cd "$HERE/../../villa" && pwd)}"
+VILLA_REF="${VILLA_REF:-origin/main}"
 IMAGE="${VC_IMAGE:-vc-render:local}"
 MIN_FREE_GB="${MIN_FREE_GB:-10}"
 ARMS_PER_STUDY="${ARMS_PER_STUDY:-3}"
@@ -42,22 +43,23 @@ if [ -x "$RENDER_VENV" ]; then
 else bad "RENDER_VENV not executable: $RENDER_VENV"; fi
 
 if [ -x "$SCORE_VENV" ]; then
-  missing=$("$SCORE_VENV" - <<'PY' 2>/dev/null
+  if missing=$("$SCORE_VENV" - <<'PY' 2>/dev/null
 mods = []
 for m in ("huggingface_hub", "nnunetv2", "torch", "numpy", "PIL"):
     try: __import__(m)
     except Exception: mods.append(m)
 print(",".join(mods))
 PY
-)
+); then
   if [ -z "$missing" ]; then ok "SCORE_VENV has huggingface_hub, nnunetv2, torch  ($SCORE_VENV)"
   else bad "SCORE_VENV missing: $missing  ($SCORE_VENV)"; fi
+  else bad "SCORE_VENV import probe failed  ($SCORE_VENV)"; fi
 else bad "SCORE_VENV not executable: $SCORE_VENV"; fi
 
-[ "$RENDER_VENV" = "$SCORE_VENV" ] && bad "RENDER_VENV and SCORE_VENV are the SAME path; they need different environments"
+# One environment is fine if it satisfies both dependency probes above.
 
 echo
-echo "villa checkout (renders extract origin/main; fits run the WORKING TREE)"
+echo "villa checkout (renders extract $VILLA_REF; fits run the WORKING TREE)"
 # THERE ARE TWO CHECKOUTS AND THEY ARE NOT INTERCHANGEABLE. This script, and
 # setup_workdir.sh, default VILLA to villa-spiral. The consensus chain and
 # recover_arm.sh use the SUBMODULE instead, because villa-spiral does not contain
@@ -65,13 +67,12 @@ echo "villa checkout (renders extract origin/main; fits run the WORKING TREE)"
 # script said nothing about whether the pin could be served, and a run that set
 # VILLA_REF would die inside setup_workdir with "unknown revision" after preflight
 # had already said everything was fine.
-if [ -n "${VILLA_REF:-}" ]; then
-  if git -C "$VILLA" rev-parse --verify -q "${VILLA_REF}^{commit}" >/dev/null 2>&1; then
+if VILLA_SHA=$(git -C "$VILLA" rev-parse --verify -q "${VILLA_REF}^{commit}" 2>/dev/null); then
     ok "VILLA_REF=$VILLA_REF resolves in $VILLA"
-  else
-    bad "VILLA_REF=$VILLA_REF does NOT resolve in $VILLA -- a render would die at setup"
-  fi
 else
+    bad "VILLA_REF=$VILLA_REF does NOT resolve in $VILLA -- a render would die at setup"
+fi
+if [ "$VILLA_REF" = "origin/main" ]; then
   warn "VILLA_REF unset: setup_workdir will follow a MOVING ref. Pin it for a study."
 fi
 _SUB="$HERE/../../villa"
@@ -89,7 +90,7 @@ fi
 if git -C "$VILLA" rev-parse --git-dir >/dev/null 2>&1; then
   ok "villa checkout at $VILLA  (worktree $(git -C "$VILLA" rev-parse --short HEAD 2>/dev/null), origin/main $(git -C "$VILLA" rev-parse --short origin/main 2>/dev/null))"
   for t in spiral-fitting lasagna vesuvius/src; do
-    git -C "$VILLA" cat-file -e "origin/main:$t" 2>/dev/null && ok "  origin/main has $t" || bad "  origin/main missing $t"
+    git -C "$VILLA" cat-file -e "$VILLA_SHA:$t" 2>/dev/null && ok "  $VILLA_REF has $t" || bad "  $VILLA_REF missing $t"
   done
 else bad "no villa checkout at $VILLA (git does not recognise it as a work tree)"; fi
 
@@ -108,9 +109,10 @@ echo
 echo "patch and wrappers"
 if [ -f "$HERE/serial_folds.patch" ]; then
   tmp=$(mktemp -d); mkdir -p "$tmp/spiral-fitting"
-  if git -C "$VILLA" show "origin/main:spiral-fitting/get_ink_metrics.py" > "$tmp/spiral-fitting/get_ink_metrics.py" 2>/dev/null \
-     && (cd "$tmp" && patch -p1 --batch --dry-run -i "$HERE/serial_folds.patch" >/dev/null 2>&1); then
-    ok "serial_folds.patch applies to villa origin/main"
+  if git -C "$VILLA" show "$VILLA_SHA:spiral-fitting/get_ink_metrics.py" > "$tmp/spiral-fitting/get_ink_metrics.py" 2>/dev/null \
+     && { grep -q SERIAL_FOLDS "$tmp/spiral-fitting/get_ink_metrics.py" \
+       || (cd "$tmp" && patch -p1 --batch --dry-run -i "$HERE/serial_folds.patch" >/dev/null 2>&1); }; then
+    ok "serial_folds gate available for villa $VILLA_REF"
   else bad "serial_folds.patch does NOT apply; the villa pin has moved under it"; fi
   rm -rf "$tmp"
 else bad "serial_folds.patch missing"; fi

@@ -70,13 +70,13 @@
 
 ## Quick start
 
-**Requirements:** A single NVIDIA GPU (tested on RTX 4090/H100), Python 3.10+, [uv](https://docs.astral.sh/uv/).
+**Requirements:** A single NVIDIA GPU (tested on RTX 4090/H100), Python 3.10, [uv](https://docs.astral.sh/uv/).
 
 ```bash
 # 1. Install uv project manager (if you don't already have it)
 curl -LsSf https://astral.sh/uv/install.sh | sh
 
-# 2. Install dependencies
+# 2. Install dependencies and the local src package
 uv sync
 
 # 3. Download data (~5 min)
@@ -87,8 +87,12 @@ PYTHONPATH=. uv run python scripts/training/train.py --test
 
 # 5. Kick off the autonomous research loop
 ./start.sh        # wraps: uv run python run_autoresearch_loop.py
-./stop.sh         # graceful shutdown
+./stop.sh         # stop the loop and pause automatic watchdog restarts
 ```
+
+`start.sh` and `stop.sh` control this checkout using its process lock and work
+from any directory. `start.sh` clears the pause; `make shift` uses the same
+launcher. The watchdog respects the pause even when the loop is already stopped.
 
 ## Running the agent
 
@@ -116,6 +120,11 @@ dependencies installed.
 ```bash
 uv run python scripts/run_validation_tests.py
 ```
+
+This suite uses a local Zarr fixture by default. To also exercise the public S3
+volume (requires network access), run
+`VESUVIUS_TEST_S3=1 uv run python -m pytest -q tests/test_zarr_loading.py`.
+Remote open/read operations have 30-second timeouts and failures fail the test.
 
 For prize-submission mechanics specifically:
 

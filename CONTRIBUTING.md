@@ -2,8 +2,9 @@
 
 Vesuvius Autoresearch is a personal ML research workspace for the
 [Vesuvius Challenge](https://scrollprize.org/). The repo runs an
-automated Thompson-sampling bandit loop over experimental configurations
-and tracks val_bpb improvements over time. PRs and issues are welcome.
+automated, success-weighted search over experimental configurations
+and promotes threshold-swept F1 improvements gated by AP-prevalence-lift.
+PRs and issues are welcome.
 
 ## Development
 
@@ -12,8 +13,8 @@ uv sync
 uv run python scripts/smoke_test.py  # ~20s, exercises the main code paths
 ```
 
-The smoke test forces `CUDA_VISIBLE_DEVICES=""` so it can run alongside
-an active training process without contending for GPU.
+The smoke test forces `CUDA_VISIBLE_DEVICES=""`. Run it while the machine is
+idle: CPU tests still compete with fits and renders for RAM and CPU time.
 
 ## Pull requests
 
@@ -36,25 +37,29 @@ The point is concrete evidence of human evaluation, not polished prose.
 
 ## Project layout
 
-- `train.py` — training subprocess, spawned by the bandit loop one cycle at a time
-- `run_autoresearch_loop.py` — the bandit loop (Thompson sampling over `tweak_templates`)
-- `vesuvius_loader.py` — `FastVesuviusVolume` and `VesuviusLabeledDataset` (returns 3-tuple `(patch, ink_label, fiber_target)`)
-- `model_wrappers.py` — `GenericMultiTaskWrapper` and `build_inference_model` factory
-- `predict.py`, `ensemble_predict.py` — inference scripts
+- `scripts/training/train.py` — training subprocess, spawned one cycle at a time
+- `scripts/training/config.py` — configuration without training imports
+- `run_autoresearch_loop.py` — success-weighted search over `tweak_templates`
+- `scripts/process_supervisor.py` — bounded subprocess-group cleanup
+- `scripts/loop_control.py` — lock ownership and stop/status controls
+- `src/vesuvius_autoresearch/core/vesuvius_loader.py` — volume and dataset loading
+- `src/vesuvius_autoresearch/core/model_wrappers.py` — shared model wrappers and inference factory
+- `scripts/inference/` — prediction and ensemble scripts
 - `scripts/` — utilities (`smoke_test.py`, `reevaluate_best_model.py`, label generators, etc.)
-- `sprint_logs/` — per-shift bandit logs (cycle-by-cycle config + val_bpb)
+- `sprint_logs/` — per-shift logs (config, F1, diagnostic metrics, and outcome)
 - `villa/` — submodule of [ScrollPrize/villa](https://github.com/ScrollPrize/villa)
 - `local_data/` — scroll data (gitignored, expected to live alongside)
 
 ## Running a bandit shift
 
-Day Shift (15-minute cycles, runs 07:00–19:00 PT) and Night Shift
-(60-minute cycles, runs 19:00–07:00 PT) auto-detect from the local
+Day Shift (15-minute cycles, runs 07:00–19:00) and Night Shift
+(60-minute cycles, runs 19:00–07:00) auto-detect from the host's local
 clock when `run_autoresearch_loop.py` starts:
 
 ```sh
-nohup uv run python run_autoresearch_loop.py > shift_stdout.log 2>&1 &
+./start.sh
+./stop.sh  # stops the registered process and pauses the watchdog
 ```
 
 The loop writes to `sprint_logs/sprint_log_<timestamp>_<shift>.md` and
-auto-commits + pushes any cycle that improves `val_bpb`.
+auto-commits successful promotions locally. Starting again clears the pause.

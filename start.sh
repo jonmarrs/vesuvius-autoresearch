@@ -1,20 +1,18 @@
 #!/bin/bash
-# start.sh - Kick off the autoresearch loop in the background
-
-# Starting clears any watchdog pause flag (see scripts/loop_watchdog.sh).
-rm -f "$(dirname "$0")/.loop_paused"
-
-if pgrep -f "python run_autoresearch_loop.py" > /dev/null; then
-    echo "Warning: run_autoresearch_loop.py appears to be running already."
-    echo "Check background processes before starting a new instance."
-    exit 1
+# Start from this checkout regardless of the caller's current directory.
+set -euo pipefail
+REPO="$(cd "$(dirname "$0")" && pwd)"
+cd "$REPO"
+if [ "${1:-}" = "--watchdog" ]; then
+    [ ! -f .loop_paused ] || exit 0
+else
+    rm -f .loop_paused
 fi
-
-echo "Starting run_autoresearch_loop.py in the background..."
-export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/lib/python3.10/site-packages/nvidia/cusolver/lib
-nohup uv run python run_autoresearch_loop.py > autoresearch.out 2>&1 &
-PID=$!
-
-echo "Process started with PID $PID"
-echo "Main logs are managed internally by the script."
-echo "You can check autoresearch.out for script-level stdout/stderr."
+if python3 scripts/loop_control.py status; then
+    exit 1
+else
+    rc=$?
+    [ "$rc" -eq 1 ] || exit "$rc"
+fi
+nohup uv run python -u run_autoresearch_loop.py >> autoresearch.out 2>&1 &
+echo "Autoresearch launcher started (PID $!). See $REPO/autoresearch.out."

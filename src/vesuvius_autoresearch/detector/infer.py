@@ -12,7 +12,9 @@ from .model import DetectorModel
 
 
 def infer(cfg, checkpoint_path, fragment_id, model=None, batch_size=64):
-    cfg.validate_window()
+    cfg.validate()
+    if not isinstance(batch_size, int) or isinstance(batch_size, bool) or batch_size <= 0:
+        raise ValueError("batch_size must be a positive integer")
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     if model is None:
         # Dispatch the model class by architecture so resenc checkpoints load into

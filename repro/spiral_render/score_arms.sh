@@ -22,18 +22,37 @@
 #   each arm_dir holds meshes/ink/ (render output) and spiral-fitting/
 set -uo pipefail
 FAILED=0
-VENV="${VENV:-/home/jon/openclaw-workspace/Neo-VM/data/ink_scorer_venv/bin/python}"
+VENV="${SCORE_VENV:-${VENV:-/home/jon/openclaw-workspace/Neo-VM/data/ink_scorer_venv/bin/python}}"
+[[ "$VENV" = /* ]] || VENV="$PWD/$VENV"
 export INK_METRIC_SERIAL_FOLDS="${INK_METRIC_SERIAL_FOLDS:-1}"
+[ "$#" -gt 0 ] || { echo "usage: score_arms.sh <arm_dir> [arm_dir...]" >&2; exit 2; }
+MEMPID=""
+cleanup() {
+  if [ -n "$MEMPID" ]; then
+    kill "$MEMPID" 2>/dev/null || true
+    wait "$MEMPID" 2>/dev/null || true
+    MEMPID=""
+  fi
+}
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
 for ARM in "$@"; do
-  ARM="$(cd "$ARM" && pwd)"
+  ARM="$(cd "$ARM" && pwd)" || { echo "[fail] no such arm directory" >&2; FAILED=1; continue; }
   echo "=================== SCORE $(basename "$ARM") $(date -Is) ==================="
-  ls "$ARM/meshes/ink"/*.jpg >/dev/null 2>&1 || { echo "[fail] no ink strips in $ARM"; continue; }
-  rm -rf "$ARM/ink_metric" "$ARM/meshes/ink_metric"
+  ls "$ARM/meshes/ink"/*.jpg >/dev/null 2>&1 || { echo "[fail] no ink strips in $ARM"; FAILED=1; continue; }
+  [ -d "$ARM/spiral-fitting" ] && [ -x "$VENV" ] \
+    || { echo "[fail] missing spiral-fitting directory or scorer interpreter: $VENV"; FAILED=1; continue; }
+  rm -rf "$ARM/ink_metric" "$ARM/meshes/ink_metric" \
+    || { echo "[fail] could not clear old metrics for $ARM"; FAILED=1; continue; }
   # an OOM here is silent in the fold logs, so trace memory alongside
-  ( while true; do
+  ( SLEEP_PID=""
+    trap '[ -z "$SLEEP_PID" ] || kill "$SLEEP_PID" 2>/dev/null; exit 0' TERM INT
+    while true; do
       free -m | awk '/^Mem:/{printf "[mem] used=%dMB avail=%dMB\n",$3,$7}'
-      sleep 30
+      sleep 30 & SLEEP_PID=$!
+      wait "$SLEEP_PID"
     done ) & MEMPID=$!
   ( cd "$ARM/spiral-fitting" && \
     "$VENV" -u get_ink_metrics.py "$ARM/meshes/ink" --output "$ARM/ink_metric" )
@@ -43,8 +62,9 @@ for ARM in "$@"; do
   rc=$?
   echo "[exit] $(basename "$ARM") scoring rc=$rc"
   [ "$rc" -eq 0 ] && [ -f "$ARM/ink_metric/metrics.json" ] \
-    || { echo "[fail] $(basename "$ARM"): no metrics.json, scoring did NOT succeed"; FAILED=1; }
-  kill $MEMPID 2>/dev/null
+    || { echo "[fail] $(basename "$ARM"): scoring did NOT succeed";
+         rm -f "$ARM/ink_metric/metrics.json"; FAILED=1; }
+  cleanup
 done
 echo "=================== ALL DONE $(date -Is) rc=$FAILED ==================="
 exit "$FAILED"

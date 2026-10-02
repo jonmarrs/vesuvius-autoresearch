@@ -40,12 +40,18 @@ def _valid_aug(cfg):
 
 
 def read_image_mask(cfg, fragment_id):
+    cfg.validate()
     root = cfg.data_root
     images = []
     pad0 = pad1 = 0
     for i in range(cfg.start_idx, cfg.end_idx):
         p = os.path.join(root, fragment_id, "layers", f"{i:02d}.tif")
         image = cv2.imread(p, 0)
+        if image is None:
+            raise FileNotFoundError(f"could not read layer: {p}")
+        if images and image.shape != original_shape:
+            raise ValueError(f"layer shape mismatch: {p} has {image.shape}, expected {original_shape}")
+        original_shape = image.shape
         pad0 = cfg.tile_size - image.shape[0] % cfg.tile_size
         pad1 = cfg.tile_size - image.shape[1] % cfg.tile_size
         image = np.pad(image, [(0, pad0), (0, pad1)], constant_values=0)
@@ -53,8 +59,16 @@ def read_image_mask(cfg, fragment_id):
         images.append(image)
     images = np.stack(images, axis=2)
     ink = glob.glob(os.path.join(root, fragment_id, "*inklabels.*"))
+    if len(ink) != 1:
+        raise ValueError(f"expected exactly one inklabels file for {fragment_id}, found {len(ink)}")
     mask = cv2.imread(ink[0], 0)
-    frag_mask = cv2.imread(os.path.join(root, fragment_id, f"{fragment_id}_mask.png"), 0)
+    mask_path = os.path.join(root, fragment_id, f"{fragment_id}_mask.png")
+    frag_mask = cv2.imread(mask_path, 0)
+    for name, array in ((ink[0], mask), (mask_path, frag_mask)):
+        if array is None:
+            raise FileNotFoundError(f"could not read mask: {name}")
+        if array.shape != original_shape:
+            raise ValueError(f"mask shape mismatch: {name} has {array.shape}, expected {original_shape}")
     frag_mask = np.pad(frag_mask, [(0, pad0), (0, pad1)], constant_values=0)
     mask = mask.astype("float32") / 255.0
     return images, mask, frag_mask
@@ -84,6 +98,9 @@ def _tiles_for_fragment(cfg, fragment_id, is_valid):
 
 
 def build_datasets(cfg):
+    cfg.validate()
+    if cfg.valid_fragment_id in cfg.train_fragment_ids:
+        raise ValueError("valid_fragment_id must not occur in train_fragment_ids")
     tr_imgs, tr_labels = [], []
     for fid in cfg.train_fragment_ids:
         i, l, _, _ = _tiles_for_fragment(cfg, fid, is_valid=False)
@@ -91,6 +108,8 @@ def build_datasets(cfg):
         tr_labels += l
     v_imgs, v_labels, v_xyxys, pred_shape = _tiles_for_fragment(
         cfg, cfg.valid_fragment_id, is_valid=True)
+    if not tr_imgs or not v_imgs:
+        raise ValueError("no usable training or validation tiles; check fragment masks and tile_size")
     train_ds = CustomDataset(tr_imgs, cfg, labels=tr_labels, transform=_train_aug(cfg))
     valid_ds = CustomDataset(v_imgs, cfg, xyxys=np.stack(v_xyxys), labels=v_labels,
                              transform=_valid_aug(cfg))
@@ -110,11 +129,11 @@ class CustomDataset(Dataset):
 
     def _fourth_augment(self, image):
         image_tmp = np.zeros_like(image)
-        cropping_num = random.randint(18, 26)
+        cropping_num = random.randint(min(18, self.cfg.in_chans), min(26, self.cfg.in_chans))
         start_idx = random.randint(0, self.cfg.in_chans - cropping_num)
         crop_indices = np.arange(start_idx, start_idx + cropping_num)
         start_paste_idx = random.randint(0, self.cfg.in_chans - cropping_num)
-        tmp = np.arange(start_paste_idx, cropping_num)
+        tmp = np.arange(start_paste_idx, start_paste_idx + cropping_num)
         np.random.shuffle(tmp)
         cutout_idx = random.randint(0, 2)
         temporal_random_cutout_idx = tmp[:cutout_idx]

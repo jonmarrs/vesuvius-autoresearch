@@ -18,6 +18,7 @@ To set up a new experiment, work with the user to:
    - `FINDINGS.md` — what has already been tried and ruled out.
    - `src/vesuvius_autoresearch/core/vesuvius_loader.py` — data loading and preprocessing.
    - `vesuvius_model.py` — the loop's architecture zoo.
+   - `scripts/training/config.py` — the serializable experiment configuration.
    - `scripts/training/train.py` — the loop's training and evaluation script.
    - `src/vesuvius_autoresearch/detector/` — the productionized (separate) TimeSformer detector.
 3. **Verify data exists**: Check that `local_data/` contains volumes. If not, ask the human which download script under `scripts/archive/` applies (e.g. `uv run python scripts/archive/download_data.py`).
@@ -30,7 +31,7 @@ Each experiment runs on a single GPU. The training script runs for a **fixed tim
 (`--test` = 30s smoke; `--smoke` = build + one fwd/bwd preflight).
 
 **What you CAN do:**
-- Modify `scripts/training/train.py` or `vesuvius_model.py` — architecture, optimizer, hyperparameters, training loop, batch size, model size, etc. **But first pause the loop if it is running** (`.loop_paused` + kill PIDs; `stop.sh`'s pgrep pattern misses `-u` invocations).
+- Modify `scripts/training/train.py` or `vesuvius_model.py` — architecture, optimizer, hyperparameters, training loop, batch size, model size, etc. **But first pause the loop if it is running** (`./stop.sh` stops the registered loop and creates `.loop_paused`; `./start.sh` resumes it).
 
 **What you CANNOT do:**
 - Install new packages or add dependencies. You can only use what's already in `pyproject.toml`.

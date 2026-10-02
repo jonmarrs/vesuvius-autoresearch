@@ -29,14 +29,18 @@ GPU/disk/RAM headroom. It exits non-zero, so it can gate a run.
 |---|---|---|
 | `RENDER_VENV` | python with **torch** — runs `render_ink.py` and the lasagna flatten | villa-spiral's `spiral-fitting/.venv` |
 | `SCORE_VENV` | python with **huggingface_hub + nnunetv2** — runs `get_ink_metrics.py` | `data/ink_scorer_venv` |
-| `VILLA` | a villa checkout; renders extract `origin/main`, fits run the **working tree** | `../villa-spiral` |
+| `VILLA` | a villa checkout; renders extract `VILLA_REF` (default `origin/main`), fits run the **working tree** | repository's `villa/` submodule |
 | `VC_IMAGE` | container with the rebuilt VC tools | `vc-render:local` |
 
 **`VENV` means different things in different scripts** — the fit/render one in `run_render.sh`, the
 scoring one in `score_arms.sh`. Setting it globally satisfies one and breaks the other, and the
 failure arrives *after* the render has already run, as `No module named huggingface_hub`. Preflight
-fails loudly if the two resolve to the same path.
+checks the dependencies of each role; a shared interpreter is valid when it
+satisfies both. The render and scoring launchers now honor `RENDER_VENV` and
+`SCORE_VENV` respectively, with `VENV` retained as a legacy fallback.
 
+The preflight checks the resolved `VILLA_REF` tree and its serial-fold patch, matching
+setup. Frozen driver snapshots preserve the source checkout's `VILLA` path.
 The preflight also prints both villa refs, because fits and renders genuinely use different ones
 (worktree vs `origin/main`) and quoting a single ref for "the tooling" has been wrong here twice.
 

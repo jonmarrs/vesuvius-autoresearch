@@ -34,3 +34,18 @@ def test_architecture_defaults_and_full_res_property():
     assert cfg.full_res is True
     assert cfg.resenc_n_stages == 5
     assert cfg.resenc_base_feat == 32
+
+
+@pytest.mark.parametrize("kwargs, message", [
+    ({"architecture": "typo"}, "architecture"),
+    ({"stride": 0}, "stride"),
+    ({"stride": 128}, "gaps"),
+    ({"size": 0}, "size"),
+    ({"size": 48}, "tile_size"),
+    ({"size": 8, "stride": 8}, "multiple of 16"),
+    ({"in_chans": 8}, "in_chans"),
+    ({"architecture": "resenc", "resenc_n_stages": 7}, "at least 2 pixels"),
+])
+def test_invalid_configs_fail_before_data_or_model_loading(kwargs, message):
+    with pytest.raises(ValueError, match=message):
+        DetectorConfig(**kwargs).validate()

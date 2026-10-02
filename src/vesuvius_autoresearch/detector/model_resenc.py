@@ -17,6 +17,7 @@ from torch.optim import AdamW
 class ResEncDetectorModel(pl.LightningModule):
     def __init__(self, cfg, pred_shape):
         super().__init__()
+        cfg.validate()
         self.cfg = cfg
         self.pred_shape = pred_shape
         self.loss_func1 = smp.losses.DiceLoss(mode="binary")

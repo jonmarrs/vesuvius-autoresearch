@@ -10,8 +10,8 @@
 # are respected. `start.sh` clears the flag. To pause: `touch .loop_paused`
 # then stop the loop; to resume: `bash start.sh`.
 
-export PATH="/home/jon/.local/bin:$PATH"
-REPO="/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch"
+export PATH="${HOME}/.local/bin:$PATH"
+REPO="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO" || exit 1
 
 # Respect an intentional pause.
@@ -20,9 +20,12 @@ if [ -f "$REPO/.loop_paused" ]; then
 fi
 
 # Already running? Nothing to do.
-if pgrep -f "python run_autoresearch_loop.py" > /dev/null; then
+if python3 "$REPO/scripts/loop_control.py" status >/dev/null; then
     exit 0
+else
+    rc=$?
+    [ "$rc" -eq 1 ] || exit "$rc"
 fi
 
 echo "$(date '+%Y-%m-%d %H:%M:%S') watchdog: loop not running, starting" >> "$REPO/watchdog.log"
-bash "$REPO/start.sh" >> "$REPO/watchdog.log" 2>&1
+bash "$REPO/start.sh" --watchdog >> "$REPO/watchdog.log" 2>&1

@@ -9,6 +9,8 @@ pinned here alongside its ability to find a real one.
 import os
 import sys
 
+import pytest
+
 os.environ["CUDA_VISIBLE_DEVICES"] = ""
 _REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(_REPO, "scripts"))
@@ -18,7 +20,36 @@ from conftest import restore_cuda_env  # noqa: E402
 
 restore_cuda_env()  # do not leave the mask for other test modules
 
-MAX_LIVE_STALE_PATHS = 1
+# Both documents explicitly identify these paths as historical/absent. Keep the
+# exceptions exact: a count allowance could hide a new broken reference.
+KNOWN_HISTORICAL_PATHS = {
+    ("docs/VILLA_STRATEGY.md", "villa/segmentation/model_optimization_framework/run_autoresearch_nnunet.py"),
+    ("reports/spiral_satisfaction_winding_blindness.md", "villa/volume-cartographer/scripts/spiral/"),
+}
+
+
+@pytest.fixture
+def history(tmp_path, monkeypatch):
+    """Real, tiny repositories independent of checkout depth and branch names."""
+    import subprocess
+
+    repo = tmp_path / "project"
+    villa = repo / "villa"
+    villa.mkdir(parents=True)
+
+    def git(cwd, *args):
+        return subprocess.check_output(
+            ["git", "-C", str(cwd), "-c", "user.name=Test", "-c", "user.email=test@example.invalid",
+             "-c", "commit.gpgsign=false", *args],
+            env=mod._git_env(), text=True, stderr=subprocess.DEVNULL,
+        ).strip()
+
+    for path, name in ((repo, "project"), (villa, "upstream")):
+        git(path, "init", "-b", "main")
+        git(path, "commit", "--allow-empty", "-m", name)
+    monkeypatch.setattr(mod, "_REPO", str(repo))
+    monkeypatch.setattr(mod, "VILLA", str(villa))
+    return repo, villa, git
 
 
 def test_it_recognises_a_repository_path():
@@ -38,47 +69,21 @@ def test_it_ignores_an_elided_path():
     assert re.match(mod.PATHISH_RE, tok), "the regex alone would accept it"
 
 
-def test_a_villa_commit_is_not_called_dangling():
-    """Our pin belongs to the submodule's history. Reporting it as unreachable was
-    the first version's largest error, 19 of 21 flags."""
-    assert mod.where("ced62390e") == "villa submodule"
+def test_a_villa_commit_is_not_called_dangling(history):
+    repo, villa, git = history
+    assert mod.where(git(villa, "rev-parse", "HEAD")) == "villa submodule"
 
 
-def _rev(ref):
-    import subprocess
-
-    return subprocess.run(
-        ["git", "rev-parse", "--short", ref],
-        cwd=_REPO,
-        capture_output=True,
-        text=True,
-    ).stdout.strip()
+def test_a_commit_on_main_is_recognised(history):
+    repo, villa, git = history
+    assert mod.where(git(repo, "rev-parse", "main")) == "this repo"
 
 
-def test_a_commit_on_main_is_recognised():
-    """The other direction: a commit this repository actually has.
-
-    Resolves `main`, not `HEAD`. The first version used HEAD, which asserted
-    "I am currently on main" rather than anything about `where()`, and failed on
-    every feature branch: on a branch, HEAD is genuinely not an ancestor of main,
-    so `where()` correctly returned "this repo, not on main" and the test called
-    correct behaviour a failure.
-    """
-    assert mod.where(_rev("main")) == "this repo"
-
-
-def test_a_commit_off_main_is_recognised_as_off_main():
-    """The branch `where()` has that nothing covered until a feature branch found it.
-
-    A commit this repo has but main does not must be reported as present and off
-    main, not as dangling. Asserted only when HEAD is actually off main, so this
-    is a real assertion on a branch and a no-op on main rather than a test that
-    quietly changes meaning.
-    """
-    head = _rev("HEAD")
-    if mod._is_ancestor(head, "main", _REPO):
-        return
-    assert mod.where(head) == "this repo, not on main"
+def test_a_commit_off_main_is_recognised_as_off_main(history):
+    repo, villa, git = history
+    git(repo, "checkout", "-b", "feature")
+    git(repo, "commit", "--allow-empty", "-m", "not on main")
+    assert mod.where(git(repo, "rev-parse", "HEAD")) == "this repo, not on main"
 
 
 def test_an_invented_commit_resolves_nowhere():
@@ -95,14 +100,13 @@ def test_dated_documents_are_separated_from_live_ones():
 
 
 def test_live_documents_stay_clean():
-    """The regression guard. Live documents are down to one known-stale path, which
-    is annotated in place as absent at our pin. A second means a new reference
-    rotted, which is exactly the failure that cost this repo three months."""
+    """Fail on every new stale path; only named historical references are exempt."""
     _, missing_paths, _, _, _ = mod.audit()
-    live = [(d, p) for d, p in missing_paths if not mod.DATED_RE.search(d)]
-    assert len(live) <= MAX_LIVE_STALE_PATHS, (
-        f"{len(live)} stale paths in live documents: "
-        + ", ".join(f"{p} in {d}" for d, p in live)
+    live = {(d, p) for d, p in missing_paths if not mod.DATED_RE.search(d)}
+    unexpected = live - KNOWN_HISTORICAL_PATHS
+    assert not unexpected, (
+        "new stale paths in live documents: "
+        + ", ".join(f"{p} in {d}" for d, p in sorted(unexpected))
     )
 
 

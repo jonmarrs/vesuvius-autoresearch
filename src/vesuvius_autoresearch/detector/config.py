@@ -46,6 +46,30 @@ class DetectorConfig:
     resenc_n_stages: int = 5
     resenc_base_feat: int = 32
 
+    def validate(self) -> None:
+        """Check shape/tiling contracts before reading data or building a model."""
+        for name in ("in_chans", "size", "tile_size", "stride", "train_batch_size"):
+            value = getattr(self, name)
+            if not isinstance(value, int) or isinstance(value, bool) or value <= 0:
+                raise ValueError(f"{name} must be a positive integer")
+        if self.architecture not in {"timesformer", "resenc"}:
+            raise ValueError(f"unknown architecture: {self.architecture!r}")
+        if self.start_idx < 0 or self.end_idx - self.start_idx != self.in_chans:
+            raise ValueError("end_idx - start_idx must equal in_chans, with start_idx >= 0")
+        if self.tile_size % self.size:
+            raise ValueError("tile_size must be a multiple of size")
+        if self.stride > self.size:
+            raise ValueError("stride must be <= size to avoid gaps in inference")
+        if self.architecture == "timesformer" and self.size % 16:
+            raise ValueError("TimeSformer size must be a multiple of 16")
+        if self.architecture == "resenc":
+            if self.resenc_n_stages < 2 or self.resenc_n_stages > self.size.bit_length():
+                raise ValueError("resenc_n_stages is incompatible with size")
+            divisor = 2 ** (self.resenc_n_stages - 1)
+            if self.size % divisor or self.size // divisor < 2:
+                raise ValueError("resenc size must be divisible by its downsampling factor and retain at least 2 pixels")
+        self.validate_window()
+
     def validate_window(self) -> None:
         # The lateral limit is the pixel count (<= 64px @ 8um); its physical width
         # (0.512mm) is derived from max_lateral_px rather than a separate rounded bound.

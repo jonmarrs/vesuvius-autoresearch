@@ -40,8 +40,13 @@ shift 2
 [ -d "$ROOT" ] || { echo "no such snapshot root: $ROOT" >&2; exit 2; }
 [ -f "$HERE/$DRIVER" ] || { echo "no such driver: $HERE/$DRIVER" >&2; exit 2; }
 
-SNAP="$ROOT/_driver_snapshot_$(date +%Y%m%d_%H%M%S)"
-cp -r "$HERE" "$SNAP" || { echo "snapshot copy failed" >&2; exit 2; }
+# Resolve checkout-relative defaults before moving the driver outside the repo.
+export VILLA="${VILLA:-$(cd "$HERE/../../villa" && pwd)}"
+[ -n "$VILLA" ] || { echo "villa checkout missing; set VILLA" >&2; exit 2; }
+VILLA="$(cd "$VILLA" && pwd)" || exit 2
+# Two launches in the same second must not nest one snapshot inside the other.
+SNAP="$(mktemp -d "$ROOT/_driver_snapshot_$(date +%Y%m%d_%H%M%S)_XXXXXX")" || exit 2
+cp -r "$HERE/." "$SNAP/" || { echo "snapshot copy failed" >&2; exit 2; }
 chmod +x "$SNAP"/*.sh 2>/dev/null
 [ -d "$SNAP/bin" ] && chmod +x "$SNAP"/bin/* 2>/dev/null
 
