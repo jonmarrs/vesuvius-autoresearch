@@ -1,5 +1,13 @@
 # Resume note — written 2026-09-22 before a deliberate Claude restart
 
+## 2026-10-03: October filing DRAFT exists
+
+* `docs/PRIZE_FILING_2026-10_DRAFT.md` is in the four-part shape, and every number is bound by
+  `tests/test_filing_2026_10_numbers.py`. The test caught my +4.2%, which is +4.1%. **Not
+  submit-ready:** villa hasn't published the October form. Add the runner PR after 10-06, and re-read
+  the whole Progress section of `34_prizes.md` on filing day.
+
+
 ## 2026-10-03 (later): finding 72, the #1818 line closed
 
 * **Finding 72:** in villa's own pipeline, smooth moves the scorer count about 1% per window (tail ±9%)
