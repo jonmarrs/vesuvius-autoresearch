@@ -57,12 +57,17 @@ depends on, against villa's own code and villa's own ink labels:
   through the environment, the documented way to try a variant, is silently dropped, so the
   "variant" runs as the baseline. Measured by running villa's runner with its steps stubbed.
   `<runner PR>` fixes the doc.
-* **A new render setting moves the metric without moving reading.** villa #1818 added
+* **A new render setting moves the metric far more than it moves reading.** villa #1818 added
   `vc_render_tifxyz --surface-interpolation smooth`. Its default is byte-identical to earlier builds.
-  On the 8 labelled segments, in villa's own scoring pipeline, smooth moves `total_fg_pixels` by
-  −3.6% to +4.1% per segment, while the scorer's agreement with villa's labels does not change
-  (|ΔAP| < 0.001 in all 8, none resolved). Comparing runs rendered in different modes would bias a
-  keep/discard decision by about the size of the gains the loop chases. Smooth would not read more.
+  On the 8 labelled segments, in villa's own scoring pipeline:
+  * on villa's fine segment meshes, smooth moves `total_fg_pixels` by −3.6% to +4.1% per segment, and
+    the scorer's agreement with villa's labels does not change (|ΔAP| < 0.001 in all 8, none resolved);
+  * on grids as coarse as the spiral surfaces villa's loop scores, the count moves by −7.9% to +19.4%
+    per segment (−31.9% to +41.5% per window). The raw render gets only slightly more faithful (about
+    1–2% of AP), and the scorer's agreement does not consistently change.
+
+  The effect scales with grid cell size (measured). Comparing runs rendered in different modes would
+  bias a keep/discard decision by more than the gains the loop chases.
 * **The comparison tool now reads what villa's runner writes.** inkdelta 0.3.0 rejected villa's real
   `--seeds` output as invalid; 0.4.0 reads it. 0.5.x refuses to compare runs rendered in different
   modes.
@@ -90,20 +95,23 @@ depends on, against villa's own code and villa's own ink labels:
 
 ## Required disclosure — include it
 
-* **Four of my registered predictions failed**, and the reports say so:
+* **Five of my registered predictions failed**, and the reports say so:
   * finding 70 (smooth would move the count < 1% in every crop window: it moved up to ±20%);
   * finding 71 prediction 1 (failed on three exclusions, one caused by a defect in my alignment gate);
   * finding 72 prediction 1 (the count was sensitive in 15% of windows, not ≥ 25%).
   * per-crop normalisation as the cause of finding 70's size (re-scored with one shared p95,
     the median |Δ| stayed at 4.7%, not < 2.5%).
-* **Finding 70's ±20% does not generalise to fine meshes.** On villa's segment meshes (20-voxel grid
-  cells) the effect is about 1% per window. Finding 70's spiral surface has 80-voxel cells. Not the
-  normalisation: tested, and that prediction failed too.
+  * finding 73 prediction 2 (smooth's scorer output would agree better with the labels on coarse grids:
+    2 of 8, not ≥ 6).
+* **The effect's size depends on grid cell size** (finding 73, measured): about 1% per window on
+  villa's 20-voxel segment meshes, a 6.2% median and up to ±40% per window on 80-voxel grids like the
+  spiral surfaces. Quote the size with the grid.
 * villa's scroll labels are partly pseudo-labels, made with default-mode geometry. That favours the
   default mode in any comparison against them, and still no difference appeared.
 
 ## Do not add
 
-* Not "smooth is worse" or "smooth is better". It is neither, by villa's labels.
+* Not "smooth reads better". Only its raw render is slightly more faithful, on coarse grids; the
+  scorer's agreement does not change.
 * Not "the scorer is fragile" as an established fact. Finding 72's sensitivity prediction failed.
 * No adoption claim for inkdelta or the measurements unless one exists on filing day.

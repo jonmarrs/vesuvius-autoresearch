@@ -1004,3 +1004,16 @@ not at all.** Pre-registered (`docs/preregistration/2026-10-03_scorer_sensitivit
 * **Across f70–72:** smooth never changes agreement with villa's labels.
 
 `reports/scorer_vs_labels_surface_interpolation.md`.
+
+**73. Grid cell size drives the linear/smooth difference.** Pre-registered
+(`docs/preregistration/2026-10-03_coarse_grid_interpolation.md`). Finding 72's pipeline on the 8 labelled
+segments with meshes subsampled 4× (~80-voxel cells, like the spiral surfaces villa's loop scores):
+
+* **Count:** median window |Δ| **6.2%** (fine: 1.3%), range −31.9% to +41.5%, segment totals −7.9% to
+  +19.4%. **Prediction 1 HELD**; this explains finding 70 vs finding 72.
+* **Scorer faithfulness:** no consistent change (smooth ≥ linear in 2 of 8). **Prediction 2 FAILED.**
+* **Raw render (secondary):** slightly more faithful under smooth, resolved in 6 of 8, about +1–2% of AP.
+  That is #1818's mechanism, but the scorer does not pass it on.
+
+On spiral-scale grids the render mode moves the objective by tens of percent per region against a 1–2%
+change in raw faithfulness. `reports/coarse_grid_interpolation.md`.

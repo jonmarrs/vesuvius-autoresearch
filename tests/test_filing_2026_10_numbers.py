@@ -83,4 +83,29 @@ def test_about_one_percent_per_window_in_villas_pipeline():
     n = len(ws)
     median = (ws[n // 2] + ws[(n - 1) // 2]) / 2
     assert 0.005 <= median < 0.015  # "about 1%"
-    assert "the effect is about 1% per window" in _text()
+    assert "about 1% per window on villa's 20-voxel segment meshes" in _text()
+
+
+_F73 = _REPO / "reports/scorer_vs_labels_coarse.json"
+
+
+@pytest.mark.skipif(not _F73.exists(), reason="finding 73 artifact absent")
+def test_coarse_grid_numbers_match_finding_73():
+    d = json.loads(_F73.read_text())
+    txt = _text()
+    totals = [r["d_total"] for r in d["segments"]]
+    assert f"{_pct(min(totals))} to {_pct(max(totals))} per segment" in txt
+    lo, hi = d["summary"]["window_d_range"]
+    assert f"({_pct(lo)} to {_pct(hi)} per window)" in txt
+    ws = sorted(abs(w["d"]) for r in d["segments"] for w in r["windows"])
+    n = len(ws)
+    assert f"{100 * (ws[n // 2] + ws[(n - 1) // 2]) / 2:.1f}% median" in txt
+    ge = sum(r["prob"]["d_ap"] >= 0 for r in d["segments"])
+    assert ge == 2 and "2 of 8, not ≥ 6" in txt
+    rel = [
+        r["strip"]["d_ap"] / r["strip"]["linear"]["ap"]
+        for r in d["segments"]
+        if r["strip"]["d_ap"] > 0
+    ]
+    assert min(rel) >= 0.009 and max(rel) <= 0.025  # "about 1–2% of AP"
+    assert "about 1–2% of AP" in txt

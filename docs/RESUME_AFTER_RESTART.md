@@ -1,5 +1,18 @@
 # Resume note — written 2026-09-22 before a deliberate Claude restart
 
+## 2026-10-03 (evening): finding 73; the f70/f72 gap explained
+
+* **Finding 73:** grid cell size drives the linear/smooth difference.
+  * On 80-voxel grids (segment meshes subsampled 4×, like spiral surfaces) the count moves a 6.2%
+    median per window (−32% to +42%), −7.9% to +19.4% per segment.
+  * The scorer's label agreement does not consistently change (P2 FAILED). The raw render is slightly
+    more faithful under smooth (resolved in 6 of 8, about 1–2% of AP; secondary).
+* Shared-p95 test: per-crop normalisation is NOT the cause (prediction failed).
+* inkdelta 0.5.2 quotes both grid scales. The October draft now discloses five failed predictions and
+  stays test-bound (8 tests).
+* **The #1818 line is complete (f70–f73).** No further #1818 studies are planned.
+
+
 ## 2026-10-03: October filing DRAFT exists
 
 * `docs/PRIZE_FILING_2026-10_DRAFT.md` is in the four-part shape, and every number is bound by
