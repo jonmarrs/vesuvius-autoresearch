@@ -1,9 +1,15 @@
 # October 2026 Progress Prize — DRAFT (not submit-ready)
 
-**Status: draft, started 2026-10-03.** villa has not published the October form or deadline yet
-(`34_prizes.md` still says September 30th on 2026-10-02). The September form asked for a URL list and a
-four-part "What is your contribution?" answer, so this draft is in that shape. **The form changes every
-month:** re-read it before filing.
+**Status: draft, started 2026-10-03. The October round OPENED 2026-10-03** (villa #1947, `ed426faf0`):
+* **deadline 11:59pm Pacific, October 31st, 2026**;
+* form `https://docs.google.com/forms/d/e/1FAIpQLSc4flEfgK2nyjoczz2_U_XrIGMlgrnSknWatLqrFPnbtKfZwg/viewform`,
+  a new URL again.
+
+The criteria text is unchanged from September: #1947 touched only the deadline and form lines. The form
+was read on 2026-10-03. It asks for name, team description and Discord name, then the two fields this
+draft answers: the URL list (required), and "What is your contribution?" with the same four parts as
+September (required). Then T&C. **Re-check it on filing day.** In September the criteria changed
+mid-month.
 
 **For pasting, open this file. Never copy from terminal output.** In September a terminal-wrapped line
 clipped "#1780" to "#17".
