@@ -67,3 +67,18 @@ is reported as secondary. Its size is ~1–2% of AP.
   and normalisations differ slightly, so it is not interpreted.
 * No meaningless-perturbation control in this pipeline. On coarse grids the effects are far above
   finding 70's control maximum (2.8%), but that control was in another pipeline.
+
+## Post hoc, descriptive: grid density alone moves the default-mode count, but the loop cannot change it
+
+Computed from the two committed JSONs, with no new run. For the same 8 surfaces under the **default
+(linear)** mode, the scorer count on the 4×-coarser grid vs the original:
+* −4.48%, +2.91%, +4.61%, **+15.85%**, **−9.37%**, −8.82%, −0.83%, +2.95%;
+* median +1.0%, pooled +3.1%.
+
+A coarser grid is also a cruder approximation of the surface between points, so this is "density
+changes the objective", not a pure render artefact.
+
+**Not a loop lever.** The flat grid's spacing is set by `flatten_output_step: 20.0` in villa's
+`lasagna/configs/flatten_fast_nofilter.json`, one of the frozen "flatten settings" in `autoresearch.md`.
+It matters only if villa itself changes that setting: comparisons across the change would then shift
+by up to about ±10–16% per segment. Not pre-registered; recorded so the observation is not lost.
