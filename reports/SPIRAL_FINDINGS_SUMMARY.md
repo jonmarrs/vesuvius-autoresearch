@@ -998,8 +998,9 @@ not at all.** Pre-registered (`docs/preregistration/2026-10-03_scorer_sensitivit
 * **Count:** median window |Δ| 1.3% (13 up, 13 down), range −9.0% to +7.4%; segment totals −3.6% to
   +4.1%, pooled +0.17%. **Prediction 1 (count sensitive in ≥ 25% of windows) FAILED: 15%.**
 * **Faithfulness:** scorer-probability |ΔAP| < 0.001 in all 8, none resolved. **Prediction 2 HELD.**
-* **Finding 70's ±20% did not replicate at that size.** Its per-crop p95 normalisation is the
-  untested lead; finding 70's report now carries a scope correction.
+* **Finding 70's ±20% did not replicate at that size.** Not per-crop normalisation: re-scored with
+  one shared p95 per mode, median |Δ| is still 4.7% (prediction failed). Measured instead: spiral-flat
+  grid cells are ~80 voxels, segment-mesh cells ~20. Leading hypothesis, tested next.
 * **Across f70–72:** smooth never changes agreement with villa's labels.
 
 `reports/scorer_vs_labels_surface_interpolation.md`.

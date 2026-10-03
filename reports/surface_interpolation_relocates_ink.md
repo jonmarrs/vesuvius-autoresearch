@@ -3,9 +3,13 @@
 > **Correction of scope, 2026-10-03 (finding 72).** The ±20% per window below did **not** replicate at
 > that size in villa's own scoring pipeline. On 8 labelled segment meshes, with one p95 normalisation
 > per strip as `render_ink` does, smooth moved the count by a median of 1.3% per window (range −9% to
-> +7%), and its agreement with villa's ink labels not at all. This study normalised each 2048-px crop by
-> its own p95, which is the leading untested candidate for the difference. Quote this report's numbers
-> only for its own protocol. See `reports/scorer_vs_labels_surface_interpolation.md`.
+> +7%), and its agreement with villa's ink labels not at all. **Per-crop p95 normalisation is NOT the
+> reason (tested 2026-10-03):** re-scoring these windows with one shared p95 per mode leaves median |Δ|
+> at 4.7% (range −17.5% to +21.1%; `reports/shared_p95_rescore.json`, prereg
+> `docs/preregistration/2026-10-03_shared_p95_normalisation.md`, prediction FAILED). Measured instead:
+> this spiral flat's grid cells are ~80 voxels (~10 output px); the segment meshes' are ~20 (~2.5 px).
+> Smooth and linear differ only inside cells, so cell size is the leading candidate. Quote this
+> report's numbers only for its own surface type. See `reports/scorer_vs_labels_surface_interpolation.md`.
 
 **2026-10-02.** Result of `docs/preregistration/2026-10-02_surface_interpolation_windows.md` (committed
 `1cb2f0d6` before any window rendered; procedural amendment `6acd1295` before any window scored), plus

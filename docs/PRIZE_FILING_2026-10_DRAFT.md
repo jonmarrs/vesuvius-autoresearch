@@ -90,12 +90,15 @@ depends on, against villa's own code and villa's own ink labels:
 
 ## Required disclosure — include it
 
-* **Three of my registered predictions failed**, and the reports say so:
+* **Four of my registered predictions failed**, and the reports say so:
   * finding 70 (smooth would move the count < 1% in every crop window: it moved up to ±20%);
   * finding 71 prediction 1 (failed on three exclusions, one caused by a defect in my alignment gate);
   * finding 72 prediction 1 (the count was sensitive in 15% of windows, not ≥ 25%).
-* **Finding 70's ±20% does not generalise.** It used per-crop normalisation. In villa's own pipeline
-  the effect is about 1% per window. Quote finding 72, not finding 70.
+  * per-crop normalisation as the cause of finding 70's size (re-scored with one shared p95,
+    the median |Δ| stayed at 4.7%, not < 2.5%).
+* **Finding 70's ±20% does not generalise to fine meshes.** On villa's segment meshes (20-voxel grid
+  cells) the effect is about 1% per window. Finding 70's spiral surface has 80-voxel cells. Not the
+  normalisation: tested, and that prediction failed too.
 * villa's scroll labels are partly pseudo-labels, made with default-mode geometry. That favours the
   default mode in any comparison against them, and still no difference appeared.
 

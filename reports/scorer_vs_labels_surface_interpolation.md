@@ -45,11 +45,15 @@ villa's labels not at all.
 
 ## What changes in the picture
 
-* **Finding 70's magnitude must not be generalised.** Its ±20% came from fitted spiral surfaces
-  scored as 2048-px crops, **each normalised by its own p95**. This study normalises once per strip,
-  as `render_ink` does, and sees about 1%. Per-crop normalisation is an obvious candidate for the
-  difference. It is **untested**; the surfaces also differ (fitted, lasagna-flattened spiral vs segment
-  meshes).
+* **Finding 70's magnitude must not be generalised.** Its ±20% came from a fitted spiral surface,
+  where this study's segment meshes give about 1%.
+  * **Not the normalisation.** Finding 70's windows re-scored with one shared p95 per mode still give
+    median |Δ| 4.7%, range −17.5% to +21.1% (`reports/shared_p95_rescore.json`; pre-registered
+    prediction "< 2.5%" FAILED).
+  * **Measured difference:** grid cell size. The spiral flat's cells are ~80 × 74 voxels (~10 output
+    px), the segment meshes' ~20 × 20 (~2.5 px). Smooth and linear agree at grid points and differ only
+    inside cells, so coarse cells should amplify the difference. Leading hypothesis, tested next by
+    subsampling the segment meshes 4×.
 * **What holds across all three studies:** smooth mode does not change agreement with villa's labels.
   That is so for the rendered prediction (f71) and for the scorer's output (f72).
 * **For villa / #1818:** by these labels, smooth is neither better nor worse for reading. Switching the
