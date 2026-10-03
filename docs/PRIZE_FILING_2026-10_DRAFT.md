@@ -30,6 +30,7 @@ clipped "#1780" to "#17".
 ```
 https://github.com/jonmarrs/vesuvius-autoresearch
 https://github.com/jonmarrs/inkdelta
+https://github.com/jonmarrs/inkagree
 https://github.com/ScrollPrize/villa/pull/1928
 <runner PR, if opened>
 ```
@@ -73,11 +74,11 @@ depends on, against villa's own code and villa's own ink labels:
   modes.
 
 **(3) What it enables that was not possible before.**
-* **A label-anchored check of render settings.** The 3D ink prediction is rendered through a
-  segment's own mesh onto villa's label canvas, exactly (verified: same shape, alignment peak at zero
-  offset). That turns "does setting X read better?" into an AP against villa's labels with a block
-  bootstrap, in about an hour on one GPU. Scripts: `scripts/analyse_interp_vs_labels.py`,
-  `scripts/analyse_scorer_vs_labels.py`.
+* [inkagree](https://github.com/jonmarrs/inkagree) 0.1.0 (MIT, released 2026-10-03): **a label-anchored
+  check of render settings, scorers or models.** It renders a segment's published 3D ink prediction
+  through the segment's own mesh, exactly onto villa's label canvas (same shape, alignment peak at zero
+  offset). Then it compares two arms: exact AP/AUC against villa's labels, an alignment gate, and a
+  paired block bootstrap. "Does setting X read better?" becomes about an hour on one GPU per segment.
 * [inkdelta](https://github.com/jonmarrs/inkdelta) 0.5.1 (MIT, standard library only):
   * runs directly on villa's `run_single --seeds` output;
   * finds sweep logs;
@@ -90,6 +91,8 @@ depends on, against villa's own code and villa's own ink labels:
   `reports/SPIRAL_FINDINGS_SUMMARY.md`).
 * Every figure here is bound by a test to the file that produced it.
 * inkdelta: CI on Python 3.10–3.13. Its corpus validations are unchanged since 0.3.0.
+* inkagree reproduces findings 71 and 72 exactly (16 of 16 segment results, every interval), and its
+  CI covers Python 3.10–3.13 (`reports/inkagree_validation.md`).
 
 ---
 

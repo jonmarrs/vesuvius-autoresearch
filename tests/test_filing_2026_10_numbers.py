@@ -109,3 +109,14 @@ def test_coarse_grid_numbers_match_finding_73():
     ]
     assert min(rel) >= 0.009 and max(rel) <= 0.025  # "about 1–2% of AP"
     assert "about 1–2% of AP" in txt
+
+
+_VAL = _REPO / "reports/inkagree_validation.json"
+
+
+@pytest.mark.skipif(not _VAL.exists(), reason="inkagree validation artifact absent")
+def test_inkagree_validation_claim_matches_its_artifact():
+    v = json.loads(_VAL.read_text())
+    assert v["n_ok"] == v["n"] == 16
+    assert "reproduces findings 71 and 72 exactly (16 of 16 segment results" in _text()
+    assert "https://github.com/jonmarrs/inkagree" in _DRAFT.read_text()
