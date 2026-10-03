@@ -1,0 +1,263 @@
+{
+  "tolerance": 1e-12,
+  "results": [
+    {
+      "finding": 71,
+      "segment": "20230702185753",
+      "status": "compared",
+      "d_ap": -6.203495127476977e-05,
+      "d_ap_registered": -6.203495127476977e-05,
+      "ci": [
+        -0.00010954925904690244,
+        -1.7626358920046973e-05
+      ],
+      "ci_registered": [
+        -0.00010954925904690244,
+        -1.7626358920046973e-05
+      ],
+      "ok": true
+    },
+    {
+      "finding": 71,
+      "segment": "20230929220926",
+      "registered": "alignment peak more than 1 px from (0, 0)",
+      "inkagree": "undetermined",
+      "expected": "undetermined",
+      "ok": true
+    },
+    {
+      "finding": 71,
+      "segment": "20231007101619",
+      "status": "compared",
+      "d_ap": -2.3542273527701885e-05,
+      "d_ap_registered": -2.3542273527701885e-05,
+      "ci": [
+        -3.9337055042616874e-05,
+        -7.74967111175137e-06
+      ],
+      "ci_registered": [
+        -3.9337055042616874e-05,
+        -7.74967111175137e-06
+      ],
+      "ok": true
+    },
+    {
+      "finding": 71,
+      "segment": "20231012184424",
+      "registered": "alignment peak more than 1 px from (0, 0)",
+      "inkagree": "misaligned",
+      "expected": "misaligned",
+      "ok": true
+    },
+    {
+      "finding": 71,
+      "segment": "20231016151002",
+      "status": "compared",
+      "d_ap": -9.57465792323503e-05,
+      "d_ap_registered": -9.57465792323503e-05,
+      "ci": [
+        -0.00017884707363658922,
+        -1.767348589343943e-05
+      ],
+      "ci_registered": [
+        -0.00017884707363658922,
+        -1.767348589343943e-05
+      ],
+      "ok": true
+    },
+    {
+      "finding": 71,
+      "segment": "20231031143852",
+      "registered": "alignment peak more than 1 px from (0, 0)",
+      "inkagree": "misaligned",
+      "expected": "misaligned",
+      "ok": true
+    },
+    {
+      "finding": 71,
+      "segment": "20231106155351",
+      "status": "compared",
+      "d_ap": -7.975981411280364e-05,
+      "d_ap_registered": -7.975981411280364e-05,
+      "ci": [
+        -0.0001336507811222659,
+        -3.214489297182838e-05
+      ],
+      "ci_registered": [
+        -0.0001336507811222659,
+        -3.214489297182838e-05
+      ],
+      "ok": true
+    },
+    {
+      "finding": 71,
+      "segment": "20231210121321",
+      "status": "compared",
+      "d_ap": -2.6544289456073566e-05,
+      "d_ap_registered": -2.6544289456073566e-05,
+      "ci": [
+        -7.980515217533151e-05,
+        3.166147705891093e-05
+      ],
+      "ci_registered": [
+        -7.980515217533151e-05,
+        3.166147705891093e-05
+      ],
+      "ok": true
+    },
+    {
+      "finding": 72,
+      "segment": "20230702185753",
+      "status": [
+        "compared",
+        "compared"
+      ],
+      "prob_d_ap": 0.000330710746370963,
+      "prob_d_ap_registered": 0.000330710746370963,
+      "prob_ci": [
+        -0.0007689365500633848,
+        0.001065061819096305
+      ],
+      "prob_ci_registered": [
+        -0.0007689365500633848,
+        0.001065061819096305
+      ],
+      "ok": true
+    },
+    {
+      "finding": 72,
+      "segment": "20230929220926",
+      "status": [
+        "compared",
+        "compared"
+      ],
+      "prob_d_ap": -0.00017497446870159278,
+      "prob_d_ap_registered": -0.00017497446870159278,
+      "prob_ci": [
+        -0.0011560302991581444,
+        0.00030368199061364204
+      ],
+      "prob_ci_registered": [
+        -0.0011560302991581444,
+        0.00030368199061364204
+      ],
+      "ok": true
+    },
+    {
+      "finding": 72,
+      "segment": "20231007101619",
+      "status": [
+        "compared",
+        "compared"
+      ],
+      "prob_d_ap": 5.4718681586005125e-06,
+      "prob_d_ap_registered": 5.4718681586005125e-06,
+      "prob_ci": [
+        -0.00018841338770561635,
+        0.00021000638990588316
+      ],
+      "prob_ci_registered": [
+        -0.00018841338770561635,
+        0.00021000638990588316
+      ],
+      "ok": true
+    },
+    {
+      "finding": 72,
+      "segment": "20231012184424",
+      "status": [
+        "compared",
+        "compared"
+      ],
+      "prob_d_ap": 9.145204408050195e-05,
+      "prob_d_ap_registered": 9.145204408050195e-05,
+      "prob_ci": [
+        -6.123159295514363e-05,
+        0.00029349716583446496
+      ],
+      "prob_ci_registered": [
+        -6.123159295514363e-05,
+        0.00029349716583446496
+      ],
+      "ok": true
+    },
+    {
+      "finding": 72,
+      "segment": "20231016151002",
+      "status": [
+        "compared",
+        "compared"
+      ],
+      "prob_d_ap": 3.829528308747776e-06,
+      "prob_d_ap_registered": 3.829528308747776e-06,
+      "prob_ci": [
+        -0.0002696946347323226,
+        0.0002580127662426598
+      ],
+      "prob_ci_registered": [
+        -0.0002696946347323226,
+        0.0002580127662426598
+      ],
+      "ok": true
+    },
+    {
+      "finding": 72,
+      "segment": "20231031143852",
+      "status": [
+        "compared",
+        "compared"
+      ],
+      "prob_d_ap": -0.0009203609326247954,
+      "prob_d_ap_registered": -0.0009203609326247954,
+      "prob_ci": [
+        -0.002583789359205875,
+        0.001244264680120373
+      ],
+      "prob_ci_registered": [
+        -0.002583789359205875,
+        0.001244264680120373
+      ],
+      "ok": true
+    },
+    {
+      "finding": 72,
+      "segment": "20231106155351",
+      "status": [
+        "compared",
+        "compared"
+      ],
+      "prob_d_ap": -0.00015281018220051137,
+      "prob_d_ap_registered": -0.00015281018220051137,
+      "prob_ci": [
+        -0.000558483824013274,
+        0.00022970526509632312
+      ],
+      "prob_ci_registered": [
+        -0.000558483824013274,
+        0.00022970526509632312
+      ],
+      "ok": true
+    },
+    {
+      "finding": 72,
+      "segment": "20231210121321",
+      "status": [
+        "compared",
+        "compared"
+      ],
+      "prob_d_ap": 0.00021706399176921187,
+      "prob_d_ap_registered": 0.00021706399176921187,
+      "prob_ci": [
+        -0.0001802434237659552,
+        0.0006647672224559952
+      ],
+      "prob_ci_registered": [
+        -0.0001802434237659552,
+        0.0006647672224559952
+      ],
+      "ok": true
+    }
+  ],
+  "n_ok": 16,
+  "n": 16
+}
