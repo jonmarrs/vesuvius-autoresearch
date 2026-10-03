@@ -1,5 +1,17 @@
 # Resume note — written 2026-09-22 before a deliberate Claude restart
 
+## 2026-10-03 (late): inkagree 0.1.0 built locally; publishing awaits the user's OK
+
+* The user chose to turn this month's label check into a tool. **inkagree** is at
+  `projects/inkagree`, local commit `45e3345`, **no remote yet**.
+  * It renders a segment's 3D ink prediction onto villa's label frame and compares two arms: exact
+    AP/AUC, an alignment gate (flat → aligned, no ink → undetermined), and a paired bootstrap.
+  * It reproduces findings 71 and 72 exactly (16/16; `reports/inkagree_validation.md`).
+  * Clean-venv install works; 21 offline tests pass.
+* **Next:** with the user's approval, create a public `jonmarrs/inkagree`, push, and check CI. Then
+  consider adding it to the October draft (only once it's public).
+
+
 ## 2026-10-03: render chunk cache DELETED (user approved)
 
 * `spiral_out/interp_smoke/vchome` (399 GB: VC3D's remote cache of the public `v3-78k-fullsup` ink-3d
