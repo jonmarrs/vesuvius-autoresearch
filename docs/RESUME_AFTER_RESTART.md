@@ -1,5 +1,12 @@
 # Resume note — written 2026-09-22 before a deliberate Claude restart
 
+## 2026-10-03: render chunk cache DELETED (user approved)
+
+* `spiral_out/interp_smoke/vchome` (399 GB: VC3D's remote cache of the public `v3-78k-fullsup` ink-3d
+  zarr) was deleted on the user's explicit instruction. Free disk went from 550 GB to 948 GB. Every result
+  derived from it is committed. A new render on `vc-render:sampler-f637f3b35` re-streams it from S3.
+
+
 ## 2026-10-03 (evening): finding 73; the f70/f72 gap explained
 
 * **Finding 73:** grid cell size drives the linear/smooth difference.
