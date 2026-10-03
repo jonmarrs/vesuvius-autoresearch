@@ -973,3 +973,19 @@ inert.** Pre-registered (`docs/preregistration/2026-10-02_surface_interpolation_
 
 inkdelta 0.5.0 makes mixed-mode comparisons INCOMPARABLE, read from the render log.
 `reports/surface_interpolation_relocates_ink.md`.
+
+**71. Against villa's own ink labels, smooth and linear renders are equally faithful (ΔAP ≈ −0.0001).**
+Pre-registered (`docs/preregistration/2026-10-03_surface_interpolation_vs_labels.md`).
+
+* **Data:** villa now publishes labels on the 2.4 µm frame for 8 Scroll-1 segments. Each was rendered
+  whole from the 3D ink prediction in both modes and scored by AP/AUC against the labels.
+* **Registered verdict: no consistent difference.** In the 5 segments that passed the alignment gate,
+  ΔAP is −0.0000 to −0.0001.
+* **Exclusions:** 3 segments, one of them by a NaN defect in my gate (its window held no labelled ink).
+  Prediction 1 failed only because of them.
+* **Sensitivity (post hoc):** all 8 segments give ΔAP ∈ [−0.00010, −0.00002]. Smooth is a hair worse
+  everywhere, never by more than 0.1%.
+* **Beside finding 70** (±20% per window in villa's 2D-scorer count), this suggests those swings are
+  scorer sensitivity, not reading. That is an inference across two pipelines; the direct test is next.
+
+`reports/surface_interpolation_vs_labels.md`.

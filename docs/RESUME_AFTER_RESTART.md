@@ -1,5 +1,18 @@
 # Resume note — written 2026-09-22 before a deliberate Claude restart
 
+## 2026-10-03: finding 71, villa labels on the current frame
+
+* **Finding 71:** against villa's labels (8 Scroll-1 segments, 2.4 µm frame) smooth vs linear renders
+  are equally faithful: ΔAP ≈ −0.0001, verdict no consistent difference. With finding 70 this points at
+  the 2D scorer's sensitivity (inferred). `reports/surface_interpolation_vs_labels.md`.
+* **Next study (not started):** score these labelled segments' renders with villa's 2D scorer, linear
+  vs smooth, and test whether its count swings while its agreement with the labels does not.
+* **Strategic, for the user:** villa's labels on the current frame make
+  `gt-training-data-exhausted` stale and erode ScrollGT's premise. Not acted on.
+* Disk: the chunk cache `spiral_out/interp_smoke/vchome` is now **157 GB**, and
+  `spiral_out/gt_interp/study` is 2.5 GB. Delete only with the user's OK.
+
+
 ## 2026-10-02: finding 70 (villa #1818 smooth interpolation), inkdelta 0.5.0, merges
 
 * **Finding 70:** #1818's default is byte-identical to earlier builds. `smooth` moves per-window ink
