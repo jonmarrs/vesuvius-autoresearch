@@ -1,5 +1,12 @@
 # villa #1818's smooth surface interpolation moves ink locally by up to ±20%; its default is inert
 
+> **Correction of scope, 2026-10-03 (finding 72).** The ±20% per window below did **not** replicate at
+> that size in villa's own scoring pipeline. On 8 labelled segment meshes, with one p95 normalisation
+> per strip as `render_ink` does, smooth moved the count by a median of 1.3% per window (range −9% to
+> +7%), and its agreement with villa's ink labels not at all. This study normalised each 2048-px crop by
+> its own p95, which is the leading untested candidate for the difference. Quote this report's numbers
+> only for its own protocol. See `reports/scorer_vs_labels_surface_interpolation.md`.
+
 **2026-10-02.** Result of `docs/preregistration/2026-10-02_surface_interpolation_windows.md` (committed
 `1cb2f0d6` before any window rendered; procedural amendment `6acd1295` before any window scored), plus
 one post-hoc control, labelled as such. Data: `reports/interp_smoke.json`, `reports/interp_windows.json`,

@@ -1,5 +1,15 @@
 # Resume note — written 2026-09-22 before a deliberate Claude restart
 
+## 2026-10-03 (later): finding 72, the #1818 line closed
+
+* **Finding 72:** in villa's own pipeline, smooth moves the scorer count about 1% per window (tail ±9%)
+  and its label-AP not at all. Prediction 1 failed (15% vs 25% of windows ≥ 5%); prediction 2 held. Finding
+  70's ±20% now carries a scope correction (it used per-crop p95). **#1818 line: closed.** Smooth is
+  neither better nor worse for reading by villa's labels; don't mix modes (inkdelta 0.5.0).
+* **Disk: the chunk cache `spiral_out/interp_smoke/vchome` is 399 GB** (552 GB free). Ask the user
+  before deleting it.
+
+
 ## 2026-10-03: finding 71, villa labels on the current frame
 
 * **Finding 71:** against villa's labels (8 Scroll-1 segments, 2.4 µm frame) smooth vs linear renders
