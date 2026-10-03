@@ -30,7 +30,7 @@ All 8 segments pass the alignment gate (peaks within 1 px), so nothing is exclud
 | 20231210121321 | +0.93% | +1.2, +0.9 | 0.0446 → 0.0448 | +0.0002 [−0.0002, +0.0007] |
 
 * **Count:** 26 windows; median |Δ| **1.3%**, 13 up and 13 down; range −9.0% to +7.4%; 4 of 26 at ≥ 5%.
-  Segment totals: median |Δ| 0.9%, range −3.6% to +4.2%, pooled +0.17%.
+  Segment totals: median |Δ| 0.9%, range −3.6% to +4.1%, pooled +0.17%.
 * **Faithfulness:** the scorer probability's |ΔAP| < 0.001 in all 8, and **none resolved**. The raw strip's
   ΔAP is ≤ 0.0002 (finding 71, now at the metric's settings).
 

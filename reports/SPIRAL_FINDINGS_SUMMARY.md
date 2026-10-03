@@ -996,7 +996,7 @@ not at all.** Pre-registered (`docs/preregistration/2026-10-03_scorer_sensitivit
 * **Setup:** 8 labelled segments at the metric's settings (group 1, 5 slices, one p95 per strip),
   scored by the pinned scorer with probabilities kept, against villa's labels at level 3.
 * **Count:** median window |Δ| 1.3% (13 up, 13 down), range −9.0% to +7.4%; segment totals −3.6% to
-  +4.2%, pooled +0.17%. **Prediction 1 (count sensitive in ≥ 25% of windows) FAILED: 15%.**
+  +4.1%, pooled +0.17%. **Prediction 1 (count sensitive in ≥ 25% of windows) FAILED: 15%.**
 * **Faithfulness:** scorer-probability |ΔAP| < 0.001 in all 8, none resolved. **Prediction 2 HELD.**
 * **Finding 70's ±20% did not replicate at that size.** Its per-crop p95 normalisation is the
   untested lead; finding 70's report now carries a scope correction.
