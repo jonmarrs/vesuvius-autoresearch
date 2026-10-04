@@ -575,3 +575,27 @@ fit wrappers that finish writing meshes asynchronously. Later arms still run.
 The existing-slice guard remains in force during retries. A failed attempt that
 leaves TIFFs needs deliberate recovery under section 15; retry does not silently
 delete artifacts or authorize reuse of those slices.
+
+## 17. Interpolation study input checks
+
+The interpolation launchers keep the registered sampler revisions, surface,
+windows, and scoring recipe. Set `SO` to relocate the study data; its default is
+the original `spiral_out` directory. `run_snapshot.sh` preserves the repository
+location for the frozen driver, and `PY` can select its Python interpreter.
+
+`run_interp_windows.sh` copies its analysis module, shared TIFF reader, scoring
+script, and artifact validator into the new output directory before work starts.
+A selector that exits nonzero aborts even if it printed eight windows. The surface
+hash is checked before each arm, and an existing output directory is never reused.
+
+The smoke comparison and strip builder require all five named TIFFs (`00.tif`
+through `04.tif`) with consistent dimensions and types. Analysis recomputes the
+registered coverage choices and requires them to match the saved `WINDOWS` file;
+it does not silently analyze a different or incomplete set. Scores must describe
+one crop of the registered area with consistent pixel counts and finite metrics.
+
+A zero linear foreground count makes the relative foreground change undefined.
+Those rows retain JSON `null`, `n_fg_undefined` records their number, and the
+all-windows foreground prediction is `null` if any denominator is zero. Median,
+range, and sign counts use only defined relative changes. Line-score summaries
+still include every window. Published reports are not regenerated automatically.

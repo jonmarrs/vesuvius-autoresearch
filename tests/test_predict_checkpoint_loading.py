@@ -1,8 +1,10 @@
 from argparse import Namespace
 
 import numpy as np
+import pytest
 import torch
 import torch.nn as nn
+import zarr
 
 from scripts.inference.predict import (
     load_compatible_state_dict,
@@ -44,9 +46,11 @@ def test_save_vc3d_zarr_writes_ome_scale_metadata(tmp_path):
         1
     ]
     assert transform == {"type": "scale", "scale": [7.91, 7.91, 7.91]}
-    assert translation == {"type": "translation", "translation": [1.0, 2.0, 3.0]}
+    assert translation["type"] == "translation"
+    assert translation["translation"] == pytest.approx([3 * 7.91, 2 * 7.91, 1 * 7.91])
     assert (out / "meta.json").exists()
     assert (out / "0" / ".zarray").exists()
+    assert zarr.open_group(str(out), mode="r")["0"].shape == (1, 8, 8)
 
 
 def test_write_prediction_metadata_records_fiber_vc3d_artifacts(tmp_path):

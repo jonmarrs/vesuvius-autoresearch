@@ -10,6 +10,10 @@ import subprocess
 import sys
 
 VALIDATION_TESTS = [
+    "tests/test_interpolation_evidence.py",
+    "tests/test_interpolation_drivers.py",
+    "tests/test_production_predict.py",
+    "tests/test_predict_checkpoint_loading.py",
     "tests/test_loop_lifecycle.py",
     "tests/test_spiral_driver_failures.py",
     "tests/test_spiral_artifacts.py",
