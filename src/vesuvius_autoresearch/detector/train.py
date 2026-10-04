@@ -58,9 +58,23 @@ def build_model(cfg, pred_shape):
 
 
 def train(cfg, max_epochs=None, limit_batches=None):
+    """Train a detector and return the best checkpoint path.
+
+    Training runs with ``torch.set_float32_matmul_precision("medium")`` for speed. That setting is
+    process-wide, so it is restored on exit (also on error): otherwise every later float32 matmul in the
+    caller's process -- inference, evaluation, other tests -- would silently run at reduced precision.
+    """
+    previous = torch.get_float32_matmul_precision()
+    torch.set_float32_matmul_precision("medium")
+    try:
+        return _train(cfg, max_epochs=max_epochs, limit_batches=limit_batches)
+    finally:
+        torch.set_float32_matmul_precision(previous)
+
+
+def _train(cfg, max_epochs=None, limit_batches=None):
     cfg.validate()
     pl.seed_everything(cfg.seed, workers=True)
-    torch.set_float32_matmul_precision("medium")
     os.makedirs(cfg.model_dir, exist_ok=True)
     train_ds, valid_ds, _, pred_shape = build_datasets(cfg)
     train_loader = DataLoader(

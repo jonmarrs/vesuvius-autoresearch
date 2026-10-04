@@ -82,3 +82,34 @@ def test_training_does_not_return_a_nonexistent_checkpoint(tmp_path, monkeypatch
         module.train(
             DetectorConfig(model_dir=str(tmp_path), train_batch_size=2, num_workers=0)
         )
+
+
+def test_train_restores_the_callers_matmul_precision(tmp_path, monkeypatch):
+    # train() needs "medium" while it runs, but must not leave it on: a later in-process inference
+    # ran at reduced precision and broke batched-vs-single equivalence (max diff 1.1e-4 vs 2.4e-7).
+    import importlib
+
+    import torch
+
+    train_mod = importlib.import_module(
+        "vesuvius_autoresearch.detector.train"
+    )  # the module, not the re-exported function
+
+    seen = []
+
+    def record(cfg, **kw):
+        seen.append(torch.get_float32_matmul_precision())
+        return "ckpt"
+
+    monkeypatch.setattr(train_mod, "_train", record)
+    torch.set_float32_matmul_precision("highest")
+    assert train_mod.train(object()) == "ckpt"
+    assert seen == ["medium"] and torch.get_float32_matmul_precision() == "highest"
+
+    def boom(cfg, **kw):
+        raise RuntimeError("training failed")
+
+    monkeypatch.setattr(train_mod, "_train", boom)
+    with pytest.raises(RuntimeError, match="training failed"):
+        train_mod.train(object())
+    assert torch.get_float32_matmul_precision() == "highest"  # restored on error too

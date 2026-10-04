@@ -42,6 +42,9 @@ def test_infer_normalizes_input_like_training(tmp_path):
 
 def test_infer_batching_matches_single_patch(tmp_path):
     # Batched inference must be numerically equivalent to single-patch (batch_size=1).
+    # Seeded so the random weights do not depend on which tests ran first (it used to fail only after
+    # train() had left float32 matmuls at "medium" precision and moved the global RNG).
+    torch.manual_seed(0)
     root = str(tmp_path)
     _make_fake_fragment(root, "PHercParis2Fr143", h=192, w=192)
     cfg = DetectorConfig(data_root=root)
