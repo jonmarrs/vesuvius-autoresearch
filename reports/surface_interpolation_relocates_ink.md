@@ -99,3 +99,19 @@ The line score moves by ≤ 0.014 under the controls and by −0.086 under smoot
 * No full-strip study was run. Pre-registered as unwarranted if both predictions held. One failed,
   but the actionable conclusion (do not mix modes; total ≈ −1%) does not need it.
 * Nothing posted to villa.
+
+## Post-hoc audit (2026-10-04, villa-independent code review merged as PR #2)
+
+A code review (`docs/DESIGN_ARCHITECTURE_REVIEW_2026-10-03.md`) hardened this study's scripts. It found:
+* the smoke comparison truncated incomplete slice sets;
+* the window analysis did not check the saved window list;
+* a selector failure could be swallowed;
+* **the registered per-window surface check ran once per chain**, not "before each window" as the
+  pre-registration said.
+
+That last one is a deviation from the registered method. It is disclosed here and has no effect: the
+surface is a static file, its md5 (`bfd9ef809c27930d553b778adc209dd9`) was verified at chain start, and
+nothing writes to it. **Re-analysis with the hardened scripts reproduces every window exactly**:
+* identical linear and smooth counts and Δ in all 8 windows;
+* identical predictions-held;
+* the only change is a new summary field, `n_fg_undefined = 0`.
