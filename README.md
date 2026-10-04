@@ -171,15 +171,23 @@ volume (requires network access), run
 `VESUVIUS_TEST_S3=1 uv run python -m pytest -q tests/test_zarr_loading.py`.
 Remote open/read operations have 30-second timeouts and failures fail the test.
 
-For prize-submission mechanics specifically:
+For submission mechanics, generate candidate commands without executing inference:
 
 ```bash
 uv run python scripts/build_scroll23_search_queue.py
 uv run python scripts/rank_scroll23_candidates.py
-uv run python scripts/run_ranked_inference.py
-uv run python scripts/generate_submission_package.py
-uv run python scripts/validate_prize_artifact.py --metadata submission_package_dry_run/metadata.json
+uv run python -m scripts.inference.run_ranked_inference
 ```
+
+Validate an actual prediction image and supplied training/prediction masks in a
+common coordinate frame. Missing masks, unreadable images, placeholder evidence,
+or inconsistent export metadata fail validation. The evidence chain preserves
+the original prediction metadata and writes a separate evidence record.
+See [Submission evidence](docs/SUBMISSION_EVIDENCE.md) for the commands and limits.
+
+`uv run python scripts/generate_submission_package.py` creates an illustrative
+dry-run package, reports `FAIL`, and exits with status 1. Supplying a real image
+or scroll name does not turn its synthetic masks into verified overlap evidence.
 
 ## 🔬 Evidence & upstream contributions
 

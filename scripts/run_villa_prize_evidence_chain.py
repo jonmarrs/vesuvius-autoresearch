@@ -4,7 +4,7 @@ Build a villa-compatible prize evidence directory for one ranked candidate.
 
 The chain is intentionally conservative: it can run predict.py, but it will not
 mark placeholders as ready. The output directory contains the command manifest,
-candidate row, patched prediction metadata, train/predict masks, and a
+candidate row, separate evidence metadata referencing supplied overlap masks, and a
 PRIZE_READINESS_REPORT.json from scripts.validate_prize_artifact.
 """
 
@@ -25,7 +25,7 @@ from scripts.inference.run_ranked_inference import (
     build_predict_command,
     load_candidates,
 )
-from scripts.validate_prize_artifact import validate
+from scripts.validate_prize_artifact import resolve_artifact_path, validate
 
 
 def _as_int(row, key, default=0):
@@ -64,69 +64,37 @@ def _write_json(path, data):
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     with open(path, "w") as f:
-        json.dump(data, f, indent=2)
+        json.dump(data, f, indent=2, allow_nan=False)
 
 
-def _write_masks(out_dir, row):
-    width = _as_int(row, "width", _as_int(row, "patch_size", 64))
-    height = _as_int(row, "height", _as_int(row, "patch_size", 64))
-    train_mask = np.zeros((height, width), dtype=bool)
-    predict_mask = np.ones((height, width), dtype=bool)
-    train_path = Path(out_dir) / "train_mask.npy"
-    predict_path = Path(out_dir) / "predict_mask.npy"
-    np.save(train_path, train_mask)
-    np.save(predict_path, predict_mask)
-    return train_path, predict_path
-
-
-def patch_prediction_metadata(metadata_path, row, train_mask_path, predict_mask_path):
+def patch_prediction_metadata(
+    metadata_path, row, train_mask_path=None, predict_mask_path=None
+):
+    """Enrich a copy; never replace prediction geometry or clear evidence flags."""
     metadata_path = Path(metadata_path)
-    if metadata_path.exists():
-        with open(metadata_path) as f:
-            metadata = json.load(f)
-    else:
-        metadata = {}
-
-    width = _as_int(row, "width", _as_int(row, "patch_size", 64))
-    height = _as_int(row, "height", _as_int(row, "patch_size", 64))
-    patch_size = _as_int(row, "patch_size", max(width, height))
-    voxel_um = _as_float(
-        row,
-        "voxel_um",
-        _as_float(row, "voxel_size_um", metadata.get("voxel_size_um", 7.91)),
-    )
-    source_uri = (
-        row.get("local_uri") or row.get("source_uri") or metadata.get("source_uri")
-    )
-
-    metadata.update(
-        {
-            "scroll_id": row.get("scroll_id") or metadata.get("scroll_id"),
-            "short_id": row.get("short_id"),
-            "division": row.get("division"),
-            "source_uri": source_uri,
-            "segmentation_id": row.get("segmentation_id")
-            or metadata.get("segmentation_id")
-            or source_uri,
-            "position_xyz": [_as_int(row, "x"), _as_int(row, "y"), _as_int(row, "z")],
-            "x": _as_int(row, "x"),
-            "y": _as_int(row, "y"),
-            "z": _as_int(row, "z"),
-            "width_px": width,
-            "height_px": height,
-            "patch_size": patch_size,
-            "ml_window_px": patch_size,
-            "voxel_size_um": voxel_um,
-            "ml_window_mm": patch_size * voxel_um / 1000.0,
-            "scale_bar_cm": True,
-            "train_mask_path": str(train_mask_path),
-            "predict_mask_path": str(predict_mask_path),
-            "source_image_is_placeholder": False,
-            "metadata_is_dry_run": False,
-            "evidence_mode": "real_prediction",
-        }
-    )
-    _write_json(metadata_path, metadata)
+    with metadata_path.open() as stream:
+        metadata = json.load(stream)
+    if not isinstance(metadata, dict):
+        raise ValueError(f"{metadata_path} must contain a JSON object")
+    metadata["candidate"] = dict(row)
+    if metadata.get("scroll_id") in (None, "", "unknown"):
+        metadata["scroll_id"] = row.get("scroll_id")
+    for key in (
+        "output_image_path",
+        "source_image_path",
+        "train_mask_path",
+        "predict_mask_path",
+        "vc3d_zarr_path",
+        "prediction_zarr_path",
+        "fiber_vc3d_zarr_path",
+        "fiber_prediction_zarr_path",
+    ):
+        if metadata.get(key):
+            metadata[key] = str(resolve_artifact_path(metadata[key], metadata_path))
+    if train_mask_path:
+        metadata["train_mask_path"] = str(Path(train_mask_path).resolve())
+    if predict_mask_path:
+        metadata["predict_mask_path"] = str(Path(predict_mask_path).resolve())
     return metadata
 
 
@@ -177,6 +145,8 @@ def build_evidence_chain(
     python_executable=sys.executable,
     checkpoint="best_model.pt",
     neural_tracing=False,
+    train_mask=None,
+    predict_mask=None,
 ):
     out_dir = Path(out_dir)
     prediction_dir = out_dir / "predictions"
@@ -195,10 +165,26 @@ def build_evidence_chain(
 
     _write_json(out_dir / "candidate.json", row)
     (out_dir / "predict_command.sh").write_text(shlex.join(cmd) + "\n")
+    # A failed attempt must not leave a previous successful report authoritative.
+    _write_json(
+        out_dir / "PRIZE_READINESS_REPORT.json",
+        {
+            "status": "FAIL",
+            "failures": ["evidence chain has not completed"],
+            "warnings": [],
+        },
+    )
 
     if execute:
+        before = {
+            path: path.stat() if path.exists() else None
+            for path in (image_path, metadata_path)
+        }
         subprocess.run(cmd, check=True)
-    elif not metadata_path.exists():
+        for path, previous in before.items():
+            if previous is not None and path.exists() and path.stat() == previous:
+                raise RuntimeError(f"prediction did not refresh its artifact: {path}")
+    if not metadata_path.exists():
         raise FileNotFoundError(
             f"{metadata_path} does not exist. Re-run with --execute or provide existing prediction artifacts."
         )
@@ -207,12 +193,11 @@ def build_evidence_chain(
             f"{image_path} does not exist; prize evidence requires the static prediction image"
         )
 
-    train_mask_path, predict_mask_path = _write_masks(out_dir, row)
-    metadata = patch_prediction_metadata(
-        metadata_path, row, train_mask_path, predict_mask_path
-    )
-
-    report = validate(metadata_path)
+    metadata = patch_prediction_metadata(metadata_path, row, train_mask, predict_mask)
+    metadata["candidate"]["output_image_path"] = str(image_path.resolve())
+    evidence_metadata_path = out_dir / "evidence_metadata.json"
+    _write_json(evidence_metadata_path, metadata)
+    report = validate(evidence_metadata_path)
     _write_json(out_dir / "PRIZE_READINESS_REPORT.json", report)
 
     tracing_plan = None
@@ -226,6 +211,7 @@ def build_evidence_chain(
             "candidate": row,
             "prediction_image": str(image_path),
             "prediction_metadata": str(metadata_path),
+            "evidence_metadata": str(evidence_metadata_path),
             "vc3d_zarr_path": metadata.get("vc3d_zarr_path"),
             "readiness_report": str(out_dir / "PRIZE_READINESS_REPORT.json"),
             "predict_command": cmd,
@@ -271,7 +257,11 @@ def preflight_evidence_chain(
 
     patch_size = _as_int(row, "patch_size", 64)
     voxel_um = _as_float(row, "voxel_um", 7.91)
-    if patch_size > 64 and patch_size * voxel_um / 1000.0 > 0.5 + 1e-9:
+    if patch_size <= 0 or not np.isfinite(voxel_um) or voxel_um <= 0:
+        failures.append(
+            "candidate patch size and voxel size must be positive and finite"
+        )
+    elif patch_size > 64 and patch_size * voxel_um / 1000.0 > 0.5 + 1e-9:
         failures.append(
             f"candidate ML window is not submittable: {patch_size}px at {voxel_um}um"
         )
@@ -282,6 +272,7 @@ def preflight_evidence_chain(
 
     return {
         "status": "PASS" if not failures else "FAIL",
+        "scope": "inference prerequisites; submission evidence is validated after prediction",
         "ranked_path": str(ranked_path),
         "out_dir": str(out_dir),
         "candidate_index": candidate_index,
@@ -304,6 +295,14 @@ def main():
         "--execute", action="store_true", help="Run predict.py before validating"
     )
     parser.add_argument("--checkpoint", default="best_model.pt")
+    parser.add_argument(
+        "--train-mask",
+        help="Actual training-region mask; defaults to prediction metadata",
+    )
+    parser.add_argument(
+        "--predict-mask",
+        help="Actual prediction-region mask in the same coordinate frame",
+    )
     parser.add_argument(
         "--preflight",
         action="store_true",
@@ -339,6 +338,8 @@ def main():
         python_executable=args.python_executable,
         checkpoint=args.checkpoint,
         neural_tracing=args.neural_tracing,
+        train_mask=args.train_mask,
+        predict_mask=args.predict_mask,
     )
     print(json.dumps(report, indent=2))
     raise SystemExit(0 if report["status"] == "PASS" else 1)

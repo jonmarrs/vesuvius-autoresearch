@@ -7,17 +7,28 @@ Dry-run is the default. Use --execute to run commands serially.
 
 import argparse
 import csv
+import math
 import shlex
 import subprocess
 import sys
 from pathlib import Path
 
+PREDICT_SCRIPT = Path(__file__).resolve().with_name("predict.py")
+
 
 def _as_int(row, key, default=0):
     try:
-        return int(float(row.get(key, default)))
-    except (TypeError, ValueError):
-        return default
+        value = row.get(key, default)
+        number = float(value)
+        if (
+            isinstance(value, bool)
+            or not math.isfinite(number)
+            or not number.is_integer()
+        ):
+            raise ValueError
+        return int(number)
+    except (TypeError, ValueError, OverflowError) as exc:
+        raise ValueError(f"candidate {key} must be an integer") from exc
 
 
 def build_predict_command(
@@ -28,11 +39,22 @@ def build_predict_command(
 ):
     width = _as_int(row, "width", _as_int(row, "patch_size", 64))
     height = _as_int(row, "height", _as_int(row, "patch_size", 64))
+    patch = _as_int(row, "patch_size", 64)
+    if min(width, height, patch) <= 0 or width < patch or height < patch:
+        raise ValueError(
+            "candidate width and height must be at least one positive patch"
+        )
+    if any(key not in row or _as_int(row, key) < 0 for key in ("x", "y", "z")):
+        raise ValueError("candidate must provide nonnegative x/y/z voxel indices")
     stem = (
         row.get("artifact_stem")
         or f"pred_{_as_int(row, 'z')}_{_as_int(row, 'y')}_{_as_int(row, 'x')}_{width}x{height}"
     )
     uri = row.get("local_uri") or row.get("source_uri")
+    if Path(stem).name != stem or stem in {".", ".."}:
+        raise ValueError(
+            "candidate artifact_stem must be a filename without directory components"
+        )
     if not uri:
         raise ValueError(f"candidate {stem} has no local_uri/source_uri")
 
@@ -40,7 +62,7 @@ def build_predict_command(
     metadata_out = str(Path(prediction_dir) / f"{stem}_meta.json")
     return [
         python_executable,
-        "predict.py",
+        str(PREDICT_SCRIPT),
         "--uri",
         uri,
         "--z",
@@ -54,7 +76,7 @@ def build_predict_command(
         "--height",
         str(height),
         "--patch_size",
-        str(_as_int(row, "patch_size", width)),
+        str(patch),
         "--output_img",
         output_img,
         "--metadata_out",

@@ -17,13 +17,11 @@ from tap import Tap
 try:
     from scripts.inference.predict import (
         get_weight_window,
-        load_compatible_state_dict,
         save_vc3d_zarr,
     )
 except ModuleNotFoundError:  # when run directly as a script (scripts/inference on path)
     from predict import (  # type: ignore[no-redef]
         get_weight_window,
-        load_compatible_state_dict,
         save_vc3d_zarr,
     )
 from vesuvius_autoresearch.core.model_wrappers import build_inference_model
@@ -104,15 +102,7 @@ def ensemble_predict():
             use_ridges=use_ridges,
             multi_task_heads=config_dict.get("multi_task_heads", False),
         ).to(device)
-        skipped = load_compatible_state_dict(model, checkpoint["model_state_dict"])
-        if len(skipped) > 8:
-            # Mirror predict.py:282 — same threshold. Refuse silently-broken
-            # ensembles where the checkpoint and the reconstructed architecture
-            # diverged in non-trivial ways.
-            raise RuntimeError(
-                f"checkpoint {cp_path}: skipped {len(skipped)} tensors during "
-                f"state-dict load (threshold > 8). Architecture mismatch likely."
-            )
+        model.load_state_dict(checkpoint["model_state_dict"], strict=True)
         model.eval()
         models.append((model, use_ridges, num_layers, patch_size))
 

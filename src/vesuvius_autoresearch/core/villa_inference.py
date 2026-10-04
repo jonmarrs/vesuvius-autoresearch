@@ -27,10 +27,16 @@ _VILLA_VESUVIUS_SRC = os.path.normpath(
         "src",
     )
 )
-if _VILLA_VESUVIUS_SRC not in sys.path:
-    sys.path.insert(0, _VILLA_VESUVIUS_SRC)
 
-from vesuvius.models.run.tta import infer_with_tta  # noqa: E402
+
+def _load_villa_tta():
+    """Load the optional upstream implementation only when TTA is requested."""
+    if _VILLA_VESUVIUS_SRC not in sys.path:
+        sys.path.insert(0, _VILLA_VESUVIUS_SRC)
+    from vesuvius.models.run.tta import infer_with_tta
+
+    return infer_with_tta
+
 
 # ---------------------------------------------------------------------------
 # GaussianBlender
@@ -157,7 +163,7 @@ class VillaTTAWrapper(nn.Module):
         torch.Tensor
             TTA-averaged output tensor.
         """
-        return infer_with_tta(
+        return _load_villa_tta()(
             self.model,
             x,
             self.tta_type,

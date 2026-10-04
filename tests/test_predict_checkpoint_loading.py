@@ -1,4 +1,5 @@
 from argparse import Namespace
+from pathlib import Path
 
 import numpy as np
 import pytest
@@ -78,6 +79,7 @@ def test_write_prediction_metadata_records_fiber_vc3d_artifacts(tmp_path):
     )
 
     metadata = __import__("json").loads(path.read_text())
-    assert metadata["vc3d_zarr_path"] == "ink.zarr"
-    assert metadata["fiber_vc3d_zarr_path"] == "fiber.zarr"
+    assert metadata["vc3d_zarr_path"] == str(Path("ink.zarr").resolve())
+    assert metadata["fiber_vc3d_zarr_path"] == str(Path("fiber.zarr").resolve())
+    assert metadata["scale_bar_cm"] is False
     assert metadata["fiber_stats"]["max"] == 0.6

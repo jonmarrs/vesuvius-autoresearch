@@ -75,8 +75,7 @@ def test_villa_review_manifest_builds_candidate_commands(tmp_path):
     assert "--ranked ranked.tsv" in candidate["evidence_command"]
     assert "--candidate-index 2" in candidate["evidence_command"]
     assert (
-        "evidence/candidate_002/predictions/pred_18176_4128_4000_64x64_meta.json"
-        in candidate["validate_command"]
+        "evidence/candidate_002/evidence_metadata.json" in candidate["validate_command"]
     )
     assert any("launch_vc3d.py" in command for command in candidate["review_commands"])
 

@@ -54,6 +54,7 @@ def _candidate_item(row, python_executable, ranked, evidence_root, checkpoint):
     prediction_dir = evidence_dir / "predictions"
     prediction_image = prediction_dir / f"{artifact}.png"
     prediction_metadata = prediction_dir / f"{artifact}_meta.json"
+    evidence_metadata = evidence_dir / "evidence_metadata.json"
     prize_report = evidence_dir / "PRIZE_READINESS_REPORT.json"
 
     evidence_command = [
@@ -73,7 +74,7 @@ def _candidate_item(row, python_executable, ranked, evidence_root, checkpoint):
         python_executable,
         "scripts/validate_prize_artifact.py",
         "--metadata",
-        str(prediction_metadata),
+        str(evidence_metadata),
         "--out",
         str(evidence_dir / "validation_report.json"),
     ]
@@ -96,6 +97,7 @@ def _candidate_item(row, python_executable, ranked, evidence_root, checkpoint):
         "preflight_report": row.get("report_path"),
         "expected_prediction_image": str(prediction_image),
         "expected_prediction_metadata": str(prediction_metadata),
+        "expected_evidence_metadata": str(evidence_metadata),
         "expected_evidence_dir": str(evidence_dir),
         "expected_prize_report": str(prize_report),
         "evidence_command": shlex.join(evidence_command),

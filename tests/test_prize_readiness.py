@@ -2,8 +2,10 @@ import json
 from pathlib import Path
 
 import numpy as np
+from PIL import Image
 
 from scripts.build_scroll23_search_queue import _occupied_windows, build_queue
+from scripts.inference.predict import save_vc3d_zarr
 from scripts.inference.run_ranked_inference import (
     build_predict_command,
     load_candidates,
@@ -23,39 +25,19 @@ def _write_json(path: Path, data: dict):
 
 
 def _write_vc3d_zarr(path: Path, scale=7.91):
-    _write_json(
-        path / "meta.json",
-        {
-            "format": "zarr",
-            "voxelsize": 7.91,
-            "height": 64,
-            "width": 64,
-            "slices": 1,
-        },
-    )
-    _write_json(path / "0" / ".zarray", {"shape": [1, 64, 64], "chunks": [1, 64, 64]})
-    _write_json(
-        path / ".zattrs",
-        {
-            "multiscales": [
-                {
-                    "axes": [
-                        {"name": "z", "type": "space", "unit": "micrometer"},
-                        {"name": "y", "type": "space", "unit": "micrometer"},
-                        {"name": "x", "type": "space", "unit": "micrometer"},
-                    ],
-                    "datasets": [
-                        {
-                            "path": "0",
-                            "coordinateTransformations": [
-                                {"type": "scale", "scale": [scale, scale, scale]}
-                            ],
-                        }
-                    ],
-                }
-            ]
-        },
-    )
+    save_vc3d_zarr(path, np.zeros((64, 64), dtype=np.uint8), voxel_size_um=7.91)
+    attrs_path = path / ".zattrs"
+    attrs = json.loads(attrs_path.read_text())
+    attrs["multiscales"][0]["datasets"][0]["coordinateTransformations"][0]["scale"] = [
+        scale
+    ] * 3
+    _write_json(attrs_path, attrs)
+
+
+def _write_discovery_image(directory):
+    path = directory / "discovery.png"
+    Image.new("L", (64, 64), 100).save(path)
+    return str(path)
 
 
 def test_validate_prize_artifact_passes_with_masks_and_vc3d_metadata(tmp_path):
@@ -83,6 +65,7 @@ def test_validate_prize_artifact_passes_with_masks_and_vc3d_metadata(tmp_path):
             "height_px": 64,
             "voxel_size_um": 7.91,
             "scale_bar_cm": True,
+            "output_image_path": _write_discovery_image(tmp_path),
             "train_mask_path": str(train_mask_path),
             "predict_mask_path": str(predict_mask_path),
             "vc3d_zarr_path": str(zarr_path),
@@ -122,6 +105,7 @@ def test_validate_prize_artifact_checks_paired_ink_and_fiber_vc3d_metadata(tmp_p
             "height_px": 64,
             "voxel_size_um": 7.91,
             "scale_bar_cm": True,
+            "output_image_path": _write_discovery_image(tmp_path),
             "train_mask_path": str(train_mask_path),
             "predict_mask_path": str(predict_mask_path),
             "vc3d_zarr_path": str(ink_zarr_path),
@@ -135,7 +119,7 @@ def test_validate_prize_artifact_checks_paired_ink_and_fiber_vc3d_metadata(tmp_p
     assert report["checked_zarr_paths"] == [str(ink_zarr_path), str(fiber_zarr_path)]
 
 
-def test_validate_prize_artifact_passes_on_known_good_local_fixture():
+def test_legacy_local_fixture_has_unverified_overlap_and_is_not_ready():
     metadata_path = Path("predictions/pred_10_1000_1000_64x64_meta.json")
     if not metadata_path.exists():
         import pytest
@@ -143,8 +127,10 @@ def test_validate_prize_artifact_passes_on_known_good_local_fixture():
         pytest.skip("Known-good fixture not available")
 
     report = validate(metadata_path)
-    assert report["status"] == "PASS"
-    assert report["failures"] == []
+    assert report["status"] == "FAIL"
+    assert any(
+        "zero-overlap is unverified" in failure for failure in report["failures"]
+    )
     assert "reports/pred_10_1000_1000_64x64_ink.zarr" in report["checked_zarr_paths"]
     assert "reports/pred_10_1000_1000_64x64_fiber.zarr" in report["checked_zarr_paths"]
 
@@ -176,6 +162,7 @@ def test_validate_prize_artifact_fails_on_mismatched_fiber_ome_zarr_scale(tmp_pa
             "height_px": 64,
             "voxel_size_um": 7.91,
             "scale_bar_cm": True,
+            "output_image_path": _write_discovery_image(tmp_path),
             "train_mask_path": str(train_mask_path),
             "predict_mask_path": str(predict_mask_path),
             "vc3d_zarr_path": str(ink_zarr_path),
@@ -213,6 +200,7 @@ def test_validate_prize_artifact_fails_on_mismatched_ome_zarr_scale(tmp_path):
             "height_px": 64,
             "voxel_size_um": 7.91,
             "scale_bar_cm": True,
+            "output_image_path": _write_discovery_image(tmp_path),
             "train_mask_path": str(train_mask_path),
             "predict_mask_path": str(predict_mask_path),
             "vc3d_zarr_path": str(zarr_path),
@@ -247,6 +235,7 @@ def test_validate_prize_artifact_fails_on_train_predict_overlap(tmp_path):
             "height_px": 64,
             "voxel_size_um": 7.91,
             "scale_bar_cm": True,
+            "output_image_path": _write_discovery_image(tmp_path),
             "train_mask_path": str(train_mask_path),
             "predict_mask_path": str(predict_mask_path),
         },
@@ -280,6 +269,7 @@ def test_validate_prize_artifact_fails_on_placeholder_evidence(tmp_path):
             "height_px": 64,
             "voxel_size_um": 7.91,
             "scale_bar_cm": True,
+            "output_image_path": _write_discovery_image(tmp_path),
             "train_mask_path": str(train_mask_path),
             "predict_mask_path": str(predict_mask_path),
             "source_image_is_placeholder": True,
@@ -315,6 +305,7 @@ def test_validate_prize_artifact_fails_on_dry_run_metadata(tmp_path):
             "height_px": 64,
             "voxel_size_um": 8,
             "scale_bar_cm": True,
+            "output_image_path": _write_discovery_image(tmp_path),
             "train_mask_path": str(train_mask_path),
             "predict_mask_path": str(predict_mask_path),
             "metadata_is_dry_run": True,
@@ -496,7 +487,7 @@ def test_build_predict_command_uses_ranked_candidate_fields():
 
     assert cmd[:4] == [
         "python",
-        "predict.py",
+        str(Path(__file__).resolve().parents[1] / "scripts/inference/predict.py"),
         "--uri",
         "local_data/PHerc0125_Divisions/div_100/0",
     ]
@@ -555,27 +546,30 @@ def test_villa_prize_evidence_chain_validates_existing_prediction_artifacts(tmp_
         f.write("\t".join(row.values()) + "\n")
 
     zarr_path = tmp_path / "prediction.zarr"
-    _write_json(
-        zarr_path / "meta.json",
-        {"format": "zarr", "voxelsize": 7.91, "height": 64, "width": 64, "slices": 1},
-    )
-    _write_json(
-        zarr_path / "0" / ".zarray", {"shape": [1, 64, 64], "chunks": [1, 64, 64]}
-    )
-    (prediction_dir / "pred_9000_2048_2048_64x64.png").write_bytes(
-        b"not-a-real-png-but-present"
-    )
+    _write_vc3d_zarr(zarr_path)
+    image_path = prediction_dir / "pred_9000_2048_2048_64x64.png"
+    Image.new("L", (64, 64), 100).save(image_path)
+    train_path, predict_path = tmp_path / "train.npy", tmp_path / "predict.npy"
+    train = np.zeros((64, 64), dtype=bool)
+    predict = np.zeros_like(train)
+    train[:8, :8] = True
+    predict[-8:, -8:] = True
+    np.save(train_path, train)
+    np.save(predict_path, predict)
     _write_json(
         prediction_dir / "pred_9000_2048_2048_64x64_meta.json",
         {
             "scroll_id": "unknown",
             "source_uri": row["local_uri"],
-            "position_xyz": [0, 0, 0],
+            "position_xyz": [2048, 2048, 9000],
             "patch_size": 64,
             "width_px": 64,
             "height_px": 64,
             "voxel_size_um": 7.91,
             "scale_bar_cm": True,
+            "output_image_path": str(image_path),
+            "train_mask_path": str(train_path),
+            "predict_mask_path": str(predict_path),
             "vc3d_zarr_path": str(zarr_path),
         },
     )
