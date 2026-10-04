@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # docs/preregistration/2026-10-03_sampling_band_vs_labels.md -- slice-step 0.25 / 0.5 / 1.0 / 2.0 on the 8
-# labelled segments, rendered and compared with inkagree 0.2.1 (pinned, own venv). Launch via run_snapshot.sh.
+# labelled segments, rendered and compared with inkagree 0.2.2 (pinned, own venv). Launch via run_snapshot.sh.
 set -uo pipefail
 SO=/home/jon/openclaw-workspace/Neo-VM/spiral_out
 OUT=$SO/band_study
