@@ -1081,9 +1081,10 @@ checks.
   * The paired gap is +0.47 [+0.31, +0.55] at 256 px, and it holds within all 8 segments.
   * Inside villa's annotated region, the scorer marks **0.91%** of pixels, where labels mark 25.9%.
   * Recall of labelled ink is **2.1%**, and can be at most 3.5% whatever the alignment. Precision is 59%.
-* **Unresolved confound:** the strip renders a 3D ink model whose training set is plausibly these exact
-  segments. villa's PHercParis4 ink dataset is exactly these 8 segments, with no validation masks. So the
-  strip's ρ may be in-sample.
+* **Confirmed confound (model card and config, `reports/evidence/`):** the strip renders villa's 3D ink
+  model, which trained on villa's PHercParis4 ink dataset. That dataset is exactly these 8 segments, with
+  full supervision and no validation masks. So the strip's ρ is training-set agreement. This also applies
+  to every label-based comparison here (findings 71–77).
 * **Not shown:** that the objective mis-ranks fits. Cross-region tracking is not the loop's comparison.
 
 `reports/scorer_tracking_gap.md`.

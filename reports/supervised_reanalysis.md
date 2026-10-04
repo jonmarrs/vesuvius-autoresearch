@@ -54,7 +54,8 @@ test, ideally on labelled segments beyond these 8.
 
 **Follow-up (finding 78, `reports/scorer_tracking_gap.md`):** the registered test held. It mainly shows
 robustness to tile size, because the other arms were near-duplicates. Two qualifications:
-* the strip may be in-sample for villa's 3D ink model, whose training set is plausibly these 8 segments;
+* the strip is in-sample for villa's 3D ink model. Its config shows it trained on villa's PHercParis4 ink
+  dataset, which is exactly these 8 segments (`reports/evidence/ink_3d_dino_guided_SOURCE.md`);
 * the scorer's weak ρ is a floor effect: it marks 0.91% of the annotated region, about 2% of labelled ink.
 
 No labelled segments beyond these 8 exist on the current frame.

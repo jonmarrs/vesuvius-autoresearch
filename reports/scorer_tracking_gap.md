@@ -88,13 +88,19 @@ supervised (annotated) region:
 
 ## Confounds that limit all of the above
 
-1. **The strip is probably in-sample for the 3D ink model.** The strip renders villa's
-   `v3-78k-fullsup` 3D ink prediction. The public metadata (`.zattrs` empty, no model card) does not say what
-   it was trained on. But villa's PHercParis4 ink training set (`hf://buckets/scrollprize/datasets/ink/phercparis4`)
-   is **exactly these 8 segments**, none has a validation mask, and the labels were "refined by iterative
-   pseudo-labeling". So the strip's ρ +0.6 to +0.75 is plausibly train-set agreement. On unlabelled regions,
-   where the objective actually runs, the strip is likely worse and the gap likely smaller. **This cannot be
-   resolved with public data.**
+1. **The strip is in-sample for the 3D ink model: CONFIRMED (updated 2026-10-04, same day).** The strip
+   renders villa's `v3-78k-fullsup` 3D ink prediction. Its model card and `config.json`
+   (`scrollprize/ink_3d_dino_guided`, revision `73a79525`, copied to `reports/evidence/`) show:
+   * `segments_path` is `/ephemeral/2d_ink_dataset/phercparis4`, villa's PHercParis4 ink dataset, which is
+     **exactly these 8 segments** (none has a validation mask);
+   * `force_full_supervision: true`;
+   * targets partly come from self-distillation of the previous version.
+
+   So the strip's ρ +0.6 to +0.75 **is** training-set agreement. On unlabelled regions, where the objective
+   actually runs, the strip is likely worse and the gap likely smaller.
+   * **Correction:** the first version of this report said the public metadata had "no model card" and
+     that the question "cannot be resolved with public data". Both were wrong. I had checked only the zarr's
+     `.zattrs`, not villa's Hugging Face models.
    * The asymmetry runs one way. Better input here should help the scorer. Its 2% recall is therefore unlikely
      to be *worse* than on regions the 3D model never saw.
 2. **Same 8 segments, one scroll, one 3D model**, labels partly model output.
@@ -114,5 +120,5 @@ supervised (annotated) region:
   mostly real. `total_fg_pixels` is therefore a sparse-detection count driven by about 2% of the annotated ink.
 * **Not shown:** that villa's objective mis-ranks fits; or that the gap holds where the 3D model has not
   trained.
-* **Not for the October filing as a claim about villa's objective.** Confound 1 is unresolved, and confound 3
-  is the one villa would raise first.
+* **Not for the October filing as a claim about villa's objective.** Confound 1 is confirmed (the strip is
+  in-sample), and confound 3 is the one villa would raise first.

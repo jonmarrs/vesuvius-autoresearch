@@ -64,17 +64,18 @@ depends on, against villa's own code and villa's own ink labels:
   * on villa's fine segment meshes, smooth moves `total_fg_pixels` by −3.6% to +4.1% per segment, and
     the scorer's agreement with villa's labels does not change (|ΔAP| < 0.001 in all 8, none resolved);
   * on grids as coarse as the spiral surfaces villa's loop scores, the count moves by −7.9% to +19.4%
-    per segment (−31.9% to +41.5% per window). The raw render gets only slightly more faithful (about
+    per segment (−31.9% to +41.5% per window). The raw render agrees only slightly better with villa's labels (about
     1% of AP), and the scorer's agreement does not consistently change.
 
   The effect scales with grid cell size (measured). Comparing runs rendered in different modes would
   bias a keep/discard decision by more than the gains the loop chases.
-* **The install route changes how faithful the metric's renders are, not only how much ink they find.**
+* **The install route changes how well the metric's renders agree with villa's labels, not only how much
+  ink they find.**
   villa's published sampler image samples a thinner band than any current source build (finding 66:
   −5% to −9% ink count). Against villa's labels at the metric's own settings, on all 8 segments and
   where the labels are defined, the source build's band agrees better (8 of 8, about +5% AP), and a band
-  twice as wide agrees better still (8 of 8, about +8%). The stale image costs fidelity, and the metric's
-  default band is narrower than the best tested.
+  twice as wide agrees better still (8 of 8, about +8%). The stale image costs agreement (on segments the ink model trained on),
+  and the metric's default band is narrower than the best tested.
 * **The comparison tool now reads what villa's runner writes.** inkdelta 0.3.0 rejected villa's real
   `--seeds` output as invalid; 0.4.0 reads it. 0.5.x refuses to compare runs rendered in different
   modes.
@@ -137,11 +138,14 @@ depends on, against villa's own code and villa's own ink labels:
   spiral surfaces. Quote the size with the grid.
 * villa's scroll labels are partly pseudo-labels, made with default-mode geometry. That favours the
   default mode in any comparison against them, and still no difference appeared.
-* **The rendered ink prediction may be in-sample on these segments.** villa's PHercParis4 ink training
-  set is exactly these 8 segments, with no held-out validation regions. The 3D ink model's training data is
-  not published. So agreement with the labels may be train-set agreement. Comparisons between render
-  settings of the same model are less exposed, but a setting could win by matching how the labels were
-  made. (Finding 78, `reports/scorer_tracking_gap.md`.)
+* **The rendered ink prediction is in-sample on these segments.** The 3D ink model's own config
+  (`scrollprize/ink_3d_dino_guided`, copied to `reports/evidence/`) trains on villa's PHercParis4 ink
+  dataset, which is exactly these 8 segments, with full supervision and no held-out regions.
+  * Agreement with the labels is therefore training-set agreement.
+  * Comparisons between render settings of the same model measure which setting best reproduces what the
+    model was trained toward. That can favour settings that match how its targets were made (a ±3-voxel
+    projection).
+  * Finding 78, `reports/scorer_tracking_gap.md`.
 
 ## Do not add
 
@@ -150,4 +154,6 @@ depends on, against villa's own code and villa's own ink labels:
 * Not "the scorer is fragile" as an established fact. Finding 72's sensitivity prediction failed.
 * No adoption claim for inkdelta or the measurements unless one exists on filing day.
 * Not "villa's objective mis-ranks fits". Finding 78 shows its count is sparse (about 2% of annotated
-  ink), not that it ranks fits wrongly, and its render-side comparison may be in-sample.
+  ink), not that it ranks fits wrongly, and its render-side comparison is in-sample.
+* Not "agrees with ground truth" for any label-based number. The render is in-sample on the labelled
+  segments.
