@@ -1040,3 +1040,16 @@ segments, about +8% AP. Step 2.0 beats 1.0 in 8 of 8, about +10% AP. AUC moves t
 * **For villa's metric:** its default band is narrower than the best tested.
 
 `reports/install_route_band_vs_labels.md`.
+
+**76. villa's scorer is a coarser instrument than the render it reads, and at region scale neither tracks
+label density.** Pre-registered, on finding 72's stored outputs.
+
+* **Per pixel:** the scorer agrees with villa's labels about half as well (AP) as its input strip.
+* **Scale:** with labels dilated up to 154 µm, the scorer/strip AP ratio rises 0.45 → 0.65. **Prediction 3
+  HELD:** it is a coverage-scale instrument.
+* **Region scale (26 windows):** ρ(scorer density, label density) = +0.04 [−0.22, +0.45]; the strip's is
+  +0.10. **Prediction 1 FAILED.**
+* **Ambiguous:** the raw render does not track label density either, so non-exhaustive labels could
+  explain it. Not "the objective does not track ink".
+
+`reports/objective_vs_labels.md`.

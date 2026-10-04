@@ -169,3 +169,13 @@ def test_install_route_numbers_match_finding_75():
         rel = sorted(r["d_ap"] / r["a"]["ap"] for r in rows)
         assert round(100 * (rel[3] + rel[4]) / 2) == rel_pct
     assert "(8 of 8, about +8% AP)" in txt and "about +10%)" in txt
+
+
+_F76 = _REPO / "reports/objective_vs_labels.json"
+
+
+@pytest.mark.skipif(not _F76.exists(), reason="finding 76 artifact absent")
+def test_objective_vs_labels_claim_matches_finding_76():
+    d = json.loads(_F76.read_text())
+    assert d["predictions_held"]["p1_scorer_rho_gt_0.3_ci_excludes_0"] is False
+    assert f"ρ = {d['q1']['scorer']['rho']:+.2f}" in _text()

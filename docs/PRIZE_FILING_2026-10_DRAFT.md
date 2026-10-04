@@ -108,7 +108,7 @@ depends on, against villa's own code and villa's own ink labels:
 
 ## Required disclosure — include it
 
-* **Nine of my registered predictions failed**, and the reports say so:
+* **Ten of my registered predictions failed**, and the reports say so:
   * finding 70 (smooth would move the count < 1% in every crop window: it moved up to ±20%);
   * finding 71 prediction 1 (failed on three exclusions, one caused by a defect in my alignment gate);
   * finding 72 prediction 1 (the count was sensitive in 15% of windows, not ≥ 25%).
@@ -120,6 +120,8 @@ depends on, against villa's own code and villa's own ink labels:
     0.5 was better in 8 of 8 and 7 of 8).
   * finding 75 predictions 1 and 2 (no difference between the published image's band, or a wider one, and
     the source build's: the source build beat the first, and the wider band beat it, both in 8 of 8).
+  * finding 76 prediction 1 (villa's ink count would track labelled-ink density across regions: ρ = +0.04,
+    an ambiguous null, since the raw render does not track it either).
 * **The effect's size depends on grid cell size** (finding 73, measured): about 1% per window on
   villa's 20-voxel segment meshes, a 6.2% median and up to ±40% per window on 80-voxel grids like the
   spiral surfaces. Quote the size with the grid.
