@@ -1017,3 +1017,14 @@ segments with meshes subsampled 4× (~80-voxel cells, like the spiral surfaces v
 
 On spiral-scale grids the render mode moves the objective by tens of percent per region against a 1–2%
 change in raw faithfulness. `reports/coarse_grid_interpolation.md`.
+
+**74. The tutorial's sampling band (slice step 0.5) agrees best with villa's ink labels.** Pre-registered,
+run end to end with inkagree 0.2.2. On the 8 labelled segments, 0.5 beats 0.25 (8 of 8 resolved, about −5%
+of AP), 1.0 (7 of 8, about −11%; AUC rises in all 8) and 2.0 (8 of 8, about −38%).
+
+* **Predictions:** 1 (2.0 worse) HELD; 2 and 3 (no difference at 0.25 and 1.0) FAILED.
+* **Meaning:** an interior optimum, which supports the tutorial's rationale. A wider band reaches more ink
+  but less precisely; that bears indirectly on finding 66's doubled band.
+* **Confound:** pseudo-labels may favour 0.5. That fits the small gaps, not the −38%.
+
+`reports/sampling_band_vs_labels.md`.

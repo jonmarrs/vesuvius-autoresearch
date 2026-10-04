@@ -79,6 +79,10 @@ depends on, against villa's own code and villa's own ink labels:
   through the segment's own mesh, exactly onto villa's label canvas (same shape, alignment peak at zero
   offset). Then it compares two arms: exact AP/AUC against villa's labels, an alignment gate, and a
   paired block bootstrap. "Does setting X read better?" becomes about an hour on one GPU per segment.
+  **First use:** villa's tutorial renders with `--slice-step 0.5` for a "focused band". Against villa's
+  labels on all 8 segments, 0.5 beats 0.25 (8 of 8 resolved, about −5% of AP), 1.0 (7 of 8, about −11%)
+  and 2.0 (8 of 8, about −38%). The tutorial's choice is an interior optimum, now measured rather than
+  argued.
 * [inkdelta](https://github.com/jonmarrs/inkdelta) 0.5.1 (MIT, standard library only):
   * runs directly on villa's `run_single --seeds` output;
   * finds sweep logs;
@@ -98,7 +102,7 @@ depends on, against villa's own code and villa's own ink labels:
 
 ## Required disclosure — include it
 
-* **Five of my registered predictions failed**, and the reports say so:
+* **Seven of my registered predictions failed**, and the reports say so:
   * finding 70 (smooth would move the count < 1% in every crop window: it moved up to ±20%);
   * finding 71 prediction 1 (failed on three exclusions, one caused by a defect in my alignment gate);
   * finding 72 prediction 1 (the count was sensitive in 15% of windows, not ≥ 25%).
@@ -106,6 +110,8 @@ depends on, against villa's own code and villa's own ink labels:
     the median |Δ| stayed at 4.7%, not < 2.5%).
   * finding 73 prediction 2 (smooth's scorer output would agree better with the labels on coarse grids:
     2 of 8, not ≥ 6).
+  * finding 74 predictions 2 and 3 (no difference between slice steps 0.25 or 1.0 and the tutorial's 0.5:
+    0.5 was better in 8 of 8 and 7 of 8).
 * **The effect's size depends on grid cell size** (finding 73, measured): about 1% per window on
   villa's 20-voxel segment meshes, a 6.2% median and up to ±40% per window on 80-voxel grids like the
   spiral surfaces. Quote the size with the grid.

@@ -1,0 +1,70 @@
+{
+  "shape": [
+    12750,
+    9995
+  ],
+  "arm_a_shape": [
+    12750,
+    9995
+  ],
+  "arm_b_shape": [
+    12750,
+    9995
+  ],
+  "label_shape": [
+    12750,
+    9995
+  ],
+  "domain_px": 111484750,
+  "label_ink_frac": 0.031467137882087014,
+  "gate": {
+    "status": "aligned",
+    "passes": true,
+    "gain": 4.88535978908633e-05,
+    "min_gain": 0.002,
+    "at_edge": false,
+    "peak_dy": -1,
+    "peak_dx": 0,
+    "peak_auc": 0.7760892898819547,
+    "auc_at_0": 0.7760404362840638,
+    "shift": 2,
+    "tol": 1,
+    "window": [
+      2,
+      2,
+      12746,
+      9991
+    ]
+  },
+  "status": "compared",
+  "passes": true,
+  "a": {
+    "ap": 0.11919687970400923,
+    "auc": 0.7760404362840638,
+    "best_f1": 0.22087758761864607
+  },
+  "b": {
+    "ap": 0.06915284748854418,
+    "auc": 0.7276504001930244,
+    "best_f1": 0.13312438798540832
+  },
+  "d_ap": -0.05004403221546505,
+  "d_auc": -0.04839003609103942,
+  "block": 256,
+  "seed": 20261003,
+  "verdict": "A agrees better",
+  "d_ap_ci": [
+    -0.058985145672896526,
+    -0.04171647015082512
+  ],
+  "d_auc_ci": [
+    -0.05519788444579769,
+    -0.0413427714482088
+  ],
+  "n_blocks": 1802,
+  "n_boot": 2000,
+  "segment": "20231210121321",
+  "level": 2,
+  "arm_a": "/home/jon/openclaw-workspace/Neo-VM/spiral_out/band_study/20231210121321/step0.5.tif",
+  "arm_b": "/home/jon/openclaw-workspace/Neo-VM/spiral_out/band_study/20231210121321/step2.0.tif"
+}

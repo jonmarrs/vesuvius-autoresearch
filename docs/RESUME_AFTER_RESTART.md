@@ -1,5 +1,15 @@
 # Resume note — written 2026-09-22 before a deliberate Claude restart
 
+## 2026-10-03 (night): finding 74 via inkagree; inkagree public at 0.2.2
+
+* **Finding 74:** the tutorial's slice step 0.5 agrees best with villa's labels (vs 0.25: 8 of 8, about
+  −5% AP; vs 1.0: 7 of 8, about −11%; vs 2.0: 8 of 8, about −38%). Predictions 2 and 3 FAILED (seven failed
+  predictions are now disclosed in the October draft). `reports/sampling_band_vs_labels.md`.
+* inkagree is public (`github.com/jonmarrs/inkagree`, 0.2.2). Real use found two bugs: the CLI separator,
+  and the missing imagecodecs dependency.
+* Disk: `spiral_out/band_cache` (the band study's chunk cache) can be deleted with the user's OK.
+
+
 ## 2026-10-03 (late): inkagree 0.1.0 built locally; publishing awaits the user's OK
 
 * The user chose to turn this month's label check into a tool. **inkagree** is at

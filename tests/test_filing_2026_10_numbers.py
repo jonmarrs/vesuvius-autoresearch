@@ -120,3 +120,30 @@ def test_inkagree_validation_claim_matches_its_artifact():
     assert v["n_ok"] == v["n"] == 16
     assert "reproduces findings 71 and 72 exactly (16 of 16 segment results" in _text()
     assert "https://github.com/jonmarrs/inkagree" in _DRAFT.read_text()
+
+
+_BAND = _REPO / "reports/band_study"
+
+
+@pytest.mark.skipif(not _BAND.exists(), reason="band study artifacts absent")
+def test_band_study_numbers_match_finding_74():
+    txt = _text()
+    expect = {
+        "0.25": (8, 5),
+        "1.0": (7, 11),
+        "2.0": (8, 38),
+    }  # resolved for 0.5, |median relative dAP| in %
+    for step, (n_res, rel_pct) in expect.items():
+        s = json.loads((_BAND / f"summary_step{step}.json").read_text())
+        assert (
+            s["n_compared"] == 8
+            and s["verdict"] == "A agrees better"
+            and s["resolved_a_better"] == n_res
+        )
+        rows = [
+            json.loads(p.read_text()) for p in sorted(_BAND.glob(f"2*_step{step}.json"))
+        ]
+        rel = sorted(r["d_ap"] / r["a"]["ap"] for r in rows)
+        median = (rel[3] + rel[4]) / 2
+        assert round(-median * 100) == rel_pct
+        assert f"{n_res} of 8" in txt and f"about −{rel_pct}%" in txt
