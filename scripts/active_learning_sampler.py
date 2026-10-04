@@ -9,12 +9,19 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 # Local imports
-from vesuvius_autoresearch.core.model_wrappers import build_inference_model
+from vesuvius_autoresearch.core.checkpoint_tools import (
+    load_tool_checkpoint,
+    validate_batch,
+    validate_ink_logits,
+)
+from vesuvius_autoresearch.core.inference import positive_integer
 from vesuvius_autoresearch.core.vesuvius_loader import VesuviusLabeledDataset
 
 
 def calculate_entropy(probs):
     """Calculate pixel-wise entropy: -p*log(p) - (1-p)*log(1-p)"""
+    if not torch.isfinite(probs).all() or not ((probs >= 0) & (probs <= 1)).all():
+        raise ValueError("probabilities must be finite in [0,1]")
     eps = 1e-8
     entropy = -probs * torch.log(probs + eps) - (1 - probs) * torch.log(1 - probs + eps)
     return entropy
@@ -25,13 +32,17 @@ class ActiveLearningSampler:
     Identifies high-uncertainty regions for SAM2-assisted human-in-the-loop cleaning.
     """
 
-    def __init__(self, model, device="cuda"):
+    def __init__(self, model, device="cuda", settings=None):
         self.model = model
         self.device = device
+        self.settings = settings
         self.model.to(device)
         self.model.eval()
 
     def sample_uncertain_regions(self, dataloader, n_samples=10):
+        positive_integer(n_samples, "n_samples")
+        if getattr(dataloader.dataset, "jitter", False):
+            raise ValueError("active-learning coordinates require jitter=False")
         uncertainties = []
         all_indices = []
 
@@ -57,21 +68,51 @@ class ActiveLearningSampler:
                 "not correspond to the patches that were scored."
             )
 
+        batch_sampler = getattr(dataloader, "batch_sampler", None)
+        if batch_sampler is not None and (
+            type(batch_sampler) is not torch.utils.data.BatchSampler
+            or not isinstance(batch_sampler.sampler, torch.utils.data.SequentialSampler)
+        ):
+            raise ValueError(
+                "active learning requires sequential batches in dataset order"
+            )
+
         print(f"Sampling {n_samples} high-uncertainty regions...")
 
+        offset = 0
         with torch.no_grad():
             for i, (x, _, _) in enumerate(tqdm(dataloader)):
                 x = x.to(self.device)
+                if self.settings is not None:
+                    validate_batch(x, self.settings)
+                if (
+                    x.ndim != 5
+                    or not x.is_floating_point()
+                    or not torch.isfinite(x).all()
+                ):
+                    raise ValueError(
+                        "input must be a finite floating-point B/C/Z/H/W tensor"
+                    )
 
                 # Forward pass - support multi-output
                 outputs = self.model(x, return_qc=True)
                 if isinstance(outputs, tuple):
+                    if len(outputs) != 2:
+                        raise ValueError("model must return ink and QC logits")
                     out_ink, qc = outputs[0], outputs[1]
                 else:
                     out_ink = outputs
                     # Dummy QC if model doesn't have it
                     qc = torch.ones((x.shape[0], 1), device=self.device)
 
+                validate_ink_logits(out_ink, x)
+                if (
+                    not isinstance(qc, torch.Tensor)
+                    or tuple(qc.shape) != (len(x), 1)
+                    or not qc.is_floating_point()
+                    or not torch.isfinite(qc).all()
+                ):
+                    raise ValueError("QC logits must be finite with shape (batch, 1)")
                 probs = torch.sigmoid(out_ink)
 
                 # Metric 1: Prediction Entropy (ambiguity)
@@ -92,11 +133,12 @@ class ActiveLearningSampler:
 
                 # Track original indices
                 batch_size = x.shape[0]
-                indices = np.arange(
-                    i * dataloader.batch_size, i * dataloader.batch_size + batch_size
-                )
+                indices = np.arange(offset, offset + batch_size)
+                offset += batch_size
                 all_indices.append(indices)
 
+        if not uncertainties:
+            raise ValueError("no patches available for active learning")
         uncertainties = np.concatenate(uncertainties)
         all_indices = np.concatenate(all_indices)
 
@@ -119,6 +161,8 @@ def identify_uncertain_patches(probs, threshold=0.2):
     Identifies high-entropy (uncertain) regions in a probability map.
     probs: (H, W) or (C, H, W) tensor
     """
+    if not np.isfinite(threshold) or not 0 <= threshold <= 1:
+        raise ValueError("uncertainty threshold must be finite in [0,1]")
     if isinstance(probs, np.ndarray):
         probs = torch.from_numpy(probs)
 
@@ -150,7 +194,7 @@ def export_for_proofreader(mask, output_path):
     if mask.ndim == 4:
         mask = mask[0]
 
-    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
     z = zarr.open(
         output_path, mode="w", shape=mask.shape, chunks=(1, 64, 64), dtype="f4"
     )
@@ -193,32 +237,17 @@ def main():
         help="Path to export review queue",
     )
     args = parser.parse_args()
+    positive_integer(args.n_samples, "n_samples")
+    if args.patches_json and not os.path.isfile(args.patches_json):
+        raise FileNotFoundError(args.patches_json)
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"Active Learning Sampler: Running on {device}")
 
     # 1. Load Checkpoint Metadata
-    checkpoint = torch.load(args.checkpoint, map_location=device, weights_only=False)
-    config_dict = checkpoint.get("config", {})
+    model, arch_kwargs, _ = load_tool_checkpoint(args.checkpoint, device)
 
-    # Architecture defining fields
-    arch_kwargs = {
-        "architecture": config_dict.get("architecture", "gated_unet"),
-        "patch_size": config_dict.get("patch_size", 64),
-        "num_layers": config_dict.get("num_layers", 16),
-        "base_feat": config_dict.get("base_feat", 64),
-        "num_blocks": config_dict.get("num_blocks", 16),
-        "num_heads": config_dict.get("num_heads", 8),
-        "dropout": config_dict.get("dropout", 0.0),
-        "use_ridges": config_dict.get("use_ridges", False),
-        "multi_task_heads": config_dict.get("multi_task_heads", False),
-    }
-
-    print(f"Instantiating model: {arch_kwargs['architecture']}...")
-    model = build_inference_model(**arch_kwargs)
-    model.load_state_dict(checkpoint["model_state_dict"])
-
-    sampler = ActiveLearningSampler(model, device=device)
+    sampler = ActiveLearningSampler(model, device=device, settings=arch_kwargs)
 
     # 2. Setup Dataset
     labels_path = args.labels
@@ -246,25 +275,38 @@ def main():
         patch_size=arch_kwargs["patch_size"],
         num_layers=arch_kwargs["num_layers"],
         use_ridges=arch_kwargs["use_ridges"],
+        ridge_sigma=arch_kwargs["ridge_sigma"],
         require_ink=False,
+        jitter=False,
+        strict_reads=True,
+        patches_json=args.patches_json,
     )
 
-    if args.patches_json and os.path.exists(args.patches_json):
-        print(f"Loading pre-computed patch catalog from: {args.patches_json}")
-        with open(args.patches_json) as f:
-            patch_data = json.load(f)
-        all_coords = np.array([[p["y"], p["x"]] for p in patch_data.get("patches", [])])
-        dataset.valid_coords = all_coords
-    else:
-        # Use Villa's pre-computed patch catalog but uniformly sample from it to avoid spatial bias
-        all_coords = dataset.valid_coords
+    catalog = np.asarray(dataset.valid_coords)
+    size = arch_kwargs["patch_size"]
+    if (
+        catalog.ndim != 2
+        or catalog.shape[1] != 2
+        or not len(catalog)
+        or not np.issubdtype(catalog.dtype, np.integer)
+        or (catalog < 0).any()
+        or (catalog[:, 0] > dataset.shape[1] - size).any()
+        or (catalog[:, 1] > dataset.shape[2] - size).any()
+    ):
+        raise ValueError(
+            "patch catalog must contain nonempty in-bounds integer y/x coordinates"
+        )
+
+    all_coords = catalog
 
     max_eval_patches = 5000
     if len(all_coords) > max_eval_patches:
         print(
             f"Subsampling {max_eval_patches} patches from {len(all_coords)} total valid patches..."
         )
-        idx = np.random.choice(len(all_coords), max_eval_patches, replace=False)
+        idx = np.random.default_rng(42).choice(
+            len(all_coords), max_eval_patches, replace=False
+        )
         dataset.valid_coords = all_coords[idx]
 
     dataloader = DataLoader(dataset, batch_size=8, shuffle=False)
@@ -287,17 +329,19 @@ def main():
             }
         )
 
-    os.makedirs(os.path.dirname(args.output), exist_ok=True)
+    os.makedirs(os.path.dirname(args.output) or ".", exist_ok=True)
     with open(args.output, "w") as f:
         json.dump(
             {
                 "timestamp": datetime.now().isoformat(),
                 "checkpoint": args.checkpoint,
                 "volume": args.volume,
+                "inference_settings": arch_kwargs,
                 "queue": queue,
             },
             f,
             indent=4,
+            allow_nan=False,
         )
 
     print(f"\nSuccess: Exported {len(queue)} patches to review queue: {args.output}")

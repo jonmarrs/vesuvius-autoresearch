@@ -34,11 +34,15 @@ from train import (
     compute_centerline_dice,
     compute_official_dice,
     compute_skeleton_dist,
-    load_shape_compatible_state,
     select_topology_threshold,
 )
 
-from vesuvius_autoresearch.core.model_wrappers import build_inference_model
+from vesuvius_autoresearch.core.checkpoint_tools import (
+    ink_probabilities,
+    load_tool_checkpoint,
+    validate_batch,
+    validate_targets,
+)
 from vesuvius_autoresearch.core.vesuvius_loader import VesuviusLabeledDataset
 
 
@@ -47,7 +51,9 @@ def reevaluate(update_stored: bool = False) -> None:
     config = ExperimentConfig.load("config.json")
 
     print("Loading best_model.pt...")
-    chk = torch.load("best_model.pt", map_location="cpu", weights_only=False)
+    model, settings, chk = load_tool_checkpoint("best_model.pt", device)
+    for name, value in settings.items():
+        setattr(config, name, value)
     stored = chk.get("config", {})
     stored_arch = stored.get("architecture", "?")
 
@@ -57,24 +63,6 @@ def reevaluate(update_stored: bool = False) -> None:
     print(f"  stored cd_dice:     {chk.get('avg_centerline_dice')}")
     print(f"  stored cc_diff:     {chk.get('avg_cc_diff')}")
     print()
-
-    model = build_inference_model(
-        architecture=stored_arch,
-        patch_size=config.patch_size,
-        num_layers=config.num_layers,
-        base_feat=config.base_feat,
-        num_blocks=config.num_blocks,
-        num_heads=config.num_heads,
-        dropout=config.dropout,
-        use_ridges=config.use_ridges,
-        multi_task_heads=stored.get("multi_task_heads", False),
-    ).to(device)
-    skipped = load_shape_compatible_state(
-        model, chk["model_state_dict"], "best_model.pt"
-    )
-    print(
-        f"  load_shape_compatible_state: skipped {len(skipped) if hasattr(skipped, '__len__') else 0} tensors"
-    )
 
     parent_dir = os.path.dirname(config.val_uri.rstrip("/"))
     labels_path = os.path.join(parent_dir, "inklabels_filled.png")
@@ -94,6 +82,7 @@ def reevaluate(update_stored: bool = False) -> None:
         ridge_sigma=getattr(config, "ridge_sigma", 2.0),
         use_lasagna=False,
         require_ink=True,
+        strict_reads=True,
     )
     val_loader = DataLoader(
         val_ds, batch_size=config.batch_size, num_workers=0, pin_memory=True
@@ -113,7 +102,7 @@ def reevaluate(update_stored: bool = False) -> None:
             except StopIteration:
                 val_iter = iter(val_loader)
                 continue
-            x = x_raw[:, :, 4 : 4 + config.num_layers].to(device)
+            x = validate_batch(x_raw, settings, buffered=True).to(device)
             if target is None or target.numel() == 0:
                 continue
             target = target.to(device)
@@ -123,15 +112,13 @@ def reevaluate(update_stored: bool = False) -> None:
                 empty += 1
                 continue
             with torch.autocast(device_type=device.type, enabled=device.type == "cuda"):
-                out = model(x)
-                if isinstance(out, tuple):
-                    out = out[0]
-            all_probs.append(torch.sigmoid(out).cpu())
+                probabilities = ink_probabilities(model, x)
+            target = validate_targets(target, probabilities)
+            all_probs.append(probabilities.cpu())
             all_targets.append(target.cpu())
 
     if not all_probs:
-        print("ERROR: zero usable validation patches.")
-        return
+        raise ValueError("zero usable validation patches")
 
     probs_cat = torch.cat(all_probs)
     targets_cat = torch.cat(all_targets)
@@ -160,8 +147,8 @@ def reevaluate(update_stored: bool = False) -> None:
             pred = (prob_2d > topo_threshold).numpy().astype(bool)
             for b in range(gt.shape[0]):
                 val_cc.append(compute_cc_diff(gt[b, 0], pred[b, 0]))
-        except Exception:
-            pass
+        except Exception as exc:
+            raise RuntimeError("connected-component measurement failed") from exc
         if i % 10 == 0:
             gt3 = np.squeeze((tgt > 0.5).numpy().astype(bool))
             pred3 = np.squeeze((prob_2d > topo_threshold).numpy().astype(bool))
@@ -171,23 +158,41 @@ def reevaluate(update_stored: bool = False) -> None:
                 pred3 = pred3[np.newaxis, ...]
             try:
                 sd = compute_skeleton_dist(gt3, pred3)
-                if not np.isnan(sd):
-                    val_skel.append(sd)
-            except Exception:
-                pass
+                if not np.isfinite(sd):
+                    raise ValueError("nonfinite skeleton-distance measurement")
+                val_skel.append(sd)
+            except Exception as exc:
+                raise RuntimeError("topology measurement failed") from exc
             try:
-                cd = compute_centerline_dice(gt3, pred3, tolerance_radius=3.0).get(
-                    "centerline_dice", 0.0
-                )
-                if not np.isnan(cd):
-                    val_cd.append(cd)
-            except Exception:
-                pass
+                cd = compute_centerline_dice(gt3, pred3, tolerance_radius=3.0)[
+                    "centerline_dice"
+                ]
+                if not np.isfinite(cd):
+                    raise ValueError("nonfinite centerline measurement")
+                val_cd.append(cd)
+            except Exception as exc:
+                raise RuntimeError("topology measurement failed") from exc
 
     val_bpb = float(np.mean(val_losses))
     skel = float(np.mean(val_skel)) if val_skel else float("nan")
     cd = float(np.mean(val_cd)) if val_cd else 0.0
     cc = float(np.mean(val_cc)) if val_cc else 0.0
+
+    metrics = {
+        "val_bpb": val_bpb,
+        "avg_skel_dist": skel,
+        "avg_centerline_dice": cd,
+        "avg_cc_diff": cc,
+    }
+    if (
+        not val_cc
+        or not val_skel
+        or not val_cd
+        or not all(np.isfinite(value) for value in metrics.values())
+    ):
+        raise ValueError(
+            "incomplete or nonfinite re-evaluation metrics; checkpoint was not updated"
+        )
 
     print()
     print("=== TODAY'S MEASUREMENT (eval only, no training) ===")
@@ -220,7 +225,25 @@ def reevaluate(update_stored: bool = False) -> None:
         chk["avg_skel_dist"] = skel
         chk["avg_centerline_dice"] = cd
         chk["avg_cc_diff"] = cc
-        torch.save(chk, "best_model.pt")
+        chk["reevaluation"] = {
+            "methodology": "legacy_dice_topology_v1",
+            "validation_uri": config.val_uri,
+            "model_settings": settings,
+            "requested_batches": requested,
+            "accepted_batches": len(all_probs),
+            "dice_threshold": float(best_threshold),
+            "topology_threshold": float(topo_threshold),
+        }
+        import tempfile
+
+        fd, temporary = tempfile.mkstemp(prefix=".reevaluation-", suffix=".pt", dir=".")
+        os.close(fd)
+        try:
+            torch.save(chk, temporary)
+            os.replace(temporary, "best_model.pt")
+        finally:
+            if os.path.exists(temporary):
+                os.unlink(temporary)
         print("Done.")
 
 
