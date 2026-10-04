@@ -52,6 +52,13 @@ scorer count tracks it only weakly. **This is a lead, not a finding.** It was co
 registered analysis fail to produce windows, on the same 8 segments. Confirming it needs a pre-registered
 test, ideally on labelled segments beyond these 8.
 
+**Follow-up (finding 78, `reports/scorer_tracking_gap.md`):** the registered test held. It mainly shows
+robustness to tile size, because the other arms were near-duplicates. Two qualifications:
+* the strip may be in-sample for villa's 3D ink model, whose training set is plausibly these 8 segments;
+* the scorer's weak ρ is a floor effect: it marks 0.91% of the annotated region, about 2% of labelled ink.
+
+No labelled segments beyond these 8 exist on the current frame.
+
 ## What changes elsewhere
 
 * `SPIRAL_FINDINGS_SUMMARY.md`: finding 77 records this correction; finding 74 is marked as corrected.

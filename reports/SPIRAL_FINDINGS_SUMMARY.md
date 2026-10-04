@@ -1068,3 +1068,22 @@ labelled ink). Findings 71–76 counted unannotated ink as negatives. The regist
   count only weakly (ρ = +0.15).
 
 inkagree 0.3.0 evaluates on the supervised region by default. `reports/supervised_reanalysis.md`.
+
+**78. The scorer-vs-render tracking gap holds across tile sizes, but the registered test was weak; villa's
+scorer marks about 2% of villa's annotated ink.** Pre-registered (`fe3d73ba`), plus unregistered descriptive
+checks.
+
+* **Registered:** both predictions held. At 256 px, strip ρ exceeds scorer ρ by +0.45 to +0.48 in every
+  arm; strip > scorer in all 9 cells (512 px by point estimate only).
+* **Weak test:** the "new" arms correlate per tile with the reference at r 0.96–0.99999, so it adds little.
+  It supports robustness to tile size (128 and 256 px), not to render conditions.
+* **Descriptive:**
+  * The paired gap is +0.47 [+0.31, +0.55] at 256 px, and it holds within all 8 segments.
+  * Inside villa's annotated region, the scorer marks **0.91%** of pixels, where labels mark 25.9%.
+  * Recall of labelled ink is **2.1%**, and can be at most 3.5% whatever the alignment. Precision is 59%.
+* **Unresolved confound:** the strip renders a 3D ink model whose training set is plausibly these exact
+  segments. villa's PHercParis4 ink dataset is exactly these 8 segments, with no validation masks. So the
+  strip's ρ may be in-sample.
+* **Not shown:** that the objective mis-ranks fits. Cross-region tracking is not the loop's comparison.
+
+`reports/scorer_tracking_gap.md`.
