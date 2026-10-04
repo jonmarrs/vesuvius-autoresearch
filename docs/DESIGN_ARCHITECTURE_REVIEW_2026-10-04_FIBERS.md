@@ -155,3 +155,12 @@ training loader. No typing diagnostics remain in this review's changed files.
   masked-normalization, ignore-label, and region-label nnUNet models are rejected.
 - Standard validation covers earlier reviewed workflows, but this pass does not
   execute every historical analysis script or change upstream villa code.
+
+## Addendum, same day: scoring version 3
+
+Version 2 skipped zero-length edges without joining their endpoints, so a fiber traced through a duplicate node
+split there on every labelling, the oracle included. WEBKNOSSOS traces contain such edges: 821 of 87,469 across
+ScrollGT's eleven fiber cubes, and 663 of 3,124 in `s1_10997_02997_02997_256`. On that cube version 2 scored the
+oracle at ERL 166.86 with 512 splits; version 3 gives 244.20 with 11 splits. Version 3 merges the endpoints of
+zero-length edges before attaching runs. `test_graph_scoring_keeps_a_fiber_connected_through_a_zero_length_edge`
+fails on version 2 and passes on version 3. `SCORING_VERSION` is 3.

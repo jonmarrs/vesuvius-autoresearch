@@ -3,7 +3,8 @@
 > **Historical scorer, corrected 2026-10-04:** these measurements used an
 > edge-order-dependent implementation. Scoring version 2 follows actual graph
 > connectivity and includes terminal nodes in the precision reference. The
-> measurements and rankings below have not been recomputed with it. See the
+> measurements and rankings below have not been recomputed with it. Version 3,
+> the same day, keeps zero-length edges connected; version 2 split fibers there. See the
 > [architecture review](../docs/DESIGN_ARCHITECTURE_REVIEW_2026-10-04_FIBERS.md).
 
 **Date:** 2026-07-29

@@ -13,7 +13,9 @@ import numpy as np
 
 # Bump when normalization, tiling, class collapse, or connectivity scoring changes.
 INFERENCE_VERSION = 1
-SCORING_VERSION = 2  # connected graph runs, independent of NML edge ordering
+# 2: connected graph runs, independent of NML edge ordering.
+# 3: zero-length edges keep their endpoints connected (2 split fibers there).
+SCORING_VERSION = 3
 
 
 def file_sha256(path):

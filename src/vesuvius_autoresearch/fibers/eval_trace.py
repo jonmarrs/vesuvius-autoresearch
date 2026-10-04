@@ -202,6 +202,26 @@ def _runs_on_graph(fiber, grown, step, restrict_to_bounds):
         else:
             junctions[key] = run
 
+    # A zero-length edge joins two node ids at one point. WEBKNOSSOS traces contain
+    # them (821 of 87,469 edges across ScrollGT's fiber cubes, 21% in one cube).
+    # The loop below skips them, so their endpoints must be merged here. Without
+    # that, the fiber disconnects at every such edge and every labelling books a
+    # split there, the oracle included: one cube's oracle ERL fell 32%.
+    node_parent = list(range(len(coords)))
+
+    def node(i):
+        while node_parent[i] != i:
+            node_parent[i] = node_parent[node_parent[i]]
+            i = node_parent[i]
+        return i
+
+    for a, b in edges:
+        a, b = int(a), int(b)
+        if np.array_equal(coords[a], coords[b]):
+            ra, rb = node(a), node(b)
+            if ra != rb:
+                node_parent[max(ra, rb)] = min(ra, rb)
+
     total, covered = 0.0, 0.0
     canonical = []
     for a, b in edges:
@@ -240,10 +260,10 @@ def _runs_on_graph(fiber, grown, step, restrict_to_bounds):
                 last = None
             previous = lab
         if first is not None:
-            attach(a, labels[first], first)
+            attach(node(a), labels[first], first)
         end_label, _ = sample(cb)
         if last is not None and end_label == labels[last]:
-            attach(b, labels[last], last)
+            attach(node(b), labels[last], last)
 
     components = {}
     for i, length in enumerate(lengths):

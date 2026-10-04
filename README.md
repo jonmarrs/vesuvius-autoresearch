@@ -252,7 +252,7 @@ For semantic-model inference and connectivity scoring, see
 [fiber tracing](docs/FIBER_TRACING.md). The October 4 review corrected ERL's
 dependence on skeleton edge ordering and added model/image provenance to caches
 and reports. Published legacy fiber rankings require recomputation with scoring
-version 2; the [review report](docs/DESIGN_ARCHITECTURE_REVIEW_2026-10-04_FIBERS.md)
+version 3 (version 2 split fibers at zero-length edges); the [review report](docs/DESIGN_ARCHITECTURE_REVIEW_2026-10-04_FIBERS.md)
 describes the change and its validation limits.
 
 ## Scroll-specific augmentations

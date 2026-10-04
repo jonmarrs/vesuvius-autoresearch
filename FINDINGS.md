@@ -638,7 +638,7 @@ measured — check the scored region separately
   coasting was falsified and seed NMS was a null. The 2026-10-04 architecture review
   found edge-order-dependent ERL in that scorer and replaced it with graph connectivity
   scoring. The historical rankings require recomputation before use with scoring
-  version 2; see [the review](docs/DESIGN_ARCHITECTURE_REVIEW_2026-10-04_FIBERS.md).
+  version 3 (version 2 plus zero-length edges kept connected); see [the review](docs/DESIGN_ARCHITECTURE_REVIEW_2026-10-04_FIBERS.md).
 - The column-metric line is **closed** after four hypotheses were each refuted, one of which was a
   finding we published and **retracted the same day** when its instrument turned out to be
   measuring our own high-pass residual.

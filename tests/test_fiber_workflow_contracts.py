@@ -385,6 +385,18 @@ def test_graph_scoring_preserves_branch_connectivity():
         assert s.n_pred_instances == 1
 
 
+def test_graph_scoring_keeps_a_fiber_connected_through_a_zero_length_edge():
+    # WEBKNOSSOS traces contain duplicate nodes joined by a zero-length edge (821 of
+    # 87,469 edges in ScrollGT's fiber cubes). The fiber is still one line.
+    coords = np.array([[1, 1, 1], [1, 1, 3], [1, 1, 3], [1, 1, 5]], dtype=float)
+    f = Fiber(1, "dup", np.arange(4), coords, np.array([[0, 1], [1, 2], [2, 3]]))
+    inst = np.ones((3, 3, 8), dtype=np.int64)
+    for edges in [f.edges, f.edges[::-1], f.edges[:, ::-1]]:
+        s = score_tracing(Skeleton([replace(f, edges=edges)]), inst, tolerance=0)
+        assert s.erl == 4
+        assert s.splits == 0
+
+
 def test_cli_score_preserves_large_instance_ids(tmp_path, monkeypatch):
     inst = np.ones((3, 3, 8), dtype=np.uint64) * 2**32
     path = tmp_path / "instances.npy"

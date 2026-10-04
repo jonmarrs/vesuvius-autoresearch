@@ -15,7 +15,8 @@ This directory provides **the measurement layer for that problem**, plus a basel
 > arclength components on the actual graph, and includes terminal nodes in the
 > precision reference. The numerical results and tracer rankings below are
 > historical results from the old scorer; they need recomputation before use as
-> version-2 evidence. This review did not rerun the published real-cube benchmark
+> version-3 evidence. (Version 3 fixes a version-2 defect: zero-length edges
+> disconnected the graph.) This review did not rerun the published real-cube benchmark
 > or update the separate ScrollGT repository. See the
 > [review report](DESIGN_ARCHITECTURE_REVIEW_2026-10-04_FIBERS.md).
 
@@ -82,7 +83,10 @@ Defined in `src/vesuvius_autoresearch/fibers/eval_trace.py`.
   every scorecard.
 
 Version 2 joins runs only through actual shared nodes with the same sampled
-instance label. Disconnected edges remain separate even when their labels
+instance label. Version 3 (same day) also treats the two endpoints of a
+zero-length edge as one node. Version 2 skipped such edges, which split the fiber
+there on every labelling, the oracle included. Real traces contain them: 821 of
+87,469 edges across ScrollGT's fiber cubes. Disconnected edges remain separate even when their labels
 match. Edge ordering, source/target direction, and branching do not invent
 connections. Instance inputs must be nonnegative integer arrays; IDs are
 preserved at their original integer width. Sampling step must be finite and
