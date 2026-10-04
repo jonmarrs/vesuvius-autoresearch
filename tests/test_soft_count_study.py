@@ -61,3 +61,10 @@ def test_sums_threshold_matches_villa_ge() -> None:
     assert math.isclose(r["S"], float(p.astype(np.float64).sum()))
     assert math.isclose(r["S_sub_threshold"], 0.25 + float(np.float16(0.49)))
     assert r["pixels"] == 8
+
+
+def test_threshold_counts_use_ge_and_float16_cut() -> None:
+    thr = _mod("soft_count_thresholds")
+    p = np.array([[0.1, 0.2, 0.3, 0.4, 0.5, 0.05]], dtype=np.float16)
+    c = thr.counts(p)
+    assert c == {"0.1": 5, "0.2": 4, "0.3": 3, "0.4": 2, "0.5": 1}

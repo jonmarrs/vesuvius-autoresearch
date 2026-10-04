@@ -101,3 +101,17 @@ results are never touched.**
 * Neither metric is validated against labels here. The labels sit on segment meshes, not spiral fits.
 * The current tier's three reused maps were made on 09-14 by the same patched scorer and are held to the
   same V1.
+
+## Amendment 1 (2026-10-04, while the chain ran; before any pinned or offset result was looked at)
+
+At commit time 3 of 29 arms had been scored. Only the chain log's "DONE" lines and one arm's V1 check (H
+re-scored vs published, +0.0002%) had been read.
+
+**Secondary analysis, descriptive, with no predictions: hard counts at lower thresholds.** villa's scorer
+already takes `--fg-threshold`, so a lower threshold is adoptable **with no code change**. S needs one.
+* For t ∈ {0.1, 0.2, 0.3, 0.4, 0.5}, H_t is counted from the same float16 maps (`scripts/soft_count_thresholds.py`).
+  H_0.5 from float16 is a consistency check against the exact H.
+* R(t) and D(t) are computed exactly as for S, with the same bootstrap seed and the same groups.
+* **Reported as secondary.** It changes none of the registered verdicts and not the recommendation rule.
+* **No threshold is recommended on this data alone.** Choosing the best of four after seeing them is
+  selection. If one is cited, all are reported, and a recommendation would need a fresh test.
