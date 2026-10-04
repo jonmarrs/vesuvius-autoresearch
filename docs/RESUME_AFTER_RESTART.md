@@ -12,6 +12,13 @@
 * villa upstream at `5a4388f08` (#1947/#1948: prize automation and docs). It does not touch
   `spiral-fitting/autoresearch.md`; the October form URL and deadline match the draft.
 * **Next:** runner PR on or after 10-06 (gate first). The October filing is due 10-31.
+* **IN FLIGHT: soft-count study** (prereg `17739f03`), which asks whether the sum of probability beats
+  `total_fg_pixels` as the loop objective.
+  * It runs as `repro/spiral_render/run_soft_count_chain.sh` through run_snapshot, started at 09:37.
+    32 arms at ~17 min each, so roughly 9 h.
+  * It is resumable: relaunch the same way and finished arms are skipped.
+  * Output goes to `spiral_out/softcount_study/` only. The analysis runs at the end and writes
+    `result.json` and `analysis.log`. Report against the registered rules.
 
 
 ## 2026-10-04: finding 75 (install route vs villa's labels)
