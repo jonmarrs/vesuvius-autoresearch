@@ -28,6 +28,39 @@ def get_backend(volume):
     return np, ndimage
 
 
+def _volume(volume):
+    xp, _ = get_backend(volume)
+    volume = xp.asarray(volume)
+    if volume.ndim != 3 or any(s < 3 for s in volume.shape):
+        raise ValueError("volume must have shape (Z, Y, X), each axis at least 3")
+    if volume.dtype.kind not in "uif" or not bool(xp.isfinite(volume).all()):
+        raise ValueError("volume must contain finite real CT values")
+    # Gaussian filtering preserves input dtype. Integer CT would round away
+    # derivatives, and integer tiled outputs would truncate probabilities.
+    if volume.dtype.kind != "f" or volume.dtype.itemsize < 4:
+        volume = volume.astype(xp.float32)
+    return volume
+
+
+def _filter_settings(gauss_sigma, sigma, gamma=1.5, beta1=0.5, beta2=0.5):
+    for name, value in [
+        ("gauss_sigma", gauss_sigma),
+        ("sigma", sigma),
+        ("gamma", gamma),
+        ("beta1", beta1),
+        ("beta2", beta2),
+    ]:
+        if (
+            isinstance(value, (bool, np.bool_))
+            or not isinstance(value, (int, float, np.integer, np.floating))
+            or not math.isfinite(value)
+            or (value < 0 if name == "gauss_sigma" else value <= 0)
+        ):
+            raise ValueError(
+                f"{name} must be finite and {'nonnegative' if name == 'gauss_sigma' else 'positive'}"
+            )
+
+
 def divide_nonzero(array1, array2, eps=1e-10):
     """
     Divides two arrays. Returns zero when dividing by zero.
@@ -50,6 +83,8 @@ def normalize(volume, norm_range=None):
         maxim = xp.max(volume)
     else:
         minim, maxim = norm_range
+        if not math.isfinite(minim) or not math.isfinite(maxim) or maxim < minim:
+            raise ValueError("norm_range must contain finite ordered extrema")
     volume -= minim
     denom = maxim - minim
     # Constant input (e.g. blank CT regions outside the mask) would divide by
@@ -61,6 +96,8 @@ def normalize(volume, norm_range=None):
 
 
 def hessian(volume, gauss_sigma=2, sigma=6, norm_range=None):
+    volume = _volume(volume)
+    _filter_settings(gauss_sigma, sigma)
     xp, xndimage = get_backend(volume)
     # N.B. this only returns the upper triangular matrix to save time
     volume = xndimage.gaussian_filter(volume, sigma=gauss_sigma)
@@ -282,6 +319,7 @@ def fiber_direction(J, eigenvalues=None, eps=1e-8):
 def detect_ridges(
     volume, gamma=1.5, beta1=0.5, beta2=0.5, gauss_sigma=2, sigma=6, norm_range=None
 ):
+    _filter_settings(gauss_sigma, sigma, gamma, beta1, beta2)
     xp, _ = get_backend(volume)
     joint_hessian, zero_mask = hessian(
         volume, gauss_sigma, sigma, norm_range=norm_range
@@ -329,6 +367,7 @@ def detect_vesselness(
     Returns:
     - vesselness: 3D array representing vesselness probability at each voxel.
     """
+    _filter_settings(gauss_sigma, sigma, gamma, beta1, beta2)
     xp, _ = get_backend(volume)
     joint_hessian, zero_mask = hessian(
         volume, gauss_sigma, sigma, norm_range=norm_range
@@ -403,6 +442,34 @@ def _detect_tiled(volume, filter_fn, block_size=128, halo=16, **kwargs):
     computes the global normalization range of the smoothed volume so
     per-block normalization matches the dense path.
     """
+    volume = _volume(volume)
+    _filter_settings(
+        **{
+            k: kwargs.get(k, default)
+            for k, default in [
+                ("gauss_sigma", 2),
+                ("sigma", 6),
+                ("gamma", 1.5),
+                ("beta1", 0.5),
+                ("beta2", 0.5),
+            ]
+        }
+    )
+    if (
+        isinstance(block_size, (bool, np.bool_))
+        or not isinstance(block_size, (int, np.integer))
+        or block_size <= 0
+    ):
+        raise ValueError("block_size must be a positive integer")
+    required_halo = int(4 * kwargs.get("gauss_sigma", 2) + 0.5) + 2
+    if (
+        isinstance(halo, (bool, np.bool_))
+        or not isinstance(halo, (int, np.integer))
+        or halo < required_halo
+    ):
+        raise ValueError(
+            f"halo must be an integer >= {required_halo} (Gaussian support plus two derivatives)"
+        )
     xp, _ = get_backend(volume)
     Z, Y, X = volume.shape
     result = xp.zeros((Z, Y, X), dtype=volume.dtype)

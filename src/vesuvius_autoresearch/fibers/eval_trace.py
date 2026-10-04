@@ -32,10 +32,12 @@ ground-truth point if it passes within `tolerance` voxels.
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 
 import numpy as np
 
+from vesuvius_autoresearch.fibers.provenance import SCORING_VERSION
 from vesuvius_autoresearch.fibers.skeleton_io import Skeleton
 
 
@@ -60,6 +62,7 @@ class ConnectivityScores:
     def as_row(self) -> dict:
         """Flat dict for a leaderboard table; excludes the raw run lengths."""
         return {
+            "scoring_version": SCORING_VERSION,
             "erl": round(self.erl, 2),
             "erl_merge_penalized": round(self.erl_merge_penalized, 2),
             "coverage": round(self.coverage, 4),
@@ -107,7 +110,14 @@ def _resample_fiber(coords: np.ndarray, edges: np.ndarray, step: float = 0.5):
         if len(coords):
             yield coords[0], 0.0
         return
+    canonical = []
     for a_i, b_i in edges:
+        if tuple(coords[a_i]) > tuple(coords[b_i]):
+            a_i, b_i = b_i, a_i
+        canonical.append((a_i, b_i))
+    for a_i, b_i in sorted(
+        canonical, key=lambda e: (tuple(coords[e[0]]), tuple(coords[e[1]]))
+    ):
         a, b = coords[a_i], coords[b_i]
         seg = float(np.linalg.norm(b - a))
         if seg == 0.0:
@@ -118,6 +128,7 @@ def _resample_fiber(coords: np.ndarray, edges: np.ndarray, step: float = 0.5):
         dl = seg / (n - 1)
         for t in ts[:-1]:
             yield a + (b - a) * t, dl
+        yield b, 0.0  # Include the terminal node in the precision reference mask.
 
 
 def _runs_along_fiber(
@@ -148,6 +159,99 @@ def _runs_along_fiber(
     return [(lab, ln) for lab, ln in runs if ln > 0]
 
 
+def _runs_on_graph(fiber, grown, step, restrict_to_bounds):
+    """Connected same-label arclength components on the NML graph.
+
+    Edge serialization is arbitrary. Concatenating sampled edges invents joins
+    between unrelated endpoints and splits real joins when edges are shuffled.
+    Canonical edge orientation also makes interval sampling independent of the
+    source/target convention used by the annotation writer.
+    """
+    coords, edges = np.asarray(fiber.coords), np.asarray(fiber.edges)
+    if coords.ndim != 2 or coords.shape[1] != 3 or not np.isfinite(coords).all():
+        raise ValueError("skeleton coordinates must be finite with shape (N, 3)")
+    if (
+        edges.ndim != 2
+        or edges.shape[1] != 2
+        or edges.dtype.kind not in "ui"
+        or np.any(edges < 0)
+        or np.any(edges >= len(coords))
+    ):
+        raise ValueError("skeleton edges must be valid integer node pairs")
+    shape = grown.shape
+
+    def sample(p):
+        idx = tuple(int(round(v)) for v in p)
+        inside = all(0 <= idx[a] < shape[a] for a in range(3))
+        return (int(grown[idx]) if inside else 0), inside
+
+    # Union only geometrically connected runs with the same instance id.
+    parents, labels, lengths = [], [], []
+    junctions = {}
+
+    def root(i):
+        while parents[i] != i:
+            parents[i] = parents[parents[i]]
+            i = parents[i]
+        return i
+
+    def attach(node, lab, run):
+        key = (node, lab)
+        if key in junctions:
+            parents[root(run)] = root(junctions[key])
+        else:
+            junctions[key] = run
+
+    total, covered = 0.0, 0.0
+    canonical = []
+    for a, b in edges:
+        a, b = int(a), int(b)
+        if tuple(coords[a]) > tuple(coords[b]):
+            a, b = b, a
+        canonical.append((a, b))
+    # Stable accumulation for a permutation of exactly the same annotation.
+    for a, b in sorted(
+        canonical, key=lambda e: (tuple(coords[e[0]]), tuple(coords[e[1]]))
+    ):
+        ca, cb = coords[a], coords[b]
+        seg = float(np.linalg.norm(cb - ca))
+        if seg == 0:
+            continue
+        n = max(2, int(np.ceil(seg / step)) + 1)
+        dl = seg / (n - 1)
+        previous, current = 0, None
+        first, last = None, None
+        for i, t in enumerate(np.linspace(0, 1, n)[:-1]):
+            lab, inside = sample(ca + (cb - ca) * t)
+            if inside or not restrict_to_bounds:
+                total += dl
+            if lab:
+                covered += dl
+                if lab != previous:
+                    current = len(parents)
+                    parents.append(current)
+                    labels.append(lab)
+                    lengths.append(0.0)
+                lengths[current] += dl
+                if i == 0:
+                    first = current
+                last = current
+            else:
+                last = None
+            previous = lab
+        if first is not None:
+            attach(a, labels[first], first)
+        end_label, _ = sample(cb)
+        if last is not None and end_label == labels[last]:
+            attach(b, labels[last], last)
+
+    components = {}
+    for i, length in enumerate(lengths):
+        r = root(i)
+        components[r] = components.get(r, 0.0) + length
+    return [(labels[r], length) for r, length in components.items()], total, covered
+
+
 def score_tracing(
     gt: Skeleton,
     instances: np.ndarray,
@@ -168,6 +272,26 @@ def score_tracing(
             Annotators traced past the cube edge, so 14-34% of nodes are outside
             and scoring them would count guaranteed misses.
     """
+    instances = np.asarray(instances)
+    if (
+        instances.ndim != 3
+        or any(s == 0 for s in instances.shape)
+        or instances.dtype.kind not in "ui"
+        or np.any(instances < 0)
+    ):
+        raise ValueError(
+            "instances must be nonnegative integer labels with nonempty shape (Z, Y, X)"
+        )
+    for name, value in [("tolerance", tolerance), ("step", step)]:
+        if (
+            isinstance(value, (bool, np.bool_))
+            or not isinstance(value, (int, float, np.integer, np.floating))
+            or not math.isfinite(value)
+            or (value < 0 if name == "tolerance" else value <= 0)
+        ):
+            raise ValueError(
+                f"{name} must be finite and {'nonnegative' if name == 'tolerance' else 'positive'}"
+            )
     shape = instances.shape
     grown = _dilate_labels(instances, tolerance)
 
@@ -178,29 +302,14 @@ def score_tracing(
     gt_total = 0.0
     covered = 0.0
 
+    graph_runs = []
     for gi, fiber in enumerate(gt.fibers):
-        labels: list[int] = []
-        lengths: list[float] = []
-        for p, dl in _resample_fiber(fiber.coords, fiber.edges, step=step):
-            idx = tuple(int(round(v)) for v in p)
-            inside = all(0 <= idx[a] < shape[a] for a in range(3))
-            if not inside:
-                if restrict_to_bounds:
-                    continue
-                labels.append(0)
-                lengths.append(dl)
-                continue
-            lab = int(grown[idx])
-            labels.append(lab)
-            lengths.append(dl)
-
-        seg_total = float(sum(lengths))
-        gt_total += seg_total
-        covered += float(
-            sum(dl for lab, dl in zip(labels, lengths, strict=False) if lab != 0)
+        runs, seg_total, seg_covered = _runs_on_graph(
+            fiber, grown, step, restrict_to_bounds
         )
-
-        runs = _runs_along_fiber(labels, lengths)
+        graph_runs.append(runs)
+        gt_total += seg_total
+        covered += seg_covered
         runs_per_gt[gi] = len(runs)
         for lab, ln in runs:
             all_runs.append(ln)
@@ -227,22 +336,9 @@ def score_tracing(
 
     erl = _erl(all_runs)
 
-    # Merge-penalized: rebuild runs, zeroing any run belonging to a merging id.
-    penalized: list[float] = []
-    for gi, fiber in enumerate(gt.fibers):
-        labels, lengths = [], []
-        for p, dl in _resample_fiber(fiber.coords, fiber.edges, step=step):
-            idx = tuple(int(round(v)) for v in p)
-            if not all(0 <= idx[a] < shape[a] for a in range(3)):
-                if restrict_to_bounds:
-                    continue
-                labels.append(0)
-                lengths.append(dl)
-                continue
-            lab = int(grown[idx])
-            labels.append(0 if lab in merging_ids else lab)
-            lengths.append(dl)
-        penalized.extend(ln for _, ln in _runs_along_fiber(labels, lengths))
+    penalized = [
+        ln for runs in graph_runs for lab, ln in runs if lab not in merging_ids
+    ]
     # Denominator stays the full traced length, so merges genuinely cost ERL.
     tot_all = float(sum(all_runs))
     erl_pen = float(sum(r * r for r in penalized) / tot_all) if tot_all > 0 else 0.0

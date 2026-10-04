@@ -634,8 +634,11 @@ measured — check the scored region separately
   said the periodicity is intended, and we **conceded** (villa#1621).
 - A suspected "disconnected subrow" defect is a **null**: warned patches score *higher*, via a
   selection effect.
-- Our fiber tracer **loses to connected components** on both coverage and precision; coasting was
-  falsified and seed NMS was a null.
+- In the published legacy fiber benchmark, our tracer **loses to connected components**;
+  coasting was falsified and seed NMS was a null. The 2026-10-04 architecture review
+  found edge-order-dependent ERL in that scorer and replaced it with graph connectivity
+  scoring. The historical rankings require recomputation before use with scoring
+  version 2; see [the review](docs/DESIGN_ARCHITECTURE_REVIEW_2026-10-04_FIBERS.md).
 - The column-metric line is **closed** after four hypotheses were each refuted, one of which was a
   finding we published and **retracted the same day** when its instrument turned out to be
   measuring our own high-pass residual.
