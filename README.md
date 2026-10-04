@@ -155,6 +155,11 @@ optional mirror averaging; their metadata records the applied recipe. Ensemble
 members must share spatial context and calibration. Partial inference shards
 are identified explicitly and cannot pass complete-region submission validation.
 
+For checkpoint re-evaluation, masked patch AUC, pseudo-labels, and manual-review
+queues, see [Checkpoint analysis and labeling](docs/CHECKPOINT_ANALYSIS.md).
+These tools use recorded model settings and complete weights; failed reads or
+measurements produce an error instead of a successful result.
+
 ## Running the agent
 
 Spin up your coding agent of choice in this repo, then prompt something like:

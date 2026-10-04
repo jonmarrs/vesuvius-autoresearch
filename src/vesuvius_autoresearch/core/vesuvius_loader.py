@@ -229,6 +229,7 @@ class VesuviusLabeledDataset(torch.utils.data.Dataset):
         min_ink_ratio=0.01,
         patches_json=None,
         jitter=True,
+        strict_reads=False,
     ):
         self.volume = FastVesuviusVolume(
             volume_uri,
@@ -241,6 +242,7 @@ class VesuviusLabeledDataset(torch.utils.data.Dataset):
         self.shape = self.volume.shape
         self.seed = seed
         self.jitter = jitter
+        self.strict_reads = strict_reads
         self.use_ridges = use_ridges
         self.use_lasagna = use_lasagna
         self.is_unlabeled = is_unlabeled
@@ -611,6 +613,10 @@ class VesuviusLabeledDataset(torch.utils.data.Dataset):
             patch_fiber = self._compute_fiber_target(patch_vol)
             return patch_vol, patch_label, patch_fiber
         except Exception as e:
+            if getattr(self, "strict_reads", False):
+                raise RuntimeError(
+                    f"failed to read labeled patch {idx} from {self.volume.uri}"
+                ) from e
             _warn_limited(
                 "labeled_zero_patch",
                 f"returning zero labeled patch for sample {idx} from {self.volume.uri}: {type(e).__name__}: {e}",

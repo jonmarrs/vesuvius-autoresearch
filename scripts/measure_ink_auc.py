@@ -22,9 +22,14 @@ sys.path.insert(0, _R)
 sys.path.insert(0, os.path.join(_R, "scripts", "training"))
 
 from torch.utils.data import DataLoader
-from train import ExperimentConfig, load_shape_compatible_state
 
-from vesuvius_autoresearch.core.model_wrappers import build_inference_model
+from vesuvius_autoresearch.core.checkpoint_tools import (
+    ink_probabilities,
+    load_tool_checkpoint,
+    validate_batch,
+    validate_targets,
+)
+from vesuvius_autoresearch.core.inference import positive_integer
 from vesuvius_autoresearch.core.vesuvius_loader import VesuviusLabeledDataset
 
 
@@ -40,77 +45,93 @@ def main():
     ap.add_argument("--fragments", nargs="+", required=True)
     ap.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
     ap.add_argument("--n", type=int, default=30)
+    ap.add_argument("--cache-dir")
     args = ap.parse_args()
+    positive_integer(args.n, "n")
 
     device = torch.device(args.device)
-    chk = torch.load(args.checkpoint, map_location="cpu", weights_only=False)
-    s = chk.get("config", {})
-    arch = s.get("architecture", "resenc_unet")
-    ps, nl = s.get("patch_size", 64), s.get("num_layers", 16)
-    config = ExperimentConfig.load("config.json")
-    model = build_inference_model(
-        architecture=arch,
-        patch_size=ps,
-        num_layers=nl,
-        base_feat=s.get("base_feat", 64),
-        num_blocks=s.get("num_blocks", 16),
-        num_heads=s.get("num_heads", 8),
-        dropout=s.get("dropout", 0.0),
-        use_ridges=s.get("use_ridges", config.use_ridges),
-        multi_task_heads=s.get("multi_task_heads", False),
-    ).to(device)
-    load_shape_compatible_state(model, chk["model_state_dict"], args.checkpoint)
-    model.eval()
-    print(f"ckpt={args.checkpoint} arch={arch} use_ridges={s.get('use_ridges')}")
-
+    model, settings, _ = load_tool_checkpoint(args.checkpoint, device)
+    ps, nl = settings["patch_size"], settings["num_layers"]
+    failures = []
     for frag in args.fragments:
-        uri = _volume_uri(frag)
-        ds = VesuviusLabeledDataset(
-            uri,
-            os.path.join(frag, "inklabels.png"),
-            os.path.join(frag, "mask.png"),
-            ps,
-            nl + 8,
-            seed=7,
-            cache_dir=config.cache_dir,
-            use_ridges=s.get("use_ridges", config.use_ridges),
-            ridge_sigma=getattr(config, "ridge_sigma", 2.0),
-            use_lasagna=False,
-            require_ink=True,
+        try:
+            measure_fragment(model, settings, frag, args.n, device, args.cache_dir)
+        except (ValueError, RuntimeError, OSError) as exc:
+            failures.append(f"{frag}: {exc}")
+            print(f"{frag}: FAILED: {exc}", file=sys.stderr)
+    if failures:
+        raise SystemExit(1)
+
+
+def measure_fragment(model, settings, frag, n, device, cache_dir=None):
+    ps, nl = settings["patch_size"], settings["num_layers"]
+    for name in ("inklabels.png", "mask.png"):
+        if not os.path.isfile(os.path.join(frag, name)):
+            raise ValueError(f"required measurement file missing: {name}")
+    uri = _volume_uri(frag)
+    ds = VesuviusLabeledDataset(
+        uri,
+        os.path.join(frag, "inklabels.png"),
+        os.path.join(frag, "mask.png"),
+        ps,
+        nl + 8,
+        seed=7,
+        cache_dir=cache_dir,
+        use_ridges=settings["use_ridges"],
+        ridge_sigma=settings["ridge_sigma"],
+        use_lasagna=False,
+        require_ink=True,
+        jitter=False,
+        strict_reads=True,
+    )
+    if (
+        ds.labels is None
+        or ds.mask is None
+        or ds.labels.shape != ds.shape[1:]
+        or ds.mask.shape != ds.shape[1:]
+        or not np.isfinite(ds.labels).all()
+        or not np.isfinite(ds.mask).all()
+        or not np.isin(ds.labels, [0, 1]).all()
+    ):
+        raise ValueError(
+            "measurement requires aligned binary ink labels and a finite mask"
         )
-        dl = iter(DataLoader(ds, batch_size=8, num_workers=0))
-        aucs = []
-        with torch.no_grad():
-            while len(aucs) < args.n:
-                try:
-                    x_raw, target, _ = next(dl)
-                except StopIteration:
-                    break
-                x = x_raw[:, :, 4 : 4 + nl].to(device)
-                if target is None or target.numel() == 0:
-                    continue
-                target = target.to(device)
-                if target.dim() == 3:
-                    target = target.unsqueeze(1)
-                if torch.sum(target.float()) < 1.0:
-                    continue
-                out = model(x)
-                if isinstance(out, tuple):
-                    out = out[0]
-                prob = torch.sigmoid(out).float().cpu().numpy()
-                tgt = (target.cpu().numpy() > 0.5).astype(int)
-                for bi in range(prob.shape[0]):
-                    p, t = prob[bi].ravel(), tgt[bi].ravel()
-                    if t.min() != t.max():
-                        aucs.append(roc_auc_score(t, p))
-        a = np.array(aucs)
-        name = os.path.basename(frag.rstrip("/"))
-        if len(a):
-            print(
-                f"{name}: AUC mean={a.mean():.3f} median={np.median(a):.3f} n={len(a)}"
-            )
-        else:
-            print(f"{name}: no usable patches")
+    dl = iter(DataLoader(ds, batch_size=8, num_workers=0))
+    offset = 0
+    aucs = []
+    with torch.no_grad():
+        while len(aucs) < n:
+            try:
+                x_raw, target, _ = next(dl)
+            except StopIteration:
+                break
+            x = validate_batch(x_raw, settings, buffered=True).to(device)
+            prob = ink_probabilities(model, x).cpu()
+            target = validate_targets(target, prob)
+            for bi in range(len(prob)):
+                y, x0 = ds.valid_coords[offset + bi]
+                if not (0 <= y <= ds.shape[1] - ps and 0 <= x0 <= ds.shape[2] - ps):
+                    raise ValueError("patch coordinates exceed the volume")
+                mask = ds.mask[y : y + ps, x0 : x0 + ps] > 0.5
+                p = prob[bi, 0].numpy()[mask]
+                t = (target[bi, 0].numpy()[mask] > 0.5).astype(int)
+                if t.size and t.min() != t.max():
+                    aucs.append(float(roc_auc_score(t, p)))
+                    if len(aucs) == n:
+                        break
+            offset += len(prob)
+    a = np.array(aucs)
+    name = os.path.basename(frag.rstrip("/"))
+    if 0 < len(a) < n:
+        raise ValueError(
+            f"only {len(a)}/{n} requested patches have both classes inside the mask"
+        )
+    if len(a):
+        print(f"{name}: AUC mean={a.mean():.3f} median={np.median(a):.3f} n={len(a)}")
+    else:
+        raise ValueError(
+            "no usable patches with both ink and background inside the mask"
+        )
 
 
 if __name__ == "__main__":

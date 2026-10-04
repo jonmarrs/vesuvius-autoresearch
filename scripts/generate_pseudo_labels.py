@@ -12,6 +12,12 @@ import numpy as np
 import torch
 from PIL import Image
 
+from vesuvius_autoresearch.core.checkpoint_tools import (
+    ink_probabilities,
+    load_tool_checkpoint,
+    validate_batch,
+)
+
 Image.MAX_IMAGE_PIXELS = None
 _R = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, _R)
@@ -22,36 +28,35 @@ def prob_to_pseudo_png(prob, region, tau_high=0.65, tau_low=0.15):
     """Map a [H,W] probability map + boolean region mask to a uint8 pseudo-label:
     255 (ink) where prob>tau_high, 0 (bg) where prob<tau_low, else 128 (ignore).
     Pixels outside `region` are always 128 (ignore)."""
+    if not np.isfinite([tau_low, tau_high]).all() or not 0 <= tau_low < tau_high <= 1:
+        raise ValueError("thresholds must satisfy 0 <= tau_low < tau_high <= 1")
+    prob, region = np.asarray(prob), np.asarray(region)
+    if (
+        prob.ndim != 2
+        or prob.shape != region.shape
+        or region.dtype != np.bool_
+        or not np.isfinite(prob).all()
+        or np.any((prob < 0) | (prob > 1))
+    ):
+        raise ValueError(
+            "probability and boolean region maps must align and be finite in [0,1]"
+        )
     out = np.full(prob.shape, 128, dtype=np.uint8)
     out[(prob > tau_high) & region] = 255
     out[(prob < tau_low) & region] = 0
     return out
 
 
-def _infer_region(checkpoint, frag_dir, region_mask_path, device, tau_high, tau_low):
-    from train import ExperimentConfig, load_shape_compatible_state
-
+def _infer_region(
+    checkpoint, frag_dir, region_mask_path, device, tau_high, tau_low, cache_dir=None
+):
     from scripts.measure_ink_auc import _volume_uri
-    from vesuvius_autoresearch.core.model_wrappers import build_inference_model
     from vesuvius_autoresearch.core.vesuvius_loader import VesuviusLabeledDataset
 
-    chk = torch.load(checkpoint, map_location="cpu", weights_only=False)
-    s = chk.get("config", {})
-    ps, nl = s.get("patch_size", 64), s.get("num_layers", 16)
-    config = ExperimentConfig.load("config.json")
-    model = build_inference_model(
-        architecture=s.get("architecture", "resenc_unet"),
-        patch_size=ps,
-        num_layers=nl,
-        base_feat=s.get("base_feat", 64),
-        num_blocks=s.get("num_blocks", 16),
-        num_heads=s.get("num_heads", 8),
-        dropout=s.get("dropout", 0.0),
-        use_ridges=s.get("use_ridges", config.use_ridges),
-        multi_task_heads=s.get("multi_task_heads", False),
-    ).to(device)
-    load_shape_compatible_state(model, chk["model_state_dict"], checkpoint)
-    model.eval()
+    # Validate thresholds before loading data, even if no patches are found.
+    prob_to_pseudo_png(np.zeros((1, 1)), np.ones((1, 1), bool), tau_high, tau_low)
+    model, s, _ = load_tool_checkpoint(checkpoint, device)
+    ps, nl = s["patch_size"], s["num_layers"]
 
     ds = VesuviusLabeledDataset(
         _volume_uri(frag_dir),
@@ -60,32 +65,39 @@ def _infer_region(checkpoint, frag_dir, region_mask_path, device, tau_high, tau_
         ps,
         nl + 8,
         seed=7,
-        cache_dir=config.cache_dir,
-        use_ridges=s.get("use_ridges", config.use_ridges),
-        ridge_sigma=getattr(config, "ridge_sigma", 2.0),
+        cache_dir=cache_dir,
+        use_ridges=s["use_ridges"],
+        ridge_sigma=s["ridge_sigma"],
         use_lasagna=False,
         require_ink=False,
         jitter=False,
+        strict_reads=True,
     )
     H, W = ds.shape[1], ds.shape[2]
+    with Image.open(region_mask_path) as image:
+        requested_region = np.asarray(image.convert("L")) > 127
+    if requested_region.shape != (H, W) or not requested_region.any():
+        raise ValueError(
+            "region mask must match the volume and contain requested pixels"
+        )
     prob_sum = np.zeros((H, W), dtype=np.float32)
     prob_cnt = np.zeros((H, W), dtype=np.float32)
     with torch.no_grad():
         for i in range(len(ds)):
             x_raw, _, _ = ds[i]
             y0, x0 = ds.valid_coords[i]
-            x = x_raw[:, 4 : 4 + nl].unsqueeze(0).to(device)
-            out = model(x)
-            out = out[0] if isinstance(out, tuple) else out
-            p = torch.sigmoid(out).squeeze().float().cpu().numpy()
+            if not (0 <= y0 <= H - ps and 0 <= x0 <= W - ps):
+                raise ValueError("patch coordinates exceed the volume")
+            x = validate_batch(x_raw.unsqueeze(0), s, buffered=True).to(device)
+            p = ink_probabilities(model, x)[0, 0].cpu().numpy()
             prob_sum[y0 : y0 + ps, x0 : x0 + ps] += p
             prob_cnt[y0 : y0 + ps, x0 : x0 + ps] += 1.0
     prob = np.divide(
         prob_sum, prob_cnt, out=np.zeros_like(prob_sum), where=prob_cnt > 0
     )
-    region = (np.array(Image.open(region_mask_path).convert("L")) > 127) & (
-        prob_cnt > 0
-    )
+    region = requested_region & (prob_cnt > 0)
+    if not region.any():
+        raise ValueError("no requested pixels received a prediction")
     return prob_to_pseudo_png(prob, region, tau_high, tau_low)
 
 
@@ -98,6 +110,7 @@ def main():
     ap.add_argument("--tau-high", type=float, default=0.65)
     ap.add_argument("--tau-low", type=float, default=0.15)
     ap.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
+    ap.add_argument("--cache-dir")
     args = ap.parse_args()
 
     out = _infer_region(
@@ -107,6 +120,7 @@ def main():
         torch.device(args.device),
         args.tau_high,
         args.tau_low,
+        cache_dir=args.cache_dir,
     )
     frac_ink = float((out == 255).mean())
     frac_ign = float((out == 128).mean())
@@ -115,6 +129,7 @@ def main():
             f"Degenerate pseudo-labels (ink frac={frac_ink:.4f}); aborting. "
             f"Adjust tau or check the checkpoint."
         )
+    os.makedirs(os.path.dirname(args.out) or ".", exist_ok=True)
     Image.fromarray(out).save(args.out)
     print(f"wrote {args.out}: ink={frac_ink:.3f} ignore={frac_ign:.3f}")
 
