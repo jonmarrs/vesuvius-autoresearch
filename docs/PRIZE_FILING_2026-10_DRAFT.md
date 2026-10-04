@@ -80,7 +80,8 @@ depends on, against villa's own code and villa's own ink labels:
   modes.
 
 **(3) What it enables that was not possible before.**
-* [inkagree](https://github.com/jonmarrs/inkagree) 0.1.0 (MIT, released 2026-10-03): **a label-anchored
+* [inkagree](https://github.com/jonmarrs/inkagree) (MIT; first released 2026-10-03, now 0.3.0, which evaluates only
+  where villa's labels are defined): **a label-anchored
   check of render settings, scorers or models.** It renders a segment's published 3D ink prediction
   through the segment's own mesh, exactly onto villa's label canvas (same shape, alignment peak at zero
   offset). Then it compares two arms: exact AP/AUC against villa's labels, an alignment gate, and a
