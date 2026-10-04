@@ -1,5 +1,11 @@
 # Fiber tracing: connectivity evaluation (ERL, splits, merges)
 
+> **Historical scorer, corrected 2026-10-04:** these measurements used an
+> edge-order-dependent implementation. Scoring version 2 follows actual graph
+> connectivity and includes terminal nodes in the precision reference. The
+> measurements and rankings below have not been recomputed with it. See the
+> [architecture review](../docs/DESIGN_ARCHITECTURE_REVIEW_2026-10-04_FIBERS.md).
+
 **Date:** 2026-07-29
 **Headline: the tracer does not yet beat connected components.** It wins on merges and loses
 badly on fragmentation. Reported because the floors are what make the number interpretable.

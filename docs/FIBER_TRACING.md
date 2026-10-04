@@ -9,6 +9,16 @@ more fibers with a higher error rate."*
 
 This directory provides **the measurement layer for that problem**, plus a baseline tracer.
 
+> **Scoring correction, 2026-10-04:** the old scorer concatenated samples in NML
+> edge-file order, so shuffling or reversing edges changed ERL for identical
+> geometry. The corrected scorer (version 2) computes connected same-label
+> arclength components on the actual graph, and includes terminal nodes in the
+> precision reference. The numerical results and tracer rankings below are
+> historical results from the old scorer; they need recomputation before use as
+> version-2 evidence. This review did not rerun the published real-cube benchmark
+> or update the separate ScrollGT repository. See the
+> [review report](DESIGN_ARCHITECTURE_REVIEW_2026-10-04_FIBERS.md).
+
 > **The measurement layer now ships as a ScrollGT target family** — eleven cubes in two size
 > classes (eight 256³, three 512³), scoreable with no
 > GPU, no model download, and no network: <https://github.com/jonmarrs/scrollgt>. This document
@@ -55,7 +65,7 @@ near the oracle. **Both ERL and the merge penalty are required.**
 
 Defined in `src/vesuvius_autoresearch/fibers/eval_trace.py`.
 
-- **ERL**: walk each ground-truth fiber, split it into maximal contiguous stretches ("runs")
+- **ERL**: split each ground-truth fiber graph into connected arclength components
   assigned to one predicted instance, then take the length-weighted mean `sum(L^2)/sum(L)`
   (Januszewski et al.). It answers "pick a random point on a fiber: how far can I follow it
   before an error".
@@ -70,6 +80,13 @@ Defined in `src/vesuvius_autoresearch/fibers/eval_trace.py`.
   is nearest-label, never blanket dilation, so tolerance cannot itself merge neighbours. **Any
   number from this harness is meaningless without its tolerance**, so `tolerance` is part of
   every scorecard.
+
+Version 2 joins runs only through actual shared nodes with the same sampled
+instance label. Disconnected edges remain separate even when their labels
+match. Edge ordering, source/target direction, and branching do not invent
+connections. Instance inputs must be nonnegative integer arrays; IDs are
+preserved at their original integer width. Sampling step must be finite and
+positive, and tolerance finite and nonnegative.
 
 ## Ground truth
 
@@ -104,6 +121,31 @@ python -m vesuvius_autoresearch.fibers.bench_cli trace --cube s1_00497_01497_039
 
 Steps 2-4 need the semantic model; see below. Step 3 does not, unless `--with-floors` is used.
 
+Model-backed commands accept `--device auto|cpu|cuda` (default `auto`). Automatic
+selection uses CUDA if PyTorch can see a GPU, otherwise CPU. CPU execution of the
+published large model can be slow and memory intensive. Supplying `cuda` requires
+a working CUDA device.
+
+`--json-out` writes a report with `cube`, `provenance`, and `rows`; consumers of
+the former single-cube bare row dictionaries should now read `rows`. All-cube
+reports retain `cubes`, and add provenance to each cube. Trace reports also record
+the requested tracer parameters. Reports reject nonfinite JSON values and are
+replaced atomically after successful computation.
+
+Probability caches now require a sibling `<cube>_fiberprob.json` manifest. It
+records SHA-256 hashes of the image, `plans.json`, `dataset.json`, and checkpoint,
+plus patch size, device, precision, tiling, and the output file. The model files
+must remain available to verify a cache hit. Changed recipes, corrupt files, and
+legacy caches without manifests are recomputed. Refreshing all-cube floors
+preserves a prior `tracer_strict_relink` row only when its complete per-cube
+provenance matches, including skeleton, threshold, tolerance, and scoring version.
+
+`fetch --cube` matches the entire scroll/cube identity. Downloads use temporary
+files, 60-second socket timeouts, and byte-count checks when the server supplies
+`Content-Length`. Failed transfers leave no new partial destination. Existing
+nonempty downloads from older versions are still reused; remove and re-fetch
+any previously interrupted file.
+
 ## The semantic model
 
 `semantic.py` runs villa's published `scrollprize/fiber_hz_vt` (Apache-2.0). Download
@@ -115,6 +157,15 @@ checkpoint's trainer (`nnUNetTrainerMedialSurfaceRecall`) is a villa custom clas
 released `nnunetv2`, because `nnUNetPredictor` requires global environment variables, and because
 the published plans are sized for a 48 GB GPU. Inference runs in **6 s per 256³ cube at 8.75 GB
 peak** with `--patch 128`.
+
+The loader accepts one CT channel, unmasked `ZScoreNormalization`, and contiguous
+integer class IDs with background zero. It reads the class names and network
+stride divisibility from the saved configs. Unsupported normalization or labels,
+missing model weights, and unexpected keys fail loading; only unused auxiliary
+deep-supervision head weights/biases may be omitted. Patch overrides must satisfy
+the recorded divisibility. Inference requires finite 3D inputs, a finite tile step
+in `(0, 1]`, distinct mirror axes, and finite logits of the exact class/spatial
+shape. Every requested voxel must receive blend weight.
 
 Why a learned model at all: classical Hessian vesselness separates hand-traced fibers from
 background by a mean ratio of only **2.2** on raw CT, and a tracer driven by it scores precision
@@ -138,7 +189,7 @@ Two implementation notes that cost real debugging time and are easy to repeat:
    (x, y, z), because that matrix indexes 0 <-> x. Walking a volume with an unreversed vector
    moves along the wrong axis, finds nothing, and looks plausible.
 
-**Current standing: the tracer does not beat connected components — on either metric.**
+**Published standing under the legacy scorer: the tracer does not beat connected components — on either metric.**
 A follow-on study (`reports/fiber_tracer_improvement.md`) tried tangent-window smoothing,
 skip-step coasting, and seed non-maximum suppression against a pre-registered, per-cube
 connected-components floor, with two dev cubes for tuning and four cubes — three held-out
@@ -184,12 +235,12 @@ That is published here rather than hidden, and it is the bar a new method should
 ## Reproducing our numbers
 
 ```bash
-uv run python -m pytest tests/ -q -k fiber   # 91 tests; needs the GPU visible
+uv run python -m pytest tests/ -q -k fiber
 ```
 
-Two tests (`test_cpu_gpu_vesselness_parity`, `test_cli_vesselness_roundtrip`) fail under
-`CUDA_VISIBLE_DEVICES=""` — known CUDA-masking failures, not regressions — so run the suite
-with the GPU visible, not with `CUDA_VISIBLE_DEVICES=""`.
+GPU parity and GPU CLI tests skip when no CUDA device is available. CPU CLI
+roundtrips are separately tested with CUDA masked. Tests needing the published
+real-cube files skip when those inputs are absent.
 
 ```bash
 python -m vesuvius_autoresearch.fibers.bench_cli floors --cube s1_00497_01497_03997_256

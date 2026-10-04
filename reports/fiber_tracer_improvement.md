@@ -1,5 +1,11 @@
 # Clearing our own published fiber baseline
 
+> **Historical scorer, corrected 2026-10-04:** these measurements used an
+> edge-order-dependent implementation. Scoring version 2 follows actual graph
+> connectivity and includes terminal nodes in the precision reference. The
+> measurements and rankings below have not been recomputed with it. See the
+> [architecture review](../docs/DESIGN_ARCHITECTURE_REVIEW_2026-10-04_FIBERS.md).
+
 Pre-registered contract: `docs/superpowers/specs/2026-07-31-fiber-tracer-beat-baseline-design.md`.
 Primary metric is merge-penalized ERL against **each cube's own** connected-components floor.
 Raw ERL, splits, merges and coverage are reported every time regardless of outcome. An ERLpen

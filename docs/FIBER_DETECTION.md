@@ -54,6 +54,13 @@ ves_big = detect_vesselness_tiled(big, block_size=128, halo=16)   # tiled
 array to run on GPU; pass a `numpy` array to run on CPU. Constant/blank patches
 (common outside the mask) normalize to zeros rather than producing NaNs.
 
+Inputs must be finite real 3D CT arrays with each axis at least three voxels.
+Integer CT is converted to float32 before smoothing and tiled accumulation.
+Filter scales must be finite and positive (`gauss_sigma` may be zero). A tiled
+run requires a positive integer block size and a halo covering the Gaussian
+support plus two derivative voxels: `int(4 * gauss_sigma + 0.5) + 2`, ten voxels
+at the default smoothing scale. A smaller halo is rejected before filtering.
+
 ## CLI
 
 ```bash
@@ -65,8 +72,11 @@ python -m vesuvius_autoresearch.fibers.cli \
     --input big.npy --filter ridges --output ridges.npy --tiled --block-size 128 --halo 16
 ```
 
-Uses the GPU automatically when CuPy is importable, else CPU. Prints the backend,
-shape, and wall time.
+The default `--device auto` uses a visible CUDA device when available, and runs
+on CPU when CuPy or CUDA is unavailable. `--device cpu` avoids probing CUDA;
+`--device gpu` requires a working GPU. Allocation and filtering failures on a
+usable GPU are reported as failures. Output and preview directories are created
+automatically. Prints the backend, shape, and wall time.
 
 ## In this repo
 

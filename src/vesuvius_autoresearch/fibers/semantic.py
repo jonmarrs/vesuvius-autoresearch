@@ -27,6 +27,8 @@ architecture and its kwargs, the patch size, and `ZScoreNormalization`.
 from __future__ import annotations
 
 import json
+import math
+import re
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -35,6 +37,36 @@ import numpy as np
 FIBER_HZ_VT_REPO = "scrollprize/fiber_hz_vt"
 # From the shipped dataset.json.
 LABELS = {0: "background", 1: "vt-fiber", 2: "hz-fiber", 3: "intersection"}
+
+
+def _patch(shape):
+    if (
+        not isinstance(shape, (tuple, list))
+        or len(shape) != 3
+        or any(
+            isinstance(s, (bool, np.bool_))
+            or not isinstance(s, (int, np.integer))
+            or s <= 0
+            for s in shape
+        )
+    ):
+        raise ValueError("patch must contain three positive integer dimensions")
+    return tuple(int(s) for s in shape)
+
+
+def _axes(axes):
+    if (
+        not isinstance(axes, (list, tuple))
+        or any(
+            isinstance(a, (bool, np.bool_))
+            or not isinstance(a, (int, np.integer))
+            or a not in (0, 1, 2)
+            for a in axes
+        )
+        or len(set(axes)) != len(axes)
+    ):
+        raise ValueError("mirror axes must be distinct integer axes in (0, 1, 2)")
+    return tuple(int(a) for a in axes)
 
 
 def _import_by_path(dotted: str):
@@ -53,10 +85,21 @@ class SemanticModel:
     num_classes: int
     device: str
     mirror_axes: tuple[int, ...] = ()
+    patch_divisibility: tuple[int, int, int] = (1, 1, 1)
+    labels: dict[int, str] | None = None
 
     @property
     def label_names(self) -> dict[int, str]:
-        return dict(LABELS)
+        if self.labels is not None:
+            return dict(self.labels)
+        return (
+            dict(LABELS)
+            if self.num_classes == 4
+            else {
+                i: "background" if i == 0 else f"class_{i}"
+                for i in range(self.num_classes)
+            }
+        )
 
 
 def load_model(
@@ -79,8 +122,36 @@ def load_model(
     dataset = json.loads((model_dir / "dataset.json").read_text())
     cfg = plans["configurations"][configuration]
     arch = cfg["architecture"]
+    patch = _patch(cfg["patch_size"])
+    if len(dataset["channel_names"]) != 1:
+        raise ValueError("semantic fiber inference supports one CT input channel")
+    if cfg.get("normalization_schemes") != ["ZScoreNormalization"] or cfg.get(
+        "use_mask_for_norm"
+    ) != [False]:
+        raise ValueError(
+            "semantic fiber inference requires unmasked ZScoreNormalization"
+        )
+    labels = dataset["labels"]
+    ids = list(labels.values())
+    if (
+        any(isinstance(i, bool) or not isinstance(i, int) for i in ids)
+        or sorted(ids) != list(range(len(ids)))
+        or labels.get("background") != 0
+        or len(ids) < 2
+    ):
+        raise ValueError(
+            "semantic labels must be contiguous integer classes with background=0"
+        )
 
     kwargs = dict(arch["arch_kwargs"])
+    strides = kwargs.get("strides", [(1, 1, 1)])
+    if not isinstance(strides, (list, tuple)) or not strides:
+        raise ValueError("network strides must be a nonempty sequence of 3D strides")
+    divisibility = tuple(int(v) for v in np.prod([_patch(s) for s in strides], axis=0))
+    if any(p % d for p, d in zip(patch, divisibility, strict=True)):
+        raise ValueError(
+            f"plans patch must be divisible by network strides {divisibility}"
+        )
     for key in arch.get("_kw_requires_import", []):
         val = kwargs.get(key)
         kwargs[key] = _import_by_path(val) if isinstance(val, str) else val
@@ -104,7 +175,11 @@ def load_model(
     # them is expected, but anything ELSE missing is a real mismatch and must
     # not be silently tolerated.
     missing, unexpected = network.load_state_dict(weights, strict=False)
-    unexpected = [k for k in unexpected if not k.startswith("decoder.seg_layers.")]
+    unexpected = [
+        k
+        for k in unexpected
+        if not re.fullmatch(r"decoder\.seg_layers\.[1-9]\d*\.(weight|bias)", k)
+    ]
     if missing or unexpected:
         raise RuntimeError(
             f"checkpoint does not match the architecture from plans.json: "
@@ -114,18 +189,35 @@ def load_model(
     network = network.to(device).eval()
     return SemanticModel(
         network=network,
-        patch_size=tuple(cfg["patch_size"]),
+        patch_size=patch,
         num_classes=num_classes,
         device=device,
-        mirror_axes=tuple(ck.get("inference_allowed_mirroring_axes") or ()),
+        mirror_axes=_axes(ck.get("inference_allowed_mirroring_axes") or ()),
+        patch_divisibility=divisibility,
+        labels={value: name for name, value in labels.items()},
     )
 
 
 def zscore(volume: np.ndarray) -> np.ndarray:
     """nnUNet `ZScoreNormalization` with `use_mask_for_norm=False`: per-image."""
-    v = np.asarray(volume, dtype=np.float32)
-    std = float(v.std())
-    return (v - float(v.mean())) / (std if std > 0 else 1.0)
+    v = np.asarray(volume)
+    if (
+        v.ndim != 3
+        or any(s == 0 for s in v.shape)
+        or v.dtype.kind not in "uif"
+        or not np.isfinite(v).all()
+    ):
+        raise ValueError("volume must be a nonempty finite real CT array (Z, Y, X)")
+    v = v.astype(np.float32)
+    if not np.isfinite(v).all():
+        raise ValueError("volume values exceed float32 range")
+    # Keep the published float32 normalization recipe and its memory budget.
+    with np.errstate(over="ignore", invalid="ignore", divide="ignore"):
+        std, mean = float(v.std()), float(v.mean())
+        out = (v - mean) / (std if std > 0 else 1.0)
+    if not math.isfinite(std) or not math.isfinite(mean) or not np.isfinite(out).all():
+        raise ValueError("volume normalization produced nonfinite statistics or values")
+    return out
 
 
 def _gaussian_weight(shape, sigma_scale: float = 0.125) -> np.ndarray:
@@ -181,7 +273,24 @@ def predict_volume(
     """
     import torch
 
-    patch = tuple(patch_size or model.patch_size)
+    if (
+        isinstance(tile_step, (bool, np.bool_))
+        or not isinstance(tile_step, (int, float, np.integer, np.floating))
+        or not math.isfinite(tile_step)
+        or not 0 < tile_step <= 1
+    ):
+        raise ValueError("tile_step must be finite in (0, 1]")
+    patch = _patch(model.patch_size if patch_size is None else patch_size)
+    divisibility = _patch(model.patch_divisibility)
+    if any(p % d for p, d in zip(patch, divisibility, strict=True)):
+        raise ValueError(f"patch must be divisible by network strides {divisibility}")
+    mirror_axes = _axes(model.mirror_axes)
+    if (
+        isinstance(model.num_classes, bool)
+        or not isinstance(model.num_classes, int)
+        or model.num_classes < 2
+    ):
+        raise ValueError("num_classes must be an integer >= 2")
     vol = zscore(volume)
     shape = vol.shape
     pad = [max(0, patch[a] - shape[a]) for a in range(3)]
@@ -205,7 +314,21 @@ def predict_volume(
     if verbose:
         print(f"  volume {shape} -> padded {padded}, patch {patch}, {n_tiles} tiles")
 
-    dev = model.device
+    dev = str(model.device)
+    mirror_views = _mirror_combinations(mirror_axes) if use_mirroring else []
+
+    def checked_logits(t):
+        out = model.network(t)
+        if (
+            not isinstance(out, torch.Tensor)
+            or tuple(out.shape) != (1, model.num_classes, *patch)
+            or not bool(torch.isfinite(out).all())
+        ):
+            raise ValueError(
+                f"semantic logits must be finite with shape {(1, model.num_classes, *patch)}"
+            )
+        return out.float()
+
     with torch.no_grad():
         for z0 in starts[0]:
             for y0 in starts[1]:
@@ -215,15 +338,13 @@ def predict_volume(
                     ]
                     t = torch.from_numpy(tile)[None, None].to(dev)
                     with torch.autocast("cuda", enabled=amp and dev.startswith("cuda")):
-                        logits = model.network(t)
-                        if use_mirroring and model.mirror_axes:
-                            for ax in _mirror_combinations(model.mirror_axes):
-                                flipped = torch.flip(t, [a + 2 for a in ax])
-                                out = model.network(flipped)
-                                logits = logits + torch.flip(out, [a + 2 for a in ax])
-                            logits = logits / (
-                                1 + len(_mirror_combinations(model.mirror_axes))
+                        logits = checked_logits(t)
+                        for ax in mirror_views:
+                            flipped = torch.flip(t, [a + 2 for a in ax])
+                            logits = logits + torch.flip(
+                                checked_logits(flipped), [a + 2 for a in ax]
                             )
+                        logits = logits / (1 + len(mirror_views))
                     prob = torch.softmax(logits.float(), dim=1)[0].cpu()
                     acc[
                         :,
@@ -237,8 +358,12 @@ def predict_volume(
                         x0 : x0 + patch[2],
                     ] += gw_t
 
-    acc = acc / torch.clamp(wsum, min=1e-8)[None]
+    if not bool((wsum > 0).all()):
+        raise ValueError("semantic tiling left uncovered voxels")
+    acc = acc / wsum[None]
     out = acc[:, : shape[0], : shape[1], : shape[2]].numpy()
+    if not np.isfinite(out).all():
+        raise ValueError("semantic probabilities must be finite")
     return out
 
 
@@ -258,4 +383,16 @@ def fiber_probability(prob: np.ndarray) -> np.ndarray:
     Using 1 - P(background) rather than summing the three keeps the result exactly
     in [0, 1] regardless of softmax round-off.
     """
+    prob = np.asarray(prob)
+    if (
+        prob.ndim != 4
+        or prob.shape[0] < 2
+        or any(s == 0 for s in prob.shape[1:])
+        or not np.isfinite(prob).all()
+        or np.any((prob < 0) | (prob > 1))
+        or not np.allclose(prob.sum(axis=0), 1.0, atol=1e-5, rtol=1e-5)
+    ):
+        raise ValueError(
+            "probabilities must be finite normalized classes with shape (C, Z, Y, X)"
+        )
     return 1.0 - prob[0]

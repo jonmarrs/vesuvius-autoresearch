@@ -33,11 +33,23 @@ from __future__ import annotations
 import argparse
 import json
 import pathlib
+import re
+import shutil
 import sys
 import time
 import urllib.request
+from dataclasses import asdict
 
 import numpy as np
+
+from vesuvius_autoresearch.fibers.provenance import (
+    SCORING_VERSION,
+    atomic_file,
+    file_sha256,
+    inference_identity,
+    stream_sha256,
+    write_json,
+)
 
 DATA_URL = (
     "https://dl.ash2txt.org/datasets/fiber-skeletons/Dataset001_sk-fibers-20250124/"
@@ -80,7 +92,9 @@ def _load_cube(data_dir: pathlib.Path, cube: str):
     return img, gt
 
 
-def _fiber_prob(data_dir: pathlib.Path, cube: str, img, model_dir, patch: int):
+def _fiber_prob(
+    data_dir: pathlib.Path, cube: str, img, model_dir, patch: int, device="auto"
+):
     """Cached `fiber_hz_vt` probability for a cube."""
     from vesuvius_autoresearch.fibers.semantic import (
         fiber_probability,
@@ -88,16 +102,67 @@ def _fiber_prob(data_dir: pathlib.Path, cube: str, img, model_dir, patch: int):
         predict_volume,
     )
 
+    if (
+        isinstance(patch, bool)
+        or not isinstance(patch, (int, np.integer))
+        or patch <= 0
+    ):
+        raise ValueError("patch must be a positive integer")
+    import torch
+
+    if device not in ("auto", "cpu", "cuda"):
+        raise ValueError("device must be auto, cpu, or cuda")
+    if device == "auto":
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+    identity = inference_identity(img, model_dir, int(patch), device)
     cache = data_dir / f"{cube}_fiberprob.npy"
-    if cache.exists():
-        fp = np.load(cache)
-        if fp.shape == img.shape:
-            return fp.astype(float)
-    model = load_model(model_dir)
-    prob = predict_volume(model, img, patch_size=(patch, patch, patch))
+    meta = cache.with_suffix(".json")
+    if cache.exists() and meta.exists():
+        try:
+            record = json.loads(meta.read_text())
+            if record.get("inference") == identity and record.get(
+                "probability_sha256"
+            ) == file_sha256(cache):
+                fp = np.load(cache, allow_pickle=False)
+                if (
+                    fp.shape == img.shape
+                    and fp.dtype.kind == "f"
+                    and np.isfinite(fp).all()
+                    and np.all((fp >= 0) & (fp <= 1))
+                ):
+                    return fp.astype(float)
+        except (OSError, ValueError, TypeError, AttributeError):
+            pass  # A corrupt/unattested cache must be recomputed, never trusted.
+    model = load_model(model_dir, device=device)
+    prob = predict_volume(
+        model, img, patch_size=(patch, patch, patch), amp=device == "cuda"
+    )
     fp = fiber_probability(prob).astype(np.float32)
-    np.save(cache, fp)
+    if fp.shape != img.shape:
+        raise ValueError("fiber probabilities must match the source cube")
+    if inference_identity(img, model_dir, int(patch), device) != identity:
+        raise ValueError("model or image changed during fiber inference")
+    with atomic_file(cache, "w+b") as f:
+        np.save(f, fp, allow_pickle=False)
+        f.flush()
+        f.seek(0)
+        digest = stream_sha256(f)
+    write_json(meta, {"inference": identity, "probability_sha256": digest})
     return fp.astype(float)
+
+
+def _measurement_provenance(data_dir, cube, args):
+    record = json.loads((data_dir / f"{cube}_fiberprob.json").read_text())
+    return {
+        "scoring_version": SCORING_VERSION,
+        "inference": record["inference"],
+        "probability_sha256": record["probability_sha256"],
+        "skeleton_sha256": file_sha256(data_dir / f"{cube}.nml"),
+        "tolerance": args.tolerance,
+        "step": 0.5,
+        "restrict_to_bounds": True,
+        "mask_threshold": args.mask_threshold,
+    }
 
 
 def _print_rows(rows: dict[str, dict]) -> None:
@@ -113,32 +178,30 @@ def _print_rows(rows: dict[str, dict]) -> None:
 
 
 def cmd_fetch(args) -> int:
+    if args.cube and not re.fullmatch(r"s\d+_\d+_\d+_\d+_\d+", args.cube):
+        raise ValueError("cube must be a stem such as s1_00497_01497_03997_256")
     out = pathlib.Path(args.data_dir)
     out.mkdir(parents=True, exist_ok=True)
-    import re
-
+    with urllib.request.urlopen(DATA_URL + "nml/", timeout=60) as listing:
+        content = listing.read().decode()
     nmls = [
         n
         for n in re.findall(
             r'href="([^"]+)"',
-            urllib.request.urlopen(DATA_URL + "nml/", timeout=60).read().decode(),
+            content,
         )
         if n.endswith(".nml")
     ]
-    want = None
-    if args.cube:
-        m = args.cube.split("_")
-        want = f"_{m[1]}z_{m[2]}y_{m[3]}x_{m[4]}_"
+    matched = False
     for nm in nmls:
-        if want and want not in nm:
-            continue
-        mm = __import__("re").match(
-            r"fibers_(s\d)a?_(\d+)z_(\d+)y_(\d+)x_(\d+)_v\d+\.nml", nm
-        )
+        mm = re.fullmatch(r"fibers_(s\d)a?_(\d+)z_(\d+)y_(\d+)x_(\d+)_v\d+\.nml", nm)
         if not mm:
             continue
         s, z, y, x, sz = mm.groups()
         stem = f"{s}_{z}_{y}_{x}_{sz}"
+        if args.cube and args.cube != stem:
+            continue
+        matched = True
         for rel, dst in [
             (f"nml/{nm}", f"{stem}.nml"),
             (f"imagesTr/{stem}_0000.tif", f"{stem}_image.tif"),
@@ -148,8 +211,23 @@ def cmd_fetch(args) -> int:
             if p.exists() and p.stat().st_size > 0:
                 continue
             t = time.time()
-            urllib.request.urlretrieve(DATA_URL + rel, p)
+            with (
+                urllib.request.urlopen(DATA_URL + rel, timeout=60) as source,
+                atomic_file(p, "wb") as dest,
+            ):
+                shutil.copyfileobj(source, dest)
+                if dest.tell() == 0:
+                    raise ValueError(f"empty download: {rel}")
+                length = (
+                    source.headers.get("Content-Length")
+                    if hasattr(source, "headers")
+                    else None
+                )
+                if length is not None and dest.tell() != int(length):
+                    raise ValueError(f"incomplete download: {rel}")
             print(f"  {dst}  {p.stat().st_size / 1e6:.0f} MB  {time.time() - t:.0f}s")
+    if args.cube and not matched:
+        raise ValueError(f"cube not found in dataset: {args.cube}")
     print(f"data in {out}")
     return 0
 
@@ -181,7 +259,6 @@ def _floors_all_cubes(args) -> int:
     is carried over from any prior report at the same --json-out path rather
     than recomputed here, since this command only owns the floors."""
     from vesuvius_autoresearch.fibers import eval_trace as ev
-    from vesuvius_autoresearch.fibers.semantic import FIBER_HZ_VT_REPO
 
     data_dir = pathlib.Path(args.data_dir)
     out_path = pathlib.Path(args.json_out) if args.json_out else None
@@ -189,17 +266,27 @@ def _floors_all_cubes(args) -> int:
     if out_path and out_path.exists():
         prior_cubes = json.loads(out_path.read_text()).get("cubes", {})
 
-    report = {"tolerance": args.tolerance, "model": FIBER_HZ_VT_REPO, "cubes": {}}
+    report = {
+        "tolerance": args.tolerance,
+        "model": str(pathlib.Path(args.model).resolve()),
+        "scoring_version": SCORING_VERSION,
+        "cubes": {},
+    }
     for cube in CUBES:
         t0 = time.time()
         img, gt = _load_cube(data_dir, cube)
-        fp = _fiber_prob(data_dir, cube, img, args.model, args.patch)
+        fp = _fiber_prob(data_dir, cube, img, args.model, args.patch, args.device)
         infer_s = round(time.time() - t0, 1)
         mask = fp >= args.mask_threshold
 
         rows = _floor_rows(ev, gt, img, mask, args.tolerance)
-        prior_rows = prior_cubes.get(cube, {}).get("rows", {})
-        if "tracer_strict_relink" in prior_rows:
+        provenance = _measurement_provenance(data_dir, cube, args)
+        prior = prior_cubes.get(cube, {})
+        prior_rows = prior.get("rows", {})
+        if (
+            prior.get("provenance") == provenance
+            and "tracer_strict_relink" in prior_rows
+        ):
             rows["tracer_strict_relink"] = prior_rows["tracer_strict_relink"]
 
         dt = time.time() - t0
@@ -214,10 +301,11 @@ def _floors_all_cubes(args) -> int:
             "n_gt": len(gt),
             "infer_s": infer_s,
             "rows": rows,
+            "provenance": provenance,
         }
 
     if out_path:
-        out_path.write_text(json.dumps(report, indent=1))
+        write_json(out_path, report)
         print(f"report -> {out_path}")
     return 0
 
@@ -233,7 +321,7 @@ def cmd_floors(args) -> int:
 
     data_dir = pathlib.Path(args.data_dir)
     img, gt = _load_cube(data_dir, args.cube)
-    fp = _fiber_prob(data_dir, args.cube, img, args.model, args.patch)
+    fp = _fiber_prob(data_dir, args.cube, img, args.model, args.patch, args.device)
     mask = fp >= args.mask_threshold
 
     rows = _floor_rows(ev, gt, img, mask, args.tolerance)
@@ -244,7 +332,14 @@ def cmd_floors(args) -> int:
         "mask, not the labelling. Rank on ERL and merges."
     )
     if args.json_out:
-        pathlib.Path(args.json_out).write_text(json.dumps(rows, indent=1))
+        write_json(
+            args.json_out,
+            {
+                "cube": args.cube,
+                "provenance": _measurement_provenance(data_dir, args.cube, args),
+                "rows": rows,
+            },
+        )
     return 0
 
 
@@ -253,26 +348,46 @@ def cmd_score(args) -> int:
 
     data_dir = pathlib.Path(args.data_dir)
     img, gt = _load_cube(data_dir, args.cube)
-    inst = np.load(args.instances)
+    inst = np.load(args.instances, allow_pickle=False)
     if inst.shape != img.shape:
         print(f"ERROR: instances {inst.shape} != cube {img.shape}", file=sys.stderr)
         return 2
-    s = ev.score_tracing(gt, inst.astype(np.int32), tolerance=args.tolerance)
+    s = ev.score_tracing(gt, inst, tolerance=args.tolerance)
     row = s.as_row()
+    rows = {pathlib.Path(args.instances).stem: row}
+    floor_provenance = None
     print(f"cube={args.cube}  gt_fibers={len(gt)}  tolerance={args.tolerance}")
-    _print_rows({pathlib.Path(args.instances).stem: row})
+    _print_rows(rows)
     if args.with_floors:
-        fp = _fiber_prob(data_dir, args.cube, img, args.model, args.patch)
+        fp = _fiber_prob(data_dir, args.cube, img, args.model, args.patch, args.device)
         mask = fp >= args.mask_threshold
-        _print_rows(
-            {
-                "floor: connected components": ev.score_tracing(
-                    gt, ev.floor_connected_components(mask), tolerance=args.tolerance
-                ).as_row()
-            }
-        )
+        floor_rows = {
+            "floor: connected components": ev.score_tracing(
+                gt, ev.floor_connected_components(mask), tolerance=args.tolerance
+            ).as_row()
+        }
+        _print_rows(floor_rows)
+        rows.update(floor_rows)
+        floor_provenance = _measurement_provenance(data_dir, args.cube, args)
     if args.json_out:
-        pathlib.Path(args.json_out).write_text(json.dumps(row, indent=1))
+        write_json(
+            args.json_out,
+            {
+                "cube": args.cube,
+                "provenance": {
+                    "scoring_version": SCORING_VERSION,
+                    "skeleton_sha256": file_sha256(data_dir / f"{args.cube}.nml"),
+                    "instances_sha256": file_sha256(args.instances),
+                    "tolerance": args.tolerance,
+                    "step": 0.5,
+                    "restrict_to_bounds": True,
+                    "shape": list(img.shape),
+                    "length_unit": "voxel",
+                },
+                "floor_provenance": floor_provenance,
+                "rows": rows,
+            },
+        )
     return 0
 
 
@@ -292,7 +407,7 @@ def cmd_trace(args) -> int:
 
     data_dir = pathlib.Path(args.data_dir)
     img, gt = _load_cube(data_dir, args.cube)
-    fp = _fiber_prob(data_dir, args.cube, img, args.model, args.patch)
+    fp = _fiber_prob(data_dir, args.cube, img, args.model, args.patch, args.device)
 
     # Orientation from the probability field, not raw CT: measured 5x coverage.
     J, _ = hessian(fp.copy(), gauss_sigma=2, sigma=3)
@@ -301,32 +416,32 @@ def cmd_trace(args) -> int:
     ves = ves / max(float(ves.max()), 1e-9)
 
     t = time.time()
+    trace_params = TraceParams(
+        seed_percentile=args.seed_percentile,
+        continue_threshold=args.continue_threshold,
+        min_length=args.min_length,
+        seed_stride=2,
+        max_angle_deg=args.max_angle,
+        claim_radius=args.claim_radius,
+        tangent_window=args.tangent_window,
+        max_skip_steps=args.max_skip_steps,
+        seed_nms_radius=args.seed_nms_radius,
+    )
+    relink_params = None
     res = trace_fibers(
         response=fp,
         seed_response=ves,
         directions=np.asarray(dirs),
         valid=np.asarray(valid),
-        params=TraceParams(
-            seed_percentile=args.seed_percentile,
-            continue_threshold=args.continue_threshold,
-            min_length=args.min_length,
-            seed_stride=2,
-            max_angle_deg=args.max_angle,
-            claim_radius=args.claim_radius,
-            tangent_window=args.tangent_window,
-            max_skip_steps=args.max_skip_steps,
-            seed_nms_radius=args.seed_nms_radius,
-        ),
+        params=trace_params,
     )
     if args.relink:
-        res = relink_fragments(
-            res,
-            RelinkParams(
-                max_gap=args.relink_gap,
-                max_link_angle_deg=args.relink_angle,
-                max_tangent_angle_deg=args.relink_angle + 5,
-            ),
+        relink_params = RelinkParams(
+            max_gap=args.relink_gap,
+            max_link_angle_deg=args.relink_angle,
+            max_tangent_angle_deg=args.relink_angle + 5,
         )
+        res = relink_fragments(res, relink_params)
     inst = res.to_instances(radius=1.0)
     dt = time.time() - t
 
@@ -344,10 +459,37 @@ def cmd_trace(args) -> int:
     )
     _print_rows(rows)
     if args.save_instances:
-        np.save(args.save_instances, inst)
+        with atomic_file(args.save_instances, "wb") as f:
+            np.save(f, inst, allow_pickle=False)
         print(f"instances -> {args.save_instances}")
     if args.json_out:
-        pathlib.Path(args.json_out).write_text(json.dumps(rows, indent=1))
+        write_json(
+            args.json_out,
+            {
+                "cube": args.cube,
+                "provenance": _measurement_provenance(data_dir, args.cube, args),
+                "trace_parameters": asdict(trace_params),
+                "relink_parameters": asdict(relink_params)
+                if relink_params is not None
+                else None,
+                "tracing_recipe": {
+                    "orientation": {
+                        "source": "fiber_probability",
+                        "gauss_sigma": 2,
+                        "sigma": 3,
+                    },
+                    "seed_response": {
+                        "filter": "vesselness",
+                        "gauss_sigma": 1,
+                        "sigma": 2,
+                        "normalization": "max",
+                    },
+                    "rasterization_radius": 1.0,
+                },
+                "stop_counts": res.stop_counts,
+                "rows": rows,
+            },
+        )
     return 0
 
 
@@ -372,6 +514,7 @@ def main(argv=None) -> int:
         p.add_argument("--tolerance", type=float, default=DEFAULT_TOL)
         p.add_argument("--model", default="local_data/models/fiber_hz_vt")
         p.add_argument("--patch", type=int, default=128)
+        p.add_argument("--device", choices=["auto", "cpu", "cuda"], default="auto")
         p.add_argument("--mask-threshold", type=float, default=0.5)
         p.add_argument("--json-out")
         p.set_defaults(func=fn)
@@ -424,6 +567,40 @@ def main(argv=None) -> int:
             p.add_argument("--save-instances")
 
     args = ap.parse_args(argv)
+    if args.cmd != "fetch":
+        if not np.isfinite(args.tolerance) or args.tolerance < 0:
+            ap.error("--tolerance must be finite and nonnegative")
+        if args.patch <= 0:
+            ap.error("--patch must be positive")
+        if not np.isfinite(args.mask_threshold) or not 0 <= args.mask_threshold <= 1:
+            ap.error("--mask-threshold must be finite in [0, 1]")
+    if args.cmd == "trace":
+        for name in [
+            "seed_percentile",
+            "continue_threshold",
+            "min_length",
+            "max_angle",
+            "claim_radius",
+            "seed_nms_radius",
+            "relink_gap",
+            "relink_angle",
+        ]:
+            value = getattr(args, name)
+            if not np.isfinite(value) or value < 0:
+                ap.error(f"--{name.replace('_', '-')} must be finite and nonnegative")
+        if (
+            args.seed_percentile > 100
+            or args.continue_threshold > 1
+            or args.max_angle > 180
+            or args.relink_angle > 175
+        ):
+            ap.error(
+                "seed percentile, probability threshold, and angles exceed their ranges"
+            )
+        if args.tangent_window < 1 or args.max_skip_steps < 0:
+            ap.error(
+                "--tangent-window must be positive; --max-skip-steps must be nonnegative"
+            )
     return args.func(args)
 
 

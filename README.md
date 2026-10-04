@@ -247,6 +247,14 @@ detector with a closed-form symmetric-3×3 eigensolver that avoids the cuSolver
 `eigvalsh` failure on large Hessian batches (14–94× over NumPy; 512³ tiled in
 ~1 GB VRAM). See **[docs/FIBER_DETECTION.md](docs/FIBER_DETECTION.md)**.
 
+The detection CLI supports CPU execution and automatic CUDA availability checks.
+For semantic-model inference and connectivity scoring, see
+[fiber tracing](docs/FIBER_TRACING.md). The October 4 review corrected ERL's
+dependence on skeleton edge ordering and added model/image provenance to caches
+and reports. Published legacy fiber rankings require recomputation with scoring
+version 2; the [review report](docs/DESIGN_ARCHITECTURE_REVIEW_2026-10-04_FIBERS.md)
+describes the change and its validation limits.
+
 ## Scroll-specific augmentations
 
 `scroll_augmentations.py` is a standalone, dependency-light library of nine
