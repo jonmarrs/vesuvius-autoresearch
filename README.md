@@ -118,6 +118,27 @@ a fragment with no usable windows is an error. `eval`, `measure`, and training
 still require ink labels. `measure` writes its partial report and exits nonzero
 if any target fails, printing the target and error to stderr.
 
+### Prediction from an autoresearch checkpoint
+
+The research loop's `best_model.pt` uses a different model and data contract from
+the fragment detector's Lightning checkpoints. Use the CT-volume entry point for
+that checkpoint:
+
+```bash
+uv run python -m scripts.production_predict \
+  --checkpoint best_model.pt --uri /path/to/ct.zarr \
+  --x 0 --y 0 --z 0 --width 1024 --height 1024 \
+  --batch-size 16 --out-dir predictions/production
+```
+
+Patch size, depth, and ridge inputs come from the checkpoint. Stride defaults to
+half the patch size; a supplied stride must be positive and no larger than the
+patch. The requested region must fit inside the source volume and be at least
+one patch wide and tall. The output includes a uint8 OME-Zarr group and metadata.
+CLI positions are source voxel indices in x/y/z order; OME transforms use z/y/x
+order in micrometers. Voxel size comes from the checkpoint when recorded, with
+`--voxel-size-um` providing the fallback (default 7.91).
+
 ## Running the agent
 
 Spin up your coding agent of choice in this repo, then prompt something like:

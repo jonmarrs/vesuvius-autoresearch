@@ -9,24 +9,31 @@
 # Compared by scripts/compare_interp_smoke.py, also against the same window of the PR #1905 build's
 # full render of this flat (spiral_out/tif_score_pr1905), which checks the crop coordinates.
 set -uo pipefail
-SO=/home/jon/openclaw-workspace/Neo-VM/spiral_out
+SO="${SO:-/home/jon/openclaw-workspace/Neo-VM/spiral_out}"
 OUT=$SO/interp_smoke
 FLAT=$SO/detfit_up1/meshes/concat/w120-129_flat
 INK_URL="https://vesuvius-challenge-open-data.s3.amazonaws.com/PHercParis4/representations/predictions/ink-3d/20260411134726-ink3d-20260428123845-v3-78k-fullsup.zarr"
 CROP=(--crop-x 59392 --crop-y 1536 --crop-width 2048 --crop-height 1024)
 say() { echo "$*  $(date -Is)"; }
+TIMING=()
+[ ! -x /usr/bin/time ] || TIMING=(/usr/bin/time -v)
 
 [ -e "$OUT" ] && { say "SMOKE_ABORTED $OUT exists"; exit 5; }
-mkdir -p "$OUT/vchome" "$OUT/inkcache"
-cat "$FLAT"/[xyz].tif | md5sum | cut -d' ' -f1 > "$OUT/FLAT_MD5"
+mkdir "$OUT" || { say "SMOKE_ABORTED cannot create $OUT"; exit 5; }
+mkdir -p "$OUT/vchome" "$OUT/inkcache" || exit 3
+cat "$FLAT/x.tif" "$FLAT/y.tif" "$FLAT/z.tif" | md5sum | cut -d' ' -f1 > "$OUT/FLAT_MD5" \
+  || { say "SMOKE_ABORTED reading flat"; exit 3; }
 
-run() {  # name image extra-args...
-  local name=$1 img=$2; shift 2
-  mkdir -p "$OUT/$name"
-  docker run --rm --entrypoint cat "$img" /opt/vcsrc/SAMPLER_SHA > "$OUT/$name.SAMPLER_SHA" 2>/dev/null
+run() {  # name image expected-sha extra-args...
+  local name=$1 img=$2 expected_sha=$3 actual_sha; shift 3
+  mkdir -p "$OUT/$name" || exit 3
+  actual_sha=$(docker run --rm --entrypoint cat "$img" /opt/vcsrc/SAMPLER_SHA) \
+    || { say "SMOKE_ABORTED cannot read image sha for $name"; exit 3; }
+  [ "$actual_sha" = "$expected_sha" ] || { say "SMOKE_ABORTED image sha for $name"; exit 3; }
+  printf '%s\n' "$actual_sha" > "$OUT/$name.SAMPLER_SHA" || exit 3
   say "RUN $name ($img $*)"
-  /usr/bin/time -v docker run --rm --user "$(id -u):$(id -g)" --memory 24g -e HOME="$OUT/vchome" \
-    -v /home/jon/openclaw-workspace:/home/jon/openclaw-workspace \
+  "${TIMING[@]}" docker run --rm --user "$(id -u):$(id -g)" --memory 24g -e HOME="$OUT/vchome" \
+    -v "$SO:$SO" \
     --entrypoint vc_render_tifxyz "$img" --scale-segmentation 4 \
     --segmentation "$FLAT" --scale 0.25 --group-idx 1 --volume "$OUT/inkcache" \
     --tif-output "$OUT/$name" --num-slices 5 --remote-url "$INK_URL" "${CROP[@]}" "$@" \
@@ -34,11 +41,15 @@ run() {  # name image extra-args...
   local rc=$?
   grep -q "all slices exist, skipping" "$OUT/$name.log" && { say "SKIPPED $name"; exit 1; }
   [ $rc -eq 0 ] || { say "RUN_FAILED $name rc=$rc"; exit 1; }
+  local index
+  for index in 00 01 02 03 04; do
+    [ -f "$OUT/$name/$index.tif" ] || { say "MISSING_SLICE $name/$index.tif"; exit 1; }
+  done
   say "DONE $name: $(ls "$OUT/$name" | wc -l) tif(s)"
 }
 
-run A vc-render:sampler-75c79ac5f
-run B vc-render:sampler-f637f3b35
-run C vc-render:sampler-f637f3b35 --surface-interpolation smooth
+run A vc-render:sampler-75c79ac5f 75c79ac5f506d4b9a89bcfbef8e8c0f2f0c3acb3
+run B vc-render:sampler-f637f3b35 f637f3b35208bafa7812b4d97fea45bf43d19edb
+run C vc-render:sampler-f637f3b35 f637f3b35208bafa7812b4d97fea45bf43d19edb --surface-interpolation smooth
 grep -q "Surface interpolation: smooth" "$OUT/C.log" || { say "SMOOTH_NOT_ENGAGED"; exit 1; }
 say "SMOKE_DONE"

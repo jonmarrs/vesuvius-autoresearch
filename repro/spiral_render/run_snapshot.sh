@@ -41,6 +41,7 @@ shift 2
 [ -f "$HERE/$DRIVER" ] || { echo "no such driver: $HERE/$DRIVER" >&2; exit 2; }
 
 # Resolve checkout-relative defaults before moving the driver outside the repo.
+export REPO="${REPO:-$(cd "$HERE/../.." && pwd)}"
 export VILLA="${VILLA:-$(cd "$HERE/../../villa" && pwd)}"
 [ -n "$VILLA" ] || { echo "villa checkout missing; set VILLA" >&2; exit 2; }
 VILLA="$(cd "$VILLA" && pwd)" || exit 2

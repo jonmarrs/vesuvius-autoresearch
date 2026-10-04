@@ -1,22 +1,18 @@
 #!/usr/bin/env python3
-"""
-Production-Grade Prediction Script for Vesuvius Autoresearch.
-Leverages Villa's optimized_inference logic:
-- Memory-efficient tiled inference
-- Gaussian/Hann blending for artifact-free overlays
-- Multi-threaded prefetching
-- Support for both TimeSformer and Gated UNet architectures
+"""Batched ink prediction from a project checkpoint into a local VC3D volume.
+
+Uses the shared model factory and normalized volume loader. Checkpoint geometry
+is authoritative; tiling covers the requested region, including its boundaries.
 """
 
 import argparse
+import math
 import os
 import time
-from pathlib import Path
 
 import numpy as np
 import torch
 import torch.nn.functional as F
-import zarr
 from tqdm.auto import tqdm
 
 from scripts.inference.predict import (
@@ -28,142 +24,164 @@ from vesuvius_autoresearch.core.vesuvius_loader import FastVesuviusVolume
 
 
 def hann2d(h: int, w: int, device="cpu"):
-    """Normalized 2D Hann window for overlap-add blending."""
-    wy = torch.hann_window(h, periodic=False).to(device)
-    wx = torch.hann_window(w, periodic=False).to(device)
-    k = torch.outer(wy, wx)
-    return k
+    """Positive Hann weights, so boundary pixels receive a prediction too."""
+    wy = torch.hann_window(h + 2, periodic=False, device=device)[1:-1]
+    wx = torch.hann_window(w + 2, periodic=False, device=device)[1:-1]
+    return torch.outer(wy, wx)
 
 
-def production_predict():
-    parser = argparse.ArgumentParser()
+def tile_starts(length, size, stride):
+    starts = list(range(0, length - size + 1, stride))
+    if starts[-1] != length - size:
+        starts.append(length - size)
+    return starts
+
+
+def production_predict(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--uri", required=True, help="Zarr volume URI")
     parser.add_argument("--checkpoint", default="best_model.pt")
-    parser.add_argument("--z", type=int, required=True)
-    parser.add_argument("--y", type=int, required=True)
-    parser.add_argument("--x", type=int, required=True)
+    for axis in ("z", "y", "x"):
+        parser.add_argument(f"--{axis}", type=int, required=True)
     parser.add_argument("--width", type=int, default=1024)
     parser.add_argument("--height", type=int, default=1024)
-    parser.add_argument("--patch-size", type=int, default=64)
-    parser.add_argument("--stride", type=int, default=32)
+    parser.add_argument(
+        "--patch-size", type=int, help="must match the checkpoint; defaults to its size"
+    )
+    parser.add_argument(
+        "--stride", type=int, help="defaults to half the checkpoint patch size"
+    )
     parser.add_argument("--batch-size", type=int, default=16)
+    parser.add_argument("--voxel-size-um", type=float, default=7.91)
     parser.add_argument("--out-dir", default="predictions/production")
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
+
+    # Project checkpoints are trusted training artifacts and may contain objects
+    # beyond PyTorch's restricted weights-only format.
+    ckpt = torch.load(args.checkpoint, map_location="cpu", weights_only=False)
+    if not isinstance(ckpt, dict) or not isinstance(ckpt.get("config"), dict):
+        raise ValueError("checkpoint must contain a config object")
+    config_dict = ckpt["config"]
+    size = config_dict.get("patch_size", 64)
+    args.num_layers = config_dict.get("num_layers", 16)
+    args.base_feat = config_dict.get("base_feat", 128)
+    for name, value in (
+        ("patch_size", size),
+        ("num_layers", args.num_layers),
+        ("base_feat", args.base_feat),
+    ):
+        if not isinstance(value, int) or isinstance(value, bool) or value <= 0:
+            raise ValueError(f"checkpoint {name} must be a positive integer")
+    if args.patch_size is not None and args.patch_size != size:
+        parser.error("--patch-size must match the checkpoint")
+    args.patch_size = size
+    args.stride = max(1, size // 2) if args.stride is None else args.stride
+    if args.width < size or args.height < size:
+        parser.error("width and height must be at least the checkpoint patch size")
+    if not 0 < args.stride <= size or args.batch_size <= 0:
+        parser.error(
+            "stride must be in [1, patch_size] and batch-size must be positive"
+        )
+    if min(args.x, args.y, args.z) < 0:
+        parser.error("x, y and z must be non-negative")
+    args.voxel_size_um = float(
+        config_dict.get(
+            "voxel_size_um", config_dict.get("voxelsize", args.voxel_size_um)
+        )
+    )
+    if not math.isfinite(args.voxel_size_um) or args.voxel_size_um <= 0:
+        parser.error("voxel size must be finite and positive")
+    state = ckpt.get("model_state_dict", ckpt.get("model"))
+    if not isinstance(state, dict) or not state:
+        raise ValueError(
+            "checkpoint must contain model_state_dict (or legacy model weights)"
+        )
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    os.makedirs(args.out_dir, exist_ok=True)
+    use_ridges = config_dict.get("use_ridges", False)
+    model = build_prediction_model(config_dict, args, use_ridges=use_ridges)
+    model.load_state_dict(state, strict=True)
+    model = model.to(device).eval()
+    dataset = FastVesuviusVolume(args.uri, use_ridges=use_ridges)
+    ends = (args.z + args.num_layers, args.y + args.height, args.x + args.width)
+    if any(end > limit for end, limit in zip(ends, dataset.shape, strict=True)):
+        raise ValueError(f"requested region exceeds volume shape {dataset.shape}")
 
-    # 1. Load Model and Config
-    ckpt = torch.load(args.checkpoint, map_location="cpu")
-    config_dict = ckpt["config"]
-    num_layers = config_dict.get("num_layers", 16)
-    model = (
-        build_prediction_model(config_dict, args, use_ridges=False).to(device).eval()
-    )
-    model.load_state_dict(ckpt["model"])
-    print(f"Loaded {config_dict['architecture']} model from {args.checkpoint}")
-
-    # 2. Setup Dataset
-    dataset = FastVesuviusVolume(args.uri, use_ridges=False)
-
-    # 3. Grid Setup
-    y_coords = list(
-        range(args.y, args.y + args.height - args.patch_size + 1, args.stride)
-    )
-    x_coords = list(
-        range(args.x, args.x + args.width - args.patch_size + 1, args.stride)
-    )
-    if not y_coords or y_coords[-1] != args.y + args.height - args.patch_size:
-        y_coords.append(args.y + args.height - args.patch_size)
-    if not x_coords or x_coords[-1] != args.x + args.width - args.patch_size:
-        x_coords.append(args.x + args.width - args.patch_size)
-
-    # 4. Accumulation Buffers
+    ys = tile_starts(args.height, size, args.stride)
+    xs = tile_starts(args.width, size, args.stride)
     full_prob = torch.zeros((args.height, args.width), device=device)
-    full_count = torch.zeros((args.height, args.width), device=device)
-    window = hann2d(args.patch_size, args.patch_size, device=device)
+    full_count = torch.zeros_like(full_prob)
+    window = hann2d(size, size, device=device)
+    patches, coords = [], []
 
-    # 5. Inference Loop (Batched)
-    print(f"Starting Production Inference ({len(y_coords) * len(x_coords)} tiles)...")
-    patches = []
-    coords = []
-
-    start_time = time.time()
-    for py in tqdm(y_coords, desc="Rows"):
-        for px in x_coords:
-            # Load block
-            block = dataset[
-                args.z : args.z + num_layers,
-                py : py + args.patch_size,
-                px : px + args.patch_size,
-            ]
-            # FastVesuviusVolume returns (D, H, W)
-            block_tensor = (
-                torch.from_numpy(block).float().unsqueeze(0).to(device)
-            )  # [1, D, H, W]
-
-            patches.append(block_tensor)
-            coords.append((py - args.y, px - args.x))
-
-            if len(patches) >= args.batch_size:
-                batch = torch.cat(patches, dim=0)  # [B, D, H, W]
-                # Predict
-                with torch.no_grad():
-                    logits = model(batch.unsqueeze(1))  # Model expects [B, 1, D, H, W]
-                    if isinstance(logits, tuple):
-                        logits = logits[0]
-                    probs = torch.sigmoid(logits).squeeze(
-                        1
-                    )  # [B, H, W] or [B, 1, H, W] -> [B, H, W]
-
-                # Accumulate
-                for i, (ry, rx) in enumerate(coords):
-                    full_prob[ry : ry + args.patch_size, rx : rx + args.patch_size] += (
-                        probs[i] * window
-                    )
-                    full_count[
-                        ry : ry + args.patch_size, rx : rx + args.patch_size
-                    ] += window
-
-                patches = []
-                coords = []
-
-    # Process remaining
-    if patches:
-        batch = torch.cat(patches, dim=0)
-        with torch.no_grad():
-            logits = model(batch.unsqueeze(1))
-            if isinstance(logits, tuple):
-                logits = logits[0]
-            probs = torch.sigmoid(logits).squeeze(1)
-        for i, (ry, rx) in enumerate(coords):
-            full_prob[ry : ry + args.patch_size, rx : rx + args.patch_size] += (
-                probs[i] * window
+    def flush():
+        if not patches:
+            return
+        batch = torch.stack(patches).to(device)
+        logits = model(batch)
+        if isinstance(logits, tuple):
+            logits = logits[0]
+        if logits.ndim != 4 or logits.shape[:2] != (len(patches), 1):
+            raise ValueError(
+                "model must return ink logits with shape (batch, 1, height, width)"
             )
-            full_count[ry : ry + args.patch_size, rx : rx + args.patch_size] += window
+        if logits.shape[-2:] != (size, size):
+            logits = F.interpolate(
+                logits, size=(size, size), mode="bilinear", align_corners=False
+            )
+        probs = torch.sigmoid(logits)[:, 0]
+        if not torch.isfinite(probs).all():
+            raise ValueError("model returned non-finite probabilities")
+        for (y, x), prob in zip(coords, probs, strict=True):
+            full_prob[y : y + size, x : x + size] += prob * window
+            full_count[y : y + size, x : x + size] += window
+        patches.clear()
+        coords.clear()
 
-    # 6. Finalize
-    final_prob = (full_prob / (full_count + 1e-8)).cpu().numpy()
-    final_uint8 = (final_prob * 255).astype(np.uint8)
+    print(f"Starting production inference ({len(ys) * len(xs)} tiles)...")
+    start = time.time()
+    with torch.inference_mode():
+        for y in tqdm(ys, desc="Rows"):
+            for x in xs:
+                block = dataset[
+                    args.z : args.z + args.num_layers,
+                    args.y + y : args.y + y + size,
+                    args.x + x : args.x + x + size,
+                ]
+                patch = dataset.normalize(block)
+                if not use_ridges:
+                    patch = patch.unsqueeze(0)
+                expected = (2 if use_ridges else 1, args.num_layers, size, size)
+                if tuple(patch.shape) != expected:
+                    raise ValueError(
+                        f"volume patch has shape {tuple(patch.shape)}, expected {expected}"
+                    )
+                patches.append(patch)
+                coords.append((y, x))
+                if len(patches) >= args.batch_size:
+                    flush()
+        flush()
+        final_prob = (full_prob / full_count).cpu().numpy()
+    final_uint8 = (np.clip(final_prob, 0, 1) * 255).astype(np.uint8)
+    print(f"Inference complete in {time.time() - start:.1f}s")
 
-    elapsed = time.time() - start_time
-    throughput = (args.width * args.height) / (elapsed * 1e6)
-    print(
-        f"Inference Complete. Elapsed: {elapsed:.1f}s | Throughput: {throughput:.2f} Mvps"
+    os.makedirs(args.out_dir, exist_ok=True)
+    base = f"prod_pred_{args.z}_{args.y}_{args.x}_{args.width}x{args.height}"
+    zarr_path = os.path.join(args.out_dir, f"{base}.zarr")
+    save_vc3d_zarr(
+        zarr_path,
+        final_uint8,
+        name="ink",
+        voxel_size_um=args.voxel_size_um,
+        source_uri=args.uri,
+        origin_xyz=[args.x, args.y, args.z],
     )
-
-    # 7. Export
-    base_name = f"prod_pred_{args.z}_{args.y}_{args.x}_{args.width}x{args.height}"
-    zarr_path = os.path.join(args.out_dir, f"{base_name}.zarr")
-    save_vc3d_zarr(zarr_path, final_uint8, name="ink")
-
-    meta_path = os.path.join(args.out_dir, f"{base_name}_meta.json")
     write_prediction_metadata(
-        meta_path,
+        os.path.join(args.out_dir, f"{base}_meta.json"),
         args,
         config_dict,
         zarr_path,
-        None,  # no png for now
+        None,
         {"mean": float(final_prob.mean()), "max": float(final_prob.max())},
     )
     print(f"Saved production results to {args.out_dir}")

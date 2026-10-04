@@ -84,7 +84,11 @@ def save_vc3d_zarr(
     source_uri=None,
     origin_xyz=None,
 ):
-    """Saves a 2D uint8 array as a VC3D-compatible OME-Zarr volume."""
+    """Save a 2D uint8 array; origin_xyz is a position in source voxel indices.
+
+    OME axes are z/y/x and their units are micrometers, so translation reverses
+    the caller's x/y/z order and converts indices to physical coordinates.
+    """
     import json
     import os
     import uuid
@@ -93,6 +97,8 @@ def save_vc3d_zarr(
 
     os.makedirs(base_path, exist_ok=True)
 
+    # A resolution array plus .zattrs is not a Zarr group without .zgroup.
+    zarr.open_group(str(base_path), mode="a")
     # Create Zarr group/array at scale '0'
     z = zarr.open(
         os.path.join(base_path, "0"),
@@ -127,7 +133,12 @@ def save_vc3d_zarr(
                             {
                                 "type": "translation",
                                 "translation": [
-                                    float(v) for v in (origin_xyz or [0, 0, 0])
+                                    float(v) * float(voxel_size_um)
+                                    for v in reversed(
+                                        origin_xyz
+                                        if origin_xyz is not None
+                                        else [0, 0, 0]
+                                    )
                                 ],
                             },
                         ],
