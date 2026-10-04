@@ -20,21 +20,14 @@ from scripts.inference.predict import (
     save_vc3d_zarr,
     write_prediction_metadata,
 )
+from vesuvius_autoresearch.core.inference import (
+    hann2d,
+    normalize_blend,
+    prepare_volume_input,
+    tile_starts,
+    validate_model_settings,
+)
 from vesuvius_autoresearch.core.vesuvius_loader import FastVesuviusVolume
-
-
-def hann2d(h: int, w: int, device="cpu"):
-    """Positive Hann weights, so boundary pixels receive a prediction too."""
-    wy = torch.hann_window(h + 2, periodic=False, device=device)[1:-1]
-    wx = torch.hann_window(w + 2, periodic=False, device=device)[1:-1]
-    return torch.outer(wy, wx)
-
-
-def tile_starts(length, size, stride):
-    starts = list(range(0, length - size + 1, stride))
-    if starts[-1] != length - size:
-        starts.append(length - size)
-    return starts
 
 
 def production_predict(argv=None):
@@ -55,6 +48,11 @@ def production_predict(argv=None):
     parser.add_argument("--voxel-size-um", type=float, default=7.91)
     parser.add_argument("--out-dir", default="predictions/production")
     args = parser.parse_args(argv)
+    args.inference_recipe = {
+        "ink_probability": "sigmoid(ink)",
+        "tta_mirrors": ["none"],
+        "blend_window": "positive_hann",
+    }
 
     # Project checkpoints are trusted training artifacts and may contain objects
     # beyond PyTorch's restricted weights-only format.
@@ -65,13 +63,9 @@ def production_predict(argv=None):
     size = config_dict.get("patch_size", 64)
     args.num_layers = config_dict.get("num_layers", 16)
     args.base_feat = config_dict.get("base_feat", 128)
-    for name, value in (
-        ("patch_size", size),
-        ("num_layers", args.num_layers),
-        ("base_feat", args.base_feat),
-    ):
-        if not isinstance(value, int) or isinstance(value, bool) or value <= 0:
-            raise ValueError(f"checkpoint {name} must be a positive integer")
+    ridge_sigma = validate_model_settings(
+        config_dict, size, args.num_layers, args.base_feat
+    )
     if args.patch_size is not None and args.patch_size != size:
         parser.error("--patch-size must match the checkpoint")
     args.patch_size = size
@@ -102,7 +96,9 @@ def production_predict(argv=None):
     model = build_prediction_model(config_dict, args, use_ridges=use_ridges)
     model.load_state_dict(state, strict=True)
     model = model.to(device).eval()
-    dataset = FastVesuviusVolume(args.uri, use_ridges=use_ridges)
+    dataset = FastVesuviusVolume(
+        args.uri, use_ridges=use_ridges, ridge_sigma=ridge_sigma
+    )
     ends = (args.z + args.num_layers, args.y + args.height, args.x + args.width)
     if any(end > limit for end, limit in zip(ends, dataset.shape, strict=True)):
         raise ValueError(f"requested region exceeds volume shape {dataset.shape}")
@@ -121,6 +117,12 @@ def production_predict(argv=None):
         logits = model(batch)
         if isinstance(logits, tuple):
             logits = logits[0]
+        if (
+            not isinstance(logits, torch.Tensor)
+            or not logits.is_floating_point()
+            or not torch.isfinite(logits).all()
+        ):
+            raise ValueError("model must return finite floating-point ink logits")
         if logits.ndim != 4 or logits.shape[:2] != (len(patches), 1):
             raise ValueError(
                 "model must return ink logits with shape (batch, 1, height, width)"
@@ -148,20 +150,16 @@ def production_predict(argv=None):
                     args.y + y : args.y + y + size,
                     args.x + x : args.x + x + size,
                 ]
-                patch = dataset.normalize(block)
-                if not use_ridges:
-                    patch = patch.unsqueeze(0)
-                expected = (2 if use_ridges else 1, args.num_layers, size, size)
-                if tuple(patch.shape) != expected:
-                    raise ValueError(
-                        f"volume patch has shape {tuple(patch.shape)}, expected {expected}"
-                    )
+                patch = prepare_volume_input(
+                    dataset.normalize(block), use_ridges, args.num_layers, size, "cpu"
+                )[0]
                 patches.append(patch)
                 coords.append((y, x))
                 if len(patches) >= args.batch_size:
                     flush()
         flush()
-        final_prob = (full_prob / full_count).cpu().numpy()
+        final_prob = normalize_blend(full_prob, full_count).cpu().numpy()
+    args.tiles_total = args.tiles_processed = len(ys) * len(xs)
     final_uint8 = (np.clip(final_prob, 0, 1) * 255).astype(np.uint8)
     print(f"Inference complete in {time.time() - start:.1f}s")
 

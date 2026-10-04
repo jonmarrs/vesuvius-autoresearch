@@ -9,7 +9,7 @@ import torch
 import zarr
 
 from scripts import production_predict as production
-from vesuvius_autoresearch.core import model_wrappers
+from vesuvius_autoresearch.core import model_wrappers, vesuvius_loader
 
 
 class ConstantModel(torch.nn.Module):
@@ -156,3 +156,41 @@ def test_real_resenc_checkpoint_roundtrip(tmp_path, monkeypatch):
     np.testing.assert_allclose(
         actual[0], (expected.numpy()[0, 0] * 255).astype(np.uint8), atol=1
     )
+
+
+@pytest.mark.parametrize("bad_logit", [float("inf"), float("-inf"), float("nan")])
+def test_production_rejects_nonfinite_logits_before_sigmoid(
+    tmp_path, monkeypatch, bad_logit
+):
+    out, _, model = production_fixture(tmp_path, monkeypatch)
+    monkeypatch.setattr(
+        model, "forward", lambda x: torch.full((len(x), 1, 8, 8), bad_logit)
+    )
+    with pytest.raises(ValueError, match="finite floating-point ink logits"):
+        production.production_predict()
+    assert not out.exists()
+
+
+def test_production_uses_checkpoint_ridge_sigma(tmp_path, monkeypatch):
+    out, argv, model = production_fixture(tmp_path, monkeypatch)
+    checkpoint_path = argv[argv.index("--checkpoint") + 1]
+    checkpoint = torch.load(checkpoint_path, weights_only=False)
+    checkpoint["config"].update(use_ridges=True, ridge_sigma=3.0, num_layers=3)
+    torch.save(checkpoint, checkpoint_path)
+    seen = []
+
+    def ridges(ct, *, sigma):
+        seen.append(sigma)
+        return np.ones_like(ct)
+
+    def forward(x):
+        assert x.shape[1:3] == (2, 3)
+        torch.testing.assert_close(x[:, 0], torch.full_like(x[:, 0], 128 / 255))
+        assert torch.all(x[:, 1] == 1)
+        return torch.zeros((len(x), 1, 8, 8))
+
+    monkeypatch.setattr(vesuvius_loader, "detect_ridges", ridges)
+    monkeypatch.setattr(model, "forward", forward)
+    production.production_predict()
+    assert seen and set(seen) == {3.0}
+    assert next(out.glob("*.zarr")).exists()

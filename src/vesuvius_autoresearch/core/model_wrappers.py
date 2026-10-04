@@ -164,10 +164,19 @@ def build_inference_model(
     (it has training-only branches for villa-imported resnet3d / i3d
     and for foundation_model_path loading).
 
-    Unknown architectures fall back to InkDetectorOptimized (gated_unet).
-    Callers should run load_compatible_state_dict afterward and check
-    the skip count to catch architecture mismatches.
+    Unknown architectures fail explicitly. Prediction callers must load complete
+    weights; intentional partial warm starts belong to training.
     """
+    if not isinstance(architecture, str) or architecture not in {
+        "gated_unet",
+        "timesformer",
+        "resnet3d_decoder",
+        "lejepa_unet",
+        "resenc_unet",
+        "mednext",
+        "neural_tracing_vit",
+    }:
+        raise ValueError(f"unknown inference architecture: {architecture!r}")
     from vesuvius_model import InkDetectorOptimized, VesuviusConfig
 
     v_config = VesuviusConfig(

@@ -296,6 +296,30 @@ def validate(metadata_path, train_mask=None, predict_mask=None, zarr_path=None):
         return report
     voxel_um = None
     image_shape = None
+    if (
+        "prediction_complete" in metadata
+        and metadata["prediction_complete"] is not True
+    ):
+        failures.append(
+            "prediction is partial or its completeness is unverified; inference shards are not complete submission evidence"
+        )
+    if "num_parts" in metadata:
+        try:
+            if _positive_number(metadata["num_parts"], "num_parts", integer=True) != 1:
+                failures.append(
+                    "prediction is an inference shard; complete region evidence is required"
+                )
+        except (ValueError, TypeError, OverflowError) as exc:
+            failures.append(str(exc))
+    if "coverage_fraction" in metadata:
+        value = metadata["coverage_fraction"]
+        if (
+            not isinstance(value, (int, float))
+            or isinstance(value, bool)
+            or not math.isfinite(value)
+            or value != 1.0
+        ):
+            failures.append("prediction coverage is partial or unverified")
     try:
         voxel_um = _positive_number(
             metadata.get("voxel_size_um", metadata.get("voxel_resolution_um")),
