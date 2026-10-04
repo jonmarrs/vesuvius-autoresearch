@@ -1,5 +1,7 @@
 import os
+from dataclasses import asdict
 
+import torch
 from test_detector_data import _make_fake_fragment
 
 from vesuvius_autoresearch.detector import train
@@ -20,3 +22,6 @@ def test_resenc_smoke_train_returns_checkpoint(tmp_path):
     )
     ckpt = train(cfg, max_epochs=1, limit_batches=2)
     assert os.path.exists(ckpt)
+    assert torch.load(ckpt, map_location="cpu", weights_only=False)[
+        "detector_config"
+    ] == asdict(cfg)

@@ -104,6 +104,17 @@ depth and window settings used to train the checkpoint. For example:
 {"data_root": "/path/to/converted_fragments", "architecture": "timesformer"}
 ```
 
+New checkpoints record their detector configuration and reject mismatched model
+or depth-window settings before reading fragment data. Legacy checkpoints remain
+loadable with a warning to verify the supplied configuration. Set `use_tta` to
+`true` to average four spatial mirror views; its default is `false`.
+
+Training now honors `weight_decay`, `max_grad_norm`, and `warmup_factor`. Their
+defaults are 0.01, 1.0, and 1.0 respectively, matching the previously executed
+recipe. Earlier configuration fields advertised different values but were
+ignored; explicit overrides now affect training. See the
+[detector workflow guide](docs/DETECTOR_WORKFLOW.md) for these contracts.
+
 Predict a converted fragment with layers and a fragment mask; ink labels are optional:
 
 ```bash
@@ -116,7 +127,8 @@ The float32 NumPy map has the original layer dimensions. Prediction keeps the
 existing full-window mask rule: pixels not covered by a usable window are zero;
 a fragment with no usable windows is an error. `eval`, `measure`, and training
 still require ink labels. `measure` writes its partial report and exits nonzero
-if any target fails, printing the target and error to stderr.
+if any target fails, printing the target and error to stderr. An empty evaluation
+mask or a target without both ink and background is a failed measurement.
 
 ### Prediction from an autoresearch checkpoint
 
