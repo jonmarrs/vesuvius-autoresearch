@@ -1,5 +1,19 @@
 # Resume note — written 2026-09-22 before a deliberate Claude restart
 
+## 2026-10-04 (later): findings 77 and 78; in-sample caveat
+
+* **Finding 77:** labels exist only inside `supervision.zarr`. Findings 71–76 were re-analysed there:
+  74 does not survive as stated, and 75 survives smaller. inkagree 0.3.0 evaluates supervised-only.
+* **Finding 78:** the registered tracking-gap test held but was weak (near-duplicate arms).
+  * Descriptive: villa's scorer marks 0.91% of the annotated region, about 2% of labelled ink.
+  * **villa's ink training set is exactly the 8 labelled segments, with no validation masks.** The ink3d
+    render may be in-sample on them. This is disclosed in the October draft and the inkagree README
+    (`eb33a33`).
+* villa upstream at `5a4388f08` (#1947/#1948: prize automation and docs). It does not touch
+  `spiral-fitting/autoresearch.md`; the October form URL and deadline match the draft.
+* **Next:** runner PR on or after 10-06 (gate first). The October filing is due 10-31.
+
+
 ## 2026-10-04: finding 75 (install route vs villa's labels)
 
 * At the metric's settings, the source build's band beats the published image's (8 of 8, about +8% AP),
