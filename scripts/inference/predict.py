@@ -1,11 +1,18 @@
 """
 Vesuvius Prediction Script.
 Performs inference on a specific block of a Vesuvius scroll volume.
-Usage: uv run predict.py --uri "s3://..." --z 1000 --y 2000 --x 3000
+Usage: uv run python -m scripts.inference.predict --uri "s3://..." --z 1000 --y 2000 --x 3000
 """
 
 import json
+import math
 import os
+import sys
+from pathlib import Path
+
+# Direct launchers are also used from evidence directories outside the checkout.
+if not __package__:
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -74,6 +81,21 @@ def get_weight_window(patch_size, device):
     h = torch.hann_window(patch_size, periodic=False).to(device)
     window = h.unsqueeze(1) * h.unsqueeze(0)
     return window
+
+
+def prediction_scale_bar(width, voxel_size_um):
+    """Return a physical bar that fits in the source image, with its label."""
+    for length_um, label in (
+        (10000, "1 cm"),
+        (1000, "1 mm"),
+        (100, "100 µm"),
+        (10, "10 µm"),
+        (1, "1 µm"),
+    ):
+        pixels = length_um / voxel_size_um
+        if pixels <= width * 0.8:
+            return pixels, label
+    return width * 0.5, f"{width * 0.5 * voxel_size_um:g} µm"
 
 
 def save_vc3d_zarr(
@@ -201,10 +223,13 @@ def write_prediction_metadata(
         "ml_window_px": patch_size,
         "voxel_size_um": voxel_size_um,
         "ml_window_mm": patch_size * voxel_size_um / 1000.0,
-        "scale_bar_cm": True,
-        "vc3d_zarr_path": zarr_path,
-        "fiber_vc3d_zarr_path": fiber_zarr_path,
-        "output_image_path": output_img,
+        "scale_bar_cm": bool(output_img)
+        and prediction_scale_bar(args.width or patch_size, voxel_size_um)[1] == "1 cm",
+        "vc3d_zarr_path": str(Path(zarr_path).resolve()),
+        "fiber_vc3d_zarr_path": str(Path(fiber_zarr_path).resolve())
+        if fiber_zarr_path
+        else None,
+        "output_image_path": str(Path(output_img).resolve()) if output_img else None,
         "model_config": config_dict,
         "ink_stats": ink_stats,
         "fiber_stats": fiber_stats or {},
@@ -255,6 +280,13 @@ def predict():
 
     checkpoint = torch.load(checkpoint_path, map_location=device, weights_only=False)
     config_dict = checkpoint.get("config", {})
+    args.voxel_size_um = float(
+        config_dict.get(
+            "voxel_size_um", config_dict.get("voxelsize", args.voxel_size_um)
+        )
+    )
+    if not math.isfinite(args.voxel_size_um) or args.voxel_size_um <= 0:
+        raise ValueError("voxel size must be positive and finite")
 
     # Reconstruct VesuviusConfig from checkpoint, overriding args if present
     patch_size = config_dict.get("patch_size", args.patch_size)
@@ -283,23 +315,16 @@ def predict():
         checkpoint = torch.load(path, map_location=device, weights_only=False)
         config_dict = checkpoint.get("config", {})
         model = build_prediction_model(config_dict, args, use_ridges).to(device)
-        skipped = load_compatible_state_dict(model, checkpoint["model_state_dict"])
-        if len(skipped) > 8:
-            raise RuntimeError(
-                f"checkpoint/model mismatch: skipped {len(skipped)} tensors"
-            )
+        # Partial warm starts are appropriate for training, not evidence export.
+        model.load_state_dict(checkpoint["model_state_dict"], strict=True)
         model.eval()
         ensemble_models.append(model)
 
     model = SwarmVoter(ensemble_models)
     model.eval()
 
-    # Optionally wrap model with Villa TTA
-    if not args.disable_tta:
-        from vesuvius_autoresearch.core.villa_inference import VillaTTAWrapper
-
-        print("Enabling Villa TTA (mirroring, 8 flip combinations)...")
-        model = VillaTTAWrapper(model, tta_type="mirroring", use_batched=True)
+    # The loop below mirrors all three heads together. Wrapping this model in
+    # upstream TTA as well both duplicates augmentation and rejects head kwargs.
 
     # Open the dataset
     dataset = FastVesuviusVolume(args.uri, use_ridges=use_ridges)
@@ -506,7 +531,7 @@ def predict():
         and ct_full.ndim == 4
     ):
         ct_full = ct_full[0]
-    ct_slice = np.array(ct_full[0], dtype=np.float32)
+    ct_slice = ct_full[0].detach().cpu().numpy().astype(np.float32, copy=False)
 
     fig, axes = plt.subplots(1, 3, figsize=(15, 5))
     axes[0].imshow(ct_slice, cmap="gray")
@@ -526,20 +551,21 @@ def predict():
     # submissions; the bar's label needs to match the voxel-size declared in
     # the OME-Zarr metadata that ships alongside the PNG.
     pixel_size_um = args.voxel_size_um
-    one_cm_px = 10000 / pixel_size_um
-    one_mm_px = 1000 / pixel_size_um
+    bar_px, bar_label = prediction_scale_bar(predict_width, pixel_size_um)
 
     for ax in axes:
-        bar_px = one_mm_px if predict_width < one_cm_px else one_cm_px
-        label = "1mm" if predict_width < one_cm_px else "1cm"
         rect = Rectangle(
-            (10, predict_height - 20), bar_px, 5, facecolor="white", edgecolor="black"
+            (predict_width * 0.1, predict_height * 0.85),
+            bar_px,
+            max(0.5, predict_height * 0.02),
+            facecolor="white",
+            edgecolor="black",
         )
         ax.add_patch(rect)
         ax.text(
-            10,
-            predict_height - 25,
-            label,
+            predict_width * 0.1,
+            predict_height * 0.75,
+            bar_label,
             color="white",
             fontsize=10,
             fontweight="bold",

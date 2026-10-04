@@ -95,6 +95,8 @@ def test_production_checkpoint_volume_edges_and_metadata(tmp_path, monkeypatch):
     metadata = json.loads(next(out.glob("*_meta.json")).read_text())
     assert metadata["patch_size"] == 8
     assert metadata["position_xyz"] == [3, 2, 1]
+    assert metadata["output_image_path"] is None
+    assert metadata["scale_bar_cm"] is False
 
 
 @pytest.mark.parametrize(
