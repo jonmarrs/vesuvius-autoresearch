@@ -1028,3 +1028,15 @@ of AP), 1.0 (7 of 8, about −11%; AUC rises in all 8) and 2.0 (8 of 8, about �
 * **Confound:** pseudo-labels may favour 0.5. That fits the small gaps, not the −38%.
 
 `reports/sampling_band_vs_labels.md`.
+
+**75. At villa's metric settings, the source build's sampling band agrees better with villa's labels than
+the published image's, and a wider band better still.** Pre-registered, with inkagree 0.2.2 (metric preset:
+group 1, 5 slices). Step 1.0 (post-#1146 default) beats 0.5 (the published image's sampling) in 8 of 8
+segments, about +8% AP. Step 2.0 beats 1.0 in 8 of 8, about +10% AP. AUC moves the same way everywhere.
+
+* **Both predictions (no consistent difference) FAILED.**
+* **For finding 66:** the published image's lower ink count (−5 to −9%) goes with **less** faithful
+  renders.
+* **For villa's metric:** its default band is narrower than the best tested.
+
+`reports/install_route_band_vs_labels.md`.

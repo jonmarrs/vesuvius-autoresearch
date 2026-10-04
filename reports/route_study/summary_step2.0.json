@@ -1,0 +1,16 @@
+{
+  "n_results": 8,
+  "n_compared": 8,
+  "not_compared": {},
+  "k": 6,
+  "resolved_b_better": 8,
+  "resolved_a_better": 0,
+  "d_ap_positive": 8,
+  "d_ap_negative": 0,
+  "d_ap_median": 0.008357150554851644,
+  "d_ap_range": [
+    0.004401965574776769,
+    0.013737208800784148
+  ],
+  "verdict": "B agrees better"
+}

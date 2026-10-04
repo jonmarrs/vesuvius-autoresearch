@@ -1,5 +1,15 @@
 # Resume note — written 2026-09-22 before a deliberate Claude restart
 
+## 2026-10-04: finding 75 (install route vs villa's labels)
+
+* At the metric's settings, the source build's band beats the published image's (8 of 8, about +8% AP),
+  and step 2.0 beats 1.0 (8 of 8, about +10%). Both predictions FAILED. The October draft carries it.
+  `reports/install_route_band_vs_labels.md`.
+* Disk: `spiral_out/route_cache` is **253 GB**. Ask the user before deleting.
+* A possible villa item (NOT drafted): this answers #1588's stale-image question with labels, but #1588 is
+  under the no-add rule. The user decides.
+
+
 ## 2026-10-03 (night): finding 74 via inkagree; inkagree public at 0.2.2
 
 * **Finding 74:** the tutorial's slice step 0.5 agrees best with villa's labels (vs 0.25: 8 of 8, about

@@ -147,3 +147,25 @@ def test_band_study_numbers_match_finding_74():
         median = (rel[3] + rel[4]) / 2
         assert round(-median * 100) == rel_pct
         assert f"{n_res} of 8" in txt and f"about −{rel_pct}%" in txt
+
+
+_ROUTE = _REPO / "reports/route_study"
+
+
+@pytest.mark.skipif(not _ROUTE.exists(), reason="route study artifacts absent")
+def test_install_route_numbers_match_finding_75():
+    txt = _text()
+    for step, verdict, rel_pct in (
+        ("0.5", "A agrees better", -8),
+        ("2.0", "B agrees better", 10),
+    ):
+        s = json.loads((_ROUTE / f"summary_step{step}.json").read_text())
+        assert s["n_compared"] == 8 and s["verdict"] == verdict
+        assert max(s["resolved_a_better"], s["resolved_b_better"]) == 8
+        rows = [
+            json.loads(p.read_text())
+            for p in sorted(_ROUTE.glob(f"2*_step{step}.json"))
+        ]
+        rel = sorted(r["d_ap"] / r["a"]["ap"] for r in rows)
+        assert round(100 * (rel[3] + rel[4]) / 2) == rel_pct
+    assert "(8 of 8, about +8% AP)" in txt and "about +10%)" in txt

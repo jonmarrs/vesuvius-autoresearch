@@ -69,6 +69,12 @@ depends on, against villa's own code and villa's own ink labels:
 
   The effect scales with grid cell size (measured). Comparing runs rendered in different modes would
   bias a keep/discard decision by more than the gains the loop chases.
+* **The install route changes how faithful the metric's renders are, not only how much ink they find.**
+  villa's published sampler image samples a thinner band than any current source build (finding 66:
+  −5% to −9% ink count). Against villa's labels at the metric's own settings, on all 8 segments, the source
+  build's band agrees better (8 of 8, about +8% AP), and a band twice as wide agrees better still (8 of 8,
+  about +10%). The stale image costs fidelity, and the metric's default band is narrower than the best
+  tested.
 * **The comparison tool now reads what villa's runner writes.** inkdelta 0.3.0 rejected villa's real
   `--seeds` output as invalid; 0.4.0 reads it. 0.5.x refuses to compare runs rendered in different
   modes.
@@ -102,7 +108,7 @@ depends on, against villa's own code and villa's own ink labels:
 
 ## Required disclosure — include it
 
-* **Seven of my registered predictions failed**, and the reports say so:
+* **Nine of my registered predictions failed**, and the reports say so:
   * finding 70 (smooth would move the count < 1% in every crop window: it moved up to ±20%);
   * finding 71 prediction 1 (failed on three exclusions, one caused by a defect in my alignment gate);
   * finding 72 prediction 1 (the count was sensitive in 15% of windows, not ≥ 25%).
@@ -112,6 +118,8 @@ depends on, against villa's own code and villa's own ink labels:
     2 of 8, not ≥ 6).
   * finding 74 predictions 2 and 3 (no difference between slice steps 0.25 or 1.0 and the tutorial's 0.5:
     0.5 was better in 8 of 8 and 7 of 8).
+  * finding 75 predictions 1 and 2 (no difference between the published image's band, or a wider one, and
+    the source build's: the source build beat the first, and the wider band beat it, both in 8 of 8).
 * **The effect's size depends on grid cell size** (finding 73, measured): about 1% per window on
   villa's 20-voxel segment meshes, a 6.2% median and up to ±40% per window on 80-voxel grids like the
   spiral surfaces. Quote the size with the grid.
