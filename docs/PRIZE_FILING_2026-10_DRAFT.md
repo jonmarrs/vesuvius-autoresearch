@@ -137,6 +137,11 @@ depends on, against villa's own code and villa's own ink labels:
   spiral surfaces. Quote the size with the grid.
 * villa's scroll labels are partly pseudo-labels, made with default-mode geometry. That favours the
   default mode in any comparison against them, and still no difference appeared.
+* **The rendered ink prediction may be in-sample on these segments.** villa's PHercParis4 ink training
+  set is exactly these 8 segments, with no held-out validation regions. The 3D ink model's training data is
+  not published. So agreement with the labels may be train-set agreement. Comparisons between render
+  settings of the same model are less exposed, but a setting could win by matching how the labels were
+  made. (Finding 78, `reports/scorer_tracking_gap.md`.)
 
 ## Do not add
 
@@ -144,3 +149,5 @@ depends on, against villa's own code and villa's own ink labels:
   scorer's agreement does not change.
 * Not "the scorer is fragile" as an established fact. Finding 72's sensitivity prediction failed.
 * No adoption claim for inkdelta or the measurements unless one exists on filing day.
+* Not "villa's objective mis-ranks fits". Finding 78 shows its count is sparse (about 2% of annotated
+  ink), not that it ranks fits wrongly, and its render-side comparison may be in-sample.
