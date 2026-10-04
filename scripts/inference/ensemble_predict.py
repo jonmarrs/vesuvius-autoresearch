@@ -1,348 +1,279 @@
-"""
-Vesuvius Autoresearch: Ensemble Prediction Script.
-Performs inference on a specific block of a Vesuvius scroll volume using a "Voter Swarm"
-of multiple architectures to eliminate hallucinations (Sprint 012).
+"""Regional CT prediction by averaging compatible models' probabilities.
 
-Usage: uv run ensemble_predict.py --uri "s3://..." --z 1000 --y 2000 --x 3000 --checkpoints best_model.pt other_model.pt
+Usage: uv run python -m scripts.inference.ensemble_predict --uri local.zarr \
+    --z 0 --y 0 --x 0 --checkpoints best_model.pt other_model.pt
+
+Ensembling does not guarantee the absence of hallucinations or establish accuracy.
 """
 
 import os
+import sys
+from pathlib import Path
+
+if not __package__:
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
 from matplotlib.patches import Rectangle
+from PIL import Image
 from tap import Tap
 
-try:
-    from scripts.inference.predict import (
-        get_weight_window,
-        save_vc3d_zarr,
-    )
-except ModuleNotFoundError:  # when run directly as a script (scripts/inference on path)
-    from predict import (  # type: ignore[no-redef]
-        get_weight_window,
-        save_vc3d_zarr,
-    )
+from scripts.inference.predict import (
+    get_weight_window,
+    prediction_scale_bar,
+    save_vc3d_zarr,
+    write_prediction_metadata,
+)
+from vesuvius_autoresearch.core.inference import (
+    multitask_inference_recipe,
+    multitask_probabilities,
+    normalize_blend,
+    positive_number,
+    prepare_volume_input,
+    region_tiles,
+    validate_model_settings,
+    validate_region,
+)
 from vesuvius_autoresearch.core.model_wrappers import build_inference_model
 from vesuvius_autoresearch.core.vesuvius_loader import FastVesuviusVolume
 
 
 class EnsembleArgs(Tap):
-    uri: str  # S3 or local path to Zarr volume
+    uri: str  # Local path to the source CT Zarr volume
     z: int
     y: int
     x: int
-    width: int | None = None  # Total width to predict
-    height: int | None = None  # Total height to predict
-    stride: int | None = None  # Stride for soft-tiling
-    checkpoints: list[str]  # List of checkpoint paths to ensemble
+    width: int | None = None
+    height: int | None = None
+    stride: int | None = None
+    checkpoints: list[str]
     patch_size: int = 64
-    output_img: str | None = None  # Force output image path
-    disable_tta: bool = False  # Disable Test-Time Augmentation (4-way mirroring)
-    num_parts: int = 1  # Total number of shards for distributed inference
-    part_id: int = 0  # 0-indexed ID of this shard
-    gaussian_blend: bool = True  # Use Gaussian blending instead of Hanning window
+    output_img: str | None = None
+    metadata_out: str | None = None
+    voxel_size_um: float = 7.91
+    disable_tta: bool = False
+    num_parts: int = 1
+    part_id: int = 0
+    gaussian_blend: bool = True
+
+    def configure(self):
+        self.add_argument("--gaussian_blend", action="store_true", default=True)
+        self.add_argument(
+            "--no-gaussian_blend",
+            dest="gaussian_blend",
+            action="store_false",
+            default=True,
+            help="Use positive Hann blending instead of Gaussian blending",
+        )
 
 
 def ensemble_predict():
     args = EnsembleArgs().parse_args()
-
+    args.inference_recipe = multitask_inference_recipe(
+        args.disable_tta, args.gaussian_blend
+    )
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    print(f"Loading volume from {args.uri}...")
+    if not args.checkpoints:
+        raise ValueError("at least one checkpoint is required")
 
-    models = []
-    # Capture voxel_size_um from the first successfully-loaded checkpoint so the
-    # PNG scale bar matches the OME-Zarr metadata. Default to 7.91 µm to match
-    # the predict.py / ExperimentConfig convention used everywhere else.
-    voxel_size_um = 7.91
-
-    # Load all models
-    for cp_path in args.checkpoints:
-        if not os.path.exists(cp_path):
-            print(f"Warning: Checkpoint {cp_path} not found, skipping...")
-            continue
-
-        print(f"Loading checkpoint {cp_path}...")
-        checkpoint = torch.load(cp_path, map_location=device, weights_only=False)
-        config_dict = checkpoint.get("config", {})
-        if not models:
-            # First successful load — capture voxel_size_um for the scale bar.
-            voxel_size_um = float(
-                config_dict.get(
-                    "voxel_size_um", config_dict.get("voxelsize", voxel_size_um)
-                )
+    models, configs, scales, ridge_sigmas = [], [], [], []
+    for checkpoint_path in args.checkpoints:
+        if not os.path.isfile(checkpoint_path):
+            raise FileNotFoundError(
+                f"requested ensemble checkpoint not found: {checkpoint_path}"
             )
-
-        # Reconstruct VesuviusConfig
-        patch_size = config_dict.get("patch_size", args.patch_size)
-        num_layers = config_dict.get("num_layers", 16)
-        base_feat = config_dict.get("base_feat", 64)
-        num_blocks = config_dict.get("num_blocks", 16)
-        num_heads = config_dict.get("num_heads", 8)
-        dropout = config_dict.get("dropout", 0.0)
-        use_ridges = config_dict.get("use_ridges", False)
-        architecture = config_dict.get("architecture", "gated_unet")
-
-        # Canonical inference-side architecture dispatch. Lives in
-        # model_wrappers.build_inference_model so predict.py,
-        # ensemble_predict.py, and scripts/reevaluate_best_model.py
-        # cannot drift in which architectures they support — previously
-        # this file's else-branch silently fell back to gated_unet for
-        # resenc_unet checkpoints (the current best_model.pt), causing
-        # a guaranteed state-dict mismatch.
+        checkpoint = torch.load(
+            checkpoint_path, map_location=device, weights_only=False
+        )
+        if not isinstance(checkpoint, dict) or not isinstance(
+            checkpoint.get("config", {}), dict
+        ):
+            raise ValueError("checkpoint config must be an object")
+        config = checkpoint.get("config", {})
+        patch_size = config.get("patch_size", args.patch_size)
+        layers = config.get("num_layers", 16)
+        base_feat = config.get("base_feat", 64)
+        ridge_sigma = validate_model_settings(config, patch_size, layers, base_feat)
+        scale = positive_number(
+            config.get("voxel_size_um", config.get("voxelsize", args.voxel_size_um)),
+            "voxel_size_um",
+        )
+        use_ridges = config.get("use_ridges", False)
         model = build_inference_model(
-            architecture=architecture,
+            architecture=config.get("architecture", "gated_unet"),
             patch_size=patch_size,
-            num_layers=num_layers,
+            num_layers=layers,
             base_feat=base_feat,
-            num_blocks=num_blocks,
-            num_heads=num_heads,
-            dropout=dropout,
+            num_blocks=config.get("num_blocks", 16),
+            num_heads=config.get("num_heads", 8),
+            dropout=config.get("dropout", 0.0),
             use_ridges=use_ridges,
-            multi_task_heads=config_dict.get("multi_task_heads", False),
+            multi_task_heads=config.get("multi_task_heads", False),
         ).to(device)
         model.load_state_dict(checkpoint["model_state_dict"], strict=True)
-        model.eval()
-        models.append((model, use_ridges, num_layers, patch_size))
+        models.append((model.eval(), use_ridges, layers, patch_size))
+        configs.append(config)
+        scales.append(scale)
+        if use_ridges:
+            ridge_sigmas.append(ridge_sigma)
 
-    if not models:
-        raise ValueError("No valid models loaded for ensemble!")
-
-    # Manual TTA is applied directly in the inference loop
-
-    # Assuming all models are evaluated on the same patch size for simplicity in this version
-    # The max patch size is used for stride and tiling
-    max_patch_size = max([m[3] for m in models])
-    max_layers = max([m[2] for m in models])
-
-    # We will use dataset logic compatible with the largest required context
-    # Usually in ensembles, all models expect the same input volume size or are resampled internally
-    use_ridges_any = any([m[1] for m in models])
-    dataset = FastVesuviusVolume(args.uri, use_ridges=use_ridges_any)
-
-    predict_width = args.width if args.width else max_patch_size
-    predict_height = args.height if args.height else max_patch_size
-    stride = args.stride if args.stride else max_patch_size // 2
-
-    # Initialize accumulation buffers
-    full_prob_ink = torch.zeros((predict_height, predict_width), device=device)
-    full_prob_fiber = torch.zeros((predict_height, predict_width), device=device)
-    full_weight = torch.zeros((predict_height, predict_width), device=device)
-
-    # Choose weight window: Gaussian (smoother) or Hanning (default)
+    # Spatial pixels from different contexts cannot be combined by slicing the
+    # upper-left corner or by resizing without changing their coordinate frame.
+    patch_size = models[0][3]
+    if any(member[3] != patch_size for member in models):
+        raise ValueError("ensemble checkpoint patch_size must match")
+    if any(scale != scales[0] for scale in scales):
+        raise ValueError("ensemble checkpoint voxel_size_um must match")
+    if ridge_sigmas and any(sigma != ridge_sigmas[0] for sigma in ridge_sigmas):
+        raise ValueError("ensemble ridge_sigma must match for ridge-enabled models")
+    max_layers = max(member[2] for member in models)
+    if any(ridges and layers != max_layers for _, ridges, layers, _ in models):
+        raise ValueError(
+            "ridge-enabled ensemble num_layers must match the maximum depth; ridge filtering depends on the full depth context"
+        )
+    use_ridges_any = any(member[1] for member in models)
+    args.patch_size = patch_size
+    args.voxel_size_um = scales[0]
+    validate_region(args, patch_size, max_layers)
+    dataset = FastVesuviusVolume(
+        args.uri,
+        use_ridges=use_ridges_any,
+        ridge_sigma=ridge_sigmas[0] if ridge_sigmas else 2.0,
+    )
+    validate_region(args, patch_size, max_layers, dataset.shape)
+    tiles = region_tiles(args, patch_size)
+    full_ink = torch.zeros((args.height, args.width), device=device)
+    full_fiber, weights = torch.zeros_like(full_ink), torch.zeros_like(full_ink)
     if args.gaussian_blend:
         from vesuvius_autoresearch.core.villa_inference import GaussianBlender
 
-        print("Using Gaussian blending window...")
-        _blender = GaussianBlender(max_patch_size)
-        weight_window = _blender.get_weight_window(device)
+        window = GaussianBlender(patch_size).get_weight_window(device)
     else:
-        weight_window = get_weight_window(max_patch_size, device)
+        window = get_weight_window(patch_size, device)
 
     print(
-        f"Starting Ensemble Inference ({len(models)} models): {predict_width}x{predict_height}..."
+        f"Ensemble inference: {len(models)} models, {len(tiles)}/{args.tiles_total} tiles"
     )
+    with torch.no_grad():
+        for y, x in tiles:
+            block = dataset[
+                args.z : args.z + max_layers,
+                args.y + y : args.y + y + patch_size,
+                args.x + x : args.x + x + patch_size,
+            ]
+            batch = prepare_volume_input(
+                dataset.normalize(block), use_ridges_any, max_layers, patch_size, device
+            )
+            ink_sum, fiber_sum = torch.zeros_like(window), torch.zeros_like(window)
+            for model, use_ridges, layers, _ in models:
+                model_input = batch[:, : 2 if use_ridges else 1, :layers]
+                ink, fiber = multitask_probabilities(
+                    model, model_input, args.disable_tta
+                )
+                ink_sum += ink[0]
+                fiber_sum += fiber[0]
+            full_ink[y : y + patch_size, x : x + patch_size] += (
+                ink_sum / len(models) * window
+            )
+            full_fiber[y : y + patch_size, x : x + patch_size] += (
+                fiber_sum / len(models) * window
+            )
+            weights[y : y + patch_size, x : x + patch_size] += window
 
-    # Tiling Loop Setup
-    all_chunks = []
-    for y_off in range(0, predict_height - max_patch_size + 1, stride):
-        for x_off in range(0, predict_width - max_patch_size + 1, stride):
-            all_chunks.append((y_off, x_off))
-
-    my_chunks = all_chunks[args.part_id :: args.num_parts]
+    ink = normalize_blend(full_ink, weights, args.num_parts == 1).cpu().numpy()
+    fiber = normalize_blend(full_fiber, weights, args.num_parts == 1).cpu().numpy()
+    args.coverage_fraction = int((weights > 0).sum().item()) / weights.numel()
+    base = f"ensemble_pred_{args.z}_{args.y}_{args.x}_{args.width}x{args.height}"
     if args.num_parts > 1:
-        print(
-            f"Distributed Inference: processing part {args.part_id}/{args.num_parts} ({len(my_chunks)}/{len(all_chunks)} chunks)"
+        base += f"_part{args.part_id}of{args.num_parts}"
+    output_img = args.output_img or f"predictions/{base}.png"
+    output_dir = os.path.dirname(output_img) or "."
+    os.makedirs(output_dir, exist_ok=True)
+    if args.num_parts > 1:
+        args.blend_weight_path = os.path.join(output_dir, f"{base}_weight.npy")
+        np.save(args.blend_weight_path, weights.cpu().numpy())
+    exports = []
+    for name, array in (("ink", ink), ("fiber", fiber)):
+        np.save(os.path.join(output_dir, f"{base}_{name}.npy"), array)
+        image = (np.clip(array, 0, 1) * 255).astype(np.uint8)
+        Image.fromarray(image).save(os.path.join(output_dir, f"{base}_{name}.png"))
+        export = os.path.join(output_dir, f"{base}_{name}.zarr")
+        save_vc3d_zarr(
+            export,
+            image,
+            name=f"Ensemble {name}",
+            voxel_size_um=args.voxel_size_um,
+            source_uri=args.uri,
+            origin_xyz=[args.x, args.y, args.z],
         )
+        exports.append(export)
 
-    for y_off, x_off in my_chunks:
-        curr_y = args.y + y_off
-        curr_x = args.x + x_off
-
-        # Read block capable of satisfying max_layers
-        block = dataset[
-            args.z : args.z + max_layers,
-            curr_y : curr_y + max_patch_size,
-            curr_x : curr_x + max_patch_size,
-        ]
-
-        x_norm = dataset.normalize(block).unsqueeze(0).to(device)  # [B, C, Z, H, W]
-
-        ensemble_ink = 0.0
-        ensemble_fiber = 0.0
-
-        with torch.no_grad():
-            for model, use_ridges, n_layers, p_size in models:
-                # Slice input to match model requirements
-                model_x = x_norm[:, :, :n_layers, :p_size, :p_size]
-                if not use_ridges:
-                    model_x = model_x[
-                        :, :1, :, :, :
-                    ]  # Take only CT channel if ridges not used
-
-                if len(model_x.shape) == 4:
-                    # shape is [B, Z, H, W], we need [B, 1, Z, H, W]
-                    model_x = model_x.unsqueeze(1)
-
-                if args.disable_tta:
-                    out_ink_2d, out_fiber, out_qc = model(
-                        model_x, return_fiber=True, return_qc=True
-                    )
-                    gate = torch.sigmoid(out_qc / 0.1)
-                    prob_ink = torch.sigmoid(out_ink_2d).squeeze() * gate.view(-1)
-                    prob_fiber = torch.sigmoid(out_fiber.mean(dim=2)).squeeze()
-                else:
-                    prob_ink = 0.0
-                    prob_fiber = 0.0
-
-                    # 0: no flip
-                    i, f, q = model(model_x, return_fiber=True, return_qc=True)
-                    prob_ink += torch.sigmoid(i).squeeze() * torch.sigmoid(
-                        q / 0.1
-                    ).view(-1)
-                    prob_fiber += torch.sigmoid(f.mean(dim=2)).squeeze()
-
-                    # 1: flip W
-                    i, f, q = model(
-                        torch.flip(model_x, [-1]), return_fiber=True, return_qc=True
-                    )
-                    prob_ink += torch.flip(
-                        torch.sigmoid(i).squeeze(), [-1]
-                    ) * torch.sigmoid(q / 0.1).view(-1)
-                    prob_fiber += torch.flip(
-                        torch.sigmoid(f.mean(dim=2)).squeeze(), [-1]
-                    )
-
-                    # 2: flip H
-                    i, f, q = model(
-                        torch.flip(model_x, [-2]), return_fiber=True, return_qc=True
-                    )
-                    prob_ink += torch.flip(
-                        torch.sigmoid(i).squeeze(), [-2]
-                    ) * torch.sigmoid(q / 0.1).view(-1)
-                    prob_fiber += torch.flip(
-                        torch.sigmoid(f.mean(dim=2)).squeeze(), [-2]
-                    )
-
-                    # 3: flip HW
-                    i, f, q = model(
-                        torch.flip(model_x, [-2, -1]), return_fiber=True, return_qc=True
-                    )
-                    prob_ink += torch.flip(
-                        torch.sigmoid(i).squeeze(), [-2, -1]
-                    ) * torch.sigmoid(q / 0.1).view(-1)
-                    prob_fiber += torch.flip(
-                        torch.sigmoid(f.mean(dim=2)).squeeze(), [-2, -1]
-                    )
-
-                    prob_ink /= 4.0
-                    prob_fiber /= 4.0
-
-                ensemble_ink += prob_ink
-                ensemble_fiber += prob_fiber
-
-            # Average probabilities
-            ensemble_ink /= len(models)
-            ensemble_fiber /= len(models)
-
-            # Accumulate with weight window
-            full_prob_ink[
-                y_off : y_off + max_patch_size, x_off : x_off + max_patch_size
-            ] += ensemble_ink * weight_window
-            full_prob_fiber[
-                y_off : y_off + max_patch_size, x_off : x_off + max_patch_size
-            ] += ensemble_fiber * weight_window
-            full_weight[
-                y_off : y_off + max_patch_size, x_off : x_off + max_patch_size
-            ] += weight_window
-
-    # Normalize by weights
-    full_prob_ink /= full_weight + 1e-8
-    full_prob_fiber /= full_weight + 1e-8
-
-    prob_ink_final = full_prob_ink.cpu().numpy()
-    prob_fiber_final = full_prob_fiber.cpu().numpy()
-
-    # Save results
-    os.makedirs("predictions", exist_ok=True)
-    base_name = (
-        f"ensemble_pred_{args.z}_{args.y}_{args.x}_{predict_width}x{predict_height}"
-    )
-    if args.num_parts > 1:
-        base_name += f"_part{args.part_id}of{args.num_parts}"
-    np.save(f"predictions/{base_name}_ink.npy", prob_ink_final)
-    np.save(f"predictions/{base_name}_fiber.npy", prob_fiber_final)
-
-    from PIL import Image
-
-    ink_uint8 = (np.clip(prob_ink_final, 0, 1) * 255).astype(np.uint8)
-    Image.fromarray(ink_uint8).save(f"predictions/{base_name}_ink.png")
-
-    zarr_path = f"predictions/{base_name}_ink.zarr"
-    save_vc3d_zarr(zarr_path, ink_uint8, name=f"Ensemble Ink Prediction {base_name}")
-
-    # FastVesuviusVolume.__getitem__ expects slices (not scalars) on every
-    # axis: it does z_slice.start/stop arithmetic. Pass z as a 1-element
-    # slice. Also drop the channel dim if use_ridges=True (returns
-    # (C, D, H, W) instead of (D, H, W)) and the singleton z dim.
     z_mid = args.z + max_layers // 2
-    ct_full = dataset[
-        z_mid : z_mid + 1,
-        args.y : args.y + predict_height,
-        args.x : args.x + predict_width,
+    ct = dataset[
+        z_mid : z_mid + 1, args.y : args.y + args.height, args.x : args.x + args.width
     ]
-    if (
-        hasattr(ct_full, "dim")
-        and ct_full.dim() == 4
-        or hasattr(ct_full, "ndim")
-        and ct_full.ndim == 4
-    ):
-        ct_full = ct_full[0]
-    ct_slice = np.array(ct_full[0], dtype=np.float32)
-
-    fig, axes = plt.subplots(1, 3, figsize=(15, 5))
+    if ct.ndim == 4:
+        ct = ct[0]
+    ct_slice = ct[0].detach().cpu().numpy().astype(np.float32, copy=False)
+    figure, axes = plt.subplots(1, 3, figsize=(15, 5))
     axes[0].imshow(ct_slice, cmap="gray")
-    axes[0].set_title(f"CT Slice (Z={args.z + max_layers // 2})")
-
-    axes[1].imshow(prob_fiber_final, cmap="magma")
+    axes[0].set_title(f"CT Slice (Z={z_mid})")
+    axes[1].imshow(fiber, cmap="magma")
     axes[1].set_title("Ensemble Fiber Context")
-
     axes[2].imshow(ct_slice, cmap="gray")
-    axes[2].imshow(prob_ink_final, cmap="jet", alpha=0.5)
+    axes[2].imshow(ink, cmap="jet", alpha=0.5)
     axes[2].set_title("Ensemble Gated Ink Overlay")
-
-    # Use the voxel_size_um captured from the first checkpoint's config (default
-    # 7.91 µm) — mirrors predict.py's scale-bar calibration fix (commit 40d64c2).
-    # The PNG scale bar must match the OME-Zarr metadata that ships alongside.
-    pixel_size_um = voxel_size_um
-    one_cm_px = 10000 / pixel_size_um
-    one_mm_px = 1000 / pixel_size_um
-
+    bar_px, label = prediction_scale_bar(args.width, args.voxel_size_um)
     for ax in axes:
-        bar_px = one_mm_px if predict_width < one_cm_px else one_cm_px
-        label = "1mm" if predict_width < one_cm_px else "1cm"
-        rect = Rectangle(
-            (10, predict_height - 20), bar_px, 5, facecolor="white", edgecolor="black"
+        ax.add_patch(
+            Rectangle(
+                (args.width * 0.1, args.height * 0.85),
+                bar_px,
+                max(0.5, args.height * 0.02),
+                facecolor="white",
+                edgecolor="black",
+            )
         )
-        ax.add_patch(rect)
         ax.text(
-            10,
-            predict_height - 25,
+            args.width * 0.1,
+            args.height * 0.75,
             label,
             color="white",
             fontsize=10,
             fontweight="bold",
         )
         ax.axis("off")
-
-    plt.tight_layout()
-    out_path = args.output_img if args.output_img else f"predictions/{base_name}.png"
-    plt.savefig(out_path)
-    plt.close()
-
-    print("\nEnsemble Prediction Complete!")
-    print(f"Visualization saved to {out_path}")
+    figure.tight_layout()
+    figure.savefig(output_img)
+    plt.close(figure)
+    metadata_path = args.metadata_out or os.path.join(output_dir, f"{base}_meta.json")
+    write_prediction_metadata(
+        metadata_path,
+        args,
+        configs[0],
+        exports[0],
+        output_img,
+        {"mean": float(ink.mean()), "std": float(ink.std()), "max": float(ink.max())},
+        fiber_zarr_path=exports[1],
+        fiber_stats={
+            "mean": float(fiber.mean()),
+            "std": float(fiber.std()),
+            "max": float(fiber.max()),
+        },
+        extra_metadata={
+            "ensemble_checkpoints": [
+                str(Path(path).resolve()) for path in args.checkpoints
+            ],
+            "ensemble_model_configs": configs,
+            "ensemble_max_layers": max_layers,
+            "model_config_scope": "first_ensemble_member",
+        },
+    )
+    print(
+        f"Ensemble prediction {'complete' if args.num_parts == 1 else 'shard complete (partial region)'}. Metadata: {metadata_path}"
+    )
 
 
 if __name__ == "__main__":

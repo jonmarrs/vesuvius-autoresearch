@@ -5,7 +5,6 @@ Usage: uv run python -m scripts.inference.predict --uri "s3://..." --z 1000 --y 
 """
 
 import json
-import math
 import os
 import sys
 from pathlib import Path
@@ -20,21 +19,19 @@ import torch
 from matplotlib.patches import Rectangle
 from tap import Tap
 
-from scripts.swarm_voter import SwarmVoter
+from vesuvius_autoresearch.core.inference import (
+    hann2d,
+    multitask_inference_recipe,
+    multitask_probabilities,
+    normalize_blend,
+    positive_number,
+    prepare_volume_input,
+    region_tiles,
+    validate_model_settings,
+    validate_region,
+)
+from vesuvius_autoresearch.core.model_wrappers import build_inference_model
 from vesuvius_autoresearch.core.vesuvius_loader import FastVesuviusVolume
-from vesuvius_model import VesuviusConfig
-
-try:
-    from dynamic_network_architectures.architectures.unet import ResidualEncoderUNet
-    from dynamic_network_architectures.building_blocks.helper import (
-        convert_dim_to_conv_op,
-        get_matching_instancenorm,
-    )
-except ImportError as exc:
-    print(
-        f"Warning: ResidualEncoderUNet unavailable in predict.py; resenc_unet checkpoints cannot be loaded: {exc}"
-    )
-    ResidualEncoderUNet = None
 
 
 def load_compatible_state_dict(model, state_dict):
@@ -52,9 +49,6 @@ def load_compatible_state_dict(model, state_dict):
             f"Warning: skipped {len(skipped)} incompatible checkpoint tensors: {', '.join(skipped[:8])}"
         )
     return skipped
-
-
-from vesuvius_autoresearch.core.model_wrappers import build_inference_model
 
 
 def build_prediction_model(config_dict, args, use_ridges):
@@ -77,10 +71,8 @@ def build_prediction_model(config_dict, args, use_ridges):
 
 
 def get_weight_window(patch_size, device):
-    """Generates a 2D Hanning window for soft-tiling."""
-    h = torch.hann_window(patch_size, periodic=False).to(device)
-    window = h.unsqueeze(1) * h.unsqueeze(0)
-    return window
+    """Positive Hanning weights, including the requested region's outer edges."""
+    return hann2d(patch_size, patch_size, device)
 
 
 def prediction_scale_bar(width, voxel_size_um):
@@ -202,6 +194,7 @@ def write_prediction_metadata(
     fiber_zarr_path=None,
     fiber_stats=None,
     fiber_coherence=None,
+    extra_metadata=None,
 ):
     voxel_size_um = float(
         config_dict.get(
@@ -231,12 +224,30 @@ def write_prediction_metadata(
         else None,
         "output_image_path": str(Path(output_img).resolve()) if output_img else None,
         "model_config": config_dict,
+        "checkpoint_path": str(Path(args.checkpoint).resolve())
+        if getattr(args, "checkpoint", None)
+        else None,
+        "inference_recipe": getattr(args, "inference_recipe", None),
         "ink_stats": ink_stats,
         "fiber_stats": fiber_stats or {},
         "fiber_coherence": fiber_coherence,
+        "num_parts": getattr(args, "num_parts", 1),
+        "part_id": getattr(args, "part_id", 0),
+        "prediction_complete": getattr(args, "num_parts", 1) == 1,
+        "coverage_fraction": getattr(args, "coverage_fraction", 1.0),
+        "tiles_total": getattr(args, "tiles_total", None),
+        "tiles_processed": getattr(args, "tiles_processed", None),
+        "blend_weight_path": str(Path(args.blend_weight_path).resolve())
+        if getattr(args, "blend_weight_path", None)
+        else None,
     }
-    with open(path, "w") as f:
-        json.dump(metadata, f, indent=2)
+    if extra_metadata:
+        if metadata.keys() & extra_metadata.keys():
+            raise ValueError("extra metadata must not overwrite prediction facts")
+        metadata.update(extra_metadata)
+    encoded = json.dumps(metadata, indent=2, allow_nan=False)
+    Path(path).parent.mkdir(parents=True, exist_ok=True)
+    Path(path).write_text(encoded + "\n")
 
 
 class PredictionArgs(Tap):
@@ -264,9 +275,22 @@ class PredictionArgs(Tap):
     )
     gaussian_blend: bool = True  # Use Gaussian blending instead of Hanning window
 
+    def configure(self):
+        self.add_argument("--gaussian_blend", action="store_true", default=True)
+        self.add_argument(
+            "--no-gaussian_blend",
+            dest="gaussian_blend",
+            action="store_false",
+            default=True,
+            help="Use positive Hann blending instead of Gaussian blending",
+        )
+
 
 def predict():
     args = PredictionArgs().parse_args()
+    args.inference_recipe = multitask_inference_recipe(
+        args.disable_tta, args.gaussian_blend
+    )
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Loading volume from {args.uri}...")
@@ -279,66 +303,42 @@ def predict():
         )
 
     checkpoint = torch.load(checkpoint_path, map_location=device, weights_only=False)
+    if not isinstance(checkpoint, dict) or not isinstance(
+        checkpoint.get("config", {}), dict
+    ):
+        raise ValueError("checkpoint and checkpoint config must be objects")
     config_dict = checkpoint.get("config", {})
-    args.voxel_size_um = float(
+    args.voxel_size_um = positive_number(
         config_dict.get(
             "voxel_size_um", config_dict.get("voxelsize", args.voxel_size_um)
-        )
+        ),
+        "voxel_size_um",
     )
-    if not math.isfinite(args.voxel_size_um) or args.voxel_size_um <= 0:
-        raise ValueError("voxel size must be positive and finite")
 
     # Reconstruct VesuviusConfig from checkpoint, overriding args if present
     patch_size = config_dict.get("patch_size", args.patch_size)
     num_layers = config_dict.get("num_layers", args.num_layers)
     base_feat = config_dict.get("base_feat", args.base_feat)
-    num_blocks = config_dict.get("num_blocks", 16)
-    num_heads = config_dict.get("num_heads", 8)
-    dropout = config_dict.get("dropout", 0.0)
     use_ridges = config_dict.get("use_ridges", args.use_ridges)
-
-    v_config = VesuviusConfig(
-        patch_size=patch_size,
-        num_layers=num_layers,
-        base_feat=base_feat,
-        num_blocks=num_blocks,
-        num_heads=num_heads,
-        dropout=dropout,
-        in_channels=2 if use_ridges else 1,
+    ridge_sigma = validate_model_settings(
+        config_dict, patch_size, num_layers, base_feat
     )
-
-    # Initialize Ensemble
-    checkpoint_paths = [checkpoint_path]
-    ensemble_models = []
-
-    for path in checkpoint_paths:
-        checkpoint = torch.load(path, map_location=device, weights_only=False)
-        config_dict = checkpoint.get("config", {})
-        model = build_prediction_model(config_dict, args, use_ridges).to(device)
-        # Partial warm starts are appropriate for training, not evidence export.
-        model.load_state_dict(checkpoint["model_state_dict"], strict=True)
-        model.eval()
-        ensemble_models.append(model)
-
-    model = SwarmVoter(ensemble_models)
+    if not isinstance(use_ridges, bool):
+        raise ValueError("use_ridges must be a boolean")
+    validate_region(args, patch_size, num_layers)
+    model = build_prediction_model(config_dict, args, use_ridges).to(device)
+    # Partial warm starts are appropriate for training, not evidence export.
+    model.load_state_dict(checkpoint["model_state_dict"], strict=True)
     model.eval()
 
-    # The loop below mirrors all three heads together. Wrapping this model in
-    # upstream TTA as well both duplicates augmentation and rejects head kwargs.
-
     # Open the dataset
-    dataset = FastVesuviusVolume(args.uri, use_ridges=use_ridges)
+    dataset = FastVesuviusVolume(
+        args.uri, use_ridges=use_ridges, ridge_sigma=ridge_sigma
+    )
+    validate_region(args, patch_size, num_layers, dataset.shape)
 
     # Determine region and tiling parameters
-    predict_width = max(patch_size, args.width if args.width else patch_size)
-    predict_height = max(patch_size, args.height if args.height else patch_size)
-    stride = (
-        args.stride
-        if args.stride
-        else patch_size // 2
-        if (args.width or args.height)
-        else patch_size
-    )
+    predict_width, predict_height, stride = args.width, args.height, args.stride
 
     # Initialize accumulation buffers
     full_prob_ink = torch.zeros((predict_height, predict_width), device=device)
@@ -360,17 +360,11 @@ def predict():
     )
 
     # Tiling Loop Setup
-    all_chunks = []
-    for y_off in range(0, predict_height - patch_size + 1, stride):
-        for x_off in range(0, predict_width - patch_size + 1, stride):
-            all_chunks.append((y_off, x_off))
-
-    # Shard chunks for Distributed Inference
-    my_chunks = all_chunks[args.part_id :: args.num_parts]
+    my_chunks = region_tiles(args, patch_size)
 
     if args.num_parts > 1:
         print(
-            f"Distributed Inference: processing part {args.part_id}/{args.num_parts} ({len(my_chunks)}/{len(all_chunks)} chunks)"
+            f"Distributed Inference: processing part {args.part_id}/{args.num_parts} ({len(my_chunks)}/{args.tiles_total} chunks)"
         )
 
     for y_off, x_off in my_chunks:
@@ -385,55 +379,13 @@ def predict():
         ]
 
         # Prepare input
-        x = dataset.normalize(block).unsqueeze(0).to(device)  # [B, C, Z, H, W]
-        if not use_ridges:
-            x = x.unsqueeze(1)  # [B, 1, Z, H, W]
+        x = prepare_volume_input(
+            dataset.normalize(block), use_ridges, num_layers, patch_size, device
+        )
 
         with torch.no_grad():
-            if args.disable_tta:
-                out_ink_2d, out_fiber, out_qc = model(
-                    x, return_fiber=True, return_qc=True
-                )
-
-                gate = torch.sigmoid(out_qc / 0.1)
-                prob_ink = torch.sigmoid(out_ink_2d).squeeze() * gate.view(-1)
-                prob_fiber = torch.sigmoid(out_fiber.mean(dim=2)).squeeze()
-            else:
-                prob_ink = 0.0
-                prob_fiber = 0.0
-
-                # 0: no flip
-                i, f, q = model(x, return_fiber=True, return_qc=True)
-                prob_ink += torch.sigmoid(i).squeeze() * torch.sigmoid(q / 0.1).view(-1)
-                prob_fiber += torch.sigmoid(f.mean(dim=2)).squeeze()
-
-                # 1: flip W
-                i, f, q = model(torch.flip(x, [-1]), return_fiber=True, return_qc=True)
-                prob_ink += torch.flip(
-                    torch.sigmoid(i).squeeze(), [-1]
-                ) * torch.sigmoid(q / 0.1).view(-1)
-                prob_fiber += torch.flip(torch.sigmoid(f.mean(dim=2)).squeeze(), [-1])
-
-                # 2: flip H
-                i, f, q = model(torch.flip(x, [-2]), return_fiber=True, return_qc=True)
-                prob_ink += torch.flip(
-                    torch.sigmoid(i).squeeze(), [-2]
-                ) * torch.sigmoid(q / 0.1).view(-1)
-                prob_fiber += torch.flip(torch.sigmoid(f.mean(dim=2)).squeeze(), [-2])
-
-                # 3: flip HW
-                i, f, q = model(
-                    torch.flip(x, [-2, -1]), return_fiber=True, return_qc=True
-                )
-                prob_ink += torch.flip(
-                    torch.sigmoid(i).squeeze(), [-2, -1]
-                ) * torch.sigmoid(q / 0.1).view(-1)
-                prob_fiber += torch.flip(
-                    torch.sigmoid(f.mean(dim=2)).squeeze(), [-2, -1]
-                )
-
-                prob_ink /= 4.0
-                prob_fiber /= 4.0
+            ink_batch, fiber_batch = multitask_probabilities(model, x, args.disable_tta)
+            prob_ink, prob_fiber = ink_batch[0], fiber_batch[0]
 
             # Accumulate with weight window
             full_prob_ink[y_off : y_off + patch_size, x_off : x_off + patch_size] += (
@@ -447,8 +399,9 @@ def predict():
             )
 
     # Normalize by weights
-    full_prob_ink /= full_weight + 1e-8
-    full_prob_fiber /= full_weight + 1e-8
+    full_prob_ink = normalize_blend(full_prob_ink, full_weight, args.num_parts == 1)
+    full_prob_fiber = normalize_blend(full_prob_fiber, full_weight, args.num_parts == 1)
+    args.coverage_fraction = int((full_weight > 0).sum().item()) / full_weight.numel()
 
     prob_ink_final = full_prob_ink.cpu().numpy()
     prob_fiber_final = full_prob_fiber.cpu().numpy()
@@ -457,10 +410,13 @@ def predict():
     if args.num_parts > 1:
         base_name += f"_part{args.part_id}of{args.num_parts}"
     out_path = args.output_img if args.output_img else f"predictions/{base_name}.png"
-    output_dir = os.path.dirname(out_path) or "predictions"
+    output_dir = os.path.dirname(out_path) or "."
     os.makedirs(output_dir, exist_ok=True)
     np.save(os.path.join(output_dir, f"{base_name}_ink.npy"), prob_ink_final)
     np.save(os.path.join(output_dir, f"{base_name}_fiber.npy"), prob_fiber_final)
+    if args.num_parts > 1:
+        args.blend_weight_path = os.path.join(output_dir, f"{base_name}_weight.npy")
+        np.save(args.blend_weight_path, full_weight.cpu().numpy())
 
     # Save as Crackle-Viewer compatible PNG (8-bit grayscale)
     from PIL import Image
@@ -577,7 +533,9 @@ def predict():
     plt.close()
 
     metadata_path = (
-        args.metadata_out if args.metadata_out else f"predictions/{base_name}_meta.json"
+        args.metadata_out
+        if args.metadata_out
+        else os.path.join(output_dir, f"{base_name}_meta.json")
     )
     write_prediction_metadata(
         metadata_path,
@@ -633,7 +591,11 @@ def predict():
         except Exception as exc:
             print(f"Warning: fiber coherence evaluation failed: {exc}")
 
-    print("\nPrediction Complete!")
+    print(
+        "\nPrediction complete."
+        if args.num_parts == 1
+        else "\nPartial prediction shard complete."
+    )
     print(
         f"Region: {predict_width}x{predict_height} at Z={args.z}, Y={args.y}, X={args.x}"
     )

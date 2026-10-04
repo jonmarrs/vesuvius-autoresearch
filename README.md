@@ -1,7 +1,5 @@
 # bountyhunter: Vesuvius Autoresearch
 
-![teaser](progress.png)
-
 *The first autonomous research swarm for the Vesuvius Challenge.*
 
 > **Honest results, methodology, and negative results:** see [FINDINGS.md](FINDINGS.md). Current headlines: a **working, window-compliant ink detector** (held-out same-scroll `val_f1` 0.393 / prevalence-lift 2.07, [reproduction](reports/detector/REPRODUCTION.md)), the **first valid cross-scroll measurement** (lift 1.29 — the quantified generalization gap), a **SOTA-distilled model** (`val_f1` 0.662 / lift 3.24 *agreement-with-teacher* on the open SOTA data, [report](reports/detector/sota_distill_measurement.md)), **measured cross-scroll distillation**: training-scroll diversity lifts unseen-scroll transfer 1.22 → 2.12 at fixed budget, then saturates at ≈2.1 with a third scroll ([diversity](reports/detector/cross_scroll_distill.md), [scaling](reports/detector/cross_scroll_scale.md)); and — the load-bearing result — a **ground-truth calibration** built by registering 2023 hand labels onto the SOTA flattening: against human labels the canon prediction scores ROC-AUC 0.56–0.70 (segment-dependent), and on a **held-out** segment the clean distilled students read **ROC-AUC 0.731–0.746 / lift 2.3–2.4** against an all-positive floor of 0.518 ([report](reports/detector/registered_gt_heldout_validation.md)) — genuine held-out generalization, at or just under the canon teacher's 0.753 there, so read it as faithful distillation of a teacher that *does* read rather than as beating it. **Corrected 2026-08-07:** this previously said the students read near chance; that was a hardcoded-constant bug in our own registration, found and published as a retraction ([detail](reports/detector/registration_offset_2026-08-07.md)). July: the surface renderer **gate-PASSED a second-scroll validation** (PHerc 1667 clean triple, NCC 0.78 vs pre-registered 0.60; Scroll 1's 0.59 confirmed as a resolution-mismatched comparison), rendered independent surface volumes of PHerc 1667's merged full-reading geometry (note: villa's own `vc_obj2tifxyz` + `vc_render_tifxyz` already cover both of our input paths more capably — an earlier "for the first time" framing here was wrong), and the published reading's 22 columns were registered onto that geometry as **[ScrollGT](https://github.com/jonmarrs/scrollgt)'s first non-training-scroll target** — on which our own models measure at the floor (arm C col-vs-gutter AUC 0.575 against a noise floor of 0.578 on the definitive full-band n=18v17 rows, i.e. statistically at the floor, texture not letterforms; an earlier 0.667 here came from a superseded n=3v2 extreme; [report](reports/detector/scrollgt_v02_columns.md)). Earlier over-reads (the "64 px window is learnability-limited" claim; a first over-optimistic ground-truth framing) were caught and corrected — see FINDINGS.
@@ -150,6 +148,12 @@ one patch wide and tall. The output includes a uint8 OME-Zarr group and metadata
 CLI positions are source voxel indices in x/y/z order; OME transforms use z/y/x
 order in micrometers. Voxel size comes from the checkpoint when recorded, with
 `--voxel-size-um` providing the fallback (default 7.91).
+
+For regional ink/fiber overlays and ensembles, see
+[CT-volume inference](docs/VOLUME_INFERENCE.md). These commands use QC gating and
+optional mirror averaging; their metadata records the applied recipe. Ensemble
+members must share spatial context and calibration. Partial inference shards
+are identified explicitly and cannot pass complete-region submission validation.
 
 ## Running the agent
 
