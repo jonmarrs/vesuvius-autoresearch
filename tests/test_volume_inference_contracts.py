@@ -14,8 +14,6 @@ from scripts.validate_prize_artifact import validate
 from vesuvius_autoresearch.core import model_wrappers, vesuvius_loader
 from vesuvius_autoresearch.core.inference import multitask_probabilities
 
-pytest_plugins = ["test_submission_contracts"]
-
 
 class ConstantHeads(torch.nn.Module):
     def __init__(self, layers, ridges, bad=None):

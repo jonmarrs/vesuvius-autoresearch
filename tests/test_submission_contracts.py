@@ -18,38 +18,6 @@ from scripts.validate_prize_artifact import validate
 REPO = Path(__file__).resolve().parents[1]
 
 
-@pytest.fixture
-def evidence(tmp_path):
-    train = np.zeros((64, 64), dtype=bool)
-    predict = np.zeros_like(train)
-    train[:8, :8] = True
-    predict[-8:, -8:] = True
-    np.save(tmp_path / "train.npy", train)
-    np.save(tmp_path / "predict.npy", predict)
-    Image.new("L", (64, 64), 100).save(tmp_path / "prediction.png")
-    save_vc3d_zarr(tmp_path / "ink.zarr", np.zeros((64, 64), np.uint8))
-    metadata = {
-        "scroll_id": "Scroll 2",
-        "source_uri": "local_data/scroll.zarr",
-        "position_xyz": [1, 2, 3],
-        "patch_size": 64,
-        "ml_window_px": 64,
-        "width_px": 64,
-        "height_px": 64,
-        "voxel_size_um": 7.91,
-        "scale_bar_cm": True,
-        "source_image_is_placeholder": False,
-        "metadata_is_dry_run": False,
-        "output_image_path": str(tmp_path / "prediction.png"),
-        "train_mask_path": str(tmp_path / "train.npy"),
-        "predict_mask_path": str(tmp_path / "predict.npy"),
-        "vc3d_zarr_path": str(tmp_path / "ink.zarr"),
-    }
-    path = tmp_path / "metadata.json"
-    path.write_text(json.dumps(metadata))
-    return path, metadata
-
-
 def _update(evidence, **changes):
     path, metadata = evidence
     metadata.update(changes)
