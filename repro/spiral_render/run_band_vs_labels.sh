@@ -5,18 +5,19 @@ set -uo pipefail
 SO=/home/jon/openclaw-workspace/Neo-VM/spiral_out
 OUT=$SO/band_study
 IMG=vc-render:sampler-f637f3b35
-INKAGREE_REF=b739f51
+INKAGREE_REF=4add4cd   # 0.2.2 (0.2.1 lacked imagecodecs; see prereg amendment)
 STEPS="0.25 0.5 1.0 2.0"
 DISK_GUARD_GB=300
 say() { echo "$*  $(date -Is)"; }
 
 for p in /proc/[0-9]*; do [ "$(cat "$p/comm" 2>/dev/null)" = vc_render_tifxy ] && { say "BAND_ABORTED a render is running"; exit 3; }; done
 [ -e "$OUT" ] && { say "BAND_ABORTED $OUT exists"; exit 5; }
-mkdir -p "$OUT/vchome" "$OUT/results"
+VCHOME=$SO/band_cache  # outside $OUT so a relaunch reuses streamed chunks
+mkdir -p "$VCHOME" "$OUT/results"
 uv venv -q -p 3.12 "$OUT/venv" || { say "BAND_ABORTED venv"; exit 3; }
 VIRTUAL_ENV="$OUT/venv" uv pip install -q "git+https://github.com/jonmarrs/inkagree@$INKAGREE_REF" || { say "BAND_ABORTED install"; exit 3; }
 IA="$OUT/venv/bin/inkagree"
-[ "$("$IA" --version)" = "inkagree 0.2.1" ] || { say "BAND_ABORTED version $("$IA" --version)"; exit 3; }
+[ "$("$IA" --version)" = "inkagree 0.2.2" ] || { say "BAND_ABORTED version $("$IA" --version)"; exit 3; }
 mapfile -t SEGS < <("$IA" segments)
 [ "${#SEGS[@]}" -eq 8 ] || { say "BAND_ABORTED expected 8 labelled segments, got ${#SEGS[@]}"; exit 3; }
 printf '%s\n' "${SEGS[@]}" > "$OUT/SEGMENTS"
@@ -26,10 +27,10 @@ for S in "${SEGS[@]}"; do
   D=$OUT/$S
   "$IA" fetch "$S" "$D" > /dev/null || { say "FETCH_FAILED $S"; exit 1; }
   for X in $STEPS; do
-    G=$(du -s --block-size=1G "$OUT/vchome" | cut -f1)
+    G=$(du -s --block-size=1G "$VCHOME" | cut -f1)
     [ "$G" -le "$DISK_GUARD_GB" ] || { say "DISK_GUARD ${G}GB"; exit 4; }
     say "RENDER $S step $X"
-    "$IA" render "$D" "$D/step$X.tif" --image "$IMG" --cache-home "$OUT/vchome" -- --slice-step "$X" \
+    "$IA" render "$D" "$D/step$X.tif" --image "$IMG" --cache-home "$VCHOME" -- --slice-step "$X" \
       > "$D/step$X.out" 2>&1 || { say "RENDER_FAILED $S $X"; exit 1; }
     head -1 "$D/step$X.render.log" | grep -q -- "--slice-step $X" || { say "STEP_NOT_APPLIED $S $X"; exit 1; }
   done

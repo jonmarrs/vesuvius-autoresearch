@@ -44,3 +44,16 @@
 
 32 whole-segment renders at level 2 (about 3–5 min each, cold cache first) and 24 comparisons:
 about 2.5–3.5 h unattended. A new chunk cache under `spiral_out/band_study/vchome`, guarded at 300 GB.
+
+## Amendment, 2026-10-03 ~19:30, before any comparison (procedural only)
+
+The first launch rendered the first arm (`20230702185753`, step 0.25) and then failed while compositing:
+`vc_render_tifxyz` writes LZW TIFFs, and inkagree 0.2.1 did not declare `imagecodecs`, which tifffile
+needs to decode them. That was a packaging bug in the tool. It is fixed in **inkagree 0.2.2
+(`4add4cd`)**, with a test that reads LZW slices and a negative control showing the tests fail without
+the fix.
+
+The chain now pins `4add4cd` and checks for "inkagree 0.2.2". The chunk cache moves to
+`spiral_out/band_cache` (the attempt's 16 GB is kept and reused, since it holds the same public chunks).
+The attempt is kept as `spiral_out/band_study_attempt1`, and nothing from it is used: all 32 arms are
+rendered fresh. Method, arms, comparisons, aggregation and predictions are unchanged.
