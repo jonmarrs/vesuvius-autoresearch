@@ -1,5 +1,6 @@
 """No-retrain cross-scroll measurement: score one checkpoint across several fragments
 (same-scroll vs cross-scroll) with the community metric contract and write a gap report."""
+
 import json
 import os
 
@@ -7,10 +8,18 @@ import numpy as np
 
 from .data import read_image_mask
 from .infer import infer
-from .metrics import segmentation_metrics
+from .scoring import score_prediction
 
-_COLS = ["val_f1", "f1_at_0.5", "average_precision", "ap_prevalence_lift",
-         "precision", "recall", "positive_rate", "roc_auc"]
+_COLS = [
+    "val_f1",
+    "f1_at_0.5",
+    "average_precision",
+    "ap_prevalence_lift",
+    "precision",
+    "recall",
+    "positive_rate",
+    "roc_auc",
+]
 
 
 def measure(cfg, checkpoint_path, targets, model=None):
@@ -21,8 +30,7 @@ def measure(cfg, checkpoint_path, targets, model=None):
             prob = infer(cfg, checkpoint_path, fragment_id, model=model)
             _, label, mask = read_image_mask(cfg, fragment_id)
             h, w = label.shape
-            m = segmentation_metrics(prob[:h, :w], (label > 0.5).astype(np.uint8),
-                                     mask[:h, :w].astype(bool))
+            m = score_prediction(prob[:h, :w], label, mask[:h, :w])
             m.pop("metrics_by_threshold", None)
             m["scroll_label"] = scroll_label
             rows[fragment_id] = m
@@ -33,21 +41,32 @@ def measure(cfg, checkpoint_path, targets, model=None):
 
 
 def _fmt(v):
-    return f"{v:.4f}" if isinstance(v, (int, float)) and not isinstance(v, bool) else str(v)
+    return (
+        f"{v:.4f}"
+        if isinstance(v, (int, float)) and not isinstance(v, bool)
+        else str(v)
+    )
 
 
 def _write_report(cfg, checkpoint_path, rows):
-    lines = ["# Cross-Scroll Measurement", "",
-             f"Checkpoint: `{checkpoint_path}`", "",
-             "| fragment | scroll | " + " | ".join(_COLS) + " |",
-             "|---|---|" + "|".join(["---"] * len(_COLS)) + "|"]
+    lines = [
+        "# Cross-Scroll Measurement",
+        "",
+        f"Checkpoint: `{checkpoint_path}`",
+        "",
+        "| fragment | scroll | " + " | ".join(_COLS) + " |",
+        "|---|---|" + "|".join(["---"] * len(_COLS)) + "|",
+    ]
     for fid, m in rows.items():
         if "error" in m:
             lines.append(f"| {fid} | {m['scroll_label']} | ERROR: {m['error']} |")
             continue
-        lines.append(f"| {fid} | {m.get('scroll_label','')} | "
-                     + " | ".join(_fmt(m.get(c, float('nan'))) for c in _COLS) + " |")
+        lines.append(
+            f"| {fid} | {m.get('scroll_label', '')} | "
+            + " | ".join(_fmt(m.get(c, float("nan"))) for c in _COLS)
+            + " |"
+        )
     with open(os.path.join(cfg.reports_dir, "cross_scroll_measurement.md"), "w") as f:
         f.write("\n".join(lines) + "\n")
     with open(os.path.join(cfg.reports_dir, "cross_scroll_measurement.json"), "w") as f:
-        json.dump(rows, f, indent=2)
+        json.dump(rows, f, indent=2, allow_nan=False)
