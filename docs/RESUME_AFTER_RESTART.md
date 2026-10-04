@@ -5,7 +5,7 @@
 * At the metric's settings, the source build's band beats the published image's (8 of 8, about +8% AP),
   and step 2.0 beats 1.0 (8 of 8, about +10%). Both predictions FAILED. The October draft carries it.
   `reports/install_route_band_vs_labels.md`.
-* Disk: `spiral_out/route_cache` is **253 GB**. Ask the user before deleting.
+* Disk: `spiral_out/route_cache` (253 GB) was DELETED on 2026-10-04 with the user's approval.
 * A possible villa item (NOT drafted): this answers #1588's stale-image question with labels, but #1588 is
   under the no-add rule. The user decides.
 
