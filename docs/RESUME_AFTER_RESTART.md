@@ -7,7 +7,8 @@
   predictions are now disclosed in the October draft). `reports/sampling_band_vs_labels.md`.
 * inkagree is public (`github.com/jonmarrs/inkagree`, 0.2.2). Real use found two bugs: the CLI separator,
   and the missing imagecodecs dependency.
-* Disk: `spiral_out/band_cache` (the band study's chunk cache) can be deleted with the user's OK.
+* Disk: `spiral_out/band_cache` (44 GB, the band study's chunk cache) was DELETED on 2026-10-03 with the
+  user's approval. 944 GB free.
 
 
 ## 2026-10-03 (late): inkagree 0.1.0 built locally; publishing awaits the user's OK
