@@ -65,16 +65,16 @@ depends on, against villa's own code and villa's own ink labels:
     the scorer's agreement with villa's labels does not change (|ΔAP| < 0.001 in all 8, none resolved);
   * on grids as coarse as the spiral surfaces villa's loop scores, the count moves by −7.9% to +19.4%
     per segment (−31.9% to +41.5% per window). The raw render gets only slightly more faithful (about
-    1–2% of AP), and the scorer's agreement does not consistently change.
+    1% of AP), and the scorer's agreement does not consistently change.
 
   The effect scales with grid cell size (measured). Comparing runs rendered in different modes would
   bias a keep/discard decision by more than the gains the loop chases.
 * **The install route changes how faithful the metric's renders are, not only how much ink they find.**
   villa's published sampler image samples a thinner band than any current source build (finding 66:
-  −5% to −9% ink count). Against villa's labels at the metric's own settings, on all 8 segments, the source
-  build's band agrees better (8 of 8, about +8% AP), and a band twice as wide agrees better still (8 of 8,
-  about +10%). The stale image costs fidelity, and the metric's default band is narrower than the best
-  tested.
+  −5% to −9% ink count). Against villa's labels at the metric's own settings, on all 8 segments and
+  where the labels are defined, the source build's band agrees better (8 of 8, about +5% AP), and a band
+  twice as wide agrees better still (8 of 8, about +8%). The stale image costs fidelity, and the metric's
+  default band is narrower than the best tested.
 * **The comparison tool now reads what villa's runner writes.** inkdelta 0.3.0 rejected villa's real
   `--seeds` output as invalid; 0.4.0 reads it. 0.5.x refuses to compare runs rendered in different
   modes.
@@ -86,9 +86,9 @@ depends on, against villa's own code and villa's own ink labels:
   offset). Then it compares two arms: exact AP/AUC against villa's labels, an alignment gate, and a
   paired block bootstrap. "Does setting X read better?" becomes about an hour on one GPU per segment.
   **First use:** villa's tutorial renders with `--slice-step 0.5` for a "focused band". Against villa's
-  labels on all 8 segments, 0.5 beats 0.25 (8 of 8 resolved, about −5% of AP), 1.0 (7 of 8, about −11%)
-  and 2.0 (8 of 8, about −38%). The tutorial's choice is an interior optimum, now measured rather than
-  argued.
+  labels (where defined) on all 8 segments, 0.5 beats a thinner band (0.25: 8 of 8, about −6% of AP) and a
+  much wider one (2.0: 8 of 8, about −20%). Against 1.0 there is no consistent difference. The tutorial's
+  choice sits in the best range.
 * [inkdelta](https://github.com/jonmarrs/inkdelta) 0.5.1 (MIT, standard library only):
   * runs directly on villa's `run_single --seeds` output;
   * finds sweep logs;
@@ -108,7 +108,15 @@ depends on, against villa's own code and villa's own ink labels:
 
 ## Required disclosure — include it
 
-* **Ten of my registered predictions failed**, and the reports say so:
+* **A correction, made and registered before recomputing:** my label-based analyses (findings 71–76)
+  first scored the whole surface. villa's labels exist only inside its supervision mask (3–13% of each
+  segment), so unannotated ink counted as a miss. Re-analysed where the labels are defined:
+  * most findings survive;
+  * finding 75 survives with smaller effects;
+  * finding 74 does not survive as stated (step 0.5 vs 1.0 is not consistent).
+
+  inkagree 0.3.0 makes the supervised region its default. `reports/supervised_reanalysis.md`.
+* **Eleven of my registered predictions failed**, and the reports say so:
   * finding 70 (smooth would move the count < 1% in every crop window: it moved up to ±20%);
   * finding 71 prediction 1 (failed on three exclusions, one caused by a defect in my alignment gate);
   * finding 72 prediction 1 (the count was sensitive in 15% of windows, not ≥ 25%).
@@ -122,6 +130,7 @@ depends on, against villa's own code and villa's own ink labels:
     the source build's: the source build beat the first, and the wider band beat it, both in 8 of 8).
   * finding 76 prediction 1 (villa's ink count would track labelled-ink density across regions: ρ = +0.04,
     an ambiguous null, since the raw render does not track it either).
+  * the correction's prediction 3 (findings 74 and 75 would survive: 75 did, 74 did not as stated).
 * **The effect's size depends on grid cell size** (finding 73, measured): about 1% per window on
   villa's 20-voxel segment meshes, a 6.2% median and up to ±40% per window on 80-voxel grids like the
   spiral surfaces. Quote the size with the grid.

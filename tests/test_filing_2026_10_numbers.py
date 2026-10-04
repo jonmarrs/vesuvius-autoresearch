@@ -102,13 +102,8 @@ def test_coarse_grid_numbers_match_finding_73():
     assert f"{100 * (ws[n // 2] + ws[(n - 1) // 2]) / 2:.1f}% median" in txt
     ge = sum(r["prob"]["d_ap"] >= 0 for r in d["segments"])
     assert ge == 2 and "2 of 8, not ≥ 6" in txt
-    rel = [
-        r["strip"]["d_ap"] / r["strip"]["linear"]["ap"]
-        for r in d["segments"]
-        if r["strip"]["d_ap"] > 0
-    ]
-    assert min(rel) >= 0.009 and max(rel) <= 0.025  # "about 1–2% of AP"
-    assert "about 1–2% of AP" in txt
+    # the raw-render size (~1% of AP) is bound to the supervised re-analysis:
+    # test_band_and_route_numbers_are_the_supervised_ones
 
 
 _VAL = _REPO / "reports/inkagree_validation.json"
@@ -122,53 +117,47 @@ def test_inkagree_validation_claim_matches_its_artifact():
     assert "https://github.com/jonmarrs/inkagree" in _DRAFT.read_text()
 
 
-_BAND = _REPO / "reports/band_study"
+_SUP = _REPO / "reports/supervised_reanalysis.json"
 
 
-@pytest.mark.skipif(not _BAND.exists(), reason="band study artifacts absent")
-def test_band_study_numbers_match_finding_74():
-    txt = _text()
-    expect = {
-        "0.25": (8, 5),
-        "1.0": (7, 11),
-        "2.0": (8, 38),
-    }  # resolved for 0.5, |median relative dAP| in %
-    for step, (n_res, rel_pct) in expect.items():
-        s = json.loads((_BAND / f"summary_step{step}.json").read_text())
-        assert (
-            s["n_compared"] == 8
-            and s["verdict"] == "A agrees better"
-            and s["resolved_a_better"] == n_res
-        )
-        rows = [
-            json.loads(p.read_text()) for p in sorted(_BAND.glob(f"2*_step{step}.json"))
-        ]
-        rel = sorted(r["d_ap"] / r["a"]["ap"] for r in rows)
-        median = (rel[3] + rel[4]) / 2
-        assert round(-median * 100) == rel_pct
-        assert f"{n_res} of 8" in txt and f"about −{rel_pct}%" in txt
+def _rel_median(rows):
+    r = sorted(x["d_ap"] / x["ap_a"] for x in rows if x["status"] == "compared")
+    n = len(r)
+    return 100 * (r[n // 2] + r[(n - 1) // 2]) / 2
 
 
-_ROUTE = _REPO / "reports/route_study"
-
-
-@pytest.mark.skipif(not _ROUTE.exists(), reason="route study artifacts absent")
-def test_install_route_numbers_match_finding_75():
-    txt = _text()
-    for step, verdict, rel_pct in (
-        ("0.5", "A agrees better", -8),
-        ("2.0", "B agrees better", 10),
-    ):
-        s = json.loads((_ROUTE / f"summary_step{step}.json").read_text())
-        assert s["n_compared"] == 8 and s["verdict"] == verdict
-        assert max(s["resolved_a_better"], s["resolved_b_better"]) == 8
-        rows = [
-            json.loads(p.read_text())
-            for p in sorted(_ROUTE.glob(f"2*_step{step}.json"))
-        ]
-        rel = sorted(r["d_ap"] / r["a"]["ap"] for r in rows)
-        assert round(100 * (rel[3] + rel[4]) / 2) == rel_pct
-    assert "(8 of 8, about +8% AP)" in txt and "about +10%)" in txt
+@pytest.mark.skipif(not _SUP.exists(), reason="supervised re-analysis artifact absent")
+def test_band_and_route_numbers_are_the_supervised_ones():
+    d, txt = json.loads(_SUP.read_text()), _text()
+    f74 = d["f74"]
+    assert (
+        f74["0.25"]["tally"]["resolved_a"] == 8
+        and round(-_rel_median(f74["0.25"]["rows"])) == 6
+    )
+    assert (
+        f74["2.0"]["tally"]["resolved_a"] == 8
+        and round(-_rel_median(f74["2.0"]["rows"])) == 20
+    )
+    assert f74["1.0"]["tally"]["resolved_a"] < 6  # no consistent difference vs 1.0
+    assert (
+        "(0.25: 8 of 8, about −6% of AP)" in txt and "(2.0: 8 of 8, about −20%)" in txt
+    )
+    assert "Against 1.0 there is no consistent difference" in txt
+    f75 = d["f75"]
+    assert (
+        f75["0.5"]["tally"]["resolved_a"] == 8
+        and round(-_rel_median(f75["0.5"]["rows"])) == 5
+    )
+    assert (
+        f75["2.0"]["tally"]["resolved_b"] == 8
+        and round(_rel_median(f75["2.0"]["rows"])) == 8
+    )
+    assert "(8 of 8, about +5% AP)" in txt and "(8 of 8, about +8%)" in txt
+    assert (
+        d["f73"]["strip"]["tally"]["resolved_b"] == 8
+        and round(_rel_median(d["f73"]["strip"]["rows"])) == 1
+    )
+    assert "1% of AP)" in txt
 
 
 _F76 = _REPO / "reports/objective_vs_labels.json"

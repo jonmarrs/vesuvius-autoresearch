@@ -1,5 +1,7 @@
 # villa's scorer is a coarser instrument than the render it reads; at region scale, neither tracks label density
 
+> **Correction (2026-10-04, `reports/supervised_reanalysis.md`):** computed on the whole surface; villa's labels exist only inside its supervision mask, which explains much of Q1's 'ambiguous null'. On the supervised region Q2 **survives** (ratio 0.55 → 0.74). Q1 is undetermined under the registered rule. A **post-hoc** version on supervised tiles finds the render tracks label density (ρ = +0.61) but the scorer count only weakly (ρ = +0.15). That is a lead, not a finding.
+
 **2026-10-04.** Result of `docs/preregistration/2026-10-04_objective_vs_labels.md` (committed `3a60253d`
 before either statistic was computed). Inputs: finding 72's stored outputs (8 labelled segments, default
 mode, villa's metric settings, label level 3 at 19.2 µm/px). Data: `reports/objective_vs_labels.json`.

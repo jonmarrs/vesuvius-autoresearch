@@ -1,5 +1,7 @@
 # At villa's metric settings, the source build's band agrees better with villa's labels than the published image's, and a wider band better still
 
+> **Correction (2026-10-04, `reports/supervised_reanalysis.md`):** computed on the whole surface; villa's labels exist only inside its supervision mask. On the supervised region the finding **survives, smaller**: 1.0 beats 0.5 in 8 of 8 (median **−5.3%**, not −8.3%), and 2.0 beats 1.0 in 8 of 8 (**+8.2%**, not +10.3%).
+
 **2026-10-04.** Result of `docs/preregistration/2026-10-04_install_route_band_vs_labels.md` (committed
 `bf66d56a` before any arm rendered). Run end to end with inkagree 0.2.2 (`4add4cd`), pinned in its own
 environment. Per-segment results: `reports/route_study/`.

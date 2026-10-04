@@ -1,5 +1,7 @@
 # The tutorial's sampling band (slice step 0.5) agrees best with villa's ink labels; thinner and wider bands agree less
 
+> **Correction (2026-10-04, `reports/supervised_reanalysis.md`):** computed on the whole surface; villa's labels exist only inside its supervision mask. On the supervised region **this finding does not survive as stated.** 0.5 still beats 0.25 (8 of 8, −6.1%) and 2.0 (8 of 8, −20.4%), but **against 1.0 there is no consistent difference** (4 of 8 resolved, median −1.5%, range −4.8% … +1.4%). The best band is around 0.5–1.0.
+
 **2026-10-03.** Result of `docs/preregistration/2026-10-03_sampling_band_vs_labels.md` (committed `da148ac8`
 before any arm rendered; procedural amendment `45a830eb` before any comparison). It was run end to end
 with **inkagree 0.2.2** (github.com/jonmarrs/inkagree @ `4add4cd`), pinned in its own environment.

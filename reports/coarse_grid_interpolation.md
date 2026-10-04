@@ -1,5 +1,7 @@
 # Grid cell size drives the linear/smooth difference; on coarse grids smooth renders slightly more faithfully but the count swings far more
 
+> **Correction (2026-10-04, `reports/supervised_reanalysis.md`):** agreement was computed on the whole surface; villa's labels exist only inside its supervision mask. On the supervised region prediction 2 still **fails** as registered (smooth's scorer ≥ linear in 3 of 8). The secondary raw-render result **survives, smaller**: resolved in 8 of 8, median **+0.84%** of AP (not ~1–2%).
+
 **2026-10-03.** Result of `docs/preregistration/2026-10-03_coarse_grid_interpolation.md` (committed
 `f59ff84b` before any arm was scored). Data: `reports/scorer_vs_labels_coarse.json`. The fine-grid
 comparison is finding 72, `reports/scorer_vs_labels.json`.

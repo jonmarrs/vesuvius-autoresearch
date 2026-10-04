@@ -1,5 +1,7 @@
 # Against villa's ink labels, smooth and linear renders are equally faithful (ΔAP ≈ −0.0001)
 
+> **Correction (2026-10-04, `reports/supervised_reanalysis.md`):** these numbers were computed on the whole surface, but villa's labels are annotated only inside its supervision mask (3–13% of each segment). Re-analysed on the supervised region, the conclusion **survives**: no consistent difference (|ΔAP| < 0.01 in all 8), at median AP ≈ 0.74 instead of ~0.1.
+
 **2026-10-03.** Result of `docs/preregistration/2026-10-03_surface_interpolation_vs_labels.md` (committed
 `71b6bd42` before any metric). One post-hoc sensitivity check, labelled as such. Data:
 `reports/interp_vs_labels.json` (registered) and `reports/interp_vs_labels_sensitivity.json` (post hoc).

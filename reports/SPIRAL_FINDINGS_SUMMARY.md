@@ -1018,7 +1018,8 @@ segments with meshes subsampled 4× (~80-voxel cells, like the spiral surfaces v
 On spiral-scale grids the render mode moves the objective by tens of percent per region against a 1–2%
 change in raw faithfulness. `reports/coarse_grid_interpolation.md`.
 
-**74. The tutorial's sampling band (slice step 0.5) agrees best with villa's ink labels.** Pre-registered,
+**74. [CORRECTED by 77: does not survive as stated; on the supervised region 0.5 beats 0.25 and 2.0 but
+not 1.0.] The tutorial's sampling band (slice step 0.5) agrees best with villa's ink labels.** Pre-registered,
 run end to end with inkagree 0.2.2. On the 8 labelled segments, 0.5 beats 0.25 (8 of 8 resolved, about −5%
 of AP), 1.0 (7 of 8, about −11%; AUC rises in all 8) and 2.0 (8 of 8, about −38%).
 
@@ -1053,3 +1054,17 @@ label density.** Pre-registered, on finding 72's stored outputs.
   explain it. Not "the objective does not track ink".
 
 `reports/objective_vs_labels.md`.
+
+**77. Correction: findings 71–76 used the wrong evaluation domain; re-analysed on villa's supervised region.**
+villa's labels are annotated only inside `supervision.zarr` (3–13% of each segment, holding 97–100% of
+labelled ink). Findings 71–76 counted unannotated ink as negatives. The registered re-analysis:
+
+* **Survive:** 71, 72, 73, 76 Q2.
+* **Survives, smaller:** 75 (published-image sampling −5.3%, not −8.3%; step 2.0 +8.2%, not +10.3%); 73's
+  secondary result (+0.84%).
+* **Does not survive as stated:** 74. Step 0.5 vs 1.0 is not consistent (4 of 8).
+* **Undetermined:** 76 Q1.
+* **Post hoc lead:** within supervised tiles, the render tracks label density (ρ = +0.61), villa's scorer
+  count only weakly (ρ = +0.15).
+
+inkagree 0.3.0 evaluates on the supervised region by default. `reports/supervised_reanalysis.md`.
