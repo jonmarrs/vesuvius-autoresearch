@@ -118,7 +118,7 @@ depends on, against villa's own code and villa's own ink labels:
   * finding 74 does not survive as stated (step 0.5 vs 1.0 is not consistent).
 
   inkagree 0.3.0 makes the supervised region its default. `reports/supervised_reanalysis.md`.
-* **Eleven of my registered predictions failed**, and the reports say so:
+* **Twelve of my registered predictions failed**, and the reports say so:
   * finding 70 (smooth would move the count < 1% in every crop window: it moved up to ±20%);
   * finding 71 prediction 1 (failed on three exclusions, one caused by a defect in my alignment gate);
   * finding 72 prediction 1 (the count was sensitive in 15% of windows, not ≥ 25%).
@@ -133,6 +133,8 @@ depends on, against villa's own code and villa's own ink labels:
   * finding 76 prediction 1 (villa's ink count would track labelled-ink density across regions: ρ = +0.04,
     an ambiguous null, since the raw render does not track it either).
   * the correction's prediction 3 (findings 74 and 75 would survive: 75 did, 74 did not as stated).
+  * finding 79 prediction 1 (an unthresholded ink count would be less noisy across seeds on pinned code:
+    R = 0.91 [0.56, 1.47], no detectable difference; it was on current code, R = 0.52 [0.35, 0.91]).
 * **The effect's size depends on grid cell size** (finding 73, measured): about 1% per window on
   villa's 20-voxel segment meshes, a 6.2% median and up to ±40% per window on 80-voxel grids like the
   spiral surfaces. Quote the size with the grid.

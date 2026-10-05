@@ -1088,3 +1088,18 @@ checks.
 * **Not shown:** that the objective mis-ranks fits. Cross-region tracking is not the loop's comparison.
 
 `reports/scorer_tracking_gap.md`.
+
+**79. An unthresholded ink count is not shown to be a better objective for villa's loop.** Pre-registered
+(`17739f03`, Amendment 1 `8709476e`). S = Σ scorer probability against H = `total_fg_pixels`, 35 re-scored arms; all
+validity gates passed (V1 max deviation 0.0038%).
+
+* **Pinned seeds: P1 FAILED.** R = sd(ln S)/sd(ln H) = 0.907 [0.563, 1.466], no detectable difference.
+* **Offset sensitivity:** D = 1.606 [0.994, 2.586], no detectable difference. P2 held, barely.
+  * S trades sensitivity by direction: about half H's response inward (D 0.46), about double outward (D 2.06).
+  * The registered median is driven by the outward side, because four of the six registered offsets are outward.
+* **Current seeds: P3 held.** R = 0.523 [0.345, 0.910]. On the code villa runs, S has about half H's seed noise.
+* **Recommendation rule not met,** so S is not recommended to villa.
+* **Secondary, descriptive:** threshold 0.4 shows R 0.93 / 0.90 and D 1.17 [1.08, 1.25]. It was picked from four
+  candidates, so it is a lead, not a result.
+
+`reports/soft_count_study.md`.
