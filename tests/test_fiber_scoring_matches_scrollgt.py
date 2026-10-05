@@ -39,6 +39,13 @@ def _defs(path: Path) -> dict[str, str]:
 
 
 def _norm(s: str) -> str:
+    """Compare code, not layout: each repo's formatter may rewrap the same function.
+
+    ast.unparse renders both sides in one canonical layout, so a reformat does not fail the
+    test, while any change to the code, including docstrings, still does. The one intended
+    difference is the import path.
+    """
+    s = ast.unparse(ast.parse(s))
     return s.replace(
         "from vesuvius_autoresearch.fibers.skeleton_io import",
         "from .skeleton_io import",
@@ -48,17 +55,18 @@ def _norm(s: str) -> str:
 @pytest.mark.parametrize("name", VENDORED)
 def test_vendored_function_matches_scrollgt(name):
     mine, theirs = _defs(Path(ours.__file__)), _defs(SCROLLGT / "eval_trace.py")
-    assert _norm(mine[name]) == theirs[name], f"{name} has drifted from ScrollGT's"
+    assert _norm(mine[name]) == _norm(theirs[name]), (
+        f"{name} has drifted from ScrollGT's"
+    )
 
 
 def test_scoring_core_is_scrollgts_score_tracing():
     mine, theirs = _defs(Path(ours.__file__)), _defs(SCROLLGT / "eval_trace.py")
-    assert (
+    assert _norm(
         mine["_score_tracing_scrollgt"].replace(
             "def _score_tracing_scrollgt(", "def score_tracing(", 1
         )
-        == theirs["score_tracing"]
-    )
+    ) == _norm(theirs["score_tracing"])
 
 
 def _scrollgt_module():
