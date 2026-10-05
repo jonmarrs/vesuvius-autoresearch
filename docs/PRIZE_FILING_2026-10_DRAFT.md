@@ -91,7 +91,7 @@ depends on, against villa's own code and villa's own ink labels:
   labels (where defined) on all 8 segments, 0.5 beats a thinner band (0.25: 8 of 8, about −6% of AP) and a
   much wider one (2.0: 8 of 8, about −20%). Against 1.0 there is no consistent difference. The tutorial's
   choice sits in the best range.
-* [inkdelta](https://github.com/jonmarrs/inkdelta) 0.5.1 (MIT, standard library only):
+* [inkdelta](https://github.com/jonmarrs/inkdelta) 0.5.2 (MIT, standard library only):
   * runs directly on villa's `run_single --seeds` output;
   * finds sweep logs;
   * checks `aggregate_metrics.json`;

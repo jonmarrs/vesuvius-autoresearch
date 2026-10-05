@@ -168,3 +168,28 @@ def test_objective_vs_labels_claim_matches_finding_76():
     d = json.loads(_F76.read_text())
     assert d["predictions_held"]["p1_scorer_rho_gt_0.3_ci_excludes_0"] is False
     assert f"ρ = {d['q1']['scorer']['rho']:+.2f}" in _text()
+
+
+def _sibling_version(name: str) -> str | None:
+    import re
+
+    pp = _REPO.parent / name / "pyproject.toml"
+    if not pp.exists():
+        return None
+    m = re.search(r'^version\s*=\s*"([^"]+)"', pp.read_text(), re.M)
+    return m.group(1) if m else None
+
+
+@pytest.mark.parametrize(
+    "tool, pattern",
+    [
+        ("inkdelta", "[inkdelta](https://github.com/jonmarrs/inkdelta) {v} "),
+        ("inkagree", "now {v}, which evaluates"),
+    ],
+)
+def test_cited_tool_versions_are_the_current_ones(tool, pattern):
+    """The draft said inkdelta 0.5.1 for days after 0.5.2 shipped; tie the cite to the tool's own pyproject."""
+    v = _sibling_version(tool)
+    if v is None:
+        pytest.skip(f"{tool} checkout not beside this repo")
+    assert pattern.format(v=v) in _text(), f"draft does not cite {tool} {v}"
