@@ -365,22 +365,36 @@ def test_semantic_rejects_unsupported_saved_contract(model_bundle, setting):
         semantic.load_model(path, device="cpu")
 
 
-def test_graph_scoring_keeps_disconnected_same_id_runs_separate():
+def test_disconnected_same_id_pieces_are_separate_runs_but_not_a_split():
+    """ScrollGT's definition (scoring version 4 here): each connected stretch is walked on its own.
+
+    Two disjoint edges carrying one id cannot form a length-2 run. A gap between stretches is not
+    something the tracer could have bridged, so it is not counted as a split. (Version 3 counted it.)
+    """
     gt = simple_gt()
-    # Two disjoint edges carrying the same id cannot form a length-2 run.
     gt.fibers[0].edges = np.array([[0, 1], [3, 4]])
     s = score_tracing(gt, np.ones((3, 3, 8), dtype=np.int32), tolerance=0)
     assert s.erl == 1
-    assert s.splits == 1
+    assert sorted(s.run_lengths) == [1.0, 1.0]
+    assert s.splits == 0
 
 
-def test_graph_scoring_preserves_branch_connectivity():
+def test_a_branch_point_ends_a_stretch_under_the_scrollgt_definition():
+    """At a branch the walk continues along the lowest-numbered neighbour, and the other arm is a new stretch.
+
+    A three-armed star (arms of length 2) labelled with one id therefore scores runs of 4 and 2,
+    ERL 20/6, not one run of 6 as version 3's graph components did. Which arm continues depends
+    on node numbering. This is ScrollGT's documented residual: 31 branch nodes in its data move a
+    score by up to 2.8% under renumbering. It is accepted here so the two projects share one
+    definition.
+    """
     coords = np.array([[2, 2, 2], [2, 2, 4], [2, 4, 2], [4, 2, 2]], dtype=float)
     f = Fiber(1, "branch", np.arange(4), coords, np.array([[0, 1], [0, 2], [0, 3]]))
     inst = np.ones((7, 7, 7), dtype=np.uint64) * (2**40 + 1)
     for edges in [f.edges, f.edges[::-1, ::-1]]:
         s = score_tracing(Skeleton([replace(f, edges=edges)]), inst, tolerance=0)
-        assert s.erl == 6
+        assert sorted(s.run_lengths) == [2.0, 4.0]
+        assert s.erl == pytest.approx(20 / 6)
         assert s.splits == 0
         assert s.n_pred_instances == 1
 

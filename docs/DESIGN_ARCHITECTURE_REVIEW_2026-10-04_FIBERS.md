@@ -164,3 +164,21 @@ ScrollGT's eleven fiber cubes, and 663 of 3,124 in `s1_10997_02997_02997_256`. O
 oracle at ERL 166.86 with 512 splits; version 3 gives 244.20 with 11 splits. Version 3 merges the endpoints of
 zero-length edges before attaching runs. `test_graph_scoring_keeps_a_fiber_connected_through_a_zero_length_edge`
 fails on version 2 and passes on version 3. `SCORING_VERSION` is 3.
+
+## Addendum 2, same evening: scoring version 4 is ScrollGT's definition
+
+An outside contributor fixed the same edge-order defect in ScrollGT with a different design (scrollgt#1, a path
+walk with splits counted within stretches), released as ScrollGT v0.4.0. Two definitions of one metric in two
+projects drift. This repo had already diverged three times, so it now vendors ScrollGT's scoring core verbatim.
+`score_tracing` keeps this review's input validation, which never changes a score.
+`tests/test_fiber_scoring_matches_scrollgt.py` fails if the vendored source drifts.
+
+On real data the vendored scorer reproduces ScrollGT's published oracle and floor rows exactly: 10 of 10 rows on
+`s5_03997_01497_03997_256` (the most-branched cube) and `s1_00497_01497_03997_256`. What changed relative to version
+3, and was accepted:
+* a branch point ends a stretch, so a correct labelling of a branched fiber scores shorter runs;
+* breaks between stretches are not splits;
+* the residual node-numbering dependence at branch nodes, up to 2.8% on the most-branched cube.
+
+Two contract tests that pinned graph-component semantics were rewritten to pin the new definition.
+`SCORING_VERSION` is 4.

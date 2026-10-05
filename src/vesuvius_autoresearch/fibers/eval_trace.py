@@ -40,6 +40,13 @@ import numpy as np
 from vesuvius_autoresearch.fibers.provenance import SCORING_VERSION
 from vesuvius_autoresearch.fibers.skeleton_io import Skeleton
 
+# The scoring definition is ScrollGT's (github.com/jonmarrs/scrollgt, v0.4.0, its fiber scoring
+# version 2): edges walked in path order, runs ending at stretch boundaries. Everything from
+# `ConnectivityScores` to `oracle_from_skeleton` is vendored verbatim, except that ScrollGT's
+# `score_tracing` is `_score_tracing_scrollgt` here. tests/test_fiber_scoring_matches_scrollgt.py
+# fails if the two drift apart. `score_tracing` below adds input validation only, which never
+# changes a score.
+
 
 @dataclass
 class ConnectivityScores:
@@ -99,26 +106,49 @@ def _dilate_labels(instances: np.ndarray, radius: float) -> np.ndarray:
     return out
 
 
+def _edge_walk(edges: np.ndarray):
+    """Yield edges as (a, b) in walk order, each continuing from the last.
+
+    Runs are read off the sample sequence, so that sequence has to follow the
+    fiber; stored edge rows need not. Reversing only the rows of
+    fibers_s1_00497_01497_03997_256 used to move connected-components splits
+    265 -> 140. Each walk starts at the lowest-index fiber end (any node, for a
+    loop) and takes the lowest-index unused neighbour, so the order depends on
+    the graph alone.
+    None marks a jump to a new stretch: a branch or a disconnected piece.
+    """
+    adj: dict[int, list[tuple[int, int]]] = {}
+    for k, (a, b) in enumerate(edges):
+        adj.setdefault(int(a), []).append((int(b), k))
+        adj.setdefault(int(b), []).append((int(a), k))
+    used: set[int] = set()
+    for start in sorted(adj, key=lambda n: (len(adj[n]) != 1, n)):
+        cur, walked = start, False
+        while free := [(n, k) for n, k in adj[cur] if k not in used]:
+            nxt, k = min(free)
+            used.add(k)
+            yield cur, nxt
+            cur, walked = nxt, True
+        if walked:
+            yield None
+
+
 def _resample_fiber(coords: np.ndarray, edges: np.ndarray, step: float = 0.5):
     """Yield (point, segment_length) along a fiber at ~`step` voxel spacing.
 
     Ground-truth nodes sit 1-2 voxels apart but are not adjacent, so runs must be
-    computed on a resampled polyline. Each edge is treated independently, which is
-    correct for branching trees: a branch point simply appears in two edges.
+    computed on a resampled polyline, walked in path order by `_edge_walk`.
+    (None, 0.0) marks the end of a stretch.
     """
     if len(edges) == 0:
         if len(coords):
             yield coords[0], 0.0
         return
-    canonical = []
-    for a_i, b_i in edges:
-        if tuple(coords[a_i]) > tuple(coords[b_i]):
-            a_i, b_i = b_i, a_i
-        canonical.append((a_i, b_i))
-    for a_i, b_i in sorted(
-        canonical, key=lambda e: (tuple(coords[e[0]]), tuple(coords[e[1]]))
-    ):
-        a, b = coords[a_i], coords[b_i]
+    for edge in _edge_walk(edges):
+        if edge is None:
+            yield None, 0.0
+            continue
+        a, b = coords[edge[0]], coords[edge[1]]
         seg = float(np.linalg.norm(b - a))
         if seg == 0.0:
             yield a, 0.0
@@ -128,7 +158,6 @@ def _resample_fiber(coords: np.ndarray, edges: np.ndarray, step: float = 0.5):
         dl = seg / (n - 1)
         for t in ts[:-1]:
             yield a + (b - a) * t, dl
-        yield b, 0.0  # Include the terminal node in the precision reference mask.
 
 
 def _runs_along_fiber(
@@ -159,120 +188,42 @@ def _runs_along_fiber(
     return [(lab, ln) for lab, ln in runs if ln > 0]
 
 
-def _runs_on_graph(fiber, grown, step, restrict_to_bounds):
-    """Connected same-label arclength components on the NML graph.
+def _fiber_runs(fiber, grown, step, restrict_to_bounds, zeroed=frozenset()):
+    """Runs along one fiber, its split count, and its traced and covered length.
 
-    Edge serialization is arbitrary. Concatenating sampled edges invents joins
-    between unrelated endpoints and splits real joins when edges are shuffled.
-    Canonical edge orientation also makes interval sampling independent of the
-    source/target convention used by the annotation writer.
+    A run cannot continue across a stretch boundary or a skipped out-of-bounds
+    stretch: the prediction is not observed there, so bridging it would credit a
+    run nobody saw, and breaking it is not the tracer's fault. Splits are
+    therefore counted within stretches.
     """
-    coords, edges = np.asarray(fiber.coords), np.asarray(fiber.edges)
-    if coords.ndim != 2 or coords.shape[1] != 3 or not np.isfinite(coords).all():
-        raise ValueError("skeleton coordinates must be finite with shape (N, 3)")
-    if (
-        edges.ndim != 2
-        or edges.shape[1] != 2
-        or edges.dtype.kind not in "ui"
-        or np.any(edges < 0)
-        or np.any(edges >= len(coords))
-    ):
-        raise ValueError("skeleton edges must be valid integer node pairs")
     shape = grown.shape
-
-    def sample(p):
-        idx = tuple(int(round(v)) for v in p)
-        inside = all(0 <= idx[a] < shape[a] for a in range(3))
-        return (int(grown[idx]) if inside else 0), inside
-
-    # Union only geometrically connected runs with the same instance id.
-    parents, labels, lengths = [], [], []
-    junctions = {}
-
-    def root(i):
-        while parents[i] != i:
-            parents[i] = parents[parents[i]]
-            i = parents[i]
-        return i
-
-    def attach(node, lab, run):
-        key = (node, lab)
-        if key in junctions:
-            parents[root(run)] = root(junctions[key])
-        else:
-            junctions[key] = run
-
-    # A zero-length edge joins two node ids at one point. WEBKNOSSOS traces contain
-    # them (821 of 87,469 edges across ScrollGT's fiber cubes, 21% in one cube).
-    # The loop below skips them, so their endpoints must be merged here. Without
-    # that, the fiber disconnects at every such edge and every labelling books a
-    # split there, the oracle included: one cube's oracle ERL fell 32%.
-    node_parent = list(range(len(coords)))
-
-    def node(i):
-        while node_parent[i] != i:
-            node_parent[i] = node_parent[node_parent[i]]
-            i = node_parent[i]
-        return i
-
-    for a, b in edges:
-        a, b = int(a), int(b)
-        if np.array_equal(coords[a], coords[b]):
-            ra, rb = node(a), node(b)
-            if ra != rb:
-                node_parent[max(ra, rb)] = min(ra, rb)
-
-    total, covered = 0.0, 0.0
-    canonical = []
-    for a, b in edges:
-        a, b = int(a), int(b)
-        if tuple(coords[a]) > tuple(coords[b]):
-            a, b = b, a
-        canonical.append((a, b))
-    # Stable accumulation for a permutation of exactly the same annotation.
-    for a, b in sorted(
-        canonical, key=lambda e: (tuple(coords[e[0]]), tuple(coords[e[1]]))
-    ):
-        ca, cb = coords[a], coords[b]
-        seg = float(np.linalg.norm(cb - ca))
-        if seg == 0:
-            continue
-        n = max(2, int(np.ceil(seg / step)) + 1)
-        dl = seg / (n - 1)
-        previous, current = 0, None
-        first, last = None, None
-        for i, t in enumerate(np.linspace(0, 1, n)[:-1]):
-            lab, inside = sample(ca + (cb - ca) * t)
-            if inside or not restrict_to_bounds:
-                total += dl
-            if lab:
-                covered += dl
-                if lab != previous:
-                    current = len(parents)
-                    parents.append(current)
-                    labels.append(lab)
-                    lengths.append(0.0)
-                lengths[current] += dl
-                if i == 0:
-                    first = current
-                last = current
-            else:
-                last = None
-            previous = lab
-        if first is not None:
-            attach(node(a), labels[first], first)
-        end_label, _ = sample(cb)
-        if last is not None and end_label == labels[last]:
-            attach(node(b), labels[last], last)
-
-    components = {}
-    for i, length in enumerate(lengths):
-        r = root(i)
-        components[r] = components.get(r, 0.0) + length
-    return [(labels[r], length) for r, length in components.items()], total, covered
+    runs: list[tuple[int, float]] = []
+    splits, total, covered = 0, 0.0, 0.0
+    labels: list[int] = []
+    lengths: list[float] = []
+    samples = _resample_fiber(fiber.coords, fiber.edges, step=step)
+    for p, dl in [*samples, (None, 0.0)]:
+        idx = None if p is None else tuple(int(round(v)) for v in p)
+        if idx is not None and all(0 <= idx[a] < shape[a] for a in range(3)):
+            lab = int(grown[idx])
+            labels.append(0 if lab in zeroed else lab)
+            lengths.append(dl)
+        elif idx is not None and not restrict_to_bounds:
+            labels.append(0)
+            lengths.append(dl)
+        elif labels:
+            stretch = _runs_along_fiber(labels, lengths)
+            runs.extend(stretch)
+            splits += max(0, len(stretch) - 1)
+            total += float(sum(lengths))
+            covered += float(
+                sum(d for lab, d in zip(labels, lengths, strict=False) if lab)
+            )
+            labels, lengths = [], []
+    return runs, splits, total, covered
 
 
-def score_tracing(
+def _score_tracing_scrollgt(
     gt: Skeleton,
     instances: np.ndarray,
     tolerance: float = 2.0,
@@ -292,45 +243,23 @@ def score_tracing(
             Annotators traced past the cube edge, so 14-34% of nodes are outside
             and scoring them would count guaranteed misses.
     """
-    instances = np.asarray(instances)
-    if (
-        instances.ndim != 3
-        or any(s == 0 for s in instances.shape)
-        or instances.dtype.kind not in "ui"
-        or np.any(instances < 0)
-    ):
-        raise ValueError(
-            "instances must be nonnegative integer labels with nonempty shape (Z, Y, X)"
-        )
-    for name, value in [("tolerance", tolerance), ("step", step)]:
-        if (
-            isinstance(value, (bool, np.bool_))
-            or not isinstance(value, (int, float, np.integer, np.floating))
-            or not math.isfinite(value)
-            or (value < 0 if name == "tolerance" else value <= 0)
-        ):
-            raise ValueError(
-                f"{name} must be finite and {'nonnegative' if name == 'tolerance' else 'positive'}"
-            )
     shape = instances.shape
     grown = _dilate_labels(instances, tolerance)
 
     all_runs: list[float] = []
     per_instance_gt: dict[int, set[int]] = {}
     per_gt_instances: dict[int, set[int]] = {}
-    runs_per_gt: dict[int, int] = {}
+    splits = 0
     gt_total = 0.0
     covered = 0.0
 
-    graph_runs = []
     for gi, fiber in enumerate(gt.fibers):
-        runs, seg_total, seg_covered = _runs_on_graph(
+        runs, fiber_splits, fiber_total, fiber_covered = _fiber_runs(
             fiber, grown, step, restrict_to_bounds
         )
-        graph_runs.append(runs)
-        gt_total += seg_total
-        covered += seg_covered
-        runs_per_gt[gi] = len(runs)
+        splits += fiber_splits
+        gt_total += fiber_total
+        covered += fiber_covered
         for lab, ln in runs:
             all_runs.append(ln)
             per_instance_gt.setdefault(lab, set()).add(gi)
@@ -342,7 +271,6 @@ def score_tracing(
     # traced in two disconnected halves under one id as zero splits, which is
     # wrong -- it is fragmented, and fragmentation is the error mode that
     # actually limits this tracer.
-    splits = sum(max(0, k - 1) for k in runs_per_gt.values())
     # Merges: an instance covering k ground-truth fibers contributes k-1.
     merges = sum(max(0, len(v) - 1) for v in per_instance_gt.values())
     merged_instances = sum(1 for v in per_instance_gt.values() if len(v) > 1)
@@ -356,9 +284,11 @@ def score_tracing(
 
     erl = _erl(all_runs)
 
-    penalized = [
-        ln for runs in graph_runs for lab, ln in runs if lab not in merging_ids
-    ]
+    # Merge-penalized: rebuild runs, zeroing any run belonging to a merging id.
+    penalized: list[float] = []
+    for fiber in gt.fibers:
+        runs, _, _, _ = _fiber_runs(fiber, grown, step, restrict_to_bounds, merging_ids)
+        penalized.extend(ln for _, ln in runs)
     # Denominator stays the full traced length, so merges genuinely cost ERL.
     tot_all = float(sum(all_runs))
     erl_pen = float(sum(r * r for r in penalized) / tot_all) if tot_all > 0 else 0.0
@@ -367,6 +297,8 @@ def score_tracing(
     gt_mask = np.zeros(shape, dtype=bool)
     for fiber in gt.fibers:
         for p, _ in _resample_fiber(fiber.coords, fiber.edges, step=step):
+            if p is None:
+                continue
             idx = tuple(int(round(v)) for v in p)
             if all(0 <= idx[a] < shape[a] for a in range(3)):
                 gt_mask[idx] = True
@@ -404,6 +336,57 @@ def score_tracing(
 # Every one of these is a way to score well on a badly-chosen metric. Publishing
 # them alongside a real result is what makes the real result meaningful; if the
 # tracer cannot beat them, that must be stated rather than hidden.
+
+
+def _validate_fiber(fiber) -> None:
+    coords, edges = np.asarray(fiber.coords), np.asarray(fiber.edges)
+    if coords.ndim != 2 or coords.shape[1] != 3 or not np.isfinite(coords).all():
+        raise ValueError("skeleton coordinates must be finite with shape (N, 3)")
+    if len(edges) and (
+        edges.ndim != 2
+        or edges.shape[1] != 2
+        or edges.dtype.kind not in "ui"
+        or np.any(edges < 0)
+        or np.any(edges >= len(coords))
+    ):
+        raise ValueError("skeleton edges must be valid integer node pairs")
+
+
+def score_tracing(
+    gt: Skeleton,
+    instances: np.ndarray,
+    tolerance: float = 2.0,
+    step: float = 0.5,
+    restrict_to_bounds: bool = True,
+) -> ConnectivityScores:
+    """Validate the inputs, then score with ScrollGT's definition (`_score_tracing_scrollgt`).
+
+    Rejects what would otherwise be scored silently: non-integer, negative or empty instance
+    arrays, nonfinite or nonpositive step, negative tolerance, and malformed skeletons.
+    """
+    instances = np.asarray(instances)
+    if (
+        instances.ndim != 3
+        or any(s == 0 for s in instances.shape)
+        or instances.dtype.kind not in "ui"
+        or np.any(instances < 0)
+    ):
+        raise ValueError(
+            "instances must be nonnegative integer labels with nonempty shape (Z, Y, X)"
+        )
+    for name, value in [("tolerance", tolerance), ("step", step)]:
+        if (
+            isinstance(value, (bool, np.bool_))
+            or not isinstance(value, (int, float, np.integer, np.floating))
+            or not math.isfinite(value)
+            or (value < 0 if name == "tolerance" else value <= 0)
+        ):
+            raise ValueError(
+                f"{name} must be finite and {'nonnegative' if name == 'tolerance' else 'positive'}"
+            )
+    for fiber in gt.fibers:
+        _validate_fiber(fiber)
+    return _score_tracing_scrollgt(gt, instances, tolerance, step, restrict_to_bounds)
 
 
 def floor_single_instance(mask: np.ndarray) -> np.ndarray:

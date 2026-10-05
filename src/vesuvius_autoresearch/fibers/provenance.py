@@ -15,7 +15,9 @@ import numpy as np
 INFERENCE_VERSION = 1
 # 2: connected graph runs, independent of NML edge ordering.
 # 3: zero-length edges keep their endpoints connected (2 split fibers there).
-SCORING_VERSION = 3
+# 4: ScrollGT's definition (scrollgt v0.4.0, its scoring version 2), vendored in eval_trace.py:
+#    edges walked in path order, runs ending at stretch boundaries.
+SCORING_VERSION = 4
 
 
 def file_sha256(path):

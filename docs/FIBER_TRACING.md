@@ -15,8 +15,9 @@ This directory provides **the measurement layer for that problem**, plus a basel
 > arclength components on the actual graph, and includes terminal nodes in the
 > precision reference. The numerical results and tracer rankings below are
 > historical results from the old scorer; they need recomputation before use as
-> version-3 evidence. (Version 3 fixes a version-2 defect: zero-length edges
-> disconnected the graph.) This review did not rerun the published real-cube benchmark
+> version-4 evidence. (Version 3 fixed a version-2 defect: zero-length edges
+> disconnected the graph. Version 4, the same day, adopted ScrollGT's definition
+> wholesale; see below.) This review did not rerun the published real-cube benchmark
 > or update the separate ScrollGT repository. See the
 > [review report](DESIGN_ARCHITECTURE_REVIEW_2026-10-04_FIBERS.md).
 
@@ -81,6 +82,18 @@ Defined in `src/vesuvius_autoresearch/fibers/eval_trace.py`.
   is nearest-label, never blanket dilation, so tolerance cannot itself merge neighbours. **Any
   number from this harness is meaningless without its tolerance**, so `tolerance` is part of
   every scorecard.
+
+**Version 4 (current) is ScrollGT's definition** (scrollgt v0.4.0, where it is
+scoring version 2), vendored verbatim in `eval_trace.py` and held there by
+`tests/test_fiber_scoring_matches_scrollgt.py`. Each fiber's edges are walked in
+path order, and a run ends at a stretch boundary: a branch point, a disconnected
+piece, or a stretch outside the cube. Splits are counted within stretches, so a
+break the tracer could not have seen is not charged to it. It reproduces
+ScrollGT's published oracle and floor rows exactly. Its known residual: at a
+branch node the walk continues to the lowest-numbered neighbour, so renumbering
+nodes moves a score by up to 2.8% on the most-branched shipped cube. It replaced
+the graph-component scoring of versions 2 and 3 described next, so that one
+public definition serves both projects.
 
 Version 2 joins runs only through actual shared nodes with the same sampled
 instance label. Version 3 (same day) also treats the two endpoints of a
