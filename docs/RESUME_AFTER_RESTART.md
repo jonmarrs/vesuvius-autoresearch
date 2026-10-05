@@ -12,13 +12,11 @@
 * villa upstream at `5a4388f08` (#1947/#1948: prize automation and docs). It does not touch
   `spiral-fitting/autoresearch.md`; the October form URL and deadline match the draft.
 * **Next:** runner PR on or after 10-06 (gate first). The October filing is due 10-31.
-* **IN FLIGHT: soft-count study** (prereg `17739f03`), which asks whether the sum of probability beats
-  `total_fg_pixels` as the loop objective.
-  * It runs as `repro/spiral_render/run_soft_count_chain.sh` through run_snapshot, started at 09:37.
-    32 arms at ~17 min each, so roughly 9 h.
-  * It is resumable: relaunch the same way and finished arms are skipped.
-  * Output goes to `spiral_out/softcount_study/` only. The analysis runs at the end and writes
-    `result.json` and `analysis.log`. Report against the registered rules.
+* **Soft-count study DONE: finding 79** (`reports/soft_count_study.md`). P1 failed (pinned R 0.91), P2 held
+  barely, P3 held (current R 0.52). It is NOT recommended to villa; S trades inward for outward sensitivity.
+* **Fiber scorer:** autoresearch v3 is `e28be06d` (PR #7 plus the zero-length-edge fix). ScrollGT `main` was fixed by an
+  external contributor (scrollgt#1, Luke Finigan, a path walk). Release 0.4.0 is in progress on the local branch
+  `release-0.4.0`: version stamp, guard, notice; the 512³ floors are being verified. Then the full suite, merge, tag, push.
 
 
 ## 2026-10-04: finding 75 (install route vs villa's labels)
