@@ -31,6 +31,7 @@ clipped "#1780" to "#17".
 https://github.com/jonmarrs/vesuvius-autoresearch
 https://github.com/jonmarrs/inkdelta
 https://github.com/jonmarrs/inkagree
+https://github.com/jonmarrs/scrollgt/tree/v0.4.0
 https://github.com/ScrollPrize/villa/pull/1928
 <runner PR, if opened>
 ```
@@ -105,6 +106,13 @@ depends on, against villa's own code and villa's own ink labels:
 * inkdelta: CI on Python 3.10–3.13. Its corpus validations are unchanged since 0.3.0.
 * inkagree reproduces findings 71 and 72 exactly (16 of 16 segment results, every interval), and its
   CI covers Python 3.10–3.13 (`reports/inkagree_validation.md`).
+* **Community use:** ScrollGT, our benchmark from earlier rounds, received its first outside contribution.
+  * Luke Finigan found that its fiber scorer depended on the order its ground-truth edge rows are
+    stored in. He fixed it and rescored all 11 targets
+    ([scrollgt#1](https://github.com/jonmarrs/scrollgt/pull/1)).
+  * [v0.4.0](https://github.com/jonmarrs/scrollgt/tree/v0.4.0) versions the scorer and refuses to compare
+    scores across versions. It verifies every published floor against the new scorer (55 of 55) and
+    publishes the correction.
 
 ---
 
