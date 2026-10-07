@@ -211,21 +211,18 @@ def gt_prep_fragment(
             return info
     # SOTA surface layers: reuse the Phase-2 distill fragment if present, else extract.
     src_layers = os.path.join("local_data/sota_distill", frag_id, "layers")
-    out_seg = os.path.join(out_root, frag_id)
     if os.path.isdir(src_layers):
-        region_stack = np.stack(
-            [
-                cv2.imread(os.path.join(src_layers, f"{i:02d}.tif"), 0)
-                for i in range(17, 43)
-            ],
-            axis=0,
-        )
+        loaded_layers = []
+        for i in range(17, 43):
+            path = os.path.join(src_layers, f"{i:02d}.tif")
+            layer = cv2.imread(path, 0)
+            if layer is None:
+                raise FileNotFoundError(f"could not read layer: {path}")
+            loaded_layers.append(layer)
+        region_stack = np.stack(loaded_layers)
     else:
         region_stack, _, _ = dr.extract_region(seg, y0, x0, scroll_key="scroll1")
-    write_fragment(region_stack, out_root, frag_id)  # layers + zero label + mask
-    cv2.imwrite(
-        os.path.join(out_seg, f"{frag_id}_inklabels.png"), reg_label
-    )  # GT label
+    write_fragment(region_stack, out_root, frag_id, label=reg_label)
     print(
         f"KEEP {frag_id}: residual={residual:.2f} periodicity={periodicity:.3f} "
         f"gt_ink={info['gt_ink_fraction']:.3f}",

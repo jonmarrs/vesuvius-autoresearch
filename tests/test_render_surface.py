@@ -107,6 +107,7 @@ def test_cli_wires_args_and_infers_when_auto(monkeypatch, tmp_path):
         frag_id=None,
         obj_level_div=None,
         extra_prov=None,
+        obj_grid_size=None,
     ):
         calls.append(
             {
@@ -118,6 +119,7 @@ def test_cli_wires_args_and_infers_when_auto(monkeypatch, tmp_path):
                 "sign": sign,
                 "div": obj_level_div,
                 "fid": frag_id,
+                "grid": obj_grid_size,
             }
         )
         d = tmp_path / (frag_id or seg)
@@ -153,6 +155,9 @@ def test_cli_wires_args_and_infers_when_auto(monkeypatch, tmp_path):
             "1024",
             "--level",
             "2",
+            "--obj-grid-size",
+            "2048",
+            "2048",
             "--scale",
             "2",
         ]
@@ -161,6 +166,7 @@ def test_cli_wires_args_and_infers_when_auto(monkeypatch, tmp_path):
     final = calls[-1]
     assert final["y0"] == 100 and final["x0"] == 200 and final["size"] == 1024
     assert final["div"] == 2.0 and final["seg"] == "20240711"  # obj basename -> frag id
+    assert final["grid"] == [2048, 2048]
 
 
 # ---- Task 2: normals ----

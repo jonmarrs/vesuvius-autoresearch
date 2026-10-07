@@ -3,13 +3,10 @@ the detector's layer format, so the detector can be run on the new SOTA data. Th
 surface volumes are re-flattened (different geometry from our old hand-labeled surfaces), so
 no aligned ground-truth label exists -- this path is for a VISUAL comparison against the
 released ink prediction, not a val_f1."""
-import os
 
-import cv2
 import numpy as np
-import tifffile
 
-from .convert import to_uint8
+from .fragment import write_fragment_artifact
 
 
 def region_to_layers(vol, n_layers=26, z_center=None):
@@ -19,20 +16,23 @@ def region_to_layers(vol, n_layers=26, z_center=None):
         raise ValueError(f"need >= {n_layers} depth layers, got {d}")
     zc = d // 2 if z_center is None else z_center
     lo = int(np.clip(zc - n_layers // 2, 0, d - n_layers))
-    return np.asarray(vol[lo:lo + n_layers])
+    return np.asarray(vol[lo : lo + n_layers])
 
 
-def write_fragment(layers, out_root, seg_id, start_idx=17):
-    """Write a detector-format fragment (layers/{17..42}.tif + zero label + full mask).
-    The label is a placeholder (qualitative path: the detector needs it to load, but there
-    is no aligned ground truth), so metrics from it are meaningless -- render the prob map."""
-    out_seg = os.path.join(out_root, seg_id)
-    out_layers = os.path.join(out_seg, "layers")
-    os.makedirs(out_layers, exist_ok=True)
-    for k in range(layers.shape[0]):
-        arr = to_uint8(layers[k])
-        tifffile.imwrite(os.path.join(out_layers, f"{start_idx + k:02d}.tif"), arr)
-    h, w = layers.shape[1], layers.shape[2]
-    cv2.imwrite(os.path.join(out_seg, f"{seg_id}_inklabels.png"), np.zeros((h, w), np.uint8))
-    cv2.imwrite(os.path.join(out_seg, f"{seg_id}_mask.png"), np.full((h, w), 255, np.uint8))
-    return out_seg
+def write_fragment(layers, out_root, seg_id, start_idx=17, *, label=None):
+    """Publish detector layers and a full mask, with an optional caller-supplied label.
+
+    Qualitative fragments stay label-free; teacher/registered-label callers supply their
+    actual supervision so it is included in the same complete publication.
+    """
+    layers = np.asarray(layers)
+    if layers.ndim != 3:
+        raise ValueError("layers must have shape (depth, height, width)")
+    return write_fragment_artifact(
+        layers,
+        np.ones(layers.shape[1:], bool),
+        out_root,
+        seg_id,
+        start_idx=start_idx,
+        label=label,
+    )

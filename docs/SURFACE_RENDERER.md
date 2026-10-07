@@ -44,7 +44,14 @@ This tool rebuilds the surface volume from the mesh:
    `render_provenance.json`). **No ink label is written** — the render is label-free; nothing
    fabricates ground truth for an unread scroll.
 
-## Validation status (read this)
+## Historical validation status (read this)
+
+The measurements below describe the earlier renderer. The October 5 review
+corrected cropped OBJ regions, indexed UV pairing, intensity conversion, and the
+validity mask, and versioned the rendering contract as 2. These synthetic-data
+repairs have not been revalidated on real scrolls; rerun the released-volume
+comparisons before treating new renders as evidence for these NCC results. See
+the [design and architecture review](DESIGN_ARCHITECTURE_REVIEW_2026-10-05_SURFACE_RENDERER.md).
 
 Validated on **two scrolls** against **released** surface volumes, using clean triples
 where geometry, volume, and reference share one scan frame:
@@ -91,10 +98,70 @@ uv run python -m repro.sota_data.render_cli \
 - `--tifxyz` renders directly from the released grid geometry; `--region` is then in
   tifxyz grid pixels and `--scale` is ignored.
 - `--scale auto` renders a small probe at each candidate obj-level-div and keeps the one
-  whose surface shows real papyrus texture (high-pass std) — the honest, teacher-free
-  substitute for ground truth on unread scrolls; an empty/wrong scale is rejected. Pass a
-  number (e.g. `--scale 1`) to fix it.
-- `--region Y0 X0 SIZE`, `--level`, `--sign` tune the render.
+  with the largest nonzero high-pass texture score. Empty/flat probes are rejected;
+  this remains a coherence heuristic and does not prove the coordinate scale. Probes
+  use the final UV-grid resolution, support rectangular crops, and are cleaned up.
+  Pass a number (e.g. `--scale 1`) to fix the divisor explicitly.
+- `--region Y0 X0 SIZE` or `--region Y0 X0 H W` selects a square or rectangular
+  region. Origins must be nonnegative and both dimensions at least 2. tifxyz crops
+  must fit the released grid exactly; `--region 0 0 0` selects its whole grid.
+- For OBJ input, `--obj-grid-size H W` fixes the **full** resampled UV-grid
+  resolution. Nonzero origins require this option. With zero origins and no
+  full-grid option, the requested size still spans the full UV bounding box.
+- `--level` is a nonnegative pyramid level up to 30, and `--sign` is exactly
+  `+1` or `-1`. Explicit divisors must be finite and positive.
+
+For example, this selects rows 100..611 and columns 200..967 from a 2048² OBJ grid:
+
+```bash
+uv run python -m repro.sota_data.render_cli \
+  --obj original.obj --volume s3://bucket/volume.zarr \
+  --obj-grid-size 2048 2048 --region 100 200 512 768 \
+  --scale 2 --out local_data/rendered --frag-id region_v2
+```
+
+## Output and input contracts
+
+`valid_frac` and the saved mask now mean **all 26 depth samples are supported**.
+The center surface must fit the source volume. Invalid geometry, undefined normals,
+and depth coordinates outside `[0, shape-1]` are excluded from the final mask;
+masked-out pixels are zeroed across the stack. A region with no fully supported
+pixels fails before publication. `geometry_valid_frac` records the earlier point-map
+coverage, while `clamped_frac` is the fraction of unsupported depth samples among
+geometry-valid pixels, including nonfinite normals.
+
+The source must be a 3D Zarr v2 pyramid level with supported compressor metadata
+and no filters. uint8 source intensity 1 stays 1; uint16 is divided by 256 before
+interpolation; floating CT values must already be finite byte-range `[0,255]`
+intensities. Rendered values are quantized once to uint8. Only genuinely missing
+chunk keys use the declared fill value. Permission, network, and corrupt-chunk
+failures abort the run. The reader bounds decoded cache storage and each dense
+slice to 512 MiB by default, and separately caps chunk-index counts. This is not a
+limit on total process memory, which also includes output layers and geometry.
+The Python reader's `max_cache_bytes` constructor argument is configurable.
+
+OBJ face texture indices define vertex/UV pairing; negative indices and seams
+with distinct UV coordinates are supported. Duplicate UV coordinates with
+conflicting 3D positions fail. The interpolation still spans the UV convex hull:
+use a single regular UV patch or released tifxyz geometry. It does not reconstruct
+mesh holes or overlapping UV islands; use villa for those cases.
+
+Fragments are staged beside the destination and published with a directory rename
+after every layer, mask, optional supplied label, and JSON write succeeds.
+Existing fragment ids are refused; use a fresh id or output root for reruns.
+This applies to the converter, qualitative, distillation, and registered-label
+adapters too. Qualitative fragments have **no** synthetic ink label; prediction
+loads them through the detector's label-free path, while supervised loading still
+requires a real supplied label. Disk write failures leave no final fragment.
+
+Provenance records `render_contract_version: 2`, the source geometry, OBJ divisor,
+full grid and UV bounds, region, volume, level, depth offsets, sign, intensity units,
+and coverage. Caller annotations are nested under `extra` and cannot replace those
+facts. CLI OBJ provenance also includes the original source argument there.
+Remote OBJ downloads use a cache namespace derived from the whole S3 key, with
+temporary-file publication. Cached keys are assumed immutable; remove a cached
+entry explicitly if the remote object has changed. Legacy basename-only entries
+are not reused.
 
 **Runtime expectation (measured):** a full-surface 1024² render of a Scroll-3 segment takes
 ~8 minutes at ~35 MB/s effective S3 throughput (the fetch layer decodes exactly the zarr
