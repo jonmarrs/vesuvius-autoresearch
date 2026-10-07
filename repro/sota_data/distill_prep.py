@@ -3,8 +3,6 @@ output, not ground truth) to a zarr-level region, and write a detector-format tr
 fragment whose label is the binarized teacher. All downstream metrics on these fragments
 are agreement-with-teacher, never ground-truth accuracy."""
 
-import os
-
 import cv2
 import numpy as np
 
@@ -34,7 +32,8 @@ def prep_distill_fragment(
     if h == 0 or w == 0:
         raise ValueError(
             f"{frag_id}: empty region {region_layers.shape} -- the region offset likely "
-            "falls outside the segment's extent; adjust y0/x0")
+            "falls outside the segment's extent; adjust y0/x0"
+        )
     t = np.asarray(teacher_region)
     if t.ndim == 3:
         t = t[..., 0]
@@ -52,10 +51,4 @@ def prep_distill_fragment(
         t = cv2.resize(t, (w, h), interpolation=cv2.INTER_NEAREST)
     label = np.where(t >= threshold, 255, 0).astype(np.uint8)
 
-    out_seg = write_fragment(
-        region_layers, out_root, frag_id
-    )  # layers + zero label + mask
-    cv2.imwrite(
-        os.path.join(out_seg, f"{frag_id}_inklabels.png"), label
-    )  # replace label
-    return out_seg
+    return write_fragment(region_layers, out_root, frag_id, label=label)
