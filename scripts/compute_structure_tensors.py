@@ -1,103 +1,105 @@
 #!/usr/bin/env python3
-"""
-Vesuvius Autoresearch: Structure Tensor Pipeline
-Wraps the vesuvius/structure_tensor tools from the ScrollPrize/villa submodule.
-This script computes the 3D structure tensors (fiber directionality, eigenvalues)
-for a given Zarr volume. This provides a massive structural feature channel for
-our models to differentiate between cracks and ink.
-
-Usage:
-  uv run scripts/compute_structure_tensors.py --input path/to/volume.zarr --output path/to/output_st.zarr
-"""
+"""Stage the pinned villa structure-tensor/eigenanalysis pipeline and its provenance."""
 
 import argparse
 import os
 import subprocess
 import sys
+from pathlib import Path
+
+import numpy as np
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+from scripts.candidate_artifacts import (
+    ARTIFACT_ERRORS,
+    array_3d,
+    separate_paths,
+    spatial_blocks,
+    staged_directory,
+    tensor_arrays,
+    tensor_settings,
+)
+
+VESUVIUS_SRC = REPO_ROOT / "villa/vesuvius/src"
+RUN_SCRIPT = VESUVIUS_SRC / "vesuvius/structure_tensor/run_create_st.py"
 
 
-def main():
-    parser = argparse.ArgumentParser(
-        description="Compute Structure Tensors for Vesuvius Volumes"
-    )
-    parser.add_argument(
-        "--input", type=str, required=True, help="Path to the input Zarr volume"
-    )
-    parser.add_argument(
-        "--output",
-        type=str,
-        required=True,
-        help="Path to save the output Structure Tensor Zarr",
-    )
-    parser.add_argument(
-        "--sigma",
-        type=float,
-        default=2.0,
-        help="Sigma for Gaussian smoothing (controls scale of fibers)",
-    )
-    parser.add_argument(
-        "--rho", type=float, default=2.0, help="Rho for integration scale"
-    )
-    parser.add_argument(
-        "--gpus",
-        type=str,
-        default="all",
-        help="Comma separated list of GPUs to use, or 'all'",
-    )
-    args = parser.parse_args()
-
-    # The official vesuvius library is inside villa/vesuvius/src
-    vesuvius_src_path = os.path.abspath("villa/vesuvius/src")
-    if not os.path.exists(vesuvius_src_path):
-        print(
-            "Error: 'villa/vesuvius/src' not found. Run 'git submodule update --init' first."
-        )
-        sys.exit(1)
-
-    run_script = os.path.join(
-        vesuvius_src_path, "vesuvius", "structure_tensor", "run_create_st.py"
-    )
-    if not os.path.exists(run_script):
-        print(f"Error: {run_script} not found.")
-        sys.exit(1)
-
-    print("--- Vesuvius Autoresearch Structure Tensor Computation ---")
-    print(f"Input Volume:  {args.input}")
-    print(f"Output Tensor: {args.output}")
-    print(f"Sigma: {args.sigma}, Rho: {args.rho}")
-
-    os.makedirs(os.path.dirname(args.output), exist_ok=True)
-
-    # We call the official structure tensor script
-    cmd = [
-        "python3",
-        run_script,
-        "--input_dir",
-        args.input,
-        "--output_dir",
-        args.output,
-        "--sigma",
-        str(args.sigma),
-        "--gpus",
-        args.gpus,
-    ]
-
-    print("\nExecuting Structure Tensor pipeline...")
-    print(" ".join(cmd))
-
-    # Add vesuvius src to PYTHONPATH for the subprocess
+def compute_structure_tensors(input_path, output_path, sigma=2.0, gpus="all", rho=None):
+    if rho is not None:
+        raise ValueError("--rho is unsupported by the pinned villa runner; use --sigma")
+    tensor_settings(sigma, gpus)
+    if not RUN_SCRIPT.is_file():
+        raise FileNotFoundError(f"{RUN_SCRIPT} missing; initialize the villa submodule")
+    input_path, output_path = separate_paths(input_path, output_path)
+    source = array_3d(input_path)
+    source_attrs = dict(source.attrs)
     env = os.environ.copy()
-    env["PYTHONPATH"] = f"{vesuvius_src_path}:{env.get('PYTHONPATH', '')}"
+    env["PYTHONPATH"] = os.pathsep.join(
+        filter(None, (str(VESUVIUS_SRC), env.get("PYTHONPATH")))
+    )
+    with staged_directory(output_path) as staging:
+        command = [
+            sys.executable,
+            str(RUN_SCRIPT),
+            "--input_dir",
+            str(input_path),
+            "--output_dir",
+            str(staging),
+            "--sigma",
+            str(sigma),
+            "--gpus",
+            gpus,
+        ]
+        print(f"Computing structure tensors from {input_path}", flush=True)
+        subprocess.run(command, env=env, check=True, cwd=REPO_ROOT)
+        root, arrays = tensor_arrays(staging, source.shape, mode="r+")
+        if arrays[0].dtype.kind != "f" or any(
+            array.dtype != np.dtype("uint8") for array in arrays[1:]
+        ):
+            raise ValueError("unexpected upstream structure tensor/eigenanalysis dtype")
+        for selection in spatial_blocks(source.shape):
+            if not np.isfinite(arrays[0][(slice(None), *selection)]).all():
+                raise ValueError("upstream structure tensor contains nonfinite values")
+            for array in arrays[1:]:
+                array[selection]  # reject corrupt encoded payloads before publication
+        if dict(array_3d(input_path).attrs) != source_attrs:
+            raise RuntimeError(
+                "source crop changed during structure tensor computation"
+            )
+        root.attrs["candidate_tensor_completion"] = {
+            "contract": 1,
+            "source_path": str(input_path),
+            "source_crop": source_attrs,
+            "sigma": sigma,
+            "gpus": gpus,
+            "upstream_script": str(RUN_SCRIPT),
+        }
+    print(f"Structure tensors and eigenanalysis published at {output_path}")
+    return output_path
 
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--input", required=True, help="Input local 3D Zarr array")
+    parser.add_argument("--output", required=True, help="Output structure tensor group")
+    parser.add_argument("--sigma", type=float, default=2.0)
+    parser.add_argument(
+        "--rho",
+        type=float,
+        default=None,
+        help="Unsupported legacy option; supplying it fails",
+    )
+    parser.add_argument("--gpus", default="all")
+    args = parser.parse_args(argv)
     try:
-        subprocess.run(cmd, env=env, check=True)
-        print(f"\nSuccess! Structure Tensors saved to {args.output}")
-        print(
-            "You can now feed this as an additional input channel to the Vesuvius-DINO model."
+        compute_structure_tensors(
+            args.input, args.output, args.sigma, args.gpus, args.rho
         )
-    except subprocess.CalledProcessError as e:
-        print(f"\nStructure Tensor computation interrupted or failed: {e}")
-        sys.exit(1)
+    except (*ARTIFACT_ERRORS, RuntimeError, subprocess.CalledProcessError) as exc:
+        parser.exit(1, f"Structure tensor computation failed: {exc}\n")
 
 
 if __name__ == "__main__":

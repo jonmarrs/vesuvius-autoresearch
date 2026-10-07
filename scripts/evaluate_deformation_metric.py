@@ -1,127 +1,148 @@
 #!/usr/bin/env python3
-"""
-Vesuvius Autoresearch: Whole-Volume Deformation Review Metric
-Prototypes a metric to evaluate fiber coherence before and after volume registration (Issue #203).
-This script loads a 3D Structure Tensor volume (pre-computed via compute_structure_tensors.py)
-and computes a "Fiber Coherence Score" based on the alignment of the principal eigenvectors
-across local neighborhoods. Higher coherence implies a better (flatter, less deformed) registration.
+"""Measure fractional anisotropy of stored structure tensors in bounded blocks.
 
-Usage:
-  uv run scripts/evaluate_deformation_metric.py --st-zarr path/to/structure_tensors.zarr
+FA describes local anisotropy, not neighborhood alignment or successful
+registration. Rotation leaves FA unchanged; this command does not certify
+flattening or a deformation correction.
 """
 
 import argparse
-import os
 import sys
+from pathlib import Path
 
 import numpy as np
 import zarr
 
+REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+from scripts.candidate_artifacts import (
+    ARTIFACT_ERRORS,
+    integer,
+    spatial_blocks,
+    write_json,
+)
+
+# Packed symmetric matrix order used by villa's StructureTensorComputer.
+TENSOR_COMPONENTS = ("zz", "zy", "zx", "yy", "yx", "xx")
+
 
 def compute_fractional_anisotropy(evals):
-    """
-    Computes Fractional Anisotropy (FA) given an array of eigenvalues [..., 3].
-    FA = sqrt(1/2) * sqrt((l1-l2)^2 + (l2-l3)^2 + (l3-l1)^2) / sqrt(l1^2 + l2^2 + l3^2)
-    """
-    l1 = evals[..., 0]
-    l2 = evals[..., 1]
-    l3 = evals[..., 2]
-
-    mean_val = (l1 + l2 + l3) / 3.0
-    numerator = (l1 - l2) ** 2 + (l2 - l3) ** 2 + (l3 - l1) ** 2
-    denominator = l1**2 + l2**2 + l3**2
-
-    # Avoid division by zero
-    mask = denominator > 1e-8
-    fa = np.zeros_like(numerator)
-    fa[mask] = np.sqrt(0.5) * np.sqrt(numerator[mask]) / np.sqrt(denominator[mask])
-    return fa
-
-
-def main():
-    parser = argparse.ArgumentParser(
-        description="Evaluate Whole-Volume Deformation Metric"
+    values = np.asarray(evals, dtype=np.float64)
+    if values.ndim == 0 or values.shape[-1] != 3:
+        raise ValueError("eigenvalues must have a final dimension of three")
+    if not np.isfinite(values).all() or (values < 0).any():
+        raise ValueError("eigenvalues must be finite and nonnegative")
+    scale = values.max(axis=-1, keepdims=True)
+    values = np.divide(values, scale, out=np.zeros_like(values), where=scale > 0)
+    numerator = (
+        (values[..., 0] - values[..., 1]) ** 2
+        + (values[..., 1] - values[..., 2]) ** 2
+        + (values[..., 2] - values[..., 0]) ** 2
     )
-    parser.add_argument(
-        "--st-zarr",
-        type=str,
-        required=True,
-        help="Path to the Structure Tensor Zarr volume",
+    denominator = (values * values).sum(axis=-1)
+    return np.sqrt(
+        np.divide(
+            0.5 * numerator,
+            denominator,
+            out=np.zeros_like(denominator),
+            where=denominator > 0,
+        )
     )
-    parser.add_argument(
-        "--subsample",
-        type=int,
-        default=1,
-        help="Subsampling factor for faster evaluation",
+
+
+def tensor_fa(packed):
+    packed = np.asarray(packed, dtype=np.float64)
+    if packed.ndim != 4 or packed.shape[0] != 6 or not np.isfinite(packed).all():
+        raise ValueError("tensor block must be finite with shape (6, z, y, x)")
+    scale = np.max(np.abs(packed), axis=0)
+    normalized = np.divide(
+        packed, scale[None], out=np.zeros_like(packed), where=scale[None] > 0
     )
-    args = parser.parse_args()
+    matrix = np.empty((*packed.shape[1:], 3, 3), dtype=np.float64)
+    matrix[..., 0, 0] = normalized[0]
+    matrix[..., 0, 1] = matrix[..., 1, 0] = normalized[1]
+    matrix[..., 0, 2] = matrix[..., 2, 0] = normalized[2]
+    matrix[..., 1, 1] = normalized[3]
+    matrix[..., 1, 2] = matrix[..., 2, 1] = normalized[4]
+    matrix[..., 2, 2] = normalized[5]
+    eigenvalues = np.linalg.eigvalsh(matrix)
+    if (eigenvalues < -1e-6).any():
+        raise ValueError("structure tensors must be positive semidefinite")
+    clipped = int((eigenvalues < 0).sum())
+    return compute_fractional_anisotropy(np.maximum(eigenvalues, 0)), scale > 0, clipped
 
-    if not os.path.exists(args.st_zarr):
-        print(f"Error: Structure tensor path {args.st_zarr} not found.")
-        sys.exit(1)
 
-    print(f"Loading structure tensor from {args.st_zarr}...")
+def measure_structure_tensor(path, subsample=1):
+    step = integer(subsample, "subsample", 1)
+    root = zarr.open(str(path), mode="r")
+    if isinstance(root, zarr.Array):
+        tensor, dataset = root, "."
+    elif "structure_tensor" in root:
+        tensor, dataset = root["structure_tensor"], "structure_tensor"
+    elif "0" in root:
+        tensor, dataset = root["0"], "0"
+    else:
+        raise ValueError(
+            "Zarr group must contain structure_tensor or a 6-channel array at 0"
+        )
+    if (
+        not isinstance(tensor, zarr.Array)
+        or len(tensor.shape) != 4
+        or tensor.shape[0] != 6
+        or min(tensor.shape) <= 0
+        or tensor.dtype.kind != "f"
+    ):
+        raise ValueError(
+            "expected a floating structure tensor array of shape (6, z, y, x)"
+        )
+    count = nonzero = clipped = 0
+    total = squared = informative_total = 0.0
+    for selection in spatial_blocks(tensor.shape[1:], step=step):
+        fa, informative, roundoff = tensor_fa(tensor[(slice(None), *selection)])
+        count += fa.size
+        nonzero += int(informative.sum())
+        total += float(fa.sum())
+        squared += float(np.square(fa).sum())
+        informative_total += float(fa[informative].sum())
+        clipped += roundoff
+    mean = total / count
+    return {
+        "measurement_contract": 1,
+        "source_path": str(Path(path).resolve()),
+        "dataset": dataset,
+        "shape_czyx": list(tensor.shape),
+        "tensor_components": list(TENSOR_COMPONENTS),
+        "subsample": step,
+        "sampled_voxels": count,
+        "nonzero_tensor_voxels": nonzero,
+        "zero_tensor_voxels": count - nonzero,
+        "mean_fa": mean,
+        "std_fa": float(np.sqrt(max(0.0, squared / count - mean * mean))),
+        "nonzero_mean_fa": informative_total / nonzero if nonzero else None,
+        "negative_roundoff_eigenvalues_clipped": clipped,
+        "interpretation": "Local tensor anisotropy; does not measure spatial coherence or certify deformation correction.",
+    }
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--st-zarr", required=True)
+    parser.add_argument("--subsample", type=int, default=1)
+    parser.add_argument("--output", help="Optional JSON report")
+    args = parser.parse_args(argv)
     try:
-        # Assuming shape is (C, Z, Y, X) where C is usually 6 for the symmetric 3x3 tensor
-        # or it might be pre-computed eigenvalues/eigenvectors depending on the vesuvius implementation.
-        # Let's assume the official tool outputs 6 channels: Ixx, Iyy, Izz, Ixy, Ixz, Iyz
-        root = zarr.open(args.st_zarr, mode="r")
-        if "0" in root:
-            dataset = root["0"]
-        else:
-            dataset = root
-
-        print(f"Dataset shape: {dataset.shape}")
-
-        # Subsample for speed
-        s = args.subsample
-        if len(dataset.shape) == 4:
-            st_data = dataset[:, ::s, ::s, ::s]
-        else:
-            print("Warning: unexpected shape. Attempting naive load.")
-            st_data = dataset[:]
-
-    except Exception as e:
-        print(f"Failed to load zarr: {e}")
-        sys.exit(1)
-
-    print("Computing metrics...")
-    # This is a prototype placeholder for the actual coherence metric.
-    # In a real implementation, we would solve for the eigenvalues of the 3x3 tensor at each voxel
-    # and compute Fractional Anisotropy (FA) or vector dispersion.
-
-    # For now, we simulate the FA metric calculation.
-    # A true coherent volume (flat papyrus) has high anisotropy (fibers run in one direction).
-    # A highly deformed or crumpled volume has lower anisotropy (fibers point everywhere).
-
-    # Simulate extraction of eigenvalues (l1, l2, l3)
-    # Using random noise as a placeholder if we can't parse the 6-channel tensor properly in this prototype.
-    np.random.seed(42)
-    simulated_evals = np.random.rand(100, 100, 100, 3) * 10
-    simulated_evals.sort(axis=-1)  # l1 > l2 > l3
-    simulated_evals = simulated_evals[..., ::-1]
-
-    fa_map = compute_fractional_anisotropy(simulated_evals)
-    mean_fa = np.mean(fa_map)
-    std_fa = np.std(fa_map)
-
-    # We define the Coherence Score based on Mean Fractional Anisotropy.
-    coherence_score = mean_fa * 100
-
-    print("\n--- Deformation Review Metric (Prototype) ---")
-    print("Metric: Fiber Coherence (based on Structure Tensor Fractional Anisotropy)")
-    print(f"Mean FA: {mean_fa:.4f} ± {std_fa:.4f}")
-    print(f"Coherence Score: {coherence_score:.2f} / 100")
-    print("\n[INTERPRETATION]")
+        report = measure_structure_tensor(args.st_zarr, args.subsample)
+        if args.output:
+            write_json(args.output, report)
+    except ARTIFACT_ERRORS as exc:
+        parser.exit(1, f"Structure tensor measurement failed: {exc}\n")
+    print(f"Mean FA: {report['mean_fa']:.4f} ± {report['std_fa']:.4f}")
     print(
-        "Run this metric on a volume *before* registration, and then again *after* registration."
+        f"Sampled voxels: {report['sampled_voxels']}; zero tensors: {report['zero_tensor_voxels']}"
     )
-    print(
-        "An increase in the Coherence Score indicates that the registration successfully"
-    )
-    print(
-        "flattened the papyrus structure, aligning the vertical and horizontal fibers."
-    )
+    print(report["interpretation"])
 
 
 if __name__ == "__main__":
