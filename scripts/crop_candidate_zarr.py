@@ -9,9 +9,23 @@ Zarr array and writes a compact Zarr array that downstream villa tools can read.
 from __future__ import annotations
 
 import argparse
+import sys
+import uuid
 from pathlib import Path
 
 import zarr
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+from scripts.candidate_artifacts import (
+    array_3d,
+    integer,
+    separate_paths,
+    spatial_blocks,
+    staged_directory,
+)
 
 
 def _clamp_start(start: int, size: int, limit: int) -> int:
@@ -34,44 +48,61 @@ def crop_candidate_zarr(
     chunks: tuple[int, int, int] | None = None,
 ) -> tuple[int, int, int]:
     """Crop a candidate volume and return the output shape."""
-    src = zarr.open(str(input_path), mode="r")
-    if len(src.shape) != 3:
-        raise ValueError(f"expected 3D zarr array, got shape {src.shape}")
-
-    z0 = _clamp_start(int(z), int(depth), int(src.shape[0]))
-    y0 = _clamp_start(int(y), int(height), int(src.shape[1]))
-    x0 = _clamp_start(int(x), int(width), int(src.shape[2]))
-    shape = (int(depth), int(height), int(width))
-    chunks = chunks or tuple(
-        min(src_chunk, dim) for src_chunk, dim in zip(src.chunks, shape, strict=False)
+    input_path, output_path = separate_paths(input_path, output_path)
+    src = array_3d(input_path)
+    requested = tuple(
+        integer(value, name)
+        for value, name in zip((z, y, x), ("z", "y", "x"), strict=True)
     )
-
-    output_path = Path(output_path)
-    if output_path.exists():
-        import shutil
-
-        shutil.rmtree(output_path)
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-
-    dst = zarr.open(
-        str(output_path),
-        mode="w",
-        shape=shape,
-        chunks=chunks,
-        dtype=src.dtype,
-        compressor=src.compressor,
-        fill_value=getattr(src, "fill_value", 0),
-        zarr_format=2,
+    shape = tuple(
+        integer(value, name, 1)
+        for value, name in zip(
+            (depth, height, width), ("depth", "height", "width"), strict=True
+        )
     )
-    dst[:] = src[z0 : z0 + shape[0], y0 : y0 + shape[1], x0 : x0 + shape[2]]
-    dst.attrs.update(
-        {
-            "source_path": str(input_path),
-            "source_start_zyx": [z0, y0, x0],
-            "source_requested_zyx": [int(z), int(y), int(x)],
-            "crop_shape_zyx": list(shape),
-        }
+    start = tuple(
+        _clamp_start(origin, size, limit)
+        for origin, size, limit in zip(requested, shape, src.shape, strict=True)
     )
+    if chunks is None:
+        chunks = tuple(
+            min(src_chunk, dim)
+            for src_chunk, dim in zip(src.chunks, shape, strict=True)
+        )
+    if len(chunks) != 3:
+        raise ValueError("crop chunks must have three dimensions")
+    chunks = tuple(integer(value, "chunk size", 1) for value in chunks)
+    with staged_directory(output_path) as staging:
+        dst = zarr.open(
+            str(staging),
+            mode="w",
+            shape=shape,
+            chunks=chunks,
+            dtype=src.dtype,
+            compressor=src.compressor,
+            filters=src.filters,
+            order=src.order,
+            fill_value=src.fill_value,
+            zarr_version=2,
+        )
+        for selection in spatial_blocks(shape):
+            source_selection = tuple(
+                slice(part.start + origin, part.stop + origin)
+                for part, origin in zip(selection, start, strict=True)
+            )
+            dst[selection] = src[source_selection]
+        dst.attrs.update(
+            {
+                "source_path": str(input_path),
+                "source_start_zyx": list(start),
+                "source_requested_zyx": list(requested),
+                "crop_shape_zyx": list(shape),
+                "source_shape_zyx": list(src.shape),
+                "source_dtype": str(src.dtype),
+                "candidate_crop_contract": 1,
+                "crop_generation": uuid.uuid4().hex,
+            }
+        )
     return shape
 
 

@@ -1,228 +1,225 @@
 #!/usr/bin/env python3
-"""
-Vesuvius Autoresearch: Lasagna Surface-Fitting Automation
-Executes the full pipeline for high-priority Scroll 2/3 candidates:
-1. Build Lasagna worklist
-2. Compute structure tensors (GPU)
-3. Execute Lasagna surface fitting (from villa submodule)
-4. Generate prize evidence chain
+"""Prepare ranked CT candidates for Lasagna; optionally run separate CT evidence.
 
-Usage:
-  uv run scripts/execute_lasagna_pipeline.py --limit 5
+This command publishes candidate crops and structure tensors. Surface fitting
+requires its own upstream configuration and is not launched here. --with-evidence
+runs CT prediction/readiness after preprocessing, using masks supplied per row.
 """
 
 import argparse
 import json
-import os
+import shlex
 import subprocess
 import sys
 from pathlib import Path
 
+REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+from scripts.build_lasagna_fiber_worklist import _artifact_stem, build_worklist
+from scripts.candidate_artifacts import (
+    ARTIFACT_ERRORS,
+    array_3d,
+    crop_matches,
+    integer,
+    tensor_matches,
+    tensor_settings,
+    write_json,
+)
+from scripts.validate_prize_artifact import validate
+
 
 def _zarr_array_exists(path):
-    return Path(path, ".zarray").exists()
-
-
-def _structure_tensor_complete(path):
-    root = Path(path)
-    return _zarr_array_exists(root / "structure_tensor") and _zarr_array_exists(
-        root / "normal" / "x" / "0"
-    )
-
-
-def _evidence_passed(evidence_dir, artifact_stem):
-    meta = Path(evidence_dir) / "predictions" / f"{artifact_stem}_meta.json"
-    if not meta.exists():
-        return False
     try:
-        data = json.loads(meta.read_text())
-    except json.JSONDecodeError:
+        array_3d(path)
+        return True
+    except ARTIFACT_ERRORS:
         return False
-    return bool(data.get("vc3d_zarr_path") or data.get("prediction_zarr_path"))
+
+
+def _structure_tensor_complete(path, source=None, sigma=2.0):
+    return tensor_matches(path, source, sigma)
+
+
+def _evidence_passed(evidence_dir, artifact_stem, item=None, checkpoint=None):
+    root = Path(evidence_dir)
+    try:
+        report = json.loads((root / "PRIZE_READINESS_REPORT.json").read_text())
+        metadata_path = root / "evidence_metadata.json"
+        metadata = json.loads(metadata_path.read_text())
+        candidate = metadata["candidate"]
+        if report.get("status") != "PASS" or _artifact_stem(candidate) != artifact_stem:
+            return False
+        if item is not None:
+            manifest = json.loads((root / "manifest.json").read_text())
+            if manifest.get("candidate_index") != item["candidate_index"]:
+                return False
+            for key in ("x", "y", "z", "width", "height"):
+                if integer(candidate[key], key) != item[key]:
+                    return False
+            if str(Path(candidate["local_uri"]).resolve()) != str(
+                Path(item["local_uri"]).resolve()
+            ):
+                return False
+            for key in ("train_mask_path", "predict_mask_path"):
+                if (
+                    item.get(key)
+                    and str(Path(metadata.get(key, "")).resolve()) != item[key]
+                ):
+                    return False
+        if checkpoint is not None:
+            if metadata.get("checkpoint_path") != str(Path(checkpoint).resolve()):
+                return False
+            if not Path(checkpoint).is_file():
+                return False
+        return validate(metadata_path).get("status") == "PASS"
+    except ARTIFACT_ERRORS:
+        return False
 
 
 def run_step(name, cmd, env=None):
-    print(f"\n>>> Step: {name}")
-    print(f"Running: {' '.join(cmd)}")
+    print(f"{name}: {shlex.join(cmd)}", flush=True)
     try:
         subprocess.run(cmd, check=True, env=env)
         return True
-    except subprocess.CalledProcessError as e:
-        print(f"Error in step '{name}': {e}")
+    except (OSError, subprocess.CalledProcessError) as exc:
+        print(f"{name} failed: {exc}", file=sys.stderr, flush=True)
         return False
 
 
-def main():
-    parser = argparse.ArgumentParser(description="Lasagna Surface-Fitting Automation")
-    parser.add_argument(
-        "--limit", type=int, default=3, help="Number of candidates to process"
-    )
+def process_candidate(
+    item,
+    force=False,
+    with_evidence=False,
+    checkpoint="best_model.pt",
+    sigma=2.0,
+    gpus="all",
+):
+    result = {
+        "rank": item["rank"],
+        "candidate_index": item["candidate_index"],
+        "artifact_stem": item["artifact_stem"],
+        "stages": {},
+        "status": "FAIL",
+    }
+    requested = (item["z"], item["y"], item["x"])
+    shape = (item["depth"], item["height"], item["width"])
+    crop = item["cropped_volume_uri"]
+    tensors = item["structure_tensor_output"]
+    if not force and crop_matches(crop, item["local_uri"], requested, shape):
+        result["stages"]["crop"] = "REUSED"
+    else:
+        if not run_step("Crop", shlex.split(item["crop_command"])):
+            result["failure"] = "crop command failed"
+            return result
+        if not crop_matches(crop, item["local_uri"], requested, shape):
+            result["failure"] = "crop command did not publish a matching completed crop"
+            return result
+        result["stages"]["crop"] = "CREATED"
+    if not force and _structure_tensor_complete(tensors, crop, sigma):
+        result["stages"]["structure_tensor"] = "REUSED"
+    else:
+        command = shlex.split(item["structure_tensor_command"]) + [
+            "--sigma",
+            str(sigma),
+            "--gpus",
+            gpus,
+        ]
+        if not run_step("Structure tensors", command):
+            result["failure"] = "structure tensor command failed"
+            return result
+        if not _structure_tensor_complete(tensors, crop, sigma):
+            result["failure"] = (
+                "structure tensor command did not publish matching complete outputs"
+            )
+            return result
+        result["stages"]["structure_tensor"] = "CREATED"
+    if with_evidence:
+        if not force and _evidence_passed(
+            item["evidence_output_dir"], item["artifact_stem"], item, checkpoint
+        ):
+            result["stages"]["ct_evidence"] = "REUSED"
+        else:
+            command = shlex.split(item["evidence_command"])
+            command[command.index("--checkpoint") + 1] = str(checkpoint)
+            if not run_step("CT evidence", command):
+                result["failure"] = "CT evidence command failed"
+                return result
+            if not _evidence_passed(
+                item["evidence_output_dir"], item["artifact_stem"], item, checkpoint
+            ):
+                result["failure"] = (
+                    "CT evidence did not pass current readiness validation"
+                )
+                return result
+            result["stages"]["ct_evidence"] = "CREATED"
+    result["status"] = "PASS"
+    return result
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--limit", type=int, default=3)
     parser.add_argument("--ranked", default="reports/scroll23_ranked_candidates.tsv")
     parser.add_argument("--checkpoint", default="best_model.pt")
+    parser.add_argument("--output-root", default="reports/lasagna_fiber_candidates")
+    parser.add_argument("--report", default="reports/lasagna_pipeline_execution.json")
+    parser.add_argument("--sigma", type=float, default=2.0)
+    parser.add_argument("--gpus", default="all")
     parser.add_argument(
         "--force",
         action="store_true",
-        help="Recompute crop/ST/evidence even when outputs already exist",
+        help="Recompute crops/tensors and requested CT evidence",
     )
-    args = parser.parse_args()
-
-    # 1. Build Worklist
-    worklist_json = "reports/lasagna_fiber_worklist.json"
-    build_cmd = [
-        sys.executable,
-        "scripts/build_lasagna_fiber_worklist.py",
-        "--ranked",
-        args.ranked,
-        "--out",
-        worklist_json,
-        "--limit",
-        str(args.limit),
+    parser.add_argument(
+        "--with-evidence",
+        action="store_true",
+        help="Also run CT evidence; ranked rows must supply train_mask_path and predict_mask_path",
+    )
+    args = parser.parse_args(argv)
+    write_json(
+        args.report,
+        {"status": "FAIL", "failure": "candidate pipeline has not completed"},
+    )
+    try:
+        tensor_settings(args.sigma, args.gpus)
+        items = build_worklist(
+            args.ranked, args.output_root, args.limit, sys.executable
+        )
+        if not items:
+            raise ValueError("no eligible local candidates in the ranked worklist")
+        if args.with_evidence:
+            for item in items:
+                for key in ("train_mask_path", "predict_mask_path"):
+                    if not item.get(key) or not Path(item[key]).is_file():
+                        raise ValueError(
+                            f"{item['artifact_stem']}: --with-evidence requires a supplied readable {key}"
+                        )
+    except (OSError, ValueError) as exc:
+        write_json(args.report, {"status": "FAIL", "failure": str(exc)})
+        parser.exit(1, f"Candidate pipeline preflight failed: {exc}\n")
+    results = [
+        process_candidate(
+            item, args.force, args.with_evidence, args.checkpoint, args.sigma, args.gpus
+        )
+        for item in items
     ]
-    if not run_step("Build Worklist", build_cmd):
-        sys.exit(1)
-
-    with open(worklist_json) as f:
-        worklist = json.load(f)
-
-    for item in worklist["candidates"]:
-        rank = item["rank"]
-        print(f"\n{'=' * 60}")
-        print(f"Processing Candidate Rank {rank}: {item['artifact_stem']}")
-        print(f"{'=' * 60}")
-
-        # 2. Crop candidate window, then compute Structure Tensors on the crop.
-        crop_output = item.get("cropped_volume_uri") or os.path.join(
-            item["output_dir"], "candidate_crop.zarr"
-        )
-        crop_cmd = [
-            sys.executable,
-            "scripts/crop_candidate_zarr.py",
-            "--input",
-            item["local_uri"],
-            "--output",
-            crop_output,
-            "--z",
-            str(item["z"]),
-            "--y",
-            str(item["y"]),
-            "--x",
-            str(item["x"]),
-            "--depth",
-            str(item.get("depth", 128)),
-            "--height",
-            str(item["height"]),
-            "--width",
-            str(item["width"]),
-        ]
-        if not args.force and _zarr_array_exists(crop_output):
-            print(
-                f"Skipping crop for Rank {rank}; existing crop found at {crop_output}"
-            )
-        elif not run_step(f"Crop candidate window for Rank {rank}", crop_cmd):
-            continue
-
-        st_output = item["structure_tensor_output"]
-        st_cmd = [
-            sys.executable,
-            "scripts/compute_structure_tensors.py",
-            "--input",
-            crop_output,
-            "--output",
-            st_output,
-        ]
-        if not args.force and _structure_tensor_complete(st_output):
-            print(
-                f"Skipping ST for Rank {rank}; complete tensor output found at {st_output}"
-            )
-        elif not run_step(f"Compute ST for cropped Rank {rank}", st_cmd):
-            continue
-
-        # 3. Lasagna Surface Fitting (Official Villa Tool)
-        print(f"\n>>> Step: Lasagna Surface Fitting (Rank {rank})")
-        lasagna_cmd = [
-            sys.executable,
-            "villa/lasagna/lasagna_analyze.py",
-            "--volume",
-            crop_output,
-            "--output-dir",
-            item["lasagna_output_dir"],
-            "--iterations",
-            "50",
-            "--device",
-            "cuda",
-        ]
-        if not args.force and os.path.exists(
-            os.path.join(item["lasagna_output_dir"], "mesh.obj")
-        ):
-            print(
-                f"Skipping Lasagna for Rank {rank}; existing mesh found in {item['lasagna_output_dir']}"
-            )
-        else:
-            run_step(f"Run Lasagna Fitting for Rank {rank}", lasagna_cmd)
-
-        # 3.5 Midline Refinement (Official Volume Cartographer Tool)
-        print(f"\n>>> Step: Midline Refinement (Rank {rank})")
-        refined_mesh = os.path.join(item["lasagna_output_dir"], "mesh_refined.obj")
-        refine_cmd = [
-            "bash",
-            "villa/volume-cartographer/scripts/batch_objrefine.sh",
-            os.path.join(item["lasagna_output_dir"], "mesh.obj"),
-            item["local_uri"],
-            refined_mesh,
-        ]
-        if not args.force and os.path.exists(refined_mesh):
-            print(f"Skipping Refinement for Rank {rank}; refined mesh exists.")
-        else:
-            # Note: This tool requires volume-cartographer binaries installed in the path.
-            # We wrap it in a try-except to allow the pipeline to continue if binaries are missing.
-            try:
-                run_step(f"Run Midline Refinement for Rank {rank}", refine_cmd)
-            except Exception as e:
-                print(
-                    f"Warning: Midline refinement failed (possibly missing binaries): {e}"
-                )
-
-        # 4. Generate Prize Evidence Chain
-        evidence_dir = item["evidence_output_dir"]
-        if not args.force and _evidence_passed(evidence_dir, item["artifact_stem"]):
-            print(
-                f"Skipping evidence for Rank {rank}; PASS metadata already exists in {evidence_dir}"
-            )
-        else:
-            evidence_cmd = [
-                sys.executable,
-                "scripts/run_villa_prize_evidence_chain.py",
-                "--ranked",
-                args.ranked,
-                "--candidate-index",
-                str(rank),
-                "--out-dir",
-                evidence_dir,
-                "--execute",
-                "--checkpoint",
-                args.checkpoint,
-            ]
-            run_step(f"Generate Evidence for Rank {rank}", evidence_cmd)
-
-        # 5. Validate Prize Readiness (Official Villa-compatible Check)
-        print(f"\n>>> Step: Validate Prize Readiness (Rank {rank})")
-        metadata_path = (
-            Path(evidence_dir) / "predictions" / f"{item['artifact_stem']}_meta.json"
-        )
-        validate_cmd = [
-            sys.executable,
-            "scripts/validate_prize_artifact.py",
-            "--metadata",
-            str(metadata_path),
-            "--out",
-            str(Path(evidence_dir) / "prize_validation.json"),
-        ]
-        if metadata_path.exists():
-            run_step(f"Validate Prize Readiness for Rank {rank}", validate_cmd)
-        else:
-            print(f"Warning: Metadata not found for validation at {metadata_path}")
-
-    print("\nLasagna Pipeline Execution Complete.")
+    failed = sum(result["status"] != "PASS" for result in results)
+    report = {
+        "scope": "CT preprocessing and optional CT evidence; no surface fitting",
+        "ranked_path": str(Path(args.ranked).resolve()),
+        "candidates": results,
+        "status": "FAIL" if failed else "PASS",
+    }
+    output = Path(args.report)
+    write_json(output, report)
+    print(
+        f"Candidate preprocessing: {len(results) - failed} completed, {failed} failed. Report: {output}"
+    )
+    if failed:
+        raise SystemExit(1)
+    return report
 
 
 if __name__ == "__main__":

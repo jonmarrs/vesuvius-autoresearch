@@ -206,6 +206,13 @@ or inconsistent export metadata fail validation. The evidence chain preserves
 the original prediction metadata and writes a separate evidence record.
 See [Submission evidence](docs/SUBMISSION_EVIDENCE.md) for the commands and limits.
 
+Ranked CT crops and structure tensors can be prepared with
+`scripts/execute_lasagna_pipeline.py`. It preserves candidate identity, checks
+completed outputs before reuse, and reports failed candidates with a nonzero
+exit. Surface fitting requires its own upstream configuration; optional CT
+evidence requires supplied masks. See [Candidate preprocessing](docs/CANDIDATE_PREPROCESSING.md)
+for the supported stages and the stored-tensor anisotropy measurement.
+
 `uv run python scripts/generate_submission_package.py` creates an illustrative
 dry-run package, reports `FAIL`, and exits with status 1. Supplying a real image
 or scroll name does not turn its synthetic masks into verified overlap evidence.

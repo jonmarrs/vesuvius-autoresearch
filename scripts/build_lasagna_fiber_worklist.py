@@ -10,22 +10,34 @@ opportunity around compressed and highly curved regions.
 import argparse
 import csv
 import json
+import math
 import shlex
+import sys
 from pathlib import Path
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+from scripts.candidate_artifacts import integer
+from scripts.inference.run_ranked_inference import (
+    build_predict_command,
+    load_candidates,
+)
 
 
 def _float(row, key, default=0.0):
     try:
-        return float(row.get(key, default))
-    except (TypeError, ValueError):
-        return default
+        value = float(row.get(key) or default)
+        if not math.isfinite(value):
+            raise ValueError
+        return value
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"candidate {key} must be finite") from exc
 
 
 def _int(row, key, default=0):
-    try:
-        return int(float(row.get(key, default)))
-    except (TypeError, ValueError):
-        return default
+    return integer(row.get(key, default), f"candidate {key}")
 
 
 def _artifact_stem(row):
@@ -59,11 +71,10 @@ def _candidate_score(row):
 
 
 def _load_rows(ranked_path):
-    with open(ranked_path, newline="") as f:
-        return list(csv.DictReader(f, delimiter="\t"))
+    return load_candidates(ranked_path, require_local=False)
 
 
-def _work_item(row, rank, output_root, python_executable):
+def _work_item(row, rank, output_root, python_executable, ranked_path, candidate_index):
     stem = _artifact_stem(row)
     out_dir = Path(output_root) / f"{rank:03d}_{stem}"
     crop_dir = out_dir / "candidate_crop.zarr"
@@ -79,7 +90,7 @@ def _work_item(row, rank, output_root, python_executable):
 
     crop_cmd = [
         python_executable,
-        "scripts/crop_candidate_zarr.py",
+        str(REPO_ROOT / "scripts/crop_candidate_zarr.py"),
         "--input",
         row.get("local_uri", ""),
         "--output",
@@ -99,7 +110,7 @@ def _work_item(row, rank, output_root, python_executable):
     ]
     structure_tensor_cmd = [
         python_executable,
-        "scripts/compute_structure_tensors.py",
+        str(REPO_ROOT / "scripts/compute_structure_tensors.py"),
         "--input",
         str(crop_dir),
         "--output",
@@ -107,25 +118,33 @@ def _work_item(row, rank, output_root, python_executable):
     ]
     evidence_cmd = [
         python_executable,
-        "scripts/run_villa_prize_evidence_chain.py",
+        str(REPO_ROOT / "scripts/run_villa_prize_evidence_chain.py"),
         "--ranked",
-        "reports/scroll23_ranked_candidates.tsv",
+        str(Path(ranked_path).resolve()),
         "--candidate-index",
-        str(rank),
+        str(candidate_index),
         "--out-dir",
         str(evidence_dir),
         "--execute",
         "--checkpoint",
         "best_model.pt",
     ]
+    for key, flag in (
+        ("train_mask_path", "--train-mask"),
+        ("predict_mask_path", "--predict-mask"),
+    ):
+        if row.get(key):
+            evidence_cmd.extend([flag, str(Path(row[key]).resolve())])
     lasagna_note = (
-        "After updating the villa submodule to an upstream commit with lasagna/, "
-        "run Lasagna preprocessing/training against this candidate directory and "
-        "export VC3D-compatible OME-Zarr overlays for review."
+        "This worklist prepares CT crops and structure tensors; it does not fit a "
+        "surface. Follow villa/lasagna/README.md with an explicit fit configuration. "
+        "Optional prize evidence is separate CT prediction, not a fitted-surface evaluation."
     )
 
     return {
         "rank": rank,
+        "candidate_index": candidate_index,
+        "ranked_path": str(Path(ranked_path).resolve()),
         "priority_score": round(_candidate_score(row), 6),
         "official_issue": "https://github.com/ScrollPrize/villa/issues/191",
         "scroll_id": row.get("scroll_id"),
@@ -152,6 +171,12 @@ def _work_item(row, rank, output_root, python_executable):
         "crop_command": shlex.join(crop_cmd),
         "structure_tensor_command": shlex.join(structure_tensor_cmd),
         "evidence_command": shlex.join(evidence_cmd),
+        "train_mask_path": str(Path(row["train_mask_path"]).resolve())
+        if row.get("train_mask_path")
+        else None,
+        "predict_mask_path": str(Path(row["predict_mask_path"]).resolve())
+        if row.get("predict_mask_path")
+        else None,
         "lasagna_note": lasagna_note,
     }
 
@@ -162,27 +187,38 @@ def build_worklist(
     limit=12,
     python_executable=".venv/bin/python",
 ):
+    limit = integer(limit, "limit", 1)
     rows = _load_rows(ranked_path)
     eligible = [
-        row
-        for row in rows
+        (index, row)
+        for index, row in enumerate(rows)
         if row.get("local_uri")
         and row.get("submittable_window") == "true"
         and row.get("ct_occupied_status", "unknown") != "false"
     ]
-    eligible.sort(key=_candidate_score, reverse=True)
+    for _, row in eligible:
+        build_predict_command(row)  # share strict geometry and artifact-name validation
+        integer(row.get("depth", 128), "candidate depth", 1)
+        if not math.isfinite(_candidate_score(row)):
+            raise ValueError("candidate priority score must be finite")
+    eligible.sort(key=lambda item: _candidate_score(item[1]), reverse=True)
+    output_root = Path(output_root).resolve()
     return [
-        _work_item(row, rank, output_root, python_executable)
-        for rank, row in enumerate(eligible[:limit])
+        _work_item(row, rank, output_root, python_executable, ranked_path, index)
+        for rank, (index, row) in enumerate(eligible[:limit])
     ]
 
 
 def _write_tsv(path, rows):
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
     if not rows:
-        Path(path).write_text("")
+        path.write_text("")
         return
     fields = [
         "rank",
+        "candidate_index",
+        "ranked_path",
         "priority_score",
         "official_issue",
         "scroll_id",

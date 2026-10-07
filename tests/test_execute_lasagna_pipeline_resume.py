@@ -1,5 +1,7 @@
 import json
 
+import zarr
+
 from scripts.execute_lasagna_pipeline import (
     _evidence_passed,
     _structure_tensor_complete,
@@ -7,11 +9,13 @@ from scripts.execute_lasagna_pipeline import (
 )
 
 
-def test_zarr_array_exists_checks_zarray_marker(tmp_path):
+def test_zarr_array_exists_requires_readable_metadata(tmp_path):
     zarr_dir = tmp_path / "crop.zarr"
     zarr_dir.mkdir()
     assert not _zarr_array_exists(zarr_dir)
     (zarr_dir / ".zarray").write_text("{}")
+    assert not _zarr_array_exists(zarr_dir)
+    zarr.open(str(zarr_dir), mode="w", shape=(2, 2, 2), dtype="u1")
     assert _zarr_array_exists(zarr_dir)
 
 
@@ -23,7 +27,7 @@ def test_structure_tensor_complete_requires_tensor_and_normal_output(tmp_path):
 
     (output / "normal" / "x" / "0").mkdir(parents=True)
     (output / "normal" / "x" / "0" / ".zarray").write_text("{}")
-    assert _structure_tensor_complete(output)
+    assert not _structure_tensor_complete(output)
 
 
 def test_evidence_passed_requires_prediction_metadata(tmp_path):
@@ -37,4 +41,4 @@ def test_evidence_passed_requires_prediction_metadata(tmp_path):
     assert not _evidence_passed(evidence, "candidate")
 
     meta.write_text(json.dumps({"vc3d_zarr_path": "candidate_ink.zarr"}))
-    assert _evidence_passed(evidence, "candidate")
+    assert not _evidence_passed(evidence, "candidate")
