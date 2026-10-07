@@ -100,6 +100,10 @@ def build_point_map(v, vt, size, uv_bbox=None, *, origin=(0, 0), grid_size=None)
     gU, gV = np.meshgrid(gu, gv)
     interp = LinearNDInterpolator(vt, v)  # fills NaN outside the convex hull
     pm = interp(np.stack([gU.ravel(), gV.ravel()], axis=1)).reshape(h, w, 3)
+    # Barycentric interpolation stays within the vertex coordinate ranges, but
+    # roundoff can put an exact zero boundary just below zero (e.g. -5e-18).
+    # Preserve actual negative vertices while removing that numerical overshoot.
+    np.clip(pm, v.min(axis=0), v.max(axis=0), out=pm)
     valid = np.isfinite(pm).all(axis=2)
     return pm.astype(np.float32), valid
 

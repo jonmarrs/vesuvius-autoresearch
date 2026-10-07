@@ -20,9 +20,11 @@ Final documentation verification completed on 2026-10-07 after the workspace res
 | P2 | Negative/oversized tifxyz crops, arbitrary normal multipliers, nonfinite divisors, and malformed sampling inputs failed late or silently changed the requested geometry. Flat auto-scale candidates were accepted; rectangular probes failed and persisted as regular output fragments. | Validate bounds, dimensions, levels, signs, divisors, and unit normals. Reject flat/empty scale candidates, use centered rectangular probes at the final grid resolution, and clean up probes. Operational read failures abort scale inference. |
 | P2 | Conversion sorted depths lexicographically, silently selected a first TIFF channel or label, and failed to verify coherent source grids/masks. OBJ downloads collided by basename and interrupted transfers could enter the cache. | Sort numeric consecutive depth indices; require grayscale, aligned layers and unambiguous readable labels/masks. Cache meshes by the complete S3 key and publish completed downloads through temporary files. |
 | P2 | Grouped cache warming had no explicit byte limit and could enumerate enormous chunk sets before allocation guards. | Bound decoded cache payload and each dense bbox to 512 MiB by default. Bound chunk-index counts separately, including tiny-chunk metadata, before constructing index lists. |
+| P2 | Barycentric roundoff could produce a tiny negative coordinate at an exact zero boundary, causing a valid mesh to fail bounds validation. | Constrain interpolated coordinates to the source vertex extrema. Actual negative source geometry still fails volume bounds checks. |
 
 The initial 26 regression cases produced **22 failures and 4 passes** against
-the original implementation. The completed contract module contains **78 cases**.
+the original implementation. The completed contract module contains **80 cases**,
+including two boundary-range cases added during PR integration.
 Tests use real local geometry TIFFs, analytic volumes, actual Zarr-v2 compressed
 chunk bytes, detector loading, interrupted writes/downloads, and controlled
 filesystem failures. They do not access research datasets or the network.
@@ -78,7 +80,7 @@ before using new crops, masks, intensity conversion, or auto-scale selection as
 evidence for those measurements. Existing qualitative outputs with placeholder
 labels are not migrated automatically; regenerate them in a fresh output root.
 
-## Verification
+## Verification before PR integration
 
 The suites overlap; their counts must not be added together.
 
@@ -134,6 +136,28 @@ UV_CACHE_DIR=/workspace/.cache/uv UV_TOOL_DIR=/workspace/.cache/uv-tools uv tool
 existing registered-label adapter diagnostic. Remaining issues concern missing
 Requests/YAML stubs, OpenCV annotations, augmentation slice indices, optional
 loader tensors, and teacher-logit tensor lists. Repository-wide typing still fails.
+
+## PR integration verification (2026-10-07)
+
+Rebased the review onto current main `f5f775c3`, retaining the upstream fiber
+scoring and research-report changes. Revalidation exposed the interpolation
+roundoff case repaired above. The final integrated branch passed:
+
+- The same standard validation command: **589 passed, 3 skipped, 9 warnings
+  in 41.66 seconds**. The skips and warnings have the same causes listed above.
+- The same broader surface/SOTA command: **158 passed, 2 warnings in 13.23
+  seconds**, including the two new vertex-boundary regression cases.
+- Documentation guards plus the new upstream report/parity tests:
+
+```bash
+OMP_NUM_THREADS=2 MKL_NUM_THREADS=2 MPLCONFIGDIR=/tmp/vesuvius-matplotlib .venv/bin/python -m pytest tests/test_audit_doc_references.py tests/test_audit_report_claims.py tests/test_withdrawn_claims_stay_withdrawn.py tests/test_arm_tiers.py tests/test_audit_arm_coverage.py tests/test_analyse_flat_displacement.py tests/test_quotations_match_source.py tests/test_analyse_pooled_fit_only_floor.py tests/test_analyse_ink_maximum_offset.py tests/test_filing_2026_10_numbers.py tests/test_fiber_scoring_matches_scrollgt.py tests/test_soft_count_report_numbers.py -q --no-header --tb=short
+```
+
+**106 passed, 16 skipped in 20.86 seconds.** Fifteen parity cases require an
+absent sibling ScrollGT checkout; the remaining skip requires the external render
+artifact noted above. These are optional upstream checks, not surface test skips.
+Ruff check and format-check remain clean on the changed Python files. Mypy still
+reports **16 existing errors in 13 unchanged files**, now checking 605 source files.
 
 ## Remaining limits
 

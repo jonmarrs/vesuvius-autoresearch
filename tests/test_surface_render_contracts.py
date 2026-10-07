@@ -662,3 +662,27 @@ def test_tiny_chunks_cannot_allocate_millions_of_index_objects(monkeypatch):
     with pytest.raises(MemoryError, match="chunk count budget"):
         reader.warm([(0, 100, 0, 100, 0, 100)])
     assert not reader.cache
+
+
+@pytest.mark.parametrize("offset", [0.0, -0.25])
+def test_interpolated_surface_respects_vertex_bounds_without_hiding_negative_geometry(
+    offset,
+):
+    u, v = np.meshgrid(np.linspace(0, 1, 20), np.linspace(0, 1, 20))
+    uv = np.stack([u.ravel(), v.ravel()], axis=1)
+    vertices = np.stack(
+        [
+            100 * u.ravel() + offset,
+            100 * v.ravel(),
+            200 * u.ravel() + 300 * v.ravel() + 10,
+        ],
+        axis=1,
+    )
+    points, valid = rs.build_point_map(vertices, uv, 32)
+    assert np.all(points[valid] >= vertices.min(axis=0))
+    assert np.all(points[valid] <= vertices.max(axis=0))
+    if offset < 0:
+        with pytest.raises(ValueError, match="bounds"):
+            rs.assert_bounds_fit(points, valid, (600, 600, 600))
+    else:
+        rs.assert_bounds_fit(points, valid, (600, 600, 600))
