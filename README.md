@@ -172,6 +172,11 @@ preserves IDs and masked coverage, and checks the pinned dataset on CPU before
 training. The current pinned runtime has import and channel-shape blockers;
 preparation success does not establish a working training run.
 
+For manual volume registration, probability-grid OBJ previews, and explicit
+stored/full Tifxyz coordinate tiles, see [Geometry handoffs](docs/GEOMETRY_HANDOFF.md).
+These workflows validate coordinate and publication contracts; alignment accuracy
+and submission eligibility require separate evidence.
+
 ## Running the agent
 
 Spin up your coding agent of choice in this repo, then prompt something like:

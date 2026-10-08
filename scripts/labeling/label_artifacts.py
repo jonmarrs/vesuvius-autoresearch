@@ -3,12 +3,16 @@
 from __future__ import annotations
 
 import math
+import tempfile
 from contextlib import contextmanager
 from pathlib import Path
 
+import numpy as np
 import zarr
 
 from scripts.candidate_artifacts import integer, separate_paths, staged_directory
+
+MAX_FRAGMENT_VOXELS = 128**3
 
 
 def bounded_number(value, name, lower, upper):
@@ -45,6 +49,16 @@ def volume(path):
     return root, array
 
 
+def bounded_volume(path, max_voxels=MAX_FRAGMENT_VOXELS):
+    root, array = volume(path)
+    limit = integer(max_voxels, "max_voxels", 1)
+    if int(np.prod(array.shape, dtype=object)) > limit:
+        raise ValueError(
+            f"fragment shape {array.shape} exceeds max_voxels={limit}; make an explicit bounded crop"
+        )
+    return root, array
+
+
 def bbox_zyx(values, shape):
     if len(values) != 6:
         raise ValueError("bbox must contain z0, z1, y0, y1, x0, x1")
@@ -77,3 +91,21 @@ def publish_new(output):
         # The shared publisher supports replacement; these label tools don't.
         if output.exists() or output.is_symlink():
             raise ValueError(f"output appeared during processing: {output}")
+
+
+@contextmanager
+def publish_new_file(output, *sources):
+    """Publish one validated new file by rename; serialize writers."""
+    output = new_output(output, *sources)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.NamedTemporaryFile(
+        dir=output.parent, prefix=f".{output.stem}-", suffix=output.suffix, delete=False
+    ) as stream:
+        staging = Path(stream.name)
+    try:
+        yield staging
+        if output.exists() or output.is_symlink():
+            raise ValueError(f"output appeared during processing: {output}")
+        staging.rename(output)
+    finally:
+        staging.unlink(missing_ok=True)
