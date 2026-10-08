@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
-"""
-Smoke-test the handoff from Autoresearch checkpoints to villa optimized inference.
+"""Validate a checkpoint envelope and record the limits of its inference handoff.
 
-This does not claim to run the official container unless --execute-docker is set.
-By default it verifies the exported checkpoint structure, records the official
-docker command template, and writes a machine-readable report for prize evidence.
+PASS covers envelope/local weight checks only. Registry Docker templates do not
+load the exported file; execution through this command is refused. Legacy Primus
+packages are archives without a runnable native inference command.
 """
 
 import argparse
@@ -17,18 +16,36 @@ from pathlib import Path
 
 import torch
 
+REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
 from scripts.export_for_production import (
-    ARCHITECTURE_STATE_DICT_PREFIXES,
+    CHECKPOINT_ERRORS,
+    checkpoint_contract,
     export_checkpoint,
+    sha256_file,
+    validate_envelope,
 )
+from scripts.labeling.label_artifacts import new_output, publish_new, publish_new_file
+from vesuvius_autoresearch.core.inference import positive_integer
 
-REQUIRED_TOP_LEVEL_KEYS = {"model_state_dict", "config", "metadata"}
-REQUIRED_METADATA_KEYS = {"version", "framework", "val_bpb"}
-
-# Architectures that the villa optimized_inference Docker container can load
-# today. Anything outside this set must take the submission_package path
-# instead of the Docker path.
-DOCKER_SUPPORTED_ARCHITECTURES = {"timesformer", "resnet3d_decoder", "resnet3d-50"}
+DOCKER_SUPPORTED_ARCHITECTURES = {
+    "timesformer",
+    "resnet3d-50",
+    "resnet3d-152",
+    "resnet3d-152-3d-decoder",
+}
+DOCKER_REFUSAL = (
+    "Docker execution refused: MODEL selects a registry model; the command does "
+    "not load the exported checkpoint and cannot verify its inference handoff"
+)
+PRIMUS_BLOCKER = (
+    "This legacy envelope has model_state_dict/config, while the pinned train_py "
+    "loader reads model/model_config (and optional EMA/normalization). A native "
+    "checkpoint and actual compatible model load are required; no conversion or "
+    "inference verification was performed."
+)
 
 
 def build_official_docker_command(
@@ -41,14 +58,27 @@ def build_official_docker_command(
     tile_size=64,
     stride=16,
 ):
-    if model_type not in DOCKER_SUPPORTED_ARCHITECTURES and model_type not in {
-        "resnet3d-152-3d-decoder",
-    }:
+    """Registry-model command template, independent of any local checkpoint."""
+    if model_type not in DOCKER_SUPPORTED_ARCHITECTURES:
         raise ValueError(
-            f"villa optimized_inference does not support MODEL_TYPE={model_type!r}. "
-            f"Supported: {sorted(DOCKER_SUPPORTED_ARCHITECTURES | {'resnet3d-152-3d-decoder'})}. "
-            "Use build_primus_submission_package() for primus_lejepa instead."
+            f"villa optimized_inference does not support MODEL_TYPE={model_type!r}"
         )
+    positive_integer(start_layer, "start_layer", minimum=0)
+    positive_integer(end_layer, "end_layer")
+    positive_integer(tile_size, "tile_size")
+    positive_integer(stride, "stride")
+    if end_layer <= start_layer or stride > tile_size:
+        raise ValueError("require start_layer < end_layer and stride <= tile_size")
+    if not all(
+        isinstance(value, str) and value.strip() for value in (image, model, s3_path)
+    ):
+        raise ValueError("image, registry model, and s3_path must be nonempty strings")
+    if (
+        not s3_path.startswith("s3://")
+        or len(s3_path[5:].split("/", 1)) != 2
+        or not all(s3_path[5:].split("/", 1))
+    ):
+        raise ValueError("s3_path must identify a bucket and segment prefix")
     return [
         "docker",
         "run",
@@ -76,152 +106,71 @@ def build_official_docker_command(
 def build_primus_submission_package(
     checkpoint_path, package_dir, exported_metadata, exported_config
 ):
-    """Build a self-contained submission for a primus_lejepa fine-tuned model.
-
-    Villa's optimized_inference Docker container has no Primus loader (see
-    villa/ink-detection/optimized_inference/runtime_contracts.py). Until that
-    is added (option A), submissions ship the checkpoint + a villa-native
-    inference command using `vesuvius.models.run.inference`, which DOES know
-    how to load train_py checkpoints via NetworkFromConfig.
-    """
-    package_dir = Path(package_dir)
-    package_dir.mkdir(parents=True, exist_ok=True)
-
-    pkg_checkpoint = package_dir / "model.pt"
-    shutil.copy2(str(checkpoint_path), str(pkg_checkpoint))
-
-    villa_infer = "villa/vesuvius/src/vesuvius/models/run/inference.py"
-    predict_manifest = {
-        "command": [
-            sys.executable,
-            villa_infer,
-            "--model_path",
-            str(pkg_checkpoint),
-            "--input_dir",
-            "<OME_ZARR_PATH>",
-            "--output_dir",
-            "<OUTPUT_DIR>",
-            "--model-type",
-            "train_py",
-            "--input_format",
-            "zarr",
-        ],
-        "notes": (
-            "Replace <OME_ZARR_PATH> with an OME-Zarr scroll volume and "
-            "<OUTPUT_DIR> with the predictions directory. Villa's inference "
-            "CLI loads train_py checkpoints via NetworkFromConfig."
-        ),
-        "expected_patch_size": exported_config.get("patch_size"),
-        "architecture": exported_config.get("architecture"),
-    }
-    (package_dir / "predict_manifest.json").write_text(
-        json.dumps(predict_manifest, indent=2) + "\n"
-    )
-
-    readme_lines = [
-        "# Vesuvius Autoresearch — Primus LeJEPA Fine-tune Submission",
-        "",
-        f"Architecture: `{exported_config.get('architecture')}`",
-        f"Patch size: `{exported_config.get('patch_size')}`",
-        f"Pretrained LeJEPA SHA: `{exported_metadata.get('pretrained_lejepa_sha')}`",
-        f"Fine-tune config SHA: `{exported_metadata.get('finetune_config_sha')}`",
-        "",
-        "## Why this package and not the villa Docker container",
-        "",
-        "`villa/ink-detection/optimized_inference/` currently only registers",
-        "MODEL_TYPE in {timesformer, resnet3d-50, resnet3d-152-3d-decoder}. A",
-        "Primus loader (`model_primus.py`) is not yet upstream. Until it lands,",
-        "this submission uses villa's own `vesuvius.models.run.inference` CLI,",
-        "which loads train_py checkpoints via NetworkFromConfig.",
-        "",
-        "## How to run",
-        "",
-        "See `predict_manifest.json` for the exact command. Fill in",
-        "`<OME_ZARR_PATH>` and `<OUTPUT_DIR>` to match the candidate window",
-        "from the Scroll 2/3 worklist.",
-    ]
-    (package_dir / "README.md").write_text("\n".join(readme_lines) + "\n")
-
-    repro_lines = [
-        "# Reproducibility manifest",
-        "",
-        "Reproduce this submission by:",
-        "",
-        "1. Pretraining: see `scripts/launch_lejepa.py` and the LeJEPA pretrain checkpoint at the",
-        f"   SHA below (`{exported_metadata.get('pretrained_lejepa_sha')}`).",
-        "2. Fine-tuning: `scripts/launch_finetune_lejepa.py --execute` using the config at the SHA below",
-        f"   (`{exported_metadata.get('finetune_config_sha')}`).",
-        "3. Export: `scripts/export_for_production.py --input <best.pt> --output model.pt`.",
-        "4. Inference: see `predict_manifest.json`.",
-        "",
-        "## Pretrain checkpoint",
-        f"- path: `{exported_config.get('pretrained_lejepa_checkpoint')}`",
-        f"- sha256: `{exported_metadata.get('pretrained_lejepa_sha')}`",
-        "",
-        "## Fine-tune config",
-        f"- path: `{exported_config.get('finetune_config_path')}`",
-        f"- sha256: `{exported_metadata.get('finetune_config_sha')}`",
-    ]
-    (package_dir / "REPRODUCIBILITY.md").write_text("\n".join(repro_lines) + "\n")
-
+    """Legacy API name: publish an immutable Primus archive, not a submission."""
+    source = Path(checkpoint_path).resolve()
+    destination = new_output(package_dir, source)
+    digest = sha256_file(source)
+    loaded = torch.load(source, map_location="cpu", weights_only=False)
+    _, config, _, _ = checkpoint_contract(loaded)
+    if config["architecture"] != "primus_lejepa":
+        raise ValueError("Primus archive requires primus_lejepa weights")
+    metadata = loaded.get("metadata", {})
+    if config != exported_config or metadata != exported_metadata:
+        raise ValueError("archive declarations must match the actual checkpoint")
+    json.dumps(metadata, allow_nan=False)
     manifest = {
-        "package_dir": str(package_dir),
-        "checkpoint": str(pkg_checkpoint),
-        "predict_manifest": str(package_dir / "predict_manifest.json"),
-        "readme": str(package_dir / "README.md"),
-        "reproducibility": str(package_dir / "REPRODUCIBILITY.md"),
-        "architecture": exported_config.get("architecture"),
-        "patch_size": exported_config.get("patch_size"),
-        "pretrained_lejepa_sha": exported_metadata.get("pretrained_lejepa_sha"),
-        "finetune_config_sha": exported_metadata.get("finetune_config_sha"),
+        "scope": "checkpoint archive only",
+        "package_dir": str(destination),
+        "checkpoint": str(destination / "model.pt"),
+        "predict_manifest": str(destination / "predict_manifest.json"),
+        "readme": str(destination / "README.md"),
+        "reproducibility": str(destination / "REPRODUCIBILITY.md"),
+        "architecture": config["architecture"],
+        "patch_size": config["patch_size"],
+        "checkpoint_sha256": digest,
+        "pretrained_lejepa_sha": config.get("pretrained_lejepa_sha"),
+        "finetune_config_sha": config.get("finetune_config_sha"),
+        "inference_verified": False,
+        "submittable": None,
+        "blockers": [PRIMUS_BLOCKER],
     }
-    (package_dir / "submission_manifest.json").write_text(
-        json.dumps(manifest, indent=2) + "\n"
-    )
+    with publish_new(destination) as staging:
+        shutil.copy2(source, staging / "model.pt")
+        if sha256_file(staging / "model.pt") != digest or sha256_file(source) != digest:
+            raise ValueError("checkpoint changed while building its archive")
+        predict = {
+            "command": None,
+            "inference_verified": False,
+            "blockers": [PRIMUS_BLOCKER],
+        }
+        for name, payload in (
+            ("predict_manifest.json", predict),
+            ("submission_manifest.json", manifest),
+        ):
+            (staging / name).write_text(
+                json.dumps(payload, indent=2, allow_nan=False) + "\n"
+            )
+        (staging / "README.md").write_text(
+            "# Primus checkpoint archive\n\n" + PRIMUS_BLOCKER + "\n\n"
+            "This archive records a legacy research envelope. Inference compatibility "
+            "and submission eligibility remain unverified.\n"
+        )
+        (staging / "REPRODUCIBILITY.md").write_text(
+            "# Recorded checkpoint provenance\n\n"
+            f"Checkpoint SHA-256: `{digest}`\n\n"
+            "Config is copied from this checkpoint; no run marker or external "
+            "pretrain/config file was read. Recorded lineage is unverified.\n"
+        )
     return manifest
 
 
 def validate_exported_checkpoint(path):
-    checkpoint = torch.load(path, map_location="cpu", weights_only=False)
-    failures = []
-    missing_top = sorted(REQUIRED_TOP_LEVEL_KEYS - set(checkpoint.keys()))
-    if missing_top:
-        failures.append(f"missing top-level keys: {missing_top}")
-
-    metadata = checkpoint.get("metadata", {})
-    missing_metadata = sorted(REQUIRED_METADATA_KEYS - set(metadata.keys()))
-    if missing_metadata:
-        failures.append(f"missing metadata keys: {missing_metadata}")
-    if metadata.get("framework") != "vesuvius-autoresearch":
-        failures.append("metadata.framework must be vesuvius-autoresearch")
-
-    state_dict = checkpoint.get("model_state_dict")
-    if not isinstance(state_dict, dict) or not state_dict:
-        failures.append("model_state_dict must be a non-empty dict")
-    config = checkpoint.get("config")
-    if not isinstance(config, dict):
-        failures.append("config must be a dict")
-
-    # Architecture-aware state-dict prefix check. We don't fail if architecture
-    # is missing (older checkpoints), but if it's declared we sanity-check.
-    if isinstance(state_dict, dict) and state_dict and isinstance(config, dict):
-        declared = config.get("architecture")
-        if declared in ARCHITECTURE_STATE_DICT_PREFIXES:
-            expected_prefix = ARCHITECTURE_STATE_DICT_PREFIXES[declared]
-            first_key = next(iter(state_dict.keys()))
-            if not first_key.startswith(expected_prefix):
-                failures.append(
-                    f"state_dict prefix {first_key!r} does not match "
-                    f"architecture={declared!r} (expected prefix {expected_prefix!r})"
-                )
-
-    if isinstance(metadata, dict) and metadata.get("architecture") == "primus_lejepa":
-        if not metadata.get("pretrained_lejepa_sha"):
-            failures.append("primus_lejepa metadata is missing pretrained_lejepa_sha")
-        if not metadata.get("finetune_config_sha"):
-            failures.append("primus_lejepa metadata is missing finetune_config_sha")
-
-    return checkpoint, failures
+    try:
+        checkpoint = torch.load(path, map_location="cpu", weights_only=False)
+        validate_envelope(checkpoint)
+        return checkpoint, []
+    except CHECKPOINT_ERRORS as exc:
+        return {}, [str(exc)]
 
 
 def run_smoke_test(
@@ -237,130 +186,138 @@ def run_smoke_test(
     execute_docker=False,
     submission_package_dir=None,
 ):
-    output_checkpoint = Path(output_checkpoint)
-    output_checkpoint.parent.mkdir(parents=True, exist_ok=True)
-    export_checkpoint(str(input_checkpoint), str(output_checkpoint))
-
-    exported, failures = validate_exported_checkpoint(output_checkpoint)
-    config = exported.get("config", {})
-    metadata = exported.get("metadata", {})
-    arch = config.get("architecture", "timesformer")
-    if arch == "resnet3d_decoder":
-        model_type = "resnet3d-152-3d-decoder"
-    else:
-        model_type = arch
-
-    command_path = Path(command_path)
-    command_path.parent.mkdir(parents=True, exist_ok=True)
-
-    docker_cmd = None
-    docker_result = {"executed": False}
-    submission_manifest = None
-
-    if arch == "primus_lejepa":
-        # Villa optimized_inference can't load Primus yet; ship a self-contained
-        # submission package that uses villa's models/run/inference CLI instead.
-        package_dir = Path(submission_package_dir or "submission_package_primus_lejepa")
-        submission_manifest = build_primus_submission_package(
-            checkpoint_path=output_checkpoint,
-            package_dir=package_dir,
-            exported_metadata=metadata,
-            exported_config=config,
-        )
-        command_path.write_text(
-            "# primus_lejepa: no Docker command — see submission_package below.\n"
-            f"# package: {submission_manifest['package_dir']}\n"
-            f"# predict_manifest: {submission_manifest['predict_manifest']}\n"
-        )
-        if execute_docker:
-            failures.append(
-                "execute_docker=True is invalid for primus_lejepa (no villa loader)"
-            )
-    else:
-        docker_cmd = build_official_docker_command(
-            image=docker_image,
-            model=model,
-            s3_path=s3_path,
-            start_layer=start_layer,
-            end_layer=end_layer,
-            model_type=model_type,
-            tile_size=int(config.get("patch_size", 64)),
-        )
-        command_path.write_text(shlex.join(docker_cmd) + "\n")
-        if execute_docker:
-            proc = subprocess.run(docker_cmd, text=True, capture_output=True)
-            docker_result = {
-                "executed": True,
-                "returncode": proc.returncode,
-                "stdout_tail": proc.stdout[-4000:],
-                "stderr_tail": proc.stderr[-4000:],
-            }
-            if proc.returncode != 0:
-                failures.append(
-                    f"official docker command failed with return code {proc.returncode}"
-                )
-
+    source = Path(input_checkpoint).resolve()
+    outputs = [Path(output_checkpoint), Path(report_path), Path(command_path)]
+    if submission_package_dir is not None:
+        outputs.append(Path(submission_package_dir))
+    # Preflight every destination before any export, report, or archive write.
+    resolved = [
+        new_output(path, source, *outputs[:index], *outputs[index + 1 :])
+        for index, path in enumerate(outputs)
+    ]
+    output, report_output, command_output = resolved[:3]
+    package_output = resolved[3] if len(resolved) > 3 else None
     report = {
-        "status": "PASS" if not failures else "FAIL",
-        "input_checkpoint": str(input_checkpoint),
-        "output_checkpoint": str(output_checkpoint),
-        "command_path": str(command_path),
-        "official_inference_dir": "villa/ink-detection/optimized_inference",
-        "architecture": arch,
-        "docker_command": docker_cmd,
-        "docker_result": docker_result,
-        "submission_package": submission_manifest,
-        "exported_metadata": metadata,
-        "exported_config": config,
-        "failures": failures,
+        "scope": "checkpoint envelope validation only",
+        "status": "FAIL",
+        "input_checkpoint": str(source),
+        "output_checkpoint": str(output),
+        "command_path": str(command_output),
+        "official_inference_dir": str(
+            REPO_ROOT / "villa/ink-detection/optimized_inference"
+        ),
+        "architecture": None,
+        "docker_command": None,
+        "docker_command_scope": "registry model only; does not load the exported checkpoint",
+        "docker_result": {"executed": False},
+        "submission_package": None,
+        "inference_verified": False,
+        "submittable": None,
+        "exported_metadata": {},
+        "exported_config": {},
+        "failures": [],
     }
-
-    report_path = Path(report_path)
-    report_path.parent.mkdir(parents=True, exist_ok=True)
-    with open(report_path, "w") as f:
-        json.dump(report, f, indent=2)
+    try:
+        if execute_docker:
+            raise ValueError(DOCKER_REFUSAL)
+        exported = export_checkpoint(source, output)
+        # Read the published envelope through the same shared validator.
+        exported, failures = validate_exported_checkpoint(output)
+        if failures:
+            raise ValueError("; ".join(failures))
+        config, metadata = exported["config"], exported["metadata"]
+        arch = config["architecture"]
+        report.update(
+            architecture=arch, exported_metadata=metadata, exported_config=config
+        )
+        if package_output is not None and arch != "primus_lejepa":
+            raise ValueError(
+                "--submission-package-dir is only supported for legacy Primus archives"
+            )
+        command_text = "# No verified inference command for this exported checkpoint.\n"
+        if arch == "primus_lejepa":
+            if package_output is not None:
+                report["submission_package"] = build_primus_submission_package(
+                    output, package_output, metadata, config
+                )
+            report["handoff_blockers"] = [PRIMUS_BLOCKER]
+        else:
+            model_type = (
+                "resnet3d-152-3d-decoder" if arch == "resnet3d_decoder" else arch
+            )
+            if model_type in DOCKER_SUPPORTED_ARCHITECTURES:
+                docker_cmd = build_official_docker_command(
+                    docker_image,
+                    model,
+                    s3_path,
+                    start_layer,
+                    end_layer,
+                    model_type=model_type,
+                    tile_size=config["patch_size"],
+                    stride=min(16, config["patch_size"]),
+                )
+                report["docker_command"] = docker_cmd
+                command_text += (
+                    "# Registry-model template; it does not load this exported checkpoint.\n"
+                    + shlex.join(docker_cmd)
+                    + "\n"
+                )
+            report["handoff_blockers"] = [
+                "The exported checkpoint has not been loaded by an upstream inference consumer."
+            ]
+        with publish_new_file(command_output, source, output) as staging:
+            staging.write_text(command_text)
+        report["status"] = "PASS"
+    except CHECKPOINT_ERRORS as exc:
+        report["failures"].append(str(exc))
+    with publish_new_file(report_output, source, output, command_output) as staging:
+        staging.write_text(json.dumps(report, indent=2, allow_nan=False) + "\n")
     return report
 
 
-def main():
-    parser = argparse.ArgumentParser()
+def main(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--input", default="best_model.pt")
-    parser.add_argument("--output", default="production_model.pt")
+    parser.add_argument("--output", required=True, help="New checkpoint envelope")
     parser.add_argument(
-        "--report", default="reports/villa_optimized_inference_smoke.json"
+        "--report", required=True, help="New envelope-validation report"
     )
     parser.add_argument(
-        "--command-out", default="reports/villa_optimized_inference_docker.sh"
+        "--command-out", required=True, help="New command-template file"
     )
     parser.add_argument("--docker-image", default="ink-detection-optimized-inference")
     parser.add_argument("--model", default="timesformer-scroll5")
     parser.add_argument("--s3-path", default="s3://bucket/path/to/input")
     parser.add_argument("--start-layer", type=int, default=0)
     parser.add_argument("--end-layer", type=int, default=26)
-    parser.add_argument("--execute-docker", action="store_true")
     parser.add_argument(
-        "--submission-package-dir",
-        default="submission_package_primus_lejepa",
-        help="Output dir for the submission_package when architecture is primus_lejepa.",
+        "--execute-docker",
+        action="store_true",
+        help="Refused: registry command does not load the exported file",
     )
-    args = parser.parse_args()
-
-    report = run_smoke_test(
-        input_checkpoint=args.input,
-        output_checkpoint=args.output,
-        report_path=args.report,
-        command_path=args.command_out,
-        model=args.model,
-        s3_path=args.s3_path,
-        start_layer=args.start_layer,
-        end_layer=args.end_layer,
-        docker_image=args.docker_image,
-        execute_docker=args.execute_docker,
-        submission_package_dir=args.submission_package_dir,
+    parser.add_argument(
+        "--submission-package-dir", help="Optional new legacy Primus archive directory"
     )
-    print(json.dumps(report, indent=2))
-    raise SystemExit(0 if report["status"] == "PASS" else 1)
+    args = parser.parse_args(argv)
+    try:
+        report = run_smoke_test(
+            args.input,
+            args.output,
+            args.report,
+            args.command_out,
+            args.model,
+            args.s3_path,
+            args.start_layer,
+            args.end_layer,
+            args.docker_image,
+            args.execute_docker,
+            args.submission_package_dir,
+        )
+    except CHECKPOINT_ERRORS as exc:
+        parser.exit(1, f"Checkpoint handoff preflight failed: {exc}\n")
+    print(json.dumps(report, indent=2, allow_nan=False))
+    return 0 if report["status"] == "PASS" else 1
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

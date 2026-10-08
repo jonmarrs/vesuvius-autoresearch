@@ -10,6 +10,8 @@ import subprocess
 import sys
 
 VALIDATION_TESTS = [
+    "tests/test_checkpoint_export_contracts.py",
+    "tests/test_villa_optimized_inference_smoke.py",
     "tests/test_geometry_handoff_contracts.py",
     "tests/test_mutex_data_contracts.py",
     "tests/test_volumetric_label_contracts.py",
