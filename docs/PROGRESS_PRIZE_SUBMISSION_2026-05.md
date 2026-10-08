@@ -6,6 +6,17 @@
 **Repository:** https://github.com/jonmarrs/vesuvius-autoresearch
 **License:** MIT (autoresearch); upstream villa PR licensed per ScrollPrize/villa contribution terms
 **Status:** FILED through the May form on 2026-05-15.
+
+> **Correction, 2026-10-08:** the Mutex lane below is a historical delivery
+> description, not verified current training or submission evidence. Its old
+> preparer guessed CT pairing, converted IDs to float32, erased touching-instance
+> boundaries, and wrote stems the loader could not pair. Its launcher omitted
+> heads and used an ignored complement key. The current
+> [Mutex data handoff](MUTEX_DATA.md) repairs these contracts and gates execution
+> with a real CPU dataset probe. The pinned runtime currently fails on a missing
+> `nrrd` import and has a separate channel-window/crop incompatibility.
+> A patch size at most 64 alone never establishes submission eligibility.
+> Old paths and marker snapshots below remain part of the filing record.
 **Companion submission:** [PROGRESS_PRIZE_SUBMISSION_2026-05_part1.md](PROGRESS_PRIZE_SUBMISSION_2026-05_part1.md) — **Part 1 of 2**, the Vesuvius-C Python bindings + autoresearch loop (work originally drafted for April 2026 but never filed; queued for filing as a second May submission since the May Progress Prize allows multiple submissions per cycle).
 
 ## Thesis

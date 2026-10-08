@@ -25,6 +25,13 @@ This matrix joins official `ScrollPrize/villa` opportunity tracking with the cur
 
 ## Villa Baselines & Lanes
 
+**Mutex correction (2026-10-08):** this saved table predates the current
+[data and runtime contracts](../docs/MUTEX_DATA.md). Its historical Mutex marker
+is not current readiness evidence, and patch size alone does not establish
+submission eligibility. Regenerate with the maintained generator to read a
+current local run or pass `--mutex-marker`. The pinned runtime remains unverified
+with known import and channel-shape blockers.
+
 | ID | Status | Purpose | Marker | Launcher |
 | --- | --- | --- | --- | --- |
 | gp_winner_baseline | `dry_run` | fixed research-only comparator (patch 16x256x256, not submittable) | `reports/gp_winner_baseline.json` | `scripts/training/launch_gp_winner.py` |

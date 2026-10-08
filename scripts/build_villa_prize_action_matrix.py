@@ -88,9 +88,9 @@ _BASELINE_MARKERS = (
     {
         "id": "mutex_affinity",
         "label": "Villa MutexAffinityTrainer (sheet instance segmentation)",
-        "purpose": "Grand-Prize-aligned lane; submittable when patch<=64",
-        "marker_path": "reports/mutex_affinity_run.json",
-        "launcher": "scripts/launch_mutex.py",
+        "purpose": "Sheet instance segmentation; requires paired data and a verified runtime; submission eligibility unverified",
+        "marker_path": None,
+        "launcher": "scripts/training/launch_mutex.py",
     },
     {
         "id": "neural_tracing_service",
@@ -109,10 +109,20 @@ _BASELINE_MARKERS = (
 )
 
 
-def _collect_baselines():
+def _collect_baselines(mutex_marker=None):
     items = []
     for entry in _BASELINE_MARKERS:
-        marker = _load_json(entry["marker_path"], None)
+        marker_path = entry["marker_path"]
+        if entry["id"] == "mutex_affinity":
+            if mutex_marker is not None:
+                marker_path = str(_resolve(mutex_marker))
+            else:
+                runs = list((REPO_ROOT / "local_data/mutex_launch").glob("*/run.json"))
+                if runs:
+                    marker_path = str(
+                        max(runs, key=lambda path: (path.stat().st_mtime_ns, str(path)))
+                    )
+        marker = _load_json(marker_path, None) if marker_path is not None else None
         status = "missing"
         details = {}
         if isinstance(marker, dict):
@@ -124,18 +134,27 @@ def _collect_baselines():
                     "executed",
                     "submittable",
                     "data_prepared",
+                    "runtime_verified",
+                    "state",
+                    "success",
                     "ready",
                     "blockers",
                 )
                 if k in marker
             }
-            if marker.get("executed"):
+            if entry["id"] == "mutex_affinity":
+                # Prepared payloads and historical patch-size flags do not
+                # establish that the pinned trainer can run.
+                status = marker.get("state") or "unverified"
+            elif marker.get("executed"):
                 status = "executed"
             elif marker.get("ready") or marker.get("data_prepared"):
                 status = "ready"
             else:
                 status = "dry_run"
-        items.append({**entry, "status": status, "details": details})
+        items.append(
+            {**entry, "marker_path": marker_path, "status": status, "details": details}
+        )
     return items
 
 
@@ -143,6 +162,7 @@ def build_action_matrix(
     opportunities_path="reports/villa_prize_opportunities.json",
     preflight_path="reports/scroll23_evidence_preflight_summary.json",
     limit=5,
+    mutex_marker=None,
 ):
     opportunities_report = _load_json(opportunities_path, {"opportunities": []})
     preflight = _load_json(preflight_path, {"rows": []})
@@ -189,7 +209,7 @@ def build_action_matrix(
         "villa_diverged": bool(opportunities_report.get("villa_diverged")),
         "candidate_digest": digest,
         "actions": actions,
-        "baselines": _collect_baselines(),
+        "baselines": _collect_baselines(mutex_marker),
     }
 
 
@@ -250,7 +270,7 @@ def render_markdown(matrix):
                     id=b.get("id"),
                     status=b.get("status"),
                     purpose=str(b.get("purpose") or "").replace("|", "\\|"),
-                    marker=b.get("marker_path"),
+                    marker=b.get("marker_path") or "no current run",
                     launcher=b.get("launcher"),
                 )
             )
@@ -288,9 +308,15 @@ def main():
     parser.add_argument("--out-json", default="reports/villa_prize_action_matrix.json")
     parser.add_argument("--out-md", default="reports/villa_prize_action_matrix.md")
     parser.add_argument("--limit", type=int, default=5)
+    parser.add_argument(
+        "--mutex-marker",
+        help="Explicit current Mutex run status; otherwise use the latest local run",
+    )
     args = parser.parse_args()
 
-    matrix = build_action_matrix(args.opportunities, args.preflight, args.limit)
+    matrix = build_action_matrix(
+        args.opportunities, args.preflight, args.limit, args.mutex_marker
+    )
     out_json = _resolve(args.out_json)
     out_json.parent.mkdir(parents=True, exist_ok=True)
     out_json.write_text(json.dumps(matrix, indent=2) + "\n")

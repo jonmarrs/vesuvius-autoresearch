@@ -114,6 +114,10 @@ Zero chunks are rejected or originally empty; they are not independently verifie
 negative labels. Source validity regions remain relevant and must be respected
 by downstream training. Review selected data independently before training.
 
+For Mutex affinity preparation, use the explicit CT/label pairing workflow in
+[Mutex data handoff](MUTEX_DATA.md). It preserves retained instance IDs and masks
+zero endpoints; it requires a bounded fragment and a separate runtime probe.
+
 ## Publication and migration
 
 Both tools reject existing output paths, source/output equality, ancestor/child
