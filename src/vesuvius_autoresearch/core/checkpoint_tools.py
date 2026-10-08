@@ -8,6 +8,12 @@ from .inference import positive_integer, validate_model_settings
 
 def load_tool_checkpoint(path, device):
     checkpoint = torch.load(path, map_location="cpu", weights_only=False)
+    model, settings = build_tool_model(checkpoint, device)
+    return model, settings, checkpoint
+
+
+def build_tool_model(checkpoint, device="cpu"):
+    """Reconstruct recorded local models with complete weights, without data access."""
     if not isinstance(checkpoint, dict) or not isinstance(
         checkpoint.get("config"), dict
     ):
@@ -47,7 +53,7 @@ def load_tool_checkpoint(path, device):
     model = model_wrappers.build_inference_model(**settings)
     model.load_state_dict(state, strict=True)
     settings["ridge_sigma"] = sigma
-    return model.to(device).eval(), settings, checkpoint
+    return model.to(device).eval(), settings
 
 
 def validate_batch(batch, settings, buffered=False):

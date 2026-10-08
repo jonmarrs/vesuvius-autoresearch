@@ -234,11 +234,18 @@ for the supported stages and the stored-tensor anisotropy measurement.
 dry-run package, reports `FAIL`, and exits with status 1. Supplying a real image
 or scroll name does not turn its synthetic masks into verified overlap evidence.
 
+Checkpoint export validates recorded local settings and complete weights before
+publishing a new envelope. Its handoff report distinguishes local weight checks
+from upstream inference verification; registry Docker templates do not load the
+exported checkpoint, and legacy Primus packages are archives with no verified
+inference command. See [Checkpoint export](docs/CHECKPOINT_EXPORT.md) for commands,
+provenance, supported contracts, and migration.
+
 ## 🔬 Evidence & upstream contributions
 
 - **GPU fiber/ridge detection for villa** ([ScrollPrize/villa#1033](https://github.com/ScrollPrize/villa/pull/1033)): closed-form 3×3 eigensolver replacing the cuSolver path that fails past ~64³, with tiled/halo execution (512³ in ~1 GB VRAM) and tiled-vs-dense parity tests. Validation details in [`reports/fibers_gpu_validation_2026-06.md`](reports/fibers_gpu_validation_2026-06.md).
 - **Real-scroll runs:** vesselness on a 256³ PHerc0332 region in ~1.2 s — [contact sheet](reports/real_scroll_evidence/vesselness_contact_sheet.png), plus Scroll 2/3 candidate evidence under [`reports/scroll23_evidence/`](reports/scroll23_evidence/).
-- **Optimized inference (Primus/LeJEPA loader):** diagnostics in [`reports/primus_optimized_inference_validation_2026-06.md`](reports/primus_optimized_inference_validation_2026-06.md).
+- **Historical optimized-inference diagnostics:** [`reports/primus_optimized_inference_validation_2026-06.md`](reports/primus_optimized_inference_validation_2026-06.md). Current checkpoint-envelope checks do not verify a native Primus inference handoff; see [Checkpoint export](docs/CHECKPOINT_EXPORT.md).
 - **Hallucination mitigation:** methodology in [`submission_package_dry_run/HALLUCINATION_MITIGATION.md`](submission_package_dry_run/HALLUCINATION_MITIGATION.md).
 
 ## Project structure
