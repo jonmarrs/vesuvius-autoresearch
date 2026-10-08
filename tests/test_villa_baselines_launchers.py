@@ -88,7 +88,9 @@ def test_launch_mutex_writes_marker_and_blocks_execute_without_data(tmp_path):
     )
     marker = tmp_path / "mutex_marker.json"
     data = json.loads(marker.read_text())
-    assert data["submittable"] is True  # default patch=64
+    assert data["submittable"] is None  # patch size alone cannot certify a model
+    assert data["window_px_within_limit"] is True  # default patch=64
+    assert data["runtime_verified"] is False
     assert data["data_prepared"] is False
     assert data["executed"] is False
 

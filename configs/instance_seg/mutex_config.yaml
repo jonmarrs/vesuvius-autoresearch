@@ -3,16 +3,21 @@ dataset_config:
   affinity_targets:
     attractive:
       affinity_key: affinities/attractive
-      invert_for_loss: true
+      invert: true
       mask_key: mask/attractive
     repulsive:
       affinity_key: affinities/repulsive
-      invert_for_loss: false
+      invert: false
       mask_key: mask/repulsive
   data_format: zarr
-  data_path: /home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/local_data/curated_fragments
+  data_path: ../../local_data/curated_fragments
   image_dirname: images
   num_workers: 0
+  targets:
+    attractive:
+      out_channels: 6
+    repulsive:
+      out_channels: 60
 model_config:
   patch_embed_size:
   - 8
