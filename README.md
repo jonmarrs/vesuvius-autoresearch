@@ -160,6 +160,12 @@ queues, see [Checkpoint analysis and labeling](docs/CHECKPOINT_ANALYSIS.md).
 These tools use recorded model settings and complete weights; failed reads or
 measurements produce an error instead of a successful result.
 
+For CT-gated 3D ink pseudo-labels and upstream segmentation curation, see
+[Volumetric label workflows](docs/VOLUMETRIC_LABELS.md). These separate heuristic
+workflows declare alignment and evaluated coverage, preserve source IDs during
+curation, and publish new completed artifacts. Their outputs need independent
+validation before use as training ground truth.
+
 ## Running the agent
 
 Spin up your coding agent of choice in this repo, then prompt something like:
