@@ -11,12 +11,12 @@ import numpy as np
 import zarr
 
 from scripts.candidate_artifacts import integer, spatial_blocks
-from scripts.labeling.label_artifacts import volume
+from scripts.labeling.label_artifacts import MAX_FRAGMENT_VOXELS, bounded_volume, volume
 from scripts.validate_prize_artifact import _load_json
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 GRAPH_DIR = REPO_ROOT / "villa/vesuvius/src/vesuvius/image_proc/run"
-MAX_VOXELS = 128**3
+MAX_VOXELS = MAX_FRAGMENT_VOXELS
 
 
 def graph_tools():
@@ -38,16 +38,6 @@ def fragment_name(value):
     ):
         raise ValueError("fragment name must be a single safe filename stem")
     return value
-
-
-def bounded_volume(path, max_voxels=MAX_VOXELS):
-    root, array = volume(path)
-    limit = integer(max_voxels, "max_voxels", 1)
-    if int(np.prod(array.shape, dtype=object)) > limit:
-        raise ValueError(
-            f"fragment shape {array.shape} exceeds max_voxels={limit}; make an explicit bounded crop"
-        )
-    return root, array
 
 
 def label_values(values):

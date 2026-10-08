@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import argparse
 import sys
-import tempfile
 from pathlib import Path
 
 import numpy as np
@@ -22,7 +21,13 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from scripts.candidate_artifacts import ARTIFACT_ERRORS, integer, write_json
-from scripts.labeling.label_artifacts import bbox_zyx, new_output, publish_new, volume
+from scripts.labeling.label_artifacts import (
+    bbox_zyx,
+    new_output,
+    publish_new,
+    publish_new_file,
+    volume,
+)
 from scripts.training.mutex_data import (
     MAX_VOXELS,
     bounded_volume,
@@ -40,20 +45,10 @@ def export_zarr_to_tiff(zarr_path, tiff_path, max_voxels=MAX_VOXELS):
     values = source[:]
     if values.dtype.kind not in "uifb" or not np.isfinite(values).all():
         raise ValueError("TIFF export requires finite real 3D values")
-    target.parent.mkdir(parents=True, exist_ok=True)
-    with tempfile.NamedTemporaryFile(
-        dir=target.parent, suffix=".tif", delete=False
-    ) as stream:
-        staging = Path(stream.name)
-    try:
+    with publish_new_file(target, zarr_path) as staging:
         tifffile.imwrite(
             staging, values, photometric="minisblack", metadata={"axes": "ZYX"}
         )
-        if target.exists() or target.is_symlink():
-            raise ValueError(f"output already exists: {target}")
-        staging.rename(target)
-    finally:
-        staging.unlink(missing_ok=True)
 
 
 def prepare_mutex_data(
