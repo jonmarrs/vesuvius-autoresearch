@@ -1,5 +1,17 @@
 # Resume note — written 2026-09-22 before a deliberate Claude restart
 
+## 2026-10-09: villa #2022 opened; tracer re-score in flight
+
+* **villa #2022 is OPEN** (the runner-doc fix): gate 33/33 at `a329895ea`. The next new villa item is no earlier than 10-16.
+  No nudges.
+* **Fiber scorer** standardized on ScrollGT's definition (v4 here = ScrollGT v2), with a vendored sync test. ScrollGT
+  v0.4.0 is released.
+* **Tracer re-score** (prereg `f5f775c3`, Amendment 1 `aa1c5712`): the 8 cubes at 256³ are done, with exact fidelity.
+  P2 FAILED (s5_14997). The 512³ cubes are running with `--detect-block 128`. The chain is resumable:
+  `TRACE_EXTRA="--detect-block 128" repro/fibers/run_tracer_rescore.sh`, with output in `spiral_out/tracer_rescore/`.
+* Full suite after PRs #8-#15: 2504 passed.
+
+
 ## 2026-10-04 (later): findings 77 and 78; in-sample caveat
 
 * **Finding 77:** labels exist only inside `supervision.zarr`. Findings 71–76 were re-analysed there:
