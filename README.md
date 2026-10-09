@@ -165,6 +165,11 @@ see [Pseudo-label handoff](docs/PSEUDO_LABEL_HANDOFF.md). Dry run is the default
 execution preserves known manual labels and publishes filenames the trainer
 consumes. Preparation records no retraining or accuracy claim.
 
+For exact spatial mask partitions and real dataset scan/visualization commands,
+see [Spatial partitions and inspection](docs/SPATIAL_PARTITIONS_AND_INSPECTION.md).
+These publish new artifacts and inspect actual masked samples; disjoint mask
+pixels alone do not certify independent CT patch contexts.
+
 For CT-gated 3D ink pseudo-labels and upstream segmentation curation, see
 [Volumetric label workflows](docs/VOLUMETRIC_LABELS.md). These separate heuristic
 workflows declare alignment and evaluated coverage, preserve source IDs during
