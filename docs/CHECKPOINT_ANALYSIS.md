@@ -45,7 +45,14 @@ Thresholds satisfy `0 <= tau_low < tau_high <= 1`. The output is 0 for backgroun
 outside scored patches remain ignored. The region must align with the volume
 and contain covered pixels. Invalid probabilities, shape mismatches, and read
 errors fail before saving. The CLI retains its degenerate-ink-fraction check and
-creates output parents. `config.json` is unnecessary; `--cache-dir` is optional.
+publishes a new, source-disjoint PNG only after completion. Masks must be binary
+single-channel PNGs, with a default image/fragment bound of 4,194,304 pixels
+(`--max-pixels` overrides it). `config.json` is unnecessary; `--cache-dir` is
+optional, and omitted caches are temporary.
+
+For manual-label merging, batch publication, and separate training requirements,
+see [Pseudo-label handoff](PSEUDO_LABEL_HANDOFF.md). PNG 128 receives residual
+confidence weight 1/255 in the existing loss; it is not an exact ignore mask.
 
 The AUC and pseudo-label paths retain the buffered sampling recipe: request
 checkpoint depth plus eight slices and use the central window after dropping

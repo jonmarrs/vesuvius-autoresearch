@@ -341,23 +341,7 @@ class VesuviusLabeledDataset(torch.utils.data.Dataset):
                 f"Finding valid coordinates (require_ink={require_ink}) for {volume_uri} using Villa find_valid_patches..."
             )
 
-            import sys
-
-            _VILLA_VESUVIUS_SRC = os.path.normpath(
-                os.path.join(
-                    os.path.dirname(__file__),
-                    os.pardir,
-                    os.pardir,
-                    os.pardir,
-                    "villa",
-                    "vesuvius",
-                    "src",
-                )
-            )
-            if _VILLA_VESUVIUS_SRC not in sys.path:
-                sys.path.insert(0, _VILLA_VESUVIUS_SRC)
-
-            from vesuvius.models.datasets.find_valid_patches import find_valid_patches
+            from .patch_catalog import find_valid_patches
 
             # If require_ink is True, use labels for both bbox and fraction
             # If require_ink is False, use mask to find foreground patches
