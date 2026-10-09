@@ -41,3 +41,23 @@ were never scored with the tracer.
 ScrollGT's `tracer_strict_relink` rows (stamped version 2), the BASELINES tracer columns, and the README claim are
 all updated to whatever this measures, including any prediction that fails. If the fidelity check fails, the README
 says the published version-1 rows came from a tracer that no longer reproduces exactly.
+
+## Amendment 1 (2026-10-09, before any 512³ result exists)
+
+On 2026-10-05 the OOM killer stopped all three 512³ cubes at about 28 GB resident. Dense detection holds a 9-component
+float64 Hessian and three eigenvector passes for the whole cube. The 8 cubes at 256³ ran; their results are fixed
+and unchanged by this amendment.
+
+* **Change:** the 512³ cubes are traced with `--detect-block 128`. It computes the same orientation field
+  (`fiber_direction_tiled`) and seed response (`detect_vesselness_tiled`) in blocks, with a 16-voxel halo and global
+  normalization. The tracer configuration is otherwise exactly as registered.
+* **Evidence that it changes nothing:**
+  * Unit tests (`tests/test_fiber_direction_tiled.py`) require exact equality with the dense path on random volumes,
+    including uneven edge blocks.
+  * On real data, blocked tracing reproduced the dense runs' instance labellings bit for bit on
+    `s1_00497_01497_03997_256` (669 instances) and `s5_14997_01497_01497_256` (568).
+* **A defect found and fixed in doing so:** `_detect_tiled` wrote float64 filter output into a float32 buffer. That
+  differed from the dense path by up to 2.5e-9 in about 20% of voxels, enough to reorder seeds at a percentile cut.
+  It now keeps the filter's dtype.
+* **Effect on the predictions:** P1 (all 11) and P3 (512³) become evaluable once these run. P2 (256³ only) is
+  unaffected.

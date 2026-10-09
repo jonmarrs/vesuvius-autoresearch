@@ -472,7 +472,10 @@ def _detect_tiled(volume, filter_fn, block_size=128, halo=16, **kwargs):
         )
     xp, _ = get_backend(volume)
     Z, Y, X = volume.shape
-    result = xp.zeros((Z, Y, X), dtype=volume.dtype)
+    # Allocated from the first block's output dtype, not the input's: the filters return
+    # float64, and a float32 buffer rounded every value (a 2.5e-9 difference from the dense
+    # path in ~20% of voxels), enough to reorder seeds at a percentile cut.
+    result = None
 
     if kwargs.get("norm_range") is None:
         gauss_sigma = kwargs.get("gauss_sigma", 2)
@@ -490,6 +493,8 @@ def _detect_tiled(volume, filter_fn, block_size=128, halo=16, **kwargs):
 
                 block = volume[z0:z1, y0:y1, x0:x1]
                 block_res = filter_fn(block, **kwargs)
+                if result is None:
+                    result = xp.zeros((Z, Y, X), dtype=block_res.dtype)
 
                 # Crop the halo off and write back the interior
                 bz0 = z - z0
@@ -516,6 +521,74 @@ def detect_ridges_tiled(volume, block_size=128, halo=16, **kwargs):
     Run detect_ridges in blocks to fit in GPU memory.
     """
     return _detect_tiled(volume, detect_ridges, block_size, halo, **kwargs)
+
+
+def fiber_direction_tiled(volume, gauss_sigma=2, sigma=6, block_size=128, halo=16):
+    """`fiber_direction(hessian(volume, gauss_sigma, sigma)[0])`, computed in blocks.
+
+    The dense path holds a 9-component float64 Hessian and three eigenvector passes for the
+    whole volume: about 30 GB at 512^3, which the OOM killer stopped three times on
+    2026-10-05. Here only one block is live at a time. It is exact, by the same argument as
+    `_detect_tiled`: each block carries `halo` voxels of context, at least the Gaussian support
+    plus two derivatives, and is normalized against the global smoothed range. Every interior
+    voxel therefore sees exactly the dense path's smoothed values, and the eigen-solve is per
+    voxel. `tests/test_fiber_direction_tiled.py` checks equality with the dense path.
+
+    Returns (directions (Z, Y, X, 3) in (z, y, x) order, valid (Z, Y, X)), as `fiber_direction`.
+    """
+    volume = _volume(volume)
+    _filter_settings(gauss_sigma, sigma)
+    if (
+        isinstance(block_size, (bool, np.bool_))
+        or not isinstance(block_size, (int, np.integer))
+        or block_size <= 0
+    ):
+        raise ValueError("block_size must be a positive integer")
+    required_halo = int(4 * gauss_sigma + 0.5) + 2
+    if (
+        isinstance(halo, (bool, np.bool_))
+        or not isinstance(halo, (int, np.integer))
+        or halo < required_halo
+    ):
+        raise ValueError(
+            f"halo must be an integer >= {required_halo} (Gaussian support plus two derivatives)"
+        )
+    xp, _ = get_backend(volume)
+    Z, Y, X = volume.shape
+    norm_range = _smoothed_global_range(volume, gauss_sigma, block_size, halo)
+    directions = None
+    valid = xp.zeros((Z, Y, X), dtype=bool)
+    for z in range(0, Z, block_size):
+        for y in range(0, Y, block_size):
+            for x in range(0, X, block_size):
+                z0, z1 = max(0, z - halo), min(Z, z + block_size + halo)
+                y0, y1 = max(0, y - halo), min(Y, y + block_size + halo)
+                x0, x1 = max(0, x - halo), min(X, x + block_size + halo)
+                J, _ = hessian(
+                    volume[z0:z1, y0:y1, x0:x1],
+                    gauss_sigma=gauss_sigma,
+                    sigma=sigma,
+                    norm_range=norm_range,
+                )
+                d, v = fiber_direction(J)
+                if directions is None:
+                    directions = xp.zeros((Z, Y, X, 3), dtype=d.dtype)
+                bz, by, bx = z - z0, y - y0, x - x0
+                nz, ny, nx = (
+                    min(block_size, Z - z),
+                    min(block_size, Y - y),
+                    min(block_size, X - x),
+                )
+                directions[z : z + nz, y : y + ny, x : x + nx] = d[
+                    bz : bz + nz, by : by + ny, bx : bx + nx
+                ]
+                valid[z : z + nz, y : y + ny, x : x + nx] = v[
+                    bz : bz + nz, by : by + ny, bx : bx + nx
+                ]
+                del J, d, v
+                if HAS_CUPY and isinstance(volume, cp.ndarray):
+                    cp.get_default_memory_pool().free_all_blocks()
+    return directions, valid
 
 
 def detect_vesselness_tiled(volume, block_size=128, halo=16, **kwargs):

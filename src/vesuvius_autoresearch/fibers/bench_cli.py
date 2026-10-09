@@ -395,7 +395,9 @@ def cmd_trace(args) -> int:
     from vesuvius_autoresearch.fibers import eval_trace as ev
     from vesuvius_autoresearch.fibers.detection import (
         detect_vesselness,
+        detect_vesselness_tiled,
         fiber_direction,
+        fiber_direction_tiled,
         hessian,
     )
     from vesuvius_autoresearch.fibers.trace import (
@@ -410,9 +412,24 @@ def cmd_trace(args) -> int:
     fp = _fiber_prob(data_dir, args.cube, img, args.model, args.patch, args.device)
 
     # Orientation from the probability field, not raw CT: measured 5x coverage.
-    J, _ = hessian(fp.copy(), gauss_sigma=2, sigma=3)
-    dirs, valid = fiber_direction(J)
-    ves = np.asarray(detect_vesselness(fp.copy(), gauss_sigma=1, sigma=2), dtype=float)
+    if args.detect_block:
+        # Blocked, for volumes whose dense Hessian does not fit in memory (512^3 needs ~30 GB).
+        # Exactly equal to the dense path: tests/test_fiber_direction_tiled.py.
+        dirs, valid = fiber_direction_tiled(
+            fp.copy(), gauss_sigma=2, sigma=3, block_size=args.detect_block, halo=16
+        )
+        ves = np.asarray(
+            detect_vesselness_tiled(
+                fp.copy(), block_size=args.detect_block, halo=16, gauss_sigma=1, sigma=2
+            ),
+            dtype=float,
+        )
+    else:
+        J, _ = hessian(fp.copy(), gauss_sigma=2, sigma=3)
+        dirs, valid = fiber_direction(J)
+        ves = np.asarray(
+            detect_vesselness(fp.copy(), gauss_sigma=1, sigma=2), dtype=float
+        )
     ves = ves / max(float(ves.max()), 1e-9)
 
     t = time.time()
@@ -473,6 +490,7 @@ def cmd_trace(args) -> int:
                 if relink_params is not None
                 else None,
                 "tracing_recipe": {
+                    "detect_block": args.detect_block,
                     "orientation": {
                         "source": "fiber_probability",
                         "gauss_sigma": 2,
@@ -565,6 +583,14 @@ def main(argv=None) -> int:
             p.add_argument("--relink-gap", type=float, default=10.0)
             p.add_argument("--relink-angle", type=float, default=30.0)
             p.add_argument("--save-instances")
+            p.add_argument(
+                "--detect-block",
+                type=int,
+                default=0,
+                help="compute orientation and seed response in blocks of this edge "
+                "(0 = whole volume). Exactly equal to the whole-volume path; needed "
+                "for 512^3 cubes, whose dense Hessian needs ~30 GB",
+            )
 
     args = ap.parse_args(argv)
     if args.cmd != "fetch":
@@ -601,6 +627,8 @@ def main(argv=None) -> int:
             ap.error(
                 "--tangent-window must be positive; --max-skip-steps must be nonnegative"
             )
+        if args.detect_block < 0:
+            ap.error("--detect-block must be 0 (whole volume) or a positive block edge")
     return args.func(args)
 
 

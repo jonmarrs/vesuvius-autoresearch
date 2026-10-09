@@ -7,6 +7,8 @@ set -uo pipefail
 REPO="${REPO:-/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch}"
 PY="$REPO/.venv/bin/python"
 W=/home/jon/openclaw-workspace/Neo-VM/spiral_out/tracer_rescore
+# Extra trace flags, logged per cube: Amendment 1 runs the 512^3 cubes with TRACE_EXTRA="--detect-block 128".
+TRACE_EXTRA="${TRACE_EXTRA:-}"
 CUBES="s1_00497_01497_03997_256 s1_00497_02497_02997_256 s1_00997_02497_02997_256 s1_08997_02997_02497_256
 s1_10997_02997_02997_256 s5_03997_01497_03997_256 s5_07997_02997_05497_256 s5_14997_01497_01497_256
 s5_06494_01994_03994_512 s5_06994_00994_04994_512 s5_07994_01994_05494_512"
@@ -21,9 +23,9 @@ cp "$REPO/scripts/tracer_rescore_analysis.py" "$W/" || { say "SC_ABORTED freeze"
 say "CHAIN_START $(git -C "$REPO" rev-parse --short HEAD)"
 for C in $CUBES; do
   [ -f "$W/${C}_instances.npy" ] && { say "SKIP_DONE $C"; continue; }
-  say "TRACE $C"
+  say "TRACE $C ${TRACE_EXTRA}"
   ( cd "$REPO" && "$PY" -m vesuvius_autoresearch.fibers.bench_cli trace --cube "$C" --device cuda \
-      --save-instances "$W/${C}_instances.npy" --json-out "$W/${C}_trace.json" ) > "$W/$C.log" 2>&1
+      --save-instances "$W/${C}_instances.npy" --json-out "$W/${C}_trace.json" $TRACE_EXTRA ) > "$W/$C.log" 2>&1
   rc=$?
   if [ "$rc" -eq 0 ] && [ -f "$W/${C}_instances.npy" ]; then say "DONE $C"; else say "FAILED $C rc=$rc"; fi
 done
