@@ -160,6 +160,11 @@ queues, see [Checkpoint analysis and labeling](docs/CHECKPOINT_ANALYSIS.md).
 These tools use recorded model settings and complete weights; failed reads or
 measurements produce an error instead of a successful result.
 
+For preparing a pseudo-label batch from an explicit teacher and region manifest,
+see [Pseudo-label handoff](docs/PSEUDO_LABEL_HANDOFF.md). Dry run is the default;
+execution preserves known manual labels and publishes filenames the trainer
+consumes. Preparation records no retraining or accuracy claim.
+
 For CT-gated 3D ink pseudo-labels and upstream segmentation curation, see
 [Volumetric label workflows](docs/VOLUMETRIC_LABELS.md). These separate heuristic
 workflows declare alignment and evaluated coverage, preserve source IDs during

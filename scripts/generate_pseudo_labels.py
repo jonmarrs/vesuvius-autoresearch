@@ -1,27 +1,38 @@
 """Generate confidence-filtered pseudo-labels for a fragment region using a
 trained checkpoint. Output is a 3-value PNG (0=bg, 255=ink, 128=uncertain/ignore)
-consumed as inklabels.png by a region fragment dir; the 128 band is down-weighted
-to zero in train.py's confidence-weighted ink loss.
+consumed by training with confidence weighting. PNG 128 normalizes to 128/255,
+giving residual weight 1/255, not exactly zero, in the existing loss.
 """
 
 import argparse
 import os
 import sys
+from contextlib import nullcontext
+from pathlib import Path
+from tempfile import TemporaryDirectory
 
 import numpy as np
 import torch
 from PIL import Image
 
+_R = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, _R)
+sys.path.insert(0, os.path.join(_R, "scripts", "training"))
+
+from scripts.candidate_artifacts import separate_paths
+from scripts.export_for_production import checkpoint_contract
+from scripts.labeling.label_artifacts import new_output, publish_new_file
+from scripts.pseudo_label_artifacts import (
+    MAX_LABEL_PIXELS,
+    fragment_inputs,
+    pseudo_array,
+    read_png,
+)
 from vesuvius_autoresearch.core.checkpoint_tools import (
     ink_probabilities,
     load_tool_checkpoint,
     validate_batch,
 )
-
-Image.MAX_IMAGE_PIXELS = None
-_R = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, _R)
-sys.path.insert(0, os.path.join(_R, "scripts", "training"))
 
 
 def prob_to_pseudo_png(prob, region, tau_high=0.65, tau_low=0.15):
@@ -48,19 +59,27 @@ def prob_to_pseudo_png(prob, region, tau_high=0.65, tau_low=0.15):
 
 
 def _infer_region(
-    checkpoint, frag_dir, region_mask_path, device, tau_high, tau_low, cache_dir=None
+    checkpoint,
+    frag_dir,
+    region_mask_path,
+    device,
+    tau_high,
+    tau_low,
+    cache_dir=None,
+    max_pixels=MAX_LABEL_PIXELS,
 ):
     from scripts.measure_ink_auc import _volume_uri
     from vesuvius_autoresearch.core.vesuvius_loader import VesuviusLabeledDataset
 
     # Validate thresholds before loading data, even if no patches are found.
     prob_to_pseudo_png(np.zeros((1, 1)), np.ones((1, 1), bool), tau_high, tau_low)
-    model, s, _ = load_tool_checkpoint(checkpoint, device)
+    model, s, saved = load_tool_checkpoint(checkpoint, device)
+    checkpoint_contract(saved, verify_model=False)
     ps, nl = s["patch_size"], s["num_layers"]
 
     ds = VesuviusLabeledDataset(
         _volume_uri(frag_dir),
-        os.path.join(frag_dir, "inklabels.png"),
+        None,  # Region-only sampling needs no ambient ground-truth labels.
         region_mask_path,
         ps,
         nl + 8,
@@ -74,8 +93,9 @@ def _infer_region(
         strict_reads=True,
     )
     H, W = ds.shape[1], ds.shape[2]
-    with Image.open(region_mask_path) as image:
-        requested_region = np.asarray(image.convert("L")) > 127
+    requested_region = read_png(
+        region_mask_path, kind="binary", shape=(H, W), max_pixels=max_pixels
+    )
     if requested_region.shape != (H, W) or not requested_region.any():
         raise ValueError(
             "region mask must match the volume and contain requested pixels"
@@ -101,7 +121,7 @@ def _infer_region(
     return prob_to_pseudo_png(prob, region, tau_high, tau_low)
 
 
-def main():
+def main(argv=None):
     ap = argparse.ArgumentParser()
     ap.add_argument("--checkpoint", required=True)
     ap.add_argument("--fragment", required=True, help="fragment dir (volume + labels)")
@@ -111,17 +131,50 @@ def main():
     ap.add_argument("--tau-low", type=float, default=0.15)
     ap.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
     ap.add_argument("--cache-dir")
-    args = ap.parse_args()
+    ap.add_argument("--max-pixels", type=int, default=MAX_LABEL_PIXELS)
+    args = ap.parse_args(argv)
 
-    out = _infer_region(
-        args.checkpoint,
-        args.fragment,
-        args.region_mask,
-        torch.device(args.device),
-        args.tau_high,
-        args.tau_low,
-        cache_dir=args.cache_dir,
+    destination = new_output(args.out, args.checkpoint, args.fragment, args.region_mask)
+    if destination.suffix.lower() != ".png":
+        raise ValueError("output must be a new .png file")
+    prob_to_pseudo_png(
+        np.zeros((1, 1)), np.ones((1, 1), bool), args.tau_high, args.tau_low
     )
+    model, settings, saved = load_tool_checkpoint(args.checkpoint, "cpu")
+    checkpoint_contract(saved, verify_model=False)
+    del model, saved
+    uri, _, _ = fragment_inputs(
+        args.fragment, args.region_mask, settings, args.max_pixels
+    )
+    new_output(destination, uri)
+    if args.cache_dir:
+        cache = Path(args.cache_dir).resolve()
+        for source in (
+            args.fragment,
+            uri,
+            args.checkpoint,
+            args.region_mask,
+            destination,
+        ):
+            separate_paths(source, cache)
+        cache.mkdir(parents=True, exist_ok=True)
+
+    with (
+        nullcontext(str(cache))
+        if args.cache_dir
+        else TemporaryDirectory(prefix="vesuvius-pseudo-") as cache_dir
+    ):
+        out = _infer_region(
+            args.checkpoint,
+            args.fragment,
+            args.region_mask,
+            torch.device(args.device),
+            args.tau_high,
+            args.tau_low,
+            cache_dir=cache_dir,
+            max_pixels=args.max_pixels,
+        )
+    pseudo_array(out)
     frac_ink = float((out == 255).mean())
     frac_ign = float((out == 128).mean())
     if frac_ink < 1e-4 or frac_ink > 0.99:
@@ -129,8 +182,10 @@ def main():
             f"Degenerate pseudo-labels (ink frac={frac_ink:.4f}); aborting. "
             f"Adjust tau or check the checkpoint."
         )
-    os.makedirs(os.path.dirname(args.out) or ".", exist_ok=True)
-    Image.fromarray(out).save(args.out)
+    with publish_new_file(
+        destination, args.checkpoint, args.fragment, args.region_mask
+    ) as staging:
+        Image.fromarray(out).save(staging)
     print(f"wrote {args.out}: ink={frac_ink:.3f} ignore={frac_ign:.3f}")
 
 
