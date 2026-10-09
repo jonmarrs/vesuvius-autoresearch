@@ -170,6 +170,11 @@ see [Spatial partitions and inspection](docs/SPATIAL_PARTITIONS_AND_INSPECTION.m
 These publish new artifacts and inspect actual masked samples; disjoint mask
 pixels alone do not certify independent CT patch contexts.
 
+For descriptive comparisons of existing candidate ink maps and binary fiber
+labels, see [Candidate ink/fiber reports](docs/CANDIDATE_INK_FIBER_REPORTS.md).
+These reports check array and recorded prediction geometry, preserve failed
+candidate records, and state the limits of shape-only alignment.
+
 For CT-gated 3D ink pseudo-labels and upstream segmentation curation, see
 [Volumetric label workflows](docs/VOLUMETRIC_LABELS.md). These separate heuristic
 workflows declare alignment and evaluated coverage, preserve source IDs during
