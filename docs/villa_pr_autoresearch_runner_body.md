@@ -8,4 +8,4 @@
 
 This changes only the launch instructions: the runner's path, its flags, `--gpus` for pinning, `--config` for overrides, and the fact that logs are whatever the caller redirects. The loop itself is unchanged.
 
-I checked each point by running `runners/run_single.py` at 6e53201ac with the fit, render and score subprocesses stubbed, and recording the command and environment each step received.
+I checked each point by running `runners/run_single.py` at a329895ea with the fit, render and score subprocesses stubbed, and recording the command and environment each step received.

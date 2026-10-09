@@ -1,5 +1,7 @@
-# DRAFT (not posted): autoresearch.md describes a runner villa does not ship
-## STATUS 2026-09-29: APPROVED BY THE USER to open once the weekly slot opens (≥ 2026-10-06)
+# POSTED as villa #2022 (2026-10-09): autoresearch.md describes a runner villa does not ship
+## STATUS 2026-10-09: OPENED as https://github.com/ScrollPrize/villa/pull/2022 after the gate passed 33/33 at
+## `a329895ea`. It is one file (+11 / −10), the body is verbatim from `docs/villa_pr_autoresearch_runner_body.md`, and the
+## commit has no AI marker, following villa precedent. No nudges. Approved by the user 2026-09-29.
 
 The approval is conditional on everything being re-checked on the day ("make sure we don't
 embarrass ourselves"). **Posting-day procedure. Any failure means do not post:**

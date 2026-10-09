@@ -18,7 +18,8 @@ clipped "#1780" to "#17".
 
 1. Re-read the **whole** Progress section of villa `scrollprize.org/docs/34_prizes.md` at current
    upstream: form URL, deadline and criteria. The criteria changed mid-month in September.
-2. Fill in the runner PR's number (opened on or after 2026-10-06, if its gate passes) and its state.
+2. The runner PR is villa #2022: opened 2026-10-09 after the gate passed 33/33 at `a329895ea`. On filing day,
+   record its state (open, merged or closed) and quote any maintainer reply verbatim.
    Re-check #1928's state.
 3. Re-run `tests/test_filing_2026_10_numbers.py`. Every number below is bound to the file it comes from.
 4. Check every URL returns 200.
@@ -33,7 +34,7 @@ https://github.com/jonmarrs/inkdelta
 https://github.com/jonmarrs/inkagree
 https://github.com/jonmarrs/scrollgt/tree/v0.4.0
 https://github.com/ScrollPrize/villa/pull/1928
-<runner PR, if opened>
+https://github.com/ScrollPrize/villa/pull/2022
 ```
 
 ---
@@ -58,7 +59,7 @@ depends on, against villa's own code and villa's own ink labels:
   but GPUs pinned as documented, the fit silently runs as a single process. A config change passed
   through the environment, the documented way to try a variant, is silently dropped, so the
   "variant" runs as the baseline. Measured by running villa's runner with its steps stubbed.
-  `<runner PR>` fixes the doc.
+  [villa #2022](https://github.com/ScrollPrize/villa/pull/2022), opened 2026-10-09, fixes the doc.
 * **A new render setting moves the metric far more than it moves reading.** villa #1818 added
   `vc_render_tifxyz --surface-interpolation smooth`. Its default is byte-identical to earlier builds.
   On the 8 labelled segments, in villa's own scoring pipeline:
