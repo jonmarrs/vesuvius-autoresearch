@@ -32,7 +32,7 @@ clipped "#1780" to "#17".
 https://github.com/jonmarrs/vesuvius-autoresearch
 https://github.com/jonmarrs/inkdelta
 https://github.com/jonmarrs/inkagree
-https://github.com/jonmarrs/scrollgt/tree/v0.4.0
+https://github.com/jonmarrs/scrollgt/tree/v0.4.1
 https://github.com/ScrollPrize/villa/pull/1928
 https://github.com/ScrollPrize/villa/pull/2022
 ```
@@ -114,11 +114,22 @@ depends on, against villa's own code and villa's own ink labels:
   * [v0.4.0](https://github.com/jonmarrs/scrollgt/tree/v0.4.0) versions the scorer and refuses to compare
     scores across versions. It verifies every published floor against the new scorer (55 of 55) and
     publishes the correction.
+  * [v0.4.1](https://github.com/jonmarrs/scrollgt/tree/v0.4.1) re-measures our own tracer with the corrected
+    scorer, pre-registered (vesuvius-autoresearch finding 80), and reverses one of our published claims; see the
+    disclosure below.
 
 ---
 
 ## Required disclosure — include it
 
+* **A published claim of ours reversed (finding 80).** ScrollGT said our fiber tracer lost to connected
+  components on both metrics on every cube. Re-measured with the corrected scorer on all 11 cubes:
+  * it still loses on raw ERL everywhere (3.9–6.3×);
+  * on merge-penalized ERL it is ahead on 4 of 11, all three 512³ cubes among them;
+  * one prediction failed: I predicted it would trail on all eight 256³ cubes, and it leads on one.
+
+  Its labellings reproduce the old rows exactly under the old scorer, so the reversal is the scorer's.
+  `reports/tracer_rescore.md`.
 * **A correction, made and registered before recomputing:** my label-based analyses (findings 71–76)
   first scored the whole surface. villa's labels exist only inside its supervision mask (3–13% of each
   segment), so unannotated ink counted as a miss. Re-analysed where the labels are defined:
@@ -127,7 +138,7 @@ depends on, against villa's own code and villa's own ink labels:
   * finding 74 does not survive as stated (step 0.5 vs 1.0 is not consistent).
 
   inkagree 0.3.0 makes the supervised region its default. `reports/supervised_reanalysis.md`.
-* **Twelve of my registered predictions failed**, and the reports say so:
+* **Thirteen of my registered predictions failed**, and the reports say so:
   * finding 70 (smooth would move the count < 1% in every crop window: it moved up to ±20%);
   * finding 71 prediction 1 (failed on three exclusions, one caused by a defect in my alignment gate);
   * finding 72 prediction 1 (the count was sensitive in 15% of windows, not ≥ 25%).
@@ -144,6 +155,8 @@ depends on, against villa's own code and villa's own ink labels:
   * the correction's prediction 3 (findings 74 and 75 would survive: 75 did, 74 did not as stated).
   * finding 79 prediction 1 (an unthresholded ink count would be less noisy across seeds on pinned code:
     R = 0.91 [0.56, 1.47], no detectable difference; it was on current code, R = 0.52 [0.35, 0.91]).
+  * finding 80 prediction 2 (the tracer would trail connected components on merge-penalized ERL on all
+    eight 256³ cubes: it leads on `s5_14997`, 38.56 vs 33.09).
 * **The effect's size depends on grid cell size** (finding 73, measured): about 1% per window on
   villa's 20-voxel segment meshes, a 6.2% median and up to ±40% per window on 80-voxel grids like the
   spiral surfaces. Quote the size with the grid.
