@@ -1,5 +1,10 @@
 # Clearing our own published fiber baseline
 
+> **Re-measured 2026-10-09 with the current scorer (version 4 = ScrollGT's): the frozen configuration's
+> conclusion HOLDS.** On all 11 ScrollGT cubes, not only the six below, merge-penalized ERL rises over the
+> baseline (+0.4% to +19.6%), raw ERL moves by −2.7% to +9.0%, and merges fall everywhere.
+> `reports/tracer_frozen_v2.md` (finding 81). The tables below are the original version-1 numbers.
+
 > **Historical scorer, corrected 2026-10-04:** these measurements used an
 > edge-order-dependent implementation. Scoring version 2 follows actual graph
 > connectivity and includes terminal nodes in the precision reference. The
