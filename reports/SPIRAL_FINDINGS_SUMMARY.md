@@ -1133,3 +1133,18 @@ Pre-registered (`904a5f81`; import-order fix `17bdd9e0`, both before any run).
 * Unlike finding 80, this re-measurement confirms the published claim.
 
 `reports/tracer_frozen_v2.md`.
+
+**82. ScrollGT's fiber rankings hold against villa's current annotations; its reference mask's coverage was
+overstated.** Pre-registered (`6185a0a6`).
+
+* villa's `fiber-skeletons` Dataset004 revises 3 of ScrollGT's 11 fiber cubes: 28–53% more fibers, +21% to +37% length.
+  The other 8 NMLs and the CT of all 11 are byte-identical, so the reference mask is unchanged.
+* **Fidelity is exact:** every published row reproduces against the shipped ground truth.
+* **All 4 predictions held.** Connected components keeps its raw-ERL lead. Precision and merges rise for both. On
+  `s5_14997` the tracer's ERLpen stays ahead of connected components (33.62 vs 24.29).
+* **No published ranking reverses.** Finding 81's frozen configuration still beats the baseline on all three.
+* **The reference mask's coverage falls** from 0.88–0.93 to 0.76–0.82. Half to 70% of the added fiber lies outside it.
+  `fiber_hz_vt`'s training fingerprint matches villa's Dataset002, which holds all 11 targets in their earlier versions.
+  ScrollGT did not disclose that the mask trained on its targets.
+
+`reports/scrollgt_current_annotations.md`.
