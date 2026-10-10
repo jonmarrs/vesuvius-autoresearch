@@ -18,6 +18,9 @@ from pathlib import Path
 import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+# ScrollGT on the path before either import below, so their order cannot matter (an import sorter put
+# scrollgt first once, ahead of the module that used to add it).
+sys.path.insert(0, "/home/jon/openclaw-workspace/Neo-VM/projects/scrollgt/src")
 from scrollgt.fibers.target import (  # noqa: E402
     load_fiber_target,
     score_fiber_prediction,
