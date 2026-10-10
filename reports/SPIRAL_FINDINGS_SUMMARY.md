@@ -1119,3 +1119,17 @@ validity gates passed (V1 max deviation 0.0038%).
   rounding defect in `_detect_tiled`.
 
 `reports/tracer_rescore.md`.
+
+**81. The tracer's frozen configuration still beats its baseline under scoring version 2, on all 11 cubes.**
+Pre-registered (`904a5f81`; import-order fix `17bdd9e0`, both before any run).
+
+* `--tangent-window 5` (the frozen configuration in `reports/fiber_tracer_improvement.md`) against finding 80's baseline,
+  both scored by ScrollGT v2.
+* **Fidelity is exact:** the report's v1 numbers reproduce on all six of its cubes.
+* **P1 held 6/6, P2 held 11/11:** merge-penalized ERL rises on every cube (+0.4% to +19.6%).
+* **P3 held 11/11:** raw ERL moves by −2.7% to +9.0%.
+* Merges fall on all 11, so the gain is merge reduction, as the v1 report said.
+* It is ahead of connected components on the same 4 cubes as the baseline.
+* Unlike finding 80, this re-measurement confirms the published claim.
+
+`reports/tracer_frozen_v2.md`.
