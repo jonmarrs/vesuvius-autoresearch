@@ -1103,3 +1103,19 @@ validity gates passed (V1 max deviation 0.0038%).
   candidates, so it is a lead, not a result.
 
 `reports/soft_count_study.md`.
+
+**80. Re-measured with the corrected fiber scorer, our tracer is ahead of connected components on merge-penalized ERL on
+4 of 11 cubes.** Pre-registered (`f5f775c3`, Amendment 1 `aa1c5712`).
+
+* The tracer was re-run at its published defaults on all 11 ScrollGT cubes and scored by ScrollGT v2.
+* **Fidelity is exact:** the July v1 rows reproduce to +0.0% on all six previously published cubes.
+* **P1 held:** raw ERL is below connected components on all 11 cubes (connected components ahead by 3.9–6.3×).
+* **P2 FAILED:** merge-penalized ERL is below connected components on 7 of the 8 cubes at 256³. The tracer is ahead
+  on `s5_14997` (38.56 vs 33.09).
+* **P3 held, 3 of 3:** on every 512³ cube the tracer's merge-penalized ERL is 2.0–3.2× connected components'. There,
+  connected components merges many fibers.
+* **ScrollGT's "lost on both metrics" claim was wrong under the corrected scorer.**
+* The 512³ cubes needed blocked detection, which is bit-identical to dense. Building it found and fixed a float32
+  rounding defect in `_detect_tiled`.
+
+`reports/tracer_rescore.md`.
