@@ -1,52 +1,19 @@
-import os
-import unittest
-
-import pandas as pd
+"""Daily PDF smoke exercises real rendering only inside an isolated workspace."""
 
 from scripts.generate_daily_report import generate_pdf
 
 
-class TestDailyReport(unittest.TestCase):
-    def setUp(self):
-        # Create mock data files
-        with open("LAB_NOTEBOOK.md", "w") as f:
-            f.write("## 2026-05-15: Test Entry\nMock discovery logic worked well.")
-
-        # Mock results.tsv
-        df = pd.DataFrame(
-            {
-                "timestamp": ["2026-05-15 20:44:15"],
-                "val_bpb": [0.4136],
-                "throughput_Mvps": [10.5],
-                "num_params_M": [24.0],
-            }
-        )
-        df.to_csv("results.tsv", sep="\t", index=False)
-
-        os.makedirs("reports", exist_ok=True)
-
-    def tearDown(self):
-        # Cleanup mock files
-        if os.path.exists("LAB_NOTEBOOK.md"):
-            os.remove("LAB_NOTEBOOK.md")
-        if os.path.exists("results.tsv"):
-            os.remove("results.tsv")
-        # We don't necessarily want to delete all reports,
-        # but let's delete the specific test one if we can identify it.
-
-    def test_report_generation_smoke(self):
-        # This will test if the PDF generator runs without crashing
-        # even if images are missing (it has checks for that).
-        try:
-            generate_pdf()
-            # Success if no exception
-            import datetime
-
-            report_path = f"reports/Vesuvius_Research_Report_{datetime.datetime.now().strftime('%Y-%m-%d')}.pdf"
-            self.assertTrue(os.path.exists(report_path))
-        except Exception as e:
-            self.fail(f"generate_pdf() raised {type(e).__name__} unexpectedly: {e}")
-
-
-if __name__ == "__main__":
-    unittest.main()
+def test_report_generation_smoke(tmp_path):
+    results = tmp_path / "results.tsv"
+    contents = (
+        "timestamp\tval_bpb\tthroughput_Mvps\tnum_params_M\n"
+        "2026-05-15 20:44:15\t0.4136\t10.5\t24.0\n"
+    )
+    results.write_text(contents)
+    notes = tmp_path / "notes.md"
+    notes.write_text("## [2026-05-15] Test Entry\nIntent, not a discovery claim.\n")
+    pdf = generate_pdf(results, notes, tmp_path / "bundle")
+    assert pdf.read_bytes().startswith(b"%PDF-")
+    assert pdf.read_bytes().rstrip().endswith(b"%%EOF")
+    assert results.read_text() == contents
+    assert (pdf.parent / "report.json").is_file()

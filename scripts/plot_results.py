@@ -1,118 +1,163 @@
-import os
+#!/usr/bin/env python3
+"""Publish descriptive charts of a bounded recorded experiment TSV."""
 
-import matplotlib.pyplot as plt
-import numpy as np
-import pandas as pd
-import seaborn as sns
+from __future__ import annotations
+
+import argparse
+import csv
+import datetime as dt
+import hashlib
+import json
+import sys
+from pathlib import Path
+
+from matplotlib.backends.backend_agg import FigureCanvasAgg
+from matplotlib.dates import AutoDateLocator, ConciseDateFormatter
+from matplotlib.figure import Figure
+from PIL import Image
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+from scripts.candidate_artifacts import write_json
+from scripts.experiment_report_data import Results, read_results
+from scripts.labeling.label_artifacts import new_output, publish_new
+
+CHART_NAMES = ("recorded_diagnostics", "hardware_observations")
+REPORT_ERRORS = (OSError, ValueError, csv.Error, RuntimeError)
 
 
-def plot_results():
-    if not os.path.exists("results.tsv"):
-        print("No results.tsv found.")
-        return
+def default_output(kind):
+    stamp = dt.datetime.now(dt.timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
+    return Path("reports") / f"{kind}_{stamp}"
 
-    # Read the TSV
-    try:
-        df = pd.read_csv("results.tsv", sep="\t")
-        if df.empty:
-            print("results.tsv is empty.")
-            return
-        if "timestamp" not in df.columns:
-            print(
-                f"results.tsv missing 'timestamp' column. Columns found: {df.columns}"
-            )
-            return
-    except Exception as e:
-        print(f"Failed to read/parse results.tsv: {e}")
-        return
 
-    # Convert timestamp to datetime
-    try:
-        df["timestamp"] = pd.to_datetime(df["timestamp"])
-    except Exception as e:
-        print(f"Failed to convert timestamps: {e}")
-        return
-
-    df = df.sort_values("timestamp")
-    os.makedirs("reports/figures", exist_ok=True)
-
-    # Figure 1: Research Frontier (Metric vs Time)
-    plt.figure(figsize=(12, 7))
-    sns.set_style("whitegrid")
-
-    ax1 = plt.gca()
-    color = "tab:blue"
-    ax1.set_xlabel("Experiment Timeline")
-    ax1.set_ylabel("Validation Dice Loss (1-Dice)", color=color, fontweight="bold")
-    ax1.plot(
-        df["timestamp"],
-        df["val_bpb"],
-        marker="o",
-        color=color,
-        linewidth=2.5,
-        label="Dice Loss",
+def render_charts(results: Results, directory: Path):
+    """Render from the captured rows; never read cached report images."""
+    directory.mkdir(parents=True, exist_ok=True)
+    rows = results.records
+    times = [row.timestamp for row in rows]
+    loss = [row.val_bpb for row in rows]
+    throughput = [row.throughput_Mvps for row in rows]
+    figures = []
+    diagnostics = Figure(figsize=(10, 6), layout="constrained")
+    figures.append((CHART_NAMES[0], diagnostics))
+    axes = diagnostics.subplots(2, 1, sharex=True)
+    for ax, values, label, color in zip(
+        axes,
+        (loss, throughput),
+        ("Recorded val_bpb (auxiliary 1-Dice)", "Recorded training throughput (Mvps)"),
+        ("tab:blue", "tab:red"),
+        strict=True,
+    ):
+        ax.scatter(times, values, color=color, s=26)
+        ax.set_ylabel(label)
+        ax.grid(True, alpha=0.25)
+    axes[0].set_ylim(-0.03, 1.03)
+    locator = AutoDateLocator()
+    axes[1].xaxis.set_major_locator(locator)
+    axes[1].xaxis.set_major_formatter(ConciseDateFormatter(locator))
+    axes[1].set_xlabel(results.time_basis)
+    diagnostics.suptitle(
+        "Recorded experiment diagnostics\n"
+        "F1 / AP-lift promotion metrics are not plotted; validation regimes may differ"
     )
-    ax1.tick_params(axis="y", labelcolor=color)
-    ax1.set_yscale("log")
 
-    ax2 = ax1.twinx()
-    color = "tab:red"
-    ax2.set_ylabel("Inference Throughput (Mvps)", color=color, fontweight="bold")
-    ax2.plot(
-        df["timestamp"],
-        df["throughput_Mvps"],
-        marker="x",
-        color=color,
-        linestyle="--",
-        alpha=0.6,
-        label="Throughput",
-    )
-    ax2.tick_params(axis="y", labelcolor=color)
-
-    plt.title(
-        "Vesuvius Autoresearch: Autonomous Optimization Trajectory",
-        fontsize=14,
-        fontweight="bold",
-    )
-    plt.tight_layout()
-
-    for fmt in ["png", "svg"]:
-        plt.savefig(
-            f"reports/figures/research_frontier.{fmt}", dpi=300, bbox_inches="tight"
-        )
-    plt.close()
-
-    # Figure 2: Hardware Efficiency (Throughput vs Params)
-    plt.figure(figsize=(10, 6))
-    scatter = plt.scatter(
-        df["num_params_M"],
-        df["throughput_Mvps"],
-        c=np.log10(df["val_bpb"].values),
+    hardware = Figure(figsize=(10, 6), layout="constrained")
+    figures.append((CHART_NAMES[1], hardware))
+    ax = hardware.subplots()
+    scatter = ax.scatter(
+        [row.num_params_M for row in rows],
+        throughput,
+        c=loss,
+        vmin=0,
+        vmax=1,
         cmap="viridis_r",
-        s=100,
+        s=45,
         edgecolors="black",
-        alpha=0.8,
+        linewidths=0.4,
     )
-    plt.colorbar(scatter, label="log10(Dice Loss)")
-    plt.xlabel("Model Parameters (Millions)", fontweight="bold")
-    plt.ylabel("Throughput (Mvps)", fontweight="bold")
-    plt.title(
-        "Hardware Efficiency Pareto: Throughput vs. Model Scale",
-        fontsize=12,
-        fontweight="bold",
+    hardware.colorbar(scatter, ax=ax, label="Recorded val_bpb (auxiliary 1-Dice)")
+    ax.set_xlabel("Recorded model parameters (millions)")
+    ax.set_ylabel("Recorded training throughput (Mvps)")
+    ax.set_title(
+        "Recorded hardware observations\n"
+        "Configurations and validation regimes may differ; no ranking inferred"
     )
-    plt.grid(True, linestyle=":", alpha=0.6)
+    ax.grid(True, alpha=0.25)
 
-    for fmt in ["png", "svg"]:
-        plt.savefig(
-            f"reports/figures/hardware_efficiency.{fmt}", dpi=300, bbox_inches="tight"
-        )
-    plt.close()
+    artifacts = {}
+    description = json.dumps(
+        {"results": results.source.provenance(), "scope": results.manifest()["scope"]}
+    )
+    for name, figure in figures:
+        FigureCanvasAgg(figure)
+        try:
+            for suffix in ("png", "svg"):
+                path = directory / f"{name}.{suffix}"
+                figure.savefig(
+                    path,
+                    dpi=150,
+                    bbox_inches=figure.bbox_inches.frozen(),
+                    metadata={"Description": description},
+                )
+                if suffix == "png":
+                    with Image.open(path) as image:
+                        if image.size != (1500, 900):
+                            raise ValueError("chart has unexpected dimensions")
+                        image.verify()
+                else:
+                    if "<svg" not in path.read_text(encoding="utf-8"):
+                        raise ValueError("chart SVG verification failed")
+                artifacts[path.name] = {
+                    "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+                    "bytes": path.stat().st_size,
+                }
+        finally:
+            figure.clear()
+    return artifacts
 
-    print("Generated PNG and SVG reports in reports/figures/")
+
+def write_manifest(directory, manifest):
+    path = directory / "report.json"
+    write_json(path, manifest)
+    if json.loads(path.read_text(encoding="utf-8")) != manifest:
+        raise ValueError("report manifest verification failed")
+
+
+def plot_results(results="results.tsv", output=None):
+    data = read_results(results)
+    output = new_output(
+        output if output is not None else default_output("experiment_charts"),
+        data.source.path,
+    )
+    manifest = {**data.manifest(), "kind": "experiment_charts"}
+    with publish_new(output) as staging:
+        manifest["artifacts"] = {
+            **data.source.copy_into(staging, "results.tsv"),
+            **render_charts(data, staging),
+        }
+        write_manifest(staging, manifest)
+        data.source.verify()
+    print(f"Charts and source manifest saved to: {output}")
+    return output
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--results", type=Path, default=Path("results.tsv"))
+    parser.add_argument(
+        "--out", type=Path, help="New directory for charts and report.json"
+    )
+    args = parser.parse_args(argv)
+    try:
+        plot_results(args.results, args.out)
+    except REPORT_ERRORS as exc:
+        print(f"Experiment charts failed: {exc}", file=sys.stderr)
+        return 1
+    return 0
 
 
 if __name__ == "__main__":
-    import numpy as np
-
-    plot_results()
+    raise SystemExit(main())

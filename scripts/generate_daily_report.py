@@ -1,199 +1,228 @@
-import datetime
-import os
+#!/usr/bin/env python3
+"""Publish an experiment PDF and fresh charts from the same captured inputs."""
 
-import pandas as pd
+from __future__ import annotations
+
+import argparse
+import datetime as dt
+import hashlib
+import sys
+from pathlib import Path
+
+import matplotlib
 from fpdf import FPDF
+from fpdf.errors import FPDFException
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+from scripts.experiment_report_data import SCOPE, read_notebook, read_results
+from scripts.labeling.label_artifacts import new_output, publish_new
+from scripts.plot_results import (
+    CHART_NAMES,
+    REPORT_ERRORS,
+    default_output,
+    render_charts,
+    write_manifest,
+)
 
 
 class VesuviusReport(FPDF):
+    def __init__(self, generated_at):
+        super().__init__()
+        self.generated_at = generated_at
+        fonts = Path(matplotlib.get_data_path()) / "fonts/ttf"
+        for style, name in (("", "DejaVuSans.ttf"), ("B", "DejaVuSans-Bold.ttf")):
+            self.add_font("DejaVu", style, str(fonts / name))
+        self.set_auto_page_break(auto=True, margin=20)
+        self.set_font("DejaVu", size=9)
+
     def header(self):
-        self.set_font("helvetica", "B", 15)
+        self.set_font("DejaVu", "B", 13)
         self.cell(
             0,
-            10,
-            "Vesuvius Autoresearch: Daily Experimental Report",
-            0,
+            9,
+            "Vesuvius Autoresearch: Recorded Experiment Report",
             new_x="LMARGIN",
             new_y="NEXT",
             align="C",
         )
-        self.set_font("helvetica", "I", 10)
+        self.set_font("DejaVu", size=9)
         self.cell(
             0,
-            10,
-            f"Generated on: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
-            0,
+            7,
+            f"Generated: {self.generated_at}",
             new_x="LMARGIN",
             new_y="NEXT",
             align="C",
         )
-        self.ln(10)
+        self.ln(4)
 
     def footer(self):
         self.set_y(-15)
-        self.set_font("helvetica", "I", 8)
-        self.cell(
-            0, 10, f"Page {self.page_no()}", 0, new_x="RIGHT", new_y="TOP", align="C"
-        )
+        self.set_font("DejaVu", size=8)
+        self.cell(0, 8, f"Page {self.page_no()}", align="C")
+
+    def paragraph(self, text):
+        self.set_font("DejaVu", size=9)
+        # Missing glyphs otherwise silently disappear from notebook excerpts.
+        missing = {
+            char
+            for char in text
+            if char not in "\n\t" and ord(char) not in self.current_font.cmap
+        }
+        if missing:
+            raise ValueError(
+                f"PDF font does not support characters: {sorted(missing)!r}"
+            )
+        self.multi_cell(0, 5, text, new_x="LMARGIN", new_y="NEXT")
+        self.ln(2)
+
+    def heading(self, text):
+        self.set_font("DejaVu", "B", 11)
+        self.cell(0, 9, text, new_x="LMARGIN", new_y="NEXT")
 
 
-def generate_pdf():
-    print("Generating Professional PDF Report...")
-    pdf = VesuviusReport()
+def _render_pdf(data, notebook, charts, path, generated_at):
+    pdf = VesuviusReport(generated_at)
+    pdf.set_title("Vesuvius Autoresearch: Recorded Experiment Report")
+    pdf.set_subject(SCOPE)
     pdf.add_page()
-
-    # 1. Executive Summary from LAB_NOTEBOOK.md
-    pdf.set_font("helvetica", "B", 14)
-    pdf.cell(
-        0,
-        10,
-        "1. Executive Summary & Insights",
-        0,
-        new_x="LMARGIN",
-        new_y="NEXT",
-        align="L",
+    pdf.heading("Scope and captured source")
+    pdf.paragraph(SCOPE)
+    pdf.paragraph(
+        f"Results: {data.source.path}\n"
+        f"SHA-256: {data.source.provenance()['sha256']}\n"
+        f"Recorded rows: {len(data.records)}\nTime basis: {data.time_basis}"
     )
-    pdf.set_font("helvetica", "", 10)
-
-    if os.path.exists("LAB_NOTEBOOK.md"):
-        with open("LAB_NOTEBOOK.md") as f:
-            lines = f.readlines()
-            # Get the first relevant section (latest entry)
-            summary_lines = []
-            for line in lines:
-                if line.startswith("## "):
-                    if len(summary_lines) > 5:
-                        break  # Limit to latest
-                summary_lines.append(line.strip())
-
-            summary_text = "\n".join(summary_lines[:20])  # Limit length
-            pdf.multi_cell(0, 5, summary_text)
-    else:
-        pdf.cell(0, 10, "Lab notebook not found.", 0, 1, "L")
-
-    pdf.ln(10)
-
-    # 2. Key Visualizations
-    pdf.set_font("helvetica", "B", 14)
-    pdf.cell(
-        0,
-        10,
-        "2. Performance Metrics & Frontier",
-        0,
-        new_x="LMARGIN",
-        new_y="NEXT",
-        align="L",
-    )
-
-    frontier_img = "reports/figures/research_frontier.png"
-    if os.path.exists(frontier_img):
-        pdf.image(frontier_img, x=10, w=190)
-    else:
+    pdf.heading("Recent recorded rows (newest first; no metric ranking)")
+    widths = (18, 66, 31, 36, 39)
+    headers = ("TSV line", "Timestamp", "val_bpb", "Mvps", "Params (M)")
+    pdf.set_font("DejaVu", "B", 8)
+    for index, (width, label) in enumerate(zip(widths, headers, strict=True)):
         pdf.cell(
-            0, 10, "Frontier chart not found. Run plot_results.py first.", 0, 1, "L"
+            width,
+            7,
+            label,
+            border=1,
+            new_x="LMARGIN" if index == 4 else "RIGHT",
+            new_y="NEXT" if index == 4 else "TOP",
         )
-
-    pdf.add_page()
-    pdf.set_font("helvetica", "B", 14)
-    pdf.cell(
-        0,
-        10,
-        "3. Hardware Efficiency Pareto",
-        0,
-        new_x="LMARGIN",
-        new_y="NEXT",
-        align="L",
-    )
-
-    pareto_img = "reports/figures/hardware_efficiency.png"
-    if os.path.exists(pareto_img):
-        pdf.image(pareto_img, x=10, w=190)
-
-    pdf.ln(10)
-
-    # 4. Training Samples
-    pdf.set_font("helvetica", "B", 14)
-    pdf.cell(
-        0,
-        10,
-        "4. Training Data Samples (Visual Audit)",
-        0,
-        new_x="LMARGIN",
-        new_y="NEXT",
-        align="L",
-    )
-
-    import glob
-
-    sample_images = sorted(glob.glob("reports/figures/training_samples/*.png"))
-    if sample_images:
-        latest_sample = sample_images[-1]
-        pdf.image(latest_sample, x=10, w=190)
-    else:
-        pdf.cell(
-            0,
-            10,
-            "Training samples not found. Run visualize_training_data.py first.",
-            0,
-            1,
-            "L",
+    pdf.set_font("DejaVu", size=8)
+    # Reverse stable chronological order; for tied timestamps later rows go first.
+    for row in reversed(data.records[-5:]):
+        values = (
+            str(row.source_line),
+            row.timestamp.strftime("%Y-%m-%d %H:%M:%S"),
+            f"{row.val_bpb:.6f}",
+            f"{row.throughput_Mvps:.2f}",
+            f"{row.num_params_M:.3f}",
         )
-
-    pdf.ln(10)
-
-    # 5. Top Discoveries Table
-    pdf.set_font("helvetica", "B", 14)
-    pdf.cell(
-        0,
-        10,
-        "5. Top discovery Milestones",
-        0,
-        new_x="LMARGIN",
-        new_y="NEXT",
-        align="L",
+        for index, (width, value) in enumerate(zip(widths, values, strict=True)):
+            pdf.cell(
+                width,
+                7,
+                value,
+                border=1,
+                new_x="LMARGIN" if index == 4 else "RIGHT",
+                new_y="NEXT" if index == 4 else "TOP",
+            )
+    pdf.ln(4)
+    pdf.paragraph(
+        "The table displays whole seconds; report.json preserves timestamp precision "
+        "and offsets. Source TSV lines identify rows even when timestamps tie."
     )
 
-    if os.path.exists("results.tsv"):
-        df = pd.read_csv("results.tsv", sep="\t")
-        if not df.empty:
-            top_df = df.nsmallest(5, "val_bpb")
+    if notebook is not None:
+        pdf.add_page()
+        pdf.heading("Latest dated notebook excerpt (intent and commentary)")
+        pdf.paragraph(
+            f"Notebook: {notebook['path']}\nSHA-256: {notebook['sha256']}\n"
+            f"Selected entry date: {notebook['entry_date']}\n{notebook['scope']}"
+        )
+        pdf.paragraph(notebook["excerpt"])
 
-            # Table Header
-            pdf.set_font("helvetica", "B", 10)
-            pdf.cell(40, 10, "Timestamp", 1, new_x="RIGHT", new_y="TOP")
-            pdf.cell(30, 10, "Val Dice Loss", 1, new_x="RIGHT", new_y="TOP")
-            pdf.cell(30, 10, "Throughput", 1, new_x="RIGHT", new_y="TOP")
-            pdf.cell(30, 10, "Params (M)", 1, new_x="LMARGIN", new_y="NEXT")
+    for name, heading in zip(
+        CHART_NAMES,
+        ("Recorded diagnostic observations", "Recorded hardware observations"),
+        strict=True,
+    ):
+        pdf.add_page()
+        pdf.heading(heading)
+        pdf.image(charts / f"{name}.png", w=190)
+        pdf.paragraph(SCOPE)
+    pdf.output(path)
+    contents = path.read_bytes()
+    if not contents.startswith(b"%PDF-") or not contents.rstrip().endswith(b"%%EOF"):
+        raise ValueError("PDF verification failed")
 
-            # Table Rows
-            pdf.set_font("helvetica", "", 9)
-            for _, row in top_df.iterrows():
-                pdf.cell(
-                    40, 10, str(row["timestamp"])[:16], 1, new_x="RIGHT", new_y="TOP"
-                )
-                pdf.cell(30, 10, f"{row['val_bpb']:.6f}", 1, new_x="RIGHT", new_y="TOP")
-                pdf.cell(
-                    30,
-                    10,
-                    f"{row['throughput_Mvps']:.2f}",
-                    1,
-                    new_x="RIGHT",
-                    new_y="TOP",
-                )
-                pdf.cell(
-                    30,
-                    10,
-                    f"{row['num_params_M']:.2f}",
-                    1,
-                    new_x="LMARGIN",
-                    new_y="NEXT",
-                )
 
-    os.makedirs("reports", exist_ok=True)
-    report_path = f"reports/Vesuvius_Research_Report_{datetime.datetime.now().strftime('%Y-%m-%d')}.pdf"
-    pdf.output(report_path)
-    print(f"Report saved to: {report_path}")
+def generate_pdf(results="results.tsv", notebook="docs/LAB_NOTEBOOK.md", output=None):
+    data = read_results(results)
+    notebook_source, excerpt = (
+        read_notebook(notebook) if notebook is not None else (None, None)
+    )
+    sources = [data.source.path]
+    if notebook_source is not None:
+        sources.append(notebook_source.path)
+    output = new_output(
+        output if output is not None else default_output("experiment_report"), *sources
+    )
+    generated_at = dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds")
+    manifest = {
+        **data.manifest(),
+        "kind": "experiment_pdf",
+        "generated_at": generated_at,
+        "notebook": excerpt,
+        "notebook_status": "included" if excerpt is not None else "explicitly omitted",
+    }
+    with publish_new(output) as staging:
+        source_artifacts = data.source.copy_into(staging, "results.tsv")
+        if notebook_source is not None:
+            source_artifacts.update(notebook_source.copy_into(staging, "notebook.md"))
+        chart_dir = staging / "charts"
+        artifacts = render_charts(data, chart_dir)
+        _render_pdf(data, excerpt, chart_dir, staging / "report.pdf", generated_at)
+        manifest["artifacts"] = {
+            **source_artifacts,
+            **{f"charts/{name}": value for name, value in artifacts.items()},
+            "report.pdf": {
+                "sha256": hashlib.sha256(
+                    (staging / "report.pdf").read_bytes()
+                ).hexdigest(),
+                "bytes": (staging / "report.pdf").stat().st_size,
+            },
+        }
+        write_manifest(staging, manifest)
+        data.source.verify()
+        if notebook_source is not None:
+            notebook_source.verify()
+    print(f"PDF, charts and source manifest saved to: {output}")
+    return output / "report.pdf"
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--results", type=Path, default=Path("results.tsv"))
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument("--notebook", type=Path, default=Path("docs/LAB_NOTEBOOK.md"))
+    group.add_argument(
+        "--no-notebook", action="store_true", help="Explicitly omit notebook commentary"
+    )
+    parser.add_argument(
+        "--out", type=Path, help="New directory for report.pdf, charts and report.json"
+    )
+    args = parser.parse_args(argv)
+    try:
+        generate_pdf(
+            args.results, None if args.no_notebook else args.notebook, args.out
+        )
+    except (*REPORT_ERRORS, FPDFException) as exc:
+        print(f"Experiment PDF failed: {exc}", file=sys.stderr)
+        return 1
+    return 0
 
 
 if __name__ == "__main__":
-    generate_pdf()
+    raise SystemExit(main())
