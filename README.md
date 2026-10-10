@@ -204,6 +204,11 @@ The `program.md` file is essentially a super lightweight "skill".
 
 ## 📈 Tracking progress
 
+For descriptive experiment charts and PDFs with captured source provenance,
+see [Recorded experiment reports](docs/EXPERIMENT_REPORTS.md). These reports show
+auxiliary diagnostics and recent rows; the frozen TSV omits the F1/AP-lift
+promotion metrics.
+
 - **`history.tsv`**: Every evaluated cycle — `val_bpb`, topology metrics (`avg_skel_dist`, `avg_centerline_dice`), throughput, and the full config JSON.
 - **`results.tsv`**: Experiments that beat the then-current baseline.
 - **`prize_readiness.tsv`**: Per-cycle check of the model against prize submission gates.
