@@ -47,3 +47,16 @@ def test_predictions_and_fidelity(data):
         and "**P2 FAILED.**" in report
         and "**P3 HELD, 3 of 3.**" in report
     )
+
+
+def test_raw_erl_ratio_range_is_derived_not_typed(data):
+    """The report said 3.9–6.3×; the largest ratio is 258.83 / 41.42 = 6.249, which is 6.2×. No test bound it."""
+    report, r = data
+    ratios = [v["cc_v2"]["erl"] / v["tracer_v2"]["erl"] for v in r["cubes"].values()]
+    span = f"{min(ratios):.1f}–{max(ratios):.1f}×"
+    assert span == "3.9–6.2×"
+    assert f"connected components ahead by {span}" in report
+    for doc in ("SPIRAL_FINDINGS_SUMMARY.md",):
+        assert f"(connected components ahead by {span})" in (REPORTS / doc).read_text()
+    draft = REPORTS.parent / "docs" / "PRIZE_FILING_2026-10_DRAFT.md"
+    assert f"it still loses on raw ERL everywhere ({span});" in draft.read_text()
