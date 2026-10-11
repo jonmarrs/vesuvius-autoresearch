@@ -155,6 +155,10 @@ optional mirror averaging; their metadata records the applied recipe. Ensemble
 members must share spatial context and calibration. Partial inference shards
 are identified explicitly and cannot pass complete-region submission validation.
 
+For generic weighted tensor means and the status of the legacy First Title
+launcher, see [Ensemble voting](docs/ENSEMBLE_VOTING.md). Voting checks numerical
+compatibility; it does not establish accuracy or eliminate hallucinations.
+
 For checkpoint re-evaluation, masked patch AUC, pseudo-labels, and manual-review
 queues, see [Checkpoint analysis and labeling](docs/CHECKPOINT_ANALYSIS.md).
 These tools use recorded model settings and complete weights; failed reads or
