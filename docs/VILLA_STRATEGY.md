@@ -1,9 +1,11 @@
 # Vesuvius Autoresearch: Villa Strategy Roadmap
 
 > **⚠️ ARCHIVED (2026-07-11).** The villa upstream-contribution strategy this document
-> describes is retired: all our villa PRs were closed unmerged (see
+> describes is retired: the May 2026 batch of villa PRs was closed unmerged (see
 > `docs/VILLA_PR_CLOSURE_RECOVERY_2026-05-26.md`), and the current path is standalone
 > artifacts + community adoption (see **[research_plan.md](./research_plan.md)**).
+> Later merged upstream contributions were recognized with a September 2026
+> $250 Progress Prize; see [the award record](PROGRESS_PRIZE_AWARDS.md).
 > The audit scripts cited below now live under `scripts/archive/`
 > (e.g. `scripts/archive/audit_villa_upstream.py`). Kept as historical record.
 
@@ -34,7 +36,7 @@ This document outlines how we leverage and contribute to the official `ScrollPri
 
 ### [Priority B] Volume Cartographer Alignment (STATUS: ACTIVE)
 *   **Action**: Retire new `vesuvius-c` work and route Python volume-access/readiness gates through `volume_cartographer_wrapper/` plus Villa's maintained `volume-cartographer` / VC3D conventions.
-*   **Impact**: Enables community-wide "data-on-demand" workflows with C-speed performance.
+*   **Scope correction (2026-10-11)**: The local adapter uses Python Zarr and preserves the grid/voxel read API. Native C++ acceleration is not implemented or measured by this adapter; see [local volume reads and benchmarking](LOCAL_VOLUME_READS.md) for comparable workload timings.
 
 ## 2. Infrastructure Integration (Grand Prize Track)
 *Increasing the robustness and reproducibility of our models.*
