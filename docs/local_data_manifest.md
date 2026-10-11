@@ -1,6 +1,13 @@
-# Local Data Manifest
+# Historical local data manifest (unverified)
 
-This document lists the offline datasets currently built and stored in `local_data/`. These datasets are completely excluded from git due to their massive size (~63GB total). To regenerate these datasets locally, you must run the download scripts provided in this repository.
+These rows preserve output from the previous inventory generator. They are not
+a current inventory: the old generator inferred `Ready` from directory names
+and apparent size, hardcoded the total-size claim, and inferred division
+coverage without reading data. Its status and coverage annotations are
+unverified; the recorded sizes below have not been remeasured. Use
+[Local data catalogues](DATA_CATALOGUES.md) to generate a fresh metadata inventory
+or inspect a bounded selection of binary labels. Neither operation certifies
+training readiness, physical registration, ground truth, or held-out lineage.
 
 ## Generated 1GB Continuous Cross-Scroll Datasets
 
