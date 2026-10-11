@@ -2,6 +2,11 @@
 
 This report maps official `ScrollPrize/villa` components to local Autoresearch hooks.
 
+Historical path-presence snapshot: the rows and counts below have not been
+regenerated and do not establish executable integration or scientific validation.
+The Thaumato solver sweep is now retired; its old `covered` row does not describe
+current support. See [Sheet-graph diagnostics](../docs/SHEET_GRAPH_DIAGNOSTICS.md).
+
 ## Summary
 
 - Total components: `8`

@@ -1,208 +1,197 @@
 #!/usr/bin/env python3
-"""
-Vesuvius Autoresearch: Graph-Based Sheet Stitching
-Solves the "Winding Gap" problem by computationally assigning winding angles
-to fragmented surface sheets.
+"""Publish relative-angle diagnostics from a bounded, explicit JSON graph."""
 
-Based on the formal problem definition:
-villa/thaumato-anakalyptor/documentation/Sheet_Stitching_Problem_Definition.pdf
-"""
+from __future__ import annotations
 
 import argparse
-import heapq
+import hashlib
 import json
-import os
-from collections import defaultdict
+import stat
+import sys
+from pathlib import Path
 
-import numpy as np
+if __package__ in (None, ""):
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from scripts.data_catalogue import (
+    artifact_record,
+    default_output,
+    signature,
+    write_verified_json,
+)
+from scripts.labeling.label_artifacts import new_output, publish_new
+from scripts.sheet_graph import (
+    MAX_EDGES,
+    MAX_NODES,
+    SheetGraph,
+    assign_winding_angles_random_walk,
+    assign_winding_angles_viterbi,
+    graph_report,
+)
 
-class SheetGraph:
-    def __init__(self):
-        self.nodes = set()
-        self.edges = defaultdict(list)
-
-    def add_node(self, node_id, features=None):
-        self.nodes.add(node_id)
-
-    def add_edge(self, u, v, weight=1.0, angle_delta=0.0):
-        self.edges[u].append({"to": v, "weight": weight, "delta": angle_delta})
-        self.edges[v].append({"to": u, "weight": weight, "delta": -angle_delta})
-
-
-def assign_winding_angles_viterbi(graph: SheetGraph, start_node=None):
-    """
-    Assigns a winding angle function f: N -> R using a Viterbi-like shortest path / highest confidence approach.
-    """
-    if not graph.nodes:
-        return {}
-
-    if start_node is None:
-        start_node = next(iter(graph.nodes))
-
-    # Standard Dijkstra/Viterbi for max confidence paths
-    angles = {start_node: 0.0}
-    visited = {start_node}
-
-    # Priority queue: (-confidence, node, current_angle)
-    # Using heapq for O(log N) operations instead of O(N log N) sorting
-    queue = [(-1.0, start_node, 0.0)]
-
-    while queue:
-        conf, u, current_angle = heapq.heappop(queue)
-
-        for edge in graph.edges[u]:
-            v = edge["to"]
-            if v not in visited:
-                visited.add(v)
-                new_angle = current_angle + edge["delta"]
-                angles[v] = new_angle
-                # heapq is a min-heap, so we keep conf negative for max confidence
-                heapq.heappush(queue, (conf * edge["weight"], v, new_angle))
-
-    return angles
-
-
-def assign_winding_angles_random_walk(graph: SheetGraph, num_walks=2000):
-    """
-    Assigns winding angles using a Random Walk approach.
-    By traversing the graph randomly and accumulating angle deltas, we can build a distribution
-    of angle estimates for each node. The median of this distribution provides a robust consensus
-    that naturally ignores outlier edges (incorrect segment connections).
-    """
-    if not graph.nodes:
-        return {}
-
-    start_node = next(iter(graph.nodes))
-    angle_samples = defaultdict(list)
-    angle_samples[start_node].append(0.0)
-
-    nodes = list(graph.nodes)
-    walk_length = max(20, len(nodes))
-
-    for _ in range(num_walks):
-        current_node = start_node
-        current_angle = 0.0
-
-        for _ in range(walk_length):
-            neighbors = graph.edges[current_node]
-            if not neighbors:
-                break
-
-            # Randomly select a neighbor, weighted by edge confidence
-            weights = [max(edge["weight"], 0.01) for edge in neighbors]
-            total_weight = sum(weights)
-            probs = [w / total_weight for w in weights]
-
-            chosen_idx = np.random.choice(len(neighbors), p=probs)
-            edge = neighbors[chosen_idx]
-
-            current_node = edge["to"]
-            current_angle += edge["delta"]
-            angle_samples[current_node].append(current_angle)
-
-    # Consensus: Compute the median angle for each node
-    final_angles = {}
-
-    # Fallback to Viterbi for disconnected nodes or nodes never reached
-    viterbi_fallback = assign_winding_angles_viterbi(graph, start_node=start_node)
-
-    for node in graph.nodes:
-        if angle_samples[node]:
-            # Median is robust against walks that took "impossible" paths across the winding gap
-            final_angles[node] = float(np.median(angle_samples[node]))
-        else:
-            final_angles[node] = viterbi_fallback.get(node, 0.0)
-
-    return final_angles
+MAX_SOURCE_BYTES = 16 * 1024**2
 
 
 def load_graph_from_pkl(pkl_path):
-    import sys
-
-    sys.path.append("villa/thaumato-anakalyptor")
-    from ThaumatoAnakalyptor.instances_to_graph import load_graph
-
-    thaumato_graph = load_graph(pkl_path)
-    graph = SheetGraph()
-    for node_id in thaumato_graph.nodes:
-        graph.add_node(node_id)
-    for u in thaumato_graph.edges:
-        for v in thaumato_graph.edges[u]:
-            edge_data = thaumato_graph.edges[u][v]
-            # Assuming edge_data contains 'certainty' and 'k' (angle difference)
-            weight = edge_data.get("certainty", 1.0)
-            angle_delta = edge_data.get("k", 0.0)
-            graph.add_edge(u, v, weight=weight, angle_delta=angle_delta)
-    return graph, thaumato_graph
+    raise ValueError(
+        "legacy Thaumato PKL adapter is unsupported: upstream edge variants, certainty "
+        "factors and sheet_offset_k are not this JSON graph's confidence/angle contract; "
+        "supply an explicitly converted JSON graph with declared units"
+    )
 
 
-def main():
-    parser = argparse.ArgumentParser(description="Graph-Based Sheet Stitching")
+def unique_object(pairs):
+    result = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError(f"duplicate JSON key: {key}")
+        result[key] = value
+    return result
+
+
+def parse_graph(data):
+    try:
+        document = json.loads(
+            data.decode("utf-8") if isinstance(data, bytes) else data,
+            object_pairs_hook=unique_object,
+        )
+    except (UnicodeDecodeError, json.JSONDecodeError, RecursionError) as exc:
+        raise ValueError("expected bounded UTF-8 graph JSON") from exc
+    if not isinstance(document, dict) or set(document) != {
+        "schema_version",
+        "angle_unit",
+        "nodes",
+        "edges",
+    }:
+        raise ValueError(
+            "graph must contain only schema_version, angle_unit, nodes and edges"
+        )
+    if type(document["schema_version"]) is not int or document["schema_version"] != 1:
+        raise ValueError("graph schema_version must be integer 1")
+    nodes, edges = document["nodes"], document["edges"]
+    if not isinstance(nodes, list) or not 1 <= len(nodes) <= MAX_NODES:
+        raise ValueError(f"graph must contain 1..{MAX_NODES} nodes")
+    if not isinstance(edges, list) or len(edges) > MAX_EDGES:
+        raise ValueError(f"graph must contain at most {MAX_EDGES} edges")
+    graph = SheetGraph(angle_unit=document["angle_unit"])
+    for record in nodes:
+        if not isinstance(record, dict) or set(record) != {"id"}:
+            raise ValueError("each node must contain only id")
+        graph.add_node(record["id"])
+    for record in edges:
+        if not isinstance(record, dict) or set(record) != {
+            "u",
+            "v",
+            "weight",
+            "angle_delta",
+        }:
+            raise ValueError("each edge must contain u, v, weight and angle_delta")
+        graph.add_edge(**record)
+    return graph
+
+
+def capture_graph(path):
+    path = Path(path)
+    if path.suffix.lower() != ".json":
+        raise ValueError(
+            "only explicit JSON graphs are supported; PKL/bin inference is retired"
+        )
+    before = signature(path)
+    if before is None or not stat.S_ISREG(before["mode"]):
+        raise ValueError("graph source must be a regular file, not a symlink")
+    if before["bytes"] > MAX_SOURCE_BYTES:
+        raise ValueError(f"graph source exceeds {MAX_SOURCE_BYTES} bytes")
+    with path.open("rb") as stream:
+        data = stream.read(MAX_SOURCE_BYTES + 1)
+    if len(data) > MAX_SOURCE_BYTES or signature(path) != before:
+        raise ValueError("graph source changed or exceeded byte budget during capture")
+    graph = parse_graph(data)
+    return (
+        graph,
+        data,
+        {
+            "path": str(path.resolve()),
+            "bytes": len(data),
+            "sha256": hashlib.sha256(data).hexdigest(),
+            "signature": before,
+        },
+    )
+
+
+def generate(input_graph, output=None, **settings):
+    source = Path(input_graph)
+    output = new_output(
+        output if output is not None else default_output("sheet_graph"), source
+    )
+    graph, data, identity = capture_graph(source)
+    report = graph_report(graph, **settings)
+    report["source"] = identity
+    report["limits"]["max_source_bytes"] = MAX_SOURCE_BYTES
+    with publish_new(output) as staging:
+        copied = staging / "source.json"
+        copied.write_bytes(data)
+        if copied.read_bytes() != data:
+            raise ValueError("graph source copy verification failed")
+        report["artifacts"] = {"source.json": artifact_record(copied)}
+        write_verified_json(staging / "estimates.json", report)
+        _, current, current_identity = capture_graph(source)
+        if current != data or current_identity != identity:
+            raise ValueError("graph source changed before publication")
+    return output
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--input_graph",
-        type=str,
-        help="Path to input graph JSON or PKL",
-        required=False,
+        "--input-graph",
+        type=Path,
+        required=True,
+        help="schema 1 JSON graph with explicit angle_unit",
     )
     parser.add_argument(
-        "--output",
-        type=str,
-        default="winding_angles.json",
-        help="Output JSON or PKL path",
+        "--output", "--out", type=Path, help="new, separate bundle directory"
     )
     parser.add_argument(
-        "--algorithm", type=str, choices=["viterbi", "random_walk"], default="viterbi"
+        "--algorithm",
+        choices=["max_product", "viterbi", "random_walk"],
+        default="max_product",
     )
-    args = parser.parse_args()
-
-    graph = SheetGraph()
-    thaumato_graph = None
-
-    if args.input_graph and os.path.exists(args.input_graph):
-        if args.input_graph.endswith(".pkl"):
-            print(f"Loading PKL graph from {args.input_graph}...")
-            graph, thaumato_graph = load_graph_from_pkl(args.input_graph)
-        else:
-            with open(args.input_graph) as f:
-                data = json.load(f)
-                for node in data.get("nodes", []):
-                    graph.add_node(node["id"])
-                for edge in data.get("edges", []):
-                    graph.add_edge(
-                        edge["u"],
-                        edge["v"],
-                        edge.get("weight", 1.0),
-                        edge.get("angle_delta", 0.0),
-                    )
-    else:
-        print(
-            "No input graph provided or file not found. Generating dummy graph for testing."
+    parser.add_argument("--start-node", help="JSON node id, e.g. 7 or '\"anchor\"'")
+    parser.add_argument("--start-angle", type=float, default=0.0)
+    parser.add_argument("--walks", type=int, help="random_walk only; default 2000")
+    parser.add_argument("--walk-length", type=int, help="random_walk only; default 20")
+    parser.add_argument("--seed", type=int, help="random_walk only; default 0")
+    parser.add_argument("--tolerance", type=float, default=1e-6)
+    args = parser.parse_args(argv)
+    try:
+        start = json.loads(args.start_node) if args.start_node is not None else None
+        if args.start_node is not None and start is None:
+            raise ValueError("start/anchor node cannot be null")
+        if args.algorithm != "random_walk" and any(
+            value is not None for value in (args.walks, args.walk_length, args.seed)
+        ):
+            raise ValueError("walk/seed options require --algorithm random_walk")
+        output = generate(
+            args.input_graph,
+            args.output,
+            algorithm=args.algorithm,
+            start_node=start,
+            start_angle=args.start_angle,
+            num_walks=args.walks if args.walks is not None else 2000,
+            walk_length=args.walk_length if args.walk_length is not None else 20,
+            seed=args.seed if args.seed is not None else 0,
+            tolerance=args.tolerance,
         )
-        # Dummy graph representing fragmented sheets wrapping around a scroll
-        for i in range(10):
-            graph.add_node(i)
-        for i in range(9):
-            # Sheets connected sequentially with a slight angle delta
-            graph.add_edge(i, i + 1, weight=0.9, angle_delta=0.1)
-
-    if args.algorithm == "viterbi":
-        angles = assign_winding_angles_viterbi(graph)
-    else:
-        angles = assign_winding_angles_random_walk(graph)
-
-    print(f"Assigned winding angles for {len(angles)} nodes using {args.algorithm}.")
-
-    if args.output.endswith(".pkl") and thaumato_graph is not None:
-        for node_id, angle in angles.items():
-            thaumato_graph.nodes_f[node_id] = angle
-        print(f"Saving modified PKL graph to {args.output}...")
-        thaumato_graph.save_graph(args.output)
-    else:
-        with open(args.output, "w") as f:
-            json.dump(angles, f, indent=4)
-        print(f"Results written to {args.output}")
+    except (OSError, ValueError, TypeError, RecursionError) as exc:
+        print(f"Graph diagnostic failed: {exc}", file=sys.stderr)
+        return 1
+    report = json.loads((output / "estimates.json").read_text(encoding="utf-8"))
+    print(
+        f"Graph diagnostic: {report['status']}; {report['counts']}; saved to {output}"
+    )
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

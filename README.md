@@ -175,6 +175,11 @@ For a bounded local-file inventory and a binary ink-label overview, see
 record inspection limits and source fingerprints, and report mask shape checks
 without inferring dataset readiness or physical registration.
 
+For relative angle estimates from an explicit JSON graph, see
+[Sheet-graph diagnostics](docs/SHEET_GRAPH_DIAGNOSTICS.md). These report
+reachability, chosen paths, and constraint residuals; physical sheet stitching
+and the legacy Thaumato solver sweep remain unsupported.
+
 For descriptive comparisons of existing candidate ink maps and binary fiber
 labels, see [Candidate ink/fiber reports](docs/CANDIDATE_INK_FIBER_REPORTS.md).
 These reports check array and recorded prediction geometry, preserve failed
