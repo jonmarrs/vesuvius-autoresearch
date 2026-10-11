@@ -1,5 +1,42 @@
 # Resume note — written 2026-09-22 before a deliberate Claude restart
 
+## 2026-10-11 (evening): finding 83; ScrollGT held-out split in progress
+
+* Merged: vesuvius-autoresearch #19 (finding 82) and ScrollGT #2. **ScrollGT v0.5.0 tagged** on `af4ab23` (CI green).
+* **Finding 83** (prereg `8a7b2d4f`, report `2281b68c`, **PR #24** to main, merges cleanly). All 10 held-out cubes
+  pass the gate.
+  * P1 FAILED: Scroll-3 median connected-components coverage is 0.826, against 0.822 in sample. No drop.
+  * P2 held: the two new Scroll-5 cubes are at 0.64 and 0.53.
+  * P3 held 10/10, P4 held 8/8.
+  * Post-hoc voxel recall of villa's label agrees (`scripts/fiber_mask_vs_label.py`).
+* **ScrollGT 0.6.0** (branch `heldout-split`, not yet pushed):
+  * Its new `add_fiber_target` tool writes a target only if every row equals finding 83's.
+  * 10 `held_out` targets; held-out tables in BASELINES, bound to the generator by a new ScrollGT test.
+  * `aggregate_fiber_scores` refuses to mix held-out and in-sample cards; the report labels a held-out card.
+  * Targets are built by a detached script (`add_heldout_targets.sh` in the session scratchpad). If the session dies,
+    re-run its command for each missing `data/fibers_<cube>`.
+* **Still waiting on the user:** the generator entrant (prereg `c5b3d6ae`). Everything is ready, but the auto-mode
+  classifier blocks running the PR's code. The user can allow it or run `repro/fibers/run_afv_generator_chain.sh`.
+* October draft (deadline 10-31): fold in findings 82–83 and ScrollGT 0.5.0/0.6.0 once their PRs are merged.
+
+## 2026-10-11: ScrollGT's fiber ground truth audited; held-out split running
+
+* **Finding 82** (vesuvius-autoresearch PR #19, open): villa's fiber-skeletons Dataset004 revised 3 of ScrollGT's 11
+  fiber cubes (+21% to +37% fiber length). Re-scored, pre-registered: no ranking reverses. Connected-components
+  coverage (the mask's recall) falls from 0.88–0.93 to 0.76–0.82. `fiber_hz_vt`'s training fingerprint matches
+  Dataset002, so it trained on all 11 targets. PR #19 also corrects finding 80's "3.9–6.3×" to 3.9–6.2×.
+* **ScrollGT PR #2** (branch `current-annotations`, 0.5.0, open): the 3 targets on Dataset004, NML provenance on all
+  11, card field `ground_truth_nml`, in-sample disclosure. After merge: tag v0.5.0 and check CI.
+* **Held-out split** (prereg `8a7b2d4f`, branch `fiber-heldout-split`, stacked on PR #19): 10 Dataset004 cubes the
+  mask never trained on (8 × Scroll 3 512³, 2 × Scroll 5 256³). The chain `repro/fibers/run_heldout_chain.sh` started
+  2026-10-11 03:19, detached. It is resumable, writes to `spiral_out/fiber_heldout/run/`, and the analysis runs at its
+  end. Then: report, finding 83, ScrollGT `held_out` split.
+* **Waiting on the user:** running villa PR #1934's `.afv` generator (Qualzz) as a ScrollGT entrant would execute
+  unmerged third-party code and unpickle a third-party checkpoint. A sparse clone is at `spiral_out/afv_gen/pr1934`
+  (`2d8577ed`), not installed or run. `scripts/afv_to_labels.py` (`64cc8dd6`) turns any `.afv` into a ScrollGT
+  labelling.
+
+
 ## 2026-10-09: villa #2022 opened; tracer re-score in flight
 
 * **villa #2022 is OPEN** (the runner-doc fix): gate 33/33 at `a329895ea`. The next new villa item is no earlier than 10-16.

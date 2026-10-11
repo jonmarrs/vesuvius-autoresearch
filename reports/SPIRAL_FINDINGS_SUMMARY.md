@@ -1148,3 +1148,22 @@ overstated.** Pre-registered (`6185a0a6`).
   ScrollGT did not disclose that the mask trained on its targets.
 
 `reports/scrollgt_current_annotations.md`.
+
+**83. ScrollGT's fiber mask keeps its recall on Scroll 3, a scroll it never saw, and loses it on two new Scroll-5
+cubes.** Pre-registered (`8a7b2d4f`).
+
+* `fiber_hz_vt` and the tracer were run on the 10 Dataset004 cubes the mask never trained on: eight from Scroll 3
+  (512³) and two new Scroll-5 cubes (256³). All 10 pass the frame gate.
+* **P1 FAILED:** median connected-components coverage on Scroll 3 is 0.826, against 0.822 on the in-sample 512³ cubes.
+  No drop. Per the decision rule, the in-sample disclosure stands, but its cost is not shown on Scroll 3.
+* **P2 held:** the two new Scroll-5 cubes fall to 0.64 and 0.53 (in sample: 0.82–0.91). Enrichment halves.
+* **P3 held 10/10:** connected components leads on raw ERL. **P4 held 8/8:** the tracer leads on merge-penalized ERL on
+  every Scroll-3 cube (1.22–4.37×).
+* On the two Scroll-5 cubes the tracer also leads on merge-penalized ERL, though in sample at 256³ it leads on 1 of 8.
+  This is because connected components merges far more there, not because the tracer improved.
+* Post hoc, not registered: the mask's recall of villa's own semantic label agrees (Scroll 3: median 0.627 vs 0.612;
+  new Scroll-5 cubes: 0.44 and 0.34 vs 0.61–0.74).
+* Training on a scroll did not protect the mask, and never seeing one did not hurt it. ScrollGT adds the 10 cubes as a
+  `held_out` split.
+
+`reports/fiber_heldout_split.md`.
