@@ -121,10 +121,10 @@ This document outlines how we leverage and contribute to the official `ScrollPri
 *   **Action**: Created `scripts/launch_3d_ink_detection.py` as a wildcard launcher that provides scaffolding and configuration hooks to execute Ryan Chesler's 3D-only model directly on local OME-Zarr data.
 *   **Impact**: A "Wildcard" strategy for the **First Letters Prize** in regions where segmentation is currently impossible.
 
-### [Priority Q] Graph-Based Sheet Stitching (STATUS: IMPLEMENTED)
+### [Priority Q] Relative Sheet-Graph Diagnostics (STATUS: DIAGNOSTICS; LEGACY INTEGRATION RETIRED)
 *   **Discovery**: Found formal problem definition in `villa/deprecated/thaumato-anakalyptor/documentation/Sheet_Stitching_Problem_Definition.pdf`.
-*   **Action**: Implemented the winding-angle assignment function $f: N \to \mathbb{R}$ natively in `scripts/sheet_stitcher.py` and integrated it into the `scripts/autoresearch_thaumato_solver.py` hyperparameter sweep loop.
-*   **Impact**: Solves the "Winding Gap" problem, allowing for the massive, multi-winding segments needed for the **$200,000 Grand Prize**.
+*   **Action**: `scripts/sheet_stitcher.py` now reports bounded relative-angle estimates and constraint residuals from an explicit JSON graph. See [Sheet-graph diagnostics](SHEET_GRAPH_DIAGNOSTICS.md). The legacy `scripts/autoresearch_thaumato_solver.py` sweep returns an explicit failure: its PKL mapping does not match the vendored graph format or units, it can reuse old mesh output, and texture variance is not winding-correctness evidence.
+*   **Scope**: This is a graph diagnostic, not physical sheet stitching or a validated mesh/render pipeline. It has not solved the winding gap, demonstrated legibility, or established prize eligibility.
 
 ### [Priority R] Foundation Model Pretraining (STATUS: IMPLEMENTED)
 *   **Discovery**: Official LeJEPA and MAE trainers located in `villa/vesuvius/src/vesuvius/models/training/trainers/self_supervised/`.
