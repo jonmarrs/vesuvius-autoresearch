@@ -4,7 +4,8 @@
 
 ## Why
 
-Eleven PRs to `ScrollPrize/villa`, all closed, none merged. They were `feat(...)` additions and
+Before this SOP was adopted, eleven PRs to `ScrollPrize/villa` were closed
+unmerged. They were `feat(...)` additions and
 self-listings. Meanwhile the August 2026 prize winners merge 4-25 line fixes to defects in villa's
 *existing* code — `+4/-0` "Fix ConvBlock encoder ignoring pool_type", `+7/-1` "Fix ZarrDataset
 calling a method that does not exist", `+0/-2` "Remove unused view menu entries".
@@ -14,6 +15,11 @@ actioned.
 
 First PR in the new shape — [#1721](https://github.com/ScrollPrize/villa/pull/1721), `+4/-4`,
 documentation only — merged in about an hour.
+
+**Later outcome, recorded 2026-10-11:** the September Progress Prize announcement
+credits Jonathan Marrs with $250 for “assorted useful merged villa PRs.” See
+[award history and source](PROGRESS_PRIZE_AWARDS.md). The earlier closure history
+does not describe the subsequent contribution record.
 
 ## Where candidates come from
 
