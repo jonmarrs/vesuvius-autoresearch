@@ -18,9 +18,10 @@ clipped "#1780" to "#17".
 
 1. Re-read the **whole** Progress section of villa `scrollprize.org/docs/34_prizes.md` at current
    upstream: form URL, deadline and criteria. The criteria changed mid-month in September.
-2. The runner PR is villa #2022: opened 2026-10-09 after the gate passed 33/33 at `a329895ea`. On filing day,
-   record its state (open, merged or closed) and quote any maintainer reply verbatim.
-   Re-check #1928's state.
+2. **Lead with what landed in villa.** September paid $250 for "assorted useful merged villa PRs" and cited nothing
+   else in the filing. villa #2022 MERGED 2026-10-11 (by @pmh47). On filing day, list every villa PR merged in
+   October first in part (2) and in the URL field, then re-check #1928 and any other open PR, and quote any
+   maintainer reply verbatim.
 3. ScrollGT 0.6.0 (the held-out split) was ready on 2026-10-11, pending the user's merge. If it is tagged, cite
    `tree/v0.6.0` in the URL field; the test binds the cite to ScrollGT's newest tag. If it is not, delete the
    0.6.0 sub-bullet in part (3).
@@ -53,16 +54,21 @@ https://github.com/ScrollPrize/villa/pull/2022
 
 Published villa artifacts only, one consumer GPU.
 
-**(2) How it increases the probability of reading.** villa's autoresearch loop keeps or discards a
-change by one number, `total_fg_pixels`. This month we checked three things that number silently
-depends on, against villa's own code and villa's own ink labels:
+**(2) How it increases the probability of reading.**
 
-* **The runner villa ships does not match the doc the loop follows.** Launched with the doc's
-  environment variables, `runners/run_single.py` exits before starting. With its required flags added
-  but GPUs pinned as documented, the fit silently runs as a single process. A config change passed
-  through the environment, the documented way to try a variant, is silently dropped, so the
-  "variant" runs as the baseline. Measured by running villa's runner with its steps stubbed.
-  [villa #2022](https://github.com/ScrollPrize/villa/pull/2022), opened 2026-10-09, fixes the doc.
+**Merged into villa this month:**
+[villa #2022](https://github.com/ScrollPrize/villa/pull/2022) (merged 2026-10-11). `autoresearch.md` now launches
+the runner villa ships with the flags it takes. Before, a variant launched the documented way ran as the baseline.
+
+villa's autoresearch loop keeps or discards a change by one number, `total_fg_pixels`. This month we checked
+three things that number silently depends on, against villa's own code and villa's own ink labels:
+
+* **The runner villa ships did not match the doc the loop follows.** Launched with the doc's
+  environment variables, `runners/run_single.py` exited before starting. With its required flags added
+  but GPUs pinned as documented, the fit silently ran as a single process. A config change passed
+  through the environment, the documented way to try a variant, was silently dropped, so the
+  "variant" ran as the baseline. Measured by running villa's runner with its steps stubbed.
+  #2022 fixed the doc.
 * **A new render setting moves the metric far more than it moves reading.** villa #1818 added
   `vc_render_tifxyz --surface-interpolation smooth`. Its default is byte-identical to earlier builds.
   On the 8 labelled segments, in villa's own scoring pipeline:
