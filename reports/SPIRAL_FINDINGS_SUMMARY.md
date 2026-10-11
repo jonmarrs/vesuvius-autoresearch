@@ -1109,7 +1109,7 @@ validity gates passed (V1 max deviation 0.0038%).
 
 * The tracer was re-run at its published defaults on all 11 ScrollGT cubes and scored by ScrollGT v2.
 * **Fidelity is exact:** the July v1 rows reproduce to +0.0% on all six previously published cubes.
-* **P1 held:** raw ERL is below connected components on all 11 cubes (connected components ahead by 3.9–6.3×).
+* **P1 held:** raw ERL is below connected components on all 11 cubes (connected components ahead by 3.9–6.2×).
 * **P2 FAILED:** merge-penalized ERL is below connected components on 7 of the 8 cubes at 256³. The tracer is ahead
   on `s5_14997` (38.56 vs 33.09).
 * **P3 held, 3 of 3:** on every 512³ cube the tracer's merge-penalized ERL is 2.0–3.2× connected components'. There,

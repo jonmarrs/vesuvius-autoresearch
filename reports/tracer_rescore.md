@@ -34,7 +34,7 @@ path, verified on two real cubes. The dense path needs about 30 GB and was OOM-k
 
 ERL is never compared across size classes; each row is read against its own cube.
 
-* **P1 HELD.** Raw ERL is below connected components on all 11 cubes, with connected components ahead by 3.9–6.3×.
+* **P1 HELD.** Raw ERL is below connected components on all 11 cubes, with connected components ahead by 3.9–6.2×.
 * **P2 FAILED.** Merge-penalized ERL is below connected components on 7 of the 8 cubes at 256³, not all 8. On
   `s5_14997_01497_01497` the tracer is ahead (38.56 vs 33.09). That cube had never been traced before.
 * **P3 HELD, 3 of 3.** On every 512³ cube the tracer's merge-penalized ERL is 2.0–3.2× connected components'.

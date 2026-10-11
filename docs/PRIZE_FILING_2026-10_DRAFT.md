@@ -124,7 +124,7 @@ depends on, against villa's own code and villa's own ink labels:
 
 * **A published claim of ours reversed (finding 80).** ScrollGT said our fiber tracer lost to connected
   components on both metrics on every cube. Re-measured with the corrected scorer on all 11 cubes:
-  * it still loses on raw ERL everywhere (3.9–6.3×);
+  * it still loses on raw ERL everywhere (3.9–6.2×);
   * on merge-penalized ERL it is ahead on 4 of 11, all three 512³ cubes among them;
   * one prediction failed: I predicted it would trail on all eight 256³ cubes, and it leads on one.
 
