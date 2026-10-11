@@ -93,9 +93,9 @@ This document outlines how we leverage and contribute to the official `ScrollPri
 *   **Strategy**: Train with labeled Fragment 1 data and unlabeled Scroll 2/3 volumes to solve the "Domain Gap" problem. Use autoresearch to optimize `ema_decay` and `consistency_weight`.
 *   **Impact**: The most direct path to the **$200,000 Grand Prize** (90% coverage) by learning Scroll 2's unique texture from raw data.
 
-### [Priority L] Automated ARAP Parameterization (STATUS: IMPLEMENTED)
-*   **Action**: Implemented `scripts/automate_arap_flattening.py` which provides a robust harness for sweeping VC3D's `vc_flatten` CLI parameters, utilizing the existing `FastLocalVolume` loader and automating the parameter selection process.
-*   **Impact**: Accelerates the "Representation" open problem, qualifying for a **$10k-$20k Progress Prize** for Software Performance/Scalability.
+### [Priority L] Automated ARAP Parameterization (STATUS: UNSUPPORTED; LEGACY SELECTOR RETIRED 2026-10-11)
+*   **Scope correction**: `scripts/automate_arap_flattening.py` used an incompatible native CLI contract, substituted file size for failed quality scoring, and recorded deleted temporary outputs. It did not use `FastLocalVolume` or establish a validated automatic parameter selector.
+*   **Current behavior**: The legacy entry point fails explicitly without launching producers or recording an optimum. See [Mesh preparation](MESH_PREPARATION.md) for sampling and native-tool guidance; automatic selection quality and prize eligibility remain unestablished.
 
 ## 6. Foundation Models & Community Knowledge (Ultimate Tier)
 *Leveraging the full collective intelligence of the Vesuvius Challenge.*

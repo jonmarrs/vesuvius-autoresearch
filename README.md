@@ -206,6 +206,11 @@ stored/full Tifxyz coordinate tiles, see [Geometry handoffs](docs/GEOMETRY_HANDO
 These workflows validate coordinate and publication contracts; alignment accuracy
 and submission eligibility require separate evidence.
 
+For validated stored-grid Tifxyz subsampling and the status of the legacy
+automatic flattening selector, see [Mesh preparation](docs/MESH_PREPARATION.md).
+Sampling preserves valid retained coordinates and masks; rendered alignment
+and reading quality need independent checks.
+
 ## Running the agent
 
 Spin up your coding agent of choice in this repo, then prompt something like:
