@@ -1,4 +1,9 @@
-# Reply to ScrollPrize/villa#1934 (AFV generator): DRAFT, NOT POSTED. Needs the user's approval of this text.
+# Reply to ScrollPrize/villa#1934 (AFV generator): POSTED 2026-10-12 (https://github.com/ScrollPrize/villa/pull/1934#issuecomment-6131993208)
+
+**Posted 2026-10-12 20:23Z with the user's approval, WITHOUT the ScrollGT paragraph** (the user's call). The posted
+body is the text below the rule minus that paragraph; it was checked identical to the approved text via the API.
+Do not add to it or nudge. A reply from the author, if any, gets read and recorded; it does not by itself call for
+another post.
 
 Target: comment on #1934 (@Qualzz, open), the PR that finding 85 measured. It is a reply, not a new thread, so the weekly
 new-item slot is not used. The user's decision (2026-10-11): share finding 85 here only after ScrollGT's ERL fix landed

@@ -29,9 +29,9 @@ clipped "#1780" to "#17".
 3. ScrollGT 0.6.0 (the held-out split) was tagged on 2026-10-11 and 0.7.0 (the ERL fix, finding 85) on 2026-10-12.
    The URL field cites `tree/v0.7.0`; the test binds the cite to ScrollGT's newest tag, so a later release must update
    it. Findings 84–85 are folded in (2026-10-12).
-4. Finding 85 measures an open villa PR (#1934). If a comment sharing it with the author has been posted on #1934 by
-   filing day (only with text the user approved), add its URL to part (2); if not, leave the paragraph as it is and
-   do not add one.
+4. Finding 85 measures an open villa PR (#1934). The user-approved comment sharing it with the author was posted
+   2026-10-12 (https://github.com/ScrollPrize/villa/pull/1934#issuecomment-6131993208) and is cited in part (2). On filing day, re-read the thread: quote any reply verbatim, record
+   whether #1934 is still open, and do not characterise silence.
 5. Re-run `tests/test_filing_2026_10_numbers.py`. Every number below is bound to the file it comes from.
 6. Check every URL returns 200.
 
@@ -131,7 +131,8 @@ We also scored an open villa PR's automated fiber generator
   covering about half as much fiber. ERL was averaged over covered fiber only, so dropping short fragments raised it.
   Normalised by ground-truth length, it trails our tracer on 21 of 21 cubes (raw) and 20 of 21 (merge-penalized).
 * the cubes are at 7.91 µm, finer than the 8.64 and 9.362 µm pitches its fine-tune trained on (its model card),
-  and only the defaults were run.
+  and only the defaults were run;
+* the measurement was shared with its author on the PR ([comment](https://github.com/ScrollPrize/villa/pull/1934#issuecomment-6131993208), 2026-10-12).
 
 **(3) What it enables that was not possible before.**
 * [inkagree](https://github.com/jonmarrs/inkagree) (MIT; first released 2026-10-03, now 0.3.0, which evaluates only
