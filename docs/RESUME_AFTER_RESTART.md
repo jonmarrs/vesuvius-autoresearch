@@ -1,5 +1,19 @@
 # Resume note — written 2026-09-22 before a deliberate Claude restart
 
+## 2026-10-11 (late): #2044 merged; villa pin bumped to it
+
+* **villa #2044 MERGED** 2026-10-11 18:49 PDT (@pmh47, `9afddaf0f`). Seven merged in all; only #1928 is open.
+* Merged here: #25, #27, #28, #30, #31. ScrollGT #3 merged and **v0.6.0 tagged**; CI green.
+* **The pin moved `be09a8503` → `9afddaf0f`** (118 commits, fast-forward) at the user's request. `ink-detection/`
+  changed only in `optimized_inference/` (4 files); `train_scrolls` is untracked local data and is untouched. No
+  deleted or renamed villa file is referenced here.
+  * **The spiral render path changed:** `lasagna/fit.py` (the flatten), `render_ink.py`, `tifxyz.py` and
+    `get_ink_metrics.py` (`scripts/check_villa_render_path.py be09a8503 9afddaf0f` exits 1). A new render is not
+    comparable with the `be09a8503` corpus unless it sets `VILLA_REF=be09a8503`, which still resolves. Unpinned renders
+    follow the submodule's `origin/main`, now `9afddaf0f`.
+* **Next:** ScrollGT v0.7.0 (headline ERL×coverage), then fold findings 84–85 into the October draft, then the
+  finding-85 comment on villa #1934 for the user's approval.
+
 ## 2026-10-11 (night): September paid $250 for merged villa PRs only; villa fixes first
 
 * **September result:** $250, "for assorted useful merged villa PRs". The repos, ScrollGT and the findings were not

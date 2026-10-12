@@ -4,7 +4,12 @@ The patch exists because the stock get_ink_metrics.py OOMs on an outer-winding
 strip: three fold subprocesses each hold the whole 352M-px strip's logits and the
 OOM killer takes one out with rc=-9. It is carried as a patch rather than a fork
 so villa stays the source of truth, which means it rots silently the moment the
-villa pin moves. That is what these pin.
+render ref moves. That is what these pin.
+
+The ref is RENDER_REF, the tree every registered render study sets as VILLA_REF,
+not the submodule checkout. From 9afddaf0f villa ships the same feature itself as
+`--sequential-folds` (#2044); the patch does not apply there, and setup_workdir.sh
+stops at setup for any ref it cannot patch.
 
 The other thing worth pinning is that the patch is OPT-IN. Every measurement in
 this work that predates it ran the stock path, so if applying the patch changed
@@ -13,7 +18,6 @@ different code without anyone noticing.
 """
 
 import os
-import shutil
 import subprocess
 import tempfile
 
@@ -21,11 +25,29 @@ import pytest
 
 _REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 _PATCH = os.path.join(_REPO, "repro", "spiral_render", "serial_folds.patch")
-_VILLA = os.path.join(_REPO, "villa", "spiral-fitting", "get_ink_metrics.py")
+_SUBMODULE = os.path.join(_REPO, "villa")
+_FILE = "spiral-fitting/get_ink_metrics.py"
+RENDER_REF = "be09a8503"
+
+
+def _stock():
+    """villa's get_ink_metrics.py at RENDER_REF, or None if it cannot be read.
+
+    GIT_* locator variables are dropped: a hook exports them and git would then
+    answer about this repo instead of the submodule."""
+    env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
+    proc = subprocess.run(
+        ["git", "-C", _SUBMODULE, "show", f"{RENDER_REF}:{_FILE}"],
+        capture_output=True,
+        text=True,
+        env=env,
+    )
+    return proc.stdout if proc.returncode == 0 else None
+
 
 requires_villa = pytest.mark.skipif(
-    not os.path.exists(_VILLA),
-    reason="villa submodule not checked out",
+    _stock() is None,
+    reason=f"villa {RENDER_REF} not available",
 )
 
 
@@ -35,7 +57,8 @@ def _apply(strip=1):
     target_dir = os.path.join(work, "spiral-fitting")
     os.makedirs(target_dir)
     target = os.path.join(target_dir, "get_ink_metrics.py")
-    shutil.copyfile(_VILLA, target)
+    with open(target, "w") as f:
+        f.write(_stock())
     proc = subprocess.run(
         ["patch", f"-p{strip}", "--batch", "-i", _PATCH],
         cwd=work,
@@ -51,8 +74,8 @@ def test_the_patch_file_is_present():
 
 
 @requires_villa
-def test_it_applies_cleanly_to_the_pinned_villa_file():
-    """The whole point. A villa pin bump that touches this file must fail here
+def test_it_applies_cleanly_to_the_render_ref():
+    """The whole point. A render-ref change that touches this file must fail here
     rather than in the middle of a nine-hour measurement."""
     proc, _ = _apply()
     assert proc.returncode == 0, f"patch failed:\n{proc.stdout}\n{proc.stderr}"
@@ -111,8 +134,7 @@ def test_the_patch_adds_nothing_that_runs_with_the_gate_off():
 
     Without the last clause this would pass vacuously, because the else branch
     re-adds the stock two lines as `+` lines."""
-    with open(_VILLA) as f:
-        original_lines = {ln.strip() for ln in f.read().splitlines() if ln.strip()}
+    original_lines = {ln.strip() for ln in _stock().splitlines() if ln.strip()}
     with open(_PATCH) as f:
         hunks = f.read().splitlines()
 
@@ -140,3 +162,17 @@ def test_the_patch_adds_nothing_that_runs_with_the_gate_off():
         gate_indent = None
         unguarded.append(line)
     assert not unguarded, f"added lines that run with the gate off: {unguarded}"
+
+
+@pytest.mark.skipif(
+    not os.path.exists(os.path.join(_SUBMODULE, _FILE)),
+    reason="villa submodule not checked out",
+)
+def test_the_submodule_pin_ships_the_upstream_flag_instead():
+    """The pin has villa's own opt-in flag and none of the patch's gate, so a
+    render from the pin passes `--sequential-folds` rather than the patch's
+    INK_METRIC_SERIAL_FOLDS=1."""
+    with open(os.path.join(_SUBMODULE, _FILE)) as f:
+        src = f.read()
+    assert "'--sequential-folds'" in src
+    assert "SERIAL_FOLDS" not in src

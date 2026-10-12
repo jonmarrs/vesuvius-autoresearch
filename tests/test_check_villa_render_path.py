@@ -106,11 +106,17 @@ def test_it_exits_nonzero_on_a_real_difference():
 
 @requires_villa
 @pytest.mark.skipif(not _has("5479453a"), reason="5479453a not in this checkout")
+@pytest.mark.skipif(not _has("be09a8503"), reason="be09a8503 not in this checkout")
 def test_the_scorer_and_renderer_themselves_are_unchanged():
-    """Documents the shape of the current divergence: it is confined to the
-    flatten side. If spiral-fitting/ ever moves too, serial_folds.patch and every
-    scoring comparison need re-checking, so this failing is informative."""
-    changed, _, _ = mod.compare(_VILLA, "5479453a", "HEAD")
+    """Documents the shape of the divergence: up to the render ref every pinned
+    study uses (VILLA_REF=be09a8503), it is confined to the flatten side. If
+    spiral-fitting/ moves there too, serial_folds.patch and every scoring
+    comparison need re-checking, so this failing is informative.
+
+    It compared against the submodule HEAD until the 9afddaf0f bump, which moves
+    all three files. That failure was acted on: the patch tests now bind to the
+    render ref, and no registered comparison renders from the new pin."""
+    changed, _, _ = mod.compare(_VILLA, "5479453a", "be09a8503")
     for p in (
         "spiral-fitting/render_ink.py",
         "spiral-fitting/get_ink_metrics.py",

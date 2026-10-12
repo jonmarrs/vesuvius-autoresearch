@@ -14,6 +14,7 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from scripts.candidate_artifacts import integer
+from scripts.pinned_vesuvius import pinned_vesuvius_modules
 
 TIFXYZ_DIR = REPO_ROOT / "villa/vesuvius/src/vesuvius/tifxyz"
 
@@ -31,7 +32,9 @@ def tifxyz_api():
         module = importlib.util.module_from_spec(spec)
         sys.modules[name] = module
         try:
-            spec.loader.exec_module(module)
+            # Since villa #1699, types.py imports vesuvius.tifxyz_canvas.
+            with pinned_vesuvius_modules("vesuvius.tifxyz_canvas"):
+                spec.loader.exec_module(module)
         except BaseException:
             for key in list(sys.modules):
                 if key == name or key.startswith(name + "."):
