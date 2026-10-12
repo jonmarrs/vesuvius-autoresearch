@@ -76,6 +76,16 @@ def main():
     )
     args = parser.parse_args()
 
+    # villa's skeleton metric calls wandb.log, which raises without an active
+    # run. This script never tracks, so start a disabled (no-op) one.
+    try:
+        import wandb
+
+        if wandb.run is None:
+            wandb.init(mode="disabled")
+    except ImportError:
+        pass  # villa's metric skips logging when wandb is absent
+
     print(f"Loading Ground Truth: {args.gt}")
     gt = load_volume(args.gt)
     print(f"Loading Prediction: {args.pred}")
