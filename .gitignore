@@ -52,6 +52,8 @@ scripts/_finetune_lejepa_runner.py
 /debug_*.png
 /models/
 /outputs/
+# Dated local archive of retired root files (workspace hygiene, kept off the repo)
+/archive/
 
 # Accidental local interpreter symlinks
 /python
