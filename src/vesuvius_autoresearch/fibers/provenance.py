@@ -17,10 +17,9 @@ INFERENCE_VERSION = 1
 # 3: zero-length edges keep their endpoints connected (2 split fibers there).
 # 4: ScrollGT's definition (scrollgt v0.4.0, its scoring version 2), vendored in eval_trace.py:
 #    edges walked in path order, runs ending at stretch boundaries.
-# 5: ScrollGT 0.7.0 (its scoring version 3): ERL and ERLpen divide by the scored ground-truth
-#    length, not the covered length, so deleting short fragments no longer raises ERL (finding 85).
-#    Version 5 = version 4 x coverage; the version-4 values are kept as erl_covered and
-#    erl_merge_penalized_covered.
+# 5: ScrollGT's scoring version 3 (scrollgt v0.7.0): ERL and ERLpen divide by the ground-truth
+#    length, not the covered length (finding 85). Version 5 = version 4 x coverage exactly; rows
+#    keep the version-4 values as erl_covered and erl_merge_penalized_covered.
 SCORING_VERSION = 5
 
 

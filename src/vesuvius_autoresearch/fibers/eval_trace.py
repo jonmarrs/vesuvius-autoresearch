@@ -15,10 +15,13 @@ so:
 
 - **ERL (expected run length)**: walk each ground-truth fiber and split it into
   maximal contiguous stretches ("runs") assigned to a single predicted instance.
-  ERL is the length-weighted mean run length, `sum(L_i^2) / sum(L_i)`, following
+  ERL is the length-weighted mean run length, `sum(L_i^2) / L_gt`, following
   Januszewski et al. Length-weighting is the point: it answers "if I pick a random
   point on a fiber, how far can I follow it before an error", which is what a
-  downstream consumer of fiber connectivity cares about.
+  downstream consumer of fiber connectivity cares about. The point is picked on
+  the whole ground truth, `L_gt` its scored length, so a missed point is a run of
+  length zero. Dividing by the covered length instead (`sum(L_i)`, scoring
+  version 4 here, kept as `erl_covered`) let deleting short fragments raise ERL.
 - **Splits and merges reported separately, never summed.** A split fails to help;
   a **merge actively corrupts** the U/V parameterization fibers are wanted for. A
   single aggregate would let a merge hide behind good coverage.
@@ -41,7 +44,7 @@ from vesuvius_autoresearch.fibers.provenance import SCORING_VERSION
 from vesuvius_autoresearch.fibers.skeleton_io import Skeleton
 
 # The scoring definition is ScrollGT's (github.com/jonmarrs/scrollgt, v0.7.0, its fiber scoring
-# version 3): edges walked in path order, runs ending at stretch boundaries, ERL over the scored
+# version 3): edges walked in path order, runs ending at stretch boundaries, ERL divided by the
 # ground-truth length. Everything from
 # `ConnectivityScores` to `oracle_from_skeleton` is vendored verbatim, except that ScrollGT's
 # `score_tracing` is `_score_tracing_scrollgt` here. tests/test_fiber_scoring_matches_scrollgt.py
