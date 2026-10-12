@@ -12,6 +12,7 @@ import zarr
 
 from scripts.candidate_artifacts import integer, spatial_blocks
 from scripts.labeling.label_artifacts import MAX_FRAGMENT_VOXELS, bounded_volume, volume
+from scripts.pinned_vesuvius import pinned_vesuvius_modules
 from scripts.validate_prize_artifact import _load_json
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -26,7 +27,9 @@ def graph_tools():
         raise FileNotFoundError(f"missing pinned graph tool: {script}")
     if str(GRAPH_DIR) not in sys.path:
         sys.path.insert(0, str(GRAPH_DIR))
-    module = importlib.import_module("generate_mutex_graph")
+    # Since villa #1700 the tool writes zarr through vesuvius.data.utils.
+    with pinned_vesuvius_modules("vesuvius.data.utils"):
+        module = importlib.import_module("generate_mutex_graph")
     if Path(module.__file__).resolve() != script.resolve():
         raise RuntimeError("graph tool resolved to a different source")
     return module
