@@ -21,9 +21,11 @@ clipped "#1780" to "#17".
 2. **Lead with what landed in villa.** September paid $250 for "assorted useful merged villa PRs" and cited nothing
    else in the filing. villa #2022 was opened 2026-10-09 after its gate passed 33/33 at `a329895ea` and MERGED
    2026-10-11 by @pmh47 ([merge commit](https://github.com/ScrollPrize/villa/commit/7a7b3f677991954ec5ecff17b9b08ab30ff6a926)).
-   villa #2044 (`get_ink_metrics --sequential-folds`, a code fix) opened 2026-10-11. On filing day, list every villa
-   PR merged in October first in part (2) and in the URL field, then re-check #1928, #2044 and any other open PR, and
-   quote any maintainer reply verbatim.
+   villa #2044 (`get_ink_metrics --sequential-folds`, a code fix) opened 2026-10-11 Pacific and
+   **merged 2026-10-11 Pacific** (`2026-10-12T01:49:09Z`,
+   [merge commit](https://github.com/ScrollPrize/villa/commit/9afddaf0fdc12efe088bab7b82534c4f9a79e536)).
+   On filing day, list every villa PR merged in October first in part (2) and in the URL field, then re-check
+   #2022, #2044, #1928 and any other open PR, and quote any maintainer reply verbatim.
 3. ScrollGT 0.6.0 (the held-out split) was merged and tagged on 2026-10-11. The URL field cites `tree/v0.6.0`; the
    test binds the cite to ScrollGT's newest tag, so a later release (0.7.0, the ERL fix) must update it.
 4. Re-run `tests/test_filing_2026_10_numbers.py`. Every number below is bound to the file it comes from.
@@ -34,13 +36,13 @@ clipped "#1780" to "#17".
 ## URL field
 
 ```
+https://github.com/ScrollPrize/villa/pull/2022
+https://github.com/ScrollPrize/villa/pull/2044
 https://github.com/jonmarrs/vesuvius-autoresearch
 https://github.com/jonmarrs/inkdelta
 https://github.com/jonmarrs/inkagree
 https://github.com/jonmarrs/scrollgt/tree/v0.6.0
 https://github.com/ScrollPrize/villa/pull/1928
-https://github.com/ScrollPrize/villa/pull/2022
-https://github.com/ScrollPrize/villa/pull/2044
 ```
 
 ---
@@ -61,6 +63,13 @@ Published villa artifacts only, one consumer GPU.
 **Merged into villa this month:**
 [villa #2022](https://github.com/ScrollPrize/villa/pull/2022) (merged 2026-10-11). `autoresearch.md` now launches
 the runner villa ships with the flags it takes. Before, a variant launched the documented way ran as the baseline.
+
+[villa #2044](https://github.com/ScrollPrize/villa/pull/2044) (**merged 2026-10-11 Pacific**).
+`get_ink_metrics.py` launched every fold together, exhausting workstation memory on outer windings.
+The fix adds opt-in `--sequential-folds`, averages folds in place and prints a hint for `rc=-9` failures.
+Its before/after runs show the w120–w129 strip completing on one GPU where concurrent folds were killed
+for lack of memory. The default fold concurrency is preserved; sequential execution is slower and
+reduces peak memory.
 
 villa's autoresearch loop keeps or discards a change by one number, `total_fg_pixels`. This month we checked
 three things that number silently depends on, against villa's own code and villa's own ink labels:
@@ -130,6 +139,9 @@ annotated cubes the model never saw, and we pre-registered predictions for them 
   https://github.com/jonmarrs/vesuvius-autoresearch (findings 69–83 in
   `reports/SPIRAL_FINDINGS_SUMMARY.md`).
 * Every figure here is bound by a test to the file that produced it.
+* [villa #2044](https://github.com/ScrollPrize/villa/pull/2044) records the memory limits, hardware,
+  before/after runs and the averaging comparison behind the scorer fix. The full GPU scorer has
+  run-to-run variation; bit-identical output was checked for the averaging step, not the whole run.
 * inkdelta: CI on Python 3.10–3.13. Its corpus validations are unchanged since 0.3.0.
 * inkagree reproduces findings 71 and 72 exactly (16 of 16 segment results, every interval), and its
   CI covers Python 3.10–3.13 (`reports/inkagree_validation.md`).
