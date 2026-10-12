@@ -12,6 +12,8 @@ VILLA_SRC = os.path.join(PROJECT_ROOT, "villa/vesuvius/src")
 FIBER_TOOLS_PATH = os.path.join(
     PROJECT_ROOT, "villa/foundation/datasets/fibers-dataset"
 )
+# Where volume and valid_coords caches go when the caller passes no cache_dir.
+DEFAULT_CACHE_DIR = os.path.join(PROJECT_ROOT, "test_cache")
 
 for p in [VILLA_SRC, FIBER_TOOLS_PATH]:
     if p not in sys.path:
@@ -84,7 +86,7 @@ class FastVesuviusVolume:
 
     def __init__(self, volume_uri, cache_dir=None, use_ridges=False, ridge_sigma=2.0):
         self.uri = volume_uri
-        self.cache_dir = cache_dir or os.path.join(PROJECT_ROOT, "test_cache")
+        self.cache_dir = cache_dir or DEFAULT_CACHE_DIR
         self.use_ridges = use_ridges
         self.ridge_sigma = ridge_sigma
 
@@ -312,18 +314,15 @@ class VesuviusLabeledDataset(torch.utils.data.Dataset):
             else 0
         )
 
-        if cache_dir:
-            import hashlib
+        import hashlib
 
-            uri_hash = hashlib.md5(volume_uri.encode()).hexdigest()[:8]
-            cache_path = os.path.join(
-                cache_dir,
-                f"valid_coords_villa_{uri_hash}_{self.patch_size}_{mask_mtime}_{labels_mtime}_{1 if require_ink else 0}_{self.min_mask_ratio}_{self.min_ink_ratio}.npy",
-            )
-        else:
-            # Clean URI for filename usage
-            clean_uri = volume_uri.replace("/", "_").replace(".", "_")
-            cache_path = f"valid_coords_villa_{clean_uri}_{self.patch_size}_{mask_mtime}_{labels_mtime}_{1 if require_ink else 0}_{self.min_mask_ratio}_{self.min_ink_ratio}.npy"
+        # Never a bare relative filename: that saved the cache into whatever
+        # directory the process was launched from.
+        uri_hash = hashlib.md5(volume_uri.encode()).hexdigest()[:8]
+        cache_path = os.path.join(
+            self.volume.cache_dir,
+            f"valid_coords_villa_{uri_hash}_{self.patch_size}_{mask_mtime}_{labels_mtime}_{1 if require_ink else 0}_{self.min_mask_ratio}_{self.min_ink_ratio}.npy",
+        )
 
         if patches_json and os.path.exists(patches_json):
             print(f"Loading valid coordinates from JSON patch catalog: {patches_json}")
@@ -401,6 +400,7 @@ class VesuviusLabeledDataset(torch.utils.data.Dataset):
 
             self.valid_coords = np.array(self.valid_coords, dtype=np.int32)
             print(f"  Found {len(self.valid_coords)} valid patches.")
+            os.makedirs(os.path.dirname(cache_path), exist_ok=True)
             np.save(cache_path, self.valid_coords)
 
         print(

@@ -30,7 +30,7 @@ class ExperimentConfig:
     uri: str = None  # Deprecated, use uris instead
     uris: list = None  # List of URIs to pool for training
     val_uri: str = "local_data/PHercParis2Fr143/surface_volume.zarr"
-    cache_dir: str = None  # If None, caches are stored next to volume_uri
+    cache_dir: str = None  # If None, caches go to the repo's test_cache/
     use_ridges: bool = False  # 3D Ridge/Frangi feature channel
     use_lasagna: bool = False  # Priority J: Dynamically apply local surface flattening
     ridge_sigma: float = 2.0  # Ridge filter parameter
