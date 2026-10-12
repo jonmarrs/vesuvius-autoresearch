@@ -193,6 +193,11 @@ labels, see [Candidate ink/fiber reports](docs/CANDIDATE_INK_FIBER_REPORTS.md).
 These reports check array and recorded prediction geometry, preserve failed
 candidate records, and state the limits of shape-only alignment.
 
+For the registered fiber-mask shift and threshold checks, see
+[Fiber mask miss diagnostic](docs/FIBER_MISS_DIAGNOSTIC.md). A full verdict
+requires the 21-target sample; named subsets are descriptive. Results use
+explicit input paths and publish a new JSON artifact.
+
 For CT-gated 3D ink pseudo-labels and upstream segmentation curation, see
 [Volumetric label workflows](docs/VOLUMETRIC_LABELS.md). These separate heuristic
 workflows declare alignment and evaluated coverage, preserve source IDs during

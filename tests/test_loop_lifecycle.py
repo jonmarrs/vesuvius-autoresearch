@@ -10,8 +10,7 @@ from types import SimpleNamespace
 import pytest
 
 from run_autoresearch_loop import active_tweaks, template_weights
-from scripts.loop_control import main as control_main
-from scripts.loop_control import running_pid
+from scripts.loop_control import main as control_main, running_pid
 from scripts.process_supervisor import ProcessSupervisor
 from scripts.training.config import ExperimentConfig
 
@@ -41,7 +40,11 @@ def test_noop_and_disabled_tweaks_are_not_sampled():
     config = ExperimentConfig(use_ridges=False, use_uamt=False)
     for template in active_tweaks(config):
         assert getattr(config, template["attr"]) not in template["vals"]
-        assert template["attr"] not in {"ridge_sigma", "consistency_weight", "ema_decay"}
+        assert template["attr"] not in {
+            "ridge_sigma",
+            "consistency_weight",
+            "ema_decay",
+        }
 
 
 def test_family_weight_does_not_depend_on_number_of_axes():
@@ -70,12 +73,15 @@ import subprocess, sys, time
 from pathlib import Path
 subprocess.Popen([sys.executable, '-c', {worker!r}])
 while not Path({str(pidfile)!r}).exists(): time.sleep(.01)
-{'sys.exit(0)' if leader_exits else 'time.sleep(60)'}
+{"sys.exit(0)" if leader_exits else "time.sleep(60)"}
 """
     supervisor = ProcessSupervisor(grace_seconds=0.15)
     try:
         if leader_exits:
-            assert supervisor.run([sys.executable, "-c", leader], timeout=3).returncode == 0
+            assert (
+                supervisor.run([sys.executable, "-c", leader], timeout=3).returncode
+                == 0
+            )
         else:
             with pytest.raises(subprocess.TimeoutExpired):
                 supervisor.run([sys.executable, "-c", leader], timeout=1)
@@ -99,18 +105,33 @@ lock = acquire_lock('autoresearch.lock')
 while True: time.sleep(.1)
 """)
     process = subprocess.Popen(
-        [sys.executable, "-u", str(script)], cwd=tmp_path,
+        [sys.executable, "-u", str(script)],
+        cwd=tmp_path,
         env={**os.environ, "PYTHONPATH": str(REPO)},
     )
     try:
-        deadline = time.monotonic() + 3
-        while not (tmp_path / "autoresearch.lock").exists() and time.monotonic() < deadline:
-            time.sleep(.01)
+        # open('a+') creates the file before the child acquires and populates
+        # its lock. File existence is not a readiness acknowledgement.
+        deadline = time.monotonic() + 10
+        while time.monotonic() < deadline and process.poll() is None:
+            try:
+                if running_pid(tmp_path) == process.pid:
+                    break
+            except RuntimeError as exc:
+                if str(exc) != "loop lock is held but contains no valid PID":
+                    raise
+            time.sleep(0.01)
         assert running_pid(tmp_path) == process.pid
         # A second acquisition must fail without erasing the live owner's PID.
         duplicate = subprocess.run(
-            [sys.executable, "-c", "from scripts.loop_control import acquire_lock; acquire_lock('autoresearch.lock')"],
-            cwd=tmp_path, env={**os.environ, "PYTHONPATH": str(REPO)}, capture_output=True,
+            [
+                sys.executable,
+                "-c",
+                "from scripts.loop_control import acquire_lock; acquire_lock('autoresearch.lock')",
+            ],
+            cwd=tmp_path,
+            env={**os.environ, "PYTHONPATH": str(REPO)},
+            capture_output=True,
         )
         assert duplicate.returncode != 0
         assert running_pid(tmp_path) == process.pid
@@ -130,6 +151,7 @@ def test_stop_pauses_watchdog_even_without_a_running_loop(tmp_path):
 
 def test_failed_training_cannot_promote_a_success_result(tmp_path, monkeypatch):
     import json
+
     import run_autoresearch_loop as loop
 
     monkeypatch.chdir(tmp_path)
@@ -137,8 +159,12 @@ def test_failed_training_cannot_promote_a_success_result(tmp_path, monkeypatch):
     monkeypatch.setattr(loop.signal, "signal", lambda *args: None)
     monkeypatch.setattr(loop.time, "sleep", lambda *args: None)
     hours = iter([12, 12, 20])  # one day cycle, then end the shift
-    monkeypatch.setattr(loop.time, "localtime", lambda: SimpleNamespace(tm_hour=next(hours)))
-    monkeypatch.setattr(loop, "tweak_templates", [{"family": "lr", "attr": "lr", "vals": [0.002]}])
+    monkeypatch.setattr(
+        loop.time, "localtime", lambda: SimpleNamespace(tm_hour=next(hours))
+    )
+    monkeypatch.setattr(
+        loop, "tweak_templates", [{"family": "lr", "attr": "lr", "vals": [0.002]}]
+    )
     config = ExperimentConfig()
     config.save(tmp_path / "config.json")
 
@@ -146,11 +172,17 @@ def test_failed_training_cannot_promote_a_success_result(tmp_path, monkeypatch):
         def run(self, command, **kwargs):
             if "--smoke" in command:
                 return subprocess.CompletedProcess(command, 0)
-            (tmp_path / "run_result.json").write_text(json.dumps({"is_success": True, "val_f1": 1}))
+            (tmp_path / "run_result.json").write_text(
+                json.dumps({"is_success": True, "val_f1": 1})
+            )
             return subprocess.CompletedProcess(command, 1)
 
     monkeypatch.setattr(loop, "supervisor", FakeSupervisor())
-    monkeypatch.setattr(loop.os, "system", lambda command: pytest.fail("failed cycle attempted a commit"))
+    monkeypatch.setattr(
+        loop.os,
+        "system",
+        lambda command: pytest.fail("failed cycle attempted a commit"),
+    )
     loop.main()
     assert ExperimentConfig.load(tmp_path / "config.json") == config
     assert not (tmp_path / "config_temp.json").exists()

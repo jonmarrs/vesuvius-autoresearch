@@ -10,6 +10,10 @@ import subprocess
 import sys
 
 VALIDATION_TESTS = [
+    "tests/test_artifact_hashes.py",
+    "tests/test_fiber_diagnostic_contracts.py",
+    "tests/test_fiber_miss_diagnostic.py",
+    "tests/test_fiber_miss_diagnostic_report.py",
     "tests/test_volume_read_benchmark_contracts.py",
     "tests/test_mesh_preparation_contracts.py",
     "tests/test_ensemble_voting_contracts.py",

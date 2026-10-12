@@ -11,8 +11,8 @@ from tempfile import TemporaryDirectory
 import numpy as np
 import torch
 
+from scripts.artifact_hashes import sha256_file
 from scripts.candidate_artifacts import integer
-from scripts.export_for_production import sha256_file
 from scripts.labeling.label_artifacts import volume
 from scripts.pseudo_label_artifacts import MAX_LABEL_PIXELS, read_png
 from vesuvius_autoresearch.core.checkpoint_tools import validate_batch

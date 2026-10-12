@@ -1,9 +1,14 @@
 # The fiber mask's failure on two new Scroll-5 cubes is not a frame offset or a threshold: a fifth of their fiber is invisible to it
 
 **2026-10-11.** Result of `docs/preregistration/2026-10-11_s5_heldout_miss_diagnostic.md` (pre-registration `93115122`,
-before any shift or threshold outcome was computed). The analysis is `scripts/fiber_miss_diagnostic.py`, unchanged since
-that commit. Its output is `reports/fiber_miss_diagnostic.json`, run on all 21 ScrollGT fiber targets after the ten
+before any shift or threshold outcome was computed). The analysis used for this result was
+`scripts/fiber_miss_diagnostic.py` at `93115122`, unchanged from registration when run. Its output is
+`reports/fiber_miss_diagnostic.json`, run on all 21 ScrollGT fiber targets after the ten
 held-out ones were built.
+
+The current script's input, gate and publication contracts were repaired on 2026-10-12; see
+[Fiber mask miss diagnostic](../docs/FIBER_MISS_DIAGNOSTIC.md). The saved JSON and this finding's numbers and verdict
+are unchanged.
 
 **Question.** Finding 83: on two Scroll-5 cubes `fiber_hz_vt` never trained on, the reference mask covers 0.64 and 0.53
 of the hand-traced fibers, against 0.82–0.91 on the in-sample Scroll-5 256³ cubes. The mask also fires on more of
