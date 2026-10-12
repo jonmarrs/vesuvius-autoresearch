@@ -26,9 +26,9 @@ clipped "#1780" to "#17".
    [merge commit](https://github.com/ScrollPrize/villa/commit/9afddaf0fdc12efe088bab7b82534c4f9a79e536)).
    On filing day, list every villa PR merged in October first in part (2) and in the URL field, then re-check
    #2022, #2044, #1928 and any other open PR, and quote any maintainer reply verbatim.
-3. ScrollGT 0.6.0 (the held-out split) was merged and tagged on 2026-10-11; 0.7.0 (the ERL fix, scoring version 3)
-   was merged and tagged on 2026-10-12. The URL field cites `tree/v0.7.0`; the test binds the cite to ScrollGT's
-   newest tag, so any later release must update it.
+3. ScrollGT 0.6.0 (the held-out split) was tagged on 2026-10-11 and 0.7.0 (the ERL fix, finding 85) on 2026-10-12.
+   The URL field cites `tree/v0.7.0`; the test binds the cite to ScrollGT's newest tag, so a later release must update
+   it. Findings 84–85 are not folded into the text below yet.
 4. Re-run `tests/test_filing_2026_10_numbers.py`. Every number below is bound to the file it comes from.
 5. Check every URL returns 200.
 
@@ -134,6 +134,10 @@ annotated cubes the model never saw, and we pre-registered predictions for them 
     on every target. No published ranking reverses (finding 82).
   * 0.6.0 adds finding 83's 10 cubes as a `held_out` split. Each row must equal finding 83's, and it refuses to average
     held-out scores with in-sample ones.
+  * 0.7.0 closes a gaming route in its fiber metric (finding 85). ERL was averaged over covered fiber only, so
+    deleting a labelling's short fragments raised it. It now divides by the ground-truth length. All 126 published
+    rows were re-scored and each reproduces its old value exactly under the old definition. One claim reverses:
+    held out, our tracer leads connected components on merge-penalized ERL on 9 of 10 cubes, not 10.
 
 **(4) Evidence.**
 * Each study was pre-registered before its data, and each has a report and its scripts in

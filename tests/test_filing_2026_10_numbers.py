@@ -251,3 +251,32 @@ def test_scrollgt_cite_is_its_newest_tag():
     assert (
         f"https://github.com/jonmarrs/scrollgt/tree/{out[0]}" in _DRAFT.read_text()
     ), f"cite ScrollGT {out[0]}"
+
+
+def test_scrollgt_0_7_0_claims_match_its_released_data():
+    """The 0.7.0 bullet's figures, read from the data at ScrollGT's v0.7.0 tag: every row re-scored with its scoring
+    version 3, and the held-out cubes where our tracer leads connected components on merge-penalized ERL."""
+    import os
+    import subprocess
+
+    sg = _REPO.parent / "scrollgt"
+    env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
+
+    def git(*args):
+        return subprocess.run(
+            ["git", "-C", str(sg), *args], capture_output=True, text=True, env=env
+        )
+
+    listing = git("ls-tree", "--name-only", "v0.7.0", "data/")
+    if listing.returncode != 0:
+        pytest.skip("scrollgt checkout with tag v0.7.0 not beside this repo")
+    metas = [json.loads(git("show", f"v0.7.0:{d}/meta.json").stdout)
+             for d in listing.stdout.split() if d.startswith("data/fibers_")]  # fmt: skip
+    rows = [r for m in metas for r in m["floors"].values()]
+    assert len(metas) == 21 and all(r["scoring_version"] == 3 for r in rows)
+    held = [m["floors"] for m in metas if m["split"] == "held_out"]
+    leads = sum(f["tracer_strict_relink"]["erl_merge_penalized"] > f["floor_connected_components"]["erl_merge_penalized"]
+                for f in held)  # fmt: skip
+    text = " ".join(_text().split())
+    assert f"All {len(rows)} published rows were re-scored" in text
+    assert f"on {leads} of {len(held)} cubes, not {len(held)}" in text
