@@ -193,3 +193,61 @@ def test_cited_tool_versions_are_the_current_ones(tool, pattern):
     if v is None:
         pytest.skip(f"{tool} checkout not beside this repo")
     assert pattern.format(v=v) in _text(), f"draft does not cite {tool} {v}"
+
+
+_F83 = _REPO / "reports/fiber_heldout_split.json"
+
+
+@pytest.mark.skipif(not _F83.exists(), reason="finding 83 artifact absent")
+def test_fiber_heldout_numbers_match_finding_83():
+    d, txt = json.loads(_F83.read_text()), _text()
+    assert (
+        len(d["cubes"]) == 10 and "adds 10 annotated cubes the model never saw" in txt
+    )
+
+    def median(xs):
+        xs = sorted(xs)
+        return (xs[len(xs) // 2] + xs[(len(xs) - 1) // 2]) / 2
+
+    s3 = d["descriptive"]["s3_cc_coverage"]
+    assert len(s3) == 8 and round(median(s3.values()), 3) == round(
+        d["descriptive"]["s3_cc_coverage_median"], 3
+    )
+    in512 = round(median(d["in_sample_cc_coverage"]["512"].values()), 3)
+    s3_claim = (
+        f"{median(s3.values()):.3f}, against {in512:.3f} on the in-sample 512³ cubes"
+    )
+    assert txt.count(s3_claim) == 2, (
+        s3_claim
+    )  # once in part (2), once in the failed-prediction list
+    assert d["predictions"]["P1_s3_median_cc_coverage_below_0.8130"] is False
+    assert d["predictions"]["P2_both_s5_cc_coverage_below_0.8666"] is True
+
+    s5 = sorted(d["descriptive"]["s5_cc_coverage"].values(), reverse=True)
+    in256 = d["in_sample_cc_coverage"]["256"].values()
+    assert (
+        f"Coverage is {s5[0]:.2f} and {s5[1]:.2f}, against {min(in256):.2f}–{max(in256):.2f} on the in-sample "
+        "Scroll-5 256³ cubes" in txt
+    )
+    assert "Fourteen of my registered predictions failed" in txt
+
+
+def test_scrollgt_cite_is_its_newest_tag():
+    """The URL field cited v0.4.1 after v0.5.0 was tagged; tie it to the sibling checkout's newest tag."""
+    import subprocess
+
+    sg = _REPO.parent / "scrollgt"
+    try:
+        out = subprocess.run(
+            ["git", "-C", str(sg), "tag", "--list", "v*", "--sort=-v:refname"],
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout.split()
+    except (OSError, subprocess.CalledProcessError):
+        out = []
+    if not out:
+        pytest.skip("scrollgt checkout with tags not beside this repo")
+    assert (
+        f"https://github.com/jonmarrs/scrollgt/tree/{out[0]}" in _DRAFT.read_text()
+    ), f"cite ScrollGT {out[0]}"

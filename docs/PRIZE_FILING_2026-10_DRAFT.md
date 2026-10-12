@@ -18,12 +18,16 @@ clipped "#1780" to "#17".
 
 1. Re-read the **whole** Progress section of villa `scrollprize.org/docs/34_prizes.md` at current
    upstream: form URL, deadline and criteria. The criteria changed mid-month in September.
-2. The runner PR is villa #2022: opened 2026-10-09 after the gate passed 33/33 at `a329895ea`,
-   **merged 2026-10-11** ([merge commit](https://github.com/ScrollPrize/villa/commit/7a7b3f677991954ec5ecff17b9b08ab30ff6a926)).
-   On filing day, re-check its state and quote any maintainer reply verbatim.
-   Re-check #1928's state.
-3. Re-run `tests/test_filing_2026_10_numbers.py`. Every number below is bound to the file it comes from.
-4. Check every URL returns 200.
+2. **Lead with what landed in villa.** September paid $250 for "assorted useful merged villa PRs" and cited nothing
+   else in the filing. villa #2022 was opened 2026-10-09 after its gate passed 33/33 at `a329895ea` and MERGED
+   2026-10-11 by @pmh47 ([merge commit](https://github.com/ScrollPrize/villa/commit/7a7b3f677991954ec5ecff17b9b08ab30ff6a926)).
+   villa #2044 (`get_ink_metrics --sequential-folds`, a code fix) opened 2026-10-11. On filing day, list every villa
+   PR merged in October first in part (2) and in the URL field, then re-check #1928, #2044 and any other open PR, and
+   quote any maintainer reply verbatim.
+3. ScrollGT 0.6.0 (the held-out split) was merged and tagged on 2026-10-11. The URL field cites `tree/v0.6.0`; the
+   test binds the cite to ScrollGT's newest tag, so a later release (0.7.0, the ERL fix) must update it.
+4. Re-run `tests/test_filing_2026_10_numbers.py`. Every number below is bound to the file it comes from.
+5. Check every URL returns 200.
 
 ---
 
@@ -33,9 +37,10 @@ clipped "#1780" to "#17".
 https://github.com/jonmarrs/vesuvius-autoresearch
 https://github.com/jonmarrs/inkdelta
 https://github.com/jonmarrs/inkagree
-https://github.com/jonmarrs/scrollgt/tree/v0.4.1
+https://github.com/jonmarrs/scrollgt/tree/v0.6.0
 https://github.com/ScrollPrize/villa/pull/1928
 https://github.com/ScrollPrize/villa/pull/2022
+https://github.com/ScrollPrize/villa/pull/2044
 ```
 
 ---
@@ -51,9 +56,14 @@ https://github.com/ScrollPrize/villa/pull/2022
 
 Published villa artifacts only, one consumer GPU.
 
-**(2) How it increases the probability of reading.** villa's autoresearch loop keeps or discards a
-change by one number, `total_fg_pixels`. This month we checked three things that number silently
-depends on, against villa's own code and villa's own ink labels:
+**(2) How it increases the probability of reading.**
+
+**Merged into villa this month:**
+[villa #2022](https://github.com/ScrollPrize/villa/pull/2022) (merged 2026-10-11). `autoresearch.md` now launches
+the runner villa ships with the flags it takes. Before, a variant launched the documented way ran as the baseline.
+
+villa's autoresearch loop keeps or discards a change by one number, `total_fg_pixels`. This month we checked
+three things that number silently depends on, against villa's own code and villa's own ink labels:
 
 * **The runner documentation did not match the shipped CLI.** Before the fix,
   `runners/run_single.py` exited before starting when launched with the documented
@@ -61,7 +71,7 @@ depends on, against villa's own code and villa's own ink labels:
   but GPUs pinned as documented, the fit silently ran as a single process. A config change passed
   through the environment, the documented way to try a variant, was silently dropped, so the
   "variant" ran as the baseline. Measured by running villa's runner with its steps stubbed.
-  [villa #2022](https://github.com/ScrollPrize/villa/pull/2022), opened 2026-10-09 and **merged 2026-10-11**, fixed the doc.
+  #2022 fixed the doc.
 * **A new render setting moves the metric far more than it moves reading.** villa #1818 added
   `vc_render_tifxyz --surface-interpolation smooth`. Its default is byte-identical to earlier builds.
   On the 8 labelled segments, in villa's own scoring pipeline:
@@ -84,6 +94,15 @@ depends on, against villa's own code and villa's own ink labels:
   `--seeds` output as invalid; 0.4.0 reads it. 0.5.x refuses to compare runs rendered in different
   modes.
 
+Separately, on fiber tracing, we tested whether villa's published fiber segmentation model,
+`scrollprize/fiber_hz_vt`, works on cubes it never trained on. Its training fingerprint matches villa's
+Dataset002, which holds all 11 fiber cubes of our ScrollGT benchmark (finding 82). villa's Dataset004 adds 10
+annotated cubes the model never saw, and we pre-registered predictions for them (finding 83):
+* **On Scroll 3, a scroll it never saw, it holds.** Median connected-components coverage of the hand-traced
+  fibers is 0.826, against 0.822 on the in-sample 512³ cubes.
+* **On two new Scroll-5 cubes it fails.** Coverage is 0.64 and 0.53, against 0.82–0.91 on the in-sample
+  Scroll-5 256³ cubes. The cause is unknown, and two cubes cannot separate the candidates.
+
 **(3) What it enables that was not possible before.**
 * [inkagree](https://github.com/jonmarrs/inkagree) (MIT; first released 2026-10-03, now 0.3.0, which evaluates only
   where villa's labels are defined): **a label-anchored
@@ -100,10 +119,15 @@ depends on, against villa's own code and villa's own ink labels:
   * finds sweep logs;
   * checks `aggregate_metrics.json`;
   * flags mixed render modes from the render log.
+* [ScrollGT](https://github.com/jonmarrs/scrollgt) (MIT), our fiber and ink benchmark, now measures generalization:
+  * 0.5.0 moves three fiber targets to villa's current annotations and discloses that the reference mask trained
+    on every target. No published ranking reverses (finding 82).
+  * 0.6.0 adds finding 83's 10 cubes as a `held_out` split. Each row must equal finding 83's, and it refuses to average
+    held-out scores with in-sample ones.
 
 **(4) Evidence.**
 * Each study was pre-registered before its data, and each has a report and its scripts in
-  https://github.com/jonmarrs/vesuvius-autoresearch (findings 69–72 in
+  https://github.com/jonmarrs/vesuvius-autoresearch (findings 69–83 in
   `reports/SPIRAL_FINDINGS_SUMMARY.md`).
 * Every figure here is bound by a test to the file that produced it.
 * inkdelta: CI on Python 3.10–3.13. Its corpus validations are unchanged since 0.3.0.
@@ -132,6 +156,9 @@ depends on, against villa's own code and villa's own ink labels:
 
   Its labellings reproduce the old rows exactly under the old scorer, so the reversal is the scorer's.
   `reports/tracer_rescore.md`.
+* **ScrollGT's fiber scores were in-sample, and it did not say so until 0.5.0.** Its reference mask trained on all
+  11 of its fiber targets (finding 82). On those, a score built on the mask measures the instance step on a
+  segmentation that has seen the cube.
 * **A correction, made and registered before recomputing:** my label-based analyses (findings 71–76)
   first scored the whole surface. villa's labels exist only inside its supervision mask (3–13% of each
   segment), so unannotated ink counted as a miss. Re-analysed where the labels are defined:
@@ -140,7 +167,7 @@ depends on, against villa's own code and villa's own ink labels:
   * finding 74 does not survive as stated (step 0.5 vs 1.0 is not consistent).
 
   inkagree 0.3.0 makes the supervised region its default. `reports/supervised_reanalysis.md`.
-* **Thirteen of my registered predictions failed**, and the reports say so:
+* **Fourteen of my registered predictions failed**, and the reports say so:
   * finding 70 (smooth would move the count < 1% in every crop window: it moved up to ±20%);
   * finding 71 prediction 1 (failed on three exclusions, one caused by a defect in my alignment gate);
   * finding 72 prediction 1 (the count was sensitive in 15% of windows, not ≥ 25%).
@@ -159,6 +186,8 @@ depends on, against villa's own code and villa's own ink labels:
     R = 0.91 [0.56, 1.47], no detectable difference; it was on current code, R = 0.52 [0.35, 0.91]).
   * finding 80 prediction 2 (the tracer would trail connected components on merge-penalized ERL on all
     eight 256³ cubes: it leads on `s5_14997`, 38.56 vs 33.09).
+  * finding 83 prediction 1 (the fiber mask's coverage would drop on Scroll 3, which it never saw: the median is
+    0.826, against 0.822 on the in-sample 512³ cubes).
 * **The effect's size depends on grid cell size** (finding 73, measured): about 1% per window on
   villa's 20-voxel segment meshes, a 6.2% median and up to ±40% per window on 80-voxel grids like the
   spiral surfaces. Quote the size with the grid.
@@ -181,5 +210,8 @@ depends on, against villa's own code and villa's own ink labels:
 * No adoption claim for inkdelta or the measurements unless one exists on filing day.
 * Not "villa's objective mis-ranks fits". Finding 78 shows its count is sparse (about 2% of annotated
   ink), not that it ranks fits wrongly, and its render-side comparison is in-sample.
+* Not "the fiber mask does not generalize". It holds on Scroll 3 and fails on two Scroll-5 cubes, cause unknown.
+* Not "held out" as secrecy. The fiber ground truth is public; `held_out` means only that the reference mask did
+  not train on the cube.
 * Not "agrees with ground truth" for any label-based number. The render is in-sample on the labelled
   segments.
