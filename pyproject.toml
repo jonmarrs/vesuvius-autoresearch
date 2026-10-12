@@ -138,4 +138,7 @@ disable_error_code = ["union-attr", "attr-defined", "operator", "index", "arg-ty
 exclude = [
     "villa",
     ".venv",
+    # Local, gitignored archive of retired scripts; anchored so the tracked
+    # scripts/archive/ is still checked.
+    "^archive/",
 ]
