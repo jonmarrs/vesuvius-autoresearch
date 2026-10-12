@@ -449,11 +449,14 @@ class VesuviusLabeledDataset(torch.utils.data.Dataset):
             z_center = (Z - 1) / 2.0
 
             if dtype == torch.uint8:
-                import sys
+                # By absolute path, not a relative sys.path entry: that only resolved
+                # from the repository root (elsewhere the except below silently
+                # disabled flattening) and shadowed ~90 generic module names.
+                from vesuvius_autoresearch.core.villa_modules import load_villa_leaf
 
-                if "villa/lasagna" not in sys.path:
-                    sys.path.insert(0, "villa/lasagna")
-                from grid_sample_3d_u8 import grid_sample_3d_u8
+                grid_sample_3d_u8 = load_villa_leaf(
+                    "lasagna/grid_sample_3d_u8.py"
+                ).grid_sample_3d_u8
 
                 z_offset = z_surface - z_center  # absolute coords
                 z_offset = z_offset.unsqueeze(0).expand(Z, -1, -1)  # [Z, H, W]

@@ -6,36 +6,21 @@ Provides:
 - VillaTTAWrapper: Wraps any model to apply Villa's test-time augmentation
 """
 
-import os
-import sys
-
 import torch
 import torch.nn as nn
 
-# ---------------------------------------------------------------------------
-# sys.path manipulation so we can import Villa's TTA from the submodule tree
-# without requiring it to be installed as a package.
-# ---------------------------------------------------------------------------
-_VILLA_VESUVIUS_SRC = os.path.normpath(
-    os.path.join(
-        os.path.dirname(__file__),
-        os.pardir,
-        os.pardir,
-        os.pardir,
-        "villa",
-        "vesuvius",
-        "src",
-    )
-)
+from vesuvius_autoresearch.core.villa_modules import load_villa_leaf
+
+# Villa's TTA is a leaf module (it imports only torch), so it is loaded from the
+# pinned file itself. Prepending villa/vesuvius/src to sys.path instead made the
+# result depend on import order: after an earlier `import vesuvius` it returned the
+# older installed snapshot, and before one it replaced `vesuvius` process-wide.
+_VILLA_TTA = "vesuvius/src/vesuvius/models/run/tta.py"
 
 
 def _load_villa_tta():
     """Load the optional upstream implementation only when TTA is requested."""
-    if _VILLA_VESUVIUS_SRC not in sys.path:
-        sys.path.insert(0, _VILLA_VESUVIUS_SRC)
-    from vesuvius.models.run.tta import infer_with_tta
-
-    return infer_with_tta
+    return load_villa_leaf(_VILLA_TTA).infer_with_tta
 
 
 # ---------------------------------------------------------------------------

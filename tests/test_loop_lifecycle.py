@@ -188,3 +188,37 @@ def test_failed_training_cannot_promote_a_success_result(tmp_path, monkeypatch):
     assert not (tmp_path / "config_temp.json").exists()
     assert "CRASHED" in next((tmp_path / "sprint_logs").glob("*.md")).read_text()
     assert json.loads((tmp_path / "autoresearch_history.json").read_text())["lr"] == 1
+
+
+LOOP_RUNTIME_STATE = (
+    "autoresearch.lock",
+    ".current_day_shift_log",
+    ".loop_paused",
+    "autoresearch.out",
+    "config_temp.json",
+    "run_result.json",
+)
+
+
+def test_loop_runtime_state_is_never_tracked():
+    """Ownership is an fcntl lock on the lock file's inode. While it was tracked, a
+    running loop left it modified, and `git checkout -- .`, `git stash` or
+    `git restore .` replaced the file: the lock stayed on the orphaned inode, a
+    second loop acquired the new file, and stop.sh could no longer find the first.
+    Process state therefore lives outside version control."""
+    if not (REPO / ".git").exists():
+        pytest.skip("not a git checkout")
+
+    def git(*args):
+        return subprocess.run(
+            ["git", "-C", str(REPO), *args], capture_output=True, timeout=10
+        ).returncode
+
+    tracked = [
+        p for p in LOOP_RUNTIME_STATE if git("ls-files", "--error-unmatch", p) == 0
+    ]
+    unignored = [
+        p for p in LOOP_RUNTIME_STATE if git("check-ignore", "-q", "--no-index", p)
+    ]
+    assert not tracked, f"runtime state tracked by git: {tracked}"
+    assert not unignored, f"runtime state not ignored by git: {unignored}"
