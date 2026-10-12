@@ -53,6 +53,10 @@
 
 ## 🚀 Key Features
 
+**September 2026 Progress Prize:** Jonathan Marrs was awarded $250 for “assorted
+useful merged villa PRs,” as credited in the supplied Discord announcement.
+See [award history and source](docs/PROGRESS_PRIZE_AWARDS.md).
+
 - **Working ink detector** (`vesuvius_autoresearch.detector`): the proven 2023 Grand-Prize TimeSformer recipe, productionized and tested, with a one-command `reproduce`. (A full-resolution ResEncUNet alternative was built and *underperformed* it under our recipe — documented, not discarded.)
 - **Honest metric contract** (`detector/metrics.py` + `measure` CLI): threshold-swept F1 primary; average precision + AP-prevalence-lift as imbalance-robust gates; ROC-AUC secondary. The inherited `skeleton_distance_length` "prize gate" was **removed after we proved it invalid** (location-blind; probe included).
 - **SOTA open-data tooling + distillation** (`repro/sota_data/`): anonymous-S3 access to `s3://vesuvius-challenge-open-data/`, OME-Zarr extraction, and a teacher–student distillation pipeline onto the newly-open SOTA surface volumes.
@@ -210,6 +214,9 @@ For validated stored-grid Tifxyz subsampling and the status of the legacy
 automatic flattening selector, see [Mesh preparation](docs/MESH_PREPARATION.md).
 Sampling preserves valid retained coordinates and masks; rendered alignment
 and reading quality need independent checks.
+
+For the local Python Zarr read contract and comparable timings on an explicit
+voxel region, see [Local volume reads and benchmarking](docs/LOCAL_VOLUME_READS.md).
 
 ## Running the agent
 

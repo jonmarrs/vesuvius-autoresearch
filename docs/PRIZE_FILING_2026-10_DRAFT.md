@@ -19,9 +19,11 @@ clipped "#1780" to "#17".
 1. Re-read the **whole** Progress section of villa `scrollprize.org/docs/34_prizes.md` at current
    upstream: form URL, deadline and criteria. The criteria changed mid-month in September.
 2. **Lead with what landed in villa.** September paid $250 for "assorted useful merged villa PRs" and cited nothing
-   else in the filing. villa #2022 MERGED 2026-10-11 (by @pmh47). On filing day, list every villa PR merged in
-   October first in part (2) and in the URL field, then re-check #1928 and any other open PR, and quote any
-   maintainer reply verbatim.
+   else in the filing. villa #2022 was opened 2026-10-09 after its gate passed 33/33 at `a329895ea` and MERGED
+   2026-10-11 by @pmh47 ([merge commit](https://github.com/ScrollPrize/villa/commit/7a7b3f677991954ec5ecff17b9b08ab30ff6a926)).
+   villa #2044 (`get_ink_metrics --sequential-folds`, a code fix) opened 2026-10-11. On filing day, list every villa
+   PR merged in October first in part (2) and in the URL field, then re-check #1928, #2044 and any other open PR, and
+   quote any maintainer reply verbatim.
 3. ScrollGT 0.6.0 (the held-out split) was merged and tagged on 2026-10-11. The URL field cites `tree/v0.6.0`; the
    test binds the cite to ScrollGT's newest tag, so a later release (0.7.0, the ERL fix) must update it.
 4. Re-run `tests/test_filing_2026_10_numbers.py`. Every number below is bound to the file it comes from.
@@ -38,6 +40,7 @@ https://github.com/jonmarrs/inkagree
 https://github.com/jonmarrs/scrollgt/tree/v0.6.0
 https://github.com/ScrollPrize/villa/pull/1928
 https://github.com/ScrollPrize/villa/pull/2022
+https://github.com/ScrollPrize/villa/pull/2044
 ```
 
 ---
@@ -62,8 +65,9 @@ the runner villa ships with the flags it takes. Before, a variant launched the d
 villa's autoresearch loop keeps or discards a change by one number, `total_fg_pixels`. This month we checked
 three things that number silently depends on, against villa's own code and villa's own ink labels:
 
-* **The runner villa ships did not match the doc the loop follows.** Launched with the doc's
-  environment variables, `runners/run_single.py` exited before starting. With its required flags added
+* **The runner documentation did not match the shipped CLI.** Before the fix,
+  `runners/run_single.py` exited before starting when launched with the documented
+  environment variables. With its required flags added
   but GPUs pinned as documented, the fit silently ran as a single process. A config change passed
   through the environment, the documented way to try a variant, was silently dropped, so the
   "variant" ran as the baseline. Measured by running villa's runner with its steps stubbed.

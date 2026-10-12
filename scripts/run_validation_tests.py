@@ -10,6 +10,7 @@ import subprocess
 import sys
 
 VALIDATION_TESTS = [
+    "tests/test_volume_read_benchmark_contracts.py",
     "tests/test_mesh_preparation_contracts.py",
     "tests/test_ensemble_voting_contracts.py",
     "tests/test_swarm_voter.py",
