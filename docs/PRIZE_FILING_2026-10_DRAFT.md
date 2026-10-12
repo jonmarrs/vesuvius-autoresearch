@@ -22,9 +22,8 @@ clipped "#1780" to "#17".
    else in the filing. villa #2022 MERGED 2026-10-11 (by @pmh47). On filing day, list every villa PR merged in
    October first in part (2) and in the URL field, then re-check #1928 and any other open PR, and quote any
    maintainer reply verbatim.
-3. ScrollGT 0.6.0 (the held-out split) was ready on 2026-10-11, pending the user's merge. If it is tagged, cite
-   `tree/v0.6.0` in the URL field; the test binds the cite to ScrollGT's newest tag. If it is not, delete the
-   0.6.0 sub-bullet in part (3).
+3. ScrollGT 0.6.0 (the held-out split) was merged and tagged on 2026-10-11. The URL field cites `tree/v0.6.0`; the
+   test binds the cite to ScrollGT's newest tag, so a later release (0.7.0, the ERL fix) must update it.
 4. Re-run `tests/test_filing_2026_10_numbers.py`. Every number below is bound to the file it comes from.
 5. Check every URL returns 200.
 
@@ -36,7 +35,7 @@ clipped "#1780" to "#17".
 https://github.com/jonmarrs/vesuvius-autoresearch
 https://github.com/jonmarrs/inkdelta
 https://github.com/jonmarrs/inkagree
-https://github.com/jonmarrs/scrollgt/tree/v0.5.0
+https://github.com/jonmarrs/scrollgt/tree/v0.6.0
 https://github.com/ScrollPrize/villa/pull/1928
 https://github.com/ScrollPrize/villa/pull/2022
 ```
