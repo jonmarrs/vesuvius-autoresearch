@@ -63,6 +63,13 @@ scripts/_finetune_lejepa_runner.py
 checkpoints/
 autoresearch.out
 
+# Loop process state. Ownership is an fcntl lock on the lock file's inode, so a
+# tracked lock let `git checkout -- .` / `git stash` / `git restore .` replace the
+# file under a running loop and admit a second one (see
+# docs/DESIGN_ARCHITECTURE_REVIEW_2026-10-12_CROSS_CUTTING.md).
+autoresearch.lock
+.current_day_shift_log
+
 # Discord DRAFTS stay local-only. What was actually POSTED is tracked: a file that calls
 # itself "the public artifact of record" is not a record if it only exists on one machine.
 # Negations must come after the pattern they exempt.
