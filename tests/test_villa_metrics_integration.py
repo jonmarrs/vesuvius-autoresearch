@@ -47,7 +47,7 @@ def test_connected_components():
     assert res["connected_components_difference_total"] == 1.0
 
 
-def test_skeleton_distance(monkeypatch):
+def test_skeleton_distance(monkeypatch, tmp_path):
     import unittest.mock as mock
 
     monkeypatch.setattr("metrics.skeleton_distance_length.wandb", mock.Mock())
@@ -58,7 +58,8 @@ def test_skeleton_distance(monkeypatch):
         gt[10, 2:18, 10] = 1
         pred = np.zeros((20, 20, 20), dtype=np.uint8)
         pred[10, 2:18, 10] = 1
-        res = compute_skel_dist(gt, pred)
+        # output_folder defaults to "." and every call saves a histogram PNG.
+        res = compute_skel_dist(gt, pred, output_folder=str(tmp_path))
         assert res >= 0
     except ImportError:
         pytest.skip("Skeleton distance dependencies missing")

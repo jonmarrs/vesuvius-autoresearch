@@ -76,7 +76,11 @@ def main():
 
     print(f"{'case':14s} {'pixel_overlap':>13s} {'skel_dist':>12s}")
     for name, pred in cases:
-        d = skel_dist(to3d(label), to3d(pred))
+        d = skel_dist(
+            to3d(label),
+            to3d(pred),
+            output_folder=os.path.join(_REPO, "outputs", "skeleton_hists"),
+        )
         print(f"{name:14s} {overlap(pred):13.2f} {d:12.4f}")
 
 
