@@ -1185,3 +1185,19 @@ Pre-registered (`93115122`); all 21 ScrollGT fiber targets, the 11 in-sample one
   remain.
 
 `reports/fiber_miss_diagnostic.md`.
+
+**85. villa PR #1934's automated fiber generator finds a quarter of the hand-traced fiber, and ScrollGT's ERL flattered
+it.** Pre-registered (`c5b3d6ae`); defaults, all 21 ScrollGT cubes, no failures, identity check passed.
+
+* **P1 FAILED:** raw ERL above our tracer's on 5 of 11 in-sample cubes, not 9. **P2 held:** coverage below the
+  tracer's on 11 of 11 (0.188–0.357 vs 0.560–0.675). **P3 held** (connected components ahead on raw ERL at 256³),
+  **P4 held** (merge-penalized ERL above the tracer's on 8 of 8 Scroll-3 cubes), **P5 held** narrowly (0.259 vs 0.279).
+* On the two new Scroll-5 cubes it covers 4% and 8% (10 and 27 fibers).
+* **Post hoc: ScrollGT's ERL is Σr²/Σr over covered runs only, so deleting short fragments raises it.** Deleting our
+  tracer's instances under 400 voxels lifts ERL 35.39 → 41.46 while coverage falls 0.62 → 0.38. Normalised by
+  ground-truth length (ERL × coverage, exact), the generator trails the tracer on 21 of 21 cubes (raw) and 20 of 21
+  (merge-penalized). P4's lead comes from covering half as much fiber.
+* The same re-normalisation keeps the tracer's merge-penalized lead over connected components on 4 of 4 in-sample cubes
+  and 9 of 10 held-out ones (`s3_03494_01494_00494` reverses).
+
+`reports/afv_generator_entrant.md`.
