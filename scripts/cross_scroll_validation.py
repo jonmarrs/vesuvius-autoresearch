@@ -27,8 +27,8 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
+from scripts.artifact_hashes import sha256_file
 from scripts.candidate_artifacts import ARTIFACT_ERRORS, integer, write_json
-from scripts.export_for_production import sha256_file
 from scripts.labeling.label_artifacts import (
     MAX_FRAGMENT_VOXELS,
     bounded_number,

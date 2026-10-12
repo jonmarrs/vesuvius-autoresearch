@@ -7,7 +7,6 @@ into villa's native train_py format. Only trusted local checkpoints may be read.
 """
 
 import argparse
-import hashlib
 import json
 import math
 import pickle
@@ -21,6 +20,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
+from scripts.artifact_hashes import sha256_file
 from scripts.labeling.label_artifacts import new_output, publish_new_file
 from vesuvius_autoresearch.core.checkpoint_tools import build_tool_model
 from vesuvius_autoresearch.core.inference import positive_integer
@@ -52,14 +52,6 @@ PROVENANCE_NAMES = (
     "finetune_config_path",
     "finetune_config_sha",
 )
-
-
-def sha256_file(path):
-    digest = hashlib.sha256()
-    with Path(path).open("rb") as stream:
-        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
 
 
 def checkpoint_contract(checkpoint, *, verify_model=True):

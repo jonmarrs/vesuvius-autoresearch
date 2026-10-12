@@ -10,7 +10,7 @@ import pytest
 
 _REPO = Path(__file__).resolve().parent.parent
 _SG = _REPO.parent / "scrollgt" / "src"
-pytestmark = pytest.mark.skipif(
+needs_scrollgt = pytest.mark.skipif(
     not _SG.exists(), reason="scrollgt checkout not beside this repo"
 )
 
@@ -54,6 +54,7 @@ def _scene(shift=(0, 0, 0)):
     return prob, _skeleton(lines)
 
 
+@needs_scrollgt
 def test_zero_shift_coverage_is_scrollgts(mod):
     from scrollgt.fibers.eval_trace import floor_connected_components, score_tracing
 
@@ -71,6 +72,7 @@ def test_zero_shift_coverage_is_scrollgts(mod):
     )  # the faint fiber (9 of 69 voxels of length) is missed at 0.5
 
 
+@needs_scrollgt
 def test_partial_edge_coverage_matches_scrollgt_too(mod):
     """A skeleton that leaves the volume and grazes the mask edge: the in-bounds and tolerance logic must still agree."""
     from scrollgt.fibers.eval_trace import floor_connected_components, score_tracing
@@ -90,6 +92,7 @@ def test_partial_edge_coverage_matches_scrollgt_too(mod):
     )
 
 
+@needs_scrollgt
 def test_threshold_sweep_sees_the_faint_fiber(mod):
     prob, skel = _scene()
     idx, dl = mod.samples(skel)
@@ -103,6 +106,7 @@ def test_threshold_sweep_sees_the_faint_fiber(mod):
     )
 
 
+@needs_scrollgt
 def test_shift_search_recovers_a_planted_offset(mod):
     prob, skel = _scene(shift=(0, 3, -4))
     mask = prob >= 0.5
@@ -121,14 +125,18 @@ def test_shift_search_recovers_a_planted_offset(mod):
     ]
 
 
-def _row(split, gain=0.0, c01=0.7, soft=0.2, cov=0.8, g1=True):
+def _row(split, gain=0.0, c01=None, soft=0.2, cov=0.6, g1=True):
+    if c01 is None:
+        c01 = cov + soft * (1 - cov)
+    else:
+        soft = (c01 - cov) / (1 - cov)
     return {"split": split, "g1_prob_threshold_equals_shipped_mask": g1, "published_cc_coverage": cov,
             "g2_zero_shift_coverage": cov, "g2_ballmax_coverage_at_0.5": cov,
             "shift": {"gain": gain, "best": cov + gain}, "sweep": {"coverage": {"0.1": c01}, "soft_miss_fraction": soft}}  # fmt: skip
 
 
 def _full(mod, **new):
-    res = {c: _row("cross_scroll", soft=0.3) for c in mod.IN_S5}
+    res = {c: _row(mod.EXPECTED_SPLITS[c], soft=0.3) for c in mod.CUBES}
     res.update({c: _row("held_out", **new) for c in mod.NEW_S5})
     return res
 

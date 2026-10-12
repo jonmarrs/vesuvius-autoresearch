@@ -16,6 +16,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
+from scripts.artifact_hashes import sha256_file
 from scripts.candidate_artifacts import integer, write_json
 from scripts.labeling.label_artifacts import bounded_number, new_output, publish_new
 from scripts.pseudo_label_artifacts import MAX_LABEL_PIXELS, binary_array, read_png
@@ -59,8 +60,6 @@ def split_mask(
 def prepare_split(
     mask_path, output, *, axis=1, fraction=0.5, buffer=128, max_pixels=MAX_LABEL_PIXELS
 ):
-    from scripts.export_for_production import sha256_file
-
     source = Path(mask_path).resolve()
     output = new_output(output, source)
     digest = sha256_file(source)
