@@ -1,5 +1,22 @@
 # Resume note — written 2026-09-22 before a deliberate Claude restart
 
+## 2026-10-11 (night): September paid $250 for merged villa PRs only; villa fixes first
+
+* **September result:** $250, "for assorted useful merged villa PRs". The repos, ScrollGT and the findings were not
+  cited. The user chose: villa fixes first, fiber work second; code-fix PRs up to 2/week (the 3-open cap still binds).
+* **villa #2022 MERGED** 2026-10-11 (@pmh47). Only #1928 is open.
+* **Next villa PR, drafted and measured, NOT posted** (branch `villa-draft-ink-metrics-folds`):
+  `get_ink_metrics --sequential-folds` plus in-place fold averaging. Stock is OOM-killed on an outer strip in a 26 GiB
+  budget; sequential scores it at 13.8 GB. It needs the user's go-ahead. Push it via the GitHub API per the SOP, with
+  no AI markers.
+* **Findings:**
+  * 84 (PR #27): the Scroll-5 held-out miss is real, not a frame offset or a threshold.
+  * 85 (PR #28): the AFV generator covers about 25% of the hand-traced fiber.
+  * **ScrollGT's ERL is coverage-conditional:** deleting fragments raises it. ERL×coverage is exact. The fix awaits
+    the user's decision.
+* **ScrollGT 0.6.0:** PR #3 open; all 10 held-out targets built. After merge: tag v0.6.0, check CI.
+* **October draft:** PR #25. It leads with merged villa PRs; add each new merge.
+
 ## 2026-10-11 (evening): finding 83; ScrollGT held-out split in progress
 
 * Merged: vesuvius-autoresearch #19 (finding 82) and ScrollGT #2. **ScrollGT v0.5.0 tagged** on `af4ab23` (CI green).
