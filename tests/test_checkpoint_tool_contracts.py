@@ -104,6 +104,8 @@ def tools_fixture(tmp_path, monkeypatch):
     monkeypatch.setattr(model_wrappers, "build_inference_model", factory)
     for module in [auc, reevaluate, active]:
         monkeypatch.setattr(module, "build_inference_model", factory, raising=False)
+    for module in [auc, active, sys.modules["train"]]:
+        # Re-evaluation builds its dataset through train.build_validation_dataset.
         monkeypatch.setattr(module, "VesuviusLabeledDataset", dataset)
     from vesuvius_autoresearch.core import vesuvius_loader
 

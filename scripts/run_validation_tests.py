@@ -60,6 +60,8 @@ VALIDATION_TESTS = [
     "tests/test_production_predict.py",
     "tests/test_predict_checkpoint_loading.py",
     "tests/test_loop_lifecycle.py",
+    "tests/test_autoresearch_measurement.py",
+    "tests/test_vesuvius_loader.py",
     "tests/test_spiral_driver_failures.py",
     "tests/test_spiral_artifacts.py",
     "tests/test_run_render_slice_guard.py",

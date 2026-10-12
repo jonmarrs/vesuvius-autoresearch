@@ -1,18 +1,21 @@
 """
-Re-evaluate best_model.pt under TODAY's validation methodology.
+Re-score best_model.pt under the loop's current validation protocol.
 
-Why this exists: the val_bpb stored inside best_model.pt is from the cycle that
-promoted it. Validation methodology can drift over time (sampling, threshold
-sweep, metric implementations). Cycles compare their fresh val_bpb against the
-STORED value, so any drift between then and now makes the comparison apples-to-
-oranges and can permanently freeze best_model.pt.
+Why this exists: a cycle is promoted when its val_f1 beats the val_f1 stored in
+best_model.pt, so both must come from the same validation patches. When the
+protocol changes (scripts/training/promotion.py), the stored score is no longer
+comparable; train.py and the loop then refuse to promote or start until this
+script has re-scored the incumbent.
 
-This script runs validation only (no training) on best_model.pt and reports
-the metrics as measured by today's code. Compare to chk['val_bpb'] etc.
+It runs validation only (no training), through the same code the loop uses
+(train.build_validation_dataset, train.collect_validation_predictions,
+train.pooled_segmentation_metrics), with the input settings the checkpoint was
+trained with and the validation fragment from config.json. The legacy
+Dice/topology numbers are re-measured on the same patches.
 
 Usage:
     uv run python scripts/reevaluate_best_model.py
-    uv run python scripts/reevaluate_best_model.py --update-stored  # rewrites best_model.pt's stored val_bpb fields
+    uv run python scripts/reevaluate_best_model.py --update-stored  # rewrites best_model.pt's stored scores
 """
 
 import argparse
@@ -27,98 +30,93 @@ sys.path.insert(0, _REPO_ROOT)
 # train.py lives in scripts/training/ (moved); keep it importable as `train`.
 sys.path.insert(0, os.path.join(_REPO_ROOT, "scripts", "training"))
 
-from torch.utils.data import DataLoader
 from train import (
     ExperimentConfig,
+    build_validation_dataset,
+    collect_validation_predictions,
     compute_cc_diff,
     compute_centerline_dice,
     compute_official_dice,
     compute_skeleton_dist,
+    pooled_segmentation_metrics,
     select_topology_threshold,
 )
 
+from scripts.training.promotion import VALIDATION_PROTOCOL, save_checkpoint_atomic
 from vesuvius_autoresearch.core.checkpoint_tools import (
     ink_probabilities,
     load_tool_checkpoint,
     validate_batch,
-    validate_targets,
 )
-from vesuvius_autoresearch.core.vesuvius_loader import VesuviusLabeledDataset
+
+# Input settings that change what the model sees; scored as the model was trained.
+RECORDED_INPUT_SETTINGS = ("use_lasagna",)
 
 
 def reevaluate(update_stored: bool = False) -> None:
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    config = ExperimentConfig.load("config.json")
+    # The validation fragment is the loop's current one (candidates are scored on
+    # it); everything the model sees is the checkpoint's own.
+    config = (
+        ExperimentConfig.load("config.json")
+        if os.path.exists("config.json")
+        else ExperimentConfig()
+    )
 
     print("Loading best_model.pt...")
     model, settings, chk = load_tool_checkpoint("best_model.pt", device)
     for name, value in settings.items():
         setattr(config, name, value)
     stored = chk.get("config", {})
+    for name in RECORDED_INPUT_SETTINGS:
+        if name in stored:
+            setattr(config, name, stored[name])
     stored_arch = stored.get("architecture", "?")
 
     print(f"  stored architecture: {stored_arch!r}")
+    print(f"  stored protocol:     {chk.get('val_protocol', 'v1 (unrecorded)')}")
+    print(f"  stored val_f1:       {chk.get('val_f1')}")
     print(f"  stored val_bpb:      {chk.get('val_bpb')}")
     print(f"  stored skel_dist:    {chk.get('avg_skel_dist')}")
     print(f"  stored cd_dice:     {chk.get('avg_centerline_dice')}")
     print(f"  stored cc_diff:     {chk.get('avg_cc_diff')}")
     print()
 
-    parent_dir = os.path.dirname(config.val_uri.rstrip("/"))
-    labels_path = os.path.join(parent_dir, "inklabels_filled.png")
-    if not os.path.exists(labels_path):
-        labels_path = os.path.join(parent_dir, "inklabels.png")
-    mask_path = os.path.join(parent_dir, "mask.png")
+    val_ds = build_validation_dataset(config)
 
-    val_ds = VesuviusLabeledDataset(
-        config.val_uri,
-        labels_path,
-        mask_path if os.path.exists(mask_path) else None,
-        config.patch_size,
-        config.num_layers + 8,
-        seed=42,
-        cache_dir=config.cache_dir,
-        use_ridges=config.use_ridges,
-        ridge_sigma=getattr(config, "ridge_sigma", 2.0),
-        use_lasagna=False,
-        require_ink=True,
-        strict_reads=True,
-    )
-    val_loader = DataLoader(
-        val_ds, batch_size=config.batch_size, num_workers=0, pin_memory=True
-    )
-    val_iter = iter(val_loader)
+    def probabilities(net, x):
+        return ink_probabilities(net, validate_batch(x, settings))
 
-    model.eval()
     torch.manual_seed(42)
-
-    all_probs, all_targets = [], []
-    requested = 100
-    empty = 0
-    with torch.no_grad():
-        for _ in range(requested):
-            try:
-                x_raw, target, _fiber = next(val_iter)
-            except StopIteration:
-                val_iter = iter(val_loader)
-                continue
-            x = validate_batch(x_raw, settings, buffered=True).to(device)
-            if target is None or target.numel() == 0:
-                continue
-            target = target.to(device)
-            if target.dim() == 3:
-                target = target.unsqueeze(1)
-            if torch.sum(target.float()) < 1.0:
-                empty += 1
-                continue
-            with torch.autocast(device_type=device.type, enabled=device.type == "cuda"):
-                probabilities = ink_probabilities(model, x)
-            target = validate_targets(target, probabilities)
-            all_probs.append(probabilities.cpu())
-            all_targets.append(target.cpu())
-
+    all_probs, all_targets, diag = collect_validation_predictions(
+        model,
+        val_ds,
+        config.num_layers,
+        device,
+        batch_size=config.batch_size,
+        amp_enabled=device.type == "cuda",
+        probabilities=probabilities,
+    )
+    if not diag["complete"]:
+        raise RuntimeError(
+            f"{diag['batch_errors']} validation batches failed; the protocol's "
+            "sample is incomplete and the checkpoint was not updated"
+        )
     if not all_probs:
         raise ValueError("zero usable validation patches")
+
+    seg = pooled_segmentation_metrics(all_probs, all_targets)
+    f1_metrics = {
+        "val_f1": float(seg.get("val_f1", float("nan"))),
+        "val_f1_threshold": float(seg.get("best_threshold", float("nan"))),
+        "ap_prevalence_lift": float(seg.get("ap_prevalence_lift", float("nan"))),
+        "roc_auc": float(seg.get("roc_auc", float("nan"))),
+        "val_positive_rate": float(seg.get("positive_rate", float("nan"))),
+    }
+    if not all(np.isfinite(value) for value in f1_metrics.values()):
+        raise ValueError(
+            f"nonfinite promotion metrics {f1_metrics}; checkpoint was not updated"
+        )
 
     probs_cat = torch.cat(all_probs)
     targets_cat = torch.cat(all_targets)
@@ -200,11 +198,19 @@ def reevaluate(update_stored: bool = False) -> None:
     print(f"  avg_skel_dist:       {skel:.6f}")
     print(f"  avg_centerline_dice: {cd:.6f}")
     print(f"  avg_cc_diff:         {cc:.3f}")
-    print(f"  usable / requested:  {len(all_probs)}/{requested} (empty={empty})")
+    print(
+        f"  val_f1:              {f1_metrics['val_f1']:.6f} (protocol {VALIDATION_PROTOCOL})"
+    )
+    print(f"  ap_prevalence_lift:  {f1_metrics['ap_prevalence_lift']:.4f}")
+    print(
+        f"  usable / requested:  {diag['usable_patches']}/{diag['requested_patches']} "
+        f"(empty={diag['empty_target_patches']})"
+    )
 
     print()
     print("=== DIFF: today vs stored ===")
     for name, today_val, stored_val in [
+        ("val_f1", f1_metrics["val_f1"], chk.get("val_f1")),
         ("val_bpb", val_bpb, chk.get("val_bpb")),
         ("avg_skel_dist", skel, chk.get("avg_skel_dist")),
         ("avg_centerline_dice", cd, chk.get("avg_centerline_dice")),
@@ -221,29 +227,26 @@ def reevaluate(update_stored: bool = False) -> None:
     if update_stored:
         print()
         print("Updating best_model.pt's stored metrics to today's values...")
+        chk.update(f1_metrics)
+        chk["val_protocol"] = VALIDATION_PROTOCOL
+        chk["validation_diag"] = diag
         chk["val_bpb"] = val_bpb
         chk["avg_skel_dist"] = skel
         chk["avg_centerline_dice"] = cd
         chk["avg_cc_diff"] = cc
         chk["reevaluation"] = {
-            "methodology": "legacy_dice_topology_v1",
+            "methodology": VALIDATION_PROTOCOL,
             "validation_uri": config.val_uri,
             "model_settings": settings,
-            "requested_batches": requested,
-            "accepted_batches": len(all_probs),
+            "input_settings": {
+                name: getattr(config, name) for name in RECORDED_INPUT_SETTINGS
+            },
+            "requested_patches": diag["requested_patches"],
+            "usable_patches": diag["usable_patches"],
             "dice_threshold": float(best_threshold),
             "topology_threshold": float(topo_threshold),
         }
-        import tempfile
-
-        fd, temporary = tempfile.mkstemp(prefix=".reevaluation-", suffix=".pt", dir=".")
-        os.close(fd)
-        try:
-            torch.save(chk, temporary)
-            os.replace(temporary, "best_model.pt")
-        finally:
-            if os.path.exists(temporary):
-                os.unlink(temporary)
+        save_checkpoint_atomic(chk, "best_model.pt")
         print("Done.")
 
 
@@ -252,7 +255,7 @@ if __name__ == "__main__":
     p.add_argument(
         "--update-stored",
         action="store_true",
-        help="rewrite best_model.pt's stored val_bpb/skel/cd/cc to today's values",
+        help="rewrite best_model.pt's stored scores (val_f1 and protocol included) to today's values",
     )
     args = p.parse_args()
     reevaluate(update_stored=args.update_stored)

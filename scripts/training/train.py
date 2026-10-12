@@ -50,12 +50,19 @@ except ImportError:
     pass
 
 from torch.amp import GradScaler, autocast
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, default_collate
 
 from scripts import wandb_tracking
 from scripts.betti_loss_module import BettiLoss
 from scripts.cldice_loss import SoftClDiceLoss
 from scripts.training.config import AuxiliaryConfig, ExperimentConfig
+from scripts.training.promotion import (
+    VALIDATION_PROTOCOL,
+    IncumbentUnavailable,
+    read_incumbent_val_f1,
+    save_checkpoint_atomic,
+    validation_indices,
+)
 from scroll_augmentations import apply_scroll_specific_3d_augmentations
 
 try:
@@ -289,6 +296,33 @@ def is_f1_improvement(val_f1: float, ap_lift: float, best_val_f1: float) -> bool
     return val_f1 > best_val_f1 + F1_NOISE_TOLERANCE
 
 
+def promotion_decision(
+    val_f1: float,
+    ap_lift: float,
+    *,
+    submittable: bool,
+    enforce_prize_gates: bool,
+    validation_complete: bool,
+    incumbent_path: str = "best_model.pt",
+):
+    """Whether this run replaces the incumbent: (promote, incumbent_val_f1, reason).
+
+    ``reason`` names what blocked the comparison itself (an incomplete validation
+    sample, or an incumbent that cannot be read or was scored under another
+    protocol); it is None when the candidate was simply compared and lost. Every
+    path that cannot compare like with like fails closed.
+    """
+    try:
+        incumbent = read_incumbent_val_f1(incumbent_path)
+    except IncumbentUnavailable as exc:
+        return False, float("nan"), str(exc)
+    if not validation_complete:
+        return False, incumbent, "the validation sample is incomplete (failed reads)"
+    if enforce_prize_gates and not submittable:
+        return False, incumbent, None
+    return is_f1_improvement(val_f1, ap_lift, incumbent), incumbent, None
+
+
 def pooled_segmentation_metrics(all_probs, all_targets):
     """Pool per-patch validation predictions/targets and score them with the
     detector's honest metric contract (single source of truth). Every pixel is
@@ -303,6 +337,142 @@ def pooled_segmentation_metrics(all_probs, all_targets):
     label = torch.cat([t.reshape(-1) for t in all_targets]).numpy()
     mask = np.ones_like(label, dtype=bool)
     return segmentation_metrics(prob, label, mask)
+
+
+# Warmup then cosine decay, as fractions of the time budget. The schedule used to
+# be in steps, from an assumed 0.2 s/step; production steps take 3-5 s, so a 900 s
+# cycle ran ~250 of an estimated 4,500 steps and ended inside the 562-step warmup,
+# at ~45% of the intended learning rate and without ever annealing.
+WARMUP_FRACTION = 0.125
+
+
+def budget_lr_factor(progress: float, warmup_fraction: float = WARMUP_FRACTION):
+    """Learning-rate multiplier after ``progress`` (0..1) of the time budget."""
+    progress = min(max(progress, 0.0), 1.0)
+    if progress < warmup_fraction:
+        return progress / warmup_fraction
+    decay = (progress - warmup_fraction) / (1.0 - warmup_fraction)
+    return 0.5 * (1.0 + math.cos(math.pi * decay))
+
+
+def shuffled_loader(dataset, batch_size: int, seed: int) -> DataLoader:
+    """Training batches drawn in a seeded random order over the whole catalogue.
+
+    Without a sampler the loader read the catalogue in raster order from index 0,
+    and a cycle only reaches ~1,000 patches: every cycle fine-tuned on the same
+    strip at the top of the fragment (and UA-MT on the top ~220 px of the
+    volume). Each re-iteration after StopIteration draws a fresh permutation.
+    """
+    generator = torch.Generator()
+    generator.manual_seed(seed)
+    return DataLoader(
+        dataset,
+        batch_size=batch_size,
+        shuffle=True,
+        generator=generator,
+        num_workers=0,  # 0 prevents semaphore leaks (resource_tracker warnings)
+        pin_memory=True,
+    )
+
+
+def build_validation_dataset(config: ExperimentConfig):
+    """The validation catalogue promotion is scored on (see promotion.py).
+
+    Reads are strict: a failed read raises instead of returning an all-zero patch,
+    which would silently drop out of the sample as an ink-free patch.
+    """
+    parent_dir = os.path.dirname(config.val_uri.rstrip("/"))
+    labels_path = os.path.join(parent_dir, "inklabels_refined.png")
+    if not os.path.exists(labels_path):
+        labels_path = os.path.join(parent_dir, "inklabels_filled.png")
+        if not os.path.exists(labels_path):
+            labels_path = os.path.join(parent_dir, "inklabels.png")
+
+    mask_path = os.path.join(parent_dir, "mask.png")
+    patches_json_path = os.path.join(parent_dir, "patches.json")
+    # Validation uses target_fiber_source="sobel_z" regardless of training
+    # config — val doesn't use target_fiber (only ink) and we want to avoid
+    # paying Frangi cost on every val patch.
+    return VesuviusLabeledDataset(
+        config.val_uri,
+        labels_path,
+        mask_path if os.path.exists(mask_path) else None,
+        config.patch_size,
+        config.num_layers + 8,
+        seed=42,
+        cache_dir=config.cache_dir,
+        use_ridges=config.use_ridges,
+        ridge_sigma=getattr(config, "ridge_sigma", 2.0),
+        use_lasagna=getattr(config, "use_lasagna", False),
+        require_ink=False,
+        target_fiber_source="sobel_z",
+        patches_json=patches_json_path if os.path.exists(patches_json_path) else None,
+        strict_reads=True,
+    )
+
+
+def _sigmoid_ink(model, x):
+    out = model(x)
+    return torch.sigmoid(out[0] if isinstance(out, tuple) else out)
+
+
+def collect_validation_predictions(
+    model,
+    dataset,
+    num_layers: int,
+    device,
+    batch_size: int = 4,
+    amp_enabled=False,
+    probabilities=_sigmoid_ink,
+):
+    """Score the protocol's fixed sample of ``dataset``.
+
+    Returns per-patch ink probabilities and targets (each ``[1, 1, H, W]``, for
+    ink-containing patches only) and diagnostics. ``batch_size`` only groups the
+    forward passes: which patches count is decided per patch, so it does not change
+    the result. ``complete`` is False when any read or forward pass failed; such a
+    sample is not the protocol's sample and cannot support a promotion.
+    ``probabilities(model, x)`` maps an input batch to ink probabilities; checkpoint
+    tools pass a validating version.
+    """
+    indices = validation_indices(len(dataset))
+    diag = {
+        "protocol": VALIDATION_PROTOCOL,
+        "requested_patches": int(len(indices)),
+        "empty_target_patches": 0,
+        "batch_errors": 0,
+    }
+    all_probs, all_targets = [], []
+    model.eval()
+    with torch.no_grad():
+        for start in range(0, len(indices), batch_size):
+            chunk = indices[start : start + batch_size]
+            try:
+                val_x_raw, val_target, _fiber = default_collate(
+                    [dataset[int(i)] for i in chunk]
+                )
+                val_x = val_x_raw[:, :, 4 : 4 + num_layers].to(device)
+                if val_target.dim() == 3:
+                    val_target = val_target.unsqueeze(1)
+                with autocast(device_type=device.type, enabled=amp_enabled):
+                    prob_2d = probabilities(model, val_x).float().cpu()
+            except Exception as exc:
+                diag["batch_errors"] += 1
+                if diag["batch_errors"] <= 3:
+                    print(
+                        f"  Warning: validation patches {chunk.tolist()} failed: "
+                        f"{type(exc).__name__}: {exc}"
+                    )
+                continue
+            for j in range(len(chunk)):
+                if torch.sum(val_target[j].float()) < 1.0:
+                    diag["empty_target_patches"] += 1
+                    continue
+                all_probs.append(prob_2d[j : j + 1])
+                all_targets.append(val_target[j : j + 1].float().cpu())
+    diag["usable_patches"] = len(all_probs)
+    diag["complete"] = diag["batch_errors"] == 0
+    return all_probs, all_targets, diag
 
 
 # The Dice-optimal binarization threshold is not the topology-optimal one. On
@@ -1185,16 +1355,16 @@ def train(config: ExperimentConfig):
             datasets.append(ds)
 
         combined_ds = ConcatDataset(datasets) if len(datasets) > 1 else datasets[0]
-        # Set num_workers to 0 to prevent semaphore leaks (resource_tracker warnings)
-        num_workers = 0
-        return DataLoader(
+        return shuffled_loader(
             combined_ds,
-            batch_size=config.batch_size,
-            num_workers=num_workers,
-            pin_memory=True,
-            multiprocessing_context="spawn" if num_workers > 0 else None,
+            config.batch_size,
+            sampling_seed + (1 if is_unlabeled else 0),
         )
 
+    # Fresh per run, so successive warm-started cycles see different patches;
+    # recorded in run_result.json and the checkpoint.
+    sampling_seed = int.from_bytes(os.urandom(4), "little") & 0x7FFFFFFF
+    print(f"Training sampling seed: {sampling_seed}")
     data_loader = get_dataloader(config.uris)
     data_iter = iter(data_loader)
 
@@ -1203,44 +1373,9 @@ def train(config: ExperimentConfig):
         unlabeled_data_loader = get_dataloader(config.unlabeled_uris, is_unlabeled=True)
         unlabeled_data_iter = iter(unlabeled_data_loader)
 
-    # Use fixed seed and num_workers=0 for validation to ensure absolute determinism
-    def get_val_dataloader(uri):
-        parent_dir = os.path.dirname(uri.rstrip("/"))
-        labels_path = os.path.join(parent_dir, "inklabels_refined.png")
-        if not os.path.exists(labels_path):
-            labels_path = os.path.join(parent_dir, "inklabels_filled.png")
-            if not os.path.exists(labels_path):
-                labels_path = os.path.join(parent_dir, "inklabels.png")
-
-        mask_path = os.path.join(parent_dir, "mask.png")
-        patches_json_path = os.path.join(parent_dir, "patches.json")
-        # Use require_ink=True for validation to ensure meaningful Dice scores
-        # Validation uses target_fiber_source="sobel_z" regardless of training
-        # config — val doesn't use target_fiber (only ink) and we want to avoid
-        # paying Frangi cost on every val patch.
-        ds = VesuviusLabeledDataset(
-            uri,
-            labels_path,
-            mask_path if os.path.exists(mask_path) else None,
-            config.patch_size,
-            config.num_layers + 8,
-            seed=42,
-            cache_dir=config.cache_dir,
-            use_ridges=config.use_ridges,
-            ridge_sigma=getattr(config, "ridge_sigma", 2.0),
-            use_lasagna=getattr(config, "use_lasagna", False),
-            require_ink=False,
-            target_fiber_source="sobel_z",
-            patches_json=patches_json_path
-            if os.path.exists(patches_json_path)
-            else None,
-        )
-        return DataLoader(
-            ds, batch_size=config.batch_size, num_workers=0, pin_memory=True
-        )
-
-    val_data_loader = get_val_dataloader(config.val_uri)
-    val_data_iter = iter(val_data_loader)
+    # Built before training so a missing or empty validation catalogue fails
+    # in seconds, not after the training budget.
+    val_dataset = build_validation_dataset(config)
 
     model = build_model(config, v_config, device)
 
@@ -1342,37 +1477,19 @@ def train(config: ExperimentConfig):
             param.detach_()
         ema_model.eval()
 
-    # 1. Linear Scaling Rule for LR
-    config.lr = config.lr * (config.batch_size / 16.0)
+    # Linear scaling rule. Kept local: config.lr is the recorded setting, and
+    # scaling it in place wrote the scaled value into checkpoints and history.tsv.
+    peak_lr = config.lr * (config.batch_size / 16.0)
 
-    # 2. Budget-Aware Scheduling
-    # Estimate throughput: ~0.2s per step (conservative estimate for base_feat=64)
-    estimated_step_time = 0.2
-    max_steps = max(1000, int(config.time_budget / estimated_step_time))
-    warmup_steps = int(max_steps * 0.125)  # 12.5% warmup
-
+    # Schedule by elapsed fraction of the time budget (see budget_lr_factor).
     print(
-        f"Budget-Aware Scheduling: max_steps={max_steps}, warmup_steps={warmup_steps}, scaled_lr={config.lr:.2e}"
+        f"Budget-time schedule: {WARMUP_FRACTION:.1%} warmup then cosine decay over "
+        f"{config.time_budget}s, peak_lr={peak_lr:.2e}"
     )
 
     optimizer = torch.optim.AdamW(
-        model.parameters(), lr=config.lr, weight_decay=config.weight_decay
+        model.parameters(), lr=0.0, weight_decay=config.weight_decay
     )
-
-    def lr_lambda(current_step: int):
-        if current_step < warmup_steps:
-            return float(current_step) / float(max(1, warmup_steps))
-        clamped_step = min(current_step, max_steps)
-        return 0.5 * (
-            1.0
-            + math.cos(
-                math.pi
-                * (clamped_step - warmup_steps)
-                / float(max(1, max_steps - warmup_steps))
-            )
-        )
-
-    scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda)
     amp_enabled = False  # Disabled for NaN debugging
     scaler = GradScaler(device=device.type, enabled=amp_enabled)
 
@@ -1500,10 +1617,10 @@ def train(config: ExperimentConfig):
 
         # Generate two augmented views for DINO-Lite Consistency
         x_aug1, target_ink_aug1, target_fiber_aug1 = apply_augmentations(
-            x_orig, target_ink, target_fiber, step, max_steps, config=config
+            x_orig, target_ink, target_fiber, step, None, config=config
         )
         x_aug2, _, _ = apply_augmentations(
-            x_orig, target_ink, target_fiber, step, max_steps, config=config
+            x_orig, target_ink, target_fiber, step, None, config=config
         )
 
         # UAMT Unlabeled Augmentations
@@ -1517,10 +1634,10 @@ def train(config: ExperimentConfig):
                 device=device,
             )
             x_unl_aug_student, _, _ = apply_augmentations(
-                x_unl_orig, dummy_ink, dummy_fiber, step, max_steps, config=config
+                x_unl_orig, dummy_ink, dummy_fiber, step, None, config=config
             )
             x_unl_aug_teacher, _, _ = apply_augmentations(
-                x_unl_orig, dummy_ink, dummy_fiber, step, max_steps, config=config
+                x_unl_orig, dummy_ink, dummy_fiber, step, None, config=config
             )
 
         # Compute Structure Tensor targets on the fly for view 1
@@ -1770,13 +1887,13 @@ def train(config: ExperimentConfig):
                 print(f"DEBUG: NaN in weights for {name} at step {step}")
 
         torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+        current_lr = peak_lr * budget_lr_factor(
+            total_training_time / config.time_budget if config.time_budget > 0 else 1.0
+        )
+        for group in optimizer.param_groups:
+            group["lr"] = current_lr
         scaler.step(optimizer)
         scaler.update()
-        scheduler.step()
-
-        # Debug: Log current learning rate
-        if step % 10 == 0:
-            current_lr = scheduler.get_last_lr()[0]
 
         # UAMT: Update Teacher EMA
         if config.use_uamt and ema_model is not None:
@@ -1802,7 +1919,7 @@ def train(config: ExperimentConfig):
         if step % 10 == 0:
             remaining = max(0, config.time_budget - total_training_time)
             print(
-                f"Step {step:04d} | Loss: {smooth_loss:.6f} | dt: {dt * 1000:.0f}ms | Remaining: {remaining:.0f}s"
+                f"Step {step:04d} | Loss: {smooth_loss:.6f} | LR: {current_lr:.2e} | dt: {dt * 1000:.0f}ms | Remaining: {remaining:.0f}s"
             )
             sys.stdout.flush()
             wandb_tracking.log(
@@ -1825,7 +1942,7 @@ def train(config: ExperimentConfig):
         ):
             periodic_pixel_auc_eval(
                 model,
-                val_data_loader.dataset,
+                val_dataset,
                 config,
                 device,
                 step,
@@ -1835,7 +1952,8 @@ def train(config: ExperimentConfig):
             break
 
     print(
-        "Evaluating metrics on 100 ink-containing patches (searching for best threshold)..."
+        f"Evaluating metrics on validation protocol {VALIDATION_PROTOCOL} "
+        "(ink-containing patches of a fixed sample; searching for best threshold)..."
     )
     if not SKELETON_DISTANCE_AVAILABLE:
         print(
@@ -1848,55 +1966,24 @@ def train(config: ExperimentConfig):
     val_cc_diffs = []
     val_crit_comps = []
     val_mean_aps = []
-    validation_diag = {
-        "requested_patches": 100,
-        "empty_target_patches": 0,
-        "batch_errors": 0,
-        "cc_errors": 0,
-        "skeleton_errors": 0,
-        "centerline_errors": 0,
-        "mean_ap_errors": 0,
-    }
 
-    all_probs = []
-    all_targets = []
-
-    model.eval()
     torch.manual_seed(42)
-    with torch.no_grad():
-        for val_idx in range(100):
-            try:
-                val_x_raw, val_target, _val_fiber = next(val_data_iter)
-                val_x = val_x_raw[:, :, 4 : 4 + config.num_layers].to(device)
-                if val_target is not None and val_target.numel() > 0:
-                    val_target = val_target.to(device)
-                    if val_target.dim() == 3:
-                        val_target = val_target.unsqueeze(1)
-
-                    target_sum = torch.sum(val_target.float())
-                    if target_sum < 1.0:
-                        validation_diag["empty_target_patches"] += 1
-                        continue
-
-                    with autocast(device_type=device.type, enabled=amp_enabled):
-                        val_out = model(val_x)
-                        if isinstance(val_out, tuple):
-                            out_2d = val_out[0]
-                        else:
-                            out_2d = val_out
-
-                    prob_2d = torch.sigmoid(out_2d)
-                    all_probs.append(prob_2d.cpu())
-                    all_targets.append(val_target.cpu())
-
-            except StopIteration:
-                val_data_iter = iter(val_data_loader)
-            except Exception as exc:
-                validation_diag["batch_errors"] += 1
-                if validation_diag["batch_errors"] <= 3:
-                    print(
-                        f"  Warning: validation batch {val_idx} failed: {type(exc).__name__}: {exc}"
-                    )
+    all_probs, all_targets, validation_diag = collect_validation_predictions(
+        model,
+        val_dataset,
+        config.num_layers,
+        device,
+        batch_size=config.batch_size,
+        amp_enabled=amp_enabled,
+    )
+    validation_diag.update(
+        {
+            "cc_errors": 0,
+            "skeleton_errors": 0,
+            "centerline_errors": 0,
+            "mean_ap_errors": 0,
+        }
+    )
 
     best_dice = 0.0
     best_threshold = 0.5
@@ -2036,29 +2123,16 @@ def train(config: ExperimentConfig):
     submittable = bool(window_ok and villa_metrics_ok)
     log_file = "results.tsv"
     # Promotion runs on the honest F1 + AP-lift contract; val_bpb / topology are
-    # reported but no longer decide. Fail closed on a non-finite F1.
-    is_improvement = True
-    if not np.isfinite(val_f1):
-        is_improvement = False
-    if getattr(config, "enforce_prize_gates", True) and not submittable:
-        is_improvement = False
-
-    best_previous_val_f1 = float("-inf")
-    if os.path.exists("best_model.pt"):
-        try:
-            chk = torch.load("best_model.pt", map_location="cpu", weights_only=False)
-            best_previous_val_f1 = chk.get("val_f1", float("-inf"))
-        except Exception as exc:
-            print(
-                f"Warning: could not load best_model.pt for improvement comparison: {type(exc).__name__}: {exc}"
-            )
-    if not np.isfinite(best_previous_val_f1):
-        best_previous_val_f1 = float("-inf")  # NaN/None baseline -> bootstrap
-
-    if is_improvement:
-        is_improvement = is_f1_improvement(
-            val_f1, ap_prevalence_lift, best_previous_val_f1
-        )
+    # reported but no longer decide.
+    is_improvement, best_previous_val_f1, promotion_blocked = promotion_decision(
+        val_f1,
+        ap_prevalence_lift,
+        submittable=submittable,
+        enforce_prize_gates=getattr(config, "enforce_prize_gates", True),
+        validation_complete=validation_diag["complete"],
+    )
+    if promotion_blocked:
+        print(f"Promotion blocked: {promotion_blocked}")
 
     peak_vram_mb = torch.cuda.max_memory_allocated() / 1024**2
     num_params_M = sum(p.numel() for p in model.parameters()) / 1e6
@@ -2079,8 +2153,8 @@ def train(config: ExperimentConfig):
     print(f"avg_crit_comp:         {avg_crit_comp:.3f}")
     print(f"avg_mean_ap:           {avg_mean_ap:.4f}")
     print(
-        f"val_f1:                {val_f1:.6f} (thr {val_f1_threshold:.3f}) "
-        f"{'[NEW BEST]' if is_improvement else ''}"
+        f"val_f1:                {val_f1:.6f} (thr {val_f1_threshold:.3f}; "
+        f"incumbent {best_previous_val_f1:.6f}) {'[NEW BEST]' if is_improvement else ''}"
     )
     print(f"ap_prevalence_lift:    {ap_prevalence_lift:.4f}")
     print(f"roc_auc:               {roc_auc:.4f}  [selection: F1 gated by AP-lift]")
@@ -2142,7 +2216,7 @@ def train(config: ExperimentConfig):
         ckpt_dir = os.path.dirname(ckpt_out)
         if ckpt_dir:
             os.makedirs(ckpt_dir, exist_ok=True)
-        torch.save(
+        save_checkpoint_atomic(
             {
                 "model_state_dict": model.state_dict(),
                 "val_bpb": val_bpb,
@@ -2152,6 +2226,8 @@ def train(config: ExperimentConfig):
                 "avg_mean_ap": avg_mean_ap,
                 "val_f1": float(val_f1),
                 "val_f1_threshold": float(val_f1_threshold),
+                "val_protocol": VALIDATION_PROTOCOL,
+                "train_sampling_seed": sampling_seed,
                 "ap_prevalence_lift": float(ap_prevalence_lift),
                 "roc_auc": float(roc_auc),
                 "val_positive_rate": float(val_positive_rate),
@@ -2169,7 +2245,7 @@ def train(config: ExperimentConfig):
             f"Saving new best model — val_f1: {val_f1:.6f} "
             f"(ap_lift {ap_prevalence_lift:.3f}, thr {val_f1_threshold:.3f})"
         )
-        torch.save(
+        save_checkpoint_atomic(
             {
                 "model_state_dict": model.state_dict(),
                 "val_bpb": val_bpb,
@@ -2179,6 +2255,8 @@ def train(config: ExperimentConfig):
                 "avg_mean_ap": avg_mean_ap,
                 "val_f1": float(val_f1),
                 "val_f1_threshold": float(val_f1_threshold),
+                "val_protocol": VALIDATION_PROTOCOL,
+                "train_sampling_seed": sampling_seed,
                 "ap_prevalence_lift": float(ap_prevalence_lift),
                 "roc_auc": float(roc_auc),
                 "val_positive_rate": float(val_positive_rate),
@@ -2228,7 +2306,7 @@ def train(config: ExperimentConfig):
         if hasattr(os, "sync"):
             os.sync()
     else:
-        torch.save(
+        save_checkpoint_atomic(
             {
                 "model_state_dict": model.state_dict(),
                 "val_bpb": val_bpb,
@@ -2237,6 +2315,8 @@ def train(config: ExperimentConfig):
                 "avg_cc_diff": avg_cc_diff,
                 "val_f1": float(val_f1),
                 "val_f1_threshold": float(val_f1_threshold),
+                "val_protocol": VALIDATION_PROTOCOL,
+                "train_sampling_seed": sampling_seed,
                 "ap_prevalence_lift": float(ap_prevalence_lift),
                 "roc_auc": float(roc_auc),
                 "val_positive_rate": float(val_positive_rate),
@@ -2265,6 +2345,10 @@ def train(config: ExperimentConfig):
         "avg_mean_ap": float(avg_mean_ap),
         "val_f1": float(val_f1),
         "val_f1_threshold": float(val_f1_threshold),
+        "val_protocol": VALIDATION_PROTOCOL,
+        "incumbent_val_f1": float(best_previous_val_f1),
+        "promotion_blocked": promotion_blocked,
+        "train_sampling_seed": sampling_seed,
         "ap_prevalence_lift": float(ap_prevalence_lift),
         "roc_auc": float(roc_auc),
         "val_positive_rate": float(val_positive_rate),
@@ -2287,8 +2371,6 @@ def train(config: ExperimentConfig):
     if unlabeled_data_iter is not None:
         del unlabeled_data_iter
         del unlabeled_data_loader
-    del val_data_iter
-    del val_data_loader
 
     # Write run_result.json as the VERY LAST step
     with open("run_result.json", "w") as f:

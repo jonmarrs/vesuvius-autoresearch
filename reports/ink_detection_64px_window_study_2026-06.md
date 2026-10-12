@@ -64,6 +64,15 @@ lift. Adding real, same-scroll supervision did not move the needle.
 twelve hourly probes oscillate within 0.508–0.525, with no upward trend from hour 1
 to hour 11. Training longer is not a lever.
 
+> *Caveat (2026-10-12, design review of the loop):* this run used `train.py`'s
+> step-based schedule, which assumed 0.2 s/step. With `time_budget=43200` it planned
+> 216,000 steps with a 27,000-step warmup; at the ~1,000 steps/hour implied by the
+> hourly probes (`eval_every_steps=1000`), the whole run stayed inside warmup and
+> ended at ~44% of the configured `lr` without decaying. The loader also read the
+> catalogue in raster order (no shuffling). The curve is therefore flat under that
+> schedule and order; it has not been re-run under the corrected schedule. See
+> `docs/DESIGN_ARCHITECTURE_REVIEW_2026-10-12_AUTORESEARCH_LOOP.md`.
+
 **Capacity and pipeline are fine (overfit probe).** A fresh model handed a fixed
 batch of 16 ink patches with no augmentation drives train pixel AUC from 0.42 to
 **1.0 in 100 steps** and holds it. The architecture can perfectly represent a

@@ -2,6 +2,7 @@ import os
 import unittest
 
 import numpy as np
+import pytest
 import torch
 from PIL import Image
 
@@ -112,6 +113,20 @@ def test_default_valid_coords_cache_is_reused(tmp_path, monkeypatch):
     )
 
     np.testing.assert_array_equal(second.valid_coords, first.valid_coords)
+
+
+def test_a_catalogue_with_no_qualifying_patch_is_refused(tmp_path, monkeypatch):
+    # The old last resort used patch (0, 0) and cached it: in 203 logged loop runs
+    # the validation set that selected models was that one corner patch.
+    volume_uri, labels_path = _tiny_fragment(tmp_path)
+    Image.fromarray(np.zeros((32, 32), np.uint8)).save(labels_path)
+    cache = tmp_path / "cache"
+    monkeypatch.setattr(vesuvius_loader, "DEFAULT_CACHE_DIR", str(cache), raising=False)
+    with pytest.raises(ValueError, match="coverage"):
+        VesuviusLabeledDataset(
+            volume_uri, labels_path, patch_size=16, num_layers=4, require_ink=True
+        )
+    assert not list(cache.glob("valid_coords_*.npy"))
 
 
 if __name__ == "__main__":

@@ -12,6 +12,7 @@ from typing import Any
 from scripts.loop_control import acquire_lock
 from scripts.process_supervisor import ProcessSupervisor
 from scripts.training.config import ExperimentConfig
+from scripts.training.promotion import IncumbentUnavailable, read_incumbent_val_f1
 
 LOCK_FILE = "autoresearch.lock"
 
@@ -282,6 +283,21 @@ def main():
     if os.path.exists(".loop_paused"):
         print("Autoresearch is paused. Use ./start.sh to resume.")
         return
+
+    # The incumbent must be comparable before any GPU time is spent: train.py
+    # refuses to promote over an unreadable or differently-scored best_model.pt,
+    # so a shift started anyway would revert every cycle. The watchdog restarts
+    # a returned loop, which reprints this until the operator acts.
+    try:
+        best_val_f1 = read_incumbent_val_f1("best_model.pt")
+    except IncumbentUnavailable as exc:
+        print(f"Not starting: {exc}")
+        return
+    print(
+        f"Starting with incumbent val_f1 from best_model.pt: {best_val_f1:.6f}"
+        if best_val_f1 > float("-inf")
+        else "No best_model.pt yet; the first lift-positive cycle bootstraps it."
+    )
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
 
@@ -314,26 +330,6 @@ def main():
 
     with open(CURRENT_LOG_PTR, "w") as f:
         f.write(log_filename)
-
-    # Load best val_f1 baseline at startup (display only — the promotion decision
-    # lives in train.py's is_f1_improvement). A pre-rewire best_model.pt has no
-    # val_f1 key; the first submittable, lift-positive cycle bootstraps it.
-    best_val_f1 = float("nan")
-    if os.path.exists("best_model.pt"):
-        try:
-            import torch
-
-            best_model_data = torch.load(
-                "best_model.pt", map_location="cpu", weights_only=False
-            )
-            best_val_f1 = best_model_data.get("val_f1", float("nan"))
-            print(
-                f"Starting with baseline val_f1 from best_model.pt: {best_val_f1:.6f}"
-                if best_val_f1 == best_val_f1
-                else "Baseline best_model.pt predates val_f1; first honest cycle bootstraps it."
-            )
-        except Exception as e:
-            print(f"Warning: Could not load best_model.pt baseline: {e}")
 
     print(f"--- {shift_name} STARTING AT {time.strftime('%H:%M:%S')} ---")
     print(f"Logging to: {log_filename}")
@@ -389,113 +385,87 @@ def main():
 
             break
 
-        # Load current best config
-        if os.path.exists(CONFIG_FILE):
-            config = ExperimentConfig.load(CONFIG_FILE)
-        else:
-            config = ExperimentConfig()
+        # Every cycle is a single tweak of the promoted config. The every-10th-cycle
+        # "GP-winner baseline" (timesformer, patch 256) was removed 2026-10-12: the
+        # VRAM heuristic below scored it 74.7 > 1.5, so it was always skipped, and
+        # had it run it could have been promoted, replacing config.json with a
+        # from-scratch timesformer. Run-to-run calibration is scripts/f1_noise_probe.py.
 
-        # Sprint 022: Fixed GP-Winner Baseline Injection
-        is_pinned_cycle = i % 10 == 0
+        # Conditional-axis gating: drop templates whose `applies_when`
+        # predicate is False under the current baseline config (e.g.
+        # ridge_sigma when use_ridges=False). Avoids spending cycles on
+        # axes that produce identical results to the baseline.
+        baseline_for_gate = (
+            ExperimentConfig.load(CONFIG_FILE)
+            if os.path.exists(CONFIG_FILE)
+            else ExperimentConfig()
+        )
+        active_templates = active_tweaks(baseline_for_gate)
+        if not active_templates:
+            print("No active tweaks differ from the baseline. Ending sprint.")
+            break
 
-        if is_pinned_cycle:
-            print(f"Cycle {i}: Injecting FIXED GP-WINNER BASELINE for calibration...")
-            # Maintain current URIs but force other parameters
-            current_uris = config.uris
-            current_val_uri = config.val_uri
-            config = ExperimentConfig(
-                uris=current_uris,
-                val_uri=current_val_uri,
-                architecture="timesformer",
-                patch_size=256,
-                num_layers=16,
-                lr=3e-5,
-                loss_ink_bce=0.5,
-                loss_ink_dice=0.5,
-                loss_fiber_bce=0.0,
-                loss_st=0.0,
-                label_smoothing=0.25,
-                pinned=True,
-                time_budget=default_budget,
-            )
-            tweak_name = "gp_winner_baseline"
-            family = "baseline"
-        else:
-            # Conditional-axis gating: drop templates whose `applies_when`
-            # predicate is False under the current baseline config (e.g.
-            # ridge_sigma when use_ridges=False). Avoids spending cycles on
-            # axes that produce identical results to the baseline.
-            baseline_for_gate = (
+        # Success-Biased Decay: Every cycle, all (active) families decay slightly.
+        # This ensures that even successful families eventually lose their dominance
+        # if they stop producing improvements, forcing exploration of other families.
+        families = [t["family"] for t in active_templates]
+        for f in set(families):
+            success_counts[f] = max(1.0, success_counts[f] * 0.95)
+
+        weights = template_weights(active_templates, success_counts)
+
+        # Frontier-V: Config-Space Entropy Protection
+        # Avoid testing the exact same thing twice in a row if it failed recently
+        max_retries = 10
+        applied = False
+        for _ in range(max_retries):
+            template = random.choices(active_templates, weights=weights, k=1)[0]
+            val = random.choice(template["vals"])
+            family = template["family"]
+            attr = template["attr"]
+
+            # Apply tweak to a copy of current config
+            test_config = (
                 ExperimentConfig.load(CONFIG_FILE)
                 if os.path.exists(CONFIG_FILE)
                 else ExperimentConfig()
             )
-            active_templates = active_tweaks(baseline_for_gate)
-            if not active_templates:
-                print("No active tweaks differ from the baseline. Ending sprint.")
-                break
+            # Ensure we don't carry over 'pinned' status to evolved configs
+            test_config.pinned = False
+            test_config.time_budget = default_budget
+            setattr(test_config, attr, val)
 
-            # Success-Biased Decay: Every cycle, all (active) families decay slightly.
-            # This ensures that even successful families eventually lose their dominance
-            # if they stop producing improvements, forcing exploration of other families.
-            families = [t["family"] for t in active_templates]
-            for f in set(families):
-                success_counts[f] = max(1.0, success_counts[f] * 0.95)
+            cfg_dict = asdict(test_config)
+            # Remove volatile fields for comparison
+            for k in ["uri", "val_uri", "cache_dir", "time_budget"]:
+                cfg_dict.pop(k, None)
 
-            weights = template_weights(active_templates, success_counts)
-
-            # Frontier-V: Config-Space Entropy Protection
-            # Avoid testing the exact same thing twice in a row if it failed recently
-            max_retries = 10
-            applied = False
-            for _ in range(max_retries):
-                template = random.choices(active_templates, weights=weights, k=1)[0]
-                val = random.choice(template["vals"])
-                family = template["family"]
-                attr = template["attr"]
-
-                # Apply tweak to a copy of current config
-                test_config = (
-                    ExperimentConfig.load(CONFIG_FILE)
-                    if os.path.exists(CONFIG_FILE)
-                    else ExperimentConfig()
-                )
-                # Ensure we don't carry over 'pinned' status to evolved configs
-                test_config.pinned = False
-                test_config.time_budget = default_budget
-                setattr(test_config, attr, val)
-
-                cfg_dict = asdict(test_config)
-                # Remove volatile fields for comparison
-                for k in ["uri", "val_uri", "cache_dir", "time_budget"]:
-                    cfg_dict.pop(k, None)
-
-                if cfg_dict not in recent_configs:
-                    config = test_config
-                    recent_configs.append(cfg_dict)
-                    save_recent_configs(recent_configs)
-                    applied = True
-                    break
-                else:
-                    print(
-                        f"Cycle {i}: Sampled duplicate config ({attr}={val}). Re-sampling for entropy..."
-                    )
-
-            # Exhaustion fallback: if max_retries ran out without finding a
-            # non-duplicate config, accept the LAST sampled config rather than
-            # silently fall through (which would run the baseline config but
-            # log it as having had the last rejected tweak — pollutes
-            # success_counts attribution). Reset recent_configs to clear the
-            # saturation so the next cycle has a fresh search space.
-            if not applied:
-                print(
-                    f"Cycle {i}: {max_retries} retries exhausted; accepting last sampled config ({attr}={val}) and resetting recent_configs."
-                )
+            if cfg_dict not in recent_configs:
                 config = test_config
-                recent_configs = [cfg_dict]
+                recent_configs.append(cfg_dict)
                 save_recent_configs(recent_configs)
+                applied = True
+                break
+            else:
+                print(
+                    f"Cycle {i}: Sampled duplicate config ({attr}={val}). Re-sampling for entropy..."
+                )
 
-            tweak_name = f"{attr}_{val}"
+        # Exhaustion fallback: if max_retries ran out without finding a
+        # non-duplicate config, accept the LAST sampled config rather than
+        # silently fall through (which would run the baseline config but
+        # log it as having had the last rejected tweak — pollutes
+        # success_counts attribution). Reset recent_configs to clear the
+        # saturation so the next cycle has a fresh search space.
+        if not applied:
+            print(
+                f"Cycle {i}: {max_retries} retries exhausted; accepting last sampled config ({attr}={val}) and resetting recent_configs."
+            )
+            config = test_config
+            recent_configs = [cfg_dict]
+            save_recent_configs(recent_configs)
+
+        tweak_name = f"{attr}_{val}"
 
         # Pre-flight VRAM estimation (Complexity Heuristic - Sprint 023 Refined)
         # Standard baseline: 64 feat, 24 layers, 64 patch, 8 batch, 16 blocks ~= 14GB VRAM
@@ -627,6 +597,7 @@ def main():
             print(f"Subprocess error in cycle {i}: {e}")
 
         val_bpb = train_loss = params = vram = vps = val_f1 = "N/A"
+        promotion_blocked = None
         is_success = False
         is_crash = False
         oom_detected = False
@@ -663,6 +634,7 @@ def main():
                 vps = res.get("throughput_Mvps", "N/A")  # type: ignore[attr-defined]
                 val_f1 = res.get("val_f1", "N/A")  # type: ignore[attr-defined]
                 is_success = res.get("is_success", False)  # type: ignore[attr-defined]
+                promotion_blocked = res.get("promotion_blocked")  # type: ignore[attr-defined]
             except Exception as e:
                 print(f"Error reading run_result.json: {e}")
                 is_crash = True
@@ -695,6 +667,8 @@ def main():
             )
 
             result_msg = "No improvement detected. Config reverted."
+            if promotion_blocked:
+                result_msg = f"Promotion blocked: {promotion_blocked}. Config reverted."
             if is_success:
                 result_msg = "Improvement detected. Config updated."
             elif is_crash:
@@ -716,9 +690,7 @@ def main():
             )
         else:
             best_str = (
-                f"{best_val_f1:.6f}"
-                if best_val_f1 == best_val_f1
-                else "n/a (pre-rewire)"
+                f"{best_val_f1:.6f}" if best_val_f1 > float("-inf") else "none yet"
             )
             print(f"No improvement. (val_f1: {val_f1}, best was: {best_str})")
 

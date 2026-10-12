@@ -394,9 +394,15 @@ class VesuviusLabeledDataset(torch.utils.data.Dataset):
                         y, x = pos
                         self.valid_coords.append((y, x))
 
-                # Ultimate fallback
+                # No silent (0, 0) stand-in: it was cached, and 203 logged runs
+                # validated (and selected models) on that single corner patch.
                 if not self.valid_coords:
-                    self.valid_coords.append((0, 0))
+                    raise ValueError(
+                        f"no {self.patch_size}px patch of {volume_uri} has "
+                        f"{'ink' if self.require_ink and self.labels is not None else 'mask'} "
+                        "coverage, even at the relaxed 1% thresholds; check the "
+                        "label/mask alignment and require_ink"
+                    )
 
             self.valid_coords = np.array(self.valid_coords, dtype=np.int32)
             print(f"  Found {len(self.valid_coords)} valid patches.")
