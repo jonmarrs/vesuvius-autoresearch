@@ -119,7 +119,14 @@ def main():
 
     print("Computing Skeleton Distance...")
     try:
-        skel_res = compute_skel_dist(gt_bin, pred_bin)
+        # Every call saves a histogram PNG to output_folder, "." by default.
+        skel_res = compute_skel_dist(
+            gt_bin,
+            pred_bin,
+            output_folder=str(
+                Path(__file__).resolve().parents[1] / "outputs" / "skeleton_hists"
+            ),
+        )
         if isinstance(skel_res, dict):
             results.update(skel_res)
         else:
