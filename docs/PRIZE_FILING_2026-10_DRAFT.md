@@ -18,8 +18,9 @@ clipped "#1780" to "#17".
 
 1. Re-read the **whole** Progress section of villa `scrollprize.org/docs/34_prizes.md` at current
    upstream: form URL, deadline and criteria. The criteria changed mid-month in September.
-2. The runner PR is villa #2022: opened 2026-10-09 after the gate passed 33/33 at `a329895ea`. On filing day,
-   record its state (open, merged or closed) and quote any maintainer reply verbatim.
+2. The runner PR is villa #2022: opened 2026-10-09 after the gate passed 33/33 at `a329895ea`,
+   **merged 2026-10-11** ([merge commit](https://github.com/ScrollPrize/villa/commit/7a7b3f677991954ec5ecff17b9b08ab30ff6a926)).
+   On filing day, re-check its state and quote any maintainer reply verbatim.
    Re-check #1928's state.
 3. Re-run `tests/test_filing_2026_10_numbers.py`. Every number below is bound to the file it comes from.
 4. Check every URL returns 200.
@@ -54,12 +55,13 @@ Published villa artifacts only, one consumer GPU.
 change by one number, `total_fg_pixels`. This month we checked three things that number silently
 depends on, against villa's own code and villa's own ink labels:
 
-* **The runner villa ships does not match the doc the loop follows.** Launched with the doc's
-  environment variables, `runners/run_single.py` exits before starting. With its required flags added
-  but GPUs pinned as documented, the fit silently runs as a single process. A config change passed
-  through the environment, the documented way to try a variant, is silently dropped, so the
-  "variant" runs as the baseline. Measured by running villa's runner with its steps stubbed.
-  [villa #2022](https://github.com/ScrollPrize/villa/pull/2022), opened 2026-10-09, fixes the doc.
+* **The runner documentation did not match the shipped CLI.** Before the fix,
+  `runners/run_single.py` exited before starting when launched with the documented
+  environment variables. With its required flags added
+  but GPUs pinned as documented, the fit silently ran as a single process. A config change passed
+  through the environment, the documented way to try a variant, was silently dropped, so the
+  "variant" ran as the baseline. Measured by running villa's runner with its steps stubbed.
+  [villa #2022](https://github.com/ScrollPrize/villa/pull/2022), opened 2026-10-09 and **merged 2026-10-11**, fixed the doc.
 * **A new render setting moves the metric far more than it moves reading.** villa #1818 added
   `vc_render_tifxyz --surface-interpolation smooth`. Its default is byte-identical to earlier builds.
   On the 8 labelled segments, in villa's own scoring pipeline:
