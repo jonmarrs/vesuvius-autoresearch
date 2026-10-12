@@ -1168,6 +1168,24 @@ cubes.** Pre-registered (`8a7b2d4f`).
 
 `reports/fiber_heldout_split.md`.
 
+**84. The fiber mask's failure on the two new Scroll-5 cubes is a real miss, not a frame offset or a threshold.**
+Pre-registered (`93115122`); all 21 ScrollGT fiber targets, the 11 in-sample ones as controls.
+
+* **Gates and control pass.** P ≥ 0.5 equals the shipped mask on all 21; coverage reproduces the published values. The
+  largest in-sample shift gain is 0.0102.
+* **No frame offset (P1 withheld):** the best shift within ±4 voxels gains 0.0020 and 0.0017; every axis peaks at or
+  next to zero.
+* **P2 held:** at P ≥ 0.1 coverage is 0.764 and 0.689, still below the in-sample Scroll-5 256³ minimum (0.8185).
+* **P3 FAILED:** their misses are softer than in sample (soft-miss fraction 0.340 vs at most 0.289). Verdict
+  `SOFTER_BUT_NOT_RESCUED`.
+* Descriptive: Scroll 3, where the mask holds, is softer still (0.364–0.464), so softness marks unseen data, not this
+  failure. What sets the two cubes apart is fiber with no voxel at P ≥ 0.05 within 2 voxels: 19.6% and 25.2%, against
+  5.7–10.7% on Scroll 3 and 5.2–16.9% in sample.
+* ScrollGT 0.6.0's two Scroll-5 targets are built correctly; finding 83's candidates (region, content, annotators)
+  remain.
+
+`reports/fiber_miss_diagnostic.md`.
+
 **85. villa PR #1934's automated fiber generator finds a quarter of the hand-traced fiber, and ScrollGT's ERL flattered
 it.** Pre-registered (`c5b3d6ae`); defaults, all 21 ScrollGT cubes, no failures, identity check passed.
 
