@@ -8,6 +8,8 @@ produced by this harness mean something.
 
 from __future__ import annotations
 
+from dataclasses import replace
+
 import numpy as np
 import pytest
 
@@ -212,3 +214,54 @@ def test_scores_dataclass_reports_tolerance():
     s = score_tracing(gt, oracle_from_skeleton(gt, SHAPE, 1.0), tolerance=1.75)
     assert isinstance(s, ConnectivityScores)
     assert s.tolerance == 1.75
+
+
+# --- graph validation ---------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "extra",
+    [
+        "every edge again",
+        "every edge again, reversed",
+        "one edge again",
+    ],
+)
+def test_a_duplicated_edge_is_rejected_not_scored(extra):
+    """The path-order walk goes out and back across a duplicate, ending a stretch
+    every edge. Unvalidated, a perfect trace of this 40-voxel fiber scored ERL 2.00
+    (all edges doubled, either orientation) or 20.61 (one edge doubled) instead of
+    40.00, with full coverage and no splits or merges to flag it. None of the 21
+    ScrollGT v0.7.0 fiber cubes contains a duplicate, so no published score moves."""
+    fiber = _straight_fiber(1, 16, 16, 5, 45)
+    gt = Skeleton(fibers=[fiber])
+    inst = oracle_from_skeleton(gt, SHAPE, 1.0)
+    added = {
+        "every edge again": fiber.edges,
+        "every edge again, reversed": fiber.edges[:, ::-1],
+        "one edge again": fiber.edges[[20]],
+    }[extra]
+    doubled = Skeleton(fibers=[replace(fiber, edges=np.vstack([fiber.edges, added]))])
+    with pytest.raises(ValueError, match="duplicate"):
+        score_tracing(doubled, inst, tolerance=0)
+
+
+def test_branches_loops_and_zero_length_edges_still_score():
+    """Validation targets duplicates only; legitimate graph shapes are unaffected."""
+    fiber = _straight_fiber(1, 16, 16, 5, 45)
+    inst = oracle_from_skeleton(Skeleton(fibers=[fiber]), SHAPE, 1.0)
+    reference = score_tracing(Skeleton(fibers=[fiber]), inst, tolerance=0).as_row()
+    branched = replace(
+        fiber,
+        node_ids=np.arange(len(fiber.coords) + 1),
+        coords=np.vstack([fiber.coords, [[16.0, 20.0, 25.0]]]),
+        edges=np.vstack([fiber.edges, [[20, len(fiber.coords)]]]),
+    )
+    loop = replace(fiber, edges=np.vstack([fiber.edges, [[len(fiber.coords) - 1, 0]]]))
+    self_edge = replace(fiber, edges=np.vstack([fiber.edges, [[7, 7]]]))
+    for variant in (branched, loop):
+        assert (
+            score_tracing(Skeleton(fibers=[variant]), inst, tolerance=0).gt_length > 40
+        )
+    zero = score_tracing(Skeleton(fibers=[self_edge]), inst, tolerance=0).as_row()
+    assert zero == reference

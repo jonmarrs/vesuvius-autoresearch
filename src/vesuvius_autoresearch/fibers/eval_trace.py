@@ -358,6 +358,11 @@ def _validate_fiber(fiber) -> None:
         or np.any(edges >= len(coords))
     ):
         raise ValueError("skeleton edges must be valid integer node pairs")
+    # The path-order walk crosses a duplicated edge out and back, ending a stretch at
+    # every edge: a perfect trace of a 40-voxel fiber scored ERL 2.00, or 20.61 with a
+    # single duplicate, at full coverage with no split or merge to show it.
+    if len(edges) and len(np.unique(np.sort(edges, axis=1), axis=0)) != len(edges):
+        raise ValueError("skeleton edges must not contain a duplicate node pair")
 
 
 def score_tracing(
@@ -370,7 +375,8 @@ def score_tracing(
     """Validate the inputs, then score with ScrollGT's definition (`_score_tracing_scrollgt`).
 
     Rejects what would otherwise be scored silently: non-integer, negative or empty instance
-    arrays, nonfinite or nonpositive step, negative tolerance, and malformed skeletons.
+    arrays, nonfinite or nonpositive step, negative tolerance, and malformed skeletons,
+    including a node pair joined by more than one edge.
     """
     instances = np.asarray(instances)
     if (
