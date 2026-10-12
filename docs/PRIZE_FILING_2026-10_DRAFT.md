@@ -66,25 +66,31 @@ Published villa artifacts only, one consumer GPU.
 
 **Merged into villa this month:**
 [villa #2022](https://github.com/ScrollPrize/villa/pull/2022) (merged 2026-10-11). `autoresearch.md` now launches
-the runner villa ships with the flags it takes. Before, a variant launched the documented way ran as the baseline.
+the runner villa ships with the flags it takes. Followed as written before, the launch failed in 5 measured ways
+(below). In one of them, a variant launched the documented way ran as the baseline.
 
 [villa #2044](https://github.com/ScrollPrize/villa/pull/2044) (**merged 2026-10-11 Pacific**).
 `get_ink_metrics.py` launched every fold together, exhausting workstation memory on outer windings.
 The fix adds opt-in `--sequential-folds`, averages folds in place and prints a hint for `rc=-9` failures.
-Its before/after runs show the w120–w129 strip completing on one GPU where concurrent folds were killed
-for lack of memory. The default fold concurrency is preserved; sequential execution is slower and
-reduces peak memory.
+Its before/after runs used one RTX 4090 in a 26 GiB memory limit:
+* on the w120–w129 strip (352M px), stock scoring was killed for lack of memory 70 s in, at ≥ 27.6 GB;
+  `--sequential-folds` scored it with a 13.8 GB peak in 1,009 s;
+* on a smaller inner strip, the three modes' counts agree to within 0.005%, the scorer's run-to-run noise.
+
+The default fold concurrency is preserved; sequential execution is slower and reduces peak memory.
 
 villa's autoresearch loop keeps or discards a change by one number, `total_fg_pixels`. This month we checked
 three things that number silently depends on, against villa's own code and villa's own ink labels:
 
-* **The runner documentation did not match the shipped CLI.** Before the fix,
-  `runners/run_single.py` exited before starting when launched with the documented
-  environment variables. With its required flags added
-  but GPUs pinned as documented, the fit silently ran as a single process. A config change passed
-  through the environment, the documented way to try a variant, was silently dropped, so the
-  "variant" ran as the baseline. Measured by running villa's runner with its steps stubbed.
-  #2022 fixed the doc.
+* **The runner documentation did not match the shipped CLI.** Run with its steps stubbed (`a329895ea`), villa's
+  `runners/run_single.py` failed the documented launch in 5 ways, none with a warning:
+  * launched with the documented environment variables, it exited with status 2 before starting;
+  * with its required flags added but 4 GPUs pinned as documented, it ran the fit as 1 process, not 4;
+  * a config change passed through the environment, the documented way to try a variant, was dropped, so the
+    "variant" ran as the baseline;
+  * W&B logging stayed on, and output directories could not be shared.
+
+  #2022 fixed the doc (1 file, +11/−10).
 * **A new render setting moves the metric far more than it moves reading.** villa #1818 added
   `vc_render_tifxyz --surface-interpolation smooth`. Its default is byte-identical to earlier builds.
   On the 8 labelled segments, in villa's own scoring pipeline:
@@ -94,8 +100,9 @@ three things that number silently depends on, against villa's own code and villa
     per segment (−31.9% to +41.5% per window). The raw render agrees only slightly better with villa's labels (about
     1% of AP), and the scorer's agreement does not consistently change.
 
-  The effect scales with grid cell size (measured). Comparing runs rendered in different modes would
-  bias a keep/discard decision by more than the gains the loop chases.
+  The effect scales with grid cell size (measured): about 1% per window on 20-voxel meshes, a 6.2% median on
+  80-voxel grids. For scale, the loop metric's fit-to-fit noise on spiral fits is 7.4% (pooled CV, 95% CI
+  5.1–13.4%, finding 57). A run rendered in one mode cannot be compared with a baseline rendered in the other.
 * **The install route changes how well the metric's renders agree with villa's labels, not only how much
   ink they find.**
   villa's published sampler image samples a thinner band than any current source build (finding 66:
@@ -103,9 +110,10 @@ three things that number silently depends on, against villa's own code and villa
   where the labels are defined, the source build's band agrees better (8 of 8, about +5% AP), and a band
   twice as wide agrees better still (8 of 8, about +8%). The stale image costs agreement (on segments the ink model trained on),
   and the metric's default band is narrower than the best tested.
-* **The comparison tool now reads what villa's runner writes.** inkdelta 0.3.0 rejected villa's real
-  `--seeds` output as invalid; 0.4.0 reads it. 0.5.x refuses to compare runs rendered in different
-  modes.
+* **The comparison tool now reads what villa's runner writes.** On a tree written by villa's own runner, inkdelta
+  0.3.0 failed 3 of the 4 runs we tried: `check` on `--seeds` output, plus `compare` and `noise`, which reported fresh
+  runs as not fresh. On the same tree, 0.4.0's `compare` and `noise` return results. 0.5.x refuses to compare runs
+  rendered in different modes.
 
 Separately, on fiber tracing, we tested whether villa's published fiber segmentation model,
 `scrollprize/fiber_hz_vt`, works on cubes it never trained on. Its training fingerprint matches villa's
@@ -151,12 +159,14 @@ We also scored an open villa PR's automated fiber generator
   * checks `aggregate_metrics.json`;
   * flags mixed render modes from the render log.
 * [ScrollGT](https://github.com/jonmarrs/scrollgt) (MIT), our fiber and ink benchmark, now measures generalization:
-  * 0.5.0 moves three fiber targets to villa's current annotations and discloses that the reference mask trained
-    on every target. No published ranking reverses (finding 82).
+  * 0.5.0 moves three fiber targets to villa's current annotations (22–53% more annotated fibers) and discloses that
+    the reference mask trained on every target. The mask's coverage of those three falls from 0.88–0.93 to
+    0.76–0.82, and no published ranking reverses (finding 82).
   * 0.6.0 adds finding 83's 10 cubes as a `held_out` split. Each row must equal finding 83's, and it refuses to average
     held-out scores with in-sample ones.
   * 0.7.0 closes a gaming route in its fiber metric (finding 85). ERL was averaged over covered fiber only, so
-    deleting a labelling's short fragments raised it. It now divides by the ground-truth length. All 126 published
+    deleting a labelling's short fragments raised it. Deleting our tracer's instances under 400 voxels raised it
+    17% (35.39 → 41.46) while coverage fell from 0.62 to 0.38. It now divides by the ground-truth length. All 126 published
     rows were re-scored and each reproduces its old value exactly under the old definition. One claim reverses:
     held out, our tracer leads connected components on merge-penalized ERL on 9 of 10 cubes, not 10.
 

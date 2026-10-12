@@ -1137,7 +1137,8 @@ Pre-registered (`904a5f81`; import-order fix `17bdd9e0`, both before any run).
 **82. ScrollGT's fiber rankings hold against villa's current annotations; its reference mask's coverage was
 overstated.** Pre-registered (`6185a0a6`).
 
-* villa's `fiber-skeletons` Dataset004 revises 3 of ScrollGT's 11 fiber cubes: 28–53% more fibers, +21% to +37% length.
+* villa's `fiber-skeletons` Dataset004 revises 3 of ScrollGT's 11 fiber cubes: 22–53% more fibers (corrected 2026-10-12 from 28–53%), +21% to +37%
+  length.
   The other 8 NMLs and the CT of all 11 are byte-identical, so the reference mask is unchanged.
 * **Fidelity is exact:** every published row reproduces against the shipped ground truth.
 * **All 4 predictions held.** Connected components keeps its raw-ERL lead. Precision and merges rise for both. On

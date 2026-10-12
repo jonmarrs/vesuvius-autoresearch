@@ -369,3 +369,165 @@ def test_generator_numbers_match_finding_85():
     # Qualzz20/afv_fiber_9um model card at revision e189af75 (read 2026-10-12): "Native pitch is 8.64 or 9.362 µm"
     assert d["revision"].startswith("e189af75")
     assert "finer than the 8.64 and 9.362 µm pitches its fine-tune trained on" in txt
+
+
+_PR2044 = _REPO / "docs/VILLA_DRAFT_ink_metrics_sequential_folds.md"
+_PR2044_LOG = _REPO.parent.parent / "spiral_out/inkfix_measure/measure.log"
+
+
+@pytest.mark.skipif(not _PR2044.exists(), reason="#2044 draft absent")
+def test_2044_memory_figures_match_its_measurement():
+    """The #2044 paragraph's figures, read from the table that went out verbatim in the PR body (and, when the raw
+    measurement log is beside the repo, from that log)."""
+    import re
+
+    rows = {}
+    for line in _PR2044.read_text().splitlines():
+        cells = [c.strip() for c in line.strip().strip("|").split("|")]
+        if len(cells) == 5 and cells[0].startswith("w"):
+            rows[(cells[0].split(",")[0], cells[1])] = cells
+    txt = _text()
+    stock = rows[("w120–w129", "stock")]
+    seq = rows[("w120–w129", "`--sequential-folds`")]
+    killed_s = re.search(r"OOM-killed (\d+) s in", stock[2]).group(1)
+    assert (
+        f"stock scoring was killed for lack of memory {killed_s} s in, at {stock[3]}"
+        in txt
+    )
+    assert f"`--sequential-folds` scored it with a {seq[3]} peak in {seq[4]}" in txt
+    w, h = (
+        int(x.replace(",", ""))
+        for x in re.search(r"([\d,]+) × ([\d,]+)", stock[0]).groups()
+    )
+    assert (
+        f"(w120–w129, {stock[0].split(', ')[1]} = {round(w * h / 1e6)}M px)"
+        in _PR2044.read_text()
+    )
+    assert f"on the w120–w129 strip ({round(w * h / 1e6)}M px)" in txt
+    inner = [int(re.search(r"ok, ([\d,]+)", c[2]).group(1).replace(",", "")) for k, c in rows.items()
+             if k[0] == "w010–w019"]  # fmt: skip
+    assert len(inner) == 3 and (max(inner) - min(inner)) / min(inner) < 0.00005
+    assert "the three modes' counts agree to within 0.005%" in txt
+    assert "one RTX 4090, each run in a 26 GiB memory cgroup" in " ".join(
+        _PR2044.read_text().split()
+    )
+    assert "one RTX 4090 in a 26 GiB memory limit" in txt
+    if _PR2044_LOG.exists():
+        log = _PR2044_LOG.read_text()
+        assert (
+            re.search(
+                r"outer_sequential rc_seconds=0 (\d+) anon_peak_GB=([\d.]+)", log
+            ).groups()
+            == (
+                seq[4].replace(",", "").removesuffix(" s"),
+                "13.77",
+            )
+            and seq[3] == "13.8 GB"
+        )
+        assert (
+            "outer_stock rc_seconds=scope-killed anon_peak_GB=27.55" in log
+            and stock[3] == "≥ 27.6 GB"
+        )
+
+
+def test_quantified_claims_match_their_sources():
+    """The figures added when the draft was made quantitative (2026-10-12), each read from its artifact."""
+    import re
+
+    txt = _text()
+
+    # #2022: the five failures listed in the PR body that went out, and the 4-GPU probe
+    body = (_REPO / "docs/villa_pr_autoresearch_runner_body.md").read_text()
+    n_ways = sum(line.startswith("- **") for line in body.splitlines())
+    assert n_ways == 5 and f"the launch failed in {n_ways} measured ways" in txt
+    assert f"failed the documented launch in {n_ways} ways" in txt
+    rep = (_REPO / "reports/villa_runner_layout_vs_autoresearch_doc.md").read_text()
+    gpus = (
+        re.search(r"CUDA_VISIBLE_DEVICES=([\d,]+)` as the doc says", rep)
+        .group(1)
+        .split(",")
+    )
+    assert f"--nproc-per-node={len(gpus)}" in rep
+    assert (
+        f"{len(gpus)} GPUs pinned as documented, it ran the fit as 1 process, not {len(gpus)}"
+        in txt
+    )
+    summ = " ".join((_REPO / "reports/SPIRAL_FINDINGS_SUMMARY.md").read_text().split())
+    assert "Launched as documented, it exits 2 before starting" in summ
+    assert "it exited with status 2 before starting" in txt
+    draft = (_REPO / "docs/VILLA_DRAFT_autoresearch_runner_section.md").read_text()
+    assert "+11 / −10" in draft and "#2022 fixed the doc (1 file, +11/−10)" in txt
+
+    # inkdelta 0.3.0 on villa's own runner layout
+    table = re.findall(r"^\| `(check|compare|noise)[^|]*` \| ([^|]+) \|$", rep, re.M)
+    failed = [r for r in table if "FAIL" in r[1] or "INVALID" in r[1]]
+    assert (
+        len(table) == 4
+        and f"0.3.0 failed {len(failed)} of the {len(table)} runs we tried" in txt
+    )
+
+    # the loop metric's fit-to-fit noise (finding 57)
+    f = json.loads((_REPO / "reports/pooled_fit_only_floor.json").read_text())
+    lo, hi = f["ci"]
+    assert (
+        f"{100 * f['pooled_cv']:.1f}% (pooled CV, 95% CI {100 * lo:.1f}–{100 * hi:.1f}%, finding 57)"
+        in txt
+    )
+
+    # grid-size scaling, in part (2) as well as the disclosure
+    d73 = json.loads(_F73.read_text())
+    ws = sorted(abs(w["d"]) for r in d73["segments"] for w in r["windows"])
+    n = len(ws)
+    assert (
+        f"about 1% per window on 20-voxel meshes, a {100 * (ws[n // 2] + ws[(n - 1) // 2]) / 2:.1f}% median"
+        in txt
+    )
+
+    # ScrollGT 0.5.0 (finding 82)
+    d82 = json.loads((_REPO / "reports/scrollgt_current_annotations.json").read_text())
+    grow = [
+        c["current"]["oracle"]["n_gt_fibers"] / c["old"]["oracle"]["n_gt_fibers"] - 1
+        for c in d82["cubes"].values()
+    ]
+    assert (
+        f"({100 * min(grow):.0f}–{100 * max(grow):.0f}% more annotated fibers)" in txt
+    )
+    cov = [
+        v["coverage_old_to_current"]["floor_connected_components"]
+        for v in d82["descriptive"].values()
+    ]
+    old, cur = [c[0] for c in cov], [c[1] for c in cov]
+    assert (
+        f"falls from {min(old):.2f}–{max(old):.2f} to {min(cur):.2f}–{max(cur):.2f}"
+        in txt
+    )
+
+    # ScrollGT 0.7.0's exploit, on our tracer (finding 85 control)
+    g = json.loads(_F85_GT.read_text())["deletion_control"]
+    base, cut = g[0], next(r for r in g if r["min_voxels"] == 400)
+    assert base["min_voxels"] == 0
+    rise = round(100 * (cut["erl"] / base["erl"] - 1))
+    assert (
+        f"under 400 voxels raised it {rise}% ({base['erl']:.2f} → {cut['erl']:.2f}) while coverage fell from "
+        f"{base['coverage']:.2f} to {cut['coverage']:.2f}" in txt
+    )
+
+
+def test_finding_82_fiber_growth_range_is_the_scored_one():
+    """Finding 82 published "28–53% more fibers"; the scored counts give 22–53% (s5_14997: 147 -> 179). Bind every
+    statement of the range to the JSON so it cannot drift again."""
+    d82 = json.loads((_REPO / "reports/scrollgt_current_annotations.json").read_text())
+    grow = [
+        c["current"]["oracle"]["n_gt_fibers"] / c["old"]["oracle"]["n_gt_fibers"] - 1
+        for c in d82["cubes"].values()
+    ]
+    rng = f"{100 * min(grow):.0f}–{100 * max(grow):.0f}% more"
+    for f in (
+        "reports/scrollgt_current_annotations.md",
+        "reports/SPIRAL_FINDINGS_SUMMARY.md",
+    ):
+        t = " ".join((_REPO / f).read_text().split())
+        assert rng in t, f
+        assert "28–53% more" not in t.replace('from "28–53%"', "").replace(
+            "from 28–53%", ""
+        ), f
