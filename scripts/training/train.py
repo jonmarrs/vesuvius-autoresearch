@@ -88,8 +88,18 @@ except ImportError:
 
 SKELETON_DISTANCE_AVAILABLE = True
 SKELETON_DISTANCE_IMPORT_ERROR = None
+# villa's skeleton metric saves a histogram PNG on every call, to "." unless
+# told otherwise; send them to the gitignored outputs/ instead.
+SKELETON_HIST_DIR = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "..", "..", "outputs", "skeleton_hists"
+)
 try:
-    from metrics.skeleton_distance_length import compute as compute_skeleton_dist
+    from metrics.skeleton_distance_length import compute as _villa_skeleton_dist
+
+    def compute_skeleton_dist(label, prediction, **kwargs):
+        kwargs.setdefault("output_folder", SKELETON_HIST_DIR)
+        return _villa_skeleton_dist(label, prediction, **kwargs)
+
 except ImportError as exc:
     SKELETON_DISTANCE_AVAILABLE = False
     SKELETON_DISTANCE_IMPORT_ERROR = str(exc)

@@ -76,6 +76,16 @@ def main():
     )
     args = parser.parse_args()
 
+    # villa's skeleton metric calls wandb.log, which raises without an active
+    # run. This script never tracks, so start a disabled (no-op) one.
+    try:
+        import wandb
+
+        if wandb.run is None:
+            wandb.init(mode="disabled")
+    except ImportError:
+        pass  # villa's metric skips logging when wandb is absent
+
     print(f"Loading Ground Truth: {args.gt}")
     gt = load_volume(args.gt)
     print(f"Loading Prediction: {args.pred}")
@@ -119,7 +129,14 @@ def main():
 
     print("Computing Skeleton Distance...")
     try:
-        skel_res = compute_skel_dist(gt_bin, pred_bin)
+        # Every call saves a histogram PNG to output_folder, "." by default.
+        skel_res = compute_skel_dist(
+            gt_bin,
+            pred_bin,
+            output_folder=str(
+                Path(__file__).resolve().parents[1] / "outputs" / "skeleton_hists"
+            ),
+        )
         if isinstance(skel_res, dict):
             results.update(skel_res)
         else:
