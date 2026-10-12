@@ -1,6 +1,7 @@
-# villa PR draft: get_ink_metrics.py can run its folds one at a time
+# POSTED as villa #2044 and MERGED 2026-10-11 Pacific: get_ink_metrics.py can run its folds one at a time
 
-**Status: DRAFT, not posted; awaiting the user's go-ahead.** Measured 2026-10-11 (`spiral_out/inkfix_measure/measure.log`;
+**Status: posted as https://github.com/ScrollPrize/villa/pull/2044 and merged by @pmh47 (`2026-10-12T01:49:09Z`, merge
+commit `9afddaf0f`). The text below is the pre-post draft, kept as the record.** Originally: DRAFT, not posted; awaiting the user's go-ahead. Measured 2026-10-11 (`spiral_out/inkfix_measure/measure.log`;
 harness `measure.sh` in the session scratchpad). Patch: `docs/villa_pr_ink_metrics_sequential_folds.patch` (+13/−2),
 applies cleanly to `origin/main` `7a7b3f677`. Under the user's
 2026-10-11 rule, code-fix PRs may go up to two a week; villa's three-open-PR cap still binds (open: #1928).

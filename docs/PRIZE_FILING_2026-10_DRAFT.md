@@ -28,9 +28,12 @@ clipped "#1780" to "#17".
    #2022, #2044, #1928 and any other open PR, and quote any maintainer reply verbatim.
 3. ScrollGT 0.6.0 (the held-out split) was tagged on 2026-10-11 and 0.7.0 (the ERL fix, finding 85) on 2026-10-12.
    The URL field cites `tree/v0.7.0`; the test binds the cite to ScrollGT's newest tag, so a later release must update
-   it. Findings 84–85 are not folded into the text below yet.
-4. Re-run `tests/test_filing_2026_10_numbers.py`. Every number below is bound to the file it comes from.
-5. Check every URL returns 200.
+   it. Findings 84–85 are folded in (2026-10-12).
+4. Finding 85 measures an open villa PR (#1934). The user-approved comment sharing it with the author was posted
+   2026-10-12 (https://github.com/ScrollPrize/villa/pull/1934#issuecomment-6131993208) and is cited in part (2). On filing day, re-read the thread: quote any reply verbatim, record
+   whether #1934 is still open, and do not characterise silence.
+5. Re-run `tests/test_filing_2026_10_numbers.py`. Every number below is bound to the file it comes from.
+6. Check every URL returns 200.
 
 ---
 
@@ -111,7 +114,25 @@ annotated cubes the model never saw, and we pre-registered predictions for them 
 * **On Scroll 3, a scroll it never saw, it holds.** Median connected-components coverage of the hand-traced
   fibers is 0.826, against 0.822 on the in-sample 512³ cubes.
 * **On two new Scroll-5 cubes it fails.** Coverage is 0.64 and 0.53, against 0.82–0.91 on the in-sample
-  Scroll-5 256³ cubes. The cause is unknown, and two cubes cannot separate the candidates.
+  Scroll-5 256³ cubes. A pre-registered follow-up (finding 84) shows it is a real miss:
+  * not a frame offset: the best shift within ±4 voxels gains at most 0.0020;
+  * not a threshold: at P ≥ 0.1 coverage is 0.764 and 0.689, still below every in-sample Scroll-5 cube;
+  * 19.6% and 25.2% of their hand-traced fiber has no voxel at P ≥ 0.05 within 2 voxels, against 5.2–16.9% in
+    sample and 5.7–10.7% on Scroll 3.
+
+  The cause (the region of the scroll, the cubes' content or their annotators) is unknown, and two cubes cannot
+  separate them.
+
+We also scored an open villa PR's automated fiber generator
+([#1934](https://github.com/ScrollPrize/villa/pull/1934), every default) on all 21 cubes, pre-registered (finding 85):
+* its fibers cover 19–38% of the hand-traced fiber length on 19 cubes, and 4% and 8% on the two new Scroll-5 cubes,
+  where the mask it was fine-tuned from also fails;
+* before ScrollGT 0.7.0, merge-penalized ERL ranked it above our tracer on all 8 Scroll-3 cubes. That lead came from
+  covering about half as much fiber. ERL was averaged over covered fiber only, so dropping short fragments raised it.
+  Normalised by ground-truth length, it trails our tracer on 21 of 21 cubes (raw) and 20 of 21 (merge-penalized).
+* the cubes are at 7.91 µm, finer than the 8.64 and 9.362 µm pitches its fine-tune trained on (its model card),
+  and only the defaults were run;
+* the measurement was shared with its author on the PR ([comment](https://github.com/ScrollPrize/villa/pull/1934#issuecomment-6131993208), 2026-10-12).
 
 **(3) What it enables that was not possible before.**
 * [inkagree](https://github.com/jonmarrs/inkagree) (MIT; first released 2026-10-03, now 0.3.0, which evaluates only
@@ -141,7 +162,7 @@ annotated cubes the model never saw, and we pre-registered predictions for them 
 
 **(4) Evidence.**
 * Each study was pre-registered before its data, and each has a report and its scripts in
-  https://github.com/jonmarrs/vesuvius-autoresearch (findings 69–83 in
+  https://github.com/jonmarrs/vesuvius-autoresearch (findings 69–85 in
   `reports/SPIRAL_FINDINGS_SUMMARY.md`).
 * Every figure here is bound by a test to the file that produced it.
 * [villa #2044](https://github.com/ScrollPrize/villa/pull/2044) records the memory limits, hardware,
@@ -184,7 +205,7 @@ annotated cubes the model never saw, and we pre-registered predictions for them 
   * finding 74 does not survive as stated (step 0.5 vs 1.0 is not consistent).
 
   inkagree 0.3.0 makes the supervised region its default. `reports/supervised_reanalysis.md`.
-* **Fourteen of my registered predictions failed**, and the reports say so:
+* **Sixteen of my registered predictions failed**, and the reports say so:
   * finding 70 (smooth would move the count < 1% in every crop window: it moved up to ±20%);
   * finding 71 prediction 1 (failed on three exclusions, one caused by a defect in my alignment gate);
   * finding 72 prediction 1 (the count was sensitive in 15% of windows, not ≥ 25%).
@@ -205,6 +226,9 @@ annotated cubes the model never saw, and we pre-registered predictions for them 
     eight 256³ cubes: it leads on `s5_14997`, 38.56 vs 33.09).
   * finding 83 prediction 1 (the fiber mask's coverage would drop on Scroll 3, which it never saw: the median is
     0.826, against 0.822 on the in-sample 512³ cubes).
+  * finding 84 prediction 3 (the mask's misses on the two new Scroll-5 cubes would be no softer than in sample: the
+    soft-miss fraction is 0.340 on both, above the in-sample maximum of 0.289).
+  * finding 85 prediction 1 (the generator's raw ERL would beat our tracer's on 9 of 11 in-sample cubes: it did on 5).
 * **The effect's size depends on grid cell size** (finding 73, measured): about 1% per window on
   villa's 20-voxel segment meshes, a 6.2% median and up to ±40% per window on 80-voxel grids like the
   spiral surfaces. Quote the size with the grid.
@@ -228,6 +252,11 @@ annotated cubes the model never saw, and we pre-registered predictions for them 
 * Not "villa's objective mis-ranks fits". Finding 78 shows its count is sparse (about 2% of annotated
   ink), not that it ranks fits wrongly, and its render-side comparison is in-sample.
 * Not "the fiber mask does not generalize". It holds on Scroll 3 and fails on two Scroll-5 cubes, cause unknown.
+* Not "deleting fragments cannot raise ERL" under ScrollGT 0.7.0. When the scorer's tolerance joins the runs around a
+  deleted fragment, ERL can still rise legitimately.
+* Not "the #1934 generator is worse than our tracer" as a headline. One setting (its defaults), cubes below its
+  training resolution, and in-sample rows on 11 cubes. Coverage is the measured gap.
+* Not "the Scroll-5 miss is the annotators". Finding 84 rules out a frame offset and a threshold, nothing more.
 * Not "held out" as secrecy. The fiber ground truth is public; `held_out` means only that the reference mask did
   not train on the cube.
 * Not "agrees with ground truth" for any label-based number. The render is in-sample on the labelled
