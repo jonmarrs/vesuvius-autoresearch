@@ -26,8 +26,9 @@ clipped "#1780" to "#17".
    [merge commit](https://github.com/ScrollPrize/villa/commit/9afddaf0fdc12efe088bab7b82534c4f9a79e536)).
    On filing day, list every villa PR merged in October first in part (2) and in the URL field, then re-check
    #2022, #2044, #1928 and any other open PR, and quote any maintainer reply verbatim.
-3. ScrollGT 0.6.0 (the held-out split) was merged and tagged on 2026-10-11. The URL field cites `tree/v0.6.0`; the
-   test binds the cite to ScrollGT's newest tag, so a later release (0.7.0, the ERL fix) must update it.
+3. ScrollGT 0.6.0 (the held-out split) was merged and tagged on 2026-10-11; 0.7.0 (the ERL fix, scoring version 3)
+   was merged and tagged on 2026-10-12. The URL field cites `tree/v0.7.0`; the test binds the cite to ScrollGT's
+   newest tag, so any later release must update it.
 4. Re-run `tests/test_filing_2026_10_numbers.py`. Every number below is bound to the file it comes from.
 5. Check every URL returns 200.
 
@@ -41,7 +42,7 @@ https://github.com/ScrollPrize/villa/pull/2044
 https://github.com/jonmarrs/vesuvius-autoresearch
 https://github.com/jonmarrs/inkdelta
 https://github.com/jonmarrs/inkagree
-https://github.com/jonmarrs/scrollgt/tree/v0.6.0
+https://github.com/jonmarrs/scrollgt/tree/v0.7.0
 https://github.com/ScrollPrize/villa/pull/1928
 ```
 

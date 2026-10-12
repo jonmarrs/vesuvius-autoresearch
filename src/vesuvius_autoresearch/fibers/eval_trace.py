@@ -40,8 +40,9 @@ import numpy as np
 from vesuvius_autoresearch.fibers.provenance import SCORING_VERSION
 from vesuvius_autoresearch.fibers.skeleton_io import Skeleton
 
-# The scoring definition is ScrollGT's (github.com/jonmarrs/scrollgt, v0.4.0, its fiber scoring
-# version 2): edges walked in path order, runs ending at stretch boundaries. Everything from
+# The scoring definition is ScrollGT's (github.com/jonmarrs/scrollgt, v0.7.0, its fiber scoring
+# version 3): edges walked in path order, runs ending at stretch boundaries, ERL over the scored
+# ground-truth length. Everything from
 # `ConnectivityScores` to `oracle_from_skeleton` is vendored verbatim, except that ScrollGT's
 # `score_tracing` is `_score_tracing_scrollgt` here. tests/test_fiber_scoring_matches_scrollgt.py
 # fails if the two drift apart. `score_tracing` below adds input validation only, which never
@@ -54,6 +55,8 @@ class ConnectivityScores:
 
     erl: float
     erl_merge_penalized: float
+    erl_covered: float
+    erl_merge_penalized_covered: float
     coverage: float
     precision: float
     n_gt_fibers: int
@@ -72,6 +75,8 @@ class ConnectivityScores:
             "scoring_version": SCORING_VERSION,
             "erl": round(self.erl, 2),
             "erl_merge_penalized": round(self.erl_merge_penalized, 2),
+            "erl_covered": round(self.erl_covered, 2),
+            "erl_merge_penalized_covered": round(self.erl_merge_penalized_covered, 2),
             "coverage": round(self.coverage, 4),
             "precision": round(self.precision, 4),
             "splits": self.splits,
@@ -276,22 +281,20 @@ def _score_tracing_scrollgt(
     merged_instances = sum(1 for v in per_instance_gt.values() if len(v) > 1)
     merging_ids = {lab for lab, v in per_instance_gt.items() if len(v) > 1}
 
-    def _erl(runs: list[float]) -> float:
-        tot = float(sum(runs))
-        if tot <= 0:
-            return 0.0
-        return float(sum(r * r for r in runs) / tot)
-
-    erl = _erl(all_runs)
+    def _erl(squares: float, denominator: float) -> float:
+        return float(squares / denominator) if denominator > 0 else 0.0
 
     # Merge-penalized: rebuild runs, zeroing any run belonging to a merging id.
     penalized: list[float] = []
     for fiber in gt.fibers:
         runs, _, _, _ = _fiber_runs(fiber, grown, step, restrict_to_bounds, merging_ids)
         penalized.extend(ln for _, ln in runs)
-    # Denominator stays the full traced length, so merges genuinely cost ERL.
+    # The penalized numerator drops merging runs while the denominator keeps them, so merges
+    # genuinely cost ERL. The headline divides by the ground truth, the _covered variants by the
+    # covered length; sum(all_runs) is the covered length, so headline = covered x coverage.
+    squares = float(sum(r * r for r in all_runs))
+    squares_pen = float(sum(r * r for r in penalized))
     tot_all = float(sum(all_runs))
-    erl_pen = float(sum(r * r for r in penalized) / tot_all) if tot_all > 0 else 0.0
 
     # Precision: predicted length within tolerance of any ground-truth fiber.
     gt_mask = np.zeros(shape, dtype=bool)
@@ -315,8 +318,10 @@ def _score_tracing_scrollgt(
     )
 
     return ConnectivityScores(
-        erl=erl,
-        erl_merge_penalized=erl_pen,
+        erl=_erl(squares, gt_total),
+        erl_merge_penalized=_erl(squares_pen, gt_total),
+        erl_covered=_erl(squares, tot_all),
+        erl_merge_penalized_covered=_erl(squares_pen, tot_all),
         coverage=(covered / gt_total) if gt_total > 0 else 0.0,
         precision=precision,
         n_gt_fibers=len(gt.fibers),
