@@ -229,7 +229,7 @@ def test_fiber_heldout_numbers_match_finding_83():
         f"Coverage is {s5[0]:.2f} and {s5[1]:.2f}, against {min(in256):.2f}–{max(in256):.2f} on the in-sample "
         "Scroll-5 256³ cubes" in txt
     )
-    assert "Fourteen of my registered predictions failed" in txt
+    assert "Sixteen of my registered predictions failed" in txt
 
 
 def test_scrollgt_cite_is_its_newest_tag():
@@ -280,3 +280,92 @@ def test_scrollgt_0_7_0_claims_match_its_released_data():
     text = " ".join(_text().split())
     assert f"All {len(rows)} published rows were re-scored" in text
     assert f"on {leads} of {len(held)} cubes, not {len(held)}" in text
+
+
+_F84 = _REPO / "reports/fiber_miss_diagnostic.json"
+_NEW_S5 = ("s5_13497_01497_02497_256", "s5_16997_03997_04497_256")
+
+
+@pytest.mark.skipif(not _F84.exists(), reason="finding 84 artifact absent")
+def test_scroll5_miss_numbers_match_finding_84():
+    d, txt = json.loads(_F84.read_text()), _text()
+    cubes, v = d["cubes"], d["verdict"]
+    assert v["status"] == "OK" and not any(v["frame_offset_flag"].values())
+    new = [cubes[k] for k in _NEW_S5]
+    gain = max(c["shift"]["gain"] for c in new)
+    assert f"the best shift within ±4 voxels gains at most {gain:.4f}" in txt
+    c01 = [c["sweep"]["coverage"]["0.1"] for c in new]
+    in_s5 = [
+        c["sweep"]["coverage"]["0.5"]
+        for k, c in cubes.items()
+        if k.startswith("s5_") and c["split"] != "held_out"
+    ]
+    assert max(c01) < min(in_s5)  # "still below every in-sample Scroll-5 cube"
+    assert f"at P ≥ 0.1 coverage is {c01[0]:.3f} and {c01[1]:.3f}" in txt
+
+    def hard(c):
+        return 100 * (1 - c["sweep"]["coverage"]["0.05"])
+
+    ins = [hard(c) for c in cubes.values() if c["split"] != "held_out"]
+    s3 = [hard(c) for k, c in cubes.items() if k.startswith("s3_")]
+    assert (
+        f"{hard(new[0]):.1f}% and {hard(new[1]):.1f}% of their hand-traced fiber has no voxel at P ≥ 0.05"
+        f" within 2 voxels, against {min(ins):.1f}–{max(ins):.1f}% in sample and {min(s3):.1f}–{max(s3):.1f}%"
+        " on Scroll 3" in txt
+    )
+    assert v["predictions"]["P2_threshold_0.1_does_not_rescue"] is True
+    assert v["predictions"]["P3_misses_no_softer_than_in_sample"] is False
+    soft = {round(c["sweep"]["soft_miss_fraction"], 3) for c in new}
+    assert len(soft) == 1
+    assert (
+        f"the soft-miss fraction is {soft.pop():.3f} on both, above the in-sample maximum of "
+        f"{v['in_sample_s5_max_soft_miss']:.3f}" in txt
+    )
+
+
+_F85 = _REPO / "reports/afv_generator_entrant.json"
+_F85_GT = _REPO / "reports/erl_coverage_conditioning.json"
+
+
+@pytest.mark.skipif(
+    not (_F85.exists() and _F85_GT.exists()), reason="finding 85 artifacts absent"
+)
+def test_generator_numbers_match_finding_85():
+    d, g, txt = json.loads(_F85.read_text()), json.loads(_F85_GT.read_text()), _text()
+    assert d["status"] == "OK" and not d["failed_runs"]
+    rows, comp = d["generator_rows"], d["comparators"]
+    assert len(rows) == 21
+    other = [r["coverage"] for k, r in rows.items() if k not in _NEW_S5]
+    assert (
+        f"cover {100 * min(other):.0f}–{100 * max(other):.0f}% of the hand-traced fiber length on {len(other)} cubes"
+        in txt
+    )
+    new = [rows[k]["coverage"] for k in _NEW_S5]
+    assert (
+        f"and {100 * new[0]:.0f}% and {100 * new[1]:.0f}% on the two new Scroll-5 cubes"
+        in txt
+    )
+    s3 = d["s3_cubes"]
+    pen_lead = sum(
+        rows[k]["erl_merge_penalized"] > comp[k]["tracer"]["erl_merge_penalized"]
+        for k in s3
+    )
+    assert (
+        pen_lead == len(s3) == 8
+        and "ranked it above our tracer on all 8 Scroll-3 cubes" in txt
+    )
+    e = g["entrant_gt_normalized"]
+    raw = sum(e[k]["generator"]["erl_gt"] < e[k]["tracer"]["erl_gt"] for k in e)
+    pen = sum(e[k]["generator"]["erl_pen_gt"] < e[k]["tracer"]["erl_pen_gt"] for k in e)
+    assert (
+        f"on {raw} of {len(e)} cubes (raw) and {pen} of {len(e)} (merge-penalized)"
+        in txt
+    )
+    p = d["predictions"]
+    in_sample = [k for k in rows if k.startswith(("s1_", "s5_")) and k not in _NEW_S5]
+    above = sum(rows[k]["erl"] > comp[k]["tracer"]["erl"] for k in in_sample)
+    assert p["P1_raw_erl_above_tracer_on_9_of_11"] is False and len(in_sample) == 11
+    assert f"beat our tracer's on 9 of 11 in-sample cubes: it did on {above})" in txt
+    # Qualzz20/afv_fiber_9um model card at revision e189af75 (read 2026-10-12): "Native pitch is 8.64 or 9.362 µm"
+    assert d["revision"].startswith("e189af75")
+    assert "finer than the 8.64 and 9.362 µm pitches its fine-tune trained on" in txt

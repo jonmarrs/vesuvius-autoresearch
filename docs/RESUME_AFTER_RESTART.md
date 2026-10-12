@@ -1,5 +1,22 @@
 # Resume note — written 2026-09-22 before a deliberate Claude restart
 
+## 2026-10-12 (evening): findings 84–85 folded into the October draft; #1934 comment drafted
+
+* ScrollGT **v0.7.0** is tagged and re-vendored (vesuvius-autoresearch #34 + #35, main `e3d99e53`).
+* The October draft now carries finding 84 (the Scroll-5 miss is real: no frame offset, no threshold rescue, 20–25%
+  of the fiber unseen) and finding 85 (#1934's generator covers 19–38%; ScrollGT's old ERL flattered it). Sixteen
+  failed predictions disclosed. Bound by `tests/test_filing_2026_10_numbers.py`.
+* **Drafted, NOT posted:** `docs/VILLA_DRAFT_1934_afv_generator.md`, the finding-85 reply for @Qualzz on villa #1934.
+  It needs the user's approval of the text. #1934's head is still `2d8577ed` (the measured commit). Its last update was
+  10-01, so the 14-day bot may close it around 10-15; a comment resets that clock. If closed, do not post.
+* villa #1928 (inkdelta catalogue) is still open, last updated 09-29: the bot will likely close it ~10-13. Record it and
+  let it go.
+* Next villa new item no earlier than 10-16. Upstream `origin/main` (`4eecd08fd`) is 9 commits past our pin, and
+  `scripts/check_villa_render_path.py 9afddaf0f 4eecd08fd` exits 1. #1863 changed `render_ink.py` (help text only:
+  `--remote-url` deprecated, and no spiral caller uses it) and `vc_render_tifxyz.cpp` (remote-URL volume loading). The
+  sampler change reaches a render only through an image rebuild. Treat renders across the two refs as not comparable
+  until checked.
+
 ## 2026-10-11 (late): #2044 merged; villa pin bumped to it
 
 * **villa #2044 MERGED** 2026-10-11 18:49 PDT (@pmh47, `9afddaf0f`). Seven merged in all; only #1928 is open.
