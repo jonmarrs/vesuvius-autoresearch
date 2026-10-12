@@ -5,7 +5,7 @@
 `scripts/scrollgt_current_annotations_analysis.py`.
 
 **Question.** ScrollGT's 11 fiber targets come from villa's `fiber-skeletons` Dataset001 (2025-01). villa's latest
-release, Dataset004 (2025-07-28), revises three of them, adding 28–53% more fibers. The other eight are byte-identical,
+release, Dataset004 (2025-07-28), revises three of them, adding 22–53% more fibers in the cube (corrected 2026-10-12 from "28–53%": the Scroll-5 cube's 147 → 179 is +22%). The other eight are byte-identical,
 and so is the CT of all three, so the reference mask and every floor labelling are unchanged. Do the published
 comparisons survive the current annotations?
 
