@@ -16,6 +16,9 @@ Dice/topology numbers are re-measured on the same patches.
 Usage:
     uv run python scripts/reevaluate_best_model.py
     uv run python scripts/reevaluate_best_model.py --update-stored  # rewrites best_model.pt's stored scores
+    uv run python scripts/reevaluate_best_model.py --update-stored --unwarped
+        # scores without a recorded lasagna warp that never ran (finding 86), and
+        # corrects the record
 """
 
 import argparse
@@ -53,7 +56,7 @@ from vesuvius_autoresearch.core.checkpoint_tools import (
 RECORDED_INPUT_SETTINGS = ("use_lasagna",)
 
 
-def reevaluate(update_stored: bool = False) -> None:
+def reevaluate(update_stored: bool = False, unwarped: bool = False) -> None:
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     # The validation fragment is the loop's current one (candidates are scored on
     # it); everything the model sees is the checkpoint's own.
@@ -71,6 +74,14 @@ def reevaluate(update_stored: bool = False) -> None:
     for name in RECORDED_INPUT_SETTINGS:
         if name in stored:
             setattr(config, name, stored[name])
+    # A checkpoint can record use_lasagna: true although the warp never ran: on a
+    # host without nvcc the loader fell back to unwarped patches (finding 86), and
+    # strict reads now refuse the warp. Such a model was trained unwarped.
+    overridden = {}
+    if unwarped and config.use_lasagna:
+        overridden["use_lasagna"] = config.use_lasagna
+        config.use_lasagna = False
+        print("  recorded use_lasagna: true; scoring unwarped (--unwarped)")
     stored_arch = stored.get("architecture", "?")
 
     print(f"  stored architecture: {stored_arch!r}")
@@ -266,21 +277,35 @@ def reevaluate(update_stored: bool = False) -> None:
             "input_settings": {
                 name: getattr(config, name) for name in RECORDED_INPUT_SETTINGS
             },
+            # What the checkpoint recorded before --unwarped corrected it.
+            "overridden_input_settings": overridden,
             "requested_patches": diag["requested_patches"],
             "usable_patches": diag["usable_patches"],
             "dice_threshold": float(best_threshold),
             "topology_threshold": float(topo_threshold),
         }
+        if overridden:
+            chk["config"] = {**stored, "use_lasagna": config.use_lasagna}
         save_checkpoint_atomic(chk, "best_model.pt")
         print("Done.")
 
 
-if __name__ == "__main__":
+def main(argv=None) -> None:
     p = argparse.ArgumentParser()
     p.add_argument(
         "--update-stored",
         action="store_true",
         help="rewrite best_model.pt's stored scores (val_f1 and protocol included) to today's values",
     )
-    args = p.parse_args()
-    reevaluate(update_stored=args.update_stored)
+    p.add_argument(
+        "--unwarped",
+        action="store_true",
+        help="score without a recorded lasagna warp that never ran; with "
+        "--update-stored, record use_lasagna: false",
+    )
+    args = p.parse_args(argv)
+    reevaluate(update_stored=args.update_stored, unwarped=args.unwarped)
+
+
+if __name__ == "__main__":
+    main()

@@ -1,5 +1,17 @@
 # Resume note — written 2026-09-22 before a deliberate Claude restart
 
+## 2026-10-13 (evening): lasagna off, incumbent re-scored; the loop can start
+
+* Owner's call: get the loop running. `config.json` `use_lasagna: false`; the loop's `use_lasagna` tweak is pinned
+  to `[False]` (restore `True` only once the warp runs on the GPU and inference applies it too).
+* `best_model.pt` re-scored with `scripts/reevaluate_best_model.py --update-stored --unwarped`: val_f1 0.727323
+  under `seeded-sample-400-v2+z1-27` (97 of 400 patches), all-ink F1 0.730993, margin -0.003670, AUC 0.5615.
+  A candidate must reach val_f1 > 0.757323 with AP lift > 1.02 to be promoted.
+* A 30 s isolated cycle (`checkpoint_out` set) warm-started 288/288 tensors, validated with 0 batch errors and 0
+  lasagna fallbacks. Start with `./start.sh`; the watchdog keeps it running.
+* Still open: the promotion metric (margin over the floor, ink-free patches, or AP lift / AUC), and the untested
+  depth-of-context difference (the detector reads 26 slices, the loop 16).
+
 ## 2026-10-13 (afternoon): finding 87, the depth band was in layer numbers; corrected to `[1, 27]`
 
 * **Finding 87** (`reports/ink_depth_profile.md`, read-only, not pre-registered). The fragments' zarrs are 33 slices
