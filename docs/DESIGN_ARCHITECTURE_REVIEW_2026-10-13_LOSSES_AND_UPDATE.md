@@ -36,6 +36,13 @@ here. The depth finding below is added to them.
 
 ### Plan for the depth finding
 
+> **Update, 2026-10-13, GPU host (finding 87, `reports/ink_depth_profile.md`).** Step 1, measured: the fragments'
+> zarrs are 33 slices deep and hold surface-volume layers 16–48, so the 65-slice figures in P1 and P3 do not apply.
+> The detector's layers 17–42 are zarr slices 1–26; `config.json` now sets `depth_band: [1, 27]` (it was `[17, 43]`,
+> which every dataset build refused). Under protocol v2 every validation window contained layer 32 and had at least
+> 14 of 16 slices inside the band, so the depth hypothesis does not explain finding 86. `--z 10` read layers 26–41,
+> inside the band.
+
 **Implemented 2026-10-13, at the owner's request**, as steps 2 and 3 below, with `config.json` set
 to `depth_band: [17, 43]`, the band the project's detector reads from these fragments.
 Steps 1 and 4 need the GPU host; see "Restarting the loop" below.
@@ -79,8 +86,8 @@ Steps 1 and 4 need the GPU host; see "Restarting the loop" below.
 The loop now refuses to start ("Not starting: … scored under validation protocol
 seeded-sample-400-v2, not seeded-sample-400-v2+z17-43"). On the GPU host:
 
-1. Check the fragments' depth: a fragment shallower than 43 slices makes the dataset refuse to
-   build, because the band would lie outside it. `uv run python -c "import zarr; print(zarr.open('local_data/PHercParis2Fr47/surface_volume.zarr'))"`.
+1. Check the fragments' depth: a band past the volume makes the dataset refuse to build. Done
+   2026-10-13 (finding 87): 33 slices, band corrected to `[1, 27]`. `uv run python -c "import zarr; print(zarr.open('local_data/PHercParis2Fr47/surface_volume.zarr'))"`.
 2. **Decide lasagna first.** `reevaluate_best_model.py` scores the incumbent with its recorded
    `use_lasagna: true`. Strict validation refuses that warp on these uint8 volumes, so the re-score
    stops as incomplete. This was already true before the band; the band only makes the re-score
