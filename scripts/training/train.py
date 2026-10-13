@@ -63,6 +63,7 @@ from scripts.training.promotion import (
     read_incumbent_val_f1,
     save_checkpoint_atomic,
     validation_indices,
+    validation_protocol,
 )
 from scroll_augmentations import apply_scroll_specific_3d_augmentations
 
@@ -372,6 +373,7 @@ def promotion_decision(
     enforce_prize_gates: bool,
     validation_complete: bool,
     incumbent_path: str = "best_model.pt",
+    protocol: str = VALIDATION_PROTOCOL,
 ):
     """Whether this run replaces the incumbent: (promote, incumbent_val_f1, reason).
 
@@ -381,7 +383,7 @@ def promotion_decision(
     path that cannot compare like with like fails closed.
     """
     try:
-        incumbent = read_incumbent_val_f1(incumbent_path)
+        incumbent = read_incumbent_val_f1(incumbent_path, protocol)
     except IncumbentUnavailable as exc:
         return False, float("nan"), str(exc)
     if not validation_complete:
@@ -479,6 +481,20 @@ def shuffled_loader(dataset, batch_size: int, seed: int) -> DataLoader:
     )
 
 
+def depth_read_range(config: ExperimentConfig):
+    """The slices a labeled read may come from, for config.depth_band.
+
+    Reads are num_layers + 2 * DEPTH_MARGIN deep and validation shows the model
+    their centre, so widening the band by the margin puts validation's window
+    inside the band. Training's window offset (0 to 2 * margin - 1) can reach up
+    to DEPTH_MARGIN slices past it, as its depth jitter. None: the whole depth.
+    """
+    band = getattr(config, "depth_band", None)
+    if band is None:
+        return None
+    return (max(0, band[0] - DEPTH_MARGIN), band[1] + DEPTH_MARGIN)
+
+
 def build_validation_dataset(config: ExperimentConfig):
     """The validation catalogue promotion is scored on (see promotion.py).
 
@@ -512,6 +528,7 @@ def build_validation_dataset(config: ExperimentConfig):
         target_fiber_source="sobel_z",
         patches_json=patches_json_path if os.path.exists(patches_json_path) else None,
         strict_reads=True,
+        depth_range=depth_read_range(config),
     )
 
 
@@ -547,6 +564,7 @@ def collect_validation_predictions(
     batch_size: int = 4,
     amp_enabled=False,
     probabilities=_sigmoid_ink,
+    protocol=VALIDATION_PROTOCOL,
 ):
     """Score the protocol's fixed sample of ``dataset``.
 
@@ -556,11 +574,12 @@ def collect_validation_predictions(
     the result. ``complete`` is False when any read or forward pass failed; such a
     sample is not the protocol's sample and cannot support a promotion.
     ``probabilities(model, x)`` maps an input batch to ink probabilities; checkpoint
-    tools pass a validating version.
+    tools pass a validating version. ``protocol`` is recorded in the diagnostics
+    (validation_protocol(config.depth_band) for the dataset's depth range).
     """
     indices = validation_indices(len(dataset))
     diag = {
-        "protocol": VALIDATION_PROTOCOL,
+        "protocol": protocol,
         "requested_patches": int(len(indices)),
         "empty_target_patches": 0,
         "batch_errors": 0,
@@ -1462,6 +1481,8 @@ def preflight_smoke(config: ExperimentConfig) -> None:
 
 def train(config: ExperimentConfig):
     print("STARTING TRAINING")
+    # What this run's score is comparable with; the depth band is part of it.
+    protocol = validation_protocol(getattr(config, "depth_band", None))
     torch.set_float32_matmul_precision("high")
     device = torch.device("cuda")
 
@@ -1531,6 +1552,7 @@ def train(config: ExperimentConfig):
                     patches_json=patches_json_path
                     if os.path.exists(patches_json_path)
                     else None,
+                    depth_range=depth_read_range(config),
                 )
             else:
                 ds = VesuviusS3Dataset(
@@ -2130,7 +2152,7 @@ def train(config: ExperimentConfig):
             break
 
     print(
-        f"Evaluating metrics on validation protocol {VALIDATION_PROTOCOL} "
+        f"Evaluating metrics on validation protocol {protocol} "
         "(ink-containing patches of a fixed sample; searching for best threshold)..."
     )
     if not SKELETON_DISTANCE_AVAILABLE:
@@ -2153,6 +2175,7 @@ def train(config: ExperimentConfig):
         device,
         batch_size=config.batch_size,
         amp_enabled=amp_enabled,
+        protocol=protocol,
     )
     validation_diag.update(
         {
@@ -2313,6 +2336,7 @@ def train(config: ExperimentConfig):
         submittable=submittable,
         enforce_prize_gates=getattr(config, "enforce_prize_gates", True),
         validation_complete=validation_diag["complete"],
+        protocol=protocol,
     )
     if promotion_blocked:
         print(f"Promotion blocked: {promotion_blocked}")
@@ -2421,7 +2445,7 @@ def train(config: ExperimentConfig):
                 "avg_mean_ap": avg_mean_ap,
                 "val_f1": float(val_f1),
                 "val_f1_threshold": float(val_f1_threshold),
-                "val_protocol": VALIDATION_PROTOCOL,
+                "val_protocol": protocol,
                 "train_sampling_seed": sampling_seed,
                 "ap_prevalence_lift": float(ap_prevalence_lift),
                 "roc_auc": float(roc_auc),
@@ -2450,7 +2474,7 @@ def train(config: ExperimentConfig):
                 "avg_mean_ap": avg_mean_ap,
                 "val_f1": float(val_f1),
                 "val_f1_threshold": float(val_f1_threshold),
-                "val_protocol": VALIDATION_PROTOCOL,
+                "val_protocol": protocol,
                 "train_sampling_seed": sampling_seed,
                 "ap_prevalence_lift": float(ap_prevalence_lift),
                 "roc_auc": float(roc_auc),
@@ -2518,7 +2542,7 @@ def train(config: ExperimentConfig):
                 "avg_cc_diff": avg_cc_diff,
                 "val_f1": float(val_f1),
                 "val_f1_threshold": float(val_f1_threshold),
-                "val_protocol": VALIDATION_PROTOCOL,
+                "val_protocol": protocol,
                 "train_sampling_seed": sampling_seed,
                 "ap_prevalence_lift": float(ap_prevalence_lift),
                 "roc_auc": float(roc_auc),
@@ -2548,7 +2572,7 @@ def train(config: ExperimentConfig):
         "avg_mean_ap": float(avg_mean_ap),
         "val_f1": float(val_f1),
         "val_f1_threshold": float(val_f1_threshold),
-        "val_protocol": VALIDATION_PROTOCOL,
+        "val_protocol": protocol,
         "incumbent_val_f1": float(best_previous_val_f1),
         "promotion_blocked": promotion_blocked,
         "train_sampling_seed": sampling_seed,

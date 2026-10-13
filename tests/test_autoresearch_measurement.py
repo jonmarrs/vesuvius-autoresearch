@@ -319,3 +319,63 @@ def test_skipped_updates_reach_the_sprint_log(tmp_path, monkeypatch):
     _drive_loop(tmp_path, monkeypatch, cycles=1, result=result)
     log = next((tmp_path / "sprint_logs").glob("*.md")).read_text()
     assert "- **Skipped updates**: 3" in log
+
+
+# --- depth band ---------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "band", [[17], [17, 17], [-1, 30], [17.0, 43], [30, 17], [True, 40], [17, 30]]
+)
+def test_a_malformed_or_too_narrow_depth_band_is_refused(band):
+    # [17, 30] is narrower than the default num_layers (24).
+    with pytest.raises(ValueError, match="depth_band"):
+        ExperimentConfig(depth_band=band)
+
+
+def test_the_depth_band_round_trips_and_names_the_protocol(tmp_path):
+    config = ExperimentConfig(num_layers=16, depth_band=(17, 43))
+    config.save(tmp_path / "config.json")
+    loaded = ExperimentConfig.load(tmp_path / "config.json")
+    assert loaded.depth_band == [17, 43]
+    assert promotion.validation_protocol(None) == "seeded-sample-400-v2"
+    assert promotion.validation_protocol(loaded.depth_band) == (
+        "seeded-sample-400-v2+z17-43"
+    )
+
+
+def test_the_band_widens_by_the_context_so_validation_sits_inside_it():
+    assert train.depth_read_range(ExperimentConfig()) is None
+    banded = ExperimentConfig(num_layers=16, depth_band=[17, 43])
+    assert train.depth_read_range(banded) == (13, 47)
+    edge = ExperimentConfig(num_layers=16, depth_band=[2, 30])
+    assert train.depth_read_range(edge) == (0, 34)
+
+
+def test_an_incumbent_scored_on_the_whole_depth_is_not_comparable(tmp_path):
+    path = _checkpoint(tmp_path / "best_model.pt")  # protocol v2, whole depth
+    banded = promotion.validation_protocol([17, 43])
+    with pytest.raises(promotion.IncumbentUnavailable, match=r"\+z17-43"):
+        promotion.read_incumbent_val_f1(str(path), banded)
+    promote, _, reason = train.promotion_decision(
+        0.9,
+        2.0,
+        submittable=True,
+        enforce_prize_gates=True,
+        validation_complete=True,
+        incumbent_path=str(path),
+        protocol=banded,
+    )
+    assert not promote and "re-score" in reason
+    _checkpoint(path, val_protocol=banded)
+    assert promotion.read_incumbent_val_f1(str(path), banded) == 0.47
+
+
+def test_the_loop_will_not_start_until_the_incumbent_is_scored_in_the_band(
+    tmp_path, monkeypatch, capsys
+):
+    ExperimentConfig(num_layers=16, depth_band=[17, 43]).save(tmp_path / "config.json")
+    _checkpoint(tmp_path / "best_model.pt")
+    assert _drive_loop(tmp_path, monkeypatch, cycles=1) == []
+    out = capsys.readouterr().out
+    assert "Not starting" in out and "seeded-sample-400-v2+z17-43" in out

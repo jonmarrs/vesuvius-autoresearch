@@ -329,9 +329,15 @@ def predict():
         raise ValueError("use_ridges must be a boolean")
     args.inference_recipe["ridge_depth_context"] = ridge_depth_context(use_ridges)
     if args.z is None:
-        # Surface volumes are built around the segment surface at their middle
-        # layer; centre the checkpoint's window there.
-        args.z = max(0, (FastVesuviusVolume(args.uri).shape[0] - num_layers) // 2)
+        # Centre the window in the depth band the checkpoint was trained on, or,
+        # without one, in the volume (surface volumes are built around the
+        # segment surface at their middle layer).
+        band = config_dict.get("depth_band")
+        if band:
+            args.z = max(0, (band[0] + band[1] - num_layers) // 2)
+        else:
+            depth = FastVesuviusVolume(args.uri).shape[0]
+            args.z = max(0, (depth - num_layers) // 2)
     validate_region(args, patch_size, num_layers)
     model = build_prediction_model(config_dict, args, use_ridges).to(device)
     # Partial warm starts are appropriate for training, not evidence export.

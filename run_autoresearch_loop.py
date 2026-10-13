@@ -13,7 +13,11 @@ from typing import Any
 from scripts.loop_control import acquire_lock
 from scripts.process_supervisor import ProcessSupervisor
 from scripts.training.config import ExperimentConfig
-from scripts.training.promotion import IncumbentUnavailable, read_incumbent_val_f1
+from scripts.training.promotion import (
+    IncumbentUnavailable,
+    read_incumbent_val_f1,
+    validation_protocol,
+)
 
 LOCK_FILE = "autoresearch.lock"
 
@@ -334,7 +338,16 @@ def main():
     # so a shift started anyway would revert every cycle. The watchdog restarts
     # a returned loop, which reprints this until the operator acts.
     try:
-        best_val_f1 = read_incumbent_val_f1("best_model.pt")
+        # The protocol includes config.json's depth band: an incumbent scored on
+        # other slices must be re-scored before a candidate can be compared.
+        current = (
+            ExperimentConfig.load(CONFIG_FILE)
+            if os.path.exists(CONFIG_FILE)
+            else ExperimentConfig()
+        )
+        best_val_f1 = read_incumbent_val_f1(
+            "best_model.pt", validation_protocol(current.depth_band)
+        )
     except IncumbentUnavailable as exc:
         print(f"Not starting: {exc}")
         return

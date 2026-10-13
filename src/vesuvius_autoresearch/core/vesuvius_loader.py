@@ -340,6 +340,7 @@ class VesuviusLabeledDataset(torch.utils.data.Dataset):
         patches_json=None,
         jitter=True,
         strict_reads=False,
+        depth_range=None,
     ):
         self.volume = FastVesuviusVolume(
             volume_uri,
@@ -350,6 +351,18 @@ class VesuviusLabeledDataset(torch.utils.data.Dataset):
         self.patch_size = patch_size
         self.num_layers = min(num_layers, self.volume.shape[0])
         self.shape = self.volume.shape
+        # [start, end): the slices each read is drawn from (None: the whole
+        # depth). A read is num_layers slices long, so the range must hold one.
+        if depth_range is not None:
+            start, end = int(depth_range[0]), min(int(depth_range[1]), self.shape[0])
+            if start < 0 or end - start < self.num_layers:
+                raise ValueError(
+                    f"depth_range {list(depth_range)} cannot hold a "
+                    f"{self.num_layers}-slice read of {volume_uri} "
+                    f"({self.shape[0]} slices)"
+                )
+            depth_range = (start, end)
+        self.depth_range = depth_range
         # __getitem__ normalises uint8 (/255) and uint16 (read as int32, /65535)
         # and passes floats through; any other dtype reached the model raw.
         # Checked from the array's metadata, without reading CT.
@@ -718,8 +731,10 @@ class VesuviusLabeledDataset(torch.utils.data.Dataset):
 
         z_depth = self.shape[0]
         z_request = min(self.num_layers, z_depth)
-        z_range = z_depth - z_request
-        z0 = rng.randint(0, z_range + 1) if z_range > 0 else 0
+        # Without a depth range this draws exactly as before (protocol v2).
+        z_start, z_end = getattr(self, "depth_range", None) or (0, z_depth)
+        z_range = z_end - z_start - z_request
+        z0 = z_start + (rng.randint(0, z_range + 1) if z_range > 0 else 0)
 
         try:
             if isinstance(self.volume, FastVesuviusVolume):

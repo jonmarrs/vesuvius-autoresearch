@@ -36,6 +36,10 @@ here. The depth finding below is added to them.
 
 ### Plan for the depth finding
 
+**Implemented 2026-10-13, at the owner's request**, as steps 2 and 3 below, with `config.json` set
+to `depth_band: [17, 43]`, the band the project's detector reads from these fragments.
+Steps 1 and 4 need the GPU host; see "Restarting the loop" below.
+
 1. Confirm the fragments' depth and where their ink lies (for example, from `zarr.open(...)` shape
    and a per-slice mean of a labelled region).
 2. Add `depth_band: [start, end)` to `ExperimentConfig`. Pass it to both labeled datasets as a read
@@ -45,6 +49,38 @@ here. The depth finding below is added to them.
 4. Re-score the incumbent with `scripts/reevaluate_best_model.py --update-stored`, then restart.
    Finding 86's metric question should be re-read on the new protocol: the all-ink floor and the
    AUC may move.
+
+### The implementation
+
+- **`ExperimentConfig.depth_band`.** `[start, end)` or None (the whole depth, as before). It is
+  validated, and must be at least `num_layers` wide.
+- **`VesuviusLabeledDataset(depth_range=...)`.** Every read is drawn inside `[start, end)`. Without
+  a range the draw is the same call as before, so protocol v2's sample is unchanged (tested against
+  the old formula).
+- **`train.depth_read_range`.** It widens the band by `DEPTH_MARGIN` on each side, for both the
+  training and validation datasets, so validation's centred window lies inside the band. Training's
+  depth jitter can still reach up to 4 slices past the band.
+- **`promotion.validation_protocol(depth_band)`.** It returns `seeded-sample-400-v2+z17-43`.
+  `train.py` records it in every checkpoint and run result. Promotion, the loop's startup check,
+  `reevaluate_best_model.py` and `loop_v2_constant_control.py` all compare against the protocol
+  of `config.json`'s band.
+- **`predict.py`.** Without `--z`, it centres the window in the checkpoint's recorded band, or in
+  the volume when no band is recorded.
+- **Not changed.** The UA-MT unlabeled stream, and the AUC, pseudo-label and active-learning tools,
+  still read the whole depth; they read settings from the checkpoint, which has no band yet.
+
+### Restarting the loop
+
+The loop now refuses to start ("Not starting: … scored under validation protocol
+seeded-sample-400-v2, not seeded-sample-400-v2+z17-43"). On the GPU host:
+
+1. Check the fragments' depth: the read range is 13–47, so a fragment shallower than 37 slices
+   makes the dataset refuse to build. `uv run python -c "import zarr; print(zarr.open('local_data/PHercParis2Fr47/surface_volume.zarr'))"`.
+2. **Decide lasagna first.** `reevaluate_best_model.py` scores the incumbent with its recorded
+   `use_lasagna: true`. Strict validation refuses that warp on these uint8 volumes, so the re-score
+   stops as incomplete. This was already true before the band; the band only makes the re-score
+   mandatory.
+3. `uv run python scripts/reevaluate_best_model.py --update-stored`, then `./start.sh`.
 
 ## Review of the PR, and what it changed
 

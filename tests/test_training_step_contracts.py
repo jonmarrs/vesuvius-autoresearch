@@ -11,6 +11,7 @@ augmentations. See docs/DESIGN_ARCHITECTURE_REVIEW_2026-10-12_TRAINING_STEP.md.
 
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
 
@@ -306,3 +307,31 @@ def test_no_gradient_leaves_an_enabled_scaler_usable():
     assert not train.guarded_update(model, optimizer, scaler, lr=0.1)
     _backward(model, scaler)
     assert train.guarded_update(model, optimizer, scaler, lr=0.1)
+
+
+def test_both_labeled_datasets_read_inside_the_depth_band(tmp_path, monkeypatch):
+    """Training and validation read from the band widened by the context."""
+    for fragment in ("train", "val"):
+        (tmp_path / fragment).mkdir()
+        (tmp_path / fragment / "inklabels.png").write_bytes(b"")
+    config = ExperimentConfig(
+        num_layers=16,
+        depth_band=[17, 43],
+        uris=[str(tmp_path / "train" / "surface_volume.zarr")],
+        val_uri=str(tmp_path / "val" / "surface_volume.zarr"),
+    )
+    seen = {}
+
+    class Stop(Exception):
+        pass
+
+    def dataset(uri, *args, **kwargs):
+        seen[os.path.basename(os.path.dirname(uri))] = kwargs.get("depth_range")
+        if "train" in uri:
+            raise Stop
+        return _Catalogue(10)
+
+    monkeypatch.setattr(train, "VesuviusLabeledDataset", dataset)
+    with pytest.raises(Stop):
+        train.train(config)
+    assert seen == {"val": (13, 47), "train": (13, 47)}

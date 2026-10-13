@@ -666,3 +666,23 @@ def test_without_z_the_window_is_centred_in_the_volume_depth(tmp_path, monkeypat
     runner()
     metadata = json.loads(next((tmp_path / "out").glob("*_meta.json")).read_text())
     assert metadata["position_xyz"] == [3, 2, (6 - 2) // 2]
+
+
+def test_without_z_the_window_is_centred_in_the_checkpoint_depth_band(
+    tmp_path, monkeypatch
+):
+    config = {
+        "patch_size": 8,
+        "num_layers": 2,
+        "base_feat": 4,
+        "use_ridges": False,
+        "voxel_size_um": 2.0,
+        "depth_band": [0, 4],
+    }
+    runner, argv, _, _, _ = setup_prediction(tmp_path, monkeypatch, "single", [config])
+    index = argv.index("--z")
+    del argv[index : index + 2]
+    argv.append("--disable_tta")
+    runner()
+    metadata = json.loads(next((tmp_path / "out").glob("*_meta.json")).read_text())
+    assert metadata["position_xyz"] == [3, 2, (0 + 4 - 2) // 2]

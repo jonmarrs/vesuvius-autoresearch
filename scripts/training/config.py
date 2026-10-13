@@ -34,6 +34,12 @@ class ExperimentConfig:
     use_ridges: bool = False  # 3D Ridge/Frangi feature channel
     use_lasagna: bool = False  # Priority J: Dynamically apply local surface flattening
     ridge_sigma: float = 2.0  # Ridge filter parameter
+    # [start, end): the slices labeled patches show the model. The ink label is
+    # the 2D surface label, and surface volumes put the inked surface near their
+    # middle layer, so windows from the whole depth mostly showed slices without
+    # it. None reads the whole depth (every result before 2026-10-13). Changing it
+    # changes the validation protocol (promotion.validation_protocol).
+    depth_band: list = None
 
     # Training Loop
     batch_size: int = 8
@@ -141,6 +147,23 @@ class ExperimentConfig:
     )
 
     def __post_init__(self):
+        if self.depth_band is not None:
+            band = self.depth_band
+            if (
+                not isinstance(band, (list, tuple))
+                or len(band) != 2
+                or not all(isinstance(v, int) and not isinstance(v, bool) for v in band)
+                or not 0 <= band[0] < band[1]
+            ):
+                raise ValueError(
+                    "depth_band must be [start, end) with 0 <= start < end"
+                )
+            if band[1] - band[0] < self.num_layers:
+                raise ValueError(
+                    f"depth_band {list(band)} is narrower than num_layers "
+                    f"({self.num_layers}); the model's window must fit inside it"
+                )
+            self.depth_band = [int(band[0]), int(band[1])]
         if self.uris is None:
             if self.uri is not None:
                 self.uris = [self.uri]

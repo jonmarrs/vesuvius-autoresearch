@@ -243,3 +243,55 @@ def test_an_unwarpable_validation_patch_stops_the_run_before_training(fragment):
     with pytest.raises(RuntimeError, match="validation patch 0 cannot be read") as info:
         train.probe_validation_read(dataset)
     assert "takes CUDA tensors" in str(info.value.__cause__.__cause__)
+
+
+@pytest.fixture
+def indexed_depth(tmp_path):
+    """A 40-slice volume whose slice z holds the value z, and 30 catalogue entries."""
+    import zarr
+
+    volume = tmp_path / "indexed.zarr"
+    data = np.broadcast_to(np.arange(40, dtype="u1")[:, None, None], (40, 8, 8))
+    zarr.open(str(volume), mode="w", shape=data.shape, dtype="u1")[:] = data
+    labels = tmp_path / "ink.png"
+    Image.fromarray(np.full((8, 8), 255, np.uint8)).save(labels)
+    catalog = tmp_path / "patches.json"
+    catalog.write_text(json.dumps({"patches": [{"y": 0, "x": 0}] * 30}))
+
+    def dataset(**options):
+        return VesuviusLabeledDataset(
+            str(volume),
+            str(labels),
+            patch_size=8,
+            num_layers=8,
+            seed=3,
+            jitter=False,
+            patches_json=str(catalog),
+            cache_dir=str(tmp_path / "cache"),
+            **options,
+        )
+
+    return dataset
+
+
+def _read_start(sample):
+    return int(round(float(sample[0][0, 0, 0, 0]) * 255))
+
+
+def test_without_a_depth_range_reads_start_where_they_always_did(indexed_depth):
+    """Protocol v2's sample must not move: the same draw from the whole depth."""
+    dataset = indexed_depth()
+    for idx in range(len(dataset)):
+        expected = np.random.RandomState(idx + 3).randint(0, 40 - 8 + 1)
+        assert _read_start(dataset[idx]) == expected
+
+
+def test_a_depth_range_keeps_every_read_inside_it(indexed_depth):
+    dataset = indexed_depth(depth_range=(5, 17))
+    starts = {_read_start(dataset[idx]) for idx in range(len(dataset))}
+    assert starts <= set(range(5, 17 - 8 + 1)) and len(starts) > 1
+
+
+def test_a_depth_range_that_cannot_hold_a_read_is_refused(indexed_depth):
+    with pytest.raises(ValueError, match="cannot hold"):
+        indexed_depth(depth_range=(35, 50))  # clamped to 35-40: 5 slices < 8
