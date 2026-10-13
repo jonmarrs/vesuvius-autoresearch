@@ -14,6 +14,7 @@ if site_packages:
             ":".join(nvidia_libs) + ":" + os.environ.get("LD_LIBRARY_PATH", "")
         )
 
+import copy
 import json
 import math
 import time
@@ -121,20 +122,27 @@ try:
 except ImportError:
 
     def compute_mean_ap(gt_bin, pred, **kwargs):
-        return {"mAP": 0.0}
+        raise RuntimeError("villa mean_ap metric is unavailable")
+
+
+def _as_hwd(mask: np.ndarray) -> np.ndarray:
+    """A 2D (H, W) patch as villa's single-slice (H, W, 1) volume."""
+    mask = np.asarray(mask)
+    return mask[..., np.newaxis] if mask.ndim == 2 else mask
 
 
 try:
     from metrics.connected_components import compute as compute_cc_official
 
     def compute_cc_diff(gt_bin: np.ndarray, pred_bin: np.ndarray) -> int:
-        # Villa metric expects [H, W, D] or [N, H, W, D]
-        # Our internal validation loop sends squeezed 3D or (1, H, W)
-        try:
-            res = compute_cc_official(gt_bin, pred_bin, num_classes=2, ignore_index=0)
-            return int(res.get("connected_components_difference_total", 0))
-        except Exception:
-            return 0
+        # Villa requires [H, W, D]; a 2D patch is one slice. Passing (H, W)
+        # raised, and returning 0 on that error made every patch a perfect
+        # match, so the cc_diff gate could never fail. Errors now reach the
+        # caller, which counts them (validation_diag["cc_errors"]).
+        res = compute_cc_official(
+            _as_hwd(gt_bin), _as_hwd(pred_bin), num_classes=2, ignore_index=0
+        )
+        return int(res["connected_components_difference_total"])
 except ImportError:
     try:
         from scipy.ndimage import label as _scipy_cc_label
@@ -153,17 +161,16 @@ try:
     from metrics.critical_components import compute as compute_crit_official
 
     def compute_crit_comps(gt_bin: np.ndarray, pred_bin: np.ndarray) -> int:
-        try:
-            # Note: villa.critical_components expects (H, W, D) or similar.
-            # We assume classes=[1] for ink.
-            res = compute_crit_official(gt_bin, pred_bin)
-            return int(res.get("critical_components_total", 0))
-        except Exception:
-            return 0
+        # Same [H, W, D] requirement; villa reports positive and negative
+        # counts (there is no "_total" key, so this was 0 even when it ran).
+        res = compute_crit_official(_as_hwd(gt_bin), _as_hwd(pred_bin))
+        return int(
+            res["critical_components_positive"] + res["critical_components_negative"]
+        )
 except ImportError:
 
     def compute_crit_comps(gt_bin: np.ndarray, pred_bin: np.ndarray) -> int:
-        return 0
+        raise RuntimeError("villa critical_components metric is unavailable")
 
 
 def load_shape_compatible_state(module, state_dict, label):
@@ -294,6 +301,67 @@ def is_f1_improvement(val_f1: float, ap_lift: float, best_val_f1: float) -> bool
     if not (np.isfinite(ap_lift) and ap_lift > 1.0 + LIFT_MARGIN):
         return False
     return val_f1 > best_val_f1 + F1_NOISE_TOLERANCE
+
+
+def append_tsv_row(path: str, columns, values) -> None:
+    """Append one row to a TSV log whose header must be exactly ``columns``.
+
+    Columns used to be added in code without touching an existing file's header,
+    so history.tsv and prize_readiness.tsv gained rows with one more field than
+    their header and every later column was mislabelled. A file whose header
+    differs is now moved aside (``<name>.until-<timestamp>.tsv``) and a new one
+    started, so each file stays readable by its own header.
+    """
+    if len(values) != len(columns):
+        raise ValueError(f"{path}: {len(values)} values for {len(columns)} columns")
+    header = "\t".join(columns) + "\n"
+    if os.path.exists(path):
+        with open(path) as f:
+            existing = f.readline()
+        if existing != header:
+            stem, ext = os.path.splitext(path)
+            aside = f"{stem}.until-{time.strftime('%Y%m%d-%H%M%S')}{ext}"
+            os.replace(path, aside)
+            print(f"{path}: header differs from the current columns; moved to {aside}")
+    start = not os.path.exists(path)
+    with open(path, "a") as f:
+        if start:
+            f.write(header)
+        f.write("\t".join(str(v) for v in values) + "\n")
+        f.flush()
+        os.fsync(f.fileno())
+
+
+HISTORY_COLUMNS = (
+    "timestamp",
+    "val_bpb",
+    "avg_skel_dist",
+    "avg_centerline_dice",
+    "avg_cc_diff",
+    "avg_crit_comp",
+    "avg_mean_ap",
+    "train_loss",
+    "throughput_Mvps",
+    "num_params_M",
+    "peak_vram_mb",
+    "config",
+)
+# results.tsv's schema is frozen for scripts/experiment_report_data.py.
+RESULTS_COLUMNS = tuple(c for c in HISTORY_COLUMNS if c != "avg_mean_ap")
+PRIZE_READINESS_COLUMNS = (
+    "timestamp",
+    "submittable",
+    "window_ok",
+    "window_mm",
+    "villa_metrics_ok",
+    "patch_size",
+    "val_bpb",
+    "avg_skel_dist",
+    "avg_centerline_dice",
+    "avg_cc_diff",
+    "avg_crit_comp",
+    "config",
+)
 
 
 def promotion_decision(
@@ -613,12 +681,28 @@ except ImportError:
 
 from vesuvius_autoresearch.core.model_wrappers import GenericMultiTaskWrapper
 
+TRAINING_TRANSFORMS_IMPORT_ERROR = None
 try:
     from vesuvius.models.augmentation.pipelines.training_transforms import (
         create_training_transforms,
     )
-except ImportError:
+except ImportError as exc:
     create_training_transforms = None
+    TRAINING_TRANSFORMS_IMPORT_ERROR = f"{type(exc).__name__}: {exc}"
+
+# Batches that asked for batchgeneratorsv2 but were augmented with the
+# Albumentations recipe because the villa pipeline raised; reported per run.
+AUGMENTATION_FALLBACKS = {"batchgeneratorsv2": 0}
+
+# The four scroll augmentations villa's pipeline adds itself (see
+# apply_augmentations); the other five come from scroll_augmentations in
+# either mode.
+_VILLA_SCROLL_AUGMENTATIONS = (
+    "aug_scroll_sheet_compression_p",
+    "aug_scroll_thick_slice_p",
+    "aug_scroll_rician_noise_p",
+    "aug_scroll_blank_rectangles_p",
+)
 
 _villa_aug_cache = {}
 _bg2_aug_cache = {}
@@ -833,6 +917,24 @@ def periodic_pixel_auc_eval(model, val_dataset, config, device, step, elapsed_s)
     print(f"  [curve] step={step} elapsed={elapsed_s:.0f}s pooled_pixel_auc={auc:.4f}")
 
 
+def uamt_views(x_unlabeled, step, config):
+    """Student and teacher inputs for UA-MT's pixel-wise consistency loss.
+
+    Both see one augmented view; the teacher's stochastic passes add their own
+    input noise. Two independent apply_augmentations calls gave each network a
+    different flip/rotation/affine, so the MSE compared misaligned pixels (the
+    same stroke overlapped with IoU 0-0.2) and rewarded predictions that ignore
+    the image.
+    """
+    B, _, _, H, W = x_unlabeled.shape
+    dummy_ink = torch.zeros((B, 1, H, W), device=x_unlabeled.device)
+    dummy_fiber = torch.zeros((B, 1, 1, H, W), device=x_unlabeled.device)
+    view, _, _ = apply_augmentations(
+        x_unlabeled, dummy_ink, dummy_fiber, step, None, config=config
+    )
+    return view, view
+
+
 def compute_dice_loss(pred_2d, target, smooth=1e-5, weight=None):
     """
     Standard Dice Loss for 2D ink detection. Optional per-pixel `weight`
@@ -888,7 +990,15 @@ def apply_augmentations(x, target_ink, target_fiber, step, max_steps, config=Non
 
     aug_mode = getattr(config, "aug_mode", "albumentations")
 
-    if aug_mode == "batchgeneratorsv2" and create_training_transforms is not None:
+    if aug_mode == "batchgeneratorsv2" and create_training_transforms is None:
+        # This used to fall through to Albumentations without a word, so a cycle
+        # recorded as batchgeneratorsv2 trained with the other recipe.
+        raise RuntimeError(
+            "aug_mode='batchgeneratorsv2' needs villa's training transforms, which "
+            f"failed to import ({TRAINING_TRANSFORMS_IMPORT_ERROR})"
+        )
+
+    if aug_mode == "batchgeneratorsv2":
         B, C, D, H, W = x.shape
         patch_size_3d = (D, H, W)
         if patch_size_3d not in _bg2_aug_cache:
@@ -1018,14 +1128,25 @@ def apply_augmentations(x, target_ink, target_fiber, step, max_steps, config=Non
             x_aug = torch.stack(out_x)
             ink_aug = torch.stack(out_ink)
             fiber_aug = torch.stack(out_fiber)
-
-            return x_aug, ink_aug, fiber_aug
         except Exception as e:
-            if step % 100 == 0:
+            AUGMENTATION_FALLBACKS["batchgeneratorsv2"] += 1
+            if AUGMENTATION_FALLBACKS["batchgeneratorsv2"] <= 3:
                 print(
-                    f"Warning: batchgeneratorsv2 failed ({e}). Falling back to Albumentations."
+                    f"Warning: batchgeneratorsv2 failed ({e}). Falling back to "
+                    "Albumentations for this batch (count in run_result.json)."
                 )
             aug_mode = "albumentations"
+        else:
+            # The Albumentations path applies the aug_scroll_* settings below;
+            # this path returned before them, so switching aug_mode also turned
+            # off the scroll augmentations the config enables. Villa's pipeline
+            # already covers four of them, so only the other five apply here.
+            others = copy.copy(config)
+            for name in _VILLA_SCROLL_AUGMENTATIONS:
+                setattr(others, name, 0.0)
+            return apply_scroll_specific_3d_augmentations(
+                x_aug, ink_aug, fiber_aug, others
+            )
 
     # Fallback/Default: Albumentations
     aug = _get_villa_aug(x.shape[-1], config) if _HAS_ALBUMENTATIONS else None
@@ -1257,6 +1378,17 @@ def preflight_smoke(config: ExperimentConfig) -> None:
         v_config.num_layers,
         v_config.patch_size,
         v_config.patch_size,
+    )
+    # The configured augmentation recipe too: an unavailable aug_mode fails here,
+    # in seconds, instead of mid-cycle.
+    size = v_config.patch_size
+    x, _, _ = apply_augmentations(
+        x,
+        torch.zeros(2, 1, size, size),
+        torch.zeros(2, 1, 1, size, size),
+        0,
+        None,
+        config=config,
     )
     out = model(x, return_fiber=True, return_qc=True, return_proj=True, return_st=True)
     outs = out if isinstance(out, tuple) else (out,)
@@ -1625,20 +1757,7 @@ def train(config: ExperimentConfig):
 
         # UAMT Unlabeled Augmentations
         if config.use_uamt and x_unlabeled is not None:
-            dummy_ink = torch.zeros(
-                (x_unl_orig.shape[0], 1, x_unl_orig.shape[3], x_unl_orig.shape[4]),
-                device=device,
-            )
-            dummy_fiber = torch.zeros(
-                (x_unl_orig.shape[0], 1, 1, x_unl_orig.shape[3], x_unl_orig.shape[4]),
-                device=device,
-            )
-            x_unl_aug_student, _, _ = apply_augmentations(
-                x_unl_orig, dummy_ink, dummy_fiber, step, None, config=config
-            )
-            x_unl_aug_teacher, _, _ = apply_augmentations(
-                x_unl_orig, dummy_ink, dummy_fiber, step, None, config=config
-            )
+            x_unl_aug_student, x_unl_aug_teacher = uamt_views(x_unl_orig, step, config)
 
         # Compute Structure Tensor targets on the fly for view 1
         with torch.no_grad():
@@ -1979,6 +2098,7 @@ def train(config: ExperimentConfig):
     validation_diag.update(
         {
             "cc_errors": 0,
+            "crit_errors": 0,
             "skeleton_errors": 0,
             "centerline_errors": 0,
             "mean_ap_errors": 0,
@@ -2020,36 +2140,39 @@ def train(config: ExperimentConfig):
                 - compute_official_dice(val_target, prob_2d, threshold=best_threshold)
             )
 
-            try:
-                gt_bin_b = (val_target > 0.5).numpy().astype(bool)
-                pred_bin_b = (prob_2d > topo_threshold).numpy().astype(bool)
-                for b in range(gt_bin_b.shape[0]):
-                    val_cc_diffs.append(
-                        compute_cc_diff(gt_bin_b[b, 0], pred_bin_b[b, 0])
-                    )
-                    val_crit_comps.append(
-                        compute_crit_comps(gt_bin_b[b, 0], pred_bin_b[b, 0])
-                    )
-
+            gt_bin_b = (val_target > 0.5).numpy().astype(bool)
+            pred_bin_b = (prob_2d > topo_threshold).numpy().astype(bool)
+            for b in range(gt_bin_b.shape[0]):
+                # Each metric is counted on its own: a failure is recorded under
+                # its own key instead of as a value (or as another metric's error).
+                for key, values, measure in (
+                    ("cc_errors", val_cc_diffs, compute_cc_diff),
+                    ("crit_errors", val_crit_comps, compute_crit_comps),
+                ):
                     try:
-                        ap_res = compute_mean_ap(
-                            gt_bin_b[b, 0].astype(np.uint8),
-                            prob_2d[b, 0].numpy().astype(np.float32),
-                            ignore_index=0,
-                        )
-                        val_mean_aps.append(ap_res.get("mAP", 0.0))
+                        values.append(measure(gt_bin_b[b, 0], pred_bin_b[b, 0]))
                     except Exception as exc:
-                        validation_diag["mean_ap_errors"] += 1
-                        if validation_diag["mean_ap_errors"] <= 3:
+                        validation_diag[key] += 1
+                        if validation_diag[key] <= 3:
                             print(
-                                f"  Warning: mean_ap metric failed: {type(exc).__name__}: {exc}"
+                                f"  Warning: {key[:-7]} metric failed for validation "
+                                f"sample {i}: {type(exc).__name__}: {exc}"
                             )
-            except Exception as exc:
-                validation_diag["cc_errors"] += 1
-                if validation_diag["cc_errors"] <= 3:
-                    print(
-                        f"  Warning: connected-component metric failed for validation sample {i}: {type(exc).__name__}: {exc}"
+                try:
+                    ap_res = compute_mean_ap(
+                        gt_bin_b[b, 0].astype(np.uint8),
+                        prob_2d[b, 0].numpy().astype(np.float32),
+                        ignore_index=0,
                     )
+                    # villa's key is "mean_ap"; reading "mAP" recorded 0.0 for
+                    # every run.
+                    val_mean_aps.append(float(ap_res["mean_ap"]))
+                except Exception as exc:
+                    validation_diag["mean_ap_errors"] += 1
+                    if validation_diag["mean_ap_errors"] <= 3:
+                        print(
+                            f"  Warning: mean_ap metric failed: {type(exc).__name__}: {exc}"
+                        )
 
             if i % 10 == 0:
                 gt_3d = np.squeeze((val_target > 0.5).numpy().astype(bool))
@@ -2093,9 +2216,10 @@ def train(config: ExperimentConfig):
     val_bpb = np.mean(val_losses) if val_losses else 1.0
     avg_skel_dist = np.mean(val_skel_dists) if val_skel_dists else float("nan")
     avg_centerline_dice = np.mean(val_centerline_dices) if val_centerline_dices else 0.0
-    avg_cc_diff = np.mean(val_cc_diffs) if val_cc_diffs else 0.0
-    avg_crit_comp = np.mean(val_crit_comps) if val_crit_comps else 0.0
-    avg_mean_ap = np.mean(val_mean_aps) if val_mean_aps else 0.0
+    # No samples is "not measured" (NaN), not a perfect 0.
+    avg_cc_diff = np.mean(val_cc_diffs) if val_cc_diffs else float("nan")
+    avg_crit_comp = np.mean(val_crit_comps) if val_crit_comps else float("nan")
+    avg_mean_ap = np.mean(val_mean_aps) if val_mean_aps else float("nan")
     # Honest, prize-aligned selection metrics (single source of truth:
     # detector.metrics). val_bpb / skel_dist / centerline_dice above remain
     # reported but no longer decide promotion.
@@ -2187,6 +2311,7 @@ def train(config: ExperimentConfig):
         f"empty={validation_diag['empty_target_patches']}, "
         f"batch_errors={validation_diag['batch_errors']}, "
         f"cc_errors={validation_diag['cc_errors']}, "
+        f"crit_errors={validation_diag['crit_errors']}, "
         f"skeleton_errors={validation_diag['skeleton_errors']}, "
         f"centerline_errors={validation_diag['centerline_errors']}, "
         f"mean_ap_errors={validation_diag['mean_ap_errors']}"
@@ -2198,18 +2323,24 @@ def train(config: ExperimentConfig):
     # Log EVERY run to history.tsv for auditability — UNLESS this is an isolated
     # experiment run (checkpoint_out set), which must not touch loop state.
     if not getattr(config, "checkpoint_out", None):
-        history_file = "history.tsv"
-        history_header = "timestamp\tval_bpb\tavg_skel_dist\tavg_centerline_dice\tavg_cc_diff\tavg_crit_comp\tavg_mean_ap\ttrain_loss\tthroughput_Mvps\tnum_params_M\tpeak_vram_mb\tconfig\n"
-        if not os.path.exists(history_file):
-            with open(history_file, "w") as f:
-                f.write(history_header)
-
-        with open(history_file, "a") as f:
-            cfg_json = json.dumps(asdict(config))
-            f.write(
-                f"{time.strftime('%Y-%m-%d %H:%M:%S')}\t{val_bpb:.6f}\t{avg_skel_dist:.6f}\t{avg_centerline_dice:.6f}\t{avg_cc_diff:.3f}\t{avg_crit_comp:.3f}\t{avg_mean_ap:.4f}\t{smooth_loss:.6f}\t{throughput_Mvps:.2f}\t{num_params_M:.3f}\t{peak_vram_mb:.1f}\t{cfg_json}\n"
-            )
-            f.flush()
+        append_tsv_row(
+            "history.tsv",
+            HISTORY_COLUMNS,
+            [
+                time.strftime("%Y-%m-%d %H:%M:%S"),
+                f"{val_bpb:.6f}",
+                f"{avg_skel_dist:.6f}",
+                f"{avg_centerline_dice:.6f}",
+                f"{avg_cc_diff:.3f}",
+                f"{avg_crit_comp:.3f}",
+                f"{avg_mean_ap:.4f}",
+                f"{smooth_loss:.6f}",
+                f"{throughput_Mvps:.2f}",
+                f"{num_params_M:.3f}",
+                f"{peak_vram_mb:.1f}",
+                json.dumps(asdict(config)),
+            ],
+        )
 
     ckpt_out = getattr(config, "checkpoint_out", None)
     if ckpt_out:
@@ -2271,35 +2402,43 @@ def train(config: ExperimentConfig):
             "best_model.pt",
         )
 
-        header = "timestamp\tval_bpb\tavg_skel_dist\tavg_centerline_dice\tavg_cc_diff\tavg_crit_comp\ttrain_loss\tthroughput_Mvps\tnum_params_M\tpeak_vram_mb\tconfig\n"
-        if not os.path.exists(log_file):
-            with open(log_file, "w") as f:
-                f.write(header)
-                f.flush()
-                os.fsync(f.fileno())
-
-        with open(log_file, "a") as f:
-            cfg_json = json.dumps(asdict(config))
-            f.write(
-                f"{time.strftime('%Y-%m-%d %H:%M:%S')}\t{val_bpb:.6f}\t{avg_skel_dist:.6f}\t{avg_centerline_dice:.6f}\t{avg_cc_diff:.3f}\t{avg_crit_comp:.3f}\t{smooth_loss:.6f}\t{throughput_Mvps:.2f}\t{num_params_M:.3f}\t{peak_vram_mb:.1f}\t{cfg_json}\n"
-            )
-            f.flush()
-            os.fsync(f.fileno())
-
-        prize_log_file = "prize_readiness.tsv"
-        prize_header = "timestamp\tsubmittable\twindow_ok\twindow_mm\tvilla_metrics_ok\tpatch_size\tval_bpb\tavg_skel_dist\tavg_centerline_dice\tavg_cc_diff\tavg_crit_comp\tconfig\n"
-        if not os.path.exists(prize_log_file):
-            with open(prize_log_file, "w") as f:
-                f.write(prize_header)
-                f.flush()
-                os.fsync(f.fileno())
-
-        with open(prize_log_file, "a") as f:
-            f.write(
-                f"{time.strftime('%Y-%m-%d %H:%M:%S')}\t{submittable}\t{window_ok}\t{window_mm:.4f}\t{villa_metrics_ok}\t{config.patch_size}\t{val_bpb:.6f}\t{avg_skel_dist:.6f}\t{avg_centerline_dice:.6f}\t{avg_cc_diff:.3f}\t{avg_crit_comp:.3f}\t{cfg_json}\n"
-            )
-            f.flush()
-            os.fsync(f.fileno())
+        stamp = time.strftime("%Y-%m-%d %H:%M:%S")
+        cfg_json = json.dumps(asdict(config))
+        append_tsv_row(
+            log_file,
+            RESULTS_COLUMNS,
+            [
+                stamp,
+                f"{val_bpb:.6f}",
+                f"{avg_skel_dist:.6f}",
+                f"{avg_centerline_dice:.6f}",
+                f"{avg_cc_diff:.3f}",
+                f"{avg_crit_comp:.3f}",
+                f"{smooth_loss:.6f}",
+                f"{throughput_Mvps:.2f}",
+                f"{num_params_M:.3f}",
+                f"{peak_vram_mb:.1f}",
+                cfg_json,
+            ],
+        )
+        append_tsv_row(
+            "prize_readiness.tsv",
+            PRIZE_READINESS_COLUMNS,
+            [
+                stamp,
+                submittable,
+                window_ok,
+                f"{window_mm:.4f}",
+                villa_metrics_ok,
+                config.patch_size,
+                f"{val_bpb:.6f}",
+                f"{avg_skel_dist:.6f}",
+                f"{avg_centerline_dice:.6f}",
+                f"{avg_cc_diff:.3f}",
+                f"{avg_crit_comp:.3f}",
+                cfg_json,
+            ],
+        )
 
         # Ensure filesystem sync (so best_model.pt / results.tsv / prize_readiness.tsv
         # are durable before the cycle returns).
@@ -2362,6 +2501,7 @@ def train(config: ExperimentConfig):
         "villa_metrics_ok": bool(villa_metrics_ok),
         "prize_gate_failures": prize_gate_failures,
         "validation_diag": validation_diag,
+        "augmentation_fallbacks": dict(AUGMENTATION_FALLBACKS),
         "is_success": bool(is_improvement),
     }
 
