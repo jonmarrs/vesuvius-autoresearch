@@ -221,7 +221,7 @@ def test_an_interrupted_save_leaves_the_previous_checkpoint(tmp_path, monkeypatc
 # --- loop ---------------------------------------------------------------------
 
 
-def _drive_loop(tmp_path, monkeypatch, cycles, result=None):
+def _drive_loop(tmp_path, monkeypatch, cycles, result=None, commands=None):
     import run_autoresearch_loop as loop
 
     monkeypatch.chdir(tmp_path)
@@ -242,6 +242,8 @@ def _drive_loop(tmp_path, monkeypatch, cycles, result=None):
 
     class FakeSupervisor:
         def run(self, command, **kwargs):
+            if commands is not None:
+                commands.append(list(command))
             # The preflight and the every-5th-cycle benchmark are not training runs.
             if "--smoke" in command or "scripts/inference/predict.py" in command:
                 return subprocess.CompletedProcess(command, 0)
@@ -299,3 +301,21 @@ def test_a_baseline_with_no_tweak_under_the_vram_cap_ends_without_logging(
     )
     log = next((tmp_path / "sprint_logs").glob("*.md")).read_text()
     assert "VRAM cap" not in log
+
+
+def test_the_benchmark_leaves_the_depth_to_predict(tmp_path, monkeypatch):
+    """predict.py centres the checkpoint's window in the volume's depth; the loop's
+    fixed z=10 showed slices 10-25 of a 65-slice fragment, below the band."""
+    ExperimentConfig().save(tmp_path / "config.json")
+    commands: list = []
+    _drive_loop(tmp_path, monkeypatch, cycles=5, commands=commands)
+    benchmarks = [c for c in commands if "scripts/inference/predict.py" in c]
+    assert len(benchmarks) == 1 and "--z" not in benchmarks[0]
+
+
+def test_skipped_updates_reach_the_sprint_log(tmp_path, monkeypatch):
+    ExperimentConfig().save(tmp_path / "config.json")
+    result = {"is_success": False, "val_f1": 0.5, "skipped_updates": 3}
+    _drive_loop(tmp_path, monkeypatch, cycles=1, result=result)
+    log = next((tmp_path / "sprint_logs").glob("*.md")).read_text()
+    assert "- **Skipped updates**: 3" in log

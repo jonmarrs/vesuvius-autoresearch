@@ -423,6 +423,42 @@ def budget_lr_factor(progress: float, warmup_fraction: float = WARMUP_FRACTION):
     return 0.5 * (1.0 + math.cos(math.pi * decay))
 
 
+def guarded_update(model, optimizer, scaler, lr, max_norm=1.0, step=None) -> bool:
+    """Clip and apply one optimizer step, or skip it when the gradient norm is not finite.
+
+    AMP is off, so GradScaler does not skip non-finite steps itself: a finite loss
+    with a NaN or infinite gradient reached AdamW and made every weight and moment
+    NaN for the rest of the cycle. The norm is checked before clipping, which
+    would otherwise spread a NaN into every gradient, and the offending tensors
+    are named only when it fails (one check per step, not two GPU syncs per
+    tensor). Returns True when the step was applied.
+    """
+    named = [(n, p) for n, p in model.named_parameters() if p.grad is not None]
+    if not named:
+        return False  # nothing to apply; the scaler is left untouched
+    scaler.unscale_(optimizer)
+    named = [(n, p.grad) for n, p in named]
+    norms = torch.stack([torch.linalg.vector_norm(g.detach()) for _, g in named])
+    if not torch.isfinite(torch.linalg.vector_norm(norms)):
+        bad = [n for (n, g) in named if not torch.isfinite(g).all()]
+        where = f" at step {step}" if step is not None else ""
+        if bad:
+            names = ", ".join(bad[:3]) + (", ..." if len(bad) > 3 else "")
+            problem = f"Non-finite gradient{where} in {len(bad)} tensors ({names})"
+        else:
+            problem = f"Gradient norm{where} overflowed although every tensor is finite"
+        print(f"[WARNING] {problem}; skipping this update.")
+        optimizer.zero_grad(set_to_none=True)
+        scaler.update()
+        return False
+    torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm)
+    for group in optimizer.param_groups:
+        group["lr"] = lr
+    scaler.step(optimizer)
+    scaler.update()
+    return True
+
+
 def shuffled_loader(dataset, batch_size: int, seed: int) -> DataLoader:
     """Training batches drawn in a seeded random order over the whole catalogue.
 
@@ -1665,6 +1701,10 @@ def train(config: ExperimentConfig):
     step = 0
     total_training_time = 0
     smooth_loss = 0
+    # Steps not applied: a non-finite or exploding (> 1e6) loss, or a gradient
+    # whose norm is not finite.
+    skipped_updates = 0
+    smoothed = False
 
     while True:
         t0 = time.time()
@@ -2016,49 +2056,43 @@ def train(config: ExperimentConfig):
                 print(" -> out_fiber has NaN")
 
             optimizer.zero_grad(set_to_none=True)
-            # We MUST provide a dummy backward pass with 0 loss to keep GradScaler state valid,
-            # otherwise it will either crash (AssertionError) or stall.
-            total_loss = torch.tensor(0.0, device=device, requires_grad=True)
+            skip_step = True
+        else:
+            skip_step = False
 
-        scaler.scale(total_loss).backward()
-        scaler.unscale_(optimizer)
-
-        # Diagnostic check for NaNs in gradients or weights
-        for name, param in model.named_parameters():
-            if param.grad is not None and torch.isnan(param.grad).any():
-                print(f"DEBUG: NaN in gradient for {name} at step {step}")
-            if torch.isnan(param).any():
-                print(f"DEBUG: NaN in weights for {name} at step {step}")
-
-        torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
         current_lr = peak_lr * budget_lr_factor(
             total_training_time / config.time_budget if config.time_budget > 0 else 1.0
         )
-        for group in optimizer.param_groups:
-            group["lr"] = current_lr
-        scaler.step(optimizer)
-        scaler.update()
+        if not skip_step:
+            scaler.scale(total_loss).backward()
+            skip_step = not guarded_update(
+                model, optimizer, scaler, current_lr, step=step
+            )
+        skipped_updates += int(skip_step)
 
         # UAMT: Update Teacher EMA
         if config.use_uamt and ema_model is not None:
             with torch.no_grad():
                 decay = config.ema_decay
+                # Student weights stay finite: guarded_update skips any update
+                # whose gradient is not (a per-tensor check here cost one GPU
+                # sync per tensor per step).
                 for param_student, param_teacher in zip(
                     model.parameters(), ema_model.parameters(), strict=False
                 ):
-                    # Never absorb a (transiently) non-finite student weight: a single
-                    # NaN/Inf would poison the teacher permanently (NaN * decay == NaN),
-                    # which then NaNs the consistency loss for the rest of the cycle.
-                    if not torch.isfinite(param_student.data).all():
-                        continue
                     param_teacher.data.mul_(decay).add_(
                         param_student.data, alpha=1.0 - decay
                     )
 
         dt = time.time() - t0
         total_training_time += dt
-        loss_val = total_loss.item()
-        smooth_loss = 0.9 * smooth_loss + 0.1 * loss_val if step > 0 else loss_val
+        if skip_step:
+            # A skipped step reports no loss and leaves the smoothed loss alone.
+            loss_val = float("nan")
+        else:
+            loss_val = total_loss.item()
+            smooth_loss = 0.9 * smooth_loss + 0.1 * loss_val if smoothed else loss_val
+            smoothed = True
 
         if step % 10 == 0:
             remaining = max(0, config.time_budget - total_training_time)
@@ -2344,6 +2378,8 @@ def train(config: ExperimentConfig):
     loader_warnings = warning_counts()
     if loader_warnings:
         print(f"loader_warnings:       {loader_warnings}")
+    if skipped_updates:
+        print(f"skipped_updates:       {skipped_updates} of {step} steps")
     print(f"train_loss:            {smooth_loss:.6f}")
     print(f"throughput_Mvps:       {throughput_Mvps:.2f}")
     sys.stdout.flush()
@@ -2535,6 +2571,9 @@ def train(config: ExperimentConfig):
         # Counts are per process: DataLoader workers would keep their own
         # (shuffled_loader uses num_workers=0).
         "loader_warnings": loader_warnings,
+        # Steps not applied: a non-finite or > 1e6 loss, or a non-finite
+        # gradient norm (see guarded_update).
+        "skipped_updates": skipped_updates,
         "is_success": bool(is_improvement),
     }
 

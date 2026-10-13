@@ -248,3 +248,61 @@ def test_train_stops_at_an_unreadable_validation_patch_before_loading_anything(
         monkeypatch.setattr(train, name, too_early)
     with pytest.raises(RuntimeError, match="cannot be read"):
         train.train(ExperimentConfig())
+
+
+def _tiny_step_setup(amp=False):
+    model = torch.nn.Linear(3, 1)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=0.0)
+    scaler = torch.amp.GradScaler(device="cpu", enabled=amp)
+    _backward(model, scaler)
+    return model, optimizer, scaler
+
+
+def _backward(model, scaler):
+    scaler.scale(model(torch.ones(2, 3)).sum()).backward()
+
+
+@pytest.mark.parametrize("amp", [False, True])
+def test_a_finite_gradient_is_applied_at_the_scheduled_lr(amp):
+    model, optimizer, scaler = _tiny_step_setup(amp)
+    before = model.weight.detach().clone()
+    assert train.guarded_update(model, optimizer, scaler, lr=0.1)
+    assert optimizer.param_groups[0]["lr"] == 0.1
+    assert not torch.equal(model.weight, before)
+
+
+@pytest.mark.parametrize("amp", [False, True])
+@pytest.mark.parametrize("value", [float("nan"), float("inf")])
+def test_a_non_finite_gradient_is_skipped_not_applied(value, amp, capsys):
+    """With AMP off, GradScaler does not skip such a step, and AdamW made every
+    weight and moment NaN for the rest of the cycle."""
+    model, optimizer, scaler = _tiny_step_setup(amp)
+    model.weight.grad[0, 1] = value
+    before = {k: v.clone() for k, v in model.state_dict().items()}
+    assert not train.guarded_update(model, optimizer, scaler, lr=0.1, step=7)
+    for key, tensor in model.state_dict().items():
+        torch.testing.assert_close(tensor, before[key])
+    assert all(not state for state in optimizer.state.values())
+    assert all(p.grad is None for p in model.parameters())
+    # Named before clipping, which would have spread a NaN to the clean bias.
+    assert "at step 7 in 1 tensors (weight)" in capsys.readouterr().out
+    # The next finite step still works.
+    _backward(model, scaler)
+    assert train.guarded_update(model, optimizer, scaler, lr=0.1)
+    assert all(torch.isfinite(p).all() for p in model.parameters())
+
+
+def test_an_overflowing_norm_of_finite_gradients_is_named_as_such(capsys):
+    model, optimizer, scaler = _tiny_step_setup()
+    model.weight.grad.fill_(1e30)
+    model.bias.grad.fill_(1e30)
+    assert not train.guarded_update(model, optimizer, scaler, lr=0.1)
+    assert "overflowed although every tensor is finite" in capsys.readouterr().out
+
+
+def test_no_gradient_leaves_an_enabled_scaler_usable():
+    model, optimizer, scaler = _tiny_step_setup(amp=True)
+    optimizer.zero_grad(set_to_none=True)
+    assert not train.guarded_update(model, optimizer, scaler, lr=0.1)
+    _backward(model, scaler)
+    assert train.guarded_update(model, optimizer, scaler, lr=0.1)
