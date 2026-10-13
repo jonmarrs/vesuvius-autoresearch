@@ -327,6 +327,12 @@ new code removed two blank lines in `train.py`'s import block.
   check above).
 - `scripts/smoke_test.py` and the complete test suite with every dependency.
 
+**Update, 2026-10-12 (night), GPU host.** The dry-run re-score ran against the real
+`best_model.pt` and Fr143: `val_f1` 0.7271 under v2, below the 0.7310 that calling
+every pixel ink scores on the same sample, and every loop run on record had lasagna
+silently off. The migration was stopped before `--update-stored`; see
+[finding 86](../reports/loop_v2_constant_control.md).
+
 ## Reviewer focus
 
 That protocol v2 is the right sample (400 spread patches, ink-free patches

@@ -178,8 +178,7 @@ def test_measurement_and_labels_do_not_require_current_config(
         )
 
 
-def test_reevaluation_uses_saved_input_settings(tools_fixture, monkeypatch):
-    _, _, _, settings, datasets = tools_fixture
+def _stub_topology(monkeypatch):
     monkeypatch.setattr(
         reevaluate, "select_topology_threshold", lambda *args: (0.5, 1.0)
     )
@@ -190,10 +189,47 @@ def test_reevaluation_uses_saved_input_settings(tools_fixture, monkeypatch):
         lambda *args, **kwargs: {"centerline_dice": 1.0},
     )
     monkeypatch.setattr(reevaluate, "compute_cc_diff", lambda *args: 0.0)
+
+
+def test_reevaluation_uses_saved_input_settings(tools_fixture, monkeypatch):
+    _, _, _, settings, datasets = tools_fixture
+    _stub_topology(monkeypatch)
     reevaluate.reevaluate()
     assert settings[0]["patch_size"] == 4 and settings[0]["num_layers"] == 2
     assert datasets[0].kwargs["ridge_sigma"] == 3.0
     assert datasets[0].kwargs["use_ridges"] is False
+
+
+def test_reevaluation_prints_the_all_ink_baseline(tools_fixture, monkeypatch, capsys):
+    # A threshold-swept F1 has a floor set by the sample's ink prevalence p:
+    # calling every pixel ink scores 2p/(1+p). Without it beside val_f1, a
+    # re-score on a sample with more ink reads as a gain (2026-10-12: 0.468 ->
+    # 0.727, when calling everything ink scored 0.731 on the new sample).
+    _stub_topology(monkeypatch)
+    reevaluate.reevaluate()
+    # The fixture's labels alternate 0/1 columns, so p = 0.5 and 2p/(1+p) = 2/3.
+    assert "all-ink baseline F1: 0.666667 (ink prevalence 0.5000;" in (
+        capsys.readouterr().out
+    )
+
+
+def test_reevaluation_compares_margins_over_the_all_ink_baseline(
+    tools_fixture, monkeypatch, capsys
+):
+    # Two samples with different prevalence have different F1 floors, so the
+    # comparable quantity is each val_f1's margin over its own sample's floor.
+    checkpoint = tools_fixture[0]
+    saved = torch.load(checkpoint, weights_only=False)
+    saved.update(val_f1=0.5, val_positive_rate=0.25)  # floor 0.4, margin +0.1
+    torch.save(saved, checkpoint)
+    _stub_topology(monkeypatch)
+    reevaluate.reevaluate()
+    lines = [
+        line
+        for line in capsys.readouterr().out.splitlines()
+        if "val_f1 margin over all-ink:" in line
+    ]
+    assert len(lines) == 1 and "stored=+0.100000" in lines[0]
 
 
 @pytest.mark.parametrize(

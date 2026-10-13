@@ -1,5 +1,19 @@
 # Resume note — written 2026-09-22 before a deliberate Claude restart
 
+## 2026-10-12 (night): finding 86; the loop migration is HELD for owner decisions
+
+* **Finding 86** (`reports/loop_v2_constant_control.md`, post-hoc, not pre-registered). The GPU-host dry run of
+  `scripts/reevaluate_best_model.py` scores the incumbent at 0.7271 under protocol v2, but calling every pixel ink
+  scores 0.7310 on that sample (ink prevalence 0.5760). Against each sample's all-ink floor the incumbent went from
+  +0.0548 (v1, one strip) to −0.0039 (v2); AUC 0.6689 → 0.5527. The re-score tool now prints the floor and both margins.
+* `use_lasagna: true` has been a silent no-op in every logged loop run: this host has no `nvcc`, so the loader returns
+  unwarped patches (980 + 2,185 fallback warnings in `run.log.old` / `run.log`).
+* **Not run, deliberately:** `--update-stored`, the commit, `scripts/f1_noise_probe.py` (its sigma would be squeezed
+  by the all-ink ceiling) and `./start.sh`. Owner decisions listed in the report: lasagna (toolkit, config, or fail
+  loudly) and the promotion metric (margin over the floor, ink-free patches, or AP lift / AUC).
+* Ruled out as a villa PR: villa's skeleton metric raising on `wandb.log` without a run. villa's own `evaluate.py`
+  always calls `wandb.init`, so only standalone callers (ours, fixed in #42) hit it.
+
 ## 2026-10-12 (evening): findings 84–85 folded into the October draft; #1934 reply posted
 
 * **POSTED 2026-10-12 20:23Z:** the finding-85 reply on villa #1934
