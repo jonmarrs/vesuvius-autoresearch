@@ -26,6 +26,7 @@ local_data/
 # A worktree's symlinks to the main checkout's data (scripts/dev_worktree.sh).
 /local_data
 /checkpoints
+/models
 *.pid
 *.npy
 config_temp.json

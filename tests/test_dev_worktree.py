@@ -40,12 +40,15 @@ def main_repo(tmp_path):
     git(main, "submodule", "add", "-q", str(villa), "villa")
     (main / "scripts").mkdir()
     shutil.copy(SCRIPT, main / "scripts" / "dev_worktree.sh")
-    (main / ".gitignore").write_text(".venv\n/local_data\n/checkpoints\n.claude/\n")
+    (main / ".gitignore").write_text(
+        ".venv\n/local_data\n/checkpoints\n/models\n.claude/\n"
+    )
     git(main, "add", ".")
     git(main, "commit", "-q", "-m", "main")
     (main / ".venv").mkdir()
     (main / "local_data").mkdir()
     (main / "checkpoints").mkdir()
+    (main / "models").mkdir()
     return main
 
 
@@ -65,6 +68,7 @@ def test_add_links_the_environment_and_checks_out_villa_at_the_pin(main_repo):
     assert (wt / ".venv").resolve() == (main_repo / ".venv").resolve()
     assert (wt / "local_data").resolve() == (main_repo / "local_data").resolve()
     assert (wt / "checkpoints").resolve() == (main_repo / "checkpoints").resolve()
+    assert (wt / "models").resolve() == (main_repo / "models").resolve()
     pin = git(main_repo, "ls-tree", "HEAD", "villa").split()[2]
     assert git(wt / "villa", "rev-parse", "HEAD") == pin
     assert (wt / "villa" / "README").read_text() == "villa\n"
@@ -76,7 +80,7 @@ def test_remove_leaves_main_and_its_villa_intact(main_repo):
     run(main_repo, "add", "feature", "main")
     run(main_repo, "remove", "feature")
     assert not (main_repo / ".claude" / "worktrees" / "feature").exists()
-    for shared in (".venv", "local_data", "checkpoints"):
+    for shared in (".venv", "local_data", "checkpoints", "models"):
         assert (main_repo / shared).is_dir()
     assert (main_repo / "villa" / "README").exists()
     assert "feature" not in git(main_repo, "worktree", "list")
