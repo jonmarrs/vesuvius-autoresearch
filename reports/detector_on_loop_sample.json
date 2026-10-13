@@ -1,0 +1,66 @@
+{
+  "protocol": "seeded-sample-400-v2+z1-27",
+  "git_commit": "b8a8fff345aa1a088f05e22e60ee1c36bb4e95a9",
+  "best_model_sha256": "d7da2776583dbefe02c54d2adf986de82c82a7cb36956ae8909ba1397cb282aa",
+  "best_model_val_protocol": "seeded-sample-400-v2+z1-27",
+  "detector_checkpoint": "models/detector/detector_epoch=7.ckpt",
+  "detector_sha256": "4f1170270ef9b8d609b832131f9cd11014d6216420c6bbb836cd3db3e16dd173",
+  "detector_layers": [
+    17,
+    43
+  ],
+  "requested_patches": 400,
+  "usable_patches": 97,
+  "n_pixels": 397312,
+  "ink_prevalence": 0.5760359616623711,
+  "all_ink_f1": 0.7309934235952078,
+  "tiled_uncovered_pixels": 0,
+  "cards": {
+    "loop_incumbent": {
+      "val_f1": 0.7273278551369441,
+      "best_threshold": 0.05,
+      "precision": 0.578240289572602,
+      "recall": 0.9800013981980722,
+      "pred_positive_rate": 0.9762655041881443,
+      "average_precision": 0.6214004427993146,
+      "ap_prevalence_lift": 1.0787528629393675,
+      "roc_auc": 0.5615411043131352
+    },
+    "detector_single_window": {
+      "val_f1": 0.7319713508111807,
+      "best_threshold": 0.2,
+      "precision": 0.5788164447606464,
+      "recall": 0.9953378833028934,
+      "pred_positive_rate": 0.9905565399484536,
+      "average_precision": 0.6332667195207609,
+      "ap_prevalence_lift": 1.0993527516810384,
+      "roc_auc": 0.5789578503425088
+    },
+    "detector_tiled": {
+      "val_f1": 0.7372408662532182,
+      "best_threshold": 0.25,
+      "precision": 0.6065891910188423,
+      "recall": 0.939624059493328,
+      "pred_positive_rate": 0.8922962306701031,
+      "average_precision": 0.6707478833706864,
+      "ap_prevalence_lift": 1.1644201543163866,
+      "roc_auc": 0.613066217571583
+    },
+    "constant_all_ink": {
+      "val_f1": 0.7309934235952078,
+      "best_threshold": 0.05,
+      "precision": 0.5760359616623711,
+      "recall": 1.0,
+      "pred_positive_rate": 1.0,
+      "average_precision": 0.5760359616623711,
+      "ap_prevalence_lift": 1.0,
+      "roc_auc": 0.5
+    }
+  },
+  "margins_over_all_ink": {
+    "loop_incumbent": -0.0036655684582637127,
+    "detector_single_window": 0.0009779272159728958,
+    "detector_tiled": 0.00624744265801036,
+    "constant_all_ink": 0.0
+  }
+}
