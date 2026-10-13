@@ -1,5 +1,15 @@
 # Resume note — written 2026-09-22 before a deliberate Claude restart
 
+## 2026-10-13 (afternoon): finding 87, the depth band was in layer numbers; corrected to `[1, 27]`
+
+* **Finding 87** (`reports/ink_depth_profile.md`, read-only, not pre-registered). The fragments' zarrs are 33 slices
+  (surface-volume layers 16–48), so `depth_band: [17, 43]` (the detector's layer files) lay past the volume and every
+  dataset build refused it. In zarr slices the detector's band is `[1, 27]`; `config.json` now says so (protocol
+  `seeded-sample-400-v2+z1-27`), guarded by `tests/test_config_depth_band_fits_fragments.py`.
+* Under protocol v2 every validation window already contained layer 32; ink contrast is weak at every depth. The depth
+  hypothesis does not explain finding 86's near-constant incumbent. Still open for the owner: lasagna, the promotion
+  metric, and whether to keep the band at all.
+
 ## 2026-10-13: depth band implemented; the loop will not start until re-scored
 
 * Patches now read inside `depth_band: [17, 43]` (`config.json`); the validation protocol is

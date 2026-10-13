@@ -85,6 +85,12 @@ not show the inked surface may well end up near-constant. Details: `docs/DESIGN_
 `seeded-sample-400-v2+z17-43`. The incumbent must be re-scored before the loop starts, and the re-score needs the
 lasagna decision above first.
 
+**Checked 2026-10-13 on the GPU host (finding 87, `reports/ink_depth_profile.md`): the premise does not hold.** The
+fragments are 33 slices deep (surface-volume layers 16–48), not 65, so `[17, 43]` lay past the volume and every
+dataset build refused it; in the zarr's numbering the detector's layers are `[1, 27]`, now the configured band. Under
+protocol v2 every validation window already contained layer 32 and had at least 14 of its 16 slices inside the
+detector's band. Depth does not explain the near-constant incumbent.
+
 ## What this means for the migration
 
 These are decisions for the loop's owner; none was taken here.
