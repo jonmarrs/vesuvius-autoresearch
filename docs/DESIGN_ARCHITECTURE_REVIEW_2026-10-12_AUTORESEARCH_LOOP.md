@@ -263,8 +263,13 @@ FAILED tests/test_pseudo_handoff_contracts.py::test_sampler_is_actual_pinned_sou
 ```
 
 Interpretation: nothing fails only on the branch. The two baseline-only failures
-are artefacts of the baseline worktree, whose `villa` was a symlink to the main
-checkout (`resolve()` then names a path outside the worktree). The 50 shared
+are artefacts of running the baseline worktree with the main checkout's venv
+(corrected 2026-10-12 in the training-step review; this first said a `villa`
+symlink was the cause): the editable install resolves `vesuvius_autoresearch` to
+the main checkout's `src/`, and one test expects `.venv/bin/python` inside the
+worktree. The same resolution means the baseline run imported the branch's
+`src/vesuvius_autoresearch/core/vesuvius_loader.py`; the loader change's
+failing-first evidence is the stashed-source run under "Tests". The 50 shared
 failures and errors are environmental: `test_surface_render_contracts.py` (21),
 `test_geometry_handoff_contracts.py` (14), `test_label_curation_contracts.py` (6),
 `test_villa_metrics_integration.py` (4) and five others, from dependencies and
