@@ -69,6 +69,11 @@ Image.MAX_IMAGE_PIXELS = None
 _WARNING_COUNTS = defaultdict(int)
 
 
+# Largest per-axis size difference accepted between a 2D label/mask and its
+# volume: export rounding, not a different crop or scale.
+LABEL_SHAPE_TOLERANCE_PX = 2
+
+
 def _warn_limited(key, message, limit=5):
     _WARNING_COUNTS[key] += 1
     count = _WARNING_COUNTS[key]
@@ -283,23 +288,37 @@ class VesuviusLabeledDataset(torch.utils.data.Dataset):
         # CT as (H, depth, W) instead, so a naive load silently misaligns labels
         # against transposed CT — the model then trains on garbage and scores
         # ~chance, with the only visible symptom a downstream collate crash. Fail
-        # loudly here instead. Tolerance allows minor resolution/crop differences
-        # that the patch sampler clamps; a gross mismatch (e.g. 5×) is rejected.
+        # loudly here instead. Exports of the same segment differ by rounding
+        # (0-1 px across the registered segments in reports/scorer_vs_labels.json);
+        # anything larger is a different crop or scale. The tolerance used to be
+        # 20% of each side (~1,600 px on an 8,181 px fragment), which let a
+        # misregistered label train and validate silently.
         vol_hw = (self.shape[1], self.shape[2])
         for _name, _arr in (("labels", self.labels), ("mask", self.mask)):
             if _arr is None:
                 continue
             lh, lw = _arr.shape[:2]
             if (
-                abs(lh - vol_hw[0]) > 0.2 * vol_hw[0]
-                or abs(lw - vol_hw[1]) > 0.2 * vol_hw[1]
+                abs(lh - vol_hw[0]) > LABEL_SHAPE_TOLERANCE_PX
+                or abs(lw - vol_hw[1]) > LABEL_SHAPE_TOLERANCE_PX
             ):
+                transposed = (lh, lw) in (
+                    (self.shape[0], self.shape[2]),
+                    (self.shape[0], self.shape[1]),
+                )
                 raise ValueError(
                     f"{_name} shape {(lh, lw)} does not match volume (H, W)="
-                    f"{vol_hw} for {volume_uri}. The CT volume is likely stored "
-                    f"in a different axis order than (depth, H, W) (full shape "
-                    f"{tuple(self.shape)}); align the label to the volume grid "
-                    f"(or transpose the volume) before training."
+                    f"{vol_hw} for {volume_uri} (tolerance "
+                    f"{LABEL_SHAPE_TOLERANCE_PX} px). "
+                    + (
+                        "The CT volume is likely stored in a different axis order "
+                        f"than (depth, H, W) (full shape {tuple(self.shape)}); "
+                        "transpose the volume before training."
+                        if transposed
+                        else "A size difference this large is a different crop or "
+                        "scale, not export rounding; register the label to the "
+                        "volume grid before training."
+                    )
                 )
 
         # Pre-calculate valid coordinates
@@ -651,23 +670,49 @@ class VesuviusLabeledDataset(torch.utils.data.Dataset):
         if depth < 3:
             ridges_tensor = torch.zeros_like(ct_tensor)
         else:
+            ct_cpu = ct_tensor.cpu().numpy()
             ridges_tensor = None
             try:
                 import cupy as cp
-
-                ct_gpu = cp.asarray(ct_tensor)
-                ridges_gpu = detect_ridges(ct_gpu, sigma=self.volume.ridge_sigma)
-                ridges_tensor = (
-                    torch.from_numpy(cp.asnumpy(ridges_gpu)).float().to(self.device)
-                )
-            except Exception:
+            except ImportError:
+                cp = None
+            if cp is not None:
+                # The result stays on the CPU like the rest of the patch. It used
+                # to be moved with .to(self.device), an attribute this class never
+                # sets, so every GPU result raised and was recomputed on the CPU.
                 try:
-                    ct_cpu = ct_tensor.cpu().numpy()
-                    ridges_cpu = detect_ridges(ct_cpu, sigma=self.volume.ridge_sigma)
-                    ridges_tensor = torch.from_numpy(
-                        np.asarray(ridges_cpu, dtype=np.float32)
+                    ridges_gpu = detect_ridges(
+                        cp.asarray(ct_cpu), sigma=self.volume.ridge_sigma
                     )
-                except Exception:
+                    ridges_tensor = torch.from_numpy(
+                        np.asarray(cp.asnumpy(ridges_gpu), dtype=np.float32)
+                    )
+                except Exception as exc:
+                    _warn_limited(
+                        "labeled_ridge_gpu_fallback",
+                        f"GPU ridge detection failed for {self.volume.uri}; using "
+                        f"the CPU: {type(exc).__name__}: {exc}",
+                    )
+            if ridges_tensor is None:
+                try:
+                    ridges_tensor = torch.from_numpy(
+                        np.asarray(
+                            detect_ridges(ct_cpu, sigma=self.volume.ridge_sigma),
+                            dtype=np.float32,
+                        )
+                    )
+                except Exception as exc:
+                    # A zero ridge channel is a different input, not a missing
+                    # one; it used to be substituted without any message.
+                    if self.strict_reads:
+                        raise RuntimeError(
+                            f"ridge detection failed for {self.volume.uri}"
+                        ) from exc
+                    _warn_limited(
+                        "labeled_ridge_fallback",
+                        f"ridge detection failed for {self.volume.uri}; using zero "
+                        f"ridges: {type(exc).__name__}: {exc}",
+                    )
                     ridges_tensor = torch.zeros_like(ct_tensor)
         return torch.stack([ct_tensor, ridges_tensor], dim=0)
 
