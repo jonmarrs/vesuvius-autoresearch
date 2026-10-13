@@ -17,8 +17,8 @@ unapplied, and the metric and noise tolerance are unchanged.
   proposed.
 - `train.py` reads one strict validation patch before it loads any training data, so a run whose
   validation cannot be read fails before training instead of after its budget.
-- Five crashed cycles in a row pause the loop (`.loop_paused`) for the operator instead of letting
-  the watchdog restart it into the same failure.
+- After five crashed cycles in a row, the loop waits one cycle budget between attempts, so a crash
+  loop uses no more cycles than a healthy shift instead of failing as fast as it can.
 - The lasagna warp says which patches it cannot take, and why, before doing any work: uint8 on
   the CPU (villa's kernel takes CUDA tensors only) and int32 (uint16 volumes). The uint8 call now
   meets the kernel's contract (a 4-D grid and a contiguous volume).
@@ -30,7 +30,7 @@ unapplied, and the metric and noise tolerance are unchanged.
 | Priority | Finding | Fix |
 | --- | --- | --- |
 | P1 | **Finding 86's lasagna diagnosis named the wrong cause.** Every logged failure was the extension's JIT compile (no `nvcc`, `CUDA_HOME` unset), so the report offered "install a CUDA toolkit" as a way to make the warp run. It would not: `villa/lasagna/grid_sample_3d_u8_kernel.cu` checks that every input is a CUDA tensor, that the volume is contiguous, and that the grid is `(D, H, W, 3)`. The loader reads patches on the CPU (`get_raw_patch` returns `torch.from_numpy(...)`) and passed a `(1, D, H, W, 3)` grid, so with a toolkit installed every patch would fail the kernel's checks instead. uint16 volumes (read as int32) failed too, in the surface estimate. The test of this call stubbed the kernel with a CPU function that accepted anything. | `_lasagna_unavailable_reason` refuses a uint8 patch that is not on CUDA, and any non-float integer patch, before the surface estimate and before the extension loads. Training counts the refusal as a `lasagna_warp_failed` warning; strict reads raise it. Nothing that was computed changes, because the warp never ran. The grid is 4-D and the volume is made contiguous. The stub enforces all of the kernel's checks: on CPU with the device refusal bypassed, and on CUDA where available. Correction added to `reports/loop_v2_constant_control.md`. |
-| P2 | **The loop could crash-loop for a whole shift.** A crash does not change the bandit's weights, and the watchdog restarts a loop that returns. So a broken baseline, data path or host repeats until someone looks. On the 2026-04-24 night the logs record 4,704 crashed cycles in a row; 15 sprints since April have streaks of 50 or more. | `MAX_CONSECUTIVE_CRASHES = 5`: the loop writes the reason to the sprint log and stdout, creates `.loop_paused` (which the watchdog honours and `./start.sh` clears), and exits. A completed cycle resets the count. |
+| P2 | **The loop could crash-loop for a whole shift, as fast as cycles failed.** A crash does not change the bandit's weights, and the watchdog restarts a loop that exits. So a broken baseline, data path or host repeats until it is fixed. On the 2026-04-24 night the logs record 4,704 crashed cycles in a row; 15 sprints since April have streaks of 50 or more. But many streaks ended unattended (since April, 64 streaks of 5 or more crashes were followed by a completed cycle in the same sprint, 22 of them after 10 to 29 crashes), either by a fix landing mid-shift (`train.py` is re-run every cycle) or by a tweak that avoided the fault (2026-06-05: seven out-of-memory crashes, then `num_blocks_8` ran). No threshold separates the two, so stopping would trade those recoveries for an operator restart. | `MAX_CONSECUTIVE_CRASHES = 5`: from the fifth crash in a row, the loop waits one cycle budget before the next attempt, and writes the streak to the sprint log once. A completed cycle resets the count. A crash loop now costs a shift's worth of attempts, not thousands. |
 | P2 | **A run whose validation could not be read still trained for its full budget.** Since the strict preprocessing review, a validation read that cannot apply a requested step fails, and `collect_validation_predictions` marks the sample incomplete, which blocks promotion. With `config.json`'s `use_lasagna: true` on uint8 volumes, that is every patch, so every cycle that keeps lasagna on would train for 15 or 60 minutes and then be unscoreable. `train.py` built the validation dataset early so that an empty catalogue "fails in seconds, not after the training budget", but it read no patch. | `probe_validation_read` reads the protocol's first patch (the index the measurement reads first) at the top of `train()`, before the training and UA-MT loaders are built. A failure there means the measurement could not be complete, so stopping loses nothing that could have counted. |
 | P3 | **The VRAM gate ran after sampling.** `batch_size: 24` scores 2.00 against the 1.5 cap at the production structure (batch 4, 16 layers, `base_feat` 64), so it was always rejected, but only after the cycle had taken a cycle number, a slot in the dedup list, and a 0.95 decay step for every active family, with no sprint-log entry. In the sprint logs since the 2026-06-09 pinning, 20 cycle numbers that are not every-10th (those were the removed GP baseline) are missing, and `batch_size_24` never appears. No GPU time was lost: the skip came before training. A baseline over the cap made every cycle a skip, with no sleep between them. | `complexity_score(config)` is a function. `tweak_proposals` scores each changed value once and keeps only those under the cap; the cap is read at call time. A baseline over the cap is offered only tweaks that bring it under; if there are none, the sprint ends with that reason. Exclusions are printed and written to the sprint log when they change. |
 
@@ -41,7 +41,7 @@ done:
 
 | Finding | Outcome |
 | --- | --- |
-| On this `config.json`, the fast-failing probe turns lasagna cycles into a crash loop the bandit never penalises. | Fixed by the crash-streak pause above. The sprint logs show the loop already crash-looped for whole shifts, so the pause is not only about this config. |
+| On this `config.json`, the fast-failing probe turns lasagna cycles into a crash loop the bandit never penalises. | Fixed by the crash-streak wait above. A first fix paused the loop after five crashes; the sprint logs showed many streaks recovering unattended, so it waits instead. |
 | uint16 volumes (read as int32) cannot be warped either, but the docs said only uint8 could not. | Fixed: refused with that reason; documented. |
 | The first version relaxed the cap to `max(cap, baseline score)`, so over-cap configs could launch while the log said nothing was excluded. | Fixed: the cap is hard again; an over-cap baseline is named in the log. |
 | The device check ran after the surface estimate, wasting work on every refused patch. | Fixed: checked first; a test fails if the softmax runs. |
@@ -76,7 +76,8 @@ done:
   model trained on warped patches would be served unwarped ones. No checkpoint is affected today,
   because the warp has never run.
 - **Until that decision,** a loop restarted on this `config.json` crashes, before training, every
-  cycle that keeps `use_lasagna: true`, and after five in a row it pauses itself. Setting
+  cycle that keeps `use_lasagna: true`, and after five in a row it slows to one attempt per cycle
+  budget. Setting
   `use_lasagna` to `false` (finding 86's second option) makes the config describe what every
   stored checkpoint was trained on.
 
@@ -90,8 +91,8 @@ New and changed tests:
 
 - `tests/test_loop_lifecycle.py`: the reference config scores 1.0; values over the cap are never
   proposed; an over-cap baseline gets only tweaks that bring it under; the cap is read per call.
-- `tests/test_autoresearch_measurement.py`: five crashes in a row pause the loop; a completed
-  cycle resets the streak.
+- `tests/test_autoresearch_measurement.py`: from the fifth crash in a row the loop waits a cycle
+  budget and keeps going; a completed cycle resets the streak.
 - `tests/test_training_step_contracts.py`: the probe reads exactly the protocol's first index and
   names it on failure; `train()` probes before loading training data.
 - `tests/test_preprocessing_contracts.py`: the probe stops a strict lasagna config on the uint8

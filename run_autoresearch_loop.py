@@ -16,10 +16,12 @@ from scripts.training.config import ExperimentConfig
 from scripts.training.promotion import IncumbentUnavailable, read_incumbent_val_f1
 
 LOCK_FILE = "autoresearch.lock"
-# A streak of crashes across different tweaks means the shared config, data or
-# host is broken, not the tweaks, and the watchdog would restart the loop into it
-# indefinitely (one 2026-04-24 night logged 4,704 crashed cycles in a row). After
-# this many in a row the loop pauses itself for the operator.
+# Crashes across different tweaks mean the shared config, data or host is broken,
+# and the watchdog restarts a loop that exits, so streaks have run for whole shifts
+# (4,704 crashed cycles in a row on the 2026-04-24 night). Many streaks still
+# ended unattended (a fix landing mid-shift, or a tweak that avoided the fault),
+# so after this many in a row the loop waits one cycle budget between attempts
+# instead of stopping.
 MAX_CONSECUTIVE_CRASHES = 5
 
 
@@ -744,16 +746,14 @@ def main():
         crash_streak = crash_streak + 1 if is_crash else 0
         if crash_streak >= MAX_CONSECUTIVE_CRASHES:
             message = (
-                f"{crash_streak} consecutive cycles crashed, so the cause is not the "
-                "tweak. Pausing the loop (.loop_paused): read run.log, fix the cause, "
-                "then run ./start.sh."
+                f"{crash_streak} consecutive cycles crashed, so the cause is likely "
+                f"shared, not the tweak; waiting {default_budget // 60} min before the "
+                "next attempt. See run.log."
             )
             print(message)
-            with open(log_filename, "a") as log:
-                log.write(f"\n## Loop paused at {time.strftime('%H:%M:%S')}\n")
-                log.write(f"{message}\n")
-            open(".loop_paused", "a").close()
-            break
+            if crash_streak == MAX_CONSECUTIVE_CRASHES:
+                with open(log_filename, "a") as log:
+                    log.write(f"- **Crash streak**: {message}\n\n")
 
         # Benchmark Inference Step (Every 5 cycles).
         # Uses subprocess.run (not os.system) so a predict.py crash surfaces
@@ -797,7 +797,7 @@ def main():
                 )
 
         sys.stdout.flush()
-        time.sleep(2)
+        time.sleep(default_budget if crash_streak >= MAX_CONSECUTIVE_CRASHES else 2)
 
 
 if __name__ == "__main__":

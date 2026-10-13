@@ -73,7 +73,7 @@ never flatten, so a model trained on warped patches would be served unwarped one
 Since the 2026-10-13 preprocessing review, a strict validation read refuses a requested warp that cannot run, so a
 cycle that keeps `use_lasagna: true` (every cycle but the one that tweaks it off) cannot be scored on these uint8
 volumes. `train.py` now reads one validation patch before training, so such a cycle fails before training instead of
-after its budget, and five crashed cycles in a row pause the loop.
+after its budget, and after five crashed cycles in a row the loop waits one cycle budget between attempts.
 
 ## What this means for the migration
 

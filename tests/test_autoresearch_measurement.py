@@ -221,13 +221,14 @@ def test_an_interrupted_save_leaves_the_previous_checkpoint(tmp_path, monkeypatc
 # --- loop ---------------------------------------------------------------------
 
 
-def _drive_loop(tmp_path, monkeypatch, cycles, result=None):
+def _drive_loop(tmp_path, monkeypatch, cycles, result=None, sleeps=None):
     import run_autoresearch_loop as loop
 
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(loop, "__file__", str(tmp_path / "run_autoresearch_loop.py"))
     monkeypatch.setattr(loop.signal, "signal", lambda *args: None)
-    monkeypatch.setattr(loop.time, "sleep", lambda *args: None)
+    recorded = [] if sleeps is None else sleeps
+    monkeypatch.setattr(loop.time, "sleep", recorded.append)
     hours = iter([12] * (cycles + 1) + [20])
     monkeypatch.setattr(
         loop.time, "localtime", lambda: SimpleNamespace(tm_hour=next(hours))
@@ -288,18 +289,22 @@ def test_a_blocked_promotion_is_recorded_in_the_sprint_log(tmp_path, monkeypatch
     assert "REVERTED" in log and "Promotion blocked: why" in log
 
 
-def test_a_crash_streak_pauses_the_loop(tmp_path, monkeypatch):
-    """Crashes across different tweaks mean the baseline, data or host is broken;
-    the watchdog would otherwise restart the loop into it all night."""
+def test_a_crash_streak_slows_the_loop_to_one_attempt_per_budget(tmp_path, monkeypatch):
+    """Crashes across different tweaks mean the baseline, data or host is broken; the
+    watchdog would otherwise restart the loop into it all night, as fast as it fails."""
     import run_autoresearch_loop as loop
 
     ExperimentConfig().save(tmp_path / "config.json")
-    launched = _drive_loop(tmp_path, monkeypatch, cycles=12)
-    assert len(launched) == loop.MAX_CONSECUTIVE_CRASHES
-    assert (tmp_path / ".loop_paused").exists()
+    sleeps: list = []
+    cycles = loop.MAX_CONSECUTIVE_CRASHES + 3
+    launched = _drive_loop(tmp_path, monkeypatch, cycles=cycles, sleeps=sleeps)
+    assert len(launched) == cycles, "a crash streak must not stop the loop"
+    budget = 900  # the day shift's cycle budget
+    assert sleeps.count(budget) == 4  # after crashes 5, 6, 7 and 8
+    assert sleeps[: loop.MAX_CONSECUTIVE_CRASHES - 1] == [2] * 4
     log = next((tmp_path / "sprint_logs").glob("*.md")).read_text()
-    assert log.count("(CRASHED)") == loop.MAX_CONSECUTIVE_CRASHES
-    assert "## Loop paused" in log
+    assert log.count("**Crash streak**") == 1
+    assert not (tmp_path / ".loop_paused").exists()
 
 
 def test_a_completed_cycle_resets_the_crash_streak(tmp_path, monkeypatch):
@@ -308,6 +313,9 @@ def test_a_completed_cycle_resets_the_crash_streak(tmp_path, monkeypatch):
     ExperimentConfig().save(tmp_path / "config.json")
     streak = [None] * (loop.MAX_CONSECUTIVE_CRASHES - 1)
     results = [*streak, {"is_success": False, "val_f1": 0.5}, *streak]
-    launched = _drive_loop(tmp_path, monkeypatch, cycles=len(results), result=results)
+    sleeps: list = []
+    launched = _drive_loop(
+        tmp_path, monkeypatch, cycles=len(results), result=results, sleeps=sleeps
+    )
     assert len(launched) == len(results)
-    assert not (tmp_path / ".loop_paused").exists()
+    assert set(sleeps) == {2}
