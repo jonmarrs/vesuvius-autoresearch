@@ -18,11 +18,14 @@ floor, and the noise-tolerance calibration.
 
 ## What changed
 
-The ridge channel uses the GPU result instead of discarding it and recomputing on the CPU; a ridge
-failure is reported, and is fatal under `strict_reads` (validation), instead of silently becoming
-an all-zero channel. A label or mask whose size differs from its volume by more than 2 px per axis
-is refused instead of accepted up to 20%. A villa patch and draft PR for `centerline_dice` are
-added under `docs/` for the owner to submit.
+One ridge implementation (`ridge_channel`) now serves both datasets: it uses the GPU result
+instead of discarding it and recomputing on the CPU, and a failure (including too few slices) is
+an error under `strict_reads` (validation) and otherwise a counted warning, never a silent zero
+channel. A label or mask must be single-channel and within 2 px of its volume per axis (it was
+20%), and is then cropped or padded onto the volume grid. A CT dtype the dataset does not
+normalise is refused at construction. `run_result.json` records every loader fallback count
+(`loader_warnings`). A villa patch and a draft PR for `centerline_dice` are added under `docs/`;
+the draft is **not postable** until the owner adds what villa's `CONTRIBUTING.md` requires.
 
 ## Correction: the density-scan regression in #43
 
@@ -38,16 +41,38 @@ test.
 
 | Priority | Finding | Fix |
 | --- | --- | --- |
-| P2 | **The ridge channel was computed twice per patch, and could silently become zeros.** `_compute_ridges` ran `detect_ridges` on the GPU, then moved the result with `.to(self.device)` — an attribute `VesuviusLabeledDataset` never sets. The `AttributeError` sent every patch to the CPU path, which recomputed the ridges (52 ms per 24×64×64 patch on this review's CPU, ~0.2 s per training step at batch 4). If the CPU path failed too, a bare `except` substituted zeros with no message, unlike `FastVesuviusVolume`'s ridge path, which warns. Production runs `use_ridges: true`, so a ridge failure changes one of the two input channels without trace. | The GPU result is used (`cupy` absent is a quiet CPU path); a GPU failure warns and falls back to the CPU; a CPU failure raises under `strict_reads` (the promotion sample since protocol v2) and otherwise warns before substituting zeros. |
-| P2 | **The label/volume guard accepted a 20% size difference.** It was written to catch a transposed volume (a ×5 mismatch) and allowed "minor resolution/crop differences" up to 20% of each side — 1,636 px on the 8,181 px training fragment. A label of a different crop or scale is misregistered everywhere, and the patch sampler's clamping does not realign it. Exports of the same segment differ by rounding: across the eight registered segments in `reports/scorer_vs_labels.json`, label and surface shapes differ by 0 or 1 px. | `LABEL_SHAPE_TOLERANCE_PX = 2`; a larger difference raises, naming the sizes and saying whether it looks like a transposed volume or a different crop/scale. |
-| Upstream | **Villa's `centerline_dice` exceeds 1 on slices without ground truth.** `dist_transform` starts at zeros and is filled only where the ground-truth skeleton is non-empty, so every predicted skeleton pixel on an empty slice counts as a hit. Live at villa `origin/main` (`4eecd08fd`); villa's `segmentation/evaluation/configs/recto.yml` and `recto-verso.yml` run it on volumes. | `docs/villa_pr_centerline_dice_empty_slices.patch` (+2/−1: start at infinity) and `docs/VILLA_DRAFT_centerline_dice_empty_slices.md`, written to the SOP (one defect, pasteable evidence, no AI-authorship markers in the villa-facing text). **Not posted**: opening it is the owner's call, after the issue search the draft lists. |
+| P2 | **The ridge channel was computed twice per patch, and could silently become zeros.** `_compute_ridges` ran `detect_ridges` on the GPU, then moved the result with `.to(self.device)` — an attribute `VesuviusLabeledDataset` never sets. The `AttributeError` sent every patch to the CPU path, which recomputed the ridges (52 ms per 24×64×64 patch on this review's CPU, ~0.2 s per training step at batch 4). If the CPU path failed too, a bare `except` substituted zeros with no message, unlike `FastVesuviusVolume`'s ridge path, which warns. Production runs `use_ridges: true`, so a ridge failure changes one of the two input channels without trace. | `ridge_channel`, shared by `VesuviusLabeledDataset` and `FastVesuviusVolume` (two diverging copies were how one came to discard every GPU result). The GPU result is used; CuPy is looked up once per process, and its absence is a quiet CPU path; a GPU failure warns and falls back to the CPU; a CPU failure, or too few slices, raises under `strict_reads` (the promotion sample since protocol v2) and otherwise warns before substituting zeros. Every fallback count reaches `run_result.json` as `loader_warnings`. |
+| P2 | **The label/volume guard accepted a 20% size difference.** It was written to catch a transposed volume (a ×5 mismatch) and allowed "minor resolution/crop differences" up to 20% of each side — 1,636 px on the 8,181 px training fragment. A label of a different crop or scale is misregistered everywhere, and the patch sampler's clamping does not realign it. Exports of the same segment differ by rounding: across the eight registered segments in `reports/scorer_vs_labels.json`, label and surface shapes differ by 0 or 1 px. | `LABEL_SHAPE_TOLERANCE_PX = 2`; a larger difference raises, naming the sizes and saying whether the label matches another pair of the volume's axes (transposed, within the same tolerance) or is a different crop/scale. Within tolerance the label is cropped or zero-padded onto the volume grid: before, a label 1-2 px short gave edge patches a short label and collation failed (on `main` too, under the 20% tolerance). Labels and masks must be single-channel; an RGB PNG passed the old check. |
+| P3 | **An unnormalised CT dtype reached the model.** The labeled dataset reads through `get_raw_patch` and normalises only uint8 and uint16 (read as int32); an int16 or uint32 volume passed through raw, and `FastVesuviusVolume`'s unknown-dtype warning is not on this path. | The dtype is checked once at construction; anything other than uint8, uint16 or float raises. |
+| Upstream | **Villa's `centerline_dice` exceeds 1 on slices without ground truth.** `dist_transform` starts at zeros and is filled only where the ground-truth skeleton is non-empty, so every predicted skeleton pixel on an empty slice counts as a hit. Live at villa `origin/main` (`4eecd08fd`); villa's `segmentation/evaluation/configs/recto.yml` and `recto-verso.yml` run it on volumes. | `docs/villa_pr_centerline_dice_empty_slices.patch` (+2/−1: start at infinity) and `docs/VILLA_DRAFT_centerline_dice_empty_slices.md`, shaped to villa's PR template and the SOP. **Not postable yet:** villa's `CONTRIBUTING.md` requires before/after on real scroll data with screenshots, a motivation section and human-written commentary for LLM-assisted PRs, and the draft lists exactly what the owner must add (and how to produce the real-data run on the GPU host). |
+
+## Review of the PR, and what it changed
+
+The first version of this PR was reviewed (code-review skill, on the PR) before merging. Its
+findings, and what was done:
+
+| Finding | Outcome |
+| --- | --- |
+| A label up to 2 px *smaller* than its volume passed the new guard, and edge patches then sliced a short label; collation failed (reproduced on `main` too). | Fixed: labels and masks are fitted to the volume grid; tested for 1-2 px short and long. |
+| The villa draft did not meet villa's `CONTRIBUTING.md` (real scroll data, motivation, human commentary). | Fixed: the draft is marked not postable and lists what the owner must add. |
+| The 2 px refusal ships without the production fragments' label sizes being checked. | Kept, deliberately: a misregistered label must not train silently; the check command is below, and the loop is stopped pending finding 86's decisions anyway. |
+| Ridge failures went quiet after five warnings; nothing recorded them. | Fixed: `loader_warnings` in `run_result.json`. |
+| The transposition hint used exact equality and missed a transposed label. | Fixed: within tolerance, all axis pairs. |
+| The too-few-slices branch zeroed ridges silently and ignored `strict_reads`. | Fixed in `ridge_channel`. |
+| An RGB label passed the shape check. | Fixed: single-channel required. |
+| `strict_reads` read directly while `__getitem__` uses `getattr`. | Fixed: `getattr`. |
+| This document claimed unknown dtypes warn on this path. | Corrected; such dtypes are now refused. |
+| The strict test matched only the outer message; no test for GPU-fails-then-CPU or short labels. | Fixed: the cause is asserted; both cases are tested. |
+| Two diverging ridge implementations. | Fixed: one `ridge_channel`. |
+| `import cupy` attempted per patch. | Fixed: looked up once per process. |
 
 ## Reviewed and sound
 
 - Labels and masks are scaled to [0, 1] when stored as 0/255; the shape guard runs before any
   coordinate is derived from them.
 - Intensities are normalised by dtype after flattening (uint8 /255, uint16 via int32 /65535,
-  float as is); `FastVesuviusVolume` warns on an unknown dtype.
+  float as is). (The first version of this review said unknown dtypes were warned about; that
+  warning is on `FastVesuviusVolume`'s path, not this one. Corrected, and now refused above.)
 - The Frangi fiber target uses scikit-image on the CPU (a fix from May), warns on failure, and
   returns the documented `[1, 1, H, W]` shape.
 
@@ -124,8 +149,8 @@ applies to 4eecd08fd
 
 ### Tests
 
-New `tests/test_labeled_dataset_contracts.py` (10 tests). Failing-first with only the loader
-reverted:
+New `tests/test_labeled_dataset_contracts.py` (19 tests). Failing-first, first version (10 tests)
+with only the loader reverted:
 
 ```text
 FAILED test_gpu_ridges_are_used_not_recomputed_on_the_cpu
@@ -136,14 +161,34 @@ FAILED test_a_label_of_another_size_is_refused[label_hw1-different crop or scale
 5 failed, 5 passed in 2.60s
 ```
 
-The five that pass on the baseline pin behaviour that must not change: the quiet CPU path without
-CuPy, export rounding of 0–2 px, and the existing transposition guard.
+The final file imports `ridge_channel`, so on the baseline it fails at collection. The review
+round's main finding, a label 2 px short of a 32×32 volume, on `main` and on the branch:
+
+```text
+main:   label shapes: [(14, 16), (16, 14), (16, 16)]
+        collate fails: stack expects each tensor to be equal size, but got [16, 16] at entry 0 and [16,
+branch: label shapes: [(16, 16)]
+        collate ok
+```
 
 Every test file that constructs the dataset, on the branch:
 
 ```text
-235 passed, 3 skipped, 3 warnings in 56.85s
+244 passed, 3 skipped, 3 warnings in 39.29s
 ```
+
+The first revision of the review fixes probed the dtype by reading a 1-voxel patch, which turned
+`test_real_ct_read_failure_does_not_become_a_zero_sample` (a simulated corrupt chunk) into an
+`OSError` at construction; the check now reads the array's metadata instead, and the test passes.
+
+Smoke test (`CUDA_VISIBLE_DEVICES="" $PY scripts/smoke_test.py`):
+
+```text
+--- 9/11 passed, 2 skipped, 0 failed in 6.6s ---
+```
+
+The CPU training harness from the earlier reviews runs `train()` end to end; `run_result.json`
+now carries `"loader_warnings": {}` (its synthetic datasets do not use the real loader).
 
 ### Standard validation, baseline versus branch
 
@@ -155,7 +200,7 @@ test ran):
 
 ```text
 baseline: 42 failed, 1871 passed, 10 skipped, 1 xfailed, 2 errors in 170.02s
-branch:   42 failed, 1881 passed, 10 skipped, 1 xfailed, 2 errors in 144.25s
+branch:   42 failed, 1890 passed, 10 skipped, 1 xfailed, 2 errors in 140.13s
 failing ids: baseline=44 branch=44
 only failing on branch:
 only failing on baseline:
@@ -166,16 +211,18 @@ The 44 shared failures were each traced, not assumed: `s3fs` missing
 (`test_surface_render_contracts.py` 21, `test_sota_gt_register.py`), `tensorstore` missing
 (`test_zarr_loading.py`), `numba` missing (`test_mesh_preparation_contracts.py`), and villa paths
 outside this sparse checkout (`foundation/volume-registration` for `test_geometry_handoff_contracts.py`
-14, `segmentation/vc_proofreader` for `test_label_curation_contracts.py` 6). The ten extra passes are
+14, `segmentation/vc_proofreader` for `test_label_curation_contracts.py` 6). The extra passes are
 the new tests.
 
 ### Lint, formatting and typing
 
 ```text
-ruff check / ruff format --check (loader, new tests, validation list): All checks passed!, 3 files already formatted
+ruff check / ruff format --check (loader, train.py, new tests, validation list): All checks passed!, 4 files already formatted
 git diff --check: clean
-mypy src/vesuvius_autoresearch/core/vesuvius_loader.py tests/test_labeled_dataset_contracts.py:
-  the same 2 errors as the baseline (list-item "Tensor | None" in vesuvius_loader.py)
+mypy src/vesuvius_autoresearch/core/vesuvius_loader.py scripts/training/train.py tests/test_labeled_dataset_contracts.py:
+  2 errors, both pre-existing in train.py (torch.mean / torch.var overloads); the loader's two
+  pre-existing list-item errors were in the duplicated ridge code and are gone with it
+documentation-reference audit: output identical to the baseline's
 ```
 
 ## What was NOT tested
