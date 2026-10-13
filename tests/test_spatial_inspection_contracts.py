@@ -314,13 +314,14 @@ def test_scans_report_actual_sample_count_and_no_cache_side_effects(
     assert not list(real_fragments.rglob("*.npy"))
 
 
-def test_density_fallback_does_not_claim_at_least_one_ink_pixel(real_fragments):
+def test_density_scan_refuses_a_fragment_with_no_ink(real_fragments):
+    # It must never report ink that is not there. This used to be checked on the
+    # loader's silent (0, 0) stand-in patch; since 9cdd7667 the loader refuses a
+    # catalogue with no qualifying patch, so the scan fails loudly instead.
     fragment = real_fragments / "PHercParis2Fr143"
     png(fragment / "inklabels.png", np.zeros((64, 256), np.uint8))
-    result = density_scan.scan_ink_density()
-    assert result["require_ink"] is True
-    assert result["masked_ink_pixels"]["max"] == 0
-    assert result["samples_with_ink_in_mask"] == 0
+    with pytest.raises(ValueError, match="has ink coverage"):
+        density_scan.scan_ink_density()
 
 
 @pytest.mark.parametrize(
