@@ -1,3 +1,4 @@
+import copy
 import json
 import os
 import random
@@ -206,16 +207,57 @@ CURRENT_LOG_PTR = ".current_day_shift_log"
 TEMP_CONFIG = "config_temp.json"
 
 
-def active_tweaks(config):
-    """Exclude gated axes and values that leave the baseline unchanged."""
-    active = []
+# Pre-flight VRAM estimate (complexity heuristic, Sprint 023 refined). The
+# reference config (base_feat 64, num_layers 24, patch_size 64, batch_size 8,
+# num_blocks 16; ~14 GB) scores 1.0, and the cap allows 50% above it (~21 GB).
+VRAM_COMPLEXITY_CAP = 1.5
+
+
+def complexity_score(config) -> float:
+    feat = config.base_feat / 64.0
+    depth = config.num_layers / 24.0
+    patch = config.patch_size / 64.0
+    batch = config.batch_size / 8.0
+    blocks = config.num_blocks / 16.0
+    # Convolutions and activations grow with the patch area, attention with its
+    # square; attention is weighted 0.4.
+    linear = feat * depth * patch**2 * batch * blocks
+    attention = depth * patch**4 * batch * blocks
+    return 0.6 * linear + 0.4 * attention
+
+
+def _tweaked(config, attr, val):
+    candidate = copy.copy(config)
+    setattr(candidate, attr, val)
+    return candidate
+
+
+def tweak_proposals(config, cap=None):
+    """Split each enabled axis's changed values by the VRAM cap, in one pass.
+
+    Returns the active templates, holding only values whose config fits under
+    the cap, and (attr, value, estimate) for each value over it. The cap is a
+    hard limit: a baseline already over it is offered only tweaks that bring
+    it under.
+    """
+    cap = VRAM_COMPLEXITY_CAP if cap is None else cap
+    active, excluded = [], []
     for template in tweak_templates:
         if not template.get("applies_when", lambda _c: True)(config):
             continue
-        values = [v for v in template["vals"] if v != getattr(config, template["attr"])]
-        if values:
-            active.append({**template, "vals": values})
-    return active
+        attr = template["attr"]
+        fits = []
+        for v in template["vals"]:
+            if v == getattr(config, attr):
+                continue
+            score = complexity_score(_tweaked(config, attr, v))
+            if score <= cap:
+                fits.append(v)
+            else:
+                excluded.append((attr, v, score))
+        if fits:
+            active.append({**template, "vals": fits})
+    return active, excluded
 
 
 def template_weights(templates, success_counts):
@@ -346,6 +388,7 @@ def main():
     env = os.environ.copy()
     i = 0
     recent_configs = load_recent_configs()
+    last_excluded: list = []
 
     while True:
         i += 1
@@ -387,7 +430,7 @@ def main():
 
         # Every cycle is a single tweak of the promoted config. The every-10th-cycle
         # "GP-winner baseline" (timesformer, patch 256) was removed 2026-10-12: the
-        # VRAM heuristic below scored it 74.7 > 1.5, so it was always skipped, and
+        # VRAM estimate (complexity_score) scored it 74.7 > 1.5, so it was always skipped, and
         # had it run it could have been promoted, replacing config.json with a
         # from-scratch timesformer. Run-to-run calibration is scripts/f1_noise_probe.py.
 
@@ -400,10 +443,30 @@ def main():
             if os.path.exists(CONFIG_FILE)
             else ExperimentConfig()
         )
-        active_templates = active_tweaks(baseline_for_gate)
+        # The VRAM estimate filters values before sampling, so a rejected value
+        # never takes a cycle number, a dedup slot or a decay step.
+        active_templates, excluded = tweak_proposals(baseline_for_gate)
+        baseline_score = complexity_score(baseline_for_gate)
+        if baseline_score > VRAM_COMPLEXITY_CAP:
+            note = (
+                "every value that leaves config.json over it "
+                f"(config.json scores {baseline_score:.2f})"
+            )
+        else:
+            note = ", ".join(f"{a}={v} ({s:.2f})" for a, v, s in excluded) or "none"
         if not active_templates:
-            print("No active tweaks differ from the baseline. Ending sprint.")
+            # Stdout only, like "Not starting": the watchdog restarts the loop every
+            # few minutes, and each restart would add the same lines to the sprint log.
+            print(
+                f"No tweak differs from the baseline within VRAM cap "
+                f"{VRAM_COMPLEXITY_CAP} (excluded: {note}). Ending sprint."
+            )
             break
+        if excluded != last_excluded:
+            print(f"VRAM cap {VRAM_COMPLEXITY_CAP} excludes: {note}")
+            with open(log_filename, "a") as log:
+                log.write(f"- **VRAM cap {VRAM_COMPLEXITY_CAP} excludes**: {note}\n\n")
+            last_excluded = excluded
 
         # Success-Biased Decay: Every cycle, all (active) families decay slightly.
         # This ensures that even successful families eventually lose their dominance
@@ -466,31 +529,6 @@ def main():
             save_recent_configs(recent_configs)
 
         tweak_name = f"{attr}_{val}"
-
-        # Pre-flight VRAM estimation (Complexity Heuristic - Sprint 023 Refined)
-        # Standard baseline: 64 feat, 24 layers, 64 patch, 8 batch, 16 blocks ~= 14GB VRAM
-        feat_factor = config.base_feat / 64.0
-        depth_factor = config.num_layers / 24.0
-        patch_sq = (config.patch_size / 64.0) ** 2
-        patch_quartic = (config.patch_size / 64.0) ** 4
-        batch_factor = config.batch_size / 8.0
-        block_factor = config.num_blocks / 16.0
-
-        # Linear components (Convs, Activations)
-        complexity_linear = (
-            feat_factor * depth_factor * patch_sq * batch_factor * block_factor
-        )
-        # Quadratic components (Attention)
-        complexity_attn = depth_factor * patch_quartic * batch_factor * block_factor
-
-        # Weighted Score (Standard Config = 1.0). Attention weighted at 0.4 due to quadratic growth.
-        complexity_score = 0.6 * complexity_linear + 0.4 * complexity_attn
-
-        if complexity_score > 1.5:  # Cap at 50% overhead above baseline (~21GB VRAM)
-            print(
-                f"Cycle {i}: Skipping {tweak_name} (Complexity Score {complexity_score:.2f} > 1.5) to avoid OOM."
-            )
-            continue
 
         print(
             f"\nCycle {i}: Applying {tweak_name} (Family Weight: {success_counts[family]})"

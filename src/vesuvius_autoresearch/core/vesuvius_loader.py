@@ -282,6 +282,30 @@ class FastVesuviusVolume:
         return torch.from_numpy(ct)
 
 
+def _lasagna_unavailable_reason(patch):
+    """Why the lasagna warp cannot run on this patch, or None if it can.
+
+    uint8 patches go through villa's kernel, which checks that every input is a
+    CUDA tensor and the grid is (D, H, W, 3). Patches are read on the CPU, so
+    they are refused before the first call JIT-compiles the extension: that
+    compile's failure (no nvcc, CUDA_HOME unset) was the only cause ever logged,
+    and installing a toolkit would only have moved the failure into the kernel.
+    float32 and float64 patches use torch's grid_sample on any device; half
+    precision does not (the sampling grid is float32). Other dtypes, including
+    int32 (how uint16 volumes are read), have no warp.
+    """
+    if patch.dtype == torch.uint8:
+        if patch.device.type != "cuda":
+            return (
+                "villa's uint8 grid_sample kernel takes CUDA tensors; "
+                f"this patch is on {patch.device.type}"
+            )
+        return None
+    if patch.dtype not in (torch.float32, torch.float64):
+        return f"no lasagna warp for {patch.dtype} patches"
+    return None
+
+
 class VesuviusLabeledDataset(torch.utils.data.Dataset):
     """CT patches and labels, with optional preprocessing.
 
@@ -545,7 +569,10 @@ class VesuviusLabeledDataset(torch.utils.data.Dataset):
         the same shape. Falls back to the unmodified patch_vol if
         use_lasagna is False, the volume is too thin (D < 3), or the
         warp raises an exception. Strict reads reject a requested warp that
-        cannot run instead of returning an unwarped sample.
+        cannot run instead of returning an unwarped sample. Which patches can
+        be warped: see _lasagna_unavailable_reason. The two warps differ where
+        a shifted column leaves the patch: villa's uint8 kernel reads zeros,
+        torch's grid_sample repeats the edge slice.
         """
         if not self.use_lasagna:
             return patch_vol
@@ -554,6 +581,9 @@ class VesuviusLabeledDataset(torch.utils.data.Dataset):
                 raise RuntimeError("Lasagna flattening requires at least 3 slices")
             return patch_vol
         try:
+            reason = _lasagna_unavailable_reason(patch_vol)
+            if reason:
+                raise RuntimeError(reason)
             is_3d = patch_vol.dim() == 3
             vol = patch_vol.unsqueeze(0) if is_3d else patch_vol  # [C, Z, H, W]
             C, Z, H, W = vol.shape
@@ -596,7 +626,7 @@ class VesuviusLabeledDataset(torch.utils.data.Dataset):
                     indexing="ij",
                 )
                 new_z = z_grid + z_offset
-                grid = torch.stack([x_grid, y_grid, new_z], dim=-1).unsqueeze(0)
+                grid = torch.stack([x_grid, y_grid, new_z], dim=-1)  # [Z, H, W, 3]
 
                 offset = torch.tensor(
                     [0.0, 0.0, 0.0], device=device, dtype=torch.float32
@@ -605,7 +635,7 @@ class VesuviusLabeledDataset(torch.utils.data.Dataset):
                     [1.0, 1.0, 1.0], device=device, dtype=torch.float32
                 )
 
-                warped = grid_sample_3d_u8(vol, grid, offset, inv_scale)
+                warped = grid_sample_3d_u8(vol.contiguous(), grid, offset, inv_scale)
             else:
                 # 2. Build sampling grid in normalized [-1, 1] coords.
                 z_offset = (z_surface - z_center) * (2.0 / max(1, Z - 1))  # [H, W]

@@ -1,7 +1,6 @@
 """Requested preprocessing must succeed before a strict sample can be scored."""
 
 import json
-from types import SimpleNamespace
 
 import numpy as np
 import pytest
@@ -10,7 +9,7 @@ import train
 from PIL import Image
 
 from scripts import reevaluate_best_model as reevaluate
-from vesuvius_autoresearch.core import vesuvius_loader, villa_modules
+from vesuvius_autoresearch.core import vesuvius_loader
 from vesuvius_autoresearch.core.vesuvius_loader import VesuviusLabeledDataset
 
 
@@ -32,9 +31,16 @@ def fragment(tmp_path, monkeypatch):
     else:
         monkeypatch.setattr(cupy, "asarray", _failure)
 
-    def dataset(**options):
+    def dataset(volume_dtype="u1", **options):
+        path = volume
+        if volume_dtype != "u1":
+            # Floating volumes are not rescaled, so store the uint8 volume's
+            # normalized value and both give the same sample.
+            path = tmp_path / f"surface_volume_{volume_dtype}.zarr"
+            store = zarr.open(str(path), mode="w", shape=(12, 8, 8), dtype=volume_dtype)
+            store[:] = 128 / 255
         return VesuviusLabeledDataset(
-            str(volume),
+            str(path),
             str(labels),
             patch_size=8,
             num_layers=12,
@@ -53,8 +59,10 @@ def _failure(*args, **kwargs):
 
 def _break_preprocessing(monkeypatch, operation):
     if operation == "lasagna":
-        monkeypatch.setattr(villa_modules, "load_villa_leaf", _failure)
-        return {"use_lasagna": True}
+        # A float volume's warp is torch's grid_sample, which can run on the CPU;
+        # a uint8 one never gets that far (tests/test_villa_modules.py).
+        monkeypatch.setattr(torch.nn.functional, "grid_sample", _failure)
+        return {"use_lasagna": True, "volume_dtype": "f4"}
     if operation == "ridges":
         monkeypatch.setattr(vesuvius_loader, "detect_ridges", _failure)
         return {"use_ridges": True}
@@ -121,16 +129,13 @@ def test_invalid_preprocessing_results_are_not_strict_samples(
     fragment, monkeypatch, operation
 ):
     if operation == "lasagna":
+        # A float volume, so the warp that returns NaN is the one that runs on the CPU.
         monkeypatch.setattr(
-            villa_modules,
-            "load_villa_leaf",
-            lambda *args: SimpleNamespace(
-                grid_sample_3d_u8=lambda vol, *a: torch.full_like(
-                    vol, float("nan"), dtype=torch.float32
-                )
-            ),
+            torch.nn.functional,
+            "grid_sample",
+            lambda vol, *a, **k: torch.full_like(vol, float("nan")),
         )
-        options: dict[str, bool | str] = {"use_lasagna": True}
+        options: dict[str, bool | str] = {"use_lasagna": True, "volume_dtype": "f4"}
     elif operation == "ridges":
         monkeypatch.setattr(
             vesuvius_loader,
@@ -164,13 +169,10 @@ def test_thin_patch_preprocessing_is_explicit(fragment, strict, operation):
         assert torch.allclose(sample[0], torch.full((2, 8, 8), 128 / 255))
 
 
-def test_successful_flattening_is_a_complete_validation_sample(fragment, monkeypatch):
-    monkeypatch.setattr(
-        villa_modules,
-        "load_villa_leaf",
-        lambda *args: SimpleNamespace(grid_sample_3d_u8=lambda vol, *a: vol + 1),
-    )
-    dataset = fragment(strict_reads=True, use_lasagna=True)
+def test_successful_flattening_is_a_complete_validation_sample(fragment):
+    # A float volume: its warp is torch's grid_sample, which runs on the CPU. A
+    # uint8 volume's warp needs CUDA tensors (tests/test_villa_modules.py).
+    dataset = fragment(volume_dtype="f4", strict_reads=True, use_lasagna=True)
     probabilities, targets, diag = train.collect_validation_predictions(
         MeanInk(), dataset, 4, torch.device("cpu"), batch_size=1
     )
@@ -194,8 +196,8 @@ class MeanInk(torch.nn.Module):
 
 
 def test_failed_flattening_marks_validation_incomplete(fragment, monkeypatch):
-    _break_preprocessing(monkeypatch, "lasagna")
-    dataset = fragment(strict_reads=True, use_lasagna=True)
+    options = _break_preprocessing(monkeypatch, "lasagna")
+    dataset = fragment(strict_reads=True, **options)
     probabilities, targets, diag = train.collect_validation_predictions(
         MeanInk(), dataset, 4, torch.device("cpu"), batch_size=1
     )
@@ -209,8 +211,8 @@ def test_failed_flattening_cannot_rewrite_incumbent_scores(
     monkeypatch.chdir(tmp_path)
     checkpoint = tmp_path / "best_model.pt"
     checkpoint.write_bytes(b"incumbent must survive")
-    _break_preprocessing(monkeypatch, "lasagna")
-    dataset = fragment(strict_reads=True, use_lasagna=True)
+    options = _break_preprocessing(monkeypatch, "lasagna")
+    dataset = fragment(strict_reads=True, **options)
     monkeypatch.setattr(reevaluate, "build_validation_dataset", lambda config: dataset)
     monkeypatch.setattr(torch.cuda, "is_available", lambda: False)
     monkeypatch.setattr(
@@ -231,3 +233,13 @@ def test_failed_flattening_cannot_rewrite_incumbent_scores(
     with pytest.raises(RuntimeError, match="sample is incomplete"):
         reevaluate.reevaluate(update_stored=True)
     assert checkpoint.read_bytes() == b"incumbent must survive"
+
+
+def test_an_unwarpable_validation_patch_stops_the_run_before_training(fragment):
+    """config.json requests lasagna and the loader reads uint8 patches on the CPU,
+    which villa's kernel refuses. Every validation read then fails, so the run could
+    never be scored; the probe stops it before the training budget is spent."""
+    dataset = fragment(strict_reads=True, use_lasagna=True)
+    with pytest.raises(RuntimeError, match="validation patch 0 cannot be read") as info:
+        train.probe_validation_read(dataset)
+    assert "takes CUDA tensors" in str(info.value.__cause__.__cause__)

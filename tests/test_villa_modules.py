@@ -13,6 +13,7 @@ from __future__ import annotations
 import ast
 import sys
 import types
+from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeout
 from importlib.machinery import SourceFileLoader
 from pathlib import Path
@@ -226,35 +227,110 @@ def test_villa_tta_is_the_pinned_file_whatever_was_imported_first(
     assert sys.modules["vesuvius"] is installed_vesuvius
 
 
-def test_lasagna_uint8_warp_runs_outside_the_repository_root(tmp_path, monkeypatch):
-    torch = pytest.importorskip("torch")
+def _lasagna_dataset():
     from vesuvius_autoresearch.core.vesuvius_loader import VesuviusLabeledDataset
 
-    root = _tree(
+    dataset = VesuviusLabeledDataset.__new__(VesuviusLabeledDataset)
+    dataset.use_lasagna = True
+    dataset.volume = types.SimpleNamespace(uri="synthetic")
+    return dataset
+
+
+def _contract_checking_kernel(tmp_path, device):
+    # Mirrors the TORCH_CHECKs in villa's grid_sample_3d_u8_kernel.cu; on the CPU
+    # only the device checks are left out.
+    on = "x.is_cuda" if device == "cuda" else "True"
+    return _tree(
         tmp_path / "villa",
         {
             "lasagna/grid_sample_3d_u8.py": (
+                "import torch\n"
                 "CALLS = []\n"
+                f"def on_device(x): return {on}\n"
                 "def grid_sample_3d_u8(vol, grid, offset, inv_scale):\n"
-                "    CALLS.append(tuple(vol.shape))\n"
+                "    assert on_device(vol) and vol.dtype == torch.uint8, 'volume must be CUDA uint8'\n"
+                "    assert vol.dim() == 4, 'volume must be (C, Z, Y, X)'\n"
+                "    assert vol.is_contiguous(), 'volume must be contiguous'\n"
+                "    assert on_device(grid) and grid.dtype == torch.float32, 'grid must be CUDA float32'\n"
+                "    assert grid.dim() == 4 and grid.shape[3] == 3, 'grid must be (D, H, W, 3)'\n"
+                "    assert on_device(offset) and offset.numel() == 3, 'offset must be CUDA (3,)'\n"
+                "    assert on_device(inv_scale) and inv_scale.numel() == 3, 'inv_scale must be CUDA (3,)'\n"
+                "    CALLS.append((tuple(vol.shape), tuple(grid.shape)))\n"
                 "    return vol + 1\n"
             )
         },
     )
+
+
+@pytest.mark.parametrize("device", ["cpu", "cuda"])
+def test_lasagna_uint8_warp_runs_outside_the_repository_root(
+    tmp_path, monkeypatch, device
+):
+    """The call meets the kernel's contract, and loads it by absolute path. On the
+    CPU the loader's device refusal is bypassed so the rest of the path is covered."""
+    torch = pytest.importorskip("torch")
+    from vesuvius_autoresearch.core import vesuvius_loader
+
+    if device == "cuda" and not torch.cuda.is_available():
+        pytest.skip("villa's uint8 kernel takes CUDA tensors")
+    if device == "cpu":
+        monkeypatch.setattr(
+            vesuvius_loader, "_lasagna_unavailable_reason", lambda p: None
+        )
+    root = _contract_checking_kernel(tmp_path, device)
     monkeypatch.setattr(villa_modules, "VILLA_ROOT", root)
     elsewhere = tmp_path / "elsewhere"
     elsewhere.mkdir()
     monkeypatch.chdir(elsewhere)
-    dataset = VesuviusLabeledDataset.__new__(VesuviusLabeledDataset)
-    dataset.use_lasagna = True
-    dataset.volume = types.SimpleNamespace(uri="synthetic")
-    patch = torch.zeros((5, 8, 8), dtype=torch.uint8)
+    # A non-contiguous view, as a sliced volume read can produce.
+    patch = torch.zeros((5, 8, 16), dtype=torch.uint8, device=device)[:, :, ::2]
     path_before = list(sys.path)
 
-    warped = dataset._apply_lasagna_flattening(patch)
+    warped = _lasagna_dataset()._apply_lasagna_flattening(patch)
 
     assert torch.equal(warped, patch + 1), "warp skipped: flattening silently disabled"
     assert load_villa_leaf("lasagna/grid_sample_3d_u8.py", villa_root=root).CALLS == [
-        (1, 5, 8, 8)
+        ((1, 5, 8, 8), (5, 8, 8, 3))
     ]
     assert sys.path == path_before
+
+
+@pytest.mark.parametrize("strict", [False, True])
+@pytest.mark.parametrize(
+    ("dtype", "reason"),
+    [
+        ("uint8", "takes CUDA tensors; this patch is on cpu"),
+        ("int32", "no lasagna warp for torch.int32 patches"),
+        ("float16", "no lasagna warp for torch.float16 patches"),
+        ("bfloat16", "no lasagna warp for torch.bfloat16 patches"),
+    ],
+)
+def test_a_patch_the_warp_cannot_take_is_refused_before_any_work(
+    tmp_path, monkeypatch, strict, dtype, reason
+):
+    """The loader reads uint8 patches on the CPU, which villa's kernel refuses, and
+    uint16 volumes as int32, which no path warps; half precision fails mid-warp. The refusal names the reason (not
+    the JIT compile failure the uint8 path used to hit first), and nothing is
+    computed or loaded for it."""
+    torch = pytest.importorskip("torch")
+    from vesuvius_autoresearch.core import vesuvius_loader
+
+    loaded = []
+    monkeypatch.setattr(
+        villa_modules, "load_villa_leaf", lambda *a, **k: loaded.append(a)
+    )
+    monkeypatch.setattr(
+        torch.nn.functional, "softmax", lambda *a, **k: pytest.fail("surface computed")
+    )
+    monkeypatch.setattr(vesuvius_loader, "_WARNING_COUNTS", defaultdict(int))
+    dataset = _lasagna_dataset()
+    dataset.strict_reads = strict
+    patch = torch.full((5, 8, 8), 7, dtype=getattr(torch, dtype))
+
+    if strict:
+        with pytest.raises(RuntimeError, match=reason):
+            dataset._apply_lasagna_flattening(patch)
+    else:
+        assert dataset._apply_lasagna_flattening(patch) is patch
+        assert vesuvius_loader.warning_counts() == {"lasagna_warp_failed": 1}
+    assert loaded == []

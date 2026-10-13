@@ -242,7 +242,8 @@ def _drive_loop(tmp_path, monkeypatch, cycles, result=None):
 
     class FakeSupervisor:
         def run(self, command, **kwargs):
-            if "--smoke" in command:
+            # The preflight and the every-5th-cycle benchmark are not training runs.
+            if "--smoke" in command or "scripts/inference/predict.py" in command:
                 return subprocess.CompletedProcess(command, 0)
             launched.append(json.loads((tmp_path / "config_temp.json").read_text()))
             if result is None:
@@ -283,3 +284,18 @@ def test_a_blocked_promotion_is_recorded_in_the_sprint_log(tmp_path, monkeypatch
     _drive_loop(tmp_path, monkeypatch, cycles=1, result=result)
     log = next((tmp_path / "sprint_logs").glob("*.md")).read_text()
     assert "REVERTED" in log and "Promotion blocked: why" in log
+
+
+def test_a_baseline_with_no_tweak_under_the_vram_cap_ends_without_logging(
+    tmp_path, monkeypatch, capsys
+):
+    """The watchdog restarts an ended loop every few minutes, so the reason goes to
+    stdout (like "Not starting"), not into the sprint log once per restart."""
+    ExperimentConfig(batch_size=24).save(tmp_path / "config.json")  # scores 3.0
+    launched = _drive_loop(tmp_path, monkeypatch, cycles=1)
+    assert launched == []
+    assert (
+        "No tweak differs from the baseline within VRAM cap" in capsys.readouterr().out
+    )
+    log = next((tmp_path / "sprint_logs").glob("*.md")).read_text()
+    assert "VRAM cap" not in log
