@@ -17,10 +17,24 @@ import functools
 import os
 import subprocess
 import sys
+from pathlib import Path
 
 import pytest
 
 _AMBIENT_CUDA_VISIBLE_DEVICES = os.environ.get("CUDA_VISIBLE_DEVICES")
+
+# Subprocesses import the package from this checkout as well. Every checkout
+# shares one .venv whose editable install points wherever `uv run` last synced
+# it (tests/test_checkout_imports_its_own_code.py); pytest's `pythonpath`
+# covers this process, PYTHONPATH covers its children.
+os.environ["PYTHONPATH"] = os.pathsep.join(
+    p
+    for p in (
+        str(Path(__file__).resolve().parents[1] / "src"),
+        os.environ.get("PYTHONPATH"),
+    )
+    if p
+)
 
 
 @pytest.fixture

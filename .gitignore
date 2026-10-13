@@ -23,6 +23,8 @@ dev/
 results.tsv
 *.log
 local_data/
+# A worktree's symlink to the main checkout's local_data (scripts/dev_worktree.sh).
+/local_data
 *.pid
 *.npy
 config_temp.json
