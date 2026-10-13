@@ -14,7 +14,11 @@ from vesuvius_autoresearch.core.checkpoint_tools import (
     validate_batch,
     validate_ink_logits,
 )
-from vesuvius_autoresearch.core.inference import positive_integer
+from vesuvius_autoresearch.core.inference import (
+    DEPTH_MARGIN,
+    positive_integer,
+    ridge_depth_context,
+)
 from vesuvius_autoresearch.core.vesuvius_loader import VesuviusLabeledDataset
 
 
@@ -84,7 +88,11 @@ class ActiveLearningSampler:
             for i, (x, _, _) in enumerate(tqdm(dataloader)):
                 x = x.to(self.device)
                 if self.settings is not None:
-                    validate_batch(x, self.settings)
+                    # main() reads training's depth context for ridge models;
+                    # validate_batch checks it and gives the model the centre.
+                    x = validate_batch(
+                        x, self.settings, buffered=bool(self.settings["use_ridges"])
+                    )
                 if (
                     x.ndim != 5
                     or not x.is_floating_point()
@@ -94,40 +102,18 @@ class ActiveLearningSampler:
                         "input must be a finite floating-point B/C/Z/H/W tensor"
                     )
 
-                # Forward pass - support multi-output
-                outputs = self.model(x, return_qc=True)
-                if isinstance(outputs, tuple):
-                    if len(outputs) != 2:
-                        raise ValueError("model must return ink and QC logits")
-                    out_ink, qc = outputs[0], outputs[1]
-                else:
-                    out_ink = outputs
-                    # Dummy QC if model doesn't have it
-                    qc = torch.ones((x.shape[0], 1), device=self.device)
-
+                # Ink logits only. The QC head is trained to predict the patch's
+                # mean fiber target (train.py's loss_qc), not the model's
+                # confidence, so 1 - sigmoid(qc) ranked fiber-poor patches as
+                # uncertain.
+                outputs = self.model(x)
+                out_ink = outputs[0] if isinstance(outputs, tuple) else outputs
                 validate_ink_logits(out_ink, x)
-                if (
-                    not isinstance(qc, torch.Tensor)
-                    or tuple(qc.shape) != (len(x), 1)
-                    or not qc.is_floating_point()
-                    or not torch.isfinite(qc).all()
-                ):
-                    raise ValueError("QC logits must be finite with shape (batch, 1)")
                 probs = torch.sigmoid(out_ink)
 
-                # Metric 1: Prediction Entropy (ambiguity)
-                # out_ink might be 4D [B, 1, H, W] or 5D [B, 1, Z, H, W]
-                # dataset returns [B, 1, Z, H, W] usually
-                entropy = calculate_entropy(probs).mean(dim=tuple(range(1, probs.ndim)))
-
-                # Metric 2: QC Confidence (model's own estimate of quality)
-                # Lower QC value = higher uncertainty
-                qc_uncertainty = 1.0 - torch.sigmoid(qc).squeeze()
-                if qc_uncertainty.ndim == 0:
-                    qc_uncertainty = qc_uncertainty.unsqueeze(0)
-
-                # Combined Uncertainty Score
-                score = 0.7 * entropy + 0.3 * qc_uncertainty
+                # Prediction entropy (ambiguity); out_ink is [B, 1, H, W] or
+                # [B, 1, Z, H, W].
+                score = calculate_entropy(probs).mean(dim=tuple(range(1, probs.ndim)))
 
                 uncertainties.append(score.cpu().numpy())
 
@@ -273,7 +259,9 @@ def main():
         args.volume,
         labels_path,
         patch_size=arch_kwargs["patch_size"],
-        num_layers=arch_kwargs["num_layers"],
+        # Ridges over training's depth context; centre_window crops the window.
+        num_layers=arch_kwargs["num_layers"]
+        + (2 * DEPTH_MARGIN if arch_kwargs["use_ridges"] else 0),
         use_ridges=arch_kwargs["use_ridges"],
         ridge_sigma=arch_kwargs["ridge_sigma"],
         require_ink=False,
@@ -337,6 +325,9 @@ def main():
                 "checkpoint": args.checkpoint,
                 "volume": args.volume,
                 "inference_settings": arch_kwargs,
+                # Was 0.7 * entropy + 0.3 * (1 - sigmoid(qc)) before 2026-10-13.
+                "uncertainty_score_definition": "mean prediction entropy",
+                "ridge_depth_context": ridge_depth_context(arch_kwargs["use_ridges"]),
                 "queue": queue,
             },
             f,

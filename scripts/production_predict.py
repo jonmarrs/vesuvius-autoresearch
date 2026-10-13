@@ -21,9 +21,12 @@ from scripts.inference.predict import (
     write_prediction_metadata,
 )
 from vesuvius_autoresearch.core.inference import (
+    INK_PROBABILITY,
     hann2d,
     normalize_blend,
     prepare_volume_input,
+    read_model_block,
+    ridge_depth_context,
     tile_starts,
     validate_model_settings,
 )
@@ -49,7 +52,7 @@ def production_predict(argv=None):
     parser.add_argument("--out-dir", default="predictions/production")
     args = parser.parse_args(argv)
     args.inference_recipe = {
-        "ink_probability": "sigmoid(ink)",
+        "ink_probability": INK_PROBABILITY,
         "tta_mirrors": ["none"],
         "blend_window": "positive_hann",
     }
@@ -93,6 +96,7 @@ def production_predict(argv=None):
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     use_ridges = config_dict.get("use_ridges", False)
+    args.inference_recipe["ridge_depth_context"] = ridge_depth_context(use_ridges)
     model = build_prediction_model(config_dict, args, use_ridges=use_ridges)
     model.load_state_dict(state, strict=True)
     model = model.to(device).eval()
@@ -145,11 +149,9 @@ def production_predict(argv=None):
     with torch.inference_mode():
         for y in tqdm(ys, desc="Rows"):
             for x in xs:
-                block = dataset[
-                    args.z : args.z + args.num_layers,
-                    args.y + y : args.y + y + size,
-                    args.x + x : args.x + x + size,
-                ]
+                block = read_model_block(
+                    dataset, args.z, args.y + y, args.x + x, args.num_layers, size
+                )
                 patch = prepare_volume_input(
                     dataset.normalize(block), use_ridges, args.num_layers, size, "cpu"
                 )[0]

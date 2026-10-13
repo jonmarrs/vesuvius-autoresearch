@@ -31,6 +31,7 @@ from train import (
     load_shape_compatible_state,
 )
 
+from vesuvius_autoresearch.core.inference import DEPTH_MARGIN, centre_window
 from vesuvius_autoresearch.core.model_wrappers import build_inference_model
 from vesuvius_autoresearch.core.vesuvius_loader import VesuviusLabeledDataset
 
@@ -124,7 +125,7 @@ def main():
         labels_path,
         mask_path if os.path.exists(mask_path) else None,
         config.patch_size,
-        config.num_layers + 8,
+        config.num_layers + 2 * DEPTH_MARGIN,
         seed=42,
         cache_dir=config.cache_dir,
         use_ridges=config.use_ridges,
@@ -152,7 +153,7 @@ def main():
                     x_raw, target, _ = next(val_iter)
                 except StopIteration:
                     break
-                x = x_raw[:, :, 4 : 4 + config.num_layers].to(device)
+                x = centre_window(x_raw, config.num_layers).to(device)
                 if target is None or target.numel() == 0:
                     continue
                 target = target.to(device)

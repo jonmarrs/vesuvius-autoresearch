@@ -33,6 +33,7 @@ from vesuvius_autoresearch.core.checkpoint_tools import (
     load_tool_checkpoint,
     validate_batch,
 )
+from vesuvius_autoresearch.core.inference import DEPTH_MARGIN
 
 
 def prob_to_pseudo_png(prob, region, tau_high=0.65, tau_low=0.15):
@@ -82,7 +83,7 @@ def _infer_region(
         None,  # Region-only sampling needs no ambient ground-truth labels.
         region_mask_path,
         ps,
-        nl + 8,
+        nl + 2 * DEPTH_MARGIN,
         seed=7,
         cache_dir=cache_dir,
         use_ridges=s["use_ridges"],

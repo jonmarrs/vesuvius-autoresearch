@@ -2,6 +2,7 @@
 
 import json
 import sys
+from collections import defaultdict
 from pathlib import Path
 
 import numpy as np
@@ -11,8 +12,15 @@ import zarr
 
 from scripts.inference import ensemble_predict as ensemble, predict as single
 from scripts.validate_prize_artifact import validate
-from vesuvius_autoresearch.core import model_wrappers, vesuvius_loader
-from vesuvius_autoresearch.core.inference import multitask_probabilities
+from vesuvius_autoresearch.core import (
+    inference as inference_helpers,
+    model_wrappers,
+    vesuvius_loader,
+)
+from vesuvius_autoresearch.core.inference import (
+    multitask_inference_recipe,
+    multitask_probabilities,
+)
 
 
 class ConstantHeads(torch.nn.Module):
@@ -39,7 +47,7 @@ class ConstantHeads(torch.nn.Module):
             qc = qc + float("inf")
         elif self.bad == "ink_channels":
             ink = ink.expand(-1, 2, -1, -1)
-        return ink, fiber, qc
+        return (ink, fiber, qc) if kwargs.get("return_qc") else (ink, fiber)
 
 
 def setup_prediction(tmp_path, monkeypatch, mode, configs=None, bad=None):
@@ -128,7 +136,8 @@ def test_complete_region_has_no_black_edges_and_consistent_exports(
         argv.append("--gaussian_blend")
     runner()
     output = tmp_path / "out"
-    np.testing.assert_allclose(np.load(next(output.glob("*_ink.npy"))), 0.25, atol=1e-6)
+    # Zero ink logits: sigmoid(0). (0.25 while a zero QC logit gated ink by 0.5.)
+    np.testing.assert_allclose(np.load(next(output.glob("*_ink.npy"))), 0.5, atol=1e-6)
     np.testing.assert_allclose(
         np.load(next(output.glob("*_fiber.npy"))), 0.5, atol=1e-6
     )
@@ -196,7 +205,7 @@ def test_out_of_bounds_region_fails_before_inference(tmp_path, monkeypatch, mode
 
 
 @pytest.mark.parametrize("mode", ["single", "ensemble"])
-@pytest.mark.parametrize("bad", ["ink_nan", "fiber_nan", "qc_inf", "ink_channels"])
+@pytest.mark.parametrize("bad", ["ink_nan", "fiber_nan", "ink_channels"])
 def test_bad_head_outputs_cannot_be_exported(tmp_path, monkeypatch, mode, bad):
     runner, argv, _, _, _ = setup_prediction(tmp_path, monkeypatch, mode, bad=bad)
     argv.append("--disable_tta")
@@ -286,12 +295,29 @@ def test_checkpoint_ridge_sigma_reaches_the_loader(tmp_path, monkeypatch, mode):
     seen = []
 
     def ridges(ct, *, sigma):
-        seen.append(sigma)
+        seen.append((sigma, ct.shape[0]))
         return np.zeros_like(ct)
 
     monkeypatch.setattr(vesuvius_loader, "detect_ridges", ridges)
+    monkeypatch.setattr(vesuvius_loader, "_WARNING_COUNTS", defaultdict(int))
     runner()
-    assert seen and set(seen) == {3.0}
+    # Every tile's ridges see the depth context: all 6 slices of this volume, not
+    # the model's 4. The overlay's one-slice CT read no longer reaches the filter.
+    assert seen and set(seen) == {(3.0, 6)}
+    assert "ridge_fallback" not in vesuvius_loader.warning_counts()
+    metadata = json.loads(next((tmp_path / "out").glob("*_meta.json")).read_text())
+    context = metadata["inference_recipe"]["ridge_depth_context"]
+    assert context.startswith("up to num_layers + 8 slices")
+
+
+@pytest.mark.parametrize("mode", ["single", "ensemble"])
+def test_a_non_finite_qc_head_does_not_stop_a_region(tmp_path, monkeypatch, mode):
+    """QC is not served or requested, so a broken QC head cannot abort a region."""
+    runner, argv, _, _, _ = setup_prediction(tmp_path, monkeypatch, mode, bad="qc_inf")
+    argv.append("--disable_tta")
+    runner()
+    ink = np.load(next((tmp_path / "out").glob("*_ink.npy")))
+    np.testing.assert_allclose(ink, 0.5, atol=1e-6)
 
 
 @pytest.mark.parametrize("mode", ["single", "ensemble"])
@@ -445,18 +471,46 @@ def test_spatial_mirrors_are_undone_before_probability_average():
             ink = ink + torch.arange(4, dtype=x.dtype).view(1, 1, 1, 4)
             fiber = (2 * ink).unsqueeze(2)
             qc = torch.zeros((len(x), 1))
-            return ink, fiber, qc
+            return (ink, fiber, qc) if kwargs.get("return_qc") else (ink, fiber)
 
     expected_ink, expected_fiber = [], []
     model = SpatialHeads()
     for dims in ((), (-1,), (-2,), (-2, -1)):
-        ink, fiber, _ = model(torch.flip(batch, dims) if dims else batch)
-        ink, fiber = torch.sigmoid(ink)[:, 0] / 2, torch.sigmoid(fiber[:, 0, 0])
+        ink, fiber = model(torch.flip(batch, dims) if dims else batch)
+        ink, fiber = torch.sigmoid(ink)[:, 0], torch.sigmoid(fiber[:, 0, 0])
         expected_ink.append(torch.flip(ink, dims) if dims else ink)
         expected_fiber.append(torch.flip(fiber, dims) if dims else fiber)
     actual_ink, actual_fiber = multitask_probabilities(model, batch)
     torch.testing.assert_close(actual_ink, torch.stack(expected_ink).mean(0))
     torch.testing.assert_close(actual_fiber, torch.stack(expected_fiber).mean(0))
+
+
+@pytest.mark.parametrize("qc_logit", [-5.0, 0.0, 5.0, float("inf")])
+def test_the_qc_head_does_not_scale_served_ink(qc_logit):
+    """The QC head is fit to the patch's mean fiber target, not to quality. As a
+    gate, sigmoid(qc / 0.1) took the production checkpoint's ink to ~1e-5."""
+    batch = torch.rand((2, 1, 2, 4, 4), generator=torch.Generator().manual_seed(3))
+
+    class FiberDensityQC(torch.nn.Module):
+        def forward(self, x, **kwargs):
+            ink = 4 * x.mean(2) - 2
+            qc = torch.full((len(x), 1), qc_logit)
+            return (
+                (ink, ink.unsqueeze(2), qc)
+                if kwargs.get("return_qc")
+                else (
+                    ink,
+                    ink.unsqueeze(2),
+                )
+            )
+
+    ink, _ = multitask_probabilities(FiberDensityQC(), batch, disable_tta=True)
+    torch.testing.assert_close(ink, torch.sigmoid(4 * batch.mean(2) - 2)[:, 0])
+    recipe = multitask_inference_recipe(True, False)
+    assert recipe["ink_probability"] == "sigmoid(ink)"
+    assert recipe["ridge_depth_context"] == "none (no ridge channel)"
+    ridges = multitask_inference_recipe(True, False, use_ridges=True)
+    assert ridges["ridge_depth_context"].startswith("up to num_layers + 8 slices")
 
 
 @pytest.mark.parametrize("mode", ["single", "ensemble"])
@@ -491,11 +545,7 @@ def test_real_resenc_weights_match_direct_model_probabilities(
         checkpoints.append(str(checkpoint))
         with torch.no_grad():
             ink, fiber, qc = model(batch, return_fiber=True, return_qc=True)
-            expected_ink.append(
-                (torch.sigmoid(ink) * torch.sigmoid(qc / 0.1).view(1, 1, 1, 1))[
-                    0, 0
-                ].numpy()
-            )
+            expected_ink.append(torch.sigmoid(ink)[0, 0].numpy())
             expected_fiber.append(torch.sigmoid(fiber.mean(2))[0, 0].numpy())
     argv = [
         mode,
@@ -544,3 +594,64 @@ def test_readiness_rejects_inconsistent_completeness_facts(evidence, facts):
     metadata.update(facts)
     path.write_text(json.dumps(metadata))
     assert validate(path)["status"] == "FAIL"
+
+
+@pytest.mark.parametrize(
+    ("z", "depth", "expected"),
+    [
+        (10, 40, (6, 24, 4)),  # interior: validation's centred context
+        (2, 40, (0, 24, 2)),  # near the top: context shifted inside the volume
+        (24, 40, (16, 24, 8)),  # the last window
+        (0, 16, (0, 16, 0)),  # a volume with no room for context
+    ],
+)
+def test_depth_window_matches_validation_context(z, depth, expected):
+    assert inference_helpers.depth_window(z, 16, depth) == expected
+
+
+def test_inference_ridges_match_the_validation_input(tmp_path, monkeypatch):
+    """The ridge filter min-max normalizes its block, so ridges computed over the
+    window alone differ from validation's, computed over window + context."""
+    from PIL import Image
+
+    layers, size = 4, 16
+    margin = inference_helpers.DEPTH_MARGIN
+    monkeypatch.setattr(vesuvius_loader, "_CUPY", None)  # CPU ridges
+    rng = np.random.default_rng(5)
+    data = rng.integers(0, 256, (layers + 2 * margin, size, size), dtype=np.uint8)
+    data[margin + layers :] //= 4  # context darker than the window
+    uri = str(tmp_path / "surface_volume.zarr")
+    zarr.open(uri, mode="w", shape=data.shape, dtype="u1")[:] = data
+    Image.fromarray(np.full((size, size), 255, np.uint8)).save(tmp_path / "ink.png")
+    (tmp_path / "patches.json").write_text(json.dumps({"patches": [{"y": 0, "x": 0}]}))
+    dataset = vesuvius_loader.VesuviusLabeledDataset(
+        uri,
+        str(tmp_path / "ink.png"),
+        patch_size=size,
+        num_layers=layers + 2 * margin,
+        use_ridges=True,
+        ridge_sigma=1.0,
+        jitter=False,
+        patches_json=str(tmp_path / "patches.json"),
+        cache_dir=str(tmp_path / "cache"),
+    )
+    validation_input = dataset[0][0][:, margin : margin + layers]
+    volume = vesuvius_loader.FastVesuviusVolume(uri, use_ridges=True, ridge_sigma=1.0)
+
+    served = inference_helpers.read_model_block(volume, margin, 0, 0, layers, size)
+
+    torch.testing.assert_close(served, validation_input)
+    window_only = volume[margin : margin + layers, 0:size, 0:size]
+    assert not torch.allclose(window_only[1], validation_input[1])
+
+
+@pytest.mark.parametrize(("depth", "offset"), [(24, 4), (20, 2), (18, 1), (16, 0)])
+def test_centre_window_uses_validation_offset_or_centres_a_shallow_read(depth, offset):
+    batch = torch.arange(depth, dtype=torch.float32).view(1, 1, depth, 1, 1)
+    window = inference_helpers.centre_window(batch, 16)
+    assert window[0, 0, :, 0, 0].tolist() == list(range(offset, offset + 16))
+
+
+def test_centre_window_refuses_a_read_shallower_than_the_model():
+    with pytest.raises(ValueError, match="below num_layers"):
+        inference_helpers.centre_window(torch.zeros(1, 1, 15, 2, 2), 16)

@@ -29,7 +29,7 @@ from vesuvius_autoresearch.core.checkpoint_tools import (
     validate_batch,
     validate_targets,
 )
-from vesuvius_autoresearch.core.inference import positive_integer
+from vesuvius_autoresearch.core.inference import DEPTH_MARGIN, positive_integer
 from vesuvius_autoresearch.core.vesuvius_loader import VesuviusLabeledDataset
 
 
@@ -74,7 +74,7 @@ def measure_fragment(model, settings, frag, n, device, cache_dir=None):
         os.path.join(frag, "inklabels.png"),
         os.path.join(frag, "mask.png"),
         ps,
-        nl + 8,
+        nl + 2 * DEPTH_MARGIN,
         seed=7,
         cache_dir=cache_dir,
         use_ridges=settings["use_ridges"],

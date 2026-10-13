@@ -79,6 +79,7 @@ def build_fixed_batch(frag_dir, k, num_layers, patch_size, use_ridges, device, s
     batch (jitter=False, no augmentation). Returns (x [K,C,nl,H,W], ink [K,1,H,W])."""
     from measure_ink_auc import _volume_uri
 
+    from vesuvius_autoresearch.core.inference import DEPTH_MARGIN, centre_window
     from vesuvius_autoresearch.core.vesuvius_loader import VesuviusLabeledDataset
 
     ds = VesuviusLabeledDataset(
@@ -86,7 +87,7 @@ def build_fixed_batch(frag_dir, k, num_layers, patch_size, use_ridges, device, s
         os.path.join(frag_dir, "inklabels.png"),
         os.path.join(frag_dir, "mask.png"),
         patch_size,
-        num_layers + 8,
+        num_layers + 2 * DEPTH_MARGIN,
         seed=seed,
         cache_dir=None,
         use_ridges=use_ridges,
@@ -98,7 +99,7 @@ def build_fixed_batch(frag_dir, k, num_layers, patch_size, use_ridges, device, s
     xs, ys = [], []
     for i in range(min(k, len(ds))):
         x_raw, t, _ = ds[i]
-        xs.append(x_raw[:, 4 : 4 + num_layers])
+        xs.append(centre_window(x_raw.unsqueeze(0), num_layers)[0])
         ys.append(t.unsqueeze(0) if t.dim() == 2 else t)
     x = torch.stack(xs).to(device)
     ink = torch.stack(ys).to(device).float()

@@ -26,7 +26,9 @@ from vesuvius_autoresearch.core.inference import (
     normalize_blend,
     positive_number,
     prepare_volume_input,
+    read_model_block,
     region_tiles,
+    ridge_depth_context,
     validate_model_settings,
     validate_region,
 )
@@ -325,6 +327,7 @@ def predict():
     )
     if not isinstance(use_ridges, bool):
         raise ValueError("use_ridges must be a boolean")
+    args.inference_recipe["ridge_depth_context"] = ridge_depth_context(use_ridges)
     validate_region(args, patch_size, num_layers)
     model = build_prediction_model(config_dict, args, use_ridges).to(device)
     # Partial warm starts are appropriate for training, not evidence export.
@@ -371,12 +374,10 @@ def predict():
         curr_y = args.y + y_off
         curr_x = args.x + x_off
 
-        # Read the block
-        block = dataset[
-            args.z : args.z + num_layers,
-            curr_y : curr_y + patch_size,
-            curr_x : curr_x + patch_size,
-        ]
+        # Read the block, with training's depth context for the ridge channel
+        block = read_model_block(
+            dataset, args.z, curr_y, curr_x, num_layers, patch_size
+        )
 
         # Prepare input
         x = prepare_volume_input(
@@ -471,23 +472,11 @@ def predict():
     # Note: For very large regions, we'd need to fetch the CT slice in parts too.
     # For now, we fetch the middle slice of the entire requested area.
     z_mid = args.z + num_layers // 2
-    ct_full = dataset[
-        z_mid : z_mid + 1,
-        args.y : args.y + predict_height,
-        args.x : args.x + predict_width,
+    # CT only: indexing a ridge-enabled volume would run the ridge filter on one
+    # slice, which it refuses with a spurious ridge-fallback warning.
+    ct_slice = dataset.read_ct(z_mid, args.y, args.x, 1, predict_height, predict_width)[
+        0
     ]
-    # FastVesuviusVolume returns (D, H, W) for use_ridges=False or
-    # (C, D, H, W) for use_ridges=True. The visualization wants a 2D
-    # (H, W) CT slice. Drop the channel dim if present (taking the CT
-    # channel at index 0), then drop the singleton z dim.
-    if (
-        hasattr(ct_full, "dim")
-        and ct_full.dim() == 4
-        or hasattr(ct_full, "ndim")
-        and ct_full.ndim == 4
-    ):
-        ct_full = ct_full[0]
-    ct_slice = ct_full[0].detach().cpu().numpy().astype(np.float32, copy=False)
 
     fig, axes = plt.subplots(1, 3, figsize=(15, 5))
     axes[0].imshow(ct_slice, cmap="gray")
@@ -498,7 +487,7 @@ def predict():
 
     axes[2].imshow(ct_slice, cmap="gray")
     axes[2].imshow(prob_ink_final, cmap="jet", alpha=0.5)
-    axes[2].set_title("Gated Ink Overlay (Soft-Tiled)")
+    axes[2].set_title("Ink Overlay (Soft-Tiled)")
 
     # Add Scale Bar — uses args.voxel_size_um (same source as the OME-Zarr
     # metadata + per-axis scale) to avoid the previous ~1.1% scale-bar

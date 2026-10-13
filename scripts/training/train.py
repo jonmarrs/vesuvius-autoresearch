@@ -466,7 +466,7 @@ def build_validation_dataset(config: ExperimentConfig):
         labels_path,
         mask_path if os.path.exists(mask_path) else None,
         config.patch_size,
-        config.num_layers + 8,
+        config.num_layers + 2 * DEPTH_MARGIN,
         seed=42,
         cache_dir=config.cache_dir,
         use_ridges=config.use_ridges,
@@ -538,7 +538,9 @@ def collect_validation_predictions(
                 val_x_raw, val_target, _fiber = default_collate(
                     [dataset[int(i)] for i in chunk]
                 )
-                val_x = val_x_raw[:, :, 4 : 4 + num_layers].to(device)
+                val_x = val_x_raw[:, :, DEPTH_MARGIN : DEPTH_MARGIN + num_layers].to(
+                    device
+                )
                 if val_target.dim() == 3:
                     val_target = val_target.unsqueeze(1)
                 with autocast(device_type=device.type, enabled=amp_enabled):
@@ -698,6 +700,7 @@ try:
 except ImportError:
     ResidualEncoderUNet = None
 
+from vesuvius_autoresearch.core.inference import DEPTH_MARGIN
 from vesuvius_autoresearch.core.model_wrappers import GenericMultiTaskWrapper
 
 TRAINING_TRANSFORMS_IMPORT_ERROR = None
@@ -905,7 +908,7 @@ def periodic_pixel_auc_eval(model, val_dataset, config, device, step, elapsed_s)
         with torch.no_grad():
             for i in idxs:
                 x_raw, t, _ = val_dataset[int(i)]
-                x = x_raw[:, 4 : 4 + nl].unsqueeze(0).to(device)
+                x = x_raw[:, DEPTH_MARGIN : DEPTH_MARGIN + nl].unsqueeze(0).to(device)
                 out = model(x)
                 out = out[0] if isinstance(out, tuple) else out
                 probs.append(torch.sigmoid(out).squeeze().float().cpu().numpy().ravel())
@@ -1440,7 +1443,7 @@ def train(config: ExperimentConfig):
                 ds = VesuviusS3Dataset(
                     uri,
                     config.patch_size,
-                    config.num_layers + 8,
+                    config.num_layers + 2 * DEPTH_MARGIN,
                     seed=seed,
                     cache_dir=config.cache_dir,
                     use_ridges=config.use_ridges,
@@ -1479,7 +1482,7 @@ def train(config: ExperimentConfig):
                     labels_path,
                     mask_path if os.path.exists(mask_path) else None,
                     config.patch_size,
-                    config.num_layers + 8,
+                    config.num_layers + 2 * DEPTH_MARGIN,
                     seed=seed,
                     cache_dir=config.cache_dir,
                     use_ridges=config.use_ridges,
@@ -1497,7 +1500,7 @@ def train(config: ExperimentConfig):
                 ds = VesuviusS3Dataset(
                     uri,
                     config.patch_size,
-                    config.num_layers + 8,
+                    config.num_layers + 2 * DEPTH_MARGIN,
                     seed=seed,
                     cache_dir=config.cache_dir,
                     use_ridges=config.use_ridges,
@@ -1699,7 +1702,7 @@ def train(config: ExperimentConfig):
             # back to the model's expected depth. Despite the historical
             # "Anisotropic Z-Interpolation" comment, z_len is deterministic
             # at max(4, int(num_layers*0.8)) — not random.
-            z_start = np.random.randint(0, 8)
+            z_start = np.random.randint(0, 2 * DEPTH_MARGIN)
             if (
                 not getattr(config, "disable_augmentation", False)
             ) and np.random.rand() > 0.8:

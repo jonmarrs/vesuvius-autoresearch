@@ -8,6 +8,7 @@ from scripts.active_learning_sampler import (
     calculate_entropy,
     identify_uncertain_patches,
 )
+from vesuvius_autoresearch.core.inference import DEPTH_MARGIN
 
 
 class MockModel(torch.nn.Module):
@@ -113,6 +114,126 @@ class TestActiveLearning(unittest.TestCase):
         # this test exists to catch.
         np.testing.assert_array_equal(coords[0], loader.dataset.valid_coords[0])
         np.testing.assert_array_equal(coords[1], loader.dataset.valid_coords[1])
+
+    def test_qc_output_does_not_change_the_ranking(self):
+        """The QC head is fit to the patch's mean fiber target, not confidence;
+        1 - sigmoid(qc) used to rank fiber-poor patches as uncertain."""
+
+        class FiberDensityQC(torch.nn.Module):
+            def forward(self, x, return_qc=False):
+                logits = torch.zeros(x.shape[0], 1, x.shape[3], x.shape[4])
+                logits[:, :, :16, :] = 10.0  # identical ink for every sample
+                if return_qc:
+                    return logits, -10 * x.mean(dim=(1, 2, 3, 4)).view(-1, 1)
+                return logits
+
+        class Dataset:
+            valid_coords = np.array([[i * 64, 0] for i in range(4)])
+
+            def __len__(self):
+                return len(self.valid_coords)
+
+        class Loader:
+            batch_size = 1
+            dataset = Dataset()
+
+            def __len__(self):
+                return 4
+
+            def __iter__(self):
+                for i in range(4):
+                    yield (
+                        torch.full((1, 1, 8, 64, 64), float(i)),
+                        torch.zeros(1, 64, 64),
+                        torch.zeros(1, 64, 64),
+                    )
+
+        sampler = ActiveLearningSampler(FiberDensityQC(), device="cpu")
+        _, scores = sampler.sample_uncertain_regions(Loader(), n_samples=4)
+        np.testing.assert_allclose(scores, scores[0])
+
+    @staticmethod
+    def _one_batch_loader(x):
+        class Dataset:
+            valid_coords = np.array([[0, 0]])
+
+            def __len__(self):
+                return 1
+
+        class Loader:
+            batch_size = 1
+            dataset = Dataset()
+
+            def __len__(self):
+                return 1
+
+            def __iter__(self):
+                yield x, torch.zeros(1, 8, 8), torch.zeros(1, 8, 8)
+
+        return Loader()
+
+    def test_a_ridge_model_sees_the_centre_of_the_context_read(self):
+        """main() reads training's depth context for ridge models, so the ridge
+        channel matches validation's; the model gets the centre window."""
+        seen = []
+
+        class Recorder(torch.nn.Module):
+            def forward(self, x):
+                seen.append(x[0, 0, :, 0, 0].tolist())
+                return torch.zeros(x.shape[0], 1, x.shape[3], x.shape[4])
+
+        depth = 4 + 2 * DEPTH_MARGIN
+        x = torch.arange(depth, dtype=torch.float32).view(1, 1, depth, 1, 1)
+        x = x.expand(1, 2, depth, 8, 8).contiguous()
+        settings = {"num_layers": 4, "patch_size": 8, "use_ridges": True}
+        sampler = ActiveLearningSampler(Recorder(), device="cpu", settings=settings)
+        sampler.sample_uncertain_regions(self._one_batch_loader(x), n_samples=1)
+        start = float(DEPTH_MARGIN)
+        self.assertEqual(seen, [[start, start + 1, start + 2, start + 3]])
+
+    def test_a_ct_only_model_refuses_a_context_read(self):
+        """CT-only models read just the window; a deeper read is a misconfigured
+        dataset, not something to crop silently."""
+        settings = {"num_layers": 4, "patch_size": 8, "use_ridges": False}
+        sampler = ActiveLearningSampler(MockModel(), device="cpu", settings=settings)
+        x = torch.rand(1, 1, 4 + 2 * DEPTH_MARGIN, 8, 8)
+        with self.assertRaisesRegex(ValueError, "C/Z/H/W"):
+            sampler.sample_uncertain_regions(self._one_batch_loader(x), n_samples=1)
+
+    def test_a_volume_shallower_than_the_context_still_samples(self):
+        """A 16-layer model on an 18-slice volume: the dataset caps its read at 18,
+        and the model gets the 16 centred in it."""
+        seen = []
+
+        class Recorder(torch.nn.Module):
+            def forward(self, x):
+                seen.append(x.shape[2])
+                return torch.zeros(x.shape[0], 1, x.shape[3], x.shape[4])
+
+        class Dataset:
+            valid_coords = np.array([[0, 0]])
+
+            def __len__(self):
+                return 1
+
+        class Loader:
+            batch_size = 1
+            dataset = Dataset()
+
+            def __len__(self):
+                return 1
+
+            def __iter__(self):
+                yield (
+                    torch.rand(1, 2, 18, 8, 8),
+                    torch.zeros(1, 8, 8),
+                    torch.zeros(1, 8, 8),
+                )
+
+        settings = {"num_layers": 16, "patch_size": 8, "use_ridges": True}
+        sampler = ActiveLearningSampler(Recorder(), device="cpu", settings=settings)
+        sampler.sample_uncertain_regions(Loader(), n_samples=1)
+        self.assertEqual(seen, [16])
 
     def test_sampler_refuses_a_shuffled_loader(self):
         """The index arithmetic assumes dataset order. Under shuffling it still

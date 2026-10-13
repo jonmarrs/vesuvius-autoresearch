@@ -1,13 +1,61 @@
 """Shared contracts for regional CT-volume inference.
 
 Coordinates are source voxel indices in z/y/x order; model inputs are B/C/Z/H/W.
-The multitask probability path retains its existing QC gate and mirror recipe.
+Ink probability is sigmoid(ink) on every path: the quantity training validates
+(val_f1 and its threshold) and production_predict exports.
 """
 
 import math
 from numbers import Integral, Real
 
 import torch
+
+from .inference_constants import (  # noqa: F401 (re-exported)
+    DEPTH_MARGIN,
+    INK_PROBABILITY,
+    ridge_depth_context,
+)
+
+
+def depth_window(z, num_layers, depth, margin=DEPTH_MARGIN):
+    """Slices to read for a model window starting at z, as validation reads them.
+
+    Returns (start, length, offset): read [start, start + length) and the window
+    is at [offset, offset + num_layers) within it. Near the volume's ends the
+    context is shifted to stay inside, so the offset runs from 0 to 2 * margin.
+    Training samples offsets 0 to 2 * margin - 1, so the last window of a volume
+    (offset 2 * margin) has no training counterpart.
+    """
+    length = min(num_layers + 2 * margin, depth)
+    start = min(max(z - margin, 0), depth - length)
+    return start, length, z - start
+
+
+def centre_window(batch, num_layers, margin=DEPTH_MARGIN):
+    """The model window of a B/C/Z/H/W batch read with depth context.
+
+    Validation's offset (margin) when the read is num_layers + 2 * margin deep;
+    a shallower read, from a volume without room for the full context, is
+    centred on what it has.
+    """
+    extra = batch.shape[2] - num_layers
+    if extra < 0:
+        raise ValueError(f"batch depth {batch.shape[2]} is below num_layers")
+    offset = min(margin, extra // 2)
+    return batch[:, :, offset : offset + num_layers]
+
+
+def read_model_block(volume, z, y, x, num_layers, size):
+    """A model-input block from a FastVesuviusVolume, with training's depth context.
+
+    The ridge channel, when the volume computes one, is computed over the context
+    and then cropped to the window; CT-only reads take just the window.
+    """
+    if not getattr(volume, "use_ridges", False):
+        return volume[z : z + num_layers, y : y + size, x : x + size]
+    start, length, offset = depth_window(z, num_layers, volume.shape[0])
+    block = volume[start : start + length, y : y + size, x : x + size]
+    return block[..., offset : offset + num_layers, :, :]
 
 
 def positive_integer(value, name, minimum=1):
@@ -126,17 +174,22 @@ def prepare_volume_input(block, use_ridges, layers, size, device):
 
 
 def multitask_probabilities(model, batch, disable_tta=False):
-    """QC-gated ink and depth-collapsed fiber probabilities, with optional TTA."""
+    """Ink and depth-collapsed fiber probabilities, with optional TTA.
+
+    QC logits are not requested. The QC head is trained to predict the patch's
+    mean fiber target (train.py's loss_qc), not a quality score, so it sits below
+    zero on ordinary patches: the old gate sigmoid(qc / 0.1) scaled the
+    production checkpoint's ink by at most 0.09 (median 1.6e-5 over plausible
+    inputs), and its exported uint8 maps were blank.
+    """
     mirrors = ((),) if disable_tta else ((), (-1,), (-2,), (-2, -1))
     result_ink = result_fiber = None
     b, _, _, height, width = batch.shape
     for dims in mirrors:
-        outputs = model(
-            batch.flip(dims) if dims else batch, return_fiber=True, return_qc=True
-        )
-        if not isinstance(outputs, tuple) or len(outputs) != 3:
-            raise ValueError("model output must contain ink, fiber, and QC logits")
-        ink, fiber, qc = outputs
+        outputs = model(batch.flip(dims) if dims else batch, return_fiber=True)
+        if not isinstance(outputs, tuple) or len(outputs) != 2:
+            raise ValueError("model output must contain ink and fiber logits")
+        ink, fiber = outputs
         for output in outputs:
             if (
                 not isinstance(output, torch.Tensor)
@@ -152,12 +205,11 @@ def multitask_probabilities(model, batch, disable_tta=False):
             or tuple(fiber.shape[:2]) != (b, 1)
             or fiber.shape[2] < 1
             or tuple(fiber.shape[-2:]) != (height, width)
-            or tuple(qc.shape) != (b, 1)
         ):
             raise ValueError(
                 "model output dimensions do not match the input batch and region"
             )
-        prob_ink = torch.sigmoid(ink) * torch.sigmoid(qc / 0.1).view(b, 1, 1, 1)
+        prob_ink = torch.sigmoid(ink)
         prob_fiber = torch.sigmoid(fiber.mean(dim=2))
         if dims:
             prob_ink, prob_fiber = prob_ink.flip(dims), prob_fiber.flip(dims)
@@ -166,10 +218,11 @@ def multitask_probabilities(model, batch, disable_tta=False):
     return result_ink[:, 0] / len(mirrors), result_fiber[:, 0] / len(mirrors)
 
 
-def multitask_inference_recipe(disable_tta, gaussian_blend):
+def multitask_inference_recipe(disable_tta, gaussian_blend, use_ridges=False):
     """Record probability transforms separately from the training configuration."""
     return {
-        "ink_probability": "sigmoid(ink) * sigmoid(qc / 0.1)",
+        "ink_probability": INK_PROBABILITY,
+        "ridge_depth_context": ridge_depth_context(use_ridges),
         "fiber_probability": "sigmoid(mean(fiber, z))",
         "tta_mirrors": ["none"] if disable_tta else ["none", "x", "y", "xy"],
         "blend_window": "gaussian" if gaussian_blend else "positive_hann",

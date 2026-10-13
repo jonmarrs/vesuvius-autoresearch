@@ -8,7 +8,7 @@ This guide covers `scripts/inference/predict.py`,
 ## Choose an inference recipe
 
 The batched production command exports ink probabilities using `sigmoid(ink)`.
-It uses positive Hann blending, without QC gating or test-time augmentation:
+It uses positive Hann blending, without test-time augmentation:
 
 ```bash
 uv run python -m scripts.production_predict \
@@ -18,8 +18,8 @@ uv run python -m scripts.production_predict \
 ```
 
 The regional commands export ink, fiber context, and a three-panel CT overlay.
-Their existing probability recipe is `sigmoid(ink) * sigmoid(qc / 0.1)` for
-ink and `sigmoid(mean(fiber, z))` for fiber. They average probabilities across
+Their probability recipe is `sigmoid(ink)` for ink, as in production and in
+training's validation, and `sigmoid(mean(fiber, z))` for fiber. They average probabilities across
 four spatial views (unchanged, x mirror, y mirror, both), undoing each output
 mirror first. Use `--disable_tta` for one forward per model and tile.
 
@@ -36,22 +36,34 @@ uv run python -m scripts.inference.ensemble_predict \
   --output_img predictions/ensemble.png
 ```
 
-The ensemble averages each member's probabilities, after that member's QC gate
-and optional mirror averaging. Every requested checkpoint must exist and load
+The ensemble averages each member's probabilities, after that member's optional
+mirror averaging. Every requested checkpoint must exist and load
 all its weights. An empty list, a missing member, incompatible weights, and an
 unknown architecture fail explicitly.
 
-These recipes are different, so production and regional outputs need not agree.
-For `GenericMultiTaskWrapper` backbones with dummy heads, QC logits are zero
-(giving a 0.5 gate) and fiber output reuses ink logits. That output is not an
-independently learned fiber measurement. The adapter behavior is unchanged;
-use checkpoint configuration and model implementation to interpret the heads.
-Ensembling or QC gating does not establish accuracy or hallucination absence.
+Production and regional outputs share the ink formula; they differ in mirror
+averaging and the blending window, so they need not agree exactly.
+
+Until 2026-10-13 the regional and ensemble commands multiplied ink by
+`sigmoid(qc / 0.1)`. The QC head is not a quality score: training fits it to the
+patch's mean fiber target. On the production checkpoint its logit stays below
+zero, so the gate scaled ink by at most 0.09 (median 1.6e-5 over plausible
+inputs) and the exported uint8 maps were blank. Regional outputs from before that
+date are not comparable with later ones.
+
+For `GenericMultiTaskWrapper` backbones with dummy heads, fiber output reuses
+ink logits. That output is not an independently learned fiber measurement. Use
+checkpoint configuration and model implementation to interpret the heads.
+Ensembling does not establish accuracy or hallucination absence.
 
 ## Geometry and input compatibility
 
 Positions are source voxel indices in x/y/z order. The loader reads z/y/x and
-supplies normalized CT, plus a ridge channel when configured. Model inputs have
+supplies normalized CT, plus a ridge channel when configured.
+For ridge-enabled checkpoints each tile reads `num_layers + 8` slices around the
+window (shifted inside the volume at its ends) and computes the ridge channel
+over all of them before cropping the window, as training's validation does: the
+ridge filter normalizes the block it is given. Model inputs have
 shape `(batch, channels, depth, height, width)` even for CT-only ensembles.
 
 Checkpoint patch size, depth, channels, and `ridge_sigma` determine the input.

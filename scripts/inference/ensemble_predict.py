@@ -32,7 +32,9 @@ from vesuvius_autoresearch.core.inference import (
     normalize_blend,
     positive_number,
     prepare_volume_input,
+    read_model_block,
     region_tiles,
+    ridge_depth_context,
     validate_model_settings,
     validate_region,
 )
@@ -134,6 +136,7 @@ def ensemble_predict():
             "ridge-enabled ensemble num_layers must match the maximum depth; ridge filtering depends on the full depth context"
         )
     use_ridges_any = any(member[1] for member in models)
+    args.inference_recipe["ridge_depth_context"] = ridge_depth_context(use_ridges_any)
     args.patch_size = patch_size
     args.voxel_size_um = scales[0]
     validate_region(args, patch_size, max_layers)
@@ -158,11 +161,9 @@ def ensemble_predict():
     )
     with torch.no_grad():
         for y, x in tiles:
-            block = dataset[
-                args.z : args.z + max_layers,
-                args.y + y : args.y + y + patch_size,
-                args.x + x : args.x + x + patch_size,
-            ]
+            block = read_model_block(
+                dataset, args.z, args.y + y, args.x + x, max_layers, patch_size
+            )
             batch = prepare_volume_input(
                 dataset.normalize(block), use_ridges_any, max_layers, patch_size, device
             )
@@ -211,12 +212,9 @@ def ensemble_predict():
         exports.append(export)
 
     z_mid = args.z + max_layers // 2
-    ct = dataset[
-        z_mid : z_mid + 1, args.y : args.y + args.height, args.x : args.x + args.width
-    ]
-    if ct.ndim == 4:
-        ct = ct[0]
-    ct_slice = ct[0].detach().cpu().numpy().astype(np.float32, copy=False)
+    # CT only: indexing a ridge-enabled volume would run the ridge filter on one
+    # slice, which it refuses with a spurious ridge-fallback warning.
+    ct_slice = dataset.read_ct(z_mid, args.y, args.x, 1, args.height, args.width)[0]
     figure, axes = plt.subplots(1, 3, figsize=(15, 5))
     axes[0].imshow(ct_slice, cmap="gray")
     axes[0].set_title(f"CT Slice (Z={z_mid})")
@@ -224,7 +222,7 @@ def ensemble_predict():
     axes[1].set_title("Ensemble Fiber Context")
     axes[2].imshow(ct_slice, cmap="gray")
     axes[2].imshow(ink, cmap="jet", alpha=0.5)
-    axes[2].set_title("Ensemble Gated Ink Overlay")
+    axes[2].set_title("Ensemble Ink Overlay")
     bar_px, label = prediction_scale_bar(args.width, args.voxel_size_um)
     for ax in axes:
         ax.add_patch(

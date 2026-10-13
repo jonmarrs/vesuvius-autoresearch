@@ -3,7 +3,12 @@
 import torch
 
 from . import model_wrappers
-from .inference import positive_integer, validate_model_settings
+from .inference import (
+    DEPTH_MARGIN,
+    centre_window,
+    positive_integer,
+    validate_model_settings,
+)
 
 
 def load_tool_checkpoint(path, device):
@@ -59,19 +64,22 @@ def build_tool_model(checkpoint, device="cpu"):
 def validate_batch(batch, settings, buffered=False):
     layers, size = settings["num_layers"], settings["patch_size"]
     channels = 2 if settings["use_ridges"] else 1
-    depth = layers + 8 if buffered else layers
+    # A buffered read carries training's depth context: num_layers + 2 * margin
+    # slices, or fewer from a volume without room for all of it.
+    depths = range(layers, layers + 2 * DEPTH_MARGIN + 1) if buffered else [layers]
     if (
         not isinstance(batch, torch.Tensor)
         or batch.ndim != 5
         or len(batch) < 1
-        or tuple(batch.shape[1:]) != (channels, depth, size, size)
+        or batch.shape[2] not in depths
+        or tuple(batch.shape[1:]) != (channels, batch.shape[2], size, size)
         or not batch.is_floating_point()
         or not torch.isfinite(batch).all()
     ):
-        raise ValueError(
-            f"input must be finite B/C/Z/H/W with C/Z/H/W={(channels, depth, size, size)}"
-        )
-    return batch[:, :, 4 : 4 + layers] if buffered else batch
+        depth = f"{depths[0]}-{depths[-1]}" if buffered else layers
+        expected = (channels, depth, size, size)
+        raise ValueError(f"input must be finite B/C/Z/H/W with C/Z/H/W={expected}")
+    return centre_window(batch, layers) if buffered else batch
 
 
 def ink_probabilities(model, batch):
