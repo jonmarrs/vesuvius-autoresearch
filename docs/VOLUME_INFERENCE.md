@@ -22,6 +22,8 @@ Their probability recipe is `sigmoid(ink)` for ink, as in production and in
 training's validation, and `sigmoid(mean(fiber, z))` for fiber. They average probabilities across
 four spatial views (unchanged, x mirror, y mirror, both), undoing each output
 mirror first. Use `--disable_tta` for one forward per model and tile.
+`predict.py` centres the checkpoint's window in the volume's depth when `--z` is
+omitted (surface volumes put the segment surface at their middle layer).
 
 ```bash
 uv run python -m scripts.inference.predict \

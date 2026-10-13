@@ -303,15 +303,19 @@ def test_a_baseline_with_no_tweak_under_the_vram_cap_ends_without_logging(
     assert "VRAM cap" not in log
 
 
-def test_the_benchmark_predicts_at_the_centre_of_the_volume_depth(
-    tmp_path, monkeypatch
-):
-    ExperimentConfig(num_layers=16).save(tmp_path / "config.json")
-    volume = tmp_path / "local_data/PHercParis2Fr143/surface_volume.zarr"
-    volume.mkdir(parents=True)
-    (volume / ".zarray").write_text('{"shape": [65, 256, 256]}')
+def test_the_benchmark_leaves_the_depth_to_predict(tmp_path, monkeypatch):
+    """predict.py centres the checkpoint's window in the volume's depth; the loop's
+    fixed z=10 showed slices 10-25 of a 65-slice fragment, below the band."""
+    ExperimentConfig().save(tmp_path / "config.json")
     commands: list = []
     _drive_loop(tmp_path, monkeypatch, cycles=5, commands=commands)
     benchmarks = [c for c in commands if "scripts/inference/predict.py" in c]
-    assert len(benchmarks) == 1
-    assert benchmarks[0][benchmarks[0].index("--z") + 1] == "24"
+    assert len(benchmarks) == 1 and "--z" not in benchmarks[0]
+
+
+def test_skipped_updates_reach_the_sprint_log(tmp_path, monkeypatch):
+    ExperimentConfig().save(tmp_path / "config.json")
+    result = {"is_success": False, "val_f1": 0.5, "skipped_updates": 3}
+    _drive_loop(tmp_path, monkeypatch, cycles=1, result=result)
+    log = next((tmp_path / "sprint_logs").glob("*.md")).read_text()
+    assert "- **Skipped updates**: 3" in log

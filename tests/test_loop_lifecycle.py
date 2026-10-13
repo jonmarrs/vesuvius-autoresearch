@@ -11,7 +11,6 @@ import pytest
 
 from run_autoresearch_loop import (
     VRAM_COMPLEXITY_CAP,
-    centred_depth_start,
     complexity_score,
     template_weights,
     tweak_proposals,
@@ -91,23 +90,6 @@ def test_the_cap_is_read_when_called_not_when_defined(monkeypatch):
     monkeypatch.setattr(loop, "VRAM_COMPLEXITY_CAP", 2.5)
     batch = {t["attr"]: t["vals"] for t in tweak_proposals(production_like())[0]}
     assert batch["batch_size"] == [8, 16, 24]
-
-
-@pytest.mark.parametrize("level", ["", "0"])
-def test_the_benchmark_window_is_centred_in_the_volume_depth(tmp_path, level):
-    """Surface volumes put the segment surface at the middle layer; z=10 showed
-    slices 10-25 of a 65-slice fragment, below the detector's 17-42 band."""
-    meta = tmp_path / level / ".zarray"
-    meta.parent.mkdir(parents=True, exist_ok=True)
-    meta.write_text('{"shape": [65, 4096, 4096]}')
-    assert centred_depth_start(str(tmp_path), 16) == 24
-    assert centred_depth_start(str(tmp_path), 65) == 0
-
-
-def test_an_unreadable_depth_gives_no_benchmark_window(tmp_path):
-    assert centred_depth_start(str(tmp_path / "missing.zarr"), 16) is None
-    (tmp_path / ".zarray").write_text("{not json")
-    assert centred_depth_start(str(tmp_path), 16) is None
 
 
 def test_family_weight_does_not_depend_on_number_of_axes():

@@ -263,24 +263,6 @@ def tweak_proposals(config, cap=None):
 BENCHMARK_URI = "local_data/PHercParis2Fr143/surface_volume.zarr"
 
 
-def centred_depth_start(uri, num_layers):
-    """First slice of a num_layers window centred in a zarr volume's depth.
-
-    Surface volumes are built around the segment surface at their middle layer.
-    The benchmark used z=10, which on a 65-slice fragment shows slices 10-25,
-    below the 17-42 band the project's detector reads. None when the depth
-    cannot be read from the array metadata.
-    """
-    for meta in (os.path.join(uri, ".zarray"), os.path.join(uri, "0", ".zarray")):
-        try:
-            with open(meta) as f:
-                depth = int(json.load(f)["shape"][0])
-        except (OSError, ValueError, KeyError, IndexError, TypeError):
-            continue
-        return max(0, (depth - num_layers) // 2)
-    return None
-
-
 def template_weights(templates, success_counts):
     """Give each family its stated weight regardless of its number of axes."""
     sizes = Counter(t["family"] for t in templates)
@@ -656,6 +638,7 @@ def main():
             print(f"Subprocess error in cycle {i}: {e}")
 
         val_bpb = train_loss = params = vram = vps = val_f1 = "N/A"
+        skipped_updates = 0
         promotion_blocked = None
         is_success = False
         is_crash = False
@@ -694,6 +677,7 @@ def main():
                 val_f1 = res.get("val_f1", "N/A")  # type: ignore[attr-defined]
                 is_success = res.get("is_success", False)  # type: ignore[attr-defined]
                 promotion_blocked = res.get("promotion_blocked")  # type: ignore[attr-defined]
+                skipped_updates = res.get("skipped_updates", 0)  # type: ignore[attr-defined]
             except Exception as e:
                 print(f"Error reading run_result.json: {e}")
                 is_crash = True
@@ -724,6 +708,9 @@ def main():
             log.write(
                 f"- **Stats**: val_f1: {val_f1}, val_bpb: {val_bpb}, loss: {train_loss}, params: {params}M, vram: {vram}MB, speed: {vps}Mvps\n"
             )
+            if skipped_updates:
+                # Steps train.py did not apply (non-finite loss or gradient).
+                log.write(f"- **Skipped updates**: {skipped_updates}\n")
 
             result_msg = "No improvement detected. Config reverted."
             if promotion_blocked:
@@ -756,15 +743,7 @@ def main():
         # Benchmark Inference Step (Every 5 cycles).
         # Uses subprocess.run (not os.system) so a predict.py crash surfaces
         # as a visible warning rather than silently swallowing the failure.
-        benchmark_layers = (
-            ExperimentConfig.load(CONFIG_FILE)
-            if os.path.exists(CONFIG_FILE)
-            else ExperimentConfig()
-        ).num_layers
-        benchmark_z = centred_depth_start(BENCHMARK_URI, benchmark_layers)
-        if i % 5 == 0 and benchmark_z is None:
-            print(f"Cycle {i}: skipping benchmark: no depth for {BENCHMARK_URI}.")
-        elif i % 5 == 0:
+        if i % 5 == 0:
             print(f"Cycle {i}: Running Benchmark Inference...")
             benchmark_path = f"reports/benchmark_v210_cycle{i}.png"
             benchmark_cmd = [
@@ -773,8 +752,9 @@ def main():
                 "scripts/inference/predict.py",
                 "--uri",
                 BENCHMARK_URI,
-                "--z",
-                str(benchmark_z),
+                # No --z: predict.py centres the checkpoint's window in the
+                # volume's depth. z=10 showed slices 10-25 of a 65-slice
+                # fragment, below the 17-42 band the project's detector reads.
                 "--y",
                 "1000",
                 "--x",

@@ -655,3 +655,14 @@ def test_centre_window_uses_validation_offset_or_centres_a_shallow_read(depth, o
 def test_centre_window_refuses_a_read_shallower_than_the_model():
     with pytest.raises(ValueError, match="below num_layers"):
         inference_helpers.centre_window(torch.zeros(1, 1, 15, 2, 2), 16)
+
+
+def test_without_z_the_window_is_centred_in_the_volume_depth(tmp_path, monkeypatch):
+    """Surface volumes put the segment surface at their middle layer."""
+    runner, argv, _, _, _ = setup_prediction(tmp_path, monkeypatch, "single")
+    index = argv.index("--z")
+    del argv[index : index + 2]
+    argv.append("--disable_tta")
+    runner()
+    metadata = json.loads(next((tmp_path / "out").glob("*_meta.json")).read_text())
+    assert metadata["position_xyz"] == [3, 2, (6 - 2) // 2]
