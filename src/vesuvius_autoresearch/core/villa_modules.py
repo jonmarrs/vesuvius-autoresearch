@@ -25,9 +25,12 @@ import hashlib
 import importlib.util
 import sys
 from pathlib import Path
+from threading import Lock, RLock
 from types import ModuleType
 
 VILLA_ROOT = Path(__file__).resolve().parents[3] / "villa"
+_MODULE_LOCKS: dict[str, RLock] = {}
+_MODULE_LOCKS_LOCK = Lock()
 
 
 def non_leaf_imports(path: Path) -> list[str]:
@@ -63,6 +66,9 @@ def load_villa_leaf(
 
     Raises FileNotFoundError when the pinned checkout lacks the file and ImportError
     when the file imports a sibling or ``vesuvius`` (see the module docstring).
+    Concurrent callers for the same file wait until initialization completes.
+    Different files can initialize independently; failed initialization is retried
+    by the next caller.
     """
     root = Path(villa_root) if villa_root is not None else VILLA_ROOT
     path = (root / relative_path).resolve()
@@ -73,20 +79,26 @@ def load_villa_leaf(
         )
     digest = hashlib.sha1(str(path).encode()).hexdigest()[:12]
     name = f"_villa_leaf_{path.stem}_{digest}"
-    cached = sys.modules.get(name)
-    if cached is not None:
-        return cached
-    if outside := non_leaf_imports(path):
-        raise ImportError(
-            f"{relative_path} imports {', '.join(sorted(set(outside)))}, which would "
-            "resolve outside the pinned file; it cannot be loaded as a leaf module"
-        )
-    spec = importlib.util.spec_from_file_location(name, path)
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[name] = module
-    try:
-        spec.loader.exec_module(module)
-    except BaseException:
-        sys.modules.pop(name, None)
-        raise
-    return module
+    with _MODULE_LOCKS_LOCK:
+        lock = _MODULE_LOCKS.setdefault(name, RLock())
+    with lock:
+        cached = sys.modules.get(name)
+        if cached is not None:
+            return cached
+        if outside := non_leaf_imports(path):
+            raise ImportError(
+                f"{relative_path} imports {', '.join(sorted(set(outside)))}, which would "
+                "resolve outside the pinned file; it cannot be loaded as a leaf module"
+            )
+        spec = importlib.util.spec_from_file_location(name, path)
+        module = importlib.util.module_from_spec(spec)
+        # Registration before execution is required by decorators such as
+        # dataclass. Keep the lock through execution so another caller cannot
+        # mistake this partially initialized module for a completed cache entry.
+        sys.modules[name] = module
+        try:
+            spec.loader.exec_module(module)
+        except BaseException:
+            sys.modules.pop(name, None)
+            raise
+        return module

@@ -80,27 +80,48 @@ Review queues are suggestions for manual inspection; uncertainty scores are not
 an accuracy measurement. Queue sampling uses the exact checkpoint depth, while
 the AUC/pseudo-label commands retain their buffered depth recipe.
 
-## Legacy diagnostic re-evaluation
+## Incumbent re-evaluation
 
 ```bash
 uv run python scripts/reevaluate_best_model.py
-# Explicitly replace stored legacy diagnostic metrics after a valid measurement:
+# Explicitly replace stored scores after a valid measurement:
 uv run python scripts/reevaluate_best_model.py --update-stored
 ```
 
 This command reads `best_model.pt` and `config.json` from the working directory.
 The current config selects validation URI, cache, and batch size; saved model
-settings determine reconstruction and input dimensions. It retains the legacy
-Dice/topology formulas and sampling schedule. It does not recompute the newer
-F1/AP promotion contract or establish prize readiness.
+settings determine reconstruction and input dimensions, with the checkpoint's
+recorded `use_lasagna` setting. The command uses the loop's
+`seeded-sample-400-v2` protocol: up to 400 seeded catalogue entries, measured per
+patch independently of batch size, with ink-free patches excluded. It recomputes
+the promotion F1, AP-prevalence lift and ROC AUC, plus legacy Dice/topology metrics.
+It prints the all-ink F1 baseline and margins so a change in sample prevalence
+does not appear to be a model improvement.
 
-Missing usable data, failed metrics, and nonfinite metrics fail without updating
-the checkpoint. A successful explicit update records evaluation URI, settings,
-accepted/requested batch counts, and thresholds, then atomically replaces the
-checkpoint. Its original configuration and model weights remain intact.
+Missing usable data, failed reads or preprocessing, failed metrics, and nonfinite
+metrics fail without updating the checkpoint. A successful explicit update
+records the protocol, evaluation URI, settings, accepted/requested patch counts,
+and thresholds, then atomically replaces the checkpoint. Its original
+configuration and model weights remain intact. A stored score from another
+protocol blocks loop startup and promotion until explicitly re-scored.
 
-All four tools opt into strict labeled-dataset reads: read/processing failures
-raise with patch context. Training retains its existing fallback behavior.
+Resolve the host's preprocessing and metric choices before migrating the
+incumbent; [finding 86](../reports/loop_v2_constant_control.md) records the open
+decisions. Re-evaluation measures the declared inputs and does not establish
+prize readiness or decide those choices.
+
+All four tools opt into strict labeled-dataset reads: source reads and requested
+Lasagna flattening, ridge features and Frangi targets must succeed. In strict
+mode an unavailable warp, failed feature computation, invalid transform result,
+or a requested warp/ridge transform with fewer than three slices raises with
+patch and backend context. A successful CPU ridge computation is a valid
+fallback from a failed GPU implementation; fabricated zero features are not.
+For example, `use_lasagna: true` on a host without the CUDA extension/toolkit
+now fails validation instead of scoring an unwarped patch. The loop's validation
+uses this same strict boundary and marks such samples incomplete. Permissive
+training reads retain their warning-and-fallback behavior.
 Scientific measurements were not regenerated; corrected masking, sample counts,
 ridge settings, and coordinate handling can change future results. See the
 [review report](DESIGN_ARCHITECTURE_REVIEW_2026-10-04_CHECKPOINT_TOOLS.md).
+The [October 13 review](DESIGN_ARCHITECTURE_REVIEW_2026-10-13_PREPROCESSING.md)
+documents strict preprocessing and concurrent native-module initialization.

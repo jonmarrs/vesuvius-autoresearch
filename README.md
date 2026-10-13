@@ -167,6 +167,8 @@ For checkpoint re-evaluation, masked patch AUC, pseudo-labels, and manual-review
 queues, see [Checkpoint analysis and labeling](docs/CHECKPOINT_ANALYSIS.md).
 These tools use recorded model settings and complete weights; failed reads or
 measurements produce an error instead of a successful result.
+Strict reads also require requested preprocessing to succeed: an unavailable
+flattening backend or fabricated ridge features cannot support a validation score.
 
 For preparing a pseudo-label batch from an explicit teacher and region manifest,
 see [Pseudo-label handoff](docs/PSEUDO_LABEL_HANDOFF.md). Dry run is the default;
