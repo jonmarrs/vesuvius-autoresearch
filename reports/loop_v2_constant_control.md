@@ -104,6 +104,8 @@ These are decisions for the loop's owner; none was taken here.
 3. **Lasagna**: install a CUDA toolkit matching `cu128` so the extension builds (changes the input of every future
    run; the incumbent never saw warped patches), set `use_lasagna` to false so the config describes what has
    actually run, or make the loader refuse to start when flattening is requested but unavailable.
+   **Decided 2026-10-13 (owner: get the loop running): off.** `config.json` sets `use_lasagna: false`, the loop's
+   tweak is pinned to false, and the incumbent was re-scored with `--unwarped`, which records `use_lasagna: false`.
 4. **The metric**: v2's sample makes F1 a prevalence measurement for a near-constant model. Options include scoring
    the margin over the all-ink floor, adding ink-free patches back (the review calls that a separate decision), or
    promoting on AP lift or AUC. Not decided here.

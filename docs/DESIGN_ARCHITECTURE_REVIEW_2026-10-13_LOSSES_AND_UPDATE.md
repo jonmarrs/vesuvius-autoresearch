@@ -91,8 +91,9 @@ seeded-sample-400-v2, not seeded-sample-400-v2+z17-43"). On the GPU host:
 2. **Decide lasagna first.** `reevaluate_best_model.py` scores the incumbent with its recorded
    `use_lasagna: true`. Strict validation refuses that warp on these uint8 volumes, so the re-score
    stops as incomplete. This was already true before the band; the band only makes the re-score
-   mandatory.
-3. `uv run python scripts/reevaluate_best_model.py --update-stored`, then `./start.sh`.
+   mandatory. Done 2026-10-13: lasagna is off (`config.json`, and the loop's tweak is pinned).
+3. `uv run python scripts/reevaluate_best_model.py --update-stored --unwarped`, then `./start.sh`.
+   Done 2026-10-13: the incumbent stores val_f1 0.727323 under `seeded-sample-400-v2+z1-27`.
 
 ## Review of the depth-band PR, and what it changed
 
