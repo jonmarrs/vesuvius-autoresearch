@@ -156,11 +156,19 @@ def ridge_channel(ct, sigma, uri, strict=False) -> torch.Tensor:
         )
     if not np.isfinite(ct).all():
         return _ridge_failure(ct, uri, strict, "non-finite CT values")
+
+    def checked(ridges):
+        # A result of the wrong shape or with non-finite values is a failure,
+        # not a feature (from #48's strict-preprocessing contract).
+        ridges = np.asarray(ridges, dtype=np.float32)
+        if ridges.shape != ct.shape or not np.isfinite(ridges).all():
+            raise ValueError("ridge detection returned invalid shape or values")
+        return torch.from_numpy(ridges)
+
     cp = _cupy()
     if cp is not None:
         try:
-            ridges = cp.asnumpy(detect_ridges(cp.asarray(ct), sigma=sigma))
-            return torch.from_numpy(np.asarray(ridges, dtype=np.float32))
+            return checked(cp.asnumpy(detect_ridges(cp.asarray(ct), sigma=sigma)))
         except Exception as exc:
             _warn_limited(
                 "ridge_gpu_fallback",
@@ -168,8 +176,7 @@ def ridge_channel(ct, sigma, uri, strict=False) -> torch.Tensor:
                 f"{type(exc).__name__}: {exc}",
             )
     try:
-        ridges = detect_ridges(ct, sigma=sigma)
-        return torch.from_numpy(np.asarray(ridges, dtype=np.float32))
+        return checked(detect_ridges(ct, sigma=sigma))
     except Exception as exc:
         return _ridge_failure(
             ct, uri, strict, f"ridge detection failed: {type(exc).__name__}: {exc}", exc
@@ -276,6 +283,15 @@ class FastVesuviusVolume:
 
 
 class VesuviusLabeledDataset(torch.utils.data.Dataset):
+    """CT patches and labels, with optional preprocessing.
+
+    ``strict_reads=True`` requires requested preprocessing to succeed as well as
+    the source read. It is used for measurements: substituted features or an
+    unwarped patch cannot represent the requested input configuration. A working
+    CPU ridge implementation remains a valid fallback from an unavailable GPU.
+    The default permissive mode retains warning-and-fallback behavior.
+    """
+
     def __init__(
         self,
         volume_uri,
@@ -528,11 +544,14 @@ class VesuviusLabeledDataset(torch.utils.data.Dataset):
         Accepts [Z, H, W] (3D) or [C, Z, H, W] (4D) tensors and returns
         the same shape. Falls back to the unmodified patch_vol if
         use_lasagna is False, the volume is too thin (D < 3), or the
-        warp raises an exception.
+        warp raises an exception. Strict reads reject a requested warp that
+        cannot run instead of returning an unwarped sample.
         """
         if not self.use_lasagna:
             return patch_vol
         if patch_vol.shape[-3] < 3:
+            if getattr(self, "strict_reads", False):
+                raise RuntimeError("Lasagna flattening requires at least 3 slices")
             return patch_vol
         try:
             is_3d = patch_vol.dim() == 3
@@ -612,10 +631,22 @@ class VesuviusLabeledDataset(torch.utils.data.Dataset):
                     align_corners=True,
                 ).squeeze(0)  # [C, Z, H, W]
 
+            if (
+                not isinstance(warped, torch.Tensor)
+                or warped.shape != vol.shape
+                or warped.dtype != vol.dtype
+                or warped.device != vol.device
+                or not torch.isfinite(warped).all()
+            ):
+                raise ValueError("Lasagna warp returned invalid shape, dtype or values")
             if is_3d:
                 warped = warped.squeeze(0)
             return warped
         except Exception as exc:
+            if getattr(self, "strict_reads", False):
+                raise RuntimeError(
+                    f"Lasagna flattening failed for {self.volume.uri}: {type(exc).__name__}: {exc}"
+                ) from exc
             _warn_limited(
                 "lasagna_warp_failed",
                 f"Lasagna flattening failed for {self.volume.uri}; returning unwarped patch: {type(exc).__name__}: {exc}",
@@ -713,7 +744,7 @@ class VesuviusLabeledDataset(torch.utils.data.Dataset):
         except Exception as e:
             if getattr(self, "strict_reads", False):
                 raise RuntimeError(
-                    f"failed to read labeled patch {idx} from {self.volume.uri}"
+                    f"failed to read labeled patch {idx} from {self.volume.uri}: {e}"
                 ) from e
             _warn_limited(
                 "labeled_zero_patch",
@@ -739,8 +770,17 @@ class VesuviusLabeledDataset(torch.utils.data.Dataset):
             ct = patch_vol[0] if patch_vol.dim() == 4 else patch_vol
             ct_np = ct.detach().cpu().numpy().astype(np.float32)
             v_2d = frangi_vesselness_zcollapsed(ct_np, sigma=self.target_fiber_sigma)
+            if (
+                v_2d.shape != (self.patch_size, self.patch_size)
+                or not np.isfinite(v_2d).all()
+            ):
+                raise ValueError("Frangi target returned invalid shape or values")
             return torch.from_numpy(v_2d).unsqueeze(0).unsqueeze(0)  # [1, 1, H, W]
         except Exception as exc:
+            if getattr(self, "strict_reads", False):
+                raise RuntimeError(
+                    f"Frangi target compute failed for {self.volume.uri}: {type(exc).__name__}: {exc}"
+                ) from exc
             _warn_limited(
                 "frangi_target_failed",
                 f"Frangi target compute failed for {self.volume.uri}; using zeros: {type(exc).__name__}: {exc}",

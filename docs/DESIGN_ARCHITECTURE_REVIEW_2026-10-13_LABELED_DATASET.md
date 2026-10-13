@@ -235,6 +235,27 @@ outside this sparse checkout (`foundation/volume-registration` for `test_geometr
 14, `segmentation/vc_proofreader` for `test_label_curation_contracts.py` 6). The extra passes are
 the new tests.
 
+### After merging main (#48, strict preprocessing)
+
+#48 landed while this PR was in review. It changed the same `_compute_ridges` (it also fixed the
+`self.device` defect, made ridge, Frangi and lasagna failures fatal under strict reads, and
+validated each result's shape and finiteness). The conflict was resolved by keeping the shared
+`ridge_channel` and folding #48's result check into it, so both datasets and both backends reject
+an invalid ridge result. #48's `tests/test_preprocessing_contracts.py` passes unchanged. Validation
+against the new baseline (`97374b3`), isolated as above:
+
+```text
+baseline: 42 failed, 1892 passed, 11 skipped, 1 xfailed, 2 errors in 144.69s
+branch:   42 failed, 1921 passed, 11 skipped, 1 xfailed, 2 errors in 141.21s
+failing ids: baseline=44 branch=44
+only failing on branch:
+only failing on baseline:
+```
+
+Note for the owner: with #48, a requested lasagna warp that cannot run is fatal under strict reads,
+so validation on the GPU host (no `nvcc`, finding 86) now refuses `use_lasagna: true` configs; that
+is #48's choice among finding 86's options, not changed here.
+
 ### Lint, formatting and typing
 
 ```text
