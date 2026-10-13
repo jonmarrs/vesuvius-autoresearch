@@ -10,16 +10,11 @@ from numbers import Integral, Real
 
 import torch
 
-# Training reads num_layers + 2 * DEPTH_MARGIN slices, computes the ridge channel
-# over all of them, and gives the model num_layers of them: validation the centre
-# (offset DEPTH_MARGIN), training a random offset below 2 * DEPTH_MARGIN. The ridge
-# filter min-max normalizes the block it is given, so ridges computed over the
-# num_layers slices alone are a different input.
-DEPTH_MARGIN = 4
-# Recorded in inference metadata, so outputs made under other recipes (the QC gate
-# before 2026-10-13, window-only ridges) can be told apart.
-INK_PROBABILITY = "sigmoid(ink)"
-RIDGE_DEPTH_CONTEXT = f"num_layers + {2 * DEPTH_MARGIN}, window centred"
+from .inference_constants import (  # noqa: F401 (re-exported)
+    DEPTH_MARGIN,
+    INK_PROBABILITY,
+    ridge_depth_context,
+)
 
 
 def depth_window(z, num_layers, depth, margin=DEPTH_MARGIN):
@@ -223,11 +218,11 @@ def multitask_probabilities(model, batch, disable_tta=False):
     return result_ink[:, 0] / len(mirrors), result_fiber[:, 0] / len(mirrors)
 
 
-def multitask_inference_recipe(disable_tta, gaussian_blend):
+def multitask_inference_recipe(disable_tta, gaussian_blend, use_ridges=False):
     """Record probability transforms separately from the training configuration."""
     return {
         "ink_probability": INK_PROBABILITY,
-        "ridge_depth_context": RIDGE_DEPTH_CONTEXT,
+        "ridge_depth_context": ridge_depth_context(use_ridges),
         "fiber_probability": "sigmoid(mean(fiber, z))",
         "tta_mirrors": ["none"] if disable_tta else ["none", "x", "y", "xy"],
         "blend_window": "gaussian" if gaussian_blend else "positive_hann",

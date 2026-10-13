@@ -31,7 +31,7 @@ from train import (
     load_shape_compatible_state,
 )
 
-from vesuvius_autoresearch.core.inference import DEPTH_MARGIN
+from vesuvius_autoresearch.core.inference import DEPTH_MARGIN, centre_window
 from vesuvius_autoresearch.core.model_wrappers import build_inference_model
 from vesuvius_autoresearch.core.vesuvius_loader import VesuviusLabeledDataset
 
@@ -153,9 +153,7 @@ def main():
                     x_raw, target, _ = next(val_iter)
                 except StopIteration:
                     break
-                x = x_raw[:, :, DEPTH_MARGIN : DEPTH_MARGIN + config.num_layers].to(
-                    device
-                )
+                x = centre_window(x_raw, config.num_layers).to(device)
                 if target is None or target.numel() == 0:
                     continue
                 target = target.to(device)

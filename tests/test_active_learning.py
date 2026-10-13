@@ -152,20 +152,8 @@ class TestActiveLearning(unittest.TestCase):
         _, scores = sampler.sample_uncertain_regions(Loader(), n_samples=4)
         np.testing.assert_allclose(scores, scores[0])
 
-    def test_the_model_sees_the_centre_of_the_buffered_read(self):
-        """main() reads training's depth context so the ridge channel matches
-        validation's; the model gets the centre window, as in validation."""
-        seen = []
-
-        class Recorder(torch.nn.Module):
-            def forward(self, x):
-                seen.append(x[0, 0, :, 0, 0].tolist())
-                return torch.zeros(x.shape[0], 1, x.shape[3], x.shape[4])
-
-        depth = 4 + 2 * DEPTH_MARGIN
-        x = torch.arange(depth, dtype=torch.float32).view(1, 1, depth, 1, 1)
-        x = x.expand(1, 1, depth, 8, 8).contiguous()
-
+    @staticmethod
+    def _one_batch_loader(x):
         class Dataset:
             valid_coords = np.array([[0, 0]])
 
@@ -182,11 +170,35 @@ class TestActiveLearning(unittest.TestCase):
             def __iter__(self):
                 yield x, torch.zeros(1, 8, 8), torch.zeros(1, 8, 8)
 
-        settings = {"num_layers": 4, "patch_size": 8, "use_ridges": False}
+        return Loader()
+
+    def test_a_ridge_model_sees_the_centre_of_the_context_read(self):
+        """main() reads training's depth context for ridge models, so the ridge
+        channel matches validation's; the model gets the centre window."""
+        seen = []
+
+        class Recorder(torch.nn.Module):
+            def forward(self, x):
+                seen.append(x[0, 0, :, 0, 0].tolist())
+                return torch.zeros(x.shape[0], 1, x.shape[3], x.shape[4])
+
+        depth = 4 + 2 * DEPTH_MARGIN
+        x = torch.arange(depth, dtype=torch.float32).view(1, 1, depth, 1, 1)
+        x = x.expand(1, 2, depth, 8, 8).contiguous()
+        settings = {"num_layers": 4, "patch_size": 8, "use_ridges": True}
         sampler = ActiveLearningSampler(Recorder(), device="cpu", settings=settings)
-        sampler.sample_uncertain_regions(Loader(), n_samples=1)
+        sampler.sample_uncertain_regions(self._one_batch_loader(x), n_samples=1)
         start = float(DEPTH_MARGIN)
         self.assertEqual(seen, [[start, start + 1, start + 2, start + 3]])
+
+    def test_a_ct_only_model_refuses_a_context_read(self):
+        """CT-only models read just the window; a deeper read is a misconfigured
+        dataset, not something to crop silently."""
+        settings = {"num_layers": 4, "patch_size": 8, "use_ridges": False}
+        sampler = ActiveLearningSampler(MockModel(), device="cpu", settings=settings)
+        x = torch.rand(1, 1, 4 + 2 * DEPTH_MARGIN, 8, 8)
+        with self.assertRaisesRegex(ValueError, "C/Z/H/W"):
+            sampler.sample_uncertain_regions(self._one_batch_loader(x), n_samples=1)
 
     def test_a_volume_shallower_than_the_context_still_samples(self):
         """A 16-layer model on an 18-slice volume: the dataset caps its read at 18,

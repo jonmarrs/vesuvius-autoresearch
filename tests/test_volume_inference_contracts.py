@@ -305,6 +305,19 @@ def test_checkpoint_ridge_sigma_reaches_the_loader(tmp_path, monkeypatch, mode):
     # the model's 4. The overlay's one-slice CT read no longer reaches the filter.
     assert seen and set(seen) == {(3.0, 6)}
     assert "ridge_fallback" not in vesuvius_loader.warning_counts()
+    metadata = json.loads(next((tmp_path / "out").glob("*_meta.json")).read_text())
+    context = metadata["inference_recipe"]["ridge_depth_context"]
+    assert context.startswith("up to num_layers + 8 slices")
+
+
+@pytest.mark.parametrize("mode", ["single", "ensemble"])
+def test_a_non_finite_qc_head_does_not_stop_a_region(tmp_path, monkeypatch, mode):
+    """QC is not served or requested, so a broken QC head cannot abort a region."""
+    runner, argv, _, _, _ = setup_prediction(tmp_path, monkeypatch, mode, bad="qc_inf")
+    argv.append("--disable_tta")
+    runner()
+    ink = np.load(next((tmp_path / "out").glob("*_ink.npy")))
+    np.testing.assert_allclose(ink, 0.5, atol=1e-6)
 
 
 @pytest.mark.parametrize("mode", ["single", "ensemble"])
@@ -495,7 +508,9 @@ def test_the_qc_head_does_not_scale_served_ink(qc_logit):
     torch.testing.assert_close(ink, torch.sigmoid(4 * batch.mean(2) - 2)[:, 0])
     recipe = multitask_inference_recipe(True, False)
     assert recipe["ink_probability"] == "sigmoid(ink)"
-    assert recipe["ridge_depth_context"] == "num_layers + 8, window centred"
+    assert recipe["ridge_depth_context"] == "none (no ridge channel)"
+    ridges = multitask_inference_recipe(True, False, use_ridges=True)
+    assert ridges["ridge_depth_context"].startswith("up to num_layers + 8 slices")
 
 
 @pytest.mark.parametrize("mode", ["single", "ensemble"])

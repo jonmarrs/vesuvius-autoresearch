@@ -28,6 +28,7 @@ from vesuvius_autoresearch.core.inference import (
     prepare_volume_input,
     read_model_block,
     region_tiles,
+    ridge_depth_context,
     validate_model_settings,
     validate_region,
 )
@@ -326,6 +327,7 @@ def predict():
     )
     if not isinstance(use_ridges, bool):
         raise ValueError("use_ridges must be a boolean")
+    args.inference_recipe["ridge_depth_context"] = ridge_depth_context(use_ridges)
     validate_region(args, patch_size, num_layers)
     model = build_prediction_model(config_dict, args, use_ridges).to(device)
     # Partial warm starts are appropriate for training, not evidence export.
@@ -472,13 +474,9 @@ def predict():
     z_mid = args.z + num_layers // 2
     # CT only: indexing a ridge-enabled volume would run the ridge filter on one
     # slice, which it refuses with a spurious ridge-fallback warning.
-    ct_slice = (
-        dataset.get_raw_patch(z_mid, args.y, args.x, 1, predict_height, predict_width)[
-            0
-        ]
-        .numpy()
-        .astype(np.float32)
-    )
+    ct_slice = dataset.read_ct(z_mid, args.y, args.x, 1, predict_height, predict_width)[
+        0
+    ]
 
     fig, axes = plt.subplots(1, 3, figsize=(15, 5))
     axes[0].imshow(ct_slice, cmap="gray")

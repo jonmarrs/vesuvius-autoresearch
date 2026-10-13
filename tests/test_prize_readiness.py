@@ -646,3 +646,16 @@ def test_villa_prize_evidence_chain_preflight_reports_missing_checkpoint_for_exe
     assert any(
         "missing_last_model.pt is missing" in failure for failure in report["failures"]
     )
+
+
+def test_the_ranker_reads_recipes_without_importing_torch():
+    """It is a cheap metadata pass; the recipe constant must not pull in torch."""
+    import subprocess
+    import sys
+
+    code = (
+        "import sys; import scripts.rank_scroll23_candidates; "
+        "assert 'torch' not in sys.modules"
+    )
+    root = Path(__file__).resolve().parents[1]
+    subprocess.run([sys.executable, "-c", code], cwd=root, check=True, timeout=60)

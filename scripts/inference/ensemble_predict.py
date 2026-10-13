@@ -34,6 +34,7 @@ from vesuvius_autoresearch.core.inference import (
     prepare_volume_input,
     read_model_block,
     region_tiles,
+    ridge_depth_context,
     validate_model_settings,
     validate_region,
 )
@@ -135,6 +136,7 @@ def ensemble_predict():
             "ridge-enabled ensemble num_layers must match the maximum depth; ridge filtering depends on the full depth context"
         )
     use_ridges_any = any(member[1] for member in models)
+    args.inference_recipe["ridge_depth_context"] = ridge_depth_context(use_ridges_any)
     args.patch_size = patch_size
     args.voxel_size_um = scales[0]
     validate_region(args, patch_size, max_layers)
@@ -212,11 +214,7 @@ def ensemble_predict():
     z_mid = args.z + max_layers // 2
     # CT only: indexing a ridge-enabled volume would run the ridge filter on one
     # slice, which it refuses with a spurious ridge-fallback warning.
-    ct_slice = (
-        dataset.get_raw_patch(z_mid, args.y, args.x, 1, args.height, args.width)[0]
-        .numpy()
-        .astype(np.float32)
-    )
+    ct_slice = dataset.read_ct(z_mid, args.y, args.x, 1, args.height, args.width)[0]
     figure, axes = plt.subplots(1, 3, figsize=(15, 5))
     axes[0].imshow(ct_slice, cmap="gray")
     axes[0].set_title(f"CT Slice (Z={z_mid})")

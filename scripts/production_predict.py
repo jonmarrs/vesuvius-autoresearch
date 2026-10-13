@@ -22,11 +22,11 @@ from scripts.inference.predict import (
 )
 from vesuvius_autoresearch.core.inference import (
     INK_PROBABILITY,
-    RIDGE_DEPTH_CONTEXT,
     hann2d,
     normalize_blend,
     prepare_volume_input,
     read_model_block,
+    ridge_depth_context,
     tile_starts,
     validate_model_settings,
 )
@@ -53,7 +53,6 @@ def production_predict(argv=None):
     args = parser.parse_args(argv)
     args.inference_recipe = {
         "ink_probability": INK_PROBABILITY,
-        "ridge_depth_context": RIDGE_DEPTH_CONTEXT,
         "tta_mirrors": ["none"],
         "blend_window": "positive_hann",
     }
@@ -97,6 +96,7 @@ def production_predict(argv=None):
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     use_ridges = config_dict.get("use_ridges", False)
+    args.inference_recipe["ridge_depth_context"] = ridge_depth_context(use_ridges)
     model = build_prediction_model(config_dict, args, use_ridges=use_ridges)
     model.load_state_dict(state, strict=True)
     model = model.to(device).eval()

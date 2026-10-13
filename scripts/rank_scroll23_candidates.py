@@ -13,7 +13,7 @@ from pathlib import Path
 
 import numpy as np
 
-from vesuvius_autoresearch.core.inference import INK_PROBABILITY
+from vesuvius_autoresearch.core.inference_constants import INK_PROBABILITY
 
 
 def _read_zarr_array_info(local_uri):
@@ -106,7 +106,7 @@ def _load_prediction_stats(prediction_dir, row):
     # Only maps served as sigmoid(ink) share a scale. QC-gated maps from before
     # 2026-10-13 sit near zero, and a map without a recorded recipe cannot be
     # placed, so neither earns a prediction bonus.
-    if stats["prediction_found"] and stats["prediction_recipe"] != INK_PROBABILITY:
+    if stats["prediction_recipe"] != INK_PROBABILITY:
         stats["prediction_found"] = False
         return stats
 

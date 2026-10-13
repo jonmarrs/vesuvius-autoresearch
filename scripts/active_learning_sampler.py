@@ -16,9 +16,8 @@ from vesuvius_autoresearch.core.checkpoint_tools import (
 )
 from vesuvius_autoresearch.core.inference import (
     DEPTH_MARGIN,
-    RIDGE_DEPTH_CONTEXT,
-    centre_window,
     positive_integer,
+    ridge_depth_context,
 )
 from vesuvius_autoresearch.core.vesuvius_loader import VesuviusLabeledDataset
 
@@ -89,10 +88,11 @@ class ActiveLearningSampler:
             for i, (x, _, _) in enumerate(tqdm(dataloader)):
                 x = x.to(self.device)
                 if self.settings is not None:
-                    # main() reads training's depth context for ridge models; the
-                    # model sees the centre, as in validation.
-                    x = centre_window(x, self.settings["num_layers"])
-                    validate_batch(x, self.settings)
+                    # main() reads training's depth context for ridge models;
+                    # validate_batch checks it and gives the model the centre.
+                    x = validate_batch(
+                        x, self.settings, buffered=bool(self.settings["use_ridges"])
+                    )
                 if (
                     x.ndim != 5
                     or not x.is_floating_point()
@@ -326,8 +326,8 @@ def main():
                 "volume": args.volume,
                 "inference_settings": arch_kwargs,
                 # Was 0.7 * entropy + 0.3 * (1 - sigmoid(qc)) before 2026-10-13.
-                "uncertainty_score": "mean prediction entropy",
-                "ridge_depth_context": RIDGE_DEPTH_CONTEXT,
+                "uncertainty_score_definition": "mean prediction entropy",
+                "ridge_depth_context": ridge_depth_context(arch_kwargs["use_ridges"]),
                 "queue": queue,
             },
             f,

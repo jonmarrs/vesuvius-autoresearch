@@ -235,36 +235,39 @@ class FastVesuviusVolume:
             return patch.float()
         return torch.from_numpy(patch).float()
 
+    def read_ct(self, z, y, x, d, h, w) -> np.ndarray:
+        """CT normalized to [0, 1] by dtype, without the ridge channel."""
+        # Fetch raw CT data through the Volume Cartographer-aligned local
+        # OME-Zarr compatibility layer.
+        ct = self.vol.get_chunk(z, y, x, d, h, w)
+        # Normalize to [0, 1] based on dtype. Previously hardcoded `/ 255.0`
+        # assumed uint8; uint16 / float32 zarrs would silently miscalibrate.
+        if ct.dtype == np.uint8:
+            return ct.astype(np.float32) / 255.0
+        if ct.dtype == np.uint16:
+            return ct.astype(np.float32) / 65535.0
+        if np.issubdtype(ct.dtype, np.floating):
+            return ct.astype(np.float32)
+        _warn_limited(
+            "ct_unknown_dtype",
+            f"unknown CT dtype {ct.dtype} for {self.uri}; falling back to /255.0 normalization.",
+        )
+        return ct.astype(np.float32) / 255.0
+
     def __getitem__(self, key) -> torch.Tensor:
         """
         Supports slicing like [z0:z1, y0:y1, x0:x1]
         Computes ridges on-the-fly if enabled.
         """
         z_slice, y_slice, x_slice = key
-
-        depth = z_slice.stop - z_slice.start
-        height = y_slice.stop - y_slice.start
-        width = x_slice.stop - x_slice.start
-
-        # Fetch raw CT data through the Volume Cartographer-aligned local
-        # OME-Zarr compatibility layer.
-        ct = self.vol.get_chunk(
-            z_slice.start, y_slice.start, x_slice.start, depth, height, width
+        ct_norm = self.read_ct(
+            z_slice.start,
+            y_slice.start,
+            x_slice.start,
+            z_slice.stop - z_slice.start,
+            y_slice.stop - y_slice.start,
+            x_slice.stop - x_slice.start,
         )
-        # Normalize to [0, 1] based on dtype. Previously hardcoded `/ 255.0`
-        # assumed uint8; uint16 / float32 zarrs would silently miscalibrate.
-        if ct.dtype == np.uint8:
-            ct_norm = ct.astype(np.float32) / 255.0
-        elif ct.dtype == np.uint16:
-            ct_norm = ct.astype(np.float32) / 65535.0
-        elif np.issubdtype(ct.dtype, np.floating):
-            ct_norm = ct.astype(np.float32)
-        else:
-            _warn_limited(
-                "ct_unknown_dtype",
-                f"unknown CT dtype {ct.dtype} for {self.uri}; falling back to /255.0 normalization.",
-            )
-            ct_norm = ct.astype(np.float32) / 255.0
         ct_tensor = torch.from_numpy(ct_norm)
 
         if self.use_ridges:
