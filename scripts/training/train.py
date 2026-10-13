@@ -2317,8 +2317,9 @@ def train(config: ExperimentConfig):
         f"centerline_errors={validation_diag['centerline_errors']}, "
         f"mean_ap_errors={validation_diag['mean_ap_errors']}"
     )
-    if warning_counts():
-        print(f"loader_warnings:       {warning_counts()}")
+    loader_warnings = warning_counts()
+    if loader_warnings:
+        print(f"loader_warnings:       {loader_warnings}")
     print(f"train_loss:            {smooth_loss:.6f}")
     print(f"throughput_Mvps:       {throughput_Mvps:.2f}")
     sys.stdout.flush()
@@ -2505,9 +2506,11 @@ def train(config: ExperimentConfig):
         "prize_gate_failures": prize_gate_failures,
         "validation_diag": validation_diag,
         "augmentation_fallbacks": dict(AUGMENTATION_FALLBACKS),
-        # Every loader fallback this run hit (zero ridges, unwarped lasagna
+        # Loader fallbacks this process hit (zero ridges, unwarped lasagna
         # patches, zero patches on read errors), counted past the few messages.
-        "loader_warnings": warning_counts(),
+        # Counts are per process: DataLoader workers would keep their own
+        # (shuffled_loader uses num_workers=0).
+        "loader_warnings": loader_warnings,
         "is_success": bool(is_improvement),
     }
 

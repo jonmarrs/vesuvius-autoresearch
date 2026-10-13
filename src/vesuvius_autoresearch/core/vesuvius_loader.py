@@ -1,3 +1,4 @@
+import itertools
 import os
 import sys
 from collections import defaultdict
@@ -95,9 +96,11 @@ def _warn_limited(key, message, limit=5):
 def _mismatch_hint(label_hw, volume_shape):
     """Why a 2D label might not fit a ``(depth, H, W)`` volume, for the error."""
     tol = LABEL_SHAPE_TOLERANCE_PX
-    depth, height, width = volume_shape
-    for plane in ((depth, width), (depth, height), (width, height), (height, depth)):
-        if all(abs(a - b) <= tol for a, b in zip(label_hw, plane, strict=True)):
+    for a, b in itertools.permutations(range(3), 2):
+        if (a, b) == (1, 2):
+            continue  # (H, W) is the expected plane
+        plane = (volume_shape[a], volume_shape[b])
+        if all(abs(x - y) <= tol for x, y in zip(label_hw, plane, strict=True)):
             return (
                 "The label matches another pair of the volume's axes (full shape "
                 f"{tuple(volume_shape)}): the volume or the label is likely "
@@ -114,15 +117,24 @@ _CUPY = _CUPY_UNSET
 
 
 def _cupy():
-    """CuPy if it imports, else None; looked up once per process, not per patch."""
+    """CuPy when the fibers backend can use it and a device is present, else None.
+
+    Decided once per process. Uses fibers.detection's own check (CuPy and
+    cupyx.scipy.ndimage), so this never hands CuPy arrays to a detect_ridges that
+    would treat them as NumPy, and asks for a device like fibers.cli does: CuPy
+    is a hard dependency, so importable is not the same as usable.
+    """
     global _CUPY
     if _CUPY is _CUPY_UNSET:
-        try:
-            import cupy
+        _CUPY = None
+        from vesuvius_autoresearch.fibers import detection
 
-            _CUPY = cupy
-        except ImportError:
-            _CUPY = None
+        if detection.HAS_CUPY:
+            try:
+                if detection.cp.cuda.runtime.getDeviceCount() > 0:
+                    _CUPY = detection.cp
+            except Exception:
+                pass
     return _CUPY
 
 
@@ -136,10 +148,14 @@ def ridge_channel(ct, sigma, uri, strict=False) -> torch.Tensor:
     channel, which is a different input, never a quiet substitute.
     """
     ct = np.asarray(ct, dtype=np.float32)
-    if ct.shape[0] < 3:
+    # Input problems are the data's, not the GPU's: report them once instead of
+    # failing on the GPU, counting a GPU fallback, and failing again on the CPU.
+    if min(ct.shape) < 3:
         return _ridge_failure(
-            ct, uri, strict, f"{ct.shape[0]} slices are too few for ridge detection"
+            ct, uri, strict, f"a {ct.shape} patch is too small for ridge detection"
         )
+    if not np.isfinite(ct).all():
+        return _ridge_failure(ct, uri, strict, "non-finite CT values")
     cp = _cupy()
     if cp is not None:
         try:
@@ -252,6 +268,8 @@ class FastVesuviusVolume:
 
     def get_raw_patch(self, z, y, x, d, h, w) -> torch.Tensor:
         ct = self.vol.get_chunk(z, y, x, d, h, w)
+        if not ct.dtype.isnative:  # e.g. a big-endian zarr; torch needs native
+            ct = ct.astype(ct.dtype.newbyteorder("="))
         if ct.dtype == np.uint16:
             ct = ct.astype(np.int32)
         return torch.from_numpy(ct)
@@ -296,12 +314,12 @@ class VesuviusLabeledDataset(torch.utils.data.Dataset):
         dtype = getattr(vol, "dtype", None) or getattr(
             getattr(vol, "arr", None), "dtype", None
         )
+        dtype = None if dtype is None else np.dtype(dtype)
         if dtype is not None and not (
-            np.dtype(dtype) in (np.uint8, np.uint16)
-            or np.issubdtype(np.dtype(dtype), np.floating)
+            (dtype.kind == "u" and dtype.itemsize in (1, 2)) or dtype.kind == "f"
         ):
             raise ValueError(
-                f"unsupported CT dtype {np.dtype(dtype)} for {volume_uri}; the labeled "
+                f"unsupported CT dtype {dtype} for {volume_uri}; the labeled "
                 "dataset normalises uint8 and uint16 volumes and passes floats through"
             )
         self.seed = seed
@@ -351,18 +369,20 @@ class VesuviusLabeledDataset(torch.utils.data.Dataset):
         # 20% of each side (~1,600 px on an 8,181 px fragment), which let a
         # misregistered label train and validate silently.
         vol_hw = (self.shape[1], self.shape[2])
+        coords_from_json = bool(patches_json and os.path.exists(patches_json))
         for _name in ("labels", "mask"):
             _arr = getattr(self, _name)
-            if _arr is None:
-                continue
-            if _arr.ndim != 2:
-                # An RGB(A) PNG passed the old (H, W)-only check and produced
-                # [p, p, C] label patches.
+            if _arr is None or (_name == "mask" and coords_from_json):
+                continue  # a mask only places patches; patches.json replaces it
+            if _name == "labels" and _arr.ndim != 2:
+                # Labels are cut into patches: an RGB(A) PNG passed the old
+                # (H, W)-only check and produced [p, p, C] label patches. A mask
+                # may keep its channels; villa's patch finder collapses them.
                 raise ValueError(
-                    f"{_name} for {volume_uri} must be a single-channel image; "
+                    f"labels for {volume_uri} must be a single-channel image; "
                     f"got array shape {_arr.shape}"
                 )
-            lh, lw = _arr.shape
+            lh, lw = _arr.shape[:2]
             if (
                 abs(lh - vol_hw[0]) > LABEL_SHAPE_TOLERANCE_PX
                 or abs(lw - vol_hw[1]) > LABEL_SHAPE_TOLERANCE_PX
@@ -373,14 +393,15 @@ class VesuviusLabeledDataset(torch.utils.data.Dataset):
                     f"{LABEL_SHAPE_TOLERANCE_PX} px). "
                     + _mismatch_hint((lh, lw), tuple(self.shape))
                 )
-            # Within tolerance, put the label on the volume grid: crop the extra
-            # row/column, or pad a missing one with zeros. A label 1-2 px short
-            # otherwise gave edge patches a shorter label than patch_size, and
-            # collation failed.
-            fitted = np.zeros(vol_hw, dtype=_arr.dtype)
-            h, w = min(lh, vol_hw[0]), min(lw, vol_hw[1])
-            fitted[:h, :w] = _arr[:h, :w]
-            setattr(self, _name, fitted)
+            if (lh, lw) != vol_hw:
+                # Within tolerance, put it on the volume grid: crop the extra
+                # row/column, or pad a missing one with zeros. A label 1-2 px
+                # short otherwise gave edge patches a shorter label than
+                # patch_size, and collation failed.
+                fitted = np.zeros(vol_hw + _arr.shape[2:], dtype=_arr.dtype)
+                h, w = min(lh, vol_hw[0]), min(lw, vol_hw[1])
+                fitted[:h, :w] = _arr[:h, :w]
+                setattr(self, _name, fitted)
 
         # Pre-calculate valid coordinates
         mask_mtime = (
@@ -401,7 +422,9 @@ class VesuviusLabeledDataset(torch.utils.data.Dataset):
         uri_hash = hashlib.md5(volume_uri.encode()).hexdigest()[:8]
         cache_path = os.path.join(
             self.volume.cache_dir,
-            f"valid_coords_villa_{uri_hash}_{self.patch_size}_{mask_mtime}_{labels_mtime}_{1 if require_ink else 0}_{self.min_mask_ratio}_{self.min_ink_ratio}.npy",
+            # "grid": computed on the label/mask as fitted to the volume grid; older
+            # caches came from the unfitted arrays.
+            f"valid_coords_villa_grid_{uri_hash}_{self.patch_size}_{mask_mtime}_{labels_mtime}_{1 if require_ink else 0}_{self.min_mask_ratio}_{self.min_ink_ratio}.npy",
         )
 
         if patches_json and os.path.exists(patches_json):

@@ -66,6 +66,22 @@ findings, and what was done:
 | Two diverging ridge implementations. | Fixed: one `ridge_channel`. |
 | `import cupy` attempted per patch. | Fixed: looked up once per process. |
 
+A second review pass on the revised PR found two regressions in the first round's fixes and
+several smaller defects:
+
+| Finding | Outcome |
+| --- | --- |
+| The single-channel check also refused RGB/RGBA/LA **masks**, which work on `main` (villa's patch finder collapses mask channels; masks are never cut into patches). | Fixed: only labels must be single-channel; a mask keeps its channels and is fitted spatially. |
+| CuPy is a hard dependency, so "importable" is not "usable": on a CPU-only host every patch would try the GPU, warn, and count `ridge_gpu_fallback`, burying real failures in `loader_warnings`. The loader's check could also disagree with `fibers.detection.HAS_CUPY`. | Fixed: `_cupy()` uses `detection.HAS_CUPY` and requires a device (as `fibers.cli` does), once per process. |
+| A mask was size-checked even when `patches.json` supplies the coordinates and the mask is unused. | Fixed: the mask is checked only when it places patches. |
+| Big-endian volumes: `>u2` was refused although uint16 is supported, and `>f4` passed the check and then failed every read. | Fixed: the check compares kind and size; `get_raw_patch` converts to native byte order (`>f4` failed on `main` too). |
+| Input problems (an axis under 3 px, non-finite CT) were counted as GPU failures and then failed again on the CPU. | Fixed: checked once, before either backend. |
+| The transposition hint missed the (width, depth) pair. | Fixed: every non-identity axis pair. |
+| Coordinate caches computed from unfitted labels were reused. | Fixed: the cache name carries `grid`, so they are recomputed once. |
+| The label and mask were always copied, even when already the volume's size. | Fixed: copied only when fitted. |
+| `loader_warnings` is per process; DataLoader workers would count separately. | Documented at the field (`shuffled_loader` uses `num_workers=0`). |
+| CT dtype handling lives in three places that disagree (warn-and-/255, uint16-as-int32, refuse). | Not changed: each now surfaces the problem; consolidating them is listed below. |
+
 ## Reviewed and sound
 
 - Labels and masks are scaled to [0, 1] when stored as 0/255; the shape guard runs before any
@@ -109,6 +125,10 @@ PY
 
 ## Remaining observations (not changed)
 
+- CT dtype handling has three owners: `FastVesuviusVolume.__getitem__` warns and divides an unknown
+  dtype by 255 (so `VesuviusS3Dataset`, the UA-MT stream, accepts int16 with a warning),
+  `get_raw_patch` marks uint16 as int32, and the labeled dataset refuses. One shared normaliser
+  would make them agree.
 - `VesuviusS3Dataset` (the UA-MT unlabeled stream) and the labeled dataset's non-strict reads still
   return zero patches on a read error, with a limited warning. That is resilience for training and
   is counted by its warnings; it is not changed here.
@@ -149,7 +169,7 @@ applies to 4eecd08fd
 
 ### Tests
 
-New `tests/test_labeled_dataset_contracts.py` (19 tests). Failing-first, first version (10 tests)
+New `tests/test_labeled_dataset_contracts.py` (29 tests). Failing-first, first version (10 tests)
 with only the loader reverted:
 
 ```text
@@ -171,10 +191,11 @@ branch: label shapes: [(16, 16)]
         collate ok
 ```
 
-Every test file that constructs the dataset, on the branch:
+Every test file that constructs the dataset, plus the fibers suites that share the backend check,
+on the final branch:
 
 ```text
-244 passed, 3 skipped, 3 warnings in 39.29s
+259 passed, 5 skipped, 3 warnings in 33.63s
 ```
 
 The first revision of the review fixes probed the dtype by reading a 1-voxel patch, which turned
@@ -184,7 +205,7 @@ The first revision of the review fixes probed the dtype by reading a 1-voxel pat
 Smoke test (`CUDA_VISIBLE_DEVICES="" $PY scripts/smoke_test.py`):
 
 ```text
---- 9/11 passed, 2 skipped, 0 failed in 6.6s ---
+--- 9/11 passed, 2 skipped, 0 failed in 6.5s ---
 ```
 
 The CPU training harness from the earlier reviews runs `train()` end to end; `run_result.json`
@@ -200,7 +221,7 @@ test ran):
 
 ```text
 baseline: 42 failed, 1871 passed, 10 skipped, 1 xfailed, 2 errors in 170.02s
-branch:   42 failed, 1890 passed, 10 skipped, 1 xfailed, 2 errors in 140.13s
+branch:   42 failed, 1900 passed, 10 skipped, 1 xfailed, 2 errors in 132.54s
 failing ids: baseline=44 branch=44
 only failing on branch:
 only failing on baseline:

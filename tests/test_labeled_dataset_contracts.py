@@ -28,17 +28,17 @@ from vesuvius_autoresearch.core.vesuvius_loader import (
 )
 
 
-def _fragment(root, label_hw=(32, 32), dtype="u1", label_mode="L"):
+def _fragment(root, label_hw=(32, 32), dtype="u1", label_mode="L", shape=(8, 32, 32)):
     import zarr
 
     volume = zarr.open(
         str(root / "surface_volume.zarr"),
         mode="w",
-        shape=(8, 32, 32),
+        shape=shape,
         chunks=(4, 16, 16),
         dtype=dtype,
     )
-    volume[:] = (np.arange(8 * 32 * 32).reshape(8, 32, 32) % 251).astype(dtype)
+    volume[:] = (np.arange(np.prod(shape)).reshape(shape) % 251).astype(dtype)
     labels = np.zeros(label_hw, np.uint8)
     labels[8:24, 8:24] = 255
     image = Image.fromarray(labels)
@@ -46,6 +46,11 @@ def _fragment(root, label_hw=(32, 32), dtype="u1", label_mode="L"):
         image = image.convert(label_mode)
     image.save(root / "inklabels.png")
     return str(root / "surface_volume.zarr"), str(root / "inklabels.png")
+
+
+def _mask(root, hw=(32, 32), mode="L"):
+    Image.fromarray(np.full(hw, 255, np.uint8)).convert(mode).save(root / "mask.png")
+    return str(root / "mask.png")
 
 
 class GpuArray(np.ndarray):
@@ -143,10 +148,10 @@ def test_a_ridge_failure_is_fatal_under_strict_reads(
 
 def test_too_few_slices_for_ridges_is_reported(ridge_calls, capsys):
     thin = np.zeros((2, 8, 8), np.float32)
-    with pytest.raises(RuntimeError, match="2 slices are too few"):
+    with pytest.raises(RuntimeError, match=r"a \(2, 8, 8\) patch is too small"):
         ridge_channel(thin, 1.0, "thin.zarr", strict=True)
     assert torch.all(ridge_channel(thin, 1.0, "thin.zarr") == 0)
-    assert "too few for ridge detection" in capsys.readouterr().out
+    assert "too small for ridge detection" in capsys.readouterr().out
 
 
 def test_the_volume_reader_shares_the_ridge_implementation(
@@ -206,3 +211,93 @@ def test_an_unnormalised_ct_dtype_is_refused(tmp_path, monkeypatch):
     volume_uri, labels = _fragment(tmp_path, dtype="i2")
     with pytest.raises(ValueError, match="unsupported CT dtype"):
         VesuviusLabeledDataset(volume_uri, labels, patch_size=16, num_layers=4)
+
+
+# --- second review pass ---------------------------------------------------------
+
+
+def test_cupy_without_a_device_is_the_quiet_cpu_path(monkeypatch, ridge_calls, capsys):
+    from vesuvius_autoresearch.fibers import detection
+
+    def no_device():
+        raise RuntimeError("cudaErrorNoDevice")
+
+    fake = SimpleNamespace(
+        cuda=SimpleNamespace(runtime=SimpleNamespace(getDeviceCount=no_device))
+    )
+    monkeypatch.setattr(detection, "HAS_CUPY", True)
+    monkeypatch.setattr(detection, "cp", fake, raising=False)
+    monkeypatch.setattr(vesuvius_loader, "_CUPY", vesuvius_loader._CUPY_UNSET)
+    assert vesuvius_loader._cupy() is None
+    ridge_channel(np.zeros((4, 8, 8), np.float32), 1.0, "cpu-host.zarr")
+    assert ridge_calls == ["ndarray"]
+    assert "Warning" not in capsys.readouterr().out
+
+
+@pytest.mark.parametrize(
+    "ct,reason",
+    [
+        (np.zeros((4, 2, 8), np.float32), "too small"),
+        (np.full((4, 8, 8), np.nan, np.float32), "non-finite"),
+    ],
+)
+def test_input_problems_are_reported_once_not_as_gpu_failures(
+    monkeypatch, ridge_calls, ct, reason
+):
+    monkeypatch.setattr(vesuvius_loader, "_CUPY", FAKE_CUPY)
+    with pytest.raises(RuntimeError, match=reason):
+        ridge_channel(ct, 1.0, "x.zarr", strict=True)
+    assert torch.all(ridge_channel(ct, 1.0, "x.zarr") == 0)
+    assert ridge_calls == []
+    assert vesuvius_loader.warning_counts() == {"ridge_fallback": 1}
+
+
+@pytest.mark.parametrize("mode", ["RGB", "RGBA", "LA"])
+def test_a_multichannel_mask_still_places_patches(tmp_path, monkeypatch, mode):
+    monkeypatch.setattr(vesuvius_loader, "DEFAULT_CACHE_DIR", str(tmp_path / "c"))
+    volume_uri, labels = _fragment(tmp_path)
+    ds = VesuviusLabeledDataset(
+        volume_uri, labels, _mask(tmp_path, mode=mode), patch_size=16, num_layers=4
+    )
+    assert len(ds) > 0
+
+
+def test_a_mask_replaced_by_patches_json_is_not_checked(tmp_path, monkeypatch):
+    import json
+
+    monkeypatch.setattr(vesuvius_loader, "DEFAULT_CACHE_DIR", str(tmp_path / "c"))
+    volume_uri, labels = _fragment(tmp_path)
+    mask = _mask(tmp_path, hw=(28, 32))  # 4 px short: refused when it places patches
+    with pytest.raises(ValueError, match="mask shape"):
+        VesuviusLabeledDataset(volume_uri, labels, mask, patch_size=16, num_layers=4)
+    catalogue = tmp_path / "patches.json"
+    catalogue.write_text(
+        json.dumps({"patches": [{"y": 0, "x": 0}, {"y": 16, "x": 16}]})
+    )
+    ds = VesuviusLabeledDataset(
+        volume_uri,
+        labels,
+        mask,
+        patch_size=16,
+        num_layers=4,
+        patches_json=str(catalogue),
+    )
+    assert len(ds) == 2
+
+
+def test_a_width_by_depth_label_is_named_as_transposed(tmp_path, monkeypatch):
+    monkeypatch.setattr(vesuvius_loader, "DEFAULT_CACHE_DIR", str(tmp_path / "c"))
+    volume_uri, labels = _fragment(tmp_path, label_hw=(40, 8), shape=(8, 32, 40))
+    with pytest.raises(ValueError, match="transposed"):
+        VesuviusLabeledDataset(volume_uri, labels, patch_size=16, num_layers=4)
+
+
+@pytest.mark.parametrize("dtype,scale", [(">u2", 65535.0), (">f4", 1.0)])
+def test_big_endian_volumes_are_read_and_normalised(
+    tmp_path, monkeypatch, dtype, scale
+):
+    monkeypatch.setattr(vesuvius_loader, "DEFAULT_CACHE_DIR", str(tmp_path / "c"))
+    volume_uri, labels = _fragment(tmp_path, dtype=dtype)
+    ds = VesuviusLabeledDataset(volume_uri, labels, patch_size=16, num_layers=4)
+    patch, _, _ = ds[0]
+    assert patch.dtype == torch.float32 and float(patch.max()) <= 250.0 / scale
