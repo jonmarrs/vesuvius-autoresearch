@@ -191,7 +191,8 @@ def tiled(model, volume, layers, mask, y, x, size, stride):
 
 
 def main(out_path, detector):
-    torch.set_num_threads(max(1, (os.cpu_count() or 2) // 2))
+    # One thread: on this 4-core host the loop's data pipeline needs the rest.
+    torch.set_num_threads(1)
     config = ExperimentConfig.load("config.json")
     dataset, loop_probs, loop_targets, diag, chk = loop_incumbent(config)
     coords, targets = usable_coordinates(dataset)
