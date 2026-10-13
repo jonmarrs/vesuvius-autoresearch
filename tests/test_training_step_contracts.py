@@ -234,11 +234,17 @@ def test_an_unreadable_first_protocol_patch_fails_the_probe():
         train.probe_validation_read(_Catalogue(1000, failing=[first]))
 
 
-def test_train_probes_validation_before_loading_training_data():
-    import inspect
+def test_train_stops_at_an_unreadable_validation_patch_before_loading_anything(
+    monkeypatch,
+):
+    monkeypatch.setattr(
+        train, "build_validation_dataset", lambda config: _Catalogue(10, range(10))
+    )
 
-    source = inspect.getsource(train.train)
-    probe = source.index("probe_validation_read(val_dataset)")
-    assert source.index("build_validation_dataset(config)") < probe
-    assert probe < source.index("data_loader = get_dataloader(config.uris)")
-    assert probe < source.index("build_model(config, v_config, device)")
+    def too_early(*args, **kwargs):
+        pytest.fail("training data or the model was built before the probe")
+
+    for name in ("VesuviusLabeledDataset", "VesuviusS3Dataset", "build_model"):
+        monkeypatch.setattr(train, name, too_early)
+    with pytest.raises(RuntimeError, match="cannot be read"):
+        train.train(ExperimentConfig())

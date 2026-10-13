@@ -63,8 +63,8 @@ The extension never compiled, so the kernel's own input checks were never reache
 next. `villa/lasagna/grid_sample_3d_u8_kernel.cu` requires every input to be a CUDA tensor (`volume must be CUDA
 uint8`, `grid must be CUDA float32`) and a `(D, H, W, 3)` grid. The loader reads patches on the CPU
 (`get_raw_patch` returns `torch.from_numpy(...)`) and passed a 5-D grid. The loader now refuses a CPU uint8 patch
-before the compile, with that reason, and passes the 4-D grid. (uint16 volumes, read as int32, cannot be warped
-either; they are refused the same way.) So option 3's toolkit branch below also needs the
+before the compile, with that reason, and passes the 4-D grid. (uint16 volumes, read as int32, and half-precision
+volumes cannot be warped either; they are refused the same way.) So option 3's toolkit branch below also needs the
 warp moved to the GPU (in the training process, not the data-loader workers), or the uint8 patch warped on the CPU
 with torch's `grid_sample`, which the loader already uses for float volumes. Either way inference must apply the
 same warp: `scripts/inference/predict.py`, `scripts/production_predict.py` and `scripts/inference/ensemble_predict.py`
@@ -73,7 +73,7 @@ never flatten, so a model trained on warped patches would be served unwarped one
 Since the 2026-10-13 preprocessing review, a strict validation read refuses a requested warp that cannot run, so a
 cycle that keeps `use_lasagna: true` (every cycle but the one that tweaks it off) cannot be scored on these uint8
 volumes. `train.py` now reads one validation patch before training, so such a cycle fails before training instead of
-after its budget, and after five crashed cycles in a row the loop waits one cycle budget between attempts.
+after its budget.
 
 ## What this means for the migration
 

@@ -221,14 +221,13 @@ def test_an_interrupted_save_leaves_the_previous_checkpoint(tmp_path, monkeypatc
 # --- loop ---------------------------------------------------------------------
 
 
-def _drive_loop(tmp_path, monkeypatch, cycles, result=None, sleeps=None):
+def _drive_loop(tmp_path, monkeypatch, cycles, result=None):
     import run_autoresearch_loop as loop
 
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(loop, "__file__", str(tmp_path / "run_autoresearch_loop.py"))
     monkeypatch.setattr(loop.signal, "signal", lambda *args: None)
-    recorded = [] if sleeps is None else sleeps
-    monkeypatch.setattr(loop.time, "sleep", recorded.append)
+    monkeypatch.setattr(loop.time, "sleep", lambda *args: None)
     hours = iter([12] * (cycles + 1) + [20])
     monkeypatch.setattr(
         loop.time, "localtime", lambda: SimpleNamespace(tm_hour=next(hours))
@@ -243,14 +242,13 @@ def _drive_loop(tmp_path, monkeypatch, cycles, result=None, sleeps=None):
 
     class FakeSupervisor:
         def run(self, command, **kwargs):
-            if "--smoke" in command:
+            # The preflight and the every-5th-cycle benchmark are not training runs.
+            if "--smoke" in command or "scripts/inference/predict.py" in command:
                 return subprocess.CompletedProcess(command, 0)
             launched.append(json.loads((tmp_path / "config_temp.json").read_text()))
-            # One result for every cycle, or one per cycle; None is a crash.
-            outcome = result[len(launched) - 1] if isinstance(result, list) else result
-            if outcome is None:
+            if result is None:
                 return subprocess.CompletedProcess(command, 1)
-            (tmp_path / "run_result.json").write_text(json.dumps(outcome))
+            (tmp_path / "run_result.json").write_text(json.dumps(result))
             return subprocess.CompletedProcess(command, 0)
 
     monkeypatch.setattr(loop, "supervisor", FakeSupervisor())
@@ -262,8 +260,7 @@ def test_every_cycle_is_a_tweak_of_the_promoted_config(tmp_path, monkeypatch):
     """Cycle 10 used to inject a timesformer/patch-256 config that the VRAM gate
     always skipped and that, had it run, could have been promoted."""
     ExperimentConfig(architecture="resenc_unet", lr=2e-3).save(tmp_path / "config.json")
-    reverted = {"is_success": False, "val_f1": 0.5}
-    launched = _drive_loop(tmp_path, monkeypatch, cycles=10, result=reverted)
+    launched = _drive_loop(tmp_path, monkeypatch, cycles=10)
     assert len(launched) == 10
     assert {c["architecture"] for c in launched} == {"resenc_unet"}
     assert {c["patch_size"] for c in launched} == {64}
@@ -289,33 +286,16 @@ def test_a_blocked_promotion_is_recorded_in_the_sprint_log(tmp_path, monkeypatch
     assert "REVERTED" in log and "Promotion blocked: why" in log
 
 
-def test_a_crash_streak_slows_the_loop_to_one_attempt_per_budget(tmp_path, monkeypatch):
-    """Crashes across different tweaks mean the baseline, data or host is broken; the
-    watchdog would otherwise restart the loop into it all night, as fast as it fails."""
-    import run_autoresearch_loop as loop
-
-    ExperimentConfig().save(tmp_path / "config.json")
-    sleeps: list = []
-    cycles = loop.MAX_CONSECUTIVE_CRASHES + 3
-    launched = _drive_loop(tmp_path, monkeypatch, cycles=cycles, sleeps=sleeps)
-    assert len(launched) == cycles, "a crash streak must not stop the loop"
-    budget = 900  # the day shift's cycle budget
-    assert sleeps.count(budget) == 4  # after crashes 5, 6, 7 and 8
-    assert sleeps[: loop.MAX_CONSECUTIVE_CRASHES - 1] == [2] * 4
-    log = next((tmp_path / "sprint_logs").glob("*.md")).read_text()
-    assert log.count("**Crash streak**") == 1
-    assert not (tmp_path / ".loop_paused").exists()
-
-
-def test_a_completed_cycle_resets_the_crash_streak(tmp_path, monkeypatch):
-    import run_autoresearch_loop as loop
-
-    ExperimentConfig().save(tmp_path / "config.json")
-    streak = [None] * (loop.MAX_CONSECUTIVE_CRASHES - 1)
-    results = [*streak, {"is_success": False, "val_f1": 0.5}, *streak]
-    sleeps: list = []
-    launched = _drive_loop(
-        tmp_path, monkeypatch, cycles=len(results), result=results, sleeps=sleeps
+def test_a_baseline_with_no_tweak_under_the_vram_cap_ends_without_logging(
+    tmp_path, monkeypatch, capsys
+):
+    """The watchdog restarts an ended loop every few minutes, so the reason goes to
+    stdout (like "Not starting"), not into the sprint log once per restart."""
+    ExperimentConfig(batch_size=24).save(tmp_path / "config.json")  # scores 3.0
+    launched = _drive_loop(tmp_path, monkeypatch, cycles=1)
+    assert launched == []
+    assert (
+        "No tweak differs from the baseline within VRAM cap" in capsys.readouterr().out
     )
-    assert len(launched) == len(results)
-    assert set(sleeps) == {2}
+    log = next((tmp_path / "sprint_logs").glob("*.md")).read_text()
+    assert "VRAM cap" not in log

@@ -301,13 +301,15 @@ def test_lasagna_uint8_warp_runs_outside_the_repository_root(
     [
         ("uint8", "takes CUDA tensors; this patch is on cpu"),
         ("int32", "no lasagna warp for torch.int32 patches"),
+        ("float16", "no lasagna warp for torch.float16 patches"),
+        ("bfloat16", "no lasagna warp for torch.bfloat16 patches"),
     ],
 )
 def test_a_patch_the_warp_cannot_take_is_refused_before_any_work(
     tmp_path, monkeypatch, strict, dtype, reason
 ):
     """The loader reads uint8 patches on the CPU, which villa's kernel refuses, and
-    uint16 volumes as int32, which no path warps. The refusal names the reason (not
+    uint16 volumes as int32, which no path warps; half precision fails mid-warp. The refusal names the reason (not
     the JIT compile failure the uint8 path used to hit first), and nothing is
     computed or loaded for it."""
     torch = pytest.importorskip("torch")

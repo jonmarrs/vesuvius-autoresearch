@@ -11,7 +11,6 @@ import pytest
 
 from run_autoresearch_loop import (
     VRAM_COMPLEXITY_CAP,
-    active_tweaks,
     complexity_score,
     template_weights,
     tweak_proposals,
@@ -44,7 +43,7 @@ def test_config_roundtrip_preserves_nested_settings(tmp_path):
 
 def test_noop_and_disabled_tweaks_are_not_sampled():
     config = ExperimentConfig(use_ridges=False, use_uamt=False)
-    for template in active_tweaks(config):
+    for template in tweak_proposals(config)[0]:
         assert getattr(config, template["attr"]) not in template["vals"]
         assert template["attr"] not in {
             "ridge_sigma",
@@ -89,7 +88,7 @@ def test_the_cap_is_read_when_called_not_when_defined(monkeypatch):
     import run_autoresearch_loop as loop
 
     monkeypatch.setattr(loop, "VRAM_COMPLEXITY_CAP", 2.5)
-    batch = {t["attr"]: t["vals"] for t in active_tweaks(production_like())}
+    batch = {t["attr"]: t["vals"] for t in tweak_proposals(production_like())[0]}
     assert batch["batch_size"] == [8, 16, 24]
 
 

@@ -290,8 +290,9 @@ def _lasagna_unavailable_reason(patch):
     they are refused before the first call JIT-compiles the extension: that
     compile's failure (no nvcc, CUDA_HOME unset) was the only cause ever logged,
     and installing a toolkit would only have moved the failure into the kernel.
-    Floating patches use torch's grid_sample on any device. Other integer
-    patches (uint16 volumes are read as int32) have no warp.
+    float32 and float64 patches use torch's grid_sample on any device; half
+    precision does not (the sampling grid is float32). Other dtypes, including
+    int32 (how uint16 volumes are read), have no warp.
     """
     if patch.dtype == torch.uint8:
         if patch.device.type != "cuda":
@@ -300,10 +301,8 @@ def _lasagna_unavailable_reason(patch):
                 f"this patch is on {patch.device.type}"
             )
         return None
-    if not patch.dtype.is_floating_point:
-        return (
-            f"no lasagna warp for {patch.dtype} patches (uint16 volumes read as int32)"
-        )
+    if patch.dtype not in (torch.float32, torch.float64):
+        return f"no lasagna warp for {patch.dtype} patches"
     return None
 
 
