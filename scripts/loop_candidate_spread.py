@@ -37,7 +37,7 @@ noise (each cycle draws a fresh training-order seed); it is not the
 identical-config noise probe (scripts/f1_noise_probe.py).
 
     CUDA_VISIBLE_DEVICES= UV_NO_SYNC=1 uv run python scripts/loop_candidate_spread.py \
-        --candidates local_data/loop_candidates --out reports/loop_candidate_spread.json
+        --candidates local_data/loop_candidates --out reports/loop_candidate_spread.json [--wait]
 """
 
 import argparse
@@ -47,6 +47,7 @@ import os
 import statistics
 import subprocess
 import sys
+import time
 
 os.environ["CUDA_VISIBLE_DEVICES"] = ""  # before torch: never touch the loop's GPU
 
@@ -139,12 +140,31 @@ def ratio(gap, values):
     return {"gap": gap, "spread": spread, "ratio": gap / spread}
 
 
-def main(candidate_dir, out_path, n):
+def copied(candidate_dir):
+    """Snapshots whose copy has finished, in order: the first (copied by hand
+    before the watcher started) and those the watcher has logged."""
+    log = os.path.join(candidate_dir, "snapshots.log")
+    logged = set()
+    if os.path.exists(log):
+        for line in open(log):
+            parts = line.split()
+            if len(parts) >= 2 and parts[1].endswith(".pt"):
+                logged.add(os.path.basename(parts[1]))
+    names = sorted(
+        os.path.basename(p)
+        for p in glob.glob(os.path.join(candidate_dir, "candidate_*.pt"))
+    )
+    return [
+        os.path.join(candidate_dir, b)
+        for b in names
+        if b == FIRST or (b > FIRST and b in logged)
+    ]
+
+
+def main(candidate_dir, out_path, n, wait):
     torch.set_num_threads(1)  # the loop's data pipeline needs the other cores
-    paths = sorted(glob.glob(os.path.join(candidate_dir, "candidate_*.pt")))
-    paths = [p for p in paths if os.path.basename(p) >= FIRST][:n]
-    if len(paths) < n:
-        raise SystemExit(f"{len(paths)} snapshots in {candidate_dir}; {n} needed")
+    if not wait and len(copied(candidate_dir)) < n:
+        raise SystemExit(f"fewer than {n} snapshots in {candidate_dir}")
     saved = {"A": json.load(open(SAMPLE_A)), "C": json.load(open(SAMPLE_C))}
     protocol = validation_protocol(ExperimentConfig.load("config.json").depth_band)
     cache = {}
@@ -158,7 +178,12 @@ def main(candidate_dir, out_path, n):
         raise RuntimeError("ink-containing patch count differs from finding 88")
 
     rows = []
-    for path in paths:
+    while len(rows) < n:
+        pending = copied(candidate_dir)[len(rows) : n]
+        if not pending:  # --wait: the loop has not finished the next cycle yet
+            time.sleep(60)
+            continue
+        path = pending[0]
         cards, chk, _ = score(path, cache)
         stored = float(chk["val_f1"])
         if chk.get("val_protocol") != protocol:
@@ -232,5 +257,8 @@ if __name__ == "__main__":
     parser.add_argument("--candidates", required=True, help="snapshot directory")
     parser.add_argument("--out", required=True, help="JSON path to write")
     parser.add_argument("--n", type=int, default=CANDIDATES, help=argparse.SUPPRESS)
+    parser.add_argument(
+        "--wait", action="store_true", help="score snapshots as the watcher logs them"
+    )
     args = parser.parse_args()
-    main(args.candidates, args.out, args.n)
+    main(args.candidates, args.out, args.n, args.wait)
