@@ -221,7 +221,7 @@ def test_an_interrupted_save_leaves_the_previous_checkpoint(tmp_path, monkeypatc
 # --- loop ---------------------------------------------------------------------
 
 
-def _drive_loop(tmp_path, monkeypatch, cycles, result=None):
+def _drive_loop(tmp_path, monkeypatch, cycles, result=None, commands=None):
     import run_autoresearch_loop as loop
 
     monkeypatch.chdir(tmp_path)
@@ -242,6 +242,8 @@ def _drive_loop(tmp_path, monkeypatch, cycles, result=None):
 
     class FakeSupervisor:
         def run(self, command, **kwargs):
+            if commands is not None:
+                commands.append(list(command))
             # The preflight and the every-5th-cycle benchmark are not training runs.
             if "--smoke" in command or "scripts/inference/predict.py" in command:
                 return subprocess.CompletedProcess(command, 0)
@@ -299,3 +301,17 @@ def test_a_baseline_with_no_tweak_under_the_vram_cap_ends_without_logging(
     )
     log = next((tmp_path / "sprint_logs").glob("*.md")).read_text()
     assert "VRAM cap" not in log
+
+
+def test_the_benchmark_predicts_at_the_centre_of_the_volume_depth(
+    tmp_path, monkeypatch
+):
+    ExperimentConfig(num_layers=16).save(tmp_path / "config.json")
+    volume = tmp_path / "local_data/PHercParis2Fr143/surface_volume.zarr"
+    volume.mkdir(parents=True)
+    (volume / ".zarray").write_text('{"shape": [65, 256, 256]}')
+    commands: list = []
+    _drive_loop(tmp_path, monkeypatch, cycles=5, commands=commands)
+    benchmarks = [c for c in commands if "scripts/inference/predict.py" in c]
+    assert len(benchmarks) == 1
+    assert benchmarks[0][benchmarks[0].index("--z") + 1] == "24"

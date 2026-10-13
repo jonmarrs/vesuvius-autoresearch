@@ -75,6 +75,14 @@ cycle that keeps `use_lasagna: true` (every cycle but the one that tweaks it off
 volumes. `train.py` now reads one validation patch before training, so such a cycle fails before training instead of
 after its budget.
 
+### Added 2026-10-13: a possible cause, not tested
+
+Every training and validation patch reads its 16-slice window from a uniformly random depth over the whole volume,
+while the ink label is the 2D surface label and the project's own detector reads only slices 17-42. On a 65-slice
+volume (an assumption) only 38% of validation windows contain slice 32. A model asked to find ink in slices that do
+not show the inked surface may well end up near-constant. Details and a plan, which changes the validation protocol
+and so is the owner's decision: `docs/DESIGN_ARCHITECTURE_REVIEW_2026-10-13_LOSSES_AND_UPDATE.md`.
+
 ## What this means for the migration
 
 These are decisions for the loop's owner; none was taken here.

@@ -248,3 +248,37 @@ def test_train_stops_at_an_unreadable_validation_patch_before_loading_anything(
         monkeypatch.setattr(train, name, too_early)
     with pytest.raises(RuntimeError, match="cannot be read"):
         train.train(ExperimentConfig())
+
+
+def _tiny_step_setup():
+    model = torch.nn.Linear(3, 1)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=0.0)
+    scaler = torch.amp.GradScaler(device="cpu", enabled=False)
+    model(torch.ones(2, 3)).sum().backward()
+    return model, optimizer, scaler
+
+
+def test_a_finite_gradient_is_applied_at_the_scheduled_lr():
+    model, optimizer, scaler = _tiny_step_setup()
+    before = model.weight.detach().clone()
+    assert train.guarded_update(model, optimizer, scaler, lr=0.1)
+    assert optimizer.param_groups[0]["lr"] == 0.1
+    assert not torch.equal(model.weight, before)
+
+
+@pytest.mark.parametrize("value", [float("nan"), float("inf")])
+def test_a_non_finite_gradient_is_skipped_not_applied(value):
+    """With AMP off, GradScaler does not skip such a step, and AdamW made every
+    weight and moment NaN for the rest of the cycle."""
+    model, optimizer, scaler = _tiny_step_setup()
+    model.weight.grad[0, 1] = value
+    before = {k: v.clone() for k, v in model.state_dict().items()}
+    assert not train.guarded_update(model, optimizer, scaler, lr=0.1)
+    for key, tensor in model.state_dict().items():
+        torch.testing.assert_close(tensor, before[key])
+    assert optimizer.state == {} or all(not s for s in optimizer.state.values())
+    assert all(p.grad is None for p in model.parameters())
+    # The next finite step still works.
+    model(torch.ones(2, 3)).sum().backward()
+    assert train.guarded_update(model, optimizer, scaler, lr=0.1)
+    assert all(torch.isfinite(p).all() for p in model.parameters())
