@@ -188,6 +188,41 @@ class TestActiveLearning(unittest.TestCase):
         start = float(DEPTH_MARGIN)
         self.assertEqual(seen, [[start, start + 1, start + 2, start + 3]])
 
+    def test_a_volume_shallower_than_the_context_still_samples(self):
+        """A 16-layer model on an 18-slice volume: the dataset caps its read at 18,
+        and the model gets the 16 centred in it."""
+        seen = []
+
+        class Recorder(torch.nn.Module):
+            def forward(self, x):
+                seen.append(x.shape[2])
+                return torch.zeros(x.shape[0], 1, x.shape[3], x.shape[4])
+
+        class Dataset:
+            valid_coords = np.array([[0, 0]])
+
+            def __len__(self):
+                return 1
+
+        class Loader:
+            batch_size = 1
+            dataset = Dataset()
+
+            def __len__(self):
+                return 1
+
+            def __iter__(self):
+                yield (
+                    torch.rand(1, 2, 18, 8, 8),
+                    torch.zeros(1, 8, 8),
+                    torch.zeros(1, 8, 8),
+                )
+
+        settings = {"num_layers": 16, "patch_size": 8, "use_ridges": True}
+        sampler = ActiveLearningSampler(Recorder(), device="cpu", settings=settings)
+        sampler.sample_uncertain_regions(Loader(), n_samples=1)
+        self.assertEqual(seen, [16])
+
     def test_sampler_refuses_a_shuffled_loader(self):
         """The index arithmetic assumes dataset order. Under shuffling it still
         yields in-range indices, so a wrong answer would look like a right one."""

@@ -2,6 +2,7 @@ import json
 from pathlib import Path
 
 import numpy as np
+import pytest
 from PIL import Image
 
 from scripts.build_scroll23_search_queue import _occupied_windows, build_queue
@@ -374,12 +375,40 @@ def test_rank_scroll23_candidates_prefers_high_confidence_prediction(tmp_path):
     arr = np.zeros((64, 64), dtype=np.float32)
     arr[20:24, 20:24] = 0.95
     np.save(prediction_dir / "pred_9000_2048_2048_64x64_ink.npy", arr)
+    (prediction_dir / "pred_9000_2048_2048_64x64_meta.json").write_text(
+        json.dumps({"inference_recipe": {"ink_probability": "sigmoid(ink)"}})
+    )
 
     scored = score_row(row, prediction_dir=prediction_dir)
 
     assert scored["prediction_found"] == "true"
     assert float(scored["ink_max"]) == 0.95
     assert float(scored["review_score"]) > 1.0
+
+
+@pytest.mark.parametrize(
+    "recipe", [None, {"ink_probability": "sigmoid(ink) * sigmoid(qc / 0.1)"}]
+)
+def test_rank_scroll23_candidates_ignores_maps_from_another_recipe(tmp_path, recipe):
+    """QC-gated maps (before 2026-10-13) and maps without a recipe are on another
+    scale; they must not earn, or lose, a prediction bonus."""
+    prediction_dir = tmp_path / "predictions"
+    prediction_dir.mkdir()
+    row = {"priority": "1.0", "z": "9000", "y": "2048", "x": "2048"}
+    row.update({"width": "64", "height": "64", "submittable_window": "true"})
+    without = float(score_row(row, prediction_dir=prediction_dir)["review_score"])
+    arr = np.zeros((64, 64), dtype=np.float32)
+    arr[20:24, 20:24] = 0.95
+    np.save(prediction_dir / "pred_9000_2048_2048_64x64_ink.npy", arr)
+    meta = {} if recipe is None else {"inference_recipe": recipe}
+    (prediction_dir / "pred_9000_2048_2048_64x64_meta.json").write_text(
+        json.dumps(meta)
+    )
+
+    scored = score_row(row, prediction_dir=prediction_dir)
+
+    assert scored["prediction_found"] == "false"
+    assert float(scored["review_score"]) == without
 
 
 def test_rank_scroll23_candidates_reports_corrupt_metadata(tmp_path):

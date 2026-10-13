@@ -59,7 +59,11 @@ Ensembling does not establish accuracy or hallucination absence.
 ## Geometry and input compatibility
 
 Positions are source voxel indices in x/y/z order. The loader reads z/y/x and
-supplies normalized CT, plus a ridge channel when configured. Model inputs have
+supplies normalized CT, plus a ridge channel when configured.
+For ridge-enabled checkpoints each tile reads `num_layers + 8` slices around the
+window (shifted inside the volume at its ends) and computes the ridge channel
+over all of them before cropping the window, as training's validation does: the
+ridge filter normalizes the block it is given. Model inputs have
 shape `(batch, channels, depth, height, width)` even for CT-only ensembles.
 
 Checkpoint patch size, depth, channels, and `ridge_sigma` determine the input.

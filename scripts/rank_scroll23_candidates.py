@@ -13,6 +13,8 @@ from pathlib import Path
 
 import numpy as np
 
+from vesuvius_autoresearch.core.inference import INK_PROBABILITY
+
 
 def _read_zarr_array_info(local_uri):
     if not local_uri:
@@ -81,6 +83,7 @@ def _load_prediction_stats(prediction_dir, row):
 
     stats = {
         "prediction_found": ink_path.exists(),
+        "prediction_recipe": "",
         "ink_mean": 0.0,
         "ink_std": 0.0,
         "ink_max": 0.0,
@@ -89,6 +92,23 @@ def _load_prediction_stats(prediction_dir, row):
         "metadata_found": meta_path.exists(),
         "metadata_error": "",
     }
+
+    meta = {}
+    if meta_path.exists():
+        try:
+            with open(meta_path) as f:
+                meta = json.load(f)
+            recipe = meta.get("inference_recipe") or {}
+            stats["prediction_recipe"] = str(recipe.get("ink_probability", ""))
+        except (OSError, ValueError, TypeError, AttributeError) as exc:
+            stats["metadata_error"] = f"{type(exc).__name__}: {exc}"
+            meta = {}
+    # Only maps served as sigmoid(ink) share a scale. QC-gated maps from before
+    # 2026-10-13 sit near zero, and a map without a recorded recipe cannot be
+    # placed, so neither earns a prediction bonus.
+    if stats["prediction_found"] and stats["prediction_recipe"] != INK_PROBABILITY:
+        stats["prediction_found"] = False
+        return stats
 
     if ink_path.exists():
         arr = np.load(ink_path)
@@ -101,16 +121,13 @@ def _load_prediction_stats(prediction_dir, row):
         fiber = np.load(fiber_path)
         stats["fiber_mean"] = float(fiber.mean())
 
-    if meta_path.exists():
-        try:
-            with open(meta_path) as f:
-                meta = json.load(f)
-            ink_stats = meta.get("ink_stats", {})
-            stats["ink_mean"] = float(ink_stats.get("mean", stats["ink_mean"]))
-            stats["ink_std"] = float(ink_stats.get("std", stats["ink_std"]))
-            stats["ink_max"] = float(ink_stats.get("max", stats["ink_max"]))
-        except (OSError, ValueError, TypeError) as exc:
-            stats["metadata_error"] = f"{type(exc).__name__}: {exc}"
+    try:
+        ink_stats = meta.get("ink_stats", {})
+        stats["ink_mean"] = float(ink_stats.get("mean", stats["ink_mean"]))
+        stats["ink_std"] = float(ink_stats.get("std", stats["ink_std"]))
+        stats["ink_max"] = float(ink_stats.get("max", stats["ink_max"]))
+    except (ValueError, TypeError, AttributeError) as exc:
+        stats["metadata_error"] = f"{type(exc).__name__}: {exc}"
 
     return stats
 
@@ -147,6 +164,7 @@ def score_row(row, prediction_dir="predictions"):
         {
             "review_score": f"{review_score:.6f}",
             "prediction_found": str(stats["prediction_found"]).lower(),
+            "prediction_recipe": stats["prediction_recipe"],
             "metadata_found": str(stats["metadata_found"]).lower(),
             "metadata_error": stats["metadata_error"],
             "ink_mean": f"{stats['ink_mean']:.6f}",

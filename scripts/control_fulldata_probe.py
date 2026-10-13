@@ -38,6 +38,7 @@ def _auc(out, target):
 def main():
     from measure_ink_auc import _volume_uri
 
+    from vesuvius_autoresearch.core.inference import DEPTH_MARGIN
     from vesuvius_autoresearch.core.model_wrappers import build_inference_model
     from vesuvius_autoresearch.core.vesuvius_loader import VesuviusLabeledDataset
 
@@ -74,7 +75,7 @@ def main():
         os.path.join(args.frag, "inklabels.png"),
         os.path.join(args.frag, "mask.png"),
         ps,
-        nl + 8,
+        nl + 2 * DEPTH_MARGIN,
         seed=7,
         cache_dir=None,
         use_ridges=True,
@@ -91,7 +92,7 @@ def main():
     eval_x, _, _ = next(
         iter(DataLoader(ds, batch_size=64, shuffle=False, num_workers=0))
     )
-    eval_x = eval_x[:, :, 4 : 4 + nl].to(dev)
+    eval_x = eval_x[:, :, DEPTH_MARGIN : DEPTH_MARGIN + nl].to(dev)
     eval_target = brightness_control_target(eval_x)
 
     opt = torch.optim.Adam(model.parameters(), lr=args.lr)
@@ -104,7 +105,7 @@ def main():
         except StopIteration:
             it = iter(dl)
             x_raw, _, _ = next(it)
-        x = x_raw[:, :, 4 : 4 + nl].to(dev)
+        x = x_raw[:, :, DEPTH_MARGIN : DEPTH_MARGIN + nl].to(dev)
         target = brightness_control_target(x)
         out = model(x)
         out = out[0] if isinstance(out, tuple) else out

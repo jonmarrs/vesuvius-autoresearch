@@ -2,6 +2,7 @@
 
 import json
 import sys
+from collections import defaultdict
 from pathlib import Path
 
 import numpy as np
@@ -46,7 +47,7 @@ class ConstantHeads(torch.nn.Module):
             qc = qc + float("inf")
         elif self.bad == "ink_channels":
             ink = ink.expand(-1, 2, -1, -1)
-        return ink, fiber, qc
+        return (ink, fiber, qc) if kwargs.get("return_qc") else (ink, fiber)
 
 
 def setup_prediction(tmp_path, monkeypatch, mode, configs=None, bad=None):
@@ -204,7 +205,7 @@ def test_out_of_bounds_region_fails_before_inference(tmp_path, monkeypatch, mode
 
 
 @pytest.mark.parametrize("mode", ["single", "ensemble"])
-@pytest.mark.parametrize("bad", ["ink_nan", "fiber_nan", "qc_inf", "ink_channels"])
+@pytest.mark.parametrize("bad", ["ink_nan", "fiber_nan", "ink_channels"])
 def test_bad_head_outputs_cannot_be_exported(tmp_path, monkeypatch, mode, bad):
     runner, argv, _, _, _ = setup_prediction(tmp_path, monkeypatch, mode, bad=bad)
     argv.append("--disable_tta")
@@ -294,12 +295,16 @@ def test_checkpoint_ridge_sigma_reaches_the_loader(tmp_path, monkeypatch, mode):
     seen = []
 
     def ridges(ct, *, sigma):
-        seen.append(sigma)
+        seen.append((sigma, ct.shape[0]))
         return np.zeros_like(ct)
 
     monkeypatch.setattr(vesuvius_loader, "detect_ridges", ridges)
+    monkeypatch.setattr(vesuvius_loader, "_WARNING_COUNTS", defaultdict(int))
     runner()
-    assert seen and set(seen) == {3.0}
+    # Every tile's ridges see the depth context: all 6 slices of this volume, not
+    # the model's 4. The overlay's one-slice CT read no longer reaches the filter.
+    assert seen and set(seen) == {(3.0, 6)}
+    assert "ridge_fallback" not in vesuvius_loader.warning_counts()
 
 
 @pytest.mark.parametrize("mode", ["single", "ensemble"])
@@ -453,12 +458,12 @@ def test_spatial_mirrors_are_undone_before_probability_average():
             ink = ink + torch.arange(4, dtype=x.dtype).view(1, 1, 1, 4)
             fiber = (2 * ink).unsqueeze(2)
             qc = torch.zeros((len(x), 1))
-            return ink, fiber, qc
+            return (ink, fiber, qc) if kwargs.get("return_qc") else (ink, fiber)
 
     expected_ink, expected_fiber = [], []
     model = SpatialHeads()
     for dims in ((), (-1,), (-2,), (-2, -1)):
-        ink, fiber, _ = model(torch.flip(batch, dims) if dims else batch)
+        ink, fiber = model(torch.flip(batch, dims) if dims else batch)
         ink, fiber = torch.sigmoid(ink)[:, 0], torch.sigmoid(fiber[:, 0, 0])
         expected_ink.append(torch.flip(ink, dims) if dims else ink)
         expected_fiber.append(torch.flip(fiber, dims) if dims else fiber)
@@ -467,7 +472,7 @@ def test_spatial_mirrors_are_undone_before_probability_average():
     torch.testing.assert_close(actual_fiber, torch.stack(expected_fiber).mean(0))
 
 
-@pytest.mark.parametrize("qc_logit", [-5.0, 0.0, 5.0])
+@pytest.mark.parametrize("qc_logit", [-5.0, 0.0, 5.0, float("inf")])
 def test_the_qc_head_does_not_scale_served_ink(qc_logit):
     """The QC head is fit to the patch's mean fiber target, not to quality. As a
     gate, sigmoid(qc / 0.1) took the production checkpoint's ink to ~1e-5."""
@@ -476,11 +481,21 @@ def test_the_qc_head_does_not_scale_served_ink(qc_logit):
     class FiberDensityQC(torch.nn.Module):
         def forward(self, x, **kwargs):
             ink = 4 * x.mean(2) - 2
-            return ink, ink.unsqueeze(2), torch.full((len(x), 1), qc_logit)
+            qc = torch.full((len(x), 1), qc_logit)
+            return (
+                (ink, ink.unsqueeze(2), qc)
+                if kwargs.get("return_qc")
+                else (
+                    ink,
+                    ink.unsqueeze(2),
+                )
+            )
 
     ink, _ = multitask_probabilities(FiberDensityQC(), batch, disable_tta=True)
     torch.testing.assert_close(ink, torch.sigmoid(4 * batch.mean(2) - 2)[:, 0])
-    assert multitask_inference_recipe(True, False)["ink_probability"] == "sigmoid(ink)"
+    recipe = multitask_inference_recipe(True, False)
+    assert recipe["ink_probability"] == "sigmoid(ink)"
+    assert recipe["ridge_depth_context"] == "num_layers + 8, window centred"
 
 
 @pytest.mark.parametrize("mode", ["single", "ensemble"])
@@ -613,3 +628,15 @@ def test_inference_ridges_match_the_validation_input(tmp_path, monkeypatch):
     torch.testing.assert_close(served, validation_input)
     window_only = volume[margin : margin + layers, 0:size, 0:size]
     assert not torch.allclose(window_only[1], validation_input[1])
+
+
+@pytest.mark.parametrize(("depth", "offset"), [(24, 4), (20, 2), (18, 1), (16, 0)])
+def test_centre_window_uses_validation_offset_or_centres_a_shallow_read(depth, offset):
+    batch = torch.arange(depth, dtype=torch.float32).view(1, 1, depth, 1, 1)
+    window = inference_helpers.centre_window(batch, 16)
+    assert window[0, 0, :, 0, 0].tolist() == list(range(offset, offset + 16))
+
+
+def test_centre_window_refuses_a_read_shallower_than_the_model():
+    with pytest.raises(ValueError, match="below num_layers"):
+        inference_helpers.centre_window(torch.zeros(1, 1, 15, 2, 2), 16)

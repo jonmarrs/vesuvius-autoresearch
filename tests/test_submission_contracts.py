@@ -424,7 +424,7 @@ def test_prediction_uses_checkpoint_scale_for_both_exports_and_metadata(
             ink = x[:, :1].mean(dim=2) * 0 + self.bias
             fiber = x[:, :1] * 0 + self.bias
             qc = torch.ones((x.shape[0], 1), device=x.device)
-            return ink, fiber, qc
+            return (ink, fiber, qc) if kwargs.get("return_qc") else (ink, fiber)
 
     monkeypatch.setattr(torch.cuda, "is_available", lambda: False)
     model = ArtifactModel()

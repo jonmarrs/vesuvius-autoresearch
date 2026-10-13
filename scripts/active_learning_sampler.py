@@ -14,7 +14,12 @@ from vesuvius_autoresearch.core.checkpoint_tools import (
     validate_batch,
     validate_ink_logits,
 )
-from vesuvius_autoresearch.core.inference import DEPTH_MARGIN, positive_integer
+from vesuvius_autoresearch.core.inference import (
+    DEPTH_MARGIN,
+    RIDGE_DEPTH_CONTEXT,
+    centre_window,
+    positive_integer,
+)
 from vesuvius_autoresearch.core.vesuvius_loader import VesuviusLabeledDataset
 
 
@@ -84,9 +89,10 @@ class ActiveLearningSampler:
             for i, (x, _, _) in enumerate(tqdm(dataloader)):
                 x = x.to(self.device)
                 if self.settings is not None:
-                    # The dataset reads training's depth context (main()); the
+                    # main() reads training's depth context for ridge models; the
                     # model sees the centre, as in validation.
-                    x = validate_batch(x, self.settings, buffered=True)
+                    x = centre_window(x, self.settings["num_layers"])
+                    validate_batch(x, self.settings)
                 if (
                     x.ndim != 5
                     or not x.is_floating_point()
@@ -253,7 +259,9 @@ def main():
         args.volume,
         labels_path,
         patch_size=arch_kwargs["patch_size"],
-        num_layers=arch_kwargs["num_layers"] + 2 * DEPTH_MARGIN,
+        # Ridges over training's depth context; centre_window crops the window.
+        num_layers=arch_kwargs["num_layers"]
+        + (2 * DEPTH_MARGIN if arch_kwargs["use_ridges"] else 0),
         use_ridges=arch_kwargs["use_ridges"],
         ridge_sigma=arch_kwargs["ridge_sigma"],
         require_ink=False,
@@ -317,6 +325,9 @@ def main():
                 "checkpoint": args.checkpoint,
                 "volume": args.volume,
                 "inference_settings": arch_kwargs,
+                # Was 0.7 * entropy + 0.3 * (1 - sigmoid(qc)) before 2026-10-13.
+                "uncertainty_score": "mean prediction entropy",
+                "ridge_depth_context": RIDGE_DEPTH_CONTEXT,
                 "queue": queue,
             },
             f,

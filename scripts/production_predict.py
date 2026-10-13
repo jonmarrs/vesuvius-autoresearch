@@ -21,6 +21,8 @@ from scripts.inference.predict import (
     write_prediction_metadata,
 )
 from vesuvius_autoresearch.core.inference import (
+    INK_PROBABILITY,
+    RIDGE_DEPTH_CONTEXT,
     hann2d,
     normalize_blend,
     prepare_volume_input,
@@ -50,7 +52,8 @@ def production_predict(argv=None):
     parser.add_argument("--out-dir", default="predictions/production")
     args = parser.parse_args(argv)
     args.inference_recipe = {
-        "ink_probability": "sigmoid(ink)",
+        "ink_probability": INK_PROBABILITY,
+        "ridge_depth_context": RIDGE_DEPTH_CONTEXT,
         "tta_mirrors": ["none"],
         "blend_window": "positive_hann",
     }

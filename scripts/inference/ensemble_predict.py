@@ -210,12 +210,13 @@ def ensemble_predict():
         exports.append(export)
 
     z_mid = args.z + max_layers // 2
-    ct = dataset[
-        z_mid : z_mid + 1, args.y : args.y + args.height, args.x : args.x + args.width
-    ]
-    if ct.ndim == 4:
-        ct = ct[0]
-    ct_slice = ct[0].detach().cpu().numpy().astype(np.float32, copy=False)
+    # CT only: indexing a ridge-enabled volume would run the ridge filter on one
+    # slice, which it refuses with a spurious ridge-fallback warning.
+    ct_slice = (
+        dataset.get_raw_patch(z_mid, args.y, args.x, 1, args.height, args.width)[0]
+        .numpy()
+        .astype(np.float32)
+    )
     figure, axes = plt.subplots(1, 3, figsize=(15, 5))
     axes[0].imshow(ct_slice, cmap="gray")
     axes[0].set_title(f"CT Slice (Z={z_mid})")
@@ -223,7 +224,7 @@ def ensemble_predict():
     axes[1].set_title("Ensemble Fiber Context")
     axes[2].imshow(ct_slice, cmap="gray")
     axes[2].imshow(ink, cmap="jet", alpha=0.5)
-    axes[2].set_title("Ensemble Gated Ink Overlay")
+    axes[2].set_title("Ensemble Ink Overlay")
     bar_px, label = prediction_scale_bar(args.width, args.voxel_size_um)
     for ax in axes:
         ax.add_patch(
