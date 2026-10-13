@@ -28,6 +28,15 @@ VALIDATION_SAMPLE_SEED = 42
 RESCORE_COMMAND = "uv run python scripts/reevaluate_best_model.py --update-stored"
 
 
+def validation_protocol(depth_band=None) -> str:
+    """The protocol a score is measured under. The depth band is part of it: the
+    same patches read from other slices are a different sample."""
+    if depth_band is None:
+        return VALIDATION_PROTOCOL
+    start, end = depth_band
+    return f"{VALIDATION_PROTOCOL}+z{start}-{end}"
+
+
 class IncumbentUnavailable(RuntimeError):
     """best_model.pt exists, but its score cannot be compared with a candidate's."""
 
@@ -44,12 +53,13 @@ def validation_indices(
     return np.sort(order[: min(sample_size, catalogue_size)])
 
 
-def read_incumbent_val_f1(path: str = "best_model.pt") -> float:
+def read_incumbent_val_f1(path: str, protocol: str) -> float:
     """The stored val_f1 a candidate must beat.
 
     -inf when there is no incumbent, so the first run bootstraps one. Raises
     IncumbentUnavailable when the file exists but cannot be compared: unreadable,
-    no finite val_f1, or scored under another validation protocol. Treating those
+    no finite val_f1, or scored under another validation protocol than
+    ``protocol`` (see validation_protocol). Treating those
     as -inf would let any candidate, including one trained from random weights
     because the same file could not be warm-started, replace the incumbent.
     """
@@ -66,12 +76,12 @@ def read_incumbent_val_f1(path: str = "best_model.pt") -> float:
         ) from exc
     if not isinstance(checkpoint, dict):
         raise IncumbentUnavailable(f"{path} is not a checkpoint dictionary")
-    protocol = checkpoint.get("val_protocol")
-    if protocol != VALIDATION_PROTOCOL:
-        recorded = protocol or "v1 (unrecorded)"
+    recorded = checkpoint.get("val_protocol")
+    if recorded != protocol:
         raise IncumbentUnavailable(
-            f"{path} was scored under validation protocol {recorded}, not "
-            f"{VALIDATION_PROTOCOL}; re-score it with `{RESCORE_COMMAND}`"
+            f"{path} was scored under validation protocol "
+            f"{recorded or 'v1 (unrecorded)'}, not {protocol}; re-score it with "
+            f"`{RESCORE_COMMAND}`"
         )
     val_f1 = checkpoint.get("val_f1")
     if not isinstance(val_f1, (int, float)) or not math.isfinite(val_f1):

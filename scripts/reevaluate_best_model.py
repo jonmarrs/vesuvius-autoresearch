@@ -42,7 +42,7 @@ from train import (
     select_topology_threshold,
 )
 
-from scripts.training.promotion import VALIDATION_PROTOCOL, save_checkpoint_atomic
+from scripts.training.promotion import save_checkpoint_atomic, validation_protocol
 from vesuvius_autoresearch.core.checkpoint_tools import (
     ink_probabilities,
     load_tool_checkpoint,
@@ -82,6 +82,9 @@ def reevaluate(update_stored: bool = False) -> None:
     print(f"  stored cc_diff:     {chk.get('avg_cc_diff')}")
     print()
 
+    # The loop's protocol: config.json's depth band, not the checkpoint's.
+    protocol = validation_protocol(config.depth_band)
+    print(f"  scoring protocol:    {protocol}")
     val_ds = build_validation_dataset(config)
 
     def probabilities(net, x):
@@ -96,6 +99,7 @@ def reevaluate(update_stored: bool = False) -> None:
         batch_size=config.batch_size,
         amp_enabled=device.type == "cuda",
         probabilities=probabilities,
+        protocol=protocol,
     )
     if not diag["complete"]:
         raise RuntimeError(
@@ -198,9 +202,7 @@ def reevaluate(update_stored: bool = False) -> None:
     print(f"  avg_skel_dist:       {skel:.6f}")
     print(f"  avg_centerline_dice: {cd:.6f}")
     print(f"  avg_cc_diff:         {cc:.3f}")
-    print(
-        f"  val_f1:              {f1_metrics['val_f1']:.6f} (protocol {VALIDATION_PROTOCOL})"
-    )
+    print(f"  val_f1:              {f1_metrics['val_f1']:.6f} (protocol {protocol})")
     print(f"  ap_prevalence_lift:  {f1_metrics['ap_prevalence_lift']:.4f}")
     print(f"  roc_auc:             {f1_metrics['roc_auc']:.4f}")
     # Calling every pixel ink scores F1 = 2p/(1+p) at every swept threshold, so
@@ -248,15 +250,18 @@ def reevaluate(update_stored: bool = False) -> None:
         print()
         print("Updating best_model.pt's stored metrics to today's values...")
         chk.update(f1_metrics)
-        chk["val_protocol"] = VALIDATION_PROTOCOL
+        chk["val_protocol"] = protocol
         chk["validation_diag"] = diag
         chk["val_bpb"] = val_bpb
         chk["avg_skel_dist"] = skel
         chk["avg_centerline_dice"] = cd
         chk["avg_cc_diff"] = cc
         chk["reevaluation"] = {
-            "methodology": VALIDATION_PROTOCOL,
+            "methodology": protocol,
             "validation_uri": config.val_uri,
+            # The slices the stored score was measured on; the model's own
+            # training band, if any, stays in chk["config"].
+            "depth_band": config.depth_band,
             "model_settings": settings,
             "input_settings": {
                 name: getattr(config, name) for name in RECORDED_INPUT_SETTINGS

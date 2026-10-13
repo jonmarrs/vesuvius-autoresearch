@@ -231,7 +231,7 @@ def main():
     print(f"Active Learning Sampler: Running on {device}")
 
     # 1. Load Checkpoint Metadata
-    model, arch_kwargs, _ = load_tool_checkpoint(args.checkpoint, device)
+    model, arch_kwargs, chk = load_tool_checkpoint(args.checkpoint, device)
 
     sampler = ActiveLearningSampler(model, device=device, settings=arch_kwargs)
 
@@ -268,6 +268,10 @@ def main():
         jitter=False,
         strict_reads=True,
         patches_json=args.patches_json,
+        # The slices the checkpoint was trained on (None: the whole depth); the
+        # context margin applies only to ridge models' reads.
+        depth_band=chk["config"].get("depth_band"),
+        depth_margin=DEPTH_MARGIN if arch_kwargs["use_ridges"] else 0,
     )
 
     catalog = np.asarray(dataset.valid_coords)

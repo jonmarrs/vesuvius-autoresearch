@@ -50,12 +50,20 @@ def main():
     positive_integer(args.n, "n")
 
     device = torch.device(args.device)
-    model, settings, _ = load_tool_checkpoint(args.checkpoint, device)
+    model, settings, chk = load_tool_checkpoint(args.checkpoint, device)
     ps, nl = settings["patch_size"], settings["num_layers"]
     failures = []
     for frag in args.fragments:
         try:
-            measure_fragment(model, settings, frag, args.n, device, args.cache_dir)
+            measure_fragment(
+                model,
+                settings,
+                frag,
+                args.n,
+                device,
+                args.cache_dir,
+                depth_band=chk["config"].get("depth_band"),
+            )
         except (ValueError, RuntimeError, OSError) as exc:
             failures.append(f"{frag}: {exc}")
             print(f"{frag}: FAILED: {exc}", file=sys.stderr)
@@ -63,7 +71,7 @@ def main():
         raise SystemExit(1)
 
 
-def measure_fragment(model, settings, frag, n, device, cache_dir=None):
+def measure_fragment(model, settings, frag, n, device, cache_dir=None, depth_band=None):
     ps, nl = settings["patch_size"], settings["num_layers"]
     for name in ("inklabels.png", "mask.png"):
         if not os.path.isfile(os.path.join(frag, name)):
@@ -83,6 +91,9 @@ def measure_fragment(model, settings, frag, n, device, cache_dir=None):
         require_ink=True,
         jitter=False,
         strict_reads=True,
+        # The slices the checkpoint was trained on (None: the whole depth).
+        depth_band=depth_band,
+        depth_margin=DEPTH_MARGIN,
     )
     if (
         ds.labels is None

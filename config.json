@@ -8,6 +8,10 @@
     "use_ridges": true,
     "use_lasagna": true,
     "ridge_sigma": 1.0,
+    "depth_band": [
+        17,
+        43
+    ],
     "batch_size": 4,
     "patch_size": 64,
     "num_layers": 16,

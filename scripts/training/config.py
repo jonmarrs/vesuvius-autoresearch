@@ -6,6 +6,8 @@ train.py re-exports both classes for older callers and checkpoint imports.
 import json
 from dataclasses import asdict, dataclass, field
 
+from vesuvius_autoresearch.core.inference_constants import DEPTH_MARGIN
+
 
 # AuxiliaryConfig was previously imported from scripts/auxiliary_manager.py.
 # That module held an AuxiliaryManager class which was removed when the broken
@@ -34,6 +36,14 @@ class ExperimentConfig:
     use_ridges: bool = False  # 3D Ridge/Frangi feature channel
     use_lasagna: bool = False  # Priority J: Dynamically apply local surface flattening
     ridge_sigma: float = 2.0  # Ridge filter parameter
+    # [start, end): the slices labeled patches are centred on. The ink label is
+    # the 2D surface label, and surface volumes put the inked surface near their
+    # middle layer, so windows from the whole depth mostly showed slices without
+    # it. Reads come from the band widened by DEPTH_MARGIN: validation's window
+    # lies inside it, training's depth jitter reaches up to 4 slices before and 3
+    # after. None reads the whole depth (every result before 2026-10-13).
+    # Changing it changes the validation protocol (promotion.validation_protocol).
+    depth_band: list = None
 
     # Training Loop
     batch_size: int = 8
@@ -141,6 +151,28 @@ class ExperimentConfig:
     )
 
     def __post_init__(self):
+        if self.depth_band is not None:
+            band = self.depth_band
+            if (
+                not isinstance(band, (list, tuple))
+                or len(band) != 2
+                or not all(isinstance(v, int) and not isinstance(v, bool) for v in band)
+                or not 0 <= band[0] < band[1]
+            ):
+                raise ValueError(
+                    "depth_band must be [start, end) with 0 <= start < end"
+                )
+            # A read is num_layers + 2 * DEPTH_MARGIN slices, drawn from the band
+            # widened by the margin (clamped at slice 0).
+            read = self.num_layers + 2 * DEPTH_MARGIN
+            if band[1] - band[0] < self.num_layers or (
+                band[1] + DEPTH_MARGIN - max(0, band[0] - DEPTH_MARGIN) < read
+            ):
+                raise ValueError(
+                    f"depth_band {list(band)} cannot hold num_layers "
+                    f"({self.num_layers}) with its {DEPTH_MARGIN}-slice context"
+                )
+            self.depth_band = [int(band[0]), int(band[1])]
         if self.uris is None:
             if self.uri is not None:
                 self.uris = [self.uri]

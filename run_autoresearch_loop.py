@@ -13,9 +13,20 @@ from typing import Any
 from scripts.loop_control import acquire_lock
 from scripts.process_supervisor import ProcessSupervisor
 from scripts.training.config import ExperimentConfig
-from scripts.training.promotion import IncumbentUnavailable, read_incumbent_val_f1
+from scripts.training.promotion import (
+    IncumbentUnavailable,
+    read_incumbent_val_f1,
+    validation_protocol,
+)
 
 LOCK_FILE = "autoresearch.lock"
+
+
+def load_current_config():
+    """The promoted config (config.json), or the defaults before the first one."""
+    if os.path.exists(CONFIG_FILE):
+        return ExperimentConfig.load(CONFIG_FILE)
+    return ExperimentConfig()
 
 
 def check_lock():
@@ -334,8 +345,13 @@ def main():
     # so a shift started anyway would revert every cycle. The watchdog restarts
     # a returned loop, which reprints this until the operator acts.
     try:
-        best_val_f1 = read_incumbent_val_f1("best_model.pt")
-    except IncumbentUnavailable as exc:
+        # The protocol includes config.json's depth band: an incumbent scored on
+        # other slices must be re-scored before a candidate can be compared.
+        best_val_f1 = read_incumbent_val_f1(
+            "best_model.pt", validation_protocol(load_current_config().depth_band)
+        )
+    except (IncumbentUnavailable, ValueError) as exc:
+        # ValueError: config.json fails ExperimentConfig's checks (e.g. depth_band).
         print(f"Not starting: {exc}")
         return
     print(
@@ -441,11 +457,7 @@ def main():
         # predicate is False under the current baseline config (e.g.
         # ridge_sigma when use_ridges=False). Avoids spending cycles on
         # axes that produce identical results to the baseline.
-        baseline_for_gate = (
-            ExperimentConfig.load(CONFIG_FILE)
-            if os.path.exists(CONFIG_FILE)
-            else ExperimentConfig()
-        )
+        baseline_for_gate = load_current_config()
         # The VRAM estimate filters values before sampling, so a rejected value
         # never takes a cycle number, a dedup slot or a decay step.
         active_templates, excluded = tweak_proposals(baseline_for_gate)
@@ -491,11 +503,7 @@ def main():
             attr = template["attr"]
 
             # Apply tweak to a copy of current config
-            test_config = (
-                ExperimentConfig.load(CONFIG_FILE)
-                if os.path.exists(CONFIG_FILE)
-                else ExperimentConfig()
-            )
+            test_config = load_current_config()
             # Ensure we don't carry over 'pinned' status to evolved configs
             test_config.pinned = False
             test_config.time_budget = default_budget
@@ -752,9 +760,10 @@ def main():
                 "scripts/inference/predict.py",
                 "--uri",
                 BENCHMARK_URI,
-                # No --z: predict.py centres the checkpoint's window in the
-                # volume's depth. z=10 showed slices 10-25 of a 65-slice
-                # fragment, below the 17-42 band the project's detector reads.
+                # No --z: predict.py centres the checkpoint's window in its
+                # recorded depth_band, or in the volume's depth without one.
+                # z=10 showed slices 10-25 of a 65-slice fragment, below the
+                # 17-42 band the project's detector reads.
                 "--y",
                 "1000",
                 "--x",

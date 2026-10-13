@@ -36,7 +36,7 @@ from train import (  # noqa: E402
 )
 
 from scripts.reevaluate_best_model import RECORDED_INPUT_SETTINGS  # noqa: E402
-from scripts.training.promotion import VALIDATION_PROTOCOL  # noqa: E402
+from scripts.training.promotion import validation_protocol  # noqa: E402
 from vesuvius_autoresearch.core.checkpoint_tools import (  # noqa: E402
     ink_probabilities,
     load_tool_checkpoint,
@@ -71,6 +71,7 @@ def main(out_path):
         if name in stored:
             setattr(config, name, stored[name])
 
+    protocol = validation_protocol(config.depth_band)
     val_ds = build_validation_dataset(config)
 
     def probabilities(net, x):
@@ -85,6 +86,7 @@ def main(out_path):
         batch_size=config.batch_size,
         amp_enabled=device.type == "cuda",
         probabilities=probabilities,
+        protocol=protocol,
     )
     if not diag["complete"]:
         raise RuntimeError("incomplete validation sample; no control computed")
@@ -101,7 +103,7 @@ def main(out_path):
     ).stdout.strip()
 
     result = {
-        "protocol": VALIDATION_PROTOCOL,
+        "protocol": protocol,
         "checkpoint_sha256": checkpoint_sha256,
         "stored_val_protocol": chk.get("val_protocol"),
         # What v1 recorded about its own sample, so the margins can be compared.

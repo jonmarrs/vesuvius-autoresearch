@@ -1,5 +1,14 @@
 # Resume note — written 2026-09-22 before a deliberate Claude restart
 
+## 2026-10-13: depth band implemented; the loop will not start until re-scored
+
+* Patches now read inside `depth_band: [17, 43]` (`config.json`); the validation protocol is
+  `seeded-sample-400-v2+z17-43`. The loop prints "Not starting" until the incumbent is re-scored.
+* Order on the GPU host: check the fragments' depth (at least 43 slices), **decide lasagna** (the
+  re-score applies the incumbent's recorded `use_lasagna: true`, which strict reads refuse on uint8),
+  then run `scripts/reevaluate_best_model.py --update-stored` and `./start.sh`. See
+  `docs/DESIGN_ARCHITECTURE_REVIEW_2026-10-13_LOSSES_AND_UPDATE.md`, "Restarting the loop".
+
 ## 2026-10-12 (night): finding 86; the loop migration is HELD for owner decisions
 
 * **Finding 86** (`reports/loop_v2_constant_control.md`, post-hoc, not pre-registered). The GPU-host dry run of

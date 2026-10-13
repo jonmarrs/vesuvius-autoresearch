@@ -36,6 +36,10 @@ here. The depth finding below is added to them.
 
 ### Plan for the depth finding
 
+**Implemented 2026-10-13, at the owner's request**, as steps 2 and 3 below, with `config.json` set
+to `depth_band: [17, 43]`, the band the project's detector reads from these fragments.
+Steps 1 and 4 need the GPU host; see "Restarting the loop" below.
+
 1. Confirm the fragments' depth and where their ink lies (for example, from `zarr.open(...)` shape
    and a per-slice mean of a labelled region).
 2. Add `depth_band: [start, end)` to `ExperimentConfig`. Pass it to both labeled datasets as a read
@@ -45,6 +49,59 @@ here. The depth finding below is added to them.
 4. Re-score the incumbent with `scripts/reevaluate_best_model.py --update-stored`, then restart.
    Finding 86's metric question should be re-read on the new protocol: the all-ink floor and the
    AUC may move.
+
+### The implementation
+
+- **`ExperimentConfig.depth_band`.** `[start, end)` or None (the whole depth, as before). It is
+  validated, and must hold `num_layers` plus the context: the band widened by `DEPTH_MARGIN` and
+  clamped at slice 0 has to hold a read of `num_layers + 8` slices.
+- **`VesuviusLabeledDataset(depth_band=..., depth_margin=...)`.** It refuses a band outside the
+  volume. Reads are drawn from the band widened by the margin, clamped to the volume, so only the
+  context, never the band, is clipped. Without a band the draw is the same call as before, so
+  protocol v2's sample does not move (tested against the old formula).
+- **Training and validation datasets.** `train.py` passes the band with `DEPTH_MARGIN`, so
+  validation's centred window lies inside the band. Training's depth jitter reaches up to 4 slices
+  before and 3 after it.
+- **`promotion.validation_protocol(depth_band)`.** It returns `seeded-sample-400-v2+z17-43`.
+  `train.py` records it in every checkpoint and run result. `read_incumbent_val_f1` and
+  `promotion_decision` now require a protocol. Promotion, the loop's startup check,
+  `reevaluate_best_model.py` and `loop_v2_constant_control.py` all use `config.json`'s band.
+  The re-score records the band it scored in `reevaluation.depth_band`.
+- **Tools.** The AUC, pseudo-label and active-learning tools read inside the band the checkpoint
+  was trained on. The pseudo-labels matter most, because they are trained on again. The topology
+  diagnostic uses `config.json`'s band, like validation. The UA-MT unlabeled stream still reads
+  the whole depth of its own volumes.
+- **`predict.py`.** Without `--z`, it centres the window in the checkpoint's band when that band
+  lies inside the volume, otherwise in the volume, and clamps the result.
+
+### Restarting the loop
+
+The loop now refuses to start ("Not starting: … scored under validation protocol
+seeded-sample-400-v2, not seeded-sample-400-v2+z17-43"). On the GPU host:
+
+1. Check the fragments' depth: a fragment shallower than 43 slices makes the dataset refuse to
+   build, because the band would lie outside it. `uv run python -c "import zarr; print(zarr.open('local_data/PHercParis2Fr47/surface_volume.zarr'))"`.
+2. **Decide lasagna first.** `reevaluate_best_model.py` scores the incumbent with its recorded
+   `use_lasagna: true`. Strict validation refuses that warp on these uint8 volumes, so the re-score
+   stops as incomplete. This was already true before the band; the band only makes the re-score
+   mandatory.
+3. `uv run python scripts/reevaluate_best_model.py --update-stored`, then `./start.sh`.
+
+## Review of the depth-band PR, and what it changed
+
+| Finding | Outcome |
+| --- | --- |
+| `predict.py` centred on the band for any volume, failing on shallower ones and reading the wrong slices on deeper ones. | Fixed: the band is used only when it lies inside the volume, and `z` is clamped. Tested with a band outside a 6-slice volume. |
+| A band starting below the margin could pass config validation and then be refused by the dataset on every cycle. | Fixed: the config checks that the widened read fits. Tested with `[0, 16]` and `[3, 19]`. |
+| `protocol` defaulted to the whole-depth protocol, so a forgotten argument failed open. | Fixed: `read_incumbent_val_f1` and `promotion_decision` require it. |
+| `loop_v2_constant_control.py` did not pass the protocol to the collector. | Fixed. |
+| The AUC, pseudo-label, sampler and topology tools ignored the band. | Fixed: they read the band (above). |
+| The read range's end was clamped silently while the protocol named the band. | Fixed: a band past the volume is refused; only the margin is clamped. |
+| The re-score did not record which slices it scored. | Fixed: `reevaluation.depth_band`. |
+| An invalid `config.json` crashed the loop's startup with a traceback. | Fixed: "Not starting: …" (tested). |
+| Comments on the benchmark, the `--z` default and the band field were stale or wrong. | Fixed. |
+| Four copies of the config-loading expression. | Fixed: `load_current_config()`. |
+| A tweak could pair a larger `num_layers` with a band too narrow for it. | Not changed: `num_layers` is pinned. Such a config fails `ExperimentConfig`'s check at preflight in seconds, with the band message. |
 
 ## Review of the PR, and what it changed
 

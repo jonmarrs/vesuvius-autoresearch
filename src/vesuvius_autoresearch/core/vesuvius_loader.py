@@ -340,6 +340,8 @@ class VesuviusLabeledDataset(torch.utils.data.Dataset):
         patches_json=None,
         jitter=True,
         strict_reads=False,
+        depth_band=None,
+        depth_margin=0,
     ):
         self.volume = FastVesuviusVolume(
             volume_uri,
@@ -350,6 +352,26 @@ class VesuviusLabeledDataset(torch.utils.data.Dataset):
         self.patch_size = patch_size
         self.num_layers = min(num_layers, self.volume.shape[0])
         self.shape = self.volume.shape
+        # depth_band [start, end): the slices the model's window should show;
+        # reads are drawn from the band widened by depth_margin (the context
+        # around the window), clamped to the volume. None: the whole depth.
+        self.depth_range = None
+        if depth_band is not None:
+            band_start, band_end = int(depth_band[0]), int(depth_band[1])
+            if band_start < 0 or band_end > self.shape[0]:
+                raise ValueError(
+                    f"depth_band {list(depth_band)} lies outside {volume_uri} "
+                    f"({self.shape[0]} slices)"
+                )
+            start = max(0, band_start - depth_margin)
+            end = min(self.shape[0], band_end + depth_margin)
+            if end - start < self.num_layers:
+                raise ValueError(
+                    f"depth_band {list(depth_band)} (with a {depth_margin}-slice "
+                    f"margin) cannot hold a {self.num_layers}-slice read of "
+                    f"{volume_uri} ({self.shape[0]} slices)"
+                )
+            self.depth_range = (start, end)
         # __getitem__ normalises uint8 (/255) and uint16 (read as int32, /65535)
         # and passes floats through; any other dtype reached the model raw.
         # Checked from the array's metadata, without reading CT.
@@ -718,8 +740,10 @@ class VesuviusLabeledDataset(torch.utils.data.Dataset):
 
         z_depth = self.shape[0]
         z_request = min(self.num_layers, z_depth)
-        z_range = z_depth - z_request
-        z0 = rng.randint(0, z_range + 1) if z_range > 0 else 0
+        # Without a depth range this draws exactly as before (protocol v2).
+        z_start, z_end = getattr(self, "depth_range", None) or (0, z_depth)
+        z_range = z_end - z_start - z_request
+        z0 = z_start + (rng.randint(0, z_range + 1) if z_range > 0 else 0)
 
         try:
             if isinstance(self.volume, FastVesuviusVolume):
