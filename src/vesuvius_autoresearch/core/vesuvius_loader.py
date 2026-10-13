@@ -1,3 +1,4 @@
+import itertools
 import os
 import sys
 from collections import defaultdict
@@ -69,6 +70,20 @@ Image.MAX_IMAGE_PIXELS = None
 _WARNING_COUNTS = defaultdict(int)
 
 
+# Largest per-axis size difference accepted between a 2D label/mask and its
+# volume: export rounding, not a different crop or scale.
+LABEL_SHAPE_TOLERANCE_PX = 2
+
+
+def warning_counts() -> dict:
+    """How often each degraded-input fallback fired in this process.
+
+    The messages stop after a few per key; the counts do not, so a run can
+    record that it trained on unwarped or zero-ridge patches.
+    """
+    return dict(_WARNING_COUNTS)
+
+
 def _warn_limited(key, message, limit=5):
     _WARNING_COUNTS[key] += 1
     count = _WARNING_COUNTS[key]
@@ -76,6 +91,103 @@ def _warn_limited(key, message, limit=5):
         print(f"Warning: {message}")
     elif count == limit + 1:
         print(f"Warning: suppressing further {key} warnings")
+
+
+def _mismatch_hint(label_hw, volume_shape):
+    """Why a 2D label might not fit a ``(depth, H, W)`` volume, for the error."""
+    tol = LABEL_SHAPE_TOLERANCE_PX
+    for a, b in itertools.permutations(range(3), 2):
+        if (a, b) == (1, 2):
+            continue  # (H, W) is the expected plane
+        plane = (volume_shape[a], volume_shape[b])
+        if all(abs(x - y) <= tol for x, y in zip(label_hw, plane, strict=True)):
+            return (
+                "The label matches another pair of the volume's axes (full shape "
+                f"{tuple(volume_shape)}): the volume or the label is likely "
+                "transposed; fix the axis order before training."
+            )
+    return (
+        "A size difference this large is a different crop or scale, not export "
+        "rounding; register the label to the volume grid before training."
+    )
+
+
+_CUPY_UNSET = object()
+_CUPY = _CUPY_UNSET
+
+
+def _cupy():
+    """CuPy when the fibers backend can use it and a device is present, else None.
+
+    Decided once per process. Uses fibers.detection's own check (CuPy and
+    cupyx.scipy.ndimage), so this never hands CuPy arrays to a detect_ridges that
+    would treat them as NumPy, and asks for a device like fibers.cli does: CuPy
+    is a hard dependency, so importable is not the same as usable.
+    """
+    global _CUPY
+    if _CUPY is _CUPY_UNSET:
+        _CUPY = None
+        from vesuvius_autoresearch.fibers import detection
+
+        if detection.HAS_CUPY:
+            try:
+                if detection.cp.cuda.runtime.getDeviceCount() > 0:
+                    _CUPY = detection.cp
+            except Exception:
+                pass
+    return _CUPY
+
+
+def ridge_channel(ct, sigma, uri, strict=False) -> torch.Tensor:
+    """The ridge channel for a ``[Z, H, W]`` CT patch, as float32 on the CPU.
+
+    The single implementation behind both datasets: CuPy when it imports, the
+    CPU otherwise. Two diverging copies were how one of them came to discard
+    every GPU result (``.to(self.device)``, an attribute never set). A failure
+    is an error under ``strict`` and otherwise a counted warning with a zero
+    channel, which is a different input, never a quiet substitute.
+    """
+    ct = np.asarray(ct, dtype=np.float32)
+    # Input problems are the data's, not the GPU's: report them once instead of
+    # failing on the GPU, counting a GPU fallback, and failing again on the CPU.
+    if min(ct.shape) < 3:
+        return _ridge_failure(
+            ct, uri, strict, f"a {ct.shape} patch is too small for ridge detection"
+        )
+    if not np.isfinite(ct).all():
+        return _ridge_failure(ct, uri, strict, "non-finite CT values")
+
+    def checked(ridges):
+        # A result of the wrong shape or with non-finite values is a failure,
+        # not a feature (from #48's strict-preprocessing contract).
+        ridges = np.asarray(ridges, dtype=np.float32)
+        if ridges.shape != ct.shape or not np.isfinite(ridges).all():
+            raise ValueError("ridge detection returned invalid shape or values")
+        return torch.from_numpy(ridges)
+
+    cp = _cupy()
+    if cp is not None:
+        try:
+            return checked(cp.asnumpy(detect_ridges(cp.asarray(ct), sigma=sigma)))
+        except Exception as exc:
+            _warn_limited(
+                "ridge_gpu_fallback",
+                f"GPU ridge detection failed for {uri}; using the CPU: "
+                f"{type(exc).__name__}: {exc}",
+            )
+    try:
+        return checked(detect_ridges(ct, sigma=sigma))
+    except Exception as exc:
+        return _ridge_failure(
+            ct, uri, strict, f"ridge detection failed: {type(exc).__name__}: {exc}", exc
+        )
+
+
+def _ridge_failure(ct, uri, strict, reason, cause=None):
+    if strict:
+        raise RuntimeError(f"{uri}: {reason}") from cause
+    _warn_limited("ridge_fallback", f"{uri}: {reason}; using zero ridges")
+    return torch.zeros(ct.shape, dtype=torch.float32)
 
 
 class FastVesuviusVolume:
@@ -156,55 +268,15 @@ class FastVesuviusVolume:
         ct_tensor = torch.from_numpy(ct_norm)
 
         if self.use_ridges:
-            # Priority A Integration: CuPy-accelerated ridges on-the-fly
-            if depth < 3:
-                _warn_limited(
-                    "ridge_thin_volume",
-                    f"Volume too thin ({depth} slices) for ridge detection; using zero ridges.",
-                )
-                ridges_tensor = torch.zeros_like(ct_tensor)
-            else:
-                # Three-tier graceful degradation for ridge detection:
-                #   1) CuPy GPU path (fast)        — requires CUDA + cuSolver
-                #   2) NumPy/SciPy CPU path        — slower but no GPU deps
-                #   3) zero-ridge fallback         — last resort, was the
-                #      silent default before this fix (2026-05-19): the
-                #      original code set up CuPy but didn't flip
-                #      fiber_tools.xp from numpy, so detect_ridges' internal
-                #      numpy ops on a CuPy array triggered TypeError and
-                #      every use_ridges=True cycle silently trained on zeros.
-                ridges_tensor = None
-                try:
-                    import cupy as cp
-
-                    ct_gpu = cp.asarray(ct_norm)
-                    # New tools.py automatically detects CP backend and avoids cuSolver
-                    ridges_gpu = detect_ridges(ct_gpu, sigma=self.ridge_sigma)
-                    ridges = cp.asnumpy(ridges_gpu)
-                    ridges_tensor = torch.from_numpy(ridges).float()
-                except Exception as exc_gpu:
-                    _warn_limited(
-                        "ridge_gpu_fallback",
-                        f"GPU ridge detection failed for {self.uri}; trying CPU: {type(exc_gpu).__name__}: {exc_gpu}",
-                    )
-                if ridges_tensor is None:
-                    try:
-                        ridges = detect_ridges(ct_norm, sigma=self.ridge_sigma)
-                        ridges_tensor = torch.from_numpy(
-                            np.asarray(ridges, dtype=np.float32)
-                        )
-                    except Exception as exc_cpu:
-                        _warn_limited(
-                            "ridge_fallback",
-                            f"ridge detection failed for {self.uri} (CPU too); using zero ridges: {type(exc_cpu).__name__}: {exc_cpu}",
-                        )
-                        ridges_tensor = torch.zeros_like(ct_tensor)
+            ridges_tensor = ridge_channel(ct_norm, self.ridge_sigma, self.uri)
             return torch.stack([ct_tensor, ridges_tensor], dim=0)
 
         return ct_tensor
 
     def get_raw_patch(self, z, y, x, d, h, w) -> torch.Tensor:
         ct = self.vol.get_chunk(z, y, x, d, h, w)
+        if not ct.dtype.isnative:  # e.g. a big-endian zarr; torch needs native
+            ct = ct.astype(ct.dtype.newbyteorder("="))
         if ct.dtype == np.uint16:
             ct = ct.astype(np.int32)
         return torch.from_numpy(ct)
@@ -251,6 +323,21 @@ class VesuviusLabeledDataset(torch.utils.data.Dataset):
         self.patch_size = patch_size
         self.num_layers = min(num_layers, self.volume.shape[0])
         self.shape = self.volume.shape
+        # __getitem__ normalises uint8 (/255) and uint16 (read as int32, /65535)
+        # and passes floats through; any other dtype reached the model raw.
+        # Checked from the array's metadata, without reading CT.
+        vol = self.volume.vol
+        dtype = getattr(vol, "dtype", None) or getattr(
+            getattr(vol, "arr", None), "dtype", None
+        )
+        dtype = None if dtype is None else np.dtype(dtype)
+        if dtype is not None and not (
+            (dtype.kind == "u" and dtype.itemsize in (1, 2)) or dtype.kind == "f"
+        ):
+            raise ValueError(
+                f"unsupported CT dtype {dtype} for {volume_uri}; the labeled "
+                "dataset normalises uint8 and uint16 volumes and passes floats through"
+            )
         self.seed = seed
         self.jitter = jitter
         self.strict_reads = strict_reads
@@ -292,24 +379,45 @@ class VesuviusLabeledDataset(torch.utils.data.Dataset):
         # CT as (H, depth, W) instead, so a naive load silently misaligns labels
         # against transposed CT — the model then trains on garbage and scores
         # ~chance, with the only visible symptom a downstream collate crash. Fail
-        # loudly here instead. Tolerance allows minor resolution/crop differences
-        # that the patch sampler clamps; a gross mismatch (e.g. 5×) is rejected.
+        # loudly here instead. Exports of the same segment differ by rounding
+        # (0-1 px across the registered segments in reports/scorer_vs_labels.json);
+        # anything larger is a different crop or scale. The tolerance used to be
+        # 20% of each side (~1,600 px on an 8,181 px fragment), which let a
+        # misregistered label train and validate silently.
         vol_hw = (self.shape[1], self.shape[2])
-        for _name, _arr in (("labels", self.labels), ("mask", self.mask)):
-            if _arr is None:
-                continue
+        coords_from_json = bool(patches_json and os.path.exists(patches_json))
+        for _name in ("labels", "mask"):
+            _arr = getattr(self, _name)
+            if _arr is None or (_name == "mask" and coords_from_json):
+                continue  # a mask only places patches; patches.json replaces it
+            if _name == "labels" and _arr.ndim != 2:
+                # Labels are cut into patches: an RGB(A) PNG passed the old
+                # (H, W)-only check and produced [p, p, C] label patches. A mask
+                # may keep its channels; villa's patch finder collapses them.
+                raise ValueError(
+                    f"labels for {volume_uri} must be a single-channel image; "
+                    f"got array shape {_arr.shape}"
+                )
             lh, lw = _arr.shape[:2]
             if (
-                abs(lh - vol_hw[0]) > 0.2 * vol_hw[0]
-                or abs(lw - vol_hw[1]) > 0.2 * vol_hw[1]
+                abs(lh - vol_hw[0]) > LABEL_SHAPE_TOLERANCE_PX
+                or abs(lw - vol_hw[1]) > LABEL_SHAPE_TOLERANCE_PX
             ):
                 raise ValueError(
                     f"{_name} shape {(lh, lw)} does not match volume (H, W)="
-                    f"{vol_hw} for {volume_uri}. The CT volume is likely stored "
-                    f"in a different axis order than (depth, H, W) (full shape "
-                    f"{tuple(self.shape)}); align the label to the volume grid "
-                    f"(or transpose the volume) before training."
+                    f"{vol_hw} for {volume_uri} (tolerance "
+                    f"{LABEL_SHAPE_TOLERANCE_PX} px). "
+                    + _mismatch_hint((lh, lw), tuple(self.shape))
                 )
+            if (lh, lw) != vol_hw:
+                # Within tolerance, put it on the volume grid: crop the extra
+                # row/column, or pad a missing one with zeros. A label 1-2 px
+                # short otherwise gave edge patches a shorter label than
+                # patch_size, and collation failed.
+                fitted = np.zeros(vol_hw + _arr.shape[2:], dtype=_arr.dtype)
+                h, w = min(lh, vol_hw[0]), min(lw, vol_hw[1])
+                fitted[:h, :w] = _arr[:h, :w]
+                setattr(self, _name, fitted)
 
         # Pre-calculate valid coordinates
         mask_mtime = (
@@ -330,7 +438,9 @@ class VesuviusLabeledDataset(torch.utils.data.Dataset):
         uri_hash = hashlib.md5(volume_uri.encode()).hexdigest()[:8]
         cache_path = os.path.join(
             self.volume.cache_dir,
-            f"valid_coords_villa_{uri_hash}_{self.patch_size}_{mask_mtime}_{labels_mtime}_{1 if require_ink else 0}_{self.min_mask_ratio}_{self.min_ink_ratio}.npy",
+            # "grid": computed on the label/mask as fitted to the volume grid; older
+            # caches came from the unfitted arrays.
+            f"valid_coords_villa_grid_{uri_hash}_{self.patch_size}_{mask_mtime}_{labels_mtime}_{1 if require_ink else 0}_{self.min_mask_ratio}_{self.min_ink_ratio}.npy",
         )
 
         if patches_json and os.path.exists(patches_json):
@@ -600,6 +710,8 @@ class VesuviusLabeledDataset(torch.utils.data.Dataset):
                 patch_vol = patch_vol.float() / 255.0
             elif patch_vol.dtype == torch.int32:  # previously uint16
                 patch_vol = patch_vol.float() / 65535.0
+            else:
+                patch_vol = patch_vol.float()  # floating volumes (checked in __init__)
 
             if self.use_ridges:
                 patch_vol = self._compute_ridges(patch_vol)
@@ -678,50 +790,13 @@ class VesuviusLabeledDataset(torch.utils.data.Dataset):
             )
 
     def _compute_ridges(self, patch_vol):
-        # Calculate ridges on flattened volume
-        ct_tensor = patch_vol
-        depth = ct_tensor.shape[0]
-        if depth < 3:
-            if getattr(self, "strict_reads", False):
-                raise RuntimeError("Ridge detection requires at least 3 slices")
-            ridges_tensor = torch.zeros_like(ct_tensor)
-        else:
-
-            def result_tensor(ridges):
-                array = np.asarray(ridges, dtype=np.float32)
-                if (
-                    array.shape != tuple(ct_tensor.shape)
-                    or not np.isfinite(array).all()
-                ):
-                    raise ValueError("Ridge detection returned invalid shape or values")
-                return torch.from_numpy(array).to(ct_tensor.device)
-
-            try:
-                import cupy as cp
-
-                ct_gpu = cp.asarray(ct_tensor)
-                ridges_gpu = detect_ridges(ct_gpu, sigma=self.volume.ridge_sigma)
-                ridges_tensor = result_tensor(cp.asnumpy(ridges_gpu))
-            except Exception as exc_gpu:
-                _warn_limited(
-                    "labeled_ridge_gpu_fallback",
-                    f"GPU ridge detection failed for {self.volume.uri}; trying CPU: {type(exc_gpu).__name__}: {exc_gpu}",
-                )
-                try:
-                    ct_cpu = ct_tensor.cpu().numpy()
-                    ridges_cpu = detect_ridges(ct_cpu, sigma=self.volume.ridge_sigma)
-                    ridges_tensor = result_tensor(ridges_cpu)
-                except Exception as exc_cpu:
-                    if getattr(self, "strict_reads", False):
-                        raise RuntimeError(
-                            f"Ridge detection failed on GPU and CPU for {self.volume.uri}: {type(exc_cpu).__name__}: {exc_cpu}"
-                        ) from exc_cpu
-                    _warn_limited(
-                        "labeled_ridge_fallback",
-                        f"Ridge detection failed for {self.volume.uri} (CPU too); using zero ridges: {type(exc_cpu).__name__}: {exc_cpu}",
-                    )
-                    ridges_tensor = torch.zeros_like(ct_tensor)
-        return torch.stack([ct_tensor, ridges_tensor], dim=0)
+        ridges = ridge_channel(
+            patch_vol.cpu().numpy(),
+            self.volume.ridge_sigma,
+            self.volume.uri,
+            strict=getattr(self, "strict_reads", False),
+        )
+        return torch.stack([patch_vol, ridges.to(patch_vol.dtype)], dim=0)
 
 
 class VesuviusS3Dataset(torch.utils.data.Dataset):

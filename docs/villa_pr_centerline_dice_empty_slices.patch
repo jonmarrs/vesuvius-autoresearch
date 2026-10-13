@@ -1,0 +1,12 @@
+--- a/segmentation/evaluation/metrics/centerline_dice.py
++++ b/segmentation/evaluation/metrics/centerline_dice.py
+@@ -92,7 +92,8 @@
+ 
+     # Create tolerance region around ground truth skeleton
+     # Distance transform gives distance to nearest foreground pixel
+-    dist_transform = np.zeros_like(label, dtype=float)
++    # Slices without a ground-truth skeleton have no tolerance region.
++    dist_transform = np.full(label.shape, np.inf)
+     for z in range(label.shape[0]):
+         if np.any(label_skeleton[z]):
+             # Get distance to nearest skeleton pixel
