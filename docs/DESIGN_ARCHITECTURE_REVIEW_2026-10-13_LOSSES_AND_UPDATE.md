@@ -79,8 +79,8 @@ Steps 1 and 4 need the GPU host; see "Restarting the loop" below.
 The loop now refuses to start ("Not starting: … scored under validation protocol
 seeded-sample-400-v2, not seeded-sample-400-v2+z17-43"). On the GPU host:
 
-1. Check the fragments' depth: the read range is 13–47, so a fragment shallower than 37 slices
-   makes the dataset refuse to build. `uv run python -c "import zarr; print(zarr.open('local_data/PHercParis2Fr47/surface_volume.zarr'))"`.
+1. Check the fragments' depth: a fragment shallower than 43 slices makes the dataset refuse to
+   build, because the band would lie outside it. `uv run python -c "import zarr; print(zarr.open('local_data/PHercParis2Fr47/surface_volume.zarr'))"`.
 2. **Decide lasagna first.** `reevaluate_best_model.py` scores the incumbent with its recorded
    `use_lasagna: true`. Strict validation refuses that warp on these uint8 volumes, so the re-score
    stops as incomplete. This was already true before the band; the band only makes the re-score

@@ -4,7 +4,7 @@
 
 * Patches now read inside `depth_band: [17, 43]` (`config.json`); the validation protocol is
   `seeded-sample-400-v2+z17-43`. The loop prints "Not starting" until the incumbent is re-scored.
-* Order on the GPU host: check the fragments' depth (at least 37 slices), **decide lasagna** (the
+* Order on the GPU host: check the fragments' depth (at least 43 slices), **decide lasagna** (the
   re-score applies the incumbent's recorded `use_lasagna: true`, which strict reads refuse on uint8),
   then run `scripts/reevaluate_best_model.py --update-stored` and `./start.sh`. See
   `docs/DESIGN_ARCHITECTURE_REVIEW_2026-10-13_LOSSES_AND_UPDATE.md`, "Restarting the loop".
