@@ -211,6 +211,15 @@ class FastVesuviusVolume:
 
 
 class VesuviusLabeledDataset(torch.utils.data.Dataset):
+    """CT patches and labels, with optional preprocessing.
+
+    ``strict_reads=True`` requires requested preprocessing to succeed as well as
+    the source read. It is used for measurements: substituted features or an
+    unwarped patch cannot represent the requested input configuration. A working
+    CPU ridge implementation remains a valid fallback from an unavailable GPU.
+    The default permissive mode retains warning-and-fallback behavior.
+    """
+
     def __init__(
         self,
         volume_uri,
@@ -425,11 +434,14 @@ class VesuviusLabeledDataset(torch.utils.data.Dataset):
         Accepts [Z, H, W] (3D) or [C, Z, H, W] (4D) tensors and returns
         the same shape. Falls back to the unmodified patch_vol if
         use_lasagna is False, the volume is too thin (D < 3), or the
-        warp raises an exception.
+        warp raises an exception. Strict reads reject a requested warp that
+        cannot run instead of returning an unwarped sample.
         """
         if not self.use_lasagna:
             return patch_vol
         if patch_vol.shape[-3] < 3:
+            if getattr(self, "strict_reads", False):
+                raise RuntimeError("Lasagna flattening requires at least 3 slices")
             return patch_vol
         try:
             is_3d = patch_vol.dim() == 3
@@ -509,10 +521,22 @@ class VesuviusLabeledDataset(torch.utils.data.Dataset):
                     align_corners=True,
                 ).squeeze(0)  # [C, Z, H, W]
 
+            if (
+                not isinstance(warped, torch.Tensor)
+                or warped.shape != vol.shape
+                or warped.dtype != vol.dtype
+                or warped.device != vol.device
+                or not torch.isfinite(warped).all()
+            ):
+                raise ValueError("Lasagna warp returned invalid shape, dtype or values")
             if is_3d:
                 warped = warped.squeeze(0)
             return warped
         except Exception as exc:
+            if getattr(self, "strict_reads", False):
+                raise RuntimeError(
+                    f"Lasagna flattening failed for {self.volume.uri}: {type(exc).__name__}: {exc}"
+                ) from exc
             _warn_limited(
                 "lasagna_warp_failed",
                 f"Lasagna flattening failed for {self.volume.uri}; returning unwarped patch: {type(exc).__name__}: {exc}",
@@ -608,7 +632,7 @@ class VesuviusLabeledDataset(torch.utils.data.Dataset):
         except Exception as e:
             if getattr(self, "strict_reads", False):
                 raise RuntimeError(
-                    f"failed to read labeled patch {idx} from {self.volume.uri}"
+                    f"failed to read labeled patch {idx} from {self.volume.uri}: {e}"
                 ) from e
             _warn_limited(
                 "labeled_zero_patch",
@@ -634,8 +658,17 @@ class VesuviusLabeledDataset(torch.utils.data.Dataset):
             ct = patch_vol[0] if patch_vol.dim() == 4 else patch_vol
             ct_np = ct.detach().cpu().numpy().astype(np.float32)
             v_2d = frangi_vesselness_zcollapsed(ct_np, sigma=self.target_fiber_sigma)
+            if (
+                v_2d.shape != (self.patch_size, self.patch_size)
+                or not np.isfinite(v_2d).all()
+            ):
+                raise ValueError("Frangi target returned invalid shape or values")
             return torch.from_numpy(v_2d).unsqueeze(0).unsqueeze(0)  # [1, 1, H, W]
         except Exception as exc:
+            if getattr(self, "strict_reads", False):
+                raise RuntimeError(
+                    f"Frangi target compute failed for {self.volume.uri}: {type(exc).__name__}: {exc}"
+                ) from exc
             _warn_limited(
                 "frangi_target_failed",
                 f"Frangi target compute failed for {self.volume.uri}; using zeros: {type(exc).__name__}: {exc}",
@@ -649,25 +682,44 @@ class VesuviusLabeledDataset(torch.utils.data.Dataset):
         ct_tensor = patch_vol
         depth = ct_tensor.shape[0]
         if depth < 3:
+            if getattr(self, "strict_reads", False):
+                raise RuntimeError("Ridge detection requires at least 3 slices")
             ridges_tensor = torch.zeros_like(ct_tensor)
         else:
-            ridges_tensor = None
+
+            def result_tensor(ridges):
+                array = np.asarray(ridges, dtype=np.float32)
+                if (
+                    array.shape != tuple(ct_tensor.shape)
+                    or not np.isfinite(array).all()
+                ):
+                    raise ValueError("Ridge detection returned invalid shape or values")
+                return torch.from_numpy(array).to(ct_tensor.device)
+
             try:
                 import cupy as cp
 
                 ct_gpu = cp.asarray(ct_tensor)
                 ridges_gpu = detect_ridges(ct_gpu, sigma=self.volume.ridge_sigma)
-                ridges_tensor = (
-                    torch.from_numpy(cp.asnumpy(ridges_gpu)).float().to(self.device)
+                ridges_tensor = result_tensor(cp.asnumpy(ridges_gpu))
+            except Exception as exc_gpu:
+                _warn_limited(
+                    "labeled_ridge_gpu_fallback",
+                    f"GPU ridge detection failed for {self.volume.uri}; trying CPU: {type(exc_gpu).__name__}: {exc_gpu}",
                 )
-            except Exception:
                 try:
                     ct_cpu = ct_tensor.cpu().numpy()
                     ridges_cpu = detect_ridges(ct_cpu, sigma=self.volume.ridge_sigma)
-                    ridges_tensor = torch.from_numpy(
-                        np.asarray(ridges_cpu, dtype=np.float32)
+                    ridges_tensor = result_tensor(ridges_cpu)
+                except Exception as exc_cpu:
+                    if getattr(self, "strict_reads", False):
+                        raise RuntimeError(
+                            f"Ridge detection failed on GPU and CPU for {self.volume.uri}: {type(exc_cpu).__name__}: {exc_cpu}"
+                        ) from exc_cpu
+                    _warn_limited(
+                        "labeled_ridge_fallback",
+                        f"Ridge detection failed for {self.volume.uri} (CPU too); using zero ridges: {type(exc_cpu).__name__}: {exc_cpu}",
                     )
-                except Exception:
                     ridges_tensor = torch.zeros_like(ct_tensor)
         return torch.stack([ct_tensor, ridges_tensor], dim=0)
 

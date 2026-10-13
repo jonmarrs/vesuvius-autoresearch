@@ -13,7 +13,10 @@ from __future__ import annotations
 import ast
 import sys
 import types
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeout
+from importlib.machinery import SourceFileLoader
 from pathlib import Path
+from threading import Event
 
 import pytest
 
@@ -95,6 +98,76 @@ def test_a_failed_execution_is_not_cached(tmp_path):
     with pytest.raises(RuntimeError, match="boom"):
         load_villa_leaf("leaf.py", villa_root=root)
     assert set(sys.modules) == before
+
+
+@pytest.mark.parametrize("first_fails", [False, True])
+def test_concurrent_callers_wait_for_module_initialization(
+    tmp_path, monkeypatch, first_fails
+):
+    root = _tree(tmp_path / "villa", {"leaf.py": "READY = 'complete'\n"})
+    initializing, release, second_started = Event(), Event(), Event()
+    execute = SourceFileLoader.exec_module
+    attempts = []
+
+    def paused_execution(loader, module):
+        if Path(loader.path) == root / "leaf.py":
+            attempts.append(module)
+            if len(attempts) == 1:
+                initializing.set()
+                assert release.wait(5), "test did not release the initializer"
+                if first_fails:
+                    raise RuntimeError("first initializer failed")
+        return execute(loader, module)
+
+    def second_call():
+        second_started.set()
+        return load_villa_leaf("leaf.py", villa_root=root)
+
+    monkeypatch.setattr(SourceFileLoader, "exec_module", paused_execution)
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        first = pool.submit(load_villa_leaf, "leaf.py", villa_root=root)
+        try:
+            assert initializing.wait(5)
+            second = pool.submit(second_call)
+            assert second_started.wait(5)
+            with pytest.raises(FutureTimeout):
+                second.result(timeout=0.2)
+        finally:
+            release.set()
+        if first_fails:
+            with pytest.raises(RuntimeError, match="first initializer failed"):
+                first.result(timeout=5)
+            assert second.result(timeout=5).READY == "complete"
+            assert len(attempts) == 2
+        else:
+            assert first.result(timeout=5) is second.result(timeout=5)
+            assert len(attempts) == 1
+        assert second.result(timeout=5).READY == "complete"
+
+
+def test_a_slow_module_does_not_block_a_different_module(tmp_path, monkeypatch):
+    root = _tree(
+        tmp_path / "villa", {"slow.py": "READY = 1\n", "other.py": "READY = 2\n"}
+    )
+    initializing, release = Event(), Event()
+    execute = SourceFileLoader.exec_module
+
+    def paused_execution(loader, module):
+        if Path(loader.path) == root / "slow.py":
+            initializing.set()
+            assert release.wait(5)
+        return execute(loader, module)
+
+    monkeypatch.setattr(SourceFileLoader, "exec_module", paused_execution)
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        slow = pool.submit(load_villa_leaf, "slow.py", villa_root=root)
+        try:
+            assert initializing.wait(5)
+            other = pool.submit(load_villa_leaf, "other.py", villa_root=root)
+            assert other.result(timeout=2).READY == 2
+        finally:
+            release.set()
+        assert slow.result(timeout=5).READY == 1
 
 
 def test_a_missing_file_names_the_submodule_step(tmp_path):
