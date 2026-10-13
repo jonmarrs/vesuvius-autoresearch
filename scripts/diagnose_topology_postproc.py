@@ -132,6 +132,8 @@ def main():
         ridge_sigma=getattr(config, "ridge_sigma", 2.0),
         use_lasagna=False,
         require_ink=True,
+        depth_band=config.depth_band,
+        depth_margin=DEPTH_MARGIN,
     )
     val_loader = DataLoader(val_ds, batch_size=config.batch_size, num_workers=0)
     val_iter = iter(val_loader)

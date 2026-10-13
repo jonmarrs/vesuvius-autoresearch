@@ -157,6 +157,7 @@ def _decide(path, val_f1=0.6, lift=1.5, submittable=True, complete=True):
         submittable=submittable,
         enforce_prize_gates=True,
         validation_complete=complete,
+        protocol=promotion.VALIDATION_PROTOCOL,
         incumbent_path=str(path),
     )
 
@@ -333,6 +334,15 @@ def test_a_malformed_or_too_narrow_depth_band_is_refused(band):
         ExperimentConfig(depth_band=band)
 
 
+@pytest.mark.parametrize("band", [[0, 16], [3, 19]])
+def test_a_band_whose_widened_read_cannot_hold_the_context_is_refused(band):
+    """[0, 16] fits the 16-slice window but not the 24-slice read (clamped at 0),
+    which the dataset would refuse on every cycle."""
+    with pytest.raises(ValueError, match="context"):
+        ExperimentConfig(num_layers=16, depth_band=band)
+    ExperimentConfig(num_layers=16, depth_band=[4, 20])  # 0-24 holds it
+
+
 def test_the_depth_band_round_trips_and_names_the_protocol(tmp_path):
     config = ExperimentConfig(num_layers=16, depth_band=(17, 43))
     config.save(tmp_path / "config.json")
@@ -342,14 +352,6 @@ def test_the_depth_band_round_trips_and_names_the_protocol(tmp_path):
     assert promotion.validation_protocol(loaded.depth_band) == (
         "seeded-sample-400-v2+z17-43"
     )
-
-
-def test_the_band_widens_by_the_context_so_validation_sits_inside_it():
-    assert train.depth_read_range(ExperimentConfig()) is None
-    banded = ExperimentConfig(num_layers=16, depth_band=[17, 43])
-    assert train.depth_read_range(banded) == (13, 47)
-    edge = ExperimentConfig(num_layers=16, depth_band=[2, 30])
-    assert train.depth_read_range(edge) == (0, 34)
 
 
 def test_an_incumbent_scored_on_the_whole_depth_is_not_comparable(tmp_path):
@@ -379,3 +381,13 @@ def test_the_loop_will_not_start_until_the_incumbent_is_scored_in_the_band(
     assert _drive_loop(tmp_path, monkeypatch, cycles=1) == []
     out = capsys.readouterr().out
     assert "Not starting" in out and "seeded-sample-400-v2+z17-43" in out
+
+
+def test_an_invalid_config_band_is_a_clear_refusal_not_a_crash(
+    tmp_path, monkeypatch, capsys
+):
+    config = ExperimentConfig().__dict__ | {"depth_band": [17, 30]}
+    config["auxiliary_config"] = None
+    (tmp_path / "config.json").write_text(json.dumps(config))
+    assert _drive_loop(tmp_path, monkeypatch, cycles=1) == []
+    assert "Not starting: depth_band [17, 30]" in capsys.readouterr().out

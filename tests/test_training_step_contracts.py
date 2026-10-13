@@ -326,7 +326,10 @@ def test_both_labeled_datasets_read_inside_the_depth_band(tmp_path, monkeypatch)
         pass
 
     def dataset(uri, *args, **kwargs):
-        seen[os.path.basename(os.path.dirname(uri))] = kwargs.get("depth_range")
+        seen[os.path.basename(os.path.dirname(uri))] = (
+            kwargs.get("depth_band"),
+            kwargs.get("depth_margin"),
+        )
         if "train" in uri:
             raise Stop
         return _Catalogue(10)
@@ -334,4 +337,4 @@ def test_both_labeled_datasets_read_inside_the_depth_band(tmp_path, monkeypatch)
     monkeypatch.setattr(train, "VesuviusLabeledDataset", dataset)
     with pytest.raises(Stop):
         train.train(config)
-    assert seen == {"val": (13, 47), "train": (13, 47)}
+    assert seen == {"val": ([17, 43], 4), "train": ([17, 43], 4)}

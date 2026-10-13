@@ -53,9 +53,7 @@ def validation_indices(
     return np.sort(order[: min(sample_size, catalogue_size)])
 
 
-def read_incumbent_val_f1(
-    path: str = "best_model.pt", protocol: str = VALIDATION_PROTOCOL
-) -> float:
+def read_incumbent_val_f1(path: str, protocol: str) -> float:
     """The stored val_f1 a candidate must beat.
 
     -inf when there is no incumbent, so the first run bootstraps one. Raises

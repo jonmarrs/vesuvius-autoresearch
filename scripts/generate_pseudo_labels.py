@@ -92,6 +92,10 @@ def _infer_region(
         require_ink=False,
         jitter=False,
         strict_reads=True,
+        # Predict from the slices the checkpoint was trained on: these labels
+        # are trained on again (None: the whole depth).
+        depth_band=saved["config"].get("depth_band"),
+        depth_margin=DEPTH_MARGIN,
     )
     H, W = ds.shape[1], ds.shape[2]
     requested_region = read_png(

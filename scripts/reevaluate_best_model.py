@@ -259,6 +259,9 @@ def reevaluate(update_stored: bool = False) -> None:
         chk["reevaluation"] = {
             "methodology": protocol,
             "validation_uri": config.val_uri,
+            # The slices the stored score was measured on; the model's own
+            # training band, if any, stays in chk["config"].
+            "depth_band": config.depth_band,
             "model_settings": settings,
             "input_settings": {
                 name: getattr(config, name) for name in RECORDED_INPUT_SETTINGS

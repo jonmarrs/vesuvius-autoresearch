@@ -254,7 +254,9 @@ def write_prediction_metadata(
 
 class PredictionArgs(Tap):
     uri: str  # S3 or local path to Zarr volume
-    z: int | None = None  # first slice; default: centred in the volume's depth
+    z: int | None = (
+        None  # first slice; default: centred in the checkpoint's depth_band, else the volume
+    )
     y: int
     x: int
     width: int | None = None  # Total width to predict
@@ -329,15 +331,18 @@ def predict():
         raise ValueError("use_ridges must be a boolean")
     args.inference_recipe["ridge_depth_context"] = ridge_depth_context(use_ridges)
     if args.z is None:
-        # Centre the window in the depth band the checkpoint was trained on, or,
-        # without one, in the volume (surface volumes are built around the
-        # segment surface at their middle layer).
+        # Centre the window in the depth band the checkpoint was trained on, when
+        # that band lies inside this volume; otherwise in the volume (surface
+        # volumes are built around the segment surface at their middle layer).
+        # The band is in the training fragments' slices: pass --z for volumes
+        # built another way.
+        depth = FastVesuviusVolume(args.uri).shape[0]
         band = config_dict.get("depth_band")
-        if band:
-            args.z = max(0, (band[0] + band[1] - num_layers) // 2)
+        if band and 0 <= band[0] < band[1] <= depth:
+            centre = band[0] + band[1]
         else:
-            depth = FastVesuviusVolume(args.uri).shape[0]
-            args.z = max(0, (depth - num_layers) // 2)
+            centre = depth
+        args.z = min(max(0, (centre - num_layers) // 2), max(0, depth - num_layers))
     validate_region(args, patch_size, num_layers)
     model = build_prediction_model(config_dict, args, use_ridges).to(device)
     # Partial warm starts are appropriate for training, not evidence export.

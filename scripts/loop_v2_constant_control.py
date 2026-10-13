@@ -86,6 +86,7 @@ def main(out_path):
         batch_size=config.batch_size,
         amp_enabled=device.type == "cuda",
         probabilities=probabilities,
+        protocol=protocol,
     )
     if not diag["complete"]:
         raise RuntimeError("incomplete validation sample; no control computed")

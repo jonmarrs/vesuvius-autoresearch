@@ -286,12 +286,20 @@ def test_without_a_depth_range_reads_start_where_they_always_did(indexed_depth):
         assert _read_start(dataset[idx]) == expected
 
 
-def test_a_depth_range_keeps_every_read_inside_it(indexed_depth):
-    dataset = indexed_depth(depth_range=(5, 17))
+def test_a_depth_band_keeps_every_read_inside_it_and_its_margin(indexed_depth):
+    dataset = indexed_depth(depth_band=(7, 15), depth_margin=2)  # reads 5-17
     starts = {_read_start(dataset[idx]) for idx in range(len(dataset))}
     assert starts <= set(range(5, 17 - 8 + 1)) and len(starts) > 1
 
 
-def test_a_depth_range_that_cannot_hold_a_read_is_refused(indexed_depth):
+def test_the_margin_is_clamped_at_the_volume_but_the_band_is_not(indexed_depth):
+    dataset = indexed_depth(depth_band=(30, 40), depth_margin=4)  # reads 26-40
+    starts = {_read_start(dataset[idx]) for idx in range(len(dataset))}
+    assert starts <= set(range(26, 40 - 8 + 1))
+    with pytest.raises(ValueError, match="lies outside"):
+        indexed_depth(depth_band=(30, 41))
+
+
+def test_a_depth_band_that_cannot_hold_a_read_is_refused(indexed_depth):
     with pytest.raises(ValueError, match="cannot hold"):
-        indexed_depth(depth_range=(35, 50))  # clamped to 35-40: 5 slices < 8
+        indexed_depth(depth_band=(35, 40), depth_margin=1)  # 34-40: 6 slices < 8

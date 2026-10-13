@@ -372,8 +372,8 @@ def promotion_decision(
     submittable: bool,
     enforce_prize_gates: bool,
     validation_complete: bool,
+    protocol: str,
     incumbent_path: str = "best_model.pt",
-    protocol: str = VALIDATION_PROTOCOL,
 ):
     """Whether this run replaces the incumbent: (promote, incumbent_val_f1, reason).
 
@@ -481,20 +481,6 @@ def shuffled_loader(dataset, batch_size: int, seed: int) -> DataLoader:
     )
 
 
-def depth_read_range(config: ExperimentConfig):
-    """The slices a labeled read may come from, for config.depth_band.
-
-    Reads are num_layers + 2 * DEPTH_MARGIN deep and validation shows the model
-    their centre, so widening the band by the margin puts validation's window
-    inside the band. Training's window offset (0 to 2 * margin - 1) can reach up
-    to DEPTH_MARGIN slices past it, as its depth jitter. None: the whole depth.
-    """
-    band = getattr(config, "depth_band", None)
-    if band is None:
-        return None
-    return (max(0, band[0] - DEPTH_MARGIN), band[1] + DEPTH_MARGIN)
-
-
 def build_validation_dataset(config: ExperimentConfig):
     """The validation catalogue promotion is scored on (see promotion.py).
 
@@ -528,7 +514,8 @@ def build_validation_dataset(config: ExperimentConfig):
         target_fiber_source="sobel_z",
         patches_json=patches_json_path if os.path.exists(patches_json_path) else None,
         strict_reads=True,
-        depth_range=depth_read_range(config),
+        depth_band=getattr(config, "depth_band", None),
+        depth_margin=DEPTH_MARGIN,
     )
 
 
@@ -1552,7 +1539,8 @@ def train(config: ExperimentConfig):
                     patches_json=patches_json_path
                     if os.path.exists(patches_json_path)
                     else None,
-                    depth_range=depth_read_range(config),
+                    depth_band=getattr(config, "depth_band", None),
+                    depth_margin=DEPTH_MARGIN,
                 )
             else:
                 ds = VesuviusS3Dataset(
