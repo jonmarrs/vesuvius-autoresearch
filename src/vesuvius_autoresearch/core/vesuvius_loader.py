@@ -545,7 +545,10 @@ class VesuviusLabeledDataset(torch.utils.data.Dataset):
         the same shape. Falls back to the unmodified patch_vol if
         use_lasagna is False, the volume is too thin (D < 3), or the
         warp raises an exception. Strict reads reject a requested warp that
-        cannot run instead of returning an unwarped sample.
+        cannot run instead of returning an unwarped sample. uint8 patches go
+        through villa's CUDA-only kernel, so a uint8 patch on the CPU (what
+        this loader reads) cannot be warped; float patches use torch's
+        grid_sample on any device.
         """
         if not self.use_lasagna:
             return patch_vol
@@ -577,6 +580,16 @@ class VesuviusLabeledDataset(torch.utils.data.Dataset):
             z_center = (Z - 1) / 2.0
 
             if dtype == torch.uint8:
+                # villa's kernel checks that every input is a CUDA tensor and that the
+                # grid is (D, H, W, 3). Patches are read on the CPU, so refuse before
+                # the first call JIT-compiles the extension: that compile's failure
+                # (no nvcc, CUDA_HOME unset) was the only cause ever logged, and
+                # installing a toolkit would only have moved the failure here.
+                if vol.device.type != "cuda":
+                    raise RuntimeError(
+                        "villa's uint8 grid_sample kernel takes CUDA tensors; "
+                        f"this patch is on {vol.device.type}"
+                    )
                 # By absolute path, not a relative sys.path entry: that only resolved
                 # from the repository root (elsewhere the except below silently
                 # disabled flattening) and shadowed ~90 generic module names.
@@ -596,7 +609,7 @@ class VesuviusLabeledDataset(torch.utils.data.Dataset):
                     indexing="ij",
                 )
                 new_z = z_grid + z_offset
-                grid = torch.stack([x_grid, y_grid, new_z], dim=-1).unsqueeze(0)
+                grid = torch.stack([x_grid, y_grid, new_z], dim=-1)  # [Z, H, W, 3]
 
                 offset = torch.tensor(
                     [0.0, 0.0, 0.0], device=device, dtype=torch.float32

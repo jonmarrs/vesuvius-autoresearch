@@ -484,6 +484,25 @@ def _sigmoid_ink(model, x):
     return torch.sigmoid(out[0] if isinstance(out, tuple) else out)
 
 
+def probe_validation_read(dataset) -> None:
+    """Read the protocol's first validation patch, before any training.
+
+    collect_validation_predictions counts a failed read as a batch error and marks
+    the sample incomplete, which blocks promotion. A patch the strict read cannot
+    produce (an unavailable lasagna warp, a ridge failure) therefore makes the
+    whole cycle unpromotable; reading one patch first fails it before training
+    instead of after the training budget.
+    """
+    index = int(validation_indices(len(dataset))[0])
+    try:
+        dataset[index]
+    except Exception as exc:
+        raise RuntimeError(
+            f"validation patch {index} cannot be read, so this run could not be "
+            f"scored: {type(exc).__name__}: {exc}"
+        ) from exc
+
+
 def collect_validation_predictions(
     model,
     dataset,
@@ -1506,9 +1525,10 @@ def train(config: ExperimentConfig):
         unlabeled_data_loader = get_dataloader(config.unlabeled_uris, is_unlabeled=True)
         unlabeled_data_iter = iter(unlabeled_data_loader)
 
-    # Built before training so a missing or empty validation catalogue fails
-    # in seconds, not after the training budget.
+    # Built and read before training so a missing or empty validation catalogue,
+    # or a patch the strict read refuses, fails before training, not after the budget.
     val_dataset = build_validation_dataset(config)
+    probe_validation_read(val_dataset)
 
     model = build_model(config, v_config, device)
 

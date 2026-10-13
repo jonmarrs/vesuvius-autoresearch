@@ -57,6 +57,23 @@ So the incumbent was trained, stored its score, and was re-scored here all on un
 are like with like; what is wrong is that the config claims an input transform that has not been applied in any run on
 record.
 
+### Correction, 2026-10-13: a CUDA toolkit alone would not make it run
+
+The extension never compiled, so the kernel's own input checks were never reached, and they would have failed
+next. `villa/lasagna/grid_sample_3d_u8_kernel.cu` requires every input to be a CUDA tensor (`volume must be CUDA
+uint8`, `grid must be CUDA float32`) and a `(D, H, W, 3)` grid. The loader reads patches on the CPU
+(`get_raw_patch` returns `torch.from_numpy(...)`) and passed a 5-D grid. The loader now refuses a CPU uint8 patch
+before the compile, with that reason, and passes the 4-D grid. So option 3's toolkit branch below also needs the
+warp moved to the GPU (in the training process, not the data-loader workers), or the uint8 patch warped on the CPU
+with torch's `grid_sample`, which the loader already uses for float volumes. Either way inference must apply the
+same warp: `scripts/inference/predict.py`, `scripts/production_predict.py` and `scripts/inference/ensemble_predict.py`
+never flatten, so a model trained on warped patches would be served unwarped ones.
+
+Since the 2026-10-13 preprocessing review, a strict validation read refuses a requested warp that cannot run, so a
+cycle that keeps `use_lasagna: true` (every cycle but the one that tweaks it off) cannot be scored on these uint8
+volumes. `train.py` now reads one validation patch before training, so such a cycle fails before training instead of
+after its budget.
+
 ## What this means for the migration
 
 These are decisions for the loop's owner; none was taken here.

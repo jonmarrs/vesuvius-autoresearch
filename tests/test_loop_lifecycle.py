@@ -9,7 +9,13 @@ from types import SimpleNamespace
 
 import pytest
 
-from run_autoresearch_loop import active_tweaks, template_weights
+from run_autoresearch_loop import (
+    VRAM_COMPLEXITY_CAP,
+    active_tweaks,
+    complexity_score,
+    template_weights,
+    vram_exclusions,
+)
 from scripts.loop_control import main as control_main, running_pid
 from scripts.process_supervisor import ProcessSupervisor
 from scripts.training.config import ExperimentConfig
@@ -45,6 +51,39 @@ def test_noop_and_disabled_tweaks_are_not_sampled():
             "consistency_weight",
             "ema_decay",
         }
+
+
+def production_like(**overrides):
+    # config.json's structure: batch 4, num_layers 16, base_feat 64, patch 64.
+    fields = {"batch_size": 4, "num_layers": 16, "base_feat": 64, "num_blocks": 16}
+    return ExperimentConfig(**{**fields, **overrides})
+
+
+def test_reference_config_scores_one():
+    assert complexity_score(ExperimentConfig()) == pytest.approx(1.0)
+    assert complexity_score(production_like()) == pytest.approx(1 / 3)
+
+
+def test_values_over_the_vram_cap_are_never_proposed():
+    """batch_size 24 scores 2.0 here. It used to be sampled, then skipped after it
+    had taken a cycle number, a recent_configs slot and a decay step."""
+    config = production_like()
+    batch = {t["attr"]: t["vals"] for t in active_tweaks(config)}["batch_size"]
+    assert batch == [8, 16]
+    assert vram_exclusions(config) == [("batch_size", 24, pytest.approx(2.0))]
+    for template in active_tweaks(config):
+        for val in template["vals"]:
+            candidate = production_like()
+            setattr(candidate, template["attr"], val)
+            assert complexity_score(candidate) <= VRAM_COMPLEXITY_CAP
+
+
+def test_baseline_over_the_cap_still_tweaks_axes_that_do_not_raise_it():
+    config = production_like(batch_size=24)
+    active = {t["attr"]: t["vals"] for t in active_tweaks(config)}
+    assert active["lr"] and active["weight_decay"]
+    assert active["batch_size"] == [8, 16]
+    assert vram_exclusions(config) == []
 
 
 def test_family_weight_does_not_depend_on_number_of_axes():

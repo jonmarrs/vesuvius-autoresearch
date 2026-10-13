@@ -202,3 +202,42 @@ def test_tracked_logs_match_the_columns_train_writes(name, columns):
     rows = [line.split("\t") for line in path.read_text().splitlines()]
     assert tuple(rows[0]) == columns
     assert {len(row) for row in rows} == {len(columns)}
+
+
+class _Catalogue:
+    def __init__(self, size, failing=()):
+        self.size, self.failing, self.reads = size, set(failing), []
+
+    def __len__(self):
+        return self.size
+
+    def __getitem__(self, index):
+        self.reads.append(index)
+        if index in self.failing:
+            raise OSError("chunk unreadable")
+        return index
+
+
+def test_the_probe_reads_only_the_first_protocol_patch():
+    from scripts.training.promotion import validation_indices
+
+    catalogue = _Catalogue(1000)
+    train.probe_validation_read(catalogue)
+    assert catalogue.reads == [int(validation_indices(1000)[0])]
+
+
+def test_an_unreadable_first_protocol_patch_fails_the_probe():
+    from scripts.training.promotion import validation_indices
+
+    first = int(validation_indices(1000)[0])
+    with pytest.raises(RuntimeError, match=f"validation patch {first} cannot be read"):
+        train.probe_validation_read(_Catalogue(1000, failing=[first]))
+
+
+def test_train_probes_validation_before_building_the_model():
+    import inspect
+
+    source = inspect.getsource(train.train)
+    probe = source.index("probe_validation_read(val_dataset)")
+    assert source.index("build_validation_dataset(config)") < probe
+    assert probe < source.index("build_model(config, v_config, device)")

@@ -1,3 +1,4 @@
+import copy
 import json
 import os
 import random
@@ -206,16 +207,67 @@ CURRENT_LOG_PTR = ".current_day_shift_log"
 TEMP_CONFIG = "config_temp.json"
 
 
-def active_tweaks(config):
-    """Exclude gated axes and values that leave the baseline unchanged."""
-    active = []
+# Pre-flight VRAM estimate (complexity heuristic, Sprint 023 refined). The
+# reference config (base_feat 64, num_layers 24, patch_size 64, batch_size 8,
+# num_blocks 16; ~14 GB) scores 1.0, and the cap allows 50% above it (~21 GB).
+VRAM_COMPLEXITY_CAP = 1.5
+
+
+def complexity_score(config) -> float:
+    feat = config.base_feat / 64.0
+    depth = config.num_layers / 24.0
+    patch = config.patch_size / 64.0
+    batch = config.batch_size / 8.0
+    blocks = config.num_blocks / 16.0
+    # Convolutions and activations grow with the patch area, attention with its
+    # square; attention is weighted 0.4.
+    linear = feat * depth * patch**2 * batch * blocks
+    attention = depth * patch**4 * batch * blocks
+    return 0.6 * linear + 0.4 * attention
+
+
+def _tweaked(config, attr, val):
+    candidate = copy.copy(config)
+    setattr(candidate, attr, val)
+    return candidate
+
+
+def _candidate_values(config, cap):
+    """Yield (template, sampleable values, values over the VRAM cap) per enabled axis.
+
+    A value is over the cap when its config's estimate exceeds both the cap and
+    the baseline's own estimate: a baseline that already runs above the cap can
+    still be tweaked on axes that do not raise its estimate.
+    """
+    limit = max(cap, complexity_score(config))
     for template in tweak_templates:
         if not template.get("applies_when", lambda _c: True)(config):
             continue
-        values = [v for v in template["vals"] if v != getattr(config, template["attr"])]
-        if values:
-            active.append({**template, "vals": values})
-    return active
+        attr = template["attr"]
+        fits, over = [], []
+        for v in template["vals"]:
+            if v == getattr(config, attr):
+                continue
+            score = complexity_score(_tweaked(config, attr, v))
+            (fits if score <= limit else over).append(v)
+        yield template, fits, over
+
+
+def active_tweaks(config, cap=VRAM_COMPLEXITY_CAP):
+    """Exclude gated axes, values that leave the baseline unchanged, and values
+    the VRAM estimate rejects."""
+    return [
+        {**t, "vals": fits} for t, fits, _ in _candidate_values(config, cap) if fits
+    ]
+
+
+def vram_exclusions(config, cap=VRAM_COMPLEXITY_CAP):
+    """(attr, value, estimate) for each value active_tweaks drops for VRAM."""
+    return [
+        (t["attr"], v, complexity_score(_tweaked(config, t["attr"], v)))
+        for t, _, over in _candidate_values(config, cap)
+        for v in over
+    ]
 
 
 def template_weights(templates, success_counts):
@@ -346,6 +398,7 @@ def main():
     env = os.environ.copy()
     i = 0
     recent_configs = load_recent_configs()
+    last_excluded: list = []
 
     while True:
         i += 1
@@ -387,7 +440,7 @@ def main():
 
         # Every cycle is a single tweak of the promoted config. The every-10th-cycle
         # "GP-winner baseline" (timesformer, patch 256) was removed 2026-10-12: the
-        # VRAM heuristic below scored it 74.7 > 1.5, so it was always skipped, and
+        # VRAM estimate (complexity_score) scored it 74.7 > 1.5, so it was always skipped, and
         # had it run it could have been promoted, replacing config.json with a
         # from-scratch timesformer. Run-to-run calibration is scripts/f1_noise_probe.py.
 
@@ -401,8 +454,19 @@ def main():
             else ExperimentConfig()
         )
         active_templates = active_tweaks(baseline_for_gate)
+        # The VRAM estimate filters values before sampling, so a rejected value
+        # never takes a cycle number, a dedup slot or a decay step.
+        excluded = vram_exclusions(baseline_for_gate)
+        if excluded != last_excluded:
+            note = ", ".join(f"{a}={v} ({s:.2f})" for a, v, s in excluded) or "none"
+            print(f"VRAM cap {VRAM_COMPLEXITY_CAP} excludes: {note}")
+            with open(log_filename, "a") as log:
+                log.write(f"- **VRAM cap {VRAM_COMPLEXITY_CAP} excludes**: {note}\n\n")
+            last_excluded = excluded
         if not active_templates:
-            print("No active tweaks differ from the baseline. Ending sprint.")
+            print(
+                "No active tweaks differ from the baseline within the VRAM cap. Ending sprint."
+            )
             break
 
         # Success-Biased Decay: Every cycle, all (active) families decay slightly.
@@ -466,31 +530,6 @@ def main():
             save_recent_configs(recent_configs)
 
         tweak_name = f"{attr}_{val}"
-
-        # Pre-flight VRAM estimation (Complexity Heuristic - Sprint 023 Refined)
-        # Standard baseline: 64 feat, 24 layers, 64 patch, 8 batch, 16 blocks ~= 14GB VRAM
-        feat_factor = config.base_feat / 64.0
-        depth_factor = config.num_layers / 24.0
-        patch_sq = (config.patch_size / 64.0) ** 2
-        patch_quartic = (config.patch_size / 64.0) ** 4
-        batch_factor = config.batch_size / 8.0
-        block_factor = config.num_blocks / 16.0
-
-        # Linear components (Convs, Activations)
-        complexity_linear = (
-            feat_factor * depth_factor * patch_sq * batch_factor * block_factor
-        )
-        # Quadratic components (Attention)
-        complexity_attn = depth_factor * patch_quartic * batch_factor * block_factor
-
-        # Weighted Score (Standard Config = 1.0). Attention weighted at 0.4 due to quadratic growth.
-        complexity_score = 0.6 * complexity_linear + 0.4 * complexity_attn
-
-        if complexity_score > 1.5:  # Cap at 50% overhead above baseline (~21GB VRAM)
-            print(
-                f"Cycle {i}: Skipping {tweak_name} (Complexity Score {complexity_score:.2f} > 1.5) to avoid OOM."
-            )
-            continue
 
         print(
             f"\nCycle {i}: Applying {tweak_name} (Family Weight: {success_counts[family]})"
