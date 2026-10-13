@@ -202,6 +202,15 @@ def reevaluate(update_stored: bool = False) -> None:
         f"  val_f1:              {f1_metrics['val_f1']:.6f} (protocol {VALIDATION_PROTOCOL})"
     )
     print(f"  ap_prevalence_lift:  {f1_metrics['ap_prevalence_lift']:.4f}")
+    print(f"  roc_auc:             {f1_metrics['roc_auc']:.4f}")
+    # Calling every pixel ink scores F1 = 2p/(1+p) at every swept threshold, so
+    # val_f1 means nothing until it clears this; it moves with the sample.
+    prevalence = f1_metrics["val_positive_rate"]
+    all_ink_f1 = 2 * prevalence / (1 + prevalence)
+    print(
+        f"  all-ink baseline F1: {all_ink_f1:.6f} (ink prevalence {prevalence:.4f}; "
+        f"val_f1 margin {f1_metrics['val_f1'] - all_ink_f1:+.6f})"
+    )
     print(
         f"  usable / requested:  {diag['usable_patches']}/{diag['requested_patches']} "
         f"(empty={diag['empty_target_patches']})"
@@ -223,6 +232,17 @@ def reevaluate(update_stored: bool = False) -> None:
             print(
                 f"  {name}: today={today_val:.6f} stored={stored_val:.6f} delta={delta:+.6f}"
             )
+    # Different samples have different all-ink floors; the margins are what compare.
+    stored_f1, stored_p = chk.get("val_f1"), chk.get("val_positive_rate")
+    stored_margin = (
+        f"{stored_f1 - 2 * stored_p / (1 + stored_p):+.6f}"
+        if stored_f1 is not None and stored_p is not None
+        else "<MISSING>"
+    )
+    print(
+        f"  val_f1 margin over all-ink: today={f1_metrics['val_f1'] - all_ink_f1:+.6f} "
+        f"stored={stored_margin}"
+    )
 
     if update_stored:
         print()
