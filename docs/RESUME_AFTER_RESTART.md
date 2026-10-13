@@ -1,5 +1,15 @@
 # Resume note — written 2026-09-22 before a deliberate Claude restart
 
+## 2026-10-13 (night): finding 88, the loop's sample cannot reward a model that reads ink
+
+* **Finding 88** (`reports/detector_on_loop_sample.md`, three pre-registered CPU measurements). On the loop's 97
+  ink-containing patches the TimeSformer detector (fragment-wide AUC 0.709) clears the all-ink F1 by only +0.0010
+  (+0.0062 tiled), while promotion needs +0.0263. A random-window control confirms the pipeline (AUC 0.7034). On the
+  same 400-patch draw with its ink-free patches kept, the detector clears it by +0.0655 and the incumbent by +0.0042.
+* So the loop, as configured, cannot promote even a detector-quality model; of finding 86's options only keeping the
+  ink-free patches separates them. Owner's decision; adopting it means a new protocol, a re-score, and a fresh noise
+  probe (the 0.03 tolerance was measured under v1).
+
 ## 2026-10-13 (evening): lasagna off, incumbent re-scored; the loop can start
 
 * Owner's call: get the loop running. `config.json` `use_lasagna: false`; the loop's `use_lasagna` tweak is pinned
