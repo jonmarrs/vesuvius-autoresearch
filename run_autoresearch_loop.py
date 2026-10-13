@@ -68,7 +68,11 @@ tweak_templates: list[dict[str, Any]] = [
     },  # pinned (was [8,10,12,16,20])
     {"family": "attention", "attr": "num_heads", "vals": [8]},  # pinned (was [4,8,12])
     {"family": "regularization", "attr": "dropout", "vals": [0.1, 0.2, 0.0]},
-    {"family": "preproc", "attr": "use_lasagna", "vals": [True, False]},
+    # Pinned off (was [True, False]): villa's uint8 warp takes CUDA tensors and
+    # patches are read on the CPU, so strict validation refuses it and a cycle
+    # that requests it fails before training. It never ran in a logged run
+    # (finding 86). Restore True once the warp runs and inference applies it.
+    {"family": "preproc", "attr": "use_lasagna", "vals": [False]},
     # target_fiber_source: tests whether the fiber head's BCE target benefits
     # from being real Frangi vesselness (dataloader-side, ~86ms/patch CPU,
     # parallelized) instead of the cheap inline Sobel-Z gradient.

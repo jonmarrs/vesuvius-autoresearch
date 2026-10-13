@@ -230,6 +230,59 @@ def test_reevaluation_compares_margins_over_the_all_ink_baseline(
     assert len(lines) == 1 and "stored=+0.100000" in lines[0]
 
 
+def _record_lasagna(checkpoint):
+    saved = torch.load(checkpoint, weights_only=False)
+    saved["config"]["use_lasagna"] = True
+    torch.save(saved, checkpoint)
+
+
+def test_reevaluation_applies_the_recorded_warp_by_default(tools_fixture, monkeypatch):
+    checkpoint, _, _, _, datasets = tools_fixture
+    _record_lasagna(checkpoint)
+    _stub_topology(monkeypatch)
+    reevaluate.reevaluate()
+    assert datasets[0].kwargs["use_lasagna"] is True
+
+
+def test_unwarped_reevaluation_scores_without_the_recorded_warp(
+    tools_fixture, monkeypatch, capsys
+):
+    # The incumbent records use_lasagna: true, but the warp never ran on this
+    # host (finding 86): it was trained on unwarped patches, so it is scored on
+    # them, and strict reads refuse the warp anyway.
+    checkpoint, _, _, _, datasets = tools_fixture
+    _record_lasagna(checkpoint)
+    _stub_topology(monkeypatch)
+    reevaluate.reevaluate(unwarped=True)
+    assert datasets[0].kwargs["use_lasagna"] is False
+    assert "scoring unwarped" in capsys.readouterr().out
+
+
+def test_unwarped_update_corrects_the_recorded_warp(tools_fixture, monkeypatch):
+    # Rewrites the record so later re-scores and tools score it unwarped too, and
+    # keeps what was recorded.
+    checkpoint, _, _, _, _ = tools_fixture
+    _record_lasagna(checkpoint)
+    before = torch.load(checkpoint, weights_only=False)
+    _stub_topology(monkeypatch)
+    reevaluate.reevaluate(update_stored=True, unwarped=True)
+    after = torch.load(checkpoint, weights_only=False)
+    assert after["config"] == before["config"] | {"use_lasagna": False}
+    assert after["reevaluation"]["input_settings"] == {"use_lasagna": False}
+    assert after["reevaluation"]["overridden_input_settings"] == {"use_lasagna": True}
+
+
+def test_the_command_line_passes_unwarped(monkeypatch):
+    calls = []
+    monkeypatch.setattr(reevaluate, "reevaluate", lambda **kwargs: calls.append(kwargs))
+    reevaluate.main(["--update-stored", "--unwarped"])
+    reevaluate.main([])
+    assert calls == [
+        {"update_stored": True, "unwarped": True},
+        {"update_stored": False, "unwarped": False},
+    ]
+
+
 @pytest.mark.parametrize(
     "low,high", [(0.8, 0.2), (0.3, 0.3), (-0.1, 0.8), (0.1, 1.1), (float("nan"), 0.9)]
 )
