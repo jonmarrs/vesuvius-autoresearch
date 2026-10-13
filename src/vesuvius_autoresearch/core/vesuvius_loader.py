@@ -282,6 +282,31 @@ class FastVesuviusVolume:
         return torch.from_numpy(ct)
 
 
+def _lasagna_unavailable_reason(patch):
+    """Why the lasagna warp cannot run on this patch, or None if it can.
+
+    uint8 patches go through villa's kernel, which checks that every input is a
+    CUDA tensor and the grid is (D, H, W, 3). Patches are read on the CPU, so
+    they are refused before the first call JIT-compiles the extension: that
+    compile's failure (no nvcc, CUDA_HOME unset) was the only cause ever logged,
+    and installing a toolkit would only have moved the failure into the kernel.
+    Floating patches use torch's grid_sample on any device. Other integer
+    patches (uint16 volumes are read as int32) have no warp.
+    """
+    if patch.dtype == torch.uint8:
+        if patch.device.type != "cuda":
+            return (
+                "villa's uint8 grid_sample kernel takes CUDA tensors; "
+                f"this patch is on {patch.device.type}"
+            )
+        return None
+    if not patch.dtype.is_floating_point:
+        return (
+            f"no lasagna warp for {patch.dtype} patches (uint16 volumes read as int32)"
+        )
+    return None
+
+
 class VesuviusLabeledDataset(torch.utils.data.Dataset):
     """CT patches and labels, with optional preprocessing.
 
@@ -545,10 +570,10 @@ class VesuviusLabeledDataset(torch.utils.data.Dataset):
         the same shape. Falls back to the unmodified patch_vol if
         use_lasagna is False, the volume is too thin (D < 3), or the
         warp raises an exception. Strict reads reject a requested warp that
-        cannot run instead of returning an unwarped sample. uint8 patches go
-        through villa's CUDA-only kernel, so a uint8 patch on the CPU (what
-        this loader reads) cannot be warped; float patches use torch's
-        grid_sample on any device.
+        cannot run instead of returning an unwarped sample. Which patches can
+        be warped: see _lasagna_unavailable_reason. The two warps differ where
+        a shifted column leaves the patch: villa's uint8 kernel reads zeros,
+        torch's grid_sample repeats the edge slice.
         """
         if not self.use_lasagna:
             return patch_vol
@@ -557,6 +582,9 @@ class VesuviusLabeledDataset(torch.utils.data.Dataset):
                 raise RuntimeError("Lasagna flattening requires at least 3 slices")
             return patch_vol
         try:
+            reason = _lasagna_unavailable_reason(patch_vol)
+            if reason:
+                raise RuntimeError(reason)
             is_3d = patch_vol.dim() == 3
             vol = patch_vol.unsqueeze(0) if is_3d else patch_vol  # [C, Z, H, W]
             C, Z, H, W = vol.shape
@@ -580,16 +608,6 @@ class VesuviusLabeledDataset(torch.utils.data.Dataset):
             z_center = (Z - 1) / 2.0
 
             if dtype == torch.uint8:
-                # villa's kernel checks that every input is a CUDA tensor and that the
-                # grid is (D, H, W, 3). Patches are read on the CPU, so refuse before
-                # the first call JIT-compiles the extension: that compile's failure
-                # (no nvcc, CUDA_HOME unset) was the only cause ever logged, and
-                # installing a toolkit would only have moved the failure here.
-                if vol.device.type != "cuda":
-                    raise RuntimeError(
-                        "villa's uint8 grid_sample kernel takes CUDA tensors; "
-                        f"this patch is on {vol.device.type}"
-                    )
                 # By absolute path, not a relative sys.path entry: that only resolved
                 # from the repository root (elsewhere the except below silently
                 # disabled flattening) and shadowed ~90 generic module names.
@@ -618,7 +636,7 @@ class VesuviusLabeledDataset(torch.utils.data.Dataset):
                     [1.0, 1.0, 1.0], device=device, dtype=torch.float32
                 )
 
-                warped = grid_sample_3d_u8(vol, grid, offset, inv_scale)
+                warped = grid_sample_3d_u8(vol.contiguous(), grid, offset, inv_scale)
             else:
                 # 2. Build sampling grid in normalized [-1, 1] coords.
                 z_offset = (z_surface - z_center) * (2.0 / max(1, Z - 1))  # [H, W]

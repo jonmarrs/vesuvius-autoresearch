@@ -234,10 +234,11 @@ def test_an_unreadable_first_protocol_patch_fails_the_probe():
         train.probe_validation_read(_Catalogue(1000, failing=[first]))
 
 
-def test_train_probes_validation_before_building_the_model():
+def test_train_probes_validation_before_loading_training_data():
     import inspect
 
     source = inspect.getsource(train.train)
     probe = source.index("probe_validation_read(val_dataset)")
     assert source.index("build_validation_dataset(config)") < probe
+    assert probe < source.index("data_loader = get_dataloader(config.uris)")
     assert probe < source.index("build_model(config, v_config, device)")

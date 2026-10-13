@@ -1513,6 +1513,12 @@ def train(config: ExperimentConfig):
             sampling_seed + (1 if is_unlabeled else 0),
         )
 
+    # Built and read before anything else, so a missing or empty validation
+    # catalogue, or a patch the strict read refuses, fails before the training
+    # data is loaded, not after the budget.
+    val_dataset = build_validation_dataset(config)
+    probe_validation_read(val_dataset)
+
     # Fresh per run, so successive warm-started cycles see different patches;
     # recorded in run_result.json and the checkpoint.
     sampling_seed = int.from_bytes(os.urandom(4), "little") & 0x7FFFFFFF
@@ -1524,11 +1530,6 @@ def train(config: ExperimentConfig):
     if config.use_uamt and config.unlabeled_uris:
         unlabeled_data_loader = get_dataloader(config.unlabeled_uris, is_unlabeled=True)
         unlabeled_data_iter = iter(unlabeled_data_loader)
-
-    # Built and read before training so a missing or empty validation catalogue,
-    # or a patch the strict read refuses, fails before training, not after the budget.
-    val_dataset = build_validation_dataset(config)
-    probe_validation_read(val_dataset)
 
     model = build_model(config, v_config, device)
 

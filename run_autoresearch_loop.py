@@ -16,6 +16,11 @@ from scripts.training.config import ExperimentConfig
 from scripts.training.promotion import IncumbentUnavailable, read_incumbent_val_f1
 
 LOCK_FILE = "autoresearch.lock"
+# A streak of crashes across different tweaks means the shared config, data or
+# host is broken, not the tweaks, and the watchdog would restart the loop into it
+# indefinitely (one 2026-04-24 night logged 4,704 crashed cycles in a row). After
+# this many in a row the loop pauses itself for the operator.
+MAX_CONSECUTIVE_CRASHES = 5
 
 
 def check_lock():
@@ -232,42 +237,38 @@ def _tweaked(config, attr, val):
     return candidate
 
 
-def _candidate_values(config, cap):
-    """Yield (template, sampleable values, values over the VRAM cap) per enabled axis.
+def tweak_proposals(config, cap=None):
+    """Split each enabled axis's changed values by the VRAM cap, in one pass.
 
-    A value is over the cap when its config's estimate exceeds both the cap and
-    the baseline's own estimate: a baseline that already runs above the cap can
-    still be tweaked on axes that do not raise its estimate.
+    Returns the active templates, holding only values whose config fits under
+    the cap, and (attr, value, estimate) for each value over it. The cap is a
+    hard limit: a baseline already over it is offered only tweaks that bring
+    it under.
     """
-    limit = max(cap, complexity_score(config))
+    cap = VRAM_COMPLEXITY_CAP if cap is None else cap
+    active, excluded = [], []
     for template in tweak_templates:
         if not template.get("applies_when", lambda _c: True)(config):
             continue
         attr = template["attr"]
-        fits, over = [], []
+        fits = []
         for v in template["vals"]:
             if v == getattr(config, attr):
                 continue
             score = complexity_score(_tweaked(config, attr, v))
-            (fits if score <= limit else over).append(v)
-        yield template, fits, over
+            if score <= cap:
+                fits.append(v)
+            else:
+                excluded.append((attr, v, score))
+        if fits:
+            active.append({**template, "vals": fits})
+    return active, excluded
 
 
-def active_tweaks(config, cap=VRAM_COMPLEXITY_CAP):
+def active_tweaks(config, cap=None):
     """Exclude gated axes, values that leave the baseline unchanged, and values
-    the VRAM estimate rejects."""
-    return [
-        {**t, "vals": fits} for t, fits, _ in _candidate_values(config, cap) if fits
-    ]
-
-
-def vram_exclusions(config, cap=VRAM_COMPLEXITY_CAP):
-    """(attr, value, estimate) for each value active_tweaks drops for VRAM."""
-    return [
-        (t["attr"], v, complexity_score(_tweaked(config, t["attr"], v)))
-        for t, _, over in _candidate_values(config, cap)
-        for v in over
-    ]
+    over the VRAM cap."""
+    return tweak_proposals(config, cap)[0]
 
 
 def template_weights(templates, success_counts):
@@ -399,6 +400,7 @@ def main():
     i = 0
     recent_configs = load_recent_configs()
     last_excluded: list = []
+    crash_streak = 0
 
     while True:
         i += 1
@@ -453,12 +455,18 @@ def main():
             if os.path.exists(CONFIG_FILE)
             else ExperimentConfig()
         )
-        active_templates = active_tweaks(baseline_for_gate)
         # The VRAM estimate filters values before sampling, so a rejected value
         # never takes a cycle number, a dedup slot or a decay step.
-        excluded = vram_exclusions(baseline_for_gate)
+        active_templates, excluded = tweak_proposals(baseline_for_gate)
         if excluded != last_excluded:
-            note = ", ".join(f"{a}={v} ({s:.2f})" for a, v, s in excluded) or "none"
+            baseline_score = complexity_score(baseline_for_gate)
+            if baseline_score > VRAM_COMPLEXITY_CAP:
+                note = (
+                    f"every value that leaves config.json over it "
+                    f"(config.json scores {baseline_score:.2f})"
+                )
+            else:
+                note = ", ".join(f"{a}={v} ({s:.2f})" for a, v, s in excluded) or "none"
             print(f"VRAM cap {VRAM_COMPLEXITY_CAP} excludes: {note}")
             with open(log_filename, "a") as log:
                 log.write(f"- **VRAM cap {VRAM_COMPLEXITY_CAP} excludes**: {note}\n\n")
@@ -732,6 +740,20 @@ def main():
                 f"{best_val_f1:.6f}" if best_val_f1 > float("-inf") else "none yet"
             )
             print(f"No improvement. (val_f1: {val_f1}, best was: {best_str})")
+
+        crash_streak = crash_streak + 1 if is_crash else 0
+        if crash_streak >= MAX_CONSECUTIVE_CRASHES:
+            message = (
+                f"{crash_streak} consecutive cycles crashed, so the cause is not the "
+                "tweak. Pausing the loop (.loop_paused): read run.log, fix the cause, "
+                "then run ./start.sh."
+            )
+            print(message)
+            with open(log_filename, "a") as log:
+                log.write(f"\n## Loop paused at {time.strftime('%H:%M:%S')}\n")
+                log.write(f"{message}\n")
+            open(".loop_paused", "a").close()
+            break
 
         # Benchmark Inference Step (Every 5 cycles).
         # Uses subprocess.run (not os.system) so a predict.py crash surfaces

@@ -14,7 +14,7 @@ from run_autoresearch_loop import (
     active_tweaks,
     complexity_score,
     template_weights,
-    vram_exclusions,
+    tweak_proposals,
 )
 from scripts.loop_control import main as control_main, running_pid
 from scripts.process_supervisor import ProcessSupervisor
@@ -68,22 +68,29 @@ def test_values_over_the_vram_cap_are_never_proposed():
     """batch_size 24 scores 2.0 here. It used to be sampled, then skipped after it
     had taken a cycle number, a recent_configs slot and a decay step."""
     config = production_like()
-    batch = {t["attr"]: t["vals"] for t in active_tweaks(config)}["batch_size"]
-    assert batch == [8, 16]
-    assert vram_exclusions(config) == [("batch_size", 24, pytest.approx(2.0))]
-    for template in active_tweaks(config):
+    active, excluded = tweak_proposals(config)
+    assert {t["attr"]: t["vals"] for t in active}["batch_size"] == [8, 16]
+    assert excluded == [("batch_size", 24, pytest.approx(2.0))]
+    for template in active:
         for val in template["vals"]:
             candidate = production_like()
             setattr(candidate, template["attr"], val)
             assert complexity_score(candidate) <= VRAM_COMPLEXITY_CAP
 
 
-def test_baseline_over_the_cap_still_tweaks_axes_that_do_not_raise_it():
+def test_a_baseline_over_the_cap_is_offered_only_tweaks_that_bring_it_under():
     config = production_like(batch_size=24)
-    active = {t["attr"]: t["vals"] for t in active_tweaks(config)}
-    assert active["lr"] and active["weight_decay"]
-    assert active["batch_size"] == [8, 16]
-    assert vram_exclusions(config) == []
+    active, excluded = tweak_proposals(config)
+    assert {t["attr"]: t["vals"] for t in active} == {"batch_size": [8, 16]}
+    assert ("lr", 1e-4, pytest.approx(2.0)) in excluded
+
+
+def test_the_cap_is_read_when_called_not_when_defined(monkeypatch):
+    import run_autoresearch_loop as loop
+
+    monkeypatch.setattr(loop, "VRAM_COMPLEXITY_CAP", 2.5)
+    batch = {t["attr"]: t["vals"] for t in active_tweaks(production_like())}
+    assert batch["batch_size"] == [8, 16, 24]
 
 
 def test_family_weight_does_not_depend_on_number_of_axes():

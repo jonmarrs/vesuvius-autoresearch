@@ -245,9 +245,11 @@ def _drive_loop(tmp_path, monkeypatch, cycles, result=None):
             if "--smoke" in command:
                 return subprocess.CompletedProcess(command, 0)
             launched.append(json.loads((tmp_path / "config_temp.json").read_text()))
-            if result is None:
+            # One result for every cycle, or one per cycle; None is a crash.
+            outcome = result[len(launched) - 1] if isinstance(result, list) else result
+            if outcome is None:
                 return subprocess.CompletedProcess(command, 1)
-            (tmp_path / "run_result.json").write_text(json.dumps(result))
+            (tmp_path / "run_result.json").write_text(json.dumps(outcome))
             return subprocess.CompletedProcess(command, 0)
 
     monkeypatch.setattr(loop, "supervisor", FakeSupervisor())
@@ -259,7 +261,8 @@ def test_every_cycle_is_a_tweak_of_the_promoted_config(tmp_path, monkeypatch):
     """Cycle 10 used to inject a timesformer/patch-256 config that the VRAM gate
     always skipped and that, had it run, could have been promoted."""
     ExperimentConfig(architecture="resenc_unet", lr=2e-3).save(tmp_path / "config.json")
-    launched = _drive_loop(tmp_path, monkeypatch, cycles=10)
+    reverted = {"is_success": False, "val_f1": 0.5}
+    launched = _drive_loop(tmp_path, monkeypatch, cycles=10, result=reverted)
     assert len(launched) == 10
     assert {c["architecture"] for c in launched} == {"resenc_unet"}
     assert {c["patch_size"] for c in launched} == {64}
@@ -283,3 +286,28 @@ def test_a_blocked_promotion_is_recorded_in_the_sprint_log(tmp_path, monkeypatch
     _drive_loop(tmp_path, monkeypatch, cycles=1, result=result)
     log = next((tmp_path / "sprint_logs").glob("*.md")).read_text()
     assert "REVERTED" in log and "Promotion blocked: why" in log
+
+
+def test_a_crash_streak_pauses_the_loop(tmp_path, monkeypatch):
+    """Crashes across different tweaks mean the baseline, data or host is broken;
+    the watchdog would otherwise restart the loop into it all night."""
+    import run_autoresearch_loop as loop
+
+    ExperimentConfig().save(tmp_path / "config.json")
+    launched = _drive_loop(tmp_path, monkeypatch, cycles=12)
+    assert len(launched) == loop.MAX_CONSECUTIVE_CRASHES
+    assert (tmp_path / ".loop_paused").exists()
+    log = next((tmp_path / "sprint_logs").glob("*.md")).read_text()
+    assert log.count("(CRASHED)") == loop.MAX_CONSECUTIVE_CRASHES
+    assert "## Loop paused" in log
+
+
+def test_a_completed_cycle_resets_the_crash_streak(tmp_path, monkeypatch):
+    import run_autoresearch_loop as loop
+
+    ExperimentConfig().save(tmp_path / "config.json")
+    streak = [None] * (loop.MAX_CONSECUTIVE_CRASHES - 1)
+    results = [*streak, {"is_success": False, "val_f1": 0.5}, *streak]
+    launched = _drive_loop(tmp_path, monkeypatch, cycles=len(results), result=results)
+    assert len(launched) == len(results)
+    assert not (tmp_path / ".loop_paused").exists()
