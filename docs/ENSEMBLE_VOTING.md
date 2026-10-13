@@ -3,7 +3,7 @@
 There are two separate APIs:
 
 - [Regional CT inference](VOLUME_INFERENCE.md) loads compatible checkpoints,
-  computes QC-gated model probabilities and averages them in a recorded region.
+  computes model probabilities and averages them in a recorded region.
 - [SwarmVoter](../scripts/swarm_voter.py) is a PyTorch module for a normalized
   weighted mean of raw model tensors. It does not load checkpoints, choose
   regions, apply activations/gates or export evidence.

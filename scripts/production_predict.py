@@ -24,6 +24,7 @@ from vesuvius_autoresearch.core.inference import (
     hann2d,
     normalize_blend,
     prepare_volume_input,
+    read_model_block,
     tile_starts,
     validate_model_settings,
 )
@@ -145,11 +146,9 @@ def production_predict(argv=None):
     with torch.inference_mode():
         for y in tqdm(ys, desc="Rows"):
             for x in xs:
-                block = dataset[
-                    args.z : args.z + args.num_layers,
-                    args.y + y : args.y + y + size,
-                    args.x + x : args.x + x + size,
-                ]
+                block = read_model_block(
+                    dataset, args.z, args.y + y, args.x + x, args.num_layers, size
+                )
                 patch = prepare_volume_input(
                     dataset.normalize(block), use_ridges, args.num_layers, size, "cpu"
                 )[0]

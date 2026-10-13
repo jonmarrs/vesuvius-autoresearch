@@ -33,6 +33,8 @@ class GenericMultiTaskWrapper(nn.Module):
                multi_task_heads=False, or a real Conv3d head's output
                when multi_task_heads=True.
       - qc:    torch.zeros((B, 1)) when dummy, real Linear head when not.
+               Training fits it to the patch's mean fiber target (loss_qc); it
+               is not a quality or confidence score.
       - proj:  Linear projection of pooled scalar (real, used for DINO-Lite)
       - st:    torch.zeros((B, 6, Z, H, W)) when dummy, real Conv3d head
                (6 symmetric tensor components) when not.

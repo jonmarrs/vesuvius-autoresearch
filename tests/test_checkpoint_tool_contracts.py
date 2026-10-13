@@ -33,8 +33,6 @@ class Heads(torch.nn.Module):
         elif self.bad == "channels":
             ink = ink.expand(-1, 2, -1, -1)
         qc = torch.zeros((len(x), 1))
-        if self.bad == "qc":
-            qc[:] = float("nan")
         return (ink, qc) if return_qc else ink
 
 
@@ -263,7 +261,9 @@ def test_active_refuses_jittered_patch_coordinates():
         active.ActiveLearningSampler(Heads(), "cpu").sample_uncertain_regions(loader, 3)
 
 
-@pytest.mark.parametrize("bad", ["inf", "channels", "qc"])
+# The sampler no longer reads the QC head (it is not a confidence score), so an
+# invalid QC output is not its concern.
+@pytest.mark.parametrize("bad", ["inf", "channels"])
 def test_active_rejects_invalid_heads(bad):
     loader = torch.utils.data.DataLoader(Patches(jitter=False), batch_size=8)
     with pytest.raises(ValueError):

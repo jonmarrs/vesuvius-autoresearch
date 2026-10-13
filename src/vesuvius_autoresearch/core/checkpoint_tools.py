@@ -3,7 +3,7 @@
 import torch
 
 from . import model_wrappers
-from .inference import positive_integer, validate_model_settings
+from .inference import DEPTH_MARGIN, positive_integer, validate_model_settings
 
 
 def load_tool_checkpoint(path, device):
@@ -59,7 +59,7 @@ def build_tool_model(checkpoint, device="cpu"):
 def validate_batch(batch, settings, buffered=False):
     layers, size = settings["num_layers"], settings["patch_size"]
     channels = 2 if settings["use_ridges"] else 1
-    depth = layers + 8 if buffered else layers
+    depth = layers + 2 * DEPTH_MARGIN if buffered else layers
     if (
         not isinstance(batch, torch.Tensor)
         or batch.ndim != 5
@@ -71,7 +71,7 @@ def validate_batch(batch, settings, buffered=False):
         raise ValueError(
             f"input must be finite B/C/Z/H/W with C/Z/H/W={(channels, depth, size, size)}"
         )
-    return batch[:, :, 4 : 4 + layers] if buffered else batch
+    return batch[:, :, DEPTH_MARGIN : DEPTH_MARGIN + layers] if buffered else batch
 
 
 def ink_probabilities(model, batch):

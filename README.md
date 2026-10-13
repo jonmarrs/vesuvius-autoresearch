@@ -154,8 +154,8 @@ order in micrometers. Voxel size comes from the checkpoint when recorded, with
 `--voxel-size-um` providing the fallback (default 7.91).
 
 For regional ink/fiber overlays and ensembles, see
-[CT-volume inference](docs/VOLUME_INFERENCE.md). These commands use QC gating and
-optional mirror averaging; their metadata records the applied recipe. Ensemble
+[CT-volume inference](docs/VOLUME_INFERENCE.md). These commands use optional
+mirror averaging; their metadata records the applied recipe. Ensemble
 members must share spatial context and calibration. Partial inference shards
 are identified explicitly and cannot pass complete-region submission validation.
 

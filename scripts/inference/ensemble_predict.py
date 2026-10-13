@@ -32,6 +32,7 @@ from vesuvius_autoresearch.core.inference import (
     normalize_blend,
     positive_number,
     prepare_volume_input,
+    read_model_block,
     region_tiles,
     validate_model_settings,
     validate_region,
@@ -158,11 +159,9 @@ def ensemble_predict():
     )
     with torch.no_grad():
         for y, x in tiles:
-            block = dataset[
-                args.z : args.z + max_layers,
-                args.y + y : args.y + y + patch_size,
-                args.x + x : args.x + x + patch_size,
-            ]
+            block = read_model_block(
+                dataset, args.z, args.y + y, args.x + x, max_layers, patch_size
+            )
             batch = prepare_volume_input(
                 dataset.normalize(block), use_ridges_any, max_layers, patch_size, device
             )

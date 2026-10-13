@@ -26,6 +26,7 @@ from vesuvius_autoresearch.core.inference import (
     normalize_blend,
     positive_number,
     prepare_volume_input,
+    read_model_block,
     region_tiles,
     validate_model_settings,
     validate_region,
@@ -371,12 +372,10 @@ def predict():
         curr_y = args.y + y_off
         curr_x = args.x + x_off
 
-        # Read the block
-        block = dataset[
-            args.z : args.z + num_layers,
-            curr_y : curr_y + patch_size,
-            curr_x : curr_x + patch_size,
-        ]
+        # Read the block, with training's depth context for the ridge channel
+        block = read_model_block(
+            dataset, args.z, curr_y, curr_x, num_layers, patch_size
+        )
 
         # Prepare input
         x = prepare_volume_input(
