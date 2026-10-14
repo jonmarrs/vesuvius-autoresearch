@@ -1,5 +1,6 @@
 """Finding 88's report quotes numbers; each must come from its saved artifact."""
 
+import hashlib
 import json
 import statistics
 from pathlib import Path
@@ -217,9 +218,27 @@ def test_all_measurements_used_the_same_checkpoints():
         assert C["best_model_sha256"] == A["best_model_sha256"]
 
 
-def test_the_loop_sample_reproduces_the_stored_incumbent_score():
+def _check_stored_incumbent(path):
     import torch
 
-    stored = torch.load(REPO / "best_model.pt", weights_only=False, map_location="cpu")
+    digest = hashlib.sha256(path.read_bytes()).hexdigest()
+    if digest != A["best_model_sha256"]:
+        pytest.skip(f"{path.name} is no longer the checkpoint finding 88 measured")
+    stored = torch.load(path, weights_only=False, map_location="cpu")
     assert A["best_model_val_protocol"] == stored["val_protocol"]
     assert abs(A["cards"]["loop_incumbent"]["val_f1"] - stored["val_f1"]) < 1e-5
+
+
+def test_the_loop_sample_reproduces_the_stored_incumbent_score():
+    _check_stored_incumbent(REPO / "best_model.pt")
+
+
+def test_a_later_incumbent_skips_rather_than_fails(tmp_path):
+    # The loop commits each promotion to best_model.pt, and a protocol change
+    # re-scores it; neither makes finding 88's measurement wrong.
+    import torch
+
+    later = tmp_path / "best_model.pt"
+    torch.save({"val_protocol": A["best_model_val_protocol"], "val_f1": 0.9}, later)
+    with pytest.raises(pytest.skip.Exception):
+        _check_stored_incumbent(later)
