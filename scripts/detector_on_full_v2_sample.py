@@ -45,8 +45,10 @@ from scripts.detector_on_loop_sample import (  # noqa: E402
     DETECTOR,
     ZARR_SLICE_0_LAYER,
     card,
+    check_origins,
     detector_windows,
     loop_incumbent,
+    patch_origin,
     sha256,
 )
 from scripts.training.promotion import (  # noqa: E402
@@ -84,7 +86,7 @@ def main(out_path, detector):
             for j, i in enumerate(chunk):
                 probs.append(p[j : j + 1])
                 targets.append(target[j : j + 1].float())
-                coords.append(tuple(int(v) for v in dataset.valid_coords[i]))
+                coords.append(patch_origin(dataset, i))
                 has_ink.append(float(target[j].float().sum()) >= 1.0)
     kept = [p for p, ink in zip(probs, has_ink, strict=True) if ink]
     if len(kept) != len(kept_probs) or not all(
@@ -93,6 +95,7 @@ def main(out_path, detector):
         raise RuntimeError(
             "the ink-containing patches do not reproduce the loop's scores"
         )
+    check_origins(config.val_uri, coords, targets)
 
     cfg = DetectorConfig()
     det = DetectorModel.load_from_checkpoint(

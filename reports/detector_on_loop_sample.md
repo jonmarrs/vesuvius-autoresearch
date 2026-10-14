@@ -1,14 +1,50 @@
 # The loop's validation sample cannot reward a model that reads ink (finding 88)
 
-**2026-10-13.** Four read-only measurements, each **pre-registered**: its reading rule was committed before it ran.
-They ran on CPU, one thread, at the lowest priority, beside the running loop. Scripts and outputs:
+**2026-10-13, corrected 2026-10-14.** Four read-only measurements, each **pre-registered**: its reading rule was
+committed before it ran. They ran on CPU, one thread, at the lowest priority, beside the running loop. Scripts and
+outputs:
 
 | measurement | script | committed before the run | output |
 |---|---|---|---|
-| A. the loop's 97-patch sample | `scripts/detector_on_loop_sample.py` | `5b5c4e2a` (run at `b8a8fff3`) | `reports/detector_on_loop_sample.json` |
+| A. the loop's 97-patch sample | `scripts/detector_on_loop_sample.py` | `5b5c4e2a` (first run at `b8a8fff3`, re-run at `9acb865a`) | `reports/detector_on_loop_sample.json` |
 | B. control: random windows | `scripts/detector_random_window_control.py` | `fe76e853` | `reports/detector_random_window_control.json` |
-| C. the 400-patch draw, ink-free patches kept | `scripts/detector_on_full_v2_sample.py` | `c59cfa86` | `reports/detector_on_full_v2_sample.json` |
-| D. A and C scaled by the loop candidates' spread | `scripts/loop_candidate_spread.py` | `19aed905` (run at `54256700`) | `reports/loop_candidate_spread.json` |
+| C. the 400-patch draw, ink-free patches kept | `scripts/detector_on_full_v2_sample.py` | `c59cfa86` (re-run at `9acb865a`) | `reports/detector_on_full_v2_sample.json` |
+| D. A and C scaled by the loop candidates' spread | `scripts/loop_candidate_spread.py` | `19aed905` (run at `54256700`, ratios recomputed at `9acb865a`) | `reports/loop_candidate_spread.json` |
+
+## Correction (2026-10-14): the detector was first read at the wrong place
+
+Validation shifts each patch by up to half a patch before reading it (`VesuviusLabeledDataset`, `jitter=True`,
+which `build_validation_dataset` keeps). The first runs of A and C read the detector at the catalogue coordinates
+(`valid_coords`), before the shift, and scored it against the shifted targets. All 400 patches of the draw had
+moved (median 16 px in y and 17 in x, at most 32), and the labels at the catalogue coordinates equal only 314 of
+the 400 targets. The incumbent's and the candidates' scores were not affected: they come through the loop's own
+loader. B was not affected: it draws its own windows and reads the labels at them.
+
+The fix, `9acb865a`, reads each detector window where the loader read the patch (`patch_origin`). A run now aborts
+unless the labels there equal every target (`check_origins`). `tests/test_detector_patch_origin.py` fails with the
+pre-shift coordinates. A and C were re-run at `9acb865a` with their reading rules unchanged. D's gaps come from A
+and C, so its ratios were recomputed from its saved candidate scores (`--reseparate`).
+
+| number | first run | corrected |
+|---|---:|---:|
+| A: detector margin over all-ink, single window (the primary) | +0.0010 | +0.0025 |
+| A: detector margin over all-ink, tiled | +0.0062 | +0.0147 |
+| A: detector ROC AUC, single window | 0.5790 | 0.6060 |
+| C: detector margin over all-ink | +0.0655 | +0.1014 |
+| C: detector ROC AUC | 0.6665 | 0.6809 |
+| D: val_f1 gap / spread, A and C | 2.78, 10.71 | 3.71, 16.98 |
+| D: ROC AUC gap / spread, A and C | 4.76, 13.14 | 12.16, 15.14 |
+| D: AP lift gap / spread, A and C | 3.37, 17.63 | 18.70, 19.82 |
+
+**All three pre-registered readings are unchanged.** A's primary margin is still inside ±0.01. In C, the detector
+still clears +0.03 and the incumbent still does not. C's val_f1 ratio is still more than twice A's.
+
+**One claim is withdrawn.** The first version said that ROC AUC and AP lift "point the same way" as val_f1 in D.
+Corrected, they separate the detector from the loop's candidates almost as well on the 97-patch sample as on the
+400-patch draw. On the loop's current sample, what fails to separate them is F1, not the ranking metrics. That
+puts finding 86's third option, promoting on AP lift or AUC, level with keeping the ink-free patches (see What
+this means). The first version said keeping them separated the models "by far the most", and that is withdrawn
+too.
 
 **Question.** The loop promotes on val_f1 (best F1 over thresholds 0.05–0.95, pooled over pixels) on the
 ink-containing patches of a fixed 400-patch draw. Finding 86 found the incumbent below the all-ink F1 on that
@@ -24,14 +60,15 @@ Protocol `seeded-sample-400-v2+z1-27`: **97** ink-containing patches, **397,312*
 | predictor | val_f1 | margin over all-ink | ROC AUC | AP lift |
 |---|---:|---:|---:|---:|
 | loop incumbent (`best_model.pt`) | 0.7273 | **−0.0037** | 0.5615 | 1.0788 |
-| detector, each patch's own 64 px window | 0.7320 | **+0.0010** | 0.5790 | 1.0994 |
-| detector, its normal stride-32 tiling | 0.7372 | **+0.0062** | 0.6131 | 1.1644 |
+| detector, each patch's own 64 px window | 0.7335 | **+0.0025** | 0.6060 | 1.1932 |
+| detector, its normal stride-32 tiling | 0.7457 | **+0.0147** | 0.6297 | 1.1975 |
 | every pixel ink | 0.7310 | 0 | 0.5000 | 1.0000 |
 
-The detector's primary margin is +0.0010, inside the pre-registered ±0.01 band: **F1 on this sample cannot tell a
-model that reads ink from a constant.** Its own normal inference reaches +0.0062. To be promoted, a candidate must
-beat the incumbent's 0.7273 by 0.03, that is, reach 0.7573, which is 0.0263 above the all-ink F1: more than four
-times what the project's best detector reaches here.
+The detector's primary margin is +0.0025, inside the pre-registered ±0.01 band: **F1 on this sample cannot tell a
+model that reads ink from a constant.** Its own normal inference reaches +0.0147, which would read as weak; the
+rule was set on the single window. To be promoted, a candidate must beat the incumbent's 0.7273 by 0.03, that is,
+reach 0.7573, which is 0.0263 above the all-ink F1: 10.4 times the detector's primary margin here, and 1.8 times
+what its tiled inference reaches.
 
 ## B. Control: the same pipeline reads ink on random windows of the fragment
 
@@ -58,13 +95,13 @@ script).
 | predictor | val_f1 | margin over all-ink | ROC AUC | AP lift |
 |---|---:|---:|---:|---:|
 | loop incumbent (`best_model.pt`) | 0.2493 | **+0.0042** | 0.5717 | 1.1437 |
-| detector, each patch's own 64 px window | 0.3106 | **+0.0655** | 0.6665 | 1.6449 |
+| detector, each patch's own 64 px window | 0.3465 | **+0.1014** | 0.6809 | 1.7072 |
 | every pixel ink | 0.2451 | 0 | 0.5000 | 1.0000 |
 
 The detector's margin is above +0.03 and the incumbent's is not, so by the pre-registered rule **keeping the
 ink-free patches lets the loop's F1 tell a model of the detector's quality from the incumbent.** On this sample
 the incumbent would store 0.2493, the bar would be 0.2793 with AP lift above 1.02, and the detector clears both
-(0.3106, lift 1.6449).
+(0.3465, lift 1.7072).
 
 ## D. Scaled by the spread of the loop's own candidates, C still separates far better
 
@@ -76,17 +113,18 @@ is the SD of their 10 scores; the gap is detector minus incumbent from A and C a
 
 | metric | sample | gap | spread (SD of 10 candidates) | gap / spread |
 |---|---|---:|---:|---:|
-| val_f1 | A | 0.0046 | 0.0017 | **2.78** |
-| val_f1 | C | 0.0613 | 0.0057 | **10.71** |
-| ROC AUC | A | 0.0174 | 0.0037 | 4.76 |
-| ROC AUC | C | 0.0948 | 0.0072 | 13.14 |
-| AP lift | A | 0.0206 | 0.0061 | 3.37 |
-| AP lift | C | 0.5013 | 0.0284 | 17.63 |
+| val_f1 | A | 0.0062 | 0.0017 | **3.71** |
+| val_f1 | C | 0.0971 | 0.0057 | **16.98** |
+| ROC AUC | A | 0.0445 | 0.0037 | 12.16 |
+| ROC AUC | C | 0.1092 | 0.0072 | 15.14 |
+| AP lift | A | 0.1145 | 0.0061 | 18.70 |
+| AP lift | C | 0.5635 | 0.0284 | 19.82 |
 
 The rule: C separates better if its val_f1 ratio is at least twice A's, and A separates better if the reverse
-holds. 10.71 ≥ 2 × 2.78 = 5.55, so **C separates a detector-quality model from the loop's ordinary candidates
-better, and finding 88's recommendation stands.** ROC AUC and AP lift were reported but not part of the rule; they
-point the same way. Checks passed: each candidate reproduces the val_f1 the loop stored within 3.4e-6 (the bar was
+holds. 16.98 ≥ 2 × 3.71 = 7.42, so **C separates a detector-quality model from the loop's ordinary candidates
+better on val_f1, the promotion metric, and finding 88's recommendation stands.** ROC AUC and AP lift were reported
+but not part of the rule. They do not point the same way: by the same factor-of-two test they are comparable on
+the two samples (12.16 against 15.14, and 18.70 against 19.82). Checks passed: each candidate reproduces the val_f1 the loop stored within 3.4e-6 (the bar was
 1e-3); the incumbent reproduces A and C; the sample has 97 ink-containing patches.
 
 | snapshot | config change | A val_f1 | margin over incumbent | C val_f1 | margin over incumbent | C threshold | C share called ink | promoted under C? |
@@ -121,21 +159,35 @@ Not pre-registered, from the same run:
 These are the owner's decisions (finding 86, item 4); none was taken here.
 
 * **As configured, the loop cannot promote even a model as good as the project's detector.** Its bar is 0.0263
-  above the all-ink F1 on a sample where that detector reaches +0.0010 (+0.0062 tiled). Cycles that do not move the
+  above the all-ink F1 on a sample where that detector reaches +0.0025 (+0.0147 tiled). Cycles that do not move the
   incumbent's score by 0.03 are the expected outcome whatever they change.
-* **Of finding 86's three options, keeping the ink-free patches separates the two models by far the most.** On the
-  97-patch sample the margin over the floor separates them by 0.0046 and AUC by 0.0174. On the 400-patch draw the
-  margin separates them by 0.0613 and AUC by 0.0948. Measured against the spread of the loop's own candidates (D),
-  the val_f1 gap is 10.71 SDs on the 400-patch draw against 2.78 on the 97-patch sample.
-* **If adopted, it is a new protocol:** the incumbent must be re-scored (its stored 0.7273 is not comparable).
-  `F1_NOISE_TOLERANCE` (0.03) was measured on 2026-07-12 under protocol v1 (incumbent 0.468; run-to-run sigma
-  0.0120). It has not been measured where val_f1 sits near 0.25–0.31, so `scripts/f1_noise_probe.py` (made
+* **Two of finding 86's three options separate the detector from the loop's candidates; one does not** (corrected
+  2026-10-14). On the 97-patch sample the margin over the floor separates them by 0.0062 and AUC by 0.0445. On
+  the 400-patch draw the margin separates them by 0.0971 and AUC by 0.1092. Measured against the spread of the
+  loop's own candidates (D):
+  * *Scoring the margin over the all-ink floor* does not help. On a fixed sample the floor is a constant, so margin
+    gaps equal val_f1 gaps: 3.71 SDs.
+  * *Keeping the ink-free patches* separates them on the existing metric: the val_f1 gap is 16.98 SDs on the
+    400-patch draw against 3.71 on the 97-patch sample. AP lift separates them too (19.82).
+  * *Promoting on AP lift or AUC* on the 97-patch sample separates them about as well: 18.70 and 12.16 SDs.
+
+  So the corrected numbers do not choose between the second and third options on separation, and that comparison
+  was not pre-registered. The options differ in what the loop promotes on. Keeping the ink-free patches leaves the
+  promotion rule as it is (`train.py`: val_f1 above the stored best by `F1_NOISE_TOLERANCE`, AP lift above
+  1 + `LIFT_MARGIN`) and makes both of its gates separate the two models. Promoting on AP lift would replace the
+  F1 gate and would need a new rule relative to the incumbent, since `LIFT_MARGIN` is an absolute floor.
+* **Either is a new protocol:** the incumbent must be re-scored (its stored 0.7273 is not comparable), and its
+  tolerance measured. `F1_NOISE_TOLERANCE` (0.03) was measured on 2026-07-12 under protocol v1 (incumbent 0.468;
+  run-to-run sigma 0.0120). It has not been measured where val_f1 sits near 0.25–0.35, so `scripts/f1_noise_probe.py` (made
   protocol-aware in #57; it only plans unless told to run) should be run under the new protocol before the 0.03 is
-  trusted. D's candidate spread is no substitute: it mixes config differences with noise. On D's 10 candidates the
-  new protocol would have promoted none.
+  trusted. D's candidate spread is no substitute: it mixes config differences with noise. On D's 10 candidates,
+  keeping the ink-free patches would have promoted none.
 
 ## Caveats
 
+* The first runs of A and C read the detector at the wrong place (Correction, above). The re-runs fixed only that
+  and changed nothing else. The detector's numbers rose in both, and C's margin rose more, so the error had
+  understated how well C separates the models. The pre-registered readings were not reversed.
 * The detector's epoch was chosen by AUC on Fr143, the loop's validation fragment, so its numbers lean
   optimistic. That strengthens A (even an optimistic detector does not clear the floor) and weakens the
   detector's margins in B and C as estimates of an unbiased model.
