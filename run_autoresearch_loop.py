@@ -1,4 +1,5 @@
 import copy
+import glob
 import json
 import os
 import random
@@ -444,36 +445,59 @@ def hold_incumbent():
 
 
 def _log_ends():
-    """Each promotion log's (device, inode, size), or None where there is none."""
+    """Each promotion log's bytes, or None where there is none. The logs are
+    small (a row per promotion); content, not the inode, tells whether a log was
+    only appended to, since a file git or an operator recreates can get its old
+    inode number back."""
     ends = {}
     for path in PROMOTION_LOGS:
         try:
-            st = os.stat(path)
+            with open(path, "rb") as f:
+                ends[path] = f.read()
         except FileNotFoundError:
             ends[path] = None
-        else:
-            ends[path] = (st.st_dev, st.st_ino, st.st_size)
+        except OSError as e:
+            print(f"Warning: could not read {path} before the run ({e}).")
     return ends
 
 
+def _read_bytes(path):
+    with open(path, "rb") as f:
+        return f.read()
+
+
 def _undo_promotion_rows(before):
-    """Cut each promotion log back to its length before the run (remove one the
-    run created), so the reports read no promotion the loop undid. A log rotated
-    meanwhile (append_tsv_row moves one whose header changed aside) is left."""
+    """Put each promotion log back as it was before the run, so the reports read
+    no promotion the loop undid. A log that still begins with its old bytes is
+    cut to them; one the run created is removed; one append_tsv_row rotated
+    (moved aside for a new header) is moved back. Any other change is left."""
     undone, left = [], []
-    for path, end in before.items():
+    for path, old in before.items():
         try:
-            st = os.stat(path)
-        except FileNotFoundError:
-            continue
-        if end is None:
-            os.remove(path)
-            undone.append(path)
-        elif (st.st_dev, st.st_ino) != end[:2]:
+            if not os.path.exists(path):
+                continue
+            now = _read_bytes(path)
+            if old is None:
+                os.remove(path)
+                undone.append(path)
+            elif now.startswith(old):
+                if len(now) > len(old):
+                    os.truncate(path, len(old))
+                    undone.append(path)
+            else:
+                stem, ext = os.path.splitext(path)
+                pattern = f"{glob.escape(stem)}.until-*{ext}"
+                rotated = [
+                    a for a in sorted(glob.glob(pattern)) if _read_bytes(a) == old
+                ]
+                if rotated:
+                    os.replace(rotated[-1], path)
+                    undone.append(path)
+                else:
+                    left.append(path)
+        except OSError as e:
+            print(f"Warning: could not restore {path} ({e}).")
             left.append(path)
-        elif st.st_size > end[2]:
-            os.truncate(path, end[2])
-            undone.append(path)
     return undone, left
 
 
@@ -517,7 +541,7 @@ def settle_incumbent(held, failed):
             + (f", and the run's model kept as {aside}" if aside else "")
             + (f"; its rows were removed from {', '.join(undone)}" if undone else "")
             + (
-                f"; {', '.join(left)} rotated during the run, left as is"
+                f"; {', '.join(left)} changed otherwise during the run, left as is"
                 if left
                 else ""
             )
@@ -542,7 +566,8 @@ def leftover_hold():
         f"its run, and {INCUMBENT} has changed since that cycle began (the run "
         "replaced it, or it was changed by hand). To keep the current "
         f"{INCUMBENT}: rm {INCUMBENT_HELD}. To restore the incumbent from before "
-        f"that cycle: mv {INCUMBENT_HELD} {INCUMBENT}."
+        f"that cycle: mv {INCUMBENT_HELD} {INCUMBENT}, and remove that run's last "
+        f"row from {' and '.join(PROMOTION_LOGS)} if it added one."
     )
 
 

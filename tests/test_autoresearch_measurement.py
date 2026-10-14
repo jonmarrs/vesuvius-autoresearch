@@ -728,9 +728,9 @@ def test_a_failed_preflight_is_named_in_the_sprint_log(tmp_path, monkeypatch):
     assert not os.path.lexists(tmp_path / ".best_model.pt.held")
 
 
-def test_a_promotion_log_rotated_during_the_run_is_left(tmp_path, monkeypatch):
+def test_a_promotion_log_rotated_during_the_run_is_moved_back(tmp_path, monkeypatch):
     """append_tsv_row moves a log whose header changed aside and starts a new
-    one; cutting the new file to the old one's length would corrupt it."""
+    one with the run's row; the old one is put back."""
     import run_autoresearch_loop as loop
 
     monkeypatch.chdir(tmp_path)
@@ -738,8 +738,28 @@ def test_a_promotion_log_rotated_during_the_run_is_left(tmp_path, monkeypatch):
     before = loop._log_ends()
     os.replace(tmp_path / "results.tsv", tmp_path / "results.until-x.tsv")
     (tmp_path / "results.tsv").write_text("new header\npromoted\n")
-    assert loop._undo_promotion_rows(before) == ([], ["results.tsv"])
-    assert (tmp_path / "results.tsv").read_text() == "new header\npromoted\n"
+    assert loop._undo_promotion_rows(before) == (["results.tsv"], [])
+    assert (tmp_path / "results.tsv").read_text() == "old header\nrow\n"
+    assert not (tmp_path / "results.until-x.tsv").exists()
+
+
+def test_a_promotion_log_rewritten_during_the_run_is_left(tmp_path, monkeypatch):
+    """A log replaced by other content during the run (a git checkout of the
+    tracked prize_readiness.tsv can reuse its inode number) is not cut: the
+    length recorded before the run would fall mid-row in it."""
+    import run_autoresearch_loop as loop
+
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "prize_readiness.tsv").write_text("ts\tsubmittable\n")
+    before = loop._log_ends()
+    (tmp_path / "prize_readiness.tsv").unlink()
+    (tmp_path / "prize_readiness.tsv").write_text(
+        "ts\tsubmittable\twindow_ok\npulled\n"
+    )
+    with open(tmp_path / "prize_readiness.tsv", "a") as f:
+        f.write("promoted\n")
+    assert loop._undo_promotion_rows(before) == ([], ["prize_readiness.tsv"])
+    assert (tmp_path / "prize_readiness.tsv").read_text().endswith("pulled\npromoted\n")
 
 
 def test_a_stop_mid_cycle_settles_the_run(tmp_path, monkeypatch):
@@ -762,6 +782,8 @@ def test_a_stop_mid_cycle_settles_the_run(tmp_path, monkeypatch):
     (aside,) = tmp_path.glob("best_model.pt.failed-run-*")
     assert torch.load(aside)["val_f1"] == 0.9
     assert not os.path.lexists(tmp_path / ".best_model.pt.held")
+    assert not (tmp_path / "results.tsv").exists()  # the stopped run's rows
+    assert not (tmp_path / "prize_readiness.tsv").exists()
     # Re-scored while stopped: the next start keeps it.
     _checkpoint(tmp_path / "rescored.pt", val_f1=0.48)
     os.replace(tmp_path / "rescored.pt", tmp_path / "best_model.pt")
@@ -806,6 +828,7 @@ def test_a_failed_run_that_wrote_the_first_incumbent_leaves_none(tmp_path, monke
     assert torch.load(aside)["val_f1"] == 0.9
     log = next((tmp_path / "sprint_logs").glob("*.md")).read_text()
     assert "there was none before it" in log
+    assert not (tmp_path / "results.tsv").exists()
 
 
 def test_without_a_hard_link_the_cycle_runs_unheld(tmp_path, monkeypatch, capsys):
