@@ -335,6 +335,12 @@ def test_both_labeled_datasets_read_inside_the_depth_band(tmp_path, monkeypatch)
         return _Catalogue(10)
 
     monkeypatch.setattr(train, "VesuviusLabeledDataset", dataset)
+    # train() builds its model (on CUDA) before the training loaders.
+    monkeypatch.setattr(
+        train,
+        "build_model",
+        lambda *args: train.GenericMultiTaskWrapper(torch.nn.Conv3d(1, 1, 1)),
+    )
     with pytest.raises(Stop):
         train.train(config)
     assert seen == {"val": ([17, 43], 4), "train": ([17, 43], 4)}

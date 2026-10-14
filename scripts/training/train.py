@@ -605,6 +605,27 @@ def probe_validation_read(dataset) -> None:
         ) from exc
 
 
+def trained_outputs(model_out, heads):
+    """(ink, fiber, qc, proj, st) from a forward with every return_* flag set,
+    with the auxiliary outputs the model does not declare as heads set to None.
+
+    A placeholder fiber is the ink logits, so a loss on it trained ink toward the
+    fiber target, and the hallucination penalty on a zero QC pushed all ink down
+    (model_wrappers.task_heads).
+    """
+    if not isinstance(model_out, tuple):
+        return model_out, None, None, None, None
+    padded = list(model_out) + [None] * (5 - len(model_out))
+    ink, fiber, qc, proj, st = padded[:5]
+    return (
+        ink,
+        fiber if "fiber" in heads else None,
+        qc if "qc" in heads else None,
+        proj,
+        st if "st" in heads else None,
+    )
+
+
 def check_validation_inputs(dataset, protocol, incumbent_path="best_model.pt"):
     """Fail before training when the validation inputs differ from those the
     incumbent is compared on. The loop checks before each cycle; this covers a
@@ -813,17 +834,12 @@ except ImportError:
     generate_resnet3d = None
     InceptionI3d = None
 
-try:
-    from dynamic_network_architectures.architectures.unet import ResidualEncoderUNet
-    from dynamic_network_architectures.building_blocks.helper import (
-        convert_dim_to_conv_op,
-        get_matching_instancenorm,
-    )
-except ImportError:
-    ResidualEncoderUNet = None
-
 from vesuvius_autoresearch.core.inference import DEPTH_MARGIN
-from vesuvius_autoresearch.core.model_wrappers import GenericMultiTaskWrapper
+from vesuvius_autoresearch.core.model_wrappers import (
+    GenericMultiTaskWrapper,
+    build_resenc_unet,
+    task_heads,
+)
 
 TRAINING_TRANSFORMS_IMPORT_ERROR = None
 try:
@@ -1448,39 +1464,17 @@ def build_model(config: ExperimentConfig, v_config: VesuviusConfig, device):
         print(
             f"Instantiating nnUNet-style ResEnc UNet (base_feat={v_config.base_feat})..."
         )
-        if ResidualEncoderUNet:
-            # Shallow 3-stage configuration to avoid dimension mismatch on small patches
-            n_stages = 3
-            features_per_stage = [v_config.base_feat * (2**i) for i in range(n_stages)]
-            strides = [[1, 1, 1]] + [[2, 2, 2]] * (n_stages - 1)
-
-            backbone = ResidualEncoderUNet(
-                input_channels=v_config.in_channels,
-                n_stages=n_stages,
-                features_per_stage=features_per_stage,
-                conv_op=convert_dim_to_conv_op(3),
-                kernel_sizes=[[3, 3, 3]] * n_stages,
-                strides=strides,
-                n_blocks_per_stage=[2] * n_stages,
-                num_classes=1,
-                n_conv_per_stage_decoder=[2] * (n_stages - 1),
-                conv_bias=True,
-                norm_op=get_matching_instancenorm(convert_dim_to_conv_op(3)),
-                norm_op_kwargs={"eps": 1e-5, "affine": True},
-                dropout_op=None,
-                nonlin=nn.LeakyReLU,
-                nonlin_kwargs={"inplace": True},
-                deep_supervision=False,
-            )
-            model = GenericMultiTaskWrapper(
-                backbone,
-                multi_task_heads=getattr(config, "multi_task_heads", False),
-                input_channels=v_config.in_channels,
+        # The construction inference uses too (model_wrappers.build_resenc_unet).
+        try:
+            model = build_resenc_unet(
+                v_config.in_channels,
+                v_config.base_feat,
+                getattr(config, "multi_task_heads", False),
             ).to(device)
-        else:
+        except ImportError as exc:
             raise ImportError(
                 "ResidualEncoderUNet not found. Please install dynamic-network-architectures."
-            )
+            ) from exc
     elif hasattr(v_config, "architecture") and v_config.architecture == "lejepa_unet":
         print("Instantiating LeJEPA Foundation-Backed UNet...")
         from vesuvius_model import LeJEPAUNet
@@ -1608,9 +1602,7 @@ def train(config: ExperimentConfig, *, strict_warm_start=False):
                     use_ridges=config.use_ridges,
                     ridge_sigma=getattr(config, "ridge_sigma", 2.0),
                     use_lasagna=getattr(config, "use_lasagna", False),
-                    target_fiber_source=getattr(
-                        config, "target_fiber_source", "sobel_z"
-                    ),
+                    target_fiber_source=fiber_target_source,
                     target_fiber_sigma=getattr(config, "target_fiber_sigma", 2.0),
                     patches_json=patches_json_path
                     if os.path.exists(patches_json_path)
@@ -1649,6 +1641,18 @@ def train(config: ExperimentConfig, *, strict_warm_start=False):
     # recorded in run_result.json and the checkpoint.
     sampling_seed = int.from_bytes(os.urandom(4), "little") & 0x7FFFFFFF
     print(f"Training sampling seed: {sampling_seed}")
+    # Built before the loaders: which heads it trains decides the fiber target.
+    model = build_model(config, v_config, device)
+    # Only the outputs the model declares as heads are trained
+    # (model_wrappers.task_heads); the rest are placeholders. The Frangi fiber
+    # target (~86 ms/patch in the loader) is computed only for a fiber or QC head.
+    heads = task_heads(model)
+    print(f"Trained auxiliary heads: {', '.join(sorted(heads)) or 'none'}")
+    fiber_target_source = (
+        getattr(config, "target_fiber_source", "sobel_z")
+        if heads & {"fiber", "qc"}
+        else "sobel_z"
+    )
     data_loader = get_dataloader(config.uris)
     data_iter = iter(data_loader)
 
@@ -1656,8 +1660,6 @@ def train(config: ExperimentConfig, *, strict_warm_start=False):
     if config.use_uamt and config.unlabeled_uris:
         unlabeled_data_loader = get_dataloader(config.unlabeled_uris, is_unlabeled=True)
         unlabeled_data_iter = iter(unlabeled_data_loader)
-
-    model = build_model(config, v_config, device)
 
     # Opt-in wandb experiment tracking (default off; online to match villa).
     # watch_model logs parameter + gradient histograms over training.
@@ -1767,12 +1769,12 @@ def train(config: ExperimentConfig, *, strict_warm_start=False):
     amp_enabled = False  # Disabled for NaN debugging
     scaler = GradScaler(device=device.type, enabled=amp_enabled)
 
-    # Initialize auxiliary task tools
+    # Initialize auxiliary task tools (the ST target only for an ST head).
     st_computer = (
         StructureTensorComputer(
             sigma=1.0, component_sigma=1.0, smooth_components=True, device=device
         )
-        if StructureTensorComputer
+        if StructureTensorComputer and "st" in heads
         else None
     )
 
@@ -1867,7 +1869,7 @@ def train(config: ExperimentConfig, *, strict_warm_start=False):
         # source="sobel_z" (default): compute Sobel-Z gradient of CT inline
         # on GPU (cheap, current behavior).
         with torch.no_grad():
-            if getattr(config, "target_fiber_source", "sobel_z") == "frangi":
+            if fiber_target_source == "frangi":
                 # target_fiber_from_loader: [B, 1, 1, H, W] z-collapsed already
                 target_fiber = target_fiber_from_loader
             else:
@@ -1927,22 +1929,14 @@ def train(config: ExperimentConfig, *, strict_warm_start=False):
                 return_proj=True,
                 return_st=True,
             )
-            if isinstance(model_out, tuple):
-                out_ink_2d = model_out[0]
-                # Diagnostic check: Isolate if NaN comes from backbone forward pass
-                if torch.isnan(out_ink_2d).any():
-                    print(
-                        f"DEBUG: NaN detected in model backbone output (out_ink_2d) at step {step}"
-                    )
-                # Map remaining outputs if they exist
-                # This is a bit brittle, but works with our current return order
-                out_fiber = model_out[1] if len(model_out) > 1 else None
-                out_qc = model_out[2] if len(model_out) > 2 else None
-                p1 = model_out[3] if len(model_out) > 3 else None
-                out_st = model_out[4] if len(model_out) > 4 else None
-            else:
-                out_ink_2d = model_out
-                out_fiber = out_qc = p1 = out_st = None
+            out_ink_2d, out_fiber, out_qc, p1, out_st = trained_outputs(
+                model_out, heads
+            )
+            # Diagnostic check: Isolate if NaN comes from backbone forward pass
+            if torch.isnan(out_ink_2d).any():
+                print(
+                    f"DEBUG: NaN detected in model backbone output (out_ink_2d) at step {step}"
+                )
 
             # --- START FIX: Prevent NaN/Inf loss from AMP float16 overflow ---
             if out_ink_2d is not None:

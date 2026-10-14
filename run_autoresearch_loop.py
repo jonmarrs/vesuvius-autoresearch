@@ -67,7 +67,17 @@ tweak_templates: list[dict[str, Any]] = [
         "vals": [16],
     },  # pinned (was [8,10,12,16,20])
     {"family": "attention", "attr": "num_heads", "vals": [8]},  # pinned (was [4,8,12])
-    {"family": "regularization", "attr": "dropout", "vals": [0.1, 0.2, 0.0]},
+    # dropout reaches only gated_unet (InkDetectorOptimized): resenc_unet has no
+    # dropout layers (model_wrappers.build_resenc_unet) and timesformer fixes its
+    # own. On the pinned resenc_unet, 162 logged cycles (2026-05-03..07-11)
+    # tweaked it to no effect, and one was promoted on noise.
+    {
+        "family": "regularization",
+        "attr": "dropout",
+        "vals": [0.1, 0.2, 0.0],
+        "applies_when": lambda c: getattr(c, "architecture", "gated_unet")
+        == "gated_unet",
+    },
     # Pinned off (was [True, False]): villa's uint8 warp takes CUDA tensors and
     # patches are read on the CPU, so strict validation refuses it and a cycle
     # that requests it fails before training. It never ran in a logged run
@@ -75,13 +85,28 @@ tweak_templates: list[dict[str, Any]] = [
     {"family": "preproc", "attr": "use_lasagna", "vals": [False]},
     # target_fiber_source: tests whether the fiber head's BCE target benefits
     # from being real Frangi vesselness (dataloader-side, ~86ms/patch CPU,
-    # parallelized) instead of the cheap inline Sobel-Z gradient.
-    {"family": "preproc", "attr": "target_fiber_source", "vals": ["sobel_z", "frangi"]},
-    # multi_task_heads: replaces the GenericMultiTaskWrapper's dummy
+    # parallelized) instead of the cheap inline Sobel-Z gradient. The target
+    # feeds the fiber and QC heads only, so the axis needs one of them.
+    {
+        "family": "preproc",
+        "attr": "target_fiber_source",
+        "vals": ["sobel_z", "frangi"],
+        "applies_when": lambda c: trains_head(c, "fiber") or trains_head(c, "qc"),
+    },
+    # multi_task_heads: replaces the GenericMultiTaskWrapper's placeholder
     # fiber/qc/st outputs with real Conv3d/Linear heads operating on
-    # cat(input, backbone_output). Adds ~5k params, but gradients from
-    # loss_fiber/loss_qc/loss_st now flow back through the backbone.
-    {"family": "regularization", "attr": "multi_task_heads", "vals": [True, False]},
+    # cat(input, backbone_output). Adds ~5k params, and gradients from
+    # loss_fiber/loss_qc/loss_st flow back through the backbone. Without heads
+    # the model trains on the ink losses alone (model_wrappers.task_heads).
+    # Only resenc_unet's wrapper builds heads from it (resnet3d/i3d backbones
+    # give no volume output for them); other architectures ignore it.
+    {
+        "family": "regularization",
+        "attr": "multi_task_heads",
+        "vals": [True, False],
+        "applies_when": lambda c: getattr(c, "architecture", "gated_unet")
+        == "resenc_unet",
+    },
     {"family": "batch", "attr": "batch_size", "vals": [8, 16, 24]},
     {"family": "spatial", "attr": "patch_size", "vals": [64]},  # pinned (was [64,96])
     {
@@ -92,8 +117,20 @@ tweak_templates: list[dict[str, Any]] = [
     {"family": "width", "attr": "base_feat", "vals": [64]},  # pinned (was [32,64,128])
     {"family": "loss_balance", "attr": "loss_ink_bce", "vals": [0.2, 0.4, 0.6]},
     {"family": "loss_balance", "attr": "loss_ink_dice", "vals": [0.2, 0.4, 0.6]},
-    {"family": "loss_balance", "attr": "loss_fiber_bce", "vals": [0.1, 0.2, 0.3]},
-    {"family": "loss_balance", "attr": "loss_st", "vals": [0.0, 0.1, 0.2]},
+    # The fiber and structure-tensor weights reach only a model that trains
+    # those heads (see trains_head).
+    {
+        "family": "loss_balance",
+        "attr": "loss_fiber_bce",
+        "vals": [0.1, 0.2, 0.3],
+        "applies_when": lambda c: trains_head(c, "fiber"),
+    },
+    {
+        "family": "loss_balance",
+        "attr": "loss_st",
+        "vals": [0.0, 0.1, 0.2],
+        "applies_when": lambda c: trains_head(c, "st"),
+    },
     {
         "family": "features",
         "attr": "use_ridges",
@@ -115,13 +152,13 @@ tweak_templates: list[dict[str, Any]] = [
         "attr": "aug_mode",
         "vals": ["albumentations", "batchgeneratorsv2"],
     },
-    # Architecture family restricted to candidates with real (non-dummy) ST/QC
-    # heads. Audit on 2026-05-17 found that lejepa_unet has been a topology
-    # regression since the 2026-05-06 flip: skel_dist 27 px vs the May-5
-    # resenc_unet's 1 px (prize gate: <= 2 px). lejepa_unet, timesformer, and
-    # resnet3d_decoder all return torch.zeros(...) for the structure-tensor
-    # head, which explains the regression. Only resenc_unet (ResEnc UNet) and
-    # gated_unet (InkDetectorOptimized) have real ST heads.
+    # Architecture family restricted to candidates with real ST/QC heads. Audit
+    # on 2026-05-17 found that lejepa_unet has been a topology regression since
+    # the 2026-05-06 flip: skel_dist 27 px vs the May-5 resenc_unet's 1 px
+    # (prize gate: <= 2 px). lejepa_unet and timesformer return zeros for the
+    # structure-tensor head; lejepa_unet and neural_tracing_vit also return the
+    # ink logits as fiber and zeros as QC. resenc_unet has real heads only with
+    # multi_task_heads (trains_head, which mirrors each model's task_heads).
     {
         "family": "architecture",
         "attr": "architecture",
@@ -245,6 +282,25 @@ def _tweaked(config, attr, val):
     candidate = copy.copy(config)
     setattr(candidate, attr, val)
     return candidate
+
+
+# Mirrors each model's declared task_heads (model_wrappers.task_heads), without
+# building one (the loop does not import torch): tests/test_task_heads.py checks
+# they agree. resnet3d/i3d wrap backbones without a volume output, so they have
+# no heads, and their wrapper refuses multi_task_heads.
+_ARCHITECTURES_WITHOUT_HEADS = {"lejepa_unet", "neural_tracing_vit", "resnet3d", "i3d"}
+
+
+def trains_head(config, head):
+    """Whether a run of this config trains the auxiliary head (fiber, qc, st)."""
+    architecture = getattr(config, "architecture", "gated_unet")
+    if architecture in _ARCHITECTURES_WITHOUT_HEADS:
+        return False
+    if architecture == "resenc_unet":
+        return bool(getattr(config, "multi_task_heads", False))
+    if architecture == "timesformer":
+        return head != "st"
+    return True
 
 
 def tweak_proposals(config, cap=None):

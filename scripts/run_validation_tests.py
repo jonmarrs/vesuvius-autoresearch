@@ -65,6 +65,7 @@ VALIDATION_TESTS = [
     "tests/test_autoresearch_measurement.py",
     "tests/test_config_depth_band_fits_fragments.py",
     "tests/test_training_step_contracts.py",
+    "tests/test_task_heads.py",
     "tests/test_vesuvius_loader.py",
     "tests/test_labeled_dataset_contracts.py",
     "tests/test_spiral_driver_failures.py",
