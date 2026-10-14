@@ -820,12 +820,20 @@ def _git(repo, *args):
     ).stdout
 
 
-def test_a_promotion_commits_only_the_loops_files(tmp_path, monkeypatch):
-    """`git add ... && git commit` committed the whole index: on 2026-04-25 a
-    promotion commit carried a staged 248-line vesuvius_loader.py change, and
-    35 of 50 carried reports/figures/, which the loop does not write."""
-    import run_autoresearch_loop as loop
-
+def _scratch_repo(tmp_path, monkeypatch):
+    """A repository of its own: no locator variables inherited from a hook that
+    may be running these tests, no global or system git config."""
+    for name in (
+        "GIT_DIR",
+        "GIT_INDEX_FILE",
+        "GIT_WORK_TREE",
+        "GIT_COMMON_DIR",
+        "GIT_OBJECT_DIRECTORY",
+        "GIT_PREFIX",
+    ):
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setenv("GIT_CONFIG_GLOBAL", os.devnull)
+    monkeypatch.setenv("GIT_CONFIG_NOSYSTEM", "1")
     _git(tmp_path, "init", "-q")
     _git(tmp_path, "config", "user.email", "loop@example.com")
     _git(tmp_path, "config", "user.name", "loop")
@@ -839,8 +847,18 @@ def test_a_promotion_commits_only_the_loops_files(tmp_path, monkeypatch):
     for name in names:
         (tmp_path / name).write_text("after\n")
     (tmp_path / "reports" / "figures" / "plot.svg").write_text("after\n")
-    _git(tmp_path, "add", "work.py")  # the operator's staged work
+    _git(tmp_path, "add", "work.py")  # the operator's staged work...
+    (tmp_path / "work.py").write_text("after, and more\n")  # ...partly staged
     monkeypatch.chdir(tmp_path)
+
+
+def test_a_promotion_commits_only_the_loops_files(tmp_path, monkeypatch):
+    """`git add ... && git commit` committed the whole index: on 2026-04-25 a
+    promotion commit carried a staged 248-line vesuvius_loader.py change, and
+    35 of 50 carried reports/figures/, which the loop does not write."""
+    import run_autoresearch_loop as loop
+
+    _scratch_repo(tmp_path, monkeypatch)
     assert loop.commit_promotion("DAY SHIFT: lr_0.001 improved model") is True
     committed = _git(tmp_path, "show", "--name-only", "--format=%s", "HEAD").split()
     assert committed[-3:] == [
@@ -849,25 +867,70 @@ def test_a_promotion_commits_only_the_loops_files(tmp_path, monkeypatch):
         "config.json",
     ]
     assert "work.py" not in committed and "reports/figures/plot.svg" not in committed
+    # The operator's work is as it was: staged part staged, the rest not.
     assert _git(tmp_path, "diff", "--cached", "--name-only").split() == ["work.py"]
+    assert _git(tmp_path, "show", ":work.py") == "after\n"
+    assert "work.py" in _git(tmp_path, "diff", "--name-only").split()
+
+
+def test_a_failed_promotion_commit_names_the_cause_and_unstages(tmp_path, monkeypatch):
+    """A failed commit leaves the index as it found it (or the operator's next
+    commit would take in the loop's files), and the reason is git's own."""
+    import run_autoresearch_loop as loop
+
+    _scratch_repo(tmp_path, monkeypatch)
+    hook = tmp_path / ".git" / "hooks" / "pre-commit"
+    hook.write_text(
+        "#!/bin/sh\necho 'error: lint failed' >&2\necho 'cleanup done'\nexit 1\n"
+    )
+    hook.chmod(0o755)
+    failure = loop.commit_promotion("DAY SHIFT: lr_0.001 improved model")
+    assert failure.startswith("git commit exited 1: error: lint failed")
+    assert _git(tmp_path, "diff", "--cached", "--name-only").split() == ["work.py"]
+    assert _git(tmp_path, "log", "--format=%s").split("\n")[0] == "start"
+
+
+def test_a_hung_git_is_stopped_without_leaving_its_lock(tmp_path, monkeypatch):
+    """A SIGKILL at the timeout left .git/index.lock, and every later git
+    command, the operator's included, failed until it was removed by hand."""
+    import run_autoresearch_loop as loop
+
+    _scratch_repo(tmp_path, monkeypatch)
+    hook = tmp_path / ".git" / "hooks" / "pre-commit"
+    hook.write_text("#!/bin/sh\nsleep 3\n")
+    hook.chmod(0o755)
+    code, reason = loop._run_git(
+        "commit", "--only", "-m", "hangs", "--", "config.json", timeout=1
+    )
+    assert code is None and reason == "timed out after 1 s"
+    assert not list((tmp_path / ".git").glob("*.lock"))
 
 
 def test_a_failed_promotion_commit_is_recorded(tmp_path, monkeypatch):
     import run_autoresearch_loop as loop
 
     monkeypatch.chdir(tmp_path)  # not a git repository
-    assert loop.commit_promotion("message").startswith("git add exited")
+    monkeypatch.setenv("GIT_CEILING_DIRECTORIES", str(tmp_path.parent))
+    assert loop.commit_promotion("message").startswith("git add exited 128: fatal:")
     ExperimentConfig().save(tmp_path / "config.json")
     _checkpoint(tmp_path / "best_model.pt")
-    _drive_loop(
-        tmp_path,
-        monkeypatch,
-        1,
-        run=_promoting_run(tmp_path),
-        commit=lambda message: "git commit exited 1: hook failed",
+    messages = []
+
+    def commit(message):
+        messages.append(message)
+        return "git commit exited 1: error: hook failed"
+
+    _drive_loop(tmp_path, monkeypatch, 1, run=_promoting_run(tmp_path), commit=commit)
+    (message,) = messages
+    assert message.startswith("DAY SHIFT: lr_") and message.endswith(
+        "improved model to val_f1 0.9"
     )
     log = next((tmp_path / "sprint_logs").glob("*.md")).read_text()
-    assert "- **Commit**: failed (git commit exited 1: hook failed)" in log
+    assert (
+        "- **Commit**: failed (git commit exited 1: error: hook failed); "
+        "config.json, best_model.pt and autoresearch_history.json are promoted on "
+        "disk but not committed.\n- **Result**: Improvement detected" in log
+    )
 
 
 def test_a_blocked_promotion_is_recorded_in_the_sprint_log(tmp_path, monkeypatch):
