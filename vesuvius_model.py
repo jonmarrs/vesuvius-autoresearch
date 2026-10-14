@@ -111,6 +111,8 @@ class VesuviusTimeSformer(nn.Module):
     """
 
     version = "2.5.3-GP-Winner"
+    # Outputs that are trainable heads (model_wrappers.task_heads); ST is zeros.
+    task_heads = frozenset({"fiber", "qc"})
 
     def __init__(self, config: VesuviusConfig):
         super().__init__()
@@ -183,6 +185,9 @@ class LeJEPAUNet(nn.Module):
     """
 
     version = "1.0.0-LeJEPA"
+    # No trainable heads (model_wrappers.task_heads): fiber is the ink logits,
+    # QC and ST are zeros.
+    task_heads = frozenset()
 
     def __init__(self, config: VesuviusConfig):
         super().__init__()
@@ -263,6 +268,9 @@ class VesuviusNeuralTracingViT(nn.Module):
     """
 
     version = "1.0.0-YoussefMAE"
+    # No trainable heads (model_wrappers.task_heads): fiber is the ink logits,
+    # QC and ST are zeros.
+    task_heads = frozenset()
 
     def __init__(self, config: VesuviusConfig):
         super().__init__()

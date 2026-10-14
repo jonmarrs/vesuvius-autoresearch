@@ -8,20 +8,25 @@ train.py and predict.py can never get out of sync.
 `build_inference_model` is the single canonical architecture dispatch
 used by predict.py, ensemble_predict.py, and scripts/reevaluate_best_model.py.
 train.py keeps its own dispatch — it has training-specific concerns
-(foundation_model_path loading, villa-imported resnet3d/i3d backbones,
-multi-task head wiring) that don't apply at inference time.
+(foundation_model_path loading, villa-imported resnet3d/i3d backbones) that
+don't apply at inference time — but builds the production resenc_unet with
+build_resenc_unet, the same function inference uses.
 
-TODO(multi-task-heads): fiber/qc/st outputs from this wrapper are dummies
-(re-use of the ink output or torch.zeros). With dummy outputs the
-corresponding losses become zero-gradient constants — they inflate
-reported total_loss without contributing supervision. resenc_unet's
-good topology (May-5 skel_dist=1.0) came from ink BCE+Dice alone, so
-the dummies are not actively harmful, but real heads would unlock
-multi-task gains.
+Some models return placeholders for the fiber/QC/ST outputs to fit the call
+signature: the wrapper without multi_task_heads, LeJEPAUNet and
+VesuviusNeuralTracingViT return the ink logits as fiber and zeros as QC/ST, and
+the TimeSformer returns zeros as ST. A loss on such a fiber output trains the ink
+logits toward the fiber target, and the hallucination penalty on a zero QC
+pushes every ink probability down. Each model therefore declares which outputs
+are heads (a ``task_heads`` attribute; task_heads()), and train.py trains only
+those.
 """
 
 import torch
 import torch.nn as nn
+
+# The auxiliary outputs a model can return besides ink (see task_heads).
+TASK_OUTPUTS = frozenset({"fiber", "qc", "st"})
 
 
 class GenericMultiTaskWrapper(nn.Module):
@@ -29,9 +34,9 @@ class GenericMultiTaskWrapper(nn.Module):
     the multi-head forward signature train.py expects.
 
     Returns an ink_2d output for every call, plus optionally:
-      - fiber: same 5D output as ink (dummy — re-uses ink tensor) when
-               multi_task_heads=False, or a real Conv3d head's output
-               when multi_task_heads=True.
+      - fiber: the backbone's 5D output itself (a placeholder: its depth
+               mean is the ink logits) when multi_task_heads=False, or a real
+               Conv3d head's output when multi_task_heads=True.
       - qc:    torch.zeros((B, 1)) when dummy, real Linear head when not.
                Training fits it to the patch's mean fiber target (loss_qc); it
                is not a quality or confidence score.
@@ -44,15 +49,16 @@ class GenericMultiTaskWrapper(nn.Module):
     inputs and the backbone's ink logits. Gradients from each task's
     loss flow back through the backbone via the ink-logits path,
     providing genuine multi-task supervision. Without this flag (the
-    default), the heads are constants with zero gradient and the
-    backbone gets only the ink supervision signal — see the long TODO
-    we left in train.py before this commit.
+    default) there are no heads: the outputs are placeholders that
+    train.py does not train on (task_heads), so the backbone gets only the
+    ink supervision signal.
     """
 
     def __init__(self, model, projector=None, multi_task_heads=False, input_channels=1):
         super().__init__()
         self.model = model
         self.multi_task_heads = multi_task_heads
+        self.task_heads = TASK_OUTPUTS if multi_task_heads else frozenset()
         self.input_channels = input_channels
         if projector is not None:
             self.projector = projector
@@ -109,7 +115,14 @@ class GenericMultiTaskWrapper(nn.Module):
         # Build feat = cat(x, out) for multi-task heads. Skip when not needed.
         # Shape: out is [B, 1, Z, H, W] for resenc; x is [B, C, Z, H, W].
         feat = None
-        if self.multi_task_heads and out.dim() == 5 and x.dim() == 5:
+        if self.multi_task_heads:
+            if out.dim() != 5 or x.dim() != 5:
+                # The heads need a volume; falling back to placeholders would
+                # train them as heads (task_heads says they are).
+                raise ValueError(
+                    "multi_task_heads needs a 5D backbone output and input, got "
+                    f"{tuple(out.shape)} from {tuple(x.shape)}"
+                )
             # Channel-wise cat: [B, input_channels + 1, Z, H, W]
             feat = torch.cat([x, out], dim=1)
 
@@ -145,6 +158,59 @@ class GenericMultiTaskWrapper(nn.Module):
                     )
                 )
         return tuple(results) if len(results) > 1 else results[0]
+
+
+def task_heads(model) -> frozenset:
+    """The model's outputs that are trainable heads, of fiber, qc and st.
+
+    A model declares its own (a ``task_heads`` attribute) when some outputs are
+    placeholders (see the module docstring); one that declares nothing returns
+    real heads for all three.
+    """
+    return frozenset(getattr(model, "task_heads", TASK_OUTPUTS))
+
+
+def build_resenc_unet(
+    in_channels: int, base_feat: int, multi_task_heads: bool = False
+) -> nn.Module:
+    """The production nnU-Net-style residual-encoder UNet, wrapped.
+
+    The one construction training (train.build_model) and inference
+    (build_inference_model) both use: weights load strictly by name and shape,
+    so a second copy that drifted in a shape-free setting (nonlinearity, norm
+    epsilon, dropout) would load cleanly and compute something else. A shallow
+    3-stage configuration avoids dimension mismatches on small patches.
+    """
+    from dynamic_network_architectures.architectures.unet import ResidualEncoderUNet
+    from dynamic_network_architectures.building_blocks.helper import (
+        convert_dim_to_conv_op,
+        get_matching_instancenorm,
+    )
+
+    n_stages = 3
+    features_per_stage = [base_feat * (2**i) for i in range(n_stages)]
+    strides = [[1, 1, 1]] + [[2, 2, 2]] * (n_stages - 1)
+    backbone = ResidualEncoderUNet(
+        input_channels=in_channels,
+        n_stages=n_stages,
+        features_per_stage=features_per_stage,
+        conv_op=convert_dim_to_conv_op(3),
+        kernel_sizes=[[3, 3, 3]] * n_stages,
+        strides=strides,
+        n_blocks_per_stage=[2] * n_stages,
+        num_classes=1,
+        n_conv_per_stage_decoder=[2] * (n_stages - 1),
+        conv_bias=True,
+        norm_op=get_matching_instancenorm(convert_dim_to_conv_op(3)),
+        norm_op_kwargs={"eps": 1e-5, "affine": True},
+        dropout_op=None,  # config.dropout does not reach this model
+        nonlin=nn.LeakyReLU,
+        nonlin_kwargs={"inplace": True},
+        deep_supervision=False,
+    )
+    return GenericMultiTaskWrapper(
+        backbone, multi_task_heads=multi_task_heads, input_channels=in_channels
+    )
 
 
 def build_inference_model(
@@ -205,38 +271,7 @@ def build_inference_model(
 
         return LeJEPAUNet(v_config)
     if architecture == "resenc_unet":
-        from dynamic_network_architectures.architectures.unet import ResidualEncoderUNet
-        from dynamic_network_architectures.building_blocks.helper import (
-            convert_dim_to_conv_op,
-            get_matching_instancenorm,
-        )
-
-        n_stages = 3
-        features_per_stage = [base_feat * (2**i) for i in range(n_stages)]
-        strides = [[1, 1, 1]] + [[2, 2, 2]] * (n_stages - 1)
-        backbone = ResidualEncoderUNet(
-            input_channels=v_config.in_channels,
-            n_stages=n_stages,
-            features_per_stage=features_per_stage,
-            conv_op=convert_dim_to_conv_op(3),
-            kernel_sizes=[[3, 3, 3]] * n_stages,
-            strides=strides,
-            n_blocks_per_stage=[2] * n_stages,
-            num_classes=1,
-            n_conv_per_stage_decoder=[2] * (n_stages - 1),
-            conv_bias=True,
-            norm_op=get_matching_instancenorm(convert_dim_to_conv_op(3)),
-            norm_op_kwargs={"eps": 1e-5, "affine": True},
-            dropout_op=None,
-            nonlin=nn.LeakyReLU,
-            nonlin_kwargs={"inplace": True},
-            deep_supervision=False,
-        )
-        return GenericMultiTaskWrapper(
-            backbone,
-            multi_task_heads=multi_task_heads,
-            input_channels=v_config.in_channels,
-        )
+        return build_resenc_unet(v_config.in_channels, base_feat, multi_task_heads)
     if architecture == "mednext":
         from vesuvius_model import MedNeXtInkDetector
 

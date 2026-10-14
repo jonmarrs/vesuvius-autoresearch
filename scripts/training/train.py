@@ -813,17 +813,12 @@ except ImportError:
     generate_resnet3d = None
     InceptionI3d = None
 
-try:
-    from dynamic_network_architectures.architectures.unet import ResidualEncoderUNet
-    from dynamic_network_architectures.building_blocks.helper import (
-        convert_dim_to_conv_op,
-        get_matching_instancenorm,
-    )
-except ImportError:
-    ResidualEncoderUNet = None
-
 from vesuvius_autoresearch.core.inference import DEPTH_MARGIN
-from vesuvius_autoresearch.core.model_wrappers import GenericMultiTaskWrapper
+from vesuvius_autoresearch.core.model_wrappers import (
+    GenericMultiTaskWrapper,
+    build_resenc_unet,
+    task_heads,
+)
 
 TRAINING_TRANSFORMS_IMPORT_ERROR = None
 try:
@@ -1448,39 +1443,17 @@ def build_model(config: ExperimentConfig, v_config: VesuviusConfig, device):
         print(
             f"Instantiating nnUNet-style ResEnc UNet (base_feat={v_config.base_feat})..."
         )
-        if ResidualEncoderUNet:
-            # Shallow 3-stage configuration to avoid dimension mismatch on small patches
-            n_stages = 3
-            features_per_stage = [v_config.base_feat * (2**i) for i in range(n_stages)]
-            strides = [[1, 1, 1]] + [[2, 2, 2]] * (n_stages - 1)
-
-            backbone = ResidualEncoderUNet(
-                input_channels=v_config.in_channels,
-                n_stages=n_stages,
-                features_per_stage=features_per_stage,
-                conv_op=convert_dim_to_conv_op(3),
-                kernel_sizes=[[3, 3, 3]] * n_stages,
-                strides=strides,
-                n_blocks_per_stage=[2] * n_stages,
-                num_classes=1,
-                n_conv_per_stage_decoder=[2] * (n_stages - 1),
-                conv_bias=True,
-                norm_op=get_matching_instancenorm(convert_dim_to_conv_op(3)),
-                norm_op_kwargs={"eps": 1e-5, "affine": True},
-                dropout_op=None,
-                nonlin=nn.LeakyReLU,
-                nonlin_kwargs={"inplace": True},
-                deep_supervision=False,
-            )
-            model = GenericMultiTaskWrapper(
-                backbone,
-                multi_task_heads=getattr(config, "multi_task_heads", False),
-                input_channels=v_config.in_channels,
+        # The construction inference uses too (model_wrappers.build_resenc_unet).
+        try:
+            model = build_resenc_unet(
+                v_config.in_channels,
+                v_config.base_feat,
+                getattr(config, "multi_task_heads", False),
             ).to(device)
-        else:
+        except ImportError as exc:
             raise ImportError(
                 "ResidualEncoderUNet not found. Please install dynamic-network-architectures."
-            )
+            ) from exc
     elif hasattr(v_config, "architecture") and v_config.architecture == "lejepa_unet":
         print("Instantiating LeJEPA Foundation-Backed UNet...")
         from vesuvius_model import LeJEPAUNet
@@ -1767,12 +1740,15 @@ def train(config: ExperimentConfig, *, strict_warm_start=False):
     amp_enabled = False  # Disabled for NaN debugging
     scaler = GradScaler(device=device.type, enabled=amp_enabled)
 
-    # Initialize auxiliary task tools
+    # Initialize auxiliary task tools. Only the outputs the model declares as
+    # heads are trained (model_wrappers.task_heads); the rest are placeholders.
+    heads = task_heads(model)
+    print(f"Trained auxiliary heads: {', '.join(sorted(heads)) or 'none'}")
     st_computer = (
         StructureTensorComputer(
             sigma=1.0, component_sigma=1.0, smooth_components=True, device=device
         )
-        if StructureTensorComputer
+        if StructureTensorComputer and "st" in heads
         else None
     )
 
@@ -1943,6 +1919,16 @@ def train(config: ExperimentConfig, *, strict_warm_start=False):
             else:
                 out_ink_2d = model_out
                 out_fiber = out_qc = p1 = out_st = None
+            # Placeholders, not heads (model_wrappers.task_heads): a placeholder
+            # fiber is the ink logits, so its loss trained ink toward the fiber
+            # target, and the hallucination penalty on a zero QC pushed all ink
+            # down.
+            if "fiber" not in heads:
+                out_fiber = None
+            if "qc" not in heads:
+                out_qc = None
+            if "st" not in heads:
+                out_st = None
 
             # --- START FIX: Prevent NaN/Inf loss from AMP float16 overflow ---
             if out_ink_2d is not None:
