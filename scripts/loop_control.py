@@ -1,4 +1,4 @@
-"""Control the loop registered in this checkout's lock, without process-name scans."""
+"""Control research work registered in this checkout's lock, without process-name scans."""
 
 import argparse
 import fcntl
@@ -35,7 +35,9 @@ def running_pid(repo):
         except BlockingIOError:
             value = stream.read().strip()
             if not value.isdigit() or int(value) <= 1:
-                raise RuntimeError("loop lock is held but contains no valid PID")
+                raise RuntimeError(
+                    "loop lock is held but contains no valid PID"
+                ) from None
             pid = int(value)
             # Also verify checkout and script so foreign metadata cannot target
             # another job. /proc is available on the supported Linux GPU hosts.
@@ -48,10 +50,18 @@ def running_pid(repo):
             except FileNotFoundError:
                 return None
             if cwd != repo.resolve() or not any(
-                Path(os.fsdecode(arg)).name == "run_autoresearch_loop.py"
-                for arg in args if arg
+                Path(os.fsdecode(arg)).name
+                in {
+                    "run_autoresearch_loop.py",
+                    "f1_noise_probe.py",
+                    "scripts.f1_noise_probe",
+                }
+                for arg in args
+                if arg
             ):
-                raise RuntimeError("lock PID does not identify this checkout's loop")
+                raise RuntimeError(
+                    "lock PID does not identify this checkout's loop"
+                ) from None
             return pid
     return None
 
@@ -59,7 +69,9 @@ def running_pid(repo):
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("action", choices=["status", "stop"])
-    parser.add_argument("--repo", type=Path, default=Path(__file__).resolve().parents[1])
+    parser.add_argument(
+        "--repo", type=Path, default=Path(__file__).resolve().parents[1]
+    )
     parser.add_argument("--timeout", type=float, default=20)
     args = parser.parse_args(argv)
     repo = args.repo.resolve()
@@ -69,10 +81,10 @@ def main(argv=None):
         pid = running_pid(repo)
         if args.action == "status":
             if pid is not None:
-                print(f"Autoresearch loop is running (PID {pid}).")
+                print(f"Autoresearch work is running (PID {pid}).")
             return 0 if pid is not None else 1
         if pid is None:
-            print("No autoresearch loop running. Watchdog paused.")
+            print("No autoresearch work running. Watchdog paused.")
             return 0
         try:
             os.kill(pid, signal.SIGTERM)
@@ -81,10 +93,12 @@ def main(argv=None):
         deadline = time.monotonic() + args.timeout
         while time.monotonic() < deadline:
             if running_pid(repo) != pid:
-                print("Autoresearch loop stopped. Watchdog paused.")
+                print("Autoresearch work stopped. Watchdog paused.")
                 return 0
             time.sleep(0.1)
-        raise RuntimeError(f"loop PID {pid} did not stop within {args.timeout:g}s; watchdog remains paused")
+        raise RuntimeError(
+            f"loop PID {pid} did not stop within {args.timeout:g}s; watchdog remains paused"
+        )
     except (OSError, RuntimeError) as exc:
         print(f"loop control: {exc}", file=sys.stderr)
         return 2
