@@ -177,11 +177,12 @@ def read_result(path, protocol):
     _integer(diag.get("batch_errors"), "batch_errors", 0, 0)
     if usable + empty != requested:
         raise ValueError("validation patch counts do not account for the whole sample")
-    # What the sample was drawn from (promotion.validation_inputs_fingerprint);
-    # absent from results written before 2026-10-14.
+    # What the sample was drawn from (promotion.validation_inputs_fingerprint).
+    # Every trial runs the current trainer, which records it; without it, equal
+    # counts from other label files would pass as one sample.
     inputs = diag.get("inputs_sha256")
-    if inputs is not None and not isinstance(inputs, str):
-        raise ValueError("validation inputs fingerprint must be a string")
+    if not isinstance(inputs, str) or not inputs:
+        raise ValueError("result records no validation inputs fingerprint")
     seed = _integer(
         result.get("train_sampling_seed"), "train_sampling_seed", 0, 2**31 - 1
     )

@@ -131,6 +131,45 @@ def test_the_inputs_fingerprint_names_what_the_sample_is_drawn_from(
     assert fingerprint(uri) != refined
 
 
+def test_a_volume_rebuilt_in_place_changes_the_fingerprint(tmp_path, monkeypatch):
+    frag = _fragment(tmp_path)
+    monkeypatch.chdir(tmp_path)
+    (frag / "surface_volume.zarr" / "0").mkdir()
+    (frag / "surface_volume.zarr" / "0" / ".zarray").write_text('{"shape": [33]}')
+    base = promotion.validation_inputs_fingerprint("frag/surface_volume.zarr")
+    (frag / "surface_volume.zarr" / "0" / ".zarray").write_text('{"shape": [65]}')
+    assert promotion.validation_inputs_fingerprint("frag/surface_volume.zarr") != base
+
+
+def test_inputs_changed_while_the_dataset_reads_them_are_refused(tmp_path, monkeypatch):
+    frag = _fragment(tmp_path)
+    monkeypatch.chdir(tmp_path)
+
+    def dataset(*args, **kwargs):
+        (frag / "inklabels_refined.png").write_bytes(b"written meanwhile")
+        return Catalogue(10)
+
+    monkeypatch.setattr(train, "VesuviusLabeledDataset", dataset)
+    config = ExperimentConfig(val_uri="frag/surface_volume.zarr")
+    with pytest.raises(RuntimeError, match="changed while they were read"):
+        train.build_validation_dataset(config)
+
+
+def test_training_stops_before_its_budget_on_other_inputs(tmp_path):
+    diag = {"protocol": promotion.VALIDATION_PROTOCOL, "inputs_sha256": "a" * 64}
+    path = _checkpoint(tmp_path / "best_model.pt", validation_diag=diag)
+    data = Catalogue(10)
+    data.validation_inputs = "a" * 64
+    train.check_validation_inputs(data, promotion.VALIDATION_PROTOCOL, str(path))
+    data.validation_inputs = "b" * 64
+    with pytest.raises(RuntimeError, match="re-score"):
+        train.check_validation_inputs(data, promotion.VALIDATION_PROTOCOL, str(path))
+    # Nothing to compare: no incumbent, or one scored before fingerprints.
+    train.check_validation_inputs(data, promotion.VALIDATION_PROTOCOL, "absent.pt")
+    older = _checkpoint(tmp_path / "older.pt")
+    train.check_validation_inputs(data, promotion.VALIDATION_PROTOCOL, str(older))
+
+
 def test_every_score_records_the_inputs_it_was_drawn_from(tmp_path, monkeypatch):
     frag = _fragment(tmp_path)
     monkeypatch.chdir(tmp_path)
@@ -412,16 +451,60 @@ def test_the_loop_will_not_start_on_other_validation_inputs(
     (frag / "mask.png").write_bytes(b"another mask")
     assert _drive_loop(tmp_path, monkeypatch, cycles=1) == []
     out = capsys.readouterr().out
-    assert "Not starting" in out and "changed since best_model.pt was scored" in out
+    assert "Not starting" in out and "best_model.pt is compared on" in out
 
 
-def test_the_loop_says_when_the_incumbent_has_no_fingerprint(
+def _legacy_incumbent(tmp_path):
+    frag = _fragment(tmp_path)
+    ExperimentConfig(val_uri=str(frag / "surface_volume.zarr")).save(
+        tmp_path / "config.json"
+    )
+    _checkpoint(tmp_path / "best_model.pt")  # scored before fingerprints
+    return frag
+
+
+def test_an_older_incumbent_is_held_to_the_inputs_found_at_first_use(
     tmp_path, monkeypatch, capsys
 ):
-    ExperimentConfig().save(tmp_path / "config.json")
-    _checkpoint(tmp_path / "best_model.pt")
-    _drive_loop(tmp_path, monkeypatch, cycles=1)
-    assert "no validation-input fingerprint" in capsys.readouterr().out
+    """Today's incumbent records no fingerprint, and may stay the incumbent for
+    a long time: the loop records the inputs it finds and holds it to them."""
+    frag = _legacy_incumbent(tmp_path)
+
+    def refine(cycle):
+        (frag / "inklabels_refined.png").write_bytes(b"refined")
+
+    result = {"is_success": False, "val_f1": 0.5}
+    launched = _drive_loop(tmp_path, monkeypatch, 3, result=result, on_cycle=refine)
+    out = capsys.readouterr().out
+    assert "no validation-input fingerprint" in out and "inputs.json" in out
+    assert len(launched) == 1 and "Stopping before cycle 2" in out
+    # train.py's promotion check reads the same record.
+    record = promotion.first_use_record(str(tmp_path / "best_model.pt"))
+    assert json.loads(Path(record).read_text())["protocol"] == (
+        promotion.VALIDATION_PROTOCOL
+    )
+    promote, _, reason = _decide(tmp_path / "best_model.pt", inputs="b" * 64)
+    assert not promote and "differ" in reason
+
+
+def test_a_first_use_record_lapses_when_the_incumbent_is_replaced(tmp_path):
+    frag = _legacy_incumbent(tmp_path)
+    uri = str(frag / "surface_volume.zarr")
+    path = str(tmp_path / "best_model.pt")
+    assert promotion.check_incumbent(path, uri) == (0.47, "recorded now")
+    assert promotion.check_incumbent(path, uri) == (0.47, "first use")
+    _checkpoint(tmp_path / "best_model.pt", val_f1=0.5)  # another incumbent
+    assert promotion.read_incumbent(path, promotion.VALIDATION_PROTOCOL) == (0.5, None)
+
+
+def test_unreadable_validation_inputs_stop_the_loop_cleanly(tmp_path):
+    frag = _legacy_incumbent(tmp_path)
+    path = str(tmp_path / "best_model.pt")
+    with pytest.raises(promotion.IncumbentUnavailable, match="cannot be read"):
+        promotion.check_incumbent(path, None)
+    (frag / "mask.png").unlink()
+    (frag / "mask.png").mkdir()  # isfile() is False: hashed as absent, not raised
+    promotion.check_incumbent(path, str(frag / "surface_volume.zarr"))
 
 
 def test_a_blocked_promotion_is_recorded_in_the_sprint_log(tmp_path, monkeypatch):
@@ -502,7 +585,7 @@ def test_an_incumbent_scored_on_the_whole_depth_is_not_comparable(tmp_path):
     path = _checkpoint(tmp_path / "best_model.pt")  # protocol v2, whole depth
     banded = promotion.validation_protocol([17, 43])
     with pytest.raises(promotion.IncumbentUnavailable, match=r"\+z17-43"):
-        promotion.read_incumbent_val_f1(str(path), banded)
+        promotion.read_incumbent(str(path), banded)[0]
     promote, _, reason = train.promotion_decision(
         0.9,
         2.0,
@@ -514,7 +597,7 @@ def test_an_incumbent_scored_on_the_whole_depth_is_not_comparable(tmp_path):
     )
     assert not promote and "re-score" in reason
     _checkpoint(path, val_protocol=banded)
-    assert promotion.read_incumbent_val_f1(str(path), banded) == 0.47
+    assert promotion.read_incumbent(str(path), banded)[0] == 0.47
 
 
 def test_the_loop_will_not_start_until_the_incumbent_is_scored_in_the_band(

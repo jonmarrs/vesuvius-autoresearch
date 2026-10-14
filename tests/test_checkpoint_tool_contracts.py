@@ -343,9 +343,11 @@ def test_a_rescore_records_the_inputs_a_candidate_is_compared_on(
     )
     stored = torch.load(checkpoint, weights_only=False)["validation_diag"]
     assert stored["inputs_sha256"] == expected
-    assert promotion.check_incumbent(
+    val_f1, source = promotion.check_incumbent(
         str(checkpoint), config.val_uri, config.depth_band
-    ) == pytest.approx(torch.load(checkpoint, weights_only=False)["val_f1"])
+    )
+    assert source == "checkpoint"
+    assert val_f1 == pytest.approx(torch.load(checkpoint, weights_only=False)["val_f1"])
 
 
 def test_the_command_line_passes_unwarped(monkeypatch):

@@ -48,22 +48,37 @@ def validation_protocol(depth_band=None) -> str:
     return f"{VALIDATION_PROTOCOL}+z{start}-{end}"
 
 
-# The label file validation reads: the first of these beside the volume.
+# The label file validation (and training) reads: the first of these beside
+# the volume.
 VALIDATION_LABEL_FILES = (
     "inklabels_refined.png",
     "inklabels_filled.png",
     "inklabels.png",
 )
+# A zarr's metadata (shape, dtype, chunks), at its root and its level 0: small,
+# and changed by a volume rebuilt in place.
+ZARR_METADATA_FILES = (".zarray", ".zgroup", ".zattrs", "zarr.json")
 
 
 def validation_label_path(val_uri: str) -> str:
-    """The label file validation reads (inklabels.png when none exists)."""
+    """The label file read for this volume (inklabels.png when none exists)."""
     parent = os.path.dirname(val_uri.rstrip("/"))
     for name in VALIDATION_LABEL_FILES:
         path = os.path.join(parent, name)
         if os.path.exists(path):
             return path
     return path
+
+
+def validation_input_paths(val_uri: str) -> dict[str, str]:
+    """The files beside the volume that validation reads, by role. The one
+    definition build_validation_dataset and the fingerprint both use."""
+    parent = os.path.dirname(val_uri.rstrip("/"))
+    return {
+        "labels": validation_label_path(val_uri),
+        "mask": os.path.join(parent, "mask.png"),
+        "patches_json": os.path.join(parent, "patches.json"),
+    }
 
 
 def _file_sha256(path: str) -> str | None:
@@ -80,21 +95,29 @@ def validation_inputs_fingerprint(val_uri: str, depth_band=None) -> str:
     """A sha256 of what the protocol's sample is drawn from.
 
     The protocol (sample size, seed, depth band); the fragment and volume names;
-    the label file validation reads and its contents; the mask; and patches.json,
-    which replaces the catalogue when present. Paths are named, not resolved, so
-    a checkout elsewhere or an absolute path gives the same fingerprint. The CT
-    is not hashed, and neither is the model's geometry (patch size, depth): the
-    loop pins those, and the incumbent is re-scored at its own.
+    the volume's zarr metadata (shape, dtype, chunks); the label file validation
+    reads and its contents; the mask; and patches.json, which replaces the
+    catalogue when present. Paths are named, not resolved, so a checkout elsewhere
+    or an absolute path gives the same fingerprint. The CT itself is not hashed,
+    and neither is the model's geometry (patch size, depth): the loop pins those,
+    and the incumbent is re-scored at its own.
     """
-    parent = os.path.dirname(val_uri.rstrip("/"))
-    labels = validation_label_path(val_uri)
+    if not isinstance(val_uri, str) or not val_uri:
+        raise ValueError("the validation inputs need a val_uri")
+    paths = validation_input_paths(val_uri)
+    volume = val_uri.rstrip("/")
     record = {
         "protocol": validation_protocol(depth_band),
-        "fragment": os.path.basename(os.path.normpath(parent)),
-        "volume": os.path.basename(os.path.normpath(val_uri)),
-        "labels": [os.path.basename(labels), _file_sha256(labels)],
-        "mask": _file_sha256(os.path.join(parent, "mask.png")),
-        "patches_json": _file_sha256(os.path.join(parent, "patches.json")),
+        "fragment": os.path.basename(os.path.dirname(volume)),
+        "volume": os.path.basename(volume),
+        "volume_metadata": {
+            f"{level}{name}": _file_sha256(os.path.join(volume, level, name))
+            for level in ("", "0/")
+            for name in ZARR_METADATA_FILES
+        },
+        "labels": [os.path.basename(paths["labels"]), _file_sha256(paths["labels"])],
+        "mask": _file_sha256(paths["mask"]),
+        "patches_json": _file_sha256(paths["patches_json"]),
     }
     return hashlib.sha256(json.dumps(record, sort_keys=True).encode()).hexdigest()
 
@@ -115,15 +138,24 @@ def validation_indices(
     return np.sort(order[: min(sample_size, catalogue_size)])
 
 
-def read_incumbent_val_f1(path: str, protocol: str) -> float:
-    """The stored val_f1 a candidate must beat (see read_incumbent)."""
-    return read_incumbent(path, protocol)[0]
+def first_use_record(path: str) -> str:
+    """Where the loop records the validation inputs it found for an incumbent
+    scored before fingerprints (see check_incumbent)."""
+    return f"{path}.inputs.json"
 
 
 def read_incumbent(path: str, protocol: str) -> tuple[float, str | None]:
     """The stored val_f1 a candidate must beat, and the fingerprint of the
-    validation inputs it was measured on (validation_inputs_fingerprint; None when
-    the incumbent predates fingerprints).
+    validation inputs it is compared on (see _read_incumbent)."""
+    val_f1, inputs, _source = _read_incumbent(path, protocol)
+    return val_f1, inputs
+
+
+def _read_incumbent(path: str, protocol: str) -> tuple[float, str | None, str | None]:
+    """The stored val_f1 a candidate must beat, the fingerprint of the
+    validation inputs it is compared on (validation_inputs_fingerprint), and its
+    source: the checkpoint's own ("checkpoint"), else the loop's record for this
+    exact file ("first use"), else None.
 
     -inf when there is no incumbent, so the first run bootstraps one. Raises
     IncumbentUnavailable when the file exists but cannot be compared: unreadable,
@@ -133,7 +165,7 @@ def read_incumbent(path: str, protocol: str) -> tuple[float, str | None]:
     because the same file could not be warm-started, replace the incumbent.
     """
     if not os.path.exists(path):
-        return float("-inf"), None
+        return float("-inf"), None, None
     import torch
 
     try:
@@ -166,26 +198,80 @@ def read_incumbent(path: str, protocol: str) -> tuple[float, str | None]:
             f"{path} records validation inputs that do not belong to its "
             f"{protocol} score; re-score it with `{RESCORE_COMMAND}`"
         )
-    return float(val_f1), inputs
+    if inputs is not None:
+        return float(val_f1), inputs, "checkpoint"
+    inputs = _first_use_inputs(path, protocol)
+    return float(val_f1), inputs, None if inputs is None else "first use"
 
 
-def check_incumbent(path: str, val_uri: str, depth_band=None) -> float:
-    """The incumbent's val_f1, if a candidate scored on these validation inputs
-    can be compared with it; IncumbentUnavailable otherwise.
-
-    An incumbent scored before fingerprints were recorded is compared on its
-    protocol alone; the loop says so when it starts.
-    """
-    val_f1, inputs = read_incumbent(path, validation_protocol(depth_band))
-    if inputs is not None and inputs != validation_inputs_fingerprint(
-        val_uri, depth_band
+def _first_use_inputs(path: str, protocol: str) -> str | None:
+    try:
+        with open(first_use_record(path)) as handle:
+            record = json.load(handle)
+    except (OSError, ValueError):
+        return None
+    if (
+        isinstance(record, dict)
+        and record.get("protocol") == protocol
+        and isinstance(record.get("inputs_sha256"), str)
+        and record.get("checkpoint_sha256") == _file_sha256(path)
     ):
+        return record["inputs_sha256"]
+    return None  # another incumbent's record: it has been replaced since
+
+
+def check_incumbent(
+    path: str, val_uri: str, depth_band=None
+) -> tuple[float, str | None]:
+    """The incumbent's val_f1 if a candidate scored on these validation inputs can
+    be compared with it, and how its inputs are known; IncumbentUnavailable
+    otherwise.
+
+    The second value is "checkpoint" (recorded with its score), "first use" (a
+    record this loop made earlier), "recorded now", or None (no incumbent). An
+    incumbent scored before fingerprints has none of its own: the first check
+    records the inputs it finds (first_use_record, kept beside the checkpoint
+    and tied to its hash), and later checks hold it to them. That trusts the
+    inputs at first use; re-scoring replaces the record with the checkpoint's own.
+    """
+    protocol = validation_protocol(depth_band)
+    val_f1, known, source = _read_incumbent(path, protocol)
+    try:
+        current = validation_inputs_fingerprint(val_uri, depth_band)
+    except (OSError, ValueError) as exc:
         raise IncumbentUnavailable(
-            f"the validation inputs beside {val_uri} (label file, mask or "
-            f"patches.json) changed since {path} was scored; re-score it with "
-            f"`{RESCORE_COMMAND}`"
+            f"the validation inputs for {val_uri} cannot be read "
+            f"({type(exc).__name__}: {exc})"
+        ) from exc
+    if val_f1 == float("-inf"):
+        return val_f1, None
+    if known is None:
+        try:
+            with open(first_use_record(path), "w") as handle:
+                json.dump(
+                    {
+                        "checkpoint_sha256": _file_sha256(path),
+                        "protocol": protocol,
+                        "inputs_sha256": current,
+                        "val_uri": val_uri,
+                    },
+                    handle,
+                    indent=2,
+                )
+                handle.write("\n")
+        except OSError as exc:
+            raise IncumbentUnavailable(
+                f"cannot record the validation inputs for {path} "
+                f"({type(exc).__name__}: {exc})"
+            ) from exc
+        return val_f1, "recorded now"
+    if known != current:
+        raise IncumbentUnavailable(
+            f"the validation inputs for {val_uri} (fragment, volume metadata, "
+            f"label file, mask or patches.json) differ from those {path} is "
+            f"compared on; re-score it with `{RESCORE_COMMAND}`"
         )
-    return val_f1
+    return val_f1, source
 
 
 def save_checkpoint_atomic(payload, path: str) -> None:

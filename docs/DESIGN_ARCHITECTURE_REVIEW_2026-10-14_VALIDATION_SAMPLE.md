@@ -18,27 +18,36 @@ same patches and targets.
 ## What changed
 
 - **Each score records a fingerprint of its validation inputs**, `validation_diag["inputs_sha256"]`
-  (`promotion.validation_inputs_fingerprint`). It covers the protocol, the fragment and volume names, the label
-  file validation reads and its contents, the mask, and `patches.json`. It is computed from files, without torch.
+  (`promotion.validation_inputs_fingerprint`). It covers the protocol, the fragment and volume names, the
+  volume's zarr metadata (shape, dtype, chunks), the label file validation reads and its contents, the mask, and
+  `patches.json`. It is computed from files, without torch.
   `build_validation_dataset` attaches it to the dataset, so training, re-scoring
   (`reevaluate_best_model.py --update-stored`) and the analysis scripts record the same value.
   `validation_label_path` is now the one definition of which label file validation reads.
 - **The loop checks the incumbent's fingerprint against `config.json`'s inputs**, when it starts and before every
   cycle (`promotion.check_incumbent`). On a difference it stops before training, with the re-score command in the
   message and in the sprint log, as it already did for a protocol mismatch.
-- **`promotion_decision` refuses a candidate whose fingerprint differs from the incumbent's.** It is the second
+- **`train.py` checks the inputs right after building the validation dataset**, before the training budget
+  is spent (`check_validation_inputs`). It also refuses inputs that changed while the dataset read them.
+- **`promotion_decision` refuses a candidate whose fingerprint differs from the incumbent's.** It is the last
   line of defence, and it names a run that recorded no fingerprint separately.
+- **An incumbent scored before fingerprints is held to the inputs found at first use.** The loop's first check
+  records them in `best_model.pt.inputs.json`, tied to the checkpoint's hash, and every later check reads that
+  record, `promotion_decision` included. A re-score's own fingerprint takes precedence, and the record lapses
+  when the incumbent is replaced.
 - **The repeatability probe** compares trials' fingerprints along with their counts and prevalence.
 - **Experiment checkpoints (`checkpoint_out`) record `validation_diag`**, as promoted ones already did.
 
-The current incumbent has no fingerprint. It is compared on its protocol alone, and the loop says so when it
-starts. The protection starts with the next promotion or re-score. Nothing in how a score is computed changes.
+The current incumbent has no fingerprint of its own, so the loop records the inputs it finds when it next
+starts and says so. That trusts the inputs at that moment: if they had already changed since the 2026-10-13
+re-score, the record would hold the wrong ones (re-scoring removes the doubt). Nothing in how a score is
+computed changes.
 
 ## Findings and fixes
 
 | Priority | Finding | Fix |
 | --- | --- | --- |
-| P2 | **Two scores with one protocol string could be measured on different targets or patches.** The protocol string (`seeded-sample-400-v2+z1-27`) names the sample size, seed and depth band. The sample also depends on things the string does not name. One is the label file: validation takes `inklabels_refined.png` over `inklabels_filled.png` over `inklabels.png`. Others are the mask, which decides the catalogue, `patches.json`, which replaces the catalogue, and `val_uri`. Something already in the repository changes the first of these: `scripts/refine_labels_villa.py` in in-place mode writes `inklabels_refined.png` beside every `*/inklabels.png` it finds. Run on `local_data/`, it would switch the validation targets for every later candidate. The incumbent's stored `val_f1` would still be accepted as comparable, so a candidate could be promoted, or held back, by the label change rather than by the model. | The inputs fingerprint, checked by the loop before each cycle and by `promotion_decision` (above). An incumbent without a fingerprint is compared on its protocol alone, and the loop prints that it is. A fingerprint stored with another protocol's diagnostic is refused as inconsistent. Tests: the fingerprint is unchanged by an absolute path, a trailing slash or an unrelated file. It changes with the depth band, a relabel, a refined label file appearing, `patches.json` and the mask. Every score records it, through the label file validation picks. Promotion is refused on a mismatch or a missing candidate fingerprint, and allowed on a match and for an incumbent without one. The loop stops before cycle 2 when a refined label file appears during cycle 1, and refuses to start on a changed mask. A re-score stores the fingerprint a candidate is compared on. The probe fails trials whose fingerprints differ. |
+| P2 | **Two scores with one protocol string could be measured on different targets or patches.** The protocol string (`seeded-sample-400-v2+z1-27`) names the sample size, seed and depth band. The sample also depends on things the string does not name. One is the label file: validation takes `inklabels_refined.png` over `inklabels_filled.png` over `inklabels.png`. Others are the mask, which decides the catalogue, `patches.json`, which replaces the catalogue, and `val_uri`. Something already in the repository changes the first of these: `scripts/refine_labels_villa.py` in in-place mode writes `inklabels_refined.png` beside every `*/inklabels.png` it finds. Run on `local_data/`, it would switch the validation targets for every later candidate. The incumbent's stored `val_f1` would still be accepted as comparable, so a candidate could be promoted, or held back, by the label change rather than by the model. | The inputs fingerprint, checked by the loop before each cycle, by `train.py` before training, and by `promotion_decision` (above). An incumbent without a fingerprint is held to a first-use record. A fingerprint stored with another protocol's diagnostic is refused as inconsistent. Tests: the fingerprint is unchanged by an absolute path, a trailing slash or an unrelated file. It changes with the depth band, a relabel, a refined label file appearing, `patches.json` and the mask. Every score records it, through the label file validation picks. Promotion is refused on a mismatch or a missing candidate fingerprint, and allowed on a match and for an incumbent without one. The loop stops before cycle 2 when a refined label file appears during cycle 1, and refuses to start on a changed mask. A re-score stores the fingerprint a candidate is compared on. The probe fails trials whose fingerprints differ. |
 
 ## Review of the change, and what it changed
 
@@ -58,6 +67,21 @@ geometry. A code review before the PR found:
 | Double target conversion per batch. | Gone with the redesign. |
 | The `CHECKPOINT_ANALYSIS.md` wording ("Its model weights") became ambiguous. | Rewritten. |
 
+A second review, of the PR itself, found:
+
+| Finding | Outcome |
+| --- | --- |
+| Today's incumbent has no fingerprint, and finding 88 suggests it may stay the incumbent for a long time, so the change protected nothing yet. | Fixed: the loop records the inputs at first use and holds the incumbent to them (above). |
+| The fingerprint was computed after the dataset read the files, so a file written in between was recorded without having been read. | Fixed: the inputs are fingerprinted before and after, and a change is refused. |
+| File errors (an unreadable label file) or a missing `val_uri` escaped the loop's checks and ended it with a fatal error. | Fixed: they become `IncumbentUnavailable` ("cannot be read"). |
+| `train.py` compared the inputs only after training, so a change during the preflight cost a full budget. | Fixed: `check_validation_inputs` runs before training. |
+| The mismatch message blamed only the files beside `val_uri`. | Reworded: it now names the fragment, volume metadata, label file, mask and `patches.json`. |
+| The probe accepted trials without a fingerprint. | Fixed: they are refused; every trial runs the current trainer. |
+| A volume rebuilt in place under the same path was not detected. | Fixed: the zarr metadata files are hashed. |
+| The label, mask and `patches.json` paths were worked out twice. | Fixed: `validation_input_paths` is used by both, and training's label choice uses `validation_label_path`. |
+| The loop loaded `best_model.pt` twice at startup and repeated the check before cycle 1. | Fixed: one read returns the source; cycle 1 relies on the startup check. Each later cycle still loads the checkpoint once, which is small next to a cycle. |
+| `read_incumbent_val_f1` had no production callers left. | Removed. |
+
 ## Observations for the owner (not changed)
 
 - **The validation metrics pool pixels outside the fragment mask.** `pooled_segmentation_metrics` passes an
@@ -68,11 +92,12 @@ geometry. A code review before the PR found:
   comparison stands. How many sampled pixels lie outside the mask needs the fragment; if it is material, a masked
   metric would be a new protocol.
 - **Not fingerprinted:**
-  - the CT, since a volume rebuilt in place under the same path keeps the fingerprint;
+  - the CT voxels, since a volume rewritten in place with the same metadata keeps the fingerprint;
   - the catalogue code and its thresholds, which are visible in git;
   - the model's patch size and depth, which the loop pins.
-- **The incumbent has no fingerprint until it is replaced or re-scored.** Re-running
-  `reevaluate_best_model.py --update-stored --unwarped` on the GPU host would add one now. Nothing requires it.
+- **The incumbent has no fingerprint of its own until it is replaced or re-scored.** Re-running
+  `reevaluate_best_model.py --update-stored --unwarped` on the GPU host would add one, and settle whether the
+  first-use record matches the inputs it was actually scored on. Nothing requires it.
 
 ## Reviewed and sound
 
@@ -92,18 +117,23 @@ validation run of #59's head, whose tree is `96d7554b`'s.
 
 - Baseline: 42 failed, 2055 passed, 15 skipped, 1 xfailed, 2 errors (environmental: no scroll data, no CUDA,
   no villa data files).
-- Branch: 42 failed, 2063 passed, 15 skipped, 1 xfailed, 2 errors. The failures and errors are the same set as
-  the baseline; the 8 extra passes are the new tests.
+- Branch: 42 failed, 2069 passed, 15 skipped, 1 xfailed, 2 errors. The failures and errors are the same set as
+  the baseline; the 14 extra passes are the new tests. `scripts/smoke_test.py`: 9 of 11 passed, 2 skipped.
 - Ruff (check and format) on the changed files and mypy on `promotion.py` and the loop: clean.
 
 New tests:
 
 - `tests/test_autoresearch_measurement.py`:
-  - the fingerprint's inputs;
+  - the fingerprint's inputs, including a volume rebuilt in place;
   - every score records it;
+  - inputs changed while the dataset reads them are refused;
+  - training stops before its budget on other inputs;
   - promotion refuses other inputs;
-  - the loop stops before a cycle, refuses to start, and notes a legacy incumbent.
+  - the loop stops before a cycle and refuses to start;
+  - an older incumbent is held to its first-use record, the record lapses when the incumbent is replaced, and
+    unreadable inputs stop the loop cleanly.
 - `tests/test_checkpoint_tool_contracts.py`: a re-score stores the fingerprint a candidate is compared on.
-- `tests/test_noise_probe_contracts.py`: changed inputs invalidate a repeatability estimate.
+- `tests/test_noise_probe_contracts.py`: changed inputs invalidate a repeatability estimate, and a trial without a
+  fingerprint is not evidence.
 
 Not verified here: the fragments (the fingerprint of the real inputs) and the GPU host.

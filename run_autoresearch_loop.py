@@ -16,8 +16,7 @@ from scripts.training.config import ExperimentConfig
 from scripts.training.promotion import (
     IncumbentUnavailable,
     check_incumbent,
-    read_incumbent,
-    validation_protocol,
+    first_use_record,
 )
 
 LOCK_FILE = "autoresearch.lock"
@@ -355,12 +354,8 @@ def main():
         # so must one scored on other validation inputs (label file, mask,
         # patches.json; promotion.validation_inputs_fingerprint).
         config = load_current_config()
-        best_val_f1 = check_incumbent(
+        best_val_f1, inputs_known = check_incumbent(
             "best_model.pt", config.val_uri, config.depth_band
-        )
-        fingerprinted = (
-            read_incumbent("best_model.pt", validation_protocol(config.depth_band))[1]
-            is not None
         )
     except (IncumbentUnavailable, ValueError) as exc:
         # ValueError: config.json fails ExperimentConfig's checks (e.g. depth_band).
@@ -371,11 +366,12 @@ def main():
         if best_val_f1 > float("-inf")
         else "No best_model.pt yet; the first lift-positive cycle bootstraps it."
     )
-    if best_val_f1 > float("-inf") and not fingerprinted:
+    if inputs_known == "recorded now":
         print(
             "best_model.pt records no validation-input fingerprint (scored before "
-            "2026-10-14); it is compared on its protocol alone until it is "
-            "re-scored or replaced."
+            "2026-10-14). The current inputs were recorded in "
+            f"{first_use_record('best_model.pt')}, and candidates are compared on "
+            "them until it is re-scored or replaced."
         )
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
@@ -471,7 +467,8 @@ def main():
         # reprints the reason as "Not starting" until the incumbent is re-scored.
         try:
             current = load_current_config()
-            check_incumbent("best_model.pt", current.val_uri, current.depth_band)
+            if i > 1:  # cycle 1 follows the startup check
+                check_incumbent("best_model.pt", current.val_uri, current.depth_band)
         except (IncumbentUnavailable, ValueError) as exc:
             print(f"Stopping before cycle {i}: {exc}")
             with open(log_filename, "a") as log:

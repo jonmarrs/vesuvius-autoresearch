@@ -64,6 +64,7 @@ from scripts.training.promotion import (
     read_incumbent,
     save_checkpoint_atomic,
     validation_indices,
+    validation_input_paths,
     validation_inputs_fingerprint,
     validation_label_path,
     validation_protocol,
@@ -541,10 +542,13 @@ def build_validation_dataset(config: ExperimentConfig):
     Reads are strict: a failed read raises instead of returning an all-zero patch,
     which would silently drop out of the sample as an ink-free patch.
     """
-    parent_dir = os.path.dirname(config.val_uri.rstrip("/"))
-    labels_path = validation_label_path(config.val_uri)
-    mask_path = os.path.join(parent_dir, "mask.png")
-    patches_json_path = os.path.join(parent_dir, "patches.json")
+    # The same paths the fingerprint hashes (promotion.validation_input_paths),
+    # fingerprinted before and after the dataset reads them.
+    band = getattr(config, "depth_band", None)
+    inputs = validation_inputs_fingerprint(config.val_uri, band)
+    paths = validation_input_paths(config.val_uri)
+    labels_path, mask_path = paths["labels"], paths["mask"]
+    patches_json_path = paths["patches_json"]
     # Validation uses target_fiber_source="sobel_z" regardless of training
     # config — val doesn't use target_fiber (only ink) and we want to avoid
     # paying Frangi cost on every val patch.
@@ -567,10 +571,13 @@ def build_validation_dataset(config: ExperimentConfig):
         depth_margin=DEPTH_MARGIN,
     )
     # Recorded with every score (validation_diag["inputs_sha256"]) and compared
-    # with the incumbent's before a promotion (promotion.py).
-    dataset.validation_inputs = validation_inputs_fingerprint(
-        config.val_uri, getattr(config, "depth_band", None)
-    )
+    # with the incumbent's (promotion.py). A file written while the dataset read
+    # them could otherwise be recorded without having been read.
+    if validation_inputs_fingerprint(config.val_uri, band) != inputs:
+        raise RuntimeError(
+            f"the validation inputs for {config.val_uri} changed while they were read"
+        )
+    dataset.validation_inputs = inputs
     return dataset
 
 
@@ -596,6 +603,21 @@ def probe_validation_read(dataset) -> None:
             f"validation patch {index} cannot be read, so this run could not be "
             f"scored: {type(exc).__name__}: {exc}"
         ) from exc
+
+
+def check_validation_inputs(dataset, protocol, incumbent_path="best_model.pt"):
+    """Fail before training when the validation inputs differ from those the
+    incumbent is compared on. The loop checks before each cycle; this covers a
+    change since (during the preflight) without spending the training budget."""
+    try:
+        incumbent_inputs = read_incumbent(incumbent_path, protocol)[1]
+    except IncumbentUnavailable:
+        return  # promotion_decision reports why after training
+    if incumbent_inputs not in (None, getattr(dataset, "validation_inputs", None)):
+        raise RuntimeError(
+            "the validation inputs differ from those the incumbent is compared on; "
+            f"re-score it with `{RESCORE_COMMAND}`"
+        )
 
 
 def collect_validation_predictions(
@@ -1570,11 +1592,7 @@ def train(config: ExperimentConfig, *, strict_warm_start=False):
                     labels_path = pseudo_path
 
             if labels_path is None:
-                labels_path = os.path.join(parent_dir, "inklabels_refined.png")
-                if not os.path.exists(labels_path):
-                    labels_path = os.path.join(parent_dir, "inklabels_filled.png")
-                    if not os.path.exists(labels_path):
-                        labels_path = os.path.join(parent_dir, "inklabels.png")
+                labels_path = validation_label_path(uri)  # the same order
 
             if os.path.exists(labels_path):
                 mask_path = os.path.join(parent_dir, "mask.png")
@@ -1625,6 +1643,7 @@ def train(config: ExperimentConfig, *, strict_warm_start=False):
     # data is loaded, not after the budget.
     val_dataset = build_validation_dataset(config)
     probe_validation_read(val_dataset)
+    check_validation_inputs(val_dataset, protocol)
 
     # Fresh per run, so successive warm-started cycles see different patches;
     # recorded in run_result.json and the checkpoint.

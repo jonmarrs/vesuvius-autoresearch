@@ -124,12 +124,16 @@ Missing usable data, failed reads or preprocessing, failed metrics, and nonfinit
 metrics fail without updating the checkpoint. A successful explicit update
 records the protocol, evaluation URI, settings, accepted/requested patch counts,
 thresholds and the fingerprint of the validation inputs
-(`validation_diag.inputs_sha256`: the protocol, the fragment, and the label file,
-mask and `patches.json` it read), then atomically replaces the checkpoint. The
+(`validation_diag.inputs_sha256`: the protocol, the fragment, the volume's zarr
+metadata, and the label file, mask and `patches.json` it read), then atomically
+replaces the checkpoint. The
 re-scored checkpoint's model weights, and its configuration apart from an
 `--unwarped` correction, remain intact. When `config.json`'s inputs fingerprint
 differently (a refined label file written beside the fragment, say), the loop
-starts no cycle and no candidate is promoted until the incumbent is re-scored. A stored score from another
+starts no cycle and no candidate is promoted until the incumbent is re-scored.
+For an incumbent scored before fingerprints, the loop records the inputs it
+finds at its first start in `best_model.pt.inputs.json` (tied to the checkpoint's
+hash, ignored once it is replaced or re-scored) and holds it to them. A stored score from another
 protocol blocks loop startup and promotion until explicitly re-scored.
 
 Resolve the host's preprocessing and metric choices before migrating the
