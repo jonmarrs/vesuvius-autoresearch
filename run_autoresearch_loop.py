@@ -419,7 +419,9 @@ INCUMBENT = "best_model.pt"
 # A hard link to the incumbent, kept while a training run may replace it.
 INCUMBENT_HELD = ".best_model.pt.held"
 # The cycle in flight, for the signal handler: whether it holds, and what.
-CYCLE_HOLD: dict[str, Any] = {"active": False, "held": None}
+CYCLE_HOLD: dict[str, Any] = {"active": False, "held": None, "logs": {}}
+# The rows train.py appends when it promotes, before it writes its result.
+PROMOTION_LOGS = ("results.tsv", "prize_readiness.tsv")
 
 
 def hold_incumbent():
@@ -428,14 +430,51 @@ def hold_incumbent():
     was one to hold, False if there was none, None if it could not be held."""
     if os.path.lexists(INCUMBENT_HELD):
         os.remove(INCUMBENT_HELD)
+    held: bool | None = True
     if not os.path.exists(INCUMBENT):
-        return False
-    try:
-        os.link(INCUMBENT, INCUMBENT_HELD)
-    except OSError as e:
-        print(f"Warning: could not hold {INCUMBENT} for this cycle ({e}).")
-        return None
-    return True
+        held = False
+    else:
+        try:
+            os.link(INCUMBENT, INCUMBENT_HELD)
+        except OSError as e:
+            print(f"Warning: could not hold {INCUMBENT} for this cycle ({e}).")
+            held = None
+    CYCLE_HOLD.update(active=True, held=held, logs=_log_ends())
+    return held
+
+
+def _log_ends():
+    """Each promotion log's (device, inode, size), or None where there is none."""
+    ends = {}
+    for path in PROMOTION_LOGS:
+        try:
+            st = os.stat(path)
+        except FileNotFoundError:
+            ends[path] = None
+        else:
+            ends[path] = (st.st_dev, st.st_ino, st.st_size)
+    return ends
+
+
+def _undo_promotion_rows(before):
+    """Cut each promotion log back to its length before the run (remove one the
+    run created), so the reports read no promotion the loop undid. A log rotated
+    meanwhile (append_tsv_row moves one whose header changed aside) is left."""
+    undone, left = [], []
+    for path, end in before.items():
+        try:
+            st = os.stat(path)
+        except FileNotFoundError:
+            continue
+        if end is None:
+            os.remove(path)
+            undone.append(path)
+        elif (st.st_dev, st.st_ino) != end[:2]:
+            left.append(path)
+        elif st.st_size > end[2]:
+            os.truncate(path, end[2])
+            undone.append(path)
+    return undone, left
 
 
 def settle_incumbent(held, failed):
@@ -447,7 +486,8 @@ def settle_incumbent(held, failed):
     warm-start from and be compared with. Such a model is moved aside and the
     held incumbent put back. Returns a note for the sprint log, or None.
     """
-    CYCLE_HOLD["active"] = False
+    logs = CYCLE_HOLD["logs"]
+    CYCLE_HOLD.update(active=False, logs={})
     if held and not os.path.exists(INCUMBENT_HELD):
         print(f"Warning: {INCUMBENT_HELD} disappeared during the cycle; not settled.")
         held = None
@@ -470,10 +510,17 @@ def settle_incumbent(held, failed):
             os.replace(INCUMBENT, aside)
         if held:
             os.replace(INCUMBENT_HELD, INCUMBENT)
+        undone, left = _undo_promotion_rows(logs)
         note = (
             f"the run wrote {INCUMBENT} and then failed; "
             + ("the incumbent was restored" if held else "there was none before it")
             + (f", and the run's model kept as {aside}" if aside else "")
+            + (f"; its rows were removed from {', '.join(undone)}" if undone else "")
+            + (
+                f"; {', '.join(left)} rotated during the run, left as is"
+                if left
+                else ""
+            )
         )
     if os.path.lexists(INCUMBENT_HELD):
         os.remove(INCUMBENT_HELD)
@@ -863,7 +910,6 @@ def main():
         # Why the cycle produced no result, and its run's last log line.
         failure = log_line = None
         held = hold_incumbent()
-        CYCLE_HOLD.update(active=True, held=held)
         try:
             with open("run.log", "a") as f:
                 f.write(f"\n\n--- {shift_name} CYCLE {i}: {tweak_name} ---\n")

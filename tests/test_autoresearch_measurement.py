@@ -647,6 +647,9 @@ def _promoting_run(tmp_path, returncode=0, result=True, timeout=False):
     def run(command, log):
         _checkpoint(tmp_path / "candidate.pt", val_f1=0.9)
         os.replace(tmp_path / "candidate.pt", tmp_path / "best_model.pt")
+        for name in ("results.tsv", "prize_readiness.tsv"):  # train.py's rows
+            with open(tmp_path / name, "a") as f:
+                f.write("promoted\t0.9\n")
         if result:
             (tmp_path / "run_result.json").write_text(
                 json.dumps({"is_success": True, "val_f1": 0.9})
@@ -678,6 +681,7 @@ def test_a_run_that_fails_after_promoting_leaves_the_incumbent(
     config = ExperimentConfig()
     config.save(tmp_path / "config.json")
     _checkpoint(tmp_path / "best_model.pt")  # val_f1 0.47
+    (tmp_path / "results.tsv").write_text("timestamp\tval_f1\nearlier\t0.47\n")
     run = _promoting_run(tmp_path, returncode, result, timeout)
     assert len(_drive_loop(tmp_path, monkeypatch, 1, run=run)) == 1
     assert torch.load(tmp_path / "best_model.pt")["val_f1"] == 0.47
@@ -689,6 +693,12 @@ def test_a_run_that_fails_after_promoting_leaves_the_incumbent(
     assert f"Training crashed ({failure})" in log
     assert "the incumbent was restored" in log
     assert "- **Last log line**: `RuntimeError: teardown failed`" in log
+    # The reports read no promotion the loop undid.
+    assert "its rows were removed from results.tsv, prize_readiness.tsv" in log
+    assert (
+        tmp_path / "results.tsv"
+    ).read_text() == "timestamp\tval_f1\nearlier\t0.47\n"
+    assert not (tmp_path / "prize_readiness.tsv").exists()
 
 
 def test_a_promotion_keeps_its_model_and_releases_the_hold(tmp_path, monkeypatch):
@@ -699,6 +709,7 @@ def test_a_promotion_keeps_its_model_and_releases_the_hold(tmp_path, monkeypatch
     assert not list(tmp_path.glob("best_model.pt.failed-run-*"))
     assert not os.path.lexists(tmp_path / ".best_model.pt.held")
     assert "(SUCCESS)" in next((tmp_path / "sprint_logs").glob("*.md")).read_text()
+    assert (tmp_path / "results.tsv").read_text() == "promoted\t0.9\n"
 
 
 def test_a_failed_preflight_is_named_in_the_sprint_log(tmp_path, monkeypatch):
@@ -715,6 +726,20 @@ def test_a_failed_preflight_is_named_in_the_sprint_log(tmp_path, monkeypatch):
     assert "- **Last log line**: `PREFLIGHT FAILED: model build error`" in log
     assert torch.load(tmp_path / "best_model.pt")["val_f1"] == 0.47
     assert not os.path.lexists(tmp_path / ".best_model.pt.held")
+
+
+def test_a_promotion_log_rotated_during_the_run_is_left(tmp_path, monkeypatch):
+    """append_tsv_row moves a log whose header changed aside and starts a new
+    one; cutting the new file to the old one's length would corrupt it."""
+    import run_autoresearch_loop as loop
+
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "results.tsv").write_text("old header\nrow\n")
+    before = loop._log_ends()
+    os.replace(tmp_path / "results.tsv", tmp_path / "results.until-x.tsv")
+    (tmp_path / "results.tsv").write_text("new header\npromoted\n")
+    assert loop._undo_promotion_rows(before) == ([], ["results.tsv"])
+    assert (tmp_path / "results.tsv").read_text() == "new header\npromoted\n"
 
 
 def test_a_stop_mid_cycle_settles_the_run(tmp_path, monkeypatch):
