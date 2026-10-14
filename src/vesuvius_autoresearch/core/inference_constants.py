@@ -55,8 +55,9 @@ def depth_band_for(saved_config, volume_uri):
     the same numbers would name other layers, or lie past a shallower volume.
     The band therefore applies only to the labeled volumes the checkpoint
     recorded (uri, uris, val_uri); recorded relative paths resolve against the
-    working directory or this checkout. unlabeled_uris are left out: training
-    reads a label-less volume over its whole depth.
+    working directory or this checkout. unlabeled_uris are left out: UA-MT
+    bands an unlabeled volume only when it is one of these (train.unlabeled_dataset
+    applies this function) and reads any other over its whole depth.
     """
     band = saved_config.get("depth_band")
     if not band:

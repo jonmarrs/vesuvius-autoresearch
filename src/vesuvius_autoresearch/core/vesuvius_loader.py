@@ -303,6 +303,35 @@ class FastVesuviusVolume:
         return torch.from_numpy(ct)
 
 
+def band_read_range(depth_band, depth_margin, depth, read, uri):
+    """[start, end) of the slices reads are drawn from: depth_band widened by
+    depth_margin (the context around the model's window), clamped to the volume.
+    None for no band (the whole depth)."""
+    if depth_band is None:
+        return None
+    band_start, band_end = int(depth_band[0]), int(depth_band[1])
+    if band_start < 0 or band_end > depth:
+        raise ValueError(
+            f"depth_band {list(depth_band)} lies outside {uri} ({depth} slices)"
+        )
+    start = max(0, band_start - depth_margin)
+    end = min(depth, band_end + depth_margin)
+    if end - start < read:
+        raise ValueError(
+            f"depth_band {list(depth_band)} (with a {depth_margin}-slice "
+            f"margin) cannot hold a {read}-slice read of {uri} ({depth} slices)"
+        )
+    return start, end
+
+
+def _read_start(rng, depth_range, depth, read):
+    """A read's first slice, drawn uniformly so the read lies in depth_range
+    (the whole depth when None)."""
+    start, end = depth_range or (0, depth)
+    spare = end - start - read
+    return start + (rng.randint(0, spare + 1) if spare > 0 else 0)
+
+
 def _lasagna_unavailable_reason(patch):
     """Why the lasagna warp cannot run on this patch, or None if it can.
 
@@ -373,23 +402,9 @@ class VesuviusLabeledDataset(torch.utils.data.Dataset):
         # depth_band [start, end): the slices the model's window should show;
         # reads are drawn from the band widened by depth_margin (the context
         # around the window), clamped to the volume. None: the whole depth.
-        self.depth_range = None
-        if depth_band is not None:
-            band_start, band_end = int(depth_band[0]), int(depth_band[1])
-            if band_start < 0 or band_end > self.shape[0]:
-                raise ValueError(
-                    f"depth_band {list(depth_band)} lies outside {volume_uri} "
-                    f"({self.shape[0]} slices)"
-                )
-            start = max(0, band_start - depth_margin)
-            end = min(self.shape[0], band_end + depth_margin)
-            if end - start < self.num_layers:
-                raise ValueError(
-                    f"depth_band {list(depth_band)} (with a {depth_margin}-slice "
-                    f"margin) cannot hold a {self.num_layers}-slice read of "
-                    f"{volume_uri} ({self.shape[0]} slices)"
-                )
-            self.depth_range = (start, end)
+        self.depth_range = band_read_range(
+            depth_band, depth_margin, self.shape[0], self.num_layers, volume_uri
+        )
         # __getitem__ normalises uint8 (/255) and uint16 (read as int32, /65535)
         # and passes floats through; any other dtype reached the model raw.
         # Checked from the array's metadata, without reading CT.
@@ -759,9 +774,7 @@ class VesuviusLabeledDataset(torch.utils.data.Dataset):
         z_depth = self.shape[0]
         z_request = min(self.num_layers, z_depth)
         # Without a depth range this draws exactly as before (protocol v2).
-        z_start, z_end = getattr(self, "depth_range", None) or (0, z_depth)
-        z_range = z_end - z_start - z_request
-        z0 = z_start + (rng.randint(0, z_range + 1) if z_range > 0 else 0)
+        z0 = _read_start(rng, getattr(self, "depth_range", None), z_depth, z_request)
 
         try:
             if isinstance(self.volume, FastVesuviusVolume):
@@ -886,11 +899,14 @@ class VesuviusS3Dataset(torch.utils.data.Dataset):
         ridge_sigma=2.0,
         use_lasagna=False,
         is_unlabeled=True,
+        depth_band=None,
+        depth_margin=0,
     ):
         # use_lasagna accepted for API parity with VesuviusLabeledDataset
         # (train.py's get_dataloader passes it unconditionally). The S3Dataset
         # is used for unlabeled volumes (UA-MT) where surface flattening
         # wasn't wired in. Real Lasagna lives only in the labeled dataset.
+        # depth_band and depth_margin bound the reads as in the labeled dataset.
         self.uri = uri
         self.patch_size = patch_size
         self.seed = seed
@@ -905,6 +921,9 @@ class VesuviusS3Dataset(torch.utils.data.Dataset):
         )
         self.shape = self.volume.shape
         self.num_layers = min(num_layers, self.shape[0])
+        self.depth_range = band_read_range(
+            depth_band, depth_margin, self.shape[0], self.num_layers, uri
+        )
 
         stride = patch_size // 2
         self.valid_coords = []
@@ -930,8 +949,7 @@ class VesuviusS3Dataset(torch.utils.data.Dataset):
         rng = np.random.RandomState(idx + (self.seed or 0))
         z_depth = self.shape[0]
         z_request = min(self.num_layers, z_depth)
-        z_range = z_depth - z_request
-        z0 = rng.randint(0, z_range + 1) if z_range > 0 else 0
+        z0 = _read_start(rng, self.depth_range, z_depth, z_request)
 
         try:
             patch = self.volume[
