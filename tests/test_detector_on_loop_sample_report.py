@@ -2,7 +2,9 @@
 
 import hashlib
 import json
+import os
 import statistics
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -16,6 +18,9 @@ C = json.loads(C_PATH.read_text()) if C_PATH.exists() else None
 D_PATH = REPO / "reports" / "loop_candidate_spread.json"
 D = json.loads(D_PATH.read_text()) if D_PATH.exists() else None
 TOLERANCE = 0.03  # train.F1_NOISE_TOLERANCE
+# The last commit holding the first runs of A, C and D, which read the detector
+# before validation's jitter (corrected 2026-10-14, 9acb865a).
+FIRST_RUN = "f592a25b"
 
 
 def _signed(x):
@@ -83,6 +88,13 @@ def _d_quoted():
         "D tolerance": f"{TOLERANCE / sep['val_f1']['A']['spread']:.1f} times the candidates' "
         f"val_f1 spread under A and {TOLERANCE / sep['val_f1']['C']['spread']:.1f} times it under C",
         "D meaning": f"the val_f1 gap is {rc:.2f} SDs on the 400-patch draw against {ra:.2f}",
+        "D ranking comparable": f"({sep['roc_auc']['A']['ratio']:.2f} against "
+        f"{sep['roc_auc']['C']['ratio']:.2f}, and {sep['ap_prevalence_lift']['A']['ratio']:.2f} "
+        f"against {sep['ap_prevalence_lift']['C']['ratio']:.2f})",
+        "D option 1": f"margin gaps equal val_f1 gaps: {ra:.2f} SDs",
+        "D option 2": f"AP lift separates them too ({sep['ap_prevalence_lift']['C']['ratio']:.2f})",
+        "D option 3": f"separates them about as well: {sep['ap_prevalence_lift']['A']['ratio']:.2f} "
+        f"and {sep['roc_auc']['A']['ratio']:.2f} SDs",
     }
     for row in rows:
         quoted[f"D row {row['snapshot']}"] = _candidate_row(row)
@@ -92,10 +104,9 @@ def _d_quoted():
 def _quoted():
     inc = A["cards"]["loop_incumbent"]["val_f1"]
     bar = inc + TOLERANCE
-    best = max(
-        A["margins_over_all_ink"][k]
-        for k in ("detector_single_window", "detector_tiled")
-    )
+    single = A["margins_over_all_ink"]["detector_single_window"]
+    tiled = A["margins_over_all_ink"]["detector_tiled"]
+    above = bar - A["all_ink_f1"]
     quoted = {
         "A patches": f"**{A['usable_patches']}** ink-containing patches",
         "A pixels": f"**{A['n_pixels']:,}** pixels",
@@ -123,7 +134,11 @@ def _quoted():
         "A commit": f"run at `{A['git_commit'][:8]}`",
         "B commit": f"`{B['git_commit'][:8]}`",
     }
-    assert (bar - A["all_ink_f1"]) / best > 4, "the report says more than four times"
+    quoted |= {
+        "A bar multiples": f"{above / single:.1f} times the detector's primary margin here, "
+        f"and {above / tiled:.1f} times what its tiled inference reaches",
+        "A meaning": f"where that detector reaches {_signed(single)} ({_signed(tiled)} tiled)",
+    }
     if C is not None:
         mc, ma = C["margins_over_all_ink"], A["margins_over_all_ink"]
         cc, ca = C["cards"], A["cards"]
@@ -242,3 +257,67 @@ def test_a_later_incumbent_skips_rather_than_fails(tmp_path):
     torch.save({"val_protocol": A["best_model_val_protocol"], "val_f1": 0.9}, later)
     with pytest.raises(pytest.skip.Exception):
         _check_stored_incumbent(later)
+
+
+def test_the_ranking_metrics_separate_comparably_on_both_samples():
+    # The correction withdraws "ROC AUC and AP lift point the same way": by D's
+    # own factor-of-two test, neither sample separates better on them.
+    if D is None:
+        pytest.skip("measurement D not saved")
+    for metric in ("roc_auc", "ap_prevalence_lift"):
+        a, c = (D["separation"][metric][p]["ratio"] for p in "AC")
+        assert a < 2 * c and c < 2 * a, metric
+
+
+def _first_run(name):
+    """A first-run artifact from git history, or None without it."""
+    env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
+    shown = subprocess.run(
+        ["git", "show", f"{FIRST_RUN}:reports/{name}"],
+        cwd=REPO,
+        env=env,
+        capture_output=True,
+        text=True,
+    )
+    return json.loads(shown.stdout) if shown.returncode == 0 else None
+
+
+def _correction_column(a, c, d):
+    ma, mc = a["margins_over_all_ink"], c["margins_over_all_ink"]
+    sep = d["separation"]
+    return [
+        _signed(ma["detector_single_window"]),
+        _signed(ma["detector_tiled"]),
+        f"{a['cards']['detector_single_window']['roc_auc']:.4f}",
+        _signed(mc["detector_single_window"]),
+        f"{c['cards']['detector_single_window']['roc_auc']:.4f}",
+        *(
+            f"{sep[m]['A']['ratio']:.2f}, {sep[m]['C']['ratio']:.2f}"
+            for m in ("val_f1", "roc_auc", "ap_prevalence_lift")
+        ),
+    ]
+
+
+def test_the_correction_table_quotes_both_runs():
+    if C is None or D is None:
+        pytest.skip("measurements C and D not saved")
+    names = (
+        "detector_on_loop_sample.json",
+        "detector_on_full_v2_sample.json",
+        "loop_candidate_spread.json",
+    )
+    first = [_first_run(name) for name in names]
+    if None in first:
+        pytest.skip(f"the first runs ({FIRST_RUN}) are not in this checkout's history")
+    assert first[0]["git_commit"].startswith("b8a8fff3")
+    assert first[1]["git_commit"].startswith("c59cfa86")
+    assert "separation_git_commit" not in first[2]
+    section = REPORT.split("## Correction")[1].split("**All three")[0]
+    rows = [
+        [cell.strip() for cell in line.split("|")[2:4]]
+        for line in section.splitlines()
+        if line[:4] in ("| A:", "| C:", "| D:")
+    ]
+    assert [r[0] for r in rows] == _correction_column(*first)
+    assert [r[1] for r in rows] == _correction_column(A, C, D)
+    assert A["git_commit"] == C["git_commit"] == D["separation_git_commit"]

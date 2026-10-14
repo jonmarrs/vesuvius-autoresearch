@@ -7,17 +7,21 @@ jitter, so it was scored against targets a median 16 px away (corrected
 """
 
 import json
+from pathlib import Path
 
 import numpy as np
 import pytest
 from conftest import restore_cuda_env
 from PIL import Image
+from train import ExperimentConfig, build_validation_dataset
 
 from scripts.detector_on_loop_sample import check_origins, patch_origin
+from scripts.training.promotion import validation_indices, validation_label_path
 from vesuvius_autoresearch.core.vesuvius_loader import VesuviusLabeledDataset
 
 restore_cuda_env()  # do not leave the mask for other test modules
 
+REPO = Path(__file__).resolve().parents[1]
 SIZE = 8
 ORIGINS = [(8, 8), (16, 24), (24, 8), (0, 32), (32, 0)]
 
@@ -76,3 +80,37 @@ def test_the_pre_jitter_coordinates_are_not_where_it_read(fragment):
     with pytest.raises(RuntimeError, match="not that patch's target"):
         check_origins(str(volume), before, [data[i][1] for i in range(len(data))])
     assert labels.any()
+
+
+def test_the_report_quotes_the_shift_on_the_loops_draw():
+    # Finding 88's correction quotes how far the 400-patch draw moved and how
+    # many targets the pre-jitter windows still matched. Recomputed from the
+    # labels alone (check_origins showed the target is the label window).
+    config = ExperimentConfig.load(str(REPO / "config.json"))
+    if not Path(config.val_uri).exists():
+        pytest.skip(f"{config.val_uri} is not on this machine")
+    data = build_validation_dataset(config)
+    labels = np.asarray(Image.open(validation_label_path(config.val_uri)))
+    labels = labels > (127 if labels.max() > 1 else 0)
+    size = data.patch_size
+    shifts, same = [], 0
+    for i in validation_indices(len(data)):
+        before = tuple(int(v) for v in data.valid_coords[int(i)])
+        after = patch_origin(data, int(i))
+        shifts.append(np.abs(np.subtract(after, before)))
+        (y0, x0), (y, x) = before, after
+        same += np.array_equal(
+            labels[y0 : y0 + size, x0 : x0 + size], labels[y : y + size, x : x + size]
+        )
+    shifts = np.array(shifts)
+    moved = int((shifts > 0).any(axis=1).sum())
+    dy, dx = np.median(shifts, axis=0)
+    report = " ".join(
+        (REPO / "reports" / "detector_on_loop_sample.md").read_text().split()
+    )
+    assert f"All {len(shifts)} patches of the draw had moved" in report
+    assert moved == len(shifts) == 400
+    assert (
+        f"(median {dy:.0f} px in y and {dx:.0f} in x, at most {shifts.max()})" in report
+    )
+    assert f"equal only {same} of the {len(shifts)} targets" in report

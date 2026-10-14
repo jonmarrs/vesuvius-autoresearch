@@ -1,6 +1,6 @@
 {
   "protocol": "seeded-sample-400-v2+z1-27",
-  "git_commit": "b8a8fff345aa1a088f05e22e60ee1c36bb4e95a9",
+  "git_commit": "9acb865a78f0963f73cb4d235aae96fd8d543cb8",
   "best_model_sha256": "d7da2776583dbefe02c54d2adf986de82c82a7cb36956ae8909ba1397cb282aa",
   "best_model_val_protocol": "seeded-sample-400-v2+z1-27",
   "detector_checkpoint": "models/detector/detector_epoch=7.ckpt",
@@ -27,24 +27,24 @@
       "roc_auc": 0.5615411043131352
     },
     "detector_single_window": {
-      "val_f1": 0.7319713508111807,
+      "val_f1": 0.7335337611696763,
       "best_threshold": 0.2,
-      "precision": 0.5788164447606464,
-      "recall": 0.9953378833028934,
-      "pred_positive_rate": 0.9905565399484536,
-      "average_precision": 0.6332667195207609,
-      "ap_prevalence_lift": 1.0993527516810384,
-      "roc_auc": 0.5789578503425088
+      "precision": 0.5799208739417271,
+      "recall": 0.9978502704639396,
+      "pred_positive_rate": 0.9911656330541238,
+      "average_precision": 0.6873324344356524,
+      "ap_prevalence_lift": 1.193210980182718,
+      "roc_auc": 0.6060094268678861
     },
     "detector_tiled": {
-      "val_f1": 0.7372408662532182,
+      "val_f1": 0.7457003103139956,
       "best_threshold": 0.25,
-      "precision": 0.6065891910188423,
-      "recall": 0.939624059493328,
-      "pred_positive_rate": 0.8922962306701031,
-      "average_precision": 0.6707478833706864,
-      "ap_prevalence_lift": 1.1644201543163866,
-      "roc_auc": 0.613066217571583
+      "precision": 0.6095324474325797,
+      "recall": 0.9602081567380039,
+      "pred_positive_rate": 0.9074405001610825,
+      "average_precision": 0.6897963491340509,
+      "ap_prevalence_lift": 1.1974883428169671,
+      "roc_auc": 0.6296642779843584
     },
     "constant_all_ink": {
       "val_f1": 0.7309934235952078,
@@ -59,8 +59,8 @@
   },
   "margins_over_all_ink": {
     "loop_incumbent": -0.0036655684582637127,
-    "detector_single_window": 0.0009779272159728958,
-    "detector_tiled": 0.00624744265801036,
+    "detector_single_window": 0.0025403375744684764,
+    "detector_tiled": 0.014706886718787837,
     "constant_all_ink": 0.0
   }
 }
