@@ -22,10 +22,28 @@ DEPTH_MARGIN = 4
 INK_PROBABILITY = "sigmoid(ink)"
 
 
-def _same_volume(a, b):
-    if urlsplit(a).scheme or urlsplit(b).scheme:
-        return a.rstrip("/") == b.rstrip("/")
-    return os.path.realpath(a) == os.path.realpath(b)
+# config.json's relative paths are relative to the checkout the loop trains in.
+_REPO = os.path.dirname(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+)
+
+
+def _volume_keys(uri, bases):
+    """Comparable spellings of one volume: resolved against each base directory,
+    file:// as its path, and an OME-Zarr group the same as its level 0 array
+    (FastVesuviusVolume opens either)."""
+    parts = urlsplit(uri)
+    if parts.scheme and parts.scheme != "file":
+        uri = uri.rstrip("/")
+        return {uri[:-2] if uri.endswith("/0") else uri}
+    path = parts.path if parts.scheme == "file" else uri
+    keys = set()
+    for base in bases:
+        resolved = os.path.realpath(os.path.join(base, path))
+        if os.path.basename(resolved) == "0":
+            resolved = os.path.dirname(resolved)
+        keys.add(resolved)
+    return keys
 
 
 def depth_band_for(saved_config, volume_uri):
@@ -35,24 +53,32 @@ def depth_band_for(saved_config, volume_uri):
     zarrs start at surface-volume layer 16 (finding 87), so [1, 27) there is
     layers 17-42. A volume built another way numbers its slices differently, so
     the same numbers would name other layers, or lie past a shallower volume.
-    The band therefore applies only to the volumes the checkpoint recorded
-    (uri, uris, val_uri, unlabeled_uris; relative paths resolve against the
-    working directory).
+    The band therefore applies only to the labeled volumes the checkpoint
+    recorded (uri, uris, val_uri); recorded relative paths resolve against the
+    working directory or this checkout. unlabeled_uris are left out: training
+    reads a label-less volume over its whole depth.
     """
     band = saved_config.get("depth_band")
-    if band is None:
+    if not band:
         return None
-    recorded = [
-        saved_config.get("uri"),
-        *(saved_config.get("uris") or []),
-        saved_config.get("val_uri"),
-        *(saved_config.get("unlabeled_uris") or []),
-    ]
+    if (
+        not isinstance(band, (list, tuple))
+        or len(band) != 2
+        or not all(isinstance(v, int) and not isinstance(v, bool) for v in band)
+    ):
+        raise ValueError(f"checkpoint depth_band must be [start, end), not {band!r}")
+    recorded = []
+    for key in ("uri", "uris", "val_uri"):
+        value = saved_config.get(key)
+        recorded.extend([value] if isinstance(value, str) else value or [])
+    target = _volume_keys(str(volume_uri), [os.getcwd()])
     if any(
-        isinstance(uri, str) and uri and _same_volume(uri, str(volume_uri))
+        isinstance(uri, str)
+        and uri
+        and target & _volume_keys(uri, [os.getcwd(), _REPO])
         for uri in recorded
     ):
-        return [int(band[0]), int(band[1])]
+        return [band[0], band[1]]
     print(
         f"depth_band {list(band)} is in the slice numbers of the checkpoint's own "
         f"volumes; {volume_uri} is not one of them, so the band is not applied",

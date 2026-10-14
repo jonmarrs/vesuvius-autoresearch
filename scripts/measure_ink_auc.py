@@ -143,7 +143,11 @@ def measure_fragment(model, settings, frag, n, device, cache_dir=None, depth_ban
             f"only {len(a)}/{n} requested patches have both classes inside the mask"
         )
     if len(a):
-        print(f"{name}: AUC mean={a.mean():.3f} median={np.median(a):.3f} n={len(a)}")
+        depth = "whole depth" if depth_band is None else f"depth band {depth_band}"
+        print(
+            f"{name}: AUC mean={a.mean():.3f} median={np.median(a):.3f} n={len(a)} "
+            f"({depth})"
+        )
     else:
         raise ValueError(
             "no usable patches with both ink and background inside the mask"

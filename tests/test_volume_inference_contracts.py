@@ -740,20 +740,36 @@ def test_a_band_outside_the_volume_falls_back_to_the_volume_centre(
 
 
 def test_depth_band_for_matches_recorded_volumes_by_path(tmp_path, monkeypatch):
+    from vesuvius_autoresearch.core import inference_constants
     from vesuvius_autoresearch.core.inference import depth_band_for
 
     monkeypatch.chdir(tmp_path)
     saved = {
         "depth_band": [1, 27],
-        "uris": ["local_data/Fr47/surface_volume.zarr"],
+        "uris": ["local_data/Fr47/surface_volume.zarr", "s3://bucket/labeled.zarr"],
         "val_uri": "local_data/Fr143/surface_volume.zarr",
+        # Training reads a label-less volume over its whole depth.
         "unlabeled_uris": ["s3://bucket/scroll.zarr"],
     }
     own = tmp_path / "local_data/Fr143/surface_volume.zarr"
     assert depth_band_for(saved, str(own)) == [1, 27]
+    assert depth_band_for(saved, f"{own}/0") == [1, 27]  # the group's level 0
+    assert depth_band_for(saved, f"file://{own}") == [1, 27]
     assert depth_band_for(saved, "local_data/Fr47/surface_volume.zarr/") == [1, 27]
-    assert depth_band_for(saved, "s3://bucket/scroll.zarr/") == [1, 27]
+    assert depth_band_for(saved, "s3://bucket/labeled.zarr/0") == [1, 27]
+    assert depth_band_for(saved, "s3://bucket/scroll.zarr") is None
     assert depth_band_for(saved, "local_data/Fr3/surface_volume.zarr") is None
-    assert depth_band_for(saved, "s3://bucket/other.zarr") is None
     assert depth_band_for({**saved, "depth_band": None}, str(own)) is None
+    assert depth_band_for({**saved, "depth_band": []}, str(own)) is None
     assert depth_band_for({"depth_band": [1, 27]}, str(own)) is None
+    # A single path recorded as a string is one volume, not its characters.
+    assert depth_band_for({"depth_band": [1, 27], "uris": "ab"}, "a") is None
+    assert depth_band_for({"depth_band": [1, 27], "uris": "ab"}, "ab") == [1, 27]
+    with pytest.raises(ValueError, match="depth_band"):
+        depth_band_for({**saved, "depth_band": [1]}, str(own))
+    # Relative paths recorded from config.json also resolve against the checkout,
+    # so a tool run from scripts/ still finds the validation fragment.
+    monkeypatch.setattr(inference_constants, "_REPO", str(tmp_path))
+    (tmp_path / "scripts").mkdir()
+    monkeypatch.chdir(tmp_path / "scripts")
+    assert depth_band_for(saved, str(own)) == [1, 27]

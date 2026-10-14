@@ -56,17 +56,23 @@ confidence weight 1/255 in the existing loss; it is not an exact ignore mask.
 
 The AUC and pseudo-label paths retain the buffered sampling recipe: request
 checkpoint depth plus eight slices and use the central window after dropping
-four slices at each end. A volume without room for the whole context gives the
-centre of what it holds; one shallower than the checkpoint depth fails.
-Spatial coordinates are unjittered. Ridge features are computed on that
-buffered context using the checkpoint sigma.
+four slices at each end. For AUC, a volume without room for the whole context
+gives the centre of what it holds, and one shallower than the checkpoint depth
+fails; the pseudo-label command requires the whole context. Spatial
+coordinates are unjittered. Ridge features are computed on that buffered
+context using the checkpoint sigma.
 
-A checkpoint's `depth_band` applies only to the volumes it recorded (`uris`,
-`val_uri`, `unlabeled_uris`; relative paths resolve against the working
-directory). The band is in those volumes' slice numbers: the training
-fragments' zarrs start at surface-volume layer 16, so `[1, 27)` is layers 17–42
-there and other layers elsewhere (finding 87). Any other volume is read over its
-whole depth, as before bands existed, and the command says so on stderr.
+A checkpoint's `depth_band` is in the slice numbers of the volumes it was set
+for: the training fragments' zarrs start at surface-volume layer 16, so
+`[1, 27)` is layers 17–42 there and other layers elsewhere (finding 87). The AUC
+and review-queue commands apply it only to the labeled volumes the checkpoint
+recorded (`uri`/`uris` and `val_uri`; relative paths resolve against the working
+directory or the checkout, and a zarr group matches its level 0). Any other
+volume is read over its whole depth, as before bands existed, and the command
+says so on stderr; the AUC line names the band it used. Pseudo-labels keep the
+band on every fragment, because training will read that fragment with the same
+band; `tests/test_config_depth_band_fits_fragments.py` checks that the banded
+fragments share one depth.
 
 ## Manual-review queue
 

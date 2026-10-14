@@ -24,7 +24,7 @@ four spatial views (unchanged, x mirror, y mirror, both), undoing each output
 mirror first. Use `--disable_tta` for one forward per model and tile.
 When `--z` is omitted, `predict.py` centres the checkpoint's window in the
 `depth_band` it was trained on, if the volume is one of the checkpoint's own
-(its recorded `uris`, `val_uri` or `unlabeled_uris`). A band is in those
+labeled volumes (its recorded `uri`/`uris` or `val_uri`). A band is in those
 volumes' slice numbers: the training fragments' zarrs start at surface-volume
 layer 16, so `[1, 27)` is layers 17–42 there and other layers anywhere else
 (finding 87). On other volumes, and without a recorded band, it centres the

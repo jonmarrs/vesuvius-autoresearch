@@ -182,8 +182,9 @@ def test_a_depth_band_applies_only_to_the_checkpoints_own_volumes(
     tools_fixture, monkeypatch, tmp_path, mode, recorded
 ):
     """A band names slices of the volumes it was set for (finding 87: [1, 27)
-    is layers 17-42 in zarrs that start at layer 16). Another fragment numbers
-    its slices differently, so it is read over its whole depth, as before bands."""
+    is layers 17-42 in zarrs that start at layer 16). The measurement tools read
+    another fragment over its whole depth, as before bands. Pseudo-labels are
+    trained on again under the same band, so they keep it everywhere."""
     checkpoint, fragment, _, _, datasets = tools_fixture
     saved = torch.load(checkpoint, weights_only=False)
     # No surface_volume.zarr in the fixture: the tools read the bare level 0.
@@ -225,7 +226,8 @@ def test_a_depth_band_applies_only_to_the_checkpoints_own_volumes(
         assert json.loads(queue.read_text())["depth_band"] == (
             [1, 5] if recorded else None
         )
-    assert datasets[0].kwargs["depth_band"] == ([1, 5] if recorded else None)
+    expected = [1, 5] if recorded or mode == "pseudo" else None
+    assert datasets[0].kwargs["depth_band"] == expected
 
 
 def _stub_topology(monkeypatch):
