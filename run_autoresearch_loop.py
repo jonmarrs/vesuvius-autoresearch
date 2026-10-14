@@ -46,6 +46,13 @@ supervisor = ProcessSupervisor()
 def signal_handler(sig, frame):
     print(f"\nCaught signal {sig}. Cleaning up...")
     supervisor.stop()
+    # A stop (stop.sh sends SIGTERM) almost always lands mid-cycle: settle that
+    # run as failed now, with its process group dead and config.json not yet
+    # promoted, so what happens while the loop is stopped is not mistaken for it.
+    if CYCLE_HOLD["active"]:
+        note = settle_incumbent(CYCLE_HOLD["held"], failed=True)
+        if note:
+            print(f"Incumbent: {note}.")
     sys.exit(0)
 
 
@@ -408,6 +415,109 @@ def save_recent_configs(configs):
         print(f"Warning: Could not save {RECENT_CONFIGS_FILE}: {e}")
 
 
+INCUMBENT = "best_model.pt"
+# A hard link to the incumbent, kept while a training run may replace it.
+INCUMBENT_HELD = ".best_model.pt.held"
+# The cycle in flight, for the signal handler: whether it holds, and what.
+CYCLE_HOLD: dict[str, Any] = {"active": False, "held": None}
+
+
+def hold_incumbent():
+    """Hard-link the incumbent before a training run, at no copy cost: train.py
+    promotes by os.replace, so the link keeps the old checkpoint. True if there
+    was one to hold, False if there was none, None if it could not be held."""
+    if os.path.lexists(INCUMBENT_HELD):
+        os.remove(INCUMBENT_HELD)
+    if not os.path.exists(INCUMBENT):
+        return False
+    try:
+        os.link(INCUMBENT, INCUMBENT_HELD)
+    except OSError as e:
+        print(f"Warning: could not hold {INCUMBENT} for this cycle ({e}).")
+        return None
+    return True
+
+
+def settle_incumbent(held, failed):
+    """After a run: a failed one promotes neither the config nor the model.
+
+    train.py replaces best_model.pt before it writes run_result.json and exits,
+    so a run that fails after that point (an exit error, the timeout, a stop)
+    left a model no config or commit records, which the next cycle would
+    warm-start from and be compared with. Such a model is moved aside and the
+    held incumbent put back. Returns a note for the sprint log, or None.
+    """
+    CYCLE_HOLD["active"] = False
+    if held and not os.path.exists(INCUMBENT_HELD):
+        print(f"Warning: {INCUMBENT_HELD} disappeared during the cycle; not settled.")
+        held = None
+    if held:
+        replaced = not (
+            os.path.exists(INCUMBENT) and os.path.samefile(INCUMBENT, INCUMBENT_HELD)
+        )
+    else:
+        replaced = held is False and os.path.exists(INCUMBENT)
+    note = None
+    if failed and replaced:
+        aside = None
+        if os.path.exists(INCUMBENT):
+            stamp = time.strftime("%Y%m%d-%H%M%S")
+            aside = f"{INCUMBENT}.failed-run-{stamp}"
+            n = 1
+            while os.path.lexists(aside):
+                n += 1
+                aside = f"{INCUMBENT}.failed-run-{stamp}-{n}"
+            os.replace(INCUMBENT, aside)
+        if held:
+            os.replace(INCUMBENT_HELD, INCUMBENT)
+        note = (
+            f"the run wrote {INCUMBENT} and then failed; "
+            + ("the incumbent was restored" if held else "there was none before it")
+            + (f", and the run's model kept as {aside}" if aside else "")
+        )
+    if os.path.lexists(INCUMBENT_HELD):
+        os.remove(INCUMBENT_HELD)
+    return note
+
+
+def leftover_hold():
+    """A reason not to start, if a loop ended mid-cycle without settling its run
+    (a kill or power loss; a stop settles). Released if best_model.pt is still
+    the held file. Otherwise it cannot be told whether that run or the operator
+    changed best_model.pt since, so the choice is left to the operator."""
+    if not os.path.lexists(INCUMBENT_HELD):
+        return None
+    if os.path.exists(INCUMBENT) and os.path.samefile(INCUMBENT, INCUMBENT_HELD):
+        os.remove(INCUMBENT_HELD)
+        return None
+    return (
+        f"{INCUMBENT_HELD} remains from a loop that ended mid-cycle without settling "
+        f"its run, and {INCUMBENT} has changed since that cycle began (the run "
+        "replaced it, or it was changed by hand). To keep the current "
+        f"{INCUMBENT}: rm {INCUMBENT_HELD}. To restore the incumbent from before "
+        f"that cycle: mv {INCUMBENT_HELD} {INCUMBENT}."
+    )
+
+
+def exit_description(returncode):
+    if returncode is not None and returncode < 0:
+        try:
+            return f"was killed by {signal.Signals(-returncode).name}"
+        except ValueError:
+            pass
+    return f"exited with code {returncode}"
+
+
+def last_log_line(path="run.log", limit=300):
+    """The run log's last non-empty line, for a failed cycle's sprint log entry."""
+    try:
+        with open(path, errors="replace") as f:
+            lines = [line.strip() for line in f.readlines()[-50:] if line.strip()]
+    except OSError:
+        return None
+    return lines[-1][:limit] if lines else None
+
+
 def main():
     """Entry point for the autonomous Day/Night Shift autoresearch loop.
 
@@ -425,6 +535,11 @@ def main():
     lock_fp = check_lock()  # noqa: F841 (kept open for the duration of the process)
     if os.path.exists(".loop_paused"):
         print("Autoresearch is paused. Use ./start.sh to resume.")
+        return
+
+    reason = leftover_hold()
+    if reason:
+        print(f"Not starting: {reason}")
         return
 
     # The incumbent must be comparable before any GPU time is spent: train.py
@@ -676,6 +791,10 @@ def main():
             os.rename("run.log", "run.log.old")
 
         training_returncode = None
+        # Why the cycle produced no result, and its run's last log line.
+        failure = log_line = None
+        held = hold_incumbent()
+        CYCLE_HOLD.update(active=True, held=held)
         try:
             with open("run.log", "a") as f:
                 f.write(f"\n\n--- {shift_name} CYCLE {i}: {tweak_name} ---\n")
@@ -714,9 +833,16 @@ def main():
                         timeout=300,
                     )
                     preflight_ok = preflight.returncode == 0
+                    if not preflight_ok:
+                        failure = f"preflight {exit_description(preflight.returncode)}"
                 except subprocess.TimeoutExpired:
-                    f.write("PREFLIGHT TIMED OUT — skipping training.\n")
                     preflight_ok = False
+                    failure = "preflight timed out after 300 s"
+                if not preflight_ok:  # before the loop's own markers below
+                    f.flush()
+                    log_line = last_log_line()
+                    if failure.startswith("preflight timed out"):
+                        f.write("PREFLIGHT TIMED OUT — skipping training.\n")
                 f.flush()
 
                 if not preflight_ok:
@@ -748,8 +874,10 @@ def main():
                         training_returncode = training.returncode
                     except subprocess.TimeoutExpired:
                         print(f"Cycle {i} timed out. Process group stopped.")
+                        failure = f"killed at the {default_budget + 300} s timeout"
         except Exception as e:
             print(f"Subprocess error in cycle {i}: {e}")
+            failure = f"could not be run ({type(e).__name__}: {e})"
 
         val_bpb = train_loss = params = vram = vps = val_f1 = "N/A"
         skipped_updates = 0
@@ -760,6 +888,16 @@ def main():
 
         if training_returncode != 0 or not os.path.exists("run_result.json"):
             is_crash = True
+            # Promotion requires a clean exit as well as a result (2026-10-01).
+            if failure is None:
+                failure = (
+                    "wrote no run_result.json"
+                    if training_returncode == 0
+                    else exit_description(training_returncode)
+                )
+            if os.path.exists("run_result.json"):  # deleted before the run
+                failure += " after writing run_result.json"
+            log_line = log_line or last_log_line()
             if os.path.exists("run.log"):
                 try:
                     with open("run.log") as f:
@@ -795,6 +933,8 @@ def main():
             except Exception as e:
                 print(f"Error reading run_result.json: {e}")
                 is_crash = True
+                failure = f"run_result.json is unreadable ({e})"
+        incumbent_note = settle_incumbent(held, failed=is_crash)
 
         # Success-biased decay: every scored cycle decays all the families it
         # could have sampled, so a family that stops producing promotions loses
@@ -841,7 +981,13 @@ def main():
             if is_success:
                 result_msg = "Improvement detected. Config updated."
             elif is_crash:
-                result_msg = f"Training crashed ({'OOM' if oom_detected else 'Unknown error'}). No success reward; family remains eligible for exploration."
+                result_msg = f"Training crashed ({'out of memory' if oom_detected else failure}). No success reward; family remains eligible for exploration."
+                if log_line and not oom_detected:
+                    log.write(
+                        f"- **Last log line**: `{log_line.replace('`', chr(39))}`\n"
+                    )
+            if incumbent_note:
+                log.write(f"- **Incumbent**: {incumbent_note}.\n")
 
             log.write(f"- **Result**: {result_msg}\n\n")
             log.flush()
@@ -855,8 +1001,10 @@ def main():
             )
         elif is_crash:
             print(
-                f"CYCLE CRASHED ({'OOM' if oom_detected else 'UNKNOWN'}). Reverting but keeping family weight."
+                f"CYCLE CRASHED ({'OOM' if oom_detected else failure}). Reverting but keeping family weight."
             )
+            if incumbent_note:
+                print(f"Incumbent: {incumbent_note}.")
         else:
             best_str = (
                 f"{best_val_f1:.6f}" if best_val_f1 > float("-inf") else "none yet"
