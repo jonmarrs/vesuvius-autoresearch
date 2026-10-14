@@ -1,0 +1,51 @@
+{
+  "protocol": "seeded-sample-400-v2+z1-27",
+  "git_commit": "c59cfa868c6f4ee46b84cc5d9ce24789442397dc",
+  "best_model_sha256": "d7da2776583dbefe02c54d2adf986de82c82a7cb36956ae8909ba1397cb282aa",
+  "best_model_val_protocol": "seeded-sample-400-v2+z1-27",
+  "detector_checkpoint": "models/detector/detector_epoch=7.ckpt",
+  "detector_sha256": "4f1170270ef9b8d609b832131f9cd11014d6216420c6bbb836cd3db3e16dd173",
+  "patches": 400,
+  "patches_with_ink": 97,
+  "loop_usable_patches": 97,
+  "n_pixels": 1638400,
+  "ink_prevalence": 0.139688720703125,
+  "all_ink_f1": 0.24513486562707187,
+  "cards": {
+    "loop_incumbent": {
+      "val_f1": 0.24934991300674267,
+      "best_threshold": 0.05,
+      "precision": 0.14284795341004913,
+      "recall": 0.9800013981980722,
+      "pred_positive_rate": 0.95832763671875,
+      "average_precision": 0.1597550155132615,
+      "ap_prevalence_lift": 1.1436500721685512,
+      "roc_auc": 0.5717060858108939
+    },
+    "detector_single_window": {
+      "val_f1": 0.3106112071688073,
+      "best_threshold": 0.35,
+      "precision": 0.20987208931027707,
+      "recall": 0.5973320633034177,
+      "pred_positive_rate": 0.397578125,
+      "average_precision": 0.22977485090606348,
+      "ap_prevalence_lift": 1.6449062583542091,
+      "roc_auc": 0.666515329531277
+    },
+    "constant_all_ink": {
+      "val_f1": 0.24513486562707187,
+      "best_threshold": 0.05,
+      "precision": 0.139688720703125,
+      "recall": 1.0,
+      "pred_positive_rate": 1.0,
+      "average_precision": 0.139688720703125,
+      "ap_prevalence_lift": 1.0,
+      "roc_auc": 0.5
+    }
+  },
+  "margins_over_all_ink": {
+    "loop_incumbent": 0.004215047379670794,
+    "detector_single_window": 0.06547634154173543,
+    "constant_all_ink": 0.0
+  }
+}

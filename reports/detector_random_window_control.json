@@ -1,0 +1,39 @@
+{
+  "git_commit": "fe76e853db70a49652cec310d793bc492eca5ea7",
+  "detector_checkpoint": "models/detector/detector_epoch=7.ckpt",
+  "detector_sha256": "4f1170270ef9b8d609b832131f9cd11014d6216420c6bbb836cd3db3e16dd173",
+  "validation_uri": "local_data/PHercParis2Fr143/surface_volume.zarr",
+  "candidate_windows": 93504,
+  "windows": 400,
+  "seed": 0,
+  "windows_with_ink": 115,
+  "n_pixels": 1638400,
+  "ink_prevalence": 0.1544781494140625,
+  "all_ink_f1": 0.2676155447246281,
+  "cards": {
+    "detector_single_window": {
+      "val_f1": 0.3578271097531298,
+      "best_threshold": 0.35,
+      "precision": 0.24635058780779118,
+      "recall": 0.6535794576782814,
+      "pred_positive_rate": 0.409837646484375,
+      "average_precision": 0.29090186590705797,
+      "ap_prevalence_lift": 1.8831262998064924,
+      "roc_auc": 0.703378211597583
+    },
+    "constant_all_ink": {
+      "val_f1": 0.2676155447246281,
+      "best_threshold": 0.05,
+      "precision": 0.1544781494140625,
+      "recall": 1.0,
+      "pred_positive_rate": 1.0,
+      "average_precision": 0.1544781494140625,
+      "ap_prevalence_lift": 1.0,
+      "roc_auc": 0.5
+    }
+  },
+  "margins_over_all_ink": {
+    "detector_single_window": 0.0902115650285017,
+    "constant_all_ink": 0.0
+  }
+}
