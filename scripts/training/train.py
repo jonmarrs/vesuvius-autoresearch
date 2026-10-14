@@ -606,45 +606,61 @@ def probe_validation_read(dataset) -> None:
 
 
 # UA-MT (Yu et al., 2019) estimates the teacher's uncertainty from stochastic
-# passes; the variance comes from dropout, plus 0.01 input noise per pass.
+# passes; the variance comes from dropout-like layers, plus 0.01 input noise.
 UAMT_TEACHER_PASSES = 4
 
 
-def has_dropout(model) -> bool:
-    """Whether the model has a dropout layer that is active in train mode."""
-    for module in model.modules():
-        if isinstance(module, nn.modules.dropout._DropoutNd) and module.p > 0:
-            return True
-        if isinstance(module, nn.MultiheadAttention) and module.dropout > 0:
-            return True
-    return False
+def _ink(out):
+    return out[0] if isinstance(out, tuple) else out
+
+
+def teacher_is_stochastic(teacher, x, passes=UAMT_TEACHER_PASSES) -> bool:
+    """Whether train-mode passes over the same input differ.
+
+    Asked of the model rather than of its layer types, so dropout, stochastic
+    depth (DropPath) and functional dropout all count. Several passes, because a
+    per-sample mask can repeat between two (1 in 16 for DropPath at batch 4; 1 in
+    4,096 over four passes). Nondeterministic kernels also count, which keeps the
+    four passes: the safe side.
+    """
+    was_training = teacher.training
+    teacher.train()
+    try:
+        with torch.no_grad():
+            first = _ink(teacher(x))
+            return any(
+                not torch.equal(first, _ink(teacher(x))) for _ in range(passes - 1)
+            )
+    finally:
+        teacher.train(was_training)
 
 
 def uamt_teacher(teacher, x, passes):
     """The teacher's mean ink probability and its variance over ``passes``
     stochastic passes (train mode, 0.01 input noise each).
 
-    Without dropout the passes differ only by that noise: on the production
-    resenc_unet the variance is ~1e-6, so exp(-variance) is 1 to 4 decimals and
-    three of four passes bought nothing (2026-10-14). One pass then gives the
-    same mean and a variance of zero; torch.var of one sample would be NaN.
+    Without dropout-like layers the passes differ only by that noise: on the
+    production resenc_unet the variance is ~1e-6, so exp(-variance) is 1 to 4
+    decimals and three of four passes bought nothing (2026-10-14). One pass then
+    gives the same mean and a variance of zero; torch.var of one sample would be
+    NaN. The teacher's mode is restored afterwards.
     """
+    was_training = teacher.training
     teacher.train()  # dropout, where there is any
     try:
         preds = []
         for _ in range(passes):
             noise = torch.randn_like(x) * 0.01
-            out = teacher(x + noise)
-            ink = out[0] if isinstance(out, tuple) else out
             # Sanitized like the student output, so a non-finite teacher
             # prediction cannot NaN the consistency loss.
-            preds.append(torch.sigmoid(torch.nan_to_num(ink)))
+            ink = torch.nan_to_num(_ink(teacher(x + noise)))
+            preds.append(torch.sigmoid(ink))
         preds = torch.stack(preds)  # [T, B, 1, H, W]
         prob = preds.mean(dim=0)
         var = preds.var(dim=0) if passes > 1 else torch.zeros_like(prob)
         return prob, var
     finally:
-        teacher.eval()
+        teacher.train(was_training)
 
 
 def trained_outputs(model_out, heads):
@@ -1794,12 +1810,8 @@ def train(config: ExperimentConfig, *, strict_warm_start=False):
         for param in ema_model.parameters():
             param.detach_()
         ema_model.eval()
-    teacher_passes = UAMT_TEACHER_PASSES if has_dropout(model) else 1
-    if config.use_uamt:
-        print(
-            f"UA-MT teacher passes: {teacher_passes}"
-            + ("" if teacher_passes > 1 else " (no dropout: uncertainty weights are 1)")
-        )
+    # UA-MT teacher passes, decided on the first unlabeled batch.
+    teacher_passes = None
 
     # Linear scaling rule. Kept local: config.lr is the recorded setting, and
     # scaling it in place wrote the scaled value into checkpoints and history.tsv.
@@ -1946,15 +1958,6 @@ def train(config: ExperimentConfig, *, strict_warm_start=False):
         x_aug1, target_ink_aug1, target_fiber_aug1 = apply_augmentations(
             x_orig, target_ink, target_fiber, step, None, config=config
         )
-        # A second view for the DINO-lite projection consistency, which only
-        # UA-MT trains on: without it, the view and its forward pass (~20% of a
-        # step) were computed and discarded.
-        x_aug2 = None
-        if config.use_uamt:
-            x_aug2, _, _ = apply_augmentations(
-                x_orig, target_ink, target_fiber, step, None, config=config
-            )
-
         # UAMT Unlabeled Augmentations
         if config.use_uamt and x_unlabeled is not None:
             x_unl_aug_student, x_unl_aug_teacher = uamt_views(x_unl_orig, step, config)
@@ -2016,8 +2019,14 @@ def train(config: ExperimentConfig, *, strict_warm_start=False):
                 )
             # --- END FIX ---
 
-            # Forward pass for view 2 (consistency only, under UA-MT)
-            if p1 is not None and x_aug2 is not None:
+            # A second view for the DINO-lite projection consistency, which is
+            # trained only under UA-MT. Built and forwarded only then: otherwise
+            # the view and its pass (~20% of a step) were computed and dropped.
+            p2 = None
+            if config.use_uamt and p1 is not None:
+                x_aug2, _, _ = apply_augmentations(
+                    x_orig, target_ink, target_fiber, step, None, config=config
+                )
                 p2_out = model(x_aug2, return_proj=True)
                 if isinstance(p2_out, tuple):
                     # InkDetectorOptimized returns [ink, fiber, qc, proj, st]
@@ -2027,10 +2036,6 @@ def train(config: ExperimentConfig, *, strict_warm_start=False):
                         p2 = torch.nan_to_num(
                             p2, nan=0.0, posinf=100.0, neginf=-100.0
                         ).clamp(-100.0, 100.0)
-                else:
-                    p2 = None  # Should not happen if return_proj=True
-            else:
-                p2 = None
 
             # UAMT Forward Passes
             uamt_loss = torch.tensor(0.0, device=device)
@@ -2047,11 +2052,21 @@ def train(config: ExperimentConfig, *, strict_warm_start=False):
                 student_prob = torch.sigmoid(student_ink)
 
                 with torch.no_grad():
+                    if teacher_passes is None:
+                        stochastic = teacher_is_stochastic(ema_model, x_unl_aug_teacher)
+                        teacher_passes = UAMT_TEACHER_PASSES if stochastic else 1
+                        print(
+                            f"UA-MT teacher passes: {teacher_passes}"
+                            + (
+                                ""
+                                if stochastic
+                                else " (deterministic teacher: uncertainty weights are 1)"
+                            )
+                        )
+                    # Finite by construction: sigmoids of sanitized logits.
                     teacher_prob, teacher_var = uamt_teacher(
                         ema_model, x_unl_aug_teacher, teacher_passes
                     )
-                    if torch.isnan(teacher_var).any():
-                        print(f"DEBUG: NaN detected in teacher_var at step {step}")
 
                 # Uncertainty-Aware Consistency Loss: Weight MSE by exp(-variance)
                 uncertainty_weight = torch.exp(-teacher_var)
@@ -2687,6 +2702,9 @@ def train(config: ExperimentConfig, *, strict_warm_start=False):
         # Steps not applied: a non-finite or > 1e6 loss, or a non-finite
         # gradient norm (see guarded_update).
         "skipped_updates": skipped_updates,
+        # UA-MT teacher passes per step: 4 when its passes are stochastic, 1
+        # when not (uncertainty weights 1); None without UA-MT batches.
+        "uamt_teacher_passes": teacher_passes,
         "is_success": bool(is_improvement),
     }
 
