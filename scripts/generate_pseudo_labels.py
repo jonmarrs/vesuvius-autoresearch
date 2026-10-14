@@ -33,7 +33,7 @@ from vesuvius_autoresearch.core.checkpoint_tools import (
     load_tool_checkpoint,
     validate_batch,
 )
-from vesuvius_autoresearch.core.inference import DEPTH_MARGIN
+from vesuvius_autoresearch.core.inference import DEPTH_MARGIN, depth_band_for
 
 
 def prob_to_pseudo_png(prob, region, tau_high=0.65, tau_low=0.15):
@@ -92,9 +92,10 @@ def _infer_region(
         require_ink=False,
         jitter=False,
         strict_reads=True,
-        # Predict from the slices the checkpoint was trained on: these labels
-        # are trained on again (None: the whole depth).
-        depth_band=saved["config"].get("depth_band"),
+        # Predict from the slices the checkpoint was trained on, on its own
+        # volumes: these labels are trained on again. Another volume's slices
+        # are numbered differently, so it gets the whole depth (depth_band_for).
+        depth_band=depth_band_for(saved["config"], _volume_uri(frag_dir)),
         depth_margin=DEPTH_MARGIN,
     )
     H, W = ds.shape[1], ds.shape[2]

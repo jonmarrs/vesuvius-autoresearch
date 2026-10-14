@@ -16,6 +16,7 @@ from vesuvius_autoresearch.core.checkpoint_tools import (
 )
 from vesuvius_autoresearch.core.inference import (
     DEPTH_MARGIN,
+    depth_band_for,
     positive_integer,
     ridge_depth_context,
 )
@@ -255,6 +256,7 @@ def main():
 
     print(f"Using labels from: {labels_path}")
 
+    depth_band = depth_band_for(chk["config"], args.volume)
     dataset = VesuviusLabeledDataset(
         args.volume,
         labels_path,
@@ -268,9 +270,10 @@ def main():
         jitter=False,
         strict_reads=True,
         patches_json=args.patches_json,
-        # The slices the checkpoint was trained on (None: the whole depth); the
-        # context margin applies only to ridge models' reads.
-        depth_band=chk["config"].get("depth_band"),
+        # The slices the checkpoint was trained on, on its own volumes (None:
+        # the whole depth; see depth_band_for); the context margin applies only
+        # to ridge models' reads.
+        depth_band=depth_band,
         depth_margin=DEPTH_MARGIN if arch_kwargs["use_ridges"] else 0,
     )
 
@@ -332,6 +335,7 @@ def main():
                 # Was 0.7 * entropy + 0.3 * (1 - sigmoid(qc)) before 2026-10-13.
                 "uncertainty_score_definition": "mean prediction entropy",
                 "ridge_depth_context": ridge_depth_context(arch_kwargs["use_ridges"]),
+                "depth_band": depth_band,
                 "queue": queue,
             },
             f,

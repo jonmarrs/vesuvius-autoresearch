@@ -13,6 +13,7 @@ import torch
 from .inference_constants import (  # noqa: F401 (re-exported)
     DEPTH_MARGIN,
     INK_PROBABILITY,
+    depth_band_for,
     ridge_depth_context,
 )
 

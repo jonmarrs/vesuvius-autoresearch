@@ -56,9 +56,17 @@ confidence weight 1/255 in the existing loss; it is not an exact ignore mask.
 
 The AUC and pseudo-label paths retain the buffered sampling recipe: request
 checkpoint depth plus eight slices and use the central window after dropping
-four slices at each end. Volumes too shallow to provide that context fail;
-there is no silent shortened input. Spatial coordinates are unjittered. Ridge
-features are computed on that buffered context using the checkpoint sigma.
+four slices at each end. A volume without room for the whole context gives the
+centre of what it holds; one shallower than the checkpoint depth fails.
+Spatial coordinates are unjittered. Ridge features are computed on that
+buffered context using the checkpoint sigma.
+
+A checkpoint's `depth_band` applies only to the volumes it recorded (`uris`,
+`val_uri`, `unlabeled_uris`; relative paths resolve against the working
+directory). The band is in those volumes' slice numbers: the training
+fragments' zarrs start at surface-volume layer 16, so `[1, 27)` is layers 17–42
+there and other layers elsewhere (finding 87). Any other volume is read over its
+whole depth, as before bands existed, and the command says so on stderr.
 
 ## Manual-review queue
 
@@ -68,17 +76,19 @@ uv run python -m scripts.active_learning_sampler \
   --n_samples 20 --output reports/review_queue.json
 ```
 
-The queue ranks mean ink entropy and QC uncertainty using the existing 0.7/0.3
-recipe. At most the requested positive count is returned. Dataset order and
+The queue ranks patches by mean prediction entropy. Before 2026-10-13 it added
+`0.3 * (1 - sigmoid(qc))`, but the QC head is trained on the patch's mean fiber
+target, not on confidence. At most the requested positive count is returned. Dataset order and
 `jitter=False` are required so returned y/x positions identify the scored patches.
-Custom reordered batches and invalid heads are rejected. The CLI validates
+Custom reordered batches and invalid ink logits are rejected. The CLI validates
 catalog coordinates, passes checkpoint ridge sigma, and records applied model
 settings. Optional `--patches_json` must exist and contain valid coordinates.
 Catalogs larger than 5000 entries use reproducible seeded subsampling.
 
 Review queues are suggestions for manual inspection; uncertainty scores are not
-an accuracy measurement. Queue sampling uses the exact checkpoint depth, while
-the AUC/pseudo-label commands retain their buffered depth recipe.
+an accuracy measurement. Queue sampling reads the buffered context for ridge
+models (their ridge channel is computed over it, as in training) and the exact
+checkpoint depth for CT-only models. The queue records the depth band it applied.
 
 ## Incumbent re-evaluation
 
@@ -86,14 +96,20 @@ the AUC/pseudo-label commands retain their buffered depth recipe.
 uv run python scripts/reevaluate_best_model.py
 # Explicitly replace stored scores after a valid measurement:
 uv run python scripts/reevaluate_best_model.py --update-stored
+# A checkpoint that records a lasagna warp that never ran (finding 86):
+uv run python scripts/reevaluate_best_model.py --update-stored --unwarped
 ```
 
 This command reads `best_model.pt` and `config.json` from the working directory.
 The current config selects validation URI, cache, and batch size; saved model
 settings determine reconstruction and input dimensions, with the checkpoint's
-recorded `use_lasagna` setting. The command uses the loop's
-`seeded-sample-400-v2` protocol: up to 400 seeded catalogue entries, measured per
-patch independently of batch size, with ink-free patches excluded. It recomputes
+recorded `use_lasagna` setting (`--unwarped` scores without a recorded warp and,
+with `--update-stored`, records `use_lasagna: false`, keeping the old value in
+`reevaluation.overridden_input_settings`). The command uses the loop's protocol,
+`seeded-sample-400-v2`, plus `+z<start>-<end>` when `config.json` sets a
+`depth_band` (currently `seeded-sample-400-v2+z1-27`): up to 400 seeded catalogue
+entries, measured per patch independently of batch size, with ink-free patches
+excluded. It recomputes
 the promotion F1, AP-prevalence lift and ROC AUC, plus legacy Dice/topology metrics.
 It prints the all-ink F1 baseline and margins so a change in sample prevalence
 does not appear to be a model improvement.
@@ -101,8 +117,8 @@ does not appear to be a model improvement.
 Missing usable data, failed reads or preprocessing, failed metrics, and nonfinite
 metrics fail without updating the checkpoint. A successful explicit update
 records the protocol, evaluation URI, settings, accepted/requested patch counts,
-and thresholds, then atomically replaces the checkpoint. Its original
-configuration and model weights remain intact. A stored score from another
+and thresholds, then atomically replaces the checkpoint. Its model weights, and
+its configuration apart from an `--unwarped` correction, remain intact. A stored score from another
 protocol blocks loop startup and promotion until explicitly re-scored.
 
 Resolve the host's preprocessing and metric choices before migrating the

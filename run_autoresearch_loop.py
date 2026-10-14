@@ -765,9 +765,9 @@ def main():
                 "--uri",
                 BENCHMARK_URI,
                 # No --z: predict.py centres the checkpoint's window in its
-                # recorded depth_band, or in the volume's depth without one.
-                # z=10 showed slices 10-25 of a 65-slice fragment, below the
-                # 17-42 band the project's detector reads.
+                # recorded depth_band (BENCHMARK_URI is the validation fragment,
+                # one of the checkpoint's own volumes), or in the volume's depth
+                # without one.
                 "--y",
                 "1000",
                 "--x",

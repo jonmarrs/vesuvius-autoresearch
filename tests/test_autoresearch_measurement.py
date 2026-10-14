@@ -305,8 +305,9 @@ def test_a_baseline_with_no_tweak_under_the_vram_cap_ends_without_logging(
 
 
 def test_the_benchmark_leaves_the_depth_to_predict(tmp_path, monkeypatch):
-    """predict.py centres the checkpoint's window in the volume's depth; the loop's
-    fixed z=10 showed slices 10-25 of a 65-slice fragment, below the band."""
+    """predict.py centres the checkpoint's window in its depth band on the
+    checkpoint's own volumes (the benchmark volume is the validation fragment),
+    else in the volume's depth, so the loop passes no --z."""
     ExperimentConfig().save(tmp_path / "config.json")
     commands: list = []
     _drive_loop(tmp_path, monkeypatch, cycles=5, commands=commands)
