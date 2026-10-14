@@ -216,6 +216,44 @@ def extract_checkpoint_state(checkpoint):
     return checkpoint
 
 
+# These are recorded fields, not reconstructed defaults. In particular,
+# in_channels is derived from use_ridges and is not an ExperimentConfig field.
+WARM_START_FIELDS = (
+    "architecture",
+    "use_ridges",
+    "num_layers",
+    "num_blocks",
+    "num_heads",
+    "base_feat",
+    "patch_size",
+)
+
+
+def warm_start_mismatch(recorded, config):
+    return next(
+        (
+            key
+            for key in WARM_START_FIELDS
+            if key not in recorded or recorded[key] != getattr(config, key)
+        ),
+        None,
+    )
+
+
+def load_required_starting_checkpoint(model, config, path="best_model.pt"):
+    """Load every starting tensor or fail before the first optimizer step.
+
+    CPU deserialization avoids allocating a second full checkpoint on the GPU.
+    This strict path is opt-in for repeatability trials; load failures propagate.
+    """
+    saved = torch.load(path, map_location="cpu", weights_only=False)
+    mismatch = warm_start_mismatch(saved["config"], config)
+    if mismatch is not None:
+        raise ValueError(f"starting checkpoint must record matching {mismatch}")
+    model.load_state_dict(saved["model_state_dict"], strict=True)
+    print(f"Loaded complete required starting checkpoint from {path}.")
+
+
 # Run-to-run val_bpb noise on the fixed Fr143 validation set is ~2e-4 (observed
 # band 0.262564..0.262738 across 2026-06-09/10 cycles), while genuine regressions
 # show up at >1e-2 (e.g. 0.2746). 5e-3 separates the two by an order of
@@ -1466,7 +1504,7 @@ def preflight_smoke(config: ExperimentConfig) -> None:
         raise ValueError("preflight: non-finite loss")
 
 
-def train(config: ExperimentConfig):
+def train(config: ExperimentConfig, *, strict_warm_start=False):
     print("STARTING TRAINING")
     # What this run's score is comparable with; the depth band is part of it.
     protocol = validation_protocol(getattr(config, "depth_band", None))
@@ -1624,7 +1662,9 @@ def train(config: ExperimentConfig):
 
     # Load best model if architecture matches
     best_model_path = "best_model.pt"
-    if os.path.exists(best_model_path):
+    if strict_warm_start:
+        load_required_starting_checkpoint(model, config, best_model_path)
+    elif os.path.exists(best_model_path):
         try:
             checkpoint = torch.load(
                 best_model_path, map_location=device, weights_only=False
@@ -1640,15 +1680,7 @@ def train(config: ExperimentConfig):
             # from random init since 2026-05-06 (commit d3da171).
             arch_match = True
             mismatch_attr = None
-            for attr in [
-                "architecture",
-                "use_ridges",
-                "num_layers",
-                "num_blocks",
-                "num_heads",
-                "base_feat",
-                "patch_size",
-            ]:
+            for attr in WARM_START_FIELDS:
                 if best_config.get(attr) != getattr(config, attr):
                     arch_match = False
                     mismatch_attr = attr

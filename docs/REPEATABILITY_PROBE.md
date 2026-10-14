@@ -30,8 +30,8 @@ per-trial deadline, defaulting to the training budget plus 900 seconds.
 The output must be a new directory outside all declared source files, local
 fragment trees and the `scripts`, `src` and Villa code trees. Existing destinations
 and symlinks are refused. Reusing the old `local_data/noise_probe` and fixed JSON
-destination is retired: choose a
-new report directory for each execution. Importing the module starts no work.
+destination is retired: choose a new report directory for each execution.
+Importing the module starts no work.
 
 ## Explicit execution
 
@@ -57,8 +57,13 @@ and production `run_result.json` stay untouched. The trainer's existing isolated
 
 The child entry point validates complete starting weights and matching recorded
 model/input settings, including dropout, ridge sigma and requested flattening.
-It then delegates to the existing training function. No separate scoring or
-promotion formula is implemented. Config serialization omits the exact default
+Fields used by the trainer's warm-start check must be explicitly recorded;
+defaults from the checkpoint reconstruction helper do not satisfy that check.
+It then requests the trainer's strict warm-start path: every starting tensor
+must load successfully before an optimizer is created. Missing, unreadable or
+incompatible weights fail the trial instead of allowing fresh or partial weights.
+No separate scoring or promotion formula is implemented. Config serialization
+omits the exact default
 `max_prize_skel_dist=+inf`; the config loader restores that existing unused
 default, keeping generated JSON and summaries standards-compliant.
 
@@ -80,7 +85,9 @@ Reported-only NaNs in the raw trainer JSON are retained for inspection and are
 excluded from the strict summary.
 
 Config, starting checkpoint and entry/trainer source hashes are checked before
-and after trials. Changing one invalidates the aggregate. A failed exit,
+and after trials. The config is parsed and hashed from the same captured bytes,
+and planning rejects an input rewrite before returning a plan. Changing one
+invalidates the aggregate. A failed exit,
 timeout, interruption or invalid result stops the remaining trials. Supervision
 terminates the worker process group before publication. An inspectable failed
 execution has `status: FAILED` (or `INTERRUPTED`), `f1_spread: null` and a nonzero
@@ -103,3 +110,5 @@ a small F1 spread does not establish a suitable promotion tolerance. This tool
 does not choose a new metric, change stored scientific evidence, or resume the
 loop. See the [review report](DESIGN_ARCHITECTURE_REVIEW_2026-10-13_REPEATABILITY.md)
 for the repairs and validation limits.
+The [follow-up review fixes](DESIGN_ARCHITECTURE_REVIEW_2026-10-14_REPEATABILITY_FIXES.md)
+cover required weight loading and configuration snapshot identity.

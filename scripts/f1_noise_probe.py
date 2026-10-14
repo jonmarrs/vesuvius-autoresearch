@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import contextlib
+import hashlib
 import json
 import math
 import os
@@ -82,8 +83,10 @@ def make_plan(config_path, checkpoint, output, *, runs=4, timeout=None):
     ):
         raise ValueError("config and starting checkpoint must be existing files")
     runs = _integer(runs, "runs", 2, 16)
+    config_bytes = config_path.read_bytes()
+    config_hash = hashlib.sha256(config_bytes).hexdigest()
     with contextlib.redirect_stdout(sys.stderr):
-        cfg = ExperimentConfig.load(config_path)
+        cfg = ExperimentConfig.from_json(config_bytes)
         for key in ("uri", "val_uri", "foundation_model_path", "pseudo_label_dir"):
             value = getattr(cfg, key)
             if value is not None:
@@ -124,11 +127,9 @@ def make_plan(config_path, checkpoint, output, *, runs=4, timeout=None):
         if config[key] and not urlsplit(config[key]).scheme:
             sources.append(Path(config[key]))
     output = new_output(output, *sources)
-    hashes = {
-        str(path): sha256_file(path)
-        for path in (config_path, checkpoint, RUNNER, TRAINER)
-    }
-    return ProbePlan(
+    hashes = {str(path): sha256_file(path) for path in (checkpoint, RUNNER, TRAINER)}
+    hashes[str(config_path)] = config_hash
+    planned = ProbePlan(
         config,
         checkpoint,
         output,
@@ -137,6 +138,8 @@ def make_plan(config_path, checkpoint, output, *, runs=4, timeout=None):
         hashes,
         validation_protocol(cfg.depth_band),
     )
+    _unchanged(planned)
+    return planned
 
 
 def _unchanged(plan):

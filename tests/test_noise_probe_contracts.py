@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import math
 import os
+import pickle
 import subprocess
 import sys
 import time
@@ -143,6 +145,37 @@ def test_default_cli_only_plans(inputs, capsys):
     assert report["status"] == "DRY_RUN" and report["training_executed"] is False
     assert not output.exists()
     assert {str(p): p.read_bytes() for p in project.iterdir()} == before
+
+
+def test_config_rewrite_while_planning_cannot_bind_new_hash_to_old_values(
+    inputs, monkeypatch
+):
+    original = probe.ExperimentConfig.__post_init__
+
+    def rewrite_after_parsing(config):
+        original(config)
+        rewritten = json.loads(inputs[1].read_text())
+        rewritten["lr"] = 0.002
+        inputs[1].write_text(json.dumps(rewritten))
+
+    monkeypatch.setattr(probe.ExperimentConfig, "__post_init__", rewrite_after_parsing)
+    with pytest.raises(ValueError, match="input changed"):
+        plan(inputs)
+    assert not inputs[3].exists()
+    assert not (inputs[0] / "autoresearch.lock").exists()
+
+
+def test_plan_hash_identifies_the_captured_config_and_preserves_nested_settings(inputs):
+    data = json.loads(inputs[1].read_text())
+    data.update(
+        lr=0.001, auxiliary_config={"enabled": False, "weights": {"ridge": 0.3}}
+    )
+    contents = json.dumps(data).encode()
+    inputs[1].write_bytes(contents)
+    prepared = plan(inputs)
+    assert prepared.input_hashes[str(inputs[1])] == hashlib.sha256(contents).hexdigest()
+    assert prepared.config["lr"] == 0.001
+    assert prepared.config["auxiliary_config"]["weights"] == {"ridge": 0.3}
 
 
 @pytest.mark.parametrize("count", [0, 1, 17, True, 2.5])
@@ -395,7 +428,7 @@ def test_trial_wrapper_delegates_and_restores_private_context(
     inputs, monkeypatch, fails
 ):
     from scripts import training
-    from scripts.training import run_noise_probe as runner
+    from scripts.training import run_noise_probe as runner, train as real_train
     from vesuvius_autoresearch.core import checkpoint_tools
 
     workspace = inputs[3]
@@ -431,9 +464,11 @@ def test_trial_wrapper_delegates_and_restores_private_context(
     )
     fake = ModuleType("scripts.training.train")
     fake.SKELETON_HIST_DIR = "original"
+    fake.warm_start_mismatch = real_train.warm_start_mismatch
     calls = []
 
-    def train(cfg):
+    def train(cfg, *, strict_warm_start=False):
+        assert strict_warm_start is True
         assert Path.cwd() == workspace
         assert str(workspace / "skeleton_hists") == fake.SKELETON_HIST_DIR
         assert cfg.checkpoint_out == str(workspace / "candidate.pt")
@@ -452,6 +487,114 @@ def test_trial_wrapper_delegates_and_restores_private_context(
         runner.run(path)
     assert len(calls) == 1 and Path.cwd() == before
     assert fake.SKELETON_HIST_DIR == "original"
+
+
+@pytest.mark.parametrize("missing", [None, "use_ridges", "num_blocks", "num_heads"])
+def test_real_wrapper_requires_recorded_fields_and_loads_weights_before_optimizer(
+    tmp_path, monkeypatch, missing
+):
+    from dataclasses import asdict
+
+    import torch
+
+    from scripts.training import run_noise_probe as runner, train
+
+    config = probe.ExperimentConfig(
+        architecture="resenc_unet",
+        patch_size=8,
+        num_layers=4,
+        base_feat=2,
+        uris=["fake/ct.zarr"],
+        val_uri="fake_val/ct.zarr",
+        unlabeled_uris=[],
+        checkpoint_out=str(tmp_path / "candidate.pt"),
+        cache_dir=str(tmp_path / "cache"),
+    )
+    build = train.build_model
+    source = build(config, train.build_vconfig(config), "cpu")
+    with torch.no_grad():
+        for value in source.state_dict().values():
+            if value.is_floating_point():
+                value.fill_(0.25)
+    recorded = asdict(config)
+    saved_config = dict(recorded)
+    if missing is not None:
+        saved_config.pop(missing)
+    torch.save(
+        {"config": saved_config, "model_state_dict": source.state_dict()},
+        tmp_path / "best_model.pt",
+    )
+    recorded.pop("max_prize_skel_dist")
+    path = tmp_path / "config.json"
+    path.write_text(json.dumps(recorded))
+
+    class BeforeOptimizer(RuntimeError):
+        pass
+
+    target = build(config, train.build_vconfig(config), "cpu")
+    validation_attempts = []
+
+    def validation_fixture(cfg):
+        validation_attempts.append(True)
+        return object()
+
+    monkeypatch.setattr(train, "build_validation_dataset", validation_fixture)
+    monkeypatch.setattr(train, "probe_validation_read", lambda dataset: None)
+    monkeypatch.setattr(train, "VesuviusS3Dataset", lambda *a, **k: object())
+    monkeypatch.setattr(train, "shuffled_loader", lambda *a, **k: [])
+    monkeypatch.setattr(train, "build_model", lambda *a: target)
+    monkeypatch.setattr(train.wandb_tracking, "init_run", lambda *a: None)
+    monkeypatch.setattr(train.wandb_tracking, "watch_model", lambda *a: None)
+    optimizer_attempts = []
+
+    def stop_before_optimizer(*args, **kwargs):
+        optimizer_attempts.append(True)
+        assert all(
+            torch.equal(value, source.state_dict()[key])
+            for key, value in target.state_dict().items()
+        )
+        raise BeforeOptimizer("no optimizer or training steps executed")
+
+    monkeypatch.setattr(torch.optim, "AdamW", stop_before_optimizer)
+    cwd, hist = Path.cwd(), train.SKELETON_HIST_DIR
+    if missing is not None:
+        with pytest.raises(ValueError, match=missing):
+            runner.run(path)
+        assert not optimizer_attempts
+        assert not validation_attempts
+    else:
+        with pytest.raises(BeforeOptimizer):
+            runner.run(path)
+        assert optimizer_attempts == [True]
+        assert validation_attempts == [True]
+    assert Path.cwd() == cwd and hist == train.SKELETON_HIST_DIR
+
+
+@pytest.mark.parametrize("damage", ["missing", "shape", "extra", "unreadable"])
+def test_required_starting_load_cannot_swallow_bad_weights(tmp_path, damage):
+    from dataclasses import asdict
+
+    import torch
+
+    from scripts.training import train
+
+    config = probe.ExperimentConfig(unlabeled_uris=[])
+    source = torch.nn.Linear(2, 1)
+    state = source.state_dict()
+    if damage == "missing":
+        state.pop("bias")
+    elif damage == "shape":
+        state["weight"] = torch.zeros(2, 2)
+    elif damage == "extra":
+        state["unknown"] = torch.zeros(1)
+    path = tmp_path / "checkpoint.pt"
+    if damage == "unreadable":
+        path.write_bytes(b"not a torch checkpoint")
+    else:
+        torch.save({"config": asdict(config), "model_state_dict": state}, path)
+    expected_error = pickle.UnpicklingError if damage == "unreadable" else RuntimeError
+    with pytest.raises(expected_error):
+        train.load_required_starting_checkpoint(torch.nn.Linear(2, 1), config, path)
 
 
 def test_loop_control_can_stop_a_registered_probe_cli(tmp_path):

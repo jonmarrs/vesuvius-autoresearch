@@ -46,8 +46,12 @@ def run(config_path):
             raise ValueError(f"probe config differs from starting checkpoint's {key}")
     if saved["config"].get("use_lasagna") != config.use_lasagna:
         raise ValueError("probe config differs from starting checkpoint's use_lasagna")
-    del model, saved
     from scripts.training import train
+
+    mismatch = train.warm_start_mismatch(saved["config"], config)
+    if mismatch is not None:
+        raise ValueError(f"starting checkpoint must record matching {mismatch}")
+    del model, saved
 
     # The legacy trainer writes run_result.json relative to cwd, but its
     # histogram directory is file-anchored. Isolate both without copying its
@@ -56,7 +60,7 @@ def run(config_path):
     try:
         os.chdir(workspace)
         train.SKELETON_HIST_DIR = str(workspace / "skeleton_hists")
-        train.train(config)
+        train.train(config, strict_warm_start=True)
     finally:
         train.SKELETON_HIST_DIR = previous_hist
         os.chdir(previous_cwd)

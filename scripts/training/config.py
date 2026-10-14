@@ -204,7 +204,12 @@ class ExperimentConfig:
     @classmethod
     def load(cls, path):
         with open(path) as f:
-            data = json.load(f)
+            return cls.from_json(f.read())
+
+    @classmethod
+    def from_json(cls, contents):
+        """Decode one captured config snapshot, preserving nested dataclasses."""
+        data = json.loads(contents)
 
         # Manually deserialize nested dataclasses
         if "auxiliary_config" in data and isinstance(data["auxiliary_config"], dict):
