@@ -1634,6 +1634,28 @@ def build_model(config: ExperimentConfig, v_config: VesuviusConfig, device):
     return model
 
 
+def save_cycle_checkpoints(checkpoint, checkpoint_out, is_improvement) -> list[str]:
+    """Save this cycle's model and return the paths written.
+
+    An experiment run (checkpoint_out) writes only its own file and leaves the
+    loop's untouched. A loop cycle writes its candidate to last_model.pt every
+    cycle, promoted or not (scripts/snapshot_loop_candidates.sh copies it as
+    the cycle's candidate), and to best_model.pt when it is promoted, last: a
+    run stopped between the two leaves the incumbent the loop still records.
+    """
+    if checkpoint_out:
+        directory = os.path.dirname(checkpoint_out)
+        if directory:
+            os.makedirs(directory, exist_ok=True)
+        save_checkpoint_atomic(checkpoint, checkpoint_out)
+        print(f"Saved experiment checkpoint to {checkpoint_out} (loop state untouched)")
+        return [checkpoint_out]
+    paths = ["last_model.pt"] + (["best_model.pt"] if is_improvement else [])
+    for path in paths:
+        save_checkpoint_atomic(checkpoint, path)
+    return paths
+
+
 def preflight_smoke(config: ExperimentConfig) -> None:
     """Build the model and run one forward+backward on a synthetic batch.
 
@@ -2576,69 +2598,40 @@ def train(config: ExperimentConfig, *, strict_warm_start=False):
             ],
         )
 
+    # One record for every file this cycle's model is saved to (they had drifted
+    # apart: last_model.pt lacked avg_mean_ap, checkpoint_out prize_gate_failures).
+    checkpoint = {
+        "model_state_dict": model.state_dict(),
+        "val_bpb": val_bpb,
+        "avg_skel_dist": avg_skel_dist,
+        "avg_centerline_dice": avg_centerline_dice,
+        "avg_cc_diff": avg_cc_diff,
+        "avg_mean_ap": avg_mean_ap,
+        "val_f1": float(val_f1),
+        "val_f1_threshold": float(val_f1_threshold),
+        "val_protocol": protocol,
+        "train_sampling_seed": sampling_seed,
+        "training_labels": training_labels,
+        "ap_prevalence_lift": float(ap_prevalence_lift),
+        "roc_auc": float(roc_auc),
+        "val_positive_rate": float(val_positive_rate),
+        "submittable": submittable,
+        "window_ok": window_ok,
+        "window_mm": window_mm,
+        "villa_metrics_ok": villa_metrics_ok,
+        "prize_gate_failures": prize_gate_failures,
+        "validation_diag": validation_diag,
+        "config": asdict(config),
+    }
     ckpt_out = getattr(config, "checkpoint_out", None)
-    if ckpt_out:
-        ckpt_dir = os.path.dirname(ckpt_out)
-        if ckpt_dir:
-            os.makedirs(ckpt_dir, exist_ok=True)
-        save_checkpoint_atomic(
-            {
-                "model_state_dict": model.state_dict(),
-                "val_bpb": val_bpb,
-                "avg_skel_dist": avg_skel_dist,
-                "avg_centerline_dice": avg_centerline_dice,
-                "avg_cc_diff": avg_cc_diff,
-                "avg_mean_ap": avg_mean_ap,
-                "val_f1": float(val_f1),
-                "val_f1_threshold": float(val_f1_threshold),
-                "val_protocol": protocol,
-                "train_sampling_seed": sampling_seed,
-                "training_labels": training_labels,
-                "ap_prevalence_lift": float(ap_prevalence_lift),
-                "roc_auc": float(roc_auc),
-                "val_positive_rate": float(val_positive_rate),
-                "submittable": submittable,
-                "window_ok": window_ok,
-                "window_mm": window_mm,
-                "villa_metrics_ok": villa_metrics_ok,
-                "validation_diag": validation_diag,
-                "config": asdict(config),
-            },
-            ckpt_out,
-        )
-        print(f"Saved experiment checkpoint to {ckpt_out} (loop state untouched)")
-    elif is_improvement:
+    promoted = is_improvement and not ckpt_out
+    if promoted:
         print(
             f"Saving new best model — val_f1: {val_f1:.6f} "
             f"(ap_lift {ap_prevalence_lift:.3f}, thr {val_f1_threshold:.3f})"
         )
-        save_checkpoint_atomic(
-            {
-                "model_state_dict": model.state_dict(),
-                "val_bpb": val_bpb,
-                "avg_skel_dist": avg_skel_dist,
-                "avg_centerline_dice": avg_centerline_dice,
-                "avg_cc_diff": avg_cc_diff,
-                "avg_mean_ap": avg_mean_ap,
-                "val_f1": float(val_f1),
-                "val_f1_threshold": float(val_f1_threshold),
-                "val_protocol": protocol,
-                "train_sampling_seed": sampling_seed,
-                "training_labels": training_labels,
-                "ap_prevalence_lift": float(ap_prevalence_lift),
-                "roc_auc": float(roc_auc),
-                "val_positive_rate": float(val_positive_rate),
-                "submittable": submittable,
-                "window_ok": window_ok,
-                "window_mm": window_mm,
-                "villa_metrics_ok": villa_metrics_ok,
-                "prize_gate_failures": prize_gate_failures,
-                "validation_diag": validation_diag,
-                "config": asdict(config),
-            },
-            "best_model.pt",
-        )
-
+    save_cycle_checkpoints(checkpoint, ckpt_out, is_improvement)
+    if promoted:
         stamp = time.strftime("%Y-%m-%d %H:%M:%S")
         cfg_json = json.dumps(asdict(config))
         append_tsv_row(
@@ -2681,33 +2674,6 @@ def train(config: ExperimentConfig, *, strict_warm_start=False):
         # are durable before the cycle returns).
         if hasattr(os, "sync"):
             os.sync()
-    else:
-        save_checkpoint_atomic(
-            {
-                "model_state_dict": model.state_dict(),
-                "val_bpb": val_bpb,
-                "avg_skel_dist": avg_skel_dist,
-                "avg_centerline_dice": avg_centerline_dice,
-                "avg_cc_diff": avg_cc_diff,
-                "val_f1": float(val_f1),
-                "val_f1_threshold": float(val_f1_threshold),
-                "val_protocol": protocol,
-                "train_sampling_seed": sampling_seed,
-                "training_labels": training_labels,
-                "ap_prevalence_lift": float(ap_prevalence_lift),
-                "roc_auc": float(roc_auc),
-                "val_positive_rate": float(val_positive_rate),
-                "submittable": submittable,
-                "window_ok": window_ok,
-                "window_mm": window_mm,
-                "villa_metrics_ok": villa_metrics_ok,
-                "prize_gate_failures": prize_gate_failures,
-                "validation_diag": validation_diag,
-                "config": asdict(config),
-            },
-            "last_model.pt",
-        )
-
     if not is_improvement:
         print("\n[RESULT] No improvement detected. Recommended: Revert.")
     else:
