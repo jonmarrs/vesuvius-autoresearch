@@ -20,6 +20,7 @@ from matplotlib.patches import Rectangle
 from tap import Tap
 
 from vesuvius_autoresearch.core.inference import (
+    depth_band_for,
     hann2d,
     multitask_inference_recipe,
     multitask_probabilities,
@@ -255,7 +256,7 @@ def write_prediction_metadata(
 class PredictionArgs(Tap):
     uri: str  # S3 or local path to Zarr volume
     z: int | None = (
-        None  # first slice; default: centred in the checkpoint's depth_band, else the volume
+        None  # first slice; default: centred in the checkpoint's depth_band on its own volumes, else the volume
     )
     y: int
     x: int
@@ -331,13 +332,12 @@ def predict():
         raise ValueError("use_ridges must be a boolean")
     args.inference_recipe["ridge_depth_context"] = ridge_depth_context(use_ridges)
     if args.z is None:
-        # Centre the window in the depth band the checkpoint was trained on, when
-        # that band lies inside this volume; otherwise in the volume (surface
-        # volumes are built around the segment surface at their middle layer).
-        # The band is in the training fragments' slices: pass --z for volumes
-        # built another way.
+        # Centre the window in the depth band the checkpoint was trained on, on
+        # the volumes it was trained or validated on (the band is in their slice
+        # numbers); otherwise in the volume (surface volumes are built around the
+        # segment surface at their middle layer). Pass --z to choose.
         depth = FastVesuviusVolume(args.uri).shape[0]
-        band = config_dict.get("depth_band")
+        band = depth_band_for(config_dict, args.uri)
         if band and 0 <= band[0] < band[1] <= depth:
             centre = band[0] + band[1]
         else:

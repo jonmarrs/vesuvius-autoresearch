@@ -93,7 +93,11 @@ def _infer_region(
         jitter=False,
         strict_reads=True,
         # Predict from the slices the checkpoint was trained on: these labels
-        # are trained on again (None: the whole depth).
+        # are trained on again, and training applies its band to every labeled
+        # fragment, so this one is read as training will read it (None: the
+        # whole depth). Unlike the measurement tools, this does not use
+        # depth_band_for; tests/test_config_depth_band_fits_fragments.py checks
+        # that the banded fragments number their slices alike.
         depth_band=saved["config"].get("depth_band"),
         depth_margin=DEPTH_MARGIN,
     )

@@ -176,6 +176,60 @@ def test_measurement_and_labels_do_not_require_current_config(
         )
 
 
+@pytest.mark.parametrize("recorded", [True, False])
+@pytest.mark.parametrize("mode", ["auc", "pseudo", "sampler"])
+def test_a_depth_band_applies_only_to_the_checkpoints_own_volumes(
+    tools_fixture, monkeypatch, tmp_path, mode, recorded
+):
+    """A band names slices of the volumes it was set for (finding 87: [1, 27)
+    is layers 17-42 in zarrs that start at layer 16). The measurement tools read
+    another fragment over its whole depth, as before bands. Pseudo-labels are
+    trained on again under the same band, so they keep it everywhere."""
+    checkpoint, fragment, _, _, datasets = tools_fixture
+    saved = torch.load(checkpoint, weights_only=False)
+    # No surface_volume.zarr in the fixture: the tools read the bare level 0.
+    # Recorded relative, as config.json does; the fixture runs in tmp_path.
+    volume = "fragment/0" if recorded else "another/surface_volume.zarr"
+    saved["config"].update(depth_band=[1, 5], val_uri=volume)
+    torch.save(saved, checkpoint)
+    if mode == "auc":
+        run_auc(monkeypatch, checkpoint, fragment)
+    elif mode == "pseudo":
+        pseudo._infer_region(
+            str(checkpoint),
+            str(fragment),
+            str(fragment / "mask.png"),
+            torch.device("cpu"),
+            0.65,
+            0.15,
+        )
+    else:
+        queue = tmp_path / "queue.json"
+        monkeypatch.setattr(
+            sys,
+            "argv",
+            [
+                "active_learning_sampler",
+                "--checkpoint",
+                str(checkpoint),
+                "--volume",
+                str(fragment / "0"),
+                "--labels",
+                str(fragment / "inklabels.png"),
+                "--n_samples",
+                "2",
+                "--output",
+                str(queue),
+            ],
+        )
+        active.main()
+        assert json.loads(queue.read_text())["depth_band"] == (
+            [1, 5] if recorded else None
+        )
+    expected = [1, 5] if recorded or mode == "pseudo" else None
+    assert datasets[0].kwargs["depth_band"] == expected
+
+
 def _stub_topology(monkeypatch):
     monkeypatch.setattr(
         reevaluate, "select_topology_threshold", lambda *args: (0.5, 1.0)

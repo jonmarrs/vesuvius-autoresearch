@@ -678,6 +678,8 @@ def test_without_z_the_window_is_centred_in_the_checkpoint_depth_band(
         "use_ridges": False,
         "voxel_size_um": 2.0,
         "depth_band": [0, 4],
+        # Relative, as config.json records it; the test runs in tmp_path.
+        "val_uri": "ct.zarr",
     }
     runner, argv, _, _, _ = setup_prediction(tmp_path, monkeypatch, "single", [config])
     index = argv.index("--z")
@@ -688,18 +690,21 @@ def test_without_z_the_window_is_centred_in_the_checkpoint_depth_band(
     assert metadata["position_xyz"] == [3, 2, (0 + 4 - 2) // 2]
 
 
-def test_a_band_outside_the_volume_falls_back_to_the_volume_centre(
-    tmp_path, monkeypatch
+def test_a_band_is_not_applied_to_a_volume_the_checkpoint_did_not_record(
+    tmp_path, monkeypatch, capsys
 ):
-    """The band is in the training fragments' slices; on a 6-slice volume the
-    17-43 band does not apply, so the window is centred in the volume."""
+    """The band names slices of the checkpoint's own volumes (finding 87: their
+    slice 0 is layer 16). On another volume the same numbers name other layers,
+    so the window is centred in the volume."""
     config = {
         "patch_size": 8,
         "num_layers": 2,
         "base_feat": 4,
         "use_ridges": False,
         "voxel_size_um": 2.0,
-        "depth_band": [17, 43],
+        "depth_band": [0, 4],
+        "uris": ["other/fragment.zarr"],
+        "val_uri": "held_out.zarr",
     }
     runner, argv, _, _, _ = setup_prediction(tmp_path, monkeypatch, "single", [config])
     index = argv.index("--z")
@@ -708,3 +713,63 @@ def test_a_band_outside_the_volume_falls_back_to_the_volume_centre(
     runner()
     metadata = json.loads(next((tmp_path / "out").glob("*_meta.json")).read_text())
     assert metadata["position_xyz"] == [3, 2, (6 - 2) // 2]
+    assert "the band is not applied" in capsys.readouterr().err
+
+
+def test_a_band_outside_the_volume_falls_back_to_the_volume_centre(
+    tmp_path, monkeypatch
+):
+    """A recorded volume that has become shallower than the band (a 6-slice
+    volume, a 17-43 band) gets its centre rather than a refused read."""
+    config = {
+        "patch_size": 8,
+        "num_layers": 2,
+        "base_feat": 4,
+        "use_ridges": False,
+        "voxel_size_um": 2.0,
+        "depth_band": [17, 43],
+        "val_uri": "ct.zarr",
+    }
+    runner, argv, _, _, _ = setup_prediction(tmp_path, monkeypatch, "single", [config])
+    index = argv.index("--z")
+    del argv[index : index + 2]
+    argv.append("--disable_tta")
+    runner()
+    metadata = json.loads(next((tmp_path / "out").glob("*_meta.json")).read_text())
+    assert metadata["position_xyz"] == [3, 2, (6 - 2) // 2]
+
+
+def test_depth_band_for_matches_recorded_volumes_by_path(tmp_path, monkeypatch):
+    from vesuvius_autoresearch.core import inference_constants
+    from vesuvius_autoresearch.core.inference import depth_band_for
+
+    monkeypatch.chdir(tmp_path)
+    saved = {
+        "depth_band": [1, 27],
+        "uris": ["local_data/Fr47/surface_volume.zarr", "s3://bucket/labeled.zarr"],
+        "val_uri": "local_data/Fr143/surface_volume.zarr",
+        # Training reads a label-less volume over its whole depth.
+        "unlabeled_uris": ["s3://bucket/scroll.zarr"],
+    }
+    own = tmp_path / "local_data/Fr143/surface_volume.zarr"
+    assert depth_band_for(saved, str(own)) == [1, 27]
+    assert depth_band_for(saved, f"{own}/0") == [1, 27]  # the group's level 0
+    assert depth_band_for(saved, f"file://{own}") == [1, 27]
+    assert depth_band_for(saved, "local_data/Fr47/surface_volume.zarr/") == [1, 27]
+    assert depth_band_for(saved, "s3://bucket/labeled.zarr/0") == [1, 27]
+    assert depth_band_for(saved, "s3://bucket/scroll.zarr") is None
+    assert depth_band_for(saved, "local_data/Fr3/surface_volume.zarr") is None
+    assert depth_band_for({**saved, "depth_band": None}, str(own)) is None
+    assert depth_band_for({**saved, "depth_band": []}, str(own)) is None
+    assert depth_band_for({"depth_band": [1, 27]}, str(own)) is None
+    # A single path recorded as a string is one volume, not its characters.
+    assert depth_band_for({"depth_band": [1, 27], "uris": "ab"}, "a") is None
+    assert depth_band_for({"depth_band": [1, 27], "uris": "ab"}, "ab") == [1, 27]
+    with pytest.raises(ValueError, match="depth_band"):
+        depth_band_for({**saved, "depth_band": [1]}, str(own))
+    # Relative paths recorded from config.json also resolve against the checkout,
+    # so a tool run from scripts/ still finds the validation fragment.
+    monkeypatch.setattr(inference_constants, "_REPO", str(tmp_path))
+    (tmp_path / "scripts").mkdir()
+    monkeypatch.chdir(tmp_path / "scripts")
+    assert depth_band_for(saved, str(own)) == [1, 27]
