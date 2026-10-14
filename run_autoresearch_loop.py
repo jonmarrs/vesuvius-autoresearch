@@ -46,6 +46,13 @@ supervisor = ProcessSupervisor()
 def signal_handler(sig, frame):
     print(f"\nCaught signal {sig}. Cleaning up...")
     supervisor.stop()
+    # A stop (stop.sh sends SIGTERM) almost always lands mid-cycle: settle that
+    # run as failed now, with its process group dead and config.json not yet
+    # promoted, so what happens while the loop is stopped is not mistaken for it.
+    if CYCLE_HOLD["active"]:
+        note = settle_incumbent(CYCLE_HOLD["held"], failed=True)
+        if note:
+            print(f"Incumbent: {note}.")
     sys.exit(0)
 
 
@@ -411,6 +418,8 @@ def save_recent_configs(configs):
 INCUMBENT = "best_model.pt"
 # A hard link to the incumbent, kept while a training run may replace it.
 INCUMBENT_HELD = ".best_model.pt.held"
+# The cycle in flight, for the signal handler: whether it holds, and what.
+CYCLE_HOLD: dict[str, Any] = {"active": False, "held": None}
 
 
 def hold_incumbent():
@@ -438,6 +447,10 @@ def settle_incumbent(held, failed):
     warm-start from and be compared with. Such a model is moved aside and the
     held incumbent put back. Returns a note for the sprint log, or None.
     """
+    CYCLE_HOLD["active"] = False
+    if held and not os.path.exists(INCUMBENT_HELD):
+        print(f"Warning: {INCUMBENT_HELD} disappeared during the cycle; not settled.")
+        held = None
     if held:
         replaced = not (
             os.path.exists(INCUMBENT) and os.path.samefile(INCUMBENT, INCUMBENT_HELD)
@@ -448,18 +461,51 @@ def settle_incumbent(held, failed):
     if failed and replaced:
         aside = None
         if os.path.exists(INCUMBENT):
-            aside = f"{INCUMBENT}.failed-run-{time.strftime('%Y%m%d-%H%M%S')}"
+            stamp = time.strftime("%Y%m%d-%H%M%S")
+            aside = f"{INCUMBENT}.failed-run-{stamp}"
+            n = 1
+            while os.path.lexists(aside):
+                n += 1
+                aside = f"{INCUMBENT}.failed-run-{stamp}-{n}"
             os.replace(INCUMBENT, aside)
         if held:
             os.replace(INCUMBENT_HELD, INCUMBENT)
         note = (
-            f"the run replaced {INCUMBENT} and then failed; "
-            + ("the incumbent was restored" if held else "there was no incumbent")
+            f"the run wrote {INCUMBENT} and then failed; "
+            + ("the incumbent was restored" if held else "there was none before it")
             + (f", and the run's model kept as {aside}" if aside else "")
         )
     if os.path.lexists(INCUMBENT_HELD):
         os.remove(INCUMBENT_HELD)
     return note
+
+
+def leftover_hold():
+    """A reason not to start, if a loop ended mid-cycle without settling its run
+    (a kill or power loss; a stop settles). Released if best_model.pt is still
+    the held file. Otherwise it cannot be told whether that run or the operator
+    changed best_model.pt since, so the choice is left to the operator."""
+    if not os.path.lexists(INCUMBENT_HELD):
+        return None
+    if os.path.exists(INCUMBENT) and os.path.samefile(INCUMBENT, INCUMBENT_HELD):
+        os.remove(INCUMBENT_HELD)
+        return None
+    return (
+        f"{INCUMBENT_HELD} remains from a loop that ended mid-cycle without settling "
+        f"its run, and {INCUMBENT} has changed since that cycle began (the run "
+        "replaced it, or it was changed by hand). To keep the current "
+        f"{INCUMBENT}: rm {INCUMBENT_HELD}. To restore the incumbent from before "
+        f"that cycle: mv {INCUMBENT_HELD} {INCUMBENT}."
+    )
+
+
+def exit_description(returncode):
+    if returncode is not None and returncode < 0:
+        try:
+            return f"was killed by {signal.Signals(-returncode).name}"
+        except ValueError:
+            pass
+    return f"exited with code {returncode}"
 
 
 def last_log_line(path="run.log", limit=300):
@@ -491,12 +537,10 @@ def main():
         print("Autoresearch is paused. Use ./start.sh to resume.")
         return
 
-    # A hold left behind means the last loop stopped mid-cycle, before it settled
-    # the run: an incumbent replaced by that run is restored like any failed one.
-    if os.path.lexists(INCUMBENT_HELD):
-        note = settle_incumbent(True, failed=True)
-        if note:
-            print(f"The last loop stopped mid-cycle: {note}.")
+    reason = leftover_hold()
+    if reason:
+        print(f"Not starting: {reason}")
+        return
 
     # The incumbent must be comparable before any GPU time is spent: train.py
     # refuses to promote over an unreadable or differently-scored best_model.pt,
@@ -747,9 +791,10 @@ def main():
             os.rename("run.log", "run.log.old")
 
         training_returncode = None
-        # Why the cycle produced no result, for the sprint log.
-        failure = None
+        # Why the cycle produced no result, and its run's last log line.
+        failure = log_line = None
         held = hold_incumbent()
+        CYCLE_HOLD.update(active=True, held=held)
         try:
             with open("run.log", "a") as f:
                 f.write(f"\n\n--- {shift_name} CYCLE {i}: {tweak_name} ---\n")
@@ -789,13 +834,15 @@ def main():
                     )
                     preflight_ok = preflight.returncode == 0
                     if not preflight_ok:
-                        failure = (
-                            f"preflight failed with exit code {preflight.returncode}"
-                        )
+                        failure = f"preflight {exit_description(preflight.returncode)}"
                 except subprocess.TimeoutExpired:
-                    f.write("PREFLIGHT TIMED OUT — skipping training.\n")
                     preflight_ok = False
                     failure = "preflight timed out after 300 s"
+                if not preflight_ok:  # before the loop's own markers below
+                    f.flush()
+                    log_line = last_log_line()
+                    if failure.startswith("preflight timed out"):
+                        f.write("PREFLIGHT TIMED OUT — skipping training.\n")
                 f.flush()
 
                 if not preflight_ok:
@@ -839,7 +886,6 @@ def main():
         is_crash = False
         oom_detected = False
 
-        log_line = None
         if training_returncode != 0 or not os.path.exists("run_result.json"):
             is_crash = True
             # Promotion requires a clean exit as well as a result (2026-10-01).
@@ -847,11 +893,11 @@ def main():
                 failure = (
                     "wrote no run_result.json"
                     if training_returncode == 0
-                    else f"exited with code {training_returncode}"
+                    else exit_description(training_returncode)
                 )
             if os.path.exists("run_result.json"):  # deleted before the run
                 failure += " after writing run_result.json"
-            log_line = last_log_line()
+            log_line = log_line or last_log_line()
             if os.path.exists("run.log"):
                 try:
                     with open("run.log") as f:

@@ -446,6 +446,8 @@ def _drive_loop(
                 commands.append(list(command))
             # The preflight and the every-5th-cycle benchmark are not training runs.
             if "--smoke" in command:
+                if preflight_returncode:
+                    kwargs["stdout"].write("PREFLIGHT FAILED: model build error\n")
                 return subprocess.CompletedProcess(command, preflight_returncode)
             if "scripts/inference/predict.py" in command:
                 return subprocess.CompletedProcess(command, 0)
@@ -458,6 +460,9 @@ def _drive_loop(
                 return subprocess.CompletedProcess(command, 1)
             (tmp_path / "run_result.json").write_text(json.dumps(result))
             return subprocess.CompletedProcess(command, 0)
+
+        def stop(self):
+            pass
 
     monkeypatch.setattr(loop, "supervisor", FakeSupervisor())
     loop.main()
@@ -657,6 +662,7 @@ def _promoting_run(tmp_path, returncode=0, result=True, timeout=False):
     "returncode, result, timeout, failure",
     [
         (1, True, False, "exited with code 1 after writing run_result.json"),
+        (-9, False, False, "was killed by SIGKILL"),
         (0, True, True, "killed at the 1200 s timeout after writing run_result.json"),
         (0, False, True, "killed at the 1200 s timeout"),
     ],
@@ -703,27 +709,95 @@ def test_a_failed_preflight_is_named_in_the_sprint_log(tmp_path, monkeypatch):
     launched = _drive_loop(tmp_path, monkeypatch, 1, preflight_returncode=2)
     assert launched == []
     log = next((tmp_path / "sprint_logs").glob("*.md")).read_text()
-    assert "Training crashed (preflight failed with exit code 2)" in log
+    assert "Training crashed (preflight exited with code 2)" in log
+    # The preflight's own last line, not the loop's marker after it.
+    assert "- **Last log line**: `PREFLIGHT FAILED: model build error`" in log
     assert torch.load(tmp_path / "best_model.pt")["val_f1"] == 0.47
     assert not os.path.lexists(tmp_path / ".best_model.pt.held")
 
 
-def test_a_hold_left_by_a_stopped_loop_restores_the_incumbent(
+def test_a_stop_mid_cycle_settles_the_run(tmp_path, monkeypatch):
+    """stop.sh sends SIGTERM, almost always mid-cycle. The handler settles the
+    run, so what is done while the loop is stopped (a re-score) is not taken for
+    that run's model at the next start."""
+    import run_autoresearch_loop as loop
+
+    ExperimentConfig().save(tmp_path / "config.json")
+    _checkpoint(tmp_path / "best_model.pt")
+    promote = _promoting_run(tmp_path, result=False)
+
+    def stopped(command, log):
+        promote(command, log)
+        loop.signal_handler(15, None)
+
+    with pytest.raises(SystemExit):
+        _drive_loop(tmp_path, monkeypatch, 1, run=stopped)
+    assert torch.load(tmp_path / "best_model.pt")["val_f1"] == 0.47
+    (aside,) = tmp_path.glob("best_model.pt.failed-run-*")
+    assert torch.load(aside)["val_f1"] == 0.9
+    assert not os.path.lexists(tmp_path / ".best_model.pt.held")
+    # Re-scored while stopped: the next start keeps it.
+    _checkpoint(tmp_path / "rescored.pt", val_f1=0.48)
+    os.replace(tmp_path / "rescored.pt", tmp_path / "best_model.pt")
+    result = {"is_success": False, "val_f1": 0.5}
+    assert len(_drive_loop(tmp_path, monkeypatch, 1, result=result)) == 1
+    assert torch.load(tmp_path / "best_model.pt")["val_f1"] == 0.48
+
+
+def test_a_hold_left_by_a_killed_loop_is_the_operators_call(
     tmp_path, monkeypatch, capsys
 ):
-    """Stopped mid-cycle (stop.sh, the watchdog), the loop never settled a run
-    that had replaced best_model.pt; the next start does."""
+    """Killed mid-cycle (no handler ran), the loop cannot tell whether that run
+    or the operator changed best_model.pt since, so it does not start and says
+    how to keep either; it changes nothing."""
     ExperimentConfig().save(tmp_path / "config.json")
     _checkpoint(tmp_path / "best_model.pt")
     os.link(tmp_path / "best_model.pt", tmp_path / ".best_model.pt.held")
     _checkpoint(tmp_path / "candidate.pt", val_f1=0.9)
     os.replace(tmp_path / "candidate.pt", tmp_path / "best_model.pt")
+    assert _drive_loop(tmp_path, monkeypatch, 1) == []
+    out = capsys.readouterr().out
+    assert "Not starting: .best_model.pt.held remains" in out
+    assert "rm .best_model.pt.held" in out and "mv .best_model.pt.held" in out
+    assert torch.load(tmp_path / "best_model.pt")["val_f1"] == 0.9
+    assert os.path.lexists(tmp_path / ".best_model.pt.held")
+
+
+def test_a_hold_of_an_unchanged_incumbent_is_released(tmp_path, monkeypatch):
+    ExperimentConfig().save(tmp_path / "config.json")
+    _checkpoint(tmp_path / "best_model.pt")
+    os.link(tmp_path / "best_model.pt", tmp_path / ".best_model.pt.held")
     result = {"is_success": False, "val_f1": 0.5}
-    _drive_loop(tmp_path, monkeypatch, 1, result=result)
-    assert "The last loop stopped mid-cycle" in capsys.readouterr().out
-    assert torch.load(tmp_path / "best_model.pt")["val_f1"] == 0.47
+    assert len(_drive_loop(tmp_path, monkeypatch, 1, result=result)) == 1
+    assert not os.path.lexists(tmp_path / ".best_model.pt.held")
+
+
+def test_a_failed_run_that_wrote_the_first_incumbent_leaves_none(tmp_path, monkeypatch):
+    ExperimentConfig().save(tmp_path / "config.json")
+    _drive_loop(tmp_path, monkeypatch, 1, run=_promoting_run(tmp_path, returncode=1))
+    assert not (tmp_path / "best_model.pt").exists()
     (aside,) = tmp_path.glob("best_model.pt.failed-run-*")
     assert torch.load(aside)["val_f1"] == 0.9
+    log = next((tmp_path / "sprint_logs").glob("*.md")).read_text()
+    assert "there was none before it" in log
+
+
+def test_without_a_hard_link_the_cycle_runs_unheld(tmp_path, monkeypatch, capsys):
+    """Where the filesystem refuses a hard link, a failed run's model stays, as
+    before the hold existed; the cycle still runs."""
+    import run_autoresearch_loop as loop
+
+    ExperimentConfig().save(tmp_path / "config.json")
+    _checkpoint(tmp_path / "best_model.pt")
+
+    def no_link(*args):
+        raise OSError("hard links not supported")
+
+    monkeypatch.setattr(loop.os, "link", no_link)
+    _drive_loop(tmp_path, monkeypatch, 1, run=_promoting_run(tmp_path, returncode=1))
+    assert "could not hold best_model.pt" in capsys.readouterr().out
+    assert torch.load(tmp_path / "best_model.pt")["val_f1"] == 0.9
+    assert not list(tmp_path.glob("best_model.pt.failed-run-*"))
 
 
 def test_a_tracking_error_at_the_end_of_a_run_is_not_a_failed_run(monkeypatch, capsys):
