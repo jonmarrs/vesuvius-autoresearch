@@ -334,6 +334,9 @@ class VesuviusResNet3DDecoder(nn.Module):
     Provides cross-scroll context (typically 62 layers) and optimized inference support.
     """
 
+    # All three outputs are real heads (model_wrappers.task_heads).
+    task_heads = frozenset({"fiber", "qc", "st"})
+
     version = "1.0.0-ResNet3D-Decoder"
 
     def __init__(self, config: VesuviusConfig):
@@ -426,6 +429,9 @@ class MedNeXtInkDetector(nn.Module):
     Provides full multi-task forward contract (ink, fiber, qc, proj, st).
     """
 
+    # All three outputs are real heads (model_wrappers.task_heads).
+    task_heads = frozenset({"fiber", "qc", "st"})
+
     version = "1.0.0-MedNeXt"
 
     def __init__(self, config: VesuviusConfig):
@@ -514,6 +520,8 @@ class MedNeXtInkDetector(nn.Module):
 
 
 class InkDetectorOptimized(nn.Module):
+    # All three outputs are real heads (model_wrappers.task_heads).
+    task_heads = frozenset({"fiber", "qc", "st"})
     version = "2.5.0"
 
     def __init__(self, config: VesuviusConfig):

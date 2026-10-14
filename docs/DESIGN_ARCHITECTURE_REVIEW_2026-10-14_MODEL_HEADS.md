@@ -20,13 +20,17 @@ The production model is `resenc_unet`, a residual-encoder UNet in `GenericMultiT
   - the wrapper declares all three with `multi_task_heads` and none without;
   - `LeJEPAUNet` and `VesuviusNeuralTracingViT` declare none;
   - the TimeSformer declares fiber and QC;
-  - the other models declare nothing, meaning all three outputs are real.
+  - the other models declare all three.
 
-  The training step drops the undeclared outputs and skips the structure-tensor target when no ST head is
-  trained. A wrapper asked for heads on a backbone without a volume output (resnet3d, i3d) now raises; before,
+  A model that declares nothing, or declares something other than a subset of the three, is refused rather than
+  assumed to have real heads.
+
+  The training step drops the undeclared outputs (`train.trained_outputs`). It skips the structure-tensor
+  target when no ST head is trained, and the loader's Frangi fiber target (about 86 ms per patch) when no fiber or
+  QC head is: the model is now built before the loaders. A wrapper asked for heads on a backbone without a volume output (resnet3d, i3d) now raises; before,
   it fell back to placeholders that were then trained as heads.
 - **The loop proposes the fiber and ST loss weights and `target_fiber_source` only for heads that are
-  trained.** The predicate `trains_head` mirrors the declarations, and a test checks them against each model
+  trained, and `multi_task_heads` only for `resenc_unet`, the one architecture whose wrapper builds heads from it.** The predicate `trains_head` mirrors the declarations, and a test checks them against each model
   class.
 - **One ResEnc construction.** `model_wrappers.build_resenc_unet` builds the production model for both training
   and inference. A test requires `train.build_model` and `build_inference_model` to produce the same module (by
@@ -60,6 +64,23 @@ The first version, a check for the headless wrapper class (`has_task_heads`), wa
 | Loop comments said `resenc_unet` always has real ST heads and that the placeholders had no gradient. | Corrected; the 2026-05-17 note's claim that `resnet3d_decoder` returns a zero ST is also wrong (it has a real ST head) and is corrected. |
 | `train.py` kept its own `ResidualEncoderUNet` import only for an availability check. | Removed; the shared builder's `ImportError` is re-raised with the same message. |
 
+A second review, of the PR, found:
+
+| Finding | Outcome |
+| --- | --- |
+| A headless config still computed the Frangi target in the loader, and gating `target_fiber_source` meant the loop could never switch it off. | Fixed: the loader uses the Sobel-Z target when no fiber or QC head is trained. Tested through `train.train` for both settings. |
+| `task_heads` failed open: an undeclared model was assumed to have real heads. | Fixed: every model declares its heads; an undeclared or malformed declaration is refused. |
+| The training step's filtering had no test. | Fixed: it moved into `train.trained_outputs`, which the step calls and a test covers. |
+| The fix filters placeholders in one consumer; inference and the preflight still see them. | Kept: the declarations are the shared contract, and inference's fiber export is recorded below. Having models return `None` would change the positional output contract that every caller unpacks. |
+| `trains_head` reported heads for resnet3d/i3d, whose wrapper now refuses them. | Fixed: they count as having no heads. |
+| `multi_task_heads` was proposed for architectures that ignore it. | Gated to `resenc_unet`. |
+| `loss_st` is a no-op on a host where villa's `StructureTensorComputer` fails to import. | Not changed: the loop cannot see that import. The production host has it. |
+| A projection forward pass runs every step even with UA-MT off. | Not changed here: it predates this PR and belongs to the UA-MT path. Recorded below. |
+| The loop's table of heads duplicates the models' declarations. | Kept: the loop does not import torch. A test checks the table against every class. |
+| `task_heads` duplicated `multi_task_heads` on the wrapper, with redundant `feat is not None` checks. | Fixed: it is now a property, and the checks are gone. |
+| A string declaration would silently drop heads. | Fixed: refused. |
+| The loop comment said LeJEPA returns zeros as fiber. | Corrected: it returns the ink logits. |
+
 ## Observations for the owner (not changed)
 
 - **The 2026-07-11 promotion of `multi_task_heads: true` was confounded.** Adding heads also moved the fiber
@@ -73,6 +94,9 @@ The first version, a check for the headless wrapper class (`has_task_heads`), wa
   warm start.
 - **Inference exports a headless checkpoint's placeholder as a fiber map.** It equals the ink probability map
   (noted in the 2026-10-04 volume review). The recipe could say there is no fiber head.
+- **The UA-MT projection pass runs with UA-MT off.** Every step makes a second forward pass for `p2` whenever
+  the model returns a projection, but uses it only under `use_uamt`. A `use_uamt: false` cycle therefore spends
+  part of its budget on work it discards.
 - **Pinned axes that would be no-ops if released.** `num_blocks` and `num_heads` do not reach `resenc_unet`,
   which uses two blocks per stage and no attention. They are pinned today; if they are ever unpinned they need
   the same gate as `dropout`.
@@ -92,8 +116,8 @@ validation run of #60's head, whose tree is `353fe865`'s.
 
 - Baseline: 42 failed, 2069 passed, 15 skipped, 1 xfailed, 2 errors (environmental: no scroll data, no CUDA,
   no villa data files).
-- Branch: 42 failed, 2084 passed, 15 skipped, 1 xfailed, 2 errors. The failures and errors are the same set as
-  the baseline; the 15 extra passes are the new tests. `scripts/smoke_test.py`: 9 of 11 passed, 2 skipped.
+- Branch, after the PR review's fixes: 42 failed, 2089 passed, 15 skipped, 1 xfailed, 2 errors. The failures
+  and errors are the same set as the baseline; the 20 extra passes are the new tests. `scripts/smoke_test.py`: 9 of 11 passed, 2 skipped.
 - Ruff (check and format) on the changed files, and mypy on the loop and `model_wrappers.py`: clean.
 
 New tests in `tests/test_task_heads.py`, now in `scripts/run_validation_tests.py`:
@@ -103,6 +127,10 @@ New tests in `tests/test_task_heads.py`, now in `scripts/run_validation_tests.py
 - heads on a backbone without a volume output are refused;
 - training and inference build the same `resenc_unet` (4 settings), and the loop agrees with its heads;
 - the loop's predicate mirrors every architecture's declaration;
-- dropout, the fiber and ST weights and the fiber target source are proposed only where they reach the model.
+- dropout, the fiber and ST weights, the fiber target source and `multi_task_heads` are proposed only where they
+  reach the model;
+- an undeclared or malformed declaration is refused;
+- the training step's output filter (`trained_outputs`) drops undeclared outputs;
+- the loader computes the Frangi target only for a fiber or QC head (through `train.train`).
 
 Not verified here: a training cycle on the GPU host.

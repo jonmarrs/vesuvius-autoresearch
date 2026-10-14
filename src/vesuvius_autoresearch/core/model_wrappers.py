@@ -58,7 +58,6 @@ class GenericMultiTaskWrapper(nn.Module):
         super().__init__()
         self.model = model
         self.multi_task_heads = multi_task_heads
-        self.task_heads = TASK_OUTPUTS if multi_task_heads else frozenset()
         self.input_channels = input_channels
         if projector is not None:
             self.projector = projector
@@ -90,6 +89,11 @@ class GenericMultiTaskWrapper(nn.Module):
                 nn.ReLU(inplace=True),
                 nn.Conv3d(32, 6, kernel_size=1),
             )
+
+    @property
+    def task_heads(self):
+        """All three with multi_task_heads, else none (see task_heads())."""
+        return TASK_OUTPUTS if self.multi_task_heads else frozenset()
 
     def forward(
         self,
@@ -128,12 +132,12 @@ class GenericMultiTaskWrapper(nn.Module):
 
         results = [ink_2d]
         if return_fiber:
-            if self.multi_task_heads and feat is not None:
+            if self.multi_task_heads:
                 results.append(self.fiber_head(feat))
             else:
                 results.append(out if out.dim() == 5 else out.unsqueeze(2))
         if return_qc:
-            if self.multi_task_heads and feat is not None:
+            if self.multi_task_heads:
                 results.append(self.qc_head(feat))
             else:
                 results.append(
@@ -147,7 +151,7 @@ class GenericMultiTaskWrapper(nn.Module):
             # Enforce finiteness to prevent NaN propagation
             results.append(torch.clamp(projection, min=-1e6, max=1e6))
         if return_st:
-            if self.multi_task_heads and feat is not None:
+            if self.multi_task_heads:
                 results.append(self.st_head(feat))
             else:
                 results.append(
@@ -163,11 +167,23 @@ class GenericMultiTaskWrapper(nn.Module):
 def task_heads(model) -> frozenset:
     """The model's outputs that are trainable heads, of fiber, qc and st.
 
-    A model declares its own (a ``task_heads`` attribute) when some outputs are
-    placeholders (see the module docstring); one that declares nothing returns
-    real heads for all three.
+    Every model declares them (a ``task_heads`` attribute), placeholders being
+    the reason (see the module docstring). A model that declares nothing is
+    refused rather than assumed to have real heads: that assumption is how
+    placeholders were trained before.
     """
-    return frozenset(getattr(model, "task_heads", TASK_OUTPUTS))
+    declared = getattr(model, "task_heads", None)
+    if declared is None:
+        raise TypeError(
+            f"{type(model).__name__} does not declare its task_heads (a subset of "
+            f"{sorted(TASK_OUTPUTS)}); see model_wrappers.task_heads"
+        )
+    if not isinstance(declared, (set, frozenset)) or not declared <= TASK_OUTPUTS:
+        raise ValueError(
+            f"{type(model).__name__}.task_heads must be a set within "
+            f"{sorted(TASK_OUTPUTS)}, not {declared!r}"
+        )
+    return frozenset(declared)
 
 
 def build_resenc_unet(

@@ -28,6 +28,7 @@ from vesuvius_autoresearch.core.model_wrappers import (  # noqa: E402
     TASK_OUTPUTS,
     GenericMultiTaskWrapper,
     build_inference_model,
+    build_resenc_unet,
     task_heads,
 )
 
@@ -56,13 +57,99 @@ def test_each_model_declares_its_real_heads():
     assert task_heads(vesuvius_model.LeJEPAUNet) == frozenset()
     assert task_heads(vesuvius_model.VesuviusNeuralTracingViT) == frozenset()
     assert task_heads(vesuvius_model.VesuviusTimeSformer) == {"fiber", "qc"}
-    # Models whose heads are all real declare nothing.
     for name in (
         "InkDetectorOptimized",
         "MedNeXtInkDetector",
         "VesuviusResNet3DDecoder",
     ):
         assert task_heads(getattr(vesuvius_model, name)) == TASK_OUTPUTS
+
+
+def test_a_model_must_declare_its_heads():
+    """Assuming real heads for an undeclared model is how placeholders were
+    trained before; a malformed declaration would drop real heads."""
+    with pytest.raises(TypeError, match="does not declare"):
+        task_heads(torch.nn.Conv3d(1, 1, 1))
+
+    class Misdeclared(torch.nn.Module):
+        task_heads = "fiber"
+
+    with pytest.raises(ValueError, match="must be a set"):
+        task_heads(Misdeclared())
+    Misdeclared.task_heads = frozenset({"qc", "structure"})
+    with pytest.raises(ValueError, match="must be a set"):
+        task_heads(Misdeclared())
+
+
+def test_the_training_step_drops_outputs_that_are_not_heads():
+    x = torch.rand(2, 1, 4, 8, 8)
+    flags = {
+        "return_fiber": True,
+        "return_qc": True,
+        "return_proj": True,
+        "return_st": True,
+    }
+    model = _headless()
+    ink, fiber, qc, proj, st = train.trained_outputs(
+        model(x, **flags), task_heads(model)
+    )
+    assert ink is not None and proj is not None
+    assert fiber is None and qc is None and st is None
+    headed = GenericMultiTaskWrapper(torch.nn.Conv3d(1, 1, 1), multi_task_heads=True)
+    outputs = train.trained_outputs(headed(x, **flags), task_heads(headed))
+    assert all(output is not None for output in outputs)
+    assert train.trained_outputs(torch.zeros(1), TASK_OUTPUTS)[1:] == (None,) * 4
+
+
+class _Stop(Exception):
+    pass
+
+
+@pytest.mark.parametrize("multi_task_heads", [True, False])
+def test_the_frangi_fiber_target_is_computed_only_for_a_head_that_uses_it(
+    tmp_path, monkeypatch, multi_task_heads
+):
+    """~86 ms/patch in the loader, inside the fixed training budget."""
+    monkeypatch.chdir(tmp_path)
+    for fragment in ("train", "val"):
+        (tmp_path / fragment).mkdir()
+        (tmp_path / fragment / "inklabels.png").write_bytes(b"")
+    config = ExperimentConfig(
+        architecture="resenc_unet",
+        base_feat=4,
+        patch_size=16,
+        num_layers=8,
+        multi_task_heads=multi_task_heads,
+        target_fiber_source="frangi",
+        use_wandb=False,
+        uris=[str(tmp_path / "train" / "surface_volume.zarr")],
+        val_uri=str(tmp_path / "val" / "surface_volume.zarr"),
+    )
+    seen = {}
+
+    class Catalogue:
+        def __len__(self):
+            return 10
+
+        def __getitem__(self, index):
+            return index
+
+    def dataset(uri, *args, **kwargs):
+        if "train" in uri:
+            seen["source"] = kwargs.get("target_fiber_source")
+            raise _Stop
+        return Catalogue()
+
+    monkeypatch.setattr(train, "VesuviusLabeledDataset", dataset)
+    # The real construction, on the CPU (train() builds on CUDA).
+    monkeypatch.setattr(
+        train,
+        "build_model",
+        lambda config, v_config, device: build_resenc_unet(1, 4, multi_task_heads),
+    )
+    with pytest.raises(_Stop):
+        train.train(config)
+    assert seen["source"] == ("frangi" if multi_task_heads else "sobel_z")
 
 
 def test_heads_on_a_backbone_without_a_volume_output_are_refused():
@@ -138,6 +225,18 @@ def test_the_loop_mirrors_each_architecture_s_declared_heads(architecture, model
     config = ExperimentConfig(architecture=architecture)
     declared = task_heads(getattr(vesuvius_model, model_class))
     assert {h for h in TASK_OUTPUTS if loop.trains_head(config, h)} == declared
+
+
+def test_multi_task_heads_is_only_proposed_where_it_builds_heads():
+    assert "multi_task_heads" in _proposed(ExperimentConfig(architecture="resenc_unet"))
+    for architecture in ("gated_unet", "lejepa_unet", "resnet3d", "i3d"):
+        assert "multi_task_heads" not in _proposed(
+            ExperimentConfig(architecture=architecture)
+        )
+    # resnet3d/i3d backbones give no volume output: no heads either way.
+    for architecture in ("resnet3d", "i3d"):
+        config = ExperimentConfig(architecture=architecture, multi_task_heads=True)
+        assert not any(loop.trains_head(config, h) for h in TASK_OUTPUTS)
 
 
 def test_head_weights_are_only_proposed_for_heads_that_are_trained():

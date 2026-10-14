@@ -98,7 +98,15 @@ tweak_templates: list[dict[str, Any]] = [
     # cat(input, backbone_output). Adds ~5k params, and gradients from
     # loss_fiber/loss_qc/loss_st flow back through the backbone. Without heads
     # the model trains on the ink losses alone (model_wrappers.task_heads).
-    {"family": "regularization", "attr": "multi_task_heads", "vals": [True, False]},
+    # Only resenc_unet's wrapper builds heads from it (resnet3d/i3d backbones
+    # give no volume output for them); other architectures ignore it.
+    {
+        "family": "regularization",
+        "attr": "multi_task_heads",
+        "vals": [True, False],
+        "applies_when": lambda c: getattr(c, "architecture", "gated_unet")
+        == "resenc_unet",
+    },
     {"family": "batch", "attr": "batch_size", "vals": [8, 16, 24]},
     {"family": "spatial", "attr": "patch_size", "vals": [64]},  # pinned (was [64,96])
     {
@@ -148,9 +156,9 @@ tweak_templates: list[dict[str, Any]] = [
     # on 2026-05-17 found that lejepa_unet has been a topology regression since
     # the 2026-05-06 flip: skel_dist 27 px vs the May-5 resenc_unet's 1 px
     # (prize gate: <= 2 px). lejepa_unet and timesformer return zeros for the
-    # structure-tensor head (lejepa_unet for fiber and QC too); resenc_unet has
-    # real heads only with multi_task_heads (trains_head, which mirrors each
-    # model's declared task_heads).
+    # structure-tensor head; lejepa_unet and neural_tracing_vit also return the
+    # ink logits as fiber and zeros as QC. resenc_unet has real heads only with
+    # multi_task_heads (trains_head, which mirrors each model's task_heads).
     {
         "family": "architecture",
         "attr": "architecture",
@@ -277,9 +285,10 @@ def _tweaked(config, attr, val):
 
 
 # Mirrors each model's declared task_heads (model_wrappers.task_heads), without
-# building one: tests/test_task_heads.py checks they agree.
-_ARCHITECTURES_WITHOUT_HEADS = {"lejepa_unet", "neural_tracing_vit"}
-_WRAPPED_ARCHITECTURES = {"resenc_unet", "resnet3d", "i3d"}
+# building one (the loop does not import torch): tests/test_task_heads.py checks
+# they agree. resnet3d/i3d wrap backbones without a volume output, so they have
+# no heads, and their wrapper refuses multi_task_heads.
+_ARCHITECTURES_WITHOUT_HEADS = {"lejepa_unet", "neural_tracing_vit", "resnet3d", "i3d"}
 
 
 def trains_head(config, head):
@@ -287,7 +296,7 @@ def trains_head(config, head):
     architecture = getattr(config, "architecture", "gated_unet")
     if architecture in _ARCHITECTURES_WITHOUT_HEADS:
         return False
-    if architecture in _WRAPPED_ARCHITECTURES:
+    if architecture == "resenc_unet":
         return bool(getattr(config, "multi_task_heads", False))
     if architecture == "timesformer":
         return head != "st"
