@@ -5,6 +5,7 @@ import random
 import signal
 import subprocess
 import sys
+import tempfile
 import time
 from collections import Counter, defaultdict
 from dataclasses import asdict
@@ -341,25 +342,50 @@ def template_weights(templates, success_counts):
 
 
 def load_history():
+    """The family weights; 1 for a family not yet recorded.
+
+    An unreadable file is moved aside rather than left to be overwritten with
+    the defaults at the end of the first cycle (save_history runs every cycle).
+    """
     counts = defaultdict(lambda: 1)
-    if os.path.exists(HISTORY_FILE):
+    if not os.path.exists(HISTORY_FILE):
+        return counts
+    try:
+        with open(HISTORY_FILE) as f:
+            data = json.load(f)
+        if not isinstance(data, dict):
+            raise ValueError(f"expected an object, got {type(data).__name__}")
+        counts.update(data)
+    except (OSError, ValueError) as e:
+        aside = f"{HISTORY_FILE}.unreadable-{time.strftime('%Y%m%d-%H%M%S')}"
         try:
-            with open(HISTORY_FILE) as f:
-                data = json.load(f)
-                if isinstance(data, dict):
-                    counts.update(data)
-                return counts
-        except Exception as e:
-            print(f"Warning: Could not load history from {HISTORY_FILE}: {e}")
+            os.replace(HISTORY_FILE, aside)
+            kept = f"moved it to {aside}"
+        except OSError as move_error:
+            kept = f"could not move it aside ({move_error})"
+        print(
+            f"Warning: {HISTORY_FILE} is unreadable ({e}); {kept}. Starting from "
+            "weight 1 for every family."
+        )
     return counts
 
 
 def save_history(counts):
+    """Write the family weights atomically: a stop mid-write leaves the old file."""
+    directory = os.path.dirname(os.path.abspath(HISTORY_FILE))
+    temporary = None
     try:
-        with open(HISTORY_FILE, "w") as f:
+        fd, temporary = tempfile.mkstemp(
+            prefix=".history.", suffix=".tmp", dir=directory
+        )
+        with os.fdopen(fd, "w") as f:
             json.dump(dict(counts), f, indent=4)
-    except Exception as e:
+        os.replace(temporary, HISTORY_FILE)
+    except OSError as e:
         print(f"Warning: Could not save history: {e}")
+    finally:
+        if temporary is not None and os.path.exists(temporary):
+            os.unlink(temporary)
 
 
 def load_recent_configs():
@@ -567,13 +593,8 @@ def main():
                 log.write(f"- **VRAM cap {VRAM_COMPLEXITY_CAP} excludes**: {note}\n\n")
             last_excluded = excluded
 
-        # Success-Biased Decay: Every cycle, all (active) families decay slightly.
-        # This ensures that even successful families eventually lose their dominance
-        # if they stop producing improvements, forcing exploration of other families.
+        # Families this cycle could sample; they decay once it is scored (below).
         families = [t["family"] for t in active_templates]
-        for f in set(families):
-            success_counts[f] = max(1.0, success_counts[f] * 0.95)
-
         weights = template_weights(active_templates, success_counts)
 
         # Frontier-V: Config-Space Entropy Protection
@@ -774,26 +795,33 @@ def main():
                 print(f"Error reading run_result.json: {e}")
                 is_crash = True
 
+        # Success-biased decay: every scored cycle decays all the families it
+        # could have sampled, so a family that stops producing promotions loses
+        # its dominance; a promotion then rewards its family. A crash (or failed
+        # preflight, or a stop mid-run) ran no experiment and changes nothing, so
+        # a broken environment cannot wear the weights down. Saved now, before
+        # the config files move: REVERTED, the usual outcome, used to leave the
+        # decay unsaved, and every restart put the old weights back.
+        if not is_crash:
+            for f in set(families):
+                success_counts[f] = max(1.0, success_counts[f] * 0.95)
+        if is_success:
+            success_counts[family] += 1
+        save_history(success_counts)
+
         if is_success:
             status = "SUCCESS"
-            success_counts[family] += 1
             # Promote temp config to main config
             os.rename(TEMP_CONFIG, CONFIG_FILE)
-        elif is_crash:
-            status = "CRASHED (OOM)" if oom_detected else "CRASHED"
-            # A crash is not evidence of improvement. Keep the exploration floor
-            # without rewarding repeatedly broken configurations.
-            if os.path.exists(TEMP_CONFIG):
-                os.remove(TEMP_CONFIG)
         else:
-            status = "REVERTED"
-            # Only "penalize" (don't increment) if it finished but didn't improve
+            # Neither a crash nor a non-improvement is rewarded.
+            status = (
+                ("CRASHED (OOM)" if oom_detected else "CRASHED")
+                if is_crash
+                else "REVERTED"
+            )
             if os.path.exists(TEMP_CONFIG):
                 os.remove(TEMP_CONFIG)
-        # Saved every cycle, whatever the outcome: the decay above is per cycle.
-        # REVERTED, the usual outcome, used to leave it unsaved, so the watchdog's
-        # restarts (every shift) put back weights from before the decay.
-        save_history(success_counts)
 
         with open(log_filename, "a") as log:
             log.write(f"## Cycle {i}: {tweak_name} ({status})\n")
