@@ -3,8 +3,8 @@
 ## 2026-10-13 (evening): developing while the loop runs
 
 * The loop trains from the main checkout: never switch branches there while it runs. Work in a worktree made by
-  `scripts/dev_worktree.sh add <branch>` (shared `.venv` and `local_data`, villa checked out at the pin; remove with
-  `scripts/dev_worktree.sh remove <branch>`).
+  `scripts/dev_worktree.sh add <branch>` (shared `.venv`, `local_data`, `checkpoints` and `models`, villa checked out
+  at the pin; remove with `scripts/dev_worktree.sh remove <branch>`).
 * Run Python in a worktree with `UV_NO_SYNC=1` or `uv run --no-sync`. A syncing `uv run` re-points the shared
   `.venv`'s editable install at the worktree, and the loop's spawned DataLoader workers would import that code;
   the mypy hook now runs `uv run --no-sync`. Tests import their own checkout's `src/` regardless
