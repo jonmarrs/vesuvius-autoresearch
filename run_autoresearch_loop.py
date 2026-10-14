@@ -15,8 +15,8 @@ from scripts.process_supervisor import ProcessSupervisor
 from scripts.training.config import ExperimentConfig
 from scripts.training.promotion import (
     IncumbentUnavailable,
-    read_incumbent_val_f1,
-    validation_protocol,
+    check_incumbent,
+    first_use_record,
 )
 
 LOCK_FILE = "autoresearch.lock"
@@ -350,9 +350,12 @@ def main():
     # a returned loop, which reprints this until the operator acts.
     try:
         # The protocol includes config.json's depth band: an incumbent scored on
-        # other slices must be re-scored before a candidate can be compared.
-        best_val_f1 = read_incumbent_val_f1(
-            "best_model.pt", validation_protocol(load_current_config().depth_band)
+        # other slices must be re-scored before a candidate can be compared, and
+        # so must one scored on other validation inputs (label file, mask,
+        # patches.json; promotion.validation_inputs_fingerprint).
+        config = load_current_config()
+        best_val_f1, inputs_known = check_incumbent(
+            "best_model.pt", config.val_uri, config.depth_band
         )
     except (IncumbentUnavailable, ValueError) as exc:
         # ValueError: config.json fails ExperimentConfig's checks (e.g. depth_band).
@@ -363,6 +366,13 @@ def main():
         if best_val_f1 > float("-inf")
         else "No best_model.pt yet; the first lift-positive cycle bootstraps it."
     )
+    if inputs_known == "recorded now":
+        print(
+            "best_model.pt records no validation-input fingerprint (scored before "
+            "2026-10-14). The current inputs were recorded in "
+            f"{first_use_record('best_model.pt')}, and candidates are compared on "
+            "them until it is re-scored or replaced."
+        )
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
 
@@ -449,6 +459,20 @@ def main():
                 )
                 print("=" * 60 + "\n")
 
+            break
+
+        # The validation inputs can change under a running shift (a refined label
+        # file written beside the fragment): stop before training on a sample the
+        # incumbent's score does not describe. The watchdog's restart then
+        # reprints the reason as "Not starting" until the incumbent is re-scored.
+        try:
+            current = load_current_config()
+            if i > 1:  # cycle 1 follows the startup check
+                check_incumbent("best_model.pt", current.val_uri, current.depth_band)
+        except (IncumbentUnavailable, ValueError) as exc:
+            print(f"Stopping before cycle {i}: {exc}")
+            with open(log_filename, "a") as log:
+                log.write(f"- **Stopped before cycle {i}**: {exc}\n\n")
             break
 
         # Every cycle is a single tweak of the promoted config. The every-10th-cycle

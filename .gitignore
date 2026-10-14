@@ -138,3 +138,5 @@ villa/ink-detection/outputs/
 # Agent scratch: SDD ledgers, task briefs, review packages, fix reports.
 # Working files, never deliverables. Was assumed ignored and was not.
 .superpowers/
+# The loop's first-use record of an older incumbent's validation inputs.
+/best_model.pt.inputs.json

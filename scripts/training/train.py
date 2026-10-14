@@ -58,11 +58,15 @@ from scripts.betti_loss_module import BettiLoss
 from scripts.cldice_loss import SoftClDiceLoss
 from scripts.training.config import AuxiliaryConfig, ExperimentConfig
 from scripts.training.promotion import (
+    RESCORE_COMMAND,
     VALIDATION_PROTOCOL,
     IncumbentUnavailable,
-    read_incumbent_val_f1,
+    read_incumbent,
     save_checkpoint_atomic,
     validation_indices,
+    validation_input_paths,
+    validation_inputs_fingerprint,
+    validation_label_path,
     validation_protocol,
 )
 from scroll_augmentations import apply_scroll_specific_3d_augmentations
@@ -412,20 +416,33 @@ def promotion_decision(
     validation_complete: bool,
     protocol: str,
     incumbent_path: str = "best_model.pt",
+    inputs: str | None = None,
 ):
     """Whether this run replaces the incumbent: (promote, incumbent_val_f1, reason).
 
     ``reason`` names what blocked the comparison itself (an incomplete validation
-    sample, or an incumbent that cannot be read or was scored under another
-    protocol); it is None when the candidate was simply compared and lost. Every
-    path that cannot compare like with like fails closed.
+    sample, an incumbent that cannot be read or was scored under another
+    protocol, or one scored on other validation inputs than ``inputs``, this
+    run's validation_diag["inputs_sha256"]); it is None when the candidate was
+    simply compared and lost. Every path that cannot compare like with like fails
+    closed. An incumbent scored before fingerprints were recorded is compared on
+    its protocol alone.
     """
     try:
-        incumbent = read_incumbent_val_f1(incumbent_path, protocol)
+        incumbent, incumbent_inputs = read_incumbent(incumbent_path, protocol)
     except IncumbentUnavailable as exc:
         return False, float("nan"), str(exc)
     if not validation_complete:
         return False, incumbent, "the validation sample is incomplete (failed reads)"
+    if incumbent_inputs is not None and inputs != incumbent_inputs:
+        reason = (
+            "this run recorded no validation-input fingerprint"
+            if inputs is None
+            else "the validation inputs (label file, mask or patches.json) differ "
+            "from those the incumbent was scored on; re-score it with "
+            f"`{RESCORE_COMMAND}`"
+        )
+        return False, incumbent, reason
     if enforce_prize_gates and not submittable:
         return False, incumbent, None
     return is_f1_improvement(val_f1, ap_lift, incumbent), incumbent, None
@@ -525,19 +542,17 @@ def build_validation_dataset(config: ExperimentConfig):
     Reads are strict: a failed read raises instead of returning an all-zero patch,
     which would silently drop out of the sample as an ink-free patch.
     """
-    parent_dir = os.path.dirname(config.val_uri.rstrip("/"))
-    labels_path = os.path.join(parent_dir, "inklabels_refined.png")
-    if not os.path.exists(labels_path):
-        labels_path = os.path.join(parent_dir, "inklabels_filled.png")
-        if not os.path.exists(labels_path):
-            labels_path = os.path.join(parent_dir, "inklabels.png")
-
-    mask_path = os.path.join(parent_dir, "mask.png")
-    patches_json_path = os.path.join(parent_dir, "patches.json")
+    # The same paths the fingerprint hashes (promotion.validation_input_paths),
+    # fingerprinted before and after the dataset reads them.
+    band = getattr(config, "depth_band", None)
+    inputs = validation_inputs_fingerprint(config.val_uri, band)
+    paths = validation_input_paths(config.val_uri)
+    labels_path, mask_path = paths["labels"], paths["mask"]
+    patches_json_path = paths["patches_json"]
     # Validation uses target_fiber_source="sobel_z" regardless of training
     # config — val doesn't use target_fiber (only ink) and we want to avoid
     # paying Frangi cost on every val patch.
-    return VesuviusLabeledDataset(
+    dataset = VesuviusLabeledDataset(
         config.val_uri,
         labels_path,
         mask_path if os.path.exists(mask_path) else None,
@@ -555,6 +570,15 @@ def build_validation_dataset(config: ExperimentConfig):
         depth_band=getattr(config, "depth_band", None),
         depth_margin=DEPTH_MARGIN,
     )
+    # Recorded with every score (validation_diag["inputs_sha256"]) and compared
+    # with the incumbent's (promotion.py). A file written while the dataset read
+    # them could otherwise be recorded without having been read.
+    if validation_inputs_fingerprint(config.val_uri, band) != inputs:
+        raise RuntimeError(
+            f"the validation inputs for {config.val_uri} changed while they were read"
+        )
+    dataset.validation_inputs = inputs
+    return dataset
 
 
 def _sigmoid_ink(model, x):
@@ -579,6 +603,21 @@ def probe_validation_read(dataset) -> None:
             f"validation patch {index} cannot be read, so this run could not be "
             f"scored: {type(exc).__name__}: {exc}"
         ) from exc
+
+
+def check_validation_inputs(dataset, protocol, incumbent_path="best_model.pt"):
+    """Fail before training when the validation inputs differ from those the
+    incumbent is compared on. The loop checks before each cycle; this covers a
+    change since (during the preflight) without spending the training budget."""
+    try:
+        incumbent_inputs = read_incumbent(incumbent_path, protocol)[1]
+    except IncumbentUnavailable:
+        return  # promotion_decision reports why after training
+    if incumbent_inputs not in (None, getattr(dataset, "validation_inputs", None)):
+        raise RuntimeError(
+            "the validation inputs differ from those the incumbent is compared on; "
+            f"re-score it with `{RESCORE_COMMAND}`"
+        )
 
 
 def collect_validation_predictions(
@@ -641,6 +680,9 @@ def collect_validation_predictions(
                 all_targets.append(val_target[j : j + 1].float().cpu())
     diag["usable_patches"] = len(all_probs)
     diag["complete"] = diag["batch_errors"] == 0
+    # What the sample was drawn from (build_validation_dataset); None for a
+    # dataset built another way.
+    diag["inputs_sha256"] = getattr(dataset, "validation_inputs", None)
     return all_probs, all_targets, diag
 
 
@@ -1550,11 +1592,7 @@ def train(config: ExperimentConfig, *, strict_warm_start=False):
                     labels_path = pseudo_path
 
             if labels_path is None:
-                labels_path = os.path.join(parent_dir, "inklabels_refined.png")
-                if not os.path.exists(labels_path):
-                    labels_path = os.path.join(parent_dir, "inklabels_filled.png")
-                    if not os.path.exists(labels_path):
-                        labels_path = os.path.join(parent_dir, "inklabels.png")
+                labels_path = validation_label_path(uri)  # the same order
 
             if os.path.exists(labels_path):
                 mask_path = os.path.join(parent_dir, "mask.png")
@@ -1605,6 +1643,7 @@ def train(config: ExperimentConfig, *, strict_warm_start=False):
     # data is loaded, not after the budget.
     val_dataset = build_validation_dataset(config)
     probe_validation_read(val_dataset)
+    check_validation_inputs(val_dataset, protocol)
 
     # Fresh per run, so successive warm-started cycles see different patches;
     # recorded in run_result.json and the checkpoint.
@@ -2357,6 +2396,7 @@ def train(config: ExperimentConfig, *, strict_warm_start=False):
         enforce_prize_gates=getattr(config, "enforce_prize_gates", True),
         validation_complete=validation_diag["complete"],
         protocol=protocol,
+        inputs=validation_diag.get("inputs_sha256"),
     )
     if promotion_blocked:
         print(f"Promotion blocked: {promotion_blocked}")
@@ -2474,6 +2514,7 @@ def train(config: ExperimentConfig, *, strict_warm_start=False):
                 "window_ok": window_ok,
                 "window_mm": window_mm,
                 "villa_metrics_ok": villa_metrics_ok,
+                "validation_diag": validation_diag,
                 "config": asdict(config),
             },
             ckpt_out,
