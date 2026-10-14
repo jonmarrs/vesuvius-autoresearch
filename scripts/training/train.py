@@ -588,7 +588,8 @@ def training_label_path(uri: str, config: ExperimentConfig) -> str:
     A `<segment>_pseudo.png` in pseudo_label_dir takes precedence over the
     volume's own labels (docs/PSEUDO_LABEL_HANDOFF.md). Its uncertain band (PNG
     128) is a target like any other unless use_confidence_weight down-weights it,
-    so a pseudo-label without it is refused rather than trained as ink 0.5.
+    so a pseudo-label from pseudo_label_dir without it is refused rather than
+    trained as ink 128/255.
     """
     if config.pseudo_label_dir:
         segment = os.path.basename(os.path.dirname(uri.rstrip("/")))
@@ -598,7 +599,7 @@ def training_label_path(uri: str, config: ExperimentConfig) -> str:
                 raise ValueError(
                     f"{pseudo} replaces the labels of {uri}, but "
                     "use_confidence_weight is off, so its uncertain band would be "
-                    "trained as ink probability 0.5 (docs/PSEUDO_LABEL_HANDOFF.md)"
+                    "trained as ink probability 128/255 (docs/PSEUDO_LABEL_HANDOFF.md)"
                 )
             return pseudo
     path = validation_label_path(uri)  # the same order as validation
@@ -610,15 +611,37 @@ def training_label_path(uri: str, config: ExperimentConfig) -> str:
     return path
 
 
+def resolve_training_labels(config: ExperimentConfig) -> dict[str, str]:
+    """Each training volume's label file (training_label_path), printed.
+
+    Only file checks, so train() and the --smoke preflight run it first: a
+    missing or refused label file fails in seconds, not after the validation
+    catalogue and the model are built.
+    """
+    labels = {uri: training_label_path(uri, config) for uri in config.uris}
+    for uri, path in labels.items():
+        print(f"Training labels for {uri}: {path}")
+    return labels
+
+
 def unlabeled_dataset(uri: str, config: ExperimentConfig, seed=None):
     """UA-MT's reader for one unlabeled_uris volume.
 
-    A volume with labels is one the depth band was defined for (the volumes
-    tests/test_config_depth_band_fits_fragments.py requires to be numbered
-    alike), so its reads stay in the band, as labeled reads do. A label-less
-    volume is read over its whole depth.
+    The band names slices of the volumes it was set for, so it applies to an
+    unlabeled volume that is also one of them (a training volume, matched by
+    path as inference_constants.depth_band_for matches a checkpoint's), whose
+    labeled reads use it. Any other unlabeled volume is read over its whole
+    depth: it may number its slices differently.
     """
-    labeled = os.path.exists(validation_label_path(uri))
+    band = depth_band_for(
+        {
+            "depth_band": getattr(config, "depth_band", None),
+            "uri": config.uri,
+            "uris": config.uris,
+            "val_uri": config.val_uri,
+        },
+        uri,
+    )
     return VesuviusS3Dataset(
         uri,
         config.patch_size,
@@ -629,7 +652,7 @@ def unlabeled_dataset(uri: str, config: ExperimentConfig, seed=None):
         ridge_sigma=getattr(config, "ridge_sigma", 2.0),
         use_lasagna=config.use_lasagna,
         is_unlabeled=True,
-        depth_band=getattr(config, "depth_band", None) if labeled else None,
+        depth_band=band,
         depth_margin=DEPTH_MARGIN,
     )
 
@@ -946,6 +969,7 @@ except ImportError:
     InceptionI3d = None
 
 from vesuvius_autoresearch.core.inference import DEPTH_MARGIN
+from vesuvius_autoresearch.core.inference_constants import depth_band_for
 from vesuvius_autoresearch.core.model_wrappers import (
     GenericMultiTaskWrapper,
     build_resenc_unet,
@@ -1661,10 +1685,10 @@ def train(config: ExperimentConfig, *, strict_warm_start=False):
     v_config = build_vconfig(config)
 
     print(f"Initializing LOCAL TRANSFORMER Training on {config.uris}...")
-    sys.stdout.flush()
-    # The label file each training volume was read with, recorded with the
+    # The label file each training volume is read with, recorded with the
     # result: a pseudo-label takes precedence over the volume's own labels.
-    training_labels: dict[str, str] = {}
+    training_labels = resolve_training_labels(config)
+    sys.stdout.flush()
 
     def get_dataloader(uris, seed=None, is_unlabeled=False):
         from torch.utils.data import ConcatDataset
@@ -1676,9 +1700,7 @@ def train(config: ExperimentConfig, *, strict_warm_start=False):
                 continue
 
             parent_dir = os.path.dirname(uri.rstrip("/"))
-            labels_path = training_label_path(uri, config)
-            training_labels[uri] = labels_path
-            print(f"Training labels for {uri}: {labels_path}")
+            labels_path = training_labels[uri]
             mask_path = os.path.join(parent_dir, "mask.png")
             patches_json_path = os.path.join(parent_dir, "patches.json")
             ds = VesuviusLabeledDataset(
@@ -2772,6 +2794,7 @@ if __name__ == "__main__":
 
     if args.smoke:
         try:
+            resolve_training_labels(config)
             preflight_smoke(config)
         except Exception as e:
             import traceback

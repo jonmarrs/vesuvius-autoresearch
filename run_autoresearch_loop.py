@@ -231,7 +231,8 @@ tweak_templates: list[dict[str, Any]] = [
     # falls back to manual inklabels_filled.png; cycles sampled to this family
     # always REVERTED. Re-add this entry after running
     # scripts/generate_pseudo_labels.py to produce real {segment_name}_pseudo.png
-    # files matching the train.py contract.
+    # files matching the train.py contract, and with use_confidence_weight set
+    # alongside: train.py refuses a pseudo-label without it (2026-10-14).
     # {"family": "iterative", "attr": "pseudo_label_dir", "vals": [None, "local_data/pseudo_labels"]},
     {"family": "uamt", "attr": "use_uamt", "vals": [True, False]},
     # consistency_weight and ema_decay are both no-ops when use_uamt is False

@@ -71,8 +71,10 @@ The first version was reviewed (code-review skill) before merging. Its findings,
   Fr143's slice 3.
 - **UA-MT applies the band only to unlabeled volumes that have labels.** Corrected on 2026-10-14
   (`DESIGN_ARCHITECTURE_REVIEW_2026-10-14_TRAINING_DATA_SOURCES.md`): when this was written, every unlabeled
-  volume went through `VesuviusS3Dataset` over its whole depth, labeled or not, so `[Fr47]` was not banded. It is
-  now: a labeled unlabeled volume is read inside the band, and a label-less one over its whole depth.
+  volume went through `VesuviusS3Dataset` over its whole depth, labeled or not, so `[Fr47]` was not banded. Now
+  UA-MT bands an unlabeled volume when it is also a training volume, matched by path as `depth_band_for` matches,
+  which covers `[Fr47]`, and reads any other over its whole depth. The depth test's check of labeled
+  `unlabeled_uris` (the "Fixed" row above) was removed with it.
 - **The band belongs to the volumes, not the model.** A durable form would record each zarr's first surface layer
   (for example in its attributes) and keep the band in layer numbers. The scoping above is the conservative
   interim: correct where the band was defined, unchanged elsewhere. Path identity stands in for "numbered alike",

@@ -1,9 +1,10 @@
 """Which files and slices a training run reads, and for which loss.
 
 UA-MT's unlabeled reader ignored the depth band, although the 2026-10-14 review
-and the depth-band test both took a labeled unlabeled volume to be read in it;
-a pseudo-label replaced a fragment's labels without a trace, in a production
-config whose pseudo_label_dir has been set since 2026-05-03. See
+and the depth-band test both took the production unlabeled volume (Fr47, also
+the training volume) to be read in it; a pseudo-label replaced a fragment's
+labels without a trace, in a production config whose pseudo_label_dir has been
+set since 2026-05-03. See
 docs/DESIGN_ARCHITECTURE_REVIEW_2026-10-14_TRAINING_DATA_SOURCES.md.
 """
 
@@ -54,23 +55,32 @@ def _config(uri, **kwargs):
     )
 
 
-def test_a_labeled_unlabeled_volume_is_read_inside_the_band(tmp_path):
-    """The production layout: 33 slices, band [1, 27), 24-slice reads. The band
-    widened by the 4-slice margin is [0, 31), so reads start at 0-7; over the
-    whole depth they started at 0-9."""
+def test_a_training_volume_read_by_uamt_is_read_inside_the_band(tmp_path):
+    """The production layout: unlabeled_uris is the training volume, 33 slices,
+    band [1, 27), 24-slice reads. The band widened by the 4-slice margin is
+    [0, 31), so reads start at 0-7; over the whole depth they started at 0-9."""
     uri = _volume(tmp_path / "Fr47")
-    dataset = train.unlabeled_dataset(uri, _config(uri), seed=0)
-    assert dataset.depth_range == (0, 31)
+    for spelling in (uri, uri + "/"):  # one volume, matched as inference matches
+        dataset = train.unlabeled_dataset(spelling, _config(uri), seed=0)
+        assert dataset.depth_range == (0, 31)
     starts = _read_starts(dataset)
     assert starts <= set(range(8)) and len(starts) > 1
 
 
-def test_a_label_less_unlabeled_volume_is_read_over_its_whole_depth(tmp_path):
-    uri = _volume(tmp_path / "unlabeled", labels=False)
-    dataset = train.unlabeled_dataset(uri, _config(uri), seed=0)
+@pytest.mark.parametrize("depth, labels", [(33, False), (33, True), (21, True)])
+def test_any_other_unlabeled_volume_is_read_over_its_whole_depth(
+    tmp_path, depth, labels
+):
+    """The band names the training volumes' slices; another volume, labeled or
+    not, may number its own differently. A labeled 21-slice volume, which the
+    band [1, 27) would not fit, trains as before."""
+    training = _volume(tmp_path / "Fr47")
+    other = _volume(tmp_path / "other", depth=depth, labels=labels)
+    dataset = train.unlabeled_dataset(other, _config(training), seed=0)
     assert dataset.depth_range is None
-    assert _read_starts(dataset) <= set(range(10))
-    assert max(_read_starts(dataset)) > 7  # past the band's reads
+    assert _read_starts(dataset) <= set(range(max(depth - 24, 0) + 1))
+    if depth == 33:
+        assert max(_read_starts(dataset)) > 7  # past the band's reads
 
 
 def test_without_a_band_the_unlabeled_draws_are_unchanged(tmp_path):
@@ -86,10 +96,9 @@ def test_without_a_band_the_unlabeled_draws_are_unchanged(tmp_path):
     assert isinstance(dataset, VesuviusS3Dataset)
 
 
-def test_train_gives_uamt_the_band_for_a_labeled_volume(tmp_path, monkeypatch, capsys):
-    """Through train.train: the training reader and UA-MT's both get the band,
-    and the label file each training volume is read with is printed (and
-    recorded as training_labels)."""
+def test_train_gives_uamt_the_band_for_a_training_volume(tmp_path, monkeypatch, capsys):
+    """Through train.train: UA-MT's reader of the training volume gets the band,
+    and the label file each training volume is read with is printed."""
     for fragment in ("train", "val"):
         (tmp_path / fragment).mkdir()
         (tmp_path / fragment / "inklabels.png").write_bytes(b"")
@@ -166,3 +175,44 @@ def test_a_training_volume_without_labels_is_refused(tmp_path):
     uri = _volume(tmp_path / "Fr47", labels=False)
     with pytest.raises(FileNotFoundError, match="no label file for training volume"):
         train.training_label_path(uri, _config(uri))
+
+
+@pytest.mark.parametrize("problem", ["no labels", "unweighted pseudo-label"])
+def test_train_refuses_a_label_file_before_validation_and_the_model(
+    tmp_path, monkeypatch, problem
+):
+    """The label files are resolved first: a refusal comes in seconds, before
+    the validation catalogue, the model or any reader is built."""
+    uri = _volume(tmp_path / "Fr47", labels=problem != "no labels")
+    pseudo_dir = tmp_path / "pseudo_labels"
+    pseudo_dir.mkdir()
+    if problem == "unweighted pseudo-label":
+        Image.fromarray(np.zeros((32, 32), np.uint8)).save(
+            pseudo_dir / "Fr47_pseudo.png"
+        )
+
+    def built_first(*args, **kwargs):
+        raise AssertionError("built before the label files were checked")
+
+    for name in (
+        "build_validation_dataset",
+        "build_model",
+        "VesuviusLabeledDataset",
+        "VesuviusS3Dataset",
+    ):
+        monkeypatch.setattr(train, name, built_first)
+    expected = FileNotFoundError if problem == "no labels" else ValueError
+    with pytest.raises(expected):
+        train.train(_config(uri, pseudo_label_dir=str(pseudo_dir)))
+
+
+def test_resolving_the_training_labels_prints_each(tmp_path, capsys):
+    first, second = _volume(tmp_path / "Fr47"), _volume(tmp_path / "Fr53")
+    config = ExperimentConfig(uris=[first, second])
+    labels = train.resolve_training_labels(config)
+    assert labels == {
+        first: str(tmp_path / "Fr47" / "inklabels.png"),
+        second: str(tmp_path / "Fr53" / "inklabels.png"),
+    }
+    out = capsys.readouterr().out
+    assert all(f"Training labels for {u}: {p}" in out for u, p in labels.items())
