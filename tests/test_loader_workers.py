@@ -1,0 +1,71 @@
+"""Training batches prepared in worker processes must be the batches the
+training process would have prepared itself, in the same order."""
+
+import functools
+import multiprocessing
+
+import pytest
+import torch
+import train
+from loader_worker_data import IndexSeeded
+
+from vesuvius_autoresearch.core import vesuvius_loader
+
+
+def _batches(loader, count):
+    batches, it = [], iter(loader)
+    for _ in range(count):
+        try:
+            batches.append(next(it))
+        except StopIteration:  # train.py re-iterates: a fresh permutation
+            it = iter(loader)
+            batches.append(next(it))
+    return batches
+
+
+def test_workers_prepare_the_same_batches_in_the_same_order():
+    data = IndexSeeded(40)
+    inline = _batches(train.shuffled_loader(data, 4, seed=7), 14)
+    spawned = _batches(train.shuffled_loader(data, 4, seed=7, workers=2), 14)
+    for (x0, i0, _), (x1, i1, _) in zip(inline, spawned, strict=True):
+        assert torch.equal(i0, i1) and torch.equal(x0, x1)
+    # 14 batches of 4 cross one pass of 40: the second pass reshuffles.
+    assert [int(i) for i in inline[10][1]] != [int(i) for i in inline[0][1]]
+
+
+def test_the_workers_warnings_reach_the_training_process(monkeypatch):
+    monkeypatch.setattr(
+        vesuvius_loader, "_WARNING_COUNTS", vesuvius_loader.defaultdict(int)
+    )
+    manager = multiprocessing.get_context("spawn").Manager()
+    shared = manager.dict()
+    share = functools.partial(
+        vesuvius_loader.share_warning_counts, shared, manager.Lock()
+    )
+    loader = train.shuffled_loader(
+        IndexSeeded(30), 5, seed=1, workers=2, worker_init_fn=share
+    )
+    assert sum(len(batch[1]) for batch in loader) == 30
+    assert dict(shared) == {"test_fallback": 10}  # indices 0, 3, ..., 27
+    assert vesuvius_loader.warning_counts() == {}  # none in this process
+    manager.shutdown()
+
+
+@pytest.mark.parametrize(
+    "value,cpus,expected",
+    [(None, 4, 3), (None, 16, 3), (None, 2, 1), (None, 1, 0), ("0", 4, 0), ("5", 4, 5)],
+)
+def test_the_worker_count(monkeypatch, value, cpus, expected):
+    monkeypatch.setattr(train.os, "cpu_count", lambda: cpus)
+    if value is None:
+        monkeypatch.delenv(train.LOADER_WORKERS_ENV, raising=False)
+    else:
+        monkeypatch.setenv(train.LOADER_WORKERS_ENV, value)
+    assert train.loader_workers() == expected
+
+
+@pytest.mark.parametrize("value", ["-1", "two"])
+def test_a_bad_worker_count_is_refused(monkeypatch, value):
+    monkeypatch.setenv(train.LOADER_WORKERS_ENV, value)
+    with pytest.raises(ValueError, match="integer >= 0"):
+        train.loader_workers()
