@@ -421,6 +421,7 @@ def _drive_loop(
     on_cycle=None,
     run=None,
     preflight_returncode=0,
+    commit=lambda message: True,
 ):
     import run_autoresearch_loop as loop
 
@@ -437,7 +438,7 @@ def _drive_loop(
         "tweak_templates",
         [{"family": "lr", "attr": "lr", "vals": [1e-3, 5e-4, 1e-4, 5e-5]}],
     )
-    monkeypatch.setattr(loop.os, "system", lambda command: 0)
+    monkeypatch.setattr(loop, "commit_promotion", commit)
     launched = []
 
     class FakeSupervisor:
@@ -811,6 +812,62 @@ def test_a_tracking_error_at_the_end_of_a_run_is_not_a_failed_run(monkeypatch, c
     assert (
         "wandb.finish failed (RuntimeError: upload failed)" in capsys.readouterr().out
     )
+
+
+def _git(repo, *args):
+    return subprocess.run(
+        ["git", "-C", str(repo), *args], capture_output=True, text=True, check=True
+    ).stdout
+
+
+def test_a_promotion_commits_only_the_loops_files(tmp_path, monkeypatch):
+    """`git add ... && git commit` committed the whole index: on 2026-04-25 a
+    promotion commit carried a staged 248-line vesuvius_loader.py change, and
+    35 of 50 carried reports/figures/, which the loop does not write."""
+    import run_autoresearch_loop as loop
+
+    _git(tmp_path, "init", "-q")
+    _git(tmp_path, "config", "user.email", "loop@example.com")
+    _git(tmp_path, "config", "user.name", "loop")
+    names = ["config.json", "best_model.pt", "autoresearch_history.json", "work.py"]
+    for name in names:
+        (tmp_path / name).write_text("before\n")
+    (tmp_path / "reports" / "figures").mkdir(parents=True)
+    (tmp_path / "reports" / "figures" / "plot.svg").write_text("before\n")
+    _git(tmp_path, "add", ".")
+    _git(tmp_path, "commit", "-q", "-m", "start")
+    for name in names:
+        (tmp_path / name).write_text("after\n")
+    (tmp_path / "reports" / "figures" / "plot.svg").write_text("after\n")
+    _git(tmp_path, "add", "work.py")  # the operator's staged work
+    monkeypatch.chdir(tmp_path)
+    assert loop.commit_promotion("DAY SHIFT: lr_0.001 improved model") is True
+    committed = _git(tmp_path, "show", "--name-only", "--format=%s", "HEAD").split()
+    assert committed[-3:] == [
+        "autoresearch_history.json",
+        "best_model.pt",
+        "config.json",
+    ]
+    assert "work.py" not in committed and "reports/figures/plot.svg" not in committed
+    assert _git(tmp_path, "diff", "--cached", "--name-only").split() == ["work.py"]
+
+
+def test_a_failed_promotion_commit_is_recorded(tmp_path, monkeypatch):
+    import run_autoresearch_loop as loop
+
+    monkeypatch.chdir(tmp_path)  # not a git repository
+    assert loop.commit_promotion("message").startswith("git add exited")
+    ExperimentConfig().save(tmp_path / "config.json")
+    _checkpoint(tmp_path / "best_model.pt")
+    _drive_loop(
+        tmp_path,
+        monkeypatch,
+        1,
+        run=_promoting_run(tmp_path),
+        commit=lambda message: "git commit exited 1: hook failed",
+    )
+    log = next((tmp_path / "sprint_logs").glob("*.md")).read_text()
+    assert "- **Commit**: failed (git commit exited 1: hook failed)" in log
 
 
 def test_a_blocked_promotion_is_recorded_in_the_sprint_log(tmp_path, monkeypatch):

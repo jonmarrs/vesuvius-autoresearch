@@ -508,6 +508,36 @@ def exit_description(returncode):
     return f"exited with code {returncode}"
 
 
+# The files a promotion changes, and the only ones its commit records.
+PROMOTION_FILES = (CONFIG_FILE, INCUMBENT, HISTORY_FILE)
+
+
+def commit_promotion(message):
+    """Commit a promotion: exactly PROMOTION_FILES, whatever else is staged.
+
+    `git add ... && git commit` committed the whole index, so changes the
+    operator had staged went in under "improved model" (a 248-line
+    vesuvius_loader.py change on 2026-04-25), as did reports/figures/, which the
+    loop does not write (35 of 50 promotion commits). `git commit --only` takes
+    just these paths and leaves the rest of the index as it was. Returns True,
+    or why the commit failed.
+    """
+    for command in (
+        ["git", "add", "--", *PROMOTION_FILES],
+        ["git", "commit", "--only", "-m", message, "--", *PROMOTION_FILES],
+    ):
+        try:
+            done = subprocess.run(command, capture_output=True, text=True, timeout=120)
+        except (OSError, subprocess.SubprocessError) as e:
+            return f"{command[1]}: {type(e).__name__}: {e}"
+        if done.returncode != 0:
+            detail = (done.stderr or done.stdout).strip().splitlines()
+            return f"git {command[1]} exited {done.returncode}" + (
+                f": {detail[-1]}" if detail else ""
+            )
+    return True
+
+
 def last_log_line(path="run.log", limit=300):
     """The run log's last non-empty line, for a failed cycle's sprint log entry."""
     try:
@@ -996,9 +1026,16 @@ def main():
             print(f"IMPROVEMENT FOUND! (val_f1: {val_f1}) Committing config.")
             if isinstance(val_f1, (int, float)):
                 best_val_f1 = val_f1  # display tracker; authority is train.py
-            os.system(
-                f'git add {CONFIG_FILE} reports/figures/ best_model.pt autoresearch_history.json && git commit -m "{shift_name}: {tweak_name} improved model to val_f1 {val_f1}"'
+            committed = commit_promotion(
+                f"{shift_name}: {tweak_name} improved model to val_f1 {val_f1}"
             )
+            if committed is not True:
+                print(f"Warning: the promotion was not committed ({committed}).")
+                with open(log_filename, "a") as log:
+                    log.write(
+                        f"- **Commit**: failed ({committed}); {INCUMBENT} and "
+                        f"{CONFIG_FILE} are promoted on disk but not in git.\n\n"
+                    )
         elif is_crash:
             print(
                 f"CYCLE CRASHED ({'OOM' if oom_detected else failure}). Reverting but keeping family weight."
