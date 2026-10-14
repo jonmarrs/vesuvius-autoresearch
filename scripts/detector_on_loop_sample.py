@@ -52,6 +52,7 @@ from train import (  # noqa: E402
 
 from scripts.reevaluate_best_model import RECORDED_INPUT_SETTINGS  # noqa: E402
 from scripts.training.promotion import (  # noqa: E402
+    INK_ONLY_PROTOCOL,
     validation_indices,
     validation_label_path,
     validation_protocol,
@@ -115,7 +116,7 @@ def loop_incumbent(config):
         probabilities=lambda net, x: ink_probabilities(
             net, validate_batch(x, settings)
         ),
-        protocol=validation_protocol(config.depth_band),
+        protocol=validation_protocol(config.depth_band, base=INK_ONLY_PROTOCOL),
     )
     if not diag["complete"]:
         raise RuntimeError("incomplete validation sample; nothing computed")
@@ -262,7 +263,7 @@ def main(out_path, detector):
         "constant_all_ink": card(np.ones(labels.shape, np.float32), labels),
     }
     result = {
-        "protocol": validation_protocol(config.depth_band),
+        "protocol": validation_protocol(config.depth_band, base=INK_ONLY_PROTOCOL),
         "git_commit": subprocess.run(
             ["git", "rev-parse", "HEAD"], capture_output=True, text=True, cwd=_REPO
         ).stdout.strip(),

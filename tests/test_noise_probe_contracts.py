@@ -306,7 +306,12 @@ def test_plan_and_execution_follow_the_config_depth_protocol(inputs, monkeypatch
 
 
 @pytest.mark.parametrize(
-    "wrong", [probe.VALIDATION_PROTOCOL, "seeded-sample-400-v2+z17-43"]
+    "wrong",
+    [
+        probe.VALIDATION_PROTOCOL,
+        probe.validation_protocol([17, 43]),
+        "seeded-sample-400-v2+z1-27",  # the ink-only sample, same band
+    ],
 )
 def test_another_depth_protocol_cannot_enter_the_probe_estimate(
     inputs, monkeypatch, wrong

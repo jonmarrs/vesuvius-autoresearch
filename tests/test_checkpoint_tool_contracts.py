@@ -630,6 +630,46 @@ def test_empty_reevaluation_cannot_update_checkpoint(tools_fixture, monkeypatch)
     assert checkpoint.read_bytes() == before
 
 
+def test_reevaluation_pools_the_ink_free_patches_into_f1_only(
+    tools_fixture, monkeypatch
+):
+    # Protocol v3 (finding 88): val_f1, AP lift and AUC pool every patch of the
+    # draw; the per-patch diagnostics stay on the ink-containing ones.
+    checkpoint, _, _, _, _ = tools_fixture
+    inked = Patches.__getitem__
+
+    def every_third_blank(self, index):
+        x, target, fiber = inked(self, index)
+        if index % 3 == 0:
+            return torch.zeros_like(x), torch.zeros_like(target), fiber
+        return x, target, fiber
+
+    monkeypatch.setattr(Patches, "__getitem__", every_third_blank)
+    topology_patches = []
+
+    def topology(probs, targets):
+        topology_patches.append(len(probs))
+        return 0.5, 1.0
+
+    monkeypatch.setattr(reevaluate, "select_topology_threshold", topology)
+    monkeypatch.setattr(reevaluate, "compute_skeleton_dist", lambda *args: 0.0)
+    monkeypatch.setattr(
+        reevaluate,
+        "compute_centerline_dice",
+        lambda *args, **kwargs: {"centerline_dice": 1.0},
+    )
+    monkeypatch.setattr(reevaluate, "compute_cc_diff", lambda *args: 0.0)
+    reevaluate.reevaluate(update_stored=True)
+    after = torch.load(checkpoint, weights_only=False)
+    diag = after["validation_diag"]
+    assert (diag["scored_patches"], diag["usable_patches"]) == (17, 11)
+    assert diag["empty_target_patches"] == 6
+    assert after["reevaluation"]["scored_patches"] == 17
+    assert topology_patches == [11]
+    # Half of each inked patch's 16 pixels is ink: 88 of all 17 x 16.
+    assert after["val_positive_rate"] == pytest.approx(88 / 272)
+
+
 def test_valid_reevaluation_updates_metrics_and_records_provenance(
     tools_fixture, monkeypatch
 ):

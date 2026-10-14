@@ -101,6 +101,6 @@ identical, bit for bit, on 200 random 3×24×24 volumes.
 ## Notes for us (not part of the PR)
 
 - Branch name suggestion: `fix/centerline-dice-empty-slices`.
-- This repository's loop no longer reaches the bug (it scores each patch on its own and drops ink-free patches
-  since the 2026-10-12 reviews), but `scripts/evaluate_villa_metrics.py` scores whole volumes through the pinned
+- This repository's loop no longer reaches the bug (since the 2026-10-12 reviews it scores each patch on its own,
+  and its topology metrics skip ink-free patches, which protocol v3 keeps only for F1, AP lift and AUC), but `scripts/evaluate_villa_metrics.py` scores whole volumes through the pinned
   file and stays affected until the pin includes the fix.
