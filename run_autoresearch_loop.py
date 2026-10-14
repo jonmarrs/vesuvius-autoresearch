@@ -777,14 +777,12 @@ def main():
         if is_success:
             status = "SUCCESS"
             success_counts[family] += 1
-            save_history(success_counts)
             # Promote temp config to main config
             os.rename(TEMP_CONFIG, CONFIG_FILE)
         elif is_crash:
             status = "CRASHED (OOM)" if oom_detected else "CRASHED"
             # A crash is not evidence of improvement. Keep the exploration floor
             # without rewarding repeatedly broken configurations.
-            save_history(success_counts)
             if os.path.exists(TEMP_CONFIG):
                 os.remove(TEMP_CONFIG)
         else:
@@ -792,6 +790,10 @@ def main():
             # Only "penalize" (don't increment) if it finished but didn't improve
             if os.path.exists(TEMP_CONFIG):
                 os.remove(TEMP_CONFIG)
+        # Saved every cycle, whatever the outcome: the decay above is per cycle.
+        # REVERTED, the usual outcome, used to leave it unsaved, so the watchdog's
+        # restarts (every shift) put back weights from before the decay.
+        save_history(success_counts)
 
         with open(log_filename, "a") as log:
             log.write(f"## Cycle {i}: {tweak_name} ({status})\n")

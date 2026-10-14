@@ -507,6 +507,19 @@ def test_unreadable_validation_inputs_stop_the_loop_cleanly(tmp_path):
     promotion.check_incumbent(path, str(frag / "surface_volume.zarr"))
 
 
+def test_the_family_weight_decay_is_saved_after_a_reverted_cycle(tmp_path, monkeypatch):
+    """Each cycle decays every active family by 5%. Only SUCCESS and CRASH
+    saved the weights, so after REVERTED cycles (the usual outcome) the next
+    restart put back the weights from before the decay."""
+    ExperimentConfig().save(tmp_path / "config.json")
+    (tmp_path / "autoresearch_history.json").write_text(json.dumps({"lr": 2.0}))
+    result = {"is_success": False, "val_f1": 0.5}
+    launched = _drive_loop(tmp_path, monkeypatch, cycles=3, result=result)
+    assert len(launched) == 3
+    saved = json.loads((tmp_path / "autoresearch_history.json").read_text())
+    assert saved["lr"] == pytest.approx(2.0 * 0.95**3)
+
+
 def test_a_blocked_promotion_is_recorded_in_the_sprint_log(tmp_path, monkeypatch):
     ExperimentConfig().save(tmp_path / "config.json")
     result = {"is_success": False, "val_f1": 0.5, "promotion_blocked": "why"}
