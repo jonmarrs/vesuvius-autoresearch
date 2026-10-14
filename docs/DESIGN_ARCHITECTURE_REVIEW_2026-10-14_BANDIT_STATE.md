@@ -82,8 +82,9 @@ validation run of #62's head, whose tree is `f592a25b`'s.
 
 - Baseline: 42 failed, 2093 passed, 15 skipped, 1 xfailed, 2 errors (environmental: no scroll data, no CUDA,
   no villa data files).
-- Branch, after the PR review's fixes: `tests/test_loop_lifecycle.py` and `tests/test_autoresearch_measurement.py`, 61 passed. Full
-  validation: pending. `scripts/smoke_test.py`: 9 of 11 passed, 2 skipped.
+- Branch, after the PR review's fixes: 42 failed, 2097 passed, 15 skipped, 1 xfailed, 2 errors. The failures and
+  errors are the same set as the baseline; the 4 extra passes are the new tests. `scripts/smoke_test.py`: 9 of 11
+  passed, 2 skipped.
 - Ruff (check and format) and mypy on the loop: clean.
 
 New tests in `tests/test_autoresearch_measurement.py`:
