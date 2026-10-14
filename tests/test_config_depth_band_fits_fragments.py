@@ -43,7 +43,8 @@ def test_the_banded_volumes_number_their_slices_alike():
     was built another way, and the band would name other layers in it."""
     if CONFIG.depth_band is None:
         pytest.skip("no depth band configured")
-    # UA-MT reads a labeled unlabeled_uris entry through the banded dataset too.
+    # UA-MT reads a labeled unlabeled_uris entry inside the band too
+    # (train.unlabeled_dataset).
     labeled_unlabeled = [
         u
         for u in (CONFIG.unlabeled_uris or [])
