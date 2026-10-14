@@ -34,9 +34,11 @@ import numpy as np
 import tifffile
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
-SCROLLGT_ROOT = REPO_ROOT.parent / "scrollgt"
 sys.path.insert(0, str(REPO_ROOT))
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
+from sibling_checkouts import main_checkout  # noqa: E402
+
+SCROLLGT_ROOT = main_checkout().parent / "scrollgt"
 
 from transfer_columns_to_flattening import transfer_columns, valid_mask  # noqa: E402
 

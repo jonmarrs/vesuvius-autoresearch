@@ -39,11 +39,13 @@ from pathlib import Path
 
 import pytest
 
+from scripts.sibling_checkouts import main_checkout
+
 # villa-spiral is a separate checkout from the `villa` submodule and lives outside
 # this repo, so it is absent on most machines. Both are real, and confusing them is
 # easy: the submodule was bumped to 23adee047 on 2026-09-03 while villa-spiral
 # stayed at 5479453a, and only the latter matters for renders.
-_DEFAULT = Path(__file__).resolve().parents[3] / "villa-spiral"
+_DEFAULT = main_checkout().parents[1] / "villa-spiral"
 _VILLA_SPIRAL = Path(os.environ.get("VILLA_SPIRAL", _DEFAULT))
 
 # What renders extract: setup_workdir.sh runs `git archive origin/main`.

@@ -8,8 +8,10 @@ from pathlib import Path
 import numpy as np
 import pytest
 
+from scripts.sibling_checkouts import main_checkout
+
 _REPO = Path(__file__).resolve().parent.parent
-_SG = _REPO.parent / "scrollgt" / "src"
+_SG = main_checkout().parent / "scrollgt" / "src"
 needs_scrollgt = pytest.mark.skipif(
     not _SG.exists(), reason="scrollgt checkout not beside this repo"
 )

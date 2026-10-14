@@ -17,12 +17,11 @@ from pathlib import Path
 import numpy as np
 import pytest
 
+from scripts.sibling_checkouts import main_checkout
 from vesuvius_autoresearch.fibers import eval_trace as ours
 from vesuvius_autoresearch.fibers.skeleton_io import Fiber, Skeleton
 
-SCROLLGT = (
-    Path(__file__).resolve().parents[2] / "scrollgt" / "src" / "scrollgt" / "fibers"
-)
+SCROLLGT = main_checkout().parent / "scrollgt" / "src" / "scrollgt" / "fibers"
 VENDORED = ("ConnectivityScores", "_dilate_labels", "_edge_walk", "_resample_fiber", "_runs_along_fiber",
             "_fiber_runs", "floor_single_instance", "floor_voxel_instances", "floor_connected_components",
             "floor_random_instances", "oracle_from_skeleton")  # fmt: skip
