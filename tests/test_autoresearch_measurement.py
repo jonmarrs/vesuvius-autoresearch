@@ -348,6 +348,35 @@ def test_an_interrupted_save_leaves_the_previous_checkpoint(tmp_path, monkeypatc
     assert torch.load(path)["val_f1"] == 0.9
 
 
+@pytest.mark.parametrize(
+    "checkpoint_out, promoted, written",
+    [
+        (None, False, ["last_model.pt"]),
+        (None, True, ["best_model.pt", "last_model.pt"]),
+        ("experiments/run.pt", True, ["experiments/run.pt"]),
+    ],
+)
+def test_every_cycle_saves_its_candidate_and_a_promotion_the_incumbent(
+    tmp_path, monkeypatch, checkpoint_out, promoted, written
+):
+    """last_model.pt is the cycle's candidate (scripts/snapshot_loop_candidates.sh
+    copies it); a promoted cycle used to write only best_model.pt, so promoted
+    candidates were missing from the snapshots. One record goes to every file;
+    the three hand-copied payloads had drifted apart."""
+    monkeypatch.chdir(tmp_path)
+    saved = []
+    monkeypatch.setattr(
+        train,
+        "save_checkpoint_atomic",
+        lambda record, path: saved.append((path, record)),
+    )
+    record = {"val_f1": 0.5}
+    assert train.save_cycle_checkpoints(record, checkpoint_out, promoted) == written
+    assert saved == [(path, record) for path in written]
+    if checkpoint_out:
+        assert (tmp_path / "experiments").is_dir()
+
+
 # --- loop ---------------------------------------------------------------------
 
 
