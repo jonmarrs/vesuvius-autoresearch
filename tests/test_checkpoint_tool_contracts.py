@@ -326,6 +326,28 @@ def test_unwarped_update_corrects_the_recorded_warp(tools_fixture, monkeypatch):
     assert after["reevaluation"]["overridden_input_settings"] == {"use_lasagna": True}
 
 
+def test_a_rescore_records_the_inputs_a_candidate_is_compared_on(
+    tools_fixture, monkeypatch
+):
+    """The remedy every refusal names (a re-score) must store the fingerprint a
+    candidate scored on config.json's inputs will record."""
+    from scripts.training import promotion
+    from scripts.training.config import ExperimentConfig
+
+    checkpoint, _, _, _, _ = tools_fixture
+    _stub_topology(monkeypatch)
+    reevaluate.reevaluate(update_stored=True)
+    config = ExperimentConfig.load("config.json")
+    expected = promotion.validation_inputs_fingerprint(
+        config.val_uri, config.depth_band
+    )
+    stored = torch.load(checkpoint, weights_only=False)["validation_diag"]
+    assert stored["inputs_sha256"] == expected
+    assert promotion.check_incumbent(
+        str(checkpoint), config.val_uri, config.depth_band
+    ) == pytest.approx(torch.load(checkpoint, weights_only=False)["val_f1"])
+
+
 def test_the_command_line_passes_unwarped(monkeypatch):
     calls = []
     monkeypatch.setattr(reevaluate, "reevaluate", lambda **kwargs: calls.append(kwargs))

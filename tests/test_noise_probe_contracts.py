@@ -395,6 +395,20 @@ def test_changed_sample_prevalence_invalidates_the_repeatability_estimate(
     assert "prevalence changed" in report["input_error"]
 
 
+def test_changed_validation_inputs_invalidate_the_repeatability_estimate(
+    inputs, monkeypatch
+):
+    """Equal counts and prevalence from another label file are another sample."""
+    fake_runner(
+        inputs,
+        monkeypatch,
+        extra="payload['validation_diag']['inputs_sha256'] = Path.cwd().name * 4\nPath('run_result.json').write_text(json.dumps(payload))\n",
+    )
+    report = probe.execute(plan(inputs))
+    assert report["status"] == "FAILED" and report["f1_spread"] is None
+    assert "inputs" in report["input_error"]
+
+
 def test_timeout_stops_worker_group_before_publishing_failure(inputs, monkeypatch):
     worker = inputs[0] / "worker.pid"
     extra = (

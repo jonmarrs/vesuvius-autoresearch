@@ -123,8 +123,13 @@ does not appear to be a model improvement.
 Missing usable data, failed reads or preprocessing, failed metrics, and nonfinite
 metrics fail without updating the checkpoint. A successful explicit update
 records the protocol, evaluation URI, settings, accepted/requested patch counts,
-and thresholds, then atomically replaces the checkpoint. Its model weights, and
-its configuration apart from an `--unwarped` correction, remain intact. A stored score from another
+thresholds and the fingerprint of the validation inputs
+(`validation_diag.inputs_sha256`: the protocol, the fragment, and the label file,
+mask and `patches.json` it read), then atomically replaces the checkpoint. The
+re-scored checkpoint's model weights, and its configuration apart from an
+`--unwarped` correction, remain intact. When `config.json`'s inputs fingerprint
+differently (a refined label file written beside the fragment, say), the loop
+starts no cycle and no candidate is promoted until the incumbent is re-scored. A stored score from another
 protocol blocks loop startup and promotion until explicitly re-scored.
 
 Resolve the host's preprocessing and metric choices before migrating the

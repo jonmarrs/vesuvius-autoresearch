@@ -91,6 +91,70 @@ def test_a_failed_read_makes_the_sample_incomplete():
     assert diag["batch_errors"] == 1 and not diag["complete"]
 
 
+def _fragment(root, labels=b"ink"):
+    frag = root / "frag"
+    (frag / "surface_volume.zarr").mkdir(parents=True)
+    (frag / "inklabels.png").write_bytes(labels)
+    (frag / "mask.png").write_bytes(b"mask")
+    return frag
+
+
+def test_the_inputs_fingerprint_names_what_the_sample_is_drawn_from(
+    tmp_path, monkeypatch
+):
+    """The protocol string names the draw; the fingerprint catches what it does
+    not: another label file, mask, catalogue or fragment."""
+    frag = _fragment(tmp_path)
+    monkeypatch.chdir(tmp_path)
+    uri = "frag/surface_volume.zarr"
+    fingerprint = promotion.validation_inputs_fingerprint
+    base = fingerprint(uri)
+    assert len(base) == 64
+    assert fingerprint(str(tmp_path / uri)) == base  # named, not resolved
+    assert fingerprint(uri + "/") == base
+    (frag / "notes.txt").write_text("unrelated")
+    assert fingerprint(uri) == base
+    assert fingerprint(uri, [1, 27]) != base
+    (frag / "inklabels.png").write_bytes(b"ink, relabeled")
+    relabeled = fingerprint(uri)
+    assert relabeled != base
+    # refine_labels_villa.py --in-place writes this beside inklabels.png, and
+    # validation prefers it.
+    (frag / "inklabels_refined.png").write_bytes(b"ink, relabeled")
+    assert promotion.validation_label_path(uri).endswith("inklabels_refined.png")
+    assert fingerprint(uri) not in (base, relabeled)
+    refined = fingerprint(uri)
+    (frag / "patches.json").write_text("{}")
+    assert fingerprint(uri) != refined
+    (frag / "patches.json").unlink()
+    (frag / "mask.png").write_bytes(b"other mask")
+    assert fingerprint(uri) != refined
+
+
+def test_every_score_records_the_inputs_it_was_drawn_from(tmp_path, monkeypatch):
+    frag = _fragment(tmp_path)
+    monkeypatch.chdir(tmp_path)
+    built = {}
+
+    def dataset(uri, labels, mask, *args, **kwargs):
+        built.update(labels=labels, mask=mask)
+        return Catalogue(1000)
+
+    monkeypatch.setattr(train, "VesuviusLabeledDataset", dataset)
+    (frag / "inklabels_refined.png").write_bytes(b"refined")
+    config = ExperimentConfig(
+        val_uri="frag/surface_volume.zarr", num_layers=16, depth_band=[1, 27]
+    )
+    data = train.build_validation_dataset(config)
+    assert built["labels"].endswith("inklabels_refined.png")
+    expected = promotion.validation_inputs_fingerprint(config.val_uri, [1, 27])
+    assert data.validation_inputs == expected
+    _, _, diag = train.collect_validation_predictions(
+        MeanInk(), data, 8, torch.device("cpu")
+    )
+    assert diag["inputs_sha256"] == expected
+
+
 # --- training sample ----------------------------------------------------------
 
 
@@ -150,7 +214,7 @@ def _checkpoint(path, **fields):
     return path
 
 
-def _decide(path, val_f1=0.6, lift=1.5, submittable=True, complete=True):
+def _decide(path, val_f1=0.6, lift=1.5, submittable=True, complete=True, inputs=None):
     return train.promotion_decision(
         val_f1,
         lift,
@@ -159,6 +223,32 @@ def _decide(path, val_f1=0.6, lift=1.5, submittable=True, complete=True):
         validation_complete=complete,
         protocol=promotion.VALIDATION_PROTOCOL,
         incumbent_path=str(path),
+        inputs=inputs,
+    )
+
+
+def test_an_incumbent_scored_on_other_inputs_blocks_promotion(tmp_path):
+    diag = {"protocol": promotion.VALIDATION_PROTOCOL, "inputs_sha256": "a" * 64}
+    path = _checkpoint(tmp_path / "best_model.pt", validation_diag=diag)
+    assert _decide(path, inputs="a" * 64) == (True, 0.47, None)
+    promote, incumbent, reason = _decide(path, inputs="b" * 64)
+    assert not promote and incumbent == 0.47
+    assert "differ" in reason and "reevaluate_best_model.py" in reason
+    promote, _, reason = _decide(path, inputs=None)
+    assert not promote and "no validation-input fingerprint" in reason
+    # Before fingerprints, the incumbent is compared on its protocol alone.
+    older = _checkpoint(tmp_path / "older.pt")
+    assert _decide(older, inputs="b" * 64) == (True, 0.47, None)
+    # A fingerprint stored with another protocol's diagnostic does not describe
+    # this score: refused, not ignored.
+    stale = _checkpoint(
+        tmp_path / "stale.pt", validation_diag={**diag, "protocol": "older"}
+    )
+    promote, _, reason = _decide(stale, inputs="a" * 64)
+    assert not promote and "do not belong" in reason
+    assert promotion.read_incumbent(str(path), promotion.VALIDATION_PROTOCOL) == (
+        0.47,
+        "a" * 64,
     )
 
 
@@ -222,7 +312,9 @@ def test_an_interrupted_save_leaves_the_previous_checkpoint(tmp_path, monkeypatc
 # --- loop ---------------------------------------------------------------------
 
 
-def _drive_loop(tmp_path, monkeypatch, cycles, result=None, commands=None):
+def _drive_loop(
+    tmp_path, monkeypatch, cycles, result=None, commands=None, on_cycle=None
+):
     import run_autoresearch_loop as loop
 
     monkeypatch.chdir(tmp_path)
@@ -249,6 +341,8 @@ def _drive_loop(tmp_path, monkeypatch, cycles, result=None, commands=None):
             if "--smoke" in command or "scripts/inference/predict.py" in command:
                 return subprocess.CompletedProcess(command, 0)
             launched.append(json.loads((tmp_path / "config_temp.json").read_text()))
+            if on_cycle is not None:
+                on_cycle(len(launched))
             if result is None:
                 return subprocess.CompletedProcess(command, 1)
             (tmp_path / "run_result.json").write_text(json.dumps(result))
@@ -279,6 +373,55 @@ def test_loop_will_not_start_over_an_incomparable_incumbent(
     assert launched == []
     assert "Not starting" in capsys.readouterr().out
     assert not (tmp_path / "sprint_logs").exists()
+
+
+def _fingerprinted_incumbent(tmp_path):
+    frag = _fragment(tmp_path)
+    uri = str(frag / "surface_volume.zarr")
+    ExperimentConfig(val_uri=uri).save(tmp_path / "config.json")
+    diag = {
+        "protocol": promotion.VALIDATION_PROTOCOL,
+        "inputs_sha256": promotion.validation_inputs_fingerprint(uri),
+    }
+    _checkpoint(tmp_path / "best_model.pt", validation_diag=diag)
+    return frag
+
+
+def test_the_loop_stops_before_a_cycle_once_the_validation_labels_change(
+    tmp_path, monkeypatch, capsys
+):
+    """A refined label file written mid-shift (refine_labels_villa.py --in-place)
+    would have every later cycle scored on other targets than the incumbent."""
+    frag = _fingerprinted_incumbent(tmp_path)
+
+    def refine(cycle):
+        (frag / "inklabels_refined.png").write_bytes(b"refined")
+
+    result = {"is_success": False, "val_f1": 0.5}
+    launched = _drive_loop(tmp_path, monkeypatch, 3, result=result, on_cycle=refine)
+    assert len(launched) == 1
+    assert "Stopping before cycle 2" in capsys.readouterr().out
+    log = next((tmp_path / "sprint_logs").glob("*.md")).read_text()
+    assert "Stopped before cycle 2" in log and "re-score" in log
+
+
+def test_the_loop_will_not_start_on_other_validation_inputs(
+    tmp_path, monkeypatch, capsys
+):
+    frag = _fingerprinted_incumbent(tmp_path)
+    (frag / "mask.png").write_bytes(b"another mask")
+    assert _drive_loop(tmp_path, monkeypatch, cycles=1) == []
+    out = capsys.readouterr().out
+    assert "Not starting" in out and "changed since best_model.pt was scored" in out
+
+
+def test_the_loop_says_when_the_incumbent_has_no_fingerprint(
+    tmp_path, monkeypatch, capsys
+):
+    ExperimentConfig().save(tmp_path / "config.json")
+    _checkpoint(tmp_path / "best_model.pt")
+    _drive_loop(tmp_path, monkeypatch, cycles=1)
+    assert "no validation-input fingerprint" in capsys.readouterr().out
 
 
 def test_a_blocked_promotion_is_recorded_in_the_sprint_log(tmp_path, monkeypatch):

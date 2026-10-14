@@ -11,10 +11,21 @@ batch_size tweak was scored on a different set from the incumbent. Protocol v2
 scores a fixed, seeded sample spread over the whole catalogue, whatever the batch
 size. A score from another protocol is not comparable and is refused, not
 bootstrapped; ``scripts/reevaluate_best_model.py --update-stored`` re-scores it.
+
+The protocol string names how the sample is drawn, not what it is drawn from:
+another label file beside the fragment (``inklabels_refined.png`` is preferred
+when present), mask, patch catalogue or validation fragment keeps the string and
+changes the patches or targets. Each score therefore also records a fingerprint
+of those inputs (``validation_diag["inputs_sha256"]``,
+validation_inputs_fingerprint), and an incumbent whose fingerprint differs from
+config.json's inputs is refused the same way, by the loop before each cycle and
+by train.py before a promotion.
 """
 
 from __future__ import annotations
 
+import hashlib
+import json
 import math
 import os
 import tempfile
@@ -37,6 +48,57 @@ def validation_protocol(depth_band=None) -> str:
     return f"{VALIDATION_PROTOCOL}+z{start}-{end}"
 
 
+# The label file validation reads: the first of these beside the volume.
+VALIDATION_LABEL_FILES = (
+    "inklabels_refined.png",
+    "inklabels_filled.png",
+    "inklabels.png",
+)
+
+
+def validation_label_path(val_uri: str) -> str:
+    """The label file validation reads (inklabels.png when none exists)."""
+    parent = os.path.dirname(val_uri.rstrip("/"))
+    for name in VALIDATION_LABEL_FILES:
+        path = os.path.join(parent, name)
+        if os.path.exists(path):
+            return path
+    return path
+
+
+def _file_sha256(path: str) -> str | None:
+    if not os.path.isfile(path):
+        return None
+    digest = hashlib.sha256()
+    with open(path, "rb") as handle:
+        for block in iter(lambda: handle.read(1 << 20), b""):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+def validation_inputs_fingerprint(val_uri: str, depth_band=None) -> str:
+    """A sha256 of what the protocol's sample is drawn from.
+
+    The protocol (sample size, seed, depth band); the fragment and volume names;
+    the label file validation reads and its contents; the mask; and patches.json,
+    which replaces the catalogue when present. Paths are named, not resolved, so
+    a checkout elsewhere or an absolute path gives the same fingerprint. The CT
+    is not hashed, and neither is the model's geometry (patch size, depth): the
+    loop pins those, and the incumbent is re-scored at its own.
+    """
+    parent = os.path.dirname(val_uri.rstrip("/"))
+    labels = validation_label_path(val_uri)
+    record = {
+        "protocol": validation_protocol(depth_band),
+        "fragment": os.path.basename(os.path.normpath(parent)),
+        "volume": os.path.basename(os.path.normpath(val_uri)),
+        "labels": [os.path.basename(labels), _file_sha256(labels)],
+        "mask": _file_sha256(os.path.join(parent, "mask.png")),
+        "patches_json": _file_sha256(os.path.join(parent, "patches.json")),
+    }
+    return hashlib.sha256(json.dumps(record, sort_keys=True).encode()).hexdigest()
+
+
 class IncumbentUnavailable(RuntimeError):
     """best_model.pt exists, but its score cannot be compared with a candidate's."""
 
@@ -54,7 +116,14 @@ def validation_indices(
 
 
 def read_incumbent_val_f1(path: str, protocol: str) -> float:
-    """The stored val_f1 a candidate must beat.
+    """The stored val_f1 a candidate must beat (see read_incumbent)."""
+    return read_incumbent(path, protocol)[0]
+
+
+def read_incumbent(path: str, protocol: str) -> tuple[float, str | None]:
+    """The stored val_f1 a candidate must beat, and the fingerprint of the
+    validation inputs it was measured on (validation_inputs_fingerprint; None when
+    the incumbent predates fingerprints).
 
     -inf when there is no incumbent, so the first run bootstraps one. Raises
     IncumbentUnavailable when the file exists but cannot be compared: unreadable,
@@ -64,7 +133,7 @@ def read_incumbent_val_f1(path: str, protocol: str) -> float:
     because the same file could not be warm-started, replace the incumbent.
     """
     if not os.path.exists(path):
-        return float("-inf")
+        return float("-inf"), None
     import torch
 
     try:
@@ -88,7 +157,35 @@ def read_incumbent_val_f1(path: str, protocol: str) -> float:
         raise IncumbentUnavailable(
             f"{path} has no finite val_f1; re-score it with `{RESCORE_COMMAND}`"
         )
-    return float(val_f1)
+    diag = checkpoint.get("validation_diag")
+    inputs = diag.get("inputs_sha256") if isinstance(diag, dict) else None
+    if inputs is not None and (
+        not isinstance(inputs, str) or diag.get("protocol") != protocol
+    ):
+        raise IncumbentUnavailable(
+            f"{path} records validation inputs that do not belong to its "
+            f"{protocol} score; re-score it with `{RESCORE_COMMAND}`"
+        )
+    return float(val_f1), inputs
+
+
+def check_incumbent(path: str, val_uri: str, depth_band=None) -> float:
+    """The incumbent's val_f1, if a candidate scored on these validation inputs
+    can be compared with it; IncumbentUnavailable otherwise.
+
+    An incumbent scored before fingerprints were recorded is compared on its
+    protocol alone; the loop says so when it starts.
+    """
+    val_f1, inputs = read_incumbent(path, validation_protocol(depth_band))
+    if inputs is not None and inputs != validation_inputs_fingerprint(
+        val_uri, depth_band
+    ):
+        raise IncumbentUnavailable(
+            f"the validation inputs beside {val_uri} (label file, mask or "
+            f"patches.json) changed since {path} was scored; re-score it with "
+            f"`{RESCORE_COMMAND}`"
+        )
+    return val_f1
 
 
 def save_checkpoint_atomic(payload, path: str) -> None:
