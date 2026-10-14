@@ -77,3 +77,87 @@ def test_the_draw_is_inside_the_mask_and_repeatable():
     for y, x in a:
         assert y % 32 == 0 and x % 32 == 0
         assert mask[y : y + 64, x : x + 64].all()
+
+
+RESULT_PATH = REPO / "reports" / "detector_depth_ablation.json"
+RESULT = json.loads(RESULT_PATH.read_text()) if RESULT_PATH.exists() else None
+REPORT_PATH = REPO / "reports" / "detector_depth_ablation.md"
+
+
+def _row(label, zarr, name):
+    c, d = RESULT["cards"], RESULT["auc_drops"]
+    if name == "full":
+        return f"| {label} | {zarr} | {c['full']['roc_auc']:.4f} | 0 | 0 | {c['full']['ap_prevalence_lift']:.4f} |"
+    offset = name.split("_")[1]
+    return (
+        f"| {label} | {zarr} | {c[name]['roc_auc']:.4f} | **{d[name]:.4f}** | "
+        f"{d['edge_' + offset]:.4f} | {c[name]['ap_prevalence_lift']:.4f} |"
+    )
+
+
+def _quoted():
+    d, c = RESULT["auc_drops"], RESULT["cards"]
+    control = json.loads(
+        (REPO / "reports" / "detector_random_window_control.json").read_text()
+    )
+    return {
+        "commit": f"run at\n`{RESULT['git_commit'][:8]}`",
+        "windows": f"**{RESULT['windows']}** random windows of Fr143 (seed {RESULT['seed']}",
+        "pixels": f"**{RESULT['n_pixels']:,}** pixels, ink prevalence **{RESULT['ink_prevalence']:.4f}**",
+        "full": _row("all 26", "1–26", "full"),
+        "low": _row("3–18 (the loop's lowest window)", "4–19", "reflect_3"),
+        "mid": _row("7–22 (a middle window)", "8–23", "reflect_7"),
+        "high": _row("10–25 (the loop's highest window)", "11–26", "reflect_10"),
+        "drops": f"The drops are {d['reflect_3']:.4f},\n{d['reflect_7']:.4f} and {d['reflect_10']:.4f}",
+        "ratio": f"loses {d['reflect_3']:.4f}, {d['reflect_3'] / d['reflect_10']:.1f} times as much",
+        "high text": f"(0–9) and loses\n{d['reflect_10']:.4f}",
+        "above chance": f"loses {d['reflect_3']:.4f} of its {c['full']['roc_auc'] - 0.5:.4f} above chance",
+        "control reproduced": f"{control['cards']['detector_single_window']['roc_auc']:.4f}",
+    }
+
+
+def test_the_pre_registered_reading_holds():
+    if RESULT is None:
+        pytest.skip("not run")
+    primary = [RESULT["auc_drops"][f"reflect_{o}"] for o in mod.OFFSETS]
+    assert not all(d <= 0.02 for d in primary)
+    assert not all(d >= 0.05 for d in primary)
+    assert RESULT["reading"] == "depends on the window's position"
+    assert "it depends on the window's position" in REPORT_PATH.read_text()
+
+
+def test_the_position_effect_holds_under_both_fills():
+    if RESULT is None:
+        pytest.skip("not run")
+    d = RESULT["auc_drops"]
+    for fill in mod.FILLS:
+        assert d[f"{fill}_3"] > d[f"{fill}_7"] > d[f"{fill}_10"]
+
+
+@pytest.mark.parametrize(
+    "name",
+    sorted(
+        [
+            "commit",
+            "windows",
+            "pixels",
+            "full",
+            "low",
+            "mid",
+            "high",
+            "drops",
+            "ratio",
+            "high text",
+            "above chance",
+            "control reproduced",
+        ]
+    ),
+)
+def test_the_report_quotes_the_result(name):
+    if RESULT is None:
+        pytest.skip("not run")
+    report = REPORT_PATH.read_text()
+    text = _quoted()[name]
+    assert text in report or " ".join(text.split()) in " ".join(report.split()), (
+        f"{name}: {text!r} not in the report"
+    )
