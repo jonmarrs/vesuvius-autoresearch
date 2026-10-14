@@ -1640,7 +1640,8 @@ def save_cycle_checkpoints(checkpoint, checkpoint_out, is_improvement) -> list[s
     An experiment run (checkpoint_out) writes only its own file and leaves the
     loop's untouched. A loop cycle writes its candidate to last_model.pt every
     cycle, promoted or not (scripts/snapshot_loop_candidates.sh copies it as
-    the cycle's candidate), and to best_model.pt when it is promoted.
+    the cycle's candidate), and to best_model.pt when it is promoted, last: a
+    run stopped between the two leaves the incumbent the loop still records.
     """
     if checkpoint_out:
         directory = os.path.dirname(checkpoint_out)
@@ -1649,7 +1650,7 @@ def save_cycle_checkpoints(checkpoint, checkpoint_out, is_improvement) -> list[s
         save_checkpoint_atomic(checkpoint, checkpoint_out)
         print(f"Saved experiment checkpoint to {checkpoint_out} (loop state untouched)")
         return [checkpoint_out]
-    paths = (["best_model.pt"] if is_improvement else []) + ["last_model.pt"]
+    paths = ["last_model.pt"] + (["best_model.pt"] if is_improvement else [])
     for path in paths:
         save_checkpoint_atomic(checkpoint, path)
     return paths
@@ -2623,13 +2624,14 @@ def train(config: ExperimentConfig, *, strict_warm_start=False):
         "config": asdict(config),
     }
     ckpt_out = getattr(config, "checkpoint_out", None)
-    if is_improvement and not ckpt_out:
+    promoted = is_improvement and not ckpt_out
+    if promoted:
         print(
             f"Saving new best model — val_f1: {val_f1:.6f} "
             f"(ap_lift {ap_prevalence_lift:.3f}, thr {val_f1_threshold:.3f})"
         )
     save_cycle_checkpoints(checkpoint, ckpt_out, is_improvement)
-    if is_improvement and not ckpt_out:
+    if promoted:
         stamp = time.strftime("%Y-%m-%d %H:%M:%S")
         cfg_json = json.dumps(asdict(config))
         append_tsv_row(

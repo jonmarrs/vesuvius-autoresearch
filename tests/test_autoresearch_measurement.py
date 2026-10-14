@@ -352,7 +352,7 @@ def test_an_interrupted_save_leaves_the_previous_checkpoint(tmp_path, monkeypatc
     "checkpoint_out, promoted, written",
     [
         (None, False, ["last_model.pt"]),
-        (None, True, ["best_model.pt", "last_model.pt"]),
+        (None, True, ["last_model.pt", "best_model.pt"]),
         ("experiments/run.pt", True, ["experiments/run.pt"]),
     ],
 )
@@ -361,8 +361,8 @@ def test_every_cycle_saves_its_candidate_and_a_promotion_the_incumbent(
 ):
     """last_model.pt is the cycle's candidate (scripts/snapshot_loop_candidates.sh
     copies it); a promoted cycle used to write only best_model.pt, so promoted
-    candidates were missing from the snapshots. One record goes to every file;
-    the three hand-copied payloads had drifted apart."""
+    candidates were missing from the snapshots. best_model.pt is written last,
+    so a run stopped between the two leaves the incumbent the loop records."""
     monkeypatch.chdir(tmp_path)
     saved = []
     monkeypatch.setattr(
@@ -375,6 +375,37 @@ def test_every_cycle_saves_its_candidate_and_a_promotion_the_incumbent(
     assert saved == [(path, record) for path in written]
     if checkpoint_out:
         assert (tmp_path / "experiments").is_dir()
+
+
+def test_train_saves_one_record_through_save_cycle_checkpoints():
+    """The three hand-copied payloads had drifted apart (last_model.pt lacked
+    avg_mean_ap, checkpoint_out prize_gate_failures). train() now builds one
+    record and saves it only through save_cycle_checkpoints."""
+    import ast
+    import inspect
+    import textwrap
+
+    tree = ast.parse(textwrap.dedent(inspect.getsource(train.train)))
+    calls = [n for n in ast.walk(tree) if isinstance(n, ast.Call)]
+    names = [getattr(c.func, "id", None) for c in calls]
+    assert names.count("save_checkpoint_atomic") == 0
+    (save,) = [
+        c for c in calls if getattr(c.func, "id", None) == "save_cycle_checkpoints"
+    ]
+    assert [ast.unparse(a) for a in save.args] == [
+        "checkpoint",
+        "ckpt_out",
+        "is_improvement",
+    ]
+    (record,) = [
+        n.value
+        for n in ast.walk(tree)
+        if isinstance(n, ast.Assign)
+        and [ast.unparse(t) for t in n.targets] == ["checkpoint"]
+        and isinstance(n.value, ast.Dict)
+    ]
+    keys = {k.value for k in record.keys}
+    assert {"model_state_dict", "avg_mean_ap", "prize_gate_failures", "config"} <= keys
 
 
 # --- loop ---------------------------------------------------------------------
