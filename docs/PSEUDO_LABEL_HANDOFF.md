@@ -109,7 +109,10 @@ operator's responsibility. No full training config is generated or executed.
 
 The existing loader normalizes PNG 128 to **128/255**, not exactly 0.5. Existing
 confidence weighting therefore gives these pixels residual weight **1/255**,
-not zero. Without confidence weighting they are ordinary soft labels. Exact
+not zero. Without confidence weighting they would be ordinary soft labels, so
+training refuses a `<segment>_pseudo.png` from `pseudo_label_dir` unless
+`use_confidence_weight` is set (`train.training_label_path`, 2026-10-14). A
+pseudo-label installed as a fragment's own label file is not checked. Exact
 ignore-mask enforcement is not implemented in the existing loss, and these
 artifacts cannot promise that held-out pixels receive no training gradient.
 Training loss, normalization, buffered sampling, model math, and evaluation

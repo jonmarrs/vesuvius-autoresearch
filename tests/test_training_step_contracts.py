@@ -247,6 +247,8 @@ def test_train_stops_at_an_unreadable_validation_patch_before_loading_anything(
 
     for name in ("VesuviusLabeledDataset", "VesuviusS3Dataset", "build_model"):
         monkeypatch.setattr(train, name, too_early)
+    # Label files are checked first (file checks only); none exist here.
+    monkeypatch.setattr(train, "training_label_path", lambda *args: "labels.png")
     with pytest.raises(RuntimeError, match="cannot be read"):
         train.train(ExperimentConfig())
 

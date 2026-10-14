@@ -59,6 +59,7 @@ from scripts.cldice_loss import SoftClDiceLoss
 from scripts.training.config import AuxiliaryConfig, ExperimentConfig
 from scripts.training.promotion import (
     RESCORE_COMMAND,
+    VALIDATION_LABEL_FILES,
     VALIDATION_PROTOCOL,
     IncumbentUnavailable,
     read_incumbent,
@@ -581,6 +582,81 @@ def build_validation_dataset(config: ExperimentConfig):
     return dataset
 
 
+def training_label_path(uri: str, config: ExperimentConfig) -> str:
+    """The label file training reads for a labeled volume.
+
+    A `<segment>_pseudo.png` in pseudo_label_dir takes precedence over the
+    volume's own labels (docs/PSEUDO_LABEL_HANDOFF.md). Its uncertain band (PNG
+    128) is a target like any other unless use_confidence_weight down-weights it,
+    so a pseudo-label from pseudo_label_dir without it is refused rather than
+    trained as ink 128/255.
+    """
+    if config.pseudo_label_dir:
+        segment = os.path.basename(os.path.dirname(uri.rstrip("/")))
+        pseudo = os.path.join(config.pseudo_label_dir, f"{segment}_pseudo.png")
+        if os.path.exists(pseudo):
+            if not getattr(config, "use_confidence_weight", False):
+                raise ValueError(
+                    f"{pseudo} replaces the labels of {uri}, but "
+                    "use_confidence_weight is off, so its uncertain band would be "
+                    "trained as ink probability 128/255 (docs/PSEUDO_LABEL_HANDOFF.md)"
+                )
+            return pseudo
+    path = validation_label_path(uri)  # the same order as validation
+    if not os.path.exists(path):
+        raise FileNotFoundError(
+            f"no label file for training volume {uri} (looked for "
+            f"{', '.join(VALIDATION_LABEL_FILES)} beside it)"
+        )
+    return path
+
+
+def resolve_training_labels(config: ExperimentConfig) -> dict[str, str]:
+    """Each training volume's label file (training_label_path), printed.
+
+    Only file checks, so train() and the --smoke preflight run it first: a
+    missing or refused label file fails in seconds, not after the validation
+    catalogue and the model are built.
+    """
+    labels = {uri: training_label_path(uri, config) for uri in config.uris}
+    for uri, path in labels.items():
+        print(f"Training labels for {uri}: {path}")
+    return labels
+
+
+def unlabeled_dataset(uri: str, config: ExperimentConfig, seed=None):
+    """UA-MT's reader for one unlabeled_uris volume.
+
+    The band names slices of the volumes it was set for, so it applies to an
+    unlabeled volume that is also one of them (a training volume, matched by
+    path as inference_constants.depth_band_for matches a checkpoint's), whose
+    labeled reads use it. Any other unlabeled volume is read over its whole
+    depth: it may number its slices differently.
+    """
+    band = depth_band_for(
+        {
+            "depth_band": getattr(config, "depth_band", None),
+            "uri": config.uri,
+            "uris": config.uris,
+            "val_uri": config.val_uri,
+        },
+        uri,
+    )
+    return VesuviusS3Dataset(
+        uri,
+        config.patch_size,
+        config.num_layers + 2 * DEPTH_MARGIN,
+        seed=seed,
+        cache_dir=config.cache_dir,
+        use_ridges=config.use_ridges,
+        ridge_sigma=getattr(config, "ridge_sigma", 2.0),
+        use_lasagna=config.use_lasagna,
+        is_unlabeled=True,
+        depth_band=band,
+        depth_margin=DEPTH_MARGIN,
+    )
+
+
 def _sigmoid_ink(model, x):
     out = model(x)
     return torch.sigmoid(out[0] if isinstance(out, tuple) else out)
@@ -893,6 +969,7 @@ except ImportError:
     InceptionI3d = None
 
 from vesuvius_autoresearch.core.inference import DEPTH_MARGIN
+from vesuvius_autoresearch.core.inference_constants import depth_band_for
 from vesuvius_autoresearch.core.model_wrappers import (
     GenericMultiTaskWrapper,
     build_resenc_unet,
@@ -1608,6 +1685,9 @@ def train(config: ExperimentConfig, *, strict_warm_start=False):
     v_config = build_vconfig(config)
 
     print(f"Initializing LOCAL TRANSFORMER Training on {config.uris}...")
+    # The label file each training volume is read with, recorded with the
+    # result: a pseudo-label takes precedence over the volume's own labels.
+    training_labels = resolve_training_labels(config)
     sys.stdout.flush()
 
     def get_dataloader(uris, seed=None, is_unlabeled=False):
@@ -1616,69 +1696,32 @@ def train(config: ExperimentConfig, *, strict_warm_start=False):
         datasets = []
         for uri in uris:
             if is_unlabeled:
-                ds = VesuviusS3Dataset(
-                    uri,
-                    config.patch_size,
-                    config.num_layers + 2 * DEPTH_MARGIN,
-                    seed=seed,
-                    cache_dir=config.cache_dir,
-                    use_ridges=config.use_ridges,
-                    ridge_sigma=getattr(config, "ridge_sigma", 2.0),
-                    use_lasagna=config.use_lasagna,
-                    is_unlabeled=True,
-                )
-                datasets.append(ds)
+                datasets.append(unlabeled_dataset(uri, config, seed))
                 continue
 
             parent_dir = os.path.dirname(uri.rstrip("/"))
-
-            # Check for pseudo-labels first if directory is provided
-            labels_path = None
-            if config.pseudo_label_dir:
-                # Expecting pseudo-labels to be named after the segment directory
-                segment_name = os.path.basename(parent_dir)
-                pseudo_path = os.path.join(
-                    config.pseudo_label_dir, f"{segment_name}_pseudo.png"
-                )
-                if os.path.exists(pseudo_path):
-                    labels_path = pseudo_path
-
-            if labels_path is None:
-                labels_path = validation_label_path(uri)  # the same order
-
-            if os.path.exists(labels_path):
-                mask_path = os.path.join(parent_dir, "mask.png")
-                patches_json_path = os.path.join(parent_dir, "patches.json")
-                ds = VesuviusLabeledDataset(
-                    uri,
-                    labels_path,
-                    mask_path if os.path.exists(mask_path) else None,
-                    config.patch_size,
-                    config.num_layers + 2 * DEPTH_MARGIN,
-                    seed=seed,
-                    cache_dir=config.cache_dir,
-                    use_ridges=config.use_ridges,
-                    ridge_sigma=getattr(config, "ridge_sigma", 2.0),
-                    use_lasagna=getattr(config, "use_lasagna", False),
-                    target_fiber_source=fiber_target_source,
-                    target_fiber_sigma=getattr(config, "target_fiber_sigma", 2.0),
-                    patches_json=patches_json_path
-                    if os.path.exists(patches_json_path)
-                    else None,
-                    depth_band=getattr(config, "depth_band", None),
-                    depth_margin=DEPTH_MARGIN,
-                )
-            else:
-                ds = VesuviusS3Dataset(
-                    uri,
-                    config.patch_size,
-                    config.num_layers + 2 * DEPTH_MARGIN,
-                    seed=seed,
-                    cache_dir=config.cache_dir,
-                    use_ridges=config.use_ridges,
-                    ridge_sigma=getattr(config, "ridge_sigma", 2.0),
-                    use_lasagna=getattr(config, "use_lasagna", False),
-                )
+            labels_path = training_labels[uri]
+            mask_path = os.path.join(parent_dir, "mask.png")
+            patches_json_path = os.path.join(parent_dir, "patches.json")
+            ds = VesuviusLabeledDataset(
+                uri,
+                labels_path,
+                mask_path if os.path.exists(mask_path) else None,
+                config.patch_size,
+                config.num_layers + 2 * DEPTH_MARGIN,
+                seed=seed,
+                cache_dir=config.cache_dir,
+                use_ridges=config.use_ridges,
+                ridge_sigma=getattr(config, "ridge_sigma", 2.0),
+                use_lasagna=getattr(config, "use_lasagna", False),
+                target_fiber_source=fiber_target_source,
+                target_fiber_sigma=getattr(config, "target_fiber_sigma", 2.0),
+                patches_json=patches_json_path
+                if os.path.exists(patches_json_path)
+                else None,
+                depth_band=getattr(config, "depth_band", None),
+                depth_margin=DEPTH_MARGIN,
+            )
             datasets.append(ds)
 
         combined_ds = ConcatDataset(datasets) if len(datasets) > 1 else datasets[0]
@@ -2550,6 +2593,7 @@ def train(config: ExperimentConfig, *, strict_warm_start=False):
                 "val_f1_threshold": float(val_f1_threshold),
                 "val_protocol": protocol,
                 "train_sampling_seed": sampling_seed,
+                "training_labels": training_labels,
                 "ap_prevalence_lift": float(ap_prevalence_lift),
                 "roc_auc": float(roc_auc),
                 "val_positive_rate": float(val_positive_rate),
@@ -2580,6 +2624,7 @@ def train(config: ExperimentConfig, *, strict_warm_start=False):
                 "val_f1_threshold": float(val_f1_threshold),
                 "val_protocol": protocol,
                 "train_sampling_seed": sampling_seed,
+                "training_labels": training_labels,
                 "ap_prevalence_lift": float(ap_prevalence_lift),
                 "roc_auc": float(roc_auc),
                 "val_positive_rate": float(val_positive_rate),
@@ -2648,6 +2693,7 @@ def train(config: ExperimentConfig, *, strict_warm_start=False):
                 "val_f1_threshold": float(val_f1_threshold),
                 "val_protocol": protocol,
                 "train_sampling_seed": sampling_seed,
+                "training_labels": training_labels,
                 "ap_prevalence_lift": float(ap_prevalence_lift),
                 "roc_auc": float(roc_auc),
                 "val_positive_rate": float(val_positive_rate),
@@ -2680,6 +2726,7 @@ def train(config: ExperimentConfig, *, strict_warm_start=False):
         "incumbent_val_f1": float(best_previous_val_f1),
         "promotion_blocked": promotion_blocked,
         "train_sampling_seed": sampling_seed,
+        "training_labels": training_labels,
         "ap_prevalence_lift": float(ap_prevalence_lift),
         "roc_auc": float(roc_auc),
         "val_positive_rate": float(val_positive_rate),
@@ -2747,6 +2794,7 @@ if __name__ == "__main__":
 
     if args.smoke:
         try:
+            resolve_training_labels(config)
             preflight_smoke(config)
         except Exception as e:
             import traceback
