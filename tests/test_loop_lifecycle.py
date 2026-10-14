@@ -237,6 +237,7 @@ def test_failed_training_cannot_promote_a_success_result(tmp_path, monkeypatch):
 
 LOOP_RUNTIME_STATE = (
     "autoresearch.lock",
+    ".best_model.pt.held",
     ".current_day_shift_log",
     ".loop_paused",
     "autoresearch.out",

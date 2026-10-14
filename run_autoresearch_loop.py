@@ -408,6 +408,70 @@ def save_recent_configs(configs):
         print(f"Warning: Could not save {RECENT_CONFIGS_FILE}: {e}")
 
 
+INCUMBENT = "best_model.pt"
+# A hard link to the incumbent, kept while a training run may replace it.
+INCUMBENT_HELD = ".best_model.pt.held"
+
+
+def hold_incumbent():
+    """Hard-link the incumbent before a training run, at no copy cost: train.py
+    promotes by os.replace, so the link keeps the old checkpoint. True if there
+    was one to hold, False if there was none, None if it could not be held."""
+    if os.path.lexists(INCUMBENT_HELD):
+        os.remove(INCUMBENT_HELD)
+    if not os.path.exists(INCUMBENT):
+        return False
+    try:
+        os.link(INCUMBENT, INCUMBENT_HELD)
+    except OSError as e:
+        print(f"Warning: could not hold {INCUMBENT} for this cycle ({e}).")
+        return None
+    return True
+
+
+def settle_incumbent(held, failed):
+    """After a run: a failed one promotes neither the config nor the model.
+
+    train.py replaces best_model.pt before it writes run_result.json and exits,
+    so a run that fails after that point (an exit error, the timeout, a stop)
+    left a model no config or commit records, which the next cycle would
+    warm-start from and be compared with. Such a model is moved aside and the
+    held incumbent put back. Returns a note for the sprint log, or None.
+    """
+    if held:
+        replaced = not (
+            os.path.exists(INCUMBENT) and os.path.samefile(INCUMBENT, INCUMBENT_HELD)
+        )
+    else:
+        replaced = held is False and os.path.exists(INCUMBENT)
+    note = None
+    if failed and replaced:
+        aside = None
+        if os.path.exists(INCUMBENT):
+            aside = f"{INCUMBENT}.failed-run-{time.strftime('%Y%m%d-%H%M%S')}"
+            os.replace(INCUMBENT, aside)
+        if held:
+            os.replace(INCUMBENT_HELD, INCUMBENT)
+        note = (
+            f"the run replaced {INCUMBENT} and then failed; "
+            + ("the incumbent was restored" if held else "there was no incumbent")
+            + (f", and the run's model kept as {aside}" if aside else "")
+        )
+    if os.path.lexists(INCUMBENT_HELD):
+        os.remove(INCUMBENT_HELD)
+    return note
+
+
+def last_log_line(path="run.log", limit=300):
+    """The run log's last non-empty line, for a failed cycle's sprint log entry."""
+    try:
+        with open(path, errors="replace") as f:
+            lines = [line.strip() for line in f.readlines()[-50:] if line.strip()]
+    except OSError:
+        return None
+    return lines[-1][:limit] if lines else None
+
+
 def main():
     """Entry point for the autonomous Day/Night Shift autoresearch loop.
 
@@ -426,6 +490,13 @@ def main():
     if os.path.exists(".loop_paused"):
         print("Autoresearch is paused. Use ./start.sh to resume.")
         return
+
+    # A hold left behind means the last loop stopped mid-cycle, before it settled
+    # the run: an incumbent replaced by that run is restored like any failed one.
+    if os.path.lexists(INCUMBENT_HELD):
+        note = settle_incumbent(True, failed=True)
+        if note:
+            print(f"The last loop stopped mid-cycle: {note}.")
 
     # The incumbent must be comparable before any GPU time is spent: train.py
     # refuses to promote over an unreadable or differently-scored best_model.pt,
@@ -676,6 +747,9 @@ def main():
             os.rename("run.log", "run.log.old")
 
         training_returncode = None
+        # Why the cycle produced no result, for the sprint log.
+        failure = None
+        held = hold_incumbent()
         try:
             with open("run.log", "a") as f:
                 f.write(f"\n\n--- {shift_name} CYCLE {i}: {tweak_name} ---\n")
@@ -714,9 +788,14 @@ def main():
                         timeout=300,
                     )
                     preflight_ok = preflight.returncode == 0
+                    if not preflight_ok:
+                        failure = (
+                            f"preflight failed with exit code {preflight.returncode}"
+                        )
                 except subprocess.TimeoutExpired:
                     f.write("PREFLIGHT TIMED OUT — skipping training.\n")
                     preflight_ok = False
+                    failure = "preflight timed out after 300 s"
                 f.flush()
 
                 if not preflight_ok:
@@ -748,8 +827,10 @@ def main():
                         training_returncode = training.returncode
                     except subprocess.TimeoutExpired:
                         print(f"Cycle {i} timed out. Process group stopped.")
+                        failure = f"killed at the {default_budget + 300} s timeout"
         except Exception as e:
             print(f"Subprocess error in cycle {i}: {e}")
+            failure = f"could not be run ({type(e).__name__}: {e})"
 
         val_bpb = train_loss = params = vram = vps = val_f1 = "N/A"
         skipped_updates = 0
@@ -758,8 +839,19 @@ def main():
         is_crash = False
         oom_detected = False
 
+        log_line = None
         if training_returncode != 0 or not os.path.exists("run_result.json"):
             is_crash = True
+            # Promotion requires a clean exit as well as a result (2026-10-01).
+            if failure is None:
+                failure = (
+                    "wrote no run_result.json"
+                    if training_returncode == 0
+                    else f"exited with code {training_returncode}"
+                )
+            if os.path.exists("run_result.json"):  # deleted before the run
+                failure += " after writing run_result.json"
+            log_line = last_log_line()
             if os.path.exists("run.log"):
                 try:
                     with open("run.log") as f:
@@ -795,6 +887,8 @@ def main():
             except Exception as e:
                 print(f"Error reading run_result.json: {e}")
                 is_crash = True
+                failure = f"run_result.json is unreadable ({e})"
+        incumbent_note = settle_incumbent(held, failed=is_crash)
 
         # Success-biased decay: every scored cycle decays all the families it
         # could have sampled, so a family that stops producing promotions loses
@@ -841,7 +935,13 @@ def main():
             if is_success:
                 result_msg = "Improvement detected. Config updated."
             elif is_crash:
-                result_msg = f"Training crashed ({'OOM' if oom_detected else 'Unknown error'}). No success reward; family remains eligible for exploration."
+                result_msg = f"Training crashed ({'out of memory' if oom_detected else failure}). No success reward; family remains eligible for exploration."
+                if log_line and not oom_detected:
+                    log.write(
+                        f"- **Last log line**: `{log_line.replace('`', chr(39))}`\n"
+                    )
+            if incumbent_note:
+                log.write(f"- **Incumbent**: {incumbent_note}.\n")
 
             log.write(f"- **Result**: {result_msg}\n\n")
             log.flush()
@@ -855,8 +955,10 @@ def main():
             )
         elif is_crash:
             print(
-                f"CYCLE CRASHED ({'OOM' if oom_detected else 'UNKNOWN'}). Reverting but keeping family weight."
+                f"CYCLE CRASHED ({'OOM' if oom_detected else failure}). Reverting but keeping family weight."
             )
+            if incumbent_note:
+                print(f"Incumbent: {incumbent_note}.")
         else:
             best_str = (
                 f"{best_val_f1:.6f}" if best_val_f1 > float("-inf") else "none yet"

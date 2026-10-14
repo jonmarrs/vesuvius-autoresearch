@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import itertools
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -412,7 +413,14 @@ def test_train_saves_one_record_through_save_cycle_checkpoints():
 
 
 def _drive_loop(
-    tmp_path, monkeypatch, cycles, result=None, commands=None, on_cycle=None
+    tmp_path,
+    monkeypatch,
+    cycles,
+    result=None,
+    commands=None,
+    on_cycle=None,
+    run=None,
+    preflight_returncode=0,
 ):
     import run_autoresearch_loop as loop
 
@@ -437,11 +445,15 @@ def _drive_loop(
             if commands is not None:
                 commands.append(list(command))
             # The preflight and the every-5th-cycle benchmark are not training runs.
-            if "--smoke" in command or "scripts/inference/predict.py" in command:
+            if "--smoke" in command:
+                return subprocess.CompletedProcess(command, preflight_returncode)
+            if "scripts/inference/predict.py" in command:
                 return subprocess.CompletedProcess(command, 0)
             launched.append(json.loads((tmp_path / "config_temp.json").read_text()))
             if on_cycle is not None:
                 on_cycle(len(launched))
+            if run is not None:
+                return run(command, kwargs["stdout"])
             if result is None:
                 return subprocess.CompletedProcess(command, 1)
             (tmp_path / "run_result.json").write_text(json.dumps(result))
@@ -620,6 +632,111 @@ def test_an_unreadable_history_is_moved_aside_not_overwritten(
     assert _history(tmp_path) == {"lr": 1.0}
     assert "unreadable" in capsys.readouterr().out
     assert not list(tmp_path.glob(".history.*"))  # no temporary left behind
+
+
+def _promoting_run(tmp_path, returncode=0, result=True, timeout=False):
+    """A training run that promotes as train.py does (best_model.pt replaced by
+    os.replace, then run_result.json), then exits or is killed at the timeout."""
+
+    def run(command, log):
+        _checkpoint(tmp_path / "candidate.pt", val_f1=0.9)
+        os.replace(tmp_path / "candidate.pt", tmp_path / "best_model.pt")
+        if result:
+            (tmp_path / "run_result.json").write_text(
+                json.dumps({"is_success": True, "val_f1": 0.9})
+            )
+        log.write("RuntimeError: teardown failed\n")
+        if timeout:
+            raise subprocess.TimeoutExpired(command, 1200)
+        return subprocess.CompletedProcess(command, returncode)
+
+    return run
+
+
+@pytest.mark.parametrize(
+    "returncode, result, timeout, failure",
+    [
+        (1, True, False, "exited with code 1 after writing run_result.json"),
+        (0, True, True, "killed at the 1200 s timeout after writing run_result.json"),
+        (0, False, True, "killed at the 1200 s timeout"),
+    ],
+)
+def test_a_run_that_fails_after_promoting_leaves_the_incumbent(
+    tmp_path, monkeypatch, returncode, result, timeout, failure
+):
+    """A failed run promotes neither the config (2026-10-01) nor the model:
+    train.py had already replaced best_model.pt, which the next cycle would
+    have warm-started from and been compared with, with no config or commit
+    recording it. Its model is kept aside; the incumbent is put back."""
+    config = ExperimentConfig()
+    config.save(tmp_path / "config.json")
+    _checkpoint(tmp_path / "best_model.pt")  # val_f1 0.47
+    run = _promoting_run(tmp_path, returncode, result, timeout)
+    assert len(_drive_loop(tmp_path, monkeypatch, 1, run=run)) == 1
+    assert torch.load(tmp_path / "best_model.pt")["val_f1"] == 0.47
+    (aside,) = tmp_path.glob("best_model.pt.failed-run-*")
+    assert torch.load(aside)["val_f1"] == 0.9
+    assert not os.path.lexists(tmp_path / ".best_model.pt.held")
+    assert ExperimentConfig.load(tmp_path / "config.json") == config
+    log = next((tmp_path / "sprint_logs").glob("*.md")).read_text()
+    assert f"Training crashed ({failure})" in log
+    assert "the incumbent was restored" in log
+    assert "- **Last log line**: `RuntimeError: teardown failed`" in log
+
+
+def test_a_promotion_keeps_its_model_and_releases_the_hold(tmp_path, monkeypatch):
+    ExperimentConfig().save(tmp_path / "config.json")
+    _checkpoint(tmp_path / "best_model.pt")
+    _drive_loop(tmp_path, monkeypatch, 1, run=_promoting_run(tmp_path))
+    assert torch.load(tmp_path / "best_model.pt")["val_f1"] == 0.9
+    assert not list(tmp_path.glob("best_model.pt.failed-run-*"))
+    assert not os.path.lexists(tmp_path / ".best_model.pt.held")
+    assert "(SUCCESS)" in next((tmp_path / "sprint_logs").glob("*.md")).read_text()
+
+
+def test_a_failed_preflight_is_named_in_the_sprint_log(tmp_path, monkeypatch):
+    """Every failure used to read "Training crashed (Unknown error)": 264 runs
+    killed at the timeout from 2026-06-29 to 2026-07-07 showed only in the
+    spacing of their timestamps."""
+    ExperimentConfig().save(tmp_path / "config.json")
+    _checkpoint(tmp_path / "best_model.pt")
+    launched = _drive_loop(tmp_path, monkeypatch, 1, preflight_returncode=2)
+    assert launched == []
+    log = next((tmp_path / "sprint_logs").glob("*.md")).read_text()
+    assert "Training crashed (preflight failed with exit code 2)" in log
+    assert torch.load(tmp_path / "best_model.pt")["val_f1"] == 0.47
+    assert not os.path.lexists(tmp_path / ".best_model.pt.held")
+
+
+def test_a_hold_left_by_a_stopped_loop_restores_the_incumbent(
+    tmp_path, monkeypatch, capsys
+):
+    """Stopped mid-cycle (stop.sh, the watchdog), the loop never settled a run
+    that had replaced best_model.pt; the next start does."""
+    ExperimentConfig().save(tmp_path / "config.json")
+    _checkpoint(tmp_path / "best_model.pt")
+    os.link(tmp_path / "best_model.pt", tmp_path / ".best_model.pt.held")
+    _checkpoint(tmp_path / "candidate.pt", val_f1=0.9)
+    os.replace(tmp_path / "candidate.pt", tmp_path / "best_model.pt")
+    result = {"is_success": False, "val_f1": 0.5}
+    _drive_loop(tmp_path, monkeypatch, 1, result=result)
+    assert "The last loop stopped mid-cycle" in capsys.readouterr().out
+    assert torch.load(tmp_path / "best_model.pt")["val_f1"] == 0.47
+    (aside,) = tmp_path.glob("best_model.pt.failed-run-*")
+    assert torch.load(aside)["val_f1"] == 0.9
+
+
+def test_a_tracking_error_at_the_end_of_a_run_is_not_a_failed_run(monkeypatch, capsys):
+    from scripts import wandb_tracking
+
+    def finish():
+        raise RuntimeError("upload failed")
+
+    monkeypatch.setitem(sys.modules, "wandb", SimpleNamespace(finish=finish))
+    wandb_tracking.finish_run(object())
+    assert (
+        "wandb.finish failed (RuntimeError: upload failed)" in capsys.readouterr().out
+    )
 
 
 def test_a_blocked_promotion_is_recorded_in_the_sprint_log(tmp_path, monkeypatch):
