@@ -15,8 +15,8 @@ from scripts.process_supervisor import ProcessSupervisor
 from scripts.training.config import ExperimentConfig
 from scripts.training.promotion import (
     IncumbentUnavailable,
-    read_incumbent_val_f1,
-    validation_protocol,
+    check_incumbent,
+    first_use_record,
 )
 
 LOCK_FILE = "autoresearch.lock"
@@ -67,7 +67,17 @@ tweak_templates: list[dict[str, Any]] = [
         "vals": [16],
     },  # pinned (was [8,10,12,16,20])
     {"family": "attention", "attr": "num_heads", "vals": [8]},  # pinned (was [4,8,12])
-    {"family": "regularization", "attr": "dropout", "vals": [0.1, 0.2, 0.0]},
+    # dropout reaches only gated_unet (InkDetectorOptimized): resenc_unet has no
+    # dropout layers (model_wrappers.build_resenc_unet) and timesformer fixes its
+    # own. On the pinned resenc_unet, 162 logged cycles (2026-05-03..07-11)
+    # tweaked it to no effect, and one was promoted on noise.
+    {
+        "family": "regularization",
+        "attr": "dropout",
+        "vals": [0.1, 0.2, 0.0],
+        "applies_when": lambda c: getattr(c, "architecture", "gated_unet")
+        == "gated_unet",
+    },
     # Pinned off (was [True, False]): villa's uint8 warp takes CUDA tensors and
     # patches are read on the CPU, so strict validation refuses it and a cycle
     # that requests it fails before training. It never ran in a logged run
@@ -75,13 +85,28 @@ tweak_templates: list[dict[str, Any]] = [
     {"family": "preproc", "attr": "use_lasagna", "vals": [False]},
     # target_fiber_source: tests whether the fiber head's BCE target benefits
     # from being real Frangi vesselness (dataloader-side, ~86ms/patch CPU,
-    # parallelized) instead of the cheap inline Sobel-Z gradient.
-    {"family": "preproc", "attr": "target_fiber_source", "vals": ["sobel_z", "frangi"]},
-    # multi_task_heads: replaces the GenericMultiTaskWrapper's dummy
+    # parallelized) instead of the cheap inline Sobel-Z gradient. The target
+    # feeds the fiber and QC heads only, so the axis needs one of them.
+    {
+        "family": "preproc",
+        "attr": "target_fiber_source",
+        "vals": ["sobel_z", "frangi"],
+        "applies_when": lambda c: trains_head(c, "fiber") or trains_head(c, "qc"),
+    },
+    # multi_task_heads: replaces the GenericMultiTaskWrapper's placeholder
     # fiber/qc/st outputs with real Conv3d/Linear heads operating on
-    # cat(input, backbone_output). Adds ~5k params, but gradients from
-    # loss_fiber/loss_qc/loss_st now flow back through the backbone.
-    {"family": "regularization", "attr": "multi_task_heads", "vals": [True, False]},
+    # cat(input, backbone_output). Adds ~5k params, and gradients from
+    # loss_fiber/loss_qc/loss_st flow back through the backbone. Without heads
+    # the model trains on the ink losses alone (model_wrappers.task_heads).
+    # Only resenc_unet's wrapper builds heads from it (resnet3d/i3d backbones
+    # give no volume output for them); other architectures ignore it.
+    {
+        "family": "regularization",
+        "attr": "multi_task_heads",
+        "vals": [True, False],
+        "applies_when": lambda c: getattr(c, "architecture", "gated_unet")
+        == "resenc_unet",
+    },
     {"family": "batch", "attr": "batch_size", "vals": [8, 16, 24]},
     {"family": "spatial", "attr": "patch_size", "vals": [64]},  # pinned (was [64,96])
     {
@@ -92,8 +117,20 @@ tweak_templates: list[dict[str, Any]] = [
     {"family": "width", "attr": "base_feat", "vals": [64]},  # pinned (was [32,64,128])
     {"family": "loss_balance", "attr": "loss_ink_bce", "vals": [0.2, 0.4, 0.6]},
     {"family": "loss_balance", "attr": "loss_ink_dice", "vals": [0.2, 0.4, 0.6]},
-    {"family": "loss_balance", "attr": "loss_fiber_bce", "vals": [0.1, 0.2, 0.3]},
-    {"family": "loss_balance", "attr": "loss_st", "vals": [0.0, 0.1, 0.2]},
+    # The fiber and structure-tensor weights reach only a model that trains
+    # those heads (see trains_head).
+    {
+        "family": "loss_balance",
+        "attr": "loss_fiber_bce",
+        "vals": [0.1, 0.2, 0.3],
+        "applies_when": lambda c: trains_head(c, "fiber"),
+    },
+    {
+        "family": "loss_balance",
+        "attr": "loss_st",
+        "vals": [0.0, 0.1, 0.2],
+        "applies_when": lambda c: trains_head(c, "st"),
+    },
     {
         "family": "features",
         "attr": "use_ridges",
@@ -115,13 +152,13 @@ tweak_templates: list[dict[str, Any]] = [
         "attr": "aug_mode",
         "vals": ["albumentations", "batchgeneratorsv2"],
     },
-    # Architecture family restricted to candidates with real (non-dummy) ST/QC
-    # heads. Audit on 2026-05-17 found that lejepa_unet has been a topology
-    # regression since the 2026-05-06 flip: skel_dist 27 px vs the May-5
-    # resenc_unet's 1 px (prize gate: <= 2 px). lejepa_unet, timesformer, and
-    # resnet3d_decoder all return torch.zeros(...) for the structure-tensor
-    # head, which explains the regression. Only resenc_unet (ResEnc UNet) and
-    # gated_unet (InkDetectorOptimized) have real ST heads.
+    # Architecture family restricted to candidates with real ST/QC heads. Audit
+    # on 2026-05-17 found that lejepa_unet has been a topology regression since
+    # the 2026-05-06 flip: skel_dist 27 px vs the May-5 resenc_unet's 1 px
+    # (prize gate: <= 2 px). lejepa_unet and timesformer return zeros for the
+    # structure-tensor head; lejepa_unet and neural_tracing_vit also return the
+    # ink logits as fiber and zeros as QC. resenc_unet has real heads only with
+    # multi_task_heads (trains_head, which mirrors each model's task_heads).
     {
         "family": "architecture",
         "attr": "architecture",
@@ -247,6 +284,25 @@ def _tweaked(config, attr, val):
     return candidate
 
 
+# Mirrors each model's declared task_heads (model_wrappers.task_heads), without
+# building one (the loop does not import torch): tests/test_task_heads.py checks
+# they agree. resnet3d/i3d wrap backbones without a volume output, so they have
+# no heads, and their wrapper refuses multi_task_heads.
+_ARCHITECTURES_WITHOUT_HEADS = {"lejepa_unet", "neural_tracing_vit", "resnet3d", "i3d"}
+
+
+def trains_head(config, head):
+    """Whether a run of this config trains the auxiliary head (fiber, qc, st)."""
+    architecture = getattr(config, "architecture", "gated_unet")
+    if architecture in _ARCHITECTURES_WITHOUT_HEADS:
+        return False
+    if architecture == "resenc_unet":
+        return bool(getattr(config, "multi_task_heads", False))
+    if architecture == "timesformer":
+        return head != "st"
+    return True
+
+
 def tweak_proposals(config, cap=None):
     """Split each enabled axis's changed values by the VRAM cap, in one pass.
 
@@ -350,9 +406,12 @@ def main():
     # a returned loop, which reprints this until the operator acts.
     try:
         # The protocol includes config.json's depth band: an incumbent scored on
-        # other slices must be re-scored before a candidate can be compared.
-        best_val_f1 = read_incumbent_val_f1(
-            "best_model.pt", validation_protocol(load_current_config().depth_band)
+        # other slices must be re-scored before a candidate can be compared, and
+        # so must one scored on other validation inputs (label file, mask,
+        # patches.json; promotion.validation_inputs_fingerprint).
+        config = load_current_config()
+        best_val_f1, inputs_known = check_incumbent(
+            "best_model.pt", config.val_uri, config.depth_band
         )
     except (IncumbentUnavailable, ValueError) as exc:
         # ValueError: config.json fails ExperimentConfig's checks (e.g. depth_band).
@@ -363,6 +422,13 @@ def main():
         if best_val_f1 > float("-inf")
         else "No best_model.pt yet; the first lift-positive cycle bootstraps it."
     )
+    if inputs_known == "recorded now":
+        print(
+            "best_model.pt records no validation-input fingerprint (scored before "
+            "2026-10-14). The current inputs were recorded in "
+            f"{first_use_record('best_model.pt')}, and candidates are compared on "
+            "them until it is re-scored or replaced."
+        )
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
 
@@ -449,6 +515,20 @@ def main():
                 )
                 print("=" * 60 + "\n")
 
+            break
+
+        # The validation inputs can change under a running shift (a refined label
+        # file written beside the fragment): stop before training on a sample the
+        # incumbent's score does not describe. The watchdog's restart then
+        # reprints the reason as "Not starting" until the incumbent is re-scored.
+        try:
+            current = load_current_config()
+            if i > 1:  # cycle 1 follows the startup check
+                check_incumbent("best_model.pt", current.val_uri, current.depth_band)
+        except (IncumbentUnavailable, ValueError) as exc:
+            print(f"Stopping before cycle {i}: {exc}")
+            with open(log_filename, "a") as log:
+                log.write(f"- **Stopped before cycle {i}**: {exc}\n\n")
             break
 
         # Every cycle is a single tweak of the promoted config. The every-10th-cycle
@@ -765,9 +845,9 @@ def main():
                 "--uri",
                 BENCHMARK_URI,
                 # No --z: predict.py centres the checkpoint's window in its
-                # recorded depth_band, or in the volume's depth without one.
-                # z=10 showed slices 10-25 of a 65-slice fragment, below the
-                # 17-42 band the project's detector reads.
+                # recorded depth_band on the checkpoint's own volumes (today
+                # BENCHMARK_URI is config.json's val_uri, so it is one), else in
+                # the volume's depth; it says so in the log when it drops a band.
                 "--y",
                 "1000",
                 "--x",

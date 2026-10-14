@@ -58,11 +58,15 @@ from scripts.betti_loss_module import BettiLoss
 from scripts.cldice_loss import SoftClDiceLoss
 from scripts.training.config import AuxiliaryConfig, ExperimentConfig
 from scripts.training.promotion import (
+    RESCORE_COMMAND,
     VALIDATION_PROTOCOL,
     IncumbentUnavailable,
-    read_incumbent_val_f1,
+    read_incumbent,
     save_checkpoint_atomic,
     validation_indices,
+    validation_input_paths,
+    validation_inputs_fingerprint,
+    validation_label_path,
     validation_protocol,
 )
 from scroll_augmentations import apply_scroll_specific_3d_augmentations
@@ -412,20 +416,33 @@ def promotion_decision(
     validation_complete: bool,
     protocol: str,
     incumbent_path: str = "best_model.pt",
+    inputs: str | None = None,
 ):
     """Whether this run replaces the incumbent: (promote, incumbent_val_f1, reason).
 
     ``reason`` names what blocked the comparison itself (an incomplete validation
-    sample, or an incumbent that cannot be read or was scored under another
-    protocol); it is None when the candidate was simply compared and lost. Every
-    path that cannot compare like with like fails closed.
+    sample, an incumbent that cannot be read or was scored under another
+    protocol, or one scored on other validation inputs than ``inputs``, this
+    run's validation_diag["inputs_sha256"]); it is None when the candidate was
+    simply compared and lost. Every path that cannot compare like with like fails
+    closed. An incumbent scored before fingerprints were recorded is compared on
+    its protocol alone.
     """
     try:
-        incumbent = read_incumbent_val_f1(incumbent_path, protocol)
+        incumbent, incumbent_inputs = read_incumbent(incumbent_path, protocol)
     except IncumbentUnavailable as exc:
         return False, float("nan"), str(exc)
     if not validation_complete:
         return False, incumbent, "the validation sample is incomplete (failed reads)"
+    if incumbent_inputs is not None and inputs != incumbent_inputs:
+        reason = (
+            "this run recorded no validation-input fingerprint"
+            if inputs is None
+            else "the validation inputs (label file, mask or patches.json) differ "
+            "from those the incumbent was scored on; re-score it with "
+            f"`{RESCORE_COMMAND}`"
+        )
+        return False, incumbent, reason
     if enforce_prize_gates and not submittable:
         return False, incumbent, None
     return is_f1_improvement(val_f1, ap_lift, incumbent), incumbent, None
@@ -525,19 +542,17 @@ def build_validation_dataset(config: ExperimentConfig):
     Reads are strict: a failed read raises instead of returning an all-zero patch,
     which would silently drop out of the sample as an ink-free patch.
     """
-    parent_dir = os.path.dirname(config.val_uri.rstrip("/"))
-    labels_path = os.path.join(parent_dir, "inklabels_refined.png")
-    if not os.path.exists(labels_path):
-        labels_path = os.path.join(parent_dir, "inklabels_filled.png")
-        if not os.path.exists(labels_path):
-            labels_path = os.path.join(parent_dir, "inklabels.png")
-
-    mask_path = os.path.join(parent_dir, "mask.png")
-    patches_json_path = os.path.join(parent_dir, "patches.json")
+    # The same paths the fingerprint hashes (promotion.validation_input_paths),
+    # fingerprinted before and after the dataset reads them.
+    band = getattr(config, "depth_band", None)
+    inputs = validation_inputs_fingerprint(config.val_uri, band)
+    paths = validation_input_paths(config.val_uri)
+    labels_path, mask_path = paths["labels"], paths["mask"]
+    patches_json_path = paths["patches_json"]
     # Validation uses target_fiber_source="sobel_z" regardless of training
     # config — val doesn't use target_fiber (only ink) and we want to avoid
     # paying Frangi cost on every val patch.
-    return VesuviusLabeledDataset(
+    dataset = VesuviusLabeledDataset(
         config.val_uri,
         labels_path,
         mask_path if os.path.exists(mask_path) else None,
@@ -555,6 +570,15 @@ def build_validation_dataset(config: ExperimentConfig):
         depth_band=getattr(config, "depth_band", None),
         depth_margin=DEPTH_MARGIN,
     )
+    # Recorded with every score (validation_diag["inputs_sha256"]) and compared
+    # with the incumbent's (promotion.py). A file written while the dataset read
+    # them could otherwise be recorded without having been read.
+    if validation_inputs_fingerprint(config.val_uri, band) != inputs:
+        raise RuntimeError(
+            f"the validation inputs for {config.val_uri} changed while they were read"
+        )
+    dataset.validation_inputs = inputs
+    return dataset
 
 
 def _sigmoid_ink(model, x):
@@ -579,6 +603,100 @@ def probe_validation_read(dataset) -> None:
             f"validation patch {index} cannot be read, so this run could not be "
             f"scored: {type(exc).__name__}: {exc}"
         ) from exc
+
+
+# UA-MT (Yu et al., 2019) estimates the teacher's uncertainty from stochastic
+# passes; the variance comes from dropout-like layers, plus 0.01 input noise.
+UAMT_TEACHER_PASSES = 4
+
+
+def _ink(out):
+    return out[0] if isinstance(out, tuple) else out
+
+
+def teacher_is_stochastic(teacher, x, passes=UAMT_TEACHER_PASSES) -> bool:
+    """Whether train-mode passes over the same input differ.
+
+    Asked of the model rather than of its layer types, so dropout, stochastic
+    depth (DropPath) and functional dropout all count. Several passes, because a
+    per-sample mask can repeat between two (1 in 16 for DropPath at batch 4; 1 in
+    4,096 over four passes). Nondeterministic kernels also count, which keeps the
+    four passes: the safe side.
+    """
+    was_training = teacher.training
+    teacher.train()
+    try:
+        with torch.no_grad():
+            first = _ink(teacher(x))
+            return any(
+                not torch.equal(first, _ink(teacher(x))) for _ in range(passes - 1)
+            )
+    finally:
+        teacher.train(was_training)
+
+
+def uamt_teacher(teacher, x, passes):
+    """The teacher's mean ink probability and its variance over ``passes``
+    stochastic passes (train mode, 0.01 input noise each).
+
+    Without dropout-like layers the passes differ only by that noise: on the
+    production resenc_unet the variance is ~1e-6, so exp(-variance) is 1 to 4
+    decimals and three of four passes bought nothing (2026-10-14). One pass then
+    gives the same mean and a variance of zero; torch.var of one sample would be
+    NaN. The teacher's mode is restored afterwards.
+    """
+    was_training = teacher.training
+    teacher.train()  # dropout, where there is any
+    try:
+        preds = []
+        for _ in range(passes):
+            noise = torch.randn_like(x) * 0.01
+            # Sanitized like the student output, so a non-finite teacher
+            # prediction cannot NaN the consistency loss.
+            ink = torch.nan_to_num(_ink(teacher(x + noise)))
+            preds.append(torch.sigmoid(ink))
+        preds = torch.stack(preds)  # [T, B, 1, H, W]
+        prob = preds.mean(dim=0)
+        var = preds.var(dim=0) if passes > 1 else torch.zeros_like(prob)
+        return prob, var
+    finally:
+        teacher.train(was_training)
+
+
+def trained_outputs(model_out, heads):
+    """(ink, fiber, qc, proj, st) from a forward with every return_* flag set,
+    with the auxiliary outputs the model does not declare as heads set to None.
+
+    A placeholder fiber is the ink logits, so a loss on it trained ink toward the
+    fiber target, and the hallucination penalty on a zero QC pushed all ink down
+    (model_wrappers.task_heads).
+    """
+    if not isinstance(model_out, tuple):
+        return model_out, None, None, None, None
+    padded = list(model_out) + [None] * (5 - len(model_out))
+    ink, fiber, qc, proj, st = padded[:5]
+    return (
+        ink,
+        fiber if "fiber" in heads else None,
+        qc if "qc" in heads else None,
+        proj,
+        st if "st" in heads else None,
+    )
+
+
+def check_validation_inputs(dataset, protocol, incumbent_path="best_model.pt"):
+    """Fail before training when the validation inputs differ from those the
+    incumbent is compared on. The loop checks before each cycle; this covers a
+    change since (during the preflight) without spending the training budget."""
+    try:
+        incumbent_inputs = read_incumbent(incumbent_path, protocol)[1]
+    except IncumbentUnavailable:
+        return  # promotion_decision reports why after training
+    if incumbent_inputs not in (None, getattr(dataset, "validation_inputs", None)):
+        raise RuntimeError(
+            "the validation inputs differ from those the incumbent is compared on; "
+            f"re-score it with `{RESCORE_COMMAND}`"
+        )
 
 
 def collect_validation_predictions(
@@ -641,6 +759,9 @@ def collect_validation_predictions(
                 all_targets.append(val_target[j : j + 1].float().cpu())
     diag["usable_patches"] = len(all_probs)
     diag["complete"] = diag["batch_errors"] == 0
+    # What the sample was drawn from (build_validation_dataset); None for a
+    # dataset built another way.
+    diag["inputs_sha256"] = getattr(dataset, "validation_inputs", None)
     return all_probs, all_targets, diag
 
 
@@ -771,17 +892,12 @@ except ImportError:
     generate_resnet3d = None
     InceptionI3d = None
 
-try:
-    from dynamic_network_architectures.architectures.unet import ResidualEncoderUNet
-    from dynamic_network_architectures.building_blocks.helper import (
-        convert_dim_to_conv_op,
-        get_matching_instancenorm,
-    )
-except ImportError:
-    ResidualEncoderUNet = None
-
 from vesuvius_autoresearch.core.inference import DEPTH_MARGIN
-from vesuvius_autoresearch.core.model_wrappers import GenericMultiTaskWrapper
+from vesuvius_autoresearch.core.model_wrappers import (
+    GenericMultiTaskWrapper,
+    build_resenc_unet,
+    task_heads,
+)
 
 TRAINING_TRANSFORMS_IMPORT_ERROR = None
 try:
@@ -1406,39 +1522,17 @@ def build_model(config: ExperimentConfig, v_config: VesuviusConfig, device):
         print(
             f"Instantiating nnUNet-style ResEnc UNet (base_feat={v_config.base_feat})..."
         )
-        if ResidualEncoderUNet:
-            # Shallow 3-stage configuration to avoid dimension mismatch on small patches
-            n_stages = 3
-            features_per_stage = [v_config.base_feat * (2**i) for i in range(n_stages)]
-            strides = [[1, 1, 1]] + [[2, 2, 2]] * (n_stages - 1)
-
-            backbone = ResidualEncoderUNet(
-                input_channels=v_config.in_channels,
-                n_stages=n_stages,
-                features_per_stage=features_per_stage,
-                conv_op=convert_dim_to_conv_op(3),
-                kernel_sizes=[[3, 3, 3]] * n_stages,
-                strides=strides,
-                n_blocks_per_stage=[2] * n_stages,
-                num_classes=1,
-                n_conv_per_stage_decoder=[2] * (n_stages - 1),
-                conv_bias=True,
-                norm_op=get_matching_instancenorm(convert_dim_to_conv_op(3)),
-                norm_op_kwargs={"eps": 1e-5, "affine": True},
-                dropout_op=None,
-                nonlin=nn.LeakyReLU,
-                nonlin_kwargs={"inplace": True},
-                deep_supervision=False,
-            )
-            model = GenericMultiTaskWrapper(
-                backbone,
-                multi_task_heads=getattr(config, "multi_task_heads", False),
-                input_channels=v_config.in_channels,
+        # The construction inference uses too (model_wrappers.build_resenc_unet).
+        try:
+            model = build_resenc_unet(
+                v_config.in_channels,
+                v_config.base_feat,
+                getattr(config, "multi_task_heads", False),
             ).to(device)
-        else:
+        except ImportError as exc:
             raise ImportError(
                 "ResidualEncoderUNet not found. Please install dynamic-network-architectures."
-            )
+            ) from exc
     elif hasattr(v_config, "architecture") and v_config.architecture == "lejepa_unet":
         print("Instantiating LeJEPA Foundation-Backed UNet...")
         from vesuvius_model import LeJEPAUNet
@@ -1550,11 +1644,7 @@ def train(config: ExperimentConfig, *, strict_warm_start=False):
                     labels_path = pseudo_path
 
             if labels_path is None:
-                labels_path = os.path.join(parent_dir, "inklabels_refined.png")
-                if not os.path.exists(labels_path):
-                    labels_path = os.path.join(parent_dir, "inklabels_filled.png")
-                    if not os.path.exists(labels_path):
-                        labels_path = os.path.join(parent_dir, "inklabels.png")
+                labels_path = validation_label_path(uri)  # the same order
 
             if os.path.exists(labels_path):
                 mask_path = os.path.join(parent_dir, "mask.png")
@@ -1570,9 +1660,7 @@ def train(config: ExperimentConfig, *, strict_warm_start=False):
                     use_ridges=config.use_ridges,
                     ridge_sigma=getattr(config, "ridge_sigma", 2.0),
                     use_lasagna=getattr(config, "use_lasagna", False),
-                    target_fiber_source=getattr(
-                        config, "target_fiber_source", "sobel_z"
-                    ),
+                    target_fiber_source=fiber_target_source,
                     target_fiber_sigma=getattr(config, "target_fiber_sigma", 2.0),
                     patches_json=patches_json_path
                     if os.path.exists(patches_json_path)
@@ -1605,11 +1693,24 @@ def train(config: ExperimentConfig, *, strict_warm_start=False):
     # data is loaded, not after the budget.
     val_dataset = build_validation_dataset(config)
     probe_validation_read(val_dataset)
+    check_validation_inputs(val_dataset, protocol)
 
     # Fresh per run, so successive warm-started cycles see different patches;
     # recorded in run_result.json and the checkpoint.
     sampling_seed = int.from_bytes(os.urandom(4), "little") & 0x7FFFFFFF
     print(f"Training sampling seed: {sampling_seed}")
+    # Built before the loaders: which heads it trains decides the fiber target.
+    model = build_model(config, v_config, device)
+    # Only the outputs the model declares as heads are trained
+    # (model_wrappers.task_heads); the rest are placeholders. The Frangi fiber
+    # target (~86 ms/patch in the loader) is computed only for a fiber or QC head.
+    heads = task_heads(model)
+    print(f"Trained auxiliary heads: {', '.join(sorted(heads)) or 'none'}")
+    fiber_target_source = (
+        getattr(config, "target_fiber_source", "sobel_z")
+        if heads & {"fiber", "qc"}
+        else "sobel_z"
+    )
     data_loader = get_dataloader(config.uris)
     data_iter = iter(data_loader)
 
@@ -1617,8 +1718,6 @@ def train(config: ExperimentConfig, *, strict_warm_start=False):
     if config.use_uamt and config.unlabeled_uris:
         unlabeled_data_loader = get_dataloader(config.unlabeled_uris, is_unlabeled=True)
         unlabeled_data_iter = iter(unlabeled_data_loader)
-
-    model = build_model(config, v_config, device)
 
     # Opt-in wandb experiment tracking (default off; online to match villa).
     # watch_model logs parameter + gradient histograms over training.
@@ -1711,6 +1810,8 @@ def train(config: ExperimentConfig, *, strict_warm_start=False):
         for param in ema_model.parameters():
             param.detach_()
         ema_model.eval()
+    # UA-MT teacher passes, decided on the first unlabeled batch.
+    teacher_passes = None
 
     # Linear scaling rule. Kept local: config.lr is the recorded setting, and
     # scaling it in place wrote the scaled value into checkpoints and history.tsv.
@@ -1728,12 +1829,12 @@ def train(config: ExperimentConfig, *, strict_warm_start=False):
     amp_enabled = False  # Disabled for NaN debugging
     scaler = GradScaler(device=device.type, enabled=amp_enabled)
 
-    # Initialize auxiliary task tools
+    # Initialize auxiliary task tools (the ST target only for an ST head).
     st_computer = (
         StructureTensorComputer(
             sigma=1.0, component_sigma=1.0, smooth_components=True, device=device
         )
-        if StructureTensorComputer
+        if StructureTensorComputer and "st" in heads
         else None
     )
 
@@ -1828,7 +1929,7 @@ def train(config: ExperimentConfig, *, strict_warm_start=False):
         # source="sobel_z" (default): compute Sobel-Z gradient of CT inline
         # on GPU (cheap, current behavior).
         with torch.no_grad():
-            if getattr(config, "target_fiber_source", "sobel_z") == "frangi":
+            if fiber_target_source == "frangi":
                 # target_fiber_from_loader: [B, 1, 1, H, W] z-collapsed already
                 target_fiber = target_fiber_from_loader
             else:
@@ -1854,14 +1955,9 @@ def train(config: ExperimentConfig, *, strict_warm_start=False):
                     x_orig, target_ink, target_fiber
                 )
 
-        # Generate two augmented views for DINO-Lite Consistency
         x_aug1, target_ink_aug1, target_fiber_aug1 = apply_augmentations(
             x_orig, target_ink, target_fiber, step, None, config=config
         )
-        x_aug2, _, _ = apply_augmentations(
-            x_orig, target_ink, target_fiber, step, None, config=config
-        )
-
         # UAMT Unlabeled Augmentations
         if config.use_uamt and x_unlabeled is not None:
             x_unl_aug_student, x_unl_aug_teacher = uamt_views(x_unl_orig, step, config)
@@ -1888,22 +1984,14 @@ def train(config: ExperimentConfig, *, strict_warm_start=False):
                 return_proj=True,
                 return_st=True,
             )
-            if isinstance(model_out, tuple):
-                out_ink_2d = model_out[0]
-                # Diagnostic check: Isolate if NaN comes from backbone forward pass
-                if torch.isnan(out_ink_2d).any():
-                    print(
-                        f"DEBUG: NaN detected in model backbone output (out_ink_2d) at step {step}"
-                    )
-                # Map remaining outputs if they exist
-                # This is a bit brittle, but works with our current return order
-                out_fiber = model_out[1] if len(model_out) > 1 else None
-                out_qc = model_out[2] if len(model_out) > 2 else None
-                p1 = model_out[3] if len(model_out) > 3 else None
-                out_st = model_out[4] if len(model_out) > 4 else None
-            else:
-                out_ink_2d = model_out
-                out_fiber = out_qc = p1 = out_st = None
+            out_ink_2d, out_fiber, out_qc, p1, out_st = trained_outputs(
+                model_out, heads
+            )
+            # Diagnostic check: Isolate if NaN comes from backbone forward pass
+            if torch.isnan(out_ink_2d).any():
+                print(
+                    f"DEBUG: NaN detected in model backbone output (out_ink_2d) at step {step}"
+                )
 
             # --- START FIX: Prevent NaN/Inf loss from AMP float16 overflow ---
             if out_ink_2d is not None:
@@ -1931,8 +2019,14 @@ def train(config: ExperimentConfig, *, strict_warm_start=False):
                 )
             # --- END FIX ---
 
-            # Forward pass for view 2 (consistency only)
-            if p1 is not None:
+            # A second view for the DINO-lite projection consistency, which is
+            # trained only under UA-MT. Built and forwarded only then: otherwise
+            # the view and its pass (~20% of a step) were computed and dropped.
+            p2 = None
+            if config.use_uamt and p1 is not None:
+                x_aug2, _, _ = apply_augmentations(
+                    x_orig, target_ink, target_fiber, step, None, config=config
+                )
                 p2_out = model(x_aug2, return_proj=True)
                 if isinstance(p2_out, tuple):
                     # InkDetectorOptimized returns [ink, fiber, qc, proj, st]
@@ -1942,10 +2036,6 @@ def train(config: ExperimentConfig, *, strict_warm_start=False):
                         p2 = torch.nan_to_num(
                             p2, nan=0.0, posinf=100.0, neginf=-100.0
                         ).clamp(-100.0, 100.0)
-                else:
-                    p2 = None  # Should not happen if return_proj=True
-            else:
-                p2 = None
 
             # UAMT Forward Passes
             uamt_loss = torch.tensor(0.0, device=device)
@@ -1962,29 +2052,21 @@ def train(config: ExperimentConfig, *, strict_warm_start=False):
                 student_prob = torch.sigmoid(student_ink)
 
                 with torch.no_grad():
-                    # UAMT: T stochastic forward passes to estimate epistemic uncertainty
-                    T = 4
-                    ema_model.train()  # Enable dropout for stochastic passes
-                    teacher_preds = []
-                    for _ in range(T):
-                        # Add small gaussian noise to input for extra stochasticity
-                        noise = torch.randn_like(x_unl_aug_teacher) * 0.01
-                        t_out = ema_model(x_unl_aug_teacher + noise)
-                        t_ink = t_out[0] if isinstance(t_out, tuple) else t_out
-                        # Belt-and-suspenders: sanitize the teacher output the same way
-                        # the student output is sanitized (see nan_to_num above), so a
-                        # non-finite teacher prediction can never NaN the consistency loss.
-                        t_ink = torch.nan_to_num(t_ink)
-                        teacher_preds.append(torch.sigmoid(t_ink))
-
-                    teacher_preds = torch.stack(teacher_preds)  # [T, B, 1, H, W]
-                    if torch.isnan(teacher_preds).any():
-                        print(f"DEBUG: NaN detected in teacher_preds at step {step}")
-                    teacher_prob = torch.mean(teacher_preds, dim=0)  # [B, 1, H, W]
-                    teacher_var = torch.var(teacher_preds, dim=0)  # [B, 1, H, W]
-                    if torch.isnan(teacher_var).any():
-                        print(f"DEBUG: NaN detected in teacher_var at step {step}")
-                    ema_model.eval()  # Restore eval mode
+                    if teacher_passes is None:
+                        stochastic = teacher_is_stochastic(ema_model, x_unl_aug_teacher)
+                        teacher_passes = UAMT_TEACHER_PASSES if stochastic else 1
+                        print(
+                            f"UA-MT teacher passes: {teacher_passes}"
+                            + (
+                                ""
+                                if stochastic
+                                else " (deterministic teacher: uncertainty weights are 1)"
+                            )
+                        )
+                    # Finite by construction: sigmoids of sanitized logits.
+                    teacher_prob, teacher_var = uamt_teacher(
+                        ema_model, x_unl_aug_teacher, teacher_passes
+                    )
 
                 # Uncertainty-Aware Consistency Loss: Weight MSE by exp(-variance)
                 uncertainty_weight = torch.exp(-teacher_var)
@@ -2357,6 +2439,7 @@ def train(config: ExperimentConfig, *, strict_warm_start=False):
         enforce_prize_gates=getattr(config, "enforce_prize_gates", True),
         validation_complete=validation_diag["complete"],
         protocol=protocol,
+        inputs=validation_diag.get("inputs_sha256"),
     )
     if promotion_blocked:
         print(f"Promotion blocked: {promotion_blocked}")
@@ -2474,6 +2557,7 @@ def train(config: ExperimentConfig, *, strict_warm_start=False):
                 "window_ok": window_ok,
                 "window_mm": window_mm,
                 "villa_metrics_ok": villa_metrics_ok,
+                "validation_diag": validation_diag,
                 "config": asdict(config),
             },
             ckpt_out,
@@ -2618,6 +2702,9 @@ def train(config: ExperimentConfig, *, strict_warm_start=False):
         # Steps not applied: a non-finite or > 1e6 loss, or a non-finite
         # gradient norm (see guarded_update).
         "skipped_updates": skipped_updates,
+        # UA-MT teacher passes per step: 4 when its passes are stochastic, 1
+        # when not (uncertainty weights 1); None without UA-MT batches.
+        "uamt_teacher_passes": teacher_passes,
         "is_success": bool(is_improvement),
     }
 

@@ -177,6 +177,12 @@ def read_result(path, protocol):
     _integer(diag.get("batch_errors"), "batch_errors", 0, 0)
     if usable + empty != requested:
         raise ValueError("validation patch counts do not account for the whole sample")
+    # What the sample was drawn from (promotion.validation_inputs_fingerprint).
+    # Every trial runs the current trainer, which records it; without it, equal
+    # counts from other label files would pass as one sample.
+    inputs = diag.get("inputs_sha256")
+    if not isinstance(inputs, str) or not inputs:
+        raise ValueError("result records no validation inputs fingerprint")
     seed = _integer(
         result.get("train_sampling_seed"), "train_sampling_seed", 0, 2**31 - 1
     )
@@ -207,6 +213,7 @@ def read_result(path, protocol):
             "usable_patches": usable,
             "empty_target_patches": empty,
             "batch_errors": 0,
+            "inputs_sha256": inputs,
         },
         "train_sampling_seed": seed,
     }
@@ -333,7 +340,8 @@ def execute(plan):
                 if any(sample(row) != sample(records[0]) for row in records[1:]):
                     complete = False
                     input_error = (
-                        "validation sample counts or prevalence changed between trials"
+                        "validation inputs, sample counts or prevalence changed "
+                        "between trials"
                     )
             values = [row["metrics"]["val_f1"] for row in records] if complete else []
             summary = {

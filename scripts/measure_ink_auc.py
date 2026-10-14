@@ -29,7 +29,11 @@ from vesuvius_autoresearch.core.checkpoint_tools import (
     validate_batch,
     validate_targets,
 )
-from vesuvius_autoresearch.core.inference import DEPTH_MARGIN, positive_integer
+from vesuvius_autoresearch.core.inference import (
+    DEPTH_MARGIN,
+    depth_band_for,
+    positive_integer,
+)
 from vesuvius_autoresearch.core.vesuvius_loader import VesuviusLabeledDataset
 
 
@@ -62,7 +66,7 @@ def main():
                 args.n,
                 device,
                 args.cache_dir,
-                depth_band=chk["config"].get("depth_band"),
+                depth_band=depth_band_for(chk["config"], _volume_uri(frag)),
             )
         except (ValueError, RuntimeError, OSError) as exc:
             failures.append(f"{frag}: {exc}")
@@ -91,7 +95,8 @@ def measure_fragment(model, settings, frag, n, device, cache_dir=None, depth_ban
         require_ink=True,
         jitter=False,
         strict_reads=True,
-        # The slices the checkpoint was trained on (None: the whole depth).
+        # The slices the checkpoint was trained on, on its own volumes (None: the
+        # whole depth; see depth_band_for).
         depth_band=depth_band,
         depth_margin=DEPTH_MARGIN,
     )
@@ -138,7 +143,11 @@ def measure_fragment(model, settings, frag, n, device, cache_dir=None, depth_ban
             f"only {len(a)}/{n} requested patches have both classes inside the mask"
         )
     if len(a):
-        print(f"{name}: AUC mean={a.mean():.3f} median={np.median(a):.3f} n={len(a)}")
+        depth = "whole depth" if depth_band is None else f"depth band {depth_band}"
+        print(
+            f"{name}: AUC mean={a.mean():.3f} median={np.median(a):.3f} n={len(a)} "
+            f"({depth})"
+        )
     else:
         raise ValueError(
             "no usable patches with both ink and background inside the mask"
