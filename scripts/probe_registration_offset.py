@@ -44,13 +44,15 @@ from PIL import Image
 # worked when launched from the repo root and failed obscurely otherwise.
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, REPO_ROOT)
+from sibling_checkouts import main_checkout
+
 from repro.sota_data.register import placement_peak
 
 Image.MAX_IMAGE_PIXELS = None
 
 SCROLLGT_DATA = os.environ.get(
     "SCROLLGT_DATA",
-    os.path.join(REPO_ROOT, "..", "scrollgt", "data"),
+    os.path.join(main_checkout().parent, "scrollgt", "data"),
 )
 DISTILL_ROOT = os.path.join(REPO_ROOT, "local_data", "sota_distill")
 

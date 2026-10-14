@@ -18,13 +18,15 @@ import textwrap
 
 import pytest
 
+from scripts.sibling_checkouts import main_checkout
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 CANONICAL = os.path.join(
     HERE, "..", "src", "vesuvius_autoresearch", "detector", "metrics.py"
 )
 COPY = os.environ.get(
     "SCROLLGT_METRICS",
-    os.path.join(HERE, "..", "..", "scrollgt", "src", "scrollgt", "metrics.py"),
+    os.path.join(main_checkout().parent, "scrollgt", "src", "scrollgt", "metrics.py"),
 )
 
 

@@ -40,10 +40,11 @@ import sys
 os.environ.setdefault("CUDA_VISIBLE_DEVICES", "")
 
 import numpy as np  # noqa: E402
+from sibling_checkouts import main_checkout  # noqa: E402
 
 _REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TARGET = os.path.join(
-    os.path.dirname(_REPO), "scrollgt", "data", "pherc1667_merged_columns"
+    main_checkout().parent, "scrollgt", "data", "pherc1667_merged_columns"
 )
 OUT = os.path.join(_REPO, "reports", "column_width_by_strip.txt")
 
