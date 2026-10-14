@@ -6,6 +6,7 @@ check this repo against ScrollGT, inkdelta, inkagree and villa-spiral skipped in
 of running.
 """
 
+import os
 import re
 import subprocess
 from pathlib import Path
@@ -19,7 +20,8 @@ SIBLINGS = ("scrollgt", "inkdelta", "inkagree", "villa-spiral")
 
 
 def _git(cwd, *args):
-    subprocess.run(["git", *args], cwd=cwd, check=True, capture_output=True)
+    env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
+    subprocess.run(["git", *args], cwd=cwd, env=env, check=True, capture_output=True)
 
 
 @pytest.fixture
@@ -42,6 +44,19 @@ def repo_with_worktree(tmp_path):
     worktree = main / ".claude" / "worktrees" / "branch"
     _git(main, "worktree", "add", "-q", "-b", "branch", str(worktree))
     return main, worktree
+
+
+def test_the_fixture_ignores_a_hook_s_git_environment(tmp_path, monkeypatch):
+    # Git exports GIT_DIR (and GIT_INDEX_FILE) to hooks; a fixture that inherited
+    # them would init and commit in the repository running the hook.
+    decoy = tmp_path / "decoy"
+    decoy.mkdir()
+    _git(decoy, "init", "-q")
+    monkeypatch.setenv("GIT_DIR", str(decoy / ".git"))
+    target = tmp_path / "target"
+    target.mkdir()
+    _git(target, "init", "-q")
+    assert (target / ".git").is_dir()
 
 
 def test_the_main_checkout_is_its_own_main_checkout(repo_with_worktree):
