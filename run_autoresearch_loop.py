@@ -508,6 +508,75 @@ def exit_description(returncode):
     return f"exited with code {returncode}"
 
 
+# The files a promotion changes, and the only ones its commit records.
+PROMOTION_FILES = (CONFIG_FILE, INCUMBENT, HISTORY_FILE)
+
+
+def commit_promotion(message):
+    """Commit a promotion: exactly PROMOTION_FILES, whatever else is staged.
+
+    `git add ... && git commit` committed the whole index, so changes the
+    operator had staged went in under "improved model" (a 248-line
+    vesuvius_loader.py change on 2026-04-25), as did reports/figures/, which the
+    loop does not write (35 of 50 promotion commits). `git commit --only` takes
+    just these paths and leaves the rest of the index as it was; a failed commit
+    unstages them again. Returns True, or why the commit failed.
+    """
+    try:
+        code, output = _run_git("add", "--", *PROMOTION_FILES)
+        if code != 0:
+            return f"git add {_git_failure(code, output)}"
+        code, output = _run_git(
+            "commit", "--only", "-m", message, "--", *PROMOTION_FILES
+        )
+        if code != 0:
+            # Or the operator's next commit would take them in.
+            _run_git("reset", "-q", "--", *PROMOTION_FILES)
+            return f"git commit {_git_failure(code, output)}"
+    except OSError as e:
+        return f"git could not be run ({e})"
+    return True
+
+
+def _run_git(*args, timeout=300):
+    """Run git; a hang is stopped with SIGTERM, on which git removes its
+    index.lock (a SIGKILL would leave it, failing every later git command)."""
+    process = subprocess.Popen(
+        ["git", *args],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        errors="replace",
+    )
+    try:
+        out, err = process.communicate(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        process.terminate()
+        try:
+            process.communicate(timeout=30)
+        except subprocess.TimeoutExpired:
+            process.kill()
+            process.communicate()
+        return None, f"timed out after {timeout} s"
+    return process.returncode, f"{err}\n{out}"
+
+
+def _git_failure(code, output):
+    """The reason git gives: its fatal/error lines and failed hooks, not only
+    the last line (pre-commit ends on its stash-restore message)."""
+    if code is None:
+        return output
+    lines = [line.strip() for line in output.splitlines() if line.strip()]
+    key = [
+        line
+        for line in lines
+        if line.startswith(("fatal:", "error:", "- hook id:"))
+        or line.endswith("Failed")
+    ]
+    reason = " | ".join((key or lines)[-3:])
+    return f"exited {code}" + (f": {reason}" if reason else "")
+
+
 def last_log_line(path="run.log", limit=300):
     """The run log's last non-empty line, for a failed cycle's sprint log entry."""
     try:
@@ -964,6 +1033,15 @@ def main():
             if os.path.exists(TEMP_CONFIG):
                 os.remove(TEMP_CONFIG)
 
+        # Committed before the cycle is logged, so a failure is in its entry.
+        commit_failure = None
+        if is_success:
+            committed = commit_promotion(
+                f"{shift_name}: {tweak_name} improved model to val_f1 {val_f1}"
+            )
+            if committed is not True:
+                commit_failure = committed
+
         with open(log_filename, "a") as log:
             log.write(f"## Cycle {i}: {tweak_name} ({status})\n")
             log.write(f"- **Timestamp**: {time.strftime('%H:%M:%S')}\n")
@@ -988,6 +1066,12 @@ def main():
                     )
             if incumbent_note:
                 log.write(f"- **Incumbent**: {incumbent_note}.\n")
+            if commit_failure:
+                log.write(
+                    f"- **Commit**: failed ({commit_failure}); {CONFIG_FILE}, "
+                    f"{INCUMBENT} and {HISTORY_FILE} are promoted on disk but "
+                    "not committed.\n"
+                )
 
             log.write(f"- **Result**: {result_msg}\n\n")
             log.flush()
@@ -996,9 +1080,8 @@ def main():
             print(f"IMPROVEMENT FOUND! (val_f1: {val_f1}) Committing config.")
             if isinstance(val_f1, (int, float)):
                 best_val_f1 = val_f1  # display tracker; authority is train.py
-            os.system(
-                f'git add {CONFIG_FILE} reports/figures/ best_model.pt autoresearch_history.json && git commit -m "{shift_name}: {tweak_name} improved model to val_f1 {val_f1}"'
-            )
+            if commit_failure:
+                print(f"Warning: the promotion was not committed ({commit_failure}).")
         elif is_crash:
             print(
                 f"CYCLE CRASHED ({'OOM' if oom_detected else failure}). Reverting but keeping family weight."
