@@ -507,6 +507,61 @@ def test_unreadable_validation_inputs_stop_the_loop_cleanly(tmp_path):
     promotion.check_incumbent(path, str(frag / "surface_volume.zarr"))
 
 
+def _history(tmp_path):
+    return json.loads((tmp_path / "autoresearch_history.json").read_text())
+
+
+def test_the_family_weight_decay_is_saved_after_a_reverted_cycle(tmp_path, monkeypatch):
+    """Each cycle decays every active family by 5%. Only SUCCESS and CRASH
+    saved the weights, so after REVERTED cycles (the usual outcome) the next
+    restart put back the weights from before the decay."""
+    ExperimentConfig().save(tmp_path / "config.json")
+    (tmp_path / "autoresearch_history.json").write_text(json.dumps({"lr": 2.0}))
+    seen = []
+    result = {"is_success": False, "val_f1": 0.5}
+    launched = _drive_loop(
+        tmp_path,
+        monkeypatch,
+        cycles=3,
+        result=result,
+        on_cycle=lambda n: seen.append(_history(tmp_path)["lr"]),
+    )
+    assert len(launched) == 3
+    # Each cycle's decay is on disk before the next cycle trains.
+    assert seen == pytest.approx([2.0, 2.0 * 0.95, 2.0 * 0.95**2])
+    assert _history(tmp_path)["lr"] == pytest.approx(2.0 * 0.95**3)
+
+
+def test_a_promotion_saves_the_decay_and_the_reward(tmp_path, monkeypatch):
+    ExperimentConfig().save(tmp_path / "config.json")
+    (tmp_path / "autoresearch_history.json").write_text(json.dumps({"lr": 2.0}))
+    _drive_loop(tmp_path, monkeypatch, 1, result={"is_success": True, "val_f1": 0.6})
+    assert _history(tmp_path)["lr"] == pytest.approx(2.0 * 0.95 + 1)
+
+
+def test_a_crashed_cycle_leaves_the_family_weights_alone(tmp_path, monkeypatch):
+    """A crash ran no experiment: a broken environment must not wear the
+    weights down to the floor, as the per-cycle decay used to."""
+    ExperimentConfig().save(tmp_path / "config.json")
+    (tmp_path / "autoresearch_history.json").write_text(json.dumps({"lr": 2.0}))
+    launched = _drive_loop(tmp_path, monkeypatch, cycles=2)  # no result: crashes
+    assert len(launched) == 2
+    assert _history(tmp_path)["lr"] == 2.0
+
+
+def test_an_unreadable_history_is_moved_aside_not_overwritten(
+    tmp_path, monkeypatch, capsys
+):
+    ExperimentConfig().save(tmp_path / "config.json")
+    (tmp_path / "autoresearch_history.json").write_text('{"lr": 7.')  # cut short
+    _drive_loop(tmp_path, monkeypatch, 1, result={"is_success": False, "val_f1": 0.5})
+    (aside,) = tmp_path.glob("autoresearch_history.json.unreadable-*")
+    assert aside.read_text() == '{"lr": 7.'
+    assert _history(tmp_path) == {"lr": 1.0}
+    assert "unreadable" in capsys.readouterr().out
+    assert not list(tmp_path.glob(".history.*"))  # no temporary left behind
+
+
 def test_a_blocked_promotion_is_recorded_in_the_sprint_log(tmp_path, monkeypatch):
     ExperimentConfig().save(tmp_path / "config.json")
     result = {"is_success": False, "val_f1": 0.5, "promotion_blocked": "why"}
