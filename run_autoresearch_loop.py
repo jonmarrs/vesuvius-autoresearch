@@ -1,4 +1,5 @@
 import copy
+import glob
 import json
 import os
 import random
@@ -419,7 +420,9 @@ INCUMBENT = "best_model.pt"
 # A hard link to the incumbent, kept while a training run may replace it.
 INCUMBENT_HELD = ".best_model.pt.held"
 # The cycle in flight, for the signal handler: whether it holds, and what.
-CYCLE_HOLD: dict[str, Any] = {"active": False, "held": None}
+CYCLE_HOLD: dict[str, Any] = {"active": False, "held": None, "logs": {}}
+# The rows train.py appends when it promotes, before it writes its result.
+PROMOTION_LOGS = ("results.tsv", "prize_readiness.tsv")
 
 
 def hold_incumbent():
@@ -428,14 +431,74 @@ def hold_incumbent():
     was one to hold, False if there was none, None if it could not be held."""
     if os.path.lexists(INCUMBENT_HELD):
         os.remove(INCUMBENT_HELD)
+    held: bool | None = True
     if not os.path.exists(INCUMBENT):
-        return False
-    try:
-        os.link(INCUMBENT, INCUMBENT_HELD)
-    except OSError as e:
-        print(f"Warning: could not hold {INCUMBENT} for this cycle ({e}).")
-        return None
-    return True
+        held = False
+    else:
+        try:
+            os.link(INCUMBENT, INCUMBENT_HELD)
+        except OSError as e:
+            print(f"Warning: could not hold {INCUMBENT} for this cycle ({e}).")
+            held = None
+    CYCLE_HOLD.update(active=True, held=held, logs=_log_ends())
+    return held
+
+
+def _log_ends():
+    """Each promotion log's bytes, or None where there is none. The logs are
+    small (a row per promotion); content, not the inode, tells whether a log was
+    only appended to, since a file git or an operator recreates can get its old
+    inode number back."""
+    ends = {}
+    for path in PROMOTION_LOGS:
+        try:
+            with open(path, "rb") as f:
+                ends[path] = f.read()
+        except FileNotFoundError:
+            ends[path] = None
+        except OSError as e:
+            print(f"Warning: could not read {path} before the run ({e}).")
+    return ends
+
+
+def _read_bytes(path):
+    with open(path, "rb") as f:
+        return f.read()
+
+
+def _undo_promotion_rows(before):
+    """Put each promotion log back as it was before the run, so the reports read
+    no promotion the loop undid. A log that still begins with its old bytes is
+    cut to them; one the run created is removed; one append_tsv_row rotated
+    (moved aside for a new header) is moved back. Any other change is left."""
+    undone, left = [], []
+    for path, old in before.items():
+        try:
+            if not os.path.exists(path):
+                continue
+            now = _read_bytes(path)
+            if old is None:
+                os.remove(path)
+                undone.append(path)
+            elif now.startswith(old):
+                if len(now) > len(old):
+                    os.truncate(path, len(old))
+                    undone.append(path)
+            else:
+                stem, ext = os.path.splitext(path)
+                pattern = f"{glob.escape(stem)}.until-*{ext}"
+                rotated = [
+                    a for a in sorted(glob.glob(pattern)) if _read_bytes(a) == old
+                ]
+                if rotated:
+                    os.replace(rotated[-1], path)
+                    undone.append(path)
+                else:
+                    left.append(path)
+        except OSError as e:
+            print(f"Warning: could not restore {path} ({e}).")
+            left.append(path)
+    return undone, left
 
 
 def settle_incumbent(held, failed):
@@ -447,7 +510,8 @@ def settle_incumbent(held, failed):
     warm-start from and be compared with. Such a model is moved aside and the
     held incumbent put back. Returns a note for the sprint log, or None.
     """
-    CYCLE_HOLD["active"] = False
+    logs = CYCLE_HOLD["logs"]
+    CYCLE_HOLD.update(active=False, logs={})
     if held and not os.path.exists(INCUMBENT_HELD):
         print(f"Warning: {INCUMBENT_HELD} disappeared during the cycle; not settled.")
         held = None
@@ -470,10 +534,17 @@ def settle_incumbent(held, failed):
             os.replace(INCUMBENT, aside)
         if held:
             os.replace(INCUMBENT_HELD, INCUMBENT)
+        undone, left = _undo_promotion_rows(logs)
         note = (
             f"the run wrote {INCUMBENT} and then failed; "
             + ("the incumbent was restored" if held else "there was none before it")
             + (f", and the run's model kept as {aside}" if aside else "")
+            + (f"; its rows were removed from {', '.join(undone)}" if undone else "")
+            + (
+                f"; {', '.join(left)} changed otherwise during the run, left as is"
+                if left
+                else ""
+            )
         )
     if os.path.lexists(INCUMBENT_HELD):
         os.remove(INCUMBENT_HELD)
@@ -495,7 +566,8 @@ def leftover_hold():
         f"its run, and {INCUMBENT} has changed since that cycle began (the run "
         "replaced it, or it was changed by hand). To keep the current "
         f"{INCUMBENT}: rm {INCUMBENT_HELD}. To restore the incumbent from before "
-        f"that cycle: mv {INCUMBENT_HELD} {INCUMBENT}."
+        f"that cycle: mv {INCUMBENT_HELD} {INCUMBENT}, and remove that run's last "
+        f"row from {' and '.join(PROMOTION_LOGS)} if it added one."
     )
 
 
@@ -863,7 +935,6 @@ def main():
         # Why the cycle produced no result, and its run's last log line.
         failure = log_line = None
         held = hold_incumbent()
-        CYCLE_HOLD.update(active=True, held=held)
         try:
             with open("run.log", "a") as f:
                 f.write(f"\n\n--- {shift_name} CYCLE {i}: {tweak_name} ---\n")

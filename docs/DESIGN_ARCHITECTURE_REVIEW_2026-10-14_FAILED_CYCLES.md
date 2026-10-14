@@ -65,7 +65,8 @@ Scope: how `run_autoresearch_loop.py` handles a cycle that does not end cleanly:
   Re-scoring is done with the loop stopped; a stop settles the cycle first, so a re-score made then is kept.
 - **An undone promotion keeps its rows.** `train.py` appends to `results.tsv` and `prize_readiness.tsv` when it
   promotes, before it writes its result, so a run that then fails leaves rows for a promotion the loop undid. The
-  daily report and the plots read those files.
+  daily report and the plots read `results.tsv`. (Fixed by #71:
+  `DESIGN_ARCHITECTURE_REVIEW_2026-10-14_UNDONE_PROMOTION_ROWS.md`.)
 - **A kill (not a stop) during a run that writes the first incumbent is not caught.** With no incumbent there is
   nothing to hold, so the next start sees no hold. A stop settles it.
 
