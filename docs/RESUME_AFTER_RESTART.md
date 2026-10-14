@@ -14,6 +14,19 @@
   candidate SDs with the ink-free patches kept against 2.78 on the loop's sample, so the recommendation stands. None
   of the 10 would be promoted under the new sample; all 10 beat the incumbent there by +0.0034 to +0.0224.
 
+## 2026-10-13 (evening): developing while the loop runs
+
+* The loop trains from the main checkout: never switch branches there while it runs. Work in a worktree made by
+  `scripts/dev_worktree.sh add <branch>` (shared `.venv`, `local_data`, `checkpoints` and `models`, villa checked out
+  at the pin; remove with `scripts/dev_worktree.sh remove <branch>`).
+* Run Python in a worktree with `UV_NO_SYNC=1` or `uv run --no-sync`. A syncing `uv run` re-points the shared
+  `.venv`'s editable install at the worktree, and the loop's spawned DataLoader workers would import that code;
+  the mypy hook now runs `uv run --no-sync`. Tests import their own checkout's `src/` regardless
+  (`pyproject.toml` `pythonpath`, `tests/conftest.py`).
+* Never run `uv sync` in the main checkout: the `vesuvius` package is installed from `villa/vesuvius`, outside
+  `uv.lock`, and an exact sync removes it. (`vesuvius_c` is too, from an ignored leftover of villa's deprecated
+  vesuvius-c, villa #1128; nothing here imports it.)
+
 ## 2026-10-13 (evening): lasagna off, incumbent re-scored; the loop can start
 
 * Owner's call: get the loop running. `config.json` `use_lasagna: false`; the loop's `use_lasagna` tweak is pinned

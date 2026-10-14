@@ -81,7 +81,9 @@ import numpy as np  # noqa: E402
 _REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(_REPO, "scripts"))
 
-SCROLLGT = os.path.join(os.path.dirname(_REPO), "scrollgt")
+from sibling_checkouts import main_checkout  # noqa: E402
+
+SCROLLGT = os.path.join(main_checkout().parent, "scrollgt")
 TARGET = os.path.join(SCROLLGT, "data", "pherc1667_merged_columns")
 OUT = os.path.join(_REPO, "reports", "column_metric_power.txt")
 

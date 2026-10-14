@@ -65,7 +65,8 @@ torch = [
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-pythonpath = [".", "scripts/training"]
+# "src" first: the shared .venv's editable install may point at another checkout.
+pythonpath = [".", "src", "scripts/training"]
 python_files = ["test_*.py"]
 norecursedirs = [
     ".git",

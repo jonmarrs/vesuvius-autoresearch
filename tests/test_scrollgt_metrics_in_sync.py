@@ -25,9 +25,11 @@ from pathlib import Path
 
 import pytest
 
+from scripts.sibling_checkouts import main_checkout
+
 _REPO = Path(__file__).resolve().parent.parent
 _DETECTOR = _REPO / "src" / "vesuvius_autoresearch" / "detector" / "metrics.py"
-_DEFAULT_SCROLLGT = _REPO.parent / "scrollgt"
+_DEFAULT_SCROLLGT = main_checkout().parent / "scrollgt"
 _SCROLLGT = Path(os.environ.get("SCROLLGT_REPO", _DEFAULT_SCROLLGT))
 _SCROLLGT_METRICS = _SCROLLGT / "src" / "scrollgt" / "metrics.py"
 

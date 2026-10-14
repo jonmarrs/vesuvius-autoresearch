@@ -10,6 +10,8 @@ from pathlib import Path
 
 import pytest
 
+from scripts.sibling_checkouts import main_checkout
+
 _REPO = Path(__file__).resolve().parent.parent
 _DRAFT = _REPO / "docs/PRIZE_FILING_2026-10_DRAFT.md"
 _F72 = _REPO / "reports/scorer_vs_labels.json"
@@ -173,7 +175,7 @@ def test_objective_vs_labels_claim_matches_finding_76():
 def _sibling_version(name: str) -> str | None:
     import re
 
-    pp = _REPO.parent / name / "pyproject.toml"
+    pp = main_checkout().parent / name / "pyproject.toml"
     if not pp.exists():
         return None
     m = re.search(r'^version\s*=\s*"([^"]+)"', pp.read_text(), re.M)
@@ -236,7 +238,7 @@ def test_scrollgt_cite_is_its_newest_tag():
     """The URL field cited v0.4.1 after v0.5.0 was tagged; tie it to the sibling checkout's newest tag."""
     import subprocess
 
-    sg = _REPO.parent / "scrollgt"
+    sg = main_checkout().parent / "scrollgt"
     try:
         out = subprocess.run(
             ["git", "-C", str(sg), "tag", "--list", "v*", "--sort=-v:refname"],
@@ -259,7 +261,7 @@ def test_scrollgt_0_7_0_claims_match_its_released_data():
     import os
     import subprocess
 
-    sg = _REPO.parent / "scrollgt"
+    sg = main_checkout().parent / "scrollgt"
     env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
 
     def git(*args):
