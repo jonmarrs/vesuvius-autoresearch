@@ -902,6 +902,51 @@ def test_a_night_shift_past_midnight_is_the_evening_s_shift(tmp_path, monkeypatc
     assert resumed("", "day_shift", 10, 15, 9, 0) is None
 
 
+def test_a_lejepa_checkpoint_maps_by_prefix_as_villa_maps_it():
+    """train.py stripped "encoder." wherever it occurred and took nothing
+    else: a DDP or compiled checkpoint ("module.encoder...") loaded nothing."""
+    weights = {
+        "module.encoder.a.weight": 1,
+        "_orig_mod.module.encoder.b.encoder.c": 2,
+        "shared_encoder.d": 3,
+        "projector.e": 4,
+        "decoder.f": 5,
+    }
+    assert train.foundation_encoder_state(weights) == {
+        "a.weight": 1,
+        "b.encoder.c": 2,
+        "d": 3,
+    }
+
+
+def test_a_foundation_model_that_does_not_load_stops_the_run(tmp_path):
+    """A missing path was skipped without a word and a failed load was a
+    printed warning: either way the run trained from scratch under its name."""
+    import torch.nn as nn
+
+    class Primus(nn.Module):  # PrimusNetwork's shape: backbone.shared_encoder
+        def __init__(self):
+            super().__init__()
+            self.backbone = nn.Module()
+            self.backbone.shared_encoder = nn.Linear(3, 2)
+
+    model = Primus()
+    with pytest.raises(FileNotFoundError):
+        train.load_foundation_model(model, str(tmp_path / "missing.pth"), "cpu")
+    path = tmp_path / "lejepa.pth"
+    weight = torch.full((2, 3), 0.5)
+    torch.save({"model": {"module.encoder.weight": weight, "projector.w": 1}}, path)
+    train.load_foundation_model(model, str(path), "cpu")
+    assert torch.equal(model.backbone.shared_encoder.weight, weight)
+    torch.save({"model": {"encoder.weight": torch.zeros(4, 4)}}, path)  # no fit
+    with pytest.raises(ValueError, match="no tensor"):
+        train.load_foundation_model(model, str(path), "cpu")
+    plain = nn.Linear(3, 2)  # any other model: by name
+    torch.save({"state_dict": {"weight": weight}}, path)
+    train.load_foundation_model(plain, str(path), "cpu")
+    assert torch.equal(plain.weight, weight)
+
+
 def test_a_failed_preflight_is_named_in_the_sprint_log(tmp_path, monkeypatch):
     """Every failure used to read "Training crashed (Unknown error)": 264 runs
     killed at the timeout from 2026-06-29 to 2026-07-07 showed only in the
