@@ -54,7 +54,8 @@ earlier reviews made every handled stop end the run (#69, #77, #78, #80). Two wa
   arrays beside it, holds GPU memory, and its 600 s timeout also died with the loop.
 - **An ablation killed with SIGKILL** releases its lock, and its cell (`scripts/train_with_new_augs.py`) runs on in
   the checkout and writes `run_result.json`. The check does not see it. `loop_control status` and `stop` do not
-  report unsupervised runs either; the check could move there.
+  report unsupervised runs either; the check could move there. (Both done since:
+  `DESIGN_ARCHITECTURE_REVIEW_2026-10-15_STOP_SEES_ORPHANS.md`.)
 - **`python -m scripts.training.train`** is not recognised; nothing runs it that way.
 - **Without `/proc`** (not a supported host) the check finds nothing, and the loop starts as before. A process of
   another user whose `/proc` entries cannot be read is skipped.
