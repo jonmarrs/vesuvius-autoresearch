@@ -620,6 +620,31 @@ def test_a_promotion_saves_the_decay_and_the_reward(tmp_path, monkeypatch):
     assert _history(tmp_path)["lr"] == pytest.approx(2.0 * 0.95 + 1)
 
 
+def test_a_stop_while_recent_configs_are_saved_leaves_the_previous_file(
+    tmp_path, monkeypatch
+):
+    """recent_configs.json was written in place: a stop mid-write left it cut
+    short, and the next start read no recent configs at all."""
+    import run_autoresearch_loop as loop
+
+    monkeypatch.chdir(tmp_path)
+    loop.save_recent_configs([{"lr": 1e-3}])
+    before = (tmp_path / "recent_configs.json").read_text()
+    dump = json.dump
+
+    def stopped_mid_write(data, stream, **kwargs):
+        stream.write('[{"lr": ')
+        raise KeyboardInterrupt  # stop.sh, mid-write
+
+    monkeypatch.setattr(loop.json, "dump", stopped_mid_write)
+    with pytest.raises(KeyboardInterrupt):
+        loop.save_recent_configs([{"lr": 1e-3}, {"lr": 5e-4}])
+    monkeypatch.setattr(loop.json, "dump", dump)
+    assert (tmp_path / "recent_configs.json").read_text() == before
+    assert loop.load_recent_configs() == [{"lr": 1e-3}]
+    assert not list(tmp_path.glob(".recent_configs.json.*"))  # no temporary
+
+
 def test_a_crashed_cycle_leaves_the_family_weights_alone(tmp_path, monkeypatch):
     """A crash ran no experiment: a broken environment must not wear the
     weights down to the floor, as the per-cycle decay used to."""
@@ -640,7 +665,7 @@ def test_an_unreadable_history_is_moved_aside_not_overwritten(
     assert aside.read_text() == '{"lr": 7.'
     assert _history(tmp_path) == {"lr": 1.0}
     assert "unreadable" in capsys.readouterr().out
-    assert not list(tmp_path.glob(".history.*"))  # no temporary left behind
+    assert not list(tmp_path.glob(".autoresearch_history.json.*"))  # no temporary
 
 
 def _promoting_run(tmp_path, returncode=0, result=True, timeout=False):

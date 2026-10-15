@@ -59,7 +59,8 @@ sends SIGKILL, and waits for the leader. The loop's leader is `uv`; `train.py` i
   period (5 s), so a repeated stop may take that long to return.
 - **`scripts/iterative_pseudo_labeling.py` does not handle SIGTERM.** A `kill` ends it without stopping its
   supervised step, which runs on in its own session. It is not registered in `autoresearch.lock`, so `./stop.sh`
-  never targets it; turning SIGTERM into `KeyboardInterrupt`, as the probe does, would close this.
+  never targets it; turning SIGTERM into `KeyboardInterrupt`, as the probe does, would close this. (Fixed since:
+  `DESIGN_ARCHITECTURE_REVIEW_2026-10-15_LOOSE_ENDS.md`.)
 - **A process killed while in a system call** finishes that call first, and that call can be the `os.replace` of
   `best_model.pt` itself. `save_checkpoint_atomic` replaces it with a complete, fsynced temporary file, so this cannot
   produce a partial incumbent; it can only complete one replacement.

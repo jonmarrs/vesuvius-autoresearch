@@ -11,6 +11,7 @@ import json
 import math
 import re
 import shlex
+import signal
 import subprocess
 import sys
 from pathlib import Path
@@ -367,6 +368,10 @@ def prepare_round(
     return result
 
 
+def _interrupt(*args):
+    raise KeyboardInterrupt
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -385,6 +390,11 @@ def main(argv=None):
     parser.add_argument("--timeout", type=float, default=3600)
     parser.add_argument("--max-pixels", type=int, default=MAX_LABEL_PIXELS)
     args = parser.parse_args(argv)
+    # A kill (SIGTERM) used to end this process at once: its generator ran on in
+    # a session of its own, writing into a staging directory nothing would
+    # publish or remove. As an interrupt, the supervisor stops the generator's
+    # group and the staging directory is removed, as for Ctrl-C.
+    previous = signal.signal(signal.SIGTERM, _interrupt) if args.execute else None
     try:
         result = prepare_round(
             args.checkpoint,
@@ -403,6 +413,9 @@ def main(argv=None):
         subprocess.TimeoutExpired,
     ) as exc:
         parser.exit(1, f"pseudo-label preparation failed: {exc}\n")
+    finally:
+        if args.execute:
+            signal.signal(signal.SIGTERM, previous)
     print(json.dumps(result, indent=2, allow_nan=False))
 
 

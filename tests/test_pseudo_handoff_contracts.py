@@ -1,6 +1,8 @@
 """Pseudo-label artifacts must retain known labels, ignore semantics, and scope."""
 
 import json
+import os
+import signal
 import subprocess
 import sys
 from pathlib import Path
@@ -384,6 +386,31 @@ def test_child_failures_never_publish_completed_batch(preparation, monkeypatch, 
         )
     ):
         rounds.prepare_round(checkpoint, manifest, output, execute=True)
+    assert not output.exists()
+    assert not list(output.parent.glob(".batch-*"))
+
+
+def test_a_kill_stops_the_generator_and_publishes_nothing(preparation, monkeypatch):
+    """A SIGTERM ended the command at once: its generator, in a session of its
+    own, ran on into a staging directory nothing would publish or remove.
+    --execute now takes it as an interrupt, like Ctrl-C."""
+    checkpoint, manifest, output, _, _ = preparation
+
+    def killed(self, command, *, timeout, check, cwd):
+        os.kill(os.getpid(), signal.SIGTERM)
+
+    def default_action(*args):  # what SIGTERM's default would have done
+        raise AssertionError("SIGTERM reached the default action")
+
+    monkeypatch.setattr(rounds.ProcessSupervisor, "run", killed)
+    previous = signal.signal(signal.SIGTERM, default_action)
+    try:
+        args = ["--checkpoint", str(checkpoint), "--manifest", str(manifest)]
+        with pytest.raises(KeyboardInterrupt):
+            rounds.main([*args, "--out", str(output), "--execute"])
+        assert signal.getsignal(signal.SIGTERM) is default_action  # restored
+    finally:
+        signal.signal(signal.SIGTERM, previous)
     assert not output.exists()
     assert not list(output.parent.glob(".batch-*"))
 
