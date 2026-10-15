@@ -57,6 +57,8 @@ def running_pid(repo):
                     "scripts.f1_noise_probe",
                     "ablate_scroll_augmentations.py",
                     "scripts.ablate_scroll_augmentations",
+                    "reevaluate_best_model.py",
+                    "scripts.reevaluate_best_model",
                 }
                 for arg in args
                 if arg
