@@ -26,7 +26,8 @@ ablation do. It refuses to start beside the loop, and neither the watchdog nor
 start.sh can start the loop under it: a promotion made meanwhile would be written
 over with the old model. ./stop.sh stops it before it writes. It also refuses to
 write if best_model.pt changed while it was being scored, or if a loop killed
-mid-cycle left a hold the loop's next start must settle.
+mid-cycle left a hold the loop's next start must settle, or while a training
+run no loop supervises (such as that loop's own) is still going.
 """
 
 import argparse
@@ -57,7 +58,11 @@ from train import (
 )
 
 from run_autoresearch_loop import leftover_hold
-from scripts.loop_control import acquire_lock, running_pid
+from scripts.loop_control import (
+    acquire_lock,
+    running_pid,
+    unsupervised_runs_refusal,
+)
 from scripts.process_supervisor import stops_interrupt
 from scripts.training.promotion import save_checkpoint_atomic, validation_protocol
 from vesuvius_autoresearch.core.checkpoint_tools import (
@@ -109,6 +114,12 @@ def reevaluate(update_stored: bool = False, unwarped: bool = False) -> None:
         # loop_control names this script, so ./stop.sh can stop it; the
         # interrupt lets save_checkpoint_atomic remove its temporary file.
         with stops_interrupt():
+            # Before the hold, as the loop's start: while a killed loop's run
+            # goes on, best_model.pt is still the held file, and releasing
+            # the hold would leave that run's promotion for nobody to settle.
+            refusal = unsupervised_runs_refusal(Path.cwd())
+            if refusal:
+                raise RuntimeError(f"best_model.pt was not updated: {refusal}")
             reason = leftover_hold()
             if reason:
                 raise RuntimeError(f"best_model.pt was not updated: {reason}")

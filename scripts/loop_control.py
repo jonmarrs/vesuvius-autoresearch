@@ -159,20 +159,22 @@ def describe_run(pid, age, started):
 def unsupervised_runs_refusal(repo):
     """Why lock-holding work should not start in repo yet, or None.
 
-    For the ablation and the noise probe, which take the lock but, unlike the
-    loop's start (#81), find no other check: a run a killed loop or ablation
-    left going, or one started by hand, shares the GPU with their runs, each
-    held to a fixed time budget, and in the checkout can still write
-    run_result.json and best_model.pt. Call it holding the lock and before
-    starting a run: the caller's own runs would be listed too."""
+    For the ablation, the noise probe and the re-score, which take the lock
+    but, unlike the loop's start (#81), stop no such run: a run a killed loop
+    or ablation left going, or one started by hand, shares the GPU with their
+    fixed-budget runs, and in the checkout can still write run_result.json
+    and, if it is a loop's run, replace best_model.pt. Call it holding the
+    lock, before the caller starts a run here (an ablation's cells would be
+    listed too)."""
     runs = unsupervised_runs(repo)
     if not runs:
         return None
     return (
         "a training run no loop supervises is going in this checkout: "
         + "; ".join(describe_run(*run) for run in runs)
-        + ". It shares the GPU and can still write run_result.json and "
-        "best_model.pt. ./stop.sh stops the runs a loop or ablation started "
+        + ". Such a run shares the GPU, and can still write run_result.json "
+        "here (and a loop's run, best_model.pt). ./stop.sh stops the runs a "
+        "loop or ablation started "
         "(it also pauses the watchdog); a run started by hand: kill -TERM <PID>"
     )
 

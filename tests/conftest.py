@@ -53,6 +53,8 @@ def orphaned_run():
 
     def start(directory):
         script = Path(directory) / "scripts" / "training" / "train.py"
+        if script.exists():  # never a real checkout's trainer
+            raise FileExistsError(script)
         script.parent.mkdir(parents=True, exist_ok=True)
         script.write_text("import time\ntime.sleep(120)\n")
         command = [sys.executable, "-u", "scripts/training/train.py"]
@@ -63,10 +65,11 @@ def orphaned_run():
 
     yield start
     for run in runs:
-        try:
-            os.killpg(run.pid, signal.SIGKILL)
-        except ProcessLookupError:
-            pass
+        if run.poll() is None:  # its group: its PID, not reused while unreaped
+            try:
+                os.killpg(run.pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
         run.wait()
 
 
