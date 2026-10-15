@@ -308,9 +308,20 @@ RECENT_CONFIGS_FILE = "recent_configs.json"
 CURRENT_LOG_PTR = ".current_day_shift_log"
 TEMP_CONFIG = "config_temp.json"
 # sprint_logs/sprint_log_<when it was started>_<shift>.md
+RESUME_MARKER = "## Resumed at"
 SHIFT_LOG_NAME = re.compile(
     r"sprint_log_(\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2})_(\w+)\.md"
 )
+
+
+def _ends_with_resume_marker(path):
+    """Whether the log's last line is a resume marker: a restart since then
+    wrote nothing."""
+    with open(path, "rb") as log:
+        log.seek(0, os.SEEK_END)
+        log.seek(max(0, log.tell() - 512))
+        lines = [line for line in log.read().splitlines() if line.strip()]
+    return bool(lines) and lines[-1].decode(errors="replace").startswith(RESUME_MARKER)
 
 
 def shift_began(when):
@@ -322,12 +333,25 @@ def shift_began(when):
 
 def shift_log_to_resume(previous, shift_tag, now):
     """``previous``, the log the loop last wrote to, if it is this shift's log:
-    the same shift, begun the same day, as its name records. A restart within a
-    shift (a crash, a stop and start) then goes on writing the shift's record."""
+    in sprint_logs/, of the same shift, begun the same day, as its name records.
+    A restart within a shift (a crash, a stop and start) then goes on writing
+    the shift's record."""
     match = SHIFT_LOG_NAME.fullmatch(os.path.basename(previous))
-    if match is None or match.group(2) != shift_tag or not os.path.isfile(previous):
+    if (
+        match is None
+        or match.group(2) != shift_tag
+        or os.path.dirname(os.path.normpath(previous)) != "sprint_logs"
+        or not os.path.isfile(previous)
+    ):
         return None
-    started = datetime.datetime.strptime(match.group(1), "%Y-%m-%d_%H-%M-%S")
+    try:
+        started = datetime.datetime.strptime(match.group(1), "%Y-%m-%d_%H-%M-%S")
+    except ValueError:  # an impossible date: not a name the loop wrote
+        return None
+    # Started within its shift's hours: a log begun as the shift ended (the
+    # hour and the time read a moment apart) is not the next one's.
+    if (7 <= started.hour < 19) != (shift_tag == "day_shift"):
+        return None
     return previous if shift_began(started) == shift_began(now) else None
 
 
@@ -889,10 +913,12 @@ def main():
             log.write(
                 f"- **Goal**: Monotonic val_f1 optimization (honest F1, AP-lift gated) via {default_budget // 60}-min cycles (Config-Driven).\n\n"
             )
-    else:
+    elif not _ends_with_resume_marker(log_filename):
+        # Once: a restart that runs no cycle (nothing under the VRAM cap) is
+        # restarted by the watchdog every few minutes, and adds nothing else.
         with open(log_filename, "a") as log:
             log.write(
-                f"\n## Resumed at {time.strftime('%H:%M:%S')} "
+                f"\n{RESUME_MARKER} {time.strftime('%H:%M:%S')} "
                 "(the loop restarted; its cycles count from 1 again)\n\n"
             )
 
