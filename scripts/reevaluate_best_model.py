@@ -32,7 +32,6 @@ mid-cycle left a hold the loop's next start must settle.
 import argparse
 import hashlib
 import os
-import signal
 import sys
 from pathlib import Path
 
@@ -58,6 +57,7 @@ from train import (
 
 from run_autoresearch_loop import leftover_hold
 from scripts.loop_control import acquire_lock, running_pid
+from scripts.process_supervisor import stops_interrupt
 from scripts.training.promotion import save_checkpoint_atomic, validation_protocol
 from vesuvius_autoresearch.core.checkpoint_tools import (
     ink_probabilities,
@@ -75,10 +75,6 @@ def _file_sha256(path: str) -> str:
         for block in iter(lambda: stream.read(1 << 20), b""):
             digest.update(block)
     return digest.hexdigest()
-
-
-def _interrupt(*args):
-    raise KeyboardInterrupt
 
 
 def take_checkout_lock():
@@ -108,16 +104,15 @@ def reevaluate(update_stored: bool = False, unwarped: bool = False) -> None:
         _reevaluate(update_stored=False, unwarped=unwarped)
         return
     lock = take_checkout_lock()
-    # loop_control names this script, so ./stop.sh can stop it; the interrupt
-    # lets save_checkpoint_atomic remove its temporary file.
-    previous = signal.signal(signal.SIGTERM, _interrupt)
     try:
-        reason = leftover_hold()
-        if reason:
-            raise RuntimeError(f"best_model.pt was not updated: {reason}")
-        _reevaluate(update_stored=True, unwarped=unwarped)
+        # loop_control names this script, so ./stop.sh can stop it; the
+        # interrupt lets save_checkpoint_atomic remove its temporary file.
+        with stops_interrupt():
+            reason = leftover_hold()
+            if reason:
+                raise RuntimeError(f"best_model.pt was not updated: {reason}")
+            _reevaluate(update_stored=True, unwarped=unwarped)
     finally:
-        signal.signal(signal.SIGTERM, previous)
         lock.close()
 
 

@@ -4,6 +4,7 @@ import json
 import os
 import random
 import signal
+import stat
 import subprocess
 import sys
 import tempfile
@@ -398,17 +399,28 @@ def load_history():
 
 def save_history(counts):
     """Write the family weights atomically: a stop mid-write leaves the old file."""
-    directory = os.path.dirname(os.path.abspath(HISTORY_FILE))
+    try:
+        _write_json_atomic(HISTORY_FILE, dict(counts), indent=4)
+    except OSError as e:
+        print(f"Warning: Could not save history: {e}")
+
+
+def _write_json_atomic(path, data, **dump_options):
+    """A temporary file, synced, then renamed over path, keeping path's mode
+    (mkstemp creates 0600). A stop or crash leaves the old file or the new."""
+    directory = os.path.dirname(os.path.abspath(path))
     temporary = None
     try:
         fd, temporary = tempfile.mkstemp(
-            prefix=".history.", suffix=".tmp", dir=directory
+            prefix=f".{os.path.basename(path)}.", suffix=".tmp", dir=directory
         )
+        if os.path.exists(path):
+            os.fchmod(fd, stat.S_IMODE(os.stat(path).st_mode))
         with os.fdopen(fd, "w") as f:
-            json.dump(dict(counts), f, indent=4)
-        os.replace(temporary, HISTORY_FILE)
-    except OSError as e:
-        print(f"Warning: Could not save history: {e}")
+            json.dump(data, f, **dump_options)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(temporary, path)
     finally:
         if temporary is not None and os.path.exists(temporary):
             os.unlink(temporary)
@@ -426,9 +438,10 @@ def load_recent_configs():
 
 
 def save_recent_configs(configs):
+    # Atomically, like the history: written in place, a stop mid-write left a
+    # truncated file, which the next start read as no recent configs at all.
     try:
-        with open(RECENT_CONFIGS_FILE, "w") as f:
-            json.dump(configs[-20:], f)
+        _write_json_atomic(RECENT_CONFIGS_FILE, configs[-20:])
     except Exception as e:
         print(f"Warning: Could not save {RECENT_CONFIGS_FILE}: {e}")
 

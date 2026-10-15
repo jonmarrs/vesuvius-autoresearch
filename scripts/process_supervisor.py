@@ -1,9 +1,43 @@
 """Bounded lifecycle for commands whose workers share a new POSIX session."""
 
+import contextlib
 import os
 import signal
 import subprocess
+import threading
 import time
+
+# A stop of the command (./stop.sh, kill) and a closed terminal (a dropped ssh
+# session). By default each ends the process at once, before any clean-up,
+# leaving its supervised group running in a session of its own.
+STOP_SIGNALS = (signal.SIGTERM, signal.SIGHUP)
+
+
+def _interrupt(*args):
+    raise KeyboardInterrupt
+
+
+@contextlib.contextmanager
+def stops_interrupt():
+    """While supervised work runs, a stop interrupts it as Ctrl-C does: run()
+    then stops the child's group, and the caller's clean-up runs (its lock is
+    released, its staging removed). A signal the process ignores, such as
+    nohup's SIGHUP, stays ignored. Outside the main thread, where Python cannot
+    install handlers, nothing changes. The previous handlers are restored."""
+    saved = {}
+    try:
+        if threading.current_thread() is threading.main_thread():
+            for sig in STOP_SIGNALS:
+                previous = signal.getsignal(sig)
+                if previous is signal.SIG_IGN:
+                    continue
+                saved[sig] = previous  # recorded first, so it is always restored
+                signal.signal(sig, _interrupt)
+        yield
+    finally:
+        for sig, previous in saved.items():
+            # None: a handler not set from Python, which cannot be put back.
+            signal.signal(sig, signal.SIG_DFL if previous is None else previous)
 
 
 class ProcessSupervisor:

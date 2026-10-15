@@ -13,7 +13,6 @@ import json
 import math
 import os
 import shutil
-import signal
 import statistics
 import subprocess
 import sys
@@ -27,7 +26,7 @@ sys.path.insert(0, str(REPO))
 
 from scripts.artifact_hashes import sha256_file
 from scripts.loop_control import acquire_lock
-from scripts.process_supervisor import ProcessSupervisor
+from scripts.process_supervisor import ProcessSupervisor, stops_interrupt
 from scripts.training.config import ExperimentConfig
 from scripts.training.promotion import (
     VALIDATION_PROTOCOL,
@@ -382,10 +381,6 @@ def execute(plan):
             lock.close()
 
 
-def _interrupt(*args):
-    raise KeyboardInterrupt
-
-
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--config", required=True, type=Path)
@@ -408,16 +403,15 @@ def main(argv=None):
             args.config, args.checkpoint, args.out, runs=args.runs, timeout=args.timeout
         )
         if args.execute:
-            previous = signal.signal(signal.SIGTERM, _interrupt)
             previous_cwd = Path.cwd()
-            try:
-                # loop_control verifies the registered owner's checkout as well
-                # as its script, so stop.sh can stop a running probe safely.
-                os.chdir(REPO)
-                summary = execute(plan)
-            finally:
-                os.chdir(previous_cwd)
-                signal.signal(signal.SIGTERM, previous)
+            with stops_interrupt():
+                try:
+                    # loop_control verifies the registered owner's checkout as
+                    # well as its script, so stop.sh can stop a running probe.
+                    os.chdir(REPO)
+                    summary = execute(plan)
+                finally:
+                    os.chdir(previous_cwd)
         else:
             summary = {
                 "status": "DRY_RUN",
