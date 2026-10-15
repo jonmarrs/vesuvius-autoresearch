@@ -95,6 +95,13 @@ PYTHONPATH=. uv run python scripts/training/train.py --test
 `start.sh` and `stop.sh` control this checkout using its process lock and work
 from any directory. `start.sh` clears the pause; `make shift` uses the same
 launcher. The watchdog respects the pause even when the loop is already stopped.
+The lock is also held by the work that must not run beside the loop: the noise
+probe (`scripts/f1_noise_probe.py --execute`), the augmentation ablation
+(`scripts/ablate_scroll_augmentations.py`, unless `--dry-run`) and the incumbent re-score
+(`scripts/reevaluate_best_model.py --update-stored`). Each refuses to start
+while another holds it, and `stop.sh` stops whichever does. It also stops the
+training runs a killed loop or ablation left going (each runs in a session of its
+own), and names any started by hand; `scripts/loop_control.py status` lists them.
 
 ### Detector prediction and measurement
 

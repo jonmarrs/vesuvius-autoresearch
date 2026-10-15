@@ -73,6 +73,13 @@ autoresearch.out
 # docs/DESIGN_ARCHITECTURE_REVIEW_2026-10-12_CROSS_CUTTING.md).
 autoresearch.lock
 .current_day_shift_log
+# The incumbent held across a training run, and the model of a run that replaced
+# it and then failed (run_autoresearch_loop.settle_incumbent).
+.best_model.pt.held
+best_model.pt.failed-run-*
+# Temporaries of the atomic writers (save_checkpoint_atomic, the loop's JSON
+# state), left only if a process is killed (SIGKILL) mid-write.
+.*.tmp
 
 # Discord DRAFTS stay local-only. What was actually POSTED is tracked: a file that calls
 # itself "the public artifact of record" is not a record if it only exists on one machine.

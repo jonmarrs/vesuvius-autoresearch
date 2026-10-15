@@ -1,0 +1,91 @@
+{
+ "fragment": "local_data/PHercParis2Fr47",
+ "loop": {
+  "entries": 7345,
+  "depth_band": [
+   1,
+   27
+  ],
+  "read_depth_starts": [
+   0,
+   1,
+   2,
+   3,
+   4,
+   5,
+   6,
+   7
+  ],
+  "ink_share": 0.1773,
+  "entries_without_ink": 0.7013,
+  "without_seed_every_run": {
+   "mask_pixels": 0.7438,
+   "ink_pixels": 0.7478
+  },
+  "run_seeds": [
+   1714622807,
+   603205923,
+   856219335,
+   1261690316,
+   1446583524,
+   1019837662,
+   435361755,
+   886437168
+  ],
+  "one_run": {
+   "mask_pixels": 0.7465,
+   "ink_pixels": 0.7486
+  },
+  "with_run_seeds_cumulative": [
+   {
+    "runs": 1,
+    "mask_pixels": 0.7465,
+    "ink_pixels": 0.7486
+   },
+   {
+    "runs": 2,
+    "mask_pixels": 0.9337,
+    "ink_pixels": 0.9377
+   },
+   {
+    "runs": 3,
+    "mask_pixels": 0.9815,
+    "ink_pixels": 0.9823
+   },
+   {
+    "runs": 4,
+    "mask_pixels": 0.9948,
+    "ink_pixels": 0.9953
+   },
+   {
+    "runs": 5,
+    "mask_pixels": 0.9983,
+    "ink_pixels": 0.9983
+   },
+   {
+    "runs": 6,
+    "mask_pixels": 0.9995,
+    "ink_pixels": 0.9996
+   },
+   {
+    "runs": 7,
+    "mask_pixels": 0.9997,
+    "ink_pixels": 0.9999
+   },
+   {
+    "runs": 8,
+    "mask_pixels": 0.9998,
+    "ink_pixels": 0.9999
+   }
+  ]
+ },
+ "detector": {
+  "subtiles_per_epoch": 253264,
+  "distinct_subtiles": 22013,
+  "ink_share": 0.3117,
+  "every_epoch": {
+   "mask_pixels": 0.7998,
+   "ink_pixels": 1.0
+  }
+ }
+}

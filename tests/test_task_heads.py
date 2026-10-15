@@ -106,10 +106,12 @@ class _Stop(Exception):
 
 
 @pytest.mark.parametrize("multi_task_heads", [True, False])
-def test_the_frangi_fiber_target_is_computed_only_for_a_head_that_uses_it(
+def test_the_training_loader_never_computes_the_frangi_target(
     tmp_path, monkeypatch, multi_task_heads
 ):
-    """~86 ms/patch in the loader, inside the fixed training budget."""
+    """~150 ms/patch on the CPU in the loader; the training step computes it on
+    the batch's device instead (train.fiber_target), for a head that uses it
+    (train.fiber_source, tests/test_frangi_torch.py)."""
     monkeypatch.chdir(tmp_path)
     for fragment in ("train", "val"):
         (tmp_path / fragment).mkdir()
@@ -149,7 +151,7 @@ def test_the_frangi_fiber_target_is_computed_only_for_a_head_that_uses_it(
     )
     with pytest.raises(_Stop):
         train.train(config)
-    assert seen["source"] == ("frangi" if multi_task_heads else "sobel_z")
+    assert seen["source"] == "sobel_z"  # the zero placeholder
 
 
 def test_heads_on_a_backbone_without_a_volume_output_are_refused():

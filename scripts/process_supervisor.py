@@ -1,43 +1,123 @@
 """Bounded lifecycle for commands whose workers share a new POSIX session."""
 
+import contextlib
 import os
 import signal
 import subprocess
+import threading
 import time
+
+# A stop of the command (./stop.sh, kill) and a closed terminal (a dropped ssh
+# session). By default each ends the process at once, before any clean-up,
+# leaving its supervised group running in a session of its own.
+STOP_SIGNALS = (signal.SIGTERM, signal.SIGHUP)
+
+
+def _interrupt(*args):
+    raise KeyboardInterrupt
+
+
+@contextlib.contextmanager
+def stops_interrupt():
+    """While supervised work runs, a stop interrupts it as Ctrl-C does: run()
+    then stops the child's group, and the caller's clean-up runs (its lock is
+    released, its staging removed). A signal the process ignores, such as
+    nohup's SIGHUP, stays ignored. Outside the main thread, where Python cannot
+    install handlers, nothing changes. The previous handlers are restored."""
+    saved = {}
+    try:
+        if threading.current_thread() is threading.main_thread():
+            for sig in STOP_SIGNALS:
+                previous = signal.getsignal(sig)
+                if previous is signal.SIG_IGN:
+                    continue
+                saved[sig] = previous  # recorded first, so it is always restored
+                signal.signal(sig, _interrupt)
+        yield
+    finally:
+        for sig, previous in saved.items():
+            # None: a handler not set from Python, which cannot be put back.
+            signal.signal(sig, signal.SIG_DFL if previous is None else previous)
 
 
 class ProcessSupervisor:
     def __init__(self, grace_seconds=5):
         self.active = None
+        self.stopping = None
         self.grace_seconds = grace_seconds
 
     def stop(self):
-        """Terminate the whole group, including workers surviving their parent."""
+        """Terminate the whole group, including workers surviving their parent.
+
+        A signal handler can call this while a stop is under way: a second stop
+        during the first one's grace period, or a stop during run()'s own
+        clean-up. That call kills the group at once and waits for its leader,
+        because the caller acts on the run's files next (the loop settles
+        best_model.pt). It used to return at once with the group still alive,
+        and the handler's exit then cut the first stop short before its SIGKILL.
+        If the wait is interrupted, the group is killed before the exception
+        propagates. Once SIGKILL is sent, a leader that is slow to be reaped no
+        longer raises TimeoutExpired, which the loop would take for its run's
+        own timeout and carry on."""
+        if self.stopping is not None:
+            self._kill(self.stopping)
+            return
         process = self.active
         if process is None:
             return
+        self.stopping = process  # set first: a handler between the two finds it
         self.active = None
-        # start_new_session makes the child's PID the group ID. Do not look up
-        # its current group: the leader can exit while its workers remain alive.
         try:
-            os.killpg(process.pid, signal.SIGTERM)
+            # start_new_session makes the child's PID the group ID. Do not look up
+            # its current group: the leader can exit while its workers remain alive.
+            try:
+                os.killpg(process.pid, signal.SIGTERM)
+            except ProcessLookupError:
+                self._reap(process)
+                return
+            deadline = time.monotonic() + self.grace_seconds
+            while time.monotonic() < deadline:
+                process.poll()  # reap the leader before checking the group
+                try:
+                    os.killpg(process.pid, 0)
+                except ProcessLookupError:
+                    break
+                time.sleep(0.05)
+            else:
+                try:
+                    os.killpg(process.pid, signal.SIGKILL)
+                except ProcessLookupError:
+                    pass
+            self._reap(process)
+        except BaseException:
+            self._kill(process)
+            raise
+        finally:
+            self.stopping = None
+
+    def _kill(self, process):
+        """SIGKILL the group, reap the leader, and wait for the rest of the
+        group: the loop's leader is `uv`, and train.py is its child."""
+        try:
+            os.killpg(process.pid, signal.SIGKILL)
         except ProcessLookupError:
-            process.wait(timeout=self.grace_seconds)
-            return
-        deadline = time.monotonic() + self.grace_seconds
+            pass
+        self._reap(process)
+        deadline = time.monotonic() + max(self.grace_seconds, 1)
         while time.monotonic() < deadline:
-            process.poll()  # reap the leader before checking the group
             try:
                 os.killpg(process.pid, 0)
             except ProcessLookupError:
                 break
             time.sleep(0.05)
-        else:
-            try:
-                os.killpg(process.pid, signal.SIGKILL)
-            except ProcessLookupError:
-                pass
-        process.wait(timeout=max(self.grace_seconds, 1))
+
+    def _reap(self, process):
+        try:
+            # Bounded: an interrupted wait in the same thread may still hold the
+            # process's wait lock, and then this one times out instead.
+            process.wait(timeout=max(self.grace_seconds, 1))
+        except subprocess.TimeoutExpired:
+            pass
 
     def run(self, command, *, timeout, check=False, **kwargs):
         if self.active is not None:

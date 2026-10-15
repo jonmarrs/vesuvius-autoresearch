@@ -1,16 +1,19 @@
 import copy
+import glob
 import json
 import os
 import random
 import signal
+import stat
 import subprocess
 import sys
+import tempfile
 import time
 from collections import Counter, defaultdict
 from dataclasses import asdict
 from typing import Any
 
-from scripts.loop_control import acquire_lock
+from scripts.loop_control import acquire_lock, describe_run, unsupervised_runs
 from scripts.process_supervisor import ProcessSupervisor
 from scripts.training.config import ExperimentConfig
 from scripts.training.promotion import (
@@ -43,9 +46,53 @@ supervisor = ProcessSupervisor()
 
 
 def signal_handler(sig, frame):
+    if sig == signal.SIGHUP:
+        _leave_closed_terminal()
+    if STOP_DEFERRED["active"]:
+        # The cycle's outcome is being recorded (the config, the commit, the
+        # sprint-log entry): stop once that is done, not halfway through it.
+        if STOP_DEFERRED["signal"] is None:
+            print(f"\nCaught signal {sig}. Stopping once this cycle is recorded...")
+        else:
+            print(f"\nCaught signal {sig}. Still recording this cycle; stopping after.")
+        STOP_DEFERRED["signal"] = sig
+        return
+    if STOP_DEFERRED["stopping"]:
+        # Stopped again while this stop runs (stop.sh twice, Ctrl-C twice): kill
+        # the run at once (the supervisor escalates) and let the first handler
+        # settle once and exit. Exiting here cut its settle short.
+        print(f"\nCaught signal {sig}. Already stopping; the run is killed.")
+        supervisor.stop()
+        return
+    STOP_DEFERRED["stopping"] = True
     print(f"\nCaught signal {sig}. Cleaning up...")
     supervisor.stop()
+    # A stop (stop.sh sends SIGTERM) almost always lands mid-cycle: settle that
+    # run as failed now, with its process group dead and config.json not yet
+    # promoted, so what happens while the loop is stopped is not mistaken for it.
+    if CYCLE_HOLD["active"]:
+        note = settle_incumbent(CYCLE_HOLD["held"], failed=True)
+        if note:
+            print(f"Incumbent: {note}.")
     sys.exit(0)
+
+
+LOOP_OUTPUT = "autoresearch.out"
+
+
+def _leave_closed_terminal():
+    """After a hangup, writing to the closed terminal fails (EIO): the handler's
+    first message raised before it stopped the run, and later ones broke the
+    recording of a cycle. From here the loop's output goes to autoresearch.out,
+    as start.sh's does."""
+    terminal = False
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            terminal = terminal or stream.isatty()
+        except (OSError, ValueError, AttributeError):
+            terminal = True
+    if terminal:
+        sys.stdout = sys.stderr = open(LOOP_OUTPUT, "a", buffering=1)
 
 
 # Define templates for architectural and hyperparameter tweaks
@@ -230,7 +277,8 @@ tweak_templates: list[dict[str, Any]] = [
     # falls back to manual inklabels_filled.png; cycles sampled to this family
     # always REVERTED. Re-add this entry after running
     # scripts/generate_pseudo_labels.py to produce real {segment_name}_pseudo.png
-    # files matching the train.py contract.
+    # files matching the train.py contract, and with use_confidence_weight set
+    # alongside: train.py refuses a pseudo-label without it (2026-10-14).
     # {"family": "iterative", "attr": "pseudo_label_dir", "vals": [None, "local_data/pseudo_labels"]},
     {"family": "uamt", "attr": "use_uamt", "vals": [True, False]},
     # consistency_weight and ema_decay are both no-ops when use_uamt is False
@@ -341,25 +389,61 @@ def template_weights(templates, success_counts):
 
 
 def load_history():
+    """The family weights; 1 for a family not yet recorded.
+
+    An unreadable file is moved aside rather than left to be overwritten with
+    the defaults at the end of the first cycle (save_history runs every cycle).
+    """
     counts = defaultdict(lambda: 1)
-    if os.path.exists(HISTORY_FILE):
+    if not os.path.exists(HISTORY_FILE):
+        return counts
+    try:
+        with open(HISTORY_FILE) as f:
+            data = json.load(f)
+        if not isinstance(data, dict):
+            raise ValueError(f"expected an object, got {type(data).__name__}")
+        counts.update(data)
+    except (OSError, ValueError) as e:
+        aside = f"{HISTORY_FILE}.unreadable-{time.strftime('%Y%m%d-%H%M%S')}"
         try:
-            with open(HISTORY_FILE) as f:
-                data = json.load(f)
-                if isinstance(data, dict):
-                    counts.update(data)
-                return counts
-        except Exception as e:
-            print(f"Warning: Could not load history from {HISTORY_FILE}: {e}")
+            os.replace(HISTORY_FILE, aside)
+            kept = f"moved it to {aside}"
+        except OSError as move_error:
+            kept = f"could not move it aside ({move_error})"
+        print(
+            f"Warning: {HISTORY_FILE} is unreadable ({e}); {kept}. Starting from "
+            "weight 1 for every family."
+        )
     return counts
 
 
 def save_history(counts):
+    """Write the family weights atomically: a stop mid-write leaves the old file."""
     try:
-        with open(HISTORY_FILE, "w") as f:
-            json.dump(dict(counts), f, indent=4)
-    except Exception as e:
+        _write_json_atomic(HISTORY_FILE, dict(counts), indent=4)
+    except OSError as e:
         print(f"Warning: Could not save history: {e}")
+
+
+def _write_json_atomic(path, data, **dump_options):
+    """A temporary file, synced, then renamed over path, keeping path's mode
+    (mkstemp creates 0600). A stop or crash leaves the old file or the new."""
+    directory = os.path.dirname(os.path.abspath(path))
+    temporary = None
+    try:
+        fd, temporary = tempfile.mkstemp(
+            prefix=f".{os.path.basename(path)}.", suffix=".tmp", dir=directory
+        )
+        if os.path.exists(path):
+            os.fchmod(fd, stat.S_IMODE(os.stat(path).st_mode))
+        with os.fdopen(fd, "w") as f:
+            json.dump(data, f, **dump_options)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(temporary, path)
+    finally:
+        if temporary is not None and os.path.exists(temporary):
+            os.unlink(temporary)
 
 
 def load_recent_configs():
@@ -374,11 +458,301 @@ def load_recent_configs():
 
 
 def save_recent_configs(configs):
+    # Atomically, like the history: written in place, a stop mid-write left a
+    # truncated file, which the next start read as no recent configs at all.
     try:
-        with open(RECENT_CONFIGS_FILE, "w") as f:
-            json.dump(configs[-20:], f)
+        _write_json_atomic(RECENT_CONFIGS_FILE, configs[-20:])
     except Exception as e:
         print(f"Warning: Could not save {RECENT_CONFIGS_FILE}: {e}")
+
+
+INCUMBENT = "best_model.pt"
+# A hard link to the incumbent, kept while a training run may replace it.
+INCUMBENT_HELD = ".best_model.pt.held"
+# The cycle in flight, for the signal handler: whether it holds, and what.
+CYCLE_HOLD: dict[str, Any] = {"active": False, "held": None, "logs": {}}
+# Set from a run's end until its cycle is recorded; a stop then waits for it.
+# "stopping": a stop is being handled, and a repeated one only kills the run.
+STOP_DEFERRED: dict[str, Any] = {"active": False, "signal": None, "stopping": False}
+# The rows train.py appends when it promotes, before it writes its result.
+PROMOTION_LOGS = ("results.tsv", "prize_readiness.tsv")
+
+
+def hold_incumbent():
+    """Hard-link the incumbent before a training run, at no copy cost: train.py
+    promotes by os.replace, so the link keeps the old checkpoint. True if there
+    was one to hold, False if there was none, None if it could not be held."""
+    if os.path.lexists(INCUMBENT_HELD):
+        os.remove(INCUMBENT_HELD)
+    held: bool | None = True
+    if not os.path.exists(INCUMBENT):
+        held = False
+    else:
+        try:
+            os.link(INCUMBENT, INCUMBENT_HELD)
+        except OSError as e:
+            print(f"Warning: could not hold {INCUMBENT} for this cycle ({e}).")
+            held = None
+    CYCLE_HOLD.update(active=True, held=held, logs=_log_ends())
+    return held
+
+
+def _log_ends():
+    """Each promotion log's bytes, or None where there is none. The logs are
+    small (a row per promotion); content, not the inode, tells whether a log was
+    only appended to, since a file git or an operator recreates can get its old
+    inode number back."""
+    ends = {}
+    for path in PROMOTION_LOGS:
+        try:
+            with open(path, "rb") as f:
+                ends[path] = f.read()
+        except FileNotFoundError:
+            ends[path] = None
+        except OSError as e:
+            print(f"Warning: could not read {path} before the run ({e}).")
+    return ends
+
+
+def _read_bytes(path):
+    with open(path, "rb") as f:
+        return f.read()
+
+
+def _undo_promotion_rows(before):
+    """Put each promotion log back as it was before the run, so the reports read
+    no promotion the loop undid. A log that still begins with its old bytes is
+    cut to them; one the run created is removed; one append_tsv_row rotated
+    (moved aside for a new header) is moved back. Any other change is left."""
+    undone, left = [], []
+    for path, old in before.items():
+        try:
+            if not os.path.exists(path):
+                continue
+            now = _read_bytes(path)
+            if old is None:
+                os.remove(path)
+                undone.append(path)
+            elif now.startswith(old):
+                if len(now) > len(old):
+                    os.truncate(path, len(old))
+                    undone.append(path)
+            else:
+                stem, ext = os.path.splitext(path)
+                pattern = f"{glob.escape(stem)}.until-*{ext}"
+                rotated = [
+                    a for a in sorted(glob.glob(pattern)) if _read_bytes(a) == old
+                ]
+                if rotated:
+                    os.replace(rotated[-1], path)
+                    undone.append(path)
+                else:
+                    left.append(path)
+        except OSError as e:
+            print(f"Warning: could not restore {path} ({e}).")
+            left.append(path)
+    return undone, left
+
+
+def settle_incumbent(held, failed):
+    """After a run: a failed one promotes neither the config nor the model.
+
+    train.py replaces best_model.pt before it writes run_result.json and exits,
+    so a run that fails after that point (an exit error, the timeout, a stop)
+    left a model no config or commit records, which the next cycle would
+    warm-start from and be compared with. Such a model is moved aside and the
+    held incumbent put back. Returns a note for the sprint log, or None.
+    """
+    logs = CYCLE_HOLD["logs"]
+    CYCLE_HOLD.update(active=False, logs={})
+    if held and not os.path.exists(INCUMBENT_HELD):
+        print(f"Warning: {INCUMBENT_HELD} disappeared during the cycle; not settled.")
+        held = None
+    if held:
+        replaced = not (
+            os.path.exists(INCUMBENT) and os.path.samefile(INCUMBENT, INCUMBENT_HELD)
+        )
+    else:
+        replaced = held is False and os.path.exists(INCUMBENT)
+    note = None
+    if failed and replaced:
+        aside = None
+        if os.path.exists(INCUMBENT):
+            stamp = time.strftime("%Y%m%d-%H%M%S")
+            aside = f"{INCUMBENT}.failed-run-{stamp}"
+            n = 1
+            while os.path.lexists(aside):
+                n += 1
+                aside = f"{INCUMBENT}.failed-run-{stamp}-{n}"
+            os.replace(INCUMBENT, aside)
+        if held:
+            os.replace(INCUMBENT_HELD, INCUMBENT)
+        undone, left = _undo_promotion_rows(logs)
+        note = (
+            f"the run wrote {INCUMBENT} and then failed; "
+            + ("the incumbent was restored" if held else "there was none before it")
+            + (f", and the run's model kept as {aside}" if aside else "")
+            + (f"; its rows were removed from {', '.join(undone)}" if undone else "")
+            + (
+                f"; {', '.join(left)} changed otherwise during the run, left as is"
+                if left
+                else ""
+            )
+        )
+    if os.path.lexists(INCUMBENT_HELD):
+        os.remove(INCUMBENT_HELD)
+    return note
+
+
+def leftover_hold():
+    """A reason not to start, if a loop ended mid-cycle without settling its run
+    (a kill or power loss; a stop settles). Released if best_model.pt is still
+    the held file. Otherwise it cannot be told whether that run or the operator
+    changed best_model.pt since, so the choice is left to the operator."""
+    if not os.path.lexists(INCUMBENT_HELD):
+        return None
+    if os.path.exists(INCUMBENT) and os.path.samefile(INCUMBENT, INCUMBENT_HELD):
+        os.remove(INCUMBENT_HELD)
+        return None
+    return (
+        f"{INCUMBENT_HELD} remains from a loop that ended mid-cycle without settling "
+        f"its run, and {INCUMBENT} has changed since that cycle began (the run "
+        "replaced it, or it was changed by hand). To keep the current "
+        f"{INCUMBENT}: rm {INCUMBENT_HELD}. To restore the incumbent from before "
+        f"that cycle: mv {INCUMBENT_HELD} {INCUMBENT}, and remove that run's last "
+        f"row from {' and '.join(PROMOTION_LOGS)} if it added one."
+    )
+
+
+TRAIN_SCRIPT = "scripts/training/train.py"
+# The longest a supervised training run may last: the night budget plus the
+# margin of its timeout (default_budget + 300 in main).
+LONGEST_RUN_SECONDS = 3600 + 300
+
+
+def unsupervised_runs_reason(running):
+    """Stops a loop's own run that has outlived any cycle's timeout, as its
+    supervisor would have, and says why the loop does not start."""
+    lines = []
+    for pid, age, own in running:
+        lines.append(describe_run(pid, age, own))
+        if own and age is not None and age > LONGEST_RUN_SECONDS:
+            try:
+                os.killpg(pid, signal.SIGTERM)
+                lines[-1] += ", stopped now: past any cycle's timeout"
+            except OSError:
+                pass
+    return (
+        "a training run is going in this checkout outside any loop: "
+        + "; ".join(lines)
+        + ". A loop that ended without stopping its run (killed, or its terminal "
+        "closed) leaves it going, and a run started here by hand writes the same "
+        "files: either can still replace best_model.pt and write run_result.json. "
+        "The watchdog tries again on its next tick. ./stop.sh stops the runs a "
+        "loop or ablation started (it also pauses the watchdog); a run started "
+        "by hand: kill -TERM <PID>. If it promoted, the hold then needs your call."
+    )
+
+
+def exit_description(returncode):
+    if returncode is not None and returncode < 0:
+        try:
+            return f"was killed by {signal.Signals(-returncode).name}"
+        except ValueError:
+            pass
+    return f"exited with code {returncode}"
+
+
+# The files a promotion changes, and the only ones its commit records.
+PROMOTION_FILES = (CONFIG_FILE, INCUMBENT, HISTORY_FILE)
+
+
+def commit_promotion(message):
+    """Commit a promotion: exactly PROMOTION_FILES, whatever else is staged.
+
+    `git add ... && git commit` committed the whole index, so changes the
+    operator had staged went in under "improved model" (a 248-line
+    vesuvius_loader.py change on 2026-04-25), as did reports/figures/, which the
+    loop does not write (35 of 50 promotion commits). `git commit --only` takes
+    just these paths and leaves the rest of the index as it was; a failed commit
+    unstages them again. Returns True, or why the commit failed.
+    """
+    try:
+        code, output = _run_git("add", "--", *PROMOTION_FILES)
+        if code != 0:
+            return f"git add {_git_failure(code, output)}"
+        code, output = _run_git(
+            "commit", "--only", "-m", message, "--", *PROMOTION_FILES
+        )
+        if code != 0:
+            # Or the operator's next commit would take them in.
+            _run_git("reset", "-q", "--", *PROMOTION_FILES)
+            return f"git commit {_git_failure(code, output)}"
+    except OSError as e:
+        return f"git could not be run ({e})"
+    return True
+
+
+def _run_git(*args, timeout=300):
+    """Run git in a process group of its own, with its hooks (a terminal's
+    Ctrl-C reaches neither). A hang is stopped with SIGTERM to the group, on
+    which git removes its index.lock (a SIGKILL would leave it, failing every
+    later git command), then SIGKILL. Signalling git alone left a hook holding
+    the output pipes, and the wait for them had no end, so a stop deferred
+    behind it never came."""
+    process = subprocess.Popen(
+        ["git", *args],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        errors="replace",
+        start_new_session=True,
+    )
+    try:
+        out, err = process.communicate(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        for sig, grace in ((signal.SIGTERM, 30), (signal.SIGKILL, 10)):
+            try:
+                os.killpg(process.pid, sig)
+            except ProcessLookupError:
+                pass
+            try:
+                process.communicate(timeout=grace)
+                break
+            except subprocess.TimeoutExpired:
+                pass
+        else:  # a descendant that left the group still holds the pipes
+            for stream in (process.stdout, process.stderr):
+                if stream is not None:
+                    stream.close()
+        return None, f"timed out after {timeout} s"
+    return process.returncode, f"{err}\n{out}"
+
+
+def _git_failure(code, output):
+    """The reason git gives: its fatal/error lines and failed hooks, not only
+    the last line (pre-commit ends on its stash-restore message)."""
+    if code is None:
+        return output
+    lines = [line.strip() for line in output.splitlines() if line.strip()]
+    key = [
+        line
+        for line in lines
+        if line.startswith(("fatal:", "error:", "- hook id:"))
+        or line.endswith("Failed")
+    ]
+    reason = " | ".join((key or lines)[-3:])
+    return f"exited {code}" + (f": {reason}" if reason else "")
+
+
+def last_log_line(path="run.log", limit=300):
+    """The run log's last non-empty line, for a failed cycle's sprint log entry."""
+    try:
+        with open(path, errors="replace") as f:
+            lines = [line.strip() for line in f.readlines()[-50:] if line.strip()]
+    except OSError:
+        return None
+    return lines[-1][:limit] if lines else None
 
 
 def main():
@@ -398,6 +772,17 @@ def main():
     lock_fp = check_lock()  # noqa: F841 (kept open for the duration of the process)
     if os.path.exists(".loop_paused"):
         print("Autoresearch is paused. Use ./start.sh to resume.")
+        return
+
+    # Before the hold: a run still going may yet replace best_model.pt.
+    running = unsupervised_runs(".")
+    if running:
+        print(f"Not starting: {unsupervised_runs_reason(running)}")
+        return
+
+    reason = leftover_hold()
+    if reason:
+        print(f"Not starting: {reason}")
         return
 
     # The incumbent must be comparable before any GPU time is spent: train.py
@@ -429,8 +814,13 @@ def main():
             f"{first_use_record('best_model.pt')}, and candidates are compared on "
             "them until it is re-scored or replaced."
         )
+    STOP_DEFERRED.update(active=False, signal=None, stopping=False)
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
+    # A closed terminal (SIGHUP) stops the loop like stop.sh, not at once with
+    # its run left going. start.sh runs it under nohup, which ignores SIGHUP.
+    if signal.getsignal(signal.SIGHUP) is not signal.SIG_IGN:
+        signal.signal(signal.SIGHUP, signal_handler)
 
     success_counts: dict[str, float] = load_history()
 
@@ -567,13 +957,8 @@ def main():
                 log.write(f"- **VRAM cap {VRAM_COMPLEXITY_CAP} excludes**: {note}\n\n")
             last_excluded = excluded
 
-        # Success-Biased Decay: Every cycle, all (active) families decay slightly.
-        # This ensures that even successful families eventually lose their dominance
-        # if they stop producing improvements, forcing exploration of other families.
+        # Families this cycle could sample; they decay once it is scored (below).
         families = [t["family"] for t in active_templates]
-        for f in set(families):
-            success_counts[f] = max(1.0, success_counts[f] * 0.95)
-
         weights = template_weights(active_templates, success_counts)
 
         # Frontier-V: Config-Space Entropy Protection
@@ -654,6 +1039,9 @@ def main():
             os.rename("run.log", "run.log.old")
 
         training_returncode = None
+        # Why the cycle produced no result, and its run's last log line.
+        failure = log_line = None
+        held = hold_incumbent()
         try:
             with open("run.log", "a") as f:
                 f.write(f"\n\n--- {shift_name} CYCLE {i}: {tweak_name} ---\n")
@@ -680,7 +1068,7 @@ def main():
                             "run",
                             "python",
                             "-u",
-                            "scripts/training/train.py",
+                            TRAIN_SCRIPT,
                             "--config",
                             TEMP_CONFIG,
                             "--smoke",
@@ -692,9 +1080,16 @@ def main():
                         timeout=300,
                     )
                     preflight_ok = preflight.returncode == 0
+                    if not preflight_ok:
+                        failure = f"preflight {exit_description(preflight.returncode)}"
                 except subprocess.TimeoutExpired:
-                    f.write("PREFLIGHT TIMED OUT — skipping training.\n")
                     preflight_ok = False
+                    failure = "preflight timed out after 300 s"
+                if not preflight_ok:  # before the loop's own markers below
+                    f.flush()
+                    log_line = last_log_line()
+                    if failure.startswith("preflight timed out"):
+                        f.write("PREFLIGHT TIMED OUT — skipping training.\n")
                 f.flush()
 
                 if not preflight_ok:
@@ -713,7 +1108,7 @@ def main():
                                 "run",
                                 "python",
                                 "-u",
-                                "scripts/training/train.py",
+                                TRAIN_SCRIPT,
                                 "--config",
                                 TEMP_CONFIG,
                             ],
@@ -726,9 +1121,17 @@ def main():
                         training_returncode = training.returncode
                     except subprocess.TimeoutExpired:
                         print(f"Cycle {i} timed out. Process group stopped.")
+                        failure = f"killed at the {default_budget + 300} s timeout"
         except Exception as e:
             print(f"Subprocess error in cycle {i}: {e}")
+            failure = f"could not be run ({type(e).__name__}: {e})"
 
+        # From the run's end until the cycle is recorded, a stop (stop.sh) waits.
+        # Exiting halfway settled a clean run as failed, or left a promoted
+        # config and model without their commit or sprint-log entry, or with the
+        # three files staged but not committed. A stop during the run is not
+        # deferred: the supervisor has returned by now.
+        STOP_DEFERRED.update(active=True, signal=None)
         val_bpb = train_loss = params = vram = vps = val_f1 = "N/A"
         skipped_updates = 0
         promotion_blocked = None
@@ -738,6 +1141,16 @@ def main():
 
         if training_returncode != 0 or not os.path.exists("run_result.json"):
             is_crash = True
+            # Promotion requires a clean exit as well as a result (2026-10-01).
+            if failure is None:
+                failure = (
+                    "wrote no run_result.json"
+                    if training_returncode == 0
+                    else exit_description(training_returncode)
+                )
+            if os.path.exists("run_result.json"):  # deleted before the run
+                failure += " after writing run_result.json"
+            log_line = log_line or last_log_line()
             if os.path.exists("run.log"):
                 try:
                     with open("run.log") as f:
@@ -773,25 +1186,45 @@ def main():
             except Exception as e:
                 print(f"Error reading run_result.json: {e}")
                 is_crash = True
+                failure = f"run_result.json is unreadable ({e})"
+        incumbent_note = settle_incumbent(held, failed=is_crash)
+
+        # Success-biased decay: every scored cycle decays all the families it
+        # could have sampled, so a family that stops producing promotions loses
+        # its dominance; a promotion then rewards its family. A crash (or failed
+        # preflight, or a stop mid-run) ran no experiment and changes nothing, so
+        # a broken environment cannot wear the weights down. Saved now, before
+        # the config files move: REVERTED, the usual outcome, used to leave the
+        # decay unsaved, and every restart put the old weights back.
+        if not is_crash:
+            for f in set(families):
+                success_counts[f] = max(1.0, success_counts[f] * 0.95)
+        if is_success:
+            success_counts[family] += 1
+        save_history(success_counts)
 
         if is_success:
             status = "SUCCESS"
-            success_counts[family] += 1
-            save_history(success_counts)
             # Promote temp config to main config
             os.rename(TEMP_CONFIG, CONFIG_FILE)
-        elif is_crash:
-            status = "CRASHED (OOM)" if oom_detected else "CRASHED"
-            # A crash is not evidence of improvement. Keep the exploration floor
-            # without rewarding repeatedly broken configurations.
-            save_history(success_counts)
-            if os.path.exists(TEMP_CONFIG):
-                os.remove(TEMP_CONFIG)
         else:
-            status = "REVERTED"
-            # Only "penalize" (don't increment) if it finished but didn't improve
+            # Neither a crash nor a non-improvement is rewarded.
+            status = (
+                ("CRASHED (OOM)" if oom_detected else "CRASHED")
+                if is_crash
+                else "REVERTED"
+            )
             if os.path.exists(TEMP_CONFIG):
                 os.remove(TEMP_CONFIG)
+
+        # Committed before the cycle is logged, so a failure is in its entry.
+        commit_failure = None
+        if is_success:
+            committed = commit_promotion(
+                f"{shift_name}: {tweak_name} improved model to val_f1 {val_f1}"
+            )
+            if committed is not True:
+                commit_failure = committed
 
         with open(log_filename, "a") as log:
             log.write(f"## Cycle {i}: {tweak_name} ({status})\n")
@@ -810,7 +1243,19 @@ def main():
             if is_success:
                 result_msg = "Improvement detected. Config updated."
             elif is_crash:
-                result_msg = f"Training crashed ({'OOM' if oom_detected else 'Unknown error'}). No success reward; family remains eligible for exploration."
+                result_msg = f"Training crashed ({'out of memory' if oom_detected else failure}). No success reward; family remains eligible for exploration."
+                if log_line and not oom_detected:
+                    log.write(
+                        f"- **Last log line**: `{log_line.replace('`', chr(39))}`\n"
+                    )
+            if incumbent_note:
+                log.write(f"- **Incumbent**: {incumbent_note}.\n")
+            if commit_failure:
+                log.write(
+                    f"- **Commit**: failed ({commit_failure}); {CONFIG_FILE}, "
+                    f"{INCUMBENT} and {HISTORY_FILE} are promoted on disk but "
+                    "not committed.\n"
+                )
 
             log.write(f"- **Result**: {result_msg}\n\n")
             log.flush()
@@ -819,18 +1264,22 @@ def main():
             print(f"IMPROVEMENT FOUND! (val_f1: {val_f1}) Committing config.")
             if isinstance(val_f1, (int, float)):
                 best_val_f1 = val_f1  # display tracker; authority is train.py
-            os.system(
-                f'git add {CONFIG_FILE} reports/figures/ best_model.pt autoresearch_history.json && git commit -m "{shift_name}: {tweak_name} improved model to val_f1 {val_f1}"'
-            )
+            if commit_failure:
+                print(f"Warning: the promotion was not committed ({commit_failure}).")
         elif is_crash:
             print(
-                f"CYCLE CRASHED ({'OOM' if oom_detected else 'UNKNOWN'}). Reverting but keeping family weight."
+                f"CYCLE CRASHED ({'OOM' if oom_detected else failure}). Reverting but keeping family weight."
             )
+            if incumbent_note:
+                print(f"Incumbent: {incumbent_note}.")
         else:
             best_str = (
                 f"{best_val_f1:.6f}" if best_val_f1 > float("-inf") else "none yet"
             )
             print(f"No improvement. (val_f1: {val_f1}, best was: {best_str})")
+        STOP_DEFERRED["active"] = False
+        if STOP_DEFERRED["signal"] is not None:
+            signal_handler(STOP_DEFERRED["signal"], None)
 
         # Benchmark Inference Step (Every 5 cycles).
         # Uses subprocess.run (not os.system) so a predict.py crash surfaces
