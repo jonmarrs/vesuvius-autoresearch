@@ -1,4 +1,5 @@
 import os
+import shutil
 import signal
 import subprocess
 import sys
@@ -558,6 +559,43 @@ def test_a_run_whose_session_leader_died_is_still_seen(tmp_path, capsys):
         except ProcessLookupError:
             pass
         _gone(child)
+
+
+@pytest.mark.skipif(not Path("/proc/self/cwd").exists(), reason="reads /proc")
+def test_start_sh_says_the_loop_will_not_start_beside_an_orphaned_run(
+    tmp_path, orphaned_run
+):
+    """start.sh printed the run `status` listed, then "Autoresearch launcher
+    started"; the loop it launched refused at once, which only autoresearch.out
+    recorded."""
+    (tmp_path / "scripts").mkdir()
+    shutil.copy(REPO / "start.sh", tmp_path / "start.sh")
+    shutil.copy(REPO / "scripts" / "loop_control.py", tmp_path / "scripts")
+    fake = tmp_path / "bin"
+    fake.mkdir()
+    (fake / "uv").write_text("#!/bin/sh\nexit 0\n")  # launches nothing
+    (fake / "uv").chmod(0o755)
+    env = {**os.environ, "PATH": f"{fake}{os.pathsep}{os.environ['PATH']}"}
+
+    def start():
+        return subprocess.run(
+            ["bash", str(tmp_path / "start.sh")],
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+
+    alone = start()
+    assert alone.returncode == 0, alone.stderr
+    assert "launcher started" in alone.stdout
+    assert "will not start a cycle" not in alone.stdout
+    run = orphaned_run(tmp_path)
+    beside = start()
+    assert beside.returncode == 0, beside.stderr
+    assert f"PID {run.pid} (started by a loop or ablation" in beside.stdout
+    assert "will not start a cycle while the run above goes on" in beside.stdout
+    assert "./stop.sh stops a run a loop or ablation started" in beside.stdout
 
 
 def test_stop_pauses_watchdog_even_without_a_running_loop(tmp_path):
