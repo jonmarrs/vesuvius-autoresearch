@@ -13,8 +13,11 @@ from __future__ import annotations
 import itertools
 import json
 import os
+import signal
 import subprocess
 import sys
+import threading
+import time
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -954,6 +957,63 @@ def test_a_hung_git_is_stopped_without_leaving_its_lock(tmp_path, monkeypatch):
     assert not list((tmp_path / ".git").glob("*.lock"))
 
 
+def _alive(pid):
+    try:
+        return Path(f"/proc/{pid}/stat").read_text().split()[2] not in "ZX"
+    except FileNotFoundError:
+        return False
+
+
+def test_a_hung_hook_does_not_hold_up_the_loop(tmp_path, monkeypatch):
+    """Signalling git alone left its hook running with the output pipes open,
+    and the last wait for them had no end: the loop hung there, and a stop
+    deferred behind it never came. git runs in a process group of its own."""
+    import run_autoresearch_loop as loop
+
+    _scratch_repo(tmp_path, monkeypatch)
+    hook = tmp_path / ".git" / "hooks" / "pre-commit"
+    hook.write_text("#!/bin/sh\necho $$ > hook.pid\nexec sleep 600\n")
+    hook.chmod(0o755)
+    started = time.monotonic()
+    code, reason = loop._run_git(
+        "commit", "--only", "-m", "hangs", "--", "config.json", timeout=1
+    )
+    assert code is None and reason == "timed out after 1 s"
+    assert time.monotonic() - started < 20
+    pid = int((tmp_path / "hook.pid").read_text())
+    deadline = time.monotonic() + 5
+    while _alive(pid) and time.monotonic() < deadline:
+        time.sleep(0.05)
+    assert not _alive(pid)
+    assert not list((tmp_path / ".git").glob("*.lock"))
+
+
+def test_a_stop_delivered_during_a_real_commit_waits_for_it(tmp_path, monkeypatch):
+    """The real handler, a real SIGTERM, a real commit with a hook that prints
+    and takes a second: the handler runs inside communicate(), which carries on
+    (PEP 475), and the commit is made; the stop is kept for the cycle's end."""
+    import run_autoresearch_loop as loop
+
+    _scratch_repo(tmp_path, monkeypatch)
+    hook = tmp_path / ".git" / "hooks" / "pre-commit"
+    hook.write_text("#!/bin/sh\necho checking\nsleep 1\necho done\n")
+    hook.chmod(0o755)
+    previous = signal.signal(signal.SIGTERM, loop.signal_handler)
+    loop.STOP_DEFERRED.update(active=True, signal=None)
+    stop = threading.Timer(0.3, os.kill, (os.getpid(), signal.SIGTERM))
+    try:
+        stop.start()
+        assert loop.commit_promotion("DAY SHIFT: lr_0.001 improved model") is True
+        stop.join()
+        assert loop.STOP_DEFERRED["signal"] == signal.SIGTERM
+    finally:
+        stop.cancel()
+        signal.signal(signal.SIGTERM, previous)
+        loop.STOP_DEFERRED.update(active=False, signal=None)
+    subject = _git(tmp_path, "log", "-1", "--format=%s").strip()
+    assert subject == "DAY SHIFT: lr_0.001 improved model"
+
+
 def test_a_failed_promotion_commit_is_recorded(tmp_path, monkeypatch):
     import run_autoresearch_loop as loop
 
@@ -1013,12 +1073,40 @@ def test_a_stop_during_a_promotions_commit_waits_for_the_cycle_to_be_recorded(
     assert not loop.STOP_DEFERRED["active"]
 
 
+def test_a_stop_just_after_a_clean_run_does_not_discard_it(tmp_path, monkeypatch):
+    """A stop between the run's clean exit and its settle (reading its result,
+    or the supervisor's clean-up) settled the run as failed: its model moved
+    aside, its rows removed, no entry. The run had ended; it is recorded."""
+    import run_autoresearch_loop as loop
+
+    ExperimentConfig().save(tmp_path / "config.json")
+    _checkpoint(tmp_path / "best_model.pt")
+    load = json.load
+    stops = []
+
+    def load_and_stop(stream, *args, **kwargs):
+        if os.path.basename(getattr(stream, "name", "")) == "run_result.json":
+            stops.append(True)
+            loop.signal_handler(15, None)
+        return load(stream, *args, **kwargs)
+
+    monkeypatch.setattr(loop.json, "load", load_and_stop)
+    with pytest.raises(SystemExit):
+        _drive_loop(tmp_path, monkeypatch, 3, run=_promoting_run(tmp_path))
+    assert stops == [True]
+    assert torch.load(tmp_path / "best_model.pt")["val_f1"] == 0.9
+    assert not list(tmp_path.glob("best_model.pt.failed-run-*"))
+    log = next((tmp_path / "sprint_logs").glob("*.md")).read_text()
+    assert log.count("## Cycle") == 1 and "(SUCCESS)" in log
+
+
 def test_a_stop_while_a_cycle_is_recorded_keeps_its_entry(tmp_path, monkeypatch):
     """The same for a cycle that is not promoted: its family decay and its
     entry are written, then the loop stops."""
     import run_autoresearch_loop as loop
 
     ExperimentConfig().save(tmp_path / "config.json")
+    (tmp_path / "autoresearch_history.json").write_text(json.dumps({"lr": 2.0}))
     save_history = loop.save_history
 
     def stopped_while_saving(counts):
@@ -1031,7 +1119,8 @@ def test_a_stop_while_a_cycle_is_recorded_keeps_its_entry(tmp_path, monkeypatch)
         _drive_loop(tmp_path, monkeypatch, 3, result=result)
     log = next((tmp_path / "sprint_logs").glob("*.md")).read_text()
     assert log.count("## Cycle") == 1 and "(REVERTED)" in log
-    assert "lr" in json.loads((tmp_path / "autoresearch_history.json").read_text())
+    history = json.loads((tmp_path / "autoresearch_history.json").read_text())
+    assert history["lr"] == pytest.approx(1.9)  # decayed once
 
 
 def test_a_blocked_promotion_is_recorded_in_the_sprint_log(tmp_path, monkeypatch):

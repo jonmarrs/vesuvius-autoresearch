@@ -50,6 +50,8 @@ def signal_handler(sig, frame):
         # sprint-log entry): stop once that is done, not halfway through it.
         if STOP_DEFERRED["signal"] is None:
             print(f"\nCaught signal {sig}. Stopping once this cycle is recorded...")
+        else:
+            print(f"\nCaught signal {sig}. Still recording this cycle; stopping after.")
         STOP_DEFERRED["signal"] = sig
         return
     print(f"\nCaught signal {sig}. Cleaning up...")
@@ -428,7 +430,7 @@ INCUMBENT = "best_model.pt"
 INCUMBENT_HELD = ".best_model.pt.held"
 # The cycle in flight, for the signal handler: whether it holds, and what.
 CYCLE_HOLD: dict[str, Any] = {"active": False, "held": None, "logs": {}}
-# Set from a run's settle until its cycle is recorded; a stop then waits for it.
+# Set from a run's end until its cycle is recorded; a stop then waits for it.
 STOP_DEFERRED: dict[str, Any] = {"active": False, "signal": None}
 # The rows train.py appends when it promotes, before it writes its result.
 PROMOTION_LOGS = ("results.tsv", "prize_readiness.tsv")
@@ -620,24 +622,37 @@ def commit_promotion(message):
 
 
 def _run_git(*args, timeout=300):
-    """Run git; a hang is stopped with SIGTERM, on which git removes its
-    index.lock (a SIGKILL would leave it, failing every later git command)."""
+    """Run git in a process group of its own, with its hooks (a terminal's
+    Ctrl-C reaches neither). A hang is stopped with SIGTERM to the group, on
+    which git removes its index.lock (a SIGKILL would leave it, failing every
+    later git command), then SIGKILL. Signalling git alone left a hook holding
+    the output pipes, and the wait for them had no end, so a stop deferred
+    behind it never came."""
     process = subprocess.Popen(
         ["git", *args],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,
         errors="replace",
+        start_new_session=True,
     )
     try:
         out, err = process.communicate(timeout=timeout)
     except subprocess.TimeoutExpired:
-        process.terminate()
-        try:
-            process.communicate(timeout=30)
-        except subprocess.TimeoutExpired:
-            process.kill()
-            process.communicate()
+        for sig, grace in ((signal.SIGTERM, 30), (signal.SIGKILL, 10)):
+            try:
+                os.killpg(process.pid, sig)
+            except ProcessLookupError:
+                pass
+            try:
+                process.communicate(timeout=grace)
+                break
+            except subprocess.TimeoutExpired:
+                pass
+        else:  # a descendant that left the group still holds the pipes
+            for stream in (process.stdout, process.stderr):
+                if stream is not None:
+                    stream.close()
         return None, f"timed out after {timeout} s"
     return process.returncode, f"{err}\n{out}"
 
@@ -1029,6 +1044,12 @@ def main():
             print(f"Subprocess error in cycle {i}: {e}")
             failure = f"could not be run ({type(e).__name__}: {e})"
 
+        # From the run's end until the cycle is recorded, a stop (stop.sh) waits.
+        # Exiting halfway settled a clean run as failed, or left a promoted
+        # config and model without their commit or sprint-log entry, or with the
+        # three files staged but not committed. A stop during the run is not
+        # deferred: the supervisor has returned by now.
+        STOP_DEFERRED.update(active=True, signal=None)
         val_bpb = train_loss = params = vram = vps = val_f1 = "N/A"
         skipped_updates = 0
         promotion_blocked = None
@@ -1084,10 +1105,6 @@ def main():
                 print(f"Error reading run_result.json: {e}")
                 is_crash = True
                 failure = f"run_result.json is unreadable ({e})"
-        # From here until the cycle is recorded, a stop (stop.sh) waits: exiting
-        # halfway left a promoted config and model without their commit or
-        # sprint-log entry, or with the three files staged but not committed.
-        STOP_DEFERRED.update(active=True, signal=None)
         incumbent_note = settle_incumbent(held, failed=is_crash)
 
         # Success-biased decay: every scored cycle decays all the families it
