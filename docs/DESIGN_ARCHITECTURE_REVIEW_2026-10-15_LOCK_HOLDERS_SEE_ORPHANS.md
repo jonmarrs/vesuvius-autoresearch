@@ -83,8 +83,11 @@ Environment: CPython 3.10 venv with PyTorch 2.14.1 (no GPU visible), pytest, Ruf
 
 - Baseline (`05fd1769`): 42 failed, 2180 passed, 15 skipped, 1 xfailed, 2 errors. The failures and errors are
   environmental: no scroll data, no CUDA, no villa data files.
-- Branch: BRANCH_RESULT
-- Ruff (check and format) on the changed files: clean.
+- Branch: 42 failed, 2182 passed, 15 skipped, 1 xfailed, 2 errors. The failures and errors are the same set as the
+  baseline; the 2 extra passes are the new tests. `scripts/smoke_test.py`: 9 of 11 passed, 2 skipped.
+- `tests/test_ablation_harness_isolation.py`, `tests/test_noise_probe_contracts.py` and `tests/test_loop_lifecycle.py`:
+  89 passed, with no process left behind.
+- Ruff (check and format) and mypy on the changed files: clean.
 
 New tests (each fails on main):
 - `tests/test_ablation_harness_isolation.py::test_the_ablation_will_not_run_beside_a_run_no_loop_supervises`;
