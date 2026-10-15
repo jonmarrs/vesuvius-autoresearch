@@ -3,6 +3,8 @@ import os
 import pytest
 import torch
 
+from scripts.training.train import foundation_encoder_state
+
 PrimusNetwork = pytest.importorskip(
     "villa.vesuvius.src.vesuvius.models.build.primus_wrapper"
 ).PrimusNetwork
@@ -25,11 +27,7 @@ def test_lejepa_foundation_checkpoint_loads_compatible_encoder_tensors():
 
     checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=False)
     state = checkpoint.get("model", checkpoint.get("model_state_dict", checkpoint))
-    encoder_state = {
-        key.replace("encoder.", ""): value
-        for key, value in state.items()
-        if key.startswith("encoder.")
-    }
+    encoder_state = foundation_encoder_state(state)
     current_state = model.shared_encoder.state_dict()
     compatible = {
         key: value

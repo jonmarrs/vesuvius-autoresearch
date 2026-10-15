@@ -183,6 +183,8 @@ except ImportError:
 
 
 def load_shape_compatible_state(module, state_dict, label):
+    """Load the tensors of state_dict whose names and shapes match module's;
+    returns how many loaded."""
     current_state = module.state_dict()
     compatible = {}
     skipped_shape = 0
@@ -212,6 +214,44 @@ def load_shape_compatible_state(module, state_dict, label):
             f"  Skipped {label}: no shape-compatible tensors "
             f"(missing={skipped_missing}, shape={skipped_shape})."
         )
+    return len(compatible)
+
+
+def foundation_encoder_state(state_dict):
+    """A LeJEPA checkpoint's encoder weights, named as PrimusNetwork's
+    shared_encoder names them, mapped as villa's TrainFineTuneLEJEPA maps them:
+    wrapper prefixes (DDP's "module.", torch.compile's "_orig_mod.") removed,
+    "encoder.*" and "shared_encoder.*" taken by their prefix, the rest (the
+    projector) left out."""
+    encoder = {}
+    for key, value in state_dict.items():
+        while key.startswith(("module.", "_orig_mod.")):
+            key = key.split(".", 1)[1]
+        for prefix in ("encoder.", "shared_encoder."):
+            if key.startswith(prefix):
+                encoder[key[len(prefix) :]] = value
+                break
+    return encoder
+
+
+def load_foundation_model(model, path, device):
+    """Start model from the pretrained checkpoint at path (foundation_model_path):
+    a LeJEPA encoder into PrimusNetwork's shared_encoder, else any checkpoint
+    by name. Raises if the file is missing or no tensor loads: a run asked to
+    start from a pretrained model must not train from scratch under its name.
+    That used to be a printed warning, or nothing at all for a missing path."""
+    if not os.path.exists(path):
+        raise FileNotFoundError(f"foundation_model_path {path} does not exist")
+    print(f"Loading pretrained backbone from {path}...")
+    checkpoint = torch.load(path, map_location=device, weights_only=False)
+    state_dict = extract_checkpoint_state(checkpoint)
+    if hasattr(model, "backbone") and hasattr(model.backbone, "shared_encoder"):
+        target = model.backbone.shared_encoder
+        state, label = foundation_encoder_state(state_dict), "LeJEPA encoder"
+    else:
+        target, state, label = model, state_dict, "generic pretrained checkpoint"
+    if not load_shape_compatible_state(target, state, label):
+        raise ValueError(f"no tensor of {path} fits the model ({label})")
 
 
 def extract_checkpoint_state(checkpoint):
@@ -1918,32 +1958,8 @@ def train(config: ExperimentConfig, *, strict_warm_start=False):
     )
 
     # Load from foundation model if provided
-    if config.foundation_model_path and os.path.exists(config.foundation_model_path):
-        try:
-            print(f"Loading pretrained backbone from {config.foundation_model_path}...")
-            checkpoint = torch.load(
-                config.foundation_model_path, map_location=device, weights_only=False
-            )
-            state_dict = extract_checkpoint_state(checkpoint)
-
-            # Map weights to backbone if possible. This is highly architecture dependent.
-            # For PrimusNetwork (LeJEPA), the encoder weights start with 'encoder.'
-            if hasattr(model, "backbone") and hasattr(model.backbone, "shared_encoder"):
-                # Extract encoder weights and strip 'encoder.' prefix
-                encoder_state = {
-                    k.replace("encoder.", ""): v
-                    for k, v in state_dict.items()
-                    if k.startswith("encoder.")
-                }
-                load_shape_compatible_state(
-                    model.backbone.shared_encoder, encoder_state, "LeJEPA encoder"
-                )
-            else:
-                load_shape_compatible_state(
-                    model, state_dict, "generic pretrained checkpoint"
-                )
-        except Exception as e:
-            print(f"Warning: Could not load foundation model: {e}")
+    if config.foundation_model_path:
+        load_foundation_model(model, config.foundation_model_path, device)
 
     # Load best model if architecture matches
     best_model_path = "best_model.pt"
