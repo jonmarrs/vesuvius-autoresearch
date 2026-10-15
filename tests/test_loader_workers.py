@@ -3,11 +3,12 @@ training process would have prepared itself, in the same order."""
 
 import functools
 import multiprocessing
+import os
 
 import pytest
 import torch
 import train
-from loader_worker_data import IndexSeeded, NotRead, Unread
+from loader_worker_data import Finalized, IndexSeeded, NotRead, Unread
 
 from vesuvius_autoresearch.core import vesuvius_loader
 
@@ -49,6 +50,22 @@ def test_the_workers_warnings_reach_the_training_process(monkeypatch):
     assert dict(shared) == {"test_fallback": 10}  # indices 0, 3, ..., 27
     assert vesuvius_loader.warning_counts() == {}  # none in this process
     manager.shutdown()
+
+
+def test_workers_exit_without_finalizing(tmp_path):
+    """Stopping mid-pass left a worker's queue thread releasing a batch, and
+    interpreter finalization ended it inside PyTorch's C++: SIGABRT
+    ("terminate called without an active exception"), 1 in 3 stops on Fr47."""
+    loader = train.shuffled_loader(Finalized(40, str(tmp_path)), 4, seed=3, workers=2)
+    it = iter(loader)
+    for _ in range(3):  # mid-pass, batches in flight
+        next(it)
+    pids = sorted(w.pid for w in it._workers)
+    del it
+    assert len(pids) == 2
+    assert sorted(os.listdir(tmp_path)) == []  # no worker ran its exit handlers
+    assert sum(len(b[1]) for b in loader) == 40  # and a pass read to the end
+    assert os.listdir(tmp_path) == []
 
 
 @pytest.mark.parametrize(

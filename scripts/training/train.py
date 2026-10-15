@@ -14,7 +14,9 @@ if site_packages:
             ":".join(nvidia_libs) + ":" + os.environ.get("LD_LIBRARY_PATH", "")
         )
 
+import atexit
 import copy
+import functools
 import json
 import math
 import time
@@ -541,6 +543,23 @@ def loader_workers() -> int:
     return workers
 
 
+def _init_worker(init, worker_id):
+    """A training-loader worker's start: it will leave without finalizing the
+    interpreter, then runs ``init``.
+
+    Training stops mid-pass with batches in flight, and finalization ends a
+    worker's queue thread wherever it is. Inside PyTorch's C++ (releasing a
+    batch) that ends in std::terminate: "terminate called without an active
+    exception", SIGABRT, in 4 of 12 mid-pass stops on Fr47 (2026-10-15). Nothing
+    a worker holds at exit is needed: its batches have gone through the queue,
+    its warnings to the shared counts. Exit handlers run before finalization
+    ends threads, so this one exits first.
+    """
+    atexit.register(os._exit, 0)
+    if init is not None:
+        init(worker_id)
+
+
 def shuffled_loader(
     dataset, batch_size: int, seed: int, workers: int = 0, worker_init_fn=None
 ) -> DataLoader:
@@ -564,7 +583,7 @@ def shuffled_loader(
             "multiprocessing_context": "spawn",
             # Not persistent: a persistent iterator's reset skips the generator
             # draw a new iterator makes, so the next pass would be another order.
-            "worker_init_fn": worker_init_fn,
+            "worker_init_fn": functools.partial(_init_worker, worker_init_fn),
         }
     return DataLoader(
         dataset,
@@ -1822,7 +1841,6 @@ def train(config: ExperimentConfig, *, strict_warm_start=False):
     workers = loader_workers()
     shared_warnings = share_counts = None
     if workers:
-        import functools
         import multiprocessing
 
         manager = multiprocessing.get_context("spawn").Manager()
