@@ -595,6 +595,31 @@ def shuffled_loader(
     )
 
 
+def fiber_source(heads, config) -> str:
+    """The fiber head's target: config.target_fiber_source for a model with a
+    fiber or QC head, else the cheap Sobel-Z placeholder (no head trains on it)."""
+    if heads & {"fiber", "qc"}:
+        return getattr(config, "target_fiber_source", "sobel_z")
+    return "sobel_z"
+
+
+def fiber_target(x_raw, x_orig, source: str, sigma: float = 2.0):
+    """The fiber head's target before its per-patch min-max: [B, 1, 1, H, W].
+
+    "frangi": Frangi vesselness of the CT channel of the whole read (every
+    slice, the margins included), averaged over z, computed on the batch's
+    device. The loader computed it per patch with skimage until 2026-10-15,
+    ~150 ms a patch on the CPU, two thirds of a training patch's preparation;
+    frangi_torch reproduces it (tests/test_frangi_torch.py).
+    "sobel_z": the mean absolute z-gradient of the CT channel of the model's
+    window.
+    """
+    if source == "frangi":
+        return frangi_vesselness_zcollapsed_torch(x_raw[:, 0], sigma)[:, None, None]
+    grad_z = x_orig[:, :1, 1:] - x_orig[:, :1, :-1]
+    return grad_z.abs().mean(dim=2, keepdim=True)
+
+
 def build_validation_dataset(config: ExperimentConfig):
     """The validation catalogue promotion is scored on (see promotion.py).
 
@@ -1026,6 +1051,7 @@ except ImportError:
     generate_resnet3d = None
     InceptionI3d = None
 
+from vesuvius_autoresearch.core.frangi_torch import frangi_vesselness_zcollapsed_torch
 from vesuvius_autoresearch.core.inference import DEPTH_MARGIN
 from vesuvius_autoresearch.core.inference_constants import depth_band_for
 from vesuvius_autoresearch.core.model_wrappers import (
@@ -1795,7 +1821,9 @@ def train(config: ExperimentConfig, *, strict_warm_start=False):
                 use_ridges=config.use_ridges,
                 ridge_sigma=getattr(config, "ridge_sigma", 2.0),
                 use_lasagna=getattr(config, "use_lasagna", False),
-                target_fiber_source=fiber_target_source,
+                # A zero placeholder: the training step computes the fiber
+                # target from the batch (fiber_target).
+                target_fiber_source="sobel_z",
                 target_fiber_sigma=getattr(config, "target_fiber_sigma", 2.0),
                 patches_json=patches_json_path
                 if os.path.exists(patches_json_path)
@@ -1829,15 +1857,10 @@ def train(config: ExperimentConfig, *, strict_warm_start=False):
     # Built before the loaders: which heads it trains decides the fiber target.
     model = build_model(config, v_config, device)
     # Only the outputs the model declares as heads are trained
-    # (model_wrappers.task_heads); the rest are placeholders. The Frangi fiber
-    # target (~86 ms/patch in the loader) is computed only for a fiber or QC head.
+    # (model_wrappers.task_heads); the rest are placeholders.
     heads = task_heads(model)
     print(f"Trained auxiliary heads: {', '.join(sorted(heads)) or 'none'}")
-    fiber_target_source = (
-        getattr(config, "target_fiber_source", "sobel_z")
-        if heads & {"fiber", "qc"}
-        else "sobel_z"
-    )
+    fiber_target_source = fiber_source(heads, config)
     workers = loader_workers()
     shared_warnings = share_counts = None
     if workers:
@@ -1990,12 +2013,9 @@ def train(config: ExperimentConfig, *, strict_warm_start=False):
     while True:
         t0 = time.time()
         try:
-            x_raw, target_ink_raw, target_fiber_from_loader = next(data_iter)
-            x_raw = x_raw.to(device)  # [B, 1, Z_buffered, H, W]
-            # target_fiber_from_loader: [B, 1, 1, H, W] either zeros (sobel_z
-            # source, train.py computes inline below) or real Frangi
-            # vesselness (frangi source — see VesuviusLabeledDataset._compute_fiber_target).
-            target_fiber_from_loader = target_fiber_from_loader.to(device)
+            # The loader's fiber target is a zero placeholder (fiber_target).
+            x_raw, target_ink_raw, _ = next(data_iter)
+            x_raw = x_raw.to(device)  # [B, C, Z_buffered, H, W]
 
             # Ensure target_ink has 4 dims [B, 1, H, W]
             if target_ink_raw is not None and target_ink_raw.numel() > 0:
@@ -2061,20 +2081,15 @@ def train(config: ExperimentConfig, *, strict_warm_start=False):
             data_iter = iter(data_loader)
             continue
 
-        # 3. Per-patch fiber pseudo-label for the fiber head's loss.
-        # source="frangi": dataloader already computed Frangi vesselness for
-        # this patch and z-collapsed it; we use it as-is and only normalize.
-        # source="sobel_z" (default): compute Sobel-Z gradient of CT inline
-        # on GPU (cheap, current behavior).
+        # 3. Per-patch fiber pseudo-label for the fiber head's loss, on the
+        # batch's device, BEFORE mixup to avoid boundary artifacts.
         with torch.no_grad():
-            if fiber_target_source == "frangi":
-                # target_fiber_from_loader: [B, 1, 1, H, W] z-collapsed already
-                target_fiber = target_fiber_from_loader
-            else:
-                # Sobel-Z pseudo-label (BEFORE mixup to avoid boundary artifacts).
-                # Use only the raw CT channel (index 0) for pseudo-labels.
-                grad_z = x_orig[:, :1, 1:] - x_orig[:, :1, :-1]
-                target_fiber = grad_z.abs().mean(dim=2, keepdim=True)
+            target_fiber = fiber_target(
+                x_raw,
+                x_orig,
+                fiber_target_source,
+                getattr(config, "target_fiber_sigma", 2.0),
+            )
             # Per-batch min-max normalize so the BCE target sits in [0, 1].
             b_sz = target_fiber.shape[0]
             tf_flat = target_fiber.view(b_sz, -1)
