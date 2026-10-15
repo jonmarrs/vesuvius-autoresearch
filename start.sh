@@ -8,11 +8,25 @@ if [ "${1:-}" = "--watchdog" ]; then
 else
     rm -f .loop_paused
 fi
-if python3 scripts/loop_control.py status; then
+status=$(python3 scripts/loop_control.py status) && rc=0 || rc=$?
+[ -z "$status" ] || echo "$status"
+if [ "$rc" -eq 0 ]; then
     exit 1
-else
-    rc=$?
-    [ "$rc" -eq 1 ] || exit "$rc"
 fi
+[ "$rc" -eq 1 ] || exit "$rc"
 nohup uv run python -u run_autoresearch_loop.py >> autoresearch.out 2>&1 &
 echo "Autoresearch launcher started (PID $!). See $REPO/autoresearch.out."
+case "$status" in
+*"Unsupervised training run"*)
+    # The loop's start refuses beside such a run, and stops a supervised one
+    # past any cycle's timeout; said here, not only in autoresearch.out.
+    cat <<'EOF'
+The loop just launched exits without starting a cycle while a run listed above
+goes on; autoresearch.out says why (it stops a supervised run past any cycle's
+timeout itself). Once the runs end, the watchdog, if installed, starts the loop
+on its next tick; otherwise run ./start.sh again. ./stop.sh stops the runs a
+loop or ablation started, but pauses the watchdog (run ./start.sh after it); a
+run started by hand: kill -TERM <PID>.
+EOF
+    ;;
+esac
