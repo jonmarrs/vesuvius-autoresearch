@@ -358,6 +358,20 @@ time.sleep(60)
         holder.wait(timeout=5)
 
 
+@pytest.mark.skipif(not Path("/proc/self/cwd").exists(), reason="reads /proc")
+def test_a_run_no_loop_supervises_refuses_execution(inputs, monkeypatch, orphaned_run):
+    """Each trial's time budget assumes the GPU to itself. A run a killed loop
+    left training in the checkout gave trials fewer steps, and so inflated the
+    spread the probe measures."""
+    fake_runner(inputs, monkeypatch)
+    run = orphaned_run(inputs[0])
+    with pytest.raises(ValueError, match=rf"not starting: .* PID {run.pid} \(started"):
+        probe.execute(plan(inputs))
+    assert not inputs[3].exists()
+    assert running_pid(inputs[0]) is None
+    assert run.poll() is None
+
+
 def test_cli_reports_execution_failure_nonzero(inputs, monkeypatch, capsys):
     fake_runner(inputs, monkeypatch, code=3)
     _, config, checkpoint, output = inputs

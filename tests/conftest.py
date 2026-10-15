@@ -15,6 +15,7 @@ subprocesses and genuinely need the GPU ask for `ambient_env`.
 
 import functools
 import os
+import signal
 import subprocess
 import sys
 from pathlib import Path
@@ -40,6 +41,33 @@ os.environ["PYTHONPATH"] = os.pathsep.join(
 # datasets defined inside them, which spawned loader workers cannot unpickle;
 # tests/test_loader_workers.py sets the workers it tests.
 os.environ["AUTORESEARCH_LOADER_WORKERS"] = "0"
+
+
+@pytest.fixture
+def orphaned_run():
+    """Starts what a loop killed without its handler leaves going in a
+    checkout: its train.py run, in a session of its own (as ProcessSupervisor
+    starts it), working in the given directory. Its group is killed at
+    teardown. Needs /proc to be seen (loop_control.unsupervised_runs)."""
+    runs = []
+
+    def start(directory):
+        script = Path(directory) / "scripts" / "training" / "train.py"
+        script.parent.mkdir(parents=True, exist_ok=True)
+        script.write_text("import time\ntime.sleep(120)\n")
+        command = [sys.executable, "-u", "scripts/training/train.py"]
+        command += ["--config", "config_temp.json"]
+        # Popen returns once the child has exec'd: /proc shows its arguments.
+        runs.append(subprocess.Popen(command, cwd=directory, start_new_session=True))
+        return runs[-1]
+
+    yield start
+    for run in runs:
+        try:
+            os.killpg(run.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+        run.wait()
 
 
 @pytest.fixture

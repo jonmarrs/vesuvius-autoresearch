@@ -134,6 +134,29 @@ def test_the_ablation_will_not_run_beside_other_work(
     assert "stop it first (./stop.sh)" in err
 
 
+@pytest.mark.skipif(not Path("/proc/self/cwd").exists(), reason="reads /proc")
+def test_the_ablation_will_not_run_beside_a_run_no_loop_supervises(
+    tmp_path, monkeypatch, capsys, orphaned_run
+):
+    """A loop killed without its handler leaves its run training here. A cell
+    beside it shared the GPU, so trained fewer steps in its budget, and its
+    result was read from the run_result.json both write."""
+    _project(tmp_path, monkeypatch)
+    monkeypatch.setattr(
+        ablation, "_run_one", lambda *a: (_ for _ in ()).throw(AssertionError("ran"))
+    )
+    run = orphaned_run(tmp_path)
+    assert ablation.main() == 1
+    err = capsys.readouterr().err
+    assert "not starting: a training run no loop supervises" in err
+    assert f"PID {run.pid} (started by a loop or ablation" in err
+    assert "./stop.sh stops the runs a loop or ablation started" in err
+    assert _lock_is_free(tmp_path)
+    assert run.poll() is None  # named, not stopped
+    assert json.loads((tmp_path / "run_result.json").read_text()) == {"val_bpb": 9.0}
+    assert not (tmp_path / "ablation.csv").exists()
+
+
 def test_a_stop_ends_the_ablation_between_its_cells(tmp_path, monkeypatch, capsys):
     """./stop.sh sends SIGTERM to the lock's PID: the cell in flight ends, the
     lock is released, and the runs so far are written."""

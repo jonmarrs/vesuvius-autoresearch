@@ -25,7 +25,7 @@ REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO))
 
 from scripts.artifact_hashes import sha256_file
-from scripts.loop_control import acquire_lock
+from scripts.loop_control import acquire_lock, unsupervised_runs_refusal
 from scripts.process_supervisor import ProcessSupervisor, stops_interrupt
 from scripts.training.config import ExperimentConfig
 from scripts.training.promotion import (
@@ -231,6 +231,11 @@ def execute(plan):
     records = []
     interrupted = False
     try:
+        # Each trial's time budget assumes the GPU to itself: a run sharing it
+        # gives trials fewer steps and inflates the spread being measured.
+        refusal = unsupervised_runs_refusal(REPO)
+        if refusal:
+            raise ValueError(f"not starting: {refusal}")
         _unchanged(plan)
         with publish_new(plan.output) as staging:
             for index in range(1, plan.runs + 1):
