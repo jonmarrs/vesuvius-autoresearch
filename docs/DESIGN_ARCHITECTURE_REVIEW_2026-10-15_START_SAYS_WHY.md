@@ -89,7 +89,9 @@ Environment: CPython 3.10 venv with PyTorch 2.14.1 (no GPU visible), pytest, Ruf
   no scroll data, no CUDA, no villa data files.
 - Branch, first head: 42 failed, 2187 passed, 15 skipped, 1 xfailed, 2 errors. `scripts/smoke_test.py`: 9 of 11
   passed, 2 skipped.
-- Branch, after the PR review's fixes: REVIEW_RESULT
+- Branch, after the PR review's fixes: 42 failed, 2189 passed, 15 skipped, 1 xfailed, 2 errors. The failures and
+  errors are the same set as the baseline; the 3 extra passes are the new tests (two cases of the exit-code test).
+  `scripts/smoke_test.py`: 9 of 11 passed, 2 skipped. `tests/test_loop_lifecycle.py`: 27 passed, three times.
 - `bash -n start.sh`: clean. Ruff (check and format) on the test: clean.
 
 New tests in `tests/test_loop_lifecycle.py`, which run the real `start.sh` and `loop_control.py` in a temporary
