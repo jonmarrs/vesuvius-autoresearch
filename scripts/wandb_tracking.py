@@ -86,7 +86,6 @@ def log_prediction_image(run, prob_2d, gt_2d, threshold, key="val/prediction"):
     if run is None:
         return
     import numpy as np
-
     import wandb
 
     prob = np.asarray(prob_2d, dtype=np.float32).squeeze()
@@ -99,9 +98,17 @@ def log_prediction_image(run, prob_2d, gt_2d, threshold, key="val/prediction"):
 
 
 def finish_run(run):
-    """Close the active run. No-op if no run."""
+    """Close the active run. No-op if no run.
+
+    A failure here is reported, not raised: train.py calls it after writing
+    run_result.json, and the loop counts a non-zero exit as a failed cycle,
+    which would discard a scored (or promoted) result over a tracking error.
+    """
     if run is None:
         return
     import wandb
 
-    wandb.finish()
+    try:
+        wandb.finish()
+    except Exception as exc:
+        print(f"Warning: wandb.finish failed ({type(exc).__name__}: {exc}).")
