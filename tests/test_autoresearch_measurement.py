@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import itertools
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -381,11 +382,79 @@ def test_an_interrupted_save_leaves_the_previous_checkpoint(tmp_path, monkeypatc
     assert torch.load(path)["val_f1"] == 0.9
 
 
+@pytest.mark.parametrize(
+    "checkpoint_out, promoted, written",
+    [
+        (None, False, ["last_model.pt"]),
+        (None, True, ["last_model.pt", "best_model.pt"]),
+        ("experiments/run.pt", True, ["experiments/run.pt"]),
+    ],
+)
+def test_every_cycle_saves_its_candidate_and_a_promotion_the_incumbent(
+    tmp_path, monkeypatch, checkpoint_out, promoted, written
+):
+    """last_model.pt is the cycle's candidate (scripts/snapshot_loop_candidates.sh
+    copies it); a promoted cycle used to write only best_model.pt, so promoted
+    candidates were missing from the snapshots. best_model.pt is written last,
+    so a run stopped between the two leaves the incumbent the loop records."""
+    monkeypatch.chdir(tmp_path)
+    saved = []
+    monkeypatch.setattr(
+        train,
+        "save_checkpoint_atomic",
+        lambda record, path: saved.append((path, record)),
+    )
+    record = {"val_f1": 0.5}
+    assert train.save_cycle_checkpoints(record, checkpoint_out, promoted) == written
+    assert saved == [(path, record) for path in written]
+    if checkpoint_out:
+        assert (tmp_path / "experiments").is_dir()
+
+
+def test_train_saves_one_record_through_save_cycle_checkpoints():
+    """The three hand-copied payloads had drifted apart (last_model.pt lacked
+    avg_mean_ap, checkpoint_out prize_gate_failures). train() now builds one
+    record and saves it only through save_cycle_checkpoints."""
+    import ast
+    import inspect
+    import textwrap
+
+    tree = ast.parse(textwrap.dedent(inspect.getsource(train.train)))
+    calls = [n for n in ast.walk(tree) if isinstance(n, ast.Call)]
+    names = [getattr(c.func, "id", None) for c in calls]
+    assert names.count("save_checkpoint_atomic") == 0
+    (save,) = [
+        c for c in calls if getattr(c.func, "id", None) == "save_cycle_checkpoints"
+    ]
+    assert [ast.unparse(a) for a in save.args] == [
+        "checkpoint",
+        "ckpt_out",
+        "is_improvement",
+    ]
+    (record,) = [
+        n.value
+        for n in ast.walk(tree)
+        if isinstance(n, ast.Assign)
+        and [ast.unparse(t) for t in n.targets] == ["checkpoint"]
+        and isinstance(n.value, ast.Dict)
+    ]
+    keys = {k.value for k in record.keys}
+    assert {"model_state_dict", "avg_mean_ap", "prize_gate_failures", "config"} <= keys
+
+
 # --- loop ---------------------------------------------------------------------
 
 
 def _drive_loop(
-    tmp_path, monkeypatch, cycles, result=None, commands=None, on_cycle=None
+    tmp_path,
+    monkeypatch,
+    cycles,
+    result=None,
+    commands=None,
+    on_cycle=None,
+    run=None,
+    preflight_returncode=0,
+    commit=lambda message: True,
 ):
     import run_autoresearch_loop as loop
 
@@ -402,7 +471,7 @@ def _drive_loop(
         "tweak_templates",
         [{"family": "lr", "attr": "lr", "vals": [1e-3, 5e-4, 1e-4, 5e-5]}],
     )
-    monkeypatch.setattr(loop.os, "system", lambda command: 0)
+    monkeypatch.setattr(loop, "commit_promotion", commit)
     launched = []
 
     class FakeSupervisor:
@@ -410,15 +479,24 @@ def _drive_loop(
             if commands is not None:
                 commands.append(list(command))
             # The preflight and the every-5th-cycle benchmark are not training runs.
-            if "--smoke" in command or "scripts/inference/predict.py" in command:
+            if "--smoke" in command:
+                if preflight_returncode:
+                    kwargs["stdout"].write("PREFLIGHT FAILED: model build error\n")
+                return subprocess.CompletedProcess(command, preflight_returncode)
+            if "scripts/inference/predict.py" in command:
                 return subprocess.CompletedProcess(command, 0)
             launched.append(json.loads((tmp_path / "config_temp.json").read_text()))
             if on_cycle is not None:
                 on_cycle(len(launched))
+            if run is not None:
+                return run(command, kwargs["stdout"])
             if result is None:
                 return subprocess.CompletedProcess(command, 1)
             (tmp_path / "run_result.json").write_text(json.dumps(result))
             return subprocess.CompletedProcess(command, 0)
+
+        def stop(self):
+            pass
 
     monkeypatch.setattr(loop, "supervisor", FakeSupervisor())
     loop.main()
@@ -593,6 +671,347 @@ def test_an_unreadable_history_is_moved_aside_not_overwritten(
     assert _history(tmp_path) == {"lr": 1.0}
     assert "unreadable" in capsys.readouterr().out
     assert not list(tmp_path.glob(".history.*"))  # no temporary left behind
+
+
+def _promoting_run(tmp_path, returncode=0, result=True, timeout=False):
+    """A training run that promotes as train.py does (best_model.pt replaced by
+    os.replace, then run_result.json), then exits or is killed at the timeout."""
+
+    def run(command, log):
+        _checkpoint(tmp_path / "candidate.pt", val_f1=0.9)
+        os.replace(tmp_path / "candidate.pt", tmp_path / "best_model.pt")
+        for name in ("results.tsv", "prize_readiness.tsv"):  # train.py's rows
+            with open(tmp_path / name, "a") as f:
+                f.write("promoted\t0.9\n")
+        if result:
+            (tmp_path / "run_result.json").write_text(
+                json.dumps({"is_success": True, "val_f1": 0.9})
+            )
+        log.write("RuntimeError: teardown failed\n")
+        if timeout:
+            raise subprocess.TimeoutExpired(command, 1200)
+        return subprocess.CompletedProcess(command, returncode)
+
+    return run
+
+
+@pytest.mark.parametrize(
+    "returncode, result, timeout, failure",
+    [
+        (1, True, False, "exited with code 1 after writing run_result.json"),
+        (-9, False, False, "was killed by SIGKILL"),
+        (0, True, True, "killed at the 1200 s timeout after writing run_result.json"),
+        (0, False, True, "killed at the 1200 s timeout"),
+    ],
+)
+def test_a_run_that_fails_after_promoting_leaves_the_incumbent(
+    tmp_path, monkeypatch, returncode, result, timeout, failure
+):
+    """A failed run promotes neither the config (2026-10-01) nor the model:
+    train.py had already replaced best_model.pt, which the next cycle would
+    have warm-started from and been compared with, with no config or commit
+    recording it. Its model is kept aside; the incumbent is put back."""
+    config = ExperimentConfig()
+    config.save(tmp_path / "config.json")
+    _checkpoint(tmp_path / "best_model.pt")  # val_f1 0.47
+    (tmp_path / "results.tsv").write_text("timestamp\tval_f1\nearlier\t0.47\n")
+    run = _promoting_run(tmp_path, returncode, result, timeout)
+    assert len(_drive_loop(tmp_path, monkeypatch, 1, run=run)) == 1
+    assert torch.load(tmp_path / "best_model.pt")["val_f1"] == 0.47
+    (aside,) = tmp_path.glob("best_model.pt.failed-run-*")
+    assert torch.load(aside)["val_f1"] == 0.9
+    assert not os.path.lexists(tmp_path / ".best_model.pt.held")
+    assert ExperimentConfig.load(tmp_path / "config.json") == config
+    log = next((tmp_path / "sprint_logs").glob("*.md")).read_text()
+    assert f"Training crashed ({failure})" in log
+    assert "the incumbent was restored" in log
+    assert "- **Last log line**: `RuntimeError: teardown failed`" in log
+    # The reports read no promotion the loop undid.
+    assert "its rows were removed from results.tsv, prize_readiness.tsv" in log
+    assert (
+        tmp_path / "results.tsv"
+    ).read_text() == "timestamp\tval_f1\nearlier\t0.47\n"
+    assert not (tmp_path / "prize_readiness.tsv").exists()
+
+
+def test_a_promotion_keeps_its_model_and_releases_the_hold(tmp_path, monkeypatch):
+    ExperimentConfig().save(tmp_path / "config.json")
+    _checkpoint(tmp_path / "best_model.pt")
+    _drive_loop(tmp_path, monkeypatch, 1, run=_promoting_run(tmp_path))
+    assert torch.load(tmp_path / "best_model.pt")["val_f1"] == 0.9
+    assert not list(tmp_path.glob("best_model.pt.failed-run-*"))
+    assert not os.path.lexists(tmp_path / ".best_model.pt.held")
+    assert "(SUCCESS)" in next((tmp_path / "sprint_logs").glob("*.md")).read_text()
+    assert (tmp_path / "results.tsv").read_text() == "promoted\t0.9\n"
+
+
+def test_a_failed_preflight_is_named_in_the_sprint_log(tmp_path, monkeypatch):
+    """Every failure used to read "Training crashed (Unknown error)": 264 runs
+    killed at the timeout from 2026-06-29 to 2026-07-07 showed only in the
+    spacing of their timestamps."""
+    ExperimentConfig().save(tmp_path / "config.json")
+    _checkpoint(tmp_path / "best_model.pt")
+    launched = _drive_loop(tmp_path, monkeypatch, 1, preflight_returncode=2)
+    assert launched == []
+    log = next((tmp_path / "sprint_logs").glob("*.md")).read_text()
+    assert "Training crashed (preflight exited with code 2)" in log
+    # The preflight's own last line, not the loop's marker after it.
+    assert "- **Last log line**: `PREFLIGHT FAILED: model build error`" in log
+    assert torch.load(tmp_path / "best_model.pt")["val_f1"] == 0.47
+    assert not os.path.lexists(tmp_path / ".best_model.pt.held")
+
+
+def test_a_promotion_log_rotated_during_the_run_is_moved_back(tmp_path, monkeypatch):
+    """append_tsv_row moves a log whose header changed aside and starts a new
+    one with the run's row; the old one is put back."""
+    import run_autoresearch_loop as loop
+
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "results.tsv").write_text("old header\nrow\n")
+    before = loop._log_ends()
+    os.replace(tmp_path / "results.tsv", tmp_path / "results.until-x.tsv")
+    (tmp_path / "results.tsv").write_text("new header\npromoted\n")
+    assert loop._undo_promotion_rows(before) == (["results.tsv"], [])
+    assert (tmp_path / "results.tsv").read_text() == "old header\nrow\n"
+    assert not (tmp_path / "results.until-x.tsv").exists()
+
+
+def test_a_promotion_log_rewritten_during_the_run_is_left(tmp_path, monkeypatch):
+    """A log replaced by other content during the run (a git checkout of the
+    tracked prize_readiness.tsv can reuse its inode number) is not cut: the
+    length recorded before the run would fall mid-row in it."""
+    import run_autoresearch_loop as loop
+
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "prize_readiness.tsv").write_text("ts\tsubmittable\n")
+    before = loop._log_ends()
+    (tmp_path / "prize_readiness.tsv").unlink()
+    (tmp_path / "prize_readiness.tsv").write_text(
+        "ts\tsubmittable\twindow_ok\npulled\n"
+    )
+    with open(tmp_path / "prize_readiness.tsv", "a") as f:
+        f.write("promoted\n")
+    assert loop._undo_promotion_rows(before) == ([], ["prize_readiness.tsv"])
+    assert (tmp_path / "prize_readiness.tsv").read_text().endswith("pulled\npromoted\n")
+
+
+def test_a_stop_mid_cycle_settles_the_run(tmp_path, monkeypatch):
+    """stop.sh sends SIGTERM, almost always mid-cycle. The handler settles the
+    run, so what is done while the loop is stopped (a re-score) is not taken for
+    that run's model at the next start."""
+    import run_autoresearch_loop as loop
+
+    ExperimentConfig().save(tmp_path / "config.json")
+    _checkpoint(tmp_path / "best_model.pt")
+    promote = _promoting_run(tmp_path, result=False)
+
+    def stopped(command, log):
+        promote(command, log)
+        loop.signal_handler(15, None)
+
+    with pytest.raises(SystemExit):
+        _drive_loop(tmp_path, monkeypatch, 1, run=stopped)
+    assert torch.load(tmp_path / "best_model.pt")["val_f1"] == 0.47
+    (aside,) = tmp_path.glob("best_model.pt.failed-run-*")
+    assert torch.load(aside)["val_f1"] == 0.9
+    assert not os.path.lexists(tmp_path / ".best_model.pt.held")
+    assert not (tmp_path / "results.tsv").exists()  # the stopped run's rows
+    assert not (tmp_path / "prize_readiness.tsv").exists()
+    # Re-scored while stopped: the next start keeps it.
+    _checkpoint(tmp_path / "rescored.pt", val_f1=0.48)
+    os.replace(tmp_path / "rescored.pt", tmp_path / "best_model.pt")
+    result = {"is_success": False, "val_f1": 0.5}
+    assert len(_drive_loop(tmp_path, monkeypatch, 1, result=result)) == 1
+    assert torch.load(tmp_path / "best_model.pt")["val_f1"] == 0.48
+
+
+def test_a_hold_left_by_a_killed_loop_is_the_operators_call(
+    tmp_path, monkeypatch, capsys
+):
+    """Killed mid-cycle (no handler ran), the loop cannot tell whether that run
+    or the operator changed best_model.pt since, so it does not start and says
+    how to keep either; it changes nothing."""
+    ExperimentConfig().save(tmp_path / "config.json")
+    _checkpoint(tmp_path / "best_model.pt")
+    os.link(tmp_path / "best_model.pt", tmp_path / ".best_model.pt.held")
+    _checkpoint(tmp_path / "candidate.pt", val_f1=0.9)
+    os.replace(tmp_path / "candidate.pt", tmp_path / "best_model.pt")
+    assert _drive_loop(tmp_path, monkeypatch, 1) == []
+    out = capsys.readouterr().out
+    assert "Not starting: .best_model.pt.held remains" in out
+    assert "rm .best_model.pt.held" in out and "mv .best_model.pt.held" in out
+    assert torch.load(tmp_path / "best_model.pt")["val_f1"] == 0.9
+    assert os.path.lexists(tmp_path / ".best_model.pt.held")
+
+
+def test_a_hold_of_an_unchanged_incumbent_is_released(tmp_path, monkeypatch):
+    ExperimentConfig().save(tmp_path / "config.json")
+    _checkpoint(tmp_path / "best_model.pt")
+    os.link(tmp_path / "best_model.pt", tmp_path / ".best_model.pt.held")
+    result = {"is_success": False, "val_f1": 0.5}
+    assert len(_drive_loop(tmp_path, monkeypatch, 1, result=result)) == 1
+    assert not os.path.lexists(tmp_path / ".best_model.pt.held")
+
+
+def test_a_failed_run_that_wrote_the_first_incumbent_leaves_none(tmp_path, monkeypatch):
+    ExperimentConfig().save(tmp_path / "config.json")
+    _drive_loop(tmp_path, monkeypatch, 1, run=_promoting_run(tmp_path, returncode=1))
+    assert not (tmp_path / "best_model.pt").exists()
+    (aside,) = tmp_path.glob("best_model.pt.failed-run-*")
+    assert torch.load(aside)["val_f1"] == 0.9
+    log = next((tmp_path / "sprint_logs").glob("*.md")).read_text()
+    assert "there was none before it" in log
+    assert not (tmp_path / "results.tsv").exists()
+
+
+def test_without_a_hard_link_the_cycle_runs_unheld(tmp_path, monkeypatch, capsys):
+    """Where the filesystem refuses a hard link, a failed run's model stays, as
+    before the hold existed; the cycle still runs."""
+    import run_autoresearch_loop as loop
+
+    ExperimentConfig().save(tmp_path / "config.json")
+    _checkpoint(tmp_path / "best_model.pt")
+
+    def no_link(*args):
+        raise OSError("hard links not supported")
+
+    monkeypatch.setattr(loop.os, "link", no_link)
+    _drive_loop(tmp_path, monkeypatch, 1, run=_promoting_run(tmp_path, returncode=1))
+    assert "could not hold best_model.pt" in capsys.readouterr().out
+    assert torch.load(tmp_path / "best_model.pt")["val_f1"] == 0.9
+    assert not list(tmp_path.glob("best_model.pt.failed-run-*"))
+
+
+def test_a_tracking_error_at_the_end_of_a_run_is_not_a_failed_run(monkeypatch, capsys):
+    from scripts import wandb_tracking
+
+    def finish():
+        raise RuntimeError("upload failed")
+
+    monkeypatch.setitem(sys.modules, "wandb", SimpleNamespace(finish=finish))
+    wandb_tracking.finish_run(object())
+    assert (
+        "wandb.finish failed (RuntimeError: upload failed)" in capsys.readouterr().out
+    )
+
+
+def _git(repo, *args):
+    return subprocess.run(
+        ["git", "-C", str(repo), *args], capture_output=True, text=True, check=True
+    ).stdout
+
+
+def _scratch_repo(tmp_path, monkeypatch):
+    """A repository of its own: no locator variables inherited from a hook that
+    may be running these tests, no global or system git config."""
+    for name in (
+        "GIT_DIR",
+        "GIT_INDEX_FILE",
+        "GIT_WORK_TREE",
+        "GIT_COMMON_DIR",
+        "GIT_OBJECT_DIRECTORY",
+        "GIT_PREFIX",
+    ):
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setenv("GIT_CONFIG_GLOBAL", os.devnull)
+    monkeypatch.setenv("GIT_CONFIG_NOSYSTEM", "1")
+    _git(tmp_path, "init", "-q")
+    _git(tmp_path, "config", "user.email", "loop@example.com")
+    _git(tmp_path, "config", "user.name", "loop")
+    names = ["config.json", "best_model.pt", "autoresearch_history.json", "work.py"]
+    for name in names:
+        (tmp_path / name).write_text("before\n")
+    (tmp_path / "reports" / "figures").mkdir(parents=True)
+    (tmp_path / "reports" / "figures" / "plot.svg").write_text("before\n")
+    _git(tmp_path, "add", ".")
+    _git(tmp_path, "commit", "-q", "-m", "start")
+    for name in names:
+        (tmp_path / name).write_text("after\n")
+    (tmp_path / "reports" / "figures" / "plot.svg").write_text("after\n")
+    _git(tmp_path, "add", "work.py")  # the operator's staged work...
+    (tmp_path / "work.py").write_text("after, and more\n")  # ...partly staged
+    monkeypatch.chdir(tmp_path)
+
+
+def test_a_promotion_commits_only_the_loops_files(tmp_path, monkeypatch):
+    """`git add ... && git commit` committed the whole index: on 2026-04-25 a
+    promotion commit carried a staged 248-line vesuvius_loader.py change, and
+    35 of 50 carried reports/figures/, which the loop does not write."""
+    import run_autoresearch_loop as loop
+
+    _scratch_repo(tmp_path, monkeypatch)
+    assert loop.commit_promotion("DAY SHIFT: lr_0.001 improved model") is True
+    committed = _git(tmp_path, "show", "--name-only", "--format=%s", "HEAD").split()
+    assert committed[-3:] == [
+        "autoresearch_history.json",
+        "best_model.pt",
+        "config.json",
+    ]
+    assert "work.py" not in committed and "reports/figures/plot.svg" not in committed
+    # The operator's work is as it was: staged part staged, the rest not.
+    assert _git(tmp_path, "diff", "--cached", "--name-only").split() == ["work.py"]
+    assert _git(tmp_path, "show", ":work.py") == "after\n"
+    assert "work.py" in _git(tmp_path, "diff", "--name-only").split()
+
+
+def test_a_failed_promotion_commit_names_the_cause_and_unstages(tmp_path, monkeypatch):
+    """A failed commit leaves the index as it found it (or the operator's next
+    commit would take in the loop's files), and the reason is git's own."""
+    import run_autoresearch_loop as loop
+
+    _scratch_repo(tmp_path, monkeypatch)
+    hook = tmp_path / ".git" / "hooks" / "pre-commit"
+    hook.write_text(
+        "#!/bin/sh\necho 'error: lint failed' >&2\necho 'cleanup done'\nexit 1\n"
+    )
+    hook.chmod(0o755)
+    failure = loop.commit_promotion("DAY SHIFT: lr_0.001 improved model")
+    assert failure.startswith("git commit exited 1: error: lint failed")
+    assert _git(tmp_path, "diff", "--cached", "--name-only").split() == ["work.py"]
+    assert _git(tmp_path, "log", "--format=%s").split("\n")[0] == "start"
+
+
+def test_a_hung_git_is_stopped_without_leaving_its_lock(tmp_path, monkeypatch):
+    """A SIGKILL at the timeout left .git/index.lock, and every later git
+    command, the operator's included, failed until it was removed by hand."""
+    import run_autoresearch_loop as loop
+
+    _scratch_repo(tmp_path, monkeypatch)
+    hook = tmp_path / ".git" / "hooks" / "pre-commit"
+    hook.write_text("#!/bin/sh\nsleep 3\n")
+    hook.chmod(0o755)
+    code, reason = loop._run_git(
+        "commit", "--only", "-m", "hangs", "--", "config.json", timeout=1
+    )
+    assert code is None and reason == "timed out after 1 s"
+    assert not list((tmp_path / ".git").glob("*.lock"))
+
+
+def test_a_failed_promotion_commit_is_recorded(tmp_path, monkeypatch):
+    import run_autoresearch_loop as loop
+
+    monkeypatch.chdir(tmp_path)  # not a git repository
+    monkeypatch.setenv("GIT_CEILING_DIRECTORIES", str(tmp_path.parent))
+    assert loop.commit_promotion("message").startswith("git add exited 128: fatal:")
+    ExperimentConfig().save(tmp_path / "config.json")
+    _checkpoint(tmp_path / "best_model.pt")
+    messages = []
+
+    def commit(message):
+        messages.append(message)
+        return "git commit exited 1: error: hook failed"
+
+    _drive_loop(tmp_path, monkeypatch, 1, run=_promoting_run(tmp_path), commit=commit)
+    (message,) = messages
+    assert message.startswith("DAY SHIFT: lr_") and message.endswith(
+        "improved model to val_f1 0.9"
+    )
+    log = next((tmp_path / "sprint_logs").glob("*.md")).read_text()
+    assert (
+        "- **Commit**: failed (git commit exited 1: error: hook failed); "
+        "config.json, best_model.pt and autoresearch_history.json are promoted on "
+        "disk but not committed.\n- **Result**: Improvement detected" in log
+    )
 
 
 def test_a_blocked_promotion_is_recorded_in_the_sprint_log(tmp_path, monkeypatch):
