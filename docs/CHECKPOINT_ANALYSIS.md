@@ -107,6 +107,10 @@ uv run python scripts/reevaluate_best_model.py --update-stored --unwarped
 ```
 
 This command reads `best_model.pt` and `config.json` from the working directory.
+`--update-stored` writes `best_model.pt`, so it refuses while work holds that
+checkout's lock: the loop, the noise probe or the augmentation ablation. Stop it
+with `./stop.sh`, which also pauses the watchdog, and restart with `./start.sh`.
+It also does not write if `best_model.pt` changed while it was being scored.
 The current config selects validation URI, cache, and batch size; saved model
 settings determine reconstruction and input dimensions, with the checkpoint's
 recorded `use_lasagna` setting (`--unwarped` scores without a recorded warp and,

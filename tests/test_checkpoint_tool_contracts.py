@@ -1,7 +1,10 @@
 """Checkpoint analysis must score loaded models and identify the actual patches."""
 
 import json
+import os
+import subprocess
 import sys
+from pathlib import Path
 from types import SimpleNamespace
 
 import numpy as np
@@ -348,6 +351,89 @@ def test_a_rescore_records_the_inputs_a_candidate_is_compared_on(
     )
     assert source == "checkpoint"
     assert val_f1 == pytest.approx(torch.load(checkpoint, weights_only=False)["val_f1"])
+
+
+def test_a_rescore_refuses_to_write_beside_this_checkouts_loop(
+    tools_fixture, monkeypatch
+):
+    """A running cycle compares its candidate with the stored score, holds
+    best_model.pt and may replace it, so --update-stored refuses before scoring.
+    A real lock owner stands in for the loop in the checkout (the working
+    directory)."""
+    checkpoint, _, _, _, datasets = tools_fixture
+    _stub_topology(monkeypatch)
+    before = checkpoint.read_bytes()
+    Path("run_autoresearch_loop.py").write_text(
+        "import time\n"
+        "from scripts.loop_control import acquire_lock\n"
+        "lock = acquire_lock('autoresearch.lock')\n"
+        "print('ready', flush=True)\n"
+        "while True: time.sleep(.1)\n"
+    )
+    repo = Path(__file__).resolve().parents[1]
+    loop = subprocess.Popen(
+        [sys.executable, "-u", "run_autoresearch_loop.py"],
+        env={**os.environ, "PYTHONPATH": str(repo)},
+        stdout=subprocess.PIPE,
+        text=True,
+    )
+    try:
+        assert loop.stdout is not None and loop.stdout.readline() == "ready\n"
+        with pytest.raises(RuntimeError, match=rf"PID {loop.pid}\) at the start"):
+            reevaluate.reevaluate(update_stored=True)
+    finally:
+        loop.kill()
+        loop.wait()
+    assert checkpoint.read_bytes() == before
+    assert not datasets  # refused before any validation read
+
+
+@pytest.mark.parametrize("change", ["the loop started", "best_model.pt replaced"])
+def test_a_rescore_does_not_write_over_a_change_made_while_it_ran(
+    tools_fixture, monkeypatch, change
+):
+    """The watchdog can start the loop during a re-score, and a promotion
+    replaces best_model.pt: writing the loaded model back would undo it."""
+    checkpoint, _, _, _, _ = tools_fixture
+    _stub_topology(monkeypatch)
+    pids: list[int] = []
+    monkeypatch.setattr(
+        reevaluate, "running_pid", lambda repo: pids[-1] if pids else None
+    )
+    collect = reevaluate.collect_validation_predictions
+
+    def collect_while_it_changes(*args, **kwargs):
+        if change == "the loop started":
+            pids.append(4321)
+        else:
+            promoted = torch.load(checkpoint, weights_only=False)
+            promoted["val_f1"] = 0.9
+            torch.save(promoted, checkpoint)
+        return collect(*args, **kwargs)
+
+    monkeypatch.setattr(
+        reevaluate, "collect_validation_predictions", collect_while_it_changes
+    )
+    before = checkpoint.read_bytes()
+    with pytest.raises(RuntimeError) as refusal:
+        reevaluate.reevaluate(update_stored=True)
+    if change == "the loop started":
+        assert "PID 4321) at the end of the re-score" in str(refusal.value)
+        assert checkpoint.read_bytes() == before
+    else:
+        assert "changed while it was being re-scored" in str(refusal.value)
+        assert torch.load(checkpoint, weights_only=False)["val_f1"] == 0.9
+
+
+def test_a_dry_run_beside_the_loop_reads_only(tools_fixture, monkeypatch, capsys):
+    # Without --update-stored nothing is written, so the lock is not consulted.
+    checkpoint, _, _, _, _ = tools_fixture
+    _stub_topology(monkeypatch)
+    monkeypatch.setattr(reevaluate, "running_pid", lambda repo: 4321)
+    before = checkpoint.read_bytes()
+    reevaluate.reevaluate()
+    assert checkpoint.read_bytes() == before
+    assert "TODAY'S MEASUREMENT" in capsys.readouterr().out
 
 
 def test_the_command_line_passes_unwarped(monkeypatch):

@@ -19,11 +19,20 @@ Usage:
     uv run python scripts/reevaluate_best_model.py --update-stored --unwarped
         # scores without a recorded lasagna warp that never ran (finding 86), and
         # corrects the record
+
+--update-stored rewrites best_model.pt, so it refuses while work holds this
+checkout's lock (the loop, the noise probe or the augmentation ablation): a cycle
+would compare its candidate with the score the re-score replaces, and a promotion
+made meanwhile would be written over with the old model. Stop the loop with ./stop.sh (which also pauses the watchdog) and
+restart it with ./start.sh. The write is also refused if best_model.pt changed
+while it was being scored.
 """
 
 import argparse
+import hashlib
 import os
 import sys
+from pathlib import Path
 
 import numpy as np
 import torch
@@ -45,6 +54,7 @@ from train import (
     select_topology_threshold,
 )
 
+from scripts.loop_control import running_pid
 from scripts.training.promotion import save_checkpoint_atomic, validation_protocol
 from vesuvius_autoresearch.core.checkpoint_tools import (
     ink_probabilities,
@@ -54,6 +64,26 @@ from vesuvius_autoresearch.core.checkpoint_tools import (
 
 # Input settings that change what the model sees; scored as the model was trained.
 RECORDED_INPUT_SETTINGS = ("use_lasagna",)
+
+
+def _file_sha256(path: str) -> str:
+    digest = hashlib.sha256()
+    with open(path, "rb") as stream:
+        for block in iter(lambda: stream.read(1 << 20), b""):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+def refuse_beside_running_loop(when: str) -> None:
+    """--update-stored writes best_model.pt, which a running cycle reads, holds
+    and may replace: not while work holds this checkout's lock."""
+    pid = running_pid(Path.cwd())
+    if pid is not None:
+        raise RuntimeError(
+            f"autoresearch work is running in this checkout (PID {pid}) {when}; "
+            "best_model.pt was not updated. Stop it with ./stop.sh (which also "
+            "pauses the watchdog), re-score, then restart it with ./start.sh"
+        )
 
 
 def reevaluate(update_stored: bool = False, unwarped: bool = False) -> None:
@@ -66,6 +96,10 @@ def reevaluate(update_stored: bool = False, unwarped: bool = False) -> None:
         else ExperimentConfig()
     )
 
+    if update_stored:
+        # Before any GPU time is spent; checked again before the write.
+        refuse_beside_running_loop("at the start")
+        loaded_sha256 = _file_sha256("best_model.pt")
     print("Loading best_model.pt...")
     model, settings, chk = load_tool_checkpoint("best_model.pt", device)
     for name, value in settings.items():
@@ -286,6 +320,15 @@ def reevaluate(update_stored: bool = False, unwarped: bool = False) -> None:
         }
         if overridden:
             chk["config"] = {**stored, "use_lasagna": config.use_lasagna}
+        # The watchdog can start the loop while this runs, and anything may have
+        # replaced best_model.pt since it was loaded (a promotion): writing the
+        # loaded model back would undo it.
+        refuse_beside_running_loop("at the end of the re-score")
+        if _file_sha256("best_model.pt") != loaded_sha256:
+            raise RuntimeError(
+                "best_model.pt changed while it was being re-scored; it was not "
+                "updated. Re-score the new file"
+            )
         save_checkpoint_atomic(chk, "best_model.pt")
         print("Done.")
 

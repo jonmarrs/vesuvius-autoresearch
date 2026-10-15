@@ -61,7 +61,8 @@ Scope: the scripts in `scripts/` that act on the same checkout as the running lo
   but it changes what the ablation measures.
 - **`reevaluate_best_model.py --update-stored`** rewrites `best_model.pt` atomically. The 2026-10-12 runbook
   runs it with the loop stopped, and since #69 a stop settles the cycle first, so a re-score made then is kept.
-  Nothing checks that the loop is stopped; that is left to a review of its own.
+  Nothing checks that the loop is stopped; that is left to a review of its own. (Enforced since:
+  `DESIGN_ARCHITECTURE_REVIEW_2026-10-15_INCUMBENT_RESCORE.md`.)
 - **`f1_noise_probe.py`** works in its own workspace copies (2026-10-13 repeatability review).
 
 ## Reviewed and sound
