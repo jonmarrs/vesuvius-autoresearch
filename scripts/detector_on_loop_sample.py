@@ -52,7 +52,9 @@ from train import (  # noqa: E402
 
 from scripts.reevaluate_best_model import RECORDED_INPUT_SETTINGS  # noqa: E402
 from scripts.training.promotion import (  # noqa: E402
+    INK_ONLY_PROTOCOL,
     validation_indices,
+    validation_label_path,
     validation_protocol,
 )
 from vesuvius_autoresearch.core.checkpoint_tools import (  # noqa: E402
@@ -114,11 +116,44 @@ def loop_incumbent(config):
         probabilities=lambda net, x: ink_probabilities(
             net, validate_batch(x, settings)
         ),
-        protocol=validation_protocol(config.depth_band),
+        protocol=validation_protocol(config.depth_band, base=INK_ONLY_PROTOCOL),
     )
     if not diag["complete"]:
         raise RuntimeError("incomplete validation sample; nothing computed")
     return dataset, probs, targets, diag, chk
+
+
+def patch_origin(dataset, idx):
+    """Where dataset[idx] reads in the plane: valid_coords[idx] moved by the
+    loader's per-patch jitter (VesuviusLabeledDataset.__getitem__), which
+    validation leaves on.
+
+    Finding 88 first read the detector at valid_coords itself, a median 16 px
+    and up to half a patch away from the targets it was scored against
+    (corrected 2026-10-14). check_origins verifies the result on the labels.
+    """
+    y0, x0 = (int(v) for v in dataset.valid_coords[idx])
+    if not getattr(dataset, "jitter", True):
+        return y0, x0
+    rng = np.random.RandomState(idx + (dataset.seed or 0))
+    size = dataset.patch_size
+    half = size // 2
+    y = max(0, min(dataset.shape[1] - size, y0 + rng.randint(-half, half + 1)))
+    x = max(0, min(dataset.shape[2] - size, x0 + rng.randint(-half, half + 1)))
+    return y, x
+
+
+def check_origins(val_uri, origins, targets):
+    """Every target must be the label image at its origin, or the detector's
+    windows are not the patches it is scored on."""
+    labels = np.asarray(Image.open(validation_label_path(val_uri)))
+    labels = labels > (127 if labels.max() > 1 else 0)
+    for (y, x), target in zip(origins, targets, strict=True):
+        target = torch.as_tensor(target).float().numpy()
+        size = target.shape[-1]
+        window = labels[y : y + size, x : x + size]
+        if not np.array_equal(window, target.reshape(window.shape) > 0.5):
+            raise RuntimeError(f"the labels at {(y, x)} are not that patch's target")
 
 
 def usable_coordinates(dataset):
@@ -128,8 +163,7 @@ def usable_coordinates(dataset):
         target = dataset[int(i)][1]
         if float(torch.as_tensor(target).float().sum()) < 1.0:
             continue
-        y, x = (int(v) for v in dataset.valid_coords[int(i)])
-        coords.append((y, x))
+        coords.append(patch_origin(dataset, int(i)))
         targets.append(
             torch.as_tensor(target).float().reshape(1, 1, *target.shape[-2:])
         )
@@ -200,6 +234,7 @@ def main(out_path, detector):
         torch.equal(a, b) for a, b in zip(targets, loop_targets, strict=True)
     ):
         raise RuntimeError("patch coordinates do not reproduce the loop's targets")
+    check_origins(config.val_uri, coords, targets)
 
     cfg = DetectorConfig()
     model = DetectorModel.load_from_checkpoint(
@@ -228,7 +263,7 @@ def main(out_path, detector):
         "constant_all_ink": card(np.ones(labels.shape, np.float32), labels),
     }
     result = {
-        "protocol": validation_protocol(config.depth_band),
+        "protocol": validation_protocol(config.depth_band, base=INK_ONLY_PROTOCOL),
         "git_commit": subprocess.run(
             ["git", "rev-parse", "HEAD"], capture_output=True, text=True, cwd=_REPO
         ).stdout.strip(),

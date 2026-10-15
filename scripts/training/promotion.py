@@ -8,9 +8,12 @@ That is only meaningful when both were measured on the same patches. Protocol v1
 read the first 100 *batches* of the validation catalogue in raster order: 400
 patches at batch_size 4, 800 at 8, all from the top of the fragment, so a
 batch_size tweak was scored on a different set from the incumbent. Protocol v2
-scores a fixed, seeded sample spread over the whole catalogue, whatever the batch
-size. A score from another protocol is not comparable and is refused, not
-bootstrapped; ``scripts/reevaluate_best_model.py --update-stored`` re-scores it.
+scored a fixed, seeded sample spread over the whole catalogue, whatever the batch
+size, but only its ink-containing patches (97 of 400 on Fr143, 58% ink). There F1
+could not tell the project's detector from calling every pixel ink (finding 88).
+Protocol v3 scores every patch of the same draw, ink-free ones included. A score
+from another protocol is not comparable and is refused, not bootstrapped;
+``scripts/reevaluate_best_model.py --update-stored`` re-scores it.
 
 The protocol string names how the sample is drawn, not what it is drawn from:
 another label file beside the fragment (``inklabels_refined.png`` is preferred
@@ -32,20 +35,35 @@ import tempfile
 
 import numpy as np
 
-VALIDATION_PROTOCOL = "seeded-sample-400-v2"
+VALIDATION_PROTOCOL = "seeded-sample-400-v3"
+# The same draw scored on its ink-containing patches only; kept so finding 86's
+# and 88's measurements of it can be reproduced.
+INK_ONLY_PROTOCOL = "seeded-sample-400-v2"
 VALIDATION_SAMPLE_PATCHES = 400
 VALIDATION_SAMPLE_SEED = 42
 
 RESCORE_COMMAND = "uv run python scripts/reevaluate_best_model.py --update-stored"
 
 
-def validation_protocol(depth_band=None) -> str:
+def validation_protocol(depth_band=None, base: str = VALIDATION_PROTOCOL) -> str:
     """The protocol a score is measured under. The depth band is part of it: the
-    same patches read from other slices are a different sample."""
+    same patches read from other slices are a different sample. ``base`` is
+    INK_ONLY_PROTOCOL only to reproduce a v2 measurement."""
     if depth_band is None:
-        return VALIDATION_PROTOCOL
+        return base
     start, end = depth_band
-    return f"{VALIDATION_PROTOCOL}+z{start}-{end}"
+    return f"{base}+z{start}-{end}"
+
+
+def scores_ink_free_patches(protocol: str) -> bool:
+    """Whether ``protocol`` scores the draw's ink-free patches (v3) or drops
+    them (v2). The protocol string is the one record of which patches count."""
+    base = protocol.split("+", 1)[0]
+    if base == VALIDATION_PROTOCOL:
+        return True
+    if base == INK_ONLY_PROTOCOL:
+        return False
+    raise ValueError(f"unknown validation protocol {protocol!r}")
 
 
 # The label file validation (and training) reads: the first of these beside

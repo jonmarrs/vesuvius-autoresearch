@@ -10,7 +10,30 @@
 * Not pre-registered: each patch at its own random start (how the loop validates) gives AUC 0.5717, below every
   fixed start (0.5765–0.5875) on the same patches. A property of the measurement, not of reading.
 
+## 2026-10-14: finding 89, the detector reads ink mostly from its deepest slices
+
+* **Finding 89** (`reports/detector_depth_ablation.md`, pre-registered at `f9d892b0`, CPU). On control B's 400 random
+  Fr143 windows the detector keeps 16 of its 26 channels at the loop's window offsets. AUC 0.7034 falls by 0.0756
+  (window zarr 4–19), 0.0381 (8–23) and 0.0208 (11–26): by the rule, it depends on the position. Equal-sized
+  removals differ 3.6-fold, so the signal sits in zarr 20–26 (layers 36–42); both fills agree.
+* The loop's windows start uniformly at zarr 4–11, so they hold 0 to 7 of those slices. Untested lever, the owner's
+  call and separate from finding 88: `depth_band` [11, 27] pins every window to zarr 11–26.
+
+## 2026-10-14: finding 88 corrected; its readings stand, one claim withdrawn
+
+* Validation shifts every patch by up to half a patch (`VesuviusLabeledDataset`, `jitter=True`). Finding 88's A
+  and C first read the detector at the pre-shift `valid_coords`, so it was scored against targets a median 16 px
+  away. Fixed in `9acb865a` (`patch_origin`, `check_origins`); any script that reads its own windows beside a
+  validation patch must use `patch_origin`. The incumbent's and candidates' scores, and B, were unaffected.
+* Re-run: A's detector margin +0.0010 → +0.0025 (tiled +0.0062 → +0.0147); C's +0.0655 → +0.1014; D's val_f1
+  ratio 2.78 vs 10.71 → 3.71 vs 16.98. All three pre-registered readings unchanged.
+* Withdrawn: "ROC AUC and AP lift point the same way". They separate comparably on both samples (12.16 vs 15.14,
+  18.70 vs 19.82), so promoting on AP lift with the current sample (finding 86's option 3) is level with keeping
+  the ink-free patches on separation. The difference is what the loop promotes on.
+
 ## 2026-10-13 (night): finding 88, the loop's sample cannot reward a model that reads ink
+
+*Corrected 2026-10-14 (above): the numbers below are the first run's.*
 
 * **Finding 88** (`reports/detector_on_loop_sample.md`, four pre-registered CPU measurements). On the loop's 97
   ink-containing patches the TimeSformer detector (fragment-wide AUC 0.709) clears the all-ink F1 by only +0.0010

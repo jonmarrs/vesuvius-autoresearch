@@ -306,7 +306,12 @@ def test_plan_and_execution_follow_the_config_depth_protocol(inputs, monkeypatch
 
 
 @pytest.mark.parametrize(
-    "wrong", [probe.VALIDATION_PROTOCOL, "seeded-sample-400-v2+z17-43"]
+    "wrong",
+    [
+        probe.VALIDATION_PROTOCOL,
+        probe.validation_protocol([17, 43]),
+        "seeded-sample-400-v2+z1-27",  # the ink-only sample, same band
+    ],
 )
 def test_another_depth_protocol_cannot_enter_the_probe_estimate(
     inputs, monkeypatch, wrong
@@ -556,7 +561,8 @@ def test_real_wrapper_requires_recorded_fields_and_loads_weights_before_optimize
 
     monkeypatch.setattr(train, "build_validation_dataset", validation_fixture)
     monkeypatch.setattr(train, "probe_validation_read", lambda dataset: None)
-    monkeypatch.setattr(train, "VesuviusS3Dataset", lambda *a, **k: object())
+    monkeypatch.setattr(train, "training_label_path", lambda *a: "fake/labels.png")
+    monkeypatch.setattr(train, "VesuviusLabeledDataset", lambda *a, **k: object())
     monkeypatch.setattr(train, "shuffled_loader", lambda *a, **k: [])
     monkeypatch.setattr(train, "build_model", lambda *a: target)
     monkeypatch.setattr(train.wandb_tracking, "init_run", lambda *a: None)

@@ -69,6 +69,7 @@ from train import (  # noqa: E402
 from scripts.detector_on_loop_sample import card, sha256  # noqa: E402
 from scripts.reevaluate_best_model import RECORDED_INPUT_SETTINGS  # noqa: E402
 from scripts.training.promotion import (  # noqa: E402
+    INK_ONLY_PROTOCOL,
     validation_indices,
     validation_protocol,
 )
@@ -140,6 +141,54 @@ def ratio(gap, values):
     return {"gap": gap, "spread": spread, "ratio": gap / spread}
 
 
+def separate(rows, incumbent, saved):
+    """gap / spread per metric and sample, and the pre-registered reading."""
+    separation = {}
+    for metric in ("val_f1", "roc_auc", "ap_prevalence_lift"):
+        separation[metric] = {}
+        for name in ("A", "C"):
+            det = saved[name]["cards"]["detector_single_window"][metric]
+            separation[metric][name] = ratio(
+                det - incumbent[name][metric],
+                [r["cards"][name][metric] for r in rows],
+            )
+    ra, rc = separation["val_f1"]["A"]["ratio"], separation["val_f1"]["C"]["ratio"]
+    if rc >= 2 * ra:
+        reading = "C separates better; finding 88's recommendation stands"
+    elif ra >= 2 * rc:
+        reading = "A separates better once the tolerance is scaled; correct finding 88"
+    else:
+        reading = "comparable; the defect is a tolerance matched to neither spread"
+    return separation, reading
+
+
+def reseparate(scored_path, out_path):
+    """Recompute the gaps from finding 88's current A and C results, keeping the
+    candidates' saved scores. Their scoring does not involve the detector, so
+    correcting the detector's numbers (2026-10-14: its windows now sit where the
+    loader read each patch) changes only the gaps."""
+    scored = json.load(open(scored_path))
+    saved = {"A": json.load(open(SAMPLE_A)), "C": json.load(open(SAMPLE_C))}
+    for name in ("A", "C"):
+        want = scored["incumbent"][name]["val_f1"]
+        if abs(saved[name]["cards"]["loop_incumbent"]["val_f1"] - want) > 1e-5:
+            raise RuntimeError(f"the incumbent's {name} score differs from D's")
+    if saved["C"]["detector_sha256"] != scored["detector_sha256"]:
+        raise RuntimeError("another detector checkpoint")
+    separation, reading = separate(scored["rows"], scored["incumbent"], saved)
+    result = scored | {
+        "separation": separation,
+        "reading": reading,
+        "separation_git_commit": subprocess.run(
+            ["git", "rev-parse", "HEAD"], capture_output=True, text=True, cwd=_REPO
+        ).stdout.strip(),
+    }
+    with open(out_path, "w") as f:
+        json.dump(result, f, indent=2)
+        f.write("\n")
+    print(json.dumps({k: result[k] for k in ("separation", "reading")}, indent=2))
+
+
 def copied(candidate_dir):
     """Snapshots whose copy has finished, in order: the first (copied by hand
     before the watcher started) and those the watcher has logged."""
@@ -166,7 +215,9 @@ def main(candidate_dir, out_path, n, wait):
     if not wait and len(copied(candidate_dir)) < n:
         raise SystemExit(f"fewer than {n} snapshots in {candidate_dir}")
     saved = {"A": json.load(open(SAMPLE_A)), "C": json.load(open(SAMPLE_C))}
-    protocol = validation_protocol(ExperimentConfig.load("config.json").depth_band)
+    protocol = validation_protocol(
+        ExperimentConfig.load("config.json").depth_band, base=INK_ONLY_PROTOCOL
+    )
     cache = {}
 
     incumbent, inc_chk, inc_ink = score("best_model.pt", cache)
@@ -217,22 +268,7 @@ def main(candidate_dir, out_path, n, wait):
             flush=True,
         )
 
-    separation = {}
-    for metric in ("val_f1", "roc_auc", "ap_prevalence_lift"):
-        separation[metric] = {}
-        for name in ("A", "C"):
-            det = saved[name]["cards"]["detector_single_window"][metric]
-            separation[metric][name] = ratio(
-                det - incumbent[name][metric],
-                [r["cards"][name][metric] for r in rows],
-            )
-    ra, rc = separation["val_f1"]["A"]["ratio"], separation["val_f1"]["C"]["ratio"]
-    if rc >= 2 * ra:
-        reading = "C separates better; finding 88's recommendation stands"
-    elif ra >= 2 * rc:
-        reading = "A separates better once the tolerance is scaled; correct finding 88"
-    else:
-        reading = "comparable; the defect is a tolerance matched to neither spread"
+    separation, reading = separate(rows, incumbent, saved)
     result = {
         "protocol": protocol,
         "git_commit": subprocess.run(
@@ -254,11 +290,21 @@ def main(candidate_dir, out_path, n, wait):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--candidates", required=True, help="snapshot directory")
+    parser.add_argument("--candidates", help="snapshot directory")
+    parser.add_argument(
+        "--reseparate",
+        metavar="JSON",
+        help="recompute the gaps for a saved run (its rows), scoring nothing",
+    )
     parser.add_argument("--out", required=True, help="JSON path to write")
     parser.add_argument("--n", type=int, default=CANDIDATES, help=argparse.SUPPRESS)
     parser.add_argument(
         "--wait", action="store_true", help="score snapshots as the watcher logs them"
     )
     args = parser.parse_args()
-    main(args.candidates, args.out, args.n, args.wait)
+    if args.reseparate:
+        reseparate(args.reseparate, args.out)
+    elif args.candidates:
+        main(args.candidates, args.out, args.n, args.wait)
+    else:
+        parser.error("--candidates or --reseparate is required")

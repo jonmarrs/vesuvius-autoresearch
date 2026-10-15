@@ -14,7 +14,9 @@ if site_packages:
             ":".join(nvidia_libs) + ":" + os.environ.get("LD_LIBRARY_PATH", "")
         )
 
+import atexit
 import copy
+import functools
 import json
 import math
 import time
@@ -59,10 +61,12 @@ from scripts.cldice_loss import SoftClDiceLoss
 from scripts.training.config import AuxiliaryConfig, ExperimentConfig
 from scripts.training.promotion import (
     RESCORE_COMMAND,
+    VALIDATION_LABEL_FILES,
     VALIDATION_PROTOCOL,
     IncumbentUnavailable,
     read_incumbent,
     save_checkpoint_atomic,
+    scores_ink_free_patches,
     validation_indices,
     validation_input_paths,
     validation_inputs_fingerprint,
@@ -516,31 +520,113 @@ def guarded_update(model, optimizer, scaler, lr, max_norm=1.0, step=None) -> boo
     return True
 
 
-def shuffled_loader(dataset, batch_size: int, seed: int) -> DataLoader:
+# Worker processes preparing training batches. With none, every batch was read
+# and given its ridge channel and Frangi fiber target in the training process
+# while the GPU waited: the Frangi target alone took ~150 ms a patch (CPU, one
+# thread), ~0.6 s of a batch of 4, and the GPU was busy ~7% of each ~480 ms
+# step (2026-10-14). Each patch is drawn from its index and the run's seed
+# (jitter, depth), so workers prepare the same batches in the same order, only
+# in parallel.
+LOADER_WORKERS_ENV = "AUTORESEARCH_LOADER_WORKERS"
+
+
+def loader_workers() -> int:
+    """Workers for the labeled training loader: one fewer than the CPUs, at most
+    three, unless AUTORESEARCH_LOADER_WORKERS sets it (0: read in this process)."""
+    value = os.environ.get(LOADER_WORKERS_ENV)
+    if value is None:
+        return max(0, min(3, (os.cpu_count() or 1) - 1))
+    try:
+        workers = int(value)
+    except ValueError:
+        workers = -1
+    if workers < 0:
+        raise ValueError(f"{LOADER_WORKERS_ENV} must be an integer >= 0, not {value!r}")
+    return workers
+
+
+def _init_worker(init, worker_id):
+    """A training-loader worker's start: it will leave without finalizing the
+    interpreter, then runs ``init``.
+
+    Training stops mid-pass with batches in flight, and finalization ends a
+    worker's queue thread wherever it is. Inside PyTorch's C++ (releasing a
+    batch) that ends in std::terminate: "terminate called without an active
+    exception", SIGABRT, in 4 of 12 mid-pass stops on Fr47 (2026-10-15). Nothing
+    a worker holds at exit is needed: its batches have gone through the queue,
+    its warnings to the shared counts. Exit handlers run before finalization
+    ends threads, so this one exits first.
+    """
+    atexit.register(os._exit, 0)
+    if init is not None:
+        init(worker_id)
+
+
+def shuffled_loader(
+    dataset, batch_size: int, seed: int, workers: int = 0, worker_init_fn=None
+) -> DataLoader:
     """Training batches drawn in a seeded random order over the whole catalogue.
 
     Without a sampler the loader read the catalogue in raster order from index 0,
     and a cycle only reaches ~1,000 patches: every cycle fine-tuned on the same
     strip at the top of the fragment (and UA-MT on the top ~220 px of the
     volume). Each re-iteration after StopIteration draws a fresh permutation.
+    The order comes from ``seed`` alone, so ``workers`` changes only where the
+    batches are prepared.
     """
     generator = torch.Generator()
     generator.manual_seed(seed)
+    options = {}
+    if workers > 0:
+        options = {
+            "num_workers": workers,
+            # Spawned, not forked: the ridge channel runs on CuPy, and a forked
+            # child of a process that has used CUDA cannot.
+            "multiprocessing_context": "spawn",
+            # Not persistent: a persistent iterator's reset skips the generator
+            # draw a new iterator makes, so the next pass would be another order.
+            "worker_init_fn": functools.partial(_init_worker, worker_init_fn),
+        }
     return DataLoader(
         dataset,
         batch_size=batch_size,
         shuffle=True,
         generator=generator,
-        num_workers=0,  # 0 prevents semaphore leaks (resource_tracker warnings)
         pin_memory=True,
+        **options,
     )
+
+
+def fiber_source(heads, config) -> str:
+    """The fiber head's target: config.target_fiber_source for a model with a
+    fiber or QC head, else the cheap Sobel-Z placeholder (no head trains on it)."""
+    if heads & {"fiber", "qc"}:
+        return getattr(config, "target_fiber_source", "sobel_z")
+    return "sobel_z"
+
+
+def fiber_target(x_raw, x_orig, source: str, sigma: float = 2.0):
+    """The fiber head's target before its per-patch min-max: [B, 1, 1, H, W].
+
+    "frangi": Frangi vesselness of the CT channel of the whole read (every
+    slice, the margins included), averaged over z, computed on the batch's
+    device. The loader computed it per patch with skimage until 2026-10-15,
+    ~150 ms a patch on the CPU, two thirds of a training patch's preparation;
+    frangi_torch reproduces it (tests/test_frangi_torch.py).
+    "sobel_z": the mean absolute z-gradient of the CT channel of the model's
+    window.
+    """
+    if source == "frangi":
+        return frangi_vesselness_zcollapsed_torch(x_raw[:, 0], sigma)[:, None, None]
+    grad_z = x_orig[:, :1, 1:] - x_orig[:, :1, :-1]
+    return grad_z.abs().mean(dim=2, keepdim=True)
 
 
 def build_validation_dataset(config: ExperimentConfig):
     """The validation catalogue promotion is scored on (see promotion.py).
 
     Reads are strict: a failed read raises instead of returning an all-zero patch,
-    which would silently drop out of the sample as an ink-free patch.
+    which would silently be scored as an ink-free patch.
     """
     # The same paths the fingerprint hashes (promotion.validation_input_paths),
     # fingerprinted before and after the dataset reads them.
@@ -579,6 +665,81 @@ def build_validation_dataset(config: ExperimentConfig):
         )
     dataset.validation_inputs = inputs
     return dataset
+
+
+def training_label_path(uri: str, config: ExperimentConfig) -> str:
+    """The label file training reads for a labeled volume.
+
+    A `<segment>_pseudo.png` in pseudo_label_dir takes precedence over the
+    volume's own labels (docs/PSEUDO_LABEL_HANDOFF.md). Its uncertain band (PNG
+    128) is a target like any other unless use_confidence_weight down-weights it,
+    so a pseudo-label from pseudo_label_dir without it is refused rather than
+    trained as ink 128/255.
+    """
+    if config.pseudo_label_dir:
+        segment = os.path.basename(os.path.dirname(uri.rstrip("/")))
+        pseudo = os.path.join(config.pseudo_label_dir, f"{segment}_pseudo.png")
+        if os.path.exists(pseudo):
+            if not getattr(config, "use_confidence_weight", False):
+                raise ValueError(
+                    f"{pseudo} replaces the labels of {uri}, but "
+                    "use_confidence_weight is off, so its uncertain band would be "
+                    "trained as ink probability 128/255 (docs/PSEUDO_LABEL_HANDOFF.md)"
+                )
+            return pseudo
+    path = validation_label_path(uri)  # the same order as validation
+    if not os.path.exists(path):
+        raise FileNotFoundError(
+            f"no label file for training volume {uri} (looked for "
+            f"{', '.join(VALIDATION_LABEL_FILES)} beside it)"
+        )
+    return path
+
+
+def resolve_training_labels(config: ExperimentConfig) -> dict[str, str]:
+    """Each training volume's label file (training_label_path), printed.
+
+    Only file checks, so train() and the --smoke preflight run it first: a
+    missing or refused label file fails in seconds, not after the validation
+    catalogue and the model are built.
+    """
+    labels = {uri: training_label_path(uri, config) for uri in config.uris}
+    for uri, path in labels.items():
+        print(f"Training labels for {uri}: {path}")
+    return labels
+
+
+def unlabeled_dataset(uri: str, config: ExperimentConfig, seed=None):
+    """UA-MT's reader for one unlabeled_uris volume.
+
+    The band names slices of the volumes it was set for, so it applies to an
+    unlabeled volume that is also one of them (a training volume, matched by
+    path as inference_constants.depth_band_for matches a checkpoint's), whose
+    labeled reads use it. Any other unlabeled volume is read over its whole
+    depth: it may number its slices differently.
+    """
+    band = depth_band_for(
+        {
+            "depth_band": getattr(config, "depth_band", None),
+            "uri": config.uri,
+            "uris": config.uris,
+            "val_uri": config.val_uri,
+        },
+        uri,
+    )
+    return VesuviusS3Dataset(
+        uri,
+        config.patch_size,
+        config.num_layers + 2 * DEPTH_MARGIN,
+        seed=seed,
+        cache_dir=config.cache_dir,
+        use_ridges=config.use_ridges,
+        ridge_sigma=getattr(config, "ridge_sigma", 2.0),
+        use_lasagna=config.use_lasagna,
+        is_unlabeled=True,
+        depth_band=band,
+        depth_margin=DEPTH_MARGIN,
+    )
 
 
 def _sigmoid_ink(model, x):
@@ -711,8 +872,12 @@ def collect_validation_predictions(
 ):
     """Score the protocol's fixed sample of ``dataset``.
 
-    Returns per-patch ink probabilities and targets (each ``[1, 1, H, W]``, for
-    ink-containing patches only) and diagnostics. ``batch_size`` only groups the
+    Returns per-patch ink probabilities and targets (each ``[1, 1, H, W]``) and
+    diagnostics. The protocol decides which patches count
+    (promotion.scores_ink_free_patches): every patch of the draw, or, under v2,
+    its ink-containing patches only. ``usable_patches`` counts the ink-containing
+    patches and ``empty_target_patches`` the ink-free ones either way;
+    ``scored_patches`` counts those returned. ``batch_size`` only groups the
     forward passes: which patches count is decided per patch, so it does not change
     the result. ``complete`` is False when any read or forward pass failed; such a
     sample is not the protocol's sample and cannot support a promotion.
@@ -720,6 +885,7 @@ def collect_validation_predictions(
     tools pass a validating version. ``protocol`` is recorded in the diagnostics
     (validation_protocol(config.depth_band) for the dataset's depth range).
     """
+    keep_ink_free = scores_ink_free_patches(protocol)
     indices = validation_indices(len(dataset))
     diag = {
         "protocol": protocol,
@@ -754,15 +920,29 @@ def collect_validation_predictions(
             for j in range(len(chunk)):
                 if torch.sum(val_target[j].float()) < 1.0:
                     diag["empty_target_patches"] += 1
-                    continue
+                    if not keep_ink_free:
+                        continue
                 all_probs.append(prob_2d[j : j + 1])
                 all_targets.append(val_target[j : j + 1].float().cpu())
-    diag["usable_patches"] = len(all_probs)
+    diag["scored_patches"] = len(all_probs)
+    diag["usable_patches"] = (
+        len(all_probs) - diag["empty_target_patches"]
+        if keep_ink_free
+        else len(all_probs)
+    )
     diag["complete"] = diag["batch_errors"] == 0
     # What the sample was drawn from (build_validation_dataset); None for a
     # dataset built another way.
     diag["inputs_sha256"] = getattr(dataset, "validation_inputs", None)
     return all_probs, all_targets, diag
+
+
+def ink_containing(probs, targets):
+    """The patches whose target holds ink, in order. The per-patch diagnostics
+    (Dice, val_bpb, topology, mean AP) are defined on these; val_f1, AP lift and
+    AUC pool every patch the protocol scores."""
+    kept = [i for i, target in enumerate(targets) if float(target.sum()) >= 1.0]
+    return [probs[i] for i in kept], [targets[i] for i in kept]
 
 
 # The Dice-optimal binarization threshold is not the topology-optimal one. On
@@ -892,7 +1072,9 @@ except ImportError:
     generate_resnet3d = None
     InceptionI3d = None
 
+from vesuvius_autoresearch.core.frangi_torch import frangi_vesselness_zcollapsed_torch
 from vesuvius_autoresearch.core.inference import DEPTH_MARGIN
+from vesuvius_autoresearch.core.inference_constants import depth_band_for
 from vesuvius_autoresearch.core.model_wrappers import (
     GenericMultiTaskWrapper,
     build_resenc_unet,
@@ -1030,6 +1212,7 @@ import vesuvius_model
 from vesuvius_autoresearch.core.vesuvius_loader import (
     VesuviusLabeledDataset,
     VesuviusS3Dataset,
+    share_warning_counts,
     warning_counts,
 )
 
@@ -1557,6 +1740,28 @@ def build_model(config: ExperimentConfig, v_config: VesuviusConfig, device):
     return model
 
 
+def save_cycle_checkpoints(checkpoint, checkpoint_out, is_improvement) -> list[str]:
+    """Save this cycle's model and return the paths written.
+
+    An experiment run (checkpoint_out) writes only its own file and leaves the
+    loop's untouched. A loop cycle writes its candidate to last_model.pt every
+    cycle, promoted or not (scripts/snapshot_loop_candidates.sh copies it as
+    the cycle's candidate), and to best_model.pt when it is promoted, last: a
+    run stopped between the two leaves the incumbent the loop still records.
+    """
+    if checkpoint_out:
+        directory = os.path.dirname(checkpoint_out)
+        if directory:
+            os.makedirs(directory, exist_ok=True)
+        save_checkpoint_atomic(checkpoint, checkpoint_out)
+        print(f"Saved experiment checkpoint to {checkpoint_out} (loop state untouched)")
+        return [checkpoint_out]
+    paths = ["last_model.pt"] + (["best_model.pt"] if is_improvement else [])
+    for path in paths:
+        save_checkpoint_atomic(checkpoint, path)
+    return paths
+
+
 def preflight_smoke(config: ExperimentConfig) -> None:
     """Build the model and run one forward+backward on a synthetic batch.
 
@@ -1608,84 +1813,59 @@ def train(config: ExperimentConfig, *, strict_warm_start=False):
     v_config = build_vconfig(config)
 
     print(f"Initializing LOCAL TRANSFORMER Training on {config.uris}...")
+    # The label file each training volume is read with, recorded with the
+    # result: a pseudo-label takes precedence over the volume's own labels.
+    training_labels = resolve_training_labels(config)
     sys.stdout.flush()
 
-    def get_dataloader(uris, seed=None, is_unlabeled=False):
+    def get_dataloader(uris, is_unlabeled=False):
         from torch.utils.data import ConcatDataset
 
+        # The run's seed draws each entry's crop (lateral jitter, read depth) as
+        # well as the order. Without one, entry i had the same crop in every
+        # run: Fr47's 7,345 fixed crops held 74.8% of its labelled ink pixels.
+        seed = sampling_seed + (1 if is_unlabeled else 0)
         datasets = []
         for uri in uris:
             if is_unlabeled:
-                ds = VesuviusS3Dataset(
-                    uri,
-                    config.patch_size,
-                    config.num_layers + 2 * DEPTH_MARGIN,
-                    seed=seed,
-                    cache_dir=config.cache_dir,
-                    use_ridges=config.use_ridges,
-                    ridge_sigma=getattr(config, "ridge_sigma", 2.0),
-                    use_lasagna=config.use_lasagna,
-                    is_unlabeled=True,
-                )
-                datasets.append(ds)
+                datasets.append(unlabeled_dataset(uri, config, seed))
                 continue
 
             parent_dir = os.path.dirname(uri.rstrip("/"))
-
-            # Check for pseudo-labels first if directory is provided
-            labels_path = None
-            if config.pseudo_label_dir:
-                # Expecting pseudo-labels to be named after the segment directory
-                segment_name = os.path.basename(parent_dir)
-                pseudo_path = os.path.join(
-                    config.pseudo_label_dir, f"{segment_name}_pseudo.png"
-                )
-                if os.path.exists(pseudo_path):
-                    labels_path = pseudo_path
-
-            if labels_path is None:
-                labels_path = validation_label_path(uri)  # the same order
-
-            if os.path.exists(labels_path):
-                mask_path = os.path.join(parent_dir, "mask.png")
-                patches_json_path = os.path.join(parent_dir, "patches.json")
-                ds = VesuviusLabeledDataset(
-                    uri,
-                    labels_path,
-                    mask_path if os.path.exists(mask_path) else None,
-                    config.patch_size,
-                    config.num_layers + 2 * DEPTH_MARGIN,
-                    seed=seed,
-                    cache_dir=config.cache_dir,
-                    use_ridges=config.use_ridges,
-                    ridge_sigma=getattr(config, "ridge_sigma", 2.0),
-                    use_lasagna=getattr(config, "use_lasagna", False),
-                    target_fiber_source=fiber_target_source,
-                    target_fiber_sigma=getattr(config, "target_fiber_sigma", 2.0),
-                    patches_json=patches_json_path
-                    if os.path.exists(patches_json_path)
-                    else None,
-                    depth_band=getattr(config, "depth_band", None),
-                    depth_margin=DEPTH_MARGIN,
-                )
-            else:
-                ds = VesuviusS3Dataset(
-                    uri,
-                    config.patch_size,
-                    config.num_layers + 2 * DEPTH_MARGIN,
-                    seed=seed,
-                    cache_dir=config.cache_dir,
-                    use_ridges=config.use_ridges,
-                    ridge_sigma=getattr(config, "ridge_sigma", 2.0),
-                    use_lasagna=getattr(config, "use_lasagna", False),
-                )
+            labels_path = training_labels[uri]
+            mask_path = os.path.join(parent_dir, "mask.png")
+            patches_json_path = os.path.join(parent_dir, "patches.json")
+            ds = VesuviusLabeledDataset(
+                uri,
+                labels_path,
+                mask_path if os.path.exists(mask_path) else None,
+                config.patch_size,
+                config.num_layers + 2 * DEPTH_MARGIN,
+                seed=seed,
+                cache_dir=config.cache_dir,
+                use_ridges=config.use_ridges,
+                ridge_sigma=getattr(config, "ridge_sigma", 2.0),
+                use_lasagna=getattr(config, "use_lasagna", False),
+                # A zero placeholder: the training step computes the fiber
+                # target from the batch (fiber_target).
+                target_fiber_source="sobel_z",
+                target_fiber_sigma=getattr(config, "target_fiber_sigma", 2.0),
+                patches_json=patches_json_path
+                if os.path.exists(patches_json_path)
+                else None,
+                depth_band=getattr(config, "depth_band", None),
+                depth_margin=DEPTH_MARGIN,
+            )
             datasets.append(ds)
 
         combined_ds = ConcatDataset(datasets) if len(datasets) > 1 else datasets[0]
         return shuffled_loader(
             combined_ds,
             config.batch_size,
-            sampling_seed + (1 if is_unlabeled else 0),
+            seed,
+            # UA-MT's unlabeled patches need no fiber target: read in-process.
+            workers=0 if is_unlabeled else workers,
+            worker_init_fn=share_counts,
         )
 
     # Built and read before anything else, so a missing or empty validation
@@ -1695,22 +1875,28 @@ def train(config: ExperimentConfig, *, strict_warm_start=False):
     probe_validation_read(val_dataset)
     check_validation_inputs(val_dataset, protocol)
 
-    # Fresh per run, so successive warm-started cycles see different patches;
-    # recorded in run_result.json and the checkpoint.
+    # Fresh per run, so successive warm-started cycles see different patches,
+    # cropped differently; recorded in run_result.json and the checkpoint.
     sampling_seed = int.from_bytes(os.urandom(4), "little") & 0x7FFFFFFF
     print(f"Training sampling seed: {sampling_seed}")
     # Built before the loaders: which heads it trains decides the fiber target.
     model = build_model(config, v_config, device)
     # Only the outputs the model declares as heads are trained
-    # (model_wrappers.task_heads); the rest are placeholders. The Frangi fiber
-    # target (~86 ms/patch in the loader) is computed only for a fiber or QC head.
+    # (model_wrappers.task_heads); the rest are placeholders.
     heads = task_heads(model)
     print(f"Trained auxiliary heads: {', '.join(sorted(heads)) or 'none'}")
-    fiber_target_source = (
-        getattr(config, "target_fiber_source", "sobel_z")
-        if heads & {"fiber", "qc"}
-        else "sobel_z"
-    )
+    fiber_target_source = fiber_source(heads, config)
+    workers = loader_workers()
+    shared_warnings = share_counts = None
+    if workers:
+        import multiprocessing
+
+        manager = multiprocessing.get_context("spawn").Manager()
+        shared_warnings = manager.dict()
+        share_counts = functools.partial(
+            share_warning_counts, shared_warnings, manager.Lock()
+        )
+    print(f"Training loader workers: {workers}")
     data_loader = get_dataloader(config.uris)
     data_iter = iter(data_loader)
 
@@ -1852,12 +2038,9 @@ def train(config: ExperimentConfig, *, strict_warm_start=False):
     while True:
         t0 = time.time()
         try:
-            x_raw, target_ink_raw, target_fiber_from_loader = next(data_iter)
-            x_raw = x_raw.to(device)  # [B, 1, Z_buffered, H, W]
-            # target_fiber_from_loader: [B, 1, 1, H, W] either zeros (sobel_z
-            # source, train.py computes inline below) or real Frangi
-            # vesselness (frangi source — see VesuviusLabeledDataset._compute_fiber_target).
-            target_fiber_from_loader = target_fiber_from_loader.to(device)
+            # The loader's fiber target is a zero placeholder (fiber_target).
+            x_raw, target_ink_raw, _ = next(data_iter)
+            x_raw = x_raw.to(device)  # [B, C, Z_buffered, H, W]
 
             # Ensure target_ink has 4 dims [B, 1, H, W]
             if target_ink_raw is not None and target_ink_raw.numel() > 0:
@@ -1923,20 +2106,15 @@ def train(config: ExperimentConfig, *, strict_warm_start=False):
             data_iter = iter(data_loader)
             continue
 
-        # 3. Per-patch fiber pseudo-label for the fiber head's loss.
-        # source="frangi": dataloader already computed Frangi vesselness for
-        # this patch and z-collapsed it; we use it as-is and only normalize.
-        # source="sobel_z" (default): compute Sobel-Z gradient of CT inline
-        # on GPU (cheap, current behavior).
+        # 3. Per-patch fiber pseudo-label for the fiber head's loss, on the
+        # batch's device, BEFORE mixup to avoid boundary artifacts.
         with torch.no_grad():
-            if fiber_target_source == "frangi":
-                # target_fiber_from_loader: [B, 1, 1, H, W] z-collapsed already
-                target_fiber = target_fiber_from_loader
-            else:
-                # Sobel-Z pseudo-label (BEFORE mixup to avoid boundary artifacts).
-                # Use only the raw CT channel (index 0) for pseudo-labels.
-                grad_z = x_orig[:, :1, 1:] - x_orig[:, :1, :-1]
-                target_fiber = grad_z.abs().mean(dim=2, keepdim=True)
+            target_fiber = fiber_target(
+                x_raw,
+                x_orig,
+                fiber_target_source,
+                getattr(config, "target_fiber_sigma", 2.0),
+            )
             # Per-batch min-max normalize so the BCE target sits in [0, 1].
             b_sz = target_fiber.shape[0]
             tf_flat = target_fiber.view(b_sz, -1)
@@ -2255,7 +2433,7 @@ def train(config: ExperimentConfig, *, strict_warm_start=False):
 
     print(
         f"Evaluating metrics on validation protocol {protocol} "
-        "(ink-containing patches of a fixed sample; searching for best threshold)..."
+        "(a fixed sample; searching for best threshold)..."
     )
     if not SKELETON_DISTANCE_AVAILABLE:
         print(
@@ -2289,11 +2467,13 @@ def train(config: ExperimentConfig, *, strict_warm_start=False):
         }
     )
 
+    # Per-patch diagnostics on the ink-containing patches; promotion pools all.
+    ink_probs, ink_targets = ink_containing(all_probs, all_targets)
     best_dice = 0.0
     best_threshold = 0.5
-    if all_probs:
-        probs_cat = torch.cat(all_probs)
-        targets_cat = torch.cat(all_targets)
+    if ink_probs:
+        probs_cat = torch.cat(ink_probs)
+        targets_cat = torch.cat(ink_targets)
 
         # Search for best threshold to get a real signal of learning
         for t in np.linspace(0.01, 0.8, 40):
@@ -2310,15 +2490,15 @@ def train(config: ExperimentConfig, *, strict_warm_start=False):
         # at the threshold that maximizes centerline_dice, not the Dice-optimal
         # one — see select_topology_threshold(). val_bpb stays on the Dice
         # threshold since it is defined as 1 - Dice.
-        topo_threshold, topo_cd = select_topology_threshold(all_probs, all_targets)
+        topo_threshold, topo_cd = select_topology_threshold(ink_probs, ink_targets)
         print(
             f"  Topology threshold: {topo_threshold:.3f} (centerline_dice {topo_cd:.6f})"
         )
 
         # Now re-run with best threshold for other metrics
-        for i in range(len(all_probs)):
-            prob_2d = all_probs[i]
-            val_target = all_targets[i]
+        for i in range(len(ink_probs)):
+            prob_2d = ink_probs[i]
+            val_target = ink_targets[i]
             val_losses.append(
                 1.0
                 - compute_official_dice(val_target, prob_2d, threshold=best_threshold)
@@ -2389,7 +2569,7 @@ def train(config: ExperimentConfig, *, strict_warm_start=False):
 
     validation_diag.update(
         {
-            "usable_patches": len(all_probs),
+            "usable_patches": len(ink_probs),
             "skel_samples": len(val_skel_dists),
             "centerline_samples": len(val_centerline_dices),
             "cc_samples": len(val_cc_diffs),
@@ -2481,11 +2661,11 @@ def train(config: ExperimentConfig, *, strict_warm_start=False):
             "val/throughput_Mvps": throughput_Mvps,
         }
     )
-    if wandb_run is not None and all_probs:
+    if wandb_run is not None and ink_probs:
         wandb_tracking.log_prediction_image(
             wandb_run,
-            all_probs[0][0].numpy(),
-            all_targets[0][0].numpy(),
+            ink_probs[0][0].numpy(),
+            ink_targets[0][0].numpy(),
             topo_threshold,
         )
     print(f"submittable:           {submittable} (window={window_mm:.3f}mm)")
@@ -2493,7 +2673,8 @@ def train(config: ExperimentConfig, *, strict_warm_start=False):
         print("prize_gate_failures:   " + " | ".join(prize_gate_failures))
     print(
         "validation_diag:       "
-        f"usable={validation_diag['usable_patches']}/{validation_diag['requested_patches']}, "
+        f"scored={validation_diag['scored_patches']}/{validation_diag['requested_patches']}, "
+        f"usable={validation_diag['usable_patches']}, "
         f"empty={validation_diag['empty_target_patches']}, "
         f"batch_errors={validation_diag['batch_errors']}, "
         f"cc_errors={validation_diag['cc_errors']}, "
@@ -2503,6 +2684,8 @@ def train(config: ExperimentConfig, *, strict_warm_start=False):
         f"mean_ap_errors={validation_diag['mean_ap_errors']}"
     )
     loader_warnings = warning_counts()
+    for key, count in dict(shared_warnings or {}).items():  # the loader workers'
+        loader_warnings[key] = loader_warnings.get(key, 0) + count
     if loader_warnings:
         print(f"loader_warnings:       {loader_warnings}")
     if skipped_updates:
@@ -2533,67 +2716,40 @@ def train(config: ExperimentConfig, *, strict_warm_start=False):
             ],
         )
 
+    # One record for every file this cycle's model is saved to (they had drifted
+    # apart: last_model.pt lacked avg_mean_ap, checkpoint_out prize_gate_failures).
+    checkpoint = {
+        "model_state_dict": model.state_dict(),
+        "val_bpb": val_bpb,
+        "avg_skel_dist": avg_skel_dist,
+        "avg_centerline_dice": avg_centerline_dice,
+        "avg_cc_diff": avg_cc_diff,
+        "avg_mean_ap": avg_mean_ap,
+        "val_f1": float(val_f1),
+        "val_f1_threshold": float(val_f1_threshold),
+        "val_protocol": protocol,
+        "train_sampling_seed": sampling_seed,
+        "training_labels": training_labels,
+        "ap_prevalence_lift": float(ap_prevalence_lift),
+        "roc_auc": float(roc_auc),
+        "val_positive_rate": float(val_positive_rate),
+        "submittable": submittable,
+        "window_ok": window_ok,
+        "window_mm": window_mm,
+        "villa_metrics_ok": villa_metrics_ok,
+        "prize_gate_failures": prize_gate_failures,
+        "validation_diag": validation_diag,
+        "config": asdict(config),
+    }
     ckpt_out = getattr(config, "checkpoint_out", None)
-    if ckpt_out:
-        ckpt_dir = os.path.dirname(ckpt_out)
-        if ckpt_dir:
-            os.makedirs(ckpt_dir, exist_ok=True)
-        save_checkpoint_atomic(
-            {
-                "model_state_dict": model.state_dict(),
-                "val_bpb": val_bpb,
-                "avg_skel_dist": avg_skel_dist,
-                "avg_centerline_dice": avg_centerline_dice,
-                "avg_cc_diff": avg_cc_diff,
-                "avg_mean_ap": avg_mean_ap,
-                "val_f1": float(val_f1),
-                "val_f1_threshold": float(val_f1_threshold),
-                "val_protocol": protocol,
-                "train_sampling_seed": sampling_seed,
-                "ap_prevalence_lift": float(ap_prevalence_lift),
-                "roc_auc": float(roc_auc),
-                "val_positive_rate": float(val_positive_rate),
-                "submittable": submittable,
-                "window_ok": window_ok,
-                "window_mm": window_mm,
-                "villa_metrics_ok": villa_metrics_ok,
-                "validation_diag": validation_diag,
-                "config": asdict(config),
-            },
-            ckpt_out,
-        )
-        print(f"Saved experiment checkpoint to {ckpt_out} (loop state untouched)")
-    elif is_improvement:
+    promoted = is_improvement and not ckpt_out
+    if promoted:
         print(
             f"Saving new best model — val_f1: {val_f1:.6f} "
             f"(ap_lift {ap_prevalence_lift:.3f}, thr {val_f1_threshold:.3f})"
         )
-        save_checkpoint_atomic(
-            {
-                "model_state_dict": model.state_dict(),
-                "val_bpb": val_bpb,
-                "avg_skel_dist": avg_skel_dist,
-                "avg_centerline_dice": avg_centerline_dice,
-                "avg_cc_diff": avg_cc_diff,
-                "avg_mean_ap": avg_mean_ap,
-                "val_f1": float(val_f1),
-                "val_f1_threshold": float(val_f1_threshold),
-                "val_protocol": protocol,
-                "train_sampling_seed": sampling_seed,
-                "ap_prevalence_lift": float(ap_prevalence_lift),
-                "roc_auc": float(roc_auc),
-                "val_positive_rate": float(val_positive_rate),
-                "submittable": submittable,
-                "window_ok": window_ok,
-                "window_mm": window_mm,
-                "villa_metrics_ok": villa_metrics_ok,
-                "prize_gate_failures": prize_gate_failures,
-                "validation_diag": validation_diag,
-                "config": asdict(config),
-            },
-            "best_model.pt",
-        )
-
+    save_cycle_checkpoints(checkpoint, ckpt_out, is_improvement)
+    if promoted:
         stamp = time.strftime("%Y-%m-%d %H:%M:%S")
         cfg_json = json.dumps(asdict(config))
         append_tsv_row(
@@ -2636,32 +2792,6 @@ def train(config: ExperimentConfig, *, strict_warm_start=False):
         # are durable before the cycle returns).
         if hasattr(os, "sync"):
             os.sync()
-    else:
-        save_checkpoint_atomic(
-            {
-                "model_state_dict": model.state_dict(),
-                "val_bpb": val_bpb,
-                "avg_skel_dist": avg_skel_dist,
-                "avg_centerline_dice": avg_centerline_dice,
-                "avg_cc_diff": avg_cc_diff,
-                "val_f1": float(val_f1),
-                "val_f1_threshold": float(val_f1_threshold),
-                "val_protocol": protocol,
-                "train_sampling_seed": sampling_seed,
-                "ap_prevalence_lift": float(ap_prevalence_lift),
-                "roc_auc": float(roc_auc),
-                "val_positive_rate": float(val_positive_rate),
-                "submittable": submittable,
-                "window_ok": window_ok,
-                "window_mm": window_mm,
-                "villa_metrics_ok": villa_metrics_ok,
-                "prize_gate_failures": prize_gate_failures,
-                "validation_diag": validation_diag,
-                "config": asdict(config),
-            },
-            "last_model.pt",
-        )
-
     if not is_improvement:
         print("\n[RESULT] No improvement detected. Recommended: Revert.")
     else:
@@ -2680,6 +2810,7 @@ def train(config: ExperimentConfig, *, strict_warm_start=False):
         "incumbent_val_f1": float(best_previous_val_f1),
         "promotion_blocked": promotion_blocked,
         "train_sampling_seed": sampling_seed,
+        "training_labels": training_labels,
         "ap_prevalence_lift": float(ap_prevalence_lift),
         "roc_auc": float(roc_auc),
         "val_positive_rate": float(val_positive_rate),
@@ -2694,10 +2825,9 @@ def train(config: ExperimentConfig, *, strict_warm_start=False):
         "prize_gate_failures": prize_gate_failures,
         "validation_diag": validation_diag,
         "augmentation_fallbacks": dict(AUGMENTATION_FALLBACKS),
-        # Loader fallbacks this process hit (zero ridges, unwarped lasagna
-        # patches, zero patches on read errors), counted past the few messages.
-        # Counts are per process: DataLoader workers would keep their own
-        # (shuffled_loader uses num_workers=0).
+        # Loader fallbacks this run hit (zero ridges, unwarped lasagna patches,
+        # zero patches on read errors), counted past the few messages, the
+        # loader workers' included (share_warning_counts).
         "loader_warnings": loader_warnings,
         # Steps not applied: a non-finite or > 1e6 loss, or a non-finite
         # gradient norm (see guarded_update).
@@ -2747,6 +2877,7 @@ if __name__ == "__main__":
 
     if args.smoke:
         try:
+            resolve_training_labels(config)
             preflight_smoke(config)
         except Exception as e:
             import traceback

@@ -107,16 +107,26 @@ uv run python scripts/reevaluate_best_model.py --update-stored --unwarped
 ```
 
 This command reads `best_model.pt` and `config.json` from the working directory.
+`--update-stored` writes `best_model.pt`, so it holds that checkout's lock
+(`autoresearch.lock`) until it has written. It refuses to start while the loop,
+the noise probe or the augmentation ablation holds it (stop them with `./stop.sh`,
+which also pauses the watchdog; restart with `./start.sh`), and the loop cannot
+start while it runs. It also does not write if `best_model.pt` changed while it
+was loaded or scored, or if a loop killed mid-cycle left a hold that the loop's
+next start must settle.
 The current config selects validation URI, cache, and batch size; saved model
 settings determine reconstruction and input dimensions, with the checkpoint's
 recorded `use_lasagna` setting (`--unwarped` scores without a recorded warp and,
 with `--update-stored`, records `use_lasagna: false`, keeping the old value in
 `reevaluation.overridden_input_settings`). The command uses the loop's protocol,
-`seeded-sample-400-v2`, plus `+z<start>-<end>` when `config.json` sets a
-`depth_band` (currently `seeded-sample-400-v2+z1-27`): up to 400 seeded catalogue
-entries, measured per patch independently of batch size, with ink-free patches
-excluded. It recomputes
-the promotion F1, AP-prevalence lift and ROC AUC, plus legacy Dice/topology metrics.
+`seeded-sample-400-v3`, plus `+z<start>-<end>` when `config.json` sets a
+`depth_band` (currently `seeded-sample-400-v3+z1-27`): up to 400 seeded catalogue
+entries, measured per patch independently of batch size. Every patch counts,
+ink-free ones included. Protocol v2 dropped those, and on its ink-containing
+patches F1 could not tell the project's detector from calling every pixel ink
+(finding 88, `reports/detector_on_loop_sample.md`). It recomputes the promotion
+F1, AP-prevalence lift and ROC AUC over every patch, plus legacy Dice/topology
+metrics on the ink-containing patches.
 It prints the all-ink F1 baseline and margins so a change in sample prevalence
 does not appear to be a model improvement.
 

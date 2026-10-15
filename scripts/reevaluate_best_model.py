@@ -19,11 +19,21 @@ Usage:
     uv run python scripts/reevaluate_best_model.py --update-stored --unwarped
         # scores without a recorded lasagna warp that never ran (finding 86), and
         # corrects the record
+
+--update-stored rewrites best_model.pt, so it holds this checkout's lock
+(autoresearch.lock) until it has written, as the noise probe and the augmentation
+ablation do. It refuses to start beside the loop, and neither the watchdog nor
+start.sh can start the loop under it: a promotion made meanwhile would be written
+over with the old model. ./stop.sh stops it before it writes. It also refuses to
+write if best_model.pt changed while it was being scored, or if a loop killed
+mid-cycle left a hold the loop's next start must settle.
 """
 
 import argparse
+import hashlib
 import os
 import sys
+from pathlib import Path
 
 import numpy as np
 import torch
@@ -41,10 +51,14 @@ from train import (
     compute_centerline_dice,
     compute_official_dice,
     compute_skeleton_dist,
+    ink_containing,
     pooled_segmentation_metrics,
     select_topology_threshold,
 )
 
+from run_autoresearch_loop import leftover_hold
+from scripts.loop_control import acquire_lock, running_pid
+from scripts.process_supervisor import stops_interrupt
 from scripts.training.promotion import save_checkpoint_atomic, validation_protocol
 from vesuvius_autoresearch.core.checkpoint_tools import (
     ink_probabilities,
@@ -56,7 +70,54 @@ from vesuvius_autoresearch.core.checkpoint_tools import (
 RECORDED_INPUT_SETTINGS = ("use_lasagna",)
 
 
+def _file_sha256(path: str) -> str:
+    digest = hashlib.sha256()
+    with open(path, "rb") as stream:
+        for block in iter(lambda: stream.read(1 << 20), b""):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+def take_checkout_lock():
+    """The lock of the checkout in the working directory, where best_model.pt is
+    read and written; a running cycle reads, holds and may replace that file.
+    running_pid only names a holder, and only before the lock is taken: it opens
+    and closes the lock file, which would drop this process's lock."""
+    try:
+        pid = running_pid(Path.cwd())
+        holder = f"PID {pid}" if pid else None
+    except (OSError, RuntimeError) as exc:
+        holder = f"unidentified: {exc}"
+    if holder is None:
+        try:
+            return acquire_lock("autoresearch.lock")
+        except BlockingIOError:
+            holder = "it took the lock just now"
+    raise RuntimeError(
+        f"autoresearch work ({holder}) holds this checkout's lock; best_model.pt "
+        "was not updated. Stop it with ./stop.sh (which also pauses the "
+        "watchdog), re-score, then restart it with ./start.sh"
+    )
+
+
 def reevaluate(update_stored: bool = False, unwarped: bool = False) -> None:
+    if not update_stored:
+        _reevaluate(update_stored=False, unwarped=unwarped)
+        return
+    lock = take_checkout_lock()
+    try:
+        # loop_control names this script, so ./stop.sh can stop it; the
+        # interrupt lets save_checkpoint_atomic remove its temporary file.
+        with stops_interrupt():
+            reason = leftover_hold()
+            if reason:
+                raise RuntimeError(f"best_model.pt was not updated: {reason}")
+            _reevaluate(update_stored=True, unwarped=unwarped)
+    finally:
+        lock.close()
+
+
+def _reevaluate(update_stored: bool, unwarped: bool) -> None:
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     # The validation fragment is the loop's current one (candidates are scored on
     # it); everything the model sees is the checkpoint's own.
@@ -66,8 +127,14 @@ def reevaluate(update_stored: bool = False, unwarped: bool = False) -> None:
         else ExperimentConfig()
     )
 
+    if update_stored:
+        loaded_sha256 = _file_sha256("best_model.pt")
     print("Loading best_model.pt...")
     model, settings, chk = load_tool_checkpoint("best_model.pt", device)
+    if update_stored and _file_sha256("best_model.pt") != loaded_sha256:
+        raise RuntimeError(
+            "best_model.pt changed while it was being loaded; it was not updated"
+        )
     for name, value in settings.items():
         setattr(config, name, value)
     stored = chk.get("config", {})
@@ -117,8 +184,9 @@ def reevaluate(update_stored: bool = False, unwarped: bool = False) -> None:
             f"{diag['batch_errors']} validation batches failed; the protocol's "
             "sample is incomplete and the checkpoint was not updated"
         )
-    if not all_probs:
-        raise ValueError("zero usable validation patches")
+    if not diag["usable_patches"]:
+        # Ink-free patches are scored, but without ink there is no F1 to store.
+        raise ValueError("zero usable (ink-containing) validation patches")
 
     seg = pooled_segmentation_metrics(all_probs, all_targets)
     f1_metrics = {
@@ -133,8 +201,11 @@ def reevaluate(update_stored: bool = False, unwarped: bool = False) -> None:
             f"nonfinite promotion metrics {f1_metrics}; checkpoint was not updated"
         )
 
-    probs_cat = torch.cat(all_probs)
-    targets_cat = torch.cat(all_targets)
+    # Per-patch diagnostics on the ink-containing patches, as train.py; the
+    # promotion metrics above pool every patch the protocol scores.
+    ink_probs, ink_targets = ink_containing(all_probs, all_targets)
+    probs_cat = torch.cat(ink_probs)
+    targets_cat = torch.cat(ink_targets)
 
     best_dice, best_threshold = 0.0, 0.5
     for t in np.linspace(0.01, 0.8, 40):
@@ -145,13 +216,13 @@ def reevaluate(update_stored: bool = False, unwarped: bool = False) -> None:
 
     # Topology gates are evaluated at the centerline_dice-optimal threshold (see
     # train.select_topology_threshold), matching the loop's validation.
-    topo_threshold, topo_cd = select_topology_threshold(all_probs, all_targets)
+    topo_threshold, topo_cd = select_topology_threshold(ink_probs, ink_targets)
     print(f"  topology threshold: {topo_threshold:.3f} (centerline_dice {topo_cd:.6f})")
 
     val_losses, val_skel, val_cd, val_cc = [], [], [], []
-    for i in range(len(all_probs)):
-        prob_2d = all_probs[i]
-        tgt = all_targets[i]
+    for i in range(len(ink_probs)):
+        prob_2d = ink_probs[i]
+        tgt = ink_targets[i]
         val_losses.append(
             1.0 - compute_official_dice(tgt, prob_2d, threshold=best_threshold)
         )
@@ -225,8 +296,9 @@ def reevaluate(update_stored: bool = False, unwarped: bool = False) -> None:
         f"val_f1 margin {f1_metrics['val_f1'] - all_ink_f1:+.6f})"
     )
     print(
-        f"  usable / requested:  {diag['usable_patches']}/{diag['requested_patches']} "
-        f"(empty={diag['empty_target_patches']})"
+        f"  scored / requested:  {diag['scored_patches']}/{diag['requested_patches']} "
+        f"(ink-containing={diag['usable_patches']}, "
+        f"empty={diag['empty_target_patches']})"
     )
 
     print()
@@ -281,11 +353,20 @@ def reevaluate(update_stored: bool = False, unwarped: bool = False) -> None:
             "overridden_input_settings": overridden,
             "requested_patches": diag["requested_patches"],
             "usable_patches": diag["usable_patches"],
+            "scored_patches": diag["scored_patches"],
             "dice_threshold": float(best_threshold),
             "topology_threshold": float(topo_threshold),
         }
         if overridden:
             chk["config"] = {**stored, "use_lasagna": config.use_lasagna}
+        # The lock keeps the loop out, but not a writer that takes no lock (a
+        # train.py run by hand, a checkout): writing the loaded model back would
+        # undo its change.
+        if _file_sha256("best_model.pt") != loaded_sha256:
+            raise RuntimeError(
+                "best_model.pt changed while it was being re-scored; it was not "
+                "updated. Re-score the new file"
+            )
         save_checkpoint_atomic(chk, "best_model.pt")
         print("Done.")
 

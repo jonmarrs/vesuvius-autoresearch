@@ -1,6 +1,6 @@
 {
   "protocol": "seeded-sample-400-v2+z1-27",
-  "git_commit": "c59cfa868c6f4ee46b84cc5d9ce24789442397dc",
+  "git_commit": "9acb865a78f0963f73cb4d235aae96fd8d543cb8",
   "best_model_sha256": "d7da2776583dbefe02c54d2adf986de82c82a7cb36956ae8909ba1397cb282aa",
   "best_model_val_protocol": "seeded-sample-400-v2+z1-27",
   "detector_checkpoint": "models/detector/detector_epoch=7.ckpt",
@@ -23,14 +23,14 @@
       "roc_auc": 0.5717060858108939
     },
     "detector_single_window": {
-      "val_f1": 0.3106112071688073,
-      "best_threshold": 0.35,
-      "precision": 0.20987208931027707,
-      "recall": 0.5973320633034177,
-      "pred_positive_rate": 0.397578125,
-      "average_precision": 0.22977485090606348,
-      "ap_prevalence_lift": 1.6449062583542091,
-      "roc_auc": 0.666515329531277
+      "val_f1": 0.3464953652547088,
+      "best_threshold": 0.44999999999999996,
+      "precision": 0.2719021280724933,
+      "recall": 0.477489011037026,
+      "pred_positive_rate": 0.2453082275390625,
+      "average_precision": 0.23847596865380746,
+      "ap_prevalence_lift": 1.707195594987452,
+      "roc_auc": 0.6809255675819684
     },
     "constant_all_ink": {
       "val_f1": 0.24513486562707187,
@@ -45,7 +45,7 @@
   },
   "margins_over_all_ink": {
     "loop_incumbent": 0.004215047379670794,
-    "detector_single_window": 0.06547634154173543,
+    "detector_single_window": 0.10136049962763694,
     "constant_all_ink": 0.0
   }
 }

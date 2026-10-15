@@ -69,9 +69,12 @@ The first version was reviewed (code-review skill) before merging. Its findings,
   that start at 1–3 needs an off-centre crop at the volume's end, as inference's `depth_window` does. That is a
   protocol change and a re-score. Finding 87's table already shows the effect: no validation window contains
   Fr143's slice 3.
-- **UA-MT applies the band only to unlabeled volumes that have labels.** A labeled `VesuviusLabeledDataset` gets
-  the band; a label-less volume falls back to `VesuviusS3Dataset` over its whole depth. Today `unlabeled_uris` is
-  `[Fr47]`, which is labeled, so it is banded.
+- **UA-MT applies the band only to unlabeled volumes that have labels.** Corrected on 2026-10-14
+  (`DESIGN_ARCHITECTURE_REVIEW_2026-10-14_TRAINING_DATA_SOURCES.md`): when this was written, every unlabeled
+  volume went through `VesuviusS3Dataset` over its whole depth, labeled or not, so `[Fr47]` was not banded. Now
+  UA-MT bands an unlabeled volume when it is also a training volume, matched by path as `depth_band_for` matches,
+  which covers `[Fr47]`, and reads any other over its whole depth. The depth test's check of labeled
+  `unlabeled_uris` (the "Fixed" row above) was removed with it.
 - **The band belongs to the volumes, not the model.** A durable form would record each zarr's first surface layer
   (for example in its attributes) and keep the band in layer numbers. The scoping above is the conservative
   interim: correct where the band was defined, unchanged elsewhere. Path identity stands in for "numbered alike",
@@ -93,7 +96,9 @@ The first version was reviewed (code-review skill) before merging. Its findings,
   loop beside it, and `stop.sh` can stop it (`loop_control` accepts the probe as the lock's owner).
 - **Finding 88's scoring** builds the incumbent's sample through the loop's own `build_validation_dataset` and
   `collect_validation_predictions`, and checks that its patch coordinates reproduce the loop's targets before the
-  detector is scored.
+  detector is scored. *Corrected 2026-10-14:* it checked the targets, not the coordinates. The detector was read at
+  the pre-jitter `valid_coords`, a median 16 px from the targets. `9acb865a` reads it at `patch_origin` and checks
+  the labels there against every target (`check_origins`); finding 88's readings stand (its Correction section).
 - **Worktrees.** `main_checkout` follows a linked worktree's `commondir` and returns a submodule's own directory
   unchanged. The test `PYTHONPATH` puts this checkout's `src/` first for pytest and its subprocesses.
 
