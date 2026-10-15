@@ -87,7 +87,10 @@ Environment: CPython 3.10 venv with PyTorch 2.14.1 (no GPU visible), pytest, Ruf
   42 failed, 2183 passed, 15 skipped, 1 xfailed, 2 errors. The failures and errors are environmental: no scroll
   data, no CUDA, no villa data files.
 - Branch, first head: 42 failed, 2185 passed, 15 skipped, 1 xfailed, 2 errors.
-- Branch, after the PR review's fixes: REVIEW_RESULT
+- Branch, after the PR review's fixes: 42 failed, 2186 passed, 15 skipped, 1 xfailed, 2 errors. The failures and
+  errors are the same set as the baseline; the 3 extra passes are the new tests. `scripts/smoke_test.py`: 9 of 11
+  passed, 2 skipped.
+- `tests/test_autoresearch_measurement.py` and `tests/test_loop_lifecycle.py`: 115 passed, twice.
 - Ruff (check and format) and mypy on the loop: clean.
 
 New tests in `tests/test_autoresearch_measurement.py`:
