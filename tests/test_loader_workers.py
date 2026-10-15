@@ -115,3 +115,54 @@ def test_train_prepares_its_training_batches_in_spawned_workers(
     with pytest.raises(NotRead, match="in DataLoader worker process"):
         train.train(config)
     assert "Training loader workers: 2" in capsys.readouterr().out
+
+
+def test_each_run_draws_its_training_crops_from_its_own_seed(
+    tmp_path, monkeypatch, capsys
+):
+    """The labeled and UA-MT datasets draw entry i's crop (lateral jitter, read
+    depth) from RandomState(i + seed). Built without a seed, entry i had the
+    same crop in every run: Fr47's 7,345 fixed crops held 74.8% of its
+    labelled ink pixels (reports/training_crop_coverage.json)."""
+    monkeypatch.chdir(tmp_path)
+    for fragment in ("train", "val"):
+        (tmp_path / fragment).mkdir()
+        (tmp_path / fragment / "inklabels.png").write_bytes(b"")
+    train_uri = str(tmp_path / "train" / "surface_volume.zarr")
+    config = train.ExperimentConfig(
+        num_layers=16,
+        uris=[train_uri],
+        val_uri=str(tmp_path / "val" / "surface_volume.zarr"),
+        use_wandb=False,
+        use_uamt=True,
+        unlabeled_uris=[train_uri],
+    )
+    labeled, unlabeled = [], []
+
+    def labeled_dataset(*args, **kwargs):
+        labeled.append(kwargs.get("seed"))
+        return Unread()
+
+    def unlabeled_dataset(uri, config, seed=None):
+        unlabeled.append(seed)
+        return Unread()
+
+    monkeypatch.setattr(train, "VesuviusLabeledDataset", labeled_dataset)
+    monkeypatch.setattr(train, "unlabeled_dataset", unlabeled_dataset)
+    monkeypatch.setattr(train, "probe_validation_read", lambda dataset: None)
+    monkeypatch.setattr(train, "check_validation_inputs", lambda *args: None)
+    monkeypatch.setattr(
+        train,
+        "build_model",
+        lambda *args: train.GenericMultiTaskWrapper(torch.nn.Conv3d(1, 1, 1)),
+    )
+    seeds = []
+    for _ in range(2):
+        with pytest.raises(NotRead):
+            train.train(config)
+        out = capsys.readouterr().out
+        seeds.append(int(out.split("Training sampling seed: ")[1].split()[0]))
+    assert seeds[0] != seeds[1]
+    # Validation's fixed draw (seed 42) first, then the run's training draw.
+    assert labeled == [42, seeds[0], 42, seeds[1]]
+    assert unlabeled == [seeds[0] + 1, seeds[1] + 1]

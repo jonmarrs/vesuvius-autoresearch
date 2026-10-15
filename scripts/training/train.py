@@ -523,8 +523,9 @@ def guarded_update(model, optimizer, scaler, lr, max_norm=1.0, step=None) -> boo
 # and given its ridge channel and Frangi fiber target in the training process
 # while the GPU waited: the Frangi target alone took ~150 ms a patch (CPU, one
 # thread), ~0.6 s of a batch of 4, and the GPU was busy ~7% of each ~480 ms
-# step (2026-10-14). Each patch is drawn from its own index (jitter, depth), so
-# workers prepare the same batches in the same order, only in parallel.
+# step (2026-10-14). Each patch is drawn from its index and the run's seed
+# (jitter, depth), so workers prepare the same batches in the same order, only
+# in parallel.
 LOADER_WORKERS_ENV = "AUTORESEARCH_LOADER_WORKERS"
 
 
@@ -1797,9 +1798,13 @@ def train(config: ExperimentConfig, *, strict_warm_start=False):
     training_labels = resolve_training_labels(config)
     sys.stdout.flush()
 
-    def get_dataloader(uris, seed=None, is_unlabeled=False):
+    def get_dataloader(uris, is_unlabeled=False):
         from torch.utils.data import ConcatDataset
 
+        # The run's seed draws each entry's crop (lateral jitter, read depth) as
+        # well as the order. Without one, entry i had the same crop in every
+        # run: Fr47's 7,345 fixed crops held 74.8% of its labelled ink pixels.
+        seed = sampling_seed + (1 if is_unlabeled else 0)
         datasets = []
         for uri in uris:
             if is_unlabeled:
@@ -1837,7 +1842,7 @@ def train(config: ExperimentConfig, *, strict_warm_start=False):
         return shuffled_loader(
             combined_ds,
             config.batch_size,
-            sampling_seed + (1 if is_unlabeled else 0),
+            seed,
             # UA-MT's unlabeled patches need no fiber target: read in-process.
             workers=0 if is_unlabeled else workers,
             worker_init_fn=share_counts,
@@ -1850,8 +1855,8 @@ def train(config: ExperimentConfig, *, strict_warm_start=False):
     probe_validation_read(val_dataset)
     check_validation_inputs(val_dataset, protocol)
 
-    # Fresh per run, so successive warm-started cycles see different patches;
-    # recorded in run_result.json and the checkpoint.
+    # Fresh per run, so successive warm-started cycles see different patches,
+    # cropped differently; recorded in run_result.json and the checkpoint.
     sampling_seed = int.from_bytes(os.urandom(4), "little") & 0x7FFFFFFF
     print(f"Training sampling seed: {sampling_seed}")
     # Built before the loaders: which heads it trains decides the fiber target.
