@@ -75,6 +75,22 @@ def test_autocast_does_not_lower_its_precision():
     _assert_matches(out.numpy(), _skimage(batch))
 
 
+def test_it_convolves_in_float64(monkeypatch):
+    """cuDNN runs float32 convolutions in TF32 by default (not on this CPU)."""
+    from vesuvius_autoresearch.core import frangi_torch
+
+    seen = set()
+    conv1d = frangi_torch.F.conv1d
+
+    def recording(x, w, *args, **kwargs):
+        seen.add((x.dtype, w.dtype))
+        return conv1d(x, w, *args, **kwargs)
+
+    monkeypatch.setattr(frangi_torch.F, "conv1d", recording)
+    _torch(np.random.default_rng(6).random((1, 12, 16, 16)).astype(np.float32))
+    assert seen == {(torch.float64, torch.float64)}
+
+
 def test_a_blank_patch_gives_zeros():
     out = _torch(np.zeros((2, 12, 16, 16), np.float32))
     assert np.array_equal(out, np.zeros_like(out))

@@ -7,7 +7,9 @@ for a batch of [Z, H, W] patches at once:
 * the Hessian from two first-order Gaussian derivative filters of sigma/sqrt(2)
   each, truncated at 8 standard deviations, with scipy's 'reflect' edges
   (``skimage.feature.hessian_matrix(..., use_gaussian_derivatives=True)``);
-* its eigenvalues in closed form (float64), so no cuSolver call: the villa
+* everything in float64: on a GPU, cuDNN runs float32 convolutions in TF32
+  (a 10-bit mantissa) by default, and the Hessian's ratios would lose it;
+* its eigenvalues in closed form, so no cuSolver call: the villa
   backend's CuPy eigvalsh is what made the original GPU target fail (the
   NumPy/CuPy fibers.detection.compute_eigenvalues_3x3_batch avoids it the same
   way; this is the torch version, for batches already on the training device);
@@ -96,12 +98,12 @@ def frangi_vesselness_zcollapsed_torch(
 
 
 def _frangi(ct: torch.Tensor, sigma: float) -> torch.Tensor:
-    image = -ct.to(torch.float32)  # black_ridges=False: bright ridges
+    image = -ct.to(torch.float64)  # black_ridges=False: bright ridges
     scaled = sigma / math.sqrt(2)
     unit = [(1, 0, 0), (0, 1, 0), (0, 0, 1)]
     gradients = [_gaussian(image, scaled, unit[axis]) for axis in range(3)]
     hessian = {
-        (i, j): _gaussian(gradients[i], scaled, unit[j]).double()
+        (i, j): _gaussian(gradients[i], scaled, unit[j])
         for i, j in combinations_with_replacement(range(3), 2)
     }
     eig = _eigenvalues_descending(
