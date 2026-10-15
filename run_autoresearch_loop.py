@@ -1,8 +1,10 @@
 import copy
+import datetime
 import glob
 import json
 import os
 import random
+import re
 import signal
 import stat
 import subprocess
@@ -305,6 +307,28 @@ CONFIG_FILE = "config.json"
 RECENT_CONFIGS_FILE = "recent_configs.json"
 CURRENT_LOG_PTR = ".current_day_shift_log"
 TEMP_CONFIG = "config_temp.json"
+# sprint_logs/sprint_log_<when it was started>_<shift>.md
+SHIFT_LOG_NAME = re.compile(
+    r"sprint_log_(\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2})_(\w+)\.md"
+)
+
+
+def shift_began(when):
+    """The date the shift running at ``when`` began: a night shift (19:00 to
+    07:00) past midnight began the evening before."""
+    day = when.date()
+    return day - datetime.timedelta(days=1) if when.hour < 7 else day
+
+
+def shift_log_to_resume(previous, shift_tag, now):
+    """``previous``, the log the loop last wrote to, if it is this shift's log:
+    the same shift, begun the same day, as its name records. A restart within a
+    shift (a crash, a stop and start) then goes on writing the shift's record."""
+    match = SHIFT_LOG_NAME.fullmatch(os.path.basename(previous))
+    if match is None or match.group(2) != shift_tag or not os.path.isfile(previous):
+        return None
+    started = datetime.datetime.strptime(match.group(1), "%Y-%m-%d_%H-%M-%S")
+    return previous if shift_began(started) == shift_began(now) else None
 
 
 # Pre-flight VRAM estimate (complexity heuristic, Sprint 023 refined). The
@@ -837,17 +861,19 @@ def main():
 
     os.makedirs("sprint_logs", exist_ok=True)
     os.makedirs("reports", exist_ok=True)
-    log_filename = f"sprint_logs/sprint_log_{time.strftime('%Y-%m-%d_%H-%M-%S')}_{shift_name.lower().replace(' ', '_')}.md"
+    shift_tag = shift_name.lower().replace(" ", "_")
+    now = datetime.datetime.now()
+    log_filename = f"sprint_logs/sprint_log_{now:%Y-%m-%d_%H-%M-%S}_{shift_tag}.md"
 
-    # Resume previous log if still same shift and file exists
+    # After a restart within the shift, go on with its log. The check used to
+    # look for "day shift" in a name spelled "day_shift", so every restart
+    # began another log; and a night shift past midnight compared the date.
     if os.path.exists(CURRENT_LOG_PTR):
         with open(CURRENT_LOG_PTR) as f:
-            prev_log = f.read().strip()
-            if os.path.exists(prev_log) and shift_name.lower() in prev_log.lower():
-                # Check if it was today (simple check)
-                if time.strftime("%Y-%m-%d") in prev_log:
-                    log_filename = prev_log
-                    print(f"Resuming existing shift log: {log_filename}")
+            resumed = shift_log_to_resume(f.read().strip(), shift_tag, now)
+        if resumed:
+            log_filename = resumed
+            print(f"Resuming existing shift log: {log_filename}")
 
     with open(CURRENT_LOG_PTR, "w") as f:
         f.write(log_filename)
@@ -862,6 +888,12 @@ def main():
             log.write(f"- **Start Time**: {time.strftime('%H:%M:%S')}\n")
             log.write(
                 f"- **Goal**: Monotonic val_f1 optimization (honest F1, AP-lift gated) via {default_budget // 60}-min cycles (Config-Driven).\n\n"
+            )
+    else:
+        with open(log_filename, "a") as log:
+            log.write(
+                f"\n## Resumed at {time.strftime('%H:%M:%S')} "
+                "(the loop restarted; its cycles count from 1 again)\n\n"
             )
 
     env = os.environ.copy()
