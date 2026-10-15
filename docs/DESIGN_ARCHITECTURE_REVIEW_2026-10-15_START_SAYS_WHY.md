@@ -58,7 +58,8 @@ Environment: CPython 3.10 venv with PyTorch 2.14.1 (no GPU visible), pytest, Ruf
 - Baseline: the validation run of `8d44bb5c` (#84), whose tree is `a94e8832`'s but for its review doc's result
   lines. It was 42 failed, 2186 passed, 15 skipped, 1 xfailed, 2 errors. The failures and errors are environmental: no scroll data, no CUDA, no villa
   data files.
-- Branch: VALIDATION_BRANCH
+- Branch: 42 failed, 2187 passed, 15 skipped, 1 xfailed, 2 errors. The failures and errors are the same set as the
+  baseline; the extra pass is the new test. `scripts/smoke_test.py`: 9 of 11 passed, 2 skipped.
 - `bash -n start.sh`: clean. Ruff (check and format) on the test: clean.
 
 New test in `tests/test_loop_lifecycle.py`:
