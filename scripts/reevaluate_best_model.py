@@ -20,17 +20,19 @@ Usage:
         # scores without a recorded lasagna warp that never ran (finding 86), and
         # corrects the record
 
---update-stored rewrites best_model.pt, so it refuses while work holds this
-checkout's lock (the loop, the noise probe or the augmentation ablation): a cycle
-would compare its candidate with the score the re-score replaces, and a promotion
-made meanwhile would be written over with the old model. Stop the loop with ./stop.sh (which also pauses the watchdog) and
-restart it with ./start.sh. The write is also refused if best_model.pt changed
-while it was being scored.
+--update-stored rewrites best_model.pt, so it holds this checkout's lock
+(autoresearch.lock) until it has written, as the noise probe and the augmentation
+ablation do. It refuses to start beside the loop, and neither the watchdog nor
+start.sh can start the loop under it: a promotion made meanwhile would be written
+over with the old model. ./stop.sh stops it before it writes. It also refuses to
+write if best_model.pt changed while it was being scored, or if a loop killed
+mid-cycle left a hold the loop's next start must settle.
 """
 
 import argparse
 import hashlib
 import os
+import signal
 import sys
 from pathlib import Path
 
@@ -54,7 +56,8 @@ from train import (
     select_topology_threshold,
 )
 
-from scripts.loop_control import running_pid
+from run_autoresearch_loop import leftover_hold
+from scripts.loop_control import acquire_lock, running_pid
 from scripts.training.promotion import save_checkpoint_atomic, validation_protocol
 from vesuvius_autoresearch.core.checkpoint_tools import (
     ink_probabilities,
@@ -74,19 +77,51 @@ def _file_sha256(path: str) -> str:
     return digest.hexdigest()
 
 
-def refuse_beside_running_loop(when: str) -> None:
-    """--update-stored writes best_model.pt, which a running cycle reads, holds
-    and may replace: not while work holds this checkout's lock."""
-    pid = running_pid(Path.cwd())
-    if pid is not None:
-        raise RuntimeError(
-            f"autoresearch work is running in this checkout (PID {pid}) {when}; "
-            "best_model.pt was not updated. Stop it with ./stop.sh (which also "
-            "pauses the watchdog), re-score, then restart it with ./start.sh"
-        )
+def _interrupt(*args):
+    raise KeyboardInterrupt
+
+
+def take_checkout_lock():
+    """The lock of the checkout in the working directory, where best_model.pt is
+    read and written; a running cycle reads, holds and may replace that file.
+    running_pid only names a holder, and only before the lock is taken: it opens
+    and closes the lock file, which would drop this process's lock."""
+    try:
+        pid = running_pid(Path.cwd())
+        holder = f"PID {pid}" if pid else None
+    except (OSError, RuntimeError) as exc:
+        holder = f"unidentified: {exc}"
+    if holder is None:
+        try:
+            return acquire_lock("autoresearch.lock")
+        except BlockingIOError:
+            holder = "it took the lock just now"
+    raise RuntimeError(
+        f"autoresearch work ({holder}) holds this checkout's lock; best_model.pt "
+        "was not updated. Stop it with ./stop.sh (which also pauses the "
+        "watchdog), re-score, then restart it with ./start.sh"
+    )
 
 
 def reevaluate(update_stored: bool = False, unwarped: bool = False) -> None:
+    if not update_stored:
+        _reevaluate(update_stored=False, unwarped=unwarped)
+        return
+    lock = take_checkout_lock()
+    # loop_control names this script, so ./stop.sh can stop it; the interrupt
+    # lets save_checkpoint_atomic remove its temporary file.
+    previous = signal.signal(signal.SIGTERM, _interrupt)
+    try:
+        reason = leftover_hold()
+        if reason:
+            raise RuntimeError(f"best_model.pt was not updated: {reason}")
+        _reevaluate(update_stored=True, unwarped=unwarped)
+    finally:
+        signal.signal(signal.SIGTERM, previous)
+        lock.close()
+
+
+def _reevaluate(update_stored: bool, unwarped: bool) -> None:
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     # The validation fragment is the loop's current one (candidates are scored on
     # it); everything the model sees is the checkpoint's own.
@@ -97,11 +132,13 @@ def reevaluate(update_stored: bool = False, unwarped: bool = False) -> None:
     )
 
     if update_stored:
-        # Before any GPU time is spent; checked again before the write.
-        refuse_beside_running_loop("at the start")
         loaded_sha256 = _file_sha256("best_model.pt")
     print("Loading best_model.pt...")
     model, settings, chk = load_tool_checkpoint("best_model.pt", device)
+    if update_stored and _file_sha256("best_model.pt") != loaded_sha256:
+        raise RuntimeError(
+            "best_model.pt changed while it was being loaded; it was not updated"
+        )
     for name, value in settings.items():
         setattr(config, name, value)
     stored = chk.get("config", {})
@@ -320,10 +357,9 @@ def reevaluate(update_stored: bool = False, unwarped: bool = False) -> None:
         }
         if overridden:
             chk["config"] = {**stored, "use_lasagna": config.use_lasagna}
-        # The watchdog can start the loop while this runs, and anything may have
-        # replaced best_model.pt since it was loaded (a promotion): writing the
-        # loaded model back would undo it.
-        refuse_beside_running_loop("at the end of the re-score")
+        # The lock keeps the loop out, but not a writer that takes no lock (a
+        # train.py run by hand, a checkout): writing the loaded model back would
+        # undo its change.
         if _file_sha256("best_model.pt") != loaded_sha256:
             raise RuntimeError(
                 "best_model.pt changed while it was being re-scored; it was not "
