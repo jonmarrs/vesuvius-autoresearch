@@ -7,7 +7,7 @@ import multiprocessing
 import pytest
 import torch
 import train
-from loader_worker_data import IndexSeeded
+from loader_worker_data import IndexSeeded, NotRead, Unread
 
 from vesuvius_autoresearch.core import vesuvius_loader
 
@@ -69,3 +69,32 @@ def test_a_bad_worker_count_is_refused(monkeypatch, value):
     monkeypatch.setenv(train.LOADER_WORKERS_ENV, value)
     with pytest.raises(ValueError, match="integer >= 0"):
         train.loader_workers()
+
+
+def test_train_prepares_its_training_batches_in_spawned_workers(
+    tmp_path, monkeypatch, capsys
+):
+    """Through train.train: the labeled training loader ships its dataset and
+    the warning-sharing init to spawned workers, which read its first batch."""
+    monkeypatch.chdir(tmp_path)  # no incumbent to warm-start from
+    monkeypatch.setenv(train.LOADER_WORKERS_ENV, "2")
+    for fragment in ("train", "val"):
+        (tmp_path / fragment).mkdir()
+        (tmp_path / fragment / "inklabels.png").write_bytes(b"")
+    config = train.ExperimentConfig(
+        num_layers=16,
+        uris=[str(tmp_path / "train" / "surface_volume.zarr")],
+        val_uri=str(tmp_path / "val" / "surface_volume.zarr"),
+        use_wandb=False,
+    )
+    monkeypatch.setattr(train, "VesuviusLabeledDataset", lambda *a, **k: Unread())
+    monkeypatch.setattr(train, "probe_validation_read", lambda dataset: None)
+    monkeypatch.setattr(train, "check_validation_inputs", lambda *args: None)
+    monkeypatch.setattr(
+        train,
+        "build_model",
+        lambda *args: train.GenericMultiTaskWrapper(torch.nn.Conv3d(1, 1, 1)),
+    )
+    with pytest.raises(NotRead, match="in DataLoader worker process"):
+        train.train(config)
+    assert "Training loader workers: 2" in capsys.readouterr().out

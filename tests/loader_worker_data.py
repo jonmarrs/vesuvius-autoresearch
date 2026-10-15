@@ -22,3 +22,20 @@ class IndexSeeded(torch.utils.data.Dataset):
         if idx % 3 == 0:
             _warn_limited("test_fallback", f"item {idx} fell back")
         return x, torch.tensor(idx), torch.zeros(1)
+
+
+class NotRead(Exception):
+    pass
+
+
+class Unread(torch.utils.data.Dataset):
+    """A catalogue whose patches raise when read: train() tests stop at the
+    first training batch, wherever it is prepared."""
+
+    validation_inputs = None
+
+    def __len__(self):
+        return 10
+
+    def __getitem__(self, idx):
+        raise NotRead(f"patch {idx}")

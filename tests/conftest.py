@@ -36,6 +36,11 @@ os.environ["PYTHONPATH"] = os.pathsep.join(
     if p
 )
 
+# train() reads its training batches in-process under test. Tests substitute
+# datasets defined inside them, which spawned loader workers cannot unpickle;
+# tests/test_loader_workers.py sets the workers it tests.
+os.environ["AUTORESEARCH_LOADER_WORKERS"] = "0"
+
 
 @pytest.fixture
 def ambient_env():
