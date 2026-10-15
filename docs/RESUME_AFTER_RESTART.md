@@ -1,5 +1,14 @@
 # Resume note — written 2026-09-22 before a deliberate Claude restart
 
+## 2026-10-14: finding 89, the detector reads ink mostly from its deepest slices
+
+* **Finding 89** (`reports/detector_depth_ablation.md`, pre-registered at `f9d892b0`, CPU). On control B's 400 random
+  Fr143 windows the detector keeps 16 of its 26 channels at the loop's window offsets. AUC 0.7034 falls by 0.0756
+  (window zarr 4–19), 0.0381 (8–23) and 0.0208 (11–26): by the rule, it depends on the position. Equal-sized
+  removals differ 3.6-fold, so the signal sits in zarr 20–26 (layers 36–42); both fills agree.
+* The loop's windows start uniformly at zarr 4–11, so they hold 0 to 7 of those slices. Untested lever, the owner's
+  call and separate from finding 88: `depth_band` [11, 27] pins every window to zarr 11–26.
+
 ## 2026-10-13 (night): finding 88, the loop's sample cannot reward a model that reads ink
 
 * **Finding 88** (`reports/detector_on_loop_sample.md`, four pre-registered CPU measurements). On the loop's 97
