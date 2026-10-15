@@ -5,6 +5,8 @@ import os
 import signal
 import subprocess
 import sys
+import threading
+import time
 from pathlib import Path
 
 import numpy as np
@@ -406,11 +408,76 @@ def test_a_kill_stops_the_generator_and_publishes_nothing(preparation, monkeypat
     previous = signal.signal(signal.SIGTERM, default_action)
     try:
         args = ["--checkpoint", str(checkpoint), "--manifest", str(manifest)]
-        with pytest.raises(KeyboardInterrupt):
+        with pytest.raises(SystemExit) as stopped:
             rounds.main([*args, "--out", str(output), "--execute"])
+        assert stopped.value.code == 130
         assert signal.getsignal(signal.SIGTERM) is default_action  # restored
     finally:
         signal.signal(signal.SIGTERM, previous)
+    assert not output.exists()
+    assert not list(output.parent.glob(".batch-*"))
+
+
+_GENERATOR = r"""
+import os, subprocess, sys, time
+pids = sys.argv[1]
+grandchild = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(300)"])
+with open(pids + ".tmp", "w") as f:
+    f.write(f"{os.getpid()} {grandchild.pid}")
+os.replace(pids + ".tmp", pids)
+time.sleep(300)
+"""
+
+
+def _alive(pid):
+    try:
+        state = Path(f"/proc/{pid}/stat").read_text().split(")")[-1].split()[0]
+    except FileNotFoundError:
+        return False
+    return state != "Z"
+
+
+@pytest.mark.parametrize("sig", [signal.SIGTERM, signal.SIGHUP])
+def test_a_kill_or_hangup_ends_a_real_generator_and_its_children(
+    preparation, monkeypatch, tmp_path, sig
+):
+    """The real supervisor, a real generator with a child of its own, and a real
+    signal: the whole group ends, and nothing is published or left staged."""
+    checkpoint, manifest, output, _, _ = preparation
+    pids = tmp_path / "pids"
+    monkeypatch.setattr(
+        rounds,
+        "generator_command",
+        lambda *a, **k: [sys.executable, "-c", _GENERATOR, str(pids)],
+    )
+
+    def default_action(*args):
+        raise AssertionError("the signal reached its default action")
+
+    def stop_once_running():
+        deadline = time.monotonic() + 60
+        while not pids.exists() and time.monotonic() < deadline:
+            time.sleep(0.05)
+        time.sleep(0.3)
+        os.kill(os.getpid(), sig)
+
+    previous = signal.signal(sig, default_action)
+    stopper = threading.Thread(target=stop_once_running, daemon=True)
+    stopper.start()
+    try:
+        args = ["--checkpoint", str(checkpoint), "--manifest", str(manifest)]
+        with pytest.raises(SystemExit) as stopped:
+            rounds.main([*args, "--out", str(output), "--execute"])
+        assert stopped.value.code == 130
+        assert signal.getsignal(sig) is default_action
+    finally:
+        stopper.join()
+        signal.signal(sig, previous)
+    for pid in map(int, pids.read_text().split()):
+        deadline = time.monotonic() + 5
+        while _alive(pid) and time.monotonic() < deadline:
+            time.sleep(0.05)
+        assert not _alive(pid)
     assert not output.exists()
     assert not list(output.parent.glob(".batch-*"))
 

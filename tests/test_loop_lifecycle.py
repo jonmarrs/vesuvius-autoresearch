@@ -17,7 +17,7 @@ from run_autoresearch_loop import (
     tweak_proposals,
 )
 from scripts.loop_control import main as control_main, running_pid
-from scripts.process_supervisor import ProcessSupervisor
+from scripts.process_supervisor import ProcessSupervisor, stops_interrupt
 from scripts.training.config import ExperimentConfig
 
 REPO = Path(__file__).resolve().parents[1]
@@ -271,6 +271,51 @@ def test_a_second_interrupt_during_the_stop_kills_the_group(tmp_path):
         signal.signal(signal.SIGUSR1, previous)
         if pidfile.exists() and alive(int(pidfile.read_text())):
             os.kill(int(pidfile.read_text()), signal.SIGKILL)
+
+
+@pytest.mark.parametrize("sig", [signal.SIGTERM, signal.SIGHUP])
+def test_a_stop_or_a_closed_terminal_interrupts_supervised_work(sig):
+    """By default SIGTERM (./stop.sh) and SIGHUP (a dropped ssh session) end a
+    command at once, before its clean-up, leaving its supervised group running
+    and, for the lock holders, releasing the lock with that group still at work."""
+
+    def before(*args):
+        raise AssertionError("reached the previous handler")
+
+    previous = signal.signal(sig, before)
+    try:
+        with pytest.raises(KeyboardInterrupt):
+            with stops_interrupt():
+                os.kill(os.getpid(), sig)
+                time.sleep(1)
+        assert signal.getsignal(sig) is before
+    finally:
+        signal.signal(sig, previous)
+
+
+def test_an_ignored_hangup_stays_ignored_and_threads_change_nothing():
+    """nohup ignores SIGHUP, and that must hold; Python installs handlers only
+    in the main thread, so elsewhere the guard does nothing rather than raise."""
+    previous = signal.signal(signal.SIGHUP, signal.SIG_IGN)
+    try:
+        with stops_interrupt():
+            assert signal.getsignal(signal.SIGHUP) is signal.SIG_IGN
+            os.kill(os.getpid(), signal.SIGHUP)  # ignored
+            time.sleep(0.1)
+        assert signal.getsignal(signal.SIGHUP) is signal.SIG_IGN
+    finally:
+        signal.signal(signal.SIGHUP, previous)
+    seen = []
+
+    def in_a_thread():
+        with stops_interrupt():
+            seen.append(signal.getsignal(signal.SIGTERM))
+
+    term = signal.getsignal(signal.SIGTERM)
+    worker = threading.Thread(target=in_a_thread)
+    worker.start()
+    worker.join()
+    assert seen == [term]
 
 
 def test_stop_targets_lock_owner_with_unbuffered_python(tmp_path):

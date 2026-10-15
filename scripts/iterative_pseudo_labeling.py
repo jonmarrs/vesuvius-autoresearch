@@ -7,11 +7,11 @@ this command never simulates learning or repeats an unchanged teacher as rounds.
 """
 
 import argparse
+import contextlib
 import json
 import math
 import re
 import shlex
-import signal
 import subprocess
 import sys
 from pathlib import Path
@@ -31,7 +31,7 @@ from scripts.export_for_production import (
 )
 from scripts.generate_pseudo_labels import prob_to_pseudo_png
 from scripts.labeling.label_artifacts import new_output, publish_new
-from scripts.process_supervisor import ProcessSupervisor
+from scripts.process_supervisor import ProcessSupervisor, stops_interrupt
 from scripts.pseudo_label_artifacts import (
     MAX_LABEL_PIXELS,
     fragment_inputs,
@@ -368,10 +368,6 @@ def prepare_round(
     return result
 
 
-def _interrupt(*args):
-    raise KeyboardInterrupt
-
-
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -390,32 +386,33 @@ def main(argv=None):
     parser.add_argument("--timeout", type=float, default=3600)
     parser.add_argument("--max-pixels", type=int, default=MAX_LABEL_PIXELS)
     args = parser.parse_args(argv)
-    # A kill (SIGTERM) used to end this process at once: its generator ran on in
-    # a session of its own, writing into a staging directory nothing would
-    # publish or remove. As an interrupt, the supervisor stops the generator's
-    # group and the staging directory is removed, as for Ctrl-C.
-    previous = signal.signal(signal.SIGTERM, _interrupt) if args.execute else None
+    # A kill or a closed terminal used to end this process at once: its
+    # generator ran on in a session of its own, writing into a staging
+    # directory nothing would publish or remove. As an interrupt, the
+    # supervisor stops the generator's group and the staging directory is
+    # removed, as for Ctrl-C.
+    stops = stops_interrupt() if args.execute else contextlib.nullcontext()
     try:
-        result = prepare_round(
-            args.checkpoint,
-            args.manifest,
-            args.out,
-            execute=args.execute,
-            tau_low=args.tau_low,
-            tau_high=args.tau_high,
-            device=args.device,
-            timeout=args.timeout,
-            max_pixels=args.max_pixels,
-        )
+        with stops:
+            result = prepare_round(
+                args.checkpoint,
+                args.manifest,
+                args.out,
+                execute=args.execute,
+                tau_low=args.tau_low,
+                tau_high=args.tau_high,
+                device=args.device,
+                timeout=args.timeout,
+                max_pixels=args.max_pixels,
+            )
     except (
         *CHECKPOINT_ERRORS,
         subprocess.CalledProcessError,
         subprocess.TimeoutExpired,
     ) as exc:
         parser.exit(1, f"pseudo-label preparation failed: {exc}\n")
-    finally:
-        if args.execute:
-            signal.signal(signal.SIGTERM, previous)
+    except KeyboardInterrupt:
+        parser.exit(130, "pseudo-label preparation interrupted\n")
     print(json.dumps(result, indent=2, allow_nan=False))
 
 

@@ -52,7 +52,6 @@ import glob
 import json
 import math
 import os
-import signal
 import statistics
 import subprocess
 import sys
@@ -63,7 +62,10 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from scripts.loop_control import acquire_lock, running_pid  # noqa: E402
-from scripts.process_supervisor import ProcessSupervisor  # noqa: E402
+from scripts.process_supervisor import (  # noqa: E402
+    ProcessSupervisor,
+    stops_interrupt,
+)
 from scripts.training.train import ExperimentConfig  # noqa: E402
 
 AUGS = [
@@ -96,10 +98,6 @@ def _build_condition_config(
     cfg.pinned = False
     cfg.enforce_prize_gates = False  # never block on prize gates during ablation
     return cfg
-
-
-def _interrupt(*args):
-    raise KeyboardInterrupt
 
 
 def _run_one(
@@ -277,60 +275,64 @@ def main() -> int:
         )
         return 1
     supervisor = ProcessSupervisor()
-    previous = signal.signal(signal.SIGTERM, _interrupt)
     rows: list[dict] = []
     t_start = time.perf_counter()
     try:
-        for cond in chosen:
-            for seed in range(args.seeds):
-                run_id = f"{cond}_seed{seed}"
-                print(f"\n--- {run_id} ---")
+        # SIGTERM (./stop.sh) and SIGHUP (a closed terminal) end the current
+        # cell as Ctrl-C does; by default they ended the harness at once,
+        # releasing the lock with its cell still training.
+        with stops_interrupt():
+            for cond in chosen:
+                for seed in range(args.seeds):
+                    run_id = f"{cond}_seed{seed}"
+                    print(f"\n--- {run_id} ---")
 
-                # A run that writes no result must not read the previous one's.
-                if os.path.exists("run_result.json"):
-                    os.remove("run_result.json")
+                    # A run that writes no result must not read the previous one's.
+                    if os.path.exists("run_result.json"):
+                        os.remove("run_result.json")
 
-                # Build condition-specific config
-                checkpoint = str(log_dir / f"{run_id}.pt")
-                cfg = _build_condition_config(
-                    args.config, cond, args.budget, checkpoint
-                )
-                cfg_path = f"config_temp_ablation_{run_id}.json"
-                cfg.save(cfg_path)
+                    # Build condition-specific config
+                    checkpoint = str(log_dir / f"{run_id}.pt")
+                    cfg = _build_condition_config(
+                        args.config, cond, args.budget, checkpoint
+                    )
+                    cfg_path = f"config_temp_ablation_{run_id}.json"
+                    cfg.save(cfg_path)
 
-                log_path = str(log_dir / f"{run_id}.log")
-                try:
-                    result = _run_one(cfg_path, seed, args.budget, log_path, supervisor)
-                finally:
-                    # The temp config, and the run's checkpoints (only its
-                    # metrics are used; eval_every_steps adds .step<N>.pt).
-                    for path in [
-                        cfg_path,
-                        checkpoint,
-                        *glob.glob(f"{checkpoint}.step*.pt"),
-                    ]:
-                        try:
-                            os.remove(path)
-                        except OSError:
-                            pass
-                result["condition"] = cond
-                result["seed"] = seed
-                result["run_id"] = run_id
-                rows.append(result)
+                    log_path = str(log_dir / f"{run_id}.log")
+                    try:
+                        result = _run_one(
+                            cfg_path, seed, args.budget, log_path, supervisor
+                        )
+                    finally:
+                        # The temp config, and the run's checkpoints (only its
+                        # metrics are used; eval_every_steps adds .step<N>.pt).
+                        for path in [
+                            cfg_path,
+                            checkpoint,
+                            *glob.glob(f"{checkpoint}.step*.pt"),
+                        ]:
+                            try:
+                                os.remove(path)
+                            except OSError:
+                                pass
+                    result["condition"] = cond
+                    result["seed"] = seed
+                    result["run_id"] = run_id
+                    rows.append(result)
 
-                vb = result.get("val_bpb")
-                vb_s = (
-                    f"{vb:.6f}"
-                    if isinstance(vb, float) and not math.isnan(vb)
-                    else "n/a"
-                )
-                print(
-                    f"  status={result['status']}  val_bpb={vb_s}  elapsed={result['elapsed_s']:.0f}s"
-                )
+                    vb = result.get("val_bpb")
+                    vb_s = (
+                        f"{vb:.6f}"
+                        if isinstance(vb, float) and not math.isnan(vb)
+                        else "n/a"
+                    )
+                    print(
+                        f"  status={result['status']}  val_bpb={vb_s}  elapsed={result['elapsed_s']:.0f}s"
+                    )
     except KeyboardInterrupt:
         print(f"\n# stopped after {len(rows)} of {total_runs} runs", file=sys.stderr)
     finally:
-        signal.signal(signal.SIGTERM, previous)
         try:
             supervisor.stop()
         finally:

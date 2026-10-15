@@ -634,15 +634,28 @@ def test_a_stop_while_recent_configs_are_saved_leaves_the_previous_file(
 
     def stopped_mid_write(data, stream, **kwargs):
         stream.write('[{"lr": ')
-        raise KeyboardInterrupt  # stop.sh, mid-write
+        raise SystemExit(0)  # stop.sh: the loop's handler exits, mid-write
 
     monkeypatch.setattr(loop.json, "dump", stopped_mid_write)
-    with pytest.raises(KeyboardInterrupt):
+    with pytest.raises(SystemExit):
         loop.save_recent_configs([{"lr": 1e-3}, {"lr": 5e-4}])
     monkeypatch.setattr(loop.json, "dump", dump)
     assert (tmp_path / "recent_configs.json").read_text() == before
     assert loop.load_recent_configs() == [{"lr": 1e-3}]
     assert not list(tmp_path.glob(".recent_configs.json.*"))  # no temporary
+
+
+def test_the_atomic_json_writer_keeps_the_files_mode(tmp_path, monkeypatch):
+    """mkstemp creates 0600: renamed over a tracked 0644 file, it narrowed who
+    can read the loop's state."""
+    import run_autoresearch_loop as loop
+
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "recent_configs.json").write_text("[]")
+    os.chmod(tmp_path / "recent_configs.json", 0o644)
+    loop.save_recent_configs([{"lr": 1e-3}])
+    assert (tmp_path / "recent_configs.json").stat().st_mode & 0o777 == 0o644
+    assert loop.load_recent_configs() == [{"lr": 1e-3}]
 
 
 def test_a_crashed_cycle_leaves_the_family_weights_alone(tmp_path, monkeypatch):

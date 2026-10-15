@@ -4,6 +4,7 @@ import json
 import os
 import random
 import signal
+import stat
 import subprocess
 import sys
 import tempfile
@@ -405,14 +406,20 @@ def save_history(counts):
 
 
 def _write_json_atomic(path, data, **dump_options):
+    """A temporary file, synced, then renamed over path, keeping path's mode
+    (mkstemp creates 0600). A stop or crash leaves the old file or the new."""
     directory = os.path.dirname(os.path.abspath(path))
     temporary = None
     try:
         fd, temporary = tempfile.mkstemp(
             prefix=f".{os.path.basename(path)}.", suffix=".tmp", dir=directory
         )
+        if os.path.exists(path):
+            os.fchmod(fd, stat.S_IMODE(os.stat(path).st_mode))
         with os.fdopen(fd, "w") as f:
             json.dump(data, f, **dump_options)
+            f.flush()
+            os.fsync(f.fileno())
         os.replace(temporary, path)
     finally:
         if temporary is not None and os.path.exists(temporary):
