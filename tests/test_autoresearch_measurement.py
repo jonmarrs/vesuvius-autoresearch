@@ -425,12 +425,19 @@ def _drive_loop(
     run=None,
     preflight_returncode=0,
     commit=lambda message: True,
+    signals=None,
 ):
     import run_autoresearch_loop as loop
 
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(loop, "__file__", str(tmp_path / "run_autoresearch_loop.py"))
-    monkeypatch.setattr(loop.signal, "signal", lambda *args: None)
+    monkeypatch.setattr(
+        loop.signal,
+        "signal",
+        (lambda sig, handler: signals.append(sig))
+        if signals is not None
+        else (lambda *args: None),
+    )
     monkeypatch.setattr(loop.time, "sleep", lambda *args: None)
     hours = iter([12] * (cycles + 1) + [20])
     monkeypatch.setattr(
@@ -859,6 +866,85 @@ def test_a_repeated_stop_does_not_cut_the_settle_short(tmp_path, monkeypatch):
     assert not (tmp_path / "results.tsv").exists()
     assert not (tmp_path / "prize_readiness.tsv").exists()
     assert not os.path.lexists(tmp_path / ".best_model.pt.held")
+
+
+_TRAINING = "import time\ntime.sleep(120)\n"
+
+
+def _training_run(directory):
+    """A process that looks to /proc like the loop's training run in directory."""
+    script = directory / "scripts" / "training" / "train.py"
+    script.parent.mkdir(parents=True, exist_ok=True)
+    script.write_text(_TRAINING)
+    run = subprocess.Popen(
+        [
+            sys.executable,
+            "-u",
+            "scripts/training/train.py",
+            "--config",
+            "config_temp.json",
+        ],
+        cwd=directory,
+    )
+    deadline = time.monotonic() + 10
+    while time.monotonic() < deadline:
+        try:
+            if b"train.py" in Path(f"/proc/{run.pid}/cmdline").read_bytes():
+                break
+        except FileNotFoundError:
+            pass
+        time.sleep(0.02)
+    return run
+
+
+@pytest.mark.skipif(not Path("/proc/self/cwd").exists(), reason="reads /proc")
+def test_the_loop_will_not_start_beside_a_training_run_it_does_not_supervise(
+    tmp_path, monkeypatch, capsys
+):
+    """A loop killed without its handler (SIGKILL, a closed terminal) leaves its
+    run going in a session of its own. The watchdog's restart then released the
+    hold and started a cycle beside a run that could still replace
+    best_model.pt and write run_result.json."""
+    ExperimentConfig().save(tmp_path / "config.json")
+    _checkpoint(tmp_path / "best_model.pt")
+    os.link(tmp_path / "best_model.pt", tmp_path / ".best_model.pt.held")
+    elsewhere = tmp_path / "other_checkout"
+    elsewhere.mkdir()
+    orphan, unrelated = _training_run(tmp_path), _training_run(elsewhere)
+    try:
+        assert _drive_loop(tmp_path, monkeypatch, cycles=1) == []
+        out = capsys.readouterr().out
+        assert "Not starting" in out and f"PID {orphan.pid}" in out
+        assert str(unrelated.pid) not in out
+        # The hold waits for the operator or the run's end, untouched.
+        assert os.path.samefile(
+            tmp_path / "best_model.pt", tmp_path / ".best_model.pt.held"
+        )
+    finally:
+        for run in (orphan, unrelated):
+            run.kill()
+            run.wait()
+    # Once it has ended, the loop starts (and releases the unchanged hold).
+    result = {"is_success": False, "val_f1": 0.5}
+    assert len(_drive_loop(tmp_path, monkeypatch, 1, result=result)) == 1
+    assert not os.path.lexists(tmp_path / ".best_model.pt.held")
+
+
+@pytest.mark.parametrize("ignored", [False, True])
+def test_a_closed_terminal_stops_the_loop_like_stop_sh(tmp_path, monkeypatch, ignored):
+    """SIGHUP ended a loop run in a terminal at once, leaving its run going;
+    under nohup (start.sh) it is ignored, and stays so."""
+    ExperimentConfig().save(tmp_path / "config.json")
+    real_signal = signal.signal
+    previous = real_signal(signal.SIGHUP, signal.SIG_IGN if ignored else signal.SIG_DFL)
+    registered: list = []
+    try:
+        result = {"is_success": False, "val_f1": 0.5}
+        _drive_loop(tmp_path, monkeypatch, 1, result=result, signals=registered)
+    finally:
+        real_signal(signal.SIGHUP, previous)
+    assert signal.SIGTERM in registered and signal.SIGINT in registered
+    assert (signal.SIGHUP in registered) is not ignored
 
 
 def test_a_hold_left_by_a_killed_loop_is_the_operators_call(

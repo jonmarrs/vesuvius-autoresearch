@@ -604,6 +604,35 @@ def leftover_hold():
     )
 
 
+TRAIN_SCRIPT = "scripts/training/train.py"
+
+
+def unsupervised_runs(repo="."):
+    """PIDs of training processes running in this checkout outside any loop.
+
+    The loop starts each run in a session of its own, so a loop killed without
+    its handler running (SIGKILL; a closed terminal before SIGHUP was handled)
+    leaves its run going: it can still replace best_model.pt and write
+    run_result.json. A train.py run started here by hand writes the same files.
+    Found through /proc (the supported hosts are Linux); none elsewhere."""
+    if not os.path.isdir("/proc"):
+        return []
+    repo = os.path.realpath(repo)
+    found = []
+    for entry in os.listdir("/proc"):
+        if not entry.isdigit() or int(entry) == os.getpid():
+            continue
+        try:
+            with open(f"/proc/{entry}/cmdline", "rb") as f:
+                args = [os.fsdecode(a) for a in f.read().split(b"\0") if a]
+            cwd = os.path.realpath(f"/proc/{entry}/cwd")
+        except OSError:
+            continue  # gone, or another user's process
+        if cwd == repo and TRAIN_SCRIPT in args:
+            found.append(int(entry))
+    return sorted(found)
+
+
 def exit_description(returncode):
     if returncode is not None and returncode < 0:
         try:
@@ -724,6 +753,18 @@ def main():
         print("Autoresearch is paused. Use ./start.sh to resume.")
         return
 
+    # Before the hold: a run still going may yet replace best_model.pt.
+    running = unsupervised_runs()
+    if running:
+        print(
+            f"Not starting: a training run is going in this checkout outside any "
+            f"loop (PID {', '.join(map(str, running))}). A loop that ended without "
+            "stopping it (killed, or its terminal closed) left it, or it was started "
+            "by hand; it can still replace best_model.pt and write run_result.json. "
+            "Wait for it to end, or stop it (kill -TERM <PID>), then start again."
+        )
+        return
+
     reason = leftover_hold()
     if reason:
         print(f"Not starting: {reason}")
@@ -761,6 +802,10 @@ def main():
     STOP_DEFERRED.update(active=False, signal=None, stopping=False)
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
+    # A closed terminal (SIGHUP) stops the loop like stop.sh, not at once with
+    # its run left going. start.sh runs it under nohup, which ignores SIGHUP.
+    if signal.getsignal(signal.SIGHUP) is not signal.SIG_IGN:
+        signal.signal(signal.SIGHUP, signal_handler)
 
     success_counts: dict[str, float] = load_history()
 
@@ -1008,7 +1053,7 @@ def main():
                             "run",
                             "python",
                             "-u",
-                            "scripts/training/train.py",
+                            TRAIN_SCRIPT,
                             "--config",
                             TEMP_CONFIG,
                             "--smoke",
@@ -1048,7 +1093,7 @@ def main():
                                 "run",
                                 "python",
                                 "-u",
-                                "scripts/training/train.py",
+                                TRAIN_SCRIPT,
                                 "--config",
                                 TEMP_CONFIG,
                             ],

@@ -69,6 +69,8 @@ Scope: how `run_autoresearch_loop.py` handles a cycle that does not end cleanly:
   `DESIGN_ARCHITECTURE_REVIEW_2026-10-14_UNDONE_PROMOTION_ROWS.md`.)
 - **A kill (not a stop) during a run that writes the first incumbent is not caught.** With no incumbent there is
   nothing to hold, so the next start sees no hold. A stop settles it.
+- **A kill leaves the run itself going** (it has a session of its own). Since 2026-10-15 the next start waits for
+  it to end before it looks at the hold (`DESIGN_ARCHITECTURE_REVIEW_2026-10-15_UNSUPERVISED_RUNS.md`).
 
 ## Reviewed and sound
 
