@@ -1,5 +1,15 @@
 # Resume note — written 2026-09-22 before a deliberate Claude restart
 
+## 2026-10-14 (evening): finding 90, the loop's model does not read ink better from deep windows
+
+* **Finding 90** (`reports/loop_model_depth_offset.md`, pre-registered, CPU). The loop's 400-patch draw, every
+  patch kept, scored with every read forced to start at one zarr slice. The incumbent reads AUC 0.5856 at z0 = 0 and
+  0.5765 at z0 = 7, its lowest of the eight starts; the 10 loop candidates move by −0.0043 on average (9 of 10
+  negative). Reading: **no dependence on the window's position**. Finding 89's lever (pin `depth_band` [11, 27])
+  has no support from the models the loop has; a model trained only on deep windows is untested.
+* Not pre-registered: each patch at its own random start (how the loop validates) gives AUC 0.5717, below every
+  fixed start (0.5765–0.5875) on the same patches. A property of the measurement, not of reading.
+
 ## 2026-10-13 (night): finding 88, the loop's sample cannot reward a model that reads ink
 
 * **Finding 88** (`reports/detector_on_loop_sample.md`, four pre-registered CPU measurements). On the loop's 97
