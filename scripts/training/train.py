@@ -66,6 +66,7 @@ from scripts.training.promotion import (
     IncumbentUnavailable,
     read_incumbent,
     save_checkpoint_atomic,
+    scores_ink_free_patches,
     validation_indices,
     validation_input_paths,
     validation_inputs_fingerprint,
@@ -625,7 +626,7 @@ def build_validation_dataset(config: ExperimentConfig):
     """The validation catalogue promotion is scored on (see promotion.py).
 
     Reads are strict: a failed read raises instead of returning an all-zero patch,
-    which would silently drop out of the sample as an ink-free patch.
+    which would silently be scored as an ink-free patch.
     """
     # The same paths the fingerprint hashes (promotion.validation_input_paths),
     # fingerprinted before and after the dataset reads them.
@@ -871,8 +872,12 @@ def collect_validation_predictions(
 ):
     """Score the protocol's fixed sample of ``dataset``.
 
-    Returns per-patch ink probabilities and targets (each ``[1, 1, H, W]``, for
-    ink-containing patches only) and diagnostics. ``batch_size`` only groups the
+    Returns per-patch ink probabilities and targets (each ``[1, 1, H, W]``) and
+    diagnostics. The protocol decides which patches count
+    (promotion.scores_ink_free_patches): every patch of the draw, or, under v2,
+    its ink-containing patches only. ``usable_patches`` counts the ink-containing
+    patches and ``empty_target_patches`` the ink-free ones either way;
+    ``scored_patches`` counts those returned. ``batch_size`` only groups the
     forward passes: which patches count is decided per patch, so it does not change
     the result. ``complete`` is False when any read or forward pass failed; such a
     sample is not the protocol's sample and cannot support a promotion.
@@ -880,6 +885,7 @@ def collect_validation_predictions(
     tools pass a validating version. ``protocol`` is recorded in the diagnostics
     (validation_protocol(config.depth_band) for the dataset's depth range).
     """
+    keep_ink_free = scores_ink_free_patches(protocol)
     indices = validation_indices(len(dataset))
     diag = {
         "protocol": protocol,
@@ -914,15 +920,29 @@ def collect_validation_predictions(
             for j in range(len(chunk)):
                 if torch.sum(val_target[j].float()) < 1.0:
                     diag["empty_target_patches"] += 1
-                    continue
+                    if not keep_ink_free:
+                        continue
                 all_probs.append(prob_2d[j : j + 1])
                 all_targets.append(val_target[j : j + 1].float().cpu())
-    diag["usable_patches"] = len(all_probs)
+    diag["scored_patches"] = len(all_probs)
+    diag["usable_patches"] = (
+        len(all_probs) - diag["empty_target_patches"]
+        if keep_ink_free
+        else len(all_probs)
+    )
     diag["complete"] = diag["batch_errors"] == 0
     # What the sample was drawn from (build_validation_dataset); None for a
     # dataset built another way.
     diag["inputs_sha256"] = getattr(dataset, "validation_inputs", None)
     return all_probs, all_targets, diag
+
+
+def ink_containing(probs, targets):
+    """The patches whose target holds ink, in order. The per-patch diagnostics
+    (Dice, val_bpb, topology, mean AP) are defined on these; val_f1, AP lift and
+    AUC pool every patch the protocol scores."""
+    kept = [i for i, target in enumerate(targets) if float(target.sum()) >= 1.0]
+    return [probs[i] for i in kept], [targets[i] for i in kept]
 
 
 # The Dice-optimal binarization threshold is not the topology-optimal one. On
@@ -2413,7 +2433,7 @@ def train(config: ExperimentConfig, *, strict_warm_start=False):
 
     print(
         f"Evaluating metrics on validation protocol {protocol} "
-        "(ink-containing patches of a fixed sample; searching for best threshold)..."
+        "(a fixed sample; searching for best threshold)..."
     )
     if not SKELETON_DISTANCE_AVAILABLE:
         print(
@@ -2447,11 +2467,13 @@ def train(config: ExperimentConfig, *, strict_warm_start=False):
         }
     )
 
+    # Per-patch diagnostics on the ink-containing patches; promotion pools all.
+    ink_probs, ink_targets = ink_containing(all_probs, all_targets)
     best_dice = 0.0
     best_threshold = 0.5
-    if all_probs:
-        probs_cat = torch.cat(all_probs)
-        targets_cat = torch.cat(all_targets)
+    if ink_probs:
+        probs_cat = torch.cat(ink_probs)
+        targets_cat = torch.cat(ink_targets)
 
         # Search for best threshold to get a real signal of learning
         for t in np.linspace(0.01, 0.8, 40):
@@ -2468,15 +2490,15 @@ def train(config: ExperimentConfig, *, strict_warm_start=False):
         # at the threshold that maximizes centerline_dice, not the Dice-optimal
         # one — see select_topology_threshold(). val_bpb stays on the Dice
         # threshold since it is defined as 1 - Dice.
-        topo_threshold, topo_cd = select_topology_threshold(all_probs, all_targets)
+        topo_threshold, topo_cd = select_topology_threshold(ink_probs, ink_targets)
         print(
             f"  Topology threshold: {topo_threshold:.3f} (centerline_dice {topo_cd:.6f})"
         )
 
         # Now re-run with best threshold for other metrics
-        for i in range(len(all_probs)):
-            prob_2d = all_probs[i]
-            val_target = all_targets[i]
+        for i in range(len(ink_probs)):
+            prob_2d = ink_probs[i]
+            val_target = ink_targets[i]
             val_losses.append(
                 1.0
                 - compute_official_dice(val_target, prob_2d, threshold=best_threshold)
@@ -2547,7 +2569,7 @@ def train(config: ExperimentConfig, *, strict_warm_start=False):
 
     validation_diag.update(
         {
-            "usable_patches": len(all_probs),
+            "usable_patches": len(ink_probs),
             "skel_samples": len(val_skel_dists),
             "centerline_samples": len(val_centerline_dices),
             "cc_samples": len(val_cc_diffs),
@@ -2639,11 +2661,11 @@ def train(config: ExperimentConfig, *, strict_warm_start=False):
             "val/throughput_Mvps": throughput_Mvps,
         }
     )
-    if wandb_run is not None and all_probs:
+    if wandb_run is not None and ink_probs:
         wandb_tracking.log_prediction_image(
             wandb_run,
-            all_probs[0][0].numpy(),
-            all_targets[0][0].numpy(),
+            ink_probs[0][0].numpy(),
+            ink_targets[0][0].numpy(),
             topo_threshold,
         )
     print(f"submittable:           {submittable} (window={window_mm:.3f}mm)")
@@ -2651,7 +2673,8 @@ def train(config: ExperimentConfig, *, strict_warm_start=False):
         print("prize_gate_failures:   " + " | ".join(prize_gate_failures))
     print(
         "validation_diag:       "
-        f"usable={validation_diag['usable_patches']}/{validation_diag['requested_patches']}, "
+        f"scored={validation_diag['scored_patches']}/{validation_diag['requested_patches']}, "
+        f"usable={validation_diag['usable_patches']}, "
         f"empty={validation_diag['empty_target_patches']}, "
         f"batch_errors={validation_diag['batch_errors']}, "
         f"cc_errors={validation_diag['cc_errors']}, "

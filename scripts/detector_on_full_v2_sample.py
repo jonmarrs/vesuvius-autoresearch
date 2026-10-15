@@ -52,6 +52,7 @@ from scripts.detector_on_loop_sample import (  # noqa: E402
     sha256,
 )
 from scripts.training.promotion import (  # noqa: E402
+    INK_ONLY_PROTOCOL,
     validation_indices,
     validation_protocol,
 )
@@ -117,7 +118,7 @@ def main(out_path, detector):
         "constant_all_ink": card(np.ones(labels.shape, np.float32), labels),
     }
     result = {
-        "protocol": validation_protocol(config.depth_band),
+        "protocol": validation_protocol(config.depth_band, base=INK_ONLY_PROTOCOL),
         "git_commit": subprocess.run(
             ["git", "rev-parse", "HEAD"], capture_output=True, text=True, cwd=_REPO
         ).stdout.strip(),

@@ -69,6 +69,7 @@ from train import (  # noqa: E402
 from scripts.detector_on_loop_sample import card, sha256  # noqa: E402
 from scripts.reevaluate_best_model import RECORDED_INPUT_SETTINGS  # noqa: E402
 from scripts.training.promotion import (  # noqa: E402
+    INK_ONLY_PROTOCOL,
     validation_indices,
     validation_protocol,
 )
@@ -214,7 +215,9 @@ def main(candidate_dir, out_path, n, wait):
     if not wait and len(copied(candidate_dir)) < n:
         raise SystemExit(f"fewer than {n} snapshots in {candidate_dir}")
     saved = {"A": json.load(open(SAMPLE_A)), "C": json.load(open(SAMPLE_C))}
-    protocol = validation_protocol(ExperimentConfig.load("config.json").depth_band)
+    protocol = validation_protocol(
+        ExperimentConfig.load("config.json").depth_band, base=INK_ONLY_PROTOCOL
+    )
     cache = {}
 
     incumbent, inc_chk, inc_ink = score("best_model.pt", cache)

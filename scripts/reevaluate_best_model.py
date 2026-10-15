@@ -51,6 +51,7 @@ from train import (
     compute_centerline_dice,
     compute_official_dice,
     compute_skeleton_dist,
+    ink_containing,
     pooled_segmentation_metrics,
     select_topology_threshold,
 )
@@ -183,8 +184,9 @@ def _reevaluate(update_stored: bool, unwarped: bool) -> None:
             f"{diag['batch_errors']} validation batches failed; the protocol's "
             "sample is incomplete and the checkpoint was not updated"
         )
-    if not all_probs:
-        raise ValueError("zero usable validation patches")
+    if not diag["usable_patches"]:
+        # Ink-free patches are scored, but without ink there is no F1 to store.
+        raise ValueError("zero usable (ink-containing) validation patches")
 
     seg = pooled_segmentation_metrics(all_probs, all_targets)
     f1_metrics = {
@@ -199,8 +201,11 @@ def _reevaluate(update_stored: bool, unwarped: bool) -> None:
             f"nonfinite promotion metrics {f1_metrics}; checkpoint was not updated"
         )
 
-    probs_cat = torch.cat(all_probs)
-    targets_cat = torch.cat(all_targets)
+    # Per-patch diagnostics on the ink-containing patches, as train.py; the
+    # promotion metrics above pool every patch the protocol scores.
+    ink_probs, ink_targets = ink_containing(all_probs, all_targets)
+    probs_cat = torch.cat(ink_probs)
+    targets_cat = torch.cat(ink_targets)
 
     best_dice, best_threshold = 0.0, 0.5
     for t in np.linspace(0.01, 0.8, 40):
@@ -211,13 +216,13 @@ def _reevaluate(update_stored: bool, unwarped: bool) -> None:
 
     # Topology gates are evaluated at the centerline_dice-optimal threshold (see
     # train.select_topology_threshold), matching the loop's validation.
-    topo_threshold, topo_cd = select_topology_threshold(all_probs, all_targets)
+    topo_threshold, topo_cd = select_topology_threshold(ink_probs, ink_targets)
     print(f"  topology threshold: {topo_threshold:.3f} (centerline_dice {topo_cd:.6f})")
 
     val_losses, val_skel, val_cd, val_cc = [], [], [], []
-    for i in range(len(all_probs)):
-        prob_2d = all_probs[i]
-        tgt = all_targets[i]
+    for i in range(len(ink_probs)):
+        prob_2d = ink_probs[i]
+        tgt = ink_targets[i]
         val_losses.append(
             1.0 - compute_official_dice(tgt, prob_2d, threshold=best_threshold)
         )
@@ -291,8 +296,9 @@ def _reevaluate(update_stored: bool, unwarped: bool) -> None:
         f"val_f1 margin {f1_metrics['val_f1'] - all_ink_f1:+.6f})"
     )
     print(
-        f"  usable / requested:  {diag['usable_patches']}/{diag['requested_patches']} "
-        f"(empty={diag['empty_target_patches']})"
+        f"  scored / requested:  {diag['scored_patches']}/{diag['requested_patches']} "
+        f"(ink-containing={diag['usable_patches']}, "
+        f"empty={diag['empty_target_patches']})"
     )
 
     print()
@@ -347,6 +353,7 @@ def _reevaluate(update_stored: bool, unwarped: bool) -> None:
             "overridden_input_settings": overridden,
             "requested_patches": diag["requested_patches"],
             "usable_patches": diag["usable_patches"],
+            "scored_patches": diag["scored_patches"],
             "dice_threshold": float(best_threshold),
             "topology_threshold": float(topo_threshold),
         }

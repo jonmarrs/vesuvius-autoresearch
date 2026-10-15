@@ -36,7 +36,10 @@ from train import (  # noqa: E402
 )
 
 from scripts.reevaluate_best_model import RECORDED_INPUT_SETTINGS  # noqa: E402
-from scripts.training.promotion import validation_protocol  # noqa: E402
+from scripts.training.promotion import (  # noqa: E402
+    INK_ONLY_PROTOCOL,
+    validation_protocol,
+)
 from vesuvius_autoresearch.core.checkpoint_tools import (  # noqa: E402
     ink_probabilities,
     load_tool_checkpoint,
@@ -71,7 +74,7 @@ def main(out_path):
         if name in stored:
             setattr(config, name, stored[name])
 
-    protocol = validation_protocol(config.depth_band)
+    protocol = validation_protocol(config.depth_band, base=INK_ONLY_PROTOCOL)
     val_ds = build_validation_dataset(config)
 
     def probabilities(net, x):

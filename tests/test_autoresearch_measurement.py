@@ -81,9 +81,42 @@ def test_batch_size_does_not_change_what_validation_scores():
         metrics = train.pooled_segmentation_metrics(probs, targets)
         results.append((sorted(data.reads), diag["usable_patches"], metrics["val_f1"]))
         assert diag["complete"] and diag["requested_patches"] == 400
-        # Ink-free patches are dropped one by one, not with their batch.
+        # Ink-free patches are counted one by one, not with their batch.
         assert diag["usable_patches"] + diag["empty_target_patches"] == 400
     assert all(result == results[0] for result in results)
+
+
+def _collect(data, protocol=promotion.VALIDATION_PROTOCOL):
+    return train.collect_validation_predictions(
+        MeanInk(), data, 8, torch.device("cpu"), batch_size=4, protocol=protocol
+    )
+
+
+def test_the_protocol_scores_every_patch_of_the_draw():
+    # Finding 88: on its ink-containing patches alone, F1 could not tell the
+    # project's detector from calling every pixel ink.
+    probs, targets, diag = _collect(Catalogue(1000))
+    ink = sum(float(t.sum()) >= 1.0 for t in targets)
+    assert len(probs) == len(targets) == diag["scored_patches"] == 400
+    assert diag["usable_patches"] == ink
+    assert diag["empty_target_patches"] == 400 - ink > 0
+
+
+def test_protocol_v2_scored_only_the_ink_containing_patches():
+    v2 = promotion.validation_protocol(None, base=promotion.INK_ONLY_PROTOCOL)
+    assert v2 == "seeded-sample-400-v2"
+    probs, targets, diag = _collect(Catalogue(1000), protocol=v2)
+    assert len(probs) == diag["usable_patches"] == diag["scored_patches"]
+    assert diag["usable_patches"] + diag["empty_target_patches"] == 400
+    assert all(float(t.sum()) >= 1.0 for t in targets)
+    kept, kept_targets = train.ink_containing(*_collect(Catalogue(1000))[:2])
+    assert all(torch.equal(a, b) for a, b in zip(kept, probs, strict=True))
+    assert all(torch.equal(a, b) for a, b in zip(kept_targets, targets, strict=True))
+
+
+def test_a_sample_under_an_unknown_protocol_is_refused():
+    with pytest.raises(ValueError, match="unknown validation protocol"):
+        _collect(Catalogue(1000), protocol="seeded-sample-400-v9")
 
 
 def test_a_failed_read_makes_the_sample_incomplete():
@@ -1441,14 +1474,22 @@ def test_the_depth_band_round_trips_and_names_the_protocol(tmp_path):
     config.save(tmp_path / "config.json")
     loaded = ExperimentConfig.load(tmp_path / "config.json")
     assert loaded.depth_band == [17, 43]
-    assert promotion.validation_protocol(None) == "seeded-sample-400-v2"
+    assert promotion.validation_protocol(None) == "seeded-sample-400-v3"
     assert promotion.validation_protocol(loaded.depth_band) == (
-        "seeded-sample-400-v2+z17-43"
+        "seeded-sample-400-v3+z17-43"
     )
 
 
+def test_an_incumbent_scored_on_the_ink_only_sample_must_be_rescored(tmp_path):
+    band = [1, 27]
+    v2 = promotion.validation_protocol(band, base=promotion.INK_ONLY_PROTOCOL)
+    path = _checkpoint(tmp_path / "best_model.pt", val_protocol=v2)
+    with pytest.raises(promotion.IncumbentUnavailable, match="--update-stored"):
+        promotion.read_incumbent(str(path), promotion.validation_protocol(band))
+
+
 def test_an_incumbent_scored_on_the_whole_depth_is_not_comparable(tmp_path):
-    path = _checkpoint(tmp_path / "best_model.pt")  # protocol v2, whole depth
+    path = _checkpoint(tmp_path / "best_model.pt")  # the current protocol, whole depth
     banded = promotion.validation_protocol([17, 43])
     with pytest.raises(promotion.IncumbentUnavailable, match=r"\+z17-43"):
         promotion.read_incumbent(str(path), banded)[0]
@@ -1473,7 +1514,7 @@ def test_the_loop_will_not_start_until_the_incumbent_is_scored_in_the_band(
     _checkpoint(tmp_path / "best_model.pt")
     assert _drive_loop(tmp_path, monkeypatch, cycles=1) == []
     out = capsys.readouterr().out
-    assert "Not starting" in out and "seeded-sample-400-v2+z17-43" in out
+    assert "Not starting" in out and "seeded-sample-400-v3+z17-43" in out
 
 
 def test_an_invalid_config_band_is_a_clear_refusal_not_a_crash(
