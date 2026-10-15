@@ -54,6 +54,14 @@ def signal_handler(sig, frame):
             print(f"\nCaught signal {sig}. Still recording this cycle; stopping after.")
         STOP_DEFERRED["signal"] = sig
         return
+    if STOP_DEFERRED["stopping"]:
+        # Stopped again while this stop runs (stop.sh twice, Ctrl-C twice): kill
+        # the run at once (the supervisor escalates) and let the first handler
+        # settle once and exit. Exiting here cut its settle short.
+        print(f"\nCaught signal {sig}. Already stopping; the run is killed.")
+        supervisor.stop()
+        return
+    STOP_DEFERRED["stopping"] = True
     print(f"\nCaught signal {sig}. Cleaning up...")
     supervisor.stop()
     # A stop (stop.sh sends SIGTERM) almost always lands mid-cycle: settle that
@@ -431,7 +439,8 @@ INCUMBENT_HELD = ".best_model.pt.held"
 # The cycle in flight, for the signal handler: whether it holds, and what.
 CYCLE_HOLD: dict[str, Any] = {"active": False, "held": None, "logs": {}}
 # Set from a run's end until its cycle is recorded; a stop then waits for it.
-STOP_DEFERRED: dict[str, Any] = {"active": False, "signal": None}
+# "stopping": a stop is being handled, and a repeated one only kills the run.
+STOP_DEFERRED: dict[str, Any] = {"active": False, "signal": None, "stopping": False}
 # The rows train.py appends when it promotes, before it writes its result.
 PROMOTION_LOGS = ("results.tsv", "prize_readiness.tsv")
 
@@ -736,7 +745,7 @@ def main():
             f"{first_use_record('best_model.pt')}, and candidates are compared on "
             "them until it is re-scored or replaced."
         )
-    STOP_DEFERRED.update(active=False, signal=None)
+    STOP_DEFERRED.update(active=False, signal=None, stopping=False)
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
 

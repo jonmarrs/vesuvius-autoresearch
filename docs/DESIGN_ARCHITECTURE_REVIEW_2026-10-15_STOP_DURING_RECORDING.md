@@ -66,7 +66,8 @@ The fourth row runs from the moment the run returns to the cycle's stdout lines.
   nothing reads the flag again; `main()` clears it at start. A `try/finally` would matter only to an in-process
   caller.
 - **A stop during the supervisor's clean-up of a run** (before it returns) still raises inside
-  `ProcessSupervisor.stop`'s wait, which can skip its SIGKILL step. That predates this PR.
+  `ProcessSupervisor.stop`'s wait, which can skip its SIGKILL step. That predates this PR. (Fixed since:
+  `DESIGN_ARCHITECTURE_REVIEW_2026-10-15_SUPERVISOR_STOP.md`.)
 - **A git killed by a signal** is reported as "exited -15"; `exit_description` would name the signal.
 - **A follow-up design:** cooperative cancellation. The handler would kill the supervised group and set a flag, and
   the loop would record the stopped cycle and exit at checkpoints. Mid-run stops would then get a sprint-log entry

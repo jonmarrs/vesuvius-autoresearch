@@ -2,6 +2,7 @@ import os
 import signal
 import subprocess
 import sys
+import threading
 import time
 from collections import defaultdict
 from pathlib import Path
@@ -137,6 +138,137 @@ while not Path({str(pidfile)!r}).exists(): time.sleep(.01)
         assert not alive(pid)
         assert supervisor.active is None
     finally:
+        if pidfile.exists() and alive(int(pidfile.read_text())):
+            os.kill(int(pidfile.read_text()), signal.SIGKILL)
+
+
+def _stop_twice_as_the_loop_does(supervisor, command, signal_times, on_stop):
+    """Run command under supervisor and deliver SIGUSR1 at signal_times, handled
+    as the loop's signal_handler handles a stop: stop the run, act on its files
+    (on_stop), exit."""
+
+    def handler(sig, frame):
+        supervisor.stop()
+        on_stop()
+        raise SystemExit(0)
+
+    previous = signal.signal(signal.SIGUSR1, handler)
+    timers = [
+        threading.Timer(t, os.kill, (os.getpid(), signal.SIGUSR1)) for t in signal_times
+    ]
+    try:
+        for timer in timers:
+            timer.start()
+        with pytest.raises(SystemExit):
+            supervisor.run(command, timeout=30)
+    finally:
+        for timer in timers:
+            timer.cancel()
+            timer.join()  # none may fire once SIGUSR1's default (exit) is back
+        signal.signal(signal.SIGUSR1, previous)
+
+
+def test_a_second_stop_kills_the_run_before_the_loop_settles(tmp_path):
+    """stop.sh twice, or Ctrl-C twice: the second handler's stop() returned at
+    once with the run alive, the loop settled best_model.pt, and the exit cut the
+    first stop short before its SIGKILL. A run ignoring SIGTERM then replaced
+    best_model.pt after the settle, and outlived the loop."""
+    pidfile, written = tmp_path / "leader.pid", tmp_path / "best_model.pt"
+    leader = (
+        "import os,signal,time; from pathlib import Path; "
+        "signal.signal(signal.SIGTERM, signal.SIG_IGN); "
+        f"Path({str(pidfile)!r}).write_text(str(os.getpid())); time.sleep(2.0); "
+        f"Path({str(written)!r}).write_text('run'); time.sleep(60)"
+    )
+    supervisor = ProcessSupervisor(grace_seconds=3)
+    alive_at_settle = []
+    try:
+        _stop_twice_as_the_loop_does(
+            supervisor,
+            [sys.executable, "-c", leader],
+            (0.7, 1.0),
+            lambda: alive_at_settle.append(alive(int(pidfile.read_text()))),
+        )
+        assert alive_at_settle == [False]
+        time.sleep(1.5)  # past the moment the run would have written
+        assert not written.exists()
+        assert supervisor.active is None and supervisor.stopping is None
+    finally:
+        if pidfile.exists() and alive(int(pidfile.read_text())):
+            os.kill(int(pidfile.read_text()), signal.SIGKILL)
+
+
+def test_a_stop_during_the_runs_clean_up_still_kills_its_survivors(tmp_path):
+    """After the leader exits, run() stops what is left of its group, waiting up
+    to the grace period. A stop then found nothing active, and the handler's
+    exit cut the clean-up short before its SIGKILL: a worker ignoring SIGTERM
+    outlived the loop, holding the GPU."""
+    pidfile = tmp_path / "worker.pid"
+    worker = (
+        "import os,signal,time; from pathlib import Path; "
+        "signal.signal(signal.SIGTERM,signal.SIG_IGN); "
+        f"Path({str(pidfile)!r}).write_text(str(os.getpid())); time.sleep(60)"
+    )
+    leader = f"""
+import subprocess, sys, time
+from pathlib import Path
+subprocess.Popen([sys.executable, '-c', {worker!r}])
+while not Path({str(pidfile)!r}).exists(): time.sleep(.01)
+"""
+    supervisor = ProcessSupervisor(grace_seconds=3)
+    landed = []
+    try:
+        _stop_twice_as_the_loop_does(
+            supervisor,
+            [sys.executable, "-c", leader],
+            (1.5,),
+            lambda: landed.append(supervisor.stopping is not None),
+        )
+        assert landed == [True]  # during run()'s clean-up, not before it
+        pid = int(pidfile.read_text())
+        deadline = time.monotonic() + 2
+        while alive(pid) and time.monotonic() < deadline:
+            time.sleep(0.01)
+        assert not alive(pid)
+    finally:
+        if pidfile.exists() and alive(int(pidfile.read_text())):
+            os.kill(int(pidfile.read_text()), signal.SIGKILL)
+
+
+def test_a_second_interrupt_during_the_stop_kills_the_group(tmp_path):
+    """The noise probe and the ablation turn SIGTERM into KeyboardInterrupt and
+    call no stop() from the handler: a second one landing inside run()'s stop
+    used to skip its SIGKILL, leaving a run that ignores SIGTERM alive."""
+    pidfile = tmp_path / "leader.pid"
+    leader = (
+        "import os,signal,time; from pathlib import Path; "
+        "signal.signal(signal.SIGTERM, signal.SIG_IGN); "
+        f"Path({str(pidfile)!r}).write_text(str(os.getpid())); time.sleep(60)"
+    )
+    supervisor = ProcessSupervisor(grace_seconds=3)
+    in_stop = []
+
+    def interrupt(sig, frame):
+        in_stop.append(supervisor.active is None)
+        raise KeyboardInterrupt
+
+    previous = signal.signal(signal.SIGUSR1, interrupt)
+    timers = [
+        threading.Timer(t, os.kill, (os.getpid(), signal.SIGUSR1)) for t in (0.5, 1.2)
+    ]
+    try:
+        for timer in timers:
+            timer.start()
+        with pytest.raises(KeyboardInterrupt):
+            supervisor.run([sys.executable, "-c", leader], timeout=30)
+        assert in_stop == [False, True]  # the second one landed inside stop()
+        assert not alive(int(pidfile.read_text()))
+        assert supervisor.active is None and supervisor.stopping is None
+    finally:
+        for timer in timers:
+            timer.cancel()
+            timer.join()
+        signal.signal(signal.SIGUSR1, previous)
         if pidfile.exists() and alive(int(pidfile.read_text())):
             os.kill(int(pidfile.read_text()), signal.SIGKILL)
 
