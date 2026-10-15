@@ -795,6 +795,34 @@ def test_a_stop_mid_cycle_settles_the_run(tmp_path, monkeypatch):
     assert torch.load(tmp_path / "best_model.pt")["val_f1"] == 0.48
 
 
+def test_a_repeated_stop_does_not_cut_the_settle_short(tmp_path, monkeypatch):
+    """Ctrl-C pressed again while the loop settles a stopped run: the second
+    handler exited inside the first one's settle, leaving the stopped run's rows
+    in results.tsv and prize_readiness.tsv. It now only kills the run."""
+    import run_autoresearch_loop as loop
+
+    ExperimentConfig().save(tmp_path / "config.json")
+    _checkpoint(tmp_path / "best_model.pt")
+    promote = _promoting_run(tmp_path, result=False)
+    undo = loop._undo_promotion_rows
+
+    def undo_while_stopped_again(before):
+        loop.signal_handler(2, None)
+        return undo(before)
+
+    def stopped(command, log):
+        promote(command, log)
+        loop.signal_handler(15, None)
+
+    monkeypatch.setattr(loop, "_undo_promotion_rows", undo_while_stopped_again)
+    with pytest.raises(SystemExit):
+        _drive_loop(tmp_path, monkeypatch, 1, run=stopped)
+    assert torch.load(tmp_path / "best_model.pt")["val_f1"] == 0.47
+    assert not (tmp_path / "results.tsv").exists()
+    assert not (tmp_path / "prize_readiness.tsv").exists()
+    assert not os.path.lexists(tmp_path / ".best_model.pt.held")
+
+
 def test_a_hold_left_by_a_killed_loop_is_the_operators_call(
     tmp_path, monkeypatch, capsys
 ):

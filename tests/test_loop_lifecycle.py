@@ -164,6 +164,7 @@ def _stop_twice_as_the_loop_does(supervisor, command, signal_times, on_stop):
     finally:
         for timer in timers:
             timer.cancel()
+            timer.join()  # none may fire once SIGUSR1's default (exit) is back
         signal.signal(signal.SIGUSR1, previous)
 
 
@@ -215,16 +216,59 @@ subprocess.Popen([sys.executable, '-c', {worker!r}])
 while not Path({str(pidfile)!r}).exists(): time.sleep(.01)
 """
     supervisor = ProcessSupervisor(grace_seconds=3)
+    landed = []
     try:
         _stop_twice_as_the_loop_does(
-            supervisor, [sys.executable, "-c", leader], (1.5,), lambda: None
+            supervisor,
+            [sys.executable, "-c", leader],
+            (1.5,),
+            lambda: landed.append(supervisor.stopping is not None),
         )
+        assert landed == [True]  # during run()'s clean-up, not before it
         pid = int(pidfile.read_text())
         deadline = time.monotonic() + 2
         while alive(pid) and time.monotonic() < deadline:
             time.sleep(0.01)
         assert not alive(pid)
     finally:
+        if pidfile.exists() and alive(int(pidfile.read_text())):
+            os.kill(int(pidfile.read_text()), signal.SIGKILL)
+
+
+def test_a_second_interrupt_during_the_stop_kills_the_group(tmp_path):
+    """The noise probe and the ablation turn SIGTERM into KeyboardInterrupt and
+    call no stop() from the handler: a second one landing inside run()'s stop
+    used to skip its SIGKILL, leaving a run that ignores SIGTERM alive."""
+    pidfile = tmp_path / "leader.pid"
+    leader = (
+        "import os,signal,time; from pathlib import Path; "
+        "signal.signal(signal.SIGTERM, signal.SIG_IGN); "
+        f"Path({str(pidfile)!r}).write_text(str(os.getpid())); time.sleep(60)"
+    )
+    supervisor = ProcessSupervisor(grace_seconds=3)
+    in_stop = []
+
+    def interrupt(sig, frame):
+        in_stop.append(supervisor.active is None)
+        raise KeyboardInterrupt
+
+    previous = signal.signal(signal.SIGUSR1, interrupt)
+    timers = [
+        threading.Timer(t, os.kill, (os.getpid(), signal.SIGUSR1)) for t in (0.5, 1.2)
+    ]
+    try:
+        for timer in timers:
+            timer.start()
+        with pytest.raises(KeyboardInterrupt):
+            supervisor.run([sys.executable, "-c", leader], timeout=30)
+        assert in_stop == [False, True]  # the second one landed inside stop()
+        assert not alive(int(pidfile.read_text()))
+        assert supervisor.active is None and supervisor.stopping is None
+    finally:
+        for timer in timers:
+            timer.cancel()
+            timer.join()
+        signal.signal(signal.SIGUSR1, previous)
         if pidfile.exists() and alive(int(pidfile.read_text())):
             os.kill(int(pidfile.read_text()), signal.SIGKILL)
 

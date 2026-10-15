@@ -22,22 +22,24 @@ class ProcessSupervisor:
         best_model.pt). It used to return at once with the group still alive,
         and the handler's exit then cut the first stop short before its SIGKILL.
         If the wait is interrupted, the group is killed before the exception
-        propagates."""
-        if self.active is None and self.stopping is not None:
+        propagates. Once SIGKILL is sent, a leader that is slow to be reaped no
+        longer raises TimeoutExpired, which the loop would take for its run's
+        own timeout and carry on."""
+        if self.stopping is not None:
             self._kill(self.stopping)
             return
         process = self.active
         if process is None:
             return
+        self.stopping = process  # set first: a handler between the two finds it
         self.active = None
-        self.stopping = process
         try:
             # start_new_session makes the child's PID the group ID. Do not look up
             # its current group: the leader can exit while its workers remain alive.
             try:
                 os.killpg(process.pid, signal.SIGTERM)
             except ProcessLookupError:
-                process.wait(timeout=self.grace_seconds)
+                self._reap(process)
                 return
             deadline = time.monotonic() + self.grace_seconds
             while time.monotonic() < deadline:
@@ -52,7 +54,7 @@ class ProcessSupervisor:
                     os.killpg(process.pid, signal.SIGKILL)
                 except ProcessLookupError:
                     pass
-            process.wait(timeout=max(self.grace_seconds, 1))
+            self._reap(process)
         except BaseException:
             self._kill(process)
             raise
@@ -60,10 +62,22 @@ class ProcessSupervisor:
             self.stopping = None
 
     def _kill(self, process):
+        """SIGKILL the group, reap the leader, and wait for the rest of the
+        group: the loop's leader is `uv`, and train.py is its child."""
         try:
             os.killpg(process.pid, signal.SIGKILL)
         except ProcessLookupError:
             pass
+        self._reap(process)
+        deadline = time.monotonic() + max(self.grace_seconds, 1)
+        while time.monotonic() < deadline:
+            try:
+                os.killpg(process.pid, 0)
+            except ProcessLookupError:
+                break
+            time.sleep(0.05)
+
+    def _reap(self, process):
         try:
             # Bounded: an interrupted wait in the same thread may still hold the
             # process's wait lock, and then this one times out instead.
