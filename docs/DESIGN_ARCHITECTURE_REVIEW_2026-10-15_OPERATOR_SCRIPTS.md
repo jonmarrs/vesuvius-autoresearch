@@ -78,9 +78,12 @@ validation run of #71's head, whose tree is `20d56885`'s.
 
 - Baseline: 42 failed, 2130 passed, 15 skipped, 1 xfailed, 2 errors (environmental: no scroll data, no CUDA,
   no villa data files).
-- Branch: 42 failed, 2132 passed, 15 skipped, 1 xfailed, 2 errors. The failures, errors and skips are the same
-  sets as the baseline; the 2 extra passes are the new tests. `scripts/smoke_test.py`: 9 of 11 passed, 2 skipped.
-- Ruff (check and format) on the changed files: clean.
+- Branch, first head: 42 failed, 2132 passed, 15 skipped, 1 xfailed, 2 errors. The failures, errors and skips are
+  the same sets as the baseline (skips compared with `-rs`).
+- Branch, after the PR review's fixes: 42 failed, 2136 passed, 15 skipped, 1 xfailed, 2 errors. The failures and
+  errors are the same set as the baseline; the 6 extra passes are the new tests. `scripts/smoke_test.py`: 9 of 11
+  passed, 2 skipped.
+- Ruff (check and format) on the changed files, and mypy on the harness and `loop_control`: clean.
 
 New tests in `tests/test_ablation_harness_isolation.py`, now in `scripts/run_validation_tests.py`:
 - the ablation leaves the loop's files alone: experiment runs, no stale result, the lock held throughout, no
