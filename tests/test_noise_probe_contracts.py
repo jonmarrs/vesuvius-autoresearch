@@ -358,6 +358,35 @@ time.sleep(60)
         holder.wait(timeout=5)
 
 
+@pytest.mark.skipif(not Path("/proc/self/cwd").exists(), reason="reads /proc")
+def test_a_run_no_loop_supervises_refuses_execution(inputs, monkeypatch, orphaned_run):
+    """Each trial's time budget assumes the GPU to itself. A run a killed loop
+    left training in the checkout gave trials fewer steps, and so inflated the
+    spread the probe measures."""
+    fake_runner(inputs, monkeypatch)
+    run = orphaned_run(inputs[0])
+    with pytest.raises(
+        ValueError, match=rf"not starting: .* PID {run.pid} \(started"
+    ) as refused:
+        probe.execute(plan(inputs))
+    assert not inputs[3].exists()
+    # Released, not just dropped: while `refused` keeps the traceback, and so
+    # execute's frame, alive, only its own close can have freed the lock. Taken
+    # from another process: POSIX record locks do not exclude their own.
+    taken = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "from scripts.loop_control import acquire_lock; "
+            "acquire_lock('autoresearch.lock')",
+        ],
+        cwd=inputs[0],
+        env={**os.environ, "PYTHONPATH": str(REPO)},
+    )
+    assert taken.returncode == 0, refused.value
+    assert run.poll() is None
+
+
 def test_cli_reports_execution_failure_nonzero(inputs, monkeypatch, capsys):
     fake_runner(inputs, monkeypatch, code=3)
     _, config, checkpoint, output = inputs

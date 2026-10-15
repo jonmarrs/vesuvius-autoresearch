@@ -525,6 +525,32 @@ def test_a_rescore_settles_a_hold_left_by_a_killed_loop_as_its_start_would(
         assert checkpoint.read_bytes() == before and held.exists()
 
 
+@needs_proc
+def test_a_rescore_keeps_the_hold_while_the_killed_loops_run_goes_on(
+    tools_fixture, monkeypatch, orphaned_run
+):
+    """While a killed loop's run trains on, best_model.pt is still the held
+    file, and the re-score released the hold as the loop's start would release
+    a settled one. The run's promotion then had no hold left to settle, and the
+    loop's next start kept it unseen. The loop's start looks for such a run
+    first (#81); the re-score now does too."""
+    checkpoint, _, models, _, datasets = tools_fixture
+    _stub_topology(monkeypatch)
+    held = checkpoint.with_name(".best_model.pt.held")
+    os.link(checkpoint, held)
+    before = checkpoint.read_bytes()
+    run = orphaned_run(checkpoint.parent)
+    pattern = rf"not updated: .* PID {run.pid} \(started"
+    with pytest.raises(RuntimeError, match=pattern) as refused:
+        reevaluate.reevaluate(update_stored=True)
+    assert held.exists() and os.path.samefile(held, checkpoint)
+    assert checkpoint.read_bytes() == before
+    assert not models and not datasets
+    # While `refused` keeps reevaluate's frame alive, only its close frees it.
+    assert _lock_is_free(), refused.value
+    assert run.poll() is None
+
+
 def test_a_dry_run_beside_the_loop_reads_only(tools_fixture, monkeypatch, capsys):
     # Without --update-stored nothing is written, so the lock is not consulted.
     checkpoint, _, _, _, _ = tools_fixture

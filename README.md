@@ -102,6 +102,8 @@ probe (`scripts/f1_noise_probe.py --execute`), the augmentation ablation
 while another holds it, and `stop.sh` stops whichever does. It also stops the
 training runs a killed loop or ablation left going (each runs in a session of its
 own), and names any started by hand; `scripts/loop_control.py status` lists them.
+While such a run is going, the loop, the noise probe, the ablation and the re-score refuse to
+start.
 
 ### Detector prediction and measurement
 

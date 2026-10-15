@@ -22,7 +22,9 @@ The harness:
     as the noise probe does, so it refuses to start beside the loop and the
     watchdog cannot start the loop under it; both write and read
     run_result.json here. ./stop.sh stops it, and its cell, between runs or
-    mid-run
+    mid-run. Nor does it start beside a training run no loop supervises (a
+    killed loop's or ablation's, or one started by hand), which shares the
+    GPU and can write run_result.json
   - clears run_result.json before each run, so a run that writes none is
     not credited with the previous run's result
   - runs each cell in its own process group, so a timeout or a stop ends
@@ -61,7 +63,11 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from scripts.loop_control import acquire_lock, running_pid  # noqa: E402
+from scripts.loop_control import (  # noqa: E402
+    acquire_lock,
+    running_pid,
+    unsupervised_runs_refusal,
+)
 from scripts.process_supervisor import (  # noqa: E402
     ProcessSupervisor,
     stops_interrupt,
@@ -273,6 +279,13 @@ def main() -> int:
             "(./stop.sh)",
             file=sys.stderr,
         )
+        return 1
+    # A cell's result is read from run_result.json here, and its time budget
+    # assumes the GPU to itself.
+    refusal = unsupervised_runs_refusal(PROJECT_ROOT)
+    if refusal:
+        lock.close()
+        print(f"error: not starting: {refusal}", file=sys.stderr)
         return 1
     supervisor = ProcessSupervisor()
     rows: list[dict] = []
