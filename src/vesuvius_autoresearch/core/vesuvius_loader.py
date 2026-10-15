@@ -75,17 +75,35 @@ _WARNING_COUNTS = defaultdict(int)
 LABEL_SHAPE_TOLERANCE_PX = 2
 
 
+# A DataLoader worker's own counts end with it; share_warning_counts gives it
+# a store the training process can read: (Manager dict, Manager lock).
+_SHARED_COUNTS = None
+
+
 def warning_counts() -> dict:
     """How often each degraded-input fallback fired in this process.
 
     The messages stop after a few per key; the counts do not, so a run can
-    record that it trained on unwarped or zero-ridge patches.
+    record that it trained on unwarped or zero-ridge patches. DataLoader
+    workers count in a shared store as well (share_warning_counts).
     """
     return dict(_WARNING_COUNTS)
 
 
+def share_warning_counts(counts, lock, worker_id=None):
+    """Also count this process's warnings in ``counts`` (a Manager dict, under
+    ``lock``). A DataLoader worker_init_fn: the worker's own counts are lost
+    when it exits."""
+    global _SHARED_COUNTS
+    _SHARED_COUNTS = (counts, lock)
+
+
 def _warn_limited(key, message, limit=5):
     _WARNING_COUNTS[key] += 1
+    if _SHARED_COUNTS is not None:
+        counts, lock = _SHARED_COUNTS
+        with lock:
+            counts[key] = counts.get(key, 0) + 1
     count = _WARNING_COUNTS[key]
     if count <= limit:
         print(f"Warning: {message}")

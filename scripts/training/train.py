@@ -14,7 +14,9 @@ if site_packages:
             ":".join(nvidia_libs) + ":" + os.environ.get("LD_LIBRARY_PATH", "")
         )
 
+import atexit
 import copy
+import functools
 import json
 import math
 import time
@@ -517,23 +519,79 @@ def guarded_update(model, optimizer, scaler, lr, max_norm=1.0, step=None) -> boo
     return True
 
 
-def shuffled_loader(dataset, batch_size: int, seed: int) -> DataLoader:
+# Worker processes preparing training batches. With none, every batch was read
+# and given its ridge channel and Frangi fiber target in the training process
+# while the GPU waited: the Frangi target alone took ~150 ms a patch (CPU, one
+# thread), ~0.6 s of a batch of 4, and the GPU was busy ~7% of each ~480 ms
+# step (2026-10-14). Each patch is drawn from its own index (jitter, depth), so
+# workers prepare the same batches in the same order, only in parallel.
+LOADER_WORKERS_ENV = "AUTORESEARCH_LOADER_WORKERS"
+
+
+def loader_workers() -> int:
+    """Workers for the labeled training loader: one fewer than the CPUs, at most
+    three, unless AUTORESEARCH_LOADER_WORKERS sets it (0: read in this process)."""
+    value = os.environ.get(LOADER_WORKERS_ENV)
+    if value is None:
+        return max(0, min(3, (os.cpu_count() or 1) - 1))
+    try:
+        workers = int(value)
+    except ValueError:
+        workers = -1
+    if workers < 0:
+        raise ValueError(f"{LOADER_WORKERS_ENV} must be an integer >= 0, not {value!r}")
+    return workers
+
+
+def _init_worker(init, worker_id):
+    """A training-loader worker's start: it will leave without finalizing the
+    interpreter, then runs ``init``.
+
+    Training stops mid-pass with batches in flight, and finalization ends a
+    worker's queue thread wherever it is. Inside PyTorch's C++ (releasing a
+    batch) that ends in std::terminate: "terminate called without an active
+    exception", SIGABRT, in 4 of 12 mid-pass stops on Fr47 (2026-10-15). Nothing
+    a worker holds at exit is needed: its batches have gone through the queue,
+    its warnings to the shared counts. Exit handlers run before finalization
+    ends threads, so this one exits first.
+    """
+    atexit.register(os._exit, 0)
+    if init is not None:
+        init(worker_id)
+
+
+def shuffled_loader(
+    dataset, batch_size: int, seed: int, workers: int = 0, worker_init_fn=None
+) -> DataLoader:
     """Training batches drawn in a seeded random order over the whole catalogue.
 
     Without a sampler the loader read the catalogue in raster order from index 0,
     and a cycle only reaches ~1,000 patches: every cycle fine-tuned on the same
     strip at the top of the fragment (and UA-MT on the top ~220 px of the
     volume). Each re-iteration after StopIteration draws a fresh permutation.
+    The order comes from ``seed`` alone, so ``workers`` changes only where the
+    batches are prepared.
     """
     generator = torch.Generator()
     generator.manual_seed(seed)
+    options = {}
+    if workers > 0:
+        options = {
+            "num_workers": workers,
+            # Spawned, not forked: the ridge channel runs on CuPy, and a forked
+            # child of a process that has used CUDA cannot.
+            "multiprocessing_context": "spawn",
+            # Not persistent: a persistent iterator's reset skips the generator
+            # draw a new iterator makes, so the next pass would be another order.
+            "worker_init_fn": functools.partial(_init_worker, worker_init_fn),
+        }
     return DataLoader(
         dataset,
         batch_size=batch_size,
         shuffle=True,
         generator=generator,
-        num_workers=0,  # 0 prevents semaphore leaks (resource_tracker warnings)
         pin_memory=True,
+        **options,
     )
 
 
@@ -1107,6 +1165,7 @@ import vesuvius_model
 from vesuvius_autoresearch.core.vesuvius_loader import (
     VesuviusLabeledDataset,
     VesuviusS3Dataset,
+    share_warning_counts,
     warning_counts,
 )
 
@@ -1751,6 +1810,9 @@ def train(config: ExperimentConfig, *, strict_warm_start=False):
             combined_ds,
             config.batch_size,
             sampling_seed + (1 if is_unlabeled else 0),
+            # UA-MT's unlabeled patches need no fiber target: read in-process.
+            workers=0 if is_unlabeled else workers,
+            worker_init_fn=share_counts,
         )
 
     # Built and read before anything else, so a missing or empty validation
@@ -1776,6 +1838,17 @@ def train(config: ExperimentConfig, *, strict_warm_start=False):
         if heads & {"fiber", "qc"}
         else "sobel_z"
     )
+    workers = loader_workers()
+    shared_warnings = share_counts = None
+    if workers:
+        import multiprocessing
+
+        manager = multiprocessing.get_context("spawn").Manager()
+        shared_warnings = manager.dict()
+        share_counts = functools.partial(
+            share_warning_counts, shared_warnings, manager.Lock()
+        )
+    print(f"Training loader workers: {workers}")
     data_loader = get_dataloader(config.uris)
     data_iter = iter(data_loader)
 
@@ -2568,6 +2641,8 @@ def train(config: ExperimentConfig, *, strict_warm_start=False):
         f"mean_ap_errors={validation_diag['mean_ap_errors']}"
     )
     loader_warnings = warning_counts()
+    for key, count in dict(shared_warnings or {}).items():  # the loader workers'
+        loader_warnings[key] = loader_warnings.get(key, 0) + count
     if loader_warnings:
         print(f"loader_warnings:       {loader_warnings}")
     if skipped_updates:
@@ -2707,10 +2782,9 @@ def train(config: ExperimentConfig, *, strict_warm_start=False):
         "prize_gate_failures": prize_gate_failures,
         "validation_diag": validation_diag,
         "augmentation_fallbacks": dict(AUGMENTATION_FALLBACKS),
-        # Loader fallbacks this process hit (zero ridges, unwarped lasagna
-        # patches, zero patches on read errors), counted past the few messages.
-        # Counts are per process: DataLoader workers would keep their own
-        # (shuffled_loader uses num_workers=0).
+        # Loader fallbacks this run hit (zero ridges, unwarped lasagna patches,
+        # zero patches on read errors), counted past the few messages, the
+        # loader workers' included (share_warning_counts).
         "loader_warnings": loader_warnings,
         # Steps not applied: a non-finite or > 1e6 loss, or a non-finite
         # gradient norm (see guarded_update).
