@@ -793,6 +793,115 @@ def test_a_promotion_keeps_its_model_and_releases_the_hold(tmp_path, monkeypatch
     assert (tmp_path / "results.tsv").read_text() == "promoted\t0.9\n"
 
 
+def _fix_the_clock(monkeypatch):
+    """Noon on one day for the loop's log names: _drive_loop sets the hour the
+    shift is decided by, but the log is named by the real clock."""
+    import datetime
+
+    import run_autoresearch_loop as loop
+
+    class Noon(datetime.datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return cls(2026, 10, 15, 12, 0, 0)
+
+    monkeypatch.setattr(
+        loop, "datetime", SimpleNamespace(datetime=Noon, timedelta=datetime.timedelta)
+    )
+
+
+def test_a_restart_within_the_shift_goes_on_with_its_sprint_log(
+    tmp_path, monkeypatch, capsys
+):
+    """The check looked for "day shift" in a name spelled "day_shift", so every
+    restart within a shift (a crash, a stop and start) began another log: one
+    day shift of 2026-07-06 left three."""
+    _fix_the_clock(monkeypatch)
+    ExperimentConfig().save(tmp_path / "config.json")
+    _checkpoint(tmp_path / "best_model.pt")
+    result = {"is_success": False, "val_f1": 0.5}
+    _drive_loop(tmp_path, monkeypatch, 1, result=result)
+    _drive_loop(tmp_path, monkeypatch, 1, result=result)
+    logs = list((tmp_path / "sprint_logs").glob("*.md"))
+    assert len(logs) == 1
+    assert "Resuming existing shift log" in capsys.readouterr().out
+    text = logs[0].read_text()
+    assert text.count("# Day Shift Sprint") == 1  # one header
+    first, second = text.split("## Resumed at")
+    assert "## Cycle 1: " in first and "## Cycle 1: " in second  # both starts' cycles
+    assert second.startswith(" ") and "cycles count from 1 again" in second
+
+
+def test_restarts_that_run_no_cycle_mark_the_log_once(tmp_path, monkeypatch):
+    """With no tweak under the VRAM cap the loop ends at once, and the watchdog
+    starts it again every few minutes: each start added a "Resumed at" line."""
+    import run_autoresearch_loop as loop
+
+    _fix_the_clock(monkeypatch)
+    ExperimentConfig().save(tmp_path / "config.json")
+    _checkpoint(tmp_path / "best_model.pt")
+    _drive_loop(tmp_path, monkeypatch, 1, result={"is_success": False, "val_f1": 0.5})
+    monkeypatch.setattr(loop, "tweak_proposals", lambda *args, **kwargs: ([], []))
+    for _ in range(3):
+        assert _drive_loop(tmp_path, monkeypatch, 1) == []
+    (log,) = (tmp_path / "sprint_logs").glob("*.md")
+    assert log.read_text().count("## Resumed at") == 1
+
+
+def test_a_night_shift_past_midnight_is_the_evening_s_shift(tmp_path, monkeypatch):
+    """A night shift begins at 19:00 and ends at 07:00 the next day; a restart
+    after midnight compared that day's date with the evening's log."""
+    import datetime
+
+    from run_autoresearch_loop import shift_log_to_resume
+
+    monkeypatch.chdir(tmp_path)  # the loop's pointer names sprint_logs/<log>
+    (tmp_path / "sprint_logs").mkdir()
+
+    def log(name):
+        path = f"sprint_logs/{name}"
+        Path(path).write_text("# log\n")
+        return path
+
+    def resumed(path, shift, *when):
+        return shift_log_to_resume(path, shift, datetime.datetime(2026, *when))
+
+    evening = log("sprint_log_2026-10-14_19-05-08_night_shift.md")
+    after_midnight = log("sprint_log_2026-10-15_01-30-00_night_shift.md")
+    morning = log("sprint_log_2026-10-15_07-05-09_day_shift.md")
+    assert resumed(evening, "night_shift", 10, 14, 23, 0) == evening
+    assert resumed(evening, "night_shift", 10, 15, 3, 0) == evening
+    assert resumed(after_midnight, "night_shift", 10, 15, 6, 59) == after_midnight
+    assert resumed(morning, "day_shift", 10, 15, 18, 0) == morning
+    # Another night, or the other shift.
+    assert resumed(evening, "night_shift", 10, 15, 20, 0) is None
+    assert resumed(after_midnight, "night_shift", 10, 15, 19, 30) is None
+    assert resumed(morning, "night_shift", 10, 15, 20, 0) is None
+    assert resumed(evening, "day_shift", 10, 15, 8, 0) is None
+    # Begun as the night shift ended (07:00:00): not that evening's shift.
+    stray = log("sprint_log_2026-10-15_07-00-00_night_shift.md")
+    assert resumed(stray, "night_shift", 10, 15, 19, 30) is None
+    # Not a log the loop wrote: missing, elsewhere, another name, a bad date.
+    assert (
+        resumed(
+            "sprint_logs/sprint_log_2026-10-15_08-00-00_day_shift.md",
+            "day_shift",
+            10,
+            15,
+            9,
+            0,
+        )
+        is None
+    )
+    elsewhere = tmp_path / "sprint_log_2026-10-15_08-00-00_day_shift.md"
+    elsewhere.write_text("# log\n")
+    assert resumed(str(elsewhere), "day_shift", 10, 15, 9, 0) is None
+    assert resumed(log("notes.md"), "day_shift", 10, 15, 9, 0) is None
+    impossible = log("sprint_log_2026-02-30_08-00-00_day_shift.md")
+    assert resumed(impossible, "day_shift", 10, 15, 9, 0) is None
+    assert resumed("", "day_shift", 10, 15, 9, 0) is None
+
+
 def test_a_failed_preflight_is_named_in_the_sprint_log(tmp_path, monkeypatch):
     """Every failure used to read "Training crashed (Unknown error)": 264 runs
     killed at the timeout from 2026-06-29 to 2026-07-07 showed only in the

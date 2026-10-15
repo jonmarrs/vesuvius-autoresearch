@@ -1,8 +1,10 @@
 import copy
+import datetime
 import glob
 import json
 import os
 import random
+import re
 import signal
 import stat
 import subprocess
@@ -305,6 +307,52 @@ CONFIG_FILE = "config.json"
 RECENT_CONFIGS_FILE = "recent_configs.json"
 CURRENT_LOG_PTR = ".current_day_shift_log"
 TEMP_CONFIG = "config_temp.json"
+# sprint_logs/sprint_log_<when it was started>_<shift>.md
+RESUME_MARKER = "## Resumed at"
+SHIFT_LOG_NAME = re.compile(
+    r"sprint_log_(\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2})_(\w+)\.md"
+)
+
+
+def _ends_with_resume_marker(path):
+    """Whether the log's last line is a resume marker: a restart since then
+    wrote nothing."""
+    with open(path, "rb") as log:
+        log.seek(0, os.SEEK_END)
+        log.seek(max(0, log.tell() - 512))
+        lines = [line for line in log.read().splitlines() if line.strip()]
+    return bool(lines) and lines[-1].decode(errors="replace").startswith(RESUME_MARKER)
+
+
+def shift_began(when):
+    """The date the shift running at ``when`` began: a night shift (19:00 to
+    07:00) past midnight began the evening before."""
+    day = when.date()
+    return day - datetime.timedelta(days=1) if when.hour < 7 else day
+
+
+def shift_log_to_resume(previous, shift_tag, now):
+    """``previous``, the log the loop last wrote to, if it is this shift's log:
+    in sprint_logs/, of the same shift, begun the same day, as its name records.
+    A restart within a shift (a crash, a stop and start) then goes on writing
+    the shift's record."""
+    match = SHIFT_LOG_NAME.fullmatch(os.path.basename(previous))
+    if (
+        match is None
+        or match.group(2) != shift_tag
+        or os.path.dirname(os.path.normpath(previous)) != "sprint_logs"
+        or not os.path.isfile(previous)
+    ):
+        return None
+    try:
+        started = datetime.datetime.strptime(match.group(1), "%Y-%m-%d_%H-%M-%S")
+    except ValueError:  # an impossible date: not a name the loop wrote
+        return None
+    # Started within its shift's hours: a log begun as the shift ended (the
+    # hour and the time read a moment apart) is not the next one's.
+    if (7 <= started.hour < 19) != (shift_tag == "day_shift"):
+        return None
+    return previous if shift_began(started) == shift_began(now) else None
 
 
 # Pre-flight VRAM estimate (complexity heuristic, Sprint 023 refined). The
@@ -837,17 +885,19 @@ def main():
 
     os.makedirs("sprint_logs", exist_ok=True)
     os.makedirs("reports", exist_ok=True)
-    log_filename = f"sprint_logs/sprint_log_{time.strftime('%Y-%m-%d_%H-%M-%S')}_{shift_name.lower().replace(' ', '_')}.md"
+    shift_tag = shift_name.lower().replace(" ", "_")
+    now = datetime.datetime.now()
+    log_filename = f"sprint_logs/sprint_log_{now:%Y-%m-%d_%H-%M-%S}_{shift_tag}.md"
 
-    # Resume previous log if still same shift and file exists
+    # After a restart within the shift, go on with its log. The check used to
+    # look for "day shift" in a name spelled "day_shift", so every restart
+    # began another log; and a night shift past midnight compared the date.
     if os.path.exists(CURRENT_LOG_PTR):
         with open(CURRENT_LOG_PTR) as f:
-            prev_log = f.read().strip()
-            if os.path.exists(prev_log) and shift_name.lower() in prev_log.lower():
-                # Check if it was today (simple check)
-                if time.strftime("%Y-%m-%d") in prev_log:
-                    log_filename = prev_log
-                    print(f"Resuming existing shift log: {log_filename}")
+            resumed = shift_log_to_resume(f.read().strip(), shift_tag, now)
+        if resumed:
+            log_filename = resumed
+            print(f"Resuming existing shift log: {log_filename}")
 
     with open(CURRENT_LOG_PTR, "w") as f:
         f.write(log_filename)
@@ -862,6 +912,14 @@ def main():
             log.write(f"- **Start Time**: {time.strftime('%H:%M:%S')}\n")
             log.write(
                 f"- **Goal**: Monotonic val_f1 optimization (honest F1, AP-lift gated) via {default_budget // 60}-min cycles (Config-Driven).\n\n"
+            )
+    elif not _ends_with_resume_marker(log_filename):
+        # Once: a restart that runs no cycle (nothing under the VRAM cap) is
+        # restarted by the watchdog every few minutes, and adds nothing else.
+        with open(log_filename, "a") as log:
+            log.write(
+                f"\n{RESUME_MARKER} {time.strftime('%H:%M:%S')} "
+                "(the loop restarted; its cycles count from 1 again)\n\n"
             )
 
     env = os.environ.copy()
