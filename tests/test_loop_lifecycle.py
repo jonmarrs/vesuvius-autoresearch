@@ -561,6 +561,30 @@ def test_a_run_whose_session_leader_died_is_still_seen(tmp_path, capsys):
         _gone(child)
 
 
+def _checkout_with_start_sh(directory):
+    """start.sh and loop_control.py in a checkout of their own, with a `uv` on
+    PATH that launches nothing; returns a function that runs start.sh."""
+    (directory / "scripts").mkdir()
+    shutil.copy(REPO / "start.sh", directory / "start.sh")
+    shutil.copy(REPO / "scripts" / "loop_control.py", directory / "scripts")
+    fake = directory / "bin"
+    fake.mkdir()
+    (fake / "uv").write_text("#!/bin/sh\nexit 0\n")
+    (fake / "uv").chmod(0o755)
+    env = {**os.environ, "PATH": f"{fake}{os.pathsep}{os.environ['PATH']}"}
+
+    def start():
+        return subprocess.run(
+            ["bash", str(directory / "start.sh")],
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+
+    return start
+
+
 @pytest.mark.skipif(not Path("/proc/self/cwd").exists(), reason="reads /proc")
 def test_start_sh_says_the_loop_will_not_start_beside_an_orphaned_run(
     tmp_path, orphaned_run
@@ -568,34 +592,51 @@ def test_start_sh_says_the_loop_will_not_start_beside_an_orphaned_run(
     """start.sh printed the run `status` listed, then "Autoresearch launcher
     started"; the loop it launched refused at once, which only autoresearch.out
     recorded."""
-    (tmp_path / "scripts").mkdir()
-    shutil.copy(REPO / "start.sh", tmp_path / "start.sh")
-    shutil.copy(REPO / "scripts" / "loop_control.py", tmp_path / "scripts")
-    fake = tmp_path / "bin"
-    fake.mkdir()
-    (fake / "uv").write_text("#!/bin/sh\nexit 0\n")  # launches nothing
-    (fake / "uv").chmod(0o755)
-    env = {**os.environ, "PATH": f"{fake}{os.pathsep}{os.environ['PATH']}"}
-
-    def start():
-        return subprocess.run(
-            ["bash", str(tmp_path / "start.sh")],
-            env=env,
-            capture_output=True,
-            text=True,
-            timeout=60,
-        )
-
+    start = _checkout_with_start_sh(tmp_path)
     alone = start()
     assert alone.returncode == 0, alone.stderr
     assert "launcher started" in alone.stdout
-    assert "will not start a cycle" not in alone.stdout
+    assert "without starting a cycle" not in alone.stdout
     run = orphaned_run(tmp_path)
     beside = start()
     assert beside.returncode == 0, beside.stderr
-    assert f"PID {run.pid} (started by a loop or ablation" in beside.stdout
-    assert "will not start a cycle while the run above goes on" in beside.stdout
-    assert "./stop.sh stops a run a loop or ablation started" in beside.stdout
+    said = " ".join(beside.stdout.split())  # the note is wrapped
+    assert f"PID {run.pid} (started by a loop or ablation" in said
+    assert "The loop just launched exits without starting a cycle" in said
+    assert "./stop.sh stops the runs a loop or ablation started" in said
+    assert "otherwise run ./start.sh again" in said
+
+
+@pytest.mark.parametrize("holder", ["the loop", "unidentified"])
+def test_start_sh_keeps_its_exit_codes(tmp_path, holder):
+    """Work running: exit 1, as before; a lock status cannot read: its exit 2.
+    Neither launches anything."""
+    start = _checkout_with_start_sh(tmp_path)
+    script = tmp_path / "run_autoresearch_loop.py"
+    script.write_text(
+        "import fcntl, os, sys, time\n"
+        "lock = open('autoresearch.lock', 'w')\n"
+        "fcntl.lockf(lock, fcntl.LOCK_EX)\n"
+        "lock.write(sys.argv[1] if len(sys.argv) > 1 else str(os.getpid()))\n"
+        "lock.flush()\n"
+        "print('ready', flush=True)\n"
+        "time.sleep(60)\n"
+    )
+    args = [sys.executable, str(script)] + (["x"] if holder == "unidentified" else [])
+    work = subprocess.Popen(args, cwd=tmp_path, stdout=subprocess.PIPE, text=True)
+    try:
+        assert work.stdout is not None and work.stdout.readline() == "ready\n"
+        result = start()
+    finally:
+        work.kill()
+        work.wait()
+    if holder == "the loop":
+        assert result.returncode == 1
+        assert f"Autoresearch work is running (PID {work.pid})" in result.stdout
+    else:
+        assert result.returncode == 2
+        assert "contains no valid PID" in result.stderr
+    assert not (tmp_path / "autoresearch.out").exists()  # nothing launched
 
 
 def test_stop_pauses_watchdog_even_without_a_running_loop(tmp_path):
@@ -650,6 +691,8 @@ LOOP_RUNTIME_STATE = (
     ".current_day_shift_log",
     ".loop_paused",
     "autoresearch.out",
+    "watchdog.log",
+    "run.log",
     "config_temp.json",
     "run_result.json",
 )

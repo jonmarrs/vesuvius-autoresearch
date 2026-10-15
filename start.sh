@@ -18,10 +18,15 @@ nohup uv run python -u run_autoresearch_loop.py >> autoresearch.out 2>&1 &
 echo "Autoresearch launcher started (PID $!). See $REPO/autoresearch.out."
 case "$status" in
 *"Unsupervised training run"*)
-    # The loop's start refuses beside such a run (and stops a loop's run past
-    # any cycle's timeout); said here, not only in autoresearch.out.
-    echo "It will not start a cycle while the run above goes on. ./stop.sh stops a run" \
-        "a loop or ablation started (and pauses the watchdog); a run started by hand" \
-        "is yours to stop. The watchdog tries again on its next tick."
+    # The loop's start refuses beside such a run, and stops a supervised one
+    # past any cycle's timeout; said here, not only in autoresearch.out.
+    cat <<'EOF'
+The loop just launched exits without starting a cycle while a run listed above
+goes on; autoresearch.out says why (it stops a supervised run past any cycle's
+timeout itself). Once the runs end, the watchdog, if installed, starts the loop
+on its next tick; otherwise run ./start.sh again. ./stop.sh stops the runs a
+loop or ablation started, but pauses the watchdog (run ./start.sh after it); a
+run started by hand: kill -TERM <PID>.
+EOF
     ;;
 esac
