@@ -846,9 +846,10 @@ class VesuviusLabeledDataset(torch.utils.data.Dataset):
             )
 
     def _compute_fiber_target(self, patch_vol):
-        """Return [1, 1, H, W] fiber target. Sobel-Z source = zeros (train.py
-        will compute the real Sobel-Z on GPU); Frangi source = on-the-fly
-        Frangi vesselness z-collapsed via mean."""
+        """Return [1, 1, H, W] fiber target. Sobel-Z source = zeros; Frangi
+        source = on-the-fly Frangi vesselness z-collapsed via mean (skimage,
+        CPU). train.py asks for the zeros and computes either target from the
+        batch on its device (train.fiber_target, the same Frangi in torch)."""
         if self.target_fiber_source != "frangi":
             return torch.zeros(
                 (1, 1, self.patch_size, self.patch_size), dtype=torch.float32
