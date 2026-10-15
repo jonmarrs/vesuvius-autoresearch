@@ -46,6 +46,8 @@ supervisor = ProcessSupervisor()
 
 
 def signal_handler(sig, frame):
+    if sig == signal.SIGHUP:
+        _leave_closed_terminal()
     if STOP_DEFERRED["active"]:
         # The cycle's outcome is being recorded (the config, the commit, the
         # sprint-log entry): stop once that is done, not halfway through it.
@@ -73,6 +75,24 @@ def signal_handler(sig, frame):
         if note:
             print(f"Incumbent: {note}.")
     sys.exit(0)
+
+
+LOOP_OUTPUT = "autoresearch.out"
+
+
+def _leave_closed_terminal():
+    """After a hangup, writing to the closed terminal fails (EIO): the handler's
+    first message raised before it stopped the run, and later ones broke the
+    recording of a cycle. From here the loop's output goes to autoresearch.out,
+    as start.sh's does."""
+    terminal = False
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            terminal = terminal or stream.isatty()
+        except (OSError, ValueError, AttributeError):
+            terminal = True
+    if terminal:
+        sys.stdout = sys.stderr = open(LOOP_OUTPUT, "a", buffering=1)
 
 
 # Define templates for architectural and hyperparameter tweaks
@@ -604,6 +624,90 @@ def leftover_hold():
     )
 
 
+TRAIN_SCRIPT = "scripts/training/train.py"
+# The longest a supervised training run may last: the night budget plus the
+# margin of its timeout (default_budget + 300 in main).
+LONGEST_RUN_SECONDS = 3600 + 300
+
+
+def _process_age(pid):
+    """Seconds since pid started, from /proc; None if unknown."""
+    try:
+        with open(f"/proc/{pid}/stat") as f:
+            fields = f.read().rsplit(")", 1)[1].split()
+        with open("/proc/uptime") as f:
+            uptime = float(f.read().split()[0])
+        return uptime - int(fields[19]) / os.sysconf("SC_CLK_TCK")
+    except (OSError, ValueError, IndexError):
+        return None
+
+
+def unsupervised_runs(repo="."):
+    """Training runs going in this checkout outside any loop, as (PID, age in
+    seconds or None, whether it is a loop's own run).
+
+    The loop starts each run in a session of its own, so a loop killed without
+    its handler running (SIGKILL; a closed terminal before SIGHUP was handled)
+    leaves its run going, with no timeout: it can still replace best_model.pt and
+    write run_result.json. A train.py run started here by hand writes the same
+    files. A run is an interpreter (python, uv) working in this checkout with
+    its train.py among its arguments, by path; an editor or pager open on the
+    file is not one. A loop's own run is the session leader the supervisor
+    started, `uv run python -u scripts/training/train.py --config
+    config_temp.json`. Found through /proc (the supported hosts are Linux)."""
+    if not os.path.isdir("/proc"):
+        return []
+    repo = os.path.realpath(repo)
+    script = os.path.join(repo, TRAIN_SCRIPT)
+    found = []
+    for entry in os.listdir("/proc"):
+        if not entry.isdigit() or int(entry) == os.getpid():
+            continue
+        pid = int(entry)
+        try:
+            with open(f"/proc/{pid}/cmdline", "rb") as f:
+                args = [os.fsdecode(a) for a in f.read().split(b"\0") if a]
+            cwd = os.path.realpath(f"/proc/{pid}/cwd")
+            leader = os.getsid(pid) == pid
+        except OSError:
+            continue  # gone, or another user's process
+        if cwd != repo or not args:
+            continue
+        program = os.path.basename(args[0])
+        if not (program.startswith("python") or program == "uv"):
+            continue
+        if not any(os.path.realpath(os.path.join(cwd, a)) == script for a in args[1:]):
+            continue
+        found.append((pid, _process_age(pid), leader and TEMP_CONFIG in args))
+    return sorted(found)
+
+
+def unsupervised_runs_reason(running):
+    """Stops a loop's own run that has outlived any cycle's timeout, as its
+    supervisor would have, and says why the loop does not start."""
+    lines = []
+    for pid, age, own in running:
+        what = "a loop's run" if own else "a run"
+        when = f", running {age / 60:.0f} min" if age is not None else ""
+        lines.append(f"PID {pid} ({what}{when})")
+        if own and age is not None and age > LONGEST_RUN_SECONDS:
+            try:
+                os.killpg(pid, signal.SIGTERM)
+                lines[-1] += ", stopped now: past any cycle's timeout"
+            except OSError:
+                pass
+    return (
+        "a training run is going in this checkout outside any loop: "
+        + "; ".join(lines)
+        + ". A loop that ended without stopping its run (killed, or its terminal "
+        "closed) leaves it going, and a run started here by hand writes the same "
+        "files: either can still replace best_model.pt and write run_result.json. "
+        "The watchdog tries again on its next tick. To stop a run now: "
+        "kill -TERM -- -<PID> for a loop's run (its whole group), else "
+        "kill -TERM <PID>. If it promoted, the hold then needs your call."
+    )
+
+
 def exit_description(returncode):
     if returncode is not None and returncode < 0:
         try:
@@ -724,6 +828,12 @@ def main():
         print("Autoresearch is paused. Use ./start.sh to resume.")
         return
 
+    # Before the hold: a run still going may yet replace best_model.pt.
+    running = unsupervised_runs()
+    if running:
+        print(f"Not starting: {unsupervised_runs_reason(running)}")
+        return
+
     reason = leftover_hold()
     if reason:
         print(f"Not starting: {reason}")
@@ -761,6 +871,10 @@ def main():
     STOP_DEFERRED.update(active=False, signal=None, stopping=False)
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
+    # A closed terminal (SIGHUP) stops the loop like stop.sh, not at once with
+    # its run left going. start.sh runs it under nohup, which ignores SIGHUP.
+    if signal.getsignal(signal.SIGHUP) is not signal.SIG_IGN:
+        signal.signal(signal.SIGHUP, signal_handler)
 
     success_counts: dict[str, float] = load_history()
 
@@ -1008,7 +1122,7 @@ def main():
                             "run",
                             "python",
                             "-u",
-                            "scripts/training/train.py",
+                            TRAIN_SCRIPT,
                             "--config",
                             TEMP_CONFIG,
                             "--smoke",
@@ -1048,7 +1162,7 @@ def main():
                                 "run",
                                 "python",
                                 "-u",
-                                "scripts/training/train.py",
+                                TRAIN_SCRIPT,
                                 "--config",
                                 TEMP_CONFIG,
                             ],

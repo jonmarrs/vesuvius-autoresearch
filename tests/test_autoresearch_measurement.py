@@ -425,12 +425,19 @@ def _drive_loop(
     run=None,
     preflight_returncode=0,
     commit=lambda message: True,
+    signals=None,
 ):
     import run_autoresearch_loop as loop
 
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(loop, "__file__", str(tmp_path / "run_autoresearch_loop.py"))
-    monkeypatch.setattr(loop.signal, "signal", lambda *args: None)
+    monkeypatch.setattr(
+        loop.signal,
+        "signal",
+        (lambda sig, handler: signals.append(sig))
+        if signals is not None
+        else (lambda *args: None),
+    )
     monkeypatch.setattr(loop.time, "sleep", lambda *args: None)
     hours = iter([12] * (cycles + 1) + [20])
     monkeypatch.setattr(
@@ -859,6 +866,181 @@ def test_a_repeated_stop_does_not_cut_the_settle_short(tmp_path, monkeypatch):
     assert not (tmp_path / "results.tsv").exists()
     assert not (tmp_path / "prize_readiness.tsv").exists()
     assert not os.path.lexists(tmp_path / ".best_model.pt.held")
+
+
+_TRAINING = "import time\ntime.sleep(120)\n"
+
+
+def _training_run(directory, command=None, own=False):
+    """A process that looks to /proc like a training run working in directory;
+    own: a session leader, as the loop's supervisor starts its runs."""
+    script = directory / "scripts" / "training" / "train.py"
+    script.parent.mkdir(parents=True, exist_ok=True)
+    script.write_text(_TRAINING)
+    command = command or [
+        sys.executable,
+        "-u",
+        "scripts/training/train.py",
+        "--config",
+        "config_temp.json",
+    ]
+    run = subprocess.Popen(command, cwd=directory, start_new_session=own)
+    deadline = time.monotonic() + 10
+    while time.monotonic() < deadline:
+        try:
+            if b"train.py" in Path(f"/proc/{run.pid}/cmdline").read_bytes():
+                break
+        except FileNotFoundError:
+            pass
+        time.sleep(0.02)
+    return run
+
+
+def _end(*runs):
+    for run in runs:
+        run.kill()
+        run.wait()
+
+
+needs_proc = pytest.mark.skipif(
+    not Path("/proc/self/cwd").exists(), reason="reads /proc"
+)
+
+
+@needs_proc
+def test_the_loop_will_not_start_beside_a_training_run_it_does_not_supervise(
+    tmp_path, monkeypatch, capsys
+):
+    """A loop killed without its handler (SIGKILL, a closed terminal) leaves its
+    run going in a session of its own. The watchdog's restart then released the
+    hold and started a cycle beside a run that could still replace
+    best_model.pt and write run_result.json."""
+    ExperimentConfig().save(tmp_path / "config.json")
+    _checkpoint(tmp_path / "best_model.pt")
+    os.link(tmp_path / "best_model.pt", tmp_path / ".best_model.pt.held")
+    elsewhere = tmp_path / "other_checkout"
+    elsewhere.mkdir()
+    runs = []
+    try:
+        runs.append(_training_run(tmp_path))
+        runs.append(_training_run(elsewhere))
+        # Absolute path, same checkout: it writes the same files.
+        absolute = tmp_path / "scripts" / "training" / "train.py"
+        runs.append(_training_run(tmp_path, [sys.executable, str(absolute)]))
+        assert _drive_loop(tmp_path, monkeypatch, cycles=1) == []
+        out = capsys.readouterr().out
+        assert "Not starting" in out
+        assert f"PID {runs[0].pid} (a run" in out and f"PID {runs[2].pid} (" in out
+        assert f"PID {runs[1].pid} (" not in out
+        assert "kill -TERM" in out and "watchdog tries again" in out
+        # The hold waits for the operator or the run's end, untouched.
+        assert os.path.samefile(
+            tmp_path / "best_model.pt", tmp_path / ".best_model.pt.held"
+        )
+    finally:
+        _end(*runs)
+    # Once it has ended, the loop starts (and releases the unchanged hold).
+    result = {"is_success": False, "val_f1": 0.5}
+    assert len(_drive_loop(tmp_path, monkeypatch, 1, result=result)) == 1
+    assert not os.path.lexists(tmp_path / ".best_model.pt.held")
+
+
+@needs_proc
+def test_an_editor_on_the_training_script_is_not_a_run(tmp_path, monkeypatch):
+    """`tail -f`, an editor or a pager open on train.py named it among its
+    arguments, and kept the loop from starting for as long as it stayed open."""
+    ExperimentConfig().save(tmp_path / "config.json")
+    viewer = _training_run(tmp_path, ["tail", "-f", "scripts/training/train.py"])
+    try:
+        result = {"is_success": False, "val_f1": 0.5}
+        assert len(_drive_loop(tmp_path, monkeypatch, 1, result=result)) == 1
+    finally:
+        _end(viewer)
+
+
+@needs_proc
+def test_a_loops_run_past_any_cycles_timeout_is_stopped(tmp_path, monkeypatch, capsys):
+    """Its supervisor died with the loop, and with it the run's timeout: a run
+    hung at its end (wandb.finish) kept every later start refused. A loop's own
+    run (a session leader) past the longest cycle's timeout is stopped, as the
+    supervisor would have; a run started by hand never is."""
+    import run_autoresearch_loop as loop
+
+    ExperimentConfig().save(tmp_path / "config.json")
+    monkeypatch.setattr(loop, "LONGEST_RUN_SECONDS", -1)  # every run is past it
+    own = _training_run(tmp_path, own=True)
+    by_hand = _training_run(tmp_path)
+    try:
+        assert _drive_loop(tmp_path, monkeypatch, cycles=1) == []
+        out = capsys.readouterr().out
+        assert f"PID {own.pid} (a loop's run" in out and "stopped now" in out
+        assert own.wait(timeout=10) == -signal.SIGTERM
+        assert by_hand.poll() is None  # left to the operator
+    finally:
+        _end(own, by_hand)
+
+
+@pytest.mark.parametrize("ignored", [False, True])
+def test_a_closed_terminal_stops_the_loop_like_stop_sh(tmp_path, monkeypatch, ignored):
+    """SIGHUP ended a loop run in a terminal at once, leaving its run going;
+    under nohup (start.sh) it is ignored, and stays so."""
+    ExperimentConfig().save(tmp_path / "config.json")
+    real_signal = signal.signal
+    previous = real_signal(signal.SIGHUP, signal.SIG_IGN if ignored else signal.SIG_DFL)
+    registered: list = []
+    try:
+        result = {"is_success": False, "val_f1": 0.5}
+        _drive_loop(tmp_path, monkeypatch, 1, result=result, signals=registered)
+    finally:
+        real_signal(signal.SIGHUP, signal.SIG_DFL if previous is None else previous)
+    assert signal.SIGTERM in registered and signal.SIGINT in registered
+    assert (signal.SIGHUP in registered) is not ignored
+
+
+class _ClosedTerminal:
+    """A terminal after a hangup: it is still one, and every write fails."""
+
+    def isatty(self):
+        return True
+
+    def write(self, text):
+        raise OSError(5, "Input/output error")
+
+    def flush(self):
+        raise OSError(5, "Input/output error")
+
+
+@pytest.mark.parametrize("recording", [False, True])
+def test_a_hangup_moves_the_loops_output_off_the_closed_terminal(
+    tmp_path, monkeypatch, recording
+):
+    """The handler's first message to the closed terminal raised EIO before it
+    stopped the run or settled the cycle; during a cycle's recording the error
+    broke the recording itself. Its output now goes to autoresearch.out."""
+    import run_autoresearch_loop as loop
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(sys, "stdout", _ClosedTerminal())
+    monkeypatch.setattr(sys, "stderr", _ClosedTerminal())
+    stopped = []
+    monkeypatch.setattr(
+        loop, "supervisor", SimpleNamespace(stop=lambda: stopped.append(1))
+    )
+    for key, value in {"active": recording, "signal": None, "stopping": False}.items():
+        monkeypatch.setitem(loop.STOP_DEFERRED, key, value)
+    if recording:
+        loop.signal_handler(signal.SIGHUP, None)  # deferred: the cycle goes on
+        print("- **Result**: recorded")  # the recording's own output
+        assert loop.STOP_DEFERRED["signal"] == signal.SIGHUP and not stopped
+    else:
+        with pytest.raises(SystemExit) as exited:
+            loop.signal_handler(signal.SIGHUP, None)
+        assert exited.value.code == 0 and stopped == [1]
+    sys.stdout.flush()
+    output = (tmp_path / "autoresearch.out").read_text()
+    assert f"Caught signal {int(signal.SIGHUP)}" in output
+    if recording:
+        assert "recorded" in output
 
 
 def test_a_hold_left_by_a_killed_loop_is_the_operators_call(
