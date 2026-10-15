@@ -96,7 +96,9 @@ The first version was reviewed (code-review skill) before merging. Its findings,
   loop beside it, and `stop.sh` can stop it (`loop_control` accepts the probe as the lock's owner).
 - **Finding 88's scoring** builds the incumbent's sample through the loop's own `build_validation_dataset` and
   `collect_validation_predictions`, and checks that its patch coordinates reproduce the loop's targets before the
-  detector is scored.
+  detector is scored. *Corrected 2026-10-14:* it checked the targets, not the coordinates. The detector was read at
+  the pre-jitter `valid_coords`, a median 16 px from the targets. `9acb865a` reads it at `patch_origin` and checks
+  the labels there against every target (`check_origins`); finding 88's readings stand (its Correction section).
 - **Worktrees.** `main_checkout` follows a linked worktree's `commondir` and returns a submodule's own directory
   unchanged. The test `PYTHONPATH` puts this checkout's `src/` first for pytest and its subprocesses.
 
