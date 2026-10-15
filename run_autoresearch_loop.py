@@ -45,6 +45,13 @@ supervisor = ProcessSupervisor()
 
 
 def signal_handler(sig, frame):
+    if STOP_DEFERRED["active"]:
+        # The cycle's outcome is being recorded (the config, the commit, the
+        # sprint-log entry): stop once that is done, not halfway through it.
+        if STOP_DEFERRED["signal"] is None:
+            print(f"\nCaught signal {sig}. Stopping once this cycle is recorded...")
+        STOP_DEFERRED["signal"] = sig
+        return
     print(f"\nCaught signal {sig}. Cleaning up...")
     supervisor.stop()
     # A stop (stop.sh sends SIGTERM) almost always lands mid-cycle: settle that
@@ -421,6 +428,8 @@ INCUMBENT = "best_model.pt"
 INCUMBENT_HELD = ".best_model.pt.held"
 # The cycle in flight, for the signal handler: whether it holds, and what.
 CYCLE_HOLD: dict[str, Any] = {"active": False, "held": None, "logs": {}}
+# Set from a run's settle until its cycle is recorded; a stop then waits for it.
+STOP_DEFERRED: dict[str, Any] = {"active": False, "signal": None}
 # The rows train.py appends when it promotes, before it writes its result.
 PROMOTION_LOGS = ("results.tsv", "prize_readiness.tsv")
 
@@ -712,6 +721,7 @@ def main():
             f"{first_use_record('best_model.pt')}, and candidates are compared on "
             "them until it is re-scored or replaced."
         )
+    STOP_DEFERRED.update(active=False, signal=None)
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
 
@@ -1074,6 +1084,10 @@ def main():
                 print(f"Error reading run_result.json: {e}")
                 is_crash = True
                 failure = f"run_result.json is unreadable ({e})"
+        # From here until the cycle is recorded, a stop (stop.sh) waits: exiting
+        # halfway left a promoted config and model without their commit or
+        # sprint-log entry, or with the three files staged but not committed.
+        STOP_DEFERRED.update(active=True, signal=None)
         incumbent_note = settle_incumbent(held, failed=is_crash)
 
         # Success-biased decay: every scored cycle decays all the families it
@@ -1164,6 +1178,9 @@ def main():
                 f"{best_val_f1:.6f}" if best_val_f1 > float("-inf") else "none yet"
             )
             print(f"No improvement. (val_f1: {val_f1}, best was: {best_str})")
+        STOP_DEFERRED["active"] = False
+        if STOP_DEFERRED["signal"] is not None:
+            signal_handler(STOP_DEFERRED["signal"], None)
 
         # Benchmark Inference Step (Every 5 cycles).
         # Uses subprocess.run (not os.system) so a predict.py crash surfaces

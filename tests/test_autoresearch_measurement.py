@@ -981,6 +981,59 @@ def test_a_failed_promotion_commit_is_recorded(tmp_path, monkeypatch):
     )
 
 
+def test_a_stop_during_a_promotions_commit_waits_for_the_cycle_to_be_recorded(
+    tmp_path, monkeypatch
+):
+    """stop.sh landing while a promotion was committed exited inside the
+    commit: config.json and best_model.pt promoted, the commit possibly half
+    done (the files staged), and no sprint-log entry for the cycle."""
+    import run_autoresearch_loop as loop
+
+    ExperimentConfig().save(tmp_path / "config.json")
+    _checkpoint(tmp_path / "best_model.pt")
+    tried, commits = [], []
+    promote = _promoting_run(tmp_path)
+
+    def run(command, log):
+        tried.append(json.loads((tmp_path / "config_temp.json").read_text()))
+        return promote(command, log)
+
+    def commit(message):
+        loop.signal_handler(15, None)  # stop.sh, mid-commit
+        commits.append(message)
+        return True
+
+    with pytest.raises(SystemExit):
+        _drive_loop(tmp_path, monkeypatch, 3, run=run, commit=commit)
+    assert len(tried) == 1 and len(commits) == 1  # committed; no second cycle
+    assert json.loads((tmp_path / "config.json").read_text()) == tried[0]
+    assert torch.load(tmp_path / "best_model.pt")["val_f1"] == 0.9
+    log = next((tmp_path / "sprint_logs").glob("*.md")).read_text()
+    assert "(SUCCESS)" in log and "Improvement detected" in log
+    assert not loop.STOP_DEFERRED["active"]
+
+
+def test_a_stop_while_a_cycle_is_recorded_keeps_its_entry(tmp_path, monkeypatch):
+    """The same for a cycle that is not promoted: its family decay and its
+    entry are written, then the loop stops."""
+    import run_autoresearch_loop as loop
+
+    ExperimentConfig().save(tmp_path / "config.json")
+    save_history = loop.save_history
+
+    def stopped_while_saving(counts):
+        loop.signal_handler(15, None)
+        save_history(counts)
+
+    monkeypatch.setattr(loop, "save_history", stopped_while_saving)
+    result = {"is_success": False, "val_f1": 0.5}
+    with pytest.raises(SystemExit):
+        _drive_loop(tmp_path, monkeypatch, 3, result=result)
+    log = next((tmp_path / "sprint_logs").glob("*.md")).read_text()
+    assert log.count("## Cycle") == 1 and "(REVERTED)" in log
+    assert "lr" in json.loads((tmp_path / "autoresearch_history.json").read_text())
+
+
 def test_a_blocked_promotion_is_recorded_in_the_sprint_log(tmp_path, monkeypatch):
     ExperimentConfig().save(tmp_path / "config.json")
     result = {"is_success": False, "val_f1": 0.5, "promotion_blocked": "why"}
