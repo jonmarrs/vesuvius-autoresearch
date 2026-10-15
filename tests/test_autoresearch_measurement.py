@@ -930,7 +930,8 @@ def test_the_loop_will_not_start_beside_a_training_run_it_does_not_supervise(
         assert _drive_loop(tmp_path, monkeypatch, cycles=1) == []
         out = capsys.readouterr().out
         assert "Not starting" in out
-        assert f"PID {runs[0].pid} (a run" in out and f"PID {runs[2].pid} (" in out
+        assert f"PID {runs[0].pid} (started by hand" in out
+        assert f"PID {runs[2].pid} (" in out
         assert f"PID {runs[1].pid} (" not in out
         assert "kill -TERM" in out and "watchdog tries again" in out
         # The hold waits for the operator or the run's end, untouched.
@@ -973,7 +974,8 @@ def test_a_loops_run_past_any_cycles_timeout_is_stopped(tmp_path, monkeypatch, c
     try:
         assert _drive_loop(tmp_path, monkeypatch, cycles=1) == []
         out = capsys.readouterr().out
-        assert f"PID {own.pid} (a loop's run" in out and "stopped now" in out
+        assert f"PID {own.pid} (started by a loop or ablation" in out
+        assert "stopped now" in out
         assert own.wait(timeout=10) == -signal.SIGTERM
         assert by_hand.poll() is None  # left to the operator
     finally:

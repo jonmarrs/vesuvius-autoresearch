@@ -366,6 +366,108 @@ while True: time.sleep(.1)
         process.wait()
 
 
+def _fake_run(directory, script, config, leader):
+    """A process that looks to /proc like a training run working in directory;
+    leader: started in a session of its own, as a supervisor starts its runs."""
+    path = directory / script
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("import time\ntime.sleep(120)\n")
+    run = subprocess.Popen(
+        [sys.executable, "-u", script, "--config", config],
+        cwd=directory,
+        start_new_session=leader,
+    )
+    deadline = time.monotonic() + 10
+    while time.monotonic() < deadline:
+        try:
+            if script.encode() in Path(f"/proc/{run.pid}/cmdline").read_bytes():
+                break
+        except FileNotFoundError:
+            pass
+        time.sleep(0.02)
+    return run
+
+
+@pytest.mark.skipif(not Path("/proc/self/cwd").exists(), reason="reads /proc")
+def test_stop_ends_what_a_killed_loop_or_ablation_left_running(tmp_path, capsys):
+    """A loop or ablation killed without its handler leaves its run going in a
+    session of its own. stop.sh said "No autoresearch work running" and left it;
+    it now stops such runs (whole group) and names one started by hand."""
+    runs = []
+    try:
+        runs.append(
+            _fake_run(tmp_path, "scripts/training/train.py", "config_temp.json", True)
+        )
+        runs.append(
+            _fake_run(
+                tmp_path,
+                "scripts/train_with_new_augs.py",
+                "config_temp_ablation_baseline_seed0.json",
+                True,
+            )
+        )
+        runs.append(
+            _fake_run(tmp_path, "scripts/training/train.py", "config.json", False)
+        )
+        assert control_main(["status", "--repo", str(tmp_path)]) == 1
+        status = capsys.readouterr().out
+        assert all(f"PID {run.pid} (" in status for run in runs)
+        assert control_main(["stop", "--repo", str(tmp_path), "--timeout", "5"]) == 0
+        out = capsys.readouterr().out
+        assert runs[0].wait(timeout=5) == -signal.SIGTERM
+        assert runs[1].wait(timeout=5) == -signal.SIGTERM
+        assert runs[2].poll() is None  # started by hand: named, not stopped
+        assert f"not stopping: PID {runs[2].pid} (started by hand" in out
+        assert "No autoresearch work running. Watchdog paused." in out
+        assert (tmp_path / ".loop_paused").exists()
+    finally:
+        for run in runs:
+            run.kill()
+            run.wait()
+
+
+@pytest.mark.skipif(not Path("/proc/self/cwd").exists(), reason="reads /proc")
+def test_status_does_not_count_the_running_loops_own_run(tmp_path, capsys):
+    holder = tmp_path / "run_autoresearch_loop.py"
+    holder.write_text(
+        "import subprocess, sys, time\n"
+        "from scripts.loop_control import acquire_lock\n"
+        "lock = acquire_lock('autoresearch.lock')\n"
+        "run = subprocess.Popen([sys.executable, '-u', 'scripts/training/train.py',"
+        " '--config', 'config_temp.json'], start_new_session=True)\n"
+        "print(run.pid, flush=True)\n"
+        "time.sleep(120)\n"
+    )
+    script = tmp_path / "scripts" / "training" / "train.py"
+    script.parent.mkdir(parents=True)
+    script.write_text("import time\ntime.sleep(120)\n")
+    loop = subprocess.Popen(
+        [sys.executable, "-u", str(holder)],
+        cwd=tmp_path,
+        env={**os.environ, "PYTHONPATH": str(REPO)},
+        stdout=subprocess.PIPE,
+        text=True,
+    )
+    try:
+        assert loop.stdout is not None
+        run_pid = int(loop.stdout.readline())
+        deadline = time.monotonic() + 10
+        while time.monotonic() < deadline:
+            if b"train.py" in Path(f"/proc/{run_pid}/cmdline").read_bytes():
+                break
+            time.sleep(0.02)
+        assert control_main(["status", "--repo", str(tmp_path)]) == 0
+        out = capsys.readouterr().out
+        assert f"(PID {loop.pid})" in out and "Unsupervised" not in out
+    finally:
+        loop.kill()
+        loop.wait()
+        try:
+            os.killpg(run_pid, signal.SIGKILL)
+        except (ProcessLookupError, UnboundLocalError):
+            pass
+
+
 def test_stop_pauses_watchdog_even_without_a_running_loop(tmp_path):
     assert control_main(["stop", "--repo", str(tmp_path)]) == 0
     assert (tmp_path / ".loop_paused").exists()
