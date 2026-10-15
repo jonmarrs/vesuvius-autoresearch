@@ -13,8 +13,11 @@ from __future__ import annotations
 import itertools
 import json
 import os
+import signal
 import subprocess
 import sys
+import threading
+import time
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -455,12 +458,19 @@ def _drive_loop(
     run=None,
     preflight_returncode=0,
     commit=lambda message: True,
+    signals=None,
 ):
     import run_autoresearch_loop as loop
 
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(loop, "__file__", str(tmp_path / "run_autoresearch_loop.py"))
-    monkeypatch.setattr(loop.signal, "signal", lambda *args: None)
+    monkeypatch.setattr(
+        loop.signal,
+        "signal",
+        (lambda sig, handler: signals.append(sig))
+        if signals is not None
+        else (lambda *args: None),
+    )
     monkeypatch.setattr(loop.time, "sleep", lambda *args: None)
     hours = iter([12] * (cycles + 1) + [20])
     monkeypatch.setattr(
@@ -650,6 +660,44 @@ def test_a_promotion_saves_the_decay_and_the_reward(tmp_path, monkeypatch):
     assert _history(tmp_path)["lr"] == pytest.approx(2.0 * 0.95 + 1)
 
 
+def test_a_stop_while_recent_configs_are_saved_leaves_the_previous_file(
+    tmp_path, monkeypatch
+):
+    """recent_configs.json was written in place: a stop mid-write left it cut
+    short, and the next start read no recent configs at all."""
+    import run_autoresearch_loop as loop
+
+    monkeypatch.chdir(tmp_path)
+    loop.save_recent_configs([{"lr": 1e-3}])
+    before = (tmp_path / "recent_configs.json").read_text()
+    dump = json.dump
+
+    def stopped_mid_write(data, stream, **kwargs):
+        stream.write('[{"lr": ')
+        raise SystemExit(0)  # stop.sh: the loop's handler exits, mid-write
+
+    monkeypatch.setattr(loop.json, "dump", stopped_mid_write)
+    with pytest.raises(SystemExit):
+        loop.save_recent_configs([{"lr": 1e-3}, {"lr": 5e-4}])
+    monkeypatch.setattr(loop.json, "dump", dump)
+    assert (tmp_path / "recent_configs.json").read_text() == before
+    assert loop.load_recent_configs() == [{"lr": 1e-3}]
+    assert not list(tmp_path.glob(".recent_configs.json.*"))  # no temporary
+
+
+def test_the_atomic_json_writer_keeps_the_files_mode(tmp_path, monkeypatch):
+    """mkstemp creates 0600: renamed over a tracked 0644 file, it narrowed who
+    can read the loop's state."""
+    import run_autoresearch_loop as loop
+
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "recent_configs.json").write_text("[]")
+    os.chmod(tmp_path / "recent_configs.json", 0o644)
+    loop.save_recent_configs([{"lr": 1e-3}])
+    assert (tmp_path / "recent_configs.json").stat().st_mode & 0o777 == 0o644
+    assert loop.load_recent_configs() == [{"lr": 1e-3}]
+
+
 def test_a_crashed_cycle_leaves_the_family_weights_alone(tmp_path, monkeypatch):
     """A crash ran no experiment: a broken environment must not wear the
     weights down to the floor, as the per-cycle decay used to."""
@@ -670,7 +718,7 @@ def test_an_unreadable_history_is_moved_aside_not_overwritten(
     assert aside.read_text() == '{"lr": 7.'
     assert _history(tmp_path) == {"lr": 1.0}
     assert "unreadable" in capsys.readouterr().out
-    assert not list(tmp_path.glob(".history.*"))  # no temporary left behind
+    assert not list(tmp_path.glob(".autoresearch_history.json.*"))  # no temporary
 
 
 def _promoting_run(tmp_path, returncode=0, result=True, timeout=False):
@@ -823,6 +871,211 @@ def test_a_stop_mid_cycle_settles_the_run(tmp_path, monkeypatch):
     result = {"is_success": False, "val_f1": 0.5}
     assert len(_drive_loop(tmp_path, monkeypatch, 1, result=result)) == 1
     assert torch.load(tmp_path / "best_model.pt")["val_f1"] == 0.48
+
+
+def test_a_repeated_stop_does_not_cut_the_settle_short(tmp_path, monkeypatch):
+    """Ctrl-C pressed again while the loop settles a stopped run: the second
+    handler exited inside the first one's settle, leaving the stopped run's rows
+    in results.tsv and prize_readiness.tsv. It now only kills the run."""
+    import run_autoresearch_loop as loop
+
+    ExperimentConfig().save(tmp_path / "config.json")
+    _checkpoint(tmp_path / "best_model.pt")
+    promote = _promoting_run(tmp_path, result=False)
+    undo = loop._undo_promotion_rows
+
+    def undo_while_stopped_again(before):
+        loop.signal_handler(2, None)
+        return undo(before)
+
+    def stopped(command, log):
+        promote(command, log)
+        loop.signal_handler(15, None)
+
+    monkeypatch.setattr(loop, "_undo_promotion_rows", undo_while_stopped_again)
+    with pytest.raises(SystemExit):
+        _drive_loop(tmp_path, monkeypatch, 1, run=stopped)
+    assert torch.load(tmp_path / "best_model.pt")["val_f1"] == 0.47
+    assert not (tmp_path / "results.tsv").exists()
+    assert not (tmp_path / "prize_readiness.tsv").exists()
+    assert not os.path.lexists(tmp_path / ".best_model.pt.held")
+
+
+_TRAINING = "import time\ntime.sleep(120)\n"
+
+
+def _training_run(directory, command=None, own=False):
+    """A process that looks to /proc like a training run working in directory;
+    own: a session leader, as the loop's supervisor starts its runs."""
+    script = directory / "scripts" / "training" / "train.py"
+    script.parent.mkdir(parents=True, exist_ok=True)
+    script.write_text(_TRAINING)
+    command = command or [
+        sys.executable,
+        "-u",
+        "scripts/training/train.py",
+        "--config",
+        "config_temp.json",
+    ]
+    run = subprocess.Popen(command, cwd=directory, start_new_session=own)
+    deadline = time.monotonic() + 10
+    while time.monotonic() < deadline:
+        try:
+            if b"train.py" in Path(f"/proc/{run.pid}/cmdline").read_bytes():
+                break
+        except FileNotFoundError:
+            pass
+        time.sleep(0.02)
+    return run
+
+
+def _end(*runs):
+    for run in runs:
+        run.kill()
+        run.wait()
+
+
+needs_proc = pytest.mark.skipif(
+    not Path("/proc/self/cwd").exists(), reason="reads /proc"
+)
+
+
+@needs_proc
+def test_the_loop_will_not_start_beside_a_training_run_it_does_not_supervise(
+    tmp_path, monkeypatch, capsys
+):
+    """A loop killed without its handler (SIGKILL, a closed terminal) leaves its
+    run going in a session of its own. The watchdog's restart then released the
+    hold and started a cycle beside a run that could still replace
+    best_model.pt and write run_result.json."""
+    ExperimentConfig().save(tmp_path / "config.json")
+    _checkpoint(tmp_path / "best_model.pt")
+    os.link(tmp_path / "best_model.pt", tmp_path / ".best_model.pt.held")
+    elsewhere = tmp_path / "other_checkout"
+    elsewhere.mkdir()
+    runs = []
+    try:
+        runs.append(_training_run(tmp_path))
+        runs.append(_training_run(elsewhere))
+        # Absolute path, same checkout: it writes the same files.
+        absolute = tmp_path / "scripts" / "training" / "train.py"
+        runs.append(_training_run(tmp_path, [sys.executable, str(absolute)]))
+        assert _drive_loop(tmp_path, monkeypatch, cycles=1) == []
+        out = capsys.readouterr().out
+        assert "Not starting" in out
+        assert f"PID {runs[0].pid} (started by hand" in out
+        assert f"PID {runs[2].pid} (" in out
+        assert f"PID {runs[1].pid} (" not in out
+        assert "kill -TERM" in out and "watchdog tries again" in out
+        # The hold waits for the operator or the run's end, untouched.
+        assert os.path.samefile(
+            tmp_path / "best_model.pt", tmp_path / ".best_model.pt.held"
+        )
+    finally:
+        _end(*runs)
+    # Once it has ended, the loop starts (and releases the unchanged hold).
+    result = {"is_success": False, "val_f1": 0.5}
+    assert len(_drive_loop(tmp_path, monkeypatch, 1, result=result)) == 1
+    assert not os.path.lexists(tmp_path / ".best_model.pt.held")
+
+
+@needs_proc
+def test_an_editor_on_the_training_script_is_not_a_run(tmp_path, monkeypatch):
+    """`tail -f`, an editor or a pager open on train.py named it among its
+    arguments, and kept the loop from starting for as long as it stayed open."""
+    ExperimentConfig().save(tmp_path / "config.json")
+    viewer = _training_run(tmp_path, ["tail", "-f", "scripts/training/train.py"])
+    try:
+        result = {"is_success": False, "val_f1": 0.5}
+        assert len(_drive_loop(tmp_path, monkeypatch, 1, result=result)) == 1
+    finally:
+        _end(viewer)
+
+
+@needs_proc
+def test_a_loops_run_past_any_cycles_timeout_is_stopped(tmp_path, monkeypatch, capsys):
+    """Its supervisor died with the loop, and with it the run's timeout: a run
+    hung at its end (wandb.finish) kept every later start refused. A loop's own
+    run (a session leader) past the longest cycle's timeout is stopped, as the
+    supervisor would have; a run started by hand never is."""
+    import run_autoresearch_loop as loop
+
+    ExperimentConfig().save(tmp_path / "config.json")
+    monkeypatch.setattr(loop, "LONGEST_RUN_SECONDS", -1)  # every run is past it
+    own = _training_run(tmp_path, own=True)
+    by_hand = _training_run(tmp_path)
+    try:
+        assert _drive_loop(tmp_path, monkeypatch, cycles=1) == []
+        out = capsys.readouterr().out
+        assert f"PID {own.pid} (started by a loop or ablation" in out
+        assert "stopped now" in out
+        assert own.wait(timeout=10) == -signal.SIGTERM
+        assert by_hand.poll() is None  # left to the operator
+    finally:
+        _end(own, by_hand)
+
+
+@pytest.mark.parametrize("ignored", [False, True])
+def test_a_closed_terminal_stops_the_loop_like_stop_sh(tmp_path, monkeypatch, ignored):
+    """SIGHUP ended a loop run in a terminal at once, leaving its run going;
+    under nohup (start.sh) it is ignored, and stays so."""
+    ExperimentConfig().save(tmp_path / "config.json")
+    real_signal = signal.signal
+    previous = real_signal(signal.SIGHUP, signal.SIG_IGN if ignored else signal.SIG_DFL)
+    registered: list = []
+    try:
+        result = {"is_success": False, "val_f1": 0.5}
+        _drive_loop(tmp_path, monkeypatch, 1, result=result, signals=registered)
+    finally:
+        real_signal(signal.SIGHUP, signal.SIG_DFL if previous is None else previous)
+    assert signal.SIGTERM in registered and signal.SIGINT in registered
+    assert (signal.SIGHUP in registered) is not ignored
+
+
+class _ClosedTerminal:
+    """A terminal after a hangup: it is still one, and every write fails."""
+
+    def isatty(self):
+        return True
+
+    def write(self, text):
+        raise OSError(5, "Input/output error")
+
+    def flush(self):
+        raise OSError(5, "Input/output error")
+
+
+@pytest.mark.parametrize("recording", [False, True])
+def test_a_hangup_moves_the_loops_output_off_the_closed_terminal(
+    tmp_path, monkeypatch, recording
+):
+    """The handler's first message to the closed terminal raised EIO before it
+    stopped the run or settled the cycle; during a cycle's recording the error
+    broke the recording itself. Its output now goes to autoresearch.out."""
+    import run_autoresearch_loop as loop
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(sys, "stdout", _ClosedTerminal())
+    monkeypatch.setattr(sys, "stderr", _ClosedTerminal())
+    stopped = []
+    monkeypatch.setattr(
+        loop, "supervisor", SimpleNamespace(stop=lambda: stopped.append(1))
+    )
+    for key, value in {"active": recording, "signal": None, "stopping": False}.items():
+        monkeypatch.setitem(loop.STOP_DEFERRED, key, value)
+    if recording:
+        loop.signal_handler(signal.SIGHUP, None)  # deferred: the cycle goes on
+        print("- **Result**: recorded")  # the recording's own output
+        assert loop.STOP_DEFERRED["signal"] == signal.SIGHUP and not stopped
+    else:
+        with pytest.raises(SystemExit) as exited:
+            loop.signal_handler(signal.SIGHUP, None)
+        assert exited.value.code == 0 and stopped == [1]
+    sys.stdout.flush()
+    output = (tmp_path / "autoresearch.out").read_text()
+    assert f"Caught signal {int(signal.SIGHUP)}" in output
+    if recording:
+        assert "recorded" in output
 
 
 def test_a_hold_left_by_a_killed_loop_is_the_operators_call(
@@ -987,6 +1240,63 @@ def test_a_hung_git_is_stopped_without_leaving_its_lock(tmp_path, monkeypatch):
     assert not list((tmp_path / ".git").glob("*.lock"))
 
 
+def _alive(pid):
+    try:
+        return Path(f"/proc/{pid}/stat").read_text().split()[2] not in "ZX"
+    except FileNotFoundError:
+        return False
+
+
+def test_a_hung_hook_does_not_hold_up_the_loop(tmp_path, monkeypatch):
+    """Signalling git alone left its hook running with the output pipes open,
+    and the last wait for them had no end: the loop hung there, and a stop
+    deferred behind it never came. git runs in a process group of its own."""
+    import run_autoresearch_loop as loop
+
+    _scratch_repo(tmp_path, monkeypatch)
+    hook = tmp_path / ".git" / "hooks" / "pre-commit"
+    hook.write_text("#!/bin/sh\necho $$ > hook.pid\nexec sleep 600\n")
+    hook.chmod(0o755)
+    started = time.monotonic()
+    code, reason = loop._run_git(
+        "commit", "--only", "-m", "hangs", "--", "config.json", timeout=1
+    )
+    assert code is None and reason == "timed out after 1 s"
+    assert time.monotonic() - started < 20
+    pid = int((tmp_path / "hook.pid").read_text())
+    deadline = time.monotonic() + 5
+    while _alive(pid) and time.monotonic() < deadline:
+        time.sleep(0.05)
+    assert not _alive(pid)
+    assert not list((tmp_path / ".git").glob("*.lock"))
+
+
+def test_a_stop_delivered_during_a_real_commit_waits_for_it(tmp_path, monkeypatch):
+    """The real handler, a real SIGTERM, a real commit with a hook that prints
+    and takes a second: the handler runs inside communicate(), which carries on
+    (PEP 475), and the commit is made; the stop is kept for the cycle's end."""
+    import run_autoresearch_loop as loop
+
+    _scratch_repo(tmp_path, monkeypatch)
+    hook = tmp_path / ".git" / "hooks" / "pre-commit"
+    hook.write_text("#!/bin/sh\necho checking\nsleep 1\necho done\n")
+    hook.chmod(0o755)
+    previous = signal.signal(signal.SIGTERM, loop.signal_handler)
+    loop.STOP_DEFERRED.update(active=True, signal=None)
+    stop = threading.Timer(0.3, os.kill, (os.getpid(), signal.SIGTERM))
+    try:
+        stop.start()
+        assert loop.commit_promotion("DAY SHIFT: lr_0.001 improved model") is True
+        stop.join()
+        assert loop.STOP_DEFERRED["signal"] == signal.SIGTERM
+    finally:
+        stop.cancel()
+        signal.signal(signal.SIGTERM, previous)
+        loop.STOP_DEFERRED.update(active=False, signal=None)
+    subject = _git(tmp_path, "log", "-1", "--format=%s").strip()
+    assert subject == "DAY SHIFT: lr_0.001 improved model"
+
+
 def test_a_failed_promotion_commit_is_recorded(tmp_path, monkeypatch):
     import run_autoresearch_loop as loop
 
@@ -1012,6 +1322,88 @@ def test_a_failed_promotion_commit_is_recorded(tmp_path, monkeypatch):
         "config.json, best_model.pt and autoresearch_history.json are promoted on "
         "disk but not committed.\n- **Result**: Improvement detected" in log
     )
+
+
+def test_a_stop_during_a_promotions_commit_waits_for_the_cycle_to_be_recorded(
+    tmp_path, monkeypatch
+):
+    """stop.sh landing while a promotion was committed exited inside the
+    commit: config.json and best_model.pt promoted, the commit possibly half
+    done (the files staged), and no sprint-log entry for the cycle."""
+    import run_autoresearch_loop as loop
+
+    ExperimentConfig().save(tmp_path / "config.json")
+    _checkpoint(tmp_path / "best_model.pt")
+    tried, commits = [], []
+    promote = _promoting_run(tmp_path)
+
+    def run(command, log):
+        tried.append(json.loads((tmp_path / "config_temp.json").read_text()))
+        return promote(command, log)
+
+    def commit(message):
+        loop.signal_handler(15, None)  # stop.sh, mid-commit
+        commits.append(message)
+        return True
+
+    with pytest.raises(SystemExit):
+        _drive_loop(tmp_path, monkeypatch, 3, run=run, commit=commit)
+    assert len(tried) == 1 and len(commits) == 1  # committed; no second cycle
+    assert json.loads((tmp_path / "config.json").read_text()) == tried[0]
+    assert torch.load(tmp_path / "best_model.pt")["val_f1"] == 0.9
+    log = next((tmp_path / "sprint_logs").glob("*.md")).read_text()
+    assert "(SUCCESS)" in log and "Improvement detected" in log
+    assert not loop.STOP_DEFERRED["active"]
+
+
+def test_a_stop_just_after_a_clean_run_does_not_discard_it(tmp_path, monkeypatch):
+    """A stop between the run's clean exit and its settle (reading its result,
+    or the supervisor's clean-up) settled the run as failed: its model moved
+    aside, its rows removed, no entry. The run had ended; it is recorded."""
+    import run_autoresearch_loop as loop
+
+    ExperimentConfig().save(tmp_path / "config.json")
+    _checkpoint(tmp_path / "best_model.pt")
+    load = json.load
+    stops = []
+
+    def load_and_stop(stream, *args, **kwargs):
+        if os.path.basename(getattr(stream, "name", "")) == "run_result.json":
+            stops.append(True)
+            loop.signal_handler(15, None)
+        return load(stream, *args, **kwargs)
+
+    monkeypatch.setattr(loop.json, "load", load_and_stop)
+    with pytest.raises(SystemExit):
+        _drive_loop(tmp_path, monkeypatch, 3, run=_promoting_run(tmp_path))
+    assert stops == [True]
+    assert torch.load(tmp_path / "best_model.pt")["val_f1"] == 0.9
+    assert not list(tmp_path.glob("best_model.pt.failed-run-*"))
+    log = next((tmp_path / "sprint_logs").glob("*.md")).read_text()
+    assert log.count("## Cycle") == 1 and "(SUCCESS)" in log
+
+
+def test_a_stop_while_a_cycle_is_recorded_keeps_its_entry(tmp_path, monkeypatch):
+    """The same for a cycle that is not promoted: its family decay and its
+    entry are written, then the loop stops."""
+    import run_autoresearch_loop as loop
+
+    ExperimentConfig().save(tmp_path / "config.json")
+    (tmp_path / "autoresearch_history.json").write_text(json.dumps({"lr": 2.0}))
+    save_history = loop.save_history
+
+    def stopped_while_saving(counts):
+        loop.signal_handler(15, None)
+        save_history(counts)
+
+    monkeypatch.setattr(loop, "save_history", stopped_while_saving)
+    result = {"is_success": False, "val_f1": 0.5}
+    with pytest.raises(SystemExit):
+        _drive_loop(tmp_path, monkeypatch, 3, result=result)
+    log = next((tmp_path / "sprint_logs").glob("*.md")).read_text()
+    assert log.count("## Cycle") == 1 and "(REVERTED)" in log
+    history = json.loads((tmp_path / "autoresearch_history.json").read_text())
+    assert history["lr"] == pytest.approx(1.9)  # decayed once
 
 
 def test_a_blocked_promotion_is_recorded_in_the_sprint_log(tmp_path, monkeypatch):

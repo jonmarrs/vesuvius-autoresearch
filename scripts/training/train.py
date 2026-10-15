@@ -14,7 +14,9 @@ if site_packages:
             ":".join(nvidia_libs) + ":" + os.environ.get("LD_LIBRARY_PATH", "")
         )
 
+import atexit
 import copy
+import functools
 import json
 import math
 import time
@@ -518,24 +520,106 @@ def guarded_update(model, optimizer, scaler, lr, max_norm=1.0, step=None) -> boo
     return True
 
 
-def shuffled_loader(dataset, batch_size: int, seed: int) -> DataLoader:
+# Worker processes preparing training batches. With none, every batch was read
+# and given its ridge channel and Frangi fiber target in the training process
+# while the GPU waited: the Frangi target alone took ~150 ms a patch (CPU, one
+# thread), ~0.6 s of a batch of 4, and the GPU was busy ~7% of each ~480 ms
+# step (2026-10-14). Each patch is drawn from its index and the run's seed
+# (jitter, depth), so workers prepare the same batches in the same order, only
+# in parallel.
+LOADER_WORKERS_ENV = "AUTORESEARCH_LOADER_WORKERS"
+
+
+def loader_workers() -> int:
+    """Workers for the labeled training loader: one fewer than the CPUs, at most
+    three, unless AUTORESEARCH_LOADER_WORKERS sets it (0: read in this process)."""
+    value = os.environ.get(LOADER_WORKERS_ENV)
+    if value is None:
+        return max(0, min(3, (os.cpu_count() or 1) - 1))
+    try:
+        workers = int(value)
+    except ValueError:
+        workers = -1
+    if workers < 0:
+        raise ValueError(f"{LOADER_WORKERS_ENV} must be an integer >= 0, not {value!r}")
+    return workers
+
+
+def _init_worker(init, worker_id):
+    """A training-loader worker's start: it will leave without finalizing the
+    interpreter, then runs ``init``.
+
+    Training stops mid-pass with batches in flight, and finalization ends a
+    worker's queue thread wherever it is. Inside PyTorch's C++ (releasing a
+    batch) that ends in std::terminate: "terminate called without an active
+    exception", SIGABRT, in 4 of 12 mid-pass stops on Fr47 (2026-10-15). Nothing
+    a worker holds at exit is needed: its batches have gone through the queue,
+    its warnings to the shared counts. Exit handlers run before finalization
+    ends threads, so this one exits first.
+    """
+    atexit.register(os._exit, 0)
+    if init is not None:
+        init(worker_id)
+
+
+def shuffled_loader(
+    dataset, batch_size: int, seed: int, workers: int = 0, worker_init_fn=None
+) -> DataLoader:
     """Training batches drawn in a seeded random order over the whole catalogue.
 
     Without a sampler the loader read the catalogue in raster order from index 0,
     and a cycle only reaches ~1,000 patches: every cycle fine-tuned on the same
     strip at the top of the fragment (and UA-MT on the top ~220 px of the
     volume). Each re-iteration after StopIteration draws a fresh permutation.
+    The order comes from ``seed`` alone, so ``workers`` changes only where the
+    batches are prepared.
     """
     generator = torch.Generator()
     generator.manual_seed(seed)
+    options = {}
+    if workers > 0:
+        options = {
+            "num_workers": workers,
+            # Spawned, not forked: the ridge channel runs on CuPy, and a forked
+            # child of a process that has used CUDA cannot.
+            "multiprocessing_context": "spawn",
+            # Not persistent: a persistent iterator's reset skips the generator
+            # draw a new iterator makes, so the next pass would be another order.
+            "worker_init_fn": functools.partial(_init_worker, worker_init_fn),
+        }
     return DataLoader(
         dataset,
         batch_size=batch_size,
         shuffle=True,
         generator=generator,
-        num_workers=0,  # 0 prevents semaphore leaks (resource_tracker warnings)
         pin_memory=True,
+        **options,
     )
+
+
+def fiber_source(heads, config) -> str:
+    """The fiber head's target: config.target_fiber_source for a model with a
+    fiber or QC head, else the cheap Sobel-Z placeholder (no head trains on it)."""
+    if heads & {"fiber", "qc"}:
+        return getattr(config, "target_fiber_source", "sobel_z")
+    return "sobel_z"
+
+
+def fiber_target(x_raw, x_orig, source: str, sigma: float = 2.0):
+    """The fiber head's target before its per-patch min-max: [B, 1, 1, H, W].
+
+    "frangi": Frangi vesselness of the CT channel of the whole read (every
+    slice, the margins included), averaged over z, computed on the batch's
+    device. The loader computed it per patch with skimage until 2026-10-15,
+    ~150 ms a patch on the CPU, two thirds of a training patch's preparation;
+    frangi_torch reproduces it (tests/test_frangi_torch.py).
+    "sobel_z": the mean absolute z-gradient of the CT channel of the model's
+    window.
+    """
+    if source == "frangi":
+        return frangi_vesselness_zcollapsed_torch(x_raw[:, 0], sigma)[:, None, None]
+    grad_z = x_orig[:, :1, 1:] - x_orig[:, :1, :-1]
+    return grad_z.abs().mean(dim=2, keepdim=True)
 
 
 def build_validation_dataset(config: ExperimentConfig):
@@ -988,6 +1072,7 @@ except ImportError:
     generate_resnet3d = None
     InceptionI3d = None
 
+from vesuvius_autoresearch.core.frangi_torch import frangi_vesselness_zcollapsed_torch
 from vesuvius_autoresearch.core.inference import DEPTH_MARGIN
 from vesuvius_autoresearch.core.inference_constants import depth_band_for
 from vesuvius_autoresearch.core.model_wrappers import (
@@ -1127,6 +1212,7 @@ import vesuvius_model
 from vesuvius_autoresearch.core.vesuvius_loader import (
     VesuviusLabeledDataset,
     VesuviusS3Dataset,
+    share_warning_counts,
     warning_counts,
 )
 
@@ -1732,9 +1818,13 @@ def train(config: ExperimentConfig, *, strict_warm_start=False):
     training_labels = resolve_training_labels(config)
     sys.stdout.flush()
 
-    def get_dataloader(uris, seed=None, is_unlabeled=False):
+    def get_dataloader(uris, is_unlabeled=False):
         from torch.utils.data import ConcatDataset
 
+        # The run's seed draws each entry's crop (lateral jitter, read depth) as
+        # well as the order. Without one, entry i had the same crop in every
+        # run: Fr47's 7,345 fixed crops held 74.8% of its labelled ink pixels.
+        seed = sampling_seed + (1 if is_unlabeled else 0)
         datasets = []
         for uri in uris:
             if is_unlabeled:
@@ -1756,7 +1846,9 @@ def train(config: ExperimentConfig, *, strict_warm_start=False):
                 use_ridges=config.use_ridges,
                 ridge_sigma=getattr(config, "ridge_sigma", 2.0),
                 use_lasagna=getattr(config, "use_lasagna", False),
-                target_fiber_source=fiber_target_source,
+                # A zero placeholder: the training step computes the fiber
+                # target from the batch (fiber_target).
+                target_fiber_source="sobel_z",
                 target_fiber_sigma=getattr(config, "target_fiber_sigma", 2.0),
                 patches_json=patches_json_path
                 if os.path.exists(patches_json_path)
@@ -1770,7 +1862,10 @@ def train(config: ExperimentConfig, *, strict_warm_start=False):
         return shuffled_loader(
             combined_ds,
             config.batch_size,
-            sampling_seed + (1 if is_unlabeled else 0),
+            seed,
+            # UA-MT's unlabeled patches need no fiber target: read in-process.
+            workers=0 if is_unlabeled else workers,
+            worker_init_fn=share_counts,
         )
 
     # Built and read before anything else, so a missing or empty validation
@@ -1780,22 +1875,28 @@ def train(config: ExperimentConfig, *, strict_warm_start=False):
     probe_validation_read(val_dataset)
     check_validation_inputs(val_dataset, protocol)
 
-    # Fresh per run, so successive warm-started cycles see different patches;
-    # recorded in run_result.json and the checkpoint.
+    # Fresh per run, so successive warm-started cycles see different patches,
+    # cropped differently; recorded in run_result.json and the checkpoint.
     sampling_seed = int.from_bytes(os.urandom(4), "little") & 0x7FFFFFFF
     print(f"Training sampling seed: {sampling_seed}")
     # Built before the loaders: which heads it trains decides the fiber target.
     model = build_model(config, v_config, device)
     # Only the outputs the model declares as heads are trained
-    # (model_wrappers.task_heads); the rest are placeholders. The Frangi fiber
-    # target (~86 ms/patch in the loader) is computed only for a fiber or QC head.
+    # (model_wrappers.task_heads); the rest are placeholders.
     heads = task_heads(model)
     print(f"Trained auxiliary heads: {', '.join(sorted(heads)) or 'none'}")
-    fiber_target_source = (
-        getattr(config, "target_fiber_source", "sobel_z")
-        if heads & {"fiber", "qc"}
-        else "sobel_z"
-    )
+    fiber_target_source = fiber_source(heads, config)
+    workers = loader_workers()
+    shared_warnings = share_counts = None
+    if workers:
+        import multiprocessing
+
+        manager = multiprocessing.get_context("spawn").Manager()
+        shared_warnings = manager.dict()
+        share_counts = functools.partial(
+            share_warning_counts, shared_warnings, manager.Lock()
+        )
+    print(f"Training loader workers: {workers}")
     data_loader = get_dataloader(config.uris)
     data_iter = iter(data_loader)
 
@@ -1937,12 +2038,9 @@ def train(config: ExperimentConfig, *, strict_warm_start=False):
     while True:
         t0 = time.time()
         try:
-            x_raw, target_ink_raw, target_fiber_from_loader = next(data_iter)
-            x_raw = x_raw.to(device)  # [B, 1, Z_buffered, H, W]
-            # target_fiber_from_loader: [B, 1, 1, H, W] either zeros (sobel_z
-            # source, train.py computes inline below) or real Frangi
-            # vesselness (frangi source — see VesuviusLabeledDataset._compute_fiber_target).
-            target_fiber_from_loader = target_fiber_from_loader.to(device)
+            # The loader's fiber target is a zero placeholder (fiber_target).
+            x_raw, target_ink_raw, _ = next(data_iter)
+            x_raw = x_raw.to(device)  # [B, C, Z_buffered, H, W]
 
             # Ensure target_ink has 4 dims [B, 1, H, W]
             if target_ink_raw is not None and target_ink_raw.numel() > 0:
@@ -2008,20 +2106,15 @@ def train(config: ExperimentConfig, *, strict_warm_start=False):
             data_iter = iter(data_loader)
             continue
 
-        # 3. Per-patch fiber pseudo-label for the fiber head's loss.
-        # source="frangi": dataloader already computed Frangi vesselness for
-        # this patch and z-collapsed it; we use it as-is and only normalize.
-        # source="sobel_z" (default): compute Sobel-Z gradient of CT inline
-        # on GPU (cheap, current behavior).
+        # 3. Per-patch fiber pseudo-label for the fiber head's loss, on the
+        # batch's device, BEFORE mixup to avoid boundary artifacts.
         with torch.no_grad():
-            if fiber_target_source == "frangi":
-                # target_fiber_from_loader: [B, 1, 1, H, W] z-collapsed already
-                target_fiber = target_fiber_from_loader
-            else:
-                # Sobel-Z pseudo-label (BEFORE mixup to avoid boundary artifacts).
-                # Use only the raw CT channel (index 0) for pseudo-labels.
-                grad_z = x_orig[:, :1, 1:] - x_orig[:, :1, :-1]
-                target_fiber = grad_z.abs().mean(dim=2, keepdim=True)
+            target_fiber = fiber_target(
+                x_raw,
+                x_orig,
+                fiber_target_source,
+                getattr(config, "target_fiber_sigma", 2.0),
+            )
             # Per-batch min-max normalize so the BCE target sits in [0, 1].
             b_sz = target_fiber.shape[0]
             tf_flat = target_fiber.view(b_sz, -1)
@@ -2591,6 +2684,8 @@ def train(config: ExperimentConfig, *, strict_warm_start=False):
         f"mean_ap_errors={validation_diag['mean_ap_errors']}"
     )
     loader_warnings = warning_counts()
+    for key, count in dict(shared_warnings or {}).items():  # the loader workers'
+        loader_warnings[key] = loader_warnings.get(key, 0) + count
     if loader_warnings:
         print(f"loader_warnings:       {loader_warnings}")
     if skipped_updates:
@@ -2730,10 +2825,9 @@ def train(config: ExperimentConfig, *, strict_warm_start=False):
         "prize_gate_failures": prize_gate_failures,
         "validation_diag": validation_diag,
         "augmentation_fallbacks": dict(AUGMENTATION_FALLBACKS),
-        # Loader fallbacks this process hit (zero ridges, unwarped lasagna
-        # patches, zero patches on read errors), counted past the few messages.
-        # Counts are per process: DataLoader workers would keep their own
-        # (shuffled_loader uses num_workers=0).
+        # Loader fallbacks this run hit (zero ridges, unwarped lasagna patches,
+        # zero patches on read errors), counted past the few messages, the
+        # loader workers' included (share_warning_counts).
         "loader_warnings": loader_warnings,
         # Steps not applied: a non-finite or > 1e6 loss, or a non-finite
         # gradient norm (see guarded_update).

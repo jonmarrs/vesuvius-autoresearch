@@ -2,20 +2,31 @@
 """Phase 3 of ScrollPrize/villa #201 work: controlled short-train ablation
 of the scroll-specific augmentations defined in scroll_augmentations.py.
 
-Each (condition, seed) is a separate train.py subprocess started from a
-*pristine* copy of the current best_model.pt. Configs differ only in
-which single scroll augmentation is forced on (probability=1.0); all
-other scroll-aug probabilities are forced off. The final val_bpb from
-each run goes into a CSV and a per-condition summary table.
+Each (condition, seed) is a separate train.py subprocess that warm-starts
+from the current best_model.pt. Configs differ only in which single scroll
+augmentation is forced on (probability=1.0); all other scroll-aug
+probabilities are forced off. The final val_bpb from each run goes into a
+CSV and a per-condition summary table.
 
 Six conditions:
     baseline, decohesion, warping, squeeze, z_dropout, intensity_drift
 
 The harness:
-  - backs up best_model.pt before the ablation begins
-  - restores it before every individual run (so no run sees the previous
-    one's promoted weights)
-  - restores the original backup at the end (in case a run promoted)
+  - runs each cell as an experiment run (checkpoint_out), so no run writes
+    the loop's files (best_model.pt, last_model.pt, history.tsv,
+    results.tsv, prize_readiness.tsv) and every run starts from the same
+    incumbent. It used to promote into best_model.pt and copy a backup
+    back, leaving its rows in the loop's logs and, at the end, putting back
+    a backup over any promotion the loop had made meanwhile.
+  - holds this checkout's lock (autoresearch.lock) for the whole ablation,
+    as the noise probe does, so it refuses to start beside the loop and the
+    watchdog cannot start the loop under it; both write and read
+    run_result.json here. ./stop.sh stops it, and its cell, between runs or
+    mid-run
+  - clears run_result.json before each run, so a run that writes none is
+    not credited with the previous run's result
+  - runs each cell in its own process group, so a timeout or a stop ends
+    the trainer itself, not just its `uv run` launcher
   - never modifies train.py — the wrapper script monkey-patches at import
 
 Usage:
@@ -30,18 +41,17 @@ Usage:
 
 Prerequisites:
   - best_model.pt present in cwd
-  - no autoresearch loop currently using the GPU (the harness assumes the
-    full GPU is available for short-train cycles).
+  - the loop stopped (./stop.sh); the harness refuses to start otherwise.
 """
 
 from __future__ import annotations
 
 import argparse
 import csv
+import glob
 import json
 import math
 import os
-import shutil
 import statistics
 import subprocess
 import sys
@@ -51,6 +61,11 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
+from scripts.loop_control import acquire_lock, running_pid  # noqa: E402
+from scripts.process_supervisor import (  # noqa: E402
+    ProcessSupervisor,
+    stops_interrupt,
+)
 from scripts.training.train import ExperimentConfig  # noqa: E402
 
 AUGS = [
@@ -68,10 +83,13 @@ CONDITIONS = ["baseline"] + AUGS
 
 
 def _build_condition_config(
-    base_config_path: str, condition: str, budget: int
+    base_config_path: str, condition: str, budget: int, checkpoint_out: str
 ) -> ExperimentConfig:
-    """Load config.json, force exactly one scroll aug on (or none for baseline)."""
+    """Load config.json, force exactly one scroll aug on (or none for baseline).
+    checkpoint_out makes the run an experiment run: it leaves the loop's
+    files alone (train.save_cycle_checkpoints)."""
     cfg = ExperimentConfig.load(base_config_path)
+    cfg.checkpoint_out = checkpoint_out
     for a in AUGS:
         setattr(cfg, f"aug_scroll_{a}_p", 0.0)
     if condition != "baseline":
@@ -87,8 +105,13 @@ def _run_one(
     seed: int,
     budget: int,
     log_path: str,
+    supervisor: ProcessSupervisor,
 ) -> dict:
-    """Run one short-train subprocess. Returns a dict with val_bpb etc."""
+    """Run one short-train subprocess. Returns a dict with val_bpb etc.
+
+    The supervisor starts it in a new session and ends the whole group on a
+    timeout or a stop: killing only `uv run` left the trainer running, on the
+    GPU and writing run_result.json during later cells."""
     t0 = time.perf_counter()
     cmd = [
         "uv",
@@ -104,7 +127,7 @@ def _run_one(
     timeout_s = budget + 240  # +4 min for imports / validation / IO
     with open(log_path, "w") as logf:
         try:
-            subprocess.run(
+            supervisor.run(
                 cmd,
                 check=True,
                 stdout=logf,
@@ -207,8 +230,20 @@ def main() -> int:
     if not Path("best_model.pt").exists():
         print("error: best_model.pt not found", file=sys.stderr)
         return 1
+    try:
+        pid = running_pid(PROJECT_ROOT)
+        holder = f"PID {pid}" if pid else None
+    except (OSError, RuntimeError) as exc:
+        holder = f"unidentified: {exc}"
+    if holder:
+        print(
+            f"error: autoresearch work ({holder}) runs in this checkout; "
+            "stop it first (./stop.sh): the loop and these runs share "
+            "run_result.json and best_model.pt",
+            file=sys.stderr,
+        )
+        return 1
 
-    backup = Path("best_model.pt.ablation_backup")
     out_path = args.out or f"reports/ablation_{time.strftime('%Y-%m-%d_%H-%M-%S')}.csv"
     Path(out_path).parent.mkdir(parents=True, exist_ok=True)
 
@@ -227,50 +262,81 @@ def main() -> int:
         print("# --dry-run: not executing")
         return 0
 
-    print(f"# backing up best_model.pt -> {backup}")
-    shutil.copy("best_model.pt", backup)
-
+    # Held until the end: the watchdog restarts a loop that is down but not
+    # paused, and start.sh refuses while the lock is held. loop_control knows
+    # this script, so ./stop.sh can stop it (SIGTERM ends the current cell).
+    try:
+        lock = acquire_lock(str(PROJECT_ROOT / "autoresearch.lock"))
+    except BlockingIOError:
+        print(
+            "error: autoresearch work took this checkout's lock; stop it first "
+            "(./stop.sh)",
+            file=sys.stderr,
+        )
+        return 1
+    supervisor = ProcessSupervisor()
     rows: list[dict] = []
     t_start = time.perf_counter()
     try:
-        for cond in chosen:
-            for seed in range(args.seeds):
-                run_id = f"{cond}_seed{seed}"
-                print(f"\n--- {run_id} ---")
+        # SIGTERM (./stop.sh) and SIGHUP (a closed terminal) end the current
+        # cell as Ctrl-C does; by default they ended the harness at once,
+        # releasing the lock with its cell still training.
+        with stops_interrupt():
+            for cond in chosen:
+                for seed in range(args.seeds):
+                    run_id = f"{cond}_seed{seed}"
+                    print(f"\n--- {run_id} ---")
 
-                # Restore pristine checkpoint
-                shutil.copy(backup, "best_model.pt")
+                    # A run that writes no result must not read the previous one's.
+                    if os.path.exists("run_result.json"):
+                        os.remove("run_result.json")
 
-                # Build condition-specific config
-                cfg = _build_condition_config(args.config, cond, args.budget)
-                cfg_path = f"config_temp_ablation_{run_id}.json"
-                cfg.save(cfg_path)
+                    # Build condition-specific config
+                    checkpoint = str(log_dir / f"{run_id}.pt")
+                    cfg = _build_condition_config(
+                        args.config, cond, args.budget, checkpoint
+                    )
+                    cfg_path = f"config_temp_ablation_{run_id}.json"
+                    cfg.save(cfg_path)
 
-                log_path = str(log_dir / f"{run_id}.log")
-                result = _run_one(cfg_path, seed, args.budget, log_path)
-                result["condition"] = cond
-                result["seed"] = seed
-                result["run_id"] = run_id
-                rows.append(result)
+                    log_path = str(log_dir / f"{run_id}.log")
+                    try:
+                        result = _run_one(
+                            cfg_path, seed, args.budget, log_path, supervisor
+                        )
+                    finally:
+                        # The temp config, and the run's checkpoints (only its
+                        # metrics are used; eval_every_steps adds .step<N>.pt).
+                        for path in [
+                            cfg_path,
+                            checkpoint,
+                            *glob.glob(f"{checkpoint}.step*.pt"),
+                        ]:
+                            try:
+                                os.remove(path)
+                            except OSError:
+                                pass
+                    result["condition"] = cond
+                    result["seed"] = seed
+                    result["run_id"] = run_id
+                    rows.append(result)
 
-                vb = result.get("val_bpb")
-                vb_s = (
-                    f"{vb:.6f}"
-                    if isinstance(vb, float) and not math.isnan(vb)
-                    else "n/a"
-                )
-                print(
-                    f"  status={result['status']}  val_bpb={vb_s}  elapsed={result['elapsed_s']:.0f}s"
-                )
-
-                # Cleanup temp config
-                try:
-                    os.remove(cfg_path)
-                except OSError:
-                    pass
+                    vb = result.get("val_bpb")
+                    vb_s = (
+                        f"{vb:.6f}"
+                        if isinstance(vb, float) and not math.isnan(vb)
+                        else "n/a"
+                    )
+                    print(
+                        f"  status={result['status']}  val_bpb={vb_s}  elapsed={result['elapsed_s']:.0f}s"
+                    )
+    except KeyboardInterrupt:
+        print(f"\n# stopped after {len(rows)} of {total_runs} runs", file=sys.stderr)
     finally:
-        print(f"\n# restoring best_model.pt from {backup}")
-        shutil.copy(backup, "best_model.pt")
+        try:
+            supervisor.stop()
+        finally:
+            lock.close()
 
     total_elapsed = time.perf_counter() - t_start
 

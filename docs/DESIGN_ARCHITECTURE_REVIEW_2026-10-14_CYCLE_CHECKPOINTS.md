@@ -50,7 +50,9 @@ Also the tools that read these files: `scripts/snapshot_loop_candidates.sh` and 
   incumbent unrecorded.** The loop then counts a crash: it reverts `config.json` and commits nothing, but the
   next cycle warm-starts from, and is compared with, the new `best_model.pt`. The window covers the TSV rows,
   `os.sync` and the result file, a few seconds; the supervisor's timeout or `stop.sh` could land in it. This
-  predates the PR; writing `best_model.pt` last keeps it from growing.
+  predates the PR; writing `best_model.pt` last keeps it from growing. (Handled since #69: the loop holds the
+  incumbent across each run and restores it when the cycle fails;
+  `DESIGN_ARCHITECTURE_REVIEW_2026-10-14_FAILED_CYCLES.md`.)
 - **`scripts/loop_candidate_spread.py` reads `best_model.pt`'s hash at the end of its run** but scores the
   incumbent at the start, so a `--wait` run spanning a promotion would pair the new hash with the old scores.
   Promoted candidates now reach the snapshots, which makes such a run possible. The script is changed by open

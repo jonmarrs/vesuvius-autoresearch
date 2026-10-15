@@ -4,6 +4,7 @@ import json
 import os
 import random
 import signal
+import stat
 import subprocess
 import sys
 import tempfile
@@ -12,7 +13,7 @@ from collections import Counter, defaultdict
 from dataclasses import asdict
 from typing import Any
 
-from scripts.loop_control import acquire_lock
+from scripts.loop_control import acquire_lock, describe_run, unsupervised_runs
 from scripts.process_supervisor import ProcessSupervisor
 from scripts.training.config import ExperimentConfig
 from scripts.training.promotion import (
@@ -45,6 +46,25 @@ supervisor = ProcessSupervisor()
 
 
 def signal_handler(sig, frame):
+    if sig == signal.SIGHUP:
+        _leave_closed_terminal()
+    if STOP_DEFERRED["active"]:
+        # The cycle's outcome is being recorded (the config, the commit, the
+        # sprint-log entry): stop once that is done, not halfway through it.
+        if STOP_DEFERRED["signal"] is None:
+            print(f"\nCaught signal {sig}. Stopping once this cycle is recorded...")
+        else:
+            print(f"\nCaught signal {sig}. Still recording this cycle; stopping after.")
+        STOP_DEFERRED["signal"] = sig
+        return
+    if STOP_DEFERRED["stopping"]:
+        # Stopped again while this stop runs (stop.sh twice, Ctrl-C twice): kill
+        # the run at once (the supervisor escalates) and let the first handler
+        # settle once and exit. Exiting here cut its settle short.
+        print(f"\nCaught signal {sig}. Already stopping; the run is killed.")
+        supervisor.stop()
+        return
+    STOP_DEFERRED["stopping"] = True
     print(f"\nCaught signal {sig}. Cleaning up...")
     supervisor.stop()
     # A stop (stop.sh sends SIGTERM) almost always lands mid-cycle: settle that
@@ -55,6 +75,24 @@ def signal_handler(sig, frame):
         if note:
             print(f"Incumbent: {note}.")
     sys.exit(0)
+
+
+LOOP_OUTPUT = "autoresearch.out"
+
+
+def _leave_closed_terminal():
+    """After a hangup, writing to the closed terminal fails (EIO): the handler's
+    first message raised before it stopped the run, and later ones broke the
+    recording of a cycle. From here the loop's output goes to autoresearch.out,
+    as start.sh's does."""
+    terminal = False
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            terminal = terminal or stream.isatty()
+        except (OSError, ValueError, AttributeError):
+            terminal = True
+    if terminal:
+        sys.stdout = sys.stderr = open(LOOP_OUTPUT, "a", buffering=1)
 
 
 # Define templates for architectural and hyperparameter tweaks
@@ -381,17 +419,28 @@ def load_history():
 
 def save_history(counts):
     """Write the family weights atomically: a stop mid-write leaves the old file."""
-    directory = os.path.dirname(os.path.abspath(HISTORY_FILE))
+    try:
+        _write_json_atomic(HISTORY_FILE, dict(counts), indent=4)
+    except OSError as e:
+        print(f"Warning: Could not save history: {e}")
+
+
+def _write_json_atomic(path, data, **dump_options):
+    """A temporary file, synced, then renamed over path, keeping path's mode
+    (mkstemp creates 0600). A stop or crash leaves the old file or the new."""
+    directory = os.path.dirname(os.path.abspath(path))
     temporary = None
     try:
         fd, temporary = tempfile.mkstemp(
-            prefix=".history.", suffix=".tmp", dir=directory
+            prefix=f".{os.path.basename(path)}.", suffix=".tmp", dir=directory
         )
+        if os.path.exists(path):
+            os.fchmod(fd, stat.S_IMODE(os.stat(path).st_mode))
         with os.fdopen(fd, "w") as f:
-            json.dump(dict(counts), f, indent=4)
-        os.replace(temporary, HISTORY_FILE)
-    except OSError as e:
-        print(f"Warning: Could not save history: {e}")
+            json.dump(data, f, **dump_options)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(temporary, path)
     finally:
         if temporary is not None and os.path.exists(temporary):
             os.unlink(temporary)
@@ -409,9 +458,10 @@ def load_recent_configs():
 
 
 def save_recent_configs(configs):
+    # Atomically, like the history: written in place, a stop mid-write left a
+    # truncated file, which the next start read as no recent configs at all.
     try:
-        with open(RECENT_CONFIGS_FILE, "w") as f:
-            json.dump(configs[-20:], f)
+        _write_json_atomic(RECENT_CONFIGS_FILE, configs[-20:])
     except Exception as e:
         print(f"Warning: Could not save {RECENT_CONFIGS_FILE}: {e}")
 
@@ -421,6 +471,9 @@ INCUMBENT = "best_model.pt"
 INCUMBENT_HELD = ".best_model.pt.held"
 # The cycle in flight, for the signal handler: whether it holds, and what.
 CYCLE_HOLD: dict[str, Any] = {"active": False, "held": None, "logs": {}}
+# Set from a run's end until its cycle is recorded; a stop then waits for it.
+# "stopping": a stop is being handled, and a repeated one only kills the run.
+STOP_DEFERRED: dict[str, Any] = {"active": False, "signal": None, "stopping": False}
 # The rows train.py appends when it promotes, before it writes its result.
 PROMOTION_LOGS = ("results.tsv", "prize_readiness.tsv")
 
@@ -571,6 +624,36 @@ def leftover_hold():
     )
 
 
+TRAIN_SCRIPT = "scripts/training/train.py"
+# The longest a supervised training run may last: the night budget plus the
+# margin of its timeout (default_budget + 300 in main).
+LONGEST_RUN_SECONDS = 3600 + 300
+
+
+def unsupervised_runs_reason(running):
+    """Stops a loop's own run that has outlived any cycle's timeout, as its
+    supervisor would have, and says why the loop does not start."""
+    lines = []
+    for pid, age, own in running:
+        lines.append(describe_run(pid, age, own))
+        if own and age is not None and age > LONGEST_RUN_SECONDS:
+            try:
+                os.killpg(pid, signal.SIGTERM)
+                lines[-1] += ", stopped now: past any cycle's timeout"
+            except OSError:
+                pass
+    return (
+        "a training run is going in this checkout outside any loop: "
+        + "; ".join(lines)
+        + ". A loop that ended without stopping its run (killed, or its terminal "
+        "closed) leaves it going, and a run started here by hand writes the same "
+        "files: either can still replace best_model.pt and write run_result.json. "
+        "The watchdog tries again on its next tick. ./stop.sh stops the runs a "
+        "loop or ablation started (it also pauses the watchdog); a run started "
+        "by hand: kill -TERM <PID>. If it promoted, the hold then needs your call."
+    )
+
+
 def exit_description(returncode):
     if returncode is not None and returncode < 0:
         try:
@@ -611,24 +694,37 @@ def commit_promotion(message):
 
 
 def _run_git(*args, timeout=300):
-    """Run git; a hang is stopped with SIGTERM, on which git removes its
-    index.lock (a SIGKILL would leave it, failing every later git command)."""
+    """Run git in a process group of its own, with its hooks (a terminal's
+    Ctrl-C reaches neither). A hang is stopped with SIGTERM to the group, on
+    which git removes its index.lock (a SIGKILL would leave it, failing every
+    later git command), then SIGKILL. Signalling git alone left a hook holding
+    the output pipes, and the wait for them had no end, so a stop deferred
+    behind it never came."""
     process = subprocess.Popen(
         ["git", *args],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,
         errors="replace",
+        start_new_session=True,
     )
     try:
         out, err = process.communicate(timeout=timeout)
     except subprocess.TimeoutExpired:
-        process.terminate()
-        try:
-            process.communicate(timeout=30)
-        except subprocess.TimeoutExpired:
-            process.kill()
-            process.communicate()
+        for sig, grace in ((signal.SIGTERM, 30), (signal.SIGKILL, 10)):
+            try:
+                os.killpg(process.pid, sig)
+            except ProcessLookupError:
+                pass
+            try:
+                process.communicate(timeout=grace)
+                break
+            except subprocess.TimeoutExpired:
+                pass
+        else:  # a descendant that left the group still holds the pipes
+            for stream in (process.stdout, process.stderr):
+                if stream is not None:
+                    stream.close()
         return None, f"timed out after {timeout} s"
     return process.returncode, f"{err}\n{out}"
 
@@ -678,6 +774,12 @@ def main():
         print("Autoresearch is paused. Use ./start.sh to resume.")
         return
 
+    # Before the hold: a run still going may yet replace best_model.pt.
+    running = unsupervised_runs(".")
+    if running:
+        print(f"Not starting: {unsupervised_runs_reason(running)}")
+        return
+
     reason = leftover_hold()
     if reason:
         print(f"Not starting: {reason}")
@@ -712,8 +814,13 @@ def main():
             f"{first_use_record('best_model.pt')}, and candidates are compared on "
             "them until it is re-scored or replaced."
         )
+    STOP_DEFERRED.update(active=False, signal=None, stopping=False)
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
+    # A closed terminal (SIGHUP) stops the loop like stop.sh, not at once with
+    # its run left going. start.sh runs it under nohup, which ignores SIGHUP.
+    if signal.getsignal(signal.SIGHUP) is not signal.SIG_IGN:
+        signal.signal(signal.SIGHUP, signal_handler)
 
     success_counts: dict[str, float] = load_history()
 
@@ -961,7 +1068,7 @@ def main():
                             "run",
                             "python",
                             "-u",
-                            "scripts/training/train.py",
+                            TRAIN_SCRIPT,
                             "--config",
                             TEMP_CONFIG,
                             "--smoke",
@@ -1001,7 +1108,7 @@ def main():
                                 "run",
                                 "python",
                                 "-u",
-                                "scripts/training/train.py",
+                                TRAIN_SCRIPT,
                                 "--config",
                                 TEMP_CONFIG,
                             ],
@@ -1019,6 +1126,12 @@ def main():
             print(f"Subprocess error in cycle {i}: {e}")
             failure = f"could not be run ({type(e).__name__}: {e})"
 
+        # From the run's end until the cycle is recorded, a stop (stop.sh) waits.
+        # Exiting halfway settled a clean run as failed, or left a promoted
+        # config and model without their commit or sprint-log entry, or with the
+        # three files staged but not committed. A stop during the run is not
+        # deferred: the supervisor has returned by now.
+        STOP_DEFERRED.update(active=True, signal=None)
         val_bpb = train_loss = params = vram = vps = val_f1 = "N/A"
         skipped_updates = 0
         promotion_blocked = None
@@ -1164,6 +1277,9 @@ def main():
                 f"{best_val_f1:.6f}" if best_val_f1 > float("-inf") else "none yet"
             )
             print(f"No improvement. (val_f1: {val_f1}, best was: {best_str})")
+        STOP_DEFERRED["active"] = False
+        if STOP_DEFERRED["signal"] is not None:
+            signal_handler(STOP_DEFERRED["signal"], None)
 
         # Benchmark Inference Step (Every 5 cycles).
         # Uses subprocess.run (not os.system) so a predict.py crash surfaces
