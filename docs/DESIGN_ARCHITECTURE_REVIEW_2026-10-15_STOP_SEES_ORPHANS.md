@@ -28,6 +28,8 @@ that the ablation's cell, the other supervised training script run in the checko
 | P3 | **`stop.sh` reported nothing to stop while an orphaned run trained.** After a loop or ablation was killed without its handler, its run went on in a session of its own. `stop.sh` found no lock holder, printed "No autoresearch work running", and left the run training. That is the case where the operator most needs a stop: the run can still replace `best_model.pt` and write `run_result.json`. #81's message pointed to `kill -TERM -- -<PID>` instead. | `stop` stops such runs by their group and waits for them. Test: an orphaned loop run and an orphaned ablation cell are stopped (SIGTERM); a run started by hand is named and left alone; the watchdog is paused. Fails on main. |
 | P3 | **An orphaned ablation cell was not looked for.** Its script is `scripts/train_with_new_augs.py`, which runs in the checkout and writes `run_result.json` there. A loop started beside it could read that file as its own run's result if its own run wrote none. | `RUN_SCRIPTS` includes it. The same test covers it. |
 | — | **`status` did not show such runs.** | It lists them. Test: listed with no holder; a live loop's own run is not listed (its session leader is the holder's child). |
+| P3 | **A loop's run was reported as two, one "started by hand" (review of this change).** A real run is `uv run python …`: uv leads the session and its python child carries the same arguments. `stop` named the child "not stopping: … (started by hand)", then stopped it with its group; the loop's start named it the same way. | A run's own processes (a listed run's children) are part of it. Test: a leader with a same-argument child is listed once, as a loop's run, and both end. Failed before. |
+| P3 | **A run whose session leader had died was not seen (review of this change).** Reading the leader's `/proc` entry failed for uv killed alone, and the run was skipped; main's check saw it. | Listed, as not started by a supervisor. Test: the child of a killed leader is listed. Failed before. |
 
 ## Observations for the owner (not changed)
 
@@ -61,5 +63,7 @@ validation run of #81's head, whose tree is `bc01631d`'s.
 New tests in `tests/test_loop_lifecycle.py`:
 - `test_stop_ends_what_a_killed_loop_or_ablation_left_running` (fails on main);
 - `test_status_does_not_count_the_running_loops_own_run` (a guard for the new listing).
+- `test_a_runs_python_child_is_that_run_not_one_started_by_hand` and
+  `test_a_run_whose_session_leader_died_is_still_seen` (both failed before the review's fix).
 
 Not verified here: `stop.sh` on the GPU host after a real kill.

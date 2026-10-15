@@ -468,6 +468,98 @@ def test_status_does_not_count_the_running_loops_own_run(tmp_path, capsys):
             pass
 
 
+def _run_as_uv_starts_it(directory):
+    """A supervisor's run as `uv run python -u scripts/training/train.py --config
+    config_temp.json` makes it: the session leader (uv) and its python child,
+    the script and config among both their arguments. Returns (leader, child PID)."""
+    script = directory / "scripts" / "training" / "train.py"
+    script.parent.mkdir(parents=True, exist_ok=True)
+    script.write_text(
+        "import os, subprocess, sys, time\n"
+        "if 'RUN_CHILD' not in os.environ:\n"
+        "    child = subprocess.Popen([sys.executable, *sys.argv],"
+        " env={**os.environ, 'RUN_CHILD': '1'})\n"
+        "    print(child.pid, flush=True)\n"
+        "time.sleep(120)\n"
+    )
+    leader = subprocess.Popen(
+        [
+            sys.executable,
+            "-u",
+            "scripts/training/train.py",
+            "--config",
+            "config_temp.json",
+        ],
+        cwd=directory,
+        start_new_session=True,
+        stdout=subprocess.PIPE,
+        text=True,
+    )
+    assert leader.stdout is not None
+    child = int(leader.stdout.readline())
+    deadline = time.monotonic() + 10
+    while time.monotonic() < deadline:
+        if b"train.py" in Path(f"/proc/{child}/cmdline").read_bytes():
+            break
+        time.sleep(0.02)
+    return leader, child
+
+
+def _gone(pid, timeout=5):
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        try:
+            state = Path(f"/proc/{pid}/stat").read_text().rsplit(")", 1)[1].split()[0]
+        except FileNotFoundError:
+            return True
+        if state == "Z":
+            return True
+        time.sleep(0.02)
+    return False
+
+
+@pytest.mark.skipif(not Path("/proc/self/cwd").exists(), reason="reads /proc")
+def test_a_runs_python_child_is_that_run_not_one_started_by_hand(tmp_path, capsys):
+    """uv's python child carries the run's arguments too. It was reported as a
+    second run "started by hand", "not stopping", and then stopped with its group."""
+    leader, child = _run_as_uv_starts_it(tmp_path)
+    try:
+        assert control_main(["status", "--repo", str(tmp_path)]) == 1
+        status = capsys.readouterr().out
+        assert f"PID {leader.pid} (started by a loop or ablation" in status
+        assert f"PID {child} (" not in status
+        assert control_main(["stop", "--repo", str(tmp_path), "--timeout", "5"]) == 0
+        out = capsys.readouterr().out
+        assert f"stopping: PID {leader.pid} (started by a loop or ablation" in out
+        assert "started by hand" not in out and f"PID {child} (" not in out
+        assert leader.wait(timeout=5) == -signal.SIGTERM
+        assert _gone(child)
+    finally:
+        try:
+            os.killpg(leader.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+        leader.wait()
+
+
+@pytest.mark.skipif(not Path("/proc/self/cwd").exists(), reason="reads /proc")
+def test_a_run_whose_session_leader_died_is_still_seen(tmp_path, capsys):
+    """uv killed alone leaves its python child training; the child's session
+    leader is gone. Main's check saw such a run, so the loop did not start."""
+    leader, child = _run_as_uv_starts_it(tmp_path)
+    try:
+        leader.kill()
+        leader.wait()
+        assert control_main(["status", "--repo", str(tmp_path)]) == 1
+        assert f"PID {child} (" in capsys.readouterr().out
+    finally:
+        try:
+            os.kill(child, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+        _gone(child)
+
+
 def test_stop_pauses_watchdog_even_without_a_running_loop(tmp_path):
     assert control_main(["stop", "--repo", str(tmp_path)]) == 0
     assert (tmp_path / ".loop_paused").exists()

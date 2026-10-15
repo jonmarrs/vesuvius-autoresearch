@@ -106,7 +106,10 @@ def unsupervised_runs(repo, supervisor=None):
     path; an editor or pager open on the file is not one. A run whose session
     leader is a child of supervisor (the lock holder's PID) is that holder's
     own and is skipped. Supervisor-started runs are session leaders with a
-    config_temp* config; their python child is listed too. Linux /proc only."""
+    config_temp* config. A run's own processes (uv run's python child, with
+    the same arguments) are part of it, not runs of their own. A run whose
+    session leader is gone (uv killed alone) is listed as not started by a
+    supervisor: what started it can no longer be told. Linux /proc only."""
     if not os.path.isdir("/proc"):
         return []
     repo = os.path.realpath(repo)
@@ -121,10 +124,16 @@ def unsupervised_runs(repo, supervisor=None):
                 args = [os.fsdecode(a) for a in f.read().split(b"\0") if a]
             cwd = os.path.realpath(f"/proc/{pid}/cwd")
             session = os.getsid(pid)
-            leader_parent = int(_stat_fields(session)[1])
+            parent = int(_stat_fields(pid)[1])
         except (OSError, ValueError, IndexError):
             continue  # gone, or another user's process
-        if cwd != repo or not args or leader_parent == supervisor:
+        try:
+            leader_parent = int(_stat_fields(session)[1])
+        except (OSError, ValueError, IndexError):
+            leader_parent = None  # the session leader is gone
+        if cwd != repo or not args:
+            continue
+        if supervisor is not None and leader_parent == supervisor:
             continue
         program = os.path.basename(args[0])
         if not (program.startswith("python") or program == "uv"):
@@ -134,8 +143,11 @@ def unsupervised_runs(repo, supervisor=None):
         started = session == pid and any(
             os.path.basename(a).startswith("config_temp") for a in args
         )
-        found.append((pid, _process_age(pid), started))
-    return sorted(found)
+        found.append((pid, _process_age(pid), started, parent))
+    runs = {pid for pid, _, _, _ in found}
+    return sorted(
+        (pid, age, started) for pid, age, started, parent in found if parent not in runs
+    )
 
 
 def describe_run(pid, age, started):
