@@ -82,9 +82,9 @@ VALIDATION_TESTS = [
     "tests/test_volume_cartographer.py",
     "tests/test_prize_readiness.py",
     "tests/test_villa_metrics_integration.py",
-    # Tests of the loop's code added since the list was last kept by hand
-    # (2026-10-16); tests/test_validation_suite_covers_the_loop.py now fails
-    # when one is missing.
+    # Tests of code the loop runs that had never been listed (2026-10-16);
+    # tests/test_validation_suite_covers_the_loop.py now fails when one is
+    # missing.
     "tests/test_validation_suite_covers_the_loop.py",
     "tests/test_betti_loss.py",
     "tests/test_checkout_imports_its_own_code.py",
@@ -114,6 +114,18 @@ VALIDATION_TESTS = [
     "tests/test_villa_prize_opportunities.py",
     "tests/test_villa_review_manifest.py",
     "tests/test_volume_cartographer_readiness.py",
+    "tests/test_cldice_loss.py",
+    "tests/test_detector_metrics.py",
+    "tests/test_fiber_direction_tiled.py",
+    "tests/test_fiber_orientation.py",
+    "tests/test_fiber_trace.py",
+    "tests/test_model_shapes.py",
+    "tests/test_pixel_auc.py",
+    "tests/test_resnet3d_decoder.py",
+    "tests/test_scroll_aug_library.py",
+    "tests/test_timesformer.py",
+    "tests/test_villa_upstream_audit.py",
+    "tests/test_wandb_tracking.py",
 ]
 
 

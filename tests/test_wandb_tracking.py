@@ -2,6 +2,8 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
+import pytest
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from scripts.wandb_tracking import build_run_config, init_run, wandb_enabled
@@ -40,6 +42,7 @@ def test_init_run_returns_none_when_disabled():
 
 def test_offline_run_end_to_end(tmp_path, monkeypatch):
     # Real offline init/log/finish must work without network or login.
+    pytest.importorskip("wandb")
     monkeypatch.setenv("WANDB_DIR", str(tmp_path))
     monkeypatch.setenv("WANDB_MODE", "offline")
     monkeypatch.setenv("WANDB_SILENT", "true")
