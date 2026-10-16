@@ -15,7 +15,13 @@ def promote_to_review(metadata_path, review_dir="reports/review_queue"):
     with open(metadata_path) as f:
         meta = json.load(f)
 
-    candidate_id = Path(metadata_path).stem.replace("_meta", "")
+    # pred_..._meta.json from predict.py; the evidence chain writes one
+    # evidence_metadata.json per candidate directory, named after it.
+    stem = Path(metadata_path).stem
+    if stem == "evidence_metadata":
+        candidate_id = Path(metadata_path).resolve().parent.name
+    else:
+        candidate_id = stem.removesuffix("_meta")
     target_dir = Path(review_dir) / candidate_id
     target_dir.mkdir(parents=True, exist_ok=True)
 
@@ -25,8 +31,10 @@ def promote_to_review(metadata_path, review_dir="reports/review_queue"):
     shutil.copy(metadata_path, target_dir / "metadata.json")
 
     # 2. Copy Visualization
-    if meta.get("visualization_path") and os.path.exists(meta["visualization_path"]):
-        shutil.copy(meta["visualization_path"], target_dir / "preview.png")
+    # predict.py records its figure as output_image_path.
+    image = meta.get("output_image_path")
+    if image and os.path.exists(image):
+        shutil.copy(image, target_dir / "preview.png")
 
     # 3. Generate Crackle Project File
     crackle_project = {

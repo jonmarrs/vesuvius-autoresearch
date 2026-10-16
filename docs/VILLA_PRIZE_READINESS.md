@@ -200,7 +200,7 @@ occupied candidate before opening Crackle Viewer / VC3D for human review.
 Use a row from `reports/scroll23_search_queue.tsv`:
 
 ```bash
-uv run python predict.py \
+uv run python scripts/inference/predict.py \
   --uri local_data/PHerc0125_Divisions/div_100/0 \
   --z 9000 --y 2048 --x 2048 \
   --width 64 --height 64 --patch_size 64 \
@@ -210,11 +210,12 @@ uv run python predict.py \
 
 `predict.py` writes:
 
-- PNG discovery/context image with a scale bar
-- `*_ink.npy` and `*_fiber.npy`
-- `*_ink.png` and `*_fiber.png`
-- VC3D-compatible ink and fiber prediction Zarrs with `meta.json` and OME-Zarr scale metadata
-- metadata JSON with source URI, origin XYZ, voxel size, patch size, ink stats, and fiber stats
+- PNG discovery/context image with a scale bar (1 cm only from 1581 pixels wide at 7.91 µm; this
+  64-pixel example gets a 100 µm bar and cannot pass validation)
+- `*_ink.npy`, `*_ink.png` and a VC3D-compatible ink Zarr with `meta.json` and OME-Zarr scale metadata
+- the same for fiber, only when the model has a fiber head
+- metadata JSON with source URI, origin XYZ, voxel size, patch size, the inference recipe,
+  completeness, the model's heads, ink stats, and fiber stats when there is a fiber head
 
 ## 3. Validate Prize Mechanics
 

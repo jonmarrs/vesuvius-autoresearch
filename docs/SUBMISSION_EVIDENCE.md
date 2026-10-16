@@ -19,8 +19,9 @@ The default writes commands. `--execute` runs them serially. Generated commands
 use the existing prediction launcher, and candidate geometry must contain
 nonnegative integer coordinates and a region at least as large as its ML patch.
 
-The predictor uses the checkpoint's voxel size for image scale and both ink and
-fiber exports. Single and ensemble inference require complete matching weights;
+The predictor uses the checkpoint's recorded voxel size, else the candidate's
+`voxel_um` (passed as `--voxel_size_um`), for image scale and the ink and fiber
+exports. Single and ensemble inference require complete matching weights;
 partial warm starts cannot generate prediction evidence. Its four-mirror TTA runs once, and Gaussian blending works without
 optional upstream model imports. `--disable_tta` requests one forward pass.
 
@@ -53,6 +54,14 @@ metadata. A readable static image is required via `output_image_path` or
 `source_image_path`. Geometry must be positive and finite, with three x/y/z
 voxel indices. Placeholder or illustrative evidence fails even when its numeric
 overlap is zero. The existing 64-pixel or 0.5 mm window rule is retained.
+
+The metadata must record a complete prediction (`prediction_complete: true`)
+whose ink map is `sigmoid(ink)` (`inference_recipe.ink_probability`): shards,
+records without completeness, QC-gated maps from before 2026-10-13 and maps
+without a recorded recipe fail. A declared 1 cm scale bar must fit the region:
+`width_px × voxel_size_um` must be at least 10 mm, so a 64-pixel region at
+7.91 µm (0.51 mm) cannot pass, whatever it declares. `predict.py` declares the
+bar only when it fits 80% of the width, from 1581 pixels at 7.91 µm.
 
 Artifact paths in metadata resolve relative to its directory. Existing paths
 relative to the caller's working directory are accepted for older records when

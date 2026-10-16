@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 """Check local submission mechanics, not scientific accuracy or prize eligibility.
 
-PASS requires a readable discovery image, valid geometry, and supplied overlap
-masks. A provided VC3D export must have coherent array and OME metadata. This
-does not establish that masks describe the model's complete training history.
+PASS requires a complete prediction whose ink map is sigmoid(ink), a readable
+discovery image of a region at least 1 cm wide (the declared scale bar must fit),
+valid geometry, and supplied overlap masks. A provided VC3D export must have
+coherent array and OME metadata. This does not establish that masks describe the
+model's complete training history.
 """
 
 import argparse
@@ -13,6 +15,8 @@ from pathlib import Path
 
 import numpy as np
 from PIL import Image
+
+from vesuvius_autoresearch.core.inference_constants import INK_PROBABILITY
 
 MAX_ML_WINDOW_MM = 0.5
 MAX_ML_WINDOW_PX = 64
@@ -296,12 +300,20 @@ def validate(metadata_path, train_mask=None, predict_mask=None, zarr_path=None):
         return report
     voxel_um = None
     image_shape = None
-    if (
-        "prediction_complete" in metadata
-        and metadata["prediction_complete"] is not True
-    ):
+    # Every predictor records it; metadata without it cannot show that the
+    # region was predicted in full.
+    if metadata.get("prediction_complete") is not True:
         failures.append(
             "prediction is partial or its completeness is unverified; inference shards are not complete submission evidence"
+        )
+    # The ranker already refuses other recipes: QC-gated maps (before
+    # 2026-10-13) sit near zero, and a map without a recipe cannot be placed.
+    recipe = metadata.get("inference_recipe")
+    ink_recipe = recipe.get("ink_probability") if isinstance(recipe, dict) else None
+    if ink_recipe != INK_PROBABILITY:
+        failures.append(
+            f"ink map's recorded recipe is {ink_recipe!r}, not {INK_PROBABILITY!r}; "
+            "QC-gated maps and maps without a recorded recipe are not comparable evidence"
         )
     if "num_parts" in metadata:
         try:
@@ -401,6 +413,15 @@ def validate(metadata_path, train_mask=None, predict_mask=None, zarr_path=None):
         metadata.get("scale_bar_cm", metadata.get("has_scale_bar_cm", False))
     ):
         failures.append("metadata must declare a 1 cm scale bar")
+    elif image_shape is not None and voxel_um is not None:
+        # A declared bar is checked against the image's physical width: one
+        # 1 cm long cannot be drawn on a region narrower than 1 cm.
+        extent_mm = image_shape[1] * voxel_um / 1000.0
+        if extent_mm < 10.0:
+            failures.append(
+                f"a 1 cm scale bar cannot fit a {image_shape[1]} px region at "
+                f"{voxel_um:g} um ({extent_mm:.2f} mm wide)"
+            )
     if _as_bool(metadata.get("source_image_is_placeholder", False)) or metadata.get(
         "evidence_mode"
     ) in ("placeholder", "placeholder_dry_run", "dummy"):

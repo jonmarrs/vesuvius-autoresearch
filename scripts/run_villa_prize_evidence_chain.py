@@ -101,7 +101,7 @@ def patch_prediction_metadata(
 def _attach_neural_tracing_plan(out_dir, row, python_executable):
     """Optionally produce a neural_tracing trace_service plan for this candidate.
 
-    Calls scripts/launch_neural_tracing.py to resolve the candidate's OME-zarr
+    Calls scripts/inference/launch_neural_tracing.py to resolve the candidate's OME-zarr
     volume + checkpoint, then copies the resulting marker into the candidate
     evidence directory so reviewers can see whether trace_service is launchable
     for this submission window. Tracing itself is not executed; this only adds
@@ -110,7 +110,7 @@ def _attach_neural_tracing_plan(out_dir, row, python_executable):
     """
     out_dir = Path(out_dir)
     tracing_marker = out_dir / "neural_tracing.json"
-    launcher = REPO_ROOT / "scripts" / "launch_neural_tracing.py"
+    launcher = REPO_ROOT / "scripts" / "inference" / "launch_neural_tracing.py"
     if not launcher.exists():
         return None
 
@@ -128,7 +128,11 @@ def _attach_neural_tracing_plan(out_dir, row, python_executable):
     if local_uri:
         cmd.extend(["--volume-zarr", str(local_uri)])
 
-    subprocess.run(cmd, check=False)
+    # The chain removed any earlier marker before this run; one written by a
+    # launcher that then failed is not a plan either.
+    if subprocess.run(cmd, check=False).returncode != 0:
+        tracing_marker.unlink(missing_ok=True)
+        return None
     if tracing_marker.exists():
         try:
             return json.loads(tracing_marker.read_text())
@@ -165,7 +169,11 @@ def build_evidence_chain(
 
     _write_json(out_dir / "candidate.json", row)
     (out_dir / "predict_command.sh").write_text(shlex.join(cmd) + "\n")
-    # A failed attempt must not leave a previous successful report authoritative.
+    # A failed attempt must not leave a previous successful report authoritative,
+    # nor the evidence it validated: the review manifest's validate command reads
+    # evidence_metadata.json, which names artifacts this run may have overwritten.
+    for stale in ("evidence_metadata.json", "manifest.json", "neural_tracing.json"):
+        (out_dir / stale).unlink(missing_ok=True)
     _write_json(
         out_dir / "PRIZE_READINESS_REPORT.json",
         {
