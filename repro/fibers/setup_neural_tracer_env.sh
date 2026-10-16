@@ -11,13 +11,19 @@ REPO_ID=scrollprize/fiber_single_small
 REVISION=451182558cb3270cfc2ddf967acbd4f36b9b816b
 mkdir -p "$T"
 if [ ! -d "$T/villa" ]; then
-  # A linked worktree of the submodule: shared objects, no network, only vesuvius/ checked out.
+  # A linked worktree of the submodule: shared objects, no network.
   git -C "$REPO/villa" worktree add --detach --no-checkout "$T/villa" "$VILLA_SHA"
-  git -C "$T/villa" sparse-checkout set vesuvius
-  git -C "$T/villa" checkout --detach "$VILLA_SHA"
 fi
+# vesuvius/ and the three local sources its lockfile names.
+git -C "$T/villa" sparse-checkout set vesuvius segmentation/models/batchgeneratorsv2 \
+  segmentation/models/arch/nnunet volume-cartographer
+git -C "$T/villa" checkout --detach "$VILLA_SHA"
 [ "$(git -C "$T/villa" rev-parse HEAD)" = "$VILLA_SHA" ] || { echo "villa worktree is not at $VILLA_SHA" >&2; exit 2; }
-( cd "$T/villa/vesuvius" && UV_PROJECT_ENVIRONMENT="$T/venv" uv sync --frozen --extra models ) 2>&1 | tail -5
+# volume-cartographer is a C++ (CMake) build. The tracer imports its bindings only lazily, for the vcz1 codec and
+# the VESUVIUS_CT_READER=vc3d reader; these cubes are blosc-compressed and read with the default reader. So it is
+# resolved from the lockfile but not installed; an import of `vc` would fail loudly, not silently.
+( cd "$T/villa/vesuvius" && UV_PROJECT_ENVIRONMENT="$T/venv" \
+    uv sync --frozen --extra models --no-install-package volume-cartographer ) 2>&1 | tail -5
 "$T/venv/bin/python" - "$REPO_ID" "$REVISION" <<'EOF'
 import hashlib, sys
 from pathlib import Path

@@ -153,3 +153,23 @@ def test_identity_refuses_an_absent_setting():
 def test_grid_size_is_half_the_cube():
     assert a.grid_size("s1_00497_01497_03997_256") == 128.0
     assert a.grid_size("s3_00994_00494_01994_512") == 256.0
+
+
+def test_stop_reasons_are_tallied_over_both_ends_of_every_fiber(tmp_path):
+    import json
+    import sqlite3
+
+    path = tmp_path / "fibers.afv"
+    con = sqlite3.connect(path)
+    con.execute("CREATE TABLE fibers(id INTEGER PRIMARY KEY, annotation TEXT)")
+    for fid, reasons in enumerate(
+        [["box", "owned"], ["outside", "box"], ["confidence", "box"]]
+    ):
+        annotation = {
+            "type": "vc3d_fiber",
+            "fiber_follow": {"id": fid, "stop_reasons": reasons},
+        }
+        con.execute("INSERT INTO fibers VALUES (?, ?)", (fid, json.dumps(annotation)))
+    con.commit()
+    con.close()
+    assert a.stop_reasons(path) == {"box": 3, "owned": 1, "outside": 1, "confidence": 1}

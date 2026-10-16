@@ -35,8 +35,8 @@ Checked by reading villa at `ccb431818` and by measurement, before any run:
   15.8 µm, and a 256³ cube is a 128³ box.
 * **Presence.** `--presence` must be a uint8 array on the trace grid, in a directory named by an integer. The
   tracer looks beside it for the next level only to weigh tiles.
-* **Outside the scan.** A trace stops after 2 decisions with its head on CT value 0. All 21 cubes' CTs have no zero
-  voxel (checked on 6 of 21 at registration and on all 21 before launch), so this rule cannot fire inside a cube.
+* **Outside the scan.** A trace stops after 2 decisions with its head on CT value 0, and written fibers lose points on
+  CT 0 (see the amendment: 13 of the 21 cubes hold some zero voxels).
 * **Output.** `volume_afv.py` writes the run's fibers in level-0 voxels of the run's CT. For a CT that is not an
   open-data store, it takes its frame metadata from a template `.afv` of the same scan. Finding 85's per-cube `.afv`
   files are that template. villa's writer stores little-endian float64 xyz blocks that share boundary points, and
@@ -45,6 +45,28 @@ Checked by reading villa at `ccb431818` and by measurement, before any run:
 **Not yet checked: that it runs.** The environment does not exist yet (Python 3.14, torch ≥ 2.12). The first GPU
 step is a smoke run on a synthetic volume, not on a cube. If it fails, or needs a change to anything registered
 here, this file is amended and committed before any cube runs.
+
+## Amendment 1 — 2026-10-16, before any cube ran (after `8a0d033f`)
+
+* **Correction: zero voxels exist.** The registration said all 21 cubes have no zero voxel. The 6-cube check behind
+  it printed a fraction rounded to four decimals. Counted on all 21 before any run, 13 cubes hold some:
+  * Scroll 1: 2–196 per cube.
+  * Scroll 3: 191–18,579 per cube. The most is 0.014% of `s3_00994_00494_01994_512`.
+  * Scroll 5: none.
+
+  So the outside-the-scan rule can stop a trace inside these cubes. The CTs stay as registered: they are the data
+  every other entrant was scored on. The analysis now tallies each cube's stop reasons from the `.afv` annotations
+  (descriptive), so how often the rule fired is reported, not guessed.
+* **Environment.** villa's lockfile puts `volume-cartographer`, a C++/CMake build, in the `models` extra. The tracer
+  imports its bindings only lazily: the `vcz1` codec and the `VESUVIUS_CT_READER=vc3d` reader. These cubes are
+  blosc-compressed and read with the default reader. So the sync installs every locked package except that one
+  (`--no-install-package volume-cartographer`). An import of it would fail loudly.
+* **Built and checked:**
+  * torch 2.12.1+cu130;
+  * `last.pt` and `heading_model.pt` match the registered sha256;
+  * the tracer's modules import;
+  * #1934's template `.afv` files carry the cube frame (level 0, 7.91 µm, base shape = the cube) and the fibers
+    schema with `annotation`.
 
 ## The floor
 

@@ -97,6 +97,22 @@ def identity_problems(record: dict, cube: str) -> list[str]:
     return bad
 
 
+def stop_reasons(afv: Path) -> dict[str, int]:
+    """Why each fiber's two ends stopped, tallied over the .afv (descriptive). Some cubes hold CT voxels of value 0,
+    where the tracer's outside-the-scan rule can stop a trace."""
+    import sqlite3
+    from collections import Counter
+
+    con = sqlite3.connect(f"file:{afv}?mode=ro&immutable=1", uri=True)
+    try:
+        counts: Counter[str] = Counter()
+        for (annotation,) in con.execute("SELECT annotation FROM fibers"):
+            counts.update(json.loads(annotation)["fiber_follow"]["stop_reasons"])
+        return dict(counts)
+    finally:
+        con.close()
+
+
 def _share(cubes, holds) -> float:
     return sum(holds(c) for c in cubes) / len(cubes)
 
@@ -196,6 +212,7 @@ def main() -> int:
             identity[c] = bad
             continue
         rows[c] = score(afv, c, skel, TOL)
+        rows[c]["stop_reasons"] = stop_reasons(afv)
         loose[c] = {"tracer": score(afv, c, skel, LOOSE_TOL)}
         if comp[c]["generator"] is not None:
             loose[c]["generator"] = score(gafv, c, skel, LOOSE_TOL)
