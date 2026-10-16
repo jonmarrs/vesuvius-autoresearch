@@ -6,9 +6,11 @@ The question it was posed to answer is void. It asked whether ground-truth super
 held-out ink where distillation-from-canon could not, taking arm C at ROC-AUC 0.558 as the
 bar. That figure was produced against a misregistered label; post-correction arm C reads
 ~0.746, so there is no chance-level gap left to unlock. Nor can the experiment be re-posed
-today: three of the four configured training regions fail the 2026-08-14 placement gate, and
-exactly one Scroll-1 segment is labelled, re-flattened and correctly placed -- already spent
-as the held-out eval target. `cmd_finetune` refuses for that reason (guard below).
+today: of the four configured training regions two fail the placement gate, one drops at prep
+(periodicity) and one passes but is on the segment retired 2026-08-14, and exactly one
+Scroll-1 segment is labelled, re-flattened and correctly placed -- already spent as the
+held-out eval target. `cmd_finetune` refuses for that reason: it re-checks every kept region
+against its prep record (`verified_kept`), then needs two.
 
 Kept as the record of how the retracted result was produced. See
 reports/detector/gt_training_data_exhaustion_2026-08-15.md.
@@ -25,6 +27,7 @@ import numpy as np
 sys.path.insert(0, os.path.abspath("."))
 from repro.sota_data import distill_run as dr
 from repro.sota_data.gt_register import gt_prep_fragment
+from repro.sota_data.retirement import is_retired
 
 TRAIN_REGIONS = [
     ("20230702185753", 4000, 2500),
@@ -72,7 +75,48 @@ def cmd_prep():
         raise ValueError("no GT training region passed the alignment gate")
 
 
+def verified_kept(prep, max_placement_offset=None):
+    """The kept regions a prep record actually vouches for.
+
+    `cmd_finetune` trained on whatever `kept` listed. The 2026-07 record lists four
+    regions with no placement check, retirement or held-out guard, and its displaced
+    labels are still on disk under GT_ROOT (fragment writes refuse to overwrite), so
+    that record alone would have trained on them. Each region must now carry its own
+    passing, placement-verified entry, from a segment that is neither retired nor the
+    held-out evaluation one.
+    """
+    if max_placement_offset is None:
+        from repro.sota_data.register_run import MAX_PLACEMENT_OFFSET_L2PX
+
+        max_placement_offset = MAX_PLACEMENT_OFFSET_L2PX
+    heldout_seg = HELDOUT_FRAG_ID.split("_")[0]
+    regions = {r.get("frag_id"): r for r in prep.get("regions", [])}
+    kept, refused = [], {}
+    for frag_id in prep.get("kept", []):
+        seg = frag_id.split("_")[0]
+        info = regions.get(frag_id, {})
+        offset = info.get("placement_offset_level2_px")
+        if seg == heldout_seg:
+            refused[frag_id] = "the held-out evaluation segment"
+        elif is_retired(seg):
+            refused[frag_id] = "a retired segment"
+        elif not info.get("passed"):
+            refused[frag_id] = "no passing entry in the record"
+        elif info.get("placement_verified") is not True or offset is None:
+            refused[frag_id] = "placement not verified"
+        elif offset > max_placement_offset:
+            refused[frag_id] = f"placement {offset:.1f} px > {max_placement_offset:.0f}"
+        else:
+            kept.append(frag_id)
+    return kept, refused
+
+
 def cmd_finetune():
+    with open(PREP_JSON) as f:
+        kept, refused = verified_kept(json.load(f))
+    for frag_id, reason in refused.items():
+        print(f"REFUSE {frag_id}: {reason}", flush=True)
+
     import pytorch_lightning as pl
     import torch
     from pytorch_lightning.callbacks import ModelCheckpoint
@@ -83,8 +127,6 @@ def cmd_finetune():
     from vesuvius_autoresearch.detector.data import build_datasets
     from vesuvius_autoresearch.detector.model import DetectorModel
 
-    with open(PREP_JSON) as f:
-        kept = json.load(f)["kept"]
     # Validation must be DISJOINT from training. This previously passed
     # `valid_fragment_id=kept[0]`, i.e. validated on the first training region -- the only
     # place in the repo doing so (distill_run and xscroll_run both hold a fragment out).
@@ -95,8 +137,9 @@ def cmd_finetune():
     if len(kept) < 2:
         raise ValueError(
             f"{PREP_JSON} kept only {len(kept)} region(s): {kept}. Fine-tuning needs at "
-            "least 2 so validation can be disjoint from training. Three of the four "
-            "configured regions fail the 2026-08-14 placement gate, and as of 2026-08-15 "
+            "least 2 so validation can be disjoint from training. Of the four configured "
+            "regions two fail the placement gate, one drops at prep and one is on the "
+            "segment retired 2026-08-14, and as of 2026-08-15 "
             "no replacement exists: exactly one Scroll-1 segment is labelled, re-flattened "
             "and correctly placed, and it is spent as the held-out evaluation target. This "
             "is not fixable with a smaller split or more compute -- see "

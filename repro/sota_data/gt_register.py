@@ -197,7 +197,14 @@ def gt_prep_fragment(
             return info
         print(f"WARN {frag_id}: placement unverified (no teacher crop)", flush=True)
     else:
-        dy, dx, _, _ = placement_peak(reg_label, cv2.imread(teacher_path, 0))
+        try:
+            dy, dx, _, _ = placement_peak(reg_label, cv2.imread(teacher_path, 0))
+        except ValueError as exc:  # no peak located: dropped, as an unverifiable one is
+            info["passed"] = False
+            info["placement_verified"] = False
+            info["placement_note"] = str(exc)
+            print(f"DROP {frag_id}: placement not located ({exc})", flush=True)
+            return info
         offset = float(np.hypot(dy, dx))
         info["placement_offset_level2_px"] = offset
         info["placement_verified"] = True

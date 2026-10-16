@@ -121,7 +121,11 @@ def main():
         # placement_peak is the single implementation, shared with the cmd_validate gate.
         # This script used to carry its own copy of the scan, which is exactly the
         # duplicate-implementation hazard that let a second hardcoded LEVEL0_SHAPE survive.
-        by, bx, zd, bd = placement_peak(gt, pred, max_shift=args.margin)
+        # --coarse was recorded in the output but never passed (placement_peak ran at its
+        # default of 4) until 2026-10-16. strict=False: this probe reports a boundary peak.
+        by, bx, zd, bd = placement_peak(
+            gt, pred, max_shift=args.margin, coarse=args.coarse, strict=False
+        )
         if max(abs(by), abs(bx)) >= args.margin:
             print(
                 "  !! peak hit the search boundary -- rerun with a larger --margin",

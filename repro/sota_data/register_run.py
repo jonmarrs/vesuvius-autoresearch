@@ -8,6 +8,7 @@ the segment's original.obj -> that vertex's vt = 2023 label pixel). The `warp`/s
 route is the earlier mesh-bridge attempt, kept and unit-tested but superseded (its coarse
 tifxyz correspondence did not pass the alignment gate)."""
 
+import hashlib
 import json
 import os
 import sys
@@ -30,6 +31,7 @@ from repro.sota_data.register import (
     read_tifxyz,
     warp_via_field,
 )
+from repro.sota_data.retirement import RETIREMENT_REASON, is_retired
 
 # Per-segment SOTA surface-volume level-0 shape (y, x), read from the 2.4um OME-Zarr.
 #
@@ -125,6 +127,8 @@ TARGETS = {
         "report_json": "reports/detector/registered_gt_validation.json",
         "report_title": "First ground-truth-validated scores on SOTA data (registered label)",
         "gate_mode": "enrichment",
+        # The thresholds the committed validation used; the CLI may tighten, not loosen.
+        "gate": {"max_median_residual": 12.0, "min_enrichment": 2.0},
         "train_region_models": _ALL_STUDENTS,  # all three students trained on this region
         "selection_caveat_models": [],
         "overlay_ref": "reports/detector/registered_gt_overlay.png",
@@ -175,6 +179,7 @@ TARGETS = {
             "(registered label, segment 20231210121321)"
         ),
         "gate_mode": "teacher_free",
+        "gate": {"max_median_residual": 12.0, "min_periodicity": 0.6},
         "train_region_models": [],  # NO student trained on this region
         "selection_caveat_models": ["arm A (1-scroll student)"],  # arm A validated here
         "overlay_ref": "reports/detector/registered_gt_heldout_overlay.png",
@@ -205,8 +210,11 @@ TARGETS = {
             "(`gate_mode=teacher_free`): 3D correspondence residual 7.95 old-scan voxels and "
             "registered-label text-line periodicity 0.867. **Scope of this evidence:** "
             "residual and periodicity are *convention-blind* -- they confirm real text landed "
-            "on the correct 3D manifold, not the 2D orientation; the `rowHv_colu` orientation "
-            "is now independently corroborated by the decisive enrichment margin above.\n\n"
+            "on the correct 3D manifold, not the 2D orientation. The `rowHv_colu` orientation "
+            "is the one `warp_obj` SELECTS by teacher-enrichment among 4 candidates; the "
+            "decisive margin above is that selection, not independent corroboration, and the "
+            "placement check is teacher-dependent too. (Corrected 2026-10-16: this said the "
+            "orientation was independently corroborated.)\n\n"
             "**PLACEMENT UNCERTAINTY — a published spec of this target, not a caveat.** "
             "Agreement with the canon prediction peaks at (dy=31, dx=-8) level-2 px, i.e. "
             "**32 px ≈ 128 level-0 voxels ≈ 0.31 mm** off zero. That is the resolution limit "
@@ -263,7 +271,11 @@ SELECTION_CAVEAT_MODELS: Any = None
 OVERLAY_REF: Any = None
 EXTRA_DISCLOSURE: Any = None
 GATE_MODE: Any = None
+GATE_FLOORS: Any = None
 BINARY_CAVEAT: Any = None
+# Set by the CLI's --allow-retired. A retired segment clears the gates and is still not
+# scored (retirement.py); until 2026-10-16 nothing on this path checked.
+ALLOW_RETIRED = False
 
 
 def _set_target(key):
@@ -271,7 +283,7 @@ def _set_target(key):
     global SEG, REG_DIR, OLD_ROOT, MESH_OLD, MESH_NEW, OBJ_PATH, REGION_L2
     global FRAG_ID, XSCROLL_ROOT, MARKER, REG_LABEL, REG_STATS, REPORT_MD, REPORT_JSON
     global REPORT_TITLE, TRAIN_REGION_MODELS, SELECTION_CAVEAT_MODELS, OVERLAY_REF
-    global EXTRA_DISCLOSURE, GATE_MODE, BINARY_CAVEAT
+    global EXTRA_DISCLOSURE, GATE_MODE, GATE_FLOORS, BINARY_CAVEAT
     if key not in TARGETS:
         raise ValueError(
             f"unknown registration target '{key}'; known: {sorted(TARGETS)}"
@@ -293,6 +305,7 @@ def _set_target(key):
     REPORT_JSON = t["report_json"]
     REPORT_TITLE = t["report_title"]
     GATE_MODE = t["gate_mode"]
+    GATE_FLOORS = dict(t["gate"])
     TRAIN_REGION_MODELS = set(t["train_region_models"])
     SELECTION_CAVEAT_MODELS = set(t["selection_caveat_models"])
     OVERLAY_REF = t["overlay_ref"]
@@ -312,6 +325,62 @@ _set_target("orig")  # import-time default = slice-5 behavior
 
 def _mesh_path(name):
     return os.path.join(REG_DIR, name)
+
+
+def _refuse_retired():
+    if is_retired(SEG) and not ALLOW_RETIRED:
+        raise ValueError(
+            f"{SEG}: {RETIREMENT_REASON}. Pass --allow-retired to run it anyway; its "
+            "report is then labelled indicative only."
+        )
+
+
+def _clear_marker():
+    """A new label, or a new validation, invalidates the last one's marker. Until
+    2026-10-16 warp rewrote the label and left the marker, and score ran on it."""
+    if os.path.exists(MARKER):
+        os.remove(MARKER)
+
+
+def _teacher_path():
+    return os.path.join(XSCROLL_ROOT, FRAG_ID, f"{FRAG_ID}_inklabels.png")
+
+
+def _sha256(path):
+    with open(path, "rb") as f:
+        return hashlib.sha256(f.read()).hexdigest()
+
+
+def _gate_inputs():
+    """What a validation vouches for: the label, its stats and the teacher, by hash."""
+    return {
+        "registered_label": _sha256(REG_LABEL),
+        "registration_stats": _sha256(REG_STATS),
+        "teacher": _sha256(_teacher_path()),
+    }
+
+
+def _check_marker(stats):
+    """Score only what the last passing validation saw."""
+    if not os.path.exists(MARKER):
+        raise ValueError(
+            "registration not validated -- refusing to score against a "
+            "possibly-misaligned label (run validate; inspect overlays)"
+        )
+    try:
+        with open(MARKER) as f:
+            marker = json.load(f)
+    except json.JSONDecodeError as exc:
+        raise ValueError(
+            f"{MARKER} predates hashed markers (2026-10-16); re-run validate"
+        ) from exc
+    if not stats.get("gate", {}).get("passed"):
+        raise ValueError(f"{REG_STATS} records no passing gate; re-run validate")
+    if marker.get("inputs") != _gate_inputs():
+        raise ValueError(
+            "the registered label, its stats or the teacher changed since validation; "
+            "re-run validate"
+        )
 
 
 def cmd_probe():
@@ -359,6 +428,8 @@ def _region_in_mesh(new_xyz):
 
 
 def cmd_warp():
+    _refuse_retired()
+    _clear_marker()
     old_xyz, new_xyz = _load_meshes()
     print(
         f"fitting similarity new->old from meshes "
@@ -426,6 +497,8 @@ def cmd_warp_obj():
     from the 4-way discrete vt-convention pick (enrichment table printed, disclosed)."""
     from scipy.spatial import cKDTree
 
+    _refuse_retired()
+    _clear_marker()
     if not os.path.exists(OBJ_PATH):
         fs = dr._fs()
         pref = dr._scroll_prefix("scroll1", SEG, "mesh")
@@ -522,7 +595,9 @@ def cmd_warp_obj():
     )
 
 
-def cmd_validate():
+def cmd_validate(argv=None):
+    _refuse_retired()
+    _clear_marker()  # a validation that fails or crashes leaves none
     if not os.path.exists(REG_STATS):
         raise ValueError(f"{REG_STATS} missing; run warp first")
     with open(REG_STATS) as f:
@@ -534,9 +609,12 @@ def cmd_validate():
     import argparse
 
     ap = argparse.ArgumentParser()
-    ap.add_argument("--max-median-residual", type=float, required=True)
-    ap.add_argument("--min-enrichment", type=float, default=0.0)
-    ap.add_argument("--min-periodicity", type=float, default=0.0)
+    # Defaults are the target's recorded thresholds (GATE_FLOORS, MAX_PLACEMENT_OFFSET_L2PX);
+    # a value may tighten them, never loosen them. Until 2026-10-16 the enrichment and
+    # periodicity thresholds defaulted to 0 (off) and the placement one could be raised.
+    ap.add_argument("--max-median-residual", type=float)
+    ap.add_argument("--min-enrichment", type=float)
+    ap.add_argument("--min-periodicity", type=float)
     ap.add_argument(
         "--max-placement-offset",
         type=float,
@@ -548,7 +626,24 @@ def cmd_validate():
         "measured cross-scan floor, NOT a value chosen to pass our targets -- see "
         "MAX_PLACEMENT_OFFSET_L2PX for the derivation.",
     )
-    args = ap.parse_args(sys.argv[2:])
+    args = ap.parse_args(sys.argv[2:] if argv is None else argv)
+    floors = {"max_placement_offset": MAX_PLACEMENT_OFFSET_L2PX, **GATE_FLOORS}
+    for name, floor in floors.items():
+        value = getattr(args, name, None)
+        if value is None:
+            setattr(args, name, floor)
+            continue
+        looser = value > floor if name.startswith("max_") else value < floor
+        if looser:
+            raise ValueError(
+                f"--{name.replace('_', '-')} {value} is looser than this target's "
+                f"recorded threshold {floor}; tighten it or change the threshold with "
+                "evidence (see MAX_PLACEMENT_OFFSET_L2PX)"
+            )
+    if args.min_enrichment is None:
+        args.min_enrichment = 0.0  # not this target's criterion (teacher_free)
+    if args.min_periodicity is None:
+        args.min_periodicity = 0.0  # not this target's criterion (enrichment)
 
     frag_mid = cv2.imread(os.path.join(XSCROLL_ROOT, FRAG_ID, "layers", "30.tif"), 0)
     reg_mid = cv2.imread(os.path.join(REG_DIR, "registered_oldsurface_l2region.png"), 0)
@@ -565,9 +660,7 @@ def cmd_validate():
         os.path.join(REG_DIR, "overlay_label_on_sota.png"),
         cv2.resize(overlay, (1024, 1024)),
     )
-    teacher = cv2.imread(
-        os.path.join(XSCROLL_ROOT, FRAG_ID, f"{FRAG_ID}_inklabels.png"), 0
-    )
+    teacher = cv2.imread(_teacher_path(), 0)
     tover = cv2.cvtColor(teacher, cv2.COLOR_GRAY2BGR)
     tover[reg_label > 127] = (0, 0, 255)
     cv2.imwrite(
@@ -615,8 +708,9 @@ def cmd_validate():
             "passed": bool(passed),
             "note": "teacher-dependent enrichment is only a DIAGNOSTIC here; residual "
             "and periodicity are convention-blind (they confirm real text on "
-            "the manifold, not the 2D orientation, which is carried from the "
-            "slice-5 export-pipeline convention).",
+            "the manifold, not the 2D orientation, which warp_obj selected by "
+            "teacher-enrichment among 4 candidates). The placement check is "
+            "teacher-dependent too.",
         }
         gate["placement_offset_level2_px"] = placement_offset
         gate["placement_passed"] = bool(placement_ok)
@@ -641,11 +735,10 @@ def cmd_validate():
     )
     if passed:
         with open(MARKER, "w") as f:
-            f.write(f"validated ({GATE_MODE})\n")
+            json.dump({"gate_mode": GATE_MODE, "gate": gate, "inputs": _gate_inputs()},
+                      f, indent=2)
         print(f"VALIDATION PASSED ({tail}) -- marker written", flush=True)
     else:
-        if os.path.exists(MARKER):
-            os.remove(MARKER)
         print(
             f"VALIDATION FAILED ({tail}) -- NO scoring will run; inspect the overlays",
             flush=True,
@@ -653,13 +746,10 @@ def cmd_validate():
 
 
 def cmd_score():
-    if not os.path.exists(MARKER):
-        raise ValueError(
-            "registration not validated -- refusing to score against a "
-            "possibly-misaligned label (run validate; inspect overlays)"
-        )
+    _refuse_retired()
     with open(REG_STATS) as f:
         stats = json.load(f)
+    _check_marker(stats)
     from vesuvius_autoresearch.detector.metrics import segmentation_metrics
 
     reg_label = (cv2.imread(REG_LABEL, 0) > 127).astype(np.uint8)
@@ -670,9 +760,7 @@ def cmd_score():
     # unconfounded ground-truth calibrations.
     rows = {}
     # the canon teacher itself, vs registered ground truth
-    teacher = cv2.imread(
-        os.path.join(XSCROLL_ROOT, FRAG_ID, f"{FRAG_ID}_inklabels.png"), 0
-    )
+    teacher = cv2.imread(_teacher_path(), 0)
     rows["canon teacher (binarized release)"] = segmentation_metrics(
         teacher.astype(np.float32) / 255.0, reg_label, mask
     )
@@ -698,9 +786,22 @@ def cmd_score():
             + " |"
         )
 
+    gate = stats["gate"]
+    gate_line = (
+        f"Gate ({gate['mode']}): "
+        + ", ".join(f"{k} {v}" for k, v in gate.items() if k.startswith(("max_", "min_")))
+        + f"; placement {stats['placement']['offset_level2_px']:.1f} level-2 px "
+        f"(max {stats['placement']['max_offset']:.0f})."
+    )
+    retired = (
+        [f"**Indicative only (scored with --allow-retired): {RETIREMENT_REASON}.**", ""]
+        if is_retired(SEG)
+        else []
+    )
     lines = [
         f"# {REPORT_TITLE}",
         "",
+        *retired,
         "**All rows are scored against the REGISTERED hand ground-truth label** "
         f"(method: {stats['method']}; region median correspondence residual "
         f"{stats['region_median_residual']:.2f} old-scan voxels; registration is "
@@ -716,7 +817,9 @@ def cmd_score():
         "",
         BINARY_CAVEAT,
         "",
-        f"Segment `{SEG}`, level-2 region (4000,2500)+4096.",
+        gate_line,
+        "",
+        f"Segment `{SEG}`, level-2 region ({REGION_L2[0]},{REGION_L2[1]})+{REGION_L2[2]}.",
         "",
         "| model (vs registered ground truth) | " + " | ".join(dr.COLS) + " |",
         "|---|" + "|".join(["---"] * len(dr.COLS)) + "|",
@@ -767,5 +870,8 @@ if __name__ == "__main__":
     if len(sys.argv) > 2 and not sys.argv[2].startswith("-"):
         key = sys.argv[2]
         del sys.argv[2]
+    if "--allow-retired" in sys.argv:
+        sys.argv.remove("--allow-retired")
+        ALLOW_RETIRED = True
     _set_target(key)
     cmds[sys.argv[1]]()

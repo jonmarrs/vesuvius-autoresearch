@@ -116,7 +116,10 @@ def main():
                 bb = ref_m[y : y + T, x : x + T]
                 if bb.mean() < args.min_ink:
                     continue
-                dy, dx, d0, dpk = placement_peak(a, bb, max_shift=M, coarse=2, refine=4)
+                # strict=False: a tile at the clamp is reported, not raised.
+                dy, dx, d0, dpk = placement_peak(
+                    a, bb, max_shift=M, coarse=2, refine=4, strict=False
+                )
                 rows.append((y + T // 2, x + T // 2, dy, dx, d0, dpk))
 
         if len(rows) < 6:
