@@ -879,3 +879,77 @@ def test_predict_records_the_fiber_coherence_it_is_asked_for(tmp_path, monkeypat
     runner()
     metadata = json.loads(next((tmp_path / "out").glob("*_meta.json")).read_text())
     assert isinstance(metadata["fiber_coherence"], float)
+
+
+@pytest.mark.parametrize("mode", ["single", "ensemble"])
+@pytest.mark.parametrize("cut_short", [False, True])
+def test_custom_metadata_rerun_invalidates_default_sidecar(
+    tmp_path, monkeypatch, mode, cut_short
+):
+    import matplotlib.figure
+
+    from scripts.rank_scroll23_candidates import score_row
+
+    runner, argv, _, _, _ = setup_prediction(tmp_path, monkeypatch, mode)
+    argv.append("--disable_tta")
+    runner()
+    output = tmp_path / "out"
+    prefix = "pred" if mode == "single" else "ensemble_pred"
+    default = output / f"{prefix}_1_2_3_13x11_meta.json"
+    assert json.loads(default.read_text())["fiber_stats"]
+    custom = output / "custom_meta.json"
+    custom.write_text('{"stale": true}')
+    argv += ["--metadata_out", str(custom)]
+    monkeypatch.setattr(ConstantHeads, "task_heads", frozenset())
+
+    original_save = np.save
+
+    def check_sidecars_before_writing(*args, **kwargs):
+        assert not default.exists()
+        assert not custom.exists()
+        return original_save(*args, **kwargs)
+
+    monkeypatch.setattr(np, "save", check_sidecars_before_writing)
+    if cut_short:
+
+        def stop_before_metadata(*args, **kwargs):
+            raise RuntimeError("stopped before publication")
+
+        monkeypatch.setattr(matplotlib.figure.Figure, "savefig", stop_before_metadata)
+        with pytest.raises(RuntimeError, match="stopped before publication"):
+            runner()
+        assert not custom.exists()
+    else:
+        runner()
+        assert json.loads(custom.read_text())["fiber_stats"] == {}
+    assert not default.exists()
+    # An old fiber file may remain, but has no authoritative sidecar now.
+    assert list(output.glob("*_fiber.npy"))
+    if mode == "single":
+        row = {"x": "3", "y": "2", "z": "1", "width": "13", "height": "11"}
+        ranked = score_row(row, prediction_dir=output)
+        assert ranked["prediction_found"] == "false"
+        assert float(ranked["fiber_mean"]) == 0.0
+
+
+@pytest.mark.parametrize("shape", [(64, 64), (8, 32, 32), (1, 16, 16)])
+def test_coherence_constant_and_offset_invariance(shape):
+    coherence = pytest.importorskip("scripts.compute_fiber_coherence")
+    assert coherence.compute_coherence(np.full(shape, 100.0), device="cpu") == 0.0
+    noise = np.random.default_rng(0).standard_normal(shape)
+    original = noise.copy()
+    score = coherence.compute_coherence(noise, device="cpu")
+    offset_score = coherence.compute_coherence(noise + 100.0, device="cpu")
+    assert offset_score == pytest.approx(score, abs=1e-5)
+    assert 0.0 <= score <= 1.0
+    np.testing.assert_array_equal(noise, original)
+
+
+@pytest.mark.parametrize("parameter", ["sigma", "integration"])
+@pytest.mark.parametrize("value", [0.0, -1.0, float("nan"), float("inf")])
+def test_coherence_rejects_invalid_filter_scales(parameter, value):
+    coherence = pytest.importorskip("scripts.compute_fiber_coherence")
+    with pytest.raises(ValueError, match=parameter):
+        coherence.compute_coherence(
+            np.ones((16, 16)), device="cpu", **{parameter: value}
+        )

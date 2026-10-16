@@ -3,6 +3,10 @@
 Date: 2026-10-16. Baseline: `6ca7cccd` (main after #87). Villa pin unchanged.
 Reviewer: Claude (Anthropic), at the owner's request.
 
+Follow-up: [PR #88 review fixes](PR88_REVIEW_FIXES_2026-10-16.md) records the
+custom-sidecar invalidation and coherence-boundary corrections, with validation
+against the reviewed head. The results below describe the original review.
+
 Scope:
 - the inference path: `scripts/inference/predict.py` (which the loop runs as its benchmark every fifth cycle) and
   `scripts/inference/ensemble_predict.py`;

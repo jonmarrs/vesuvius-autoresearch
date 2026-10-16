@@ -22,6 +22,7 @@ from tap import Tap
 
 from scripts.inference.predict import (
     get_weight_window,
+    invalidate_prediction_metadata,
     prediction_scale_bar,
     save_vc3d_zarr,
     write_prediction_metadata,
@@ -196,11 +197,7 @@ def ensemble_predict():
     output_img = args.output_img or f"predictions/{base}.png"
     output_dir = os.path.dirname(output_img) or "."
     os.makedirs(output_dir, exist_ok=True)
-    metadata_path = args.metadata_out or os.path.join(output_dir, f"{base}_meta.json")
-    # Removed before the arrays are written and rewritten last, so a run cut
-    # short leaves no metadata describing arrays it did not write.
-    if os.path.lexists(metadata_path):
-        os.remove(metadata_path)
+    metadata_path = invalidate_prediction_metadata(output_dir, base, args.metadata_out)
     if args.num_parts > 1:
         args.blend_weight_path = os.path.join(output_dir, f"{base}_weight.npy")
         np.save(args.blend_weight_path, weights.cpu().numpy())

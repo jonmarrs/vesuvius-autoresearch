@@ -187,6 +187,20 @@ def save_vc3d_zarr(
         json.dump(meta, f, indent=2)
 
 
+def invalidate_prediction_metadata(output_dir, base_name, metadata_out=None):
+    """Invalidate every known sidecar before replacing a region's shared arrays.
+
+    Rankers discover the canonical sidecar even when this run selects a custom
+    one. Leaving it intact would authorize the old run's retained fiber files.
+    """
+    canonical = os.path.join(output_dir, f"{base_name}_meta.json")
+    selected = metadata_out or canonical
+    for path in {canonical, selected}:
+        if os.path.lexists(path):
+            os.remove(path)
+    return selected
+
+
 def write_prediction_metadata(
     path,
     args,
@@ -432,16 +446,9 @@ def predict():
     out_path = args.output_img if args.output_img else f"predictions/{base_name}.png"
     output_dir = os.path.dirname(out_path) or "."
     os.makedirs(output_dir, exist_ok=True)
-    metadata_path = (
-        args.metadata_out
-        if args.metadata_out
-        else os.path.join(output_dir, f"{base_name}_meta.json")
+    metadata_path = invalidate_prediction_metadata(
+        output_dir, base_name, args.metadata_out
     )
-    # Removed before the arrays are written and rewritten last: a run cut short
-    # (the loop's benchmark timeout, a stop) left the previous run's metadata
-    # describing this run's arrays, which reuse the same names.
-    if os.path.lexists(metadata_path):
-        os.remove(metadata_path)
     np.save(os.path.join(output_dir, f"{base_name}_ink.npy"), prob_ink_final)
     if has_fiber:
         np.save(os.path.join(output_dir, f"{base_name}_fiber.npy"), prob_fiber_final)
