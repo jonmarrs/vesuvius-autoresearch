@@ -17,12 +17,16 @@ that snapshots the loop's candidates.
     word.
   - An unreadable file raises, and so does a checkpoint that holds no state dict (`TypeError`). They used to be a
     printed warning.
-  - Too few fitting tensors raise `ValueError`.
+  - Too few fitting tensors raise `ValueError`, which names the count and the floor.
     - For a LeJEPA encoder, too few means under 90% of PrimusNetwork's `shared_encoder`
-      (`FOUNDATION_ENCODER_MIN_FRACTION`). An encoder of another size, such as pretraining's default "M" in
-      `LeJEPAUNet`'s "S", fits only its patch-embedding stem: 70 of 280 tensors.
+      (`FOUNDATION_ENCODER_MIN_FRACTION`). A matched "S" encoder misses at most 5 of 280 entries: the position
+      embedding (another input shape) and the stem's convolutions (other `in_channels`). An encoder of another
+      size, such as pretraining's default "M" in `LeJEPAUNet`'s "S", fits only its patch embedding: 70 of 280.
     - For any other model, too few means none.
     - Either case used to be a printed line.
+  - The load comes right after the model is built, before the loaders and logging start. The `--smoke` preflight
+    builds the model too, so it loads the checkpoint as well. A checkpoint that does not fit thus fails the loop's
+    preflight in seconds.
   - In all these cases the run then trained from random weights under the experiment's name, unless a warm start from
     `best_model.pt` applied.
 - **`foundation_encoder_state` maps a LeJEPA checkpoint as villa does.**
@@ -38,7 +42,7 @@ that snapshots the loop's candidates.
 
 | Priority | Finding | Fix |
 | --- | --- | --- |
-| P4 | **A run asked to start from a foundation model could train from scratch under its name.** `train()` skipped a missing `foundation_model_path` without a message, caught any failure to load as a printed warning, and went on when no tensor fit. Its LeJEPA mapping also differed from villa's. It took only `encoder.*` keys, removed `"encoder."` wherever it occurred, and kept DDP and compile prefixes. For the checkpoints villa writes this changed nothing: villa's saver removes those wrappers, and PrimusEncoder's names hold no nested `encoder.`. The real change is the raising. The path is dormant in the loop: the loop leaves out `lejepa_unet`, every tracked config has `foundation_model_path: null`, and `launch_finetune_lejepa.py` uses villa's trainer. | The loader stops the run instead, and maps as villa does. Tests cover: the mapping of wrapped, nested, `shared_encoder` and projector keys; in the loader, a missing file, a full load, a partial and an empty one, an unreadable file and a non-dict checkpoint; and in `train()`, a missing path stopping it before the validation catalogue is built, and a checkpoint with no fitting tensor stopping it at the model. New helpers. The two `train()` tests fail if the old call site or the early check is restored. |
+| P4 | **A run asked to start from a foundation model could train from scratch under its name.** `train()` skipped a missing `foundation_model_path` without a message, caught any failure to load as a printed warning, and went on when no tensor fit. Its LeJEPA mapping also differed from villa's. It took only `encoder.*` keys, removed `"encoder."` wherever it occurred, and kept DDP and compile prefixes. For the LeJEPA checkpoints villa writes this changed nothing: villa's saver removes those wrappers, and PrimusEncoder's names hold no nested `encoder.`. A villa fine-tune checkpoint (`shared_encoder.*`) loaded nothing before and loads now. The real change is the raising. The path is dormant in the loop: the loop leaves out `lejepa_unet`, every tracked config has `foundation_model_path: null`, and `launch_finetune_lejepa.py` uses villa's trainer. | The loader stops the run instead, and maps as villa does. Tests cover: the mapping of wrapped, nested, `shared_encoder` and projector keys; in the loader, a missing file, a full load, a partial and an empty one, an unreadable file and a non-dict checkpoint; and in `train()`, a missing path stopping it before the validation catalogue is built, and a checkpoint with no fitting tensor stopping it at the model. New helpers. The two `train()` tests fail if the old call site or the early check is restored. |
 
 ## Review of #86, and what the follow-up changed
 
@@ -49,20 +53,36 @@ fixes, below, follow in a second PR.
 | Finding | Outcome |
 | --- | --- |
 | The tests covered the helpers but not `train()`'s call site. Restoring the old guard and `try`/`except`, or swallowing `torch.load`'s errors, left them passing. | Two `train()` tests (stubbed data; the optimizer ends the run), both checked against those reversions. The unreadable file is tested. |
-| "No tensor fits" is a low floor. An "M" LeJEPA encoder in `LeJEPAUNet`'s "S" fits 70 of 280 tensors, the patch-embedding stem only, and trained on. The owner's run on the GPU host confirms it for the project's own checkpoint (`checkpoints/lejepa_foundation_v1/lejepa_foundation_v1_final.pth`, 348 encoder tensors): into `LeJEPAUNet` (16 × 64 × 64) it loads 70 of them and changes 70 of the 280 `shared_encoder` tensors (68 missing, 210 of another shape). | A LeJEPA encoder must fill 90% of `shared_encoder`. Tested with a partial load. A run started from the project's checkpoint with `lejepa_unet` now stops, naming the 70 of 280, instead of training a mostly random encoder under the foundation's name. |
+| "No tensor fits" is a low floor. An "M" LeJEPA encoder in `LeJEPAUNet`'s "S" fits 70 of 280 tensors, the patch-embedding stem only, and trained on. The owner's run on the GPU host confirms it for the project's own checkpoint (`checkpoints/lejepa_foundation_v1/lejepa_foundation_v1_final.pth`, 348 encoder tensors): into `LeJEPAUNet` (16 × 64 × 64) it loads 70 of them and changes 70 of the 280 `shared_encoder` tensors (68 missing, 210 of another shape): the patch embedding's stem and stages. | A LeJEPA encoder must fill 90% of `shared_encoder`. Tested with a partial load. A run started from the project's checkpoint with `lejepa_unet` now stops, naming the 70 of 280, instead of training a mostly random encoder under the foundation's name. |
 | The doc called `launch_finetune_lejepa.py` sound. The villa trainer it drives keeps the failure modes this change removes. | Recorded below. |
 | A missing path was found late, after the validation catalogue, the model and the loaders, and the `--smoke` preflight never checked it. | Checked with the label files, in both. |
 | A non-dict checkpoint failed with an `AttributeError`. The checkpoint was read onto the GPU. `smoke_test.py`'s tensor check could not fail. `test_load.py` imported `train.py` before its `importorskip`. | A `TypeError` names it; read on the CPU; the count is checked; the import moved. |
 | The doc overstated the mapping change, and its notes on the loop and the snapshot script were loose. | Corrected. |
 
+The follow-up's own independent review (on `caa768d8`) found nothing blocking.
+- It measured the floor on a real PrimusNetwork "S":
+  - a matched "S" checkpoint fills 279 of 280 (275 with `use_ridges`);
+  - an "M" fills 70, and is refused.
+- It checked that each test catches the reversion it targets.
+
+| Finding | Outcome |
+| --- | --- |
+| Moving `test_load.py`'s import of `train.py` after the `importorskip` made it skip when run alone with villa present: importing `train.py` is what puts `villa/vesuvius/src` on `sys.path`. | The import is back first, with a comment. Checked: run alone, the test now skips only for the missing checkpoint. |
+| `test_load.py` still asserted that any tensor fits, so it passed on the checkpoint `train()` refuses. | It asserts that `load_foundation_model` refuses the project's checkpoint into `LeJEPAUNet`'s "S". With synthetic checkpoints in its place, it passes for an "M" and fails for an "S" (279 of 280 load), as it should once `LeJEPAUNet` is built to the checkpoint's size. |
+| A checkpoint that does not fit was still found late, after the loaders and logging started, and `--smoke` passed it. | The load comes right after the model is built, and `preflight_smoke` loads it too. Tested. |
+| The error did not give the floor; `device` was unused; the alias counting was unexplained. | The message gives the count needed and hints at another encoder size; the argument is gone; the comment explains the counting. |
+
 ## Observations for the owner (not changed)
 
 - **Villa's `TrainFineTuneLEJEPA`, which `launch_finetune_lejepa.py` drives, still trains from scratch with a
-  warning** in three cases:
+  warning** in these cases:
   - the checkpoint is missing;
   - it cannot be read. Its `torch.load` uses PyTorch's default `weights_only=True`, so a checkpoint holding any
     object it does not allow lands here too;
+  - it holds no recognisable state dict;
   - no layer loads.
+
+  A partial load goes on as well, which is the case `train.py` now refuses.
 
   The launcher refuses only when it finds no checkpoint at all. A fix belongs upstream.
 - **A loop config with `foundation_model_path` set would now stop each cycle** if the file went missing, or did not
@@ -84,7 +104,7 @@ fixes, below, follow in a second PR.
 - **`scripts/snapshot_loop_candidates.sh`** polls `last_model.pt`'s modification time every 20 s and copies it 5 s
   after it sees a change. `train.py` writes that file atomically on every cycle, promoted or not
   (`DESIGN_ARCHITECTURE_REVIEW_2026-10-14_CYCLE_CHECKPOINTS.md`), so each copy is a complete candidate.
-- **The mapping matches villa's.** On villa's real LeJEPA layout (`encoder` plus `projector`, 282 keys), the reviewer
+- **The mapping matches villa's.** On villa's real LeJEPA layout (`encoder` plus `projector`: 296 keys for "S", 364 for "M"), the reviewer
   found that `foundation_encoder_state` maps exactly the 280 keys of `shared_encoder`, unwrapped or under any
   wrapper. The loaded set is the same as villa's.
 
@@ -96,18 +116,20 @@ Environment: CPython 3.10 venv with PyTorch 2.14.1 (no GPU visible), pytest, Ruf
   lines. It was 42 failed, 2189 passed, 15 skipped, 1 xfailed, 2 errors. The failures and errors are environmental:
   no scroll data, no CUDA, no villa data files.
 - Branch, first head: 42 failed, 2191 passed, 15 skipped, 1 xfailed, 2 errors.
-- Follow-up PR (from `d67c942f`): 42 failed, 2193 passed, 15 skipped, 1 xfailed, 2 errors. The failures and
-  errors are the same set as the baseline; the 2 extra passes over #86's head are the `train()` tests.
+- Follow-up PR (from `d67c942f`), first head: 42 failed, 2193 passed, 15 skipped, 1 xfailed, 2 errors. The
+  failures and errors are the same set as the baseline; the 2 extra passes over #86's head are the `train()` tests.
   `scripts/smoke_test.py`: 9 of 11 passed, 2 skipped; its `best_model.pt` check now reads 288 of 288 loaded.
+- Follow-up PR, after its review's fixes: REVIEW_RESULT
 - Ruff (check and format) and mypy on `train.py`: clean.
 
 New tests in `tests/test_autoresearch_measurement.py`:
 - `test_a_lejepa_checkpoint_maps_by_prefix_as_villa_maps_it` (new helper);
 - `test_a_foundation_model_that_does_not_load_stops_the_run` (new helper);
-- `test_train_stops_at_once_on_a_missing_foundation_model` (fails on main);
-- `test_train_stops_on_a_foundation_model_that_does_not_fit` (fails on main).
+- `test_train_stops_at_once_on_a_missing_foundation_model` (fails on main, and if the early check is removed);
+- `test_train_stops_on_a_foundation_model_that_does_not_fit` (fails if the old call site is restored);
+- `test_the_smoke_preflight_stops_on_a_foundation_model_that_does_not_fit`.
 
-`tests/test_load.py` skips here: the LeJEPA checkpoint (`checkpoints/lejepa_foundation_v1/`) is not in this
-environment.
+`tests/test_load.py` (now `test_the_project_lejepa_checkpoint_does_not_fit_lejepa_unet`) skips here: the LeJEPA
+checkpoint (`checkpoints/lejepa_foundation_v1/`) is not in this environment.
 
 Not verified here: a run with a real LeJEPA checkpoint.

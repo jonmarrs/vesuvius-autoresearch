@@ -234,10 +234,12 @@ def foundation_encoder_state(state_dict):
     return encoder
 
 
-# A LeJEPA encoder must fill nearly all of shared_encoder: the input stem and
-# the position embedding can differ with in_channels and the input shape, but
-# an encoder of another size (pretraining defaults to "M"; LeJEPAUNet builds
-# "S") fits only its patch-embedding stem, 70 of 280 tensors.
+# A LeJEPA encoder must fill nearly all of shared_encoder. A matched one
+# misses at most its position embedding (another input shape) and its stem's
+# convolutions (other in_channels): 5 of 280 entries. One of another size
+# (pretraining defaults to "M"; LeJEPAUNet builds "S") fits only its patch
+# embedding: 70 of 280. Counted over state_dict() entries, aliases included
+# (patch_embed's convolutions appear twice), as villa saves them.
 FOUNDATION_ENCODER_MIN_FRACTION = 0.9
 
 
@@ -250,15 +252,15 @@ def check_foundation_model_path(config):
         raise FileNotFoundError(f"foundation_model_path {path} does not exist")
 
 
-def load_foundation_model(model, path, device):
+def load_foundation_model(model, path):
     """Start model from the pretrained checkpoint at path (foundation_model_path):
     a LeJEPA encoder into PrimusNetwork's shared_encoder, else any checkpoint
     by name. Raises if the file is missing or unreadable, if no tensor fits, or
     if a LeJEPA encoder fills under FOUNDATION_ENCODER_MIN_FRACTION of
     shared_encoder: a run asked to start from a pretrained model must not
     train from scratch under its name. That used to be a printed warning, or
-    nothing at all for a missing path. ``device`` is the model's; the
-    checkpoint is read on the CPU (it can hold optimizer state too)."""
+    nothing at all for a missing path. The checkpoint is read on the CPU (it
+    can hold optimizer state too); load_state_dict copies to the model."""
     if not os.path.exists(path):
         raise FileNotFoundError(f"foundation_model_path {path} does not exist")
     print(f"Loading pretrained backbone from {path}...")
@@ -266,18 +268,20 @@ def load_foundation_model(model, path, device):
     state_dict = extract_checkpoint_state(checkpoint)
     if not isinstance(state_dict, dict):
         raise TypeError(f"{path} holds a {type(state_dict).__name__}, not a state dict")
-    if hasattr(model, "backbone") and hasattr(model.backbone, "shared_encoder"):
+    lejepa = hasattr(model, "backbone") and hasattr(model.backbone, "shared_encoder")
+    if lejepa:
         target = model.backbone.shared_encoder
         state, label = foundation_encoder_state(state_dict), "LeJEPA encoder"
-        needed = FOUNDATION_ENCODER_MIN_FRACTION * len(target.state_dict())
     else:
         target, state, label = model, state_dict, "generic pretrained checkpoint"
-        needed = 1
+    total = len(target.state_dict())
+    needed = math.ceil(FOUNDATION_ENCODER_MIN_FRACTION * total) if lejepa else 1
     loaded = load_shape_compatible_state(target, state, label)
     if loaded < needed:
         raise ValueError(
-            f"only {loaded} of {len(target.state_dict())} tensors of the model "
-            f"({label}) load from {path}"
+            f"only {loaded} of {total} tensors of the model ({label}) load from "
+            f"{path}; it needs {needed}"
+            + (" (an encoder of another size?)" if lejepa else "")
         )
 
 
@@ -1840,6 +1844,9 @@ def preflight_smoke(config: ExperimentConfig) -> None:
     device = torch.device("cpu")
     v_config = build_vconfig(config)
     model = build_model(config, v_config, device).train()
+    # A foundation model that does not fit stops the cycle here, in seconds.
+    if getattr(config, "foundation_model_path", None):
+        load_foundation_model(model, config.foundation_model_path)
 
     x = torch.randn(
         2,
@@ -1949,6 +1956,10 @@ def train(config: ExperimentConfig, *, strict_warm_start=False):
     print(f"Training sampling seed: {sampling_seed}")
     # Built before the loaders: which heads it trains decides the fiber target.
     model = build_model(config, v_config, device)
+    # Before the loaders and logging start: a checkpoint that does not fit
+    # stops the run at once. The warm start below can still overwrite it.
+    if config.foundation_model_path:
+        load_foundation_model(model, config.foundation_model_path)
     # Only the outputs the model declares as heads are trained
     # (model_wrappers.task_heads); the rest are placeholders.
     heads = task_heads(model)
@@ -1984,10 +1995,6 @@ def train(config: ExperimentConfig, *, strict_warm_start=False):
     cldice_loss = (
         SoftClDiceLoss(iters=config.cldice_iters) if config.use_cldice else None
     )
-
-    # Load from foundation model if provided
-    if config.foundation_model_path:
-        load_foundation_model(model, config.foundation_model_path, device)
 
     # Load best model if architecture matches
     best_model_path = "best_model.pt"
