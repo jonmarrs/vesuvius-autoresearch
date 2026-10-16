@@ -46,3 +46,24 @@ def test_skeleton_distance_is_reported_without_a_wandb_run(tmp_path):
     )
 
     assert json.loads(out.read_text())["skeleton_distance"] == 0.0
+
+
+def test_a_missing_villa_metric_stops_before_reading_the_volumes(tmp_path):
+    """It printed the import error and went on: both volumes were read, and the
+    first metric failed with a NameError."""
+    shadow = tmp_path / "shadow" / "metrics"
+    shadow.mkdir(parents=True)
+    (shadow / "__init__.py").write_text("raise ImportError('no cupy here')\n")
+    env = dict(os.environ, PYTHONPATH=str(shadow.parent))
+    result = subprocess.run(
+        [sys.executable, str(REPO / "scripts/evaluate_villa_metrics.py")]
+        + ["--gt", "missing_gt.zarr", "--pred", "missing_pred.zarr"],
+        cwd=tmp_path,
+        env=env,
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode != 0
+    assert "Error importing Villa metrics: no cupy here" in result.stderr
+    assert "Loading Ground Truth" not in result.stdout
+    assert "NameError" not in result.stderr

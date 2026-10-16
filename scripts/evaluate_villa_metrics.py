@@ -13,8 +13,8 @@ import numpy as np
 import torch
 import zarr
 
-# Add villa paths
-VILLA_SRC = os.path.abspath("villa/segmentation/evaluation")
+# Villa's metrics, found from this checkout rather than the working directory.
+VILLA_SRC = str(Path(__file__).resolve().parents[1] / "villa/segmentation/evaluation")
 if VILLA_SRC not in sys.path:
     sys.path.append(VILLA_SRC)
 
@@ -28,10 +28,12 @@ try:
     from metrics.mean_ap import compute as compute_mean_ap
     from metrics.skeleton_distance_length import compute as compute_skel_dist
 except ImportError as e:
-    print(f"Error importing Villa metrics: {e}")
-    print(
-        "Ensure villa submodule is present and PYTHONPATH includes villa/segmentation/evaluation"
-    )
+    # Stop here: carrying on read both volumes and then failed on the first
+    # metric with a NameError.
+    raise SystemExit(
+        f"Error importing Villa metrics: {e}\n"
+        f"Ensure the villa submodule is present ({VILLA_SRC}) with its dependencies"
+    ) from e
 
 
 def load_volume(path):

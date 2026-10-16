@@ -82,6 +82,38 @@ VALIDATION_TESTS = [
     "tests/test_volume_cartographer.py",
     "tests/test_prize_readiness.py",
     "tests/test_villa_metrics_integration.py",
+    # Tests of the loop's code added since the list was last kept by hand
+    # (2026-10-16); tests/test_validation_suite_covers_the_loop.py now fails
+    # when one is missing.
+    "tests/test_validation_suite_covers_the_loop.py",
+    "tests/test_betti_loss.py",
+    "tests/test_checkout_imports_its_own_code.py",
+    "tests/test_detector_depth_ablation.py",
+    "tests/test_detector_patch_origin.py",
+    "tests/test_disable_augmentation.py",
+    "tests/test_f1_improvement_criterion.py",
+    "tests/test_frangi_fiber_target.py",
+    "tests/test_frangi_torch.py",
+    "tests/test_improvement_criterion.py",
+    "tests/test_load.py",
+    "tests/test_loader_workers.py",
+    "tests/test_loop_does_not_request_lasagna.py",
+    "tests/test_loop_model_depth_offset.py",
+    "tests/test_pooled_seg_metrics.py",
+    "tests/test_post_sprint_villa_handoff.py",
+    "tests/test_prize_promotion_gates.py",
+    "tests/test_review_villa_pin.py",
+    "tests/test_scroll_specific_augmentations.py",
+    "tests/test_skeleton_hist_dir.py",
+    "tests/test_summarize_villa_evidence_preflight.py",
+    "tests/test_topology_threshold.py",
+    "tests/test_training_crop_coverage.py",
+    "tests/test_vesuvius_s3_dataset.py",
+    "tests/test_villa_component_coverage.py",
+    "tests/test_villa_prize_action_matrix.py",
+    "tests/test_villa_prize_opportunities.py",
+    "tests/test_villa_review_manifest.py",
+    "tests/test_volume_cartographer_readiness.py",
 ]
 
 
