@@ -125,6 +125,12 @@ evidence chain) treat the new arrays as having none. Files a run does not
 rewrite, such as an earlier model's fiber maps of the same region, are left in
 place; the metadata says which outputs this run wrote.
 
+The candidate ranker checks that the sidecar's source, geometry, calibration and
+completion facts match the queue row before using either map. Coordinate-based
+filenames alone do not identify a scroll. It recomputes statistics from validated
+probability arrays; old or incomplete sidecars receive no prediction bonus. See
+[ranking contracts and diagnostics](VILLA_PRIZE_READINESS.md) for details.
+
 OME axes are z/y/x in micrometers. Scale and translation use the same calibrated
 voxel size as the fitted overlay scale bar. The ink and fiber exports record
 the source URI and region origin. Metadata records dimensions, calibration,

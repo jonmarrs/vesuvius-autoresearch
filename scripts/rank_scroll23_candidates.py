@@ -9,11 +9,49 @@ cheap metadata/statistics pass: it does not download data or run inference.
 import argparse
 import csv
 import json
+import math
 from pathlib import Path
+from zipfile import BadZipFile
 
 import numpy as np
 
 from vesuvius_autoresearch.core.inference_constants import INK_PROBABILITY
+
+ARTIFACT_ERRORS = (
+    OSError,
+    ValueError,
+    TypeError,
+    KeyError,
+    AttributeError,
+    EOFError,
+    BadZipFile,
+)
+
+
+def _reject_constant(value):
+    raise ValueError(f"nonfinite JSON value {value}")
+
+
+def _integer(value, label, minimum=0):
+    number = float(value)
+    if (
+        isinstance(value, bool)
+        or not math.isfinite(number)
+        or not number.is_integer()
+        or number < minimum
+    ):
+        raise ValueError(f"{label} must be an integer >= {minimum}")
+    return int(number)
+
+
+def _geometry(row):
+    patch = _integer(row.get("patch_size", 64), "candidate patch_size", 1)
+    return {
+        "position_xyz": [_integer(row.get(axis, 0), axis) for axis in ("x", "y", "z")],
+        "width_px": _integer(row.get("width", patch), "candidate width", 1),
+        "height_px": _integer(row.get("height", patch), "candidate height", 1),
+        "patch_size": patch,
+    }
 
 
 def _read_zarr_array_info(local_uri):
@@ -22,14 +60,22 @@ def _read_zarr_array_info(local_uri):
     zarray_path = Path(local_uri) / ".zarray"
     if not zarray_path.exists():
         return None
-    try:
-        with open(zarray_path) as f:
-            meta = json.load(f)
-    except (OSError, ValueError, TypeError):
-        return None
+    with open(zarray_path) as f:
+        meta = json.load(f, parse_constant=_reject_constant)
+    chunks = meta.get("chunks")
+    separator = meta.get("dimension_separator", ".")
+    if (
+        not isinstance(chunks, list)
+        or len(chunks) != 3
+        or any(type(value) is not int or value <= 0 for value in chunks)
+        or separator not in (".", "/")
+    ):
+        raise ValueError(
+            "CT chunks must be three positive integers with a valid separator"
+        )
     return {
-        "chunks": tuple(int(v) for v in meta["chunks"]),
-        "dimension_separator": meta.get("dimension_separator", "."),
+        "chunks": tuple(chunks),
+        "dimension_separator": separator,
     }
 
 
@@ -42,18 +88,27 @@ def _chunk_exists(local_uri, coord, dimension_separator):
 
 
 def _ct_occupancy_stats(row):
-    info = _read_zarr_array_info(row.get("local_uri"))
-    if not info:
-        return {"ct_occupied_status": "unknown", "ct_occupied": None}
-
-    chunks = info["chunks"]
-    width = int(_float(row, "width", _float(row, "patch_size", 64)))
-    height = int(_float(row, "height", _float(row, "patch_size", 64)))
-    z = int(_float(row, "z"))
-    y_center = int(_float(row, "y") + height / 2)
-    x_center = int(_float(row, "x") + width / 2)
-    coord = (z // chunks[0], y_center // chunks[1], x_center // chunks[2])
-    occupied = _chunk_exists(row.get("local_uri"), coord, info["dimension_separator"])
+    unknown = {
+        "ct_occupied_status": "unknown",
+        "ct_occupied": None,
+        "ct_occupied_error": "",
+    }
+    try:
+        info = _read_zarr_array_info(row.get("local_uri"))
+        if not info:
+            return unknown
+        geometry = _geometry(row)
+        x, y, z = geometry["position_xyz"]
+        center = (z, y + geometry["height_px"] // 2, x + geometry["width_px"] // 2)
+        coord = tuple(
+            value // size for value, size in zip(center, info["chunks"], strict=True)
+        )
+        occupied = _chunk_exists(
+            row.get("local_uri"), coord, info["dimension_separator"]
+        )
+    except ARTIFACT_ERRORS as exc:
+        unknown["ct_occupied_error"] = f"{type(exc).__name__}: {exc}"
+        return unknown
     return {
         "ct_occupied_status": "true" if occupied else "false",
         "ct_occupied": occupied,
@@ -63,15 +118,86 @@ def _ct_occupancy_stats(row):
 
 def _float(row, key, default=0.0):
     try:
-        return float(row.get(key, default))
-    except (TypeError, ValueError):
-        return default
+        number = float(row.get(key, default))
+        if not math.isfinite(number):
+            raise ValueError
+        return number
+    except (TypeError, ValueError, OverflowError) as exc:
+        raise ValueError(f"candidate {key} must be finite") from exc
 
 
 def _artifact_stem(row):
-    width = int(_float(row, "width", _float(row, "patch_size", 64)))
-    height = int(_float(row, "height", _float(row, "patch_size", 64)))
-    return f"pred_{int(_float(row, 'z'))}_{int(_float(row, 'y'))}_{int(_float(row, 'x'))}_{width}x{height}"
+    geometry = _geometry(row)
+    x, y, z = geometry["position_xyz"]
+    return f"pred_{z}_{y}_{x}_{geometry['width_px']}x{geometry['height_px']}"
+
+
+def _source_identity(uri):
+    if not isinstance(uri, str) or not uri.strip():
+        raise ValueError("candidate and prediction must record source_uri")
+    return uri.rstrip("/") if "://" in uri else str(Path(uri).resolve())
+
+
+def _validate_prediction_metadata(meta, row):
+    """A coordinate-only basename cannot identify a scroll or a completed run."""
+    source = row.get("local_uri") or row.get("source_uri")
+    if _source_identity(meta.get("source_uri")) != _source_identity(source):
+        raise ValueError("prediction source_uri does not match candidate")
+    for field, expected in _geometry(row).items():
+        actual = meta.get(field)
+        if field == "position_xyz":
+            valid = isinstance(actual, list) and all(type(v) is int for v in actual)
+        else:
+            valid = type(actual) is int
+        if not valid or actual != expected:
+            raise ValueError(f"prediction {field} does not match candidate")
+    voxel = meta.get("voxel_size_um")
+    if (
+        isinstance(voxel, bool)
+        or not isinstance(voxel, (int, float))
+        or not math.isfinite(voxel)
+        or voxel <= 0
+    ):
+        raise ValueError("prediction voxel_size_um must be positive and finite")
+    if row.get("voxel_um") and not math.isclose(
+        voxel, float(row["voxel_um"]), abs_tol=1e-6, rel_tol=0
+    ):
+        raise ValueError("prediction voxel_size_um does not match candidate")
+    if meta.get("prediction_complete") is not True:
+        raise ValueError("prediction must record a complete region")
+    for field, expected in (("num_parts", 1), ("part_id", 0)):
+        if type(meta.get(field)) is not int or meta[field] != expected:
+            raise ValueError("prediction must be an unsharded complete region")
+    coverage = meta.get("coverage_fraction")
+    total, processed = meta.get("tiles_total"), meta.get("tiles_processed")
+    if (
+        isinstance(coverage, bool)
+        or coverage != 1.0
+        or type(total) is not int
+        or total <= 0
+        or type(processed) is not int
+        or processed != total
+    ):
+        raise ValueError("prediction must record full coverage and all tiles")
+
+
+def _probability_array(path, shape):
+    array = np.load(path, allow_pickle=False, mmap_mode="r")
+    if not isinstance(array, np.ndarray):
+        array.close()
+        raise ValueError(f"prediction must be a NumPy array: {path}")
+    if (
+        array.shape != shape
+        or array.dtype.kind != "f"
+        or not np.isfinite(array).all()
+        or (array < 0).any()
+        or (array > 1).any()
+    ):
+        raise ValueError(
+            "prediction must be finite floating-point probabilities in [0,1] "
+            f"with shape {shape}: {path}"
+        )
+    return array
 
 
 def _load_prediction_stats(prediction_dir, row):
@@ -82,7 +208,8 @@ def _load_prediction_stats(prediction_dir, row):
     meta_path = pred_dir / f"{stem}_meta.json"
 
     stats = {
-        "prediction_found": ink_path.exists(),
+        "prediction_found": False,
+        "prediction_error": "",
         "prediction_recipe": "",
         "ink_mean": 0.0,
         "ink_std": 0.0,
@@ -97,7 +224,7 @@ def _load_prediction_stats(prediction_dir, row):
     if meta_path.exists():
         try:
             with open(meta_path) as f:
-                meta = json.load(f)
+                meta = json.load(f, parse_constant=_reject_constant)
             recipe = meta.get("inference_recipe") or {}
             stats["prediction_recipe"] = str(recipe.get("ink_probability", ""))
         except (OSError, ValueError, TypeError, AttributeError) as exc:
@@ -110,27 +237,35 @@ def _load_prediction_stats(prediction_dir, row):
         stats["prediction_found"] = False
         return stats
 
-    if ink_path.exists():
-        arr = np.load(ink_path)
-        stats["ink_mean"] = float(arr.mean())
-        stats["ink_std"] = float(arr.std())
-        stats["ink_max"] = float(arr.max())
-        stats["ink_hot_fraction"] = float((arr >= 0.5).mean())
+    try:
+        _validate_prediction_metadata(meta, row)
+    except ARTIFACT_ERRORS as exc:
+        stats["metadata_error"] = f"{type(exc).__name__}: {exc}"
+        return stats
+    geometry = _geometry(row)
+    shape = (geometry["height_px"], geometry["width_px"])
+    try:
+        arr = _probability_array(ink_path, shape)
+        stats.update(
+            prediction_found=True,
+            ink_mean=float(arr.mean(dtype=np.float64)),
+            ink_std=float(arr.std(dtype=np.float64)),
+            ink_max=float(arr.max()),
+            ink_hot_fraction=float((arr >= 0.5).mean()),
+        )
+    except ARTIFACT_ERRORS as exc:
+        stats["prediction_error"] = f"{type(exc).__name__}: {exc}"
+        return stats
 
     # The fiber map counts only when this prediction's metadata records one: a
     # model without a fiber head writes none, so a file of that name is an
     # earlier model's.
-    if fiber_path.exists() and meta.get("fiber_stats"):
-        fiber = np.load(fiber_path)
-        stats["fiber_mean"] = float(fiber.mean())
-
-    try:
-        ink_stats = meta.get("ink_stats", {})
-        stats["ink_mean"] = float(ink_stats.get("mean", stats["ink_mean"]))
-        stats["ink_std"] = float(ink_stats.get("std", stats["ink_std"]))
-        stats["ink_max"] = float(ink_stats.get("max", stats["ink_max"]))
-    except (ValueError, TypeError, AttributeError) as exc:
-        stats["metadata_error"] = f"{type(exc).__name__}: {exc}"
+    if isinstance(meta.get("fiber_stats"), dict) and meta["fiber_stats"]:
+        try:
+            fiber = _probability_array(fiber_path, shape)
+            stats["fiber_mean"] = float(fiber.mean(dtype=np.float64))
+        except ARTIFACT_ERRORS as exc:
+            stats["prediction_error"] = f"{type(exc).__name__}: {exc}"
 
     return stats
 
@@ -170,6 +305,7 @@ def score_row(row, prediction_dir="predictions"):
             "prediction_recipe": stats["prediction_recipe"],
             "metadata_found": str(stats["metadata_found"]).lower(),
             "metadata_error": stats["metadata_error"],
+            "prediction_error": stats["prediction_error"],
             "ink_mean": f"{stats['ink_mean']:.6f}",
             "ink_std": f"{stats['ink_std']:.6f}",
             "ink_max": f"{stats['ink_max']:.6f}",
@@ -178,6 +314,7 @@ def score_row(row, prediction_dir="predictions"):
             "artifact_stem": _artifact_stem(row),
             "ct_occupied_status": ct_stats["ct_occupied_status"],
             "ct_chunk_coord": ct_stats.get("ct_chunk_coord", ""),
+            "ct_occupied_error": ct_stats.get("ct_occupied_error", ""),
         }
     )
     return out

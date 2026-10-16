@@ -355,6 +355,24 @@ def test_occupied_windows_uses_local_zarr_chunks(tmp_path):
     assert windows == [(256, 416, 160)]
 
 
+def _ranking_metadata(row):
+    return {
+        "source_uri": row["local_uri"],
+        "position_xyz": [int(row[key]) for key in ("x", "y", "z")],
+        "width_px": int(row["width"]),
+        "height_px": int(row["height"]),
+        "patch_size": int(row.get("patch_size", 64)),
+        "voxel_size_um": 7.91,
+        "inference_recipe": {"ink_probability": "sigmoid(ink)"},
+        "prediction_complete": True,
+        "num_parts": 1,
+        "part_id": 0,
+        "coverage_fraction": 1.0,
+        "tiles_total": 1,
+        "tiles_processed": 1,
+    }
+
+
 def test_rank_scroll23_candidates_prefers_high_confidence_prediction(tmp_path):
     prediction_dir = tmp_path / "predictions"
     prediction_dir.mkdir()
@@ -376,7 +394,7 @@ def test_rank_scroll23_candidates_prefers_high_confidence_prediction(tmp_path):
     arr[20:24, 20:24] = 0.95
     np.save(prediction_dir / "pred_9000_2048_2048_64x64_ink.npy", arr)
     (prediction_dir / "pred_9000_2048_2048_64x64_meta.json").write_text(
-        json.dumps({"inference_recipe": {"ink_probability": "sigmoid(ink)"}})
+        json.dumps(_ranking_metadata(row))
     )
 
     scored = score_row(row, prediction_dir=prediction_dir)
@@ -396,13 +414,14 @@ def test_rank_scroll23_candidates_reads_the_fiber_map_its_prediction_wrote(
     prediction_dir.mkdir()
     row = {"priority": "1.0", "z": "9000", "y": "2048", "x": "2048"}
     row.update({"width": "64", "height": "64", "submittable_window": "true"})
+    row["local_uri"] = str(tmp_path / "ct.zarr")
     stem = "pred_9000_2048_2048_64x64"
     np.save(prediction_dir / f"{stem}_ink.npy", np.zeros((64, 64), np.float32))
     np.save(prediction_dir / f"{stem}_fiber.npy", np.full((64, 64), 0.5, np.float32))
-    meta = {
-        "inference_recipe": {"ink_probability": "sigmoid(ink)"},
-        "fiber_stats": {"mean": 0.5, "std": 0.0, "max": 0.5} if fiber_written else {},
-    }
+    meta = _ranking_metadata(row)
+    meta["fiber_stats"] = (
+        {"mean": 0.5, "std": 0.0, "max": 0.5} if fiber_written else {}
+    )
     (prediction_dir / f"{stem}_meta.json").write_text(json.dumps(meta))
 
     scored = score_row(row, prediction_dir=prediction_dir)

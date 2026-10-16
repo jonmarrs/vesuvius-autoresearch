@@ -86,6 +86,26 @@ statistics. It also records local Zarr chunk occupancy and penalizes stale queue
 rows that point at missing chunks. It is metadata-only and does not run inference
 or download data.
 
+Prediction bonuses require a sidecar with the current ink recipe, matching source
+URI, position, dimensions, patch size and calibration, and a complete unsharded
+run with full coverage and all tiles processed. Local source paths are normalized
+from the ranking command's working directory. The ranker validates float NPY
+maps against the candidate dimensions and the finite `[0, 1]` probability range;
+it computes statistics from those maps instead of trusting stored summaries.
+Older sidecars without these facts receive no prediction bonus. Regenerate them
+through the current inference command to make their predictions eligible.
+
+`prediction_found` means a usable, matching ink prediction, rather than just an
+existing file. `metadata_error` explains invalid provenance; `prediction_error`
+records missing, unreadable or invalid maps. A bad optional fiber map contributes
+no fiber signal while valid ink remains usable. A missing or invalid ink map
+cannot authorize retained fiber files. Invalid CT chunk metadata records
+`ct_occupied_status=unknown` and `ct_occupied_error`, without a missing-chunk
+penalty. These per-candidate problems do not stop other rows from ranking.
+Invalid queue coordinates or nonfinite/nonnumeric priorities are input errors
+and stop publication of a new ranked TSV. Chunk existence remains a center-chunk
+hint; it does not prove complete CT coverage or readability.
+
 Build a Lasagna/fiber worklist for official Villa issue #191:
 
 ```bash
