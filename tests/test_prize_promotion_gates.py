@@ -104,3 +104,25 @@ def test_prize_gates_fail_when_window_exceeds_official_guidance():
     assert any(
         "exceeds official prize guidance" in failure for failure in gates["failures"]
     )
+
+
+def test_a_pass_without_centerline_samples_records_it_unmeasured():
+    """No samples averaged to 0.0, which history.tsv recorded as a score and
+    the gates failed as "below gate" (no villa metric gives no samples)."""
+    from train import mean_or_nan
+
+    assert math.isnan(mean_or_nan([]))
+    assert mean_or_nan([0.25, 0.75]) == 0.5
+    gates = evaluate_prize_gates(
+        ExperimentConfig(patch_size=64, min_prize_centerline_dice=0.01),
+        val_bpb=0.2,
+        avg_skel_dist=0.8,
+        avg_centerline_dice=mean_or_nan([]),
+        avg_cc_diff=3.0,
+        num_skel_samples=4,
+        num_centerline_samples=0,
+        num_cc_samples=20,
+    )
+    assert gates["villa_metrics_ok"] is False
+    assert "avg_centerline_dice is not finite" in gates["failures"]
+    assert not any("below gate" in failure for failure in gates["failures"])

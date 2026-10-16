@@ -66,9 +66,15 @@ See [award history and source](docs/PROGRESS_PRIZE_AWARDS.md).
   on one 4090, with the noise floors attached — region-specific seed floors, a non-blank strip
   control, and pre-registered analyses that refuse a partial sample. Built for the spiral track
   above; reusable for any patch-selection experiment on this data.
-- **Autonomous Research Loop:** samples a multidimensional configuration space (architectures, loss functions, augmentations) under fixed time budgets, with per-cycle preflight gates.
+- **Autonomous Research Loop:** each cycle applies one tweak to the promoted configuration (learning rate,
+  weight decay, batch size, loss weights, ridge sigma, augmentation backend, fiber target, multi-task heads,
+  UA-MT settings) and trains it for a fixed time, after a preflight. Architecture and model size are
+  pinned to the production `resenc_unet`, so every cycle warm-starts from `best_model.pt`.
 - **On-the-fly Multi-tasking:** real-time 3D Structure Tensor and Ridge Map computation for rich structural supervision.
-- **Calibration Baselines:** periodic re-evaluation against the fixed 2023 Grand Prize recipe to prevent research drift.
+- **Noise calibration:** the [repeatability probe](docs/REPEATABILITY_PROBE.md)
+  (`scripts/f1_noise_probe.py --config … --checkpoint … --out … --execute`) measures the run-to-run F1 spread on
+  demand. It is run by hand and does not set the promotion tolerance. (The loop's periodic 2023 Grand-Prize-recipe
+  baseline was removed on 2026-10-12: its VRAM estimate skipped it every time.)
 
 ## Quick start
 
@@ -78,23 +84,76 @@ See [award history and source](docs/PROGRESS_PRIZE_AWARDS.md).
 # 1. Install uv project manager (if you don't already have it)
 curl -LsSf https://astral.sh/uv/install.sh | sh
 
-# 2. Install dependencies and the local src package
+# 2. Install dependencies and the local src package, and check out the pinned
+#    ScrollPrize/villa (the loop's topology metrics and villa augmentations)
 uv sync
+git submodule update --init villa
 
-# 3. Download data (~5 min)
-uv run python scripts/archive/download_data.py --fragment 4
+# 3. Check the code (no data or GPU needed; it writes only caches)
+make smoke
 
-# 4. Run a single training smoke test (~30 s) to verify your setup
-PYTHONPATH=. uv run python scripts/training/train.py --test
+# 4. With the data in place (below), check the loop's configuration: builds the
+#    model and runs one forward/backward on the CPU (writes nothing)
+PYTHONPATH=. uv run python scripts/training/train.py --smoke
 
-# 5. Kick off the autonomous research loop
-./start.sh        # wraps: uv run python run_autoresearch_loop.py
+# 5. Score best_model.pt under the current validation protocol (best on the GPU;
+#    reads the validation fragment; rewrites best_model.pt's stored scores)
+uv run python scripts/reevaluate_best_model.py --update-stored
+
+# 6. Kick off the autonomous research loop
+./start.sh        # runs run_autoresearch_loop.py in the background; output in autoresearch.out
 ./stop.sh         # stop the loop and pause automatic watchdog restarts
 ```
 
+On a host where the `vesuvius` package was installed from `villa/vesuvius` (it is
+outside `uv.lock`), do not run `uv sync` (or `make install`, which runs it) again
+in that checkout: an exact sync removes it
+([resume note](docs/RESUME_AFTER_RESTART.md), 2026-10-13). `config.json` has
+`use_wandb: true`, so runs log to wandb online (`wandb login`), falling back to
+offline if that fails; `WANDB_MODE=offline` keeps them local.
+
+**Data.** `config.json` trains on `local_data/PHercParis2Fr47/surface_volume.zarr`
+and validates on `local_data/PHercParis2Fr143/surface_volume.zarr`. Each needs
+its ink labels beside it (`inklabels_refined.png`, `inklabels_filled.png` or
+`inklabels.png`, the first found). A `mask.png` there, if present, limits where
+patches are drawn, and a `patches.json` replaces the patch catalogue. A
+`<segment>_pseudo.png` in `pseudo_label_dir` (`local_data/pseudo_labels`)
+replaces a training volume's labels, and is refused while `use_confidence_weight`
+is off ([pseudo-label handoff](docs/PSEUDO_LABEL_HANDOFF.md)). No maintained command in this
+repository builds these directories. The downloaders in `scripts/archive/` are
+unmaintained and fetch raw CT, TIFF layers or label PNGs, not these zarrs; the
+`download_data.py --fragment 4` this guide used to give names a moved script,
+downloads nothing and exits 0.
+
+**Score the incumbent before the first start.** The loop compares each cycle
+with the val_f1 stored in `best_model.pt`, and starts only if that score was
+measured under the current validation protocol (`scripts/training/promotion.py`,
+including `config.json`'s `depth_band`). Otherwise it prints `Not starting: …`
+with the command to run, and returns. Step 5 does that; repeat it after any
+protocol change, and after any change to the validation inputs (label file,
+mask, `patches.json`). It rewrites the tracked `best_model.pt`; commit it, as
+`a37b05c4` did. `start.sh` reports that it launched the loop, not that a cycle
+began: the loop's own output, including any refusal, is in `autoresearch.out`.
+
+Avoid `train.py --test`. It is not a setup check: it is a training run with a
+30 s budget followed by the full validation, it needs CUDA and takes no lock,
+and it writes the loop's state: `history.tsv`, `last_model.pt` and
+`run_result.json`, and, if it beats the incumbent, `best_model.pt`, `results.tsv`
+and `prize_readiness.tsv`. Such a promotion leaves `config.json` as it was, so it
+no longer describes `best_model.pt`.
+
 `start.sh` and `stop.sh` control this checkout using its process lock and work
-from any directory. `start.sh` clears the pause; `make shift` uses the same
-launcher. The watchdog respects the pause even when the loop is already stopped.
+from any directory. `start.sh` clears the pause, even when it then refuses
+because other work holds the lock; `make shift` uses the same launcher. The loop
+ends each shift and exits (day 07:00–19:00, night 19:00–07:00, system local
+time). The watchdog, `scripts/loop_watchdog.sh`, starts it again: install it
+with `crontab -e`, adding `*/5 * * * * /path/to/checkout/scripts/loop_watchdog.sh`
+and `@reboot /path/to/checkout/scripts/loop_watchdog.sh`. It logs to
+`watchdog.log`. Cron's `PATH` has no `uv`: the watchdog adds `~/.local/bin`, so
+if `uv` is elsewhere set `PATH=` in the crontab (otherwise the launch fails, and
+says so only in `autoresearch.out`). It respects the pause even when the loop is already stopped, so
+after `stop.sh` nothing restarts the loop until `start.sh` runs; without the
+watchdog, `start.sh` gives at most one shift.
 The lock is also held by the work that must not run beside the loop: the noise
 probe (`scripts/f1_noise_probe.py --execute`), the augmentation ablation
 (`scripts/ablate_scroll_augmentations.py`, unless `--dry-run`) and the incumbent re-score
@@ -107,7 +166,8 @@ start.
 
 ### Detector prediction and measurement
 
-Each detector command accepts `--config path/to/config.json` after the subcommand.
+Each detector command accepts `--config detector_config.json` after the subcommand
+(a detector configuration, not the loop's root `config.json`).
 The JSON object overrides `DetectorConfig` defaults; use the same architecture,
 depth and window settings used to train the checkpoint. For example:
 
@@ -251,11 +311,22 @@ see [Recorded experiment reports](docs/EXPERIMENT_REPORTS.md). These reports sho
 auxiliary diagnostics and recent rows; the frozen TSV omits the F1/AP-lift
 promotion metrics.
 
-- **`history.tsv`**: Every evaluated cycle — `val_bpb`, topology metrics (`avg_skel_dist`, `avg_centerline_dice`), throughput, and the full config JSON.
-- **`results.tsv`**: Experiments that beat the then-current baseline.
-- **`prize_readiness.tsv`**: Per-cycle check of the model against prize submission gates.
+- **`history.tsv`**: one row for every `train.py` run that finishes validation (loop cycles and runs by
+  hand; not the noise probe's or the ablation's runs, which keep their own records): `val_bpb`, the topology
+  diagnostics, mean AP, throughput, VRAM and the full config JSON. It has no val_f1, the metric that decides
+  promotion; that is in `sprint_logs/` and each run's `run_result.json`.
+- **`results.tsv`** (local, gitignored): one row per promotion, that is, a run whose val_f1 beat
+  `best_model.pt`'s stored val_f1 by more than the noise tolerance (0.03), with an AP-prevalence lift above
+  1.02, on the same validation protocol and inputs. Its frozen schema has no val_f1 column.
+- **`prize_readiness.tsv`**: one row per promotion, recording the promoted model's window and topology gate
+  results. They are recorded only: they do not block promotion while `enforce_prize_gates` is false. When
+  the loop undoes a promotion (the cycle failed after it), it removes that row from both files.
 - **`docs/LAB_NOTEBOOK.md`**: High-level strategic record of research milestones.
-- **`sprint_logs/`**: Detailed per-shift execution traces and config samples.
+- **`sprint_logs/`**: one Markdown log per shift (a restart within the shift appends to it): each cycle's
+  tweak, config, val_f1 and other statistics, and result.
+- **Logs** (local): `run.log` collects the cycles' training output (moved to `run.log.old` once past
+  10 MB), `autoresearch.out` the loop's own output, and `watchdog.log` the watchdog's. `run.log.old` is
+  tracked by git (since June), so each rotation shows as a change to it.
 
 ## ✅ Validation
 
@@ -320,7 +391,8 @@ run_autoresearch_loop.py — autonomous experimentation manager (day/night shift
 scripts/training/train.py — the loop's training and evaluation
 src/vesuvius_autoresearch/core/vesuvius_loader.py — data loading, ridge computation
 src/vesuvius_autoresearch/fibers/ — GPU fiber/ridge/vesselness detection
-vesuvius_model.py        — the loop's architecture zoo (ResEnc-UNet, GatedUNet, TimeSformer, ...)
+src/vesuvius_autoresearch/core/model_wrappers.py — builds the loop's production resenc_unet
+vesuvius_model.py        — alternative architectures (GatedUNet, TimeSformer, MedNeXt, LeJEPA-UNet, ...)
 scroll_augmentations.py  — scroll-specific augmentations (decohesion, squeeze, z-dropout, ...)
 scripts/                 — inference, labeling, evaluation, and prize-packaging tools
 docs/program.md          — agent instructions
@@ -329,7 +401,10 @@ pyproject.toml           — dependencies
 
 ## Design choices
 
-- **Autonomous Tweak Families.** The loop script (`run_autoresearch_loop.py`) intelligently samples from different "families" of tweaks (LR, Architecture, Loss Balance) based on recent success.
+- **Autonomous Tweak Families.** The loop script (`run_autoresearch_loop.py`) samples one tweak per cycle from
+  "families" (learning rate, loss balance, batch, UA-MT, features, ...), weighted by recent success: a family's
+  weight decays by ×0.95 per scored cycle (floor 1) and gains 1 per promotion. Architecture and size are
+  pinned.
 - **Fixed Time Budget.** Training runs for a fixed wall-clock budget (default 15 mins for Day Shift, 60 mins for Night Shift). This ensures experiments are comparable and the agent optimizes for the best model *within the available compute*.
 - **Multi-task Supervision.** Models are trained not just on ink labels, but also on auxiliary tasks like 3D ridge detection and structure tensor alignment to improve generalization.
 

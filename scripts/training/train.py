@@ -118,12 +118,17 @@ except ImportError as exc:
         return float("nan")
 
 
+CENTERLINE_DICE_IMPORT_ERROR = None
 try:
     from metrics.centerline_dice import compute as compute_centerline_dice
-except ImportError:
+except ImportError as exc:
+    CENTERLINE_DICE_IMPORT_ERROR = str(exc)
 
+    # Not measured, as the skeleton metric's stand-in: a 0.0 for every patch was
+    # recorded as a measured score (history.tsv, the prize gates). A pass with
+    # no centerline samples records NaN (mean_or_nan).
     def compute_centerline_dice(label, prediction, **kwargs):
-        return {"centerline_dice": 0.0}
+        return {"centerline_dice": float("nan")}
 
 
 try:
@@ -1084,6 +1089,13 @@ def select_topology_threshold(
     if diag is not None:
         diag["topology_threshold_errors"] = errors
     return best_thr, (best_cd if best_cd >= 0.0 else 0.0)
+
+
+def mean_or_nan(samples) -> float:
+    """A validation metric's mean over its samples; NaN, "not measured", with
+    none. Not 0: that is the worst centerline Dice and a perfect cc_diff, and
+    an unmeasured centerline Dice was recorded as 0.0 until 2026-10-16."""
+    return float(np.mean(samples)) if len(samples) else float("nan")
 
 
 def evaluate_prize_gates(
@@ -2507,6 +2519,8 @@ def train(config: ExperimentConfig, *, strict_warm_start=False):
         print(
             f"  Skeleton-distance metric unavailable: {SKELETON_DISTANCE_IMPORT_ERROR}"
         )
+    if CENTERLINE_DICE_IMPORT_ERROR:
+        print(f"  Centerline-dice metric unavailable: {CENTERLINE_DICE_IMPORT_ERROR}")
     sys.stdout.flush()
     val_losses = []
     val_skel_dists = []
@@ -2649,12 +2663,11 @@ def train(config: ExperimentConfig, *, strict_warm_start=False):
     )
 
     val_bpb = np.mean(val_losses) if val_losses else 1.0
-    avg_skel_dist = np.mean(val_skel_dists) if val_skel_dists else float("nan")
-    avg_centerline_dice = np.mean(val_centerline_dices) if val_centerline_dices else 0.0
-    # No samples is "not measured" (NaN), not a perfect 0.
-    avg_cc_diff = np.mean(val_cc_diffs) if val_cc_diffs else float("nan")
-    avg_crit_comp = np.mean(val_crit_comps) if val_crit_comps else float("nan")
-    avg_mean_ap = np.mean(val_mean_aps) if val_mean_aps else float("nan")
+    avg_skel_dist = mean_or_nan(val_skel_dists)
+    avg_centerline_dice = mean_or_nan(val_centerline_dices)
+    avg_cc_diff = mean_or_nan(val_cc_diffs)
+    avg_crit_comp = mean_or_nan(val_crit_comps)
+    avg_mean_ap = mean_or_nan(val_mean_aps)
     # Honest, prize-aligned selection metrics (single source of truth:
     # detector.metrics). val_bpb / skel_dist / centerline_dice above remain
     # reported but no longer decide promotion.
