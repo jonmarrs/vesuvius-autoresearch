@@ -33,7 +33,7 @@ from vesuvius_autoresearch.core.inference import (
     validate_model_settings,
     validate_region,
 )
-from vesuvius_autoresearch.core.model_wrappers import build_inference_model
+from vesuvius_autoresearch.core.model_wrappers import build_inference_model, task_heads
 from vesuvius_autoresearch.core.vesuvius_loader import FastVesuviusVolume
 
 
@@ -348,6 +348,10 @@ def predict():
     # Partial warm starts are appropriate for training, not evidence export.
     model.load_state_dict(checkpoint["model_state_dict"], strict=True)
     model.eval()
+    # A model without a fiber head returns its ink logits as "fiber": exported,
+    # that was the ink map under the fiber prediction's name.
+    heads = sorted(task_heads(model))
+    has_fiber = "fiber" in heads
 
     # Open the dataset
     dataset = FastVesuviusVolume(
@@ -428,8 +432,19 @@ def predict():
     out_path = args.output_img if args.output_img else f"predictions/{base_name}.png"
     output_dir = os.path.dirname(out_path) or "."
     os.makedirs(output_dir, exist_ok=True)
+    metadata_path = (
+        args.metadata_out
+        if args.metadata_out
+        else os.path.join(output_dir, f"{base_name}_meta.json")
+    )
+    # Removed before the arrays are written and rewritten last: a run cut short
+    # (the loop's benchmark timeout, a stop) left the previous run's metadata
+    # describing this run's arrays, which reuse the same names.
+    if os.path.lexists(metadata_path):
+        os.remove(metadata_path)
     np.save(os.path.join(output_dir, f"{base_name}_ink.npy"), prob_ink_final)
-    np.save(os.path.join(output_dir, f"{base_name}_fiber.npy"), prob_fiber_final)
+    if has_fiber:
+        np.save(os.path.join(output_dir, f"{base_name}_fiber.npy"), prob_fiber_final)
     if args.num_parts > 1:
         args.blend_weight_path = os.path.join(output_dir, f"{base_name}_weight.npy")
         np.save(args.blend_weight_path, full_weight.cpu().numpy())
@@ -440,9 +455,10 @@ def predict():
     ink_uint8 = (np.clip(prob_ink_final, 0, 1) * 255).astype(np.uint8)
     fiber_uint8 = (np.clip(prob_fiber_final, 0, 1) * 255).astype(np.uint8)
     Image.fromarray(ink_uint8).save(os.path.join(output_dir, f"{base_name}_ink.png"))
-    Image.fromarray(fiber_uint8).save(
-        os.path.join(output_dir, f"{base_name}_fiber.png")
-    )
+    if has_fiber:
+        Image.fromarray(fiber_uint8).save(
+            os.path.join(output_dir, f"{base_name}_fiber.png")
+        )
     # Save as VC3D OME-Zarr
     zarr_path = os.path.join(output_dir, f"{base_name}_ink.zarr")
     save_vc3d_zarr(
@@ -453,15 +469,17 @@ def predict():
         source_uri=args.uri,
         origin_xyz=[int(args.x), int(args.y), int(args.z)],
     )
-    fiber_zarr_path = os.path.join(output_dir, f"{base_name}_fiber.zarr")
-    save_vc3d_zarr(
-        fiber_zarr_path,
-        fiber_uint8,
-        name=f"Fiber Prediction {base_name}",
-        voxel_size_um=args.voxel_size_um,
-        source_uri=args.uri,
-        origin_xyz=[int(args.x), int(args.y), int(args.z)],
-    )
+    fiber_zarr_path = None
+    if has_fiber:
+        fiber_zarr_path = os.path.join(output_dir, f"{base_name}_fiber.zarr")
+        save_vc3d_zarr(
+            fiber_zarr_path,
+            fiber_uint8,
+            name=f"Fiber Prediction {base_name}",
+            voxel_size_um=args.voxel_size_um,
+            source_uri=args.uri,
+            origin_xyz=[int(args.x), int(args.y), int(args.z)],
+        )
 
     # Active Learning: optional proofreader export. Prize evidence generation
     # should not fail if this auxiliary tool is not available.
@@ -497,8 +515,12 @@ def predict():
     axes[0].imshow(ct_slice, cmap="gray")
     axes[0].set_title(f"CT Slice (Z={args.z + num_layers // 2})")
 
-    axes[1].imshow(prob_fiber_final, cmap="magma")
-    axes[1].set_title("Fiber Context (Fused)")
+    if has_fiber:
+        axes[1].imshow(prob_fiber_final, cmap="magma")
+        axes[1].set_title("Fiber Context (Fused)")
+    else:
+        axes[1].imshow(np.zeros_like(prob_ink_final), cmap="gray", vmin=0, vmax=1)
+        axes[1].set_title("No fiber head")
 
     axes[2].imshow(ct_slice, cmap="gray")
     axes[2].imshow(prob_ink_final, cmap="jet", alpha=0.5)
@@ -536,62 +558,42 @@ def predict():
     plt.savefig(out_path)
     plt.close()
 
-    metadata_path = (
-        args.metadata_out
-        if args.metadata_out
-        else os.path.join(output_dir, f"{base_name}_meta.json")
-    )
-    write_prediction_metadata(
-        metadata_path,
-        args,
-        config_dict,
-        zarr_path,
-        out_path,
-        {
-            "mean": float(prob_ink_final.mean()),
-            "std": float(prob_ink_final.std()),
-            "max": float(prob_ink_final.max()),
-        },
-        fiber_zarr_path=fiber_zarr_path,
-        fiber_stats={
-            "mean": float(prob_fiber_final.mean()),
-            "std": float(prob_fiber_final.std()),
-            "max": float(prob_fiber_final.max()),
-        },
-    )
+    def write_metadata(fiber_coherence=None):
+        write_prediction_metadata(
+            metadata_path,
+            args,
+            config_dict,
+            zarr_path,
+            out_path,
+            {
+                "mean": float(prob_ink_final.mean()),
+                "std": float(prob_ink_final.std()),
+                "max": float(prob_ink_final.max()),
+            },
+            fiber_zarr_path=fiber_zarr_path,
+            fiber_stats={
+                "mean": float(prob_fiber_final.mean()),
+                "std": float(prob_fiber_final.std()),
+                "max": float(prob_fiber_final.max()),
+            }
+            if has_fiber
+            else None,
+            fiber_coherence=fiber_coherence,
+            extra_metadata={"task_heads": heads},
+        )
 
-    # Automated Fiber Coherence Evaluation (Villa ST)
-    fiber_coherence = None
+    write_metadata()
+
+    # Automated Fiber Coherence Evaluation (Villa ST): the structure tensor of the
+    # CT slice shown in the figure, independent of the model's heads.
     if args.compute_coherence:
         try:
             from scripts.compute_fiber_coherence import compute_coherence
 
             print("Computing Fiber Coherence score (Villa ST)...", flush=True)
-            # Fetch raw volume data for ST computation (center region)
-            # Using the same data as for prediction visualization for consistency
             fiber_coherence = compute_coherence(ct_slice, device=str(device))
             print(f"Fiber Coherence Score: {fiber_coherence:.6f}")
-
-            # Re-write metadata with coherence score
-            write_prediction_metadata(
-                metadata_path,
-                args,
-                config_dict,
-                zarr_path,
-                out_path,
-                {
-                    "mean": float(prob_ink_final.mean()),
-                    "std": float(prob_ink_final.std()),
-                    "max": float(prob_ink_final.max()),
-                },
-                fiber_zarr_path=fiber_zarr_path,
-                fiber_stats={
-                    "mean": float(prob_fiber_final.mean()),
-                    "std": float(prob_fiber_final.std()),
-                    "max": float(prob_fiber_final.max()),
-                },
-                fiber_coherence=fiber_coherence,
-            )
+            write_metadata(fiber_coherence)
         except Exception as exc:
             print(f"Warning: fiber coherence evaluation failed: {exc}")
 

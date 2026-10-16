@@ -117,7 +117,10 @@ def _load_prediction_stats(prediction_dir, row):
         stats["ink_max"] = float(arr.max())
         stats["ink_hot_fraction"] = float((arr >= 0.5).mean())
 
-    if fiber_path.exists():
+    # The fiber map counts only when this prediction's metadata records one: a
+    # model without a fiber head writes none, so a file of that name is an
+    # earlier model's.
+    if fiber_path.exists() and meta.get("fiber_stats"):
         fiber = np.load(fiber_path)
         stats["fiber_mean"] = float(fiber.mean())
 

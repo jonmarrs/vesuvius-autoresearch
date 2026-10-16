@@ -24,6 +24,8 @@ from vesuvius_autoresearch.core.inference import (
 
 
 class ConstantHeads(torch.nn.Module):
+    task_heads = frozenset({"fiber", "qc", "st"})
+
     def __init__(self, layers, ridges, bad=None):
         super().__init__()
         self.bias = torch.nn.Parameter(torch.zeros(1))
@@ -570,11 +572,14 @@ def test_real_resenc_weights_match_direct_model_probabilities(
         np.mean(expected_ink, axis=0),
         atol=1e-6,
     )
-    np.testing.assert_allclose(
-        np.load(next((tmp_path / "predictions").glob("*_fiber.npy"))),
-        np.mean(expected_fiber, axis=0),
-        atol=1e-6,
-    )
+    if real_heads:
+        np.testing.assert_allclose(
+            np.load(next((tmp_path / "predictions").glob("*_fiber.npy"))),
+            np.mean(expected_fiber, axis=0),
+            atol=1e-6,
+        )
+    else:  # its "fiber" is its ink: not exported as a fiber prediction
+        assert not list((tmp_path / "predictions").glob("*_fiber.*"))
 
 
 @pytest.mark.parametrize(
@@ -773,3 +778,104 @@ def test_depth_band_for_matches_recorded_volumes_by_path(tmp_path, monkeypatch):
     (tmp_path / "scripts").mkdir()
     monkeypatch.chdir(tmp_path / "scripts")
     assert depth_band_for(saved, str(own)) == [1, 27]
+
+
+def _without_heads(monkeypatch, members):
+    """Patch the fakes' declared heads: ``members[i]`` for the i-th model built."""
+    original = ConstantHeads.__init__
+    built = []
+
+    def init(self, *args, **kwargs):
+        original(self, *args, **kwargs)
+        self.task_heads = members[len(built) % len(members)]
+        built.append(self)
+
+    monkeypatch.setattr(ConstantHeads, "__init__", init)
+
+
+@pytest.mark.parametrize("mode", ["single", "ensemble"])
+def test_a_model_without_a_fiber_head_exports_no_fiber_prediction(
+    tmp_path, monkeypatch, mode
+):
+    """Without a fiber head a model returns its ink logits as "fiber": exported,
+    that was the ink map under the fiber prediction's name (and in its zarr)."""
+    runner, argv, _, _, _ = setup_prediction(tmp_path, monkeypatch, mode)
+    argv.append("--disable_tta")
+    _without_heads(monkeypatch, [frozenset()])
+    runner()
+    output = tmp_path / "out"
+    assert list(output.glob("*_ink.npy")) and not list(output.glob("*_fiber.*"))
+    metadata = json.loads(next(output.glob("*_meta.json")).read_text())
+    assert metadata["fiber_vc3d_zarr_path"] is None and metadata["fiber_stats"] == {}
+    key = "task_heads" if mode == "single" else "ensemble_task_heads"
+    assert metadata[key] == ([] if mode == "single" else [[]])
+
+
+def test_an_ensemble_exports_fiber_only_when_every_member_has_the_head(
+    tmp_path, monkeypatch
+):
+    config = {"patch_size": 8, "num_layers": 2, "base_feat": 4, "voxel_size_um": 2.0}
+    runner, argv, _, _, _ = setup_prediction(
+        tmp_path, monkeypatch, "ensemble", configs=[config, dict(config)]
+    )
+    argv.append("--disable_tta")
+    _without_heads(monkeypatch, [ConstantHeads.task_heads, frozenset()])
+    runner()
+    output = tmp_path / "out"
+    assert not list(output.glob("*_fiber.*"))
+    metadata = json.loads(next(output.glob("*_meta.json")).read_text())
+    assert metadata["ensemble_task_heads"] == [["fiber", "qc", "st"], []]
+
+
+@pytest.mark.parametrize("mode", ["single", "ensemble"])
+def test_a_run_cut_short_leaves_no_metadata_from_the_previous_one(
+    tmp_path, monkeypatch, mode
+):
+    """Each run writes the same names (the loop's benchmark: one region). Cut
+    short after its arrays (the loop's 600 s timeout, a stop), it left the
+    previous run's metadata describing them; the metadata comes last."""
+    import matplotlib.figure
+
+    runner, argv, _, _, _ = setup_prediction(tmp_path, monkeypatch, mode)
+    argv.append("--disable_tta")
+    output = tmp_path / "out"
+    output.mkdir()
+    prefix = "pred" if mode == "single" else "ensemble_pred"
+    stale = output / f"{prefix}_1_2_3_13x11_meta.json"
+    stale.write_text('{"model_config": "the previous model"}')
+
+    def cut_short(*args, **kwargs):
+        raise RuntimeError("stopped")
+
+    monkeypatch.setattr(matplotlib.figure.Figure, "savefig", cut_short)
+    with pytest.raises(RuntimeError, match="stopped"):
+        runner()
+    assert list(output.glob("*_ink.npy"))
+    assert not stale.exists()
+
+
+def test_fiber_coherence_tells_oriented_structure_from_noise():
+    """It called compute_st and layout, which villa's StructureTensorComputer
+    does not have: every --compute_coherence run failed, as a printed warning.
+    Unsmoothed, the tensor is rank 1 per pixel and its anisotropy 1 everywhere."""
+    coherence = pytest.importorskip("scripts.compute_fiber_coherence")
+    yy, xx = np.meshgrid(np.arange(64.0), np.arange(64.0), indexing="ij")
+    noise = np.random.default_rng(0).random((64, 64))
+    stripes = coherence.compute_coherence(np.sin(0.8 * xx), device="cpu")
+    scattered = coherence.compute_coherence(noise, device="cpu")
+    assert 0.95 < stripes <= 1.0 and 0.0 <= scattered < 0.7
+    block = coherence.compute_coherence(
+        np.sin(0.8 * xx)[None].repeat(8, 0), device="cpu"
+    )
+    assert 0.0 <= block <= 1.0  # a 3-D block: three eigenvalues
+    with pytest.raises(ValueError, match="2-D slice or a 3-D block"):
+        coherence.compute_coherence(np.zeros((1, 2, 8, 8)), device="cpu")
+
+
+def test_predict_records_the_fiber_coherence_it_is_asked_for(tmp_path, monkeypatch):
+    pytest.importorskip("scripts.compute_fiber_coherence")
+    runner, argv, _, _, _ = setup_prediction(tmp_path, monkeypatch, "single")
+    argv += ["--disable_tta", "--compute_coherence"]
+    runner()
+    metadata = json.loads(next((tmp_path / "out").glob("*_meta.json")).read_text())
+    assert isinstance(metadata["fiber_coherence"], float)

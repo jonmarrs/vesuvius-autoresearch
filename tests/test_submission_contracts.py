@@ -414,6 +414,9 @@ def test_prediction_uses_checkpoint_scale_for_both_exports_and_metadata(
     from scripts.inference import predict as predictor
 
     class ArtifactModel(torch.nn.Module):
+        # It has a fiber head, so predict exports the fiber zarr checked below.
+        task_heads = frozenset({"fiber", "qc"})
+
         def __init__(self):
             super().__init__()
             self.bias = torch.nn.Parameter(torch.zeros(1))

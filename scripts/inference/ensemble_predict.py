@@ -38,7 +38,7 @@ from vesuvius_autoresearch.core.inference import (
     validate_model_settings,
     validate_region,
 )
-from vesuvius_autoresearch.core.model_wrappers import build_inference_model
+from vesuvius_autoresearch.core.model_wrappers import build_inference_model, task_heads
 from vesuvius_autoresearch.core.vesuvius_loader import FastVesuviusVolume
 
 
@@ -185,6 +185,10 @@ def ensemble_predict():
 
     ink = normalize_blend(full_ink, weights, args.num_parts == 1).cpu().numpy()
     fiber = normalize_blend(full_fiber, weights, args.num_parts == 1).cpu().numpy()
+    # A member without a fiber head returns its ink logits as "fiber"; the
+    # ensemble's fiber is exported only when every member has one.
+    member_heads = [sorted(task_heads(member[0])) for member in models]
+    has_fiber = all("fiber" in heads for heads in member_heads)
     args.coverage_fraction = int((weights > 0).sum().item()) / weights.numel()
     base = f"ensemble_pred_{args.z}_{args.y}_{args.x}_{args.width}x{args.height}"
     if args.num_parts > 1:
@@ -192,11 +196,17 @@ def ensemble_predict():
     output_img = args.output_img or f"predictions/{base}.png"
     output_dir = os.path.dirname(output_img) or "."
     os.makedirs(output_dir, exist_ok=True)
+    metadata_path = args.metadata_out or os.path.join(output_dir, f"{base}_meta.json")
+    # Removed before the arrays are written and rewritten last, so a run cut
+    # short leaves no metadata describing arrays it did not write.
+    if os.path.lexists(metadata_path):
+        os.remove(metadata_path)
     if args.num_parts > 1:
         args.blend_weight_path = os.path.join(output_dir, f"{base}_weight.npy")
         np.save(args.blend_weight_path, weights.cpu().numpy())
     exports = []
-    for name, array in (("ink", ink), ("fiber", fiber)):
+    outputs = [("ink", ink)] + ([("fiber", fiber)] if has_fiber else [])
+    for name, array in outputs:
         np.save(os.path.join(output_dir, f"{base}_{name}.npy"), array)
         image = (np.clip(array, 0, 1) * 255).astype(np.uint8)
         Image.fromarray(image).save(os.path.join(output_dir, f"{base}_{name}.png"))
@@ -218,8 +228,12 @@ def ensemble_predict():
     figure, axes = plt.subplots(1, 3, figsize=(15, 5))
     axes[0].imshow(ct_slice, cmap="gray")
     axes[0].set_title(f"CT Slice (Z={z_mid})")
-    axes[1].imshow(fiber, cmap="magma")
-    axes[1].set_title("Ensemble Fiber Context")
+    if has_fiber:
+        axes[1].imshow(fiber, cmap="magma")
+        axes[1].set_title("Ensemble Fiber Context")
+    else:
+        axes[1].imshow(np.zeros_like(ink), cmap="gray", vmin=0, vmax=1)
+        axes[1].set_title("No fiber head in every member")
     axes[2].imshow(ct_slice, cmap="gray")
     axes[2].imshow(ink, cmap="jet", alpha=0.5)
     axes[2].set_title("Ensemble Ink Overlay")
@@ -246,7 +260,6 @@ def ensemble_predict():
     figure.tight_layout()
     figure.savefig(output_img)
     plt.close(figure)
-    metadata_path = args.metadata_out or os.path.join(output_dir, f"{base}_meta.json")
     write_prediction_metadata(
         metadata_path,
         args,
@@ -254,12 +267,14 @@ def ensemble_predict():
         exports[0],
         output_img,
         {"mean": float(ink.mean()), "std": float(ink.std()), "max": float(ink.max())},
-        fiber_zarr_path=exports[1],
+        fiber_zarr_path=exports[1] if has_fiber else None,
         fiber_stats={
             "mean": float(fiber.mean()),
             "std": float(fiber.std()),
             "max": float(fiber.max()),
-        },
+        }
+        if has_fiber
+        else None,
         extra_metadata={
             "ensemble_checkpoints": [
                 str(Path(path).resolve()) for path in args.checkpoints
@@ -267,6 +282,7 @@ def ensemble_predict():
             "ensemble_model_configs": configs,
             "ensemble_max_layers": max_layers,
             "model_config_scope": "first_ensemble_member",
+            "ensemble_task_heads": member_heads,
         },
     )
     print(
