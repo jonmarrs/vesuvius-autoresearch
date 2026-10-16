@@ -103,3 +103,68 @@ def test_convert_unreadable_label_raises(tmp_path):
     with pytest.raises(ValueError, match="label"):
         convert_surface_volume(os.path.join(str(tmp_path / "src"), "segE"), "segE",
                                str(tmp_path / "out"))
+
+
+def test_a_label_within_two_px_is_padded_onto_the_grid_not_stretched(tmp_path):
+    """A label up to 20% off was resized onto the layers, moving every stroke."""
+    src = _make_src(str(tmp_path / "src"), "segF", h=128, w=128, label_hw=(127, 128))
+    out = convert_surface_volume(src, "segF", str(tmp_path / "out"))
+    source = cv2.imread(os.path.join(src, "segF_inklabels.png"), 0)
+    label = cv2.imread(os.path.join(out, "segF_inklabels.png"), 0)
+    assert label.shape == (128, 128)
+    assert np.array_equal(label[:127], source)  # registered at the origin
+    assert not label[127].any()  # the missing row is padded, not invented
+    mask = cv2.imread(os.path.join(out, "segF_mask.png"), 0)
+    assert mask[:127].all() and not mask[127].any()
+
+
+@pytest.mark.parametrize("name", ["inklabels", "mask"])
+def test_a_label_or_mask_of_another_crop_or_scale_is_refused(tmp_path, name):
+    """10% short: inside the old 20% bound, so it was stretched onto the layers."""
+    src = _make_src(str(tmp_path / "src"), "segG", h=128, w=128)
+    cv2.imwrite(os.path.join(src, f"segG_{name}.png"), np.full((115, 128), 255, np.uint8))
+    with pytest.raises(ValueError, match="mismatch > 2 px"):
+        convert_surface_volume(src, "segG", str(tmp_path / "out"))
+
+
+@pytest.fixture
+def fetch_module(monkeypatch):
+    """repro.sota_data.fetch over an in-memory bucket (no network, no s3fs needed)."""
+    import importlib
+    import types
+
+    import fsspec
+
+    memory = fsspec.filesystem("memory")
+    fake = types.ModuleType("s3fs")
+    fake.S3FileSystem = lambda **kwargs: memory
+    monkeypatch.setitem(sys.modules, "s3fs", fake)
+    monkeypatch.delitem(sys.modules, "repro.sota_data.fetch", raising=False)
+    module = importlib.import_module("repro.sota_data.fetch")
+    yield module, memory
+    sys.modules.pop("repro.sota_data.fetch", None)
+
+
+def test_fetch_puts_the_segment_where_convert_reads_it(tmp_path, fetch_module):
+    """fsspec copied the segment directory into the existing out_dir, as
+    out_dir/<segment>/, so convert found no layers at the returned path."""
+    import io
+
+    fetch, memory = fetch_module
+    prefix = "PHercParis4/segments/segH_test_fetch"
+    base = f"{fetch.BUCKET}/{prefix}"
+    try:
+        for i in range(30):
+            buf = io.BytesIO()
+            tifffile.imwrite(buf, np.full((64, 64), i * 2000, np.uint16))
+            memory.pipe(f"{base}/layers/{i:02d}.tif", buf.getvalue())
+        label = np.zeros((64, 64), np.uint8)
+        label[16:32, 16:32] = 255
+        memory.pipe(f"{base}/segH_inklabels.png", cv2.imencode(".png", label)[1].tobytes())
+        out = fetch.fetch_segment(prefix, str(tmp_path / "segH"))
+    finally:
+        memory.rm(base, recursive=True)
+    assert out == str(tmp_path / "segH")
+    assert not (tmp_path / "segH" / "segH_test_fetch").exists()
+    converted = convert_surface_volume(out, "segH", str(tmp_path / "out"))
+    assert len(os.listdir(os.path.join(converted, "layers"))) == 26

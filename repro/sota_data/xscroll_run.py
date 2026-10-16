@@ -68,10 +68,7 @@ def _prep_targets(targets):
             t = teachers[key]
             print(f"{scroll_key}/{seg}: teacher shape={t.shape} dtype={t.dtype} "
                   f"range=[{t.min()},{t.max()}]", flush=True)
-            provenance[f"{scroll_key}/{seg}"] = {
-                "shape": list(t.shape), "dtype": str(t.dtype),
-                "min": int(t.min()), "max": int(t.max()),
-            }
+            provenance[f"{scroll_key}/{seg}"] = dr.teacher_provenance(tpath, t)
         region, level_shape, box = dr.extract_region(seg, y0, x0, scroll_key=scroll_key)
         t_region = teacher_region_for(teachers[key], level_shape, box)
         fid = _fid((scroll_key, seg, y0, x0))
@@ -187,23 +184,30 @@ def cmd_measure():
         return f"| {label} | " + " | ".join(
             f"{m.get(c, float('nan')):.4f}" for c in COLS) + " |"
 
+    legacy = base["baseline_epoch7"]["vs_teacher"]
+    # The caveat the committed report carries since its review; until 2026-10-16 this
+    # wrote "diversity is the only variable", and a re-run would have restored it.
     lines = ["# Cross-scroll distillation: diversity experiment (held-out PHerc 1667)", "",
              "**All metrics are agreement-with-teacher (the released canon predictions), "
              "NOT ground-truth accuracy.** No arm trained on any PHerc-1667 data. "
-             "Arms A and B use the same 4-region training budget; training-scroll "
-             "diversity is the only variable. The held-out region also serves as arm B's "
-             "best-epoch selection set (AP and roc_auc are threshold-free).", ""]
+             "Arms A and B use the same 4-region training budget (region *count* held "
+             "constant; sampling layout differs: A = 2 segments x 2 regions on one scroll, "
+             "B = 4 segments x 1 region across two scrolls). Caveat: the held-out region "
+             "also serves as **arm B's** best-epoch selection set, an advantage arms A and "
+             "the legacy baseline do not get -- so the most robust comparison is **arm B vs "
+             "the legacy baseline** (AP-lift "
+             f"{m_b.get('ap_prevalence_lift', float('nan')):.2f} vs "
+             f"{legacy.get('ap_prevalence_lift', float('nan')):.2f}, roc_auc "
+             f"{m_b.get('roc_auc', float('nan')):.3f} vs "
+             f"{legacy.get('roc_auc', float('nan')):.3f}), which needs no selection "
+             "asymmetry to hold. AP and roc_auc are threshold-free, which spares them "
+             "threshold tuning, not epoch selection.", ""]
     if prov is not None:
-        lines += ["Teacher provenance: " + "; ".join(
-            f"`{s}` {p['dtype']} range [{p['min']},{p['max']}]"
-            for s, p in prov["teachers"].items())
-            + f". Labels binarized at >= {prov['binarize_threshold']} after uint8 scaling.",
-            ""]
+        lines += [dr.provenance_line(prov), ""]
     lines += [f"Held-out: `{held_fid}`  |  arm B best ckpt: `{os.path.basename(ck_b)}`", "",
               "| model (on held-out 1667) | " + " | ".join(COLS) + " |",
               "|---|" + "|".join(["---"] * len(COLS)) + "|",
-              row("legacy detector (no distillation)",
-                  base["baseline_epoch7"]["vs_teacher"]),
+              row("legacy detector (no distillation)", legacy),
               row("arm A: Scroll-1 student (existing)",
                   base["armA_scroll1_student"]["vs_teacher"]),
               row("arm B: multi-scroll student (2xScroll1 + 2xPHerc0139)", m_b),
@@ -295,11 +299,7 @@ def cmd_measure_c():
              "anchor is the **arm-vs-legacy-baseline** comparison. Baseline/A/B rows are "
              "cited from the committed cross_scroll_distill.json, not re-run.", ""]
     if prov is not None:
-        lines += ["Teacher provenance: " + "; ".join(
-            f"`{s}` {p['dtype']} range [{p['min']},{p['max']}]"
-            for s, p in prov["teachers"].items())
-            + f". Labels binarized at >= {prov['binarize_threshold']} after uint8 scaling.",
-            ""]
+        lines += [dr.provenance_line(prov), ""]
     lines += [f"Held-out: `{held_fid}`  |  arm C best ckpt: `{os.path.basename(ck_c)}`", "",
               "| model (on held-out 1667) | " + " | ".join(COLS) + " |",
               "|---|" + "|".join(["---"] * len(COLS)) + "|",

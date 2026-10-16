@@ -59,7 +59,9 @@ output**): on a fully held-out segment, `val_f1` 0.372 → **0.662**, AP 0.224 �
 prevalence-lift 0.98 (exact chance) → **3.24**, ROC-AUC 0.499 → **0.865**; the output shows
 letterform-shaped strokes in text lines. An independent review verified the train/held-out
 segments are disjoint. Caveat recorded in the report: the held-out region also serves as the
-best-epoch selection set (AP/ROC-AUC are threshold-free and unaffected).
+best-epoch selection set, so the student's numbers are the best of 12 epochs on that region and
+optimistic in every column, AP and ROC-AUC included (corrected 2026-10-16: this said they were
+unaffected).
 
 ### B. GPU fiber/ridge detection
 A closed-form symmetric-3×3 eigensolver replaces the cuSolver `eigvalsh` path

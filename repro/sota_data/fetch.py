@@ -10,10 +10,17 @@ BUCKET = "vesuvius-challenge-open-data"
 
 
 def fetch_segment(s3_seg_prefix, out_dir):
-    """s3_seg_prefix: bucket-relative path to the segment dir (contains layers/ + label)."""
+    """s3_seg_prefix: bucket-relative path to the segment dir (contains layers/ + label).
+
+    The segment's contents land in out_dir, so out_dir is the directory
+    convert.convert_surface_volume reads.
+    """
     fs = s3fs.S3FileSystem(anon=True)
     os.makedirs(out_dir, exist_ok=True)
-    src = f"{BUCKET}/{s3_seg_prefix}".rstrip("/")
+    # The trailing "/" copies the segment's contents. Without it fsspec copies the
+    # directory itself into the existing out_dir, as out_dir/<segment>/, and the
+    # layers were not where the returned path said.
+    src = f"{BUCKET}/{s3_seg_prefix}".rstrip("/") + "/"
     fs.get(src, out_dir, recursive=True)
     return out_dir
 

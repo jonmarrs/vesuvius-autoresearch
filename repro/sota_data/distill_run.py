@@ -63,6 +63,10 @@ def frag_id(seg, y0, x0):
     return f"{seg}_y{y0}_x{x0}"
 
 
+def _source_record(tpath):
+    return tpath + ".source.json"
+
+
 def fetch_teacher(seg, scroll_key="scroll1"):
     os.makedirs(TEACHER_DIR, exist_ok=True)
     dst = os.path.join(TEACHER_DIR, f"{scroll_key}_{seg}.tif")
@@ -77,7 +81,26 @@ def fetch_teacher(seg, scroll_key="scroll1"):
     if not tifs:
         raise ValueError(f"{seg}: no teacher tif under {pref}")
     fs.get(tifs[0], dst)
+    # Which released prediction is the teacher: the first of the candidates, by name.
+    with open(_source_record(dst), "w") as f:
+        json.dump({"source": tifs[0], "candidates": tifs}, f, indent=2)
     return dst
+
+
+def teacher_provenance(tpath, teacher):
+    """What a report says about one teacher: its pixels and the bucket file it is."""
+    record = {
+        "shape": list(teacher.shape),
+        "dtype": str(teacher.dtype),
+        "min": int(teacher.min()),
+        "max": int(teacher.max()),
+        "source": None,
+        "candidates": None,
+    }
+    if os.path.exists(_source_record(tpath)):
+        with open(_source_record(tpath)) as f:
+            record.update(json.load(f))
+    return record  # source None: a teacher cached before its source was recorded
 
 
 def extract_region(seg, y0, x0, size=SIZE, scroll_key="scroll1"):
@@ -107,12 +130,7 @@ def cmd_prep():
         teacher_full = tifffile.imread(tpath)
         print(f"{seg}: teacher shape={teacher_full.shape} dtype={teacher_full.dtype} "
               f"range=[{teacher_full.min()},{teacher_full.max()}]", flush=True)
-        provenance[seg] = {
-            "shape": list(teacher_full.shape),
-            "dtype": str(teacher_full.dtype),
-            "min": int(teacher_full.min()),
-            "max": int(teacher_full.max()),
-        }
+        provenance[seg] = teacher_provenance(tpath, teacher_full)
         for (y0, x0) in regions:
             region, level_shape, box = extract_region(seg, y0, x0)
             t_region = teacher_region_for(teacher_full, level_shape, box)
@@ -128,6 +146,32 @@ def cmd_prep():
                     "after uint8 scaling; NOT ground truth",
             "teachers": provenance,
         }, f, indent=2)
+
+
+def provenance_line(prov):
+    """The report's line on the teachers (teacher_provenance.json)."""
+    def one(name, p):
+        source = f", `{p['source']}`" if p.get("source") else ""
+        return f"`{name}` {p['dtype']} range [{p['min']},{p['max']}]{source}"
+
+    return (
+        "Teacher provenance: "
+        + "; ".join(one(name, p) for name, p in prov["teachers"].items())
+        + f". Labels binarized at >= {prov['binarize_threshold']} after uint8 scaling."
+    )
+
+
+def selection_note(n_epochs):
+    """The report's caveat: the student's epoch is chosen on the fragment it is
+    reported on. Until 2026-10-16 it said AP and roc_auc were unaffected; being
+    threshold-free spares them threshold tuning, not epoch selection."""
+    return (
+        "Note: the held-out region is also the student's best-epoch selection set: its "
+        f"row is the best of {n_epochs} epochs by val_f1 on this region, so every column "
+        "of it is optimistic, AP and roc_auc included (threshold-free metrics are spared "
+        "threshold tuning, not epoch selection). The baseline row is one checkpoint, "
+        "not selected here."
+    )
 
 
 def _measure(ckpt, fid, data_root=DATA_ROOT):
@@ -203,16 +247,8 @@ def cmd_measure():
              "**All metrics are agreement-with-teacher (the released canon prediction), "
              "NOT ground-truth accuracy.**", ""]
     if prov is not None:
-        lines += [
-            "Teacher provenance: " + "; ".join(
-                f"`{s}` {p['dtype']} range [{p['min']},{p['max']}]"
-                for s, p in prov["teachers"].items())
-            + f". Labels binarized at >= {prov['binarize_threshold']} after uint8 scaling.",
-            "",
-            "Note: the held-out region also serves as the best-epoch selection set; "
-            "AP and roc_auc are threshold-free and unaffected by threshold tuning.",
-            "",
-        ]
+        lines += [provenance_line(prov), ""]
+    lines += [selection_note(len(ckpts)), ""]
     lines += [
              f"Held-out: `{fid}`  |  best student ckpt: `{os.path.basename(ck)}`", "",
              "| model | " + " | ".join(COLS) + " |",
@@ -228,6 +264,9 @@ def cmd_measure():
     with open(REPORT_JSON, "w") as f:
         json.dump({"fragment": fid, "best_checkpoint": os.path.basename(ck),
                    "baseline_vs_teacher": baseline, "distilled_vs_teacher": m,
+                   "selection": {
+                       "distilled": f"best of {len(ckpts)} epochs by val_f1 on {fid}",
+                       "baseline": "one checkpoint, not selected on this fragment"},
                    "teacher_provenance": prov},
                   f, indent=2, default=float)
     print(f"DISTILLED vs teacher: val_f1={m.get('val_f1', float('nan')):.4f} "

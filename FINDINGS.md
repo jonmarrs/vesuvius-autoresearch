@@ -349,8 +349,10 @@ The distilled model's lift (3.24) is the strongest ranking signal any model trai
 repo has produced (previous best: 2.07, same-scroll), and its output shows
 **letterform-shaped strokes arranged in text lines** — the first letter-shaped output from an
 own-trained model here. Teacher provenance (uint8, binarize ≥128) is recorded in the report;
-the held-out region also serves as the best-epoch selection set (AP/ROC-AUC are
-threshold-free and unaffected). Report:
+the held-out region also serves as the best-epoch selection set, so the student's row is the
+best of 12 epochs on the region it is reported on, optimistic in every column (corrected
+2026-10-16: this said AP/ROC-AUC were unaffected; being threshold-free spares them threshold
+tuning, not epoch selection). Report:
 [reports/detector/sota_distill_measurement.md](reports/detector/sota_distill_measurement.md);
 tooling: `repro/sota_data/distill_prep.py` + `distill_run.py`.
 
@@ -373,8 +375,11 @@ legacy-baseline row is the selection-asymmetry-free anchor):
 
 1. **Single-scroll distillation over-specializes** — arm A lands *below* the undistilled
    detector on the unseen scroll, despite dominating on its own scroll (lift 3.24).
-2. **Training-scroll diversity at fixed budget substantially improves transfer** (arm B: the
-   controlled experiment; diversity was the only variable) — at a modest ~11% same-scroll cost.
+2. **Training-scroll diversity at fixed budget substantially improves transfer** (arm B, at
+   arm A's region count) — at a modest ~11% same-scroll cost. Corrected 2026-10-16: this said
+   diversity was the only variable. The sampling layout differs too, and only arm B's epoch was
+   selected on the held-out 1667 region, so the comparison that needs no selection asymmetry is
+   arm B vs the legacy detector (lift 2.12 vs 1.47), as the report says.
 3. **Scaling saturates:** a third scroll (PHerc 0172, whose canon teachers were newly
    available) plus 50% more data did **not** lift 1667 transfer further (C ≈ B). The
    lift-≈2.1 plateau looks like this recipe's ceiling for 1667 without 1667-adjacent signal —
