@@ -40,10 +40,18 @@ def compute_coherence(volume_data, sigma=1.0, device="cuda", integration=3.0):
     Reflect enough context for all three filters, then retain only the input
     field. Villa's internal zero padding otherwise creates coherent crop edges.
     Both filter scales must be finite and positive.
+
+    A singleton axis carries no structure, so it is dropped: a (1, H, W) block,
+    such as predict's ``_ink.zarr``, is scored as the 2-D slice it is. Kept as
+    an axis, its zero gradient adds a zero eigenvalue and puts FA at or above
+    about 0.71 for any texture.
     """
     data = np.asarray(volume_data, dtype=np.float64)
     if data.ndim not in (2, 3):
         raise ValueError(f"expected a 2-D slice or a 3-D block, not {data.ndim}-D")
+    data = data.reshape([length for length in data.shape if length != 1])
+    if data.ndim < 2:
+        raise ValueError("volume needs at least two axes longer than one")
     if not data.size or not np.isfinite(data).all():
         raise ValueError("volume must be nonempty and finite")
     sigma, integration = float(sigma), float(integration)
@@ -57,7 +65,14 @@ def compute_coherence(volume_data, sigma=1.0, device="cuda", integration=3.0):
     halo = math.ceil(3 * sigma) + 4 + math.ceil(3 * component_sigma)
     # Removing a constant leaves gradients unchanged and avoids DC roundoff
     # when Villa subsequently computes derivatives in float32. Do not mutate data.
-    centered = (data - data.mean()).astype(np.float32)
+    # FA does not depend on the intensity scale, but the denominator's 1e-8
+    # does: dividing by the standard deviation keeps a field in small units
+    # from scoring near zero.
+    centered = data - data.mean()
+    scale = centered.std()
+    if scale > 0:
+        centered = centered / scale
+    centered = centered.astype(np.float32)
     volume = torch.as_tensor(np.pad(centered, halo, mode="reflect"))
     computer = StructureTensorComputer(
         sigma=sigma,

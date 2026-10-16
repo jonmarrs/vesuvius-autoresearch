@@ -49,6 +49,28 @@ Scope:
 | P3 | **A benchmark cut short left the previous run's metadata beside its arrays.** The outputs reuse one name per region, and `_meta.json` is written last. A timeout, a stop or an error after the arrays left the new arrays with the old metadata. | The metadata is removed first. Test: a run that fails at the figure leaves its arrays and no metadata, not the stale file (single and ensemble). Fails on main. |
 | P4 | **`--compute_coherence` never worked, and said so only as a warning.** Besides the missing methods, the formula ran on the unsmoothed tensor, where it is 1 everywhere. | Villa's API, smoothed. Tests: oriented stripes score above 0.95 and noise under 0.7; a 3-D block is accepted, other shapes refused; `predict.py --compute_coherence` records a number. Fail on main. |
 
+## Review of the PR, and what it changed
+
+The owner's commit `a496c740` fixed two findings of their own review
+([PR #88 review fixes](PR88_REVIEW_FIXES_2026-10-16.md)):
+- a custom `--metadata_out` left the region's default sidecar in place, still vouching for old fiber files;
+- villa's zero padding gave a constant field coherence (0.59 for a constant 64 × 64 slice).
+
+The independent review of the PR at that head found nothing blocking. It checked that reverting each fix fails its
+tests, and that every model predict can build declares its heads. Its other findings:
+
+| Finding | Outcome |
+| --- | --- |
+| No test protects the reflected halo. With `halo = 0` every coherence test passed: mean-centring alone keeps the constant and offset cases at 0. Without the halo, a slowly varying field is cut at the crop edge (`sin(0.1 x)` scored 0.91 in 2-D, 0.84 in 3-D, instead of 1.0). | Tested on that field, in 2-D and 3-D; fails with `halo = 0`. |
+| A singleton axis was scored as an axis. A (1, H, W) block, the shape of predict's `_ink.zarr` and of the CLI's natural input, has a zero eigenvalue, so any texture scored at least about 0.71 (noise 0.76, against 0.36 as a slice). | Singleton axes are dropped, after the 2-D/3-D check, so a 4-D input is still refused. Fewer than two axes longer than one is refused. Tested. |
+| The `1e-8` in FA's denominator made the score depend on intensity scale: unit noise 0.36, the same noise × 1e-4 0.001. | The centred field is divided by its standard deviation. Tested from × 1e-4 to × 1e3. |
+| The ensemble asked for its members' heads after inference, so a member that declares none failed only after the whole region was predicted. | Asked right after loading. Tested: refused before the volume is opened. |
+| `production_predict.py` wrote its zarr before its metadata, with no removal first. | It uses `invalidate_prediction_metadata`. Tested with a run stopped before the metadata. |
+| `docs/VOLUME_INFERENCE.md` still said every regional run writes fiber maps, and described the ink-as-fiber output. | Updated. It now covers the heads in the metadata, the sidecar removal, and that with `--metadata_out` elsewhere the default sidecar is not rewritten. |
+| Old fiber files stay beside a headless rerun. A VC3D user loading `*_fiber.zarr` gets the earlier model's map. | Stays as is. The metadata names the outputs a run wrote, and the ranker follows it. Deleting a directory the run did not write is a larger step than this PR's; recorded below. |
+| The ranker cannot tell a pre-PR headless sidecar apart: its `fiber_stats` hold the ink map. | Stays as is. Such sidecars record no heads, so no check can tell them apart. |
+| The CLI loads the whole level-0 array, now as float64 plus a padded copy. | Stays as is; recorded. |
+
 ## Observations for the owner (not changed)
 
 - **The benchmark reads today's incumbent outside the band it was scored on.**
@@ -77,6 +99,9 @@ Scope:
 - **A run's outputs that it does not rewrite stay beside it.** An uncertain-patch export, or a fiber file from an
   earlier model of the same region, keeps its name until overwritten. The metadata says which outputs this run
   wrote, and the ranking now follows it; a reader that lists the directory does not.
+  - Nor does a VC3D user who loads `*_fiber.zarr`, as `launch_vc3d.py` suggests.
+- **`compute_fiber_coherence.py --input` reads the whole level-0 array into memory**, as float64 and then a padded
+  float32 copy.
 
 ## Reviewed and sound
 
@@ -102,6 +127,14 @@ Environment: CPython 3.10 venv with PyTorch 2.14.1 (no GPU visible), pytest, Ruf
 - Branch, with the ranking fix (PR first head, `18063df1`): 42 failed, 2203 passed, 15 skipped, 1 xfailed,
   2 errors. The failures and errors are the same set as the baseline; the 9 extra passes are the new tests.
   `scripts/smoke_test.py`: 9 of 11 passed, 2 skipped (no training data).
+- The owner's head (`a496c740`), run here: 42 failed, 2218 passed, 15 skipped, 1 xfailed, 2 errors. Same set; its
+  15 new tests pass. Ruff and mypy, which its report could not run, are clean.
+- After the PR review's fixes: running at this commit; recorded in the next. The six new tests
+  (`test_coherence_reads_slow_structure_to_the_crop_edge` in 2-D and 3-D, `test_coherence_drops_singleton_axes`,
+  `test_coherence_does_not_depend_on_intensity_scale`, `test_ensemble_asks_its_members_heads_before_reading_volume`,
+  `test_a_production_run_cut_short_leaves_no_previous_metadata`) each fail with their fix reverted. The affected
+  modules with `test_task_heads` and `test_predict_checkpoint_loading`: 256 passed. The nine documentation guards:
+  1 failed, 90 passed, 2 skipped, as on the baseline, with the same diagnostic (villa paths this checkout lacks).
 - `tests/test_volume_inference_contracts.py`, `test_submission_contracts`, `test_production_predict` and
   `test_prize_readiness`: 212 passed.
 - Ruff (check and format) and mypy on the four changed scripts: clean.

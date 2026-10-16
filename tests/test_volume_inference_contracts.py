@@ -953,3 +953,35 @@ def test_coherence_rejects_invalid_filter_scales(parameter, value):
         coherence.compute_coherence(
             np.ones((16, 16)), device="cpu", **{parameter: value}
         )
+
+
+@pytest.mark.parametrize("shape", [(64, 64), (8, 64, 64)])
+def test_coherence_reads_slow_structure_to_the_crop_edge(shape):
+    """Without the reflected halo, villa's zero padding cuts a slowly varying
+    field at the crop edge (sin(0.1 x) scored 0.91 in 2-D, 0.84 in 3-D)."""
+    coherence = pytest.importorskip("scripts.compute_fiber_coherence")
+    xx = np.broadcast_to(np.arange(64.0), shape)
+    assert coherence.compute_coherence(np.sin(0.1 * xx), device="cpu") > 0.99
+
+
+def test_coherence_drops_singleton_axes():
+    """A (1, H, W) block, such as predict's _ink.zarr, is the slice it holds; kept
+    as a third axis, its zero gradient put noise at about 0.76 instead of 0.36."""
+    coherence = pytest.importorskip("scripts.compute_fiber_coherence")
+    noise = np.random.default_rng(0).standard_normal((64, 64))
+    slice_score = coherence.compute_coherence(noise, device="cpu")
+    assert coherence.compute_coherence(noise[None], device="cpu") == slice_score
+    assert coherence.compute_coherence(noise[:, None], device="cpu") == slice_score
+    with pytest.raises(ValueError, match="two axes"):
+        coherence.compute_coherence(np.ones((1, 64)), device="cpu")
+
+
+def test_coherence_does_not_depend_on_intensity_scale():
+    """FA is scale-free; the denominator's 1e-8 is not, and put weak fields near
+    zero (unit noise 0.36, the same noise times 1e-4 at 0.001)."""
+    coherence = pytest.importorskip("scripts.compute_fiber_coherence")
+    noise = np.random.default_rng(0).standard_normal((64, 64))
+    score = coherence.compute_coherence(noise, device="cpu")
+    for factor in (1e-4, 1e3):
+        scaled = coherence.compute_coherence(noise * factor, device="cpu")
+        assert scaled == pytest.approx(score, abs=1e-4)

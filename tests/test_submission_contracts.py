@@ -348,6 +348,30 @@ def test_ensemble_rejects_incomplete_weights_before_reading_volume(
         ensemble.ensemble_predict()
 
 
+def test_ensemble_asks_its_members_heads_before_reading_volume(tmp_path, monkeypatch):
+    """A member that declares no task_heads is refused before inference, not
+    after the whole region has been predicted."""
+    import torch
+
+    from scripts.inference import ensemble_predict as ensemble
+
+    monkeypatch.setattr(torch.cuda, "is_available", lambda: False)
+    model = torch.nn.Linear(2, 1)  # declares no task_heads
+    monkeypatch.setattr(ensemble, "build_inference_model", lambda **kwargs: model)
+    monkeypatch.setattr(
+        ensemble,
+        "FastVesuviusVolume",
+        lambda *args, **kwargs: pytest.fail("volume opened before the heads check"),
+    )
+    checkpoint = tmp_path / "model.pt"
+    torch.save({"config": {}, "model_state_dict": model.state_dict()}, checkpoint)
+    argv = ["ensemble_predict.py", "--uri", "missing.zarr", "--x", "0", "--y", "0"]
+    argv += ["--z", "0", "--checkpoints", str(checkpoint)]
+    monkeypatch.setattr(sys, "argv", argv)
+    with pytest.raises(TypeError, match="task_heads"):
+        ensemble.ensemble_predict()
+
+
 def test_ranked_command_points_to_existing_launcher():
     cmd = build_predict_command(
         {"local_uri": "local.zarr", "x": "1", "y": "2", "z": "3"}

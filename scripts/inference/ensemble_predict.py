@@ -122,6 +122,11 @@ def ensemble_predict():
         if use_ridges:
             ridge_sigmas.append(ridge_sigma)
 
+    # A member without a fiber head returns its ink logits as "fiber"; the
+    # ensemble's fiber is exported only when every member has one. Asked before
+    # inference, so a member that declares no heads fails before the volume is read.
+    member_heads = [sorted(task_heads(member[0])) for member in models]
+    has_fiber = all("fiber" in heads for heads in member_heads)
     # Spatial pixels from different contexts cannot be combined by slicing the
     # upper-left corner or by resizing without changing their coordinate frame.
     patch_size = models[0][3]
@@ -186,10 +191,6 @@ def ensemble_predict():
 
     ink = normalize_blend(full_ink, weights, args.num_parts == 1).cpu().numpy()
     fiber = normalize_blend(full_fiber, weights, args.num_parts == 1).cpu().numpy()
-    # A member without a fiber head returns its ink logits as "fiber"; the
-    # ensemble's fiber is exported only when every member has one.
-    member_heads = [sorted(task_heads(member[0])) for member in models]
-    has_fiber = all("fiber" in heads for heads in member_heads)
     args.coverage_fraction = int((weights > 0).sum().item()) / weights.numel()
     base = f"ensemble_pred_{args.z}_{args.y}_{args.x}_{args.width}x{args.height}"
     if args.num_parts > 1:
