@@ -137,7 +137,8 @@ torch 2.9.1; the DataLoader behaviour above was read from 2.14.1's Python side a
   no scroll data, no CUDA, no villa data files.
 - Branch, PR first head (`5ea56977`): 42 failed, 2433 passed, 21 skipped, 1 xfailed, 2 errors. Same set; the extra
   pass is the new test. `scripts/smoke_test.py`: 9 of 11 passed, 2 skipped (no training data).
-- Branch, after the PR review's fixes: running at this commit; recorded in the next.
+- Branch, after the PR review's fixes (`a5ba272a`): 42 failed, 2434 passed, 21 skipped, 1 xfailed, 2 errors. Same
+  set; the 2 extra passes are the two new tests. `scripts/smoke_test.py`: 9 of 11 passed, 2 skipped.
 - `tests/test_topology_threshold.py`: 5 passed; the new test fails on main. `tests/test_frangi_torch.py`: 14 passed,
   1 skipped.
 - Ruff (check and format) and mypy on the changed files: clean.
