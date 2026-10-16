@@ -24,6 +24,8 @@ from vesuvius_autoresearch.core.inference import (
 
 
 class ConstantHeads(torch.nn.Module):
+    task_heads = frozenset({"fiber", "qc", "st"})
+
     def __init__(self, layers, ridges, bad=None):
         super().__init__()
         self.bias = torch.nn.Parameter(torch.zeros(1))
@@ -570,11 +572,14 @@ def test_real_resenc_weights_match_direct_model_probabilities(
         np.mean(expected_ink, axis=0),
         atol=1e-6,
     )
-    np.testing.assert_allclose(
-        np.load(next((tmp_path / "predictions").glob("*_fiber.npy"))),
-        np.mean(expected_fiber, axis=0),
-        atol=1e-6,
-    )
+    if real_heads:
+        np.testing.assert_allclose(
+            np.load(next((tmp_path / "predictions").glob("*_fiber.npy"))),
+            np.mean(expected_fiber, axis=0),
+            atol=1e-6,
+        )
+    else:  # its "fiber" is its ink: not exported as a fiber prediction
+        assert not list((tmp_path / "predictions").glob("*_fiber.*"))
 
 
 @pytest.mark.parametrize(
@@ -773,3 +778,210 @@ def test_depth_band_for_matches_recorded_volumes_by_path(tmp_path, monkeypatch):
     (tmp_path / "scripts").mkdir()
     monkeypatch.chdir(tmp_path / "scripts")
     assert depth_band_for(saved, str(own)) == [1, 27]
+
+
+def _without_heads(monkeypatch, members):
+    """Patch the fakes' declared heads: ``members[i]`` for the i-th model built."""
+    original = ConstantHeads.__init__
+    built = []
+
+    def init(self, *args, **kwargs):
+        original(self, *args, **kwargs)
+        self.task_heads = members[len(built) % len(members)]
+        built.append(self)
+
+    monkeypatch.setattr(ConstantHeads, "__init__", init)
+
+
+@pytest.mark.parametrize("mode", ["single", "ensemble"])
+def test_a_model_without_a_fiber_head_exports_no_fiber_prediction(
+    tmp_path, monkeypatch, mode
+):
+    """Without a fiber head a model returns its ink logits as "fiber": exported,
+    that was the ink map under the fiber prediction's name (and in its zarr)."""
+    runner, argv, _, _, _ = setup_prediction(tmp_path, monkeypatch, mode)
+    argv.append("--disable_tta")
+    _without_heads(monkeypatch, [frozenset()])
+    runner()
+    output = tmp_path / "out"
+    assert list(output.glob("*_ink.npy")) and not list(output.glob("*_fiber.*"))
+    metadata = json.loads(next(output.glob("*_meta.json")).read_text())
+    assert metadata["fiber_vc3d_zarr_path"] is None and metadata["fiber_stats"] == {}
+    key = "task_heads" if mode == "single" else "ensemble_task_heads"
+    assert metadata[key] == ([] if mode == "single" else [[]])
+
+
+def test_an_ensemble_exports_fiber_only_when_every_member_has_the_head(
+    tmp_path, monkeypatch
+):
+    config = {"patch_size": 8, "num_layers": 2, "base_feat": 4, "voxel_size_um": 2.0}
+    runner, argv, _, _, _ = setup_prediction(
+        tmp_path, monkeypatch, "ensemble", configs=[config, dict(config)]
+    )
+    argv.append("--disable_tta")
+    _without_heads(monkeypatch, [ConstantHeads.task_heads, frozenset()])
+    runner()
+    output = tmp_path / "out"
+    assert not list(output.glob("*_fiber.*"))
+    metadata = json.loads(next(output.glob("*_meta.json")).read_text())
+    assert metadata["ensemble_task_heads"] == [["fiber", "qc", "st"], []]
+
+
+@pytest.mark.parametrize("mode", ["single", "ensemble"])
+def test_a_run_cut_short_leaves_no_metadata_from_the_previous_one(
+    tmp_path, monkeypatch, mode
+):
+    """Each run writes the same names (the loop's benchmark: one region). Cut
+    short after its arrays (the loop's 600 s timeout, a stop), it left the
+    previous run's metadata describing them; the metadata comes last."""
+    import matplotlib.figure
+
+    runner, argv, _, _, _ = setup_prediction(tmp_path, monkeypatch, mode)
+    argv.append("--disable_tta")
+    output = tmp_path / "out"
+    output.mkdir()
+    prefix = "pred" if mode == "single" else "ensemble_pred"
+    stale = output / f"{prefix}_1_2_3_13x11_meta.json"
+    stale.write_text('{"model_config": "the previous model"}')
+
+    def cut_short(*args, **kwargs):
+        raise RuntimeError("stopped")
+
+    monkeypatch.setattr(matplotlib.figure.Figure, "savefig", cut_short)
+    with pytest.raises(RuntimeError, match="stopped"):
+        runner()
+    assert list(output.glob("*_ink.npy"))
+    assert not stale.exists()
+
+
+def test_fiber_coherence_tells_oriented_structure_from_noise():
+    """It called compute_st and layout, which villa's StructureTensorComputer
+    does not have: every --compute_coherence run failed, as a printed warning.
+    Unsmoothed, the tensor is rank 1 per pixel and its anisotropy 1 everywhere."""
+    coherence = pytest.importorskip("scripts.compute_fiber_coherence")
+    yy, xx = np.meshgrid(np.arange(64.0), np.arange(64.0), indexing="ij")
+    noise = np.random.default_rng(0).random((64, 64))
+    stripes = coherence.compute_coherence(np.sin(0.8 * xx), device="cpu")
+    scattered = coherence.compute_coherence(noise, device="cpu")
+    assert 0.95 < stripes <= 1.0 and 0.0 <= scattered < 0.7
+    block = coherence.compute_coherence(
+        np.sin(0.8 * xx)[None].repeat(8, 0), device="cpu"
+    )
+    assert 0.0 <= block <= 1.0  # a 3-D block: three eigenvalues
+    with pytest.raises(ValueError, match="2-D slice or a 3-D block"):
+        coherence.compute_coherence(np.zeros((1, 2, 8, 8)), device="cpu")
+
+
+def test_predict_records_the_fiber_coherence_it_is_asked_for(tmp_path, monkeypatch):
+    pytest.importorskip("scripts.compute_fiber_coherence")
+    runner, argv, _, _, _ = setup_prediction(tmp_path, monkeypatch, "single")
+    argv += ["--disable_tta", "--compute_coherence"]
+    runner()
+    metadata = json.loads(next((tmp_path / "out").glob("*_meta.json")).read_text())
+    assert isinstance(metadata["fiber_coherence"], float)
+
+
+@pytest.mark.parametrize("mode", ["single", "ensemble"])
+@pytest.mark.parametrize("cut_short", [False, True])
+def test_custom_metadata_rerun_invalidates_default_sidecar(
+    tmp_path, monkeypatch, mode, cut_short
+):
+    import matplotlib.figure
+
+    from scripts.rank_scroll23_candidates import score_row
+
+    runner, argv, _, _, _ = setup_prediction(tmp_path, monkeypatch, mode)
+    argv.append("--disable_tta")
+    runner()
+    output = tmp_path / "out"
+    prefix = "pred" if mode == "single" else "ensemble_pred"
+    default = output / f"{prefix}_1_2_3_13x11_meta.json"
+    assert json.loads(default.read_text())["fiber_stats"]
+    custom = output / "custom_meta.json"
+    custom.write_text('{"stale": true}')
+    argv += ["--metadata_out", str(custom)]
+    monkeypatch.setattr(ConstantHeads, "task_heads", frozenset())
+
+    original_save = np.save
+
+    def check_sidecars_before_writing(*args, **kwargs):
+        assert not default.exists()
+        assert not custom.exists()
+        return original_save(*args, **kwargs)
+
+    monkeypatch.setattr(np, "save", check_sidecars_before_writing)
+    if cut_short:
+
+        def stop_before_metadata(*args, **kwargs):
+            raise RuntimeError("stopped before publication")
+
+        monkeypatch.setattr(matplotlib.figure.Figure, "savefig", stop_before_metadata)
+        with pytest.raises(RuntimeError, match="stopped before publication"):
+            runner()
+        assert not custom.exists()
+    else:
+        runner()
+        assert json.loads(custom.read_text())["fiber_stats"] == {}
+    assert not default.exists()
+    # An old fiber file may remain, but has no authoritative sidecar now.
+    assert list(output.glob("*_fiber.npy"))
+    if mode == "single":
+        row = {"x": "3", "y": "2", "z": "1", "width": "13", "height": "11"}
+        ranked = score_row(row, prediction_dir=output)
+        assert ranked["prediction_found"] == "false"
+        assert float(ranked["fiber_mean"]) == 0.0
+
+
+@pytest.mark.parametrize("shape", [(64, 64), (8, 32, 32), (1, 16, 16)])
+def test_coherence_constant_and_offset_invariance(shape):
+    coherence = pytest.importorskip("scripts.compute_fiber_coherence")
+    assert coherence.compute_coherence(np.full(shape, 100.0), device="cpu") == 0.0
+    noise = np.random.default_rng(0).standard_normal(shape)
+    original = noise.copy()
+    score = coherence.compute_coherence(noise, device="cpu")
+    offset_score = coherence.compute_coherence(noise + 100.0, device="cpu")
+    assert offset_score == pytest.approx(score, abs=1e-5)
+    assert 0.0 <= score <= 1.0
+    np.testing.assert_array_equal(noise, original)
+
+
+@pytest.mark.parametrize("parameter", ["sigma", "integration"])
+@pytest.mark.parametrize("value", [0.0, -1.0, float("nan"), float("inf")])
+def test_coherence_rejects_invalid_filter_scales(parameter, value):
+    coherence = pytest.importorskip("scripts.compute_fiber_coherence")
+    with pytest.raises(ValueError, match=parameter):
+        coherence.compute_coherence(
+            np.ones((16, 16)), device="cpu", **{parameter: value}
+        )
+
+
+@pytest.mark.parametrize("shape", [(64, 64), (8, 64, 64)])
+def test_coherence_reads_slow_structure_to_the_crop_edge(shape):
+    """Without the reflected halo, villa's zero padding cuts a slowly varying
+    field at the crop edge (sin(0.1 x) scored 0.91 in 2-D, 0.84 in 3-D)."""
+    coherence = pytest.importorskip("scripts.compute_fiber_coherence")
+    xx = np.broadcast_to(np.arange(64.0), shape)
+    assert coherence.compute_coherence(np.sin(0.1 * xx), device="cpu") > 0.99
+
+
+def test_coherence_drops_singleton_axes():
+    """A (1, H, W) block, such as predict's _ink.zarr, is the slice it holds; kept
+    as a third axis, its zero gradient put noise at about 0.76 instead of 0.36."""
+    coherence = pytest.importorskip("scripts.compute_fiber_coherence")
+    noise = np.random.default_rng(0).standard_normal((64, 64))
+    slice_score = coherence.compute_coherence(noise, device="cpu")
+    assert coherence.compute_coherence(noise[None], device="cpu") == slice_score
+    assert coherence.compute_coherence(noise[:, None], device="cpu") == slice_score
+    with pytest.raises(ValueError, match="two axes"):
+        coherence.compute_coherence(np.ones((1, 64)), device="cpu")
+
+
+def test_coherence_does_not_depend_on_intensity_scale():
+    """FA is scale-free; the denominator's 1e-8 is not, and put weak fields near
+    zero (unit noise 0.36, the same noise times 1e-4 at 0.001)."""
+    coherence = pytest.importorskip("scripts.compute_fiber_coherence")
+    noise = np.random.default_rng(0).standard_normal((64, 64))
+    score = coherence.compute_coherence(noise, device="cpu")
+    for factor in (1e-4, 1e3):
+        scaled = coherence.compute_coherence(noise * factor, device="cpu")
+        assert scaled == pytest.approx(score, abs=1e-4)

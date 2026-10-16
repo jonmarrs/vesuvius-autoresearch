@@ -17,6 +17,7 @@ from tqdm.auto import tqdm
 
 from scripts.inference.predict import (
     build_prediction_model,
+    invalidate_prediction_metadata,
     save_vc3d_zarr,
     write_prediction_metadata,
 )
@@ -168,6 +169,9 @@ def production_predict(argv=None):
     os.makedirs(args.out_dir, exist_ok=True)
     base = f"prod_pred_{args.z}_{args.y}_{args.x}_{args.width}x{args.height}"
     zarr_path = os.path.join(args.out_dir, f"{base}.zarr")
+    # Each run for a region reuses its names; a run cut short after the zarr
+    # must not leave the previous run's metadata describing it.
+    metadata_path = invalidate_prediction_metadata(args.out_dir, base)
     save_vc3d_zarr(
         zarr_path,
         final_uint8,
@@ -177,7 +181,7 @@ def production_predict(argv=None):
         origin_xyz=[args.x, args.y, args.z],
     )
     write_prediction_metadata(
-        os.path.join(args.out_dir, f"{base}_meta.json"),
+        metadata_path,
         args,
         config_dict,
         zarr_path,

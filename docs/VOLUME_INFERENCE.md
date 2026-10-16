@@ -17,7 +17,8 @@ uv run python -m scripts.production_predict \
   --batch-size 16 --out-dir predictions/production
 ```
 
-The regional commands export ink, fiber context, and a three-panel CT overlay.
+The regional commands export ink, fiber context when the model has a fiber head (every
+member, for an ensemble), and a three-panel CT overlay.
 Their probability recipe is `sigmoid(ink)` for ink, as in production and in
 training's validation, and `sigmoid(mean(fiber, z))` for fiber. They average probabilities across
 four spatial views (unchanged, x mirror, y mirror, both), undoing each output
@@ -59,9 +60,13 @@ zero, so the gate scaled ink by at most 0.09 (median 1.6e-5 over plausible
 inputs) and the exported uint8 maps were blank. Regional outputs from before that
 date are not comparable with later ones.
 
-For `GenericMultiTaskWrapper` backbones with dummy heads, fiber output reuses
-ink logits. That output is not an independently learned fiber measurement. Use
-checkpoint configuration and model implementation to interpret the heads.
+A model without a fiber head returns its ink logits as fiber: `resenc_unet`
+without `multi_task_heads`, `lejepa_unet` and `neural_tracing_vit`. The regional
+commands therefore export fiber only when the model declares a fiber head
+(`model_wrappers.task_heads`), and an ensemble only when every member does. The
+metadata records the heads (`task_heads`; `ensemble_task_heads` per member).
+Until 2026-10-16 a model without the head exported its ink map as fiber. A fiber
+head is a trained output, not an independently validated fiber measurement.
 Ensembling does not establish accuracy or hallucination absence.
 
 ## Geometry and input compatibility
@@ -103,14 +108,25 @@ cropping to reinterpret their context.
 
 ## Outputs and provenance
 
-Regional commands save float32 ink/fiber NPY maps, grayscale PNG maps, uint8
-OME-Zarr groups, a CT overlay, and JSON metadata. Artifacts and default metadata
-are placed beside `--output_img`, or under `predictions` when it is omitted. A
-bare image filename uses the current directory. `--metadata_out` selects an
-explicit metadata path and creates its parent directories.
+Regional commands save float32 NPY maps, grayscale PNG maps and uint8 OME-Zarr
+groups for ink (and for fiber, with a fiber head), a CT overlay, and JSON
+metadata. Artifacts and default metadata are placed beside `--output_img`, or
+under `predictions` when it is omitted. A bare image filename uses the current
+directory. `--metadata_out` selects an explicit metadata path and creates its
+parent directories.
+
+Each run for a region reuses that region's names. Before writing any output, a
+run removes the region's default metadata (`<base>_meta.json`) and the selected
+one, and it writes the selected one last, once the outputs are complete. A run
+cut short therefore leaves no metadata describing arrays it did not write. With
+`--metadata_out` elsewhere, the default file is not rewritten, so readers that
+look for it by name (the candidate ranker, `build_villa_review_manifest.py`, the
+evidence chain) treat the new arrays as having none. Files a run does not
+rewrite, such as an earlier model's fiber maps of the same region, are left in
+place; the metadata says which outputs this run wrote.
 
 OME axes are z/y/x in micrometers. Scale and translation use the same calibrated
-voxel size as the fitted overlay scale bar. Both ink and fiber exports record
+voxel size as the fitted overlay scale bar. The ink and fiber exports record
 the source URI and region origin. Metadata records dimensions, calibration,
 output paths, configuration, inference recipe, and completeness. Single-model
 and production records include the checkpoint path. Ensembles record all
@@ -130,8 +146,9 @@ positive and K must be in `[0, N)`; an empty shard is rejected. Any N greater
 than one is a partial inference result, even when overlap gives its pixels full
 coverage.
 
-Each shard saves normalized ink/fiber maps and a float32 weight map. Unprocessed
-pixels stay zero. Metadata includes `prediction_complete=false`, shard identity,
+Each shard saves normalized ink maps (and fiber, with a fiber head) and a float32
+weight map. Unprocessed pixels stay zero. Metadata includes
+`prediction_complete=false`, shard identity,
 coverage fraction, tile counts, and `blend_weight_path`. The completion message
 identifies the partial result. Submission validation rejects these records.
 

@@ -3,7 +3,7 @@
 Utility to compute Fiber Coherence using Villa Structure Tensor tools.
 """
 
-import os
+import math
 import sys
 from pathlib import Path
 
@@ -11,61 +11,87 @@ import numpy as np
 import torch
 import zarr
 
-# Add villa paths
-VILLA_SRC = os.path.abspath("villa/vesuvius/src")
+# Villa from this checkout, wherever the caller runs.
+VILLA_SRC = str(Path(__file__).resolve().parents[1] / "villa" / "vesuvius" / "src")
 if VILLA_SRC not in sys.path:
     sys.path.append(VILLA_SRC)
 
-try:
-    from vesuvius.image_proc.geometry.structure_tensor import (
-        StructureTensorComputer,
-        _ensure_tensor,
-    )
-except ImportError as e:
-    print(f"Error: Could not import Villa structure tensor modules: {e}")
-    sys.exit(1)
+# An ImportError reaches the caller (predict.py reports it); this exited the
+# whole process at import, after predict had written its outputs.
+from vesuvius.image_proc.geometry.structure_tensor import (  # noqa: E402
+    StructureTensorComputer,
+    eigendecompose,
+)
 
 
-def compute_coherence(volume_data, sigma=1.0, device="cuda"):
+def compute_coherence(volume_data, sigma=1.0, device="cuda", integration=3.0):
+    """Mean fractional anisotropy of the structure tensor of volume_data: near 1
+    where the gradients share one direction (fibres, sheets), lower where they
+    have none (noise). A 2-D slice (what predict.py passes) gives two
+    eigenvalues, a 3-D block three; FA = sqrt(n / (n - 1)) * |l - mean(l)| / |l|
+    covers both, and for three it is the usual formula.
+
+    The tensor is villa's (StructureTensorComputer.compute, eigendecompose),
+    with its components smoothed at ``integration`` times the gradient scale.
+    Unsmoothed, each pixel's tensor is one gradient's outer product, rank 1, so
+    its FA is 1 everywhere, noise included. This used to call compute_st and
+    layout, which villa's computer does not have, so it never returned.
+
+    Reflect enough context for all three filters, then retain only the input
+    field. Villa's internal zero padding otherwise creates coherent crop edges.
+    Both filter scales must be finite and positive.
+
+    A singleton axis carries no structure, so it is dropped: a (1, H, W) block,
+    such as predict's ``_ink.zarr``, is scored as the 2-D slice it is. Kept as
+    an axis, its zero gradient adds a zero eigenvalue and puts FA at or above
+    about 0.71 for any texture.
     """
-    Computes a coherence score for the given 3D volume data.
-    Coherence is based on the fractional anisotropy of the structure tensor.
-    """
-    computer = StructureTensorComputer(sigma=sigma)
-    volume_tensor = _ensure_tensor(
-        volume_data, device=torch.device(device), dtype=torch.float32
+    data = np.asarray(volume_data, dtype=np.float64)
+    if data.ndim not in (2, 3):
+        raise ValueError(f"expected a 2-D slice or a 3-D block, not {data.ndim}-D")
+    data = data.reshape([length for length in data.shape if length != 1])
+    if data.ndim < 2:
+        raise ValueError("volume needs at least two axes longer than one")
+    if not data.size or not np.isfinite(data).all():
+        raise ValueError("volume must be nonempty and finite")
+    sigma, integration = float(sigma), float(integration)
+    for name, value in (("sigma", sigma), ("integration", integration)):
+        if not math.isfinite(value) or value <= 0:
+            raise ValueError(f"{name} must be finite and positive")
+    component_sigma = integration * sigma
+    if not math.isfinite(component_sigma):
+        raise ValueError("sigma * integration must be finite")
+    # Gaussian radii plus the pinned Villa derivative kernel's radius of four.
+    halo = math.ceil(3 * sigma) + 4 + math.ceil(3 * component_sigma)
+    # Removing a constant leaves gradients unchanged and avoids DC roundoff
+    # when Villa subsequently computes derivatives in float32. Do not mutate data.
+    # FA does not depend on the intensity scale, but the denominator's 1e-8
+    # does: dividing by the standard deviation keeps a field in small units
+    # from scoring near zero.
+    centered = data - data.mean()
+    scale = centered.std()
+    if scale > 0:
+        centered = centered / scale
+    centered = centered.astype(np.float32)
+    volume = torch.as_tensor(np.pad(centered, halo, mode="reflect"))
+    computer = StructureTensorComputer(
+        sigma=sigma,
+        component_sigma=component_sigma,
+        smooth_components=True,
+        device=device,
     )
-
-    # Structure tensor components: [B, 6, Z, H, W]
-    if volume_tensor.dim() == 3:
-        volume_tensor = volume_tensor.unsqueeze(0).unsqueeze(0)
-    elif volume_tensor.dim() == 4:
-        volume_tensor = volume_tensor.unsqueeze(0)
-
-    st_components = computer.compute_st(volume_tensor)
-
-    # Derived quantities (eigenvalues)
-    # mats: [B, Z, H, W, 3, 3]
-    from vesuvius.image_proc.geometry.structure_tensor import (
-        _components_to_matrix_structure,
+    # Batch and channel first, so villa reads a 2-D slice as 2-D.
+    components = computer.compute(volume[None, None])
+    region = (slice(None), slice(None)) + tuple(
+        slice(halo, halo + length) for length in data.shape
     )
-
-    mats = _components_to_matrix_structure(st_components, computer.layout)
-
-    # Compute eigenvalues
-    evals, _ = torch.linalg.eigh(mats)
-    # evals: [B, Z, H, W, 3] sorted ascending
-    l1 = evals[..., 2]
-    l2 = evals[..., 1]
-    l3 = evals[..., 0]
-
-    # Fractional Anisotropy (FA)
-    # Measures how much the tensor is dominated by one direction (fibers)
-    numerator = torch.sqrt((l1 - l2) ** 2 + (l2 - l3) ** 2 + (l3 - l1) ** 2)
-    denominator = torch.sqrt(l1**2 + l2**2 + l3**2) + 1e-8
-    fa = (1.0 / np.sqrt(2.0)) * (numerator / denominator)
-
-    return float(fa.mean().cpu().item())
+    components = components[region]
+    evals, _ = eigendecompose(components)
+    evals = evals.clamp(min=0)  # positive semidefinite, up to rounding
+    n = evals.shape[-1]
+    spread = (evals - evals.mean(dim=-1, keepdim=True)).norm(dim=-1)
+    fa = math.sqrt(n / (n - 1)) * spread / (evals.norm(dim=-1) + 1e-8)
+    return float(fa.clamp(0, 1).mean().cpu())
 
 
 def main():

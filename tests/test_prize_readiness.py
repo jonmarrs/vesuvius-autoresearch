@@ -386,6 +386,30 @@ def test_rank_scroll23_candidates_prefers_high_confidence_prediction(tmp_path):
     assert float(scored["review_score"]) > 1.0
 
 
+@pytest.mark.parametrize("fiber_written", [True, False])
+def test_rank_scroll23_candidates_reads_the_fiber_map_its_prediction_wrote(
+    tmp_path, fiber_written
+):
+    """A model without a fiber head writes no fiber map (fiber_stats is empty), so
+    a fiber file of the same name is an earlier model's and must not count."""
+    prediction_dir = tmp_path / "predictions"
+    prediction_dir.mkdir()
+    row = {"priority": "1.0", "z": "9000", "y": "2048", "x": "2048"}
+    row.update({"width": "64", "height": "64", "submittable_window": "true"})
+    stem = "pred_9000_2048_2048_64x64"
+    np.save(prediction_dir / f"{stem}_ink.npy", np.zeros((64, 64), np.float32))
+    np.save(prediction_dir / f"{stem}_fiber.npy", np.full((64, 64), 0.5, np.float32))
+    meta = {
+        "inference_recipe": {"ink_probability": "sigmoid(ink)"},
+        "fiber_stats": {"mean": 0.5, "std": 0.0, "max": 0.5} if fiber_written else {},
+    }
+    (prediction_dir / f"{stem}_meta.json").write_text(json.dumps(meta))
+
+    scored = score_row(row, prediction_dir=prediction_dir)
+
+    assert float(scored["fiber_mean"]) == (0.5 if fiber_written else 0.0)
+
+
 @pytest.mark.parametrize(
     "recipe", [None, {"ink_probability": "sigmoid(ink) * sigmoid(qc / 0.1)"}]
 )

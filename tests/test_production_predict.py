@@ -194,3 +194,20 @@ def test_production_uses_checkpoint_ridge_sigma(tmp_path, monkeypatch):
     production.production_predict()
     assert seen and set(seen) == {3.0}
     assert next(out.glob("*.zarr")).exists()
+
+
+def test_a_production_run_cut_short_leaves_no_previous_metadata(tmp_path, monkeypatch):
+    """Each run for a region reuses its names: a run stopped after its zarr left
+    the previous run's metadata describing the new map."""
+    out, _, _ = production_fixture(tmp_path, monkeypatch)
+    production.production_predict()
+    metadata = next(out.glob("*_meta.json"))
+
+    def stopped(*args, **kwargs):
+        raise RuntimeError("stopped before the metadata")
+
+    monkeypatch.setattr(production, "write_prediction_metadata", stopped)
+    with pytest.raises(RuntimeError, match="stopped"):
+        production.production_predict()
+    assert list(out.glob("*.zarr"))
+    assert not metadata.exists()
