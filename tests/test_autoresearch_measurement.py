@@ -980,11 +980,14 @@ def _stubbed_training(tmp_path, monkeypatch, foundation):
         foundation_model_path=str(foundation),
     )
     built = []
+
+    def build_validation_dataset(cfg):
+        built.append("val")
+        return object()
+
     model = train.build_model(config, train.build_vconfig(config), "cpu")
     monkeypatch.setattr(train, "training_label_path", lambda *a: "fake/labels.png")
-    monkeypatch.setattr(
-        train, "build_validation_dataset", lambda cfg: built.append("val") or object()
-    )
+    monkeypatch.setattr(train, "build_validation_dataset", build_validation_dataset)
     monkeypatch.setattr(train, "probe_validation_read", lambda dataset: None)
     monkeypatch.setattr(train, "check_validation_inputs", lambda *a: None)
     monkeypatch.setattr(train, "VesuviusLabeledDataset", lambda *a, **k: object())
