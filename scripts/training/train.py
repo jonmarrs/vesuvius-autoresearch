@@ -1034,18 +1034,20 @@ def select_topology_threshold(
     candidates=TOPOLOGY_THRESHOLD_CANDIDATES,
     subset_step: int = 10,
     fallback: float = 0.5,
+    diag=None,
 ):
     """Pick the binarization threshold that maximizes mean centerline_dice over a
     subset of validation patches. Returns (threshold, mean_centerline_dice).
 
     Evaluated on every `subset_step`-th patch to match (and bound) the cost of
     the per-patch topology metrics. Falls back to `fallback` if no candidate
-    produces a finite centerline_dice (e.g. all-empty predictions).
+    produces a finite centerline_dice: every evaluation NaN, or every one failed.
+    Failed evaluations are printed (the first three) and counted, into
+    ``diag["topology_threshold_errors"]`` when a diagnostics dict is given, as
+    the validation pass counts its own metrics' failures.
     """
     best_thr = fallback
     best_cd = -1.0
-    # Counted and reported as the validation pass's own metrics are: a threshold
-    # chosen without the patches whose metric failed says so.
     errors = 0
     for thr in candidates:
         cds = []
@@ -1079,6 +1081,8 @@ def select_topology_threshold(
             f"  Warning: the topology threshold was chosen without {errors} failed "
             "centerline-dice evaluations"
         )
+    if diag is not None:
+        diag["topology_threshold_errors"] = errors
     return best_thr, (best_cd if best_cd >= 0.0 else 0.0)
 
 
@@ -2528,6 +2532,7 @@ def train(config: ExperimentConfig, *, strict_warm_start=False):
             "skeleton_errors": 0,
             "centerline_errors": 0,
             "mean_ap_errors": 0,
+            "topology_threshold_errors": 0,
         }
     )
 
@@ -2554,7 +2559,9 @@ def train(config: ExperimentConfig, *, strict_warm_start=False):
         # at the threshold that maximizes centerline_dice, not the Dice-optimal
         # one — see select_topology_threshold(). val_bpb stays on the Dice
         # threshold since it is defined as 1 - Dice.
-        topo_threshold, topo_cd = select_topology_threshold(ink_probs, ink_targets)
+        topo_threshold, topo_cd = select_topology_threshold(
+            ink_probs, ink_targets, diag=validation_diag
+        )
         print(
             f"  Topology threshold: {topo_threshold:.3f} (centerline_dice {topo_cd:.6f})"
         )
