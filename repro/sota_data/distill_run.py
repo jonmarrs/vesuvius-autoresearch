@@ -162,32 +162,68 @@ def provenance_line(prov):
     )
 
 
-def selection_note(n_epochs):
-    """The report's caveat: the student's best epoch is chosen on the fragment it is
-    reported on. Until 2026-10-16 it said AP and roc_auc were unaffected; being
-    threshold-free spares them threshold tuning, not epoch selection."""
-    return (
-        "Note: the held-out region is also the student's best-epoch selection set: the "
-        f"best-epoch row is the best of {n_epochs} epochs by val_f1 on this region, so "
-        "its metrics are optimistic, AP and roc_auc included (threshold-free metrics are "
-        "spared threshold tuning, not epoch selection; positive_rate is the label's). "
-        "The last-epoch row follows a fixed rule and the baseline is one checkpoint: "
-        "neither is selected here."
-    )
+# Until 2026-10-16 the reports said AP and roc_auc were unaffected by choosing the
+# epoch on the reported region; being threshold-free spares them threshold tuning, not
+# epoch selection.
+THRESHOLD_NOTE = (
+    "Every row's val_f1, precision and recall sit at its own best threshold on this "
+    "region (f1_at_0.5 does not); AP and roc_auc are threshold-free, which spares them "
+    "threshold tuning, not epoch selection. positive_rate is the label's.")
 
 
-# Lightning names a repeated save detector_epoch=<n>-v<k>.ckpt.
-_EPOCH_CHECKPOINT = re.compile(r"^detector_epoch=(\d+)(?:-v\d+)?\.ckpt$")
+def best_is_last(run):
+    """Whether a run's best epoch on the region (measure_epochs) is its last."""
+    return run["best"][1] == run["last"][1]
+
+
+def epoch_caveat(name, run):
+    """How ``name``'s reported epoch was chosen on the region it is reported on."""
+    n = run["epochs"]
+    if best_is_last(run):
+        return (f"{name}'s best of {n} epochs by val_f1 on this region is its last, so "
+                "its row follows a fixed rule.")
+    return (f"{name}'s best epoch is the best of {n} by val_f1 on this region, so that "
+            "row is optimistic here by an unmeasured amount; its last-epoch row follows "
+            "a fixed rule.")
+
+
+def epoch_rows(name, run):
+    """(label, metrics) report rows for a run: its best epoch and its last, or one row
+    when they are the same checkpoint."""
+    (m, ck, _), (m_last, ck_last) = run["best"], run["last"]
+    if best_is_last(run):
+        return [(f"{name}, last epoch (`{os.path.basename(ck)}`, also its best here)", m)]
+    return [(f"{name}, best epoch (`{os.path.basename(ck)}`, selected here)", m),
+            (f"{name}, last epoch (`{os.path.basename(ck_last)}`)", m_last)]
+
+
+def table_row(label, m):
+    return f"| {label} | " + " | ".join(f"{m.get(c, float('nan')):.4f}" for c in COLS) + " |"
+
+
+def selection_note(run):
+    """The Phase-2 report's caveat."""
+    return ("Note: " + epoch_caveat("The student", run)
+            + " The baseline is one checkpoint, not selected here. " + THRESHOLD_NOTE)
+
+
+# Lightning saves detector_epoch=<n>-v<k>.ckpt when detector_epoch=<n>.ckpt exists.
+_EPOCH_CHECKPOINT = re.compile(r"^detector_epoch=(\d+)(-v\d+)?\.ckpt$")
 
 
 def epoch_checkpoints(model_dir):
-    """A training run's checkpoints in epoch order. Stale ones from an earlier run in
-    the same directory are counted too: use a fresh model_dir per run."""
+    """A training run's checkpoints in epoch order. A -v<k> name means model_dir holds
+    a second run, whose epochs cannot be told from the first's: refused."""
     found = []
     for path in glob.glob(os.path.join(model_dir, "detector_epoch=*.ckpt")):
         match = _EPOCH_CHECKPOINT.match(os.path.basename(path))
-        if match:
-            found.append((int(match.group(1)), path))
+        if not match:
+            continue
+        if match.group(2):
+            raise ValueError(
+                f"{path}: {model_dir} holds checkpoints of more than one run; train "
+                "into a fresh model_dir")
+        found.append((int(match.group(1)), path))
     if not found:
         raise ValueError(f"no checkpoints found in {model_dir}; run the train step first")
     return [path for _, path in sorted(found)]
@@ -278,17 +314,13 @@ def cmd_measure():
              "NOT ground-truth accuracy.**", ""]
     if prov is not None:
         lines += [provenance_line(prov), ""]
-    lines += [selection_note(run["epochs"]), ""]
+    lines += [selection_note(run), ""]
     lines += [
              f"Held-out: `{fid}`  |  best student ckpt: `{os.path.basename(ck)}`", "",
              "| model | " + " | ".join(COLS) + " |",
              "|---|" + "|".join(["---"] * len(COLS)) + "|",
-             "| current detector (baseline) | "
-             + " | ".join(f"{baseline.get(c, float('nan')):.4f}" for c in COLS) + " |",
-             f"| distilled student, best epoch (selected here, of {run['epochs']}) | "
-             + " | ".join(f"{m.get(c, float('nan')):.4f}" for c in COLS) + " |",
-             f"| distilled student, last epoch (`{os.path.basename(ck_last)}`) | "
-             + " | ".join(f"{m_last.get(c, float('nan')):.4f}" for c in COLS) + " |",
+             table_row("current detector (baseline)", baseline),
+             *(table_row(label, mm) for label, mm in epoch_rows("distilled student", run)),
              "", "Renders: [ours](sota_distill_ours.png) vs "
              "[teacher](sota_distill_teacher.png)."]
     with open(REPORT_MD, "w") as f:
@@ -300,7 +332,8 @@ def cmd_measure():
                    "distilled_last_epoch_vs_teacher": m_last,
                    "per_epoch": run["per_epoch"],
                    "selection": {
-                       "distilled": f"best of {run['epochs']} epochs by val_f1 on {fid}",
+                       "distilled": f"best of {run['epochs']} epochs by val_f1 on {fid}"
+                                    + (" (the last epoch)" if best_is_last(run) else ""),
                        "distilled_last_epoch": "the last epoch, a fixed rule",
                        "baseline": "one checkpoint, not selected on this fragment"},
                    "teacher_provenance": prov},

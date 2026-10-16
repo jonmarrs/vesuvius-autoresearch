@@ -11,15 +11,19 @@ from .qualitative import write_fragment
 
 
 def same_integer_scale(a, b):
-    """Whether shapes ``a`` and ``b`` (h, w) are one integer scale k of each other on
-    both axes: the larger within k px a side of k times the smaller, as a pyramid's
-    rounding leaves them. A 1.2x or per-axis-different scale is another crop or scan."""
+    """Whether shapes ``a`` and ``b`` (h, w) are one pyramid scale k (a power of two)
+    of each other on both axes: the larger within k px a side of k times the smaller,
+    as a pyramid's rounding leaves them. A 1.2x or per-axis-different scale is another
+    crop or scan."""
     (ah, aw), (bh, bw) = a, b
     if min(ah, aw, bh, bw) <= 0:
         return False
-    if ah < bh:
+    if ah * aw < bh * bw:
         (ah, aw), (bh, bw) = (bh, bw), (ah, aw)
-    k = max(1, round(ah / bh))
+    # k from the smaller shape's longer axis, where the ratio is best resolved.
+    k = max(1, round(ah / bh) if bh >= bw else round(aw / bw))
+    if k & (k - 1):
+        return False
     return abs(ah - k * bh) <= k and abs(aw - k * bw) <= k
 
 

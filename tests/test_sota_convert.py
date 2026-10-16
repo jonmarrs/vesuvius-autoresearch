@@ -184,6 +184,7 @@ def test_fetch_puts_the_segment_where_convert_reads_it(tmp_path, fetch_module):
         memory.pipe(f"{base}/segH_inklabels.png", png)
         memory.pipe(f"{base}/segH_mask.png", png)
         memory.pipe(f"{base}/surface-volumes/volume.zarr/0/0.0.0", b"not fetched")
+        memory.pipe(f"{base}/segH_Mask_flat.PNG", b"not convert's *mask*")
         out = fetch.fetch_segment(prefix, str(tmp_path / "segH"))
     finally:
         memory.rm(base, recursive=True)
@@ -192,3 +193,17 @@ def test_fetch_puts_the_segment_where_convert_reads_it(tmp_path, fetch_module):
     assert sorted(os.listdir(out)) == ["layers", "segH_inklabels.png", "segH_mask.png"]
     converted = convert_surface_volume(out, "segH", str(tmp_path / "out"))
     assert len(os.listdir(os.path.join(converted, "layers"))) == 26
+
+
+def test_fetch_refuses_a_mask_that_is_a_directory(tmp_path, fetch_module):
+    """A non-recursive get skips a directory silently, and convert then used an
+    all-valid mask."""
+    fetch, memory = fetch_module
+    base = f"{fetch.BUCKET}/PHercParis4/segments/segJ_test_fetch"
+    try:
+        memory.pipe(f"{base}/layers/00.tif", b"x")
+        memory.pipe(f"{base}/masks/segJ_mask.png", b"y")
+        with pytest.raises(ValueError, match="not a file"):
+            fetch.fetch_segment("PHercParis4/segments/segJ_test_fetch", str(tmp_path / "j"))
+    finally:
+        memory.rm(base, recursive=True)

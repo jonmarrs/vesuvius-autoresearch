@@ -360,15 +360,15 @@ tooling: `repro/sota_data/distill_prep.py` + `distill_run.py`.
 single consumer GPU via distillation. The open bucket (≈48 scrolls in one consistent format)
 plus this recipe makes the cross-scroll frontier attackable here.
 
-## Cross-scroll distillation: diversity wins, then scaling saturates
+## Cross-scroll distillation: diversity wins; scaling showed no gain
 
 Two follow-on experiments took the distilled recipe to the cross-scroll frontier, measured on
-**one held-out PHerc-1667 region no arm trained on** (all metrics agreement-with-teacher). Arms
-B and C are each the best of their epochs by val_f1 on this region; arm A and the legacy detector
-were not selected here. So the B and C rows are optimistic by an unmeasured amount, and A vs the
-legacy detector is the only selection-free comparison (corrected 2026-10-16: this called the
-legacy row the selection-asymmetry-free anchor, but every comparison with B or C includes a
-selected row):
+**one held-out PHerc-1667 region no arm trained on** (all metrics agreement-with-teacher). Arm
+B's row is the best of its 12 epochs by val_f1 on this region, so it is optimistic there by an
+unmeasured amount. Arm C's best epoch on it was its last (epoch 11), so its row follows a fixed
+rule, and arm A and the legacy detector were not selected here: comparisons among A, C and the
+legacy detector are free of epoch selection, and any with B favours B. (Corrected 2026-10-16:
+this called the legacy row the selection-asymmetry-free anchor.)
 
 | arm (held-out 1667) | val_f1 | AP-prevalence-lift | ROC-AUC |
 | --- | --- | --- | --- |
@@ -385,15 +385,17 @@ selected row):
    selection-free. Neither holds. The sampling layout differs too, and arm B's epoch was chosen
    on the held-out 1667 region while arm A's and the legacy detector's were not, so every
    comparison with arm B there is optimistic for it. The same-scroll cost runs the other way:
-   arm A's epoch was chosen on the Phase-2 Scroll-1 region it is compared on, so the ~11% is
-   overstated.
-3. **Scaling saturates:** a third scroll (PHerc 0172, whose canon teachers were newly
-   available) plus 50% more data did **not** lift 1667 transfer further (C ≈ B). The
-   lift-≈2.1 plateau looks like this recipe's ceiling for 1667 without 1667-adjacent signal —
-   its distinct preparation is the prime suspect. Arm C is nonetheless the **best all-around
-   model built here**: volume bought back most of arm B's same-scroll cost (Scroll-1 0.631 vs
-   arm A's 0.662, arm A's being the row selected on that region) while reading its third scroll strongly (0172 held-out val_f1 0.587 /
-   lift 5.37 / ROC-AUC 0.919).
+   arm A's row on the Phase-2 Scroll-1 region is its best of 12 epochs there, so the cost is at
+   most ~11%.
+3. **Scaling showed no gain:** a third scroll (PHerc 0172, whose canon teachers were newly
+   available) plus 50% more data did **not** lift 1667 transfer above arm B's (C 2.10 vs
+   B 2.12). Corrected 2026-10-16: this said scaling saturates. C's row is its last epoch and
+   B's its best on this region, so the comparison's only selection bias favours B, and
+   saturation is not established. If there is a plateau near lift 2.1, 1667's distinct
+   preparation is the prime suspect. Arm C is nonetheless the **best all-around model built
+   here**: it bought back most of arm B's same-scroll cost (Scroll-1 0.631 vs arm A's 0.662,
+   arm A's being the row selected on that region) while reading its third scroll strongly
+   (0172 held-out val_f1 0.587 / lift 5.37 / ROC-AUC 0.919).
 
 **Data reality:** a full bucket sweep found only **4 of 45** scrolls ship canon teacher
 predictions today (PHercParis4, PHerc0139, PHerc0172, PHerc1667) — the frontier for this

@@ -94,6 +94,8 @@ def test_a_pyramid_levels_rounding_is_accepted():
     assert same_integer_scale((64, 64), (64, 64))
     assert same_integer_scale((64, 64), (256, 256))  # either way round
     assert not same_integer_scale((1020, 728), (255, 200))
+    assert same_integer_scale((3, 16384), (1, 4096))  # k from the better-resolved axis
+    assert not same_integer_scale((300, 300), (100, 100))  # 3x is not a pyramid level
 
 
 def test_prep_empty_region_raises(tmp_path):
@@ -154,11 +156,16 @@ def _fragment_label(data_root, fid):
 
 
 def test_the_selection_note_names_epoch_selection(runners):
-    """It said AP and roc_auc were unaffected; epoch selection affects every column."""
+    """It said AP and roc_auc were unaffected; epoch selection affects them too."""
     distill_run, _ = runners
-    note = distill_run.selection_note(12)
-    assert "best of 12 epochs" in note and "AP and roc_auc included" in note
-    assert "The last-epoch row follows a fixed rule" in note
+    run = {
+        "best": ({}, "m/detector_epoch=9.ckpt", None),
+        "last": ({}, "m/detector_epoch=11.ckpt"),
+        "epochs": 12,
+    }
+    note = distill_run.selection_note(run)
+    assert "best of 12 by val_f1 on this region, so that row is optimistic" in note
+    assert "spares them threshold tuning, not epoch selection" in note
     assert "unaffected" not in note
 
 
@@ -185,7 +192,11 @@ def test_a_fetched_teacher_records_its_bucket_file(tmp_path, monkeypatch, runner
     assert "a_pred.tif" in line
     # A teacher cached before sources were recorded claims none.
     os.remove(path + ".source.json")
-    assert distill_run.teacher_provenance(path, tifffile.imread(path))["source"] is None
+    old = distill_run.teacher_provenance(path, tifffile.imread(path))
+    assert old["source"] is None
+    assert "source not recorded" in distill_run.provenance_line(
+        {"binarize_threshold": 128, "teachers": {"seg1": old}}
+    )
 
 
 def test_the_distillation_report_states_how_the_student_was_selected(
@@ -211,8 +222,14 @@ def test_the_distillation_report_states_how_the_student_was_selected(
     )
     distill_run.cmd_measure()  # no teacher_provenance.json
     report = open(distill_run.REPORT_MD).read()
-    assert "best of 3 epochs by val_f1 on this region" in report
+    assert (
+        "The student's best epoch is the best of 3 by val_f1 on this region" in report
+    )
     # A selection-free row beside the selected one: the last epoch, a fixed rule.
+    assert (
+        "| distilled student, best epoch (`detector_epoch=2.ckpt`, selected here) |"
+        in report
+    )
     assert (
         "| distilled student, last epoch (`detector_epoch=3.ckpt`) | 0.3000" in report
     )
@@ -224,21 +241,34 @@ def test_the_distillation_report_states_how_the_student_was_selected(
     ]
 
 
-def test_checkpoints_are_ordered_by_epoch_whatever_lightning_appends(tmp_path, runners):
-    """detector_epoch=3-v1.ckpt made the int() sort key raise."""
+def test_checkpoints_are_in_epoch_order_and_one_run_only(tmp_path, runners):
+    """The name sort put epoch 10 before 2; detector_epoch=3-v1.ckpt (Lightning's name
+    when a second run saves into the same model_dir) made its int() key raise, and a
+    tolerant sort would have counted both runs' checkpoints."""
     distill_run, _ = runners
-    for name in (
-        "detector_epoch=10.ckpt",
-        "detector_epoch=3-v1.ckpt",
-        "detector_epoch=2.ckpt",
-        "notes.txt",
-    ):
+    for name in ("detector_epoch=10.ckpt", "detector_epoch=2.ckpt", "notes.txt"):
         open(tmp_path / name, "w").close()
     names = [os.path.basename(p) for p in distill_run.epoch_checkpoints(str(tmp_path))]
-    assert names == [
-        "detector_epoch=2.ckpt",
-        "detector_epoch=3-v1.ckpt",
-        "detector_epoch=10.ckpt",
+    assert names == ["detector_epoch=2.ckpt", "detector_epoch=10.ckpt"]
+    open(tmp_path / "detector_epoch=2-v1.ckpt", "w").close()
+    with pytest.raises(ValueError, match="more than one run"):
+        distill_run.epoch_checkpoints(str(tmp_path))
+
+
+def test_a_best_epoch_that_is_the_last_is_reported_as_the_fixed_rule_row(runners):
+    """Arm C's best epoch on its held-out region was its last (epoch 11 of 0-11)."""
+    distill_run, _ = runners
+    run = {
+        "best": ({"val_f1": 0.27}, "m/detector_epoch=11.ckpt", None),
+        "last": ({"val_f1": 0.27}, "m/detector_epoch=11.ckpt"),
+        "epochs": 12,
+    }
+    assert "is its last, so its row follows a fixed rule" in distill_run.epoch_caveat(
+        "Arm C", run
+    )
+    rows = distill_run.epoch_rows("arm C", run)
+    assert [label for label, _ in rows] == [
+        "arm C, last epoch (`detector_epoch=11.ckpt`, also its best here)"
     ]
 
 
@@ -255,7 +285,10 @@ def test_the_cross_scroll_report_says_which_rows_were_selected_on_it(
     held = xscroll_run._fid(xscroll_run.HELD)
     _fragment_label(xscroll_run.DATA_ROOT, held)
     os.makedirs(xscroll_run.MODEL_DIR)
-    open(os.path.join(xscroll_run.MODEL_DIR, "detector_epoch=7.ckpt"), "w").close()
+    for epoch in (7, 11):
+        open(
+            os.path.join(xscroll_run.MODEL_DIR, f"detector_epoch={epoch}.ckpt"), "w"
+        ).close()
     os.makedirs("reports/detector")
     legacy = {"val_f1": 0.21, "ap_prevalence_lift": 1.47, "roc_auc": 0.591}
     with open(xscroll_run.BASELINES_JSON, "w") as f:
@@ -269,14 +302,65 @@ def test_the_cross_scroll_report_says_which_rows_were_selected_on_it(
             f,
         )
     monkeypatch.setattr(
-        distill_run, "_measure", _stub_measure({"detector_epoch=7.ckpt": 0.28})
+        distill_run,
+        "_measure",
+        _stub_measure({"detector_epoch=7.ckpt": 0.28, "detector_epoch=11.ckpt": 0.25}),
     )
     xscroll_run.cmd_measure()
     report = open(xscroll_run.REPORT_MD).read()
     assert "only variable" not in report
     assert "needs no selection asymmetry" not in report
-    assert "the selection-free comparisons are arm A vs the legacy detector" in report
-    assert "| arm B, last epoch (`detector_epoch=7.ckpt`) |" in report
+    assert "Arm B's best epoch is the best of 2 by val_f1 on this region" in report
+    assert "A comparison with an optimistic row favours that row's arm" in report
+    assert "best epoch (`detector_epoch=7.ckpt`, selected here) | 0.2800" in report
+    assert (
+        "| arm B: multi-scroll student (2xScroll1 + 2xPHerc0139), last epoch " in report
+    )
     assert "on that region arm A's row is optimistic" in report
     record = json.load(open(xscroll_run.REPORT_JSON))
-    assert record["selection"]["armB"].startswith("best of 1 epochs by val_f1")
+    assert record["selection"]["armB"] == f"best of 2 epochs by val_f1 on {held}"
+    assert record["armB_last_checkpoint"] == "detector_epoch=11.ckpt"
+
+
+def test_the_arm_c_report_calls_a_last_best_epoch_a_fixed_rule(
+    tmp_path, monkeypatch, runners
+):
+    """The committed arm-C row is its last epoch (11 of 0-11), but the report called
+    it selected and optimistic, and its same-scroll caveat named a row it lacked."""
+    import json
+
+    distill_run, xscroll_run = runners
+    monkeypatch.chdir(tmp_path)
+    held = xscroll_run._fid(xscroll_run.HELD)
+    _fragment_label(xscroll_run.DATA_ROOT, held)
+    os.makedirs(xscroll_run.MODEL_DIR_C)
+    for epoch in (10, 11):
+        name = f"detector_epoch={epoch}.ckpt"
+        open(os.path.join(xscroll_run.MODEL_DIR_C, name), "w").close()
+    os.makedirs("reports/detector")
+    cited = {"val_f1": 0.28, "ap_prevalence_lift": 2.12, "roc_auc": 0.689}
+    with open(xscroll_run.REPORT_JSON, "w") as f:  # as committed: no last-epoch record
+        json.dump(
+            {
+                "armB_best_checkpoint": "detector_epoch=7.ckpt",
+                "on_held_1667": {"baseline": cited, "armA": cited, "armB": cited},
+                "secondary": {"armA_on_heldScroll1_phase2": cited},
+            },
+            f,
+        )
+    monkeypatch.setattr(
+        distill_run,
+        "_measure",
+        _stub_measure({"detector_epoch=10.ckpt": 0.2, "detector_epoch=11.ckpt": 0.27}),
+    )
+    xscroll_run.cmd_measure_c()
+    report = open(xscroll_run.SCALE_REPORT_MD).read()
+    assert "Arm C's best of 2 epochs by val_f1 on this region is its last" in report
+    assert "Arm B's cited best-epoch row was chosen on this region" in report
+    assert (
+        "arm C: 3 scrolls, 6 regions, last epoch (`detector_epoch=11.ckpt`, also"
+        in report
+    )
+    assert "| arm A on Phase-2 held-out Scroll-1 region (cited) |" in report
+    record = json.load(open(xscroll_run.SCALE_REPORT_JSON))
+    assert record["selection"]["armC"].endswith("(the last epoch)")

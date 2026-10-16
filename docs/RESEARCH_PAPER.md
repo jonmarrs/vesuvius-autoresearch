@@ -79,7 +79,8 @@ comparison there with no row selected on that region); adding a second training 
 **fixed budget** lifts transfer to **2.12** (its best epoch on that region, so optimistic by an
 unmeasured amount; corrected 2026-10-16, this called the undistilled detector the
 selection-asymmetry-free anchor and the result controlled); a third scroll (+50%
-data) **saturates** at ≈2.1 while producing the best all-around model (own-scroll val_f1
+data) gives no further gain (≈2.1, its last epoch, against the second scroll's selected best:
+saturation is not established; corrected 2026-10-16 from "saturates") while producing the best all-around model (own-scroll val_f1
 0.587–0.631, ROC-AUC up to 0.919). A full bucket sweep found only 4 of 45 scrolls ship canon
 teacher predictions — the practical scaling frontier is released teachers.
 

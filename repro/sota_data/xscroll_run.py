@@ -4,7 +4,6 @@ PHerc1667 region no arm trains on: the legacy detector (baseline), the existing 
 student (arm A, no new training), and a multi-scroll student trained on 2 Scroll-1 +
 2 PHerc-0139 regions (arm B, same 4-region budget as A). All metrics are AGREEMENT WITH
 TEACHER (the released canon predictions) -- never ground-truth accuracy."""
-import glob
 import json
 import os
 import sys
@@ -130,15 +129,34 @@ def _epochs(fid, model_dir=MODEL_DIR):
     return dr.measure_epochs(fid, model_dir, data_root=DATA_ROOT)
 
 
-# Which rows were selected on which region. Until 2026-10-16 the arm-B report called
-# "arm B vs the legacy detector" free of the selection asymmetry (and, before its
-# review, diversity "the only variable"), and arm C's called it the asymmetry-free
-# anchor; but both comparisons include a row chosen on the region it is reported on.
-THRESHOLD_FREE = ("AP and roc_auc included (threshold-free metrics are spared threshold "
-                  "tuning, not epoch selection)")
+# Which rows were selected on which region (distill_run.epoch_caveat). Until 2026-10-16
+# the arm-B report called "arm B vs the legacy detector" free of the selection asymmetry
+# (and, before its review, diversity "the only variable"), and arm C's called it the
+# asymmetry-free anchor; but arm B's row is the one chosen on the region it is reported
+# on, and arm C's best epoch was its last.
+UNSELECTED_ARMS = (
+    "Arm A's and the legacy detector's epochs were not chosen on this region. A "
+    "comparison with an optimistic row favours that row's arm; comparisons between "
+    "fixed-rule or unselected rows are free of epoch selection.")
 SAME_SCROLL_CAVEAT = (
     "Arm A's epoch (the Phase-2 best) was chosen on the Phase-2 held-out Scroll-1 "
     "region, so on that region arm A's row is optimistic against the others.")
+
+
+def _cited_b(prior):
+    """Arm B's rows and caveat as the arm-B report recorded them."""
+    on1667 = prior["on_held_1667"]
+    best, last = prior.get("armB_best_checkpoint"), prior.get("armB_last_checkpoint")
+    if last is not None and last == best:
+        return ([("arm B: 2 scrolls, 4 regions (cited; last epoch, also its best)",
+                  on1667["armB"])],
+                "Arm B's cited row is its last epoch, also its best here: a fixed rule.")
+    rows = [("arm B: 2 scrolls, 4 regions (cited; best epoch, selected here)",
+             on1667["armB"])]
+    if "armB_last_epoch" in on1667:
+        rows.append(("arm B, last epoch (cited)", on1667["armB_last_epoch"]))
+    return rows, ("Arm B's cited best-epoch row was chosen on this region, so it is "
+                  "optimistic here.")
 
 
 def cmd_measure():
@@ -180,22 +198,16 @@ def cmd_measure():
         with open(prov_path) as f:
             prov = json.load(f)
 
-    def row(label, m):
-        return f"| {label} | " + " | ".join(
-            f"{m.get(c, float('nan')):.4f}" for c in COLS) + " |"
-
+    row = dr.table_row
     legacy = base["baseline_epoch7"]["vs_teacher"]
     lines = ["# Cross-scroll distillation: diversity experiment (held-out PHerc 1667)", "",
              "**All metrics are agreement-with-teacher (the released canon predictions), "
              "NOT ground-truth accuracy.** No arm trained on any PHerc-1667 data. "
              "Arms A and B use the same 4-region training budget (region *count* held "
              "constant; sampling layout differs: A = 2 segments x 2 regions on one scroll, "
-             "B = 4 segments x 1 region across two scrolls). Caveat: **arm B's** best "
-             f"epoch is chosen on this held-out region (the best of {run_b['epochs']} by "
-             "val_f1), and arm A's and the legacy detector's are not, so every comparison "
-             "with arm B's best-epoch row is optimistic for arm B by an unmeasured amount, "
-             f"{THRESHOLD_FREE}. On this region the selection-free comparisons are arm A "
-             "vs the legacy detector, and arm B's last epoch (a fixed rule) vs either.", ""]
+             "B = 4 segments x 1 region across two scrolls). Caveat: "
+             + dr.epoch_caveat("Arm B", run_b) + " " + UNSELECTED_ARMS + " "
+             + dr.THRESHOLD_NOTE, ""]
     if prov is not None:
         lines += [dr.provenance_line(prov), ""]
     lines += [f"Held-out: `{held_fid}`  |  arm B best ckpt: `{os.path.basename(ck_b)}`", "",
@@ -204,9 +216,8 @@ def cmd_measure():
               row("legacy detector (no distillation)", legacy),
               row("arm A: Scroll-1 student (existing)",
                   base["armA_scroll1_student"]["vs_teacher"]),
-              row("arm B: multi-scroll student (2xScroll1 + 2xPHerc0139), best epoch "
-                  "(selected here)", m_b),
-              row(f"arm B, last epoch (`{os.path.basename(ck_b_last)}`)", m_b_last),
+              *(row(label, mm) for label, mm in dr.epoch_rows(
+                  "arm B: multi-scroll student (2xScroll1 + 2xPHerc0139)", run_b)),
               "", "Secondary (same-scroll read-outs, arm B's best epoch). "
               + SAME_SCROLL_CAVEAT, "",
               "| model / fragment | " + " | ".join(COLS) + " |",
@@ -228,7 +239,8 @@ def cmd_measure():
                                     "armB": m_b, "armB_last_epoch": m_b_last},
                    "armB_per_epoch": run_b["per_epoch"],
                    "selection": {
-                       "armB": f"best of {run_b['epochs']} epochs by val_f1 on {held_fid}",
+                       "armB": f"best of {run_b['epochs']} epochs by val_f1 on {held_fid}"
+                               + (" (the last epoch)" if dr.best_is_last(run_b) else ""),
                        "armB_last_epoch": "the last epoch, a fixed rule",
                        "armA": "Phase-2 best epoch, chosen on the Phase-2 held-out "
                                "Scroll-1 region",
@@ -291,24 +303,19 @@ def cmd_measure_c():
         with open(prov_path) as f:
             prov = json.load(f)
 
-    def row(label, m):
-        return f"| {label} | " + " | ".join(
-            f"{m.get(c, float('nan')):.4f}" for c in COLS) + " |"
-
+    row = dr.table_row
     on1667 = prior["on_held_1667"]
+    cited_b_rows, cited_b_caveat = _cited_b(prior)
+    cited_a_same_scroll = prior.get("secondary", {}).get("armA_on_heldScroll1_phase2")
     lines = ["# Scaled multi-scroll distillation (arm C) on held-out PHerc 1667", "",
              "**All metrics are agreement-with-teacher (the released canon predictions), "
              "NOT ground-truth accuracy.** No arm trained on any PHerc-1667 data. Arm C is a "
              "**capability run**: it differs from arm B in BOTH training-scroll diversity "
              "(+PHerc0172) and data volume (6 vs 4 regions) -- it is not a single-variable "
-             "experiment. Caveat: arms B's and C's best epochs are chosen on this held-out "
-             f"region (arm C's of {run_c['epochs']}, by val_f1), and arm A's and the legacy "
-             "detector's are not, so comparisons with B's or C's best-epoch rows are "
-             f"optimistic for them, {THRESHOLD_FREE}. On this region the selection-free "
-             "comparisons are arm A vs the legacy detector, and arm C's last epoch (a "
-             "fixed rule) vs either; arm C vs arm B compares two selected rows. "
-             + SAME_SCROLL_CAVEAT + " Baseline/A/B rows are cited from the committed "
-             "cross_scroll_distill.json, not re-run.", ""]
+             "experiment. Caveat: " + dr.epoch_caveat("Arm C", run_c) + " "
+             + cited_b_caveat + " " + UNSELECTED_ARMS + " " + dr.THRESHOLD_NOTE
+             + " Baseline/A/B rows are cited from the committed cross_scroll_distill.json, "
+             "not re-run.", ""]
     if prov is not None:
         lines += [dr.provenance_line(prov), ""]
     lines += [f"Held-out: `{held_fid}`  |  arm C best ckpt: `{os.path.basename(ck_c)}`", "",
@@ -316,16 +323,19 @@ def cmd_measure_c():
               "|---|" + "|".join(["---"] * len(COLS)) + "|",
               row("legacy detector (cited)", on1667["baseline"]),
               row("arm A: 1 scroll, 4 regions (cited)", on1667["armA"]),
-              row("arm B: 2 scrolls, 4 regions (cited)", on1667["armB"]),
-              row("arm C: 3 scrolls, 6 regions, best epoch (selected here)", m_c),
-              row(f"arm C, last epoch (`{os.path.basename(ck_c_last)}`)", m_c_last),
-              "", "Secondary (arm C same-scroll read-outs):", "",
+              *(row(label, mm) for label, mm in cited_b_rows),
+              *(row(label, mm) for label, mm in dr.epoch_rows(
+                  "arm C: 3 scrolls, 6 regions", run_c)),
+              "", "Secondary (arm C same-scroll read-outs, its best epoch)."
+              + (" " + SAME_SCROLL_CAVEAT if cited_a_same_scroll else ""), "",
               "| model / fragment | " + " | ".join(COLS) + " |",
               "|---|" + "|".join(["---"] * len(COLS)) + "|",
               row("arm C on held-out PHerc-0172 region", sec["armC_on_held0172"]),
               row("arm C on held-out PHerc-0139 region", sec["armC_on_held0139"]),
               row("arm C on Phase-2 held-out Scroll-1 region",
                   sec["armC_on_heldScroll1_phase2"]),
+              *([row("arm A on Phase-2 held-out Scroll-1 region (cited)",
+                     cited_a_same_scroll)] if cited_a_same_scroll else []),
               "", "Renders (held-out 1667): [arm C](xscroll_armC_1667.png) | "
               "[arm B](xscroll_armB_1667.png) | [arm A](xscroll_armA_1667.png) | "
               "[teacher](xscroll_teacher_1667.png)."]
@@ -337,7 +347,8 @@ def cmd_measure_c():
                    "on_held_1667": {**on1667, "armC": m_c, "armC_last_epoch": m_c_last},
                    "armC_per_epoch": run_c["per_epoch"],
                    "selection": {
-                       "armC": f"best of {run_c['epochs']} epochs by val_f1 on {held_fid}",
+                       "armC": f"best of {run_c['epochs']} epochs by val_f1 on {held_fid}"
+                               + (" (the last epoch)" if dr.best_is_last(run_c) else ""),
                        "armC_last_epoch": "the last epoch, a fixed rule"},
                    "secondary_armC": sec,
                    "cited_from": "reports/detector/cross_scroll_distill.json",
