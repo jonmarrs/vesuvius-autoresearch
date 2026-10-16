@@ -86,7 +86,9 @@ Environment: CPython 3.10 venv with PyTorch 2.14.1 (no GPU visible), pytest, Ruf
 - Baseline: the validation run of `102f20bc` (#91), whose tree is `b1541e51`'s but for its review doc's result
   lines. It was 42 failed, 2432 passed, 21 skipped, 1 xfailed, 2 errors. The failures and errors are environmental:
   no scroll data, no CUDA, no villa data files.
-- Branch: running at this commit; recorded in the next.
+- Branch, PR first head (`5ea56977`): 42 failed, 2433 passed, 21 skipped, 1 xfailed, 2 errors. The failures and
+  errors are the same set as the baseline; the extra pass is the new test. `scripts/smoke_test.py`: 9 of 11 passed,
+  2 skipped (no training data).
 - `tests/test_topology_threshold.py`: 5 passed; the new test fails on main.
 - Ruff (check and format) on the changed files: clean.
 
