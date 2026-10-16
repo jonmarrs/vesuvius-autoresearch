@@ -173,7 +173,9 @@ Environment: CPython 3.10 venv with PyTorch 2.14.1 (no GPU visible), pytest, Ruf
 - Branch, PR first head (`68469b03`): 42 failed, 2238 passed, 15 skipped, 1 xfailed, 2 errors. The failures and
   errors are the same set as the baseline; the 14 extra passes are the new tests. `scripts/smoke_test.py`: 9 of 11
   passed, 2 skipped (no training data).
-- After the PR review's fixes: running at this commit; recorded in the next.
+- After the PR review's fixes (`e4032512`): 42 failed, 2240 passed, 15 skipped, 1 xfailed, 2 errors. Same set; the
+  2 extra passes are the refused-rerun cases. `scripts/smoke_test.py`: 9 of 11 passed, 2 skipped. The related modules
+  with the handoff, manifest and worklist tests: 318 passed.
 - `test_submission_contracts`, `test_prize_readiness`, `test_candidate_preprocessing_contracts`,
   `test_volume_inference_contracts`, `test_villa_prize_action_matrix`, `test_summarize_villa_evidence_preflight` and
   `test_execute_lasagna_pipeline_resume`: 307 passed.
