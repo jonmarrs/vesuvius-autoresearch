@@ -26,8 +26,8 @@ def _write_json(path: Path, data: dict):
 
 
 # A region that can carry the 1 cm scale bar a passing record declares:
-# 1280 px at 7.91 um is 10.1 mm wide.
-WIDE_PX = 1280
+# 1600 px at 7.91 um is 12.7 mm wide; predict.py declares the bar from 1581 px.
+WIDE_PX = 1600
 COMPLETE_SIGMOID = {
     "inference_recipe": {"ink_probability": "sigmoid(ink)"},
     "prediction_complete": True,
@@ -603,7 +603,7 @@ def test_villa_prize_evidence_chain_validates_existing_prediction_artifacts(tmp_
         "height": "64",
         "patch_size": "64",
         "voxel_um": "7.91",
-        "artifact_stem": "pred_9000_2048_2048_1280x64",
+        "artifact_stem": "pred_9000_2048_2048_1600x64",
     }
     with open(ranked_path, "w") as f:
         f.write("\t".join(row.keys()) + "\n")
@@ -611,7 +611,7 @@ def test_villa_prize_evidence_chain_validates_existing_prediction_artifacts(tmp_
 
     zarr_path = tmp_path / "prediction.zarr"
     _write_vc3d_zarr(zarr_path, width=WIDE_PX)
-    image_path = prediction_dir / "pred_9000_2048_2048_1280x64.png"
+    image_path = prediction_dir / "pred_9000_2048_2048_1600x64.png"
     Image.new("L", (64, 64), 100).save(image_path)
     train_path, predict_path = tmp_path / "train.npy", tmp_path / "predict.npy"
     train = np.zeros((64, 64), dtype=bool)
@@ -621,7 +621,7 @@ def test_villa_prize_evidence_chain_validates_existing_prediction_artifacts(tmp_
     np.save(train_path, train)
     np.save(predict_path, predict)
     _write_json(
-        prediction_dir / "pred_9000_2048_2048_1280x64_meta.json",
+        prediction_dir / "pred_9000_2048_2048_1600x64_meta.json",
         {
             "scroll_id": "unknown",
             "source_uri": row["local_uri"],

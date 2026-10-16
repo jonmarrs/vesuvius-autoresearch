@@ -155,6 +155,26 @@ def build_evidence_chain(
     out_dir = Path(out_dir)
     prediction_dir = out_dir / "predictions"
     prediction_dir.mkdir(parents=True, exist_ok=True)
+    # A failed attempt must not leave a previous successful report authoritative,
+    # nor the evidence it validated: the review manifest's validate command reads
+    # evidence_metadata.json, which names artifacts this run may have overwritten.
+    # First, before anything that can raise (a candidate the table no longer has,
+    # a row the command builder refuses).
+    for stale in (
+        "evidence_metadata.json",
+        "manifest.json",
+        "neural_tracing.json",
+        "validation_report.json",
+    ):
+        (out_dir / stale).unlink(missing_ok=True)
+    _write_json(
+        out_dir / "PRIZE_READINESS_REPORT.json",
+        {
+            "status": "FAIL",
+            "failures": ["evidence chain has not completed"],
+            "warnings": [],
+        },
+    )
 
     row = select_candidate(ranked_path, candidate_index)
     stem = _artifact_stem(row)
@@ -169,19 +189,6 @@ def build_evidence_chain(
 
     _write_json(out_dir / "candidate.json", row)
     (out_dir / "predict_command.sh").write_text(shlex.join(cmd) + "\n")
-    # A failed attempt must not leave a previous successful report authoritative,
-    # nor the evidence it validated: the review manifest's validate command reads
-    # evidence_metadata.json, which names artifacts this run may have overwritten.
-    for stale in ("evidence_metadata.json", "manifest.json", "neural_tracing.json"):
-        (out_dir / stale).unlink(missing_ok=True)
-    _write_json(
-        out_dir / "PRIZE_READINESS_REPORT.json",
-        {
-            "status": "FAIL",
-            "failures": ["evidence chain has not completed"],
-            "warnings": [],
-        },
-    )
 
     if execute:
         before = {

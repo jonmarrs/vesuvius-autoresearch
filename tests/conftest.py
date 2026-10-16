@@ -198,15 +198,15 @@ def evidence(tmp_path):
     np.save(tmp_path / "train.npy", train)
     np.save(tmp_path / "predict.npy", predict)
     Image.new("L", (64, 64), 100).save(tmp_path / "prediction.png")
-    # 1280 px at 7.91 um is 10.1 mm: wide enough for the 1 cm scale bar it declares.
-    save_vc3d_zarr(tmp_path / "ink.zarr", np.zeros((64, 1280), np.uint8))
+    # 1600 px at 7.91 um is 12.7 mm: predict.py declares a 1 cm bar from 1581 px.
+    save_vc3d_zarr(tmp_path / "ink.zarr", np.zeros((64, 1600), np.uint8))
     metadata = {
         "scroll_id": "Scroll 2",
         "source_uri": "local_data/scroll.zarr",
         "position_xyz": [1, 2, 3],
         "patch_size": 64,
         "ml_window_px": 64,
-        "width_px": 1280,
+        "width_px": 1600,
         "height_px": 64,
         "voxel_size_um": 7.91,
         "scale_bar_cm": True,

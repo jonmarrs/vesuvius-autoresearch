@@ -204,11 +204,11 @@ def _chain_inputs(evidence):
         "x": "1",
         "y": "2",
         "z": "3",
-        "width": "1280",
+        "width": "1600",
         "height": "64",
         "patch_size": "64",
         "voxel_um": "7.91",
-        "artifact_stem": "pred_3_2_1_1280x64",
+        "artifact_stem": "pred_3_2_1_1600x64",
     }
     ranked = path.parent / "ranked.tsv"
     with ranked.open("w", newline="") as stream:
@@ -304,9 +304,39 @@ def test_failed_execution_leaves_no_evidence_to_revalidate(evidence, monkeypatch
     def fail(*args, **kwargs):
         raise subprocess.CalledProcessError(7, args[0])
 
+    for leftover in ("neural_tracing.json", "validation_report.json"):
+        (root / leftover).write_text('{"status": "PASS", "ready": true}')
     monkeypatch.setattr(chain.subprocess, "run", fail)
     with pytest.raises(subprocess.CalledProcessError):
         build_evidence_chain(ranked, root, execute=True)
+    for leftover in (
+        "evidence_metadata.json",
+        "manifest.json",
+        "neural_tracing.json",
+        "validation_report.json",
+    ):
+        assert not (root / leftover).exists()
+
+
+@pytest.mark.parametrize("change", ["bad voxel", "fewer rows"])
+def test_a_rerun_refused_before_predicting_leaves_no_previous_pass(evidence, change):
+    """The reset came after the candidate was selected and its command built, so a
+    rerun that failed there kept the earlier PASS and its evidence."""
+    ranked, root, _ = _chain_inputs(evidence)
+    assert build_evidence_chain(ranked, root)["status"] == "PASS"
+    header, row = ranked.read_text().splitlines()
+    if change == "bad voxel":
+        fields = row.split("\t")
+        fields[header.split("\t").index("voxel_um")] = "bad"
+        ranked.write_text(header + "\n" + "\t".join(fields) + "\n")
+        with pytest.raises(ValueError, match="voxel_um"):
+            build_evidence_chain(ranked, root)
+    else:
+        ranked.write_text(header + "\n")
+        with pytest.raises(ValueError, match="no candidates"):
+            build_evidence_chain(ranked, root)
+    report = json.loads((root / "PRIZE_READINESS_REPORT.json").read_text())
+    assert report["status"] == "FAIL"
     assert not (root / "evidence_metadata.json").exists()
     assert not (root / "manifest.json").exists()
 
@@ -638,14 +668,19 @@ def test_review_promotion_names_and_previews_chain_evidence(tmp_path):
 
     image = tmp_path / "figure.png"
     Image.new("L", (8, 8), 100).save(image)
-    for index in (7, 8):
-        candidate = tmp_path / "evidence" / f"candidate_{index:03d}"
+    # The scroll23 chain's <root>/candidate_NNN and the lasagna worklist's
+    # <rank>_<stem>/evidence layouts.
+    layouts = ["scroll23/candidate_007", "scroll23/candidate_008"]
+    layouts += ["001_pred_a/evidence", "002_pred_b/evidence"]
+    for layout in layouts:
+        candidate = tmp_path / layout
         candidate.mkdir(parents=True)
         metadata = candidate / "evidence_metadata.json"
         metadata.write_text(json.dumps({"output_image_path": str(image)}))
         promote_to_review(metadata, review_dir=tmp_path / "queue")
-    for index in (7, 8):
-        assert (tmp_path / "queue" / f"candidate_{index:03d}" / "preview.png").exists()
+    for layout in layouts:
+        name = layout.replace("/", "_")
+        assert (tmp_path / "queue" / name / "preview.png").exists()
     single = tmp_path / "pred_1_2_3_64x64_meta.json"
     single.write_text(json.dumps({}))
     promote_to_review(single, review_dir=tmp_path / "queue")

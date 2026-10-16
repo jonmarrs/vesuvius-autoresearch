@@ -483,7 +483,7 @@ def test_readiness_resume_revalidates_actual_evidence(evidence):
         "x": "1",
         "y": "2",
         "z": "3",
-        "width": "1280",
+        "width": "1600",
         "height": "64",
         "local_uri": metadata["source_uri"],
         "output_image_path": metadata["output_image_path"],
@@ -496,7 +496,7 @@ def test_readiness_resume_revalidates_actual_evidence(evidence):
         "x": 1,
         "y": 2,
         "z": 3,
-        "width": 1280,
+        "width": 1600,
         "height": 64,
         "local_uri": metadata["source_uri"],
     }

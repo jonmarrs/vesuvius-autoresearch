@@ -16,10 +16,13 @@ def promote_to_review(metadata_path, review_dir="reports/review_queue"):
         meta = json.load(f)
 
     # pred_..._meta.json from predict.py; the evidence chain writes one
-    # evidence_metadata.json per candidate directory, named after it.
+    # evidence_metadata.json per candidate directory. Those are named
+    # <root>/candidate_NNN (scroll23) or <rank>_<stem>/evidence (lasagna), so the
+    # directory and its parent together name the candidate.
     stem = Path(metadata_path).stem
     if stem == "evidence_metadata":
-        candidate_id = Path(metadata_path).resolve().parent.name
+        directory = Path(metadata_path).resolve().parent
+        candidate_id = f"{directory.parent.name}_{directory.name}"
     else:
         candidate_id = stem.removesuffix("_meta")
     target_dir = Path(review_dir) / candidate_id

@@ -232,7 +232,9 @@ The validator checks locally verifiable requirements:
 - scroll / source / segmentation provenance
 - 3D position
 - `64x64` or smaller ML window
-- declared 1 cm scale bar
+- a complete prediction (`prediction_complete: true`) whose ink map is `sigmoid(ink)`
+  (`inference_recipe.ink_probability`)
+- a declared 1 cm scale bar that fits the region (`width_px × voxel_size_um` of at least 10 mm)
 - zero train/predict overlap when masks are provided
 - VC3D/Zarr shape metadata and OME-Zarr spatial scale metadata when prediction Zarrs are provided
 
