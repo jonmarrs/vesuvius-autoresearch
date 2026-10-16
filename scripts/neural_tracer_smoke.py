@@ -42,6 +42,7 @@ def synthetic(size: int = SIZE, seed: int = 0) -> tuple[np.ndarray, np.ndarray]:
     ]:
         # A tube along `axis` through (a, b) in the other two axes, radius 4.
         u, v = [(z, y, x)[i] for i in range(3) if i != axis]
+        a, b = a * size // SIZE, b * size // SIZE  # positions are given for 256^3
         inside = (u - a) ** 2 + (v - b) ** 2 <= 16
         prob[np.broadcast_to(inside, prob.shape)] = 1.0
     ct[prob > 0] = 200
