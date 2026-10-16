@@ -150,6 +150,24 @@ def test_complete_region_has_no_black_edges_and_consistent_exports(
     assert metadata["coverage_fraction"] == 1.0
     assert metadata["position_xyz"] == [3, 2, 1]
     assert metadata["voxel_size_um"] == 2.0
+    if mode == "single":
+        from scripts.rank_scroll23_candidates import score_row
+
+        candidate = {
+            "local_uri": metadata["source_uri"],
+            "x": "3",
+            "y": "2",
+            "z": "1",
+            "width": "13",
+            "height": "11",
+            "patch_size": "8",
+            "voxel_um": "2.0",
+        }
+        ranked = score_row(candidate, prediction_dir=output)
+        assert ranked["prediction_found"] == "true"
+        assert not ranked["metadata_error"]
+        assert not ranked["prediction_error"]
+        assert float(ranked["fiber_mean"]) == 0.5
     assert metadata["inference_recipe"]["tta_mirrors"] == (
         ["none", "x", "y", "xy"] if tta else ["none"]
     )
@@ -927,6 +945,7 @@ def test_custom_metadata_rerun_invalidates_default_sidecar(
     assert list(output.glob("*_fiber.npy"))
     if mode == "single":
         row = {"x": "3", "y": "2", "z": "1", "width": "13", "height": "11"}
+        row["patch_size"] = "8"
         ranked = score_row(row, prediction_dir=output)
         assert ranked["prediction_found"] == "false"
         assert float(ranked["fiber_mean"]) == 0.0
