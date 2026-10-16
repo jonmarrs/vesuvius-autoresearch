@@ -96,7 +96,9 @@ Environment: CPython 3.10 venv with PyTorch 2.14.1 (no GPU visible), pytest, Ruf
   lines. It was 42 failed, 2189 passed, 15 skipped, 1 xfailed, 2 errors. The failures and errors are environmental:
   no scroll data, no CUDA, no villa data files.
 - Branch, first head: 42 failed, 2191 passed, 15 skipped, 1 xfailed, 2 errors.
-- Follow-up PR (from `d67c942f`): REVIEW_RESULT
+- Follow-up PR (from `d67c942f`): 42 failed, 2193 passed, 15 skipped, 1 xfailed, 2 errors. The failures and
+  errors are the same set as the baseline; the 2 extra passes over #86's head are the `train()` tests.
+  `scripts/smoke_test.py`: 9 of 11 passed, 2 skipped; its `best_model.pt` check now reads 288 of 288 loaded.
 - Ruff (check and format) and mypy on `train.py`: clean.
 
 New tests in `tests/test_autoresearch_measurement.py`:
