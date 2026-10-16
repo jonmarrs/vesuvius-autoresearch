@@ -240,6 +240,34 @@ def test_complete_runs_preserve_loop_files_and_compute_sample_spread(
     )
 
 
+def test_a_trial_can_start_a_spawn_manager_however_deep_the_output(inputs, monkeypatch):
+    """train.py starts a spawn Manager when it has loader workers, which binds a
+    Unix socket under TMPDIR. A run's TMPDIR inside a deep output overran the
+    socket path limit (107 bytes): the 2026-10-16 probe died on its first trial
+    with "AF_UNIX path too long"."""
+    project, config, checkpoint, _ = inputs
+    output = project.parent / ("deep" * 20) / "probe"
+    seen = project / "tmpdirs.txt"
+    # In a `python -c` child: spawn would re-run a script's top level.
+    start_manager = (
+        "import multiprocessing\n"
+        "manager = multiprocessing.get_context('spawn').Manager()\n"
+        "manager.dict()['ok'] = 1\n"
+        "manager.shutdown()\n"
+    )
+    extra = (
+        "import subprocess\n"
+        f"with Path({str(seen)!r}).open('a') as f: f.write(os.environ['TMPDIR'] + '\\n')\n"
+        f"subprocess.run([sys.executable, '-c', {start_manager!r}], check=True)\n"
+    )
+    fake_runner(inputs, monkeypatch, extra=extra)
+    report = probe.execute(probe.make_plan(config, checkpoint, output, runs=2))
+    assert report["status"] == "COMPLETE", report["runs"]
+    tmpdirs = seen.read_text().split()
+    assert len(set(tmpdirs)) == 2  # each trial its own
+    assert not any(Path(t).exists() for t in tmpdirs)  # and removed afterwards
+
+
 def test_failed_exit_cannot_contribute_emitted_scores(inputs, monkeypatch):
     fake_runner(inputs, monkeypatch, code=7)
     report = probe.execute(plan(inputs))

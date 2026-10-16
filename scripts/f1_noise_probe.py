@@ -16,6 +16,7 @@ import shutil
 import statistics
 import subprocess
 import sys
+import tempfile
 import time
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -248,6 +249,7 @@ def execute(plan):
                     "returncode": None,
                 }
                 started = time.monotonic()
+                run_tmp = None
                 try:
                     _unchanged(plan)
                     copy = workspace / "best_model.pt"
@@ -265,14 +267,18 @@ def execute(plan):
                         json.dumps(config, indent=2, allow_nan=False) + "\n"
                     )
                     (workspace / "villa").symlink_to(VILLA, target_is_directory=True)
-                    (workspace / "tmp").mkdir()
+                    # A private TMPDIR, but a short one: the trainer's spawn
+                    # Manager and DataLoader workers bind Unix sockets under
+                    # it, and a path inside a deep output overruns the 107-byte
+                    # limit ("AF_UNIX path too long").
+                    run_tmp = Path(tempfile.mkdtemp(prefix=f"f1probe-{index:02d}-"))
                     env = dict(os.environ)
                     env.update(
                         PYTHONPATH=str(REPO),
                         PYTHONUNBUFFERED="1",
                         PYTHONDONTWRITEBYTECODE="1",
                         WANDB_MODE="disabled",
-                        TMPDIR=str(workspace / "tmp"),
+                        TMPDIR=str(run_tmp),
                         MPLCONFIGDIR=str(workspace / "matplotlib"),
                         TORCH_EXTENSIONS_DIR=str(workspace / "native_build"),
                         CUPY_CACHE_DIR=str(workspace / "cupy_cache"),
@@ -322,6 +328,9 @@ def execute(plan):
                     record.update(status="INTERRUPTED", error="probe interrupted")
                 except Exception as exc:
                     record["error"] = f"{type(exc).__name__}: {exc}"
+                finally:
+                    if run_tmp is not None:
+                        shutil.rmtree(run_tmp, ignore_errors=True)
                 record["seconds"] = time.monotonic() - started
                 records.append(record)
                 if record["status"] != "COMPLETE":
