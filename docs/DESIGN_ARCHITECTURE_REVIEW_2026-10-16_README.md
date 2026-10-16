@@ -126,7 +126,8 @@ Environment: CPython 3.10 venv with PyTorch 2.14.1 (no GPU visible), pytest, Ruf
   environmental: no scroll data, no CUDA, no villa data files.
 - Branch, PR first head (`d9946894`): 42 failed, 2477 passed, 21 skipped, 1 xfailed, 2 errors. Same set; the extra
   pass is the new test. `scripts/smoke_test.py`: 9 of 11 passed, 2 skipped (no training data).
-- Branch, after the PR review's fixes: _running at this commit; recorded in the next._
+- Branch, after the PR review's fixes (`3c90dc4f`): 42 failed, 2478 passed, 21 skipped, 1 xfailed, 2 errors. Same
+  set; the 2 extra passes are the two new tests. `scripts/smoke_test.py`: 9 of 11 passed, 2 skipped.
 - `tests/test_topology_threshold.py`: 6 passed; `tests/test_prize_promotion_gates.py`: 5 passed, 1 skipped. Both new
   tests fail on main. The README-reading consistency tests
   (`test_withdrawn_claims_stay_withdrawn`, `test_decoupling_not_claimed_on_current_code`,
