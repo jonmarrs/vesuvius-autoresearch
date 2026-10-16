@@ -234,24 +234,51 @@ def foundation_encoder_state(state_dict):
     return encoder
 
 
+# A LeJEPA encoder must fill nearly all of shared_encoder: the input stem and
+# the position embedding can differ with in_channels and the input shape, but
+# an encoder of another size (pretraining defaults to "M"; LeJEPAUNet builds
+# "S") fits only its patch-embedding stem, 70 of 280 tensors.
+FOUNDATION_ENCODER_MIN_FRACTION = 0.9
+
+
+def check_foundation_model_path(config):
+    """A file check, run first by train() and the --smoke preflight: a missing
+    foundation_model_path fails in seconds, not after the validation catalogue
+    and the model are built."""
+    path = getattr(config, "foundation_model_path", None)
+    if path and not os.path.exists(path):
+        raise FileNotFoundError(f"foundation_model_path {path} does not exist")
+
+
 def load_foundation_model(model, path, device):
     """Start model from the pretrained checkpoint at path (foundation_model_path):
     a LeJEPA encoder into PrimusNetwork's shared_encoder, else any checkpoint
-    by name. Raises if the file is missing or no tensor loads: a run asked to
-    start from a pretrained model must not train from scratch under its name.
-    That used to be a printed warning, or nothing at all for a missing path."""
+    by name. Raises if the file is missing or unreadable, if no tensor fits, or
+    if a LeJEPA encoder fills under FOUNDATION_ENCODER_MIN_FRACTION of
+    shared_encoder: a run asked to start from a pretrained model must not
+    train from scratch under its name. That used to be a printed warning, or
+    nothing at all for a missing path. ``device`` is the model's; the
+    checkpoint is read on the CPU (it can hold optimizer state too)."""
     if not os.path.exists(path):
         raise FileNotFoundError(f"foundation_model_path {path} does not exist")
     print(f"Loading pretrained backbone from {path}...")
-    checkpoint = torch.load(path, map_location=device, weights_only=False)
+    checkpoint = torch.load(path, map_location="cpu", weights_only=False)
     state_dict = extract_checkpoint_state(checkpoint)
+    if not isinstance(state_dict, dict):
+        raise TypeError(f"{path} holds a {type(state_dict).__name__}, not a state dict")
     if hasattr(model, "backbone") and hasattr(model.backbone, "shared_encoder"):
         target = model.backbone.shared_encoder
         state, label = foundation_encoder_state(state_dict), "LeJEPA encoder"
+        needed = FOUNDATION_ENCODER_MIN_FRACTION * len(target.state_dict())
     else:
         target, state, label = model, state_dict, "generic pretrained checkpoint"
-    if not load_shape_compatible_state(target, state, label):
-        raise ValueError(f"no tensor of {path} fits the model ({label})")
+        needed = 1
+    loaded = load_shape_compatible_state(target, state, label)
+    if loaded < needed:
+        raise ValueError(
+            f"only {loaded} of {len(target.state_dict())} tensors of the model "
+            f"({label}) load from {path}"
+        )
 
 
 def extract_checkpoint_state(checkpoint):
@@ -1856,6 +1883,7 @@ def train(config: ExperimentConfig, *, strict_warm_start=False):
     # The label file each training volume is read with, recorded with the
     # result: a pseudo-label takes precedence over the volume's own labels.
     training_labels = resolve_training_labels(config)
+    check_foundation_model_path(config)
     sys.stdout.flush()
 
     def get_dataloader(uris, is_unlabeled=False):
@@ -2894,6 +2922,7 @@ if __name__ == "__main__":
     if args.smoke:
         try:
             resolve_training_labels(config)
+            check_foundation_model_path(config)
             preflight_smoke(config)
         except Exception as e:
             import traceback

@@ -3,11 +3,11 @@ import os
 import pytest
 import torch
 
-from scripts.training.train import foundation_encoder_state
-
 PrimusNetwork = pytest.importorskip(
     "villa.vesuvius.src.vesuvius.models.build.primus_wrapper"
 ).PrimusNetwork
+
+from scripts.training.train import foundation_encoder_state  # noqa: E402
 
 
 def test_lejepa_foundation_checkpoint_loads_compatible_encoder_tensors():
