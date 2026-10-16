@@ -58,7 +58,10 @@ Honest measurement is this project's differentiator:
     there is no training set
     ([`gt_training_data_exhaustion_2026-08-15.md`](../reports/detector/gt_training_data_exhaustion_2026-08-15.md)).
 *   Cross-scroll transfer is weak (lift 2.07 same-scroll → 1.29 cross); training-scroll
-    diversity helps (1.22 → 2.12 on an unseen scroll) but saturates at ~2.1.
+    diversity helps (1.22 → 2.12 on an unseen scroll; the 2.12 is the best epoch on that
+    region) and a third scroll showed no measured gain over that selected row (~2.1, its
+    last epoch; a gain over a fixed-rule row is not excluded; corrected 2026-10-16 from
+    "saturates").
 *   **Detection at the prize window is real and held-out; legibility is not, and the
     detection we have is borrowed.** (Re-derived 2026-08-15, replacing the bullet retired
     below.)

@@ -59,7 +59,9 @@ output**): on a fully held-out segment, `val_f1` 0.372 → **0.662**, AP 0.224 �
 prevalence-lift 0.98 (exact chance) → **3.24**, ROC-AUC 0.499 → **0.865**; the output shows
 letterform-shaped strokes in text lines. An independent review verified the train/held-out
 segments are disjoint. Caveat recorded in the report: the held-out region also serves as the
-best-epoch selection set (AP/ROC-AUC are threshold-free and unaffected).
+best-epoch selection set, so the student's numbers are the best of 12 epochs on that region and
+optimistic in every column, AP and ROC-AUC included (corrected 2026-10-16: this said they were
+unaffected).
 
 ### B. GPU fiber/ridge detection
 A closed-form symmetric-3×3 eigensolver replaces the cuSolver `eigvalsh` path
@@ -71,13 +73,18 @@ binding PRs (#914/#916) and CuPy-acceleration PRs (#915) were also closed and ar
 superseded by the closed-form path above.
 
 ### B2. Cross-scroll distillation (measured, 2026-07-03/04)
-On a held-out PHerc-1667 region no arm trained on (agreement-with-teacher; the undistilled
-detector at lift 1.47 is the selection-asymmetry-free anchor): single-scroll distillation
-*over-specializes* (lift 1.22 — below the anchor); adding a second training scroll at **fixed
-budget** lifts transfer to **2.12** (the controlled diversity result); a third scroll (+50%
-data) **saturates** at ≈2.1 while producing the best all-around model (own-scroll val_f1
-0.587–0.631, ROC-AUC up to 0.919). A full bucket sweep found only 4 of 45 scrolls ship canon
-teacher predictions — the practical scaling frontier is released teachers.
+On a held-out PHerc-1667 region no arm trained on (agreement-with-teacher): single-scroll
+distillation *over-specializes* (lift 1.22, below the undistilled detector's 1.47); adding a
+second training scroll at **fixed budget** lifts transfer to **2.12** (its best epoch on that
+region, so optimistic by an unmeasured amount); a third scroll (+50% data) shows no measured
+gain over that selected row (≈2.1, its last epoch), and a gain over a fixed-rule second-scroll
+row is not excluded. The single-scroll, third-scroll and undistilled rows were not selected on
+that region. (Corrected 2026-10-16: this called the undistilled detector the
+selection-asymmetry-free anchor, the diversity result controlled, and the third scroll
+saturating.) The third-scroll model is the best all-around one built here (own-scroll val_f1
+0.631 on Scroll 1, 0.587 on PHerc 0172 and 0.258 on PHerc 0139, where the teacher marks 4% of pixels ink;
+ROC-AUC up to 0.919). A full bucket sweep found only 4 of 45 scrolls ship canon teacher
+predictions — the practical scaling frontier is released teachers.
 
 ### B3. Ground-truth calibration (registered hand labels, 2026-07-06/07)
 No ground-truth labels aligned to the SOTA flattening are released, so we bridged the 2023 hand

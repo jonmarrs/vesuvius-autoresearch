@@ -10,10 +10,34 @@ from .convert import to_uint8
 from .qualitative import write_fragment
 
 
+def same_integer_scale(a, b):
+    """Whether shapes ``a`` and ``b`` (h, w) are one pyramid scale k (a power of two)
+    of each other on both axes: the larger within k px a side of k times the smaller,
+    as a pyramid's rounding leaves them. A 1.2x or per-axis-different scale is another
+    crop or scan."""
+    (ah, aw), (bh, bw) = a, b
+    if min(ah, aw, bh, bw) <= 0:
+        return False
+    if ah * aw < bh * bw:
+        (ah, aw), (bh, bw) = (bh, bw), (ah, aw)
+    # k from the smaller shape's longer axis, where the ratio is best resolved.
+    k = max(1, round(ah / bh) if bh >= bw else round(aw / bw))
+    if k & (k - 1):
+        return False
+    return abs(ah - k * bh) <= k and abs(aw - k * bw) <= k
+
+
 def teacher_region_for(teacher_full, level_shape, region_box):
-    """Crop a full-segment teacher (any scale) to a region given in level coordinates."""
+    """Crop a full-segment teacher, at an integer scale of the level, to a region
+    given in level coordinates."""
     th, tw = teacher_full.shape[:2]
     lh, lw = level_shape
+    if not same_integer_scale((th, tw), (lh, lw)):
+        # Until 2026-10-16 each axis was scaled separately, and the crop then stretched.
+        raise ValueError(
+            f"teacher {th}x{tw} vs level {lh}x{lw} mismatch: not one integer scale on "
+            "both axes, so it is not this volume's teacher at a pyramid level"
+        )
     sy, sx = th / lh, tw / lw
     y0, x0, y1, x1 = region_box
     return np.asarray(
@@ -38,13 +62,14 @@ def prep_distill_fragment(
     if t.ndim == 3:
         t = t[..., 0]
     th, tw = t.shape
-    # The teacher may be at a different pyramid scale than the region (e.g. a level-0
-    # teacher for a level-2 region); a uniform scale difference is fine (the resize
-    # below handles it). Guard against ANISOTROPIC scale (axis-swapped/misaligned crop).
-    sy, sx = th / h, tw / w
-    if abs(sy - sx) / max(sy, sx) > 0.2:
+    # The teacher may be at another pyramid level than the region (e.g. a level-0
+    # teacher for a level-2 region): one integer scale on both axes, which the resize
+    # below undoes. Anything else (until 2026-10-16, up to 20% between the axes) is
+    # another crop or an axis swap, and resizing would stretch it over the region.
+    if not same_integer_scale((th, tw), (h, w)):
         raise ValueError(
-            f"{frag_id}: teacher {th}x{tw} vs region {h}x{w} anisotropic scale mismatch"
+            f"{frag_id}: teacher {th}x{tw} vs region {h}x{w} mismatch: not one "
+            "integer scale on both axes"
         )
     t = to_uint8(t)
     if (th, tw) != (h, w):

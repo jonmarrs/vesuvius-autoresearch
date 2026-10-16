@@ -4,7 +4,6 @@ PHerc1667 region no arm trains on: the legacy detector (baseline), the existing 
 student (arm A, no new training), and a multi-scroll student trained on 2 Scroll-1 +
 2 PHerc-0139 regions (arm B, same 4-region budget as A). All metrics are AGREEMENT WITH
 TEACHER (the released canon predictions) -- never ground-truth accuracy."""
-import glob
 import json
 import os
 import sys
@@ -68,10 +67,7 @@ def _prep_targets(targets):
             t = teachers[key]
             print(f"{scroll_key}/{seg}: teacher shape={t.shape} dtype={t.dtype} "
                   f"range=[{t.min()},{t.max()}]", flush=True)
-            provenance[f"{scroll_key}/{seg}"] = {
-                "shape": list(t.shape), "dtype": str(t.dtype),
-                "min": int(t.min()), "max": int(t.max()),
-            }
+            provenance[f"{scroll_key}/{seg}"] = dr.teacher_provenance(tpath, t)
         region, level_shape, box = dr.extract_region(seg, y0, x0, scroll_key=scroll_key)
         t_region = teacher_region_for(teachers[key], level_shape, box)
         fid = _fid((scroll_key, seg, y0, x0))
@@ -128,22 +124,39 @@ def cmd_train():
     print(train(cfg))
 
 
-def _best_epoch(fid, model_dir=MODEL_DIR):
-    ckpts = sorted(glob.glob(os.path.join(model_dir, "detector_epoch=*.ckpt")),
-                   key=lambda p: int(p.split("epoch=")[1].split(".")[0]))
-    if not ckpts:
-        raise ValueError(f"no checkpoints found in {model_dir}; run the train step first")
-    best = None
-    for ck in ckpts:
-        m, prob = dr._measure(ck, fid, data_root=DATA_ROOT)
-        print(f"{os.path.basename(ck)}: val_f1={m.get('val_f1', float('nan')):.4f}",
-              flush=True)
-        score = m.get("val_f1", float("nan"))
-        if isinstance(score, float) and score != score:  # NaN
-            score = -1.0
-        if best is None or score > best[3]:
-            best = (m, ck, prob, score)
-    return best[:3]
+def _epochs(fid, model_dir=MODEL_DIR):
+    """The run's epochs measured on ``fid``: best (selected there) and last."""
+    return dr.measure_epochs(fid, model_dir, data_root=DATA_ROOT)
+
+
+# Which rows were selected on which region (distill_run.epoch_caveat). Until 2026-10-16
+# the arm-B report called "arm B vs the legacy detector" free of the selection asymmetry
+# (and, before its review, diversity "the only variable"), and arm C's called it the
+# asymmetry-free anchor; but arm B's row is the one chosen on the region it is reported
+# on, and arm C's best epoch was its last.
+UNSELECTED_ARMS = (
+    "Arm A's and the legacy detector's epochs were not chosen on this region. A "
+    "comparison with an optimistic row favours that row's arm; comparisons between "
+    "fixed-rule or unselected rows are free of epoch selection.")
+SAME_SCROLL_CAVEAT = (
+    "Arm A's epoch (the Phase-2 best) was chosen on the Phase-2 held-out Scroll-1 "
+    "region, so on that region arm A's row is optimistic against the others.")
+
+
+def _cited_b(prior):
+    """Arm B's rows and caveat as the arm-B report recorded them."""
+    on1667 = prior["on_held_1667"]
+    best, last = prior.get("armB_best_checkpoint"), prior.get("armB_last_checkpoint")
+    if last is not None and last == best:
+        return ([("arm B: 2 scrolls, 4 regions (cited; last epoch, also its best)",
+                  on1667["armB"])],
+                "Arm B's cited row is its last epoch, also its best here: a fixed rule.")
+    rows = [("arm B: 2 scrolls, 4 regions (cited; best epoch, selected here)",
+             on1667["armB"])]
+    if "armB_last_epoch" in on1667:
+        rows.append(("arm B, last epoch (cited)", on1667["armB_last_epoch"]))
+    return rows, ("Arm B's cited best-epoch row was chosen on this region, so it is "
+                  "optimistic here.")
 
 
 def cmd_measure():
@@ -152,7 +165,9 @@ def cmd_measure():
         raise ValueError(f"{BASELINES_JSON} missing; run the baselines step first")
     with open(BASELINES_JSON) as f:
         base = json.load(f)["arms"]
-    m_b, ck_b, prob_b = _best_epoch(held_fid)
+    run_b = _epochs(held_fid)
+    m_b, ck_b, prob_b = run_b["best"]
+    m_b_last, ck_b_last = run_b["last"]
 
     # renders on the held-out 1667 region: arm B + teacher; arm A for comparison
     Image.fromarray((np.clip(prob_b, 0, 1) * 255).astype(np.uint8)).resize(
@@ -183,31 +198,28 @@ def cmd_measure():
         with open(prov_path) as f:
             prov = json.load(f)
 
-    def row(label, m):
-        return f"| {label} | " + " | ".join(
-            f"{m.get(c, float('nan')):.4f}" for c in COLS) + " |"
-
+    row = dr.table_row
+    legacy = base["baseline_epoch7"]["vs_teacher"]
     lines = ["# Cross-scroll distillation: diversity experiment (held-out PHerc 1667)", "",
              "**All metrics are agreement-with-teacher (the released canon predictions), "
              "NOT ground-truth accuracy.** No arm trained on any PHerc-1667 data. "
-             "Arms A and B use the same 4-region training budget; training-scroll "
-             "diversity is the only variable. The held-out region also serves as arm B's "
-             "best-epoch selection set (AP and roc_auc are threshold-free).", ""]
+             "Arms A and B use the same 4-region training budget (region *count* held "
+             "constant; sampling layout differs: A = 2 segments x 2 regions on one scroll, "
+             "B = 4 segments x 1 region across two scrolls). Caveat: "
+             + dr.epoch_caveat("Arm B", run_b) + " " + UNSELECTED_ARMS + " "
+             + dr.THRESHOLD_NOTE, ""]
     if prov is not None:
-        lines += ["Teacher provenance: " + "; ".join(
-            f"`{s}` {p['dtype']} range [{p['min']},{p['max']}]"
-            for s, p in prov["teachers"].items())
-            + f". Labels binarized at >= {prov['binarize_threshold']} after uint8 scaling.",
-            ""]
+        lines += [dr.provenance_line(prov), ""]
     lines += [f"Held-out: `{held_fid}`  |  arm B best ckpt: `{os.path.basename(ck_b)}`", "",
               "| model (on held-out 1667) | " + " | ".join(COLS) + " |",
               "|---|" + "|".join(["---"] * len(COLS)) + "|",
-              row("legacy detector (no distillation)",
-                  base["baseline_epoch7"]["vs_teacher"]),
+              row("legacy detector (no distillation)", legacy),
               row("arm A: Scroll-1 student (existing)",
                   base["armA_scroll1_student"]["vs_teacher"]),
-              row("arm B: multi-scroll student (2xScroll1 + 2xPHerc0139)", m_b),
-              "", "Secondary (same-scroll read-outs):", "",
+              *(row(label, mm) for label, mm in dr.epoch_rows(
+                  "arm B: multi-scroll student (2xScroll1 + 2xPHerc0139)", run_b)),
+              "", "Secondary (same-scroll read-outs, arm B's best epoch). "
+              + SAME_SCROLL_CAVEAT, "",
               "| model / fragment | " + " | ".join(COLS) + " |",
               "|---|" + "|".join(["---"] * len(COLS)) + "|",
               row("arm B on held-out PHerc-0139 region", sec["armB_on_held0139"]),
@@ -221,9 +233,18 @@ def cmd_measure():
         f.write("\n".join(lines) + "\n")
     with open(REPORT_JSON, "w") as f:
         json.dump({"held_out": held_fid, "armB_best_checkpoint": os.path.basename(ck_b),
+                   "armB_last_checkpoint": os.path.basename(ck_b_last),
                    "on_held_1667": {"baseline": base["baseline_epoch7"]["vs_teacher"],
                                     "armA": base["armA_scroll1_student"]["vs_teacher"],
-                                    "armB": m_b},
+                                    "armB": m_b, "armB_last_epoch": m_b_last},
+                   "armB_per_epoch": run_b["per_epoch"],
+                   "selection": {
+                       "armB": f"best of {run_b['epochs']} epochs by val_f1 on {held_fid}"
+                               + (" (the last epoch)" if dr.best_is_last(run_b) else ""),
+                       "armB_last_epoch": "the last epoch, a fixed rule",
+                       "armA": "Phase-2 best epoch, chosen on the Phase-2 held-out "
+                               "Scroll-1 region",
+                       "baseline": "one checkpoint, not selected on this fragment"},
                    "secondary": sec, "teacher_provenance": prov},
                   f, indent=2, default=float)
     print(f"ARM B vs teacher on held-out 1667: val_f1={m_b.get('val_f1', float('nan')):.4f} "
@@ -259,7 +280,9 @@ def cmd_measure_c():
                          "(its baseline/armA/armB numbers are cited, not re-run)")
     with open(REPORT_JSON) as f:
         prior = json.load(f)
-    m_c, ck_c, prob_c = _best_epoch(held_fid, model_dir=MODEL_DIR_C)
+    run_c = _epochs(held_fid, model_dir=MODEL_DIR_C)
+    m_c, ck_c, prob_c = run_c["best"]
+    m_c_last, ck_c_last = run_c["last"]
 
     Image.fromarray((np.clip(prob_c, 0, 1) * 255).astype(np.uint8)).resize(
         (prob_c.shape[1] // 4, prob_c.shape[0] // 4)).save(
@@ -280,40 +303,39 @@ def cmd_measure_c():
         with open(prov_path) as f:
             prov = json.load(f)
 
-    def row(label, m):
-        return f"| {label} | " + " | ".join(
-            f"{m.get(c, float('nan')):.4f}" for c in COLS) + " |"
-
+    row = dr.table_row
     on1667 = prior["on_held_1667"]
+    cited_b_rows, cited_b_caveat = _cited_b(prior)
+    cited_a_same_scroll = prior.get("secondary", {}).get("armA_on_heldScroll1_phase2")
     lines = ["# Scaled multi-scroll distillation (arm C) on held-out PHerc 1667", "",
              "**All metrics are agreement-with-teacher (the released canon predictions), "
              "NOT ground-truth accuracy.** No arm trained on any PHerc-1667 data. Arm C is a "
              "**capability run**: it differs from arm B in BOTH training-scroll diversity "
              "(+PHerc0172) and data volume (6 vs 4 regions) -- it is not a single-variable "
-             "experiment. Caveat: the held-out region serves as the best-epoch selection set "
-             "for arms B and C (not for arm A or the legacy baseline) -- the asymmetry-free "
-             "anchor is the **arm-vs-legacy-baseline** comparison. Baseline/A/B rows are "
-             "cited from the committed cross_scroll_distill.json, not re-run.", ""]
+             "experiment. Caveat: " + dr.epoch_caveat("Arm C", run_c) + " "
+             + cited_b_caveat + " " + UNSELECTED_ARMS + " " + dr.THRESHOLD_NOTE
+             + " Baseline/A/B rows are cited from the committed cross_scroll_distill.json, "
+             "not re-run.", ""]
     if prov is not None:
-        lines += ["Teacher provenance: " + "; ".join(
-            f"`{s}` {p['dtype']} range [{p['min']},{p['max']}]"
-            for s, p in prov["teachers"].items())
-            + f". Labels binarized at >= {prov['binarize_threshold']} after uint8 scaling.",
-            ""]
+        lines += [dr.provenance_line(prov), ""]
     lines += [f"Held-out: `{held_fid}`  |  arm C best ckpt: `{os.path.basename(ck_c)}`", "",
               "| model (on held-out 1667) | " + " | ".join(COLS) + " |",
               "|---|" + "|".join(["---"] * len(COLS)) + "|",
               row("legacy detector (cited)", on1667["baseline"]),
               row("arm A: 1 scroll, 4 regions (cited)", on1667["armA"]),
-              row("arm B: 2 scrolls, 4 regions (cited)", on1667["armB"]),
-              row("arm C: 3 scrolls, 6 regions", m_c),
-              "", "Secondary (arm C same-scroll read-outs):", "",
+              *(row(label, mm) for label, mm in cited_b_rows),
+              *(row(label, mm) for label, mm in dr.epoch_rows(
+                  "arm C: 3 scrolls, 6 regions", run_c)),
+              "", "Secondary (arm C same-scroll read-outs, its best epoch)."
+              + (" " + SAME_SCROLL_CAVEAT if cited_a_same_scroll else ""), "",
               "| model / fragment | " + " | ".join(COLS) + " |",
               "|---|" + "|".join(["---"] * len(COLS)) + "|",
               row("arm C on held-out PHerc-0172 region", sec["armC_on_held0172"]),
               row("arm C on held-out PHerc-0139 region", sec["armC_on_held0139"]),
               row("arm C on Phase-2 held-out Scroll-1 region",
                   sec["armC_on_heldScroll1_phase2"]),
+              *([row("arm A on Phase-2 held-out Scroll-1 region (cited)",
+                     cited_a_same_scroll)] if cited_a_same_scroll else []),
               "", "Renders (held-out 1667): [arm C](xscroll_armC_1667.png) | "
               "[arm B](xscroll_armB_1667.png) | [arm A](xscroll_armA_1667.png) | "
               "[teacher](xscroll_teacher_1667.png)."]
@@ -321,7 +343,13 @@ def cmd_measure_c():
         f.write("\n".join(lines) + "\n")
     with open(SCALE_REPORT_JSON, "w") as f:
         json.dump({"held_out": held_fid, "armC_best_checkpoint": os.path.basename(ck_c),
-                   "on_held_1667": {**on1667, "armC": m_c},
+                   "armC_last_checkpoint": os.path.basename(ck_c_last),
+                   "on_held_1667": {**on1667, "armC": m_c, "armC_last_epoch": m_c_last},
+                   "armC_per_epoch": run_c["per_epoch"],
+                   "selection": {
+                       "armC": f"best of {run_c['epochs']} epochs by val_f1 on {held_fid}"
+                               + (" (the last epoch)" if dr.best_is_last(run_c) else ""),
+                       "armC_last_epoch": "the last epoch, a fixed rule"},
                    "secondary_armC": sec,
                    "cited_from": "reports/detector/cross_scroll_distill.json",
                    "teacher_provenance": prov},

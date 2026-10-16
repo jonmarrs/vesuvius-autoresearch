@@ -1,6 +1,6 @@
 """Adapt a released SOTA surface-volume segment (a directory of tiff depth slices + an ink
 label) into the detector's input format: 26 8-bit layers 17..42, plus <seg>_inklabels.png
-and <seg>_mask.png resized to the layer grid. Fails loudly on too-few layers or a
+and <seg>_mask.png fitted to the layer grid. Fails loudly on too-few layers or a
 label/volume shape mismatch (the cross-scroll misalignment lesson)."""
 
 import glob
@@ -11,6 +11,29 @@ import numpy as np
 import tifffile
 
 from .fragment import to_uint8, write_fragment_artifact
+
+# Largest per-axis size difference accepted between the label (or mask) and the layers:
+# export rounding, not a different crop or scale. The labeled dataset's
+# LABEL_SHAPE_TOLERANCE_PX; released segments differ by 0 or 1 px.
+SHAPE_TOLERANCE_PX = 2
+
+
+def _fit_to_grid(image, h, w, seg_id, what):
+    """Crop or zero-pad ``image`` onto the (h, w) layer grid, keeping its origin.
+
+    Until 2026-10-16 a label up to 20% off was resized onto the grid, which stretches
+    one of another crop or scale across the volume, misregistered everywhere.
+    """
+    ih, iw = image.shape
+    if abs(ih - h) > SHAPE_TOLERANCE_PX or abs(iw - w) > SHAPE_TOLERANCE_PX:
+        raise ValueError(
+            f"{seg_id}: {what} {ih}x{iw} vs volume {h}x{w} mismatch > "
+            f"{SHAPE_TOLERANCE_PX} px: a different crop or scale; register it to the "
+            "layer grid first"
+        )
+    fitted = np.zeros((h, w), image.dtype)
+    fitted[: min(ih, h), : min(iw, w)] = image[:h, :w]
+    return fitted
 
 
 def _read_8bit(path):
@@ -60,10 +83,8 @@ def convert_surface_volume(src_dir, seg_id, out_root, n_layers=26, start_idx=17)
     label = cv2.imread(ink_files[0], 0)
     if label is None:
         raise ValueError(f"{seg_id}: label file unreadable: {ink_files[0]}")
-    lh, lw = label.shape
-    if abs(lh - h) / h > 0.2 or abs(lw - w) / w > 0.2:
-        raise ValueError(f"{seg_id}: label {lh}x{lw} vs volume {h}x{w} mismatch > 20%")
-    label = cv2.resize(label, (w, h), interpolation=cv2.INTER_NEAREST)
+    labeled_h, labeled_w = min(label.shape[0], h), min(label.shape[1], w)
+    label = _fit_to_grid(label, h, w, seg_id, "label")
     mask_files = sorted(glob.glob(os.path.join(src_dir, "*mask*")))
     if mask_files:
         if len(mask_files) != 1:
@@ -71,12 +92,12 @@ def convert_surface_volume(src_dir, seg_id, out_root, n_layers=26, start_idx=17)
         source_mask = cv2.imread(mask_files[0], 0)
         if source_mask is None:
             raise ValueError(f"{seg_id}: mask file unreadable: {mask_files[0]}")
-        mh, mw = source_mask.shape
-        if abs(mh - h) / h > 0.2 or abs(mw - w) / w > 0.2:
-            raise ValueError(f"{seg_id}: mask vs volume shape mismatch > 20%")
-        mask = cv2.resize(source_mask, (w, h), interpolation=cv2.INTER_NEAREST)
+        mask = _fit_to_grid(source_mask, h, w, seg_id, "mask")
     else:
         mask = np.full((h, w), 255, np.uint8)
+    # Rows or columns the label was padded with are unlabeled, not known negatives.
+    mask[labeled_h:, :] = 0
+    mask[:, labeled_w:] = 0
     return write_fragment_artifact(
         np.stack(layers), mask > 0, out_root, seg_id, start_idx=start_idx, label=label
     )
