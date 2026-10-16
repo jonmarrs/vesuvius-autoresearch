@@ -118,12 +118,16 @@ except ImportError as exc:
         return float("nan")
 
 
+CENTERLINE_DICE_IMPORT_ERROR = None
 try:
     from metrics.centerline_dice import compute as compute_centerline_dice
-except ImportError:
+except ImportError as exc:
+    CENTERLINE_DICE_IMPORT_ERROR = str(exc)
 
+    # Not measured, as the skeleton metric's stand-in: a 0.0 for every patch was
+    # recorded as a measured score (history.tsv, the prize gates).
     def compute_centerline_dice(label, prediction, **kwargs):
-        return {"centerline_dice": 0.0}
+        return {"centerline_dice": float("nan")}
 
 
 try:
@@ -2507,6 +2511,8 @@ def train(config: ExperimentConfig, *, strict_warm_start=False):
         print(
             f"  Skeleton-distance metric unavailable: {SKELETON_DISTANCE_IMPORT_ERROR}"
         )
+    if CENTERLINE_DICE_IMPORT_ERROR:
+        print(f"  Centerline-dice metric unavailable: {CENTERLINE_DICE_IMPORT_ERROR}")
     sys.stdout.flush()
     val_losses = []
     val_skel_dists = []

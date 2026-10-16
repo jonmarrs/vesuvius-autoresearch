@@ -35,7 +35,8 @@ run_result.json
 # Generated experiment artifacts
 wandb/
 test_cache*/
-# Crash-recovery outputs; keep canonical best_model.pt and results.tsv tracked/visible.
+# Crash-recovery outputs; the canonical best_model.pt stays tracked (results.tsv is
+# local-only, above).
 last_model.pt
 best_model.pt.corrupted
 results.tsv.corrupted

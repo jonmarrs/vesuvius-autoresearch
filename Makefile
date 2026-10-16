@@ -28,7 +28,7 @@ reeval:
 	uv run python scripts/reevaluate_best_model.py
 
 # Spawn a shift via nohup so it survives terminal disconnect. The loop
-# auto-detects DAY (07-19 PT) vs NIGHT (19-07 PT) from system clock.
+# auto-detects DAY (07-19) vs NIGHT (19-07) from the system clock (local time).
 shift:
 	@bash start.sh
 

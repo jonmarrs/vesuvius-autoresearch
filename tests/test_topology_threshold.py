@@ -1,3 +1,5 @@
+import os
+import subprocess
 import sys
 from pathlib import Path
 
@@ -89,3 +91,35 @@ def test_failed_metric_evaluations_are_reported(monkeypatch, capsys):
     assert out.count("RuntimeError: metric unavailable") == 3
     assert "without 6 failed centerline-dice evaluations" in out
     assert diag == {"topology_threshold_errors": 6}
+
+
+def test_a_missing_centerline_metric_is_not_measured():
+    """Without villa's metric its stand-in returned 0.0 for every patch, which
+    history.tsv and the prize gates recorded as a measured score."""
+    repo = Path(__file__).resolve().parents[1]
+    probe = (
+        "import sys\n"
+        "sys.modules['metrics.centerline_dice'] = None  # as if villa lacked it\n"
+        "import numpy as np, torch, train\n"
+        "assert train.CENTERLINE_DICE_IMPORT_ERROR\n"
+        "gt = np.ones((1, 4, 4), dtype=bool)\n"
+        "assert np.isnan(train.compute_centerline_dice(gt, gt)['centerline_dice'])\n"
+        "probs = [torch.ones((1, 1, 4, 4)) for _ in range(2)]\n"
+        "thr, cd = train.select_topology_threshold(\n"
+        "    probs, [torch.ones((1, 1, 4, 4))] * 2, fallback=0.42, subset_step=1\n"
+        ")\n"
+        "assert (thr, cd) == (0.42, 0.0), (thr, cd)\n"
+        "print('NOT MEASURED')\n"
+    )
+    paths = [str(repo), str(repo / "src"), str(repo / "scripts" / "training")]
+    env = {**os.environ, "PYTHONPATH": os.pathsep.join(paths)}
+    result = subprocess.run(
+        [sys.executable, "-c", probe],
+        cwd=repo,
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=300,
+    )
+    assert result.returncode == 0, result.stderr[-2000:]
+    assert "NOT MEASURED" in result.stdout
