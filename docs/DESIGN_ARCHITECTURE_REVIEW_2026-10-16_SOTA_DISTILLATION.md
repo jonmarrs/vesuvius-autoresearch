@@ -36,7 +36,9 @@ renderer was reviewed on 2026-10-05. The ground-truth registration (`register*.p
   - A teacher must now be one pyramid scale (a power of two, k) of the level, and of the region, on both axes,
     within k px a side (`same_integer_scale`). k is taken from the better-resolved axis.
   - Only the Scroll-1 inputs were confirmed against this: their teachers are exactly 4× their level-2 shapes.
-    A teacher padded beyond the rounding (for instance to a tile multiple) is now refused.
+    The other committed teachers pass against their own shape / 4, which assumes they are at level 0; their
+    level-2 shapes are not in the repository. A teacher padded beyond the rounding (for instance to a tile
+    multiple) is now refused.
 - **The distillation reports say which rows were selected on the region they are reported on.**
   - Both runners keep every epoch's checkpoint (`save_top_k=-1`, 12 epochs) and report the best by val_f1 on the
     held-out region, which is also the region they report on. Training validates on it each epoch, but chooses
@@ -55,7 +57,8 @@ renderer was reviewed on 2026-10-05. The ground-truth registration (`register*.p
       C's best epoch was its last (epoch 11 of 0–11), so its row is the fixed-rule one. Comparisons among arm A,
       arm C and the legacy detector are free of epoch selection; arm A was not chosen on 1667.
     - "Scaling saturates (C ≈ B)" compares fixed-rule C with selected B. The only selection bias favours B, so
-      saturation is not established.
+      neither saturation nor the absence of a gain is established: C shows no measured gain over B's selected
+      row.
   - The same-scroll rows run the other way. Arm A is the Phase-2 best epoch, chosen on the Phase-2 Scroll-1
     region that its same-scroll row reports. So diversity's ~11% same-scroll cost is an upper bound.
   - What the runners now do:
@@ -113,7 +116,8 @@ renderer was reviewed on 2026-10-05. The ground-truth registration (`register*.p
 - every number against the committed JSONs;
 - that arm A's Scroll-1 row is the Phase-2 selected row;
 - the NaN handling;
-- that `same_integer_scale` accepts all ten committed teacher shapes and their edge-clipped crops;
+- that `same_integer_scale` accepts all ten committed teacher shapes against shape / 4 (level 0 assumed outside
+  Scroll 1), and their edge-clipped crops;
 - the fetch copy and the mask zeroing.
 
 | Finding | Outcome |
@@ -121,6 +125,23 @@ renderer was reviewed on 2026-10-05. The ground-truth registration (`register*.p
 | P2: arm C's best epoch is its last (11 of 0–11), so "B and C are optimistic" is false for C, and "scaling saturates" rests on B's selected row. | Corrected in FINDINGS (heading too), README, paper, strategy and the arm-C report. The generators build each arm's caveat from its own run, with one row when best is last. |
 | P3: `-v<k>` duplicates gave a stale "last" and an inflated "best of N". | Refused. |
 | P4: "selection-free" was absolute (every row's val_f1 is at its own best threshold); the arm-C caveat named an arm-A row it lacked; k was taken from the height alone, and 3× accepted; a matched directory was silently skipped, and fetch matched names case-insensitively, convert case-sensitively; untested "source not recorded", best ≠ last, `cmd_measure_c`; a dead import; FINDINGS line length; the README's Phase-2 numbers and the strategy doc uncaveated; "overstated" → "at most"; a typo. | All corrected. |
+
+**Third check**, of `9832c4d6`. It simulated all three generators with best ≠ last and best = last (arm C against
+the committed prior and two generated ones) and confirmed:
+- the texts and JSON in each case;
+- every number and epoch count;
+- "at most ~11%";
+- that training chooses nothing by the validation region;
+- the fetch listing types for s3fs and the memory filesystem;
+- `same_integer_scale` on 20,000 random pyramid crops.
+
+| Finding | Outcome |
+| --- | --- |
+| P2: the paper's "the one comparison there with no row selected" ignores arm C's fixed-rule row. | Corrected. |
+| P3: "no further gain" (README, paper, strategy, FINDINGS heading and item 3) rests on B's selected row as "saturates" did. | "No measured gain over B's selected row; a gain over a fixed-rule B is not excluded"; FINDINGS' heading says scaling's effect is unresolved. |
+| P3: the paper's own-scroll range 0.587–0.631 left out PHerc 0139 (0.258). | All three named. |
+| P4: this doc's test-count exception was wrong (all 16 new cases fail on main) and its teacher-shape claims disagreed; "favours B"; the arm-B report's absolute "selection-free"; `measure_epochs`' docstring for best = last. | Corrected. |
+| P4: a tie between the last epoch and an earlier best keeps the earlier as "selected" (conservative); the arm-C JSON does not mark the cited B row as selected. | Left. |
 
 ## Reviewed and sound
 
@@ -178,10 +199,12 @@ mypy.
   passes are its new test cases. `scripts/smoke_test.py`: 9 of 11 passed, 2 skipped (no training data).
 - Branch, second head (`db90d2b6`): 42 failed, 2491 passed, 21 skipped, 1 xfailed, 2 errors. Same set.
   `scripts/smoke_test.py`: 9 of 11, 2 skipped.
-- Branch, after the second review's fixes: _running at this commit; recorded in the next._
+- Branch, after the second review's fixes (`9832c4d6`): 42 failed, 2494 passed, 21 skipped, 1 xfailed, 2 errors.
+  Same set. `scripts/smoke_test.py`: 9 of 11, 2 skipped.
+- The third check's fixes change documents, two committed reports' wording and one docstring, no behaviour. After
+  them: the two SOTA test files and the README- and FINDINGS-reading tests, 70 passed.
 - `tests/test_sota_convert.py`: 14 passed; `tests/test_sota_distill_prep.py`: 16 passed.
-  - Every new case fails on main, except `test_the_tolerance_is_the_labeled_datasets`, a guard that passes there
-    too.
+  - Every new case fails on main (16 of the two files' 30).
 - The README- and FINDINGS-reading tests: 40 passed.
 - Ruff check on the changed files: clean.
   - Three of the five changed modules were not Ruff-formatted on main, and the edits follow their style rather

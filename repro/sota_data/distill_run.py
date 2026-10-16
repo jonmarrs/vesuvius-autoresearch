@@ -232,8 +232,9 @@ def epoch_checkpoints(model_dir):
 def measure_epochs(fid, model_dir, data_root=DATA_ROOT):
     """Every checkpoint of a run, measured on ``fid``.
 
-    Returns the best by val_f1, which is selected on ``fid`` and so optimistic there,
-    and the last epoch, a fixed rule selected on nothing, with each epoch's scores.
+    Returns the best by val_f1, which is selected on ``fid`` (and so optimistic there
+    unless it is the last), and the last epoch, a fixed rule selected on nothing, with
+    each epoch's scores.
     """
     ckpts = epoch_checkpoints(model_dir)
     best = last = None

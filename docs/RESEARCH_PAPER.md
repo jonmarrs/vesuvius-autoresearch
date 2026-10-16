@@ -74,15 +74,17 @@ superseded by the closed-form path above.
 
 ### B2. Cross-scroll distillation (measured, 2026-07-03/04)
 On a held-out PHerc-1667 region no arm trained on (agreement-with-teacher): single-scroll
-distillation *over-specializes* (lift 1.22, below the undistilled detector's 1.47: the one
-comparison there with no row selected on that region); adding a second training scroll at
-**fixed budget** lifts transfer to **2.12** (its best epoch on that region, so optimistic by an
-unmeasured amount; corrected 2026-10-16, this called the undistilled detector the
-selection-asymmetry-free anchor and the result controlled); a third scroll (+50%
-data) gives no further gain (≈2.1, its last epoch, against the second scroll's selected best:
-saturation is not established; corrected 2026-10-16 from "saturates") while producing the best all-around model (own-scroll val_f1
-0.587–0.631, ROC-AUC up to 0.919). A full bucket sweep found only 4 of 45 scrolls ship canon
-teacher predictions — the practical scaling frontier is released teachers.
+distillation *over-specializes* (lift 1.22, below the undistilled detector's 1.47); adding a
+second training scroll at **fixed budget** lifts transfer to **2.12** (its best epoch on that
+region, so optimistic by an unmeasured amount); a third scroll (+50% data) shows no measured
+gain over that selected row (≈2.1, its last epoch), and a gain over a fixed-rule second-scroll
+row is not excluded. The single-scroll, third-scroll and undistilled rows were not selected on
+that region. (Corrected 2026-10-16: this called the undistilled detector the
+selection-asymmetry-free anchor, the diversity result controlled, and the third scroll
+saturating.) The third-scroll model is the best all-around one built here (own-scroll val_f1
+0.631 on Scroll 1, 0.587 on PHerc 0172 and 0.258 on PHerc 0139, where the teacher marks 4% of pixels ink;
+ROC-AUC up to 0.919). A full bucket sweep found only 4 of 45 scrolls ship canon teacher
+predictions — the practical scaling frontier is released teachers.
 
 ### B3. Ground-truth calibration (registered hand labels, 2026-07-06/07)
 No ground-truth labels aligned to the SOTA flattening are released, so we bridged the 2023 hand
