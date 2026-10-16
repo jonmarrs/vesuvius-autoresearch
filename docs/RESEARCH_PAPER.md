@@ -73,10 +73,12 @@ binding PRs (#914/#916) and CuPy-acceleration PRs (#915) were also closed and ar
 superseded by the closed-form path above.
 
 ### B2. Cross-scroll distillation (measured, 2026-07-03/04)
-On a held-out PHerc-1667 region no arm trained on (agreement-with-teacher; the undistilled
-detector at lift 1.47 is the selection-asymmetry-free anchor): single-scroll distillation
-*over-specializes* (lift 1.22 — below the anchor); adding a second training scroll at **fixed
-budget** lifts transfer to **2.12** (the controlled diversity result); a third scroll (+50%
+On a held-out PHerc-1667 region no arm trained on (agreement-with-teacher): single-scroll
+distillation *over-specializes* (lift 1.22, below the undistilled detector's 1.47: the one
+comparison there with no row selected on that region); adding a second training scroll at
+**fixed budget** lifts transfer to **2.12** (its best epoch on that region, so optimistic by an
+unmeasured amount; corrected 2026-10-16, this called the undistilled detector the
+selection-asymmetry-free anchor and the result controlled); a third scroll (+50%
 data) **saturates** at ≈2.1 while producing the best all-around model (own-scroll val_f1
 0.587–0.631, ROC-AUC up to 0.919). A full bucket sweep found only 4 of 45 scrolls ship canon
 teacher predictions — the practical scaling frontier is released teachers.

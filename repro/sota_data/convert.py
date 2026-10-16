@@ -83,6 +83,7 @@ def convert_surface_volume(src_dir, seg_id, out_root, n_layers=26, start_idx=17)
     label = cv2.imread(ink_files[0], 0)
     if label is None:
         raise ValueError(f"{seg_id}: label file unreadable: {ink_files[0]}")
+    labeled_h, labeled_w = min(label.shape[0], h), min(label.shape[1], w)
     label = _fit_to_grid(label, h, w, seg_id, "label")
     mask_files = sorted(glob.glob(os.path.join(src_dir, "*mask*")))
     if mask_files:
@@ -94,6 +95,9 @@ def convert_surface_volume(src_dir, seg_id, out_root, n_layers=26, start_idx=17)
         mask = _fit_to_grid(source_mask, h, w, seg_id, "mask")
     else:
         mask = np.full((h, w), 255, np.uint8)
+    # Rows or columns the label was padded with are unlabeled, not known negatives.
+    mask[labeled_h:, :] = 0
+    mask[:, labeled_w:] = 0
     return write_fragment_artifact(
         np.stack(layers), mask > 0, out_root, seg_id, start_idx=start_idx, label=label
     )

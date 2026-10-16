@@ -118,6 +118,22 @@ def test_a_label_within_two_px_is_padded_onto_the_grid_not_stretched(tmp_path):
     assert mask[:127].all() and not mask[127].any()
 
 
+def test_rows_padded_onto_the_label_are_outside_the_mask(tmp_path):
+    """Without a mask file the whole grid was valid, so padded rows read as negatives."""
+    src = _make_src(str(tmp_path / "src"), "segI", h=128, w=128, label_hw=(128, 127))
+    os.remove(os.path.join(src, "segI_mask.png"))
+    out = convert_surface_volume(src, "segI", str(tmp_path / "out"))
+    mask = cv2.imread(os.path.join(out, "segI_mask.png"), 0)
+    assert mask[:, :127].all() and not mask[:, 127].any()
+
+
+def test_the_tolerance_is_the_labeled_datasets():
+    from repro.sota_data.convert import SHAPE_TOLERANCE_PX
+    from vesuvius_autoresearch.core.vesuvius_loader import LABEL_SHAPE_TOLERANCE_PX
+
+    assert SHAPE_TOLERANCE_PX == LABEL_SHAPE_TOLERANCE_PX
+
+
 @pytest.mark.parametrize("name", ["inklabels", "mask"])
 def test_a_label_or_mask_of_another_crop_or_scale_is_refused(tmp_path, name):
     """10% short: inside the old 20% bound, so it was stretched onto the layers."""
@@ -143,11 +159,15 @@ def fetch_module(monkeypatch):
     module = importlib.import_module("repro.sota_data.fetch")
     yield module, memory
     sys.modules.pop("repro.sota_data.fetch", None)
+    package = sys.modules["repro.sota_data"]
+    if getattr(package, "fetch", None) is module:  # leave no module bound to the stand-in
+        delattr(package, "fetch")
 
 
 def test_fetch_puts_the_segment_where_convert_reads_it(tmp_path, fetch_module):
     """fsspec copied the segment directory into the existing out_dir, as
-    out_dir/<segment>/, so convert found no layers at the returned path."""
+    out_dir/<segment>/, so convert found no layers at the returned path. And it copied
+    everything, a SOTA segment's surface-volume zarrs included."""
     import io
 
     fetch, memory = fetch_module
@@ -160,11 +180,15 @@ def test_fetch_puts_the_segment_where_convert_reads_it(tmp_path, fetch_module):
             memory.pipe(f"{base}/layers/{i:02d}.tif", buf.getvalue())
         label = np.zeros((64, 64), np.uint8)
         label[16:32, 16:32] = 255
-        memory.pipe(f"{base}/segH_inklabels.png", cv2.imencode(".png", label)[1].tobytes())
+        png = cv2.imencode(".png", label)[1].tobytes()
+        memory.pipe(f"{base}/segH_inklabels.png", png)
+        memory.pipe(f"{base}/segH_mask.png", png)
+        memory.pipe(f"{base}/surface-volumes/volume.zarr/0/0.0.0", b"not fetched")
         out = fetch.fetch_segment(prefix, str(tmp_path / "segH"))
     finally:
         memory.rm(base, recursive=True)
     assert out == str(tmp_path / "segH")
     assert not (tmp_path / "segH" / "segH_test_fetch").exists()
+    assert sorted(os.listdir(out)) == ["layers", "segH_inklabels.png", "segH_mask.png"]
     converted = convert_surface_volume(out, "segH", str(tmp_path / "out"))
     assert len(os.listdir(os.path.join(converted, "layers"))) == 26

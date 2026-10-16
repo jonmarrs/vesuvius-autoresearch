@@ -4,7 +4,7 @@
 
 Teacher provenance: `20230702185753` uint8 range [0,248]; `20231005123336` uint8 range [0,250]; `20231210121321` uint8 range [0,247]. Labels binarized at >= 128 after uint8 scaling.
 
-Note: the held-out region is also the student's best-epoch selection set: its row is the best of 12 epochs by val_f1 on this region, so every column of it is optimistic, AP and roc_auc included (threshold-free metrics are spared threshold tuning, not epoch selection). The baseline row is one checkpoint, not selected here.
+Note: the held-out region is also the student's best-epoch selection set: its row is the best of 12 epochs by val_f1 on this region, so its metrics are optimistic, AP and roc_auc included (threshold-free metrics are spared threshold tuning, not epoch selection; positive_rate is the label's). The baseline row is one checkpoint, not selected here.
 
 _Note corrected 2026-10-16: it said only that AP and roc_auc are unaffected by threshold tuning, which readers took as unaffected by the selection._
 

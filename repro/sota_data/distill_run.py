@@ -5,6 +5,7 @@ All metrics are AGREEMENT WITH TEACHER (a model, not ground truth)."""
 import glob
 import json
 import os
+import re
 import sys
 
 import cv2
@@ -151,7 +152,7 @@ def cmd_prep():
 def provenance_line(prov):
     """The report's line on the teachers (teacher_provenance.json)."""
     def one(name, p):
-        source = f", `{p['source']}`" if p.get("source") else ""
+        source = f", `{p['source']}`" if p.get("source") else ", source not recorded"
         return f"`{name}` {p['dtype']} range [{p['min']},{p['max']}]{source}"
 
     return (
@@ -162,16 +163,58 @@ def provenance_line(prov):
 
 
 def selection_note(n_epochs):
-    """The report's caveat: the student's epoch is chosen on the fragment it is
+    """The report's caveat: the student's best epoch is chosen on the fragment it is
     reported on. Until 2026-10-16 it said AP and roc_auc were unaffected; being
     threshold-free spares them threshold tuning, not epoch selection."""
     return (
-        "Note: the held-out region is also the student's best-epoch selection set: its "
-        f"row is the best of {n_epochs} epochs by val_f1 on this region, so every column "
-        "of it is optimistic, AP and roc_auc included (threshold-free metrics are spared "
-        "threshold tuning, not epoch selection). The baseline row is one checkpoint, "
-        "not selected here."
+        "Note: the held-out region is also the student's best-epoch selection set: the "
+        f"best-epoch row is the best of {n_epochs} epochs by val_f1 on this region, so "
+        "its metrics are optimistic, AP and roc_auc included (threshold-free metrics are "
+        "spared threshold tuning, not epoch selection; positive_rate is the label's). "
+        "The last-epoch row follows a fixed rule and the baseline is one checkpoint: "
+        "neither is selected here."
     )
+
+
+# Lightning names a repeated save detector_epoch=<n>-v<k>.ckpt.
+_EPOCH_CHECKPOINT = re.compile(r"^detector_epoch=(\d+)(?:-v\d+)?\.ckpt$")
+
+
+def epoch_checkpoints(model_dir):
+    """A training run's checkpoints in epoch order. Stale ones from an earlier run in
+    the same directory are counted too: use a fresh model_dir per run."""
+    found = []
+    for path in glob.glob(os.path.join(model_dir, "detector_epoch=*.ckpt")):
+        match = _EPOCH_CHECKPOINT.match(os.path.basename(path))
+        if match:
+            found.append((int(match.group(1)), path))
+    if not found:
+        raise ValueError(f"no checkpoints found in {model_dir}; run the train step first")
+    return [path for _, path in sorted(found)]
+
+
+def measure_epochs(fid, model_dir, data_root=DATA_ROOT):
+    """Every checkpoint of a run, measured on ``fid``.
+
+    Returns the best by val_f1, which is selected on ``fid`` and so optimistic there,
+    and the last epoch, a fixed rule selected on nothing, with each epoch's scores.
+    """
+    ckpts = epoch_checkpoints(model_dir)
+    best = last = None
+    per_epoch = {}
+    for ck in ckpts:
+        m, prob = _measure(ck, fid, data_root=data_root)
+        print(f"{os.path.basename(ck)}: val_f1={m.get('val_f1', float('nan')):.4f}",
+              flush=True)
+        per_epoch[os.path.basename(ck)] = {c: m.get(c) for c in COLS}
+        score = m.get("val_f1", float("nan"))
+        if isinstance(score, float) and score != score:  # NaN
+            score = -1.0
+        if best is None or score > best[3]:
+            best = (m, ck, prob, score)
+        last = (m, ck)
+    return {"best": best[:3], "last": last, "per_epoch": per_epoch,
+            "epochs": len(ckpts)}
 
 
 def _measure(ckpt, fid, data_root=DATA_ROOT):
@@ -221,22 +264,9 @@ def cmd_measure():
     if os.path.exists(prov_path):
         with open(prov_path) as f:
             prov = json.load(f)
-    ckpts = sorted(glob.glob(os.path.join(MODEL_DIR, "detector_epoch=*.ckpt")),
-                   key=lambda p: int(p.split("epoch=")[1].split(".")[0]))
-    if not ckpts:
-        raise ValueError(f"no checkpoints found in {MODEL_DIR}; run the train step first")
-    best = None
-    for ck in ckpts:
-        m, prob = _measure(ck, fid)
-        print(f"{os.path.basename(ck)}: val_f1={m.get('val_f1', float('nan')):.4f}",
-              flush=True)
-        score = m.get("val_f1", float("nan"))
-        if isinstance(score, float) and score != score:  # NaN
-            score = -1.0
-        if best is None or score > best[3]:
-            best = (m, ck, prob, score)
-    assert best is not None  # ckpts is non-empty (guarded above), so the loop ran
-    m, ck, prob, _ = best
+    run = measure_epochs(fid, MODEL_DIR)
+    m, ck, prob = run["best"]
+    m_last, ck_last = run["last"]
     Image.fromarray((np.clip(prob, 0, 1) * 255).astype(np.uint8)).resize(
         (prob.shape[1] // 4, prob.shape[0] // 4)).save(
         "reports/detector/sota_distill_ours.png")
@@ -248,15 +278,17 @@ def cmd_measure():
              "NOT ground-truth accuracy.**", ""]
     if prov is not None:
         lines += [provenance_line(prov), ""]
-    lines += [selection_note(len(ckpts)), ""]
+    lines += [selection_note(run["epochs"]), ""]
     lines += [
              f"Held-out: `{fid}`  |  best student ckpt: `{os.path.basename(ck)}`", "",
              "| model | " + " | ".join(COLS) + " |",
              "|---|" + "|".join(["---"] * len(COLS)) + "|",
              "| current detector (baseline) | "
              + " | ".join(f"{baseline.get(c, float('nan')):.4f}" for c in COLS) + " |",
-             "| distilled student | "
+             f"| distilled student, best epoch (selected here, of {run['epochs']}) | "
              + " | ".join(f"{m.get(c, float('nan')):.4f}" for c in COLS) + " |",
+             f"| distilled student, last epoch (`{os.path.basename(ck_last)}`) | "
+             + " | ".join(f"{m_last.get(c, float('nan')):.4f}" for c in COLS) + " |",
              "", "Renders: [ours](sota_distill_ours.png) vs "
              "[teacher](sota_distill_teacher.png)."]
     with open(REPORT_MD, "w") as f:
@@ -264,8 +296,12 @@ def cmd_measure():
     with open(REPORT_JSON, "w") as f:
         json.dump({"fragment": fid, "best_checkpoint": os.path.basename(ck),
                    "baseline_vs_teacher": baseline, "distilled_vs_teacher": m,
+                   "last_checkpoint": os.path.basename(ck_last),
+                   "distilled_last_epoch_vs_teacher": m_last,
+                   "per_epoch": run["per_epoch"],
                    "selection": {
-                       "distilled": f"best of {len(ckpts)} epochs by val_f1 on {fid}",
+                       "distilled": f"best of {run['epochs']} epochs by val_f1 on {fid}",
+                       "distilled_last_epoch": "the last epoch, a fixed rule",
                        "baseline": "one checkpoint, not selected on this fragment"},
                    "teacher_provenance": prov},
                   f, indent=2, default=float)

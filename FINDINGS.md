@@ -363,8 +363,12 @@ plus this recipe makes the cross-scroll frontier attackable here.
 ## Cross-scroll distillation: diversity wins, then scaling saturates
 
 Two follow-on experiments took the distilled recipe to the cross-scroll frontier, measured on
-**one held-out PHerc-1667 region no arm trained on** (all metrics agreement-with-teacher; the
-legacy-baseline row is the selection-asymmetry-free anchor):
+**one held-out PHerc-1667 region no arm trained on** (all metrics agreement-with-teacher). Arms
+B and C are each the best of their epochs by val_f1 on this region; arm A and the legacy detector
+were not selected here. So the B and C rows are optimistic by an unmeasured amount, and A vs the
+legacy detector is the only selection-free comparison (corrected 2026-10-16: this called the
+legacy row the selection-asymmetry-free anchor, but every comparison with B or C includes a
+selected row):
 
 | arm (held-out 1667) | val_f1 | AP-prevalence-lift | ROC-AUC |
 | --- | --- | --- | --- |
@@ -375,17 +379,20 @@ legacy-baseline row is the selection-asymmetry-free anchor):
 
 1. **Single-scroll distillation over-specializes** — arm A lands *below* the undistilled
    detector on the unseen scroll, despite dominating on its own scroll (lift 3.24).
-2. **Training-scroll diversity at fixed budget substantially improves transfer** (arm B, at
-   arm A's region count) — at a modest ~11% same-scroll cost. Corrected 2026-10-16: this said
-   diversity was the only variable. The sampling layout differs too, and only arm B's epoch was
-   selected on the held-out 1667 region, so the comparison that needs no selection asymmetry is
-   arm B vs the legacy detector (lift 2.12 vs 1.47), as the report says.
+2. **Training-scroll diversity at fixed budget improved transfer** (arm B, at arm A's region
+   count: lift 2.12 vs 1.22), at a ~11% same-scroll cost. Corrected 2026-10-16: this said
+   diversity was the only variable, and the report then called arm B vs the legacy detector
+   selection-free. Neither holds. The sampling layout differs too, and arm B's epoch was chosen
+   on the held-out 1667 region while arm A's and the legacy detector's were not, so every
+   comparison with arm B there is optimistic for it. The same-scroll cost runs the other way:
+   arm A's epoch was chosen on the Phase-2 Scroll-1 region it is compared on, so the ~11% is
+   overstated.
 3. **Scaling saturates:** a third scroll (PHerc 0172, whose canon teachers were newly
    available) plus 50% more data did **not** lift 1667 transfer further (C ≈ B). The
    lift-≈2.1 plateau looks like this recipe's ceiling for 1667 without 1667-adjacent signal —
    its distinct preparation is the prime suspect. Arm C is nonetheless the **best all-around
    model built here**: volume bought back most of arm B's same-scroll cost (Scroll-1 0.631 vs
-   arm A's 0.662) while reading its third scroll strongly (0172 held-out val_f1 0.587 /
+   arm A's 0.662, arm A's being the row selected on that region) while reading its third scroll strongly (0172 held-out val_f1 0.587 /
    lift 5.37 / ROC-AUC 0.919).
 
 **Data reality:** a full bucket sweep found only **4 of 45** scrolls ship canon teacher
