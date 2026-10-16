@@ -25,8 +25,17 @@ def _write_json(path: Path, data: dict):
         json.dump(data, f)
 
 
-def _write_vc3d_zarr(path: Path, scale=7.91):
-    save_vc3d_zarr(path, np.zeros((64, 64), dtype=np.uint8), voxel_size_um=7.91)
+# A region that can carry the 1 cm scale bar a passing record declares:
+# 1600 px at 7.91 um is 12.7 mm wide; predict.py declares the bar from 1581 px.
+WIDE_PX = 1600
+COMPLETE_SIGMOID = {
+    "inference_recipe": {"ink_probability": "sigmoid(ink)"},
+    "prediction_complete": True,
+}
+
+
+def _write_vc3d_zarr(path: Path, scale=7.91, width=64):
+    save_vc3d_zarr(path, np.zeros((64, width), dtype=np.uint8), voxel_size_um=7.91)
     attrs_path = path / ".zattrs"
     attrs = json.loads(attrs_path.read_text())
     attrs["multiscales"][0]["datasets"][0]["coordinateTransformations"][0]["scale"] = [
@@ -52,7 +61,7 @@ def test_validate_prize_artifact_passes_with_masks_and_vc3d_metadata(tmp_path):
     np.save(predict_mask_path, predict_mask)
 
     zarr_path = tmp_path / "prediction.zarr"
-    _write_vc3d_zarr(zarr_path)
+    _write_vc3d_zarr(zarr_path, width=WIDE_PX)
 
     metadata_path = tmp_path / "metadata.json"
     _write_json(
@@ -62,10 +71,11 @@ def test_validate_prize_artifact_passes_with_masks_and_vc3d_metadata(tmp_path):
             "source_uri": "local_data/PHerc0125_Divisions/div_100/0",
             "position_xyz": [2048, 2048, 9000],
             "patch_size": 64,
-            "width_px": 64,
+            "width_px": WIDE_PX,
             "height_px": 64,
             "voxel_size_um": 7.91,
             "scale_bar_cm": True,
+            **COMPLETE_SIGMOID,
             "output_image_path": _write_discovery_image(tmp_path),
             "train_mask_path": str(train_mask_path),
             "predict_mask_path": str(predict_mask_path),
@@ -91,8 +101,8 @@ def test_validate_prize_artifact_checks_paired_ink_and_fiber_vc3d_metadata(tmp_p
 
     ink_zarr_path = tmp_path / "ink.zarr"
     fiber_zarr_path = tmp_path / "fiber.zarr"
-    _write_vc3d_zarr(ink_zarr_path)
-    _write_vc3d_zarr(fiber_zarr_path)
+    _write_vc3d_zarr(ink_zarr_path, width=WIDE_PX)
+    _write_vc3d_zarr(fiber_zarr_path, width=WIDE_PX)
 
     metadata_path = tmp_path / "metadata.json"
     _write_json(
@@ -102,10 +112,11 @@ def test_validate_prize_artifact_checks_paired_ink_and_fiber_vc3d_metadata(tmp_p
             "source_uri": "local_data/PHerc0125_Divisions/div_100/0",
             "position_xyz": [2048, 2048, 9000],
             "patch_size": 64,
-            "width_px": 64,
+            "width_px": WIDE_PX,
             "height_px": 64,
             "voxel_size_um": 7.91,
             "scale_bar_cm": True,
+            **COMPLETE_SIGMOID,
             "output_image_path": _write_discovery_image(tmp_path),
             "train_mask_path": str(train_mask_path),
             "predict_mask_path": str(predict_mask_path),
@@ -588,19 +599,19 @@ def test_villa_prize_evidence_chain_validates_existing_prediction_artifacts(tmp_
         "z": "9000",
         "y": "2048",
         "x": "2048",
-        "width": "64",
+        "width": str(WIDE_PX),
         "height": "64",
         "patch_size": "64",
         "voxel_um": "7.91",
-        "artifact_stem": "pred_9000_2048_2048_64x64",
+        "artifact_stem": "pred_9000_2048_2048_1600x64",
     }
     with open(ranked_path, "w") as f:
         f.write("\t".join(row.keys()) + "\n")
         f.write("\t".join(row.values()) + "\n")
 
     zarr_path = tmp_path / "prediction.zarr"
-    _write_vc3d_zarr(zarr_path)
-    image_path = prediction_dir / "pred_9000_2048_2048_64x64.png"
+    _write_vc3d_zarr(zarr_path, width=WIDE_PX)
+    image_path = prediction_dir / "pred_9000_2048_2048_1600x64.png"
     Image.new("L", (64, 64), 100).save(image_path)
     train_path, predict_path = tmp_path / "train.npy", tmp_path / "predict.npy"
     train = np.zeros((64, 64), dtype=bool)
@@ -610,16 +621,17 @@ def test_villa_prize_evidence_chain_validates_existing_prediction_artifacts(tmp_
     np.save(train_path, train)
     np.save(predict_path, predict)
     _write_json(
-        prediction_dir / "pred_9000_2048_2048_64x64_meta.json",
+        prediction_dir / "pred_9000_2048_2048_1600x64_meta.json",
         {
             "scroll_id": "unknown",
             "source_uri": row["local_uri"],
             "position_xyz": [2048, 2048, 9000],
             "patch_size": 64,
-            "width_px": 64,
+            "width_px": WIDE_PX,
             "height_px": 64,
             "voxel_size_um": 7.91,
             "scale_bar_cm": True,
+            **COMPLETE_SIGMOID,
             "output_image_path": str(image_path),
             "train_mask_path": str(train_path),
             "predict_mask_path": str(predict_path),

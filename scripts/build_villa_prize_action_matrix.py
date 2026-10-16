@@ -83,7 +83,7 @@ _BASELINE_MARKERS = (
         "label": "Villa GP-2023 TimeSFormerInk recipe",
         "purpose": "fixed research-only comparator (patch 16x256x256, not submittable)",
         "marker_path": "reports/gp_winner_baseline.json",
-        "launcher": "scripts/launch_gp_winner.py",
+        "launcher": "scripts/training/launch_gp_winner.py",
     },
     {
         "id": "mutex_affinity",
@@ -97,14 +97,14 @@ _BASELINE_MARKERS = (
         "label": "Villa neural_tracing trace_service",
         "purpose": "Review-time tracing daemon for VC3D / Crackle Viewer",
         "marker_path": "reports/neural_tracing_service.json",
-        "launcher": "scripts/launch_neural_tracing.py",
+        "launcher": "scripts/inference/launch_neural_tracing.py",
     },
     {
         "id": "finetune_lejepa",
         "label": "LeJEPA -> UNet ink fine-tune (TrainFineTuneLEJEPA)",
         "purpose": "Convert pretrained LeJEPA encoder into a submittable ink model (patch 64)",
         "marker_path": "reports/finetune_lejepa_run.json",
-        "launcher": "scripts/launch_finetune_lejepa.py",
+        "launcher": "scripts/training/launch_finetune_lejepa.py",
     },
 )
 

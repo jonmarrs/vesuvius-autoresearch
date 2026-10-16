@@ -47,12 +47,14 @@ def main():
         raise SystemExit(f"shape mismatch: {gt.shape} vs {pred.shape}")
 
     # densest GT crop, so the comparison is made where there is text to judge
-    S, H = args.crop, gt.shape[0]
-    step = max((H - S) // 8, 1)
+    S, (H, W) = args.crop, gt.shape[:2]
+    if min(H, W) < S:
+        raise SystemExit(f"--crop {S} does not fit the {H}x{W} images")
+    ystep, xstep = max((H - S) // 8, 1), max((W - S) // 8, 1)
     _, y, x = max(
         (gt[j : j + S, i : i + S].mean(), j, i)
-        for j in range(0, H - S + 1, step)
-        for i in range(0, H - S + 1, step)
+        for j in range(0, H - S + 1, ystep)
+        for i in range(0, W - S + 1, xstep)
     )
     g, p = gt[y : y + S, x : x + S], pred[y : y + S, x : x + S]
 
