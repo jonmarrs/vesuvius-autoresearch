@@ -129,7 +129,8 @@ Environment: CPython 3.10 venv with PyTorch 2.14.1 (no GPU visible), pytest, Ruf
   `scripts/smoke_test.py`: 9 of 11 passed, 2 skipped (no training data).
 - The owner's head (`a496c740`), run here: 42 failed, 2218 passed, 15 skipped, 1 xfailed, 2 errors. Same set; its
   15 new tests pass. Ruff and mypy, which its report could not run, are clean.
-- After the PR review's fixes: running at this commit; recorded in the next. The six new tests
+- After the PR review's fixes (`1837cc1c`): 42 failed, 2224 passed, 15 skipped, 1 xfailed, 2 errors. Same set; the 6
+  extra passes are the new tests. `scripts/smoke_test.py`: 9 of 11 passed, 2 skipped. The six new tests
   (`test_coherence_reads_slow_structure_to_the_crop_edge` in 2-D and 3-D, `test_coherence_drops_singleton_axes`,
   `test_coherence_does_not_depend_on_intensity_scale`, `test_ensemble_asks_its_members_heads_before_reading_volume`,
   `test_a_production_run_cut_short_leaves_no_previous_metadata`) each fail with their fix reverted. The affected
