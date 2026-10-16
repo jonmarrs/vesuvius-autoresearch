@@ -958,8 +958,11 @@ def main():
                     "ACTIVE LEARNING FLYWHEEL: It is highly recommended to run the Proofreader"
                 )
                 print("on the latest predictions before starting the Day Shift.")
+                # The benchmark's map: predict.py writes it beside its figure in
+                # reports/, at the z it centres (recorded in its _meta.json).
                 print(
-                    "Run: uv run scripts/launch_proofreader.py --volume local_data/PHercParis2Fr47/surface_volume.zarr --predictions predictions/pred_10_1000_1000_64x64_ink.zarr"
+                    f"Run: uv run scripts/launch_proofreader.py --volume {BENCHMARK_URI} "
+                    "--predictions reports/pred_<z>_1000_1000_64x64_ink.zarr"
                 )
                 print("=" * 60 + "\n")
 

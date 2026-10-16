@@ -56,7 +56,10 @@ def main():
     )
     print("2. In the VC3D GUI, go to File -> Open Overlay (or Layer -> Add).")
     print("3. Navigate to the 'predictions/' directory.")
-    print("4. Load both '*_ink.zarr' and '*_fiber.zarr' as surface overlays.")
+    print(
+        "4. Load '*_ink.zarr', and '*_fiber.zarr' when the prediction's _meta.json"
+        " records a fiber export (fiber_vc3d_zarr_path), as surface overlays."
+    )
     print(
         "5. Adjust opacity or toggle visibility to verify that ink predictions align with papyrus fiber structures."
     )

@@ -29,6 +29,49 @@ def test_complete_submission_evidence_passes(evidence):
     assert validate(evidence[0])["status"] == "PASS"
 
 
+def _failures(report):
+    assert report["status"] == "FAIL"
+    return " ".join(report["failures"])
+
+
+@pytest.mark.parametrize("complete", ["absent", False, "true"])
+def test_evidence_must_record_a_complete_prediction(evidence, complete):
+    """Completeness was checked only when recorded: metadata without it passed."""
+    path, metadata = evidence
+    if complete == "absent":
+        del metadata["prediction_complete"]
+        path.write_text(json.dumps(metadata))
+    else:
+        _update(evidence, prediction_complete=complete)
+    assert "completeness is unverified" in _failures(validate(path))
+
+
+@pytest.mark.parametrize(
+    "recipe",
+    [
+        None,
+        {},
+        {"ink_probability": "sigmoid(ink) * sigmoid(qc / 0.1)"},
+        "sigmoid(ink)",
+    ],
+)
+def test_evidence_must_be_a_sigmoid_ink_map(evidence, recipe):
+    """QC-gated maps (before 2026-10-13) and maps without a recipe passed, though
+    the ranker already refused them."""
+    path = _update(evidence, inference_recipe=recipe)
+    assert "recorded recipe" in _failures(validate(path))
+
+
+def test_a_declared_scale_bar_must_fit_the_region(evidence):
+    """A 64 px region at 7.91 um is 0.51 mm wide: it cannot carry a 1 cm bar,
+    whatever its metadata declares."""
+    path, metadata = evidence
+    save_vc3d_zarr(metadata["vc3d_zarr_path"], np.zeros((64, 64), np.uint8))
+    failures = _failures(validate(_update(evidence, width_px=64)))
+    assert "cannot fit a 64 px region" in failures
+    assert "dimensions" not in failures  # the export matches the 64 px region
+
+
 @pytest.mark.parametrize(
     "field", ["train_mask_path", "predict_mask_path", "output_image_path"]
 )
@@ -161,11 +204,11 @@ def _chain_inputs(evidence):
         "x": "1",
         "y": "2",
         "z": "3",
-        "width": "64",
+        "width": "1600",
         "height": "64",
         "patch_size": "64",
         "voxel_um": "7.91",
-        "artifact_stem": "pred_3_2_1_64x64",
+        "artifact_stem": "pred_3_2_1_1600x64",
     }
     ranked = path.parent / "ranked.tsv"
     with ranked.open("w", newline="") as stream:
@@ -248,6 +291,79 @@ def test_failed_execution_invalidates_previous_readiness(evidence, monkeypatch):
         json.loads((root / "PRIZE_READINESS_REPORT.json").read_text())["status"]
         == "FAIL"
     )
+
+
+def test_failed_execution_leaves_no_evidence_to_revalidate(evidence, monkeypatch):
+    """The review manifest's validate command reads evidence_metadata.json; after a
+    failed rerun it named artifacts that run may have overwritten, and passed."""
+    from scripts import run_villa_prize_evidence_chain as chain
+
+    ranked, root, _ = _chain_inputs(evidence)
+    assert build_evidence_chain(ranked, root)["status"] == "PASS"
+
+    def fail(*args, **kwargs):
+        raise subprocess.CalledProcessError(7, args[0])
+
+    for leftover in ("neural_tracing.json", "validation_report.json"):
+        (root / leftover).write_text('{"status": "PASS", "ready": true}')
+    monkeypatch.setattr(chain.subprocess, "run", fail)
+    with pytest.raises(subprocess.CalledProcessError):
+        build_evidence_chain(ranked, root, execute=True)
+    for leftover in (
+        "evidence_metadata.json",
+        "manifest.json",
+        "neural_tracing.json",
+        "validation_report.json",
+    ):
+        assert not (root / leftover).exists()
+
+
+@pytest.mark.parametrize("change", ["bad voxel", "fewer rows"])
+def test_a_rerun_refused_before_predicting_leaves_no_previous_pass(evidence, change):
+    """The reset came after the candidate was selected and its command built, so a
+    rerun that failed there kept the earlier PASS and its evidence."""
+    ranked, root, _ = _chain_inputs(evidence)
+    assert build_evidence_chain(ranked, root)["status"] == "PASS"
+    header, row = ranked.read_text().splitlines()
+    if change == "bad voxel":
+        fields = row.split("\t")
+        fields[header.split("\t").index("voxel_um")] = "bad"
+        ranked.write_text(header + "\n" + "\t".join(fields) + "\n")
+        with pytest.raises(ValueError, match="voxel_um"):
+            build_evidence_chain(ranked, root)
+    else:
+        ranked.write_text(header + "\n")
+        with pytest.raises(ValueError, match="no candidates"):
+            build_evidence_chain(ranked, root)
+    report = json.loads((root / "PRIZE_READINESS_REPORT.json").read_text())
+    assert report["status"] == "FAIL"
+    assert not (root / "evidence_metadata.json").exists()
+    assert not (root / "manifest.json").exists()
+
+
+@pytest.mark.parametrize("returncode", [0, 1])
+def test_neural_tracing_runs_the_launcher_and_trusts_only_a_successful_marker(
+    evidence, monkeypatch, returncode
+):
+    """The launcher moved to scripts/inference/ (2026-06-02), so --neural-tracing
+    silently did nothing; a launcher that fails is not a plan, even if it wrote one."""
+    from scripts import run_villa_prize_evidence_chain as chain
+
+    ranked, root, _ = _chain_inputs(evidence)
+    calls = []
+
+    def launch(cmd, check=False):
+        calls.append(cmd)
+        marker = Path(cmd[cmd.index("--marker-out") + 1])
+        marker.write_text(json.dumps({"ready": True}))
+        return subprocess.CompletedProcess(cmd, returncode)
+
+    monkeypatch.setattr(chain.subprocess, "run", launch)
+    build_evidence_chain(ranked, root, neural_tracing=True)
+    assert calls and calls[0][1].endswith("scripts/inference/launch_neural_tracing.py")
+    manifest = json.loads((root / "manifest.json").read_text())
+    assert manifest["neural_tracing_ready"] is (returncode == 0)
+    assert (root / "neural_tracing.json").exists() is (returncode == 0)
 
 
 def test_successful_exit_without_new_artifacts_cannot_reuse_previous_evidence(
@@ -370,6 +486,18 @@ def test_ensemble_asks_its_members_heads_before_reading_volume(tmp_path, monkeyp
     monkeypatch.setattr(sys, "argv", argv)
     with pytest.raises(TypeError, match="task_heads"):
         ensemble.ensemble_predict()
+
+
+def test_ranked_command_passes_the_candidates_voxel_size():
+    """Checkpoints from train.py record no voxel size, so predict.py scaled every
+    export at its 7.91 um default whatever the candidate's scan."""
+    row = {"local_uri": "local.zarr", "x": "1", "y": "2", "z": "3"}
+    cmd = build_predict_command(dict(row, voxel_um="3.24"))
+    assert cmd[cmd.index("--voxel_size_um") + 1] == "3.24"
+    assert "--voxel_size_um" not in build_predict_command(row)
+    for bad in ("bad", "0", "-1", "nan"):
+        with pytest.raises(ValueError, match="voxel_um"):
+            build_predict_command(dict(row, voxel_um=bad))
 
 
 def test_ranked_command_points_to_existing_launcher():
@@ -512,3 +640,48 @@ def test_prediction_uses_checkpoint_scale_for_both_exports_and_metadata(
         attrs = json.loads((Path(metadata[key]) / ".zattrs").read_text())
         scale = attrs["multiscales"][0]["datasets"][0]["coordinateTransformations"][0]
         assert scale["scale"] == [2.0, 2.0, 2.0]
+
+
+def test_alignment_evidence_scans_the_whole_width(tmp_path):
+    """The x scan ran over the image height: right of it, a wide image was never
+    searched for its densest crop."""
+    gt = np.zeros((40, 120), np.uint8)
+    gt[10:30, 90:110] = 255
+    for name in ("gt.png", "pred.png"):
+        Image.fromarray(gt).save(tmp_path / name)
+    result = subprocess.run(
+        [sys.executable, str(REPO / "scripts/make_alignment_evidence.py")]
+        + ["--gt", str(tmp_path / "gt.png"), "--pred", str(tmp_path / "pred.png")]
+        + ["--out", str(tmp_path / "out.png"), "--crop", "20", "--panel", "20"],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, result.stderr
+    x = int(result.stdout.split(" x=")[1].split()[0])
+    assert 80 <= x <= 100
+
+
+def test_review_promotion_names_and_previews_chain_evidence(tmp_path):
+    """It read visualization_path, which no predictor writes, and named every
+    evidence_metadata.json 'evidencedata', so candidates overwrote each other."""
+    from scripts.promote_to_review import promote_to_review
+
+    image = tmp_path / "figure.png"
+    Image.new("L", (8, 8), 100).save(image)
+    # The scroll23 chain's <root>/candidate_NNN and the lasagna worklist's
+    # <rank>_<stem>/evidence layouts.
+    layouts = ["scroll23/candidate_007", "scroll23/candidate_008"]
+    layouts += ["001_pred_a/evidence", "002_pred_b/evidence"]
+    for layout in layouts:
+        candidate = tmp_path / layout
+        candidate.mkdir(parents=True)
+        metadata = candidate / "evidence_metadata.json"
+        metadata.write_text(json.dumps({"output_image_path": str(image)}))
+        promote_to_review(metadata, review_dir=tmp_path / "queue")
+    for layout in layouts:
+        name = layout.replace("/", "_")
+        assert (tmp_path / "queue" / name / "preview.png").exists()
+    single = tmp_path / "pred_1_2_3_64x64_meta.json"
+    single.write_text(json.dumps({}))
+    promote_to_review(single, review_dir=tmp_path / "queue")
+    assert (tmp_path / "queue" / "pred_1_2_3_64x64" / "metadata.json").exists()

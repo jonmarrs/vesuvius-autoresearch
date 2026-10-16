@@ -60,6 +60,18 @@ def build_predict_command(
 
     output_img = str(Path(prediction_dir) / f"{stem}.png")
     metadata_out = str(Path(prediction_dir) / f"{stem}_meta.json")
+    # predict.py prefers a voxel size the checkpoint records; training's do not,
+    # so without this every export was scaled at its 7.91 um default, and the
+    # evidence chain then compared that with the candidate's voxel_um.
+    voxel = []
+    if row.get("voxel_um") not in (None, ""):
+        try:
+            voxel_um = float(row["voxel_um"])
+        except (TypeError, ValueError) as exc:
+            raise ValueError("candidate voxel_um must be a number") from exc
+        if not math.isfinite(voxel_um) or voxel_um <= 0:
+            raise ValueError("candidate voxel_um must be positive and finite")
+        voxel = ["--voxel_size_um", str(voxel_um)]
     return [
         python_executable,
         str(PREDICT_SCRIPT),
@@ -83,6 +95,7 @@ def build_predict_command(
         metadata_out,
         "--checkpoint",
         checkpoint,
+        *voxel,
         "--skip_active_learning",
     ]
 
