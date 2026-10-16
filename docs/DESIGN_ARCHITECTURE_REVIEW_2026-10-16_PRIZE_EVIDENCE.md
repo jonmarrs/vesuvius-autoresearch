@@ -142,7 +142,9 @@ Environment: CPython 3.10 venv with PyTorch 2.14.1 (no GPU visible), pytest, Ruf
 - Baseline: the validation run of `1837cc1c` (#88), whose tree is `37fb8937`'s but for its review doc's result
   lines. It was 42 failed, 2224 passed, 15 skipped, 1 xfailed, 2 errors. The failures and errors are environmental:
   no scroll data, no CUDA, no villa data files.
-- Branch: running at this commit; recorded in the next.
+- Branch, PR first head (`68469b03`): 42 failed, 2238 passed, 15 skipped, 1 xfailed, 2 errors. The failures and
+  errors are the same set as the baseline; the 14 extra passes are the new tests. `scripts/smoke_test.py`: 9 of 11
+  passed, 2 skipped (no training data).
 - `test_submission_contracts`, `test_prize_readiness`, `test_candidate_preprocessing_contracts`,
   `test_volume_inference_contracts`, `test_villa_prize_action_matrix`, `test_summarize_villa_evidence_preflight` and
   `test_execute_lasagna_pipeline_resume`: 307 passed.
