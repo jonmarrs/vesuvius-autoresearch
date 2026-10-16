@@ -95,7 +95,9 @@ Environment: CPython 3.10 venv with PyTorch 2.14.1 (no GPU visible), pytest, Ruf
 - Branch, first run: 44 failed, 2199 passed, 15 skipped, 1 xfailed, 2 errors. The 2 extra failures were
   `test_prediction_uses_checkpoint_scale_for_both_exports_and_metadata`: its stub model declared no heads, which
   `task_heads` refuses. It now declares a fiber head, since it checks the fiber zarr.
-- Branch, with the ranking fix: running at this commit; recorded in the next.
+- Branch, with the ranking fix (PR first head, `18063df1`): 42 failed, 2203 passed, 15 skipped, 1 xfailed,
+  2 errors. The failures and errors are the same set as the baseline; the 9 extra passes are the new tests.
+  `scripts/smoke_test.py`: 9 of 11 passed, 2 skipped (no training data).
 - `tests/test_volume_inference_contracts.py`, `test_submission_contracts`, `test_production_predict` and
   `test_prize_readiness`: 212 passed.
 - Ruff (check and format) and mypy on the four changed scripts: clean.
