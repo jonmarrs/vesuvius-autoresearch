@@ -81,7 +81,18 @@ The independent review of the PR's first head (`071b149d`) found nothing blockin
 
 ## The modules still outside the suite
 
-Running at this commit; recorded in the next.
+The 173 modules outside the list after this change were run here: 16 failed, 1199 passed, 72 skipped, 21 errors
+in 6 min. Every failure and error is environmental.
+- **Collection errors (21):**
+  - 19 `test_probe_*` modules need villa's spiral-fitting modules, absent here;
+  - `test_sota_xscroll` and `test_sota_register_targets` need `s3fs`.
+- **Failures (16):**
+  - `s3fs` (5) and `umbilicus.json` (4);
+  - the LeJEPA checkpoint and villa's GP-winner config (`test_villa_baselines_launchers`, 2);
+  - `test_probe_real_patch_scatter`'s patches;
+  - villa checked out as a directory rather than a submodule (`test_preflight_accepts_a_submodule`, 2);
+  - villa paths this checkout lacks (`test_audit_doc_references`, the pre-commit guard);
+  - `correlate_geometry_ink.py`'s data under a host path.
 
 The rest are research analyses and probes (`analyse_*`, `probe_*`, `audit_*`), the detector's and the fibers'
 own subsystems, and the documentation guards that pre-commit runs on its own.
@@ -115,7 +126,9 @@ Environment: CPython 3.10 venv with PyTorch 2.14.1 (no GPU visible), pytest, Ruf
   failures and errors are environmental: no scroll data, no CUDA, no villa data files.
 - Branch, first head (`071b149d`, 29 modules added): 42 failed, 2371 passed, 19 skipped, 1 xfailed, 2 errors in
   3 min 31 s. Same set; the 131 extra passes and 4 extra skips are the added modules' tests.
-- Branch, after the PR review's fixes: running at this commit; recorded in the next.
+- Branch, after the PR review's fixes (`102f20bc`, 41 modules added): 42 failed, 2432 passed, 21 skipped, 1 xfailed,
+  2 errors in 3 min 59 s (2 min 37 s with the old list). Same set; the 192 extra passes and 6 extra skips are the
+  added modules' tests. `scripts/smoke_test.py`: 9 of 11 passed, 2 skipped (no training data).
 - Ruff (check and format) and mypy on the changed files: clean.
 
 New tests:
