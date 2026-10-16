@@ -67,12 +67,13 @@ See [award history and source](docs/PROGRESS_PRIZE_AWARDS.md).
   control, and pre-registered analyses that refuse a partial sample. Built for the spiral track
   above; reusable for any patch-selection experiment on this data.
 - **Autonomous Research Loop:** each cycle applies one tweak to the promoted configuration (learning rate,
-  weight decay, dropout, batch size, loss weights, ridge sigma, augmentation backend, fiber target, multi-task
-  heads, UA-MT settings) and trains it for a fixed time, after a preflight. Architecture and model size are
+  weight decay, batch size, loss weights, ridge sigma, augmentation backend, fiber target, multi-task heads,
+  UA-MT settings) and trains it for a fixed time, after a preflight. Architecture and model size are
   pinned to the production `resenc_unet`, so every cycle warm-starts from `best_model.pt`.
 - **On-the-fly Multi-tasking:** real-time 3D Structure Tensor and Ridge Map computation for rich structural supervision.
-- **Noise calibration:** `scripts/f1_noise_probe.py --execute` measures the run-to-run F1 spread on demand. It
-  is run by hand and does not set the promotion tolerance. (The loop's periodic 2023 Grand-Prize-recipe
+- **Noise calibration:** the [repeatability probe](docs/REPEATABILITY_PROBE.md)
+  (`scripts/f1_noise_probe.py --config … --checkpoint … --out … --execute`) measures the run-to-run F1 spread on
+  demand. It is run by hand and does not set the promotion tolerance. (The loop's periodic 2023 Grand-Prize-recipe
   baseline was removed on 2026-10-12: its VRAM estimate skipped it every time.)
 
 ## Quick start
@@ -88,15 +89,15 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 uv sync
 git submodule update --init villa
 
-# 3. Check the code, without data or a GPU (no side effects)
+# 3. Check the code (no data or GPU needed; it writes only caches)
 make smoke
 
 # 4. With the data in place (below), check the loop's configuration: builds the
-#    model and runs one forward/backward on the CPU (no side effects)
+#    model and runs one forward/backward on the CPU (writes nothing)
 PYTHONPATH=. uv run python scripts/training/train.py --smoke
 
-# 5. Score best_model.pt under the current validation protocol (GPU; reads the
-#    validation fragment; rewrites best_model.pt's stored scores)
+# 5. Score best_model.pt under the current validation protocol (best on the GPU;
+#    reads the validation fragment; rewrites best_model.pt's stored scores)
 uv run python scripts/reevaluate_best_model.py --update-stored
 
 # 6. Kick off the autonomous research loop
@@ -105,14 +106,20 @@ uv run python scripts/reevaluate_best_model.py --update-stored
 ```
 
 On a host where the `vesuvius` package was installed from `villa/vesuvius` (it is
-outside `uv.lock`), do not run `uv sync` again in that checkout: an exact sync
-removes it ([resume note](docs/RESUME_AFTER_RESTART.md), 2026-10-13).
+outside `uv.lock`), do not run `uv sync` (or `make install`, which runs it) again
+in that checkout: an exact sync removes it
+([resume note](docs/RESUME_AFTER_RESTART.md), 2026-10-13). `config.json` has
+`use_wandb: true`, so runs log to wandb online (`wandb login`), falling back to
+offline if that fails; `WANDB_MODE=offline` keeps them local.
 
 **Data.** `config.json` trains on `local_data/PHercParis2Fr47/surface_volume.zarr`
 and validates on `local_data/PHercParis2Fr143/surface_volume.zarr`. Each needs
 its ink labels beside it (`inklabels_refined.png`, `inklabels_filled.png` or
-`inklabels.png`, the first found) and a `mask.png`; a `patches.json` there
-places validation patches instead of the mask. No maintained command in this
+`inklabels.png`, the first found). A `mask.png` there, if present, limits where
+patches are drawn, and a `patches.json` replaces the patch catalogue. A
+`<segment>_pseudo.png` in `pseudo_label_dir` (`local_data/pseudo_labels`)
+replaces a training volume's labels, and is refused while `use_confidence_weight`
+is off ([pseudo-label handoff](docs/PSEUDO_LABEL_HANDOFF.md)). No maintained command in this
 repository builds these directories. The downloaders in `scripts/archive/` are
 unmaintained and fetch raw CT, TIFF layers or label PNGs, not these zarrs; the
 `download_data.py --fragment 4` this guide used to give names a moved script,
@@ -123,13 +130,17 @@ with the val_f1 stored in `best_model.pt`, and starts only if that score was
 measured under the current validation protocol (`scripts/training/promotion.py`,
 including `config.json`'s `depth_band`). Otherwise it prints `Not starting: …`
 with the command to run, and returns. Step 5 does that; repeat it after any
-protocol change. `start.sh` reports that it launched the loop, not that a cycle
+protocol change, and after any change to the validation inputs (label file,
+mask, `patches.json`). It rewrites the tracked `best_model.pt`; commit it, as
+`a37b05c4` did. `start.sh` reports that it launched the loop, not that a cycle
 began: the loop's own output, including any refusal, is in `autoresearch.out`.
 
 Avoid `train.py --test`. It is not a setup check: it is a training run with a
 30 s budget followed by the full validation, it needs CUDA and takes no lock,
-and it writes the loop's state (`history.tsv`, `last_model.pt`,
-`run_result.json`, and `best_model.pt` if it beats it).
+and it writes the loop's state: `history.tsv`, `last_model.pt` and
+`run_result.json`, and, if it beats the incumbent, `best_model.pt`, `results.tsv`
+and `prize_readiness.tsv`. Such a promotion leaves `config.json` as it was, so it
+no longer describes `best_model.pt`.
 
 `start.sh` and `stop.sh` control this checkout using its process lock and work
 from any directory. `start.sh` clears the pause, even when it then refuses
@@ -138,7 +149,9 @@ ends each shift and exits (day 07:00–19:00, night 19:00–07:00, system local
 time). The watchdog, `scripts/loop_watchdog.sh`, starts it again: install it
 with `crontab -e`, adding `*/5 * * * * /path/to/checkout/scripts/loop_watchdog.sh`
 and `@reboot /path/to/checkout/scripts/loop_watchdog.sh`. It logs to
-`watchdog.log`. It respects the pause even when the loop is already stopped, so
+`watchdog.log`. Cron's `PATH` has no `uv`: the watchdog adds `~/.local/bin`, so
+if `uv` is elsewhere set `PATH=` in the crontab (otherwise the launch fails, and
+says so only in `autoresearch.out`). It respects the pause even when the loop is already stopped, so
 after `stop.sh` nothing restarts the loop until `start.sh` runs; without the
 watchdog, `start.sh` gives at most one shift.
 The lock is also held by the work that must not run beside the loop: the noise
@@ -299,8 +312,9 @@ auxiliary diagnostics and recent rows; the frozen TSV omits the F1/AP-lift
 promotion metrics.
 
 - **`history.tsv`**: one row for every `train.py` run that finishes validation (loop cycles and runs by
-  hand): `val_bpb`, the topology diagnostics, mean AP, throughput, VRAM and the full config JSON. It has no
-  val_f1, the metric that decides promotion; that is in `sprint_logs/` and wandb.
+  hand; not the noise probe's or the ablation's runs, which keep their own records): `val_bpb`, the topology
+  diagnostics, mean AP, throughput, VRAM and the full config JSON. It has no val_f1, the metric that decides
+  promotion; that is in `sprint_logs/` and each run's `run_result.json`.
 - **`results.tsv`** (local, gitignored): one row per promotion, that is, a run whose val_f1 beat
   `best_model.pt`'s stored val_f1 by more than the noise tolerance (0.03), with an AP-prevalence lift above
   1.02, on the same validation protocol and inputs. Its frozen schema has no val_f1 column.
@@ -311,7 +325,8 @@ promotion metrics.
 - **`sprint_logs/`**: one Markdown log per shift (a restart within the shift appends to it): each cycle's
   tweak, config, val_f1 and other statistics, and result.
 - **Logs** (local): `run.log` collects the cycles' training output (moved to `run.log.old` once past
-  10 MB), `autoresearch.out` the loop's own output, and `watchdog.log` the watchdog's.
+  10 MB), `autoresearch.out` the loop's own output, and `watchdog.log` the watchdog's. `run.log.old` is
+  tracked by git (since June), so each rotation shows as a change to it.
 
 ## ✅ Validation
 

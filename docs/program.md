@@ -67,7 +67,8 @@ and writes `run_result.json` (carries `val_f1`, `ap_prevalence_lift`, `roc_auc`,
 
 ## Logging results
 
-Every run that finishes validation appends to `history.tsv` (it has no `val_f1`); a
+Every run that finishes validation appends to `history.tsv` (it has no `val_f1`;
+the noise probe's and the ablation's runs write elsewhere); a
 promoting run appends to `results.tsv` (local-only) and `prize_readiness.tsv`, and
 replaces `best_model.pt` (which carries the honest metrics). Sprint logs, with each
 cycle's `val_f1`, land in `sprint_logs/`.
@@ -78,10 +79,10 @@ The experiment is managed by `run_autoresearch_loop.py` (`./start.sh` / `./stop.
 
 LOOP FOREVER:
 
-1. Look at the state of research in `results.tsv`, `FINDINGS.md`, and `docs/LAB_NOTEBOOK.md`.
+1. Look at the state of research in `sprint_logs/` (each cycle's `val_f1`), `FINDINGS.md`, and `docs/LAB_NOTEBOOK.md`.
 2. Propose a new experiment (architecture change or hyperparameter tweak) that is not already ruled out by `FINDINGS.md`.
-3. Update `scripts/training/train.py` or `vesuvius_model.py` (loop paused).
-4. Run the loop or a single test.
+3. Update `scripts/training/train.py`, `src/vesuvius_autoresearch/core/model_wrappers.py` or `vesuvius_model.py` (loop paused).
+4. Run the loop, or one training run with the loop paused.
 5. Record findings.
 
 **NEVER STOP**: Once the experiment loop has begun, do NOT pause to ask the human if you should continue. The loop runs until the human interrupts you, period.

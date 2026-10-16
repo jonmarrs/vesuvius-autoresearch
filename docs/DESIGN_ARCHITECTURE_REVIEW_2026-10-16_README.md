@@ -41,8 +41,8 @@ Also in scope: one defect found on the way, in how `train.py` reports a missing 
     `core/model_wrappers.py`, which inference shares. The project structure and `docs/program.md` say so; the agent
     instructions now list that file among the ones to read and change.
 - **The records are described as they are written.**
-  - `history.tsv` has a row for every `train.py` run that finishes validation, by hand too, and no val_f1, the metric
-    that decides promotion (it is in `sprint_logs/` and wandb).
+  - `history.tsv` has a row for every `train.py` run that finishes validation, by hand too (not the noise probe's or
+    the ablation's), and no val_f1, the metric that decides promotion (it is in `sprint_logs/` and `run_result.json`).
   - `results.tsv` is local (gitignored), has one row per promotion, states the bar, and has no val_f1 column.
     `.gitignore`'s comment that kept it "tracked/visible" contradicted its own entry and is corrected.
   - `prize_readiness.tsv` has one row per promotion, not per cycle, and its gates do not block promotion while
@@ -55,9 +55,10 @@ Also in scope: one defect found on the way, in how `train.py` reports a missing 
 - **A missing villa centerline metric is reported as unmeasured** (`scripts/training/train.py`). Without
   `metrics.centerline_dice`, its stand-in returned 0.0 for every patch, which counted as a sample. `history.tsv`
   recorded `avg_centerline_dice` 0.0 as a measurement, and the prize gates failed it as "below gate" rather than as
-  missing. It now returns NaN, as the skeleton metric's stand-in does. The pass then counts no samples (the gates say
-  "only 0 centerline-dice samples"), the threshold search falls back, and validation prints that the metric is
-  unavailable.
+  missing. It now returns NaN, as the skeleton metric's stand-in does, and validation prints that the metric is
+  unavailable. The pass then counts no samples, and an average over none is NaN (`mean_or_nan`, which the five
+  topology averages now share; the centerline one alone gave 0.0), so the gates say "not finite" and "only 0
+  centerline-dice samples". The threshold search falls back.
 - The Makefile's comment said shifts change at 07:00 and 19:00 PT; they follow the system clock's local time.
 
 ## Findings and fixes
@@ -67,9 +68,23 @@ Also in scope: one defect found on the way, in how `train.py` reports a missing 
 | P1 | **The quick start cannot start a cycle, and says nothing about why.** The committed `best_model.pt` was scored under `seeded-sample-400-v2+z1-27`; the loop requires `seeded-sample-400-v3+z1-27` (since `ff13ee15`). `check_incumbent` raises, the loop prints `Not starting: …` to `autoresearch.out` and returns, while `start.sh` reports that it started. The watchdog relaunches it every tick, to the same refusal. | The re-score is step 5, with why and when to repeat it; the README says where the refusal is written. The re-score itself needs the GPU host and the data, so it is the owner's (below). |
 | P2 | **The data step downloads nothing and exits 0**, and names a 104 GB raw volume that is not what the loop reads. | Replaced with what the loop needs; no maintained command is claimed. |
 | P2 | **The setup check is a training run that can replace the incumbent**, beside the loop if one is running. | `make smoke` and `train.py --smoke`; `--test` explained. Also in `docs/program.md`. |
-| P3 | **A missing villa centerline metric was recorded as 0.0.** | NaN, as for the skeleton metric; reported. Test: with the module blocked, `train` records the import error, the stand-in returns NaN, and the search falls back. It fails on main. |
+| P3 | **A missing villa centerline metric was recorded as 0.0.** | NaN, as for the skeleton metric; reported. Tests: with the module blocked, `train` records the import error, the stand-in returns NaN, and the search falls back; an average over no samples is NaN, and the gates call it not finite, not below the gate. Both fail on main. |
 | P3 | **The villa submodule, the watchdog's installation, shift exits and the pause side effect were not documented.** | Documented. |
 | P4 | The loop's tuning, the removed baseline, the model's file, the three TSVs and the logs were described wrongly or not at all; the agent instructions repeated several of these. | Corrected. |
+
+## Review of the PR, and what it changed
+
+The independent review of the PR's first head (`d9946894`) found nothing blocking. It confirmed the incumbent's
+protocol and the re-score command, the promotion bar, the undo of promotion rows, the family weighting, the shift
+times, the lock and pause behaviour, `uv sync`'s exactness, the broken data step, both smoke checks and every link.
+
+| Finding | Outcome |
+| --- | --- |
+| P2: the centerline fix stopped halfway. With no samples, `train()` still averaged to 0.0 (`if … else 0.0`), so `history.tsv`, the checkpoint and the gates still recorded 0.0 and "below gate". The new test did not reach the aggregation. | Fixed: `mean_or_nan`; tested with the gates. |
+| P3: val_f1 is not logged to wandb; the README said it was. | Corrected: `sprint_logs/` and `run_result.json`. Noted below. |
+| P3: dropout was listed as tuned; the loop applies it only to `gated_unet`, and `resenc_unet` is pinned. | Removed. |
+| P4: the mask is optional and `patches.json` replaces the training catalogue too; `pseudo_label_dir` was not mentioned. The probe and the ablation do not write `history.tsv`. The `--test` paragraph left out `results.tsv`, `prize_readiness.tsv` and the stale `config.json`. Step 5: the GPU is advised, not required; the re-score is also needed after the validation inputs change; it rewrites a tracked file. `make smoke` writes caches with data. Cron's `PATH` lacks `uv`. The probe needs `--config`, `--checkpoint` and `--out`. `make install` is `uv sync`. wandb is online by default. `run.log.old` is tracked. Three stale lines in `docs/program.md`. The placeholder below. | All corrected in the README, `docs/program.md` or here. |
+| P4: `select_topology_threshold` returns a score of 0.0 when it measured nothing. | Left: the score is only printed (`train.py`, `reevaluate_best_model.py`), and an existing test pins it. |
 
 ## Observations for the owner (not changed)
 
@@ -87,6 +102,12 @@ Also in scope: one defect found on the way, in how `train.py` reports a missing 
 - **`train.py --test` takes no lock.** Run by hand beside the loop, it can promote over the loop's incumbent while a
   cycle runs. The lock holders (the probe, the ablation, the re-score) refuse beside the loop; `train.py` run by hand
   does not. Taking the lock in `train.py` would change how the loop's own cycles start, so it is left as documented.
+- **val_f1, AP lift and AUC are not logged to wandb.** The wandb validation log has the reported-only metrics
+  (`val_bpb`, Dice, topology, mean AP) but not the ones that decide promotion; adding them to `train.py`'s
+  `wandb_tracking.log` call would put the dashboard on the promotion metric.
+- **`run.log.old` is tracked** (since `c144a462`, June), 10.5 MB, so every rotation rewrites a tracked file. Untracking
+  it upstream would delete the host's copy on pull, or stop the pull while that copy differs, so it is left to the
+  owner.
 - **`start.sh` clears the pause before it checks the lock.** Documented rather than changed: moving the clear after
   the check would change what `./start.sh` means when it refuses (today: "start when free"). It is the owner's choice.
 
@@ -103,13 +124,18 @@ Environment: CPython 3.10 venv with PyTorch 2.14.1 (no GPU visible), pytest, Ruf
 
 - Baseline: main `de3e0093`, 42 failed, 2476 passed, 21 skipped, 1 xfailed, 2 errors. The failures and errors are
   environmental: no scroll data, no CUDA, no villa data files.
-- Branch: _running at this commit; recorded in the next._
-- `tests/test_topology_threshold.py`: 6 passed; the new test fails on main. The README-reading consistency tests
+- Branch, PR first head (`d9946894`): 42 failed, 2477 passed, 21 skipped, 1 xfailed, 2 errors. Same set; the extra
+  pass is the new test. `scripts/smoke_test.py`: 9 of 11 passed, 2 skipped (no training data).
+- Branch, after the PR review's fixes: _running at this commit; recorded in the next._
+- `tests/test_topology_threshold.py`: 6 passed; `tests/test_prize_promotion_gates.py`: 5 passed, 1 skipped. Both new
+  tests fail on main. The README-reading consistency tests
   (`test_withdrawn_claims_stay_withdrawn`, `test_decoupling_not_claimed_on_current_code`,
   `test_headline_numbers_consistent`, `test_villa_optimized_inference_smoke`): 40 passed.
 - Ruff (check and format) and mypy on the changed Python files: clean.
 
-New test: `tests/test_topology_threshold.py::test_a_missing_centerline_metric_is_not_measured`.
+New tests:
+- `tests/test_topology_threshold.py::test_a_missing_centerline_metric_is_not_measured`;
+- `tests/test_prize_promotion_gates.py::test_a_pass_without_centerline_samples_records_it_unmeasured`.
 
 Not verified: the re-score, `train.py --smoke` and the loop on real data (no GPU, no scroll data here), and the
 crontab lines on a host.
