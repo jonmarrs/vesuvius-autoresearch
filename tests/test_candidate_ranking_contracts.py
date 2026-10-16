@@ -195,3 +195,60 @@ def test_invalid_queue_priority_is_rejected_before_publishing(tmp_path, priority
     with pytest.raises(ValueError, match="priority"):
         rank_candidates(queue, output, directory)
     assert not output.exists()
+
+
+@pytest.mark.parametrize("axis", ["x", "y", "z"])
+def test_missing_queue_coordinates_preserve_previous_ranking(tmp_path, axis):
+    row, directory, _, _, _, _ = prediction(tmp_path)
+    del row[axis]
+    queue = tmp_path / "queue.tsv"
+    with queue.open("w", newline="") as stream:
+        writer = csv.DictWriter(stream, fieldnames=list(row), delimiter="\t")
+        writer.writeheader()
+        writer.writerow(row)
+    output = tmp_path / "ranked.tsv"
+    output.write_text("previous ranking\n")
+    with pytest.raises(ValueError, match=axis):
+        rank_candidates(queue, output, directory)
+    assert output.read_text() == "previous ranking\n"
+
+
+@pytest.mark.parametrize("dimension", ["width", "height"])
+def test_queue_regions_smaller_than_a_model_patch_are_rejected(tmp_path, dimension):
+    row, directory, _, _, _, _ = prediction(tmp_path)
+    row[dimension] = "3"
+    with pytest.raises(ValueError, match="patch"):
+        score_row(row, directory)
+
+
+def test_oversized_metadata_number_does_not_abort_ranking(tmp_path):
+    row, directory, _, _, sidecar, metadata = prediction(tmp_path)
+    metadata["voxel_size_um"] = 10**400
+    sidecar.write_text(json.dumps(metadata))
+    scored = score_row(row, directory)
+    assert scored["prediction_found"] == "false"
+    assert scored["metadata_error"]
+    assert float(scored["fiber_mean"]) == 0.0
+
+
+def test_unresolvable_metadata_source_does_not_abort_ranking(tmp_path):
+    row, directory, _, _, sidecar, metadata = prediction(tmp_path)
+    cycle = tmp_path / "cycle"
+    cycle.symlink_to(cycle)
+    metadata["source_uri"] = str(cycle)
+    sidecar.write_text(json.dumps(metadata))
+    scored = score_row(row, directory)
+    assert scored["prediction_found"] == "false"
+    assert "resolve" in scored["metadata_error"]
+    assert float(scored["fiber_mean"]) == 0.0
+
+
+def test_equivalent_local_source_paths_keep_usable_predictions(tmp_path, monkeypatch):
+    row, directory, _, _, _, _ = prediction(tmp_path)
+    monkeypatch.chdir(tmp_path)
+    row["local_uri"] = "scroll2.zarr"
+    scored = score_row(row, directory)
+    assert scored["prediction_found"] == "true"
+    assert not scored["metadata_error"]
+    assert not scored["prediction_error"]
+    assert float(scored["fiber_mean"]) == 0.75

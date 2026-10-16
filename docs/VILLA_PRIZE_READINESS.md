@@ -103,8 +103,12 @@ cannot authorize retained fiber files. Invalid CT chunk metadata records
 `ct_occupied_status=unknown` and `ct_occupied_error`, without a missing-chunk
 penalty. These per-candidate problems do not stop other rows from ranking.
 Invalid queue coordinates or nonfinite/nonnumeric priorities are input errors
-and stop publication of a new ranked TSV. Chunk existence remains a center-chunk
-hint; it does not prove complete CT coverage or readability.
+and stop publication of a new ranked TSV. All three coordinates are required;
+width and height must cover at least one model patch, as the inference command
+requires. Rejected queue inputs preserve an existing ranking. Unresolvable
+source paths and overflowing metadata numbers are reported per candidate.
+Chunk existence remains a center-chunk hint; it does not prove complete CT
+coverage or readability.
 
 Build a Lasagna/fiber worklist for official Villa issue #191:
 

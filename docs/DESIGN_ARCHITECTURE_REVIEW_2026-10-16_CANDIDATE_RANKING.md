@@ -3,6 +3,9 @@
 Date: 2026-10-16. Baseline: `37fb893744e46061bff2e169591053ff469d9657`
 (main after PR #88).
 
+The original results below use that baseline. The [PR #90 review](#pr-90-review)
+records integration with main after PR #89 and the additional review fixes.
+
 ## What changed
 
 Candidate ranking validates prediction provenance, completeness and probability
@@ -185,3 +188,104 @@ unverified. Protected artifacts and the Villa pin match the reviewed commit.
 Check that no bonus escapes a failed identity/numerical validation, that retained
 fiber cannot survive missing ink, and that per-row diagnostics preserve healthy
 candidates without changing scientific claims.
+
+## PR #90 review
+
+Reviewed published head `f2beb3eb9787f6495a3467f329ac0591fc698884` against
+main `8e2d4b9a7c83caa3c337e915808211bb5773f63e` (after PR #89), with the
+evidence-chain changes integrated before review.
+
+| Finding | Repair and coverage |
+| --- | --- |
+| Missing queue coordinates defaulted to zero; a region smaller than its model patch was ranked even though inference would reject it. | Require every coordinate and at least one patch in each spatial dimension. Missing-coordinate cases preserve a previous TSV instead of overwriting it. The old custom-sidecar test now records its actual 8 px patch for its 13×11 region. |
+| Malformed source metadata escaped the per-row error boundary: a huge integer voxel size raised `OverflowError`, and `Path.resolve()` on a cyclic symlink raised `RuntimeError`. | Catch numeric overflow as an artifact error and translate path-resolution failures into invalid source metadata. Both cases yield zero prediction/fiber bonuses with diagnostics. Equivalent relative and absolute local source paths remain accepted. |
+
+### Review reproductions
+
+```sh
+VESUVIUS_REVIEW_VILLA_SOURCE=/tmp/vesuvius-pr88-review-ejvgzkfp/villa/vesuvius/src OMP_NUM_THREADS=2 MKL_NUM_THREADS=2 MPLCONFIGDIR=/tmp/pr88-matplotlib /workspace/.local/share/uv/python/cpython-3.10.21-linux-x86_64-gnu/bin/python3.10 /tmp/pr88-run-python.py -m pytest -q tests/test_candidate_ranking_contracts.py -k 'missing_queue_coordinates or smaller_than_a_model_patch or oversized_metadata_number or unresolvable_metadata_source or equivalent_local_source_paths' --no-header --tb=short
+```
+
+```text
+Before review fixes: 7 failed, 1 passed, 34 deselected in 0.25s
+```
+
+Interpretation: seven new cases reproduce the two review findings; one positive
+case protects valid local source-path normalization.
+
+### Integrated workflow verification
+
+```sh
+VESUVIUS_REVIEW_VILLA_SOURCE=/tmp/vesuvius-pr88-review-ejvgzkfp/villa/vesuvius/src OMP_NUM_THREADS=2 MKL_NUM_THREADS=2 MPLCONFIGDIR=/tmp/pr88-matplotlib /workspace/.local/share/uv/python/cpython-3.10.21-linux-x86_64-gnu/bin/python3.10 /tmp/pr88-run-python.py -m pytest -q tests/test_candidate_ranking_contracts.py tests/test_prize_readiness.py tests/test_volume_inference_contracts.py tests/test_submission_contracts.py tests/test_production_predict.py tests/test_lasagna_fiber_worklist.py tests/test_candidate_fiber_report_contracts.py --no-header --tb=short
+```
+
+```text
+404 passed in 19.87s
+```
+
+Interpretation: all affected cases pass with main after PR #89 and the review
+fixes, including all 42 candidate-ranking cases. The original 34 plus seven new
+cases failed before their respective fixes; the extra normalization case passed
+before and after. The original environment limitations still apply.
+
+### Full comparison against the PR base
+
+Baseline command runs from a clean detached worktree at `8e2d4b9a`; final
+command runs from the reviewed branch, using the same cached environment.
+
+```sh
+VESUVIUS_REVIEW_VILLA_SOURCE=/tmp/vesuvius-pr88-review-ejvgzkfp/villa/vesuvius/src OMP_NUM_THREADS=2 MKL_NUM_THREADS=2 MPLCONFIGDIR=/tmp/pr88-matplotlib /workspace/.local/share/uv/python/cpython-3.10.21-linux-x86_64-gnu/bin/python3.10 /tmp/pr88-run-python.py /tmp/pr88-run-standard.py /tmp/pr90-baseline.xml
+VESUVIUS_REVIEW_VILLA_SOURCE=/tmp/vesuvius-pr88-review-ejvgzkfp/villa/vesuvius/src OMP_NUM_THREADS=2 MKL_NUM_THREADS=2 MPLCONFIGDIR=/tmp/pr88-matplotlib /workspace/.local/share/uv/python/cpython-3.10.21-linux-x86_64-gnu/bin/python3.10 /tmp/pr88-run-python.py /tmp/pr88-run-standard.py /tmp/pr90-final.xml
+python3 /tmp/pr90-compare.py
+```
+
+```text
+Baseline: 104 failed, 2186 passed, 18 skipped, 1 xfailed, 3 warnings, 1 error in 185.82s
+Final:    104 failed, 2228 passed, 18 skipped, 1 xfailed, 3 warnings, 1 error in 174.92s
+Baseline failure/error IDs: 105
+Final failure/error IDs: 105
+New failure/error IDs: []
+Resolved failure/error IDs: []
+Additional passing cases: 42
+Final affected-module results: {'passed': 404}
+```
+
+Interpretation: comparison by JUnit case identity confirms no new failure/error
+IDs relative to the current PR base, all 42 additional cases passing and all
+404 affected cases passing. The full suite still has the documented baseline
+failures and collection error; it is not a clean integration certification.
+
+### Final smoke
+
+```sh
+VESUVIUS_REVIEW_VILLA_SOURCE=/tmp/vesuvius-pr88-review-ejvgzkfp/villa/vesuvius/src OMP_NUM_THREADS=2 MKL_NUM_THREADS=2 MPLCONFIGDIR=/tmp/pr88-matplotlib /workspace/.local/share/uv/python/cpython-3.10.21-linux-x86_64-gnu/bin/python3.10 /tmp/pr88-run-python.py scripts/smoke_test.py
+```
+
+```text
+Loaded 288/288 compatible tensors from best_model.pt (skipped missing=0, shape=0).
+--- 8/11 passed, 3 skipped, 0 failed in 5.4s ---
+```
+
+Interpretation: the available smoke paths still pass after review; the same
+missing-data and backend skips remain.
+
+### Final documentation and static checks
+
+Baseline command uses the clean PR-base worktree; final command uses this branch.
+
+```sh
+VESUVIUS_REVIEW_VILLA_SOURCE=/tmp/vesuvius-pr88-review-ejvgzkfp/villa/vesuvius/src OMP_NUM_THREADS=2 MKL_NUM_THREADS=2 MPLCONFIGDIR=/tmp/pr88-matplotlib /workspace/.local/share/uv/python/cpython-3.10.21-linux-x86_64-gnu/bin/python3.10 /tmp/pr88-run-python.py /tmp/pr88-fix-doc-tests.py /tmp/pr90-baseline-docs.xml
+VESUVIUS_REVIEW_VILLA_SOURCE=/tmp/vesuvius-pr88-review-ejvgzkfp/villa/vesuvius/src OMP_NUM_THREADS=2 MKL_NUM_THREADS=2 MPLCONFIGDIR=/tmp/pr88-matplotlib /workspace/.local/share/uv/python/cpython-3.10.21-linux-x86_64-gnu/bin/python3.10 /tmp/pr88-run-python.py /tmp/pr88-fix-doc-tests.py /tmp/pr90-final-docs.xml
+```
+
+```text
+Baseline: 1 failed, 90 passed, 2 skipped in 11.83s
+Final:    1 failed, 90 passed, 2 skipped in 11.66s
+Documentation failure IDs and missing-path diagnostics match the PR base exactly.
+```
+
+Interpretation: the same reference failure for unavailable Villa files and
+external detector weights remains; there are no new reference diagnostics.
+Python syntax, whitespace, final-newline, file-size and `git diff --check`
+checks pass. Ruff/mypy remain unavailable. Protected artifacts and the Villa pin
+match the PR base.

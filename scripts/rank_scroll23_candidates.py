@@ -21,6 +21,7 @@ ARTIFACT_ERRORS = (
     OSError,
     ValueError,
     TypeError,
+    OverflowError,
     KeyError,
     AttributeError,
     EOFError,
@@ -33,7 +34,10 @@ def _reject_constant(value):
 
 
 def _integer(value, label, minimum=0):
-    number = float(value)
+    try:
+        number = float(value)
+    except (TypeError, ValueError, OverflowError) as exc:
+        raise ValueError(f"{label} must be an integer >= {minimum}") from exc
     if (
         isinstance(value, bool)
         or not math.isfinite(number)
@@ -46,12 +50,15 @@ def _integer(value, label, minimum=0):
 
 def _geometry(row):
     patch = _integer(row.get("patch_size", 64), "candidate patch_size", 1)
-    return {
-        "position_xyz": [_integer(row.get(axis, 0), axis) for axis in ("x", "y", "z")],
+    geometry = {
+        "position_xyz": [_integer(row.get(axis), axis) for axis in ("x", "y", "z")],
         "width_px": _integer(row.get("width", patch), "candidate width", 1),
         "height_px": _integer(row.get("height", patch), "candidate height", 1),
         "patch_size": patch,
     }
+    if geometry["width_px"] < patch or geometry["height_px"] < patch:
+        raise ValueError("candidate width and height must be at least one patch")
+    return geometry
 
 
 def _read_zarr_array_info(local_uri):
@@ -135,7 +142,12 @@ def _artifact_stem(row):
 def _source_identity(uri):
     if not isinstance(uri, str) or not uri.strip():
         raise ValueError("candidate and prediction must record source_uri")
-    return uri.rstrip("/") if "://" in uri else str(Path(uri).resolve())
+    if "://" in uri:
+        return uri.rstrip("/")
+    try:
+        return str(Path(uri).resolve())
+    except (OSError, RuntimeError) as exc:
+        raise ValueError(f"cannot resolve source_uri {uri}: {exc}") from exc
 
 
 def _validate_prediction_metadata(meta, row):

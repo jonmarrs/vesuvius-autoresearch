@@ -945,6 +945,7 @@ def test_custom_metadata_rerun_invalidates_default_sidecar(
     assert list(output.glob("*_fiber.npy"))
     if mode == "single":
         row = {"x": "3", "y": "2", "z": "1", "width": "13", "height": "11"}
+        row["patch_size"] = "8"
         ranked = score_row(row, prediction_dir=output)
         assert ranked["prediction_found"] == "false"
         assert float(ranked["fiber_mean"]) == 0.0
