@@ -1,5 +1,17 @@
 # Resume note — written 2026-09-22 before a deliberate Claude restart
 
+## 2026-10-16: villa pin bumped 9afddaf0f → ccb431818 (20 upstream commits)
+
+* `ink-detection/` is unchanged, and no villa file was deleted or renamed. Of the villa files and packages our code
+  names, two changed: `lasagna/README.md` (cited in a message) and the `vesuvius/src/vesuvius/tifxyz` package that
+  `scripts/labeling/tifxyz_wrapper.py` loads (`writer.py`, `upsampling.py`). It gains no new `vesuvius.*` import, so
+  `scripts/pinned_vesuvius.py` needs nothing new.
+* The render hot path changes in metadata only: `render_ink.py`, `tifxyz.py` and `lasagna` writers give each new
+  surface a random `uuid` (villa #2077); `get_ink_metrics.py` gains `--device` (villa #1925), whose CUDA path builds
+  the same predictor as before. `lasagna/fit.py` is unchanged. Registered studies still pin `VILLA_REF=be09a8503`.
+* New upstream: villa's fiber neural tracer (#2045, `vesuvius.neural_tracing.tracers.fibers`, default checkpoint
+  `scrollprize/fiber_single_small`) and fiber strip model (#2110). Neither has been run here.
+
 ## 2026-10-14 (evening): finding 90, the loop's model does not read ink better from deep windows
 
 * **Finding 90** (`reports/loop_model_depth_offset.md`, pre-registered, CPU). The loop's 400-patch draw, every
