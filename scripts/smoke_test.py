@@ -176,8 +176,8 @@ def test_best_model_loads():
         use_ridges=sc.get("use_ridges", False),
         multi_task_heads=sc.get("multi_task_heads", False),
     )
-    skipped = load_shape_compatible_state(m, chk["model_state_dict"], "best_model.pt")
-    n_skipped = len(skipped) if hasattr(skipped, "__len__") else 0
+    state = chk["model_state_dict"]
+    n_skipped = len(state) - load_shape_compatible_state(m, state, "best_model.pt")
     # Allow a small tolerance for stale state-dict keys (e.g. removed aux modules).
     assert n_skipped <= 8, (
         f"too many skipped tensors ({n_skipped}) — architecture drift"

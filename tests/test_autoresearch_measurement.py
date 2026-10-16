@@ -13,6 +13,7 @@ from __future__ import annotations
 import itertools
 import json
 import os
+import pickle
 import signal
 import subprocess
 import sys
@@ -932,19 +933,109 @@ def test_a_foundation_model_that_does_not_load_stops_the_run(tmp_path):
 
     model = Primus()
     with pytest.raises(FileNotFoundError):
-        train.load_foundation_model(model, str(tmp_path / "missing.pth"), "cpu")
+        train.load_foundation_model(model, str(tmp_path / "missing.pth"))
     path = tmp_path / "lejepa.pth"
-    weight = torch.full((2, 3), 0.5)
-    torch.save({"model": {"module.encoder.weight": weight, "projector.w": 1}}, path)
-    train.load_foundation_model(model, str(path), "cpu")
+    weight, bias = torch.full((2, 3), 0.5), torch.full((2,), 0.25)
+    encoder = {"module.encoder.weight": weight, "module.encoder.bias": bias}
+    torch.save({"model": {**encoder, "projector.w": 1}}, path)
+    train.load_foundation_model(model, str(path))
     assert torch.equal(model.backbone.shared_encoder.weight, weight)
+    assert torch.equal(model.backbone.shared_encoder.bias, bias)
+    # An encoder of another size fits only part of shared_encoder.
+    torch.save(
+        {"model": {"encoder.weight": weight, "encoder.bias": torch.ones(5)}}, path
+    )
+    with pytest.raises(ValueError, match="only 1 of 2"):
+        train.load_foundation_model(model, str(path))
     torch.save({"model": {"encoder.weight": torch.zeros(4, 4)}}, path)  # no fit
-    with pytest.raises(ValueError, match="no tensor"):
-        train.load_foundation_model(model, str(path), "cpu")
+    with pytest.raises(ValueError, match="only 0 of 2"):
+        train.load_foundation_model(model, str(path))
+    path.write_bytes(b"not a checkpoint")
+    with pytest.raises(pickle.UnpicklingError):  # no longer a printed warning
+        train.load_foundation_model(model, str(path))
+    torch.save([weight], path)
+    with pytest.raises(TypeError, match="not a state dict"):
+        train.load_foundation_model(model, str(path))
     plain = nn.Linear(3, 2)  # any other model: by name
     torch.save({"state_dict": {"weight": weight}}, path)
-    train.load_foundation_model(plain, str(path), "cpu")
+    train.load_foundation_model(plain, str(path))
     assert torch.equal(plain.weight, weight)
+
+
+def _stubbed_training(tmp_path, monkeypatch, foundation):
+    """train() as far as it goes without data, for a config whose
+    foundation_model_path is ``foundation``: the datasets, loaders and logging
+    are stubbed, and the optimizer, built after the model, ends the run."""
+    config = ExperimentConfig(
+        architecture="resenc_unet",
+        patch_size=8,
+        num_layers=4,
+        base_feat=2,
+        uris=["fake/ct.zarr"],
+        val_uri="fake_val/ct.zarr",
+        unlabeled_uris=[],
+        use_uamt=False,
+        checkpoint_out=str(tmp_path / "candidate.pt"),
+        cache_dir=str(tmp_path / "cache"),
+        foundation_model_path=str(foundation),
+    )
+    built = []
+    model = train.build_model(config, train.build_vconfig(config), "cpu")
+    monkeypatch.setattr(train, "training_label_path", lambda *a: "fake/labels.png")
+    monkeypatch.setattr(
+        train, "build_validation_dataset", lambda cfg: built.append("val") or object()
+    )
+    monkeypatch.setattr(train, "probe_validation_read", lambda dataset: None)
+    monkeypatch.setattr(train, "check_validation_inputs", lambda *a: None)
+    monkeypatch.setattr(train, "VesuviusLabeledDataset", lambda *a, **k: object())
+    monkeypatch.setattr(train, "shuffled_loader", lambda *a, **k: [])
+    monkeypatch.setattr(train, "build_model", lambda *a: model)
+    monkeypatch.setattr(train.wandb_tracking, "init_run", lambda *a, **k: None)
+    monkeypatch.setattr(train.wandb_tracking, "watch_model", lambda *a, **k: None)
+
+    def optimizer(*args, **kwargs):
+        raise RuntimeError("reached the optimizer")
+
+    monkeypatch.setattr(torch.optim, "AdamW", optimizer)
+    monkeypatch.chdir(tmp_path)
+    return config, built
+
+
+def test_train_stops_at_once_on_a_missing_foundation_model(tmp_path, monkeypatch):
+    """Checked with the label files, before the validation catalogue is built
+    (the --smoke preflight runs the same check)."""
+    config, built = _stubbed_training(tmp_path, monkeypatch, tmp_path / "missing.pth")
+    with pytest.raises(FileNotFoundError, match="foundation_model_path"):
+        train.train(config)
+    assert built == []
+
+
+def test_train_stops_on_a_foundation_model_that_does_not_fit(tmp_path, monkeypatch):
+    """The load at model build raises; it used to print a warning and go on."""
+    path = tmp_path / "foundation.pth"
+    torch.save({"state_dict": {"no.such.tensor": torch.zeros(1)}}, path)
+    config, built = _stubbed_training(tmp_path, monkeypatch, path)
+    with pytest.raises(ValueError, match="only 0 of"):
+        train.train(config)
+    assert built == ["val"]  # it got as far as the model
+
+
+def test_the_smoke_preflight_stops_on_a_foundation_model_that_does_not_fit(tmp_path):
+    """The loop's preflight builds the model, so it loads the foundation model
+    too: a checkpoint that does not fit fails the cycle in seconds."""
+    path = tmp_path / "foundation.pth"
+    torch.save({"state_dict": {"no.such.tensor": torch.zeros(1)}}, path)
+    config = ExperimentConfig(
+        architecture="resenc_unet",
+        patch_size=8,
+        num_layers=4,
+        base_feat=2,
+        foundation_model_path=str(path),
+    )
+    with pytest.raises(ValueError, match="only 0 of"):
+        train.preflight_smoke(config)
+    config.foundation_model_path = None
+    train.preflight_smoke(config)  # the same config passes without it
 
 
 def test_a_failed_preflight_is_named_in_the_sprint_log(tmp_path, monkeypatch):
