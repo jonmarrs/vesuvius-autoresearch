@@ -1044,6 +1044,9 @@ def select_topology_threshold(
     """
     best_thr = fallback
     best_cd = -1.0
+    # Counted and reported as the validation pass's own metrics are: a threshold
+    # chosen without the patches whose metric failed says so.
+    errors = 0
     for thr in candidates:
         cds = []
         for i in range(0, len(prob_list), subset_step):
@@ -1061,11 +1064,21 @@ def select_topology_threshold(
                 )
                 if not np.isnan(cd):
                     cds.append(cd)
-            except Exception:
-                pass
+            except Exception as exc:
+                errors += 1
+                if errors <= 3:
+                    print(
+                        f"  Warning: centerline-dice failed while choosing the "
+                        f"topology threshold (at {thr}): {type(exc).__name__}: {exc}"
+                    )
         mean_cd = float(np.mean(cds)) if cds else -1.0
         if mean_cd > best_cd:
             best_cd, best_thr = mean_cd, thr
+    if errors:
+        print(
+            f"  Warning: the topology threshold was chosen without {errors} failed "
+            "centerline-dice evaluations"
+        )
     return best_thr, (best_cd if best_cd >= 0.0 else 0.0)
 
 

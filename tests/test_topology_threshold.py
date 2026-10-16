@@ -62,3 +62,22 @@ def test_candidates_cover_low_range():
     # set must cover that low region where topology is actually achievable.
     assert min(TOPOLOGY_THRESHOLD_CANDIDATES) <= 0.05
     assert any(c <= 0.2 for c in TOPOLOGY_THRESHOLD_CANDIDATES)
+
+
+def test_failed_metric_evaluations_are_reported(monkeypatch, capsys):
+    """They were dropped without a word: a metric that failed everywhere chose
+    the fallback threshold as if every prediction had been empty."""
+
+    def broken(*args, **kwargs):
+        raise RuntimeError("metric unavailable")
+
+    monkeypatch.setattr(train, "compute_centerline_dice", broken)
+    probs = [torch.ones((1, 1, 2, 2)) for _ in range(2)]
+    targets = [torch.ones((1, 1, 2, 2)) for _ in range(2)]
+    thr, cd = select_topology_threshold(
+        probs, targets, candidates=(0.05, 0.15), subset_step=1, fallback=0.42
+    )
+    assert (thr, cd) == (0.42, 0.0)
+    out = capsys.readouterr().out
+    assert "RuntimeError: metric unavailable" in out
+    assert "without 4 failed centerline-dice evaluations" in out
