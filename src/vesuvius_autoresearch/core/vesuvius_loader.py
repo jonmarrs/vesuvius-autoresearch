@@ -429,11 +429,11 @@ class VesuviusLabeledDataset(torch.utils.data.Dataset):
         self.require_ink = require_ink
         self.min_mask_ratio = min_mask_ratio
         self.min_ink_ratio = min_ink_ratio
-        # target_fiber_source: "sobel_z" (default — train.py computes Sobel-Z
-        # of CT inline, dataloader returns a zero placeholder for the 3rd
-        # tuple element) or "frangi" (dataloader computes Frangi vesselness
-        # via fiber_tools.detect_vesselness on the CT patch, ~86ms/patch
-        # CPU, parallelized by num_workers).
+        # target_fiber_source: "sobel_z" (default: a zero placeholder for the
+        # 3rd tuple element) or "frangi" (Frangi vesselness of the CT patch,
+        # with skimage on the CPU). train.py asks for the placeholder and
+        # computes either target from the batch on its device
+        # (train.fiber_target).
         self.target_fiber_source = target_fiber_source
         self.target_fiber_sigma = target_fiber_sigma
 
@@ -823,10 +823,10 @@ class VesuviusLabeledDataset(torch.utils.data.Dataset):
             # 3rd return: per-patch fiber target. Always [1, 1, H, W] (z is
             # singleton — train.py expects target_fiber to be z-collapsed to
             # match `torch.mean(out_fiber, dim=2, keepdim=True)`). For
-            # source="sobel_z" this is a zero placeholder; train.py computes
-            # the real Sobel-Z target on the GPU side. For source="frangi"
-            # we compute Frangi vesselness on the CT channel (CPU, ~86ms/patch
-            # parallelized by dataloader workers) and z-mean to collapse.
+            # source="sobel_z" this is a zero placeholder, which train.py asks
+            # for and replaces with either target from the batch. For
+            # source="frangi" it is Frangi vesselness of the CT channel
+            # (skimage, CPU), z-mean collapsed.
             patch_fiber = self._compute_fiber_target(patch_vol)
             return patch_vol, patch_label, patch_fiber
         except Exception as e:

@@ -133,9 +133,9 @@ tweak_templates: list[dict[str, Any]] = [
     # (finding 86). Restore True once the warp runs and inference applies it.
     {"family": "preproc", "attr": "use_lasagna", "vals": [False]},
     # target_fiber_source: tests whether the fiber head's BCE target benefits
-    # from being real Frangi vesselness (dataloader-side, ~86ms/patch CPU,
-    # parallelized) instead of the cheap inline Sobel-Z gradient. The target
-    # feeds the fiber and QC heads only, so the axis needs one of them.
+    # from being real Frangi vesselness (computed from the batch in the training
+    # step, train.fiber_target) instead of the cheap inline Sobel-Z gradient. The
+    # target feeds the fiber and QC heads only, so the axis needs one of them.
     {
         "family": "preproc",
         "attr": "target_fiber_source",

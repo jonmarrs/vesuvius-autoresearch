@@ -184,3 +184,14 @@ def test_the_frangi_target_only_for_a_head_that_uses_it(heads, configured, expec
         target_fiber_source = configured
 
     assert train.fiber_source(heads, Config()) == expected
+
+
+def test_matches_skimage_at_a_small_scale():
+    """skimage truncates its Gaussian derivatives at 100 standard deviations for a
+    Frangi scale of 1 or less, and 8 above it; this filter uses 8 at every scale.
+    At 1 the tail past 8 is about exp(-36), so it still matches, as it should."""
+    rng = np.random.default_rng(2)
+    batch = np.stack([_fibrous(rng, 12, 32, 32, scale) for scale in (1.0, 0.3)])
+    want = np.stack([frangi_vesselness_zcollapsed(p, sigma=1.0) for p in batch])
+    got = frangi_vesselness_zcollapsed_torch(torch.from_numpy(batch), sigma=1.0)
+    _assert_matches(got.numpy(), want)
