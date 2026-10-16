@@ -24,6 +24,13 @@ import pytest
 
 _AMBIENT_CUDA_VISIBLE_DEVICES = os.environ.get("CUDA_VISIBLE_DEVICES")
 
+# With a display, matplotlib defaults to TkAgg, and a Tk interpreter that the
+# garbage collector frees on a worker thread aborts the whole session with
+# SIGILL (tests/test_matplotlib_backend.py). Set before anything imports
+# matplotlib; subprocesses inherit it. Forced, not defaulted: a shell's
+# MPLBACKEND=TkAgg would bring the crash back.
+os.environ["MPLBACKEND"] = "Agg"
+
 # Subprocesses import the package from this checkout as well. Every checkout
 # shares one .venv whose editable install points wherever `uv run` last synced
 # it (tests/test_checkout_imports_its_own_code.py); pytest's `pythonpath`
