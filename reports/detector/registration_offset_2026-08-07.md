@@ -3,6 +3,8 @@
 **2026-08-07.** Reproduce: `uv run python scripts/probe_registration_offset.py`
 Data: [`registration_offset_2026-08-07.json`](registration_offset_2026-08-07.json)
 
+_Corrected 2026-10-17: the residual offset this report closes as an irreducible floor includes the warp's own error. The crop rounding quantified below, which was left in place, and the warp's pixel-centre stretch together misplace an identity registration in the train-exposed segment's mesh geometry by 1.8–13.8 px in rows (7.8 on average) and 0.7–10.6 in columns (5.6); that model does not reproduce the (+11.7, −12.0) px estimate below. Fixed in `register.region_in_mesh`; the 32 and 46.6 px placements are unchanged here and are to be re-measured after re-warping ([review](../../docs/DESIGN_ARCHITECTURE_REVIEW_2026-10-17_WARP_ALIGNMENT.md))._
+
 > **Resolution, for readers who want it up front.** A hardcoded `LEVEL0_SHAPE` applied one
 > segment's geometry to every segment, displacing the held-out label ~1766 level-0 voxels.
 > Fixed, re-registered, re-scored: the canon teacher goes **0.563 → 0.753 ROC-AUC** and the

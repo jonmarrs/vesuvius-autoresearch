@@ -23,12 +23,15 @@ sys.path.insert(0, os.path.abspath("."))
 from repro.sota_data import distill_run as dr
 from repro.sota_data.register import (
     LEVEL0_SHAPES as _LEVEL0_SHAPES,
+    OLD_WARP_NOTE,
+    WARP_ALIGNMENT,
     correspondence_field,
     fit_similarity,
     label_line_periodicity,
     ncc,
     placement_peak,
     read_tifxyz,
+    region_in_mesh,
     warp_via_field,
 )
 from repro.sota_data.retirement import RETIREMENT_REASON, is_retired
@@ -62,6 +65,10 @@ LEVEL0_SHAPE: Any = None  # set per-target by _set_target()
 #     transform bridges them tightly.
 #   * Converting that surface disagreement into level-2 px puts the achievable floor in the
 #     tens of px. Measured placement on the corrected targets: ~32 px.
+#
+# The floor was measured with the warp before 2026-10-17, whose rounded crop and pixel-centre
+# stretch misplaced labels by several px themselves (see register.region_in_mesh). The
+# threshold is unchanged; whether to revisit it after re-measuring is the owner's call.
 #
 # 48 px = ~0.46 mm sits just above the observed floor while still catching gross errors by
 # a wide margin: the LEVEL0_SHAPE bug measured 435 px, ~9x this. Tightening it is welcome
@@ -143,7 +150,8 @@ TARGETS = {
             "optimistic.\n\n"
             "**PLACEMENT: 46.6 level-2 px — passes the 48 px gate by only 1.4 px.** Read "
             "this row's absolute values with more caution than the held-out target's, which "
-            "sits at 32.0 px. This segment was *not* affected by the 2026-08-07 "
+            "sits at 32.0 px (both measured with the warp before 2026-10-17, which misplaced "
+            "labels by several px itself). This segment was *not* affected by the 2026-08-07 "
             "`LEVEL0_SHAPE` bug (the hardcoded constant was its own geometry), so its offset "
             "is a separate matter: the cross-scan floor simply varies more by segment than "
             "the held-out measurement suggested. **The threshold was deliberately "
@@ -225,7 +233,10 @@ TARGETS = {
             "**32 px ≈ 128 level-0 voxels ≈ 0.31 mm** off zero. That is the resolution limit "
             "of this target: features closer together than ~0.31 mm cannot be scored "
             "reliably against it, and all absolute values are mild lower bounds.\n\n"
-            "It is a **floor of the method, not an outstanding bug.** `original.obj` (which "
+            "It is a **floor of the method, not an outstanding bug.** (Corrected 2026-10-17: "
+            "part of it may be the warp's own error, several px, fixed that day in "
+            "`register.region_in_mesh`; the 32 px was measured before the fix and is to be "
+            "re-measured after re-warping.) `original.obj` (which "
             "carries the vt → 2023 label mapping) lives in the old 7.91 µm scan frame, so "
             "reaching a 2023 label from a 2.4 µm-volume position must cross scan frames — "
             "and the 2023 and 2026 *segmentations of this sheet are materially different "
@@ -423,13 +434,9 @@ def _load_meshes():
 
 
 def _region_in_mesh(new_xyz):
-    """Crop the new mesh to the measured region (level-2 coords scaled to mesh grid)."""
-    mh, mw = new_xyz.shape[:2]
-    sy, sx = mh / (LEVEL0_SHAPE[0] / 4), mw / (LEVEL0_SHAPE[1] / 4)  # mesh vs level-2
-    y0, x0, size = REGION_L2
-    ys, xs = int(round(y0 * sy)), int(round(x0 * sx))
-    ye, xe = int(round((y0 + size) * sy)), int(round((x0 + size) * sx))
-    return new_xyz[ys:ye, xs:xe]
+    """The new mesh cropped to the measured region, and where the region's rows and
+    columns fall in the crop (`register.region_in_mesh`)."""
+    return region_in_mesh(new_xyz, LEVEL0_SHAPE, REGION_L2)
 
 
 def cmd_warp():
@@ -444,7 +451,7 @@ def cmd_warp():
     s, R, t, med_fit = fit_similarity(new_xyz.reshape(-1, 3), old_xyz.reshape(-1, 3))
     print(f"fit: scale={s:.4f} med_residual={med_fit:.2f} (old-scan units)", flush=True)
 
-    region_xyz = _region_in_mesh(new_xyz)
+    region_xyz, coords = _region_in_mesh(new_xyz)
     field, res = correspondence_field(region_xyz, s, R, t, old_xyz, stride=1)
     med_res = float(np.nanmedian(res))
     print(
@@ -467,18 +474,19 @@ def cmd_warp():
     lf[..., 1] *= old_label.shape[1] / ow
     size = REGION_L2[2]
     reg_label = warp_via_field(
-        old_label, lf, (size, size), interpolation=cv2.INTER_NEAREST
+        old_label, lf, (size, size), interpolation=cv2.INTER_NEAREST, coords=coords
     )
     mf = field.copy()
     mf[..., 0] *= old_mid.shape[0] / oh
     mf[..., 1] *= old_mid.shape[1] / ow
-    reg_mid = warp_via_field(old_mid, mf, (size, size))
+    reg_mid = warp_via_field(old_mid, mf, (size, size), coords=coords)
     cv2.imwrite(REG_LABEL, reg_label)
     cv2.imwrite(os.path.join(REG_DIR, "registered_oldsurface_l2region.png"), reg_mid)
     with open(REG_STATS, "w") as f:
         json.dump(
             {
-                "method": "mesh-bridge (PCA+trimmed-ICP similarity, stride-8 field)",
+                "method": "mesh-bridge (PCA+trimmed-ICP similarity, stride-1 field)",
+                "warp_alignment": WARP_ALIGNMENT,
                 "fit_scale": s,
                 "fit_median_residual": med_fit,
                 "region_median_residual": med_res,
@@ -531,7 +539,7 @@ def cmd_warp_obj():
         raise ValueError("old label / mid layer unreadable")
     h_lab, w_lab = old_label.shape
     new_xyz = read_tifxyz(_mesh_path(MESH_NEW))
-    region_xyz = _region_in_mesh(new_xyz)
+    region_xyz, coords = _region_in_mesh(new_xyz)
     rh, rw = region_xyz.shape[:2]
     pts = region_xyz.reshape(-1, 3)
     valid = (
@@ -558,7 +566,11 @@ def cmd_warp_obj():
         fld.reshape(-1, 2)[valid] = rc
         lab = (
             warp_via_field(
-                old_label, fld, (size, size), interpolation=cv2.INTER_NEAREST
+                old_label,
+                fld,
+                (size, size),
+                interpolation=cv2.INTER_NEAREST,
+                coords=coords,
             )
             > 127
         )
@@ -573,9 +585,9 @@ def cmd_warp_obj():
     field = np.full((rh, rw, 2), np.nan, np.float32)
     field.reshape(-1, 2)[valid] = cands[best]
     reg_label = warp_via_field(
-        old_label, field, (size, size), interpolation=cv2.INTER_NEAREST
+        old_label, field, (size, size), interpolation=cv2.INTER_NEAREST, coords=coords
     )
-    reg_mid = warp_via_field(old_mid, field, (size, size))
+    reg_mid = warp_via_field(old_mid, field, (size, size), coords=coords)
     cv2.imwrite(REG_LABEL, reg_label)
     cv2.imwrite(os.path.join(REG_DIR, "registered_oldsurface_l2region.png"), reg_mid)
     with open(REG_STATS, "w") as f:
@@ -585,6 +597,7 @@ def cmd_warp_obj():
                 f"via on-7.91um tifxyz (same old-scan frame), vt convention "
                 f"{best} (selected by teacher-enrichment among 4 discrete "
                 f"candidates, disclosed; orientation verified visually)",
+                "warp_alignment": WARP_ALIGNMENT,
                 "region_median_residual": float(np.median(d)),
                 "region_p90_residual": float(np.quantile(d, 0.9)),
                 "registered_ink_fraction": float((reg_label > 127).mean()),
@@ -732,6 +745,8 @@ def cmd_validate(argv=None):
     stats["gate"] = gate
     with open(REG_STATS, "w") as f:
         json.dump(stats, f, indent=2)
+    if stats.get("warp_alignment") != WARP_ALIGNMENT:
+        print(f"WARNING: this label was {OLD_WARP_NOTE}", flush=True)
     tail = (
         f"median_res={stats['region_median_residual']:.2f}, enrichment={enrichment:.2f}"
         f", periodicity={periodicity:.3f}, placement=({pdy},{pdx})"
@@ -808,10 +823,16 @@ def cmd_score():
         if is_retired(SEG)
         else []
     )
+    old_warp = (
+        []
+        if stats.get("warp_alignment") == WARP_ALIGNMENT
+        else [f"**This label was {OLD_WARP_NOTE}.**", ""]
+    )
     lines = [
         f"# {REPORT_TITLE}",
         "",
         *retired,
+        *old_warp,
         "**All rows are scored against the REGISTERED hand ground-truth label** "
         f"(method: {stats['method']}; region median correspondence residual "
         f"{stats['region_median_residual']:.2f} old-scan voxels; registration is "

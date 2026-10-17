@@ -27,6 +27,7 @@ import numpy as np
 sys.path.insert(0, os.path.abspath("."))
 from repro.sota_data import distill_run as dr
 from repro.sota_data.gt_register import gt_prep_fragment
+from repro.sota_data.register import WARP_ALIGNMENT
 from repro.sota_data.retirement import is_retired
 
 TRAIN_REGIONS = [
@@ -83,7 +84,9 @@ def verified_kept(prep, max_placement_offset=None):
     labels are still on disk under GT_ROOT (fragment writes refuse to overwrite), so
     that record alone would have trained on them. Each region must now carry its own
     passing, placement-verified entry, from a segment that is neither retired nor the
-    held-out evaluation one.
+    held-out evaluation one, registered by the current warp (the one before 2026-10-17
+    misplaced every label by several px; the fragment write refuses to overwrite, so a
+    record carrying the current warp was written by it).
     """
     if max_placement_offset is None:
         from repro.sota_data.register_run import MAX_PLACEMENT_OFFSET_L2PX
@@ -106,6 +109,8 @@ def verified_kept(prep, max_placement_offset=None):
             refused[frag_id] = "placement not verified"
         elif offset > max_placement_offset:
             refused[frag_id] = f"placement {offset:.1f} px > {max_placement_offset:.0f}"
+        elif info.get("warp_alignment") != WARP_ALIGNMENT:
+            refused[frag_id] = "registered by the warp before 2026-10-17"
         else:
             kept.append(frag_id)
     return kept, refused

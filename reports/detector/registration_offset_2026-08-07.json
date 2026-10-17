@@ -54,5 +54,6 @@
         "prevalence_lift": 3.6280805499489532
       }
     }
-  ]
+  ],
+  "correction_2026_10_17": "2026-10-17: these placements were measured with the warp before that day, whose rounded crop and pixel-centre stretch misplaced the registered label by several level-2 px on their own (on an identity registration in 20230702185753's mesh geometry, 1.8-13.8 px in rows, 7.8 on average, and 0.7-10.6 in columns, 5.6). Fixed in register.region_in_mesh; the figures here are unchanged and are to be re-measured after re-warping. See docs/DESIGN_ARCHITECTURE_REVIEW_2026-10-17_WARP_ALIGNMENT.md."
 }

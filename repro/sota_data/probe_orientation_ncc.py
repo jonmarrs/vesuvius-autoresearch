@@ -95,7 +95,8 @@ for tag, seg, y0, x0, obj_path, mesh_path, expected in CASES:
     print(f"===== {tag} {frag} (expected: {expected}) =====", flush=True)
     obj_v, obj_vt = parse_obj_vt(obj_path)
     new_xyz = read_tifxyz(mesh_path)
-    region_xyz = np.asarray(_region_in_mesh(new_xyz, seg, y0, x0, SIZE), np.float32)
+    region_xyz, coords = _region_in_mesh(new_xyz, seg, y0, x0, SIZE)
+    region_xyz = np.asarray(region_xyz, np.float32)
     old_mid = depth_mean(f"villa/ink-detection/train_scrolls/{seg}/layers")
     new_mid = depth_mean(f"local_data/sota_distill/{frag}/layers")
     if new_mid.shape != (SIZE, SIZE):
@@ -125,7 +126,7 @@ for tag, seg, y0, x0, obj_path, mesh_path, expected in CASES:
         field = np.full((rh, rw, 2), np.nan, np.float32)
         field.reshape(-1, 2)[valid] = rc
         warped = warp_via_field(
-            old_mid, field, (SIZE, SIZE), interpolation=cv2.INTER_LINEAR
+            old_mid, field, (SIZE, SIZE), interpolation=cv2.INTER_LINEAR, coords=coords
         ).astype(np.float32)
         m = warped > 0  # warp fills invalid with 0
         raw = ncc(np.where(m, warped, np.nan), np.where(m, new_mid, np.nan))
