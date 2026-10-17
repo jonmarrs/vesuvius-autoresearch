@@ -29,7 +29,8 @@ and trial runner hash identically to main's (`input_hashes` in the JSON). Raw re
 * **Every trial beats the incumbent** (0.2493) by 0.012 to 0.018, which is 4.8 to 6.9 SDs. The incumbent itself is
   ROC AUC 0.5717, AP lift 1.144.
 * **None would be promoted.** The rule (`is_f1_improvement`) needs val_f1 above the stored 0.2493 by more than
-  `F1_NOISE_TOLERANCE` = 0.03, so above 0.2793. All four AP lifts clear its 1.02 gate.
+  `F1_NOISE_TOLERANCE` = 0.03, so above 0.2793. All four AP lifts clear its 1.02 gate. (That was the rule when the
+  probe ran. Under the 0.01 the owner set on 2026-10-17, all four would be; see below.)
 * **The tolerance, re-derived.** The July derivation is 1.645 × √2 × σ, for a ~5% false-promotion rate. On this
   σ it gives 0.0059. The ends of σ's interval give 0.0033 and 0.022, and even the high end is below 0.03.
 * **Throughput** is 0.67–0.74 Mvox/s, or 2,300–2,530 steps in 900 s. Frangi cycles on the 10-14 code had a median
