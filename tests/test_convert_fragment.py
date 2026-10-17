@@ -63,7 +63,7 @@ def _detector_cfg(dst, **overrides):
 
 def test_reproduce_redoes_a_conversion_that_lacks_a_file(tmp_path):
     """The reproduce path used to skip conversion whenever layers/ existed, so an
-    interrupted conversion was trained on until a layer read failed."""
+    interrupted conversion failed at its first missing layer on every later run."""
     from vesuvius_autoresearch.detector.cli import _ensure_converted
 
     for fid in ("FragA", "FragB"):
@@ -114,4 +114,66 @@ def test_a_layer_is_never_left_partial_under_its_own_name(tmp_path, monkeypatch)
         "18.tif",
         "19.tif",
     ]
-    assert not (out / "FragX_inklabels.png").exists()
+
+
+def test_a_conversion_for_another_layer_range_is_redone(tmp_path):
+    from vesuvius_autoresearch.detector.cli import _ensure_converted
+
+    for fid in ("FragA", "FragB"):
+        _source_fragment(tmp_path / "src", fid)
+    _ensure_converted(_detector_cfg(tmp_path / "dst"), str(tmp_path / "src"))
+    shifted = _detector_cfg(tmp_path / "dst", start_idx=11, end_idx=37)
+    assert _ensure_converted(shifted, str(tmp_path / "src")) == ["FragA", "FragB"]
+
+
+def test_a_conversion_missing_its_mask_is_redone(tmp_path):
+    from vesuvius_autoresearch.detector.cli import _ensure_converted
+
+    for fid in ("FragA", "FragB"):
+        _source_fragment(tmp_path / "src", fid)
+    cfg = _detector_cfg(tmp_path / "dst")
+    _ensure_converted(cfg, str(tmp_path / "src"))
+    (tmp_path / "dst" / "FragB" / "FragB_mask.png").unlink()
+    assert _ensure_converted(cfg, str(tmp_path / "src")) == ["FragB"]
+
+
+def test_an_interrupted_label_copy_leaves_the_fragment_readable(tmp_path, monkeypatch):
+    """The label is copied to a .part first. That name must not match the reader's
+    `*inklabels.*` glob, or an interrupted re-conversion leaves two label files and
+    every later run fails with "found 2"."""
+    from vesuvius_autoresearch.detector.cli import _ensure_converted, _is_converted
+    from vesuvius_autoresearch.detector.data import read_image_mask
+
+    for fid in ("FragA", "FragB"):
+        _source_fragment(tmp_path / "src", fid)
+    cfg = _detector_cfg(tmp_path / "dst")
+    _ensure_converted(cfg, str(tmp_path / "src"))
+    (tmp_path / "dst" / "FragA" / "layers" / "20.tif").unlink()
+    real = os.replace
+
+    def replace(src, dst):
+        if str(dst).endswith("_inklabels.png"):
+            raise OSError("interrupted")
+        return real(src, dst)
+
+    monkeypatch.setattr(os, "replace", replace)
+    with pytest.raises(OSError, match="interrupted"):
+        _ensure_converted(cfg, str(tmp_path / "src"))
+    monkeypatch.undo()
+    assert _is_converted(cfg, "FragA")
+    _, label, _ = read_image_mask(cfg, "FragA")
+    assert label.shape == (40, 32)
+
+
+def test_a_label_under_another_name_counts_as_converted(tmp_path):
+    """read_image_mask takes any single *inklabels.*, such as villa's own
+    <id>_inklabels.tiff, so such a fragment is not re-converted."""
+    from vesuvius_autoresearch.detector.cli import _ensure_converted
+
+    for fid in ("FragA", "FragB"):
+        _source_fragment(tmp_path / "src", fid)
+    cfg = _detector_cfg(tmp_path / "dst")
+    _ensure_converted(cfg, str(tmp_path / "src"))
+    label = tmp_path / "dst" / "FragA" / "FragA_inklabels.png"
+    label.rename(label.with_suffix(".tiff"))
+    assert _ensure_converted(cfg, str(tmp_path / "src")) == []

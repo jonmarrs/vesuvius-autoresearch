@@ -84,6 +84,11 @@ Trains the proven TimeSformer recipe on `PHercParis2Fr47`, evaluates held-out
 uv run python -m vesuvius_autoresearch.detector.cli reproduce
 ```
 
+Run it from the repository root: its first step converts `local_data/<fragment>/surface_volume/NN.tif`,
+`inklabels.png` and `mask.png` into the detector's 8-bit layout under `data_root`
+(`villa/ink-detection/train_scrolls` by default). A fragment is converted again whenever any file the
+detector reads for it is missing. (Added 2026-10-17.)
+
 Reproduced 2026-06-29 (best epoch by held-out selection: ROC-AUC 0.709; under the
 community contract `val_f1` 0.393 / prevalence-lift 2.07 — see
 `reports/detector/REPRODUCTION.md`). Cross-fragment measurement of any checkpoint:

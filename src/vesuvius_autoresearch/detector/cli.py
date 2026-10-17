@@ -2,6 +2,7 @@
 infer -> eval and asserts pixel-AUC >= 0.70 (proven recipe = 0.711)."""
 
 import argparse
+import glob
 import json
 import os
 import sys
@@ -33,6 +34,20 @@ def _eval_fragment(cfg, ckpt, fragment_id):
     return evaluate(prob, label, mask, cfg, fragment_id=fragment_id)
 
 
+def _is_converted(cfg, fragment_id):
+    """Whether every file data.read_image_mask reads for fragment_id is there, found as
+    it finds them: each layer in cfg's range, the mask, and exactly one *inklabels.*
+    (under any name, so a villa-style <id>_inklabels.tiff counts)."""
+    root = os.path.join(cfg.data_root, fragment_id)
+    needed = [
+        os.path.join(root, "layers", f"{i:02d}.tif")
+        for i in range(cfg.start_idx, cfg.end_idx)
+    ]
+    needed.append(os.path.join(root, f"{fragment_id}_mask.png"))
+    labels = glob.glob(os.path.join(root, "*inklabels.*"))
+    return all(os.path.exists(p) for p in needed) and len(labels) == 1
+
+
 def _ensure_converted(cfg, src_root="local_data"):
     """Convert each reproduce fragment unless every file it reads is already there.
 
@@ -41,13 +56,14 @@ def _ensure_converted(cfg, src_root="local_data"):
     trusted because its layers/ directory exists. Returns the fragments converted.
     """
     repo = os.path.join(os.path.dirname(__file__), os.pardir, os.pardir, os.pardir)
-    sys.path.append(os.path.abspath(os.path.join(repo, "repro", "gp_winner")))
-    from convert_fragment import convert_fragment, converted_paths
+    gp_winner = os.path.abspath(os.path.join(repo, "repro", "gp_winner"))
+    if gp_winner not in sys.path:
+        sys.path.append(gp_winner)
+    from convert_fragment import convert_fragment
 
     done = []
     for fid in cfg.train_fragment_ids + [cfg.valid_fragment_id]:
-        paths = converted_paths(fid, cfg.data_root, cfg.start_idx, cfg.end_idx)
-        if not all(os.path.exists(p) for p in paths):
+        if not _is_converted(cfg, fid):
             convert_fragment(fid, src_root, cfg.data_root, cfg.start_idx, cfg.end_idx)
             done.append(fid)
     return done
