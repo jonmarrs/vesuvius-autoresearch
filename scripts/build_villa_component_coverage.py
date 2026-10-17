@@ -4,10 +4,15 @@ Report how official ScrollPrize/villa components map into Autoresearch.
 
 The goal is to keep prize work grounded in the official monorepo surface: data
 access, ink inference, unwrapping, review tools, and validation paths.
+
+It checks paths only: a hook that exists is not shown to run. Official paths are
+read from the pinned villa's own git tree, so a sparse checkout answers as the pin
+does; a component villa has moved under deprecated/ is reported as such.
 """
 
 import argparse
 import json
+import subprocess
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -19,9 +24,8 @@ COMPONENTS = [
         "official_path": "villa/vesuvius",
         "prize_use": "Official Python CT/Zarr data access and normalization.",
         "local_hooks": [
-            "vesuvius_loader.py",
+            "src/vesuvius_autoresearch/core/vesuvius_loader.py",
             "v3_training/trainer.py",
-            "check_loader.py",
         ],
         "next_action": "Keep loader smoke tests aligned with the pinned Villa data API.",
         "priority": "high",
@@ -31,8 +35,8 @@ COMPONENTS = [
         "official_path": "villa/ink-detection",
         "prize_use": "Official Grand Prize ink model recipes and optimized inference contracts.",
         "local_hooks": [
-            "train.py",
-            "predict.py",
+            "scripts/training/train.py",
+            "scripts/inference/predict.py",
             "scripts/smoke_test_villa_optimized_inference.py",
         ],
         "next_action": "Keep optimized-inference smoke checks in the post-sprint gate before packaging evidence.",
@@ -83,7 +87,7 @@ COMPONENTS = [
         "official_path": "villa/segmentation",
         "prize_use": "Official segmentation models and topology-oriented evaluation metrics.",
         "local_hooks": [
-            "test_import.py",
+            "tests/test_import.py",
             "submission_package_dry_run/HALLUCINATION_MITIGATION.md",
         ],
         "next_action": "Keep topology metrics available as hallucination mitigation evidence.",
@@ -93,7 +97,7 @@ COMPONENTS = [
         "name": "foundation",
         "official_path": "villa/foundation",
         "prize_use": "Dataset management and fiber-label assets.",
-        "local_hooks": ["scripts/generate_fiber_labels.py"],
+        "local_hooks": ["scripts/labeling/generate_fiber_labels.py"],
         "next_action": "Use fiber assets to expand supervision for hard geometry candidates.",
         "priority": "medium",
     },
@@ -105,7 +109,7 @@ COMPONENTS = [
             "scripts/launch_thaumato.py",
             "scripts/autoresearch_thaumato_solver.py",
         ],
-        "next_action": "Use as a fallback review route when VC3D/Lasagna surfaces are poor.",
+        "next_action": "Retired here: the legacy Thaumato solver sweep (docs/SHEET_GRAPH_DIAGNOSTICS.md); upstream moved the tool to deprecated/.",
         "priority": "medium",
     },
 ]
@@ -122,10 +126,48 @@ def _path_exists(path):
     return _resolve(path).exists()
 
 
+def _official_present(path):
+    """Whether the pinned villa holds path: its HEAD tree when villa is a git
+    checkout (a sparse one omits directories the pin has), else the working tree."""
+    parts = Path(path).parts
+    villa = _resolve("villa")
+    if len(parts) > 1 and parts[0] == "villa" and (villa / ".git").exists():
+        inner = "/".join(parts[1:])
+        found = subprocess.run(
+            ["git", "-C", str(villa), "cat-file", "-e", f"HEAD:{inner}"],
+            capture_output=True,
+        )
+        return found.returncode == 0
+    return _path_exists(path)
+
+
+def _villa_commit():
+    """The villa commit the official paths were read from, or None."""
+    villa = _resolve("villa")
+    if not (villa / ".git").exists():
+        return None
+    head = subprocess.run(
+        ["git", "-C", str(villa), "rev-parse", "HEAD"], capture_output=True, text=True
+    )
+    return head.stdout.strip() or None
+
+
+def _deprecated_path(path):
+    """villa/<name> as villa's deprecated/ tree holds it, or None."""
+    parts = Path(path).parts
+    if len(parts) == 2 and parts[0] == "villa":
+        return f"villa/deprecated/{parts[1]}"
+    return None
+
+
 def build_component_coverage(components=None):
     rows = []
     for component in components or COMPONENTS:
-        official_present = _path_exists(component["official_path"])
+        official_present = _official_present(component["official_path"])
+        deprecated = _deprecated_path(component["official_path"])
+        deprecated_present = (
+            not official_present and deprecated and _official_present(deprecated)
+        )
         hook_status = [
             {"path": hook, "present": _path_exists(hook)}
             for hook in component["local_hooks"]
@@ -147,12 +189,15 @@ def build_component_coverage(components=None):
             status = "partial"
         elif official_present:
             status = "unwired"
+        elif deprecated_present:
+            status = "deprecated_upstream"
         else:
             status = "missing_official_component"
         rows.append(
             {
                 **component,
                 "official_present": official_present,
+                "deprecated_path": deprecated if deprecated_present else None,
                 "local_hook_status": hook_status,
                 "required_hooks": required_hooks,
                 "missing_required_hooks": missing_required_hooks,
@@ -171,12 +216,16 @@ def build_component_coverage(components=None):
             if row["coverage_status"] == "blocked_missing_required_hook"
         ),
         "unwired": sum(1 for row in rows if row["coverage_status"] == "unwired"),
+        "deprecated_upstream": sum(
+            1 for row in rows if row["coverage_status"] == "deprecated_upstream"
+        ),
         "missing_official_component": sum(
             1 for row in rows if row["coverage_status"] == "missing_official_component"
         ),
     }
     return {
-        "source": "ScrollPrize/villa local checkout",
+        "source": "ScrollPrize/villa at its checked-out commit (git tree)",
+        "villa_commit": _villa_commit(),
         "summary": summary,
         "components": rows,
     }
@@ -189,6 +238,12 @@ def render_markdown(report):
         "",
         "This report maps official `ScrollPrize/villa` components to local Autoresearch hooks.",
         "",
+        "It checks paths only: a hook that exists is not shown to run, and nothing here is",
+        "scientific validation. Official paths are read from the pinned villa's git tree"
+        + (
+            f" (`{report['villa_commit'][:9]}`)." if report.get("villa_commit") else "."
+        ),
+        "",
         "## Summary",
         "",
         f"- Total components: `{summary['total_components']}`",
@@ -196,6 +251,7 @@ def render_markdown(report):
         f"- Partial: `{summary['partial']}`",
         f"- Blocked by missing required hook: `{summary['blocked_missing_required_hook']}`",
         f"- Unwired: `{summary['unwired']}`",
+        f"- Deprecated upstream (moved to `villa/deprecated/`): `{summary['deprecated_upstream']}`",
         f"- Missing official component: `{summary['missing_official_component']}`",
         "",
         "## Components",
