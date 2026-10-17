@@ -88,7 +88,13 @@ def test_descriptive_claims():
     # The reasons villa ccb431818 records (tracing/volume.py, trace.py, inference.py). It writes the outside-the-scan
     # stop as "outside_ct"; a key it never writes would pass any count.
     recorded = {k for r in ROWS.values() for k in r["stop_reasons"]}
-    assert recorded <= {"confidence", "owned_or_live", "bounds", "outside_ct", "max_len"}
+    assert recorded <= {
+        "confidence",
+        "owned_or_live",
+        "bounds",
+        "outside_ct",
+        "max_len",
+    }
     totals = {
         k: sum(r["stop_reasons"].get(k, 0) for r in ROWS.values())
         for k in ("confidence", "owned_or_live", "bounds", "outside_ct")
