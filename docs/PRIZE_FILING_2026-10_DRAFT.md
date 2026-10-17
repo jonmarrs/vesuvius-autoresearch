@@ -25,7 +25,9 @@ clipped "#1780" to "#17".
    **merged 2026-10-11 Pacific** (`2026-10-12T01:49:09Z`,
    [merge commit](https://github.com/ScrollPrize/villa/commit/9afddaf0fdc12efe088bab7b82534c4f9a79e536)).
    On filing day, list every villa PR merged in October first in part (2) and in the URL field, then re-check
-   #2022, #2044, #1928 and any other open PR, and quote any maintainer reply verbatim.
+   #2022, #2044 and any other open PR, and quote any maintainer reply verbatim. villa #1928 (the inkdelta
+   catalogue entry) was closed by villa's 14-day inactivity bot on 2026-10-14 with no maintainer comment, so the
+   URL field no longer cites it.
 3. ScrollGT 0.6.0 (the held-out split) was tagged on 2026-10-11 and 0.7.0 (the ERL fix, finding 85) on 2026-10-12.
    The URL field cites `tree/v0.7.0`; the test binds the cite to ScrollGT's newest tag, so a later release must update
    it. Findings 84–85 are folded in (2026-10-12).
@@ -46,7 +48,6 @@ https://github.com/jonmarrs/vesuvius-autoresearch
 https://github.com/jonmarrs/inkdelta
 https://github.com/jonmarrs/inkagree
 https://github.com/jonmarrs/scrollgt/tree/v0.7.0
-https://github.com/ScrollPrize/villa/pull/1928
 ```
 
 ---
@@ -259,6 +260,7 @@ We also scored an open villa PR's automated fiber generator
   scorer's agreement does not change.
 * Not "the scorer is fragile" as an established fact. Finding 72's sensitivity prediction failed.
 * No adoption claim for inkdelta or the measurements unless one exists on filing day.
+* Not "villa rejected inkdelta". #1928 was closed by the inactivity bot, not by a maintainer.
 * Not "villa's objective mis-ranks fits". Finding 78 shows its count is sparse (about 2% of annotated
   ink), not that it ranks fits wrongly, and its render-side comparison is in-sample.
 * Not "the fiber mask does not generalize". It holds on Scroll 3 and fails on two Scroll-5 cubes, cause unknown.
