@@ -13,7 +13,7 @@ metric contract:
 - calling every pixel ink.
 
 Pre-registered reading (committed before the first run): if the detector's
-val_f1 margin over the all-ink F1 exceeds +0.03 (train.F1_NOISE_TOLERANCE) and
+val_f1 margin over the all-ink F1 exceeds +0.03 (train.F1_NOISE_TOLERANCE until 2026-10-17) and
 the incumbent's does not, keeping ink-free patches lets the loop's F1 tell a
 model of the detector's quality from the incumbent; otherwise that option alone
 does not fix the metric. AUC and AP lift are reported beside it.
