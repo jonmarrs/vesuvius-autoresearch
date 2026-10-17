@@ -30,12 +30,15 @@ the open SOTA data) and an **autonomous search loop** over training configuratio
 Each cycle of `run_autoresearch_loop.py`:
 
 1. **Sample a configuration.** A bandit-style sampler draws from a configuration
-   space — loss terms, augmentation settings, and related hyperparameters.
-   Families that have produced improvements are weighted up; duplicates are
-   re-sampled for diversity. The architecture is pinned to `resenc_unet`, the
-   production model, so every cycle warm-starts from `best_model.pt`. The others
-   `build_model` accepts (the gated UNet-transformer, TimeSformer, ResNet3D decoder,
-   MedNeXt, LeJEPA-UNet, neural-tracing ViT) stay selectable by config, not sampled.
+   space — loss terms, the augmentation pipeline (`aug_mode`), and related
+   hyperparameters. Families that have produced improvements are weighted up;
+   duplicates are re-sampled for diversity. The architecture is pinned to
+   `resenc_unet`, the production model, and the other fields a warm start must
+   match to the production model's values, so every cycle warm-starts from
+   `best_model.pt`. The other architectures `build_model` dispatches stay selectable
+   by config, with one exception: `resnet3d` (ResNet3D-101) and `i3d`
+   (Inception-I3D) import from `villa/ink-detection/models/`, which villa moved to
+   `deprecated/ink-detection/` before the current pin, so their preflight fails.
 2. **Preflight smoke check.** Before spending the training budget, the candidate is
    built and run through one forward/backward pass on a synthetic batch
    (`train.py --smoke`). A configuration that cannot build or run is skipped

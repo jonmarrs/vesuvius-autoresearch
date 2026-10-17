@@ -4,7 +4,8 @@
 #   * ~60 GB of free disk to BUILD. The nvcr.io CUDA base plus `uv sync` of 248
 #     packages (Torch, CUDA wheels) consumed roughly that much before the build
 #     was aborted; budget it before starting, on pain of filling the host.
-#   * An NVIDIA GPU at run time.
+#   * An NVIDIA GPU at run time. (Noted 2026-10-17: nothing the image runs uses
+#     one; see below.)
 #   * The base image pulls anonymously from nvcr.io (verified 2026-09-06).
 #
 # For a small, fully self-contained reproduction that needs NO GPU, no network
@@ -19,11 +20,13 @@
 # uv.lock, README.md and SUBMISSION.md, and nothing else: not src/, scripts/,
 # repro/ or tests/. So none of REPRODUCE.md's steps run in it, and `uv sync`
 # installs the project package empty. Its CMD runs vesuvius_model.py's
-# self-check: one model on synthetic tensors, on the CPU, with random initial
-# weights, so its PASS and FAIL lines describe an untrained model (run here
-# 2026-10-17: two of its four checks FAIL, exit 0). .dockerignore limits
-# the build context to those files; the 60 GB above was measured without it,
-# when the context also held the working tree's venv and .git.
+# self-check: a small gated UNet-transformer (InkDetectorOptimized, not the
+# production resenc_unet) on synthetic tensors, on the CPU, with unseeded random
+# weights, so its PASS and FAIL lines describe an untrained model (six runs here
+# 2026-10-17: two of its four checks FAIL each time, exit 0). .dockerignore
+# limits the build context to those files. The 60 GB above was measured before
+# it existed, so that context may have held a venv and .git as well (about
+# 12 GB in one checkout); the figure has not been re-measured.
 FROM nvcr.io/nvidia/pytorch:24.03-py3
 
 # Set working directory

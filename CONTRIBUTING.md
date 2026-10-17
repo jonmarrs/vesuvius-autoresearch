@@ -10,6 +10,7 @@ PRs and issues are welcome.
 
 ```sh
 uv sync
+git submodule update --init villa    # the pinned ScrollPrize/villa
 uv run python scripts/smoke_test.py  # ~20s, exercises the main code paths
 ```
 
