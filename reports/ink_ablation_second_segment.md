@@ -97,7 +97,9 @@ Nothing yet reported upstream is affected, because none of this has been reporte
 claim that would have gone out is narrowed:
 
 * **stands**: the released PHerc 1667 ablation series reads held-out Scroll 1 ink, on two segments,
-  above a 400-draw misalignment null, with the four highest rungs clearing on both;
+  above a 400-draw misalignment null, with the three highest rungs (it0, it4, it5) clearing on both
+  and it3 clearing on A but borderline on B (p 0.0550). (Corrected 2026-10-17: this said the four
+  highest rungs cleared on both, against this report's own table.);
 * **stands, on magnitudes**: reading improves with source-scroll pseudo-label density, exact
   permutation p 0.0014 to 0.0083;
 * **narrowed**: it2 reads one segment and not the other, so the bottom of the ladder is not

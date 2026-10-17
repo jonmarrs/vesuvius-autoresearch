@@ -148,3 +148,5 @@ villa/ink-detection/outputs/
 .superpowers/
 # The loop's first-use record of an older incumbent's validation inputs.
 /best_model.pt.inputs.json
+# The PHerc.1667 ablation checkpoints, when fetched in place (repro/ink_ablation/fetch_checkpoints.sh).
+/repro/ink_ablation/it[0-5]/

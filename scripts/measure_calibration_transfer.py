@@ -19,9 +19,9 @@ script's home-scroll median lands far from that, the pipeline is wrong and the
 Scroll 1 comparison means nothing. That check is what distinguishes this from
 three earlier attempts that were void.
 
-PREPROCESSING. `clip(x, 0, 200) / 255`, the Quick-start convention. The card
-documents three mutually inconsistent conventions and only this one reproduces
-published output; see `reports/ink_ablation_scale_bug.md`.
+PREPROCESSING. `clip(x, 0, 200) / 255`. The card documents three mutually
+inconsistent conventions, all three saturate the model, and this one, documented
+nowhere, is the only one tried that does not (repro/ink_ablation/README.md).
 
 MUST RUN IN THE ISOLATED VENV, transformers pinned to 4.57.6. See
 repro/ink_ablation/README.md.

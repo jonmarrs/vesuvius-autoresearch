@@ -92,7 +92,10 @@ the intensity convention.
 | Quick start | "roughly **[0, 1]** ... clipped raw uint8 layers to [0, 200] then applied Normalize(mean=0, std=1)" |
 
 I followed the docstring, then the snippet. Both saturate. Only the Quick start convention,
-`clip(x, 0, 200) / 255`, produces sane output. Two reasonable readings of the same card both fail,
+`clip(x, 0, 200) / 255`, produces sane output. (Note 2026-10-17: the Quick start as written,
+clipping to [0, 200] then `Normalize(mean=0, std=1)`, is the identity and saturates too; the /255
+is documented nowhere. On a 2048^2 window it5 fires at 18% with it, not the 7% of the 512^2 patch
+below. See `repro/ink_ablation/README.md`, which carries the four-convention table.) Two reasonable readings of the same card both fail,
 which is why this took four attempts rather than one.
 
 ## Measured, on the models' own scroll (PHerc 1667, segment w011, level 0)

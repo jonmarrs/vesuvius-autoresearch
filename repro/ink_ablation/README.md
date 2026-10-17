@@ -71,6 +71,12 @@ suspect until those rates are close, because saturation compresses the probabili
 rank-based statistics regardless of whether a signal exists. See
 `reports/ink_absence_vs_unrecovered_result.md`.
 
+(Superseded the same day, 2026-08-30, by `reports/ink_ablation_transfer_result.md`. AUC is
+rank-based, so the over-firing does not affect the ranking results. The right reference for these
+checkpoints is their own published held-out preview, 26.27% for iteration-5 on `l_5`, not canon's
+rate. The over-firing on Scroll 1 is then real and specific to it:
+`reports/ink_calibration_does_not_transfer.md`.)
+
 Known differences from the published recipe, in the order worth trying:
 
 1. **stride 128, not 256.** The published runs overlap-average 2x; ours scored each tile once.

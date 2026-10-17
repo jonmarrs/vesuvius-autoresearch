@@ -64,8 +64,10 @@ the published 14%.
 
 See `reports/ink_ablation_second_segment.md` (2026-08-30). Summary of what changed:
 
-* the per-member readings hold, and now clear a 400-draw misalignment null on two segments
-  (it3/it0/it4/it5 at p<0.0025; it1 and it2 do not clear on the second segment);
+* the per-member readings hold against a 400-draw misalignment null. it0, it4 and it5 clear it on
+  both segments (p<0.0025). it3 clears it here (p<0.0025) and is borderline on the second segment
+  (p 0.0550). it2 clears it here only (p 0.0100), and it1 on neither. (Corrected 2026-10-17: this
+  said it3 also cleared on the second segment at p<0.0025.);
 * the monotone relationship survives an exact label-permutation test, p 0.0014 here;
 * but the *rank* statistic on six correlated models has a null standard deviation of 0.65 to 0.72,
   so "monotone" is close to free. The dose-response rests on the magnitudes, not the ordering.
