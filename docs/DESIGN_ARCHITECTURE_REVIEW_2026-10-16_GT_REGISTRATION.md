@@ -189,7 +189,8 @@ mypy.
   files, and no s3fs or tensorstore.
 - Branch, first head (`d062674c`): 42 failed, 2504 passed, 21 skipped, 1 xfailed, 2 errors. Same set; the 10 extra
   passes are the new tests. `scripts/smoke_test.py`: 9 of 11 passed, 2 skipped (no training data).
-- Branch, after the review's fixes: _running at this commit; recorded in the next._
+- Branch, after the review's fixes (`4122ce65`): 42 failed, 2506 passed, 21 skipped, 1 xfailed, 2 errors. Same set.
+  `scripts/smoke_test.py`: 9 of 11, 2 skipped.
 - `tests/test_sota_registration_gates.py`: 12 passed; all fail on main.
 - The registration tests that need s3fs to collect, run with a stand-in: 60 passed (`test_sota_register`,
   `test_sota_register_targets`, `test_sota_gt_register`, `test_gt_finetune_prep_superseded`,
