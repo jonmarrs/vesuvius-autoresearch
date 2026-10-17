@@ -69,7 +69,10 @@ Medians by group (merge-penalized ERL / coverage):
   their first run exactly: 0 difference in ERL, merge-penalized ERL, coverage, merges and instance count. The
   repeatability floor is zero.
 * **Stop reasons.** The 21 runs record 17,859 `confidence` stops, 11,287 `owned_or_live` and 92 `bounds`. There are
-  **0 `outside` stops**, so the zero voxels in 13 cubes (amendment 1) never stopped a trace.
+  **0 `outside_ct` stops**: no written fiber ended on the zero voxels in 13 cubes (amendment 1). (Corrected
+  2026-10-17: this said the zero voxels never stopped a trace. The `.afv` records stop reasons only for written
+  fibers, two per fiber; a trace dropped as short or as a duplicate leaves none there. Each run's `tiles.jsonl`
+  counts `stop_outside_ct` for every trace, and is not in this repository.)
 * **At tolerance 4.0** (the tracer's own label tolerance) its median coverage is 0.612 on Scroll 3 and 0.376 on the
   in-sample cubes.
 * **Precision, among thin entrants.** Its median on Scroll 3 is 0.564, against the generator's 0.741.

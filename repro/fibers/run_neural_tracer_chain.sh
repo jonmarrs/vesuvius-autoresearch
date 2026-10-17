@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # docs/preregistration/2026-10-16_neural_fiber_tracer_entrant.md -- run villa's neural fiber tracer (villa #2045,
 # scrollprize/fiber_single_small at 4511825) in volume mode at its defaults on the 21 ScrollGT fiber cubes, then
-# score the .afv files (scripts/neural_tracer_analysis.py, frozen into $W at start). Environment:
+# score the .afv files (scripts/neural_tracer_analysis.py, frozen into $W on the first launch; a resume refuses if
+# the repository's copy has changed since). Environment:
 # setup_neural_tracer_env.sh. A cube that fails is recorded and skipped. Resumable: a cube with a fibers.afv is
 # skipped. Launch detached: setsid nohup bash <this> > $T/launch.log 2>&1 &
 set -uo pipefail
@@ -30,8 +31,13 @@ for p in /proc/[0-9]*; do
   tr '\0' ' ' < "$p/cmdline" 2>/dev/null | grep -qE "tracers\.fibers\.tracing\.volume|f1_noise_probe" \
     && { say "SC_ABORTED another GPU job is running"; exit 3; }
 done
+# Frozen once per study: a resume after the repository moves must not swap the code mid-study.
 for f in neural_tracer_analysis.py afv_generator_analysis.py afv_to_labels.py make_tracer_presence.py; do
-  cp "$REPO/scripts/$f" "$W/" || { say "SC_ABORTED freeze"; exit 3; }
+  if [ -e "$W/$f" ]; then
+    cmp -s "$REPO/scripts/$f" "$W/$f" || { say "SC_ABORTED $f differs from the copy frozen in $W"; exit 3; }
+  else
+    cp "$REPO/scripts/$f" "$W/" || { say "SC_ABORTED freeze"; exit 3; }
+  fi
 done
 say "CHAIN_START $(git -C "$REPO" rev-parse --short HEAD) villa $(git -C "$T/villa" rev-parse --short HEAD)"
 for C in $CUBES; do
@@ -46,6 +52,9 @@ for C in $CUBES; do
     "$PY" "$W/make_tracer_presence.py" "$PROB" "$T/presence/${C}_presence.zarr" > "$W/$C.presence.log" 2>&1 \
       || { say "FAILED $C presence"; continue; }
   fi
+  # A level with a missing chunk is a killed write (built in place before 2026-10-17): it reads as zero presence.
+  "$PY" -c 'import sys; sys.path.insert(0, sys.argv[1]); import make_tracer_presence as m; sys.exit(not m.level_complete(sys.argv[2]))' \
+    "$W" "$T/presence/${C}_presence.zarr/1" || { say "FAILED $C presence incomplete"; continue; }
   say "TRACE $C"
   # Offline: the pinned revision is already in the Hugging Face cache and cannot move mid-run.
   ( cd "$W" && HF_HUB_OFFLINE=1 "$TPY" -m vesuvius.neural_tracing.tracers.fibers.tracing.volume \

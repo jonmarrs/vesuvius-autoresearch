@@ -42,17 +42,57 @@ def presence_level(prob: np.ndarray, factor: int = FACTOR) -> np.ndarray:
 
 
 def write_presence(prob_path: Path, out: Path) -> Path:
+    """Write OUT/1, built in a directory of its own beside OUT and renamed into place.
+
+    The chain reuses the presence level of any cube whose level exists, and the identity check cannot see its
+    content. So a write killed partway must not leave OUT: its unwritten chunks would read as zero presence, and
+    fewer seeds. Each writer builds in its own directory, so two writers on one cube cannot clear each other's work;
+    the second to finish finds OUT written and refuses.
+    """
+    import shutil
+    import tempfile
+
     import zarr
 
-    level = presence_level(np.load(prob_path, mmap_mode="r"))
-    target = out / LEVEL
     if out.exists():
         raise FileExistsError(out)
-    array = zarr.open(
-        str(target), mode="w-", shape=level.shape, chunks=(64, 64, 64), dtype="u1"
-    )
-    array[...] = level
-    return target
+    level = presence_level(np.load(prob_path, mmap_mode="r"))
+    out.parent.mkdir(parents=True, exist_ok=True)
+    building = Path(tempfile.mkdtemp(prefix=f".{out.name}.building-", dir=out.parent))
+    try:
+        array = zarr.open(
+            str(building / LEVEL),
+            mode="w-",
+            shape=level.shape,
+            chunks=(64, 64, 64),
+            dtype="u1",
+            write_empty_chunks=True,  # every chunk on disk, so level_complete can tell
+        )
+        array[...] = level
+        try:
+            building.rename(out)
+        except OSError:
+            if out.exists():
+                raise FileExistsError(
+                    f"{out}: written by another writer meanwhile"
+                ) from None
+            raise
+    except BaseException:
+        shutil.rmtree(building, ignore_errors=True)
+        raise
+    return out / LEVEL
+
+
+def level_complete(path: Path) -> bool:
+    """True if every chunk of the presence level at PATH is on disk.
+
+    A level this script writes has all of them (write_empty_chunks), and so does one written before 2026-10-17 by
+    zarr 2.18's default. A missing chunk is a write that was killed: it reads as zero presence.
+    """
+    import zarr
+
+    array = zarr.open(str(path), mode="r")
+    return array.nchunks_initialized == array.nchunks
 
 
 def main() -> int:
