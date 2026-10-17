@@ -94,13 +94,13 @@ labels onto SOTA geometry via each segment's published `original.obj` vertex tex
   scores ROC-AUC 0.70 / AP 0.26** vs human labels — the first ground-truth calibration of the
   released model. Students score 0.79–0.80, but this is *train-region fit* against a *binary*
   teacher, not generalization. The segment was retired non-scoring on 2026-08-14 (per-tile
-  placement error up to ~1.9x the analysis window), so these rows are indicative only
+  placement error at least ~1.9x the analysis window), so these rows are indicative only
   (corrected 2026-10-16).
 - **Held-out region** (`20231210121321`, no student trained on it): teacher ROC-AUC **0.753**
   / lift 2.15; clean students **0.731–0.746** / lift 2.34–2.44; all-positive floor 0.518.
   The students generalize to a segment none of them trained on, landing at or just under the
   teacher on ROC-AUC, which understates the binary teacher; on F1 at 0.5 the teacher leads
-  (0.572 vs 0.44–0.46; corrected 2026-10-16).
+  (0.572 vs 0.44–0.45; corrected 2026-10-16).
 
   > **Corrected 2026-08-07.** This previously read "everything reads near chance — teacher
   > 0.563, students 0.55–0.56," and that was an artifact of our own registration: a hardcoded

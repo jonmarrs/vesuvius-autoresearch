@@ -2,8 +2,10 @@
 
 Clearing the gate is necessary, not sufficient. `20230702185753` passes the 48 level-2 px
 threshold by 1.4 px globally, but its per-768px-tile placement has sd 26.8 (dy) / 33.0 (dx)
-with individual tiles reaching ~102 px (~0.96 mm) -- roughly 1.9x the 512 um prize analysis
-window. Within a single window a model can therefore be scored against ground truth from a
+with individual tiles reaching at least ~102 px (~0.96 mm) -- at least 1.9x the 512 um prize
+analysis window. (Corrected 2026-10-16: "at least", because ~102 px per axis is the placement
+probe's search clamp. The worst tile, (95, 102), is at least 139 px as a vector, ~1.34 mm, or
+2.6x the window.) Within a single window a model can therefore be scored against ground truth from a
 different part of the sheet, so the segment was retired non-scoring on 2026-08-14.
 
 This lives in its own stdlib-only module for two reasons.
@@ -42,7 +44,7 @@ RETIRED_NON_SCORING = ("20230702185753",)
 
 RETIREMENT_REASON = (
     f"segment retired non-scoring {RETIREMENT_DATE}: it clears the 48 level-2 px placement "
-    "gate by 1.4 px globally, but per-tile local error reaches ~1.9x the 512 um analysis "
+    "gate by 1.4 px globally, but per-tile local error reaches at least ~1.9x the 512 um analysis "
     "window, so a score can be against a different part of the sheet"
 )
 

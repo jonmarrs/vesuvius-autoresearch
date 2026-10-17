@@ -28,7 +28,7 @@ settle -- but any leaderboard comparing exactly these two artifacts is affected.
 
 Usage:
     uv run python scripts/probe_registration_offset.py
-    uv run python scripts/probe_registration_offset.py --margin 1000 --coarse 16
+    uv run python scripts/probe_registration_offset.py --margin 1000 --coarse 4
 """
 
 import argparse
@@ -98,7 +98,13 @@ def main():
         "Too small and the peak clamps to the boundary and under-reports.",
     )
     ap.add_argument(
-        "--coarse", type=int, default=16, help="coarse grid step (default 16)"
+        "--coarse",
+        type=int,
+        default=4,
+        # 4 is what every committed run computed at: the flag was recorded but not passed
+        # until 2026-10-16. Nearest-neighbour downsampling at 16 drops thin strokes, and a
+        # spurious peak inside the window then raises no warning.
+        help="coarse grid step (default 4)",
     )
     ap.add_argument("--json-out", help="write results here")
     args = ap.parse_args()

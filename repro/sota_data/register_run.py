@@ -182,7 +182,12 @@ TARGETS = {
         "gate": {"max_median_residual": 12.0, "min_periodicity": 0.6},
         "train_region_models": [],  # NO student trained on this region
         "selection_caveat_models": ["arm A (1-scroll student)"],  # arm A validated here
-        "overlay_ref": "reports/detector/registered_gt_heldout_overlay.png",
+        # Committed 2026-07-07, before the 2026-08-07 fix: it shows the displaced label.
+        "overlay_ref": (
+            "reports/detector/registered_gt_heldout_overlay.png (committed 2026-07-07, before "
+            "the 2026-08-07 fix, so it shows the displaced label; no committed render shows "
+            "the corrected registration)"
+        ),
         "extra_disclosure": (
             "**Held-out (no train confound):** NO student trained on this segment, so the "
             "student rows are genuine *held-out generalization vs ground truth*. arm A used "
@@ -735,8 +740,11 @@ def cmd_validate(argv=None):
     )
     if passed:
         with open(MARKER, "w") as f:
-            json.dump({"gate_mode": GATE_MODE, "gate": gate, "inputs": _gate_inputs()},
-                      f, indent=2)
+            json.dump(
+                {"gate_mode": GATE_MODE, "gate": gate, "inputs": _gate_inputs()},
+                f,
+                indent=2,
+            )
         print(f"VALIDATION PASSED ({tail}) -- marker written", flush=True)
     else:
         print(
@@ -789,7 +797,9 @@ def cmd_score():
     gate = stats["gate"]
     gate_line = (
         f"Gate ({gate['mode']}): "
-        + ", ".join(f"{k} {v}" for k, v in gate.items() if k.startswith(("max_", "min_")))
+        + ", ".join(
+            f"{k} {v}" for k, v in gate.items() if k.startswith(("max_", "min_"))
+        )
         + f"; placement {stats['placement']['offset_level2_px']:.1f} level-2 px "
         f"(max {stats['placement']['max_offset']:.0f})."
     )
@@ -850,6 +860,21 @@ def cmd_score():
     )
 
 
+def _parse_cli(argv):
+    """(command, target key, allow_retired, argv left for cmd_validate's argparse).
+
+    The target key is the optional argv[2] (absent or a --flag: 'orig'). --allow-retired
+    is taken out first: placed before the key it made the key look like a flag, so the
+    retired default target ran instead of the one named.
+    """
+    allow = "--allow-retired" in argv
+    rest = [a for a in argv if a != "--allow-retired"]
+    key = "orig"
+    if len(rest) > 2 and not rest[2].startswith("-"):
+        key = rest.pop(2)
+    return rest[1], key, allow, rest
+
+
 if __name__ == "__main__":
     cmds = {
         "probe": cmd_probe,
@@ -864,14 +889,6 @@ if __name__ == "__main__":
             f"usage: python -m repro.sota_data.register_run "
             f"{{{'|'.join(cmds)}}} [orig|heldout] [--flags]"
         )
-    # optional target key as argv[2] (absent or a --flag => default 'orig');
-    # strip it so cmd_validate's argparse (which reads sys.argv[2:]) is unaffected.
-    key = "orig"
-    if len(sys.argv) > 2 and not sys.argv[2].startswith("-"):
-        key = sys.argv[2]
-        del sys.argv[2]
-    if "--allow-retired" in sys.argv:
-        sys.argv.remove("--allow-retired")
-        ALLOW_RETIRED = True
+    command, key, ALLOW_RETIRED, sys.argv = _parse_cli(sys.argv)
     _set_target(key)
-    cmds[sys.argv[1]]()
+    cmds[command]()

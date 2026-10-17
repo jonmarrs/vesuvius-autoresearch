@@ -16,6 +16,7 @@ sys.path.insert(0, os.path.abspath("."))
 from repro.sota_data import distill_run as dr
 from repro.sota_data.qualitative import write_fragment
 from repro.sota_data.register import (
+    PlacementNotLocated,
     label_line_periodicity,
     level0_shape,
     placement_peak,
@@ -199,7 +200,7 @@ def gt_prep_fragment(
     else:
         try:
             dy, dx, _, _ = placement_peak(reg_label, cv2.imread(teacher_path, 0))
-        except ValueError as exc:  # no peak located: dropped, as an unverifiable one is
+        except PlacementNotLocated as exc:  # dropped, as an unverifiable one is
             info["passed"] = False
             info["placement_verified"] = False
             info["placement_note"] = str(exc)

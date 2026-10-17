@@ -183,13 +183,48 @@ def test_fine_tuning_rechecks_every_kept_region(modules):
         "20231005123336_y4000_x2500": "placement not verified",
         "20231005123336_y7000_x4000": "placement not verified",
     }
-    good = {"frag_id": "seg_y0_x0", "passed": True, "placement_verified": True,
-            "placement_offset_level2_px": 30.0}
+    good = {
+        "frag_id": "seg_y0_x0",
+        "passed": True,
+        "placement_verified": True,
+        "placement_offset_level2_px": 30.0,
+    }
     far = {**good, "frag_id": "far_y0_x0", "placement_offset_level2_px": 57.5}
     held = {**good, "frag_id": "20231210121321_y0_x0"}
-    record = {"regions": [good, far, held],
-              "kept": ["seg_y0_x0", "far_y0_x0", "20231210121321_y0_x0"]}
+    record = {
+        "regions": [good, far, held],
+        "kept": ["seg_y0_x0", "far_y0_x0", "20231210121321_y0_x0"],
+    }
     kept, refused = ft.verified_kept(record)
     assert kept == ["seg_y0_x0"]
     assert refused["far_y0_x0"].startswith("placement 57.5 px")
     assert refused["20231210121321_y0_x0"] == "the held-out evaluation segment"
+
+
+def test_a_peak_that_scores_nothing_is_not_zero_offset():
+    """Ink only in rows the comparison windows never see: every shift was unscored, and
+    the initial (0, 0) came back with a Dice of -1, which the gate read as a pass."""
+    from repro.sota_data.register import PlacementNotLocated
+
+    edge = np.zeros((240, 240), np.uint8)
+    edge[1:3] = 255
+    with pytest.raises(PlacementNotLocated):
+        placement_peak(edge, edge, max_shift=32)
+
+
+def test_the_target_is_read_wherever_allow_retired_is_placed(modules):
+    """Before the key, the flag made the key look like an option: orig ran instead."""
+    rr, _ = modules
+    for argv in (
+        ["p", "score", "--allow-retired", "heldout"],
+        ["p", "score", "heldout", "--allow-retired"],
+    ):
+        assert rr._parse_cli(argv) == ("score", "heldout", True, ["p", "score"])
+    assert rr._parse_cli(
+        ["p", "validate", "heldout", "--max-median-residual", "10"]
+    ) == (
+        "validate",
+        "heldout",
+        False,
+        ["p", "validate", "--max-median-residual", "10"],
+    )
