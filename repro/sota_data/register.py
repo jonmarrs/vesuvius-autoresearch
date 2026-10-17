@@ -176,17 +176,112 @@ def correspondence_field(new_xyz, s, R, t, old_xyz, stride=8):
     return field, residuals.reshape(nh, nw)
 
 
-def warp_via_field(image, field, out_shape, interpolation=cv2.INTER_LINEAR):
-    """Sample `image` at the field's (row, col) coords, upscaled to out_shape."""
-    fh = cv2.resize(
-        field[..., 0], (out_shape[1], out_shape[0]), interpolation=cv2.INTER_LINEAR
-    )
-    fw = cv2.resize(
-        field[..., 1], (out_shape[1], out_shape[0]), interpolation=cv2.INTER_LINEAR
-    )
-    bad = ~np.isfinite(fh) | ~np.isfinite(fw)
-    mapx = np.nan_to_num(fw, nan=-1.0).astype(np.float32)  # cv2.remap: x = col
-    mapy = np.nan_to_num(fh, nan=-1.0).astype(np.float32)
+# Recorded with every registration that `region_in_mesh` and `warp_via_field` make. One
+# without it was warped by the rounded crop and pixel-centre stretch they replaced.
+WARP_ALIGNMENT = "vertex-aligned field sampling of a fractional crop (2026-10-17)"
+OLD_WARP_NOTE = (
+    "registered by the warp before 2026-10-17, whose rounded crop and pixel-centre "
+    "stretch misplace content by several level-2 px (7.8 in rows and 5.6 in columns on "
+    "average for the 20230702185753 region); re-run the warp before relying on it"
+)
+
+
+def region_in_mesh(xyz, level0, region, level=2):
+    """Crop a mesh grid to a square region of the level-`level` surface volume, and say
+    where each of the region's rows and columns falls in the crop.
+
+    The tifxyz convention is vertex-aligned: grid vertex r sits at surface coordinate
+    r / scale (`villa/lasagna/tifxyz_format.md`, sections 2 and 5.1; villa's reader maps
+    full-resolution index p to grid coordinate p * scale, `Tifxyz.__getitem__`). So with
+    sy mesh rows per level-`level` row, the region's row y0 + i is mesh row (y0 + i) * sy,
+    generally between two vertices. The crop takes every vertex the region's rows fall
+    between, and the returned coordinates are relative to it.
+
+    Until 2026-10-17 the crop bounds were rounded to whole cells and `warp_via_field`
+    stretched the crop over the region pixel-centre to pixel-centre. At the 7.91 um mesh's
+    ~16.3 level-2 px per cell that placed the region's rows 1.8-13.8 px off (7.8 on
+    average) and its columns 0.7-10.6 (5.6), for the (4000, 2500, 4096) region of
+    20230702185753.
+
+    A level-`level` pixel is taken at its level-0 origin; a pooled pyramid would put it
+    (2**level - 1) / 2 level-0 px further on, under 0.4 level-2 px at 16 px per cell.
+
+    Returns (crop, (rows, cols)): the crop, and float64 crop coordinates of the region's
+    rows and columns. Coordinates past the mesh's edge are left there, and
+    `warp_via_field` zeroes the pixels they reach.
+    """
+    mh, mw = xyz.shape[:2]
+    down = 2**level
+    sy, sx = mh / (level0[0] / down), mw / (level0[1] / down)
+    y0, x0, size = region
+    rows = (y0 + np.arange(size)) * sy
+    cols = (x0 + np.arange(size)) * sx
+    ys, xs = max(int(np.floor(rows[0])), 0), max(int(np.floor(cols[0])), 0)
+    ye, xe = int(np.floor(rows[-1])) + 2, int(np.floor(cols[-1])) + 2
+    return xyz[ys:ye, xs:xe], (rows - ys, cols - xs)
+
+
+def _axis_weights(at, n):
+    """Lower vertex, fraction and in-range flag for linear sampling of n vertices."""
+    lo = np.clip(np.floor(at).astype(np.int64), 0, max(n - 2, 0))
+    return lo, np.minimum(lo + 1, n - 1), at - lo, (at >= 0) & (at <= n - 1)
+
+
+def _lerp(a, b, f):
+    """(1 - f) a + f b, but a NaN with zero weight does not contaminate the result."""
+    out = (1 - f) * a + f * b
+    out = np.where(f == 0, a, out)
+    return np.where(f == 1, b, out)
+
+
+def sample_field(field, out_shape, coords=None):
+    """The field's (row, col) values at each output pixel, linearly between its vertices.
+
+    `coords` = (rows, cols) gives the field-grid coordinate of each output row and column
+    (from `region_in_mesh`). Without it the field's vertex 0 sits on output pixel 0 with
+    fh / out_h vertices per pixel: a stride-k field over the image it was computed on.
+
+    Returns (row, col, bad); `bad` marks pixels off the field's grid or reached by an
+    invalid (NaN) vertex with non-zero weight.
+    """
+    fh, fw = field.shape[:2]
+    if coords is None:
+        coords = (
+            np.arange(out_shape[0]) * (fh / out_shape[0]),
+            np.arange(out_shape[1]) * (fw / out_shape[1]),
+        )
+    rows, cols = (np.asarray(c, np.float64) for c in coords)
+    if (len(rows), len(cols)) != tuple(out_shape[:2]):
+        raise ValueError(
+            f"sample_field: {len(rows)} x {len(cols)} coordinates for an output of "
+            f"{tuple(out_shape[:2])}"
+        )
+    r0, r1, fr, r_ok = _axis_weights(rows, fh)
+    c0, c1, fc, c_ok = _axis_weights(cols, fw)
+    out = []
+    # the full-size pass in float32, as cv2.remap takes it
+    fc = fc.astype(np.float32)[None, :]
+    for k in (0, 1):
+        f = field[..., k].astype(np.float64)
+        by_row = _lerp(f[r0], f[r1], fr[:, None]).astype(np.float32)
+        out.append(_lerp(by_row[:, c0], by_row[:, c1], fc))
+    bad = ~np.isfinite(out[0]) | ~np.isfinite(out[1])
+    bad |= ~r_ok[:, None] | ~c_ok[None, :]
+    return out[0], out[1], bad
+
+
+def warp_via_field(
+    image, field, out_shape, interpolation=cv2.INTER_LINEAR, coords=None
+):
+    """Sample `image` at the field's (row, col) coords, resampled to out_shape.
+
+    `coords` places each output row and column on the field's grid (see `sample_field`);
+    pass the ones `region_in_mesh` returns with the crop the field was computed on.
+    Pixels with no valid field value are 0.
+    """
+    fh, fw, bad = sample_field(field, out_shape, coords)
+    mapx = np.where(bad, np.float32(-1), fw)  # cv2.remap: x = col
+    mapy = np.where(bad, np.float32(-1), fh)
     out = cv2.remap(
         image, mapx, mapy, interpolation, borderMode=cv2.BORDER_CONSTANT, borderValue=0
     )

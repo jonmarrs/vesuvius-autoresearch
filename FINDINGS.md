@@ -460,6 +460,11 @@ below):
 > | arm C (3-scroll student) | 0.558 / 1.17 | **0.746 / 2.44** |
 > | legacy (all-positive floor) | 0.501 | 0.518 / 1.009 |
 >
+> The corrected column's label still peaks 32 px off zero against the teacher, and until
+> 2026-10-17 the warp itself misplaced every registered label by several px of that
+> ([review](docs/DESIGN_ARCHITECTURE_REVIEW_2026-10-17_WARP_ALIGNMENT.md)). Not re-scored
+> since: that needs the meshes.
+>
 > **The students were reading held-out ink the whole time.** The three conclusions below are
 > withdrawn: the train-region number was not purely fit, distillation was not reproducing a
 > failure, and the "not a registration artifact" rebuttal was exactly backwards — the offsets

@@ -130,6 +130,21 @@ def test_a_failed_or_crashed_validation_leaves_no_marker(heldout):
         rr._check_marker(_stats(rr))
 
 
+def test_a_label_from_the_old_warp_is_flagged(heldout, capsys):
+    """Labels warped before 2026-10-17 sit several px off; validation says so."""
+    from repro.sota_data.register import WARP_ALIGNMENT
+
+    rr = heldout
+    rr.cmd_validate([])
+    assert "registered by the warp before 2026-10-17" in capsys.readouterr().out
+    stats = _stats(rr)
+    stats["warp_alignment"] = WARP_ALIGNMENT
+    with open(rr.REG_STATS, "w") as f:
+        json.dump(stats, f)
+    rr.cmd_validate([])
+    assert "registered by the warp before" not in capsys.readouterr().out
+
+
 def test_an_old_text_marker_is_not_trusted(heldout):
     rr = heldout
     rr.cmd_validate([])
@@ -183,22 +198,28 @@ def test_fine_tuning_rechecks_every_kept_region(modules):
         "20231005123336_y4000_x2500": "placement not verified",
         "20231005123336_y7000_x4000": "placement not verified",
     }
+    from repro.sota_data.register import WARP_ALIGNMENT
+
     good = {
         "frag_id": "seg_y0_x0",
         "passed": True,
         "placement_verified": True,
         "placement_offset_level2_px": 30.0,
+        "warp_alignment": WARP_ALIGNMENT,
     }
     far = {**good, "frag_id": "far_y0_x0", "placement_offset_level2_px": 57.5}
     held = {**good, "frag_id": "20231210121321_y0_x0"}
+    old = {k: v for k, v in good.items() if k != "warp_alignment"}
+    old["frag_id"] = "old_y0_x0"
     record = {
-        "regions": [good, far, held],
-        "kept": ["seg_y0_x0", "far_y0_x0", "20231210121321_y0_x0"],
+        "regions": [good, far, held, old],
+        "kept": ["seg_y0_x0", "far_y0_x0", "20231210121321_y0_x0", "old_y0_x0"],
     }
     kept, refused = ft.verified_kept(record)
     assert kept == ["seg_y0_x0"]
     assert refused["far_y0_x0"].startswith("placement 57.5 px")
     assert refused["20231210121321_y0_x0"] == "the held-out evaluation segment"
+    assert refused["old_y0_x0"] == "registered by the warp before 2026-10-17"
 
 
 def test_a_peak_that_scores_nothing_is_not_zero_offset():

@@ -16,11 +16,13 @@ sys.path.insert(0, os.path.abspath("."))
 from repro.sota_data import distill_run as dr
 from repro.sota_data.qualitative import write_fragment
 from repro.sota_data.register import (
+    WARP_ALIGNMENT,
     PlacementNotLocated,
     label_line_periodicity,
     level0_shape,
     placement_peak,
     read_tifxyz,
+    region_in_mesh,
     warp_via_field,
 )
 from repro.sota_data.retirement import RETIREMENT_REASON, is_retired
@@ -48,9 +50,13 @@ def parse_obj_vt(path):
     return v, vt
 
 
-def register_label_to_region(region_xyz, obj_v, obj_vt, old_label, size):
+def register_label_to_region(region_xyz, obj_v, obj_vt, old_label, size, coords=None):
     """NN-bridge each region 3D point to the nearest obj vertex, read its vt (row=H-v,col=u),
-    sample old_label. Returns (reg_label[size,size], median residual, periodicity)."""
+    sample old_label. Returns (reg_label[size,size], median residual, periodicity).
+
+    `coords` are the region's rows and columns in `region_xyz`, as `_region_in_mesh`
+    returns them; without them the crop's first vertex sits on the region's first pixel
+    and its vertices are spread evenly over the region (`register.sample_field`)."""
     region_xyz = np.asarray(region_xyz, np.float32)
     rh, rw = region_xyz.shape[:2]
     pts = region_xyz.reshape(-1, 3)
@@ -66,19 +72,15 @@ def register_label_to_region(region_xyz, obj_v, obj_vt, old_label, size):
     field = np.full((rh, rw, 2), np.nan, np.float32)
     field.reshape(-1, 2)[valid] = rc
     reg = warp_via_field(
-        old_label, field, (size, size), interpolation=cv2.INTER_NEAREST
+        old_label, field, (size, size), interpolation=cv2.INTER_NEAREST, coords=coords
     )
     residual = float(np.median(d)) if len(d) else float("inf")
     return reg, residual, label_line_periodicity(reg)
 
 
 def _region_in_mesh(new_xyz, seg, y0, x0, size):
-    mh, mw = new_xyz.shape[:2]
-    l0 = level0_shape(seg)
-    sy, sx = mh / (l0[0] / 4), mw / (l0[1] / 4)
-    ys, xs = int(round(y0 * sy)), int(round(x0 * sx))
-    ye, xe = int(round((y0 + size) * sy)), int(round((x0 + size) * sx))
-    return new_xyz[ys:ye, xs:xe]
+    """(crop, (rows, cols)) for a level-2 region of `seg` (`register.region_in_mesh`)."""
+    return region_in_mesh(new_xyz, level0_shape(seg), (y0, x0, size))
 
 
 def _fetch(seg, reg_dir):
@@ -152,14 +154,14 @@ def gt_prep_fragment(
     obj_path, mesh_path = _fetch(seg, reg_dir)
     obj_v, obj_vt = parse_obj_vt(obj_path)
     new_xyz = read_tifxyz(mesh_path)
-    region_xyz = _region_in_mesh(new_xyz, seg, y0, x0, size)
+    region_xyz, coords = _region_in_mesh(new_xyz, seg, y0, x0, size)
     old_label = cv2.imread(
         f"villa/ink-detection/train_scrolls/{seg}/{seg}_inklabels.png", 0
     )
     if old_label is None:
         raise ValueError(f"{seg}: hand label unreadable")
     reg_label, residual, periodicity = register_label_to_region(
-        region_xyz, obj_v, obj_vt, old_label, size
+        region_xyz, obj_v, obj_vt, old_label, size, coords=coords
     )
     passed = residual <= max_residual and periodicity >= min_periodicity
     info = {
@@ -167,6 +169,7 @@ def gt_prep_fragment(
         "residual": residual,
         "periodicity": periodicity,
         "gt_ink_fraction": float((reg_label > 127).mean()),
+        "warp_alignment": WARP_ALIGNMENT,
         "passed": bool(passed),
     }
     if not passed:

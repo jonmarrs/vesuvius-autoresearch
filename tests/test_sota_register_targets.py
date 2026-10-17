@@ -115,12 +115,31 @@ def test_region_in_mesh_tracks_the_segments_own_shape():
     rr.REGION_L2 = (4000, 2500, 4096)
 
     rr.LEVEL0_SHAPE = rr.LEVEL0_SHAPES["20230702185753"]
-    a = rr._region_in_mesh(mesh).shape[:2]
+    a = rr._region_in_mesh(mesh)[0].shape[:2]
     rr.LEVEL0_SHAPE = rr.LEVEL0_SHAPES["20231210121321"]
-    b = rr._region_in_mesh(mesh).shape[:2]
+    b = rr._region_in_mesh(mesh)[0].shape[:2]
     assert a != b, (
         "crop is insensitive to level-0 shape -- the bug would be unobservable"
     )
+    rr._set_target("orig")
+
+
+def test_both_region_croppers_are_the_shared_one():
+    """register_run and gt_register each carried a copy of the rounded crop."""
+    import numpy as np
+
+    from repro.sota_data import gt_register as gr
+    from repro.sota_data.register import region_in_mesh
+
+    mesh = np.zeros((776, 559, 3), np.float32)
+    rr._set_target("heldout")
+    want_crop, want = region_in_mesh(mesh, rr.LEVEL0_SHAPE, rr.REGION_L2)
+    for crop, got in (
+        rr._region_in_mesh(mesh),
+        gr._region_in_mesh(mesh, rr.SEG, *rr.REGION_L2),
+    ):
+        assert crop.shape == want_crop.shape
+        assert all(np.array_equal(g, w) for g, w in zip(got, want, strict=True))
     rr._set_target("orig")
 
 

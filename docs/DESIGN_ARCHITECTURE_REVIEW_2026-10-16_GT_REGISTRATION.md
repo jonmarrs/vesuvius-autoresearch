@@ -92,6 +92,8 @@ the default floors.
 
 ## Verified, not fixed here
 
+_Fixed on 2026-10-17: [DESIGN_ARCHITECTURE_REVIEW_2026-10-17_WARP_ALIGNMENT.md](DESIGN_ARCHITECTURE_REVIEW_2026-10-17_WARP_ALIGNMENT.md)._
+
 - **`warp_via_field` misaligns every registration by several pixels.**
   - It upsamples the mesh-grid field with `cv2.resize`, which aligns pixel centres. The mesh's samples are grid
     points, so each axis gains a half-pixel term of −(s − 1)/2 at s level-2 px a cell. On top of that, the crop
