@@ -253,12 +253,12 @@ def test_the_target_is_read_wherever_allow_retired_is_placed(modules):
 
 # --- the warp, end to end (2026-10-17) -------------------------------------------------
 # An identity scene: mesh vertex (r, c) sits at level-2 pixel (r / sy, c / sx), and its
-# texture coordinate points at that same pixel of the hand label, so a correct
-# registration gives back the label's own region. The rounded crop and pixel-centre
-# stretch this replaced shifted it about (8, 6) px at this 16.3 px cell.
+# texture coordinate (and the old mesh's own grid) points at that same pixel of the hand
+# label, so a correct registration gives back the label's own region. The rounded crop and
+# pixel-centre stretch this replaced get about 11% of this scene's label pixels wrong.
 SCENE_LEVEL0 = (3260, 3260)  # 815 level-2 px
 SCENE_MESH = (50, 50)  # 16.3 level-2 px a cell
-SCENE_REGION = (407, 203, 256)  # deliberately off the vertices
+SCENE_REGION = (400, 203, 256)  # 0.54 and 0.45 of a cell past a vertex
 
 
 def _identity_scene(root):
@@ -269,7 +269,8 @@ def _identity_scene(root):
     mh, mw = SCENE_MESH
     sy, sx = mh / h2, mw / (SCENE_LEVEL0[1] // 4)
     r, c = np.mgrid[0:mh, 0:mw].astype(np.float32)
-    xyz = np.stack([c, r, np.full_like(r, 5.0)], -1)
+    # curved and asymmetric, so the mesh-to-mesh similarity fit has one solution
+    xyz = np.stack([c, r, 5.0 + 0.05 * r + 0.002 * c**2 + 0.001 * r * c], -1)
     mesh = os.path.join(root, "scene.tifxyz")
     tifffile.imwrite(mesh, xyz)
     obj = os.path.join(root, "scene_original.obj")
@@ -287,33 +288,63 @@ def _scene_truth(label):
     return label[y0 : y0 + size, x0 : x0 + size]
 
 
-def test_warp_obj_gives_an_identity_scene_back_unmoved(heldout, tmp_path, monkeypatch):
-    """Dropping the crop's coordinates, or rounding the crop, moves this label."""
-    from repro.sota_data.register import WARP_ALIGNMENT
+def _scene_on_target(rr, tmp_path, monkeypatch):
+    """Put the identity scene where register_run reads it; return (obj, label)."""
+    import shutil
 
-    rr = heldout
     obj, mesh, label = _identity_scene(str(tmp_path))
     old_root = tmp_path / "old"
     os.makedirs(old_root / "layers")
     cv2.imwrite(str(old_root / f"{rr.SEG}_inklabels.png"), label)
-    for i in range(14):
+    for i in range(14):  # the warps read the 14th layer as the old surface
         cv2.imwrite(str(old_root / "layers" / f"{i:02d}.tif"), label)
-    os.replace(mesh, os.path.join(rr.REG_DIR, rr.MESH_NEW))
+    for name in (rr.MESH_NEW, rr.MESH_OLD):  # cmd_warp reads both: old = new here
+        dest = os.path.join(rr.REG_DIR, name)
+        os.makedirs(os.path.dirname(dest), exist_ok=True)
+        shutil.copy(mesh, dest)
     monkeypatch.setattr(rr, "OBJ_PATH", obj)
     monkeypatch.setattr(rr, "OLD_ROOT", str(old_root))
     monkeypatch.setattr(rr, "REGION_L2", SCENE_REGION)
     monkeypatch.setattr(rr, "LEVEL0_SHAPE", SCENE_LEVEL0)
-    truth = _scene_truth(label)
     cv2.imwrite(
-        os.path.join(rr.XSCROLL_ROOT, rr.FRAG_ID, f"{rr.FRAG_ID}_inklabels.png"), truth
+        os.path.join(rr.XSCROLL_ROOT, rr.FRAG_ID, f"{rr.FRAG_ID}_inklabels.png"),
+        _scene_truth(label),
     )
-    rr.cmd_warp_obj()
+    return label
+
+
+def _assert_scene_back_unmoved(rr, label):
+    from repro.sota_data.register import WARP_ALIGNMENT
+
+    truth = _scene_truth(label)
     got = cv2.imread(rr.REG_LABEL, 0)
     assert ((got > 127) != (truth > 127)).mean() < 1e-3
     assert placement_peak(got, truth, max_shift=32)[:2] == (0, 0)
-    stats = _stats(rr)
-    assert stats["warp_alignment"] == WARP_ALIGNMENT
-    assert "rowHv_colu" in stats["method"]
+    surface = cv2.imread(
+        os.path.join(rr.REG_DIR, "registered_oldsurface_l2region.png"), 0
+    )
+    assert np.abs(surface.astype(int) - truth).max() <= 1  # the old surface, too
+    assert _stats(rr)["warp_alignment"] == WARP_ALIGNMENT
+
+
+def test_warp_obj_gives_an_identity_scene_back_unmoved(heldout, tmp_path, monkeypatch):
+    """Dropping the crop's coordinates, or rounding the crop, moves this label."""
+    rr = heldout
+    label = _scene_on_target(rr, tmp_path, monkeypatch)
+    rr.cmd_warp_obj()
+    _assert_scene_back_unmoved(rr, label)
+    assert "rowHv_colu" in _stats(rr)["method"]
+
+
+def test_the_mesh_bridge_gives_an_identity_scene_back_unmoved(
+    heldout, tmp_path, monkeypatch
+):
+    """cmd_warp: the same scene through the mesh-to-mesh similarity and its field."""
+    rr = heldout
+    label = _scene_on_target(rr, tmp_path, monkeypatch)
+    rr.cmd_warp()
+    _assert_scene_back_unmoved(rr, label)
+    assert _stats(rr)["fit_scale"] == pytest.approx(1.0, abs=1e-3)
 
 
 def test_gt_prep_gives_an_identity_scene_back_unmoved(modules, tmp_path, monkeypatch):

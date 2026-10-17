@@ -13,9 +13,11 @@ import pytest
 
 sys.path.insert(0, os.path.abspath("."))  # repo root, so `repro.*` is importable
 from repro.sota_data.register import (
+    WARP_ALIGNMENT,
     region_in_mesh,
     sample_field,
     stride_coords,
+    warp_provenance,
     warp_via_field,
 )
 
@@ -108,3 +110,17 @@ def test_the_old_crop_and_stretch_was_several_pixels_off():
     )
     assert not bad.any()
     assert np.abs(new[:, 0] - (y0 + np.arange(size))).max() < 1e-3
+
+
+def test_a_label_says_which_warp_made_it(tmp_path):
+    """The probes read labels written here (stats beside them) and ScrollGT's (none)."""
+    import json
+
+    label = tmp_path / "registered_label_l2region.png"
+    label.touch()
+    assert "carries no warp record" in warp_provenance(str(label))
+    stats = tmp_path / "registration_stats.json"
+    stats.write_text(json.dumps({"method": "obj-exact"}))
+    assert "registered by the warp before 2026-10-17" in warp_provenance(str(label))
+    stats.write_text(json.dumps({"warp_alignment": WARP_ALIGNMENT}))
+    assert warp_provenance(str(label)) is None

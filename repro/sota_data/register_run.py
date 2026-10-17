@@ -68,9 +68,9 @@ LEVEL0_SHAPE: Any = None  # set per-target by _set_target()
 #
 # The floor was measured with the warp before 2026-10-17, which shifted every label several
 # px down and right itself (see register.region_in_mesh). Under the tifxyz vertex convention,
-# removing that shift moves the held-out floor UP, from 32 to about 39 px (at worst 47.5,
-# just under this threshold), and the train-exposed one down to about 38. The threshold is
-# unchanged; revisiting it after re-measuring is the owner's call.
+# removing that shift moves the held-out floor UP, from 32 to about 39 px (at worst about
+# 48, so it could reach this threshold), and the train-exposed one down to about 38. The
+# threshold is unchanged; revisiting it after re-measuring is the owner's call.
 #
 # 48 px = ~0.46 mm sits just above the observed floor while still catching gross errors by
 # a wide margin: the LEVEL0_SHAPE bug measured 435 px, ~9x this. Tightening it is welcome
@@ -152,8 +152,9 @@ TARGETS = {
             "optimistic.\n\n"
             "**PLACEMENT: 46.6 level-2 px — passes the 48 px gate by only 1.4 px.** Read "
             "this row's absolute values with more caution than the held-out target's, which "
-            "sits at 32.0 px (both measured with the warp before 2026-10-17; re-warped, this "
-            "one is expected to fall to about 38 px and the held-out one to rise to about 39). "
+            "sits at 32.0 px (both measured with the warp before 2026-10-17; re-warped, under "
+            "the tifxyz vertex convention, this one is expected to fall to about 38 px and the "
+            "held-out one to rise to about 39). "
             "This segment was *not* affected by the 2026-08-07 "
             "`LEVEL0_SHAPE` bug (the hardcoded constant was its own geometry), so its offset "
             "is a separate matter: the cross-scan floor simply varies more by segment than "
@@ -241,7 +242,8 @@ TARGETS = {
             "It is a **floor of the method, not an outstanding bug.** (Corrected 2026-10-17: "
             "until that day the warp itself shifted every label several px down and right. "
             "Under the tifxyz vertex convention, removing that shift moves this peak to "
-            "about (39, -2), about 39 px and at worst 47.5, so re-warped this target most "
+            "about (39, -2), about 39 px and at worst about 48, at the gate, so re-warped this "
+            "target most "
             "likely sits further from zero, not nearer. To be re-measured.) `original.obj` "
             "(which "
             "carries the vt → 2023 label mapping) lives in the old 7.91 µm scan frame, so "

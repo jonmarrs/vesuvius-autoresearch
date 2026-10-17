@@ -11,9 +11,10 @@ today: of the four configured training regions two fail the placement gate, one 
 Scroll-1 segment is labelled, re-flattened and correctly placed -- already spent as the
 held-out eval target. `cmd_finetune` refuses for that reason: it re-checks every kept region
 against its prep record (`verified_kept`), then needs two. (These placements were measured
-with the warp before 2026-10-17. Re-warped, the 57.5 px failure can only grow, its dy being
-positive; the 53.3 px one may pass, but it is on the retired segment, as is the passing one.
-None becomes usable. See docs/DESIGN_ARCHITECTURE_REVIEW_2026-10-17_WARP_ALIGNMENT.md.)
+with the warp before 2026-10-17. Re-warped, under the tifxyz vertex convention, the 57.5 px
+failure cannot fall below about 55.5 px, so it still fails; the 53.3 px one may pass, but it is
+on the retired segment, as is the passing one. None becomes usable. See
+docs/DESIGN_ARCHITECTURE_REVIEW_2026-10-17_WARP_ALIGNMENT.md.)
 
 Kept as the record of how the retracted result was produced. See
 reports/detector/gt_training_data_exhaustion_2026-08-15.md.

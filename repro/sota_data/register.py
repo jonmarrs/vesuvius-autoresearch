@@ -3,6 +3,7 @@ via the published tifxyz meshes. The old<->new 3D transform is estimated FROM TH
 THEMSELVES (both sample the same physical papyrus surface): PCA-sign-search init + trimmed
 ICP with Umeyama updates. No dependence on undocumented scan-frame conventions."""
 
+import json
 import os
 
 import cv2
@@ -187,13 +188,29 @@ OLD_WARP_NOTE = (
     "before relying on it"
 )
 
-# The placement probes read ScrollGT's exported labels, which carry no warp record.
+# An exported label (ScrollGT's gt_ink.png) has no stats beside it to say which warp made it.
 SCROLLGT_WARP_NOTE = (
-    "NOTE: ScrollGT's gt_ink.png carries no warp record. A label exported before "
-    "2026-10-17 was registered by the old warp, which moves the agreement peak by about "
-    "(-8, -6) px under the tifxyz vertex convention; re-export it from a re-warped "
-    "registration before reading these placements as current."
+    "it carries no warp record. Unless its registration was re-made by the warp of "
+    "2026-10-17 or later, it carries the old warp's shift of several px (under the tifxyz "
+    "vertex convention, about (-8, -6) on the agreement peak in 20230702185753's geometry, "
+    "-15.8 to +0.5 per axis in general). Re-export it from a re-warped registration before "
+    "reading placements measured on it as current"
 )
+
+
+def warp_provenance(label_path):
+    """A caveat for a registered label not made by the current warp, else None.
+
+    A label `register_run` wrote has its `registration_stats.json` beside it, which records
+    the warp (`WARP_ALIGNMENT`). An exported one (ScrollGT's gt_ink.png) has none.
+    """
+    stats = os.path.join(os.path.dirname(label_path), "registration_stats.json")
+    if not os.path.exists(stats):
+        return f"NOTE: {label_path}: {SCROLLGT_WARP_NOTE}."
+    with open(stats) as f:
+        if json.load(f).get("warp_alignment") == WARP_ALIGNMENT:
+            return None
+    return f"NOTE: {label_path} was {OLD_WARP_NOTE}."
 
 
 def region_in_mesh(xyz, level0, region, level=2):

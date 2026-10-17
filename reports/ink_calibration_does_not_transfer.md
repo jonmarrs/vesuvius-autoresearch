@@ -57,6 +57,8 @@ the title is corrected here rather than the file being renamed, so the citations
 > **Unaffected by any of this:** the ranking result, which is measured against ground truth. Four of
 > six members read `20231210121321` at AUC 0.68 to 0.72, monotone in pseudo-label density.
 
+_Note 2026-10-17: ScrollGT's registered ground truth for this segment was made by the registration warp before that day, which shifted the label several px: re-warped, its agreement peak is expected to move by about (+8, +6) px, under the tifxyz vertex convention. The scores below were measured against it and are to be re-measured after ScrollGT is re-exported from a re-warped registration ([review](../docs/DESIGN_ARCHITECTURE_REVIEW_2026-10-17_WARP_ALIGNMENT.md))._
+
 ## The two halves
 
 **Ranking transfers.** Against ScrollGT's registered ground truth on held-out Scroll 1 segment

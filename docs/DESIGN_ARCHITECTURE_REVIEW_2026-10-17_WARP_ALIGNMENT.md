@@ -1,6 +1,9 @@
 # Design and architecture review — the registration warp's alignment
 
-Date: 2026-10-17. Baseline: `1b183c3a` (main after #101). Villa pin unchanged.
+Date: 2026-10-17. Baseline: `1b183c3a` (main after #101). #102 merged the fix at `1143176c`; the review's fixes
+follow on main `eec1d314`, where #95 moved the villa pin to `ccb431818`. The villa files cited here are unchanged
+there, and its `interpolate_at_points` now maps nominal coordinates to the grid by multiplying by `scale`, the
+vertex convention again.
 Reviewer: Claude (Anthropic), at the owner's request.
 
 Scope: how the registration places a region of the SOTA surface volume on the new mesh's grid, and how it samples
@@ -46,19 +49,22 @@ previous review verified the misalignment and left the fix to this one
   - For a label without it, `validate` prints a warning and `score` heads its report with the warning.
   - Fine-tuning refuses a prep entry without it. Fragment writes refuse to overwrite, so an entry carrying it was
     written by the new warp.
-  - The two placement probes read ScrollGT's exported labels, which carry no such record, and now print that
+  - The placement probes and `make_alignment_evidence.py` now say, for each label they read, whether its stats
+    record the current warp (`register.warp_provenance`). ScrollGT's exported labels have no stats, so they get a
     caveat.
 - **Disclosures: the published placements were measured through the shift, and it moved them.**
   - The shift moves the label's agreement peak by about (−8, −6) px. On the identity registration above, the old
     warp's peak is (−8, −6); the new one's is (0, 0). Re-warping should therefore move each committed peak by about
     (+8, +6): rows between −0.5 and +15.8 px, and the same for columns.
-  - **The held-out target**, (31, −8) = 32.0 px, most likely goes to about (39, −2) = 39 px, and at worst 47.5 px, just
-    under the 48 px gate. Its "floor" is likely larger than published, not smaller.
+  - **The held-out target**, (31, −8) = 32.0 px, most likely goes to about (39, −2) = 39 px. At worst it reaches
+    about 48 px: 47.6 at this cell size, more at a coarser one, and the peak is determined to about ±1 px. So it could
+    reach the 48 px gate. Its "floor" is likely larger than published, not smaller.
   - **The train-exposed target**, (−18, −43) = 46.6 px, goes to about (−10, −37) = 38 px.
   - **Gate verdicts:**
-    - `20231005123336` (57.5 px) can only grow, because its dy (+56) is positive.
+    - `20231005123336`, at (56, −13) = 57.5 px, cannot fall below about 55.5 px, so it still fails.
     - `20230702185753` y7000_x4000 (53.3 px) may pass, but it is on the retired segment.
-    - So no verdict in the GT-exhaustion report or `gt_finetune.py` changes.
+    - So no failure becomes a usable pass, and the GT-exhaustion finding stands; the held-out pass could become
+      marginal.
   - Marked, with figures unchanged and the expected direction stated:
     - both registered-GT reports and their JSON (with the warning `score` now prints);
     - the offset report (its top note, and its "there isn't one" convention bug);
@@ -76,7 +82,7 @@ previous review verified the misalignment and left the fix to this one
 
 | Priority | Finding | Fix |
 | --- | --- | --- |
-| P2 | **The warp shifted every registered label several px**: crop rounding and a pixel-centre stretch, 1.8–13.8 px in rows and up to 18.3 in columns at 16.3 px a cell. It is in every committed GT score and in the placement floor the 48 px gate was derived from. | Fractional, vertex-aligned crop; exact field sampling; `coords` required. Tests: identity registrations at two cell sizes and three origins; end to end through `warp_obj` and `gt_prep_fragment`; the old warp's error, measured. |
+| P2 | **The warp shifted every registered label several px**: crop rounding and a pixel-centre stretch, 1.8–13.8 px in rows and up to 18.3 in columns at 16.3 px a cell. It is in every committed GT score and in the placement floor the 48 px gate was derived from. | Fractional, vertex-aligned crop; exact field sampling; `coords` required. Tests: identity registrations at two cell sizes and three origins; end to end through `warp_obj`, the mesh bridge (`warp`) and `gt_prep_fragment`; the old warp's error, measured. |
 | P2 | **Its effect on the published placements was unstated**, and it runs against the flagship. | Direction and expected values disclosed wherever the placements are cited. |
 | P3 | **A region past the mesh edge was silently mis-scaled.** | Zeroed. Test. |
 | P3 | **Old labels could not be told from new ones.** | `warp_alignment` recorded; validate and score warn; fine-tuning refuses; the probes caveat ScrollGT. Tests, including the score report. |
@@ -99,10 +105,10 @@ previous review verified the misalignment and left the fix to this one
   - Re-run `warp_obj` and `validate` on the held-out target. The labels and prep fragments already on disk were made
     by the old warp, and prep refuses to overwrite them, so delete them first.
   - The placement probes and `make_alignment_evidence.py` read ScrollGT's exported `gt_ink.png`. Nothing here writes
-    that file, so re-export it from the re-warped registration before re-running them. The same holds for the
-    ink-ablation reports that use ScrollGT's registered GT.
+    that file, so re-export it from the re-warped registration before re-running them. The same holds for the two
+    ink-ablation reports that score against ScrollGT's registered GT; both now carry a note.
 - **The 48 px threshold** came from a floor measured through this shift. Re-warped, the held-out target is expected
-  near 39 px, and at worst 47.5. Revisiting the threshold after re-measuring is the owner's call.
+  near 39 px, and at worst about 48, at the threshold. Revisiting it after re-measuring is the owner's call.
 - **Records left as written:**
   - `labeled_segment_availability.json`, which the availability probe builds from the committed JSON placements;
   - `PRIZE_CORRECTION_2026-08_DRAFT.md`, a dated filing.
@@ -118,8 +124,8 @@ mypy.
 
 - Baseline: main `1b183c3a`: 42 failed, 2506 passed, 21 skipped, 1 xfailed, 2 errors. The failures and errors are
   environmental: no scroll data, no CUDA, no villa data files, and no s3fs or tensorstore.
-- Branch: see the PR. The suite's result is recorded there for the final commit.
-- The registration tests that need s3fs to collect, run with a stand-in: 76 passed (`test_sota_warp_alignment`,
+- Branch, on main `eec1d314` with villa `ccb431818`: the same 42 failures and 2 errors. The PR records the counts.
+- The registration tests that need s3fs to collect, run with a stand-in: 78 passed (`test_sota_warp_alignment`,
   `test_sota_register`, `test_sota_register_targets`, `test_sota_gt_register`, `test_gt_finetune_prep_superseded`,
   `test_retirement_shared`, `test_sota_registration_gates`).
 - On main:
@@ -129,7 +135,8 @@ mypy.
 - Mutations, each caught by at least one test:
   - the half-cell (centre) convention;
   - a rounded crop start;
-  - dropping `warp_alignment` from the `warp_obj` stats or the prep record;
+  - dropping `warp_alignment` from the `warp` or `warp_obj` stats, or from the prep record;
+  - sampling either warp's old surface, or the mesh bridge's label, a fraction of a cell off;
   - dropping the score banner.
 - Cost: a 4096² warp from the 253 × 254 crop takes 1.2–1.6 s, against 0.25–0.27 s for main's. Peak traced memory
   is 64 MiB higher, 416 against 352.
@@ -140,9 +147,11 @@ New tests:
   - `test_a_stride_field_is_read_from_its_first_pixel` (strides 2 and 8, a size not a multiple of 8);
   - `test_an_invalid_vertex_spoils_only_the_pixels_it_weighs_on`;
   - `test_a_region_past_the_mesh_edge_is_zeroed_not_extended`;
-  - `test_the_old_crop_and_stretch_was_several_pixels_off`.
+  - `test_the_old_crop_and_stretch_was_several_pixels_off`;
+  - `test_a_label_says_which_warp_made_it`.
 - `tests/test_sota_registration_gates.py`:
-  - `test_warp_obj_gives_an_identity_scene_back_unmoved`;
+  - `test_warp_obj_gives_an_identity_scene_back_unmoved` and
+    `test_the_mesh_bridge_gives_an_identity_scene_back_unmoved` (the label and the old surface);
   - `test_gt_prep_gives_an_identity_scene_back_unmoved`;
   - `test_a_score_of_an_old_warp_label_says_so`;
   - `test_a_label_from_the_old_warp_is_flagged`;
