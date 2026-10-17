@@ -57,7 +57,9 @@ def test_every_v3_probe_trial_would_be_promoted():
 
 def test_false_promotion_at_the_v3_sigma_is_under_one_percent():
     # A promotion compares two draws, so a no-change cycle clears the tolerance with
-    # probability P(N(0, 2 sigma^2) > tol).
+    # probability P(N(0, 2 sigma^2) > tol). No-change means an expected val_f1 equal to
+    # the incumbent's: the probe's identical-config cycles gained 0.012-0.018 on it, and
+    # each is promotable (test above).
     sigma = V3_PROBE["f1_spread"]["sample_std"]
     z = F1_NOISE_TOLERANCE / (math.sqrt(2) * sigma)
     assert 0.5 * math.erfc(z / math.sqrt(2)) < 0.01

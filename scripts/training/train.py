@@ -397,7 +397,7 @@ def is_model_improvement(
 # History of this constant: 5e-3 (guess) -> 1e-2 (cross-tweak upper-bound estimate,
 # 2026-07-11 — that "upper bound" turned out to UNDERSTATE true noise) -> 3e-2 (measured)
 # -> 1e-2 (protocol v3, owner's decision 2026-10-17; below).
-# HONEST IMPLICATION: at the 900s budget no tweak tried so far separates from noise
+# HONEST IMPLICATION (v1, July): at the 900s budget no tweak tried so far separates from noise
 # (the 2026-07-11 cycle-9 "+0.0137 improvement" was 0.8 sigma_diff = noise). Promotions
 # at this budget need either this wide tolerance (rare promotions, honest) or
 # multi-seed averaging per cycle (sigma_mean = sigma/sqrt(k)) — a design change.
@@ -410,6 +410,11 @@ def is_model_improvement(
 # cycles scored under v3 (10-16/17) promoted, though each beat the incumbent by 0.011-0.022.
 # 2026-10-17 the owner set 1e-2: a no-change cycle promotes ~0.2% of the time at
 # sigma = 0.0025, 5% at 0.0043 and ~23% at the CI's top, so more probe trials are due.
+# ("No-change" there is a cycle whose expected val_f1 equals the incumbent's stored one.
+# The probe's identical-config cycles were not: each gained 0.012-0.018 on the incumbent,
+# so each would promote. A promotion keeps the cycle's tweak in config.json and credits its
+# family, so while a cycle alone gains that much, a tweak costing a little still promotes.
+# Noted 2026-10-17; docs/DESIGN_ARCHITECTURE_REVIEW_2026-10-17_TOLERANCE.md.)
 F1_NOISE_TOLERANCE = 1e-2
 LIFT_MARGIN = 0.02
 
