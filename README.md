@@ -316,7 +316,7 @@ promotion metrics.
   diagnostics, mean AP, throughput, VRAM and the full config JSON. It has no val_f1, the metric that decides
   promotion; that is in `sprint_logs/` and each run's `run_result.json`.
 - **`results.tsv`** (local, gitignored): one row per promotion, that is, a run whose val_f1 beat
-  `best_model.pt`'s stored val_f1 by more than the noise tolerance (0.03), with an AP-prevalence lift above
+  `best_model.pt`'s stored val_f1 by more than the noise tolerance (0.01 since 2026-10-17; 0.03 before), with an AP-prevalence lift above
   1.02, on the same validation protocol and inputs. Its frozen schema has no val_f1 column.
 - **`prize_readiness.tsv`**: one row per promotion, recording the promoted model's window and topology gate
   results. They are recorded only: they do not block promotion while `enforce_prize_gates` is false. When
