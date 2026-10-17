@@ -4,11 +4,14 @@
 # directory name than the fitter's conventional relative; bridged by
 # path_overrides in spiral-scroll.json rather than by renaming.
 # Each file goes to a .part until it is complete, so an interrupted run leaves
-# nothing a re-run would skip as already fetched.
+# nothing a re-run would skip as already fetched. One instance at a time (a lock
+# in this directory).
 set -u
 B=https://dl.ash2txt.org/datasets/spiral_datasets/PHercParis4/winding_model
 D="$(cd "$(dirname "$0")" && pwd)/winding_model"
 mkdir -p "$D"
+exec 9> "$D/.fetch_winding_model.lock"
+flock -n 9 || { echo "another fetch_winding_model.sh is running in $D"; exit 1; }
 get() {
   [ -s "$D/$1" ] && return 0
   curl -sf --max-time 300 --retry 3 -o "$D/$1.part" "$B/$1" \

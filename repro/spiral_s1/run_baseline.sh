@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Converged baseline fit: the checkpoint the pre-registered injection study runs against.
-# Identical to smoke.sh except optimizer_num_training_steps is left at its default 30,000.
+# Identical to run_smoke.sh except optimizer_num_training_steps is left at its default 30,000,
+# and the run tag.
 set -u
 D=/home/jon/openclaw-workspace/Neo-VM/data/spiral_s1
 export CUDA_VISIBLE_DEVICES=0

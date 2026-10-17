@@ -1,12 +1,16 @@
 #!/usr/bin/env bash
-# Fetch the 5 files of each in-ROI verified patch. Resumable; skips complete dirs.
+# Fetch the 5 files of each in-ROI verified patch. Resumable; skips complete files.
 # Each file goes to a .part until it is complete, so an interrupted run leaves
-# nothing a re-run would skip as already fetched. patch_misses.txt and
-# patch_no_generations.txt hold this run's entries only: a re-run retries both.
+# nothing a re-run would skip as already fetched. One instance at a time (a lock
+# in this directory). patch_misses.txt and patch_no_generations.txt hold this
+# run's entries only: a re-run retries both.
 set -u
 B=https://dl.ash2txt.org/datasets/spiral_datasets/PHercParis4/verified_patches
 D="$(cd "$(dirname "$0")" && pwd)"
 export B D
+[ -s "$D/patches_in_roi.txt" ] || { echo "no patches_in_roi.txt beside $0"; exit 1; }
+exec 9> "$D/.fetch_patches.lock"
+flock -n 9 || { echo "another fetch_patches.sh is running in $D"; exit 1; }
 : > "$D/patch_misses.txt"
 : > "$D/patch_no_generations.txt"
 # generations.tif is OPTIONAL: many patches simply do not have one (the server
@@ -30,6 +34,9 @@ one() {
   fi
 }
 export -f one
-xargs -P 16 -I{} bash -c 'one "$@"' _ {} < "$D/patches_in_roi.txt"
-echo "DONE $(date -Is)  dirs=$(ls -1 "$D/verified_patches" 2>/dev/null|wc -l)  misses=$(wc -l < "$D/patch_misses.txt")"
+sort -u "$D/patches_in_roi.txt" | xargs -P 16 -I{} bash -c 'one "$@"' _ {}
+rc=$?
+done="$([ $rc -eq 0 ] && echo DONE || echo "INCOMPLETE (xargs exit $rc)")"
+echo "$done $(date -Is)  dirs=$(ls -1 "$D/verified_patches" 2>/dev/null|wc -l)  misses=$(wc -l < "$D/patch_misses.txt")"
 du -sh "$D/verified_patches"
+exit $rc
