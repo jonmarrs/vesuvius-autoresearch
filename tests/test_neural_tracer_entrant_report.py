@@ -85,11 +85,15 @@ def test_descriptive_claims():
     repeat = RESULT["descriptive_repeat"]
     assert set(repeat) == {"s3_00994_00494_01994_512", "s1_00497_01497_03997_256"}
     assert all(v == 0 for r in repeat.values() for v in r["abs_difference"].values())
+    # The reasons villa ccb431818 records (tracing/volume.py, trace.py, inference.py). It writes the outside-the-scan
+    # stop as "outside_ct"; a key it never writes would pass any count.
+    recorded = {k for r in ROWS.values() for k in r["stop_reasons"]}
+    assert recorded <= {"confidence", "owned_or_live", "bounds", "outside_ct", "max_len"}
     totals = {
         k: sum(r["stop_reasons"].get(k, 0) for r in ROWS.values())
-        for k in ("confidence", "owned_or_live", "bounds", "outside")
+        for k in ("confidence", "owned_or_live", "bounds", "outside_ct")
     }
-    assert totals["outside"] == 0
+    assert totals["outside_ct"] == 0
     assert (
         f"{totals['confidence']:,} `confidence` stops, {totals['owned_or_live']:,} `owned_or_live` and {totals['bounds']} `bounds`"
         in REPORT

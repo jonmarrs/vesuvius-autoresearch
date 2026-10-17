@@ -65,32 +65,90 @@ def test_writes_one_integer_named_level_and_no_coarser_one(tmp_path):
         m.write_presence(tmp_path / "p.npy", tmp_path / "presence.zarr")
 
 
+def _probability(tmp_path, seed=3):
+    prob = np.random.default_rng(seed).random((128, 128, 128)).astype(np.float32)
+    np.save(tmp_path / "p.npy", prob)
+    return prob
+
+
+def _interrupt_writes(monkeypatch, partway):
+    """zarr.open whose array runs `partway(array, value)` in place of its full write."""
+    real_open = zarr.open
+
+    def wrapped(*args, **kwargs):
+        array = real_open(*args, **kwargs)
+
+        class Interrupted:
+            def __setitem__(self, key, value):
+                partway(array, value)
+
+        return Interrupted()
+
+    monkeypatch.setattr(zarr, "open", wrapped)
+    return real_open
+
+
 def test_a_write_killed_partway_leaves_no_level_to_reuse(tmp_path, monkeypatch):
     """The chain reuses any presence level that exists; a half-written one reads as zero presence where its chunks
     are missing."""
-    prob = np.random.default_rng(3).random((128, 128, 128)).astype(np.float32)
-    np.save(tmp_path / "p.npy", prob)
+    prob = _probability(tmp_path)
     out = tmp_path / "presence.zarr"
-    real_open = zarr.open
 
     class Killed(Exception):
         pass
 
-    def open_then_die(*args, **kwargs):
-        array = real_open(*args, **kwargs)
+    def die(array, value):
+        array[:8] = value[:8]  # part of the only chunk, then the process dies
+        raise Killed
 
-        class Partway:
-            def __setitem__(self, key, value):
-                array[:8] = value[:8]  # one chunk row written, then the process dies
-                raise Killed
-
-        return Partway()
-
-    monkeypatch.setattr(zarr, "open", open_then_die)
+    real_open = _interrupt_writes(monkeypatch, die)
     with pytest.raises(Killed):
         m.write_presence(tmp_path / "p.npy", out)
     assert not out.exists()
     monkeypatch.setattr(zarr, "open", real_open)
     target = m.write_presence(tmp_path / "p.npy", out)  # the rerun starts clean
     assert np.array_equal(zarr.open(str(target), mode="r")[...], m.presence_level(prob))
-    assert not out.with_name(out.name + ".partial").exists()
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["p.npy", "presence.zarr"]
+
+
+def test_two_writers_on_one_cube_leave_one_whole_level(tmp_path, monkeypatch):
+    """A second chain launched during a presence step: the writer that finishes second must refuse, not hand the
+    tracer the other's half-written level (or rename a level with holes over it)."""
+    prob = _probability(tmp_path)
+    out = tmp_path / "presence.zarr"
+    state = {}
+
+    def overtaken(array, value):
+        array[:8] = value[:8]
+        monkeypatch.setattr(zarr, "open", state["real_open"])
+        state["other"] = m.write_presence(
+            tmp_path / "p.npy", out
+        )  # the other writer, start to finish
+        array[...] = value
+
+    state["real_open"] = _interrupt_writes(monkeypatch, overtaken)
+    with pytest.raises(FileExistsError, match="another writer"):
+        m.write_presence(tmp_path / "p.npy", out)
+    stored = zarr.open(str(state["other"]), mode="r")
+    assert np.array_equal(stored[...], m.presence_level(prob))
+    assert m.level_complete(state["other"])
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["p.npy", "presence.zarr"]
+
+
+def test_a_level_missing_a_chunk_is_not_complete(tmp_path):
+    """The chain's check on a level it reuses, including one the in-place writer left before 2026-10-17."""
+    _probability(tmp_path)
+    whole = m.write_presence(tmp_path / "p.npy", tmp_path / "presence.zarr")
+    assert m.level_complete(whole)
+    np.save(tmp_path / "zero.npy", np.zeros((128, 128, 128), np.float32))
+    empty = m.write_presence(tmp_path / "zero.npy", tmp_path / "zero.zarr")
+    assert m.level_complete(empty)  # all-zero chunks are still written
+    killed = zarr.open(
+        str(tmp_path / "killed.zarr" / "1"),
+        mode="w-",
+        shape=(64, 64, 64),
+        chunks=(32, 32, 32),
+        dtype="u1",
+    )
+    killed[:32] = 7  # half of it written, as an in-place write cut short leaves it
+    assert not m.level_complete(tmp_path / "killed.zarr" / "1")
