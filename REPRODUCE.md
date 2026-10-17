@@ -135,7 +135,7 @@ uv run python scripts/reevaluate_best_model.py --update-stored   # score the inc
 
 Each cycle samples a configuration, preflights it, trains under a fixed budget,
 evaluates on the held-out fragment, and appends a row to `history.tsv`. A cycle whose val_f1 beats
-the incumbent's by more than 0.03, with an AP-prevalence lift above 1.02, on the same validation
+the incumbent's by more than 0.01 (0.03 before 2026-10-17), with an AP-prevalence lift above 1.02, on the same validation
 protocol and inputs, is promoted to `best_model.pt` and also gets a row in `results.tsv`.
 
 The README's Quick start (steps 5 and 6) and the paragraphs after it give the prerequisites: the
