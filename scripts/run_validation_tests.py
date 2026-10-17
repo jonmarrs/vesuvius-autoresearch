@@ -58,6 +58,7 @@ VALIDATION_TESTS = [
     "tests/test_generate_pseudo_labels.py",
     "tests/test_volume_inference_contracts.py",
     "tests/test_detector_contracts.py",
+    "tests/test_convert_fragment.py",
     "tests/test_submission_contracts.py",
     "tests/test_interpolation_evidence.py",
     "tests/test_interpolation_drivers.py",

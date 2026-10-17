@@ -33,16 +33,30 @@ def _eval_fragment(cfg, ckpt, fragment_id):
     return evaluate(prob, label, mask, cfg, fragment_id=fragment_id)
 
 
+def _ensure_converted(cfg, src_root="local_data"):
+    """Convert each reproduce fragment unless every file it reads is already there.
+
+    The check is per file, over cfg's own layer range: a conversion that was
+    interrupted, or made for another start_idx/end_idx, is redone rather than
+    trusted because its layers/ directory exists. Returns the fragments converted.
+    """
+    repo = os.path.join(os.path.dirname(__file__), os.pardir, os.pardir, os.pardir)
+    sys.path.append(os.path.abspath(os.path.join(repo, "repro", "gp_winner")))
+    from convert_fragment import convert_fragment, converted_paths
+
+    done = []
+    for fid in cfg.train_fragment_ids + [cfg.valid_fragment_id]:
+        paths = converted_paths(fid, cfg.data_root, cfg.start_idx, cfg.end_idx)
+        if not all(os.path.exists(p) for p in paths):
+            convert_fragment(fid, src_root, cfg.data_root, cfg.start_idx, cfg.end_idx)
+            done.append(fid)
+    return done
+
+
 def _reproduce(cfg):
     from .train import train
 
-    repo = os.path.join(os.path.dirname(__file__), os.pardir, os.pardir, os.pardir)
-    sys.path.append(os.path.abspath(os.path.join(repo, "repro", "gp_winner")))
-    from convert_fragment import convert_fragment
-
-    for fid in cfg.train_fragment_ids + [cfg.valid_fragment_id]:
-        if not os.path.exists(os.path.join(cfg.data_root, fid, "layers")):
-            convert_fragment(fid, "local_data", cfg.data_root)
+    _ensure_converted(cfg)
     ckpt = train(cfg)
     card = _eval_fragment(cfg, ckpt, cfg.valid_fragment_id)
     print(

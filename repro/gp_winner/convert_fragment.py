@@ -3,6 +3,7 @@
 in the winner's train_scrolls/<id>/ layout. uint16->uint8 via //256 (documented global
 scale); the winner loader's clip(0,200) applies downstream. PIL reads the ZSTD source
 (OpenCV cannot)."""
+
 import argparse
 import os
 import shutil
@@ -19,10 +20,33 @@ def convert_layer_u16_to_u8(arr):
     return (arr.astype(np.uint32) // 256).astype(np.uint8)
 
 
+def _write_atomic(path, data):
+    """Write bytes to path via path.part and a rename, so an interrupted run never
+    leaves a partial file under the final name."""
+    part = path + ".part"
+    with open(part, "wb") as f:
+        f.write(data)
+    os.replace(part, path)
+
+
+def converted_paths(frag_id, dst_root, z_start=17, z_end=43):
+    """Every file convert_fragment writes for frag_id: the layers, labels and mask."""
+    dst = os.path.join(dst_root, frag_id)
+    layers = [
+        os.path.join(dst, "layers", f"{i:02d}.tif") for i in range(z_start, z_end)
+    ]
+    return layers + [
+        os.path.join(dst, f"{frag_id}_inklabels.png"),
+        os.path.join(dst, f"{frag_id}_mask.png"),
+    ]
+
+
 def convert_fragment(frag_id, src_root, dst_root, z_start=17, z_end=43):
     """Read src_root/<frag>/surface_volume/{i:02}.tif (uint16, PIL) for i in [z_start,z_end),
     write dst_root/<frag>/layers/{i:02}.tif as 8-bit cv2-readable, and copy the label+mask
-    as <frag>_inklabels.png / <frag>_mask.png. Returns {str(i): {u16_max, u8_max, u8_mean}}."""
+    as <frag>_inklabels.png / <frag>_mask.png. Returns {str(i): {u16_max, u8_max, u8_mean}}.
+    Each file is written atomically, so a partial conversion lacks files rather than
+    holding truncated ones (converted_paths lists them all)."""
     src = os.path.join(src_root, frag_id)
     dst = os.path.join(dst_root, frag_id)
     os.makedirs(os.path.join(dst, "layers"), exist_ok=True)
@@ -31,16 +55,19 @@ def convert_fragment(frag_id, src_root, dst_root, z_start=17, z_end=43):
         p = os.path.join(src, "surface_volume", f"{i:02d}.tif")
         a = np.array(Image.open(p))
         u8 = convert_layer_u16_to_u8(a)
-        cv2.imwrite(os.path.join(dst, "layers", f"{i:02d}.tif"), u8)
+        ok, buf = cv2.imencode(".tif", u8)
+        if not ok:
+            raise ValueError(f"could not encode layer {i} of {frag_id}")
+        _write_atomic(os.path.join(dst, "layers", f"{i:02d}.tif"), buf.tobytes())
         stats[str(i)] = {
             "u16_max": int(a.max()),
             "u8_max": int(u8.max()),
             "u8_mean": round(float(u8.mean()), 2),
         }
-    shutil.copy(
-        os.path.join(src, "inklabels.png"), os.path.join(dst, f"{frag_id}_inklabels.png")
-    )
-    shutil.copy(os.path.join(src, "mask.png"), os.path.join(dst, f"{frag_id}_mask.png"))
+    for name, out in (("inklabels.png", "inklabels"), ("mask.png", "mask")):
+        part = os.path.join(dst, f"{frag_id}_{out}.png.part")
+        shutil.copyfile(os.path.join(src, name), part)
+        os.replace(part, os.path.join(dst, f"{frag_id}_{out}.png"))
     return stats
 
 
