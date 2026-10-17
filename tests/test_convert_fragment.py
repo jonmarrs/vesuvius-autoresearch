@@ -1,6 +1,9 @@
 # tests/test_convert_fragment.py
+import os
+
 import cv2
 import numpy as np
+import pytest
 from PIL import Image
 
 from repro.gp_winner.convert_fragment import convert_fragment, convert_layer_u16_to_u8
@@ -34,3 +37,143 @@ def test_convert_fragment_writes_cv2_readable_8bit_layers(tmp_path):
     assert (dst / "FragX" / "FragX_inklabels.png").exists()
     assert (dst / "FragX" / "FragX_mask.png").exists()
     assert "17" in stats and "u8_max" in stats["17"]
+
+
+def _source_fragment(root, frag_id, n_layers=50, shape=(40, 32)):
+    src = root / frag_id
+    (src / "surface_volume").mkdir(parents=True)
+    for i in range(n_layers):
+        Image.fromarray(np.full(shape, i * 1000, dtype=np.uint16)).save(
+            src / "surface_volume" / f"{i:02d}.tif"
+        )
+    Image.fromarray(np.zeros(shape, dtype=np.uint8)).save(src / "inklabels.png")
+    Image.fromarray(np.full(shape, 255, dtype=np.uint8)).save(src / "mask.png")
+
+
+def _detector_cfg(dst, **overrides):
+    from vesuvius_autoresearch.detector.config import DetectorConfig
+
+    return DetectorConfig(
+        data_root=str(dst),
+        train_fragment_ids=["FragA"],
+        valid_fragment_id="FragB",
+        **overrides,
+    )
+
+
+def test_reproduce_redoes_a_conversion_that_lacks_a_file(tmp_path):
+    """The reproduce path used to skip conversion whenever layers/ existed, so an
+    interrupted conversion failed at its first missing layer on every later run."""
+    from vesuvius_autoresearch.detector.cli import _ensure_converted
+
+    for fid in ("FragA", "FragB"):
+        _source_fragment(tmp_path / "src", fid)
+    cfg = _detector_cfg(tmp_path / "dst")
+    assert _ensure_converted(cfg, str(tmp_path / "src")) == ["FragA", "FragB"]
+    assert _ensure_converted(cfg, str(tmp_path / "src")) == []
+
+    (tmp_path / "dst" / "FragA" / "layers" / "30.tif").unlink()
+    assert _ensure_converted(cfg, str(tmp_path / "src")) == ["FragA"]
+    assert (tmp_path / "dst" / "FragA" / "layers" / "30.tif").exists()
+
+
+def test_reproduce_converts_the_configured_layer_range(tmp_path):
+    from vesuvius_autoresearch.detector.cli import _ensure_converted
+    from vesuvius_autoresearch.detector.data import read_volume_mask
+
+    for fid in ("FragA", "FragB"):
+        _source_fragment(tmp_path / "src", fid)
+    cfg = _detector_cfg(tmp_path / "dst", start_idx=11, end_idx=37)
+    _ensure_converted(cfg, str(tmp_path / "src"))
+    layers = sorted(p.name for p in (tmp_path / "dst" / "FragA" / "layers").iterdir())
+    assert layers == [f"{i:02d}.tif" for i in range(11, 37)]
+    images, _, shape = read_volume_mask(cfg, "FragA")
+    assert images.shape[2] == 26 and shape == (40, 32)
+
+
+def test_a_layer_is_never_left_partial_under_its_own_name(tmp_path, monkeypatch):
+    """Each layer is written to a .part and renamed. Stopped before the fourth
+    rename, the conversion leaves three layers and no file under a final name that
+    it had not finished; reproduce's per-file check then redoes it."""
+    _source_fragment(tmp_path / "src", "FragX")
+    real = os.replace
+    renamed = []
+
+    def replace(src, dst):
+        renamed.append(dst)
+        if len(renamed) == 4:
+            raise OSError("interrupted")
+        return real(src, dst)
+
+    monkeypatch.setattr(os, "replace", replace)
+    with pytest.raises(OSError, match="interrupted"):
+        convert_fragment("FragX", str(tmp_path / "src"), str(tmp_path / "dst"))
+    out = tmp_path / "dst" / "FragX"
+    assert sorted(p.name for p in (out / "layers").glob("*.tif")) == [
+        "17.tif",
+        "18.tif",
+        "19.tif",
+    ]
+
+
+def test_a_conversion_for_another_layer_range_is_redone(tmp_path):
+    from vesuvius_autoresearch.detector.cli import _ensure_converted
+
+    for fid in ("FragA", "FragB"):
+        _source_fragment(tmp_path / "src", fid)
+    _ensure_converted(_detector_cfg(tmp_path / "dst"), str(tmp_path / "src"))
+    shifted = _detector_cfg(tmp_path / "dst", start_idx=11, end_idx=37)
+    assert _ensure_converted(shifted, str(tmp_path / "src")) == ["FragA", "FragB"]
+
+
+def test_a_conversion_missing_its_mask_is_redone(tmp_path):
+    from vesuvius_autoresearch.detector.cli import _ensure_converted
+
+    for fid in ("FragA", "FragB"):
+        _source_fragment(tmp_path / "src", fid)
+    cfg = _detector_cfg(tmp_path / "dst")
+    _ensure_converted(cfg, str(tmp_path / "src"))
+    (tmp_path / "dst" / "FragB" / "FragB_mask.png").unlink()
+    assert _ensure_converted(cfg, str(tmp_path / "src")) == ["FragB"]
+
+
+def test_an_interrupted_label_copy_leaves_the_fragment_readable(tmp_path, monkeypatch):
+    """The label is copied to a .part first. That name must not match the reader's
+    `*inklabels.*` glob, or an interrupted re-conversion leaves two label files and
+    every later run fails with "found 2"."""
+    from vesuvius_autoresearch.detector.cli import _ensure_converted, _is_converted
+    from vesuvius_autoresearch.detector.data import read_image_mask
+
+    for fid in ("FragA", "FragB"):
+        _source_fragment(tmp_path / "src", fid)
+    cfg = _detector_cfg(tmp_path / "dst")
+    _ensure_converted(cfg, str(tmp_path / "src"))
+    (tmp_path / "dst" / "FragA" / "layers" / "20.tif").unlink()
+    real = os.replace
+
+    def replace(src, dst):
+        if str(dst).endswith("_inklabels.png"):
+            raise OSError("interrupted")
+        return real(src, dst)
+
+    monkeypatch.setattr(os, "replace", replace)
+    with pytest.raises(OSError, match="interrupted"):
+        _ensure_converted(cfg, str(tmp_path / "src"))
+    monkeypatch.undo()
+    assert _is_converted(cfg, "FragA")
+    _, label, _ = read_image_mask(cfg, "FragA")
+    assert label.shape == (40, 32)
+
+
+def test_a_label_under_another_name_counts_as_converted(tmp_path):
+    """read_image_mask takes any single *inklabels.*, such as villa's own
+    <id>_inklabels.tiff, so such a fragment is not re-converted."""
+    from vesuvius_autoresearch.detector.cli import _ensure_converted
+
+    for fid in ("FragA", "FragB"):
+        _source_fragment(tmp_path / "src", fid)
+    cfg = _detector_cfg(tmp_path / "dst")
+    _ensure_converted(cfg, str(tmp_path / "src"))
+    label = tmp_path / "dst" / "FragA" / "FragA_inklabels.png"
+    label.rename(label.with_suffix(".tiff"))
+    assert _ensure_converted(cfg, str(tmp_path / "src")) == []

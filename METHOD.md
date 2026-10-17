@@ -51,7 +51,7 @@ Each cycle of `run_autoresearch_loop.py`:
    threshold-swept `val_f1` and AP-prevalence lift that decide promotion, plus
    `val_bpb` and topological metrics, which are reported only.
 5. **Keep only if better.** The new configuration is promoted only if its `val_f1`
-   beats the incumbent's by more than 0.03 with an AP-prevalence lift above 1.02, on
+   beats the incumbent's by more than 0.01 (0.03 before 2026-10-17) with an AP-prevalence lift above 1.02, on
    the same validation protocol and inputs; otherwise it is reverted. Every cycle is
    recorded in its shift's `sprint_logs/` log, one that finishes validation gets a
    row in `history.tsv`, and a promotion one in the local `results.tsv` too.

@@ -60,7 +60,8 @@
 * D, scaled by the loop's own candidates: 10 cycle snapshots (`local_data/loop_candidates/`, kept by
   `scripts/snapshot_loop_candidates.sh`), scored on both samples. The detector-minus-incumbent val_f1 gap is 10.71
   candidate SDs with the ink-free patches kept against 2.78 on the loop's sample, so the recommendation stands. None
-  of the 10 would be promoted under the new sample; all 10 beat the incumbent there by +0.0034 to +0.0224.
+  of the 10 would be promoted under the new sample; all 10 beat the incumbent there by +0.0034 to +0.0224. (Noted
+  2026-10-17: that was at the 0.03 tolerance. At the owner's 0.01, 8 of the 10 would be.)
 
 ## 2026-10-13 (evening): developing while the loop runs
 

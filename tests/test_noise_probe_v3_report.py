@@ -1,4 +1,5 @@
-"""reports/noise_probe_v3_2026-10-16.md quotes its JSON and train.py's promotion rule correctly."""
+"""reports/noise_probe_v3_2026-10-16.md quotes its JSON, the promotion rule as it stood when
+the probe ran, and the owner's 2026-10-17 decision correctly."""
 
 from __future__ import annotations
 
@@ -52,7 +53,7 @@ def test_each_trial_row_matches_the_json():
         assert row in REPORT, row
 
 
-def test_every_trial_beats_the_incumbent_and_none_clears_the_promotion_bar():
+def test_every_trial_beats_the_incumbent_and_none_clears_the_probe_time_bar():
     f1 = _f1s()
     tol = TOLERANCE_AT_PROBE
     assert all(v > INCUMBENT for v in f1)

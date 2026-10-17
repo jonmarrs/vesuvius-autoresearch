@@ -3,6 +3,7 @@
 in the winner's train_scrolls/<id>/ layout. uint16->uint8 via //256 (documented global
 scale); the winner loader's clip(0,200) applies downstream. PIL reads the ZSTD source
 (OpenCV cannot)."""
+
 import argparse
 import os
 import shutil
@@ -19,10 +20,38 @@ def convert_layer_u16_to_u8(arr):
     return (arr.astype(np.uint32) // 256).astype(np.uint8)
 
 
+def _part_path(path):
+    """Where path is written before its rename: hidden, so no reader's glob (the
+    detector's `*inklabels.*`, a `*.tif` listing) can take it for a finished file."""
+    head, tail = os.path.split(path)
+    return os.path.join(head, f".{tail}.part")
+
+
+def _write_atomic(path, data):
+    """Write bytes to path via a hidden .part, flushed to disk, and a rename, so an
+    interrupted run never leaves a partial file under the final name."""
+    part = _part_path(path)
+    with open(part, "wb") as f:
+        f.write(data)
+        f.flush()
+        os.fsync(f.fileno())
+    os.replace(part, path)
+
+
+def _copy_atomic(src, path):
+    part = _part_path(path)
+    shutil.copyfile(src, part)
+    with open(part, "rb") as f:
+        os.fsync(f.fileno())
+    os.replace(part, path)
+
+
 def convert_fragment(frag_id, src_root, dst_root, z_start=17, z_end=43):
     """Read src_root/<frag>/surface_volume/{i:02}.tif (uint16, PIL) for i in [z_start,z_end),
     write dst_root/<frag>/layers/{i:02}.tif as 8-bit cv2-readable, and copy the label+mask
-    as <frag>_inklabels.png / <frag>_mask.png. Returns {str(i): {u16_max, u8_max, u8_mean}}."""
+    as <frag>_inklabels.png / <frag>_mask.png. Returns {str(i): {u16_max, u8_max, u8_mean}}.
+    Each file is written atomically, so an interrupted conversion lacks files rather than
+    holding truncated ones under their final names."""
     src = os.path.join(src_root, frag_id)
     dst = os.path.join(dst_root, frag_id)
     os.makedirs(os.path.join(dst, "layers"), exist_ok=True)
@@ -31,16 +60,22 @@ def convert_fragment(frag_id, src_root, dst_root, z_start=17, z_end=43):
         p = os.path.join(src, "surface_volume", f"{i:02d}.tif")
         a = np.array(Image.open(p))
         u8 = convert_layer_u16_to_u8(a)
-        cv2.imwrite(os.path.join(dst, "layers", f"{i:02d}.tif"), u8)
+        ok, buf = cv2.imencode(".tif", u8)
+        if not ok:
+            raise ValueError(f"could not encode layer {i} of {frag_id}")
+        _write_atomic(os.path.join(dst, "layers", f"{i:02d}.tif"), buf)
         stats[str(i)] = {
             "u16_max": int(a.max()),
             "u8_max": int(u8.max()),
             "u8_mean": round(float(u8.mean()), 2),
         }
-    shutil.copy(
-        os.path.join(src, "inklabels.png"), os.path.join(dst, f"{frag_id}_inklabels.png")
+    _copy_atomic(
+        os.path.join(src, "inklabels.png"),
+        os.path.join(dst, f"{frag_id}_inklabels.png"),
     )
-    shutil.copy(os.path.join(src, "mask.png"), os.path.join(dst, f"{frag_id}_mask.png"))
+    _copy_atomic(
+        os.path.join(src, "mask.png"), os.path.join(dst, f"{frag_id}_mask.png")
+    )
     return stats
 
 
@@ -49,8 +84,12 @@ def main():
     ap.add_argument("--frag", required=True)
     ap.add_argument("--src-root", default="local_data")
     ap.add_argument("--dst-root", default="villa/ink-detection/train_scrolls")
+    ap.add_argument("--z-start", type=int, default=17, help="DetectorConfig.start_idx")
+    ap.add_argument("--z-end", type=int, default=43, help="DetectorConfig.end_idx")
     args = ap.parse_args()
-    stats = convert_fragment(args.frag, args.src_root, args.dst_root)
+    stats = convert_fragment(
+        args.frag, args.src_root, args.dst_root, args.z_start, args.z_end
+    )
     lo = min(s["u8_mean"] for s in stats.values())
     hi = max(s["u8_mean"] for s in stats.values())
     print(f"{args.frag}: converted {len(stats)} layers; u8_mean range [{lo}, {hi}]")

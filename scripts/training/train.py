@@ -397,7 +397,7 @@ def is_model_improvement(
 # History of this constant: 5e-3 (guess) -> 1e-2 (cross-tweak upper-bound estimate,
 # 2026-07-11 — that "upper bound" turned out to UNDERSTATE true noise) -> 3e-2 (measured)
 # -> 1e-2 (protocol v3, owner's decision 2026-10-17; below).
-# HONEST IMPLICATION: at the 900s budget no tweak tried so far separates from noise
+# HONEST IMPLICATION (v1, July): at the 900s budget no tweak tried so far separates from noise
 # (the 2026-07-11 cycle-9 "+0.0137 improvement" was 0.8 sigma_diff = noise). Promotions
 # at this budget need either this wide tolerance (rare promotions, honest) or
 # multi-seed averaging per cycle (sigma_mean = sigma/sqrt(k)) — a design change.
@@ -410,6 +410,15 @@ def is_model_improvement(
 # cycles scored under v3 (10-16/17) promoted, though each beat the incumbent by 0.011-0.022.
 # 2026-10-17 the owner set 1e-2: a no-change cycle promotes ~0.2% of the time at
 # sigma = 0.0025, 5% at 0.0043 and ~23% at the CI's top, so more probe trials are due.
+# (Those rates model the candidate and the incumbent as two independent training draws
+# with a common mean, July's model; against the stored score as a fixed number they are
+# 0.003%, 1% and 14%. Either way they are for a cycle that gains nothing, and a cycle does:
+# it warm-starts from best_model.pt, and the probe's identical-config cycles gained 0.012-
+# 0.018 on it. 8 of finding 88's 10 loop candidates (2026-10-13, each its own tweak) also
+# cleared 0.01 under v3 (reports/loop_candidate_spread.json). A promotion keeps the
+# cycle's tweak in config.json, credits its family and makes the candidate the incumbent.
+# All of this is at the 900 s day budget; night cycles run 3600 s and are unmeasured.
+# Noted 2026-10-17; docs/DESIGN_ARCHITECTURE_REVIEW_2026-10-17_TOLERANCE.md.)
 F1_NOISE_TOLERANCE = 1e-2
 LIFT_MARGIN = 0.02
 
