@@ -54,7 +54,9 @@
 * So the loop, as configured, cannot promote even a detector-quality model; of finding 86's options keeping the
   ink-free patches separates them by far the most. Owner's decision; adopting it means a new protocol, a re-score,
   and a fresh noise probe (the 0.03 tolerance was measured under v1). Done 2026-10-16/17: v3 adopted (#66), probe
-  SD 0.0025 (`reports/noise_probe_v3_2026-10-16.md`), and the owner set the tolerance to 0.01.
+  SD 0.0025 (`reports/noise_probe_v3_2026-10-16.md`), and the owner set the tolerance to 0.01. Four more trials
+  (`reports/noise_probe_v3_pooled_2026-10-17.md`): pooled SD 0.0029 (0.0019–0.0058, df 7), so a no-change cycle
+  clears 0.01 0.67% of the time (11% at the interval's top). Every trial beats the stored incumbent by over 0.01.
 * D, scaled by the loop's own candidates: 10 cycle snapshots (`local_data/loop_candidates/`, kept by
   `scripts/snapshot_loop_candidates.sh`), scored on both samples. The detector-minus-incumbent val_f1 gap is 10.71
   candidate SDs with the ink-free patches kept against 2.78 on the loop's sample, so the recommendation stands. None
