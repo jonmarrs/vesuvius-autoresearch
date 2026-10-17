@@ -17,7 +17,8 @@ import numpy as np
 
 D = "/home/jon/openclaw-workspace/Neo-VM/data/scroll1_cubes/masks"
 out = []
-for i, f in enumerate(sorted(os.listdir(D))):
+# Masks only: an interrupted fetch_masks.sh leaves a *_mask.nrrd.part beside them.
+for i, f in enumerate(sorted(f for f in os.listdir(D) if f.endswith("_mask.nrrd"))):
     m, _ = nrrd.read(os.path.join(D, f))
     ids = np.unique(m)
     ids = ids[ids > 0]

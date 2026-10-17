@@ -17,6 +17,16 @@ data, not an estimate. `scripts/size_spiral_roi.py` consumes what these scripts 
   z-ROI before committing to their full payload. 89,237 requests at 10 concurrent, roughly two
   hours. Resumable (skips non-empty files), records misses to `metas_misses.txt`.
 
+(Corrected 2026-10-17: "skips non-empty files" made an interrupted download permanent, since a
+partial file is non-empty too. The curl fetchers now write each file to a `.part` and move it into
+place only when it is complete, and run one instance at a time. A partial file left under its final
+name by an earlier run is still skipped, so check sizes against the server's `content-length` before
+relying on such a fetch. `fetch_metas.sh` also creates `metas/`, which it used to assume. Each run's
+miss logs now hold only that run's misses, since a re-run retries them all. `patch_dirs.txt`, the
+server listing `fetch_metas.sh` reads, is not in this repository. `patches_in_roi.txt` is written by
+`scripts/select_spiral_patches.py`, and `run_after_sweep.sh` now fetches only a list it has just
+written.)
+
 Both take the dataset root from their own location. Default target used here:
 `/home/jon/openclaw-workspace/Neo-VM/data/spiral_s1`, deliberately outside this repository so
 48 GB cannot wander into git.
