@@ -40,6 +40,8 @@ and trial runner hash identically to main's (`input_hashes` in the JSON). Raw re
 
 * **It does not set the tolerance.** The probe records spread and never calibrates it (`tolerance_calibrated:
   false`). Changing `F1_NOISE_TOLERANCE` is the owner's decision.
+  * **Decision, 2026-10-17:** the owner set `F1_NOISE_TOLERANCE` to 0.01, so promotion now needs val_f1 above 0.2593.
+    All four trials clear it.
 * **It does not show the loop has found a lever.** All four trials start from the same incumbent and differ only in
   seed. The +0.015 they share is what one 900 s cycle of the merged recipe (#74, #75, #79: new crops, about twice
   the steps) adds to the incumbent. That can be a recipe gain or the incumbent's own one-time adaptation to

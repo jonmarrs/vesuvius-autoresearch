@@ -14,6 +14,7 @@ VALIDATION_TESTS = [
     "tests/test_villa_modules.py",
     "tests/test_preprocessing_contracts.py",
     "tests/test_noise_probe_contracts.py",
+    "tests/test_noise_probe_v3_report.py",
     "tests/test_fiber_diagnostic_contracts.py",
     "tests/test_fiber_miss_diagnostic.py",
     "tests/test_fiber_miss_diagnostic_report.py",

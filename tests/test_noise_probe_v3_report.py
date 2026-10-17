@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 import math
-import re
 import statistics
 from pathlib import Path
 
@@ -15,9 +14,9 @@ PROBE = json.loads((ROOT / "reports/noise_probe_v3_2026-10-16.json").read_text()
 INCUMBENT = 0.249348
 
 
-def _tolerance() -> float:
-    source = (ROOT / "scripts/training/train.py").read_text()
-    return float(re.search(r"^F1_NOISE_TOLERANCE = (\S+)$", source, re.M).group(1))
+# The report records the rule as it stood when the probe ran; the owner lowered
+# F1_NOISE_TOLERANCE to 0.01 on 2026-10-17 (tests/test_f1_improvement_criterion.py).
+TOLERANCE_AT_PROBE = 0.03
 
 
 def _f1s() -> list[float]:
@@ -55,7 +54,7 @@ def test_each_trial_row_matches_the_json():
 
 def test_every_trial_beats_the_incumbent_and_none_clears_the_promotion_bar():
     f1 = _f1s()
-    tol = _tolerance()
+    tol = TOLERANCE_AT_PROBE
     assert all(v > INCUMBENT for v in f1)
     assert not any(v > INCUMBENT + tol for v in f1)
     assert f"above {INCUMBENT + tol:.4f}" in REPORT
@@ -69,3 +68,13 @@ def test_every_trial_beats_the_incumbent_and_none_clears_the_promotion_bar():
 def test_rederived_tolerance_is_the_july_formula_on_this_sigma():
     sd = PROBE["f1_spread"]["sample_std"]
     assert f"gives {1.645 * math.sqrt(2) * sd:.4f}" in REPORT
+
+
+def test_the_decision_is_recorded():
+    import train
+
+    tol = train.F1_NOISE_TOLERANCE
+    assert tol == 0.01
+    assert all(v > INCUMBENT + tol for v in _f1s())
+    assert f"set `F1_NOISE_TOLERANCE` to {tol}" in REPORT
+    assert f"above {INCUMBENT + tol:.4f}" in REPORT

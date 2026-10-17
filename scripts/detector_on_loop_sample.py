@@ -14,7 +14,7 @@ pooled pixels, the detector's metric contract):
 
 Pre-registered reading (committed before the first run): the primary number is
 the detector's single-window val_f1 margin over the sample's all-ink F1.
-  margin > +0.03 (train.F1_NOISE_TOLERANCE): the metric can reward a model that
+  margin > +0.03 (train.F1_NOISE_TOLERANCE until 2026-10-17): the metric can reward a model that
       reads ink, and the loop's promotion bar is reachable by a model this good;
   |margin| <= 0.01: F1 on this sample cannot tell such a model from a constant;
   otherwise: weak, reported as such.

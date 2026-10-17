@@ -17,7 +17,7 @@ C_PATH = REPO / "reports" / "detector_on_full_v2_sample.json"
 C = json.loads(C_PATH.read_text()) if C_PATH.exists() else None
 D_PATH = REPO / "reports" / "loop_candidate_spread.json"
 D = json.loads(D_PATH.read_text()) if D_PATH.exists() else None
-TOLERANCE = 0.03  # train.F1_NOISE_TOLERANCE
+TOLERANCE = 0.03  # train.F1_NOISE_TOLERANCE when finding 88 ran (0.01 from 2026-10-17)
 # The last commit holding the first runs of A, C and D, which read the detector
 # before validation's jitter (corrected 2026-10-14, 9acb865a).
 FIRST_RUN = "f592a25b"

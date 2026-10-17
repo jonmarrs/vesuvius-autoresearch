@@ -389,20 +389,28 @@ def is_model_improvement(
 # and reported but no longer decide promotion. See
 # docs/superpowers/specs/2026-07-10-loop-honest-metric-selection-design.md
 #
-# MEASURED 2026-07-12 by the identical-config noise probe (scripts/f1_noise_probe.py,
+# MEASURED 2026-07-12, under protocol v1, by the identical-config noise probe (scripts/f1_noise_probe.py,
 # 4 runs of the promoted config at the 900s budget, isolated via checkpoint_out):
 # TRUE run-to-run sigma = 0.0120 (range 0.026; reports/detector/f1_noise_probe.json).
 # A promotion compares two noisy draws (sigma_diff = sqrt(2)*sigma ~= 0.017), so the
 # tolerance for a ~5% false-promotion rate is 1.645*0.017 ~= 0.028 -> 3e-2.
 # History of this constant: 5e-3 (guess) -> 1e-2 (cross-tweak upper-bound estimate,
-# 2026-07-11 — that "upper bound" turned out to UNDERSTATE true noise) -> 3e-2 (measured).
+# 2026-07-11 — that "upper bound" turned out to UNDERSTATE true noise) -> 3e-2 (measured)
+# -> 1e-2 (protocol v3, owner's decision 2026-10-17; below).
 # HONEST IMPLICATION: at the 900s budget no tweak tried so far separates from noise
 # (the 2026-07-11 cycle-9 "+0.0137 improvement" was 0.8 sigma_diff = noise). Promotions
 # at this budget need either this wide tolerance (rare promotions, honest) or
 # multi-seed averaging per cycle (sigma_mean = sigma/sqrt(k)) — a design change.
 # LIFT_MARGIN validated 2026-07-11: observed lifts 1.13-1.54; the >1.02 real-signal
 # gate binds only on constant-collapse, as intended.
-F1_NOISE_TOLERANCE = 3e-2
+#
+# RE-MEASURED 2026-10-16 under protocol v3 (all 400 patches, ink-free ones kept;
+# reports/noise_probe_v3_2026-10-16.json): 4 runs, sigma = 0.0025 (95% CI 0.0014-0.0094).
+# The formula above gives 0.0059 (0.0033-0.022 over the CI). At 3e-2 none of the 34 loop
+# cycles scored under v3 (10-16/17) promoted, though each beat the incumbent by 0.011-0.022.
+# 2026-10-17 the owner set 1e-2: a no-change cycle promotes ~0.2% of the time at
+# sigma = 0.0025, 5% at 0.0043 and ~23% at the CI's top, so more probe trials are due.
+F1_NOISE_TOLERANCE = 1e-2
 LIFT_MARGIN = 0.02
 
 

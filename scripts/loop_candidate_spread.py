@@ -82,7 +82,7 @@ from vesuvius_autoresearch.core.checkpoint_tools import (  # noqa: E402
 CANDIDATES = 10
 FIRST = "candidate_20261013-155821.pt"
 REPRODUCE = 1e-3  # stored (GPU, autocast) vs recomputed (CPU) val_f1
-TOLERANCE = 0.03  # train.F1_NOISE_TOLERANCE
+TOLERANCE = 0.03  # train.F1_NOISE_TOLERANCE when this ran (0.01 from 2026-10-17)
 BATCH = 4
 SAMPLE_A = "reports/detector_on_loop_sample.json"
 SAMPLE_C = "reports/detector_on_full_v2_sample.json"
