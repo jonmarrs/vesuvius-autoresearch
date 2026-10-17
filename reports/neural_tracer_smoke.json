@@ -1,0 +1,18 @@
+{
+ "returncode": 0,
+ "seconds": 76.0,
+ "fibers": 11,
+ "points": 870,
+ "stop_reasons": {
+  "confidence": 7,
+  "owned_or_live": 15
+ },
+ "identity_problems": [],
+ "recorded_operating_policy": {
+  "confidence": 0.5,
+  "n_commit": 8,
+  "max_recovery_distance": 6.0,
+  "refinement_steps": 3,
+  "gate": "full"
+ }
+}
