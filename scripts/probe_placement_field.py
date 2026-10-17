@@ -32,7 +32,7 @@ REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, REPO_ROOT)
 from sibling_checkouts import main_checkout
 
-from repro.sota_data.register import placement_peak
+from repro.sota_data.register import SCROLLGT_WARP_NOTE, placement_peak
 
 Image.MAX_IMAGE_PIXELS = None
 
@@ -90,6 +90,7 @@ def main():
     )
     ap.add_argument("--json-out")
     args = ap.parse_args()
+    print(SCROLLGT_WARP_NOTE, flush=True)
 
     out, skipped = [], []
     for name, lab_path, ref_path in TARGETS:

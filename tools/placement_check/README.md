@@ -59,7 +59,8 @@ something else. Well under a window is tolerable smearing.
 
 For us: a 512 µm analysis window, a measured floor of ~0.31 mm imposed by genuine
 differences between two scans of the same object, and a gate set just above that floor at
-~0.46 mm. We wrote down the derivation next to the constant, because a threshold chosen to
+~0.46 mm. (Corrected 2026-10-17: that floor was measured through a warp that shifted the
+label several px itself; re-warped, it is expected to rise to about 0.37 mm.) We wrote down the derivation next to the constant, because a threshold chosen to
 let your own data through is not a gate.
 
 ## Three things worth knowing

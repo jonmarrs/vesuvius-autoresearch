@@ -3,7 +3,7 @@
 **2026-08-07.** Reproduce: `uv run python scripts/probe_registration_offset.py`
 Data: [`registration_offset_2026-08-07.json`](registration_offset_2026-08-07.json)
 
-_Corrected 2026-10-17: the residual offset this report closes as an irreducible floor includes the warp's own error. The crop rounding quantified below, which was left in place, and the warp's pixel-centre stretch together misplace an identity registration in the train-exposed segment's mesh geometry by 1.8–13.8 px in rows (7.8 on average) and 0.7–10.6 in columns (5.6); that model does not reproduce the (+11.7, −12.0) px estimate below. Fixed in `register.region_in_mesh`; the 32 and 46.6 px placements are unchanged here and are to be re-measured after re-warping ([review](../../docs/DESIGN_ARCHITECTURE_REVIEW_2026-10-17_WARP_ALIGNMENT.md))._
+_Corrected 2026-10-17: every placement below was measured with a warp that shifted the registered label itself. The crop rounding quantified below, which was left in place, and the warp's pixel-centre stretch together move an identity registration in the train-exposed segment's mesh geometry 1.8–13.8 px down (7.8 on average) and 0–18.3 px right (5.6), under the tifxyz vertex convention, which is unverified against the release render. That model does not reproduce the (+11.7, −12.0) px estimate below. Fixed in `register.region_in_mesh`. Removing the shift moves each agreement peak by about (+8, +6) px: the held-out one from 32 px to about 39 (at worst 47.5), further from zero, and the train-exposed one from 46.6 to about 38. So the held-out "floor" is most likely larger than published, not smaller. The figures are unchanged here and are to be re-measured after re-warping, ScrollGT's exported labels included. The gate verdicts do not change: 57.5 px can only grow (its dy is positive), and 53.3 px may pass but is on the retired segment ([review](../../docs/DESIGN_ARCHITECTURE_REVIEW_2026-10-17_WARP_ALIGNMENT.md))._
 
 > **Resolution, for readers who want it up front.** A hardcoded `LEVEL0_SHAPE` applied one
 > segment's geometry to every segment, displacing the held-out label ~1766 level-0 voxels.
@@ -355,7 +355,9 @@ worse-registered of the two.
 A plane fitted to the field leaves residual scatter essentially equal to the raw scatter, so
 this is neither a constant offset nor a linear scale error. It is **non-rigid**, exactly as
 the cross-scan surface-disagreement account predicts — and it closes the search for a
-convention bug on the train-exposed target. There isn't one.
+convention bug on the train-exposed target. There isn't one. (Corrected 2026-10-17: there
+was one in the warp, a near-uniform shift of several px; see the note at the top. It does
+not explain this scatter.)
 
 **The consequence is a disclosure problem, not a code problem.** A single global placement
 figure is optimistic: the train-exposed target reports 46.6 px globally while individual

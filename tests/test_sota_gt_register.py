@@ -7,6 +7,7 @@ import pytest
 
 sys.path.insert(0, os.path.abspath("."))
 from repro.sota_data.gt_register import parse_obj_vt, register_label_to_region
+from repro.sota_data.register import stride_coords
 
 
 def test_parse_obj_vt_positional(tmp_path):
@@ -40,7 +41,7 @@ def test_register_label_to_region_recovers_block():
     old_label = np.zeros((H, W), np.uint8)
     old_label[10:25, 12:30] = 255
     reg, residual, period = register_label_to_region(
-        region_xyz, obj_v, vt, old_label, size=40
+        region_xyz, obj_v, vt, old_label, size=40, coords=stride_coords((40, 40), 1)
     )
     assert residual < 1e-3
     inter = np.logical_and(reg > 127, old_label > 127).sum()

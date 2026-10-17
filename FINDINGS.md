@@ -460,8 +460,10 @@ below):
 > | arm C (3-scroll student) | 0.558 / 1.17 | **0.746 / 2.44** |
 > | legacy (all-positive floor) | 0.501 | 0.518 / 1.009 |
 >
-> The corrected column's label still peaks 32 px off zero against the teacher, and until
-> 2026-10-17 the warp itself misplaced every registered label by several px of that
+> The corrected column's label still peaks 32 px off zero against the teacher. Until
+> 2026-10-17 the warp itself shifted every registered label several px down and right, and
+> here that shift pulled the peak *towards* zero: under the tifxyz vertex convention,
+> re-warping is expected to put it near 39 px (at worst 47.5, under the 48 px gate)
 > ([review](docs/DESIGN_ARCHITECTURE_REVIEW_2026-10-17_WARP_ALIGNMENT.md)). Not re-scored
 > since: that needs the meshes.
 >

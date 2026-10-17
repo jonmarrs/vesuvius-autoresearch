@@ -4,6 +4,8 @@
 Survey data: [`labeled_segment_availability.json`](labeled_segment_availability.json)
 Placement measurements: [`registration_offset_2026-08-07.md`](registration_offset_2026-08-07.md)
 
+_Note 2026-10-17: these placements were measured with the warp before that day, which shifted every registered label several px. Re-warped, each agreement peak is expected to move by about (+8, +6) px: 32.0 px rises to about 39 (still under 48), 57.5 px can only grow (its dy is positive), and 53.3 px may pass but is on the retired segment. No verdict here changes ([review](../../docs/DESIGN_ARCHITECTURE_REVIEW_2026-10-17_WARP_ALIGNMENT.md))._
+
 Every figure below cites one of those two files. Where a number is quoted from the 08-07
 report, the line reference is given so it can be checked without reading the whole thing.
 

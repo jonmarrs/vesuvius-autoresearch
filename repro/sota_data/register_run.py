@@ -66,9 +66,11 @@ LEVEL0_SHAPE: Any = None  # set per-target by _set_target()
 #   * Converting that surface disagreement into level-2 px puts the achievable floor in the
 #     tens of px. Measured placement on the corrected targets: ~32 px.
 #
-# The floor was measured with the warp before 2026-10-17, whose rounded crop and pixel-centre
-# stretch misplaced labels by several px themselves (see register.region_in_mesh). The
-# threshold is unchanged; whether to revisit it after re-measuring is the owner's call.
+# The floor was measured with the warp before 2026-10-17, which shifted every label several
+# px down and right itself (see register.region_in_mesh). Under the tifxyz vertex convention,
+# removing that shift moves the held-out floor UP, from 32 to about 39 px (at worst 47.5,
+# just under this threshold), and the train-exposed one down to about 38. The threshold is
+# unchanged; revisiting it after re-measuring is the owner's call.
 #
 # 48 px = ~0.46 mm sits just above the observed floor while still catching gross errors by
 # a wide margin: the LEVEL0_SHAPE bug measured 435 px, ~9x this. Tightening it is welcome
@@ -150,8 +152,9 @@ TARGETS = {
             "optimistic.\n\n"
             "**PLACEMENT: 46.6 level-2 px — passes the 48 px gate by only 1.4 px.** Read "
             "this row's absolute values with more caution than the held-out target's, which "
-            "sits at 32.0 px (both measured with the warp before 2026-10-17, which misplaced "
-            "labels by several px itself). This segment was *not* affected by the 2026-08-07 "
+            "sits at 32.0 px (both measured with the warp before 2026-10-17; re-warped, this "
+            "one is expected to fall to about 38 px and the held-out one to rise to about 39). "
+            "This segment was *not* affected by the 2026-08-07 "
             "`LEVEL0_SHAPE` bug (the hardcoded constant was its own geometry), so its offset "
             "is a separate matter: the cross-scan floor simply varies more by segment than "
             "the held-out measurement suggested. **The threshold was deliberately "
@@ -161,7 +164,9 @@ TARGETS = {
             "with individual tiles reaching ~100 px — **~0.96 mm** — against a global 46.6 px "
             "/ 0.45 mm. A fitted plane leaves scatter equal to the raw scatter, so this is "
             "non-rigid: not a constant offset and not a scale error, and there is no "
-            "convention bug left to find. The held-out target's field is 3-4x tighter "
+            "convention bug left to find (corrected 2026-10-17: the warp itself shifted "
+            "every label several px until that day; that is a near-uniform shift, not this "
+            "scatter). The held-out target's field is 3-4x tighter "
             "(sd 8.2 / 9.5). **Treat scores on this target as indicative only.** "
             "See `MAX_PLACEMENT_OFFSET_L2PX` and "
             "`reports/detector/registration_offset_2026-08-07.md`."
@@ -234,9 +239,11 @@ TARGETS = {
             "of this target: features closer together than ~0.31 mm cannot be scored "
             "reliably against it, and all absolute values are mild lower bounds.\n\n"
             "It is a **floor of the method, not an outstanding bug.** (Corrected 2026-10-17: "
-            "part of it may be the warp's own error, several px, fixed that day in "
-            "`register.region_in_mesh`; the 32 px was measured before the fix and is to be "
-            "re-measured after re-warping.) `original.obj` (which "
+            "until that day the warp itself shifted every label several px down and right. "
+            "Under the tifxyz vertex convention, removing that shift moves this peak to "
+            "about (39, -2), about 39 px and at worst 47.5, so re-warped this target most "
+            "likely sits further from zero, not nearer. To be re-measured.) `original.obj` "
+            "(which "
             "carries the vt → 2023 label mapping) lives in the old 7.91 µm scan frame, so "
             "reaching a 2023 label from a 2.4 µm-volume position must cross scan frames — "
             "and the 2023 and 2026 *segmentations of this sheet are materially different "

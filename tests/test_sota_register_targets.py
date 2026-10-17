@@ -124,25 +124,6 @@ def test_region_in_mesh_tracks_the_segments_own_shape():
     rr._set_target("orig")
 
 
-def test_both_region_croppers_are_the_shared_one():
-    """register_run and gt_register each carried a copy of the rounded crop."""
-    import numpy as np
-
-    from repro.sota_data import gt_register as gr
-    from repro.sota_data.register import region_in_mesh
-
-    mesh = np.zeros((776, 559, 3), np.float32)
-    rr._set_target("heldout")
-    want_crop, want = region_in_mesh(mesh, rr.LEVEL0_SHAPE, rr.REGION_L2)
-    for crop, got in (
-        rr._region_in_mesh(mesh),
-        gr._region_in_mesh(mesh, rr.SEG, *rr.REGION_L2),
-    ):
-        assert crop.shape == want_crop.shape
-        assert all(np.array_equal(g, w) for g, w in zip(got, want, strict=True))
-    rr._set_target("orig")
-
-
 def test_placement_threshold_is_derived_not_convenient():
     """48 px must stay far below the bug it exists to catch, and above the measured floor.
 

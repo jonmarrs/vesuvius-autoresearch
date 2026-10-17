@@ -219,7 +219,7 @@ def test_fine_tuning_rechecks_every_kept_region(modules):
     assert kept == ["seg_y0_x0"]
     assert refused["far_y0_x0"].startswith("placement 57.5 px")
     assert refused["20231210121321_y0_x0"] == "the held-out evaluation segment"
-    assert refused["old_y0_x0"] == "registered by the warp before 2026-10-17"
+    assert refused["old_y0_x0"] == "not registered by the current warp"
 
 
 def test_a_peak_that_scores_nothing_is_not_zero_offset():
@@ -249,3 +249,138 @@ def test_the_target_is_read_wherever_allow_retired_is_placed(modules):
         False,
         ["p", "validate", "--max-median-residual", "10"],
     )
+
+
+# --- the warp, end to end (2026-10-17) -------------------------------------------------
+# An identity scene: mesh vertex (r, c) sits at level-2 pixel (r / sy, c / sx), and its
+# texture coordinate points at that same pixel of the hand label, so a correct
+# registration gives back the label's own region. The rounded crop and pixel-centre
+# stretch this replaced shifted it about (8, 6) px at this 16.3 px cell.
+SCENE_LEVEL0 = (3260, 3260)  # 815 level-2 px
+SCENE_MESH = (50, 50)  # 16.3 level-2 px a cell
+SCENE_REGION = (407, 203, 256)  # deliberately off the vertices
+
+
+def _identity_scene(root):
+    """Write the OBJ, the tifxyz mesh and the hand label; return (obj, mesh, label)."""
+    import tifffile
+
+    h2 = SCENE_LEVEL0[0] // 4
+    mh, mw = SCENE_MESH
+    sy, sx = mh / h2, mw / (SCENE_LEVEL0[1] // 4)
+    r, c = np.mgrid[0:mh, 0:mw].astype(np.float32)
+    xyz = np.stack([c, r, np.full_like(r, 5.0)], -1)
+    mesh = os.path.join(root, "scene.tifxyz")
+    tifffile.imwrite(mesh, xyz)
+    obj = os.path.join(root, "scene_original.obj")
+    with open(obj, "w") as f:
+        for x, y, z in xyz.reshape(-1, 3):
+            f.write(f"v {x} {y} {z}\n")
+        for rr_, cc_ in zip(r.ravel(), c.ravel(), strict=True):
+            f.write(f"vt {cc_ / sx} {h2 - rr_ / sy}\n")  # row = H - v, col = u
+    label = _text_lines(h2, h2)
+    return obj, mesh, label
+
+
+def _scene_truth(label):
+    y0, x0, size = SCENE_REGION
+    return label[y0 : y0 + size, x0 : x0 + size]
+
+
+def test_warp_obj_gives_an_identity_scene_back_unmoved(heldout, tmp_path, monkeypatch):
+    """Dropping the crop's coordinates, or rounding the crop, moves this label."""
+    from repro.sota_data.register import WARP_ALIGNMENT
+
+    rr = heldout
+    obj, mesh, label = _identity_scene(str(tmp_path))
+    old_root = tmp_path / "old"
+    os.makedirs(old_root / "layers")
+    cv2.imwrite(str(old_root / f"{rr.SEG}_inklabels.png"), label)
+    for i in range(14):
+        cv2.imwrite(str(old_root / "layers" / f"{i:02d}.tif"), label)
+    os.replace(mesh, os.path.join(rr.REG_DIR, rr.MESH_NEW))
+    monkeypatch.setattr(rr, "OBJ_PATH", obj)
+    monkeypatch.setattr(rr, "OLD_ROOT", str(old_root))
+    monkeypatch.setattr(rr, "REGION_L2", SCENE_REGION)
+    monkeypatch.setattr(rr, "LEVEL0_SHAPE", SCENE_LEVEL0)
+    truth = _scene_truth(label)
+    cv2.imwrite(
+        os.path.join(rr.XSCROLL_ROOT, rr.FRAG_ID, f"{rr.FRAG_ID}_inklabels.png"), truth
+    )
+    rr.cmd_warp_obj()
+    got = cv2.imread(rr.REG_LABEL, 0)
+    assert ((got > 127) != (truth > 127)).mean() < 1e-3
+    assert placement_peak(got, truth, max_shift=32)[:2] == (0, 0)
+    stats = _stats(rr)
+    assert stats["warp_alignment"] == WARP_ALIGNMENT
+    assert "rowHv_colu" in stats["method"]
+
+
+def test_gt_prep_gives_an_identity_scene_back_unmoved(modules, tmp_path, monkeypatch):
+    """The fine-tune's registration path: the label it writes, and its warp record."""
+    from repro.sota_data import register
+    from repro.sota_data.register import WARP_ALIGNMENT
+
+    gr = sys.modules["repro.sota_data.gt_register"]
+    seg = "77777777777777"
+    y0, x0, size = SCENE_REGION
+    frag = f"{seg}_y{y0}_x{x0}"
+    monkeypatch.setitem(register.LEVEL0_SHAPES, seg, SCENE_LEVEL0)
+    monkeypatch.chdir(tmp_path)  # the relative villa/ and local_data/ inputs
+    obj, mesh, label = _identity_scene(str(tmp_path))
+    monkeypatch.setattr(gr, "_fetch", lambda s, d: (obj, mesh))
+    hand = tmp_path / "villa/ink-detection/train_scrolls" / seg
+    os.makedirs(hand)
+    cv2.imwrite(str(hand / f"{seg}_inklabels.png"), label)
+    distill = tmp_path / "local_data/sota_distill" / frag
+    os.makedirs(distill / "layers")
+    truth = _scene_truth(label)
+    cv2.imwrite(str(distill / f"{frag}_inklabels.png"), truth)  # the teacher crop
+    for i in range(17, 43):
+        cv2.imwrite(str(distill / "layers" / f"{i:02d}.tif"), truth)
+    info = gr.gt_prep_fragment(
+        seg, y0, x0, size, str(tmp_path / "gt"), min_periodicity=0.0
+    )
+    assert info["passed"] and info["placement_offset_level2_px"] == 0.0
+    assert info["warp_alignment"] == WARP_ALIGNMENT
+    written = cv2.imread(str(tmp_path / "gt" / frag / f"{frag}_inklabels.png"), 0)
+    assert ((written > 127) != (truth > 127)).mean() < 1e-3
+
+
+def test_a_score_of_an_old_warp_label_says_so(heldout, tmp_path, monkeypatch):
+    from repro.sota_data.register import WARP_ALIGNMENT
+
+    rr = heldout
+    monkeypatch.setattr(rr, "CKPTS", [])  # the teacher row only: no checkpoints here
+    monkeypatch.setattr(rr, "REPORT_MD", str(tmp_path / "report.md"))
+    monkeypatch.setattr(rr, "REPORT_JSON", str(tmp_path / "report.json"))
+    banner = "registered by the warp before 2026-10-17"
+    rr.cmd_validate([])
+    rr.cmd_score()
+    with open(rr.REPORT_MD) as f:
+        assert banner in f.read()
+    stats = _stats(rr)
+    stats["warp_alignment"] = WARP_ALIGNMENT
+    with open(rr.REG_STATS, "w") as f:
+        json.dump(stats, f)
+    rr.cmd_validate([])
+    rr.cmd_score()
+    with open(rr.REPORT_MD) as f:
+        assert banner not in f.read()
+
+
+def test_both_region_croppers_are_the_shared_one(modules):
+    """register_run and gt_register each carried a copy of the rounded crop."""
+    from repro.sota_data.register import region_in_mesh
+
+    rr, _ = modules
+    gr = sys.modules["repro.sota_data.gt_register"]
+    mesh = np.zeros((776, 559, 3), np.float32)
+    rr._set_target("heldout")
+    want_crop, want = region_in_mesh(mesh, rr.LEVEL0_SHAPE, rr.REGION_L2)
+    for crop, got in (
+        rr._region_in_mesh(mesh),
+        gr._region_in_mesh(mesh, rr.SEG, *rr.REGION_L2),
+    ):
+        assert crop.shape == want_crop.shape
+        assert all(np.array_equal(g, w) for g, w in zip(got, want, strict=True))
