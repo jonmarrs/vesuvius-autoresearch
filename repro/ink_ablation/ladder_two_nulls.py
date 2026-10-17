@@ -2,7 +2,7 @@
 
 Q1 "is each member's AUC a real reading?"  -> ROLL null (misalign the reference).
    This is the right null for reading. Already run: it3/it0/it4/it5 p<0.0025 on
-   segment A; on segment B it0/it4/it5 p<0.0025 and it3 p=0.0550.
+   segment A's centre 2048^2; on segment B it0/it4/it5 p<0.0025 and it3 p=0.0550.
 
 Q2 "does reading ability track training-tile count?" -> LABEL-PERMUTATION null
    (hold the six observed AUCs fixed, permute which member has which tile count).

@@ -25,7 +25,9 @@ Two things that each cost a run:
 ## Input
 
 The checkpoints take `(B, 1, 62, 256, 256)`, z-score normalised per tile, and return
-`(B, 1, 64, 64)` logits, so the prediction is 4x downsampled from the input tile.
+`(B, 1, 64, 64)` logits, so the prediction is 4x downsampled from the input tile. (Corrected
+2026-10-17: the input is `clip(0, 200) / 255`, not z-score, which saturates the models; see the
+intensity convention below.)
 
 Data comes from the open-data bucket, which is anonymous and region-addressable, so no bulk download
 is needed:
@@ -83,20 +85,26 @@ Known differences from the published recipe, in the order worth trying:
    Averaging alone reduces extremes.
 2. **the fragment mask.** The published snippet skips any window touching a zero mask pixel; ours
    scored every tile including edges.
-3. **the intensity convention.** Three are documented, they disagree, and all three saturate the
-   model. Measured with `conventions_home.py` on one 2048^2 level-0 window of the models' own scroll
-   (PHerc 1667 `w011`), iteration-5:
+3. **the intensity convention.** Three are documented and they disagree. Measured with
+   `conventions_home.py` on one 2048^2 level-0 window of the models' own scroll (PHerc 1667 `w011`),
+   iteration-5:
 
    | convention | fires above 0.5 | mean prob |
    |---|---:|---:|
    | docstring: z-score per tile | 99.11% | 0.7675 |
-   | card prose: clip to [0,200] then `Normalize(mean=0, std=1)`, which is the identity | 92.13% | 0.9172 |
+   | clip to [0,200] without /255, our misreading of the card prose | 92.13% | 0.9172 |
    | card snippet: raw uint8 | 91.43% | 0.9102 |
-   | `clip(0,200)/255`, documented nowhere | **18.06%** | 0.3644 |
+   | card prose: clip to [0,200] then `Normalize(mean=0, std=1)`, i.e. `clip(0,200)/255` | **18.06%** | 0.3644 |
 
-   Published canon on that segment fires at 2.82%. So `clip(0,200)/255` is not merely the closest of
-   the four, it is the only one that is not saturated, and it is the one convention the card never
-   states. Reported upstream as villa#1659.
+   Published canon on that segment fires at 2.82%. ~~So `clip(0,200)/255` is not merely the closest
+   of the four, it is the only one that is not saturated, and it is the one convention the card never
+   states.~~ Reported upstream as villa#1659.
+
+   (Corrected 2026-10-17, after the 2026-09-15 retraction in
+   `docs/VILLA_RECORD_issue1659_input_conventions.md`: albumentations' `Normalize` divides by
+   `max_pixel_value`, 255 by default, so `Normalize(mean=0, std=1)` is `x/255` and the card's prose
+   states `clip(0,200)/255`. The second row measured a clip without the division, which nothing
+   documents. The rows were labelled "which is the identity" and "documented nowhere" before.)
 
 ## Fetchers
 

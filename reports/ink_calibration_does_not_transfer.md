@@ -112,8 +112,8 @@ ranks at 0.72 is useful; the same model thresholded at 0.5 on a new scroll is no
 ## Limits, plainly
 
 The AUC results and the firing-rate comparison both cover all six members. The firing rates are
-medians over six locations on one segment per scroll in the table. The box above adds three Scroll 1
-segments for it5, and two further scrolls. The AUC results are one 4096^2 region
+medians over six locations on one segment per scroll in the table. The box above adds two more
+Scroll 1 segments for it5, and two further scrolls. The AUC results are one 4096^2 region
 against the Scroll 1 ground truth, which carries a stated ~0.31 mm resolution limit, so its scores
 are mild lower bounds. One architecture. (Clarified 2026-10-17: this said "six locations per scroll,
 one segment per scroll ... two scrolls", which the box has since outgrown.)

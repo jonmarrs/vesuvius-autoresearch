@@ -1,18 +1,20 @@
 """Run the six released PHerc.1667 ablation checkpoints over one segment region.
 
 PREPROCESSING IS THE WHOLE STORY HERE. The model card documents three mutually
-inconsistent conventions, and all three saturate the model:
+inconsistent conventions:
 
   * `modeling_inkdetection.py` docstring: "intensity already z-score normalised";
   * the full-segment inference snippet: raw uint8 cast to float;
   * Quick start: "roughly [0, 1] ... clipped raw uint8 layers to [0, 200] then
-    applied Normalize(mean=0, std=1)", which as written is the identity.
+    applied Normalize(mean=0, std=1)". albumentations' Normalize divides by
+    max_pixel_value, 255 by default, so this is `clip(x, 0, 200) / 255`
+    (docs/VILLA_RECORD_issue1659_input_conventions.md).
 
-`clip(x, 0, 200) / 255`, documented nowhere, is the only one tried that does not
-saturate. On a 2048^2 window of the models' home segment iteration-5 fires at 18%
-of pixels with it, against 91 to 99% with the other three; the published canon
-prediction there fires at 2.82%. The table is in repro/ink_ablation/README.md
-(conventions_home.py); see also `reports/ink_ablation_scale_bug.md`.
+This uses the Quick start's. On a 2048^2 window of the models' home segment,
+iteration-5 fires on 18% of pixels with it and on 91 to 99% with z-score or raw
+input (repro/ink_ablation/README.md); on a 512^2 patch some other members stay
+low under raw input (`reports/ink_ablation_scale_bug.md`). The published canon
+prediction fires on 2.82% of that whole segment.
 
 LEVEL 0, NOT LEVEL 2. The checkpoints operate on 2.4 um data, which is pyramid
 level 0 (level 2 is [2.4, 9.6, 9.6], four times coarser laterally). ScrollGT's
@@ -37,11 +39,11 @@ import torch
 import zarr
 
 DEPTH, TILE, OUT_TILE = 62, 256, 64
-CLIP_HI, SCALE = 200.0, 255.0  # the only convention tried that does not saturate
+CLIP_HI, SCALE = 200.0, 255.0  # the Quick-start convention
 
 
 def prep(block):
-    """clip to [0, 200], then /255: the only convention tried that does not saturate."""
+    """The Quick-start convention: clip to [0, 200], then /255."""
     return np.clip(block.astype(np.float32), 0.0, CLIP_HI) / SCALE
 
 

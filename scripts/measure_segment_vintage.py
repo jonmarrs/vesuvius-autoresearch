@@ -1,7 +1,7 @@
 """Is the over-firing a property of Scroll 1, or of the 2023-era segmentation?
 
 Three Scroll 1 segments, all rendered from the SAME 2.4um CT volume:
-  20231210121321                          2023-era  (the one that over-fires, 3.3-7.4x)
+  20231210121321                          2023-era  (the one that over-fires: it5 3.9x, the six members 3.3-7.4x)
   20230702185753                          2023-era
   20260602230115-20230702185753_v14       2026 RE-SEGMENTATION of the same sheet as above
 

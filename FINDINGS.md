@@ -87,7 +87,8 @@ Per-epoch held-out AUC climbed monotonically (0.68 → 0.78 over 18 epochs, ~2 h
 the RTX 4090, ~6 min/epoch with 4 096 sampled tiles/epoch) and was still rising at
 the end. The saved checkpoint is the epoch with the best held-out AUC, so the held-out
 fragment chose it; with the curve monotone that is the last epoch, so the AUC carries no
-selection. (Noted 2026-10-17.) The rendered ink heatmap and a prediction-vs-label overlay are in
+checkpoint selection. No per-epoch log is committed, and the 18 epochs (the config's default is
+25) were set after a 6-epoch run had been scored on Fr47. (Noted 2026-10-17.) The rendered ink heatmap and a prediction-vs-label overlay are in
 [reports/ink_segformer_repro/](reports/ink_segformer_repro/).
 
 **What this localizes:** the same fragments where our 64 px pipeline sits at chance
