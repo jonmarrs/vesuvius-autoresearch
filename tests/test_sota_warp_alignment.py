@@ -12,7 +12,14 @@ import numpy as np
 import pytest
 
 sys.path.insert(0, os.path.abspath("."))  # repo root, so `repro.*` is importable
-from repro.sota_data.register import region_in_mesh, sample_field, warp_via_field
+from repro.sota_data.register import (
+    WARP_ALIGNMENT,
+    region_in_mesh,
+    sample_field,
+    stride_coords,
+    warp_provenance,
+    warp_via_field,
+)
 
 LEVEL0 = (50600, 36400)  # 20230702185753
 
@@ -41,21 +48,27 @@ def test_an_identity_registration_lands_on_its_own_pixels(mesh_shape, y0, x0):
     got_r = warp_via_field(row_img, crop, (size, size), coords=coords)
     got_c = warp_via_field(col_img, crop, (size, size), coords=coords)
     want_r, want_c = _ramps(size, size)
-    valid = got_r > 0  # the (0, 0) region starts on the warp's invalid fill value
-    assert valid.mean() > 0.99
-    assert np.abs(got_r - (want_r + pad))[valid].max() < 0.05
-    assert np.abs(got_c - (want_c + pad))[valid].max() < 0.05
+    assert (got_r > 0).all() and (got_c > 0).all()  # every pixel valid (0 = invalid)
+    assert np.abs(got_r - (want_r + pad)).max() < 0.05
+    assert np.abs(got_c - (want_c + pad)).max() < 0.05
 
 
-def test_a_stride_field_is_read_from_its_first_pixel():
-    """Without coords, field vertex j sits on output pixel j * stride, as
-    `correspondence_field` computes it, not half a pixel off as cv2.resize put it."""
-    stride, h, w = 2, 64, 48
+@pytest.mark.parametrize("stride, h, w", [(2, 64, 48), (8, 61, 45)])
+def test_a_stride_field_is_read_from_its_first_pixel(stride, h, w):
+    """Field vertex j sits on output pixel j * stride, as `correspondence_field` computes
+    it. cv2.resize put it (stride - 1) / 2 px off, and spread the vertices over the
+    whole output when h was not a multiple of the stride."""
     r, c = np.mgrid[0:h:stride, 0:w:stride].astype(np.float32)
-    row, col, bad = sample_field(np.stack([r, c], -1), (h, w))
+    row, col, bad = sample_field(
+        np.stack([r, c], -1), (h, w), coords=stride_coords((h, w), stride)
+    )
     want_r, want_c = _ramps(h, w)
+    last_r, last_c = (len(r) - 1) * stride, (r.shape[1] - 1) * stride
+    assert not bad[: last_r + 1, : last_c + 1].any()
+    assert (
+        bad[last_r + 1 :].all() and bad[:, last_c + 1 :].all()
+    )  # past the last vertex
     ok = ~bad
-    assert ok[: h - stride + 1, : w - stride + 1].all()
     assert np.abs(row - want_r)[ok].max() < 1e-4
     assert np.abs(col - want_c)[ok].max() < 1e-4
 
@@ -64,10 +77,10 @@ def test_an_invalid_vertex_spoils_only_the_pixels_it_weighs_on():
     field = np.ones((3, 3, 2), np.float32)
     field[1, 2] = np.nan
     on_vertex = (np.array([1.0]), np.array([1.0]))  # (1, 2) has zero weight here
-    _, _, bad = sample_field(field, (1, 1), on_vertex)
+    _, _, bad = sample_field(field, (1, 1), coords=on_vertex)
     assert not bad.any()
     between = (np.array([1.0]), np.array([1.5]))
-    _, _, bad = sample_field(field, (1, 1), between)
+    _, _, bad = sample_field(field, (1, 1), coords=between)
     assert bad.all()
 
 
@@ -93,7 +106,21 @@ def test_the_old_crop_and_stretch_was_several_pixels_off():
     assert np.abs(error).min() > 1.5 and np.abs(error).max() > 13
     crop, coords = region_in_mesh(rows, LEVEL0, (y0, 0, size))
     new, _, bad = sample_field(
-        np.repeat(crop[:, :, None], 2, 2), (size, 1), (coords[0], np.zeros(1))
+        np.repeat(crop[:, :, None], 2, 2), (size, 1), coords=(coords[0], np.zeros(1))
     )
     assert not bad.any()
     assert np.abs(new[:, 0] - (y0 + np.arange(size))).max() < 1e-3
+
+
+def test_a_label_says_which_warp_made_it(tmp_path):
+    """The probes read labels written here (stats beside them) and ScrollGT's (none)."""
+    import json
+
+    label = tmp_path / "registered_label_l2region.png"
+    label.touch()
+    assert "carries no warp record" in warp_provenance(str(label))
+    stats = tmp_path / "registration_stats.json"
+    stats.write_text(json.dumps({"method": "obj-exact"}))
+    assert "registered by the warp before 2026-10-17" in warp_provenance(str(label))
+    stats.write_text(json.dumps({"warp_alignment": WARP_ALIGNMENT}))
+    assert warp_provenance(str(label)) is None

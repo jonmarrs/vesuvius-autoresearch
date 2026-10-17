@@ -19,10 +19,15 @@ displacement shows up immediately as separated colour fringes rather than as a v
 """
 
 import argparse
+import os
+import sys
 
 import numpy as np
 from PIL import Image
 from scipy import ndimage
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from repro.sota_data.register import warp_provenance
 
 Image.MAX_IMAGE_PIXELS = None
 
@@ -41,6 +46,9 @@ def main():
     ap.add_argument("--panel", type=int, default=620, help="rendered panel size")
     args = ap.parse_args()
 
+    note = warp_provenance(args.gt)
+    if note:
+        print(note, flush=True)
     gt = np.array(Image.open(args.gt)) > 127
     pred = np.array(Image.open(args.pred)) > 127
     if gt.shape != pred.shape:

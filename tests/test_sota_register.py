@@ -13,6 +13,7 @@ from repro.sota_data.register import (
     fit_similarity,
     ncc,
     read_tifxyz,
+    stride_coords,
     warp_via_field,
 )
 
@@ -83,7 +84,11 @@ def test_correspondence_and_warp_roundtrip():
     old_label = np.zeros(old_xyz.shape[:2], np.uint8)
     old_label[20:40, 30:60] = 255
     warped = warp_via_field(
-        old_label, field, old_label.shape, interpolation=cv2.INTER_NEAREST
+        old_label,
+        field,
+        old_label.shape,
+        interpolation=cv2.INTER_NEAREST,
+        coords=stride_coords(old_label.shape, 2),
     )
     inter = np.logical_and(warped > 127, old_label > 127).sum()
     union = np.logical_or(warped > 127, old_label > 127).sum()

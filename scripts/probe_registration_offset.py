@@ -46,7 +46,7 @@ REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, REPO_ROOT)
 from sibling_checkouts import main_checkout
 
-from repro.sota_data.register import placement_peak
+from repro.sota_data.register import placement_peak, warp_provenance
 
 Image.MAX_IMAGE_PIXELS = None
 
@@ -119,6 +119,9 @@ def main():
                     f"missing input: {p}\n(set SCROLLGT_DATA, and run from the repo root)"
                 )
 
+        note = warp_provenance(gt_path)
+        if note:
+            print(note, flush=True)
         gt = np.array(Image.open(gt_path)) > 127
         pred = np.array(Image.open(pred_path)) > 127
         if gt.shape != pred.shape:

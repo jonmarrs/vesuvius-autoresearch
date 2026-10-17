@@ -3,6 +3,7 @@ via the published tifxyz meshes. The old<->new 3D transform is estimated FROM TH
 THEMSELVES (both sample the same physical papyrus surface): PCA-sign-search init + trimmed
 ICP with Umeyama updates. No dependence on undocumented scan-frame conventions."""
 
+import json
 import os
 
 import cv2
@@ -180,10 +181,36 @@ def correspondence_field(new_xyz, s, R, t, old_xyz, stride=8):
 # without it was warped by the rounded crop and pixel-centre stretch they replaced.
 WARP_ALIGNMENT = "vertex-aligned field sampling of a fractional crop (2026-10-17)"
 OLD_WARP_NOTE = (
-    "registered by the warp before 2026-10-17, whose rounded crop and pixel-centre "
-    "stretch misplace content by several level-2 px (7.8 in rows and 5.6 in columns on "
-    "average for the 20230702185753 region); re-run the warp before relying on it"
+    "registered by the warp before 2026-10-17. Under the tifxyz vertex convention "
+    "(unverified against the release render), its rounded crop and pixel-centre stretch "
+    "shift content down and right by several level-2 px: 7.8 in rows and 5.6 in columns "
+    "on average for the 20230702185753 region, up to 18 at the edges. Re-run the warp "
+    "before relying on it"
 )
+
+# An exported label (ScrollGT's gt_ink.png) has no stats beside it to say which warp made it.
+SCROLLGT_WARP_NOTE = (
+    "it carries no warp record. Unless its registration was re-made by the warp of "
+    "2026-10-17 or later, it carries the old warp's shift of several px (under the tifxyz "
+    "vertex convention, about (-8, -6) on the agreement peak in 20230702185753's geometry, "
+    "-15.8 to +0.5 per axis in general). Re-export it from a re-warped registration before "
+    "reading placements measured on it as current"
+)
+
+
+def warp_provenance(label_path):
+    """A caveat for a registered label not made by the current warp, else None.
+
+    A label `register_run` wrote has its `registration_stats.json` beside it, which records
+    the warp (`WARP_ALIGNMENT`). An exported one (ScrollGT's gt_ink.png) has none.
+    """
+    stats = os.path.join(os.path.dirname(label_path), "registration_stats.json")
+    if not os.path.exists(stats):
+        return f"NOTE: {label_path}: {SCROLLGT_WARP_NOTE}."
+    with open(stats) as f:
+        if json.load(f).get("warp_alignment") == WARP_ALIGNMENT:
+            return None
+    return f"NOTE: {label_path} was {OLD_WARP_NOTE}."
 
 
 def region_in_mesh(xyz, level0, region, level=2):
@@ -199,12 +226,12 @@ def region_in_mesh(xyz, level0, region, level=2):
 
     Until 2026-10-17 the crop bounds were rounded to whole cells and `warp_via_field`
     stretched the crop over the region pixel-centre to pixel-centre. At the 7.91 um mesh's
-    ~16.3 level-2 px per cell that placed the region's rows 1.8-13.8 px off (7.8 on
-    average) and its columns 0.7-10.6 (5.6), for the (4000, 2500, 4096) region of
-    20230702185753.
+    ~16.3 level-2 px per cell that placed the (4000, 2500, 4096) region of 20230702185753
+    1.8-13.8 px off in rows (7.8 on average) and 0-18.3 px in columns (5.6; 0.7-10.6 away
+    from the edges, where cv2.resize clamps), shifting content down and right on average.
 
     A level-`level` pixel is taken at its level-0 origin; a pooled pyramid would put it
-    (2**level - 1) / 2 level-0 px further on, under 0.4 level-2 px at 16 px per cell.
+    (2**level - 1) / 2 level-0 px further on, 0.375 level-2 px at level 2.
 
     Returns (crop, (rows, cols)): the crop, and float64 crop coordinates of the region's
     rows and columns. Coordinates past the mesh's edge are left there, and
@@ -234,22 +261,24 @@ def _lerp(a, b, f):
     return np.where(f == 1, b, out)
 
 
-def sample_field(field, out_shape, coords=None):
+def stride_coords(out_shape, stride):
+    """`coords` for a stride-k field over the image it was computed on
+    (`correspondence_field`): field vertex j sits on pixel j * stride."""
+    return np.arange(out_shape[0]) / stride, np.arange(out_shape[1]) / stride
+
+
+def sample_field(field, out_shape, *, coords):
     """The field's (row, col) values at each output pixel, linearly between its vertices.
 
-    `coords` = (rows, cols) gives the field-grid coordinate of each output row and column
-    (from `region_in_mesh`). Without it the field's vertex 0 sits on output pixel 0 with
-    fh / out_h vertices per pixel: a stride-k field over the image it was computed on.
+    `coords` = (rows, cols) gives the field-grid coordinate of each output row and column:
+    from `region_in_mesh` for a mesh crop, or `stride_coords` for a stride field. It is
+    required: stretching the field over the output instead is the misalignment this
+    replaced (about half a cell, plus the crop's rounding).
 
     Returns (row, col, bad); `bad` marks pixels off the field's grid or reached by an
     invalid (NaN) vertex with non-zero weight.
     """
     fh, fw = field.shape[:2]
-    if coords is None:
-        coords = (
-            np.arange(out_shape[0]) * (fh / out_shape[0]),
-            np.arange(out_shape[1]) * (fw / out_shape[1]),
-        )
     rows, cols = (np.asarray(c, np.float64) for c in coords)
     if (len(rows), len(cols)) != tuple(out_shape[:2]):
         raise ValueError(
@@ -270,16 +299,14 @@ def sample_field(field, out_shape, coords=None):
     return out[0], out[1], bad
 
 
-def warp_via_field(
-    image, field, out_shape, interpolation=cv2.INTER_LINEAR, coords=None
-):
+def warp_via_field(image, field, out_shape, interpolation=cv2.INTER_LINEAR, *, coords):
     """Sample `image` at the field's (row, col) coords, resampled to out_shape.
 
     `coords` places each output row and column on the field's grid (see `sample_field`);
     pass the ones `region_in_mesh` returns with the crop the field was computed on.
     Pixels with no valid field value are 0.
     """
-    fh, fw, bad = sample_field(field, out_shape, coords)
+    fh, fw, bad = sample_field(field, out_shape, coords=coords)
     mapx = np.where(bad, np.float32(-1), fw)  # cv2.remap: x = col
     mapy = np.where(bad, np.float32(-1), fh)
     out = cv2.remap(

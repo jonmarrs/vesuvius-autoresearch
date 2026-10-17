@@ -10,7 +10,11 @@ today: of the four configured training regions two fail the placement gate, one 
 (periodicity) and one passes but is on the segment retired 2026-08-14, and exactly one
 Scroll-1 segment is labelled, re-flattened and correctly placed -- already spent as the
 held-out eval target. `cmd_finetune` refuses for that reason: it re-checks every kept region
-against its prep record (`verified_kept`), then needs two.
+against its prep record (`verified_kept`), then needs two. (These placements were measured
+with the warp before 2026-10-17. Re-warped, under the tifxyz vertex convention, the 57.5 px
+failure cannot fall below about 55.5 px, so it still fails; the 53.3 px one may pass, but it is
+on the retired segment, as is the passing one. None becomes usable. See
+docs/DESIGN_ARCHITECTURE_REVIEW_2026-10-17_WARP_ALIGNMENT.md.)
 
 Kept as the record of how the retracted result was produced. See
 reports/detector/gt_training_data_exhaustion_2026-08-15.md.
@@ -84,9 +88,9 @@ def verified_kept(prep, max_placement_offset=None):
     labels are still on disk under GT_ROOT (fragment writes refuse to overwrite), so
     that record alone would have trained on them. Each region must now carry its own
     passing, placement-verified entry, from a segment that is neither retired nor the
-    held-out evaluation one, registered by the current warp (the one before 2026-10-17
-    misplaced every label by several px; the fragment write refuses to overwrite, so a
-    record carrying the current warp was written by it).
+    held-out evaluation one, registered by the current warp (`register.WARP_ALIGNMENT`;
+    the one before 2026-10-17 shifted every label by several px, and the fragment write
+    refuses to overwrite, so a record carrying the current warp was written by it).
     """
     if max_placement_offset is None:
         from repro.sota_data.register_run import MAX_PLACEMENT_OFFSET_L2PX
@@ -110,7 +114,7 @@ def verified_kept(prep, max_placement_offset=None):
         elif offset > max_placement_offset:
             refused[frag_id] = f"placement {offset:.1f} px > {max_placement_offset:.0f}"
         elif info.get("warp_alignment") != WARP_ALIGNMENT:
-            refused[frag_id] = "registered by the warp before 2026-10-17"
+            refused[frag_id] = "not registered by the current warp"
         else:
             kept.append(frag_id)
     return kept, refused

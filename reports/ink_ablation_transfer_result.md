@@ -3,6 +3,8 @@
 **2026-08-30.** Measured after the preprocessing was corrected and validated. This revises the
 picture in `reports/ink_absence_vs_unrecovered_result.md`, which under-read the instrument.
 
+_Note 2026-10-17: ScrollGT's registered ground truth for this segment was made by the registration warp before that day, which shifted the label several px: re-warped, its agreement peak is expected to move by about (+8, +6) px, under the tifxyz vertex convention. The scores below were measured against it and are to be re-measured after ScrollGT is re-exported from a re-warped registration ([review](../docs/DESIGN_ARCHITECTURE_REVIEW_2026-10-17_WARP_ALIGNMENT.md))._
+
 ## Our ground truth is validated by an independent published prediction
 
 The open-data bucket publishes a canon prediction for `20231210121321` on the same volume. Scored

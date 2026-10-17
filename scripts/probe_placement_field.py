@@ -32,7 +32,7 @@ REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, REPO_ROOT)
 from sibling_checkouts import main_checkout
 
-from repro.sota_data.register import placement_peak
+from repro.sota_data.register import placement_peak, warp_provenance
 
 Image.MAX_IMAGE_PIXELS = None
 
@@ -98,6 +98,9 @@ def main():
             skipped.append(name)
             print(f"SKIP {name}: missing {missing}", flush=True)
             continue
+        note = warp_provenance(lab_path)
+        if note:
+            print(note, flush=True)
         lab = np.array(Image.open(lab_path))
         ref = np.array(Image.open(ref_path))
         lab_m, ref_m = lab > 127, ref > 127

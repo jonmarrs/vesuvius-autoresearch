@@ -50,13 +50,12 @@ def parse_obj_vt(path):
     return v, vt
 
 
-def register_label_to_region(region_xyz, obj_v, obj_vt, old_label, size, coords=None):
+def register_label_to_region(region_xyz, obj_v, obj_vt, old_label, size, *, coords):
     """NN-bridge each region 3D point to the nearest obj vertex, read its vt (row=H-v,col=u),
     sample old_label. Returns (reg_label[size,size], median residual, periodicity).
 
     `coords` are the region's rows and columns in `region_xyz`, as `_region_in_mesh`
-    returns them; without them the crop's first vertex sits on the region's first pixel
-    and its vertices are spread evenly over the region (`register.sample_field`)."""
+    returns them (`register.sample_field`)."""
     region_xyz = np.asarray(region_xyz, np.float32)
     rh, rw = region_xyz.shape[:2]
     pts = region_xyz.reshape(-1, 3)
