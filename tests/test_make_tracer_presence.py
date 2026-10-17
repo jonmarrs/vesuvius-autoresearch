@@ -63,3 +63,34 @@ def test_writes_one_integer_named_level_and_no_coarser_one(tmp_path):
     assert np.array_equal(stored[...], m.presence_level(prob))
     with pytest.raises(FileExistsError):
         m.write_presence(tmp_path / "p.npy", tmp_path / "presence.zarr")
+
+
+def test_a_write_killed_partway_leaves_no_level_to_reuse(tmp_path, monkeypatch):
+    """The chain reuses any presence level that exists; a half-written one reads as zero presence where its chunks
+    are missing."""
+    prob = np.random.default_rng(3).random((128, 128, 128)).astype(np.float32)
+    np.save(tmp_path / "p.npy", prob)
+    out = tmp_path / "presence.zarr"
+    real_open = zarr.open
+
+    class Killed(Exception):
+        pass
+
+    def open_then_die(*args, **kwargs):
+        array = real_open(*args, **kwargs)
+
+        class Partway:
+            def __setitem__(self, key, value):
+                array[:8] = value[:8]  # one chunk row written, then the process dies
+                raise Killed
+
+        return Partway()
+
+    monkeypatch.setattr(zarr, "open", open_then_die)
+    with pytest.raises(Killed):
+        m.write_presence(tmp_path / "p.npy", out)
+    assert not out.exists()
+    monkeypatch.setattr(zarr, "open", real_open)
+    target = m.write_presence(tmp_path / "p.npy", out)  # the rerun starts clean
+    assert np.array_equal(zarr.open(str(target), mode="r")[...], m.presence_level(prob))
+    assert not out.with_name(out.name + ".partial").exists()

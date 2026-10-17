@@ -42,17 +42,30 @@ def presence_level(prob: np.ndarray, factor: int = FACTOR) -> np.ndarray:
 
 
 def write_presence(prob_path: Path, out: Path) -> Path:
+    """Write OUT/1, built beside OUT and renamed into place.
+
+    The chain skips any cube whose presence level exists, and the identity check cannot see its content, so a write
+    killed partway must not leave OUT: its unwritten chunks would read as zero presence, and fewer seeds.
+    """
+    import shutil
+
     import zarr
 
-    level = presence_level(np.load(prob_path, mmap_mode="r"))
-    target = out / LEVEL
     if out.exists():
         raise FileExistsError(out)
+    level = presence_level(np.load(prob_path, mmap_mode="r"))
+    partial = out.with_name(out.name + ".partial")
+    shutil.rmtree(partial, ignore_errors=True)  # left by a write that was killed
     array = zarr.open(
-        str(target), mode="w-", shape=level.shape, chunks=(64, 64, 64), dtype="u1"
+        str(partial / LEVEL),
+        mode="w-",
+        shape=level.shape,
+        chunks=(64, 64, 64),
+        dtype="u1",
     )
     array[...] = level
-    return target
+    partial.rename(out)
+    return out / LEVEL
 
 
 def main() -> int:
