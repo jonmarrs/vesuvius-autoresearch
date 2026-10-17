@@ -26,8 +26,8 @@ Two things that each cost a run:
 
 The checkpoints take `(B, 1, 62, 256, 256)`, z-score normalised per tile, and return
 `(B, 1, 64, 64)` logits, so the prediction is 4x downsampled from the input tile. (Corrected
-2026-10-17: the input is `clip(0, 200) / 255`, not z-score, which saturates the models; see the
-intensity convention below.)
+2026-10-17: the input is `clip(0, 200) / 255`, not z-score, which saturates three of the four
+members `reports/ink_ablation_scale_bug.md` measured; see the intensity convention below.)
 
 Data comes from the open-data bucket, which is anonymous and region-addressable, so no bulk download
 is needed:

@@ -35,7 +35,8 @@ directory, so the reports' numbers were checked for internal consistency rather 
   - The repro README's four-convention table predated that retraction. It still labelled the card prose "the
     identity" and `clip(0,200)/255` "documented nowhere"; its second row measured a clip without the division, which
     nothing documents. The rows are relabelled, the conclusion struck through, and `conventions_home.py`'s labels
-    match. The README's Input section said the models take z-score input, which saturates them.
+    match. The README's Input section said the models take z-score input, which saturates three of the four
+    members the scale-bug report measured.
   - `run_ink_ablation.py` said `clip(0,200)/255` "matches the published prediction" at 2.82%. That is canon's rate
     over the whole segment; on a 2048² window it5 fires at 18% with it. The docstring now says so. It also said
     the other two conventions saturate "at 67 to 99%", which holds for it5 but not for every member: on the
