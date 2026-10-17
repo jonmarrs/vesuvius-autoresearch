@@ -153,3 +153,14 @@ villa/ink-detection/outputs/
 /repro/ink_ablation/it[0-5]/
 /repro/ink_ablation/preds_*.npz
 /repro/ink_ablation/canon_*.jpg
+# What the spiral_s1 and scroll1_cubes fetchers write beside themselves when run in place (they were
+# run from a copy in the data directory; spiral_s1's inputs alone are ~48 GB). The scripts, their
+# documentation and their two hand-made input lists stay visible.
+/repro/spiral_s1/*
+!/repro/spiral_s1/*.sh
+!/repro/spiral_s1/*.md
+!/repro/spiral_s1/spiral-scroll.json
+!/repro/spiral_s1/patch_dirs.txt
+/repro/scroll1_cubes/*
+!/repro/scroll1_cubes/*.sh
+!/repro/scroll1_cubes/all_cubes.txt
