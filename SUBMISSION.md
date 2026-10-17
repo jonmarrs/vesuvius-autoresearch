@@ -70,6 +70,11 @@ uv run run_autoresearch_loop.py               # start the autonomous loop
 See [`REPRODUCE.md`](./REPRODUCE.md) for the exact, verified verification steps.
 A short walkthrough (setup + one cycle): _[link to be added before filing]_.
 
+(Noted 2026-10-17: this summary describes the repository at the July filing. The current setup
+is the README's Quick start, which also checks out the villa submodule and scores `best_model.pt`
+before the loop starts; and the loop's architecture arm has been pinned to `resenc_unet` since
+2026-06-09, so the architectures above are selectable by config, not per cycle. See `METHOD.md`.)
+
 ## Results
 
 This submission is about **honest, reproducible tooling** — and, as of July 2026, a

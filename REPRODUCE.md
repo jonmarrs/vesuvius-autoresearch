@@ -1,19 +1,29 @@
 # Reproduce
 
-Environment used for the runs below: single NVIDIA RTX 4090, Python 3.10/3.11,
-dependencies pinned via `uv`.
+Environment used for the runs below: single NVIDIA RTX 4090, Python 3.10,
+dependencies pinned via `uv`. (Corrected 2026-10-17: this said 3.10/3.11; `pyproject.toml` requires
+`>=3.10,<3.11`. The re-runs dated 2026-10-17 were on a CPU-only container with no scroll data.)
 
 ## 1. Environment
 
 ```bash
 uv sync
+git submodule update --init villa   # the pinned ScrollPrize/villa
 ```
+
+The README's Quick start has the full setup, data placement included. (Added 2026-10-17, as in the
+README: the loop's topology metrics and villa augmentations come from the submodule.)
 
 ## 2. Preflight (build the model + one forward/backward)
 
 This is the fastest end-to-end check that the codebase and model are runnable. It
-builds the configured architecture and runs one forward/backward pass on a
-synthetic batch — no data download required.
+checks that each configured training volume has its label file, then builds the
+configured architecture and runs one forward/backward pass on a synthetic batch.
+So it needs the label files of `config.json`'s training volumes under `local_data/`, though not
+the volumes themselves. (Corrected 2026-10-17: this said "no data download required", which
+held until the label check was added on 2026-10-14. Without them it ends
+`PREFLIGHT FAILED: no label file for training volume local_data/PHercParis2Fr47/surface_volume.zarr ...`,
+exit 1.)
 
 ```bash
 PYTHONPATH=. uv run python scripts/training/train.py --config config.json --smoke
@@ -46,14 +56,24 @@ Skipped (optional capabilities, by design — not failures):
 - `augmentations_bg2` — requires the optional villa `create_training_transforms`
   augmentation, which is not installed in the base environment.
 
+(Noted 2026-10-17: the result depends on the environment. `dataloader_3tuple_sobel` and
+`dataloader_frangi_target` skip without the training data, and `augmentations_bg2` passes once the
+villa submodule of §1 is checked out. The 2026-10-17 re-run, with villa at the pin and no data, was
+also 9 passed and 2 skipped, but the two dataloader tests were the skips. With both, a host where
+CuPy has no GPU should give 10 passed and 1 skipped.)
+
 ## 4. Detector unit tests (CPU)
 
 The productionized detector and the SOTA tooling ship their own suites:
 
 ```bash
-CUDA_VISIBLE_DEVICES="" uv run python -m pytest tests/test_detector_*.py -q   # 30 passed, ~4m35s (re-run 2026-09-06)
-CUDA_VISIBLE_DEVICES="" uv run python -m pytest tests/test_sota_*.py -q      # 60 passed, ~10s (re-run 2026-09-06)
+CUDA_VISIBLE_DEVICES="" uv run python -m pytest tests/test_detector_*.py -q   # 206 passed, 1 skipped, ~3m (re-run 2026-10-17)
+CUDA_VISIBLE_DEVICES="" uv run python -m pytest tests/test_sota_*.py -q      # 106 passed, ~11s (re-run 2026-10-17)
 ```
+
+(Updated 2026-10-17: these read 30 and 60 passed, from 2026-09-06; both suites have grown since.
+The 2026-10-17 SOTA run stood in an empty module for `s3fs`, which `uv sync` installs and that
+machine lacked; three of the files import `repro.sota_data` modules that need it.)
 
 ## 5. Reproduce the working detector (GPU, ~hours)
 
@@ -93,21 +113,36 @@ agreement with the released canon predictions, not ground-truth accuracy.
 ## 7. Inspect the loop's logged search results
 
 ```bash
-column -t -s$'\t' results.tsv | less
+column -t -s$'\t' history.tsv | less
 ```
 
-The loop's `val_bpb` history is retained for provenance; note that `val_bpb` was
-demonstrated to be a weak discriminator (see `FINDINGS.md`) — the honest numbers are
-the detector reports above.
+`history.tsv` is tracked and has a row for every `train.py` run that finished validation, except
+experiment runs with `checkpoint_out` set (the noise probe's and the ablation's). Its `val_bpb` and
+topology columns are retained for provenance; `val_bpb` was demonstrated to be a weak discriminator
+(see `FINDINGS.md`), and neither decides promotion now. val_f1, the metric that does, has no column
+here: it is in each shift's `sprint_logs/` log, and the latest run's local `run_result.json`. The
+README's "Tracking progress" section describes every log. The honest numbers are the detector
+reports above.
+(Corrected 2026-10-17: this pointed at `results.tsv`, which is local and gitignored, with one row
+per promotion.)
 
 ## 8. Run the loop (optional, long-running)
 
 ```bash
-uv run run_autoresearch_loop.py
+uv run python scripts/reevaluate_best_model.py --update-stored   # score the incumbent first
+./start.sh                                                       # the loop, in the background
 ```
 
 Each cycle samples a configuration, preflights it, trains under a fixed budget,
-evaluates on the held-out fragment, and appends a row to `results.tsv`.
+evaluates on the held-out fragment, and appends a row to `history.tsv`. A cycle whose val_f1 beats
+the incumbent's by more than 0.03, with an AP-prevalence lift above 1.02, on the same validation
+protocol and inputs, is promoted to `best_model.pt` and also gets a row in `results.tsv`.
+
+The README's Quick start (steps 5 and 6) and the paragraphs after it give the prerequisites: the
+loop starts only if `best_model.pt`'s score was measured under the current validation protocol
+(otherwise it prints `Not starting: …`), it exits at the end of its shift, and the watchdog, once
+installed, starts it again. (Corrected 2026-10-17: this gave a bare `uv run run_autoresearch_loop.py`, and said every
+cycle appends to `results.tsv`.)
 
 ## 9. Spiral fitting (the current track)
 

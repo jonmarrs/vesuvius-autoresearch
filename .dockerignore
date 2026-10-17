@@ -1,0 +1,8 @@
+# The image COPYs only these (see Dockerfile). Without this file `docker build .` sent the
+# whole working tree as its context, the venv and .git included (about 12 GB on one checkout).
+*
+!pyproject.toml
+!uv.lock
+!README.md
+!SUBMISSION.md
+!*.py

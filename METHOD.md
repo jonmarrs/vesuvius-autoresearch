@@ -30,22 +30,37 @@ the open SOTA data) and an **autonomous search loop** over training configuratio
 Each cycle of `run_autoresearch_loop.py`:
 
 1. **Sample a configuration.** A bandit-style sampler draws from a configuration
-   space — architecture (gated UNet-transformer, TimeSformer, ResNet3D-101,
-   Inception-I3D), loss terms, augmentation settings, and related hyperparameters.
-   Families that have produced improvements are weighted up; duplicates are
-   re-sampled for diversity.
+   space — loss terms, the augmentation pipeline (`aug_mode`), and related
+   hyperparameters. Families that have produced improvements are weighted up;
+   duplicates are re-sampled for diversity. The architecture is pinned to
+   `resenc_unet`, the production model, and the other fields a warm start must
+   match to the production model's values, so every cycle warm-starts from
+   `best_model.pt`. The other architectures `build_model` dispatches stay selectable
+   by config, with one exception: `resnet3d` (ResNet3D-101) and `i3d`
+   (Inception-I3D) import from `villa/ink-detection/models/`, which villa moved to
+   `deprecated/ink-detection/` before the current pin, so their preflight fails.
 2. **Preflight smoke check.** Before spending the training budget, the candidate is
    built and run through one forward/backward pass on a synthetic batch
    (`train.py --smoke`). A configuration that cannot build or run is skipped
    immediately rather than consuming a cycle.
 3. **Train under a fixed budget.** The candidate trains for a fixed wall-clock
-   budget (≈60 minutes) on the training fragment.
+   budget on the training fragment: 15 minutes in the day shift (07:00–19:00),
+   60 at night.
 4. **Evaluate on held-out data.** The model is scored on a separate validation
-   fragment it never trained on (train/predict non-overlap), producing `val_bpb`
-   plus topological metrics.
-5. **Keep only if better.** The new configuration is promoted only if it improves
-   on the current baseline; otherwise it is reverted. The outcome of every cycle is
-   appended to `results.tsv`.
+   fragment it never trained on (train/predict non-overlap), producing the
+   threshold-swept `val_f1` and AP-prevalence lift that decide promotion, plus
+   `val_bpb` and topological metrics, which are reported only.
+5. **Keep only if better.** The new configuration is promoted only if its `val_f1`
+   beats the incumbent's by more than 0.03 with an AP-prevalence lift above 1.02, on
+   the same validation protocol and inputs; otherwise it is reverted. Every cycle is
+   recorded in its shift's `sprint_logs/` log, one that finishes validation gets a
+   row in `history.tsv`, and a promotion one in the local `results.tsv` too.
+
+(Corrected 2026-10-17. Steps 1, 3, 4 and 5 did not describe the current loop: the
+architecture has been pinned to `resenc_unet` since 2026-06-09, and promotion moved from
+`val_bpb` and topology to `val_f1` gated by AP-prevalence lift on 2026-07-11. Step 3
+gave ≈60 minutes, the night budget only, and step 5 said every cycle is appended to
+`results.tsv`.)
 
 ## Evaluation metrics
 
@@ -66,8 +81,8 @@ distillation results — mask-restricted and pooled over the fragment:
   branch-length *histograms* and is blind to spatial location (a zero-overlap
   prediction scores 0.0 and passes). Probe: `scripts/probe_skel_dist_validity.py`.
 - **`val_bpb`** — the loop's historic gate (bits-per-byte on held-out validation);
-  retained as a guard rail for the loop, but demonstrated to be a weak discriminator
-  (see `FINDINGS.md`), which is why the contract above exists.
+  demonstrated to be a weak discriminator (see `FINDINGS.md`), which is why the
+  contract above exists. Since 2026-07-11 it is reported but decides nothing.
 
 ## Constraints honored
 
