@@ -14,6 +14,16 @@
 # here. What has been checked is that every file it copies exists, its CMD
 # target exists, the base image is pullable, and `uv lock --check` passes so
 # `uv sync --frozen` resolves. Treat it as "no known breakage", not "verified".
+#
+# WHAT IT HOLDS (noted 2026-10-17): the top-level *.py files, pyproject.toml,
+# uv.lock, README.md and SUBMISSION.md, and nothing else: not src/, scripts/,
+# repro/ or tests/. So none of REPRODUCE.md's steps run in it, and `uv sync`
+# installs the project package empty. Its CMD runs vesuvius_model.py's
+# self-check: one model on synthetic tensors, on the CPU, with random initial
+# weights, so its PASS and FAIL lines describe an untrained model (run here
+# 2026-10-17: two of its four checks FAIL, exit 0). .dockerignore limits
+# the build context to those files; the 60 GB above was measured without it,
+# when the context also held the working tree's venv and .git.
 FROM nvcr.io/nvidia/pytorch:24.03-py3
 
 # Set working directory

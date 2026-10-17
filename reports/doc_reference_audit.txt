@@ -5,26 +5,57 @@ the thing cited is still there. This repository lost three months to that rot
 once already, when a script reorganisation left every reference to the old
 locations pointing at nothing and no one was looking.
 
-  documents scanned:        119
-  paths cited:              415
-  commits cited:            60
-  paths that do not exist:  18  (1 in live documents, 17 in dated ones)
-  commits unreachable:      3
+  documents scanned:        335
+  paths cited:              1335
+  commits cited:            416
+  paths that do not exist:  50  (15 in live documents, 35 in dated ones)
+  commits unreachable:      34
 
 === Stale paths in live documents ===
   These are worth fixing: a reader following them finds nothing.
+   reports/detector_depth_ablation.md                   models/detector/detector_epoch=7.ckpt
+   reports/detector_on_loop_sample.md                   models/detector/detector_epoch=7.ckpt
+   reports/spiral_satisfaction_winding_blindness.md     villa/volume-cartographer/scripts/spiral/
+   reports/technique_survey_winding_assignment.md       villa/spiral-fitting/find_inconsistent_windings.py
+   docs/LAB_NOTEBOOK.md                                 villa/ink-detection
+   docs/SPRINT_KANBAN.md                                villa/deprecated/crackle-viewer
+   docs/SPRINT_KANBAN.md                                villa/deprecated/thaumato-anakalyptor
+   docs/SPRINT_KANBAN.md                                villa/foundation/sam2-photogrammetry
+   docs/SPRINT_KANBAN.md                                villa/scrollprize.org/docs/34_prizes.md
+   docs/SPRINT_KANBAN.md                                villa/segmentation/vc_proofreader/extract_good_labels.py
+   docs/SPRINT_KANBAN.md                                villa/volume-cartographer
+   docs/SURFACE_RENDERER.md                             villa/volume-cartographer/apps/src/
+   docs/VILLA_STRATEGY.md                               villa/deprecated/thaumato-anakalyptor/documentation/Sheet_Stitching_Problem_Definition.pdf
+   docs/VILLA_STRATEGY.md                               villa/ink-detection
    docs/VILLA_STRATEGY.md                               villa/segmentation/model_optimization_framework/run_autoresearch_nnunet.py
 
 === Stale paths in dated documents ===
   A dated document records what was true on its date. These are history,
   not defects, and editing them would destroy the record.
+   reports/community_signal_2026-06.md                  docs/DISCORD_POST_DRAFT_2026-06.md
+   reports/primus_optimized_inference_validation_2026-06.md villa/ink-detection/optimized_inference
    reports/villa_autoresearch_prize_plan_2026-05-07.md  scripts/run_ranked_inference.py
    reports/villa_pin_bump_impact_2026-08-31.md          models/resnetall.py
    reports/villa_pin_bump_impact_2026-08-31.md          scripts/rag_guided_search.py
    reports/villa_pin_bump_impact_2026-08-31.md          scripts/rag_researcher.py
    reports/villa_pin_bump_impact_2026-08-31.md          villa/discord_chatbot/discord_vector_store
+   reports/villa_pin_bump_impact_2026-08-31.md          villa/ink-detection
+   reports/villa_upstream_survey_2026-08-31.md          tests/test_cylindrical_triton.py
+   docs/DESIGN_ARCHITECTURE_REVIEW_2026-10-12_AUTORESEARCH_LOOP.md villa/ink-detection
+   docs/DESIGN_ARCHITECTURE_REVIEW_2026-10-12_CROSS_CUTTING.md scripts/loop_control.acquire_lock
+   docs/DESIGN_ARCHITECTURE_REVIEW_2026-10-12_CROSS_CUTTING.md villa/ink-detection
+   docs/DESIGN_ARCHITECTURE_REVIEW_2026-10-12_CROSS_CUTTING.md villa/volume-cartographer
+   docs/DESIGN_ARCHITECTURE_REVIEW_2026-10-14_PROMOTION_COMMIT.md reports/figures/plot.svg
+   docs/DESIGN_ARCHITECTURE_REVIEW_2026-10-15_OPERATOR_SCRIPTS.md reports/ablation_logs/
+   docs/DESIGN_ARCHITECTURE_REVIEW_2026-10-15_OPERATOR_SCRIPTS.md scripts/commit_divs.sh
+   docs/DESIGN_ARCHITECTURE_REVIEW_2026-10-15_OPERATOR_SCRIPTS.md scripts/transition_to_night_shift.py
+   docs/DESIGN_ARCHITECTURE_REVIEW_2026-10-15_OPERATOR_SCRIPTS.md scripts/update_script.py
+   docs/DESIGN_ARCHITECTURE_REVIEW_2026-10-16_PRIZE_EVIDENCE.md scripts/launch_neural_tracing.py
+   docs/DESIGN_ARCHITECTURE_REVIEW_2026-10-16_README.md scripts/download_paris2fr47.py
+   docs/DESIGN_ARCHITECTURE_REVIEW_2026-10-17_INK_ABLATION.md repro/ink_ablation/it0
    docs/PRIZE_FILING_2026-08_DRAFT.md                   tests/test_fiber_gaming.py
    docs/PRIZE_FILING_2026-08_DRAFT.md                   tests/test_fiber_meta_keys.py
+   docs/PRIZE_FILING_2026-09_DRAFT.md                   villa/scrollprize.org/docs/34_prizes.md
    docs/PROGRESS_PRIZE_SUBMISSION_2026-05.md            models/run/inference.py
    docs/PROGRESS_PRIZE_SUBMISSION_2026-05.md            scripts/launch_finetune_lejepa.py
    docs/PROGRESS_PRIZE_SUBMISSION_2026-05.md            scripts/launch_gp_winner.py
@@ -32,6 +63,7 @@ locations pointing at nothing and no one was looking.
    docs/PROGRESS_PRIZE_SUBMISSION_2026-05.md            scripts/launch_neural_tracing.py
    docs/PROGRESS_PRIZE_SUBMISSION_2026-05.md            scripts/prepare_mutex_training.py
    docs/PROGRESS_PRIZE_SUBMISSION_2026-05.md            tests/test_runtime_contracts.py
+   docs/PROGRESS_PRIZE_SUBMISSION_2026-05.md            villa/ink-detection/optimized_inference
    docs/PROGRESS_PRIZE_SUBMISSION_2026-05_part1.md      scripts/benchmark_vesuvius_c.py
    docs/PROGRESS_PRIZE_SUBMISSION_2026-05_part1.md      tests/test_vesuvius_c_readiness.py
    docs/VILLA_PR_SPRINT033_BODY_2026-06.md              tests/test_gpu.py
@@ -40,6 +72,38 @@ locations pointing at nothing and no one was looking.
   A commit on a deleted branch or in a reflog is not something a reader can
   look up, even though it may resolve locally. Commits belonging to the villa
   submodule are a different repository's history and are not listed.
+   reports/SPIRAL_FINDINGS_SUMMARY.md                   65f63ba                                    nowhere
+   reports/SPIRAL_FINDINGS_SUMMARY.md                   d1b50e29                                   nowhere
+   reports/URGENT_render_code_changed_mid_corpus.md     16da5ceb9                                  nowhere
+   reports/URGENT_render_code_changed_mid_corpus.md     bd5a462d9                                  nowhere
+   reports/URGENT_render_code_changed_mid_corpus.md     d856e9407                                  nowhere
+   reports/afv_generator_entrant.md                     e189af75                                   nowhere
    reports/column_registration_external_audit.md        7d86713                                    nowhere
+   reports/fiber_heldout_split.md                       af4ab23b                                   nowhere
+   reports/fit_tree_provenance.md                       50969a5                                    nowhere
+   reports/inkagree_validation.md                       45e3345                                    nowhere
+   reports/install_route_band_vs_labels.md              4add4cd                                    nowhere
+   reports/sampling_band_vs_labels.md                   4add4cd                                    nowhere
+   reports/scorer_tracking_gap.md                       73a79525                                   nowhere
+   reports/source_sampler_cannot_complete_here.md       bad516f6                                   nowhere
+   reports/spiralcheck_is_not_discriminating_here.md    d1b50e29                                   nowhere
+   reports/surface_interpolation_relocates_ink.md       bfd9ef809c27930d553b778adc209dd9           nowhere
+   reports/the_flatten_is_reproducible_when_asked.md    4576eacfa2d40cdd                           nowhere
+   reports/the_nine_arms_differ_only_by_seed.md         6b7e794634b2f1d6                           nowhere
+   reports/the_render_is_the_noise_floor.md             4576eacfa2d40cdd                           nowhere
+   reports/villa_autoresearch_prize_plan_2026-05-06.md  4b7c5c20d95b404b7e92dc70606a1b1ed8648fd3   nowhere
+   reports/villa_autoresearch_prize_plan_2026-05-07.md  4b7c5c20d95b404b7e92dc70606a1b1ed8648fd3   nowhere
+   reports/villa_runner_layout_vs_autoresearch_doc.md   65f63ba                                    nowhere
    reports/villa_upstream_survey_2026-08-31.md          a04825d9                                   nowhere
    reports/villa_upstream_survey_2026-08-31.md          d092a339                                   nowhere
+   docs/DESIGN_ARCHITECTURE_REVIEW_2026-10-12_CROSS_CUTTING.md 6d05d64                                    nowhere
+   docs/RESUME_AFTER_RESTART.md                         1b5b7df                                    nowhere
+   docs/RESUME_AFTER_RESTART.md                         45e3345                                    nowhere
+   docs/RESUME_AFTER_RESTART.md                         65f63ba                                    nowhere
+   docs/RESUME_AFTER_RESTART.md                         af4ab23                                    nowhere
+   docs/RESUME_AFTER_RESTART.md                         eb33a33                                    nowhere
+   docs/VILLA_DRAFT_1934_afv_generator.md               e189af75                                   nowhere
+   docs/VILLA_DRAFT_reply_1655_geal.md                  6ebe5b3a                                   nowhere
+   docs/VILLA_PRIZE_READINESS.md                        4b7c5c20d95b404b7e92dc70606a1b1ed8648fd3   nowhere
+   docs/VILLA_STRATEGY.md                               4b7c5c20d95b404b7e92dc70606a1b1ed8648fd3   nowhere
+
