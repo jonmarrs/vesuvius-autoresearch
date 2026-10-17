@@ -2,7 +2,7 @@
 candidates, on the loop's sample (A) and with the draw's ink-free patches kept (C)?
 
 Finding 88 measured the detector-minus-incumbent gap under each sample against the
-loop's fixed tolerance (0.03). A gap matters only relative to the spread of the
+loop's fixed tolerance (0.03 then; 0.01 from 2026-10-17). A gap matters only relative to the spread of the
 scores the loop actually produces, and that spread may differ between samples.
 
 Read-only, CPU only, one thread. Scores loop candidates (each cycle's
@@ -30,7 +30,7 @@ Reading:
   otherwise: comparable; what differs between the samples is scale, and the
       defect is a tolerance not matched to the spread of either.
 Also reported, not read: each candidate's margin over the incumbent under both
-samples; whether the loop's rule (val_f1 > incumbent + 0.03, AP lift > 1.02)
+samples; whether the loop's rule then (val_f1 > incumbent + 0.03, AP lift > 1.02)
 would promote any of them under C; the same ratios for ROC AUC and AP lift.
 Caveat: the spread mixes the candidates' config differences with run-to-run
 noise (each cycle draws a fresh training-order seed); it is not the

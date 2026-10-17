@@ -24,9 +24,8 @@ def _quoted():
     )
     v2_floor = DATA["all_ink_f1_formula"]
     v1_floor = _floor(stored["val_positive_rate"])
-    gate = (
-        model["val_f1"] + 0.03
-    )  # train.F1_NOISE_TOLERANCE then (0.01 from 2026-10-17)
+    # train.F1_NOISE_TOLERANCE then (0.01 from 2026-10-17)
+    gate = model["val_f1"] + 0.03
     return {
         "usable patches": f"**{DATA['usable_patches']}** of {DATA['requested_patches']}",
         "pixels": f"**{DATA['n_pixels']:,}**",
