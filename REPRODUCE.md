@@ -84,6 +84,11 @@ Trains the proven TimeSformer recipe on `PHercParis2Fr47`, evaluates held-out
 uv run python -m vesuvius_autoresearch.detector.cli reproduce
 ```
 
+Run it from the repository root: its first step converts `local_data/<fragment>/surface_volume/NN.tif`,
+`inklabels.png` and `mask.png` into the detector's 8-bit layout under `data_root`
+(`villa/ink-detection/train_scrolls` by default). A fragment is converted again whenever any file the
+detector reads for it is missing. (Added 2026-10-17.)
+
 Reproduced 2026-06-29 (best epoch by held-out selection: ROC-AUC 0.709; under the
 community contract `val_f1` 0.393 / prevalence-lift 2.07 — see
 `reports/detector/REPRODUCTION.md`). Cross-fragment measurement of any checkpoint:
@@ -135,7 +140,7 @@ uv run python scripts/reevaluate_best_model.py --update-stored   # score the inc
 
 Each cycle samples a configuration, preflights it, trains under a fixed budget,
 evaluates on the held-out fragment, and appends a row to `history.tsv`. A cycle whose val_f1 beats
-the incumbent's by more than 0.03, with an AP-prevalence lift above 1.02, on the same validation
+the incumbent's by more than 0.01 (0.03 before 2026-10-17), with an AP-prevalence lift above 1.02, on the same validation
 protocol and inputs, is promoted to `best_model.pt` and also gets a row in `results.tsv`.
 
 The README's Quick start (steps 5 and 6) and the paragraphs after it give the prerequisites: the
