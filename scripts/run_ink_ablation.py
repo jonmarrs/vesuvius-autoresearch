@@ -1,15 +1,20 @@
 """Run the six released PHerc.1667 ablation checkpoints over one segment region.
 
 PREPROCESSING IS THE WHOLE STORY HERE. The model card documents three mutually
-inconsistent conventions and only one of them works:
+inconsistent conventions:
 
   * `modeling_inkdetection.py` docstring: "intensity already z-score normalised";
   * the full-segment inference snippet: raw uint8 cast to float;
-  * Quick start: "roughly [0, 1] ... clipped raw uint8 layers to [0, 200]".
+  * Quick start: "roughly [0, 1] ... clipped raw uint8 layers to [0, 200] then
+    applied Normalize(mean=0, std=1)". albumentations' Normalize divides by
+    max_pixel_value, 255 by default, so this is `clip(x, 0, 200) / 255`
+    (docs/VILLA_RECORD_issue1659_input_conventions.md).
 
-The first two saturate the model, at 67 to 99% of pixels above 0.5. Only
-`clip(x, 0, 200) / 255` matches the published prediction for the same segment,
-which fires on 2.82% of pixels. See `reports/ink_ablation_scale_bug.md`.
+This uses the Quick start's. On a 2048^2 window of the models' home segment,
+iteration-5 fires on 18% of pixels with it and on 91 to 99% with z-score or raw
+input (repro/ink_ablation/README.md); on a 512^2 patch some other members stay
+low under raw input (`reports/ink_ablation_scale_bug.md`). The published canon
+prediction fires on 2.82% of that whole segment.
 
 LEVEL 0, NOT LEVEL 2. The checkpoints operate on 2.4 um data, which is pyramid
 level 0 (level 2 is [2.4, 9.6, 9.6], four times coarser laterally). ScrollGT's
@@ -34,11 +39,11 @@ import torch
 import zarr
 
 DEPTH, TILE, OUT_TILE = 62, 256, 64
-CLIP_HI, SCALE = 200.0, 255.0  # the only convention that reproduces published output
+CLIP_HI, SCALE = 200.0, 255.0  # the Quick-start convention
 
 
 def prep(block):
-    """The documented Quick-start convention, and the only one that works."""
+    """The Quick-start convention: clip to [0, 200], then /255."""
     return np.clip(block.astype(np.float32), 0.0, CLIP_HI) / SCALE
 
 

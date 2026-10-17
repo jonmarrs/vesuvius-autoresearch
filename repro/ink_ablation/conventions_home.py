@@ -1,7 +1,7 @@
 """Which documented input convention reproduces the published prediction?
 
-The card documents three and they disagree. This measures all three, plus the
-one we settled on, against the published canon prediction on the models' OWN
+The card documents three and they disagree. This measures all three, plus a
+clip without the /255, against the published canon prediction on the models' OWN
 scroll (PHerc 1667 w011), where these checkpoints demonstrably read text. Home
 scroll on purpose: a disagreement there cannot be blamed on cross-scroll transfer.
 """
@@ -25,11 +25,14 @@ blk = np.asarray(a[lo : lo + 62, Y0 : Y0 + N, X0 : X0 + N])
 
 CONV = {
     "docstring: z-score per tile": lambda t: (t - t.mean()) / (t.std() + 1e-6),
-    "card prose: clip(0,200) then Normalize(mean=0,std=1) == identity": lambda t: (
+    "clip(0,200) without /255, a misreading of the card prose": lambda t: (
         np.clip(t, 0, 200)
     ),
     "card snippet: raw uint8, no normalisation": lambda t: t,
-    "what we use: clip(0,200)/255": lambda t: np.clip(t, 0, 200) / 255.0,
+    # albumentations' Normalize divides by max_pixel_value=255 first
+    "card prose: clip(0,200) then Normalize(mean=0,std=1)": lambda t: (
+        np.clip(t, 0, 200) / 255.0
+    ),
 }
 print("\npublished canon on this segment fires above 0.5 at 2.82%\n")
 print(f"{'convention':<62}{'it5 above0.5':>14}{'mean':>9}")

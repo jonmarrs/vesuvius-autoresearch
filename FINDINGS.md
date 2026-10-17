@@ -79,13 +79,16 @@ AMP, sliding-window flip/rot90 TTA at inference.
 | Metric (held-out Fr47, TTA) | Value | Note |
 | --- | --- | --- |
 | pixel AUC | **0.804** | vs ~0.60 for the production 64 px model; ~0.51 from-scratch at 64 px |
-| Fβ=0.5 | 0.506 | at threshold 0.30 |
+| Fβ=0.5 | 0.506 | at threshold 0.30, chosen on Fr47 itself, so optimistic |
 | mean P(ink) on ink vs off-ink | 0.259 vs 0.044 | **5.9×** separation (was 3.0× at 6 epochs) |
 | legibility | **legible** | Greek letterforms (e.g. ΡΑΛΑ) readable in the raw probability map |
 
 Per-epoch held-out AUC climbed monotonically (0.68 → 0.78 over 18 epochs, ~2 h on
 the RTX 4090, ~6 min/epoch with 4 096 sampled tiles/epoch) and was still rising at
-the end. The rendered ink heatmap and a prediction-vs-label overlay are in
+the end. The saved checkpoint is the epoch with the best held-out AUC, so the held-out
+fragment chose it; with the curve monotone that is the last epoch, so the AUC carries no
+checkpoint selection. No per-epoch log is committed, and the 18 epochs (the config's default is
+25) were set after a 6-epoch run had been scored on Fr47. (Noted 2026-10-17.) The rendered ink heatmap and a prediction-vs-label overlay are in
 [reports/ink_segformer_repro/](reports/ink_segformer_repro/).
 
 **What this localizes:** the same fragments where our 64 px pipeline sits at chance

@@ -27,7 +27,9 @@ the title is corrected here rather than the file being renamed, so the citations
 > scrolls (PHerc 0139 does not show it).
 >
 > **What it is:** these models are out of distribution on **Scroll 1**, firing at roughly 3.6x to
-> 3.9x their home rate there while behaving normally on another non-home scroll.
+> 3.9x their home rate there (it5, across the three segments; the six members shift 3.3x to 7.4x on
+> `20231210121321`) while behaving normally on another non-home scroll. (Clarified 2026-10-17: the
+> 3.6x to 3.9x is it5's.)
 >
 > **The reconstruction hypothesis was tested and does not hold.** I proposed that the effect might
 > track the volume rather than the scroll, since 1667 and 0139 both publish as
@@ -109,9 +111,12 @@ ranks at 0.72 is useful; the same model thresholded at 0.5 on a new scroll is no
 
 ## Limits, plainly
 
-The AUC results and the firing-rate comparison both cover all six members, six locations per scroll,
-one segment per scroll. One architecture, two scrolls, and the Scroll 1 ground truth
-carries a stated ~0.31 mm resolution limit, so its scores are mild lower bounds.
+The AUC results and the firing-rate comparison both cover all six members. The firing rates are
+medians over six locations on one segment per scroll in the table. The box above adds two more
+Scroll 1 segments for it5, and two further scrolls. The AUC results are one 4096^2 region
+against the Scroll 1 ground truth, which carries a stated ~0.31 mm resolution limit, so its scores
+are mild lower bounds. One architecture. (Clarified 2026-10-17: this said "six locations per scroll,
+one segment per scroll ... two scrolls", which the box has since outgrown.)
 
 Our pipeline deviates from the published inference recipe in that it applies no fragment mask.
 Overlap averaging was tested and ruled out as an explanation: stride 128 versus stride 256 moves the

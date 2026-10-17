@@ -1,7 +1,8 @@
 """Two nulls, two different questions. I conflated them.
 
 Q1 "is each member's AUC a real reading?"  -> ROLL null (misalign the reference).
-   This is the right null for reading. Already run: it3/it0/it4/it5 p<0.0025.
+   This is the right null for reading. Already run: it3/it0/it4/it5 p<0.0025 on
+   segment A's centre 2048^2; on segment B it0/it4/it5 p<0.0025 and it3 p=0.0550.
 
 Q2 "does reading ability track training-tile count?" -> LABEL-PERMUTATION null
    (hold the six observed AUCs fixed, permute which member has which tile count).
@@ -74,7 +75,8 @@ for name, vals in RUNS.items():
 
 print("""
 Reading the two together:
-  the ROLL null says each of it3/it0/it4/it5 reads held-out ink, on both segments;
+  the ROLL null says it0/it4/it5 read held-out ink on both segments, and it3 on
+  segment A only (p 0.055 on B);
   the LABEL-PERMUTATION null says the ordering tracks tile count;
   the roll null applied to the ORDERING says a rank-only statistic on n=6
   correlated models is weak evidence on its own (p 0.06-0.13).

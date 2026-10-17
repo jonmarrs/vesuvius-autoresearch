@@ -40,7 +40,7 @@ with human ground truth at 0.8243, so scoring against canon caps what is reachab
 400 draws, each a large random torus roll of the reference. Texture statistics preserved exactly,
 correspondence destroyed. A member reads if it beats that distribution.
 
-| member | seg A p | seg B p | verdict |
+| member | seg A p, centre 2048^2 | seg B p, 4096^2 | verdict |
 |---|---:|---:|---|
 | it1 | 0.3675 | 0.6725 | reads neither |
 | it2 | 0.0100 | 0.6625 | reads A only |
@@ -49,9 +49,16 @@ correspondence destroyed. A member reads if it beats that distribution.
 | it4 | 0.0000 | 0.0000 | reads both |
 | it5 | 0.0000 | 0.0000 | reads both |
 
+(Clarified 2026-10-17: segment A's null, `ladder_segA_null.py`, scores the centre 2048^2 crop of
+the 4096^2 frame above, where it2 reads 0.5510 rather than 0.5317. No null was run on segment A's
+full frame.)
+
 it5's 0.7141 on segment B beats a null whose maximum over 400 rolls is 0.5972. **The top rungs read
 held-out ink on a second segment, under a control that can fail.** it1 and it2 sitting at chance on
 both segments is itself a reproduction: the same two rungs were called chance in the first report.
+(Corrected 2026-10-17: by the table above it1 sits at chance on both segments and it2 on B only. On
+A's centre crop it2 clears the null at p 0.0100; the first report called it chance on A's full
+frame, which this null did not test.)
 
 ## The ordering: I used a statistic whose null I had not looked at
 
@@ -76,6 +83,9 @@ seg A   ladder rho +0.9429   null sd 0.7236   null p95 +0.9429   max +1.0000   p
 seg B   ladder rho +0.9429   null sd 0.6514   null p95 +0.9429   max +1.0000   p = 0.0625
 ```
 
+(Clarified 2026-10-17: the segment A line is its centre 2048^2 crop, where rho is +0.9429; on the
+full frame it is +1.0000, and no roll null was run there.)
+
 Six mutually correlated models get ranked coherently by *any* reference, right or wrong. The null
 standard deviation of the rank statistic is 0.65 to 0.72, so with n=6 the difference between a
 "clean" +0.94 and a "null" +0.77 is well under one standard deviation.
@@ -97,7 +107,9 @@ Nothing yet reported upstream is affected, because none of this has been reporte
 claim that would have gone out is narrowed:
 
 * **stands**: the released PHerc 1667 ablation series reads held-out Scroll 1 ink, on two segments,
-  above a 400-draw misalignment null, with the four highest rungs clearing on both;
+  above a 400-draw misalignment null, with the three highest rungs (it0, it4, it5) clearing on both
+  and it3 clearing on A but borderline on B (p 0.0550). (Corrected 2026-10-17: this said the four
+  highest rungs cleared on both, against this report's own table.);
 * **stands, on magnitudes**: reading improves with source-scroll pseudo-label density, exact
   permutation p 0.0014 to 0.0083;
 * **narrowed**: it2 reads one segment and not the other, so the bottom of the ladder is not

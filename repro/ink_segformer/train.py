@@ -23,7 +23,13 @@ def _frag_dirs(cfg, ids):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--val", type=int, default=1, help="held-out fragment id")
+    ap.add_argument(
+        "--val",
+        type=int,
+        default=1,
+        help="held-out fragment id. The checkpoint saved is its best epoch on this "
+        "fragment, so its AUC there is selected on, unless the best epoch is the last",
+    )
     ap.add_argument("--epochs", type=int, default=ReproConfig.epochs)
     ap.add_argument("--out", default="repro/ink_segformer/runs/model_val{val}.pt")
     ap.add_argument(
