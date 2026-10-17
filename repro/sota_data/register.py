@@ -246,7 +246,11 @@ def fit_affine_orb(old_img, new_img, n_features=5000):
     return M, n_inl
 
 
-def placement_peak(label, reference, max_shift=256, coarse=4, refine=8):
+class PlacementNotLocated(ValueError):
+    """placement_peak found no peak that locates the label (strict mode)."""
+
+
+def placement_peak(label, reference, max_shift=256, coarse=4, refine=8, strict=True):
     """Where does label-vs-reference agreement actually peak, in label pixels?
 
     A registration is only correct if agreement is maximised at ZERO shift. Residual
@@ -261,6 +265,16 @@ def placement_peak(label, reference, max_shift=256, coarse=4, refine=8):
 
     Returns (dy, dx, dice_at_zero, dice_at_peak) with the shifts in input pixels. A correct
     registration gives (0, 0) up to a couple of pixels.
+
+    ``strict`` (the gates' setting) raises PlacementNotLocated instead of returning a peak
+    that does not locate anything. Until 2026-10-16 these returned a shift a gate could pass:
+      * no comparison window had any ink, so the "peak" was the initial (0, 0) with a Dice
+        of -1, read as zero offset;
+      * the best agreement is a Dice of 0, so the "peak" is an arbitrary shift;
+      * the coarse peak lies on the search boundary (a flat landscape tie-breaks to a
+        corner, and a label displaced beyond ``max_shift`` peaks at the edge), so the true
+        peak is outside the search.
+    Probes that map placement over many tiles pass ``strict=False`` and read the clamp.
     """
 
     def _binarise(x, what):
@@ -319,18 +333,42 @@ def placement_peak(label, reference, max_shift=256, coarse=4, refine=8):
     m_s = max_shift // ds + 2
     if min(a_s.shape) <= 2 * m_s + 2:
         m_s = max(min(a_s.shape) // 4, 1)
-    _, cy, cx = scan(a_s, b_s, m_s, (-m_s, -m_s), (m_s, m_s), 1)
+    coarse_dice, cy, cx = scan(a_s, b_s, m_s, (-m_s, -m_s), (m_s, m_s), 1)
+    if strict and not coarse_dice > 0:  # -1 (nothing scored), 0 or NaN
+        raise PlacementNotLocated(
+            f"placement_peak: no shift agrees at all at the coarse step ({ds} px; thin "
+            "ink can vanish when downsampled); the placement is unknown, not zero"
+        )
+    if strict and max(abs(cy), abs(cx)) >= m_s:
+        raise PlacementNotLocated(
+            f"placement_peak: the agreement peak is on the search boundary "
+            f"({cy * ds}, {cx * ds}) px of +/-{m_s * ds}: the label may be displaced "
+            "beyond the search, or the landscape is flat; the placement is not located"
+        )
     cy, cx = cy * ds, cx * ds
 
     # refine at full resolution around the coarse peak
     margin = max_shift + refine + 2
     if min(a.shape) <= 2 * margin + 2:
         margin = max(min(a.shape) // 4, 1)
-    cy = int(np.clip(cy, -margin + refine, margin - refine))
-    cx = int(np.clip(cx, -margin + refine, margin - refine))
+    clipped = (
+        int(np.clip(cy, -margin + refine, margin - refine)),
+        int(np.clip(cx, -margin + refine, margin - refine)),
+    )
+    if strict and max(abs(clipped[0] - cy), abs(clipped[1] - cx)) > ds:
+        raise PlacementNotLocated(
+            f"placement_peak: the coarse peak ({cy}, {cx}) is outside the full-resolution "
+            f"search (+/-{margin - refine} px); the placement is not located"
+        )
+    cy, cx = clipped
     peak, by, bx = scan(
         a, b, margin, (cy - refine, cx - refine), (cy + refine, cx + refine), 1
     )
+    if strict and not peak > 0:
+        raise PlacementNotLocated(
+            "placement_peak: no shift agrees at all at full resolution; the placement is "
+            "unknown"
+        )
 
     h, w = a.shape
     zero = dice(

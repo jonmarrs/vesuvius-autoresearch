@@ -1,4 +1,5 @@
 {
+  "correction_2026_10_16": "registration.gate.note says the 2D orientation is 'carried from the slice-5 export-pipeline convention'; warp_obj selected it by teacher-enrichment among 4 candidates (registration.method says so). The report's committed overlay (registered_gt_heldout_overlay.png, 2026-07-07) predates the 2026-08-07 fix.",
   "segment": "20231210121321",
   "registration": {
     "method": "obj-exact: original.obj vt (427091 vertices), NN bridge via on-7.91um tifxyz (same old-scan frame), vt convention rowHv_colu (selected by teacher-enrichment among 4 discrete candidates, disclosed; orientation verified visually)",

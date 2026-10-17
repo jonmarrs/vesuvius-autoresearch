@@ -1,4 +1,5 @@
 {
+  "correction_2026_10_16": "\"coarse\": 16 is the flag as recorded; the script did not pass it to placement_peak, so these results were computed at its default coarse step of 4. The probe now passes it and defaults to 4.",
   "margin": 1000,
   "coarse": 16,
   "predictor": "binarised canon teacher (distill_prep crop)",

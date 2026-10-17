@@ -16,6 +16,7 @@ sys.path.insert(0, os.path.abspath("."))
 from repro.sota_data import distill_run as dr
 from repro.sota_data.qualitative import write_fragment
 from repro.sota_data.register import (
+    PlacementNotLocated,
     label_line_periodicity,
     level0_shape,
     placement_peak,
@@ -197,7 +198,14 @@ def gt_prep_fragment(
             return info
         print(f"WARN {frag_id}: placement unverified (no teacher crop)", flush=True)
     else:
-        dy, dx, _, _ = placement_peak(reg_label, cv2.imread(teacher_path, 0))
+        try:
+            dy, dx, _, _ = placement_peak(reg_label, cv2.imread(teacher_path, 0))
+        except PlacementNotLocated as exc:  # dropped, as an unverifiable one is
+            info["passed"] = False
+            info["placement_verified"] = False
+            info["placement_note"] = str(exc)
+            print(f"DROP {frag_id}: placement not located ({exc})", flush=True)
+            return info
         offset = float(np.hypot(dy, dx))
         info["placement_offset_level2_px"] = offset
         info["placement_verified"] = True

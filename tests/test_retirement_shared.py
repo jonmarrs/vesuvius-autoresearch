@@ -74,7 +74,7 @@ def test_gt_prep_fragment_drops_a_retired_segment_before_touching_any_data(tmp_p
     assert info.get("placement_offset_level2_px") is None
 
 
-def test_a_non_retired_segment_is_not_short_circuited(tmp_path):
+def test_a_non_retired_segment_is_not_short_circuited(tmp_path, monkeypatch):
     """Guard the inverse: the early return must not swallow every segment.
 
     Without this, an early return that fired unconditionally would satisfy every other test
@@ -88,6 +88,9 @@ def test_a_non_retired_segment_is_not_short_circuited(tmp_path):
 
     from repro.sota_data.gt_register import gt_prep_fragment
 
+    # gt_prep_fragment creates local_data/sota_gt_meshes/<seg> relative to the working
+    # directory before it fails; in the checkout that left an empty directory behind.
+    monkeypatch.chdir(tmp_path)
     with pytest.raises(Exception) as exc:
         gt_prep_fragment("99999999999999", 4000, 2500, 4096, str(tmp_path))
     assert "retired" not in str(exc.value).lower()

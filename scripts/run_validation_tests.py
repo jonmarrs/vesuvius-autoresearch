@@ -47,6 +47,7 @@ VALIDATION_TESTS = [
     "tests/test_sota_qualitative.py",
     "tests/test_sota_distill_prep.py",
     "tests/test_sota_gt_register.py",
+    "tests/test_sota_registration_gates.py",
     "tests/test_fiber_workflow_contracts.py",
     "tests/test_fibers.py",
     "tests/test_fibers_cli.py",

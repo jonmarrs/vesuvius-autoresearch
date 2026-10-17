@@ -437,8 +437,14 @@ below):
   unconfounded.
 - **Confound 2 (binary vs continuous):** the teacher is a binary map, so ROC-AUC/AP structurally
   understate it *on this segment where it reads well*; the fair comparison is F1 (0.44 vs
-  0.44–0.47). On this train region the students match teacher fidelity — but this is fit-quality,
-  and the held-out test below shows it does not generalize.
+  0.44–0.47). On this train region the students match teacher fidelity — but this is
+  fit-quality. (Corrected 2026-10-16: this went on "and the held-out test below shows it does not
+  generalize"; that test was retracted and reverses.)
+- **Retired (corrected 2026-10-16):** this segment was retired non-scoring on 2026-08-14. It
+  clears the 48 px placement gate by 1.4 px, but its per-tile placement error reaches at least
+  ~1.9x the 512 µm analysis window (the probe's search clamp; ≥2.6x as a vector) (`repro/sota_data/retirement.py`). Every row above, the teacher's
+  "single clean fact" included, is indicative only; the held-out segment carries the
+  calibration.
 
 ### The held-out ground-truth test — RETRACTED 2026-08-07, and it reverses
 
