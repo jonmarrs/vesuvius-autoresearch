@@ -10,16 +10,18 @@ which is the hardest kind of drift to notice from a result.
 
 Renders are built by `repro/spiral_render/setup_workdir.sh`, which extracts
 `spiral-fitting`, `lasagna` and `vesuvius/src` from a villa checkout. Everything
-executable under those trees is in scope; this script diffs them by blob hash
-between two refs and exits nonzero if any differ, so it can gate a pin bump.
+executable under those trees is in scope; this script diffs them by blob hash and
+file mode between two refs and exits 1 if any differ, so it can gate a pin bump.
+It exits 2 when it cannot compare them (a missing checkout or ref).
 
 Usage:
-    check_villa_render_path.py                      # render source vs submodule HEAD
+    check_villa_render_path.py                      # old corpus's render source vs submodule HEAD
     check_villa_render_path.py 5479453a 908aa7f06
     check_villa_render_path.py --repo path/to/villa OLD NEW
 """
 
 import argparse
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -50,29 +52,76 @@ HOT_PATH = (
     "lasagna/fit.py",
 )
 
-# The tree renders are actually built from; NOT this repo's villa submodule.
-# They have diverged. See repro/spiral_render/setup_workdir.sh.
+# villa-spiral's origin/main, which the pinned-tier corpus's renders were
+# extracted from (tests/test_villa_spiral_refs_pinned.py). Since 2026-09-19
+# setup_workdir.sh extracts from this repo's submodule, at VILLA_REF, so this
+# default asks how far the submodule's HEAD has moved from that render source.
 RENDER_SOURCE_REF = "5479453a"
 
 
+# Inherited, these make git ignore -C (a hook's GIT_DIR and friends) or read
+# a pathspec differently, so every call below would answer something else.
+_GIT_ENV_DROPPED = (
+    "GIT_DIR",
+    "GIT_WORK_TREE",
+    "GIT_INDEX_FILE",
+    "GIT_COMMON_DIR",
+    "GIT_OBJECT_DIRECTORY",
+    "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+    "GIT_PREFIX",
+    "GIT_GLOB_PATHSPECS",
+    "GIT_NOGLOB_PATHSPECS",
+    "GIT_ICASE_PATHSPECS",
+    "GIT_LITERAL_PATHSPECS",
+)
+
+
 def git(repo: Path, *args: str) -> str:
+    # surrogateescape: a name that is not UTF-8 comes through -z unquoted.
     out = subprocess.run(
-        ["git", "-C", str(repo), *args], capture_output=True, text=True
+        ["git", "-C", str(repo), *args],
+        capture_output=True,
+        text=True,
+        errors="surrogateescape",
+        env={k: v for k, v in os.environ.items() if k not in _GIT_ENV_DROPPED},
     )
     if out.returncode != 0:
-        raise SystemExit(f"git {' '.join(args)} failed: {out.stderr.strip()}")
+        print(f"git {' '.join(args)} failed: {out.stderr.strip()}", file=sys.stderr)
+        raise SystemExit(2)
     return out.stdout
 
 
-def blobs(repo: Path, ref: str, tree: str) -> dict[str, str]:
-    """path -> blob hash for every file under `tree` at `ref`."""
-    listing = git(repo, "ls-tree", "-r", f"{ref}:{tree}")
+def not_own_repository(repo: Path) -> str | None:
+    """Why `repo` is not a repository of its own, or None. In an empty
+    directory (an uninitialised submodule) git answers for the repository
+    around it, whose refs and trees the gate would then compare."""
+    bare = git(repo, "rev-parse", "--is-bare-repository").strip() == "true"
+    where = git(repo, "rev-parse", "--absolute-git-dir" if bare else "--show-toplevel")
+    if Path(where.strip()).samefile(repo):
+        return None
+    return f"{repo} is not a repository of its own: git answers for {where.strip()}"
+
+
+def is_tree(repo: Path, ref: str, tree: str) -> bool:
+    """Whether `tree` is a directory at `ref`, from its parent tree's entry."""
+    for entry in git(repo, "ls-tree", "-z", "--full-tree", ref, "--", tree).split("\0"):
+        meta, _, path = entry.partition("\t")
+        if path == tree and meta.split()[1:2] == ["tree"]:
+            return True
+    return False
+
+
+def blobs(repo: Path, ref: str, tree: str) -> dict[str, tuple[str, str]]:
+    """path -> (mode, blob hash) for every file under `tree` at `ref`, none if
+    `tree` is absent there: a removed tree is a difference, not an error. The
+    mode is whether a file is executable or a link, which the hash leaves out."""
+    listing = git(repo, "ls-tree", "-r", "-z", "--full-tree", ref, "--", tree)
     found = {}
-    for line in listing.splitlines():
-        meta, _, path = line.partition("\t")
+    for entry in listing.split("\0"):
+        meta, _, path = entry.partition("\t")
         parts = meta.split()
         if len(parts) >= 3 and parts[1] == "blob":
-            found[f"{tree}/{path}"] = parts[2]
+            found[path] = (parts[0], parts[2])
     return found
 
 
@@ -88,24 +137,21 @@ def is_docs(path: str) -> bool:
 
 
 def image_path_changes(repo: Path, old: str, new: str) -> list[str]:
-    """Files on the sampler's build path that changed between two refs."""
-    out = subprocess.run(
-        [
-            "git",
-            "-C",
-            str(repo),
-            "diff",
-            "--name-only",
-            old,
-            new,
-            "--",
-            "volume-cartographer",
-        ],
-        capture_output=True,
-        text=True,
-        check=True,
-    ).stdout.split()
-    return [p for p in out if p.startswith(IMAGE_PATH_PREFIXES)]
+    """Files on the sampler's build path that changed between two refs. Without
+    --no-renames a file moved out of the path is listed only where it went, and
+    -z keeps the names git would otherwise quote or split on a space."""
+    out = git(
+        repo,
+        "diff",
+        "--no-renames",
+        "--name-only",
+        "-z",
+        old,
+        new,
+        "--",
+        "volume-cartographer",
+    )
+    return [p for p in out.split("\0") if p.startswith(IMAGE_PATH_PREFIXES)]
 
 
 def compare(repo: Path, old: str, new: str) -> tuple[list[str], list[str], list[str]]:
@@ -133,11 +179,33 @@ def main() -> int:
         else Path(__file__).resolve().parent.parent / "villa"
     )
     if not repo.exists():
-        raise SystemExit(f"no villa checkout at {repo}")
+        print(f"no villa checkout at {repo}", file=sys.stderr)
+        return 2
+    sys.stdout.reconfigure(errors="backslashreplace")  # a name that is not UTF-8
+    refusal = not_own_repository(repo)
+    if refusal:
+        print(refusal, file=sys.stderr)
+        return 2
 
     changed, added, removed = compare(repo, args.old, args.new)
+    # A tree at one ref only is a difference whichever ref it is at (added
+    # files alone do not set the verdict); at neither, the refs are not the
+    # render path this gate knows.
+    present = {
+        tree: (is_tree(repo, args.old, tree), is_tree(repo, args.new, tree))
+        for tree in EXTRACTED_TREES
+    }
+    absent = [tree for tree, at in present.items() if not any(at)]
+    if absent:
+        print(
+            f"{', '.join(absent)}: at neither ref, so not comparable", file=sys.stderr
+        )
+        return 2
+    moved = [tree for tree, (before, after) in present.items() if before != after]
     print(f"villa render path: {args.old} -> {args.new}")
     print(f"  trees compared: {', '.join(EXTRACTED_TREES)}")
+    for tree in moved:
+        print(f"\n  TREE {'ADDED' if present[tree][1] else 'REMOVED'}: {tree}")
 
     hot = [p for p in changed if p in HOT_PATH]
     other = [p for p in changed if p not in HOT_PATH and not is_docs(p)]
@@ -182,7 +250,7 @@ def main() -> int:
     # Docs are excluded from the verdict but still printed above: a markdown or
     # image change cannot alter a render, and letting it flip the verdict trains
     # the reader to ignore this gate.
-    if hot or other or removed:
+    if hot or other or removed or moved:
         print(
             "\nVERDICT: the render path DIFFERS between these refs. Work dirs built "
             "from them are not interchangeable, and arms measured across the two are "
