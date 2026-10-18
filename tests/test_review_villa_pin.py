@@ -92,3 +92,42 @@ def test_review_villa_pin_preserves_local_patches_for_diverged_checkout(tmp_path
     assert vc3d["changed_files"] == 13
     assert vc3d["local_changed_files"] == 2
     assert vc3d["local_sample_paths"] == ["volume_cartographer/local.py"]
+
+
+def test_the_checklist_lists_every_area_with_its_checks(tmp_path):
+    """It listed lasagna, Volume Cartographer and the prize docs only, so the
+    high-risk areas that hold a pin update never appeared in it."""
+    from scripts.review_villa_pin import REVIEW_AREAS, build_markdown_checklist
+
+    audit = _write_audit(
+        tmp_path / "audit.json", areas={"optimized_inference": 2, "lasagna": 0}
+    )
+    markdown = build_markdown_checklist(build_review(audit))
+    for area in REVIEW_AREAS:
+        assert f" {area} (Changed upstream:" in markdown
+    assert "### [ ] optimized_inference (Changed upstream: 2)" in markdown
+    for check in REVIEW_AREAS["optimized_inference"]["checks"]:
+        assert f"- [ ] `{check}`" in markdown
+
+
+def test_the_smoke_check_gives_the_options_the_smoke_requires():
+    """Run bare, the smoke exits 2: it needs new destinations on every run."""
+    import subprocess
+    import sys
+    from pathlib import Path
+
+    from scripts.review_villa_pin import SMOKE_CHECK
+
+    root = Path(__file__).resolve().parents[1]
+    bare = subprocess.run(
+        [sys.executable, str(root / "scripts/smoke_test_villa_optimized_inference.py")],
+        capture_output=True,
+        text=True,
+        cwd=root,
+        timeout=300,
+    )
+    assert bare.returncode == 2
+    required = bare.stderr.split("the following arguments are required:")[1]
+    options = [option.strip() for option in required.strip().split(",")]
+    assert options and all(option.startswith("--") for option in options)
+    assert all(f"{option} " in SMOKE_CHECK for option in options)

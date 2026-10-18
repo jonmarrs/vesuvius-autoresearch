@@ -89,6 +89,8 @@ None of the three had a dedicated review. The 2026-10-16 prize-evidence review c
   - What the smoke validates is the checkpoint envelope, not villa's code.
   - `build_markdown_checklist` also lists only lasagna, Volume Cartographer and the prize docs. So the two areas
     that decide `hold_pin_until_required_tests_pass` never appear in `villa_pin_review.md`.
+  - Fixed later the same day, except what the smoke validates
+    (`DESIGN_ARCHITECTURE_REVIEW_2026-10-18_VILLA_PIN_REVIEW.md`).
 - **The committed audit and its two downstream reports date from June.**
   - `reports/villa_upstream_audit.json` (`fd1e9d2c`, 2026-06-04) describes a villa checkout at `64caeb2`, with six
     local commits and diverged from upstream.
