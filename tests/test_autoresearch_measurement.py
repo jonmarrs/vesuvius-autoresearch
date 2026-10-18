@@ -390,7 +390,6 @@ def test_a_saved_checkpoint_keeps_normal_file_permissions(tmp_path):
     """The temporary file mkstemp creates is 0600, and it was renamed as it was:
     every promoted best_model.pt and last_model.pt was readable by its owner
     alone. A replaced file keeps its mode; a new one gets the umask's."""
-    import os
     import stat
 
     path = _checkpoint(tmp_path / "best_model.pt")
