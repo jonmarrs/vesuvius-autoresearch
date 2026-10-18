@@ -66,7 +66,7 @@ def run(main, *args):
 
 
 def test_add_links_the_environment_and_checks_out_villa_at_the_pin(main_repo):
-    run(main_repo, "add", "feature", "main")
+    assert "stopped part-way" not in run(main_repo, "add", "feature", "main").stderr
     wt = main_repo / ".claude" / "worktrees" / "feature"
     assert (wt / ".venv").resolve() == (main_repo / ".venv").resolve()
     assert (wt / "local_data").resolve() == (main_repo / "local_data").resolve()
@@ -267,7 +267,8 @@ def test_an_add_that_stops_part_way_can_be_undone(main_repo):
     git(main_repo, "update-index", "--cacheinfo", f"160000,{'1' * 40},villa")
     git(main_repo, "commit", "-q", "-m", "a pin villa does not have")
     error = refused(main_repo, "add", "feature", "HEAD")
-    assert "add stopped part-way" in error.stderr and "remove feature" in error.stderr
+    assert "add stopped part-way" in error.stderr
+    assert "remove feature\n" in error.stderr and "branch -D feature" in error.stderr
     run(main_repo, "remove", "feature")
     assert not (main_repo / ".claude" / "worktrees" / "feature").exists()
     assert len(git(main_repo, "worktree", "list").splitlines()) == 1
@@ -344,3 +345,93 @@ def test_remove_refuses_a_villa_that_is_not_villas_worktree(main_repo):
     assert error.returncode == 1 and "not one of villa's worktrees" in error.stderr
     assert (wt / "villa" / "stray").exists()
     assert all((wt / link).is_symlink() for link in LINKS)
+
+
+def test_add_refuses_a_file_or_an_existing_branch_before_making_anything(main_repo):
+    wt = main_repo / ".claude" / "worktrees" / "feature"
+    wt.parent.mkdir(parents=True)
+    wt.write_text("x\n")
+    error = refused(main_repo, "add", "feature", "main")
+    assert error.returncode == 1 and "already exists" in error.stderr
+    assert git(main_repo, "branch", "--list", "feature") == ""
+    wt.unlink()
+    git(main_repo, "branch", "feature")
+    error = refused(main_repo, "add", "feature", "main")
+    assert error.returncode == 1 and "already exists" in error.stderr
+    assert "stopped part-way" not in error.stderr and not wt.exists()
+    # A base git rejects before it makes the branch: nothing to undo.
+    error = refused(main_repo, "add", "other", "no-such-ref")
+    assert "stopped part-way" not in error.stderr
+    assert git(main_repo, "branch", "--list", "other") == ""
+
+
+def test_an_add_stopped_by_a_signal_says_how_to_undo_it(main_repo, tmp_path):
+    """Bash runs the EXIT trap on SIGTERM with $? reading 0."""
+    shim = tmp_path / "shim"
+    shim.mkdir()
+    (shim / "ln").write_text("#!/bin/sh\nkill -TERM $PPID\nsleep 1\n")
+    (shim / "ln").chmod(0o755)
+    result = subprocess.run(
+        ["bash", str(main_repo / "scripts" / "dev_worktree.sh"), "add", "feature"]
+        + ["main"],
+        env=ENV | {"PATH": f"{shim}{os.pathsep}{ENV['PATH']}"},
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode != 0
+    assert "add stopped part-way" in result.stderr
+    assert "remove feature\n" in result.stderr and "branch -D feature" in result.stderr
+
+
+def test_remove_refuses_a_real_directory_at_a_links_name(main_repo):
+    """It is ignored, so git worktree remove would delete it with the worktree; the
+    old script's rm refused it."""
+    run(main_repo, "add", "feature", "main")
+    wt = main_repo / ".claude" / "worktrees" / "feature"
+    (wt / "checkpoints").unlink()
+    (wt / "checkpoints").mkdir()
+    (wt / "checkpoints" / "run1.pt").write_text("weights\n")
+    error = refused(main_repo, "remove", "feature")
+    assert error.returncode == 1 and "checkpoints is not the link" in error.stderr
+    assert (wt / "checkpoints" / "run1.pt").exists()
+    assert (wt / "villa" / ".git").exists()
+
+
+def test_remove_refuses_a_staged_villa_pointer_but_not_an_unstaged_one(main_repo):
+    """--ignore-submodules=all hides a staged gitlink, which git worktree remove
+    refuses; villa merely checked out elsewhere, git and the old script accept."""
+    run(main_repo, "add", "feature", "main")
+    wt = main_repo / ".claude" / "worktrees" / "feature"
+    git(wt / "villa", "commit", "-q", "--allow-empty", "-m", "pin bump")
+    git(wt, "add", "villa")
+    error = refused(main_repo, "remove", "feature")
+    assert error.returncode == 1 and "staged villa pointer" in error.stderr
+    assert (wt / "villa" / ".git").exists()
+    assert all((wt / link).is_symlink() for link in LINKS)
+    git(wt, "reset", "-q", "villa")
+    run(main_repo, "remove", "feature")
+    assert not wt.exists()
+
+
+def test_remove_refuses_a_worktree_with_its_own_submodule_repositories(main_repo):
+    """git worktree remove refuses one, after the links and villa are gone."""
+    run(main_repo, "add", "feature", "main")
+    wt = main_repo / ".claude" / "worktrees" / "feature"
+    (Path(git(wt, "rev-parse", "--absolute-git-dir")) / "modules").mkdir()
+    error = refused(main_repo, "remove", "feature")
+    assert error.returncode == 1 and "submodule repositories" in error.stderr
+    assert (wt / "villa" / ".git").exists()
+
+
+def test_remove_ignores_the_links_where_no_pattern_does(main_repo):
+    """A worktree of a commit from before 2026-10-13, whose directory patterns
+    (`checkpoints/`) do not match a link."""
+    (main_repo / ".gitignore").write_text(
+        ".venv/\nlocal_data/\n/checkpoints/\n/models/\n.claude/\n"
+    )
+    git(main_repo, "commit", "-q", "-am", "the old patterns")
+    run(main_repo, "add", "feature", "main")
+    wt = main_repo / ".claude" / "worktrees" / "feature"
+    assert "?? checkpoints" in git(wt, "status", "--porcelain")
+    run(main_repo, "remove", "feature")
+    assert not wt.exists()

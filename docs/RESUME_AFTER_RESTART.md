@@ -68,9 +68,9 @@
 * The loop trains from the main checkout: never switch branches there while it runs. Work in a worktree made by
   `scripts/dev_worktree.sh add <branch>` (shared `.venv`, `local_data`, `checkpoints` and `models`, villa checked out
   at the pin; remove with `scripts/dev_worktree.sh remove <branch>`). A `remove` that refuses changes nothing, and
-  one that stopped part-way resumes; an `add` that stops part-way says how to undo it. A worktree added by a copy of
-  the script without #119 (merged 2026-10-17 23:12 PDT) can take villa's git directory for villa's work tree. That
-  happens when villa is absorbed under `.git/modules` (its shared config sets `core.worktree`) with
+  one stopped between its steps resumes; an `add` that stops part-way says how to undo it. A worktree added by a
+  copy of the script without #119 (merged 2026-10-17 23:12 PDT) can take villa's git directory for villa's work
+  tree. That happens when villa is absorbed under `.git/modules` (its shared config sets `core.worktree`) with
   `extensions.worktreeConfig` on. The sign: in its `villa/`, `git rev-parse --show-toplevel` is not that `villa/`,
   and `git status` lists every file as deleted. Fix it in place with `scripts/dev_worktree.sh repair <branch>`.
 * Run Python in a worktree with `UV_NO_SYNC=1` or `uv run --no-sync`. A syncing `uv run` re-points the shared

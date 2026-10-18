@@ -33,6 +33,7 @@ git -C "$MAIN" check-ref-format --branch "$name" >/dev/null 2>&1 || {
     exit 2
 }
 WT="$MAIN/.claude/worktrees/$name"
+LINKS=".venv local_data checkpoints models" # the main checkout's, linked
 
 # With extensions.worktreeConfig on, a linked worktree reads core.worktree from
 # villa's shared config: an absorbed submodule's ../../../villa, which from a
@@ -49,21 +50,44 @@ case "$cmd" in
 add)
     # Git creates the branch before it refuses a path in use, and a second add
     # then stops on the branch. It accepts an empty directory.
-    if [ -L "$WT" ] || { [ -e "$WT" ] && { [ ! -d "$WT" ] || [ -n "$(ls -A "$WT")" ]; }; }; then
+    if [ -L "$WT" ] || { [ -e "$WT" ] && { [ ! -d "$WT" ] || [ ! -r "$WT" ] || [ -n "$(ls -A "$WT")" ]; }; }; then
         echo "$WT already exists" >&2
         exit 1
     fi
+    # So a branch that exists below is one this add made.
+    if git -C "$MAIN" show-ref --verify --quiet "refs/heads/$name"; then
+        echo "a branch named $name already exists" >&2
+        exit 1
+    fi
+    # Whatever stops add from here, an error or a signal (on which bash runs
+    # this with $? 0), says how to undo what it made.
+    added=
+    undo_add() {
+        [ -z "$added" ] || return 0
+        local steps=()
+        if [ -e "$WT/.git" ]; then
+            steps+=("$(printf '%q remove %q' "$0" "$name")")
+        fi
+        if git -C "$MAIN" show-ref --verify --quiet "refs/heads/$name"; then
+            steps+=("$(printf 'git -C %q branch -D %q' "$MAIN" "$name")")
+        fi
+        if [ ${#steps[@]} -gt 0 ]; then
+            local IFS=$'\n'
+            echo "add stopped part-way. Undo it with, in order:" >&2
+            echo "${steps[*]}" >&2
+        fi
+    }
+    trap undo_add EXIT
     git -C "$MAIN" worktree add -b "$name" "$WT" "${3:-origin/main}"
-    trap '[ $? -eq 0 ] || echo "add stopped part-way. Undo it with: $0 remove $name, then git -C $MAIN branch -D $name" >&2' EXIT
-    ln -s "$MAIN/.venv" "$WT/.venv"
-    ln -s "$MAIN/local_data" "$WT/local_data"
-    ln -s "$MAIN/checkpoints" "$WT/checkpoints"
-    ln -s "$MAIN/models" "$WT/models"
+    for link in $LINKS; do
+        ln -s "$MAIN/$link" "$WT/$link"
+    done
     pin="$(git -C "$WT" ls-tree HEAD villa | awk '{print $3}')"
     git -C "$MAIN/villa" worktree add --detach "$WT/villa" "$pin"
     if villa_needs_own_worktree; then
         git -C "$WT/villa" config --worktree core.worktree "$WT/villa"
     fi
+    added=1
     echo "Worktree ready: $WT (villa at ${pin:0:9})."
     echo "Run Python there with UV_NO_SYNC=1."
     ;;
@@ -86,11 +110,31 @@ remove)
         echo "$WT is locked (git worktree unlock)" >&2
         exit 1
     fi
-    # What git worktree remove refuses, but for villa, whose own remove checks it.
-    changes="$(git -C "$WT" status --porcelain --ignore-submodules=all)"
+    if [ -d "$own/modules" ]; then
+        echo "$WT has submodule repositories of its own ($own/modules)" >&2
+        exit 1
+    fi
+    # git worktree remove deletes ignored files unasked, and the links' names
+    # are ignored: anything there but a link would go with the worktree.
+    exclude=()
+    for link in $LINKS; do
+        if [ -e "$WT/$link" ] && [ ! -L "$WT/$link" ]; then
+            echo "$WT/$link is not the link to the main checkout's $link" >&2
+            exit 1
+        fi
+        exclude+=(":(top,exclude)$link")
+    done
+    # What git worktree remove refuses, but for villa's files, which villa's own
+    # remove checks, and the links, which go first: before 2026-10-13 no pattern
+    # ignored a link. =all also hides a staged villa pointer, which git refuses.
+    changes="$(git -C "$WT" status --porcelain --ignore-submodules=all -- . "${exclude[@]}")"
     if [ -n "$changes" ]; then
         echo "$WT has changes (git -C $WT status):" >&2
         echo "$changes" | sed -n 1,5p >&2
+        exit 1
+    fi
+    if ! git -C "$WT" diff --cached --quiet --ignore-submodules=none -- villa; then
+        echo "$WT has a staged villa pointer (git -C $WT diff --cached villa)" >&2
         exit 1
     fi
     villa_git="$(git -C "$MAIN/villa" rev-parse --path-format=absolute --git-common-dir)"
@@ -109,9 +153,10 @@ remove)
     esac
     # Removing villa's worktree deletes villa/; the empty directory is what an
     # unpopulated submodule looks like, and without it the outer worktree reads
-    # as modified. Each step is skipped when done, so a stopped remove resumes.
+    # as modified. Each step is skipped when done, so a remove stopped between
+    # steps resumes.
     [ -d "$WT/villa" ] || mkdir "$WT/villa"
-    for link in .venv local_data checkpoints models; do
+    for link in $LINKS; do
         if [ -L "$WT/$link" ]; then
             rm "$WT/$link"
         fi
