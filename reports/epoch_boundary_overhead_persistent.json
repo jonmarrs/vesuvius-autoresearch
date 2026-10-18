@@ -1,0 +1,186 @@
+{
+ "catalogue": 7345,
+ "timeout_margin_s": 300,
+ "since": "2026-10-17T21:17:25",
+ "fit": {
+  "n": 10,
+  "intercept_s": 97.61538461538461,
+  "per_boundary_s": 0.18803418803418803,
+  "residual_sd_s": 7.181938938307694
+ },
+ "groups": [
+  {
+   "budget": 3600,
+   "boundaries": 5,
+   "n": 9,
+   "median_s": 97,
+   "min_s": 91,
+   "max_s": 114
+  },
+  {
+   "budget": 3600,
+   "boundaries": 18,
+   "n": 1,
+   "median_s": 101,
+   "min_s": 101,
+   "max_s": 101
+  }
+ ],
+ "killed": [],
+ "rows": [
+  {
+   "shift": "2026-10-17_19-10-03_night_shift",
+   "start": "2026-10-17T21:17:25",
+   "budget": 3600,
+   "cycle": "lr_0.0001",
+   "result": "REVERTED",
+   "batch_size": 8,
+   "val_f1": 0.26399679771223505,
+   "overhead_s": 97,
+   "steps": 5270,
+   "boundaries": 5
+  },
+  {
+   "shift": "2026-10-17_19-10-03_night_shift",
+   "start": "2026-10-17T22:19:02",
+   "budget": 3600,
+   "cycle": "weight_decay_0.001",
+   "result": "REVERTED",
+   "batch_size": 8,
+   "val_f1": 0.26903912310934874,
+   "overhead_s": 114,
+   "steps": 4660,
+   "boundaries": 5
+  },
+  {
+   "shift": "2026-10-17_19-10-03_night_shift",
+   "start": "2026-10-17T23:20:56",
+   "budget": 3600,
+   "cycle": "batch_size_16",
+   "result": "REVERTED",
+   "batch_size": 16,
+   "val_f1": 0.2648936577783616,
+   "overhead_s": 105,
+   "steps": 2540,
+   "boundaries": 5
+  },
+  {
+   "shift": "2026-10-17_19-10-03_night_shift",
+   "start": "2026-10-18T00:22:41",
+   "budget": 3600,
+   "cycle": "target_fiber_source_sobel_z",
+   "result": "REVERTED",
+   "batch_size": 8,
+   "val_f1": 0.26725695073476907,
+   "overhead_s": 101,
+   "steps": 5220,
+   "boundaries": 5
+  },
+  {
+   "shift": "2026-10-17_19-10-03_night_shift",
+   "start": "2026-10-18T01:24:22",
+   "budget": 3600,
+   "cycle": "loss_fiber_bce_0.1",
+   "result": "REVERTED",
+   "batch_size": 8,
+   "val_f1": 0.2691955610727079,
+   "overhead_s": 91,
+   "steps": 5110,
+   "boundaries": 5
+  },
+  {
+   "shift": "2026-10-17_19-10-03_night_shift",
+   "start": "2026-10-18T02:25:53",
+   "budget": 3600,
+   "cycle": "use_uamt_False",
+   "result": "REVERTED",
+   "batch_size": 8,
+   "val_f1": 0.25837849348380415,
+   "overhead_s": 101,
+   "steps": 17020,
+   "boundaries": 18
+  },
+  {
+   "shift": "2026-10-17_19-10-03_night_shift",
+   "start": "2026-10-18T03:27:34",
+   "budget": 3600,
+   "cycle": "weight_decay_0.0",
+   "result": "REVERTED",
+   "batch_size": 8,
+   "val_f1": 0.27024757703816443,
+   "overhead_s": 91,
+   "steps": 5060,
+   "boundaries": 5
+  },
+  {
+   "shift": "2026-10-17_19-10-03_night_shift",
+   "start": "2026-10-18T04:29:05",
+   "budget": 3600,
+   "cycle": "weight_decay_0.1",
+   "result": "REVERTED",
+   "batch_size": 8,
+   "val_f1": 0.2665283341473737,
+   "overhead_s": 97,
+   "steps": 5100,
+   "boundaries": 5
+  },
+  {
+   "shift": "2026-10-17_19-10-03_night_shift",
+   "start": "2026-10-18T05:30:42",
+   "budget": 3600,
+   "cycle": "consistency_weight_0.2",
+   "result": "REVERTED",
+   "batch_size": 8,
+   "val_f1": 0.27099580271647816,
+   "overhead_s": 100,
+   "steps": 5010,
+   "boundaries": 5
+  },
+  {
+   "shift": "2026-10-17_19-10-03_night_shift",
+   "start": "2026-10-18T06:32:22",
+   "budget": 3600,
+   "cycle": "ema_decay_0.999",
+   "result": "REVERTED",
+   "batch_size": 8,
+   "val_f1": 0.2681449476427708,
+   "overhead_s": 91,
+   "steps": 5100,
+   "boundaries": 5
+  }
+ ],
+ "sources": {
+  "run_log": [
+   "run.log.old",
+   "run.log"
+  ],
+  "sprint_logs": "sprint_logs/sprint_log_2026-10-17_19-10-03_night_shift.md"
+ },
+ "control_rows": [
+  {
+   "shift": "2026-10-17_19-10-03_night_shift",
+   "start": "2026-10-17T19:10:03",
+   "budget": 3600,
+   "cycle": "lr_5e-05",
+   "result": "REVERTED",
+   "batch_size": 8,
+   "val_f1": 0.2627045276693546,
+   "overhead_s": 182,
+   "steps": 5270,
+   "boundaries": 5
+  },
+  {
+   "shift": "2026-10-17_19-10-03_night_shift",
+   "start": "2026-10-17T20:13:05",
+   "budget": 3600,
+   "cycle": "multi_task_heads_False",
+   "result": "REVERTED",
+   "batch_size": 8,
+   "val_f1": 0.266237280681532,
+   "overhead_s": 185,
+   "steps": 5080,
+   "boundaries": 5
+  }
+ ],
+ "control_note": "The same night's cycles before the 21:17:25 restart, on the code before #113: the rows of the same command without --since that started before it."
+}

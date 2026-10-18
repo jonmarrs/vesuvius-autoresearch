@@ -9,6 +9,10 @@ the loop killed at its timeout (2026-10-16 night shift) from run.log.
 
     python3 scripts/epoch_boundary_overhead.py --run-log run.log \
         --sprint-logs 'sprint_logs/sprint_log_2026-10-1[67]_*.md' --out reports/X.json
+
+The loop renames run.log to run.log.old when it passes 10 MB, so --run-log takes both, old
+first. --since keeps the cycles that started at or after a time (2026-10-17T21:17:25):
+a shift that changed code part-way through would otherwise mix the two.
 """
 
 from __future__ import annotations
@@ -28,9 +32,15 @@ RUN_START = "Starting Gated UNet-Transformer Loop (Budget: "
 V3 = "seeded-sample-400-v3"
 
 
-def runs(run_log: str) -> tuple[dict[float, list[int]], list[dict]]:
+def runs(run_logs: str | list[str]) -> tuple[dict[float, list[int]], list[dict]]:
     """val_f1 -> step counts of the runs that scored it, and the runs that never scored."""
-    lines = Path(run_log).read_text(errors="replace").split("\n")
+    if isinstance(run_logs, str):
+        run_logs = [run_logs]
+    lines = [
+        line
+        for path in run_logs
+        for line in Path(path).read_text(errors="replace").split("\n")
+    ]
     starts = [i for i, line in enumerate(lines) if line.startswith(RUN_START)]
     # Unscored runs count from the first run scored under protocol v3 (10-16).
     v3 = next(i for i, line in enumerate(lines) if V3 in line)
@@ -61,19 +71,26 @@ def runs(run_log: str) -> tuple[dict[float, list[int]], list[dict]]:
     return scored, unscored
 
 
+def _after(prev: dt.datetime, clock: str) -> dt.datetime:
+    """The first time at or after prev that reads clock (HH:MM:SS)."""
+    t = dt.datetime.combine(prev.date(), dt.time.fromisoformat(clock))
+    return t if t >= prev else t + dt.timedelta(days=1)
+
+
 def cycles(pattern: str) -> list[dict]:
-    """Each sprint-log cycle with its overhead; the budget comes from the shift."""
+    """Each sprint-log cycle with its start and overhead; the budget comes from the shift."""
     out = []
     for path in sorted(glob.glob(pattern)):
         text = Path(path).read_text()
         budget = 3600 if "night_shift" in path else 900
+        day = dt.date.fromisoformat(Path(path).name[len("sprint_log_") :][:10])
         start = re.search(r"\*\*Start Time\*\*: (\d+:\d+:\d+)", text).group(1)
-        prev = dt.datetime.strptime(start, "%H:%M:%S")
+        prev = dt.datetime.combine(day, dt.time.fromisoformat(start))
         for block in re.split(r"\n## ", text)[1:]:
             # A restart inside the shift: the next cycle starts here, not at
             # the last cycle before the stop.
             if resumed := re.match(r"Resumed at (\d+:\d+:\d+)", block):
-                prev = dt.datetime.strptime(resumed.group(1), "%H:%M:%S")
+                prev = _after(prev, resumed.group(1))
                 continue
             m = re.match(
                 r"Cycle (\d+): (\S+) \((\w+)\)\n- \*\*Timestamp\*\*: (\d+:\d+:\d+)",
@@ -81,13 +98,13 @@ def cycles(pattern: str) -> list[dict]:
             )
             if not m:
                 continue
-            now = dt.datetime.strptime(m.group(4), "%H:%M:%S")
-            seconds = (now - prev).total_seconds() % 86400
-            prev = now
+            now = _after(prev, m.group(4))
+            seconds = (now - prev).total_seconds()
             f1 = re.search(r"val_f1: ([0-9.]+)", block)
             out.append(
                 {
                     "shift": Path(path).name[len("sprint_log_") : -len(".md")],
+                    "start": prev.isoformat(),
                     "budget": budget,
                     "cycle": m.group(2),
                     "result": m.group(3),
@@ -96,6 +113,7 @@ def cycles(pattern: str) -> list[dict]:
                     "overhead_s": int(seconds - budget),
                 }
             )
+            prev = now
     return out
 
 
@@ -116,10 +134,16 @@ def fit(rows: list[dict]) -> dict:
     }
 
 
-def analyse(run_log: str, pattern: str) -> dict:
-    scored, unscored = runs(run_log)
+def analyse(run_logs: str | list[str], pattern: str, since: str | None = None) -> dict:
+    scored, unscored = runs(run_logs)
+    kept = [
+        c
+        for c in cycles(pattern)
+        if since is None
+        or dt.datetime.fromisoformat(c["start"]) >= dt.datetime.fromisoformat(since)
+    ]
     rows = []
-    for c in cycles(pattern):
+    for c in kept:
         steps = scored.get(round(c["val_f1"], 6)) if c["val_f1"] is not None else None
         # A unique match, and an interval a pause or restart did not stretch.
         if (
@@ -140,10 +164,9 @@ def analyse(run_log: str, pattern: str) -> dict:
         groups[(r["budget"], r["boundaries"])].append(r["overhead_s"])
     model = fit(rows)
     # The 60-minute runs that never scored, paired in order with the crashed
-    # 60-minute cycles of the same sprint logs.
-    crashed = [
-        c for c in cycles(pattern) if c["result"] == "CRASHED" and c["budget"] == 3600
-    ]
+    # 60-minute cycles of the same sprint logs. run.log has no clock, so since
+    # does not narrow the runs: a count that then differs pairs none.
+    crashed = [c for c in kept if c["result"] == "CRASHED" and c["budget"] == 3600]
     unscored_long = [u for u in unscored if u["budget"] == 3600]
     killed = []
     if len(crashed) == len(unscored_long):
@@ -163,6 +186,7 @@ def analyse(run_log: str, pattern: str) -> dict:
     return {
         "catalogue": CATALOGUE,
         "timeout_margin_s": TIMEOUT_MARGIN,
+        "since": since,
         "fit": model,
         "groups": [
             {
@@ -182,11 +206,12 @@ def analyse(run_log: str, pattern: str) -> dict:
 
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--run-log", required=True)
+    ap.add_argument("--run-log", nargs="+", required=True, help="run.log.old run.log")
     ap.add_argument("--sprint-logs", required=True)
+    ap.add_argument("--since", help="keep cycles that started then or later")
     ap.add_argument("--out", type=Path, required=True)
     args = ap.parse_args()
-    result = analyse(args.run_log, args.sprint_logs)
+    result = analyse(args.run_log, args.sprint_logs, args.since)
     result["sources"] = {"run_log": args.run_log, "sprint_logs": args.sprint_logs}
     args.out.write_text(json.dumps(result, indent=1) + "\n")
     print(json.dumps({k: result[k] for k in ("fit", "groups", "killed")}, indent=1))
