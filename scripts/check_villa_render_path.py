@@ -21,6 +21,7 @@ Usage:
 """
 
 import argparse
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -58,14 +59,56 @@ HOT_PATH = (
 RENDER_SOURCE_REF = "5479453a"
 
 
+# Inherited, these make git ignore -C (a hook's GIT_DIR and friends) or read
+# a pathspec differently, so every call below would answer something else.
+_GIT_ENV_DROPPED = (
+    "GIT_DIR",
+    "GIT_WORK_TREE",
+    "GIT_INDEX_FILE",
+    "GIT_COMMON_DIR",
+    "GIT_OBJECT_DIRECTORY",
+    "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+    "GIT_PREFIX",
+    "GIT_GLOB_PATHSPECS",
+    "GIT_NOGLOB_PATHSPECS",
+    "GIT_ICASE_PATHSPECS",
+    "GIT_LITERAL_PATHSPECS",
+)
+
+
 def git(repo: Path, *args: str) -> str:
+    # surrogateescape: a name that is not UTF-8 comes through -z unquoted.
     out = subprocess.run(
-        ["git", "-C", str(repo), *args], capture_output=True, text=True
+        ["git", "-C", str(repo), *args],
+        capture_output=True,
+        text=True,
+        errors="surrogateescape",
+        env={k: v for k, v in os.environ.items() if k not in _GIT_ENV_DROPPED},
     )
     if out.returncode != 0:
         print(f"git {' '.join(args)} failed: {out.stderr.strip()}", file=sys.stderr)
         raise SystemExit(2)
     return out.stdout
+
+
+def not_own_repository(repo: Path) -> str | None:
+    """Why `repo` is not a repository of its own, or None. In an empty
+    directory (an uninitialised submodule) git answers for the repository
+    around it, whose refs and trees the gate would then compare."""
+    bare = git(repo, "rev-parse", "--is-bare-repository").strip() == "true"
+    where = git(repo, "rev-parse", "--absolute-git-dir" if bare else "--show-toplevel")
+    if Path(where.strip()).samefile(repo):
+        return None
+    return f"{repo} is not a repository of its own: git answers for {where.strip()}"
+
+
+def is_tree(repo: Path, ref: str, tree: str) -> bool:
+    """Whether `tree` is a directory at `ref`, from its parent tree's entry."""
+    for entry in git(repo, "ls-tree", "-z", "--full-tree", ref, "--", tree).split("\0"):
+        meta, _, path = entry.partition("\t")
+        if path == tree and meta.split()[1:2] == ["tree"]:
+            return True
+    return False
 
 
 def blobs(repo: Path, ref: str, tree: str) -> dict[str, tuple[str, str]]:
@@ -138,10 +181,31 @@ def main() -> int:
     if not repo.exists():
         print(f"no villa checkout at {repo}", file=sys.stderr)
         return 2
+    sys.stdout.reconfigure(errors="backslashreplace")  # a name that is not UTF-8
+    refusal = not_own_repository(repo)
+    if refusal:
+        print(refusal, file=sys.stderr)
+        return 2
 
     changed, added, removed = compare(repo, args.old, args.new)
+    # A tree at one ref only is a difference whichever ref it is at (added
+    # files alone do not set the verdict); at neither, the refs are not the
+    # render path this gate knows.
+    present = {
+        tree: (is_tree(repo, args.old, tree), is_tree(repo, args.new, tree))
+        for tree in EXTRACTED_TREES
+    }
+    absent = [tree for tree, at in present.items() if not any(at)]
+    if absent:
+        print(
+            f"{', '.join(absent)}: at neither ref, so not comparable", file=sys.stderr
+        )
+        return 2
+    moved = [tree for tree, (before, after) in present.items() if before != after]
     print(f"villa render path: {args.old} -> {args.new}")
     print(f"  trees compared: {', '.join(EXTRACTED_TREES)}")
+    for tree in moved:
+        print(f"\n  TREE {'ADDED' if present[tree][1] else 'REMOVED'}: {tree}")
 
     hot = [p for p in changed if p in HOT_PATH]
     other = [p for p in changed if p not in HOT_PATH and not is_docs(p)]
@@ -186,7 +250,7 @@ def main() -> int:
     # Docs are excluded from the verdict but still printed above: a markdown or
     # image change cannot alter a render, and letting it flip the verdict trains
     # the reader to ignore this gate.
-    if hot or other or removed:
+    if hot or other or removed or moved:
         print(
             "\nVERDICT: the render path DIFFERS between these refs. Work dirs built "
             "from them are not interchangeable, and arms measured across the two are "

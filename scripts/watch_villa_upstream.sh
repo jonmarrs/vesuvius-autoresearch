@@ -9,9 +9,10 @@
 # It never touches the villa-spiral checkout, which the PINNED-TIER corpus
 # (6847063f, 24 fits) is reproduced from (tests/test_villa_spiral_refs_pinned.py).
 # It does fetch the submodule, so the submodule's origin/main moves. Since
-# 2026-09-19 renders are built from the submodule, at origin/main unless
-# VILLA_REF is set: a study pins VILLA_REF, and setup_workdir.sh warns when one
-# does not. See repro/spiral_render/setup_workdir.sh.
+# 2026-09-19 renders are built from the submodule by default, at origin/main
+# unless VILLA_REF is set: a study pins VILLA_REF to a commit, and
+# setup_workdir.sh warns when VILLA_REF is unset. See
+# repro/spiral_render/setup_workdir.sh.
 #
 # Each new upstream tip is reported ONCE, with the render-path gate's verdict, so
 # a long watch does not repeat itself.

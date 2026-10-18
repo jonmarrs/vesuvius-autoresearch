@@ -280,3 +280,80 @@ def test_it_exits_2_when_it_cannot_compare(villa_like, tmp_path):
     assert r.returncode == 2 and "failed" in r.stderr, r.stdout + r.stderr
     r = _gate(tmp_path / "nope", "HEAD", "HEAD")
     assert r.returncode == 2 and "no villa checkout" in r.stderr
+
+
+def test_a_tree_that_appears_differs_too(villa_like):
+    """Reversed, the removed-tree case lists only added files, which alone do not
+    set the verdict: the gate said identical."""
+    _git(villa_like, "rm", "-q", "-r", "lasagna")
+    _git(villa_like, "commit", "-q", "-m", "drop lasagna")
+    r = _gate(villa_like, "HEAD", "HEAD~1")
+    assert r.returncode == 1, r.stdout + r.stderr
+    assert "TREE ADDED: lasagna" in r.stdout and "DIFFERS" in r.stdout
+
+
+def test_a_tree_at_neither_ref_cannot_be_compared(villa_like):
+    _git(villa_like, "rm", "-q", "-r", "lasagna")
+    _git(villa_like, "commit", "-q", "-m", "drop lasagna")
+    _git(villa_like, "commit", "-q", "--allow-empty", "-m", "again")
+    r = _gate(villa_like)
+    assert r.returncode == 2 and "lasagna: at neither ref" in r.stderr, r.stdout
+
+
+def test_a_directory_git_answers_around_is_refused(villa_like):
+    """An uninitialised submodule is an empty directory, where git answers for
+    the repository around it."""
+    empty = villa_like / "spiral-fitting" / "empty"
+    empty.mkdir()
+    r = _gate(empty)
+    assert r.returncode == 2 and "not a repository of its own" in r.stderr, r.stdout
+
+
+def test_an_inherited_git_dir_is_ignored(villa_like, tmp_path):
+    """A hook exports GIT_DIR, which would point every call at its repository."""
+    other = tmp_path / "other"
+    _git(tmp_path, "init", "-q", "-b", "main", str(other))
+    _git(other, "commit", "-q", "--allow-empty", "-m", "elsewhere")
+    _git(villa_like, "update-index", "--chmod=+x", "lasagna/fit.py")
+    _git(villa_like, "commit", "-q", "-m", "chmod")
+    r = subprocess.run(
+        [sys.executable, str(_REPO / "scripts" / "check_villa_render_path.py")]
+        + ["--repo", str(villa_like), "HEAD~1", "HEAD"],
+        env=_ENV | {"GIT_DIR": str(other / ".git"), "GIT_GLOB_PATHSPECS": "1"},
+        capture_output=True,
+        text=True,
+    )
+    assert r.returncode == 1 and "HOT PATH CHANGED (1)" in r.stdout, r.stdout + r.stderr
+
+
+def test_refs_that_differ_only_in_docs_and_elsewhere_are_identical(villa_like):
+    (villa_like / "lasagna" / "README.md").write_text("docs\n")
+    (villa_like / "unrelated.py").write_text("x\n")
+    _git(villa_like, "add", ".")
+    _git(villa_like, "commit", "-q", "-m", "docs")
+    (villa_like / "lasagna" / "README.md").write_text("more docs\n")
+    _git(villa_like, "commit", "-q", "-am", "docs again")
+    r = _gate(villa_like)
+    assert r.returncode == 0 and "identical" in r.stdout, r.stdout + r.stderr
+    assert "documentation changed (1)" in r.stdout
+
+
+def test_names_are_read_as_they_are(villa_like):
+    """-z: without it git quotes a name like this one in every listing."""
+    name = 'lasagna/ünï "x".py'
+    (villa_like / name).write_text("x\n")
+    _git(villa_like, "add", ".")
+    _git(villa_like, "commit", "-q", "-m", "add")
+    assert name in mod.blobs(villa_like, "HEAD", "lasagna")
+
+
+def test_a_name_that_is_not_utf8_is_compared_not_a_crash(villa_like):
+    name = os.fsdecode(b"lasagna/caf\xe9.py")
+    (villa_like / name).write_text("x\n")
+    _git(villa_like, "add", ".")
+    _git(villa_like, "commit", "-q", "-m", "add")
+    (villa_like / name).write_text("y\n")
+    _git(villa_like, "commit", "-q", "-am", "change")
+    r = _gate(villa_like)
+    assert r.returncode == 1 and "Traceback" not in r.stderr, r.stderr
+    assert "lasagna/caf\\udce9.py" in r.stdout
