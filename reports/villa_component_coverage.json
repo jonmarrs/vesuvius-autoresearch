@@ -1,12 +1,16 @@
 {
-  "source": "ScrollPrize/villa local checkout",
+  "source": "ScrollPrize/villa at this repository's pin (git tree)",
+  "villa_commit": "ccb431818fa68059138f2c964ae299fc474ff116",
+  "pin_unread": null,
   "summary": {
     "total_components": 8,
-    "covered": 4,
-    "partial": 3,
+    "covered": 6,
+    "partial": 0,
     "blocked_missing_required_hook": 0,
-    "unwired": 1,
-    "missing_official_component": 0
+    "unwired": 0,
+    "deprecated_upstream": 2,
+    "missing_official_component": 0,
+    "villa_path_not_checked_out": 4
   },
   "components": [
     {
@@ -14,53 +18,54 @@
       "official_path": "villa/vesuvius",
       "prize_use": "Official Python CT/Zarr data access and normalization.",
       "local_hooks": [
-        "vesuvius_loader.py",
-        "v3_training/trainer.py",
-        "check_loader.py"
+        "src/vesuvius_autoresearch/core/vesuvius_loader.py",
+        "v3_training/trainer.py"
       ],
       "next_action": "Keep loader smoke tests aligned with the pinned Villa data API.",
       "priority": "high",
       "official_present": true,
+      "official_checked_out": true,
+      "deprecated_path": null,
+      "deprecated_checked_out": false,
       "local_hook_status": [
         {
-          "path": "vesuvius_loader.py",
-          "present": false
+          "path": "src/vesuvius_autoresearch/core/vesuvius_loader.py",
+          "present": true
         },
         {
           "path": "v3_training/trainer.py",
           "present": true
-        },
-        {
-          "path": "check_loader.py",
-          "present": false
         }
       ],
       "required_hooks": [],
       "missing_required_hooks": [],
-      "present_local_hooks": 1,
-      "total_local_hooks": 3,
-      "coverage_status": "partial"
+      "present_local_hooks": 2,
+      "total_local_hooks": 2,
+      "coverage_status": "covered"
     },
     {
       "name": "ink-detection",
       "official_path": "villa/ink-detection",
       "prize_use": "Official Grand Prize ink model recipes and optimized inference contracts.",
       "local_hooks": [
-        "train.py",
-        "predict.py",
+        "scripts/training/train.py",
+        "scripts/inference/predict.py",
         "scripts/smoke_test_villa_optimized_inference.py"
       ],
       "next_action": "Keep optimized-inference smoke checks in the post-sprint gate before packaging evidence.",
       "priority": "high",
       "official_present": true,
+      "official_checked_out": false,
+      "deprecated_path": "villa/deprecated/ink-detection",
+      "deprecated_checked_out": false,
       "local_hook_status": [
         {
-          "path": "train.py",
-          "present": false
+          "path": "scripts/training/train.py",
+          "present": true
         },
         {
-          "path": "predict.py",
-          "present": false
+          "path": "scripts/inference/predict.py",
+          "present": true
         },
         {
           "path": "scripts/smoke_test_villa_optimized_inference.py",
@@ -69,9 +74,9 @@
       ],
       "required_hooks": [],
       "missing_required_hooks": [],
-      "present_local_hooks": 1,
+      "present_local_hooks": 3,
       "total_local_hooks": 3,
-      "coverage_status": "partial"
+      "coverage_status": "covered"
     },
     {
       "name": "crackle-viewer",
@@ -83,7 +88,10 @@
       ],
       "next_action": "Open GPU-ready candidates from the review manifest for human text-legibility review.",
       "priority": "high",
-      "official_present": true,
+      "official_present": false,
+      "official_checked_out": false,
+      "deprecated_path": "villa/deprecated/crackle-viewer",
+      "deprecated_checked_out": false,
       "local_hook_status": [
         {
           "path": "scripts/launch_crackle_viewer.py",
@@ -98,7 +106,7 @@
       "missing_required_hooks": [],
       "present_local_hooks": 2,
       "total_local_hooks": 2,
-      "coverage_status": "covered"
+      "coverage_status": "deprecated_upstream"
     },
     {
       "name": "volume-cartographer",
@@ -118,6 +126,9 @@
       "next_action": "Keep Python loading and VC3D overlay validation aligned with Volume Cartographer; do not add new vesuvius-c hooks.",
       "priority": "high",
       "official_present": true,
+      "official_checked_out": false,
+      "deprecated_path": null,
+      "deprecated_checked_out": false,
       "local_hook_status": [
         {
           "path": "volume_cartographer_wrapper",
@@ -156,6 +167,9 @@
       "next_action": "Route occupied Scroll 2/3 candidates through Lasagna/fiber preprocessing before more ink inference.",
       "priority": "high",
       "official_present": true,
+      "official_checked_out": true,
+      "deprecated_path": null,
+      "deprecated_checked_out": false,
       "local_hook_status": [
         {
           "path": "scripts/build_lasagna_fiber_worklist.py",
@@ -177,16 +191,19 @@
       "official_path": "villa/segmentation",
       "prize_use": "Official segmentation models and topology-oriented evaluation metrics.",
       "local_hooks": [
-        "test_import.py",
+        "tests/test_import.py",
         "submission_package_dry_run/HALLUCINATION_MITIGATION.md"
       ],
       "next_action": "Keep topology metrics available as hallucination mitigation evidence.",
       "priority": "medium",
       "official_present": true,
+      "official_checked_out": true,
+      "deprecated_path": null,
+      "deprecated_checked_out": false,
       "local_hook_status": [
         {
-          "path": "test_import.py",
-          "present": false
+          "path": "tests/test_import.py",
+          "present": true
         },
         {
           "path": "submission_package_dry_run/HALLUCINATION_MITIGATION.md",
@@ -195,31 +212,34 @@
       ],
       "required_hooks": [],
       "missing_required_hooks": [],
-      "present_local_hooks": 1,
+      "present_local_hooks": 2,
       "total_local_hooks": 2,
-      "coverage_status": "partial"
+      "coverage_status": "covered"
     },
     {
       "name": "foundation",
       "official_path": "villa/foundation",
       "prize_use": "Dataset management and fiber-label assets.",
       "local_hooks": [
-        "scripts/generate_fiber_labels.py"
+        "scripts/labeling/generate_fiber_labels.py"
       ],
       "next_action": "Use fiber assets to expand supervision for hard geometry candidates.",
       "priority": "medium",
       "official_present": true,
+      "official_checked_out": true,
+      "deprecated_path": null,
+      "deprecated_checked_out": false,
       "local_hook_status": [
         {
-          "path": "scripts/generate_fiber_labels.py",
-          "present": false
+          "path": "scripts/labeling/generate_fiber_labels.py",
+          "present": true
         }
       ],
       "required_hooks": [],
       "missing_required_hooks": [],
-      "present_local_hooks": 0,
+      "present_local_hooks": 1,
       "total_local_hooks": 1,
-      "coverage_status": "unwired"
+      "coverage_status": "covered"
     },
     {
       "name": "thaumato-anakalyptor",
@@ -229,9 +249,12 @@
         "scripts/launch_thaumato.py",
         "scripts/autoresearch_thaumato_solver.py"
       ],
-      "next_action": "Use as a fallback review route when VC3D/Lasagna surfaces are poor.",
+      "next_action": "Retired here: the legacy Thaumato solver sweep (docs/SHEET_GRAPH_DIAGNOSTICS.md); upstream moved the tool to deprecated/.",
       "priority": "medium",
-      "official_present": true,
+      "official_present": false,
+      "official_checked_out": false,
+      "deprecated_path": "villa/deprecated/thaumato-anakalyptor",
+      "deprecated_checked_out": false,
       "local_hook_status": [
         {
           "path": "scripts/launch_thaumato.py",
@@ -246,7 +269,7 @@
       "missing_required_hooks": [],
       "present_local_hooks": 2,
       "total_local_hooks": 2,
-      "coverage_status": "covered"
+      "coverage_status": "deprecated_upstream"
     }
   ]
 }
