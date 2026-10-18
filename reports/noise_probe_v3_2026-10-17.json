@@ -1,0 +1,240 @@
+{
+  "contract": 1,
+  "scope": "identical_config_repeatability",
+  "status": "COMPLETE",
+  "protocol": "seeded-sample-400-v3+z1-27",
+  "requested_runs": 4,
+  "execution_attempted": true,
+  "tolerance_calibrated": false,
+  "input_hashes": {
+    "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/best_model.pt": "7e6d060fc00052f92cd095a38acc8d4703d4f57fdaff8161e3b08fb391bfdd1f",
+    "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/scripts/training/run_noise_probe.py": "a7470de2e8be7ff5f40494086ab951671898ea2dab83ce7249abd2c848d63def",
+    "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/scripts/training/train.py": "c8bf30b3e250c1ad49005e42a7e221802b2f415f2d8e8591b49016a3c59bd06b",
+    "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/config.json": "182c0b36ebd11b73ece50150cbbf9b51b30e67e35c0c861b5a878bce0ca50404"
+  },
+  "input_error": null,
+  "config": {
+    "uri": null,
+    "uris": [
+      "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/local_data/PHercParis2Fr47/surface_volume.zarr"
+    ],
+    "val_uri": "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/local_data/PHercParis2Fr143/surface_volume.zarr",
+    "cache_dir": null,
+    "use_ridges": true,
+    "use_lasagna": false,
+    "ridge_sigma": 1.0,
+    "depth_band": [
+      1,
+      27
+    ],
+    "batch_size": 4,
+    "patch_size": 64,
+    "num_layers": 16,
+    "lr": 0.0005,
+    "weight_decay": 0.01,
+    "time_budget": 900,
+    "pinned": false,
+    "loss_ink_bce": 0.6,
+    "loss_ink_dice": 0.2,
+    "loss_fiber_bce": 0.2,
+    "loss_st": 0.1,
+    "label_smoothing": 0.0,
+    "use_confidence_weight": false,
+    "checkpoint_out": null,
+    "eval_every_steps": 0,
+    "eval_sample_patches": 250,
+    "disable_augmentation": false,
+    "aug_mode": "albumentations",
+    "aug_flip_p": 0.5,
+    "aug_brightness_p": 0.75,
+    "aug_affine_p": 0.75,
+    "aug_coarse_dropout_p": 0.5,
+    "aug_elastic_p": 0.0,
+    "aug_grid_p": 0.0,
+    "aug_rotate_limit": 180,
+    "aug_scale_limit": 0.15,
+    "aug_scroll_decohesion_p": 0.0,
+    "aug_scroll_warping_p": 0.0,
+    "aug_scroll_squeeze_p": 0.25,
+    "aug_scroll_z_dropout_p": 0.0,
+    "aug_scroll_intensity_drift_p": 0.25,
+    "aug_scroll_sheet_compression_p": 0.0,
+    "aug_scroll_thick_slice_p": 0.25,
+    "aug_scroll_rician_noise_p": 0.0,
+    "aug_scroll_blank_rectangles_p": 0.0,
+    "use_betti_loss": false,
+    "betti_loss_weight": 0.1,
+    "use_cldice": false,
+    "cldice_weight": 0.1,
+    "cldice_iters": 10,
+    "use_wandb": true,
+    "auxiliary_config": {
+      "enabled": false,
+      "task_types": [
+        "surface_normals",
+        "structure_tensor"
+      ],
+      "weights": {
+        "surface_normals": 0.05,
+        "structure_tensor": 0.05
+      }
+    },
+    "target_fiber_source": "frangi",
+    "target_fiber_sigma": 2.0,
+    "multi_task_heads": true,
+    "architecture": "resenc_unet",
+    "base_feat": 64,
+    "num_blocks": 16,
+    "num_heads": 8,
+    "dropout": 0.0,
+    "pseudo_label_dir": "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/local_data/pseudo_labels",
+    "foundation_model_path": null,
+    "enforce_prize_gates": false,
+    "min_prize_centerline_dice": 0.01,
+    "max_prize_skel_dist": 2.0,
+    "max_prize_cc_diff": 64.0,
+    "min_prize_topology_samples": 1,
+    "use_uamt": true,
+    "ema_decay": 0.99,
+    "consistency_weight": 0.1,
+    "unlabeled_uris": [
+      "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/local_data/PHercParis2Fr47/surface_volume.zarr"
+    ]
+  },
+  "runs": [
+    {
+      "run": 1,
+      "directory": "run_01",
+      "status": "COMPLETE",
+      "returncode": 0,
+      "command": [
+        "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python",
+        "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/scripts/training/run_noise_probe.py",
+        "--config",
+        "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/local_data/.noise_probe_v3_2026-10-17-r0pnwc2y/new.zarr/run_01/config.json"
+      ],
+      "execution_attempted": true,
+      "metrics": {
+        "val_f1": 0.26887205117105556,
+        "val_f1_threshold": 0.1,
+        "ap_prevalence_lift": 1.2008659974008622,
+        "roc_auc": 0.5805584618898045,
+        "val_positive_rate": 0.139688720703125
+      },
+      "validation_diag": {
+        "protocol": "seeded-sample-400-v3+z1-27",
+        "complete": true,
+        "requested_patches": 400,
+        "usable_patches": 97,
+        "empty_target_patches": 303,
+        "batch_errors": 0,
+        "inputs_sha256": "75e57cf994a4b5d863c2277b05fa605aa5e5e70d19e908bee7d82e7d7cee2661"
+      },
+      "train_sampling_seed": 1317204322,
+      "checkpoint_sha256": "3e28112c1a9a05302515f951cff8c8e3db7d961909202cd31e06048077da854a",
+      "seconds": 972.6928658430115
+    },
+    {
+      "run": 2,
+      "directory": "run_02",
+      "status": "COMPLETE",
+      "returncode": 0,
+      "command": [
+        "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python",
+        "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/scripts/training/run_noise_probe.py",
+        "--config",
+        "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/local_data/.noise_probe_v3_2026-10-17-r0pnwc2y/new.zarr/run_02/config.json"
+      ],
+      "execution_attempted": true,
+      "metrics": {
+        "val_f1": 0.26071660646601946,
+        "val_f1_threshold": 0.1,
+        "ap_prevalence_lift": 1.1701141965595503,
+        "roc_auc": 0.5724944141229888,
+        "val_positive_rate": 0.139688720703125
+      },
+      "validation_diag": {
+        "protocol": "seeded-sample-400-v3+z1-27",
+        "complete": true,
+        "requested_patches": 400,
+        "usable_patches": 97,
+        "empty_target_patches": 303,
+        "batch_errors": 0,
+        "inputs_sha256": "75e57cf994a4b5d863c2277b05fa605aa5e5e70d19e908bee7d82e7d7cee2661"
+      },
+      "train_sampling_seed": 2038636696,
+      "checkpoint_sha256": "6083a2ba2682665ae8a61f811def83fcff08764b04e5af641d6610fc12f60692",
+      "seconds": 966.7198944580159
+    },
+    {
+      "run": 3,
+      "directory": "run_03",
+      "status": "COMPLETE",
+      "returncode": 0,
+      "command": [
+        "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python",
+        "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/scripts/training/run_noise_probe.py",
+        "--config",
+        "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/local_data/.noise_probe_v3_2026-10-17-r0pnwc2y/new.zarr/run_03/config.json"
+      ],
+      "execution_attempted": true,
+      "metrics": {
+        "val_f1": 0.265542546562901,
+        "val_f1_threshold": 0.1,
+        "ap_prevalence_lift": 1.2091792291366914,
+        "roc_auc": 0.5781870028518442,
+        "val_positive_rate": 0.139688720703125
+      },
+      "validation_diag": {
+        "protocol": "seeded-sample-400-v3+z1-27",
+        "complete": true,
+        "requested_patches": 400,
+        "usable_patches": 97,
+        "empty_target_patches": 303,
+        "batch_errors": 0,
+        "inputs_sha256": "75e57cf994a4b5d863c2277b05fa605aa5e5e70d19e908bee7d82e7d7cee2661"
+      },
+      "train_sampling_seed": 495948656,
+      "checkpoint_sha256": "e029344c7c9f786c75eb5888539dd4c0b5cf59f17bced299237a9bc9eb341848",
+      "seconds": 969.596305568004
+    },
+    {
+      "run": 4,
+      "directory": "run_04",
+      "status": "COMPLETE",
+      "returncode": 0,
+      "command": [
+        "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/.venv/bin/python",
+        "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/scripts/training/run_noise_probe.py",
+        "--config",
+        "/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/local_data/.noise_probe_v3_2026-10-17-r0pnwc2y/new.zarr/run_04/config.json"
+      ],
+      "execution_attempted": true,
+      "metrics": {
+        "val_f1": 0.2670373992528853,
+        "val_f1_threshold": 0.1,
+        "ap_prevalence_lift": 1.2080771177463807,
+        "roc_auc": 0.5812542819865716,
+        "val_positive_rate": 0.139688720703125
+      },
+      "validation_diag": {
+        "protocol": "seeded-sample-400-v3+z1-27",
+        "complete": true,
+        "requested_patches": 400,
+        "usable_patches": 97,
+        "empty_target_patches": 303,
+        "batch_errors": 0,
+        "inputs_sha256": "75e57cf994a4b5d863c2277b05fa605aa5e5e70d19e908bee7d82e7d7cee2661"
+      },
+      "train_sampling_seed": 113474145,
+      "checkpoint_sha256": "2fa553a714a16200890a5608d6c26c31bf74375f21e308509820f08b06a9b9a7",
+      "seconds": 965.6040756070288
+    }
+  ],
+  "f1_spread": {
+    "n": 4,
+    "mean": 0.2655421508632153,
+    "sample_std": 0.00349332137527462,
+    "range": 0.008155444705036097
+  }
+}
