@@ -108,11 +108,13 @@ numerical GPU/CPU parity or production readiness.
 batches. As registered, it also counts the trials a batch finished before a later one failed.
 It first checks, across both batches, what this probe checks within one:
 - one configuration;
-- one starting checkpoint and config file (the training code's hashes may differ);
-- one validation sample and prevalence;
-- no repeated sampling seed.
+- one starting checkpoint and config file;
+- the same probe and training code, unless a difference is named with `--allow-code-change`
+  after its diff has been read (the registration names `train.py`'s);
+- one validation sample and prevalence.
 
-It refuses to pool otherwise.
+It adds one check of its own: no sampling seed repeats. It refuses to pool otherwise. The probe does not
+hash the villa checkout, so neither check covers it.
 
 [Finding 86](../reports/loop_v2_constant_control.md) records the limitations of F1
 near an all-ink ceiling. Host and loop restart decisions are recorded separately

@@ -5,10 +5,15 @@ estimates the run-to-run sigma with its chi-square interval, checks for a shift 
 the rate at which a cycle that changes nothing clears a promotion tolerance.
 
 f1_noise_probe.py checks its own trials against each other; this checks the batches against each other
-first (`poolable`): one configuration and starting checkpoint, one validation sample, no repeated seed.
+first (`poolable`): one configuration, starting checkpoint and config file, one validation sample, no
+repeated seed, and the same probe and training code unless a difference is named with
+--allow-code-change after its diff has been read.
 
 Usage: .venv/bin/python scripts/noise_probe_pooled.py --batch B1/probe.json --batch B2/probe.json \
-    --incumbent 0.249348 --tolerance 0.01 --out reports/X.json
+    --incumbent 0.249348 --tolerance 0.01 --out reports/X.json [--allow-code-change PATH ...]
+
+The committed result (reports/noise_probe_v3_pooled_2026-10-17.json) needs
+--allow-code-change scripts/training/train.py: the registration names that one difference.
 """
 
 from __future__ import annotations
@@ -17,6 +22,7 @@ import argparse
 import json
 import math
 import statistics
+import sys
 from pathlib import Path
 
 from scipy import stats
@@ -25,8 +31,16 @@ PROTOCOL = "seeded-sample-400-v3+z1-27"
 LIFT_GATE = 1.02  # train.LIFT_MARGIN: promotion needs ap_prevalence_lift > 1 + 0.02
 SIGMA_AT_FIVE_PERCENT = 0.0043  # prediction 3: 0.01 / (1.645 * sqrt(2)), rounded
 MIN_LAST_BATCH = 3
-# f1_noise_probe.py's RUNNER and TRAINER: code the registration allows to differ between batches.
+# f1_noise_probe.py's RUNNER and TRAINER, which it hashes beside the checkpoint and config file.
 CODE_INPUTS = ("scripts/training/run_noise_probe.py", "scripts/training/train.py")
+
+
+def _code_input(path: str) -> str | None:
+    """The repository path of a hashed code input, or None for the checkpoint or config file."""
+    for code in CODE_INPUTS:
+        if path == code or path.endswith("/" + code):
+            return code
+    return None
 
 
 def completed(probe: dict) -> list[dict]:
@@ -44,36 +58,69 @@ def completed(probe: dict) -> list[dict]:
     ]
 
 
-def poolable(probes: list[dict]) -> None:
-    """Raise unless the batches' finished trials are draws of one comparison.
+def poolable(probes: list[dict], allow_code=()) -> list[str]:
+    """Raise unless the batches' finished trials are draws of one comparison; return the
+    code inputs that differ between them, each of which allow_code must name.
 
     f1_noise_probe.py requires its trials to share one validation sample and prevalence,
     and checks that only within a batch that finished every trial. Pooling compares
-    trials across batches, so the same holds across all of them; the registration also
-    fixes one configuration and starting checkpoint, and fresh sampling seeds."""
+    trials across batches, so the same must hold across all of them. The registration
+    also fixes one configuration, starting checkpoint and config file, and fresh
+    sampling seeds, and it names the one code difference it accepts."""
     problems = []
     if len(probes) != 2:
         problems.append(
-            f"{len(probes)} batches; the registered shift test compares two"
+            f"expected two batches, got {len(probes)}: the registered shift test compares two"
         )
     if any(p.get("scope") != "identical_config_repeatability" for p in probes):
         problems.append("a batch is not an identical-config repeatability probe")
+    if probes[0].get("contract") is None or any(
+        p.get("contract") != probes[0]["contract"] for p in probes
+    ):
+        problems.append("the batches' probe contracts differ or are missing")
     if any(p.get("config") != probes[0].get("config") for p in probes):
         problems.append("the batches' configurations differ")
 
-    def fixed(probe):
-        # The starting checkpoint's and the config file's hashes, whatever their paths.
+    code, fixed = [], []
+    for probe in probes:
         hashes = probe.get("input_hashes") or {}
-        return sorted(v for k, v in hashes.items() if not k.endswith(CODE_INPUTS))
+        code.append({_code_input(k): v for k, v in hashes.items() if _code_input(k)})
+        # The starting checkpoint's and the config file's, whatever their paths.
+        fixed.append(sorted(v for k, v in hashes.items() if not _code_input(k)))
+    if any(len(f) != 2 or f != fixed[0] for f in fixed):
+        problems.append(
+            "the batches' starting checkpoints or config files differ, or a hash is missing"
+        )
+    changed = []
+    for name in CODE_INPUTS:
+        values = [c.get(name) for c in code]
+        if None in values:
+            problems.append(f"a batch has no hash for {name}")
+        elif len(set(values)) > 1:
+            changed.append(name)
+            if name not in allow_code:
+                problems.append(
+                    f"{name} differs between the batches; read its diff, then pass"
+                    f" --allow-code-change {name} if no trial depends on it"
+                )
 
-    if any(not fixed(p) or fixed(p) != fixed(probes[0]) for p in probes):
-        problems.append("the batches' starting checkpoints or config files differ")
     finished = [r for p in probes for r in p["runs"] if r.get("status") == "COMPLETE"]
 
     def sample(run):
         return run.get("validation_diag"), run["metrics"].get("val_positive_rate")
 
-    if any(sample(r) != sample(finished[0]) for r in finished):
+    def recorded(run):
+        diag, prevalence = sample(run)
+        return (
+            isinstance(diag, dict)
+            and bool(diag.get("inputs_sha256"))
+            and isinstance(prevalence, float)
+            and math.isfinite(prevalence)
+        )
+
+    if not all(recorded(r) for r in finished):
+        problems.append("a finished trial does not record its validation sample")
+    elif any(sample(r) != sample(finished[0]) for r in finished):
         problems.append(
             "validation inputs, sample counts or prevalence differ between trials"
         )
@@ -82,6 +129,7 @@ def poolable(probes: list[dict]) -> None:
         problems.append("a sampling seed repeats, so a trial replays another")
     if problems:
         raise ValueError("not poolable: " + "; ".join(problems))
+    return changed
 
 
 def sigma_interval(sd: float, df: int, level: float = 0.95) -> tuple[float, float]:
@@ -190,10 +238,22 @@ def main() -> int:
     ap.add_argument("--incumbent", type=float, required=True)
     ap.add_argument("--tolerance", type=float, required=True)
     ap.add_argument("--out", type=Path, required=True)
+    ap.add_argument(
+        "--allow-code-change",
+        action="append",
+        default=[],
+        choices=CODE_INPUTS,
+        help="a code input whose hash may differ between the batches (after reading its diff)",
+    )
     args = ap.parse_args()
     probes = [json.loads(p.read_text()) for p in args.batch]
-    batches = [completed(p) for p in probes]
-    poolable(probes)
+    try:
+        batches = [completed(p) for p in probes]
+        changed = poolable(probes, args.allow_code_change)
+    except ValueError as exc:
+        ap.error(str(exc))
+    for name in changed:
+        print(f"allowed: {name} differs between the batches", file=sys.stderr)
     result = analyse(batches, args.incumbent, args.tolerance)
     result["sources"] = [str(p) for p in args.batch]
     args.out.write_text(json.dumps(result, indent=1) + "\n")

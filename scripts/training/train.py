@@ -421,7 +421,8 @@ def is_model_improvement(
 # Noted 2026-10-17; docs/DESIGN_ARCHITECTURE_REVIEW_2026-10-17_TOLERANCE.md.)
 # Four more trials ran 2026-10-17 (reports/noise_probe_v3_pooled_2026-10-17.md): pooled
 # over eight, sigma = 0.0029 (95% CI 0.0019-0.0058, df 7), so under July's two-draws model a
-# no-change cycle promotes 0.67% of the time, and 11% at the CI's top.
+# no-change cycle promotes 0.67% of the time, and 11% at the CI's top (against a fixed
+# stored score: 0.02% and 4.3%). All eight gained 0.011-0.020 on best_model.pt.
 F1_NOISE_TOLERANCE = 1e-2
 LIFT_MARGIN = 0.02
 
