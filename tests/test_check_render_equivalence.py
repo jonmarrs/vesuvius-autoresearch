@@ -197,3 +197,116 @@ def test_test_files_are_excluded_from_suspects():
     src = (_REPO / "scripts/check_render_equivalence.py").read_text()
     assert '"/tests/" not in f' in src
     assert 'startswith("test_")' in src
+
+
+# --- what it cannot answer, in a throwaway villa-shaped repository --------------
+#
+# Each of these read as an empty tree or no imports, so as INTERCHANGEABLE or
+# RENDER-INERT: the false verdicts this checker exists to prevent.
+
+_ENV = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")} | {
+    "GIT_AUTHOR_NAME": "t",
+    "GIT_AUTHOR_EMAIL": "t@example.com",
+    "GIT_COMMITTER_NAME": "t",
+    "GIT_COMMITTER_EMAIL": "t@example.com",
+    "GIT_CONFIG_GLOBAL": os.devnull,
+    "GIT_CONFIG_NOSYSTEM": "1",
+}
+_FILES = {
+    "spiral-fitting/render_ink.py": "from tifxyz import load_tifxyz\n",
+    "spiral-fitting/get_ink_metrics.py": "import numpy\n",
+    "spiral-fitting/tifxyz.py": "def load_tifxyz(): pass\n",
+    "lasagna/fit.py": "x = 1\n",
+    "vesuvius/src/a.py": "a = 1\n",
+}
+
+
+def _git(repo, *args):
+    return subprocess.run(
+        ["git", "-C", str(repo), *args],
+        env=_ENV,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+
+
+def _repo(path, files=_FILES):
+    for name, text in files.items():
+        (path / name).parent.mkdir(parents=True, exist_ok=True)
+        (path / name).write_text(text)
+    path.mkdir(parents=True, exist_ok=True)
+    _git(path, "init", "-q", "-b", "main")
+    _git(path, "add", ".")
+    _git(path, "commit", "-q", "-m", "old")
+    return path
+
+
+def _commit(repo, name, text):
+    (repo / name).write_text(text)
+    _git(repo, "add", ".")
+    _git(repo, "commit", "-q", "-m", f"change {name}")
+
+
+def _check(repo, a="HEAD~1", b="HEAD", env=_ENV):
+    return subprocess.run(
+        [sys.executable, str(_REPO / "scripts/check_render_equivalence.py")]
+        + ["--repo", str(repo), "--from-ref", a, "--to-ref", b],
+        env=env,
+        capture_output=True,
+        text=True,
+    )
+
+
+def test_an_imported_module_change_needs_a_human(tmp_path):
+    repo = _repo(tmp_path / "villa")
+    _commit(repo, "spiral-fitting/tifxyz.py", "def load_tifxyz(): return 1\n")
+    r = _check(repo)
+    assert r.returncode == 0 and "NEEDS A HUMAN" in r.stdout, r.stdout + r.stderr
+    assert "spiral-fitting/tifxyz.py" in r.stdout
+
+
+def test_an_empty_directory_inside_another_repository_is_refused(tmp_path):
+    """An uninitialised submodule: git answered for this repository, which has none
+    of the three trees, so every one compared as the same nothing."""
+    outer = _repo(tmp_path / "project", {"README": "x\n"})
+    _commit(outer, "README", "y\n")
+    (outer / "villa").mkdir()
+    r = _check(outer / "villa")
+    assert r.returncode == 2 and "not a repository of its own" in r.stderr, r.stdout
+    assert "INTERCHANGEABLE" not in r.stdout
+
+
+def test_a_tree_at_neither_ref_is_not_comparable(tmp_path):
+    files = {k: v for k, v in _FILES.items() if not k.startswith("lasagna/")}
+    repo = _repo(tmp_path / "villa", files)
+    _commit(repo, "vesuvius/src/a.py", "a = 2\n")
+    r = _check(repo)
+    assert r.returncode == 2 and "lasagna: at neither ref" in r.stderr, r.stdout
+
+
+def test_an_entry_point_at_neither_ref_is_not_comparable(tmp_path):
+    """Its imports read as none, so a change to a module it imports was inert."""
+    files = dict(_FILES)
+    del files["spiral-fitting/get_ink_metrics.py"]
+    repo = _repo(tmp_path / "villa", files)
+    _commit(repo, "vesuvius/src/a.py", "a = 2\n")
+    r = _check(repo)
+    assert r.returncode == 2, r.stdout + r.stderr
+    assert "spiral-fitting/get_ink_metrics.py: at neither ref" in r.stderr
+
+
+def test_a_ref_that_does_not_resolve_exits_2(tmp_path):
+    repo = _repo(tmp_path / "villa")
+    r = _check(repo, "HEAD", "no-such-ref")
+    assert r.returncode == 2 and "failed" in r.stderr, r.stdout + r.stderr
+
+
+def test_an_inherited_git_dir_is_ignored(tmp_path):
+    """A hook exports GIT_DIR; inherited, every call read that repository."""
+    repo = _repo(tmp_path / "villa")
+    _commit(repo, "spiral-fitting/tifxyz.py", "def load_tifxyz(): return 1\n")
+    other = _repo(tmp_path / "other", {"README": "x\n"})
+    _commit(other, "README", "y\n")
+    r = _check(repo, env=_ENV | {"GIT_DIR": str(other / ".git")})
+    assert "NEEDS A HUMAN" in r.stdout, r.stdout + r.stderr

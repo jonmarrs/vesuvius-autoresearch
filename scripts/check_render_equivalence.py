@@ -17,13 +17,21 @@ The procedure, in the order that makes each step cheap:
    A change to a module nothing imports cannot affect the output.
 4. What is left is the set a human must read. The script does not guess whether
    those changes matter; it reduces 43 files to the two or three that could.
+
+It exits 2 when it cannot answer: a directory that is not a repository of its
+own (an uninitialised submodule, where git answers for this repository), a ref
+or git call that fails, or a path at neither ref. Each of those used to read as
+an empty tree or no imports, and so as INTERCHANGEABLE or RENDER-INERT.
 """
 
 import argparse
+import os
 import re
-import subprocess
 import sys
 from pathlib import Path
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from check_villa_render_path import git, not_own_repository  # noqa: E402
 
 EXTRACTED = ("spiral-fitting", "lasagna", "vesuvius/src")
 ENTRY_POINTS = ("spiral-fitting/render_ink.py", "spiral-fitting/get_ink_metrics.py")
@@ -42,23 +50,28 @@ STAGE_PATHS = ("lasagna",)
 DOC_SUFFIXES = (".md", ".rst", ".txt")
 
 
-def git(repo: str, *args: str) -> str:
-    r = subprocess.run(["git", "-C", repo, *args], capture_output=True, text=True)
-    return r.stdout.strip() if r.returncode == 0 else ""
-
-
-def tree(repo: str, ref: str, path: str) -> str:
-    return git(repo, "rev-parse", f"{ref}:{path}")
+def tree(repo: str, ref: str, path: str) -> str | None:
+    """The object `path` names at `ref`, or None where it is absent there. Read
+    from its parent tree's entry, so an absence and a failed git call (which
+    exits) are not the same empty answer."""
+    for entry in git(Path(repo), "ls-tree", "-z", "--full-tree", ref, "--", path).split(
+        "\0"
+    ):
+        meta, _, name = entry.partition("\t")
+        if name == path:
+            return meta.split()[2]
+    return None
 
 
 def changed_files(repo: str, a: str, b: str, path: str) -> list[str]:
-    out = git(repo, "diff", "--name-only", a, b, "--", path)
-    return [f for f in out.splitlines() if f]
+    # --no-renames: both sides of a move, from the trees alone.
+    out = git(Path(repo), "diff", "--no-renames", "--name-only", "-z", a, b, "--", path)
+    return [f for f in out.split("\0") if f]
 
 
 def imports_of(repo: str, ref: str, path: str) -> set[str]:
     """Module names imported by a file, top-level only."""
-    src = git(repo, "show", f"{ref}:{path}")
+    src = git(Path(repo), "show", f"{ref}:{path}")
     mods = set()
     for m in re.finditer(r"^\s*(?:from|import)\s+([A-Za-z_][\w.]*)", src, re.M):
         mods.add(m.group(1).split(".")[0])
@@ -77,12 +90,31 @@ def main() -> int:
     args = ap.parse_args()
 
     a, b = args.from_ref, args.to_ref
+    if not Path(args.repo).exists():
+        print(f"no villa checkout at {args.repo}", file=sys.stderr)
+        return 2
+    sys.stdout.reconfigure(errors="backslashreplace")  # a name that is not UTF-8
+    refusal = not_own_repository(Path(args.repo))
+    if refusal:
+        print(refusal, file=sys.stderr)
+        return 2
     sa, sb = (
-        git(args.repo, "rev-parse", "--short=9", a),
-        git(args.repo, "rev-parse", "--short=9", b),
+        git(
+            Path(args.repo), "rev-parse", "--short=9", "--verify", f"{r}^{{commit}}"
+        ).strip()
+        for r in (a, b)
     )
-    if not sa or not sb:
-        raise SystemExit(f"cannot resolve {a} or {b} in {args.repo}")
+    # A path at neither ref would compare as unchanged.
+    absent = [
+        p
+        for p in EXTRACTED + ENTRY_POINTS
+        if tree(args.repo, a, p) is None and tree(args.repo, b, p) is None
+    ]
+    if absent:
+        print(
+            f"{', '.join(absent)}: at neither ref, so not comparable", file=sys.stderr
+        )
+        return 2
     print(f"comparing {sa} -> {sb}\n")
 
     # 1. tree objects
