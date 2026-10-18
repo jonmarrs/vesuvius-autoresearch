@@ -242,3 +242,98 @@ def test_an_extension_set_outside_villas_own_config_is_ignored(main_repo):
     )
     wt = main_repo / ".claude" / "worktrees" / "feature"
     assert git(wt / "villa", "status", "--porcelain") == ""
+
+
+LINKS = (".venv", "local_data", "checkpoints", "models")
+
+
+def test_add_refuses_a_path_in_use_before_making_the_branch(main_repo):
+    """Git creates the branch, then refuses the path, and a second add stops on the
+    branch."""
+    wt = main_repo / ".claude" / "worktrees" / "feature"
+    wt.mkdir(parents=True)
+    (wt / "left").write_text("x\n")
+    error = refused(main_repo, "add", "feature", "main")
+    assert error.returncode == 1 and "already exists" in error.stderr
+    assert git(main_repo, "branch", "--list", "feature") == ""
+    (wt / "left").unlink()  # an empty directory, which git accepts
+    run(main_repo, "add", "feature", "main")
+    assert git(wt, "branch", "--show-current") == "feature"
+
+
+def test_an_add_that_stops_part_way_can_be_undone(main_repo):
+    """villa's step fails once the outer worktree exists: here, a pin villa lacks.
+    remove then stopped on the missing villa worktree, and add on the branch."""
+    git(main_repo, "update-index", "--cacheinfo", f"160000,{'1' * 40},villa")
+    git(main_repo, "commit", "-q", "-m", "a pin villa does not have")
+    error = refused(main_repo, "add", "feature", "HEAD")
+    assert "add stopped part-way" in error.stderr and "remove feature" in error.stderr
+    run(main_repo, "remove", "feature")
+    assert not (main_repo / ".claude" / "worktrees" / "feature").exists()
+    assert len(git(main_repo, "worktree", "list").splitlines()) == 1
+    git(main_repo, "branch", "-D", "feature")
+    run(main_repo, "add", "feature", "HEAD~1")
+
+
+def test_remove_refuses_before_changing_anything(main_repo):
+    """git worktree remove refused an untracked file only after villa's worktree and
+    the links were gone, and remove could not then run again."""
+    run(main_repo, "add", "feature", "main")
+    wt = main_repo / ".claude" / "worktrees" / "feature"
+    (wt / "notes.txt").write_text("x\n")
+    error = refused(main_repo, "remove", "feature")
+    assert error.returncode == 1 and "notes.txt" in error.stderr
+    assert "/modules/villa/worktrees/" in git(
+        wt / "villa", "rev-parse", "--absolute-git-dir"
+    )
+    assert all((wt / link).is_symlink() for link in LINKS)
+    (wt / "notes.txt").unlink()
+    run(main_repo, "remove", "feature")
+    assert not wt.exists()
+
+
+def test_a_stopped_remove_resumes(main_repo):
+    """As if a remove was stopped after its first steps."""
+    run(main_repo, "add", "feature", "main")
+    wt = main_repo / ".claude" / "worktrees" / "feature"
+    git(main_repo / "villa", "worktree", "remove", str(wt / "villa"))
+    (wt / "villa").mkdir()
+    (wt / ".venv").unlink()
+    run(main_repo, "remove", "feature")
+    assert not wt.exists()
+    assert len(git(main_repo / "villa", "worktree", "list").splitlines()) == 1
+    assert all((main_repo / link).is_dir() for link in LINKS)
+
+
+def test_remove_refuses_a_locked_worktree(main_repo):
+    run(main_repo, "add", "feature", "main")
+    wt = main_repo / ".claude" / "worktrees" / "feature"
+    git(main_repo, "worktree", "lock", str(wt))
+    error = refused(main_repo, "remove", "feature")
+    assert error.returncode == 1 and "locked" in error.stderr
+    assert "/modules/villa/worktrees/" in git(
+        wt / "villa", "rev-parse", "--absolute-git-dir"
+    )
+    assert all((wt / link).is_symlink() for link in LINKS)
+
+
+def test_remove_refuses_what_is_not_a_worktree(main_repo):
+    error = refused(main_repo, "remove", "absent")
+    assert error.returncode == 1 and "no worktree" in error.stderr
+    plain = main_repo / ".claude" / "worktrees" / "plain"
+    plain.mkdir(parents=True)  # git answers for the main checkout here
+    error = refused(main_repo, "remove", "plain")
+    assert error.returncode == 1 and "no worktree" in error.stderr
+    assert plain.is_dir()
+
+
+def test_remove_refuses_a_villa_that_is_not_villas_worktree(main_repo):
+    run(main_repo, "add", "feature", "main")
+    wt = main_repo / ".claude" / "worktrees" / "feature"
+    git(main_repo / "villa", "worktree", "remove", str(wt / "villa"))
+    (wt / "villa").mkdir()
+    (wt / "villa" / "stray").write_text("x\n")
+    error = refused(main_repo, "remove", "feature")
+    assert error.returncode == 1 and "not one of villa's worktrees" in error.stderr
+    assert (wt / "villa" / "stray").exists()
+    assert all((wt / link).is_symlink() for link in LINKS)

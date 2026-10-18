@@ -47,7 +47,14 @@ villa_needs_own_worktree() {
 
 case "$cmd" in
 add)
+    # Git creates the branch before it refuses a path in use, and a second add
+    # then stops on the branch. It accepts an empty directory.
+    if [ -L "$WT" ] || { [ -e "$WT" ] && { [ ! -d "$WT" ] || [ -n "$(ls -A "$WT")" ]; }; }; then
+        echo "$WT already exists" >&2
+        exit 1
+    fi
     git -C "$MAIN" worktree add -b "$name" "$WT" "${3:-origin/main}"
+    trap '[ $? -eq 0 ] || echo "add stopped part-way. Undo it with: $0 remove $name, then git -C $MAIN branch -D $name" >&2' EXIT
     ln -s "$MAIN/.venv" "$WT/.venv"
     ln -s "$MAIN/local_data" "$WT/local_data"
     ln -s "$MAIN/checkpoints" "$WT/checkpoints"
@@ -61,12 +68,51 @@ add)
     echo "Run Python there with UV_NO_SYNC=1."
     ;;
 remove)
-    # Each step refuses rather than discard local changes. Removing villa's
-    # worktree deletes villa/; the empty directory is what an unpopulated
-    # submodule looks like, and without it the outer worktree reads as modified.
-    git -C "$MAIN/villa" worktree remove "$WT/villa"
-    mkdir "$WT/villa"
-    rm "$WT/.venv" "$WT/local_data" "$WT/checkpoints" "$WT/models"
+    # Refuse rather than discard local changes, and before changing anything: a
+    # refusal once villa's worktree and the links are gone would leave a
+    # worktree that is neither usable nor removable here.
+    own="$(git -C "$WT" rev-parse --absolute-git-dir 2>/dev/null || true)"
+    case "$own" in
+    "$common"/worktrees/*) ;;
+    *)
+        echo "no worktree at $WT" >&2
+        exit 1
+        ;;
+    esac
+    if [ -e "$own/locked" ]; then
+        echo "$WT is locked (git worktree unlock)" >&2
+        exit 1
+    fi
+    # What git worktree remove refuses, but for villa, whose own remove checks it.
+    changes="$(git -C "$WT" status --porcelain --ignore-submodules=all)"
+    if [ -n "$changes" ]; then
+        echo "$WT has changes (git -C $WT status):" >&2
+        echo "$changes" | sed -n 1,5p >&2
+        exit 1
+    fi
+    villa_git="$(git -C "$MAIN/villa" rev-parse --path-format=absolute --git-common-dir)"
+    villa_own="$(git -C "$WT/villa" rev-parse --absolute-git-dir 2>/dev/null || true)"
+    case "$villa_own" in
+    "$villa_git"/worktrees/*)
+        git -C "$MAIN/villa" worktree remove "$WT/villa"
+        ;;
+    *)
+        # Already removed, or never added (an add that stopped part-way).
+        if [ -n "$(ls -A "$WT/villa" 2>/dev/null)" ]; then
+            echo "$WT/villa is not one of villa's worktrees" >&2
+            exit 1
+        fi
+        ;;
+    esac
+    # Removing villa's worktree deletes villa/; the empty directory is what an
+    # unpopulated submodule looks like, and without it the outer worktree reads
+    # as modified. Each step is skipped when done, so a stopped remove resumes.
+    [ -d "$WT/villa" ] || mkdir "$WT/villa"
+    for link in .venv local_data checkpoints models; do
+        if [ -L "$WT/$link" ]; then
+            rm "$WT/$link"
+        fi
+    done
     git -C "$MAIN" worktree remove "$WT"
     ;;
 repair)
