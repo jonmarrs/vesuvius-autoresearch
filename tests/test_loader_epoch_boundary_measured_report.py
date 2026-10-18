@@ -136,3 +136,16 @@ def test_the_first_report_points_here():
         "Measured on 2026-10-18 (`loader_epoch_boundary_measured_2026-10-18.md`): "
         f"{AFTER['fit']['per_boundary_s']:.1f} s per boundary over the first fixed shift"
     ) in first
+
+
+def test_the_slope_rests_on_one_cycle():
+    """Nine cycles at 5 boundaries and one at 18: the slope is that one against the rest."""
+    counts = sorted(r["boundaries"] for r in AFTER["rows"])
+    assert counts == [5] * 9 + [18]
+    (far,) = [r for r in AFTER["rows"] if r["boundaries"] == 18]
+    assert far["cycle"] == "use_uamt_False"
+    assert "The slope rests on one cycle." in REPORT
+    assert (
+        "Nine of the ten cycles crossed 5 boundaries; only `use_uamt_False` crossed more (18)."
+        in REPORT
+    )

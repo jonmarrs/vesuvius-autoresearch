@@ -34,6 +34,11 @@ report's table uses. SE is the slope's standard error.
 
 ## What it does not say
 
+* **The slope rests on one cycle.** Nine of the ten cycles crossed 5 boundaries; only `use_uamt_False` crossed
+  more (18). So the fitted 0.2 s per boundary is that one cycle's overhead against the other nine's mean, and its SE
+  assumes the model rather than measuring the spread at other pass counts. The comparison at 5 boundaries rests on
+  all nine: 97 s against 185 s, with the same night's two old-code cycles at 182 and 185 s. (Noted 2026-10-18;
+  `docs/DESIGN_ARCHITECTURE_REVIEW_2026-10-18_LOADER_MEASURED.md`.)
 * **The saving is 88 s per 60-minute cycle, not the 106 s predicted** (5 boundaries × 21.3 s). The restart also
   pulled #112 and #115–#117. #116 changes the UA-MT unlabeled grid. This shift does not separate their costs from
   the loader's.
