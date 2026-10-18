@@ -206,6 +206,50 @@ def test_a_multichannel_label_is_refused(tmp_path, monkeypatch):
         VesuviusLabeledDataset(volume_uri, labels, patch_size=16, num_layers=4)
 
 
+@pytest.mark.parametrize(
+    "stored, ink",
+    [
+        (np.uint8, 255),  # 8-bit 0/255
+        (np.uint8, 1),  # 0/1
+        (np.uint16, 65535),  # 16-bit 0/65535: was read as 257
+        (np.uint16, 255),  # 8-bit values in a 16-bit file
+    ],
+)
+def test_labels_and_masks_are_scaled_to_unit_range_by_bit_depth(
+    tmp_path, monkeypatch, stored, ink
+):
+    monkeypatch.setattr(vesuvius_loader, "DEFAULT_CACHE_DIR", str(tmp_path / "c"))
+    volume_uri, labels = _fragment(tmp_path)
+    values = np.zeros((32, 32), stored)
+    values[8:24, 8:24] = ink
+    Image.fromarray(values).save(labels)
+    Image.fromarray(np.full((32, 32), ink, stored)).save(tmp_path / "mask.png")
+    dataset = VesuviusLabeledDataset(
+        volume_uri,
+        labels,
+        str(tmp_path / "mask.png"),
+        patch_size=16,
+        num_layers=4,
+    )
+    assert dataset.labels.max() == 1.0 and dataset.labels.min() == 0.0
+    assert dataset.labels[8:24, 8:24].min() == 1.0
+    assert np.all(dataset.mask == 1.0)
+    _, label, _ = dataset[0]
+    assert float(label.max()) <= 1.0
+
+
+def test_a_label_outside_any_bit_depth_is_refused(tmp_path, monkeypatch):
+    monkeypatch.setattr(vesuvius_loader, "DEFAULT_CACHE_DIR", str(tmp_path / "c"))
+    volume_uri, labels = _fragment(tmp_path)
+    values = np.zeros((32, 32), np.int32)
+    values[0, 0] = 1 << 20  # a 32-bit integer image (PNG mode I)
+    Image.fromarray(values).save(labels.replace(".png", ".tif"))
+    with pytest.raises(ValueError, match="8-bit or 16-bit"):
+        VesuviusLabeledDataset(
+            volume_uri, labels.replace(".png", ".tif"), patch_size=16, num_layers=4
+        )
+
+
 def test_an_unnormalised_ct_dtype_is_refused(tmp_path, monkeypatch):
     monkeypatch.setattr(vesuvius_loader, "DEFAULT_CACHE_DIR", str(tmp_path / "c"))
     volume_uri, labels = _fragment(tmp_path, dtype="i2")
