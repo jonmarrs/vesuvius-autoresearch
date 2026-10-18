@@ -13,6 +13,14 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
+# The smoke needs new, separate destinations on every run (docs/CHECKPOINT_EXPORT.md);
+# run bare, it exits 2. It validates the checkpoint's envelope, not villa's code.
+SMOKE_CHECK = (
+    'mkdir -p outputs && d="$(mktemp -d outputs/pin-review.XXXXXX)" && '
+    "uv run python scripts/smoke_test_villa_optimized_inference.py --input best_model.pt "
+    '--output "$d/model.pt" --report "$d/report.json" --command-out "$d/command.sh"'
+)
+
 REVIEW_AREAS = {
     "lasagna": {
         "risk": "medium",
@@ -33,16 +41,12 @@ REVIEW_AREAS = {
     "optimized_inference": {
         "risk": "high",
         "reason": "Inference contract changes can break reproducible prize packaging.",
-        "checks": [
-            "uv run python scripts/smoke_test_villa_optimized_inference.py",
-        ],
+        "checks": [SMOKE_CHECK],
     },
     "resnet3d_decoder": {
         "risk": "high",
         "reason": "Model contract changes can affect checkpoint compatibility and inference outputs.",
-        "checks": [
-            "uv run python scripts/smoke_test_villa_optimized_inference.py",
-        ],
+        "checks": [SMOKE_CHECK],
     },
     "vesuvius_data": {
         "risk": "medium",
@@ -146,10 +150,9 @@ def build_markdown_checklist(report):
     md.append(f"- **Adoption Mode:** `{report['adoption_mode']}`")
     md.append(f"- **Recommendation:** `{report['recommendation']}`\n")
 
+    # Every area: the high-risk ones are what hold a pin update.
     md.append("## Target Areas\n")
     for area in report["areas"]:
-        if area["area"] not in ["lasagna", "volume_cartographer", "prize_docs"]:
-            continue
         status = "[ ]" if area["changed_files"] > 0 else "[x]"
         md.append(
             f"### {status} {area['area']} (Changed upstream: {area['changed_files']})"
