@@ -3,6 +3,7 @@
 #
 #   scripts/dev_worktree.sh add <branch> [base]   # .claude/worktrees/<branch>, base origin/main
 #   scripts/dev_worktree.sh remove <branch>
+#   scripts/dev_worktree.sh repair <branch>       # a worktree added without #119's fix (below)
 #
 # The loop trains from the main checkout, so other work happens in a worktree.
 # This one shares the main checkout's .venv, local_data, checkpoints and models
@@ -16,7 +17,7 @@
 set -euo pipefail
 
 usage() {
-    echo "usage: $0 add <branch> [base] | remove <branch>" >&2
+    echo "usage: $0 add <branch> [base] | remove <branch> | repair <branch>" >&2
     exit 2
 }
 
@@ -25,7 +26,24 @@ name="${2:-}"
 [ -n "$cmd" ] && [ -n "$name" ] || usage
 common="$(git -C "$(dirname "$0")" rev-parse --path-format=absolute --git-common-dir)"
 MAIN="$(dirname "$common")"
+# A branch name, so never a path out of .claude/worktrees (`../..` would make
+# WT the main checkout, whose villa repair would then rewrite).
+git -C "$MAIN" check-ref-format --branch "$name" >/dev/null 2>&1 || {
+    echo "not a branch name: $name" >&2
+    exit 2
+}
 WT="$MAIN/.claude/worktrees/$name"
+
+# With extensions.worktreeConfig on, a linked worktree reads core.worktree from
+# villa's shared config: an absorbed submodule's ../../../villa, which from a
+# linked worktree is villa's git directory. Git then lists every file as
+# deleted, and a checkout or clean in villa/ would write to or empty that
+# directory. So each villa worktree gets its own, in its config.worktree. Only
+# then: without the extension, git refuses --worktree once villa has a second
+# worktree. Git reads extensions.* from the repository's own config only.
+villa_needs_own_worktree() {
+    [ "$(git -C "$MAIN/villa" config --local --bool extensions.worktreeConfig || true)" = true ]
+}
 
 case "$cmd" in
 add)
@@ -36,13 +54,7 @@ add)
     ln -s "$MAIN/models" "$WT/models"
     pin="$(git -C "$WT" ls-tree HEAD villa | awk '{print $3}')"
     git -C "$MAIN/villa" worktree add --detach "$WT/villa" "$pin"
-    # With extensions.worktreeConfig on, a linked worktree reads core.worktree
-    # from villa's shared config: the submodule's ../../../villa, which from
-    # here is villa's git directory. Git then lists every file as deleted, and a
-    # checkout or clean in villa/ would write to or empty that directory. So
-    # this worktree gets its own. Only then: without the extension, --worktree
-    # writes the shared config, which every villa checkout reads.
-    if [ "$(git -C "$MAIN/villa" config --bool extensions.worktreeConfig || true)" = true ]; then
+    if villa_needs_own_worktree; then
         git -C "$WT/villa" config --worktree core.worktree "$WT/villa"
     fi
     echo "Worktree ready: $WT (villa at ${pin:0:9})."
@@ -56,6 +68,38 @@ remove)
     mkdir "$WT/villa"
     rm "$WT/.venv" "$WT/local_data" "$WT/checkpoints" "$WT/models"
     git -C "$MAIN" worktree remove "$WT"
+    ;;
+repair)
+    # A worktree added by this script without #119's fix (merged 2026-10-17
+    # 23:12 PDT) has no core.worktree of its own: in its villa/, `git rev-parse
+    # --show-toplevel` names villa's git directory. add cannot make it again,
+    # since its branch exists; this sets core.worktree in place.
+    villa_git="$(git -C "$MAIN/villa" rev-parse --path-format=absolute --git-common-dir)"
+    own="$(git -C "$WT/villa" rev-parse --absolute-git-dir 2>/dev/null || true)"
+    case "$own" in
+    "$villa_git"/worktrees/*) ;;
+    *)
+        echo "no villa worktree at $WT/villa" >&2
+        exit 1
+        ;;
+    esac
+    if ! villa_needs_own_worktree; then
+        echo "Nothing to repair: villa has no extensions.worktreeConfig."
+        exit 0
+    fi
+    git -C "$WT/villa" config --worktree core.worktree "$WT/villa"
+    top="$(git -C "$WT/villa" rev-parse --show-toplevel)"
+    [ "$top" -ef "$WT/villa" ] || {
+        echo "repair failed: $WT/villa still reports $top as its work tree" >&2
+        exit 1
+    }
+    echo "Repaired: $WT/villa is its own work tree."
+    # Changes made while it was broken, staged ones included, show here.
+    changes="$(git -C "$WT/villa" status --short)"
+    if [ -n "$changes" ]; then
+        echo "Its villa/ has changes (git -C $WT/villa status):"
+        echo "$changes" | sed -n 1,5p
+    fi
     ;;
 *)
     usage

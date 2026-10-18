@@ -14,6 +14,9 @@ ENV = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")} | {
     "GIT_AUTHOR_EMAIL": "t@example.com",
     "GIT_COMMITTER_NAME": "t",
     "GIT_COMMITTER_EMAIL": "t@example.com",
+    # Nor the user's global or system config (a signing key, hooks, templates).
+    "GIT_CONFIG_GLOBAL": os.devnull,
+    "GIT_CONFIG_NOSYSTEM": "1",
     "GIT_CONFIG_COUNT": "1",
     "GIT_CONFIG_KEY_0": "protocol.file.allow",
     "GIT_CONFIG_VALUE_0": "always",
@@ -151,3 +154,91 @@ def test_remove_refuses_local_changes_when_worktree_config_is_on(main_repo):
     with pytest.raises(subprocess.CalledProcessError):
         run(main_repo, "remove", "feature")
     assert (wt / "villa" / "README").read_text() == "edited\n"
+
+
+def refused(main, *args):
+    with pytest.raises(subprocess.CalledProcessError) as error:
+        run(main, *args)
+    return error.value
+
+
+def test_repair_fixes_a_worktree_added_without_its_villa_work_tree(main_repo):
+    """A worktree added by the script before #119 lacks villa's core.worktree, and add
+    cannot make it again: the branch exists."""
+    enable_worktree_config(main_repo)
+    run(main_repo, "add", "feature", "main")
+    wt = main_repo / ".claude" / "worktrees" / "feature"
+    git(wt / "villa", "config", "--worktree", "--unset", "core.worktree")  # as before
+    assert (
+        Path(git(wt / "villa", "rev-parse", "--show-toplevel"))
+        != (wt / "villa").resolve()
+    )
+    refused(main_repo, "add", "feature", "main")
+    shared = main_repo / ".git" / "modules" / "villa" / "config"
+    main_own = main_repo / ".git" / "modules" / "villa" / "config.worktree"
+    before = shared.read_text(), main_own.read_text()
+    assert "Repaired" in run(main_repo, "repair", "feature").stdout
+    assert (
+        Path(git(wt / "villa", "rev-parse", "--show-toplevel"))
+        == (wt / "villa").resolve()
+    )
+    assert git(wt / "villa", "status", "--porcelain") == ""
+    # In this worktree's own config.worktree, and nowhere villa's other checkouts read.
+    origin = git(wt / "villa", "config", "--show-origin", "core.worktree")
+    own = git(wt / "villa", "rev-parse", "--absolute-git-dir")
+    assert "/modules/villa/worktrees/" in own
+    assert origin.startswith(f"file:{own}/config.worktree\t")
+    assert (shared.read_text(), main_own.read_text()) == before
+    run(main_repo, "remove", "feature")
+    assert not wt.exists()
+
+
+def test_repair_is_a_no_op_without_the_extension(main_repo):
+    """Without extensions.worktreeConfig git refuses --worktree once villa has a
+    second worktree, so repair, like add, leaves the config alone."""
+    shared = main_repo / ".git" / "modules" / "villa" / "config"
+    run(main_repo, "add", "feature", "main")
+    before = shared.read_text()
+    assert "Nothing to repair" in run(main_repo, "repair", "feature").stdout
+    assert shared.read_text() == before
+
+
+def test_repair_refuses_a_missing_worktree(main_repo):
+    error = refused(main_repo, "repair", "absent")
+    assert error.returncode == 1 and "no villa worktree" in error.stderr
+
+
+@pytest.mark.parametrize("name", ["../..", "/../..", "../../", ".", ".."])
+def test_a_path_is_not_a_branch_name(main_repo, name):
+    """`repair ../..` named the main checkout, whose villa it then rewrote."""
+    enable_worktree_config(main_repo)
+    own = main_repo / ".git" / "modules" / "villa" / "config.worktree"
+    before = own.read_text()
+    error = refused(main_repo, "repair", name)
+    assert error.returncode == 2 and "not a branch name" in error.stderr
+    assert own.read_text() == before
+
+
+def test_an_extension_set_outside_villas_own_config_is_ignored(main_repo):
+    """Git reads extensions.* from the repository's config only, and refuses
+    --worktree without it: a global setting must not make add call it."""
+    env = ENV | {
+        "GIT_CONFIG_COUNT": "2",
+        "GIT_CONFIG_KEY_1": "extensions.worktreeConfig",
+        "GIT_CONFIG_VALUE_1": "true",
+    }
+    subprocess.run(
+        [
+            "bash",
+            str(main_repo / "scripts" / "dev_worktree.sh"),
+            "add",
+            "feature",
+            "main",
+        ],
+        env=env,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    wt = main_repo / ".claude" / "worktrees" / "feature"
+    assert git(wt / "villa", "status", "--porcelain") == ""
