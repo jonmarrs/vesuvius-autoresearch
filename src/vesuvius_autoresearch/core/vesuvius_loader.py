@@ -309,7 +309,7 @@ def load_unit_image(path) -> np.ndarray:
     0/1 images are kept as they are; 8-bit values (up to 255) are divided by
     255 and 16-bit ones (above 255) by 65535. Every image used to be divided by
     255 when its maximum passed 1, so a 16-bit label (PNG mode I;16, 0/65535)
-    reached the BCE, Dice and UA-MT losses as targets of 257, and the Dice
+    reached the BCE and Dice losses as targets of 257, and the Dice
     behind val_bpb summed it unbinarized. Anything still outside [0, 1] is
     refused.
     """
