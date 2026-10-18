@@ -53,7 +53,7 @@ except ImportError:
     pass
 
 from torch.amp import GradScaler, autocast
-from torch.utils.data import DataLoader, default_collate
+from torch.utils.data import DataLoader, RandomSampler, default_collate
 
 from scripts import wandb_tracking
 from scripts.betti_loss_module import BettiLoss
@@ -666,9 +666,19 @@ def shuffled_loader(
     volume). Each re-iteration after StopIteration draws a fresh permutation.
     The order comes from ``seed`` alone, so ``workers`` changes only where the
     batches are prepared.
+
+    Workers persist across passes. A fresh iterator per pass spawned them again,
+    and iter() waited while each re-imported train.py, outside the training
+    budget: 21 s a pass on Fr47, and a 60-minute cycle that made 15 passes
+    outlived its timeout (2026-10-16). The permutations come from the sampler's
+    own generator: a new iterator draws a worker seed from the loader's, a
+    persistent one's reset does not, so sharing one made the next pass another
+    order than an in-process loader's.
     """
-    generator = torch.Generator()
-    generator.manual_seed(seed)
+    order = torch.Generator()
+    order.manual_seed(seed)
+    worker_seeds = torch.Generator()  # not the global RNG, as before
+    worker_seeds.manual_seed(seed)
     options = {}
     if workers > 0:
         options = {
@@ -676,15 +686,14 @@ def shuffled_loader(
             # Spawned, not forked: the ridge channel runs on CuPy, and a forked
             # child of a process that has used CUDA cannot.
             "multiprocessing_context": "spawn",
-            # Not persistent: a persistent iterator's reset skips the generator
-            # draw a new iterator makes, so the next pass would be another order.
+            "persistent_workers": True,
             "worker_init_fn": functools.partial(_init_worker, worker_init_fn),
         }
     return DataLoader(
         dataset,
         batch_size=batch_size,
-        shuffle=True,
-        generator=generator,
+        sampler=RandomSampler(dataset, generator=order),
+        generator=worker_seeds,
         pin_memory=True,
         **options,
     )
