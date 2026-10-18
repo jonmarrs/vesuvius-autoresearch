@@ -70,6 +70,8 @@ table and the rest of this report use the 72 cycles.
 
 * **The effect on the loop is predicted, not yet measured.** Overhead should stop rising with boundaries.
   Re-running `scripts/epoch_boundary_overhead.py` on the first shifts after a pull checks that.
+  * Measured on 2026-10-18 (`loader_epoch_boundary_measured_2026-10-18.md`): 0.2 s per boundary over the first
+    fixed shift.
 * **Startup still spawns the workers one after another**, once per cycle; it is inside the 84 s intercept.
 * **A pass's end is still not counted in the budget.** After this fix it costs 0.00 s.
 * **The overhead includes the loop's own seconds between cycles**, not only the training run's.

@@ -126,3 +126,40 @@ def test_a_restart_restarts_the_clock(tmp_path):
     path.write_text("\n".join(night))
     got = [(c["cycle"], c["overhead_s"]) for c in ebo.cycles(str(path))]
     assert got == [("a", 182), ("b", 97)]
+
+
+def test_each_cycle_knows_when_it_started(logs):
+    # From the shift's date and start time, rolling over midnight.
+    assert [(c["cycle"], c["start"]) for c in ebo.cycles(logs[1])] == [
+        ("lr_1e-05", "2026-10-16T07:30:00"),
+        ("use_uamt_False", "2026-10-16T07:47:00"),
+        ("dup", "2026-10-16T08:05:00"),
+        ("paused", "2026-10-16T08:22:00"),
+        ("loss_fiber_bce_0.1", "2026-10-16T23:00:00"),
+        ("use_uamt_False", "2026-10-17T00:03:20"),
+    ]
+
+
+def test_since_keeps_only_cycles_that_started_then_or_later(logs):
+    r = ebo.analyse(*logs, since="2026-10-16T07:47:00")
+    assert [row["cycle"] for row in r["rows"]] == [
+        "use_uamt_False",
+        "loss_fiber_bce_0.1",
+    ]
+    assert r["since"] == "2026-10-16T07:47:00"
+    assert ebo.analyse(*logs)["since"] is None
+
+
+def test_a_rotated_run_log_is_read_in_order(logs, tmp_path):
+    run_log, pattern = logs
+    lines = Path(run_log).read_text().split("\n")
+    # The loop renames run.log to run.log.old between runs; split it there.
+    cut = max(i for i, line in enumerate(lines) if line.startswith(ebo.RUN_START))
+    rotated = tmp_path / "rotated"
+    rotated.mkdir()
+    (rotated / "run.log.old").write_text("\n".join(lines[:cut]) + "\n")
+    (rotated / "run.log").write_text("\n".join(lines[cut:]))
+    split = ebo.analyse(
+        [str(rotated / "run.log.old"), str(rotated / "run.log")], pattern
+    )
+    assert split == ebo.analyse(run_log, pattern) and split["killed"]
