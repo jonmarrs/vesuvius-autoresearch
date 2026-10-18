@@ -218,6 +218,7 @@ _FILES = {
     "spiral-fitting/tifxyz.py": "def load_tifxyz(): pass\n",
     "lasagna/fit.py": "x = 1\n",
     "vesuvius/src/a.py": "a = 1\n",
+    "vesuvius/src/vc3d_fiber_format/__init__.py": "def parse(): pass\n",
 }
 
 
@@ -310,3 +311,106 @@ def test_an_inherited_git_dir_is_ignored(tmp_path):
     _commit(other, "README", "y\n")
     r = _check(repo, env=_ENV | {"GIT_DIR": str(other / ".git")})
     assert "NEEDS A HUMAN" in r.stdout, r.stdout + r.stderr
+
+
+def test_an_unreadable_entry_point_exits_2_not_inert(tmp_path):
+    """In villa's blob:none clone a blob may be missing; offline, git show fails.
+    Read as no imports, a change to tifxyz.py, which render_ink.py imports, was
+    RENDER-INERT."""
+    repo = _repo(tmp_path / "villa")
+    _commit(repo, "spiral-fitting/tifxyz.py", "def load_tifxyz(): return 1\n")
+    blob = _git(repo, "rev-parse", "HEAD:spiral-fitting/render_ink.py")
+    (repo / ".git" / "objects" / blob[:2] / blob[2:]).unlink()
+    r = _check(repo)
+    assert r.returncode == 2 and "failed" in r.stderr, r.stdout + r.stderr
+    assert "RENDER-INERT" not in r.stdout
+
+
+def test_a_path_at_one_ref_only_still_differs(tmp_path):
+    files = {k: v for k, v in _FILES.items() if not k.startswith("lasagna/")}
+    repo = _repo(tmp_path / "villa", files)
+    _commit_new(repo, "lasagna/fit.py", "x = 1\n")
+    r = _check(repo)
+    assert r.returncode == 0 and "NEEDS A HUMAN" in r.stdout, r.stdout + r.stderr
+    assert "lasagna/fit.py" in r.stdout
+    files = dict(_FILES)
+    del files["spiral-fitting/get_ink_metrics.py"]
+    repo = _repo(tmp_path / "villa2", files)
+    _commit_new(repo, "spiral-fitting/get_ink_metrics.py", "import numpy\n")
+    r = _check(repo)
+    assert "RENDERS MAY DIFFER" in r.stdout, r.stdout + r.stderr
+
+
+def _commit_new(repo, name, text):
+    (repo / name).parent.mkdir(parents=True, exist_ok=True)
+    _commit(repo, name, text)
+
+
+def test_a_module_moved_away_from_its_import_needs_a_human(tmp_path):
+    """Listed as a rename, only tifxyz_old.py showed, which nothing imports: inert,
+    while render_ink.py's import of tifxyz broke."""
+    repo = _repo(tmp_path / "villa")
+    _git(repo, "mv", "spiral-fitting/tifxyz.py", "spiral-fitting/tifxyz_old.py")
+    _git(repo, "commit", "-q", "-m", "move")
+    r = _check(repo)
+    assert "NEEDS A HUMAN" in r.stdout, r.stdout + r.stderr
+    assert "spiral-fitting/tifxyz.py" in r.stdout
+
+
+def test_a_package_the_entry_points_import_is_traced(tmp_path):
+    """`import tifxyz` uses tifxyz/__init__.py, whose stem is __init__."""
+    files = {k: v for k, v in _FILES.items() if k != "spiral-fitting/tifxyz.py"}
+    files["spiral-fitting/tifxyz/__init__.py"] = "def load_tifxyz(): pass\n"
+    repo = _repo(tmp_path / "villa", files)
+    _commit(repo, "spiral-fitting/tifxyz/__init__.py", "def load_tifxyz(): return 1\n")
+    r = _check(repo)
+    assert "NEEDS A HUMAN" in r.stdout, r.stdout + r.stderr
+    assert "spiral-fitting/tifxyz/__init__.py" in r.stdout
+
+
+def test_a_library_the_flatten_imports_is_a_suspect(tmp_path):
+    """lasagna's vc3d_fiber_format_adapter imports vesuvius/src/vc3d_fiber_format,
+    which the entry points do not: its __init__.py alone read RENDER-INERT
+    (villa 757f70c01..b944a656c)."""
+    repo = _repo(tmp_path / "villa")
+    _commit(repo, "vesuvius/src/vc3d_fiber_format/__init__.py", "def parse(): 1\n")
+    r = _check(repo)
+    assert "NEEDS A HUMAN" in r.stdout, r.stdout + r.stderr
+    assert "vesuvius/src/vc3d_fiber_format/__init__.py" in r.stdout
+
+
+def test_a_name_git_would_quote_is_named_as_it_is(tmp_path):
+    repo = _repo(tmp_path / "villa")
+    _commit_new(repo, "lasagna/ünï x.py", "y = 1\n")
+    r = _check(repo)
+    assert "lasagna/ünï x.py" in r.stdout, r.stdout + r.stderr
+
+
+def test_an_entry_point_that_is_a_link_is_not_traced(tmp_path):
+    """The link is compared, not what it points to."""
+    repo = _repo(tmp_path / "villa")
+    (repo / "spiral-fitting/real_render.py").write_text("from tifxyz import x\n")
+    (repo / "spiral-fitting/render_ink.py").unlink()
+    (repo / "spiral-fitting/render_ink.py").symlink_to("real_render.py")
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-q", "-m", "link")
+    _commit(repo, "spiral-fitting/real_render.py", "from tifxyz import y\n")
+    r = _check(repo)
+    assert r.returncode == 2 and "not a regular file" in r.stderr, r.stdout
+
+
+def test_a_symlinked_launch_finds_its_sibling(tmp_path):
+    """Under -I the script's directory is not on sys.path, and the link's is not
+    where check_villa_render_path.py lives."""
+    repo = _repo(tmp_path / "villa")
+    link = tmp_path / "bin" / "check_render_equivalence.py"
+    link.parent.mkdir()
+    link.symlink_to(_REPO / "scripts/check_render_equivalence.py")
+    r = subprocess.run(
+        [sys.executable, "-I", str(link), "--repo", str(repo)]
+        + ["--from-ref", "HEAD", "--to-ref", "HEAD"],
+        env=_ENV,
+        capture_output=True,
+        text=True,
+    )
+    assert r.returncode == 0 and "INTERCHANGEABLE" in r.stdout, r.stdout + r.stderr
