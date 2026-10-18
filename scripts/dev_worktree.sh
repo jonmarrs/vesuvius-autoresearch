@@ -36,6 +36,15 @@ add)
     ln -s "$MAIN/models" "$WT/models"
     pin="$(git -C "$WT" ls-tree HEAD villa | awk '{print $3}')"
     git -C "$MAIN/villa" worktree add --detach "$WT/villa" "$pin"
+    # With extensions.worktreeConfig on, a linked worktree reads core.worktree
+    # from villa's shared config: the submodule's ../../../villa, which from
+    # here is villa's git directory. Git then lists every file as deleted, and a
+    # checkout or clean in villa/ would write to or empty that directory. So
+    # this worktree gets its own. Only then: without the extension, --worktree
+    # writes the shared config, which every villa checkout reads.
+    if [ "$(git -C "$MAIN/villa" config --bool extensions.worktreeConfig || true)" = true ]; then
+        git -C "$WT/villa" config --worktree core.worktree "$WT/villa"
+    fi
     echo "Worktree ready: $WT (villa at ${pin:0:9})."
     echo "Run Python there with UV_NO_SYNC=1."
     ;;
