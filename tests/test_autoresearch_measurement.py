@@ -386,6 +386,26 @@ def test_an_interrupted_save_leaves_the_previous_checkpoint(tmp_path, monkeypatc
     assert torch.load(path)["val_f1"] == 0.9
 
 
+def test_a_saved_checkpoint_keeps_normal_file_permissions(tmp_path):
+    """The temporary file mkstemp creates is 0600, and it was renamed as it was:
+    every promoted best_model.pt and last_model.pt was readable by its owner
+    alone. A replaced file keeps its mode; a new one gets the umask's."""
+    import stat
+
+    path = _checkpoint(tmp_path / "best_model.pt")
+    os.chmod(path, 0o640)
+    promotion.save_checkpoint_atomic({"val_f1": 0.9}, str(path))
+    assert stat.S_IMODE(os.stat(path).st_mode) == 0o640
+
+    umask = os.umask(0o022)
+    try:
+        fresh = tmp_path / "last_model.pt"
+        promotion.save_checkpoint_atomic({"val_f1": 0.9}, str(fresh))
+        assert stat.S_IMODE(os.stat(fresh).st_mode) == 0o644
+    finally:
+        os.umask(umask)
+
+
 @pytest.mark.parametrize(
     "checkpoint_out, promoted, written",
     [
@@ -697,6 +717,19 @@ def test_the_atomic_json_writer_keeps_the_files_mode(tmp_path, monkeypatch):
     loop.save_recent_configs([{"lr": 1e-3}])
     assert (tmp_path / "recent_configs.json").stat().st_mode & 0o777 == 0o644
     assert loop.load_recent_configs() == [{"lr": 1e-3}]
+
+
+def test_the_atomic_json_writer_gives_a_new_file_the_umasks_mode(tmp_path, monkeypatch):
+    """A first write (no file yet) kept mkstemp's 0600."""
+    import run_autoresearch_loop as loop
+
+    monkeypatch.chdir(tmp_path)
+    umask = os.umask(0o022)
+    try:
+        loop.save_history({"lr": 1.0})
+    finally:
+        os.umask(umask)
+    assert (tmp_path / "autoresearch_history.json").stat().st_mode & 0o777 == 0o644
 
 
 def test_a_crashed_cycle_leaves_the_family_weights_alone(tmp_path, monkeypatch):

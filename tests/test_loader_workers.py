@@ -26,12 +26,27 @@ def _batches(loader, count):
 
 def test_workers_prepare_the_same_batches_in_the_same_order():
     data = IndexSeeded(40)
-    inline = _batches(train.shuffled_loader(data, 4, seed=7), 14)
-    spawned = _batches(train.shuffled_loader(data, 4, seed=7, workers=2), 14)
+    inline = _batches(train.shuffled_loader(data, 4, seed=7), 34)
+    spawned = _batches(train.shuffled_loader(data, 4, seed=7, workers=2), 34)
     for (x0, i0, _), (x1, i1, _) in zip(inline, spawned, strict=True):
         assert torch.equal(i0, i1) and torch.equal(x0, x1)
-    # 14 batches of 4 cross one pass of 40: the second pass reshuffles.
-    assert [int(i) for i in inline[10][1]] != [int(i) for i in inline[0][1]]
+    # 34 batches of 4 cross three passes of 40, each reshuffled.
+    passes = [[int(i) for b in inline[k : k + 10] for i in b[1]] for k in (0, 10, 20)]
+    assert all(sorted(p) == list(range(40)) for p in passes)
+    assert len({tuple(p) for p in passes}) == 3
+
+
+def test_a_new_pass_reuses_the_workers():
+    """Each pass spawned its workers again. Each re-imported train.py (10-17 s)
+    while iter() waited, outside the training budget: ~21 s a pass on Fr47, and
+    a 60-minute cycle that ran 15 passes outlived its timeout (2026-10-16)."""
+    loader = train.shuffled_loader(IndexSeeded(12), 4, seed=2, workers=2)
+    first = iter(loader)
+    pids = sorted(w.pid for w in first._workers)
+    assert sum(len(b[1]) for b in first) == 12
+    second = iter(loader)
+    assert sorted(w.pid for w in second._workers) == pids
+    assert sum(len(b[1]) for b in second) == 12
 
 
 def test_the_workers_warnings_reach_the_training_process(monkeypatch):
@@ -60,11 +75,16 @@ def test_workers_exit_without_finalizing(tmp_path):
     it = iter(loader)
     for _ in range(3):  # mid-pass, batches in flight
         next(it)
-    pids = sorted(w.pid for w in it._workers)
-    del it
-    assert len(pids) == 2
+    workers = list(it._workers)
+    del it, loader  # the loader holds its persistent workers' iterator
+    assert len(workers) == 2 and not any(w.is_alive() for w in workers)
     assert sorted(os.listdir(tmp_path)) == []  # no worker ran its exit handlers
-    assert sum(len(b[1]) for b in loader) == 40  # and a pass read to the end
+    loader = train.shuffled_loader(Finalized(40, str(tmp_path)), 4, seed=3, workers=2)
+    it = iter(loader)
+    assert sum(len(b[1]) for b in it) == 40  # and after a pass read to the end
+    workers = list(it._workers)
+    del it, loader
+    assert not any(w.is_alive() for w in workers)
     assert os.listdir(tmp_path) == []
 
 

@@ -31,6 +31,7 @@ import hashlib
 import json
 import math
 import os
+import stat
 import tempfile
 
 import numpy as np
@@ -292,20 +293,51 @@ def check_incumbent(
     return val_f1, source
 
 
+def _umask() -> int:
+    """The process's umask, read without changing it where Linux reports it:
+    os.umask can only be read by setting it, which a thread creating a file
+    meanwhile (a loader's) would see."""
+    try:
+        with open("/proc/self/status") as status:
+            for line in status:
+                if line.startswith("Umask:"):
+                    return int(line.split()[1], 8)
+    except (OSError, ValueError, IndexError):
+        pass
+    umask = os.umask(0o022)
+    os.umask(umask)
+    return umask
+
+
+def replacement_mode(path: str) -> int:
+    """The permission bits a file written over ``path`` should have: those of
+    the file it replaces, else what open() would give a new file (0666 less
+    the umask). mkstemp creates its file 0600."""
+    try:
+        return stat.S_IMODE(os.stat(path).st_mode)
+    except FileNotFoundError:
+        return 0o666 & ~_umask()
+
+
 def save_checkpoint_atomic(payload, path: str) -> None:
     """torch.save to a sibling temporary file, then rename over ``path``.
 
     A writer stopped mid-save (stop.sh, the supervisor's timeout) leaves the
-    previous file intact instead of a truncated one.
+    previous file intact instead of a truncated one. The file keeps the mode of
+    the one it replaces (a new one gets the umask's): the temporary file is
+    created 0600, and renamed as it was it left every promoted best_model.pt and
+    every last_model.pt readable by its owner alone.
     """
     import torch
 
     directory = os.path.dirname(os.path.abspath(path))
+    mode = replacement_mode(path)
     fd, temporary = tempfile.mkstemp(
         prefix=f".{os.path.basename(path)}.", suffix=".tmp", dir=directory
     )
     try:
         with os.fdopen(fd, "wb") as handle:
+            os.fchmod(handle.fileno(), mode)
             torch.save(payload, handle)
             handle.flush()
             os.fsync(handle.fileno())

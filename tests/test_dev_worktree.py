@@ -94,3 +94,60 @@ def test_remove_refuses_a_villa_with_local_changes(main_repo):
     with pytest.raises(subprocess.CalledProcessError):
         run(main_repo, "remove", "feature")
     assert (wt / "villa" / "README").read_text() == "edited\n"
+
+
+def enable_worktree_config(main):
+    """villa as this checkout has it: extensions.worktreeConfig on, with the
+    submodule's core.worktree in both the shared config and config.worktree."""
+    git(main / "villa", "config", "extensions.worktreeConfig", "true")
+    git(main / "villa", "config", "--worktree", "core.worktree", "../../../villa")
+
+
+def test_villa_is_its_own_work_tree_when_worktree_config_is_on(main_repo):
+    enable_worktree_config(main_repo)
+    run(main_repo, "add", "feature", "main")
+    wt = main_repo / ".claude" / "worktrees" / "feature"
+    # Without its own core.worktree, git takes villa's git directory for the
+    # work tree: every file reads as deleted and the git internals as untracked.
+    assert (
+        Path(git(wt / "villa", "rev-parse", "--show-toplevel"))
+        == (wt / "villa").resolve()
+    )
+    assert git(wt / "villa", "status", "--porcelain") == ""
+    assert (
+        Path(git(main_repo / "villa", "rev-parse", "--show-toplevel"))
+        == (main_repo / "villa").resolve()
+    )
+    assert git(main_repo / "villa", "status", "--porcelain") == ""
+
+
+def test_remove_works_when_worktree_config_is_on(main_repo):
+    enable_worktree_config(main_repo)
+    run(main_repo, "add", "feature", "main")
+    run(main_repo, "remove", "feature")
+    assert not (main_repo / ".claude" / "worktrees" / "feature").exists()
+    assert (main_repo / "villa" / "README").exists()
+    assert len(git(main_repo / "villa", "worktree", "list").splitlines()) == 1
+
+
+def test_add_leaves_villas_shared_config_alone(main_repo):
+    # Without extensions.worktreeConfig, `git config --worktree` writes the
+    # shared config, which would point every villa checkout at this worktree.
+    shared = main_repo / ".git" / "modules" / "villa" / "config"
+    before = shared.read_text()
+    run(main_repo, "add", "feature", "main")
+    assert shared.read_text() == before
+    assert (
+        Path(git(main_repo / "villa", "rev-parse", "--show-toplevel"))
+        == (main_repo / "villa").resolve()
+    )
+
+
+def test_remove_refuses_local_changes_when_worktree_config_is_on(main_repo):
+    enable_worktree_config(main_repo)
+    run(main_repo, "add", "feature", "main")
+    wt = main_repo / ".claude" / "worktrees" / "feature"
+    (wt / "villa" / "README").write_text("edited\n")
+    with pytest.raises(subprocess.CalledProcessError):
+        run(main_repo, "remove", "feature")
+    assert (wt / "villa" / "README").read_text() == "edited\n"

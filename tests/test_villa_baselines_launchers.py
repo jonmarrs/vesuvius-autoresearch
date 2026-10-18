@@ -160,9 +160,9 @@ def test_launch_neural_tracing_falls_back_to_the_hf_sentinel(tmp_path):
     checkpoint, wires it into the command, and never blocks on it.
     """
     # Loaded by path rather than via sys.path.insert: that insert was never
-    # undone, and both scripts/production_predict.py and
-    # scripts/inference/production_predict.py exist with different contents, so
-    # leaving entries at index 0 decides which one a later bare import gets.
+    # undone, and an entry left at index 0 decides which module a later bare
+    # import gets (scripts/production_predict.py had a namesake in
+    # scripts/inference/ until 2026-10-17).
     spec = importlib.util.spec_from_file_location(
         "_lnt_probe", REPO_ROOT / "scripts" / "inference" / "launch_neural_tracing.py"
     )

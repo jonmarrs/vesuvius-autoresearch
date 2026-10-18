@@ -51,3 +51,44 @@ def test_fast_vesuvius_volume_reads_local_zarr_without_c_wrapper(tmp_path):
 
     assert patch.shape == (2, 3, 4)
     np.testing.assert_allclose(patch.numpy(), arr[1:3, 2:5, 3:7] / 255.0)
+
+
+def _grid(monkeypatch, shape, patch_size):
+    class Volume(DummyVolume):
+        pass
+
+    Volume.shape = shape
+    monkeypatch.setattr(
+        vesuvius_loader, "FastVesuviusVolume", lambda *args, **kwargs: Volume()
+    )
+    dataset = vesuvius_loader.VesuviusS3Dataset(
+        uri="s3://example/scroll.zarr/0", patch_size=patch_size, num_layers=4
+    )
+    return [tuple(c) for c in dataset.valid_coords.tolist()]
+
+
+def test_the_unlabeled_grid_reaches_the_far_edges(monkeypatch):
+    """The grid stopped one stride short: on 24 x 24 at patch 8 it ended at 12,
+    so rows and columns 20-23 were never read."""
+    starts = [0, 4, 8, 12, 16]
+    assert _grid(monkeypatch, (12, 24, 24), 8) == [
+        (y, x) for y in starts for x in starts
+    ]
+    # Not a multiple of the stride: the last patch is flush with the edge.
+    assert {x for _, x in _grid(monkeypatch, (12, 8, 26), 8)} == {
+        0,
+        4,
+        8,
+        12,
+        16,
+        18,
+    }
+
+
+def test_a_volume_one_patch_across_gives_that_patch(monkeypatch):
+    """It gave an empty catalogue."""
+    assert _grid(monkeypatch, (12, 8, 8), 8) == [(0, 0)]
+
+
+def test_a_volume_smaller_than_a_patch_gives_none(monkeypatch):
+    assert _grid(monkeypatch, (12, 6, 30), 8) == []

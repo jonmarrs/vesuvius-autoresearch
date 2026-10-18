@@ -6,7 +6,6 @@ import os
 import random
 import re
 import signal
-import stat
 import subprocess
 import sys
 import tempfile
@@ -22,6 +21,7 @@ from scripts.training.promotion import (
     IncumbentUnavailable,
     check_incumbent,
     first_use_record,
+    replacement_mode,
 )
 
 LOCK_FILE = "autoresearch.lock"
@@ -474,17 +474,18 @@ def save_history(counts):
 
 
 def _write_json_atomic(path, data, **dump_options):
-    """A temporary file, synced, then renamed over path, keeping path's mode
-    (mkstemp creates 0600). A stop or crash leaves the old file or the new."""
+    """A temporary file, synced, then renamed over path, keeping path's mode, or
+    giving a new file the umask's (mkstemp creates 0600). A stop or crash
+    leaves the old file or the new."""
     directory = os.path.dirname(os.path.abspath(path))
+    mode = replacement_mode(path)
     temporary = None
     try:
         fd, temporary = tempfile.mkstemp(
             prefix=f".{os.path.basename(path)}.", suffix=".tmp", dir=directory
         )
-        if os.path.exists(path):
-            os.fchmod(fd, stat.S_IMODE(os.stat(path).st_mode))
         with os.fdopen(fd, "w") as f:
+            os.fchmod(f.fileno(), mode)
             json.dump(data, f, **dump_options)
             f.flush()
             os.fsync(f.fileno())
