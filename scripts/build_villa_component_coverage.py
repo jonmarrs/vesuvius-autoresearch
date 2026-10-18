@@ -6,12 +6,15 @@ The goal is to keep prize work grounded in the official monorepo surface: data
 access, ink inference, unwrapping, review tools, and validation paths.
 
 It checks paths only: a hook that exists is not shown to run. Official paths are
-read from the pinned villa's own git tree, so a sparse checkout answers as the pin
-does; a component villa has moved under deprecated/ is reported as such.
+read from the git tree of the villa commit this repository pins, so a sparse checkout
+answers as the pin does; whether each path is also checked out is recorded beside it.
+When the pin's tree cannot be read, the working tree answers and the report says why.
+A component villa has moved under deprecated/ is reported as such.
 """
 
 import argparse
 import json
+import os
 import subprocess
 from pathlib import Path
 
@@ -126,30 +129,69 @@ def _path_exists(path):
     return _resolve(path).exists()
 
 
-def _official_present(path):
-    """Whether the pinned villa holds path: its HEAD tree when villa is a git
-    checkout (a sparse one omits directories the pin has), else the working tree."""
-    parts = Path(path).parts
-    villa = _resolve("villa")
-    if len(parts) > 1 and parts[0] == "villa" and (villa / ".git").exists():
-        inner = "/".join(parts[1:])
-        found = subprocess.run(
-            ["git", "-C", str(villa), "cat-file", "-e", f"HEAD:{inner}"],
-            capture_output=True,
-        )
-        return found.returncode == 0
-    return _path_exists(path)
+# Git exports these to hooks (GIT_DIR from a linked worktree), and with one set every
+# call ignores -C and reads another repository; as scripts/audit_doc_references.py.
+_GIT_LOCATORS = (
+    "GIT_DIR",
+    "GIT_WORK_TREE",
+    "GIT_INDEX_FILE",
+    "GIT_COMMON_DIR",
+    "GIT_OBJECT_DIRECTORY",
+    "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+    "GIT_PREFIX",
+)
 
 
-def _villa_commit():
-    """The villa commit the official paths were read from, or None."""
+def _git(cwd, *args):
+    env = {k: v for k, v in os.environ.items() if k not in _GIT_LOCATORS}
+    return subprocess.run(
+        ["git", "-C", str(cwd), *args], capture_output=True, text=True, env=env
+    )
+
+
+def _villa_pin():
+    """(commit, None) when the pinned villa commit's tree can be read, else
+    (None, why not) and the working tree answers instead."""
     villa = _resolve("villa")
     if not (villa / ".git").exists():
-        return None
-    head = subprocess.run(
-        ["git", "-C", str(villa), "rev-parse", "HEAD"], capture_output=True, text=True
-    )
-    return head.stdout.strip() or None
+        return None, "villa is not a git checkout"
+    try:
+        top = _git(villa, "rev-parse", "--show-toplevel")
+        root = _git(REPO_ROOT, "rev-parse", "--show-toplevel")
+        gitlink = _git(REPO_ROOT, "ls-tree", "HEAD", "villa")
+    except FileNotFoundError:
+        return None, "git is not installed"
+
+    def opens(found, path):
+        # An empty or broken .git sends git up to an enclosing repository instead.
+        return (
+            not found.returncode
+            and Path(found.stdout.strip()).resolve() == path.resolve()
+        )
+
+    if not opens(top, villa):
+        return None, "villa/.git does not open villa's own repository"
+    if not opens(root, REPO_ROOT):
+        return None, "this repository is not a git checkout"
+    fields = gitlink.stdout.split()
+    if gitlink.returncode or len(fields) < 3 or fields[1] != "commit":
+        return None, "this repository's HEAD records no villa pin"
+    pin = fields[2]
+    if _git(villa, "rev-parse", "--verify", "-q", f"{pin}^{{tree}}").returncode:
+        return None, f"the pinned commit {pin[:9]} is not in villa's object store"
+    return pin, None
+
+
+def _official_present(path, pin):
+    """Whether the pinned villa holds path: the pin's tree when it can be read (a
+    sparse checkout omits directories the pin has), else the working tree."""
+    parts = Path(path).parts
+    if pin and len(parts) > 1 and parts[0] == "villa":
+        # rev-parse, not cat-file -e: in a blob:none clone cat-file fetches a blob.
+        inner = "/".join(parts[1:])
+        found = _git(_resolve("villa"), "rev-parse", "--verify", "-q", f"{pin}:{inner}")
+        return found.returncode == 0
+    return _path_exists(path)
 
 
 def _deprecated_path(path):
@@ -161,13 +203,12 @@ def _deprecated_path(path):
 
 
 def build_component_coverage(components=None):
+    pin, unread = _villa_pin()
     rows = []
     for component in components or COMPONENTS:
-        official_present = _official_present(component["official_path"])
+        official_present = _official_present(component["official_path"], pin)
         deprecated = _deprecated_path(component["official_path"])
-        deprecated_present = (
-            not official_present and deprecated and _official_present(deprecated)
-        )
+        deprecated_present = bool(deprecated) and _official_present(deprecated, pin)
         hook_status = [
             {"path": hook, "present": _path_exists(hook)}
             for hook in component["local_hooks"]
@@ -197,7 +238,10 @@ def build_component_coverage(components=None):
             {
                 **component,
                 "official_present": official_present,
+                "official_checked_out": _path_exists(component["official_path"]),
                 "deprecated_path": deprecated if deprecated_present else None,
+                "deprecated_checked_out": bool(deprecated_present)
+                and _path_exists(deprecated),
                 "local_hook_status": hook_status,
                 "required_hooks": required_hooks,
                 "missing_required_hooks": missing_required_hooks,
@@ -222,27 +266,63 @@ def build_component_coverage(components=None):
         "missing_official_component": sum(
             1 for row in rows if row["coverage_status"] == "missing_official_component"
         ),
+        "villa_path_not_checked_out": sum(
+            1
+            for row in rows
+            if (row["official_present"] and not row["official_checked_out"])
+            or (row["deprecated_path"] and not row["deprecated_checked_out"])
+        ),
     }
     return {
-        "source": "ScrollPrize/villa at its checked-out commit (git tree)",
-        "villa_commit": _villa_commit(),
+        "source": (
+            "ScrollPrize/villa at this repository's pin (git tree)"
+            if pin
+            else f"the villa working tree ({unread})"
+        ),
+        "villa_commit": pin,
+        "pin_unread": unread,
         "summary": summary,
         "components": rows,
     }
 
 
+def _villa_paths(row):
+    """The row's official paths that the source holds, each marked when absent here."""
+    held = []
+    if row["official_present"]:
+        held.append((row["official_path"], row["official_checked_out"]))
+    if row["deprecated_path"]:
+        held.append((row["deprecated_path"], row["deprecated_checked_out"]))
+    return (
+        ", ".join(
+            f"`{path}`" + ("" if checked_out else " (not checked out)")
+            for path, checked_out in held
+        )
+        or "none"
+    )
+
+
 def render_markdown(report):
     summary = report["summary"]
+    if report.get("villa_commit"):
+        source = (
+            "Official paths are read from the git tree of the villa commit this repository"
+            f" pins (`{report['villa_commit'][:9]}`), so a sparse checkout answers as the pin"
+            " does. A path marked not checked out is in the pin but not in the villa"
+            " working tree this report was generated from, so a tool that reads it there fails."
+        )
+    else:
+        source = (
+            "Official paths are read from the villa working tree, not the pin: the pinned"
+            f" tree could not be read ({report.get('pin_unread')})."
+        )
     lines = [
         "# Villa Component Coverage",
         "",
         "This report maps official `ScrollPrize/villa` components to local Autoresearch hooks.",
         "",
         "It checks paths only: a hook that exists is not shown to run, and nothing here is",
-        "scientific validation. Official paths are read from the pinned villa's git tree"
-        + (
-            f" (`{report['villa_commit'][:9]}`)." if report.get("villa_commit") else "."
-        ),
+        "scientific validation. " + source,
         "",
         "## Summary",
         "",
@@ -253,11 +333,12 @@ def render_markdown(report):
         f"- Unwired: `{summary['unwired']}`",
         f"- Deprecated upstream (moved to `villa/deprecated/`): `{summary['deprecated_upstream']}`",
         f"- Missing official component: `{summary['missing_official_component']}`",
+        f"- Components with a villa path not checked out: `{summary['villa_path_not_checked_out']}`",
         "",
         "## Components",
         "",
-        "| Component | Status | Priority | Prize use | Local hooks | Next action |",
-        "| --- | --- | --- | --- | --- | --- |",
+        "| Component | Status | Priority | Villa path | Prize use | Local hooks | Next action |",
+        "| --- | --- | --- | --- | --- | --- | --- |",
     ]
     for row in report["components"]:
         hooks = ", ".join(
@@ -265,10 +346,11 @@ def render_markdown(report):
             for hook in row["local_hook_status"]
         )
         lines.append(
-            "| {name} | `{status}` | `{priority}` | {prize_use} | {hooks} | {next_action} |".format(
+            "| {name} | `{status}` | `{priority}` | {villa} | {prize_use} | {hooks} | {next_action} |".format(
                 name=row["name"],
                 status=row["coverage_status"],
                 priority=row["priority"],
+                villa=_villa_paths(row),
                 prize_use=row["prize_use"].replace("|", "\\|"),
                 hooks=hooks.replace("|", "\\|"),
                 next_action=row["next_action"].replace("|", "\\|"),

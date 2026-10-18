@@ -1,6 +1,7 @@
 {
-  "source": "ScrollPrize/villa at its checked-out commit (git tree)",
+  "source": "ScrollPrize/villa at this repository's pin (git tree)",
   "villa_commit": "ccb431818fa68059138f2c964ae299fc474ff116",
+  "pin_unread": null,
   "summary": {
     "total_components": 8,
     "covered": 6,
@@ -8,7 +9,8 @@
     "blocked_missing_required_hook": 0,
     "unwired": 0,
     "deprecated_upstream": 2,
-    "missing_official_component": 0
+    "missing_official_component": 0,
+    "villa_path_not_checked_out": 4
   },
   "components": [
     {
@@ -22,7 +24,9 @@
       "next_action": "Keep loader smoke tests aligned with the pinned Villa data API.",
       "priority": "high",
       "official_present": true,
+      "official_checked_out": true,
       "deprecated_path": null,
+      "deprecated_checked_out": false,
       "local_hook_status": [
         {
           "path": "src/vesuvius_autoresearch/core/vesuvius_loader.py",
@@ -51,7 +55,9 @@
       "next_action": "Keep optimized-inference smoke checks in the post-sprint gate before packaging evidence.",
       "priority": "high",
       "official_present": true,
-      "deprecated_path": null,
+      "official_checked_out": false,
+      "deprecated_path": "villa/deprecated/ink-detection",
+      "deprecated_checked_out": false,
       "local_hook_status": [
         {
           "path": "scripts/training/train.py",
@@ -83,7 +89,9 @@
       "next_action": "Open GPU-ready candidates from the review manifest for human text-legibility review.",
       "priority": "high",
       "official_present": false,
+      "official_checked_out": false,
       "deprecated_path": "villa/deprecated/crackle-viewer",
+      "deprecated_checked_out": false,
       "local_hook_status": [
         {
           "path": "scripts/launch_crackle_viewer.py",
@@ -118,7 +126,9 @@
       "next_action": "Keep Python loading and VC3D overlay validation aligned with Volume Cartographer; do not add new vesuvius-c hooks.",
       "priority": "high",
       "official_present": true,
+      "official_checked_out": false,
       "deprecated_path": null,
+      "deprecated_checked_out": false,
       "local_hook_status": [
         {
           "path": "volume_cartographer_wrapper",
@@ -157,7 +167,9 @@
       "next_action": "Route occupied Scroll 2/3 candidates through Lasagna/fiber preprocessing before more ink inference.",
       "priority": "high",
       "official_present": true,
+      "official_checked_out": true,
       "deprecated_path": null,
+      "deprecated_checked_out": false,
       "local_hook_status": [
         {
           "path": "scripts/build_lasagna_fiber_worklist.py",
@@ -185,7 +197,9 @@
       "next_action": "Keep topology metrics available as hallucination mitigation evidence.",
       "priority": "medium",
       "official_present": true,
+      "official_checked_out": true,
       "deprecated_path": null,
+      "deprecated_checked_out": false,
       "local_hook_status": [
         {
           "path": "tests/test_import.py",
@@ -212,7 +226,9 @@
       "next_action": "Use fiber assets to expand supervision for hard geometry candidates.",
       "priority": "medium",
       "official_present": true,
+      "official_checked_out": true,
       "deprecated_path": null,
+      "deprecated_checked_out": false,
       "local_hook_status": [
         {
           "path": "scripts/labeling/generate_fiber_labels.py",
@@ -236,7 +252,9 @@
       "next_action": "Retired here: the legacy Thaumato solver sweep (docs/SHEET_GRAPH_DIAGNOSTICS.md); upstream moved the tool to deprecated/.",
       "priority": "medium",
       "official_present": false,
+      "official_checked_out": false,
       "deprecated_path": "villa/deprecated/thaumato-anakalyptor",
+      "deprecated_checked_out": false,
       "local_hook_status": [
         {
           "path": "scripts/launch_thaumato.py",
