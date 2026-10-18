@@ -888,6 +888,15 @@ class VesuviusLabeledDataset(torch.utils.data.Dataset):
         return torch.stack([patch_vol, ridges.to(patch_vol.dtype)], dim=0)
 
 
+def _grid_starts(length, size, stride):
+    """Starts every ``stride`` whose ``size`` window fits in ``length``, ending
+    with the one flush with the far edge; none when the window does not fit."""
+    starts = list(range(0, length - size + 1, stride))
+    if starts and starts[-1] != length - size:
+        starts.append(length - size)
+    return starts
+
+
 class VesuviusS3Dataset(torch.utils.data.Dataset):
     def __init__(
         self,
@@ -926,12 +935,25 @@ class VesuviusS3Dataset(torch.utils.data.Dataset):
             depth_band, depth_margin, self.shape[0], self.num_layers, uri
         )
 
-        stride = patch_size // 2
-        self.valid_coords = []
-        for y in range(0, self.shape[1] - patch_size, stride):
-            for x in range(0, self.shape[2] - patch_size, stride):
-                self.valid_coords.append((y, x))
-        self.valid_coords = np.array(self.valid_coords, dtype=np.int32)
+        # Half-overlapping starts up to the far edge, as inference tiles
+        # (inference.tile_starts): the range used to stop one stride short and
+        # had no edge patch, so the bottom and right strips were never read, and
+        # a volume exactly patch_size across gave no patches at all.
+        stride = max(1, patch_size // 2)
+        self.valid_coords = np.array(
+            [
+                (y, x)
+                for y in _grid_starts(self.shape[1], patch_size, stride)
+                for x in _grid_starts(self.shape[2], patch_size, stride)
+            ],
+            dtype=np.int32,
+        ).reshape(-1, 2)
+        if not len(self.valid_coords):
+            _warn_limited(
+                "s3_no_patches",
+                f"{uri} ({self.shape[1]} x {self.shape[2]}) is smaller than one "
+                f"{patch_size} px patch; it contributes no unlabeled patches",
+            )
         print(
             f"Initialized S3 Dataset: Volume {self.shape}, Patches {len(self.valid_coords)}, is_unlabeled={self.is_unlabeled}"
         )
