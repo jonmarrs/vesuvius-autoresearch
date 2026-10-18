@@ -151,3 +151,39 @@ def test_remove_refuses_local_changes_when_worktree_config_is_on(main_repo):
     with pytest.raises(subprocess.CalledProcessError):
         run(main_repo, "remove", "feature")
     assert (wt / "villa" / "README").read_text() == "edited\n"
+
+
+def test_repair_fixes_a_worktree_added_before_its_villa_had_a_work_tree(main_repo):
+    """Worktrees added before 2026-10-17 lack villa's core.worktree, and add cannot
+    make them again: the branch exists."""
+    enable_worktree_config(main_repo)
+    run(main_repo, "add", "feature", "main")
+    wt = main_repo / ".claude" / "worktrees" / "feature"
+    git(wt / "villa", "config", "--worktree", "--unset", "core.worktree")  # as before
+    assert (
+        Path(git(wt / "villa", "rev-parse", "--show-toplevel"))
+        != (wt / "villa").resolve()
+    )
+    with pytest.raises(subprocess.CalledProcessError):
+        run(main_repo, "add", "feature", "main")
+    run(main_repo, "repair", "feature")
+    assert (
+        Path(git(wt / "villa", "rev-parse", "--show-toplevel"))
+        == (wt / "villa").resolve()
+    )
+    assert git(wt / "villa", "status", "--porcelain") == ""
+    run(main_repo, "remove", "feature")
+    assert not wt.exists()
+
+
+def test_repair_leaves_villas_shared_config_alone_without_the_extension(main_repo):
+    shared = main_repo / ".git" / "modules" / "villa" / "config"
+    run(main_repo, "add", "feature", "main")
+    before = shared.read_text()
+    assert "Nothing to repair" in run(main_repo, "repair", "feature").stdout
+    assert shared.read_text() == before
+
+
+def test_repair_refuses_a_missing_worktree(main_repo):
+    with pytest.raises(subprocess.CalledProcessError):
+        run(main_repo, "repair", "absent")
