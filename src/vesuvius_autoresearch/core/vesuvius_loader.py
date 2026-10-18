@@ -303,6 +303,31 @@ class FastVesuviusVolume:
         return torch.from_numpy(ct)
 
 
+def load_unit_image(path) -> np.ndarray:
+    """A label or mask image as float32 in [0, 1].
+
+    0/1 images are kept as they are; 8-bit values (up to 255) are divided by
+    255 and 16-bit ones (above 255) by 65535. Every image used to be divided by
+    255 when its maximum passed 1, so a 16-bit label (PNG mode I;16, 0/65535)
+    reached the BCE and Dice losses as targets of 257, and the Dice
+    behind val_bpb summed it unbinarized. Anything still outside [0, 1] is
+    refused.
+    """
+    with Image.open(path) as img:
+        values = np.array(img).astype(np.float32)
+    peak = float(values.max()) if values.size else 0.0
+    if peak > 1.0:
+        values /= 255.0 if peak <= 255.0 else 65535.0
+    if values.size and (
+        not np.isfinite(values).all() or values.min() < 0 or values.max() > 1
+    ):
+        raise ValueError(
+            f"{path}: values must be 0/1, 8-bit or 16-bit; got the range "
+            f"{float(np.nanmin(values))}..{float(np.nanmax(values))} after scaling"
+        )
+    return values
+
+
 def band_read_range(depth_band, depth_margin, depth, read, uri):
     """[start, end) of the slices reads are drawn from: depth_band widened by
     depth_margin (the context around the model's window), clamped to the volume.
@@ -439,20 +464,12 @@ class VesuviusLabeledDataset(torch.utils.data.Dataset):
 
         # Load Labels (2D PNG)
         if labels_path and os.path.exists(labels_path):
-            with Image.open(labels_path) as img:
-                img_arr = np.array(img).astype(np.float32)
-                if img_arr.max() > 1.0:
-                    img_arr /= 255.0
-                self.labels = img_arr
+            self.labels = load_unit_image(labels_path)
         else:
             self.labels = None
 
         if mask_path and os.path.exists(mask_path):
-            with Image.open(mask_path) as img:
-                img_arr = np.array(img).astype(np.float32)
-                if img_arr.max() > 1.0:
-                    img_arr /= 255.0
-                self.mask = img_arr
+            self.mask = load_unit_image(mask_path)
         else:
             self.mask = None
 
