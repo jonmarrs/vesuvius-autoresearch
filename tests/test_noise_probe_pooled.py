@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 import json
 import math
 import statistics
@@ -135,3 +136,105 @@ def test_predictions():
         0.01,
     )
     assert not wide["predictions"]["P3_pooled_sd_at_most_0.0043"]
+
+
+SECOND = json.loads((ROOT / "reports/noise_probe_v3_2026-10-17.json").read_text())
+
+
+def _pair():
+    return copy.deepcopy(FIRST), copy.deepcopy(SECOND)
+
+
+def test_the_committed_batches_are_poolable():
+    npp.poolable([FIRST, SECOND])
+
+
+def test_a_batch_scored_on_another_validation_sample_is_refused():
+    """f1_noise_probe.py checks one sample within a batch; pooling crosses batches."""
+    first, second = _pair()
+    second["runs"][2]["validation_diag"]["usable_patches"] = 96
+    with pytest.raises(ValueError, match="sample counts or prevalence"):
+        npp.poolable([first, second])
+    first, second = _pair()
+    second["runs"][0]["metrics"]["val_positive_rate"] = 0.15
+    with pytest.raises(ValueError, match="sample counts or prevalence"):
+        npp.poolable([first, second])
+
+
+def test_a_batch_from_another_configuration_or_checkpoint_is_refused():
+    first, second = _pair()
+    second["config"]["lr"] = 2 * second["config"]["lr"]
+    with pytest.raises(ValueError, match="configurations differ"):
+        npp.poolable([first, second])
+    first, second = _pair()
+    (checkpoint,) = [k for k in second["input_hashes"] if k.endswith("best_model.pt")]
+    second["input_hashes"][checkpoint] = "0" * 64
+    with pytest.raises(ValueError, match="starting checkpoints or config files"):
+        npp.poolable([first, second])
+
+
+def test_a_training_code_difference_is_allowed():
+    """The registration names the one train.py difference between the batches."""
+    first, second = _pair()
+    (runner,) = [k for k in second["input_hashes"] if k.endswith("run_noise_probe.py")]
+    second["input_hashes"][runner] = "0" * 64
+    npp.poolable([first, second])
+
+
+def test_a_repeated_sampling_seed_is_refused():
+    first, second = _pair()
+    second["runs"][1]["train_sampling_seed"] = first["runs"][0]["train_sampling_seed"]
+    with pytest.raises(ValueError, match="seed repeats"):
+        npp.poolable([first, second])
+
+
+def test_the_finished_trials_of_a_failed_batch_still_pool():
+    """Registered: a failed trial is reported and not replaced; the rest count."""
+    first, second = _pair()
+    second["status"] = "FAILED"
+    second["runs"][3]["status"] = "FAILED"
+    npp.poolable([first, second])
+    batches = [npp.completed(first), npp.completed(second)]
+    assert npp.analyse(batches, 0.249348, 0.01)["pooled"]["n"] == 7
+
+
+def test_only_two_batches_are_pooled():
+    first, second = _pair()
+    with pytest.raises(ValueError, match="compares two"):
+        npp.poolable([first, second, copy.deepcopy(second)])
+    with pytest.raises(ValueError, match="pools two"):
+        npp.analyse([npp.completed(first)] * 3, 0.249348, 0.01)
+
+
+def test_a_first_batch_without_an_sd_is_insufficient():
+    batches = [
+        npp.completed(_probe([0.265])),
+        npp.completed(_probe([0.26, 0.265, 0.27])),
+    ]
+    assert npp.analyse(batches, 0.249348, 0.01)["status"] == "INSUFFICIENT"
+
+
+def test_the_command_line_refuses_batches_that_do_not_pool(tmp_path, monkeypatch):
+    first, second = _pair()
+    second["config"]["lr"] = 2 * second["config"]["lr"]
+    paths = []
+    for name, probe in (("a.json", first), ("b.json", second)):
+        (tmp_path / name).write_text(json.dumps(probe))
+        paths += ["--batch", str(tmp_path / name)]
+    out = tmp_path / "out.json"
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["noise_probe_pooled.py", *paths, "--incumbent", "0.249348"]
+        + ["--tolerance", "0.01", "--out", str(out)],
+    )
+    with pytest.raises(ValueError, match="configurations differ"):
+        npp.main()
+    assert not out.exists()
+
+
+def test_the_lift_gate_is_the_loops():
+    sys.path.insert(0, str(ROOT / "scripts" / "training"))
+    from train import LIFT_MARGIN
+
+    assert npp.LIFT_GATE == 1 + LIFT_MARGIN

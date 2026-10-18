@@ -44,6 +44,7 @@ def _hashes(probe) -> dict:
 def test_the_json_is_the_registered_analysis_of_the_committed_batches():
     assert RESULT["sources"] == SOURCES
     assert RESULT["incumbent"] == INCUMBENT and RESULT["tolerance"] == 0.01
+    npp.poolable(PROBES)
     rerun = npp.analyse([npp.completed(p) for p in PROBES], INCUMBENT, 0.01)
     rerun["sources"] = SOURCES
     assert rerun == RESULT

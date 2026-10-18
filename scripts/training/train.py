@@ -419,6 +419,9 @@ def is_model_improvement(
 # cycle's tweak in config.json, credits its family and makes the candidate the incumbent.
 # All of this is at the 900 s day budget; night cycles run 3600 s and are unmeasured.
 # Noted 2026-10-17; docs/DESIGN_ARCHITECTURE_REVIEW_2026-10-17_TOLERANCE.md.)
+# Four more trials ran 2026-10-17 (reports/noise_probe_v3_pooled_2026-10-17.md): pooled
+# over eight, sigma = 0.0029 (95% CI 0.0019-0.0058, df 7), so under July's two-draws model a
+# no-change cycle promotes 0.67% of the time, and 11% at the CI's top.
 F1_NOISE_TOLERANCE = 1e-2
 LIFT_MARGIN = 0.02
 

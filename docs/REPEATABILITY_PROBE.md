@@ -103,6 +103,17 @@ installed dependencies or every imported source file; keep those inputs stable.
 The per-run code/data caches and native source reference do not establish
 numerical GPU/CPU parity or production readiness.
 
+**Pooling two batches.** `scripts/noise_probe_pooled.py`, the analysis registered in
+`docs/preregistration/2026-10-17_noise_probe_v3_pooled.md`, pools the finished trials of two
+batches. As registered, it also counts the trials a batch finished before a later one failed.
+It first checks, across both batches, what this probe checks within one:
+- one configuration;
+- one starting checkpoint and config file (the training code's hashes may differ);
+- one validation sample and prevalence;
+- no repeated sampling seed.
+
+It refuses to pool otherwise.
+
 [Finding 86](../reports/loop_v2_constant_control.md) records the limitations of F1
 near an all-ink ceiling. Host and loop restart decisions are recorded separately
 in [the resume note](RESUME_AFTER_RESTART.md). Near an all-ink ceiling,

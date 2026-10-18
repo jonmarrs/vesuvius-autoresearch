@@ -1,8 +1,11 @@
 """docs/preregistration/2026-10-17_noise_probe_v3_pooled.md -- the registered analysis.
 
-Pools the val_f1 of identical-config noise-probe batches (each a probe.json written by f1_noise_probe.py),
+Pools the val_f1 of two identical-config noise-probe batches (each a probe.json written by f1_noise_probe.py),
 estimates the run-to-run sigma with its chi-square interval, checks for a shift between batches, and gives
 the rate at which a cycle that changes nothing clears a promotion tolerance.
+
+f1_noise_probe.py checks its own trials against each other; this checks the batches against each other
+first (`poolable`): one configuration and starting checkpoint, one validation sample, no repeated seed.
 
 Usage: .venv/bin/python scripts/noise_probe_pooled.py --batch B1/probe.json --batch B2/probe.json \
     --incumbent 0.249348 --tolerance 0.01 --out reports/X.json
@@ -22,6 +25,8 @@ PROTOCOL = "seeded-sample-400-v3+z1-27"
 LIFT_GATE = 1.02  # train.LIFT_MARGIN: promotion needs ap_prevalence_lift > 1 + 0.02
 SIGMA_AT_FIVE_PERCENT = 0.0043  # prediction 3: 0.01 / (1.645 * sqrt(2)), rounded
 MIN_LAST_BATCH = 3
+# f1_noise_probe.py's RUNNER and TRAINER: code the registration allows to differ between batches.
+CODE_INPUTS = ("scripts/training/run_noise_probe.py", "scripts/training/train.py")
 
 
 def completed(probe: dict) -> list[dict]:
@@ -37,6 +42,46 @@ def completed(probe: dict) -> list[dict]:
         for r in probe["runs"]
         if r.get("status") == "COMPLETE"
     ]
+
+
+def poolable(probes: list[dict]) -> None:
+    """Raise unless the batches' finished trials are draws of one comparison.
+
+    f1_noise_probe.py requires its trials to share one validation sample and prevalence,
+    and checks that only within a batch that finished every trial. Pooling compares
+    trials across batches, so the same holds across all of them; the registration also
+    fixes one configuration and starting checkpoint, and fresh sampling seeds."""
+    problems = []
+    if len(probes) != 2:
+        problems.append(
+            f"{len(probes)} batches; the registered shift test compares two"
+        )
+    if any(p.get("scope") != "identical_config_repeatability" for p in probes):
+        problems.append("a batch is not an identical-config repeatability probe")
+    if any(p.get("config") != probes[0].get("config") for p in probes):
+        problems.append("the batches' configurations differ")
+
+    def fixed(probe):
+        # The starting checkpoint's and the config file's hashes, whatever their paths.
+        hashes = probe.get("input_hashes") or {}
+        return sorted(v for k, v in hashes.items() if not k.endswith(CODE_INPUTS))
+
+    if any(not fixed(p) or fixed(p) != fixed(probes[0]) for p in probes):
+        problems.append("the batches' starting checkpoints or config files differ")
+    finished = [r for p in probes for r in p["runs"] if r.get("status") == "COMPLETE"]
+
+    def sample(run):
+        return run.get("validation_diag"), run["metrics"].get("val_positive_rate")
+
+    if any(sample(r) != sample(finished[0]) for r in finished):
+        problems.append(
+            "validation inputs, sample counts or prevalence differ between trials"
+        )
+    seeds = [r["train_sampling_seed"] for r in finished]
+    if len(set(seeds)) != len(seeds):
+        problems.append("a sampling seed repeats, so a trial replays another")
+    if problems:
+        raise ValueError("not poolable: " + "; ".join(problems))
 
 
 def sigma_interval(sd: float, df: int, level: float = 0.95) -> tuple[float, float]:
@@ -60,7 +105,10 @@ def july_tolerance(sigma: float) -> float:
 
 
 def analyse(batches: list[list[dict]], incumbent: float, tolerance: float) -> dict:
-    if len(batches[-1]) < MIN_LAST_BATCH:
+    if len(batches) != 2:
+        raise ValueError(f"{len(batches)} batches; the registered analysis pools two")
+    # Batch 1 needs two trials for its SD, the centre of prediction 1.
+    if len(batches[-1]) < MIN_LAST_BATCH or len(batches[0]) < 2:
         return {
             "status": "INSUFFICIENT",
             "completed": [len(b) for b in batches],
@@ -143,7 +191,9 @@ def main() -> int:
     ap.add_argument("--tolerance", type=float, required=True)
     ap.add_argument("--out", type=Path, required=True)
     args = ap.parse_args()
-    batches = [completed(json.loads(p.read_text())) for p in args.batch]
+    probes = [json.loads(p.read_text()) for p in args.batch]
+    batches = [completed(p) for p in probes]
+    poolable(probes)
     result = analyse(batches, args.incumbent, args.tolerance)
     result["sources"] = [str(p) for p in args.batch]
     args.out.write_text(json.dumps(result, indent=1) + "\n")
