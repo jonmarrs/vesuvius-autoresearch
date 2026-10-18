@@ -1,0 +1,49 @@
+{
+ "note": "Rows the 10-17 report's parser left out: the first cycle after each restart inside a shift, whose interval it measured from the last cycle before the stop. Same run.log and sprint logs; parser fixed to restart the clock at '## Resumed at'.",
+ "sources": {
+  "run_log": "run.log",
+  "sprint_logs": "sprint_logs/sprint_log_2026-10-1[67]_*.md"
+ },
+ "recovered_rows": [
+  {
+   "shift": "2026-10-16_07-30-03_day_shift",
+   "budget": 900,
+   "cycle": "ema_decay_0.9999",
+   "result": "REVERTED",
+   "batch_size": 4,
+   "val_f1": 0.2652649068278499,
+   "overhead_s": 112,
+   "steps": 2270,
+   "boundaries": 1
+  },
+  {
+   "shift": "2026-10-16_07-30-03_day_shift",
+   "budget": 900,
+   "cycle": "ema_decay_0.999",
+   "result": "REVERTED",
+   "batch_size": 4,
+   "val_f1": 0.2669495832088928,
+   "overhead_s": 203,
+   "steps": 2050,
+   "boundaries": 1
+  },
+  {
+   "shift": "2026-10-17_07-55-03_day_shift",
+   "budget": 900,
+   "cycle": "batch_size_8",
+   "result": "SUCCESS",
+   "batch_size": 8,
+   "val_f1": 0.2657620983146595,
+   "overhead_s": 104,
+   "steps": 1290,
+   "boundaries": 1
+  }
+ ],
+ "fit_with_recovered": {
+  "n": 75,
+  "intercept_s": 86.19313950157554,
+  "per_boundary_s": 20.970710398166677,
+  "residual_sd_s": 19.691961228799673
+ },
+ "killed_predicted_overhead_s": 400.75379547407573
+}

@@ -70,6 +70,11 @@ def cycles(pattern: str) -> list[dict]:
         start = re.search(r"\*\*Start Time\*\*: (\d+:\d+:\d+)", text).group(1)
         prev = dt.datetime.strptime(start, "%H:%M:%S")
         for block in re.split(r"\n## ", text)[1:]:
+            # A restart inside the shift: the next cycle starts here, not at
+            # the last cycle before the stop.
+            if resumed := re.match(r"Resumed at (\d+:\d+:\d+)", block):
+                prev = dt.datetime.strptime(resumed.group(1), "%H:%M:%S")
+                continue
             m = re.match(
                 r"Cycle (\d+): (\S+) \((\w+)\)\n- \*\*Timestamp\*\*: (\d+:\d+:\d+)",
                 block,
