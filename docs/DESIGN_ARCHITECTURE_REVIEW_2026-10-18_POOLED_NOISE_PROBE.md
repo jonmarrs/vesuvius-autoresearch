@@ -1,6 +1,7 @@
 # Design and architecture review — the pooled v3 noise probe (#109)
 
-Date: 2026-10-18. Baseline: `0580e5a7` (main after #114). Villa pin `ccb431818`.
+Date: 2026-10-18. Baseline: `0580e5a7` (main after #114), merged with `0ae28eca` (#112, #113, #115–#120).
+Villa pin `ccb431818`.
 Reviewer: Claude (Anthropic), at the owner's request.
 
 Scope: the owner's #109 (merged as `f85e0f7d`):
@@ -92,8 +93,11 @@ and against the probe it reads, and the claims against the committed data.
 - **Prediction 2 uses the loop's rule.** `val_f1 > incumbent + tolerance` and `ap_lift > 1.02` are
   `train.is_f1_improvement`'s, apart from its finiteness checks. `LIFT_GATE` is now pinned to `train.LIFT_MARGIN`.
 - **The report's reading.** The 0.67% compares two draws of one configuration from one checkpoint, so it
-  describes the loop only once the incumbent's stored score is such a draw. It does not describe today's
-  incumbent, which every trial beats by more than 0.01. The report says both.
+  describes the loop only once the incumbent's stored score is such a draw. It did not describe the incumbent the
+  probe started from, which every trial beat by more than 0.01. The report says both. Since then, #112
+  (`reports/promotion_cycle_gain_2026-10-17.md`) found that after the first promotion under 0.01 the cycle's gain
+  was gone. Seventeen cycles had a mean gain of −0.0004 and an SD of 0.0031, inside the pooled interval. So the
+  premise now holds, for 15-minute cycles; the σ from the promoted checkpoint is still unmeasured.
 
 ## Observations for the owner (not changed)
 
