@@ -67,9 +67,11 @@
 
 * The loop trains from the main checkout: never switch branches there while it runs. Work in a worktree made by
   `scripts/dev_worktree.sh add <branch>` (shared `.venv`, `local_data`, `checkpoints` and `models`, villa checked out
-  at the pin; remove with `scripts/dev_worktree.sh remove <branch>`). With villa's `extensions.worktreeConfig` on, a
-  worktree added before 2026-10-17 (#119) takes villa's git directory for villa's work tree, so `git status` in its
-  `villa/` lists every file as deleted. Fix it in place with `scripts/dev_worktree.sh repair <branch>`.
+  at the pin; remove with `scripts/dev_worktree.sh remove <branch>`). A worktree added by a copy of the script without
+  #119 (merged 2026-10-17 23:12 PDT) can take villa's git directory for villa's work tree. That happens when villa
+  is absorbed under `.git/modules` (its shared config sets `core.worktree`) with `extensions.worktreeConfig` on. The
+  sign: in its `villa/`, `git rev-parse --show-toplevel` is not that `villa/`, and `git status` lists every file as
+  deleted. Fix it in place with `scripts/dev_worktree.sh repair <branch>`.
 * Run Python in a worktree with `UV_NO_SYNC=1` or `uv run --no-sync`. A syncing `uv run` re-points the shared
   `.venv`'s editable install at the worktree, and the loop's spawned DataLoader workers would import that code;
   the mypy hook now runs `uv run --no-sync`. Tests import their own checkout's `src/` regardless

@@ -11,23 +11,44 @@ Scope: the four owner merges of 2026-10-17 that the last two reviews did not cov
 
 ## What changed
 
-- **Worktrees added before #119 could not be fixed with the script.**
-  - With villa's `extensions.worktreeConfig` on, as in the owner's checkout, a villa worktree that `add` made before
-    #119 takes villa's git directory for its work tree. #119's message names the hazard: `git status` there lists
-    every file as deleted, and a restore or checkout writes into the git directory.
-  - #119 fixed `add` only. A worktree made earlier stays broken, and `add` cannot make it again: it runs
+- **Worktrees added without #119's fix could not be fixed with the script.**
+  - #119 was merged at 2026-10-17 23:12 PDT. Two conditions hold in the owner's checkout:
+    - villa is absorbed under `.git/modules`, so its shared config sets `core.worktree`;
+    - `extensions.worktreeConfig` is on.
+
+    There, a villa worktree that `add` made without the fix takes villa's git directory for its work tree. #119's
+    message names the hazard: `git status` there lists every file as deleted, and a restore or checkout writes
+    into the git directory. It is the copy of the script that ran that matters, not the date.
+  - #119 fixed `add` only. A worktree it made earlier stays broken, and `add` cannot make it again: it runs
     `git worktree add -b <branch>`, which refuses an existing branch.
-  - Reproduced with the script as it was before #119 (`5a2840d7^`): the old worktree's `villa/` reports villa's git
-    directory as its top level, with 13 status lines. The current `remove` does remove it cleanly (villa's status and
-    `fsck` clean afterwards). Re-adding the branch then fails: "a branch named 'feature' already exists".
-  - `dev_worktree.sh repair <branch>` sets the same `core.worktree` in place, under the same extension check, so it
-    does nothing to the shared config when the extension is off. `add` and `repair` share that check.
-    `docs/RESUME_AFTER_RESTART.md` names the command beside `add` and `remove`.
-  - Three tests, each failing without its part of the change:
-    - a worktree stripped of its `core.worktree` is repaired, after which `add` still refuses the branch and
-      `remove` works;
-    - without the extension, `repair` leaves the shared config alone;
-    - `repair` refuses a missing worktree.
+  - Reproduced with the script as it was before #119 (`5a2840d7^`):
+    - the old worktree's `villa/` reports villa's git directory as its top level, with 13 status lines;
+    - the current `remove` removes it cleanly (villa's status and `fsck` clean afterwards);
+    - re-adding the branch then fails: "a branch named 'feature' already exists".
+  - **The new `dev_worktree.sh repair <branch>`** sets that worktree's own `core.worktree`, in its
+    `config.worktree`, in place. It:
+    - refuses anything that is not one of villa's linked worktrees (its git directory must lie under villa's
+      `worktrees/`);
+    - verifies afterwards that `villa/` is its own top level;
+    - prints any changes made while it was broken.
+  - **Every subcommand now requires `<branch>` to be a branch name** (`git check-ref-format --branch`).
+    `repair ../..` named the main checkout, which passed a looser check, and rewrote the main villa's
+    `core.worktree`. The independent review found this. `add` already refused such names, and `remove` failed on
+    them.
+  - **The extension is read from villa's own config** (`--local`). Git honours `extensions.*` only there, and
+    with it set elsewhere `add` used to stop with exit 128 after both worktrees existed.
+  - **Docs.** `docs/RESUME_AFTER_RESTART.md` names the command, the condition and the sign.
+  - **Tests.**
+    - The tests no longer read the user's global or system git config. Until now every fixture commit was signed
+      through the user's signing key.
+    - New tests:
+      - a worktree stripped of its `core.worktree` is repaired, in its own `config.worktree`;
+      - the repair leaves villa's shared config and the main checkout's `config.worktree` unchanged;
+      - `add` refuses the branch before the repair, and `remove` works after it;
+      - without the extension, `repair` is a no-op;
+      - a missing worktree is refused with exit 1;
+      - five path-like names are refused with exit 2;
+      - an extension set outside villa's config is ignored.
 
 ## Verified, no change needed
 
@@ -35,14 +56,21 @@ Scope: the four owner merges of 2026-10-17 that the last two reviews did not cov
   in the README, `docs/VOLUME_INFERENCE.md`, the inference module and the tests names `scripts/production_predict.py`,
   which exists and is tested (`tests/test_production_predict.py`, in the standard suite).
 - **#119.**
-  - The fix is limited to the case it describes. Without the extension, `config --worktree` would write villa's
-    shared config, and the existing test checks that `add` leaves it alone.
+  - The extension check is needed, but not for the reason its comment gave. Without the extension, git refuses
+    `config --worktree` outright once villa has a second worktree ("cannot be used with multiple working trees",
+    exit 128). It writes the shared config only when villa has a single worktree, which `add` and `repair` never
+    see.
+  - So the check is what keeps `add` from aborting on a checkout without the extension. The comment now says so.
+  - With the extension on, `--worktree` writes the current worktree's `config.worktree`, never the shared config.
   - `remove` still refuses a villa worktree with local changes.
 - **#112.**
-  - The parser takes a cycle's incumbent from its verdict line and groups cycles by incumbent value. That relies on
-    the log's six-decimal values, and the committed JSON's two segments (0.249348, 0.265762) show they hold.
-  - The report's figures match the JSON: 50 scored cycles before the promotion, mean +0.0157, SD 0.0034, 49 clearing
-    0.01; 17 after, mean −0.0004, SD 0.0031, none clearing 0.01.
+  - A kept cycle's incumbent comes from its verdict line. A promoted or crashed cycle's is the incumbent the loop
+    was holding.
+  - `segments` groups consecutive cycles with the same incumbent value. That relies on the log's six-decimal
+    values, and the committed JSON's two segments (0.249348, 0.265762) show they hold.
+  - The report's figures match the JSON:
+    - before the promotion: 50 scored cycles, mean +0.0157, SD 0.0034, 49 clearing 0.01;
+    - after it: 17 cycles, mean −0.0004, SD 0.0031, none clearing 0.01.
   - "Clears 0.01" counts the margin alone, not the AP gate. The JSON records no lifts. The ones measured
     elsewhere sit far above 1.02: the probe's 1.17–1.21, and finding 88's candidates at 1.15 and up.
 - **#120.** The parser now restarts a cycle's clock at the sprint log's `## Resumed at` line, which
@@ -51,28 +79,48 @@ Scope: the four owner merges of 2026-10-17 that the last two reviews did not cov
 ## Observations for the owner (not changed)
 
 - **The resume marker is written once per run of restarts, so #120's clock can start early.**
-  - `run_autoresearch_loop.py` writes `## Resumed at` only when the log does not already end with one. This is
-    deliberate: a watchdog restarting a loop that runs no cycle would otherwise add a line every few minutes.
-  - The parser restarts the clock at that first marker. So the first cycle after a run of restarts that ran no cycle
-    has their whole span counted as its overhead. It stays in the fit unless the total passes the 600 s filter.
+  - `run_autoresearch_loop.py` writes `## Resumed at` only when the log does not already end with one (since
+    `8d44bb5c`, 2026-10-15). This is deliberate: a watchdog restarting a loop that runs no cycle would otherwise
+    add a line every few minutes.
+  - A cycle's entry is written only when the cycle finishes. So a restart whose cycle died with the loop leaves no
+    line either.
+  - In both cases the parser starts the next finished cycle's clock at the first marker. The time in between
+    counts as its overhead, and the row stays in the fit unless its overhead reaches the 600 s filter.
   - The 10-16/17 sprint logs are not committed, so whether this touched any of the three recovered rows could not
     be checked. `ema_decay_0.999`'s 203 s, against a median of 108 s for its group, is the candidate.
   - Recording each restart's time, for instance by updating the marker line in place, would be a change to the
     loop's log.
 - **`add` cannot make a worktree for a branch that already exists.** That is `git worktree add -b`'s rule, and it
-  predates #119. `repair` covers the villa case. Adding an existing branch would need `add` without `-b`.
+  predates #119. Given an existing path, `add` also creates the branch before git refuses the path, leaving a stray
+  branch.
+- **`<branch>` names a directory under `.claude/worktrees` for `remove` and `repair`.** That is the branch's name
+  only for worktrees `add` made.
 
 ## Verification
 
 Environment: CPython 3.10 venv, bash 5, git 2.x. No scroll data.
 
-- `pytest tests/test_dev_worktree.py`: 10 passed (7 before, 3 new).
+- `pytest tests/test_dev_worktree.py`: 16 passed (7 before, 9 new).
 - **Mutation check** on the script. Each mutation fails at least one test:
+  - `repair` without `--worktree`, which would write the shared config;
   - `repair` setting nothing;
   - `repair` without the extension check;
-  - `repair` without the missing-worktree guard;
+  - no branch-name check;
+  - no git-directory check;
+  - the extension read from every scope;
   - `add` without its `core.worktree`.
-- **The pre-#119 reproduction:** a throwaway repository with a villa submodule and `extensions.worktreeConfig` on,
-  the old script's `add`, then the current `remove`, or a manual `config --worktree` followed by `add`.
+- **The pre-#119 reproduction:** a throwaway repository with an absorbed villa submodule and
+  `extensions.worktreeConfig` on, then:
+  - the old script's `add`, followed by the current `remove`;
+  - or a manual `config --worktree`, followed by `add`.
 - `bash -n scripts/dev_worktree.sh`. Ruff clean on the test file.
+- **Independent review** of the first commit. It found:
+  - the date cutoff;
+  - the stated reason for the extension check;
+  - `repair ../..` rewriting the main villa's config;
+  - a test that let a shared-config write pass;
+  - tests reading the user's git config;
+  - smaller points.
+
+  All are addressed above.
 - The standard suite: see the PR.
