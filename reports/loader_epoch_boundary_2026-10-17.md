@@ -29,6 +29,12 @@ It matches each cycle to its `run.log` run by val_f1, which gives its step count
 overhead against epoch boundaries crossed (`epoch_boundary_overhead_workers.json`, the 10-16/17 shifts):
 **overhead = 84 s + 21.3 s per boundary over 72 cycles (residual SD 16 s).**
 
+**Correction, later on 2026-10-17.** The parser measured the first cycle after a restart inside a shift from the
+last cycle before the stop, so it left out the three such cycles (`epoch_boundary_overhead_restarts.json`). It now
+starts the interval at the sprint log's "Resumed at" line. With them the fit is 86 s + 21.0 s per boundary over 75
+cycles (residual SD 20 s), and the killed cycle's prediction is 401 s. The control shifts had no restarts. The
+table and the rest of this report use the 72 cycles.
+
 | budget (s) | boundaries | cycles | median overhead (s) | range (s) |
 |---:|---:|---:|---:|---:|
 | 900 | 0 | 9 | 63 | 57–102 |

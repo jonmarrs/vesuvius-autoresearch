@@ -22,6 +22,9 @@ WORKERS = json.loads(
 )
 INLINE = json.loads((ROOT / "reports/epoch_boundary_overhead_inline.json").read_text())
 PASSES = json.loads((ROOT / "reports/loader_pass_cost_2026-10-17.json").read_text())
+RESTARTS = json.loads(
+    (ROOT / "reports/epoch_boundary_overhead_restarts.json").read_text()
+)
 
 
 @pytest.mark.parametrize("result", [WORKERS, INLINE], ids=["workers", "inline"])
@@ -124,4 +127,26 @@ def test_the_pass_costs():
     assert (
         f"persistent: {new[0]['iter_s']:.1f} s on the first pass, {later:.2f} s on each after"
         in REPORT
+    )
+
+
+def test_the_correction_for_restarts():
+    recovered = RESTARTS["recovered_rows"]
+    assert RESTARTS["sources"] == WORKERS["sources"]
+    published = {(r["shift"], r["cycle"], r["val_f1"]) for r in WORKERS["rows"]}
+    assert len(recovered) == 3
+    assert not published & {(r["shift"], r["cycle"], r["val_f1"]) for r in recovered}
+    for r in recovered:
+        assert r["boundaries"] == r["steps"] * r["batch_size"] // ebo.CATALOGUE
+    fit = ebo.fit(WORKERS["rows"] + recovered)
+    assert fit == pytest.approx(RESTARTS["fit_with_recovered"])
+    (killed,) = WORKERS["killed"]
+    predicted = fit["intercept_s"] + fit["per_boundary_s"] * killed["boundaries"]
+    assert predicted == pytest.approx(RESTARTS["killed_predicted_overhead_s"])
+    assert (
+        "the three such cycles (`epoch_boundary_overhead_restarts.json`)" in REPORT
+        and f"the fit is {fit['intercept_s']:.0f} s + {fit['per_boundary_s']:.1f} s per "
+        f"boundary over {fit['n']} cycles (residual SD {fit['residual_sd_s']:.0f} s)"
+        in REPORT
+        and f"the killed cycle's prediction is {predicted:.0f} s" in REPORT
     )

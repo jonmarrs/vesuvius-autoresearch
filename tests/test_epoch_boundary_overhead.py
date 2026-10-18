@@ -108,3 +108,21 @@ def test_unpaired_killed_runs_are_not_guessed(logs, tmp_path):
     night = tmp_path / "sprint_log_2026-10-16_19-15-03_night_shift.md"
     night.write_text(night.read_text().replace("(CRASHED)", "(REVERTED)"))
     assert ebo.analyse(*logs)["killed"] == []
+
+
+def test_a_restart_restarts_the_clock(tmp_path):
+    # The loop writes "## Resumed at" when it restarts inside a shift; the next
+    # cycle's interval starts there, not at the last cycle before the stop.
+    night = ["# Night Shift Sprint", "- **Start Time**: 19:10:03", ""]
+    night += _cycle(1, "a", "REVERTED", "20:13:05", 8, 0.26)  # 3782 s: 182 over
+    night += [
+        "## Resumed at 20:14:20 (the loop restarted; its cycles count from 1 again)",
+        "",
+        "- **VRAM cap 1.5 excludes**: batch_size=24 (2.00)",
+        "",
+    ]
+    night += _cycle(1, "b", "REVERTED", "21:15:57", 8, 0.27)  # 3697 s: 97, not 172
+    path = tmp_path / "sprint_log_2026-10-17_19-10-03_night_shift.md"
+    path.write_text("\n".join(night))
+    got = [(c["cycle"], c["overhead_s"]) for c in ebo.cycles(str(path))]
+    assert got == [("a", 182), ("b", 97)]
