@@ -20,7 +20,9 @@ Each case was reproduced with the script as on main, against the tests' throwawa
     commands could finish it.
   - A locked worktree, which `git worktree remove` also refuses, ended the same way.
   - `remove` now checks everything that can refuse before it changes anything:
-    - that the directory is one of this repository's worktrees;
+    - that the directory is one of this repository's worktrees, at its top level. In a directory inside a worktree,
+      git answers for that worktree, so without the second check `remove feature/sub` would make
+      `feature/sub/villa/` before git refused the path;
     - that it is not locked;
     - that its own files are clean (`git status --porcelain --ignore-submodules=all`), as `git worktree remove`
       requires;
@@ -49,7 +51,7 @@ Each case was reproduced with the script as on main, against the tests' throwawa
   - the refusal for an untracked file, with villa's worktree and the links still in place, then the removal;
   - a stopped `remove` resumed;
   - the locked worktree;
-  - a missing name, and a plain directory where git answers for the main checkout;
+  - a missing name, a plain directory where git answers for the main checkout, and one inside a worktree;
   - a `villa/` that is not villa's worktree.
 
 ## Verified, no change needed
@@ -59,6 +61,18 @@ Each case was reproduced with the script as on main, against the tests' throwawa
 - **A pre-#119 worktree is still removable.** Its `villa/` git directory lies under villa's `worktrees/`, as for
   any other.
 - **`add` for an existing branch** still stops at git, before anything is made.
+- **Nothing outside the standard suite has rotted since its 2026-10-16 review.**
+  - The 181 test modules outside `VALIDATION_TESTS` were run on main's tree, with this change's
+    `dev_worktree.sh`: 16 failed, 1286 passed, 72 skipped, 21 errors.
+  - Every failure and error has a cause that review recorded:
+    - 19 `test_probe_*` modules need villa's spiral-fitting modules, absent here, and 2 need `s3fs`;
+    - `s3fs` (5);
+    - `umbilicus.json` (4), and `test_probe_real_patch_scatter`'s patches (1);
+    - the LeJEPA checkpoint and villa's GP-winner config (2);
+    - villa checked out as a directory (2);
+    - the doc-reference guard (1): 17 villa paths outside this sparse checkout, and the ignored
+      `models/detector/` checkpoint the detector reports cite;
+    - `correlate_geometry_ink.py`'s host path (1).
 
 ## Observations for the owner (not changed)
 
@@ -69,6 +83,12 @@ Each case was reproduced with the script as on main, against the tests' throwawa
   but not commits on its detached `HEAD`. Once removed, those commits are reachable from no ref, and villa's
   garbage collection can delete them.
 - **A worktree whose directory was deleted by hand** is refused as "no worktree". `git worktree prune` forgets it.
+- **Two tests outside the standard suite write into the checkout they run in,** both into ignored paths.
+  - `test_villa_baselines_launchers` writes `scripts/_finetune_lejepa_runner.py`, as the 2026-10-16 review recorded.
+  - `test_evaluate_villa_metrics` writes `outputs/skeleton_hists/skeleton_branch_length_hist_sample_1.png`.
+    `scripts/evaluate_villa_metrics.py` saves villa's skeleton histogram there, and `train.py` saves the loop's
+    histograms to the same directory, so in the main checkout the test replaces the loop's first one.
+  - In a dev worktree, `outputs/` is the worktree's own.
 - **`mypy`, which the pre-commit hook runs on the whole repository, is not in `uv.lock`.**
   - This container's `.venv` has mypy 2.4.0, installed on 2026-10-12. On main it reports 6 errors in 5 files, so
     here the hook would refuse every Python commit.
@@ -96,7 +116,7 @@ Environment: CPython 3.10 venv, bash 5, git 2.43.
   - no status check;
   - an unconditional `mkdir` or `rm`;
   - no lock check;
-  - no worktree check;
+  - no worktree check, or no top-level check;
   - no check of `villa/`'s contents;
   - villa's step run unconditionally, as on main.
 - `bash -n scripts/dev_worktree.sh`. Ruff clean on the test file.

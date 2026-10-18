@@ -325,6 +325,13 @@ def test_remove_refuses_what_is_not_a_worktree(main_repo):
     error = refused(main_repo, "remove", "plain")
     assert error.returncode == 1 and "no worktree" in error.stderr
     assert plain.is_dir()
+    # A directory inside a worktree, where git answers for that worktree.
+    run(main_repo, "add", "feature", "main")
+    inner = main_repo / ".claude" / "worktrees" / "feature" / "sub"
+    inner.mkdir()
+    error = refused(main_repo, "remove", "feature/sub")
+    assert error.returncode == 1 and "no worktree" in error.stderr
+    assert list(inner.iterdir()) == []
 
 
 def test_remove_refuses_a_villa_that_is_not_villas_worktree(main_repo):

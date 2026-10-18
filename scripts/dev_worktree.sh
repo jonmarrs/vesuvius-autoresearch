@@ -71,14 +71,17 @@ remove)
     # Refuse rather than discard local changes, and before changing anything: a
     # refusal once villa's worktree and the links are gone would leave a
     # worktree that is neither usable nor removable here.
+    # Its own top level: inside another worktree, git answers for that one.
     own="$(git -C "$WT" rev-parse --absolute-git-dir 2>/dev/null || true)"
+    top="$(git -C "$WT" rev-parse --show-toplevel 2>/dev/null || true)"
     case "$own" in
-    "$common"/worktrees/*) ;;
-    *)
+    "$common"/worktrees/*) [ -n "$top" ] && [ "$top" -ef "$WT" ] || own= ;;
+    *) own= ;;
+    esac
+    if [ -z "$own" ]; then
         echo "no worktree at $WT" >&2
         exit 1
-        ;;
-    esac
+    fi
     if [ -e "$own/locked" ]; then
         echo "$WT is locked (git worktree unlock)" >&2
         exit 1
