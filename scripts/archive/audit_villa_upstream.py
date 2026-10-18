@@ -3,11 +3,14 @@
 Summarize prize-relevant changes available in the upstream ScrollPrize/villa repo.
 
 This intentionally reads only git metadata from the local villa submodule. Run
-`git -C villa fetch origin main` first when network is available.
+`git -C villa fetch origin main` first when network is available. It refuses a
+villa directory that is not a repository of its own: git run in an uninitialised
+submodule answers for the enclosing repository.
 """
 
 import argparse
 import json
+import os
 import subprocess
 from pathlib import Path
 
@@ -19,12 +22,16 @@ PRIZE_AREAS = {
         "prize_use": "Surface fitting, tifxyz conversion, and 3D training for better Scroll 2/3 unwrapping.",
     },
     "optimized_inference": {
-        "prefixes": ("ink-detection/optimized_inference/", "ink-detection/inference_"),
+        # The inference_*.py scripts moved to deprecated/ upstream (by ccb431818).
+        "prefixes": (
+            "ink-detection/optimized_inference/",
+            "deprecated/ink-detection/inference_",
+        ),
         "prize_use": "Official Docker/runtime contract for reproducible ink prediction submissions.",
     },
     "resnet3d_decoder": {
         "prefixes": (
-            "ink-detection/train_resnet3d_3d_decoder.py",
+            "deprecated/ink-detection/train_resnet3d_3d_decoder.py",
             "ink-detection/optimized_inference/model_resnet3d_3d_decoder.py",
         ),
         "prize_use": "Tracked 3D decoder baseline for thicker-layer context and stronger cross-scroll generalization.",
@@ -47,8 +54,47 @@ PRIZE_AREAS = {
 }
 
 
+# Git exports these to hooks (GIT_DIR from a linked worktree), and with one set
+# every call reads that repository instead; as scripts/audit_doc_references.py.
+_GIT_LOCATORS = (
+    "GIT_DIR",
+    "GIT_WORK_TREE",
+    "GIT_INDEX_FILE",
+    "GIT_COMMON_DIR",
+    "GIT_OBJECT_DIRECTORY",
+    "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+    "GIT_PREFIX",
+)
+
+
+def _git_env():
+    return {k: v for k, v in os.environ.items() if k not in _GIT_LOCATORS}
+
+
 def _git(args, cwd):
-    return subprocess.check_output(["git", *args], cwd=cwd, text=True).strip()
+    return subprocess.check_output(
+        ["git", *args], cwd=cwd, text=True, env=_git_env()
+    ).strip()
+
+
+def _check_own_repository(villa_dir):
+    """Raise unless villa_dir is the top of a repository of its own.
+
+    An uninitialised submodule is an empty directory, and git run there answers
+    for the enclosing repository: the audit reported this repository's HEAD as
+    both villa's local and upstream ref, and villa as up to date."""
+    top = subprocess.run(
+        ["git", "rev-parse", "--show-toplevel"],
+        cwd=villa_dir,
+        capture_output=True,
+        text=True,
+        env=_git_env(),
+    )
+    if top.returncode or Path(top.stdout.strip()).resolve() != villa_dir.resolve():
+        raise RuntimeError(
+            f"{villa_dir} is not a villa checkout of its own (an uninitialised "
+            "submodule?); run `git submodule update --init villa` first"
+        )
 
 
 def _changed_paths(villa_dir, base_ref, head_ref):
@@ -86,6 +132,7 @@ def audit_villa_upstream(villa_dir="villa", head_ref="origin/main"):
         villa_dir = REPO_ROOT / villa_dir
     if not villa_dir.exists():
         raise FileNotFoundError(f"villa submodule not found: {villa_dir}")
+    _check_own_repository(villa_dir)
 
     local_ref = _git(["rev-parse", "HEAD"], cwd=villa_dir)
     upstream_ref = _git(["rev-parse", head_ref], cwd=villa_dir)
