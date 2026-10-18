@@ -10,11 +10,12 @@ which is the hardest kind of drift to notice from a result.
 
 Renders are built by `repro/spiral_render/setup_workdir.sh`, which extracts
 `spiral-fitting`, `lasagna` and `vesuvius/src` from a villa checkout. Everything
-executable under those trees is in scope; this script diffs them by blob hash
-between two refs and exits nonzero if any differ, so it can gate a pin bump.
+executable under those trees is in scope; this script diffs them by blob hash and
+file mode between two refs and exits 1 if any differ, so it can gate a pin bump.
+It exits 2 when it cannot compare them (a missing checkout or ref).
 
 Usage:
-    check_villa_render_path.py                      # render source vs submodule HEAD
+    check_villa_render_path.py                      # old corpus's render source vs submodule HEAD
     check_villa_render_path.py 5479453a 908aa7f06
     check_villa_render_path.py --repo path/to/villa OLD NEW
 """
@@ -50,8 +51,10 @@ HOT_PATH = (
     "lasagna/fit.py",
 )
 
-# The tree renders are actually built from; NOT this repo's villa submodule.
-# They have diverged. See repro/spiral_render/setup_workdir.sh.
+# villa-spiral's origin/main, which the pinned-tier corpus's renders were
+# extracted from (tests/test_villa_spiral_refs_pinned.py). Since 2026-09-19
+# setup_workdir.sh extracts from this repo's submodule, at VILLA_REF, so this
+# default asks how far the submodule's HEAD has moved from that render source.
 RENDER_SOURCE_REF = "5479453a"
 
 
@@ -60,19 +63,22 @@ def git(repo: Path, *args: str) -> str:
         ["git", "-C", str(repo), *args], capture_output=True, text=True
     )
     if out.returncode != 0:
-        raise SystemExit(f"git {' '.join(args)} failed: {out.stderr.strip()}")
+        print(f"git {' '.join(args)} failed: {out.stderr.strip()}", file=sys.stderr)
+        raise SystemExit(2)
     return out.stdout
 
 
-def blobs(repo: Path, ref: str, tree: str) -> dict[str, str]:
-    """path -> blob hash for every file under `tree` at `ref`."""
-    listing = git(repo, "ls-tree", "-r", f"{ref}:{tree}")
+def blobs(repo: Path, ref: str, tree: str) -> dict[str, tuple[str, str]]:
+    """path -> (mode, blob hash) for every file under `tree` at `ref`, none if
+    `tree` is absent there: a removed tree is a difference, not an error. The
+    mode is whether a file is executable or a link, which the hash leaves out."""
+    listing = git(repo, "ls-tree", "-r", "-z", "--full-tree", ref, "--", tree)
     found = {}
-    for line in listing.splitlines():
-        meta, _, path = line.partition("\t")
+    for entry in listing.split("\0"):
+        meta, _, path = entry.partition("\t")
         parts = meta.split()
         if len(parts) >= 3 and parts[1] == "blob":
-            found[f"{tree}/{path}"] = parts[2]
+            found[path] = (parts[0], parts[2])
     return found
 
 
@@ -88,24 +94,21 @@ def is_docs(path: str) -> bool:
 
 
 def image_path_changes(repo: Path, old: str, new: str) -> list[str]:
-    """Files on the sampler's build path that changed between two refs."""
-    out = subprocess.run(
-        [
-            "git",
-            "-C",
-            str(repo),
-            "diff",
-            "--name-only",
-            old,
-            new,
-            "--",
-            "volume-cartographer",
-        ],
-        capture_output=True,
-        text=True,
-        check=True,
-    ).stdout.split()
-    return [p for p in out if p.startswith(IMAGE_PATH_PREFIXES)]
+    """Files on the sampler's build path that changed between two refs. Without
+    --no-renames a file moved out of the path is listed only where it went, and
+    -z keeps the names git would otherwise quote or split on a space."""
+    out = git(
+        repo,
+        "diff",
+        "--no-renames",
+        "--name-only",
+        "-z",
+        old,
+        new,
+        "--",
+        "volume-cartographer",
+    )
+    return [p for p in out.split("\0") if p.startswith(IMAGE_PATH_PREFIXES)]
 
 
 def compare(repo: Path, old: str, new: str) -> tuple[list[str], list[str], list[str]]:
@@ -133,7 +136,8 @@ def main() -> int:
         else Path(__file__).resolve().parent.parent / "villa"
     )
     if not repo.exists():
-        raise SystemExit(f"no villa checkout at {repo}")
+        print(f"no villa checkout at {repo}", file=sys.stderr)
+        return 2
 
     changed, added, removed = compare(repo, args.old, args.new)
     print(f"villa render path: {args.old} -> {args.new}")
