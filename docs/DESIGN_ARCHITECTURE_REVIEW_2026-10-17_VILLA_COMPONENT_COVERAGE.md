@@ -35,7 +35,8 @@ The search started from top-level code no review had mentioned: `v3_training/`, 
   - Whether each path is also in the working tree is recorded (`official_checked_out`, `deprecated_checked_out`)
     and rendered as "(not checked out)". The working tree is what a local tool reads: the handoff's next step,
     `build_volume_cartographer_readiness.py`, reports Volume Cartographer `blocked` on this checkout ("Official
-    component present: `False`") while this report has it `covered`. The mark says why. The summary counts the components with such a path.
+    component present: `False`") while this report has it `covered`. The mark says why. The summary counts the
+    components with such a path.
   - **When the pin's tree cannot be read, the working tree answers, and the report says so.** The report's `source`
     and its rendered caveat name the reason. The cases are:
     - villa is not a git checkout;
