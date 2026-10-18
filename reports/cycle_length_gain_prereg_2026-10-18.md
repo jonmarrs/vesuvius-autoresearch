@@ -1,7 +1,7 @@
 # Pre-registration: do 60-minute cycles score higher than 15-minute ones? (2026-10-18)
 
-Written on 2026-10-18 at about 08:50 PDT, after the 10-18 day shift's first three cycles and before any later one
-was read.
+Written on 2026-10-18 by 08:45 PDT (the time of the commit that adds it), after the 10-18 day shift's first three
+cycles and before any later one was read.
 
 **Question.** Every cycle fine-tunes `best_model.pt` for its budget, 15 minutes by day and 60 by night. On the same
 code and incumbent, does a 60-minute cycle score a higher val_f1 than a 15-minute one?
