@@ -18,8 +18,10 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
+import glob
 import json
 import math
+import os
 import re
 import statistics
 import sys
@@ -80,11 +82,20 @@ def analyse(
 ) -> dict:
     if isinstance(patterns, str):
         patterns = [patterns]
+    # Each log once, however many patterns name it and however spelled; a
+    # pattern that names none is an error, not a missing arm.
+    paths: dict[str, str] = {}
+    for pattern in patterns:
+        found = glob.glob(pattern)
+        if not found:
+            raise SystemExit(f"no sprint log matches {pattern}")
+        for path in found:
+            paths.setdefault(os.path.realpath(path), path)
     kept = sorted(
         (
             c
-            for pattern in patterns
-            for c in ebo.cycles(pattern)
+            for path in sorted(paths.values())
+            for c in ebo.cycles(glob.escape(path))
             if dt.datetime.fromisoformat(c["start"]) >= dt.datetime.fromisoformat(since)
         ),
         key=lambda c: c["start"],

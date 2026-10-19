@@ -163,3 +163,42 @@ def test_a_rotated_run_log_is_read_in_order(logs, tmp_path):
         [str(rotated / "run.log.old"), str(rotated / "run.log")], pattern
     )
     assert split == ebo.analyse(run_log, pattern) and split["killed"]
+
+
+def test_an_out_of_memory_crash_is_a_cycle(tmp_path):
+    # The loop logs it as "CRASHED (OOM)". Missed, the cycle was dropped and
+    # its two minutes counted as the next cycle's overhead (210 s, not 90).
+    day = ["# Day Shift Sprint", "- **Start Time**: 07:35:03", ""]
+    day += _cycle(1, "a", "REVERTED", "07:51:00", 8, 0.26)
+    day += _cycle(2, "batch_size_24", "CRASHED (OOM)", "07:53:00", 24, None)
+    day += _cycle(3, "b", "REVERTED", "08:09:30", 8, 0.27)
+    path = tmp_path / "sprint_log_2026-10-18_07-35-03_day_shift.md"
+    path.write_text("\n".join(day))
+    got = [
+        (c["cycle"], c["result"], c["oom"], c["overhead_s"])
+        for c in ebo.cycles(str(path))
+    ]
+    assert got == [
+        ("a", "REVERTED", False, 57),
+        ("batch_size_24", "CRASHED", True, -780),
+        ("b", "REVERTED", False, 90),
+    ]
+
+
+def test_an_out_of_memory_crash_is_not_paired_as_a_killed_run(logs, tmp_path):
+    # It was not killed at the timeout, on either side: its cycle is not a
+    # crashed cycle to pair, and its run (which may have logged steps before
+    # the traceback, as 7 of 9 in run.log.old did) is not an unscored one.
+    # Counted on one side only, the totals differed and nothing was paired.
+    run_log, _ = logs
+    oom = _run(3600, 0, 3596) + ["torch.OutOfMemoryError: CUDA out of memory."]
+    Path(run_log).write_text(Path(run_log).read_text() + "\n".join(oom) + "\n")
+    night = tmp_path / "sprint_log_2026-10-16_19-15-03_night_shift.md"
+    night.write_text(
+        night.read_text()
+        + "\n"
+        + "\n".join(_cycle(3, "batch_size_24", "CRASHED (OOM)", "01:10:00", 24, None))
+    )
+    (k,) = ebo.analyse(*logs)["killed"]
+    assert (k["cycle"], k["steps"]) == ("use_uamt_False", 28970)
+    assert all(u["steps"] for u in ebo.runs(run_log)[1])  # the OOM run is not one

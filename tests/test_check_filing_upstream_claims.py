@@ -13,6 +13,8 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+import pytest
+
 _REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(_REPO / "scripts"))
 import check_filing_upstream_claims as cf  # noqa: E402
@@ -110,3 +112,26 @@ def test_the_october_draft_states_its_merges_in_the_checked_form():
     checks, missing = cf.month_checks(text, PRS, "2026-10", lookup=_no_lookup)
     assert missing == []
     assert checks and all(ok for _, ok, _ in checks), checks
+
+
+@pytest.mark.parametrize(
+    "month",
+    ["2026/10", "2026-1", "2026-10-11", "2026-13", "2026-00", "10-2026", "２０２６-10"],
+)
+def test_a_month_not_written_yyyy_mm_is_refused(month):
+    # It is matched as a prefix of the merge dates: "2026/10" matched no merge,
+    # required no claim, and passed; "2026-10-11" required that day's only.
+    with pytest.raises(cf.argparse.ArgumentTypeError, match="YYYY-MM"):
+        cf.month_arg(month)
+    assert cf.month_arg("2026-10") == "2026-10"
+
+
+def test_the_command_refuses_a_malformed_month_before_asking_github(monkeypatch):
+    def no_gh(*args):
+        raise AssertionError("gh was called")
+
+    monkeypatch.setattr(cf, "gh", no_gh)
+    monkeypatch.setattr(sys, "argv", ["check", "--month", "2026/10"])
+    with pytest.raises(SystemExit) as stop:
+        cf.main()
+    assert stop.value.code == 2
