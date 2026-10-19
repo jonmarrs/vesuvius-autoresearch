@@ -146,9 +146,8 @@ def test_the_selection_metrics_are_logged_under_run_result_names(incumbent, logg
     if logged:
         expected["val/incumbent_val_f1"] = incumbent
     assert got == expected
-    assert (
-        type(got["val/is_success"]) is bool
-    )  # a numpy bool or 1 would be logged as given
+    # A numpy bool, or 1, would otherwise be logged as given.
+    assert type(got["val/is_success"]) is bool
 
 
 def test_train_logs_its_selection_metrics_with_its_validation():

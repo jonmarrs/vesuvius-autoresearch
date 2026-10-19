@@ -28,7 +28,7 @@ Scope: `scripts/wandb_tracking.py` and the calls `scripts/training/train.py` mak
 
     `train.py`'s validation log adds them; its existing keys are unchanged.
 - **Tracking could crash a cycle.** The module promises that "a tracking hiccup never crashes a training cycle".
-  But it raised in three places:
+  But five of its calls could raise into the run, at init and mid-run:
   - **At init.** If the offline fallback after a failed online init also raised, `init_run` raised. With
     `use_wandb` set and wandb not importable, it raised `ImportError`. Either ended the run before training, on
     every cycle until fixed. Each now prints a warning and returns no run. With `WANDB_MODE=offline`, a failed init
