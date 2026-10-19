@@ -5,8 +5,9 @@ of the scroll-specific augmentations defined in scroll_augmentations.py.
 Each (condition, seed) is a separate train.py subprocess that warm-starts
 from the current best_model.pt. Configs differ only in which single scroll
 augmentation is forced on (probability=1.0); all other scroll-aug
-probabilities are forced off. The final val_bpb from each run goes into a
-CSV and a per-condition summary table.
+probabilities are forced off. Each run's val_f1 and AP lift (what the loop
+selects on), its val_bpb and topology metrics, and how much of the model it
+warm-started go into a CSV; the per-condition summary table is of val_bpb.
 
 Six conditions:
     baseline, decohesion, warping, squeeze, z_dropout, intensity_drift
@@ -113,7 +114,8 @@ def _run_one(
     log_path: str,
     supervisor: ProcessSupervisor,
 ) -> dict:
-    """Run one short-train subprocess. Returns a dict with val_bpb etc.
+    """Run one short-train subprocess. Returns its status and elapsed time,
+    with run_result.json's metrics and warm-start record when it wrote one.
 
     The supervisor starts it in a new session and ends the whole group on a
     timeout or a stop: killing only `uv run` left the trainer running, on the
@@ -156,9 +158,24 @@ def _run_one(
 
     with result_path.open() as f:
         res = json.load(f)
+    warm = res.get("warm_start")
+    warm = warm if isinstance(warm, dict) else {}
     return {
         "status": "OK",
         "elapsed_s": elapsed,
+        # The loop has selected on val_f1, gated by the AP lift, since
+        # 2026-07-11 (train.promotion_decision). The threshold and ROC AUC
+        # are reported beside them, and val_bpb and the topology metrics are
+        # reported only. Written before then, this harness recorded none of
+        # the first four.
+        "val_f1": res.get("val_f1"),
+        "val_f1_threshold": res.get("val_f1_threshold"),
+        "ap_prevalence_lift": res.get("ap_prevalence_lift"),
+        "roc_auc": res.get("roc_auc"),
+        # Every cell is meant to fine-tune the same incumbent (train.warm_start).
+        "warm_start_loaded": warm.get("loaded"),
+        "warm_start_tensors": warm.get("model_tensors"),
+        "warm_start_reason": warm.get("reason"),
         "val_bpb": res.get("val_bpb"),
         "train_loss": res.get("train_loss"),
         "avg_skel_dist": res.get("avg_skel_dist"),
@@ -166,6 +183,32 @@ def _run_one(
         "avg_cc_diff": res.get("avg_cc_diff"),
         "is_success": res.get("is_success", False),
     }
+
+
+def _fmt(value) -> str:
+    """A metric for the per-cell line: n/a when the run recorded none."""
+    if isinstance(value, float) and not math.isnan(value):
+        return f"{value:.6f}"
+    return "n/a"
+
+
+def _cell_line(result: dict) -> str:
+    """The line printed after each cell, with a warning when the cell did not
+    start wholly from the incumbent, which the comparison across conditions
+    assumes."""
+    line = (
+        f"  status={result['status']}  val_f1={_fmt(result.get('val_f1'))}  "
+        f"val_bpb={_fmt(result.get('val_bpb'))}  elapsed={result['elapsed_s']:.0f}s"
+    )
+    loaded, tensors = result.get("warm_start_loaded"), result.get("warm_start_tensors")
+    # type, not isinstance: a bool is an int.
+    if type(loaded) is int and type(tensors) is int and loaded < tensors:
+        line += (
+            f"\n  warning: {loaded} of the model's {tensors} tensors from best_model.pt"
+        )
+        if result.get("warm_start_reason"):
+            line += f" ({result['warm_start_reason']})"
+    return line
 
 
 def _summarize(rows: list[dict]) -> dict[str, dict]:
@@ -334,15 +377,7 @@ def main() -> int:
                     result["run_id"] = run_id
                     rows.append(result)
 
-                    vb = result.get("val_bpb")
-                    vb_s = (
-                        f"{vb:.6f}"
-                        if isinstance(vb, float) and not math.isnan(vb)
-                        else "n/a"
-                    )
-                    print(
-                        f"  status={result['status']}  val_bpb={vb_s}  elapsed={result['elapsed_s']:.0f}s"
-                    )
+                    print(_cell_line(result))
     except KeyboardInterrupt:
         print(f"\n# stopped after {len(rows)} of {total_runs} runs", file=sys.stderr)
     finally:
@@ -359,6 +394,13 @@ def main() -> int:
         "condition",
         "seed",
         "status",
+        "val_f1",
+        "val_f1_threshold",
+        "ap_prevalence_lift",
+        "roc_auc",
+        "warm_start_loaded",
+        "warm_start_tensors",
+        "warm_start_reason",
         "val_bpb",
         "train_loss",
         "avg_skel_dist",

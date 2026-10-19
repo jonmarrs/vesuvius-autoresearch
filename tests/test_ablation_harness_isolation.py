@@ -233,3 +233,114 @@ def test_train_writes_the_loops_logs_only_outside_an_experiment_run():
         and [ast.unparse(t) for t in node.targets] == ["promoted"]
     ]
     assert promoted == "is_improvement and (not ckpt_out)"
+
+
+def test_a_cell_records_what_the_loop_selects_on(tmp_path, monkeypatch, capsys):
+    """The harness predates selection on val_f1 (2026-07-11) and recorded only
+    val_bpb and topology, which the loop reports but no longer decides on; nor
+    whether the cell warm-started from the incumbent as each is meant to."""
+    _project(tmp_path, monkeypatch)
+    result = {
+        "val_f1": 0.27,
+        "val_f1_threshold": 0.4,
+        "ap_prevalence_lift": 1.6,
+        "roc_auc": 0.81,
+        "val_bpb": 0.26,
+        "warm_start": {"loaded": 280, "model_tensors": 288, "reason": None},
+        "is_success": False,
+    }
+
+    class Supervisor:
+        def run(self, cmd, **kwargs):
+            (tmp_path / "run_result.json").write_text(json.dumps(result))
+
+    got = ablation._run_one("cfg.json", 0, 60, str(tmp_path / "cell.log"), Supervisor())
+    recorded = {
+        "val_f1": 0.27,
+        "val_f1_threshold": 0.4,
+        "ap_prevalence_lift": 1.6,
+        "roc_auc": 0.81,
+        "warm_start_loaded": 280,
+        "warm_start_tensors": 288,
+        "warm_start_reason": None,
+    }
+    assert got["status"] == "OK"
+    assert {k: got[k] for k in recorded} == recorded
+
+    monkeypatch.setattr(ablation, "_run_one", lambda *a: dict(got))
+    assert ablation.main() == 0
+    with open(tmp_path / "ablation.csv", newline="") as f:
+        rows = list(csv.DictReader(f))
+    assert [r["condition"] for r in rows] == ["baseline", "squeeze"]
+    for row in rows:
+        assert {k: row[k] for k in recorded} == {
+            k: "" if v is None else str(v) for k, v in recorded.items()
+        }
+    out = capsys.readouterr().out
+    assert out.count("val_f1=0.270000  val_bpb=0.260000") == 2
+    assert out.count("warning: 280 of the model's 288 tensors from best_model.pt") == 2
+
+
+@pytest.mark.parametrize(
+    ("record", "warning"),
+    [
+        ({"loaded": 288, "model_tensors": 288, "reason": None}, None),
+        (
+            {"loaded": 0, "model_tensors": 288, "reason": "no best_model.pt"},
+            "warning: 0 of the model's 288 tensors from best_model.pt "
+            "(no best_model.pt)",
+        ),
+        ({"loaded": True, "model_tensors": 288, "reason": None}, None),
+    ],
+)
+def test_a_cell_that_did_not_start_from_the_incumbent_is_flagged(record, warning):
+    """Every cell is meant to fine-tune the incumbent; the comparison across
+    conditions assumes it."""
+    line = ablation._cell_line(
+        {
+            "status": "OK",
+            "elapsed_s": 61.0,
+            "val_f1": 0.27,
+            "val_bpb": float("nan"),
+            "warm_start_loaded": record["loaded"],
+            "warm_start_tensors": record["model_tensors"],
+            "warm_start_reason": record["reason"],
+        }
+    )
+    first, *rest = line.split("\n")
+    assert first == "  status=OK  val_f1=0.270000  val_bpb=n/a  elapsed=61s"
+    assert rest == ([f"  {warning}"] if warning else [])
+
+
+@pytest.mark.parametrize("payload", [{}, {"warm_start": "malformed"}])
+def test_a_result_without_a_warm_start_record_is_still_read(
+    tmp_path, monkeypatch, payload
+):
+    """A run_result.json from before the record, or a malformed one."""
+    monkeypatch.setattr(ablation, "PROJECT_ROOT", tmp_path)
+
+    class Supervisor:
+        def run(self, cmd, **kwargs):
+            (tmp_path / "run_result.json").write_text(
+                json.dumps({"val_f1": 0.27, **payload})
+            )
+
+    got = ablation._run_one("c.json", 0, 60, str(tmp_path / "c.log"), Supervisor())
+    assert got["status"] == "OK" and got["val_f1"] == 0.27
+    assert got["warm_start_loaded"] is None and got["warm_start_tensors"] is None
+    assert got["warm_start_reason"] is None
+
+
+def test_a_result_from_before_selection_on_val_f1_is_still_read(tmp_path, monkeypatch):
+    """A run_result.json written before 2026-07-11 has none of the new fields."""
+    monkeypatch.setattr(ablation, "PROJECT_ROOT", tmp_path)
+
+    class Supervisor:
+        def run(self, cmd, **kwargs):
+            (tmp_path / "run_result.json").write_text(json.dumps({"val_bpb": 0.26}))
+
+    got = ablation._run_one("c.json", 0, 60, str(tmp_path / "c.log"), Supervisor())
+    assert got["status"] == "OK" and got["val_bpb"] == 0.26
+    for key in ("val_f1", "val_f1_threshold", "ap_prevalence_lift", "roc_auc"):
+        assert got[key] is None
+    assert "val_f1=n/a  val_bpb=0.260000" in ablation._cell_line(got)
