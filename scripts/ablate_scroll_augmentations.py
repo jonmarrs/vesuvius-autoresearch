@@ -114,7 +114,8 @@ def _run_one(
     log_path: str,
     supervisor: ProcessSupervisor,
 ) -> dict:
-    """Run one short-train subprocess. Returns a dict with val_bpb etc.
+    """Run one short-train subprocess. Returns its status and elapsed time,
+    with run_result.json's metrics and warm-start record when it wrote one.
 
     The supervisor starts it in a new session and ends the whole group on a
     timeout or a stop: killing only `uv run` left the trainer running, on the
@@ -162,9 +163,11 @@ def _run_one(
     return {
         "status": "OK",
         "elapsed_s": elapsed,
-        # What the loop selects on (train.promotion_decision) since 2026-07-11;
-        # val_bpb and the topology metrics are reported only. Written before
-        # then, this harness recorded none of these.
+        # The loop has selected on val_f1, gated by the AP lift, since
+        # 2026-07-11 (train.promotion_decision). The threshold and ROC AUC
+        # are reported beside them, and val_bpb and the topology metrics are
+        # reported only. Written before then, this harness recorded none of
+        # the first four.
         "val_f1": res.get("val_f1"),
         "val_f1_threshold": res.get("val_f1_threshold"),
         "ap_prevalence_lift": res.get("ap_prevalence_lift"),
@@ -172,6 +175,7 @@ def _run_one(
         # Every cell is meant to fine-tune the same incumbent (train.warm_start).
         "warm_start_loaded": warm.get("loaded"),
         "warm_start_tensors": warm.get("model_tensors"),
+        "warm_start_reason": warm.get("reason"),
         "val_bpb": res.get("val_bpb"),
         "train_loss": res.get("train_loss"),
         "avg_skel_dist": res.get("avg_skel_dist"),
@@ -179,6 +183,32 @@ def _run_one(
         "avg_cc_diff": res.get("avg_cc_diff"),
         "is_success": res.get("is_success", False),
     }
+
+
+def _fmt(value) -> str:
+    """A metric for the per-cell line: n/a when the run recorded none."""
+    if isinstance(value, float) and not math.isnan(value):
+        return f"{value:.6f}"
+    return "n/a"
+
+
+def _cell_line(result: dict) -> str:
+    """The line printed after each cell, with a warning when the cell did not
+    start wholly from the incumbent, which the comparison across conditions
+    assumes."""
+    line = (
+        f"  status={result['status']}  val_f1={_fmt(result.get('val_f1'))}  "
+        f"val_bpb={_fmt(result.get('val_bpb'))}  elapsed={result['elapsed_s']:.0f}s"
+    )
+    loaded, tensors = result.get("warm_start_loaded"), result.get("warm_start_tensors")
+    # type, not isinstance: a bool is an int.
+    if type(loaded) is int and type(tensors) is int and loaded < tensors:
+        line += (
+            f"\n  warning: {loaded} of the model's {tensors} tensors from best_model.pt"
+        )
+        if result.get("warm_start_reason"):
+            line += f" ({result['warm_start_reason']})"
+    return line
 
 
 def _summarize(rows: list[dict]) -> dict[str, dict]:
@@ -347,16 +377,7 @@ def main() -> int:
                     result["run_id"] = run_id
                     rows.append(result)
 
-                    shown = {
-                        key: f"{v:.6f}"
-                        if isinstance(v := result.get(key), float) and not math.isnan(v)
-                        else "n/a"
-                        for key in ("val_f1", "val_bpb")
-                    }
-                    print(
-                        f"  status={result['status']}  val_f1={shown['val_f1']}  "
-                        f"val_bpb={shown['val_bpb']}  elapsed={result['elapsed_s']:.0f}s"
-                    )
+                    print(_cell_line(result))
     except KeyboardInterrupt:
         print(f"\n# stopped after {len(rows)} of {total_runs} runs", file=sys.stderr)
     finally:
@@ -379,6 +400,7 @@ def main() -> int:
         "roc_auc",
         "warm_start_loaded",
         "warm_start_tensors",
+        "warm_start_reason",
         "val_bpb",
         "train_loss",
         "avg_skel_dist",

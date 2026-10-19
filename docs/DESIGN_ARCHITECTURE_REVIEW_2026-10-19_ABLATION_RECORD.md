@@ -23,18 +23,27 @@ no change (below).
     - `val_f1` and `val_f1_threshold`;
     - `ap_prevalence_lift` and `roc_auc`;
 
-    all under `run_result.json`'s names. The per-cell line prints val_f1 beside val_bpb.
+    all under `run_result.json`'s names. The loop decides on the first and third; the threshold and ROC AUC are
+    reported beside them. The per-cell line prints val_f1 beside val_bpb.
 - **Nor whether the cell started from the incumbent.**
   - The docstring says every cell "warm-starts from the current best_model.pt", and the comparison across conditions
     rests on it. Since #134, `run_result.json` records how many of the model's tensors came from `best_model.pt`
     (`warm_start`).
-  - Each row now carries `warm_start_loaded` and `warm_start_tensors`, empty for a result without the record.
-- **The docstring** says what the CSV holds, and that the summary is of `val_bpb`.
-- **Tests** (`tests/test_ablation_harness_isolation.py`, in the standard suite, 2 new, 3 cases):
-  - a cell's result read into its row, and the row into the CSV, with each new field;
-  - a result without the warm-start record, or with a malformed one, still read.
+  - Each row now carries `warm_start_loaded`, `warm_start_tensors` and `warm_start_reason`, empty for a result
+    without the record.
+  - A cell that loaded fewer tensors than the model has prints a warning under its line, with the reason, as the
+    loop's sprint log notes such a cycle (`warm_start_note`).
+- **The docstrings** say what the CSV holds, that the summary is of `val_bpb`, and what `_run_one` returns.
+- **Tests** (`tests/test_ablation_harness_isolation.py`, in the standard suite, 4 new, 7 cases):
+  - a cell's result read into its row, and the row into the CSV, with each of the seven new fields, and the
+    per-cell line;
+  - the warning: none for a full warm start, or for a count that is not an int; one, with the reason, for a
+    partial one;
+  - a result without the warm-start record, or with a malformed one, still read;
+  - a result from before 2026-07-11, with none of the new fields, still read and printed.
 
-  All fail with main's script.
+  All fail with main's script. Each mutation tried is killed: dropping any new column from the CSV, reading
+  `val_f1` with `[]`, `isinstance` for the counts, `<=` for `<`, and no warning.
 
 ## Verified, no change needed
 
@@ -58,6 +67,16 @@ no change (below).
 
 ## Verification
 
-- `pytest tests/test_ablation_harness_isolation.py`: 10 passed. With main's script, the 3 new cases fail.
-- Ruff and mypy clean on the changed files.
+- `pytest tests/test_ablation_harness_isolation.py`: 14 passed. With main's script, the 7 new cases fail.
+- Ruff and mypy clean on the changed files, the test file included.
+- **Independent review** of the first commit found nothing blocking, and 1 should-fix: the CSV test read back two
+  of the six new columns, so dropping any of the other four passed. Its nits:
+  - the comment counted the threshold and AUC among what the loop selects on;
+  - the warm start's reason was not recorded;
+  - the per-cell line was untested, and inlined;
+  - `_run_one`'s docstring was stale;
+  - the CSV was read through an unclosed file;
+  - nothing tested a result without `val_f1`.
+
+  All are addressed above.
 - The standard suite: see the PR.
