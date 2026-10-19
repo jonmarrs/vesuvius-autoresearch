@@ -19,6 +19,7 @@ import subprocess
 import sys
 import threading
 import time
+from dataclasses import asdict
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -995,10 +996,11 @@ def test_a_foundation_model_that_does_not_load_stops_the_run(tmp_path):
     assert torch.equal(plain.weight, weight)
 
 
-def _stubbed_training(tmp_path, monkeypatch, foundation):
+def _stubbed_training(tmp_path, monkeypatch, foundation=None):
     """train() as far as it goes without data, for a config whose
     foundation_model_path is ``foundation``: the datasets, loaders and logging
-    are stubbed, and the optimizer, built after the model, ends the run."""
+    are stubbed, and the optimizer, built after the model and its warm start,
+    ends the run."""
     config = ExperimentConfig(
         architecture="resenc_unet",
         patch_size=8,
@@ -1010,7 +1012,7 @@ def _stubbed_training(tmp_path, monkeypatch, foundation):
         use_uamt=False,
         checkpoint_out=str(tmp_path / "candidate.pt"),
         cache_dir=str(tmp_path / "cache"),
-        foundation_model_path=str(foundation),
+        foundation_model_path=str(foundation) if foundation else None,
     )
     built = []
 
@@ -1072,6 +1074,189 @@ def test_the_smoke_preflight_stops_on_a_foundation_model_that_does_not_fit(tmp_p
         train.preflight_smoke(config)
     config.foundation_model_path = None
     train.preflight_smoke(config)  # the same config passes without it
+
+
+def _incumbent(path, model, experiment, **fields):
+    payload = {"model_state_dict": model.state_dict(), "config": asdict(experiment)}
+    payload.update(fields)
+    torch.save(payload, path)
+    return path
+
+
+def _net(inputs=3, outputs=2):
+    """A model with buffers as well as parameters, as the real ones have."""
+    return torch.nn.Sequential(
+        torch.nn.Linear(inputs, outputs), torch.nn.BatchNorm1d(outputs)
+    )
+
+
+def test_a_matching_incumbent_is_loaded_and_the_load_recorded(tmp_path):
+    config = ExperimentConfig()
+    source, model = _net(), _net()
+    source[1].running_mean.fill_(0.5)
+    path = _incumbent(tmp_path / "best_model.pt", source, config)
+    record = train.warm_start(model, config, str(path))
+    assert record == {"loaded": 7, "model_tensors": 7, "reason": None}
+    assert torch.equal(model[0].weight, source[0].weight)
+    assert torch.equal(model[1].running_mean, source[1].running_mean)
+    # A model with a tensor the incumbent's does not fit starts partly.
+    partial = train.warm_start(_net(inputs=4), config, str(path))
+    assert partial == {"loaded": 6, "model_tensors": 7, "reason": None}
+    strict = train.warm_start(_net(), config, str(path), strict=True)
+    assert strict == {"loaded": 7, "model_tensors": 7, "reason": None}
+    with pytest.raises(RuntimeError, match="size mismatch"):
+        train.warm_start(_net(inputs=4), config, str(path), strict=True)
+
+
+def test_a_run_that_starts_with_none_of_the_incumbent_records_why(tmp_path):
+    """These start from the model as built, as before; the record says so."""
+    config = ExperimentConfig()
+    path = tmp_path / "best_model.pt"
+    model = _net()
+
+    def reason():
+        record = train.warm_start(model, config, str(path))
+        assert record["loaded"] == 0 and record["model_tensors"] == 7
+        return record["reason"]
+
+    assert reason() == f"no {path}"
+    other = ExperimentConfig(use_ridges=not config.use_ridges)
+    _incumbent(path, _net(), other)
+    assert reason() == (
+        f"another architecture, use_ridges: {other.use_ridges}->{config.use_ridges}"
+    )
+    recorded = asdict(config)
+    del recorded["patch_size"]
+    _incumbent(path, _net(), config, config=recorded)
+    assert reason() == f"{path} records no patch_size"
+    torch.save(_net().state_dict(), path)  # a bare state dict
+    assert reason() == f"{path} records no architecture"
+
+
+def _unusable(path, case, config):
+    if case == "not a checkpoint":
+        path.write_bytes(b"not a checkpoint")
+    elif case == "a list":
+        torch.save([torch.zeros(1)], path)
+    elif case == "no config dict":
+        torch.save({"config": None}, path)
+    elif case == "no weights":
+        torch.save({"config": asdict(config)}, path)
+    elif case == "nothing fits":
+        state = {"0.weight": torch.zeros(5, 5), "1.running_mean": torch.zeros(5)}
+        torch.save({"model_state_dict": state, "config": asdict(config)}, path)
+    elif case == "prefixed names":
+        state = {f"module.{k}": v for k, v in _net().state_dict().items()}
+        torch.save({"model_state_dict": state, "config": asdict(config)}, path)
+
+
+@pytest.mark.parametrize(
+    "case, error, message",
+    [
+        ("not a checkpoint", RuntimeError, "cannot be read .UnpicklingError"),
+        ("a list", ValueError, "not a checkpoint with a config; restore it"),
+        ("no config dict", ValueError, "not a checkpoint with a config; restore it"),
+        ("no weights", ValueError, "holds no model_state_dict; restore it"),
+        ("nothing fits", ValueError, "records this architecture, but no tensor"),
+        ("prefixed names", ValueError, "records this architecture, but no tensor"),
+    ],
+)
+def test_an_incumbent_that_cannot_be_used_stops_the_run(tmp_path, case, error, message):
+    """Each was a printed warning, "Could not load best model", or a fresh
+    start, after which the run trained from the model as built and reverted
+    like any other. One that records this architecture and shares no tensor
+    with the model is a bug, as d3da171's was: a renamed module, a prefix."""
+    config = ExperimentConfig()
+    path = tmp_path / "best_model.pt"
+    _unusable(path, case, config)
+    with pytest.raises(error, match=message):
+        train.warm_start(_net(), config, str(path))
+
+
+def test_an_error_in_the_warm_start_is_not_swallowed(tmp_path, monkeypatch):
+    """d3da171 listed in_channels, which ExperimentConfig does not have, among
+    the fields compared: the AttributeError was printed as "Could not load
+    best model", and every cycle for 11 days from 2026-05-06 trained from
+    random weights."""
+    config = ExperimentConfig()
+    path = _incumbent(
+        tmp_path / "best_model.pt",
+        _net(),
+        config,
+        config={**asdict(config), "in_channels": 2},
+    )
+    monkeypatch.setattr(
+        train, "WARM_START_FIELDS", (*train.WARM_START_FIELDS, "in_channels")
+    )
+    with pytest.raises(AttributeError, match="in_channels"):
+        train.warm_start(_net(), config, str(path))
+
+
+def test_the_warm_start_reads_the_incumbent_on_the_cpu(tmp_path, monkeypatch):
+    """It was read onto the GPU, where the copy stayed until the run's end."""
+    config = ExperimentConfig()
+    path = _incumbent(tmp_path / "best_model.pt", _net(), config)
+    load, places = torch.load, []
+
+    def recording_load(*args, **kwargs):
+        places.append(kwargs.get("map_location"))
+        return load(*args, **kwargs)
+
+    monkeypatch.setattr(train.torch, "load", recording_load)
+    train.warm_start(_net(), config, str(path))
+    assert places == ["cpu"]
+
+
+def test_train_stops_on_an_incumbent_it_cannot_read(tmp_path, monkeypatch):
+    """train() warm-starts from the best_model.pt in its working directory,
+    before the loaders start; main printed a warning there and went on."""
+    config, built = _stubbed_training(tmp_path, monkeypatch)
+    loaders = []
+    monkeypatch.setattr(
+        train, "shuffled_loader", lambda *a, **k: loaders.append(a) or []
+    )
+    (tmp_path / "best_model.pt").write_bytes(b"not a checkpoint")
+    with pytest.raises(RuntimeError, match="best_model.pt cannot be read"):
+        train.train(config)
+    assert built == ["val"] and loaders == []
+    (tmp_path / "best_model.pt").unlink()
+    with pytest.raises(RuntimeError, match="reached the optimizer"):
+        train.train(config)  # no incumbent: a fresh start, as before
+    assert loaders
+
+
+def test_train_writes_the_warm_start_it_made_into_run_result():
+    """train() reaches run_result.json only with CUDA and data, so this reads
+    its source: the record warm_start returns, for the strict path too, is
+    the one the result carries."""
+    import ast
+
+    tree = ast.parse(Path(train.__file__).read_text())
+    body = next(
+        node
+        for node in ast.walk(tree)
+        if isinstance(node, ast.FunctionDef) and node.name == "train"
+    )
+    assigned = {
+        target.id: node.value
+        for node in ast.walk(body)
+        if isinstance(node, ast.Assign)
+        for target in node.targets
+        if isinstance(target, ast.Name)
+    }
+    call = assigned["warm_started"]
+    assert isinstance(call, ast.Call) and ast.unparse(call.func) == "warm_start"
+    assert [(k.arg, ast.unparse(k.value)) for k in call.keywords] == [
+        ("strict", "strict_warm_start")
+    ]
+    result = assigned["result_data"]
+    assert isinstance(result, ast.Dict)
+    entries = {
+        key.value: ast.unparse(value)
+        for key, value in zip(result.keys, result.values, strict=True)
+        if isinstance(key, ast.Constant)
+    }
+    assert entries["warm_start"] == "warm_started"
 
 
 def test_a_failed_preflight_is_named_in_the_sprint_log(tmp_path, monkeypatch):
@@ -1719,6 +1904,45 @@ def test_the_benchmark_leaves_the_depth_to_predict(tmp_path, monkeypatch):
     _drive_loop(tmp_path, monkeypatch, cycles=5, commands=commands)
     benchmarks = [c for c in commands if "scripts/inference/predict.py" in c]
     assert len(benchmarks) == 1 and "--z" not in benchmarks[0]
+
+
+@pytest.mark.parametrize(
+    "warm_start, line",
+    [
+        (
+            {"loaded": 0, "model_tensors": 288, "reason": "no best_model.pt"},
+            "- **Warm start**: 0 of the model's 288 tensors from best_model.pt "
+            "(no best_model.pt)\n",
+        ),
+        (
+            {"loaded": 280, "model_tensors": 288, "reason": None},
+            "- **Warm start**: 280 of the model's 288 tensors from best_model.pt\n",
+        ),
+        ({"loaded": 288, "model_tensors": 288, "reason": None}, None),
+        (None, None),  # a run_result.json from before the record
+        ("malformed", None),
+        ({"loaded": "0", "model_tensors": 288}, None),
+        ({"loaded": True, "model_tensors": 288}, None),
+    ],
+)
+def test_a_run_that_did_not_start_wholly_from_the_incumbent_is_logged(
+    tmp_path, monkeypatch, capsys, warm_start, line
+):
+    """Such a run reverts like any other, so its entry read as an ordinary
+    non-improvement."""
+    ExperimentConfig().save(tmp_path / "config.json")
+    result = {"is_success": False, "val_f1": 0.5}
+    if warm_start is not None:
+        result["warm_start"] = warm_start
+    _drive_loop(tmp_path, monkeypatch, cycles=1, result=result)
+    log = next((tmp_path / "sprint_logs").glob("*.md")).read_text()
+    assert "(REVERTED)" in log
+    out = capsys.readouterr().out
+    if line is None:
+        assert "Warm start" not in log and "Warm start" not in out
+    else:
+        assert line in log
+        assert "Warm start: " + line.split(": ", 1)[1].rstrip("\n") + "." in out
 
 
 def test_skipped_updates_reach_the_sprint_log(tmp_path, monkeypatch):

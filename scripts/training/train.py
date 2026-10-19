@@ -338,6 +338,69 @@ def load_required_starting_checkpoint(model, config, path="best_model.pt"):
     print(f"Loaded complete required starting checkpoint from {path}.")
 
 
+def warm_start(model, config, path="best_model.pt", strict=False):
+    """Start model from the incumbent at path: every tensor whose name and
+    shape match, if the architecture it records (WARM_START_FIELDS) is
+    config's; with strict, every tensor or fail (load_required_starting_checkpoint).
+    Returns how many of the model's tensors came from it, for run_result.json,
+    and why none did when none did: no file, or another architecture.
+
+    Anything else that keeps it from starting the model raises: a file that
+    does not load, is not a checkpoint with a config, or holds no
+    model_state_dict; one that records this architecture but shares no tensor
+    with the model; any error in the comparison. Each used to be a printed
+    warning, and the bug it swallowed (an in_channels lookup, d3da171) trained
+    every cycle from random (or foundation) weights for 11 days from
+    2026-05-06 (89a1d720), with nothing in the cycles' records to show it.
+    Read on the CPU, as the strict path reads it.
+    """
+    tensors = len(model.state_dict())
+    record = {"loaded": 0, "model_tensors": tensors, "reason": None}
+    if strict:
+        load_required_starting_checkpoint(model, config, path)
+        record["loaded"] = tensors
+        return record
+    if not os.path.exists(path):
+        record["reason"] = f"no {path}"
+        return record
+    remedy = (
+        f"restore it (e.g. `git checkout -- {path}`), or move it aside to train "
+        "from scratch"
+    )
+    try:
+        checkpoint = torch.load(path, map_location="cpu", weights_only=False)
+    except Exception as exc:
+        raise RuntimeError(
+            f"{path} cannot be read ({type(exc).__name__}: {exc}); {remedy}"
+        ) from exc
+    recorded = checkpoint.get("config", {}) if isinstance(checkpoint, dict) else None
+    if not isinstance(recorded, dict):
+        raise ValueError(f"{path} is not a checkpoint with a config; {remedy}")
+    mismatch = warm_start_mismatch(recorded, config)
+    if mismatch is not None:
+        if mismatch in recorded:
+            change = f"{mismatch}: {recorded[mismatch]}->{getattr(config, mismatch)}"
+            record["reason"] = f"another architecture, {change}"
+        else:
+            change = f"{mismatch} not recorded"
+            record["reason"] = f"{path} records no {mismatch}"
+        print(f"New architecture detected ({change}). Starting fresh.")
+        return record
+    state = checkpoint.get("model_state_dict")
+    if not isinstance(state, dict):
+        raise ValueError(f"{path} holds no model_state_dict; {remedy}")
+    print(f"Loading weights from {path} (Incremental Progress)...")
+    record["loaded"] = load_shape_compatible_state(model, state, path)
+    if not record["loaded"]:
+        # The same architecture with nothing in common is a bug, not a design.
+        raise ValueError(
+            f"{path} records this architecture, but no tensor's name and shape "
+            "match the model's (modules renamed, or a prefix such as `module.` "
+            "on every name?); move it aside to train from scratch"
+        )
+    return record
+
+
 # Run-to-run val_bpb noise on the fixed Fr143 validation set is ~2e-4 (observed
 # band 0.262564..0.262738 across 2026-06-09/10 cycles), while genuine regressions
 # show up at >1e-2 (e.g. 0.2746). 5e-3 separates the two by an order of
@@ -2017,9 +2080,12 @@ def train(config: ExperimentConfig, *, strict_warm_start=False):
     # Built before the loaders: which heads it trains decides the fiber target.
     model = build_model(config, v_config, device)
     # Before the loaders and logging start: a checkpoint that does not fit
-    # stops the run at once. The warm start below can still overwrite it.
+    # stops the run at once. The warm start after it can overwrite it.
     if config.foundation_model_path:
         load_foundation_model(model, config.foundation_model_path)
+    # From the incumbent where it fits; one that cannot be used stops the run
+    # here too. Recorded in run_result.json.
+    warm_started = warm_start(model, config, "best_model.pt", strict=strict_warm_start)
     # Only the outputs the model declares as heads are trained
     # (model_wrappers.task_heads); the rest are placeholders.
     heads = task_heads(model)
@@ -2055,48 +2121,6 @@ def train(config: ExperimentConfig, *, strict_warm_start=False):
     cldice_loss = (
         SoftClDiceLoss(iters=config.cldice_iters) if config.use_cldice else None
     )
-
-    # Load best model if architecture matches
-    best_model_path = "best_model.pt"
-    if strict_warm_start:
-        load_required_starting_checkpoint(model, config, best_model_path)
-    elif os.path.exists(best_model_path):
-        try:
-            checkpoint = torch.load(
-                best_model_path, map_location=device, weights_only=False
-            )
-            best_config = checkpoint.get("config", {})
-
-            # Check compatibility (architecture-defining attributes).
-            # NOTE: do NOT include `in_channels` here — it is not a field of
-            # ExperimentConfig (it is derived at model build time as
-            # `2 if use_ridges else 1`). Listing it caused getattr to raise
-            # AttributeError, which the outer except swallowed as
-            # "Could not load best model" — silently training every cycle
-            # from random init since 2026-05-06 (commit d3da171).
-            arch_match = True
-            mismatch_attr = None
-            for attr in WARM_START_FIELDS:
-                if best_config.get(attr) != getattr(config, attr):
-                    arch_match = False
-                    mismatch_attr = attr
-                    break
-
-            if arch_match:
-                print(
-                    f"Loading weights from {best_model_path} (Incremental Progress)..."
-                )
-                load_shape_compatible_state(
-                    model, checkpoint["model_state_dict"], best_model_path
-                )
-            else:
-                print(
-                    "New architecture detected "
-                    f"({mismatch_attr}: {best_config.get(mismatch_attr)}->{getattr(config, mismatch_attr)}). "
-                    "Starting fresh."
-                )
-        except Exception as e:
-            print(f"Warning: Could not load best model: {e}")
 
     # UAMT: Initialize EMA Teacher Model
     ema_model = None
@@ -2950,6 +2974,9 @@ def train(config: ExperimentConfig, *, strict_warm_start=False):
         # UA-MT teacher passes per step: 4 when its passes are stochastic, 1
         # when not (uncertainty weights 1); None without UA-MT batches.
         "uamt_teacher_passes": teacher_passes,
+        # How many of the model's tensors started from best_model.pt, and why
+        # none did when none did (see warm_start).
+        "warm_start": warm_started,
         "is_success": bool(is_improvement),
     }
 
