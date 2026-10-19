@@ -1212,9 +1212,12 @@ def test_train_stops_on_an_incumbent_it_cannot_read(tmp_path, monkeypatch):
     before the loaders start; main printed a warning there and went on."""
     config, built = _stubbed_training(tmp_path, monkeypatch)
     loaders = []
-    monkeypatch.setattr(
-        train, "shuffled_loader", lambda *a, **k: loaders.append(a) or []
-    )
+
+    def shuffled_loader(*a, **k):
+        loaders.append(a)
+        return []
+
+    monkeypatch.setattr(train, "shuffled_loader", shuffled_loader)
     (tmp_path / "best_model.pt").write_bytes(b"not a checkpoint")
     with pytest.raises(RuntimeError, match="best_model.pt cannot be read"):
         train.train(config)
