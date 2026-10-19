@@ -1271,18 +1271,17 @@ def test_a_run_needs_a_config_that_exists(tmp_path):
     assert loaded.architecture == "resenc_unet"
 
 
-def test_the_command_line_refuses_a_missing_config(tmp_path):
+@pytest.mark.parametrize("mode", [["--smoke"], []])
+def test_the_command_line_refuses_a_missing_config(tmp_path, mode):
+    """Both the loop's --smoke preflight and a full run. From another directory,
+    so a regression to the defaults fails for want of their data instead of
+    training on this checkout's."""
     repo = Path(__file__).resolve().parents[1]
     missing = tmp_path / "missing.json"
     run = subprocess.run(
-        [
-            sys.executable,
-            "scripts/training/train.py",
-            "--smoke",
-            "--config",
-            str(missing),
-        ],
-        cwd=repo,
+        [sys.executable, str(repo / "scripts/training/train.py"), *mode]
+        + ["--config", str(missing)],
+        cwd=tmp_path,
         env={**os.environ, "PYTHONPATH": f"{repo}:{repo / 'src'}"},
         capture_output=True,
         text=True,

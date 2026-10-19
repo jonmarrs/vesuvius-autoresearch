@@ -19,35 +19,49 @@ among the loop's least-reviewed modules, and they needed no change (below).
   - So a mistyped path ran a different model under it:
     - `--smoke` checked the defaults and could print `PREFLIGHT OK`, though step 4 of the README calls it the check
       of "the loop's configuration" that "writes nothing";
-    - a full run trained the defaults for its budget, and could promote over `best_model.pt`.
+    - a full run trained the defaults for its budget and wrote the loop's state (`history.tsv`, `last_model.pt`,
+      `run_result.json`).
+
+      It could not promote over the tracked `best_model.pt`: the defaults' validation protocol has no depth band,
+      and `promotion_decision` fails closed on an incumbent scored under another. It could bootstrap a
+      `best_model.pt` where there was none, or replace one scored without a band.
 
     Either way it left a new config file behind. Reproduced with main's `train.py --smoke --config <missing>`: it
     wrote the file before failing for want of this container's data.
-  - Every maintained caller writes its config first:
-    - the loop writes `config_temp.json` before its preflight and run;
-    - the noise probe writes each trial's;
-    - the ablation goes through `train.train`.
-
-    So nothing relied on the defaults being written.
+  - The loop is the only maintained caller of `train.py`'s command line, and it writes `config_temp.json` before its
+    preflight and run. The noise probe and the ablation call `train.train`, which this does not touch. The
+    documented commands use the tracked `config.json`. So nothing relied on the defaults being written.
+  - The loop's own `load_current_config` still falls back to the defaults when `config.json` is missing, and writes
+    them to `config_temp.json`. That is the first-run bootstrap; the start-up incumbent check refuses it over a
+    `best_model.pt` scored on another protocol.
   - `train.load_run_config` now exits with "`<path>` does not exist; --config names the config to run", before
     anything is built. A loop cycle whose `config_temp.json` went missing now fails its preflight with that line,
     where before it trained the defaults under the cycle's tweak name.
-- **Tests** (`tests/test_autoresearch_measurement.py`, 2 new):
+- **Tests** (`tests/test_autoresearch_measurement.py`, 2 new, 3 cases):
   - `load_run_config` refuses a missing path, writes nothing, and loads one that exists;
-  - the command line itself, with `--smoke` as the loop's preflight passes it, exits 1 with the message, prints no
-    `PREFLIGHT OK` and creates no file. It takes about 8 s, for `train.py`'s imports.
+  - the command line itself, with `--smoke` as the loop's preflight passes it and as a full run, exits 1 with the
+    message, prints no `PREFLIGHT OK` and creates no file.
+    - It runs from another directory, so a regression to the defaults fails for want of their data rather than
+      training on this checkout's.
+    - Each case takes about 4 s, for `train.py`'s imports.
 
-  Both fail with main's `train.py`.
+  All fail with main's `train.py`. Each case kills a fallback to the defaults that the others miss, the full run's
+  included.
 
 ## Verified, no change needed
 
-- **`run_villa_prize_evidence_chain.py`**, the handoff's `--execute-evidence` step, reviewed on 2026-10-16. Since
-  then it still removes the files of an earlier attempt, and writes a failing `PRIZE_READINESS_REPORT.json`, before
-  anything that can raise.
+- **`run_villa_prize_evidence_chain.py`**, the handoff's `--execute-evidence` step, reviewed on 2026-10-16.
+  - Before anything but creating its output directory, it removes the four files a review reads:
+    `evidence_metadata.json`, `manifest.json`, `neural_tracing.json` and `validation_report.json`. It then writes a
+    failing `PRIZE_READINESS_REPORT.json`.
+  - An earlier attempt's `candidate.json` and `predict_command.sh` stay until this run rewrites them. If this run
+    fails first (a candidate the table no longer has), the old `candidate.json` remains; the descriptive
+    `cross_scroll_validation.py` reads it.
   - It refuses a prediction that did not refresh its image. `predict.py` deletes its metadata sidecars before
     writing, so a stale sidecar cannot pass either.
-  - Its refresh check compares `os.stat` results, which include whole-second access times. A read of the old image
-    without a rewrite would pass, but nothing in the chain reads it between the two checks.
+  - Its refresh check compares `os.stat` results, whose times are whole seconds. A read of the old image without a
+    rewrite would pass, and a rewrite in the same second would not. Neither happens in practice: nothing in the
+    chain reads the image between the checks, and `predict.py` runs far longer than a second.
 - **`promotion_cycle_gain.py`**'s patterns match what the loop prints:
   - `Starting with incumbent …`;
   - `Cycle N: Applying …`;
@@ -56,10 +70,10 @@ among the loop's least-reviewed modules, and they needed no change (below).
   - `IMPROVEMENT FOUND!`;
   - `CYCLE CRASHED`, the OOM form included.
 
-  A cycle with a non-numeric score or no incumbent would be dropped. Neither can occur after the start-up its
-  analysis counts from.
-- **`config.json`'s `max_prize_skel_dist`** is 2.0. So the noise probe's `json.dumps(..., allow_nan=False)` of the
-  config does not meet the dataclass's `inf` default.
+  A cycle with no incumbent would be dropped, which cannot happen after the start-up its analysis counts from. So
+  would a val_f1 below 1e-4, which Python prints in exponent form; only a collapsed model scores that.
+- **The noise probe's strict JSON.** `f1_noise_probe.py` drops `max_prize_skel_dist` when it is the dataclass's
+  `inf` default before its `json.dumps(..., allow_nan=False)`. `config.json` sets 2.0 in any case.
 
 ## Observations for the owner (not changed)
 
@@ -71,7 +85,16 @@ among the loop's least-reviewed modules, and they needed no change (below).
 
 ## Verification
 
-- `pytest tests/test_autoresearch_measurement.py`: all pass, the 2 new included. With main's `train.py`, both fail.
+- `pytest tests/test_autoresearch_measurement.py`: all pass, the new cases included. With main's `train.py`, they
+  fail.
 - `train.py --smoke --config <missing>` by hand: exit 1, the message, no file.
-- Ruff and mypy clean on the changed files.
+- **Independent review** of the first commit found:
+  - the promotion claim, overstated;
+  - the caller list, which named callers of `train.train`;
+  - a surviving mutation: a full run falling back to the defaults;
+  - the test's working directory;
+  - four inexact sentences.
+
+  All are addressed above.
+- Ruff clean on the changed files. No new mypy errors.
 - The standard suite: see the PR.

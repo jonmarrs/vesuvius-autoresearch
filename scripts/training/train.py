@@ -3007,9 +3007,10 @@ def train(config: ExperimentConfig, *, strict_warm_start=False):
 def load_run_config(path):
     """The config a command-line run trains on, or --smoke checks.
 
-    A path that does not exist is an error. Its defaults (gated_unet, no
-    depth band, no tracking) used to be written there and run, so a mistyped
-    --config trained, or passed --smoke on, a config nobody asked for."""
+    A path that does not exist is an error. ExperimentConfig's defaults
+    (gated_unet, no depth band, no tracking) used to be written there and run,
+    so a mistyped --config trained, or passed --smoke on, a config nobody asked
+    for."""
     if not os.path.exists(path):
         raise SystemExit(f"{path} does not exist; --config names the config to run")
     return ExperimentConfig.load(path)
