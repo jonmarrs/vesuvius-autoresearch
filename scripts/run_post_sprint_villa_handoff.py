@@ -24,7 +24,8 @@ REPO = Path(__file__).resolve().parents[1]
 
 # By name, in any checkout, since the GPU is shared: what takes the loop's lock,
 # and the training each runs (the noise probe's trials train in-process in
-# run_noise_probe.py). As a whole argument, so test_f1_noise_probe.py is not one.
+# run_noise_probe.py). After a space or "/" and up to a space or the end, so
+# tests/test_f1_noise_probe.py in a pytest run is not one.
 _ACTIVE_NAMES = sorted(
     loop_control.LOCK_HOLDER_ARGS
     | {Path(script).name for script in loop_control.RUN_SCRIPTS}
@@ -44,13 +45,18 @@ def active_sprint_processes(repo=REPO):
     active = []
     try:
         pid = loop_control.running_pid(repo)
-    except (OSError, RuntimeError) as exc:  # held, by something unidentified
+    except Exception as exc:  # a lock that cannot be read blocks, as one held
         pid = None
-        active.append(f"{repo / 'autoresearch.lock'}: {exc}")
+        active.append(f"{repo / 'autoresearch.lock'}: {exc!r}")
     if pid is not None:
         active.append(f"{pid} holds {repo / 'autoresearch.lock'}")
     for run in loop_control.unsupervised_runs(repo, supervisor=pid):
         active.append(f"unsupervised training run: {loop_control.describe_run(*run)}")
+    return active + _named_processes()
+
+
+def _named_processes():
+    """pgrep's lines for the pattern, in any checkout."""
     result = subprocess.run(
         ["pgrep", "-af", ACTIVE_PROCESS_PATTERN],
         text=True,
@@ -59,7 +65,7 @@ def active_sprint_processes(repo=REPO):
     )
     if result.returncode not in (0, 1):
         raise RuntimeError(result.stderr.strip() or "pgrep failed")
-    return active + [line for line in result.stdout.splitlines() if line.strip()]
+    return [line for line in result.stdout.splitlines() if line.strip()]
 
 
 def build_handoff_steps(args):

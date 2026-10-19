@@ -1,7 +1,7 @@
 import shlex
 import shutil
 import subprocess
-import time
+import sys
 from argparse import Namespace
 
 import pytest
@@ -144,51 +144,77 @@ def test_post_sprint_handoff_preflight_only_blocks_gpu_steps_during_active_sprin
 # --- what counts as research using the GPU --------------------------------------
 
 # Command lines as each lock holder and its training run them. The pattern once
-# named only the loop and train.py, and missed the first five.
+# named only the loop and train.py, and missed the first seven.
 _ACTIVE = (
     "python scripts/f1_noise_probe.py --plan plan.json",
+    "python -m scripts.f1_noise_probe --plan plan.json",
     "/venv/bin/python /repo/scripts/training/run_noise_probe.py --config c.json",
     "uv run python -u scripts/train_with_new_augs.py --config c.json --seed 1",
     "python -m scripts.reevaluate_best_model --update-stored",
     "python scripts/ablate_scroll_augmentations.py",
+    "python -m scripts.ablate_scroll_augmentations",
     "uv run python -u run_autoresearch_loop.py",
     "python scripts/training/train.py --smoke",
 )
 _INACTIVE = (
     "python -m pytest tests/test_f1_noise_probe.py",
     "python scripts/run_post_sprint_villa_handoff.py --preflight-only",
+    "vim docs/train.py.md",
+)
+
+needs_pgrep = pytest.mark.skipif(
+    not sys.platform.startswith("linux") or not shutil.which("pgrep"),
+    reason="needs Linux pgrep (-a lists ancestors elsewhere)",
 )
 
 
-@pytest.mark.skipif(not shutil.which("pgrep"), reason="needs pgrep")
-def test_the_pattern_finds_every_lock_holder_and_its_training():
+def _stand_ins(tmp_path, commands):
+    """A sleeping interpreter per command line, carrying its arguments; started
+    from sys.executable, as python3 on PATH may not run under a borrowed name."""
+    return [
+        subprocess.Popen(
+            [sys.executable, "-c", "import time; time.sleep(30)"]
+            + shlex.split(cmd)[1:],
+            cwd=tmp_path,
+        )
+        for cmd in commands
+    ]
+
+
+def _pids(lines):
+    return {int(line.split()[0]) for line in lines}
+
+
+@needs_pgrep
+def test_the_pattern_finds_every_lock_holder_and_its_training(tmp_path):
     """Through pgrep itself, whose extended regular expressions the pattern is."""
-    procs = []
+    procs = _stand_ins(tmp_path, _ACTIVE + _INACTIVE)
     try:
-        for i, cmd in enumerate(_ACTIVE + _INACTIVE):
-            args = " ".join(shlex.quote(a) for a in shlex.split(cmd)[1:])
-            procs.append(
-                subprocess.Popen(
-                    [
-                        "bash",
-                        "-c",
-                        f'exec -a handoff-probe-{i} python3 -c "'
-                        f'import time; time.sleep(30)" {args}',
-                    ]  # fmt: skip
-                )
-            )
-        time.sleep(1)
-        found = subprocess.run(
-            ["pgrep", "-af", handoff.ACTIVE_PROCESS_PATTERN],
-            capture_output=True,
-            text=True,
-        ).stdout
+        found = _pids(handoff._named_processes())
     finally:
         for proc in procs:
             proc.kill()
             proc.wait()
-    for i, cmd in enumerate(_ACTIVE + _INACTIVE):
-        assert (f"handoff-probe-{i} " in found) == (cmd in _ACTIVE), cmd
+    for proc, cmd in zip(procs, _ACTIVE + _INACTIVE, strict=True):
+        assert (proc.pid in found) == (cmd in _ACTIVE), cmd
+
+
+@needs_pgrep
+def test_the_guard_reports_a_running_noise_probe(monkeypatch, tmp_path):
+    """End to end through active_sprint_processes, with the lock elsewhere: a
+    probe in another checkout holds that checkout's lock, not this one's."""
+    monkeypatch.setattr(loop_control, "running_pid", lambda repo: None)
+    monkeypatch.setattr(
+        loop_control, "unsupervised_runs", lambda repo, supervisor=None: []
+    )
+    (probe,) = _stand_ins(tmp_path, _ACTIVE[:1])
+    try:
+        active = handoff.active_sprint_processes(tmp_path)
+    finally:
+        probe.kill()
+        probe.wait()
+    assert probe.pid in _pids(active), active
+    assert handoff.resolve_status(active, []) == "BLOCKED_ACTIVE_SPRINT"
 
 
 def test_the_pattern_names_every_script_that_takes_the_lock():
@@ -196,42 +222,50 @@ def test_the_pattern_names_every_script_that_takes_the_lock():
         assert name.replace(".", r"\.") in handoff.ACTIVE_PROCESS_PATTERN, name
 
 
-def _quiet(monkeypatch, pid=None, runs=(), error=None):
-    def running_pid(repo):
+def _quiet(monkeypatch, repo, pid=None, runs=(), error=None):
+    def running_pid(asked):
         if error:
             raise error
-        return pid
+        return pid if asked == repo else None  # this checkout's lock only
 
     monkeypatch.setattr(loop_control, "running_pid", running_pid)
     monkeypatch.setattr(
         loop_control, "unsupervised_runs", lambda repo, supervisor=None: list(runs)
     )
-    monkeypatch.setattr(handoff, "ACTIVE_PROCESS_PATTERN", "^no-such-process-ever$")
+    monkeypatch.setattr(handoff, "_named_processes", list)
 
 
 def test_the_lock_holder_counts_as_active(monkeypatch, tmp_path):
     """A noise probe, an ablation or a re-score in this checkout holds the lock."""
-    _quiet(monkeypatch, pid=4242)
+    _quiet(monkeypatch, tmp_path, pid=4242)
     active = handoff.active_sprint_processes(tmp_path)
     assert active == [f"4242 holds {tmp_path / 'autoresearch.lock'}"]
     assert handoff.resolve_status(active, []) == "BLOCKED_ACTIVE_SPRINT"
 
 
-def test_a_lock_held_by_something_unidentified_counts_as_active(monkeypatch, tmp_path):
-    _quiet(
-        monkeypatch, error=RuntimeError("loop lock is held but contains no valid PID")
-    )
+@pytest.mark.parametrize(
+    "error",
+    [
+        RuntimeError("loop lock is held but contains no valid PID"),
+        PermissionError("autoresearch.lock"),
+        ValueError("invalid literal for int()"),
+    ],
+)
+def test_a_lock_that_cannot_be_read_counts_as_active(monkeypatch, tmp_path, error):
+    _quiet(monkeypatch, tmp_path, error=error)
     active = handoff.active_sprint_processes(tmp_path)
-    assert len(active) == 1 and "no valid PID" in active[0]
+    assert len(active) == 1 and type(error).__name__ in active[0]
 
 
 def test_an_unsupervised_training_run_counts_as_active(monkeypatch, tmp_path):
-    _quiet(monkeypatch, runs=[(777, 120.0, True)])
+    _quiet(monkeypatch, tmp_path, runs=[(777, 120.0, True)])
     active = handoff.active_sprint_processes(tmp_path)
-    assert active == ["unsupervised training run: PID 777 (started by a loop or "
-                      "ablation, running 2 min)"]  # fmt: skip
+    assert active == [
+        "unsupervised training run: PID 777 (started by a loop or ablation, "
+        "running 2 min)"
+    ]
 
 
 def test_nothing_running_is_ready(monkeypatch, tmp_path):
-    _quiet(monkeypatch)
+    _quiet(monkeypatch, tmp_path)
     assert handoff.active_sprint_processes(tmp_path) == []

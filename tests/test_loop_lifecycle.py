@@ -607,7 +607,13 @@ def test_start_sh_says_the_loop_will_not_start_beside_an_orphaned_run(
     assert "otherwise run ./start.sh again" in said
 
 
-@pytest.mark.parametrize("holder", ["the loop", "unidentified"])
+# What an unidentified holder left in the lock, as hex: "x"; "²", which isdigit()
+# takes and int() refuses; bytes that are not UTF-8. The last two ended status in
+# a traceback, whose exit 1 start.sh read as nothing running, and launched.
+_UNREADABLE_LOCKS = {"unidentified": "78", "superscript two": "c2b2", "not UTF-8": "ff"}
+
+
+@pytest.mark.parametrize("holder", ["the loop", *_UNREADABLE_LOCKS])
 def test_start_sh_keeps_its_exit_codes(tmp_path, holder):
     """Work running: exit 1, as before; a lock status cannot read: its exit 2.
     Neither launches anything."""
@@ -615,14 +621,17 @@ def test_start_sh_keeps_its_exit_codes(tmp_path, holder):
     script = tmp_path / "run_autoresearch_loop.py"
     script.write_text(
         "import fcntl, os, sys, time\n"
-        "lock = open('autoresearch.lock', 'w')\n"
+        "lock = open('autoresearch.lock', 'wb')\n"
         "fcntl.lockf(lock, fcntl.LOCK_EX)\n"
-        "lock.write(sys.argv[1] if len(sys.argv) > 1 else str(os.getpid()))\n"
+        "lock.write(bytes.fromhex(sys.argv[1]) if len(sys.argv) > 1\n"
+        "           else str(os.getpid()).encode())\n"
         "lock.flush()\n"
         "print('ready', flush=True)\n"
         "time.sleep(60)\n"
     )
-    args = [sys.executable, str(script)] + (["x"] if holder == "unidentified" else [])
+    args = [sys.executable, str(script)] + (
+        [_UNREADABLE_LOCKS[holder]] if holder in _UNREADABLE_LOCKS else []
+    )
     work = subprocess.Popen(args, cwd=tmp_path, stdout=subprocess.PIPE, text=True)
     try:
         assert work.stdout is not None and work.stdout.readline() == "ready\n"
