@@ -338,22 +338,28 @@ def load_required_starting_checkpoint(model, config, path="best_model.pt"):
     print(f"Loaded complete required starting checkpoint from {path}.")
 
 
-def warm_start(model, config, path="best_model.pt"):
-    """Start model from the incumbent at path where it fits: every tensor whose
-    name and shape match, if the architecture it records (WARM_START_FIELDS)
-    is config's. Returns how many of the model's tensors came from it, for
-    run_result.json, and why none did when none did.
+def warm_start(model, config, path="best_model.pt", strict=False):
+    """Start model from the incumbent at path: every tensor whose name and
+    shape match, if the architecture it records (WARM_START_FIELDS) is
+    config's; with strict, every tensor or fail (load_required_starting_checkpoint).
+    Returns how many of the model's tensors came from it, for run_result.json,
+    and why none did when none did: no file, or another architecture.
 
-    A file that exists but cannot be read or used raises, before the first
-    training step: one that does not load, is not a checkpoint with a config,
-    or matches but holds no weights, and any error in reading it. Each used to
-    be a printed warning, and the bug it swallowed (an in_channels lookup,
-    d3da171) trained every cycle from random weights for 11 days from
+    Anything else that keeps it from starting the model raises: a file that
+    does not load, is not a checkpoint with a config, or holds no
+    model_state_dict; one that records this architecture but shares no tensor
+    with the model; any error in the comparison. Each used to be a printed
+    warning, and the bug it swallowed (an in_channels lookup, d3da171) trained
+    every cycle from random (or foundation) weights for 11 days from
     2026-05-06 (89a1d720), with nothing in the cycles' records to show it.
-    Read on the CPU, as load_required_starting_checkpoint is.
+    Read on the CPU, as the strict path reads it.
     """
     tensors = len(model.state_dict())
     record = {"loaded": 0, "model_tensors": tensors, "reason": None}
+    if strict:
+        load_required_starting_checkpoint(model, config, path)
+        record["loaded"] = tensors
+        return record
     if not os.path.exists(path):
         record["reason"] = f"no {path}"
         return record
@@ -361,7 +367,12 @@ def warm_start(model, config, path="best_model.pt"):
         f"restore it (e.g. `git checkout -- {path}`), or move it aside to train "
         "from scratch"
     )
-    checkpoint = torch.load(path, map_location="cpu", weights_only=False)
+    try:
+        checkpoint = torch.load(path, map_location="cpu", weights_only=False)
+    except Exception as exc:
+        raise RuntimeError(
+            f"{path} cannot be read ({type(exc).__name__}: {exc}); {remedy}"
+        ) from exc
     recorded = checkpoint.get("config", {}) if isinstance(checkpoint, dict) else None
     if not isinstance(recorded, dict):
         raise ValueError(f"{path} is not a checkpoint with a config; {remedy}")
@@ -381,7 +392,12 @@ def warm_start(model, config, path="best_model.pt"):
     print(f"Loading weights from {path} (Incremental Progress)...")
     record["loaded"] = load_shape_compatible_state(model, state, path)
     if not record["loaded"]:
-        record["reason"] = "no tensor's name and shape match"
+        # The same architecture with nothing in common is a bug, not a design.
+        raise ValueError(
+            f"{path} records this architecture, but no tensor's name and shape "
+            "match the model's (modules renamed, or a prefix such as `module.` "
+            "on every name?); move it aside to train from scratch"
+        )
     return record
 
 
@@ -2064,9 +2080,12 @@ def train(config: ExperimentConfig, *, strict_warm_start=False):
     # Built before the loaders: which heads it trains decides the fiber target.
     model = build_model(config, v_config, device)
     # Before the loaders and logging start: a checkpoint that does not fit
-    # stops the run at once. The warm start below can still overwrite it.
+    # stops the run at once. The warm start after it can overwrite it.
     if config.foundation_model_path:
         load_foundation_model(model, config.foundation_model_path)
+    # From the incumbent where it fits; one that cannot be used stops the run
+    # here too. Recorded in run_result.json.
+    warm_started = warm_start(model, config, "best_model.pt", strict=strict_warm_start)
     # Only the outputs the model declares as heads are trained
     # (model_wrappers.task_heads); the rest are placeholders.
     heads = task_heads(model)
@@ -2102,15 +2121,6 @@ def train(config: ExperimentConfig, *, strict_warm_start=False):
     cldice_loss = (
         SoftClDiceLoss(iters=config.cldice_iters) if config.use_cldice else None
     )
-
-    # Load best model if architecture matches
-    best_model_path = "best_model.pt"
-    if strict_warm_start:
-        load_required_starting_checkpoint(model, config, best_model_path)
-        tensors = len(model.state_dict())
-        warm_started = {"loaded": tensors, "model_tensors": tensors, "reason": None}
-    else:
-        warm_started = warm_start(model, config, best_model_path)
 
     # UAMT: Initialize EMA Teacher Model
     ema_model = None

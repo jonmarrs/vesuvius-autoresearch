@@ -720,9 +720,8 @@ def warm_start_note(record):
     if not isinstance(record, dict):
         return None
     loaded, tensors = record.get("loaded"), record.get("model_tensors")
-    if not isinstance(loaded, int) or not isinstance(tensors, int):
-        return None
-    if loaded >= tensors:
+    # type, not isinstance: a bool is an int.
+    if type(loaded) is not int or type(tensors) is not int or loaded >= tensors:
         return None
     note = f"{loaded} of the model's {tensors} tensors from {INCUMBENT}"
     if record.get("reason"):
