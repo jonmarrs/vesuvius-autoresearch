@@ -8,6 +8,9 @@ sixty-minute cycles averaged val_f1 0.2669 and the 10-18 day's 42 fifteen-minute
 +0.0013, Welch 95% interval −0.0014 to +0.0041. The interval spans zero and its top is under half the 0.01 tolerance,
 so the extra 45 minutes cannot by themselves buy a promotion. The replication arm, the 10-18 night, is still running.
 
+**Replicated 2026-10-19** (`cycle_length_gain_replication_2026-10-19.md`): the 10-18 night's 12 cycles read no measurable
+gain too.
+
 ## The data
 
 * **The command.** `scripts/cycle_length_gain.py --since 2026-10-17T21:17:25 --sprint-logs` (the 10-17 night and
