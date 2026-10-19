@@ -1391,9 +1391,47 @@ def _get_villa_aug(size: int, config: ExperimentConfig):
             A.GridDistortion(num_steps=5, distort_limit=0.3, p=config.aug_grid_p)
         )
 
-    pipeline = A.Compose(transforms, additional_targets={"fiber": "mask"})
-    _villa_aug_cache[cache_key] = pipeline
-    return pipeline
+    # Each transform is a stage of its own, run in this order with its own p.
+    # The pixel-level ones (brightness and contrast, noise, blur) change the
+    # CT's appearance and see its slices only. With use_ridges the image also
+    # holds the ridge channel, a filter response around 1e-3 that a brightness
+    # shift of up to 0.2 (clipped at 0) zeroed or lifted far past its range and
+    # noise of std 0.1-0.17 erased, in most training samples; at inference it
+    # is the filter's response to the scan. The spatial ones move both.
+    stages = [
+        (A.Compose([t], additional_targets={"fiber": "mask"}), _pixel_level(t))
+        for t in transforms
+    ]
+    _villa_aug_cache[cache_key] = stages
+    return stages
+
+
+def _apply_recipe(stages, image, mask, fiber, ct_slices):
+    """_get_villa_aug's stages on one sample: image (H, W, slices), its ink mask
+    and fiber. The pixel-level stages see the first ct_slices slices only.
+
+    force_apply skips only each stage's own draw (a p=1 Compose); every
+    transform still draws its own p. So for an image of CT alone this equals the
+    recipe in one Compose called with force_apply.
+    """
+    for stage, ct_only in stages:
+        if ct_only:
+            ct = stage(
+                image=np.ascontiguousarray(image[..., :ct_slices]), force_apply=True
+            )["image"]
+            image = np.concatenate([ct, image[..., ct_slices:]], axis=-1)
+        else:
+            res = stage(image=image, mask=mask, fiber=fiber, force_apply=True)
+            image, mask, fiber = res["image"], res["mask"], res["fiber"]
+    return image, mask, fiber
+
+
+def _pixel_level(transform) -> bool:
+    """Whether an Albumentations transform only changes pixel values (an
+    ImageOnlyTransform, or a OneOf of them), leaving their positions."""
+    if isinstance(transform, A.OneOf):
+        return all(_pixel_level(t) for t in transform.transforms)
+    return isinstance(transform, A.ImageOnlyTransform)
 
 
 # Import our breakthrough components
@@ -1578,7 +1616,12 @@ def apply_augmentations(x, target_ink, target_fiber, step, max_steps, config=Non
     - 'albumentations': Per-item 2D recipe, synchronized across depth.
     - 'batchgeneratorsv2': Official 3D-native MIC-DKFZ pipeline from villa.
 
-    x: (B, 1, D, H, W); target_ink: (B, 1, H, W); target_fiber: (B, 1, 1, H, W).
+    x: (B, C, D, H, W), channel 0 the CT and, with use_ridges, channel 1 its
+    ridge channel; target_ink: (B, 1, H, W); target_fiber: (B, 1, 1, H, W).
+    The Albumentations recipe's pixel-level transforms and the scroll intensity
+    augmentations change the CT only (_get_villa_aug,
+    scroll_augmentations.apply_scroll_augmentations); villa's batchgeneratorsv2
+    pipeline applies its own to every channel.
     """
     if getattr(config, "disable_augmentation", False):
         # Ablation master switch: return inputs untouched (no rot90/flip/scroll/etc).
@@ -1789,16 +1832,19 @@ def apply_augmentations(x, target_ink, target_fiber, step, max_steps, config=Non
         mask_ink = ink_np[b, 0].astype(np.float32, copy=False)
         mask_fiber = fiber_np[b, 0].astype(np.float32, copy=False)
 
-        res = aug(image=img_hwd_all, mask=mask_ink, fiber=mask_fiber)
+        # The CT is channel 0, the first D slices; the rest are derived from it
+        # (the ridge channel).
+        img_hwd_all, mask_ink, mask_fiber = _apply_recipe(
+            aug, img_hwd_all, mask_ink, mask_fiber, ct_slices=D
+        )
 
         # Reshape back to (C, D, H, W)
-        aug_img = res["image"]  # (H, W, D*C)
-        aug_img = np.transpose(aug_img, (2, 0, 1))  # (D*C, H, W)
+        aug_img = np.transpose(img_hwd_all, (2, 0, 1))  # (D*C, H, W)
         aug_img = aug_img.reshape(C, D, *aug_img.shape[1:])  # (C, D, H, W)
 
         out_x.append(aug_img)
-        out_ink.append(res["mask"])
-        out_fiber.append(res["fiber"])
+        out_ink.append(mask_ink)
+        out_fiber.append(mask_fiber)
 
     x_aug = torch.from_numpy(np.ascontiguousarray(np.stack(out_x))).to(
         device=device, dtype=x_dtype
