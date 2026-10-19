@@ -103,7 +103,7 @@ def _leave_closed_terminal():
 # PINNED-TO-PRODUCTION (2026-06-09): the structure-defining axes below are pinned
 # to best_model.pt's values (resenc_unet, base_feat=64, num_blocks=16, num_heads=8,
 # num_layers=16, patch_size=64, use_ridges=True). train.py only warm-starts from
-# best_model.pt when ALL of these match (see the arch_match check); any other value
+# best_model.pt when ALL of these match (see train.warm_start); any other value
 # forces "Starting fresh", which a 15-min cycle cannot recover. Pinning them keeps
 # every cycle a fine-tune of the production model. To resume free architecture
 # search, restore the original `vals` lists (see git history) for these families.
@@ -712,6 +712,24 @@ def exit_description(returncode):
     return f"exited with code {returncode}"
 
 
+def warm_start_note(record):
+    """The sprint log's note on a run that did not start wholly from the
+    incumbent (run_result.json's warm_start, see train.warm_start), or None.
+    Such a run reverts like any other, so without it a cycle trained from
+    random weights reads as an ordinary non-improvement."""
+    if not isinstance(record, dict):
+        return None
+    loaded, tensors = record.get("loaded"), record.get("model_tensors")
+    if not isinstance(loaded, int) or not isinstance(tensors, int):
+        return None
+    if loaded >= tensors:
+        return None
+    note = f"{loaded} of the model's {tensors} tensors from {INCUMBENT}"
+    if record.get("reason"):
+        note += f" ({record['reason']})"
+    return note
+
+
 # The files a promotion changes, and the only ones its commit records.
 PROMOTION_FILES = (CONFIG_FILE, INCUMBENT, HISTORY_FILE)
 
@@ -1196,6 +1214,7 @@ def main():
         STOP_DEFERRED.update(active=True, signal=None)
         val_bpb = train_loss = params = vram = vps = val_f1 = "N/A"
         skipped_updates = 0
+        warm_start = None
         promotion_blocked = None
         is_success = False
         is_crash = False
@@ -1245,6 +1264,7 @@ def main():
                 is_success = res.get("is_success", False)  # type: ignore[attr-defined]
                 promotion_blocked = res.get("promotion_blocked")  # type: ignore[attr-defined]
                 skipped_updates = res.get("skipped_updates", 0)  # type: ignore[attr-defined]
+                warm_start = warm_start_note(res.get("warm_start"))  # type: ignore[attr-defined]
             except Exception as e:
                 print(f"Error reading run_result.json: {e}")
                 is_crash = True
@@ -1298,6 +1318,8 @@ def main():
             if skipped_updates:
                 # Steps train.py did not apply (non-finite loss or gradient).
                 log.write(f"- **Skipped updates**: {skipped_updates}\n")
+            if warm_start:
+                log.write(f"- **Warm start**: {warm_start}\n")
 
             result_msg = "No improvement detected. Config reverted."
             if promotion_blocked:
@@ -1339,6 +1361,8 @@ def main():
                 f"{best_val_f1:.6f}" if best_val_f1 > float("-inf") else "none yet"
             )
             print(f"No improvement. (val_f1: {val_f1}, best was: {best_str})")
+        if warm_start:
+            print(f"Warm start: {warm_start}.")
         STOP_DEFERRED["active"] = False
         if STOP_DEFERRED["signal"] is not None:
             signal_handler(STOP_DEFERRED["signal"], None)
