@@ -2790,6 +2790,14 @@ def train(config: ExperimentConfig, *, strict_warm_start=False):
 
     wandb_tracking.log(
         {
+            **wandb_tracking.selection_metrics(
+                val_f1=val_f1,
+                threshold=val_f1_threshold,
+                lift=ap_prevalence_lift,
+                roc_auc=roc_auc,
+                incumbent=best_previous_val_f1,
+                is_success=is_improvement,
+            ),
             "val/val_bpb": val_bpb,
             "val/dice": best_dice,
             "val/skel_dist": avg_skel_dist,
