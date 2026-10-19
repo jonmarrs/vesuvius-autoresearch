@@ -613,6 +613,12 @@ def test_pitch_numbers_match_finding_92():
         f"tracer on none of the {s3} Scroll-3 cubes. It still trails on all {ins} in-sample cubes"
         in txt
     )
+    # ScrollGT 0.8.1 carries the same note on its published row.
+    assert (
+        "0.8.1 notes, wherever that lead is claimed, that it depends on the pitch: resampled to its 9.6 µm training "
+        f"pitch, the tracer leads ours on none of the {s3} Scroll-3 cubes (finding 92). No row changes."
+        in txt
+    )
     p = d["predictions"]
     assert (
         p["P2_s3_leads_tracer_on_6_of_8"] is False

@@ -39,8 +39,9 @@ clipped "#1780" to "#17".
    catalogue entry) was closed by villa's 14-day inactivity bot on 2026-10-14 with no maintainer comment, so the
    URL field no longer cites it.
 3. ScrollGT 0.6.0 (the held-out split) was tagged on 2026-10-11, 0.7.0 (the ERL fix, finding 85) on 2026-10-12, and
-   0.8.0 (villa's neural tracer as an entrant, finding 91) on 2026-10-19. The URL field cites `tree/v0.8.0`; the test binds the cite to ScrollGT's newest tag, so a later release must update
-   it. Findings 84–85 are folded in (2026-10-12).
+   0.8.0 (villa's neural tracer as an entrant, finding 91) and 0.8.1 (the pitch note on its Scroll-3 lead, finding 92)
+   on 2026-10-19. The URL field cites `tree/v0.8.1`; the test binds the cite to ScrollGT's newest tag, so a later
+   release must update it. Findings 84–85 are folded in (2026-10-12).
 4. Finding 85 measures an open villa PR (#1934). The user-approved comment sharing it with the author was posted
    2026-10-12 (https://github.com/ScrollPrize/villa/pull/1934#issuecomment-6131993208) and is cited in part (2). On filing day, re-read the thread: quote any reply verbatim, record
    whether #1934 is still open, and do not characterise silence.
@@ -57,7 +58,7 @@ https://github.com/ScrollPrize/villa/pull/2044
 https://github.com/jonmarrs/vesuvius-autoresearch
 https://github.com/jonmarrs/inkdelta
 https://github.com/jonmarrs/inkagree
-https://github.com/jonmarrs/scrollgt/tree/v0.8.0
+https://github.com/jonmarrs/scrollgt/tree/v0.8.1
 ```
 
 ---
@@ -199,11 +200,14 @@ four predictions held):
     held out, our tracer leads connected components on merge-penalized ERL on 9 of 10 cubes, not 10.
   * 0.8.0 adds villa's own neural fiber tracer (villa #2045) as a third entrant, with finding 91's rows and their
     provenance, so the benchmark's published tables now carry its Scroll-3 lead and its deficit elsewhere.
+  * 0.8.1 notes, wherever that lead is claimed, that it depends on the pitch: resampled to its 9.6 µm training pitch,
+    the tracer leads ours on none of the 8 Scroll-3 cubes (finding 92). No row changes.
 
 **(4) Evidence.**
 * Each study was pre-registered before its data, and each has a report and its scripts in
   https://github.com/jonmarrs/vesuvius-autoresearch (findings 69–85 in
-  `reports/SPIRAL_FINDINGS_SUMMARY.md`; finding 91 in `reports/neural_tracer_entrant.md`).
+  `reports/SPIRAL_FINDINGS_SUMMARY.md`; findings 91 and 92 in `reports/neural_tracer_entrant.md` and
+  `reports/neural_tracer_pitch.md`).
 * Every figure here is bound by a test to the file that produced it.
 * [villa #2044](https://github.com/ScrollPrize/villa/pull/2044) records the memory limits, hardware,
   before/after runs and the averaging comparison behind the scorer fix. The full GPU scorer has
