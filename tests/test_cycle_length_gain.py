@@ -148,3 +148,20 @@ def test_steps_come_from_the_run_log(logs, tmp_path):
     assert (steps["e"], steps["h"]) == (1250, 5100)
     assert steps["c"] is steps["d"] is steps["use_uamt_False"] is steps["b"] is None
     assert [a["median_steps"] for a in r["arms"]] == [None, 1250, 5100]
+
+
+def test_named_logs_give_the_same_arms_as_a_glob_over_them(logs, tmp_path):
+    # The analysis names its sprint logs, so it can leave out a shift still running.
+    named = [
+        str(tmp_path / f"sprint_log_{n}.md")
+        for n in ("2026-10-17_19-10-03_night_shift", "2026-10-18_07-35-03_day_shift")
+    ]
+    r = clg.analyse(named, since="2026-10-17T21:17:25")
+    assert [[c["cycle"] for c in a["cycles"]] for a in r["arms"]] == [
+        ["use_uamt_False", "b", "c"],
+        ["d", "batch_size_16", "e", "f"],
+    ]
+    assert (
+        r["comparisons"]["all"][0]
+        == clg.analyse(logs, since="2026-10-17T21:17:25")["comparisons"]["all"][0]
+    )

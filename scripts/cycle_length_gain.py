@@ -75,10 +75,15 @@ def _arm(cycles: list[dict]) -> dict:
     }
 
 
-def analyse(pattern: str, since: str, run_logs: list[str] | None = None) -> dict:
+def analyse(
+    patterns: str | list[str], since: str, run_logs: list[str] | None = None
+) -> dict:
+    if isinstance(patterns, str):
+        patterns = [patterns]
     kept = sorted(
         (
             c
+            for pattern in patterns
             for c in ebo.cycles(pattern)
             if dt.datetime.fromisoformat(c["start"]) >= dt.datetime.fromisoformat(since)
         ),
@@ -126,7 +131,9 @@ def _steps_held(c: dict) -> bool:
 
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--sprint-logs", required=True)
+    ap.add_argument(
+        "--sprint-logs", nargs="+", required=True, help="sprint-log paths or globs"
+    )
     ap.add_argument("--since", required=True)
     ap.add_argument("--run-log", nargs="+", help="run.log.old run.log")
     ap.add_argument("--out", type=Path, required=True)
