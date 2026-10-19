@@ -233,3 +233,55 @@ def test_train_writes_the_loops_logs_only_outside_an_experiment_run():
         and [ast.unparse(t) for t in node.targets] == ["promoted"]
     ]
     assert promoted == "is_improvement and (not ckpt_out)"
+
+
+def test_a_cell_records_what_the_loop_selects_on(tmp_path, monkeypatch):
+    """The harness predates selection on val_f1 (2026-07-11) and recorded only
+    val_bpb and topology, which the loop reports but no longer decides on; nor
+    whether the cell warm-started from the incumbent as each is meant to."""
+    _project(tmp_path, monkeypatch)
+    result = {
+        "val_f1": 0.27,
+        "val_f1_threshold": 0.4,
+        "ap_prevalence_lift": 1.6,
+        "roc_auc": 0.81,
+        "val_bpb": 0.26,
+        "warm_start": {"loaded": 280, "model_tensors": 288, "reason": None},
+        "is_success": False,
+    }
+
+    class Supervisor:
+        def run(self, cmd, **kwargs):
+            (tmp_path / "run_result.json").write_text(json.dumps(result))
+
+    got = ablation._run_one("cfg.json", 0, 60, str(tmp_path / "cell.log"), Supervisor())
+    assert got["status"] == "OK"
+    assert (got["val_f1"], got["val_f1_threshold"]) == (0.27, 0.4)
+    assert (got["ap_prevalence_lift"], got["roc_auc"]) == (1.6, 0.81)
+    assert (got["warm_start_loaded"], got["warm_start_tensors"]) == (280, 288)
+
+    monkeypatch.setattr(ablation, "_run_one", lambda *a: dict(got))
+    assert ablation.main() == 0
+    rows = list(csv.DictReader(open(tmp_path / "ablation.csv")))
+    assert [(r["condition"], r["val_f1"], r["warm_start_loaded"]) for r in rows] == [
+        ("baseline", "0.27", "280"),
+        ("squeeze", "0.27", "280"),
+    ]
+
+
+@pytest.mark.parametrize("payload", [{}, {"warm_start": "malformed"}])
+def test_a_result_without_a_warm_start_record_is_still_read(
+    tmp_path, monkeypatch, payload
+):
+    """A run_result.json from before the record, or a malformed one."""
+    monkeypatch.setattr(ablation, "PROJECT_ROOT", tmp_path)
+
+    class Supervisor:
+        def run(self, cmd, **kwargs):
+            (tmp_path / "run_result.json").write_text(
+                json.dumps({"val_f1": 0.27, **payload})
+            )
+
+    got = ablation._run_one("c.json", 0, 60, str(tmp_path / "c.log"), Supervisor())
+    assert got["status"] == "OK" and got["val_f1"] == 0.27
+    assert got["warm_start_loaded"] is None and got["warm_start_tensors"] is None

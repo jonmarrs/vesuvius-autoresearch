@@ -5,8 +5,9 @@ of the scroll-specific augmentations defined in scroll_augmentations.py.
 Each (condition, seed) is a separate train.py subprocess that warm-starts
 from the current best_model.pt. Configs differ only in which single scroll
 augmentation is forced on (probability=1.0); all other scroll-aug
-probabilities are forced off. The final val_bpb from each run goes into a
-CSV and a per-condition summary table.
+probabilities are forced off. Each run's val_f1 and AP lift (what the loop
+selects on), its val_bpb and topology metrics, and how much of the model it
+warm-started go into a CSV; the per-condition summary table is of val_bpb.
 
 Six conditions:
     baseline, decohesion, warping, squeeze, z_dropout, intensity_drift
@@ -156,9 +157,21 @@ def _run_one(
 
     with result_path.open() as f:
         res = json.load(f)
+    warm = res.get("warm_start")
+    warm = warm if isinstance(warm, dict) else {}
     return {
         "status": "OK",
         "elapsed_s": elapsed,
+        # What the loop selects on (train.promotion_decision) since 2026-07-11;
+        # val_bpb and the topology metrics are reported only. Written before
+        # then, this harness recorded none of these.
+        "val_f1": res.get("val_f1"),
+        "val_f1_threshold": res.get("val_f1_threshold"),
+        "ap_prevalence_lift": res.get("ap_prevalence_lift"),
+        "roc_auc": res.get("roc_auc"),
+        # Every cell is meant to fine-tune the same incumbent (train.warm_start).
+        "warm_start_loaded": warm.get("loaded"),
+        "warm_start_tensors": warm.get("model_tensors"),
         "val_bpb": res.get("val_bpb"),
         "train_loss": res.get("train_loss"),
         "avg_skel_dist": res.get("avg_skel_dist"),
@@ -334,14 +347,15 @@ def main() -> int:
                     result["run_id"] = run_id
                     rows.append(result)
 
-                    vb = result.get("val_bpb")
-                    vb_s = (
-                        f"{vb:.6f}"
-                        if isinstance(vb, float) and not math.isnan(vb)
+                    shown = {
+                        key: f"{v:.6f}"
+                        if isinstance(v := result.get(key), float) and not math.isnan(v)
                         else "n/a"
-                    )
+                        for key in ("val_f1", "val_bpb")
+                    }
                     print(
-                        f"  status={result['status']}  val_bpb={vb_s}  elapsed={result['elapsed_s']:.0f}s"
+                        f"  status={result['status']}  val_f1={shown['val_f1']}  "
+                        f"val_bpb={shown['val_bpb']}  elapsed={result['elapsed_s']:.0f}s"
                     )
     except KeyboardInterrupt:
         print(f"\n# stopped after {len(rows)} of {total_runs} runs", file=sys.stderr)
@@ -359,6 +373,12 @@ def main() -> int:
         "condition",
         "seed",
         "status",
+        "val_f1",
+        "val_f1_threshold",
+        "ap_prevalence_lift",
+        "roc_auc",
+        "warm_start_loaded",
+        "warm_start_tensors",
         "val_bpb",
         "train_loss",
         "avg_skel_dist",
