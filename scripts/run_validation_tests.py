@@ -111,6 +111,7 @@ VALIDATION_TESTS = [
     "tests/test_prize_promotion_gates.py",
     "tests/test_review_villa_pin.py",
     "tests/test_scroll_specific_augmentations.py",
+    "tests/test_ridge_channel_augmentation.py",
     "tests/test_skeleton_hist_dir.py",
     "tests/test_summarize_villa_evidence_preflight.py",
     "tests/test_topology_threshold.py",

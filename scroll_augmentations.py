@@ -22,10 +22,14 @@ may improve performance are welcome"):
   - scroll_intensity_drift: depth-dependent multiplicative intensity scaling
     (simulates X-ray dose / beam-hardening variation across z)
 
+Four adapted from villa's transforms: scroll_sheet_compression,
+scroll_thick_slice, scroll_rician_noise and scroll_blank_rectangles.
+
 All augmentations operate on tensors of shape [B, C, Z, H, W] with labels
-shaped [B, 1, H, W] (ink) and [B, 1, 1, H, W] (fiber). The squeeze and
-warping augmentations also warp the labels so the ink/fiber stays in
-sync with the deformed image.
+shaped [B, 1, H, W] (ink) and [B, 1, 1, H, W] (fiber). The squeeze, warping
+and thick-slice augmentations also transform the labels so the ink/fiber
+stays in sync with the deformed image. apply_scroll_augmentations applies the
+intensity ones to the CT channels only (``ct_channels``).
 """
 
 from __future__ import annotations
@@ -434,8 +438,13 @@ def scroll_blank_rectangles(
         y0 = torch.randint(0, max(1, H - sz_y + 1), (), device=x.device).item()
         x0 = torch.randint(0, max(1, W - sz_x + 1), (), device=x.device).item()
 
-        mean_val = res_x[:, :, z0 : z0 + sz_z, y0 : y0 + sz_y, x0 : x0 + sz_x].mean()
-        res_x[:, :, z0 : z0 + sz_z, y0 : y0 + sz_y, x0 : x0 + sz_x] = mean_val
+        region = res_x[:, :, z0 : z0 + sz_z, y0 : y0 + sz_y, x0 : x0 + sz_x]
+        # Each sample's and channel's own mean. One mean over the batch and every
+        # channel filled the CT with a share of the ridge channel's values, and
+        # the ridge channel (around 1e-3) with the CT's (around 0.4).
+        res_x[:, :, z0 : z0 + sz_z, y0 : y0 + sz_y, x0 : x0 + sz_x] = region.mean(
+            dim=(2, 3, 4), keepdim=True
+        )
     return res_x
 
 
@@ -456,6 +465,9 @@ def apply_scroll_specific_3d_augmentations(
     This is what the autoresearch loop calls. External callers should prefer the
     config-free :func:`apply_scroll_augmentations` with an explicit
     :class:`ScrollAugProbs`.
+
+    Channel 0 is the CT; with use_ridges, channel 1 is its ridge channel
+    (vesuvius_loader.ridge_channel), so ``ct_channels`` is 1.
     """
     if config is None:
         return x, target_ink, target_fiber
@@ -470,7 +482,7 @@ def apply_scroll_specific_3d_augmentations(
         rician_noise=float(getattr(config, "aug_scroll_rician_noise_p", 0.0)),
         blank_rectangles=float(getattr(config, "aug_scroll_blank_rectangles_p", 0.0)),
     )
-    return apply_scroll_augmentations(x, target_ink, target_fiber, probs)
+    return apply_scroll_augmentations(x, target_ink, target_fiber, probs, ct_channels=1)
 
 
 # ---------------------------------------------------------------------------
@@ -501,13 +513,30 @@ def _fires(p: float, device) -> bool:
     return p > 0.0 and torch.rand((), device=device).item() < p
 
 
-def apply_scroll_augmentations(x, target_ink, target_fiber, probs: ScrollAugProbs):
+def _on_ct(x: torch.Tensor, ct_channels: int | None, augmentation) -> torch.Tensor:
+    """``augmentation`` applied to the first ``ct_channels`` channels of x only
+    (all of them when None)."""
+    if ct_channels is None or ct_channels >= x.shape[1]:
+        return augmentation(x)
+    return torch.cat([augmentation(x[:, :ct_channels]), x[:, ct_channels:]], dim=1)
+
+
+def apply_scroll_augmentations(
+    x, target_ink, target_fiber, probs: ScrollAugProbs, ct_channels: int | None = None
+):
     """Apply each scroll augmentation independently with its probability.
 
     x: [B,C,Z,H,W]; target_ink: [B,1,H,W]; target_fiber: [B,1,1,H,W].
     Geometric augmentations (warping, squeeze, thick_slice) also transform the
     targets. Returns the (possibly) modified tensors with labels clamped to
     [0, 1].
+
+    ``ct_channels`` is how many leading channels of x are CT; None means all.
+    Intensity drift and Rician noise add CT-scale values (an offset of up to
+    0.08, noise of std up to 0.3) and apply to those channels only. The others
+    are features computed from the CT, such as a ridge channel, whose filter
+    normalizes such changes away. The augmentations that move voxels, mix them
+    along z or blank a region act on every channel, each in its own values.
     """
     dev = x.device
     if _fires(probs.sheet_compression, dev):
@@ -524,9 +553,9 @@ def apply_scroll_augmentations(x, target_ink, target_fiber, probs: ScrollAugProb
     if _fires(probs.z_dropout, dev):
         x = scroll_z_dropout(x)
     if _fires(probs.intensity_drift, dev):
-        x = scroll_intensity_drift(x)
+        x = _on_ct(x, ct_channels, scroll_intensity_drift)
     if _fires(probs.rician_noise, dev):
-        x = scroll_rician_noise(x)
+        x = _on_ct(x, ct_channels, scroll_rician_noise)
     if _fires(probs.blank_rectangles, dev):
         x = scroll_blank_rectangles(x)
     return x, target_ink.clamp(0, 1), target_fiber.clamp(0, 1)
