@@ -67,6 +67,14 @@ def word(m: str) -> int:
     return WORDS[m.lower()] if m.lower() in WORDS else int(m)
 
 
+def month_arg(value: str) -> str:
+    """--month as YYYY-MM. It is matched as a prefix of merge dates, so a typo
+    ("2026/10") matched no merge and required no claim, and passed."""
+    if not re.fullmatch(r"\d{4}-(0[1-9]|1[0-2])", value):
+        raise argparse.ArgumentTypeError(f"expected YYYY-MM, got {value!r}")
+    return value
+
+
 def pacific_date(timestamp: str) -> str:
     """The Pacific calendar date of a GitHub UTC timestamp, which is the date the filing states."""
     when = dt.datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
@@ -148,6 +156,7 @@ def main() -> int:
     )
     ap.add_argument(
         "--month",
+        type=month_arg,
         help="YYYY-MM: check the month's merges instead of the September tally and table",
     )
     args = ap.parse_args()

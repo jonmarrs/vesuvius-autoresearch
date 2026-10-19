@@ -92,13 +92,16 @@ def cycles(pattern: str) -> list[dict]:
             if resumed := re.match(r"Resumed at (\d+:\d+:\d+)", block):
                 prev = _after(prev, resumed.group(1))
                 continue
+            # The loop logs an out-of-memory crash as "CRASHED (OOM)". Missed,
+            # it was dropped and its minutes went to the next cycle's overhead.
             m = re.match(
-                r"Cycle (\d+): (\S+) \((\w+)\)\n- \*\*Timestamp\*\*: (\d+:\d+:\d+)",
+                r"Cycle (\d+): (\S+) \((\w+)( \(OOM\))?\)\n"
+                r"- \*\*Timestamp\*\*: (\d+:\d+:\d+)",
                 block,
             )
             if not m:
                 continue
-            now = _after(prev, m.group(4))
+            now = _after(prev, m.group(5))
             seconds = (now - prev).total_seconds()
             f1 = re.search(r"val_f1: ([0-9.]+)", block)
             out.append(
@@ -108,6 +111,7 @@ def cycles(pattern: str) -> list[dict]:
                     "budget": budget,
                     "cycle": m.group(2),
                     "result": m.group(3),
+                    "oom": m.group(4) is not None,
                     "batch_size": int(re.search(r"batch_size: (\d+)", block).group(1)),
                     "val_f1": float(f1.group(1)) if f1 else None,
                     "overhead_s": int(seconds - budget),
@@ -166,7 +170,12 @@ def analyse(run_logs: str | list[str], pattern: str, since: str | None = None) -
     # The 60-minute runs that never scored, paired in order with the crashed
     # 60-minute cycles of the same sprint logs. run.log has no clock, so since
     # does not narrow the runs: a count that then differs pairs none.
-    crashed = [c for c in kept if c["result"] == "CRASHED" and c["budget"] == 3600]
+    # An out-of-memory crash was not killed at the timeout.
+    crashed = [
+        c
+        for c in kept
+        if c["result"] == "CRASHED" and not c["oom"] and c["budget"] == 3600
+    ]
     unscored_long = [u for u in unscored if u["budget"] == 3600]
     killed = []
     if len(crashed) == len(unscored_long):

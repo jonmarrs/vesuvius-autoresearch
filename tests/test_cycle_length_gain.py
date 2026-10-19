@@ -165,3 +165,28 @@ def test_named_logs_give_the_same_arms_as_a_glob_over_them(logs, tmp_path):
         r["comparisons"]["all"][0]
         == clg.analyse(logs, since="2026-10-17T21:17:25")["comparisons"]["all"][0]
     )
+
+
+def test_an_out_of_memory_crash_is_counted(logs, tmp_path):
+    # Logged "CRASHED (OOM)"; the arm counted it as no cycle at all.
+    path = tmp_path / "sprint_log_2026-10-18_07-35-03_day_shift.md"
+    text = path.read_text().replace(
+        "## Cycle 2: batch_size_16 (REVERTED)",
+        "## Cycle 2: batch_size_16 (CRASHED (OOM))",
+    )
+    path.write_text(text.replace("val_f1: 0.28, loss: 0.5", "val_f1: N/A"))
+    arms = clg.analyse(logs, since="2026-10-17T21:17:25")["arms"]
+    assert [c["cycle"] for c in arms[1]["cycles"]] == ["d", "batch_size_16", "e", "f"]
+    assert (arms[1]["scored"], arms[1]["crashed"]) == (3, 1)
+
+
+def test_a_log_named_twice_is_read_once(logs, tmp_path):
+    day = str(tmp_path / "sprint_log_2026-10-18_07-35-03_day_shift.md")
+    once = clg.analyse(logs, since="2026-10-17T21:17:25")
+    assert clg.analyse([logs, day], since="2026-10-17T21:17:25") == once
+
+
+def test_a_name_that_matches_no_log_is_an_error(logs, tmp_path):
+    # Not an arm left out without a word.
+    with pytest.raises(SystemExit, match="no sprint log matches"):
+        clg.analyse([logs, str(tmp_path / "sprint_log_typo.md")], since="2026-10-17")
