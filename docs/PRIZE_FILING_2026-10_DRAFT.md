@@ -164,9 +164,11 @@ four predictions held):
 * **Everywhere else it trails, including Scroll 1, its own training scroll.** On the 11 cubes the reference mask
   trained on, our tracer leads on all 11 (median 7.82 against 20.75). Those cubes favour our tracer and connected
   components, which are built from that mask. On the two held-out Scroll-5 cubes its coverage is 0.134 and 0.096.
-* Why the scrolls differ is untested: the scan (its Scroll 1 data is the 2.4 µm rescan), the 7.91 µm pitch, finer
-  than any of its sources, the cube size, or annotation style. Its runs are deterministic: both repeated cubes
-  reproduce exactly.
+* **The Scroll-3 lead depends on the pitch it ran at** (finding 92, pre-registered). Resampled from the cubes' 7.91 µm
+  to its 9.6 µm training pitch, it scores lower on all 21 cubes (merge-penalized ERL a median 0.63 of the rows above)
+  and leads our tracer on none of the 8 Scroll-3 cubes. It still trails on all 11 in-sample cubes, so pitch is not
+  why the scrolls differ; the scan (its Scroll 1 data is the 2.4 µm rescan), the cube size and annotation style are
+  untested. Its runs are deterministic: both repeated cubes reproduce exactly.
 
 **(3) What it enables that was not possible before.**
 * [inkagree](https://github.com/jonmarrs/inkagree) (MIT; first released 2026-10-03, now 0.3.0, which evaluates only
@@ -243,7 +245,7 @@ four predictions held):
   * finding 74 does not survive as stated (step 0.5 vs 1.0 is not consistent).
 
   inkagree 0.3.0 makes the supervised region its default. `reports/supervised_reanalysis.md`.
-* **Sixteen of my registered predictions failed**, and the reports say so:
+* **Eighteen of my registered predictions failed**, and the reports say so:
   * finding 70 (smooth would move the count < 1% in every crop window: it moved up to ±20%);
   * finding 71 prediction 1 (failed on three exclusions, one caused by a defect in my alignment gate);
   * finding 72 prediction 1 (the count was sensitive in 15% of windows, not ≥ 25%).
@@ -267,6 +269,9 @@ four predictions held):
   * finding 84 prediction 3 (the mask's misses on the two new Scroll-5 cubes would be no softer than in sample: the
     soft-miss fraction is 0.340 on both, above the in-sample maximum of 0.289).
   * finding 85 prediction 1 (the generator's raw ERL would beat our tracer's on 9 of 11 in-sample cubes: it did on 5).
+  * finding 92 predictions 2 and 3 (at its 9.6 µm training pitch, villa's neural tracer would keep its Scroll-3 lead
+    on at least 6 of 8 cubes: it kept it on 0; its median merge-penalized ERL would stay within 0.85–1.15 of the
+    native rows: 0.63).
 * **The effect's size depends on grid cell size** (finding 73, measured): about 1% per window on
   villa's 20-voxel segment meshes, a 6.2% median and up to ±40% per window on 80-voxel grids like the
   spiral surfaces. Quote the size with the grid.

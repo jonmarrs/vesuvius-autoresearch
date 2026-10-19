@@ -104,7 +104,9 @@ Medians by group (merge-penalized ERL / coverage):
 * **One checkpoint, volume mode, defaults.** VC3D's seed mode is not tested.
 * **The presence is a substitute** (fiber_hz_vt, not lasagna), and on the two held-out Scroll-5 cubes it misses a
   fifth of the fiber outright (finding 84).
-* **7.91 µm and 256³ edges**, as registered.
+* **7.91 µm and 256³ edges**, as registered. (Measured 2026-10-19, finding 92, `neural_tracer_pitch.md`: resampled to
+  its 9.6 µm training pitch it scores lower on all 21 cubes, median 0.63 of these rows, and leads our tracer on none
+  of the Scroll-3 cubes.)
 * **One run per cube.** The runs are deterministic, so a second run adds nothing, but another sampling seed or GPU
   could change them.
 * **Nothing is posted to villa or added to ScrollGT** without a separate decision by the user. (Update 2026-10-19: on
