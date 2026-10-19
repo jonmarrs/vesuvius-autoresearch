@@ -1922,6 +1922,7 @@ def test_the_benchmark_leaves_the_depth_to_predict(tmp_path, monkeypatch):
         (None, None),  # a run_result.json from before the record
         ("malformed", None),
         ({"loaded": "0", "model_tensors": 288}, None),
+        ({"loaded": True, "model_tensors": 288}, None),
     ],
 )
 def test_a_run_that_did_not_start_wholly_from_the_incumbent_is_logged(
