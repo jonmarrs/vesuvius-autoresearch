@@ -115,7 +115,8 @@ def test_the_october_draft_states_its_merges_in_the_checked_form():
 
 
 @pytest.mark.parametrize(
-    "month", ["2026/10", "2026-1", "2026-10-11", "2026-13", "10-2026"]
+    "month",
+    ["2026/10", "2026-1", "2026-10-11", "2026-13", "2026-00", "10-2026", "２０２６-10"],
 )
 def test_a_month_not_written_yyyy_mm_is_refused(month):
     # It is matched as a prefix of the merge dates: "2026/10" matched no merge,
@@ -123,3 +124,14 @@ def test_a_month_not_written_yyyy_mm_is_refused(month):
     with pytest.raises(cf.argparse.ArgumentTypeError, match="YYYY-MM"):
         cf.month_arg(month)
     assert cf.month_arg("2026-10") == "2026-10"
+
+
+def test_the_command_refuses_a_malformed_month_before_asking_github(monkeypatch):
+    def no_gh(*args):
+        raise AssertionError("gh was called")
+
+    monkeypatch.setattr(cf, "gh", no_gh)
+    monkeypatch.setattr(sys, "argv", ["check", "--month", "2026/10"])
+    with pytest.raises(SystemExit) as stop:
+        cf.main()
+    assert stop.value.code == 2

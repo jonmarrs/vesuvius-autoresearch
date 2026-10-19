@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import glob
 import math
 import statistics
 import sys
@@ -180,10 +181,24 @@ def test_an_out_of_memory_crash_is_counted(logs, tmp_path):
     assert (arms[1]["scored"], arms[1]["crashed"]) == (3, 1)
 
 
-def test_a_log_named_twice_is_read_once(logs, tmp_path):
-    day = str(tmp_path / "sprint_log_2026-10-18_07-35-03_day_shift.md")
+def test_a_log_named_twice_is_read_once(logs, tmp_path, monkeypatch):
+    # However it is spelled: a glob, a relative name, an absolute one.
+    day = "sprint_log_2026-10-18_07-35-03_day_shift.md"
     once = clg.analyse(logs, since="2026-10-17T21:17:25")
-    assert clg.analyse([logs, day], since="2026-10-17T21:17:25") == once
+    monkeypatch.chdir(tmp_path)
+    names = [logs, f"./{day}", str(tmp_path / day), "sprint_log_*.md"]
+    assert clg.analyse(names, since="2026-10-17T21:17:25") == once
+
+
+def test_a_log_whose_path_has_glob_characters_is_read(logs, tmp_path):
+    odd = tmp_path / "logs[1]"
+    odd.mkdir()
+    for path in tmp_path.glob("sprint_log_*.md"):
+        (odd / path.name).write_text(path.read_text())
+    pattern = str(Path(glob.escape(str(odd))) / "sprint_log_*.md")
+    assert clg.analyse(pattern, since="2026-10-17T21:17:25") == clg.analyse(
+        logs, since="2026-10-17T21:17:25"
+    )
 
 
 def test_a_name_that_matches_no_log_is_an_error(logs, tmp_path):

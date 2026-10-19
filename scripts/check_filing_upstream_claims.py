@@ -70,7 +70,7 @@ def word(m: str) -> int:
 def month_arg(value: str) -> str:
     """--month as YYYY-MM. It is matched as a prefix of merge dates, so a typo
     ("2026/10") matched no merge and required no claim, and passed."""
-    if not re.fullmatch(r"\d{4}-(0[1-9]|1[0-2])", value):
+    if not re.fullmatch(r"[0-9]{4}-(0[1-9]|1[0-2])", value):
         raise argparse.ArgumentTypeError(f"expected YYYY-MM, got {value!r}")
     return value
 

@@ -186,8 +186,13 @@ def test_an_out_of_memory_crash_is_a_cycle(tmp_path):
 
 
 def test_an_out_of_memory_crash_is_not_paired_as_a_killed_run(logs, tmp_path):
-    # It was not killed at the timeout: paired with the run the loop did
-    # kill, it would leave that run's cycle unpaired.
+    # It was not killed at the timeout, on either side: its cycle is not a
+    # crashed cycle to pair, and its run (which may have logged steps before
+    # the traceback, as 7 of 9 in run.log.old did) is not an unscored one.
+    # Counted on one side only, the totals differed and nothing was paired.
+    run_log, _ = logs
+    oom = _run(3600, 0, 3596) + ["torch.OutOfMemoryError: CUDA out of memory."]
+    Path(run_log).write_text(Path(run_log).read_text() + "\n".join(oom) + "\n")
     night = tmp_path / "sprint_log_2026-10-16_19-15-03_night_shift.md"
     night.write_text(
         night.read_text()
@@ -195,4 +200,5 @@ def test_an_out_of_memory_crash_is_not_paired_as_a_killed_run(logs, tmp_path):
         + "\n".join(_cycle(3, "batch_size_24", "CRASHED (OOM)", "01:10:00", 24, None))
     )
     (k,) = ebo.analyse(*logs)["killed"]
-    assert k["cycle"] == "use_uamt_False"
+    assert (k["cycle"], k["steps"]) == ("use_uamt_False", 28970)
+    assert all(u["steps"] for u in ebo.runs(run_log)[1])  # the OOM run is not one

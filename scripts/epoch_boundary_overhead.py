@@ -33,7 +33,9 @@ V3 = "seeded-sample-400-v3"
 
 
 def runs(run_logs: str | list[str]) -> tuple[dict[float, list[int]], list[dict]]:
-    """val_f1 -> step counts of the runs that scored it, and the runs that never scored."""
+    """val_f1 -> step counts of the runs that scored it, and the runs that never
+    scored. A run that ran out of memory is neither: it was not killed at the
+    timeout, though it may have logged steps first."""
     if isinstance(run_logs, str):
         run_logs = [run_logs]
     lines = [
@@ -59,6 +61,8 @@ def runs(run_logs: str | list[str]) -> tuple[dict[float, list[int]], list[dict]]
         ]
         if f1:
             scored[round(float(f1[0]), 6)].append(int(last.group(1)))
+        elif any("out of memory" in line.lower() for line in seg):
+            continue  # the loop's own test for an OOM crash
         elif s >= v3_start:
             budget = int(re.search(r"Budget: (\d+)s", seg[0]).group(1))
             unscored.append(
@@ -170,7 +174,8 @@ def analyse(run_logs: str | list[str], pattern: str, since: str | None = None) -
     # The 60-minute runs that never scored, paired in order with the crashed
     # 60-minute cycles of the same sprint logs. run.log has no clock, so since
     # does not narrow the runs: a count that then differs pairs none.
-    # An out-of-memory crash was not killed at the timeout.
+    # An out-of-memory crash was not killed at the timeout (runs leaves its
+    # run out too).
     crashed = [
         c
         for c in kept
