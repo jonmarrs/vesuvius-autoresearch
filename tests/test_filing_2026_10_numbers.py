@@ -6,6 +6,7 @@ committed JSON and asserts the draft states it.
 """
 
 import json
+import statistics
 from pathlib import Path
 
 import pytest
@@ -371,6 +372,62 @@ def test_generator_numbers_match_finding_85():
     # Qualzz20/afv_fiber_9um model card at revision e189af75 (read 2026-10-12): "Native pitch is 8.64 or 9.362 µm"
     assert d["revision"].startswith("e189af75")
     assert "finer than the 8.64 and 9.362 µm pitches its fine-tune trained on" in txt
+
+
+_F91 = _REPO / "reports/neural_tracer_entrant.json"
+
+
+@pytest.mark.skipif(not _F91.exists(), reason="finding 91 artifact absent")
+def test_neural_tracer_numbers_match_finding_91():
+    d, txt = json.loads(_F91.read_text()), _text()
+    assert d["status"] == "OK" and not d["failed_runs"]
+    assert all(d["predictions"].values()) and len(d["predictions"]) == 4
+    assert "(finding 91; all four predictions held)" in txt
+    rows, comp, s3 = d["neural_rows"], d["comparators"], d["s3_cubes"]
+    assert len(rows) == 21 and len(s3) == 8
+    assert d["checkpoint"].startswith("scrollprize/fiber_single_small@")
+
+    def pen(k, who=None):
+        return (comp[k][who] if who else rows[k])["erl_merge_penalized"]
+
+    def cov(k, who=None):
+        return (comp[k][who] if who else rows[k])["coverage"]
+
+    # Scroll 3: first on merge-penalized ERL against every entrant
+    for who in ("tracer", "generator", "cc"):
+        assert all(pen(k) > pen(k, who) for k in s3), who
+    ratio = [pen(k) / pen(k, "tracer") for k in s3]
+    med = statistics.median
+    assert (
+        f"It is above our tracer on 8 of 8 cubes ({min(ratio):.2f}–{max(ratio):.2f}×, median "
+        f"{med(pen(k) for k in s3):.2f} against {med(pen(k, 'tracer') for k in s3):.2f}), and above #1934's "
+        "generator and connected components on 8 of 8" in txt
+    )
+    below = sum(cov(k) < cov(k, "tracer") for k in s3)
+    assert (
+        f"median coverage {med(cov(k) for k in s3):.3f}, against our tracer's "
+        f"{med(cov(k, 'tracer') for k in s3):.3f} (below it on {below} of 8) and connected components' "
+        f"{med(cov(k, 'cc') for k in s3):.3f}" in txt
+    )
+    # The 11 cubes the mask trained on, and the two held-out Scroll-5 cubes
+    in_sample = [k for k in rows if k not in s3 and k not in _NEW_S5]
+    assert len(in_sample) == 11 and all(k.startswith(("s1_", "s5_")) for k in in_sample)
+    leads = sum(pen(k, "tracer") > pen(k) for k in in_sample)
+    assert (
+        f"our tracer leads on all {leads} (median {med(pen(k) for k in in_sample):.2f} against "
+        f"{med(pen(k, 'tracer') for k in in_sample):.2f})" in txt
+    ) and leads == 11
+    assert (
+        f"On the two held-out Scroll-5 cubes its coverage is {cov(_NEW_S5[0]):.3f} and {cov(_NEW_S5[1]):.3f}"
+        in txt
+    )
+    # "both repeated cubes reproduce exactly"
+    repeat = d["descriptive_repeat"]
+    assert len(repeat) == 2 and "both repeated cubes reproduce exactly" in txt
+    for k, r in repeat.items():
+        assert {m: r["second_run"][m] for m in rows[k] if m != "stop_reasons"} == {
+            m: v for m, v in rows[k].items() if m != "stop_reasons"
+        }, k
 
 
 _PR2044 = _REPO / "docs/VILLA_DRAFT_ink_metrics_sequential_folds.md"

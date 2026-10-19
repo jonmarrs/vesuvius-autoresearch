@@ -26,7 +26,14 @@ clipped "#1780" to "#17".
    [merge commit](https://github.com/ScrollPrize/villa/commit/9afddaf0fdc12efe088bab7b82534c4f9a79e536)).
    On filing day, list every villa PR merged in October first in part (2) and in the URL field, then re-check
    #2022, #2044 and any other open PR, and quote any maintainer reply verbatim. villa #2141 (the track-DBM fix)
-   opened 2026-10-18 and had not merged that day. `scripts/check_filing_upstream_claims.py --month 2026-10 --filing
+   opened 2026-10-18 and villa #2155 (the README's pip route) on 2026-10-19; neither had merged on 10-19. If either
+   merges, add it with the before → after its PR body measured:
+   * #2141: on Python 3.10 and 3.11, villa's own reader fails to open a published track store (a WAL database) in a
+     read-only directory, with "attempt to write a readonly database". With the fix it opens it.
+   * #2155: on Linux x86-64 the README's pip command installs neither track-extraction backend. With the fix it
+     installs `brook-cu12`, `cucim-cu12` and `cupy-cuda12x`.
+
+   `scripts/check_filing_upstream_claims.py --month 2026-10 --filing
    docs/PRIZE_FILING_2026-10_DRAFT.md` must PASS: it fails while an October merge of ours has no "(merged
    YYYY-MM-DD)" claim, or a claim gives the wrong Pacific date. villa #1928 (the inkdelta
    catalogue entry) was closed by villa's 14-day inactivity bot on 2026-10-14 with no maintainer comment, so the
@@ -146,6 +153,21 @@ We also scored an open villa PR's automated fiber generator
   and only the defaults were run;
 * the measurement was shared with its author on the PR ([comment](https://github.com/ScrollPrize/villa/pull/1934#issuecomment-6131993208), 2026-10-12).
 
+We also measured villa's own neural fiber tracer
+([#2045](https://github.com/ScrollPrize/villa/pull/2045) (merged 2026-10-11); checkpoint
+`scrollprize/fiber_single_small`, volume mode, every default) on the same 21 cubes, pre-registered (finding 91; all
+four predictions held):
+* **On Scroll 3, which no entrant trained on, it ranks first on merge-penalized ERL.** It is above our tracer on 8 of
+  8 cubes (1.11–1.33×, median 25.30 against 20.98), and above #1934's generator and connected components on 8 of 8.
+  It covers less: median coverage 0.480, against our tracer's 0.551 (below it on 7 of 8) and connected components'
+  0.826.
+* **Everywhere else it trails, including Scroll 1, its own training scroll.** On the 11 cubes the reference mask
+  trained on, our tracer leads on all 11 (median 7.82 against 20.75). Those cubes favour our tracer and connected
+  components, which are built from that mask. On the two held-out Scroll-5 cubes its coverage is 0.134 and 0.096.
+* Why the scrolls differ is untested: the scan (its Scroll 1 data is the 2.4 µm rescan), the 7.91 µm pitch, finer
+  than any of its sources, the cube size, or annotation style. Its runs are deterministic: both repeated cubes
+  reproduce exactly.
+
 **(3) What it enables that was not possible before.**
 * [inkagree](https://github.com/jonmarrs/inkagree) (MIT; first released 2026-10-03, now 0.3.0, which evaluates only
   where villa's labels are defined): **a label-anchored
@@ -177,7 +199,7 @@ We also scored an open villa PR's automated fiber generator
 **(4) Evidence.**
 * Each study was pre-registered before its data, and each has a report and its scripts in
   https://github.com/jonmarrs/vesuvius-autoresearch (findings 69–85 in
-  `reports/SPIRAL_FINDINGS_SUMMARY.md`).
+  `reports/SPIRAL_FINDINGS_SUMMARY.md`; finding 91 in `reports/neural_tracer_entrant.md`).
 * Every figure here is bound by a test to the file that produced it.
 * [villa #2044](https://github.com/ScrollPrize/villa/pull/2044) records the memory limits, hardware,
   before/after runs and the averaging comparison behind the scorer fix. The full GPU scorer has
@@ -271,6 +293,8 @@ We also scored an open villa PR's automated fiber generator
   deleted fragment, ERL can still rise legitimately.
 * Not "the #1934 generator is worse than our tracer" as a headline. One setting (its defaults), cubes below its
   training resolution, and in-sample rows on 11 cubes. Coverage is the measured gap.
+* Not "villa's neural tracer beats ours" or "trails ours" as a headline. It ranks first on merge-penalized ERL on
+  Scroll 3 with less coverage, and trails on the other 13 cubes, for reasons untested. One checkpoint, defaults.
 * Not "the Scroll-5 miss is the annotators". Finding 84 rules out a frame offset and a threshold, nothing more.
 * Not "held out" as secrecy. The fiber ground truth is public; `held_out` means only that the reference mask did
   not train on the cube.
