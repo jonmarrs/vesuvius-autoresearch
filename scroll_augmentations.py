@@ -534,9 +534,10 @@ def apply_scroll_augmentations(
     ``ct_channels`` is how many leading channels of x are CT; None means all.
     Intensity drift and Rician noise add CT-scale values (an offset of up to
     0.08, noise of std up to 0.3) and apply to those channels only. The others
-    are features computed from the CT, such as a ridge channel, whose filter
-    normalizes such changes away. The augmentations that move voxels, mix them
-    along z or blank a region act on every channel, each in its own values.
+    are features computed from the CT, such as a ridge channel (around 1e-3),
+    which such amounts would bury; its filter cancels an offset and most of a
+    gain. The augmentations that move voxels, mix them along z or blank a
+    region act on every channel, each in its own values.
     """
     dev = x.device
     if _fires(probs.sheet_compression, dev):
