@@ -1,6 +1,7 @@
 import sys
 from dataclasses import dataclass
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -54,3 +55,76 @@ def test_offline_run_end_to_end(tmp_path, monkeypatch):
     wandb_tracking.finish_run(run)
     # offline run files land under the wandb dir
     assert any(tmp_path.rglob("*.wandb")) or any(tmp_path.glob("wandb/offline-run-*"))
+
+
+def _fake_wandb(monkeypatch, fails):
+    """A wandb whose init raises for the modes in ``fails``; records each try."""
+    tried = []
+
+    def init(**kwargs):
+        tried.append(kwargs["mode"])
+        if kwargs["mode"] in fails:
+            raise RuntimeError(f"{kwargs['mode']} init failed")
+        return SimpleNamespace(mode=kwargs["mode"])
+
+    monkeypatch.setitem(sys.modules, "wandb", SimpleNamespace(init=init))
+    monkeypatch.delenv("WANDB_MODE", raising=False)
+    return tried
+
+
+def test_a_failed_online_init_falls_back_to_offline(monkeypatch, capsys):
+    tried = _fake_wandb(monkeypatch, fails={"online"})
+    run = init_run(_Cfg(use_wandb=True))
+    assert run.mode == "offline" and tried == ["online", "offline"]
+    assert "falling back to offline" in capsys.readouterr().out
+
+
+def test_a_failed_offline_init_leaves_the_run_untracked(monkeypatch, capsys):
+    """It raised, before the first training step: the cycle crashed over
+    tracking, which the module promises never happens."""
+    tried = _fake_wandb(monkeypatch, fails={"online", "offline"})
+    assert init_run(_Cfg(use_wandb=True)) is None
+    assert tried == ["online", "offline"]
+    assert "this run is not tracked" in capsys.readouterr().out
+
+
+def test_wandb_missing_leaves_the_run_untracked(monkeypatch, capsys):
+    monkeypatch.setitem(sys.modules, "wandb", None)  # import raises ImportError
+    assert init_run(_Cfg(use_wandb=True)) is None
+    assert "cannot be imported" in capsys.readouterr().out
+
+
+def test_train_logs_what_the_loop_selects_on():
+    """train.py's validation log was wired on 2026-06-10, before the loop came
+    to select on val_f1 gated by AP lift (2026-07-11), and never carried them.
+    The end of train() needs CUDA and data, so this reads its source."""
+    import ast
+
+    source = Path(__file__).resolve().parents[1] / "scripts/training/train.py"
+    keys = set()
+    for node in ast.walk(ast.parse(source.read_text())):
+        if (
+            isinstance(node, ast.Call)
+            and ast.unparse(node.func) == "wandb_tracking.log"
+            and node.args
+            and isinstance(node.args[0], ast.Dict)
+        ):
+            for key in node.args[0].keys:
+                if isinstance(key, ast.Constant):
+                    keys.add(key.value)
+                elif key is None:  # a ** entry
+                    keys.update(
+                        k.value
+                        for d in ast.walk(node.args[0])
+                        if isinstance(d, ast.Dict)
+                        for k in d.keys
+                        if isinstance(k, ast.Constant)
+                    )
+    assert {
+        "val/val_f1",
+        "val/val_f1_threshold",
+        "val/ap_prevalence_lift",
+        "val/roc_auc",
+        "val/is_success",
+        "val/incumbent_val_f1",
+    } <= keys

@@ -2790,6 +2790,18 @@ def train(config: ExperimentConfig, *, strict_warm_start=False):
 
     wandb_tracking.log(
         {
+            # What the loop selects on (promotion_decision), as run_result.json
+            # records it; the rest are reported only.
+            "val/val_f1": val_f1,
+            "val/val_f1_threshold": val_f1_threshold,
+            "val/ap_prevalence_lift": ap_prevalence_lift,
+            "val/roc_auc": roc_auc,
+            "val/is_success": bool(is_improvement),
+            **(
+                {"val/incumbent_val_f1": best_previous_val_f1}
+                if math.isfinite(best_previous_val_f1)
+                else {}
+            ),
             "val/val_bpb": val_bpb,
             "val/dice": best_dice,
             "val/skel_dist": avg_skel_dist,

@@ -35,11 +35,20 @@ def init_run(config, group=None):
 
     Online matches villa; requires `wandb login`. Set WANDB_MODE=offline to keep
     runs local. If online init fails (e.g. no login/network), fall back to
-    offline so a tracking hiccup never crashes a training cycle.
+    offline so a tracking hiccup never crashes a training cycle. If wandb
+    cannot be imported, or the offline init fails too, the run goes untracked
+    with a warning: both used to raise, before the first training step.
     """
     if not wandb_enabled(config):
         return None
-    import wandb
+    try:
+        import wandb
+    except ImportError as exc:
+        print(
+            f"Warning: use_wandb is set but wandb cannot be imported ({exc}); "
+            "this run is not tracked."
+        )
+        return None
 
     kwargs = {
         "project": os.environ.get("WANDB_PROJECT", "vesuvius-autoresearch"),
@@ -53,11 +62,18 @@ def init_run(config, group=None):
         return wandb.init(**kwargs)
     except Exception as exc:
         print(
-            f"Warning: wandb online init failed ({type(exc).__name__}: {exc}); "
-            "falling back to offline."
+            f"Warning: wandb {kwargs['mode']} init failed ({type(exc).__name__}: "
+            f"{exc}); falling back to offline."
         )
-        kwargs["mode"] = "offline"
+    kwargs["mode"] = "offline"
+    try:
         return wandb.init(**kwargs)
+    except Exception as exc:
+        print(
+            f"Warning: wandb offline init failed too ({type(exc).__name__}: {exc}); "
+            "this run is not tracked."
+        )
+        return None
 
 
 def watch_model(run, model, log_freq: int = 100):
