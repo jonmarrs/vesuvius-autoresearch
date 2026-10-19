@@ -25,7 +25,10 @@ clipped "#1780" to "#17".
    **merged 2026-10-11 Pacific** (`2026-10-12T01:49:09Z`,
    [merge commit](https://github.com/ScrollPrize/villa/commit/9afddaf0fdc12efe088bab7b82534c4f9a79e536)).
    On filing day, list every villa PR merged in October first in part (2) and in the URL field, then re-check
-   #2022, #2044 and any other open PR, and quote any maintainer reply verbatim. villa #1928 (the inkdelta
+   #2022, #2044 and any other open PR, and quote any maintainer reply verbatim. villa #2141 (the track-DBM fix)
+   opened 2026-10-18 and had not merged that day. `scripts/check_filing_upstream_claims.py --month 2026-10 --filing
+   docs/PRIZE_FILING_2026-10_DRAFT.md` must PASS: it fails while an October merge of ours has no "(merged
+   YYYY-MM-DD)" claim, or a claim gives the wrong Pacific date. villa #1928 (the inkdelta
    catalogue entry) was closed by villa's 14-day inactivity bot on 2026-10-14 with no maintainer comment, so the
    URL field no longer cites it.
 3. ScrollGT 0.6.0 (the held-out split) was tagged on 2026-10-11 and 0.7.0 (the ERL fix, finding 85) on 2026-10-12.
