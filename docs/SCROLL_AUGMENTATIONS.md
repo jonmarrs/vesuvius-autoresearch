@@ -55,6 +55,19 @@ probs = ScrollAugProbs(decohesion=0.25, squeeze=0.25, blank_rectangles=0.5)
 x_aug, ink_aug, fiber_aug = apply_scroll_augmentations(x, ink, fiber, probs)
 ```
 
+For an input whose later channels are features computed from the CT, pass
+`ct_channels`, the number of leading CT channels:
+
+```python
+x = torch.cat([ct, ridges], dim=1)      # channel 0 CT, channel 1 its ridges
+x_aug, ink_aug, fiber_aug = apply_scroll_augmentations(x, ink, fiber, probs, ct_channels=1)
+```
+
+Intensity drift and Rician noise then change the CT channels only; the other
+augmentations act on every channel, each in its own values (blank rectangles
+fill with each sample's and channel's own mean). Without it, every channel is
+augmented.
+
 Individual augmentations are also exported (`scroll_decohesion`,
 `scroll_warping`, … — see `scroll_augmentations.__all__`) if you want to apply
 one deterministically.
@@ -64,8 +77,9 @@ one deterministically.
 The autoresearch training loop calls the thin config adapter
 `apply_scroll_specific_3d_augmentations(x, ink, fiber, config)`, which reads
 `aug_scroll_<family>_p` off the run config and delegates to
-`apply_scroll_augmentations`. This is the single source of truth — `train.py`
-imports it rather than carrying its own copy.
+`apply_scroll_augmentations` with `ct_channels=1` (with `use_ridges`, channel 1
+is the ridge channel). This is the single source of truth — `train.py` imports
+it rather than carrying its own copy.
 
 ## Regenerating the demo
 

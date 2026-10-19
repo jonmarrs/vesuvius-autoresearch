@@ -1406,6 +1406,26 @@ def _get_villa_aug(size: int, config: ExperimentConfig):
     return stages
 
 
+def _apply_recipe(stages, image, mask, fiber, ct_slices):
+    """_get_villa_aug's stages on one sample: image (H, W, slices), its ink mask
+    and fiber. The pixel-level stages see the first ct_slices slices only.
+
+    force_apply skips only each stage's own draw (a p=1 Compose); every
+    transform still draws its own p. So for an image of CT alone this equals the
+    recipe in one Compose called with force_apply.
+    """
+    for stage, ct_only in stages:
+        if ct_only:
+            ct = stage(
+                image=np.ascontiguousarray(image[..., :ct_slices]), force_apply=True
+            )["image"]
+            image = np.concatenate([ct, image[..., ct_slices:]], axis=-1)
+        else:
+            res = stage(image=image, mask=mask, fiber=fiber, force_apply=True)
+            image, mask, fiber = res["image"], res["mask"], res["fiber"]
+    return image, mask, fiber
+
+
 def _pixel_level(transform) -> bool:
     """Whether an Albumentations transform only changes pixel values (an
     ImageOnlyTransform, or a OneOf of them), leaving their positions."""
@@ -1812,16 +1832,11 @@ def apply_augmentations(x, target_ink, target_fiber, step, max_steps, config=Non
         mask_ink = ink_np[b, 0].astype(np.float32, copy=False)
         mask_fiber = fiber_np[b, 0].astype(np.float32, copy=False)
 
-        for stage, ct_only in aug:
-            if ct_only:
-                # The CT is channel 0, the first D slices; the rest are derived
-                # from it (the ridge channel), see _get_villa_aug.
-                ct = stage(image=np.ascontiguousarray(img_hwd_all[..., :D]))["image"]
-                img_hwd_all = np.concatenate([ct, img_hwd_all[..., D:]], axis=-1)
-            else:
-                res = stage(image=img_hwd_all, mask=mask_ink, fiber=mask_fiber)
-                img_hwd_all, mask_ink = res["image"], res["mask"]
-                mask_fiber = res["fiber"]
+        # The CT is channel 0, the first D slices; the rest are derived from it
+        # (the ridge channel).
+        img_hwd_all, mask_ink, mask_fiber = _apply_recipe(
+            aug, img_hwd_all, mask_ink, mask_fiber, ct_slices=D
+        )
 
         # Reshape back to (C, D, H, W)
         aug_img = np.transpose(img_hwd_all, (2, 0, 1))  # (D*C, H, W)

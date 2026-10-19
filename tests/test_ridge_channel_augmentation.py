@@ -88,6 +88,33 @@ def test_the_recipe_runs_its_pixel_level_transforms_on_the_ct_only():
 
 
 @needs_albumentations
+def test_for_ct_alone_the_stages_equal_the_recipe_in_one_compose():
+    """Every transform the recipe can hold, in order, each with its own p, the
+    labels moved with the image: bit for bit what one Compose of the same
+    transforms gives."""
+    import albumentations as A
+
+    config = _config(aug_flip_p=0.5, aug_brightness_p=0.75, aug_affine_p=0.75)
+    config.aug_coarse_dropout_p, config.aug_elastic_p, config.aug_grid_p = 0.5, 0.3, 0.3
+    stages = train._get_villa_aug(W, config)
+    whole = A.Compose(
+        [stage.transforms[0] for stage, _ in stages],
+        additional_targets={"fiber": "mask"},
+    )
+    x, _, _ = _batch()
+    image = np.transpose(x[0, 0].numpy(), (1, 2, 0))  # (H, W, D)
+    ink = (image[..., 0] > 0.5).astype(np.float32)
+    fiber = (image[..., 1] > 0.5).astype(np.float32)
+    for i in range(30):
+        _seed(i)
+        got = train._apply_recipe(stages, image.copy(), ink, fiber, ct_slices=D)
+        _seed(i)
+        want = whole(image=image.copy(), mask=ink, fiber=fiber, force_apply=True)
+        for g, w in zip(got, (want["image"], want["mask"], want["fiber"]), strict=True):
+            assert np.array_equal(g, w), f"seed {i}"
+
+
+@needs_albumentations
 def test_brightness_noise_and_blur_leave_the_ridge_channel():
     """Every transform that only changes values, at production's probabilities
     or higher; the ridge channel is the original, or its z-flip."""
@@ -101,10 +128,9 @@ def test_brightness_noise_and_blur_leave_the_ridge_channel():
         assert torch.equal(out[0, 1], ridge) or torch.equal(out[0, 1], ridge.flip(0)), (
             f"seed {i}"
         )
-        changed += not torch.allclose(out[0, 0], x[0, 0]) and not torch.allclose(
-            out[0, 0], x[0, 0].flip(0)
-        )
-    assert changed == 40  # brightness fires on every sample, on the CT
+        ct = out[0, 0] if torch.equal(out[0, 1], ridge) else out[0, 0].flip(0)
+        changed += all(not torch.allclose(ct[z], x[0, 0, z]) for z in range(D))
+    assert changed == 40  # brightness fires on every sample, on every CT slice
 
 
 @needs_albumentations
@@ -115,8 +141,9 @@ def test_the_spatial_transforms_still_move_the_ridge_channel_with_the_ct():
         _seed(i)
         out, _, _ = train.apply_augmentations(x.clone(), ink, fiber, 0, 1, config)
         ct, ridge = out[0, 0].numpy().ravel(), out[0, 1].numpy().ravel() * 1e3
-        # The OneOf's noise or blur changes the CT alone; the geometry is shared.
-        assert np.corrcoef(ct, ridge)[0, 1] > 0.8, f"seed {i}"
+        # The OneOf's noise or blur changes the CT alone (correlation down to
+        # 0.66 over seeds 0-499); the geometry is shared.
+        assert np.corrcoef(ct, ridge)[0, 1] > 0.5, f"seed {i}"
         assert not np.allclose(ridge, x[0, 1].numpy().ravel() * 1e3)
 
 
@@ -150,12 +177,26 @@ def test_without_ct_channels_the_library_augments_every_channel():
 
 def test_a_blanked_region_takes_each_sample_and_channels_own_mean():
     """One mean over the batch and every channel filled the CT with a share of
-    the ridge channel's values and the ridge channel with the CT's. On an input
-    constant in each sample and channel, each region's own mean changes nothing."""
+    the ridge channel's values and the ridge channel with the CT's."""
     levels = torch.tensor([[0.4, 4e-4], [0.7, 1e-3]]).view(2, 2, 1, 1, 1)
-    x = levels.expand(2, 2, D, H, W).clone()
+    x = levels * (1 + 0.5 * torch.rand(2, 2, D, H, W, generator=torch.manual_seed(0)))
+    checked = 0
     for i in range(10):
         torch.manual_seed(i)
-        out = sa.scroll_blank_rectangles(x)
-        # float32 means of a constant region are within rounding of it.
-        assert torch.allclose(out, x, rtol=1e-5, atol=0), f"seed {i}"
+        out = sa.scroll_blank_rectangles(x, num_rectangles=(1, 1))
+        changed = (out != x).any(dim=(0, 1))
+        if changed.sum() < 2:
+            continue  # a one-voxel rectangle is its own mean
+        zs, ys, xs = [idx.unique() for idx in changed.nonzero(as_tuple=True)]
+        box = (
+            ...,
+            slice(zs[0], zs[-1] + 1),
+            slice(ys[0], ys[-1] + 1),
+            slice(xs[0], xs[-1] + 1),
+        )
+        region, before = out[box], x[box]
+        fill = before.mean(dim=(2, 3, 4), keepdim=True)
+        assert torch.allclose(region, fill.expand_as(region)), f"seed {i}"
+        assert fill.flatten().unique().numel() == 4  # each sample and channel its own
+        checked += 1
+    assert checked >= 5
