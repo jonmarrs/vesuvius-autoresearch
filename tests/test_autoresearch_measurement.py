@@ -1259,6 +1259,39 @@ def test_train_writes_the_warm_start_it_made_into_run_result():
     assert entries["warm_start"] == "warm_started"
 
 
+def test_a_run_needs_a_config_that_exists(tmp_path):
+    """A missing --config used to get ExperimentConfig's defaults written to it
+    and run: a mistyped path trained, or passed --smoke on, gated_unet."""
+    missing = tmp_path / "config_tmep.json"
+    with pytest.raises(SystemExit, match="config_tmep.json does not exist"):
+        train.load_run_config(str(missing))
+    assert not missing.exists()
+    ExperimentConfig(architecture="resenc_unet").save(tmp_path / "config.json")
+    loaded = train.load_run_config(str(tmp_path / "config.json"))
+    assert loaded.architecture == "resenc_unet"
+
+
+@pytest.mark.parametrize("mode", [["--smoke"], []])
+def test_the_command_line_refuses_a_missing_config(tmp_path, mode):
+    """Both the loop's --smoke preflight and a full run. From another directory,
+    so a regression to the defaults fails for want of their data instead of
+    training on this checkout's."""
+    repo = Path(__file__).resolve().parents[1]
+    missing = tmp_path / "missing.json"
+    run = subprocess.run(
+        [sys.executable, str(repo / "scripts/training/train.py"), *mode]
+        + ["--config", str(missing)],
+        cwd=tmp_path,
+        env={**os.environ, "PYTHONPATH": f"{repo}:{repo / 'src'}"},
+        capture_output=True,
+        text=True,
+        timeout=600,
+    )
+    assert run.returncode == 1, run.stdout + run.stderr
+    assert "missing.json does not exist" in run.stderr
+    assert "PREFLIGHT OK" not in run.stdout and not missing.exists()
+
+
 def test_a_failed_preflight_is_named_in_the_sprint_log(tmp_path, monkeypatch):
     """Every failure used to read "Training crashed (Unknown error)": 264 runs
     killed at the timeout from 2026-06-29 to 2026-07-07 showed only in the

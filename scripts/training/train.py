@@ -3004,6 +3004,18 @@ def train(config: ExperimentConfig, *, strict_warm_start=False):
     wandb_tracking.finish_run(wandb_run)
 
 
+def load_run_config(path):
+    """The config a command-line run trains on, or --smoke checks.
+
+    A path that does not exist is an error. ExperimentConfig's defaults
+    (gated_unet, no depth band, no tracking) used to be written there and run,
+    so a mistyped --config trained, or passed --smoke on, a config nobody asked
+    for."""
+    if not os.path.exists(path):
+        raise SystemExit(f"{path} does not exist; --config names the config to run")
+    return ExperimentConfig.load(path)
+
+
 if __name__ == "__main__":
     import torch.multiprocessing as mp
 
@@ -3019,11 +3031,7 @@ if __name__ == "__main__":
 
     args = TrainArgs().parse_args()
 
-    if os.path.exists(args.config):
-        config = ExperimentConfig.load(args.config)
-    else:
-        config = ExperimentConfig()
-        config.save(args.config)
+    config = load_run_config(args.config)
 
     if args.smoke:
         try:
