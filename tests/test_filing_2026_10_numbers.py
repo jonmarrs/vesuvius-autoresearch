@@ -232,7 +232,7 @@ def test_fiber_heldout_numbers_match_finding_83():
         f"Coverage is {s5[0]:.2f} and {s5[1]:.2f}, against {min(in256):.2f}–{max(in256):.2f} on the in-sample "
         "Scroll-5 256³ cubes" in txt
     )
-    assert "Sixteen of my registered predictions failed" in txt
+    assert "Eighteen of my registered predictions failed" in txt
 
 
 def test_scrollgt_cite_is_its_newest_tag():
@@ -590,3 +590,35 @@ def test_finding_82_fiber_growth_range_is_the_scored_one():
         assert "28–53% more" not in t.replace('from "28–53%"', "").replace(
             "from 28–53%", ""
         ), f
+
+
+_F92 = _REPO / "reports/neural_tracer_pitch.json"
+
+
+@pytest.mark.skipif(not _F92.exists(), reason="finding 92 artifact absent")
+def test_pitch_numbers_match_finding_92():
+    d, txt = json.loads(_F92.read_text()), _text()
+    assert d["status"] == "OK" and not d["failed_runs"] and not d["identity_problems"]
+    rows, native = d["pitch_rows"], d["native_rows"]
+    assert len(rows) == 21 and all(
+        r["erl_merge_penalized"] < native[c]["erl_merge_penalized"]
+        for c, r in rows.items()
+    )
+    ratio = d["median_pen_ratio_pitch_over_native"]
+    lead, s3 = d["s3_leading_tracer"]
+    trails, ins = d["in_sample_trailing_tracer"]
+    assert (lead, s3, trails, ins) == (0, 8, 11, 11)
+    assert (
+        f"it scores lower on all 21 cubes (merge-penalized ERL a median {ratio:.2f} of the rows above) and leads our "
+        f"tracer on none of the {s3} Scroll-3 cubes. It still trails on all {ins} in-sample cubes"
+        in txt
+    )
+    p = d["predictions"]
+    assert (
+        p["P2_s3_leads_tracer_on_6_of_8"] is False
+        and p["P3_median_pen_ratio_within_0.85_1.15"] is False
+    )
+    assert (
+        f"on at least 6 of 8 cubes: it kept it on {lead}; its median merge-penalized ERL would stay within "
+        f"0.85–1.15 of the native rows: {ratio:.2f})" in txt
+    )
