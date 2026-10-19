@@ -103,6 +103,10 @@ of them. It fixes three ways the tools could read their inputs wrongly without s
   passed the filters, and the October sprint logs are not in this checkout. An OOM crash in their windows would have
   added its minutes to the next cycle's overhead. Re-running `epoch_boundary_overhead.py` on the same logs would show
   whether any row changes.
+  - **Checked 2026-10-19 in the loop checkout, which has those logs: no row changes.** Every `## Cycle` header in
+    the windows of the four `epoch_boundary_overhead_*.json` (151 on 10-13 to 15, 92 on 10-16/17) and in the
+    cycle-length study's 10-18 logs (54) parses under both the old pattern and #135's, and none is
+    `CRASHED (OOM)`. `tests/test_epoch_boundary_headers.py` pins it where the logs are present.
 - **`epoch_boundary_overhead.runs`** raises `StopIteration` on a run log with no protocol-v3 line, and the Welch
   interval divides by zero when both arms have no spread. Neither can happen on the logs these reports read.
 - **`--limit 100`** in month mode lists our 100 newest villa PRs. A month's merges are recent, so it covers them

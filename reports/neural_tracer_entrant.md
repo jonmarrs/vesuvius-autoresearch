@@ -107,4 +107,6 @@ Medians by group (merge-penalized ERL / coverage):
 * **7.91 µm and 256³ edges**, as registered.
 * **One run per cube.** The runs are deterministic, so a second run adds nothing, but another sampling seed or GPU
   could change them.
-* **Nothing is posted to villa or added to ScrollGT** without a separate decision by the user.
+* **Nothing is posted to villa or added to ScrollGT** without a separate decision by the user. (Update 2026-10-19: on
+  the user's decision, ScrollGT 0.8.0, scrollgt#6, publishes these rows as `villa_neural_tracer`. All 21 equal this
+  report's, field for field. Nothing is posted to villa.)
