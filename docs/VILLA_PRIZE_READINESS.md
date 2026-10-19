@@ -145,8 +145,10 @@ uv run python scripts/run_post_sprint_villa_handoff.py --preflight-only
 This writes `reports/post_sprint_villa_handoff_plan.json`, refreshes the
 non-GPU planning artifacts, and writes per-candidate preflight reports under
 `reports/scroll23_evidence/candidate_*/preflight_report.json`. It still refuses
-to run if GPU execution flags are requested while `run_autoresearch_loop.py` or
-`train.py` is active.
+to run if GPU execution flags are requested while research is using the GPU: a
+holder of this checkout's loop lock (the loop, a noise probe, an ablation or a
+re-score), a training run going in it, or any of their processes in any
+checkout.
 
 The handoff now starts by refreshing the official Villa compatibility context:
 `reports/villa_upstream_audit.json`, `reports/villa_prize_opportunities.json`,
@@ -195,7 +197,7 @@ uv run python scripts/run_post_sprint_villa_handoff.py
 ```
 
 This writes `reports/post_sprint_villa_handoff_plan.json` and refuses to run
-while `run_autoresearch_loop.py` or `train.py` is active. After the GPU is free,
+while any of that research is going. After the GPU is free,
 use `--execute-inference` and `--execute-evidence` to run the full prize evidence
 chain. The underlying manual sequence is:
 

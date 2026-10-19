@@ -25,16 +25,34 @@ def acquire_lock(path):
     return stream
 
 
+# The scripts that take this checkout's lock, as their command lines name them
+# (by path, or as a module).
+LOCK_HOLDER_ARGS = frozenset(
+    {
+        "run_autoresearch_loop.py",
+        "f1_noise_probe.py",
+        "scripts.f1_noise_probe",
+        "ablate_scroll_augmentations.py",
+        "scripts.ablate_scroll_augmentations",
+        "reevaluate_best_model.py",
+        "scripts.reevaluate_best_model",
+    }
+)
+
+
 def running_pid(repo):
     path = repo / "autoresearch.lock"
     if not path.exists():
         return None
-    with path.open("r+") as stream:
+    # Replaced and ASCII: bytes that are not UTF-8, or a digit like "²" that
+    # int() refuses, would end status in a traceback, whose exit 1 reads as
+    # "nothing running".
+    with path.open("r+", errors="replace") as stream:
         try:
             fcntl.lockf(stream, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError:
             value = stream.read().strip()
-            if not value.isdigit() or int(value) <= 1:
+            if not (value.isascii() and value.isdigit()) or int(value) <= 1:
                 raise RuntimeError(
                     "loop lock is held but contains no valid PID"
                 ) from None
@@ -50,18 +68,7 @@ def running_pid(repo):
             except FileNotFoundError:
                 return None
             if cwd != repo.resolve() or not any(
-                Path(os.fsdecode(arg)).name
-                in {
-                    "run_autoresearch_loop.py",
-                    "f1_noise_probe.py",
-                    "scripts.f1_noise_probe",
-                    "ablate_scroll_augmentations.py",
-                    "scripts.ablate_scroll_augmentations",
-                    "reevaluate_best_model.py",
-                    "scripts.reevaluate_best_model",
-                }
-                for arg in args
-                if arg
+                Path(os.fsdecode(arg)).name in LOCK_HOLDER_ARGS for arg in args if arg
             ):
                 raise RuntimeError(
                     "lock PID does not identify this checkout's loop"

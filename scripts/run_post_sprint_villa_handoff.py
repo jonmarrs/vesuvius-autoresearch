@@ -2,22 +2,61 @@
 """
 Run the Villa-backed Scroll 2/3 handoff after an Autoresearch sprint.
 
-The handoff is intentionally guarded: by default it refuses to run when the
-Night/Day Shift training loop is active. Without --execute-* flags it only
+The handoff is intentionally guarded: by default it refuses to run while
+research work is using the GPU (the loop, a noise probe, an ablation or a
+re-score; see active_sprint_processes). Without --execute-* flags it only
 refreshes manifests and preflight reports; use --preflight-only to allow that
 non-GPU planning path while a sprint is active.
 """
 
 import argparse
 import json
+import re
 import subprocess
 import sys
 from pathlib import Path
 
-ACTIVE_PROCESS_PATTERN = "run_autoresearch_loop.py|train.py|uv run python -u train.py"
+if __package__ in (None, ""):  # run as a script: make `scripts` importable
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from scripts import loop_control  # noqa: E402
+
+REPO = Path(__file__).resolve().parents[1]
+
+# By name, in any checkout, since the GPU is shared: what takes the loop's lock,
+# and the training each runs (the noise probe's trials train in-process in
+# run_noise_probe.py). After a space or "/" and up to a space or the end, so
+# tests/test_f1_noise_probe.py in a pytest run is not one.
+_ACTIVE_NAMES = sorted(
+    loop_control.LOCK_HOLDER_ARGS
+    | {Path(script).name for script in loop_control.RUN_SCRIPTS}
+    | {"run_noise_probe.py"}
+)
+ACTIVE_PROCESS_PATTERN = (
+    "(^|[ /])(" + "|".join(re.escape(name) for name in _ACTIVE_NAMES) + ")( |$)"
+)
 
 
-def active_sprint_processes():
+def active_sprint_processes(repo=REPO):
+    """What is using the GPU for research: this checkout's lock holder (the
+    loop, a noise probe, an ablation or a re-score), a training run going in
+    it that no supervisor owns, and any process of theirs in any checkout. The
+    pattern once named only the loop and train.py, so a noise probe, an
+    ablation or a re-score let the GPU steps start beside it."""
+    active = []
+    try:
+        pid = loop_control.running_pid(repo)
+    except Exception as exc:  # a lock that cannot be read blocks, as one held
+        pid = None
+        active.append(f"{repo / 'autoresearch.lock'}: {exc!r}")
+    if pid is not None:
+        active.append(f"{pid} holds {repo / 'autoresearch.lock'}")
+    for run in loop_control.unsupervised_runs(repo, supervisor=pid):
+        active.append(f"unsupervised training run: {loop_control.describe_run(*run)}")
+    return active + _named_processes()
+
+
+def _named_processes():
+    """pgrep's lines for the pattern, in any checkout."""
     result = subprocess.run(
         ["pgrep", "-af", ACTIVE_PROCESS_PATTERN],
         text=True,
