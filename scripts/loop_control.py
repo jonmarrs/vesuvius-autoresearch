@@ -25,6 +25,21 @@ def acquire_lock(path):
     return stream
 
 
+# The scripts that take this checkout's lock, as their command lines name them
+# (by path, or as a module).
+LOCK_HOLDER_ARGS = frozenset(
+    {
+        "run_autoresearch_loop.py",
+        "f1_noise_probe.py",
+        "scripts.f1_noise_probe",
+        "ablate_scroll_augmentations.py",
+        "scripts.ablate_scroll_augmentations",
+        "reevaluate_best_model.py",
+        "scripts.reevaluate_best_model",
+    }
+)
+
+
 def running_pid(repo):
     path = repo / "autoresearch.lock"
     if not path.exists():
@@ -50,18 +65,7 @@ def running_pid(repo):
             except FileNotFoundError:
                 return None
             if cwd != repo.resolve() or not any(
-                Path(os.fsdecode(arg)).name
-                in {
-                    "run_autoresearch_loop.py",
-                    "f1_noise_probe.py",
-                    "scripts.f1_noise_probe",
-                    "ablate_scroll_augmentations.py",
-                    "scripts.ablate_scroll_augmentations",
-                    "reevaluate_best_model.py",
-                    "scripts.reevaluate_best_model",
-                }
-                for arg in args
-                if arg
+                Path(os.fsdecode(arg)).name in LOCK_HOLDER_ARGS for arg in args if arg
             ):
                 raise RuntimeError(
                     "lock PID does not identify this checkout's loop"

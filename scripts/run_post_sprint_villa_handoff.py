@@ -2,22 +2,55 @@
 """
 Run the Villa-backed Scroll 2/3 handoff after an Autoresearch sprint.
 
-The handoff is intentionally guarded: by default it refuses to run when the
-Night/Day Shift training loop is active. Without --execute-* flags it only
+The handoff is intentionally guarded: by default it refuses to run while
+research work is using the GPU (the loop, a noise probe, an ablation or a
+re-score; see active_sprint_processes). Without --execute-* flags it only
 refreshes manifests and preflight reports; use --preflight-only to allow that
 non-GPU planning path while a sprint is active.
 """
 
 import argparse
 import json
+import re
 import subprocess
 import sys
 from pathlib import Path
 
-ACTIVE_PROCESS_PATTERN = "run_autoresearch_loop.py|train.py|uv run python -u train.py"
+if __package__ in (None, ""):  # run as a script: make `scripts` importable
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from scripts import loop_control  # noqa: E402
+
+REPO = Path(__file__).resolve().parents[1]
+
+# By name, in any checkout, since the GPU is shared: what takes the loop's lock,
+# and the training each runs (the noise probe's trials train in-process in
+# run_noise_probe.py). As a whole argument, so test_f1_noise_probe.py is not one.
+_ACTIVE_NAMES = sorted(
+    loop_control.LOCK_HOLDER_ARGS
+    | {Path(script).name for script in loop_control.RUN_SCRIPTS}
+    | {"run_noise_probe.py"}
+)
+ACTIVE_PROCESS_PATTERN = (
+    "(^|[ /])(" + "|".join(re.escape(name) for name in _ACTIVE_NAMES) + ")( |$)"
+)
 
 
-def active_sprint_processes():
+def active_sprint_processes(repo=REPO):
+    """What is using the GPU for research: this checkout's lock holder (the
+    loop, a noise probe, an ablation or a re-score), a training run going in
+    it that no supervisor owns, and any process of theirs in any checkout. The
+    pattern once named only the loop and train.py, so a noise probe, an
+    ablation or a re-score let the GPU steps start beside it."""
+    active = []
+    try:
+        pid = loop_control.running_pid(repo)
+    except (OSError, RuntimeError) as exc:  # held, by something unidentified
+        pid = None
+        active.append(f"{repo / 'autoresearch.lock'}: {exc}")
+    if pid is not None:
+        active.append(f"{pid} holds {repo / 'autoresearch.lock'}")
+    for run in loop_control.unsupervised_runs(repo, supervisor=pid):
+        active.append(f"unsupervised training run: {loop_control.describe_run(*run)}")
     result = subprocess.run(
         ["pgrep", "-af", ACTIVE_PROCESS_PATTERN],
         text=True,
@@ -26,7 +59,7 @@ def active_sprint_processes():
     )
     if result.returncode not in (0, 1):
         raise RuntimeError(result.stderr.strip() or "pgrep failed")
-    return [line for line in result.stdout.splitlines() if line.strip()]
+    return active + [line for line in result.stdout.splitlines() if line.strip()]
 
 
 def build_handoff_steps(args):
