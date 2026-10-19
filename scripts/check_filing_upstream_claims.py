@@ -13,19 +13,33 @@ reworded so a pattern stops matching, the honest outcome is a loud failure telli
 the filer to re-check by hand. Silently passing on text it failed to find is the
 same defect as a path an equivalence checker forgot to look at, and that one shipped.
 
+From October the filing has no tally sentence or PR table, so those claims cannot
+be located in it. With --month, the claims checked are the ones it does make: each
+villa merge, written "#N (merged YYYY-MM-DD)" (or "[villa #N](url) (merged ...)").
+Every merge of ours in that month must have one, and every such claim must give the
+live merge's Pacific date.
+
 Usage:  ./.venv/bin/python scripts/check_filing_upstream_claims.py
         ... --filing docs/PRIZE_FILING_2026-09_SUBMIT.md
+        ... --month 2026-10 --filing docs/PRIZE_FILING_2026-10_DRAFT.md
 """
 
 import argparse
+import datetime as dt
 import json
 import re
 import subprocess
 import sys
+from collections.abc import Callable
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 REPO = "ScrollPrize/villa"
 AUTHOR = "jonmarrs"
+PACIFIC = ZoneInfo("America/Los_Angeles")
+MERGED_CLAIM = re.compile(
+    r"#(\d{3,5})(?:\]\([^)]*\))?\s*\(\**merged (\d{4}-\d{2}-\d{2})"
+)
 WORDS = {
     "zero": 0,
     "one": 1,
@@ -53,6 +67,76 @@ def word(m: str) -> int:
     return WORDS[m.lower()] if m.lower() in WORDS else int(m)
 
 
+def pacific_date(timestamp: str) -> str:
+    """The Pacific calendar date of a GitHub UTC timestamp, which is the date the filing states."""
+    when = dt.datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+    return when.astimezone(PACIFIC).date().isoformat()
+
+
+def _view(number: int) -> dict:
+    out = subprocess.run(
+        ["gh", "pr", "view", str(number), "--repo", REPO, "--json", "number,state,mergedAt"],
+        capture_output=True, text=True, timeout=120,
+    )  # fmt: skip
+    if out.returncode != 0:
+        raise SystemExit(f"gh failed: pr view {number}\n{out.stderr.strip()}")
+    pr: dict = json.loads(out.stdout)
+    return pr
+
+
+def month_checks(
+    text: str,
+    prs: list[dict],
+    month: str,
+    lookup: Callable[[int], dict] = _view,
+) -> tuple[list[tuple[str, bool, str]], list[str]]:
+    """Check the filing's "(merged YYYY-MM-DD)" claims against live PRs.
+
+    Every PR in prs (ours) merged in month (YYYY-MM, Pacific) needs a claim; a claim
+    about a PR not in prs is looked up. Returns (checks, claims that could not be located).
+    """
+    claims = [(int(n), date) for n, date in MERGED_CLAIM.findall(text)]
+    claimed = {n for n, _ in claims}
+    by_num = {p["number"]: p for p in prs}
+    unlocatable = []
+    for p in sorted(prs, key=lambda p: p["number"]):
+        merged_on = pacific_date(p["mergedAt"]) if p.get("mergedAt") else ""
+        if merged_on.startswith(month) and p["number"] not in claimed:
+            unlocatable.append(f"merged claim for #{p['number']} (merged {merged_on})")
+    checks = []
+    for number, said in claims:
+        pr = by_num.get(number) or lookup(number)
+        live = pacific_date(pr["mergedAt"]) if pr.get("mergedAt") else None
+        checks.append(
+            (
+                f"#{number} merged {said}",
+                live == said,
+                f"live: {pr['state']} {live or ''}".strip(),
+            )
+        )
+    return checks, unlocatable
+
+
+def report(checks: list[tuple[str, bool, str]], unlocatable: list[str]) -> int:
+    bad = [c for c in checks if not c[1]]
+    for name, ok, detail in checks:
+        print(f"  {'ok  ' if ok else 'STALE'} {name:<28} {'' if ok else detail}")
+    for name in unlocatable:
+        print(f"  ERROR could not locate claim: {name}")
+
+    if unlocatable:
+        print(
+            "\nFAIL: a claim could not be located. The filing may have been "
+            "reworded; re-check those by hand. Not treated as a pass."
+        )
+        return 2
+    if bad:
+        print(f"\nFAIL: {len(bad)} claim(s) stale. Update the filing before pasting.")
+        return 1
+    print("\nPASS: every upstream claim in the filing matches GitHub.")
+    return 0
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--filing", default="docs/PRIZE_FILING_2026-09_SUBMIT.md")
@@ -62,8 +146,22 @@ def main() -> int:
         default=1700,
         help="lowest PR number in scope; the filing describes the spiral-fitting campaign",
     )
+    ap.add_argument(
+        "--month",
+        help="YYYY-MM: check the month's merges instead of the September tally and table",
+    )
     args = ap.parse_args()
     text = Path(args.filing).read_text()
+
+    if args.month:
+        fields = "number,state,mergedAt"
+        mine = gh("pr", "list", "--repo", REPO, "--author", AUTHOR, "--state", "all",
+                  "--limit", "100", "--json", fields)  # fmt: skip
+        merged = [p["number"] for p in mine
+                  if p.get("mergedAt") and pacific_date(p["mergedAt"]).startswith(args.month)]  # fmt: skip
+        still_open = sorted(p["number"] for p in mine if p["state"] == "OPEN")
+        print(f"live: merged in {args.month}={sorted(merged)} open={still_open}\n")
+        return report(*month_checks(text, mine, args.month))
 
     prs = gh(
         "pr",
@@ -174,23 +272,7 @@ def main() -> int:
             (f"#{num} row", said == state, f"filing says {said}, live is {state}")
         )
 
-    bad = [c for c in checks if not c[1]]
-    for name, ok, detail in checks:
-        print(f"  {'ok  ' if ok else 'STALE'} {name:<28} {'' if ok else detail}")
-    for name in unlocatable:
-        print(f"  ERROR could not locate claim: {name}")
-
-    if unlocatable:
-        print(
-            "\nFAIL: a claim could not be located. The filing may have been "
-            "reworded; re-check those by hand. Not treated as a pass."
-        )
-        return 2
-    if bad:
-        print(f"\nFAIL: {len(bad)} claim(s) stale. Update the filing before pasting.")
-        return 1
-    print("\nPASS: every upstream claim in the filing matches GitHub.")
-    return 0
+    return report(checks, unlocatable)
 
 
 if __name__ == "__main__":
