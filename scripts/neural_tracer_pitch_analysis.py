@@ -194,7 +194,8 @@ def main() -> int:
         out.update(reading)
     args.out.write_text(json.dumps(out, indent=1) + "\n")
     print(f"status {status}; wrote {args.out}")
-    return 0
+    # As finding 91's analysis: the chain logs this code (ANALYSIS rc=...).
+    return 0 if status == "OK" else 1
 
 
 if __name__ == "__main__":

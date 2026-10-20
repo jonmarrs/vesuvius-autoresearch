@@ -1,7 +1,9 @@
 """scripts/neural_tracer_pitch_analysis.py: the frame back to the cube, the identity check, and the registered reading."""
 
+import json
 import math
 import sys
+import types
 from pathlib import Path
 
 import numpy as np
@@ -206,3 +208,113 @@ def test_a_failed_run_is_incomplete_only_below_the_row_minimums():
     assert status == "INCOMPLETE"
     assert reading["predictions"]["P2_s3_leads_tracer_on_6_of_8"] is None
     assert pa.outcome({"x": ["box"]}, rows, native, comp) == ("IDENTITY_FAILED", None)
+
+
+FIBER = {3: np.array([[10.0, 20.0, 30.0], [11.0, 20.0, 30.0]])}
+
+
+def _run_main(tmp_path, monkeypatch, failed=(), bad_identity=(), version=3):
+    """main() end to end, with ScrollGT's scorer and target and the .afv reader stubbed: every scored cube at 5.0
+    against a native 5.0, our tracer at 10.0 and connected components at 1.0. The stubs record what they were given."""
+    seen: dict = {"raster": []}
+
+    class Score:
+        def as_row(self):
+            return {PEN: 5.0, pa.COV: 0.5}
+
+    def score_tracing(skel, labels, tolerance):
+        assert tolerance == f91.TOL and skel == (
+            "skel",
+            labels[0],
+        )  # the cube's own target
+        return Score()
+
+    def load_fiber_target(target):
+        seen["target"] = target
+        return ("skel", target), None, None
+
+    def rasterize(fibers, shape):
+        seen["raster"].append((fibers, shape))
+        return (seen["target"], fibers, shape)
+
+    ev = types.ModuleType("scrollgt.fibers.eval_trace")
+    ev.SCORING_VERSION = version
+    ev.score_tracing = score_tracing
+    tg = types.ModuleType("scrollgt.fibers.target")
+    tg.load_fiber_target = load_fiber_target
+    for name, module in (("scrollgt", types.ModuleType("scrollgt")),
+                         ("scrollgt.fibers", types.ModuleType("scrollgt.fibers")),
+                         ("scrollgt.fibers.eval_trace", ev), ("scrollgt.fibers.target", tg)):  # fmt: skip
+        monkeypatch.setitem(sys.modules, name, module)
+    monkeypatch.setattr(sys, "path", list(sys.path))  # main() prepends ScrollGT's src
+    monkeypatch.setattr(pa.afv_to_labels, "read_afv", lambda path: dict(FIBER))
+    monkeypatch.setattr(pa.afv_to_labels, "rasterize", rasterize)
+    monkeypatch.setattr(f91, "stop_reasons", lambda afv: {"confidence": 1})
+    monkeypatch.setattr(f91, "SG", tmp_path / "sg")
+    native = {}
+    for c in f91.ALL:
+        meta = tmp_path / "sg" / "data" / f"fibers_{c}" / "meta.json"
+        meta.parent.mkdir(parents=True)
+        meta.write_text(
+            json.dumps({"floors": {f91.TRACER: {PEN: 10.0}, f91.CC: {PEN: 1.0}}})
+        )
+        native[c] = {PEN: 5.0, pa.COV: 0.5}
+        if c in failed:
+            continue
+        run = tmp_path / "work" / c
+        run.mkdir(parents=True)
+        (run / "fibers.afv").write_text("")
+        record = _record(c)
+        if c in bad_identity:
+            record["base_um"] = 7.91
+        (run / "run.json").write_text(json.dumps(record))
+    (tmp_path / "native.json").write_text(json.dumps({"neural_rows": native}))
+    out = tmp_path / "out.json"
+    argv = [
+        "pa",
+        "--work",
+        str(tmp_path / "work"),
+        "--native",
+        str(tmp_path / "native.json"),
+    ]
+    monkeypatch.setattr(sys, "argv", [*argv, "--out", str(out)])
+    rc = pa.main()
+    return rc, json.loads(out.read_text()), seen
+
+
+def test_main_writes_the_registered_status_and_exits_by_it(tmp_path, monkeypatch):
+    rc, out, seen = _run_main(tmp_path / "all", monkeypatch)
+    assert (rc, out["status"], out["failed_runs"]) == (0, "OK", [])
+    assert out["predictions"] == {
+        "P1_in_sample_trails_tracer_on_9_of_11": True,
+        "P2_s3_leads_tracer_on_6_of_8": False,
+        "P3_median_pen_ratio_within_0.85_1.15": True,
+    }
+    assert out["published_row_moves_materially"] is False
+    assert (
+        out["in_sample_reading"]
+        == "pitch is not the main cause of the in-sample deficit"
+    )
+    assert out["comparators"][f91.S3[0]] == {"tracer": {PEN: 10.0}, "cc": {PEN: 1.0}}
+    assert sorted(out["pitch_rows"]) == sorted(f91.ALL)
+    assert out["pitch_rows"][f91.S3[0]]["stop_reasons"] == {"confidence": 1}
+    # Each cube's fibers, scaled back to its own frame, rasterised at its own size.
+    for (fibers, shape), c in zip(seen["raster"], f91.ALL, strict=True):
+        assert shape == (int(c.rsplit("_", 1)[1]),) * 3
+        np.testing.assert_array_equal(fibers[3], pa.scale_back(FIBER, c)[3])
+
+    one = f91.S5_HELDOUT[0]
+    rc, out, _ = _run_main(tmp_path / "one", monkeypatch, failed=(one,))
+    assert (rc, out["status"], out["failed_runs"]) == (0, "OK", [one])
+    assert out["pitch_rows"][one] is None
+
+    rc, out, _ = _run_main(tmp_path / "three", monkeypatch, failed=tuple(f91.S3[:3]))
+    assert (rc, out["status"]) == (1, "INCOMPLETE")
+    assert out["predictions"]["P2_s3_leads_tracer_on_6_of_8"] is None
+
+    rc, out, _ = _run_main(tmp_path / "id", monkeypatch, bad_identity=(f91.S3[0],))
+    assert (rc, out["status"]) == (1, "IDENTITY_FAILED")
+    assert "predictions" not in out and f91.S3[0] in out["identity_problems"]
+
+    with pytest.raises(SystemExit, match="version 3"):
+        _run_main(tmp_path / "v4", monkeypatch, version=4)

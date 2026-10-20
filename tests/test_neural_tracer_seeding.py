@@ -104,6 +104,18 @@ def test_the_launcher_runs_seeding_in_process():
             sd.split_argv(bad)
     with pytest.raises(SystemExit):
         sd.split_argv(["--out", "o"])  # the scale is never implicit
+    # argparse would expand an abbreviation past the checks above.
+    for bad in (
+        ["--tile-work", "4"],
+        ["--tile-w=4"],
+        ["--tile-workers", "0", "--tile-wo", "4"],
+    ):
+        with pytest.raises(SystemExit, match="spell out"):
+            sd.split_argv(["--smoothing", "1", *bad, "--out", "o"])
+    # A different flag that merely starts like it is passed through.
+    assert (
+        "--tile" in sd.split_argv(["--smoothing", "1", "--tile", "64", "--out", "o"])[2]
+    )
 
 
 def test_the_run_records_its_smoothing_and_refuses_another_on_resume(tmp_path):
@@ -116,6 +128,76 @@ def test_the_run_records_its_smoothing_and_refuses_another_on_resume(tmp_path):
         sd.record_seeding(tmp_path, 1.0)
     with pytest.raises(SystemExit):
         sd.record_seeding(tmp_path, 0.824, hessian=1.2)
+    # A run villa started on its own: its scales are not recorded, so no resume.
+    plain = tmp_path / "plain"
+    plain.mkdir()
+    (plain / "run.json").write_text("{}")
+    with pytest.raises(SystemExit, match="without this launcher"):
+        sd.record_seeding(plain, 0.824)
+    assert not (plain / "seeding.json").exists()
+
+
+def _villa_volume(monkeypatch, raises=None):
+    """A stand-in for villa's tracing/volume.py, importable as the launcher imports it, whose main() records what it
+    saw."""
+    vol = _fake_volume()
+    seen = {}
+
+    def main(argv):
+        seen["argv"] = list(argv)
+        out = Path(argv[argv.index("--out") + 1])
+        seen["recorded_first"] = (out / "seeding.json").exists()
+        seen["smoothing"] = getattr(vol.ndimage, "scale", None)
+        seen["hessian"] = vol.HESSIAN_SIGMA
+        if raises is not None:
+            raise raises
+        return None
+
+    vol.main = main
+    names = ["vesuvius", "vesuvius.neural_tracing", "vesuvius.neural_tracing.tracers",
+             "vesuvius.neural_tracing.tracers.fibers", "vesuvius.neural_tracing.tracers.fibers.tracing"]  # fmt: skip
+    for name in names:
+        monkeypatch.setitem(sys.modules, name, types.ModuleType(name))
+    monkeypatch.setattr(sys.modules[names[-1]], "volume", vol, raising=False)
+    monkeypatch.setitem(sys.modules, names[-1] + ".volume", vol)
+    return vol, seen
+
+
+def test_the_launcher_records_patches_runs_villa_and_restores(tmp_path, monkeypatch):
+    vol, seen = _villa_volume(monkeypatch)
+    out = tmp_path / "run"
+    rc = sd.main(
+        [
+            "--smoothing",
+            "0.824",
+            "--hessian",
+            "1.2",
+            "--presence",
+            "p",
+            "--out",
+            str(out),
+        ]
+    )
+    assert rc == 0
+    assert seen["argv"] == ["--presence", "p", "--out", str(out), "--tile-workers", "0"]
+    assert seen["recorded_first"] and (seen["smoothing"], seen["hessian"]) == (
+        0.824,
+        1.2,
+    )
+    assert vol.ndimage is ndimage and vol.HESSIAN_SIGMA == 1.5  # undone afterwards
+    # A resume at other scales never reaches villa.
+    seen.clear()
+    with pytest.raises(SystemExit, match="other seeding scales"):
+        sd.main(["--smoothing", "1.0", "--out", str(out)])
+    assert seen == {}
+
+
+def test_the_launcher_restores_villa_when_its_run_exits(tmp_path, monkeypatch):
+    vol, seen = _villa_volume(monkeypatch, raises=SystemExit(2))
+    with pytest.raises(SystemExit):
+        sd.main(["--smoothing", "0.824", "--out", str(tmp_path / "run")])
+    assert seen["smoothing"] == 0.824
+    assert vol.ndimage is ndimage
 
 
 def test_the_probe_variants_scale_seeding_one_way_per_arm():
