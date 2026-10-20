@@ -1,9 +1,11 @@
-# Proposed pre-registration: is finding 92's drop the tracer's seeding scale rather than its input pitch?
+# Pre-registration: is finding 92's drop the tracer's seeding scale rather than its input pitch?
 
-**Status: PROPOSED, not registered, nothing run.** Written 2026-10-19, before any trace with rescaled seeding exists.
-The run needs the GPU with the loop paused, which is the owner's decision. If it is approved, registration is the
-commit that adds the chain and the analysis script. That commit must leave the predictions and decision rule below
-unchanged. If either has to change, it is amended here first, before any cube is traced.
+**Status: REGISTERED 2026-10-20, before any trace with rescaled seeding exists.** Proposed 2026-10-19 (#149) and
+approved by the owner ("Run the proposed seeding test"). The registering commit adds the chain
+(`repro/fibers/run_neural_tracer_seeding_chain.sh`) and the analysis (`scripts/neural_tracer_seeding_analysis.py`). The
+predictions and decision rule below are unchanged from the proposal, and
+`tests/test_neural_tracer_seeding_analysis.py` pins them by hash. Registration changed only this paragraph, the
+title, the run directories' names and two sentences on how the arms are enforced.
 
 ## The question
 
@@ -57,7 +59,10 @@ settings stay as finding 91 set them, in grid voxels:
 * `--dedupe`, `--min-length` and the stop rules, which are tracing rules, not seeding. Finding 92's exploration
   ruled out the minimum-length band.
 
-Same checkpoint and sha256, `--tile-workers 0`, every other default. Run directories `seeding_a/` and `seeding_b/`.
+Same checkpoint and sha256, `--tile-workers 0`, every other default. Run directories `seeding_run/A/` and
+`seeding_run/B/`, with the identity smoke in `seeding_run/identity/`. The chain takes every flag from the analysis
+script (`args`), and the analysis refuses a verdict (IDENTITY_FAILED) if any run's `run.json` or `seeding.json`
+differs from its arm, as finding 92's did.
 
 **Smoke and identity, first:** the launcher at the default smoothing (1.0) and `--tile-workers 0`, on finding 91's
 repeat cube `s1_00497_01497_03997_256`, must reproduce finding 91's `fibers.afv` (fiber count and points). That shows
