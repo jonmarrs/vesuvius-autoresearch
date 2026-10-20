@@ -30,7 +30,7 @@ To set up a new experiment, work with the user to:
 
 ## Experimentation
 
-Each experiment runs on a single GPU. The training script runs for a **fixed time budget** (900s for Day Shift, 3600s for Night Shift). Launch, with the loop paused:
+Each experiment runs on a single GPU. The training script runs for a **fixed time budget** (900s for both shifts; Night Shift ran 3600s until 2026-10-20). Launch, with the loop paused:
 `PYTHONPATH=. uv run python scripts/training/train.py --config config.json`
 A direct run takes no lock and writes the loop's state: `history.tsv`, `last_model.pt` and `run_result.json`,
 and, if it promotes, `best_model.pt`, `results.tsv` and `prize_readiness.tsv`. `--test` is the same run with
