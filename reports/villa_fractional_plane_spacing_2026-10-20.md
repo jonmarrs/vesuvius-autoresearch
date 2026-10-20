@@ -13,7 +13,7 @@ has been posted to Villa. The tracing experiment remains unrun.
 | --- | --- | --- |
 | [#2141](https://github.com/ScrollPrize/villa/pull/2141), read-only SQLite track DBMs | Open. The fallback's author independently tested Windows 11 / Python 3.12.10: baseline fails; patched reader passes, 2 passed / 2 skipped. [Their reply](https://github.com/ScrollPrize/villa/pull/2141#issuecomment-6290970541) ends **“LGTM”**. | Keep the focused PR as submitted; record the independent validation. |
 | [#2155](https://github.com/ScrollPrize/villa/pull/2155), pip CUDA dependency group | Open; no human comment when checked. | Keep the focused PR as submitted. |
-| Fractional plane placement | Reproduced on real published masks, fixed locally, 12 regression cases pass. | Review the [draft](../docs/VILLA_DRAFT_fiber_fractional_plane_spacing.md), then supply the human motivation and verification Villa requests before publication. |
+| Fractional plane placement | Reproduced on real published masks, fixed locally, 20 regression cases pass. | Review the [draft](../docs/VILLA_DRAFT_fiber_fractional_plane_spacing.md), then supply the human motivation and verification Villa requests before publication. |
 
 Searches of current issues and PRs for `plane-spacing`, `tile_dots`, and
 `fractional` + `fiber` found no contribution fixing this calculation. The
@@ -36,11 +36,18 @@ the corrected code seeds `z0`, `z52`, `z105`. Each global multiple is now
 quantized individually to an integer sampling plane. Duplicate quantized
 planes are visited once when spacing is below one voxel.
 
-The upstream diff is **+4/-2 production lines**, plus 42 lines of tests.
+**Follow-up review:** the initial candidate allocated the nominal subvoxel
+planes before deduplicating them. At spacing 1e-9, a 16-voxel interval could
+request 16 billion entries. The final patch instead caps sampling density
+at one plane per voxel before allocating the indices and rejects zero,
+negative and nonfinite spacing. Three allocation-guard tests fail on the
+initial candidate and pass on the final patch without requesting large arrays.
+
+The upstream diff is **+8/-2 production lines**, plus 58 lines of tests.
 It leaves the smoothing, Hessian, fill-in seeding, model and stop rules alone.
 
 Prepared Villa branch: `fiber-fractional-plane-spacing` in
-`/workspace/villa-upstream-review`; commit `1ee851d` on current upstream
+`/workspace/villa-upstream-review`; commits `1ee851d` and `550ff31` on upstream
 `f4af1dc1ea664321e38d7c84fadb1a271694425e`. The portable change is
 [`docs/villa_pr_fiber_fractional_plane_spacing.patch`](../docs/villa_pr_fiber_fractional_plane_spacing.patch).
 
@@ -63,26 +70,28 @@ Total seed dots, before → after:
 
 At spacing 64, **all five seed arrays are byte-identical** on all three
 scrolls: positions, directions, values, families and plane names. The JSON
-[evidence](villa_fractional_plane_spacing_2026-10-20.json) records input
+[final evidence](villa_fractional_plane_spacing_final_2026-10-20.json) records input
 checksums, per-array hashes and the planes observed in all nine comparisons.
 A different count at fractional spacing is expected; it is not evidence of
 better fibers, coverage or ERL.
 
-The real-data comparisons used Villa `9f025888` before upstream advanced.
-Rebased onto `f4af1dc`, which includes #2165's tracing-performance changes.
-All four seeding functions and their three constants have identical ASTs
-between those upstream versions, and between the two patched versions;
-[`source equivalence`](villa_fractional_plane_spacing_source_equivalence_2026-10-20.json)
-records the hashes. No seeding result was extrapolated across a code change.
+The initial real-data comparisons used Villa `9f025888` and the first
+candidate; those [original measurements](villa_fractional_plane_spacing_2026-10-20.json)
+and the [initial rebase equivalence](villa_fractional_plane_spacing_source_equivalence_2026-10-20.json)
+remain recorded. After hardening the patch, all nine comparisons were repeated
+against **upstream `f4af1dc` and final commit `550ff31`**. Every result row,
+including every seed-array hash, equals the initial measurement. The final
+JSON binds the repeated measurements to the current source-file hashes.
 
 ## Regression verification and limits
 
 On the **current** upstream base `f4af1dc`:
 
-* Baseline: **9 failed, 3 passed**. All six fractional-spacing axis cases and
-  three subvoxel-spacing cases fail; the default-spacing controls pass.
-* Patched: **12 passed**. Tests exercise `tile_dots`, all three axes, whole
-  versus split tiles, default spacing, and duplicate integer sampling planes.
+* Baseline: **17 failed, 3 passed**. The default-spacing controls pass.
+* Patched: **20 passed**. Tests exercise `tile_dots`, all three axes, whole
+  versus split tiles, default spacing, bounded subvoxel sampling and invalid
+  spacing values. The initial candidate separately fails the three
+  allocation guards: **3 failed, 3 passed, 14 deselected**.
 
 The actual Villa module was imported for these tests. The test launcher
 only supplies a namespace for the top-level `vesuvius` package to bypass its
@@ -98,6 +107,15 @@ Captured [validation output](evidence/villa_fractional_plane_spacing_2026-10-20.
 includes the regression summaries and all nine real-data comparisons. The
 filing's existing number checks also pass: **19 passed, 4 skipped**; the
 skips require the separate ScrollGT checkout, which is absent here.
+
+The [visual record](figures/villa_fractional_plane_spacing_2026-10-20.png)
+is a screenshot of the local validation report containing captured stdout
+from a fresh real-data check: the check exits 1 on upstream's seeding
+functions with `z0, z52, z104`, and exits 0 on the final patch with
+`z0, z52, z105`. These are the check's exit codes, not a full tracing CLI run. The
+[HTML source](evidence/villa_fractional_plane_spacing_visual_2026-10-20.html)
+labels this as CPU seeding, and the raw transcripts are retained alongside
+the combined validation output. It is not a claim of full tracing quality.
 
 In a configured Villa environment, the regression command is:
 
@@ -124,6 +142,14 @@ python repro/fibers/check_fractional_plane_spacing.py \
 
 The output must be new. The probe verifies the three published input hashes
 and refuses any difference in the default-spacing arrays.
+
+For the shorter example captured in the visual record, run the same command
+once for baseline `before.py` and once for patched `volume.py`:
+
+```sh
+python -m repro.fibers.check_fractional_plane_spacing_example \
+  --volume before.py --mask seeding-data/s1_mask.npz
+```
 
 ## Research consequence
 
