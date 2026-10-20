@@ -60,7 +60,7 @@ The round also read the least-reviewed modules `train.py` imports. They need no 
     - One change to the CT on purpose: with `aug_scroll_blank_rectangles_p` above 0 and more than one sample per
       batch, each sample's rectangle now takes that sample's mean. Production leaves it at 0.
   - **The patch.** 16 slices of 64 × 64. The CT is 0.35 plus N(0, 0.05²) noise, with bright Gaussian sheets
-    (amplitude 0.3, variance 2) at slices 3, 8 and 13, tilted 0.04 slices per row, clipped to [0, 1]. Its ridge
+    (amplitude 0.3, variance 1) at slices 3, 8 and 13, tilted 0.04 slices per row, clipped to [0, 1]. Its ridge
     channel is `ridge_channel` at `ridge_sigma` 1.0, with a maximum of 1.1e-3.
 - **Docstrings and docs**:
   - the module lists all nine augmentations and says which channels the intensity ones change;

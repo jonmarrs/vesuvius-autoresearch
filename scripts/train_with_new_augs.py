@@ -1,12 +1,10 @@
 #!/usr/bin/env python3
-"""Wrapper around train.train() that swaps in scroll_augmentations.py's
-implementations of the scroll-specific augmentations.
+"""Wrapper around train.train() for scripts/ablate_scroll_augmentations.py.
 
-Used by scripts/ablate_scroll_augmentations.py so train.py itself can stay
-unchanged during the Phase 3 ablation. The monkey-patch works because
-train.py's apply_augmentations() calls apply_scroll_specific_3d_augmentations
-by name (module-global lookup), so replacing the attribute on the train
-module redirects subsequent calls.
+It used to swap scroll_augmentations.py's augmentations into train.py for the
+Phase 3 ablation. train.py imports them from there itself now, so the swap
+replaced the function with itself and is gone; what remains is the seed and
+the spawn start method train.py's own __main__ sets.
 
 Usage:
     uv run python scripts/train_with_new_augs.py --config <path>.json [--seed N]
@@ -53,13 +51,7 @@ def main() -> int:
         np.random.seed(args.seed)
         random.seed(args.seed)
 
-    # Import the project modules then swap the scroll-aug function.
-    import scroll_augmentations as new_augs
     from scripts.training import train
-
-    train.apply_scroll_specific_3d_augmentations = (
-        new_augs.apply_scroll_specific_3d_augmentations
-    )
 
     config = train.ExperimentConfig.load(args.config)
     train.train(config)

@@ -30,7 +30,8 @@ The harness:
     not credited with the previous run's result
   - runs each cell in its own process group, so a timeout or a stop ends
     the trainer itself, not just its `uv run` launcher
-  - never modifies train.py — the wrapper script monkey-patches at import
+  - never modifies train.py: each cell runs scripts/train_with_new_augs.py,
+    which seeds and calls train.train
 
 Usage:
     # Quick smoke (one seed per condition, very short budget)
