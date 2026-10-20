@@ -69,9 +69,11 @@ def verdict(rows: dict, native: dict, comp: dict) -> dict:
     every = [c for c in f91.ALL if rows.get(c)]
     trails = sum(rows[c][PEN] < comp[c]["tracer"][PEN] for c in ins)
     leads = sum(rows[c][PEN] > comp[c]["tracer"][PEN] for c in s3)
-    # Pitch-matched over native for each cube with a native score. A pitch-matched
-    # 0 is a ratio of 0, not a cube left out of the median.
-    ratios = [rows[c][PEN] / native[c][PEN] for c in every if native[c][PEN] > 0]
+    # Pitch-matched over native for each scored cube; a pitch-matched 0 is a
+    # ratio of 0. Finding 91's native rows are all positive.
+    if zero := [c for c in every if native[c][PEN] <= 0]:
+        raise ValueError(f"no pitch-over-native ratio for a native score of 0: {zero}")
+    ratios = [rows[c][PEN] / native[c][PEN] for c in every]
     flips = sum(
         (rows[c][PEN] > comp[c]["tracer"][PEN])
         != (native[c][PEN] > comp[c]["tracer"][PEN])
@@ -86,10 +88,9 @@ def verdict(rows: dict, native: dict, comp: dict) -> dict:
         else None,
     }
     # The registered rule: P3 fails, or the comparison with our tracer flips on
-    # 2 or more cubes. A threshold of |log 1.15| on the median put its lower
-    # edge at 0.87, not P3's 0.85.
+    # 2 or more cubes. The flips settle it even when P3 cannot be evaluated.
     p3 = p["P3_median_pen_ratio_within_0.85_1.15"]
-    material = None if p3 is None else (not p3 or flips >= 2)
+    material = True if flips >= 2 else (None if p3 is None else not p3)
     if p["P1_in_sample_trails_tracer_on_9_of_11"] is None:
         cause = None
     elif ins and len(ins) - trails >= 3:
