@@ -232,7 +232,7 @@ def test_fiber_heldout_numbers_match_finding_83():
         f"Coverage is {s5[0]:.2f} and {s5[1]:.2f}, against {min(in256):.2f}–{max(in256):.2f} on the in-sample "
         "Scroll-5 256³ cubes" in txt
     )
-    assert "Twenty-one of my registered predictions failed" in txt
+    assert "Twenty-two of my registered predictions failed" in txt
 
 
 def test_scrollgt_cite_is_its_newest_tag():
@@ -660,7 +660,7 @@ def test_seeding_numbers_match_finding_93():
         f"{lead_a}; and, seeded as sparsely at 7.91 µm, fall to at most 0.80: {b:.2f})"
         in txt
     )
-    assert "findings 91–93 in" in txt and "`reports/neural_tracer_seeding.md`" in txt
+    assert "findings 91–94 in" in txt and "`reports/neural_tracer_seeding.md`" in txt
 
 
 _GTO = _REPO / "reports/neural_tracer_gt_offset.json"
@@ -713,10 +713,56 @@ def test_placement_and_offset_numbers_match_their_measurements():
     assert (
         f"0.8.2 notes, on those {len(big)} in-sample cubes, that the hand-traced centrelines sit about a voxel off the "
         f"CT's fibers: the two thin entrants agree on a shift of {min(shifts):.2f}–{max(shifts):.2f} voxels, and the CT "
-        f"puts the fibers' centres {min(off):.2f}–{max(off):.2f} voxels off (#157). No row changes."
+        f"puts the fibers' centres {min(off):.2f}–{max(off):.2f} voxels off (#157). It also notes, where the neural "
+        "tracer's in-sample deficit is claimed, that the deficit is a tolerance-2 result on the 512³ cubes (finding "
+        "94). No row changes." in txt
+    )
+    assert (
+        "0.8.2 (the placement note on five in-sample cubes, #157, and the tolerance note, finding 94)"
         in txt
     )
-    assert "0.8.2 (the placement note on five in-sample cubes, #157)" in txt
+
+
+_F94 = _REPO / "reports/tolerance4_rescore.json"
+
+
+@pytest.mark.skipif(not _F94.exists(), reason="finding 94 artifact absent")
+def test_tolerance4_numbers_match_finding_94():
+    d, txt = json.loads(_F94.read_text()), _text()
+    assert d["status"] == "OK" and not d["identity_problems"]
+    assert d["predictions"] == {
+        "P1_s3_leads_tracer_on_6_of_8": True,
+        "P2_in_sample_trails_tracer_on_9_of_11": False,
+    }
+    pen, med = "erl_merge_penalized", statistics.median
+    n, t, pn, pt, g = (
+        d["rows_neural"],
+        d["rows_tracer"],
+        d["published_neural"],
+        d["published_tracer"],
+        d["groups"],
+    )
+    s3, ins = g["s3"], g["in_sample"]
+    i512 = [c for c in ins if c.endswith("_512")]
+    lead, s3n = d["s3_leading_tracer"]
+    trail, insn = d["in_sample_trailing_tracer"]
+    assert (lead, s3n, trail, insn) == (8, 8, 8, 11)
+
+    def ratio(cubes, a, b):
+        return med(a[c][pen] / b[c][pen] for c in cubes)
+
+    assert (
+        f"Its Scroll-3 lead holds and widens: a median {ratio(s3, n, t):.2f} times our tracer's merge-penalized ERL, "
+        f"against {ratio(s3, pn, pt):.2f} at 2, on {lead} of {s3n} cubes. Its in-sample deficit narrows from "
+        f"{ratio(ins, pn, pt):.2f} to {ratio(ins, n, t):.2f} of ours, and reverses on the three in-sample 512³ cubes "
+        f"(median {med(n[c][pen] for c in i512):.2f} against {med(t[c][pen] for c in i512):.2f})"
+        in txt
+    )
+    assert (
+        f"finding 94 prediction 2 (at tolerance 4, villa's neural tracer would still trail our tracer on at least 9 of "
+        f"11 in-sample cubes: it trailed on {trail})." in txt
+    )
+    assert "findings 91–94 in" in txt and "`reports/tolerance4_rescore.md`" in txt
 
 
 # Each failed registered prediction in the list, with how many it counts for. The stated total is their sum.
@@ -737,13 +783,14 @@ _FAILED = {
     "finding 85 prediction 1": 1,
     "finding 92 predictions 2 and 3": 2,
     "finding 93 predictions 1–3": 3,
+    "finding 94 prediction 2": 1,
 }
 
 
 def test_the_failed_prediction_count_is_the_listed_tally():
     raw = _DRAFT.read_text()
     head = (
-        "* **Twenty-one of my registered predictions failed**, and the reports say so:"
+        "* **Twenty-two of my registered predictions failed**, and the reports say so:"
     )
     section = raw[
         raw.index(head) + len(head) : raw.index(
@@ -754,4 +801,4 @@ def test_the_failed_prediction_count_is_the_listed_tally():
     assert len(items) == len(_FAILED), items
     for key in _FAILED:
         assert sum(it.startswith(key) for it in items) == 1, key
-    assert sum(_FAILED.values()) == 21
+    assert sum(_FAILED.values()) == 22
