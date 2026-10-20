@@ -57,6 +57,13 @@ settings stay as finding 91 set them, in grid voxels:
 * `--dedupe`, `--min-length` and the stop rules, which are tracing rules, not seeding. Finding 92's exploration
   ruled out the minimum-length band.
 
+**Engineering note, 2026-10-20 (still proposed, nothing traced):** Villa truncates the plane-spacing step to an
+integer. At arm A's 52.733333... it therefore samples planes 0, 52, 104 rather than 0, 52, 105. A correction and
+three-scroll CPU checks are prepared in [the engineering report](../../reports/villa_fractional_plane_spacing_2026-10-20.md).
+The recorded probe counts above remain measurements of the pinned, unpatched code. Before registration, explicitly
+choose the code version and recompute expected counts if the correction is adopted. Do not mix either implementation
+into an already-started arm or interpret the small count changes as a tracing-quality result.
+
 Same checkpoint and sha256, `--tile-workers 0`, every other default. Run directories `seeding_a/` and `seeding_b/`.
 
 **Smoke and identity, first:** the launcher at the default smoothing (1.0) and `--tile-workers 0`, on finding 91's

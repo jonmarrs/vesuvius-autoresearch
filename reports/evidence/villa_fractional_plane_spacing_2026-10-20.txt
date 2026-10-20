@@ -1,0 +1,34 @@
+Captured validation output, 2026-10-20. CPU seeding only.
+Runtime: Python 3.10.21, NumPy 2.2.6, SciPy 1.15.3, torch 2.9.1+cu128.
+Upstream baseline f4af1dc; patch 1ee851d.
+
+Baseline regression summary (excerpt of captured pytest output):
+
+../villa-review-evidence/volume_current_before.py:178: ValueError
+=========================== short test summary info ============================
+FAILED vesuvius/src/vesuvius/neural_tracing/tracers/fibers/tests/test_volume_seeding.py::test_planes_follow_global_spacing_independently_of_tile_boundaries[52.733333333333334-expected1-0]
+FAILED vesuvius/src/vesuvius/neural_tracing/tracers/fibers/tests/test_volume_seeding.py::test_planes_follow_global_spacing_independently_of_tile_boundaries[52.733333333333334-expected1-1]
+FAILED vesuvius/src/vesuvius/neural_tracing/tracers/fibers/tests/test_volume_seeding.py::test_planes_follow_global_spacing_independently_of_tile_boundaries[52.733333333333334-expected1-2]
+FAILED vesuvius/src/vesuvius/neural_tracing/tracers/fibers/tests/test_volume_seeding.py::test_planes_follow_global_spacing_independently_of_tile_boundaries[77.67383059418457-expected2-0]
+FAILED vesuvius/src/vesuvius/neural_tracing/tracers/fibers/tests/test_volume_seeding.py::test_planes_follow_global_spacing_independently_of_tile_boundaries[77.67383059418457-expected2-1]
+FAILED vesuvius/src/vesuvius/neural_tracing/tracers/fibers/tests/test_volume_seeding.py::test_planes_follow_global_spacing_independently_of_tile_boundaries[77.67383059418457-expected2-2]
+FAILED vesuvius/src/vesuvius/neural_tracing/tracers/fibers/tests/test_volume_seeding.py::test_fractional_spacing_below_one_visits_each_plane_once[0]
+FAILED vesuvius/src/vesuvius/neural_tracing/tracers/fibers/tests/test_volume_seeding.py::test_fractional_spacing_below_one_visits_each_plane_once[1]
+FAILED vesuvius/src/vesuvius/neural_tracing/tracers/fibers/tests/test_volume_seeding.py::test_fractional_spacing_below_one_visits_each_plane_once[2]
+9 failed, 3 passed in 1.86s
+
+Patched regression output:
+torch 2.9.1+cu128 numpy 2.2.6 scipy 1.15.3
+............                                                             [100%]
+12 passed in 2.10s
+
+Real-data comparison output (sources measured at 9f025888; current-source AST equivalence recorded separately):
+s1_00497_01497_03997_256 spacing=64.000000000: 1497 -> 1497; all seed arrays identical=True
+s1_00497_01497_03997_256 spacing=52.733333333: 1589 -> 1590; all seed arrays identical=False
+s1_00497_01497_03997_256 spacing=77.673830594: 1492 -> 1492; all seed arrays identical=True
+s3_00994_00494_01994_512 spacing=64.000000000: 10863 -> 10863; all seed arrays identical=True
+s3_00994_00494_01994_512 spacing=52.733333333: 11213 -> 11175; all seed arrays identical=False
+s3_00994_00494_01994_512 spacing=77.673830594: 10821 -> 10825; all seed arrays identical=False
+s5_03997_01497_03997_256 spacing=64.000000000: 1091 -> 1091; all seed arrays identical=True
+s5_03997_01497_03997_256 spacing=52.733333333: 1154 -> 1151; all seed arrays identical=False
+s5_03997_01497_03997_256 spacing=77.673830594: 1096 -> 1096; all seed arrays identical=True

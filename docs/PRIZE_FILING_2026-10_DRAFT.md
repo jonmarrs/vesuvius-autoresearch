@@ -33,6 +33,11 @@ clipped "#1780" to "#17".
    * #2155: on Linux x86-64 the README's pip command installs neither track-extraction backend. With the fix it
      installs `brook-cu12`, `cucim-cu12` and `cupy-cuda12x`.
 
+   **Checked 2026-10-20:** #2141 also has [independent Windows validation from @vincentl065](https://github.com/ScrollPrize/villa/pull/2141#issuecomment-6290970541),
+   the author of the original fallback: baseline leaves SQLite sidecars, the fix passes on Windows 11 / Python
+   3.12.10 (2 passed, 2 skipped). Their reply ends “LGTM”. This is contributor feedback, not a merge; keep the
+   filing's merged-contribution list unchanged until GitHub records one.
+
    `scripts/check_filing_upstream_claims.py --month 2026-10 --filing
    docs/PRIZE_FILING_2026-10_DRAFT.md` must PASS: it fails while an October merge of ours has no "(merged
    YYYY-MM-DD)" claim, or a claim gives the wrong Pacific date. villa #1928 (the inkdelta
