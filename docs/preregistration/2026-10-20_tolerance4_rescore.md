@@ -1,7 +1,8 @@
 # Pre-registration: does villa's neural tracer keep its Scroll-3 lead, and its deficit elsewhere, at a 4-voxel tolerance?
 
 **Status: REGISTERED 2026-10-20, before our tracer or connected components has been scored at tolerance 4.** The
-owner approved the rescoring the same day. CPU only, at nice 19 with the loop running.
+owner approved the rescoring the same day. CPU only, at nice 19 with the loop running. **Run 2026-10-20, 11:24–12:20
+PDT: finding 94, `reports/tolerance4_rescore.md`. P1 held (8 of 8) and P2 failed (8 of 11).**
 
 ## The question
 
