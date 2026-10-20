@@ -108,6 +108,21 @@ def verdict(rows: dict, native: dict, comp: dict) -> dict:
     }
 
 
+def outcome(
+    identity: dict, rows: dict, native: dict, comp: dict
+) -> tuple[str, dict | None]:
+    """The registered status and verdict, from every cube's row (None for a
+    failed run). IDENTITY_FAILED, with no verdict, when a run.json differs from
+    the entrant. Otherwise INCOMPLETE when a prediction is unevaluated: a failed
+    run is left out and counts against the row minimums, so 20 of 21 rows can
+    still be OK. Else OK."""
+    if identity:
+        return "IDENTITY_FAILED", None
+    reading = verdict({c: r for c, r in rows.items() if r}, native, comp)
+    complete = all(v is not None for v in reading["predictions"].values())
+    return ("OK" if complete else "INCOMPLETE"), reading
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--work", type=Path, required=True)
@@ -155,7 +170,7 @@ def main() -> int:
             f"{c}: pen {row[PEN]} (native {native[c][PEN]}) cov {row[COV]} (native {native[c][COV]})",
             flush=True,
         )
-    status = "IDENTITY_FAILED" if identity else ("INCOMPLETE" if failed else "OK")
+    status, reading = outcome(identity, rows, native, comp)
     out = {
         "status": status,
         "to_um": TO_UM,
@@ -175,8 +190,8 @@ def main() -> int:
             "s5_held_out": f91.S5_HELDOUT,
         },
     }
-    if status != "IDENTITY_FAILED":
-        out.update(verdict({c: r for c, r in rows.items() if r}, native, comp))
+    if reading is not None:
+        out.update(reading)
     args.out.write_text(json.dumps(out, indent=1) + "\n")
     print(f"status {status}; wrote {args.out}")
     return 0
