@@ -38,9 +38,15 @@ def gt_points(fibers, size: int) -> np.ndarray:
 
 
 def mean_shift(cube: dict) -> np.ndarray:
-    return np.mean(
-        [cube[e]["median_disp_perp_zyx"] for e in ("neural", "generator")], axis=0
-    )
+    """The two entrants' shifts averaged per axis. An entrant with no samples across an axis has no shift there
+    (None), and the mean is refused rather than taken over one entrant."""
+    shifts = [cube[e]["median_disp_perp_zyx"] for e in ("neural", "generator")]
+    for e, s in zip(("neural", "generator"), shifts, strict=True):
+        if any(v is None for v in s):
+            raise ValueError(
+                f"{e} has no samples across an axis (median_disp_perp_zyx {s}): no mean shift"
+            )
+    return np.mean(shifts, axis=0)
 
 
 def cross_shift(gt: np.ndarray, pred: np.ndarray, shift: np.ndarray) -> dict:
@@ -105,7 +111,10 @@ def main() -> int:
             "neural": pl.predicted(pl.NEURAL / c / "fibers.afv", size),
             "generator": pl.predicted(pl.GENERATOR / f"{c}.afv", size),
         }
-        row: dict = {"shift": mean_shift(placement[c]).tolist()}
+        try:
+            row: dict = {"shift": mean_shift(placement[c]).tolist()}
+        except ValueError as exc:
+            raise ValueError(f"{c}: {exc}") from None
         for ent, other in (("neural", "generator"), ("generator", "neural")):
             other_shift = np.asarray(placement[c][other]["median_disp_perp_zyx"], float)
             row[ent] = {
