@@ -198,6 +198,31 @@ def test_launch_neural_tracing_falls_back_to_the_hf_sentinel(tmp_path):
     # the OME-zarr volume, which is not what this test is about.
 
 
+def _git(*args):
+    """git in this repository, or a skip: no git, or a checkout that is not this
+    repository's own (an unpacked copy inside another repository would answer for
+    that one)."""
+    try:
+        top = subprocess.run(
+            ["git", "rev-parse", "--show-toplevel"],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+        )
+    except FileNotFoundError:
+        pytest.skip("git is not installed")
+    if top.returncode != 0 or Path(top.stdout.strip()).resolve() != REPO_ROOT:
+        pytest.skip("not this repository's git checkout")
+    return subprocess.run(["git", *args], cwd=REPO_ROOT, capture_output=True, text=True)
+
+
+def _untracked_and_ignored(name, written_to):
+    """No tracked file of this name anywhere, and where it is written is ignored."""
+    tracked = _git("ls-files", "--", f":(glob)**/{name}")
+    assert tracked.returncode == 0 and tracked.stdout == ""
+    assert _git("check-ignore", "-q", written_to).returncode == 0
+
+
 @pytest.mark.parametrize(
     "launcher, runner",
     [
@@ -218,17 +243,11 @@ def test_a_generated_runner_names_its_launcher_and_stays_out_of_git(
     mod.write_runner(tmp_path / runner, tmp_path)
     first = (tmp_path / runner).read_text().splitlines()[0]
     assert f"Invoked by {path.relative_to(REPO_ROOT)}." in first
+    _untracked_and_ignored(runner, f"scripts/{runner}")
 
-    def git(*args):
-        try:
-            return subprocess.run(
-                ["git", *args], cwd=REPO_ROOT, capture_output=True, text=True
-            )
-        except FileNotFoundError:
-            pytest.skip("git is not installed")
 
-    tracked = git("ls-files", "--", f"*{runner}")
-    if tracked.returncode != 0:
-        pytest.skip("not a git checkout")
-    assert tracked.stdout == ""
-    assert git("check-ignore", "-q", f"scripts/{runner}").returncode == 0
+def test_the_proofreader_config_stays_out_of_git():
+    """launch_proofreader.py writes it into the working directory (the repository
+    root: it runs only beside villa/) on every launch. Three May commits had swept
+    a copy in, which an ignore line alone would not have untracked."""
+    _untracked_and_ignored("proofreader_config.json", "proofreader_config.json")
