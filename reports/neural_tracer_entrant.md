@@ -179,5 +179,6 @@ cubes are Scroll 5's three, the same size as Scroll 3's:
   cubes do not separate these. The generator's centrelines sit there as on Scroll 3 (0.88 and 0.78), this tracer's
   as on the in-sample cubes (0.55 and 0.54).
 * **For ScrollGT:** at its tolerance of 2 voxels, a thin entrant's scores across scrolls turn on placement within 2–4
-  voxels. The published Scroll-3 lead is a tolerance-2 result. Whether it holds at 4 is not measured, because our
-  tracer and connected components were not rescored there.
+  voxels. The published Scroll-3 lead is a tolerance-2 result. (Measured since, in finding 94,
+  `tolerance4_rescore.md`. At 4 the lead holds on all 8 Scroll-3 cubes and widens to a median 2.22 times our tracer.
+  The in-sample deficit reverses on the three 512³ cubes.)
