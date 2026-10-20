@@ -971,9 +971,10 @@ def uamt_teacher(teacher, x, passes):
     stochastic passes (train mode, 0.01 noise on the CT each).
 
     The noise is on channel 0, the CT, only. The others are computed from it:
-    with use_ridges, channel 1 is the ridge channel, around 1e-3, which noise of
-    std 0.01 buried, so the student was fitted to a teacher that could not see
-    it (the augmentations leave it alone too, _get_villa_aug).
+    with use_ridges, channel 1 is the ridge channel, around 1e-3 at
+    production's ridge_sigma of 1.0. Noise of std 0.01 buried it there, so the
+    student was fitted to a teacher that could not see it. The Albumentations
+    recipe leaves it alone too (_get_villa_aug).
 
     Without dropout-like layers the passes differ only by that noise: on the
     production resenc_unet the variance is ~1e-6, so exp(-variance) is 1 to 4

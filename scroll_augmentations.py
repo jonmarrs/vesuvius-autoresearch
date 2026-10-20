@@ -110,12 +110,14 @@ def scroll_decohesion(
     Returns:
         Same shape as x.
 
-    At the patch's ends the ghost repeats the first slice and the blur averages
-    the slices there are. Zeros in their place darkened a constant volume's
-    first two slices to 0.71 and 0.77 of it, and its last two to 0.95 and 0.89
-    (alpha 0.45): an edge the augmentation did not mean to add.
+    At the start the ghost repeats the first slice, and at both ends the blur
+    averages only the slices there are. Zeros in their place darkened a
+    constant volume's first two slices to 0.71 and 0.77 of it, and its last two
+    to 0.95 and 0.89 (alpha 0.45): an edge the augmentation did not mean to
+    add. A patch shallower than the blur is returned unchanged; avg_pool3d
+    refuses it.
     """
-    if x.shape[2] < max(3, ghost_offset + 1):
+    if x.shape[2] < max(3, blur_kernel, ghost_offset + 1):
         return x
 
     first = x[:, :, :1].expand(-1, -1, ghost_offset, -1, -1)

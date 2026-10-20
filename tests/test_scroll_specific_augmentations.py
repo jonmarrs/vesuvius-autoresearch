@@ -128,3 +128,6 @@ def test_decohesion_leaves_the_patch_ends_as_bright_as_its_middle():
         ghost = x[:, :, max(0, z - 2)]
         expected = 0.7 * x[:, :, z] + 0.3 * 0.6 * around + 0.3 * 0.4 * ghost
         assert torch.allclose(out[:, :, z], expected, atol=1e-6), f"slice {z}"
+    # Shallower than the blur: returned as it is (avg_pool3d refused it).
+    short = torch.rand(1, 1, 4, 8, 8)
+    assert torch.equal(scroll_decohesion(short), short)

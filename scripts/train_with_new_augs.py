@@ -3,7 +3,8 @@
 
 It used to swap scroll_augmentations.py's augmentations into train.py for the
 Phase 3 ablation. train.py imports them from there itself now, so the swap
-replaced the function with itself and is gone; what remains is the seed.
+replaced the function with itself and is gone; what remains is the seed and
+the spawn start method train.py's own __main__ sets.
 
 Usage:
     uv run python scripts/train_with_new_augs.py --config <path>.json [--seed N]
