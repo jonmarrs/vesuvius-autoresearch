@@ -674,9 +674,19 @@ def leftover_hold():
 
 
 TRAIN_SCRIPT = "scripts/training/train.py"
-# The longest a supervised training run may last: the night budget plus the
+# Each shift's training budget per cycle, in seconds. Nights ran 3600 until
+# 2026-10-20: the cycle-length study, replicated on 2026-10-19, found no
+# measurable gain from 60 minutes over 15, and the owner chose 15 for both.
+SHIFT_BUDGETS = {"DAY SHIFT": 900, "NIGHT SHIFT": 900}
+# The longest a supervised training run may last: the longest budget plus the
 # margin of its timeout (default_budget + 300 in main).
-LONGEST_RUN_SECONDS = 3600 + 300
+LONGEST_RUN_SECONDS = max(SHIFT_BUDGETS.values()) + 300
+
+
+def shift_for_hour(hour: int) -> tuple[str, int]:
+    """The shift a loop starting at this local hour runs, and its budget."""
+    name = "DAY SHIFT" if 7 <= hour < 19 else "NIGHT SHIFT"
+    return name, SHIFT_BUDGETS[name]
 
 
 def unsupervised_runs_reason(running):
@@ -892,12 +902,7 @@ def main():
 
     # Detect Shift
     current_hour = time.localtime().tm_hour
-    if 7 <= current_hour < 19:
-        shift_name = "DAY SHIFT"
-        default_budget = 900
-    else:
-        shift_name = "NIGHT SHIFT"
-        default_budget = 3600
+    shift_name, default_budget = shift_for_hour(current_hour)
 
     os.makedirs("sprint_logs", exist_ok=True)
     os.makedirs("reports", exist_ok=True)
