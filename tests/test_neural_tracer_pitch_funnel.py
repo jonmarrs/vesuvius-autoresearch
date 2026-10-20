@@ -150,3 +150,19 @@ def test_its_traces_are_fewer_because_its_seed_dots_are():
         in REPORT
     )
     assert "divided by 1.21" in REPORT and f"{fn.pa.R:.2f}" == "1.21"
+
+
+def test_the_native_run_is_the_one_off_its_defaults_design():
+    """grid_scale 2 at 9.6 um is villa's documented Paris 4 trace grid; natively the grid is finer by r."""
+    g = fn.pa.SETTINGS["grid_scale"]
+    assert (
+        g == 2
+        and f"{g * fn.pa.TO_UM:.1f}" == "19.2"
+        and f"{g * fn.pa.rcp.FROM_UM:.1f}" == "15.8"
+    )
+    villa_doc = "8 base voxels = 19.2 um"  # tracing/volume.py at villa ccb431818, module docstring
+    assert f'the grid villa\'s docstring gives for Paris 4 ("{villa_doc}")' in REPORT
+    assert (
+        f"Natively it is 15.8 µm, so finding 91's run seeded about {fn.pa.R:.2f} times more densely per micrometre"
+        in REPORT
+    )

@@ -99,6 +99,9 @@ Not registered. Read after the result from the counters villa's tracer writes fo
   loses the most (0.42). Its CT heading test also turns away more of them (47% against 36%). Seeding is set in grid
   voxels: the plane spacing, the dot window, the fill-in spacing and skip, and the presence smoothing. At 9.6 µm the
   trace grid has 0.57 (256³ cubes) or 0.56 (512³) times the voxels.
+* **The run that departs from the defaults' design is the native one.** At 9.6 µm the trace grid is 19.2 µm, the grid
+  villa's docstring gives for Paris 4 ("8 base voxels = 19.2 um"). Natively it is 15.8 µm, so finding 91's run seeded
+  about 1.21 times more densely per micrometre than its defaults were set for, and it scored higher.
 * **What it suggests, untested:** its defaults seed per grid voxel, not per micrometre, so a coarser grid seeds fewer
   of the same fibers. A 9.6 µm run with `--plane-spacing`, `--dot-radius`, `--fill-spacing` and `--fill-skip` divided by
   1.21 would test this. That needs the GPU, and the presence smoothing is fixed in code. These counters cannot say how
