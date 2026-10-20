@@ -191,3 +191,17 @@ def test_a_native_score_of_zero_is_refused():
     native[f91.S3[0]] = {PEN: 0.0}
     with pytest.raises(ValueError, match="native score of 0"):
         pa.verdict(rows, native, comp)
+
+
+def test_a_failed_run_is_incomplete_only_below_the_row_minimums():
+    """The registration ties INCOMPLETE to the row minimums. The status read
+    INCOMPLETE after any failed run, though 20 rows evaluate every prediction."""
+    rows, native, comp = _custom(dict.fromkeys(f91.ALL, 1.0))
+    del rows[f91.S5_HELDOUT[0]]  # one run failed
+    assert pa.run_status({}, pa.verdict(rows, native, comp)["predictions"]) == "OK"
+    for c in f91.S3[:3]:  # 5 Scroll-3 rows: P2 unevaluated
+        del rows[c]
+    assert (
+        pa.run_status({}, pa.verdict(rows, native, comp)["predictions"]) == "INCOMPLETE"
+    )
+    assert pa.run_status({"x": ["box"]}, None) == "IDENTITY_FAILED"

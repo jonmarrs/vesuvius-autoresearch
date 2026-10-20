@@ -108,6 +108,17 @@ def verdict(rows: dict, native: dict, comp: dict) -> dict:
     }
 
 
+def run_status(identity: dict, predictions: dict | None) -> str:
+    """The registered status: IDENTITY_FAILED when a run.json differs from the
+    entrant, else INCOMPLETE when a prediction is unevaluated (the row minimums),
+    else OK. A failed run is listed in failed_runs and counts against the row
+    minimums; 20 of 21 rows still evaluate every prediction."""
+    if identity:
+        return "IDENTITY_FAILED"
+    assert predictions is not None
+    return "OK" if all(v is not None for v in predictions.values()) else "INCOMPLETE"
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--work", type=Path, required=True)
@@ -155,7 +166,12 @@ def main() -> int:
             f"{c}: pen {row[PEN]} (native {native[c][PEN]}) cov {row[COV]} (native {native[c][COV]})",
             flush=True,
         )
-    status = "IDENTITY_FAILED" if identity else ("INCOMPLETE" if failed else "OK")
+    reading = (
+        None
+        if identity
+        else verdict({c: r for c, r in rows.items() if r}, native, comp)
+    )
+    status = run_status(identity, reading["predictions"] if reading else None)
     out = {
         "status": status,
         "to_um": TO_UM,
@@ -175,8 +191,8 @@ def main() -> int:
             "s5_held_out": f91.S5_HELDOUT,
         },
     }
-    if status != "IDENTITY_FAILED":
-        out.update(verdict({c: r for c, r in rows.items() if r}, native, comp))
+    if reading is not None:
+        out.update(reading)
     args.out.write_text(json.dumps(out, indent=1) + "\n")
     print(f"status {status}; wrote {args.out}")
     return 0
