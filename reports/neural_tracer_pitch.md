@@ -103,6 +103,31 @@ Not registered. Read after the result from the counters villa's tracer writes fo
   villa's docstring gives for Paris 4 ("8 base voxels = 19.2 um"). Natively it is 15.8 µm, so finding 91's run seeded
   about 1.21 times more densely per micrometre than its defaults were set for, and it scored higher.
 * **What it suggests, untested:** its defaults seed per grid voxel, not per micrometre, so a coarser grid seeds fewer
-  of the same fibers. A 9.6 µm run with `--plane-spacing`, `--dot-radius`, `--fill-spacing` and `--fill-skip` divided by
-  1.21 would test this. That needs the GPU, and the presence smoothing is fixed in code. These counters cannot say how
-  much of the loss is the heading test's, or why merge-penalized ERL falls further than coverage on Scroll 3.
+  of the same fibers. A first thought was a 9.6 µm run with `--plane-spacing`, `--dot-radius`, `--fill-spacing` and
+  `--fill-skip` divided by 1.21. The next section shows that would barely change the seeds. These counters cannot say
+  how much of the loss is the heading test's, or why merge-penalized ERL falls further than coverage on Scroll 3.
+
+## Exploratory, after the result: what sets the seed count
+
+Also not registered. `scripts/neural_tracer_seed_probe.py` calls villa's own seeding function (`tile_dots`) on each
+cube's presence (`neural_tracer_seed_probe.json`). It runs on the CPU, with no CT and no network. At each run's own
+settings it reproduces the seed dots that run recorded, on all 21 cubes of both runs. Then it scales the seeding
+by 1.21: arm A divides, seeding the 9.6 µm presence per micrometre as natively; arm B multiplies, seeding the native
+presence as at 9.6 µm. Seed dots, median over the 21 cubes, relative to the native run:
+
+| seeding | A: 9.6 µm presence | B: native presence |
+|---|---:|---:|
+| the run's own settings | 0.49 | 1 |
+| `--plane-spacing` and `--fill-spacing` scaled | 0.52 | 0.88 |
+| and the presence smoothing, sigma 1 grid voxel in code | 0.90 | 0.56 |
+| and the Hessian, sigma 1.5 grid voxels in code | 0.91 | 0.56 |
+
+* **The flags barely move it.** Dividing both spacing flags by 1.21 raises the 9.6 µm run's seeds from 0.49 to 0.52
+  of native. 93% of native seed dots are fill-in ones, maxima of the smoothed presence in a 3-voxel window, and the
+  spacing thins them only where they are dense. `--dot-radius` sets a whole number of voxels, so 2 cannot become 1.65.
+* **The smoothing does.** Setting its sigma per micrometre too raises the 9.6 µm seeds to 0.90 of native (0.85–0.97
+  per cube). In reverse it lowers the native seeds to 0.56 (0.43–0.73), near the 9.6 µm run's 0.49. Scaling the
+  Hessian as well changes no cube's count by more than 0.03 of native.
+* **So testing it needs a code change, not flags.** The smoothing is not a flag. `scripts/neural_tracer_seeding.py`
+  runs villa's tracer with it set per micrometre, villa's code untouched. The run is proposed, not registered, in
+  `docs/preregistration/2026-10-19_neural_tracer_seeding_scale.md`. It needs the GPU and the owner's decision.
