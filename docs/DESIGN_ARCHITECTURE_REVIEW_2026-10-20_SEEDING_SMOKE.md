@@ -28,10 +28,22 @@ Each was read against the registration, rule by rule.
 
     `score()` records `launcher_problems` and `ok` with the smoke. The status is SMOKE_FAILED unless both the `.afv`
     and the records agree.
+  - **The chain's gate applies the same check.** The `smoke` subcommand, which the chain runs before any arm ("no arm
+    runs"), calls `smoke_check` on the run holding `--afv`. A fresh chain now stops there, not at scoring. The chain
+    script is unchanged.
+  - A records failure reads SMOKE_FAILED, not IDENTITY_FAILED, the status the registration names for an arm's records.
+    Both give no verdict. The smoke is the registered gate this check belongs to.
   - The committed result is unchanged and not re-scored here: the work directories are on the owner's machine.
+    - **The report** says so under its smoke bullet, as a dated review note. The JSON is from the analysis
+      registered at c23d3a08.
+    - **The committed smoke should pass the new check.** The chain ran it through the same `trace()` as arm B, whose
+      records passed, with finding 91's flags and villa's smoothing. Floats and ints compare equal, and the launcher
+      writes the smoothing as 1.0 and the Hessian as 1.5 (independent review).
+    - **Records settle it, not inference.** The chain skips a smoke whose `.afv` already exists. So the owner can
+      settle it from the records, without a re-score, by calling `smoke_check` on `seeding_run/identity/<cube>`.
   - The report test accepted only the smoke record as committed. A re-score would have failed it on the new keys, as
-    finding 92's `sources` key did (the 2026-10-20 ridge-channel-scale review). It now checks the committed keys, and
-    no launcher problems when they are recorded.
+    finding 92's `sources` key did (the 2026-10-20 ridge-channel-scale review). It now accepts exactly the committed
+    record, or the one a re-score writes with no launcher problems.
 - **Tests** (`tests/test_neural_tracer_seeding_analysis.py`):
   - **`smoke_check`.** The launcher's smoke at the default passes. It fails, though the `.afv` is identical, in each
     of these cases:
@@ -44,14 +56,16 @@ Each was read against the registration, rule by rule.
     A different `.afv` fails with clean records, and a missing run fails.
   - **`score()` end to end through `main()`**, with ScrollGT stubbed and no arm traced: INCOMPLETE with the
     launcher's smoke, SMOKE_FAILED with villa's tool alone.
+  - **The chain's gate** (`main(["smoke", ...])`) passes the launcher's smoke, and refuses villa's tool alone and a
+    different `.afv`.
   - Each of these mutants is caught:
     - the records ignored;
     - the smoke checked as arm B's run, or at smoothing r;
     - `seeding.json` assumed when absent;
     - a missing `run.json` passed;
-    - `score()` gated on the `.afv` alone.
+    - `score()`, or the chain's gate, deciding on the `.afv` alone.
 
-    With main's analysis, 7 tests fail.
+    With main's analysis, 7 tests fail; the independent review counted the same.
 
 ## Verified, no change needed
 
@@ -93,6 +107,23 @@ Each was read against the registration, rule by rule.
 ## Verification
 
 - `pytest` on the seeding analysis, seeding report, seeding launcher, pitch analysis, pitch report and filing-number
-  tests: 100 passed, 4 skipped for want of the sibling checkouts.
+  tests: 101 passed, 4 skipped for want of the sibling checkouts.
 - Ruff and ruff format are clean on the changed files, and mypy with `--warn-unused-ignores`, the tests included.
-- The standard suite imports none of these modules.
+- The standard suite imports none of these modules. On the first commit (`8774cc7c`) it ran as on main: 2672 passed,
+  with the same 42 failures and 2 errors, all environmental. The smoke test gave 9 of 11 passed and 2 skipped.
+- **Independent review** of the first commit found nothing blocking. It confirmed:
+  - that villa alone reproduces finding 91 at either worker count;
+  - that only the launcher writes `seeding.json`;
+  - that the stubbed test restores what it patches.
+
+  It caught 12 of 12 mutants. Its should-fix findings:
+  - the report did not say the analysis changed after the run;
+  - the chain's gate still checked the `.afv` alone.
+
+  Its nits:
+  - the docstring's account of `tile_workers`;
+  - the status name;
+  - the report test's loose `get`;
+  - P2's evaluability.
+
+  All are addressed above.

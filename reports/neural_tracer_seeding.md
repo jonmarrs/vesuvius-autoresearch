@@ -20,7 +20,11 @@ little: 0.88 of native, with the Scroll-3 lead kept on 7 of 8 cubes. By the regi
   `spiral_out/neural_tracer/seeding_run`, villa `ccb431818`. Traced 00:22:53–01:28:20 PDT on 2026-10-20 with the loop
   paused (`stop.sh` at 00:22:45). The loop restarted at 01:28:20, before scoring.
 * **The identity smoke passed.** At villa's default smoothing, the launcher reproduced finding 91's `fibers.afv` for
-  `s1_00497_01497_03997_256` point for point.
+  `s1_00497_01497_03997_256` point for point. (Review, 2026-10-20: the registered analysis compared the `.afv` alone,
+  which villa's tool without the launcher also reproduces. The chain ran the smoke through the launcher. The analysis
+  now also checks the smoke's `run.json` and `seeding.json`, at scoring and at the chain's gate. The committed JSON
+  is from the analysis registered at c23d3a08, not re-scored. `smoke_check` on the work directory settles it without
+  a re-score.)
 * **All 42 runs finished**, and every `run.json` and `seeding.json` matched its arm. The analysis' status is `OK`
   (`neural_tracer_seeding.json`).
 * **The manipulation took.** In every run, the seed dots recorded in `tiles.jsonl` equal the probe's count for its

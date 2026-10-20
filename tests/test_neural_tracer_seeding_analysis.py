@@ -340,6 +340,22 @@ def test_the_status(smoke, identity, a, status):
     )
 
 
+def test_the_chains_smoke_gate_is_the_same_check(tmp_path, capsys):
+    """The chain runs `smoke` before any arm: it must refuse villa's tool alone as score() does, not only at scoring."""
+    f = {1: [[0, 0, 0], [1, 2, 3]]}
+    ref = _afv(tmp_path / "ref.afv", f)
+    ok = _smoke_run(tmp_path / "ok", f) / "fibers.afv"
+    assert sa.main(["smoke", "--afv", str(ok), "--reference", str(ref)]) == 0
+    plain = _smoke_run(tmp_path / "plain", f, write_seeding=False) / "fibers.afv"
+    assert sa.main(["smoke", "--afv", str(plain), "--reference", str(ref)]) == 1
+    assert (
+        "not the launcher at villa's default: no seeding.json"
+        in capsys.readouterr().out
+    )
+    moved = _smoke_run(tmp_path / "moved", {1: [[0, 0, 0], [1, 2, 4]]}) / "fibers.afv"
+    assert sa.main(["smoke", "--afv", str(moved), "--reference", str(ref)]) == 1
+
+
 @pytest.mark.parametrize("launcher", [True, False])
 def test_score_fails_the_smoke_unless_the_launcher_ran_it(
     tmp_path, monkeypatch, launcher

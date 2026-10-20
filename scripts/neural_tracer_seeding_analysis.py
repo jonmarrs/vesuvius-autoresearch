@@ -8,8 +8,9 @@ Subcommands, all run by repro/fibers/run_neural_tracer_seeding_chain.sh:
 
   args --arm A|B        the launcher and villa flags of an arm, for the chain to pass on;
   smoke --afv --reference
-                        exit 0 when two .afv files hold the same fibers point for point (the identity smoke: the
-                        launcher at villa's default smoothing must reproduce finding 91's run);
+                        exit 0 when the identity smoke passes: the run holding --afv was the launcher's, at villa's
+                        default smoothing (smoke_check), and its .afv holds the same fibers point for point as
+                        --reference, finding 91's run;
   score --work W        check the smoke's records (run.json, seeding.json) against the launcher at villa's default,
                         check every run against its arm (run.json, seeding.json) and its recorded seed dots against
                         the probe (reports/neural_tracer_seed_probe.json), score it as finding 91 or 92 did, and apply
@@ -104,8 +105,9 @@ def manipulation_problems(arm: str, cube: str, recorded: int, probe: dict) -> li
 
 def smoke_check(run: Path, reference: Path) -> dict:
     """The registered identity smoke: the launcher at villa's default smoothing, with --tile-workers 0, reproduces
-    finding 91's fibers.afv. Villa's tool alone reproduces it too, so the records show that the launcher ran:
-    seeding.json, which only the launcher writes, and run.json's tile_workers of 0, which it forces."""
+    finding 91's fibers.afv. Villa's tool alone reproduces it too, so its records are checked as an arm's are:
+    seeding.json, which only the launcher writes, shows that the launcher ran, and run.json that it ran on finding
+    91's settings and inputs with --tile-workers 0."""
     afv, record, seeding = run / "fibers.afv", run / "run.json", run / "seeding.json"
     identical = afv.exists() and afv_identical(afv, reference)
     problems = (
@@ -330,9 +332,11 @@ def main(argv: list[str] | None = None) -> int:
         print(launch_args(args.arm))
         return 0
     if args.cmd == "smoke":
-        same = afv_identical(args.afv, args.reference)
-        print("identical" if same else "differs")
-        return 0 if same else 1
+        smoke = smoke_check(args.afv.parent, args.reference)
+        print("identical" if smoke["identical_to_finding_91"] else "differs")
+        for problem in smoke["launcher_problems"]:
+            print(f"not the launcher at villa's default: {problem}")
+        return 0 if smoke["ok"] else 1
     return score(args)
 
 
