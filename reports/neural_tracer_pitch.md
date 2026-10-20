@@ -65,7 +65,8 @@ Medians of merge-penalized ERL (ERLpen) and coverage, by group:
   * trilinear interpolation smooths the CT.
 
   The result says that resampling to 9.6 µm with its defaults does not help it here. It does not say the network
-  prefers 7.91 µm data.
+  prefers 7.91 µm data. An exploratory reading of the tracer's own counters (below) places most of the loss at
+  seeding.
 
 ## What it does not say
 
@@ -74,3 +75,31 @@ Medians of merge-penalized ERL (ERLpen) and coverage, by group:
 * **One target pitch, at the defaults.** 8.64 and 9.362 µm, its other sources, and settings rescaled to keep their
   physical size, are untested.
 * Finding 91's other limits stand: one checkpoint, volume mode, a substitute presence.
+
+## Exploratory, after the result: where the fibers go
+
+Not registered. Read after the result from the counters villa's tracer writes for every tile (`tiles.jsonl`), by
+`scripts/neural_tracer_pitch_funnel.py` (`neural_tracer_pitch_funnel.json`). Medians over the 21 cubes:
+
+| step | native | at 9.6 µm |
+|---|---:|---:|
+| seed dots, relative to native | 1 | 0.49 |
+| dots skipped for having no CT heading | 36% | 47% |
+| dots skipped for lying on a written fiber | 45% | 33% |
+| traces, relative to native | 1 | 0.56 |
+| grid voxels per trace | 66 | 66 |
+| physical length traced, relative to native | 1 | 0.66 |
+| share of traced length written | 0.77 | 0.76 |
+
+* **It loses fibers it never starts, not fibers that end sooner.** It runs 0.56 times as many traces, fewer on all 21
+  cubes. Each covers about as many grid voxels as natively, so about 21% more physical length, and it writes the same
+  share of what it traces. The physical length it writes falls to 0.66 of native, and per cube that ratio follows the
+  coverage ratio closely (Pearson r 0.96).
+* **Its traces are fewer because its seed dots are.** It finds 0.49 times as many, fewer on all 21 cubes, and Scroll 3
+  loses the most (0.42). Its CT heading test also turns away more of them (47% against 36%). Seeding is set in grid
+  voxels: the plane spacing, the dot window, the fill-in spacing and skip, and the presence smoothing. At 9.6 µm the
+  trace grid has 0.57 (256³ cubes) or 0.56 (512³) times the voxels.
+* **What it suggests, untested:** its defaults seed per grid voxel, not per micrometre, so a coarser grid seeds fewer
+  of the same fibers. A 9.6 µm run with `--plane-spacing`, `--dot-radius`, `--fill-spacing` and `--fill-skip` divided by
+  1.21 would test this. That needs the GPU, and the presence smoothing is fixed in code. These counters cannot say how
+  much of the loss is the heading test's, or why merge-penalized ERL falls further than coverage on Scroll 3.
