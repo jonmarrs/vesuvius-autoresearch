@@ -708,6 +708,15 @@ def test_placement_and_offset_numbers_match_their_measurements():
         f"recovers part of the gap ({min(gain):.2f}–{max(gain):.2f} of this tracer's share within 2 voxels)"
         in txt
     )
+    # ScrollGT 0.8.2 carries the same measurement as a note on those cubes.
+    shifts = [norm[c] for c in big]
+    assert (
+        f"0.8.2 notes, on those {len(big)} in-sample cubes, that the hand-traced centrelines sit about a voxel off the "
+        f"CT's fibers: the two thin entrants agree on a shift of {min(shifts):.2f}–{max(shifts):.2f} voxels, and the CT "
+        f"puts the fibers' centres {min(off):.2f}–{max(off):.2f} voxels off (#157). No row changes."
+        in txt
+    )
+    assert "0.8.2 (the placement note on five in-sample cubes, #157)" in txt
 
 
 # Each failed registered prediction in the list, with how many it counts for. The stated total is their sum.

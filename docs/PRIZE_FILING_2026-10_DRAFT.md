@@ -40,7 +40,8 @@ clipped "#1780" to "#17".
    URL field no longer cites it.
 3. ScrollGT 0.6.0 (the held-out split) was tagged on 2026-10-11, 0.7.0 (the ERL fix, finding 85) on 2026-10-12, and
    0.8.0 (villa's neural tracer as an entrant, finding 91) and 0.8.1 (the pitch note on its Scroll-3 lead, finding 92)
-   on 2026-10-19. The URL field cites `tree/v0.8.1`; the test binds the cite to ScrollGT's newest tag, so a later
+   on 2026-10-19, and 0.8.2 (the placement note on five in-sample cubes, #157) on 2026-10-20. The URL field cites
+   `tree/v0.8.2`; the test binds the cite to ScrollGT's newest tag, so a later
    release must update it. Findings 84–85 are folded in (2026-10-12). Finding 93 and the placement measurements
    (#151, #157) are folded in (2026-10-20).
 4. Finding 85 measures an open villa PR (#1934). The user-approved comment sharing it with the author was posted
@@ -59,7 +60,7 @@ https://github.com/ScrollPrize/villa/pull/2044
 https://github.com/jonmarrs/vesuvius-autoresearch
 https://github.com/jonmarrs/inkdelta
 https://github.com/jonmarrs/inkagree
-https://github.com/jonmarrs/scrollgt/tree/v0.8.1
+https://github.com/jonmarrs/scrollgt/tree/v0.8.2
 ```
 
 ---
@@ -213,6 +214,9 @@ four predictions held):
     provenance, so the benchmark's published tables now carry its Scroll-3 lead and its deficit elsewhere.
   * 0.8.1 notes, wherever that lead is claimed, that it depends on the pitch: resampled to its 9.6 µm training pitch,
     the tracer leads ours on none of the 8 Scroll-3 cubes (finding 92). No row changes.
+  * 0.8.2 notes, on those 5 in-sample cubes, that the hand-traced centrelines sit about a voxel off the CT's fibers:
+    the two thin entrants agree on a shift of 1.01–1.53 voxels, and the CT puts the fibers' centres 0.51–0.93 voxels
+    off (#157). No row changes.
 
 **(4) Evidence.**
 * Each study was pre-registered before its data, and each has a report and its scripts in
