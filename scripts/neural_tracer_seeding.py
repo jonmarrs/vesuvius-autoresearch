@@ -73,6 +73,14 @@ def split_argv(argv: list[str]) -> tuple[float, float | None, list[str]]:
         help="Hessian sigma, grid voxels (default: villa's 1.5)",
     )
     ns, rest = ap.parse_known_args(argv)
+    # argparse expands an unambiguous abbreviation (--tile-work 4), which the
+    # checks below would not see.
+    for a in rest:
+        name = a.split("=", 1)[0]
+        if "--tile-workers".startswith(name) and len("--tile-") < len(name) < len(
+            "--tile-workers"
+        ):
+            raise SystemExit(f"{a}: spell out --tile-workers, so it can be checked")
     workers = [rest[i + 1] for i, a in enumerate(rest[:-1]) if a == "--tile-workers"]
     workers += [a.split("=", 1)[1] for a in rest if a.startswith("--tile-workers=")]
     if any(w != "0" for w in workers):
@@ -94,6 +102,10 @@ def record_seeding(out: Path, smoothing: float, hessian: float | None = None) ->
         "launcher": "scripts/neural_tracer_seeding.py",
     }
     path = Path(out) / "seeding.json"
+    if not path.exists() and (Path(out) / "run.json").exists():
+        raise SystemExit(
+            f"{out} holds a run started without this launcher: its seeding scales are not recorded"
+        )
     if path.exists():
         old = json.loads(path.read_text())
         if old != rec:
