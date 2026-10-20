@@ -5,7 +5,8 @@ approved by the owner ("Run the proposed seeding test"). The registering commit 
 (`repro/fibers/run_neural_tracer_seeding_chain.sh`) and the analysis (`scripts/neural_tracer_seeding_analysis.py`). The
 predictions and decision rule below are unchanged from the proposal, and
 `tests/test_neural_tracer_seeding_analysis.py` pins them by hash. Registration changed only this paragraph, the
-title, the run directories' names and two sentences on how the arms are enforced.
+title, the run directories' names and two sentences on how the arms are enforced. **Run 2026-10-20, 00:22–01:28 PDT:
+finding 93, `reports/neural_tracer_seeding.md`. All three predictions failed: the seeding scale is not the cause.**
 
 ## The question
 

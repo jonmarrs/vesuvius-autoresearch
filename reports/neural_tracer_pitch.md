@@ -65,8 +65,8 @@ Medians of merge-penalized ERL (ERLpen) and coverage, by group:
   * trilinear interpolation smooths the CT.
 
   The result says that resampling to 9.6 µm with its defaults does not help it here. It does not say the network
-  prefers 7.91 µm data. An exploratory reading of the tracer's own counters (below) places most of the loss at
-  seeding.
+  prefers 7.91 µm data. An exploratory reading of the tracer's own counters (below) places most of the lost traces at
+  seeding. Finding 93 then tested seeding per micrometre, and seeding is not why the score fell.
 
 ## What it does not say
 
@@ -129,5 +129,8 @@ presence as at 9.6 µm. Seed dots, median over the 21 cubes, relative to the nat
   per cube). In reverse it lowers the native seeds to 0.56 (0.43–0.73), near the 9.6 µm run's 0.49. Scaling the
   Hessian as well changes no cube's count by more than 0.03 of native.
 * **So testing it needs a code change, not flags.** The smoothing is not a flag. `scripts/neural_tracer_seeding.py`
-  runs villa's tracer with it set per micrometre, villa's code untouched. The run is proposed, not registered, in
-  `docs/preregistration/2026-10-19_neural_tracer_seeding_scale.md`. It needs the GPU and the owner's decision.
+  runs villa's tracer with it set per micrometre, villa's code untouched.
+* **Tested, and it is not the cause** (finding 93, `neural_tracer_seeding.md`, registered at c23d3a08). With its
+  seeds restored, the 9.6 µm run's merge-penalized ERL rises only from 0.63 to 0.67 of native. Seeding the native
+  cubes as sparsely costs only a little (0.88), and keeps the Scroll-3 lead on 7 of 8 cubes. Fewer seeds cut the
+  traces at 9.6 µm, but they are not why its score fell.
