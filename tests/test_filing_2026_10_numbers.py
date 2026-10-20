@@ -232,7 +232,7 @@ def test_fiber_heldout_numbers_match_finding_83():
         f"Coverage is {s5[0]:.2f} and {s5[1]:.2f}, against {min(in256):.2f}–{max(in256):.2f} on the in-sample "
         "Scroll-5 256³ cubes" in txt
     )
-    assert "Eighteen of my registered predictions failed" in txt
+    assert "Twenty-one of my registered predictions failed" in txt
 
 
 def test_scrollgt_cite_is_its_newest_tag():
@@ -628,3 +628,121 @@ def test_pitch_numbers_match_finding_92():
         f"on at least 6 of 8 cubes: it kept it on {lead}; its median merge-penalized ERL would stay within "
         f"0.85–1.15 of the native rows: {ratio:.2f})" in txt
     )
+
+
+_F93 = _REPO / "reports/neural_tracer_seeding.json"
+
+
+@pytest.mark.skipif(not _F93.exists(), reason="finding 93 artifact absent")
+def test_seeding_numbers_match_finding_93():
+    d, txt = json.loads(_F93.read_text()), _text()
+    assert (
+        d["status"] == "OK"
+        and d["conclusion"] == "the seeding scale is not the cause: the note stands"
+    )
+    assert not any(d["predictions"].values())
+    a, b = d["median_pen_ratio_A"], d["median_pen_ratio_B"]
+    pitch = json.loads(_F92.read_text())["median_pen_ratio_pitch_over_native"]
+    lead_a, s3 = d["s3_leading_tracer_A"]
+    rows_b, comp = d["rows_B"], d["comparators"]
+    lead_b = sum(
+        rows_b[c]["erl_merge_penalized"] > comp[c]["tracer"]["erl_merge_penalized"]
+        for c in d["groups"]["s3"]
+    )
+    assert (lead_a, s3, lead_b) == (0, 8, 7)
+    assert (
+        f"Seeded per micrometre there, it recovers only to {a:.2f} of the native rows (from {pitch:.2f}) and leads our "
+        f"tracer on {lead_a} of {s3} Scroll-3 cubes. Seeded as sparsely at 7.91 µm, it keeps {b:.2f} and its lead on "
+        f"{lead_b} of {s3}." in txt
+    )
+    assert (
+        f"recover to at least 0.85 of the native rows: {a:.2f}; regain its Scroll-3 lead on at least 6 of 8 cubes: "
+        f"{lead_a}; and, seeded as sparsely at 7.91 µm, fall to at most 0.80: {b:.2f})"
+        in txt
+    )
+    assert "findings 91–93 in" in txt and "`reports/neural_tracer_seeding.md`" in txt
+
+
+_GTO = _REPO / "reports/neural_tracer_gt_offset.json"
+
+
+@pytest.mark.skipif(
+    not (_GTO.exists() and _F91.exists()), reason="placement artifacts absent"
+)
+def test_placement_and_offset_numbers_match_their_measurements():
+    e, g, txt = json.loads(_F91.read_text()), json.loads(_GTO.read_text()), _text()
+    s3 = e["s3_cubes"]
+    s5 = [c for c in e["neural_rows"] if c.startswith("s5_") and c.endswith("_512")]
+
+    def ratio(ent, tol4=False):
+        def row(c):
+            if tol4:
+                return e["descriptive_tolerance_4"][c][
+                    "tracer" if ent == "neural" else ent
+                ]
+            return e["neural_rows"][c] if ent == "neural" else e["comparators"][c][ent]
+
+        med = statistics.median
+        return med(row(c)["erl_merge_penalized"] for c in s3) / med(
+            row(c)["erl_merge_penalized"] for c in s5
+        )
+
+    assert len(s5) == 3 and (
+        f"({ratio('neural'):.2f}× and {ratio('generator'):.2f}×), and at a 4-voxel tolerance most of that goes "
+        f"({ratio('neural', True):.2f}× and {ratio('generator', True):.2f}×)" in txt
+    )
+    cubes = g["cubes"]
+    norm = {c: sum(v * v for v in cubes[c]["shift"]) ** 0.5 for c in cubes}
+    big = [c for c in g["groups"]["in_sample"] if norm[c] >= 1]
+    off = [cubes[c]["ct"]["t_star"] * norm[c] for c in big]
+    gain = [cubes[c]["neural"]["le2_shifted"] - cubes[c]["neural"]["le2"] for c in big]
+    assert (
+        f"On {len(big)} of the 11 in-sample cubes the ground truth itself sits about a voxel off the CT's fibers"
+        in txt
+    )
+    assert (
+        f"the CT alone puts the fibers' centres {min(off):.2f}–{max(off):.2f} voxels off"
+        in txt
+    )
+    assert (
+        f"recovers part of the gap ({min(gain):.2f}–{max(gain):.2f} of this tracer's share within 2 voxels)"
+        in txt
+    )
+
+
+# Each failed registered prediction in the list, with how many it counts for. The stated total is their sum.
+_FAILED = {
+    "finding 70 (": 1,
+    "finding 71 prediction 1": 1,
+    "finding 72 prediction 1": 1,
+    "per-crop normalisation as the cause": 1,
+    "finding 73 prediction 2": 1,
+    "finding 74 predictions 2 and 3": 2,
+    "finding 75 predictions 1 and 2": 2,
+    "finding 76 prediction 1": 1,
+    "the correction's prediction 3": 1,
+    "finding 79 prediction 1": 1,
+    "finding 80 prediction 2": 1,
+    "finding 83 prediction 1": 1,
+    "finding 84 prediction 3": 1,
+    "finding 85 prediction 1": 1,
+    "finding 92 predictions 2 and 3": 2,
+    "finding 93 predictions 1–3": 3,
+}
+
+
+def test_the_failed_prediction_count_is_the_listed_tally():
+    raw = _DRAFT.read_text()
+    head = (
+        "* **Twenty-one of my registered predictions failed**, and the reports say so:"
+    )
+    section = raw[
+        raw.index(head) + len(head) : raw.index(
+            "* **The effect's size depends on grid cell size**"
+        )
+    ]
+    items = [" ".join(b.split()) for b in section.split("\n  * ")[1:]]
+    assert len(items) == len(_FAILED), items
+    for key in _FAILED:
+        assert sum(it.startswith(key) for it in items) == 1, key
+    assert sum(_FAILED.values()) == 21
