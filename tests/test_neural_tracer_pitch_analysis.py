@@ -1,7 +1,9 @@
 """scripts/neural_tracer_pitch_analysis.py: the frame back to the cube, the identity check, and the registered reading."""
 
+import json
 import math
 import sys
+import types
 from pathlib import Path
 
 import numpy as np
@@ -206,3 +208,74 @@ def test_a_failed_run_is_incomplete_only_below_the_row_minimums():
     assert status == "INCOMPLETE"
     assert reading["predictions"]["P2_s3_leads_tracer_on_6_of_8"] is None
     assert pa.outcome({"x": ["box"]}, rows, native, comp) == ("IDENTITY_FAILED", None)
+
+
+def _run_main(tmp_path, monkeypatch, failed=(), bad_identity=()):
+    """main() end to end, with ScrollGT's scorer and the .afv reader stubbed: every
+    scored cube at 5.0 against a native 5.0 and our tracer's 10.0."""
+
+    class Score:
+        def as_row(self):
+            return {PEN: 5.0, pa.COV: 0.5}
+
+    ev = types.ModuleType("scrollgt.fibers.eval_trace")
+    ev.SCORING_VERSION = 3  # type: ignore[attr-defined]
+    ev.score_tracing = lambda skel, labels, tolerance: Score()  # type: ignore[attr-defined]
+    tg = types.ModuleType("scrollgt.fibers.target")
+    tg.load_fiber_target = lambda target: (None, None, None)  # type: ignore[attr-defined]
+    for name, module in (("scrollgt", types.ModuleType("scrollgt")),
+                         ("scrollgt.fibers", types.ModuleType("scrollgt.fibers")),
+                         ("scrollgt.fibers.eval_trace", ev), ("scrollgt.fibers.target", tg)):  # fmt: skip
+        monkeypatch.setitem(sys.modules, name, module)
+    monkeypatch.setattr(sys, "path", list(sys.path))  # main() prepends ScrollGT's src
+    monkeypatch.setattr(pa.afv_to_labels, "read_afv", lambda path: {})
+    monkeypatch.setattr(pa.afv_to_labels, "rasterize", lambda fibers, shape: None)
+    monkeypatch.setattr(f91, "stop_reasons", lambda afv: {})
+    monkeypatch.setattr(f91, "SG", tmp_path / "sg")
+    native = {}
+    for c in f91.ALL:
+        meta = tmp_path / "sg" / "data" / f"fibers_{c}" / "meta.json"
+        meta.parent.mkdir(parents=True)
+        meta.write_text(
+            json.dumps({"floors": {f91.TRACER: {PEN: 10.0}, f91.CC: {PEN: 1.0}}})
+        )
+        native[c] = {PEN: 5.0, pa.COV: 0.5}
+        if c in failed:
+            continue
+        run = tmp_path / "work" / c
+        run.mkdir(parents=True)
+        (run / "fibers.afv").write_text("")
+        record = _record(c)
+        if c in bad_identity:
+            record["base_um"] = 7.91
+        (run / "run.json").write_text(json.dumps(record))
+    (tmp_path / "native.json").write_text(json.dumps({"neural_rows": native}))
+    out = tmp_path / "out.json"
+    argv = [
+        "pa",
+        "--work",
+        str(tmp_path / "work"),
+        "--native",
+        str(tmp_path / "native.json"),
+    ]
+    monkeypatch.setattr(sys, "argv", [*argv, "--out", str(out)])
+    rc = pa.main()
+    return rc, json.loads(out.read_text())
+
+
+def test_main_writes_the_registered_status_and_exits_by_it(tmp_path, monkeypatch):
+    rc, out = _run_main(tmp_path / "all", monkeypatch)
+    assert (rc, out["status"], out["failed_runs"]) == (0, "OK", [])
+    assert out["published_row_moves_materially"] is False
+
+    one = f91.S5_HELDOUT[0]
+    rc, out = _run_main(tmp_path / "one", monkeypatch, failed=(one,))
+    assert (rc, out["status"], out["failed_runs"]) == (0, "OK", [one])
+
+    rc, out = _run_main(tmp_path / "three", monkeypatch, failed=tuple(f91.S3[:3]))
+    assert (rc, out["status"]) == (1, "INCOMPLETE")
+    assert out["predictions"]["P2_s3_leads_tracer_on_6_of_8"] is None
+
+    rc, out = _run_main(tmp_path / "id", monkeypatch, bad_identity=(f91.S3[0],))
+    assert (rc, out["status"]) == (1, "IDENTITY_FAILED")
+    assert "predictions" not in out and f91.S3[0] in out["identity_problems"]
