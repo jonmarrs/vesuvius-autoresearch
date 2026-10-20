@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import math
 import statistics
 import sys
 from pathlib import Path
@@ -27,9 +26,6 @@ SETTINGS = {
     "base_um": TO_UM,
 }  # reported lengths only; everything else as finding 91
 PEN, COV = f91.PEN, f91.COV
-MATERIAL = math.log(
-    1.15
-)  # |median log ratio| beyond this, or 2+ flips against our tracer: the published row moves
 
 
 def grid_size(cube: str) -> float:
@@ -73,27 +69,28 @@ def verdict(rows: dict, native: dict, comp: dict) -> dict:
     every = [c for c in f91.ALL if rows.get(c)]
     trails = sum(rows[c][PEN] < comp[c]["tracer"][PEN] for c in ins)
     leads = sum(rows[c][PEN] > comp[c]["tracer"][PEN] for c in s3)
-    logs = [
-        math.log(rows[c][PEN] / native[c][PEN])
-        for c in every
-        if rows[c][PEN] > 0 and native[c][PEN] > 0
-    ]
+    # Pitch-matched over native for each scored cube; a pitch-matched 0 is a
+    # ratio of 0. Finding 91's native rows are all positive.
+    if zero := [c for c in every if native[c][PEN] <= 0]:
+        raise ValueError(f"no pitch-over-native ratio for a native score of 0: {zero}")
+    ratios = [rows[c][PEN] / native[c][PEN] for c in every]
     flips = sum(
         (rows[c][PEN] > comp[c]["tracer"][PEN])
         != (native[c][PEN] > comp[c]["tracer"][PEN])
         for c in every
     )
-    median_ratio = math.exp(statistics.median(logs)) if logs else None
+    median_ratio = statistics.median(ratios) if ratios else None
     p = {
         "P1_in_sample_trails_tracer_on_9_of_11": trails >= 9 if len(ins) >= 9 else None,
         "P2_s3_leads_tracer_on_6_of_8": leads >= 6 if len(s3) >= 6 else None,
         "P3_median_pen_ratio_within_0.85_1.15": (0.85 <= median_ratio <= 1.15)
-        if len(logs) >= 17
+        if len(ratios) >= 17
         else None,
     }
-    material = None
-    if len(logs) >= 17:
-        material = abs(statistics.median(logs)) > MATERIAL or flips >= 2
+    # The registered rule: P3 fails, or the comparison with our tracer flips on
+    # 2 or more cubes. The flips settle it even when P3 cannot be evaluated.
+    p3 = p["P3_median_pen_ratio_within_0.85_1.15"]
+    material = True if flips >= 2 else (None if p3 is None else not p3)
     if p["P1_in_sample_trails_tracer_on_9_of_11"] is None:
         cause = None
     elif ins and len(ins) - trails >= 3:

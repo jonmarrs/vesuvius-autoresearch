@@ -5,6 +5,7 @@ import sys
 from pathlib import Path
 
 import numpy as np
+import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 import neural_tracer_analysis as f91  # noqa: E402
@@ -100,3 +101,93 @@ def test_too_few_rows_leave_a_prediction_unevaluated():
     v = pa.verdict(rows, native, comp)
     assert v["predictions"]["P2_s3_leads_tracer_on_6_of_8"] is None
     assert v["predictions"]["P1_in_sample_trails_tracer_on_9_of_11"] is True
+
+
+def test_a_median_inside_p3_moves_nothing_without_flips():
+    """The registered rule: the row moves if P3 fails or the comparison flips on 2+
+    cubes. A threshold of |log 1.15| put the lower edge at 0.87, so a median of
+    0.86, inside P3's 0.85-1.15, read as material."""
+    v = pa.verdict(
+        *_rows(
+            {
+                "in": (5.0 * 0.86, 5.0),
+                "s3": (12.0 * 0.86, 12.0),
+                "s5": (4.0 * 0.86, 4.0),
+            }
+        )
+    )
+    assert math.isclose(v["median_pen_ratio_pitch_over_native"], 0.86)
+    assert v["predictions"]["P3_median_pen_ratio_within_0.85_1.15"] is True
+    assert v["flips_against_tracer"] == 0
+    assert v["published_row_moves_materially"] is False
+
+
+def test_a_cube_traced_to_nothing_is_a_ratio_of_zero():
+    """Not a cube left out: the 11 in-sample cubes at 0 make the median 0."""
+    v = pa.verdict(*_rows({"in": (0.0, 5.0), "s3": (12.0, 12.0), "s5": (4.0, 4.0)}))
+    assert v["median_pen_ratio_pitch_over_native"] == 0.0
+    assert v["predictions"]["P3_median_pen_ratio_within_0.85_1.15"] is False
+    assert v["published_row_moves_materially"] is True
+
+
+def _custom(ratios, native=5.0):
+    """Rows for the given cubes at pitch-over-native ratios; every native score,
+    and so every pitch-matched one up to ratio 2, below our tracer's 10."""
+    rows = {c: {PEN: native * r} for c, r in ratios.items()}
+    nat = {c: {PEN: native} for c in f91.ALL}
+    comp = {c: {"tracer": {PEN: 10.0}} for c in f91.ALL}
+    return rows, nat, comp
+
+
+def test_two_flips_move_the_row_when_p3_holds():
+    """The rule's other half: every ratio 1.0, but cubes that now lead our
+    tracer. Two flips move the row; one does not."""
+    for flipped, moves in ((2, True), (1, False)):
+        ratios = dict.fromkeys(f91.ALL, 1.0)
+        for c in f91.S3[:flipped]:
+            ratios[c] = 2.2  # 11.0 against the tracer's 10
+        v = pa.verdict(*_custom(ratios))
+        assert v["predictions"]["P3_median_pen_ratio_within_0.85_1.15"] is True
+        assert v["flips_against_tracer"] == flipped
+        assert v["published_row_moves_materially"] is moves
+
+
+def test_flips_decide_even_when_p3_cannot_be_evaluated():
+    """With 16 rows P3 is unevaluated, but 2+ flips already move the row."""
+    cubes = f91.ALL[:16]
+    ratios = dict.fromkeys(cubes, 1.0)
+    v = pa.verdict(*_custom(ratios))
+    assert v["predictions"]["P3_median_pen_ratio_within_0.85_1.15"] is None
+    assert v["published_row_moves_materially"] is None
+    for c in cubes[:2]:
+        ratios[c] = 2.2
+    v = pa.verdict(*_custom(ratios))
+    assert v["predictions"]["P3_median_pen_ratio_within_0.85_1.15"] is None
+    assert v["published_row_moves_materially"] is True
+
+
+def test_the_median_of_an_even_count_is_the_mean_of_the_middle_two():
+    """20 rows (one run failed), half at 0.5 and half at 1.3: the median is 0.9,
+    inside P3; their geometric mean, 0.81, would not be."""
+    cubes = f91.ALL[:20]
+    ratios = {c: (0.5 if i < 10 else 1.3) for i, c in enumerate(cubes)}
+    v = pa.verdict(*_custom(ratios))
+    assert math.isclose(v["median_pen_ratio_pitch_over_native"], 0.9)
+    assert v["predictions"]["P3_median_pen_ratio_within_0.85_1.15"] is True
+
+
+def test_p3_includes_its_bounds_and_needs_17_rows():
+    for r in (0.85, 1.15):
+        v = pa.verdict(*_custom(dict.fromkeys(f91.ALL, r)))
+        assert v["predictions"]["P3_median_pen_ratio_within_0.85_1.15"] is True
+    for n, evaluated in ((17, True), (16, False)):
+        v = pa.verdict(*_custom(dict.fromkeys(f91.ALL[:n], 1.0)))
+        p3 = v["predictions"]["P3_median_pen_ratio_within_0.85_1.15"]
+        assert (p3 is not None) is evaluated
+
+
+def test_a_native_score_of_zero_is_refused():
+    rows, native, comp = _custom(dict.fromkeys(f91.ALL, 1.0))
+    native[f91.S3[0]] = {PEN: 0.0}
+    with pytest.raises(ValueError, match="native score of 0"):
+        pa.verdict(rows, native, comp)
