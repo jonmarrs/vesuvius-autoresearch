@@ -176,6 +176,71 @@ def test_the_smoke_is_identical_only_when_every_fiber_is(tmp_path):
     assert sa.afv_identical(_afv(tmp_path / "renumbered.afv", {7: f[2], 9: f[1]}), ref)
 
 
+def _smoke_run(tmp_path, fibers, record=None, seeding=None, write_seeding=True):
+    """A smoke run directory as the chain's launcher writes it, at finding 91's settings and villa's smoothing."""
+    run = tmp_path / "identity" / sa.SMOKE_CUBE
+    run.mkdir(parents=True)
+    n = sa.f91.grid_size(sa.SMOKE_CUBE)
+    rec = {
+        **sa.f91.SETTINGS,
+        "checkpoint_sha256": sa.f91.CHECKPOINT_SHA256,
+        "box": {"lo": [0.0, 0.0, 0.0], "hi": [n, n, n]},
+        "ct": f"/x/ct/{sa.SMOKE_CUBE}.zarr",
+        "presence": f"/x/presence/{sa.SMOKE_CUBE}_presence.zarr/1",
+        "tile_workers": 0,
+        **(record or {}),
+    }
+    (run / "run.json").write_text(json.dumps(rec))
+    if write_seeding:
+        seed = {
+            "presence_smoothing_sigma": 1.0,
+            "hessian_sigma": 1.5,
+            "villa_default": 1.0,
+        }
+        (run / "seeding.json").write_text(json.dumps({**seed, **(seeding or {})}))
+    _afv(run / "fibers.afv", fibers)
+    return run
+
+
+@pytest.mark.parametrize(
+    "record, seeding, write_seeding, expect",
+    [
+        (None, None, False, "seeding.json"),  # villa's tool alone, not the launcher
+        ({"tile_workers": 3}, None, True, "tile_workers"),
+        (None, {"presence_smoothing_sigma": 1 / sa.R}, True, "smoothing"),
+        ({"plane_spacing": 64 / sa.R}, None, True, "plane_spacing"),
+        ({"ct": f"/x/ct_9p6/{sa.SMOKE_CUBE}.zarr"}, None, True, "ct="),
+    ],
+)
+def test_the_smoke_must_be_the_launcher_at_villas_default(
+    tmp_path, record, seeding, write_seeding, expect
+):
+    """Villa's tracer is deterministic, so its tool alone reproduces finding 91 too: the identical .afv shows nothing
+    about the launcher unless the run's records show the launcher ran at the default."""
+    f = {1: [[0, 0, 0], [1, 2, 3]], 2: [[4, 4, 4], [5, 5, 5]]}
+    ref = _afv(tmp_path / "ref.afv", f)
+    good = sa.smoke_check(_smoke_run(tmp_path / "good", f), ref)
+    assert (
+        good["ok"]
+        and good["identical_to_finding_91"]
+        and good["launcher_problems"] == []
+    )
+    bad = sa.smoke_check(
+        _smoke_run(tmp_path / "bad", f, record, seeding, write_seeding), ref
+    )
+    assert bad["identical_to_finding_91"] and not bad["ok"]
+    assert any(expect in p for p in bad["launcher_problems"]), bad
+    other = sa.smoke_check(_smoke_run(tmp_path / "other", {1: f[1]}), ref)
+    assert not other["ok"] and not other["identical_to_finding_91"]
+    assert other["launcher_problems"] == []
+    assert sa.smoke_check(tmp_path / "missing", ref) == {
+        "cube": sa.SMOKE_CUBE,
+        "identical_to_finding_91": False,
+        "launcher_problems": ["no run.json"],
+        "ok": False,
+    }
+
+
 def _rows(values):
     return {c: ({PEN: v} if v is not None else None) for c, v in values.items()}
 
@@ -273,3 +338,56 @@ def test_the_status(smoke, identity, a, status):
     assert got == status and (reading is None) == (
         status in ("SMOKE_FAILED", "IDENTITY_FAILED")
     )
+
+
+@pytest.mark.parametrize("launcher", [True, False])
+def test_score_fails_the_smoke_unless_the_launcher_ran_it(
+    tmp_path, monkeypatch, launcher
+):
+    """score() end to end, ScrollGT stubbed, no arm traced: with the launcher's smoke it reads INCOMPLETE; with villa's
+    tool alone (no seeding.json) it is SMOKE_FAILED, though the .afv is identical."""
+    import types
+
+    target = types.ModuleType("scrollgt.fibers.target")
+    target.load_fiber_target = lambda path: (None, None, None)
+    eval_trace = types.ModuleType("scrollgt.fibers.eval_trace")
+    eval_trace.SCORING_VERSION = 3
+    eval_trace.score_tracing = None  # nothing is scored: no arm wrote a fibers.afv
+    for name, mod in (
+        ("scrollgt", types.ModuleType("scrollgt")),
+        ("scrollgt.fibers", types.ModuleType("scrollgt.fibers")),
+        ("scrollgt.fibers.target", target),
+        ("scrollgt.fibers.eval_trace", eval_trace),
+    ):
+        monkeypatch.setitem(sys.modules, name, mod)
+    monkeypatch.setattr(sys, "path", list(sys.path))
+    monkeypatch.setattr(sa.f91, "SG", tmp_path / "sg")
+    for c in ALL:
+        d = tmp_path / "sg" / "data" / f"fibers_{c}"
+        d.mkdir(parents=True)
+        floors = {sa.f91.TRACER: {PEN: 9.0}, sa.f91.CC: {PEN: 8.0}}
+        (d / "meta.json").write_text(json.dumps({"floors": floors}))
+    f = {1: [[0, 0, 0], [1, 2, 3]]}
+    native_work = tmp_path / "native"
+    (native_work / sa.SMOKE_CUBE).mkdir(parents=True)
+    _afv(native_work / sa.SMOKE_CUBE / "fibers.afv", f)
+    work = tmp_path / "work"
+    run = _smoke_run(tmp_path / "s", f, write_seeding=launcher)
+    (work / "identity").mkdir(parents=True)
+    run.rename(work / "identity" / sa.SMOKE_CUBE)
+    inputs = {
+        "native": {"neural_rows": {c: {PEN: 10.0} for c in ALL}},
+        "pitch": {"pitch_rows": {}},
+        "probe": {"cubes": {}},
+    }
+    for name, data in inputs.items():
+        (tmp_path / f"{name}.json").write_text(json.dumps(data))
+    out = tmp_path / "out.json"
+    argv = ["score", "--work", str(work), "--native-work", str(native_work)]
+    argv += [f"--{n}={tmp_path / f'{n}.json'}" for n in inputs] + [f"--out={out}"]
+    assert sa.main(argv) == 1
+    d = json.loads(out.read_text())
+    assert d["smoke"]["identical_to_finding_91"] is True
+    assert d["smoke"]["ok"] is launcher
+    assert d["status"] == ("INCOMPLETE" if launcher else "SMOKE_FAILED")
+    assert d["failed_runs"] == {"A": ALL, "B": ALL}

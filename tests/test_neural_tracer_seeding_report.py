@@ -42,10 +42,11 @@ def _leads(X, cubes):
 
 
 def test_the_result_is_the_registered_analysis_on_every_run():
-    assert D["status"] == "OK" and D["smoke"] == {
-        "cube": sa.SMOKE_CUBE,
-        "identical_to_finding_91": True,
-    }
+    # The committed run predates the smoke's record check (launcher_problems, ok); a re-score adds them.
+    assert D["status"] == "OK" and {
+        k: D["smoke"][k] for k in ("cube", "identical_to_finding_91")
+    } == {"cube": sa.SMOKE_CUBE, "identical_to_finding_91": True}
+    assert D["smoke"].get("launcher_problems", []) == [] and D["smoke"].get("ok", True)
     assert D["failed_runs"] == {"A": [], "B": []} and D["scored"] == {"A": 21, "B": 21}
     assert D["identity_problems"] == {"A": {}, "B": {}} and D[
         "manipulation_problems"

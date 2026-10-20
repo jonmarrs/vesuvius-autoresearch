@@ -10,7 +10,8 @@ Subcommands, all run by repro/fibers/run_neural_tracer_seeding_chain.sh:
   smoke --afv --reference
                         exit 0 when two .afv files hold the same fibers point for point (the identity smoke: the
                         launcher at villa's default smoothing must reproduce finding 91's run);
-  score --work W        check every run against its arm (run.json, seeding.json) and its recorded seed dots against
+  score --work W        check the smoke's records (run.json, seeding.json) against the launcher at villa's default,
+                        check every run against its arm (run.json, seeding.json) and its recorded seed dots against
                         the probe (reports/neural_tracer_seed_probe.json), score it as finding 91 or 92 did, and apply
                         the registered predictions and decision rule. Writes reports/neural_tracer_seeding.json.
 """
@@ -53,13 +54,16 @@ ARMS = {
     "B": {"settings": _scaled(f91.SETTINGS, R), "smoothing": R, "ct": "ct", "presence": "presence",
           "grid": f91.grid_size},
 }  # fmt: skip
+# The identity smoke: finding 91's settings and inputs, through the launcher at villa's own smoothing.
+SMOKE_RUN = {"settings": f91.SETTINGS, "smoothing": 1.0, "ct": "ct", "presence": "presence",
+             "grid": f91.grid_size}  # fmt: skip
 
 
 def identity_problems(
     arm: str, record: dict, seeding: dict | None, cube: str
 ) -> list[str]:
-    """Differences between a run's run.json and seeding.json and its registered arm."""
-    a, bad = ARMS[arm], []
+    """Differences between a run's run.json and seeding.json and its registered arm ("smoke": the identity smoke's)."""
+    a, bad = (SMOKE_RUN if arm == "smoke" else ARMS[arm]), []
     if record.get("checkpoint_sha256") != f91.CHECKPOINT_SHA256:
         bad.append(f"checkpoint_sha256={record.get('checkpoint_sha256')}")
     for k, v in a["settings"].items():
@@ -96,6 +100,30 @@ def manipulation_problems(arm: str, cube: str, recorded: int, probe: dict) -> li
         if recorded == expected
         else [f"recorded {recorded} seed dots, the probe counted {expected}"]
     )
+
+
+def smoke_check(run: Path, reference: Path) -> dict:
+    """The registered identity smoke: the launcher at villa's default smoothing, with --tile-workers 0, reproduces
+    finding 91's fibers.afv. Villa's tool alone reproduces it too, so the records show that the launcher ran:
+    seeding.json, which only the launcher writes, and run.json's tile_workers of 0, which it forces."""
+    afv, record, seeding = run / "fibers.afv", run / "run.json", run / "seeding.json"
+    identical = afv.exists() and afv_identical(afv, reference)
+    problems = (
+        identity_problems(
+            "smoke",
+            json.loads(record.read_text()),
+            json.loads(seeding.read_text()) if seeding.exists() else None,
+            SMOKE_CUBE,
+        )
+        if record.exists()
+        else ["no run.json"]
+    )
+    return {
+        "cube": SMOKE_CUBE,
+        "identical_to_finding_91": identical,
+        "launcher_problems": problems,
+        "ok": identical and not problems,
+    }
 
 
 def afv_identical(a: Path, b: Path) -> bool:
@@ -186,9 +214,9 @@ def score(args) -> int:
     native = json.loads(args.native.read_text())["neural_rows"]
     pitch = json.loads(args.pitch.read_text())["pitch_rows"]
     probe = json.loads(args.probe.read_text())["cubes"]
-    smoke_afv = args.work / "identity" / SMOKE_CUBE / "fibers.afv"
-    smoke_ok = smoke_afv.exists() and afv_identical(
-        smoke_afv, args.native_work / SMOKE_CUBE / "fibers.afv"
+    smoke = smoke_check(
+        args.work / "identity" / SMOKE_CUBE,
+        args.native_work / SMOKE_CUBE / "fibers.afv",
     )
     rows: dict[str, dict] = {"A": {}, "B": {}}
     identity: dict[str, dict] = {"A": {}, "B": {}}
@@ -234,7 +262,7 @@ def score(args) -> int:
                 f"{arm} {c}: pen {row[PEN]} (native {native[c][PEN]}) cov {row[COV]}",
                 flush=True,
             )
-    status, reading = outcome(smoke_ok, identity, rows["A"], rows["B"], native, comp)
+    status, reading = outcome(smoke["ok"], identity, rows["A"], rows["B"], native, comp)
     out = {
         "status": status,
         "ratio": R,
@@ -242,7 +270,7 @@ def score(args) -> int:
             k: {"settings": v["settings"], "smoothing": v["smoothing"]}
             for k, v in ARMS.items()
         },
-        "smoke": {"cube": SMOKE_CUBE, "identical_to_finding_91": smoke_ok},
+        "smoke": smoke,
         "failed_runs": failed,
         "identity_problems": identity,
         "manipulation_problems": manipulation,
