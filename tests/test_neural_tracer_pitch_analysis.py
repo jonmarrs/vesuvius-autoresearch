@@ -197,11 +197,12 @@ def test_a_failed_run_is_incomplete_only_below_the_row_minimums():
     """The registration ties INCOMPLETE to the row minimums. The status read
     INCOMPLETE after any failed run, though 20 rows evaluate every prediction."""
     rows, native, comp = _custom(dict.fromkeys(f91.ALL, 1.0))
-    del rows[f91.S5_HELDOUT[0]]  # one run failed
-    assert pa.run_status({}, pa.verdict(rows, native, comp)["predictions"]) == "OK"
+    rows[f91.S5_HELDOUT[0]] = None  # main() records a failed run as None
+    status, reading = pa.outcome({}, rows, native, comp)
+    assert status == "OK" and reading is not None
     for c in f91.S3[:3]:  # 5 Scroll-3 rows: P2 unevaluated
-        del rows[c]
-    assert (
-        pa.run_status({}, pa.verdict(rows, native, comp)["predictions"]) == "INCOMPLETE"
-    )
-    assert pa.run_status({"x": ["box"]}, None) == "IDENTITY_FAILED"
+        rows[c] = None
+    status, reading = pa.outcome({}, rows, native, comp)
+    assert status == "INCOMPLETE"
+    assert reading["predictions"]["P2_s3_leads_tracer_on_6_of_8"] is None
+    assert pa.outcome({"x": ["box"]}, rows, native, comp) == ("IDENTITY_FAILED", None)

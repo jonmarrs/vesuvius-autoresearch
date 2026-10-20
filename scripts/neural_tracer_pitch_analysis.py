@@ -108,15 +108,19 @@ def verdict(rows: dict, native: dict, comp: dict) -> dict:
     }
 
 
-def run_status(identity: dict, predictions: dict | None) -> str:
-    """The registered status: IDENTITY_FAILED when a run.json differs from the
-    entrant, else INCOMPLETE when a prediction is unevaluated (the row minimums),
-    else OK. A failed run is listed in failed_runs and counts against the row
-    minimums; 20 of 21 rows still evaluate every prediction."""
+def outcome(
+    identity: dict, rows: dict, native: dict, comp: dict
+) -> tuple[str, dict | None]:
+    """The registered status and verdict, from every cube's row (None for a
+    failed run). IDENTITY_FAILED, with no verdict, when a run.json differs from
+    the entrant. Otherwise INCOMPLETE when a prediction is unevaluated: a failed
+    run is left out and counts against the row minimums, so 20 of 21 rows can
+    still be OK. Else OK."""
     if identity:
-        return "IDENTITY_FAILED"
-    assert predictions is not None
-    return "OK" if all(v is not None for v in predictions.values()) else "INCOMPLETE"
+        return "IDENTITY_FAILED", None
+    reading = verdict({c: r for c, r in rows.items() if r}, native, comp)
+    complete = all(v is not None for v in reading["predictions"].values())
+    return ("OK" if complete else "INCOMPLETE"), reading
 
 
 def main() -> int:
@@ -166,12 +170,7 @@ def main() -> int:
             f"{c}: pen {row[PEN]} (native {native[c][PEN]}) cov {row[COV]} (native {native[c][COV]})",
             flush=True,
         )
-    reading = (
-        None
-        if identity
-        else verdict({c: r for c, r in rows.items() if r}, native, comp)
-    )
-    status = run_status(identity, reading["predictions"] if reading else None)
+    status, reading = outcome(identity, rows, native, comp)
     out = {
         "status": status,
         "to_um": TO_UM,
