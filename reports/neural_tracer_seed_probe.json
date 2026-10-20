@@ -1,0 +1,1523 @@
+{
+ "status": "exploratory, after finding 92's registered result",
+ "ratio": 1.2136536030341338,
+ "villa": "ccb431818",
+ "sources": {
+  "native": "spiral_out/neural_tracer/run",
+  "pitch": "spiral_out/neural_tracer/pitch_run"
+ },
+ "cubes": {
+  "s1_00497_01497_03997_256": {
+   "native_dots": 1457,
+   "pitch_dots": 920,
+   "A": {
+    "run": {
+     "plane_spacing": 64.0,
+     "fill_spacing": 4.0,
+     "smoothing": 1.0,
+     "hessian": null,
+     "dots": 920,
+     "fill_dots": 863
+    },
+    "flags": {
+     "plane_spacing": 52.73333333333334,
+     "fill_spacing": 3.295833333333334,
+     "smoothing": 1.0,
+     "hessian": null,
+     "dots": 996,
+     "fill_dots": 922
+    },
+    "flags_smooth": {
+     "plane_spacing": 52.73333333333334,
+     "fill_spacing": 3.295833333333334,
+     "smoothing": 0.8239583333333335,
+     "hessian": null,
+     "dots": 1337,
+     "fill_dots": 1221
+    },
+    "flags_smooth_hessian": {
+     "plane_spacing": 52.73333333333334,
+     "fill_spacing": 3.295833333333334,
+     "smoothing": 0.8239583333333335,
+     "hessian": 1.2359375000000001,
+     "dots": 1335,
+     "fill_dots": 1228
+    }
+   },
+   "B": {
+    "run": {
+     "plane_spacing": 64.0,
+     "fill_spacing": 4.0,
+     "smoothing": 1.0,
+     "hessian": null,
+     "dots": 1457,
+     "fill_dots": 1376
+    },
+    "flags": {
+     "plane_spacing": 77.67383059418457,
+     "fill_spacing": 4.854614412136535,
+     "smoothing": 1.0,
+     "hessian": null,
+     "dots": 1287,
+     "fill_dots": 1209
+    },
+    "flags_smooth": {
+     "plane_spacing": 77.67383059418457,
+     "fill_spacing": 4.854614412136535,
+     "smoothing": 1.2136536030341338,
+     "hessian": null,
+     "dots": 999,
+     "fill_dots": 945
+    },
+    "flags_smooth_hessian": {
+     "plane_spacing": 77.67383059418457,
+     "fill_spacing": 4.854614412136535,
+     "smoothing": 1.2136536030341338,
+     "hessian": 1.8204804045512009,
+     "dots": 1000,
+     "fill_dots": 940
+    }
+   }
+  },
+  "s1_00497_02497_02997_256": {
+   "native_dots": 1357,
+   "pitch_dots": 886,
+   "A": {
+    "run": {
+     "plane_spacing": 64.0,
+     "fill_spacing": 4.0,
+     "smoothing": 1.0,
+     "hessian": null,
+     "dots": 886,
+     "fill_dots": 833
+    },
+    "flags": {
+     "plane_spacing": 52.73333333333334,
+     "fill_spacing": 3.295833333333334,
+     "smoothing": 1.0,
+     "hessian": null,
+     "dots": 976,
+     "fill_dots": 917
+    },
+    "flags_smooth": {
+     "plane_spacing": 52.73333333333334,
+     "fill_spacing": 3.295833333333334,
+     "smoothing": 0.8239583333333335,
+     "hessian": null,
+     "dots": 1319,
+     "fill_dots": 1205
+    },
+    "flags_smooth_hessian": {
+     "plane_spacing": 52.73333333333334,
+     "fill_spacing": 3.295833333333334,
+     "smoothing": 0.8239583333333335,
+     "hessian": 1.2359375000000001,
+     "dots": 1306,
+     "fill_dots": 1207
+    }
+   },
+   "B": {
+    "run": {
+     "plane_spacing": 64.0,
+     "fill_spacing": 4.0,
+     "smoothing": 1.0,
+     "hessian": null,
+     "dots": 1357,
+     "fill_dots": 1271
+    },
+    "flags": {
+     "plane_spacing": 77.67383059418457,
+     "fill_spacing": 4.854614412136535,
+     "smoothing": 1.0,
+     "hessian": null,
+     "dots": 1207,
+     "fill_dots": 1117
+    },
+    "flags_smooth": {
+     "plane_spacing": 77.67383059418457,
+     "fill_spacing": 4.854614412136535,
+     "smoothing": 1.2136536030341338,
+     "hessian": null,
+     "dots": 969,
+     "fill_dots": 913
+    },
+    "flags_smooth_hessian": {
+     "plane_spacing": 77.67383059418457,
+     "fill_spacing": 4.854614412136535,
+     "smoothing": 1.2136536030341338,
+     "hessian": 1.8204804045512009,
+     "dots": 966,
+     "fill_dots": 908
+    }
+   }
+  },
+  "s1_00997_02497_02997_256": {
+   "native_dots": 1461,
+   "pitch_dots": 859,
+   "A": {
+    "run": {
+     "plane_spacing": 64.0,
+     "fill_spacing": 4.0,
+     "smoothing": 1.0,
+     "hessian": null,
+     "dots": 859,
+     "fill_dots": 814
+    },
+    "flags": {
+     "plane_spacing": 52.73333333333334,
+     "fill_spacing": 3.295833333333334,
+     "smoothing": 1.0,
+     "hessian": null,
+     "dots": 931,
+     "fill_dots": 886
+    },
+    "flags_smooth": {
+     "plane_spacing": 52.73333333333334,
+     "fill_spacing": 3.295833333333334,
+     "smoothing": 0.8239583333333335,
+     "hessian": null,
+     "dots": 1378,
+     "fill_dots": 1279
+    },
+    "flags_smooth_hessian": {
+     "plane_spacing": 52.73333333333334,
+     "fill_spacing": 3.295833333333334,
+     "smoothing": 0.8239583333333335,
+     "hessian": 1.2359375000000001,
+     "dots": 1378,
+     "fill_dots": 1284
+    }
+   },
+   "B": {
+    "run": {
+     "plane_spacing": 64.0,
+     "fill_spacing": 4.0,
+     "smoothing": 1.0,
+     "hessian": null,
+     "dots": 1461,
+     "fill_dots": 1385
+    },
+    "flags": {
+     "plane_spacing": 77.67383059418457,
+     "fill_spacing": 4.854614412136535,
+     "smoothing": 1.0,
+     "hessian": null,
+     "dots": 1280,
+     "fill_dots": 1199
+    },
+    "flags_smooth": {
+     "plane_spacing": 77.67383059418457,
+     "fill_spacing": 4.854614412136535,
+     "smoothing": 1.2136536030341338,
+     "hessian": null,
+     "dots": 975,
+     "fill_dots": 920
+    },
+    "flags_smooth_hessian": {
+     "plane_spacing": 77.67383059418457,
+     "fill_spacing": 4.854614412136535,
+     "smoothing": 1.2136536030341338,
+     "hessian": 1.8204804045512009,
+     "dots": 969,
+     "fill_dots": 917
+    }
+   }
+  },
+  "s1_08997_02997_02497_256": {
+   "native_dots": 1395,
+   "pitch_dots": 764,
+   "A": {
+    "run": {
+     "plane_spacing": 64.0,
+     "fill_spacing": 4.0,
+     "smoothing": 1.0,
+     "hessian": null,
+     "dots": 764,
+     "fill_dots": 725
+    },
+    "flags": {
+     "plane_spacing": 52.73333333333334,
+     "fill_spacing": 3.295833333333334,
+     "smoothing": 1.0,
+     "hessian": null,
+     "dots": 860,
+     "fill_dots": 802
+    },
+    "flags_smooth": {
+     "plane_spacing": 52.73333333333334,
+     "fill_spacing": 3.295833333333334,
+     "smoothing": 0.8239583333333335,
+     "hessian": null,
+     "dots": 1338,
+     "fill_dots": 1235
+    },
+    "flags_smooth_hessian": {
+     "plane_spacing": 52.73333333333334,
+     "fill_spacing": 3.295833333333334,
+     "smoothing": 0.8239583333333335,
+     "hessian": 1.2359375000000001,
+     "dots": 1333,
+     "fill_dots": 1241
+    }
+   },
+   "B": {
+    "run": {
+     "plane_spacing": 64.0,
+     "fill_spacing": 4.0,
+     "smoothing": 1.0,
+     "hessian": null,
+     "dots": 1395,
+     "fill_dots": 1325
+    },
+    "flags": {
+     "plane_spacing": 77.67383059418457,
+     "fill_spacing": 4.854614412136535,
+     "smoothing": 1.0,
+     "hessian": null,
+     "dots": 1212,
+     "fill_dots": 1141
+    },
+    "flags_smooth": {
+     "plane_spacing": 77.67383059418457,
+     "fill_spacing": 4.854614412136535,
+     "smoothing": 1.2136536030341338,
+     "hessian": null,
+     "dots": 872,
+     "fill_dots": 823
+    },
+    "flags_smooth_hessian": {
+     "plane_spacing": 77.67383059418457,
+     "fill_spacing": 4.854614412136535,
+     "smoothing": 1.2136536030341338,
+     "hessian": 1.8204804045512009,
+     "dots": 869,
+     "fill_dots": 820
+    }
+   }
+  },
+  "s1_10997_02997_02997_256": {
+   "native_dots": 1380,
+   "pitch_dots": 918,
+   "A": {
+    "run": {
+     "plane_spacing": 64.0,
+     "fill_spacing": 4.0,
+     "smoothing": 1.0,
+     "hessian": null,
+     "dots": 918,
+     "fill_dots": 857
+    },
+    "flags": {
+     "plane_spacing": 52.73333333333334,
+     "fill_spacing": 3.295833333333334,
+     "smoothing": 1.0,
+     "hessian": null,
+     "dots": 985,
+     "fill_dots": 913
+    },
+    "flags_smooth": {
+     "plane_spacing": 52.73333333333334,
+     "fill_spacing": 3.295833333333334,
+     "smoothing": 0.8239583333333335,
+     "hessian": null,
+     "dots": 1270,
+     "fill_dots": 1145
+    },
+    "flags_smooth_hessian": {
+     "plane_spacing": 52.73333333333334,
+     "fill_spacing": 3.295833333333334,
+     "smoothing": 0.8239583333333335,
+     "hessian": 1.2359375000000001,
+     "dots": 1262,
+     "fill_dots": 1153
+    }
+   },
+   "B": {
+    "run": {
+     "plane_spacing": 64.0,
+     "fill_spacing": 4.0,
+     "smoothing": 1.0,
+     "hessian": null,
+     "dots": 1380,
+     "fill_dots": 1289
+    },
+    "flags": {
+     "plane_spacing": 77.67383059418457,
+     "fill_spacing": 4.854614412136535,
+     "smoothing": 1.0,
+     "hessian": null,
+     "dots": 1170,
+     "fill_dots": 1078
+    },
+    "flags_smooth": {
+     "plane_spacing": 77.67383059418457,
+     "fill_spacing": 4.854614412136535,
+     "smoothing": 1.2136536030341338,
+     "hessian": null,
+     "dots": 1005,
+     "fill_dots": 938
+    },
+    "flags_smooth_hessian": {
+     "plane_spacing": 77.67383059418457,
+     "fill_spacing": 4.854614412136535,
+     "smoothing": 1.2136536030341338,
+     "hessian": 1.8204804045512009,
+     "dots": 990,
+     "fill_dots": 923
+    }
+   }
+  },
+  "s3_00994_00494_01994_512": {
+   "native_dots": 10029,
+   "pitch_dots": 4047,
+   "A": {
+    "run": {
+     "plane_spacing": 64.0,
+     "fill_spacing": 4.0,
+     "smoothing": 1.0,
+     "hessian": null,
+     "dots": 4047,
+     "fill_dots": 3722
+    },
+    "flags": {
+     "plane_spacing": 52.73333333333334,
+     "fill_spacing": 3.295833333333334,
+     "smoothing": 1.0,
+     "hessian": null,
+     "dots": 4297,
+     "fill_dots": 3952
+    },
+    "flags_smooth": {
+     "plane_spacing": 52.73333333333334,
+     "fill_spacing": 3.295833333333334,
+     "smoothing": 0.8239583333333335,
+     "hessian": null,
+     "dots": 8854,
+     "fill_dots": 8111
+    },
+    "flags_smooth_hessian": {
+     "plane_spacing": 52.73333333333334,
+     "fill_spacing": 3.295833333333334,
+     "smoothing": 0.8239583333333335,
+     "hessian": 1.2359375000000001,
+     "dots": 8914,
+     "fill_dots": 8158
+    }
+   },
+   "B": {
+    "run": {
+     "plane_spacing": 64.0,
+     "fill_spacing": 4.0,
+     "smoothing": 1.0,
+     "hessian": null,
+     "dots": 10029,
+     "fill_dots": 9231
+    },
+    "flags": {
+     "plane_spacing": 77.67383059418457,
+     "fill_spacing": 4.854614412136535,
+     "smoothing": 1.0,
+     "hessian": null,
+     "dots": 8978,
+     "fill_dots": 8218
+    },
+    "flags_smooth": {
+     "plane_spacing": 77.67383059418457,
+     "fill_spacing": 4.854614412136535,
+     "smoothing": 1.2136536030341338,
+     "hessian": null,
+     "dots": 4773,
+     "fill_dots": 4393
+    },
+    "flags_smooth_hessian": {
+     "plane_spacing": 77.67383059418457,
+     "fill_spacing": 4.854614412136535,
+     "smoothing": 1.2136536030341338,
+     "hessian": 1.8204804045512009,
+     "dots": 4713,
+     "fill_dots": 4332
+    }
+   }
+  },
+  "s3_00994_01994_00494_512": {
+   "native_dots": 10860,
+   "pitch_dots": 3972,
+   "A": {
+    "run": {
+     "plane_spacing": 64.0,
+     "fill_spacing": 4.0,
+     "smoothing": 1.0,
+     "hessian": null,
+     "dots": 3972,
+     "fill_dots": 3662
+    },
+    "flags": {
+     "plane_spacing": 52.73333333333334,
+     "fill_spacing": 3.295833333333334,
+     "smoothing": 1.0,
+     "hessian": null,
+     "dots": 4248,
+     "fill_dots": 3912
+    },
+    "flags_smooth": {
+     "plane_spacing": 52.73333333333334,
+     "fill_spacing": 3.295833333333334,
+     "smoothing": 0.8239583333333335,
+     "hessian": null,
+     "dots": 9559,
+     "fill_dots": 8660
+    },
+    "flags_smooth_hessian": {
+     "plane_spacing": 52.73333333333334,
+     "fill_spacing": 3.295833333333334,
+     "smoothing": 0.8239583333333335,
+     "hessian": 1.2359375000000001,
+     "dots": 9628,
+     "fill_dots": 8717
+    }
+   },
+   "B": {
+    "run": {
+     "plane_spacing": 64.0,
+     "fill_spacing": 4.0,
+     "smoothing": 1.0,
+     "hessian": null,
+     "dots": 10860,
+     "fill_dots": 10037
+    },
+    "flags": {
+     "plane_spacing": 77.67383059418457,
+     "fill_spacing": 4.854614412136535,
+     "smoothing": 1.0,
+     "hessian": null,
+     "dots": 9699,
+     "fill_dots": 8860
+    },
+    "flags_smooth": {
+     "plane_spacing": 77.67383059418457,
+     "fill_spacing": 4.854614412136535,
+     "smoothing": 1.2136536030341338,
+     "hessian": null,
+     "dots": 5035,
+     "fill_dots": 4649
+    },
+    "flags_smooth_hessian": {
+     "plane_spacing": 77.67383059418457,
+     "fill_spacing": 4.854614412136535,
+     "smoothing": 1.2136536030341338,
+     "hessian": 1.8204804045512009,
+     "dots": 4964,
+     "fill_dots": 4581
+    }
+   }
+  },
+  "s3_00994_02494_01494_512": {
+   "native_dots": 10879,
+   "pitch_dots": 4777,
+   "A": {
+    "run": {
+     "plane_spacing": 64.0,
+     "fill_spacing": 4.0,
+     "smoothing": 1.0,
+     "hessian": null,
+     "dots": 4777,
+     "fill_dots": 4377
+    },
+    "flags": {
+     "plane_spacing": 52.73333333333334,
+     "fill_spacing": 3.295833333333334,
+     "smoothing": 1.0,
+     "hessian": null,
+     "dots": 5106,
+     "fill_dots": 4613
+    },
+    "flags_smooth": {
+     "plane_spacing": 52.73333333333334,
+     "fill_spacing": 3.295833333333334,
+     "smoothing": 0.8239583333333335,
+     "hessian": null,
+     "dots": 9583,
+     "fill_dots": 8673
+    },
+    "flags_smooth_hessian": {
+     "plane_spacing": 52.73333333333334,
+     "fill_spacing": 3.295833333333334,
+     "smoothing": 0.8239583333333335,
+     "hessian": 1.2359375000000001,
+     "dots": 9689,
+     "fill_dots": 8728
+    }
+   },
+   "B": {
+    "run": {
+     "plane_spacing": 64.0,
+     "fill_spacing": 4.0,
+     "smoothing": 1.0,
+     "hessian": null,
+     "dots": 10879,
+     "fill_dots": 10051
+    },
+    "flags": {
+     "plane_spacing": 77.67383059418457,
+     "fill_spacing": 4.854614412136535,
+     "smoothing": 1.0,
+     "hessian": null,
+     "dots": 9824,
+     "fill_dots": 8909
+    },
+    "flags_smooth": {
+     "plane_spacing": 77.67383059418457,
+     "fill_spacing": 4.854614412136535,
+     "smoothing": 1.2136536030341338,
+     "hessian": null,
+     "dots": 5532,
+     "fill_dots": 5016
+    },
+    "flags_smooth_hessian": {
+     "plane_spacing": 77.67383059418457,
+     "fill_spacing": 4.854614412136535,
+     "smoothing": 1.2136536030341338,
+     "hessian": 1.8204804045512009,
+     "dots": 5507,
+     "fill_dots": 4984
+    }
+   }
+  },
+  "s3_01994_01494_00994_512": {
+   "native_dots": 9513,
+   "pitch_dots": 4805,
+   "A": {
+    "run": {
+     "plane_spacing": 64.0,
+     "fill_spacing": 4.0,
+     "smoothing": 1.0,
+     "hessian": null,
+     "dots": 4805,
+     "fill_dots": 4342
+    },
+    "flags": {
+     "plane_spacing": 52.73333333333334,
+     "fill_spacing": 3.295833333333334,
+     "smoothing": 1.0,
+     "hessian": null,
+     "dots": 5131,
+     "fill_dots": 4660
+    },
+    "flags_smooth": {
+     "plane_spacing": 52.73333333333334,
+     "fill_spacing": 3.295833333333334,
+     "smoothing": 0.8239583333333335,
+     "hessian": null,
+     "dots": 8593,
+     "fill_dots": 7787
+    },
+    "flags_smooth_hessian": {
+     "plane_spacing": 52.73333333333334,
+     "fill_spacing": 3.295833333333334,
+     "smoothing": 0.8239583333333335,
+     "hessian": 1.2359375000000001,
+     "dots": 8659,
+     "fill_dots": 7820
+    }
+   },
+   "B": {
+    "run": {
+     "plane_spacing": 64.0,
+     "fill_spacing": 4.0,
+     "smoothing": 1.0,
+     "hessian": null,
+     "dots": 9513,
+     "fill_dots": 8821
+    },
+    "flags": {
+     "plane_spacing": 77.67383059418457,
+     "fill_spacing": 4.854614412136535,
+     "smoothing": 1.0,
+     "hessian": null,
+     "dots": 8671,
+     "fill_dots": 7869
+    },
+    "flags_smooth": {
+     "plane_spacing": 77.67383059418457,
+     "fill_spacing": 4.854614412136535,
+     "smoothing": 1.2136536030341338,
+     "hessian": null,
+     "dots": 5515,
+     "fill_dots": 5009
+    },
+    "flags_smooth_hessian": {
+     "plane_spacing": 77.67383059418457,
+     "fill_spacing": 4.854614412136535,
+     "smoothing": 1.2136536030341338,
+     "hessian": 1.8204804045512009,
+     "dots": 5459,
+     "fill_dots": 4960
+    }
+   }
+  },
+  "s3_01994_01994_01494_512": {
+   "native_dots": 10503,
+   "pitch_dots": 5103,
+   "A": {
+    "run": {
+     "plane_spacing": 64.0,
+     "fill_spacing": 4.0,
+     "smoothing": 1.0,
+     "hessian": null,
+     "dots": 5103,
+     "fill_dots": 4693
+    },
+    "flags": {
+     "plane_spacing": 52.73333333333334,
+     "fill_spacing": 3.295833333333334,
+     "smoothing": 1.0,
+     "hessian": null,
+     "dots": 5452,
+     "fill_dots": 4975
+    },
+    "flags_smooth": {
+     "plane_spacing": 52.73333333333334,
+     "fill_spacing": 3.295833333333334,
+     "smoothing": 0.8239583333333335,
+     "hessian": null,
+     "dots": 9376,
+     "fill_dots": 8509
+    },
+    "flags_smooth_hessian": {
+     "plane_spacing": 52.73333333333334,
+     "fill_spacing": 3.295833333333334,
+     "smoothing": 0.8239583333333335,
+     "hessian": 1.2359375000000001,
+     "dots": 9455,
+     "fill_dots": 8574
+    }
+   },
+   "B": {
+    "run": {
+     "plane_spacing": 64.0,
+     "fill_spacing": 4.0,
+     "smoothing": 1.0,
+     "hessian": null,
+     "dots": 10503,
+     "fill_dots": 9693
+    },
+    "flags": {
+     "plane_spacing": 77.67383059418457,
+     "fill_spacing": 4.854614412136535,
+     "smoothing": 1.0,
+     "hessian": null,
+     "dots": 9460,
+     "fill_dots": 8644
+    },
+    "flags_smooth": {
+     "plane_spacing": 77.67383059418457,
+     "fill_spacing": 4.854614412136535,
+     "smoothing": 1.2136536030341338,
+     "hessian": null,
+     "dots": 5896,
+     "fill_dots": 5422
+    },
+    "flags_smooth_hessian": {
+     "plane_spacing": 77.67383059418457,
+     "fill_spacing": 4.854614412136535,
+     "smoothing": 1.2136536030341338,
+     "hessian": 1.8204804045512009,
+     "dots": 5830,
+     "fill_dots": 5357
+    }
+   }
+  },
+  "s3_02994_02494_01994_512": {
+   "native_dots": 11925,
+   "pitch_dots": 4081,
+   "A": {
+    "run": {
+     "plane_spacing": 64.0,
+     "fill_spacing": 4.0,
+     "smoothing": 1.0,
+     "hessian": null,
+     "dots": 4081,
+     "fill_dots": 3731
+    },
+    "flags": {
+     "plane_spacing": 52.73333333333334,
+     "fill_spacing": 3.295833333333334,
+     "smoothing": 1.0,
+     "hessian": null,
+     "dots": 4281,
+     "fill_dots": 3944
+    },
+    "flags_smooth": {
+     "plane_spacing": 52.73333333333334,
+     "fill_spacing": 3.295833333333334,
+     "smoothing": 0.8239583333333335,
+     "hessian": null,
+     "dots": 10154,
+     "fill_dots": 9230
+    },
+    "flags_smooth_hessian": {
+     "plane_spacing": 52.73333333333334,
+     "fill_spacing": 3.295833333333334,
+     "smoothing": 0.8239583333333335,
+     "hessian": 1.2359375000000001,
+     "dots": 10272,
+     "fill_dots": 9314
+    }
+   },
+   "B": {
+    "run": {
+     "plane_spacing": 64.0,
+     "fill_spacing": 4.0,
+     "smoothing": 1.0,
+     "hessian": null,
+     "dots": 11925,
+     "fill_dots": 11015
+    },
+    "flags": {
+     "plane_spacing": 77.67383059418457,
+     "fill_spacing": 4.854614412136535,
+     "smoothing": 1.0,
+     "hessian": null,
+     "dots": 10517,
+     "fill_dots": 9607
+    },
+    "flags_smooth": {
+     "plane_spacing": 77.67383059418457,
+     "fill_spacing": 4.854614412136535,
+     "smoothing": 1.2136536030341338,
+     "hessian": null,
+     "dots": 5179,
+     "fill_dots": 4732
+    },
+    "flags_smooth_hessian": {
+     "plane_spacing": 77.67383059418457,
+     "fill_spacing": 4.854614412136535,
+     "smoothing": 1.2136536030341338,
+     "hessian": 1.8204804045512009,
+     "dots": 5114,
+     "fill_dots": 4671
+    }
+   }
+  },
+  "s3_03494_01494_00494_512": {
+   "native_dots": 10154,
+   "pitch_dots": 3946,
+   "A": {
+    "run": {
+     "plane_spacing": 64.0,
+     "fill_spacing": 4.0,
+     "smoothing": 1.0,
+     "hessian": null,
+     "dots": 3946,
+     "fill_dots": 3606
+    },
+    "flags": {
+     "plane_spacing": 52.73333333333334,
+     "fill_spacing": 3.295833333333334,
+     "smoothing": 1.0,
+     "hessian": null,
+     "dots": 4157,
+     "fill_dots": 3783
+    },
+    "flags_smooth": {
+     "plane_spacing": 52.73333333333334,
+     "fill_spacing": 3.295833333333334,
+     "smoothing": 0.8239583333333335,
+     "hessian": null,
+     "dots": 8871,
+     "fill_dots": 8029
+    },
+    "flags_smooth_hessian": {
+     "plane_spacing": 52.73333333333334,
+     "fill_spacing": 3.295833333333334,
+     "smoothing": 0.8239583333333335,
+     "hessian": 1.2359375000000001,
+     "dots": 8960,
+     "fill_dots": 8093
+    }
+   },
+   "B": {
+    "run": {
+     "plane_spacing": 64.0,
+     "fill_spacing": 4.0,
+     "smoothing": 1.0,
+     "hessian": null,
+     "dots": 10154,
+     "fill_dots": 9342
+    },
+    "flags": {
+     "plane_spacing": 77.67383059418457,
+     "fill_spacing": 4.854614412136535,
+     "smoothing": 1.0,
+     "hessian": null,
+     "dots": 8988,
+     "fill_dots": 8221
+    },
+    "flags_smooth": {
+     "plane_spacing": 77.67383059418457,
+     "fill_spacing": 4.854614412136535,
+     "smoothing": 1.2136536030341338,
+     "hessian": null,
+     "dots": 4780,
+     "fill_dots": 4384
+    },
+    "flags_smooth_hessian": {
+     "plane_spacing": 77.67383059418457,
+     "fill_spacing": 4.854614412136535,
+     "smoothing": 1.2136536030341338,
+     "hessian": 1.8204804045512009,
+     "dots": 4735,
+     "fill_dots": 4341
+    }
+   }
+  },
+  "s3_04494_00994_01494_512": {
+   "native_dots": 11576,
+   "pitch_dots": 5554,
+   "A": {
+    "run": {
+     "plane_spacing": 64.0,
+     "fill_spacing": 4.0,
+     "smoothing": 1.0,
+     "hessian": null,
+     "dots": 5554,
+     "fill_dots": 5059
+    },
+    "flags": {
+     "plane_spacing": 52.73333333333334,
+     "fill_spacing": 3.295833333333334,
+     "smoothing": 1.0,
+     "hessian": null,
+     "dots": 5956,
+     "fill_dots": 5409
+    },
+    "flags_smooth": {
+     "plane_spacing": 52.73333333333334,
+     "fill_spacing": 3.295833333333334,
+     "smoothing": 0.8239583333333335,
+     "hessian": null,
+     "dots": 10429,
+     "fill_dots": 9407
+    },
+    "flags_smooth_hessian": {
+     "plane_spacing": 52.73333333333334,
+     "fill_spacing": 3.295833333333334,
+     "smoothing": 0.8239583333333335,
+     "hessian": 1.2359375000000001,
+     "dots": 10544,
+     "fill_dots": 9513
+    }
+   },
+   "B": {
+    "run": {
+     "plane_spacing": 64.0,
+     "fill_spacing": 4.0,
+     "smoothing": 1.0,
+     "hessian": null,
+     "dots": 11576,
+     "fill_dots": 10613
+    },
+    "flags": {
+     "plane_spacing": 77.67383059418457,
+     "fill_spacing": 4.854614412136535,
+     "smoothing": 1.0,
+     "hessian": null,
+     "dots": 10298,
+     "fill_dots": 9351
+    },
+    "flags_smooth": {
+     "plane_spacing": 77.67383059418457,
+     "fill_spacing": 4.854614412136535,
+     "smoothing": 1.2136536030341338,
+     "hessian": null,
+     "dots": 6399,
+     "fill_dots": 5839
+    },
+    "flags_smooth_hessian": {
+     "plane_spacing": 77.67383059418457,
+     "fill_spacing": 4.854614412136535,
+     "smoothing": 1.2136536030341338,
+     "hessian": 1.8204804045512009,
+     "dots": 6301,
+     "fill_dots": 5734
+    }
+   }
+  },
+  "s5_03997_01497_03997_256": {
+   "native_dots": 1049,
+   "pitch_dots": 669,
+   "A": {
+    "run": {
+     "plane_spacing": 64.0,
+     "fill_spacing": 4.0,
+     "smoothing": 1.0,
+     "hessian": null,
+     "dots": 669,
+     "fill_dots": 621
+    },
+    "flags": {
+     "plane_spacing": 52.73333333333334,
+     "fill_spacing": 3.295833333333334,
+     "smoothing": 1.0,
+     "hessian": null,
+     "dots": 700,
+     "fill_dots": 645
+    },
+    "flags_smooth": {
+     "plane_spacing": 52.73333333333334,
+     "fill_spacing": 3.295833333333334,
+     "smoothing": 0.8239583333333335,
+     "hessian": null,
+     "dots": 964,
+     "fill_dots": 865
+    },
+    "flags_smooth_hessian": {
+     "plane_spacing": 52.73333333333334,
+     "fill_spacing": 3.295833333333334,
+     "smoothing": 0.8239583333333335,
+     "hessian": 1.2359375000000001,
+     "dots": 947,
+     "fill_dots": 863
+    }
+   },
+   "B": {
+    "run": {
+     "plane_spacing": 64.0,
+     "fill_spacing": 4.0,
+     "smoothing": 1.0,
+     "hessian": null,
+     "dots": 1049,
+     "fill_dots": 981
+    },
+    "flags": {
+     "plane_spacing": 77.67383059418457,
+     "fill_spacing": 4.854614412136535,
+     "smoothing": 1.0,
+     "hessian": null,
+     "dots": 914,
+     "fill_dots": 841
+    },
+    "flags_smooth": {
+     "plane_spacing": 77.67383059418457,
+     "fill_spacing": 4.854614412136535,
+     "smoothing": 1.2136536030341338,
+     "hessian": null,
+     "dots": 744,
+     "fill_dots": 694
+    },
+    "flags_smooth_hessian": {
+     "plane_spacing": 77.67383059418457,
+     "fill_spacing": 4.854614412136535,
+     "smoothing": 1.2136536030341338,
+     "hessian": 1.8204804045512009,
+     "dots": 744,
+     "fill_dots": 692
+    }
+   }
+  },
+  "s5_06494_01994_03994_512": {
+   "native_dots": 12432,
+   "pitch_dots": 5479,
+   "A": {
+    "run": {
+     "plane_spacing": 64.0,
+     "fill_spacing": 4.0,
+     "smoothing": 1.0,
+     "hessian": null,
+     "dots": 5479,
+     "fill_dots": 5024
+    },
+    "flags": {
+     "plane_spacing": 52.73333333333334,
+     "fill_spacing": 3.295833333333334,
+     "smoothing": 1.0,
+     "hessian": null,
+     "dots": 5854,
+     "fill_dots": 5270
+    },
+    "flags_smooth": {
+     "plane_spacing": 52.73333333333334,
+     "fill_spacing": 3.295833333333334,
+     "smoothing": 0.8239583333333335,
+     "hessian": null,
+     "dots": 10880,
+     "fill_dots": 9673
+    },
+    "flags_smooth_hessian": {
+     "plane_spacing": 52.73333333333334,
+     "fill_spacing": 3.295833333333334,
+     "smoothing": 0.8239583333333335,
+     "hessian": 1.2359375000000001,
+     "dots": 10938,
+     "fill_dots": 9728
+    }
+   },
+   "B": {
+    "run": {
+     "plane_spacing": 64.0,
+     "fill_spacing": 4.0,
+     "smoothing": 1.0,
+     "hessian": null,
+     "dots": 12432,
+     "fill_dots": 11438
+    },
+    "flags": {
+     "plane_spacing": 77.67383059418457,
+     "fill_spacing": 4.854614412136535,
+     "smoothing": 1.0,
+     "hessian": null,
+     "dots": 10894,
+     "fill_dots": 9854
+    },
+    "flags_smooth": {
+     "plane_spacing": 77.67383059418457,
+     "fill_spacing": 4.854614412136535,
+     "smoothing": 1.2136536030341338,
+     "hessian": null,
+     "dots": 6885,
+     "fill_dots": 6282
+    },
+    "flags_smooth_hessian": {
+     "plane_spacing": 77.67383059418457,
+     "fill_spacing": 4.854614412136535,
+     "smoothing": 1.2136536030341338,
+     "hessian": 1.8204804045512009,
+     "dots": 6819,
+     "fill_dots": 6226
+    }
+   }
+  },
+  "s5_06994_00994_04994_512": {
+   "native_dots": 13806,
+   "pitch_dots": 6138,
+   "A": {
+    "run": {
+     "plane_spacing": 64.0,
+     "fill_spacing": 4.0,
+     "smoothing": 1.0,
+     "hessian": null,
+     "dots": 6138,
+     "fill_dots": 5609
+    },
+    "flags": {
+     "plane_spacing": 52.73333333333334,
+     "fill_spacing": 3.295833333333334,
+     "smoothing": 1.0,
+     "hessian": null,
+     "dots": 6590,
+     "fill_dots": 5921
+    },
+    "flags_smooth": {
+     "plane_spacing": 52.73333333333334,
+     "fill_spacing": 3.295833333333334,
+     "smoothing": 0.8239583333333335,
+     "hessian": null,
+     "dots": 12066,
+     "fill_dots": 10816
+    },
+    "flags_smooth_hessian": {
+     "plane_spacing": 52.73333333333334,
+     "fill_spacing": 3.295833333333334,
+     "smoothing": 0.8239583333333335,
+     "hessian": 1.2359375000000001,
+     "dots": 12169,
+     "fill_dots": 10900
+    }
+   },
+   "B": {
+    "run": {
+     "plane_spacing": 64.0,
+     "fill_spacing": 4.0,
+     "smoothing": 1.0,
+     "hessian": null,
+     "dots": 13806,
+     "fill_dots": 12698
+    },
+    "flags": {
+     "plane_spacing": 77.67383059418457,
+     "fill_spacing": 4.854614412136535,
+     "smoothing": 1.0,
+     "hessian": null,
+     "dots": 12178,
+     "fill_dots": 11059
+    },
+    "flags_smooth": {
+     "plane_spacing": 77.67383059418457,
+     "fill_spacing": 4.854614412136535,
+     "smoothing": 1.2136536030341338,
+     "hessian": null,
+     "dots": 7440,
+     "fill_dots": 6791
+    },
+    "flags_smooth_hessian": {
+     "plane_spacing": 77.67383059418457,
+     "fill_spacing": 4.854614412136535,
+     "smoothing": 1.2136536030341338,
+     "hessian": 1.8204804045512009,
+     "dots": 7366,
+     "fill_dots": 6722
+    }
+   }
+  },
+  "s5_07994_01994_05494_512": {
+   "native_dots": 13464,
+   "pitch_dots": 6046,
+   "A": {
+    "run": {
+     "plane_spacing": 64.0,
+     "fill_spacing": 4.0,
+     "smoothing": 1.0,
+     "hessian": null,
+     "dots": 6046,
+     "fill_dots": 5560
+    },
+    "flags": {
+     "plane_spacing": 52.73333333333334,
+     "fill_spacing": 3.295833333333334,
+     "smoothing": 1.0,
+     "hessian": null,
+     "dots": 6691,
+     "fill_dots": 6059
+    },
+    "flags_smooth": {
+     "plane_spacing": 52.73333333333334,
+     "fill_spacing": 3.295833333333334,
+     "smoothing": 0.8239583333333335,
+     "hessian": null,
+     "dots": 12299,
+     "fill_dots": 11054
+    },
+    "flags_smooth_hessian": {
+     "plane_spacing": 52.73333333333334,
+     "fill_spacing": 3.295833333333334,
+     "smoothing": 0.8239583333333335,
+     "hessian": 1.2359375000000001,
+     "dots": 12380,
+     "fill_dots": 11133
+    }
+   },
+   "B": {
+    "run": {
+     "plane_spacing": 64.0,
+     "fill_spacing": 4.0,
+     "smoothing": 1.0,
+     "hessian": null,
+     "dots": 13464,
+     "fill_dots": 12421
+    },
+    "flags": {
+     "plane_spacing": 77.67383059418457,
+     "fill_spacing": 4.854614412136535,
+     "smoothing": 1.0,
+     "hessian": null,
+     "dots": 11880,
+     "fill_dots": 10813
+    },
+    "flags_smooth": {
+     "plane_spacing": 77.67383059418457,
+     "fill_spacing": 4.854614412136535,
+     "smoothing": 1.2136536030341338,
+     "hessian": null,
+     "dots": 7495,
+     "fill_dots": 6866
+    },
+    "flags_smooth_hessian": {
+     "plane_spacing": 77.67383059418457,
+     "fill_spacing": 4.854614412136535,
+     "smoothing": 1.2136536030341338,
+     "hessian": 1.8204804045512009,
+     "dots": 7432,
+     "fill_dots": 6809
+    }
+   }
+  },
+  "s5_07997_02997_05497_256": {
+   "native_dots": 1076,
+   "pitch_dots": 640,
+   "A": {
+    "run": {
+     "plane_spacing": 64.0,
+     "fill_spacing": 4.0,
+     "smoothing": 1.0,
+     "hessian": null,
+     "dots": 640,
+     "fill_dots": 606
+    },
+    "flags": {
+     "plane_spacing": 52.73333333333334,
+     "fill_spacing": 3.295833333333334,
+     "smoothing": 1.0,
+     "hessian": null,
+     "dots": 678,
+     "fill_dots": 632
+    },
+    "flags_smooth": {
+     "plane_spacing": 52.73333333333334,
+     "fill_spacing": 3.295833333333334,
+     "smoothing": 0.8239583333333335,
+     "hessian": null,
+     "dots": 991,
+     "fill_dots": 899
+    },
+    "flags_smooth_hessian": {
+     "plane_spacing": 52.73333333333334,
+     "fill_spacing": 3.295833333333334,
+     "smoothing": 0.8239583333333335,
+     "hessian": 1.2359375000000001,
+     "dots": 988,
+     "fill_dots": 904
+    }
+   },
+   "B": {
+    "run": {
+     "plane_spacing": 64.0,
+     "fill_spacing": 4.0,
+     "smoothing": 1.0,
+     "hessian": null,
+     "dots": 1076,
+     "fill_dots": 1014
+    },
+    "flags": {
+     "plane_spacing": 77.67383059418457,
+     "fill_spacing": 4.854614412136535,
+     "smoothing": 1.0,
+     "hessian": null,
+     "dots": 917,
+     "fill_dots": 861
+    },
+    "flags_smooth": {
+     "plane_spacing": 77.67383059418457,
+     "fill_spacing": 4.854614412136535,
+     "smoothing": 1.2136536030341338,
+     "hessian": null,
+     "dots": 704,
+     "fill_dots": 662
+    },
+    "flags_smooth_hessian": {
+     "plane_spacing": 77.67383059418457,
+     "fill_spacing": 4.854614412136535,
+     "smoothing": 1.2136536030341338,
+     "hessian": 1.8204804045512009,
+     "dots": 699,
+     "fill_dots": 657
+    }
+   }
+  },
+  "s5_13497_01497_02497_256": {
+   "native_dots": 910,
+   "pitch_dots": 521,
+   "A": {
+    "run": {
+     "plane_spacing": 64.0,
+     "fill_spacing": 4.0,
+     "smoothing": 1.0,
+     "hessian": null,
+     "dots": 521,
+     "fill_dots": 500
+    },
+    "flags": {
+     "plane_spacing": 52.73333333333334,
+     "fill_spacing": 3.295833333333334,
+     "smoothing": 1.0,
+     "hessian": null,
+     "dots": 566,
+     "fill_dots": 524
+    },
+    "flags_smooth": {
+     "plane_spacing": 52.73333333333334,
+     "fill_spacing": 3.295833333333334,
+     "smoothing": 0.8239583333333335,
+     "hessian": null,
+     "dots": 843,
+     "fill_dots": 780
+    },
+    "flags_smooth_hessian": {
+     "plane_spacing": 52.73333333333334,
+     "fill_spacing": 3.295833333333334,
+     "smoothing": 0.8239583333333335,
+     "hessian": 1.2359375000000001,
+     "dots": 855,
+     "fill_dots": 792
+    }
+   },
+   "B": {
+    "run": {
+     "plane_spacing": 64.0,
+     "fill_spacing": 4.0,
+     "smoothing": 1.0,
+     "hessian": null,
+     "dots": 910,
+     "fill_dots": 857
+    },
+    "flags": {
+     "plane_spacing": 77.67383059418457,
+     "fill_spacing": 4.854614412136535,
+     "smoothing": 1.0,
+     "hessian": null,
+     "dots": 830,
+     "fill_dots": 793
+    },
+    "flags_smooth": {
+     "plane_spacing": 77.67383059418457,
+     "fill_spacing": 4.854614412136535,
+     "smoothing": 1.2136536030341338,
+     "hessian": null,
+     "dots": 572,
+     "fill_dots": 548
+    },
+    "flags_smooth_hessian": {
+     "plane_spacing": 77.67383059418457,
+     "fill_spacing": 4.854614412136535,
+     "smoothing": 1.2136536030341338,
+     "hessian": 1.8204804045512009,
+     "dots": 561,
+     "fill_dots": 537
+    }
+   }
+  },
+  "s5_14997_01497_01497_256": {
+   "native_dots": 1491,
+   "pitch_dots": 521,
+   "A": {
+    "run": {
+     "plane_spacing": 64.0,
+     "fill_spacing": 4.0,
+     "smoothing": 1.0,
+     "hessian": null,
+     "dots": 521,
+     "fill_dots": 500
+    },
+    "flags": {
+     "plane_spacing": 52.73333333333334,
+     "fill_spacing": 3.295833333333334,
+     "smoothing": 1.0,
+     "hessian": null,
+     "dots": 572,
+     "fill_dots": 541
+    },
+    "flags_smooth": {
+     "plane_spacing": 52.73333333333334,
+     "fill_spacing": 3.295833333333334,
+     "smoothing": 0.8239583333333335,
+     "hessian": null,
+     "dots": 1380,
+     "fill_dots": 1269
+    },
+    "flags_smooth_hessian": {
+     "plane_spacing": 52.73333333333334,
+     "fill_spacing": 3.295833333333334,
+     "smoothing": 0.8239583333333335,
+     "hessian": 1.2359375000000001,
+     "dots": 1377,
+     "fill_dots": 1270
+    }
+   },
+   "B": {
+    "run": {
+     "plane_spacing": 64.0,
+     "fill_spacing": 4.0,
+     "smoothing": 1.0,
+     "hessian": null,
+     "dots": 1491,
+     "fill_dots": 1411
+    },
+    "flags": {
+     "plane_spacing": 77.67383059418457,
+     "fill_spacing": 4.854614412136535,
+     "smoothing": 1.0,
+     "hessian": null,
+     "dots": 1302,
+     "fill_dots": 1221
+    },
+    "flags_smooth": {
+     "plane_spacing": 77.67383059418457,
+     "fill_spacing": 4.854614412136535,
+     "smoothing": 1.2136536030341338,
+     "hessian": null,
+     "dots": 672,
+     "fill_dots": 634
+    },
+    "flags_smooth_hessian": {
+     "plane_spacing": 77.67383059418457,
+     "fill_spacing": 4.854614412136535,
+     "smoothing": 1.2136536030341338,
+     "hessian": 1.8204804045512009,
+     "dots": 665,
+     "fill_dots": 628
+    }
+   }
+  },
+  "s5_16997_03997_04497_256": {
+   "native_dots": 895,
+   "pitch_dots": 490,
+   "A": {
+    "run": {
+     "plane_spacing": 64.0,
+     "fill_spacing": 4.0,
+     "smoothing": 1.0,
+     "hessian": null,
+     "dots": 490,
+     "fill_dots": 462
+    },
+    "flags": {
+     "plane_spacing": 52.73333333333334,
+     "fill_spacing": 3.295833333333334,
+     "smoothing": 1.0,
+     "hessian": null,
+     "dots": 522,
+     "fill_dots": 482
+    },
+    "flags_smooth": {
+     "plane_spacing": 52.73333333333334,
+     "fill_spacing": 3.295833333333334,
+     "smoothing": 0.8239583333333335,
+     "hessian": null,
+     "dots": 802,
+     "fill_dots": 735
+    },
+    "flags_smooth_hessian": {
+     "plane_spacing": 52.73333333333334,
+     "fill_spacing": 3.295833333333334,
+     "smoothing": 0.8239583333333335,
+     "hessian": 1.2359375000000001,
+     "dots": 825,
+     "fill_dots": 760
+    }
+   },
+   "B": {
+    "run": {
+     "plane_spacing": 64.0,
+     "fill_spacing": 4.0,
+     "smoothing": 1.0,
+     "hessian": null,
+     "dots": 895,
+     "fill_dots": 831
+    },
+    "flags": {
+     "plane_spacing": 77.67383059418457,
+     "fill_spacing": 4.854614412136535,
+     "smoothing": 1.0,
+     "hessian": null,
+     "dots": 813,
+     "fill_dots": 765
+    },
+    "flags_smooth": {
+     "plane_spacing": 77.67383059418457,
+     "fill_spacing": 4.854614412136535,
+     "smoothing": 1.2136536030341338,
+     "hessian": null,
+     "dots": 551,
+     "fill_dots": 514
+    },
+    "flags_smooth_hessian": {
+     "plane_spacing": 77.67383059418457,
+     "fill_spacing": 4.854614412136535,
+     "smoothing": 1.2136536030341338,
+     "hessian": 1.8204804045512009,
+     "dots": 543,
+     "fill_dots": 508
+    }
+   }
+  }
+ }
+}
