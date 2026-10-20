@@ -25,7 +25,6 @@ from dataclasses import asdict
 import kimimaro
 import numpy as np
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
 from tap import Tap
 
@@ -58,7 +57,7 @@ from torch.utils.data import DataLoader, RandomSampler, default_collate
 from scripts import wandb_tracking
 from scripts.betti_loss_module import BettiLoss
 from scripts.cldice_loss import SoftClDiceLoss
-from scripts.training.config import AuxiliaryConfig, ExperimentConfig
+from scripts.training.config import ExperimentConfig
 from scripts.training.promotion import (
     RESCORE_COMMAND,
     VALIDATION_LABEL_FILES,
