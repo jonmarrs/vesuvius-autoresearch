@@ -23,16 +23,22 @@ def _fiber(*nodes):
 
 
 def test_gt_samples_carry_their_edge_length_and_distance_from_the_nearer_node():
-    P, length, node = pl.gt_samples([_fiber((5, 5, 1), (5, 5, 9))], size=16)
+    P, length, node, direction = pl.gt_samples([_fiber((5, 5, 1), (5, 5, 9))], size=16)
     assert len(P) == 33 and np.allclose(P[:, 2], np.linspace(1, 9, 33))
     assert np.all(length == 8)
     assert (
         node[0] == node[-1] == 0 and node[16] == 4
     )  # the midpoint is 4 voxels from both nodes
+    assert np.all(direction == (0, 0, 1))
+
+
+def test_an_edge_of_length_0_has_no_direction():
+    *_, direction = pl.gt_samples([_fiber((5, 5, 5), (5, 5, 5))], size=16)
+    assert np.isnan(direction).all()
 
 
 def test_gt_samples_outside_the_cube_are_dropped():
-    P, _, _ = pl.gt_samples([_fiber((5, 5, -4), (5, 5, 4))], size=16)
+    P, _, _, _ = pl.gt_samples([_fiber((5, 5, -4), (5, 5, 4))], size=16)
     assert P[:, 2].min() >= 0
 
 
@@ -47,6 +53,30 @@ def test_a_shift_reads_as_the_median_displacement():
         0,
     )  # 3 voxels off: inside the 6-voxel radius, outside the tolerance
     assert pl.placement(far, *gt)["le2"] == 0.0
+
+
+def test_a_shift_along_most_fibers_shows_only_across_them():
+    """The displacement to the nearest GT point is perpendicular to the fiber: a vertical fiber hides a z shift."""
+    vertical = [
+        _fiber((10, y, x), (110, y, x)) for y, x in ((20, 20), (40, 60), (70, 30))
+    ]
+    horizontal = [_fiber((60, 50, 10), (60, 50, 110))]
+    pred = np.vstack([pl._samples(f.coords) for f in vertical + horizontal])
+    shifted = [_fiber(*(f.coords + (2.5, 0, 0))) for f in vertical + horizontal]
+    r = pl.placement(pred, *pl.gt_samples(shifted, size=128))
+    # A quarter of the samples are off by 2.5 voxels, yet the median z displacement is 0: the vertical fibers' 3/4.
+    assert r["le2"] < 0.8 and r["median_disp_zyx"][0] == 0
+    # Across z only the horizontal fiber counts, and it shows the shift in full. Every fiber is across y; the
+    # horizontal one, along x, is not across x.
+    assert r["median_disp_perp_zyx"] == [2.5, 0, 0]
+    n = r["n_matched"]
+    assert r["n_perp_zyx"] == [n // 4, n, 3 * n // 4]
+    along_x = [_fiber(*(f.coords + (0, 0, 1.5))) for f in vertical + horizontal]
+    assert pl.placement(pred, *pl.gt_samples(along_x, size=128))[
+        "median_disp_perp_zyx"
+    ] == [0, 0, 1.5]
+    same = pl.placement(pred, *pl.gt_samples(vertical + horizontal, size=128))
+    assert same["le2"] == 1.0 and same["median_disp_perp_zyx"] == [0, 0, 0]
 
 
 def test_samples_beyond_the_radius_are_not_counted():

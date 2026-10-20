@@ -5,7 +5,10 @@ voxels. Per cube, both polylines are sampled every 0.25 voxel, and each predicte
 matched to its nearest GT sample. Recorded per cube and entrant:
 
 * the share of matched samples within 2 voxels;
-* the median displacement (z, y, x) from prediction to GT: a systematic shift between the GT and the CT shows here;
+* the median displacement (z, y, x) from prediction to GT. The displacement to the nearest GT point is perpendicular
+  to the GT fiber, so a shift between the GT and the CT shows only on fibers across it: a shift along z is invisible on
+  a vertical fiber, and where those hold most samples the median misses it. So the median along each axis is also
+  recorded over the samples on fibers within 30 degrees of perpendicular to it, which see at least 3/4 of a shift;
 * that share separately for samples nearest a GT point within 1 voxel of an annotator's node, and at least 3 voxels
   from both: straight edges between sparse nodes would put a tracer that follows the true centre further off
   mid-edge;
@@ -29,6 +32,9 @@ import neural_tracer_analysis as f91  # noqa: E402
 
 STEP, RADIUS, TOL = 0.25, 6.0, 2.0
 NEAR_NODE, MID_EDGE = 1.0, 3.0
+PERPENDICULAR = (
+    0.5  # |cos| of a fiber's angle to an axis: within 30 degrees of perpendicular to it
+)
 NEURAL = Path("/home/jon/openclaw-workspace/Neo-VM/spiral_out/neural_tracer/run")
 GENERATOR = Path("/home/jon/openclaw-workspace/Neo-VM/spiral_out/afv_gen/run")
 
@@ -45,10 +51,12 @@ def _samples(p: np.ndarray, step: float = STEP) -> np.ndarray:
     )
 
 
-def gt_samples(fibers, size: int) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """GT edges sampled every STEP inside the cube: points (z, y, x), each one's edge length, and its distance from
-    the nearer of the edge's two nodes."""
-    P, length, node = [], [], []
+def gt_samples(
+    fibers, size: int
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """GT edges sampled every STEP inside the cube: points (z, y, x), each one's edge length, its distance from the
+    nearer of the edge's two nodes, and the edge's unit direction (NaN for an edge of length 0)."""
+    P, length, node, direction = [], [], [], []
     for f in fibers:
         for a, b in f.edges:
             p0, p1 = f.coords[a], f.coords[b]
@@ -58,13 +66,20 @@ def gt_samples(fibers, size: int) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
             P.append(p0 + (p1 - p0) * t[:, None])
             length.append(np.full(n + 1, e))
             node.append(np.minimum(t, 1 - t) * e)
+            u = (p1 - p0) / e if e > 0 else np.full(3, np.nan)
+            direction.append(np.tile(u, (n + 1, 1)))
     P, length, node = np.vstack(P), np.concatenate(length), np.concatenate(node)
+    direction = np.vstack(direction)
     inside = np.all((P >= 0) & (size > P), axis=1)
-    return P[inside], length[inside], node[inside]
+    return P[inside], length[inside], node[inside], direction[inside]
 
 
 def placement(
-    pred: np.ndarray, P: np.ndarray, length: np.ndarray, node: np.ndarray
+    pred: np.ndarray,
+    P: np.ndarray,
+    length: np.ndarray,
+    node: np.ndarray,
+    direction: np.ndarray,
 ) -> dict:
     """Predicted samples matched to their nearest GT sample within RADIUS, as recorded per cube."""
     from scipy.spatial import cKDTree
@@ -73,6 +88,10 @@ def placement(
     ok = np.isfinite(d)
     d, i = d[ok], i[ok]
     near, mid = node[i] <= NEAR_NODE, node[i] >= MID_EDGE
+    disp = P[i] - pred[ok]
+    # On a fiber within 30 degrees of perpendicular to an axis (|cos| <= 1/2), the displacement keeps 1 - cos^2, at
+    # least 3/4, of a shift along that axis.
+    across = np.abs(direction[i]) <= PERPENDICULAR
 
     def share(m):
         return float((d[m] <= TOL).mean()) if m.any() else None
@@ -82,7 +101,12 @@ def placement(
         "n_matched": int(ok.sum()),
         "matched_share": float(ok.mean()),
         "le2": share(np.ones(len(d), bool)),
-        "median_disp_zyx": [float(v) for v in np.median(P[i] - pred[ok], axis=0)],
+        "median_disp_zyx": [float(v) for v in np.median(disp, axis=0)],
+        "median_disp_perp_zyx": [
+            float(np.median(disp[across[:, a], a])) if across[:, a].any() else None
+            for a in range(3)
+        ],
+        "n_perp_zyx": [int(n) for n in across.sum(axis=0)],
         "n_near_node": int(near.sum()),
         "near_node_le2": share(near),
         "n_mid_edge": int(mid.sum()),
@@ -138,6 +162,7 @@ def main() -> int:
         "tolerance": TOL,
         "near_node": NEAR_NODE,
         "mid_edge": MID_EDGE,
+        "perpendicular": PERPENDICULAR,
         "sources": {
             "neural": "/".join(args.neural.resolve().parts[-3:]),
             "generator": "/".join(args.generator.resolve().parts[-3:]),
