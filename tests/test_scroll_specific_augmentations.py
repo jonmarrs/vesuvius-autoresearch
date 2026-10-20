@@ -108,3 +108,23 @@ def test_adapter_exercises_all_nine_families(monkeypatch):
         "scroll_rician_noise",
         "scroll_blank_rectangles",
     }
+
+
+def test_decohesion_leaves_the_patch_ends_as_bright_as_its_middle():
+    """Its ghost and z-blur padded with zeros: a constant volume's first two
+    slices came out at 0.71 and 0.77 of it (alpha 0.45). Now each slice blends
+    in the slice two before (the first, at the start) and the mean of the up to
+    five around it."""
+    from scroll_augmentations import scroll_decohesion
+
+    x = torch.full((2, 2, 16, 8, 8), 0.4)
+    for alpha in (0.15, 0.45):
+        assert torch.allclose(scroll_decohesion(x, alpha=alpha), x)
+    torch.manual_seed(0)
+    x = torch.rand(1, 1, 16, 8, 8)
+    out = scroll_decohesion(x, alpha=0.3)
+    for z in range(16):
+        around = x[:, :, max(0, z - 2) : z + 3].mean(dim=2)
+        ghost = x[:, :, max(0, z - 2)]
+        expected = 0.7 * x[:, :, z] + 0.3 * 0.6 * around + 0.3 * 0.4 * ghost
+        assert torch.allclose(out[:, :, z], expected, atol=1e-6), f"slice {z}"

@@ -82,3 +82,30 @@ def test_without_dropout_one_pass_matches_four():
         another, _ = train.uamt_teacher(teacher, x, 1)
     assert torch.exp(-var).min() > 0.9999
     assert (four - one).abs().max() <= 2 * (one - another).abs().max()
+
+
+class _Channel(torch.nn.Module):
+    """A teacher whose ink logits are one input channel."""
+
+    def __init__(self, channel):
+        super().__init__()
+        self.channel = channel
+
+    def forward(self, x):
+        return x[:, self.channel : self.channel + 1]
+
+
+def test_the_teacher_noise_is_on_the_ct_only():
+    """With use_ridges, channel 1 is the ridge channel, around 1e-3. Noise of std
+    0.01 buried it, so the student was fitted to a teacher that could not see
+    it, while the augmentations leave it alone."""
+    torch.manual_seed(0)
+    x = torch.rand(2, 2, 4, 8, 8)
+    x[:, 1] *= 1e-3
+    prob, _ = train.uamt_teacher(_Channel(1), x, 1)
+    assert torch.equal(prob, torch.sigmoid(x[:, 1:2]))
+    prob, _ = train.uamt_teacher(_Channel(0), x, 1)
+    assert not torch.allclose(prob, torch.sigmoid(x[:, :1]))
+    # A CT-only input still gets its noise.
+    prob, _ = train.uamt_teacher(_Channel(0), x[:, :1], 1)
+    assert not torch.allclose(prob, torch.sigmoid(x[:, :1]))

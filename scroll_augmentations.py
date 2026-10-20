@@ -109,18 +109,24 @@ def scroll_decohesion(
         blur_kernel: kernel size for symmetric z-blur (odd, >=3).
     Returns:
         Same shape as x.
+
+    At the patch's ends the ghost repeats the first slice and the blur averages
+    the slices there are. Zeros in their place darkened a constant volume's
+    first two slices to 0.71 and 0.77 of it, and its last two to 0.95 and 0.89
+    (alpha 0.45): an edge the augmentation did not mean to add.
     """
     if x.shape[2] < max(3, ghost_offset + 1):
         return x
 
-    ghost = torch.zeros_like(x)
-    ghost[:, :, ghost_offset:] = x[:, :, :-ghost_offset]
+    first = x[:, :, :1].expand(-1, -1, ghost_offset, -1, -1)
+    ghost = torch.cat([first, x[:, :, :-ghost_offset]], dim=2)
 
     blurred = F.avg_pool3d(
         x,
         kernel_size=(blur_kernel, 1, 1),
         stride=1,
         padding=(blur_kernel // 2, 0, 0),
+        count_include_pad=False,
     )
 
     return (1.0 - alpha) * x + (alpha * 0.6) * blurred + (alpha * 0.4) * ghost
