@@ -106,7 +106,7 @@ def write_runner(runner_path: Path, gp_winner_root: Path) -> None:
     """
     runner_path.parent.mkdir(parents=True, exist_ok=True)
     runner_path.write_text(
-        '"""Auto-generated GP-winner runner. Invoked by scripts/launch_gp_winner.py."""\n'
+        '"""Auto-generated GP-winner runner. Invoked by scripts/training/launch_gp_winner.py."""\n'
         "import argparse\n"
         "import sys\n"
         "from pathlib import Path\n"

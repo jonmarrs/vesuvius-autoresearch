@@ -196,3 +196,58 @@ def test_launch_neural_tracing_falls_back_to_the_hf_sentinel(tmp_path):
     assert data["socket_path"].endswith(".sock")
     # `ready` is not asserted: it turns on whether this machine happens to have
     # the OME-zarr volume, which is not what this test is about.
+
+
+def _git(*args):
+    """git in this repository, or a skip: no git, or a checkout that is not this
+    repository's own (an unpacked copy inside another repository would answer for
+    that one)."""
+    try:
+        top = subprocess.run(
+            ["git", "rev-parse", "--show-toplevel"],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+        )
+    except FileNotFoundError:
+        pytest.skip("git is not installed")
+    if top.returncode != 0 or Path(top.stdout.strip()).resolve() != REPO_ROOT:
+        pytest.skip("not this repository's git checkout")
+    return subprocess.run(["git", *args], cwd=REPO_ROOT, capture_output=True, text=True)
+
+
+def _untracked_and_ignored(name, written_to):
+    """No tracked file of this name anywhere, and where it is written is ignored."""
+    tracked = _git("ls-files", "--", f":(glob)**/{name}")
+    assert tracked.returncode == 0 and tracked.stdout == ""
+    assert _git("check-ignore", "-q", written_to).returncode == 0
+
+
+@pytest.mark.parametrize(
+    "launcher, runner",
+    [
+        ("launch_gp_winner.py", "_gp_winner_runner.py"),
+        ("launch_finetune_lejepa.py", "_finetune_lejepa_runner.py"),
+    ],
+)
+def test_a_generated_runner_names_its_launcher_and_stays_out_of_git(
+    tmp_path, launcher, runner
+):
+    """The runners are generated with this machine's paths on every run, into
+    scripts/ (ignored). The June reorg committed one copy of each under
+    scripts/training/, naming the launchers' old paths, which nothing ran."""
+    path = _script(launcher)
+    spec = importlib.util.spec_from_file_location(f"_{runner[1:-3]}_probe", path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    mod.write_runner(tmp_path / runner, tmp_path)
+    first = (tmp_path / runner).read_text().splitlines()[0]
+    assert f"Invoked by {path.relative_to(REPO_ROOT)}." in first
+    _untracked_and_ignored(runner, f"scripts/{runner}")
+
+
+def test_the_proofreader_config_stays_out_of_git():
+    """launch_proofreader.py writes it into the working directory (the repository
+    root: it runs only beside villa/) on every launch. Three May commits had swept
+    a copy in, which an ignore line alone would not have untracked."""
+    _untracked_and_ignored("proofreader_config.json", "proofreader_config.json")
