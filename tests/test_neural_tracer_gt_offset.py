@@ -7,6 +7,7 @@ import types
 from pathlib import Path
 
 import numpy as np
+import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
@@ -56,6 +57,17 @@ def test_the_mean_shift_averages_both_entrants():
         "generator": {"median_disp_perp_zyx": [0.0, 1.0, 1.0]},
     }
     assert np.allclose(go.mean_shift(cube), (0.5, 0.5, 1.5))
+
+
+@pytest.mark.parametrize("entrant", ["neural", "generator"])
+def test_the_mean_shift_refuses_an_axis_an_entrant_has_no_samples_across(entrant):
+    cube: dict[str, dict[str, list[float | None]]] = {
+        "neural": {"median_disp_perp_zyx": [1.0, 0.0, 2.0]},
+        "generator": {"median_disp_perp_zyx": [0.0, 1.0, 1.0]},
+    }
+    cube[entrant]["median_disp_perp_zyx"][1] = None
+    with pytest.raises(ValueError, match=f"{entrant} has no samples across an axis"):
+        go.mean_shift(cube)
 
 
 GO = json.loads((ROOT / "reports/neural_tracer_gt_offset.json").read_text())
