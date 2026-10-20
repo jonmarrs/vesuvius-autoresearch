@@ -94,7 +94,9 @@ Medians by group (merge-penalized ERL / coverage):
   * Annotation style per scroll.
 
   The comparison on the in-sample cubes is also tilted towards our tracer and connected components, which are built
-  from the mask itself. Those cubes are where the mask is strongest.
+  from the mask itself. Those cubes are where the mask is strongest. (Exploratory, 2026-10-19, in the last section:
+  most of the Scroll-3 advantage is where centrelines sit within 2–4 voxels of the GT. #1934's generator shares it,
+  and a shift between the GT and the CT or the GT's node spacing do not explain it.)
 * **For ScrollGT:** the scroll dependence is the finding a single-scroll benchmark would miss. On Scroll 3, scoring
   version 3 ranks this tracer first on merge-penalized ERL with 42% less coverage than connected
   components (median 0.480 against 0.826). The headline is run length, not recall.
@@ -112,3 +114,42 @@ Medians by group (merge-penalized ERL / coverage):
 * **Nothing is posted to villa or added to ScrollGT** without a separate decision by the user. (Update 2026-10-19: on
   the user's decision, ScrollGT 0.8.0, scrollgt#6, publishes these rows as `villa_neural_tracer`. All 21 equal this
   report's, field for field. Nothing is posted to villa.)
+
+## Exploratory, after finding 92: what the Scroll-3 lead is made of
+
+Not registered. Read on 2026-10-19 from this report's rows (`neural_tracer_entrant.json`, which also holds #1934's
+generator and the descriptive tolerance-4 scores), and from where the two thin entrants' centrelines sit relative to
+the GT (`scripts/neural_tracer_placement.py`, `neural_tracer_placement.json`).
+
+**On the 512³ cubes, only the thin entrants gain on Scroll 3.** Medians of merge-penalized ERL. The in-sample 512³
+cubes are Scroll 5's three, the same size as Scroll 3's:
+
+| entrant | Scroll 3 | in-sample 512³ | ratio | ratio at tolerance 4 |
+|---|---:|---:|---:|---:|
+| this tracer | 25.30 | 9.33 | 2.71 | 1.26 |
+| #1934's generator | 16.45 | 7.77 | 2.12 | 0.81 |
+| our tracer | 20.98 | 19.66 | 1.07 | not scored |
+| connected components | 15.04 | 13.85 | 1.09 | not scored |
+
+* **Both thin entrants gain, and the two built from the mask do not.** For this tracer every Scroll-3 cube scores
+  above every in-sample 512³ one (exact two-sided rank test, p 0.012, the smallest 8 cubes against 3 allow). The mask
+  covers both about equally: connected components' coverage is 0.826 against 0.822.
+* **At tolerance 4 most of the gain goes.** This tracer's ratio falls from 2.71 to 1.26 (coverage 1.40 to 1.04,
+  precision 1.34 to 1.00), and the generator's from 2.12 to 0.81. On those Scroll-5 cubes both find the fibers, but
+  lay their centrelines 2–4 voxels from the GT more often.
+* **Measured directly:** of the centreline samples within 6 voxels of the GT, the share within 2 is 0.68–0.76 on
+  Scroll 3 against 0.43–0.61 on the 11 in-sample cubes for this tracer, and 0.77–0.84 against 0.43–0.67 for the
+  generator. For both, every Scroll-3 cube is above every in-sample one.
+* **Not a shift between the GT and the CT.** The median displacement from centreline to GT is at most 0.62 voxels
+  along any axis, on every cube, for both entrants.
+* **Not the GT's node spacing.** Scroll 3's annotators placed nodes about twice as densely (a median edge of 6.5
+  voxels against 12.4). Straight edges between sparse nodes could put a centre-following tracer off the GT mid-edge.
+  But within a cube, samples at an annotator's node are within 2 voxels a median of only 0.04 more often than mid-edge
+  ones. The in-sample cubes trail even at the nodes, 0.46–0.62 against 0.69–0.77 for this tracer. And
+  `s1_08997_02997_02497` has Scroll 3's node spacing (5.1 voxels) with an in-sample share (0.57).
+* **What remains, untested:** how precisely each scroll's annotators centred their nodes, how sharply each scan shows a
+  fiber's centre, and fiber width. The two held-out Scroll-5 cubes do not separate these. The generator's centrelines
+  sit there as on Scroll 3 (0.88 and 0.78), this tracer's as on the in-sample cubes (0.55 and 0.54).
+* **For ScrollGT:** at its tolerance of 2 voxels, a thin entrant's scores across scrolls turn on placement within 2–4
+  voxels. The published Scroll-3 lead is a tolerance-2 result. Whether it holds at 4 is not measured, because our
+  tracer and connected components were not rescored there.
