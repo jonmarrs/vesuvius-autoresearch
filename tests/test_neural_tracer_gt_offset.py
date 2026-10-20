@@ -59,12 +59,14 @@ def test_the_mean_shift_averages_both_entrants():
     assert np.allclose(go.mean_shift(cube), (0.5, 0.5, 1.5))
 
 
-def test_the_mean_shift_refuses_an_axis_an_entrant_has_no_samples_across():
-    cube = {
-        "neural": {"median_disp_perp_zyx": [1.0, None, 2.0]},
+@pytest.mark.parametrize("entrant", ["neural", "generator"])
+def test_the_mean_shift_refuses_an_axis_an_entrant_has_no_samples_across(entrant):
+    cube: dict[str, dict[str, list[float | None]]] = {
+        "neural": {"median_disp_perp_zyx": [1.0, 0.0, 2.0]},
         "generator": {"median_disp_perp_zyx": [0.0, 1.0, 1.0]},
     }
-    with pytest.raises(ValueError, match="neural has no samples across an axis"):
+    cube[entrant]["median_disp_perp_zyx"][1] = None
+    with pytest.raises(ValueError, match=f"{entrant} has no samples across an axis"):
         go.mean_shift(cube)
 
 

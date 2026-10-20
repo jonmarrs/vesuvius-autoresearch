@@ -111,7 +111,10 @@ def main() -> int:
             "neural": pl.predicted(pl.NEURAL / c / "fibers.afv", size),
             "generator": pl.predicted(pl.GENERATOR / f"{c}.afv", size),
         }
-        row: dict = {"shift": mean_shift(placement[c]).tolist()}
+        try:
+            row: dict = {"shift": mean_shift(placement[c]).tolist()}
+        except ValueError as exc:
+            raise ValueError(f"{c}: {exc}") from None
         for ent, other in (("neural", "generator"), ("generator", "neural")):
             other_shift = np.asarray(placement[c][other]["median_disp_perp_zyx"], float)
             row[ent] = {
