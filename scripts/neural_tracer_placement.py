@@ -8,7 +8,9 @@ matched to its nearest GT sample. Recorded per cube and entrant:
 * the median displacement (z, y, x) from prediction to GT. The displacement to the nearest GT point is perpendicular
   to the GT fiber, so a shift between the GT and the CT shows only on fibers across it: a shift along z is invisible on
   a vertical fiber, and where those hold most samples the median misses it. So the median along each axis is also
-  recorded over the samples on fibers within 30 degrees of perpendicular to it, which see at least 3/4 of a shift;
+  recorded over the samples on fibers within 30 degrees of perpendicular to it, which see at least 3/4 of a shift.
+  A shift along another axis moves it too, by up to 0.43 of that shift (cos times sin of the fiber's tilt), as it
+  moves the plain median;
 * that share separately for samples nearest a GT point within 1 voxel of an annotator's node, and at least 3 voxels
   from both: straight edges between sparse nodes would put a tracer that follows the true centre further off
   mid-edge;
@@ -32,9 +34,8 @@ import neural_tracer_analysis as f91  # noqa: E402
 
 STEP, RADIUS, TOL = 0.25, 6.0, 2.0
 NEAR_NODE, MID_EDGE = 1.0, 3.0
-PERPENDICULAR = (
-    0.5  # |cos| of a fiber's angle to an axis: within 30 degrees of perpendicular to it
-)
+# |cos| of a fiber's angle to an axis: at most this, the fiber is within 30 degrees of perpendicular to it.
+PERPENDICULAR = 0.5
 NEURAL = Path("/home/jon/openclaw-workspace/Neo-VM/spiral_out/neural_tracer/run")
 GENERATOR = Path("/home/jon/openclaw-workspace/Neo-VM/spiral_out/afv_gen/run")
 

@@ -20,27 +20,43 @@ Scope:
     shift there.
   - The new test builds three fibers along z and one across it. A 2.5-voxel z shift of the GT puts a quarter of the
     samples beyond 2 voxels, and the median z displacement stays at exactly 0.
-  - On randomly placed in-plane arcs and fibers along z (a check not committed), a 2-voxel z shift lowered the share
-    within 2 voxels from 1.00 to 0.75–0.89. The median z displacement read at most 0.1.
+  - The independent review built its own scenes: six fibers along z, tilted 0–20°, and three in-plane arcs. There a
+    2.5-voxel z shift lowered the share within 2 voxels from 1.00 to 0.67, and the median z displacement read 0.12.
   - The other axes are not safe either: a cube whose in-plane fibers mostly run along x would hide an x shift the same
-    way.
+    way. On full circles, the review's 2-voxel x shift read 0.99 on the median.
   - **Change:**
     - `gt_samples` also returns each GT sample's edge direction, NaN for an edge of length 0.
     - `placement` also records `median_disp_perp_zyx`, the median displacement along each axis over the samples on
-      fibers within 30° of perpendicular to it (|cos| ≤ 1/2). Those samples keep at least 3/4 of a shift along that
-      axis. It also records their counts, `n_perp_zyx`, and the threshold, `perpendicular`.
-    - The fields `#151` recorded are unchanged.
+      fibers within 30° of perpendicular to it (|cos| ≤ 1/2). It also records their counts, `n_perp_zyx`, and the
+      threshold, `perpendicular`.
+    - Those samples keep 1 − cos², at least 3/4, of a shift along that axis. On the review's scenes the new field read
+      2.50 for the z shift and 1.86 for the x shift.
+    - It is not free of the other axes. A shift along another axis moves it by cos × sin of the fiber's angle to it, up
+      to 0.43 of that shift. A 2-voxel z shift on fibers tilted 30° towards y reads −0.87 along y, on this field and
+      the plain median alike. The docstring and the report say so.
+    - The fields #151 recorded are unchanged.
   - **The committed run predates the new fields**, and the runs and ScrollGT's data are not in this container. So the
-    report now says what the median does and does not exclude, in its own bullet and in the summary that cites it.
+    report keeps the owner's wording, with review notes marked and dated, in three places:
+    - after its shift bullet, saying what the median does and does not exclude;
+    - in the earlier summary that cites the bullet;
+    - in the list of what remains untested.
+
     The 0.62 and every other number in the section are unchanged.
 - **Tests** (`tests/test_neural_tracer_placement.py`):
   - the shift case above, a shift along x, and the unshifted case;
-  - the edge direction, and NaN for an edge of length 0.
+  - the edge direction, and NaN for an edge of length 0;
+  - each direction staying with its GT sample. The case has:
+    - a fiber crossing a cube face;
+    - a fiber at 45°;
+    - predictions sampled at another step and in reverse order;
+    - two displacements across z, so that the median and the mean differ.
 
   The owner's tests now unpack `gt_samples`' fourth array. Each of these mutants is killed:
   - the perpendicular mask inverted;
-  - every sample counted, or the threshold at 1;
-  - the median taken along the wrong axis;
+  - every sample counted;
+  - the threshold at 0.87 or 1;
+  - the median taken along the wrong axis, or replaced by the mean;
+  - the directions left unclipped to the cube, or indexed by the predicted sample;
   - a zero direction for an edge of length 0.
 - **Dead code in the loop and the trainer.**
   - `run_autoresearch_loop.main` set `end_hour` and never read it. The shift-end check that used it was replaced
@@ -60,8 +76,8 @@ Scope:
   - The groups are finding 91's: 11 in-sample cubes (5 from Scroll 1, 6 from Scroll 5, three of them 512³), 8 on
     Scroll 3 and 2 held out on Scroll 5.
   - The sampling is `afv_to_labels.rasterize`'s, at 0.25 voxel. Two differences:
-    - `predicted` keeps samples in [0, size), while the rasteriser keeps those that round into the cube, a
-      half-voxel shell more at each face;
+    - `predicted` keeps samples in [0, size). The rasteriser keeps those that round into the cube, [−0.5, size − 0.5):
+      half a voxel more at the low faces and half a voxel less at the high ones;
     - the distances are to the samples themselves, not to the voxels they label.
   - The near-node and mid-edge split measures the distance along the edge from its nearer node, and the tests pin it.
 - **The loop's broad `except Exception`s** (7 in the loop, 10 in `train.py`). Each one logs. The validation metrics,
@@ -82,11 +98,31 @@ Scope:
 
 - Whether a shift explains part of the in-sample deficit is open until the placement script runs again on the work
   directories. The new field would show a shift that the matched fibers' directions hide from the plain median.
+- **Both medians alias where GT fibers lie closer than twice a shift**, since samples then match the neighbouring fiber.
+  The review stacked fibers every 4 voxels and shifted them 2.5. Both medians read −1.5 with 97% of samples within 2.
+  ScrollGT's traced fibers are probably sparser than that.
 
 ## Verification
 
-- `pytest` on the placement, entrant-report, pitch, and filing-number tests: 62 passed, 4 skipped for want of the
-  sibling checkouts.
+- `pytest` on `test_neural_tracer_placement`, `test_neural_tracer_entrant_report`, `test_neural_tracer_pitch_analysis`,
+  `test_neural_tracer_pitch_report` and `test_filing_2026_10_numbers`: 63 passed, 4 skipped for want of the sibling
+  checkouts.
 - Ruff and ruff format are clean on the changed files. Mypy is clean on them, the test included. With
   `--warn-unused-ignores`, the loop and `train.py` report the same 13 unused ignores as on main, and the changed
   files none.
+- **The standard suite** on the first commit (`479829d4`) ran as on main: 2672 passed, with the same 42 failures and 2
+  errors, all environmental. The smoke test gave 9 of 11 passed and 2 skipped, as on main.
+- **Independent review** of the first commit found nothing blocking. Its should-fix findings:
+  - the leakage from other axes went unstated;
+  - the tests did not tie each direction to its GT sample.
+
+  Its nits:
+  - the threshold and the median were unpinned;
+  - the aliasing;
+  - the report's notes were not all marked as the review's, and its heading was rewritten in the owner's voice;
+  - the untested list;
+  - the test count and the rasteriser's faces in this doc;
+  - an uncommitted check whose shift equalled the tolerance (dropped above for the review's scenes);
+  - the constant's comment.
+
+  All are addressed above.

@@ -79,6 +79,43 @@ def test_a_shift_along_most_fibers_shows_only_across_them():
     assert same["le2"] == 1.0 and same["median_disp_perp_zyx"] == [0, 0, 0]
 
 
+def test_directions_stay_with_their_gt_samples():
+    """Across a cube face, an oblique fiber, and predictions sampled differently and in another order."""
+    vertical = _fiber(
+        (-30, 20, 20), (100, 20, 20)
+    )  # its first 110 GT samples fall outside the cube
+    along_x = _fiber((60, 50, 10), (60, 50, 110))
+    along_y = _fiber((80, 80, 70), (80, 100, 70))
+    oblique = _fiber(
+        (20, 60, 100), (60, 100, 100)
+    )  # 45 degrees from z and from y: across x only
+    gt = pl.gt_samples(
+        [
+            _fiber(*(f.coords + (2.5, 0, 0)))
+            for f in (vertical, along_x, along_y, oblique)
+        ],
+        size=128,
+    )
+    on = {
+        "vertical": pl._samples(np.array([[0.0, 20, 20], [100, 20, 20]]), step=0.4),
+        "along_x": pl._samples(along_x.coords, step=0.4),
+        "along_y": pl._samples(
+            along_y.coords - (1, 0, 0), step=0.4
+        ),  # 3.5 voxels from its GT
+        "oblique": pl._samples(oblique.coords, step=0.4),
+    }
+    n = {k: len(v) for k, v in on.items()}
+    r = pl.placement(np.vstack(list(on.values()))[::-1], *gt)
+    assert r["n_matched"] == sum(n.values())
+    assert r["n_perp_zyx"] == [
+        n["along_x"] + n["along_y"],
+        n["vertical"] + n["along_x"],
+        n["vertical"] + n["along_y"] + n["oblique"],
+    ]
+    # Across z, 251 samples at 2.5 and 51 at 3.5: the median, not the mean (2.67).
+    assert r["median_disp_perp_zyx"] == [2.5, 0, 0]
+
+
 def test_samples_beyond_the_radius_are_not_counted():
     gt = pl.gt_samples([_fiber((5, 5, 0), (5, 5, 15))], size=16)
     near = np.column_stack([np.full(10, 5.0), np.full(10, 6.0), np.linspace(2, 12, 10)])
