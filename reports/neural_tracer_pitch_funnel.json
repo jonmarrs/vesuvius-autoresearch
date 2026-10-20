@@ -1,0 +1,1112 @@
+{
+ "status": "exploratory, after the registered result",
+ "ratio": 1.2136536030341338,
+ "sources": {
+  "native": "spiral_out/neural_tracer/run",
+  "pitch": "spiral_out/neural_tracer/pitch_run",
+  "rows": "reports/neural_tracer_pitch.json"
+ },
+ "cubes": {
+  "s1_00497_01497_03997_256": {
+   "native": {
+    "dots": 1457,
+    "owned_dots": 436,
+    "no_heading": 841,
+    "traced": 180,
+    "traced_vox": 9949,
+    "kept_vox": 6676,
+    "fibers": 119,
+    "stop_confidence": 214,
+    "stop_owned_or_live": 145,
+    "stop_bounds": 1
+   },
+   "pitch": {
+    "dots": 920,
+    "owned_dots": 238,
+    "no_heading": 587,
+    "traced": 95,
+    "traced_vox": 5705,
+    "kept_vox": 4093,
+    "fibers": 70,
+    "stop_confidence": 124,
+    "stop_owned_or_live": 65,
+    "stop_bounds": 1
+   },
+   "funnel": {
+    "dots": 0.6314344543582704,
+    "no_heading_share": [
+     0.577213452299245,
+     0.6380434782608696
+    ],
+    "owned_share": [
+     0.29924502402196296,
+     0.25869565217391305
+    ],
+    "traces": 0.5277777777777778,
+    "grid_vox_per_trace": [
+     55.272222222222226,
+     60.05263157894737
+    ],
+    "physical_traced": 0.6959386677364291,
+    "kept_share": [
+     0.6710222132877676,
+     0.7174408413672217
+    ],
+    "physical_kept": 0.7440809162999864
+   },
+   "pen_ratio": 0.8230769230769232,
+   "coverage_ratio": 0.7961302501179801
+  },
+  "s1_00497_02497_02997_256": {
+   "native": {
+    "dots": 1357,
+    "owned_dots": 450,
+    "no_heading": 736,
+    "traced": 171,
+    "traced_vox": 10686,
+    "kept_vox": 7520,
+    "fibers": 122,
+    "stop_confidence": 197,
+    "stop_owned_or_live": 143,
+    "stop_bounds": 2
+   },
+   "pitch": {
+    "dots": 886,
+    "owned_dots": 254,
+    "no_heading": 545,
+    "traced": 87,
+    "traced_vox": 5954,
+    "kept_vox": 4650,
+    "fibers": 72,
+    "stop_confidence": 115,
+    "stop_owned_or_live": 59,
+    "stop_bounds": 0
+   },
+   "funnel": {
+    "dots": 0.6529108327192336,
+    "no_heading_share": [
+     0.5423728813559322,
+     0.6151241534988713
+    ],
+    "owned_share": [
+     0.3316138540899042,
+     0.2866817155756208
+    ],
+    "traces": 0.5087719298245614,
+    "grid_vox_per_trace": [
+     62.49122807017544,
+     68.4367816091954
+    ],
+    "physical_traced": 0.6762206206686536,
+    "kept_share": [
+     0.7037244993449373,
+     0.7809875713805845
+    ],
+    "physical_kept": 0.7504639965570109
+   },
+   "pen_ratio": 0.8790218790218791,
+   "coverage_ratio": 0.7863534675615212
+  },
+  "s1_00997_02497_02997_256": {
+   "native": {
+    "dots": 1461,
+    "owned_dots": 482,
+    "no_heading": 820,
+    "traced": 159,
+    "traced_vox": 10785,
+    "kept_vox": 7285,
+    "fibers": 124,
+    "stop_confidence": 147,
+    "stop_owned_or_live": 166,
+    "stop_bounds": 5
+   },
+   "pitch": {
+    "dots": 859,
+    "owned_dots": 229,
+    "no_heading": 541,
+    "traced": 89,
+    "traced_vox": 5905,
+    "kept_vox": 4402,
+    "fibers": 74,
+    "stop_confidence": 106,
+    "stop_owned_or_live": 72,
+    "stop_bounds": 0
+   },
+   "funnel": {
+    "dots": 0.5879534565366188,
+    "no_heading_share": [
+     0.5612594113620808,
+     0.629802095459837
+    ],
+    "owned_share": [
+     0.32991101984941823,
+     0.26658905704307334
+    ],
+    "traces": 0.559748427672956,
+    "grid_vox_per_trace": [
+     67.83018867924528,
+     66.34831460674157
+    ],
+    "physical_traced": 0.6644992606320408,
+    "kept_share": [
+     0.6754751970329161,
+     0.7454699407281964
+    ],
+    "physical_kept": 0.7333566452376469
+   },
+   "pen_ratio": 0.8921113689095129,
+   "coverage_ratio": 0.8147229114971051
+  },
+  "s1_08997_02997_02497_256": {
+   "native": {
+    "dots": 1395,
+    "owned_dots": 457,
+    "no_heading": 778,
+    "traced": 160,
+    "traced_vox": 10535,
+    "kept_vox": 7261,
+    "fibers": 120,
+    "stop_confidence": 169,
+    "stop_owned_or_live": 149,
+    "stop_bounds": 2
+   },
+   "pitch": {
+    "dots": 764,
+    "owned_dots": 201,
+    "no_heading": 491,
+    "traced": 72,
+    "traced_vox": 4729,
+    "kept_vox": 3514,
+    "fibers": 52,
+    "stop_confidence": 91,
+    "stop_owned_or_live": 53,
+    "stop_bounds": 0
+   },
+   "funnel": {
+    "dots": 0.5476702508960574,
+    "no_heading_share": [
+     0.5577060931899641,
+     0.6426701570680629
+    ],
+    "owned_share": [
+     0.32759856630824374,
+     0.2630890052356021
+    ],
+    "traces": 0.45,
+    "grid_vox_per_trace": [
+     65.84375,
+     65.68055555555556
+    ],
+    "physical_traced": 0.5447904972708514,
+    "kept_share": [
+     0.6892263882297105,
+     0.7430746458024953
+    ],
+    "physical_kept": 0.5873541882746104
+   },
+   "pen_ratio": 0.8469387755102041,
+   "coverage_ratio": 0.6284062758051198
+  },
+  "s1_10997_02997_02997_256": {
+   "native": {
+    "dots": 1380,
+    "owned_dots": 398,
+    "no_heading": 838,
+    "traced": 144,
+    "traced_vox": 9130,
+    "kept_vox": 5721,
+    "fibers": 104,
+    "stop_confidence": 133,
+    "stop_owned_or_live": 155,
+    "stop_bounds": 0
+   },
+   "pitch": {
+    "dots": 918,
+    "owned_dots": 207,
+    "no_heading": 633,
+    "traced": 78,
+    "traced_vox": 4921,
+    "kept_vox": 3493,
+    "fibers": 64,
+    "stop_confidence": 92,
+    "stop_owned_or_live": 63,
+    "stop_bounds": 1
+   },
+   "funnel": {
+    "dots": 0.6652173913043479,
+    "no_heading_share": [
+     0.6072463768115942,
+     0.6895424836601307
+    ],
+    "owned_share": [
+     0.28840579710144926,
+     0.22549019607843138
+    ],
+    "traces": 0.5416666666666666,
+    "grid_vox_per_trace": [
+     63.40277777777778,
+     63.08974358974359
+    ],
+    "physical_traced": 0.6541499869146739,
+    "kept_share": [
+     0.6266155531215772,
+     0.7098150782361309
+    ],
+    "physical_kept": 0.7410054248205261
+   },
+   "pen_ratio": 0.845360824742268,
+   "coverage_ratio": 0.7656012176560122
+  },
+  "s5_03997_01497_03997_256": {
+   "native": {
+    "dots": 1049,
+    "owned_dots": 229,
+    "no_heading": 711,
+    "traced": 109,
+    "traced_vox": 6206,
+    "kept_vox": 3739,
+    "fibers": 66,
+    "stop_confidence": 118,
+    "stop_owned_or_live": 100,
+    "stop_bounds": 0
+   },
+   "pitch": {
+    "dots": 669,
+    "owned_dots": 133,
+    "no_heading": 479,
+    "traced": 57,
+    "traced_vox": 3532,
+    "kept_vox": 2550,
+    "fibers": 39,
+    "stop_confidence": 79,
+    "stop_owned_or_live": 33,
+    "stop_bounds": 2
+   },
+   "funnel": {
+    "dots": 0.6377502383222117,
+    "no_heading_share": [
+     0.6777883698760725,
+     0.7159940209267563
+    ],
+    "owned_share": [
+     0.21830314585319352,
+     0.19880418535127056
+    ],
+    "traces": 0.5229357798165137,
+    "grid_vox_per_trace": [
+     56.93577981651376,
+     61.96491228070175
+    ],
+    "physical_traced": 0.6907226113304158,
+    "kept_share": [
+     0.602481469545601,
+     0.7219705549263873
+    ],
+    "physical_kept": 0.8277124064554804
+   },
+   "pen_ratio": 0.8875,
+   "coverage_ratio": 0.887468030690537
+  },
+  "s5_07997_02997_05497_256": {
+   "native": {
+    "dots": 1076,
+    "owned_dots": 307,
+    "no_heading": 651,
+    "traced": 118,
+    "traced_vox": 7053,
+    "kept_vox": 4379,
+    "fibers": 80,
+    "stop_confidence": 110,
+    "stop_owned_or_live": 125,
+    "stop_bounds": 1
+   },
+   "pitch": {
+    "dots": 640,
+    "owned_dots": 149,
+    "no_heading": 424,
+    "traced": 67,
+    "traced_vox": 3711,
+    "kept_vox": 2412,
+    "fibers": 42,
+    "stop_confidence": 82,
+    "stop_owned_or_live": 52,
+    "stop_bounds": 0
+   },
+   "funnel": {
+    "dots": 0.5947955390334573,
+    "no_heading_share": [
+     0.6050185873605948,
+     0.6625
+    ],
+    "owned_share": [
+     0.2853159851301115,
+     0.2328125
+    ],
+    "traces": 0.5677966101694916,
+    "grid_vox_per_trace": [
+     59.771186440677965,
+     55.38805970149254
+    ],
+    "physical_traced": 0.6385748647185128,
+    "kept_share": [
+     0.6208705515383525,
+     0.6499595796281326
+    ],
+    "physical_kept": 0.6684933753181848
+   },
+   "pen_ratio": 0.9373401534526854,
+   "coverage_ratio": 0.7510620220900596
+  },
+  "s5_14997_01497_01497_256": {
+   "native": {
+    "dots": 1491,
+    "owned_dots": 454,
+    "no_heading": 851,
+    "traced": 186,
+    "traced_vox": 11041,
+    "kept_vox": 7649,
+    "fibers": 131,
+    "stop_confidence": 218,
+    "stop_owned_or_live": 152,
+    "stop_bounds": 2
+   },
+   "pitch": {
+    "dots": 521,
+    "owned_dots": 107,
+    "no_heading": 343,
+    "traced": 71,
+    "traced_vox": 4513,
+    "kept_vox": 3565,
+    "fibers": 53,
+    "stop_confidence": 101,
+    "stop_owned_or_live": 41,
+    "stop_bounds": 0
+   },
+   "funnel": {
+    "dots": 0.3494299128101945,
+    "no_heading_share": [
+     0.5707578806170356,
+     0.6583493282149712
+    ],
+    "owned_share": [
+     0.3044936284372904,
+     0.2053742802303263
+    ],
+    "traces": 0.3817204301075269,
+    "grid_vox_per_trace": [
+     59.36021505376344,
+     63.563380281690144
+    ],
+    "physical_traced": 0.4960799484188974,
+    "kept_share": [
+     0.6927814509555293,
+     0.7899401728340351
+    ],
+    "physical_kept": 0.5656523852551559
+   },
+   "pen_ratio": 0.47976011994003004,
+   "coverage_ratio": 0.5620805369127517
+  },
+  "s5_06494_01994_03994_512": {
+   "native": {
+    "dots": 12432,
+    "owned_dots": 7731,
+    "no_heading": 3513,
+    "traced": 1188,
+    "traced_vox": 107617,
+    "kept_vox": 81962,
+    "fibers": 961,
+    "stop_confidence": 1093,
+    "stop_owned_or_live": 1276,
+    "stop_bounds": 7
+   },
+   "pitch": {
+    "dots": 5479,
+    "owned_dots": 2472,
+    "no_heading": 2145,
+    "traced": 862,
+    "traced_vox": 71669,
+    "kept_vox": 50460,
+    "fibers": 688,
+    "stop_confidence": 695,
+    "stop_owned_or_live": 1023,
+    "stop_bounds": 6
+   },
+   "funnel": {
+    "dots": 0.4407175032175032,
+    "no_heading_share": [
+     0.2825772200772201,
+     0.3914947983208615
+    ],
+    "owned_share": [
+     0.6218629343629344,
+     0.45117722212082495
+    ],
+    "traces": 0.7255892255892256,
+    "grid_vox_per_trace": [
+     90.58670033670033,
+     83.14269141531322
+    ],
+    "physical_traced": 0.8082490691605726,
+    "kept_share": [
+     0.7616082960870495,
+     0.7040701000432544
+    ],
+    "physical_kept": 0.7471872429797026
+   },
+   "pen_ratio": 0.6382306477093207,
+   "coverage_ratio": 0.7157867086945102
+  },
+  "s5_06994_00994_04994_512": {
+   "native": {
+    "dots": 13806,
+    "owned_dots": 8466,
+    "no_heading": 3564,
+    "traced": 1776,
+    "traced_vox": 143065,
+    "kept_vox": 112297,
+    "fibers": 1345,
+    "stop_confidence": 2048,
+    "stop_owned_or_live": 1484,
+    "stop_bounds": 20
+   },
+   "pitch": {
+    "dots": 6138,
+    "owned_dots": 2860,
+    "no_heading": 2217,
+    "traced": 1061,
+    "traced_vox": 89042,
+    "kept_vox": 67747,
+    "fibers": 890,
+    "stop_confidence": 1092,
+    "stop_owned_or_live": 1013,
+    "stop_bounds": 17
+   },
+   "funnel": {
+    "dots": 0.4445893089960887,
+    "no_heading_share": [
+     0.258148631029987,
+     0.36119257086999024
+    ],
+    "owned_share": [
+     0.6132116471099522,
+     0.4659498207885305
+    ],
+    "traces": 0.5974099099099099,
+    "grid_vox_per_trace": [
+     80.55461711711712,
+     83.92271442035815
+    ],
+    "physical_traced": 0.7553639542960566,
+    "kept_share": [
+     0.7849369167860762,
+     0.7608431975921476
+    ],
+    "physical_kept": 0.7321779802198943
+   },
+   "pen_ratio": 0.685579196217494,
+   "coverage_ratio": 0.7367947178871549
+  },
+  "s5_07994_01994_05494_512": {
+   "native": {
+    "dots": 13464,
+    "owned_dots": 8643,
+    "no_heading": 3536,
+    "traced": 1285,
+    "traced_vox": 126718,
+    "kept_vox": 100305,
+    "fibers": 1115,
+    "stop_confidence": 1226,
+    "stop_owned_or_live": 1333,
+    "stop_bounds": 11
+   },
+   "pitch": {
+    "dots": 6046,
+    "owned_dots": 2977,
+    "no_heading": 2157,
+    "traced": 912,
+    "traced_vox": 81732,
+    "kept_vox": 60841,
+    "fibers": 793,
+    "stop_confidence": 792,
+    "stop_owned_or_live": 1021,
+    "stop_bounds": 11
+   },
+   "funnel": {
+    "dots": 0.44904931669637554,
+    "no_heading_share": [
+     0.26262626262626265,
+     0.35676480317565334
+    ],
+    "owned_share": [
+     0.6419340463458111,
+     0.49239166391002315
+    ],
+    "traces": 0.709727626459144,
+    "grid_vox_per_trace": [
+     98.61322957198443,
+     89.61842105263158
+    ],
+    "physical_traced": 0.7827959428272686,
+    "kept_share": [
+     0.7915607885225461,
+     0.7443963196789507
+    ],
+    "physical_kept": 0.7361537197766785
+   },
+   "pen_ratio": 0.744908896034298,
+   "coverage_ratio": 0.7907656341320866
+  },
+  "s3_00994_00494_01994_512": {
+   "native": {
+    "dots": 10029,
+    "owned_dots": 5766,
+    "no_heading": 2568,
+    "traced": 1695,
+    "traced_vox": 149053,
+    "kept_vox": 121884,
+    "fibers": 1374,
+    "stop_confidence": 1983,
+    "stop_owned_or_live": 1400,
+    "stop_bounds": 7
+   },
+   "pitch": {
+    "dots": 4047,
+    "owned_dots": 1614,
+    "no_heading": 1492,
+    "traced": 941,
+    "traced_vox": 82788,
+    "kept_vox": 65867,
+    "fibers": 819,
+    "stop_confidence": 1071,
+    "stop_owned_or_live": 808,
+    "stop_bounds": 3
+   },
+   "funnel": {
+    "dots": 0.40352976368531257,
+    "no_heading_share": [
+     0.25605743344301524,
+     0.3686681492463553
+    ],
+    "owned_share": [
+     0.5749326951839665,
+     0.3988139362490734
+    ],
+    "traces": 0.5551622418879056,
+    "grid_vox_per_trace": [
+     87.93687315634219,
+     87.97874601487779
+    ],
+    "physical_traced": 0.6740954860887729,
+    "kept_share": [
+     0.817722555064306,
+     0.7956104749480601
+    ],
+    "physical_kept": 0.6558672333616331
+   },
+   "pen_ratio": 0.4677747625508819,
+   "coverage_ratio": 0.6645733284078316
+  },
+  "s3_00994_01994_00494_512": {
+   "native": {
+    "dots": 10860,
+    "owned_dots": 6510,
+    "no_heading": 2861,
+    "traced": 1489,
+    "traced_vox": 148118,
+    "kept_vox": 123223,
+    "fibers": 1310,
+    "stop_confidence": 1720,
+    "stop_owned_or_live": 1256,
+    "stop_bounds": 2
+   },
+   "pitch": {
+    "dots": 3972,
+    "owned_dots": 1450,
+    "no_heading": 1676,
+    "traced": 846,
+    "traced_vox": 76493,
+    "kept_vox": 60538,
+    "fibers": 716,
+    "stop_confidence": 937,
+    "stop_owned_or_live": 754,
+    "stop_bounds": 1
+   },
+   "funnel": {
+    "dots": 0.36574585635359114,
+    "no_heading_share": [
+     0.26344383057090237,
+     0.4219536757301108
+    ],
+    "owned_share": [
+     0.5994475138121547,
+     0.365055387713998
+    ],
+    "traces": 0.5681665547347213,
+    "grid_vox_per_trace": [
+     99.47481531229013,
+     90.41725768321513
+    ],
+    "physical_traced": 0.6267705819474338,
+    "kept_share": [
+     0.8319245466452423,
+     0.7914188226373655
+    ],
+    "physical_kept": 0.5962536362568709
+   },
+   "pen_ratio": 0.4422018348623853,
+   "coverage_ratio": 0.6149492583918814
+  },
+  "s3_00994_02494_01494_512": {
+   "native": {
+    "dots": 10879,
+    "owned_dots": 5341,
+    "no_heading": 3888,
+    "traced": 1650,
+    "traced_vox": 147758,
+    "kept_vox": 121805,
+    "fibers": 1345,
+    "stop_confidence": 2032,
+    "stop_owned_or_live": 1264,
+    "stop_bounds": 4
+   },
+   "pitch": {
+    "dots": 4777,
+    "owned_dots": 1599,
+    "no_heading": 2262,
+    "traced": 916,
+    "traced_vox": 75110,
+    "kept_vox": 59372,
+    "fibers": 726,
+    "stop_confidence": 1112,
+    "stop_owned_or_live": 716,
+    "stop_bounds": 4
+   },
+   "funnel": {
+    "dots": 0.43910285871863225,
+    "no_heading_share": [
+     0.3573857891350308,
+     0.47351894494452584
+    ],
+    "owned_share": [
+     0.49094585899439286,
+     0.33472890935733723
+    ],
+    "traces": 0.5551515151515152,
+    "grid_vox_per_trace": [
+     89.55030303030303,
+     81.99781659388647
+    ],
+    "physical_traced": 0.6169379805079508,
+    "kept_share": [
+     0.8243546880710351,
+     0.7904673146052457
+    ],
+    "physical_kept": 0.5915770429731341
+   },
+   "pen_ratio": 0.46611281154350676,
+   "coverage_ratio": 0.5978728219054085
+  },
+  "s3_01994_01494_00994_512": {
+   "native": {
+    "dots": 9513,
+    "owned_dots": 4286,
+    "no_heading": 3278,
+    "traced": 1949,
+    "traced_vox": 98341,
+    "kept_vox": 75516,
+    "fibers": 1075,
+    "stop_confidence": 2899,
+    "stop_owned_or_live": 996,
+    "stop_bounds": 3
+   },
+   "pitch": {
+    "dots": 4805,
+    "owned_dots": 1589,
+    "no_heading": 2158,
+    "traced": 1058,
+    "traced_vox": 56006,
+    "kept_vox": 40669,
+    "fibers": 627,
+    "stop_confidence": 1472,
+    "stop_owned_or_live": 641,
+    "stop_bounds": 3
+   },
+   "funnel": {
+    "dots": 0.5050982865552403,
+    "no_heading_share": [
+     0.344581099547987,
+     0.4491155046826223
+    ],
+    "owned_share": [
+     0.45054136444864923,
+     0.3306971904266389
+    ],
+    "traces": 0.5428424833247819,
+    "grid_vox_per_trace": [
+     50.45715751667522,
+     52.93572778827977
+    ],
+    "physical_traced": 0.6911856061208418,
+    "kept_share": [
+     0.7678994519071395,
+     0.7261543406063636
+    ],
+    "physical_kept": 0.6536108689786958
+   },
+   "pen_ratio": 0.5934993668214437,
+   "coverage_ratio": 0.6747451868629671
+  },
+  "s3_01994_01994_01494_512": {
+   "native": {
+    "dots": 10503,
+    "owned_dots": 5079,
+    "no_heading": 3369,
+    "traced": 2055,
+    "traced_vox": 104795,
+    "kept_vox": 81724,
+    "fibers": 1183,
+    "stop_confidence": 3101,
+    "stop_owned_or_live": 1007,
+    "stop_bounds": 2
+   },
+   "pitch": {
+    "dots": 5103,
+    "owned_dots": 1886,
+    "no_heading": 2080,
+    "traced": 1137,
+    "traced_vox": 60210,
+    "kept_vox": 43944,
+    "fibers": 669,
+    "stop_confidence": 1641,
+    "stop_owned_or_live": 627,
+    "stop_bounds": 6
+   },
+   "funnel": {
+    "dots": 0.48586118251928023,
+    "no_heading_share": [
+     0.3207654955726935,
+     0.40760337056633356
+    ],
+    "owned_share": [
+     0.48357612110825476,
+     0.3695865177346659
+    ],
+    "traces": 0.5532846715328467,
+    "grid_vox_per_trace": [
+     50.99513381995134,
+     52.95514511873351
+    ],
+    "physical_traced": 0.6973050569081082,
+    "kept_share": [
+     0.7798463667159693,
+     0.7298455406078724
+    ],
+    "physical_kept": 0.6525964702135477
+   },
+   "pen_ratio": 0.5553752535496957,
+   "coverage_ratio": 0.6746100519930676
+  },
+  "s3_02994_02494_01994_512": {
+   "native": {
+    "dots": 11925,
+    "owned_dots": 7337,
+    "no_heading": 3171,
+    "traced": 1417,
+    "traced_vox": 144293,
+    "kept_vox": 117410,
+    "fibers": 1274,
+    "stop_confidence": 1481,
+    "stop_owned_or_live": 1347,
+    "stop_bounds": 6
+   },
+   "pitch": {
+    "dots": 4081,
+    "owned_dots": 1683,
+    "no_heading": 1569,
+    "traced": 829,
+    "traced_vox": 76516,
+    "kept_vox": 59394,
+    "fibers": 728,
+    "stop_confidence": 851,
+    "stop_owned_or_live": 804,
+    "stop_bounds": 3
+   },
+   "funnel": {
+    "dots": 0.3422222222222222,
+    "no_heading_share": [
+     0.2659119496855346,
+     0.3844645920117618
+    ],
+    "owned_share": [
+     0.6152620545073375,
+     0.4123989218328841
+    ],
+    "traces": 0.5850388143966125,
+    "grid_vox_per_trace": [
+     101.82992237120678,
+     92.29915560916767
+    ],
+    "physical_traced": 0.6435788228795561,
+    "kept_share": [
+     0.8136915858704165,
+     0.7762298081447018
+    ],
+    "physical_kept": 0.6139489149017064
+   },
+   "pen_ratio": 0.5059453032104637,
+   "coverage_ratio": 0.633011583011583
+  },
+  "s3_03494_01494_00494_512": {
+   "native": {
+    "dots": 10154,
+    "owned_dots": 5681,
+    "no_heading": 3107,
+    "traced": 1366,
+    "traced_vox": 140902,
+    "kept_vox": 115438,
+    "fibers": 1232,
+    "stop_confidence": 1446,
+    "stop_owned_or_live": 1281,
+    "stop_bounds": 5
+   },
+   "pitch": {
+    "dots": 3946,
+    "owned_dots": 1351,
+    "no_heading": 1808,
+    "traced": 787,
+    "traced_vox": 76721,
+    "kept_vox": 60778,
+    "fibers": 688,
+    "stop_confidence": 839,
+    "stop_owned_or_live": 732,
+    "stop_bounds": 3
+   },
+   "funnel": {
+    "dots": 0.3886153240102423,
+    "no_heading_share": [
+     0.3059877880638172,
+     0.4581855043081602
+    ],
+    "owned_share": [
+     0.559483947212921,
+     0.3423720223010644
+    ],
+    "traces": 0.5761346998535871,
+    "grid_vox_per_trace": [
+     103.1493411420205,
+     97.4853875476493
+    ],
+    "physical_traced": 0.6608331895812819,
+    "kept_share": [
+     0.8192786475706519,
+     0.7921950965185542
+    ],
+    "physical_kept": 0.6389874970565029
+   },
+   "pen_ratio": 0.5627889060092449,
+   "coverage_ratio": 0.6345486111111112
+  },
+  "s3_04494_00994_01494_512": {
+   "native": {
+    "dots": 11576,
+    "owned_dots": 6775,
+    "no_heading": 3155,
+    "traced": 1646,
+    "traced_vox": 143715,
+    "kept_vox": 116669,
+    "fibers": 1370,
+    "stop_confidence": 1920,
+    "stop_owned_or_live": 1370,
+    "stop_bounds": 2
+   },
+   "pitch": {
+    "dots": 5554,
+    "owned_dots": 2419,
+    "no_heading": 2140,
+    "traced": 995,
+    "traced_vox": 83699,
+    "kept_vox": 65154,
+    "fibers": 837,
+    "stop_confidence": 1145,
+    "stop_owned_or_live": 845,
+    "stop_bounds": 0
+   },
+   "funnel": {
+    "dots": 0.47978576364892883,
+    "no_heading_share": [
+     0.2725466482377332,
+     0.3853078862081383
+    ],
+    "owned_share": [
+     0.585262612301313,
+     0.435541951746489
+    ],
+    "traces": 0.6044957472660997,
+    "grid_vox_per_trace": [
+     87.31166464155528,
+     84.11959798994975
+    ],
+    "physical_traced": 0.7068266563709701,
+    "kept_share": [
+     0.8118080924051073,
+     0.7784322393338032
+    ],
+    "physical_kept": 0.6777669033940974
+   },
+   "pen_ratio": 0.5592505854800937,
+   "coverage_ratio": 0.6942381047982333
+  },
+  "s5_13497_01497_02497_256": {
+   "native": {
+    "dots": 910,
+    "owned_dots": 136,
+    "no_heading": 632,
+    "traced": 142,
+    "traced_vox": 6516,
+    "kept_vox": 5340,
+    "fibers": 89,
+    "stop_confidence": 231,
+    "stop_owned_or_live": 46,
+    "stop_bounds": 7
+   },
+   "pitch": {
+    "dots": 521,
+    "owned_dots": 57,
+    "no_heading": 398,
+    "traced": 66,
+    "traced_vox": 2710,
+    "kept_vox": 2226,
+    "fibers": 42,
+    "stop_confidence": 113,
+    "stop_owned_or_live": 19,
+    "stop_bounds": 0
+   },
+   "funnel": {
+    "dots": 0.5725274725274725,
+    "no_heading_share": [
+     0.6945054945054945,
+     0.763915547024952
+    ],
+    "owned_share": [
+     0.14945054945054945,
+     0.10940499040307101
+    ],
+    "traces": 0.4647887323943662,
+    "grid_vox_per_trace": [
+     45.88732394366197,
+     41.06060606060606
+    ],
+    "physical_traced": 0.5047577139690765,
+    "kept_share": [
+     0.8195211786372008,
+     0.8214022140221402
+    ],
+    "physical_kept": 0.5059162772198468
+   },
+   "pen_ratio": 0.6322241681260945,
+   "coverage_ratio": 0.4880597014925373
+  },
+  "s5_16997_03997_04497_256": {
+   "native": {
+    "dots": 895,
+    "owned_dots": 136,
+    "no_heading": 623,
+    "traced": 136,
+    "traced_vox": 5980,
+    "kept_vox": 4576,
+    "fibers": 80,
+    "stop_confidence": 216,
+    "stop_owned_or_live": 56,
+    "stop_bounds": 0
+   },
+   "pitch": {
+    "dots": 490,
+    "owned_dots": 69,
+    "no_heading": 346,
+    "traced": 75,
+    "traced_vox": 3081,
+    "kept_vox": 2346,
+    "fibers": 44,
+    "stop_confidence": 123,
+    "stop_owned_or_live": 26,
+    "stop_bounds": 1
+   },
+   "funnel": {
+    "dots": 0.547486033519553,
+    "no_heading_share": [
+     0.6960893854748603,
+     0.7061224489795919
+    ],
+    "owned_share": [
+     0.15195530726256984,
+     0.14081632653061224
+    ],
+    "traces": 0.5514705882352942,
+    "grid_vox_per_trace": [
+     43.970588235294116,
+     41.08
+    ],
+    "physical_traced": 0.625295443302369,
+    "kept_share": [
+     0.7652173913043478,
+     0.7614410905550146
+    ],
+    "physical_kept": 0.6222096487583213
+   },
+   "pen_ratio": 0.5785714285714286,
+   "coverage_ratio": 0.6109958506224067
+  }
+ },
+ "summary": {
+  "dots": 0.48586118251928023,
+  "traces": 0.5551515151515152,
+  "physical_traced": 0.6644992606320408,
+  "physical_kept": 0.6558672333616331,
+  "no_heading_share": [
+   0.3573857891350308,
+   0.47351894494452584
+  ],
+  "owned_share": [
+   0.45054136444864923,
+   0.3306971904266389
+  ],
+  "grid_vox_per_trace": [
+   65.84375,
+   66.34831460674157
+  ],
+  "kept_share": [
+   0.7678994519071395,
+   0.7608431975921476
+  ]
+ },
+ "groups": {
+  "in_sample": [
+   "s1_00497_01497_03997_256",
+   "s1_00497_02497_02997_256",
+   "s1_00997_02497_02997_256",
+   "s1_08997_02997_02497_256",
+   "s1_10997_02997_02997_256",
+   "s5_03997_01497_03997_256",
+   "s5_07997_02997_05497_256",
+   "s5_14997_01497_01497_256",
+   "s5_06494_01994_03994_512",
+   "s5_06994_00994_04994_512",
+   "s5_07994_01994_05494_512"
+  ],
+  "s3": [
+   "s3_00994_00494_01994_512",
+   "s3_00994_01994_00494_512",
+   "s3_00994_02494_01494_512",
+   "s3_01994_01494_00994_512",
+   "s3_01994_01994_01494_512",
+   "s3_02994_02494_01994_512",
+   "s3_03494_01494_00494_512",
+   "s3_04494_00994_01494_512"
+  ],
+  "s5_held_out": [
+   "s5_13497_01497_02497_256",
+   "s5_16997_03997_04497_256"
+  ]
+ }
+}
