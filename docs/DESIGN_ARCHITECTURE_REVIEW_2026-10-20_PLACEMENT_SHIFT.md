@@ -98,6 +98,8 @@ Scope:
 
 - Whether a shift explains part of the in-sample deficit is open until the placement script runs again on the work
   directories. The new field would show a shift that the matched fibers' directions hide from the plain median.
+  (Follow-up, 2026-10-20: the owner's #157 ran it. On 5 in-sample cubes the GT sits about a voxel off the CT, which
+  explains part of the gap. See `DESIGN_ARCHITECTURE_REVIEW_2026-10-20_GT_OFFSET.md`.)
 - **Both medians alias where GT fibers lie closer than twice a shift**, since samples then match the neighbouring fiber.
   The review stacked fibers every 4 voxels and shifted them 2.5. Both medians read −1.5 with 97% of samples within 2.
   ScrollGT's traced fibers are probably sparser than that.
