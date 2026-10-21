@@ -63,6 +63,27 @@ def test_complete_separation_is_recognised_in_both_directions():
     assert mod.separation(base, [9.0, 11.5, 20.0]) == "none"
 
 
+@pytest.mark.parametrize(
+    "n_base, n_gap, p",
+    [
+        (4, 3, "2.86%"),  # this study, as registered: 1/C(7,3)
+        (
+            3,
+            3,
+            "5%",
+        ),  # patch bootstrap, strip match, anchor ablation, same winding current
+        (6, 3, "1.19%"),  # same winding: 3 ablated against 6 baselines
+        (6, 6, "0.108%"),  # the second look, as registered: 1/C(12,6)
+    ],
+)
+def test_separation_states_the_probability_for_its_own_arm_sizes(n_base, n_gap, p):
+    """Every study that imports separation() printed 1/C(7,3), this study's figure."""
+    base = [10.0 + i for i in range(n_base)]
+    assert mod.separation(base, [1.0 + i for i in range(n_gap)]) == (
+        f"COMPLETE, all GAP below all BASE (p={p} one direction)"
+    )
+
+
 def test_the_detectable_effect_matches_the_registered_figure():
     """The pre-registration commits to ~9.0% at n=4 vs 3 and CV 0.0421. If this
     drifts, the null sentence the script prints becomes a false reassurance."""
