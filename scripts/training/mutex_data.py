@@ -129,8 +129,8 @@ def validate_prepared_data(path, patch=None):
         label_values(labels[selection])
         for kind, (affinity, mask) in targets.items():
             values, valid = (
-                affinity[(slice(None), *selection)],
-                mask[(slice(None), *selection)],
+                affinity[(slice(None),) + tuple(selection)],
+                mask[(slice(None),) + tuple(selection)],
             )
             if np.any(values > 1) or np.any(valid > 1) or np.any(values[valid == 0]):
                 raise ValueError(f"invalid binary values or unmasked {kind} affinities")

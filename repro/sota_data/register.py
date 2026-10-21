@@ -357,8 +357,8 @@ def fit_affine_orb(old_img, new_img, n_features=5000):
     matches = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True).match(d1, d2)
     if len(matches) < 25:
         raise ValueError(f"only {len(matches)} ORB matches")
-    src = np.float32([k1[m.queryIdx].pt for m in matches])
-    dst = np.float32([k2[m.trainIdx].pt for m in matches])
+    src = np.array([k1[m.queryIdx].pt for m in matches], dtype=np.float32)
+    dst = np.array([k2[m.trainIdx].pt for m in matches], dtype=np.float32)
     M, mask = cv2.estimateAffinePartial2D(
         src, dst, method=cv2.RANSAC, ransacReprojThreshold=3.0
     )
