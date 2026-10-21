@@ -19,7 +19,8 @@ scrollframes list PHercParis4/20230702185753
     Coordinates are NOT interchangeable and the metadata does not say so.
 ```
 
-Exits non-zero on a collision. Pure stdlib; `s3fs` only for the live lookup.
+Exits 1 on a collision and 0 without one. A lookup that fails, or a malformed segment, exits 2. Pure
+stdlib; `s3fs` only for the live lookup.
 
 ## The problem
 

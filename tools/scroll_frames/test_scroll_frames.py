@@ -1,6 +1,9 @@
 """Tests for scroll-frames. Both regression tests below come from real bugs, not imagination."""
 
+import json
+
 import pytest
+import scroll_frames
 from scroll_frames import Frame, collision, frames_for, parse_mesh_name, render
 
 SEG = "20230702185753"
@@ -19,7 +22,16 @@ def test_parses_scan_and_voxel_size_from_the_name():
 
 
 @pytest.mark.parametrize(
-    "bad", ["notamesh", f"{SEG}.tifxyz", f"{SEG}-on-abc-2.4um.tifxyz"]
+    "bad",
+    [
+        "notamesh",
+        f"{SEG}.tifxyz",
+        f"{SEG}-on-abc-2.4um.tifxyz",
+        # A voxel size that is not a positive number raised, or divided by zero.
+        f"{SEG}-on-20260411134726-1.2.3um.tifxyz",
+        f"{SEG}-on-20260411134726-.um.tifxyz",
+        f"{SEG}-on-20260411134726-0um.tifxyz",
+    ],
 )
 def test_non_conforming_names_are_skipped_not_guessed(bad):
     assert parse_mesh_name(bad) is None
@@ -75,3 +87,60 @@ def test_render_states_that_the_ratio_is_not_a_transform():
 def test_meta_enrichment_is_optional():
     """Filenames alone must expose a collision, since meta.json may be unreadable."""
     assert collision(frames_for(NAMES))["voxel_size_spread"] > 40
+
+
+def test_render_without_any_readable_scale_says_so():
+    """REGRESSION. With no meta.json read, render indexed an empty list of declared scales."""
+    out = render("x/y", frames_for(NAMES))
+    assert "COLLISION" in out and "no meta.json could be read for a scale" in out
+    assert "declare scale" not in out
+
+
+def test_render_with_some_scales_unread_does_not_say_all():
+    metas = {n: {"scale": [0.05, 0.05]} for n in NAMES[:2]}
+    out = render("x/y", frames_for(NAMES, metas))
+    assert "2 of 4 meshes declare a scale, all 0.05" in out and "all 4" not in out
+    assert collision(frames_for(NAMES, metas))["n_declaring_scale"] == 2
+
+
+def _run(monkeypatch, capsys, argv, fetched):
+    def fetch(segment):
+        if isinstance(fetched, Exception):
+            raise fetched
+        return fetched
+
+    monkeypatch.setattr(scroll_frames, "_fetch", fetch)
+    code = scroll_frames.main(argv)
+    return code, capsys.readouterr()
+
+
+def test_main_exits_1_on_a_collision_and_0_without(monkeypatch, capsys):
+    metas = {n: {"scale": [0.05, 0.05]} for n in NAMES}
+    code, out = _run(monkeypatch, capsys, ["list", "P/s"], (NAMES, metas))
+    assert code == 1 and "COLLISION" in out.out
+    code, _ = _run(monkeypatch, capsys, ["list", "P/s"], (NAMES[:1], {}))
+    assert code == 0
+
+
+def test_main_json_reports_the_frames_and_the_collision(monkeypatch, capsys):
+    metas = {n: {"scale": [0.05, 0.05]} for n in NAMES}
+    code, out = _run(monkeypatch, capsys, ["list", "P/s", "--json"], (NAMES, metas))
+    report = json.loads(out.out)
+    assert code == 1 and report["collision"]["n_declaring_scale"] == 4
+    assert [f["um_per_voxel"] for f in report["frames"]] == [1.129, 2.4, 7.91, 45.532]
+
+
+@pytest.mark.parametrize(
+    "failure", [ImportError("no s3fs"), FileNotFoundError("no such segment")]
+)
+def test_a_failed_lookup_exits_2_not_1(monkeypatch, capsys, failure):
+    """REGRESSION. 1 means a collision, and an uncaught error exited 1 too."""
+    code, out = _run(monkeypatch, capsys, ["list", "P/s"], failure)
+    assert code == 2 and "scrollframes:" in out.err and out.out == ""
+
+
+def test_a_segment_without_its_scroll_exits_2(monkeypatch, capsys):
+    """REGRESSION. It raised SystemExit with a message, which exits 1: a collision."""
+    with pytest.raises(SystemExit) as exc:
+        _run(monkeypatch, capsys, ["list", SEG], (NAMES, {}))
+    assert exc.value.code == 2

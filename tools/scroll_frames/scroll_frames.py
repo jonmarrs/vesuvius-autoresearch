@@ -17,11 +17,11 @@ describing one object are silently in different frames.
 
     scrollframes list PHercParis4/20230702185753
 
-        mesh                                     um/voxel   grid          rel. scale
-        -on-20260310170716-45.532um              45.532     1266x393      18.97x
-        -on-20230205180739-7.91um                 7.910     776x559        3.30x
-        -on-20260411134726-2.4um                  2.400     2530x1820      1.00x  <- finest
-        -on-20260608103018-1.129um                1.129     5380x3869      0.47x
+        mesh                                       um/voxel  grid           rel. scale
+        -on-20260608103018-1.129um                    1.129  -                   1.00x  <- finest
+        -on-20260411134726-2.4um                      2.400  -                   2.13x
+        -on-20230205180739-7.91um                     7.910  -                   7.01x
+        -on-20260310170716-45.532um                  45.532  -                  40.33x
 
 What this does NOT give you
 ---------------------------
@@ -49,7 +49,9 @@ __all__ = ["Frame", "parse_mesh_name", "frames_for", "collision"]
 __version__ = "0.1.0"
 
 # <segment>-on-<scanid>-<voxelsize>um.tifxyz
-_NAME = re.compile(r"^(?P<seg>.+?)-on-(?P<scan>\d+)-(?P<um>[\d.]+)um\.tifxyz/?$")
+_NAME = re.compile(
+    r"^(?P<seg>.+?)-on-(?P<scan>\d+)-(?P<um>\d+(?:\.\d+)?|\.\d+)um\.tifxyz/?$"
+)
 
 
 @dataclass(frozen=True)
@@ -75,7 +77,7 @@ def parse_mesh_name(name: str) -> Frame | None:
     the whole reason two frames are indistinguishable from their metadata.
     """
     m = _NAME.match(os.path.basename(name.rstrip("/")))
-    if not m:
+    if not m or float(m["um"]) <= 0:
         return None
     return Frame(
         mesh=os.path.basename(name.rstrip("/")),
@@ -139,6 +141,7 @@ def collision(frames: list[Frame]) -> dict:
         "collides": bool(indistinguishable and spread > 1.001),
         "indistinguishable_metadata": indistinguishable,
         "declared_scales": scales,
+        "n_declaring_scale": len(scales),
         "voxel_size_spread": spread,
         "finest_um": ums[0],
         "coarsest_um": ums[-1],
@@ -165,12 +168,26 @@ def render(segment: str, frames: list[Frame]) -> str:
     c = collision(frames)
     lines.append("")
     if c["collides"]:
-        lines.append(
-            f"    COLLISION: all {c['n_frames']} meshes declare scale "
-            f"{c['declared_scales'][0]}, but their voxel sizes span "
-            f"{c['voxel_size_spread']:.1f}x. Coordinates are NOT interchangeable and the "
-            "metadata does not say so."
-        )
+        n, declaring = c["n_frames"], c["n_declaring_scale"]
+        spread = f"{c['voxel_size_spread']:.1f}x"
+        if declaring == n:
+            said = f"all {n} meshes declare scale {c['declared_scales'][0]}"
+        elif declaring:
+            # The others' meta.json was unreadable or had no scale: not "all".
+            said = (
+                f"{declaring} of {n} meshes {'declares' if declaring == 1 else 'declare'} "
+                f"a scale, all {c['declared_scales'][0]} (no scale read for the others)"
+            )
+        if declaring:
+            lines.append(
+                f"    COLLISION: {said}, but their voxel sizes span {spread}. "
+                "Coordinates are NOT interchangeable and the metadata does not say so."
+            )
+        else:
+            lines.append(
+                f"    COLLISION: their voxel sizes span {spread}, and no meta.json "
+                "could be read for a scale. Coordinates are NOT interchangeable."
+            )
     else:
         lines.append(
             "    No collision: frames are distinguishable from their metadata."
@@ -186,11 +203,6 @@ def render(segment: str, frames: list[Frame]) -> str:
 def _fetch(segment: str):  # pragma: no cover - needs network
     import s3fs
 
-    if "/" not in segment.strip("/"):
-        raise SystemExit(
-            f"segment must be <scroll>/<segment>, e.g. PHercParis4/20230702185753; got "
-            f"{segment!r}"
-        )
     scroll, seg = segment.strip("/").split("/", 1)
     fs = s3fs.S3FileSystem(anon=True)
     prefix = f"vesuvius-challenge-open-data/{scroll}/segments/{seg}/mesh"
@@ -215,8 +227,25 @@ def main(argv=None) -> int:
     p.add_argument("segment", help="e.g. PHercParis4/20230702185753")
     p.add_argument("--json", action="store_true")
     args = ap.parse_args(argv)
+    if "/" not in args.segment.strip("/"):
+        ap.error(
+            f"segment must be <scroll>/<segment>, e.g. PHercParis4/20230702185753; got "
+            f"{args.segment!r}"
+        )
 
-    names, metas = _fetch(args.segment)
+    # Exit 1 means a collision, so a lookup that fails (no s3fs, no network, no such
+    # segment) exits 2, as a usage error does, never 1.
+    try:
+        names, metas = _fetch(args.segment)
+    except ImportError:
+        print(
+            "scrollframes: the live lookup needs s3fs: pip install 'scroll-frames[s3]'",
+            file=sys.stderr,
+        )
+        return 2
+    except Exception as exc:
+        print(f"scrollframes: could not list {args.segment}: {exc}", file=sys.stderr)
+        return 2
     frames = frames_for(names, metas)
     if args.json:
         print(
