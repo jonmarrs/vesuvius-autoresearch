@@ -138,7 +138,7 @@ def _budgeted(n, name, stamp, budget):
 
 
 def test_a_cycle_is_measured_against_the_budget_it_ran(tmp_path):
-    """Nights run 900-second cycles since 2026-10-20 (and did until May 2026): the budget is the cycle's own, not
+    """Nights run 900-second cycles since 2026-10-20 (and did until 2026-04-29): the budget is the cycle's own, not
     the shift's. Across a restart onto the new budget, each cycle keeps its own."""
     night = ["# Night Shift Sprint", "- **Start Time**: 19:10:03", ""]
     night += _budgeted(1, "a", "20:13:05", 3600)  # 3782 s: 182 over 3600
