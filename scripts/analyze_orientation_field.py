@@ -1,8 +1,10 @@
 """Characterise the fiber_hz_vt orientation field against hand-traced ground truth.
 
 Builds the field exactly as `bench_cli.cmd_trace` does -- hessian(P, gauss_sigma=2,
-sigma=3) then fiber_direction -- so this measures the field the tracer consumes,
-not a reimplementation of it.
+sigma=3) then fiber_direction, on the cached probability volume in float64 -- so
+this measures the field the tracer consumes, not a reimplementation of it. The
+volume is used only if its cache record (`bench_cli._fiber_prob`'s
+`<cube>_fiberprob.json`) attests it, and each row records which one it was.
 
 Read-only: nothing here changes tracer behaviour.
 """
@@ -17,6 +19,7 @@ import numpy as np
 
 from vesuvius_autoresearch.fibers.detection import fiber_direction, hessian
 from vesuvius_autoresearch.fibers.field_quality import analyse_cube
+from vesuvius_autoresearch.fibers.provenance import file_sha256
 from vesuvius_autoresearch.fibers.skeleton_io import (
     origin_from_stem,
     parse_nml,
@@ -47,7 +50,11 @@ def _err_curv_r(err: np.ndarray, curv: np.ndarray) -> float | None:
     ok = np.isfinite(err) & np.isfinite(curv)
     if ok.sum() < 3:
         return None
-    return round(float(np.corrcoef(err[ok], curv[ok])[0, 1]), 3)
+    # A constant error or curvature (a straight fiber) has no correlation: NaN, which
+    # json.dumps would write as the invalid token NaN.
+    with np.errstate(invalid="ignore", divide="ignore"):
+        r = float(np.corrcoef(err[ok], curv[ok])[0, 1])
+    return round(r, 3) if np.isfinite(r) else None
 
 
 def _err_curv_split(
@@ -67,11 +74,69 @@ def _err_curv_split(
     return round(float(np.median(lo)), 2), round(float(np.median(hi)), 2)
 
 
+# What every cube's volume must share: the inference code's version, the model's files and the
+# recipe (patch, tiling, mirroring, amp, device). The image differs per cube, and the model's
+# directory is a path on the machine that ran it.
+SHARED_IDENTITY = ("version", "model_files", "recipe")
+
+
+def probability(stem: str) -> tuple[np.ndarray, dict]:
+    """The cube's cached fiber probability, as `bench_cli._fiber_prob` returns it
+    (float64), and its provenance. Refused unless the cache record beside it attests
+    these bytes, and the volume is what _fiber_prob accepts (float, finite, in
+    [0, 1]). The record makes the volume's model, patch and device visible; main()
+    refuses cubes whose volumes differ in them."""
+    path = SRC / f"{stem}_fiberprob.npy"
+    meta = path.with_suffix(".json")
+    remedy = (
+        "run `uv run python -m vesuvius_autoresearch.fibers.bench_cli floors "
+        f"--cube {stem}` (with the model, --patch and --device to measure) first"
+    )
+    try:
+        record = json.loads(meta.read_text())
+    except (OSError, ValueError) as exc:
+        raise SystemExit(
+            f"{stem}: no readable cache record {meta} ({exc}); {remedy}"
+        ) from None
+    if not isinstance(record, dict) or not isinstance(record.get("inference"), dict):
+        raise SystemExit(f"{stem}: {meta} is not a bench_cli cache record; {remedy}")
+    digest = file_sha256(path)
+    if record.get("probability_sha256") != digest:
+        raise SystemExit(
+            f"{stem}: {path} is not the volume its cache record attests "
+            f"({record.get('probability_sha256')!r}, found {digest!r}); {remedy}"
+        )
+    prob = np.load(path, allow_pickle=False)
+    if (
+        prob.dtype.kind != "f"
+        or not np.isfinite(prob).all()
+        or not np.all((prob >= 0) & (prob <= 1))
+    ):
+        raise SystemExit(f"{stem}: {path} is not a probability volume in [0, 1]")
+    inference = record["inference"]
+    identity = {
+        k: inference.get(k) for k in ("version", "image", "model_files", "recipe")
+    }
+    return prob.astype(float), {"probability_sha256": digest, "inference": identity}
+
+
+def _json_safe(value):
+    """The row with every non-finite number as None: json.dumps would write NaN or
+    Infinity, which are not JSON. An empty measurement (no scored node) gives them."""
+    if isinstance(value, dict):
+        return {k: _json_safe(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_json_safe(v) for v in value]
+    if isinstance(value, (float, np.floating)) and not np.isfinite(value):
+        return None
+    return value
+
+
 def run(stem: str) -> dict:
     size = size_from_stem(stem)
     shape = (size, size, size)
     skel = parse_nml(SRC / f"{stem}.nml", origin_zyx=origin_from_stem(stem))
-    prob = np.load(SRC / f"{stem}_fiberprob.npy")
+    prob, provenance = probability(stem)
     if prob.shape != shape:
         raise SystemExit(f"{stem}: expected {shape}, got {prob.shape}")
 
@@ -93,6 +158,7 @@ def run(stem: str) -> dict:
 
     row = {
         "cube": stem,
+        "provenance": provenance,
         "n_fibers": res["n_fibers"],
         "n_scored": res["n_scored"],
         # CRITICAL 1: out-of-bounds (our annotation running past the cube edge)
@@ -184,7 +250,7 @@ def run(stem: str) -> dict:
         f"undefined(in-bounds) {row['field_undefined_frac_in_bounds']:.1%}  "
         f"oob {row['oob_frac']:.1%}  n={row['n_scored']}"
     )
-    return row
+    return _json_safe(row)
 
 
 def main() -> None:
@@ -197,8 +263,23 @@ def main() -> None:
 
     stems = [args.cube] if args.cube else CUBES
     rows = [run(s) for s in stems]
+    shared = {
+        r["cube"]: {k: r["provenance"]["inference"][k] for k in SHARED_IDENTITY}
+        for r in rows
+    }
+    if len({json.dumps(v, sort_keys=True) for v in shared.values()}) > 1:
+        raise SystemExit(
+            "the cubes' probability volumes come from different models or recipes; "
+            "recompute them alike with bench_cli: "
+            + "; ".join(
+                f"{cube}: {json.dumps(v, sort_keys=True)}" for cube, v in shared.items()
+            )
+        )
     pathlib.Path(args.json_out).write_text(
-        json.dumps({"turn_limit_deg": TURN_LIMIT_DEG, "cubes": rows}, indent=2) + "\n"
+        json.dumps(
+            {"turn_limit_deg": TURN_LIMIT_DEG, "cubes": rows}, indent=2, allow_nan=False
+        )
+        + "\n"
     )
     print(f"wrote {args.json_out}")
 

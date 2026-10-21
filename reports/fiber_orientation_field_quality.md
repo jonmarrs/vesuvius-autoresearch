@@ -220,5 +220,12 @@ uv run python scripts/analyze_orientation_field.py
 uv run python -m pytest tests/test_field_quality.py -q   # 42 tests, CPU
 ```
 
+(Review note, 2026-10-21: the driver now measures only a probability volume that `bench_cli`'s cache
+record attests, and only when all six come from the same model and recipe. Each row records which one.
+A cube cached before 2026-10-04 has no record: run
+`uv run python -m vesuvius_autoresearch.fibers.bench_cli floors --cube <cube>` on each first, with the
+same model, `--patch` and `--device`. That recomputes the volumes under the inference code of
+2026-10-04, so they need not be the ones behind the numbers above, which record no provenance.)
+
 Nothing under `src/vesuvius_autoresearch/fibers/` was modified by this work except the new
 `field_quality.py`; `trace.py`, `detection.py` and `skeleton_io.py` are untouched.
