@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+import os
 import tempfile
 from contextlib import contextmanager
 from pathlib import Path
@@ -11,6 +12,7 @@ import numpy as np
 import zarr
 
 from scripts.candidate_artifacts import integer, separate_paths, staged_directory
+from vesuvius_autoresearch.core.file_modes import replacement_mode
 
 MAX_FRAGMENT_VOXELS = 128**3
 
@@ -106,6 +108,8 @@ def publish_new_file(output, *sources):
         yield staging
         if output.exists() or output.is_symlink():
             raise ValueError(f"output appeared during processing: {output}")
+        # A new file's mode (the umask's), not the temporary file's 0600.
+        os.chmod(staging, replacement_mode(output))
         staging.rename(output)
     finally:
         staging.unlink(missing_ok=True)
