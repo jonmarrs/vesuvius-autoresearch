@@ -1,13 +1,14 @@
 """A file written under a temporary name and renamed into place keeps the mode of the file it replaces, or gets
 the umask's when new. mkstemp and NamedTemporaryFile create their file 0600, and renamed as it was it left the
-output readable by its owner alone: promoted checkpoints and the loop's state until 2026-10-17, and the writers
-below until the fix that added this file."""
+output readable by its owner alone: every checkpoint and the loop's new state files until 2026-10-17, and the
+writers below until the fix that added this file."""
 
+import ast
 import os
-import re
 import stat
 import subprocess
 import sys
+import tempfile
 import types
 from pathlib import Path
 
@@ -91,12 +92,23 @@ def test_an_atomic_writer_gives_the_umasks_mode_and_keeps_a_replaced_files(
     assert sorted(p.name for p in tmp_path.iterdir()) == ["new.out", "replaced.out"]
 
 
-def test_a_published_label_artifact_gets_the_umasks_mode(tmp_path, umask_027):
+def _replace_with_a_0600_file(staging):
+    """As another process may: a new file renamed over the staging path, not the file publish_new_file made."""
+    fd, other = tempfile.mkstemp(dir=staging.parent)
+    os.write(fd, b"png")
+    os.close(fd)
+    os.replace(other, staging)
+
+
+@pytest.mark.parametrize(
+    "write", [lambda staging: staging.write_bytes(b"png"), _replace_with_a_0600_file]
+)
+def test_a_published_label_artifact_gets_the_umasks_mode(tmp_path, umask_027, write):
     from scripts.labeling.label_artifacts import publish_new_file
 
     output = tmp_path / "out" / "label.png"
     with publish_new_file(output, tmp_path / "source.png") as staging:
-        staging.write_bytes(b"png")
+        write(staging)
     assert output.read_bytes() == b"png" and _mode(output) == 0o640
     assert [p.name for p in output.parent.iterdir()] == ["label.png"]
 
@@ -115,15 +127,103 @@ def test_a_downloaded_obj_gets_the_umasks_mode(tmp_path, umask_027, monkeypatch)
     assert Path(path).read_text() == "bucket/a/s.obj" and _mode(path) == 0o640
 
 
-# Writers that rename a mkstemp or NamedTemporaryFile file into place without replacement_mode, and why.
+# Functions that make a 0600 temporary file or a 0700 temporary directory without setting a mode, and why.
 NOT_CHECKED = {
     # Frozen into the registered neural-tracer chains' work directories, which refuse to resume when the
     # repository's copy differs.
-    "scripts/resample_cube_pitch.py",
+    "scripts/make_tracer_presence.py::write_presence",
+    "scripts/resample_cube_pitch.py::write_ct",
+    "scripts/resample_cube_pitch.py::write_prob",
+    # They move a subdirectory they create with mkdir, never the temporary directory.
+    "scripts/candidate_artifacts.py::staged_directory",
+    "scripts/export_fiber_targets.py::main",
+    # Scratch, never renamed into place.
+    "scripts/f1_noise_probe.py::execute",
+    "scripts/tracer_rescore_analysis.py::v1_scorer",
 }
-TEMPORARY_FILE = re.compile(
-    r"\bmkstemp\(|\bNamedTemporaryFile\([^)]*delete=False", re.S
-)
+TEMPORARY = {"mkstemp", "mkdtemp", "NamedTemporaryFile"}
+SETS_MODE = {"replacement_mode", "chmod", "fchmod"}
+
+
+def _called(call, aliases):
+    """The name a call calls (`f(...)`, `x.f(...)`), with `from tempfile import f as g` undone."""
+    func = call.func
+    name = func.attr if isinstance(func, ast.Attribute) else getattr(func, "id", None)
+    return aliases.get(name, name)
+
+
+def _own_calls(scope):
+    """The calls in a function's body, or a module's top level, not in a function nested in it."""
+    stack = list(ast.iter_child_nodes(scope))
+    while stack:
+        node = stack.pop()
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)):
+            continue
+        if isinstance(node, ast.Call):
+            yield node
+        stack.extend(ast.iter_child_nodes(node))
+
+
+def _temporaries_without_a_mode(tree):
+    aliases = {
+        alias.asname or alias.name: alias.name
+        for node in ast.walk(tree)
+        if isinstance(node, ast.ImportFrom) and node.module == "tempfile"
+        for alias in node.names
+    }
+    scopes = [tree] + [
+        node
+        for node in ast.walk(tree)
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+    ]
+    for scope in scopes:
+        names = set()
+        for call in _own_calls(scope):
+            name = _called(call, aliases)
+            kept = any(
+                k.arg == "delete" and getattr(k.value, "value", True) is False
+                for k in call.keywords
+            )
+            if name in ("mkstemp", "mkdtemp") or (
+                name == "NamedTemporaryFile" and kept
+            ):
+                names.add(name)
+            elif name in SETS_MODE:
+                names.add("mode")
+        if names & TEMPORARY and "mode" not in names:
+            yield getattr(scope, "name", "<module>")
+
+
+def test_the_scan_finds_a_temporary_however_it_is_spelled():
+    source = """
+from tempfile import mkstemp as _mk
+import tempfile as tf
+
+def a(path):
+    fd, tmp = _mk(dir=path.parent)
+
+def b(out):
+    with tf.NamedTemporaryFile(dir=str(out.parent), delete=False) as f:
+        pass
+
+def c(out):
+    build = tf.mkdtemp(dir=out.parent)
+
+def d(path):
+    fd, tmp = tf.mkstemp(dir=path.parent)
+    os.fchmod(fd, replacement_mode(path))
+
+def e(out):
+    def inner():
+        os.chmod(out, 0o644)
+    fd, tmp = tf.mkstemp()
+
+def f():
+    with tf.NamedTemporaryFile() as scratch:
+        pass
+"""
+    found = list(_temporaries_without_a_mode(ast.parse(source)))
+    assert sorted(found) == ["a", "b", "c", "e"]
 
 
 def test_every_temporary_file_writer_sets_the_mode():
@@ -135,18 +235,19 @@ def test_every_temporary_file_writer_sets_the_mode():
     ).stdout.split()
     missing = []
     for name in tracked:
+        # The retired scripts in scripts/archive/ are left as they were.
         if name.startswith(
             ("tests/", "villa/", "repro/villa_preserved/", "scripts/archive/")
         ):
             continue
-        text = (ROOT / name).read_text(errors="replace")
-        if (
-            TEMPORARY_FILE.search(text)
-            and "replacement_mode" not in text
-            and name not in NOT_CHECKED
-        ):
-            missing.append(name)
+        tree = ast.parse((ROOT / name).read_text(errors="replace"))
+        missing += [
+            f"{name}::{function}"
+            for function in _temporaries_without_a_mode(tree)
+            if f"{name}::{function}" not in NOT_CHECKED
+        ]
     assert missing == [], (
-        "these rename a 0600 temporary file into place: give it "
-        "vesuvius_autoresearch.core.file_modes.replacement_mode(path) first"
+        "these make a 0600 temporary file or 0700 directory and set no mode: give a file "
+        "vesuvius_autoresearch.core.file_modes.replacement_mode(path) before it is renamed into place, "
+        "or name the function in NOT_CHECKED with the reason"
     )
