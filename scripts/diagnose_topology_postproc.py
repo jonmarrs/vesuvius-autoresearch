@@ -14,9 +14,12 @@ threshold (``select_topology_threshold``), no post-processing, skel_dist and
 centerline_dice on every 10th patch and cc_diff on all of them. The Dice-optimal
 threshold, which the loop scored topology at until 2026-06-10, is swept too.
 
-Predictions are cached (``--cache``) under a key of the checkpoint's sha256,
-the protocol and the validation inputs' fingerprint, so a promoted model or
-other validation data is scored afresh rather than read from an older run.
+Predictions are scored in fp32, as the loop validates, and cached
+(``--cache``) under a key of the checkpoint's sha256, the protocol, the
+validation inputs' fingerprint and the warp, so a promoted model or other
+validation data is scored afresh rather than read from an older run.
+``--refresh`` ignores the cache. It refuses to run when villa's topology metrics
+did not import: their stand-ins would report NaN, or another cc_diff.
 
 Usage:
     CUDA_VISIBLE_DEVICES="" uv run python scripts/diagnose_topology_postproc.py
@@ -24,6 +27,7 @@ Usage:
 
 import argparse
 import hashlib
+import io
 import os
 import sys
 import tempfile
@@ -36,6 +40,7 @@ _REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, _REPO_ROOT)
 sys.path.insert(0, os.path.join(_REPO_ROOT, "scripts", "training"))
 
+import train
 from train import (
     ExperimentConfig,
     build_validation_dataset,
@@ -61,6 +66,11 @@ from vesuvius_autoresearch.core.checkpoint_tools import (
 )
 
 DEFAULT_CACHE = os.path.join(tempfile.gettempdir(), "topo_postproc_preds.pt")
+# Its own folder for villa's skeleton histograms, which are numbered from 1 in
+# each process: in the loop's, they would overwrite its files.
+HIST_DIR = os.path.join(
+    os.path.dirname(train.SKELETON_HIST_DIR), "skeleton_hists_topology_postproc"
+)
 MIN_SIZES = (1, 16, 64)
 FIXED_THRESHOLDS = (0.5, 0.65)
 SKEL_DIST_GATE = 2.0
@@ -83,8 +93,9 @@ def topo_metrics(probs, targets, threshold, min_size, subset_step=10):
     pixels: cc_diff on every patch, skel_dist and centerline_dice on every
     ``subset_step``-th, as train.py and reevaluate_best_model.py measure them.
 
-    A measurement that is not finite (despeckling can empty a prediction) is
-    counted in ``n_undefined`` and left out of the means, not raised."""
+    A measurement that is not finite is counted in ``n_undefined`` and left out
+    of the means, not raised: villa's skel_dist is NaN when the ground truth or
+    the prediction has no skeleton branch, as when despeckling empties it."""
     skel, cd, cc, dice = [], [], [], []
     undefined = 0
     for i in range(len(probs)):
@@ -106,7 +117,7 @@ def topo_metrics(probs, targets, threshold, min_size, subset_step=10):
                 gt3 = gt3[None]
             if pred3.ndim == 2:
                 pred3 = pred3[None]
-            sd = compute_skeleton_dist(gt3, pred3)
+            sd = compute_skeleton_dist(gt3, pred3, output_folder=HIST_DIR)
             c = compute_centerline_dice(gt3, pred3, tolerance_radius=3.0)[
                 "centerline_dice"
             ]
@@ -125,12 +136,25 @@ def topo_metrics(probs, targets, threshold, min_size, subset_step=10):
     }
 
 
-def _file_sha256(path):
-    digest = hashlib.sha256()
-    with open(path, "rb") as stream:
-        for chunk in iter(lambda: stream.read(1 << 20), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
+def require_villa_metrics():
+    """train.py stands in for villa's metrics when they do not import (villa/ is
+    found relative to the working directory): skel_dist and centerline_dice as
+    NaN, and cc_diff as scipy's 4-connected count. Reporting villa's metrics is
+    this tool's purpose, so it refuses instead."""
+    missing = [
+        name
+        for name, absent in (
+            ("skeleton distance", not train.SKELETON_DISTANCE_AVAILABLE),
+            ("centerline dice", train.CENTERLINE_DICE_IMPORT_ERROR is not None),
+            ("connected components", not hasattr(train, "compute_cc_official")),
+        )
+        if absent
+    ]
+    if missing:
+        raise SystemExit(
+            f"villa's {', '.join(missing)} metric did not import; run from the "
+            "repository root with villa/ checked out"
+        )
 
 
 def _cached(path, key):
@@ -151,10 +175,10 @@ def _cached(path, key):
     return blob["probs"], blob["targets"]
 
 
-def predictions(model, settings, config, device, cache, key, protocol):
+def predictions(model, settings, config, device, cache, key, protocol, refresh=False):
     """The protocol sample's per-patch probabilities and targets: from ``cache``
-    when it holds this key's, else scored and cached."""
-    hit = _cached(cache, key)
+    when it holds this key's (and not ``refresh``), else scored and cached."""
+    hit = None if refresh else _cached(cache, key)
     if hit is not None:
         print(f"loaded cached predictions: {len(hit[0])} patches")
         return hit
@@ -170,7 +194,8 @@ def predictions(model, settings, config, device, cache, key, protocol):
         config.num_layers,
         device,
         batch_size=config.batch_size,
-        amp_enabled=device.type == "cuda",
+        # As the loop validates (train.py: amp_enabled = False).
+        amp_enabled=False,
         probabilities=probabilities,
         protocol=protocol,
     )
@@ -179,7 +204,15 @@ def predictions(model, settings, config, device, cache, key, protocol):
             f"{diag['batch_errors']} validation batches failed; the protocol's "
             "sample is incomplete, so nothing was measured or cached"
         )
-    save_checkpoint_atomic({"key": key, "probs": probs, "targets": targets}, cache)
+    if diag.get("inputs_sha256") not in (None, key["inputs_sha256"]):
+        print(
+            "not caching: the dataset's inputs fingerprint differs from the cache key's"
+        )
+        return probs, targets
+    try:
+        save_checkpoint_atomic({"key": key, "probs": probs, "targets": targets}, cache)
+    except OSError as exc:
+        print(f"could not cache the predictions in {cache}: {exc}")
     return probs, targets
 
 
@@ -188,6 +221,9 @@ def main(argv=None):
     parser.add_argument("--checkpoint", default="best_model.pt")
     parser.add_argument("--cache", default=DEFAULT_CACHE)
     parser.add_argument(
+        "--refresh", action="store_true", help="score afresh, ignoring the cache"
+    )
+    parser.add_argument(
         "--unwarped",
         action="store_true",
         help="score a checkpoint that records use_lasagna: true unwarped, as "
@@ -195,6 +231,7 @@ def main(argv=None):
     )
     args = parser.parse_args(argv)
 
+    require_villa_metrics()
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"device: {device}")
     # The validation inputs are the loop's current ones; the model and what it
@@ -204,8 +241,13 @@ def main(argv=None):
         if os.path.exists("config.json")
         else ExperimentConfig()
     )
-    checkpoint_sha256 = _file_sha256(args.checkpoint)
-    model, settings, chk = load_tool_checkpoint(args.checkpoint, device)
+    # One read, hashed and loaded, so the key names the weights that were scored
+    # even if the loop replaces the file meanwhile.
+    with open(args.checkpoint, "rb") as stream:
+        data = stream.read()
+    checkpoint_sha256 = hashlib.sha256(data).hexdigest()
+    model, settings, chk = load_tool_checkpoint(io.BytesIO(data), device)
+    del data
     for name, value in settings.items():
         setattr(config, name, value)
     stored = chk.get("config", {})
@@ -230,7 +272,7 @@ def main(argv=None):
         "use_lasagna": bool(config.use_lasagna),
     }
     probs, targets = predictions(
-        model, settings, config, device, args.cache, key, protocol
+        model, settings, config, device, args.cache, key, protocol, args.refresh
     )
     ink_probs, ink_targets = ink_containing(probs, targets)
     print(f"scored patches: {len(probs)}, ink-containing: {len(ink_probs)}")
@@ -272,9 +314,21 @@ def main(argv=None):
             )
     print(
         f"\nBaseline (topology threshold {topo_thr:.3f}, no post-processing): "
-        f"skel_dist={baseline['skel_dist']:.3f}, gate={SKEL_DIST_GATE}; "
-        f"stored avg_skel_dist={chk.get('avg_skel_dist')}"
+        f"skel_dist={baseline['skel_dist']:.3f}, gate={SKEL_DIST_GATE}"
     )
+    # The stored score compares only when it was measured on this sample.
+    stored_protocol = chk.get("val_protocol")
+    stored_inputs = (chk.get("validation_diag") or {}).get("inputs_sha256")
+    if stored_protocol == protocol and stored_inputs == key["inputs_sha256"]:
+        print(
+            f"Stored avg_skel_dist={chk.get('avg_skel_dist')}, on the same protocol "
+            "and inputs"
+        )
+    else:
+        print(
+            f"Stored avg_skel_dist={chk.get('avg_skel_dist')} is not comparable: it "
+            f"was measured on protocol {stored_protocol}, inputs {stored_inputs}"
+        )
     return 0
 
 
