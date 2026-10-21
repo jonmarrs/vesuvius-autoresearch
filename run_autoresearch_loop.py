@@ -21,8 +21,8 @@ from scripts.training.promotion import (
     IncumbentUnavailable,
     check_incumbent,
     first_use_record,
-    replacement_mode,
 )
+from vesuvius_autoresearch.core.file_modes import replacement_mode
 
 LOCK_FILE = "autoresearch.lock"
 

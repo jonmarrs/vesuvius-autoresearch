@@ -100,6 +100,7 @@ VALIDATION_TESTS = [
     "tests/test_detector_patch_origin.py",
     "tests/test_disable_augmentation.py",
     "tests/test_f1_improvement_criterion.py",
+    "tests/test_file_modes.py",
     "tests/test_frangi_fiber_target.py",
     "tests/test_frangi_torch.py",
     "tests/test_improvement_criterion.py",

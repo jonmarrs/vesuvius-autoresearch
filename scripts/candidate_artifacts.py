@@ -14,6 +14,8 @@ from pathlib import Path
 
 import zarr
 
+from vesuvius_autoresearch.core.file_modes import replacement_mode
+
 ARTIFACT_ERRORS = (
     OSError,
     ValueError,
@@ -36,9 +38,12 @@ def tensor_settings(sigma, gpus):
 def write_json(path, data):
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
+    # The replaced file's mode, or the umask's for a new one, not the temporary file's 0600.
+    permissions = replacement_mode(path)
     with tempfile.NamedTemporaryFile(mode="w", dir=path.parent, delete=False) as stream:
         temporary = Path(stream.name)
         try:
+            os.fchmod(stream.fileno(), permissions)
             json.dump(data, stream, indent=2, allow_nan=False)
             stream.write("\n")
         except BaseException:
