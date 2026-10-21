@@ -130,6 +130,21 @@ def main():
     print("Computing Centerline Dice...")
     cd_res = compute_centerline_dice(gt_bin, pred_bin, tolerance_radius=3.0)
     results.update(cd_res)
+    # Villa gives a slice with no ground truth the whole slice as its tolerance region,
+    # so every predicted skeleton pixel there counts as a hit (METHOD.md): count them.
+    if gt_bin.ndim == 3:
+        unlabelled = sum(
+            1
+            for z in range(gt_bin.shape[0])
+            if pred_bin[z].any() and not gt_bin[z].any()
+        )
+        results["centerline_slices_predicted_without_ground_truth"] = unlabelled
+        if unlabelled:
+            print(
+                f"Warning: {unlabelled} slices have a prediction and no ground truth; "
+                "villa's centerline_dice counts their predicted skeleton as matching, "
+                "which can raise it above 1"
+            )
 
     print("Computing Connected Components...")
     cc_res = compute_cc(gt_bin, pred_bin, num_classes=2, ignore_index=0)

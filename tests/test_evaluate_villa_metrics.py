@@ -110,3 +110,36 @@ def test_a_missing_optional_metric_leaves_the_others_reported(tmp_path):
         results
     )
     assert "critical_components_multiclass" not in results
+
+
+def test_slices_predicted_without_ground_truth_are_counted(tmp_path):
+    """Villa gives such a slice the whole slice as its tolerance region, so its
+    predicted skeleton counts as matching: the count says how much of the
+    centerline_dice that is."""
+    gt = _line_volume(tmp_path / "gt.zarr")  # ink on slice 10 only
+    pred = zarr.open(
+        str(tmp_path / "pred.zarr"),
+        mode="w",
+        shape=(20, 20, 20),
+        chunks=(10, 10, 10),
+        dtype="u1",
+    )
+    volume = np.zeros((20, 20, 20), np.uint8)
+    volume[10, 2:18, 10] = 1
+    volume[3, 2:18, 4] = 1  # predicted where the ground truth has nothing
+    volume[15, 5:9, 5] = 1
+    pred[:] = volume
+    result = subprocess.run(
+        [sys.executable, str(REPO / "scripts/evaluate_villa_metrics.py")]
+        + ["--gt", gt, "--pred", str(tmp_path / "pred.zarr")]
+        + ["--out", str(tmp_path / "results.json")],
+        cwd=tmp_path,
+        env=_shadow_metrics(tmp_path, set()),
+        capture_output=True,
+        text=True,
+        timeout=300,
+    )
+    assert result.returncode == 0, result.stderr
+    results = json.loads((tmp_path / "results.json").read_text())
+    assert results["centerline_slices_predicted_without_ground_truth"] == 2
+    assert "2 slices have a prediction and no ground truth" in result.stdout

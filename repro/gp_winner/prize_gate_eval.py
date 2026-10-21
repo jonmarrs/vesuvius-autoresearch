@@ -73,10 +73,18 @@ def sweep_topology(prob, label, mask, thresholds):
     """For each threshold, binarize prob*mask and compute villa centerline_dice + skel_dist
     on (1,H,W) arrays; return the topology-optimal (max centerline_dice) result + pixel-AUC.
     The topology metrics run on the label bounding box (full-segment skeletonization is
-    intractable); pixel-AUC is over the full papyrus mask."""
+    intractable); pixel-AUC is over the full papyrus mask.
+
+    A label with no ink inside the mask is refused: villa's centerline_dice counts every
+    predicted skeleton pixel on a slice with no ground-truth skeleton as a hit, so any
+    prediction would score about 2 there (METHOD.md)."""
     from sklearn.metrics import roc_auc_score
 
     m = mask.astype(bool)
+    if not (label.astype(bool) & m).any():
+        raise ValueError(
+            "the label has no ink inside the mask; the topology metrics are undefined there"
+        )
     sel = m.ravel()
     auc = (
         float(roc_auc_score(label.ravel()[sel], prob.ravel()[sel]))
@@ -118,7 +126,10 @@ def main():
     _ensure_wandb_disabled()
     prob, label, mask = load_pred_label_mask(args.pred, args.label, args.mask or None)
     ths = [float(x) for x in args.thresholds.split(",")]
-    res = sweep_topology(prob, label, mask, ths)
+    try:
+        res = sweep_topology(prob, label, mask, ths)
+    except ValueError as exc:
+        raise SystemExit(f"{args.label}: {exc}") from None
     os.makedirs(os.path.dirname(args.out) or ".", exist_ok=True)
     with open(args.out, "w") as f:
         json.dump(res, f, indent=2)
