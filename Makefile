@@ -13,7 +13,7 @@ help:
 	@echo "  make reeval       re-evaluate best_model.pt under today's code path"
 	@echo "  make shift        spawn an autoresearch bandit shift in background"
 	@echo "  make check-deps   verify GPU + key imports"
-	@echo "  make clean        remove transient stdout logs (keeps sprint_logs/)"
+	@echo "  make clean        remove old launchers' stdout logs (keeps run.log and sprint_logs/)"
 	@echo "  make clean-cache  also remove __pycache__ and valid_coords_*.npy"
 
 install:
@@ -37,8 +37,11 @@ check-deps:
 	@uv run python -c "import scripts.training.train, vesuvius_autoresearch.core.vesuvius_loader, vesuvius_autoresearch.core.model_wrappers, run_autoresearch_loop; print('main modules import OK')"
 	@nvidia-smi --query-gpu=name,memory.total --format=csv,noheader 2>/dev/null || echo "(no GPU detected; CPU-only mode)"
 
+# Not run.log: it is the cycles' training output, git-ignored and so on this machine
+# only. scripts/epoch_boundary_overhead.py and cycle_length_gain.py read it for each
+# cycle's step count, and a running cycle is writing it.
 clean:
-	rm -f shift_stdout_*.log dayshift_stdout.log nightshift_stdout.log run.log /tmp/reeval.log /tmp/fiber_gen.log
+	rm -f shift_stdout_*.log dayshift_stdout.log nightshift_stdout.log /tmp/reeval.log /tmp/fiber_gen.log
 
 clean-cache: clean
 	find . -name __pycache__ -type d -exec rm -rf {} + 2>/dev/null || true

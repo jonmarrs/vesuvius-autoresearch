@@ -57,11 +57,13 @@ DATA_URL = (
 DEFAULT_DATA = pathlib.Path("local_data/fiber_skeletons")
 DEFAULT_TOL = 2.0
 
-# The eleven full cubes every published number (README, BASELINES.md, ScrollGT)
-# draws from. No 128^3 sub-volume figure is carried downstream. Five of these
-# are Scroll 5 cross-scroll cubes added alongside the original single one;
-# three of the five are 512^3, so their ERL is not comparable to the 256^3 rows
-# (see size_class in the exported meta.json).
+# The eleven in-sample cubes, which `floors --all-cubes` runs. No 128^3
+# sub-volume figure is carried downstream. Five of these are Scroll 5
+# cross-scroll cubes added alongside the original single one; three of the five
+# are 512^3, so their ERL is not comparable to the 256^3 rows (see size_class
+# in the exported meta.json). ScrollGT also publishes ten held-out cubes (eight
+# on Scroll 3, two on Scroll 5, finding 83), which are not listed here: they are
+# traced from their own data directory by repro/fibers/run_heldout_chain.sh.
 CUBES = [
     "s1_00497_01497_03997_256",
     "s1_00497_02497_02997_256",
@@ -254,8 +256,8 @@ def _floor_rows(ev, gt, img, mask, tolerance: float) -> dict[str, dict]:
 
 
 def _floors_all_cubes(args) -> int:
-    """Run oracle + all four floors on every published cube, refreshing the
-    all-cubes report. `tracer_strict_relink` (produced separately by `trace`)
+    """Run oracle + all four floors on each in-sample cube (CUBES), refreshing
+    the all-cubes report. `tracer_strict_relink` (produced separately by `trace`)
     is carried over from any prior report at the same --json-out path rather
     than recomputed here, since this command only owns the floors."""
     from vesuvius_autoresearch.fibers import eval_trace as ev
@@ -540,7 +542,8 @@ def main(argv=None) -> int:
             p.add_argument(
                 "--all-cubes",
                 action="store_true",
-                help="run every published cube (ignores --cube) and refresh --json-out",
+                help="run the eleven in-sample cubes (ignores --cube; not the ten "
+                "held-out ones) and refresh --json-out",
             )
         if name == "score":
             p.add_argument("--instances", required=True, help=".npy int labels")

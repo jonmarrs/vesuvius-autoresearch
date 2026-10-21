@@ -678,8 +678,10 @@ TRAIN_SCRIPT = "scripts/training/train.py"
 # 2026-10-20: the cycle-length study, replicated on 2026-10-19, found no
 # measurable gain from 60 minutes over 15, and the owner chose 15 for both.
 SHIFT_BUDGETS = {"DAY SHIFT": 900, "NIGHT SHIFT": 900}
-# The longest a supervised training run may last: the longest budget plus the
-# margin of its timeout (default_budget + 300 in main).
+# The longest a loop cycle's training run may last: the longest budget plus the
+# margin of its timeout (default_budget + 300 in main). An ablation cell may last
+# longer (its timeout is its --budget + 240), and an orphaned one older than this
+# is stopped all the same.
 LONGEST_RUN_SECONDS = max(SHIFT_BUDGETS.values()) + 300
 
 
@@ -690,8 +692,9 @@ def shift_for_hour(hour: int) -> tuple[str, int]:
 
 
 def unsupervised_runs_reason(running):
-    """Stops a loop's own run that has outlived any cycle's timeout, as its
-    supervisor would have, and says why the loop does not start."""
+    """Stops a run a loop or the ablation started (own) that is older than any
+    cycle's timeout, as its supervisor would have, and says why the loop does
+    not start."""
     lines = []
     for pid, age, own in running:
         lines.append(describe_run(pid, age, own))
