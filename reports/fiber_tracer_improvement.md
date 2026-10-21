@@ -4,6 +4,9 @@
 > conclusion HOLDS.** On all 11 ScrollGT cubes, not only the six below, merge-penalized ERL rises over the
 > baseline (+0.4% to +19.6%), raw ERL moves by −2.7% to +9.0%, and merges fall everywhere.
 > `reports/tracer_frozen_v2.md` (finding 81). The tables below are the original version-1 numbers.
+> (Review note, 2026-10-21: version 4 was current until 2026-10-12. Version 5, ScrollGT 0.7.0's ERL fix
+> (finding 85), divides ERL by the ground-truth length, and these percentages were not re-measured under
+> it.)
 
 > **Historical scorer, corrected 2026-10-04:** these measurements used an
 > edge-order-dependent implementation. Scoring version 2 follows actual graph
