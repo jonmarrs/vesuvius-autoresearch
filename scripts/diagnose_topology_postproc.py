@@ -2,16 +2,31 @@
 move the real model's skel_dist toward the prize gate (<= 2.0), separately from
 training changes.
 
-Loads best_model.pt, runs validation inference (CPU by default to avoid the
-GPU the autoresearch loop uses), then sweeps binarization threshold x despeckle
-min-component-size and reports the villa topology metrics for each combination.
+Loads best_model.pt with its own recorded recipe and complete weights
+(``load_tool_checkpoint``), scores the loop's validation protocol on
+config.json's validation inputs as ``reevaluate_best_model.py`` does, then
+sweeps binarization threshold x despeckle min-component-size over the
+ink-containing patches and reports the villa topology metrics for each
+combination.
+
+The baseline row is the loop's own measurement: the centerline_dice-optimal
+threshold (``select_topology_threshold``), no post-processing, skel_dist and
+centerline_dice on every 10th patch and cc_diff on all of them. The Dice-optimal
+threshold, which the loop scored topology at until 2026-06-10, is swept too.
+
+Predictions are cached (``--cache``) under a key of the checkpoint's sha256,
+the protocol and the validation inputs' fingerprint, so a promoted model or
+other validation data is scored afresh rather than read from an older run.
 
 Usage:
     CUDA_VISIBLE_DEVICES="" uv run python scripts/diagnose_topology_postproc.py
 """
 
+import argparse
+import hashlib
 import os
 import sys
+import tempfile
 
 import numpy as np
 import torch
@@ -21,19 +36,34 @@ _REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, _REPO_ROOT)
 sys.path.insert(0, os.path.join(_REPO_ROOT, "scripts", "training"))
 
-from torch.utils.data import DataLoader
 from train import (
     ExperimentConfig,
+    build_validation_dataset,
+    collect_validation_predictions,
     compute_cc_diff,
     compute_centerline_dice,
     compute_official_dice,
     compute_skeleton_dist,
-    load_shape_compatible_state,
+    ink_containing,
+    select_topology_threshold,
 )
 
-from vesuvius_autoresearch.core.inference import DEPTH_MARGIN, centre_window
-from vesuvius_autoresearch.core.model_wrappers import build_inference_model
-from vesuvius_autoresearch.core.vesuvius_loader import VesuviusLabeledDataset
+from scripts.reevaluate_best_model import RECORDED_INPUT_SETTINGS
+from scripts.training.promotion import (
+    save_checkpoint_atomic,
+    validation_inputs_fingerprint,
+    validation_protocol,
+)
+from vesuvius_autoresearch.core.checkpoint_tools import (
+    ink_probabilities,
+    load_tool_checkpoint,
+    validate_batch,
+)
+
+DEFAULT_CACHE = os.path.join(tempfile.gettempdir(), "topo_postproc_preds.pt")
+MIN_SIZES = (1, 16, 64)
+FIXED_THRESHOLDS = (0.5, 0.65)
+SKEL_DIST_GATE = 2.0
 
 
 def despeckle(mask: np.ndarray, min_size: int) -> np.ndarray:
@@ -47,165 +77,206 @@ def despeckle(mask: np.ndarray, min_size: int) -> np.ndarray:
     return np.isin(lbl, keep)
 
 
-def topo_metrics(probs, targets, threshold, min_size):
-    """Average villa topology metrics over the patch list at a given post-proc."""
+def topo_metrics(probs, targets, threshold, min_size, subset_step=10):
+    """The loop's per-patch topology metrics over ink-containing patches, after
+    thresholding at ``threshold`` and removing components under ``min_size``
+    pixels: cc_diff on every patch, skel_dist and centerline_dice on every
+    ``subset_step``-th, as train.py and reevaluate_best_model.py measure them.
+
+    A measurement that is not finite (despeckling can empty a prediction) is
+    counted in ``n_undefined`` and left out of the means, not raised."""
     skel, cd, cc, dice = [], [], [], []
+    undefined = 0
     for i in range(len(probs)):
-        tgt = targets[i]
-        prob = probs[i]
-        dice.append(compute_official_dice(tgt, prob, threshold=threshold))
-        gt = (tgt > 0.5).numpy().astype(bool)
-        pred = (prob > threshold).numpy().astype(bool)
-        for b in range(gt.shape[0]):
-            pb = despeckle(pred[b, 0], min_size)
-            cc.append(compute_cc_diff(gt[b, 0], pb))
-        if i % 5 == 0:
-            gt3 = np.squeeze(gt)
-            pred3 = np.squeeze(
-                np.stack(
-                    [despeckle(pred[b, 0], min_size) for b in range(pred.shape[0])]
-                )
+        gt = (targets[i] > 0.5).numpy().astype(bool)
+        pred = (probs[i] > threshold).numpy().astype(bool)
+        pred = np.stack(
+            [despeckle(pred[b, 0], min_size)[None] for b in range(pred.shape[0])]
+        )
+        dice.append(
+            compute_official_dice(
+                targets[i], torch.from_numpy(pred.astype(np.float32)), threshold=0.5
             )
+        )
+        for b in range(gt.shape[0]):
+            cc.append(compute_cc_diff(gt[b, 0], pred[b, 0]))
+        if i % subset_step == 0:
+            gt3, pred3 = np.squeeze(gt), np.squeeze(pred)
             if gt3.ndim == 2:
                 gt3 = gt3[None]
             if pred3.ndim == 2:
                 pred3 = pred3[None]
-            try:
-                sd = compute_skeleton_dist(gt3, pred3)
-                if not np.isnan(sd):
-                    skel.append(sd)
-            except Exception:
-                pass
-            try:
-                c = compute_centerline_dice(gt3, pred3, tolerance_radius=3.0).get(
-                    "centerline_dice", 0.0
-                )
-                if not np.isnan(c):
-                    cd.append(c)
-            except Exception:
-                pass
+            sd = compute_skeleton_dist(gt3, pred3)
+            c = compute_centerline_dice(gt3, pred3, tolerance_radius=3.0)[
+                "centerline_dice"
+            ]
+            for value, kept in ((sd, skel), (c, cd)):
+                if np.isfinite(value):
+                    kept.append(float(value))
+                else:
+                    undefined += 1
     return {
         "dice": float(np.mean(dice)) if dice else float("nan"),
         "skel_dist": float(np.mean(skel)) if skel else float("nan"),
         "centerline_dice": float(np.mean(cd)) if cd else float("nan"),
         "cc_diff": float(np.mean(cc)) if cc else float("nan"),
         "n_skel": len(skel),
+        "n_undefined": undefined,
     }
 
 
-def main():
+def _file_sha256(path):
+    digest = hashlib.sha256()
+    with open(path, "rb") as stream:
+        for chunk in iter(lambda: stream.read(1 << 20), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _cached(path, key):
+    """The cached predictions when they were made under ``key``, else None."""
+    if not os.path.exists(path):
+        return None
+    try:
+        blob = torch.load(path, map_location="cpu", weights_only=True)
+    except Exception as exc:
+        print(f"ignoring unreadable prediction cache {path}: {exc}")
+        return None
+    if not isinstance(blob, dict) or blob.get("key") != key:
+        print(
+            f"ignoring {path}: its predictions are of another checkpoint or "
+            "validation sample"
+        )
+        return None
+    return blob["probs"], blob["targets"]
+
+
+def predictions(model, settings, config, device, cache, key, protocol):
+    """The protocol sample's per-patch probabilities and targets: from ``cache``
+    when it holds this key's, else scored and cached."""
+    hit = _cached(cache, key)
+    if hit is not None:
+        print(f"loaded cached predictions: {len(hit[0])} patches")
+        return hit
+    val_ds = build_validation_dataset(config)
+
+    def probabilities(net, x):
+        return ink_probabilities(net, validate_batch(x, settings))
+
+    torch.manual_seed(42)
+    probs, targets, diag = collect_validation_predictions(
+        model,
+        val_ds,
+        config.num_layers,
+        device,
+        batch_size=config.batch_size,
+        amp_enabled=device.type == "cuda",
+        probabilities=probabilities,
+        protocol=protocol,
+    )
+    if not diag["complete"]:
+        raise SystemExit(
+            f"{diag['batch_errors']} validation batches failed; the protocol's "
+            "sample is incomplete, so nothing was measured or cached"
+        )
+    save_checkpoint_atomic({"key": key, "probs": probs, "targets": targets}, cache)
+    return probs, targets
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
+    parser.add_argument("--checkpoint", default="best_model.pt")
+    parser.add_argument("--cache", default=DEFAULT_CACHE)
+    parser.add_argument(
+        "--unwarped",
+        action="store_true",
+        help="score a checkpoint that records use_lasagna: true unwarped, as "
+        "reevaluate_best_model.py --unwarped does",
+    )
+    args = parser.parse_args(argv)
+
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"device: {device}")
-    config = ExperimentConfig.load("config.json")
-    chk = torch.load("best_model.pt", map_location="cpu", weights_only=False)
+    # The validation inputs are the loop's current ones; the model and what it
+    # sees are the checkpoint's own.
+    config = (
+        ExperimentConfig.load("config.json")
+        if os.path.exists("config.json")
+        else ExperimentConfig()
+    )
+    checkpoint_sha256 = _file_sha256(args.checkpoint)
+    model, settings, chk = load_tool_checkpoint(args.checkpoint, device)
+    for name, value in settings.items():
+        setattr(config, name, value)
     stored = chk.get("config", {})
-    stored_arch = stored.get("architecture", "?")
+    for name in RECORDED_INPUT_SETTINGS:
+        if name in stored:
+            setattr(config, name, stored[name])
+    if args.unwarped and config.use_lasagna:
+        config.use_lasagna = False
+        print("  recorded use_lasagna: true; scoring unwarped (--unwarped)")
     print(
-        f"stored arch={stored_arch} val_bpb={chk.get('val_bpb')} skel={chk.get('avg_skel_dist')}"
+        f"stored arch={settings['architecture']} val_f1={chk.get('val_f1')} "
+        f"avg_skel_dist={chk.get('avg_skel_dist')}"
     )
 
-    model = build_inference_model(
-        architecture=stored_arch,
-        patch_size=config.patch_size,
-        num_layers=config.num_layers,
-        base_feat=config.base_feat,
-        num_blocks=config.num_blocks,
-        num_heads=config.num_heads,
-        dropout=config.dropout,
-        use_ridges=config.use_ridges,
-        multi_task_heads=stored.get("multi_task_heads", False),
-    ).to(device)
-    load_shape_compatible_state(model, chk["model_state_dict"], "best_model.pt")
-
-    parent = os.path.dirname(config.val_uri.rstrip("/"))
-    labels_path = os.path.join(parent, "inklabels.png")
-    mask_path = os.path.join(parent, "mask.png")
-    val_ds = VesuviusLabeledDataset(
-        config.val_uri,
-        labels_path,
-        mask_path if os.path.exists(mask_path) else None,
-        config.patch_size,
-        config.num_layers + 2 * DEPTH_MARGIN,
-        seed=42,
-        cache_dir=config.cache_dir,
-        use_ridges=config.use_ridges,
-        ridge_sigma=getattr(config, "ridge_sigma", 2.0),
-        use_lasagna=False,
-        require_ink=True,
-        depth_band=config.depth_band,
-        depth_margin=DEPTH_MARGIN,
+    protocol = validation_protocol(config.depth_band)
+    key = {
+        "checkpoint_sha256": checkpoint_sha256,
+        "protocol": protocol,
+        "inputs_sha256": validation_inputs_fingerprint(
+            config.val_uri, config.depth_band
+        ),
+        "use_lasagna": bool(config.use_lasagna),
+    }
+    probs, targets = predictions(
+        model, settings, config, device, args.cache, key, protocol
     )
-    val_loader = DataLoader(val_ds, batch_size=config.batch_size, num_workers=0)
-    val_iter = iter(val_loader)
+    ink_probs, ink_targets = ink_containing(probs, targets)
+    print(f"scored patches: {len(probs)}, ink-containing: {len(ink_probs)}")
+    if not ink_probs:
+        raise SystemExit("no ink-containing validation patches to measure")
 
-    cache = "/tmp/topo_postproc_preds.pt"
-    if os.path.exists(cache):
-        blob = torch.load(cache)
-        all_probs, all_targets = blob["probs"], blob["targets"]
-        print(f"loaded cached predictions: {len(all_probs)} batches")
-    else:
-        model.eval()
-        all_probs, all_targets = [], []
-        import time
-
-        t0 = time.time()
-        with torch.no_grad():
-            for _ in range(120):
-                try:
-                    x_raw, target, _ = next(val_iter)
-                except StopIteration:
-                    break
-                x = centre_window(x_raw, config.num_layers).to(device)
-                if target is None or target.numel() == 0:
-                    continue
-                target = target.to(device)
-                if target.dim() == 3:
-                    target = target.unsqueeze(1)
-                if torch.sum(target.float()) < 1.0:
-                    continue
-                out = model(x)
-                if isinstance(out, tuple):
-                    out = out[0]
-                all_probs.append(torch.sigmoid(out).cpu())
-                all_targets.append(target.cpu())
-                print(f"  batch {len(all_probs)} ({time.time() - t0:.0f}s)", flush=True)
-                if len(all_probs) >= 30:
-                    break
-        torch.save({"probs": all_probs, "targets": all_targets}, cache)
-    print(f"usable validation batches: {len(all_probs)}")
-    if not all_probs:
-        print("ERROR: no usable validation patches")
-        return
-
-    probs_cat = torch.cat(all_probs)
-    targets_cat = torch.cat(all_targets)
+    probs_cat = torch.cat(ink_probs)
+    targets_cat = torch.cat(ink_targets)
     best_dice, dice_thr = 0.0, 0.5
-    for t in np.linspace(0.05, 0.8, 16):
+    for t in np.linspace(0.01, 0.8, 40):
         d = compute_official_dice(targets_cat, probs_cat, threshold=t)
         if d > best_dice:
-            best_dice, dice_thr = d, t
-    print(f"Dice-optimal threshold = {dice_thr:.3f} (dice={best_dice:.4f})\n")
+            best_dice, dice_thr = d, float(t)
+    topo_thr, topo_cd = select_topology_threshold(ink_probs, ink_targets)
+    print(f"Dice-optimal threshold = {dice_thr:.3f} (dice={best_dice:.4f})")
+    print(f"topology threshold     = {topo_thr:.3f} (centerline_dice={topo_cd:.4f})\n")
 
+    thresholds = []
+    for t in (topo_thr, dice_thr, *FIXED_THRESHOLDS):
+        if all(abs(t - u) > 1e-9 for u in thresholds):
+            thresholds.append(t)
     print(
-        f"{'thresh':>7} {'minsz':>6} {'dice':>7} {'skel_dist':>10} {'cl_dice':>8} {'cc_diff':>8}"
+        f"{'thresh':>7} {'minsz':>6} {'dice':>7} {'skel_dist':>10} {'cl_dice':>8} "
+        f"{'cc_diff':>8} {'undef':>6}"
     )
-    print("-" * 52)
+    print("-" * 59)
     baseline = None
-    for thr in [dice_thr, 0.5, 0.65]:
-        for ms in [1, 16, 64]:
-            m = topo_metrics(all_probs, all_targets, thr, ms)
-            tag = "  <- Dice-opt, no postproc" if (thr == dice_thr and ms == 1) else ""
-            if thr == dice_thr and ms == 1:
+    for thr in thresholds:
+        for ms in MIN_SIZES:
+            m = topo_metrics(ink_probs, ink_targets, thr, ms)
+            is_baseline = thr == topo_thr and ms == 1
+            if is_baseline:
                 baseline = m
+            tag = "  <- the loop's measurement" if is_baseline else ""
             print(
                 f"{thr:7.3f} {ms:6d} {m['dice']:7.4f} {m['skel_dist']:10.3f} "
-                f"{m['centerline_dice']:8.4f} {m['cc_diff']:8.3f}{tag}"
+                f"{m['centerline_dice']:8.4f} {m['cc_diff']:8.3f} "
+                f"{m['n_undefined']:6d}{tag}"
             )
-    if baseline:
-        print(
-            f"\nBaseline (current eval): skel_dist={baseline['skel_dist']:.3f}, gate=2.0"
-        )
+    print(
+        f"\nBaseline (topology threshold {topo_thr:.3f}, no post-processing): "
+        f"skel_dist={baseline['skel_dist']:.3f}, gate={SKEL_DIST_GATE}; "
+        f"stored avg_skel_dist={chk.get('avg_skel_dist')}"
+    )
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
