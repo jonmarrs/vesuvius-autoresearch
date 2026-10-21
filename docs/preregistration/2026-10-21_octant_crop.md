@@ -1,6 +1,7 @@
 # Pre-registration: is the neural tracer's tolerance-4 deficit on the 256³ in-sample cubes their size?
 
 **Status: REGISTERED 2026-10-21, before any octant has been scored.** CPU only, at nice 19 with the loop running.
+**Run 2026-10-21, 00:29–01:06 PDT: finding 95, `reports/octant_crop_rescore.md`. P1 held (19 of 24).**
 
 ## The question
 

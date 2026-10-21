@@ -53,6 +53,9 @@ Medians of merge-penalized ERL, by group:
   placement note, since two of the three cubes are among its five.
 * **For the reading of finding 91:** the thin tracer's in-sample weakness is largest where placement within 2–4 voxels
   counts most. That fits the placement and offset measurements (#151, #157), and does not separate their causes.
+* **For the 256³ cubes:** finding 95 (`octant_crop_rescore.md`, pre-registered) cut the three 512³ cubes into 256³
+  octants, and the lead held on 19 of 24 at tolerance 4. Cube size as scored is not why the 256³ cubes trail. Nor is
+  the scroll alone: the three Scroll-5 256³ cubes trail too.
 
 ## What it does not say
 
