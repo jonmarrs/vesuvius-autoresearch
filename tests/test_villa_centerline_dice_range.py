@@ -1,8 +1,10 @@
 """Villa's centerline_dice, which the loop's topology threshold maximises (train.select_topology_threshold), is
 2 |S_pred ∩ T(S_gt)| / (|S_gt| + |S_pred|): the prediction's skeleton pixels within the tolerance of the ground
-truth's skeleton, over both skeletons' lengths. It is not the symmetric clDice, and it is not bounded by 1. A
-prediction whose skeleton is longer than the ground truth's, inside the tolerance, scores above an exact copy.
-METHOD.md states this; these cases pin it, so the statement fails here if villa's pinned metric changes."""
+truth's skeleton, over both skeletons' lengths. It is not the symmetric clDice, and it is not bounded by 1, by two
+routes: a slice with no ground-truth skeleton counts every predicted skeleton pixel as a hit, and a prediction
+whose skeleton is longer than the ground truth's, mostly inside the tolerance, scores above an exact copy.
+METHOD.md states both and cites these numbers; these cases pin them, so the statement fails here if villa's pinned
+metric changes."""
 
 import sys
 from pathlib import Path
@@ -48,12 +50,25 @@ def test_a_ragged_prediction_around_the_ink_outscores_an_exact_one():
     comb = gt.copy()
     for x in range(5, 59, 2):
         comb[0, 27:36, x] = True  # 3-px teeth either side of the stroke
-    exact = _cd(gt, gt.copy())["centerline_dice"]
-    for pred, above in ((ragged, 1.05), (comb, 1.25)):
+    exact = _cd(gt, gt.copy())
+    assert exact["centerline_length_gt"] == 56
+    # The numbers METHOD.md cites: an exact copy 1.00, the ragged prediction 1.10, the comb 1.33.
+    for pred, score, length in ((ragged, 1.10, 133), (comb, 1.33, 270)):
         r = _cd(gt, pred)
-        # Its skeleton is longer than the ground truth's and lies within the tolerance.
-        assert r["centerline_length_pred"] > r["centerline_length_gt"]
-        assert r["centerline_dice"] > above > exact
+        # Its skeleton is longer than the ground truth's, and mostly within the tolerance.
+        assert r["centerline_length_pred"] == length > r["centerline_length_gt"]
+        assert r["centerline_dice"] == pytest.approx(score, abs=0.005)
+        assert r["centerline_dice"] > exact["centerline_dice"]
         # "sensitivity" is the same numerator over the ground truth's length, so it exceeds 1 too.
         assert r["centerline_sensitivity"] > 1.0
-        assert r["centerline_dice"] < 2.0
+
+
+def test_a_slice_without_ground_truth_counts_every_predicted_pixel():
+    """There the tolerance region is the whole slice: an ink-free label with any prediction scores about 2."""
+    gt = np.zeros((1, 64, 64), bool)
+    pred = _stroke()
+    r = _cd(gt, pred)
+    assert (
+        r["centerline_dice"] == pytest.approx(2.0, abs=1e-6)
+        and r["centerline_dice"] < 2.0
+    )

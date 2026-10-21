@@ -320,7 +320,7 @@ def main(argv=None):
             )
     print(
         f"\nBaseline (topology threshold {topo_thr:.3f}, no post-processing): "
-        f"skel_dist={baseline['skel_dist']:.3f}, gate={SKEL_DIST_GATE}"
+        f"skel_dist={baseline['skel_dist']:.3f}, gate={SKEL_DIST_GATE} (dropped 2026-06-26)"
     )
     # The stored score compares only when it was measured on this sample.
     stored_protocol = chk.get("val_protocol")
