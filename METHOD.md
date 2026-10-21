@@ -75,7 +75,15 @@ distillation results — mask-restricted and pooled over the fragment:
 - **ROC-AUC** — secondary diagnostic only, never an optimization target (it is
   over-optimistic under class imbalance).
 - **`centerline_dice`** — topological score, evaluated at the topology-optimal
-  binarization threshold (the Dice-optimal threshold understates it ~2×).
+  binarization threshold (the Dice-optimal threshold understates it ~2×). Villa's
+  definition is 2·|S_pred ∩ T(S_gt)| / (|S_gt| + |S_pred|): the prediction's skeleton
+  pixels within 3 px of the ground truth's skeleton, over both skeletons' lengths. That is
+  not the symmetric clDice, and it is **not bounded by 1**. A prediction whose skeleton is
+  longer than the ground truth's but lies inside that tolerance scores above an exact copy,
+  up to 2. On a 56-px stroke, an exact copy scores 1.00, a ragged prediction around it 1.10,
+  and a comb of spurs 1.33 (`tests/test_villa_centerline_dice_range.py`). The topology
+  threshold maximises it, so it can settle on a raggeder mask. It decides no promotion: it
+  is reported, and gated only at ≥ 0.01 (`min_prize_centerline_dice`).
 - **Removed: `skeleton_distance_length`.** Formerly used as a selection signal and a
   "prize gate" (≤ 2.0); we proved it invalid for ink detection — it compares skeleton
   branch-length *histograms* and is blind to spatial location (a zero-overlap

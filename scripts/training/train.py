@@ -1129,7 +1129,10 @@ def ink_containing(probs, targets):
 # to pick its own binarization threshold, so the topology gates are evaluated at
 # the threshold that maximizes centerline_dice, reported alongside the
 # Dice-based val_bpb. Candidates stay in the low range because this model's
-# probability mass collapses above ~0.25.
+# probability mass collapses above ~0.25. Villa's centerline_dice is not bounded
+# by 1: a prediction skeleton longer than the ground truth's, within the
+# tolerance, outscores an exact copy, so the maximum can fall on a raggeder mask
+# (METHOD.md; tests/test_villa_centerline_dice_range.py).
 TOPOLOGY_THRESHOLD_CANDIDATES = (0.05, 0.10, 0.15, 0.20, 0.30, 0.40, 0.50)
 
 
