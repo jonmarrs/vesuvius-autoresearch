@@ -304,8 +304,9 @@ def local_curvature_deg(fiber: Fiber) -> np.ndarray:
     The turn angle is computed via `angular_error_deg`, which folds mod 180:
     a turn of theta above 90 degrees reads as 180 - theta, so an
     incoming/outgoing pair that reverses on itself (a genuine 180-degree
-    hairpin) reads as ~0 degrees of turn here, the same as a straight line, and
-    a 135-degree turn as 45. That fold is defensible because it matches the
+    hairpin with unequal edges) reads as ~0 degrees of turn here, the same as a
+    straight line, and a 135-degree turn as 45. (With equal edges a hairpin's
+    chord is zero, and the node is left out as degenerate.) That fold is defensible because it matches the
     walker's own sign-agnostic gate at `_direction_at` (an orientation is
     compared, not a direction), but it means this function cannot distinguish
     "straight" from "doubled back", and reads every turn over 90 degrees as
