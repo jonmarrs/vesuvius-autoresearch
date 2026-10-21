@@ -106,7 +106,7 @@ def test_fit_affine_orb_recovers_shift():
     rng = np.random.default_rng(1)
     img = (rng.random((256, 256)) * 255).astype(np.uint8)
     img = cv2.GaussianBlur(img, (5, 5), 0)
-    M_true = np.float32([[1, 0, 17], [0, 1, -9]])
+    M_true = np.array([[1, 0, 17], [0, 1, -9]], dtype=np.float32)
     moved = cv2.warpAffine(img, M_true, (256, 256))
     M, inl = fit_affine_orb(img, moved)
     assert inl >= 25
