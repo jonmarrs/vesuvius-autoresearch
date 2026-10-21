@@ -1,16 +1,24 @@
 """Fiber inference and measurement boundaries, exercised without research data."""
 
 import argparse
+import inspect
 import json
 import subprocess
 import sys
-from dataclasses import replace
+from collections import defaultdict
+from dataclasses import asdict, replace
 
 import numpy as np
 import pytest
 import torch
 
-from vesuvius_autoresearch.fibers import bench_cli, semantic
+from vesuvius_autoresearch.fibers import (
+    bench_cli,
+    detection,
+    eval_trace,
+    semantic,
+    trace as fiber_trace,
+)
 from vesuvius_autoresearch.fibers.detection import (
     detect_vesselness,
     detect_vesselness_tiled,
@@ -622,3 +630,222 @@ def test_graph_scores_survive_node_permutation_with_asymmetric_mask():
         score_tracing(gt, inst, tolerance=0).as_row()
         == score_tracing(Skeleton([other]), inst, tolerance=0).as_row()
     )
+
+
+# docs/preregistration/2026-10-05_tracer_rescore.md, "Tracer": `bench_cli trace` at its published defaults.
+REGISTERED_TRACE = {
+    "seed_percentile": 85.0,
+    "continue_threshold": 0.5,
+    "min_length": 15.0,
+    "max_angle_deg": 25.0,
+    "claim_radius": 3.5,
+    "tangent_window": 1,
+    "max_skip_steps": 0,
+    "seed_nms_radius": 0.0,
+}
+REGISTERED_RELINK = {"max_gap": 10.0, "max_link_angle_deg": 30.0}
+
+
+def _gapped_tubes():
+    """Two straight fibers along x. The first has a 4-voxel gap that only relinking bridges."""
+    n = 40
+    z, y, _ = np.mgrid[:n, :n, :n].astype(float)
+    fp = np.zeros((n, n, n))
+    fibers = []
+    for i, (cz, cy) in enumerate([(12, 12), (27, 26)]):
+        tube = np.exp(-((z - cz) ** 2 + (y - cy) ** 2) / 4.5)
+        if i == 0:
+            tube[:, :, 19:23] = 0
+        fp = np.maximum(fp, tube)
+        xs = np.arange(2, n - 2, dtype=float)
+        coords = np.stack([np.full_like(xs, cz), np.full_like(xs, cy), xs], axis=1)
+        edges = np.stack([np.arange(len(xs) - 1), np.arange(1, len(xs))], axis=1)
+        fibers.append(Fiber(i + 1, f"f{i}", np.arange(len(xs)), coords, edges))
+    return fp, Skeleton(fibers)
+
+
+@pytest.fixture
+def trace_run(tmp_path, monkeypatch):
+    """Run `bench_cli trace` on the gapped tubes, recording each stage's arguments by name."""
+    fp, gt = _gapped_tubes()
+    img = np.full(
+        fp.shape, 7, dtype=np.uint8
+    )  # not the probability: orientation must not read it
+    (tmp_path / "cube.nml").write_text("<things/>")
+    (tmp_path / "cube_fiberprob.json").write_text(
+        json.dumps({"inference": {"model": "m"}, "probability_sha256": "ab"})
+    )
+    monkeypatch.setattr(bench_cli, "_load_cube", lambda *a: (img, gt))
+    monkeypatch.setattr(bench_cli, "_fiber_prob", lambda *a: fp.copy())
+    calls = defaultdict(list)
+
+    def spy(module, name):
+        real = getattr(module, name)
+        signature = inspect.signature(real)
+
+        def wrapped(*args, **kwargs):
+            bound = signature.bind(*args, **kwargs)
+            bound.apply_defaults()
+            named = dict(bound.arguments)
+            named.update(named.pop("kwargs", {}))
+            calls[name].append(named)
+            return real(*args, **kwargs)
+
+        monkeypatch.setattr(module, name, wrapped)
+
+    for name in [
+        "hessian",
+        "fiber_direction_tiled",
+        "detect_vesselness",
+        "detect_vesselness_tiled",
+    ]:
+        spy(detection, name)
+    for name in ["trace_fibers", "relink_fragments"]:
+        spy(fiber_trace, name)
+    spy(eval_trace, "score_tracing")
+
+    def run(*extra):
+        calls.clear()
+        out, inst = tmp_path / "trace.json", tmp_path / "instances.npy"
+        argv = ["--data-dir", str(tmp_path), "trace", "--cube", "cube"]
+        argv += ["--json-out", str(out), "--save-instances", str(inst), *extra]
+        assert bench_cli.main(argv) == 0
+        return json.loads(out.read_text()), np.load(inst), defaultdict(list, calls)
+
+    run.fp, run.gt = fp, gt
+    return run
+
+
+def _ran_with(calls):
+    (traced,) = calls["trace_fibers"]
+    relinked = calls["relink_fragments"]
+    return traced["params"], relinked[0]["params"] if relinked else None
+
+
+def _sigmas(call):
+    return call["gauss_sigma"], call["sigma"]
+
+
+def test_trace_defaults_are_the_registered_published_configuration(trace_run):
+    record, _, calls = trace_run()
+    params, relink = _ran_with(calls)
+    assert {k: getattr(params, k) for k in REGISTERED_TRACE} == REGISTERED_TRACE
+    assert {k: getattr(relink, k) for k in REGISTERED_RELINK} == REGISTERED_RELINK
+    assert record["trace_parameters"] == asdict(params)
+    assert record["relink_parameters"] == asdict(relink)
+    provenance = record["provenance"]
+    assert (provenance["tolerance"], provenance["mask_threshold"]) == (2.0, 0.5)
+    assert [c["tolerance"] for c in calls["score_tracing"]] == [2.0, 2.0]
+
+
+def test_trace_runs_and_records_every_parameter_it_is_given(trace_run):
+    record, _, calls = trace_run(
+        *[
+            "--seed-percentile",
+            "80",
+            "--continue-threshold",
+            "0.4",
+            "--min-length",
+            "12",
+        ],
+        *["--max-angle", "28", "--claim-radius", "3", "--tangent-window", "5"],
+        *["--max-skip-steps", "1", "--seed-nms-radius", "1.5"],
+        *["--relink-gap", "8", "--relink-angle", "35"],
+        *["--tolerance", "3", "--mask-threshold", "0.4"],
+    )
+    params, relink = _ran_with(calls)
+    assert {k: getattr(params, k) for k in REGISTERED_TRACE} == {
+        "seed_percentile": 80.0,
+        "continue_threshold": 0.4,
+        "min_length": 12.0,
+        "max_angle_deg": 28.0,
+        "claim_radius": 3.0,
+        "tangent_window": 5,
+        "max_skip_steps": 1,
+        "seed_nms_radius": 1.5,
+    }
+    gap, angles = (
+        relink.max_gap,
+        (relink.max_link_angle_deg, relink.max_tangent_angle_deg),
+    )
+    assert (gap, angles) == (8.0, (35.0, 40.0))
+    assert record["trace_parameters"] == asdict(params)
+    assert record["relink_parameters"] == asdict(relink)
+    provenance = record["provenance"]
+    assert (provenance["tolerance"], provenance["mask_threshold"]) == (3.0, 0.4)
+    assert [c["tolerance"] for c in calls["score_tracing"]] == [3.0, 3.0]
+    np.testing.assert_array_equal(
+        calls["score_tracing"][1]["instances"],
+        eval_trace.floor_connected_components(trace_run.fp >= 0.4),
+    )
+
+
+@pytest.mark.parametrize("block", [0, 16])
+def test_trace_runs_the_recipe_it_records(trace_run, block):
+    record, _, calls = trace_run("--detect-block", str(block))
+    recipe = record["tracing_recipe"]
+    assert recipe["detect_block"] == block
+    assert recipe["orientation"]["source"] == "fiber_probability"
+    orientation = _sigmas(recipe["orientation"])
+    seeding = _sigmas(recipe["seed_response"])
+    if block:
+        (field,) = calls["fiber_direction_tiled"]
+        (seed,) = calls["detect_vesselness_tiled"]
+        assert field["block_size"] == seed["block_size"] == block
+    else:
+        assert not calls["fiber_direction_tiled"]
+        assert not calls["detect_vesselness_tiled"]
+        field = calls["hessian"][0]  # detect_vesselness calls hessian after it
+        (seed,) = calls["detect_vesselness"]
+    np.testing.assert_array_equal(field["volume"], trace_run.fp)
+    np.testing.assert_array_equal(seed["volume"], trace_run.fp)
+    assert (_sigmas(field), _sigmas(seed)) == (orientation, seeding)
+    assert {_sigmas(c) for c in calls["hessian"]} == {orientation, seeding}
+    (traced,) = calls["trace_fibers"]
+    np.testing.assert_array_equal(traced["response"], trace_run.fp)
+    assert recipe["seed_response"]["normalization"] == "max"
+    assert traced["seed_response"].max() == 1.0
+
+
+def test_blocked_detection_traces_the_same_labelling(trace_run):
+    dense, dense_instances, _ = trace_run()
+    blocked, blocked_instances, _ = trace_run("--detect-block", "16")
+    np.testing.assert_array_equal(dense_instances, blocked_instances)
+    assert dense["rows"] == blocked["rows"]
+
+
+def test_trace_saves_the_labelling_it_scored_and_relinks_only_when_asked(trace_run):
+    record, instances, calls = trace_run()
+    np.testing.assert_array_equal(calls["score_tracing"][0]["instances"], instances)
+    tracer = record["rows"]["tracer"]
+    assert tracer == score_tracing(trace_run.gt, instances, tolerance=2.0).as_row()
+    assert tracer["n_pred_instances"] == 2  # the gap is bridged
+    unlinked, _, calls = trace_run("--no-relink")
+    assert not calls["relink_fragments"]
+    assert unlinked["relink_parameters"] is None
+    assert unlinked["rows"]["tracer"]["n_pred_instances"] == 3
+
+
+def test_single_cube_floors_need_a_cube_and_record_the_floors_they_scored(
+    trace_run, tmp_path
+):
+    out = tmp_path / "floors.json"
+    argv = ["--data-dir", str(tmp_path), "floors", "--json-out", str(out)]
+    assert bench_cli.main(argv) == 2
+    assert not out.exists()
+    argv += ["--cube", "cube", "--tolerance", "3", "--mask-threshold", "0.4"]
+    assert bench_cli.main(argv) == 0
+    record = json.loads(out.read_text())
+    assert record["cube"] == "cube"
+    provenance = record["provenance"]
+    assert (provenance["tolerance"], provenance["mask_threshold"]) == (3.0, 0.4)
+    assert list(record["rows"]) == [
+        "oracle",
+        "floor_single_instance",
+        "floor_connected_components",
+        "floor_voxel_instances",
+        "floor_random_instances",
+    ]
+    components = eval_trace.floor_connected_components(trace_run.fp >= 0.4)
+    expected = score_tracing(trace_run.gt, components, tolerance=3.0).as_row()
+    assert record["rows"]["floor_connected_components"] == expected
