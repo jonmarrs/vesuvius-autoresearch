@@ -14,11 +14,12 @@ because nothing was looking. A report that cites `scripts/foo.py` after `foo.py`
 has moved is the same defect in a document instead of in code, and it is worse
 there, because a reader cannot run a document and see it fail.
 
-WHAT IT CHECKS. Every backticked path in `reports/*.md` and `docs/*.md` that
-looks like a repository file, and every backticked commit hash. Paths are
-checked on disk. Commits are checked for reachability from `main`, because a
-commit that exists only in a reflog or on a deleted branch is not something a
-reader can look up.
+WHAT IT CHECKS. Every backticked path in `reports/*.md`, `docs/*.md`, the
+top-level `*.md` (README, CONTRIBUTING, METHOD, REPRODUCE, ...) and
+`.github/*.md` that looks like a repository file, and every backticked commit
+hash; not the files git ignores. Paths are checked on disk. Commits are checked
+for reachability from `main`, because a commit that exists only in a reflog or
+on a deleted branch is not something a reader can look up.
 
 WHAT IT DELIBERATELY DOES NOT DO. It does not fail a build. A stale reference in
 a dated planning document from May is a historical record, not a defect, and a
@@ -153,16 +154,43 @@ def where(sha):
     return None
 
 
-def audit():
+def documents():
+    """The Markdown documents audited: reports/, docs/, the top level and .github/.
+    The top-level and .github/ ones are what a contributor reads first, and until
+    2026-10-21 none were audited. A file git ignores (a launcher's CLAUDE.md, say)
+    is no reader's document, and would make the audit differ between machines."""
     docs = []
-    for folder in ("reports", "docs"):
+    for folder in ("reports", "docs", "", ".github"):
         d = os.path.join(_REPO, folder)
         if not os.path.isdir(d):
             continue
         for name in sorted(os.listdir(d)):
             if name.endswith(".md"):
                 docs.append(os.path.join(folder, name))
+    ignored = _ignored(docs)
+    return [d for d in docs if d not in ignored]
 
+
+def _ignored(paths):
+    """The paths git ignores. Tracked files are never reported, whatever the patterns
+    say; outside a git checkout, none."""
+    try:
+        r = subprocess.run(
+            ["git", "check-ignore", "--stdin"],
+            input="\n".join(paths),
+            cwd=_REPO,
+            env=_git_env(),
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return set()
+    return set(r.stdout.splitlines()) if r.returncode in (0, 1) else set()
+
+
+def audit():
+    docs = documents()
     missing_paths, missing_shas, n_paths, n_shas = [], [], 0, 0
     for rel in docs:
         paths, shas = cited(os.path.join(_REPO, rel))

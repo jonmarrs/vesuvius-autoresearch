@@ -3,7 +3,10 @@
 This file is a working skeleton for the project README. Section headings
 and what-goes-here notes only — fill in the prose yourself in your own
 voice. The technical sections (install, run, project layout) have verified
-commands/lists you can copy verbatim.
+commands/lists you can copy verbatim. (Re-verified against the code on
+2026-10-21: since the skeleton was written in May, train.py, the loader and the
+inference scripts have moved, stop.sh replaced pkill, and promotion moved from
+val_bpb to val_f1. The USER notes keep May's numbers.)
 
 ---
 
@@ -46,8 +49,11 @@ Keep it brief — bullet points, real numbers, no adjectives.
 # Install uv (https://docs.astral.sh/uv/) if you don't already have it
 curl -LsSf https://astral.sh/uv/install.sh | sh
 
-# Install project deps into a managed venv
+# Install project deps into a managed venv, and check out the pinned villa
+# (the loop's topology metrics and villa augmentations; without it they are
+# skipped, not failed)
 make install         # or: uv sync
+git submodule update --init villa
 
 # Sanity check: GPU detection + main module imports + 11-test smoke
 make check-deps
@@ -60,27 +66,40 @@ recommended), and access to a Vesuvius Challenge scroll volume at
 
 ## Run a single training cycle
 
+With the loop paused (`./stop.sh`):
+
 ```sh
-uv run python train.py --config config.json
+PYTHONPATH=. uv run python scripts/training/train.py --config config.json
 ```
 
-Reads `config.json` for the experiment config, writes
-`run_result.json`, `best_model.pt` (on improvement), `last_model.pt`
-(always), and a row in `results.tsv`.
+Reads `config.json` for the experiment config, and writes the loop's state:
+`history.tsv`, `last_model.pt` and `run_result.json`, and, if it promotes,
+`best_model.pt`, `results.tsv` and `prize_readiness.tsv`.
 
 ## Run a full bandit shift
 
 ```sh
+# Before the first start, and after any change to the validation protocol or
+# inputs: score best_model.pt under the current protocol (rewrites its stored
+# scores; the loop refuses to start otherwise). `make reeval` only reports.
+uv run python scripts/reevaluate_best_model.py --update-stored
+
 make shift           # spawns run_autoresearch_loop.py in background via nohup
 ```
 
-Auto-detects Day Shift (07:00-19:00 PT) or Night Shift (19:00-07:00 PT),
+`make shift` reports that it launched the loop, not that a cycle began; the
+loop's own output, including a refusal to start, is in `autoresearch.out`.
+Auto-detects Day Shift (07:00-19:00 local time) or Night Shift (otherwise),
 both 15-min cycles (nights ran 60 from 2026-04-29 to 2026-10-20), from the
 system clock. Per-shift log
-lives in `sprint_logs/sprint_log_<timestamp>_<shift>.md`. The loop
-auto-commits and pushes any cycle that improves val_bpb.
+lives in `sprint_logs/sprint_log_<timestamp>_<shift>.md`. A cycle is
+promoted when its val_f1 beats the incumbent's by more than 0.01 with an
+AP-prevalence lift above 1.02, on the same validation protocol and inputs;
+the loop commits each promotion locally (`config.json`, `best_model.pt`,
+`autoresearch_history.json`) and does not push.
 
-To stop: `pkill -INT -f "uv run python run_autoresearch_loop"`.
+To stop: `./stop.sh` (it stops the loop's runs and pauses the watchdog;
+`./start.sh` clears the pause).
 
 ## Re-evaluate best_model.pt
 
@@ -89,16 +108,19 @@ make reeval
 ```
 
 Loads `best_model.pt` and runs validation under today's code path
-without training. Surfaces metric drift between when the checkpoint
-was promoted vs today's measurement.
+without training, and leaves its stored scores as they are. Surfaces metric drift between when
+the checkpoint was promoted vs today's measurement. To store the new
+scores, run the script with `--update-stored` (above).
 
 ## Project layout
 
-- `train.py` — training subprocess; one cycle per invocation
-- `run_autoresearch_loop.py` — bandit loop (Thompson sampling over `tweak_templates`)
-- `vesuvius_loader.py` — `FastVesuviusVolume`, `VesuviusLabeledDataset` (returns 3-tuple `(patch, ink_label, fiber_target)`)
-- `model_wrappers.py` — `GenericMultiTaskWrapper` and `build_inference_model` factory
-- `predict.py`, `ensemble_predict.py` — inference scripts
+- `scripts/training/train.py` — training subprocess; one cycle per invocation
+- `scripts/training/config.py` — configuration without training imports
+- `run_autoresearch_loop.py` — success-weighted search over `tweak_templates`
+- `scripts/loop_control.py` — lock ownership and stop/status controls
+- `src/vesuvius_autoresearch/core/vesuvius_loader.py` — volume and dataset loading
+- `src/vesuvius_autoresearch/core/model_wrappers.py` — shared model wrappers and inference factory
+- `scripts/inference/` — prediction and ensemble scripts
 - `scripts/` — utilities (`smoke_test.py`, `reevaluate_best_model.py`, label generators, candidate ranking, etc.)
 - `sprint_logs/` — per-shift bandit logs
 - `villa/` — submodule of [ScrollPrize/villa](https://github.com/ScrollPrize/villa)
