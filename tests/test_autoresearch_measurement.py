@@ -524,7 +524,7 @@ def _drive_loop(
             # The preflight and the every-5th-cycle benchmark are not training runs.
             if "--smoke" in command:
                 if preflight is not None:
-                    return preflight(command, kwargs["stdout"])
+                    return preflight(command, kwargs)
                 if preflight_returncode:
                     kwargs["stdout"].write("PREFLIGHT FAILED: model build error\n")
                 return subprocess.CompletedProcess(command, preflight_returncode)
@@ -1341,9 +1341,10 @@ def test_a_preflight_that_times_out_is_named_and_skips_training(tmp_path, monkey
     _checkpoint(tmp_path / "best_model.pt")
     (tmp_path / "autoresearch_history.json").write_text(json.dumps({"lr": 2.0}))
 
-    def hangs(command, log):
-        log.write("building resenc_unet\n")
-        raise subprocess.TimeoutExpired(command, 300)
+    def hangs(command, kwargs):
+        assert kwargs["timeout"] == 300  # the 300 s the failure names
+        kwargs["stdout"].write("building resenc_unet\n")
+        raise subprocess.TimeoutExpired(command, kwargs["timeout"])
 
     launched = _drive_loop(tmp_path, monkeypatch, 1, preflight=hangs)
     assert launched == []
@@ -1364,7 +1365,7 @@ def test_a_run_that_cannot_be_started_is_named(tmp_path, monkeypatch):
     ExperimentConfig().save(tmp_path / "config.json")
     _checkpoint(tmp_path / "best_model.pt")
 
-    def missing(command, log):
+    def missing(command, kwargs):
         raise FileNotFoundError(2, "No such file or directory", "uv")
 
     assert _drive_loop(tmp_path, monkeypatch, 1, preflight=missing) == []
