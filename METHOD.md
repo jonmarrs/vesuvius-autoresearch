@@ -86,7 +86,8 @@ distillation results — mask-restricted and pooled over the fragment:
     and the 1.349 incumbent of that time came from this route: the loop then scored each
     batch as one stack of slices. It now scores each patch, and its per-patch metrics only
     the ink-containing ones. `scripts/evaluate_villa_metrics.py` still scores whole volumes as
-    villa does, and reports how many slices had a prediction but no ground truth.
+    villa does, and reports how many slices of a 3-D volume had a prediction but no ground
+    truth.
     `repro/gp_winner/prize_gate_eval.py` refuses a label with no ink inside its mask. The local
     villa draft (`docs/VILLA_DRAFT_centerline_dice_empty_slices.md`) fixes this route only.
   - **A prediction skeleton longer than the ground truth's, mostly inside the tolerance.**

@@ -114,20 +114,23 @@ def test_a_missing_optional_metric_leaves_the_others_reported(tmp_path):
 
 def test_slices_predicted_without_ground_truth_are_counted(tmp_path):
     """Villa gives such a slice the whole slice as its tolerance region, so its
-    predicted skeleton counts as matching: the count says how much of the
-    centerline_dice that is."""
-    gt = _line_volume(tmp_path / "gt.zarr")  # ink on slice 10 only
+    predicted skeleton counts as matching: the count shows whether the
+    centerline_dice is inflated."""
+    gt = _line_volume(tmp_path / "gt.zarr")  # ink at [10, 2:18, 10] only
     pred = zarr.open(
         str(tmp_path / "pred.zarr"),
         mode="w",
         shape=(20, 20, 20),
         chunks=(10, 10, 10),
-        dtype="u1",
+        dtype="f4",
     )
-    volume = np.zeros((20, 20, 20), np.uint8)
+    volume = np.zeros((20, 20, 20), np.float32)
     volume[10, 2:18, 10] = 1
-    volume[3, 2:18, 4] = 1  # predicted where the ground truth has nothing
-    volume[15, 5:9, 5] = 1
+    # Predicted on slices with no ground truth, in its column, so only slices
+    # along the first axis, villa's, count them.
+    volume[3, 2:18, 10] = 1
+    volume[15, 5:9, 10] = 1
+    volume[7, 2:18, 10] = 0.3  # below the threshold, so not predicted
     pred[:] = volume
     result = subprocess.run(
         [sys.executable, str(REPO / "scripts/evaluate_villa_metrics.py")]

@@ -80,24 +80,26 @@ def test_a_label_without_ink_inside_the_mask_is_refused(monkeypatch):
     _stub_metrics(monkeypatch)
     prob = np.full((32, 32), 0.9, np.float32)
     mask = np.ones((32, 32), bool)
-    with pytest.raises(ValueError, match="no ink inside the mask"):
+    with pytest.raises(pge.InkFreeLabel, match="no ink inside the mask"):
         pge.sweep_topology(prob, np.zeros((32, 32), np.uint8), mask, [0.5])
     label = np.zeros((32, 32), np.uint8)
     label[2:4, 2:20] = 1
     mask[:8] = False  # the only ink lies outside the mask
-    with pytest.raises(ValueError, match="no ink inside the mask"):
+    with pytest.raises(pge.InkFreeLabel, match="no ink inside the mask"):
         pge.sweep_topology(prob, label, mask, [0.5])
+    # The check is on the label villa is given, after its conversion to uint8.
+    wide = np.zeros((32, 32), np.uint16)
+    wide[10:12, 2:20] = 256
+    with pytest.raises(pge.InkFreeLabel, match="no ink inside the mask"):
+        pge.sweep_topology(prob, wide, np.ones((32, 32), bool), [0.5])
 
 
-def test_main_exits_with_the_reason_for_an_ink_free_label(tmp_path, monkeypatch):
+def _main_args(tmp_path, monkeypatch, label):
     import sys
 
-    import pytest
-
-    _stub_metrics(monkeypatch)
     monkeypatch.setattr(pge, "_ensure_wandb_disabled", lambda: None)
     Image.fromarray(np.full((16, 16), 200, np.uint8)).save(tmp_path / "pred.png")
-    Image.fromarray(np.zeros((16, 16), np.uint8)).save(tmp_path / "ink.png")
+    Image.fromarray(label).save(tmp_path / "ink.png")
     out = tmp_path / "card.json"
     argv = [
         "pge",
@@ -107,6 +109,30 @@ def test_main_exits_with_the_reason_for_an_ink_free_label(tmp_path, monkeypatch)
         str(tmp_path / "ink.png"),
     ]
     monkeypatch.setattr(sys, "argv", argv + ["--out", str(out)])
-    with pytest.raises(SystemExit, match="no ink inside the mask"):
+    return out
+
+
+def test_main_exits_with_the_reason_for_an_ink_free_label(tmp_path, monkeypatch):
+    import pytest
+
+    _stub_metrics(monkeypatch)
+    out = _main_args(tmp_path, monkeypatch, np.zeros((16, 16), np.uint8))
+    with pytest.raises(
+        SystemExit, match=r"ink\.png: the label has no ink inside the mask"
+    ):
         pge.main()
     assert not out.exists()
+
+
+def test_main_does_not_report_other_errors_as_an_ink_free_label(tmp_path, monkeypatch):
+    import pytest
+
+    def failing(label, pred, **k):
+        raise ValueError("inside the metric")
+
+    monkeypatch.setattr(pge, "_centerline_dice", failing)
+    label = np.zeros((16, 16), np.uint8)
+    label[4:6, 2:14] = 255
+    _main_args(tmp_path, monkeypatch, label)
+    with pytest.raises(ValueError, match="inside the metric"):
+        pge.main()

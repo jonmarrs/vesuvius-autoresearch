@@ -54,6 +54,10 @@ def load_pred_label_mask(pred_png, label_png, mask_png=None):
     return prob[:h, :w], label[:h, :w], mask[:h, :w]
 
 
+class InkFreeLabel(ValueError):
+    """The label scored has no ink inside the mask, where villa's centerline_dice is ~2."""
+
+
 def _label_bbox(label, mask, margin=16):
     """Bounding box of label∩mask with a margin (so skeletonization stays tractable on a
     region containing all GT structure, mirroring how the loop samples patches rather than
@@ -81,8 +85,12 @@ def sweep_topology(prob, label, mask, thresholds):
     from sklearn.metrics import roc_auc_score
 
     m = mask.astype(bool)
-    if not (label.astype(bool) & m).any():
-        raise ValueError(
+    # crop to the GT bbox for the (heavy) topology metrics
+    y0, y1, x0, x1 = _label_bbox(label, m)
+    pc, lc, mc = prob[y0:y1, x0:x1], label[y0:y1, x0:x1], m[y0:y1, x0:x1]
+    lab3 = (lc * mc)[None].astype(np.uint8)
+    if not lab3.any():  # the label villa would score
+        raise InkFreeLabel(
             "the label has no ink inside the mask; the topology metrics are undefined there"
         )
     sel = m.ravel()
@@ -91,10 +99,6 @@ def sweep_topology(prob, label, mask, thresholds):
         if label[m].min() != label[m].max()
         else 0.5
     )
-    # crop to the GT bbox for the (heavy) topology metrics
-    y0, y1, x0, x1 = _label_bbox(label, m)
-    pc, lc, mc = prob[y0:y1, x0:x1], label[y0:y1, x0:x1], m[y0:y1, x0:x1]
-    lab3 = (lc * mc)[None].astype(np.uint8)
     per = []
     best = None
     for t in thresholds:
@@ -128,7 +132,7 @@ def main():
     ths = [float(x) for x in args.thresholds.split(",")]
     try:
         res = sweep_topology(prob, label, mask, ths)
-    except ValueError as exc:
+    except InkFreeLabel as exc:
         raise SystemExit(f"{args.label}: {exc}") from None
     os.makedirs(os.path.dirname(args.out) or ".", exist_ok=True)
     with open(args.out, "w") as f:
