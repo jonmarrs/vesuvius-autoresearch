@@ -1,5 +1,6 @@
 """scripts/octant_crop_rescore.py: the three in-sample 512³ cubes scored in their eight 256³ octants."""
 
+import json
 import sys
 import types
 from pathlib import Path
@@ -104,3 +105,187 @@ def test_the_cubes_are_the_in_sample_512_ones():
     assert [c for c in oc.f91.IN_SAMPLE if c.endswith("_512")] == oc.CUBES and len(
         oc.CUBES
     ) == 3
+
+
+KEEP = ("erl", "coverage", "precision", "merges", "splits", "n_gt_fibers", "gt_length", "n_pred_instances",
+        "pred_length")  # fmt: skip
+
+
+def test_a_fiber_crossing_a_face_is_cropped_into_both_octants_and_left_unchanged():
+    """Crops are taken one after another from the same skeleton, so a crop that shifted a fiber in place would give
+    every later octant wrong coordinates. A node between 255 and 256 lies in neither octant, as in ScrollGT's rule."""
+    crossing = _fiber(
+        5, (250, 10, 10), (255, 10, 10), (255.5, 10, 10), (256, 10, 10), (262, 10, 10)
+    )
+    gap = _fiber(
+        6, (254, 30, 30), (255.5, 30, 30), (255.6, 30, 30), (257, 30, 30)
+    )  # one node inside either octant
+    before = [crossing.coords.copy(), gap.coords.copy()]
+    skel = types.SimpleNamespace(fibers=[crossing, gap], scale_um=(7.91,) * 3)
+    upper = oc.crop_skeleton(skel, (256, 0, 0), 256)
+    lower = oc.crop_skeleton(skel, (0, 0, 0), 256)
+    assert [f.id for f in upper.fibers] == [5] and [f.id for f in lower.fibers] == [5]
+    assert np.allclose(upper.fibers[0].coords[:, 0], [-6, -1, -0.5, 0, 6])
+    assert np.allclose(lower.fibers[0].coords[:, 0], [250, 255, 255.5, 256, 262])
+    assert all(
+        np.array_equal(f.coords, b) for f, b in zip(skel.fibers, before, strict=True)
+    )
+
+
+def _row(pen, **fields):
+    return {PEN: pen, **{k: 1.0 for k in KEEP}, **fields}
+
+
+def _published(entrant, cube):
+    """Finding 94's predicted length for one entrant on one cube: different for each."""
+    return float((10 if entrant == "neural" else 20) + oc.CUBES.index(cube))
+
+
+def _octant_score(entrant, i):
+    return (5.0 if entrant == "neural" else 4.0) + i / 100
+
+
+def _run_main(tmp_path, monkeypatch, off=None, version=3):
+    """main() end to end, with ScrollGT's scorer and target, the .afv reader and the saved instances stubbed.
+
+    Each labelling marks every octant's first voxel with the octant's index (the neural tracer's from 10, ours from
+    50), and each cube's ground truth has one fiber per octant, two nodes from the octant's corner. The whole cubes
+    reproduce finding 94's rows, which differ by entrant and cube, except the (entrant, field, change) in `off`. On
+    octant i the neural tracer scores 5 + i/100 and our tracer 4 + i/100."""
+    seen: dict = {"whole": [], "octants": [], "cube": None}
+    marked = {}
+    for e, base in (("neural", 10), ("tracer", 50)):
+        lab = np.zeros((512, 512, 512), np.uint8)
+        for i, (z, y, x) in enumerate(oc.OCTANTS):
+            lab[z, y, x] = base + i
+        marked[e] = lab
+
+    class Score:
+        def __init__(self, row):
+            self.row = row
+
+        def as_row(self):
+            return self.row
+
+    def score_tracing(skel, labels, *, tolerance):
+        e = "neural" if labels[0, 0, 0] < 50 else "tracer"
+        assert skel.cube == seen["cube"]
+        if labels.shape == (512,) * 3:
+            assert [f.id for f in skel.fibers] == list(
+                range(8)
+            )  # the whole ground truth, uncropped
+            seen["whole"].append((skel.cube, e, tolerance))
+            row = _row(0.0, pred_length=_published(e, skel.cube))
+            if off and off[0] == e:
+                row[off[1]] += off[2]
+            return Score(row)
+        assert (
+            labels.shape == (256,) * 3 and labels.sum() == labels[0, 0, 0]
+        )  # one octant's voxels, uncopied marks
+        i = int(labels[0, 0, 0]) - (10 if e == "neural" else 50)
+        assert [f.id for f in skel.fibers] == [i] and np.allclose(
+            skel.fibers[0].coords, [[1] * 3, [2] * 3]
+        )
+        seen["octants"].append((skel.cube, oc.OCTANTS[i], e, tolerance))
+        return Score(_row(_octant_score(e, i)))
+
+    def load_fiber_target(target):
+        cube = target.name.removeprefix("fibers_")
+        assert target == oc.f91.SG / "data" / f"fibers_{cube}"
+        seen["cube"] = cube
+        fibers = [
+            _fiber(i, np.add(o, 1), np.add(o, 2)) for i, o in enumerate(oc.OCTANTS)
+        ]
+        return types.SimpleNamespace(cube=cube, fibers=fibers), None, None
+
+    ev = types.ModuleType("scrollgt.fibers.eval_trace")
+    ev.SCORING_VERSION = version
+    ev.score_tracing = score_tracing
+    tg = types.ModuleType("scrollgt.fibers.target")
+    tg.load_fiber_target = load_fiber_target
+    for name, module in (("scrollgt", types.ModuleType("scrollgt")),
+                         ("scrollgt.fibers", types.ModuleType("scrollgt.fibers")),
+                         ("scrollgt.fibers.eval_trace", ev), ("scrollgt.fibers.target", tg)):  # fmt: skip
+        monkeypatch.setitem(sys.modules, name, module)
+    monkeypatch.setattr(sys, "path", list(sys.path))  # main() prepends ScrollGT's src
+    monkeypatch.setattr(oc.f91, "SG", tmp_path / "sg")
+    monkeypatch.setattr(oc, "NEURAL", tmp_path / "neural")
+
+    def read_afv(path):
+        assert path == tmp_path / "neural" / seen["cube"] / "fibers.afv"
+        return {1: "nodes"}
+
+    def rasterize(fibers, shape):
+        assert fibers == {1: ("nodes", (0, 0, 0))} and shape == (512,) * 3
+        return marked["neural"]
+
+    def load(path):
+        assert path == f"instances of {seen['cube']}"
+        return marked["tracer"]
+
+    monkeypatch.setattr(oc.afv_to_labels, "read_afv", read_afv)
+    monkeypatch.setattr(oc.afv_to_labels, "to_cube_zyx", lambda v, origin: (v, origin))
+    monkeypatch.setattr(oc.afv_to_labels, "rasterize", rasterize)
+    monkeypatch.setattr(oc.t4, "tracer_labelling", lambda c: f"instances of {c}")
+    monkeypatch.setattr(oc.np, "load", load)
+    t94 = {
+        f"rows_{e}": {c: _row(0.0, pred_length=_published(e, c)) for c in oc.CUBES}
+        for e in ("neural", "tracer")
+    }
+    (tmp_path / "t94.json").write_text(json.dumps(t94))
+    out = tmp_path / "out.json"
+    monkeypatch.setattr(
+        sys, "argv", ["oc", "--t94", str(tmp_path / "t94.json"), "--out", str(out)]
+    )
+    rc = oc.main()
+    return rc, json.loads(out.read_text()), seen
+
+
+def test_main_scores_each_octant_of_each_cube_on_its_own_crop(tmp_path, monkeypatch):
+    rc, out, seen = _run_main(tmp_path, monkeypatch)
+    assert (rc, out["status"], out["identity_problems"]) == (0, "OK", {})
+    assert seen["whole"] == [
+        (c, e, 4.0) for c in oc.CUBES for e in ("neural", "tracer")
+    ]
+    assert seen["octants"] == [
+        (c, o, e, t)
+        for c in oc.CUBES
+        for o in oc.OCTANTS
+        for e in ("neural", "tracer")
+        for t in oc.TOLS
+    ]
+    assert (
+        out["neural_leads_at_4"] == [24, 24]
+        and out["prediction_P1_leads_on_16_of_24"] is True
+    )
+    assert out["reading"].startswith("cropping does not reverse it")
+    # Each octant's rows under its own z_y_x key, at both tolerances.
+    assert out["octants"] == {
+        f"{c}@{z}_{y}_{x}": {
+            e: {str(t): _row(_octant_score(e, i)) for t in oc.TOLS}
+            for e in ("neural", "tracer")
+        }
+        for c in oc.CUBES
+        for i, (z, y, x) in enumerate(oc.OCTANTS)
+    }
+    assert out["whole_cube_tol4"] == {
+        c: {e: _row(0.0, pred_length=_published(e, c)) for e in ("neural", "tracer")}
+        for c in oc.CUBES
+    }
+
+
+@pytest.mark.parametrize("entrant, field, change", [("neural", PEN, 1), ("tracer", "coverage", -1),
+                                                    ("neural", "n_pred_instances", -1),
+                                                    ("tracer", "pred_length", 1)])  # fmt: skip
+def test_main_fails_identity_when_a_whole_cube_misses_finding_94(
+    tmp_path, monkeypatch, entrant, field, change
+):
+    rc, out, _ = _run_main(tmp_path, monkeypatch, off=(entrant, field, change))
+    assert (rc, out["status"]) == (1, "IDENTITY_FAILED")
+    assert out["identity_problems"] == {f"{entrant} {c}": [field] for c in oc.CUBES}
+    assert "reading" not in out and "neural_leads_at_4" not in out
+
+
+def test_main_refuses_another_scoring_version(tmp_path, monkeypatch):
+    with pytest.raises(SystemExit, match="version 3"):
+        _run_main(tmp_path, monkeypatch, version=4)
