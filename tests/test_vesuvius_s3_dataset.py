@@ -57,19 +57,21 @@ def test_fast_vesuvius_volume_reads_local_zarr_without_c_wrapper(tmp_path):
 
 
 @pytest.mark.parametrize(
-    "dtype, value, expected",
+    "dtype, value, expected, warns",
     [
-        ("uint8", 255, 1.0),
-        ("<u2", 65535, 1.0),
-        # Big-endian, as some scroll volumes are: it compared unequal to np.uint16
-        # and fell to the unknown-dtype /255, so 65535 reached the model as 257.
-        (">u2", 65535, 1.0),
-        (">u2", 4096, 4096 / 65535),
-        (">f4", 0.5, 0.5),
+        ("uint8", 255, 1.0, False),
+        ("<u2", 65535, 1.0, False),
+        # Big-endian: it compared unequal to np.uint16 and fell to the
+        # unknown-dtype /255, so 65535 reached the model as 257.
+        (">u2", 65535, 1.0, False),
+        (">u2", 4096, 4096 / 65535, False),
+        (">f4", 0.5, 0.5, False),
+        # A dtype the loader does not know still falls back to /255, and says so.
+        ("<i2", 510, 2.0, True),
     ],
 )
 def test_read_ct_normalises_by_dtype_whatever_its_byte_order(
-    tmp_path, monkeypatch, dtype, value, expected
+    tmp_path, monkeypatch, dtype, value, expected, warns
 ):
     """FastVesuviusVolume.read_ct is what the unlabeled dataset and inference read
     through; the labeled dataset already handled a big-endian volume."""
@@ -80,10 +82,10 @@ def test_read_ct_normalises_by_dtype_whatever_its_byte_order(
     arr[:] = np.full((2, 4, 4), value, dtype=dtype)
     volume = vesuvius_loader.FastVesuviusVolume(str(path))
     ct = volume.read_ct(0, 0, 0, 2, 4, 4)
-    assert ct.dtype == np.float32 and ct.dtype.isnative
+    assert ct.dtype == np.float32
     np.testing.assert_allclose(ct, expected, rtol=1e-6)
     np.testing.assert_allclose(volume[0:2, 0:4, 0:4].numpy(), expected, rtol=1e-6)
-    assert "ct_unknown_dtype" not in warnings
+    assert ("ct_unknown_dtype" in warnings) == warns
 
 
 def _grid(monkeypatch, shape, patch_size):
