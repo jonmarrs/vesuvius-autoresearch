@@ -1,8 +1,8 @@
 # scroll-frames
 
-**83% of segments in the Vesuvius Challenge open data ship several `.tifxyz` meshes of the
-same object. 79% of those declare identical `scale` metadata for coordinate frames that
-differ by up to 40x.**
+**83% of the segments with meshes in the Vesuvius Challenge open data ship several `.tifxyz`
+meshes of the same object. 79% of those declare identical `scale` metadata for coordinate
+frames that differ by up to 40x.**
 
 ```bash
 pip install "scroll-frames[s3] @ git+https://github.com/jonmarrs/scroll-frames"
