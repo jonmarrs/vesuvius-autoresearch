@@ -3,10 +3,11 @@ message: "If you use this software, please cite it as below."
 title: "Vesuvius AutoResearch (bountyhunter)"
 abstract: >-
   An autonomous, evidence-gated research loop for 3D ink detection on the
-  Vesuvius Challenge: it samples a configuration space (architectures, losses,
-  augmentations), trains candidates under a fixed budget, evaluates them with
-  topological metrics against a fixed cross-fragment baseline, and retains only
-  improvements. All ML outputs use a 64x64 window within the Challenge's
+  Vesuvius Challenge: it samples tweaks to a training configuration (losses,
+  augmentations, optimisation; the architecture is pinned), trains each
+  candidate under a fixed budget, scores it on a held-out validation fragment,
+  and keeps it only if its threshold-swept F1 beats the incumbent's, gated by
+  AP-prevalence lift. All ML outputs use a 64x64 window within the Challenge's
   hallucination-mitigation cap.
 type: software
 authors:

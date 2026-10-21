@@ -14,8 +14,10 @@ because nothing was looking. A report that cites `scripts/foo.py` after `foo.py`
 has moved is the same defect in a document instead of in code, and it is worse
 there, because a reader cannot run a document and see it fail.
 
-WHAT IT CHECKS. Every backticked path in `reports/*.md` and `docs/*.md` that
-looks like a repository file, and every backticked commit hash. Paths are
+WHAT IT CHECKS. Every backticked path in `reports/*.md`, `docs/*.md`, the
+top-level `*.md` (README, CONTRIBUTING, METHOD, REPRODUCE, ...) and
+`.github/*.md` that looks like a repository file, and every backticked commit
+hash. Paths are
 checked on disk. Commits are checked for reachability from `main`, because a
 commit that exists only in a reflog or on a deleted branch is not something a
 reader can look up.
@@ -153,16 +155,23 @@ def where(sha):
     return None
 
 
-def audit():
+def documents():
+    """The Markdown documents audited: reports/, docs/, the top level and .github/.
+    The top-level and .github/ ones are what a contributor reads first, and until
+    2026-10-21 none were audited."""
     docs = []
-    for folder in ("reports", "docs"):
+    for folder in ("reports", "docs", "", ".github"):
         d = os.path.join(_REPO, folder)
         if not os.path.isdir(d):
             continue
         for name in sorted(os.listdir(d)):
             if name.endswith(".md"):
-                docs.append(os.path.join(folder, name))
+                docs.append(os.path.join(folder, name) if folder else name)
+    return docs
 
+
+def audit():
+    docs = documents()
     missing_paths, missing_shas, n_paths, n_shas = [], [], 0, 0
     for rel in docs:
         paths, shas = cited(os.path.join(_REPO, rel))

@@ -20,11 +20,16 @@ from conftest import restore_cuda_env  # noqa: E402
 
 restore_cuda_env()  # do not leave the mask for other test modules
 
-# Both documents explicitly identify these paths as historical/absent. Keep the
-# exceptions exact: a count allowance could hide a new broken reference.
+# Each document explicitly identifies its path as historical or absent, or as one
+# a run creates. Keep the exceptions exact: a count allowance could hide a new
+# broken reference.
 KNOWN_HISTORICAL_PATHS = {
     ("docs/VILLA_STRATEGY.md", "villa/segmentation/model_optimization_framework/run_autoresearch_nnunet.py"),
     ("reports/spiral_satisfaction_winding_blindness.md", "villa/volume-cartographer/scripts/spiral/"),
+    # What resnet3d and i3d import from, "which villa moved to deprecated/ink-detection/".
+    ("METHOD.md", "villa/ink-detection/models/"),
+    # The detector's default data_root, which the reproduce step's conversion creates.
+    ("REPRODUCE.md", "villa/ink-detection/train_scrolls"),
 }
 
 
@@ -56,6 +61,16 @@ def test_it_recognises_a_repository_path():
     """The basic extraction. Without this the audit silently checks nothing."""
     paths, _ = mod.cited(os.path.join(_REPO, "reports", "villa_prize_action_matrix.md"))
     assert any(p.startswith("scripts/") for p in paths)
+
+
+def test_it_reads_the_documents_a_contributor_reads_first():
+    """Until 2026-10-21 it read only reports/ and docs/: the README, CONTRIBUTING and
+    the README skeleton's project layouts were never checked."""
+    docs = mod.documents()
+    for name in ("README.md", "CONTRIBUTING.md", "METHOD.md", "REPRODUCE.md",
+                 ".github/README_SKELETON.md"):
+        assert name in docs, name
+    assert "reports/villa_prize_action_matrix.md" in docs and "docs/VILLA_STRATEGY.md" in docs
 
 
 def test_it_ignores_an_elided_path():
