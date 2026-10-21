@@ -258,6 +258,8 @@ class FastVesuviusVolume:
         # Fetch raw CT data through the Volume Cartographer-aligned local
         # OME-Zarr compatibility layer.
         ct = self.vol.get_chunk(z, y, x, d, h, w)
+        if not ct.dtype.isnative:  # a big-endian uint16 is not == np.uint16
+            ct = ct.astype(ct.dtype.newbyteorder("="))
         # Normalize to [0, 1] based on dtype. Previously hardcoded `/ 255.0`
         # assumed uint8; uint16 / float32 zarrs would silently miscalibrate.
         if ct.dtype == np.uint8:
