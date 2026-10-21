@@ -74,8 +74,9 @@ Reads `config.json` for the experiment config, writes
 make shift           # spawns run_autoresearch_loop.py in background via nohup
 ```
 
-Auto-detects Day Shift (07:00-19:00 PT, 15-min cycles) or Night Shift
-(19:00-07:00 PT, 60-min cycles) from the system clock. Per-shift log
+Auto-detects Day Shift (07:00-19:00 PT) or Night Shift (19:00-07:00 PT),
+both 15-min cycles (nights ran 60 from 2026-04-29 to 2026-10-20), from the
+system clock. Per-shift log
 lives in `sprint_logs/sprint_log_<timestamp>_<shift>.md`. The loop
 auto-commits and pushes any cycle that improves val_bpb.
 

@@ -18,10 +18,15 @@ No owner PR is open.
   - `epoch_boundary_overhead.cycles` set every night-shift log's budget to 3600 s. Since #159 a night cycle runs
     900 s, so its overhead would read about 2580 s below zero. `cycle_length_gain.py` reads its cycles from the same
     function.
-  - The shift was not a safe source before #159 either: the night logs recorded 900 s until early May 2026.
+  - The shift was not a safe source before #159 either. The night logs record 900 s until 2026-04-29 (`00823768`),
+    and a few cycles on either side of each change ran the other budget.
   - **Change:** a cycle's budget is now the `time_budget` its own config line records. The loop writes that line
-    from the run's config, `asdict(config)`, every cycle. A log too old to record one (before 2026-04-14) keeps its
-    shift's 3600 s or 900 s, as before.
+    from the run's config, `asdict(config)`, every cycle.
+  - Logs before 2026-04-14 record none. Their Goal line gives the cycles' minutes: 15 in 30 of them and 5 in 9,
+    nights included. Those logs now take it, where the old rule gave a night log 3600 s. Of their parsable cycles,
+    the nights' 480 get 900 s or 300 s.
+  - A log with neither keeps its shift's 3600 s or 900 s. Only the tests' fixtures are like that; the one real log
+    without a Goal line is a day log.
   - For the October logs `cycle_length_gain.py` reads, the recorded budgets are the ones the file name gave, so its
     results do not move.
 - **The loop's preflight message said "skipping 60-min run"** whatever the budget. It now gives the cycle's own
@@ -30,30 +35,47 @@ No owner PR is open.
   to start a shift. The check that ends the sprint once the hour leaves that shift still tested `7 <= hour < 19`
   itself. It now asks `shift_for_hour`, so the two cannot drift apart. For every hour and both shifts it gives the
   same answer as before.
-- **`METHOD.md` and `docs/RESEARCH_PAPER.md` still gave 60-minute nights.**
-  - `METHOD.md`'s step 3 now gives 15 minutes in both shifts, with the date nights changed.
-  - The paper's status line says it tracks the loop's current state. Its two budget statements now give the same,
-    dated.
-  - Its introduction also said the loop promotes on `val_bpb`. It now says `val_f1`, gated by AP-prevalence lift,
-    with `val_bpb` until 2026-07-11, as `METHOD.md` records.
+- **Four docs still gave 60-minute nights in the present tense:** `METHOD.md`, `docs/RESEARCH_PAPER.md`,
+  `CONTRIBUTING.md` and `.github/README_SKELETON.md`.
+  - Each now gives 15 minutes in both shifts, and says that nights ran 60 from 2026-04-29 to 2026-10-20.
+  - The paper's status line says it tracks the loop's current state. Its introduction also said the loop promotes on
+    `val_bpb`. It now says `val_f1`, gated by AP-prevalence lift, and that until 2026-07-11 the loop selected on
+    `val_bpb` and topology, as `METHOD.md` records.
+  - README and `docs/program.md` (#159) said nights ran 60 "until 2026-10-20". They now give the start too.
+  - A comment in `train.py`, in a note dated 2026-10-17, said night cycles "run" 3600 s; it now says they then ran.
 - **Tests:**
   - `tests/test_epoch_boundary_overhead.py`:
     - a night log of 2026-10-20 that restarts from 3600-second cycles onto 900-second ones; each cycle is measured
       against its own budget;
-    - logs with no recorded budget keep their shift's.
-
-    Each of these mutants is killed: the budget from the file name only; the fallback always 900; the budget read
-    from the whole log, not the cycle's block.
-  - `tests/test_tolerance4_rescore.py` now runs `main()` end to end, with ScrollGT's scorer and target stubbed. It
-    checks four things:
-    - each labelling is scored at tolerance 4 against its cube's own target, and checked against its own published
-      row (our tracer's and connected components' differ in the stub);
-    - our tracer's labellings come from finding 80's and finding 83's directories, by group;
-    - one labelling with an extra instance gives `IDENTITY_FAILED` with no verdict, and exit code 1;
-    - another scoring version is refused.
+    - an April log with no recorded budget takes its Goal line's 5 or 15 minutes, at night too;
+    - logs with neither keep their shift's.
 
     Each of these mutants is killed:
-    - every labelling checked against our tracer's row;
+    - the budget from the file name only;
+    - the fallback always 900;
+    - the Goal line ignored, or its minutes taken as seconds;
+    - the budget read from the whole log, not the cycle's block.
+  - `tests/test_tolerance4_rescore.py` now runs `main()` end to end, with ScrollGT's scorer and target stubbed. It
+    checks these things:
+    - each labelling is scored at tolerance 4 against its cube's own target;
+    - each is checked against its own cube's published row of its own kind. In the stub every cube has its own
+      ground truth, and our tracer's rows differ from connected components';
+    - every row, the tolerance, the scoring version and the readings are written as registered;
+    - our tracer's labellings come from finding 80's and finding 83's directories, by group;
+    - one labelling with an extra instance, ours or connected components', gives `IDENTITY_FAILED` with no verdict,
+      and exit code 1;
+    - another scoring version is refused.
+
+    It also pins two parts of the rule outside `main()`:
+    - `SAME`, the identity fields, to the registration's four;
+    - with exactly 6 Scroll-3 and 9 in-sample cubes scored, both predictions are evaluated.
+
+    Each of these mutants is killed:
+    - every labelling checked against our tracer's row, or against the first cube's;
+    - only our tracer's labellings checked;
+    - a field dropped from `SAME`;
+    - a prediction evaluated only above 6 cubes, or only on all 11;
+    - the tolerance written as 2, or the readings left out;
     - the scoring tolerance at 2;
     - every labelling read from one directory;
     - the neural tracer's tolerance-2 rows used for its tolerance-4 ones;
@@ -126,7 +148,32 @@ No owner PR is open.
 ## Verification
 
 - `pytest` on `test_epoch_boundary_overhead`, `test_cycle_length_gain*`, `test_shift_budgets`,
-  `test_tolerance4_rescore*` and `test_filing_2026_10_numbers`: 91 passed, and the filing test's 4 skipped for want
-  of the sibling checkouts.
+  `test_tolerance4_rescore*` and `test_filing_2026_10_numbers`: 99 passed, and the filing test's 4 skipped for want of
+  the sibling checkouts. The new doc tests fail on each of the six docs as they stood. With
+  `test_validation_suite_covers_the_loop` and `test_loop_lifecycle`, 132 passed.
 - Ruff, ruff format and mypy are clean on the changed files.
-- The standard suite, the smoke test and the independent review are recorded below once run.
+- **The standard suite** on the first commit (`e1e0373b`) ran as on main: 2683 passed, with the same 42 failures and 2
+  errors, all environmental. The 11 more passes than last round's 2672 are `tests/test_shift_budgets.py`, which #159
+  added to the suite. The smoke test gave 9 of 11 passed and 2 skipped, as on main.
+- **Independent review** of the first commit found nothing blocking. It confirmed:
+  - each of the 16,880 committed cycle blocks has at most one `time_budget`, on its config line;
+  - the shift-end check is the same as before for every hour and both shifts;
+  - finding 94's counts, ratios, identity and tolerances, recomputed from the JSON;
+  - that `INCOMPLETE` cannot be reached from `main()`;
+  - each statement on `LONGEST_RUN_SECONDS`.
+
+  Its should-fix findings:
+  - connected components' identity check was untested in `main()`;
+  - the stub's published rows were the same for every cube;
+  - `SAME` was tested only against itself;
+  - `CONTRIBUTING.md` and `.github/README_SKELETON.md` still gave 60-minute nights.
+
+  Its nits:
+  - "until early May" for 2026-04-29;
+  - the old logs' fallback;
+  - the docs' dates and the paper's topology;
+  - the output fields and the evaluability boundaries untested;
+  - `train.py`'s comment;
+  - this section's placeholder.
+
+  All are addressed above, except a test of the preflight message, whose fix is the message alone.

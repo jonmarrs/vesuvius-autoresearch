@@ -154,8 +154,24 @@ def test_a_cycle_is_measured_against_the_budget_it_ran(tmp_path):
     assert got == [("a", 3600, 182), ("b", 900, 120), ("c", 900, 100)]
 
 
-def test_a_cycle_that_records_no_budget_is_given_its_shifts(logs):
-    """Logs before 2026-04-14 record no time_budget; the fixture's do not either."""
+def test_a_cycle_that_records_no_budget_is_given_its_logs_goal(tmp_path):
+    """Logs before 2026-04-14 record no time_budget. Their Goal line gives the cycles' minutes, nights included."""
+    for minutes in (5, 15):
+        night = ["# Night Shift Sprint - 2026-04-08", "- **Start Time**: 19:01:02"]
+        night += [
+            f"- **Goal**: Monotonic val_bpb optimization via {minutes}-min cycles.",
+            "",
+        ]
+        night += _cycle(1, "a", "REVERTED", "19:23:02", 8, 0.26)  # 1320 s
+        path = tmp_path / f"{minutes}" / "sprint_log_2026-04-08_19-01-02_night_shift.md"
+        path.parent.mkdir()
+        path.write_text("\n".join(night))
+        got = [(c["budget"], c["overhead_s"]) for c in ebo.cycles(str(path))]
+        assert got == [(minutes * 60, 1320 - minutes * 60)]
+
+
+def test_a_log_with_neither_is_given_its_shifts(logs):
+    """The fixture's logs record no budget and no Goal line."""
     by_shift = {c["shift"].rsplit("_", 2)[-2]: c["budget"] for c in ebo.cycles(logs[1])}
     assert by_shift == {"day": 900, "night": 3600}
 

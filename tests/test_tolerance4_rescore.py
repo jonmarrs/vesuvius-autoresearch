@@ -24,6 +24,8 @@ ROW = {
 
 
 def test_a_labelling_must_reproduce_its_published_rows_fixed_fields():
+    # The registration's four: instance count, predicted length, ground-truth length and ground-truth fibers.
+    assert t4.SAME == ("n_pred_instances", "pred_length", "gt_length", "n_gt_fibers")
     assert (
         t4.identity_problems(ROW, {**ROW, "erl": 9.0}) == []
     )  # the scores themselves move with the tolerance
@@ -101,6 +103,17 @@ def test_too_few_cubes_leave_a_prediction_unevaluated():
     }
 
 
+def test_6_and_9_cubes_scored_are_enough():
+    """The registration leaves a prediction unevaluated with fewer than 6 Scroll-3 or 9 in-sample cubes scored."""
+    tracer = (
+        {c: 2.0 for c in ALL} | {c: None for c in S3[:2]} | {c: None for c in INS[:2]}
+    )
+    neural = {c: 5.0 for c in S3} | {c: 1.0 for c in INS + t4.f91.S5_HELDOUT}
+    v = _verdict(neural, tracer)
+    assert v["s3_leading_tracer"] == [6, 6] and v["in_sample_trailing_tracer"] == [9, 9]
+    assert all(v["predictions"].values())
+
+
 @pytest.mark.parametrize(
     "identity, s3_none, status",
     [
@@ -115,21 +128,23 @@ def test_the_status(identity, s3_none, status):
     assert got == status and (reading is None) == (status == "IDENTITY_FAILED")
 
 
-TRACER_ROW = {
-    "n_pred_instances": 7,
-    "pred_length": 100.0,
-    "gt_length": 50.5,
-    "n_gt_fibers": 3,
-}
-CC_ROW = {**TRACER_ROW, "n_pred_instances": 4, "pred_length": 80.0}
+INDEX = {c: i for i, c in enumerate(ALL)}
 
 
-def _run_main(tmp_path, monkeypatch, bad=(), version=3):
-    """main() end to end, with ScrollGT's scorer and target stubbed. Each cube's labellings reproduce their published
-    rows (our tracer's and connected components' differ), except our tracer's on `bad`, which has one instance more.
+def _fixed(cube, name):
+    """A cube's tolerance-independent fields for one labelling: its own ground truth, and our tracer's instances and
+    length unlike connected components'."""
+    gt = {"gt_length": 50.5 + INDEX[cube], "n_gt_fibers": 3 + INDEX[cube]}
+    if name == "tracer":
+        return {"n_pred_instances": 7, "pred_length": 100.0, **gt}
+    return {"n_pred_instances": 4, "pred_length": 80.0, **gt}
+
+
+def _run_main(tmp_path, monkeypatch, bad=(), bad_cc=(), version=3):
+    """main() end to end, with ScrollGT's scorer and target stubbed. Each cube's labellings reproduce their own
+    published rows, except our tracer's on `bad` and connected components' on `bad_cc`, which have one instance more.
     Our tracer scores 10.0 at tolerance 4, the neural tracer 20.0 on Scroll 3 and 5.0 elsewhere."""
     seen: dict = {"scored": []}
-    index = {c: i for i, c in enumerate(ALL)}
 
     class Score:
         def __init__(self, row):
@@ -143,16 +158,20 @@ def _run_main(tmp_path, monkeypatch, bad=(), version=3):
         seen["scored"].append((cube, tolerance))
         if isinstance(labels, tuple):  # connected components of the cube's own mask
             assert labels == ("cc", ("mask", cube))
-            return Score({**CC_ROW, PEN: 3.0})
-        assert labels[0] == index[cube]  # the cube's own saved labelling
-        return Score({**TRACER_ROW, "n_pred_instances": 6 + labels.size, PEN: 10.0})
+            row = _fixed(cube, "cc")
+            row["n_pred_instances"] += cube in bad_cc
+            return Score({**row, PEN: 3.0})
+        assert labels[0] == INDEX[cube]  # the cube's own saved labelling
+        row = _fixed(cube, "tracer")
+        row["n_pred_instances"] += labels.size - 1
+        return Score({**row, PEN: 10.0})
 
     def load_fiber_target(target):
         cube = target.name.removeprefix("fibers_")
         assert target == t4.f91.SG / "data" / f"fibers_{cube}"
         floors = {
-            t4.f91.TRACER: {**TRACER_ROW, PEN: 2.0},
-            t4.f91.CC: {**CC_ROW, PEN: 1.0},
+            t4.f91.TRACER: {**_fixed(cube, "tracer"), PEN: 2.0},
+            t4.f91.CC: {**_fixed(cube, "cc"), PEN: 1.0},
         }
         return ("skel", cube), ("mask", cube), {"floors": floors}
 
@@ -173,7 +192,7 @@ def _run_main(tmp_path, monkeypatch, bad=(), version=3):
     for c in ALL:
         path = tmp_path / ("rescore" if c in INS else "heldout") / f"{c}_instances.npy"
         path.parent.mkdir(parents=True, exist_ok=True)
-        np.save(path, np.array([index[c]] * (2 if c in bad else 1)))
+        np.save(path, np.array([INDEX[c]] * (2 if c in bad else 1)))
     neural = {c: {"tracer": {PEN: 20.0 if c in S3 else 5.0}} for c in ALL}
     entrant = {
         "descriptive_tolerance_4": neural,
@@ -192,33 +211,40 @@ def test_main_scores_each_labelling_against_its_own_published_row(
 ):
     rc, out, seen = _run_main(tmp_path / "ok", monkeypatch)
     assert (rc, out["status"], out["identity_problems"]) == (0, "OK", {})
+    assert (out["tolerance"], out["scoring_version"]) == (4.0, 3)
     assert seen["scored"] == [(c, 4.0) for c in ALL for _ in range(2)]
     assert out["predictions"] == {
         "P1_s3_leads_tracer_on_6_of_8": True,
         "P2_in_sample_trails_tracer_on_9_of_11": True,
     }
-    assert out["rows_tracer"][S3[0]] == {**TRACER_ROW, PEN: 10.0}
-    assert out["rows_cc"][S3[0]] == {**CC_ROW, PEN: 3.0}
-    assert (
-        out["published_tracer"][S3[0]][PEN] == 2.0
-        and out["published_cc"][S3[0]][PEN] == 1.0
-    )
-    assert out["rows_neural"][S3[0]] == {PEN: 20.0} and out["published_neural"][
-        S3[0]
-    ] == {PEN: 1.0}
+    assert out["readings"] == [
+        "the Scroll-3 lead holds at tolerance 4",
+        "the in-sample deficit holds at tolerance 4",
+    ]
+    for c in ALL:
+        assert out["rows_tracer"][c] == {**_fixed(c, "tracer"), PEN: 10.0}
+        assert out["rows_cc"][c] == {**_fixed(c, "cc"), PEN: 3.0}
+        assert out["published_tracer"][c] == {**_fixed(c, "tracer"), PEN: 2.0}
+        assert out["published_cc"][c] == {**_fixed(c, "cc"), PEN: 1.0}
+        assert out["rows_neural"][c] == {PEN: 20.0 if c in S3 else 5.0}
+        assert out["published_neural"][c] == {PEN: 1.0}
     assert out["groups"] == {
         "in_sample": INS,
         "s3": S3,
         "s5_held_out": t4.f91.S5_HELDOUT,
     }
 
-    one = INS[0]
-    rc, out, _ = _run_main(tmp_path / "id", monkeypatch, bad=(one,))
-    assert (rc, out["status"]) == (1, "IDENTITY_FAILED")
-    assert out["identity_problems"] == {
-        f"tracer {one}": ["n_pred_instances=8, published 7"]
-    }
-    assert "predictions" not in out
+    for kind, one in (("tracer", INS[0]), ("cc", S3[0])):
+        bad = {"bad": (one,)} if kind == "tracer" else {"bad_cc": (one,)}
+        rc, out, _ = _run_main(tmp_path / f"id_{kind}", monkeypatch, **bad)
+        assert (rc, out["status"]) == (1, "IDENTITY_FAILED")
+        published = _fixed(one, kind)["n_pred_instances"]
+        assert out["identity_problems"] == {
+            f"{kind} {one}": [
+                f"n_pred_instances={published + 1}, published {published}"
+            ]
+        }
+        assert "predictions" not in out
 
     with pytest.raises(SystemExit, match="version 3"):
         _run_main(tmp_path / "v4", monkeypatch, version=4)

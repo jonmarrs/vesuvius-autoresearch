@@ -10,7 +10,7 @@ Detecting ink within micro-CT scans of carbonized papyrus scrolls remains a sign
 ## I. Introduction
 The Vesuvius Challenge seeks to read the lost library of Herculaneum through advanced imaging and machine learning. In June 2026 the challenge read its first *complete* scroll (PHerc. 1667 [4]) — driven by improved phase-contrast scanning, semi-automated unwrapping, and ink models used as "visibility amplifiers" — and released the underlying data openly. With hundreds of scrolls still unread, the "Generalization Gap" — the failure of a model trained on one scroll to detect ink on another — remains the field's central open problem, and the newly-open data makes it addressable by independent researchers on consumer hardware.
 
-Manual architectural tuning is slow. The autoresearch loop attempts to compress that loop by running 15-minute experimental cycles autonomously (60-minute at night until 2026-10-20), mutating a small number of axes (learning rate, capacity, augmentation knobs, loss balance, auxiliary tasks, etc.) per cycle and promoting only configurations that improve `val_f1`, gated by AP-prevalence lift, over the held checkpoint (`val_bpb` until 2026-07-11).
+Manual architectural tuning is slow. The autoresearch loop attempts to compress that loop by running 15-minute experimental cycles autonomously (nights ran 60 minutes from 2026-04-29 to 2026-10-20), mutating a small number of axes (learning rate, capacity, augmentation knobs, loss balance, auxiliary tasks, etc.) per cycle and promoting only configurations that improve `val_f1`, gated by AP-prevalence lift, over the held checkpoint (until 2026-07-11 it selected on `val_bpb` and topology).
 
 ## II. Methodology
 
@@ -29,7 +29,7 @@ In the spirit of citizen science and decentralized science (DeSci), our framewor
 *   **Local Storage:** We cap local data storage at **500 GB** at any given time, prioritizing high-value labeled segments over full scroll volumes.
 
 ## III. Experimental Setup
-Experiments run on an NVIDIA RTX 4090 (24 GB VRAM). We enforce a 0.5 × 0.5 mm (64 × 64 voxel at 7.91 µm spacing) prediction window per the Vesuvius Challenge hallucination guidance for ink detection. The loop runs continuously during Day Shift (07:00–19:00 local, 900 s/cycle) and Night Shift (otherwise, 900 s/cycle; 3600 s until 2026-10-20).
+Experiments run on an NVIDIA RTX 4090 (24 GB VRAM). We enforce a 0.5 × 0.5 mm (64 × 64 voxel at 7.91 µm spacing) prediction window per the Vesuvius Challenge hallucination guidance for ink detection. The loop runs continuously during Day Shift (07:00–19:00 local, 900 s/cycle) and Night Shift (otherwise, 900 s/cycle; 3600 s from 2026-04-29 to 2026-10-20).
 
 ## IV. Current Results
 
