@@ -1,3 +1,4 @@
+import fnmatch
 import os
 import shutil
 import signal
@@ -705,6 +706,25 @@ LOOP_RUNTIME_STATE = (
     "config_temp.json",
     "run_result.json",
 )
+
+
+def test_make_clean_keeps_the_loops_records():
+    """`make clean` deleted run.log as a transient stdout log. It is the cycles' training output, git-ignored and on
+    the loop's machine only: the epoch-boundary and cycle-length measurements read each cycle's steps from it, and a
+    running cycle writes it. Nor may it take the loop's other logs or the sprint logs."""
+    recipe, lines = [], (REPO / "Makefile").read_text().splitlines()
+    for line in lines[lines.index("clean:") + 1 :]:
+        if not line.startswith("\t"):
+            break
+        recipe += line.split()
+    kept = ("run.log", "run.log.old", "autoresearch.out", "watchdog.log", "sprint_logs")
+
+    def removes(word, name):  # the name itself, or anything inside it
+        word = word.removeprefix("./")
+        return fnmatch.fnmatch(name, word) or fnmatch.fnmatch(f"{name}/x", word)
+
+    assert recipe[:2] == ["rm", "-f"]
+    assert not [(w, k) for w in recipe for k in kept if removes(w, k)]
 
 
 def test_loop_runtime_state_is_never_tracked():
