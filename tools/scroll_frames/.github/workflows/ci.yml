@@ -15,7 +15,7 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install from the package definition, not from source
-        run: pip install ".[test,images]"
+        run: pip install ".[test]"
       - name: Test
         run: pytest -q
       - name: The console script must exist and run
