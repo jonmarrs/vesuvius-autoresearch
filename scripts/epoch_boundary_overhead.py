@@ -82,11 +82,17 @@ def _after(prev: dt.datetime, clock: str) -> dt.datetime:
 
 
 def cycles(pattern: str) -> list[dict]:
-    """Each sprint-log cycle with its start and overhead; the budget comes from the shift."""
+    """Each sprint-log cycle with its start and overhead. Its budget is the time_budget its config line records, the
+    run's own. The shift does not give it: nights ran 900 s until 2026-04-29, 3600 s from then until 2026-10-20, and
+    900 s since, and a few cycles near those dates ran the other. Logs before 2026-04-14 record none; their Goal line
+    gives their cycles' minutes (5 or 15, nights too). A log with neither is given its shift's 3600 s or 900 s."""
     out = []
     for path in sorted(glob.glob(pattern)):
         text = Path(path).read_text()
-        budget = 3600 if "night_shift" in path else 900
+        goal = re.search(r"\*\*Goal\*\*:.* via (\d+)-min cycles", text)
+        log_budget = (
+            int(goal.group(1)) * 60 if goal else 3600 if "night_shift" in path else 900
+        )
         day = dt.date.fromisoformat(Path(path).name[len("sprint_log_") :][:10])
         start = re.search(r"\*\*Start Time\*\*: (\d+:\d+:\d+)", text).group(1)
         prev = dt.datetime.combine(day, dt.time.fromisoformat(start))
@@ -107,6 +113,8 @@ def cycles(pattern: str) -> list[dict]:
                 continue
             now = _after(prev, m.group(5))
             seconds = (now - prev).total_seconds()
+            recorded = re.search(r"time_budget: (\d+)", block)
+            budget = int(recorded.group(1)) if recorded else log_budget
             f1 = re.search(r"val_f1: ([0-9.]+)", block)
             out.append(
                 {

@@ -44,8 +44,8 @@ Each cycle of `run_autoresearch_loop.py`:
    (`train.py --smoke`). A configuration that cannot build or run is skipped
    immediately rather than consuming a cycle.
 3. **Train under a fixed budget.** The candidate trains for a fixed wall-clock
-   budget on the training fragment: 15 minutes in the day shift (07:00–19:00),
-   60 at night.
+   budget on the training fragment: 15 minutes in both the day shift (07:00–19:00)
+   and the night shift. Nights ran 60 minutes from 2026-04-29 to 2026-10-20.
 4. **Evaluate on held-out data.** The model is scored on a separate validation
    fragment it never trained on (train/predict non-overlap), producing the
    threshold-swept `val_f1` and AP-prevalence lift that decide promotion, plus

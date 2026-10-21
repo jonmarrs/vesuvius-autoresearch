@@ -53,9 +53,10 @@ The point is concrete evidence of human evaluation, not polished prose.
 
 ## Running a bandit shift
 
-Day Shift (15-minute cycles, runs 07:00–19:00) and Night Shift
-(60-minute cycles, runs 19:00–07:00) auto-detect from the host's local
-clock when `run_autoresearch_loop.py` starts:
+Day Shift (runs 07:00–19:00) and Night Shift (runs 19:00–07:00), both
+15-minute cycles (nights ran 60 minutes from 2026-04-29 to 2026-10-20),
+auto-detect from the host's local clock when `run_autoresearch_loop.py`
+starts:
 
 ```sh
 ./start.sh

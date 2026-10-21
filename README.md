@@ -405,7 +405,7 @@ pyproject.toml           — dependencies
   "families" (learning rate, loss balance, batch, UA-MT, features, ...), weighted by recent success: a family's
   weight decays by ×0.95 per scored cycle (floor 1) and gains 1 per promotion. Architecture and size are
   pinned.
-- **Fixed Time Budget.** Training runs for a fixed wall-clock budget (default 15 mins for both shifts; nights ran 60 mins until 2026-10-20, when a replicated study found no measurable gain from them). This ensures experiments are comparable and the agent optimizes for the best model *within the available compute*.
+- **Fixed Time Budget.** Training runs for a fixed wall-clock budget (default 15 mins for both shifts; nights ran 60 mins from 2026-04-29 to 2026-10-20, when a replicated study found no measurable gain from them). This ensures experiments are comparable and the agent optimizes for the best model *within the available compute*.
 - **Multi-task Supervision.** Models are trained not just on ink labels, but also on auxiliary tasks like 3D ridge detection and structure tensor alignment to improve generalization.
 
 The [repeatability probe](docs/REPEATABILITY_PROBE.md) defaults to a read-only

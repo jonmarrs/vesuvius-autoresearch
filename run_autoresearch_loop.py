@@ -962,10 +962,7 @@ def main():
         # transitioned INTO the next shift's bucket, not when we hit a
         # single hour value.
         _hr = time.localtime().tm_hour
-        _in_day_bucket = 7 <= _hr < 19
-        _shift_over = (shift_name == "DAY SHIFT" and not _in_day_bucket) or (
-            shift_name == "NIGHT SHIFT" and _in_day_bucket
-        )
+        _shift_over = shift_for_hour(_hr)[0] != shift_name
         if _shift_over:
             print(f"{shift_name} end reached (hour={_hr}). Ending sprint.")
             next_shift = "DAY SHIFT" if shift_name == "NIGHT SHIFT" else "NIGHT SHIFT"
@@ -1178,7 +1175,7 @@ def main():
                     f.write("PREFLIGHT FAILED — skipping training for this cycle.\n")
                     f.flush()
                     print(
-                        f"Cycle {i}: PREFLIGHT FAILED — skipping 60-min run "
+                        f"Cycle {i}: PREFLIGHT FAILED — skipping {default_budget // 60}-min run "
                         "(model did not pass forward/backward)."
                     )
                     sys.stdout.flush()

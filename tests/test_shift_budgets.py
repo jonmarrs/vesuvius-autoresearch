@@ -57,3 +57,35 @@ def test_the_docs_state_the_budgets():
         and "60 mins for Night Shift" not in readme
     )
     assert "(900s for both shifts" in program and "3600s for Night Shift" not in program
+
+
+def test_main_ends_the_sprint_by_the_same_table(loop):
+    """The sprint ends when the hour leaves the shift it started in, by shift_for_hour, not a second copy of its
+    hours."""
+    src = inspect.getsource(loop.main)
+    assert "_shift_over = shift_for_hour(_hr)[0] != shift_name" in src
+    assert "7 <= _hr < 19" not in src
+
+
+@pytest.mark.parametrize(
+    "doc",
+    [
+        "README.md",
+        "docs/program.md",
+        "METHOD.md",
+        "docs/RESEARCH_PAPER.md",
+        "CONTRIBUTING.md",
+        ".github/README_SKELETON.md",
+    ],
+)
+def test_the_other_docs_date_the_60_minute_nights(doc):
+    """Each gave 60-minute nights in the present tense after #159; nights ran 60 minutes only from 2026-04-29."""
+    text = " ".join((ROOT / doc).read_text().split())
+    assert "from 2026-04-29 to 2026-10-20" in text
+    for old in (
+        "60 at night.",
+        "60-minute cycles, runs",
+        "60-min cycles)",
+        "3600 s/cycle).",
+    ):
+        assert old not in text, old
