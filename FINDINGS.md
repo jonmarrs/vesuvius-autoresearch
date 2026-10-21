@@ -107,9 +107,8 @@ the window itself.)
 
 ## GP-winner replication (Phase 1) — the winning pipeline reproduces here; our gap is upstream
 
-We ran the **vendored Grand-Prize pipeline** (`villa/deprecated/ink-detection/inference_timesformer.py`, then at
-villa/ink-detection/,
-the published canonical "wild15" TimeSformer-small checkpoint, `size=64 stride=32
+We ran the **vendored Grand-Prize pipeline** (`villa/deprecated/ink-detection/inference_timesformer.py`, at
+villa/ink-detection/ when run; the published canonical "wild15" TimeSformer-small checkpoint, `size=64 stride=32
 start_idx=17 in_chans=26`) on two canonical Scroll-1 segments — `20231210121321` and
 `20231221180251` — in a **dedicated isolated venv** (never the loop's `.venv`), with
 the segments fetched from `dl.ash2txt.org` and weights from the authors' Drive.

@@ -49,8 +49,11 @@ Keep it brief — bullet points, real numbers, no adjectives.
 # Install uv (https://docs.astral.sh/uv/) if you don't already have it
 curl -LsSf https://astral.sh/uv/install.sh | sh
 
-# Install project deps into a managed venv
+# Install project deps into a managed venv, and check out the pinned villa
+# (the loop's topology metrics and villa augmentations; without it they are
+# skipped, not failed)
 make install         # or: uv sync
+git submodule update --init villa
 
 # Sanity check: GPU detection + main module imports + 11-test smoke
 make check-deps
@@ -76,16 +79,24 @@ Reads `config.json` for the experiment config, and writes the loop's state:
 ## Run a full bandit shift
 
 ```sh
+# Before the first start, and after any change to the validation protocol or
+# inputs: score best_model.pt under the current protocol (rewrites its stored
+# scores; the loop refuses to start otherwise). `make reeval` only reports.
+uv run python scripts/reevaluate_best_model.py --update-stored
+
 make shift           # spawns run_autoresearch_loop.py in background via nohup
 ```
 
-Auto-detects Day Shift (07:00-19:00 PT) or Night Shift (19:00-07:00 PT),
+`make shift` reports that it launched the loop, not that a cycle began; the
+loop's own output, including a refusal to start, is in `autoresearch.out`.
+Auto-detects Day Shift (07:00-19:00 local time) or Night Shift (otherwise),
 both 15-min cycles (nights ran 60 from 2026-04-29 to 2026-10-20), from the
 system clock. Per-shift log
 lives in `sprint_logs/sprint_log_<timestamp>_<shift>.md`. A cycle is
 promoted when its val_f1 beats the incumbent's by more than 0.01 with an
-AP-prevalence lift above 1.02; the loop commits each promotion locally
-(`config.json`, `best_model.pt`, `autoresearch_history.json`) and does not push.
+AP-prevalence lift above 1.02, on the same validation protocol and inputs;
+the loop commits each promotion locally (`config.json`, `best_model.pt`,
+`autoresearch_history.json`) and does not push.
 
 To stop: `./stop.sh` (it stops the loop's runs and pauses the watchdog;
 `./start.sh` clears the pause).
@@ -97,8 +108,9 @@ make reeval
 ```
 
 Loads `best_model.pt` and runs validation under today's code path
-without training. Surfaces metric drift between when the checkpoint
-was promoted vs today's measurement.
+without training, and leaves its stored scores as they are. Surfaces metric drift between when
+the checkpoint was promoted vs today's measurement. To store the new
+scores, run the script with `--update-stored` (above).
 
 ## Project layout
 

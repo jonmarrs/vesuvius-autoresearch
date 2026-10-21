@@ -73,6 +73,30 @@ def test_it_reads_the_documents_a_contributor_reads_first():
     assert "reports/villa_prize_action_matrix.md" in docs and "docs/VILLA_STRATEGY.md" in docs
 
 
+def test_audit_reads_every_document_it_lists(monkeypatch):
+    """documents() is the list; audit() must read from it, not its own."""
+    read = []
+
+    def cited(path):
+        read.append(path)
+        return set(), set()
+
+    monkeypatch.setattr(mod, "cited", cited)
+    docs = mod.audit()[0]
+    assert docs == mod.documents()
+    assert sorted(os.path.relpath(p, _REPO) for p in read) == sorted(docs)
+
+
+def test_it_skips_a_document_git_ignores(history):
+    """A launcher's CLAUDE.md is ignored at the top level: it is no reader's document."""
+    repo, _, _ = history
+    (repo / ".gitignore").write_text("/CLAUDE.md\n")
+    (repo / "docs").mkdir()
+    for name in ("CLAUDE.md", "README.md", "docs/plan.md"):
+        (repo / name).write_text("`scripts/gone.py`\n")
+    assert mod.documents() == ["docs/plan.md", "README.md"]
+
+
 def test_it_ignores_an_elided_path():
     """`reports/nnunetv2_baseline_...` in prose is a shortened name, not a citation,
     and flagging it trains the reader to skim past real findings."""
