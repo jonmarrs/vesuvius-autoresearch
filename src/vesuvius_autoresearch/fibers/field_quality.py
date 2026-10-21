@@ -301,14 +301,17 @@ def local_curvature_deg(fiber: Fiber) -> np.ndarray:
     more than the walker's turn limit". If real curvature routinely exceeded
     ``max_angle_deg``, that limit would simply be mis-set.
 
-    The turn angle is computed via `angular_error_deg`, which folds mod 180 --
-    an incoming/outgoing pair that reverses on itself (a genuine 180-degree
-    hairpin) reads as ~0 degrees of turn here, the same as a straight line.
-    That fold is defensible because it matches the walker's own sign-agnostic
-    gate at `_direction_at` (an orientation is compared, not a direction), but
-    it means this function cannot distinguish "straight" from "doubled back".
-    Real hand-traced fibers essentially never do the latter, so it is not
-    believed to affect these results, but it is not detected either.
+    The turn angle is computed via `angular_error_deg`, which folds mod 180:
+    a turn of theta above 90 degrees reads as 180 - theta, so an
+    incoming/outgoing pair that reverses on itself (a genuine 180-degree
+    hairpin) reads as ~0 degrees of turn here, the same as a straight line, and
+    a 135-degree turn as 45. That fold is defensible because it matches the
+    walker's own sign-agnostic gate at `_direction_at` (an orientation is
+    compared, not a direction), but it means this function cannot distinguish
+    "straight" from "doubled back", and reads every turn over 90 degrees as
+    less than it is. Real hand-traced fibers essentially never turn that far
+    between nodes, so it is not believed to affect these results, but it is
+    not detected either.
     """
     coords = np.asarray(fiber.coords, dtype=float)
     adj = _adjacency(fiber)
