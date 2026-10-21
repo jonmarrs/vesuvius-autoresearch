@@ -2,6 +2,12 @@
 move the real model's skel_dist toward the prize gate (<= 2.0), separately from
 training changes.
 
+That gate was dropped on 2026-06-26 (``12303c3e``): skel_dist compares skeleton
+branch-length histograms and is blind to where they are
+(``scripts/probe_skel_dist_validity.py``, METHOD.md). The sweep still reports it,
+beside centerline_dice and cc_diff. Villa's centerline_dice is not bounded by 1,
+and a raggeder mask can raise it (METHOD.md).
+
 Loads best_model.pt with its own recorded recipe and complete weights
 (``load_tool_checkpoint``), scores the loop's validation protocol on
 config.json's validation inputs as ``reevaluate_best_model.py`` does, then
@@ -314,7 +320,7 @@ def main(argv=None):
             )
     print(
         f"\nBaseline (topology threshold {topo_thr:.3f}, no post-processing): "
-        f"skel_dist={baseline['skel_dist']:.3f}, gate={SKEL_DIST_GATE}"
+        f"skel_dist={baseline['skel_dist']:.3f}, gate={SKEL_DIST_GATE} (dropped 2026-06-26)"
     )
     # The stored score compares only when it was measured on this sample.
     stored_protocol = chk.get("val_protocol")

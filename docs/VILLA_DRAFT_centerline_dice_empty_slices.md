@@ -51,8 +51,7 @@ Dice above 1. That is the motivating encounter; the proof should come from villa
 
 ## Body (villa template; bracketed parts are the owner's to write)
 
-**In one sentence:** centerline Dice no longer rewards predicted strokes on slices that have no ground truth, so
-it stays in [0, 1].
+**In one sentence:** centerline Dice no longer rewards predicted strokes on slices that have no ground truth.
 
 **One real example:** Starting with [real label/prediction volume], I ran `segmentation/evaluation/evaluate.py`
 with the `centerline_dice` metric, and it produced [value above 1 / inflated value].
@@ -76,6 +75,12 @@ misled]
 
 Patch: `segmentation/evaluation/metrics/centerline_dice.py`, +2/−1 (a one-line initialisation change and a
 comment). Unchanged: the skeletonization, the `surface=True` skeleton construction, and the return keys.
+
+**What it does not change (corrected 2026-10-21).** An earlier version said the fix keeps the metric in [0, 1].
+It does not. The numerator counts only the prediction's skeleton inside the tube around the ground truth's, so a
+predicted skeleton longer than the ground truth's, mostly inside the tube, still scores above 1. A comb of spurs on
+a 56-px stroke scores 1.33 with and without this patch (`METHOD.md`, `tests/test_villa_centerline_dice_range.py`).
+That is a separate property of the definition, and this PR does not address it.
 
 Minimal reproduction of the mechanism (supporting detail; not a substitute for the real-data proof), from the
 repository root:

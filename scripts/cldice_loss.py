@@ -1,9 +1,12 @@
 """Differentiable soft-clDice topology loss (Shit et al., CVPR 2021).
 
-Targets centerline overlap directly — the same notion the villa centerline_dice
-gate measures — via a fully differentiable soft-skeletonization (iterated
-min/max pooling). Unlike the C++ BettiLoss in this repo, gradients flow to the
-model, so it can actually train continuity into thin ink strokes.
+Targets centerline overlap directly via a fully differentiable soft-skeletonization
+(iterated min/max pooling). Unlike the C++ BettiLoss in this repo, gradients flow to
+the model, so it can actually train continuity into thin ink strokes.
+
+This is the symmetric clDice, bounded by 1. Villa's centerline_dice, which the loop
+reports, tests only the prediction's skeleton against the ground truth's and can
+exceed 1 (METHOD.md).
 
 Operates on 2D ink maps shaped (B, 1, H, W): logits in, scalar loss out.
 """

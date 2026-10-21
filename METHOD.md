@@ -75,7 +75,30 @@ distillation results — mask-restricted and pooled over the fragment:
 - **ROC-AUC** — secondary diagnostic only, never an optimization target (it is
   over-optimistic under class imbalance).
 - **`centerline_dice`** — topological score, evaluated at the topology-optimal
-  binarization threshold (the Dice-optimal threshold understates it ~2×).
+  binarization threshold (the Dice-optimal threshold understates it ~2×). Villa's
+  definition is 2·|S_pred ∩ T(S_gt)| / (|S_gt| + |S_pred|): the prediction's skeleton
+  pixels within 3 px of the ground truth's skeleton, over both skeletons' lengths. That is
+  not the symmetric clDice, and it is **not bounded by 1** (it stays below 2). It exceeds 1
+  by two routes:
+  - **A slice with no ground-truth skeleton.** Its tolerance region is the whole slice, so
+    every predicted skeleton pixel there counts as a hit, and an ink-free label with any
+    prediction scores about 2. The loop's July rows above 1 (1.36–1.86 in `history.tsv`)
+    and the 1.349 incumbent of that time came from this route: the loop then scored each
+    batch as one stack of slices. It now scores each patch, and its per-patch metrics only
+    the ink-containing ones. `scripts/evaluate_villa_metrics.py` still scores whole volumes.
+    The local villa draft (`docs/VILLA_DRAFT_centerline_dice_empty_slices.md`) fixes this
+    route only.
+  - **A prediction skeleton longer than the ground truth's, mostly inside the tolerance.**
+    It outscores an exact copy. On a 56-px stroke, an exact copy scores 1.00, a ragged
+    prediction around it 1.10, and a comb of spurs 1.33
+    (`tests/test_villa_centerline_dice_range.py`).
+
+  The topology threshold maximises it, so it can settle on a raggeder mask.
+  - **While `enforce_prize_gates` is false, as in config.json, it decides no promotion.** It
+    is reported, and the prize-readiness record requires it to be finite, measured on enough
+    patches, and ≥ 0.01 (`min_prize_centerline_dice`).
+  - **With `enforce_prize_gates` true**, the `ExperimentConfig` default, a run that fails that
+    record is not promoted.
 - **Removed: `skeleton_distance_length`.** Formerly used as a selection signal and a
   "prize gate" (≤ 2.0); we proved it invalid for ink detection — it compares skeleton
   branch-length *histograms* and is blind to spatial location (a zero-overlap

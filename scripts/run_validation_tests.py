@@ -119,6 +119,7 @@ VALIDATION_TESTS = [
     "tests/test_topology_threshold.py",
     "tests/test_training_crop_coverage.py",
     "tests/test_vesuvius_s3_dataset.py",
+    "tests/test_villa_centerline_dice_range.py",
     "tests/test_villa_component_coverage.py",
     "tests/test_villa_prize_action_matrix.py",
     "tests/test_villa_prize_opportunities.py",
