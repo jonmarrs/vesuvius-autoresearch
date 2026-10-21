@@ -20,6 +20,7 @@ import pathlib
 import numpy as np
 import tifffile
 
+from vesuvius_autoresearch.fibers.provenance import SCORING_VERSION, file_sha256
 from vesuvius_autoresearch.fibers.skeleton_io import (
     origin_from_stem,
     parse_nml,
@@ -158,6 +159,48 @@ def scoring_mask_landing_stats(skel, mask) -> tuple[float, float, float, float]:
     return rate, density, enrichment, in_bounds_fraction
 
 
+def bench_problems(bench: dict, stem: str) -> list[str]:
+    """Why a cube's floors in the benchmark report must not ship beside this cube's mask and skeleton.
+
+    The floors are copied into meta.json as they are. They must come from the current scorer, and from the
+    probability volume, skeleton, tolerance and threshold this export ships: `bench_cli floors --all-cubes` records
+    each in the cube's provenance. The default report, reports/fiber_benchmark_all_cubes.json (2026-07-30), records
+    none of them: its rows are scoring version 1, from before the October changes (versions 2-5, the last ScrollGT's
+    ERL fix, finding 85), so shipping it would replace ScrollGT's floors with older numbers.
+    """
+    cube = bench.get("cubes", {}).get(stem)
+    if cube is None:
+        return ["not in the benchmark report"]
+    problems = []
+    if bench.get("scoring_version") != SCORING_VERSION:
+        problems.append(
+            f"report scoring_version {bench.get('scoring_version')!r}, not {SCORING_VERSION}"
+        )
+    old = sorted(
+        name
+        for name, row in cube.get("rows", {}).items()
+        if row.get("scoring_version") != SCORING_VERSION
+    )
+    if old:
+        problems.append(f"rows not scored at version {SCORING_VERSION}: {old}")
+    record = cube.get("provenance")
+    if not record:
+        return [*problems, "no provenance"]
+    expected = {
+        "scoring_version": SCORING_VERSION,
+        "probability_sha256": file_sha256(SRC / f"{stem}_fiberprob.npy"),
+        "skeleton_sha256": file_sha256(SRC / f"{stem}.nml"),
+        "tolerance": bench.get("tolerance"),
+        "mask_threshold": THRESHOLD,
+    }
+    problems += [
+        f"provenance {k} {record.get(k)!r}, this export's {v!r}"
+        for k, v in expected.items()
+        if record.get(k) != v
+    ]
+    return problems
+
+
 def export(stem: str, out_root: pathlib.Path, bench: dict) -> None:
     size = size_from_stem(stem)
     shape = (size, size, size)
@@ -284,6 +327,14 @@ def main() -> None:
     args = ap.parse_args()
 
     bench = json.loads(pathlib.Path(args.bench).read_text())
+    # Every cube is checked before any is written, so a refused report leaves the targets as they were.
+    refused = {stem: bad for stem in CUBES if (bad := bench_problems(bench, stem))}
+    if refused:
+        raise SystemExit(
+            f"{args.bench} cannot supply the floors (run `bench_cli floors --all-cubes` "
+            f"with this checkout): "
+            + "; ".join(f"{stem}: {', '.join(bad)}" for stem, bad in refused.items())
+        )
     for stem in CUBES:
         export(stem, pathlib.Path(args.out_root), bench)
 

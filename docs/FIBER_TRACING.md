@@ -37,6 +37,13 @@ numbers below are the sub-volume's. Full-cube figures for all eleven cubes (eigh
 and does not compare across the two size classes: the 512³ oracles sit near 500 where the 256³
 oracles sit near 250, for purely geometric reasons.
 
+> **Review note, 2026-10-21:** the full-cube figures above and that report are scoring version 1
+> (2026-07-30, rerun 2026-08-16). The scorer changed four times in October (versions 2-5 in
+> `fibers/provenance.py`; version 5 is ScrollGT's version 3, the ERL fix of finding 85), so they are
+> not ScrollGT's current rows. For example, on `s1_00497_01497_03997_256` the report gives our tracer a
+> merge-penalized ERL of 23.16, and ScrollGT publishes 19.22. ScrollGT's `data/fibers_<cube>/meta.json`
+> holds the current floors, and `scripts/export_fiber_targets.py` refuses this report.
+
 Five completely different instance labellings were scored:
 
 | labelling | coverage | precision |

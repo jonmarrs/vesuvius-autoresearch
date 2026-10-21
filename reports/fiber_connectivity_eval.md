@@ -53,6 +53,10 @@ metric the tracer's best (24.27) is marginally ahead of connected components (22
 > sub-volume and **should not be cited**. Full-cube numbers:
 > `reports/fiber_benchmark_all_cubes.json`. The full-cube tracer coverage range is 0.605-0.704,
 > not the 0.686-0.875 quoted below.
+>
+> *Review note, 2026-10-21:* that report is scoring version 1. The scorer changed four times in
+> October (the last ScrollGT's ERL fix, finding 85), so its ERLs are not ScrollGT's current rows; see
+> ScrollGT's `data/fibers_<cube>/meta.json`.
 
 **Fragmentation is the whole problem.** 220-577 splits over 22 fibers is 10-26 fragments per
 fiber. Coverage is genuinely good (0.686-0.875 of ground-truth length is claimed by *something*),
