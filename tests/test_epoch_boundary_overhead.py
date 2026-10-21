@@ -128,6 +128,38 @@ def test_a_restart_restarts_the_clock(tmp_path):
     assert got == [("a", 182), ("b", 97)]
 
 
+def _budgeted(n, name, stamp, budget):
+    """A cycle whose config line records its time_budget, as the loop writes it (asdict of the run's config)."""
+    lines = _cycle(n, name, "REVERTED", stamp, 8, 0.26)
+    lines[2] = (
+        f"- **Config**: lr: 0.0005, time_budget: {budget}, batch_size: 8, patch_size: 64"
+    )
+    return lines
+
+
+def test_a_cycle_is_measured_against_the_budget_it_ran(tmp_path):
+    """Nights run 900-second cycles since 2026-10-20 (and did until May 2026): the budget is the cycle's own, not
+    the shift's. Across a restart onto the new budget, each cycle keeps its own."""
+    night = ["# Night Shift Sprint", "- **Start Time**: 19:10:03", ""]
+    night += _budgeted(1, "a", "20:13:05", 3600)  # 3782 s: 182 over 3600
+    night += [
+        "## Resumed at 20:14:20 (the loop restarted; its cycles count from 1 again)",
+        "",
+    ]
+    night += _budgeted(1, "b", "20:31:20", 900)  # 1020 s: 120 over 900, not -2580
+    night += _budgeted(2, "c", "20:48:00", 900)  # 1000 s: 100
+    path = tmp_path / "sprint_log_2026-10-20_19-10-03_night_shift.md"
+    path.write_text("\n".join(night))
+    got = [(c["cycle"], c["budget"], c["overhead_s"]) for c in ebo.cycles(str(path))]
+    assert got == [("a", 3600, 182), ("b", 900, 120), ("c", 900, 100)]
+
+
+def test_a_cycle_that_records_no_budget_is_given_its_shifts(logs):
+    """Logs before 2026-04-14 record no time_budget; the fixture's do not either."""
+    by_shift = {c["shift"].rsplit("_", 2)[-2]: c["budget"] for c in ebo.cycles(logs[1])}
+    assert by_shift == {"day": 900, "night": 3600}
+
+
 def test_each_cycle_knows_when_it_started(logs):
     # From the shift's date and start time, rolling over midnight.
     assert [(c["cycle"], c["start"]) for c in ebo.cycles(logs[1])] == [

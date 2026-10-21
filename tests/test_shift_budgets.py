@@ -57,3 +57,11 @@ def test_the_docs_state_the_budgets():
         and "60 mins for Night Shift" not in readme
     )
     assert "(900s for both shifts" in program and "3600s for Night Shift" not in program
+
+
+def test_main_ends_the_sprint_by_the_same_table(loop):
+    """The sprint ends when the hour leaves the shift it started in, by shift_for_hour, not a second copy of its
+    hours."""
+    src = inspect.getsource(loop.main)
+    assert "_shift_over = shift_for_hour(_hr)[0] != shift_name" in src
+    assert "7 <= _hr < 19" not in src

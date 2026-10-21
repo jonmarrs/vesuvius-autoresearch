@@ -1,6 +1,7 @@
 """reports/tolerance4_rescore.md (finding 94): every figure from reports/tolerance4_rescore.json."""
 
 import json
+import math
 import statistics
 import sys
 from pathlib import Path
@@ -32,6 +33,13 @@ OFFSET5 = {  # neural_tracer_gt_offset.json's five cubes (mean shift at least a 
 med = statistics.median
 
 
+def test_the_five_offset_cubes_are_neural_tracer_gt_offset_jsons():
+    shifts = json.loads((ROOT / "reports/neural_tracer_gt_offset.json").read_text())[
+        "cubes"
+    ]
+    assert {c for c, v in shifts.items() if math.hypot(*v["shift"]) >= 1} == OFFSET5
+
+
 def test_the_result_is_ok_on_the_published_labellings():
     assert (
         D["status"] == "OK" and D["identity_problems"] == {} and D["tolerance"] == 4.0
@@ -41,6 +49,17 @@ def test_the_result_is_ok_on_the_published_labellings():
             t4.identity_problems(pub[c], rows[c]) == [] for c in rows
         ), name
     assert "All 42 labellings" in REPORT and "The status is `OK`" in REPORT
+
+
+def test_the_rows_are_at_the_tolerances_compared():
+    """Every row records its own tolerance and scoring version. The neural tracer's tolerance-4 rows, finding 91's,
+    keep its published rows' fixed fields, as our tracer's and connected components' do."""
+    for rows, tol in ((N, 4.0), (T, 4.0), (CC, 4.0), (PN, 2.0), (PT, 2.0), (PC, 2.0)):
+        assert len(rows) == 21
+        assert {(r["tolerance"], r["scoring_version"]) for r in rows.values()} == {
+            (tol, 3)
+        }
+    assert all(t4.identity_problems(PN[c], N[c]) == [] for c in N)
 
 
 def test_the_verdict_is_recomputed_and_quoted():
