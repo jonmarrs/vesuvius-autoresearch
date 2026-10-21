@@ -692,8 +692,9 @@ def shift_for_hour(hour: int) -> tuple[str, int]:
 
 
 def unsupervised_runs_reason(running):
-    """Stops a loop's own run that has outlived any cycle's timeout, as its
-    supervisor would have, and says why the loop does not start."""
+    """Stops a run a loop or the ablation started (own) that is older than any
+    cycle's timeout, as its supervisor would have, and says why the loop does
+    not start."""
     lines = []
     for pid, age, own in running:
         lines.append(describe_run(pid, age, own))

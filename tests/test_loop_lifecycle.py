@@ -1,5 +1,6 @@
 import fnmatch
 import os
+import shlex
 import shutil
 import signal
 import subprocess
@@ -708,25 +709,6 @@ LOOP_RUNTIME_STATE = (
 )
 
 
-def test_make_clean_keeps_the_loops_records():
-    """`make clean` deleted run.log as a transient stdout log. It is the cycles' training output, git-ignored and on
-    the loop's machine only: the epoch-boundary and cycle-length measurements read each cycle's steps from it, and a
-    running cycle writes it. Nor may it take the loop's other logs or the sprint logs."""
-    recipe, lines = [], (REPO / "Makefile").read_text().splitlines()
-    for line in lines[lines.index("clean:") + 1 :]:
-        if not line.startswith("\t"):
-            break
-        recipe += line.split()
-    kept = ("run.log", "run.log.old", "autoresearch.out", "watchdog.log", "sprint_logs")
-
-    def removes(word, name):  # the name itself, or anything inside it
-        word = word.removeprefix("./")
-        return fnmatch.fnmatch(name, word) or fnmatch.fnmatch(f"{name}/x", word)
-
-    assert recipe[:2] == ["rm", "-f"]
-    assert not [(w, k) for w in recipe for k in kept if removes(w, k)]
-
-
 def test_loop_runtime_state_is_never_tracked():
     """Ownership is an fcntl lock on the lock file's inode. While it was tracked, a
     running loop left it modified, and `git checkout -- .`, `git stash` or
@@ -749,3 +731,38 @@ def test_loop_runtime_state_is_never_tracked():
     ]
     assert not tracked, f"runtime state tracked by git: {tracked}"
     assert not unignored, f"runtime state not ignored by git: {unignored}"
+
+
+def test_make_clean_keeps_the_loops_records():
+    """`make clean` deleted run.log as a transient stdout log. It is the cycles' training output, git-ignored and on
+    the loop's machine only: the epoch-boundary and cycle-length measurements read each cycle's steps from it, and a
+    running cycle writes it. Nor may `make clean` or `make clean-cache` take the loop's other state or records.
+    Checked on what make would run, so continuation lines, variables and comments are as make reads them; any
+    command but `rm -f` or `find .` fails."""
+    if shutil.which("make") is None:
+        pytest.skip("make is not installed")
+    out = subprocess.run(
+        ["make", "-n", "-s", "-C", str(REPO), "clean", "clean-cache"],
+        capture_output=True,
+        text=True,
+        timeout=30,
+        check=True,
+    ).stdout
+    kept = (*LOOP_RUNTIME_STATE, "run.log.old", "sprint_logs", "results.tsv")
+
+    def removes(word, name):  # the name, by glob, or anything under it
+        word = word.removeprefix(f"{REPO}/").removeprefix("./").rstrip("/")
+        return fnmatch.fnmatch(name, word) or fnmatch.fnmatch(name, word.split("/")[0])
+
+    lines = out.replace("\\\n", " ").splitlines()
+    commands = [words for words in map(shlex.split, lines) if words]
+    assert commands
+    for words in commands:
+        assert words[:2] in (["rm", "-f"], ["find", "."]), words
+        if words[0] == "rm":
+            targets = words[2:]
+        else:  # find . ... -name <pattern>: what it matches, by base name
+            targets = [
+                w for a, w in zip(words, words[1:], strict=False) if a == "-name"
+            ]
+        assert not [(w, k) for w in targets for k in kept if removes(w, k)], words
