@@ -140,6 +140,8 @@ VALIDATION_TESTS = [
     "tests/test_timesformer.py",
     "tests/test_villa_upstream_audit.py",
     "tests/test_wandb_tracking.py",
+    # Reads train.py's promotion constants to check FINDINGS' description of the rule.
+    "tests/test_findings_headline_numbers.py",
 ]
 
 

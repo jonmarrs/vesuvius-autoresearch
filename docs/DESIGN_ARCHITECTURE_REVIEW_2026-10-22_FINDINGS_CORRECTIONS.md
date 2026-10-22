@@ -13,7 +13,7 @@ it.
   fails if any document asserts one in a paragraph that does not also say it was withdrawn.
 - **What isn't guarded.** A correction that never enters the ledger has no guard.
 
-Main has not moved since #189. There are no open pull requests. This round covers the 17:12 UTC firing.
+Main has not moved since #189. There are no open pull requests. This round covers the 17:12 to 21:13 UTC firings.
 
 ## Method
 
@@ -35,11 +35,20 @@ Main has not moved since #189. There are no open pull requests. This round cover
     because it said "superseded" about an unrelated figure.
   - **Change:** FINDINGS says the flatten lays the same surface out on grids ~7 vx apart in-plane, 0.25 vx along
     the normal.
-  - **The ledger gains the claim**, with a new rule: an entry may name the correction a paragraph must carry
-    (0.25 vx, "same surface", nearest-neighbour or re-parametrisation), and then no other withdrawal word clears
-    it.
-  - Six dated paragraphs assert the claim, in five reports and the villa flatten draft. Each now carries a dated
-    note. The preregistrations are frozen records and are unchanged.
+  - **The ledger gains the claim**, with two new rules.
+    - An entry may name the correction a paragraph must carry: 0.25 vx (0.23–0.26), "same surface" or
+      re-parametrisation. Then no other withdrawal word clears it. "Nearest-neighbour" does not, since the
+      uncorrected report used that word itself.
+    - A dated document corrected at its head, before its first section, is cleared as a whole. The corrected
+      original report is cleared this way.
+  - The pattern takes any 7.x figure, up to three intervening words, table cells, and the reversed order
+    ("6.6–7.3 vx from *both* stock surfaces").
+  - **What it found, and the change for each:**
+    - four dated reports: a dated note beside the claim;
+    - the radial-study report and the villa flatten draft: a note at their head. The draft's earlier note had
+      sat inside the posted PR text;
+    - the summary's finding 52: corrected in place.
+  - The preregistrations are frozen records and are unchanged.
 - **The anchor study's control was "fitted" on another tree.**
   - FINDINGS' 09-21 correction said the anchor ablation's control `curbase_s1-s3` was fitted before a villa
     submodule bump and its arms after.
@@ -65,15 +74,36 @@ Main has not moved since #189. There are no open pull requests. This round cover
 - **The loop "promotes only topology-improving configurations".**
   - It promotes on `val_f1` against the incumbent: more than `F1_NOISE_TOLERANCE`, with an AP-prevalence lift
     above 1.02 (`scripts/training/train.py`).
-  - Its `config.json` records the prize gates without enforcing them, and `skel_dist` is never gated since Phase
-    4b.
+  - Its `config.json` records the prize gates without enforcing them (the dataclass default enforces them), and
+    `skel_dist` has not been gated since Phase 4b.
   - **Change:** FINDINGS' deliverables list describes the rule, with a dated note.
 - **"Cross-scroll generalization remains unmeasured".**
   - This is a July bullet about an experiment invalidated by an axis-order bug. The first valid cross-scroll
     measurement (lift 1.29) came after it.
   - **Change:** the bullet points to it.
+- **Four more, found by the independent review:**
+  - **The tracer.** FINDINGS said our tracer "loses to connected components" and that the rankings "require
+    recomputation". The pre-registered rescore of 2026-10-09 did that recomputation, with ScrollGT's own
+    scorer (`tracer_rescore.json`).
+    - Raw ERL trails connected components on all 11 cubes, by 3.9–6.2×.
+    - Merge-penalized ERL leads on 4 of 11, all three 512³ cubes among them.
+    - **Change:** FINDINGS gives the rescore.
+  - **The PHerc 1667 columns.** FINDINGS gave the partial-extent extremes, 0.667 and 0.0 at n = 3v2. The
+    full-band rows superseded them: arm C 0.575 and legacy 0.595 at n = 18v17, against a noise floor of 0.578.
+    **Change:** FINDINGS gives the full-band rows.
+  - **The 64 px verdict.** "Detection at 64 px is window-limited" contradicts FINDINGS' own Phase 5, where a
+    64 px-lateral recipe reads ink at held-out AUC 0.709. **Change:** it is struck through and marked
+    superseded, as its sibling TimeSformer bullet already was.
+  - **"Agree on `total_fg_pixels` to 1.2%".** That is the CV of the three registered seeds, which
+    `control_sensitivity.json` shows are unusually tight; across all nine it is 6.4%. **Change:** FINDINGS says
+    so.
+- **Smaller fixes:**
+  - FINDINGS' "selects and reports at the topology-optimal point" now names the reporting threshold.
+  - Dated notes on `samewinding_verdict.md`'s 8.3%, `decoupling_does_not_cleanly_reproduce.md`'s ±3%, and the
+    writer-effect report's two flatten %/vx rows. Those rows divide by nearest-neighbour distances.
 - **Tests:**
-  - `tests/test_findings_headline_numbers.py` is new, with 9 tests. Each recomputes a figure from its JSON or
+  - `tests/test_findings_headline_numbers.py` is new, with 12 tests, and is in the standard suite. It reads
+    `train.py`'s promotion constants, which makes it a test of the loop's code. Each recomputes a figure from its JSON or
     report table and asserts FINDINGS states it, rounded once. They cover:
     - the detector table, the epoch-selection caveat against the sweep, and the SOTA row;
     - the anchor and current-code nulls with their control sensitivity;
@@ -81,9 +111,14 @@ Main has not moved since #189. There are no open pull requests. This round cover
     - each row of the four-case table;
     - each null's corrected bound;
     - the 67.6%;
-    - the promotion rule against `train.py` and `config.json`.
-  - `tests/test_withdrawn_claims_stay_withdrawn.py` gains the 7.15 vx claim, the named-correction rule, and a test
-    of the rule.
+    - the promotion rule against `train.py` and `config.json`;
+    - the tracer counts against `tracer_rescore.json`;
+    - the full-band column rows;
+    - the superseded 64 px verdict;
+    - the re-render's +1.44%;
+    - the 1.2% and 6.4% CVs.
+  - `tests/test_withdrawn_claims_stay_withdrawn.py` gains the 7.15 vx claim, the named-correction and head
+    rules, and a test of the rules with nine live phrasings.
 
 ## Verified by hand, no change needed
 
@@ -111,24 +146,29 @@ Main has not moved since #189. There are no open pull requests. This round cover
   the 7.15 vx claim survived in FINDINGS. Only the new entry names its correction. The older entries could each
   name theirs too.
 - **The ±3% interval** is still quoted, in its own dated context, by about a dozen reports and both September
-  filing records. The filing records disclose its withdrawal. No ledger entry was added, because each would need
-  an annotation; FINDINGS and the summary are correct.
+  filing records. The filing records disclose its withdrawal, and `decoupling_does_not_cleanly_reproduce.md` now
+  carries a note. No ledger entry was added: most copies would need an annotation or a head note. FINDINGS and
+  the summary are correct.
 - **The summary's finding 45** carries the 09-27 correction in its header. Its body still says the anchor control
   "was fitted on a different villa tree".
-- **`the_writer_effect_is_real_and_my_prediction_missed.md`** scales the inner flatten pair's "2.65 %/vx". That
-  sensitivity divides by a nearest-neighbour distance, the kind the 09-22 correction calls void. The report
-  records that its prediction missed.
+- **The prize gates' two defaults.** `config.json` sets `enforce_prize_gates: false`, while `ExperimentConfig`
+  defaults to true and the loop falls back to defaults without a config. FINDINGS describes the loop's
+  `config.json`.
+- **Prose in the case table.** The guard column ("passes a real ink regression") and "in three different
+  directions" are wording, not figures, and no test binds them.
 - **Corrections propagate by hand.** Each one this round fixes was made in a new report, and missed FINDINGS.
   The ledger is the only mechanism that carries a correction to other documents, and only for claims entered in
   it.
 
 ## Verification
 
-- `pytest tests/test_findings_headline_numbers.py tests/test_withdrawn_claims_stay_withdrawn.py`: 9 and 15
+- `pytest tests/test_findings_headline_numbers.py tests/test_withdrawn_claims_stay_withdrawn.py`: 12 and 15
   passed.
-- **Mutants**, in a scratch worktree, each restored after it ran. 25 of 26 fail a test. The one that does not
-  is a phrase wrapped across lines, which the mutant script could not match. The test reads that phrase on
-  single-spaced text, and binds it. The 25 are:
+- **The probe, re-run on the first commit** with the new test: 70 of 572 numbers are bound, against 5 of 560 on
+  main. The second commit binds the tracer counts, the column rows and the CVs as well.
+- **Mutants of the first commit**, in a scratch worktree, each restored after it ran. 25 of 26 fail a test. The
+  one that does not is a phrase wrapped across lines, which the mutant script could not match. The test reads
+  that phrase on single-spaced text, and binds it. The 25 are:
   - 18 figures in FINDINGS;
   - the 7.15 vx sentence restored;
   - the 09-27 note dropped;
@@ -136,11 +176,45 @@ Main has not moved since #189. There are no open pull requests. This round cover
   - one report's note removed;
   - three JSON values;
   - a sweep cell.
+- **The review's 52 mutants**, re-run on the final commit: 45 fail a test. The seven that pass are:
+  - two rewraps, which the test is meant to pass;
+  - the two prose edits above;
+  - three edits to promotion logic that FINDINGS does not state:
+    - removing the gate check;
+    - changing the return;
+    - flipping the dataclass default.
+
+  The review reports that `test_autoresearch_measurement.py` catches a broken `promotion_decision`.
 - **Guards and audit:**
   - The nine doc-guard files and six report-number files were run on main and on the branch, with the doc
-    audit (`audit_doc_references.audit()`). They differ only by the 11 new tests: 186 passed on main, 197 on the
+    audit (`audit_doc_references.audit()`). They differ only by the 14 new tests: 186 passed on main, 200 on the
     branch.
   - The one failure is `test_live_documents_stay_clean`, from villa paths, as on main.
   - The audit gains no entries.
 - Ruff 0.9.10 `check` and `format` are clean on both test files.
-- **Pending:** the probe re-run on the branch, the standard suite, and the independent review.
+- **The standard suite** with the locked-package overlay.
+  - The first run gave one new failure: `test_validation_suite_covers_the_loop.py`. The new FINDINGS test reads
+    `scripts/training/train.py` by path, so it is a test of the loop's code.
+  - It is now listed in `scripts/run_validation_tests.py`, which brings the suite to 126 files.
+  - Re-run: 2811 passed, 22 skipped and 1 xfailed. That is main's 2799 plus the 12 new tests, with main's ten
+    environmental failures: nine missing villa files, plus gp_winner.
+  - Of the other files, only `test_prize_promotion_gates.py` reads a changed document (FINDINGS).
+- **Independent review** of the first commit, in a worktree without villa. It found nothing blocking.
+  - **It confirmed:**
+    - every correction against its source: the normal offset 0.2534, the control-sensitivity rows, the +1.44%
+      re-render, and the pinned bound 2.80 × 0.0514 × √(1/3 + 1/6) = 10.2%;
+    - the promotion wording against the code.
+  - **Its should-fix findings:**
+    - the four stale claims above;
+    - the ledger pattern missing live copies (the radial-study report, finding 52, reversed and table forms);
+    - "nearest-neighbour" clearing a stale paragraph;
+    - mutants that passed (the +1.44%, the gap-fix row, the `enforce_prize_gates` text).
+
+    All are fixed in the second commit.
+  - **Its nits:** all addressed except the prose in the case table, which is left as an observation:
+    - citations;
+    - the in-place rewrite;
+    - the note inside the posted PR text;
+    - the docstring;
+    - the rounded-CV ratio;
+    - "has not been gated".

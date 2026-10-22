@@ -123,6 +123,13 @@ def test_the_anchor_and_current_code_nulls_carry_their_control_sensitivity():
         f"the ink estimate moves **{_pct(an[reg]['rel'])} → {_pct(an[matched]['rel'])}** "
         "(verdict still NULL)"
     ) in flat
+    # the tree-matched geometry, from the cross-tree report's table (no JSON keeps it)
+    tm = re.search(
+        r"^\| \*\*tree-matched, `curbase_s4-s9`\*\* \| \*\*([+-][\d.]+%)\*\* \| \*\*([\d.]+)\*\* \|$",
+        (_REPORTS / "the_anchor_control_was_cross_tree.md").read_text(),
+        re.M,
+    ).groups()
+    assert f"while the geometry result strengthens to {tm[0]}, p={tm[1]}." in flat
     m = sw[matched]
     assert (
         f"against the six render-matched control seeds it is {_pct(m['rel'])}, 95% CI "
