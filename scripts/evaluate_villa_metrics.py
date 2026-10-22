@@ -90,7 +90,7 @@ def main():
         help="Use soft probability predictions (skip binarization for mean_ap)",
     )
     parser.add_argument(
-        "--hist-dir",
+        "--hist_dir",
         default=str(Path(__file__).resolve().parents[1] / "outputs" / "skeleton_hists"),
         help="Where villa's skeleton metric saves its histogram PNG, one per call "
         "(default: the checkout's outputs/skeleton_hists, where train.py saves the "

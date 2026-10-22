@@ -39,7 +39,7 @@ def test_skeleton_distance_is_reported_without_a_wandb_run(tmp_path):
             "--out",
             str(out),
             # Not the checkout's outputs/, where it would replace the loop's.
-            "--hist-dir",
+            "--hist_dir",
             str(tmp_path / "hists"),
         ],
         cwd=tmp_path,
