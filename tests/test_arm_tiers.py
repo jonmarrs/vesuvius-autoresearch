@@ -100,3 +100,91 @@ def test_upstream_fits_are_their_own_tier():
     """Fitted on 75c79ac5f (2026-09-24); pooling them with `current` before the
     registered comparison would assume its answer."""
     assert tier_of("upfit_s1") == "upstream"
+
+
+# --- the table against the record of what ran ---------------------------------
+# repro/spiral_fits/ holds a copy of each arm's fit driver. A driver exports the
+# arm's run tag and changes into the villa tree it fits with, so it is the
+# evidence a human classifying an arm in _RULES is meant to have read.
+_DRIVERS = Path(__file__).resolve().parents[1] / "repro" / "spiral_fits"
+_TREE_TIER = {
+    "villa-spiral": "pinned",
+    "villa-spiral-current": "current",
+    "villa-spiral-upstream": "upstream",
+}
+# Arms the analyses group by tier whose driver was never copied here. The
+# extension's preregistration specifies them as fit_nosamecur_s1.sh with only
+# the seed (4, 5, 6) and the tag changed. Vendor them and empty this set.
+_NOT_VENDORED = {"nosamecur_s4", "nosamecur_s5", "nosamecur_s6"}
+
+
+def _driver_trees() -> dict[str, str]:
+    """{run tag: villa tree name} for every vendored driver that sets a tag."""
+    out = {}
+    for f in sorted(_DRIVERS.glob("*.sh")):
+        text = f.read_text()
+        tags = re.findall(r"^export FIT_SPIRAL_RUN_TAG=(\S+)$", text, re.M)
+        if not tags:
+            continue
+        env = dict(re.findall(r"^([A-Z_]+)=(\S+)$", text, re.M))
+        (tree,) = re.findall(r"^cd (\S+)/spiral-fitting$", text, re.M)
+        tree = env.get(tree.removeprefix("$"), tree)
+        assert not tree.startswith("$"), f"{f.name}: unresolved tree {tree}"
+        (tag,) = tags
+        out[tag.replace("$SEED", "1")] = tree.rstrip("/").rsplit("/", 1)[-1]
+    return out
+
+
+def test_the_table_agrees_with_the_tree_each_vendored_driver_fits_with():
+    trees = _driver_trees()
+    assert len(trees) >= 50
+    checked = 0
+    for tag, tree in trees.items():
+        try:
+            tier = tier_of(tag)
+        except UnknownArm:  # smoke and exploratory arms are deliberately unclassified
+            continue
+        assert _TREE_TIER[tree] == tier, (
+            f"{tag}: driver fits on {tree}, table says {tier}"
+        )
+        checked += 1
+    assert checked >= 40
+
+
+def test_every_rule_in_the_table_has_a_vendored_driver():
+    import arm_tiers
+
+    tags = _driver_trees()
+    for prefix, tier in arm_tiers._RULES:
+        backing = [t for t in tags if t.startswith(prefix) and tier_of(t) == tier]
+        assert backing, f"rule {prefix!r} -> {tier} has no vendored driver"
+
+
+def test_every_grouped_arm_has_a_vendored_driver_or_is_a_recorded_gap():
+    import measure_noise_floor as nf
+    import soft_count_study as sc
+
+    grouped = {
+        a for groups in nf.TIERS.values() for arms in groups.values() for a in arms
+    }
+    grouped |= {
+        a
+        for groups in (sc.PINNED, sc.CURRENT)
+        for arms in groups.values()
+        for a in arms
+    }
+    missing = grouped - set(_driver_trees())
+    assert missing == _NOT_VENDORED, sorted(missing ^ _NOT_VENDORED)
+    readme = (_DRIVERS / "README.md").read_text()
+    for arm in sorted(_NOT_VENDORED):
+        assert f"`{arm}`" in readme, f"{arm} is not listed as unvendored in the README"
+
+
+def test_soft_count_groups_agree_with_the_tier_table():
+    """Its PINNED and CURRENT groups are a third encoding of the same fact."""
+    import soft_count_study as sc
+
+    for tier, groups in (("pinned", sc.PINNED), ("current", sc.CURRENT)):
+        for group, arms in groups.items():
+            for arm in arms:
+                assert tier_of(arm) == tier, f"soft_count {group}/{arm} disagrees"
