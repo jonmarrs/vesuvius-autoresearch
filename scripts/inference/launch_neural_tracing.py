@@ -80,7 +80,12 @@ def _find_volume_for_candidate(
 
 
 def _find_neural_tracing_checkpoint() -> Path | None:
-    """Look for any locally-trained rowcol_cond / heatmap_single_point checkpoint."""
+    """The newest locally-trained rowcol_cond / heatmap_single_point checkpoint.
+
+    From the first base that holds one, its newest .pth, else its newest .pt. By
+    modification time, as launch_finetune_lejepa finds its checkpoint: a name such
+    as ckpt_000009 orders the iterations of one run, not the runs of a base.
+    """
     search = [
         PROJECT_ROOT / "checkpoints" / "neural_tracing",
         PROJECT_ROOT / "checkpoints" / "rowcol_cond",
@@ -88,15 +93,37 @@ def _find_neural_tracing_checkpoint() -> Path | None:
     for base in search:
         if not base.is_dir():
             continue
-        for path in sorted(
-            glob.glob(str(base / "**" / "*.pth"), recursive=True), reverse=True
-        ):
-            return Path(path)
-        for path in sorted(
-            glob.glob(str(base / "**" / "*.pt"), recursive=True), reverse=True
-        ):
-            return Path(path)
+        for pattern in ("*.pth", "*.pt"):
+            found = [
+                Path(path)
+                for path in glob.glob(str(base / "**" / pattern), recursive=True)
+                if Path(path).is_file()
+            ]
+            if found:
+                return max(found, key=lambda path: (path.stat().st_mtime_ns, str(path)))
     return None
+
+
+def _checkpoint_blocker(checkpoint: str) -> str | None:
+    """Why trace_service could not load an explicit --checkpoint, or None.
+
+    villa takes a bare name such as extrap_displacement_latest as a HuggingFace
+    sentinel, and anything else as a path: a file, or a directory holding
+    ckpt_*.pth (resolve_checkpoint_path in neural_tracing/nets/models.py). It
+    loads lazily, so a path that resolves to nothing would fail only at the first
+    request that needs the model. A bare name is not checked against villa's
+    sentinels, which this launcher does not import.
+    """
+    path = Path(checkpoint)
+    if path.is_file():
+        return None
+    if path.is_dir():
+        if any(path.glob("ckpt_*.pth")):
+            return None
+        return f"checkpoint directory holds no ckpt_*.pth: {checkpoint}"
+    if "/" not in checkpoint and path.suffix not in (".pt", ".pth"):
+        return None
+    return f"checkpoint not found: {checkpoint}"
 
 
 def main() -> int:
@@ -172,6 +199,10 @@ def main() -> int:
         blockers.append(
             "missing OME-zarr volume; pass --volume-zarr or --scroll-id/--division"
         )
+    if args.checkpoint:
+        blocker = _checkpoint_blocker(args.checkpoint)
+        if blocker:
+            blockers.append(blocker)
 
     marker_path = Path(args.marker_out)
     marker_path.parent.mkdir(parents=True, exist_ok=True)

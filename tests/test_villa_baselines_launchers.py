@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -210,6 +211,79 @@ def test_launch_neural_tracing_falls_back_to_the_hf_sentinel(tmp_path):
     assert data["socket_path"].endswith(".sock")
     # `ready` is not asserted: it turns on whether this machine happens to have
     # the OME-zarr volume, which is not what this test is about.
+
+
+@pytest.fixture
+def tracing_launcher(tmp_path, monkeypatch):
+    """The tracing launcher loaded in-process, with its project root and trace
+    service in tmp_path. Loading it inserts villa's path into sys.path, which
+    monkeypatch restores."""
+    monkeypatch.setattr(sys, "path", sys.path[:])
+    spec = importlib.util.spec_from_file_location(
+        "_lnt_unit", REPO_ROOT / "scripts" / "inference" / "launch_neural_tracing.py"
+    )
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    service = tmp_path / "trace_service.py"
+    service.write_text("")
+    monkeypatch.setattr(mod, "PROJECT_ROOT", tmp_path)
+    monkeypatch.setattr(mod, "TRACE_SERVICE", service)
+    monkeypatch.chdir(tmp_path)
+    return mod
+
+
+def test_the_newest_local_tracing_checkpoint_is_launched(tracing_launcher, tmp_path):
+    base = tmp_path / "checkpoints" / "neural_tracing"
+    # A name orders the iterations of one run, not the runs: run_b's sorts last
+    # but was written first.
+    older = base / "run_b" / "ckpt_000900.pth"
+    newer = base / "run_a" / "ckpt_000100.pth"
+    other = base / "run_c" / "model.pt"  # a .pth is preferred, however new a .pt
+    for age, path in enumerate([older, newer, other]):
+        path.parent.mkdir(parents=True)
+        path.write_bytes(b"")
+        os.utime(path, ns=(10**18 + age, 10**18 + age))
+    assert tracing_launcher._find_neural_tracing_checkpoint() == newer
+
+
+def _resolvable_checkpoints(tmp_path):
+    run = tmp_path / "run"
+    run.mkdir()
+    (run / "ckpt_000001.pth").write_bytes(b"")
+    (tmp_path / "model.pth").write_bytes(b"")
+    (tmp_path / "empty").mkdir()
+
+
+@pytest.mark.parametrize(
+    "checkpoint, blocker",
+    [
+        ("extrap_displacement_latest", None),  # villa's HuggingFace sentinel
+        ("model.pth", None),
+        ("run", None),
+        ("missing.pth", "checkpoint not found"),
+        ("runs/missing", "checkpoint not found"),
+        ("empty", "holds no ckpt_*.pth"),
+    ],
+)
+def test_an_explicit_checkpoint_that_cannot_load_blocks_the_launch(
+    tracing_launcher, tmp_path, monkeypatch, checkpoint, blocker
+):
+    _resolvable_checkpoints(tmp_path)
+    (tmp_path / "volume").mkdir()
+    marker = tmp_path / "marker.json"
+    argv = ["launch_neural_tracing.py", "--volume-zarr", str(tmp_path / "volume")]
+    argv += ["--checkpoint", checkpoint, "--marker-out", str(marker)]
+    argv += ["--socket-path", str(tmp_path / "trace.sock")]
+    monkeypatch.setattr(sys, "argv", argv)
+    assert tracing_launcher.main() == 0
+    data = json.loads(marker.read_text())
+    cmd = data["command"]
+    assert cmd[cmd.index("--checkpoint_path") + 1] == checkpoint
+    if blocker is None:
+        assert data["blockers"] == [] and data["ready"] is True
+    else:
+        assert len(data["blockers"]) == 1 and blocker in data["blockers"][0]
+        assert data["ready"] is False
 
 
 def _git(*args):
