@@ -160,6 +160,8 @@ These match their sources:
   - The one failure is `test_live_documents_stay_clean`, from villa paths, as on main.
   - The audit gains no entries, and checks one more reference: the new note's pointer to `gap_fix_mechanism.json`.
 - Ruff 0.9.10 `check` and `format` are clean on the new test file.
-- **The standard suite** with the locked-package overlay: see the PR. Three of its 125 files read the README
-  (`test_shift_budgets.py`, `test_villa_upstream_audit.py`, `test_villa_optimized_inference_smoke.py`), and one
-  reads `FINDINGS.md` (`test_prize_promotion_gates.py`).
+- **The standard suite** with the locked-package overlay gave 2799 passed, 22 skipped and 1 xfailed, as on main.
+  - The failures are the same ten environmental ones: nine missing villa files, plus the gp_winner launcher.
+  - Three of its 125 files read the README: `test_shift_budgets.py`, `test_villa_upstream_audit.py` and
+    `test_villa_optimized_inference_smoke.py`. One reads `FINDINGS.md`: `test_prize_promotion_gates.py`.
+  - The new test is outside the suite, like the other number-binding tests.
