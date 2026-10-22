@@ -145,4 +145,54 @@ Main has not moved since #184. There are no open pull requests. This round cover
 
 ## Verification
 
-VERIFICATION
+- `pytest tests/test_detector_contracts.py tests/test_detector_eval.py tests/test_detector_cli.py
+  tests/test_detector_measure.py`: 65 passed, 4 of them new.
+- **The mutants above** were run in a scratch worktree. Each fails one or more new tests.
+- **The doc guards** were run before and after the change:
+  - the guard files, the five plus `test_decoupling_not_claimed_on_current_code.py` and
+    `test_prize_promotion_gates.py`;
+  - the audit (`audit_doc_references.audit()`).
+
+  They differ only by the new tests. The one failure is `test_live_documents_stay_clean`, from villa paths, as on
+  main, and the audit gains no entries.
+- Ruff 0.9.10 `check` and `format` are clean on the changed Python files, which were formatted before. `mypy` is
+  clean on them.
+- **The standard suite** on the final change, with the locked-package overlay, gave 2799 passed, 22 skipped and 1
+  xfailed.
+  - That is main's 2795 plus the four new cases.
+  - The failures are the same ten environmental ones as main: nine villa-file failures, plus gp_winner.
+  - The smoke test gave 9 of 11 passed and 2 skipped, as on main.
+- **All of `tests/` on main**, with the locked packages, gave 4427 passed, 98 skipped and 1 xfailed, with 19
+  failures and 19 errors.
+  - These are round 95's environmental set, less the LeJEPA discovery test #182 fixed. 4427 is #183's 4408 plus
+    #184's 19.
+  - No detector test fails. Several detector test files are outside the standard suite, as the guard allows for
+    code the loop does not run.
+- **Independent review** of the first commit, in a worktree without villa. It found nothing blocking.
+  - **It confirmed:**
+    - that the same-scroll row is the epoch-7 checkpoint. Its ROC-AUC is bit-identical to the scorecard's, which
+      names epoch 7 and the uniform blend;
+    - that epoch 7 is the sweep's maximum, and epoch 11 its last;
+    - that Scroll 1 plays no part in training or selection;
+    - that `val_f1` is at each fragment's own best threshold;
+    - the Lightning claim, from its source: the checkpoint is saved at the training epoch's end, after the epoch
+      mean is computed;
+    - that nothing parses the old `reproduce:` line or the table.
+  - **Its should-fix findings:**
+    - five live documents still quoted the row without the caveat;
+    - the caveat called the whole column optimistic, where only ROC-AUC was measured;
+    - the JSON assertion read the returned rows, not the written file;
+    - `reproduce` replaced the cited scorecard without naming its checkpoint;
+    - the gate was untested.
+  - **Its nits:**
+    - the paper's sweep was unnamed, and it lacked the best-threshold note;
+    - the docstring called 0.7090 the best of 12, where that was 0.7001;
+    - a long line in FINDINGS;
+    - REPRODUCE.md's citation for `val_f1` and lift;
+    - the fragment and scroll cells unescaped;
+    - a test's checkpoint path.
+  - All are addressed above, apart from one: a `\|` in an error renders without its backslash, which it called
+    cosmetic.
+  - It said the ResEnc row was selected too. It is, but its best epoch was its last, so it is the fixed-rule row; the
+    observation above is corrected.
+  - The disk filled during its run, so its own mutants and ruff were reasoned rather than run. Both are run above.
