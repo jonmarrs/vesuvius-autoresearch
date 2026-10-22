@@ -38,6 +38,9 @@ def test_skeleton_distance_is_reported_without_a_wandb_run(tmp_path):
             _line_volume(tmp_path / "pred.zarr"),
             "--out",
             str(out),
+            # Not the checkout's outputs/, where it would replace the loop's.
+            "--hist_dir",
+            str(tmp_path / "hists"),
         ],
         cwd=tmp_path,
         env=env,
@@ -47,6 +50,9 @@ def test_skeleton_distance_is_reported_without_a_wandb_run(tmp_path):
     )
 
     assert json.loads(out.read_text())["skeleton_distance"] == 0.0
+    assert (
+        len(list((tmp_path / "hists").glob("skeleton_branch_length_hist_*.png"))) == 1
+    )
 
 
 def _shadow_metrics(tmp_path, broken):
