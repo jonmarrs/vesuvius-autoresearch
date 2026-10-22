@@ -72,6 +72,7 @@ measurement, both of which correct floors used across this whole corpus.
 ## The transferable lesson
 
 **The floor was assumed from a report that named an unmeasured mechanism.** 1.42% was attributed to
-the scorer; the scorer is 950× too small; nobody had checked. A study's power analysis is only as
+the scorer; the scorer is ~440× too small (corrected 2026-10-22; this said 950×, its ratio to the
+3.04% render spread); nobody had checked. A study's power analysis is only as
 good as the provenance of the number it rests on, and "a previous report says X" is not provenance
 when that report never measured X directly.

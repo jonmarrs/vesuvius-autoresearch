@@ -9,9 +9,12 @@ with `scripts/analyse_gap_ink_second_look.py` committed before any of the five n
 `total_fg_pixels`, Welch two-sided, 6 vs 6, tested at the **Pocock alpha = 0.0294** for a second look:
 
 ```
-BASE mean 1,719,984      GAP mean 1,541,596
+BASE mean 1,719,651      GAP mean 1,541,596
 rel -10.35%,  95% CI -15.68% to -5.03%,  t = -4.404, df = 8.89,  p = 0.0018
 ```
+
+*(Corrected 2026-10-22: the BASE mean said 1,719,984. The six BASE rows below average 1,719,650.5,
+and −10.35% is computed from that mean, as `reports/gap_fix_mechanism.json` records.)*
 
 **p = 0.0018 clears 0.0294 by more than an order of magnitude. The effect is established.**
 
@@ -44,7 +47,9 @@ area. `line` (-0.38%, p = 0.84) and `column` (-12.53%, p = 0.23) are not establi
 **The same one-line change improves villa's geometry diagnostic and degrades its ink objective.**
 `satisfied_area` rises 0.83897 -> 0.84764 (p = 3.9e-06, completely disjoint) while `total_fg_pixels`
 falls 10.35% (p = 0.0018, completely disjoint). Both directions are established on the same twelve
-fits, by the same seeds, at the same time.
+fits, by the same seeds, at the same time. *(Corrected 2026-10-22: the `satisfied_area` figures are
+`gap_expander_fix_improves_the_fit.md`'s, from the first five GAP fits against the six BASE ones; the
+sixth, `gap133s6`, was fitted after that test. All six GAP rows above are above every BASE row.)*
 
 That sharpens finding 10 considerably. Finding 10 said geometry and ink *decouple* at seed scale —
 that a better `satisfied_area` does not imply more ink. This is stronger: for this change they move

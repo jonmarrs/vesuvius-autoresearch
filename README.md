@@ -7,16 +7,18 @@
 > active work moved to `spiral-fitting/`. Headline: villa's loop optimises recovered ink
 > (`total_fg_pixels`) with a geometry cross-check (`satisfied_area`), and we have **four
 > pre-registered cases where those move independently** — a config change that improved geometry
-> +1.03% while costing **-10.35% of the ink** (n=12), two refits that raised geometry **+17.66% and
-> +16.24% for no ink gain at all**, and an ablation of **5,413 winding constraints** that measurably
-> *degraded* the geometry (-0.69%, p=0.0027) while reading held. The fourth bears on strategy:
+> +1.03% (5 fits against 6) while costing **-10.35% of the ink** (6 against 6), two refits that
+> raised geometry **+17.66% and +16.24% for no ink gain at all**, and an ablation of **5,413 winding
+> constraints** that measurably *degraded* the geometry (-0.69%, p=0.0027) while reading held. The
+> fourth bears on strategy:
 > winding constraints are what villa names as the fastest path to unrolling at scale. The second answers an avenue villa names in its open
 > problems ("automatically crop 'good' regions of the spiral fit... as surface patch inputs to a
 > subsequent run") with a **registered FAILURE — twice**, the second study built to rule out the
 > obvious confound in the first and designed while the first's results were still unread. Both
 > geometry gains are **circular by construction** — the arm is selected on satisfaction and then
 > scored on it — which is exactly why a loop using that guard would read either as success; and both
-> ink nulls are bounded at ~10%, not zero. **All of it measured on villa-spiral `6847063f`;
+> ink nulls are bounded at ~12%, not zero (~10% as registered; corrected 2026-09-12 with the
+> pinned tier's noise floor). **All of it measured on villa-spiral `6847063f`;
 > current villa recovers 67.6% more ink through a byte-identical scorer, so these describe
 > superseded code. Re-measured 2026-09-12 and the extension FAILED: on current code the ink null
 > reproduces but the geometry evidence does not, so the decoupling is a claim about `6847063f`
@@ -42,9 +44,10 @@
 > dominates there and the flatten was never the binding constraint
 > ([report](reports/fit_rng_dominates_the_flatten_was_never_binding.md)). Along the way the
 > project's own "pipeline is deterministic to 1.4%" floor turned out to be one draw with the wrong
-> mechanism attached — the scorer it blamed contributes **0.0032%**, ~950× too little — and three
-> successive seed-noise figures (0.0125 → 0.0263 → 0.0536) were each retracted when the next arm
-> landed inside the interval that had never been printed. Everything is registered before the data
+> mechanism attached — the scorer it blamed contributes **0.0032%**, ~440× too little — and the
+> seed-noise figure was published too low twice: 0.0125, withdrawn when a third arm moved it to
+> 0.0263, inside the interval that had never been printed, and 0.0263, withdrawn when six fits already
+> on disk doubled it to 0.0536. Everything is registered before the data
 > exists, with the decision script committed while the first arm is still rendering; the
 > [template](docs/preregistration/TEMPLATE.md) encodes what each of those cost.
 > **Live experiment tracking:** [wandb dashboard](https://wandb.ai/jdmarrs-uc-davis/vesuvius-autoresearch).

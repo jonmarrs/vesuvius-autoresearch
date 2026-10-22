@@ -1,4 +1,4 @@
-# The pipeline determinism floor was measured twice, 892× apart, and only one number was published
+# The pipeline determinism floor was measured twice, 890× apart, and only one number was published
 
 **2026-09-19.** Found while surveying the 16 scored arms my listings had never included
 (`reports/can_the_objective_be_won_without_reading.md`). No new compute.
@@ -28,7 +28,9 @@ which they clear by 8.9× and 12.4×.
 **ΔT = +0.0016%.** Four pixels.
 
 **Both pairs verified byte-identical: 30/30 mesh tifs match by md5**, and both share `fg_threshold`
-0.5, folds `[0,1,2]`, and the same model. **The two measurements differ by 892×.**
+0.5, folds `[0,1,2]`, and the same model. **The two measurements differ by 890×.** *(Corrected
+2026-10-22: this and the title said 892×, which is 1.4182% / 0.00159%. The counts give 3,405 / 240,088
+against 4 / 250,936, a ratio of 889.7.)*
 
 ## What this does and does not change
 

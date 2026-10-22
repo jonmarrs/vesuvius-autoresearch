@@ -2,8 +2,8 @@
 
 > **The title overstates what was measured, 2026-09-19.** This is **one draw**. A second measurement
 > of the same quantity — `probe_innerprob` re-rendering `seedarm_04`'s meshes, byte-identical by md5,
-> same threshold, folds and model — agrees to **four pixels, +0.0016%**, which is **892× tighter**
-> than the 1.42% below.
+> same threshold, folds and model — agrees to **four pixels, +0.0016%**, which is **890× tighter**
+> than the 1.42% below. *(Corrected 2026-10-22: this said 892×, which divides the rounded figures.)*
 >
 > Nothing here is withdrawn: 1.42% is the larger number, so using it as a floor was conservative and
 > arms B and D clear it either way. But "the pipeline is deterministic to 1.4%" is not established —

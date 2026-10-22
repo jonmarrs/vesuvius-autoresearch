@@ -84,9 +84,9 @@ identically on w120-w129:
 
 | | `satisfied_area` | `total_fg_pixels` |
 |---|---:|---:|
-| baseline (n=6) | 0.83897 | 1,719,984 |
-| changed (n=6) | 0.84764 | 1,541,596 |
-| | **+1.03%, p = 3.9e-06** | **-10.35%, p = 0.0018** |
+| baseline (n=6) | 0.83897 | 1,719,651 |
+| changed (n=6) | 0.84764 (first five) | 1,541,596 |
+| | **+1.03%, p = 3.9e-06** (5 v 6) | **-10.35%, p = 0.0018** (6 v 6) |
 
 Both sets completely disjoint on both metrics. `overall_fg_fraction` agrees at -10.78%, so it is not
 a strip-area artefact. The flag is `model_gap_expander_num_windings`, which #1625 already fixed and

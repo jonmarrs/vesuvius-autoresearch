@@ -215,7 +215,7 @@ for no ink gain at all.
 
 | case | `satisfied_area` | `total_fg_pixels` |
 |---|---|---|
-| gap-expander config, n=12 | +1.03% | **-10.35%** |
+| gap-expander config, 5v6 geometry, 6v6 ink | +1.03% | **-10.35%** |
 | patch bootstrap, n=6 | **+17.66%** | -0.83% (null) |
 
 A cross-check that can move confidently the wrong way *and* confidently the useless way is
@@ -277,7 +277,7 @@ It fell — the fit satisfies its remaining inputs less well despite having fewe
 
 | case | `satisfied_area` | `total_fg_pixels` |
 |---|---|---|
-| gap-expander config, n=12 | +1.03% | **-10.35%** |
+| gap-expander config, 5v6 geometry, 6v6 ink | +1.03% | **-10.35%** |
 | patch bootstrap, n=6 | **+17.66%** | -0.83% (null) |
 | stripmatch, n=6 | +16.24% | -3.80% (null) |
 | same-winding ablation, 3v6 | **-0.69%** | -1.74% (null) |
@@ -695,8 +695,10 @@ correctness fix that reading is wrong, and nothing in the rule can detect it.
 `reports/the_gap_fix_moves_the_surface_radially.md`.
 
 **47. The "1.42% pipeline determinism floor" was one draw, and its mechanism was wrong.** A second
-same-mesh pair agreed to four pixels — 892× tighter — because it only re-*scored*. The scorer alone
-moves a fixed strip by 0.0032%, 950× too small to produce 1.42%. The four measurements split cleanly:
+same-mesh pair agreed to four pixels — 890× tighter — because it only re-*scored*. The scorer alone
+moves a fixed strip by 0.0032%, ~440× too small to produce 1.42%. *(Corrected 2026-10-22: this said
+892× and 950×. 892× divided the rounded figures, and 950× is the scorer against the 3.04% render
+spread.)* The four measurements split cleanly:
 scorer-only 0.0032%/0.0016%; flatten+render+score 1.42%/3.04%.
 `reports/the_determinism_floor_rests_on_one_draw.md`.
 
