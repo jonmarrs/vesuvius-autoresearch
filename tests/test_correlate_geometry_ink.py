@@ -133,3 +133,21 @@ def test_the_pooled_correlation_is_not_reported(capsys):
     assert "pinned tree:" in out
     # the old pooled framing must be gone
     assert "ALL fits" not in out
+
+
+def test_an_upstream_fit_is_reported_in_its_own_tier(monkeypatch, capsys):
+    """The table has three tiers; a two-key dict here raised KeyError on an upfit_ row."""
+    rows = [
+        {"tag": t, "satisfied_area": a, "total_fg_pixels": ink}
+        for t, a, ink in (
+            ("baseline01", 1.0e6, 1.8e6),
+            ("curbase_s1", 1.1e6, 2.9e6),
+            ("upfit_s1", 1.2e6, 3.0e6),
+        )
+    ]
+    monkeypatch.setattr(mod, "collect", lambda spiral_out: rows)
+    monkeypatch.setattr(sys, "argv", ["correlate_geometry_ink.py"])
+    assert mod.main() == 0
+    out = capsys.readouterr().out
+    for tier in ("pinned", "current", "upstream"):
+        assert f"=== {tier} tree: 1 fits" in out

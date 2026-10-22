@@ -57,8 +57,8 @@ EXPECTED_ONE_OFF = {
 
 ARM_TAG = re.compile(
     r"^(?:baseline01|seed0[2-6]|gap133(?:s[2-6])?|boot090s[1-3]|rand090s[1-3]"
-    r"|strip090s[1-3]|nosame_s[1-3]|nosamecur_s[1-3]|curbase_s\d+(?:rr)?"
-    r"|anchor10cov_(?:pilot|s\d+))$"
+    r"|strip090s[1-3]|nosame_s[1-3]|nosamecur_s\d+|curbase_s\d+(?:rr)?"
+    r"|anchor10cov_(?:pilot|s\d+)|upfit_s\d+)$"
 )
 
 
