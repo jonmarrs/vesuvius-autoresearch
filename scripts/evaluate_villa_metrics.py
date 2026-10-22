@@ -89,6 +89,13 @@ def main():
         action="store_true",
         help="Use soft probability predictions (skip binarization for mean_ap)",
     )
+    parser.add_argument(
+        "--hist-dir",
+        default=str(Path(__file__).resolve().parents[1] / "outputs" / "skeleton_hists"),
+        help="Where villa's skeleton metric saves its histogram PNG, one per call "
+        "(default: the checkout's outputs/skeleton_hists, where train.py saves the "
+        "loop's)",
+    )
     args = parser.parse_args()
 
     # villa's skeleton metric calls wandb.log, which raises without an active
@@ -164,13 +171,7 @@ def main():
         if compute_skel_dist is None:
             raise RuntimeError("not imported")
         # Every call saves a histogram PNG to output_folder, "." by default.
-        skel_res = compute_skel_dist(
-            gt_bin,
-            pred_bin,
-            output_folder=str(
-                Path(__file__).resolve().parents[1] / "outputs" / "skeleton_hists"
-            ),
-        )
+        skel_res = compute_skel_dist(gt_bin, pred_bin, output_folder=args.hist_dir)
         if isinstance(skel_res, dict):
             results.update(skel_res)
         else:
