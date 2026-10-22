@@ -1062,9 +1062,10 @@ tracks label density.** Pre-registered, on finding 72's stored outputs.
 
 `reports/objective_vs_labels.md`.
 
-**77. Correction: findings 71–76 used the wrong evaluation domain; re-analysed on villa's supervised region.**
-villa's labels are annotated only inside `supervision.zarr` (3–13% of each segment, holding 97–100% of
-labelled ink). Findings 71–76 counted unannotated ink as negatives. The registered re-analysis:
+**77. Correction: findings 71–76 used the wrong evaluation domain; re-analysed on villa's supervised
+region.** villa's labels are annotated only inside `supervision.zarr` (4–15% of each segment's mesh-valid
+area, holding 97–100% of labelled ink). Findings 71–76 counted unannotated ink as negatives. The registered
+re-analysis:
 
 * **Survive:** 71, 72, 73, 76 Q2.
 * **Survives, smaller:** 75 (published-image sampling −5.3%, not −8.3%; step 2.0 +8.2%, not +10.3%); 73's

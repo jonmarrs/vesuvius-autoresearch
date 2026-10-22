@@ -41,7 +41,7 @@ def test_registered_verdicts_and_predictions(report: str) -> None:
     # the prose quotes the current-seed interval to two places, rounded once from the JSON
     c = r["current_q1"]
     one = ", ".join(f"{x:.2f}" for x in c["ci"])
-    assert f"(R {c['R']:.2f} [{one}])" in report
+    assert f"(R {c['R']:.2f} [{one}])" in " ".join(report.split())
     assert "**P1 FAILED**" in report and "NOT MET" in report
 
 

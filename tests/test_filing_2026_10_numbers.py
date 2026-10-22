@@ -828,6 +828,10 @@ def test_failed_prediction_figures_are_rounded_once_from_their_sources():
     small = [k for k in lead if k.endswith("_256")]
     big = [k for k in cubes if k.endswith("_512")]
     assert len(small) == 1 and set(big) <= set(lead) and len(big) == 3
+    n256 = sum(k.endswith("_256") for k in cubes)
+    assert all(v["ran"] for v in cubes.values()) and n256 == 8
+    assert f"Re-measured with the corrected scorer on all {len(cubes)} cubes:" in txt
+    assert txt.count("all eight 256³ cubes") == 2
     t, cc = pen[small[0]]
     stem = small[0].split("_")[:2]
     assert f"it leads on `{'_'.join(stem)}`, {t:.2f} vs {cc:.2f})" in txt
@@ -839,16 +843,41 @@ def test_failed_prediction_figures_are_rounded_once_from_their_sources():
 
 def test_scale_and_tolerance_figures_match_their_measurements():
     txt = _text()
-    lo, hi = _json("reports/scorer_vs_labels_coarse.json")["summary"]["window_d_range"]
+    if not _F73.exists():
+        pytest.skip("finding 73 artifact absent")
+    d = json.loads(_F73.read_text())
+    lo, hi = d["summary"]["window_d_range"]
+    ws = sorted(abs(w["d"]) for r in d["segments"] for w in r["windows"])
+    med = 100 * (ws[len(ws) // 2] + ws[(len(ws) - 1) // 2]) / 2
     assert (
-        f"a 6.2% median and −{-100 * lo:.0f}% to +{100 * hi:.0f}% per window on 80-voxel grids"
-        in txt
+        f"a {med:.1f}% median and −{-100 * lo:.0f}% to +{100 * hi:.0f}% per window on "
+        "80-voxel grids" in txt
     )
+    # where villa's labels are defined: each segment's supervised share of its mesh-valid area
+    seg = _json("reports/scorer_sparsity_annotated.json")["per_segment"].values()
+    share = [100 * s["in_px"] / (s["in_px"] + s["out_px"]) for s in seg]
+    cover = f"({min(share):.0f}–{max(share):.0f}% of each segment's mesh-valid area"
+    flat = lambda rel: " ".join((_REPO / rel).read_text().split())  # noqa: E731
+    assert len(share) == 8 and cover in txt
+    for rel in (
+        "reports/SPIRAL_FINDINGS_SUMMARY.md",
+        "reports/surface_interpolation_vs_labels.md",
+    ):
+        assert cover in flat(rel), rel
     # finding 78: the share of villa's annotated ink its scorer marks
     rec = _json("reports/scorer_sparsity_annotated.json")["pooled"]["recall_inside"]
     assert f"its count is sparse (about {100 * rec:.0f}% of annotated ink)" in txt
     # finding 94: villa's neural tracer against ours off Scroll 3, at tolerances 2 and 4
-    t4 = _json("reports/tolerance4_rescore.json")
+    if not _F94.exists():
+        pytest.skip("finding 94 artifact absent")
+    t4 = json.loads(_F94.read_text())
+    for who in (
+        "tracer",
+        "cc",
+        "neural",
+    ):  # the published rows are tolerance 2, the re-score 4
+        assert {r["tolerance"] for r in t4[f"published_{who}"].values()} == {2.0}
+        assert {r["tolerance"] for r in t4[f"rows_{who}"].values()} == {4.0}
     g = t4["groups"]
     other = g["in_sample"] + g["s5_held_out"]
     leads = lambda tracer, neural: [  # noqa: E731

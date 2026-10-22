@@ -266,8 +266,8 @@ four predictions held):
   11 of its fiber targets (finding 82). On those, a score built on the mask measures the instance step on a
   segmentation that has seen the cube.
 * **A correction, made and registered before recomputing:** my label-based analyses (findings 71–76)
-  first scored the whole surface. villa's labels exist only inside its supervision mask (3–13% of each
-  segment), so unannotated ink counted as a miss. Re-analysed where the labels are defined:
+  first scored the whole surface. villa's labels exist only inside its supervision mask (4–15% of each
+  segment's mesh-valid area), so unannotated ink counted as a miss. Re-analysed where the labels are defined:
   * most findings survive;
   * finding 75 survives with smaller effects;
   * finding 74 does not survive as stated (step 0.5 vs 1.0 is not consistent).
