@@ -26,14 +26,11 @@ report the gap.
 from __future__ import annotations
 
 import argparse
+import ast
 import glob
 import json
-import os
 import sys
 from pathlib import Path
-
-# NOTE: This launcher is already fully integrated and working by invoking trace_service.py directly.
-sys.path.insert(0, os.path.abspath("villa/vesuvius/src"))
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 TRACE_SERVICE = (
@@ -80,7 +77,12 @@ def _find_volume_for_candidate(
 
 
 def _find_neural_tracing_checkpoint() -> Path | None:
-    """Look for any locally-trained rowcol_cond / heatmap_single_point checkpoint."""
+    """The newest locally-trained rowcol_cond / heatmap_single_point checkpoint.
+
+    From the first base that holds one, its newest .pth, else its newest .pt. By
+    modification time, as launch_finetune_lejepa finds its checkpoint: a name such
+    as ckpt_000009 orders the iterations of one run, not the runs of a base.
+    """
     search = [
         PROJECT_ROOT / "checkpoints" / "neural_tracing",
         PROJECT_ROOT / "checkpoints" / "rowcol_cond",
@@ -88,15 +90,66 @@ def _find_neural_tracing_checkpoint() -> Path | None:
     for base in search:
         if not base.is_dir():
             continue
-        for path in sorted(
-            glob.glob(str(base / "**" / "*.pth"), recursive=True), reverse=True
-        ):
-            return Path(path)
-        for path in sorted(
-            glob.glob(str(base / "**" / "*.pt"), recursive=True), reverse=True
-        ):
-            return Path(path)
+        for pattern in ("*.pth", "*.pt"):
+            found = [
+                Path(path)
+                for path in glob.glob(str(base / "**" / pattern), recursive=True)
+                if Path(path).is_file()
+            ]
+            if found:
+                return max(found, key=lambda path: (path.stat().st_mtime_ns, str(path)))
     return None
+
+
+def _checkpoint_sentinels() -> frozenset[str]:
+    """The bare names villa resolves from HuggingFace, or none if unreadable.
+
+    The keys of _CHECKPOINT_SENTINELS in the model module trace_service loads,
+    neural_tracing/nets/models.py. Read from its source: importing it needs torch.
+    """
+    models = TRACE_SERVICE.parent / "nets" / "models.py"
+    try:
+        tree = ast.parse(models.read_text())
+    except (OSError, SyntaxError, ValueError):
+        return frozenset()
+    for node in tree.body:
+        if isinstance(node, ast.Assign) and any(
+            isinstance(target, ast.Name) and target.id == "_CHECKPOINT_SENTINELS"
+            for target in node.targets
+        ):
+            try:
+                return frozenset(ast.literal_eval(node.value))
+            except (TypeError, ValueError):
+                return frozenset()
+    return frozenset()
+
+
+def _resolve_checkpoint(checkpoint: str) -> tuple[str, str | None]:
+    """What the command passes for a checkpoint, and why it could not load.
+
+    As villa's resolve_checkpoint_path (neural_tracing/nets/models.py): the text
+    is stripped, and one of villa's sentinel names is passed as it is. Anything
+    else is a path: an existing file, or a directory holding ckpt_*.pth (villa
+    does not look in its subdirectories). The path is made absolute, so the
+    command does not depend on the directory it is run from. trace_service loads
+    the model lazily, so a checkpoint that resolves to nothing would fail only at
+    the first request that needs the model.
+    """
+    text = checkpoint.strip()
+    if not text:
+        return checkpoint, "checkpoint is empty"
+    sentinels = _checkpoint_sentinels()
+    if text in sentinels:
+        return text, None
+    path = Path(text).absolute()
+    if path.is_dir():
+        if any(path.glob("ckpt_*.pth")):
+            return str(path), None
+        return str(path), f"checkpoint directory holds no ckpt_*.pth: {path}"
+    if path.exists():
+        return str(path), None
+    names = ", ".join(sorted(sentinels)) or "none could be read"
+    return str(path), f"checkpoint not found: {text} (villa's sentinel names: {names})"
 
 
 def main() -> int:
@@ -150,6 +203,7 @@ def main() -> int:
         else:
             # Fallback to Villa's built-in tracing module HuggingFace sentinel
             checkpoint_str = "extrap_displacement_latest"
+    checkpoint_str, checkpoint_blocker = _resolve_checkpoint(checkpoint_str)
 
     socket_path = Path(args.socket_path)
     socket_path.parent.mkdir(parents=True, exist_ok=True)
@@ -172,6 +226,8 @@ def main() -> int:
         blockers.append(
             "missing OME-zarr volume; pass --volume-zarr or --scroll-id/--division"
         )
+    if checkpoint_blocker:
+        blockers.append(checkpoint_blocker)
 
     marker_path = Path(args.marker_out)
     marker_path.parent.mkdir(parents=True, exist_ok=True)

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -210,6 +211,190 @@ def test_launch_neural_tracing_falls_back_to_the_hf_sentinel(tmp_path):
     assert data["socket_path"].endswith(".sock")
     # `ready` is not asserted: it turns on whether this machine happens to have
     # the OME-zarr volume, which is not what this test is about.
+
+
+# villa's model module, as the launcher reads it: parsed for its sentinel names,
+# never imported (it needs torch, and this one would raise).
+_FAKE_TRACING_MODELS = """raise RuntimeError("imported")
+
+_CHECKPOINT_SENTINELS = {
+    "extrap_displacement_latest": {"repo_id": "scrollprize/extrap_displacement_latest"},
+    "copy_displacement_latest": {"repo_id": "scrollprize/copy_displacement_latest"},
+}
+"""
+
+
+@pytest.fixture
+def tracing_launcher(tmp_path, monkeypatch):
+    """The tracing launcher loaded in-process, with its project root, trace
+    service and villa model module in tmp_path, and tmp_path the working
+    directory."""
+    spec = importlib.util.spec_from_file_location(
+        "_lnt_unit", REPO_ROOT / "scripts" / "inference" / "launch_neural_tracing.py"
+    )
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    service = tmp_path / "trace_service.py"
+    service.write_text("")
+    (tmp_path / "nets").mkdir()
+    (tmp_path / "nets" / "models.py").write_text(_FAKE_TRACING_MODELS)
+    monkeypatch.setattr(mod, "PROJECT_ROOT", tmp_path)
+    monkeypatch.setattr(mod, "TRACE_SERVICE", service)
+    monkeypatch.chdir(tmp_path)
+    return mod
+
+
+def _checkpoint_files(*paths, start=1_000_000_000):
+    """Empty checkpoint files, each modified a second after the one before."""
+    for age, path in enumerate(paths):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(b"")
+        os.utime(path, (start + age, start + age))
+
+
+def test_the_newest_local_tracing_checkpoint_is_launched(tracing_launcher, tmp_path):
+    base = tmp_path / "checkpoints" / "neural_tracing"
+    # A name orders the iterations of one run, not the runs: run_b's sorts last
+    # but was written first.
+    older = base / "run_b" / "ckpt_000900.pth"
+    newer = base / "run_a" / "ckpt_000100.pth"
+    other = base / "run_c" / "model.pt"  # a .pth is preferred, however new a .pt
+    _checkpoint_files(older, newer, other)
+    (base / "run_d" / "ckpt_000999.pth").mkdir(parents=True)  # newest, not a file
+    assert tracing_launcher._find_neural_tracing_checkpoint() == newer
+
+
+def test_local_tracing_checkpoints_keep_their_base_and_suffix_order(
+    tracing_launcher, tmp_path
+):
+    find = tracing_launcher._find_neural_tracing_checkpoint
+    assert find() is None
+    first = tmp_path / "checkpoints" / "neural_tracing"
+    second = tmp_path / "checkpoints" / "rowcol_cond"
+    _checkpoint_files(second / "a.pth")
+    assert find() == second / "a.pth"
+    # The first base that holds any checkpoint wins, even with only a .pt older
+    # than the second base's .pth.
+    _checkpoint_files(first / "b.pt", start=0)
+    assert find() == first / "b.pt"
+    # Equal modification times: the greatest path.
+    _checkpoint_files(first / "x" / "c.pth", start=5)
+    _checkpoint_files(first / "y" / "c.pth", start=5)
+    assert find() == first / "y" / "c.pth"
+
+
+def _resolvable_checkpoints(tmp_path):
+    run = tmp_path / "run"
+    run.mkdir()
+    (run / "ckpt_000001.pth").write_bytes(b"")
+    (tmp_path / "model.pth").write_bytes(b"")
+    (tmp_path / "empty").mkdir()
+    (tmp_path / "weights_only").mkdir()
+    (tmp_path / "weights_only" / "model.pth").write_bytes(b"")
+    (tmp_path / "nested" / "sub").mkdir(parents=True)
+    (tmp_path / "nested" / "sub" / "ckpt_000001.pth").write_bytes(b"")
+
+
+def _launch_tracing(launcher, tmp_path, monkeypatch, *extra):
+    (tmp_path / "volume").mkdir(exist_ok=True)
+    marker = tmp_path / "marker.json"
+    argv = ["launch_neural_tracing.py", "--volume-zarr", str(tmp_path / "volume")]
+    argv += ["--marker-out", str(marker), "--socket-path", str(tmp_path / "trace.sock")]
+    monkeypatch.setattr(sys, "argv", argv + list(extra))
+    assert launcher.main() == 0
+    data = json.loads(marker.read_text())
+    cmd = data["command"]
+    assert cmd[cmd.index("--checkpoint_path") + 1] == data["checkpoint"]
+    return data
+
+
+@pytest.mark.parametrize(
+    "checkpoint, passed, blocker",
+    [
+        # villa's sentinels, stripped as villa strips them
+        ("extrap_displacement_latest", "extrap_displacement_latest", None),
+        (" copy_displacement_latest\n", "copy_displacement_latest", None),
+        # anything else is a path, passed absolute (<tmp> is the working directory)
+        ("model.pth", "<tmp>/model.pth", None),
+        (" model.pth ", "<tmp>/model.pth", None),
+        ("run", "<tmp>/run", None),
+        ("<tmp>/run", "<tmp>/run", None),
+        ("missing.pth", "<tmp>/missing.pth", "checkpoint not found"),
+        ("runs/missing", "<tmp>/runs/missing", "checkpoint not found"),
+        ("ckpt_000100", "<tmp>/ckpt_000100", "checkpoint not found"),
+        ("extrap_displacment_latest", "<tmp>/extrap_displacment_latest", "not found"),
+        ("empty", "<tmp>/empty", "holds no ckpt_*.pth"),
+        ("weights_only", "<tmp>/weights_only", "holds no ckpt_*.pth"),
+        ("nested", "<tmp>/nested", "holds no ckpt_*.pth"),  # villa does not recurse
+        (" ", " ", "checkpoint is empty"),
+    ],
+)
+def test_an_explicit_checkpoint_that_cannot_load_blocks_the_launch(
+    tracing_launcher, tmp_path, monkeypatch, checkpoint, passed, blocker
+):
+    _resolvable_checkpoints(tmp_path)
+    checkpoint = checkpoint.replace("<tmp>", str(tmp_path))
+    data = _launch_tracing(
+        tracing_launcher, tmp_path, monkeypatch, "--checkpoint", checkpoint
+    )
+    assert data["checkpoint"] == passed.replace("<tmp>", str(tmp_path))
+    if blocker is None:
+        assert data["blockers"] == [] and data["ready"] is True
+    else:
+        assert len(data["blockers"]) == 1 and blocker in data["blockers"][0]
+        assert data["ready"] is False
+
+
+def test_a_typed_sentinel_is_checked_against_the_names_villa_holds(
+    tracing_launcher, tmp_path, monkeypatch
+):
+    data = _launch_tracing(
+        tracing_launcher, tmp_path, monkeypatch, "--checkpoint", "extrap_displacment"
+    )
+    assert data["blockers"] == [
+        "checkpoint not found: extrap_displacment (villa's sentinel names: "
+        "copy_displacement_latest, extrap_displacement_latest)"
+    ]
+    (tmp_path / "nets" / "models.py").unlink()
+    data = _launch_tracing(
+        tracing_launcher,
+        tmp_path,
+        monkeypatch,
+        "--checkpoint",
+        "copy_displacement_latest",
+    )
+    assert data["checkpoint"] == str(tmp_path / "copy_displacement_latest")
+    assert "(villa's sentinel names: none could be read)" in data["blockers"][0]
+
+
+def test_the_fallback_sentinel_is_one_villa_still_holds(
+    tracing_launcher, tmp_path, monkeypatch
+):
+    data = _launch_tracing(tracing_launcher, tmp_path, monkeypatch)
+    assert data["checkpoint"] == "extrap_displacement_latest"
+    assert data["blockers"] == [] and data["ready"] is True
+    models = tmp_path / "nets" / "models.py"
+    models.write_text(models.read_text().replace("extrap_", "extrap_v2_"))
+    data = _launch_tracing(tracing_launcher, tmp_path, monkeypatch)
+    assert len(data["blockers"]) == 1
+    assert data["blockers"][0].startswith(
+        "checkpoint not found: extrap_displacement_latest (villa's sentinel names: "
+        "copy_displacement_latest, extrap_v2_displacement_latest)"
+    )
+    assert data["ready"] is False
+
+
+def test_the_launcher_reads_the_sentinels_of_villas_own_model_module():
+    """The fallback names a sentinel the villa checkout holds, read from its real
+    model module (the tests above use a stand-in)."""
+    spec = importlib.util.spec_from_file_location(
+        "_lnt_villa", REPO_ROOT / "scripts" / "inference" / "launch_neural_tracing.py"
+    )
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    if not (mod.TRACE_SERVICE.parent / "nets" / "models.py").is_file():
+        pytest.skip("villa's neural_tracing model module is not in this checkout")
+    assert "extrap_displacement_latest" in mod._checkpoint_sentinels()
 
 
 def _git(*args):
