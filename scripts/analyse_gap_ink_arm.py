@@ -90,11 +90,15 @@ def welch(base: list[float], gap: list[float]) -> dict:
 
 
 def separation(base: list[float], gap: list[float]) -> str:
-    """Assumption-free confirmatory check. 1/C(7,3) = 2.86% in a named direction."""
+    """Assumption-free confirmatory check. Under the null every split of the fits into
+    the two arms is equally likely, so one complete separation in a named direction has
+    probability 1/C(n_base + n_gap, n_gap): 2.86% at 4 vs 3 (this study), 5% at 3 vs 3,
+    1.19% at 3 vs 6, 0.108% at 6 vs 6. Callers pass their control first."""
+    p = f"p={100 / math.comb(len(base) + len(gap), len(gap)):.3g}% one direction"
     if max(gap) < min(base):
-        return "COMPLETE, all GAP below all BASE (p=2.86% one direction)"
+        return f"COMPLETE, all GAP below all BASE ({p})"
     if min(gap) > max(base):
-        return "COMPLETE, all GAP above all BASE (p=2.86% one direction)"
+        return f"COMPLETE, all GAP above all BASE ({p})"
     return "none"
 
 

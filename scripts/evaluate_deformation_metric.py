@@ -100,7 +100,7 @@ def measure_structure_tensor(path, subsample=1):
     count = nonzero = clipped = 0
     total = squared = informative_total = 0.0
     for selection in spatial_blocks(tensor.shape[1:], step=step):
-        fa, informative, roundoff = tensor_fa(tensor[(slice(None), *selection)])
+        fa, informative, roundoff = tensor_fa(tensor[(slice(None),) + tuple(selection)])
         count += fa.size
         nonzero += int(informative.sum())
         total += float(fa.sum())

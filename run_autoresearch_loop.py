@@ -21,8 +21,8 @@ from scripts.training.promotion import (
     IncumbentUnavailable,
     check_incumbent,
     first_use_record,
-    replacement_mode,
 )
+from vesuvius_autoresearch.core.file_modes import replacement_mode
 
 LOCK_FILE = "autoresearch.lock"
 
@@ -674,14 +674,27 @@ def leftover_hold():
 
 
 TRAIN_SCRIPT = "scripts/training/train.py"
-# The longest a supervised training run may last: the night budget plus the
-# margin of its timeout (default_budget + 300 in main).
-LONGEST_RUN_SECONDS = 3600 + 300
+# Each shift's training budget per cycle, in seconds. Nights ran 3600 until
+# 2026-10-20: the cycle-length study, replicated on 2026-10-19, found no
+# measurable gain from 60 minutes over 15, and the owner chose 15 for both.
+SHIFT_BUDGETS = {"DAY SHIFT": 900, "NIGHT SHIFT": 900}
+# The longest a loop cycle's training run may last: the longest budget plus the
+# margin of its timeout (default_budget + 300 in main). An ablation cell may last
+# longer (its timeout is its --budget + 240), and an orphaned one older than this
+# is stopped all the same.
+LONGEST_RUN_SECONDS = max(SHIFT_BUDGETS.values()) + 300
+
+
+def shift_for_hour(hour: int) -> tuple[str, int]:
+    """The shift a loop starting at this local hour runs, and its budget."""
+    name = "DAY SHIFT" if 7 <= hour < 19 else "NIGHT SHIFT"
+    return name, SHIFT_BUDGETS[name]
 
 
 def unsupervised_runs_reason(running):
-    """Stops a loop's own run that has outlived any cycle's timeout, as its
-    supervisor would have, and says why the loop does not start."""
+    """Stops a run a loop or the ablation started (own) that is older than any
+    cycle's timeout, as its supervisor would have, and says why the loop does
+    not start."""
     lines = []
     for pid, age, own in running:
         lines.append(describe_run(pid, age, own))
@@ -892,14 +905,7 @@ def main():
 
     # Detect Shift
     current_hour = time.localtime().tm_hour
-    if 7 <= current_hour < 19:
-        shift_name = "DAY SHIFT"
-        end_hour = 19
-        default_budget = 900
-    else:
-        shift_name = "NIGHT SHIFT"
-        end_hour = 7
-        default_budget = 3600
+    shift_name, default_budget = shift_for_hour(current_hour)
 
     os.makedirs("sprint_logs", exist_ok=True)
     os.makedirs("reports", exist_ok=True)
@@ -959,10 +965,7 @@ def main():
         # transitioned INTO the next shift's bucket, not when we hit a
         # single hour value.
         _hr = time.localtime().tm_hour
-        _in_day_bucket = 7 <= _hr < 19
-        _shift_over = (shift_name == "DAY SHIFT" and not _in_day_bucket) or (
-            shift_name == "NIGHT SHIFT" and _in_day_bucket
-        )
+        _shift_over = shift_for_hour(_hr)[0] != shift_name
         if _shift_over:
             print(f"{shift_name} end reached (hour={_hr}). Ending sprint.")
             next_shift = "DAY SHIFT" if shift_name == "NIGHT SHIFT" else "NIGHT SHIFT"
@@ -1175,7 +1178,7 @@ def main():
                     f.write("PREFLIGHT FAILED — skipping training for this cycle.\n")
                     f.flush()
                     print(
-                        f"Cycle {i}: PREFLIGHT FAILED — skipping 60-min run "
+                        f"Cycle {i}: PREFLIGHT FAILED — skipping {default_budget // 60}-min run "
                         "(model did not pass forward/backward)."
                     )
                     sys.stdout.flush()

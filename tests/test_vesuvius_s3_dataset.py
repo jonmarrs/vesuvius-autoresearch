@@ -1,4 +1,7 @@
+from collections import defaultdict
+
 import numpy as np
+import pytest
 import torch
 import zarr
 
@@ -51,6 +54,38 @@ def test_fast_vesuvius_volume_reads_local_zarr_without_c_wrapper(tmp_path):
 
     assert patch.shape == (2, 3, 4)
     np.testing.assert_allclose(patch.numpy(), arr[1:3, 2:5, 3:7] / 255.0)
+
+
+@pytest.mark.parametrize(
+    "dtype, value, expected, warns",
+    [
+        ("uint8", 255, 1.0, False),
+        ("<u2", 65535, 1.0, False),
+        # Big-endian: it compared unequal to np.uint16 and fell to the
+        # unknown-dtype /255, so 65535 reached the model as 257.
+        (">u2", 65535, 1.0, False),
+        (">u2", 4096, 4096 / 65535, False),
+        (">f4", 0.5, 0.5, False),
+        # A dtype the loader does not know still falls back to /255, and says so.
+        ("<i2", 510, 2.0, True),
+    ],
+)
+def test_read_ct_normalises_by_dtype_whatever_its_byte_order(
+    tmp_path, monkeypatch, dtype, value, expected, warns
+):
+    """FastVesuviusVolume.read_ct is what the unlabeled dataset and inference read
+    through; the labeled dataset already handled a big-endian volume."""
+    warnings = defaultdict(int)
+    monkeypatch.setattr(vesuvius_loader, "_WARNING_COUNTS", warnings)
+    path = tmp_path / "volume.zarr"
+    arr = zarr.open(str(path), mode="w", shape=(2, 4, 4), chunks=(2, 4, 4), dtype=dtype)
+    arr[:] = np.full((2, 4, 4), value, dtype=dtype)
+    volume = vesuvius_loader.FastVesuviusVolume(str(path))
+    ct = volume.read_ct(0, 0, 0, 2, 4, 4)
+    assert ct.dtype == np.float32
+    np.testing.assert_allclose(ct, expected, rtol=1e-6)
+    np.testing.assert_allclose(volume[0:2, 0:4, 0:4].numpy(), expected, rtol=1e-6)
+    assert ("ct_unknown_dtype" in warnings) == warns
 
 
 def _grid(monkeypatch, shape, patch_size):

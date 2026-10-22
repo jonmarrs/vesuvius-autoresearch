@@ -61,7 +61,7 @@ def compute_structure_tensors(input_path, output_path, sigma=2.0, gpus="all", rh
         ):
             raise ValueError("unexpected upstream structure tensor/eigenanalysis dtype")
         for selection in spatial_blocks(source.shape):
-            if not np.isfinite(arrays[0][(slice(None), *selection)]).all():
+            if not np.isfinite(arrays[0][(slice(None),) + tuple(selection)]).all():
                 raise ValueError("upstream structure tensor contains nonfinite values")
             for array in arrays[1:]:
                 array[selection]  # reject corrupt encoded payloads before publication

@@ -142,8 +142,9 @@ is a one-line config change that improves villa's own geometry diagnostic.
 score.** Six fits per arm on w120-w129, second look at the registered Pocock alpha 0.0294:
 `total_fg_pixels` **-10.35%, 95% CI -15.68% to -5.03%, p = 0.0018**, with complete separation (all
 six GAP below all six BASE, null probability 0.108%) and `fg_fraction` agreeing at -10.78%. The
-registered prediction was MET. **The same change raises `satisfied_area` by 7-10 sd and lowers the
-ink objective by a tenth** — both established on the same twelve fits, which sharpens finding 10 from
+registered prediction was MET. **The same change raises `satisfied_area` by 4.5-5.9 sd and lowers
+the ink objective by a tenth** — the ink on these twelve fits, the geometry on eleven of them (finding
+12), which sharpens finding 10 from
 "decoupled" to "opposite for this change", and means a satisfaction cross-check would have passed
 enthusiastically on a real regression. Not a live villa defect: the fits predate upstream #1625.
 `reports/gap_fix_costs_ink_established.md`. The earlier looks stand as history:
@@ -215,7 +216,7 @@ for no ink gain at all.
 
 | case | `satisfied_area` | `total_fg_pixels` |
 |---|---|---|
-| gap-expander config, n=12 | +1.03% | **-10.35%** |
+| gap-expander config, 5v6 geometry, 6v6 ink | +1.03% | **-10.35%** |
 | patch bootstrap, n=6 | **+17.66%** | -0.83% (null) |
 
 A cross-check that can move confidently the wrong way *and* confidently the useless way is
@@ -277,7 +278,7 @@ It fell — the fit satisfies its remaining inputs less well despite having fewe
 
 | case | `satisfied_area` | `total_fg_pixels` |
 |---|---|---|
-| gap-expander config, n=12 | +1.03% | **-10.35%** |
+| gap-expander config, 5v6 geometry, 6v6 ink | +1.03% | **-10.35%** |
 | patch bootstrap, n=6 | **+17.66%** | -0.83% (null) |
 | stripmatch, n=6 | +16.24% | -3.80% (null) |
 | same-winding ablation, 3v6 | **-0.69%** | -1.74% (null) |
@@ -695,8 +696,10 @@ correctness fix that reading is wrong, and nothing in the rule can detect it.
 `reports/the_gap_fix_moves_the_surface_radially.md`.
 
 **47. The "1.42% pipeline determinism floor" was one draw, and its mechanism was wrong.** A second
-same-mesh pair agreed to four pixels — 892× tighter — because it only re-*scored*. The scorer alone
-moves a fixed strip by 0.0032%, 950× too small to produce 1.42%. The four measurements split cleanly:
+same-mesh pair agreed to four pixels — 890× tighter — because it only re-*scored*. The scorer alone
+moves a fixed strip by 0.0032%, ~440× too small to produce 1.42%. *(Corrected 2026-10-22: this said
+892× and 950×. 892× divided the rounded figures, and 950× is the scorer against the 3.04% render
+spread.)* The four measurements split cleanly:
 scorer-only 0.0032%/0.0016%; flatten+render+score 1.42%/3.04%.
 `reports/the_determinism_floor_rests_on_one_draw.md`.
 
@@ -974,7 +977,9 @@ inert.** Pre-registered (`docs/preregistration/2026-10-02_surface_interpolation_
 inkdelta 0.5.0 makes mixed-mode comparisons INCOMPARABLE, read from the render log.
 `reports/surface_interpolation_relocates_ink.md`.
 
-**71. Against villa's own ink labels, smooth and linear renders are equally faithful (ΔAP ≈ −0.0001).**
+**71. [RE-ANALYSED by 77: survives on the supervised region, but its sign does not: there smooth's
+ΔAP is > 0 in 7 of 8, resolved in 1, so prediction 2 fails.] Against villa's own ink labels, smooth and
+linear renders are equally faithful (ΔAP ≈ −0.0001).**
 Pre-registered (`docs/preregistration/2026-10-03_surface_interpolation_vs_labels.md`).
 
 * **Data:** villa now publishes labels on the 2.4 µm frame for 8 Scroll-1 segments. Each was rendered
@@ -990,7 +995,8 @@ Pre-registered (`docs/preregistration/2026-10-03_surface_interpolation_vs_labels
 
 `reports/surface_interpolation_vs_labels.md`.
 
-**72. In villa's own scoring pipeline, smooth vs linear moves the ink count about 1% and its faithfulness
+**72. [RE-ANALYSED by 77: survives; on the supervised region |ΔAP| < 0.01 in all 8, < 0.001 in 6, resolved
+in 1.] In villa's own scoring pipeline, smooth vs linear moves the ink count about 1% and its faithfulness
 not at all.** Pre-registered (`docs/preregistration/2026-10-03_scorer_sensitivity_vs_labels.md`).
 
 * **Setup:** 8 labelled segments at the metric's settings (group 1, 5 slices, one p95 per strip),
@@ -1005,7 +1011,8 @@ not at all.** Pre-registered (`docs/preregistration/2026-10-03_scorer_sensitivit
 
 `reports/scorer_vs_labels_surface_interpolation.md`.
 
-**73. Grid cell size drives the linear/smooth difference.** Pre-registered
+**73. [RE-ANALYSED by 77: survives; on the supervised region the raw render's secondary gain is resolved in 8
+of 8, about +0.8% of AP.] Grid cell size drives the linear/smooth difference.** Pre-registered
 (`docs/preregistration/2026-10-03_coarse_grid_interpolation.md`). Finding 72's pipeline on the 8 labelled
 segments with meshes subsampled 4× (~80-voxel cells, like the spiral surfaces villa's loop scores):
 
@@ -1030,20 +1037,23 @@ of AP), 1.0 (7 of 8, about −11%; AUC rises in all 8) and 2.0 (8 of 8, about �
 
 `reports/sampling_band_vs_labels.md`.
 
-**75. At villa's metric settings, the source build's sampling band agrees better with villa's labels than
-the published image's, and a wider band better still.** Pre-registered, with inkagree 0.2.2 (metric preset:
-group 1, 5 slices). Step 1.0 (post-#1146 default) beats 0.5 (the published image's sampling) in 8 of 8
-segments, about +8% AP. Step 2.0 beats 1.0 in 8 of 8, about +10% AP. AUC moves the same way everywhere.
+**75. [RE-ANALYSED by 77: survives, smaller: on the supervised region 0.5 trails 1.0 by 5.3% (was 8.3%), and
+2.0 beats 1.0 by 8.2% (was 10.3%).] At villa's metric settings, the source build's sampling band agrees
+better with villa's labels than the published image's, and a wider band better still.** Pre-registered, with
+inkagree 0.2.2 (metric preset: group 1, 5 slices). Step 1.0 (post-#1146 default) beats 0.5 (the published
+image's sampling) in 8 of 8 segments, about +8% AP. Step 2.0 beats 1.0 in 8 of 8, about +10% AP. AUC moves
+the same way everywhere.
 
 * **Both predictions (no consistent difference) FAILED.**
-* **For finding 66:** the published image's lower ink count (−5 to −9%) goes with **less** faithful
+* **For finding 66:** the published image's lower ink count (−5 to −8%) goes with **less** faithful
   renders.
 * **For villa's metric:** its default band is narrower than the best tested.
 
 `reports/install_route_band_vs_labels.md`.
 
-**76. villa's scorer is a coarser instrument than the render it reads, and at region scale neither tracks
-label density.** Pre-registered, on finding 72's stored outputs.
+**76. [RE-ANALYSED by 77: Q2 survives, 0.55 → 0.74 on the supervised region; Q1 is undetermined, since no
+window qualifies.] villa's scorer is a coarser instrument than the render it reads, and at region scale neither
+tracks label density.** Pre-registered, on finding 72's stored outputs.
 
 * **Per pixel:** the scorer agrees with villa's labels about half as well (AP) as its input strip.
 * **Scale:** with labels dilated up to 154 µm, the scorer/strip AP ratio rises 0.45 → 0.65. **Prediction 3
@@ -1055,9 +1065,10 @@ label density.** Pre-registered, on finding 72's stored outputs.
 
 `reports/objective_vs_labels.md`.
 
-**77. Correction: findings 71–76 used the wrong evaluation domain; re-analysed on villa's supervised region.**
-villa's labels are annotated only inside `supervision.zarr` (3–13% of each segment, holding 97–100% of
-labelled ink). Findings 71–76 counted unannotated ink as negatives. The registered re-analysis:
+**77. Correction: findings 71–76 used the wrong evaluation domain; re-analysed on villa's supervised
+region.** villa's labels are annotated only inside `supervision.zarr` (4–15% of each segment's mesh-valid
+area, holding 97–100% of labelled ink). Findings 71–76 counted unannotated ink as negatives. The registered
+re-analysis:
 
 * **Survive:** 71, 72, 73, 76 Q2.
 * **Survives, smaller:** 75 (published-image sampling −5.3%, not −8.3%; step 2.0 +8.2%, not +10.3%); 73's
@@ -1065,7 +1076,7 @@ labelled ink). Findings 71–76 counted unannotated ink as negatives. The regist
 * **Does not survive as stated:** 74. Step 0.5 vs 1.0 is not consistent (4 of 8).
 * **Undetermined:** 76 Q1.
 * **Post hoc lead:** within supervised tiles, the render tracks label density (ρ = +0.61), villa's scorer
-  count only weakly (ρ = +0.15).
+  count only weakly (ρ = +0.14).
 
 inkagree 0.3.0 evaluates on the supervised region by default. `reports/supervised_reanalysis.md`.
 

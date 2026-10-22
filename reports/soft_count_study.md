@@ -78,7 +78,7 @@ villa's scorer already takes `--fg-threshold`. H_t counts probability ≥ t, fro
 * **For villa: no recommendation.** The registered primary test did not show S to be less noisy, and S's
   sensitivity depends on which way the surface is wrong.
 * **The tiers disagree, and that is worth knowing.** On current code, the code villa's loop runs, S has about
-  half H's seed noise (R 0.52 [0.35, 0.91]). On pinned code it does not. S's seed noise is similar in the two
+  half H's seed noise (R 0.52 [0.34, 0.91]). On pinned code it does not. S's seed noise is similar in the two
   tiers (3.2–3.8%), while H's is larger on current code (6.1% vs 4.2%). So current code's extra noise sits in
   H's threshold crossings, not in the ink the fits produce.
 * **A properly registered follow-up, if wanted:** current tier only, more seeds, a symmetric offset sweep on a

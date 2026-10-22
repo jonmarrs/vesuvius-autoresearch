@@ -1,7 +1,8 @@
 """Which coordinate frame are these mesh coordinates in?
 
-83% of segments in the Vesuvius Challenge open data ship more than one `.tifxyz` mesh, one
-per CT scan of the same physical object. Every one of them declares the same thing:
+83% of the segments with meshes in the Vesuvius Challenge open data ship more than one
+`.tifxyz` mesh, one per CT scan of the same physical object. Every one of them declares
+the same thing:
 
     "scale": [0.05, 0.05]
 
@@ -17,11 +18,11 @@ describing one object are silently in different frames.
 
     scrollframes list PHercParis4/20230702185753
 
-        mesh                                     um/voxel   grid          rel. scale
-        -on-20260310170716-45.532um              45.532     1266x393      18.97x
-        -on-20230205180739-7.91um                 7.910     776x559        3.30x
-        -on-20260411134726-2.4um                  2.400     2530x1820      1.00x  <- finest
-        -on-20260608103018-1.129um                1.129     5380x3869      0.47x
+        mesh                                       um/voxel  grid           rel. scale
+        -on-20260608103018-1.129um                    1.129  -                   1.00x  <- finest
+        -on-20260411134726-2.4um                      2.400  -                   2.13x
+        -on-20230205180739-7.91um                     7.910  -                   7.01x
+        -on-20260310170716-45.532um                  45.532  -                  40.33x
 
 What this does NOT give you
 ---------------------------
@@ -40,6 +41,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
 import re
 import sys
@@ -49,7 +51,9 @@ __all__ = ["Frame", "parse_mesh_name", "frames_for", "collision"]
 __version__ = "0.1.0"
 
 # <segment>-on-<scanid>-<voxelsize>um.tifxyz
-_NAME = re.compile(r"^(?P<seg>.+?)-on-(?P<scan>\d+)-(?P<um>[\d.]+)um\.tifxyz/?$")
+_NAME = re.compile(
+    r"^(?P<seg>.+?)-on-(?P<scan>\d+)-(?P<um>\d+(?:\.\d+)?|\.\d+)um\.tifxyz/?$"
+)
 
 
 @dataclass(frozen=True)
@@ -75,13 +79,38 @@ def parse_mesh_name(name: str) -> Frame | None:
     the whole reason two frames are indistinguishable from their metadata.
     """
     m = _NAME.match(os.path.basename(name.rstrip("/")))
-    if not m:
+    if not m or float(m["um"]) <= 0:
         return None
     return Frame(
         mesh=os.path.basename(name.rstrip("/")),
         scan=m["scan"],
         um_per_voxel=float(m["um"]),
     )
+
+
+def _scale(meta: dict) -> float | None:
+    """The first declared scale, or None when it is absent or malformed."""
+    sc = meta.get("scale")
+    if not isinstance(sc, (list, tuple)) or not sc:
+        return None
+    try:
+        value = float(sc[0])
+    except (TypeError, ValueError):
+        return None
+    return value if math.isfinite(value) else None
+
+
+def _grid(meta: dict) -> tuple[int, int] | None:
+    """The grid shape, or None when it is absent or not two whole numbers."""
+    g = meta.get("grid")
+    if not isinstance(g, (list, tuple)) or len(g) != 2:
+        return None
+    try:
+        if all(float(v) == int(v) for v in g):
+            return (int(g[0]), int(g[1]))
+    except (TypeError, ValueError, OverflowError):
+        pass
+    return None
 
 
 def _diag(bbox) -> float | None:
@@ -95,7 +124,8 @@ def frames_for(mesh_names, metas=None) -> list[Frame]:
     """Frames for one segment, finest voxel size first.
 
     `metas` optionally maps mesh name -> parsed meta.json, to enrich with declared scale,
-    grid shape and bbox. Absent, the filename alone is enough to expose a collision.
+    grid shape and bbox. Absent, the filename alone is enough to expose a collision. A field
+    that is malformed is left out, as if absent, rather than raising.
     """
     out = []
     for name in mesh_names:
@@ -103,14 +133,13 @@ def frames_for(mesh_names, metas=None) -> list[Frame]:
         if f is None:
             continue
         meta = (metas or {}).get(f.mesh) or (metas or {}).get(name)
-        if meta:
-            sc = meta.get("scale")
+        if isinstance(meta, dict):
             f = Frame(
                 f.mesh,
                 f.scan,
                 f.um_per_voxel,
-                declared_scale=float(sc[0]) if sc else None,
-                grid=tuple(meta["grid"]) if meta.get("grid") else None,
+                declared_scale=_scale(meta),
+                grid=_grid(meta),
                 bbox_diagonal=_diag(meta.get("bbox")),
             )
         out.append(f)
@@ -124,7 +153,12 @@ def collision(frames: list[Frame]) -> dict:
     so nothing in the metadata warns a reader that the coordinates are not comparable.
     """
     if len(frames) < 2:
-        return {"collides": False, "reason": "single frame"}
+        return {
+            "collides": False,
+            "reason": "single frame" if frames else "no frames",
+            "n_frames": len(frames),
+            "n_declaring_scale": sum(f.declared_scale is not None for f in frames),
+        }
     scales = sorted(f.declared_scale for f in frames if f.declared_scale is not None)
     ums = sorted(f.um_per_voxel for f in frames)
     spread = ums[-1] / ums[0]
@@ -139,6 +173,7 @@ def collision(frames: list[Frame]) -> dict:
         "collides": bool(indistinguishable and spread > 1.001),
         "indistinguishable_metadata": indistinguishable,
         "declared_scales": scales,
+        "n_declaring_scale": len(scales),
         "voxel_size_spread": spread,
         "finest_um": ums[0],
         "coarsest_um": ums[-1],
@@ -164,13 +199,36 @@ def render(segment: str, frames: list[Frame]) -> str:
         )
     c = collision(frames)
     lines.append("")
+    n, declaring = c["n_frames"], c["n_declaring_scale"]
     if c["collides"]:
+        spread = f"{c['voxel_size_spread']:.1f}x"
+        scale = c["declared_scales"][0] if declaring else None
+        if declaring == n:
+            said = f"all {n} meshes declare scale {scale}, but their voxel sizes span {spread}"
+        elif declaring == 1:
+            # The others' meta.json was unreadable or had no scale: not "all".
+            said = (
+                f"their voxel sizes span {spread}; 1 of {n} meshes declares a scale "
+                f"({scale}), and none was read for the other {n - 1}"
+            )
+        elif declaring:
+            said = (
+                f"their voxel sizes span {spread}; {declaring} of {n} meshes declare a "
+                f"scale, all {scale}, and none was read for the other {n - declaring}"
+            )
+        else:
+            said = f"their voxel sizes span {spread}, and no meta.json gave a scale"
+        tail = " and the metadata does not say so" if declaring else ""
         lines.append(
-            f"    COLLISION: all {c['n_frames']} meshes declare scale "
-            f"{c['declared_scales'][0]}, but their voxel sizes span "
-            f"{c['voxel_size_spread']:.1f}x. Coordinates are NOT interchangeable and the "
-            "metadata does not say so."
+            f"    COLLISION: {said}. Coordinates are NOT interchangeable{tail}."
         )
+    elif n < 2:
+        lines.append(
+            "    Nothing to compare: only one mesh follows the -on-<scan>-<um>um.tifxyz "
+            "convention."
+        )
+    elif c["voxel_size_spread"] <= 1.001:
+        lines.append("    No collision: the meshes share one voxel size.")
     else:
         lines.append(
             "    No collision: frames are distinguishable from their metadata."
@@ -186,11 +244,6 @@ def render(segment: str, frames: list[Frame]) -> str:
 def _fetch(segment: str):  # pragma: no cover - needs network
     import s3fs
 
-    if "/" not in segment.strip("/"):
-        raise SystemExit(
-            f"segment must be <scroll>/<segment>, e.g. PHercParis4/20230702185753; got "
-            f"{segment!r}"
-        )
     scroll, seg = segment.strip("/").split("/", 1)
     fs = s3fs.S3FileSystem(anon=True)
     prefix = f"vesuvius-challenge-open-data/{scroll}/segments/{seg}/mesh"
@@ -215,15 +268,40 @@ def main(argv=None) -> int:
     p.add_argument("segment", help="e.g. PHercParis4/20230702185753")
     p.add_argument("--json", action="store_true")
     args = ap.parse_args(argv)
+    if "/" not in args.segment.strip("/"):
+        ap.error(
+            f"segment must be <scroll>/<segment>, e.g. PHercParis4/20230702185753; got "
+            f"{args.segment!r}"
+        )
 
-    names, metas = _fetch(args.segment)
+    # Exit 1 means a collision, so a lookup that fails (no s3fs, no network, no such
+    # segment) exits 2, as a usage error does, never 1.
+    try:
+        names, metas = _fetch(args.segment)
+    except Exception as exc:
+        if isinstance(exc, ImportError) and exc.name == "s3fs":
+            why = "the live lookup needs s3fs (pip install s3fs)"
+        else:
+            why = f"could not list {args.segment}: {type(exc).__name__}: {exc}"
+        print(f"scrollframes: {why}", file=sys.stderr)
+        return 2
     frames = frames_for(names, metas)
+    skipped = [
+        os.path.basename(n.rstrip("/")) for n in names if parse_mesh_name(n) is None
+    ]
+    if skipped:
+        print(
+            f"scrollframes: skipped {len(skipped)} mesh name(s) off the "
+            f"<segment>-on-<scan>-<um>um.tifxyz convention: {', '.join(skipped)}",
+            file=sys.stderr,
+        )
     if args.json:
         print(
             json.dumps(
                 {
                     "segment": args.segment,
                     "frames": [f.__dict__ for f in frames],
+                    "skipped": skipped,
                     "collision": collision(frames),
                 },
                 indent=2,

@@ -52,7 +52,9 @@ class ExperimentConfig:
     lr: float = 1e-3
     weight_decay: float = 0.01
     time_budget: int = 3600
-    pinned: bool = False  # If True, autoresearch loop should not evolve this config
+    # Read by nothing. It marked the GP-winner baseline the loop injected every 10th cycle until that was removed;
+    # kept because from_json refuses an unknown key, and config.json and checkpoints record it.
+    pinned: bool = False
 
     # Loss Weights
     loss_ink_bce: float = 0.4

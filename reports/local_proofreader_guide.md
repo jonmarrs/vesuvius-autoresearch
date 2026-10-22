@@ -16,7 +16,7 @@ uv pip install -e .
 ### 2. Launch the Proofreader
 Run the following command, pointing to the volume and the predictions you generated during the Night Shift:
 ```bash
-uv run scripts/inference/launch_proofreader.py \
+uv run scripts/launch_proofreader.py \
     --volume local_data/PHercParis2Fr143/surface_volume.zarr \
     --predictions predictions/pred_10_1000_1000_64x64_ink.zarr
 ```

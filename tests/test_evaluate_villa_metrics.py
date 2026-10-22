@@ -38,6 +38,9 @@ def test_skeleton_distance_is_reported_without_a_wandb_run(tmp_path):
             _line_volume(tmp_path / "pred.zarr"),
             "--out",
             str(out),
+            # Not the checkout's outputs/, where it would replace the loop's.
+            "--hist_dir",
+            str(tmp_path / "hists"),
         ],
         cwd=tmp_path,
         env=env,
@@ -47,6 +50,9 @@ def test_skeleton_distance_is_reported_without_a_wandb_run(tmp_path):
     )
 
     assert json.loads(out.read_text())["skeleton_distance"] == 0.0
+    assert (
+        len(list((tmp_path / "hists").glob("skeleton_branch_length_hist_*.png"))) == 1
+    )
 
 
 def _shadow_metrics(tmp_path, broken):
@@ -110,3 +116,39 @@ def test_a_missing_optional_metric_leaves_the_others_reported(tmp_path):
         results
     )
     assert "critical_components_multiclass" not in results
+
+
+def test_slices_predicted_without_ground_truth_are_counted(tmp_path):
+    """Villa gives such a slice the whole slice as its tolerance region, so its
+    predicted skeleton counts as matching: the count shows whether the
+    centerline_dice is inflated."""
+    gt = _line_volume(tmp_path / "gt.zarr")  # ink at [10, 2:18, 10] only
+    pred = zarr.open(
+        str(tmp_path / "pred.zarr"),
+        mode="w",
+        shape=(20, 20, 20),
+        chunks=(10, 10, 10),
+        dtype="f4",
+    )
+    volume = np.zeros((20, 20, 20), np.float32)
+    volume[10, 2:18, 10] = 1
+    # Predicted on slices with no ground truth, in its column, so only slices
+    # along the first axis, villa's, count them.
+    volume[3, 2:18, 10] = 1
+    volume[15, 5:9, 10] = 1
+    volume[7, 2:18, 10] = 0.3  # below the threshold, so not predicted
+    pred[:] = volume
+    result = subprocess.run(
+        [sys.executable, str(REPO / "scripts/evaluate_villa_metrics.py")]
+        + ["--gt", gt, "--pred", str(tmp_path / "pred.zarr")]
+        + ["--out", str(tmp_path / "results.json")],
+        cwd=tmp_path,
+        env=_shadow_metrics(tmp_path, set()),
+        capture_output=True,
+        text=True,
+        timeout=300,
+    )
+    assert result.returncode == 0, result.stderr
+    results = json.loads((tmp_path / "results.json").read_text())
+    assert results["centerline_slices_predicted_without_ground_truth"] == 2
+    assert "2 slices have a prediction and no ground truth" in result.stdout

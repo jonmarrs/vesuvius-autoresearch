@@ -96,7 +96,9 @@ Medians by group (merge-penalized ERL / coverage):
   The comparison on the in-sample cubes is also tilted towards our tracer and connected components, which are built
   from the mask itself. Those cubes are where the mask is strongest. (Exploratory, 2026-10-19, in the last section:
   most of the Scroll-3 advantage is where centrelines sit within 2–4 voxels of the GT. #1934's generator shares it,
-  and a shift between the GT and the CT or the GT's node spacing do not explain it.)
+  and a shift between the GT and the CT or the GT's node spacing do not explain it. Review, 2026-10-20: the shift
+  test there can miss a shift along the fibers most of a cube's samples lie on. Measured the same day: on 5 of the
+  11 in-sample cubes the GT sits about a voxel off the CT's fibers, which explains part of their gap.)
 * **For ScrollGT:** the scroll dependence is the finding a single-scroll benchmark would miss. On Scroll 3, scoring
   version 3 ranks this tracer first on merge-penalized ERL with 42% less coverage than connected
   components (median 0.480 against 0.826). The headline is run length, not recall.
@@ -141,15 +143,42 @@ cubes are Scroll 5's three, the same size as Scroll 3's:
   Scroll 3 against 0.43–0.61 on the 11 in-sample cubes for this tracer, and 0.77–0.84 against 0.43–0.67 for the
   generator. For both, every Scroll-3 cube is above every in-sample one.
 * **Not a shift between the GT and the CT.** The median displacement from centreline to GT is at most 0.62 voxels
-  along any axis, on every cube, for both entrants.
+  along any axis, on every cube, for both entrants. (Review, 2026-10-20: this does not exclude every shift.
+  * The displacement to the nearest GT point is perpendicular to the fiber, so a shift along a fiber does not show on
+    it. Where most of a cube's matched samples lie on fibers along one axis, the median along that axis misses a shift
+    there.
+  * With three fibers along z and one across it, a 2.5-voxel z shift puts a quarter of the samples beyond 2 voxels and
+    leaves the median z displacement at 0 (`tests/test_neural_tracer_placement.py`).
+  * The script now also records `median_disp_perp_zyx`: the median along each axis over samples on fibers within 30°
+    of perpendicular to it, which keep at least 3/4 of a shift. A shift along another axis can move it by up to 0.43
+    of that shift, as it can the plain median.
+  * The committed JSON predated it. It was re-run on 2026-10-20: see the next bullet.)
+* **But the GT sits about a voxel off the CT's fibers on 5 in-sample cubes, which explains part of their gap.**
+  Measured on 2026-10-20 (`scripts/neural_tracer_gt_offset.py`, `neural_tracer_gt_offset.json`). Exploratory, and the
+  cut at 1 voxel was chosen after seeing the values.
+  * On 5 of the 11 in-sample cubes, the two entrants' shifts (`median_disp_perp_zyx`) agree in sign wherever either
+    reaches 0.5 voxels. Their mean is 1.01–1.53 voxels long there. On every Scroll-3 cube it is at most 0.72, and on
+    the other in-sample cubes at most 0.78.
+  * Moving this tracer's centreline by the generator's shift, which this tracer's data did not inform, raises its
+    share within 2 voxels by 0.06–0.09 on those 5 cubes, against 0.004–0.017 on Scroll 3. The opposite shift lowers
+    it by 0.16–0.23. The generator, moved by this tracer's shift, gains 0.05–0.10 there.
+  * The CT alone, smoothed at sigma 1, is brightest 0.5–0.75 of the way from the GT towards the entrants' centre on
+    all 5. It puts the fibers' centres 0.51–0.93 voxels off the GT in the same direction, though the gain in
+    brightness is small (0.11–1.06 grey levels).
+  * Corrected, this tracer's shares on those cubes (0.52–0.66) still trail Scroll 3's (0.68–0.76). The offset is part
+    of the in-sample gap, not all of it. The scores here are against the GT as published, and correcting ScrollGT's
+    GT would be the owner's decision.
 * **Not the GT's node spacing.** Scroll 3's annotators placed nodes about twice as densely (a median edge of 6.5
   voxels against 12.4). Straight edges between sparse nodes could put a centre-following tracer off the GT mid-edge.
   But within a cube, samples at an annotator's node are within 2 voxels a median of only 0.04 more often than mid-edge
   ones. The in-sample cubes trail even at the nodes, 0.46–0.62 against 0.69–0.77 for this tracer. And
   `s1_08997_02997_02497` has Scroll 3's node spacing (5.1 voxels) with an in-sample share (0.57).
 * **What remains, untested:** how precisely each scroll's annotators centred their nodes, how sharply each scan shows a
-  fiber's centre, and fiber width. The two held-out Scroll-5 cubes do not separate these. The generator's centrelines
-  sit there as on Scroll 3 (0.88 and 0.78), this tracer's as on the in-sample cubes (0.55 and 0.54).
+  fiber's centre, and fiber width. (Review, 2026-10-20: and a shift along the fibers. Measured, a shift of about a
+  voxel explains part of the gap on 5 cubes, above.) The two held-out Scroll-5
+  cubes do not separate these. The generator's centrelines sit there as on Scroll 3 (0.88 and 0.78), this tracer's
+  as on the in-sample cubes (0.55 and 0.54).
 * **For ScrollGT:** at its tolerance of 2 voxels, a thin entrant's scores across scrolls turn on placement within 2–4
-  voxels. The published Scroll-3 lead is a tolerance-2 result. Whether it holds at 4 is not measured, because our
-  tracer and connected components were not rescored there.
+  voxels. The published Scroll-3 lead is a tolerance-2 result. (Measured since, in finding 94,
+  `tolerance4_rescore.md`. At 4 the lead holds on all 8 Scroll-3 cubes and widens to a median 2.22 times our tracer.
+  The in-sample deficit reverses on the three 512³ cubes.)

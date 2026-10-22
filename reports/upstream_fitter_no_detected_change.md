@@ -1,5 +1,7 @@
 # villa's updated fitter: no detected change in the ink we read (+4.8%, CI [−7.5%, +17.2%])
 
+> **Corrected 2026-10-22** (from `reports/the_anchor_control_was_cross_tree.md`, 2026-09-27): `curbase_s4..s9` were fitted on `villa-spiral-current`, an unrefreshed copy of `d8c5f488a`; `be09a8503` is the tree they were rendered and scored on. No `spiral-fitting/` file differs between the two trees, so the comparison with the upstream fitter is unchanged.
+
 **2026-09-25.** Result of `docs/preregistration/2026-09-24_upstream_fitter.md`, decided by
 `scripts/analyse_upstream_fitter.py`. The rule and tests were committed at `2cb28f84` before any
 upstream arm was fitted. Verdict JSON: `reports/upstream_fitter_verdict.json`.

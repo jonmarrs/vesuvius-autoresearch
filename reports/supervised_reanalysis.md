@@ -24,7 +24,7 @@ and could bias paired comparisons. inkagree 0.3.0 evaluates on the supervised re
 | 74 | the tutorial's step 0.5 is the best of four | beats 0.25 (8 of 8, −6.1%) and 2.0 (8 of 8, −20.4%); **vs 1.0: 4 of 8 resolved, median −1.5% (range −4.8% … +1.4%)** | **does not survive as stated** |
 | 75 | source build beats the published image's sampling; a wider band beats both | 1.0 beats 0.5 (8 of 8, **−5.3%**; was −8.3%); 2.0 beats 1.0 (8 of 8, **+8.2%**; was +10.3%) | **survives, smaller** |
 | 76 Q2 | the scorer is a coarser instrument (AP ratio rises with dilation) | ratio rises 0.55 → 0.74 | **survives** |
-| 76 Q1 | (region-scale tracking: an ambiguous null) | **undetermined**: the registered window rule (≥ 25% of a 2048-px window supervised) finds no windows | — |
+| 76 Q1 | (region-scale tracking: an ambiguous null) | **undetermined**: the registered window rule (≥ 25% of a 2048-px window's mesh-valid domain supervised) finds no windows; supervision covers 4–15% of each segment's mesh-valid domain | — |
 
 **Corrected finding 74:** at the tutorial's settings, step 0.5 beats a thinner band (0.25) and a much
 wider one (2.0). Against 1.0 there is no consistent difference. The best band is around 0.5–1.0, not
@@ -45,7 +45,7 @@ Using 256-px tiles that are ≥ 50% mesh-valid and supervised (286 tiles across 
 | density vs label density, within supervised tiles | Spearman ρ | 95% CI (bootstrap over segments) |
 |---|---:|---|
 | rendered strip (the scorer's input) | **+0.61** | [+0.42, +0.69] |
-| scorer fg density (what `total_fg_pixels` counts) | **+0.15** | [+0.01, +0.21] |
+| scorer fg density (what `total_fg_pixels` counts) | **+0.14** | [+0.01, +0.21] |
 
 Where villa's labels are defined, the rendered prediction tracks how much ink is labelled, but villa's
 scorer count tracks it only weakly. **This is a lead, not a finding.** It was computed after seeing the
@@ -62,7 +62,8 @@ No labelled segments beyond these 8 exist on the current frame.
 
 ## What changes elsewhere
 
-* `SPIRAL_FINDINGS_SUMMARY.md`: finding 77 records this correction; finding 74 is marked as corrected.
+* `SPIRAL_FINDINGS_SUMMARY.md`: finding 77 records this correction; finding 74 is marked as corrected, and
+  (2026-10-22) findings 71, 72, 73, 75 and 76 as re-analysed.
 * The October draft quotes supervised-region numbers and discloses the correction.
 * inkagree's README: the correction notice (0.3.0) and the corrected first-use numbers.
 * Old numbers stay in the original reports, marked as computed on the unsupervised domain.

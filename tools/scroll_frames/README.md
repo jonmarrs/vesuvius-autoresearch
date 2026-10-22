@@ -1,8 +1,8 @@
 # scroll-frames
 
-**83% of segments in the Vesuvius Challenge open data ship several `.tifxyz` meshes of the
-same object. 79% of those declare identical `scale` metadata for coordinate frames that
-differ by up to 40x.**
+**83% of the segments with meshes in the Vesuvius Challenge open data ship several `.tifxyz`
+meshes of the same object. 79% of those declare identical `scale` metadata for coordinate
+frames that differ by up to 40x.**
 
 ```bash
 pip install "scroll-frames[s3] @ git+https://github.com/jonmarrs/scroll-frames"
@@ -19,7 +19,8 @@ scrollframes list PHercParis4/20230702185753
     Coordinates are NOT interchangeable and the metadata does not say so.
 ```
 
-Exits non-zero on a collision. Pure stdlib; `s3fs` only for the live lookup.
+Exits 1 on a collision and 0 without one. A lookup that fails, or a malformed segment, exits 2. Pure
+stdlib; `s3fs` only for the live lookup.
 
 ## The problem
 

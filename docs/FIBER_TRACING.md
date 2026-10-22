@@ -22,7 +22,7 @@ This directory provides **the measurement layer for that problem**, plus a basel
 > [review report](DESIGN_ARCHITECTURE_REVIEW_2026-10-04_FIBERS.md).
 
 > **The measurement layer now ships as a ScrollGT target family** — eleven cubes in two size
-> classes (eight 256³, three 512³), scoreable with no
+> classes (eight 256³, three 512³; since ScrollGT 0.6.0, ten held-out cubes besides), scoreable with no
 > GPU, no model download, and no network: <https://github.com/jonmarrs/scrollgt>. This document
 > remains the record of the research and of the baseline tracer, which is the benchmark's
 > *entrant* rather than part of it.
@@ -36,6 +36,18 @@ numbers below are the sub-volume's. Full-cube figures for all eleven cubes (eigh
 512³): `reports/fiber_benchmark_all_cubes.json`. ERL is a length statistic (`Σr²/Σr` in voxels)
 and does not compare across the two size classes: the 512³ oracles sit near 500 where the 256³
 oracles sit near 250, for purely geometric reasons.
+
+> **Review note, 2026-10-21:** the full-cube figures above and that report are scoring version 1
+> (2026-07-30, rerun 2026-08-16), on the annotations of that time. They are not ScrollGT's current rows,
+> for two reasons:
+> * the scorer changed four times in October (versions 2-5 in `fibers/provenance.py`; version 5 is
+>   ScrollGT's version 3, the ERL fix of finding 85);
+> * ScrollGT 0.5.0 moved three cubes to villa's newer annotations (finding 82), which changes their
+>   fiber counts and coverage too.
+>
+> For example, on `s1_00497_01497_03997_256` the report gives our tracer a merge-penalized ERL of 23.16,
+> and ScrollGT publishes 19.22. Its coverage and precision for connected components there (0.9177 and
+> 0.2194) are ScrollGT's still. ScrollGT's `data/fibers_<cube>/meta.json` holds the current floors.
 
 Five completely different instance labellings were scored:
 

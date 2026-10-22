@@ -100,3 +100,160 @@ def test_upstream_fits_are_their_own_tier():
     """Fitted on 75c79ac5f (2026-09-24); pooling them with `current` before the
     registered comparison would assume its answer."""
     assert tier_of("upfit_s1") == "upstream"
+
+
+# --- the table against the record of what ran ---------------------------------
+# repro/spiral_fits/ holds a copy of each arm's fit driver. A driver exports the
+# arm's run tag and runs fit_spiral.py from one villa tree, so it is the
+# evidence a human classifying an arm in _RULES is meant to have read.
+_DRIVERS = Path(__file__).resolve().parents[1] / "repro" / "spiral_fits"
+_SCRIPTS = Path(__file__).resolve().parents[1] / "scripts"
+_TREE_TIER = {
+    "villa-spiral": "pinned",
+    "villa-spiral-current": "current",
+    "villa-spiral-upstream": "upstream",
+}
+# Driver tags deliberately left out of the table (smoke and exploratory runs),
+# so any analysis that scores one raises. Held exact: a parsing slip that turns
+# a real tag into an unknown one must not pass as "unclassified".
+_UNCLASSIFIED = {
+    "densespace0", "margin0", "minspace0", "smoke01", "smoke_absw0", "smoke_absw5",
+    "smoke_anchor10", "smoke_anchor20", "smoke_anchor35", "smoke_current",
+    "smoke_nosamewind",
+}  # fmt: skip
+# Arms the analyses group by tier whose driver was never copied here. The
+# extension's preregistration specifies them as fit_nosamecur_s1.sh with only
+# the seed (4, 5, 6) and the tag changed. Vendor them and empty this set.
+_NOT_VENDORED = {"nosamecur_s4", "nosamecur_s5", "nosamecur_s6"}
+
+
+def _drivers() -> dict[str, tuple[str, str]]:
+    """{run tag: (driver file, villa tree name)} for every vendored driver that
+    sets a tag. A tag built from $SEED (fit_upfit.sh) is kept as a pattern."""
+    out: dict[str, tuple[str, str]] = {}
+    for f in sorted(_DRIVERS.glob("*.sh")):
+        text = f.read_text()
+        tags = re.findall(r"^export FIT_SPIRAL_RUN_TAG=(\S+)$", text, re.M)
+        if not tags:
+            continue
+        (tag,) = tags
+        env = dict(re.findall(r"^([A-Z_]+)=(\S+)$", text, re.M))
+        # every line that decides what runs: the import path, the directory and
+        # the interpreter; they must name one tree
+        lines = re.findall(r"^(?:export PYTHONPATH=|cd |exec ).*$", text, re.M)
+        assert any(ln.startswith("cd ") for ln in lines), f"{f.name}: no cd"
+        trees = set()
+        for ln in lines:
+            ln = re.sub(
+                r"\$\{?(\w+)\}?", lambda m, env=env: env.get(m.group(1), m.group(0)), ln
+            )
+            trees |= set(re.findall(r"/(villa-spiral[\w-]*)(?:/|\s|$)", ln))
+        assert len(trees) == 1, f"{f.name}: runs from {sorted(trees)}"
+        assert tag not in out, f"{tag} is set by both {out[tag][0]} and {f.name}"
+        out[tag] = (f.name, trees.pop())
+    return out
+
+
+def _covers(template: str, tag: str) -> bool:
+    return re.fullmatch(re.escape(template).replace(r"\$SEED", r"\d+"), tag) is not None
+
+
+def test_the_table_agrees_with_the_tree_each_vendored_driver_fits_with():
+    drivers = _drivers()
+    unclassified = set()
+    for tag, (name, tree) in drivers.items():
+        try:
+            tier = tier_of(tag.replace("$SEED", "1"))
+        except UnknownArm:
+            unclassified.add(tag)
+            continue
+        assert _TREE_TIER[tree] == tier, (
+            f"{name} ({tag}) runs from {tree}, table says {tier}"
+        )
+    assert unclassified == _UNCLASSIFIED, sorted(unclassified ^ _UNCLASSIFIED)
+
+
+def test_every_rule_in_the_table_has_a_vendored_driver():
+    import arm_tiers
+
+    tags = [t.replace("$SEED", "1") for t in _drivers()]
+    for prefix, tier in arm_tiers._RULES:
+        backing = [t for t in tags if t.startswith(prefix) and tier_of(t) == tier]
+        assert backing, f"rule {prefix!r} -> {tier} has no vendored driver"
+
+
+def _assigned(module: str, name: str):
+    """The value assigned to `name` in scripts/<module>.py, evaluated with only
+    tuple, list and range, without importing the script: some of these scripts
+    import packages that live only on the owner's machine."""
+    import ast
+
+    tree = ast.parse((_SCRIPTS / f"{module}.py").read_text())
+    for node in tree.body:
+        targets = (
+            node.targets
+            if isinstance(node, ast.Assign)
+            else [getattr(node, "target", None)]
+        )
+        if any(isinstance(t, ast.Name) and t.id == name for t in targets):
+            code = compile(ast.Expression(node.value), f"{module}.{name}", "eval")
+            return eval(
+                code, {"__builtins__": {"tuple": tuple, "list": list, "range": range}}
+            )
+    raise AssertionError(f"{module}.{name} not found")
+
+
+def _tier_groups() -> list[tuple[str, str, set[str]]]:
+    """Every arm group a script declares by tier: (where, tier, arms)."""
+    import measure_noise_floor as nf
+    import soft_count_study as sc
+
+    out = [
+        (f"measure_noise_floor/{g}", t, set(a))
+        for t, gs in nf.TIERS.items()
+        for g, a in gs.items()
+    ]
+    out += [(f"soft_count_study/{g}", t, set(a))
+            for t, gs in (("pinned", sc.PINNED), ("current", sc.CURRENT)) for g, a in gs.items()]  # fmt: skip
+    studies = _assigned("survey_manipulation_effects", "STUDIES")
+    out += [
+        (f"survey_manipulation_effects/{k}", t, set(c) | set(x))
+        for k, (c, x, t) in studies.items()
+    ]
+    layouts = _assigned("seed_as_shared_nuisance", "LAYOUTS")
+    out += [(f"seed_as_shared_nuisance/{g}", k.split()[0].rstrip(","), set(a))
+            for k, gs in layouts.items() for g, a in gs.items()]  # fmt: skip
+    arms = _assigned("analyse_spiralcheck_pinned_replication", "ARMS")
+    assert len(arms) == 24  # its DF is len(ARMS) - 6 - 1 = 17
+    out.append(("analyse_spiralcheck_pinned_replication/ARMS", "pinned", set(arms)))
+    return out
+
+
+def test_every_tier_group_a_script_declares_agrees_with_the_table():
+    """These are other encodings of the same fact; each must say what the table says."""
+    groups = _tier_groups()
+    assert {where.split("/")[0] for where, _, _ in groups} == {
+        "measure_noise_floor", "soft_count_study", "survey_manipulation_effects",
+        "seed_as_shared_nuisance", "analyse_spiralcheck_pinned_replication",
+    }  # fmt: skip
+    for where, tier, arms in groups:
+        assert tier in TIERS, f"{where}: {tier!r}"
+        for arm in arms:
+            assert tier_of(arm) == tier, f"{where}/{arm}: table says {tier_of(arm)}"
+
+
+def test_every_grouped_arm_has_a_vendored_driver_or_is_a_recorded_gap():
+    drivers = list(_drivers())
+    grouped = set().union(*(arms for _, _, arms in _tier_groups()))
+    missing = {a for a in grouped if not any(_covers(d, a) for d in drivers)}
+    assert missing == _NOT_VENDORED, sorted(missing ^ _NOT_VENDORED)
+    readme = (_DRIVERS / "README.md").read_text()
+    for arm in sorted(_NOT_VENDORED):
+        assert f"`{arm}`" in readme, f"{arm} is not listed as unvendored in the README"
+
+
+def test_a_seeded_driver_covers_its_seeds():
+    assert _covers("upfit_s$SEED", "upfit_s3") and not _covers(
+        "upfit_s$SEED", "upfit_s"
+    )
+    assert not _covers("curbase_s1", "curbase_s10")

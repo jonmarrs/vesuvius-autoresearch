@@ -61,6 +61,30 @@ def test_complete_separation_is_recognised_in_both_directions():
     assert "all GAP below" in mod.separation(base, [7.0, 8.0, 9.0])
     assert "all GAP above" in mod.separation(base, [14.0, 15.0, 16.0])
     assert mod.separation(base, [9.0, 11.5, 20.0]) == "none"
+    # A fit tied with the other arm's extreme does not separate them.
+    assert mod.separation(base, [8.0, 9.0, 10.0]) == "none"
+    assert mod.separation(base, [13.0, 14.0, 15.0]) == "none"
+
+
+@pytest.mark.parametrize(
+    "n_base, n_gap, p",
+    [
+        # this study, as registered: 1/C(7,3)
+        (4, 3, "2.86%"),
+        # patch bootstrap, strip match, anchor ablation, same winding current
+        (3, 3, "5%"),
+        # same winding: 3 ablated against 6 baselines
+        (6, 3, "1.19%"),
+        # the second look, as registered: 1/C(12,6)
+        (6, 6, "0.108%"),
+    ],
+)
+def test_separation_states_the_probability_for_its_own_arm_sizes(n_base, n_gap, p):
+    """Every study that imports separation() printed 1/C(7,3), this study's figure."""
+    base = [10.0 + i for i in range(n_base)]
+    assert mod.separation(base, [1.0 + i for i in range(n_gap)]) == (
+        f"COMPLETE, all GAP below all BASE (p={p} one direction)"
+    )
 
 
 def test_the_detectable_effect_matches_the_registered_figure():

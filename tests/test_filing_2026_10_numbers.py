@@ -40,13 +40,24 @@ def test_segment_count_range_matches_finding_72():
     assert f"{_pct(min(totals))} to {_pct(max(totals))} per segment" in _text()
 
 
+@pytest.mark.skipif(
+    not (_REPO / "reports/supervised_reanalysis.json").exists(),
+    reason="supervised re-analysis artifact absent",
+)
 def test_faithfulness_claim_matches_finding_72():
-    d = json.loads(_F72.read_text())
-    s = d["summary"]
-    assert len(d["segments"]) == 8 and s["n_included"] == 8
-    assert max(abs(v) for v in s["prob_d_ap"].values()) < 0.001
-    assert s["prob_resolved_pos"] == 0 and s["prob_resolved_neg"] == 0
-    assert "(|ΔAP| < 0.001 in all 8, none resolved)" in _text()
+    # Quoted where the labels are defined, as the correction (finding 77) registered for this draft.
+    d = json.loads((_REPO / "reports/supervised_reanalysis.json").read_text())
+    rows = [r for r in d["f72"]["prob"]["rows"] if r["status"] == "compared"]
+    resolved = [r for r in rows if r["d_ap_ci"][0] > 0 or r["d_ap_ci"][1] < 0]
+    assert len(rows) == 8 and all(abs(r["d_ap"]) < 0.01 for r in rows)
+    assert len(resolved) == 1
+    txt = _text()
+    assert (
+        "(where the labels are defined, its |ΔAP| is < 0.01 in all 8; 1 of 8 resolved, by "
+        f"{abs(resolved[0]['d_ap']):.3f})" in txt
+    )
+    # the whole-surface figure, which the supervised rows do not reproduce
+    assert "|ΔAP| < 0.001 in all 8, none resolved" not in txt
 
 
 def test_the_eight_labelled_segments_are_named():
@@ -232,7 +243,7 @@ def test_fiber_heldout_numbers_match_finding_83():
         f"Coverage is {s5[0]:.2f} and {s5[1]:.2f}, against {min(in256):.2f}–{max(in256):.2f} on the in-sample "
         "Scroll-5 256³ cubes" in txt
     )
-    assert "Eighteen of my registered predictions failed" in txt
+    assert "Twenty-two of my registered predictions failed" in txt
 
 
 def test_scrollgt_cite_is_its_newest_tag():
@@ -628,3 +639,326 @@ def test_pitch_numbers_match_finding_92():
         f"on at least 6 of 8 cubes: it kept it on {lead}; its median merge-penalized ERL would stay within "
         f"0.85–1.15 of the native rows: {ratio:.2f})" in txt
     )
+
+
+_F93 = _REPO / "reports/neural_tracer_seeding.json"
+
+
+@pytest.mark.skipif(not _F93.exists(), reason="finding 93 artifact absent")
+def test_seeding_numbers_match_finding_93():
+    d, txt = json.loads(_F93.read_text()), _text()
+    assert (
+        d["status"] == "OK"
+        and d["conclusion"] == "the seeding scale is not the cause: the note stands"
+    )
+    assert not any(d["predictions"].values())
+    a, b = d["median_pen_ratio_A"], d["median_pen_ratio_B"]
+    pitch = json.loads(_F92.read_text())["median_pen_ratio_pitch_over_native"]
+    lead_a, s3 = d["s3_leading_tracer_A"]
+    rows_b, comp = d["rows_B"], d["comparators"]
+    lead_b = sum(
+        rows_b[c]["erl_merge_penalized"] > comp[c]["tracer"]["erl_merge_penalized"]
+        for c in d["groups"]["s3"]
+    )
+    assert (lead_a, s3, lead_b) == (0, 8, 7)
+    assert (
+        f"Seeded per micrometre there, it recovers only to {a:.2f} of the native rows (from {pitch:.2f}) and leads our "
+        f"tracer on {lead_a} of {s3} Scroll-3 cubes. Seeded as sparsely at 7.91 µm, it keeps {b:.2f} and its lead on "
+        f"{lead_b} of {s3}." in txt
+    )
+    assert (
+        f"recover to at least 0.85 of the native rows: {a:.2f}; regain its Scroll-3 lead on at least 6 of 8 cubes: "
+        f"{lead_a}; and, seeded as sparsely at 7.91 µm, fall to at most 0.80: {b:.2f})"
+        in txt
+    )
+    assert "findings 91–94 in" in txt and "`reports/neural_tracer_seeding.md`" in txt
+
+
+_GTO = _REPO / "reports/neural_tracer_gt_offset.json"
+
+
+@pytest.mark.skipif(
+    not (_GTO.exists() and _F91.exists()), reason="placement artifacts absent"
+)
+def test_placement_and_offset_numbers_match_their_measurements():
+    e, g, txt = json.loads(_F91.read_text()), json.loads(_GTO.read_text()), _text()
+    s3 = e["s3_cubes"]
+    s5 = [c for c in e["neural_rows"] if c.startswith("s5_") and c.endswith("_512")]
+
+    def ratio(ent, tol4=False):
+        def row(c):
+            if tol4:
+                return e["descriptive_tolerance_4"][c][
+                    "tracer" if ent == "neural" else ent
+                ]
+            return e["neural_rows"][c] if ent == "neural" else e["comparators"][c][ent]
+
+        med = statistics.median
+        return med(row(c)["erl_merge_penalized"] for c in s3) / med(
+            row(c)["erl_merge_penalized"] for c in s5
+        )
+
+    assert len(s5) == 3 and (
+        f"({ratio('neural'):.2f}× and {ratio('generator'):.2f}×), and at a 4-voxel tolerance most of that goes "
+        f"({ratio('neural', True):.2f}× and {ratio('generator', True):.2f}×)" in txt
+    )
+    cubes = g["cubes"]
+    norm = {c: sum(v * v for v in cubes[c]["shift"]) ** 0.5 for c in cubes}
+    big = [c for c in g["groups"]["in_sample"] if norm[c] >= 1]
+    off = [cubes[c]["ct"]["t_star"] * norm[c] for c in big]
+    gain = [cubes[c]["neural"]["le2_shifted"] - cubes[c]["neural"]["le2"] for c in big]
+    assert (
+        f"On {len(big)} of the 11 in-sample cubes the ground truth itself sits about a voxel off the CT's fibers"
+        in txt
+    )
+    assert (
+        f"the CT alone puts the fibers' centres {min(off):.2f}–{max(off):.2f} voxels off"
+        in txt
+    )
+    assert (
+        f"recovers part of the gap ({min(gain):.2f}–{max(gain):.2f} of this tracer's share within 2 voxels)"
+        in txt
+    )
+    # ScrollGT 0.8.2 carries the same measurement as a note on those cubes.
+    shifts = [norm[c] for c in big]
+    assert (
+        f"0.8.2 notes, on those {len(big)} in-sample cubes, that the hand-traced centrelines sit about a voxel off the "
+        f"CT's fibers: the two thin entrants agree on a shift of {min(shifts):.2f}–{max(shifts):.2f} voxels, and the CT "
+        f"puts the fibers' centres {min(off):.2f}–{max(off):.2f} voxels off (#157). It also notes, where the neural "
+        "tracer's in-sample deficit is claimed, that the deficit is a tolerance-2 result on the 512³ cubes (finding "
+        "94). No row changes." in txt
+    )
+    assert (
+        "0.8.2 (the placement note on five in-sample cubes, #157, and the tolerance note, finding 94)"
+        in txt
+    )
+
+
+_F94 = _REPO / "reports/tolerance4_rescore.json"
+
+
+@pytest.mark.skipif(not _F94.exists(), reason="finding 94 artifact absent")
+def test_tolerance4_numbers_match_finding_94():
+    d, txt = json.loads(_F94.read_text()), _text()
+    assert d["status"] == "OK" and not d["identity_problems"]
+    assert d["predictions"] == {
+        "P1_s3_leads_tracer_on_6_of_8": True,
+        "P2_in_sample_trails_tracer_on_9_of_11": False,
+    }
+    pen, med = "erl_merge_penalized", statistics.median
+    n, t, pn, pt, g = (
+        d["rows_neural"],
+        d["rows_tracer"],
+        d["published_neural"],
+        d["published_tracer"],
+        d["groups"],
+    )
+    s3, ins = g["s3"], g["in_sample"]
+    i512 = [c for c in ins if c.endswith("_512")]
+    lead, s3n = d["s3_leading_tracer"]
+    trail, insn = d["in_sample_trailing_tracer"]
+    assert (lead, s3n, trail, insn) == (8, 8, 8, 11)
+
+    def ratio(cubes, a, b):
+        return med(a[c][pen] / b[c][pen] for c in cubes)
+
+    assert (
+        f"Its Scroll-3 lead holds and widens: a median {ratio(s3, n, t):.2f} times our tracer's merge-penalized ERL, "
+        f"against {ratio(s3, pn, pt):.2f} at 2, on {lead} of {s3n} cubes. Its in-sample deficit narrows from "
+        f"{ratio(ins, pn, pt):.2f} to {ratio(ins, n, t):.2f} of ours, and reverses on the three in-sample 512³ cubes "
+        f"(median {med(n[c][pen] for c in i512):.2f} against {med(t[c][pen] for c in i512):.2f})"
+        in txt
+    )
+    assert (
+        f"finding 94 prediction 2 (at tolerance 4, villa's neural tracer would still trail our tracer on at least 9 of "
+        f"11 in-sample cubes: it trailed on {trail})." in txt
+    )
+    assert "findings 91–94 in" in txt and "`reports/tolerance4_rescore.md`" in txt
+
+
+def _json(rel: str) -> dict:
+    p = _REPO / rel
+    if not p.exists():
+        pytest.skip(f"{rel} not present")
+    return json.loads(p.read_text())
+
+
+def test_install_route_ink_count_is_the_published_image_against_the_source_build():
+    # Finding 66 measured the source build against the published image (+5.0% to +9.2%). The draft
+    # states the reverse direction, so it is published / source - 1, not the same figures negated.
+    d = _json("reports/step2_across_surfaces.json")
+    ink = d["ink"]
+    pairs = {"up1": ("detfit_up1", "tif_score_pr1905"), "s4": ("detfit_s4", "step2_s4"),
+             "s5": ("detfit_s5", "step2_s5"), "s6": ("detfit_s6", "step2_s6")}  # fmt: skip
+    short = []
+    for surface, (published, source) in pairs.items():
+        assert ink[source] / ink[published] - 1 == pytest.approx(
+            d["per_surface"][surface]
+        )
+        short.append(100 * (1 - ink[published] / ink[source]))
+    lo, hi = f"{min(short):.0f}", f"{max(short):.0f}"
+    assert f"(finding 66: −{lo}% to −{hi}% ink count)" in _text()
+    flat = lambda rel: " ".join((_REPO / rel).read_text().split())  # noqa: E731
+    assert f"the published image's lower ink count (−{lo} to −{hi}%)" in flat(
+        "reports/SPIRAL_FINDINGS_SUMMARY.md"
+    )
+    assert f"The published image's {lo}–{hi}% lower ink count" in flat(
+        "reports/install_route_band_vs_labels.md"
+    )
+
+
+def test_failed_prediction_figures_are_rounded_once_from_their_sources():
+    txt = _text()
+    # finding 79: the two seed-noise ratios and their intervals
+    d = _json("reports/soft_count_study.json")
+    p, c = d["pinned_q1"], d["current_q1"]
+    q = lambda r: f"R = {r['R']:.2f} [{r['ci'][0]:.2f}, {r['ci'][1]:.2f}]"  # noqa: E731
+    assert p["ci"][0] < 1 < p["ci"][1] and c["ci"][1] < 1
+    assert f"{q(p)}, no detectable difference; it was on current code, {q(c)})" in txt
+    # the shared-p95 re-score of finding 70
+    s = _json("reports/shared_p95_rescore.json")
+    assert s["prediction_held"]["median_abs_d_shared_below_2.5pct"] is False
+    med = 100 * s["summary"]["median_abs_d_shared"]
+    assert f"the median |Δ| stayed at {med:.1f}%, not < 2.5%" in txt
+    # finding 80: the one 256³ cube the tracer leads, and the cubes it leads on
+    cubes = _json("reports/tracer_rescore.json")["cubes"]
+    pen = {k: (v["tracer_v2"]["erl_merge_penalized"], v["cc_v2"]["erl_merge_penalized"])
+           for k, v in cubes.items()}  # fmt: skip
+    lead = [k for k, (t, cc) in pen.items() if t > cc]
+    small = [k for k in lead if k.endswith("_256")]
+    big = [k for k in cubes if k.endswith("_512")]
+    assert len(small) == 1 and set(big) <= set(lead) and len(big) == 3
+    n256 = sum(k.endswith("_256") for k in cubes)
+    assert all(v["ran"] for v in cubes.values()) and n256 == 8
+    assert f"Re-measured with the corrected scorer on all {len(cubes)} cubes:" in txt
+    assert txt.count("all eight 256³ cubes") == 2
+    t, cc = pen[small[0]]
+    stem = small[0].split("_")[:2]
+    assert f"it leads on `{'_'.join(stem)}`, {t:.2f} vs {cc:.2f})" in txt
+    assert (
+        f"on merge-penalized ERL it is ahead on {len(lead)} of {len(cubes)}, "
+        "all three 512³ cubes among them" in txt
+    )
+
+
+def test_scale_and_tolerance_figures_match_their_measurements():
+    txt = _text()
+    if not _F73.exists():
+        pytest.skip("finding 73 artifact absent")
+    d = json.loads(_F73.read_text())
+    lo, hi = d["summary"]["window_d_range"]
+    ws = sorted(abs(w["d"]) for r in d["segments"] for w in r["windows"])
+    med = 100 * (ws[len(ws) // 2] + ws[(len(ws) - 1) // 2]) / 2
+    assert (
+        f"a {med:.1f}% median and −{-100 * lo:.0f}% to +{100 * hi:.0f}% per window on "
+        "80-voxel grids" in txt
+    )
+    # where villa's labels are defined: each segment's supervised share of its mesh-valid area
+    seg = _json("reports/scorer_sparsity_annotated.json")["per_segment"].values()
+    share = [100 * s["in_px"] / (s["in_px"] + s["out_px"]) for s in seg]
+    cover = f"({min(share):.0f}–{max(share):.0f}% of each segment's mesh-valid area"
+    flat = lambda rel: " ".join((_REPO / rel).read_text().split())  # noqa: E731
+    assert len(share) == 8 and cover in txt
+    for rel in (
+        "reports/SPIRAL_FINDINGS_SUMMARY.md",
+        "reports/surface_interpolation_vs_labels.md",
+    ):
+        assert cover in flat(rel), rel
+    # finding 78: the share of villa's annotated ink its scorer marks
+    rec = _json("reports/scorer_sparsity_annotated.json")["pooled"]["recall_inside"]
+    assert f"its count is sparse (about {100 * rec:.0f}% of annotated ink)" in txt
+    # finding 94: villa's neural tracer against ours off Scroll 3, at tolerances 2 and 4
+    if not _F94.exists():
+        pytest.skip("finding 94 artifact absent")
+    t4 = json.loads(_F94.read_text())
+    for who in (
+        "tracer",
+        "cc",
+        "neural",
+    ):  # the published rows are tolerance 2, the re-score 4
+        assert {r["tolerance"] for r in t4[f"published_{who}"].values()} == {2.0}
+        assert {r["tolerance"] for r in t4[f"rows_{who}"].values()} == {4.0}
+    g = t4["groups"]
+    other = g["in_sample"] + g["s5_held_out"]
+    leads = lambda tracer, neural: [  # noqa: E731
+        c
+        for c in other
+        if neural[c]["erl_merge_penalized"] > tracer[c]["erl_merge_penalized"]
+    ]
+    at2 = leads(t4["published_tracer"], t4["published_neural"])
+    at4 = leads(t4["rows_tracer"], t4["rows_neural"])
+    assert t4["tolerance"] == 4 and not at2 and len(at4) == 3
+    assert (
+        f"at tolerance 2 trails on the other {len(other)} cubes, for reasons only partly "
+        "measured (at 4 it leads on three of them, finding 94)" in txt
+    )
+
+
+# Each failed registered prediction in the list, with how many it counts for. The stated total is their sum.
+_FAILED = {
+    "finding 70 (": 1,
+    "finding 71 prediction 1": 1,
+    "finding 72 prediction 1": 1,
+    "per-crop normalisation as the cause": 1,
+    "finding 73 prediction 2": 1,
+    "finding 74 predictions 2 and 3": 2,
+    "finding 75 predictions 1 and 2": 2,
+    "finding 76 prediction 1": 1,
+    "the correction's prediction 3": 1,
+    "finding 79 prediction 1": 1,
+    "finding 80 prediction 2": 1,
+    "finding 83 prediction 1": 1,
+    "finding 84 prediction 3": 1,
+    "finding 85 prediction 1": 1,
+    "finding 92 predictions 2 and 3": 2,
+    "finding 93 predictions 1–3": 3,
+    "finding 94 prediction 2": 1,
+}
+
+
+@pytest.mark.skipif(not _SUP.exists(), reason="supervised re-analysis artifact absent")
+def test_failed_predictions_say_where_the_labels_change_them():
+    # Findings 71-76's predictions are listed as registered, on the whole surface. Where the labels
+    # are defined, three of them change, and one that held (71 P2) fails; the list says so.
+    d, txt = json.loads(_SUP.read_text()), _text()
+    rows = [r for r in d["f71"]["rows"] if r["status"] == "compared"]
+    # 71 P1: |ΔAP| < 0.02 in at least 6 of the 8
+    assert len(rows) == 8 and sum(abs(r["d_ap"]) < 0.02 for r in rows) >= 6
+    # 71 P2, held on the whole surface: ΔAP > 0 in at most 5 of the 8
+    pos = sum(r["d_ap"] > 0 for r in rows)
+    assert pos > 5
+    assert (
+        "Re-analysed with inkagree's gate where the labels are defined, all 8 pass and it holds, "
+        "while prediction 2, held on the whole surface, fails there: smooth's ΔAP > 0 in "
+        f"{pos} of 8, not at most 5);" in txt
+    )
+    # 74 P3: step 1.0 vs 0.5, no consistent difference by the k = 6 rule
+    t = d["f74"]["1.0"]["tally"]
+    assert t["resolved_b"] < 6 and t["resolved_a"] < 6
+    assert (
+        f"where the labels are defined, prediction 3 holds: {t['resolved_a']} of 8)"
+        in txt
+    )
+    # 76 P1: no window qualifies, so no correlation
+    assert d["f76"]["n_windows"] == 0
+    assert (
+        "where the labels are defined it is undetermined, since no window qualifies)"
+        in txt
+    )
+
+
+def test_the_failed_prediction_count_is_the_listed_tally():
+    raw = _DRAFT.read_text()
+    head = (
+        "* **Twenty-two of my registered predictions failed**, and the reports say so:"
+    )
+    section = raw[
+        raw.index(head) + len(head) : raw.index(
+            "* **The effect's size depends on grid cell size**"
+        )
+    ]
+    items = [" ".join(b.split()) for b in section.split("\n  * ")[1:]]
+    assert len(items) == len(_FAILED), items
+    for key in _FAILED:
+        assert sum(it.startswith(key) for it in items) == 1, key
+    assert sum(_FAILED.values()) == 22

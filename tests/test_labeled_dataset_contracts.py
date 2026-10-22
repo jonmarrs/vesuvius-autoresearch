@@ -342,6 +342,11 @@ def test_big_endian_volumes_are_read_and_normalised(
 ):
     monkeypatch.setattr(vesuvius_loader, "DEFAULT_CACHE_DIR", str(tmp_path / "c"))
     volume_uri, labels = _fragment(tmp_path, dtype=dtype)
-    ds = VesuviusLabeledDataset(volume_uri, labels, patch_size=16, num_layers=4)
+    # Strict: a read that failed (torch refuses a non-native byte order) raises
+    # here rather than becoming the permissive mode's zero patch.
+    ds = VesuviusLabeledDataset(
+        volume_uri, labels, patch_size=16, num_layers=4, strict_reads=True
+    )
     patch, _, _ = ds[0]
-    assert patch.dtype == torch.float32 and float(patch.max()) <= 250.0 / scale
+    assert patch.dtype == torch.float32
+    assert 0.0 < float(patch.max()) <= 250.0 / scale

@@ -25,7 +25,6 @@ from dataclasses import asdict
 import kimimaro
 import numpy as np
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
 from tap import Tap
 
@@ -58,7 +57,7 @@ from torch.utils.data import DataLoader, RandomSampler, default_collate
 from scripts import wandb_tracking
 from scripts.betti_loss_module import BettiLoss
 from scripts.cldice_loss import SoftClDiceLoss
-from scripts.training.config import AuxiliaryConfig, ExperimentConfig
+from scripts.training.config import ExperimentConfig
 from scripts.training.promotion import (
     RESCORE_COMMAND,
     VALIDATION_LABEL_FILES,
@@ -480,7 +479,7 @@ def is_model_improvement(
 # 0.018 on it. 8 of finding 88's 10 loop candidates (2026-10-13, each its own tweak) also
 # cleared 0.01 under v3 (reports/loop_candidate_spread.json). A promotion keeps the
 # cycle's tweak in config.json, credits its family and makes the candidate the incumbent.
-# All of this is at the 900 s day budget; night cycles run 3600 s and are unmeasured.
+# All of this is at the 900 s day budget; night cycles then ran 3600 s and are unmeasured.
 # Noted 2026-10-17; docs/DESIGN_ARCHITECTURE_REVIEW_2026-10-17_TOLERANCE.md.)
 # Four more trials ran 2026-10-17 (reports/noise_probe_v3_pooled_2026-10-17.md): pooled
 # over eight, sigma = 0.0029 (95% CI 0.0019-0.0058, df 7), so under July's two-draws model a
@@ -1130,7 +1129,10 @@ def ink_containing(probs, targets):
 # to pick its own binarization threshold, so the topology gates are evaluated at
 # the threshold that maximizes centerline_dice, reported alongside the
 # Dice-based val_bpb. Candidates stay in the low range because this model's
-# probability mass collapses above ~0.25.
+# probability mass collapses above ~0.25. Villa's centerline_dice is not bounded
+# by 1: a prediction skeleton longer than the ground truth's, within the
+# tolerance, outscores an exact copy, so the maximum can fall on a raggeder mask
+# (METHOD.md; tests/test_villa_centerline_dice_range.py).
 TOPOLOGY_THRESHOLD_CANDIDATES = (0.05, 0.10, 0.15, 0.20, 0.30, 0.40, 0.50)
 
 

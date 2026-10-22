@@ -9,6 +9,13 @@ which in-bounds NML nodes land on fiber-positive voxels. That rate is the
 empirical proof of the coordinate convention (NML x,y,z against volume z,y,x,
 origin from the filename), and it is recorded into meta.json so the guarantee
 survives into a repo that does not ship the raw cubes.
+
+It writes a new target set only. ScrollGT maintains its published targets
+itself. They hold what this export does not write: our tracer's row, the NML's
+dataset provenance and, on three cubes, villa's newer annotations (ScrollGT
+0.5.0, finding 82). Writing over them would lose all three, so a target that
+already exists in --out-root is refused. Every cube is written to a staging
+directory first and moved into place only once all have passed.
 """
 
 from __future__ import annotations
@@ -16,10 +23,13 @@ from __future__ import annotations
 import argparse
 import json
 import pathlib
+import shutil
+import tempfile
 
 import numpy as np
 import tifffile
 
+from vesuvius_autoresearch.fibers.provenance import SCORING_VERSION, file_sha256
 from vesuvius_autoresearch.fibers.skeleton_io import (
     origin_from_stem,
     parse_nml,
@@ -158,6 +168,66 @@ def scoring_mask_landing_stats(skel, mask) -> tuple[float, float, float, float]:
     return rate, density, enrichment, in_bounds_fraction
 
 
+def bench_problems(bench: dict, stem: str) -> list[str]:
+    """Why a cube's floors in the benchmark report must not ship beside this cube's mask and skeleton.
+
+    The floors are copied into meta.json as they are. They must come from the current scorer, at the report's
+    tolerance, and from the probability volume, skeleton and threshold this export ships: `bench_cli floors
+    --all-cubes` records each in the cube's provenance. The default report, reports/fiber_benchmark_all_cubes.json
+    (2026-07-30), records none of them: its rows are scoring version 1, from before the October changes (versions
+    2-5, the last ScrollGT's ERL fix, finding 85).
+    """
+    cube = bench.get("cubes", {}).get(stem)
+    if cube is None:
+        return ["not in the benchmark report"]
+    problems = []
+    if bench.get("scoring_version") != SCORING_VERSION:
+        problems.append(
+            f"report scoring_version {bench.get('scoring_version')!r}, not {SCORING_VERSION}"
+        )
+    rows = cube.get("rows", {})
+    if "oracle" not in rows:
+        problems.append("no oracle row")
+    old = sorted(
+        name
+        for name, row in rows.items()
+        if row.get("scoring_version") != SCORING_VERSION
+    )
+    if old:
+        problems.append(f"rows not scored at version {SCORING_VERSION}: {old}")
+    other = sorted(
+        name
+        for name, row in rows.items()
+        if row.get("tolerance") != bench.get("tolerance")
+    )
+    if other:
+        problems.append(f"rows not at the report's tolerance: {other}")
+    record = cube.get("provenance")
+    if not record:
+        return [*problems, "no provenance"]
+    files = {
+        "probability_sha256": SRC / f"{stem}_fiberprob.npy",
+        "skeleton_sha256": SRC / f"{stem}.nml",
+    }
+    missing = [str(path) for path in files.values() if not path.is_file()]
+    if missing:
+        return [*problems, f"missing {', '.join(missing)}"]
+    expected = {
+        "scoring_version": SCORING_VERSION,
+        **{key: file_sha256(path) for key, path in files.items()},
+        "tolerance": bench.get("tolerance"),
+        "step": 0.5,
+        "restrict_to_bounds": True,
+        "mask_threshold": THRESHOLD,
+    }
+    problems += [
+        f"provenance {k} {record.get(k)!r}, this export's {v!r}"
+        for k, v in expected.items()
+        if record.get(k) != v
+    ]
+    return problems
+
+
 def export(stem: str, out_root: pathlib.Path, bench: dict) -> None:
     size = size_from_stem(stem)
     shape = (size, size, size)
@@ -279,13 +349,41 @@ def export(stem: str, out_root: pathlib.Path, bench: dict) -> None:
 
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--out-root", required=True, help="scrollgt data/ directory")
+    ap.add_argument(
+        "--out-root",
+        required=True,
+        help="where the new target set goes; refuses a cube whose target is already there",
+    )
     ap.add_argument("--bench", default="reports/fiber_benchmark_all_cubes.json")
     args = ap.parse_args()
 
+    out_root = pathlib.Path(args.out_root)
+    existing = [stem for stem in CUBES if (out_root / f"fibers_{stem}").exists()]
+    if existing:
+        raise SystemExit(
+            f"{out_root} already has targets for {', '.join(existing)}. ScrollGT maintains "
+            "its published targets; this export would drop their tracer row, their NML's "
+            "dataset provenance and, on three cubes, villa's newer annotations. Export into "
+            "a new directory."
+        )
     bench = json.loads(pathlib.Path(args.bench).read_text())
-    for stem in CUBES:
-        export(stem, pathlib.Path(args.out_root), bench)
+    refused = {stem: bad for stem in CUBES if (bad := bench_problems(bench, stem))}
+    if refused:
+        raise SystemExit(
+            f"{args.bench} cannot supply the floors: "
+            + "; ".join(f"{stem}: {', '.join(bad)}" for stem, bad in refused.items())
+        )
+    # Every cube is written to a staging directory and moved into place only once all
+    # have passed export's own checks, so a refusal leaves out_root as it was.
+    out_root.mkdir(parents=True, exist_ok=True)
+    staging = pathlib.Path(tempfile.mkdtemp(prefix=".export_", dir=out_root))
+    try:
+        for stem in CUBES:
+            export(stem, staging, bench)
+        for stem in CUBES:
+            (staging / f"fibers_{stem}").rename(out_root / f"fibers_{stem}")
+    finally:
+        shutil.rmtree(staging)
 
 
 if __name__ == "__main__":

@@ -45,8 +45,11 @@ clipped "#1780" to "#17".
    URL field no longer cites it.
 3. ScrollGT 0.6.0 (the held-out split) was tagged on 2026-10-11, 0.7.0 (the ERL fix, finding 85) on 2026-10-12, and
    0.8.0 (villa's neural tracer as an entrant, finding 91) and 0.8.1 (the pitch note on its Scroll-3 lead, finding 92)
-   on 2026-10-19. The URL field cites `tree/v0.8.1`; the test binds the cite to ScrollGT's newest tag, so a later
-   release must update it. Findings 84–85 are folded in (2026-10-12).
+   on 2026-10-19, and 0.8.2 (the placement note on five in-sample cubes, #157, and the tolerance note, finding 94) on
+   2026-10-20. The URL field cites
+   `tree/v0.8.2`; the test binds the cite to ScrollGT's newest tag, so a later
+   release must update it. Findings 84–85 are folded in (2026-10-12). Finding 93 and the placement measurements
+   (#151, #157) are folded in (2026-10-20).
 4. Finding 85 measures an open villa PR (#1934). The user-approved comment sharing it with the author was posted
    2026-10-12 (https://github.com/ScrollPrize/villa/pull/1934#issuecomment-6131993208) and is cited in part (2). On filing day, re-read the thread: quote any reply verbatim, record
    whether #1934 is still open, and do not characterise silence.
@@ -63,7 +66,7 @@ https://github.com/ScrollPrize/villa/pull/2044
 https://github.com/jonmarrs/vesuvius-autoresearch
 https://github.com/jonmarrs/inkdelta
 https://github.com/jonmarrs/inkagree
-https://github.com/jonmarrs/scrollgt/tree/v0.8.1
+https://github.com/jonmarrs/scrollgt/tree/v0.8.2
 ```
 
 ---
@@ -112,7 +115,8 @@ three things that number silently depends on, against villa's own code and villa
   `vc_render_tifxyz --surface-interpolation smooth`. Its default is byte-identical to earlier builds.
   On the 8 labelled segments, in villa's own scoring pipeline:
   * on villa's fine segment meshes, smooth moves `total_fg_pixels` by −3.6% to +4.1% per segment, and
-    the scorer's agreement with villa's labels does not change (|ΔAP| < 0.001 in all 8, none resolved);
+    the scorer's agreement with villa's labels does not change (where the labels are defined, its |ΔAP| is
+    < 0.01 in all 8; 1 of 8 resolved, by 0.006);
   * on grids as coarse as the spiral surfaces villa's loop scores, the count moves by −7.9% to +19.4%
     per segment (−31.9% to +41.5% per window). The raw render agrees only slightly better with villa's labels (about
     1% of AP), and the scorer's agreement does not consistently change.
@@ -123,7 +127,7 @@ three things that number silently depends on, against villa's own code and villa
 * **The install route changes how well the metric's renders agree with villa's labels, not only how much
   ink they find.**
   villa's published sampler image samples a thinner band than any current source build (finding 66:
-  −5% to −9% ink count). Against villa's labels at the metric's own settings, on all 8 segments and
+  −5% to −8% ink count). Against villa's labels at the metric's own settings, on all 8 segments and
   where the labels are defined, the source build's band agrees better (8 of 8, about +5% AP), and a band
   twice as wide agrees better still (8 of 8, about +8%). The stale image costs agreement (on segments the ink model trained on),
   and the metric's default band is narrower than the best tested.
@@ -173,8 +177,22 @@ four predictions held):
 * **The Scroll-3 lead depends on the pitch it ran at** (finding 92, pre-registered). Resampled from the cubes' 7.91 µm
   to its 9.6 µm training pitch, it scores lower on all 21 cubes (merge-penalized ERL a median 0.63 of the rows above)
   and leads our tracer on none of the 8 Scroll-3 cubes. It still trails on all 11 in-sample cubes, so pitch is not
-  why the scrolls differ; the scan (its Scroll 1 data is the 2.4 µm rescan), the cube size and annotation style are
-  untested. Its runs are deterministic: both repeated cubes reproduce exactly.
+  why the scrolls differ. Its runs are deterministic: both repeated cubes reproduce exactly.
+* **Not its seeding** (finding 93, pre-registered; all three predictions failed). Its seeding is set in grid voxels,
+  so at 9.6 µm it starts fewer traces. Seeded per micrometre there, it recovers only to 0.67 of the native rows (from
+  0.63) and leads our tracer on 0 of 8 Scroll-3 cubes. Seeded as sparsely at 7.91 µm, it keeps 0.88 and its lead on
+  7 of 8. So the lead depends on the pitch the network reads, or on the resampling, and ScrollGT 0.8.1's note stands.
+* **Where the scrolls differ** (measured after finding 92, not pre-registered). On the 512³ cubes, only the two thin
+  entrants, this tracer and #1934's generator, score higher on Scroll 3 than on Scroll 5's three in-sample cubes
+  (2.71× and 2.12×), and at a 4-voxel tolerance most of that goes (1.26× and 0.81×). On those Scroll-5 cubes their
+  centrelines lie 2–4 voxels from the ground truth more often. On 5 of the 11 in-sample cubes the ground truth itself
+  sits about a voxel off the CT's fibers: the two entrants agree on the shift, and the CT alone puts the fibers'
+  centres 0.51–0.93 voxels off. Correcting for it recovers part of the gap (0.06–0.09 of this tracer's share within 2
+  voxels), not all. The scan, fiber width and how precisely each scroll was annotated remain untested.
+* **At a 4-voxel tolerance** (finding 94, pre-registered; one of its two predictions failed). Its Scroll-3 lead holds
+  and widens: a median 2.22 times our tracer's merge-penalized ERL, against 1.26 at 2, on 8 of 8 cubes. Its in-sample
+  deficit narrows from 0.36 to 0.71 of ours, and reverses on the three in-sample 512³ cubes (median 49.50 against
+  43.69). It still trails on the eight 256³ ones and both held-out cubes.
 
 **(3) What it enables that was not possible before.**
 * [inkagree](https://github.com/jonmarrs/inkagree) (MIT; first released 2026-10-03, now 0.3.0, which evaluates only
@@ -207,12 +225,18 @@ four predictions held):
     provenance, so the benchmark's published tables now carry its Scroll-3 lead and its deficit elsewhere.
   * 0.8.1 notes, wherever that lead is claimed, that it depends on the pitch: resampled to its 9.6 µm training pitch,
     the tracer leads ours on none of the 8 Scroll-3 cubes (finding 92). No row changes.
+  * 0.8.2 notes, on those 5 in-sample cubes, that the hand-traced centrelines sit about a voxel off the CT's fibers:
+    the two thin entrants agree on a shift of 1.01–1.53 voxels, and the CT puts the fibers' centres 0.51–0.93 voxels
+    off (#157). It also notes, where the neural tracer's in-sample deficit is claimed, that the deficit is a
+    tolerance-2 result on the 512³ cubes (finding 94). No row changes.
 
 **(4) Evidence.**
 * Each study was pre-registered before its data, and each has a report and its scripts in
   https://github.com/jonmarrs/vesuvius-autoresearch (findings 69–85 in
-  `reports/SPIRAL_FINDINGS_SUMMARY.md`; findings 91 and 92 in `reports/neural_tracer_entrant.md` and
-  `reports/neural_tracer_pitch.md`).
+  `reports/SPIRAL_FINDINGS_SUMMARY.md`; findings 91–94 in `reports/neural_tracer_entrant.md`,
+  `reports/neural_tracer_pitch.md`, `reports/neural_tracer_seeding.md` and `reports/tolerance4_rescore.md`; the
+  placement and ground-truth offset
+  measurements in the last section of `reports/neural_tracer_entrant.md`).
 * Every figure here is bound by a test to the file that produced it.
 * [villa #2044](https://github.com/ScrollPrize/villa/pull/2044) records the memory limits, hardware,
   before/after runs and the averaging comparison behind the scorer fix. The full GPU scorer has
@@ -247,30 +271,33 @@ four predictions held):
   11 of its fiber targets (finding 82). On those, a score built on the mask measures the instance step on a
   segmentation that has seen the cube.
 * **A correction, made and registered before recomputing:** my label-based analyses (findings 71–76)
-  first scored the whole surface. villa's labels exist only inside its supervision mask (3–13% of each
-  segment), so unannotated ink counted as a miss. Re-analysed where the labels are defined:
+  first scored the whole surface. villa's labels exist only inside its supervision mask (4–15% of each
+  segment's mesh-valid area), so unannotated ink counted as a miss. Re-analysed where the labels are defined:
   * most findings survive;
   * finding 75 survives with smaller effects;
   * finding 74 does not survive as stated (step 0.5 vs 1.0 is not consistent).
 
   inkagree 0.3.0 makes the supervised region its default. `reports/supervised_reanalysis.md`.
-* **Eighteen of my registered predictions failed**, and the reports say so:
+* **Twenty-two of my registered predictions failed**, and the reports say so:
   * finding 70 (smooth would move the count < 1% in every crop window: it moved up to ±20%);
-  * finding 71 prediction 1 (failed on three exclusions, one caused by a defect in my alignment gate);
+  * finding 71 prediction 1 (failed on three exclusions, one caused by a defect in my alignment gate. Re-analysed
+    with inkagree's gate where the labels are defined, all 8 pass and it holds, while prediction 2, held on the
+    whole surface, fails there: smooth's ΔAP > 0 in 7 of 8, not at most 5);
   * finding 72 prediction 1 (the count was sensitive in 15% of windows, not ≥ 25%).
   * per-crop normalisation as the cause of finding 70's size (re-scored with one shared p95,
     the median |Δ| stayed at 4.7%, not < 2.5%).
   * finding 73 prediction 2 (smooth's scorer output would agree better with the labels on coarse grids:
     2 of 8, not ≥ 6).
   * finding 74 predictions 2 and 3 (no difference between slice steps 0.25 or 1.0 and the tutorial's 0.5:
-    0.5 was better in 8 of 8 and 7 of 8).
+    0.5 was better in 8 of 8 and 7 of 8; where the labels are defined, prediction 3 holds: 4 of 8).
   * finding 75 predictions 1 and 2 (no difference between the published image's band, or a wider one, and
     the source build's: the source build beat the first, and the wider band beat it, both in 8 of 8).
   * finding 76 prediction 1 (villa's ink count would track labelled-ink density across regions: ρ = +0.04,
-    an ambiguous null, since the raw render does not track it either).
+    an ambiguous null, since the raw render does not track it either; where the labels are defined it is
+    undetermined, since no window qualifies).
   * the correction's prediction 3 (findings 74 and 75 would survive: 75 did, 74 did not as stated).
   * finding 79 prediction 1 (an unthresholded ink count would be less noisy across seeds on pinned code:
-    R = 0.91 [0.56, 1.47], no detectable difference; it was on current code, R = 0.52 [0.35, 0.91]).
+    R = 0.91 [0.56, 1.47], no detectable difference; it was on current code, R = 0.52 [0.34, 0.91]).
   * finding 80 prediction 2 (the tracer would trail connected components on merge-penalized ERL on all
     eight 256³ cubes: it leads on `s5_14997`, 38.56 vs 33.09).
   * finding 83 prediction 1 (the fiber mask's coverage would drop on Scroll 3, which it never saw: the median is
@@ -281,8 +308,13 @@ four predictions held):
   * finding 92 predictions 2 and 3 (at its 9.6 µm training pitch, villa's neural tracer would keep its Scroll-3 lead
     on at least 6 of 8 cubes: it kept it on 0; its median merge-penalized ERL would stay within 0.85–1.15 of the
     native rows: 0.63).
+  * finding 93 predictions 1–3 (seeded per micrometre at 9.6 µm, villa's neural tracer would recover to at least 0.85
+    of the native rows: 0.67; regain its Scroll-3 lead on at least 6 of 8 cubes: 0; and, seeded as sparsely at
+    7.91 µm, fall to at most 0.80: 0.88).
+  * finding 94 prediction 2 (at tolerance 4, villa's neural tracer would still trail our tracer on at least 9 of 11
+    in-sample cubes: it trailed on 8).
 * **The effect's size depends on grid cell size** (finding 73, measured): about 1% per window on
-  villa's 20-voxel segment meshes, a 6.2% median and up to ±40% per window on 80-voxel grids like the
+  villa's 20-voxel segment meshes, a 6.2% median and −32% to +42% per window on 80-voxel grids like the
   spiral surfaces. Quote the size with the grid.
 * villa's scroll labels are partly pseudo-labels, made with default-mode geometry. That favours the
   default mode in any comparison against them, and still no difference appeared.
@@ -310,7 +342,11 @@ four predictions held):
 * Not "the #1934 generator is worse than our tracer" as a headline. One setting (its defaults), cubes below its
   training resolution, and in-sample rows on 11 cubes. Coverage is the measured gap.
 * Not "villa's neural tracer beats ours" or "trails ours" as a headline. It ranks first on merge-penalized ERL on
-  Scroll 3 with less coverage, and trails on the other 13 cubes, for reasons untested. One checkpoint, defaults.
+  Scroll 3 with less coverage, and at tolerance 2 trails on the other 13 cubes, for reasons only partly measured (at
+  4 it leads on three of them, finding 94). One checkpoint,
+  defaults.
+* Not "ScrollGT's ground truth is wrong on five cubes". Two entrants and the CT agree on an offset of about a voxel
+  there, measured after the fact. It explains part of the in-sample gap, and the ground truth is unchanged.
 * Not "the Scroll-5 miss is the annotators". Finding 84 rules out a frame offset and a threshold, nothing more.
 * Not "held out" as secrecy. The fiber ground truth is public; `held_out` means only that the reference mask did
   not train on the cube.

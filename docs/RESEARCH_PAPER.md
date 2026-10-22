@@ -5,12 +5,12 @@
 **Status:** Draft / in-progress research notes — not a submitted paper. Numbers and claims here track the current state of the [`vesuvius-autoresearch`](https://github.com/jonmarrs/vesuvius-autoresearch) loop and are updated as cycles complete; treat as a living document until a version is explicitly submitted somewhere.
 
 ## Abstract
-Detecting ink within micro-CT scans of carbonized papyrus scrolls remains a significant challenge due to low signal-to-noise ratios, morphological variability across scrolls, and the risk of model hallucination. These notes describe a single-GPU (NVIDIA RTX 4090) research program with two strands: an autonomous bandit loop over architectural and hyperparameter tweaks, and — the stronger 2026-06/07 strand — a **productionized ink detector** built by replicating the proven 2023 Grand-Prize TimeSformer recipe and then **rebasing it onto the newly-open SOTA scroll data by distillation**. Under the community metric contract (threshold-swept F1 primary; average precision and AP-prevalence-lift as imbalance-robust gates; ROC-AUC secondary), the detector scores held-out same-scroll `val_f1` 0.393 / lift 2.07 (ROC-AUC 0.709) at the prize-compliant 64 px lateral window, and the first *valid* cross-scroll measurement quantifies the generalization gap at lift 1.29 (near chance). Distilling the same recipe from the released canon predictions on the open SOTA surface volumes lifts held-out **agreement-with-teacher** (explicitly not ground-truth accuracy — no aligned ground-truth labels are released) from the chance floor to `val_f1` 0.662 / AP 0.742 / lift 3.24, with the repo's first letterform-shaped output. The methodological through-line is measurement honesty: Dice/`val_bpb` saturate on ink-rich patches (a near-constant predictor scores Dice ≈ 0.75), a widely-copied `skel_dist` "prize gate" is provably invalid (blind to spatial location), and every claim above ships with its measurement instrument and its caveats.
+Detecting ink within micro-CT scans of carbonized papyrus scrolls remains a significant challenge due to low signal-to-noise ratios, morphological variability across scrolls, and the risk of model hallucination. These notes describe a single-GPU (NVIDIA RTX 4090) research program with two strands: an autonomous bandit loop over architectural and hyperparameter tweaks, and — the stronger 2026-06/07 strand — a **productionized ink detector** built by replicating the proven 2023 Grand-Prize TimeSformer recipe and then **rebasing it onto the newly-open SOTA scroll data by distillation**. Under the community metric contract (threshold-swept F1 primary; average precision and AP-prevalence-lift as imbalance-robust gates; ROC-AUC secondary), the detector scores held-out same-scroll `val_f1` 0.393 / lift 2.07 (ROC-AUC 0.709; its epoch chosen on that fragment) at the prize-compliant 64 px lateral window, and the first *valid* cross-scroll measurement quantifies the generalization gap at lift 1.29 (near chance). Distilling the same recipe from the released canon predictions on the open SOTA surface volumes lifts held-out **agreement-with-teacher** (explicitly not ground-truth accuracy — no aligned ground-truth labels are released) from the chance floor to `val_f1` 0.662 / AP 0.742 / lift 3.24, with the repo's first letterform-shaped output. The methodological through-line is measurement honesty: Dice/`val_bpb` saturate on ink-rich patches (a near-constant predictor scores Dice ≈ 0.75), a widely-copied `skel_dist` "prize gate" is provably invalid (blind to spatial location), and every claim above ships with its measurement instrument and its caveats.
 
 ## I. Introduction
 The Vesuvius Challenge seeks to read the lost library of Herculaneum through advanced imaging and machine learning. In June 2026 the challenge read its first *complete* scroll (PHerc. 1667 [4]) — driven by improved phase-contrast scanning, semi-automated unwrapping, and ink models used as "visibility amplifiers" — and released the underlying data openly. With hundreds of scrolls still unread, the "Generalization Gap" — the failure of a model trained on one scroll to detect ink on another — remains the field's central open problem, and the newly-open data makes it addressable by independent researchers on consumer hardware.
 
-Manual architectural tuning is slow. The autoresearch loop attempts to compress that loop by running 15-minute (Day Shift) or 60-minute (Night Shift) experimental cycles autonomously, mutating a small number of axes (learning rate, capacity, augmentation knobs, loss balance, auxiliary tasks, etc.) per cycle and promoting only configurations that improve `val_bpb` over the held checkpoint.
+Manual architectural tuning is slow. The autoresearch loop attempts to compress that loop by running 15-minute experimental cycles autonomously (nights ran 60 minutes from 2026-04-29 to 2026-10-20), mutating a small number of axes (learning rate, capacity, augmentation knobs, loss balance, auxiliary tasks, etc.) per cycle and promoting only configurations that improve `val_f1`, gated by AP-prevalence lift, over the held checkpoint (until 2026-07-11 it selected on `val_bpb` and topology).
 
 ## II. Methodology
 
@@ -29,7 +29,7 @@ In the spirit of citizen science and decentralized science (DeSci), our framewor
 *   **Local Storage:** We cap local data storage at **500 GB** at any given time, prioritizing high-value labeled segments over full scroll volumes.
 
 ## III. Experimental Setup
-Experiments run on an NVIDIA RTX 4090 (24 GB VRAM). We enforce a 0.5 × 0.5 mm (64 × 64 voxel at 7.91 µm spacing) prediction window per the Vesuvius Challenge hallucination guidance for ink detection. The loop runs continuously during Day Shift (07:00–19:00 local, 900 s/cycle) and Night Shift (otherwise, 3600 s/cycle).
+Experiments run on an NVIDIA RTX 4090 (24 GB VRAM). We enforce a 0.5 × 0.5 mm (64 × 64 voxel at 7.91 µm spacing) prediction window per the Vesuvius Challenge hallucination guidance for ink detection. The loop runs continuously during Day Shift (07:00–19:00 local, 900 s/cycle) and Night Shift (otherwise, 900 s/cycle; 3600 s from 2026-04-29 to 2026-10-20).
 
 ## IV. Current Results
 
@@ -43,6 +43,12 @@ community contract:
 | `average_precision` | 0.357 | 0.144 |
 | `ap_prevalence_lift` (1.0 = chance) | 2.07 | 1.29 |
 | ROC-AUC (secondary) | 0.709 | 0.585 |
+
+The same-scroll column is optimistic: its checkpoint, epoch 7 of 12, was chosen by ROC-AUC
+on Fr143 itself. In the per-epoch sweep (Gaussian blend, `reports/detector/REPRODUCTION.md`)
+epoch 7 scored 0.7001 and the last epoch, a fixed rule, 0.6982; the selection's effect on
+`val_f1`, AP and lift was not measured. No epoch was chosen on Scroll 1. In both columns
+`val_f1` is at its own best threshold. (Added 2026-10-22.)
 
 Real, transferable ink signal at the prize window same-scroll (proven-recipe reference:
 0.711 ROC-AUC); **weak cross-scroll transfer** — the quantified generalization gap. Getting

@@ -44,8 +44,8 @@ Each cycle of `run_autoresearch_loop.py`:
    (`train.py --smoke`). A configuration that cannot build or run is skipped
    immediately rather than consuming a cycle.
 3. **Train under a fixed budget.** The candidate trains for a fixed wall-clock
-   budget on the training fragment: 15 minutes in the day shift (07:00–19:00),
-   60 at night.
+   budget on the training fragment: 15 minutes in both the day shift (07:00–19:00)
+   and the night shift. Nights ran 60 minutes from 2026-04-29 to 2026-10-20.
 4. **Evaluate on held-out data.** The model is scored on a separate validation
    fragment it never trained on (train/predict non-overlap), producing the
    threshold-swept `val_f1` and AP-prevalence lift that decide promotion, plus
@@ -75,7 +75,32 @@ distillation results — mask-restricted and pooled over the fragment:
 - **ROC-AUC** — secondary diagnostic only, never an optimization target (it is
   over-optimistic under class imbalance).
 - **`centerline_dice`** — topological score, evaluated at the topology-optimal
-  binarization threshold (the Dice-optimal threshold understates it ~2×).
+  binarization threshold (the Dice-optimal threshold understates it ~2×). Villa's
+  definition is 2·|S_pred ∩ T(S_gt)| / (|S_gt| + |S_pred|): the prediction's skeleton
+  pixels within 3 px of the ground truth's skeleton, over both skeletons' lengths. That is
+  not the symmetric clDice, and it is **not bounded by 1** (it stays below 2). It exceeds 1
+  by two routes:
+  - **A slice with no ground-truth skeleton.** Its tolerance region is the whole slice, so
+    every predicted skeleton pixel there counts as a hit, and an ink-free label with any
+    prediction scores about 2. The loop's July rows above 1 (1.36–1.86 in `history.tsv`)
+    and the 1.349 incumbent of that time came from this route: the loop then scored each
+    batch as one stack of slices. It now scores each patch, and its per-patch metrics only
+    the ink-containing ones. `scripts/evaluate_villa_metrics.py` still scores whole volumes as
+    villa does, and reports how many slices of a 3-D volume had a prediction but no ground
+    truth.
+    `repro/gp_winner/prize_gate_eval.py` refuses a label with no ink inside its mask. The local
+    villa draft (`docs/VILLA_DRAFT_centerline_dice_empty_slices.md`) fixes this route only.
+  - **A prediction skeleton longer than the ground truth's, mostly inside the tolerance.**
+    It outscores an exact copy. On a 56-px stroke, an exact copy scores 1.00, a ragged
+    prediction around it 1.10, and a comb of spurs 1.33
+    (`tests/test_villa_centerline_dice_range.py`).
+
+  The topology threshold maximises it, so it can settle on a raggeder mask.
+  - **While `enforce_prize_gates` is false, as in config.json, it decides no promotion.** It
+    is reported, and the prize-readiness record requires it to be finite, measured on enough
+    patches, and ≥ 0.01 (`min_prize_centerline_dice`).
+  - **With `enforce_prize_gates` true**, the `ExperimentConfig` default, a run that fails that
+    record is not promoted.
 - **Removed: `skeleton_distance_length`.** Formerly used as a selection signal and a
   "prize gate" (≤ 2.0); we proved it invalid for ink detection — it compares skeleton
   branch-length *histograms* and is blind to spatial location (a zero-overlap
@@ -98,7 +123,8 @@ distillation results — mask-restricted and pooled over the fragment:
 ## Honest scope
 
 This is research tooling plus a working-but-not-legible detector, stated plainly:
-same-scroll detection at the prize window is real (`val_f1` 0.393 / lift 2.07);
+same-scroll detection at the prize window is real (`val_f1` 0.393 / lift 2.07, its epoch
+chosen on that fragment);
 cross-scroll transfer without retraining is weak (lift 1.29) — the quantified open
 problem; the SOTA-distilled model (`val_f1` 0.662 / lift 3.24 *vs teacher*) shows the
 open data + distillation closing that gap on one GPU. The loop's own from-scratch

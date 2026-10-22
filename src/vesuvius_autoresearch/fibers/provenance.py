@@ -11,6 +11,8 @@ from pathlib import Path
 
 import numpy as np
 
+from vesuvius_autoresearch.core.file_modes import replacement_mode
+
 # Bump when normalization, tiling, class collapse, or connectivity scoring changes.
 INFERENCE_VERSION = 1
 # 2: connected graph runs, independent of NML edge ordering.
@@ -63,11 +65,15 @@ def inference_identity(img, model_dir, patch, device="cuda"):
 
 @contextmanager
 def atomic_file(path, mode="w"):
+    """Write to a sibling temporary file, renamed over ``path`` once complete. The file keeps the mode of the one
+    it replaces, or a new one gets the umask's, not mkstemp's 0600."""
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
+    permissions = replacement_mode(path)
     fd, tmp = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
     try:
         with os.fdopen(fd, mode) as f:
+            os.fchmod(f.fileno(), permissions)
             yield f
         os.replace(tmp, path)
     finally:

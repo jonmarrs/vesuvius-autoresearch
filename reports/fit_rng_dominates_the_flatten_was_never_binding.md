@@ -1,5 +1,7 @@
 # Fit RNG dominates: with the flatten made deterministic, the seed CV is 0.09 [0.06, 0.22]
 
+> **Corrected 2026-10-22** (from `reports/the_anchor_control_was_cross_tree.md`, 2026-09-27): `curbase_s4..s9` were fitted on `villa-spiral-current`, an unrefreshed copy of `d8c5f488a`; `be09a8503` is the tree they were rendered and scored on. No `spiral-fitting/` file differs between the two trees, so the six fits still share one fitter, and the result is unchanged.
+
 **2026-09-22.** Registered in `docs/preregistration/2026-09-21_fit_only_noise_floor.md`, decided by
 `scripts/analyse_fit_only_floor.py`, both committed before any arm scored.
 `reports/fit_only_floor.json`.

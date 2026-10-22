@@ -148,7 +148,7 @@ def write_runner(runner_path: Path, villa_python_root: Path) -> None:
     """
     runner_path.parent.mkdir(parents=True, exist_ok=True)
     runner_path.write_text(
-        '"""Auto-generated LeJEPA fine-tune runner. Invoked by scripts/launch_finetune_lejepa.py."""\n'
+        '"""Auto-generated LeJEPA fine-tune runner. Invoked by scripts/training/launch_finetune_lejepa.py."""\n'
         "import argparse\n"
         "import sys\n"
         "from pathlib import Path\n"

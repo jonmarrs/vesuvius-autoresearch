@@ -6,6 +6,8 @@ import tempfile
 
 import numpy as np
 
+from vesuvius_autoresearch.core.file_modes import replacement_mode
+
 
 def fetch_obj(obj):
     """Cache a remote mesh by its complete S3 key and publish only finished downloads."""
@@ -25,6 +27,7 @@ def fetch_obj(obj):
             s3fs.S3FileSystem(anon=True).get(key, staged)
             if os.path.getsize(staged) == 0:
                 raise ValueError(f"downloaded OBJ is empty: {key}")
+            os.chmod(staged, replacement_mode(dst))  # not mkstemp's 0600
             os.replace(staged, dst)
         finally:
             if os.path.exists(staged):

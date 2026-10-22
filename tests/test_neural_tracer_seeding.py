@@ -315,12 +315,13 @@ PREREG = " ".join(
 )
 
 
-def test_the_proposal_is_not_a_registration():
-    assert "**Status: PROPOSED, not registered, nothing run.**" in PREREG
+def test_the_registration_records_that_it_was_proposed_first():
+    """Proposed in #149 before the owner's decision; registered by the commit adding the chain and the analysis."""
     assert (
-        "registration is the commit that adds the chain and the analysis script"
+        "**Status: REGISTERED 2026-10-20, before any trace with rescaled seeding exists.**"
         in PREREG
     )
+    assert "Proposed 2026-10-19 (#149) and approved by the owner" in PREREG
 
 
 def test_the_proposals_arms_are_the_probes_scales():

@@ -338,6 +338,16 @@ def test_a_truncated_incumbent_blocks_promotion_instead_of_being_replaced(tmp_pa
     assert "cannot be read" in reason
 
 
+def test_an_incumbent_that_is_not_a_checkpoint_blocks_promotion(tmp_path):
+    """torch loads it, but it holds no val_f1 to compare: refused, not taken as
+    no incumbent."""
+    path = tmp_path / "best_model.pt"
+    torch.save(torch.zeros(3), path)  # a bare tensor, not a checkpoint
+    promote, incumbent, reason = _decide(path, val_f1=0.20)
+    assert not promote and np.isnan(incumbent)
+    assert "is not a checkpoint dictionary" in reason
+
+
 @pytest.mark.parametrize(
     "fields,message",
     [
@@ -481,6 +491,7 @@ def _drive_loop(
     preflight_returncode=0,
     commit=lambda message: True,
     signals=None,
+    preflight=None,
 ):
     import run_autoresearch_loop as loop
 
@@ -512,6 +523,8 @@ def _drive_loop(
                 commands.append(list(command))
             # The preflight and the every-5th-cycle benchmark are not training runs.
             if "--smoke" in command:
+                if preflight is not None:
+                    return preflight(command, kwargs)
                 if preflight_returncode:
                     kwargs["stdout"].write("PREFLIGHT FAILED: model build error\n")
                 return subprocess.CompletedProcess(command, preflight_returncode)
@@ -638,6 +651,18 @@ def test_a_first_use_record_lapses_when_the_incumbent_is_replaced(tmp_path):
     assert promotion.check_incumbent(path, uri) == (0.47, "first use")
     _checkpoint(tmp_path / "best_model.pt", val_f1=0.5)  # another incumbent
     assert promotion.read_incumbent(path, promotion.VALIDATION_PROTOCOL) == (0.5, None)
+
+
+def test_an_unwritable_first_use_record_stops_the_loop_cleanly(tmp_path):
+    """The record is what holds an older incumbent to its inputs: if it cannot
+    be written, the incumbent cannot be compared."""
+    frag = _legacy_incumbent(tmp_path)
+    path = str(tmp_path / "best_model.pt")
+    os.mkdir(promotion.first_use_record(path))  # open(..., "w") fails on it
+    with pytest.raises(
+        promotion.IncumbentUnavailable, match="cannot record the validation inputs"
+    ):
+        promotion.check_incumbent(path, str(frag / "surface_volume.zarr"))
 
 
 def test_unreadable_validation_inputs_stop_the_loop_cleanly(tmp_path):
@@ -1309,6 +1334,83 @@ def test_a_failed_preflight_is_named_in_the_sprint_log(tmp_path, monkeypatch):
     assert "- **Last log line**: `PREFLIGHT FAILED: model build error`" in log
     assert torch.load(tmp_path / "best_model.pt")["val_f1"] == 0.47
     assert not os.path.lexists(tmp_path / ".best_model.pt.held")
+
+
+def test_a_preflight_that_times_out_is_named_and_skips_training(tmp_path, monkeypatch):
+    ExperimentConfig().save(tmp_path / "config.json")
+    _checkpoint(tmp_path / "best_model.pt")
+    (tmp_path / "autoresearch_history.json").write_text(json.dumps({"lr": 2.0}))
+
+    def hangs(command, kwargs):
+        assert kwargs["timeout"] == 300  # the 300 s the failure names
+        kwargs["stdout"].write("building resenc_unet\n")
+        raise subprocess.TimeoutExpired(command, kwargs["timeout"])
+
+    launched = _drive_loop(tmp_path, monkeypatch, 1, preflight=hangs)
+    assert launched == []
+    run_log = (tmp_path / "run.log").read_text()
+    assert "PREFLIGHT TIMED OUT — skipping training." in run_log
+    assert "PREFLIGHT FAILED — skipping training for this cycle." in run_log
+    log = next((tmp_path / "sprint_logs").glob("*.md")).read_text()
+    assert "(CRASHED)" in log
+    assert "Training crashed (preflight timed out after 300 s)" in log
+    # The preflight's own last line, not the loop's markers after it.
+    assert "- **Last log line**: `building resenc_unet`" in log
+    assert torch.load(tmp_path / "best_model.pt")["val_f1"] == 0.47
+    assert not os.path.lexists(tmp_path / ".best_model.pt.held")
+    assert _history(tmp_path)["lr"] == 2.0  # a crash decays no family
+
+
+def test_a_run_that_cannot_be_started_is_named(tmp_path, monkeypatch):
+    ExperimentConfig().save(tmp_path / "config.json")
+    _checkpoint(tmp_path / "best_model.pt")
+
+    def missing(command, kwargs):
+        raise FileNotFoundError(2, "No such file or directory", "uv")
+
+    assert _drive_loop(tmp_path, monkeypatch, 1, preflight=missing) == []
+    log = next((tmp_path / "sprint_logs").glob("*.md")).read_text()
+    assert (
+        "Training crashed (could not be run (FileNotFoundError: [Errno 2] No such "
+        "file or directory: 'uv'))" in log
+    )
+    assert torch.load(tmp_path / "best_model.pt")["val_f1"] == 0.47
+    assert not os.path.lexists(tmp_path / ".best_model.pt.held")
+
+
+def test_an_unreadable_run_result_is_a_crash_that_restores_the_incumbent(
+    tmp_path, monkeypatch
+):
+    """A clean exit whose run_result.json cannot be read is not a result: the
+    model the run promoted is moved aside and its rows removed, as for any
+    failed run."""
+    config = ExperimentConfig()
+    config.save(tmp_path / "config.json")
+    _checkpoint(tmp_path / "best_model.pt")  # val_f1 0.47
+    (tmp_path / "results.tsv").write_text("timestamp\tval_f1\nearlier\t0.47\n")
+    (tmp_path / "autoresearch_history.json").write_text(json.dumps({"lr": 2.0}))
+    promote = _promoting_run(tmp_path, result=False)
+
+    def cut_short(command, log):
+        done = promote(command, log)
+        (tmp_path / "run_result.json").write_text('{"is_success": tr')
+        return done
+
+    assert len(_drive_loop(tmp_path, monkeypatch, 1, run=cut_short)) == 1
+    assert torch.load(tmp_path / "best_model.pt")["val_f1"] == 0.47
+    (aside,) = tmp_path.glob("best_model.pt.failed-run-*")
+    assert torch.load(aside)["val_f1"] == 0.9
+    assert not os.path.lexists(tmp_path / ".best_model.pt.held")
+    assert ExperimentConfig.load(tmp_path / "config.json") == config
+    log = next((tmp_path / "sprint_logs").glob("*.md")).read_text()
+    assert "(CRASHED)" in log
+    assert "Training crashed (run_result.json is unreadable (" in log
+    assert "the incumbent was restored" in log
+    assert (
+        tmp_path / "results.tsv"
+    ).read_text() == "timestamp\tval_f1\nearlier\t0.47\n"
+    assert not (tmp_path / "prize_readiness.tsv").exists()
+    assert _history(tmp_path)["lr"] == 2.0  # a crash decays no family
 
 
 def test_a_promotion_log_rotated_during_the_run_is_moved_back(tmp_path, monkeypatch):
