@@ -4,6 +4,13 @@
 `docs/preregistration/2026-09-19_radial_displacement_causes_ink_loss.md`, reached from that study's
 own control arm before its treatment arms were run.
 
+> **Corrected 2026-09-22 (noted at the head 2026-10-22): the title's reason is wrong, the verdict
+> stands.** The flatten does not move the surface: two stock flattens lie on the same surface, 0.25 vx
+> apart along the normal, and the 7.15 vx below is the nearest-neighbour distance between their
+> sampling grids. The design is still invalid, because each re-flatten adds 3.04% of ink noise, more than
+> the manipulation's effect could be resolved against. The redesign that holds the flatten fixed stands.
+> `reports/the_flatten_moves_the_grid_not_the_surface.md`.
+
 ## The problem
 
 The study displaces **input meshes** by ±4 voxels, then runs the full pipeline: concat → lasagna

@@ -74,6 +74,9 @@ has changed — almost entirely in **`lasagna/`**, the flattener this report nam
   determinism — the same optimised state written two ways. The non-reproducibility measured here is
   in the *optimisation itself*: two runs from identical input reach different states. Villa's test
   would pass on a flattener that lands 7 vx apart every run, and it does.
+  *(Corrected 2026-09-22, noted here 2026-10-22: the two flattens lie on the same surface, 0.25 vx
+  apart along the normal; 7.15 vx is the nearest-neighbour distance between their sampling grids.
+  `reports/the_flatten_moves_the_grid_not_the_surface.md`.)*
 
 So the finding is not an artifact of the pin. It is a property of the current flattener, and the
 test that would catch it — flatten the same input twice, compare the surfaces — does not exist

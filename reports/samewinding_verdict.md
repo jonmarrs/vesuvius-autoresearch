@@ -21,7 +21,9 @@ geometry.** This measures winding evidence against **recovered ink**.
 | `satisfied_area_fraction` | 0.8390 | 0.8331 | **-0.69%** | **0.0027** |
 
 **VERDICT: NULL on reading.** No ink effect larger than **8.3%** (80% power at 3v6, computed before
-the fits). Bounded, not zero.
+the fits). Bounded, not zero. *(Noted 2026-10-22: 8.3% used the df=3 CV 0.0421, which
+`reports/noise_floor_by_tier.md` superseded on 2026-09-12. With the pinned tier's 0.0514 the bound is
+10.2%, `reports/no_lever_has_improved_reading.md`.)*
 
 ## The geometry result is stronger than the registration allowed for
 

@@ -10,6 +10,11 @@ So this matches the CLAIM, not the digits: phrases that only make sense as an
 assertion of the withdrawn fact. A paragraph may still contain such a phrase if it
 also says the claim was withdrawn, because that is what a retraction looks like.
 
+Any withdrawal word clears a paragraph, which is coarse: on 2026-10-22 FINDINGS.md
+still said two flattens "land on surfaces 7.15 vx apart" in a paragraph that said
+"superseded" about something else. A claim may therefore name the correction a
+paragraph must carry instead (a fourth element), and then only that clears it.
+
 Scope note: this guards claims retracted in-session, where the retraction is
 recent enough that stale copies are likely. It is not a general fact-checker.
 """
@@ -46,7 +51,7 @@ _WITHDRAWAL = (
     "do not edit or file",
 )
 
-# (regex, what it asserts, what replaced it)
+# (regex, what it asserts, what replaced it[, what a paragraph quoting it must also say])
 _CLAIMS = [
     (
         r"4\.1\s*[x×]\s*(tighter|quieter)",
@@ -101,24 +106,70 @@ _CLAIMS = [
         "20 core tests pass offline in the container",
         "all 206 pass offline, verified 8m02s",
     ),
+    # 2026-09-22: the 7.15 vx is a nearest-neighbour distance between two samplings
+    # of one sheet; along the normal they are 0.25 vx apart.
+    # reports/the_flatten_moves_the_grid_not_the_surface.md
+    (
+        # "surfaces sit 7.15 vx apart", "a re-solve that moved the surface 7.15 vx",
+        # "surface movement | **7.15 vx mean**", and the reverse order, "6.6-7.3 vx
+        # from *both* stock surfaces" or "7 vx on the surface"
+        r"(surfaces?|lands?|landed|landing|sits?|sitting|mov\w*\s+the\s+surface)"
+        r"\W+(\w+\W+){0,3}?~?7(\.\d+)?\s*(vx|voxels?)\b"
+        r"|\b7(\.\d+)?\s*(vx|voxels?)\s+(apart\s+)?(from|on)\W+(\w+\W+){0,3}?surfaces?\b",
+        "two stock flattens land on surfaces 7.15 vx apart",
+        "the same surface, 0.25 vx apart along the normal; ~7 vx is the grid's in-plane offset",
+        # not "nearest-neighbour": the uncorrected report used that word itself
+        r"0\.2[3-6]\s*vx|same surface|re-?parametri[sz]",
+    ),
 ]
 
 
+def _cleared(para: str, required: str | None) -> bool:
+    if required is not None:
+        return re.search(required, para, re.I) is not None
+    return any(w in para.lower() for w in _WITHDRAWAL)
+
+
+# Read as current, not as records: corrected where they say a thing, never by a head note.
+_LIVE = {
+    _REPO / "README.md",
+    _REPO / "FINDINGS.md",
+    _REPO / "reports" / "SPIRAL_FINDINGS_SUMMARY.md",
+}
+
+
+def _head(text: str) -> str:
+    """A document's opening, before its first section: where a dated report is
+    corrected as a whole ("CORRECTED ...: the title's claim is wrong")."""
+    return text.split("\n## ", 1)[0]
+
+
 @pytest.mark.parametrize(
-    "pattern,asserts,replacement", _CLAIMS, ids=[c[1][:34] for c in _CLAIMS]
+    "pattern,asserts,replacement,required",
+    [(*c, None)[:4] for c in _CLAIMS],
+    ids=[c[1][:34] for c in _CLAIMS],
 )
 def test_withdrawn_claim_appears_only_beside_its_withdrawal(
-    pattern, asserts, replacement
+    pattern, asserts, replacement, required
 ):
     rx = re.compile(pattern, re.I)
     offenders = []
     for doc in _DOCS:
         if not doc.exists():
             continue
-        for para in re.split(r"\n\s*\n", doc.read_text()):
+        text = doc.read_text()
+        # a correction at the head of a dated document covers the record below it;
+        # FINDINGS, the README and the summary are corrected where they say it
+        if (
+            required is not None
+            and doc not in _LIVE
+            and _cleared(_head(text), required)
+        ):
+            continue
+        for para in re.split(r"\n\s*\n", text):
             if not rx.search(para):
                 continue
-            if any(w in para.lower() for w in _WITHDRAWAL):
+            if _cleared(para, required):
                 continue
             offenders.append(f"{doc.relative_to(_REPO)}: {para.strip()[:140]}")
     assert not offenders, (
@@ -141,4 +192,35 @@ def test_a_withdrawal_paragraph_is_allowed_to_name_the_old_number():
     pattern = next(c[0] for c in _CLAIMS if "99.2%" in c[1])
     rx = re.compile(pattern, re.I)
     para = "We first said 99.2% of the time; that figure is withdrawn."
-    assert rx.search(para) and any(w in para.lower() for w in _WITHDRAWAL)
+    assert rx.search(para) and _cleared(para, None)
+
+
+def test_a_claim_with_a_named_correction_is_not_cleared_by_any_withdrawal_word():
+    pattern, _, _, required = next(c for c in _CLAIMS if "7.15 vx" in c[1])
+    rx = re.compile(pattern, re.I)
+    stale = (
+        "two runs land on surfaces **7.15 vx apart** and move the count 3.04%. "
+        "Older seed estimates are superseded."
+    )
+    assert rx.search(stale) and not _cleared(stale, required)
+    fixed = (
+        "they lay the same surface out on grids ~7 vx apart, 0.25 vx along the normal"
+    )
+    assert _cleared(fixed, required)
+    for live in (
+        "their surfaces sit **7.15 vx apart** in the outer region",
+        "a re-solve that moved the surface 7.15 vx in the outer region",
+        "a flattener that lands 7 vx apart every run",
+        "the same input that landed 7.15 vx apart under stock settings",
+        "two runs land on surfaces 7.2 vx apart",
+        "surfaces sitting about 7 vx apart",
+        "| flatten's own run-to-run surface movement | **7.15 vx mean** |",
+        "the deterministic surface sits 6.6–7.3 vx from *both* stock surfaces",
+        "3.04% on the objective, 7 vx on the surface",
+    ):
+        assert rx.search(live), live
+    assert not _cleared(
+        "land on surfaces 7.15 vx apart by nearest-neighbour distance", required
+    )
+    assert set(_DOCS) >= _LIVE
+    assert not rx.search("the median patch spans 7 bands")

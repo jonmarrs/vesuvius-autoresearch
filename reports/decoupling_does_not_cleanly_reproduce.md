@@ -29,7 +29,9 @@ post-hoc statement is the interval actually observed:
 
 > **+0.28%, 95% CI [−2.56%, +3.13%]** (Welch, df = 4.0)
 
-**The data exclude any ink effect beyond about ±3%.**
+**The data exclude any ink effect beyond about ±3%.** *(Withdrawn 2026-09-27, noted here 2026-10-22:
+the interval rests on three control seeds at CV 0.0124. Against the six render-matched seeds it is
+−4.41% [−12.18%, +3.37%]; `reports/control_sensitivity.md`.)*
 
 *Corrected 2026-09-13.* This paragraph originally said current-code noise is "4.1× tighter". **That
 ratio is withdrawn** — a third arm moved the current-tier CV from 0.0125 (df=4) to 0.0263 (df=6), and

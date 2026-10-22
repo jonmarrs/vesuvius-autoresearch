@@ -42,6 +42,11 @@ sensitivity is instead **25.8 %/vx**:
 | gap-expander fix | 3.96 vx | 10.35% | 2.61 |
 | **writer ULP** | **0.000244 vx** | **0.0063%** | **25.82** |
 
+*(Noted 2026-10-22: the two flatten rows divide by nearest-neighbour distances between two samplings of
+one surface, which `reports/the_flatten_moves_the_grid_not_the_surface.md` (2026-09-22) found are not
+displacements; along the normal the pairs are 0.01 and 0.25 vx apart. Their %/vx figures are void, which
+strengthens the conclusion below.)*
+
 **These are different mechanisms, not one curve.** A coherent shift moves the whole surface together;
 ULP rounding is *independent jitter per point*, which flips which voxel each sample lands in near
 threshold boundaries. A `%/vx` figure does not transfer between them.
