@@ -40,7 +40,8 @@ Main has not moved since #182. There are no open pull requests. This round cover
   - `test_a_generated_runner_names_its_launcher_and_stays_out_of_git` checks that it is ignored and untracked.
   - `DESIGN_ARCHITECTURE_REVIEW_2026-10-22_SUITE_GUARD_LAUNCHED_SCRIPTS.md` records it.
 - **Two writes this container cannot reach:**
-  - `scripts/_gp_winner_runner.py`, by `test_launch_gp_winner_writes_baseline_marker`.
+  - The gp_winner launcher's runner, `_gp_winner_runner.py` under `scripts/`, by
+    `test_launch_gp_winner_writes_baseline_marker`.
     - Its launcher writes the runner only once it finds villa's `segmentation/models/multi-task-3d-unet`, which
       this sparse checkout lacks.
     - Like the LeJEPA runner, it is gitignored, and a test asserts that.
