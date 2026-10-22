@@ -15,12 +15,15 @@ not required. Importing names from a package's __init__ (the loader's
 what it re-exports.
 
 Some of it is run by path rather than imported: the evidence chain launches
-scripts/inference/launch_neural_tracing.py, and the noise probe its runner. They
-are entry points too, and a test that loads a script by its file name, as
-tests/test_villa_baselines_launchers.py does, tests it. That file had never been
-listed (2026-10-22), because the guard saw only imports. Every other script the
-loop's code names by path it only writes into a report, plan or worklist;
-NAMED_NOT_RUN lists them, so a script the code starts to run cannot go unseen.
+scripts/inference/launch_neural_tracing.py (with --neural-tracing), and the noise
+probe its runner. They are entry points too, and a test that loads a script by its
+file name, as tests/test_villa_baselines_launchers.py does, tests it. That file
+had never been listed (2026-10-22), because the guard saw only imports. Every
+other script the loop's code names by path, it only describes or writes into a
+command for a person; NAMED_NOT_RUN lists each with the file that names it, so a
+file that starts to run one is seen. The names are read from string literals: a
+launch through `-m`, or a path split inside a directory name, is not seen. None
+of the loop's launches is built that way (2026-10-22).
 """
 
 import ast
@@ -65,24 +68,35 @@ ENTRY_POINTS = (
     "scripts/training/run_noise_probe.py",
 )
 
-# Scripts the loop's code names by path but does not run: the villa coverage
-# report, the opportunity plan, the review manifest, the Volume Cartographer
-# readiness report and the action matrix describe them, and the lasagna worklist
-# writes their commands for a person to run.
+# Scripts the loop's code names by path but does not run, by the file naming
+# them: reports that describe viewers and tools, the action matrix's launchers,
+# and the commands the lasagna worklist writes for a person to run.
 NAMED_NOT_RUN = {
-    "scripts/autoresearch_thaumato_solver.py",
-    "scripts/compute_structure_tensors.py",
-    "scripts/crop_candidate_zarr.py",
-    "scripts/labeling/generate_fiber_labels.py",
-    "scripts/launch_crackle_viewer.py",
-    "scripts/launch_thaumato.py",
-    "scripts/launch_vc3d.py",
-    "scripts/smoke_test_villa_optimized_inference.py",
-    "scripts/training/launch_finetune_lejepa.py",
-    "scripts/training/launch_gp_winner.py",
-    "scripts/training/launch_mutex.py",
-    "tests/test_import.py",
-    "v3_training/trainer.py",
+    "scripts/build_lasagna_fiber_worklist.py": {
+        "scripts/compute_structure_tensors.py",
+        "scripts/crop_candidate_zarr.py",
+    },
+    "scripts/build_villa_component_coverage.py": {
+        "scripts/autoresearch_thaumato_solver.py",
+        "scripts/labeling/generate_fiber_labels.py",
+        "scripts/launch_crackle_viewer.py",
+        "scripts/launch_thaumato.py",
+        "scripts/launch_vc3d.py",
+        "scripts/smoke_test_villa_optimized_inference.py",
+        "tests/test_import.py",
+        "v3_training/trainer.py",
+    },
+    "scripts/build_villa_prize_action_matrix.py": {
+        "scripts/smoke_test_villa_optimized_inference.py",
+        "scripts/training/launch_finetune_lejepa.py",
+        "scripts/training/launch_gp_winner.py",
+        "scripts/training/launch_mutex.py",
+    },
+    "scripts/build_villa_review_manifest.py": {
+        "scripts/launch_crackle_viewer.py",
+        "scripts/launch_vc3d.py",
+    },
+    "scripts/build_volume_cartographer_readiness.py": {"scripts/launch_vc3d.py"},
 }
 SCRIPT_NAME = re.compile(r"[\w./-]+\.py")
 
@@ -136,13 +150,38 @@ def named_scripts(path):
         ):
             continue
         name = node.value
-        candidates = [REPO / name] if "/" in name else (REPO / "scripts").rglob(name)
+        try:  # a name too long to be a file raises
+            if "/" in name:
+                candidates = [(REPO / name).resolve()]
+            else:
+                candidates = [c.resolve() for c in (REPO / "scripts").rglob(name)]
+            candidates = [c for c in candidates if c.is_file()]
+        except OSError:
+            continue
         for candidate in candidates:
-            candidate = candidate.resolve()
-            if candidate.is_file() and candidate.is_relative_to(REPO):
+            if candidate.is_relative_to(REPO):
                 if candidate.relative_to(REPO).parts[0] != "villa":
                     found.add(candidate)
     return found
+
+
+def loop_tests(loop, tests):
+    """The tests that import the loop's code or name one of its files."""
+    return {
+        test for test in tests if (imported_files(test) | named_scripts(test)) & loop
+    }
+
+
+def names_outside(loop):
+    """{loop file: the scripts outside the loop's code that it names by path}."""
+    named = {}
+    for path in loop:
+        scripts = named_scripts(path) - loop
+        if scripts:
+            named[str(path.relative_to(REPO))] = {
+                str(script.relative_to(REPO)) for script in scripts
+            }
+    return named
 
 
 def _runs_code(path):
@@ -168,9 +207,8 @@ def test_every_test_of_the_loops_code_is_in_the_standard_suite():
     listed = set(run_validation_tests.VALIDATION_TESTS)
     missing = sorted(
         str(path.relative_to(REPO))
-        for path in (REPO / "tests").rglob("test_*.py")
-        if (imported_files(path) | named_scripts(path)) & loop
-        and str(path.relative_to(REPO)) not in listed
+        for path in loop_tests(loop, (REPO / "tests").rglob("test_*.py"))
+        if str(path.relative_to(REPO)) not in listed
     )
     assert not missing, (
         "add these to scripts/run_validation_tests.py VALIDATION_TESTS: "
@@ -179,16 +217,12 @@ def test_every_test_of_the_loops_code_is_in_the_standard_suite():
 
 
 def test_every_script_the_loops_code_names_is_an_entry_point_or_named_only():
-    loop = loop_files()
-    named = {
-        str(path.relative_to(REPO))
-        for path in set().union(*(named_scripts(path) for path in loop)) - loop
-    }
-    assert not named - NAMED_NOT_RUN, (
-        "the loop's code names these by path: add each to ENTRY_POINTS if it runs "
-        "it, else to NAMED_NOT_RUN: " + ", ".join(sorted(named - NAMED_NOT_RUN))
+    named = names_outside(loop_files())
+    assert named == NAMED_NOT_RUN, (
+        "a script the loop's code names by path is neither an entry point nor in "
+        "NAMED_NOT_RUN (add it to ENTRY_POINTS if the file runs it), or an entry "
+        f"there is no longer named. Named now: {named}"
     )
-    assert not NAMED_NOT_RUN - named, sorted(NAMED_NOT_RUN - named)
 
 
 def test_the_entry_points_exist_and_reach_the_loops_modules():
@@ -241,23 +275,50 @@ def test_the_guard_reads_the_ways_tests_import(tmp_path):
     assert imported_files(path) == set()
 
 
-def test_the_guard_reads_the_scripts_a_file_names(tmp_path):
+def _repo(tmp_path, monkeypatch, *files):
+    """A repository of empty files in tmp_path/repo, which the guard reads as REPO."""
+    repo = (tmp_path / "repo").resolve()
+    for name in files:
+        (repo / name).parent.mkdir(parents=True, exist_ok=True)
+        (repo / name).write_text("")
+    monkeypatch.setitem(globals(), "REPO", repo)
+    return repo
+
+
+def _source(tmp_path, text):
+    path = tmp_path / f"case_{abs(hash(text))}.py"
+    path.write_text(text)
+    return path
+
+
+def test_the_guard_reads_the_scripts_a_file_names(tmp_path, monkeypatch):
+    runner, launcher, theirs = (
+        "scripts/training/runner.py",
+        "scripts/inference/x.py",
+        "villa/v.py",
+    )
+    repo = _repo(tmp_path, monkeypatch, runner, launcher, theirs)
+    (tmp_path / "outside.py").write_text("")
     cases = {
-        'RUNNER = REPO / "scripts/training/run_noise_probe.py"\n': {
-            REPO / "scripts/training/run_noise_probe.py"
-        },
-        'path = ROOT / "scripts" / "inference" / "launch_neural_tracing.py"\n': {
-            REPO / "scripts/inference/launch_neural_tracing.py"
-        },
+        f'RUNNER = REPO / "{runner}"\n': {repo / runner},
+        'path = ROOT / "scripts" / "inference" / "x.py"\n': {repo / launcher},
         'glob("*.py"); "no_such_script.py"\n': set(),
-        # Named by src/vesuvius_autoresearch/core/patch_catalog.py; not ours.
-        'VILLA = "villa/vesuvius/src/vesuvius/models/datasets/find_valid_patches.py"\n': set(),
+        f'"{theirs}"\n': set(),
+        '"../outside.py"; "scripts/../../outside.py"\n': set(),
+        f'"{tmp_path / "outside.py"}"\n': set(),
+        f'"{"a" * 300}.py"\n': set(),
     }
-    for source, expected in cases.items():
-        path = tmp_path / "test_case.py"
-        path.write_text(source)
-        assert named_scripts(path) == expected, source
-    outside = tmp_path / "outside.py"
-    outside.write_text("")
-    path.write_text(f'"{outside}"\n')
-    assert named_scripts(path) == set()
+    for text, expected in cases.items():
+        assert named_scripts(_source(tmp_path, text)) == expected, text
+
+
+def test_the_guard_selects_by_imports_and_by_names(tmp_path, monkeypatch):
+    repo = _repo(
+        tmp_path, monkeypatch, "scripts/chain.py", "scripts/x.py", "scripts/report.py"
+    )
+    (repo / "scripts/chain.py").write_text('RUN = "scripts/x.py"; SEE = "report.py"\n')
+    loop = {repo / "scripts/chain.py", repo / "scripts/x.py"}
+    naming = _source(tmp_path, 'LAUNCHER = "x.py"\n')
+    unrelated = _source(tmp_path, "import numpy\n")
+    assert loop_tests(loop, [naming, unrelated]) == {naming}
+    assert names_outside(loop) == {"scripts/chain.py": {"scripts/report.py"}}

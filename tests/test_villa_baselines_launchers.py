@@ -113,23 +113,28 @@ def test_launch_finetune_lejepa_uses_submittable_patch_and_finds_pretrain(tmp_pa
     assert data["patch_size"] == [32, 64, 64]
     assert data["submittable"] is True
     assert data["executed"] is False
+    assert config_out.exists()
     # In this repo's known state there is a LeJEPA pretrain checkpoint and the
     # labeled Paris2Fr47 fragment; both should be auto-resolved. Both are
-    # gitignored local files, and the standard suite runs without data.
-    if (
-        not any((REPO_ROOT / "checkpoints").glob("lejepa_foundation_v1*/*.pth"))
-        or not (REPO_ROOT / "local_data" / "PHercParis2Fr47").is_dir()
-    ):
-        pytest.skip(
-            "no local LeJEPA checkpoint or PHercParis2Fr47 here, so discovery "
-            "cannot be checked; the patch and the marker were"
-        )
-    assert data["pretrained_lejepa_checkpoint"], (
-        "expected LeJEPA pretrain ckpt to be discovered"
+    # gitignored local files and the standard suite runs without data, so each is
+    # asserted found where it is here, and named as a blocker where it is not.
+    runs = REPO_ROOT / "checkpoints"
+    has_checkpoint = any(runs.glob("lejepa_foundation_v1*/*_final.pth")) or any(
+        runs.glob("lejepa_foundation_v1*/*_epoch*.pth")
     )
-    assert data["labeled_volumes"], "expected PHercParis2Fr47 to be discovered"
-    assert data["ready"] is True
-    assert config_out.exists()
+    fragment = REPO_ROOT / "local_data" / "PHercParis2Fr47"
+    has_fragment = (fragment / "surface_volume").is_dir() and (
+        fragment / "inklabels.png"
+    ).exists()
+    assert bool(data["pretrained_lejepa_checkpoint"]) is has_checkpoint, (
+        "the LeJEPA pretrain ckpt must be found exactly when one is here"
+    )
+    assert bool(data["labeled_volumes"]) is has_fragment, (
+        "PHercParis2Fr47 must be found exactly when it is here"
+    )
+    assert any("LeJEPA" in b for b in data["blockers"]) is not has_checkpoint
+    assert any("PHercParis2Fr47" in b for b in data["blockers"]) is not has_fragment
+    assert data["ready"] is (has_checkpoint and has_fragment)
 
 
 def test_launch_finetune_lejepa_flags_non_submittable_when_patch_too_large(tmp_path):
