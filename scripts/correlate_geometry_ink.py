@@ -40,7 +40,10 @@ BASELINES = ("baseline01", "seed02", "seed03", "seed04", "seed05", "seed06")
 # the `else "pinned"` default and were pooled into the pinned correlation. That
 # moved r from -0.121 to -0.008 and stretched the tier's ink range from
 # 1.45-1.83M to 1.45-2.95M. An unknown arm now RAISES instead of defaulting.
-from arm_tiers import tier_of  # noqa: E402  (re-exported; callers import it here)
+from arm_tiers import (  # noqa: E402  (re-exported; callers import it here)
+    TIERS,
+    tier_of,
+)
 
 __all__ = ["collect", "pearson", "tier_of"]
 
@@ -106,18 +109,18 @@ def main() -> int:
             f"no scored fits with satisfaction found under {args.spiral_out}"
         )
 
-    tiers = {"pinned": [], "current": []}
+    tiers = {t: [] for t in TIERS}  # every tier the table knows, so none can KeyError
     for r in rows:
         tiers[tier_of(r["tag"])].append(r)
 
-    print(f"{len(rows)} fits with both endpoints, in TWO NON-COMPARABLE TIERS.")
+    print(f"{len(rows)} fits with both endpoints, in NON-COMPARABLE TIERS.")
     print(
         "  Current villa recovers 67.6% more ink than the pinned tree through a\n"
         "  byte-identical scorer, so a POOLED correlation is an artefact and is\n"
         "  deliberately not computed."
     )
 
-    for tier in ("pinned", "current"):
+    for tier in TIERS:
         trows = tiers[tier]
         if not trows:
             continue

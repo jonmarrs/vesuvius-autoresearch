@@ -120,3 +120,14 @@ def test_the_real_repo_has_no_phantoms_and_no_orphans():
         f"either wire them into an analysis or document them in EXPECTED_ONE_OFF"
     )
     assert r["on_disk"] >= 56, "arms disappeared from spiral_out"
+
+
+def test_every_classified_family_is_an_arm_tag():
+    """nosamecur_s4-s6 and the upstream fits must be visible to the phantom check."""
+    src = 'ARMS = ("nosamecur_s5", "upfit_s2", "curbase_s9", "anchor10cov_s3")\n'
+    assert arm_tags_in_code(src) == {
+        "nosamecur_s5",
+        "upfit_s2",
+        "curbase_s9",
+        "anchor10cov_s3",
+    }
