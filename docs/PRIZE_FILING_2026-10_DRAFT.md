@@ -122,7 +122,7 @@ three things that number silently depends on, against villa's own code and villa
 * **The install route changes how well the metric's renders agree with villa's labels, not only how much
   ink they find.**
   villa's published sampler image samples a thinner band than any current source build (finding 66:
-  −5% to −9% ink count). Against villa's labels at the metric's own settings, on all 8 segments and
+  −5% to −8% ink count). Against villa's labels at the metric's own settings, on all 8 segments and
   where the labels are defined, the source build's band agrees better (8 of 8, about +5% AP), and a band
   twice as wide agrees better still (8 of 8, about +8%). The stale image costs agreement (on segments the ink model trained on),
   and the metric's default band is narrower than the best tested.
@@ -266,8 +266,8 @@ four predictions held):
   11 of its fiber targets (finding 82). On those, a score built on the mask measures the instance step on a
   segmentation that has seen the cube.
 * **A correction, made and registered before recomputing:** my label-based analyses (findings 71–76)
-  first scored the whole surface. villa's labels exist only inside its supervision mask (3–13% of each
-  segment), so unannotated ink counted as a miss. Re-analysed where the labels are defined:
+  first scored the whole surface. villa's labels exist only inside its supervision mask (4–15% of each
+  segment's mesh-valid area), so unannotated ink counted as a miss. Re-analysed where the labels are defined:
   * most findings survive;
   * finding 75 survives with smaller effects;
   * finding 74 does not survive as stated (step 0.5 vs 1.0 is not consistent).
@@ -292,7 +292,7 @@ four predictions held):
     undetermined, since no window qualifies).
   * the correction's prediction 3 (findings 74 and 75 would survive: 75 did, 74 did not as stated).
   * finding 79 prediction 1 (an unthresholded ink count would be less noisy across seeds on pinned code:
-    R = 0.91 [0.56, 1.47], no detectable difference; it was on current code, R = 0.52 [0.35, 0.91]).
+    R = 0.91 [0.56, 1.47], no detectable difference; it was on current code, R = 0.52 [0.34, 0.91]).
   * finding 80 prediction 2 (the tracer would trail connected components on merge-penalized ERL on all
     eight 256³ cubes: it leads on `s5_14997`, 38.56 vs 33.09).
   * finding 83 prediction 1 (the fiber mask's coverage would drop on Scroll 3, which it never saw: the median is
@@ -309,7 +309,7 @@ four predictions held):
   * finding 94 prediction 2 (at tolerance 4, villa's neural tracer would still trail our tracer on at least 9 of 11
     in-sample cubes: it trailed on 8).
 * **The effect's size depends on grid cell size** (finding 73, measured): about 1% per window on
-  villa's 20-voxel segment meshes, a 6.2% median and up to ±40% per window on 80-voxel grids like the
+  villa's 20-voxel segment meshes, a 6.2% median and −32% to +42% per window on 80-voxel grids like the
   spiral surfaces. Quote the size with the grid.
 * villa's scroll labels are partly pseudo-labels, made with default-mode geometry. That favours the
   default mode in any comparison against them, and still no difference appeared.

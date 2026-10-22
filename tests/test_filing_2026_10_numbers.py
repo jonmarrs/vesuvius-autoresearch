@@ -776,6 +776,124 @@ def test_tolerance4_numbers_match_finding_94():
     assert "findings 91–94 in" in txt and "`reports/tolerance4_rescore.md`" in txt
 
 
+def _json(rel: str) -> dict:
+    p = _REPO / rel
+    if not p.exists():
+        pytest.skip(f"{rel} not present")
+    return json.loads(p.read_text())
+
+
+def test_install_route_ink_count_is_the_published_image_against_the_source_build():
+    # Finding 66 measured the source build against the published image (+5.0% to +9.2%). The draft
+    # states the reverse direction, so it is published / source - 1, not the same figures negated.
+    d = _json("reports/step2_across_surfaces.json")
+    ink = d["ink"]
+    pairs = {"up1": ("detfit_up1", "tif_score_pr1905"), "s4": ("detfit_s4", "step2_s4"),
+             "s5": ("detfit_s5", "step2_s5"), "s6": ("detfit_s6", "step2_s6")}  # fmt: skip
+    short = []
+    for surface, (published, source) in pairs.items():
+        assert ink[source] / ink[published] - 1 == pytest.approx(
+            d["per_surface"][surface]
+        )
+        short.append(100 * (1 - ink[published] / ink[source]))
+    lo, hi = f"{min(short):.0f}", f"{max(short):.0f}"
+    assert f"(finding 66: −{lo}% to −{hi}% ink count)" in _text()
+    flat = lambda rel: " ".join((_REPO / rel).read_text().split())  # noqa: E731
+    assert f"the published image's lower ink count (−{lo} to −{hi}%)" in flat(
+        "reports/SPIRAL_FINDINGS_SUMMARY.md"
+    )
+    assert f"The published image's {lo}–{hi}% lower ink count" in flat(
+        "reports/install_route_band_vs_labels.md"
+    )
+
+
+def test_failed_prediction_figures_are_rounded_once_from_their_sources():
+    txt = _text()
+    # finding 79: the two seed-noise ratios and their intervals
+    d = _json("reports/soft_count_study.json")
+    p, c = d["pinned_q1"], d["current_q1"]
+    q = lambda r: f"R = {r['R']:.2f} [{r['ci'][0]:.2f}, {r['ci'][1]:.2f}]"  # noqa: E731
+    assert p["ci"][0] < 1 < p["ci"][1] and c["ci"][1] < 1
+    assert f"{q(p)}, no detectable difference; it was on current code, {q(c)})" in txt
+    # the shared-p95 re-score of finding 70
+    s = _json("reports/shared_p95_rescore.json")
+    assert s["prediction_held"]["median_abs_d_shared_below_2.5pct"] is False
+    med = 100 * s["summary"]["median_abs_d_shared"]
+    assert f"the median |Δ| stayed at {med:.1f}%, not < 2.5%" in txt
+    # finding 80: the one 256³ cube the tracer leads, and the cubes it leads on
+    cubes = _json("reports/tracer_rescore.json")["cubes"]
+    pen = {k: (v["tracer_v2"]["erl_merge_penalized"], v["cc_v2"]["erl_merge_penalized"])
+           for k, v in cubes.items()}  # fmt: skip
+    lead = [k for k, (t, cc) in pen.items() if t > cc]
+    small = [k for k in lead if k.endswith("_256")]
+    big = [k for k in cubes if k.endswith("_512")]
+    assert len(small) == 1 and set(big) <= set(lead) and len(big) == 3
+    n256 = sum(k.endswith("_256") for k in cubes)
+    assert all(v["ran"] for v in cubes.values()) and n256 == 8
+    assert f"Re-measured with the corrected scorer on all {len(cubes)} cubes:" in txt
+    assert txt.count("all eight 256³ cubes") == 2
+    t, cc = pen[small[0]]
+    stem = small[0].split("_")[:2]
+    assert f"it leads on `{'_'.join(stem)}`, {t:.2f} vs {cc:.2f})" in txt
+    assert (
+        f"on merge-penalized ERL it is ahead on {len(lead)} of {len(cubes)}, "
+        "all three 512³ cubes among them" in txt
+    )
+
+
+def test_scale_and_tolerance_figures_match_their_measurements():
+    txt = _text()
+    if not _F73.exists():
+        pytest.skip("finding 73 artifact absent")
+    d = json.loads(_F73.read_text())
+    lo, hi = d["summary"]["window_d_range"]
+    ws = sorted(abs(w["d"]) for r in d["segments"] for w in r["windows"])
+    med = 100 * (ws[len(ws) // 2] + ws[(len(ws) - 1) // 2]) / 2
+    assert (
+        f"a {med:.1f}% median and −{-100 * lo:.0f}% to +{100 * hi:.0f}% per window on "
+        "80-voxel grids" in txt
+    )
+    # where villa's labels are defined: each segment's supervised share of its mesh-valid area
+    seg = _json("reports/scorer_sparsity_annotated.json")["per_segment"].values()
+    share = [100 * s["in_px"] / (s["in_px"] + s["out_px"]) for s in seg]
+    cover = f"({min(share):.0f}–{max(share):.0f}% of each segment's mesh-valid area"
+    flat = lambda rel: " ".join((_REPO / rel).read_text().split())  # noqa: E731
+    assert len(share) == 8 and cover in txt
+    for rel in (
+        "reports/SPIRAL_FINDINGS_SUMMARY.md",
+        "reports/surface_interpolation_vs_labels.md",
+    ):
+        assert cover in flat(rel), rel
+    # finding 78: the share of villa's annotated ink its scorer marks
+    rec = _json("reports/scorer_sparsity_annotated.json")["pooled"]["recall_inside"]
+    assert f"its count is sparse (about {100 * rec:.0f}% of annotated ink)" in txt
+    # finding 94: villa's neural tracer against ours off Scroll 3, at tolerances 2 and 4
+    if not _F94.exists():
+        pytest.skip("finding 94 artifact absent")
+    t4 = json.loads(_F94.read_text())
+    for who in (
+        "tracer",
+        "cc",
+        "neural",
+    ):  # the published rows are tolerance 2, the re-score 4
+        assert {r["tolerance"] for r in t4[f"published_{who}"].values()} == {2.0}
+        assert {r["tolerance"] for r in t4[f"rows_{who}"].values()} == {4.0}
+    g = t4["groups"]
+    other = g["in_sample"] + g["s5_held_out"]
+    leads = lambda tracer, neural: [  # noqa: E731
+        c
+        for c in other
+        if neural[c]["erl_merge_penalized"] > tracer[c]["erl_merge_penalized"]
+    ]
+    at2 = leads(t4["published_tracer"], t4["published_neural"])
+    at4 = leads(t4["rows_tracer"], t4["rows_neural"])
+    assert t4["tolerance"] == 4 and not at2 and len(at4) == 3
+    assert (
+        f"at tolerance 2 trails on the other {len(other)} cubes, for reasons only partly "
+        "measured (at 4 it leads on three of them, finding 94)" in txt
+    )
+
+
 # Each failed registered prediction in the list, with how many it counts for. The stated total is their sum.
 _FAILED = {
     "finding 70 (": 1,

@@ -1042,7 +1042,7 @@ image's sampling) in 8 of 8 segments, about +8% AP. Step 2.0 beats 1.0 in 8 of 8
 the same way everywhere.
 
 * **Both predictions (no consistent difference) FAILED.**
-* **For finding 66:** the published image's lower ink count (−5 to −9%) goes with **less** faithful
+* **For finding 66:** the published image's lower ink count (−5 to −8%) goes with **less** faithful
   renders.
 * **For villa's metric:** its default band is narrower than the best tested.
 
@@ -1062,9 +1062,10 @@ tracks label density.** Pre-registered, on finding 72's stored outputs.
 
 `reports/objective_vs_labels.md`.
 
-**77. Correction: findings 71–76 used the wrong evaluation domain; re-analysed on villa's supervised region.**
-villa's labels are annotated only inside `supervision.zarr` (3–13% of each segment, holding 97–100% of
-labelled ink). Findings 71–76 counted unannotated ink as negatives. The registered re-analysis:
+**77. Correction: findings 71–76 used the wrong evaluation domain; re-analysed on villa's supervised
+region.** villa's labels are annotated only inside `supervision.zarr` (4–15% of each segment's mesh-valid
+area, holding 97–100% of labelled ink). Findings 71–76 counted unannotated ink as negatives. The registered
+re-analysis:
 
 * **Survive:** 71, 72, 73, 76 Q2.
 * **Survives, smaller:** 75 (published-image sampling −5.3%, not −8.3%; step 2.0 +8.2%, not +10.3%); 73's
