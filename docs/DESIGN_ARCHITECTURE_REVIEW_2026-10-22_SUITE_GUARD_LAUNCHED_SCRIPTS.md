@@ -155,7 +155,11 @@ Main has not moved since #181. There are no open pull requests. This round cover
   fails 3 for want of villa.
 - Ruff 0.9.10 `check` and `format` are clean on the three changed files, which were formatted before. `mypy` is
   clean on them.
-- VAL148
+- **The standard suite** on the final commit, with the locked-package overlay, gave 2776 passed, 22 skipped and 1
+  xfailed.
+  - That is main's 2766, plus the launcher tests' 7 and the guard's 3 new.
+  - The failures are main's nine villa-file failures (six `label_curation`, three `geometry_handoff`) and gp_winner.
+  - The smoke test gave 9 of 11 passed and 2 skipped, as on main.
 - **Independent review** of the first commit (`5563038a`), in a worktree without villa or ScrollGT. It found
   nothing blocking.
   - **It confirmed:**
