@@ -30,7 +30,9 @@ size.** It held.
 * **The install-route effect is as large as the fit-to-fit noise.** The pooled fit-only CV is 0.074.
   A villa autoresearch run scored with a current source build against a baseline scored with the
   published image (or the reverse) would see a spurious **~5–9%** change. That is the size of the
-  gains the loop chases, and larger than the ±3% bound our same-winding null achieved.
+  gains the loop chases, and larger than the ±3% bound our same-winding null achieved. *(Noted
+  2026-10-22: that bound was withdrawn on 2026-09-27; it rested on three tight control seeds, and against
+  the render-matched seeds the null is −4.41% [−12.18%, +3.37%], `reports/control_sensitivity.md`.)*
 * **It is not a constant.** It spans 4.2 points across four surfaces from the same region and code, so
   no single correction factor would reconcile the routes. Only rendering both sides with one build does.
 * **Not over-read:** with n = 4, the apparent pattern (the lowest-ink surface gains most, the highest

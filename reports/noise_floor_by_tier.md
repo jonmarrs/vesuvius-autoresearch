@@ -68,6 +68,8 @@ record, but the honest post-hoc statement is a confidence interval on what was a
 
 **The data exclude any ink effect beyond roughly ±3%, not ±10%.** The verdict does not change — the
 decoupling still fails to extend — but the null is three times more informative than stated.
+*(Withdrawn 2026-09-27, noted here 2026-10-22: the interval rests on three control seeds at CV 0.0124.
+Against the six render-matched seeds it is −4.41% [−12.18%, +3.37%]; `reports/control_sensitivity.md`.)*
 
 ## A trap worth recording: do not normalise by strip area
 

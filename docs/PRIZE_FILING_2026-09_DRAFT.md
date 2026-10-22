@@ -4,7 +4,8 @@
 > `docs/PRIZE_FILING_2026-09_SUBMIT.md`. This draft is kept for history only and contains figures
 > that have since been **withdrawn** (the 0.0263 seed CV, the 6% resolution, the "1.2%" count
 > agreement); the withdrawn-claims guard flagged it on 2026-09-21. Every number below is stale as
-> of the SUBMIT file's last correction.
+> of the SUBMIT file's last correction. *(Added 2026-10-22: also the current-code null's ±3% bound,
+> which rested on three tight control seeds; render-matched it is −4.41% [−12.18%, +3.37%].)*
 
 **Deadline: 11:59pm Pacific, 2026-09-30.** Nothing here is filed. Needs review before submission.
 

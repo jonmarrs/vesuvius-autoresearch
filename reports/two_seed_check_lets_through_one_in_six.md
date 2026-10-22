@@ -147,7 +147,9 @@ dependence to find. A loop cannot fix this by fitting better.
 
 That makes the finding sharper than first stated. The original framing invited "this matters because
 the fits are noisy". The correct framing is the opposite: **it matters no matter how quiet the fits
-get, and villa's fits just got 4× quieter without moving it at all.**
+get, and villa's fits just got 4× quieter without moving it at all.** *(Noted 2026-10-22: the "4×
+quieter" ratio was withdrawn on 2026-09-13; the tiers differ 2.0×, not established,
+`reports/noise_floor_by_tier.md`. The point stands: the false-positive rate has no CV in it.)*
 
 ## The fix is one extra seed
 
@@ -167,5 +169,8 @@ The right-hand column above was first computed at CV **0.0125**, from two arms. 
 current-tier estimate to **0.0263** (`reports/noise_floor_by_tier.md`), and these are the revised
 numbers. **The direction of the correction stands** — two seeds on current code detect a 5% gain 75%
 of the time against 28.6% on the superseded tree — but "99.2%" was overstated and is withdrawn.
+*(Superseded 2026-09-19, noted here 2026-10-22: six unused seeds doubled the current-tier CV to 0.0536,
+and at that CV two seeds catch a 5% gain 44% of the time, not 75%.
+`reports/six_unused_seeds_double_the_current_floor.md`.)*
 
 The false-positive half is unaffected, as it must be: 1/C(2k,k) has no CV in it.

@@ -407,13 +407,17 @@ Finding 9's power table used the inner CV 0.1086. At current noise two seeds cat
 today** and we have stopped saying it. The false-positive half is *stronger* than first stated: it is
 a rank statistic, exactly **1/C(2k,k)** under exchangeability — 2 seeds **1/6**, 3 seeds **1/20**,
 4 seeds **1/70** — independent of the CV, the metric and the code version. That is why 16.6% at CV
-0.1086 and 16.7% at CV 0.0125 agree. **No amount of better fitting improves it**, and villa's fits
-just got 4× quieter without moving it at all. One extra seed buys 1-in-6 → 1-in-20.
+0.1086 and 16.7% at CV 0.0125 agree. **No amount of better fitting improves it**, however quiet the
+fits get. *(Corrected 2026-10-22: this said villa's fits "just got 4× quieter", the ratio withdrawn on
+2026-09-13; the tiers differ 2.0×, not established.)* One extra seed buys 1-in-6 → 1-in-20.
 
 **A sixth self-correction, and the one that cost the most credibility to catch:** finding 25 was
 published quoting a bound of 9.6% that came from the *wrong tree's* constant. Checking where that
 number came from produced finding 26, which showed the same null actually excludes ±3% — three times
-stronger — while also showing every pinned-tier null was ~12% rather than ~10%. **A constant copied
+stronger — while also showing every pinned-tier null was ~12% rather than ~10%. *(Corrected
+2026-10-22: the ±3% rested on three unusually tight control seeds and was withdrawn on 2026-09-27;
+against the render-matched seeds the null is −4.41% [−12.18%, +3.37%], `reports/control_sensitivity.md`.
+The ~12% stands.)* **A constant copied
 between scripts stops being a measurement and becomes an assumption**; this one had been carried into
 studies on a tree it was never measured on. `scripts/measure_noise_floor.py` replaces it with
 something that is recomputed from the fits and refuses to pool the tiers.
