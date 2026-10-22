@@ -82,8 +82,9 @@ Main has not moved since #180. There are no open pull requests. This round cover
     - a connected-components row equal to a fresh score at both.
   - **A negative `--detect-block`** exits 2 before reading data, with the other bad options.
 - **Mutants.** Each of these 41 makes at least one new test fail. On main, every one passes all 35 fiber, trace,
-  tracer and orientation test files (566 passed, 24 skipped). Those in the defaults were run against them; the rest
-  change lines no test ran.
+  tracer and orientation test files (566 passed, 24 skipped). Those that change lines main runs were run against
+  them: the parser's and the two dataclasses' defaults, the two integer flags' types, and the negative-block check.
+  The rest change lines no test ran.
   - in the defaults:
     - the seed percentile, the relink gap or the tolerance changed;
     - the seed stride, step or step limit changed;
