@@ -22,6 +22,8 @@ from vesuvius_autoresearch.fibers import (
 from vesuvius_autoresearch.fibers.detection import (
     detect_vesselness,
     detect_vesselness_tiled,
+    fiber_direction,
+    hessian,
 )
 from vesuvius_autoresearch.fibers.eval_trace import score_tracing
 from vesuvius_autoresearch.fibers.skeleton_io import Fiber, Skeleton
@@ -602,6 +604,7 @@ def test_model_change_during_inference_cannot_publish_cache(tmp_path, monkeypatc
         ("--tangent-window", "0"),
         ("--continue-threshold", "2"),
         ("--relink-angle", "nan"),
+        ("--detect-block", "-1"),
     ],
 )
 def test_bad_benchmark_options_fail_before_data_access(monkeypatch, flag, value):
@@ -633,7 +636,8 @@ def test_graph_scores_survive_node_permutation_with_asymmetric_mask():
 
 
 # docs/preregistration/2026-10-05_tracer_rescore.md, "Tracer": `bench_cli trace` at its published defaults.
-REGISTERED_TRACE = {
+# The registration names the flags; the rest are the defaults they ran with, unchanged since before the run.
+PUBLISHED_TRACE = {
     "seed_percentile": 85.0,
     "continue_threshold": 0.5,
     "min_length": 15.0,
@@ -642,8 +646,31 @@ REGISTERED_TRACE = {
     "tangent_window": 1,
     "max_skip_steps": 0,
     "seed_nms_radius": 0.0,
+    "seed_threshold": 0.5,  # unused: seed_percentile is set
+    "step": 0.7,
+    "max_steps": 4000,
+    "seed_stride": 2,
 }
-REGISTERED_RELINK = {"max_gap": 10.0, "max_link_angle_deg": 30.0}
+PUBLISHED_RELINK = {
+    "max_gap": 10.0,
+    "max_link_angle_deg": 30.0,
+    "max_tangent_angle_deg": 35.0,
+    "endpoint_window": 4,
+    "gap_weight": 1.0,
+    "angle_weight": 0.15,
+    "gap_fill_step": 0.7,
+}
+PUBLISHED_RECIPE = {
+    "detect_block": 0,
+    "orientation": {"source": "fiber_probability", "gauss_sigma": 2, "sigma": 3},
+    "seed_response": {
+        "filter": "vesselness",
+        "gauss_sigma": 1,
+        "sigma": 2,
+        "normalization": "max",
+    },
+    "rasterization_radius": 1.0,
+}
 
 
 def _gapped_tubes():
@@ -665,8 +692,11 @@ def _gapped_tubes():
 
 
 @pytest.fixture
-def trace_run(tmp_path, monkeypatch):
-    """Run `bench_cli trace` on the gapped tubes, recording each stage's arguments by name."""
+def bench_cube(tmp_path, monkeypatch):
+    """Stub the gapped tubes in as `cube` and record each stage's arguments by name.
+
+    `run(*flags)` runs `bench_cli trace` on it. Tracing and relinking also keep what they returned.
+    """
     fp, gt = _gapped_tubes()
     img = np.full(
         fp.shape, 7, dtype=np.uint8
@@ -679,7 +709,7 @@ def trace_run(tmp_path, monkeypatch):
     monkeypatch.setattr(bench_cli, "_fiber_prob", lambda *a: fp.copy())
     calls = defaultdict(list)
 
-    def spy(module, name):
+    def spy(module, name, keep_result=False):
         real = getattr(module, name)
         signature = inspect.signature(real)
 
@@ -689,19 +719,21 @@ def trace_run(tmp_path, monkeypatch):
             named = dict(bound.arguments)
             named.update(named.pop("kwargs", {}))
             calls[name].append(named)
-            return real(*args, **kwargs)
+            result = real(*args, **kwargs)
+            if keep_result:
+                named["returned"] = result
+            return result
 
         monkeypatch.setattr(module, name, wrapped)
 
     for name in [
-        "hessian",
         "fiber_direction_tiled",
         "detect_vesselness",
         "detect_vesselness_tiled",
     ]:
         spy(detection, name)
     for name in ["trace_fibers", "relink_fragments"]:
-        spy(fiber_trace, name)
+        spy(fiber_trace, name, keep_result=True)
     spy(eval_trace, "score_tracing")
 
     def run(*extra):
@@ -712,7 +744,7 @@ def trace_run(tmp_path, monkeypatch):
         assert bench_cli.main(argv) == 0
         return json.loads(out.read_text()), np.load(inst), defaultdict(list, calls)
 
-    run.fp, run.gt = fp, gt
+    run.fp, run.gt, run.data_dir = fp, gt, tmp_path
     return run
 
 
@@ -722,41 +754,27 @@ def _ran_with(calls):
     return traced["params"], relinked[0]["params"] if relinked else None
 
 
-def _sigmas(call):
-    return call["gauss_sigma"], call["sigma"]
-
-
-def test_trace_defaults_are_the_registered_published_configuration(trace_run):
-    record, _, calls = trace_run()
+def test_trace_defaults_are_the_published_configuration(bench_cube):
+    record, _, calls = bench_cube()
     params, relink = _ran_with(calls)
-    assert {k: getattr(params, k) for k in REGISTERED_TRACE} == REGISTERED_TRACE
-    assert {k: getattr(relink, k) for k in REGISTERED_RELINK} == REGISTERED_RELINK
-    assert record["trace_parameters"] == asdict(params)
-    assert record["relink_parameters"] == asdict(relink)
+    assert asdict(params) == record["trace_parameters"] == PUBLISHED_TRACE
+    assert asdict(relink) == record["relink_parameters"] == PUBLISHED_RELINK
+    assert record["tracing_recipe"] == PUBLISHED_RECIPE
     provenance = record["provenance"]
     assert (provenance["tolerance"], provenance["mask_threshold"]) == (2.0, 0.5)
     assert [c["tolerance"] for c in calls["score_tracing"]] == [2.0, 2.0]
 
 
-def test_trace_runs_and_records_every_parameter_it_is_given(trace_run):
-    record, _, calls = trace_run(
-        *[
-            "--seed-percentile",
-            "80",
-            "--continue-threshold",
-            "0.4",
-            "--min-length",
-            "12",
-        ],
-        *["--max-angle", "28", "--claim-radius", "3", "--tangent-window", "5"],
-        *["--max-skip-steps", "1", "--seed-nms-radius", "1.5"],
-        *["--relink-gap", "8", "--relink-angle", "35"],
-        *["--tolerance", "3", "--mask-threshold", "0.4"],
+def test_trace_runs_and_records_every_parameter_it_is_given(bench_cube):
+    record, _, calls = bench_cube(
+        *"--seed-percentile 80 --continue-threshold 0.45 --min-length 12 --max-angle 28".split(),
+        *"--claim-radius 3 --tangent-window 5 --max-skip-steps 1 --seed-nms-radius 1.5".split(),
+        *"--relink-gap 8 --relink-angle 35 --tolerance 3 --mask-threshold 0.4".split(),
     )
     params, relink = _ran_with(calls)
-    assert {k: getattr(params, k) for k in REGISTERED_TRACE} == {
+    given = {
         "seed_percentile": 80.0,
-        "continue_threshold": 0.4,
+        "continue_threshold": 0.45,
         "min_length": 12.0,
         "max_angle_deg": 28.0,
         "claim_radius": 3.0,
@@ -764,73 +782,99 @@ def test_trace_runs_and_records_every_parameter_it_is_given(trace_run):
         "max_skip_steps": 1,
         "seed_nms_radius": 1.5,
     }
-    gap, angles = (
-        relink.max_gap,
-        (relink.max_link_angle_deg, relink.max_tangent_angle_deg),
+    assert asdict(params) == record["trace_parameters"] == {**PUBLISHED_TRACE, **given}
+    assert type(params.tangent_window) is type(params.max_skip_steps) is int
+    links = {"max_gap": 8.0, "max_link_angle_deg": 35.0, "max_tangent_angle_deg": 40.0}
+    assert (
+        asdict(relink) == record["relink_parameters"] == {**PUBLISHED_RELINK, **links}
     )
-    assert (gap, angles) == (8.0, (35.0, 40.0))
-    assert record["trace_parameters"] == asdict(params)
-    assert record["relink_parameters"] == asdict(relink)
     provenance = record["provenance"]
     assert (provenance["tolerance"], provenance["mask_threshold"]) == (3.0, 0.4)
     assert [c["tolerance"] for c in calls["score_tracing"]] == [3.0, 3.0]
     np.testing.assert_array_equal(
         calls["score_tracing"][1]["instances"],
-        eval_trace.floor_connected_components(trace_run.fp >= 0.4),
+        eval_trace.floor_connected_components(bench_cube.fp >= 0.4),
     )
 
 
 @pytest.mark.parametrize("block", [0, 16])
-def test_trace_runs_the_recipe_it_records(trace_run, block):
-    record, _, calls = trace_run("--detect-block", str(block))
+def test_trace_runs_the_recipe_it_records(bench_cube, block):
+    record, instances, calls = bench_cube("--detect-block", str(block))
     recipe = record["tracing_recipe"]
-    assert recipe["detect_block"] == block
-    assert recipe["orientation"]["source"] == "fiber_probability"
-    orientation = _sigmas(recipe["orientation"])
-    seeding = _sigmas(recipe["seed_response"])
+    assert recipe == {**PUBLISHED_RECIPE, "detect_block": block}
+    orientation, seeding = recipe["orientation"], recipe["seed_response"]
     if block:
         (field,) = calls["fiber_direction_tiled"]
         (seed,) = calls["detect_vesselness_tiled"]
         assert field["block_size"] == seed["block_size"] == block
+        np.testing.assert_array_equal(field["volume"], bench_cube.fp)
+        assert (field["gauss_sigma"], field["sigma"]) == (2, 3)
     else:
         assert not calls["fiber_direction_tiled"]
         assert not calls["detect_vesselness_tiled"]
-        field = calls["hessian"][0]  # detect_vesselness calls hessian after it
         (seed,) = calls["detect_vesselness"]
-    np.testing.assert_array_equal(field["volume"], trace_run.fp)
-    np.testing.assert_array_equal(seed["volume"], trace_run.fp)
-    assert (_sigmas(field), _sigmas(seed)) == (orientation, seeding)
-    assert {_sigmas(c) for c in calls["hessian"]} == {orientation, seeding}
+    np.testing.assert_array_equal(seed["volume"], bench_cube.fp)
+    # The blocked filters equal the whole-volume ones exactly (tests/test_fiber_direction_tiled.py),
+    # so both routes must hand the tracer what the recorded recipe computes on the probability.
+    J, _ = hessian(
+        bench_cube.fp.copy(), orientation["gauss_sigma"], orientation["sigma"]
+    )
+    directions, valid = fiber_direction(J)
+    raw = np.asarray(
+        detect_vesselness(
+            bench_cube.fp.copy(),
+            gauss_sigma=seeding["gauss_sigma"],
+            sigma=seeding["sigma"],
+        ),
+        dtype=float,
+    )
     (traced,) = calls["trace_fibers"]
-    np.testing.assert_array_equal(traced["response"], trace_run.fp)
-    assert recipe["seed_response"]["normalization"] == "max"
-    assert traced["seed_response"].max() == 1.0
+    np.testing.assert_array_equal(traced["response"], bench_cube.fp)
+    np.testing.assert_array_equal(traced["directions"], directions)
+    np.testing.assert_array_equal(traced["valid"], valid)
+    np.testing.assert_array_equal(traced["seed_response"], raw / raw.max())
+    (relinked,) = calls["relink_fragments"]
+    assert relinked["result"] is traced["returned"]
+    radius = recipe["rasterization_radius"]
+    np.testing.assert_array_equal(
+        instances, relinked["returned"].to_instances(radius=radius)
+    )
 
 
-def test_blocked_detection_traces_the_same_labelling(trace_run):
-    dense, dense_instances, _ = trace_run()
-    blocked, blocked_instances, _ = trace_run("--detect-block", "16")
+def test_blocked_detection_traces_the_same_labelling(bench_cube):
+    dense, dense_instances, _ = bench_cube()
+    blocked, blocked_instances, _ = bench_cube("--detect-block", "16")
     np.testing.assert_array_equal(dense_instances, blocked_instances)
     assert dense["rows"] == blocked["rows"]
 
 
-def test_trace_saves_the_labelling_it_scored_and_relinks_only_when_asked(trace_run):
-    record, instances, calls = trace_run()
+def test_trace_saves_the_labelling_it_scored_and_relinks_only_when_asked(bench_cube):
+    record, instances, calls = bench_cube()
+    assert record["cube"] == "cube"
+    (traced,) = calls["trace_fibers"]
+    (relinked,) = calls["relink_fragments"]
+    assert (
+        record["stop_counts"]
+        == relinked["returned"].stop_counts
+        == traced["returned"].stop_counts
+    )
     np.testing.assert_array_equal(calls["score_tracing"][0]["instances"], instances)
     tracer = record["rows"]["tracer"]
-    assert tracer == score_tracing(trace_run.gt, instances, tolerance=2.0).as_row()
+    assert tracer == score_tracing(bench_cube.gt, instances, tolerance=2.0).as_row()
     assert tracer["n_pred_instances"] == 2  # the gap is bridged
-    unlinked, _, calls = trace_run("--no-relink")
+    unlinked, instances, calls = bench_cube("--no-relink")
     assert not calls["relink_fragments"]
     assert unlinked["relink_parameters"] is None
+    (traced,) = calls["trace_fibers"]
+    np.testing.assert_array_equal(
+        instances, traced["returned"].to_instances(radius=1.0)
+    )
     assert unlinked["rows"]["tracer"]["n_pred_instances"] == 3
 
 
-def test_single_cube_floors_need_a_cube_and_record_the_floors_they_scored(
-    trace_run, tmp_path
-):
-    out = tmp_path / "floors.json"
-    argv = ["--data-dir", str(tmp_path), "floors", "--json-out", str(out)]
+def test_single_cube_floors_need_a_cube_and_record_the_floors_they_scored(bench_cube):
+    out = bench_cube.data_dir / "floors.json"
+    argv = ["--data-dir", str(bench_cube.data_dir), "floors", "--json-out", str(out)]
     assert bench_cli.main(argv) == 2
     assert not out.exists()
     argv += ["--cube", "cube", "--tolerance", "3", "--mask-threshold", "0.4"]
@@ -846,6 +890,6 @@ def test_single_cube_floors_need_a_cube_and_record_the_floors_they_scored(
         "floor_voxel_instances",
         "floor_random_instances",
     ]
-    components = eval_trace.floor_connected_components(trace_run.fp >= 0.4)
-    expected = score_tracing(trace_run.gt, components, tolerance=3.0).as_row()
+    components = eval_trace.floor_connected_components(bench_cube.fp >= 0.4)
+    expected = score_tracing(bench_cube.gt, components, tolerance=3.0).as_row()
     assert record["rows"]["floor_connected_components"] == expected
