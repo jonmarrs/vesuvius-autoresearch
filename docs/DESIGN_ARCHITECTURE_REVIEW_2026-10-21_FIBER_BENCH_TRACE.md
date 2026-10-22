@@ -115,7 +115,7 @@ Main has not moved since #180. There are no open pull requests. This round cover
     - the `--cube` check dropped;
     - the mask or tolerance fixed;
     - the provenance left out.
-- **Coverage.** `bench_cli.py` goes from 73% to 92% over the standard suite's thirteen fiber, trace and orientation
+- **Coverage.** `bench_cli.py` goes from 73% to 93% over the standard suite's thirteen fiber, trace and orientation
   files. The added tests take about 6 seconds.
 
 ## Verified, no change needed
@@ -151,8 +151,7 @@ Main has not moved since #180. There are no open pull requests. This round cover
   - `_load_cube`, which needs the TIFFs;
   - `_fiber_prob`'s refusals of a bad patch, device or output shape, and its rejection of a corrupt cache;
   - `fetch`'s refusal of a bad stem or a missing cube, its skips, and its empty and short download checks;
-  - `score`'s refusal of instances of the wrong shape;
-  - `main`'s refusal of a negative `--detect-block`.
+  - `score`'s refusal of instances of the wrong shape.
 
 ## Verification
 

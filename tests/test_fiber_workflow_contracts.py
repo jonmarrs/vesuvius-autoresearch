@@ -698,9 +698,8 @@ def bench_cube(tmp_path, monkeypatch):
     `run(*flags)` runs `bench_cli trace` on it. Tracing and relinking also keep what they returned.
     """
     fp, gt = _gapped_tubes()
-    img = np.full(
-        fp.shape, 7, dtype=np.uint8
-    )  # not the probability: orientation must not read it
+    # The CT is not the probability, so orientation read from it would show.
+    img = np.full(fp.shape, 7, dtype=np.uint8)
     (tmp_path / "cube.nml").write_text("<things/>")
     (tmp_path / "cube_fiberprob.json").write_text(
         json.dumps({"inference": {"model": "m"}, "probability_sha256": "ab"})
