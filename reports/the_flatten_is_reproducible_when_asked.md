@@ -6,8 +6,9 @@
 
 ## The result
 
-Two flattens of one mesh set (`4576eacfa2d40cdd`, the same input that landed 7.15 vx apart under
-stock settings), both under `FLATTEN_DETERMINISTIC=1`:
+Two flattens of one mesh set (`4576eacfa2d40cdd`, the input whose stock flattens sat 7.15 vx apart by
+nearest neighbour, on the same surface 0.25 vx apart along the normal, as corrected 2026-09-22), both
+under `FLATTEN_DETERMINISTIC=1`:
 
 | | value |
 |---|---:|

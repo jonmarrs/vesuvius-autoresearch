@@ -268,7 +268,8 @@ ones. Emptying `same_windings.json`, three arms against the six existing baselin
 | `total_fg_pixels` | 1,720,000 | 1,690,000 | -1.74% | 0.6114 |
 | `satisfied_area_fraction` | 0.8390 | 0.8331 | **-0.69%** | **0.0027** |
 
-**NULL on reading**, bounded at 8.3%, not zero. The geometry fall is *stronger* evidence than a rise
+**NULL on reading**, bounded at ~10%, not zero (8.3% as registered, from the df=3 CV; ~10% with the
+pinned tier's floor, `reports/noise_floor_by_tier.md`). The geometry fall is *stronger* evidence than a rise
 would have been: the registration made `satisfied_area` report-only because removing 5,413 inputs
 could inflate it trivially ("less left to satisfy"), and that confound can only manufacture a RISE.
 It fell — the fit satisfies its remaining inputs less well despite having fewer of them.

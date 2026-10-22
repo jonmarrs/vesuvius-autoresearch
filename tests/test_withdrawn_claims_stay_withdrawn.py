@@ -10,6 +10,11 @@ So this matches the CLAIM, not the digits: phrases that only make sense as an
 assertion of the withdrawn fact. A paragraph may still contain such a phrase if it
 also says the claim was withdrawn, because that is what a retraction looks like.
 
+Any withdrawal word clears a paragraph, which is coarse: on 2026-10-22 FINDINGS.md
+still said two flattens "land on surfaces 7.15 vx apart" in a paragraph that said
+"superseded" about something else. A claim may therefore name the correction a
+paragraph must carry instead (a fourth element), and then only that clears it.
+
 Scope note: this guards claims retracted in-session, where the retraction is
 recent enough that stale copies are likely. It is not a general fact-checker.
 """
@@ -46,7 +51,7 @@ _WITHDRAWAL = (
     "do not edit or file",
 )
 
-# (regex, what it asserts, what replaced it)
+# (regex, what it asserts, what replaced it[, what a paragraph quoting it must also say])
 _CLAIMS = [
     (
         r"4\.1\s*[x×]\s*(tighter|quieter)",
@@ -101,14 +106,32 @@ _CLAIMS = [
         "20 core tests pass offline in the container",
         "all 206 pass offline, verified 8m02s",
     ),
+    # 2026-09-22: the 7.15 vx is a nearest-neighbour distance between two samplings
+    # of one sheet; along the normal they are 0.25 vx apart.
+    # reports/the_flatten_moves_the_grid_not_the_surface.md
+    (
+        r"(surfaces?(\s+\w+)?|lands?|landed|landing|mov\w*\s+the\s+surface)\s+"
+        r"(on\s+surfaces\s+)?\**~?7(\.1\d?)?\s*(vx|voxels?)\b",
+        "two stock flattens land on surfaces 7.15 vx apart",
+        "the same surface, 0.25 vx apart along the normal; ~7 vx is the grid's in-plane offset",
+        r"0\.25\s*vx|same surface|nearest[- ]neighbou?r|re-?parametri[sz]",
+    ),
 ]
 
 
+def _cleared(para: str, required: str | None) -> bool:
+    if required is not None:
+        return re.search(required, para, re.I) is not None
+    return any(w in para.lower() for w in _WITHDRAWAL)
+
+
 @pytest.mark.parametrize(
-    "pattern,asserts,replacement", _CLAIMS, ids=[c[1][:34] for c in _CLAIMS]
+    "pattern,asserts,replacement,required",
+    [(*c, None)[:4] for c in _CLAIMS],
+    ids=[c[1][:34] for c in _CLAIMS],
 )
 def test_withdrawn_claim_appears_only_beside_its_withdrawal(
-    pattern, asserts, replacement
+    pattern, asserts, replacement, required
 ):
     rx = re.compile(pattern, re.I)
     offenders = []
@@ -118,7 +141,7 @@ def test_withdrawn_claim_appears_only_beside_its_withdrawal(
         for para in re.split(r"\n\s*\n", doc.read_text()):
             if not rx.search(para):
                 continue
-            if any(w in para.lower() for w in _WITHDRAWAL):
+            if _cleared(para, required):
                 continue
             offenders.append(f"{doc.relative_to(_REPO)}: {para.strip()[:140]}")
     assert not offenders, (
@@ -141,4 +164,26 @@ def test_a_withdrawal_paragraph_is_allowed_to_name_the_old_number():
     pattern = next(c[0] for c in _CLAIMS if "99.2%" in c[1])
     rx = re.compile(pattern, re.I)
     para = "We first said 99.2% of the time; that figure is withdrawn."
-    assert rx.search(para) and any(w in para.lower() for w in _WITHDRAWAL)
+    assert rx.search(para) and _cleared(para, None)
+
+
+def test_a_claim_with_a_named_correction_is_not_cleared_by_any_withdrawal_word():
+    pattern, _, _, required = next(c for c in _CLAIMS if "7.15 vx" in c[1])
+    rx = re.compile(pattern, re.I)
+    stale = (
+        "two runs land on surfaces **7.15 vx apart** and move the count 3.04%. "
+        "Older seed estimates are superseded."
+    )
+    assert rx.search(stale) and not _cleared(stale, required)
+    fixed = (
+        "they lay the same surface out on grids ~7 vx apart, 0.25 vx along the normal"
+    )
+    assert _cleared(fixed, required)
+    for live in (
+        "their surfaces sit **7.15 vx apart** in the outer region",
+        "a re-solve that moved the surface 7.15 vx in the outer region",
+        "a flattener that lands 7 vx apart every run",
+        "the same input that landed 7.15 vx apart under stock settings",
+    ):
+        assert rx.search(live), live
+    assert not rx.search("the median patch spans 7 bands")

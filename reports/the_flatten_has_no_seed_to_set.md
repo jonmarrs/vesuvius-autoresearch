@@ -3,6 +3,9 @@
 **2026-09-21.** Follow-up to `reports/the_render_is_the_noise_floor.md`, which measured the lasagna
 flatten landing 7.15 vx apart on identical input and left open whether it is fixable. No new compute;
 this is a reading of the flatten code at the pinned tree.
+*(Corrected 2026-09-22, noted here 2026-10-22: the two flattens lie on the same surface, 0.25 vx
+apart along the normal; 7.15 vx is the nearest-neighbour distance between their sampling grids.
+`reports/the_flatten_moves_the_grid_not_the_surface.md`.)*
 
 ## What the code does not contain
 

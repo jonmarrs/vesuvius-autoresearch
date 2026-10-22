@@ -44,6 +44,9 @@ be read.
 > min instead of ~4 on one 4090, against a ~2 h render). Worth doing when a comparison manipulates a
 > *fixed* surface; it does **not** tighten comparisons between different fits, where the seed's own
 > variation dominates.
+> *(Corrected 2026-09-22, noted here 2026-10-22: the two flattens lie on the same surface, 0.25 vx
+> apart along the normal; 7.15 vx is the nearest-neighbour distance between their sampling grids.
+> `reports/the_flatten_moves_the_grid_not_the_surface.md`.)*
 
 ## Evidence for the PR body
 

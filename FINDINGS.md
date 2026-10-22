@@ -10,7 +10,12 @@ search has taught us — including the negative results.
 - **Autoresearch loop** (`run_autoresearch_loop.py`) — a bandit samples
   architecture / loss / augmentation / hyperparameter "families", trains each
   candidate under a fixed wall-clock budget on a single GPU, evaluates on a
-  held-out fragment, and promotes only topology-improving configurations.
+  held-out fragment, and promotes a configuration only when its `val_f1` beats the
+  incumbent's by more than the noise tolerance, with an AP-prevalence lift above
+  1.02. (Corrected 2026-10-22: this said "topology-improving". The loop's
+  `config.json` records the prize gates without enforcing them
+  (`enforce_prize_gates: false`), and `skel_dist` is never gated since Phase 4b
+  found it invalid.)
 - **Scroll-specific augmentation library** (`scroll_augmentations.py`) — nine
   GPU-native augmentations modeling scroll-CT artifacts; addresses
   [villa #201](https://github.com/ScrollPrize/villa/issues/201). See
@@ -570,7 +575,7 @@ Full detail with every noise floor attached:
 
 **These findings were measured on villa-spiral `6847063f`. Current villa recovers 67.6% more ink through a byte-identical renderer and scorer** ([measurement](reports/current_code_baseline.md)), so they are measurements of superseded code. **Re-measured 2026-09-12, and the extension FAILED.**
 
-**2026-09-13, anchor ablation:** cutting villa's 50 in-ROI absolute winding anchors to 10 changes reading by −0.86%, p=0.76 — but bounded only at [−10.21%, +8.50%], because the ablated arm is 3.4× noisier than the baselines. Its geometry rise (+1.39%, p=0.0032) is **not** a decoupling: `abs_winding` is a loss term competing with patch fitting, so deleting anchors mechanically improves patch satisfaction. Our own registration claimed otherwise and is corrected in place ([verdict](reports/anchor_ablation_verdict.md)). On current code the ink null reproduces (+0.28%, p=0.80, 95% CI [-2.56%, +3.13%]) but the geometry evidence does not: `satisfied_area` ROSE 1.18%, the direction our own registration declared uninterpretable because the manipulation removes inputs the metric scores. The decoupling is a statement about `6847063f` and must not be reported as holding on current villa ([verdict](reports/decoupling_does_not_cleanly_reproduce.md)). **Corrected 2026-09-21: that study's control was cross-tree.** Its registered baseline `curbase_s1..s3` was fitted before a villa submodule bump and its ablated arms after; against the tree-matched `curbase_s4..s9` the ink estimate moves **−0.86% → −5.49%** (verdict still NULL) while the geometry result strengthens to +1.32%, p=0.0013. The registration's "identical in every other respect" did not hold ([correction](reports/the_anchor_control_was_cross_tree.md)).
+**2026-09-13, anchor ablation:** cutting villa's 50 in-ROI absolute winding anchors to 10 changes reading by −0.86%, p=0.76 — but bounded only at [−10.21%, +8.50%], because the ablated arm is 3.4× noisier than the baselines. Its geometry rise (+1.39%, p=0.0032) is **not** a decoupling: `abs_winding` is a loss term competing with patch fitting, so deleting anchors mechanically improves patch satisfaction. Our own registration claimed otherwise and is corrected in place ([verdict](reports/anchor_ablation_verdict.md)). On current code the ink null reproduces (+0.28%, p=0.80, 95% CI [-2.56%, +3.13%]) but the geometry evidence does not: `satisfied_area` ROSE 1.18%, the direction our own registration declared uninterpretable because the manipulation removes inputs the metric scores. The decoupling is a statement about `6847063f` and must not be reported as holding on current villa ([verdict](reports/decoupling_does_not_cleanly_reproduce.md)). **Corrected 2026-09-21: that study's control was cross-tree.** Its registered baseline `curbase_s1..s3` was fitted before a villa submodule bump and its ablated arms after; against the tree-matched `curbase_s4..s9` the ink estimate moves **−0.86% → −5.49%** (verdict still NULL) while the geometry result strengthens to +1.32%, p=0.0013. The registration's "identical in every other respect" did not hold ([correction](reports/the_anchor_control_was_cross_tree.md)). *(Corrected 2026-09-27: the split is at the render, not the fit. Every current-tier fit ran from one `d8c5f488a` copy, and the render split was measured inert, +1.44% inside the 3.04% render noise. So −0.86% → −5.49% is sensitivity to which seeds serve as control, not a bias removed. The same holds for the current-code ink null above: against the six render-matched control seeds it is −4.41%, 95% CI [−12.18%, +3.37%], so its ±3% bound is withdrawn ([control sensitivity](reports/control_sensitivity.md)).)*
 
 **2026-09-14, the objective is more reproducible than the ink it counts** *(exploratory, except the
 averaging result, which was pre-registered and confirmed forward)*. Comparing
@@ -601,7 +606,9 @@ same answer — it is fitting and flattening that vary.
 
 **Decomposed 2026-09-21/22, and the two halves behave differently.** *Flattening*: the lasagna
 flatten is a stochastic optimiser — two runs on byte-identical meshes, same pinned tree, same code,
-land on surfaces **7.15 vx apart** and move the count **3.04%**. It has no RNG to seed; the cause is
+lay the same surface out on grids **~7 vx** apart in-plane (0.25 vx along the normal; corrected
+2026-09-22, [report](reports/the_flatten_moves_the_grid_not_the_surface.md)) and move the count
+**3.04%**. It has no RNG to seed; the cause is
 CUDA reduction order alone, and asking for deterministic algorithms makes it **bit-reproducible** at
 a 9.5× flatten cost ([measurement](reports/the_flatten_is_reproducible_when_asked.md)). *Fitting*:
 with the flatten held deterministic, six seeds of one config give a CV of **0.0909 [0.0568, 0.2230]**
@@ -612,8 +619,8 @@ estimates in this document are superseded by the per-tier measurements in
 [noise_floor_by_tier.md](reports/noise_floor_by_tier.md).
 
 **The headline is a metric result, not a model result.** villa's loop optimises
-`total_fg_pixels` (recovered ink) with a `satisfied_area` (geometry) cross-check. We have two
-pre-registered cases where those two move independently **in opposite directions**:
+`total_fg_pixels` (recovered ink) with a `satisfied_area` (geometry) cross-check. We have four
+pre-registered cases where those two move independently, **in three different directions**:
 
 | case | `satisfied_area` | `total_fg_pixels` | what the guard does |
 |---|---:|---:|---|
@@ -640,7 +647,8 @@ belongs next to them: the guard is not a second opinion on the same quantity.
 
 **The fourth case is the one that bears on strategy.** villa names winding constraints as the fastest
 path to unrolling at scale. Removing 5,413 same-winding constraints measurably degrades the fit and
-leaves recovered ink unchanged within ~8.3% ([verdict](reports/samewinding_verdict.md)) — and that
+leaves recovered ink unchanged within ~10% (8.3% as registered; corrected with the pinned tier's
+noise floor, [noise floors](reports/noise_floor_by_tier.md)) ([verdict](reports/samewinding_verdict.md)) — and that
 geometry fall is *stronger* evidence than a rise, because the "less left to satisfy" confound the
 registration guarded against can only manufacture a rise.
 
@@ -732,7 +740,9 @@ renders legible Greek from published artifacts on one 4090.
     measured nothing about generalization. A valid multi-scroll / cross-scroll
     experiment needs the loader to handle the `(H, depth, W)` axis order and the
     labels resampled to the volume grid first. (Only the two PHercParis2
-    fragments, Fr47/Fr143, are correctly `(depth, H, W)` and aligned.)
+    fragments, Fr47/Fr143, are correctly `(depth, H, W)` and aligned.) *(Since
+    measured: the first valid cross-scroll measurement, lift 1.29, is in "Metric
+    pivot" above.)*
   - *Same-scroll pseudo-label self-training is blocked by the detector's
     pixel-level non-discrimination — and even true same-scroll labels don't
     help.* We split the held-out fragment (Fr143) into spatially-disjoint
