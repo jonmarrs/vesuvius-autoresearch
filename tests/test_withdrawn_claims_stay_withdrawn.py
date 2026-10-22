@@ -130,6 +130,14 @@ def _cleared(para: str, required: str | None) -> bool:
     return any(w in para.lower() for w in _WITHDRAWAL)
 
 
+# Read as current, not as records: corrected where they say a thing, never by a head note.
+_LIVE = {
+    _REPO / "README.md",
+    _REPO / "FINDINGS.md",
+    _REPO / "reports" / "SPIRAL_FINDINGS_SUMMARY.md",
+}
+
+
 def _head(text: str) -> str:
     """A document's opening, before its first section: where a dated report is
     corrected as a whole ("CORRECTED ...: the title's claim is wrong")."""
@@ -154,7 +162,7 @@ def test_withdrawn_claim_appears_only_beside_its_withdrawal(
         # FINDINGS, the README and the summary are corrected where they say it
         if (
             required is not None
-            and doc.parent != _REPO
+            and doc not in _LIVE
             and _cleared(_head(text), required)
         ):
             continue
@@ -214,4 +222,5 @@ def test_a_claim_with_a_named_correction_is_not_cleared_by_any_withdrawal_word()
     assert not _cleared(
         "land on surfaces 7.15 vx apart by nearest-neighbour distance", required
     )
+    assert set(_DOCS) >= _LIVE
     assert not rx.search("the median patch spans 7 bands")

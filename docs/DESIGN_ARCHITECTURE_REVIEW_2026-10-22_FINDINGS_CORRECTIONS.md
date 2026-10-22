@@ -41,6 +41,8 @@ Main has not moved since #189. There are no open pull requests. This round cover
       uncorrected report used that word itself.
     - A dated document corrected at its head, before its first section, is cleared as a whole. The corrected
       original report is cleared this way.
+    - The README, FINDINGS and the summary are read as current, not as records. A head note never clears
+      them; each must be corrected where it makes the claim.
   - The pattern takes any 7.x figure, up to three intervening words, table cells, and the reversed order
     ("6.6–7.3 vx from *both* stock surfaces").
   - **What it found, and the change for each:**
