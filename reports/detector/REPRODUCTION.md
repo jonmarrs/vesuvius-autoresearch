@@ -10,6 +10,9 @@ own data, clearing the success bar.
   (single fixed seed, 12-epoch recipe, uniform inference weighting). Success bar ≥ 0.70;
   proven reference = 0.711.
 - **Selected checkpoint: epoch 7** (best held-out AUC across all 12 epochs).
+  - It was chosen on Fr143, the fragment this reports, so 0.7090 is optimistic. In the sweep
+    below (Gaussian blend), epoch 7 scored 0.7001 and the last epoch, a fixed rule, 0.6982.
+    (Added 2026-10-22.)
 - **Inference weighting: uniform** — averaging overlapping windows with equal weight
   (matching the proven `train_ours.py` accumulation) scores 0.709 vs 0.700 for a Gaussian
   blend on the same checkpoint; uniform is both more faithful and higher.
@@ -67,3 +70,7 @@ uv run python -m vesuvius_autoresearch.detector.cli reproduce
 # unit tests (CPU)
 CUDA_VISIBLE_DEVICES="" uv run python -m pytest tests/test_detector_*.py -q
 ```
+
+`reproduce` does not repeat the selection above. It scores the checkpoint training returns:
+the epoch with the lowest mean training loss (`detector/train.py`'s `ModelCheckpoint`). It
+prints that checkpoint's path, and asserts pixel-AUC ≥ 0.70 on it. (Added 2026-10-22.)

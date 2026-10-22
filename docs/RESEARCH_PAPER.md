@@ -44,6 +44,10 @@ community contract:
 | `ap_prevalence_lift` (1.0 = chance) | 2.07 | 1.29 |
 | ROC-AUC (secondary) | 0.709 | 0.585 |
 
+The same-scroll column is optimistic: its checkpoint, epoch 7 of 12, was chosen by ROC-AUC
+on Fr143 itself. In that sweep (Gaussian blend) epoch 7 scored 0.7001 and the last epoch, a
+fixed rule, 0.6982. No epoch was chosen on Scroll 1. (Added 2026-10-22.)
+
 Real, transferable ink signal at the prize window same-scroll (proven-recipe reference:
 0.711 ROC-AUC); **weak cross-scroll transfer** — the quantified generalization gap. Getting
 here required root-causing three real inference defects (a ÷255 normalization mismatch alone

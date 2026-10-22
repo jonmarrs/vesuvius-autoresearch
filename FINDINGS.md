@@ -51,6 +51,12 @@ held-out `PHercParis2Fr143`; community metric contract):
 | `ap_prevalence_lift` (1.0 = chance) | 2.07 | 1.29 |
 | ROC-AUC (secondary) | 0.709 | 0.585 |
 
+The same-scroll column is optimistic: its checkpoint, epoch 7 of 12, was chosen by ROC-AUC
+on Fr143 itself. In that sweep (Gaussian blend,
+[REPRODUCTION.md](reports/detector/REPRODUCTION.md)) epoch 7 scored 0.7001 and the last
+epoch, a fixed rule, 0.6982. No epoch was chosen on Scroll 1. In both columns `val_f1` is at
+its own best threshold. (Added 2026-10-22.)
+
 Real, transferable ink signal at the prize window same-scroll; **weak cross-scroll
 transfer** — the open problem the field is working on.
 
@@ -266,8 +272,11 @@ Phase 5 turns that into a **first-class tool**: `vesuvius_autoresearch.detector`
 the same split the loop uses — saving every epoch and selecting the best by held-out AUC.
 
 **Result (held-out Fr143):** best epoch (7 of 12) scores pixel-AUC **0.7090 mask-restricted**
-(proven reference 0.711). AUC climbs with training then plateaus at ~0.69–0.71 across epochs
-6–11. **Window-compliant:** the lateral patch is 64 px; the 26 through-surface depth slices
+(proven reference 0.711). AUC climbs with training then plateaus at ~0.69–0.70 across epochs
+6–11 (Gaussian blend). Epoch 7 was chosen on Fr143, the fragment reported, so 0.7090 is
+optimistic; the last epoch, a fixed rule, scored 0.6982 against epoch 7's 0.7001 in that
+sweep. The one-command `reproduce` scores the epoch with the lowest mean training loss, not
+this selection. (Added 2026-10-22.) **Window-compliant:** the lateral patch is 64 px; the 26 through-surface depth slices
 ride the TimeSformer's *time* axis (`num_frames=26`, `channels=1`), so the depth context that
 makes the recipe work is **not** subject to the lateral 0.5 mm limit. (Inference averages
 overlapping windows with **uniform** weighting — matching the proven `train_ours.py`

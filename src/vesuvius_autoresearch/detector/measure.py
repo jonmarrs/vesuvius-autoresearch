@@ -40,6 +40,13 @@ def measure(cfg, checkpoint_path, targets, model=None):
     return rows
 
 
+def _cell(text):
+    """Text as one Markdown table cell: whitespace runs, newlines among them,
+    collapsed to a space, and pipes escaped. A checkpoint that fails to load
+    raises a multi-line error, which would otherwise end the table."""
+    return " ".join(str(text).split()).replace("|", "\\|")
+
+
 def _fmt(v):
     return (
         f"{v:.4f}"
@@ -59,7 +66,9 @@ def _write_report(cfg, checkpoint_path, rows):
     ]
     for fid, m in rows.items():
         if "error" in m:
-            lines.append(f"| {fid} | {m['scroll_label']} | ERROR: {m['error']} |")
+            lines.append(
+                f"| {fid} | {m['scroll_label']} | ERROR: {_cell(m['error'])} |"
+            )
             continue
         lines.append(
             f"| {fid} | {m.get('scroll_label', '')} | "

@@ -361,3 +361,55 @@ def test_measure_records_degenerate_target_failure_and_cli_exits_nonzero(
     assert rows["good"]["val_f1"] > 0
     assert "error" in rows["bad"]
     assert "bad" in capsys.readouterr().err
+
+
+def test_a_multiline_measurement_error_stays_one_table_row(tmp_path, monkeypatch):
+    cfg = DetectorConfig(reports_dir=str(tmp_path))
+    error = (
+        "Error(s) in loading state_dict for DetectorModel:\n"
+        '\tMissing key(s) in state_dict: "head.weight" | "head.bias".'
+    )
+
+    def infer(cfg, checkpoint, fid, model=None):
+        if fid == "broken":
+            raise RuntimeError(error)
+        return np.ones((2, 2), np.float32) * 0.5
+
+    def inputs(cfg, fid):
+        label = np.zeros((2, 2))
+        label[0, 0] = 1
+        return None, label, np.ones((2, 2), np.uint8)
+
+    monkeypatch.setattr(measurement, "infer", infer)
+    monkeypatch.setattr(measurement, "read_image_mask", inputs)
+    rows = measurement.measure(
+        cfg, "ckpt", [("good", "scroll2_same"), ("broken", "scroll1_cross")]
+    )
+    assert rows["broken"]["error"] == error  # the JSON keeps it as raised
+    lines = (tmp_path / "cross_scroll_measurement.md").read_text().splitlines()
+    table = lines[[line.startswith("|---") for line in lines].index(True) + 1 :]
+    assert [line.split(" | ")[0] for line in table] == ["| good", "| broken"]
+    assert table[1] == (
+        "| broken | scroll1_cross | ERROR: Error(s) in loading state_dict for "
+        'DetectorModel: Missing key(s) in state_dict: "head.weight" \\| "head.bias". |'
+    )
+
+
+def test_reproduce_names_the_checkpoint_it_scored(monkeypatch, capsys):
+    training = importlib.import_module("vesuvius_autoresearch.detector.train")
+    scored = []
+    monkeypatch.setattr(cli, "_ensure_converted", lambda cfg: [])
+    monkeypatch.setattr(training, "train", lambda cfg: "models/detector_epoch=11.ckpt")
+
+    def score(cfg, ckpt, fid):
+        scored.append((ckpt, fid))
+        return {"pixel_auc": 0.7012, "threshold": 0.4}
+
+    monkeypatch.setattr(cli, "_eval_fragment", score)
+    cfg = DetectorConfig()
+    assert cli._reproduce(cfg)["pixel_auc"] == 0.7012
+    assert scored == [("models/detector_epoch=11.ckpt", cfg.valid_fragment_id)]
+    assert capsys.readouterr().out == (
+        "reproduce: checkpoint=models/detector_epoch=11.ckpt pixel_auc=0.7012 "
+        "threshold=0.40\n"
+    )
