@@ -125,6 +125,9 @@ VALIDATION_TESTS = [
     "tests/test_villa_prize_opportunities.py",
     "tests/test_villa_review_manifest.py",
     "tests/test_volume_cartographer_readiness.py",
+    # Tests of a script the evidence chain runs by path, which the guard did not
+    # see until 2026-10-22.
+    "tests/test_villa_baselines_launchers.py",
     "tests/test_cldice_loss.py",
     "tests/test_detector_metrics.py",
     "tests/test_fiber_direction_tiled.py",
