@@ -162,4 +162,19 @@ UTC firing.
 
 ## Verification
 
-VERIFICATION
+- `pytest tests/test_supervised_reanalysis_numbers.py tests/test_filing_2026_10_numbers.py`: 31 passed, 4 skipped.
+  The skips are the sibling checkouts (inkdelta, inkagree, ScrollGT) not beside this repo, as on main.
+- **The mutants above** were run in a scratch worktree with the change applied. Each fails one or more tests.
+- **The doc guards** were run before and after the change, with the doc audit (`audit_doc_references.audit()`):
+  - the guard files: the filing, headline, withdrawn-claims, quotation, decoupling, upstream-claims and
+    tracking-gap tests, and the two audit test files.
+
+  They differ only by the eight new tests: 95 passed on main, 103 on the branch. The one failure is
+  `test_live_documents_stay_clean`, from villa paths, as on main, and the audit gains no entries.
+- Ruff 0.9.10 `check` and `format` are clean on the changed Python files. The two existing ones were formatted
+  before.
+- **The standard suite** with the locked-package overlay gave 2799 passed, 22 skipped and 1 xfailed, as on main.
+  - The failures are the same ten environmental ones: nine villa-file failures, plus gp_winner.
+  - No suite test changed: the new test reads only reports and docs, so the suite guard does not require it.
+- **The smoke test** (`scripts/smoke_test.py`) gave 9 of 11 passed and 2 skipped, as on main.
+- **Independent review** of the first commit: REVIEW
