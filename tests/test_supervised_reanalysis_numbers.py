@@ -22,10 +22,13 @@ pytestmark = pytest.mark.skipif(
 )
 
 
-def _flat(rel: str) -> str:
-    # documents wrap lines, and a quoted draft marks each line; compare on single-spaced text
+def _flat(rel: str, quoted: bool = False) -> str:
+    # documents wrap lines; compare on single-spaced text. A quoted draft marks each line with
+    # ">", which only `quoted` strips, so a stray ">" elsewhere still breaks a match.
     lines = (_REPO / rel).read_text().splitlines()
-    return " ".join(" ".join(ln.removeprefix(">") for ln in lines).split())
+    if quoted:
+        lines = [ln.removeprefix(">") for ln in lines]
+    return " ".join(" ".join(lines).split())
 
 
 def _pct(x: float, nd: int = 1) -> str:
@@ -151,6 +154,15 @@ def test_the_report_table_is_the_json(d):
     )
     q2 = d["f76"]["q2"]
     assert f"ratio rises {q2[0]['ratio']:.2f} → {q2[-1]['ratio']:.2f}" in rep
+    # the post hoc tiles, rounded once from their own JSON
+    post = json.loads((_REPO / "reports/posthoc_q1_supervised_tiles.json").read_text())
+    assert f"({post['n_tiles']} tiles across the 8 segments" in rep
+    for label, key in (
+        ("rendered strip (the scorer's input)", "strip_density"),
+        ("scorer fg density (what `total_fg_pixels` counts)", "scorer_density"),
+    ):
+        r, (lo, hi) = post[key]["rho"], post[key]["ci"]
+        assert f"| {label} | **{r:+.2f}** | [{lo:+.2f}, {hi:+.2f}] |" in rep, label
 
 
 def test_the_window_rule_and_its_coverage_are_stated_as_applied(d):
@@ -167,9 +179,11 @@ def test_the_summary_marks_each_re_analysed_finding(d):
     c = d["f71"]
     pos = sum(r["d_ap"] > 0 for r in _compared(c))
     assert c["tally"]["resolved_b"] == 1 and c["tally"]["resolved_a"] == 0
+    assert pos > 5  # finding 71 prediction 2: ΔAP > 0 in at most 5 of the 8
     assert (
         "**71. [RE-ANALYSED by 77: survives on the supervised region, but its sign does not: "
-        f"there smooth's ΔAP is > 0 in {pos} of 8, resolved in 1.]" in s
+        f"there smooth's ΔAP is > 0 in {pos} of 8, resolved in 1, so prediction 2 fails.]"
+        in s
     )
     c = d["f72"]["prob"]
     lt = sum(abs(r["d_ap"]) < 0.001 for r in _compared(c))
@@ -184,9 +198,12 @@ def test_the_summary_marks_each_re_analysed_finding(d):
         f"gain is resolved in {c['tally']['resolved_b']} of 8, about {_pct(_rel(c)[0])} of AP.]"
         in s
     )
+    # arm A is step 1.0: 0.5's ΔAP is negative (it trails), 2.0's positive
+    trail, gain = -_rel(d["f75"]["0.5"])[0], _rel(d["f75"]["2.0"])[0]
+    assert trail > 0 and gain > 0
     assert (
-        f"**75. [RE-ANALYSED by 77: survives, smaller: {_pct(_rel(d['f75']['0.5'])[0])} and "
-        f"{_pct(_rel(d['f75']['2.0'])[0])} on the supervised region.]" in s
+        "**75. [RE-ANALYSED by 77: survives, smaller: on the supervised region 0.5 trails 1.0 by "
+        f"{trail:.1f}% (was 8.3%), and 2.0 beats 1.0 by {gain:.1f}% (was 10.3%).]" in s
     )
     q2 = d["f76"]["q2"]
     assert (
@@ -194,6 +211,18 @@ def test_the_summary_marks_each_re_analysed_finding(d):
         "the supervised region; Q1 is undetermined, since no window qualifies.]" in s
     )
     assert "**74. [CORRECTED by 77: does not survive as stated;" in s
+    # finding 77's own entry
+    assert (
+        f"75 (published-image sampling {_pct(-trail)}, not −8.3%; step 2.0 {_pct(gain)}, not "
+        f"+10.3%); 73's secondary result ({_pct(_rel(d['f73']['strip'])[0], 2)})" in s
+    )
+    t = d["f74"]["1.0"]["tally"]
+    assert f"Step 0.5 vs 1.0 is not consistent ({t['resolved_a']} of 8)" in s
+    post = json.loads((_REPO / "reports/posthoc_q1_supervised_tiles.json").read_text())
+    assert (
+        f"the render tracks label density (ρ = {post['strip_density']['rho']:+.2f}), villa's "
+        f"scorer count only weakly (ρ = {post['scorer_density']['rho']:+.2f})" in s
+    )
 
 
 def test_the_corrected_reports_note_what_changed(d):
@@ -202,6 +231,15 @@ def test_the_corrected_reports_note_what_changed(d):
     assert (
         f"there smooth's ΔAP is > 0 in {pos} of 8 and resolved in {len(_resolved(c))}"
         in _flat("reports/surface_interpolation_vs_labels.md")
+    )
+    assert pos > 5 and (
+        "and prediction 2 (ΔAP > 0 in ≤ 5 of 8), held here, fails there"
+        in _flat("reports/surface_interpolation_vs_labels.md")
+    )
+    rep = _flat("reports/supervised_reanalysis.md")
+    assert (
+        "finding 74 is marked as corrected, and (2026-10-22) findings 71, 72, 73, 75 and 76 "
+        "as re-analysed" in rep
     )
     c = d["f72"]["prob"]
     lt = sum(abs(r["d_ap"]) < 0.001 for r in _compared(c))
@@ -214,8 +252,34 @@ def test_the_corrected_reports_note_what_changed(d):
     )
 
 
+def _interrupting_quotes(text: str) -> list[str]:
+    """Lines starting with ">" right after a paragraph line: Markdown renders each as a blockquote
+    breaking that paragraph, which a wrapped "ΔAP is > 0" would do and a flattened match cannot see."""
+    lines = text.splitlines()
+    return [
+        b
+        for a, b in zip(lines, lines[1:], strict=False)
+        if b.startswith(">") and a.strip() and not a.startswith(">")
+    ]
+
+
+def test_no_wrapped_line_turns_into_a_blockquote():
+    summary = (_REPO / "reports/SPIRAL_FINDINGS_SUMMARY.md").read_text()
+    section = summary[summary.index("**71. ") : summary.index("**78. ")]
+    assert not _interrupting_quotes(section)
+    for rel in (
+        "reports/supervised_reanalysis.md",
+        "reports/surface_interpolation_vs_labels.md",
+        "reports/scorer_vs_labels_surface_interpolation.md",
+        "reports/objective_vs_labels.md",
+        "docs/PRIZE_FILING_2026-10_DRAFT.md",
+        "docs/VILLA_DRAFT_1818_smooth_measurements.md",
+    ):
+        assert not _interrupting_quotes((_REPO / rel).read_text()), rel
+
+
 def test_the_villa_1818_draft_quotes_the_supervised_numbers(d):
-    txt = _flat("docs/VILLA_DRAFT_1818_smooth_measurements.md")
+    txt = _flat("docs/VILLA_DRAFT_1818_smooth_measurements.md", quoted=True)
     assert (
         "scored inside each segment's `supervision.zarr`, where the labels are defined"
         in txt
@@ -229,6 +293,10 @@ def test_the_villa_1818_draft_quotes_the_supervised_numbers(d):
     )
     assert not _resolved(d["f72"]["prob"])[1:] and not _resolved(d["f73"]["prob"])[1:]
     assert "does not consistently change in either case" in txt
+    assert (
+        "reports/coarse_grid_interpolation.md and reports/supervised_reanalysis.md"
+        in txt
+    )
     # The count figures do not involve the labels: findings 72 and 73's own artifacts.
     fine = json.loads((_REPO / "reports/scorer_vs_labels.json").read_text())
     coarse = json.loads((_REPO / "reports/scorer_vs_labels_coarse.json").read_text())

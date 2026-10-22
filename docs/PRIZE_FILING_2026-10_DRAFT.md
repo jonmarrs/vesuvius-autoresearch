@@ -110,8 +110,8 @@ three things that number silently depends on, against villa's own code and villa
   `vc_render_tifxyz --surface-interpolation smooth`. Its default is byte-identical to earlier builds.
   On the 8 labelled segments, in villa's own scoring pipeline:
   * on villa's fine segment meshes, smooth moves `total_fg_pixels` by −3.6% to +4.1% per segment, and
-    the scorer's agreement with villa's labels does not change (where the labels are defined,
-    |ΔAP| < 0.01 in all 8; 1 of 8 resolved, by 0.006);
+    the scorer's agreement with villa's labels does not change (where the labels are defined, its |ΔAP| is
+    < 0.01 in all 8; 1 of 8 resolved, by 0.006);
   * on grids as coarse as the spiral surfaces villa's loop scores, the count moves by −7.9% to +19.4%
     per segment (−31.9% to +41.5% per window). The raw render agrees only slightly better with villa's labels (about
     1% of AP), and the scorer's agreement does not consistently change.
@@ -275,8 +275,9 @@ four predictions held):
   inkagree 0.3.0 makes the supervised region its default. `reports/supervised_reanalysis.md`.
 * **Twenty-two of my registered predictions failed**, and the reports say so:
   * finding 70 (smooth would move the count < 1% in every crop window: it moved up to ±20%);
-  * finding 71 prediction 1 (failed on three exclusions, one caused by a defect in my alignment gate; where the
-    labels are defined, all 8 pass inkagree's gate and it holds);
+  * finding 71 prediction 1 (failed on three exclusions, one caused by a defect in my alignment gate. Re-analysed
+    with inkagree's gate where the labels are defined, all 8 pass and it holds, while prediction 2, held on the
+    whole surface, fails there: smooth's ΔAP > 0 in 7 of 8, not at most 5);
   * finding 72 prediction 1 (the count was sensitive in 15% of windows, not ≥ 25%).
   * per-crop normalisation as the cause of finding 70's size (re-scored with one shared p95,
     the median |Δ| stayed at 4.7%, not < 2.5%).

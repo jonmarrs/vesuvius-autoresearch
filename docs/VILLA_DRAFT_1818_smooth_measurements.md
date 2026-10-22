@@ -33,7 +33,8 @@ unannotated ink.
 >
 > The effect scales with grid cell size. The fitted spiral surfaces we measured are ~80-voxel. If smooth
 > is ever used for spiral renders, comparisons across modes will move by more than typical
-> keep/discard margins. Method, pre-registrations and data: <link to reports/coarse_grid_interpolation.md>.
+> keep/discard margins. Method, pre-registrations and data: <links to reports/coarse_grid_interpolation.md and
+> reports/supervised_reanalysis.md>.
 
 ## Notes
 

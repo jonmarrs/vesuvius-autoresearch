@@ -15,7 +15,7 @@ those findings.
 
 No earlier review covered these. The re-analysis corrected five reports and is cited in the filing draft, and its
 script has no test. Main has not moved since #185. There are no open pull requests. This round covers the 08:12
-UTC firing.
+UTC firing, and the 09:12, 10:12 and 11:14 firings that arrived while it was rate-limited.
 
 ## What changed
 
@@ -32,23 +32,31 @@ UTC firing.
   where the correction changes them.**
   - Where the labels are defined, three of the 22 change:
     - **Finding 71 prediction 1 holds.** The prediction is |ΔAP| < 0.02 in ≥ 6 of 8. It failed only on three gate
-      exclusions; all 8 pass inkagree's gate there.
+      exclusions. The re-analysis uses inkagree's gate, and all 8 pass it; the change is the gate's as much as the
+      domain's.
     - **Finding 74 prediction 3 holds.** Step 1.0 against 0.5 is 4 of 8 resolved, below the k = 6 rule. The list
       said "7 of 8" a few lines after the correction said "not consistent".
     - **Finding 76 prediction 1 is undetermined.** No window qualifies.
-  - **Change:** each of the three items says so. The count stays 22, because each failed as registered. Whether
-    to count them is the owner's call.
+  - Two predictions that held change too:
+    - **Finding 71 prediction 2 fails.** It is "ΔAP > 0 in at most 5 of the 8". On the whole surface it held at 0
+      of 8; on the supervised rows ΔAP > 0 in 7 of 8.
+    - **Finding 76 prediction 2 is undetermined**, as a Q1 prediction with no window.
+  - **Change:** the three items say so, and finding 71's item names its prediction 2. The count stays 22, because
+    each failed as registered. Counted on the corrected domain it would be 22 − 3 + 1 = 20. Which to state is the
+    owner's call.
 - **The spiral summary marked only finding 74.**
   - The correction's reporting plan: "Old numbers stay, marked as computed on the unsupervised domain", in each
     report, the summary and the draft. The six reports each carry a correction note at their head.
   - In the summary, only finding 74's entry had a marker. Entries 71, 72, 73, 75 and 76 gave the whole-surface
     numbers unmarked, so a reader of entry 75 alone saw "+8%" and "+10%". Finding 77, below them, gives the
     corrections.
-  - **Change:** each of the five entries now has a marker in 74's form, with its supervised result.
+  - **Change:** each of the five entries now has a marker in 74's form, with its supervised result. Finding 75's
+    marker reads in the entry's own direction: 0.5 trails 1.0 by 5.3%, and 2.0 beats 1.0 by 8.2%.
+    `supervised_reanalysis.md`'s list of what changed elsewhere says so too.
 - **Two descriptive claims do not hold where the labels are defined, and their reports' notes did not say so.**
   - **Finding 71.** Its report's post hoc sensitivity says smooth is "a hair worse in every segment (6 of 8
-    resolved)". Where the labels are defined the sign reverses: ΔAP > 0 in 7 of 8, 1 resolved toward smooth. The
-    registered verdict, no consistent difference, survives on both.
+    resolved)". Where the labels are defined the sign reverses: ΔAP > 0 in 7 of 8, 1 resolved toward smooth. So
+    its prediction 2 fails there. The registered verdict, no consistent difference, survives on both.
   - **Finding 72.** "< 0.001 in all 8, none resolved" becomes < 0.001 in 6 of 8, 1 resolved. Its registered P2
     survives.
   - **Change:** both reports' correction notes now say so. The summary's markers for 71 and 72 say the same.
@@ -60,39 +68,60 @@ UTC firing.
   - It also said its numbers were "test-bound via the October draft". The October draft quotes the supervised
     coarse figure, so those two numbers were bound to nothing.
   - **Change:** the text quotes the supervised numbers, and says where it scored. A dated status line records the
-    update. Its notes name the source and the new test. The count figures do not involve the labels, and are
-    unchanged.
+    update. Its notes name the source and the new test, and its link adds `supervised_reanalysis.md`. The count
+    figures do not involve the labels, and are unchanged.
+- **The post hoc scorer ρ was rounded twice.**
+  - The report's table, the summary's finding 77 and finding 76's correction note gave the scorer's ρ as +0.15.
+  - `posthoc_q1_supervised_tiles.json` holds 0.1447, which rounds to +0.14. Finding 78's report gives +0.145, so
+    +0.15 is that rounded again.
+  - **Change:** all three say +0.14. Finding 78's preregistration (`2026-10-04_scorer_tracking_gap_robustness.md`)
+    quotes +0.15 too. It is a registered record, so it is left as written.
 - **The re-analysis report described its window rule as stricter than the one it applied.**
   - The report said the registered rule was "≥ 25% of a 2048-px window supervised". The script keeps a window when
     its supervised pixels are ≥ 25% of the window's mesh-valid pixels. That is the preregistration's wording, and
     the more lenient of the two.
-  - Zero windows qualified either way. Supervision covers 4–15% of each segment's mesh-valid domain (finding 72's
-    rows).
-  - **Change:** the report and the post hoc script's docstring state the rule as applied, with that coverage.
+  - Supervision covers 4–15% of each segment's mesh-valid domain (finding 72's rows).
+  - **Change:** the report and the post hoc script's docstring state the rule as applied, with that coverage. The
+    docstring gives the canvas share (≤ 13%) and the mesh-valid share (≤ 15%) separately, and no longer gives
+    coverage as the cause.
 - **Tests:**
-  - `tests/test_supervised_reanalysis_numbers.py` is new, with 7 tests, outside the standard suite like the repo's
+  - `tests/test_supervised_reanalysis_numbers.py` is new, with 8 tests, outside the standard suite like the repo's
     other report-number tests. It checks:
     - each tally against its 8 rows;
     - that each row was scored on mesh-valid ∩ supervised, with ΔAP = AP(B) − AP(A);
     - each verdict against its finding's own registered rule;
-    - every figure in the report's table;
-    - the summary's markers;
-    - the two reports' notes;
-    - the villa draft, including its label-free count figures, from findings 72 and 73's artifacts.
+    - every figure in the report's table, the post hoc rows rounded once from their own JSON;
+    - the summary's markers, and finding 77's own entry;
+    - the reports' notes, and the report's list of what changed elsewhere;
+    - the villa draft, including its label-free count figures, from findings 72 and 73's artifacts;
+    - that no wrapped line in these documents starts a blockquote mid-paragraph. A flattened match cannot see
+      that: `> 0 in 7 of 8` flattens to the same text.
+
+    Its text matcher strips `>` only for the quoted villa draft.
   - `tests/test_filing_2026_10_numbers.py`: the finding-72 test is rebound to the supervised rows, and one test is
-    added for the three list notes.
+    added for the list notes.
 - **Mutants.** Each of these fails at least one test:
   - in the draft:
     - the old finding-72 figure restored;
     - the 74 P3 note dropped;
     - the 76 P1 note dropped;
+  - in the draft, finding 71's item without its prediction 2;
   - in the summary:
     - the 71 marker dropped;
+    - the 71 marker without its prediction 2;
     - the 75 marker given the old sizes;
+    - the 75 marker back in the other direction;
+    - the scorer ρ back to +0.15;
+    - a wrapped line starting with `>`;
   - in the reports:
+    - finding 71's note without its prediction 2;
     - finding 72's note reverted;
     - the window rule's old wording;
-  - in the villa draft, "6 of 8, +1–2%" restored;
+    - the table's ρ back to +0.15;
+    - the list of what changed elsewhere reverted;
+  - in the villa draft:
+    - "6 of 8, +1–2%" restored;
+    - the re-analysis link dropped;
   - in the JSON:
     - finding 74 marked as surviving;
     - finding 71's tally miscounted;
@@ -109,7 +138,9 @@ UTC firing.
     - 74: level 2, inkagree's defaults;
     - 75: level 3, inkagree's defaults.
 
-    Each uses 2000 resamples. 71–75 use seed 20261003; finding 76's Q2 has no bootstrap.
+    Each uses 2000 resamples. 71–75 use seed 20261003; finding 76's Q2 has no bootstrap. One difference: the
+    original scripts draw every segment from one generator, and the re-analysis re-seeds it for each comparison.
+    So "the same bootstrap" is the same design, not the same draws.
   - The domain is mesh-valid ∩ supervised, and every stored row says so.
   - The gate is inkagree's default for every finding, as the preregistration changed it. All rows are `aligned`.
   - The bootstrap itself runs through inkagree's `compare_arms`, which is not in this container, so it is not
@@ -129,12 +160,15 @@ UTC firing.
 
   The ratio of the median ΔAP to the median AP does not give them (−5.4 for step 0.25). The new test pins the
   per-segment form.
-- **Finding 76 Q1's zero windows are the data, not the crop.**
-  - The post hoc tiles reach x ≥ 3,584–12,544 px per segment, so the arrays are not cropped below a window.
-  - Each segment's supervised pixels (1.2–8.0 M) are a small share of its mesh-valid pixels (20–78 M), so no
-    full-height column reaches 25%.
-  - The re-analysis drops the original's other condition, that a window be ≥ 25% mesh-valid. That only removes
-    windows, so it cannot change zero.
+- **Finding 76 Q1's zero windows are not a crop artefact.**
+  - The post hoc tiles reach x ≥ 3,584–12,544 px per segment, so the arrays are wide enough to hold windows.
+  - That none qualified is the script's output. The JSON keeps no per-window counts, so it cannot be re-derived
+    here.
+    - Each segment's supervised pixels (1.2–8.0 M) are a small share of its mesh-valid pixels (20–78 M). That
+      makes zero plausible, not certain.
+    - On `20231012184424` the supervised tiles cluster in two columns.
+  - The re-analysis drops the original's other condition, that a window be ≥ 25% mesh-valid. Restoring it could
+    only remove windows, so it cannot change zero.
 - **The six reports' correction notes** give the supervised verdicts and sizes that the JSON holds.
 - **The draft's count of twenty-two** is the sum its test lists, and each item failed on the analysis it was
   registered for.
@@ -155,26 +189,58 @@ UTC firing.
 - **Finding 72's resolved segment.** On `20231031143852` linear's scorer output agrees better (ΔAP −0.0064, CI
   [−0.0144, −0.0006]). It is within the registered 0.01, and one of 8.
 - **Counting the failed predictions.** Of the 22, finding 71 P1 and 74 P3 hold where the labels are defined, and 76
-  P1 is undetermined there. The list keeps them, as registered, and now says so. Counting only the predictions
-  that fail on the corrected domain would give 20. That presentation is the owner's.
+  P1 is undetermined there. Finding 71 P2, which held, fails there. The list keeps the 22, as registered, and now
+  says so. Counted on the corrected domain, 22 − 3 + 1 = 20. That presentation is the owner's.
+- **The villa #1818 draft compares two pipelines.**
+  - Its fine-mesh figure is finding 71's tutorial render. Its coarse-mesh figure is finding 73's metric-pipeline
+    strip.
+  - The fine-mesh metric-pipeline figure is finding 72's strip: smooth ≥ linear in 8 of 8, resolved in 2.
+  - This predates this round, and is left to the owner with the draft.
 - **The villa #1818 draft's gates stand.** It still needs the owner's approval, a duplicate check, and a re-run of
   its numbers on the day.
 
 ## Verification
 
-- `pytest tests/test_supervised_reanalysis_numbers.py tests/test_filing_2026_10_numbers.py`: 31 passed, 4 skipped.
+- `pytest tests/test_supervised_reanalysis_numbers.py tests/test_filing_2026_10_numbers.py`: 32 passed, 4 skipped.
   The skips are the sibling checkouts (inkdelta, inkagree, ScrollGT) not beside this repo, as on main.
 - **The mutants above** were run in a scratch worktree with the change applied. Each fails one or more tests.
 - **The doc guards** were run before and after the change, with the doc audit (`audit_doc_references.audit()`):
   - the guard files: the filing, headline, withdrawn-claims, quotation, decoupling, upstream-claims and
     tracking-gap tests, and the two audit test files.
 
-  They differ only by the eight new tests: 95 passed on main, 103 on the branch. The one failure is
+  They differ only by the nine new tests: 95 passed on main, 104 on the branch. The one failure is
   `test_live_documents_stay_clean`, from villa paths, as on main, and the audit gains no entries.
 - Ruff 0.9.10 `check` and `format` are clean on the changed Python files. The two existing ones were formatted
   before.
 - **The standard suite** with the locked-package overlay gave 2799 passed, 22 skipped and 1 xfailed, as on main.
   - The failures are the same ten environmental ones: nine villa-file failures, plus gp_winner.
   - No suite test changed: the new test reads only reports and docs, so the suite guard does not require it.
+  - None of the standard suite's 125 files names a document this round changes, so the second commit, which
+    changes only those and two out-of-suite tests, was not run through it again.
 - **The smoke test** (`scripts/smoke_test.py`) gave 9 of 11 passed and 2 skipped, as on main.
-- **Independent review** of the first commit: REVIEW
+- **Independent review** of the first commit, in a worktree without villa. It found nothing blocking.
+  - **It confirmed:**
+    - the arms (A = linear for 71–73, 0.5 for 74, 1.0 for 75);
+    - every figure the commit added, recomputed from the JSON;
+    - the survival flags against each registered rule;
+    - that the chained `is` comparisons are sound, since both operands are bools;
+    - that no other live document quotes the whole-surface numbers unmarked.
+
+    It ran nine mutants of its own, each caught.
+  - **Its should-fix findings:**
+    - finding 71's prediction 2, held, fails where the labels are defined, and the "20" did not add up;
+    - finding 75's marker read against the entry's direction;
+    - the Verification section was a placeholder, as the commit it read had it.
+  - **Its nits:**
+    - 71 P1's "holds" comes from the gate as much as the domain;
+    - the zero-windows reasoning was not shown;
+    - the docstring mixed denominators;
+    - the villa draft mixes pipelines;
+    - `_flat` stripped `>` everywhere;
+    - the report's list of what changed elsewhere, and finding 77's entry, were unbound.
+  - All are addressed above. The villa draft's pipelines are left as an observation.
+  - Binding finding 77's entry found the twice-rounded ρ.
+  - A blockquote mutant survived the narrowed `_flat`, so the structural check was added.
+- **The second commit** re-ran both test files (32 passed, 4 skipped), the doc guards and the audit. The guards
+  differ from main only by the new tests, and the audit gains no entries. Both rounds of mutants were rerun, and
+  all 22 are caught.

@@ -975,7 +975,7 @@ inkdelta 0.5.0 makes mixed-mode comparisons INCOMPARABLE, read from the render l
 `reports/surface_interpolation_relocates_ink.md`.
 
 **71. [RE-ANALYSED by 77: survives on the supervised region, but its sign does not: there smooth's
-ΔAP is > 0 in 7 of 8, resolved in 1.] Against villa's own ink labels, smooth and linear renders are equally
+ΔAP is > 0 in 7 of 8, resolved in 1, so prediction 2 fails.] Against villa's own ink labels, smooth and linear renders are equally
 faithful (ΔAP ≈ −0.0001).**
 Pre-registered (`docs/preregistration/2026-10-03_surface_interpolation_vs_labels.md`).
 
@@ -1034,8 +1034,8 @@ of AP), 1.0 (7 of 8, about −11%; AUC rises in all 8) and 2.0 (8 of 8, about �
 
 `reports/sampling_band_vs_labels.md`.
 
-**75. [RE-ANALYSED by 77: survives, smaller: −5.3% and +8.2% on the supervised region.] At villa's metric
-settings, the source build's sampling band agrees better with villa's labels than the published image's, and a
+**75. [RE-ANALYSED by 77: survives, smaller: on the supervised region 0.5 trails 1.0 by 5.3% (was 8.3%), and
+2.0 beats 1.0 by 8.2% (was 10.3%).] At villa's metric settings, the source build's sampling band agrees better with villa's labels than the published image's, and a
 wider band better still.** Pre-registered, with inkagree 0.2.2 (metric preset:
 group 1, 5 slices). Step 1.0 (post-#1146 default) beats 0.5 (the published image's sampling) in 8 of 8
 segments, about +8% AP. Step 2.0 beats 1.0 in 8 of 8, about +10% AP. AUC moves the same way everywhere.
@@ -1071,7 +1071,7 @@ labelled ink). Findings 71–76 counted unannotated ink as negatives. The regist
 * **Does not survive as stated:** 74. Step 0.5 vs 1.0 is not consistent (4 of 8).
 * **Undetermined:** 76 Q1.
 * **Post hoc lead:** within supervised tiles, the render tracks label density (ρ = +0.61), villa's scorer
-  count only weakly (ρ = +0.15).
+  count only weakly (ρ = +0.14).
 
 inkagree 0.3.0 evaluates on the supervised region by default. `reports/supervised_reanalysis.md`.
 

@@ -53,7 +53,7 @@ def test_faithfulness_claim_matches_finding_72():
     assert len(resolved) == 1
     txt = _text()
     assert (
-        "(where the labels are defined, |ΔAP| < 0.01 in all 8; 1 of 8 resolved, by "
+        "(where the labels are defined, its |ΔAP| is < 0.01 in all 8; 1 of 8 resolved, by "
         f"{abs(resolved[0]['d_ap']):.3f})" in txt
     )
     # the whole-surface figure, which the supervised rows do not reproduce
@@ -801,13 +801,18 @@ _FAILED = {
 @pytest.mark.skipif(not _SUP.exists(), reason="supervised re-analysis artifact absent")
 def test_failed_predictions_say_where_the_labels_change_them():
     # Findings 71-76's predictions are listed as registered, on the whole surface. Where the labels
-    # are defined, three of them change, and the list says so.
+    # are defined, three of them change, and one that held (71 P2) fails; the list says so.
     d, txt = json.loads(_SUP.read_text()), _text()
     rows = [r for r in d["f71"]["rows"] if r["status"] == "compared"]
     # 71 P1: |ΔAP| < 0.02 in at least 6 of the 8
     assert len(rows) == 8 and sum(abs(r["d_ap"]) < 0.02 for r in rows) >= 6
+    # 71 P2, held on the whole surface: ΔAP > 0 in at most 5 of the 8
+    pos = sum(r["d_ap"] > 0 for r in rows)
+    assert pos > 5
     assert (
-        "where the labels are defined, all 8 pass inkagree's gate and it holds)" in txt
+        "Re-analysed with inkagree's gate where the labels are defined, all 8 pass and it holds, "
+        "while prediction 2, held on the whole surface, fails there: smooth's ΔAP > 0 in "
+        f"{pos} of 8, not at most 5);" in txt
     )
     # 74 P3: step 1.0 vs 0.5, no consistent difference by the k = 6 rule
     t = d["f74"]["1.0"]["tally"]

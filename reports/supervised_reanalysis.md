@@ -45,7 +45,7 @@ Using 256-px tiles that are ≥ 50% mesh-valid and supervised (286 tiles across 
 | density vs label density, within supervised tiles | Spearman ρ | 95% CI (bootstrap over segments) |
 |---|---:|---|
 | rendered strip (the scorer's input) | **+0.61** | [+0.42, +0.69] |
-| scorer fg density (what `total_fg_pixels` counts) | **+0.15** | [+0.01, +0.21] |
+| scorer fg density (what `total_fg_pixels` counts) | **+0.14** | [+0.01, +0.21] |
 
 Where villa's labels are defined, the rendered prediction tracks how much ink is labelled, but villa's
 scorer count tracks it only weakly. **This is a lead, not a finding.** It was computed after seeing the
@@ -62,7 +62,8 @@ No labelled segments beyond these 8 exist on the current frame.
 
 ## What changes elsewhere
 
-* `SPIRAL_FINDINGS_SUMMARY.md`: finding 77 records this correction; finding 74 is marked as corrected.
+* `SPIRAL_FINDINGS_SUMMARY.md`: finding 77 records this correction; finding 74 is marked as corrected, and
+  (2026-10-22) findings 71, 72, 73, 75 and 76 as re-analysed.
 * The October draft quotes supervised-region numbers and discloses the correction.
 * inkagree's README: the correction notice (0.3.0) and the corrected first-use numbers.
 * Old numbers stay in the original reports, marked as computed on the unsupervised domain.
