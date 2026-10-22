@@ -617,7 +617,7 @@ pre-registered cases where those two move independently **in opposite directions
 
 | case | `satisfied_area` | `total_fg_pixels` | what the guard does |
 |---|---:|---:|---|
-| gap-expander config, n=12 | +1.03% (p=3.9e-06) | **-10.35%** (p=0.0018) | passes a real ink regression |
+| gap-expander config, 5v6 geometry, 6v6 ink | +1.03% (p=3.9e-06) | **-10.35%** (p=0.0018) | passes a real ink regression |
 | patch bootstrap, n=6 | **+17.66%** (p<1e-4) | -0.83% (p=0.89, null) | cheers for no ink gain |
 | stripmatch, n=6 | +16.24% (p<1e-4) | -3.80% (p=0.55, null) | same, with coverage equalised |
 | same-winding ablation, 3v6 | **-0.69%** (p=0.0027) | -1.74% (p=0.61, null) | drops without ink following |

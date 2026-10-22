@@ -33,7 +33,8 @@ was wrong. `reports/the_determinism_floor_rests_on_one_draw.md` attributed the s
 | claimed "pipeline determinism" | 1.42% |
 | pinned-tier "seed" CV (df=18) | 5.14% |
 
-The scorer is **950× too small** to produce 1.42%. The render is the source.
+The scorer is **~440× too small** to produce 1.42%, and 950× smaller than the 3.04% render spread.
+The render is the source. *(Corrected 2026-10-22: this said 950× too small to produce 1.42%.)*
 
 **The mechanism is the lasagna flatten, which is a stochastic optimisation.** The two runs produced
 different output grids — 82660×**4260** vs 82660×**4250** — from identical input. The corpus already

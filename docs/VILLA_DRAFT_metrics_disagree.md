@@ -84,9 +84,9 @@ identically on w120-w129:
 
 | | `satisfied_area` | `total_fg_pixels` |
 |---|---:|---:|
-| baseline (n=6) | 0.83897 | 1,719,984 |
-| changed (n=6) | 0.84764 | 1,541,596 |
-| | **+1.03%, p = 3.9e-06** | **-10.35%, p = 0.0018** |
+| baseline (n=6) | 0.83897 | 1,719,651 |
+| changed (n=6) | 0.84764 (first five) | 1,541,596 |
+| | **+1.03%, p = 3.9e-06** (5 v 6) | **-10.35%, p = 0.0018** (6 v 6) |
 
 Both sets completely disjoint on both metrics. `overall_fg_fraction` agrees at -10.78%, so it is not
 a strip-area artefact. The flag is `model_gap_expander_num_windings`, which #1625 already fixed and
@@ -107,7 +107,7 @@ against a control matched on total patch area.
 **That +17.66% is circular by construction** — the arm was selected on satisfaction and then scored
 on it. That is exactly why it is worth reporting: a loop that crops good regions and checks
 satisfaction would read a 17.66% improvement and see a success, with recovered ink flat. Power here
-reaches only ~10%, so this bounds rather than excludes a small ink effect.
+reaches only ~12%, so this bounds rather than excludes a small ink effect.
 
 We are not proposing a fix, and neither case alone settles how often the metrics disagree. But taken
 together the guard moved confidently the wrong way once and confidently the useless way once, which
