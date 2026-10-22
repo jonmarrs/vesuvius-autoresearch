@@ -110,7 +110,8 @@ three things that number silently depends on, against villa's own code and villa
   `vc_render_tifxyz --surface-interpolation smooth`. Its default is byte-identical to earlier builds.
   On the 8 labelled segments, in villa's own scoring pipeline:
   * on villa's fine segment meshes, smooth moves `total_fg_pixels` by −3.6% to +4.1% per segment, and
-    the scorer's agreement with villa's labels does not change (|ΔAP| < 0.001 in all 8, none resolved);
+    the scorer's agreement with villa's labels does not change (where the labels are defined,
+    |ΔAP| < 0.01 in all 8; 1 of 8 resolved, by 0.006);
   * on grids as coarse as the spiral surfaces villa's loop scores, the count moves by −7.9% to +19.4%
     per segment (−31.9% to +41.5% per window). The raw render agrees only slightly better with villa's labels (about
     1% of AP), and the scorer's agreement does not consistently change.
@@ -274,18 +275,20 @@ four predictions held):
   inkagree 0.3.0 makes the supervised region its default. `reports/supervised_reanalysis.md`.
 * **Twenty-two of my registered predictions failed**, and the reports say so:
   * finding 70 (smooth would move the count < 1% in every crop window: it moved up to ±20%);
-  * finding 71 prediction 1 (failed on three exclusions, one caused by a defect in my alignment gate);
+  * finding 71 prediction 1 (failed on three exclusions, one caused by a defect in my alignment gate; where the
+    labels are defined, all 8 pass inkagree's gate and it holds);
   * finding 72 prediction 1 (the count was sensitive in 15% of windows, not ≥ 25%).
   * per-crop normalisation as the cause of finding 70's size (re-scored with one shared p95,
     the median |Δ| stayed at 4.7%, not < 2.5%).
   * finding 73 prediction 2 (smooth's scorer output would agree better with the labels on coarse grids:
     2 of 8, not ≥ 6).
   * finding 74 predictions 2 and 3 (no difference between slice steps 0.25 or 1.0 and the tutorial's 0.5:
-    0.5 was better in 8 of 8 and 7 of 8).
+    0.5 was better in 8 of 8 and 7 of 8; where the labels are defined, prediction 3 holds: 4 of 8).
   * finding 75 predictions 1 and 2 (no difference between the published image's band, or a wider one, and
     the source build's: the source build beat the first, and the wider band beat it, both in 8 of 8).
   * finding 76 prediction 1 (villa's ink count would track labelled-ink density across regions: ρ = +0.04,
-    an ambiguous null, since the raw render does not track it either).
+    an ambiguous null, since the raw render does not track it either; where the labels are defined it is
+    undetermined, since no window qualifies).
   * the correction's prediction 3 (findings 74 and 75 would survive: 75 did, 74 did not as stated).
   * finding 79 prediction 1 (an unthresholded ink count would be less noisy across seeds on pinned code:
     R = 0.91 [0.56, 1.47], no detectable difference; it was on current code, R = 0.52 [0.35, 0.91]).

@@ -1,6 +1,6 @@
 # In villa's own scoring pipeline, smooth vs linear moves the ink count a little and its faithfulness not at all
 
-> **Correction (2026-10-04, `reports/supervised_reanalysis.md`):** agreement here was computed on the whole surface, but villa's labels exist only inside its supervision mask. On the supervised region the faithfulness conclusion **survives** (|ΔAP| < 0.01 in 8 of 8; scorer median AP 0.34, strip 0.63). The count results do not involve the labels and are unchanged.
+> **Correction (2026-10-04, `reports/supervised_reanalysis.md`):** agreement here was computed on the whole surface, but villa's labels exist only inside its supervision mask. On the supervised region the faithfulness conclusion **survives** (|ΔAP| < 0.01 in 8 of 8; scorer median AP 0.34, strip 0.63). "< 0.001 in all 8, none resolved" below does not: there it is < 0.001 in 6 of 8, and 1 is resolved (20231031143852, ΔAP −0.0064, toward linear). The count results do not involve the labels and are unchanged.
 
 **2026-10-03.** Result of `docs/preregistration/2026-10-03_scorer_sensitivity_vs_labels.md` (committed
 `581e065e` before any metric). Data: `reports/scorer_vs_labels.json`.

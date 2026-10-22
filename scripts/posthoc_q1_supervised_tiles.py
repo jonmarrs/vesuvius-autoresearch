@@ -1,9 +1,10 @@
 """POST HOC (not registered): finding 76 Q1 on supervised tiles.
 
-The registered Q1 re-analysis (2048-px windows with >= 25% supervised) found no qualifying windows, because
-villa's supervision covers <= 13% of each segment. This asks the same question where the labels exist:
-256-px tiles that are >= 50% mesh-valid AND supervised. Spearman rho of scorer fg density (what
-total_fg_pixels counts) and of strip density against label density, bootstrap over segments (seed 20261004).
+The registered Q1 re-analysis (2048-px windows with >= 25% of their mesh-valid domain supervised) found no
+qualifying windows, because villa's supervision covers <= 13% of each segment. This asks the same question
+where the labels exist: 256-px tiles that are >= 50% mesh-valid AND supervised. Spearman rho of scorer fg
+density (what total_fg_pixels counts) and of strip density against label density, bootstrap over segments
+(seed 20261004).
 
 Usage: .venv/bin/python scripts/posthoc_q1_supervised_tiles.py [--out reports/posthoc_q1_supervised_tiles.json]
 """

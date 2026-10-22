@@ -40,13 +40,24 @@ def test_segment_count_range_matches_finding_72():
     assert f"{_pct(min(totals))} to {_pct(max(totals))} per segment" in _text()
 
 
+@pytest.mark.skipif(
+    not (_REPO / "reports/supervised_reanalysis.json").exists(),
+    reason="supervised re-analysis artifact absent",
+)
 def test_faithfulness_claim_matches_finding_72():
-    d = json.loads(_F72.read_text())
-    s = d["summary"]
-    assert len(d["segments"]) == 8 and s["n_included"] == 8
-    assert max(abs(v) for v in s["prob_d_ap"].values()) < 0.001
-    assert s["prob_resolved_pos"] == 0 and s["prob_resolved_neg"] == 0
-    assert "(|ΔAP| < 0.001 in all 8, none resolved)" in _text()
+    # Quoted where the labels are defined, as the correction (finding 77) registered for this draft.
+    d = json.loads((_REPO / "reports/supervised_reanalysis.json").read_text())
+    rows = [r for r in d["f72"]["prob"]["rows"] if r["status"] == "compared"]
+    resolved = [r for r in rows if r["d_ap_ci"][0] > 0 or r["d_ap_ci"][1] < 0]
+    assert len(rows) == 8 and all(abs(r["d_ap"]) < 0.01 for r in rows)
+    assert len(resolved) == 1
+    txt = _text()
+    assert (
+        "(where the labels are defined, |ΔAP| < 0.01 in all 8; 1 of 8 resolved, by "
+        f"{abs(resolved[0]['d_ap']):.3f})" in txt
+    )
+    # the whole-surface figure, which the supervised rows do not reproduce
+    assert "|ΔAP| < 0.001 in all 8, none resolved" not in txt
 
 
 def test_the_eight_labelled_segments_are_named():
@@ -785,6 +796,32 @@ _FAILED = {
     "finding 93 predictions 1–3": 3,
     "finding 94 prediction 2": 1,
 }
+
+
+@pytest.mark.skipif(not _SUP.exists(), reason="supervised re-analysis artifact absent")
+def test_failed_predictions_say_where_the_labels_change_them():
+    # Findings 71-76's predictions are listed as registered, on the whole surface. Where the labels
+    # are defined, three of them change, and the list says so.
+    d, txt = json.loads(_SUP.read_text()), _text()
+    rows = [r for r in d["f71"]["rows"] if r["status"] == "compared"]
+    # 71 P1: |ΔAP| < 0.02 in at least 6 of the 8
+    assert len(rows) == 8 and sum(abs(r["d_ap"]) < 0.02 for r in rows) >= 6
+    assert (
+        "where the labels are defined, all 8 pass inkagree's gate and it holds)" in txt
+    )
+    # 74 P3: step 1.0 vs 0.5, no consistent difference by the k = 6 rule
+    t = d["f74"]["1.0"]["tally"]
+    assert t["resolved_b"] < 6 and t["resolved_a"] < 6
+    assert (
+        f"where the labels are defined, prediction 3 holds: {t['resolved_a']} of 8)"
+        in txt
+    )
+    # 76 P1: no window qualifies, so no correlation
+    assert d["f76"]["n_windows"] == 0
+    assert (
+        "where the labels are defined it is undetermined, since no window qualifies)"
+        in txt
+    )
 
 
 def test_the_failed_prediction_count_is_the_listed_tally():
