@@ -13,9 +13,18 @@ metrics.py, and only loads detector/__init__.py, so the detector's own tests are
 not required. Importing names from a package's __init__ (the loader's
 `from vesuvius_autoresearch.fibers import detect_ridges`) uses that __init__ and
 what it re-exports.
+
+Some of it is run by path rather than imported: the evidence chain launches
+scripts/inference/launch_neural_tracing.py, and the noise probe its runner. They
+are entry points too, and a test that loads a script by its file name, as
+tests/test_villa_baselines_launchers.py does, tests it. That file had never been
+listed (2026-10-22), because the guard saw only imports. Every other script the
+loop's code names by path it only writes into a report, plan or worklist;
+NAMED_NOT_RUN lists them, so a script the code starts to run cannot go unseen.
 """
 
 import ast
+import re
 from pathlib import Path
 
 from scripts import run_validation_tests
@@ -51,7 +60,31 @@ ENTRY_POINTS = (
     "scripts/summarize_villa_evidence_preflight.py",
     "scripts/build_villa_prize_action_matrix.py",
     "scripts/build_villa_review_manifest.py",
+    # Run by path, not imported: by the evidence chain and the noise probe.
+    "scripts/inference/launch_neural_tracing.py",
+    "scripts/training/run_noise_probe.py",
 )
+
+# Scripts the loop's code names by path but does not run: the villa coverage
+# report, the opportunity plan, the review manifest, the Volume Cartographer
+# readiness report and the action matrix describe them, and the lasagna worklist
+# writes their commands for a person to run.
+NAMED_NOT_RUN = {
+    "scripts/autoresearch_thaumato_solver.py",
+    "scripts/compute_structure_tensors.py",
+    "scripts/crop_candidate_zarr.py",
+    "scripts/labeling/generate_fiber_labels.py",
+    "scripts/launch_crackle_viewer.py",
+    "scripts/launch_thaumato.py",
+    "scripts/launch_vc3d.py",
+    "scripts/smoke_test_villa_optimized_inference.py",
+    "scripts/training/launch_finetune_lejepa.py",
+    "scripts/training/launch_gp_winner.py",
+    "scripts/training/launch_mutex.py",
+    "tests/test_import.py",
+    "v3_training/trainer.py",
+}
+SCRIPT_NAME = re.compile(r"[\w./-]+\.py")
 
 
 def _module_file(name, roots):
@@ -90,6 +123,28 @@ def imported_files(path):
     return files
 
 
+def named_scripts(path):
+    """The repo's .py files that path's strings name: a repo-relative path, or a
+    bare file name under scripts/ (the evidence chain builds its launcher's path
+    from parts). villa/ is not this repository's code."""
+    found = set()
+    for node in ast.walk(ast.parse(path.read_bytes(), str(path))):
+        if not (
+            isinstance(node, ast.Constant)
+            and isinstance(node.value, str)
+            and SCRIPT_NAME.fullmatch(node.value)
+        ):
+            continue
+        name = node.value
+        candidates = [REPO / name] if "/" in name else (REPO / "scripts").rglob(name)
+        for candidate in candidates:
+            candidate = candidate.resolve()
+            if candidate.is_file() and candidate.is_relative_to(REPO):
+                if candidate.relative_to(REPO).parts[0] != "villa":
+                    found.add(candidate)
+    return found
+
+
 def _runs_code(path):
     """False for a package marker: an __init__ with nothing but a docstring."""
     body = ast.parse(path.read_bytes(), str(path)).body
@@ -114,12 +169,26 @@ def test_every_test_of_the_loops_code_is_in_the_standard_suite():
     missing = sorted(
         str(path.relative_to(REPO))
         for path in (REPO / "tests").rglob("test_*.py")
-        if imported_files(path) & loop and str(path.relative_to(REPO)) not in listed
+        if (imported_files(path) | named_scripts(path)) & loop
+        and str(path.relative_to(REPO)) not in listed
     )
     assert not missing, (
         "add these to scripts/run_validation_tests.py VALIDATION_TESTS: "
         + ", ".join(missing)
     )
+
+
+def test_every_script_the_loops_code_names_is_an_entry_point_or_named_only():
+    loop = loop_files()
+    named = {
+        str(path.relative_to(REPO))
+        for path in set().union(*(named_scripts(path) for path in loop)) - loop
+    }
+    assert not named - NAMED_NOT_RUN, (
+        "the loop's code names these by path: add each to ENTRY_POINTS if it runs "
+        "it, else to NAMED_NOT_RUN: " + ", ".join(sorted(named - NAMED_NOT_RUN))
+    )
+    assert not NAMED_NOT_RUN - named, sorted(NAMED_NOT_RUN - named)
 
 
 def test_the_entry_points_exist_and_reach_the_loops_modules():
@@ -170,3 +239,25 @@ def test_the_guard_reads_the_ways_tests_import(tmp_path):
         assert imported_files(path) == {expected}, source
     path.write_text("import numpy\nimport trainer\n")
     assert imported_files(path) == set()
+
+
+def test_the_guard_reads_the_scripts_a_file_names(tmp_path):
+    cases = {
+        'RUNNER = REPO / "scripts/training/run_noise_probe.py"\n': {
+            REPO / "scripts/training/run_noise_probe.py"
+        },
+        'path = ROOT / "scripts" / "inference" / "launch_neural_tracing.py"\n': {
+            REPO / "scripts/inference/launch_neural_tracing.py"
+        },
+        'glob("*.py"); "no_such_script.py"\n': set(),
+        # Named by src/vesuvius_autoresearch/core/patch_catalog.py; not ours.
+        'VILLA = "villa/vesuvius/src/vesuvius/models/datasets/find_valid_patches.py"\n': set(),
+    }
+    for source, expected in cases.items():
+        path = tmp_path / "test_case.py"
+        path.write_text(source)
+        assert named_scripts(path) == expected, source
+    outside = tmp_path / "outside.py"
+    outside.write_text("")
+    path.write_text(f'"{outside}"\n')
+    assert named_scripts(path) == set()

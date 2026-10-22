@@ -114,7 +114,16 @@ def test_launch_finetune_lejepa_uses_submittable_patch_and_finds_pretrain(tmp_pa
     assert data["submittable"] is True
     assert data["executed"] is False
     # In this repo's known state there is a LeJEPA pretrain checkpoint and the
-    # labeled Paris2Fr47 fragment; both should be auto-resolved.
+    # labeled Paris2Fr47 fragment; both should be auto-resolved. Both are
+    # gitignored local files, and the standard suite runs without data.
+    if (
+        not any((REPO_ROOT / "checkpoints").glob("lejepa_foundation_v1*/*.pth"))
+        or not (REPO_ROOT / "local_data" / "PHercParis2Fr47").is_dir()
+    ):
+        pytest.skip(
+            "no local LeJEPA checkpoint or PHercParis2Fr47 here, so discovery "
+            "cannot be checked; the patch and the marker were"
+        )
     assert data["pretrained_lejepa_checkpoint"], (
         "expected LeJEPA pretrain ckpt to be discovered"
     )
