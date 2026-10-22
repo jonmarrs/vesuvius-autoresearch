@@ -125,7 +125,10 @@ Main has not moved since #190. There are no open pull requests. This round cover
   first published as 0.0125". It now binds the current figure and the history that replaced it.
 - **Doc audit** (`audit_doc_references.audit()`): the branch gains no entries.
 - Ruff 0.9.10 `check` and `format` are clean on both changed test files.
-- **The standard suite** with the locked-package overlay: pending.
+- **The standard suite** with the locked-package overlay: 2811 passed, 22 skipped and 1 xfailed, as on main
+  after #190. The ten failures are main's ten environmental ones: nine need villa files, and one is
+  `gp_winner`. Neither changed test file is in the suite. Only `test_findings_headline_numbers.py` among its
+  files reads a changed document, the summary, and it passes.
 - **Independent review** of the first commit: two blocking findings, both above, and eight should-fix
   findings, all fixed here. Its nits are fixed: the ragged wraps, the step 2 note, and the wording that read as
   if the interval itself were withdrawn. Its date nit is answered above.
