@@ -73,4 +73,6 @@ CUDA_VISIBLE_DEVICES="" uv run python -m pytest tests/test_detector_*.py -q
 
 `reproduce` does not repeat the selection above. It scores the checkpoint training returns:
 the epoch with the lowest mean training loss (`detector/train.py`'s `ModelCheckpoint`). It
-prints that checkpoint's path, and asserts pixel-AUC ≥ 0.70 on it. (Added 2026-10-22.)
+prints that checkpoint's path, and asserts pixel-AUC ≥ 0.70 on it. Like `eval`, it replaces
+the scorecard and thumbnail this report cites with that checkpoint's, which the new scorecard
+names. (Added 2026-10-22.)

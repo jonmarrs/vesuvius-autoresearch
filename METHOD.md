@@ -123,7 +123,8 @@ distillation results — mask-restricted and pooled over the fragment:
 ## Honest scope
 
 This is research tooling plus a working-but-not-legible detector, stated plainly:
-same-scroll detection at the prize window is real (`val_f1` 0.393 / lift 2.07);
+same-scroll detection at the prize window is real (`val_f1` 0.393 / lift 2.07, its epoch
+chosen on that fragment);
 cross-scroll transfer without retraining is weak (lift 1.29) — the quantified open
 problem; the SOTA-distilled model (`val_f1` 0.662 / lift 3.24 *vs teacher*) shows the
 open data + distillation closing that gap on one GPU. The loop's own from-scratch

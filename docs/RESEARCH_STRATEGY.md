@@ -57,7 +57,7 @@ Honest measurement is this project's differentiator:
     re-flattened and correctly placed, and it is spent as the held-out evaluation target, so
     there is no training set
     ([`gt_training_data_exhaustion_2026-08-15.md`](../reports/detector/gt_training_data_exhaustion_2026-08-15.md)).
-*   Cross-scroll transfer is weak (lift 2.07 same-scroll → 1.29 cross); training-scroll
+*   Cross-scroll transfer is weak (lift 2.07 same-scroll, its epoch chosen there → 1.29 cross); training-scroll
     diversity helps (1.22 → 2.12 on an unseen scroll; the 2.12 is the best epoch on that
     region) and a third scroll showed no measured gain over that selected row (~2.1, its
     last epoch; a gain over a fixed-rule row is not excluded; corrected 2026-10-16 from

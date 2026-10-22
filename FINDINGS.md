@@ -54,8 +54,9 @@ held-out `PHercParis2Fr143`; community metric contract):
 The same-scroll column is optimistic: its checkpoint, epoch 7 of 12, was chosen by ROC-AUC
 on Fr143 itself. In that sweep (Gaussian blend,
 [REPRODUCTION.md](reports/detector/REPRODUCTION.md)) epoch 7 scored 0.7001 and the last
-epoch, a fixed rule, 0.6982. No epoch was chosen on Scroll 1. In both columns `val_f1` is at
-its own best threshold. (Added 2026-10-22.)
+epoch, a fixed rule, 0.6982; the selection's effect on `val_f1`, AP and lift was not
+measured. No epoch was chosen on Scroll 1. In both columns `val_f1` is at its own best
+threshold. (Added 2026-10-22.)
 
 Real, transferable ink signal at the prize window same-scroll; **weak cross-scroll
 transfer** — the open problem the field is working on.
@@ -263,7 +264,7 @@ TimeSformer demonstrably produces), not `skel_dist ≤ 2.0`. If a topology proxy
 all, it must be *spatial* (e.g. centerline_dice, or a chamfer/Hausdorff skeleton distance)
 and aggregated over a dataset — not symKL of per-patch length histograms.
 
-## Phase 5 — productionized in-repo: a working, window-compliant detector (held-out AUC 0.709)
+## Phase 5 — productionized in-repo: a working, window-compliant detector (held-out AUC 0.709, epoch chosen on that fragment)
 
 Phases 1–3 reproduced the proven recipe from *vendored/external* scripts (`repro/gp_winner/`).
 Phase 5 turns that into a **first-class tool**: `vesuvius_autoresearch.detector`
@@ -276,8 +277,8 @@ the same split the loop uses — saving every epoch and selecting the best by he
 6–11 (Gaussian blend). Epoch 7 was chosen on Fr143, the fragment reported, so 0.7090 is
 optimistic; the last epoch, a fixed rule, scored 0.6982 against epoch 7's 0.7001 in that
 sweep. The one-command `reproduce` scores the epoch with the lowest mean training loss, not
-this selection. (Added 2026-10-22.) **Window-compliant:** the lateral patch is 64 px; the 26 through-surface depth slices
-ride the TimeSformer's *time* axis (`num_frames=26`, `channels=1`), so the depth context that
+this selection. (Added 2026-10-22.) **Window-compliant:** the lateral patch is 64 px; the 26
+through-surface depth slices ride the TimeSformer's *time* axis (`num_frames=26`, `channels=1`), so the depth context that
 makes the recipe work is **not** subject to the lateral 0.5 mm limit. (Inference averages
 overlapping windows with **uniform** weighting — matching the proven `train_ours.py`
 accumulation; it scores 0.709 vs 0.700 for a Gaussian blend on the same checkpoint.)
@@ -310,8 +311,8 @@ diagnostic only.** A `measure` CLI scores one checkpoint across fragments.
 
 **First valid cross-scroll number** (the 2026-06-12 attempt was invalidated by a data
 misalignment; this uses the correctly-aligned `train_scrolls` pair): the detector trained on
-Scroll-2 `Fr47` scores same-scroll `Fr143` **val_f1 0.393 / lift 2.07**, but cross-scroll
-Scroll-1 only **val_f1 0.222 / lift 1.29** — near the chance floor. **Cross-scroll transfer
+Scroll-2 `Fr47` scores same-scroll `Fr143` **val_f1 0.393 / lift 2.07** (its epoch chosen on
+Fr143; see Phase 5), but cross-scroll Scroll-1 only **val_f1 0.222 / lift 1.29** — near the chance floor. **Cross-scroll transfer
 is weak; the detector's competence was scroll-specific.** Report:
 [reports/detector/cross_scroll_measurement.md](reports/detector/cross_scroll_measurement.md).
 

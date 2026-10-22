@@ -24,9 +24,20 @@ Main has not moved since #184. There are no open pull requests. This round cover
     gave each a fixed-rule row. The working detector's row predates them, and kept none.
   - The sweep measures the selection's effect only on ROC-AUC under the Gaussian blend: epoch 7 scored 0.7001, the
     last epoch, a fixed rule, 0.6982. No fixed-rule run measured the other metrics.
-  - **Change:** FINDINGS (the table and Phase 5), REPRODUCTION.md and the paper now say so, with the fixed-rule
-    figure. Each addition is dated. The cross-scroll column involves no epoch selection on Scroll 1; in both, `val_f1`
-    is at its own best threshold, as FINDINGS says.
+  - **Change:** the live documents now say so.
+    - FINDINGS' table and the paper's give the fixed-rule figure, and say the selection's effect on `val_f1`, AP and
+      lift was not measured. The cross-scroll column involves no epoch selection on Scroll 1; in both, `val_f1` is at
+      its own best threshold.
+    - FINDINGS' Phase 5 and REPRODUCTION.md give the fixed-rule figure too. Phase 5's heading names the selection.
+    - The shorter quotations of the row name it in a clause:
+      - README;
+      - METHOD;
+      - `docs/RESEARCH_STRATEGY.md`;
+      - the paper's abstract;
+      - FINDINGS' metric-contract section.
+    - Each longer addition is dated.
+    - REPRODUCE.md §5 now cites `cross_scroll_measurement.md` for the `val_f1` and lift it gives. It cited
+      REPRODUCTION.md, which holds only the ROC-AUC.
   - Phase 5's "plateaus at ~0.69–0.71 across epochs 6–11" is now ~0.69–0.70 (Gaussian blend). The sweep it cites runs
     from 0.6915 to 0.7001. 0.709 is epoch 7 under the uniform blend.
 - **The one-command `reproduce` does not run the selection REPRODUCTION.md reports.**
@@ -36,27 +47,41 @@ Main has not moved since #184. There are no open pull requests. This round cover
       means, 0.4446, 0.5859 and 0.6012, and it kept epoch 0.
   - So `reproduce` neither repeats the epoch-7 selection nor need give 0.7090. Its ≥ 0.70 gate is checked on the
     lowest-training-loss epoch. REPRODUCTION.md printed the command under the 0.7090 result, with no note.
+  - **It also replaced the record it would be compared with.** Like `eval`, it writes the tracked
+    `reports/detector/PHercParis2Fr143_scorecard.json` and thumbnail, which REPRODUCTION.md cites for 0.7090.
+    `evaluate` wrote no `checkpoint` field. The committed scorecard has one, added by hand, so a run dropped it.
   - **Change:**
-    - `reproduce` prints the path of the checkpoint it scored.
-    - Its docstring says what it scores.
-    - REPRODUCTION.md and REPRODUCE.md §5 say it too.
+    - `reproduce` prints the path of the checkpoint it scored, before its gate, so a failing run names it too.
+    - `evaluate` takes the checkpoint and records it in the scorecard. `eval` and `reproduce` pass it.
+    - `reproduce`'s docstring says what it scores.
+    - REPRODUCTION.md and REPRODUCE.md §5 say it too, and REPRODUCTION.md that `reproduce` replaces the files it
+      cites.
   - The gate and the selection rule are unchanged.
 - **A failed fragment's error could break `measure`'s table.**
   - `measure` records a fragment that fails as an `ERROR:` row in `cross_scroll_measurement.md`, with the exception's
     text.
   - A checkpoint that fails to load raises PyTorch's multi-line `load_state_dict` error. Its lines after the first
     did not stay in the row, and a `|` in it split the cell.
-  - **Change:** the row's text has its whitespace runs collapsed and its pipes escaped. The JSON keeps the error as
-    raised.
-- **Tests** (`tests/test_detector_contracts.py`, +2, in the standard suite):
-  - A multi-line error with a pipe stays one row, and the JSON keeps it whole.
+  - **Change:** every text cell has its whitespace runs collapsed and its pipes escaped: the fragment, the scroll
+    label and the error. The JSON keeps the error as raised.
+- **Tests** (`tests/test_detector_contracts.py`, +4 cases in three functions, in the standard suite):
+  - A multi-line error with a pipe stays one row, and the written JSON keeps it whole.
   - `reproduce` scores the checkpoint training returns, on the configured held-out fragment, and prints its path.
+    Below 0.70 it still prints, then fails its gate.
+  - `eval`'s scorecard names its checkpoint, and `evaluate` without one writes none.
 - **Mutants.** Each of these fails a new test:
-  - the error cell left raw;
-  - its pipes not escaped;
-  - its newlines kept;
-  - the JSON given the cleaned text;
-  - the checkpoint not printed.
+  - in `measure`:
+    - the error cell left raw;
+    - its pipes not escaped;
+    - its newlines kept;
+    - the JSON file given the cleaned text;
+  - in `reproduce`:
+    - the checkpoint not printed;
+    - the print moved after the gate;
+    - the gate dropped;
+  - in the scorecard:
+    - the checkpoint ignored by `evaluate`;
+    - the checkpoint not passed to it.
 
 ## Verified, no change needed
 
@@ -103,6 +128,20 @@ Main has not moved since #184. There are no open pull requests. This round cover
 - **`measure`'s JSON records neither the checkpoint nor the configuration.** Its Markdown names the checkpoint.
 - **`measure` and `eval` write fixed names under `reports/detector/`, which are tracked.** A run replaces the
   committed record. `git status` shows it. The 2026-06-30 resenc plan copies the files aside first.
+- **The ResEnc comparison puts a fixed-rule row against a selected one.**
+  - FINDINGS' ResEncUNet section compares ResEnc's Fr143 row with the TimeSformer's: `val_f1` 0.369 against 0.393.
+    The source is `reports/detector/resenc_phase1_measurement.md`.
+  - ResEnc's row is the best of 12 epochs by `val_f1` on Fr143, but that was its last (epoch 11), so it is also the
+    fixed-rule row. The TimeSformer row is the selected epoch 7.
+  - So the selection favours the TimeSformer side. Its effect on `val_f1` was not measured.
+  - On ROC-AUC the direction holds: ResEnc's 0.6795 is below the TimeSformer's fixed-rule 0.6982, though that is
+    under the Gaussian blend, and ResEnc's is uniform.
+  - Neither report says so.
+- **`cross_scroll_measurement.md` is generated.** `measure` cannot know how its checkpoint was chosen, so a caveat
+  written there by hand would be lost on a re-run.
+- **`reproduce`'s likely figure.** REPRODUCTION.md's 0.698, before best-epoch selection, may be the score of the
+  checkpoint training returned, under the Gaussian blend. That is close to epoch 11's 0.6982. The report does not
+  say which epoch it was.
 
 ## Verification
 

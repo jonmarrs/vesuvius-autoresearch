@@ -89,9 +89,9 @@ Run it from the repository root: its first step converts `local_data/<fragment>/
 (`villa/ink-detection/train_scrolls` by default). A fragment is converted again whenever any file the
 detector reads for it is missing. (Added 2026-10-17.)
 
-Reproduced 2026-06-29 (best epoch by held-out selection: ROC-AUC 0.709; under the
-community contract `val_f1` 0.393 / prevalence-lift 2.07 — see
-`reports/detector/REPRODUCTION.md`). That epoch was chosen on the fragment it is reported on.
+Reproduced 2026-06-29 (best epoch by held-out selection: ROC-AUC 0.709, see
+`reports/detector/REPRODUCTION.md`; under the community contract `val_f1` 0.393 /
+prevalence-lift 2.07, see `reports/detector/cross_scroll_measurement.md`). That epoch was chosen on the fragment it is reported on.
 `reproduce` itself scores the epoch with the lowest mean training loss, prints its path, and
 asserts ROC-AUC ≥ 0.70 on it, so its figure need not be 0.709. (Added 2026-10-22.)
 Cross-fragment measurement of any checkpoint:

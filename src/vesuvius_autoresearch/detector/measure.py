@@ -67,11 +67,12 @@ def _write_report(cfg, checkpoint_path, rows):
     for fid, m in rows.items():
         if "error" in m:
             lines.append(
-                f"| {fid} | {m['scroll_label']} | ERROR: {_cell(m['error'])} |"
+                f"| {_cell(fid)} | {_cell(m['scroll_label'])} | "
+                f"ERROR: {_cell(m['error'])} |"
             )
             continue
         lines.append(
-            f"| {fid} | {m.get('scroll_label', '')} | "
+            f"| {_cell(fid)} | {_cell(m.get('scroll_label', ''))} | "
             + " | ".join(_fmt(m.get(c, float("nan"))) for c in _COLS)
             + " |"
         )
