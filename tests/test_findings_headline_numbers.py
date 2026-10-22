@@ -1,12 +1,15 @@
 """FINDINGS.md's headline numbers must match the artifacts they come from, and carry their corrections.
 
-FINDINGS is the document the README sends readers to for "honest results". On 2026-10-22 its spiral
-section still stated four results that later reports had corrected:
+FINDINGS is the document the README sends readers to for "honest results". On 2026-10-22 it still
+stated results that later reports had corrected, among them:
 - two flattens landing "on surfaces 7.15 vx apart" (corrected 09-22: the same surface, 0.25 vx along the
   normal);
 - the anchor study's control "fitted" on another tree (corrected 09-27: the split is at the render);
 - the current-code null's ±3% bound (withdrawn 09-27: it rests on three tight control seeds);
-- the same-winding null's registered 8.3% bound (the pinned tier's floor gives ~10%).
+- the same-winding null's registered 8.3% bound (the pinned tier's floor gives ~10%);
+- the tracer "losing to connected components" (recomputed 10-09: ahead on merge-penalized ERL on 4 of 11);
+- the column AUCs at n = 3v2 (superseded by the full band, n = 18v17);
+- the loop promoting "topology-improving configurations" (it promotes on val_f1).
 
 Each test here recomputes a figure from the committed JSON, or from the report table where no JSON
 holds it, and asserts FINDINGS states it, rounded once from the raw value.
@@ -92,7 +95,8 @@ def test_the_anchor_and_current_code_nulls_carry_their_control_sensitivity():
     anchor = _json("anchor_ablation_verdict.json")
     ink, geo = anchor["ink"], anchor["geometry"]
     lo, hi = ink["ci"]
-    # the ablated arm's CV against the registered control's, both from the verdict report
+    # the ablated arm's CV against the registered control's, as the verdict report rounds them
+    # (no JSON keeps the ablated arm's CV)
     cvs = re.search(
         r"CV \*\*([\d.]+)\*\* against \*\*([\d.]+)\*\*",
         (_REPORTS / "anchor_ablation_verdict.md").read_text(),
@@ -125,6 +129,21 @@ def test_the_anchor_and_current_code_nulls_carry_their_control_sensitivity():
         f"[{_pct(m['lo'])}, {_pct(m['hi'])}], so its ±3% bound is withdrawn"
     ) in flat
     assert "*(Corrected 2026-09-27: the split is at the render, not the fit." in flat
+    # the render split's measured effect, against same-code render noise
+    rerender = _json("rerender_test_verdict.json")
+    render = _json("render_reproducibility.json")["ink"]
+    assert rerender["verdict"] == "RENDER CHANGE IS INERT" and rerender["rel"] < render
+    assert (
+        f"Every current-tier fit ran from one `d8c5f488a` copy, and the render split was measured "
+        f"inert, {_pct(rerender['rel'])} inside the {render:.2%} render noise."
+    ) in flat
+
+    # the count agreement in the placement study is the registered seeds' CV
+    cv = _json("control_sensitivity.json")["control_cv"]
+    assert (
+        f"agree on `total_fg_pixels` to **{cv[reg]:.1%}** *(the CV of three seeds since found unusually "
+        f"tight; across all nine of that configuration it is {cv['all nine s1-s9']:.1%},"
+    ) in flat
 
 
 def test_the_flatten_and_fit_floors_match_their_measurements():
@@ -185,6 +204,15 @@ def test_the_case_table_states_each_study():
             f"| {name}, n=6 | {f'**{g}**' if bold else g} (p<1e-4) | "
             f"{d['ink']['rel_diff'] * 100:.2f}% (p={d['ink']['p']:.2f}, null) |"
         ), row
+
+    # the gap fix: ink 6 v 6, geometry the five-fit test's
+    gap = _json("manipulation_effects_survey.json")["gap-expander fix"]
+    first = (_REPORTS / "gap_expander_fix_improves_the_fit.md").read_text()
+    welch = re.search(r"Welch: \*\*([+-][\d.]+)%\*\* .*?\*\*p = ([\d.e-]+)\*\*", first)
+    assert table[0].startswith(
+        f"| gap-expander config, 5v6 geometry, 6v6 ink | {float(welch[1]):+.2f}% (p={welch[2]}) | "
+        f"**{gap['rel'] * 100:.2f}%** (p={gap['p']:.4f}) |"
+    ), table[0]
 
     sw = _json("samewinding_verdict.json")["ink"]
     geo = re.search(
@@ -257,3 +285,55 @@ def test_the_loop_is_described_by_its_promotion_rule():
         f"noise tolerance, with an AP-prevalence lift above {1 + lift:.2f}."
     ) in flat
     assert "promotes only topology-improving configurations" not in flat
+    assert (
+        "`config.json` records the prize gates without enforcing them (`enforce_prize_gates: false`)"
+        in flat
+    )
+
+
+def test_the_tracer_ranking_is_the_rescores():
+    cubes = [c for c in _json("tracer_rescore.json")["cubes"].values() if c["ran"]]
+    raw = [c["cc_v2"]["erl"] / c["tracer_v2"]["erl"] for c in cubes]
+    pen_ahead = [
+        c
+        for c in cubes
+        if c["tracer_v2"]["erl_merge_penalized"] > c["cc_v2"]["erl_merge_penalized"]
+    ]
+    big = [c for c in cubes if c["size_class"] == 512]
+    assert (
+        all(r > 1 for r in raw) and len(big) == 3 and all(c in pen_ahead for c in big)
+    )
+    assert (
+        f"raw ERL still trails connected components on all {len(cubes)}, by {min(raw):.1f}–{max(raw):.1f}×, "
+        f"but merge-penalized ERL leads on {len(pen_ahead)} of {len(cubes)}, all three "
+        "512³ cubes among them."
+    ) in _flat(_FINDINGS)
+
+
+def test_the_column_result_is_the_full_band():
+    full = {
+        m: _json(f"detector/columns_fullband_{m}.json")["metrics"]
+        for m in ("arm_C", "legacy")
+    }
+    floor = re.search(
+        r"^\| \*noise floor \(same n\)\* \| \*([\d.]+)\* \|",
+        (_REPORTS / "detector/scrollgt_v02_columns.md").read_text(),
+        re.M,
+    )[1]
+    c = full["arm_C"]
+    assert c["n_text_cols"] == full["legacy"]["n_text_cols"]
+    assert (
+        f"Over the full band, all {len(c['cols_scored'])} columns at n = {c['n_text_cols']} text columns "
+        f"against {c['n_gutters']} gutters, arm C scores col-vs-gutter AUC {c['col_gutter_auc']:.3f} and "
+        f"the legacy detector {full['legacy']['col_gutter_auc']:.3f}, against a "
+        f"noise floor of {floor} at that n"
+    ) in _flat(_FINDINGS)
+
+
+def test_the_window_verdict_is_marked_superseded():
+    auc = _json("detector/cross_scroll_measurement.json")["PHercParis2Fr143"]["roc_auc"]
+    assert (
+        "~~Verdict — detection at 64 px is window-limited: the ink↔CT signal is not a learnable "
+        "function of the 64 px patch.~~* **Superseded by Phase 5**, like the TimeSformer bullet above: "
+        f"a 64 px-lateral recipe reads real, transferable ink (held-out AUC {auc:.3f})"
+    ) in _flat(_FINDINGS)

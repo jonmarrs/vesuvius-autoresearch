@@ -110,11 +110,16 @@ _CLAIMS = [
     # of one sheet; along the normal they are 0.25 vx apart.
     # reports/the_flatten_moves_the_grid_not_the_surface.md
     (
-        r"(surfaces?(\s+\w+)?|lands?|landed|landing|mov\w*\s+the\s+surface)\s+"
-        r"(on\s+surfaces\s+)?\**~?7(\.1\d?)?\s*(vx|voxels?)\b",
+        # "surfaces sit 7.15 vx apart", "a re-solve that moved the surface 7.15 vx",
+        # "surface movement | **7.15 vx mean**", and the reverse order, "6.6-7.3 vx
+        # from *both* stock surfaces" or "7 vx on the surface"
+        r"(surfaces?|lands?|landed|landing|sits?|sitting|mov\w*\s+the\s+surface)"
+        r"\W+(\w+\W+){0,3}?~?7(\.\d+)?\s*(vx|voxels?)\b"
+        r"|\b7(\.\d+)?\s*(vx|voxels?)\s+(apart\s+)?(from|on)\W+(\w+\W+){0,3}?surfaces?\b",
         "two stock flattens land on surfaces 7.15 vx apart",
         "the same surface, 0.25 vx apart along the normal; ~7 vx is the grid's in-plane offset",
-        r"0\.25\s*vx|same surface|nearest[- ]neighbou?r|re-?parametri[sz]",
+        # not "nearest-neighbour": the uncorrected report used that word itself
+        r"0\.2[3-6]\s*vx|same surface|re-?parametri[sz]",
     ),
 ]
 
@@ -123,6 +128,12 @@ def _cleared(para: str, required: str | None) -> bool:
     if required is not None:
         return re.search(required, para, re.I) is not None
     return any(w in para.lower() for w in _WITHDRAWAL)
+
+
+def _head(text: str) -> str:
+    """A document's opening, before its first section: where a dated report is
+    corrected as a whole ("CORRECTED ...: the title's claim is wrong")."""
+    return text.split("\n## ", 1)[0]
 
 
 @pytest.mark.parametrize(
@@ -138,7 +149,16 @@ def test_withdrawn_claim_appears_only_beside_its_withdrawal(
     for doc in _DOCS:
         if not doc.exists():
             continue
-        for para in re.split(r"\n\s*\n", doc.read_text()):
+        text = doc.read_text()
+        # a correction at the head of a dated document covers the record below it;
+        # FINDINGS, the README and the summary are corrected where they say it
+        if (
+            required is not None
+            and doc.parent != _REPO
+            and _cleared(_head(text), required)
+        ):
+            continue
+        for para in re.split(r"\n\s*\n", text):
             if not rx.search(para):
                 continue
             if _cleared(para, required):
@@ -184,6 +204,14 @@ def test_a_claim_with_a_named_correction_is_not_cleared_by_any_withdrawal_word()
         "a re-solve that moved the surface 7.15 vx in the outer region",
         "a flattener that lands 7 vx apart every run",
         "the same input that landed 7.15 vx apart under stock settings",
+        "two runs land on surfaces 7.2 vx apart",
+        "surfaces sitting about 7 vx apart",
+        "| flatten's own run-to-run surface movement | **7.15 vx mean** |",
+        "the deterministic surface sits 6.6–7.3 vx from *both* stock surfaces",
+        "3.04% on the objective, 7 vx on the surface",
     ):
         assert rx.search(live), live
+    assert not _cleared(
+        "land on surfaces 7.15 vx apart by nearest-neighbour distance", required
+    )
     assert not rx.search("the median patch spans 7 bands")

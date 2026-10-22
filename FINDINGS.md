@@ -14,7 +14,7 @@ search has taught us — including the negative results.
   incumbent's by more than the noise tolerance, with an AP-prevalence lift above
   1.02. (Corrected 2026-10-22: this said "topology-improving". The loop's
   `config.json` records the prize gates without enforcing them
-  (`enforce_prize_gates: false`), and `skel_dist` is never gated since Phase 4b
+  (`enforce_prize_gates: false`), and `skel_dist` has not been gated since Phase 4b
   found it invalid.)
 - **Scroll-specific augmentation library** (`scroll_augmentations.py`) — nine
   GPU-native augmentations modeling scroll-CT artifacts; addresses
@@ -556,12 +556,14 @@ papyrologists' consensus), this shipped as **ScrollGT's first non-training-scrol
 (`pherc1667_merged_columns` + the `score-columns` contract; measured anti-gaming floor:
 constant *and* papyrus-mask predictions score exactly 0.5).
 
-**And the honest result on it:** our models sit at the floor. On a rendered cols-17–19
-region, arm C scores col-vs-gutter AUC 0.667 (n = 3v2 — one rank-step from chance, pixel
-AUC 0.521) and the legacy detector 0.0; both maps are texture without letterforms
-([scrollgt_v02_columns.md](reports/detector/scrollgt_v02_columns.md)). The legacy model's
-line-periodicity 0.433 is a **measured metric confound** (inference banding whose pitch
-lands in the text-line range) — documented in the benchmark as the reason every
+**And the honest result on it:** our models sit at the floor. Over the full band, all 22
+columns at n = 18 text columns against 17 gutters, arm C scores col-vs-gutter AUC 0.575 and
+the legacy detector 0.595, against a noise floor of 0.578 at that n; both maps are texture
+without letterforms ([scrollgt_v02_columns.md](reports/detector/scrollgt_v02_columns.md)).
+*(Corrected 2026-10-22: this gave the partial-extent extremes, 0.667 and 0.0 at n = 3v2, which
+the full-band rows superseded as small-n quantization.)* On that first partial region the
+legacy model's line-periodicity 0.433 was a **measured metric confound** (inference banding
+whose pitch lands in the text-line range) — documented in the benchmark as the reason every
 submission must include its prediction map. The cross-scroll ceiling, now measured
 against scholar-validated ground truth on the very scroll the field just read.
 
@@ -580,7 +582,9 @@ Full detail with every noise floor attached:
 **2026-09-14, the objective is more reproducible than the ink it counts** *(exploratory, except the
 averaging result, which was pre-registered and confirmed forward)*. Comparing
 ink maps in **volume coordinates** — the scroll's own frame, so no flattening artefact — fits
-differing *only by RNG seed* agree on `total_fg_pixels` to **1.2%** but on ink **placement** at only
+differing *only by RNG seed* agree on `total_fg_pixels` to **1.2%** *(the CV of three seeds since found
+unusually tight; across all nine of that configuration it is 6.4%,
+[control sensitivity](reports/control_sensitivity.md))* but on ink **placement** at only
 **r ≈ 0.70**, against a θ-rotated null of −0.09. Two runs scoring identically are not reading the same
 text. Three things follow, each measured:
 
@@ -648,7 +652,7 @@ belongs next to them: the guard is not a second opinion on the same quantity.
 **The fourth case is the one that bears on strategy.** villa names winding constraints as the fastest
 path to unrolling at scale. Removing 5,413 same-winding constraints measurably degrades the fit and
 leaves recovered ink unchanged within ~10% (8.3% as registered; corrected with the pinned tier's
-noise floor, [noise floors](reports/noise_floor_by_tier.md)) ([verdict](reports/samewinding_verdict.md)) — and that
+noise floor, [survey](reports/no_lever_has_improved_reading.md)) ([verdict](reports/samewinding_verdict.md)) — and that
 geometry fall is *stronger* evidence than a rise, because the "less left to satisfy" confound the
 registration guarded against can only manufacture a rise.
 
@@ -685,8 +689,11 @@ measured — check the scored region separately
 - In the published legacy fiber benchmark, our tracer **loses to connected components**;
   coasting was falsified and seed NMS was a null. The 2026-10-04 architecture review
   found edge-order-dependent ERL in that scorer and replaced it with graph connectivity
-  scoring. The historical rankings require recomputation before use with scoring
-  version 4, ScrollGT's definition, which this repo now vendors; see [the review](docs/DESIGN_ARCHITECTURE_REVIEW_2026-10-04_FIBERS.md).
+  scoring; see [the review](docs/DESIGN_ARCHITECTURE_REVIEW_2026-10-04_FIBERS.md).
+  *(Recomputed 2026-10-09, pre-registered, scored by ScrollGT itself on all 11 cubes: raw
+  ERL still trails connected components on all 11, by 3.9–6.2×, but merge-penalized ERL
+  leads on 4 of 11, all three 512³ cubes among them. "Loses on both metrics" was wrong
+  under the corrected scorer; [rescore](reports/tracer_rescore.md).)*
 - The column-metric line is **closed** after four hypotheses were each refuted, one of which was a
   finding we published and **retracted the same day** when its instrument turned out to be
   measuring our own high-pass residual.
@@ -708,7 +715,8 @@ renders legible Greek from published artifacts on one 4090.
 - **Topology metrics depend on the threshold.** Evaluating `centerline_dice` /
   `skel_dist` at the Dice-optimal threshold understates topology by ~2×; at the
   topology-optimal threshold the *same* model reports `centerline_dice`
-  0.073 → 0.198. The loop now selects and reports at the topology-optimal point.
+  0.073 → 0.198. The loop now reports the topology metrics at the topology-optimal
+  threshold (it promotes on `val_f1`; see Deliverables).
 - **Negative results (kept honest):**
   - *clDice as a late fine-tune* of the converged model degrades centerline
     overlap (cl_dice 0.073–0.077), rather than improving it — the soft skeleton
@@ -810,8 +818,11 @@ renders legible Greek from published artifacts on one 4090.
     ridge-bound at ~3 s/step, so each ~2 h arm reached only ~2 k steps ≈ 4–5
     epochs — under-trained on its own, which a same-regime control then renders
     moot.)
-  - ***Verdict — detection at 64 px is window-limited: the ink↔CT signal is not a
-    learnable function of the 64 px patch.*** A same-regime control resolves the
+  - *~~Verdict — detection at 64 px is window-limited: the ink↔CT signal is not a
+    learnable function of the 64 px patch.~~* **Superseded by Phase 5**, like the
+    TimeSformer bullet above: a 64 px-lateral recipe reads real, transferable ink
+    (held-out AUC 0.709), so the limit was this modeling stack, not the window. What
+    follows holds for the stack it tested. A same-regime control resolves the
     LR/under-training confound decisively: training the identical regime (full
     Fr47, lr 5e-5, mini-batch sampling, no aug) on a *synthetic learnable* target
     (brightness = CT z-mean > patch mean) reaches pooled AUC **0.97 by step 50 and

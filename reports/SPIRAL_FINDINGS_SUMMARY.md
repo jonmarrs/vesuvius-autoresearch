@@ -269,7 +269,7 @@ ones. Emptying `same_windings.json`, three arms against the six existing baselin
 | `satisfied_area_fraction` | 0.8390 | 0.8331 | **-0.69%** | **0.0027** |
 
 **NULL on reading**, bounded at ~10%, not zero (8.3% as registered, from the df=3 CV; ~10% with the
-pinned tier's floor, `reports/noise_floor_by_tier.md`). The geometry fall is *stronger* evidence than a rise
+pinned tier's floor, `reports/no_lever_has_improved_reading.md`). The geometry fall is *stronger* evidence than a rise
 would have been: the registration made `satisfied_area` report-only because removing 5,413 inputs
 could inflate it trivially ("less left to satisfy"), and that confound can only manufacture a RISE.
 It fell — the fit satisfies its remaining inputs less well despite having fewer of them.
@@ -752,8 +752,9 @@ flatten path; every "seed" is a geometric init point. What it has is 174 scatter
 `torch.use_deterministic_algorithms(True)` + `CUBLAS_WORKSPACE_CONFIG` produce **byte-identical
 `x/y/z.tif`**, zero escaped-op warnings, at 9.5× flatten cost (~11 min vs ~4, against 2 h renders).
 Reduction order is the *whole* cause. The registered prediction — a residual from the Triton
-kernel — missed in the good direction. **Reproducible is not correct**: the deterministic surface
-sits 6.6–7.3 vx from *both* stock surfaces, an arbitrary member of the same distribution. Available
+kernel — missed in the good direction. **Reproducible is not correct**: the deterministic flatten
+lays the sheet out 6.6–7.3 vx in-plane from *both* stock layouts, on the same surface (0.23–0.26 vx
+along the normal, corrected 2026-09-22), an arbitrary member of the same distribution. Available
 as `FLATTEN_DETERMINISTIC=1` in `run_render.sh`; the first wiring of it was inert (path resolved after
 a `cd`) and was caught by reading the flatten process's environment rather than its banner.
 `reports/the_flatten_has_no_seed_to_set.md`, `reports/the_flatten_is_reproducible_when_asked.md`.

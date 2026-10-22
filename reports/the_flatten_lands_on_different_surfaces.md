@@ -23,9 +23,6 @@ Nearest-neighbour surface distance between two flattens of the **same meshes**:
 **The flatten is non-deterministic in both regions**, and the magnitude is region-dependent by more
 than an order of magnitude. The outer pair's surfaces sit **7 voxels apart on average** — nearly half
 a winding gap (16.17 vx) — from byte-identical input meshes on byte-identical code.
-*(Corrected 2026-09-22, noted here 2026-10-22: the two flattens lie on the same surface, 0.25 vx
-apart along the normal; 7.15 vx is the nearest-neighbour distance between their sampling grids.
-`reports/the_flatten_moves_the_grid_not_the_surface.md`.)*
 
 The inner pair kept the same grid shape (303, 883) while the outer did not (426 vs 425 rows), so the
 outer flatten varies in its parameterization as well as its surface.
