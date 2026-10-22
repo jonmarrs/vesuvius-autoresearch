@@ -18,7 +18,7 @@ floor wrong caused two reversals in a single afternoon.
 
 | floor | value | applies to |
 |---|---:|---|
-| pipeline non-determinism | **1.42%** | two renders of the SAME meshes, and same-fit comparisons |
+| pipeline non-determinism | **1.42%** and **3.04%**, two draws *(corrected 2026-10-22: this gave 1.42% alone, which was one draw; findings 47–48)* | two renders of the SAME meshes, and same-fit comparisons |
 | seed spread, `2*CV`, n=4, **inner** w010-w019 | **21.7%** (95% CI 12.3-81.0%) | two DIFFERENT fits, inner windings |
 | seed spread, `2*CV`, n=4, **outer** w120-w129 | **8.4%** (95% CI 4.8-31.4%) | two DIFFERENT fits, outer windings |
 | duplicate-coverage baseline (full fit) | **0.0897 to 0.1042%** | gap>=2 overlap in any converged fit |
@@ -396,27 +396,39 @@ Findings 22–24 are claims about `6847063f` alone. `reports/decoupling_does_not
 **26. The noise floor every study here quoted was wrong, in both directions.**
 Every analysis script hardcodes `OUTER_CV = 0.0421`, measured at **df=3**. Pooling within-arm
 deviations across the whole corpus gives the pinned tier **0.0514 (df=18)** — so pinned-tier nulls
-bound **~12%, not ~10%**, and excluded less than they claimed. Current villa is **0.0263 (df=6)** — first published as 0.0125 (df=4) and withdrawn when a third arm doubled it,
-**2.0× quieter, NOT established** (F(18,6)=3.83, p=0.104). At 3v3 a current-code study sees **6.0%**. The original claim of 4.1× at p=0.0143 rested on two arms agreeing at df=2; `reports/noise_floor_by_tier.md` carries the retraction. **Do not normalise ink by strip area**: `overall_fg_fraction`
-is 2.6× noisier than the raw count, because `total_fg_pixels` (0.0125) is quieter than the strip it
-sits on (0.0242). `reports/noise_floor_by_tier.md`.
+bound **~12%, not ~10%**, and excluded less than they claimed. Current villa is **0.0536 (df=11)**,
+**no quieter than pinned** (F(18,11)=0.92, p=0.84), and at 3v3 a current-code study sees **12.3%**.
+*(Corrected 2026-10-22: this said 0.0263 (df=6), 2.0× quieter and not established, and 6.0%. Those
+were superseded on 2026-09-19, finding 44.)* The estimate moved twice. It was first 0.0125 (df=4),
+"4.1× quieter" at p=0.0143, from two arms that happened to agree at df=2. A third arm made it 0.0263,
+and six unused seeds made it 0.0536. `reports/noise_floor_by_tier.md` carries the retraction and
+`reports/six_unused_seeds_double_the_current_floor.md` the last step. **Do not normalise ink by strip
+area**: `overall_fg_fraction` was 2.6× noisier than the raw count on the first two arms, because
+`total_fg_pixels` (0.0125) is quieter than the strip it sits on (0.0242). `reports/noise_floor_by_tier.md`.
 
-**27. Half of the two-seed criticism expired; the other half turned out to be exact.**
-Finding 9's power table used the inner CV 0.1086. At current noise two seeds catch a 5% gain
-**75%** of the time (first published as 99.2% at the withdrawn CV 0.0125), so "the check cannot detect realistic gains" is **false for the loop villa runs
-today** and we have stopped saying it. The false-positive half is *stronger* than first stated: it is
-a rank statistic, exactly **1/C(2k,k)** under exchangeability — 2 seeds **1/6**, 3 seeds **1/20**,
-4 seeds **1/70** — independent of the CV, the metric and the code version. That is why 16.6% at CV
-0.1086 and 16.7% at CV 0.0125 agree. **No amount of better fitting improves it**, and villa's fits
-just got 4× quieter without moving it at all. One extra seed buys 1-in-6 → 1-in-20.
+**27. Half of the two-seed criticism weakened; the other half turned out to be exact.**
+Finding 9's power table used the inner CV 0.1086, where two seeds catch a 5% gain 28.6% of the time.
+At current noise, CV 0.0536, they catch it **44%** of the time and a 10% gain 73%. *(Corrected
+2026-10-22: this said 75%, the figure at the superseded CV 0.0263; it was first published as 99.2% at
+the withdrawn 0.0125. It also said "the check cannot detect realistic gains" was false for the loop
+villa runs today. At 44% two seeds miss a 5% gain more often than they catch it.)* The false-positive
+half is *stronger* than first stated: it is a rank statistic, exactly **1/C(2k,k)** under
+exchangeability — 2 seeds **1/6**, 3 seeds **1/20**, 4 seeds **1/70** — independent of the CV, the
+metric and the code version. That is why 16.6% at CV 0.1086 and 16.7% at CV 0.0125 agree. **No amount
+of better fitting improves it**, however quiet the fits get. *(Corrected 2026-10-22: this said villa's
+fits "just got 4× quieter", the ratio withdrawn on 2026-09-13. On all nine seeds the tiers differ
+1.0×, F(18,11)=0.92.)* One extra seed buys 1-in-6 → 1-in-20.
 
 **A sixth self-correction, and the one that cost the most credibility to catch:** finding 25 was
 published quoting a bound of 9.6% that came from the *wrong tree's* constant. Checking where that
 number came from produced finding 26, which showed the same null actually excludes ±3% — three times
-stronger — while also showing every pinned-tier null was ~12% rather than ~10%. **A constant copied
-between scripts stops being a measurement and becomes an assumption**; this one had been carried into
-studies on a tree it was never measured on. `scripts/measure_noise_floor.py` replaces it with
-something that is recomputed from the fits and refuses to pool the tiers.
+stronger — while also showing every pinned-tier null was ~12% rather than ~10%. *(Corrected
+2026-10-22: the ±3% rested on three unusually tight control seeds and was withdrawn on 2026-09-27;
+against the render-matched seeds the null is −4.41% [−12.18%, +3.37%], `reports/control_sensitivity.md`.
+The ~12% stands.)* **A constant copied between scripts stops being a measurement and becomes an
+assumption**; this one had been carried into studies on a tree it was never measured on.
+`scripts/measure_noise_floor.py` replaces it with something that is recomputed from the fits and
+refuses to pool the tiers.
 
 **28. Ten absolute winding anchors read as well as fifty — within ±10%, which is the honest limit.**
 villa asks people to draw absolute winding annotations by hand and names automating them the fastest
@@ -676,12 +688,12 @@ not the fit, and was measured inert. Same-winding-current is now render-matched 
 [−12.18%, +3.37%]; its "±3%" is withdrawn. The headline stands.)* Across every registered study
 with tree-matched controls: gap-expander −10.35% (p=0.002, HARMED); bootstrap, stripmatch, two
 same-winding ablations and the anchor ablation all null, bounding 3–18%. The nulls are not equal —
-same-winding-current bounds ±3% against a 12.3% design MDE, patch bootstrap only ±18% at a nominal
-11.8%. The anchor study's registered control was fitted on a different villa tree than its
-treatment; tree-matched, its ink estimate moves −0.86% → −5.49% (verdict still NULL) while its
-geometry result strengthens. Every lever tried manipulates the geometry the fit solves for, and the
-corpus correlation says that quantity does not predict ink (current tier r = −0.424, capped +0.11).
-`reports/no_lever_has_improved_reading.md`, `reports/the_anchor_control_was_cross_tree.md`.
+same-winding-current ~~bounds ±3%~~ (withdrawn, above) against a 12.3% design MDE, patch bootstrap
+only ±18% at a nominal 11.8%. The anchor study's registered control was fitted on a different villa
+tree than its treatment; tree-matched, its ink estimate moves −0.86% → −5.49% (verdict still NULL)
+while its geometry result strengthens. Every lever tried manipulates the geometry the fit solves for,
+and the corpus correlation says that quantity does not predict ink (current tier r = −0.424, capped
++0.11). `reports/no_lever_has_improved_reading.md`, `reports/the_anchor_control_was_cross_tree.md`.
 
 **46. The gap fix's ink loss is not duplicate removal; it pulls the surface 4 voxels inward.** Every
 coverage measure is flat (strip area +0.45%, 3D surface −0.46%, duplication −3.3% n.s.) while ink

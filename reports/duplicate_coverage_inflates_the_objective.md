@@ -7,6 +7,10 @@
 > B and D clear by 8.9x and 12.4x. See `reports/pipeline_determinism_and_which_floor_applies.md`,
 > including why that floor is a lower bound and why the B-versus-C comparison needs no floor at all.
 
+> **Noted 2026-10-22: the 1.42% floor was one draw.** On 2026-09-20 a same-tree repeat that re-ran the
+> flatten gave **3.04%**, so the same-fit floor is at least twice the figure used here. B and D still
+> clear it. `reports/the_determinism_floor_rests_on_one_draw.md`.
+
 
 **2026-08-31.** Pre-registered in `docs/preregistration/2026-08-31_duplicate_coverage_cost.md` and
 its addendum, both committed before any arm was rendered. **Verdict: SUPPORTED**, by the rule fixed

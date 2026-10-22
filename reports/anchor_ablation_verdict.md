@@ -26,7 +26,8 @@ at zero) and the non-blank control (46.9%, 48.0%, 47.3%). No arm was excluded.
 ## The ink null is much weaker than the design promised
 
 The registration budgeted for a **2.9%** minimum detectable effect, using the current tier's seed CV
-of 0.0125. The data exclude only:
+of 0.0125. *(Noted 2026-10-22: that was the two-arm estimate of the day; on nine seeds it is 0.0536,
+`reports/six_unused_seeds_double_the_current_floor.md`.)* The data exclude only:
 
 > **−0.86%, 95% CI [−10.21%, +8.50%]** (Welch df = 2.4)
 
