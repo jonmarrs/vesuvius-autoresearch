@@ -38,6 +38,10 @@ def test_registered_verdicts_and_predictions(report: str) -> None:
     assert r["predictions"] == {"P1_pinned_less_noisy": False, "P2_no_detectable_difference": True,
                                 "P3_current_less_noisy": True}  # fmt: skip
     assert r["recommend_S"] is False
+    # the prose quotes the current-seed interval to two places, rounded once from the JSON
+    c = r["current_q1"]
+    one = ", ".join(f"{x:.2f}" for x in c["ci"])
+    assert f"(R {c['R']:.2f} [{one}])" in report
     assert "**P1 FAILED**" in report and "NOT MET" in report
 
 

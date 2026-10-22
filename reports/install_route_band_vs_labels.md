@@ -39,7 +39,7 @@ All 8 segments were compared in both comparisons.
 
 * **For finding 66 and the install route:** at the metric's settings, the post-#1146 source build's
   thicker band agrees **better** with villa's labels than the published image's: about +8% AP, every
-  segment. The published image's +5–9% lower ink count therefore goes with **less** faithful renders.
+  segment. The published image's 5–8% lower ink count therefore goes with **less** faithful renders.
   The stale published image under-samples the band for this setting.
 * **For villa's metric:** agreement rises monotonically from 0.5 through 1.0 to 2.0 on every segment.
   A wider band than the metric's default agrees better (+10% AP at step 2.0), and the optimum lies beyond

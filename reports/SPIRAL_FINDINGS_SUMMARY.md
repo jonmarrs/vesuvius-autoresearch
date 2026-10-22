@@ -1042,7 +1042,7 @@ image's sampling) in 8 of 8 segments, about +8% AP. Step 2.0 beats 1.0 in 8 of 8
 the same way everywhere.
 
 * **Both predictions (no consistent difference) FAILED.**
-* **For finding 66:** the published image's lower ink count (−5 to −9%) goes with **less** faithful
+* **For finding 66:** the published image's lower ink count (−5 to −8%) goes with **less** faithful
   renders.
 * **For villa's metric:** its default band is narrower than the best tested.
 
