@@ -32,7 +32,8 @@ size.** It held.
   published image (or the reverse) would see a spurious **~5–9%** change. That is the size of the
   gains the loop chases, and larger than the ±3% bound our same-winding null achieved. *(Noted
   2026-10-22: that bound was withdrawn on 2026-09-27; it rested on three tight control seeds, and against
-  the render-matched seeds the null is −4.41% [−12.18%, +3.37%], `reports/control_sensitivity.md`.)*
+  the render-matched seeds the null is −4.41% [−12.18%, +3.37%], `reports/control_sensitivity.md`. The
+  comparison with it no longer holds.)*
 * **It is not a constant.** It spans 4.2 points across four surfaces from the same region and code, so
   no single correction factor would reconcile the routes. Only rendering both sides with one build does.
 * **Not over-read:** with n = 4, the apparent pattern (the lowest-ink surface gains most, the highest

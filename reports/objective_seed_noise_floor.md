@@ -14,6 +14,10 @@ before the arm was rendered. **My prediction failed, and the registered withdraw
 > `reports/pipeline_determinism_and_which_floor_applies.md`. Read that before using this number to
 > judge any same-fit result.
 
+> **Noted 2026-10-22: the 1.42% floor was one draw.** On 2026-09-20 a same-tree repeat that re-ran the
+> flatten gave **3.04%**, so the same-fit floor is at least twice the figure used here. B and D still
+> clear it. `reports/the_determinism_floor_rests_on_one_draw.md`.
+
 ## Result
 
 Same ten windings, same render and scoring settings, two converged fits differing only in seed:

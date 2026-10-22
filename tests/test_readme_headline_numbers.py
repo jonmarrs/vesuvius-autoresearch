@@ -450,10 +450,13 @@ def test_the_seed_noise_history_ends_at_the_current_floor():
         f"{current['cv']:.4f}. Both times the new value sat inside the published interval"
     ) in txt
     summary = _flat(_REPORTS / "SPIRAL_FINDINGS_SUMMARY.md")
+    # finding 26 states the current figure and then the two it replaced
+    assert f"Current villa is **{current['cv']:.4f} (df={current['df']})**" in summary
     assert (
-        f"**{second} (df=6)** — first published as {first} (df=4) and withdrawn when a third arm"
-        in summary
-    )
+        f'It was first {first} (df=4), "4.1× quieter" at p=0.0143, from two arms that happened '
+        f"to agree at df=2. A third arm made it {second}, and six unused seeds made it "
+        f"{current['cv']:.4f}."
+    ) in summary
     assert (
         f"current-tier CV goes **{second} → {current['cv']:.4f}** (df={current['df']})"
         in summary
