@@ -142,8 +142,9 @@ is a one-line config change that improves villa's own geometry diagnostic.
 score.** Six fits per arm on w120-w129, second look at the registered Pocock alpha 0.0294:
 `total_fg_pixels` **-10.35%, 95% CI -15.68% to -5.03%, p = 0.0018**, with complete separation (all
 six GAP below all six BASE, null probability 0.108%) and `fg_fraction` agreeing at -10.78%. The
-registered prediction was MET. **The same change raises `satisfied_area` by 7-10 sd and lowers the
-ink objective by a tenth** — both established on the same twelve fits, which sharpens finding 10 from
+registered prediction was MET. **The same change raises `satisfied_area` by 4.5-5.9 sd and lowers
+the ink objective by a tenth** — the ink on these twelve fits, the geometry on eleven of them (finding
+12), which sharpens finding 10 from
 "decoupled" to "opposite for this change", and means a satisfaction cross-check would have passed
 enthusiastically on a real regression. Not a live villa defect: the fits predate upstream #1625.
 `reports/gap_fix_costs_ink_established.md`. The earlier looks stand as history:

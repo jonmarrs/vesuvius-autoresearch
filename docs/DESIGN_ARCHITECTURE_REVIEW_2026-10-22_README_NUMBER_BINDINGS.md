@@ -4,7 +4,7 @@ Date: 2026-10-22. Baseline: `c3b6ee7f` (main after #188).
 Reviewer: Claude (Anthropic), at the owner's request.
 
 Scope: the README's opening paragraph and its spiral-fitting box (lines 5–52), the first thing anyone reads.
-- They quote about 75 figures from the detector and spiral reports.
+- They quote 74 numbers from the detector and spiral reports.
 - `tests/test_headline_numbers_consistent.py` says the two headline results "are quoted in six places; pin them
   to the artifacts". For the README it checks one thing: that a README quoting the geometry gains says
   "circular".
@@ -22,8 +22,11 @@ firings.
 - **131 numbers were tried, and one was bound:** the 15-minute shift budget, in the loop section.
 - All 74 numbers in the headline section survived. Every data figure among them was then traced by hand to its
   JSON or report table.
-- **Five README figures or claims were wrong.** Tracing them found a sixth error, a mistyped mean in the gap-fix
-  report and the villa draft. All six are listed below. The rest match their sources.
+- **Six README figures or claims were wrong.**
+  - Five were found here. The independent review found the sixth, a claim about a printed interval.
+  - Tracing them turned up a mistyped mean in the gap-fix report and the villa draft.
+  - The review also found stale statements of the same claims in the summary, the villa draft and four reports.
+  - All are listed below. The rest of the README's figures match their sources.
 
 ## What changed
 
@@ -69,7 +72,23 @@ firings.
   - 0.0536 is the current tier's floor (`noise_floor_by_tier.json`, df=11). 0.0263 was withdrawn when six
     `curbase` fits already on disk were found unused (`six_unused_seeds_double_the_current_floor.md`), not when an
     arm landed.
-  - **Change:** the README says the figure was published too low twice, and why each was withdrawn.
+  - It also said the new values landed inside "the interval that had never been printed". The interval was
+    printed: `noise_floor_by_tier.md` gave 0.0125's CI [0.0075, 0.0360] on the day 0.0125 was published
+    (`a997c325`). It also gave 0.0263's CI [0.0169, 0.0578], and each held the next value.
+  - **Change:** the README says the figure was published too low twice, and why each was withdrawn. It says that
+    both times the new value sat inside the published interval.
+- **The same corrections, where they recur.** The independent review found these:
+  - `docs/VILLA_DRAFT_metrics_disagree.md` gave the patch-bootstrap null's power as ~10%. It is now ~12%, as in the
+    README.
+  - The summary's finding 13 said the gap fix raises `satisfied_area` "by 7-10 sd", with both metrics "established
+    on the same twelve fits". `gap_expander_fix_improves_the_fit.md` corrected the sd figure to 4.5–5.9 on
+    2026-09-03, and the geometry is on eleven fits. Both are fixed.
+  - Two dated reports quoting 7 to 10 sd carry a dated note: `gap_fix_costs_ink_established.md` and
+    `the_gap_fix_does_not_remove_duplicated_coverage.md`.
+  - `the_determinism_floor_rests_on_one_draw.md` and `pipeline_determinism_and_which_floor_applies.md` call
+    `probe_innerprob` a re-render. `the_flatten_lands_on_different_surfaces.md` found that it re-scored an
+    existing strip, and the summary's finding 47 says so. Both reports carry a dated note. The 890× arithmetic
+    stands; what it compares is a render pair against a re-score.
 - **Tests:** `tests/test_readme_headline_numbers.py` is new, with 12 tests.
   - Each recomputes a headline figure from its JSON and asserts the README states it, rounded once:
     - the detector rows;
@@ -83,11 +102,15 @@ firings.
     - the null bound;
     - the current noise floor.
   - Where no JSON holds a figure, it reads the report table and checks the table:
-    - the same-winding geometry endpoint, checked to be consistent with the table's rounded means;
-    - the gap-fix rows, whose means must equal the JSON's;
+    - the same-winding geometry endpoint, checked against the ablated arm's four-place mean and the shared
+      baseline's five-place one;
+    - the gap-fix rows, whose means must equal the JSON's. The test also checks the report's summary block, every
+      cell of the villa draft's table, and the case rows in `FINDINGS.md` and the summary;
     - the column noise floor;
-    - the flatten throughput.
-  - One test holds the scorer ratios, in every document that states them, to the counts they divide.
+    - the flatten throughput;
+    - the seed-noise figures and their published intervals.
+  - One test holds the scorer ratios to the counts they divide, in every document that states them. It also holds
+    the pairs' stated ΔT to those counts.
 
 ## Verified by hand, no change needed
 
@@ -127,10 +150,10 @@ These match their sources:
     the edge.
   - The gap fix's six-fit geometry exists only as four-place rows.
   - Re-running the two analyses with the geometry written out would let both be bound to JSON.
-- **The 1,719,984.** No file in the repository holds it, and no computation from its table gives it.
-- **"Inside the interval that had never been printed."** This is the README's existing claim about 0.0125. The
-  September filing says the new value "sat inside the old confidence interval all along". No report here prints
-  that interval, so the claim stands as written.
+- **The 1,719,984.** No file in the repository holds it, and no computation from its table or any subset of its
+  rows gives it.
+- **The preregistration** `docs/preregistration/2026-09-03_patch_bootstrap.md` quotes the superseded "7-10 sd".
+  A registration is a frozen record, so it is unchanged.
 - **The summary and `FINDINGS.md`** are still not probed. This round corrected the figures above wherever they
   appear, and bound the gap-fix rows in both.
 
@@ -140,7 +163,7 @@ These match their sources:
 - **The probe was re-run with the new test.** 70 of 135 numbers in the README are bound, and 66 of the headline
   section's 78. That was before the null-bound binding, which adds the ~12%. The headline survivors are the names,
   dates and design figures listed above.
-- **Mutants**, in a scratch worktree, each restored after it ran. All fail the new test:
+- **Mutants**, in a scratch worktree, each restored after it ran. All of these fail the new test:
   - main's version of each of the nine corrected documents (`README.md`, `FINDINGS.md`, the summary, the villa
     draft and five reports);
   - nine data-side mutants:
@@ -153,6 +176,10 @@ These match their sources:
     - a fit-only count;
     - the column noise floor;
     - the stock flatten throughput.
+- **The review's 41 mutants**, re-run after the second commit: 38 fail the test. Three don't:
+  - a line break inserted mid-phrase in the README, which shows the test is rewrap-safe;
+  - finding 13's "n=12", which is the ink test's count and right;
+  - one that no longer applies to the JSON's current formatting.
 - **Guards and audit:**
   - The nine doc-guard files and the four report-number files were run on main and on the branch, with the doc
     audit (`audit_doc_references.audit()`). They differ only by the 12 new tests: 169 passed on main, 181 on the
@@ -165,3 +192,22 @@ These match their sources:
   - Three of its 125 files read the README: `test_shift_budgets.py`, `test_villa_upstream_audit.py` and
     `test_villa_optimized_inference_smoke.py`. One reads `FINDINGS.md`: `test_prize_promotion_gates.py`.
   - The new test is outside the suite, like the other number-binding tests.
+- **Independent review** of the first commit, in a worktree without villa.
+  - **It confirmed:**
+    - every corrected figure from its primary source;
+    - every remaining 950× in live documents, which is against 3.04%;
+    - that the first five GAP fits give +1.034% (p 3.92e-06) and all six +1.043%;
+    - that no subset of rows gives 1,719,984;
+    - 30 README figures the commit left alone.
+  - **Its blocking finding:** the "never been printed" claim above, which the first commit kept and tested.
+  - **Its should-fix findings:** the villa draft's power, finding 13, and `probe_innerprob`, all above. It also
+    found mutants that survived in the villa draft's table, the gap report's block, and the `FINDINGS` and summary
+    case rows; all are bound now.
+  - **Its nits:** all addressed:
+    - the same-winding check's width;
+    - the unbound registered ~10%;
+    - hardcoded noise figures;
+    - unchecked pair lengths;
+    - an unescaped regex;
+    - two reads that rewrapping would break;
+    - this doc's count of numbers.

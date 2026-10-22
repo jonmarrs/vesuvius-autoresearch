@@ -57,7 +57,9 @@ in **opposite** directions, and both moves are individually significant.
 
 **The consequence for a loop that optimises ink with a satisfaction cross-check is direct.**
 `autoresearch.md` prescribes exactly that arrangement. Here the cross-check would have *passed
-enthusiastically* — satisfaction up 7 to 10 sd — on a change that costs a tenth of the objective. A
+enthusiastically* — satisfaction up 7 to 10 sd (4.5 to 5.9 sd against the six-fit base sd;
+`gap_expander_fix_improves_the_fit.md`, corrected 2026-09-03) — on a change that costs a tenth of the
+objective. A
 guard that fires in the wrong direction is worse than no guard, because it converts a real regression
 into an apparent double win.
 

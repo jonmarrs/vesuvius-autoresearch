@@ -46,8 +46,9 @@
 > project's own "pipeline is deterministic to 1.4%" floor turned out to be one draw with the wrong
 > mechanism attached — the scorer it blamed contributes **0.0032%**, ~440× too little — and the
 > seed-noise figure was published too low twice: 0.0125, withdrawn when a third arm moved it to
-> 0.0263, inside the interval that had never been printed, and 0.0263, withdrawn when six fits already
-> on disk doubled it to 0.0536. Everything is registered before the data
+> 0.0263, and 0.0263, withdrawn when six fits already on disk doubled it to 0.0536. Both times the
+> new value sat inside the published interval: the point estimate was wrong, not the interval.
+> Everything is registered before the data
 > exists, with the decision script committed while the first arm is still rendering; the
 > [template](docs/preregistration/TEMPLATE.md) encodes what each of those cost.
 > **Live experiment tracking:** [wandb dashboard](https://wandb.ai/jdmarrs-uc-davis/vesuvius-autoresearch).

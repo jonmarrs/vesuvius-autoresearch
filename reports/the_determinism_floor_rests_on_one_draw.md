@@ -18,7 +18,9 @@ which they clear by 8.9× and 12.4×.
 
 ## A second measurement of the same thing
 
-`probe_innerprob` re-renders `seedarm_04`'s meshes. Same comparison, never used as a floor:
+`probe_innerprob` re-renders `seedarm_04`'s meshes. Same comparison, never used as a floor. *(Corrected
+2026-10-22: it did not re-render. Its log has no render stage; it re-scored an existing strip, so the
+0.0016% here and in the table below is scorer-only. `reports/the_flatten_lands_on_different_surfaces.md`.)*
 
 | run | `total_fg_pixels` |
 |---|---:|

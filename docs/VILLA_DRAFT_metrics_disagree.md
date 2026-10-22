@@ -107,7 +107,7 @@ against a control matched on total patch area.
 **That +17.66% is circular by construction** — the arm was selected on satisfaction and then scored
 on it. That is exactly why it is worth reporting: a loop that crops good regions and checks
 satisfaction would read a 17.66% improvement and see a success, with recovered ink flat. Power here
-reaches only ~10%, so this bounds rather than excludes a small ink effect.
+reaches only ~12%, so this bounds rather than excludes a small ink effect.
 
 We are not proposing a fix, and neither case alone settles how often the metrics disagree. But taken
 together the guard moved confidently the wrong way once and confidently the useless way once, which

@@ -67,7 +67,7 @@ collapse" if a change inflates the surface with garbage geometry.
 The rule's stated reading is: total up with fraction steady is a real win; total up with fraction
 down is gaming. By symmetry, total down with fraction down reads as a plain regression — *the
 surface got worse and reads less*. On this change that reading is wrong. The geometry got *more*
-correct (finding: 130→133 clears a capacity warning, satisfied area rises 7-10 sd), the surface moved
+correct (finding: 130→133 clears a capacity warning, satisfied area rises 7-10 sd; 4.5-5.9 sd against the six-fit base sd, corrected 2026-09-03), the surface moved
 4 vx inward, and it reads less. Nothing in the rule can tell that apart from a genuine regression,
 because the rule has no input that measures where the surface sits — only how much it reads.
 

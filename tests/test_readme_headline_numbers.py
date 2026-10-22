@@ -60,8 +60,8 @@ def test_the_detector_rows_match_their_measurements():
         f"(`val_f1` {sota['val_f1']:.3f} / lift {sota['ap_prevalence_lift']:.2f} *agreement-with-teacher* "
         "on the open SOTA data, the best of 12 epochs on the held-out region"
     ) in txt
-    assert "the best of 12 epochs by val_f1 on this region" in _report(
-        "detector/sota_distill_measurement.md"
+    assert "the best of 12 epochs by val_f1 on this region" in _flat(
+        _REPORTS / "detector/sota_distill_measurement.md"
     )
 
 
@@ -157,15 +157,32 @@ def test_the_gap_fix_case_states_each_metric_on_its_own_fits():
     table = _report("gap_fix_costs_ink_established.md")
     base = _counts(r"^\| \w+ \| BASE \| [\d.]+ \| ([\d,]+) \|$", table)
     gap = _counts(r"^\| \w+ \| GAP \| [\d.]+ \| ([\d,]+) \|$", table)
+    sat = {
+        arm: [
+            float(v)
+            for v in re.findall(rf"^\| \w+ \| {arm} \| ([\d.]+) \|", table, re.M)
+        ]
+        for arm in ("BASE", "GAP")
+    }
+    assert min(sat["GAP"]) > max(
+        sat["BASE"]
+    )  # "All six GAP rows above are above every BASE row"
     ink = _json("gap_fix_mechanism.json")["ink  total_fg_pixels"]
     assert len(base) == len(gap) == 6
     assert (
         statistics.mean(base) == ink["baseline"]
         and statistics.mean(gap) == ink["gap133"]
     )
-    # the report's summary line states the table's mean, not another
-    stated = _counts(r"^BASE mean ([\d,]+) ", table)
-    assert len(stated) == 1 and abs(stated[0] - ink["baseline"]) <= 0.5
+    # the report's summary block states the table's means and their change, not others
+    block = re.search(
+        r"^BASE mean ([\d,]+) +GAP mean ([\d,]+)\nrel (-[\d.]+)%,", table, re.M
+    )
+    stated = [int(v.replace(",", "")) for v in block.groups()[:2]]
+    assert (
+        abs(stated[0] - ink["baseline"]) <= 0.5
+        and abs(stated[1] - ink["gap133"]) <= 0.5
+    )
+    assert block[3] == f"{ink['rel'] * 100:.2f}"
 
     first = _report("gap_expander_fix_improves_the_fit.md")
     geo = {
@@ -176,24 +193,39 @@ def test_the_gap_fix_case_states_each_metric_on_its_own_fits():
     }
     (n_base, m_base), (n_gap, m_gap) = geo["BASE"], geo["GAP"]
     assert (n_base, n_gap) == (6, 5)
+    geo_p = re.search(r"\*\*p = ([\d.e-]+)\*\*", first)[1]
+    geo_rel, ink_p = f"{m_gap / m_base - 1:+.2%}", f"{ink['p']:.4f}"
     assert (
         f"improved geometry {m_gap / m_base - 1:+.2%} ({n_gap} fits against {n_base}) while costing "
         f"**{ink['rel']:+.2%} of the ink** ({len(gap)} against {len(base)})"
     ) in txt
 
+    # the villa draft's table, every cell
     draft = (_REPO / "docs/VILLA_DRAFT_metrics_disagree.md").read_text()
-    row = re.search(r"^\| baseline \(n=6\) \| ([\d.]+) \| ([\d,]+) \|$", draft, re.M)
-    assert (
-        float(row[1]) == m_base
-        and abs(int(row[2].replace(",", "")) - ink["baseline"]) <= 0.5
+    rows = re.search(
+        r"^\| baseline \(n=6\) \| ([\d.]+) \| ([\d,]+) \|\n"
+        r"\| changed \(n=6\) \| ([\d.]+) \(first five\) \| ([\d,]+) \|\n"
+        r"\| \| (.+) \|$",
+        draft,
+        re.M,
     )
-    assert f"| changed (n=6) | {m_gap} (first five) |" in draft
+    assert (float(rows[1]), float(rows[3])) == (m_base, m_gap)
+    for cell, mean in ((rows[2], ink["baseline"]), (rows[4], ink["gap133"])):
+        assert abs(int(cell.replace(",", "")) - mean) <= 0.5
+    assert rows[5] == (
+        f"**{geo_rel}, p = {geo_p}** ({n_gap} v {n_base}) | "
+        f"**{ink['rel']:+.2%}, p = {ink_p}** ({len(gap)} v {len(base)})"
+    )
 
     # the case tables label each metric's fits too
     label = f"| gap-expander config, {n_gap}v{n_base} geometry, {len(gap)}v{len(base)} ink |"
-    geo = f"{m_gap / m_base - 1:+.2%}"
-    assert f"{label} {geo} (p=3.9e-06) |" in (_REPO / "FINDINGS.md").read_text()
-    assert _report("SPIRAL_FINDINGS_SUMMARY.md").count(f"{label} {geo} |") == 2
+    findings = (_REPO / "FINDINGS.md").read_text()
+    assert (
+        f"{label} {geo_rel} (p={geo_p}) | **{ink['rel']:+.2%}** (p={ink_p}) |"
+        in findings
+    )
+    summary = _report("SPIRAL_FINDINGS_SUMMARY.md")
+    assert summary.count(f"{label} {geo_rel} | **{ink['rel']:+.2%}** |") == 2
 
 
 def test_the_other_decoupling_cases_match_their_sources():
@@ -208,7 +240,17 @@ def test_the_other_decoupling_cases_match_their_sources():
     survey = _json("manipulation_effects_survey.json")
     bounds = {f"{survey[k]['mde']:.0%}" for k in ("patch bootstrap", "stripmatch")}
     assert len(bounds) == 1
-    assert f"both ink nulls are bounded at ~{bounds.pop()}, not zero" in txt
+    bound = bounds.pop()
+    registered = {
+        f"{_json(f)['mde']:.0%}"
+        for f in ("patch_bootstrap_verdict.json", "stripmatch_verdict.json")
+    }
+    assert len(registered) == 1
+    assert (
+        f"both ink nulls are bounded at ~{bound}, not zero (~{registered.pop()} as registered; "
+        "corrected 2026-09-12 with the pinned tier's noise floor)"
+    ) in txt
+    assert f"*(corrected 2026-09-12 to ~{bound}:" in (_REPO / "FINDINGS.md").read_text()
 
     # the ablation's geometry endpoint is in its report's table only
     rep = _report("samewinding_verdict.md")
@@ -219,10 +261,21 @@ def test_the_other_decoupling_cases_match_their_sources():
         re.M,
     )
     base, ablated, rel, p = float(row[1]), float(row[2]), float(row[3]) / 100, row[4]
-    # the quoted change is from unrounded means; it must overlap what the four-place ones allow
+    # its baseline is the gap fix's six BASE fits, whose mean the five-fit test gives to five places
+    sw = _json("samewinding_verdict.json")["ink"]["mean_base"]
+    assert sw == _json("gap_fix_mechanism.json")["ink  total_fg_pixels"]["baseline"]
+    exact = float(
+        re.search(
+            r"^> \| BASE \| 6 \| ([\d.]+) \|",
+            _report("gap_expander_fix_improves_the_fit.md"),
+            re.M,
+        )[1]
+    )
+    assert f"{exact:.4f}" == row[1]
+    # the quoted change is from an unrounded ablated mean; it must overlap what the four-place one allows
     half = 0.00005
-    assert (ablated - half) / (base + half) - 1 <= rel + half
-    assert rel - half <= (ablated + half) / (base - half) - 1
+    assert (ablated - half) / exact - 1 <= rel + half
+    assert rel - half <= (ablated + half) / exact - 1
     assert (
         f"an ablation of **{removed} winding constraints** that measurably *degraded* the geometry "
         f"({rel:.2%}, p={p})"
@@ -233,6 +286,7 @@ def test_the_current_code_gain_matches_its_baselines():
     txt = _flat(_README)
     cur = _report("current_code_baseline.md")
     current = _counts(r"^\| curbase_s\d \| [\d.]+ \| ([\d,]+) \|", cur)
+    cur = " ".join(cur.split())
     pinned = _json("samewinding_verdict.json")["ink"][
         "mean_base"
     ]  # the six pinned baselines
@@ -262,7 +316,8 @@ def test_the_flatten_figures_match_their_measurements():
     det = _json("deterministic_flatten_verdict.json")
     rep = _report("the_flatten_is_reproducible_when_asked.md")
     row = re.search(
-        rf"\| {det['its']} it/s vs ~(\d+) stock — \*\*([\d.]+)× slower\*\* \|", rep
+        rf"\| {re.escape(str(det['its']))} it/s vs ~(\d+) stock — \*\*([\d.]+)× slower\*\* \|",
+        rep,
     )
     stock = float(row[1])
     assert row[2] == f"{stock / det['its']:.1f}"
@@ -323,6 +378,16 @@ def test_the_scorer_floor_ratios_divide_the_figures_they_name():
     second_pair = _counts(
         r"^\| `(?:seedarm_04|probe_innerprob)` \| ([\d,]+) \|$", pairs
     )
+    assert len(floor_pair) == len(second_pair) == 2
+    assert (
+        f"**ΔT = {(floor_pair[1] - floor_pair[0]) / floor_pair[0]:+.4%}.**".replace(
+            "-", "−"
+        )
+        in pairs
+    )
+    assert (
+        f"**ΔT = {(second_pair[1] - second_pair[0]) / second_pair[0]:+.4%}.**" in pairs
+    )
     floor = abs(floor_pair[1] - floor_pair[0]) / floor_pair[0]
     second = abs(second_pair[1] - second_pair[0]) / second_pair[0]
     render = _json("render_reproducibility.json")["ink"]
@@ -370,17 +435,26 @@ def test_the_scorer_floor_ratios_divide_the_figures_they_name():
 def test_the_seed_noise_history_ends_at_the_current_floor():
     txt = _flat(_README)
     current = _json("noise_floor_by_tier.json")["current"]
+    tier = _flat(_REPORTS / "noise_floor_by_tier.md")
+    # the first figure is the report's table row; the second is named by the superseding note
+    row = r"\| current villa \| 2 \| 6 \| \*\*([\d.]+)\*\* \| 4 \| \[([\d.]+), ([\d.]+)\] \|"
+    first, *first_ci = re.search(row, tier).groups()
+    note = r"not ([\d.]+) — MDE at 3v3 .*? The published CI \[([\d.]+), ([\d.]+)\] contained"
+    second, *second_ci = re.search(note, tier).groups()
+    # each figure's published interval already held the next one
+    assert float(first_ci[0]) <= float(second) <= float(first_ci[1])
+    assert float(second_ci[0]) <= current["cv"] <= float(second_ci[1])
     assert (
-        "the seed-noise figure was published too low twice: 0.0125, withdrawn when a third arm moved it to "
-        "0.0263, inside the interval that had never been printed, and 0.0263, withdrawn when six fits already "
-        f"on disk doubled it to {current['cv']:.4f}."
+        f"the seed-noise figure was published too low twice: {first}, withdrawn when a third arm moved "
+        f"it to {second}, and {second}, withdrawn when six fits already on disk doubled it to "
+        f"{current['cv']:.4f}. Both times the new value sat inside the published interval"
     ) in txt
     summary = _flat(_REPORTS / "SPIRAL_FINDINGS_SUMMARY.md")
     assert (
-        "**0.0263 (df=6)** — first published as 0.0125 (df=4) and withdrawn when a third arm"
+        f"**{second} (df=6)** — first published as {first} (df=4) and withdrawn when a third arm"
         in summary
     )
     assert (
-        f"current-tier CV goes **0.0263 → {current['cv']:.4f}** (df={current['df']})"
+        f"current-tier CV goes **{second} → {current['cv']:.4f}** (df={current['df']})"
         in summary
     )
