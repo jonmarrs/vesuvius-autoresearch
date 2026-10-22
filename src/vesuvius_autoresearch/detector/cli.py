@@ -31,7 +31,7 @@ def _eval_fragment(cfg, ckpt, fragment_id):
     h, w = label.shape
     prob = prob[:h, :w]
     mask = mask[:h, :w]
-    return evaluate(prob, label, mask, cfg, fragment_id=fragment_id)
+    return evaluate(prob, label, mask, cfg, fragment_id=fragment_id, checkpoint=ckpt)
 
 
 def _is_converted(cfg, fragment_id):
@@ -70,13 +70,22 @@ def _ensure_converted(cfg, src_root="local_data"):
 
 
 def _reproduce(cfg):
+    """Convert, train, and score the checkpoint train() returns on the held-out fragment.
+
+    That checkpoint is the epoch with the lowest mean training loss (train's
+    ModelCheckpoint), not the best held-out epoch. REPRODUCTION.md's 0.7090 is
+    epoch 7, the best of 12 by ROC-AUC on that same fragment, re-scored with the
+    uniform blend; this does not repeat that selection. The checkpoint scored is
+    printed, and named in the scorecard.
+    """
     from .train import train
 
     _ensure_converted(cfg)
     ckpt = train(cfg)
     card = _eval_fragment(cfg, ckpt, cfg.valid_fragment_id)
     print(
-        f"reproduce: pixel_auc={card['pixel_auc']:.4f} threshold={card['threshold']:.2f}"
+        f"reproduce: checkpoint={ckpt} pixel_auc={card['pixel_auc']:.4f} "
+        f"threshold={card['threshold']:.2f}"
     )
     assert_auc(card)
     return card

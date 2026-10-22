@@ -361,3 +361,84 @@ def test_measure_records_degenerate_target_failure_and_cli_exits_nonzero(
     assert rows["good"]["val_f1"] > 0
     assert "error" in rows["bad"]
     assert "bad" in capsys.readouterr().err
+
+
+def test_a_multiline_measurement_error_stays_one_table_row(tmp_path, monkeypatch):
+    cfg = DetectorConfig(reports_dir=str(tmp_path))
+    error = (
+        "Error(s) in loading state_dict for DetectorModel:\n"
+        '\tMissing key(s) in state_dict: "head.weight" | "head.bias".'
+    )
+
+    def infer(cfg, checkpoint, fid, model=None):
+        if fid == "broken":
+            raise RuntimeError(error)
+        return np.ones((2, 2), np.float32) * 0.5
+
+    def inputs(cfg, fid):
+        label = np.zeros((2, 2))
+        label[0, 0] = 1
+        return None, label, np.ones((2, 2), np.uint8)
+
+    monkeypatch.setattr(measurement, "infer", infer)
+    monkeypatch.setattr(measurement, "read_image_mask", inputs)
+    rows = measurement.measure(
+        cfg, "ckpt", [("good", "scroll2_same"), ("broken", "scroll1_cross")]
+    )
+    assert rows["broken"]["error"] == error
+    saved = json.loads((tmp_path / "cross_scroll_measurement.json").read_text())
+    assert saved["broken"]["error"] == error  # the JSON keeps it as raised
+    lines = (tmp_path / "cross_scroll_measurement.md").read_text().splitlines()
+    table = lines[[line.startswith("|---") for line in lines].index(True) + 1 :]
+    assert [line.split(" | ")[0] for line in table] == ["| good", "| broken"]
+    assert table[1] == (
+        "| broken | scroll1_cross | ERROR: Error(s) in loading state_dict for "
+        'DetectorModel: Missing key(s) in state_dict: "head.weight" \\| "head.bias". |'
+    )
+
+
+@pytest.mark.parametrize("auc", [0.7012, 0.6999])
+def test_reproduce_names_the_checkpoint_it_scored_and_gates_on_it(
+    monkeypatch, capsys, auc
+):
+    training = importlib.import_module("vesuvius_autoresearch.detector.train")
+    checkpoint = "models/detector/detector_epoch=11.ckpt"
+    scored = []
+    monkeypatch.setattr(cli, "_ensure_converted", lambda cfg: [])
+    monkeypatch.setattr(training, "train", lambda cfg: checkpoint)
+
+    def score(cfg, ckpt, fid):
+        scored.append((ckpt, fid))
+        return {"pixel_auc": auc, "threshold": 0.4}
+
+    monkeypatch.setattr(cli, "_eval_fragment", score)
+    cfg = DetectorConfig()
+    if auc >= 0.70:
+        assert cli._reproduce(cfg)["pixel_auc"] == auc
+    else:
+        with pytest.raises(AssertionError, match="below target"):
+            cli._reproduce(cfg)
+    assert scored == [(checkpoint, cfg.valid_fragment_id)]
+    # Printed before the gate, so a failing run still names what it scored.
+    assert capsys.readouterr().out == (
+        f"reproduce: checkpoint={checkpoint} pixel_auc={auc:.4f} threshold=0.40\n"
+    )
+
+
+def test_the_scorecard_names_the_checkpoint_it_scored(tmp_path, monkeypatch):
+    cfg = DetectorConfig(reports_dir=str(tmp_path))
+    label = np.zeros((2, 3))
+    label[0, 0] = 1
+    prob = np.full((4, 5), 0.5, np.float32)  # padded, as infer's output is
+    prob[0, 0] = 0.9
+
+    monkeypatch.setattr(inference, "infer", lambda cfg, ckpt, fid: prob)
+    monkeypatch.setattr(
+        cli, "read_image_mask", lambda cfg, fid: (None, label, np.ones((4, 5)))
+    )
+    card = cli._eval_fragment(cfg, "models/detector/detector_epoch=3.ckpt", "frag")
+    saved = json.loads((tmp_path / "frag_scorecard.json").read_text())
+    assert saved == card
+    assert saved["checkpoint"] == "models/detector/detector_epoch=3.ckpt"
+    assert saved["pixel_auc"] == 1.0
+    assert "checkpoint" not in evaluate(prob[:2, :3], label, np.ones((2, 3)), cfg)

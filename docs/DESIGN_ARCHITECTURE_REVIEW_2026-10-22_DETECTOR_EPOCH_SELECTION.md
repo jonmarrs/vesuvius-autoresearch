@@ -1,0 +1,198 @@
+# Design and architecture review — the detector's held-out row was selected where it is reported
+
+Date: 2026-10-22. Baseline: `c200a41d` (main after #184).
+Reviewer: Claude (Anthropic), at the owner's request.
+
+Scope: the detector's evaluation path, and the documents that report it.
+- The code: `detector/infer.py`, `measure.py`, `eval.py`, `cli.py`'s `reproduce` and `measure`, and the checkpoint
+  `detector/train.py` returns. No earlier review covered `measure.py`. `DESIGN_ARCHITECTURE_REVIEW_2026-10-04_DETECTOR.md`
+  covered `infer.py`'s window and uncovered-pixel rules.
+- The documents: the working detector's results in `FINDINGS.md`, `reports/detector/REPRODUCTION.md`,
+  `REPRODUCE.md` §5 and `docs/RESEARCH_PAPER.md`.
+
+Main has not moved since #184. There are no open pull requests. This round covers the 07:13 UTC firing.
+
+## What changed
+
+- **The same-scroll row was selected on the fragment it is reported on, and no document said so.**
+  - FINDINGS' headline table gives the detector's same-scroll row on Fr143: `val_f1` 0.393, AP 0.357, lift 2.07,
+    ROC-AUC 0.709. The research paper gives the same table.
+  - Its checkpoint, epoch 7 of 12, is the best of the 12 by ROC-AUC on Fr143 itself (REPRODUCTION.md's sweep).
+    REPRODUCTION.md, REPRODUCE.md and FINDINGS' Phase 5 state the selection. None says it makes the row optimistic,
+    and neither the headline table nor the paper mentions it.
+  - `DESIGN_ARCHITECTURE_REVIEW_2026-10-16_SOTA_DISTILLATION.md` added such caveats to the distillation reports, and
+    gave each a fixed-rule row. The working detector's row predates them, and kept none.
+  - The sweep measures the selection's effect only on ROC-AUC under the Gaussian blend: epoch 7 scored 0.7001, the
+    last epoch, a fixed rule, 0.6982. No fixed-rule run measured the other metrics.
+  - **Change:** the live documents now say so.
+    - FINDINGS' table and the paper's give the fixed-rule figure, and say the selection's effect on `val_f1`, AP and
+      lift was not measured. The cross-scroll column involves no epoch selection on Scroll 1; in both, `val_f1` is at
+      its own best threshold.
+    - FINDINGS' Phase 5 and REPRODUCTION.md give the fixed-rule figure too. Phase 5's heading names the selection.
+    - The shorter quotations of the row name it in a clause:
+      - README;
+      - METHOD;
+      - `docs/RESEARCH_STRATEGY.md`;
+      - the paper's abstract;
+      - FINDINGS' metric-contract section.
+    - Each longer addition is dated.
+    - REPRODUCE.md §5 now cites `cross_scroll_measurement.md` for the `val_f1` and lift it gives. It cited
+      REPRODUCTION.md, which holds only the ROC-AUC.
+  - Phase 5's "plateaus at ~0.69–0.71 across epochs 6–11" is now ~0.69–0.70 (Gaussian blend). The sweep it cites runs
+    from 0.6915 to 0.7001. 0.709 is epoch 7 under the uniform blend.
+- **The one-command `reproduce` does not run the selection REPRODUCTION.md reports.**
+  - It scores the checkpoint `train()` returns. `ModelCheckpoint` monitors `train/total_loss`, and with Lightning
+    2.6.6 it ranks epochs by their mean training loss.
+    - Measured: a three-epoch CPU run on synthetic fragments. The callback's scores were exactly the CSV log's epoch
+      means, 0.4446, 0.5859 and 0.6012, and it kept epoch 0.
+  - So `reproduce` neither repeats the epoch-7 selection nor need give 0.7090. Its ≥ 0.70 gate is checked on the
+    lowest-training-loss epoch. REPRODUCTION.md printed the command under the 0.7090 result, with no note.
+  - **It also replaced the record it would be compared with.** Like `eval`, it writes the tracked
+    `reports/detector/PHercParis2Fr143_scorecard.json` and thumbnail, which REPRODUCTION.md cites for 0.7090.
+    `evaluate` wrote no `checkpoint` field. The committed scorecard has one, added by hand, so a run dropped it.
+  - **Change:**
+    - `reproduce` prints the path of the checkpoint it scored, before its gate, so a failing run names it too.
+    - `evaluate` takes the checkpoint and records it in the scorecard. `eval` and `reproduce` pass it.
+    - `reproduce`'s docstring says what it scores.
+    - REPRODUCTION.md and REPRODUCE.md §5 say it too, and REPRODUCTION.md that `reproduce` replaces the files it
+      cites.
+  - The gate and the selection rule are unchanged.
+- **A failed fragment's error could break `measure`'s table.**
+  - `measure` records a fragment that fails as an `ERROR:` row in `cross_scroll_measurement.md`, with the exception's
+    text.
+  - A checkpoint that fails to load raises PyTorch's multi-line `load_state_dict` error. Its lines after the first
+    did not stay in the row, and a `|` in it split the cell.
+  - **Change:** every text cell has its whitespace runs collapsed and its pipes escaped: the fragment, the scroll
+    label and the error. The JSON keeps the error as raised.
+- **Tests** (`tests/test_detector_contracts.py`, +4 cases in three functions, in the standard suite):
+  - A multi-line error with a pipe stays one row, and the written JSON keeps it whole.
+  - `reproduce` scores the checkpoint training returns, on the configured held-out fragment, and prints its path.
+    Below 0.70 it still prints, then fails its gate.
+  - `eval`'s scorecard names its checkpoint, and `evaluate` without one writes none.
+- **Mutants.** Each of these fails a new test:
+  - in `measure`:
+    - the error cell left raw;
+    - its pipes not escaped;
+    - its newlines kept;
+    - the JSON file given the cleaned text;
+  - in `reproduce`:
+    - the checkpoint not printed;
+    - the print moved after the gate;
+    - the gate dropped;
+  - in the scorecard:
+    - the checkpoint ignored by `evaluate`;
+    - the checkpoint not passed to it.
+
+## Verified, no change needed
+
+- **`infer.py`.**
+  - It divides patches by 255 after `read_volume_mask` clips them at 200, as training's `A.Normalize` does.
+  - Its mirror TTA flips back the dimensions it flipped.
+  - It refuses a model output that is not finite (batch, 1, h, w) logits, and a fragment with no usable window.
+- **`measure.py`** crops the probability and mask to the label's shape. A degenerate target is recorded as a failure,
+  and the CLI exits 1 (`test_measure_records_degenerate_target_failure_and_cli_exits_nonzero`). So its strict JSON
+  holds only finite rows.
+- **`core/frangi_torch.py`.**
+  - Its reflect indices are scipy's `reflect`, for any radius.
+  - Its closed-form eigenvalues hold when all three are equal.
+  - `tests/test_frangi_torch.py` checks it against skimage.
+- **`core/inference.py`.**
+  - Every region is tiled to its edge.
+  - The Hann weights are positive.
+  - The blend refuses uncovered pixels in a complete prediction.
+- **`core/villa_inference.py`.**
+  - The Gaussian window stays positive at the patch's corners, at about e^−16.
+  - Villa's TTA is loaded from the pinned file.
+- **#184's marker** is read by the action matrix for `ready` only, which the new checkpoint check sets.
+- **The standard suite's tests and the clock.**
+  - One test reads the date: `test_daily_never_overwrites_existing_same_day_pdf`. A run across midnight would make it
+    pass vacuously, not fail.
+  - Nine test functions have no assertion. Each checks that its subject runs: five run a script's entry point, two
+    run a subprocess with `check=True`, and two call a check that raises on failure.
+
+## Observations for the owner (not changed)
+
+- **The filings carry the uncaveated row.**
+  - They are records of what was filed:
+    - `docs/PRIZE_FILING_DRAFT_2026-06.md`;
+    - `docs/PRIZE_FILING_DRAFT_2026-07.md`;
+    - `docs/PRIZE_FILING_2026-07_SUBMIT.md`;
+    - `SUBMISSION.md`.
+  - `docs/LAB_NOTEBOOK.md` states the selection, as a dated entry.
+  - None was changed.
+- **What `reproduce` should select is the owner's call.** It could keep the lowest-training-loss epoch, take a fixed
+  rule such as the last, or report both. So is whether the ≥ 0.70 gate belongs on that epoch. The last epoch's
+  uniform-blend AUC has not been measured; that needs the data and a GPU.
+- **The blend was compared on Fr143 too.** Uniform scored 0.709 against Gaussian's 0.700 on epoch 7. The reason
+  REPRODUCTION.md gives for it is fidelity to the proven recipe's accumulation.
+- **`measure`'s JSON records neither the checkpoint nor the configuration.** Its Markdown names the checkpoint.
+- **`measure` and `eval` write fixed names under `reports/detector/`, which are tracked.** A run replaces the
+  committed record. `git status` shows it. The 2026-06-30 resenc plan copies the files aside first.
+- **The ResEnc comparison puts a fixed-rule row against a selected one.**
+  - FINDINGS' ResEncUNet section compares ResEnc's Fr143 row with the TimeSformer's: `val_f1` 0.369 against 0.393.
+    The source is `reports/detector/resenc_phase1_measurement.md`.
+  - ResEnc's row is the best of 12 epochs by `val_f1` on Fr143, but that was its last (epoch 11), so it is also the
+    fixed-rule row. The TimeSformer row is the selected epoch 7.
+  - So the selection favours the TimeSformer side. Its effect on `val_f1` was not measured.
+  - On ROC-AUC the direction holds: ResEnc's 0.6795 is below the TimeSformer's fixed-rule 0.6982, though that is
+    under the Gaussian blend, and ResEnc's is uniform.
+  - Neither report says so.
+- **`cross_scroll_measurement.md` is generated.** `measure` cannot know how its checkpoint was chosen, so a caveat
+  written there by hand would be lost on a re-run.
+- **`reproduce`'s likely figure.** REPRODUCTION.md's 0.698, before best-epoch selection, may be the score of the
+  checkpoint training returned, under the Gaussian blend. That is close to epoch 11's 0.6982. The report does not
+  say which epoch it was.
+
+## Verification
+
+- `pytest tests/test_detector_contracts.py tests/test_detector_eval.py tests/test_detector_cli.py
+  tests/test_detector_measure.py`: 65 passed, 4 of them new.
+- **The mutants above** were run in a scratch worktree. Each fails one or more new tests.
+- **The doc guards** were run before and after the change:
+  - the guard files, the five plus `test_decoupling_not_claimed_on_current_code.py` and
+    `test_prize_promotion_gates.py`;
+  - the audit (`audit_doc_references.audit()`).
+
+  They differ only by the new tests. The one failure is `test_live_documents_stay_clean`, from villa paths, as on
+  main, and the audit gains no entries.
+- Ruff 0.9.10 `check` and `format` are clean on the changed Python files, which were formatted before. `mypy` is
+  clean on them.
+- **The standard suite** on the final change, with the locked-package overlay, gave 2799 passed, 22 skipped and 1
+  xfailed.
+  - That is main's 2795 plus the four new cases.
+  - The failures are the same ten environmental ones as main: nine villa-file failures, plus gp_winner.
+  - The smoke test gave 9 of 11 passed and 2 skipped, as on main.
+- **All of `tests/` on main**, with the locked packages, gave 4427 passed, 98 skipped and 1 xfailed, with 19
+  failures and 19 errors.
+  - These are round 95's environmental set, less the LeJEPA discovery test #182 fixed. 4427 is #183's 4408 plus
+    #184's 19.
+  - No detector test fails. Several detector test files are outside the standard suite, as the guard allows for
+    code the loop does not run.
+- **Independent review** of the first commit, in a worktree without villa. It found nothing blocking.
+  - **It confirmed:**
+    - that the same-scroll row is the epoch-7 checkpoint. Its ROC-AUC is bit-identical to the scorecard's, which
+      names epoch 7 and the uniform blend;
+    - that epoch 7 is the sweep's maximum, and epoch 11 its last;
+    - that Scroll 1 plays no part in training or selection;
+    - that `val_f1` is at each fragment's own best threshold;
+    - the Lightning claim, from its source: the checkpoint is saved at the training epoch's end, after the epoch
+      mean is computed;
+    - that nothing parses the old `reproduce:` line or the table.
+  - **Its should-fix findings:**
+    - five live documents still quoted the row without the caveat;
+    - the caveat called the whole column optimistic, where only ROC-AUC was measured;
+    - the JSON assertion read the returned rows, not the written file;
+    - `reproduce` replaced the cited scorecard without naming its checkpoint;
+    - the gate was untested.
+  - **Its nits:**
+    - the paper's sweep was unnamed, and it lacked the best-threshold note;
+    - the docstring called 0.7090 the best of 12, where that was 0.7001;
+    - a long line in FINDINGS;
+    - REPRODUCE.md's citation for `val_f1` and lift;
+    - the fragment and scroll cells unescaped;
+    - a test's checkpoint path.
+  - All are addressed above, apart from one: a `\|` in an error renders without its backslash, which it called
+    cosmetic.
+  - It said the ResEnc row was selected too. It is, but its best epoch was its last, so it is the fixed-rule row; the
+    observation above is corrected.
+  - The disk filled during its run, so its own mutants and ruff were reasoned rather than run. Both are run above.

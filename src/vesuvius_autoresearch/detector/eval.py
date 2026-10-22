@@ -13,11 +13,15 @@ from PIL import Image
 from .scoring import score_prediction
 
 
-def evaluate(prob_map, label, mask, cfg, fragment_id="frag"):
+def evaluate(prob_map, label, mask, cfg, fragment_id="frag", checkpoint=None):
+    """Score a prediction and write its reports. With a checkpoint, the scorecard names
+    it: `eval` and `reproduce` replace reports/detector's tracked scorecard."""
     m = score_prediction(prob_map, label, mask)
     os.makedirs(cfg.reports_dir, exist_ok=True)
     by_thr = m.pop("metrics_by_threshold", [])
     card = {"fragment_id": fragment_id, **m}
+    if checkpoint is not None:
+        card["checkpoint"] = str(checkpoint)
     # Backward-compat aliases (cli.assert_auc / reproduce gate / older readers use these).
     card["pixel_auc"] = m.get("roc_auc", float("nan"))
     card["threshold"] = m.get("best_threshold", float("nan"))
