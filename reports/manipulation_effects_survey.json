@@ -15,7 +15,7 @@
   "hi": 0.16691735377126835,
   "mde": 0.1175941237756377,
   "tier": "pinned",
-  "verdict": "null, bounds 12%"
+  "verdict": "null"
  },
  "stripmatch": {
   "rel": -0.03796978876708551,
@@ -24,7 +24,7 @@
   "hi": 0.13135243511793981,
   "mde": 0.1175941237756377,
   "tier": "pinned",
-  "verdict": "null, bounds 12%"
+  "verdict": "null"
  },
  "same-winding ablation (pinned)": {
   "rel": -0.017404214790544208,
@@ -33,7 +33,7 @@
   "hi": 0.06790815383498042,
   "mde": 0.10183949852547391,
   "tier": "pinned",
-  "verdict": "null, bounds 10%"
+  "verdict": "null"
  },
  "same-winding ablation (current)": {
   "rel": -0.04407416473613736,
@@ -42,7 +42,7 @@
   "hi": 0.0336604991912126,
   "mde": 0.10619838756742027,
   "tier": "current",
-  "verdict": "null, bounds 11%"
+  "verdict": "null"
  },
  "anchor ablation 59->10": {
   "rel": -0.054945577070024516,
@@ -51,6 +51,6 @@
   "hi": 0.03530790154038863,
   "mde": 0.10619838756742027,
   "tier": "current",
-  "verdict": "null, bounds 11%"
+  "verdict": "null"
  }
 }

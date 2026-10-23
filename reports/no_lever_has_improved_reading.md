@@ -68,7 +68,10 @@ Quoting the design-stage MDE for both would have called them equally informative
 ## What this does and does not say
 
 **It does not say the spiral fit cannot be improved.** Every null is a bound, and the loosest of them
-admits an 18% gain. Nor does it cover levers nobody has tried.
+admits an 18% gain. Nor does it cover levers nobody has tried. *(Noted 2026-10-23: the bound is
+each null's 95% CI, not its MDE. The largest gain any of them admits is +16.7%, the top of patch
+bootstrap's [−18.4%, +16.7%]; 18% was about its half-width. The survey JSON's verdicts no longer
+read "null, bounds" the MDE.)*
 
 **It does say the levers we chose have not worked, and that they share a shape.** Patch selection,
 constraint sets, anchor counts, gap handling — all manipulate the *geometry the fit is solving for*,
