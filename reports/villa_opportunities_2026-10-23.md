@@ -1,6 +1,7 @@
 # Villa engineering opportunities — 2026-10-23 UTC
 
-One new contribution is prepared: the headless AppImage CLI instructions for
+One new contribution is published as [Villa #2259](https://github.com/ScrollPrize/villa/pull/2259):
+the headless AppImage CLI instructions for
 [#2153](https://github.com/ScrollPrize/villa/issues/2153). It is a small
 documentation correction with an independently reproduced startup failure.
 The existing seeding and SQLite PRs remain the first upstream follow-ups.
@@ -11,7 +12,7 @@ The existing seeding and SQLite PRs remain the first upstream follow-ups.
 | --- | --- | --- |
 | [#2141](https://github.com/ScrollPrize/villa/pull/2141), SQLite track reader | Open. Both maintainer findings addressed at `19575a45`; five local tests pass. | Upstream maintainer review and merge. |
 | [#2258](https://github.com/ScrollPrize/villa/pull/2258), fractional fiber planes | Open. Twenty local tests pass; default-spacing arrays match on three real scroll masks. Python CI remains in progress when checked. | Finish upstream checks and maintainer merge. |
-| [#2153](https://github.com/ScrollPrize/villa/issues/2153), headless AppImage | Open, no comments, no matching PR found by issue number or AppRun/headless terms. Current installation page still claims all dependencies are bundled. | Prepared +29/-1-line documentation patch and PR description. |
+| [#2153](https://github.com/ScrollPrize/villa/issues/2153), headless AppImage | Open; no earlier matching PR found by issue number or AppRun/headless terms. The installation page claims all dependencies are bundled. | Published +29/-1-line documentation fix as [#2259](https://github.com/ScrollPrize/villa/pull/2259); awaiting checks and maintainer merge. |
 | [#2027](https://github.com/ScrollPrize/villa/issues/2027), spiral angle precision | Already fixed in [#2028](https://github.com/ScrollPrize/villa/pull/2028), merged October 21; current source uses `float_hi`. | No duplicate PR. |
 | [#2186](https://github.com/ScrollPrize/villa/issues/2186), recompression data loss | Active fix [#2199](https://github.com/ScrollPrize/villa/pull/2199). | No duplicate PR. |
 | [#2195](https://github.com/ScrollPrize/villa/issues/2195), slow patch finding | Active fix [#2197](https://github.com/ScrollPrize/villa/pull/2197). | No duplicate PR. |
@@ -27,7 +28,7 @@ at `e2254ebe0168a232e5ba7b94997c749b4e6a4544`, rather than the older local
 roadmap. Search results are a dated check, not a guarantee that no work exists
 on an unpublished branch. No messages were sent to issue authors.
 
-## Prepared headless CLI correction
+## Published headless CLI correction
 
 The main installation page calls the AppImage self-contained with all
 dependencies bundled, while the packaging notes and release workflow
@@ -35,10 +36,12 @@ explicitly leave graphics and font libraries to the host. The packaging
 notes also omit an explicit extracted `AppRun <tool>` example. Running the
 binary directly bypasses its bundled glibc/loader setup.
 
-The patch corrects the installation claim and adds runtime package and
+The reviewed patch corrects the installation claim and adds runtime package and
 extraction instructions. It changes no runtime code. It is committed at
 `d119561f3fb89fceae579bcf2e8671fb6d7e2c9a` on local Villa branch
 `docs/headless-appimage-cli`, worktree `/workspace/villa-headless-cli`.
+The published PR diff matches the reviewed patch. The evidence is preserved
+in [Autoresearch #194](https://github.com/jonmarrs/vesuvius-autoresearch/pull/194).
 
 - [Portable patch](../docs/villa_pr_headless_appimage_cli.patch)
 - [Prepared PR description](../docs/VILLA_DRAFT_headless_appimage_cli.md)

@@ -1,6 +1,10 @@
-# Headless AppImage CLI instructions — prepared PR
+# Headless AppImage CLI instructions — PR record
 
-Candidate: [Villa #2153](https://github.com/ScrollPrize/villa/issues/2153).
+Published as [Villa #2259](https://github.com/ScrollPrize/villa/pull/2259)
+on 2026-10-23 UTC, with evidence in
+[Autoresearch #194](https://github.com/jonmarrs/vesuvius-autoresearch/pull/194).
+
+Addresses the documentation gap in [Villa #2153](https://github.com/ScrollPrize/villa/issues/2153).
 Branch `docs/headless-appimage-cli`, commit
 `d119561f3fb89fceae579bcf2e8671fb6d7e2c9a`, on Villa `e2254ebe`.
 The patch and validation are recorded in
