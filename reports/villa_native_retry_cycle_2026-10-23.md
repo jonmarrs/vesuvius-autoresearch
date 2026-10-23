@@ -8,6 +8,23 @@ was closed unmerged by the inactivity bot. Its comments contain no maintainer
 rejection of the fix. Searches by issue number and native/resampling terms
 found no active replacement. This candidate follows that issue and prior PR.
 
+## Publication and review
+
+The branch is pushed as `jonmarrs/villa:fix/native-retry-cycle`.
+[Compare the reviewed fix and open a PR](https://github.com/ScrollPrize/villa/compare/main...jonmarrs:fix/native-retry-cycle?expand=1).
+Creation failed with HTTP 403, “Resource not accessible by integration”,
+through both the connector's REST request and the configured CLI's GraphQL
+request. No upstream PR was created. The account has no Villa push/merge
+permission, and authentication settings were not changed.
+
+[Autoresearch #196](https://github.com/jonmarrs/vesuvius-autoresearch/pull/196)
+preserves this fix and evidence. Main's review of the prior contributions
+(#195) was merged into the evidence branch; all 17 existing headless-record
+and fractional-seeding harness checks pass on the combined branch. The
+published owner PR diff and the pushed Villa diff were reviewed. The final
+source hashes match the captured before/after records, and the portable
+patch passes reverse-application and whitespace checks.
+
 ## Prepared fix
 
 Branch `fix/native-retry-cycle` in `/workspace/villa-native-retry`, commit

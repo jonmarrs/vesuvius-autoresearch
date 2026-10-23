@@ -1,5 +1,11 @@
 # Native ink crop retry — prepared PR
 
+The branch is pushed to `jonmarrs/villa`. [Compare and open the upstream PR](https://github.com/ScrollPrize/villa/compare/main...jonmarrs:fix/native-retry-cycle?expand=1).
+PR creation returned HTTP 403, “Resource not accessible by integration”, through
+both the GitHub connector and the configured CLI. No upstream PR was created.
+The reviewed fix and evidence are preserved in
+[Autoresearch #196](https://github.com/jonmarrs/vesuvius-autoresearch/pull/196).
+
 Candidate: [Villa #1482](https://github.com/ScrollPrize/villa/issues/1482).
 The earlier [#1921](https://github.com/ScrollPrize/villa/pull/1921) by @ge-al
 expired unmerged under the 14-day inactivity rule. This follows that work;
