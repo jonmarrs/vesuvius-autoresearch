@@ -457,5 +457,15 @@ def test_the_pinned_nulls_are_intervals_not_the_mde_findings_17_and_26():
     ) in text
     assert len(pinned) == 3
     assert (
-        f"~12% is the design MDE. The data exclude only [{_pct(b['lo'], 1)}, {_pct(b['hi'], 1)}]"
+        f"~12% is the design MDE. The data rule out only effects outside [{_pct(b['lo'], 1)}, "
+        f"{_pct(b['hi'], 1)}]"
     ) in text
+
+
+def test_the_same_winding_null_finding_22_states_its_interval():
+    s = _json("manipulation_effects_survey.json")["same-winding ablation (pinned)"]
+    assert f"{s['mde'] * 100:.0f}%" == "10%"
+    assert (
+        f"*(Corrected 2026-10-23: ~10% is the design MDE, and the data's interval is "
+        f"[{_pct(s['lo'], 1)}, {_pct(s['hi'], 1)}], finding 45.)*"
+    ) in _flat(_SUMMARY)

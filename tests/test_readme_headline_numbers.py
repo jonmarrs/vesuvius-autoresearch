@@ -258,7 +258,7 @@ def test_the_other_decoupling_cases_match_their_sources():
         )
         for k in ("patch bootstrap", "stripmatch")
     )
-    correction = f"~{bound} is the design MDE. The data exclude only {intervals}"
+    correction = f"~{bound} is the design MDE. The data rule out only effects outside {intervals}"
     assert correction in txt
     assert correction in _flat(_REPO / "FINDINGS.md")
 

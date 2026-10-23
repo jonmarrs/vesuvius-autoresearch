@@ -16,6 +16,8 @@ Nothing tested any of it. Each test here drives the scripts on a stand-in
 """
 
 import json
+import math
+import sys
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -26,6 +28,14 @@ from repro.fibers import (
     check_fractional_plane_spacing as cf,
     check_fractional_plane_spacing_example as ex,
 )
+
+_REPORTS = Path(__file__).resolve().parent.parent / "reports"
+_REPORT = _REPORTS / "villa_fractional_plane_spacing_2026-10-20.md"
+
+
+def _flat_report():
+    return " ".join(_REPORT.read_text().split())
+
 
 # A stand-in for villa's tracing/volume.py: the four seed functions and three
 # constants the harness takes, plus module-level code it must never run.
@@ -82,15 +92,22 @@ def _mask(path, shape, fill):
     return mask
 
 
-def _accept_any_mask(monkeypatch, module):
-    # the published masks are not in the repository; trust the stand-ins' hashes
+def _accept_any_mask(monkeypatch, module, reject=()):
+    # the published masks are not in the repository; trust the stand-ins' hashes,
+    # except for the scrolls in `reject`, and hash every other file for real
     hashes = {
         scroll: (cube, "hash-" + scroll) for scroll, (cube, _) in cf.MASKS.items()
     }
+    real = cf.sha256
+
+    def fake(path):
+        scroll = path.name.split("_")[0]
+        if path.name.endswith("_mask.npz") and scroll not in reject:
+            return "hash-" + scroll
+        return real(path)
+
     monkeypatch.setattr(module, "MASKS", hashes)
-    monkeypatch.setattr(
-        module, "sha256", lambda path: "hash-" + path.name.split("_")[0]
-    )
+    monkeypatch.setattr(module, "sha256", fake)
 
 
 def test_load_seeding_takes_the_four_functions_and_nothing_else(tmp_path):
@@ -103,9 +120,12 @@ def test_load_seeding_takes_the_four_functions_and_nothing_else(tmp_path):
     assert list(dots["plane"]) == ["z0", "z52", "z105", "fill"]
 
 
-def test_load_seeding_refuses_a_source_whose_seed_functions_changed(tmp_path):
+@pytest.mark.parametrize(
+    "rename", [("def ridge_directions", "def ridges"), ("HESSIAN_RADIUS =", "RADIUS =")]
+)
+def test_load_seeding_refuses_a_source_whose_seed_functions_changed(tmp_path, rename):
     path = _volume(tmp_path, "volume.py", _AFTER)
-    path.write_text(path.read_text().replace("def ridge_directions", "def ridges"))
+    path.write_text(path.read_text().replace(*rename))
     with pytest.raises(ValueError, match="Seed functions/constants changed"):
         cf.load_seeding(path)
 
@@ -128,7 +148,9 @@ def _run_main(monkeypatch, tmp_path, before_planes, after_planes):
     data = tmp_path / "data"
     data.mkdir()
     for scroll in cf.MASKS:
-        _mask(data / f"{scroll}_mask.npz", (16, 4, 4), lambda m: m.fill(1))
+        # 256 deep, as the Scroll-1 and Scroll-5 cubes are: 128 after the 2x2x2 mean,
+        # deep enough for the fractional spacings to place different planes
+        _mask(data / f"{scroll}_mask.npz", (256, 4, 4), lambda m: m.fill(1))
     out = tmp_path / "evidence.json"
     argv = [
         "check",
@@ -145,21 +167,74 @@ def test_main_records_each_cube_and_spacing(monkeypatch, tmp_path):
     _accept_any_mask(monkeypatch, cf)
     out, main = _run_main(monkeypatch, tmp_path, _BEFORE, _AFTER)
     assert main() == 0
-    rows = json.loads(out.read_text())["rows"]
+    result = json.loads(out.read_text())
+    rows = result["rows"]
     assert len(rows) == 3 * len(cf.MASKS)
-    # at the default spacing the fix is inert; at the fractional ones it is the
-    # change under test, so the arrays may differ
-    assert all(r["identical"] for r in rows if r["spacing"] == 64.0)
     assert {r["cube"] for r in rows} == {cube for cube, _ in cf.MASKS.values()}
+    # the fix is inert at 64 and at 77.67 on 128 planes, and moves one plane at 52.73
+    by_spacing = {round(r["spacing"], 3): r for r in rows}
+    assert by_spacing[64.0]["identical"] and by_spacing[77.674]["identical"]
+    moved = by_spacing[52.733]
+    assert not moved["identical"]
+    assert moved["before"]["planes"] == ["z0", "z104", "z52"]
+    assert moved["after"]["planes"] == ["z0", "z105", "z52"]
+    assert moved["after"]["dots"] == 4 and moved["after"]["plane_dots"] == 3
+    assert moved["after"]["fill_dots"] == 1
+    assert set(moved["after"]["array_sha256"]) == {"xyz", "plane"}
+    # each source file is hashed for itself
+    before, after = (Path(sys.argv[i]) for i in (2, 4))
+    assert result["before_source_sha256"] == cf.sha256(before)
+    assert result["after_source_sha256"] == cf.sha256(after)
+    assert result["before_source_sha256"] != result["after_source_sha256"]
+
+
+def test_main_runs_the_settings_and_spacings_the_report_states(monkeypatch, tmp_path):
+    _accept_any_mask(monkeypatch, cf)
+    calls, load = [], cf.load_seeding
+
+    def recording(source):
+        seeding = load(source)
+        inner = seeding.tile_dots
+
+        def tile_dots(presence, lo, hi, settings):
+            calls.append((presence.shape, lo, hi, settings))
+            return inner(presence, lo, hi, settings)
+
+        seeding.tile_dots = tile_dots
+        return seeding
+
+    monkeypatch.setattr(cf, "load_seeding", recording)
+    out, main = _run_main(monkeypatch, tmp_path, _BEFORE, _AFTER)
+    assert main() == 0
+    report = _flat_report()
+    for shape, lo, hi, s in calls:
+        assert list(lo) == [0, 0, 0] and tuple(hi) == shape[::-1]
+        assert (
+            f"threshold {s.threshold:.0f}, dot radius {s.dot_radius:.0f} and fill spacing "
+            f"{s.fill_spacing:.0f}"
+        ) in report
+    final = json.loads(
+        (_REPORTS / "villa_fractional_plane_spacing_final_2026-10-20.json").read_text()
+    )
+    ran = sorted({s.plane_spacing for *_, s in calls})
+    assert ran == sorted({r["spacing"] for r in final["rows"]})
+    assert ran == sorted({64.0, 64 * 7.91 / 9.6, 64 * 9.6 / 7.91})
 
 
 def test_main_refuses_a_patch_that_moves_the_default_spacing(monkeypatch, tmp_path):
     _accept_any_mask(monkeypatch, cf)
     shifted = "planes = list(range(1, depth, int(settings.plane_spacing)))"
     out, main = _run_main(monkeypatch, tmp_path, _BEFORE, shifted)
-    # the stand-in depth (8 after the 2x2x2 mean) is below 64, so plane 0 is the
-    # only one at the default spacing, and the shifted patch moves it to 1
+    # at the default spacing the planes are 0 and 64; the shifted patch moves them
     with pytest.raises(ValueError, match="default seed arrays changed"):
+        main()
+    assert not out.exists()
+
+
+def test_main_checks_every_mask_not_only_the_first(monkeypatch, tmp_path):
+    _accept_any_mask(monkeypatch, cf, reject={"s3"})
+    out, main = _run_main(monkeypatch, tmp_path, _BEFORE, _AFTER)
+    with pytest.raises(ValueError, match="s3_mask.npz: not the published"):
         main()
     assert not out.exists()
 
@@ -201,9 +276,6 @@ def test_the_example_refuses_an_unpublished_mask(monkeypatch, tmp_path):
         ex.main()
 
 
-_REPORTS = Path(__file__).resolve().parent.parent / "reports"
-
-
 def test_the_report_table_is_the_final_evidence():
     final = json.loads(
         (_REPORTS / "villa_fractional_plane_spacing_final_2026-10-20.json").read_text()
@@ -211,13 +283,20 @@ def test_the_report_table_is_the_final_evidence():
     first = json.loads(
         (_REPORTS / "villa_fractional_plane_spacing_2026-10-20.json").read_text()
     )
-    report = (_REPORTS / "villa_fractional_plane_spacing_2026-10-20.md").read_text()
+    report = _REPORT.read_text()
     # "Every result row, including every seed-array hash, equals the initial measurement"
-    assert final["rows"] == first["rows"]
+    assert len(final["rows"]) == 9 and final["rows"] == first["rows"]
     assert final["after_source_sha256"] != first["after_source_sha256"]
     by_cube = {}
     for r in final["rows"]:
         by_cube.setdefault(r["cube"], []).append(r)
+    # the column headers are the spacings the rows ran, truncated to six places
+    spacings = [r["spacing"] for r in next(iter(by_cube.values()))]
+    heads = [f"{math.floor(s * 1e6) / 1e6:.6f}..." for s in spacings[1:]]
+    assert (
+        f"| Cube | Default spacing {spacings[0]:.0f} | Spacing {heads[0]} | Spacing {heads[1]} |"
+        in report
+    )
     for cube, rows in by_cube.items():
         cells = " | ".join(
             f"{r['before']['dots']} → {r['after']['dots']}" for r in rows
@@ -242,7 +321,7 @@ def test_the_report_states_the_patch_it_ships():
             sum(x.startswith("-") and not x.startswith("---") for x in lines),
         )
     (plus, minus), (tests, _) = counts["volume.py"], counts["test_volume_seeding.py"]
-    report = (_REPORTS / "villa_fractional_plane_spacing_2026-10-20.md").read_text()
+    report = _REPORT.read_text()
     assert (
         f"The upstream diff is **+{plus}/-{minus} production lines**, plus {tests} lines of tests."
         in report

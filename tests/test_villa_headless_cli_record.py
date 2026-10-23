@@ -20,6 +20,11 @@ def _results():
     return {r["name"]: r for r in json.loads(_EVIDENCE.read_text())["results"]}
 
 
+def _cell(run):
+    """The table's command cell, built from the command the evidence recorded."""
+    return " ".join(run["command"]) + "` |"
+
+
 def test_the_proof_table_is_the_captured_runs():
     r, draft = _results(), _DRAFT.read_text()
     direct = r["direct-render-help"]
@@ -27,22 +32,18 @@ def test_the_proof_table_is_the_captured_runs():
     sig = signal.Signals(-direct["returncode"])
     assert direct["output"] == ""
     assert (
-        f"| `./squashfs-root/usr/bin/vc_render_tifxyz --help` | {sig.name}; shell status "
-        f"{128 + sig.value}; no output |"
-    ) in draft
-    for name, row in (
-        ("apprun-render-help", "| `./squashfs-root/AppRun vc_render_tifxyz --help` |"),
-        ("extract-and-run-help", "./VC3D.AppImage vc_render_tifxyz --help` |"),
-    ):
-        assert r[name]["returncode"] == 0, name
-        assert r[name]["output"].startswith("vc_render_tifxyz: Render"), name
-        assert f"{row} Help printed, exit 0 |" in draft, name
-    trim = r["apprun-trim-usage"]
-    assert trim["returncode"] == 1 and trim["output"].startswith("usage:")
-    assert (
-        "| `./squashfs-root/AppRun vc_tifxyz_trim` | Usage printed, expected exit 1 |"
+        f"| `{_cell(direct)} {sig.name}; shell status {128 + sig.value}; no output |"
         in draft
     )
+    for name in ("apprun-render-help", "extract-and-run-help"):
+        assert r[name]["returncode"] == 0, name
+        assert r[name]["output"].startswith("vc_render_tifxyz: Render"), name
+        # the extract-and-run row also names the environment variable the
+        # evidence does not record, so only its command is bound
+        assert f"{_cell(r[name])} Help printed, exit 0 |" in draft, name
+    trim = r["apprun-trim-usage"]
+    assert trim["returncode"] == 1 and trim["output"].startswith("usage:")
+    assert f"| `{_cell(trim)} Usage printed, expected exit 1 |" in draft
 
 
 def test_the_release_and_environment_are_the_evidence():
@@ -51,7 +52,9 @@ def test_the_release_and_environment_are_the_evidence():
     assert f"`{e['sha256']}`" in draft
     flat = " ".join(draft.split())  # rewrapping the record is harmless
     assert e["display_unset"] and "`DISPLAY` and `WAYLAND_DISPLAY` unset" in flat
-    assert e["host"] == "Debian 13 x86_64" and "On Debian 13 x86_64" in draft
+    assert f"On {e['host']}" in draft
+    threads = f"OPENBLAS_NUM_THREADS={e['threads']} OMP_NUM_THREADS={e['threads']}"
+    assert threads in flat
 
 
 def test_the_patch_size_is_the_committed_patch():
