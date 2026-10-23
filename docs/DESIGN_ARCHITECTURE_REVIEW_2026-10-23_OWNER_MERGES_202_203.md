@@ -80,4 +80,21 @@ Round 108's probe counts were superseded by round 109's.
 
 ## Verification
 
-- Pending.
+- **The touched tests** and their neighbours (form answers, downloads, filing numbers, upstream claims,
+  fiber audit and record), with the ledger and suite coverage guard: 141 passed and 4 skipped, the skips
+  being the absent sibling repositories.
+- **Perturbations.** Each of eight newly bound figures, changed, fails a test: the word count, both
+  19-link claims, the Discord field, 0.005%, the RTX 4090, 26 GiB and the reworded OOM phrase.
+- **Mutants**, with the bytecode cache cleared:
+  - 14 of 16 of #203's downloader fail a test; all four that #203's own tests passed now fail;
+  - round 109's 54 of 55 probe mutants and round 106's 22 of 22 still hold.
+- **Ruff** finds only main's import-order note in `test_october_prize_form_answers.py`. Neither owner
+  test file is Ruff-formatted on main, so this round keeps their style.
+- **Doc guards:** 378 passed and 2 skipped on main `e22a8f87` and on the branch.
+- **Doc audit:** the branch gains no entries.
+- **The standard suite** with the locked-package overlay: 2813 passed, 22 skipped and 1 xfailed, as on
+  main. The ten failures are main's ten environmental ones: nine need villa files, one is
+  `gp_winner`.
+- **No independent review this round.** The changes are one reworded phrase, four test cases and
+  bindings. Each binding was checked by perturbation, and each test case by a mutant that passed
+  main's tests.
