@@ -1,5 +1,12 @@
 # Villa engineering opportunities — 2026-10-23 UTC
 
+**Follow-up:** [#1482](https://github.com/ScrollPrize/villa/issues/1482) is a
+live code candidate after its previous fix expired unmerged. A bounded retry
+fix, nine new tests and a real-mesh rejection probe are now prepared;
+see [the focused review](villa_native_retry_cycle_2026-10-23.md).
+The TIFF resume bug in #1404 was also checked and is already fixed by merged
+#1695; the Windows seed failure in #1594 is already fixed by merged #1595.
+
 One new contribution is published as [Villa #2259](https://github.com/ScrollPrize/villa/pull/2259):
 the headless AppImage CLI instructions for
 [#2153](https://github.com/ScrollPrize/villa/issues/2153). It is a small
