@@ -4,7 +4,10 @@ Checked 2026-10-20. The next concrete contribution is a small correction to the
 neural fiber volume tracer's fractional `--plane-spacing`. It arose while
 preparing the physically matched seeding study following findings 91 and 92.
 
-Updated at the 2026-10-22 publication review. The fix has real-data CPU
+Published as [Villa #2258](https://github.com/ScrollPrize/villa/pull/2258)
+on 2026-10-22 Pacific, with the evidence preserved in
+[Autoresearch #193](https://github.com/jonmarrs/vesuvius-autoresearch/pull/193).
+The fix has real-data CPU
 evidence and regression tests. Full tracing with this patch remains unrun.
 The separate registered seeding-scale study completed on its pinned,
 unpatched Villa code: [finding 93](neural_tracer_seeding.md). All three
@@ -16,7 +19,16 @@ predictions failed; this engineering fix does not revise that conclusion.
 | --- | --- | --- |
 | [#2141](https://github.com/ScrollPrize/villa/pull/2141), read-only SQLite track DBMs | Open; maintainer feedback addressed in `19575a45`: route all SQLite stores through the reader and preserve existing WAL commits. Five tests pass; the two new regressions fail on the prior PR head. Earlier [Windows validation](https://github.com/ScrollPrize/villa/pull/2141#issuecomment-6290970541) covered the original sidecar fix. | Await upstream review and merge permission. |
 | [#2155](https://github.com/ScrollPrize/villa/pull/2155), pip CUDA dependency group | Merged 2026-10-21 Pacific, `e016bc71d9b873b3e52871f42aa3e7a34520cfb1`. | Recorded in the October filing. |
-| Fractional plane placement | Reproduced on real published masks; 20 regression cases pass on rebased `242f0798`. | Publish the reviewed fix with its real-data evidence. |
+| [#2258](https://github.com/ScrollPrize/villa/pull/2258), fractional plane placement | Published; reproduced on real masks; 20 regression cases pass on `242f0798`. | Await upstream checks and maintainer merge. |
+
+The publication review found and fixed two SQLite reader gaps in #2141:
+recognized stores bypassed the fallback on affected newer Pythons, and
+unconditional immutable mode ignored committed WAL pages. The two added
+regressions fail on its prior head (`301a3fbc`: 2 failed, 3 passed); all
+five tests pass at `19575a45`. The unrelated unavailable `kornia` import
+was stubbed for this Python 3.10.21 CPU test; SQLite was exercised directly.
+GitHub rejected the requested upstream merge with HTTP 403, “Resource not
+accessible by integration”; the account has no Villa push/merge permission.
 
 Searches of current issues and PRs for `plane-spacing`, `tile_dots`, and
 `fractional` + `fiber` found no contribution fixing this calculation. The

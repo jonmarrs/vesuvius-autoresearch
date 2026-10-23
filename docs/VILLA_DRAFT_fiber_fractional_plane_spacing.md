@@ -1,5 +1,8 @@
 # Draft: fiber volume seeding keeps fractional planes on the global grid
 
+Published as [Villa #2258](https://github.com/ScrollPrize/villa/pull/2258)
+on 2026-10-22 Pacific; this file retains the description and evidence pointers.
+
 PR description prepared from the measured research workflow. Villa's
 [contribution guidelines](https://github.com/ScrollPrize/villa/blob/f4af1dc1ea664321e38d7c84fadb1a271694425e/CONTRIBUTING.md)
 request human commentary; the personal attestation below remains unchecked.
