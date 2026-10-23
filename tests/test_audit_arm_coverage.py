@@ -99,6 +99,31 @@ def test_syntax_error_does_not_crash_the_audit():
     assert arm_tags_in_code("def broken(:\n") == set()
 
 
+def _naming(monkeypatch, src: str) -> None:
+    """The audit reads the repository's scripts; give it one that names arms."""
+    import audit_arm_coverage as mod
+
+    monkeypatch.setattr(
+        mod, "searchable_files", lambda: {mod.REPO / "scripts" / "names_arms.py": src}
+    )
+
+
+def test_a_tag_with_only_a_fit_directory_is_not_a_phantom(tmp_path, monkeypatch):
+    """upfit_s1-3 are fits (`*-patch_<tag>`) whose ink is scored under detfit_up1-3: on disk, not deleted."""
+    _naming(monkeypatch, 'ARMS = ("upfit_s7",)\n')
+    (tmp_path / "2026-09-24_s1_slice-13056-18432_38442-patch_upfit_s7").mkdir()
+    assert audit(str(tmp_path))["phantoms"] == []
+
+
+def test_a_tag_with_no_directory_at_all_is_a_phantom(tmp_path, monkeypatch):
+    _naming(monkeypatch, 'ARMS = ("upfit_s7",)\n')
+    (
+        tmp_path / "2026-09-24_s1_slice-13056-18432_38442-patch_upfit_s8"
+    ).mkdir()  # another fit's directory
+    (tmp_path / "upfit_s7_notes.txt").write_text("not a directory")
+    assert audit(str(tmp_path))["phantoms"] == ["upfit_s7"]
+
+
 # --- against the real tree ----------------------------------------------------
 
 
