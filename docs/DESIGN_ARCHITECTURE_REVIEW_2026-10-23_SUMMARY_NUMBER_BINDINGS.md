@@ -95,4 +95,28 @@ and 02:12 UTC firings.
 
 ## Verification
 
-- Pending: the probe on the final commit, the standard suite.
+- **The probe on the final commit:** 213 of 1,291 one-digit changes are caught, against 83 of 1,211 on
+  main. The corrections added 80 numbers. Leaving out the finding numbers themselves, it is 202 of
+  1,206 against 76 of 1,126.
+- **Doc tests:** the six files that read the live documents give 98 passed.
+- **Doc guards.** Every test file that reads a changed document (27 files, excluding the new one) was run
+  on main and on the final commit:
+  - 613 passed on both;
+  - the one failure on both is `test_live_documents_stay_clean`, from villa paths.
+- **Doc audit** (`audit_doc_references.audit()`): the branch gains no entries.
+- Ruff 0.9.10 `check` and `format` are clean on the three changed test files.
+- **The standard suite** with the locked-package overlay: 2811 passed, 22 skipped and 1 xfailed, as on
+  main. The ten failures are main's ten environmental ones (nine need villa files, one is `gp_winner`).
+  The new test reads only reports, so the suite-coverage guard does not require it in the suite.
+- **Independent review** of the first four commits. It found three blocking issues:
+  - finding 34's note gave the pooled CV as the nine seeds';
+  - findings 17 and 26 still presented the design MDE as the bound;
+  - two titles stated corrected figures.
+
+  It also found should-fix items:
+  - placement credited to the flatten in two more places;
+  - the 9.5× wording in four more documents;
+  - broken or undated notes;
+  - 11 of 27 mutants surviving.
+
+  All are fixed in the fifth commit. Each surviving mutant's figure is now bound.
