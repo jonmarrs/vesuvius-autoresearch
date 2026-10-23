@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "kind": "descriptive provenance audit; no scoring or tracer run",
+  "python_version": "3.12.14",
+  "villa_base_commit": "e2254ebe0168a232e5ba7b94997c749b4e6a4544",
+  "audit_script_sha256": "76f75762b6d0c7b41c671c9eddda8d407703d6cc191ff05033a4122364b941c2",
+  "fetch_script_sha256": "1e4f1f848bdf5b4364973d4ec2a4752f61ff799ded52b054e88af29a9fc1571d",
+  "snapshots": {
+    "0139": {
+      "source_url": "https://dl.ash2txt.org/other/annotators/0139_fibers/",
+      "completed_at_utc": "2026-10-23T11:09:14.583280+00:00",
+      "index_sha256": "e88c31400085568ae916029e9d82c0f6dd2728a2ae74808946fe1c3849c4af48",
+      "file_count": 620,
+      "bytes": 235298374,
+      "audit_path": "reports/evidence/fiber_reference_pherc0139_2026-10-23.json",
+      "audit_sha256": "c10a731439661ba673ebf6a2d33ff289f32f26961c925931960a189b952ca825",
+      "download_inputs_equal_audited_inputs": true
+    },
+    "0332": {
+      "source_url": "https://dl.ash2txt.org/other/annotators/0332_fibers/",
+      "completed_at_utc": "2026-10-23T11:09:20.203873+00:00",
+      "index_sha256": "adff61a5a81a8ba083fc752f0124e95c9a60dada5a3888dcb29f23a8a7c47c51",
+      "file_count": 233,
+      "bytes": 82943185,
+      "audit_path": "reports/evidence/fiber_reference_pherc0332_2026-10-23.json",
+      "audit_sha256": "e45cb409de6f145732af46e0f4077dfa9476e42d5c3341893d97ceb12c43328f",
+      "download_inputs_equal_audited_inputs": true
+    }
+  }
+}

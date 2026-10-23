@@ -1,5 +1,12 @@
 # Villa engineering opportunities — 2026-10-23 UTC
 
+**Further review:** an [audit of all 853 published fiber annotation files](fiber_reference_provenance_2026-10-23.md)
+supports an eight-line documentation clarification about tracer-generated
+references, related to [#2264](https://github.com/ScrollPrize/villa/issues/2264).
+The patch and PR draft are prepared locally; publication is still blocked by
+the previously observed GitHub integration permissions. The existing native
+retry fix remains the first unpublished code contribution to pursue.
+
 **Follow-up:** [#1482](https://github.com/ScrollPrize/villa/issues/1482) is a
 live code candidate after its previous fix expired unmerged. A bounded retry
 fix, nine new tests and a real-mesh rejection probe are now prepared;
@@ -24,6 +31,13 @@ The existing seeding and SQLite PRs remain the first upstream follow-ups.
 | [#2186](https://github.com/ScrollPrize/villa/issues/2186), recompression data loss | Active fix [#2199](https://github.com/ScrollPrize/villa/pull/2199). | No duplicate PR. |
 | [#2195](https://github.com/ScrollPrize/villa/issues/2195), slow patch finding | Active fix [#2197](https://github.com/ScrollPrize/villa/pull/2197). | No duplicate PR. |
 | [#2104](https://github.com/ScrollPrize/villa/issues/2104), bounded trace growth | Active fix [#2133](https://github.com/ScrollPrize/villa/pull/2133). | No duplicate PR. |
+| [#1360](https://github.com/ScrollPrize/villa/issues/1360), inference failures | Merged [#1827](https://github.com/ScrollPrize/villa/pull/1827) reports the inference error. Current inference, blending and structure-tensor CLI paths return failure on the checked errors/empty result. | No duplicate patch; checked source, no new full inference run. |
+| [#1674](https://github.com/ScrollPrize/villa/issues/1674), local Zarr indices | A reproducer in the issue comments found the probed coordinates correct; the sparse local mirror covered another region. | Do not patch coordinate mapping on this report alone. |
+| [#1673](https://github.com/ScrollPrize/villa/issues/1673), Zarr render crash | Later issue comments reproduce successful Linux/macOS current releases and identify the stale container's missing June fix. | No current crash established here; no renderer patch. |
+| [#2240](https://github.com/ScrollPrize/villa/issues/2240), Zarr merge compatibility | Active [#2244](https://github.com/ScrollPrize/villa/pull/2244). | No duplicate PR. |
+| [#1490](https://github.com/ScrollPrize/villa/issues/1490), auxiliary targets | Active [#2252](https://github.com/ScrollPrize/villa/pull/2252). | No duplicate PR. |
+| [#2072](https://github.com/ScrollPrize/villa/issues/2072), sheet-tracer area scale | Active [#2073](https://github.com/ScrollPrize/villa/pull/2073). | No duplicate PR. |
+| [#1333](https://github.com/ScrollPrize/villa/issues/1333), Volume hint | Active [#2129](https://github.com/ScrollPrize/villa/pull/2129). | No duplicate PR. |
 
 Other searched reports, including winding consistency, cached HTTP 404s and
 Copy block-edge seams, also have proposed fixes. Published-data issues such
