@@ -27,7 +27,7 @@ provenance. Scoring only control points is identified as a separate protocol.
 **Proof:** The audit covered all 853 listed files and bound each parsed file
 by SHA-256. Counts of interpolation modes, settings and recorded source
 manifests are preserved in the Autoresearch
-[report](../reports/fiber_reference_provenance_2026-10-23.md).
+[report](https://github.com/jonmarrs/vesuvius-autoresearch/blob/3ed95b80c30c55edfa9709a99d63deb83bbefcab/reports/fiber_reference_provenance_2026-10-23.md).
 The change is documentation only; the current documented selection policy and
 `reference_cases()` wrapper were checked at Villa `e2254ebe`.
 
