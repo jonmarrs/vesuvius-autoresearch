@@ -69,7 +69,7 @@ clipped "#1780" to "#17".
    2026-10-20. The URL field cites
    `tree/v0.8.2`; the test binds the cite to ScrollGT's newest tag, so a later
    release must update it. Findings 84–85 are folded in (2026-10-12). Finding 93 and the placement measurements
-   (#151, #157) are folded in (2026-10-20).
+   (#151, #157) are folded in (2026-10-20), finding 94 on 2026-10-20 and finding 95 on 2026-10-23.
 4. Finding 85 measures an open villa PR (#1934). The user-approved comment sharing it with the author was posted
    2026-10-12 (https://github.com/ScrollPrize/villa/pull/1934#issuecomment-6131993208) and is cited in part (2). On filing day, re-read the thread: quote any reply verbatim, record
    whether #1934 is still open, and do not characterise silence.
@@ -219,9 +219,11 @@ four predictions held):
   and widens: a median 2.22 times our tracer's merge-penalized ERL, against 1.26 at 2, on 8 of 8 cubes. Its in-sample
   deficit narrows from 0.36 to 0.71 of ours, and reverses on the three in-sample 512³ cubes (median 49.50 against
   43.69). It still trails on the eight 256³ ones and both held-out cubes.
-* **Scoring-window size does not explain that deficit** (finding 95, pre-registered). Cropping the saved
-  whole-volume predictions into 24 octants of 256³ preserves the neural tracer's tolerance-4 lead on
-  19 of 24, while at tolerance 2 it leads on 0 of 24. The identity checks against the whole-cube results pass.
+* **Scoring-window size does not explain that deficit** (finding 95, pre-registered; its prediction held). Cropping the
+  saved whole-volume predictions into 24 octants of 256³ preserves the neural tracer's tolerance-4 lead on
+  19 of 24, while at tolerance 2 it leads on 0 of 24. At tolerance 4 its merge-penalized ERL is a median
+  1.08 times our tracer's across the octants. The identity checks against the whole-cube results pass. Nor is the scroll alone
+  the cause, since the three Scroll-5 256³ cubes trail too.
   Both tracers originally saw the whole 512³ cubes: this tests scoring-window size, not tracing context.
   All octants come from three Scroll-5 cubes and are not independent samples.
 

@@ -781,11 +781,18 @@ def test_octant_result_matches_finding_95_and_preserves_its_scope():
     assert d["status"] == "OK" and not d["identity_problems"]
     rows = d["octants"]
     pen = "erl_merge_penalized"
-    lead4 = sum(r["neural"]["4.0"][pen] > r["tracer"]["4.0"][pen] for r in rows.values())
-    lead2 = sum(r["neural"]["2.0"][pen] > r["tracer"]["2.0"][pen] for r in rows.values())
+    lead4 = sum(
+        r["neural"]["4.0"][pen] > r["tracer"]["4.0"][pen] for r in rows.values()
+    )
+    lead2 = sum(
+        r["neural"]["2.0"][pen] > r["tracer"]["2.0"][pen] for r in rows.values()
+    )
     assert [lead4, len(rows)] == d["neural_leads_at_4"]
     text = _text()
-    assert f"{lead4} of {len(rows)}, while at tolerance 2 it leads on {lead2} of {len(rows)}" in text
+    assert (
+        f"{lead4} of {len(rows)}, while at tolerance 2 it leads on {lead2} of {len(rows)}"
+        in text
+    )
     assert "this tests scoring-window size, not tracing context" in text
     assert "Finding 95 is in `reports/octant_crop_rescore.md`" in text
 
@@ -905,6 +912,47 @@ def test_scale_and_tolerance_figures_match_their_measurements():
     assert (
         f"at tolerance 2 trails on the other {len(other)} cubes, for reasons only partly "
         "measured (at 4 it leads on three of them, finding 94)" in txt
+    )
+
+
+_F95 = _REPO / "reports/octant_crop_rescore.json"
+
+
+@pytest.mark.skipif(
+    not (_F95.exists() and _F94.exists()), reason="finding 95 artifact absent"
+)
+def test_octant_numbers_match_finding_95():
+    d, t4, txt = json.loads(_F95.read_text()), json.loads(_F94.read_text()), _text()
+    assert (
+        d["status"] == "OK"
+        and not d["identity_problems"]
+        and d["prediction_P1_leads_on_16_of_24"] is True
+    )
+    pen, med = "erl_merge_penalized", statistics.median
+    octs = d["octants"]
+    lead, n = d["neural_leads_at_4"]
+    assert (lead, n) == (19, 24) and lead == sum(
+        o["neural"]["4.0"][pen] > o["tracer"]["4.0"][pen] for o in octs.values()
+    )
+    ratio = med(
+        o["neural"]["4.0"][pen] / o["tracer"]["4.0"][pen] for o in octs.values()
+    )
+    s5 = [
+        c
+        for c in t4["groups"]["in_sample"]
+        if c.startswith("s5_") and c.endswith("_256")
+    ]
+    assert len(s5) == 3 and all(
+        t4["rows_neural"][c][pen] < t4["rows_tracer"][c][pen] for c in s5
+    )
+    assert "(finding 95, pre-registered; its prediction held)" in txt
+    assert (
+        f"At tolerance 4 its merge-penalized ERL is a median {ratio:.2f} times our tracer's across the octants."
+        in txt
+    )
+    assert (
+        "Nor is the scroll alone the cause, since the three Scroll-5 256³ cubes trail too."
+        in txt
     )
 
 
