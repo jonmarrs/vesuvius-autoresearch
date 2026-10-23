@@ -776,6 +776,20 @@ def test_tolerance4_numbers_match_finding_94():
     assert "findings 91–94 in" in txt and "`reports/tolerance4_rescore.md`" in txt
 
 
+def test_octant_result_matches_finding_95_and_preserves_its_scope():
+    d = json.loads((_REPO / "reports/octant_crop_rescore.json").read_text())
+    assert d["status"] == "OK" and not d["identity_problems"]
+    rows = d["octants"]
+    pen = "erl_merge_penalized"
+    lead4 = sum(r["neural"]["4.0"][pen] > r["tracer"]["4.0"][pen] for r in rows.values())
+    lead2 = sum(r["neural"]["2.0"][pen] > r["tracer"]["2.0"][pen] for r in rows.values())
+    assert [lead4, len(rows)] == d["neural_leads_at_4"]
+    text = _text()
+    assert f"{lead4} of {len(rows)}, while at tolerance 2 it leads on {lead2} of {len(rows)}" in text
+    assert "this tests scoring-window size, not tracing context" in text
+    assert "Finding 95 is in `reports/octant_crop_rescore.md`" in text
+
+
 def _json(rel: str) -> dict:
     p = _REPO / rel
     if not p.exists():
