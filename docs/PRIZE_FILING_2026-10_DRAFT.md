@@ -1,4 +1,17 @@
-# October 2026 Progress Prize — DRAFT (not submit-ready)
+# October 2026 Progress Prize — DRAFT (evidence checked; not submitted)
+
+**Readiness review, 2026-10-23:** all 31 existing number/version checks pass,
+the live upstream-claim check passes, and all 19 links in the pre-update draft
+returned HTTP 200. The live form still says “October 2026 Progress Prizes”.
+It also requires an email address, full name, team description and agreement
+to the terms; Discord display name is optional. These personal fields and
+consent have not been submitted. Re-check the form, links and live PR state
+on filing day.
+
+Use [the concise form answers](PRIZE_FILING_2026-10_FORM_ANSWERS.md) for the
+small-fix bundle. This detailed draft preserves the broader research evidence
+and disclosures. The [final-week plan](PRIZE_PLAN_2026-10_FINAL_WEEK.md) separates
+work already landed from optional additions before the deadline.
 
 **Status: draft, started 2026-10-03. The October round OPENED 2026-10-03** (villa #1947, `ed426faf0`):
 * **deadline 11:59pm Pacific, October 31st, 2026**;
@@ -28,7 +41,7 @@ clipped "#1780" to "#17".
    #2022, #2044, #2155 and any other open PR, and quote any maintainer reply verbatim.
    villa #2155 (the README's pip route) **merged 2026-10-21 Pacific**
    (`2026-10-21T19:50:31Z`, [merge commit](https://github.com/ScrollPrize/villa/commit/e016bc71d9b873b3e52871f42aa3e7a34520cfb1)).
-   villa #2141 (the track-DBM fix), opened 2026-10-18, remains open at the 2026-10-22 review.
+   villa #2141 (the track-DBM fix), opened 2026-10-18, remains open at the 2026-10-23 review.
    Its latest update handles recognized SQLite stores on every Python version and preserves committed WAL pages;
    all five reader tests pass. If it merges, add its measured before → after:
    * #2141: on Python 3.10 and 3.11, villa's own reader fails to open a published track store (a WAL database) in a
@@ -38,6 +51,12 @@ clipped "#1780" to "#17".
    the author of the original fallback: baseline leaves SQLite sidecars, the fix passes on Windows 11 / Python
    3.12.10 (2 passed, 2 skipped). Their reply ends “LGTM”. This is contributor feedback, not a merge; keep the
    filing's merged-contribution list unchanged until GitHub records one.
+
+   #2258 (fractional fiber seed planes) and #2259 (headless AppImage CLI docs)
+   are also open. Their available GitHub Actions runs and those of #2141 pass;
+   Vercel previews need authorization. The linked integration cannot merge
+   Villa PRs or open the prepared native-retry and reference-provenance PRs
+   (HTTP 403). Pushed branches and passing local tests are not merged credits.
 
    `scripts/check_filing_upstream_claims.py --month 2026-10 --filing
    docs/PRIZE_FILING_2026-10_DRAFT.md` must PASS: it fails while an October merge of ours has no "(merged
@@ -200,6 +219,11 @@ four predictions held):
   and widens: a median 2.22 times our tracer's merge-penalized ERL, against 1.26 at 2, on 8 of 8 cubes. Its in-sample
   deficit narrows from 0.36 to 0.71 of ours, and reverses on the three in-sample 512³ cubes (median 49.50 against
   43.69). It still trails on the eight 256³ ones and both held-out cubes.
+* **Scoring-window size does not explain that deficit** (finding 95, pre-registered). Cropping the saved
+  whole-volume predictions into 24 octants of 256³ preserves the neural tracer's tolerance-4 lead on
+  19 of 24, while at tolerance 2 it leads on 0 of 24. The identity checks against the whole-cube results pass.
+  Both tracers originally saw the whole 512³ cubes: this tests scoring-window size, not tracing context.
+  All octants come from three Scroll-5 cubes and are not independent samples.
 
 **(3) What it enables that was not possible before.**
 * [inkagree](https://github.com/jonmarrs/inkagree) (MIT; first released 2026-10-03, now 0.3.0, which evaluates only
@@ -244,6 +268,7 @@ four predictions held):
   `reports/neural_tracer_pitch.md`, `reports/neural_tracer_seeding.md` and `reports/tolerance4_rescore.md`; the
   placement and ground-truth offset
   measurements in the last section of `reports/neural_tracer_entrant.md`).
+  Finding 95 is in `reports/octant_crop_rescore.md`, with its committed JSON and pre-registration.
 * Every figure here is bound by a test to the file that produced it.
 * [villa #2044](https://github.com/ScrollPrize/villa/pull/2044) records the memory limits, hardware,
   before/after runs and the averaging comparison behind the scorer fix. The full GPU scorer has
