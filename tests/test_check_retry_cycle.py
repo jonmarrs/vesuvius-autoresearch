@@ -6,9 +6,10 @@ watchdog. Its before and after records are the evidence for the fix:
 
 - a cycle is a timeout and exits 1;
 - a bounded retry is a RuntimeError after exactly the two patches, and exits 0;
-- a mesh that is not the published one, a corner with surface in it, or a voxel
-  read before the geometry rejects the patch, all stop it before it writes;
-- it never overwrites a record.
+- it refuses, with exit 2 and no record, a mesh that is not the published one,
+  a corner with surface in it, a patch villa does not reject, a voxel read
+  before the geometry rejects the patch, and an existing record. Until
+  2026-10-23 a refusal exited 1, like the timeout.
 
 Nothing tested any of it. These tests drive the probe on stand-in villa
 modules and a stand-in mesh, so neither villa nor the mesh is needed. The
@@ -19,6 +20,7 @@ committed patch.
 import ast
 import hashlib
 import json
+import os
 import re
 import subprocess
 import sys
@@ -50,6 +52,11 @@ _READS_FIRST = """
     def _native_sample(self, patch):
         self._open("image")[0]
 """
+# villa's first touch of a volume it reads, in _read_flat_surface
+_TOUCHES_SHAPE = """
+    def _native_sample(self, patch):
+        self._open("supervision").shape
+"""
 # rejects everything, so only the probe's corner check can stop it
 _REJECTS = """
     def _native_sample(self, patch):
@@ -60,6 +67,22 @@ _REJECTS = """
 _ADMITS = """
     def _native_sample(self, patch):
         return "sample"
+"""
+_ADMITS_FIRST = """
+    def _native_sample(self, patch):
+        return "sample" if patch.bbox[2] == 0 else None
+"""
+_ADMITS_SECOND = """
+    def _native_sample(self, patch):
+        return "sample" if patch.bbox[2] > 0 else None
+"""
+# rejects both patches while the probe checks them, then reads a voxel in the
+# retry itself: a refusal, not a retry failure
+_READS_IN_RETRY = """
+    def _native_sample(self, patch):
+        self.calls = getattr(self, "calls", 0) + 1
+        if self.calls > 2:
+            self._open("image")[0]
 """
 # villa before the fix: every rejection picks another patch, with no memory
 _CYCLE = """
@@ -202,8 +225,10 @@ def read_tifxyz(path):
     return _Surface(valid)
 """
 _RUN = """
-import importlib.util, json, sys
+import importlib.util, json, os, signal, sys
 
+if os.environ.get("STANDIN_NO_TIMER"):
+    del signal.setitimer
 spec = importlib.util.spec_from_file_location("check_retry_cycle", sys.argv[1])
 probe = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(probe)
@@ -245,11 +270,22 @@ def _mesh(root, valid=((100, 200, 100, 200),)):
     return mesh, {n: hashlib.sha256((mesh / n).read_bytes()).hexdigest() for n in names}
 
 
-def _probe(tmp_path, retry, native=_NATIVE, valid=((100, 200, 100, 200),), hashes=None):
+def _probe(
+    tmp_path,
+    retry,
+    native=_NATIVE,
+    valid=((100, 200, 100, 200),),
+    hashes=None,
+    out=None,
+    missing=None,
+    env=(),
+):
     dataset = _villa(tmp_path, retry, native)
     mesh, own = _mesh(tmp_path, valid)
-    out = tmp_path / "probe.json"
-    kept = out.exists()
+    if missing:
+        (mesh / missing).unlink()
+    out = out or tmp_path / "probe.json"
+    kept = os.path.lexists(out)
     record = tmp_path / "constructed.json"
     runner = tmp_path / "run.py"
     runner.write_text(_RUN)
@@ -268,6 +304,7 @@ def _probe(tmp_path, retry, native=_NATIVE, valid=((100, 200, 100, 200),), hashe
             "PYTHONPATH": str(tmp_path / "villa"),
             "STANDIN_RECORD": str(record),
             "PATH": "/usr/bin:/bin",
+            **dict(env),
         },
         capture_output=True,
         text=True,
@@ -365,11 +402,16 @@ def test_an_error_that_is_not_the_retry_failure_is_not_classified(tmp_path):
     assert rec is None
 
 
+def _refused(proc, rec, why):
+    """A refusal exits 2, says why, and writes nothing."""
+    assert proc.returncode == 2, proc.stderr
+    assert f"refused: {why}" in proc.stderr and "Traceback" not in proc.stderr
+    assert rec is None
+
+
 def test_a_mesh_that_is_not_the_published_one_is_refused(tmp_path):
     proc, rec, _, _, _, _ = _probe(tmp_path, _BOUNDED, hashes="published")
-    assert proc.returncode != 0
-    assert "meta.json: not the stated published Scroll-1 mesh" in proc.stderr
-    assert rec is None
+    _refused(proc, rec, "meta.json: not the stated published Scroll-1 mesh")
 
 
 @pytest.mark.parametrize("name", ["meta.json", "x.tif", "y.tif", "z.tif"])
@@ -378,40 +420,75 @@ def test_each_mesh_file_is_hashed(tmp_path, name):
     proc, rec, _, _, _, _ = _probe(
         tmp_path, _BOUNDED, hashes=json.dumps({**own, name: "0" * 64})
     )
-    assert proc.returncode != 0
-    assert f"{name}: not the stated published Scroll-1 mesh" in proc.stderr
-    assert rec is None
+    _refused(proc, rec, f"{name}: not the stated published Scroll-1 mesh")
 
 
 @pytest.mark.parametrize("corner", ["top-left", "top-right"])
 def test_a_corner_with_surface_in_it_is_refused(tmp_path, corner):
     w = _SHAPE[1]
     surface = (0, 8, 0, 8) if corner == "top-left" else (0, 8, w - 8, w)
+    x = 0 if corner == "top-left" else w - 64
     proc, rec, _, _, _, _ = _probe(
         tmp_path, _BOUNDED, native=_REJECTS, valid=(surface,)
     )
-    assert proc.returncode != 0 and "AssertionError" in proc.stderr
-    assert rec is None
+    _refused(proc, rec, f"the 64x64 region at y=0, x={x} has surface")
 
 
-def test_a_patch_villa_does_not_reject_is_refused(tmp_path):
-    proc, rec, _, _, _, _ = _probe(tmp_path, _BOUNDED, native=_ADMITS)
-    assert proc.returncode != 0 and "AssertionError" in proc.stderr
-    assert rec is None
+@pytest.mark.parametrize(
+    "admits", [_ADMITS, _ADMITS_FIRST, _ADMITS_SECOND], ids=["both", "first", "second"]
+)
+def test_a_patch_villa_does_not_reject_is_refused(tmp_path, admits):
+    proc, rec, _, _, _, _ = _probe(tmp_path, _BOUNDED, native=admits)
+    _refused(proc, rec, "villa admits a supplied patch")
 
 
-def test_a_voxel_read_before_the_rejection_is_refused(tmp_path):
-    proc, rec, _, _, _, _ = _probe(tmp_path, _BOUNDED, native=_READS_FIRST)
-    assert proc.returncode != 0
-    assert "The geometry rejection must precede voxel reads" in proc.stderr
-    assert rec is None
+def test_a_voxel_read_in_the_retry_is_a_refusal_not_a_retry_failure(tmp_path):
+    proc, rec, _, _, _, _ = _probe(tmp_path, _CYCLE, native=_READS_IN_RETRY)
+    _refused(proc, rec, "The geometry rejection must precede voxel reads")
+
+
+def test_a_missing_mesh_file_is_refused(tmp_path):
+    proc, rec, _, _, _, mesh = _probe(tmp_path, _BOUNDED, missing="z.tif")
+    _refused(proc, rec, f"z.tif: missing from {mesh}")
+
+
+def test_no_posix_timer_is_refused(tmp_path):
+    proc, rec, _, _, _, _ = _probe(tmp_path, _BOUNDED, env={"STANDIN_NO_TIMER": "1"})
+    _refused(proc, rec, "This bounded probe requires a POSIX interval timer")
+
+
+def test_an_output_with_no_directory_is_refused_before_the_run(tmp_path):
+    # with villa's cycle, a late failure would cost the whole two seconds first
+    out = tmp_path / "absent" / "probe.json"
+    proc, rec, built, _, _, _ = _probe(tmp_path, _CYCLE, out=out)
+    _refused(proc, rec, f"{out.parent} is not a directory")
+    assert built is None
+
+
+@pytest.mark.parametrize(
+    "touch", [_READS_FIRST, _TOUCHES_SHAPE], ids=["index", "shape"]
+)
+def test_a_voxel_read_before_the_rejection_is_refused(tmp_path, touch):
+    proc, rec, _, _, _, _ = _probe(tmp_path, _BOUNDED, native=touch)
+    _refused(proc, rec, "The geometry rejection must precede voxel reads")
+
+
+def test_a_dangling_symlink_at_the_output_is_refused(tmp_path):
+    out = tmp_path / "probe.json"
+    out.symlink_to(tmp_path / "nowhere.json")
+    proc, _, built, _, _, _ = _probe(tmp_path, _BOUNDED)
+    _refused(proc, None, f"{out} exists; records are never overwritten")
+    assert built is None and not (tmp_path / "nowhere.json").exists()
 
 
 def test_a_record_is_never_overwritten(tmp_path):
     (tmp_path / "probe.json").write_text("kept\n")
-    proc, _, _, _, _, _ = _probe(tmp_path, _BOUNDED)
-    assert proc.returncode != 0 and "FileExistsError" in proc.stderr
+    proc, _, built, _, _, _ = _probe(tmp_path, _BOUNDED)
+    out = tmp_path / "probe.json"
+    _refused(proc, None, f"{out} exists; records are never overwritten")
     assert (tmp_path / "probe.json").read_text() == "kept\n"
+    # it refuses before it builds anything, not after a run
+    assert built is None
 
 
 # --- the committed records, report and draft -------------------------------
