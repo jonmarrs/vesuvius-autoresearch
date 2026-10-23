@@ -5,6 +5,12 @@ FINDINGS. On 2026-10-23, changing one of its 1,211 numbers by one in its last di
 test for 83 of them, and most of those were finding numbers or figures bound for the README. The
 figures in the findings' own titles, the ones a reader quotes, were bound for none of 49–70.
 
+Read against the reports the same day, it also stated figures later reports had corrected: the
+outer floor at n=4 where the pinned tier pooled at df=18 gives 10.3%, the anchor null against its
+registered control alone, the count agreeing "to 1.2%" on three unusually tight seeds, a design MDE
+quoted as what the data exclude, and two ratios that did not follow from their numbers (9.5x
+throughput read as wall time, and 7-20x for what is 6-7x).
+
 Each test here recomputes a figure from the committed JSON, or from the report table where no JSON
 holds it, and asserts the summary states it, rounded once from the raw value.
 """
@@ -171,3 +177,122 @@ def test_the_same_fit_relayout_finding_55():
         f"Layout noise is **~{d['layout_share_of_fit_variance'] * 100:.0f}%** of fit-to-fit "
         "variance"
     ) in text
+
+
+# Corrected 2026-10-23 against later reports; each binds the corrected figure to its source.
+
+
+def test_finding_1_is_set_against_both_draws_of_the_render_floor():
+    table = (_REPORTS / "duplicate_coverage_inflates_the_objective.md").read_text()
+    dup = float(re.search(r"E  dT \+([\d.]+)", table).group(1))
+    render = _json("render_reproducibility.json")["ink"]
+    text = _flat(_SUMMARY)
+    assert f"raises `total_fg_pixels` **+{dup * 100:.2f}%**" in text
+    assert (
+        f"{dup / 0.0142:.0f}x the one-draw 1.42% floor, and {dup / render:.0f}x the "
+        f"{render * 100:.2f}% a second same-tree draw gave"
+    ) in text
+
+
+def test_the_outer_floor_pooled_at_df_18_findings_14_and_the_table():
+    pinned = _json("noise_floor_by_tier.json")["pinned"]
+    table = (_REPORTS / "seed_spread_four_fits.md").read_text()
+    inner = [
+        int(v.replace(",", ""))
+        for v in re.findall(r"^\| seed \d.*?\| [\d.]+ \| ([\d,]+) \|", table, re.M)
+    ]
+    assert len(inner) == 4
+    text = _flat(_SUMMARY)
+    floor, ratio = 2 * pinned["cv"], _cv(inner) / pinned["cv"]
+    assert pinned["df"] == 18 and pinned["n_fits"] == 24
+    assert (
+        f"pooled over the pinned tier's {pinned['n_fits']} outer fits, df={pinned['df']}, the CV is "
+        f"{pinned['cv']:.4f} and the floor {floor * 100:.1f}%"
+    ) in text
+    assert (
+        f"the outer CV is {pinned['cv']:.4f}, so the floor is {floor * 100:.1f}% and the outer "
+        f"windings are about {ratio:.1f}x quieter"
+    ) in text
+    assert (
+        f"about {ratio:.1f}x against the outer CV pooled at df=18, {pinned['cv']:.4f}"
+        in text
+    )
+
+
+def test_finding_21_states_the_intervals_not_the_mde():
+    s = _json("manipulation_effects_survey.json")
+    b, m = s["patch bootstrap"], s["stripmatch"]
+    assert (
+        f"The intervals are bootstrap [{_pct(b['lo'], 1)}, {_pct(b['hi'], 1)}] and stripmatch "
+        f"[{_pct(m['lo'], 1)}, {_pct(m['hi'], 1)}]"
+    ) in _flat(_SUMMARY)
+
+
+def test_finding_28_carries_the_control_sensitivity():
+    a = _json("control_sensitivity.json")["effects"]["anchor ablation 59->10"]
+    reg, rm, nine = (
+        a[k]
+        for k in (
+            "registered s1-s3 (old render)",
+            "render-matched s4-s9",
+            "all nine s1-s9",
+        )
+    )
+    text = _flat(_SUMMARY)
+    assert f"The data exclude only **[{_pct(reg['lo'])}, {_pct(reg['hi'])}]**" in text
+    assert (
+        f"against the render-matched `curbase_s4-s9` the estimate is {_pct(rm['rel'])} "
+        f"[{_pct(rm['lo'])}, {_pct(rm['hi'])}], and against all nine seeds {_pct(nine['rel'])} "
+        f"[{_pct(nine['lo'])}, {_pct(nine['hi'])}]"
+    ) in text
+    # "rules out a gain above about 3.5%, not a loss of 10-15%": the corrected controls
+    assert (
+        round(min(rm["hi"], nine["hi"]) * 100, 1) == 3.5
+        and max(rm["hi"], nine["hi"]) < 0.04
+    )
+    assert -0.15 < rm["lo"] < nine["lo"] < -0.10
+    assert "It rules out a gain above about 3.5%, not a loss of 10–15%." in text
+
+
+def test_findings_29_and_38_quote_the_nine_seed_count_agreement():
+    cv = _json("control_sensitivity.json")["control_cv"]
+    three, nine = cv["registered s1-s3 (old render)"], cv["all nine s1-s9"]
+    text = _flat(_SUMMARY)
+    assert f"agree on the count to **{three * 100:.1f}%**" in text
+    assert f"across all nine of that configuration it is {nine * 100:.1f}%" in text
+    assert f"({three * 100:.1f}% on three seeds, {nine * 100:.1f}% across nine" in text
+
+
+def test_finding_58_counts_the_displaced_copies():
+    d = _json("ink_maximum_offset.json")["offsets"]
+    zero = d["0.0"]
+    displaced = {k: v / zero - 1 for k, v in d.items() if k != "0.0"}
+    assert all(g < 0 for g in displaced.values())
+    text = _flat(_SUMMARY)
+    assert len(displaced) == 6 and len(d) == 7
+    assert "Six displaced copies (seven offsets, with 0 vx)" in text
+    lo, hi = max(displaced.values()), min(displaced.values())
+    assert f"score below the fitted one ({_pct(lo, 1)} to {_pct(hi, 1)})" in text
+
+
+def test_finding_70_ratio_against_the_control_bound():
+    rows = _json("interp_scorer_stability.json")["rows"]
+    bound = max(
+        max(abs(r["d_jpeg"]), abs(r["d_noise1"]), abs(r["d_shift1"])) for r in rows
+    )
+    extreme = sorted(rows, key=lambda r: abs(r["d_smooth"]))[-2:]
+    ratios = sorted(abs(r["d_smooth"]) / bound for r in extreme)
+    own = sorted(
+        abs(r["d_smooth"])
+        / max(abs(r["d_jpeg"]), abs(r["d_noise1"]), abs(r["d_shift1"]))
+        for r in extreme
+    )
+    text = _flat(_SUMMARY)
+    assert f"move fg by ≤ {bound * 100:.1f}%" in text
+    smooth = sorted(abs(r["d_smooth"]) * 100 for r in extreme)
+    assert (
+        f"smooth moves the two extreme windows {smooth[0]:.1f}% and {smooth[1]:.1f}%, "
+        f"{ratios[0]:.0f}–{ratios[1]:.0f}× that bound (7–{own[1]:.0f}× each window's own largest "
+        "control"
+    ) in text
+    assert round(own[0]) == 7
