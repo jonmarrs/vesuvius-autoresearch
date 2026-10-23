@@ -138,29 +138,35 @@ _CLAIMS = [
     # 2026-09-27: the count's 1.2% was the CV of curbase_s1-s3, three seeds since found
     # unusually tight -- reports/control_sensitivity.md
     (
-        r"count\W+(\w+\W+){0,4}?\**1\.2\s*%",
+        # `total_fg_pixels` is the count; two placement reports named it so
+        r"\b(count|total_fg_pixels)\W+(\w+\W+){0,4}?\**(?<![\d.])1\.2\s*%",
         "fits differing only by seed agree on the ink count to 1.2%",
         "6.4% across all nine seeds of the configuration (1.2% is three tight seeds)",
-        r"6\.4\s*%",
+        # 7.4% is the s4-s9 seeds' own count CV
+        r"(?<![\d.])(6\.4|7\.4)\s*%|0\.0644|three (unusually )?tight",
     ),
     # the outer floor at n=4; pooled over the pinned tier's 24 outer fits at df=18 the
     # inner floor is about 2.1x too wide -- reports/noise_floor_by_tier.md
     (
-        r"2\.6\s*[x×]\s*(too wide|wider)",
+        # and the outer report's own "two and a half times quieter"
+        r"(?<![\d.])2\.6\s*\**\s*[x×]\s*\**\s*(too wide|wider)"
+        r"|two and a half times\s+\**(quieter|wider|too wide)",
         "the inner floor is 2.6x too wide for the outer windings",
         "about 2.1x against the outer CV pooled at df=18",
-        r"2\.1\s*[x×]|df\s*=\s*18",
+        # not df=18 alone: a paragraph can name the pooling and keep the 2.6x
+        r"(?<![\d.])2\.1\s*[x×]|about twice at df\s*=\s*18",
     ),
     # ~12% is the pinned-tier design MDE, not what the nulls' data exclude
     (
-        r"(bounded|bounds?)\s+(at\s+)?(about\s+)?~?12\s*%",
+        r"\b(bounded|bounds?)\s+(at\s+)?(about\s+)?\**~?(?<![\d.])12\s*%",
         "the pinned-tier ink nulls are bounded at ~12%",
         "~12% is the design MDE; the intervals are [−18.4%, +16.7%] and [−20.7%, +13.1%]",
-        r"design MDE",
+        # saying what 12% is, not naming the design MDE beside it
+        r"\bis\s+the\s+(pinned[- ]tier('s)?\s+)?design\s+MDE",
     ),
     # 2026-10-23: smooth moves the extreme windows 6-7x the control bound
     (
-        r"\b7\s*[–-]\s*20\s*[x×]",
+        r"\b7\s*(to|[–-])\s*20\s*(\**\s*[x×]|\s+times)",
         "smooth interpolation moves the extreme windows 7-20x the control bound",
         "6-7x the 2.8% bound, 7-13x each window's own largest control",
         r"6\s*[–-]\s*7\s*[x×]",
@@ -314,9 +320,14 @@ def _claim(text):
         ("±3%", "the null rules out anything beyond ±3.0%"),
         ("±3%", "an ink effect within +/-3%"),
         ("count to 1.2%", "the count\nreproduces to **1.2%**, and the mechanism"),
+        ("count to 1.2%", "seeds agree on `total_fg_pixels` to 1.2% and on ink placement"),
         ("2.6x", "is 2.6x too wide for the outer ones"),
+        ("2.6x", "the inner floor is **2.6×** wider than the outer"),
+        ("2.6x", "It is **0.0421**, two and a half times **quieter**."),
         ("bounded at ~12%", "both ink nulls are bounded at ~12%, not zero"),
+        ("bounded at ~12%", "the pinned null bounds **~12%** at three fits"),
         ("7-20x", "smooth moves the two extreme windows by **7–20×** that"),
+        ("7-20x", "moves them 7 to 20 times the control bound"),
     ],
 )
 def test_the_pattern_sees_through_markup_and_rewording(claim, live):
@@ -334,5 +345,11 @@ def test_a_marker_is_the_figure_not_its_digits():
         "about 12% at three fits, 112.3% of baseline", _claim("about 6%")[3]
     )
     assert not _cleared("the three control seeds", _claim("±3%")[3])
+    assert not _cleared("a 16.4% shift", _claim("count to 1.2%")[3])
+    # naming the pooling, or the MDE, beside the old figure is not correcting it
+    assert not _cleared("pooled at df=18, 12.1x the bound", _claim("2.6x")[3])
+    assert not _cleared("the design MDE is 12%", _claim("bounded at ~12%")[3])
+    assert _cleared("~12% is the design MDE", _claim("bounded at ~12%")[3])
+    assert not re.search(_claim("2.6x")[0], "a 12.6x wider window", re.I)
     for figure in ("resolves 60%", "resolves 16%", "sees 6.5%"):
         assert not re.search(_claim("about 6%")[0], figure, re.I)

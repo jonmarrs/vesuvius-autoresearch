@@ -4,6 +4,11 @@
 `scripts/analyse_outer_floor.py` written before any of the three renders finished.
 **My registered prediction is a MISS**, and the miss is the finding.
 
+> **Noted 2026-10-23: 0.0421 is four seeds, at df=3.** Pooled over the pinned tier's 24 outer fits at
+> df=18 the outer CV is 0.0514, so the outer windings are about 2.1x quieter than the inner 0.1086,
+> not two and a half times; the floor is 10.3%, not 8.4%, and -11.03% exceeds it only narrowly.
+> `reports/noise_floor_by_tier.md`.
+
 ## Why this was measured
 
 `reports/gap_fix_outer_windings_still_not_established.md` judged two **outer-winding** numbers against

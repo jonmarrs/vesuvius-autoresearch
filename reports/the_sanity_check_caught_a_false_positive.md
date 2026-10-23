@@ -3,6 +3,10 @@
 **2026-09-13.** Registered in `docs/preregistration/2026-09-13_separation_within_winding.md`.
 `scripts/measure_separation_within_winding.py`, `reports/separation_within_winding.json`.
 
+> **Noted 2026-10-23: the count's "1.2%" was three seeds.** It is the CV of `curbase_s1-s3` (0.0124),
+> since found unusually tight; across all nine seeds of that configuration it is 6.4%.
+> `reports/control_sensitivity.md`.
+
 ## What happened
 
 The test correlated **local sheet separation** (3D distance between the two arms' fitted surfaces at

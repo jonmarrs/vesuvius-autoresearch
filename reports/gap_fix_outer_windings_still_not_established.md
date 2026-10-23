@@ -7,9 +7,10 @@
 > the observation. Read "far inside its floor" below as **borderline**.
 > `reports/outer_winding_noise_floor.md`.
 >
-> *(Noted 2026-10-23: pooled over the pinned tier's 24 outer fits at df=18, the outer floor is 10.3%,
-> so the inner one is about 2.1x too wide, not 2.6x. -11.03% still exceeds it, narrowly.
-> `reports/noise_floor_by_tier.md`.)*
+> *(Noted 2026-10-23: the pinned tier's 24 outer fits pool to CV 0.0514 at df=18
+> (`reports/noise_floor_by_tier.md`), so the outer floor is 2 × 0.0514 = 10.3% and the inner one about
+> 2.1x too wide, not 2.6x. -11.03% still exceeds it, narrowly, and the floor's df=18 interval,
+> 7.8–15.2%, still straddles it, so UNRESOLVED stands.)*
 
 **2026-09-01.** Registered in `docs/preregistration/2026-09-01_gap_fix_measured_where_it_acts.md`,
 before either render. **The registered expectation is met, and it was an expectation of a null**: one
