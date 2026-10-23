@@ -5,6 +5,10 @@
 and could not tell genuine movement from the two flattenings warping differently. This removes that
 ambiguity. `scripts/compare_ink_in_volume.py`, `reports/ink_volume_all_arms.json`.
 
+> **Noted 2026-10-23: the count's "1.2%" was three seeds.** It is the CV of `curbase_s1-s3` (0.0124),
+> since found unusually tight; across all nine seeds of that configuration it is 6.4%.
+> `reports/control_sensitivity.md`.
+
 ## Method
 
 Every fit's flattened strip has a tifxyz beside it giving the volume (x, y, z) of each strip cell, so

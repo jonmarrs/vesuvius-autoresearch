@@ -4,6 +4,10 @@
 written and committed before the numbers were computed. No arm of triplet C was scored when this ran,
 and this study does not touch C.
 
+> **Noted 2026-10-23: the count's "1.2%" was three seeds.** It is the CV of `curbase_s1-s3` (0.0124),
+> since found unusually tight; across all nine seeds of that configuration it is 6.4%.
+> `reports/control_sensitivity.md`.
+
 ## Result
 
 `curbase_s1` and `curbase_s1rr` are the **same fit, same seed, same meshes**. Only the render and

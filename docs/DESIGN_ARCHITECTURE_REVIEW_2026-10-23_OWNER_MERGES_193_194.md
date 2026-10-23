@@ -53,7 +53,7 @@ This round covers the 03:12, 04:12, 05:13, 06:12 and 07:13 UTC firings.
   - the release name and hash, and the headless environment;
   - "+29/-1 lines" in two files.
 - **README and FINDINGS still gave the design MDE as the bound.** Both said the two pinned ink nulls (patch
-  bootstrap, stripmatch) are bounded at ~12%.
+  bootstrap, stripmatch) are bounded at ~12%, which is the design MDE.
   - The README test read that figure from each study's `mde` field.
   - The data exclude [−18.4%, +16.7%] and [−20.7%, +13.1%].
   - #192 corrected the summary the same way; the two front documents were missed.

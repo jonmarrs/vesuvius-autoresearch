@@ -7,6 +7,10 @@ by `scripts/analyse_consensus_retest.py`. `reports/consensus_retest_verdict.json
 A-vs-B comparison were all committed before triplet C existed, and the run was triggered by a waiter
 when the last arm scored. Nobody sat between seeing a number and deciding what it meant.
 
+> **Noted 2026-10-23: the count's "1.2%" was three seeds.** It is the CV of `curbase_s1-s3` (0.0124),
+> since found unusually tight; across all nine seeds of that configuration it is 6.4%.
+> `reports/control_sensitivity.md`.
+
 ## Result
 
 | comparison | r | predicted | verdict |

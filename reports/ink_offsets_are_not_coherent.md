@@ -4,6 +4,10 @@
 decision rule was committed before this number existed.
 `scripts/measure_ink_offset_coherence.py`, `reports/ink_offset_coherence.json`.
 
+> **Noted 2026-10-23: the count's "1.2%" was three seeds.** It is the CV of `curbase_s1-s3` (0.0124),
+> since found unusually tight; across all nine seeds of that configuration it is 6.4%.
+> `reports/control_sensitivity.md`.
+
 ## The hypothesis being tested
 
 `reports/ink_placement_in_volume.md` found the between-seed ink disagreement has a characteristic
