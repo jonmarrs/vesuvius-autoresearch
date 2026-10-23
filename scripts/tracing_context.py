@@ -93,11 +93,15 @@ def crop(volume: np.ndarray, origin, size: int = SIZE) -> np.ndarray:
 
 
 def _replace_from_tmp(path: Path, write) -> None:
-    """Write through `write(tmp_path)` beside PATH, then rename it into place."""
+    """Write through `write(tmp_path)` beside PATH, then rename it into place. mkstemp's 0600 becomes the mode a new
+    file gets from the umask, or the replaced file's (tests/test_file_modes.py)."""
+    from vesuvius_autoresearch.core.file_modes import replacement_mode
+
     fd, tmp = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
     os.close(fd)
     try:
         write(Path(tmp))
+        os.chmod(tmp, replacement_mode(path))
         os.replace(tmp, path)
     except BaseException:
         Path(tmp).unlink(missing_ok=True)
@@ -121,6 +125,8 @@ def write_ct(out: Path, image: np.ndarray) -> None:
     import zarr
     from numcodecs import Blosc
 
+    from vesuvius_autoresearch.core.file_modes import current_umask
+
     if out.exists():
         if not np.array_equal(zarr.open(str(out / "0"), mode="r")[...], image):
             raise FileExistsError(f"{out} differs from the crop it should hold")
@@ -131,6 +137,8 @@ def write_ct(out: Path, image: np.ndarray) -> None:
         arr = zarr.open(str(build / "0"), mode="w-", shape=image.shape, chunks=(128, 128, 128), dtype="u1",
                         compressor=Blosc(cname="lz4", clevel=5, shuffle=Blosc.SHUFFLE))  # fmt: skip
         arr[...] = image
+        # mkdtemp's 0700 -> a new directory's mode
+        os.chmod(build, 0o777 & ~current_umask())
         build.rename(out)
     except BaseException:
         shutil.rmtree(build, ignore_errors=True)

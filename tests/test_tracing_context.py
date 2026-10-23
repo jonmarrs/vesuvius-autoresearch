@@ -125,6 +125,40 @@ def test_prepare_writes_each_octant_and_resumes(tmp_path):
         tc.prepare(data, ct, **args)
 
 
+def test_prepare_gives_its_outputs_the_umasks_mode(tmp_path):
+    """mkstemp and mkdtemp create 0600 and 0700; renamed into place as they are, the outputs would be the owner's
+    alone (tests/test_file_modes.py)."""
+    import os
+    import stat
+
+    parent = "s5_00100_00200_00300_8"
+    src, zarrs, _ = _fake_source(tmp_path, parent, 8)
+    data, ct = tmp_path / "w" / "data", tmp_path / "w" / "ct"
+    previous = os.umask(0o027)
+    try:
+        out = tc.prepare(
+            data,
+            ct,
+            src=src,
+            zarrs=zarrs,
+            parents=[parent],
+            octants=[(0, 0, 0)],
+            size=4,
+        )
+    finally:
+        os.umask(previous)
+    stem = out["stems"][0]
+
+    def mode(p):
+        return stat.S_IMODE(os.stat(p).st_mode)
+
+    assert (
+        mode(data / f"{stem}_image.tif") == 0o640
+        and mode(data / f"{stem}.nml") == 0o640
+    )
+    assert mode(ct / f"{stem}.zarr") == 0o750
+
+
 def test_prepare_refuses_when_finding_85s_array_differs_from_the_tiff(tmp_path):
     import zarr
 
@@ -295,3 +329,12 @@ def test_the_chain_freezes_every_script_it_runs():
         "make_tracer_presence"
     }
     assert set(frozen) == {f"{s}.py" for s in want}
+
+
+def test_the_chain_runs_the_registered_commits_package():
+    """The shared venv's editable install resolves vesuvius_autoresearch from the main checkout; the chain pins it."""
+    text = CHAIN.read_text()
+    pin = text.index('export PYTHONPATH="$REPO/src')
+    assert pin < text.index(
+        '"$PY" "$LOOPDIR/scripts/loop_control.py"'
+    ) and pin < text.index("vesuvius_autoresearch.fibers.bench_cli")
