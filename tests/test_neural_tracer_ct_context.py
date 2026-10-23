@@ -21,6 +21,29 @@ F91_CHAIN = _REPO / "repro/fibers/run_neural_tracer_chain.sh"
 COV = cc.COV
 
 
+def test_an_array_written_into_place_gets_the_umasks_mode(tmp_path):
+    """mkdtemp creates 0700; renamed into place as it is, the array would be the owner's alone
+    (tests/test_file_modes.py)."""
+    import os
+    import stat
+
+    previous = os.umask(0o027)
+    try:
+        cc._write_array(
+            tmp_path / "a.zarr", "0", np.zeros((4, 4, 4), np.uint8), (2, 2, 2)
+        )
+    finally:
+        os.umask(previous)
+    assert stat.S_IMODE(os.stat(tmp_path / "a.zarr").st_mode) == 0o750
+
+
+def test_the_chain_runs_the_registered_commits_package():
+    """The shared venv's editable install resolves vesuvius_autoresearch from the main checkout; the chain pins it."""
+    text = CHAIN.read_text()
+    pin = text.index('export PYTHONPATH="$REPO/src')
+    assert pin < text.index('"$PY" "$LOOPDIR/scripts/loop_control.py"')
+
+
 def test_the_conversion_is_villas_generator():
     raw = np.array([0, 1, 256, 257, 514, 32767, 65278, 65279, 65535], np.uint16)
     want = np.clip(raw.astype(np.float64) / 257, 0, 255).astype(np.uint8)

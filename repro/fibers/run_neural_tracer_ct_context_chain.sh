@@ -15,6 +15,9 @@ set -uo pipefail
 REPO="${REPO:-/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch}"
 LOOPDIR="${LOOPDIR:-/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch}"
 PY="$REPO/.venv/bin/python"
+# The shared venv's editable install resolves the package from the main checkout; this pins it to $REPO's, the
+# registered commit.
+export PYTHONPATH="$REPO/src${PYTHONPATH:+:$PYTHONPATH}"
 T="${T:-/home/jon/openclaw-workspace/Neo-VM/spiral_out/neural_tracer}"
 TPY="$T/venv/bin/python"
 W="${W:-$T/ct_context_run}"

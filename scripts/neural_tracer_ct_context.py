@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import shutil
 import statistics
 import sys
@@ -139,6 +140,8 @@ def _write_array(
     import zarr
     from numcodecs import Blosc
 
+    from vesuvius_autoresearch.core.file_modes import current_umask
+
     if out.exists():
         raise FileExistsError(out)
     out.parent.mkdir(parents=True, exist_ok=True)
@@ -148,6 +151,8 @@ def _write_array(
                         compressor=compressor or Blosc(cname="lz4", clevel=5, shuffle=Blosc.SHUFFLE),
                         write_empty_chunks=True)  # fmt: skip
         arr[...] = data
+        # mkdtemp's 0700 -> a new directory's mode (tests/test_file_modes.py)
+        os.chmod(build, 0o777 & ~current_umask())
         build.rename(out)
     except BaseException:
         shutil.rmtree(build, ignore_errors=True)
