@@ -262,6 +262,8 @@ finding 19 is a side effect of selecting on satisfaction, not the cause of findi
 +16.24% geometry number carries no credit: BOOTSTRAP is selected ON satisfaction and the control is
 not, so it is guaranteed by construction. Three BOOTSTRAP arms, two independently-built controls,
 neither favouring them. Both nulls bounded at ~9.6% as registered, ~12% corrected, not empty. *(corrected 2026-09-12 to ~12%: the registered MDE used a df=3 CV that was optimistic — `reports/noise_floor_by_tier.md`)*
+*(Corrected 2026-10-23: ~9.6% and ~12% are the design MDE, not what the data exclude. The intervals
+are bootstrap [−18.4%, +16.7%] and stripmatch [−20.7%, +13.1%]; `reports/no_lever_has_improved_reading.md`.)*
 `reports/stripmatch_verdict.md`, `reports/stripmatch_draw_stability.md`.
 
 **22. Winding constraints improve the geometry and do not reach the reading.**
@@ -447,7 +449,10 @@ the strip denotes the same papyrus in every arm — and the non-blank control.
 df 2.4), because the ablated arm is **3.4× noisier** than the baselines (CV 0.0419 vs 0.0124), driven
 by one arm 6.9% below its siblings that passed every validity check. The power calculation assumed the
 manipulation would not change the variance. **Budget a future anchor study from the ablated arm's
-spread, not the baselines'.** `reports/anchor_ablation_verdict.md`.
+spread, not the baselines'.** `reports/anchor_ablation_verdict.md`. *(Corrected 2026-10-23, from
+2026-09-27: against the render-matched `curbase_s4-s9` the estimate is −5.49% [−14.52%, +3.53%], and
+against all nine seeds −4.00% [−11.79%, +3.80%]. It rules out a gain above about 3.5%, not a loss of
+10–15%. `reports/control_sensitivity.md`.)*
 
 **A seventh self-correction, and this one was my own pre-registration.** The same study moved
 `satisfied_area` **+1.39% at p=0.0032**, and the registration argued that was interpretable here —
@@ -463,7 +468,9 @@ computed over — took five minutes after the fact.
 **29. villa's objective is far more reproducible than the ink it counts.** *(exploratory)*
 `total_fg_pixels` is a count, and every ablation here returns null on it — but a count is silent about
 placement. Comparing ink maps in **volume coordinates**, in the scroll's own frame, fits differing
-only by RNG seed agree on the count to **1.2%** and on ink placement at **r ≈ 0.70**, against a
+only by RNG seed agree on the count to **1.2%** *(corrected 2026-10-23: the CV of three seeds since
+found unusually tight; across all nine of that configuration it is 6.4%, `reports/control_sensitivity.md`)*
+and on ink placement at **r ≈ 0.70**, against a
 θ-rotated null of **−0.09**. Two runs scoring identically are not reading the same text.
 **And constraint changes move the ink no more than reseeding does** (0.701 between configs vs 0.699
 within), which *strengthens* findings 25 and 28 rather than undermining them: "+0.28% on a count" does
@@ -515,7 +522,10 @@ strip area and ordinary density spread. `reports/rerender_test_verdict.md`.
 **34. The scorer is deterministic; essentially all variance is upstream of it.**
 Re-scoring the same strip with the same code moves `total_fg_pixels` by **26 pixels in 2.9 million
 (0.0009%)**. Against 1.44% for a render-code change and ~2.5% CV seed-to-seed, **the fit dominates and
-there is nothing to stabilise in the scoring step.** This also sharpens finding 29: placement
+there is nothing to stabilise in the scoring step.** *(Corrected 2026-10-23: re-rendering identical
+meshes on the same code moves the count 3.04%, and the 1.44% across the code change sits inside it,
+finding 33. The current-tier seed CV is 0.0536 on nine seeds, finding 44, and 0.0909 fit-only on
+`curbase`, finding 53. The fit still dominates.)* This also sharpens finding 29: placement
 reproducing at only r ≈ 0.70 is a property of fitting and flattening, not of a noisy detector — given
 the same strip twice, the detector returns the same answer. *(Qualified by finding 40: part of that
 0.70 is the binning, not the pipeline.)*
@@ -568,7 +578,8 @@ rather than explaining it.
 
 The bigger number came from a control the registration forced. **About half the ink-bearing bins hold
 ink in only one arm**, yet those bins carry only **14–20% of the pair's ink**. That reconciles the
-finding this whole line rests on: the count reproduces to 1.2% while placement reproduces at 0.70
+finding this whole line rests on: the count reproduces to a few percent (1.2% on three seeds, 6.4%
+across nine; corrected 2026-10-23, finding 29) while placement reproduces at 0.70
 because **the disagreement is concentrated in sparse, low-ink bins** while the bulk of the ink lands
 where both arms agree. Dropping those bins silently would have hidden it.
 `reports/normal_separation_contributes_but_does_not_explain.md`.
@@ -768,7 +779,8 @@ layer; it was overturned only by checking whether the probe tracked the target.
 flatten path; every "seed" is a geometric init point. What it has is 174 scatter/atomic sites,
 `grid_sample`, a fused Triton kernel, and no request for determinism. Two flattens under
 `torch.use_deterministic_algorithms(True)` + `CUBLAS_WORKSPACE_CONFIG` produce **byte-identical
-`x/y/z.tif`**, zero escaped-op warnings, at 9.5× flatten cost (~11 min vs ~4, against 2 h renders).
+`x/y/z.tif`**, zero escaped-op warnings, at 9.5× lower flatten throughput (~11 min vs ~4 of wall time, about 2.7×, against 2 h renders;
+corrected 2026-10-23, the 9.5× is stage-0 iterations per second).
 Reduction order is the *whole* cause. The registered prediction — a residual from the Triton
 kernel — missed in the good direction. **Reproducible is not correct**: the deterministic flatten
 lays the sheet out 6.6–7.3 vx in-plane from *both* stock layouts, on the same surface (0.23–0.26 vx
@@ -792,11 +804,15 @@ loop. `reports/fit_rng_dominates_the_flatten_was_never_binding.md`.
 ## Closing note on the noise line, superseding the one above
 
 Findings 38–43 excluded four routes for the placement instability and left it unexplained. Findings
-47–52 explain it: **the lasagna flatten is a stochastic optimiser whose run-to-run variation comes
-entirely from CUDA reduction order**, laying the same surface out on a grid offset ~7 voxels in-plane
-(0.25 vx along the normal; corrected 2026-09-22) from identical input and
-moving the count 3% and the placement far more. It can be switched off. The fit-only floor is now measured (finding 53): **0.09 [0.06, 0.22]**, fit RNG,
-indistinguishable from the stock spread. *(Corrected 2026-09-22: the next sentence is wrong. Measured in
+47–52 explain the flatten's share, which is the count: **the lasagna flatten is a stochastic optimiser
+whose run-to-run variation comes entirely from CUDA reduction order**, laying the same surface out on a
+grid offset ~7 voxels in-plane (0.25 vx along the normal; corrected 2026-09-22) from identical input and
+moving the count 3%. It can be switched off. The fit-only floor is now measured: **0.09 [0.06, 0.22]**
+on `curbase` (finding 53), indistinguishable from its stock spread, and **0.0736 [0.051, 0.134]** pooled
+across the tier (finding 57); both are fit RNG. *(Corrected 2026-10-23: this said findings 47–52
+explain the placement instability, that the flatten moves "the placement far more", and gave the
+`curbase` floor alone. Re-laid-out, the same fit agrees on placement at 0.94–0.97, finding 56;
+placement is the fit's.)* *(Corrected 2026-09-22: the next sentence is wrong. Measured in
 the volume frame, the same fit re-laid-out by the flatten agrees on placement at 0.94–0.97, while
 different fits agree at ~0.72 whether the flatten is stochastic or deterministic. Placement instability
 belongs to the FIT; the flatten re-draws the local ink COUNT.
@@ -832,7 +848,7 @@ opposite. `reports/the_flatten_noise_is_local_rescoring.md` (section 4).
 twelve deterministic fits. BETWEEN, as registered, but the interval spans all three bands. **3v3
 resolves ~17%** at the point estimate (~30% at the interval's top). `reports/the_pooled_fit_only_floor.md`.
 
-**58. No free offset lever, and a mesh offset would reach the render anyway.** Seven radial offsets of
+**58. No free offset lever, and a mesh offset would reach the render anyway.** Six displaced copies (seven offsets, with 0 vx) of
 one flattened surface all score below the fitted one (−2.2% to −19.8%). The resolution is ~2–3%, not
 the 0.0042% first claimed, because each displaced arm is different content. The flatten passes a mesh
 offset through at **T = 0.94**. `reports/no_free_offset_lever.md`,
@@ -947,7 +963,7 @@ constraints buy for reading" is bounded at ~8–12%, not ~3%. The filing now say
 `reports/control_sensitivity.md`.
 
 **68. Same-winding constraints, six seeds a side: NULL, bounded at about ±9% on reading.** This extends
-finding 23 on current code, pre-registered before the first fit. `nosamecur_s1-s6` against the
+finding 25 on current code *(corrected 2026-10-23: this said finding 23)*, pre-registered before the first fit. `nosamecur_s1-s6` against the
 render-matched `curbase_s4-s9` gives **+0.72% [−8.13%, +9.57%]**, so the constraints buy at most
 8.1% of reading and removing them gains at most 9.6%.
 
@@ -988,7 +1004,8 @@ inert.** Pre-registered (`docs/preregistration/2026-10-02_surface_interpolation_
   Δ`total_fg_pixels` from −20.2% to +17.6% (median |Δ| 5.2%), **pooled −1.27%**.
 * **My prediction (|Δ| < 1% every window) FAILED.** The one-crop smoke (−0.09%) was unrepresentative.
 * **A post-hoc control rules out scorer jitter:** a JPEG re-pass, ±1-grey noise on 8% of pixels and a
-  1-px shift move fg by ≤ 2.8%, while smooth moves the extreme windows 7–20× that. One window (+1.7%)
+  1-px shift move fg by ≤ 2.8%, while smooth moves the two extreme windows 17.6% and 20.2%, 6–7× that
+  bound (7–13× each window's own largest control; corrected 2026-10-23, this said 7–20×). One window (+1.7%)
   is within the control range.
 * **Not coverage** (+0.2–0.5%) and **not p95 normalisation**. Most plausibly the scorer's known
   sensitivity to sub-voxel surface shifts. There is no sign smooth reads text better: line score
@@ -1208,7 +1225,7 @@ Pre-registered (`93115122`); all 21 ScrollGT fiber targets, the 11 in-sample one
 * **No frame offset (P1 withheld):** the best shift within ±4 voxels gains 0.0020 and 0.0017; every axis peaks at or
   next to zero.
 * **P2 held:** at P ≥ 0.1 coverage is 0.764 and 0.689, still below the in-sample Scroll-5 256³ minimum (0.8185).
-* **P3 FAILED:** their misses are softer than in sample (soft-miss fraction 0.340 vs at most 0.289). Verdict
+* **P3 FAILED:** their misses are softer than in sample (soft-miss fraction 0.340 vs at most 0.289 on the in-sample Scroll-5 cubes). Verdict
   `SOFTER_BUT_NOT_RESCUED`.
 * Descriptive: Scroll 3, where the mask holds, is softer still (0.364–0.464), so softness marks unseen data, not this
   failure. What sets the two cubes apart is fiber with no voxel at P ≥ 0.05 within 2 voxels: 19.6% and 25.2%, against

@@ -67,6 +67,8 @@ the **linear** composite with three meaningless changes:
 | 56021 | +1.72% | +0.25% | +0.57% | +1.49% |
 
 Meaningless changes move fg by **≤ 2.8%**. Smooth moves the two extreme windows by **7–20×** that.
+*(Corrected 2026-10-23: 17.61% and 20.21% are 6–7× the 2.8% bound, and 12.7× and 7.2× each window's
+own largest control. No reading gives 20×.)*
 Window 56021's +1.72% is **within** the control range, so not every window's effect is resolved.
 The line score moves by ≤ 0.014 under the controls and by −0.086 under smooth at 77226.
 

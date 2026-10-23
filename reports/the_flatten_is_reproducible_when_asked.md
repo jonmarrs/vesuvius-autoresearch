@@ -43,6 +43,8 @@ There is no other source.
 manipulations, every seed replicate, villa's own loop — has been paying ~3% of flatten noise that
 no fit seed touches. That noise can be turned off with an environment variable and a 10× slower
 flatten. On this box that is ~11 minutes per arm instead of ~4, against renders that take ~2 hours.
+*(Noted 2026-10-23: "10× slower" is the stage-0 throughput, 9.5×; in wall time, 637–679 s against
+~4 min, it is about 2.7×.)*
 **The cost is negligible relative to the pipeline it sits in.**
 
 **Reproducible is not the same as correct.** `det_a` sits 6.6–7.3 vx from *both* stock surfaces —

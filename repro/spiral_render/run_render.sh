@@ -49,9 +49,10 @@ cd "$W/spiral-fitting"
 # run-to-run variation is CUDA reduction order and nothing else (no RNG on the
 # path): two stock flattens of one mesh set land 7.15 vx apart and move
 # total_fg_pixels 3.04%; under deterministic algorithms they are byte-identical.
-# Cost ~9.5x on the flatten, ~11 min instead of ~4, against 2h renders. The shim
-# is a sitecustomize.py that activates only when the variable is set, so
-# leaving it on PYTHONPATH unconditionally changes nothing for stock runs.
+# Cost: ~9.5x lower stage-0 throughput, ~11 min of wall time instead of ~4,
+# against 2h renders. The shim is a sitecustomize.py that activates only when
+# the variable is set, so leaving it on PYTHONPATH unconditionally changes
+# nothing for stock runs.
 # reports/the_flatten_is_reproducible_when_asked.md
 if [ "${FLATTEN_DETERMINISTIC:-}" = "1" ]; then
   echo "[run_render] FLATTEN_DETERMINISTIC=1: flatten will be bit-reproducible (~9.5x slower); shim=$SHIM_DIR" >&2
