@@ -320,7 +320,10 @@ def _claim(text):
         ("±3%", "the null rules out anything beyond ±3.0%"),
         ("±3%", "an ink effect within +/-3%"),
         ("count to 1.2%", "the count\nreproduces to **1.2%**, and the mechanism"),
-        ("count to 1.2%", "seeds agree on `total_fg_pixels` to 1.2% and on ink placement"),
+        (
+            "count to 1.2%",
+            "seeds agree on `total_fg_pixels` to 1.2% and on ink placement",
+        ),
         ("2.6x", "is 2.6x too wide for the outer ones"),
         ("2.6x", "the inner floor is **2.6×** wider than the outer"),
         ("2.6x", "It is **0.0421**, two and a half times **quieter**."),

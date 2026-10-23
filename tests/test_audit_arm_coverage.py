@@ -115,6 +115,13 @@ def test_a_tag_with_only_a_fit_directory_is_not_a_phantom(tmp_path, monkeypatch)
     assert audit(str(tmp_path))["phantoms"] == []
 
 
+def test_a_file_named_like_a_fit_is_not_a_fit(tmp_path, monkeypatch):
+    """Only a fit *directory* puts a tag on disk; a stray file with the name does not."""
+    _naming(monkeypatch, 'ARMS = ("upfit_s7",)\n')
+    (tmp_path / "2026-09-24_s1_slice-13056-18432_38442-patch_upfit_s7").write_text("")
+    assert audit(str(tmp_path))["phantoms"] == ["upfit_s7"]
+
+
 def test_a_tag_with_no_directory_at_all_is_a_phantom(tmp_path, monkeypatch):
     _naming(monkeypatch, 'ARMS = ("upfit_s7",)\n')
     (
