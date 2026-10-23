@@ -1,5 +1,22 @@
 # Villa engineering opportunities — 2026-10-23 UTC
 
+**Further review:** an [audit of all 853 published fiber annotation files](fiber_reference_provenance_2026-10-23.md)
+supports an eight-line documentation clarification about tracer-generated
+references, related to [#2264](https://github.com/ScrollPrize/villa/issues/2264).
+The patch is pushed to `jonmarrs/villa:docs/fiber-reference-provenance` and
+preserved with its audit in [Autoresearch #197](https://github.com/jonmarrs/vesuvius-autoresearch/pull/197).
+Villa PR creation and merge again returned HTTP 403 during publication review.
+The existing native retry fix remains the first unpublished code contribution
+to pursue. Available GitHub Actions runs on the three existing Villa PRs now
+pass; the Vercel preview status remains blocked by authorization.
+
+**Follow-up:** [#1482](https://github.com/ScrollPrize/villa/issues/1482) is a
+live code candidate after its previous fix expired unmerged. A bounded retry
+fix, nine new tests and a real-mesh rejection probe are now prepared;
+see [the focused review](villa_native_retry_cycle_2026-10-23.md).
+The TIFF resume bug in #1404 was also checked and is already fixed by merged
+#1695; the Windows seed failure in #1594 is already fixed by merged #1595.
+
 One new contribution is published as [Villa #2259](https://github.com/ScrollPrize/villa/pull/2259):
 the headless AppImage CLI instructions for
 [#2153](https://github.com/ScrollPrize/villa/issues/2153). It is a small
@@ -11,12 +28,19 @@ The existing seeding and SQLite PRs remain the first upstream follow-ups.
 | Issue / PR | Current evidence | Action |
 | --- | --- | --- |
 | [#2141](https://github.com/ScrollPrize/villa/pull/2141), SQLite track reader | Open. Both maintainer findings addressed at `19575a45`; five local tests pass. | Upstream maintainer review and merge. |
-| [#2258](https://github.com/ScrollPrize/villa/pull/2258), fractional fiber planes | Open. Twenty local tests pass; default-spacing arrays match on three real scroll masks. Python CI remains in progress when checked. | Finish upstream checks and maintainer merge. |
+| [#2258](https://github.com/ScrollPrize/villa/pull/2258), fractional fiber planes | Open. Twenty local tests pass; default-spacing arrays match on three real scroll masks. Available GitHub Actions runs, including Python CI, pass. | Maintainer merge; linked account has no merge permission and Vercel preview needs authorization. |
 | [#2153](https://github.com/ScrollPrize/villa/issues/2153), headless AppImage | Open; no earlier matching PR found by issue number or AppRun/headless terms. The installation page claims all dependencies are bundled. | Published +29/-1-line documentation fix as [#2259](https://github.com/ScrollPrize/villa/pull/2259); awaiting checks and maintainer merge. |
 | [#2027](https://github.com/ScrollPrize/villa/issues/2027), spiral angle precision | Already fixed in [#2028](https://github.com/ScrollPrize/villa/pull/2028), merged October 21; current source uses `float_hi`. | No duplicate PR. |
 | [#2186](https://github.com/ScrollPrize/villa/issues/2186), recompression data loss | Active fix [#2199](https://github.com/ScrollPrize/villa/pull/2199). | No duplicate PR. |
 | [#2195](https://github.com/ScrollPrize/villa/issues/2195), slow patch finding | Active fix [#2197](https://github.com/ScrollPrize/villa/pull/2197). | No duplicate PR. |
 | [#2104](https://github.com/ScrollPrize/villa/issues/2104), bounded trace growth | Active fix [#2133](https://github.com/ScrollPrize/villa/pull/2133). | No duplicate PR. |
+| [#1360](https://github.com/ScrollPrize/villa/issues/1360), inference failures | Merged [#1827](https://github.com/ScrollPrize/villa/pull/1827) reports the inference error. Current inference, blending and structure-tensor CLI paths return failure on the checked errors/empty result. | No duplicate patch; checked source, no new full inference run. |
+| [#1674](https://github.com/ScrollPrize/villa/issues/1674), local Zarr indices | A reproducer in the issue comments found the probed coordinates correct; the sparse local mirror covered another region. | Do not patch coordinate mapping on this report alone. |
+| [#1673](https://github.com/ScrollPrize/villa/issues/1673), Zarr render crash | Later issue comments reproduce successful Linux/macOS current releases and identify the stale container's missing June fix. | No current crash established here; no renderer patch. |
+| [#2240](https://github.com/ScrollPrize/villa/issues/2240), Zarr merge compatibility | Active [#2244](https://github.com/ScrollPrize/villa/pull/2244). | No duplicate PR. |
+| [#1490](https://github.com/ScrollPrize/villa/issues/1490), auxiliary targets | Active [#2252](https://github.com/ScrollPrize/villa/pull/2252). | No duplicate PR. |
+| [#2072](https://github.com/ScrollPrize/villa/issues/2072), sheet-tracer area scale | Active [#2073](https://github.com/ScrollPrize/villa/pull/2073). | No duplicate PR. |
+| [#1333](https://github.com/ScrollPrize/villa/issues/1333), Volume hint | Active [#2129](https://github.com/ScrollPrize/villa/pull/2129). | No duplicate PR. |
 
 Other searched reports, including winding consistency, cached HTTP 404s and
 Copy block-edge seams, also have proposed fixes. Published-data issues such

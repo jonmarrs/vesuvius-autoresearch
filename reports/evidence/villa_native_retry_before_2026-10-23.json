@@ -1,0 +1,40 @@
+{
+  "scope": "deliberately supplied invalid mesh patches; no discovery, voxel reads or training",
+  "source_url": "https://vesuvius-challenge-open-data.s3.amazonaws.com/PHercParis4/segments/20230702185753/mesh/20230702185753-on-20260411134726-2.4um.tifxyz/",
+  "input_sha256": {
+    "meta.json": "105c2716274077c3c832765ae6c0885cf679b2cbdef9f89a49875b1ee12fb84f",
+    "x.tif": "4b39233839ab7e818ebd7bf12a4592655c705b9ed94771dc8590bf047b98ddca",
+    "y.tif": "ee5c6e63339bc6698473381267dd0b04599c09897f14a2ea6d34b4e991c01d22",
+    "z.tif": "a889c461f669567e85e7ab55936f0e5783eed28e019cf52303378c39997e6c27"
+  },
+  "mesh_shape": [
+    50600,
+    36400
+  ],
+  "corners_yx": [
+    [
+      0,
+      0
+    ],
+    [
+      0,
+      36336
+    ]
+  ],
+  "dataset_source_sha256": "c37975d67a80c93b2d1bbea17964a4505c634330caf012919be70de89c2eb021",
+  "outcome": "timeout",
+  "message": "retry did not terminate within two seconds",
+  "attempt_count": 7358,
+  "first_attempts": [
+    0,
+    1,
+    0,
+    1,
+    0,
+    1,
+    0,
+    1
+  ],
+  "seconds": 2.0090845429986075,
+  "bounded": false
+}

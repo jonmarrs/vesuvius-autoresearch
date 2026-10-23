@@ -1,0 +1,34 @@
+{
+  "scope": "deliberately supplied invalid mesh patches; no discovery, voxel reads or training",
+  "source_url": "https://vesuvius-challenge-open-data.s3.amazonaws.com/PHercParis4/segments/20230702185753/mesh/20230702185753-on-20260411134726-2.4um.tifxyz/",
+  "input_sha256": {
+    "meta.json": "105c2716274077c3c832765ae6c0885cf679b2cbdef9f89a49875b1ee12fb84f",
+    "x.tif": "4b39233839ab7e818ebd7bf12a4592655c705b9ed94771dc8590bf047b98ddca",
+    "y.tif": "ee5c6e63339bc6698473381267dd0b04599c09897f14a2ea6d34b4e991c01d22",
+    "z.tif": "a889c461f669567e85e7ab55936f0e5783eed28e019cf52303378c39997e6c27"
+  },
+  "mesh_shape": [
+    50600,
+    36400
+  ],
+  "corners_yx": [
+    [
+      0,
+      0
+    ],
+    [
+      0,
+      36336
+    ]
+  ],
+  "dataset_source_sha256": "6664d2f8b8ff29e18858e80174edf5fa15fd4c424b300029f1e9c8a0d2146c80",
+  "outcome": "runtime_error",
+  "message": "No admissible native crop after trying 2 distinct patches for requested idx 0 (dataset size 2); check the native crop size, surface geometry and supervision masks",
+  "attempt_count": 2,
+  "first_attempts": [
+    0,
+    1
+  ],
+  "seconds": 0.0005813160023535602,
+  "bounded": true
+}

@@ -1,0 +1,29 @@
+baseline-tests.txt (captured output; failure-summary excerpt)
+=========================== short test summary info ============================
+FAILED vesuvius/tests/ink_detection/test_native_retry_bounded.py::test_two_rejected_patches_terminate[full_3d]
+FAILED vesuvius/tests/ink_detection/test_native_retry_bounded.py::test_two_rejected_patches_terminate[full_3d_single_wrap]
+FAILED vesuvius/tests/ink_detection/test_native_retry_bounded.py::test_cycle_does_not_hide_an_admissible_patch
+FAILED vesuvius/tests/ink_detection/test_native_retry_bounded.py::test_retry_budget_bounds_large_datasets
+FAILED vesuvius/tests/ink_detection/test_native_retry_bounded.py::test_negative_index_is_counted_as_its_actual_patch
+5 failed, 4 passed in 0.27s
+
+final-tests.txt (captured output)
+.............                                                            [100%]
+=============================== warnings summary ===============================
+<frozen importlib._bootstrap>:241
+  <frozen importlib._bootstrap>:241: DeprecationWarning: builtin type SwigPyPacked has no __module__ attribute
+
+<frozen importlib._bootstrap>:241
+  <frozen importlib._bootstrap>:241: DeprecationWarning: builtin type SwigPyObject has no __module__ attribute
+
+<frozen importlib._bootstrap>:241
+  <frozen importlib._bootstrap>:241: DeprecationWarning: builtin type swigvarlink has no __module__ attribute
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+13 passed, 40 deselected, 3 warnings in 7.26s
+
+Autoresearch smoke (captured final lines)
+SKIP: augmentations_bg2 — create_training_transforms not available
+PASS: bandit_templates (0.00s)
+
+--- 8/11 passed, 3 skipped, 0 failed in 6.4s ---
