@@ -5,6 +5,13 @@ patch discovery. Actual InkDataset methods and tifxyz geometry run; unused
 volume handles are sentinels that forbid voxel reads. This checks the retry
 consumer, not training or whether default discovery selects these patches.
 Run in a configured Villa environment with its vesuvius/src on PYTHONPATH.
+
+Exit status: 0 when the retry is bounded (a RuntimeError after exactly the two
+patches), 1 when the probe ran and it is not, 2 when the probe refuses to run.
+Any other error, villa missing from PYTHONPATH among them, is a traceback and 1.
+It refuses a mesh that is not the published one, surface in either corner, a
+patch villa does not reject, a voxel read before the rejection and an existing
+record, and a refusal writes nothing.
 """
 from __future__ import annotations
 
@@ -13,6 +20,7 @@ import hashlib
 import json
 from pathlib import Path
 import signal
+import sys
 import time
 import warnings
 
@@ -30,27 +38,46 @@ HASHES = {
 }
 
 
+class Refused(Exception):
+    """The probe cannot measure the retry on these inputs; exit 2."""
+
+
 class NoVoxelReads:
+    # villa's first touch of a volume it reads is `.shape`, then indexing
     def __getitem__(self, key):
-        raise AssertionError("The geometry rejection must precede voxel reads")
+        raise Refused("The geometry rejection must precede voxel reads")
+
+    def __getattr__(self, name):
+        raise Refused("The geometry rejection must precede voxel reads")
 
 
 def main():
+    try:
+        return _probe()
+    except Refused as error:
+        print(f"refused: {error}", file=sys.stderr)
+        return 2
+
+
+def _probe():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--mesh", type=Path, required=True)
     ap.add_argument("--out", type=Path, required=True)
     args = ap.parse_args()
     if not hasattr(signal, "setitimer"):
-        raise RuntimeError("This bounded probe requires a POSIX interval timer")
+        raise Refused("This bounded probe requires a POSIX interval timer")
+    if args.out.exists():
+        raise Refused(f"{args.out} exists; records are never overwritten")
     for name, expected in HASHES.items():
         if hashlib.sha256((args.mesh / name).read_bytes()).hexdigest() != expected:
-            raise ValueError(f"{name}: not the stated published Scroll-1 mesh")
+            raise Refused(f"{name}: not the stated published Scroll-1 mesh")
     surface = read_tifxyz(args.mesh)
     surface.use_full_resolution()
     height, width = surface.shape
     corners = [(0, 0), (0, width - 64)]
     for y, x in corners:
-        assert not surface[y:y+64, x:x+64][3].any()
+        if surface[y:y+64, x:x+64][3].any():
+            raise Refused(f"the 64x64 region at y={y}, x={x} has surface; two empty ones are needed")
     config = InkDataConfig.from_mapping({
         "mode": "full_3d", "patch_size": [17, 64, 64],
         "patch_overlap": 0.25, "patch_min_labeled_coverage": 0., "seed": 17,
@@ -68,7 +95,8 @@ def main():
     data._open = lambda *args: NoVoxelReads()
     data._tifxyz_cache[str(args.mesh)] = surface
     original_sample = data._native_sample
-    assert all(original_sample(patch) is None for patch in patches)
+    if any(original_sample(patch) is not None for patch in patches):
+        raise Refused("villa admits a supplied patch; the probe needs two it rejects")
     attempts = []
 
     def sample(patch):

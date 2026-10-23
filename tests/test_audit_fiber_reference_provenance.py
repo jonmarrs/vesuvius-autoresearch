@@ -94,3 +94,57 @@ def test_failed_download_never_writes_success_manifest(tmp_path, monkeypatch):
     with pytest.raises(OSError, match="interrupted"):
         fetcher.main()
     assert not (destination / "download_manifest.json").exists()
+
+
+def _fetch(tmp_path, monkeypatch, listing, served):
+    requested = []
+
+    def open_url(url, **kwargs):
+        if url.endswith("/"):
+            return io.BytesIO(listing)
+        requested.append(url)
+        return io.BytesIO(served)
+
+    monkeypatch.setattr(fetcher, "urlopen", open_url)
+    destination = tmp_path / "snapshot"
+    monkeypatch.setattr(fetcher.sys, "argv", ["fetch", "https://example.org/fibers/", str(destination)])
+    return destination, requested
+
+
+def test_percent_encoded_names_are_downloaded_and_saved_decoded(tmp_path, monkeypatch):
+    # an autoindex lists "fiber one.json" as fiber%20one.json; the old filter
+    # dropped any href with a % in it, without counting it
+    captured = json.dumps({"type": "vc3d_fiber", "control_points": []}).encode()
+    destination, requested = _fetch(
+        tmp_path, monkeypatch, b'<a href="fiber%20one.json">fiber one</a>', captured)
+    fetcher.main()
+    assert requested == ["https://example.org/fibers/fiber%20one.json"]
+    assert (destination / "annotations" / "fiber one.json").read_bytes() == captured
+    manifest = json.loads((destination / "download_manifest.json").read_bytes())
+    assert [f["name"] for f in manifest["files"]] == ["fiber one.json"]
+    assert manifest["skipped_hrefs"] == []
+
+
+def test_links_that_leave_the_folder_are_recorded_not_fetched(tmp_path, monkeypatch, capsys):
+    captured = json.dumps({"type": "vc3d_fiber", "control_points": []}).encode()
+    leaving = ["../outside.json", "/other/x.json", "https://elsewhere.org/x.json",
+               "sub%2Fx.json", "a%5Cb.json", "c%3Ad.json"]
+    links = "".join(f'<a href="{h}">x</a>' for h in leaving + ["fiber.json"])
+    # only anchors are listed files; a page's own <link> is not one
+    links += '<link rel="alternate" href="index.json">'
+    destination, requested = _fetch(tmp_path, monkeypatch, links.encode(), captured)
+    fetcher.main()
+    assert requested == ["https://example.org/fibers/fiber.json"]
+    assert sorted(p.name for p in (destination / "annotations").iterdir()) == ["fiber.json"]
+    manifest = json.loads((destination / "download_manifest.json").read_bytes())
+    assert manifest["skipped_hrefs"] == sorted(leaving)
+    assert f"Skipped {len(leaving)} .json links that leave the folder" in capsys.readouterr().out
+
+
+def test_two_links_that_save_as_one_name_are_refused(tmp_path, monkeypatch):
+    destination, requested = _fetch(
+        tmp_path, monkeypatch, b'<a href="a%20b.json">1</a><a href="a b.json">2</a>', b"{}")
+    with pytest.raises(ValueError, match="two listed links save as a b.json"):
+        fetcher.main()
+    assert requested == []
+    assert not (destination / "download_manifest.json").exists()
