@@ -55,4 +55,11 @@ requests. Rounds 106 and 107 recorded this as an observation; this round fixes i
 - **Neighbours:** the ledger, the suite coverage guard, the three headline-number tests that read
   the survey, and the arm-tier test give 135 passed.
 - **Ruff** 0.9.10 `check` and `format` are clean on the script and the new test.
-- Pending: doc guards, doc audit, the standard suite.
+- **Doc guards:** 378 passed and 2 skipped on main `faa32e40` and on the branch.
+- **Doc audit:** the branch gains no entries.
+- **The standard suite** with the locked-package overlay: 2813 passed, 22 skipped and 1 xfailed, as on
+  main. The ten failures are main's ten environmental ones: nine need villa files, one is
+  `gp_winner`. The new test exercises a report script, not the loop's code, so it sits outside the
+  suite; the suite coverage guard agrees.
+- **No independent review this round.** The change is one label rule, a relabelled artifact, a
+  dated note and a binding test, each checked by perturbation.
