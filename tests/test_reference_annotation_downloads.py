@@ -45,6 +45,7 @@ def test_encoded_filename_is_downloaded_and_bound_to_the_audit(tmp_path, monkeyp
     "../outside.json", "%2E%2E%2Foutside.json", "%2foutside.json", "bad%5Cname.json",
     "https://elsewhere.example/outside.json", "fiber.json?download=1", "fiber.json#part",
     "bad%ZZ.json", "bad%FF.json", "bad%00.json", "bad%0A.json",
+    "/other/annotators/outside.json", "c%3Ad.json", "file:outside.json", "bad%7F.json",
 ])
 def test_skipped_json_links_are_recorded_without_claiming_a_complete_download(
     tmp_path, monkeypatch, capsys, unsafe
@@ -68,3 +69,11 @@ def test_anchor_without_an_href_is_ignored():
     listing = fetcher.Listing()
     listing.feed('<a href>empty</a><a>absent</a>')
     assert listing.names == set()
+
+
+def test_only_anchors_are_listed_files():
+    # a page's own <link> or <script> is not a file in the folder
+    listing = fetcher.Listing()
+    listing.feed('<link rel="alternate" href="index.json"><script src="app.json"></script>'
+                 '<a href="fiber.json">fiber</a>')
+    assert listing.names == {"fiber.json"} and listing.skipped_json_links == []
