@@ -42,7 +42,7 @@ Main has not moved since #195. There are no open pull requests. This round cover
 
 ## Verified, no change needed
 
-- **"7–20×"** survives only beside its correction, in its report and the summary.
+- **"7–20×"** survives only beside its correction (6–7×), in its report and the summary.
 - **Every live copy** of the four claims in README, FINDINGS and the summary already carries its
   correction, from #192 and #195.
 
@@ -50,8 +50,8 @@ Main has not moved since #195. There are no open pull requests. This round cover
 
 - **"9.5× flatten cost"** has no ledger entry. Its one remaining copy is the September SUBMIT filing, a
   filed record; an entry would need a note in it.
-- **`manipulation_effects_survey.json`** still labels the pinned nulls "null, bounds 12%". JSON is not
-  scanned by the ledger.
+- **`manipulation_effects_survey.json`** still labels the pinned nulls "null, bounds 12%", which is the
+  design MDE. JSON is not scanned by the ledger.
 
 ## Verification
 
