@@ -31,8 +31,8 @@
 > along the normal — [correction](reports/the_flatten_moves_the_grid_not_the_surface.md)) and move
 > `total_fg_pixels` **3.04%**.
 > It has no RNG to seed — the cause is CUDA reduction order alone — and asking PyTorch for
-> deterministic algorithms makes it **bit-reproducible** (identical `x/y/z.tif` by md5) at a 9.5×
-> flatten cost, ~11 min against 2 h renders
+> deterministic algorithms makes it **bit-reproducible** (identical `x/y/z.tif` by md5) at 9.5×
+> lower flatten throughput, ~11 min against ~4 per flatten and 2 h renders
 > ([measurement](reports/the_flatten_is_reproducible_when_asked.md)). That collapses the floor for
 > studies manipulating **one fixed surface** from 3.04% to **0.0014%** — 24 pixels — which is what
 > made a controlled result possible: displacing the flattened surface **4 voxels** costs ink in

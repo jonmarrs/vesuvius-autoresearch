@@ -53,7 +53,7 @@ moved the ink count by 107 px.
 
 **If arms differ by a re-flatten, the flatten's 3.04% (7 vx) is in your floor.** Either reuse one
 flatten (`RENDER_REUSE_FLATTEN=1`) if the manipulation acts on a fixed surface, or make it
-deterministic (`FLATTEN_DETERMINISTIC=1`, 9.5× flatten cost) if it does not.
+deterministic (`FLATTEN_DETERMINISTIC=1`, about 2.7× the flatten's wall time) if it does not.
 
 ## Predictions, fixed now
 

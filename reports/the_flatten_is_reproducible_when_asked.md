@@ -43,6 +43,8 @@ There is no other source.
 manipulations, every seed replicate, villa's own loop — has been paying ~3% of flatten noise that
 no fit seed touches. That noise can be turned off with an environment variable and a 10× slower
 flatten. On this box that is ~11 minutes per arm instead of ~4, against renders that take ~2 hours.
+*(Noted 2026-10-23: "10× slower" is the stage-0 throughput, 9.5×; in wall time, 637–679 s against
+~4 min, it is about 2.7×.)*
 **The cost is negligible relative to the pipeline it sits in.**
 
 **Reproducible is not the same as correct.** `det_a` sits 6.6–7.3 vx from *both* stock surfaces —
@@ -57,7 +59,8 @@ right than a stock run.
 **For villa:** `autoresearch.md` already names "CUDA non-determinism" alongside the seed (line
 52). What it does not say is *where* — the flatten, not the fit — nor *how much* — 3% on the
 objective — nor that it is removable with `torch.use_deterministic_algorithms(True)` plus
-`CUBLAS_WORKSPACE_CONFIG=:4096:8` at a 10× flatten cost. Villa's new
+`CUBLAS_WORKSPACE_CONFIG=:4096:8` at a 10× flatten cost *(stage-0 throughput; about 2.7× in wall
+time, noted 2026-10-23)*. Villa's new
 `test_flatten_state_handoff.py` tests export determinism; this is optimisation determinism, and it
 is the one that moves the ink count.
 
