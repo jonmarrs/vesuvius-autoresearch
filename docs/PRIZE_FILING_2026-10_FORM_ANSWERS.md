@@ -37,9 +37,10 @@ this month make the existing spiral-fitting workflow usable and reproducible:
   could silently drop a requested configuration change or GPU selection.
 - **#2044 (merged 2026-10-11 Pacific):** add opt-in `--sequential-folds` and
   average fold probabilities in place. On the real outer strip, stock scoring
-  was OOM-killed 70 seconds in at at least 27.6 GB; sequential scoring completed
-  at 13.8 GB in 1,009 seconds under a 26 GiB memory limit. It allows that strip
-  to be scored on the tested workstation without changing the scoring method.
+  was OOM-killed 70 seconds in, at a peak of at least 27.6 GB; sequential
+  scoring completed at 13.8 GB in 1,009 seconds under a 26 GiB memory limit.
+  It allows that strip to be scored on the tested workstation without changing
+  the scoring method.
 - **#2155 (merged 2026-10-21):** fix the spiral-fitting README's NVIDIA pip
   command to install `--group cuda`. The old command installed neither track
   extraction backend on Linux x86-64; the corrected command selects the CUDA

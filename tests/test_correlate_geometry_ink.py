@@ -124,11 +124,16 @@ def test_the_pooled_correlation_is_not_reported(capsys):
     import subprocess
     import sys as _s
 
-    out = subprocess.run(
+    proc = subprocess.run(
         [_s.executable, os.path.join(_REPO, "scripts", "correlate_geometry_ink.py")],
         capture_output=True,
         text=True,
-    ).stdout
+    )
+    # the script reads the scored fits under spiral_out; without them it says so
+    # and prints no table, which is not the pooled number this test is about
+    if "no scored fits with satisfaction found" in proc.stderr:
+        pytest.skip("spiral_out's scored fits are not on this machine")
+    out = proc.stdout
     assert "NON-COMPARABLE TIERS" in out
     assert "pinned tree:" in out
     # the old pooled framing must be gone

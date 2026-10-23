@@ -77,7 +77,7 @@ is ready to proceed independently.
 The [dated readiness record](../reports/evidence/october_prize_readiness_2026-10-23.json)
 preserves live merge timestamps, rules/form fingerprints, the public form's
 required questions, sibling repository revisions and all HTTP link results.
-The concise contribution answer is 368 words. The detailed draft now includes
+The concise contribution answer is 371 words. The detailed draft now includes
 Finding 95 with a new numeric binding test; the concise answer stays focused
 on the three merged fixes.
 
