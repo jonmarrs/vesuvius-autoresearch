@@ -4,16 +4,19 @@ Checked 2026-10-20. The next concrete contribution is a small correction to the
 neural fiber volume tracer's fractional `--plane-spacing`. It arose while
 preparing the physically matched seeding study following findings 91 and 92.
 
-The fix is prepared locally, with a PR draft and regression tests. Nothing new
-has been posted to Villa. The tracing experiment remains unrun.
+Updated at the 2026-10-22 publication review. The fix has real-data CPU
+evidence and regression tests. Full tracing with this patch remains unrun.
+The separate registered seeding-scale study completed on its pinned,
+unpatched Villa code: [finding 93](neural_tracer_seeding.md). All three
+predictions failed; this engineering fix does not revise that conclusion.
 
 ## Current upstream queue
 
 | Contribution | Verified state | Next action |
 | --- | --- | --- |
-| [#2141](https://github.com/ScrollPrize/villa/pull/2141), read-only SQLite track DBMs | Open. The fallback's author independently tested Windows 11 / Python 3.12.10: baseline fails; patched reader passes, 2 passed / 2 skipped. [Their reply](https://github.com/ScrollPrize/villa/pull/2141#issuecomment-6290970541) ends **“LGTM”**. | Keep the focused PR as submitted; record the independent validation. |
-| [#2155](https://github.com/ScrollPrize/villa/pull/2155), pip CUDA dependency group | Open; no human comment when checked. | Keep the focused PR as submitted. |
-| Fractional plane placement | Reproduced on real published masks, fixed locally, 20 regression cases pass. | Review the [draft](../docs/VILLA_DRAFT_fiber_fractional_plane_spacing.md), then supply the human motivation and verification Villa requests before publication. |
+| [#2141](https://github.com/ScrollPrize/villa/pull/2141), read-only SQLite track DBMs | Open; maintainer feedback addressed in `19575a45`: route all SQLite stores through the reader and preserve existing WAL commits. Five tests pass; the two new regressions fail on the prior PR head. Earlier [Windows validation](https://github.com/ScrollPrize/villa/pull/2141#issuecomment-6290970541) covered the original sidecar fix. | Await upstream review and merge permission. |
+| [#2155](https://github.com/ScrollPrize/villa/pull/2155), pip CUDA dependency group | Merged 2026-10-21 Pacific, `e016bc71d9b873b3e52871f42aa3e7a34520cfb1`. | Recorded in the October filing. |
+| Fractional plane placement | Reproduced on real published masks; 20 regression cases pass on rebased `242f0798`. | Publish the reviewed fix with its real-data evidence. |
 
 Searches of current issues and PRs for `plane-spacing`, `tile_dots`, and
 `fractional` + `fiber` found no contribution fixing this calculation. The
@@ -30,7 +33,7 @@ step, so planes drifted from the requested global grid and could differ when
 the same region was split into tiles. A positive spacing below one raised
 `ValueError: range() arg 3 must not be zero`.
 
-The proposed arm A asks for `64 * 7.91 / 9.6 = 52.733333...` grid voxels.
+The registered arm A used `64 * 7.91 / 9.6 = 52.733333...` grid voxels.
 On a published Scroll-1 mask, the old code seeded `z0`, `z52`, `z104`;
 the corrected code seeds `z0`, `z52`, `z105`. Each global multiple is now
 quantized individually to an integer sampling plane. Duplicate quantized
@@ -47,8 +50,9 @@ The upstream diff is **+8/-2 production lines**, plus 58 lines of tests.
 It leaves the smoothing, Hessian, fill-in seeding, model and stop rules alone.
 
 Prepared Villa branch: `fiber-fractional-plane-spacing` in
-`/workspace/villa-upstream-review`; commits `1ee851d` and `550ff31` on upstream
-`f4af1dc1ea664321e38d7c84fadb1a271694425e`. The portable change is
+`/workspace/villa-upstream-review`; reviewed commits `b3fe95e4` and `242f0798`
+on upstream `e2254ebe`. These rebase the measured `1ee851d` / `550ff31`
+patch without changing the production source bytes. The portable change is
 [`docs/villa_pr_fiber_fractional_plane_spacing.patch`](../docs/villa_pr_fiber_fractional_plane_spacing.patch).
 
 ## Real-data evidence
@@ -81,11 +85,13 @@ and the [initial rebase equivalence](villa_fractional_plane_spacing_source_equiv
 remain recorded. After hardening the patch, all nine comparisons were repeated
 against **upstream `f4af1dc` and final commit `550ff31`**. Every result row,
 including every seed-array hash, equals the initial measurement. The final
-JSON binds the repeated measurements to the current source-file hashes.
+JSON binds the repeated measurements to the measured source-file hashes.
+Those complete production files are byte-identical on the reviewed rebased
+branch (`e2254ebe` / `242f0798`); all 20 unit cases pass on that base too.
 
 ## Regression verification and limits
 
-On the **current** upstream base `f4af1dc`:
+On the measured upstream base `f4af1dc`:
 
 * Baseline: **17 failed, 3 passed**. The default-spacing controls pass.
 * Patched: **20 passed**. Tests exercise `tile_dots`, all three axes, whole
@@ -105,8 +111,11 @@ requires only NumPy and SciPy.
 
 Captured [validation output](evidence/villa_fractional_plane_spacing_2026-10-20.txt)
 includes the regression summaries and all nine real-data comparisons. The
-filing's existing number checks also pass: **19 passed, 4 skipped**; the
-skips require the separate ScrollGT checkout, which is absent here.
+filing's number checks originally passed: **19 passed, 4 skipped**. At the
+2026-10-22 publication review, the filing-number, merge-claim and registered
+seeding-analysis suites together pass **81 tests, 4 skipped**. The skips
+require the separate ScrollGT checkout, which is absent here. The frozen
+preregistration is identical to main; no registered experiment was changed.
 
 The [visual record](figures/villa_fractional_plane_spacing_2026-10-20.png)
 is a screenshot of the local validation report containing captured stdout
@@ -153,12 +162,13 @@ python -m repro.fibers.check_fractional_plane_spacing_example \
 
 ## Research consequence
 
-Do not silently substitute this correction into the proposed seeding-scale
-study. Its existing CPU counts were measured with the pinned Villa's old
-plane stepping. Before registering and launching a follow-up, choose the
-code version, freeze it, and recompute its expected seed counts. The
-hard-coded smoothing scale remains a separate experimental question; these
-small count changes do not establish its effect on tracing quality.
+Do not silently substitute this correction into the completed seeding-scale
+study. Finding 93 ran all 42 registered runs with pinned Villa `ccb431818`
+and its old plane stepping. Arm A's median ERLpen was 0.67 of native and
+arm B's 0.88; all three predictions failed. Any tracing comparison with this
+patch requires a new frozen code version and study. The small seed-count
+changes here establish no effect on tracing quality or explanation for the
+negative registered result.
 
 The production Villa pin, historical measurements, preregistered decision
 rules, checkpoint and running loop state have not been changed.

@@ -1,8 +1,8 @@
 # Draft: fiber volume seeding keeps fractional planes on the global grid
 
-Local draft only. Add the human motivation/verification required by Villa's
+PR description prepared from the measured research workflow. Villa's
 [contribution guidelines](https://github.com/ScrollPrize/villa/blob/f4af1dc1ea664321e38d7c84fadb1a271694425e/CONTRIBUTING.md)
-before opening it.
+request human commentary; the personal attestation below remains unchecked.
 Do not check the personal-verification box on someone else's behalf.
 The captured validation transcript is saved at
 `reports/evidence/villa_fractional_plane_spacing_2026-10-20.txt`. The visual
@@ -38,19 +38,22 @@ The twenty regression cases exercise all axes, fractional and integer
 spacing, tiling invariance, bounded subvoxel spacing, and invalid values.
 Baseline `f4af1dc`: 17 fail / 3 pass; patched: 20 pass.
 
-**Why / where this is useful:** The physically matched seeding study needs
-noninteger spacing when comparing 7.91 and 9.6 µm inputs. This fixes the
-placement it requests. It does not establish a quality improvement, and
-full GPU tracing has not been run with the patch.
+**Why / where this is useful:** Comparing physical seed spacing at 7.91 and
+9.6 µm requires noninteger grid spacing. This fixes the placement requested
+by that workflow. The registered study has since completed on its pinned,
+unpatched Villa version (finding 93); all three predictions failed. This
+patch does not change that result or establish a quality improvement.
+Full GPU tracing has not been run with the patch.
 
 - [ ] I personally verified that the example and proof above were produced
       by this PR on the stated data.
 
 ## Details
 
-* Base: `f4af1dc1ea664321e38d7c84fadb1a271694425e`, including #2165.
-  All nine real-data comparisons and twenty tests ran against this base
-  and the final patch (`550ff31`); the original measurements are retained.
+* Reviewed branch: `242f0798cbf3d512f372db050be08203018e71d1` on
+  `e2254ebe` (20 tests pass). All nine real-data comparisons used the same
+  production source bytes before the rebase (`f4af1dc` / `550ff31`);
+  the original measurements and source hashes are retained.
 * Production change: eight added lines, two removed. Smoothing, Hessian,
   fill-in seeding and tracing rules are unchanged.
 * Data: ScrollGT v0.8.1 masks for `s1_00497_01497_03997_256`,

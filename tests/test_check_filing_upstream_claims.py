@@ -113,10 +113,15 @@ def test_the_october_draft_states_its_merges_in_the_checked_form():
     others = {
         2045: {"number": 2045, "state": "MERGED", "mergedAt": "2026-10-12T04:35:15Z"}
     }
-    checks, missing = cf.month_checks(text, PRS, "2026-10", lookup=others.__getitem__)
+    # Updated from GitHub on 2026-10-22; retain the earlier fixtures for the checker cases above.
+    current_prs = PRS + [
+        {"number": 2155, "state": "MERGED", "mergedAt": "2026-10-21T19:50:31Z"}
+    ]
+    checks, missing = cf.month_checks(text, current_prs, "2026-10", lookup=others.__getitem__)
     assert missing == []
     assert checks and all(ok for _, ok, _ in checks), checks
     assert ("#2045 merged 2026-10-11", True) in _summary(checks)
+    assert ("#2155 merged 2026-10-21", True) in _summary(checks)
 
 
 @pytest.mark.parametrize(

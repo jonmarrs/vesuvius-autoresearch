@@ -1,6 +1,6 @@
 diff --git a/vesuvius/src/vesuvius/neural_tracing/tracers/fibers/tests/test_volume_seeding.py b/vesuvius/src/vesuvius/neural_tracing/tracers/fibers/tests/test_volume_seeding.py
 new file mode 100644
-index 0000000..e0dcb77
+index 00000000..e0dcb77d
 --- /dev/null
 +++ b/vesuvius/src/vesuvius/neural_tracing/tracers/fibers/tests/test_volume_seeding.py
 @@ -0,0 +1,58 @@
@@ -63,7 +63,7 @@ index 0000000..e0dcb77
 +    with pytest.raises(ValueError, match='plane spacing must be finite and positive'):
 +        plane_seeds(fiber_presence(2), 2, spacing, 16, 32)
 diff --git a/vesuvius/src/vesuvius/neural_tracing/tracers/fibers/tracing/volume.py b/vesuvius/src/vesuvius/neural_tracing/tracers/fibers/tracing/volume.py
-index 55b6682..733c77e 100644
+index 55b66828..733c77e1 100644
 --- a/vesuvius/src/vesuvius/neural_tracing/tracers/fibers/tracing/volume.py
 +++ b/vesuvius/src/vesuvius/neural_tracing/tracers/fibers/tracing/volume.py
 @@ -159,6 +159,10 @@ def ridge_directions(presence, points_zyx):
