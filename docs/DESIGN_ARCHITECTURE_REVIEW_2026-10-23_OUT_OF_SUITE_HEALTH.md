@@ -16,17 +16,27 @@ broken one of the other 200 without anyone running it.
 
 ## What was found
 
-- **Nothing new.** The 212 test files outside the standard suite give 1,819 passed, 76 skipped,
-  9 failed and 19 errors, run with the locked-package overlay.
-  - Every one of the 28 failures and errors was already failing in round 92's run of all of
-    `tests/`.
-  - **26** need villa's spiral-fitting modules, which this container does not have: the
-    `test_probe_*` family, 21 files.
+- **No merge broke a test.** The 212 test files outside the standard suite give 1,819 passed,
+  76 skipped, 9 failed and 19 errors, run with the locked-package overlay. Every one of the 28
+  failures and errors was already failing in round 92's run of all of `tests/`. All need something
+  this container does not have:
+  - **24** need villa's spiral-fitting modules: the `test_probe_*` family, 21 files.
   - **2** are `test_preflight_accepts_a_submodule.py`, which needs a villa submodule checkout.
-- **No change is made.** There is nothing a merge broke to fix.
+  - **1** is `test_live_documents_stay_clean`, which needs villa paths and model checkpoints.
+  - **1** is `test_correlate_geometry_ink.py::test_the_pooled_correlation_is_not_reported`, which
+    needs the owner's scored fits under `spiral_out`.
+- **That last one failed where it should skip.**
+  - It runs `scripts/correlate_geometry_ink.py`, which says "no scored fits with satisfaction found"
+    and exits when the fits are absent. The test then asserted on an empty table.
+  - The repository's other data-dependent tests skip without their data, for example the arm audit's
+    real-tree check.
+  - **The test now skips on exactly that message.** Where the fits exist, or when the script fails
+    for any other reason, it still runs and asserts.
 
 ## Verification
 
 - `comm -23` of this run's failure list against round 92's is empty.
+- **`tests/test_correlate_geometry_ink.py`:** 11 passed and 1 skipped, the skip giving its reason.
+  Ruff `check` and `format` are clean.
 - **The standard suite** on the same main, from round 112: 2813 passed, 22 skipped and 1 xfailed, with
   main's ten environmental failures.
