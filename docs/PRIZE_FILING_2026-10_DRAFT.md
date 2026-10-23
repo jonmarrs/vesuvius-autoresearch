@@ -50,7 +50,7 @@ clipped "#1780" to "#17".
    2026-10-20. The URL field cites
    `tree/v0.8.2`; the test binds the cite to ScrollGT's newest tag, so a later
    release must update it. Findings 84–85 are folded in (2026-10-12). Finding 93 and the placement measurements
-   (#151, #157) are folded in (2026-10-20).
+   (#151, #157) are folded in (2026-10-20), finding 94 on 2026-10-20 and finding 95 on 2026-10-23.
 4. Finding 85 measures an open villa PR (#1934). The user-approved comment sharing it with the author was posted
    2026-10-12 (https://github.com/ScrollPrize/villa/pull/1934#issuecomment-6131993208) and is cited in part (2). On filing day, re-read the thread: quote any reply verbatim, record
    whether #1934 is still open, and do not characterise silence.
@@ -200,6 +200,10 @@ four predictions held):
   and widens: a median 2.22 times our tracer's merge-penalized ERL, against 1.26 at 2, on 8 of 8 cubes. Its in-sample
   deficit narrows from 0.36 to 0.71 of ours, and reverses on the three in-sample 512³ cubes (median 49.50 against
   43.69). It still trails on the eight 256³ ones and both held-out cubes.
+* **Not the cube size, as scored** (finding 95, pre-registered; its prediction held). Cut into their eight 256³
+  octants, the three 512³ in-sample cubes keep its tolerance-4 lead on 19 of 24 octants (a median 1.08 times our
+  tracer). So a smaller scoring window is not why the 256³ cubes trail; nor is the scroll alone, since the three
+  Scroll-5 256³ cubes trail too. A 256³ run's own tracing context is untested.
 
 **(3) What it enables that was not possible before.**
 * [inkagree](https://github.com/jonmarrs/inkagree) (MIT; first released 2026-10-03, now 0.3.0, which evaluates only
@@ -240,8 +244,9 @@ four predictions held):
 **(4) Evidence.**
 * Each study was pre-registered before its data, and each has a report and its scripts in
   https://github.com/jonmarrs/vesuvius-autoresearch (findings 69–85 in
-  `reports/SPIRAL_FINDINGS_SUMMARY.md`; findings 91–94 in `reports/neural_tracer_entrant.md`,
-  `reports/neural_tracer_pitch.md`, `reports/neural_tracer_seeding.md` and `reports/tolerance4_rescore.md`; the
+  `reports/SPIRAL_FINDINGS_SUMMARY.md`; findings 91–95 in `reports/neural_tracer_entrant.md`,
+  `reports/neural_tracer_pitch.md`, `reports/neural_tracer_seeding.md`, `reports/tolerance4_rescore.md` and
+  `reports/octant_crop_rescore.md`; the
   placement and ground-truth offset
   measurements in the last section of `reports/neural_tracer_entrant.md`).
 * Every figure here is bound by a test to the file that produced it.

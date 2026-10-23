@@ -671,7 +671,7 @@ def test_seeding_numbers_match_finding_93():
         f"{lead_a}; and, seeded as sparsely at 7.91 µm, fall to at most 0.80: {b:.2f})"
         in txt
     )
-    assert "findings 91–94 in" in txt and "`reports/neural_tracer_seeding.md`" in txt
+    assert "findings 91–95 in" in txt and "`reports/neural_tracer_seeding.md`" in txt
 
 
 _GTO = _REPO / "reports/neural_tracer_gt_offset.json"
@@ -773,7 +773,7 @@ def test_tolerance4_numbers_match_finding_94():
         f"finding 94 prediction 2 (at tolerance 4, villa's neural tracer would still trail our tracer on at least 9 of "
         f"11 in-sample cubes: it trailed on {trail})." in txt
     )
-    assert "findings 91–94 in" in txt and "`reports/tolerance4_rescore.md`" in txt
+    assert "findings 91–95 in" in txt and "`reports/tolerance4_rescore.md`" in txt
 
 
 def _json(rel: str) -> dict:
@@ -892,6 +892,46 @@ def test_scale_and_tolerance_figures_match_their_measurements():
         f"at tolerance 2 trails on the other {len(other)} cubes, for reasons only partly "
         "measured (at 4 it leads on three of them, finding 94)" in txt
     )
+
+
+_F95 = _REPO / "reports/octant_crop_rescore.json"
+
+
+@pytest.mark.skipif(
+    not (_F95.exists() and _F94.exists()), reason="finding 95 artifact absent"
+)
+def test_octant_numbers_match_finding_95():
+    d, t4, txt = json.loads(_F95.read_text()), json.loads(_F94.read_text()), _text()
+    assert (
+        d["status"] == "OK"
+        and not d["identity_problems"]
+        and d["prediction_P1_leads_on_16_of_24"] is True
+    )
+    pen, med = "erl_merge_penalized", statistics.median
+    octs = d["octants"]
+    lead, n = d["neural_leads_at_4"]
+    assert (lead, n) == (19, 24) and lead == sum(
+        o["neural"]["4.0"][pen] > o["tracer"]["4.0"][pen] for o in octs.values()
+    )
+    ratio = med(
+        o["neural"]["4.0"][pen] / o["tracer"]["4.0"][pen] for o in octs.values()
+    )
+    s5 = [
+        c
+        for c in t4["groups"]["in_sample"]
+        if c.startswith("s5_") and c.endswith("_256")
+    ]
+    assert len(s5) == 3 and all(
+        t4["rows_neural"][c][pen] < t4["rows_tracer"][c][pen] for c in s5
+    )
+    assert (
+        f"Cut into their eight 256³ octants, the three 512³ in-sample cubes keep its tolerance-4 lead on {lead} of "
+        f"{n} octants (a median {ratio:.2f} times our tracer)" in txt
+    )
+    assert (
+        "nor is the scroll alone, since the three Scroll-5 256³ cubes trail too" in txt
+    )
+    assert "findings 91–95 in" in txt and "`reports/octant_crop_rescore.md`" in txt
 
 
 # Each failed registered prediction in the list, with how many it counts for. The stated total is their sum.
