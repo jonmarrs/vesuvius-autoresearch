@@ -3,7 +3,7 @@
 Date: 2026-10-23. Baseline: `92e9f717` (main after the owner's #200 and #201).
 Reviewer: Claude (Anthropic), at the owner's request.
 
-This round covers the 19:13 UTC firing.
+This round covers the 19:13, 20:12 and 21:13 UTC firings; main did not move after #201.
 - **#200** fixes three failures that blocked pre-commit on main:
   - a lambda mypy could not type in `tests/test_arm_tiers.py`;
   - the villa fork branch in the headless-CLI record, which read as a missing path;
@@ -56,4 +56,18 @@ This round covers the 19:13 UTC firing.
 
 ## Verification
 
-- Pending.
+- **Arm-audit tests:** 15 passed and 1 skipped (the real-tree check needs `spiral_out`). Dropping the
+  `is_dir()` check fails the new test.
+- **The ledger test**, reformatted, still gives 46 passed, and Ruff's `format --check` is clean on it.
+- **The ledger, arm tiers, arm audit and the suite coverage guard** give 95 passed and 1 skipped.
+- **Doc guards:** 378 passed and 2 skipped on main `92e9f717` and on the branch.
+- **Doc audit:** the branch gains no entries. One flagged entry, this doc's baseline as "not on main",
+  came from the local `main` ref lagging `origin/main`, and cleared once the ref was updated.
+- **pre-commit's whole-repository hooks on main:**
+  - mypy reports no issues in 764 files.
+  - The doc-guard hook gives 134 passed, 2 skipped and the one environmental failure above.
+- **The standard suite** with the locked-package overlay: 2813 passed, 22 skipped and 1 xfailed, as on
+  main. The ten failures are main's ten environmental ones: nine need villa files, one is
+  `gp_winner`.
+- **No independent review this round.** The changes are one test case and a reformat. The test case
+  was checked against the mutant it targets.
