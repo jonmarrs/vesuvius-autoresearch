@@ -96,4 +96,21 @@ This round covers the 03:12, 04:12, 05:13, 06:12 and 07:13 UTC firings.
 
 ## Verification
 
-- Pending: the standard suite, doc guards and audit, independent review.
+- **The two new test files:** 17 passed. **22 of 22 mutants** of the harness scripts fail a test.
+- **Doc guards.** Every test file that reads a changed document (24 files, excluding the two new ones) was
+  run on main and on the branch:
+  - 591 passed on main and 594 on the branch; the difference is the three new bindings;
+  - the one failure on both is `test_live_documents_stay_clean`, from villa paths.
+- **Doc audit** (`audit_doc_references.audit()`): the branch gains no entries.
+- Ruff 0.9.10 `check` and `format` are clean on the changed test files.
+- **The standard suite** with the locked-package overlay: 2813 passed, 22 skipped and 1 xfailed. That is
+  main's 2811 plus the two new bindings in `test_findings_headline_numbers.py`. The ten failures are main's
+  ten environmental ones: nine need villa files, one is `gp_winner`.
+- **Independent review** of the first four commits found nothing blocking. Its should-fix items were:
+  - the harness masks were too shallow to reach the fractional path;
+  - settings, spacings and fields were unbound, with refusal mutants surviving;
+  - the "exclude only" wording;
+  - the same-winding ~10%;
+  - one false line in this doc.
+
+  All are fixed in the fifth commit.
