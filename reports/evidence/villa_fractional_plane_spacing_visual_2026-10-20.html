@@ -1,0 +1,24 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Real-data seeding validation</title>
+<style>body{margin:0;background:#edf1f4;color:#182b3a;font:20px system-ui,sans-serif}main{padding:46px 52px;max-width:1500px;margin:auto}h1{margin:8px 0 12px;font-size:40px;letter-spacing:-1px}p{line-height:1.45}small{font-size:17px}.eyebrow{font-weight:700;letter-spacing:1px;font-size:17px;color:#486270}.columns{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:34px}section{background:white;border:1px solid #cbd4dc;border-radius:10px;overflow:hidden}h2{font-size:23px;padding:18px 24px;margin:0;border-bottom:1px solid #dce2e7}.before{border-top:6px solid #bb4338}.after{border-top:6px solid #21845c}pre{padding:22px 24px;margin:0;white-space:pre-wrap;overflow-wrap:anywhere;font:18px/1.65 monospace;color:#183144}.caption{padding:0 24px 20px;color:#526574;font-size:16px}.tests{margin-top:30px;background:#182b3a;color:white;border-radius:10px;padding:20px 24px;font:18px/1.7 monospace}.scope{font-size:18px;color:#486270;margin-top:25px}code{font-family:monospace}</style></head><body><main>
+<div class="eyebrow">VESUVIUS AUTORESEARCH · 20 OCTOBER 2026</div>
+<h1>Fractional seed planes on real scroll data</h1>
+<p>Scroll 1 / PHercParis4 · published ScrollGT v0.8.1 mask<br>
+Requested spacing: <strong>52.733333… grid voxels</strong>. Each global multiple maps to an integer sampling plane.</p>
+<div class="columns"><section class="before"><h2>Before · upstream f4af1dc</h2><pre>Cube: s1_00497_01497_03997_256; mask shape: (256, 256, 256)
+Presence: (128, 128, 128); plane spacing: 52.733333333 grid voxels
+Observed z planes: 0, 52, 104
+Expected z planes: 0, 52, 105
+Seed dots: 1589
+FAIL: planes drift from the requested global spacing
+</pre><div class="caption">Captured CPU check output · exit 1</div></section>
+<section class="after"><h2>After · corrected plane calculation</h2><pre>Cube: s1_00497_01497_03997_256; mask shape: (256, 256, 256)
+Presence: (128, 128, 128); plane spacing: 52.733333333 grid voxels
+Observed z planes: 0, 52, 105
+Expected z planes: 0, 52, 105
+Seed dots: 1590
+PASS: global plane placement
+</pre><div class="caption">Captured CPU check output · exit 0</div></section></div>
+<div class="tests">Regression tests on all three axes<br>Upstream: 17 failed, 3 passed, 4 warnings in 1.82s<br>Patched: 20 passed in 1.79s</div>
+<p class="scope">Screenshot of captured validation output. The check compiles Villa’s CPU seeding functions from source.<br>
+Presence is the real model mask averaged 2×2×2 to uint8. Full GPU tracing quality remains unmeasured.</p>
+</main></body></html>

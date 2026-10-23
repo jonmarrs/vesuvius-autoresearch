@@ -1,0 +1,67 @@
+Final captured validation output, 2026-10-20. CPU seeding only.
+Runtime: Python 3.10.21, NumPy 2.2.6, SciPy 1.15.3, torch 2.9.1+cu128.
+Upstream baseline f4af1dc; final patch 550ff31.
+
+Baseline regression summary (excerpt of captured pytest output):
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED vesuvius/src/vesuvius/neural_tracing/tracers/fibers/tests/test_volume_seeding.py::test_planes_follow_global_spacing_independently_of_tile_boundaries[52.733333333333334-expected1-0]
+FAILED vesuvius/src/vesuvius/neural_tracing/tracers/fibers/tests/test_volume_seeding.py::test_planes_follow_global_spacing_independently_of_tile_boundaries[52.733333333333334-expected1-1]
+FAILED vesuvius/src/vesuvius/neural_tracing/tracers/fibers/tests/test_volume_seeding.py::test_planes_follow_global_spacing_independently_of_tile_boundaries[52.733333333333334-expected1-2]
+FAILED vesuvius/src/vesuvius/neural_tracing/tracers/fibers/tests/test_volume_seeding.py::test_planes_follow_global_spacing_independently_of_tile_boundaries[77.67383059418457-expected2-0]
+FAILED vesuvius/src/vesuvius/neural_tracing/tracers/fibers/tests/test_volume_seeding.py::test_planes_follow_global_spacing_independently_of_tile_boundaries[77.67383059418457-expected2-1]
+FAILED vesuvius/src/vesuvius/neural_tracing/tracers/fibers/tests/test_volume_seeding.py::test_planes_follow_global_spacing_independently_of_tile_boundaries[77.67383059418457-expected2-2]
+FAILED vesuvius/src/vesuvius/neural_tracing/tracers/fibers/tests/test_volume_seeding.py::test_fractional_spacing_below_one_visits_each_plane_once[0.75-0]
+FAILED vesuvius/src/vesuvius/neural_tracing/tracers/fibers/tests/test_volume_seeding.py::test_fractional_spacing_below_one_visits_each_plane_once[0.75-1]
+FAILED vesuvius/src/vesuvius/neural_tracing/tracers/fibers/tests/test_volume_seeding.py::test_fractional_spacing_below_one_visits_each_plane_once[0.75-2]
+FAILED vesuvius/src/vesuvius/neural_tracing/tracers/fibers/tests/test_volume_seeding.py::test_fractional_spacing_below_one_visits_each_plane_once[1e-09-0]
+FAILED vesuvius/src/vesuvius/neural_tracing/tracers/fibers/tests/test_volume_seeding.py::test_fractional_spacing_below_one_visits_each_plane_once[1e-09-1]
+FAILED vesuvius/src/vesuvius/neural_tracing/tracers/fibers/tests/test_volume_seeding.py::test_fractional_spacing_below_one_visits_each_plane_once[1e-09-2]
+FAILED vesuvius/src/vesuvius/neural_tracing/tracers/fibers/tests/test_volume_seeding.py::test_invalid_plane_spacing_is_rejected[0.0]
+FAILED vesuvius/src/vesuvius/neural_tracing/tracers/fibers/tests/test_volume_seeding.py::test_invalid_plane_spacing_is_rejected[-1.0]
+FAILED vesuvius/src/vesuvius/neural_tracing/tracers/fibers/tests/test_volume_seeding.py::test_invalid_plane_spacing_is_rejected[nan]
+FAILED vesuvius/src/vesuvius/neural_tracing/tracers/fibers/tests/test_volume_seeding.py::test_invalid_plane_spacing_is_rejected[inf]
+FAILED vesuvius/src/vesuvius/neural_tracing/tracers/fibers/tests/test_volume_seeding.py::test_invalid_plane_spacing_is_rejected[-inf]
+17 failed, 3 passed, 4 warnings in 1.82s
+
+Final patched regression output:
+torch 2.9.1+cu128 numpy 2.2.6 scipy 1.15.3
+....................                                                     [100%]
+20 passed in 1.79s
+
+Initial candidate memory guard summary (excerpt; 1ee851d):
+
+vesuvius/src/vesuvius/neural_tracing/tracers/fibers/tests/test_volume_seeding.py:47: Failed
+=========================== short test summary info ============================
+FAILED vesuvius/src/vesuvius/neural_tracing/tracers/fibers/tests/test_volume_seeding.py::test_fractional_spacing_below_one_visits_each_plane_once[1e-09-0]
+FAILED vesuvius/src/vesuvius/neural_tracing/tracers/fibers/tests/test_volume_seeding.py::test_fractional_spacing_below_one_visits_each_plane_once[1e-09-1]
+FAILED vesuvius/src/vesuvius/neural_tracing/tracers/fibers/tests/test_volume_seeding.py::test_fractional_spacing_below_one_visits_each_plane_once[1e-09-2]
+3 failed, 3 passed, 14 deselected in 1.02s
+
+Final real-data comparison output:
+s1_00497_01497_03997_256 spacing=64.000000000: 1497 -> 1497; all seed arrays identical=True
+s1_00497_01497_03997_256 spacing=52.733333333: 1589 -> 1590; all seed arrays identical=False
+s1_00497_01497_03997_256 spacing=77.673830594: 1492 -> 1492; all seed arrays identical=True
+s3_00994_00494_01994_512 spacing=64.000000000: 10863 -> 10863; all seed arrays identical=True
+s3_00994_00494_01994_512 spacing=52.733333333: 11213 -> 11175; all seed arrays identical=False
+s3_00994_00494_01994_512 spacing=77.673830594: 10821 -> 10825; all seed arrays identical=False
+s5_03997_01497_03997_256 spacing=64.000000000: 1091 -> 1091; all seed arrays identical=True
+s5_03997_01497_03997_256 spacing=52.733333333: 1154 -> 1151; all seed arrays identical=False
+s5_03997_01497_03997_256 spacing=77.673830594: 1096 -> 1096; all seed arrays identical=True
+
+Short real-data example, upstream (exit 1):
+Cube: s1_00497_01497_03997_256; mask shape: (256, 256, 256)
+Presence: (128, 128, 128); plane spacing: 52.733333333 grid voxels
+Observed z planes: 0, 52, 104
+Expected z planes: 0, 52, 105
+Seed dots: 1589
+FAIL: planes drift from the requested global spacing
+
+Short real-data example, final patch (exit 0):
+Cube: s1_00497_01497_03997_256; mask shape: (256, 256, 256)
+Presence: (128, 128, 128); plane spacing: 52.733333333 grid voxels
+Observed z planes: 0, 52, 105
+Expected z planes: 0, 52, 105
+Seed dots: 1590
+PASS: global plane placement
