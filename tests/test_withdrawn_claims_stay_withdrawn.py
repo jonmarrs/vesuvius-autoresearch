@@ -135,6 +135,36 @@ _CLAIMS = [
         # not "control seeds" or 0.0124: a paragraph can name the seeds and still state the bound
         r"4\.41%|12\.18%|three (unusually )?tight|happened to land tight",
     ),
+    # 2026-09-27: the count's 1.2% was the CV of curbase_s1-s3, three seeds since found
+    # unusually tight -- reports/control_sensitivity.md
+    (
+        r"count\W+(\w+\W+){0,4}?\**1\.2\s*%",
+        "fits differing only by seed agree on the ink count to 1.2%",
+        "6.4% across all nine seeds of the configuration (1.2% is three tight seeds)",
+        r"6\.4\s*%",
+    ),
+    # the outer floor at n=4; pooled over the pinned tier's 24 outer fits at df=18 the
+    # inner floor is about 2.1x too wide -- reports/noise_floor_by_tier.md
+    (
+        r"2\.6\s*[x×]\s*(too wide|wider)",
+        "the inner floor is 2.6x too wide for the outer windings",
+        "about 2.1x against the outer CV pooled at df=18",
+        r"2\.1\s*[x×]|df\s*=\s*18",
+    ),
+    # ~12% is the pinned-tier design MDE, not what the nulls' data exclude
+    (
+        r"(bounded|bounds?)\s+(at\s+)?(about\s+)?~?12\s*%",
+        "the pinned-tier ink nulls are bounded at ~12%",
+        "~12% is the design MDE; the intervals are [−18.4%, +16.7%] and [−20.7%, +13.1%]",
+        r"design MDE",
+    ),
+    # 2026-10-23: smooth moves the extreme windows 6-7x the control bound
+    (
+        r"\b7\s*[–-]\s*20\s*[x×]",
+        "smooth interpolation moves the extreme windows 7-20x the control bound",
+        "6-7x the 2.8% bound, 7-13x each window's own largest control",
+        r"6\s*[–-]\s*7\s*[x×]",
+    ),
     # 2026-09-22: the 7.15 vx is a nearest-neighbour distance between two samplings
     # of one sheet; along the normal they are 0.25 vx apart.
     # reports/the_flatten_moves_the_grid_not_the_surface.md
@@ -283,6 +313,10 @@ def _claim(text):
         ("4.1x", "current code is four times quieter"),
         ("±3%", "the null rules out anything beyond ±3.0%"),
         ("±3%", "an ink effect within +/-3%"),
+        ("count to 1.2%", "the count\nreproduces to **1.2%**, and the mechanism"),
+        ("2.6x", "is 2.6x too wide for the outer ones"),
+        ("bounded at ~12%", "both ink nulls are bounded at ~12%, not zero"),
+        ("7-20x", "smooth moves the two extreme windows by **7–20×** that"),
     ],
 )
 def test_the_pattern_sees_through_markup_and_rewording(claim, live):

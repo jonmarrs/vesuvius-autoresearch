@@ -47,7 +47,8 @@ would book a code difference as seed noise. They are kept as two groups, and the
 | **with all 9** | 4 | **0.0536** | **11** | [0.0380, 0.0911] | **12.3%** |
 
 **Designs budgeted on the published figure are optimistic by 2.0×.** Any current-code null that
-claimed to bound ~6% actually bounds ~12%.
+claimed to bound ~6% actually bounds ~12%. *(Noted 2026-10-23: ~12% is the design MDE at 3v3; what a
+null's data rule out lies outside its own interval.)*
 
 ### The published interval contained the new estimate — for the third time
 

@@ -6,6 +6,10 @@
 > rather than reversed only because a floor from n=4 is an interval (4.8% to 31.4%) that straddles
 > the observation. Read "far inside its floor" below as **borderline**.
 > `reports/outer_winding_noise_floor.md`.
+>
+> *(Noted 2026-10-23: pooled over the pinned tier's 24 outer fits at df=18, the outer floor is 10.3%,
+> so the inner one is about 2.1x too wide, not 2.6x. -11.03% still exceeds it, narrowly.
+> `reports/noise_floor_by_tier.md`.)*
 
 **2026-09-01.** Registered in `docs/preregistration/2026-09-01_gap_fix_measured_where_it_acts.md`,
 before either render. **The registered expectation is met, and it was an expectation of a null**: one

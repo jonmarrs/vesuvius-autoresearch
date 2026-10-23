@@ -4,6 +4,10 @@
 study closed, so it carries none of the protection a registered result does and should be read as a
 lead, not a finding. `scripts/compare_ink_placement.py`, `reports/ink_placement_all_arms.json`.
 
+> **Noted 2026-10-23: the count's "1.2%" was three seeds.** It is the CV of `curbase_s1-s3` (0.0124),
+> since found unusually tight; across all nine seeds of that configuration it is 6.4%.
+> `reports/control_sensitivity.md`.
+
 ## The question
 
 villa's spiral loop optimises `total_fg_pixels` — a **count**. Every ablation we have run returns null
