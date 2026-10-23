@@ -50,6 +50,17 @@ _READS_FIRST = """
     def _native_sample(self, patch):
         self._open("image")[0]
 """
+# rejects everything, so only the probe's corner check can stop it
+_REJECTS = """
+    def _native_sample(self, patch):
+        return None
+"""
+# admits a surface-free patch without reading a voxel: only the probe's own
+# pre-check, that both patches are rejected, can stop it
+_ADMITS = """
+    def _native_sample(self, patch):
+        return "sample"
+"""
 # villa before the fix: every rejection picks another patch, with no memory
 _CYCLE = """
         current = index
@@ -81,6 +92,29 @@ _GIVES_UP_EARLY = """
         self._native_sample(self.patches[index])
         raise RuntimeError("gave up after one patch")
 """
+_SAME_PATCH_TWICE = """
+        self._native_sample(self.patches[index])
+        self._native_sample(self.patches[index])
+        raise RuntimeError("after trying 2 distinct patches")
+"""
+# a fix that counts attempts but does not remember them: the cycle, then a stop
+_COUNTS_NOT_DISTINCT = """
+        current = index
+        for _ in range(6):
+            self._native_sample(self.patches[current])
+            current = (current + 1) % len(self.patches)
+        raise RuntimeError("after trying 6 patches")
+"""
+_BOTH_THEN_RETURNS = """
+        for patch in self.patches:
+            self._native_sample(patch)
+        return "sample"
+"""
+_BOTH_THEN_OTHER_ERROR = """
+        for patch in self.patches:
+            self._native_sample(patch)
+        raise ValueError("not a retry failure")
+"""
 _DATASET = """
 import json, os, random
 
@@ -94,6 +128,14 @@ class InkDataset:
                 "do_augmentations": do_augmentations,
                 "bboxes": [list(p.bbox) for p in self.patches],
                 "segments": [str(p.segment.segment_dir) for p in self.patches],
+                "segment": {{
+                    k: str(v) for k, v in vars(self.patches[0].segment).items()
+                    if k not in ("data_config", "source")
+                }},
+                "segment_config_is_config": self.patches[0].segment.data_config is config,
+                "segment_source_is_dataset": (
+                    self.patches[0].segment.source is config.datasets[0]
+                ),
             }}, stream)
 
     def _open(self, *args):
@@ -241,10 +283,12 @@ def test_a_retry_cycle_is_a_timeout_and_exits_1(tmp_path):
     assert proc.returncode == 1, proc.stderr
     assert rec["outcome"] == "timeout" and rec["bounded"] is False
     assert rec["message"] == "retry did not terminate within two seconds"
-    # two rejected patches alternate until the watchdog
+    # two rejected patches alternate until the two-second watchdog
     assert rec["first_attempts"] == [0, 1] * 4 and rec["attempt_count"] > 8
-    assert rec["seconds"] >= 2.0
+    assert 2.0 <= rec["seconds"] < 5.0
     assert rec["input_sha256"] == own
+    before = json.loads(_BEFORE.read_text())
+    assert (rec["scope"], rec["source_url"]) == (before["scope"], before["source_url"])
     assert (
         rec["dataset_source_sha256"] == hashlib.sha256(dataset.read_bytes()).hexdigest()
     )
@@ -260,22 +304,65 @@ def test_a_bounded_retry_is_a_runtime_error_after_both_patches(tmp_path):
     h, w = _SHAPE
     assert rec["mesh_shape"] == [h, w] and rec["corners_yx"] == [[0, 0], [0, w - 64]]
     # what it hands villa: the top-left and top-right 64x64 regions, native
-    # 3D, no augmentation, and the mesh's own directory as the segment
+    # 3D, no augmentation, the mesh's own directory as the segment
     assert built["bboxes"] == [[0, 0, 0, 17, 64, 64], [0, 0, w - 64, 17, 64, w]]
     assert built["do_augmentations"] is False
     assert built["segments"] == [str(mesh)] * 2
-    m = built["mapping"]
-    assert (m["mode"], m["patch_size"], m["seed"]) == ("full_3d", [17, 64, 64], 17)
-    assert m["datasets"][0]["segments_path"] == str(mesh.parent)
+    # volume_scale 0 is the full-resolution grid the report describes; the
+    # volume and label paths are never opened, because _open is the sentinel
+    assert built["mapping"] == {
+        "mode": "full_3d",
+        "patch_size": [17, 64, 64],
+        "patch_overlap": 0.25,
+        "patch_min_labeled_coverage": 0.0,
+        "seed": 17,
+        "datasets": [
+            {
+                "segments_path": str(mesh.parent),
+                "volume_path": "unused-volume",
+                "volume_scale": 0,
+            }
+        ],
+    }
+    assert built["segment"] == {
+        "dataset_idx": "0",
+        "segment_relpath": "mesh",
+        "segment_dir": str(mesh),
+        "segment_name": "mesh",
+        "image_volume": "unused-volume",
+        "inklabels": "unused-labels",
+        "supervision_mask": "unused-supervision",
+    }
+    assert built["segment_config_is_config"] and built["segment_source_is_dataset"]
 
 
 @pytest.mark.parametrize(
-    "retry", [_RETURNS, _GIVES_UP_EARLY], ids=["returns", "one-patch"]
+    "retry",
+    [
+        _RETURNS,
+        _GIVES_UP_EARLY,
+        _SAME_PATCH_TWICE,
+        _COUNTS_NOT_DISTINCT,
+        _BOTH_THEN_RETURNS,
+    ],
+    ids=[
+        "returns",
+        "one-patch",
+        "same-patch-twice",
+        "counts-not-distinct",
+        "both-then-returns",
+    ],
 )
 def test_anything_else_is_not_bounded(tmp_path, retry):
     proc, rec, _, _, _, _ = _probe(tmp_path, retry)
     assert proc.returncode == 1, proc.stderr
     assert rec["bounded"] is False
+
+
+def test_an_error_that_is_not_the_retry_failure_is_not_classified(tmp_path):
+    proc, rec, _, _, _, _ = _probe(tmp_path, _BOTH_THEN_OTHER_ERROR)
+    assert proc.returncode == 1 and "ValueError: not a retry failure" in proc.stderr
+    assert rec is None
 
 
 def test_a_mesh_that_is_not_the_published_one_is_refused(tmp_path):
@@ -285,12 +372,30 @@ def test_a_mesh_that_is_not_the_published_one_is_refused(tmp_path):
     assert rec is None
 
 
-def test_a_corner_with_surface_in_it_is_refused(tmp_path):
-    # a sample method that rejects everything, so only the corner check can stop it
-    rejects = "\n    def _native_sample(self, patch):\n        return None\n"
+@pytest.mark.parametrize("name", ["meta.json", "x.tif", "y.tif", "z.tif"])
+def test_each_mesh_file_is_hashed(tmp_path, name):
+    _, own = _mesh(tmp_path / "hashes")
     proc, rec, _, _, _, _ = _probe(
-        tmp_path, _BOUNDED, native=rejects, valid=((0, 8, 0, 8),)
+        tmp_path, _BOUNDED, hashes=json.dumps({**own, name: "0" * 64})
     )
+    assert proc.returncode != 0
+    assert f"{name}: not the stated published Scroll-1 mesh" in proc.stderr
+    assert rec is None
+
+
+@pytest.mark.parametrize("corner", ["top-left", "top-right"])
+def test_a_corner_with_surface_in_it_is_refused(tmp_path, corner):
+    w = _SHAPE[1]
+    surface = (0, 8, 0, 8) if corner == "top-left" else (0, 8, w - 8, w)
+    proc, rec, _, _, _, _ = _probe(
+        tmp_path, _BOUNDED, native=_REJECTS, valid=(surface,)
+    )
+    assert proc.returncode != 0 and "AssertionError" in proc.stderr
+    assert rec is None
+
+
+def test_a_patch_villa_does_not_reject_is_refused(tmp_path):
+    proc, rec, _, _, _, _ = _probe(tmp_path, _BOUNDED, native=_ADMITS)
     assert proc.returncode != 0 and "AssertionError" in proc.stderr
     assert rec is None
 
@@ -426,6 +531,7 @@ def test_the_patch_size_and_test_counts_are_the_patch_and_transcript():
     )
     assert f"`min(dataset size, {budget[1]})`" in report
     assert f"up to {budget[1]} distinct patches" in draft
+    assert f"The {budget[1]}-attempt budget follows #1921" in draft
 
     cases = _new_test_cases()
     words = {4: "four", 5: "five", 9: "nine", 13: "13"}
