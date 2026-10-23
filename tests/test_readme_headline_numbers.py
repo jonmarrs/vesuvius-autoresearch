@@ -321,15 +321,16 @@ def test_the_flatten_figures_match_their_measurements():
     )
     stock = float(row[1])
     assert row[2] == f"{stock / det['its']:.1f}"
-    walls = [
-        int(s)
-        for s in re.search(
-            r"wall time per flatten \(incl\. export\) \| (\d+) s, (\d+) s", rep
-        ).groups()
-    ]
+    wall = re.search(
+        r"wall time per flatten \(incl\. export\) \| (\d+) s, (\d+) s vs ~(\d+) min stock",
+        rep,
+    ).groups()
+    walls, stock_min = [int(s) for s in wall[:2]], int(wall[2])
     assert det["mean_nn"] == 0.0  # bit-reproducible
+    # the 9.5x is stage-0 iterations per second; the wall-time cost is the minutes beside it
     assert (
-        f"at a {stock / det['its']:.1f}× flatten cost, ~{statistics.mean(walls) / 60:.0f} min against 2 h renders"
+        f"at {stock / det['its']:.1f}× lower flatten throughput, ~{statistics.mean(walls) / 60:.0f} min "
+        f"against ~{stock_min} per flatten and 2 h renders"
     ) in txt
 
     fixed = _json("flat_displacement_floor.json")

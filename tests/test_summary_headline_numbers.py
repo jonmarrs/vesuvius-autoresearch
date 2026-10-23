@@ -2,8 +2,10 @@
 
 `reports/SPIRAL_FINDINGS_SUMMARY.md` is the third document read as current, beside the README and
 FINDINGS. On 2026-10-23, changing one of its 1,211 numbers by one in its last digit was caught by a
-test for 83 of them, and most of those were finding numbers or figures bound for the README. The
-figures in the findings' own titles, the ones a reader quotes, were bound for none of 49–70.
+test for 83 of them (the probe is described in
+docs/DESIGN_ARCHITECTURE_REVIEW_2026-10-23_SUMMARY_NUMBER_BINDINGS.md), and most of those were
+finding numbers or figures bound for the README. The figures in the findings' own titles, the ones a
+reader quotes, were bound for none of 49–70.
 
 Read against the reports the same day, it also stated figures later reports had corrected: the
 outer floor at n=4 where the pinned tier pooled at df=18 gives 10.3%, the anchor null against its
@@ -59,7 +61,7 @@ def test_holding_the_flatten_fixed_finding_49():
     assert abs(d["F"] - floor) < 1e-12
     pixels = abs(d["zero"] - d["rad0"])
     # the stock render spread it collapses from, finding 48
-    ratio = 0.0304 / floor
+    ratio = _json("render_reproducibility.json")["ink"] / floor
     text = _flat(_SUMMARY)
     assert (
         f"**49. Holding the flatten fixed collapses the floor {round(ratio, -3):.0f}×, "
@@ -186,10 +188,12 @@ def test_finding_1_is_set_against_both_draws_of_the_render_floor():
     table = (_REPORTS / "duplicate_coverage_inflates_the_objective.md").read_text()
     dup = float(re.search(r"E  dT \+([\d.]+)", table).group(1))
     render = _json("render_reproducibility.json")["ink"]
+    one_draw = (_REPORTS / "the_determinism_floor_rests_on_one_draw.md").read_text()
+    first = float(re.search(r"\*\*ΔT = −([\d.]+)%\.\*\*", one_draw).group(1)) / 100
     text = _flat(_SUMMARY)
     assert f"raises `total_fg_pixels` **+{dup * 100:.2f}%**" in text
     assert (
-        f"{dup / 0.0142:.0f}x the one-draw 1.42% floor, and {dup / render:.0f}x the "
+        f"{dup / first:.0f}x the one-draw {first * 100:.2f}% floor, and {dup / render:.0f}x the "
         f"{render * 100:.2f}% a second same-tree draw gave"
     ) in text
 
@@ -245,13 +249,17 @@ def test_finding_28_carries_the_control_sensitivity():
         f"[{_pct(rm['lo'])}, {_pct(rm['hi'])}], and against all nine seeds {_pct(nine['rel'])} "
         f"[{_pct(nine['lo'])}, {_pct(nine['hi'])}]"
     ) in text
-    # "rules out a gain above about 3.5%, not a loss of 10-15%": the corrected controls
+    # the corrected controls' upper ends, and their lower ends past 10%
+    hi = sorted((rm["hi"], nine["hi"]))
     assert (
-        round(min(rm["hi"], nine["hi"]) * 100, 1) == 3.5
-        and max(rm["hi"], nine["hi"]) < 0.04
-    )
+        f"It rules out a gain above about {hi[0] * 100:.1f}–{hi[1] * 100:.1f}%, not a loss of "
+        "10–15%."
+    ) in text
     assert -0.15 < rm["lo"] < nine["lo"] < -0.10
-    assert "It rules out a gain above about 3.5%, not a loss of 10–15%." in text
+    assert (
+        f"against the render-matched controls the limit is {_pct(rm['lo'], 1)} to "
+        f"{_pct(rm['hi'], 1)}"
+    ) in text
 
 
 def test_findings_29_and_38_quote_the_nine_seed_count_agreement():
@@ -292,7 +300,162 @@ def test_finding_70_ratio_against_the_control_bound():
     smooth = sorted(abs(r["d_smooth"]) * 100 for r in extreme)
     assert (
         f"smooth moves the two extreme windows {smooth[0]:.1f}% and {smooth[1]:.1f}%, "
-        f"{ratios[0]:.0f}–{ratios[1]:.0f}× that bound (7–{own[1]:.0f}× each window's own largest "
-        "control"
+        f"{ratios[0]:.0f}–{ratios[1]:.0f}× that bound and {own[0]:.0f}–{own[1]:.0f}× each window's "
+        "own largest control"
     ) in text
     assert round(own[0]) == 7
+
+
+def test_finding_14_names_the_arms_and_the_floors_interval():
+    gap = _json("gap_fix_mechanism.json")["ink  total_fg_pixels"]
+    lo, hi = _json("noise_floor_by_tier.json")["pinned"]["ci95"]
+    text = _flat(_SUMMARY)
+    assert (
+        f"At twelve (finding 13) it established the cost: {gap['rel'] * 100:.2f}%, "
+        f"p = {gap['p']:.4f}."
+    ) in text
+    assert "At seven fits (finding 13b) it did not clear either" in text
+    assert (
+        f"the floor's interval at df=18, {2 * lo * 100:.1f}–{2 * hi * 100:.1f}%, still straddles it"
+    ) in text
+    # finding 13a's -11.03%, from its own table, sits inside the df=18 interval
+    a13 = (_REPORTS / "gap_fix_outer_windings_still_not_established.md").read_text()
+    seen = float(
+        re.search(
+            r"\| `total_fg_pixels` \| [\d,]+ \| [\d,]+ \| \*\*-([\d.]+)%\*\* \|", a13
+        )[1]
+    )
+    assert f"-{seen:.2f}% still exceeds it, narrowly" in text
+    assert 2 * lo < seen / 100 < 2 * hi
+
+
+def test_the_inner_floor_ratio_in_the_floors_prose():
+    pinned = _json("noise_floor_by_tier.json")["pinned"]
+    table = (_REPORTS / "seed_spread_four_fits.md").read_text()
+    inner = [
+        int(v.replace(",", ""))
+        for v in re.findall(r"^\| seed \d.*?\| [\d.]+ \| ([\d,]+) \|", table, re.M)
+    ]
+    ratio = _cv(inner) / pinned["cv"]
+    assert (
+        f"*({ratio:.1f}x against the outer CV pooled at df=18; corrected 2026-10-23)*"
+        in _flat(_SUMMARY)
+    )
+
+
+def test_the_sd_multiple_correction_is_one_point_six():
+    rep = (_REPORTS / "gap_expander_fix_improves_the_fit.md").read_text()
+    old = [float(x) for x in re.search(r'"\+([\d.]+) to \+([\d.]+) sd"', rep).groups()]
+    new = [
+        float(x)
+        for x in re.search(r"\*\*([\d.]+) to ([\d.]+) sd\*\* above", rep).groups()
+    ]
+    ratios = [a / b for a, b in zip(old, new, strict=True)]
+    assert {f"{r:.1f}" for r in ratios} == {"1.6", "1.7"}
+    assert (
+        f"look about {min(ratios):.1f}x as large as it is (finding 12, corrected 2026-09-03)"
+        in _flat(_SUMMARY)
+    )
+
+
+def test_the_duplicate_baseline_row_and_finding_7():
+    rep = (
+        _REPORTS / "duplicate_coverage_is_an_outer_winding_phenomenon.md"
+    ).read_text()
+    both = re.search(r"([\d.]+)% have BOTH windings >= w120", rep).group(1)
+    text = _flat(_SUMMARY)
+    assert (
+        f'the registered inner span w010-w019 *(corrected 2026-10-23: this said "the span all '
+        f'arms are measured on". The later arms are scored on w120-w129, where most duplication '
+        f"sits: {both}% of a fit's gap>=2 cells have both windings >= w120, finding 7)*"
+    ) in text
+
+
+def test_finding_34_and_the_closing_note_quote_both_floors():
+    tier = _json("noise_floor_by_tier.json")["current"]
+    nine = _json("control_sensitivity.json")["control_cv"]["all nine s1-s9"]
+    det = _json("pooled_fit_only_floor.json")
+    curbase = det["det"]["curbase"]
+    render = _json("render_reproducibility.json")["ink"]
+    text = _flat(_SUMMARY)
+    assert (
+        f"meshes on the same code moves the count {render * 100:.2f}%, and the 1.44% across the "
+        "code change sits inside it"
+    ) in text
+    assert (
+        f"The current-tier seed CV is {tier['cv']:.4f} pooled within groups (df={tier['df']}, "
+        f"finding 44), {nine * 100:.1f}% across the nine `curbase` seeds, and {_cv(curbase):.4f} "
+        "fit-only on `curbase`, finding 53."
+    ) in text
+    lo, hi = _cv_ci(_cv(curbase), len(curbase) - 1)
+    plo, phi = det["ci"]
+    assert (
+        f"**{_cv(curbase):.2f} [{lo:.2f}, {hi:.2f}]** on `curbase` (finding 53), indistinguishable "
+        f"from its stock spread, and **{det['pooled_cv']:.4f} [{plo:.3f}, {phi:.3f}]** pooled across "
+        "the tier (finding 57)"
+    ) in text
+
+
+def test_finding_52_separates_throughput_from_wall_time():
+    det = _json("deterministic_flatten_verdict.json")
+    rep = (_REPORTS / "the_flatten_is_reproducible_when_asked.md").read_text()
+    stock = float(
+        re.search(rf"{re.escape(str(det['its']))} it/s vs ~(\d+) stock", rep)[1]
+    )
+    wall = re.search(
+        r"wall time per flatten \(incl\. export\) \| (\d+) s, (\d+) s vs ~(\d+) min stock",
+        rep,
+    ).groups()
+    mean = statistics.mean(int(s) for s in wall[:2])
+    assert (
+        f"at {stock / det['its']:.1f}× lower flatten throughput: ~{mean / 60:.0f} min of wall time "
+        f"against ~{wall[2]}, about {mean / (int(wall[2]) * 60):.1f}×, and 2 h renders."
+    ) in _flat(_SUMMARY)
+
+
+def test_finding_84_names_the_in_sample_set():
+    d = _json("fiber_miss_diagnostic.json")
+    cubes = d["cubes"]
+    soft = {k: v["sweep"]["soft_miss_fraction"] for k, v in cubes.items()}
+    in_sample = [
+        k for k, v in cubes.items() if v["split"] in ("primary", "cross_scroll")
+    ]
+    new = [
+        k for k, v in cubes.items() if k.startswith("s5") and v["split"] == "held_out"
+    ]
+    s5_max = d["verdict"]["in_sample_s5_max_soft_miss"]
+    assert s5_max == max(
+        soft[k] for k in in_sample if cubes[k]["split"] == "cross_scroll"
+    )
+    assert len(in_sample) == 11 and {f"{soft[k]:.3f}" for k in new} == {"0.340"}
+    assert (
+        f"(soft-miss fraction 0.340 vs at most {s5_max:.3f} on the in-sample Scroll-5 cubes "
+        f"*(qualifier added 2026-10-23: across all eleven in-sample cubes the maximum is "
+        f"{max(soft[k] for k in in_sample):.3f})*)"
+    ) in _flat(_SUMMARY)
+
+
+def test_finding_68_extends_the_current_code_same_winding_study():
+    text = _flat(_SUMMARY)
+    assert "This extends finding 25 on current code" in text
+    f25 = re.search(r"\*\*25\. .*?\*\*26\. ", text).group(0)
+    assert "nosamecur" in f25 or "current villa" in f25
+
+
+def test_the_pinned_nulls_are_intervals_not_the_mde_findings_17_and_26():
+    s = _json("manipulation_effects_survey.json")
+    pinned = [
+        v
+        for v in s.values()
+        if v["tier"] == "pinned" and v["verdict"].startswith("null")
+    ]
+    half = sorted((v["hi"] - v["lo"]) / 2 for v in pinned)
+    b = s["patch bootstrap"]
+    text = _flat(_SUMMARY)
+    assert (
+        f"the three pinned nulls' half-widths run from {half[0] * 100:.1f}% to {half[-1] * 100:.1f}%"
+    ) in text
+    assert len(pinned) == 3
+    assert (
+        f"~12% is the design MDE. The data exclude only [{_pct(b['lo'], 1)}, {_pct(b['hi'], 1)}]"
+    ) in text

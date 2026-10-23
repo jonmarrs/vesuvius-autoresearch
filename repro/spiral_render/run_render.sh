@@ -55,7 +55,7 @@ cd "$W/spiral-fitting"
 # nothing for stock runs.
 # reports/the_flatten_is_reproducible_when_asked.md
 if [ "${FLATTEN_DETERMINISTIC:-}" = "1" ]; then
-  echo "[run_render] FLATTEN_DETERMINISTIC=1: flatten will be bit-reproducible (~9.5x slower); shim=$SHIM_DIR" >&2
+  echo "[run_render] FLATTEN_DETERMINISTIC=1: flatten will be bit-reproducible (~9.5x slower stage 0, ~2.7x wall time); shim=$SHIM_DIR" >&2
 fi
 PYTHONPATH="$SHIM_DIR:$W/vesuvius/src" exec "$VENV" -u render_ink.py "$W/meshes" \
   --volume "$W/inkcache" --remote-url "$INK_URL" \

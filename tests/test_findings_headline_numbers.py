@@ -168,7 +168,16 @@ def test_the_flatten_and_fit_floors_match_their_measurements():
     stock = float(
         re.search(rf"{re.escape(str(det['its']))} it/s vs ~(\d+) stock", rep)[1]
     )
-    assert f"**bit-reproducible** at a {stock / det['its']:.1f}× flatten cost" in flat
+    wall = re.search(
+        r"wall time per flatten \(incl\. export\) \| (\d+) s, (\d+) s vs ~(\d+) min stock",
+        rep,
+    ).groups()
+    slower = statistics.mean(int(s) for s in wall[:2]) / (int(wall[2]) * 60)
+    # 9.5x is stage-0 throughput; in wall time the deterministic flatten is ~2.7x
+    assert (
+        f"**bit-reproducible** at {stock / det['its']:.1f}× lower flatten throughput, about "
+        f"{slower:.1f}× the flatten's wall time"
+    ) in flat
 
     d = _json("fit_only_floor.json")
     fits, stock_fits = list(d["det"].values()), list(d["stock"].values())

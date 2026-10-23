@@ -59,7 +59,8 @@ right than a stock run.
 **For villa:** `autoresearch.md` already names "CUDA non-determinism" alongside the seed (line
 52). What it does not say is *where* — the flatten, not the fit — nor *how much* — 3% on the
 objective — nor that it is removable with `torch.use_deterministic_algorithms(True)` plus
-`CUBLAS_WORKSPACE_CONFIG=:4096:8` at a 10× flatten cost. Villa's new
+`CUBLAS_WORKSPACE_CONFIG=:4096:8` at a 10× flatten cost *(stage-0 throughput; about 2.7× in wall
+time, noted 2026-10-23)*. Villa's new
 `test_flatten_state_handoff.py` tests export determinism; this is optimisation determinism, and it
 is the one that moves the ink count.
 

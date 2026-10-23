@@ -614,7 +614,7 @@ lay the same surface out on grids **~7 vx** apart in-plane (0.25 vx along the no
 2026-09-22, [report](reports/the_flatten_moves_the_grid_not_the_surface.md)) and move the count
 **3.04%**. It has no RNG to seed; the cause is
 CUDA reduction order alone, and asking for deterministic algorithms makes it **bit-reproducible** at
-a 9.5× flatten cost ([measurement](reports/the_flatten_is_reproducible_when_asked.md)). *Fitting*:
+9.5× lower flatten throughput, about 2.7× the flatten's wall time ([measurement](reports/the_flatten_is_reproducible_when_asked.md)). *Fitting*:
 with the flatten held deterministic, six seeds of one config give a CV of **0.0909 [0.0568, 0.2230]**
 — statistically indistinguishable from the same six with stock flattens (F(5,5) p=0.67), so fit RNG
 dominates and the flatten was never the binding constraint on *fit* comparisons

@@ -36,7 +36,7 @@ across regions is what made finding 13a's stated margin wrong.
 The 95% interval on a CV at n=4 spans **0.57x to 3.73x** the point estimate, which is why the
 intervals are now printed beside the numbers. This is not a technicality: an n=4 variance has misled
 this work **twice, in opposite directions** -- it made the outer floor look 2.6x wider than it is
-(finding 14; 2.1x at df=18), and it made the geometry effect's sd multiple look about 1.6x as large as
+(finding 14) *(2.1x against the outer CV pooled at df=18; corrected 2026-10-23)*, and it made the geometry effect's sd multiple look about 1.6x as large as
 it is (finding 12, corrected 2026-09-03). *(Corrected 2026-10-23: this said "nearly twice"; 7.3-9.8 sd
 against 4.5-5.9 is 1.6x.)* Use a floor to decide whether a comparison is worth taking
 seriously, not to decide a result; where a difference lands near one, the honest answer is a test
@@ -48,7 +48,7 @@ with a stated alpha, not a ratio against a soft denominator.
 Duplicating all ten windings, with occupied cells byte-identical to baseline so zero new papyrus is
 read, raises `total_fg_pixels` **+92.47%** while `overall_fg_fraction` moves **-0.00044**: 65x the
 one-draw 1.42% floor, and 30x the 3.04% a second same-tree draw gave. *(Corrected 2026-10-23: this
-said 65x the applicable floor; finding 47.)* `reports/duplicate_coverage_inflates_the_objective.md`.
+said 65x the applicable floor; findings 47–48.)* `reports/duplicate_coverage_inflates_the_objective.md`.
 
 **2. The metric cannot separate fake growth from real growth.**
 A duplicated eleventh winding (+12.59%) and a genuinely new eleventh winding (+12.83%) land **0.24
@@ -169,14 +169,15 @@ outcome, precisely so a null could not later be dressed up as evidence of no eff
 `reports/gap_fix_outer_windings_still_not_established.md`. **The margin that report quoted was
 wrong; see finding 14.**
 
-**14. The outer windings are two and a half times QUIETER than the inner ones, and that made
-finding 13a borderline rather than comfortable.** Four honest seeds rendered and scored on
+**14. The outer windings are two and a half times QUIETER than the inner ones *(about twice at df=18;
+corrected 2026-10-23)*, and that made finding 13a borderline rather than comfortable.** Four honest seeds rendered and scored on
 w120-w129 give `total_fg_pixels` CV **0.0421** against the inner 0.1086 -- the opposite of the
 registered prediction, recorded as a **miss**. The floor out there is **8.4%**, not the 21.7%
-transferred from the inner windings, and the observed **-11.03% exceeds it**. *(Corrected 2026-10-23:
-pooled over the pinned tier's 24 outer fits, df=18, the outer CV is 0.0514, so the floor is 10.3% and
-the outer windings are about 2.1x quieter. -11.03% still exceeds it, narrowly. Finding 26.)* on the point estimate
-the rule returns REVERSES. It is nonetheless **UNRESOLVED**, because a floor from n=4 is an interval
+transferred from the inner windings, and the observed **-11.03% exceeds it**: on the point estimate
+the rule returns REVERSES. *(Corrected 2026-10-23: pooled over the pinned tier's 24 outer fits, df=18,
+the outer CV is 0.0514, so the floor is 10.3% and the outer windings are about 2.1x quieter. -11.03%
+still exceeds it, narrowly, and the floor's interval at df=18, 7.8–15.2%, still straddles it.
+Finding 26.)* It is nonetheless **UNRESOLVED**, because a floor from n=4 is an interval
 (95% CI 4.8% to 31.4%) that straddles the observation. So finding 13a survived in letter while its
 stated margin did not: -11.03% was borderline, and a properly powered arm could plausibly find the
 gap fix COSTS ink where it acts. **The arm was then run.** At seven fits (finding 13b) it did not
@@ -214,7 +215,8 @@ against a control matched on total patch area: `satisfied_area` **+17.66% (p < 1
 `total_fg_pixels` **-0.83% (p = 0.89)**. Registered in advance as a failure rather than a partial
 success, because selecting patches BY satisfaction and scoring the result ON satisfaction is close to
 circular. Prediction met. The null is bounded, not empty: no ink effect larger than ~10% *(corrected 2026-09-12 to ~12%: the registered MDE used a df=3 CV that was optimistic — `reports/noise_floor_by_tier.md`)* at n=3 per
-arm. `reports/patch_bootstrap_verdict.md`.
+arm. *(Corrected 2026-10-23: ~12% is the design MDE. The data exclude only [−18.4%, +16.7%], finding
+45.)* `reports/patch_bootstrap_verdict.md`.
 
 **18. The two metrics now disagree in BOTH directions, which is the load-bearing result.**
 Finding 13 showed the guard passing a real 10% ink regression. Finding 17 shows it firing at +17.66%
@@ -404,7 +406,9 @@ Findings 22–24 are claims about `6847063f` alone. `reports/decoupling_does_not
 **26. The noise floor every study here quoted was wrong, in both directions.**
 Every analysis script hardcodes `OUTER_CV = 0.0421`, measured at **df=3**. Pooling within-arm
 deviations across the whole corpus gives the pinned tier **0.0514 (df=18)** — so pinned-tier nulls
-bound **~12%, not ~10%**, and excluded less than they claimed. Current villa is **0.0536 (df=11)**,
+bound **~12%, not ~10%**, and excluded less than they claimed. *(Corrected 2026-10-23: ~12% is the
+pinned-tier design MDE. What each null's data exclude is its interval, finding 45: the three pinned
+nulls' half-widths run from 8.5% to 17.5%.)* Current villa is **0.0536 (df=11)**,
 **no quieter than pinned** (F(18,11)=0.92, p=0.84), and at 3v3 a current-code study sees **12.3%**.
 *(Corrected 2026-10-22: this said 0.0263 (df=6), 2.0× quieter and not established, and 6.0%. Those
 were superseded on 2026-09-19, finding 44.)* The estimate moved twice. It was first 0.0125 (df=4),
@@ -433,12 +437,13 @@ number came from produced finding 26, which showed the same null actually exclud
 stronger — while also showing every pinned-tier null was ~12% rather than ~10%. *(Corrected
 2026-10-22: the ±3% rested on three unusually tight control seeds and was withdrawn on 2026-09-27;
 against the render-matched seeds the null is −4.41% [−12.18%, +3.37%], `reports/control_sensitivity.md`.
-The ~12% stands.)* **A constant copied between scripts stops being a measurement and becomes an
+The ~12% stands, as the design MDE.)* **A constant copied between scripts stops being a measurement and becomes an
 assumption**; this one had been carried into studies on a tree it was never measured on.
 `scripts/measure_noise_floor.py` replaces it with something that is recomputed from the fits and
 refuses to pool the tiers.
 
 **28. Ten absolute winding anchors read as well as fifty — within ±10%, which is the honest limit.**
+*(Corrected 2026-10-23: against the render-matched controls the limit is −14.5% to +3.5%; see below.)*
 villa asks people to draw absolute winding annotations by hand and names automating them the fastest
 path to unrolling at scale; every project in their catalogue that produces them validates on
 **geometry**. Cutting the 50 in-ROI anchors to 10 (z-coverage matched) on current villa changes
@@ -451,7 +456,7 @@ by one arm 6.9% below its siblings that passed every validity check. The power c
 manipulation would not change the variance. **Budget a future anchor study from the ablated arm's
 spread, not the baselines'.** `reports/anchor_ablation_verdict.md`. *(Corrected 2026-10-23, from
 2026-09-27: against the render-matched `curbase_s4-s9` the estimate is −5.49% [−14.52%, +3.53%], and
-against all nine seeds −4.00% [−11.79%, +3.80%]. It rules out a gain above about 3.5%, not a loss of
+against all nine seeds −4.00% [−11.79%, +3.80%]. It rules out a gain above about 3.5–3.8%, not a loss of
 10–15%. `reports/control_sensitivity.md`.)*
 
 **A seventh self-correction, and this one was my own pre-registration.** The same study moved
@@ -524,9 +529,11 @@ Re-scoring the same strip with the same code moves `total_fg_pixels` by **26 pix
 (0.0009%)**. Against 1.44% for a render-code change and ~2.5% CV seed-to-seed, **the fit dominates and
 there is nothing to stabilise in the scoring step.** *(Corrected 2026-10-23: re-rendering identical
 meshes on the same code moves the count 3.04%, and the 1.44% across the code change sits inside it,
-finding 33. The current-tier seed CV is 0.0536 on nine seeds, finding 44, and 0.0909 fit-only on
-`curbase`, finding 53. The fit still dominates.)* This also sharpens finding 29: placement
-reproducing at only r ≈ 0.70 is a property of fitting and flattening, not of a noisy detector — given
+`reports/rerender_test_verdict.md`. The current-tier seed CV is 0.0536 pooled within groups (df=11,
+finding 44), 6.4% across the nine `curbase` seeds, and 0.0909 fit-only on `curbase`, finding 53. The
+fit still dominates.)* This also sharpens finding 29: placement reproducing at only r ≈ 0.70 is a
+property of fitting and flattening *(of fitting; the flatten re-draws the count, finding 56; corrected
+2026-10-23)*, not of a noisy detector — given
 the same strip twice, the detector returns the same answer. *(Qualified by finding 40: part of that
 0.70 is the binning, not the pipeline.)*
 
@@ -578,8 +585,8 @@ rather than explaining it.
 
 The bigger number came from a control the registration forced. **About half the ink-bearing bins hold
 ink in only one arm**, yet those bins carry only **14–20% of the pair's ink**. That reconciles the
-finding this whole line rests on: the count reproduces to a few percent (1.2% on three seeds, 6.4%
-across nine; corrected 2026-10-23, finding 29) while placement reproduces at 0.70
+finding this whole line rests on: the count reproduces to a few percent *(1.2% on three seeds, 6.4%
+across nine; corrected 2026-10-23, finding 29)* while placement reproduces at 0.70
 because **the disagreement is concentrated in sparse, low-ink bins** while the bulk of the ink lands
 where both arms agree. Dropping those bins silently would have hidden it.
 `reports/normal_separation_contributes_but_does_not_explain.md`.
@@ -608,7 +615,8 @@ b ≈ 1.0**, so proportional scatter is what *no relationship* looks like, and t
 far below it on all three pairs shows the arms share real structure.
 
 **Consequence for the headline: r ≈ 0.70 UNDERSTATES how much the pipeline agrees**, and should be
-read as a property of the measurement as well as of fitting and flattening — a different binning
+read as a property of the measurement as well as of fitting and flattening *(of fitting; the flatten
+re-draws the count, finding 56; corrected 2026-10-23)* — a different binning
 would move it. Nothing in findings 36–38 is overturned: averaging works whether the residual noise is
 Poisson or geometric, and that was confirmed forward at two values of k.
 `reports/the_disagreement_is_part_counting_noise.md`.
@@ -779,8 +787,8 @@ layer; it was overturned only by checking whether the probe tracked the target.
 flatten path; every "seed" is a geometric init point. What it has is 174 scatter/atomic sites,
 `grid_sample`, a fused Triton kernel, and no request for determinism. Two flattens under
 `torch.use_deterministic_algorithms(True)` + `CUBLAS_WORKSPACE_CONFIG` produce **byte-identical
-`x/y/z.tif`**, zero escaped-op warnings, at 9.5× lower flatten throughput (~11 min vs ~4 of wall time, about 2.7×, against 2 h renders;
-corrected 2026-10-23, the 9.5× is stage-0 iterations per second).
+`x/y/z.tif`**, zero escaped-op warnings, at 9.5× lower flatten throughput: ~11 min of wall time against ~4, about 2.7×, and 2 h renders.
+*(Corrected 2026-10-23: this said "9.5× flatten cost"; the 9.5× is stage-0 iterations per second.)*
 Reduction order is the *whole* cause. The registered prediction — a residual from the Triton
 kernel — missed in the good direction. **Reproducible is not correct**: the deterministic flatten
 lays the sheet out 6.6–7.3 vx in-plane from *both* stock layouts, on the same surface (0.23–0.26 vx
@@ -849,7 +857,8 @@ twelve deterministic fits. BETWEEN, as registered, but the interval spans all th
 resolves ~17%** at the point estimate (~30% at the interval's top). `reports/the_pooled_fit_only_floor.md`.
 
 **58. No free offset lever, and a mesh offset would reach the render anyway.** Six displaced copies (seven offsets, with 0 vx) of
-one flattened surface all score below the fitted one (−2.2% to −19.8%). The resolution is ~2–3%, not
+one flattened surface all score below the fitted one (−2.2% to −19.8%). *(Corrected 2026-10-23: this
+said seven offsets score below it; one of the seven is the fitted surface.)* The resolution is ~2–3%, not
 the 0.0042% first claimed, because each displaced arm is different content. The flatten passes a mesh
 offset through at **T = 0.94**. `reports/no_free_offset_lever.md`,
 `reports/the_flatten_transmits_a_mesh_offset.md`.
@@ -1005,7 +1014,7 @@ inert.** Pre-registered (`docs/preregistration/2026-10-02_surface_interpolation_
 * **My prediction (|Δ| < 1% every window) FAILED.** The one-crop smoke (−0.09%) was unrepresentative.
 * **A post-hoc control rules out scorer jitter:** a JPEG re-pass, ±1-grey noise on 8% of pixels and a
   1-px shift move fg by ≤ 2.8%, while smooth moves the two extreme windows 17.6% and 20.2%, 6–7× that
-  bound (7–13× each window's own largest control; corrected 2026-10-23, this said 7–20×). One window (+1.7%)
+  bound and 7–13× each window's own largest control *(corrected 2026-10-23: this said 7–20×)*. One window (+1.7%)
   is within the control range.
 * **Not coverage** (+0.2–0.5%) and **not p95 normalisation**. Most plausibly the scorer's known
   sensitivity to sub-voxel surface shifts. There is no sign smooth reads text better: line score
@@ -1225,7 +1234,8 @@ Pre-registered (`93115122`); all 21 ScrollGT fiber targets, the 11 in-sample one
 * **No frame offset (P1 withheld):** the best shift within ±4 voxels gains 0.0020 and 0.0017; every axis peaks at or
   next to zero.
 * **P2 held:** at P ≥ 0.1 coverage is 0.764 and 0.689, still below the in-sample Scroll-5 256³ minimum (0.8185).
-* **P3 FAILED:** their misses are softer than in sample (soft-miss fraction 0.340 vs at most 0.289 on the in-sample Scroll-5 cubes). Verdict
+* **P3 FAILED:** their misses are softer than in sample (soft-miss fraction 0.340 vs at most 0.289 on the in-sample Scroll-5 cubes *(qualifier added
+2026-10-23: across all eleven in-sample cubes the maximum is 0.296)*). Verdict
   `SOFTER_BUT_NOT_RESCUED`.
 * Descriptive: Scroll 3, where the mask holds, is softer still (0.364–0.464), so softness marks unseen data, not this
   failure. What sets the two cubes apart is fiber with no voxel at P ≥ 0.05 within 2 voxels: 19.6% and 25.2%, against
