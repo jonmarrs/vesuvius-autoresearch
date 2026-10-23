@@ -1,0 +1,94 @@
+# Villa engineering opportunities — 2026-10-23 UTC
+
+One new contribution is prepared: the headless AppImage CLI instructions for
+[#2153](https://github.com/ScrollPrize/villa/issues/2153). It is a small
+documentation correction with an independently reproduced startup failure.
+The existing seeding and SQLite PRs remain the first upstream follow-ups.
+
+## Verified queue
+
+| Issue / PR | Current evidence | Action |
+| --- | --- | --- |
+| [#2141](https://github.com/ScrollPrize/villa/pull/2141), SQLite track reader | Open. Both maintainer findings addressed at `19575a45`; five local tests pass. | Upstream maintainer review and merge. |
+| [#2258](https://github.com/ScrollPrize/villa/pull/2258), fractional fiber planes | Open. Twenty local tests pass; default-spacing arrays match on three real scroll masks. Python CI remains in progress when checked. | Finish upstream checks and maintainer merge. |
+| [#2153](https://github.com/ScrollPrize/villa/issues/2153), headless AppImage | Open, no comments, no matching PR found by issue number or AppRun/headless terms. Current installation page still claims all dependencies are bundled. | Prepared +29/-1-line documentation patch and PR description. |
+| [#2027](https://github.com/ScrollPrize/villa/issues/2027), spiral angle precision | Already fixed in [#2028](https://github.com/ScrollPrize/villa/pull/2028), merged October 21; current source uses `float_hi`. | No duplicate PR. |
+| [#2186](https://github.com/ScrollPrize/villa/issues/2186), recompression data loss | Active fix [#2199](https://github.com/ScrollPrize/villa/pull/2199). | No duplicate PR. |
+| [#2195](https://github.com/ScrollPrize/villa/issues/2195), slow patch finding | Active fix [#2197](https://github.com/ScrollPrize/villa/pull/2197). | No duplicate PR. |
+| [#2104](https://github.com/ScrollPrize/villa/issues/2104), bounded trace growth | Active fix [#2133](https://github.com/ScrollPrize/villa/pull/2133). | No duplicate PR. |
+
+Other searched reports, including winding consistency, cached HTTP 404s and
+Copy block-edge seams, also have proposed fixes. Published-data issues such
+as #1522 and #1654 still require changes to published artifacts; an unrelated
+Villa code patch would not resolve them.
+
+Sources were current GitHub issues and PR searches, plus Villa `origin/main`
+at `e2254ebe0168a232e5ba7b94997c749b4e6a4544`, rather than the older local
+roadmap. Search results are a dated check, not a guarantee that no work exists
+on an unpublished branch. No messages were sent to issue authors.
+
+## Prepared headless CLI correction
+
+The main installation page calls the AppImage self-contained with all
+dependencies bundled, while the packaging notes and release workflow
+explicitly leave graphics and font libraries to the host. The packaging
+notes also omit an explicit extracted `AppRun <tool>` example. Running the
+binary directly bypasses its bundled glibc/loader setup.
+
+The patch corrects the installation claim and adds runtime package and
+extraction instructions. It changes no runtime code. It is committed at
+`d119561f3fb89fceae579bcf2e8671fb6d7e2c9a` on local Villa branch
+`docs/headless-appimage-cli`, worktree `/workspace/villa-headless-cli`.
+
+- [Portable patch](../docs/villa_pr_headless_appimage_cli.patch)
+- [Prepared PR description](../docs/VILLA_DRAFT_headless_appimage_cli.md)
+- [Captured startup output](evidence/villa_headless_cli_2026-10-23.json)
+
+## Measured validation
+
+Downloaded the current release asset
+`VC3D-e2254eb-2026-10-22-linux-x86_64.AppImage` (128,809,464 bytes) and checked
+its SHA-256 against GitHub's release digest:
+`46365113764e2b3cda17565159deb808dd1033a00259479ddfb0bfeae29ce45d`.
+
+On Debian 13 x86_64, with display variables unset and both paths limited to
+one OpenBLAS/OpenMP thread:
+
+```sh
+./VC3D.AppImage --appimage-extract
+./squashfs-root/usr/bin/vc_render_tifxyz --help
+# SIGSEGV (Python returncode -11; shell status 139), no output
+./squashfs-root/AppRun vc_render_tifxyz --help
+# help printed, exit 0
+APPIMAGE_EXTRACT_AND_RUN=1 ./VC3D.AppImage vc_render_tifxyz --help
+# help printed, exit 0
+./squashfs-root/AppRun vc_tifxyz_trim
+# usage printed, expected exit 1
+```
+
+An initial unrestricted direct invocation hit an OpenBLAS thread-startup
+failure first; the comparison above sets the same one-thread environment
+for every command to remove that confound.
+
+The documented package list matches the existing prerequisite list and
+Linux CI packages. The host already had the libraries; package installation
+and a fresh minimal Ubuntu/container were not tested. No scroll render or
+GUI test was run. This is evidence about the published CLI launch route,
+not rendering quality or a change in runtime behavior. The original real
+rendering report remains attributed to @evelynrook in #2153.
+
+`git diff --check`, reverse application of the portable patch and `bash -n`
+on `AppRun` pass. The Autoresearch smoke command also passed using the
+existing cached interpreter/packages:
+
+```sh
+VILLA_REVIEW_ROOT=/workspace/villa-upstream-review AGENTS_AGENT_MODE=1 \
+OMP_NUM_THREADS=2 MKL_NUM_THREADS=2 \
+/workspace/.local/share/uv/python/cpython-3.10.21-linux-x86_64-gnu/bin/python3.10 \
+  /workspace/villa-review-evidence/run_python.py scripts/smoke_test.py
+# 8/11 passed, 3 skipped, 0 failed in 8.1s
+```
+
+The skipped checks need the absent training data or unavailable bg2
+augmentation entry point. No packages were installed and the production
+Villa pin, registered research studies and loop state were not changed.
