@@ -23,7 +23,8 @@ Two failure directions, both worth knowing:
 * **ORPHAN** -- scored, on disk, named by no analysis script. Either it is a
   deliberate one-off (a determinism repeat, a probe) or it is a replicate someone
   forgot. The audit cannot tell those apart; a human must, which is the point.
-* **PHANTOM** -- named by a script but absent from disk. A typo, or an arm that
+* **PHANTOM** -- named by a script but absent from disk: neither a scored
+  directory nor a fit directory (`*-patch_<tag>`). A typo, or an arm that
   was deleted; either way an analysis is silently running on fewer fits than its
   author believes, exactly as `measure_noise_floor.py`'s `if t in D` did.
 
@@ -144,14 +145,21 @@ def audit(spiral_out: str) -> dict:
         else:
             orphans.append(row)
 
-    # PHANTOMS: tags a script names that have no scored directory. See
-    # arm_tags_in_code() for why this is an AST walk and not a grep.
+    # PHANTOMS: tags a script names that have no directory on disk. See
+    # arm_tags_in_code() for why this is an AST walk and not a grep. A tag is on
+    # disk with a scored directory, or with a fit directory (`*-patch_<tag>`) whose
+    # ink is scored under another name, as upfit_s1-3's is under detfit_up1-3.
     phantom = []
     cand: set[str] = set()
     for f, txt in texts.items():
         if f.suffix == ".py":
             cand |= arm_tags_in_code(txt)
-    for s in sorted(cand - set(tags)):
+    fits = {
+        Path(p).name.rsplit("-patch_", 1)[1]
+        for p in glob.glob(f"{spiral_out}/*-patch_*")
+        if Path(p).is_dir()
+    }
+    for s in sorted(cand - set(tags) - fits):
         phantom.append(s)
 
     return {
