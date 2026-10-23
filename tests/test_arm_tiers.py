@@ -143,10 +143,12 @@ def _drivers() -> dict[str, tuple[str, str]]:
         lines = re.findall(r"^(?:export PYTHONPATH=|cd |exec ).*$", text, re.M)
         assert any(ln.startswith("cd ") for ln in lines), f"{f.name}: no cd"
         trees = set()
+
+        def expand(m: re.Match[str], env: dict[str, str] = env) -> str:
+            return env.get(m.group(1), m.group(0))
+
         for ln in lines:
-            ln = re.sub(
-                r"\$\{?(\w+)\}?", lambda m, env=env: env.get(m.group(1), m.group(0)), ln
-            )
+            ln = re.sub(r"\$\{?(\w+)\}?", expand, ln)
             trees |= set(re.findall(r"/(villa-spiral[\w-]*)(?:/|\s|$)", ln))
         assert len(trees) == 1, f"{f.name}: runs from {sorted(trees)}"
         assert tag not in out, f"{tag} is set by both {out[tag][0]} and {f.name}"
