@@ -14,8 +14,10 @@ Two rules it enforces, both learned the hard way:
   control the registration named.
 * **A null is quoted with the effect it could have SEEN.** The floor is
   tier-specific and was doubled on 2026-09-19
-  (`reports/six_unused_seeds_double_the_current_floor.md`), so "no effect" here
-  always reads "no effect larger than X".
+  (`reports/six_unused_seeds_double_the_current_floor.md`). The MDE is what the
+  design could reliably see; what a null's data rule out is its 95% CI, which
+  can be much wider. So a null is labelled "null", not "bounds" its MDE
+  (corrected 2026-10-23: the label read "null, bounds 12%").
 """
 
 import argparse
@@ -107,6 +109,14 @@ def effect(ctl: list[float], trt: list[float], cv: float) -> dict:
     }
 
 
+def verdict(e: dict) -> str:
+    """IMPROVED or HARMED at ALPHA; otherwise "null". A null's MDE is what the
+    design could have seen, not what its data exclude, so it is not a bound."""
+    if e["p"] < ALPHA:
+        return "IMPROVED" if e["rel"] > 0 else "HARMED"
+    return "null"
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument(
@@ -124,13 +134,8 @@ def main() -> int:
         ctl = [ink(a.spiral_out, x) for x in c]
         trt = [ink(a.spiral_out, x) for x in t]
         e = effect(ctl, trt, CV[tier])
-        sig = e["p"] < ALPHA
-        if sig and e["rel"] > 0:
-            v, moved_up = "IMPROVED", moved_up + 1
-        elif sig:
-            v = "HARMED"
-        else:
-            v = f"null, bounds {e['mde']:.0%}"
+        v = verdict(e)
+        moved_up += v == "IMPROVED"
         ci = f"[{e['lo']:+.1%}, {e['hi']:+.1%}]"
         print(
             f"{name:<34}{len(ctl)}v{len(trt):<5}{e['rel']:>+8.2%}{e['p']:>8.3f}{ci:>20}{e['mde']:>7.1%}  {v}"
@@ -138,8 +143,9 @@ def main() -> int:
         out[name] = {**e, "tier": tier, "verdict": v}
 
     print(f"\n{len(STUDIES)} manipulations. Improved reading: {moved_up}.")
-    print("Every null is a bound, not an absence: none could have seen an effect")
-    print("smaller than its MDE column, and all of those are 9% or larger.")
+    print("A null is not an absence: none of these designs could reliably see an")
+    print("effect smaller than its MDE column, all 9% or larger, and what each null's")
+    print("data rule out is only what lies outside its 95% CI.")
 
     if a.json:
         Path(a.json).write_text(json.dumps(out, indent=1) + "\n")
