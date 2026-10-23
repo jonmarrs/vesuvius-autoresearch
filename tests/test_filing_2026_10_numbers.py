@@ -671,7 +671,7 @@ def test_seeding_numbers_match_finding_93():
         f"{lead_a}; and, seeded as sparsely at 7.91 µm, fall to at most 0.80: {b:.2f})"
         in txt
     )
-    assert "findings 91–95 in" in txt and "`reports/neural_tracer_seeding.md`" in txt
+    assert "findings 91–94 in" in txt and "`reports/neural_tracer_seeding.md`" in txt
 
 
 _GTO = _REPO / "reports/neural_tracer_gt_offset.json"
@@ -773,7 +773,28 @@ def test_tolerance4_numbers_match_finding_94():
         f"finding 94 prediction 2 (at tolerance 4, villa's neural tracer would still trail our tracer on at least 9 of "
         f"11 in-sample cubes: it trailed on {trail})." in txt
     )
-    assert "findings 91–95 in" in txt and "`reports/tolerance4_rescore.md`" in txt
+    assert "findings 91–94 in" in txt and "`reports/tolerance4_rescore.md`" in txt
+
+
+def test_octant_result_matches_finding_95_and_preserves_its_scope():
+    d = json.loads((_REPO / "reports/octant_crop_rescore.json").read_text())
+    assert d["status"] == "OK" and not d["identity_problems"]
+    rows = d["octants"]
+    pen = "erl_merge_penalized"
+    lead4 = sum(
+        r["neural"]["4.0"][pen] > r["tracer"]["4.0"][pen] for r in rows.values()
+    )
+    lead2 = sum(
+        r["neural"]["2.0"][pen] > r["tracer"]["2.0"][pen] for r in rows.values()
+    )
+    assert [lead4, len(rows)] == d["neural_leads_at_4"]
+    text = _text()
+    assert (
+        f"{lead4} of {len(rows)}, while at tolerance 2 it leads on {lead2} of {len(rows)}"
+        in text
+    )
+    assert "this tests scoring-window size, not tracing context" in text
+    assert "Finding 95 is in `reports/octant_crop_rescore.md`" in text
 
 
 def _json(rel: str) -> dict:
@@ -924,14 +945,15 @@ def test_octant_numbers_match_finding_95():
     assert len(s5) == 3 and all(
         t4["rows_neural"][c][pen] < t4["rows_tracer"][c][pen] for c in s5
     )
+    assert "(finding 95, pre-registered; its prediction held)" in txt
     assert (
-        f"Cut into their eight 256³ octants, the three 512³ in-sample cubes keep its tolerance-4 lead on {lead} of "
-        f"{n} octants (a median {ratio:.2f} times our tracer)" in txt
+        f"At tolerance 4 its merge-penalized ERL is a median {ratio:.2f} times our tracer's across the octants."
+        in txt
     )
     assert (
-        "nor is the scroll alone, since the three Scroll-5 256³ cubes trail too" in txt
+        "Nor is the scroll alone the cause, since the three Scroll-5 256³ cubes trail too."
+        in txt
     )
-    assert "findings 91–95 in" in txt and "`reports/octant_crop_rescore.md`" in txt
 
 
 # Each failed registered prediction in the list, with how many it counts for. The stated total is their sum.
