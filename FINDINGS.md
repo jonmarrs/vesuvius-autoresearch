@@ -670,7 +670,8 @@ estimate moving further against the method rather than toward a hidden benefit
 satisfaction, not the cause. Both geometry gains are circular by construction — the arm is selected
 on satisfaction and then scored on it — which is exactly why a loop using that guard would read
 either as success. Both nulls are bounded, not empty: no ink effect larger than ~10% *(corrected 2026-09-12 to ~12%: the registered MDE used a df=3 CV that was optimistic — `reports/noise_floor_by_tier.md`)* at three fits
-per arm.
+per arm. *(Corrected 2026-10-23: ~12% is the design MDE. The data exclude only [−18.4%, +16.7%] and
+[−20.7%, +13.1%] ([six manipulations](reports/no_lever_has_improved_reading.md)).)*
 
 **A property of the data that generalises past this study.** Per-patch satisfaction falls with
 radius (mean 0.9421 innermost decile to 0.7198 outermost, Pearson r = -0.21 over 35,963 patches),

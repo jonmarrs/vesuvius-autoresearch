@@ -251,6 +251,16 @@ def test_the_other_decoupling_cases_match_their_sources():
         "corrected 2026-09-12 with the pinned tier's noise floor)"
     ) in txt
     assert f"*(corrected 2026-09-12 to ~{bound}:" in (_REPO / "FINDINGS.md").read_text()
+    # ~12% is each design's MDE; what the data exclude is the interval
+    intervals = " and ".join(
+        f"[{survey[k]['lo'] * 100:+.1f}%, {survey[k]['hi'] * 100:+.1f}%]".replace(
+            "-", "−"
+        )
+        for k in ("patch bootstrap", "stripmatch")
+    )
+    correction = f"~{bound} is the design MDE. The data exclude only {intervals}"
+    assert correction in txt
+    assert correction in _flat(_REPO / "FINDINGS.md")
 
     # the ablation's geometry endpoint is in its report's table only
     rep = _report("samewinding_verdict.md")
