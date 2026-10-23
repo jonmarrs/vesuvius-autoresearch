@@ -1,0 +1,92 @@
+diff --git a/vesuvius/src/vesuvius/neural_tracing/tracers/fibers/tests/test_volume_seeding.py b/vesuvius/src/vesuvius/neural_tracing/tracers/fibers/tests/test_volume_seeding.py
+new file mode 100644
+index 00000000..e0dcb77d
+--- /dev/null
++++ b/vesuvius/src/vesuvius/neural_tracing/tracers/fibers/tests/test_volume_seeding.py
+@@ -0,0 +1,58 @@
++"""Cross-section planes stay on one global grid, including at fractional spacing."""
++from types import SimpleNamespace
++
++import numpy as np
++import pytest
++
++from vesuvius.neural_tracing.tracers.fibers.tracing import volume
++from vesuvius.neural_tracing.tracers.fibers.tracing.volume import tile_dots
++
++
++def fiber_presence(axis):
++    y, x = np.mgrid[:32, :32]
++    cross_section = (255*np.exp(-((x-16)**2+(y-16)**2)/8)).astype(np.uint8)
++    return np.moveaxis(np.repeat(cross_section[None], 256, axis=0), 0, 2-axis)
++
++
++def plane_seeds(presence, axis, spacing, start, stop):
++    lo, hi = np.zeros(3, int), np.array(presence.shape[::-1])
++    lo[axis], hi[axis] = start, stop
++    args = SimpleNamespace(threshold=128., dot_radius=2., fill_spacing=4., plane_spacing=spacing)
++    dots = tile_dots(presence, lo, hi, args)
++    return dots['xyz'][dots['plane'] != 'fill']
++
++
++@pytest.mark.parametrize('axis', [0, 1, 2])
++@pytest.mark.parametrize('spacing, expected', [
++    (64., [64., 128., 192.]),
++    (64*7.91/9.6, [52., 105., 158.]),
++    (64*9.6/7.91, [77., 155.]),
++])
++def test_planes_follow_global_spacing_independently_of_tile_boundaries(axis, spacing, expected):
++    presence = fiber_presence(axis)
++    whole = plane_seeds(presence, axis, spacing, 16, 208)
++    split = np.concatenate([plane_seeds(presence, axis, spacing, a, b)
++                            for a, b in ((16, 112), (112, 208))])
++    np.testing.assert_array_equal(whole[:, axis], expected)
++    np.testing.assert_array_equal(split, whole)
++
++
++@pytest.mark.parametrize('axis', [0, 1, 2])
++@pytest.mark.parametrize('spacing', [.75, 1e-9])
++def test_fractional_spacing_below_one_visits_each_plane_once(axis, spacing, monkeypatch):
++    original_arange = np.arange
++
++    def bounded_arange(*args, **kwargs):
++        if len(args) >= 2 and args[1]-args[0] > 1000:
++            pytest.fail('Subvoxel spacing allocated duplicate nominal planes')
++        return original_arange(*args, **kwargs)
++
++    monkeypatch.setattr(volume.np, 'arange', bounded_arange)
++    dots = plane_seeds(fiber_presence(axis), axis, spacing, 16, 32)
++    np.testing.assert_array_equal(dots[:, axis], np.arange(16, 32))
++
++
++@pytest.mark.parametrize('spacing', [0., -1., float('nan'), float('inf'), -float('inf')])
++def test_invalid_plane_spacing_is_rejected(spacing):
++    with pytest.raises(ValueError, match='plane spacing must be finite and positive'):
++        plane_seeds(fiber_presence(2), 2, spacing, 16, 32)
+diff --git a/vesuvius/src/vesuvius/neural_tracing/tracers/fibers/tracing/volume.py b/vesuvius/src/vesuvius/neural_tracing/tracers/fibers/tracing/volume.py
+index 55b66828..733c77e1 100644
+--- a/vesuvius/src/vesuvius/neural_tracing/tracers/fibers/tracing/volume.py
++++ b/vesuvius/src/vesuvius/neural_tracing/tracers/fibers/tracing/volume.py
+@@ -159,6 +159,10 @@ def ridge_directions(presence, points_zyx):
+
+ def tile_dots(presence_array, lo, hi, args):
+     """Seeds of one tile [lo, hi) (grid xyz): positions, directions, families, presence values, in tracing order."""
++    spacing = float(args.plane_spacing)
++    if not np.isfinite(spacing) or spacing <= 0:
++        raise ValueError('plane spacing must be finite and positive')
++    spacing = max(spacing, 1.)  # Sampling planes are integer voxels; do not allocate duplicate subvoxel planes.
+     margin = HESSIAN_RADIUS+2
+     want_lo = lo[::-1].astype(int)-margin
+     want_hi = np.ceil(hi[::-1]).astype(int)+margin
+@@ -174,8 +178,10 @@ def tile_dots(presence_array, lo, hi, args):
+     plans = (('z', 2, 0, 'V'), ('x', 0, 2, 'H'), ('y', 1, 1, 'H'))  # name, xyz axis, zyx axis, family
+     out = []
+     for name, axis_xyz, axis_zyx, family in plans:
+-        first = int(np.ceil(lo[axis_xyz]/args.plane_spacing)*args.plane_spacing)
+-        for c in range(first, int(hi[axis_xyz]), int(args.plane_spacing)):
++        first = np.ceil(lo[axis_xyz]/spacing)
++        last = np.ceil(hi[axis_xyz]/spacing)
++        # Quantize each global plane, not the spacing: fractional steps must not accumulate drift within a tile.
++        for c in (np.arange(first, last)*spacing).astype(int):
+             k = c-int(lo[axis_xyz])+margin
+             plane = np.take(smooth, k, axis=axis_zyx)
+             peak = (plane == ndimage.maximum_filter(plane, size)) & (plane > args.threshold)

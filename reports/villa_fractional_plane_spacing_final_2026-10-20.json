@@ -1,0 +1,503 @@
+{
+  "scope": "CPU seeding only; thresholded model masks, not findings 91/92 probability volumes",
+  "data_release": "https://github.com/jonmarrs/scrollgt/tree/v0.8.1",
+  "preprocessing": "2x2x2 block mean of binary mask, round(255*mean) to uint8",
+  "numpy": "2.2.6",
+  "scipy": "1.15.3",
+  "before_source_sha256": "bce337ca60439ab594f8cf4d3180b24b97972e9aecd0bb75bf46c26e79a89cf3",
+  "after_source_sha256": "2c0a07aed97dffaf220fab641d9c46ab1d777ba3d88e31356d77873a5ae4203f",
+  "rows": [
+    {
+      "cube": "s1_00497_01497_03997_256",
+      "mask_shape": [
+        256,
+        256,
+        256
+      ],
+      "mask_sha256": "3263fbe85731bdf934b86004f78593be96791155e17edbffd35aa105886d5b4a",
+      "spacing": 64.0,
+      "before": {
+        "dots": 1497,
+        "plane_dots": 87,
+        "fill_dots": 1410,
+        "planes": [
+          "x0",
+          "x64",
+          "y0",
+          "z0",
+          "z64"
+        ],
+        "array_sha256": {
+          "xyz": "cb9e5bae8a0cc1be6d55f280e35639e47d78e3d4c1cb65ff5b54e5efb1308c20",
+          "direction": "33f95f967160e1e1e4073502cb971418180322c5d8ef7061cf8dbe3e6cef67ea",
+          "value": "52f33868aa29bea6aa45ef0ccaf86ecf8e18ccf7c88b010ad8f58eda927916ec",
+          "family": "81b48c1f15979b97bd7feee7671f330d26cdafe468b397d9ed9ef4f16b91d9c3",
+          "plane": "9e5fbce763573fc02d9cfe5fe5454acc5c18f5d99622ee635b3628d0b68500be"
+        }
+      },
+      "after": {
+        "dots": 1497,
+        "plane_dots": 87,
+        "fill_dots": 1410,
+        "planes": [
+          "x0",
+          "x64",
+          "y0",
+          "z0",
+          "z64"
+        ],
+        "array_sha256": {
+          "xyz": "cb9e5bae8a0cc1be6d55f280e35639e47d78e3d4c1cb65ff5b54e5efb1308c20",
+          "direction": "33f95f967160e1e1e4073502cb971418180322c5d8ef7061cf8dbe3e6cef67ea",
+          "value": "52f33868aa29bea6aa45ef0ccaf86ecf8e18ccf7c88b010ad8f58eda927916ec",
+          "family": "81b48c1f15979b97bd7feee7671f330d26cdafe468b397d9ed9ef4f16b91d9c3",
+          "plane": "9e5fbce763573fc02d9cfe5fe5454acc5c18f5d99622ee635b3628d0b68500be"
+        }
+      },
+      "identical": true
+    },
+    {
+      "cube": "s1_00497_01497_03997_256",
+      "mask_shape": [
+        256,
+        256,
+        256
+      ],
+      "mask_sha256": "3263fbe85731bdf934b86004f78593be96791155e17edbffd35aa105886d5b4a",
+      "spacing": 52.733333333333334,
+      "before": {
+        "dots": 1589,
+        "plane_dots": 179,
+        "fill_dots": 1410,
+        "planes": [
+          "x0",
+          "x104",
+          "x52",
+          "y0",
+          "y52",
+          "z0",
+          "z104",
+          "z52"
+        ],
+        "array_sha256": {
+          "xyz": "436e168545ca014560703dd86a9ada00ca2042f0ff60a236378e43fa3487a119",
+          "direction": "2527fd8862334ac63bea059c2ff1acb16bdadc8d256d69d7557dd88313bc3257",
+          "value": "0cb3080697b5b52dc89e316b573665df742dfa40ff6a4f2db58a8f71e4956485",
+          "family": "41cfdf645515e35bb5bd4f375e80a8f60c8c4511f5001622c20157df5119b979",
+          "plane": "c9e30444260c10e9ac410806086789288642da1e57a584a9cdf6bafb8239e5e7"
+        }
+      },
+      "after": {
+        "dots": 1590,
+        "plane_dots": 180,
+        "fill_dots": 1410,
+        "planes": [
+          "x0",
+          "x105",
+          "x52",
+          "y0",
+          "y105",
+          "y52",
+          "z0",
+          "z105",
+          "z52"
+        ],
+        "array_sha256": {
+          "xyz": "8764eb2958c2570ff75a17f514eb2d11225cefdbf7d245c3f7169fe6c5908adb",
+          "direction": "36a3c2b2b863fa331ef3e2adead3e7f1e98d78407036736256712b02e040d92b",
+          "value": "e7c888874318b9e053a418e27e9a627cabee367429c36921f51400438abfc3e1",
+          "family": "3a7a5976250f613bf7c46b7e0cfb8602945791b5f4dbb5c2b19ee4a3652aa69f",
+          "plane": "d1d0d4d832dcc7a2a32ad381e9fd28e5397abc0d58c1d0b034f01b69fffd128e"
+        }
+      },
+      "identical": false
+    },
+    {
+      "cube": "s1_00497_01497_03997_256",
+      "mask_shape": [
+        256,
+        256,
+        256
+      ],
+      "mask_sha256": "3263fbe85731bdf934b86004f78593be96791155e17edbffd35aa105886d5b4a",
+      "spacing": 77.67383059418457,
+      "before": {
+        "dots": 1492,
+        "plane_dots": 82,
+        "fill_dots": 1410,
+        "planes": [
+          "x0",
+          "x77",
+          "y0",
+          "y77",
+          "z0",
+          "z77"
+        ],
+        "array_sha256": {
+          "xyz": "250be17c3930d595a7a23270ffe7af9e71a6c82b04beda5d06b0f0712ad6ff6d",
+          "direction": "cf4a1714395690c61352206a3723eff9b5d5dcffa1b859e3648d7fada4565521",
+          "value": "d23cbf758f7a23c5fdbc3138d2336210cfdcfd7c90c8c54af6cbd5321e254d62",
+          "family": "46e9c66fd7dd5c2ad74385743d9624f9918519fd95646af3918c06d74a08aa9a",
+          "plane": "6ea028abb781fda5b2cc629d5d31227f4b1d4e6b189fd8ee265a841b504a1cd6"
+        }
+      },
+      "after": {
+        "dots": 1492,
+        "plane_dots": 82,
+        "fill_dots": 1410,
+        "planes": [
+          "x0",
+          "x77",
+          "y0",
+          "y77",
+          "z0",
+          "z77"
+        ],
+        "array_sha256": {
+          "xyz": "250be17c3930d595a7a23270ffe7af9e71a6c82b04beda5d06b0f0712ad6ff6d",
+          "direction": "cf4a1714395690c61352206a3723eff9b5d5dcffa1b859e3648d7fada4565521",
+          "value": "d23cbf758f7a23c5fdbc3138d2336210cfdcfd7c90c8c54af6cbd5321e254d62",
+          "family": "46e9c66fd7dd5c2ad74385743d9624f9918519fd95646af3918c06d74a08aa9a",
+          "plane": "6ea028abb781fda5b2cc629d5d31227f4b1d4e6b189fd8ee265a841b504a1cd6"
+        }
+      },
+      "identical": true
+    },
+    {
+      "cube": "s3_00994_00494_01994_512",
+      "mask_shape": [
+        512,
+        512,
+        512
+      ],
+      "mask_sha256": "2f88aa371ef55f12d25fc4659380bf804131473a5bdcd1ee3eadaf957429d1ee",
+      "spacing": 64.0,
+      "before": {
+        "dots": 10863,
+        "plane_dots": 857,
+        "fill_dots": 10006,
+        "planes": [
+          "x0",
+          "x128",
+          "x192",
+          "x64",
+          "y128",
+          "y192",
+          "y64",
+          "z0",
+          "z128",
+          "z192",
+          "z64"
+        ],
+        "array_sha256": {
+          "xyz": "460e87f02aba20b668768955f5ca9e27800d60943b326e52d35a90729bc2b25a",
+          "direction": "ca553bdba7fd58d3b22c073cce0de80bd41e6127decc9009d06bfab29d71f936",
+          "value": "9864aeb86006e71629a210ee2dc7f9d8eaef71483eb91b2dccd47aae82fac7e1",
+          "family": "804cc43845e1438907fdc39fab9e79d018508414dd09109bba80356fb01357fc",
+          "plane": "f43a1baaf4eb4a875b4f2f2cb67d356e154b93bf0f5f699d95b1ef0100c2a084"
+        }
+      },
+      "after": {
+        "dots": 10863,
+        "plane_dots": 857,
+        "fill_dots": 10006,
+        "planes": [
+          "x0",
+          "x128",
+          "x192",
+          "x64",
+          "y128",
+          "y192",
+          "y64",
+          "z0",
+          "z128",
+          "z192",
+          "z64"
+        ],
+        "array_sha256": {
+          "xyz": "460e87f02aba20b668768955f5ca9e27800d60943b326e52d35a90729bc2b25a",
+          "direction": "ca553bdba7fd58d3b22c073cce0de80bd41e6127decc9009d06bfab29d71f936",
+          "value": "9864aeb86006e71629a210ee2dc7f9d8eaef71483eb91b2dccd47aae82fac7e1",
+          "family": "804cc43845e1438907fdc39fab9e79d018508414dd09109bba80356fb01357fc",
+          "plane": "f43a1baaf4eb4a875b4f2f2cb67d356e154b93bf0f5f699d95b1ef0100c2a084"
+        }
+      },
+      "identical": true
+    },
+    {
+      "cube": "s3_00994_00494_01994_512",
+      "mask_shape": [
+        512,
+        512,
+        512
+      ],
+      "mask_sha256": "2f88aa371ef55f12d25fc4659380bf804131473a5bdcd1ee3eadaf957429d1ee",
+      "spacing": 52.733333333333334,
+      "before": {
+        "dots": 11213,
+        "plane_dots": 1207,
+        "fill_dots": 10006,
+        "planes": [
+          "x0",
+          "x104",
+          "x156",
+          "x208",
+          "x52",
+          "y104",
+          "y156",
+          "y208",
+          "y52",
+          "z0",
+          "z104",
+          "z156",
+          "z208",
+          "z52"
+        ],
+        "array_sha256": {
+          "xyz": "f86974a41ab4b4b90df41da1f15fa44ece58feb1a3bced856d237b0e20ee88d8",
+          "direction": "cf4739cbfed684cb6d23417016fa377c827e1314353d22e79e15fd4c056f0af1",
+          "value": "a94aea37a98cdb744143394a0211ccfb80441ce4a450977e244081eee38add8d",
+          "family": "c2e7c61a52721b6387fe94532ea3df2c743c81734b12207596cb63d6e4886096",
+          "plane": "6203440aef7eff718b6d7e53316f6c6bf4b00c8ca1c2181ef43eb57b59718f4b"
+        }
+      },
+      "after": {
+        "dots": 11175,
+        "plane_dots": 1169,
+        "fill_dots": 10006,
+        "planes": [
+          "x0",
+          "x105",
+          "x158",
+          "x210",
+          "x52",
+          "y105",
+          "y158",
+          "y210",
+          "y52",
+          "z0",
+          "z105",
+          "z158",
+          "z210",
+          "z52"
+        ],
+        "array_sha256": {
+          "xyz": "2ff29d14a7488a7cb558048820f26c01db99005f05a55bef0d81f07e9740c277",
+          "direction": "5563a09a2e8d409d65bfc0078e7c77d4894748f7e1c5081e4320914bd2d33ed5",
+          "value": "01fdf0578da322324f5ed665c179756d7e89557b1469e423b130a4038bca7aea",
+          "family": "e5fd349890ab55436117cb6cfa430a8e7191b7818511e0dd17e15a7e057d36b6",
+          "plane": "8c9fe6a6efcdec6ac147762edefb4a6e822164d449d9da9409752282dba29219"
+        }
+      },
+      "identical": false
+    },
+    {
+      "cube": "s3_00994_00494_01994_512",
+      "mask_shape": [
+        512,
+        512,
+        512
+      ],
+      "mask_sha256": "2f88aa371ef55f12d25fc4659380bf804131473a5bdcd1ee3eadaf957429d1ee",
+      "spacing": 77.67383059418457,
+      "before": {
+        "dots": 10821,
+        "plane_dots": 815,
+        "fill_dots": 10006,
+        "planes": [
+          "x0",
+          "x154",
+          "x231",
+          "x77",
+          "y154",
+          "y231",
+          "y77",
+          "z0",
+          "z154",
+          "z231",
+          "z77"
+        ],
+        "array_sha256": {
+          "xyz": "d67609d59a164d8bb47b94792bc8ac05c39d93af3857e3d0599d1cb13f005bae",
+          "direction": "6e9e6b6466a8538564def0e0f3f3a08ac17e5bdf670f0615f3da6509277dfe10",
+          "value": "7a48e338128db5721dd2bacd18748265d9407d0bba70ccff48afb76fde8a9a82",
+          "family": "db99ccaa71ebd2b29bba0620923d315d165a56b20efb8cda5651f99c6ad821a0",
+          "plane": "7f382fa78c77ea808a782befefbbc7044338a9492c375c03b1f1d58ffc3dfa0d"
+        }
+      },
+      "after": {
+        "dots": 10825,
+        "plane_dots": 819,
+        "fill_dots": 10006,
+        "planes": [
+          "x0",
+          "x155",
+          "x233",
+          "x77",
+          "y155",
+          "y233",
+          "y77",
+          "z0",
+          "z155",
+          "z233",
+          "z77"
+        ],
+        "array_sha256": {
+          "xyz": "eadc4f8b71e2bcc8ff796029c0eb2ae0e84fa2e03489b1b9650920f07bbc467f",
+          "direction": "2ccfded0d59bd0c59478ce31739e63e942b063d8cbdc6d001ea9905d189b650a",
+          "value": "2e71c24b03bf96b26924927fae4312175e0fda0202d698abb25c684899dbbba1",
+          "family": "d47e084d88f02d25fb5fe3ef1b7a81274625d60ec5b162fcd6e42ca83b5974d4",
+          "plane": "1d92178aa3553f1af72a16e855ed3b3da9579327fddcbc736e19234d787a8ee9"
+        }
+      },
+      "identical": false
+    },
+    {
+      "cube": "s5_03997_01497_03997_256",
+      "mask_shape": [
+        256,
+        256,
+        256
+      ],
+      "mask_sha256": "577b09ee7fb527b3b3d46ac355985351cb61e4db906a9c5159f50b1638fb3498",
+      "spacing": 64.0,
+      "before": {
+        "dots": 1091,
+        "plane_dots": 73,
+        "fill_dots": 1018,
+        "planes": [
+          "x0",
+          "x64",
+          "z0",
+          "z64"
+        ],
+        "array_sha256": {
+          "xyz": "739fe38ef02947ef85e4afc6a88c2251badbb225bc0c60a650070edf5cbed0dd",
+          "direction": "bdc6c34cd80de20170029c7ff0c78026ef8fe44c4151f5e5893345c3994b1430",
+          "value": "f05c9069d14e54da2772cfed002f5ca81e3ccce3c948a2d2edb3575ff0661209",
+          "family": "78216e1989457e92ab568209ea9105a5127c67cffa8ede86848e0ad10e21c67d",
+          "plane": "bcd0fd95390a27a84509b27df5a43ba63d0c896ba424fb3f61e49f6bee985e7a"
+        }
+      },
+      "after": {
+        "dots": 1091,
+        "plane_dots": 73,
+        "fill_dots": 1018,
+        "planes": [
+          "x0",
+          "x64",
+          "z0",
+          "z64"
+        ],
+        "array_sha256": {
+          "xyz": "739fe38ef02947ef85e4afc6a88c2251badbb225bc0c60a650070edf5cbed0dd",
+          "direction": "bdc6c34cd80de20170029c7ff0c78026ef8fe44c4151f5e5893345c3994b1430",
+          "value": "f05c9069d14e54da2772cfed002f5ca81e3ccce3c948a2d2edb3575ff0661209",
+          "family": "78216e1989457e92ab568209ea9105a5127c67cffa8ede86848e0ad10e21c67d",
+          "plane": "bcd0fd95390a27a84509b27df5a43ba63d0c896ba424fb3f61e49f6bee985e7a"
+        }
+      },
+      "identical": true
+    },
+    {
+      "cube": "s5_03997_01497_03997_256",
+      "mask_shape": [
+        256,
+        256,
+        256
+      ],
+      "mask_sha256": "577b09ee7fb527b3b3d46ac355985351cb61e4db906a9c5159f50b1638fb3498",
+      "spacing": 52.733333333333334,
+      "before": {
+        "dots": 1154,
+        "plane_dots": 136,
+        "fill_dots": 1018,
+        "planes": [
+          "x0",
+          "x104",
+          "x52",
+          "y52",
+          "z0",
+          "z104",
+          "z52"
+        ],
+        "array_sha256": {
+          "xyz": "754c0169721b27166fda250968674dbb7a127feececf212da8cd6c01a978de2d",
+          "direction": "ffa80ca15177fd2aa66d6b4b3c29e035fd5ba1eea3892b142eb395fe9d46f364",
+          "value": "36353426106ca5a1a2bb58e9226c4681f2ddba1d579f5b05d16ef3aa0421d86c",
+          "family": "98e88cd63bf1d880b40eb338101d366e01031f8ae8c2edea2d189af506f142d5",
+          "plane": "d798d762ea921a5a7afde778346299b6ad5ccea6468c308e4c49e4fdf4d08552"
+        }
+      },
+      "after": {
+        "dots": 1151,
+        "plane_dots": 133,
+        "fill_dots": 1018,
+        "planes": [
+          "x0",
+          "x105",
+          "x52",
+          "y52",
+          "z0",
+          "z105",
+          "z52"
+        ],
+        "array_sha256": {
+          "xyz": "50aa1a0a1e39e6ebd0fd173eb0cbcb4cf83109e0c598d30cbb7d75eda676b078",
+          "direction": "cde319102e0745d0da5a8ee73fb52369f4d60c92caa40ffcc86413c5f51f80ef",
+          "value": "727425f00376cba17242a090d2810e13cf340eefe60344fcebdc3a3d2b41f362",
+          "family": "c5301b3b055b3d9816bd983696b53ba5ac6a2643a7c3cafa1f1577eedf6a64ba",
+          "plane": "146a587d800142d274cda93e7658d702a66d1166d4e722780dcaf12a6fc9883b"
+        }
+      },
+      "identical": false
+    },
+    {
+      "cube": "s5_03997_01497_03997_256",
+      "mask_shape": [
+        256,
+        256,
+        256
+      ],
+      "mask_sha256": "577b09ee7fb527b3b3d46ac355985351cb61e4db906a9c5159f50b1638fb3498",
+      "spacing": 77.67383059418457,
+      "before": {
+        "dots": 1096,
+        "plane_dots": 78,
+        "fill_dots": 1018,
+        "planes": [
+          "x0",
+          "x77",
+          "z0",
+          "z77"
+        ],
+        "array_sha256": {
+          "xyz": "b8288830b26455a8df55bf660d80c523dfbe3731d0e6e3ac02afb1a951ca77bb",
+          "direction": "4936c9ba5e7fd5548cbe60a8cc337c0fc671725784385794f1024a0f55a1634a",
+          "value": "f421eede6e6fa77cba8bb821e185c91d4c86592231c7d6ec0dc329595b88fc6f",
+          "family": "88221325eaabfb5e7469c30a12768b808dfc6e5230bd0c9676ad56d88b7f162c",
+          "plane": "fc9bc7445d9e8cd800db7c69dce76deebf218ec0c58a48ba049e2bc09313769a"
+        }
+      },
+      "after": {
+        "dots": 1096,
+        "plane_dots": 78,
+        "fill_dots": 1018,
+        "planes": [
+          "x0",
+          "x77",
+          "z0",
+          "z77"
+        ],
+        "array_sha256": {
+          "xyz": "b8288830b26455a8df55bf660d80c523dfbe3731d0e6e3ac02afb1a951ca77bb",
+          "direction": "4936c9ba5e7fd5548cbe60a8cc337c0fc671725784385794f1024a0f55a1634a",
+          "value": "f421eede6e6fa77cba8bb821e185c91d4c86592231c7d6ec0dc329595b88fc6f",
+          "family": "88221325eaabfb5e7469c30a12768b808dfc6e5230bd0c9676ad56d88b7f162c",
+          "plane": "fc9bc7445d9e8cd800db7c69dce76deebf218ec0c58a48ba049e2bc09313769a"
+        }
+      },
+      "identical": true
+    }
+  ]
+}

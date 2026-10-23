@@ -25,13 +25,19 @@ clipped "#1780" to "#17".
    **merged 2026-10-11 Pacific** (`2026-10-12T01:49:09Z`,
    [merge commit](https://github.com/ScrollPrize/villa/commit/9afddaf0fdc12efe088bab7b82534c4f9a79e536)).
    On filing day, list every villa PR merged in October first in part (2) and in the URL field, then re-check
-   #2022, #2044 and any other open PR, and quote any maintainer reply verbatim. villa #2141 (the track-DBM fix)
-   opened 2026-10-18 and villa #2155 (the README's pip route) on 2026-10-19; neither had merged on 10-19. If either
-   merges, add it with the before → after its PR body measured:
+   #2022, #2044, #2155 and any other open PR, and quote any maintainer reply verbatim.
+   villa #2155 (the README's pip route) **merged 2026-10-21 Pacific**
+   (`2026-10-21T19:50:31Z`, [merge commit](https://github.com/ScrollPrize/villa/commit/e016bc71d9b873b3e52871f42aa3e7a34520cfb1)).
+   villa #2141 (the track-DBM fix), opened 2026-10-18, remains open at the 2026-10-22 review.
+   Its latest update handles recognized SQLite stores on every Python version and preserves committed WAL pages;
+   all five reader tests pass. If it merges, add its measured before → after:
    * #2141: on Python 3.10 and 3.11, villa's own reader fails to open a published track store (a WAL database) in a
      read-only directory, with "attempt to write a readonly database". With the fix it opens it.
-   * #2155: on Linux x86-64 the README's pip command installs neither track-extraction backend. With the fix it
-     installs `brook-cu12`, `cucim-cu12` and `cupy-cuda12x`.
+
+   **Checked 2026-10-20:** #2141 also has [independent Windows validation from @vincentl065](https://github.com/ScrollPrize/villa/pull/2141#issuecomment-6290970541),
+   the author of the original fallback: baseline leaves SQLite sidecars, the fix passes on Windows 11 / Python
+   3.12.10 (2 passed, 2 skipped). Their reply ends “LGTM”. This is contributor feedback, not a merge; keep the
+   filing's merged-contribution list unchanged until GitHub records one.
 
    `scripts/check_filing_upstream_claims.py --month 2026-10 --filing
    docs/PRIZE_FILING_2026-10_DRAFT.md` must PASS: it fails while an October merge of ours has no "(merged
@@ -58,6 +64,7 @@ clipped "#1780" to "#17".
 ```
 https://github.com/ScrollPrize/villa/pull/2022
 https://github.com/ScrollPrize/villa/pull/2044
+https://github.com/ScrollPrize/villa/pull/2155
 https://github.com/jonmarrs/vesuvius-autoresearch
 https://github.com/jonmarrs/inkdelta
 https://github.com/jonmarrs/inkagree
@@ -93,6 +100,11 @@ Its before/after runs used one RTX 4090 in a 26 GiB memory limit:
 * on a smaller inner strip, the three modes' counts agree to within 0.005%, the scorer's run-to-run noise.
 
 The default fold concurrency is preserved; sequential execution is slower and reduces peak memory.
+
+[villa #2155](https://github.com/ScrollPrize/villa/pull/2155) (merged 2026-10-21).
+The spiral-fitting README's pip route now selects `--group cuda`. On Linux x86-64, the old command
+installed neither track-extraction backend; the corrected command installs `brook-cu12`, `cucim-cu12`
+and `cupy-cuda12x`, matching the CUDA dependency group used by the documented uv route.
 
 villa's autoresearch loop keeps or discards a change by one number, `total_fg_pixels`. This month we checked
 three things that number silently depends on, against villa's own code and villa's own ink labels:
