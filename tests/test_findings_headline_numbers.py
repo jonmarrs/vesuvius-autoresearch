@@ -353,3 +353,25 @@ def test_the_window_verdict_is_marked_superseded():
         "function of the 64 px patch.~~* **Superseded by Phase 5**, like the TimeSformer bullet above: "
         f"a 64 px-lateral recipe reads real, transferable ink (held-out AUC {auc:.3f})"
     ) in _flat(_FINDINGS)
+
+
+def test_the_same_winding_null_is_its_interval_not_the_mde():
+    s = _json("manipulation_effects_survey.json")["same-winding ablation (pinned)"]
+    lo, hi = (f"{v * 100:+.1f}%".replace("-", "−") for v in (s["lo"], s["hi"]))
+    assert f"{s['mde'] * 100:.0f}%" == "10%"
+    assert (
+        f"*corrected 2026-10-23: ~10% is the design MDE, and the data's interval is [{lo}, {hi}]*"
+    ) in _flat(_FINDINGS)
+
+
+def test_the_villa_flatten_candidate_notes_the_wall_time():
+    """villa #1866's posted text says "roughly 9.5x the flatten time"; its record notes ~2.7x."""
+    rep = (_REPORTS / "the_flatten_is_reproducible_when_asked.md").read_text()
+    wall = re.search(
+        r"wall time per flatten \(incl\. export\) \| (\d+) s, (\d+) s vs ~(\d+) min stock",
+        rep,
+    ).groups()
+    slower = statistics.mean(int(s) for s in wall[:2]) / (int(wall[2]) * 60)
+    record = _flat(_REPO / "docs" / "VILLA_PR_CANDIDATE_flatten_nondeterminism.md")
+    assert "roughly **9.5× the flatten time**" in record
+    assert f"~11 min against ~{wall[2]} is about {slower:.1f}× the wall time" in record

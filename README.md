@@ -18,7 +18,8 @@
 > geometry gains are **circular by construction** — the arm is selected on satisfaction and then
 > scored on it — which is exactly why a loop using that guard would read either as success; and both
 > ink nulls are bounded at ~12%, not zero (~10% as registered; corrected 2026-09-12 with the
-> pinned tier's noise floor). **All of it measured on villa-spiral `6847063f`;
+> pinned tier's noise floor). *(Corrected 2026-10-23: ~12% is the design MDE. The data rule out only
+> effects outside [−18.4%, +16.7%] and [−20.7%, +13.1%].)* **All of it measured on villa-spiral `6847063f`;
 > current villa recovers 67.6% more ink through a byte-identical scorer, so these describe
 > superseded code. Re-measured 2026-09-12 and the extension FAILED: on current code the ink null
 > reproduces but the geometry evidence does not, so the decoupling is a claim about `6847063f`

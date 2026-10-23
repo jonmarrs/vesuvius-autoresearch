@@ -13,6 +13,11 @@
 > flattens land "about 7 voxels apart" (7.15 vx). They lie on the **same surface**, 0.25 vx apart along the
 > normal; 7.15 vx is the nearest-neighbour distance between their sampling grids. The correction posted on
 > the PR is under "The proposed addition"; `reports/the_flatten_moves_the_grid_not_the_surface.md`.
+>
+> **Also wrong in the posted text, noted 2026-10-23, not yet corrected on the PR.** It says the
+> deterministic flatten costs "roughly 9.5× the flatten time (~11 min instead of ~4)". 9.5× is the
+> stage-0 throughput; ~11 min against ~4 is about 2.7× the wall time.
+> `reports/the_flatten_is_reproducible_when_asked.md`.
 
 **Target:** `spiral-fitting/autoresearch.md`, the `**Stochasticity**` paragraph (line 52).
 **Shape:** one doc paragraph, ~6 lines added, no behaviour change. Same shape as #1721 and #1722,
