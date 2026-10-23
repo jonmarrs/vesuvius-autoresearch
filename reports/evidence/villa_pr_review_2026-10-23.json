@@ -1,0 +1,170 @@
+{
+  "date_utc": "2026-10-23",
+  "owner_pr": "https://github.com/jonmarrs/vesuvius-autoresearch/pull/197",
+  "villa_base_sha": "e2254ebe0168a232e5ba7b94997c749b4e6a4544",
+  "villa_repository_permissions": {
+    "admin": false,
+    "maintain": false,
+    "pull": true,
+    "push": false,
+    "triage": false
+  },
+  "prepared_branches": [
+    {
+      "head": "jonmarrs:fix/native-retry-cycle",
+      "sha": "337c0783f1c4a3f09421bfe5fb9ee5eb4bb2dacb",
+      "compare_url": "https://github.com/ScrollPrize/villa/compare/main...jonmarrs:fix/native-retry-cycle?expand=1",
+      "new_regressions_and_existing_cases": {
+        "passed": 13,
+        "deselected": 40
+      }
+    },
+    {
+      "head": "jonmarrs:docs/fiber-reference-provenance",
+      "sha": "1edad72d6668fca85b19dac11c9b53c4292505be",
+      "compare_url": "https://github.com/ScrollPrize/villa/compare/main...jonmarrs:docs/fiber-reference-provenance?expand=1"
+    }
+  ],
+  "existing_prs": [
+    {
+      "number": 2141,
+      "url": "https://github.com/ScrollPrize/villa/pull/2141",
+      "head_sha": "19575a4527755b62f4f94e9b713c05769bc4118e",
+      "state": "open",
+      "merged": false,
+      "mergeable": true,
+      "actions": [
+        {
+          "name": "CodeQL",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Continuous Integration (CI)",
+          "status": "completed",
+          "conclusion": "success"
+        }
+      ],
+      "external_statuses": [
+        {
+          "context": "Vercel",
+          "state": "failure"
+        }
+      ],
+      "local_tests_passed": 5
+    },
+    {
+      "number": 2258,
+      "url": "https://github.com/ScrollPrize/villa/pull/2258",
+      "head_sha": "242f0798cbf3d512f372db050be08203018e71d1",
+      "state": "open",
+      "merged": false,
+      "mergeable": true,
+      "actions": [
+        {
+          "name": "Test vesuvius Python",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Continuous Integration (CI)",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "CodeQL",
+          "status": "completed",
+          "conclusion": "success"
+        }
+      ],
+      "external_statuses": [
+        {
+          "context": "Vercel",
+          "state": "failure"
+        }
+      ],
+      "local_tests_passed": 20
+    },
+    {
+      "number": 2259,
+      "url": "https://github.com/ScrollPrize/villa/pull/2259",
+      "head_sha": "d119561f3fb89fceae579bcf2e8671fb6d7e2c9a",
+      "state": "open",
+      "merged": false,
+      "mergeable": true,
+      "actions": [
+        {
+          "name": "Test vesuvius Python",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "VC3D Windows pull_request ed3617ae44c1afcf5bc5f37c00c0fbcf6f607cf7",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "CodeQL",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Continuous Integration (CI)",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "VC3D macOS pull_request ed3617ae44c1afcf5bc5f37c00c0fbcf6f607cf7",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "VC3D Linux pull_request ed3617ae44c1afcf5bc5f37c00c0fbcf6f607cf7",
+          "status": "completed",
+          "conclusion": "success"
+        }
+      ],
+      "external_statuses": [
+        {
+          "context": "Vercel",
+          "state": "failure"
+        }
+      ],
+      "local_tests_passed": null
+    }
+  ],
+  "publication_errors": {
+    "native_retry_creation": {
+      "error": "GitHub API error 403: {\"message\":\"Resource not accessible by integration\",\"documentation_url\":\"https://docs.github.com/rest/pulls/pulls#create-a-pull-request\",\"status\":\"403\"}",
+      "error_code": "FORBIDDEN",
+      "error_data": {
+        "message": "Resource not accessible by integration",
+        "documentation_url": "https://docs.github.com/rest/pulls/pulls#create-a-pull-request",
+        "status": "403"
+      }
+    },
+    "villa_2141_merge": {
+      "error": "GitHub API error 403: {\"message\":\"Resource not accessible by integration\",\"documentation_url\":\"https://docs.github.com/rest/pulls/pulls#merge-a-pull-request\",\"status\":\"403\"}",
+      "error_code": "FORBIDDEN",
+      "error_data": {
+        "message": "Resource not accessible by integration",
+        "documentation_url": "https://docs.github.com/rest/pulls/pulls#merge-a-pull-request",
+        "status": "403"
+      }
+    }
+  },
+  "audit_verification": {
+    "downloaded_files": 853,
+    "regenerated_audits_match": true,
+    "source_and_output_hash_bindings_match": true,
+    "unit_tests_passed": 9,
+    "smoke_passed": 8,
+    "smoke_skipped": 3,
+    "smoke_failed": 0
+  },
+  "limitations": [
+    "No new full native/GPU training or CT review",
+    "Cached Python 3.10.21 runtime for tests; absent optional imports handled as documented in individual reports",
+    "No upstream PR created for the new branches; second creation not retried after repository-wide permission denial"
+  ]
+}

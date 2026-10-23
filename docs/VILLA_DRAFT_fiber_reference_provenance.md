@@ -1,9 +1,13 @@
 # docs: explain tracer-generated fiber reference spans
 
 Prepared locally at `1edad72d6668fca85b19dac11c9b53c4292505be` on
-`docs/fiber-reference-provenance`. No upstream PR opened in this turn.
-PR creation was denied with HTTP 403 during the preceding contribution;
-the publication routes have not been retried without a permission change.
+`jonmarrs/villa:docs/fiber-reference-provenance` and pushed to the fork.
+[Compare the patch and open a PR](https://github.com/ScrollPrize/villa/compare/main...jonmarrs:docs/fiber-reference-provenance?expand=1).
+No upstream PR exists. On October 23 the linked integration again denied
+native-retry PR creation and an existing Villa PR merge with HTTP 403;
+publication of this second branch was not retried through the same blocked
+route. [Autoresearch #197](https://github.com/jonmarrs/vesuvius-autoresearch/pull/197)
+preserves the patch and evidence.
 
 ## Prepared description
 

@@ -3,9 +3,12 @@
 **Further review:** an [audit of all 853 published fiber annotation files](fiber_reference_provenance_2026-10-23.md)
 supports an eight-line documentation clarification about tracer-generated
 references, related to [#2264](https://github.com/ScrollPrize/villa/issues/2264).
-The patch and PR draft are prepared locally; publication is still blocked by
-the previously observed GitHub integration permissions. The existing native
-retry fix remains the first unpublished code contribution to pursue.
+The patch is pushed to `jonmarrs/villa:docs/fiber-reference-provenance` and
+preserved with its audit in [Autoresearch #197](https://github.com/jonmarrs/vesuvius-autoresearch/pull/197).
+Villa PR creation and merge again returned HTTP 403 during publication review.
+The existing native retry fix remains the first unpublished code contribution
+to pursue. Available GitHub Actions runs on the three existing Villa PRs now
+pass; the Vercel preview status remains blocked by authorization.
 
 **Follow-up:** [#1482](https://github.com/ScrollPrize/villa/issues/1482) is a
 live code candidate after its previous fix expired unmerged. A bounded retry
@@ -25,7 +28,7 @@ The existing seeding and SQLite PRs remain the first upstream follow-ups.
 | Issue / PR | Current evidence | Action |
 | --- | --- | --- |
 | [#2141](https://github.com/ScrollPrize/villa/pull/2141), SQLite track reader | Open. Both maintainer findings addressed at `19575a45`; five local tests pass. | Upstream maintainer review and merge. |
-| [#2258](https://github.com/ScrollPrize/villa/pull/2258), fractional fiber planes | Open. Twenty local tests pass; default-spacing arrays match on three real scroll masks. Python CI remains in progress when checked. | Finish upstream checks and maintainer merge. |
+| [#2258](https://github.com/ScrollPrize/villa/pull/2258), fractional fiber planes | Open. Twenty local tests pass; default-spacing arrays match on three real scroll masks. Available GitHub Actions runs, including Python CI, pass. | Maintainer merge; linked account has no merge permission and Vercel preview needs authorization. |
 | [#2153](https://github.com/ScrollPrize/villa/issues/2153), headless AppImage | Open; no earlier matching PR found by issue number or AppRun/headless terms. The installation page claims all dependencies are bundled. | Published +29/-1-line documentation fix as [#2259](https://github.com/ScrollPrize/villa/pull/2259); awaiting checks and maintainer merge. |
 | [#2027](https://github.com/ScrollPrize/villa/issues/2027), spiral angle precision | Already fixed in [#2028](https://github.com/ScrollPrize/villa/pull/2028), merged October 21; current source uses `float_hi`. | No duplicate PR. |
 | [#2186](https://github.com/ScrollPrize/villa/issues/2186), recompression data loss | Active fix [#2199](https://github.com/ScrollPrize/villa/pull/2199). | No duplicate PR. |

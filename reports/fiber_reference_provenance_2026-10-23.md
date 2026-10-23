@@ -73,11 +73,30 @@ must match the dense line. No scorer, selection rule, model or tracing default
 is changed by the patch. No native evaluation run was needed or performed.
 
 The Villa commit is `1edad72d6668fca85b19dac11c9b53c4292505be`, on
-`docs/fiber-reference-provenance` in `/workspace/villa-fiber-reference-docs`.
-The [PR draft](../docs/VILLA_DRAFT_fiber_reference_provenance.md) is prepared
-locally. No PR was opened in this turn. Upstream PR creation was rejected
-with HTTP 403 by both linked GitHub routes during the previous contribution;
-it was not retried without a permission change.
+`jonmarrs/villa:docs/fiber-reference-provenance`, pushed from
+`/workspace/villa-fiber-reference-docs`.
+[The public comparison](https://github.com/ScrollPrize/villa/compare/main...jonmarrs:docs/fiber-reference-provenance?expand=1)
+and [PR draft](../docs/VILLA_DRAFT_fiber_reference_provenance.md) preserve the
+reviewed change. [Autoresearch #197](https://github.com/jonmarrs/vesuvius-autoresearch/pull/197)
+publishes the audit and evidence.
+
+The publication review corrected the upstream draft's relative evidence link
+to an immutable Autoresearch permalink. It regenerated both audits from all
+853 saved files: the complete outputs, download manifests, input hashes and
+snapshot/script bindings match. Nine audit tests pass again (0.08 s), and the
+smoke reports 8 passed, 3 skipped, 0 failed (6.7 s). The same review reran the
+prepared native retry tests (13 passed, 40 deselected), fractional seeding
+tests (20 passed) and SQLite tests (5 passed), with the compatibility import
+limitations disclosed in their individual reports.
+
+Villa PR creation for the native retry fix and normal merge of #2141 were
+again denied by GitHub with HTTP 403, “Resource not accessible by integration”.
+The account's repository permissions remain read-only. The second new PR
+was not retried through the same blocked route. No authentication settings
+were changed. All available GitHub Actions runs on #2141, #2258 and #2259
+have completed successfully; their Vercel preview status is a separate
+authorization failure. These observations are preserved in the
+[review record](evidence/villa_pr_review_2026-10-23.json).
 
 Searches for `2264`, `"reference provenance"` and
 `"fiber_evaluation.md" "trace"` found no matching documentation patch.
