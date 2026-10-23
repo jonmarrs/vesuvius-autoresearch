@@ -56,7 +56,7 @@ This round covers the 19:13, 20:12 and 21:13 UTC firings; main did not move afte
 
 ## Verification
 
-- **Arm-audit tests:** 15 passed and 1 skipped (the real-tree check needs `spiral_out`). Dropping the
+- **Arm-audit tests:** 14 passed and 1 skipped (the real-tree check needs `spiral_out`). Dropping the
   `is_dir()` check fails the new test.
 - **The ledger test**, reformatted, still gives 46 passed, and Ruff's `format --check` is clean on it.
 - **The ledger, arm tiers, arm audit and the suite coverage guard** give 95 passed and 1 skipped.
