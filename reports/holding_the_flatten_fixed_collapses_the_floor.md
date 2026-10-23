@@ -47,6 +47,9 @@ It also isolates where to look if the flatten is ever to be made reproducible: n
 measuring its manipulation *plus* a re-solve that moved the surface 7.15 vx in the outer region
 (`reports/the_flatten_lands_on_different_surfaces.md`). Flatten once, branch downstream, and the
 variance is gone by construction rather than averaged down.
+*(Corrected 2026-09-22, noted here 2026-10-22: the two flattens lie on the same surface, 0.25 vx
+apart along the normal; 7.15 vx is the nearest-neighbour distance between their sampling grids.
+`reports/the_flatten_moves_the_grid_not_the_surface.md`.)*
 
 ## Where this does NOT apply, which is most of the corpus
 

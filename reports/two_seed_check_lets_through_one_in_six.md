@@ -4,6 +4,13 @@
 it can detect. `reports/seed_spread_four_fits.md` measured the noise it has to beat. This puts the
 two together.
 
+> **Power figures SUPERSEDED, 2026-09-19, noted here 2026-10-22.** The current-tier CV is **0.0536**
+> on nine seeds, not 0.0125 or 0.0263, and current code is no quieter than the pinned tree (1.0×,
+> F(18,11)=0.92). At that CV two seeds catch a 5% gain **44%** of the time and a 10% gain 73%. The
+> 2026-09-12 section's 8.7× ratio, its power column, "excellent power" and the three-seed 86% were all
+> computed at superseded CVs. The false-positive half is unaffected: 1/C(2k,k) has no CV in it.
+> `reports/six_unused_seeds_double_the_current_floor.md`.
+
 ## What the doc prescribes
 
 > Prefer changes that are robust across seeds/runs, not ones that only help for one specific seed.
@@ -147,7 +154,9 @@ dependence to find. A loop cannot fix this by fitting better.
 
 That makes the finding sharper than first stated. The original framing invited "this matters because
 the fits are noisy". The correct framing is the opposite: **it matters no matter how quiet the fits
-get, and villa's fits just got 4× quieter without moving it at all.**
+get, and villa's fits just got 4× quieter without moving it at all.** *(Noted 2026-10-22: the "4×
+quieter" ratio was withdrawn on 2026-09-13. On all nine seeds the tiers differ 1.0×, F(18,11)=0.92,
+`reports/noise_floor_by_tier.md`. The point stands: the false-positive rate has no CV in it.)*
 
 ## The fix is one extra seed
 
@@ -167,5 +176,8 @@ The right-hand column above was first computed at CV **0.0125**, from two arms. 
 current-tier estimate to **0.0263** (`reports/noise_floor_by_tier.md`), and these are the revised
 numbers. **The direction of the correction stands** — two seeds on current code detect a 5% gain 75%
 of the time against 28.6% on the superseded tree — but "99.2%" was overstated and is withdrawn.
+*(Superseded 2026-09-19, noted here 2026-10-22: six unused seeds doubled the current-tier CV to 0.0536,
+and at that CV two seeds catch a 5% gain 44% of the time, not 75%.
+`reports/six_unused_seeds_double_the_current_floor.md`.)*
 
 The false-positive half is unaffected, as it must be: 1/C(2k,k) has no CV in it.

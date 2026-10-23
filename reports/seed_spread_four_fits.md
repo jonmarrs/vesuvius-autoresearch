@@ -5,6 +5,10 @@ addenda, all committed before the fits existed. The analysis was implemented in
 `scripts/analyse_seed_spread.py` **before the data**, so the statistics could not be chosen to suit
 the result. **All three predictions met.**
 
+> **Noted 2026-10-22: the 1.42% floor was one draw.** On 2026-09-20 a same-tree repeat that re-ran the
+> flatten gave **3.04%**, so the same-fit floor is at least twice the figure used here.
+> `reports/the_determinism_floor_rests_on_one_draw.md`.
+
 ## Result
 
 Four fits, identical in every respect except `optimizer_random_seed`, same dataset, same z-ROI, same

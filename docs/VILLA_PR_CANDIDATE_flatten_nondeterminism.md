@@ -8,6 +8,11 @@
 > Prior-art search done at post time: #1317 reports the same class of problem in the **tracer**
 > (`vc_grow_seg_from_seed`), with an RNG seed knob the flatten does not have. Complementary, not
 > duplicate, and cited in the body.
+>
+> **Corrected 2026-09-22 (noted at the head 2026-10-22).** The posted text and evidence below say the two
+> flattens land "about 7 voxels apart" (7.15 vx). They lie on the **same surface**, 0.25 vx apart along the
+> normal; 7.15 vx is the nearest-neighbour distance between their sampling grids. The correction posted on
+> the PR is under "The proposed addition"; `reports/the_flatten_moves_the_grid_not_the_surface.md`.
 
 **Target:** `spiral-fitting/autoresearch.md`, the `**Stochasticity**` paragraph (line 52).
 **Shape:** one doc paragraph, ~6 lines added, no behaviour change. Same shape as #1721 and #1722,

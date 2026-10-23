@@ -321,15 +321,16 @@ def test_the_flatten_figures_match_their_measurements():
     )
     stock = float(row[1])
     assert row[2] == f"{stock / det['its']:.1f}"
-    walls = [
-        int(s)
-        for s in re.search(
-            r"wall time per flatten \(incl\. export\) \| (\d+) s, (\d+) s", rep
-        ).groups()
-    ]
+    wall = re.search(
+        r"wall time per flatten \(incl\. export\) \| (\d+) s, (\d+) s vs ~(\d+) min stock",
+        rep,
+    ).groups()
+    walls, stock_min = [int(s) for s in wall[:2]], int(wall[2])
     assert det["mean_nn"] == 0.0  # bit-reproducible
+    # the 9.5x is stage-0 iterations per second; the wall-time cost is the minutes beside it
     assert (
-        f"at a {stock / det['its']:.1f}× flatten cost, ~{statistics.mean(walls) / 60:.0f} min against 2 h renders"
+        f"at {stock / det['its']:.1f}× lower flatten throughput, ~{statistics.mean(walls) / 60:.0f} min "
+        f"against ~{stock_min} per flatten and 2 h renders"
     ) in txt
 
     fixed = _json("flat_displacement_floor.json")
@@ -450,10 +451,13 @@ def test_the_seed_noise_history_ends_at_the_current_floor():
         f"{current['cv']:.4f}. Both times the new value sat inside the published interval"
     ) in txt
     summary = _flat(_REPORTS / "SPIRAL_FINDINGS_SUMMARY.md")
+    # finding 26 states the current figure and then the two it replaced
+    assert f"Current villa is **{current['cv']:.4f} (df={current['df']})**" in summary
     assert (
-        f"**{second} (df=6)** — first published as {first} (df=4) and withdrawn when a third arm"
-        in summary
-    )
+        f'It was first {first} (df=4), "4.1× quieter" at p=0.0143, from two arms that happened '
+        f"to agree at df=2. A third arm made it {second}, and six unused seeds made it "
+        f"{current['cv']:.4f}."
+    ) in summary
     assert (
         f"current-tier CV goes **{second} → {current['cv']:.4f}** (df={current['df']})"
         in summary
