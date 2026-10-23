@@ -215,7 +215,7 @@ against a control matched on total patch area: `satisfied_area` **+17.66% (p < 1
 `total_fg_pixels` **-0.83% (p = 0.89)**. Registered in advance as a failure rather than a partial
 success, because selecting patches BY satisfaction and scoring the result ON satisfaction is close to
 circular. Prediction met. The null is bounded, not empty: no ink effect larger than ~10% *(corrected 2026-09-12 to ~12%: the registered MDE used a df=3 CV that was optimistic — `reports/noise_floor_by_tier.md`)* at n=3 per
-arm. *(Corrected 2026-10-23: ~12% is the design MDE. The data exclude only [−18.4%, +16.7%], finding
+arm. *(Corrected 2026-10-23: ~12% is the design MDE. The data rule out only effects outside [−18.4%, +16.7%], finding
 45.)* `reports/patch_bootstrap_verdict.md`.
 
 **18. The two metrics now disagree in BOTH directions, which is the load-bearing result.**
@@ -279,7 +279,8 @@ ones. Emptying `same_windings.json`, three arms against the six existing baselin
 | `satisfied_area_fraction` | 0.8390 | 0.8331 | **-0.69%** | **0.0027** |
 
 **NULL on reading**, bounded at ~10%, not zero (8.3% as registered, from the df=3 CV; ~10% with the
-pinned tier's floor, `reports/no_lever_has_improved_reading.md`). The geometry fall is *stronger* evidence than a rise
+pinned tier's floor, `reports/no_lever_has_improved_reading.md`). *(Corrected 2026-10-23: ~10% is the
+design MDE, and the data's interval is [−10.3%, +6.8%], finding 45.)* The geometry fall is *stronger* evidence than a rise
 would have been: the registration made `satisfied_area` report-only because removing 5,413 inputs
 could inflate it trivially ("less left to satisfy"), and that confound can only manufacture a RISE.
 It fell — the fit satisfies its remaining inputs less well despite having fewer of them.
@@ -407,7 +408,7 @@ Findings 22–24 are claims about `6847063f` alone. `reports/decoupling_does_not
 Every analysis script hardcodes `OUTER_CV = 0.0421`, measured at **df=3**. Pooling within-arm
 deviations across the whole corpus gives the pinned tier **0.0514 (df=18)** — so pinned-tier nulls
 bound **~12%, not ~10%**, and excluded less than they claimed. *(Corrected 2026-10-23: ~12% is the
-pinned-tier design MDE. What each null's data exclude is its interval, finding 45: the three pinned
+pinned-tier design MDE. What each null's data rule out lies outside its interval, finding 45: the three pinned
 nulls' half-widths run from 8.5% to 17.5%.)* Current villa is **0.0536 (df=11)**,
 **no quieter than pinned** (F(18,11)=0.92, p=0.84), and at 3v3 a current-code study sees **12.3%**.
 *(Corrected 2026-10-22: this said 0.0263 (df=6), 2.0× quieter and not established, and 6.0%. Those
