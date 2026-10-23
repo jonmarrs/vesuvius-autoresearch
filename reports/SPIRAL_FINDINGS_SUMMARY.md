@@ -20,23 +20,25 @@ floor wrong caused two reversals in a single afternoon.
 |---|---:|---|
 | pipeline non-determinism | **1.42%** and **3.04%**, two draws *(corrected 2026-10-22: this gave 1.42% alone, which was one draw; findings 47–48)* | two renders of the SAME meshes, and same-fit comparisons |
 | seed spread, `2*CV`, n=4, **inner** w010-w019 | **21.7%** (95% CI 12.3-81.0%) | two DIFFERENT fits, inner windings |
-| seed spread, `2*CV`, n=4, **outer** w120-w129 | **8.4%** (95% CI 4.8-31.4%) | two DIFFERENT fits, outer windings |
+| seed spread, `2*CV`, n=4, **outer** w120-w129 | **8.4%** (95% CI 4.8-31.4%) *(corrected 2026-10-23: pooled over the pinned tier's 24 outer fits, df=18, the CV is 0.0514 and the floor 10.3%; finding 26)* | two DIFFERENT fits, outer windings |
 | duplicate-coverage baseline (full fit) | **0.0897 to 0.1042%** | gap>=2 overlap in any converged fit |
-| duplicate-coverage baseline (10-winding span) | **0.00%** | the span all arms are measured on |
+| duplicate-coverage baseline (10-winding span) | **0.00%** | the registered inner span w010-w019 *(corrected 2026-10-23: this said "the span all arms are measured on". The later arms are scored on w120-w129, where most duplication sits: 51.7% of a fit's gap>=2 cells have both windings >= w120, finding 7)* |
 
 `reports/pipeline_determinism_and_which_floor_applies.md`, `reports/seed_spread_four_fits.md`,
 `reports/outer_winding_noise_floor.md`.
 
 **The floor is region-specific and the difference is large.** A floor measured on the inner windings
-is 2.6x too wide for the outer ones. Quote the one for the region you measured in; transferring
+is 2.6x too wide for the outer ones *(about 2.1x against the outer CV pooled at df=18, 0.0514; corrected
+2026-10-23, finding 26)*. Quote the one for the region you measured in; transferring
 across regions is what made finding 13a's stated margin wrong.
 
 **Every floor here is an n=4 variance, and those are far softer than a bare percentage suggests.**
 The 95% interval on a CV at n=4 spans **0.57x to 3.73x** the point estimate, which is why the
 intervals are now printed beside the numbers. This is not a technicality: an n=4 variance has misled
 this work **twice, in opposite directions** -- it made the outer floor look 2.6x wider than it is
-(finding 14), and it made the geometry effect's sd multiple look nearly twice as large as it is
-(finding 12, corrected 2026-09-03). Use a floor to decide whether a comparison is worth taking
+(finding 14; 2.1x at df=18), and it made the geometry effect's sd multiple look about 1.6x as large as
+it is (finding 12, corrected 2026-09-03). *(Corrected 2026-10-23: this said "nearly twice"; 7.3-9.8 sd
+against 4.5-5.9 is 1.6x.)* Use a floor to decide whether a comparison is worth taking
 seriously, not to decide a result; where a difference lands near one, the honest answer is a test
 with a stated alpha, not a ratio against a soft denominator.
 
@@ -44,8 +46,9 @@ with a stated alpha, not a ratio against a soft denominator.
 
 **1. The objective can be inflated by coverage that reads nothing new.**
 Duplicating all ten windings, with occupied cells byte-identical to baseline so zero new papyrus is
-read, raises `total_fg_pixels` **+92.47%** while `overall_fg_fraction` moves **-0.00044**. 65x the
-applicable floor. `reports/duplicate_coverage_inflates_the_objective.md`.
+read, raises `total_fg_pixels` **+92.47%** while `overall_fg_fraction` moves **-0.00044**: 65x the
+one-draw 1.42% floor, and 30x the 3.04% a second same-tree draw gave. *(Corrected 2026-10-23: this
+said 65x the applicable floor; finding 47.)* `reports/duplicate_coverage_inflates_the_objective.md`.
 
 **2. The metric cannot separate fake growth from real growth.**
 A duplicated eleventh winding (+12.59%) and a genuinely new eleventh winding (+12.83%) land **0.24
@@ -170,13 +173,16 @@ wrong; see finding 14.**
 finding 13a borderline rather than comfortable.** Four honest seeds rendered and scored on
 w120-w129 give `total_fg_pixels` CV **0.0421** against the inner 0.1086 -- the opposite of the
 registered prediction, recorded as a **miss**. The floor out there is **8.4%**, not the 21.7%
-transferred from the inner windings, and the observed **-11.03% exceeds it**: on the point estimate
+transferred from the inner windings, and the observed **-11.03% exceeds it**. *(Corrected 2026-10-23:
+pooled over the pinned tier's 24 outer fits, df=18, the outer CV is 0.0514, so the floor is 10.3% and
+the outer windings are about 2.1x quieter. -11.03% still exceeds it, narrowly. Finding 26.)* on the point estimate
 the rule returns REVERSES. It is nonetheless **UNRESOLVED**, because a floor from n=4 is an interval
 (95% CI 4.8% to 31.4%) that straddles the observation. So finding 13a survived in letter while its
 stated margin did not: -11.03% was borderline, and a properly powered arm could plausibly find the
-gap fix COSTS ink where it acts. **The arm was then run: finding 13.** It did not clear either, so
-this floor did its job -- it turned "comfortably null" into "borderline", which is what the seven-fit
-result went on to confirm. `line` is unchanged between regions (0.0356 vs 0.0342), so this is
+gap fix COSTS ink where it acts. **The arm was then run.** At seven fits (finding 13b) it did not
+clear either, so this floor did its job -- it turned "comfortably null" into "borderline", which is
+what the seven-fit result went on to confirm. At twelve (finding 13) it established the cost: -10.35%,
+p = 0.0018. *(Corrected 2026-10-23: this said finding 13 did not clear.)* `line` is unchanged between regions (0.0356 vs 0.0342), so this is
 specific to the objective. `reports/outer_winding_noise_floor.md`.
 
 **15. The column score's noise is one of its two terms, evaluated 3x outside its design range.**
