@@ -20,6 +20,7 @@ committed patch.
 import ast
 import hashlib
 import json
+import os
 import re
 import subprocess
 import sys
@@ -66,6 +67,22 @@ _REJECTS = """
 _ADMITS = """
     def _native_sample(self, patch):
         return "sample"
+"""
+_ADMITS_FIRST = """
+    def _native_sample(self, patch):
+        return "sample" if patch.bbox[2] == 0 else None
+"""
+_ADMITS_SECOND = """
+    def _native_sample(self, patch):
+        return "sample" if patch.bbox[2] > 0 else None
+"""
+# rejects both patches while the probe checks them, then reads a voxel in the
+# retry itself: a refusal, not a retry failure
+_READS_IN_RETRY = """
+    def _native_sample(self, patch):
+        self.calls = getattr(self, "calls", 0) + 1
+        if self.calls > 2:
+            self._open("image")[0]
 """
 # villa before the fix: every rejection picks another patch, with no memory
 _CYCLE = """
@@ -208,8 +225,10 @@ def read_tifxyz(path):
     return _Surface(valid)
 """
 _RUN = """
-import importlib.util, json, sys
+import importlib.util, json, os, signal, sys
 
+if os.environ.get("STANDIN_NO_TIMER"):
+    del signal.setitimer
 spec = importlib.util.spec_from_file_location("check_retry_cycle", sys.argv[1])
 probe = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(probe)
@@ -251,11 +270,22 @@ def _mesh(root, valid=((100, 200, 100, 200),)):
     return mesh, {n: hashlib.sha256((mesh / n).read_bytes()).hexdigest() for n in names}
 
 
-def _probe(tmp_path, retry, native=_NATIVE, valid=((100, 200, 100, 200),), hashes=None):
+def _probe(
+    tmp_path,
+    retry,
+    native=_NATIVE,
+    valid=((100, 200, 100, 200),),
+    hashes=None,
+    out=None,
+    missing=None,
+    env=(),
+):
     dataset = _villa(tmp_path, retry, native)
     mesh, own = _mesh(tmp_path, valid)
-    out = tmp_path / "probe.json"
-    kept = out.exists()
+    if missing:
+        (mesh / missing).unlink()
+    out = out or tmp_path / "probe.json"
+    kept = os.path.lexists(out)
     record = tmp_path / "constructed.json"
     runner = tmp_path / "run.py"
     runner.write_text(_RUN)
@@ -274,6 +304,7 @@ def _probe(tmp_path, retry, native=_NATIVE, valid=((100, 200, 100, 200),), hashe
             "PYTHONPATH": str(tmp_path / "villa"),
             "STANDIN_RECORD": str(record),
             "PATH": "/usr/bin:/bin",
+            **dict(env),
         },
         capture_output=True,
         text=True,
@@ -403,9 +434,35 @@ def test_a_corner_with_surface_in_it_is_refused(tmp_path, corner):
     _refused(proc, rec, f"the 64x64 region at y=0, x={x} has surface")
 
 
-def test_a_patch_villa_does_not_reject_is_refused(tmp_path):
-    proc, rec, _, _, _, _ = _probe(tmp_path, _BOUNDED, native=_ADMITS)
+@pytest.mark.parametrize(
+    "admits", [_ADMITS, _ADMITS_FIRST, _ADMITS_SECOND], ids=["both", "first", "second"]
+)
+def test_a_patch_villa_does_not_reject_is_refused(tmp_path, admits):
+    proc, rec, _, _, _, _ = _probe(tmp_path, _BOUNDED, native=admits)
     _refused(proc, rec, "villa admits a supplied patch")
+
+
+def test_a_voxel_read_in_the_retry_is_a_refusal_not_a_retry_failure(tmp_path):
+    proc, rec, _, _, _, _ = _probe(tmp_path, _CYCLE, native=_READS_IN_RETRY)
+    _refused(proc, rec, "The geometry rejection must precede voxel reads")
+
+
+def test_a_missing_mesh_file_is_refused(tmp_path):
+    proc, rec, _, _, _, mesh = _probe(tmp_path, _BOUNDED, missing="z.tif")
+    _refused(proc, rec, f"z.tif: missing from {mesh}")
+
+
+def test_no_posix_timer_is_refused(tmp_path):
+    proc, rec, _, _, _, _ = _probe(tmp_path, _BOUNDED, env={"STANDIN_NO_TIMER": "1"})
+    _refused(proc, rec, "This bounded probe requires a POSIX interval timer")
+
+
+def test_an_output_with_no_directory_is_refused_before_the_run(tmp_path):
+    # with villa's cycle, a late failure would cost the whole two seconds first
+    out = tmp_path / "absent" / "probe.json"
+    proc, rec, built, _, _, _ = _probe(tmp_path, _CYCLE, out=out)
+    _refused(proc, rec, f"{out.parent} is not a directory")
+    assert built is None
 
 
 @pytest.mark.parametrize(
@@ -414,6 +471,14 @@ def test_a_patch_villa_does_not_reject_is_refused(tmp_path):
 def test_a_voxel_read_before_the_rejection_is_refused(tmp_path, touch):
     proc, rec, _, _, _, _ = _probe(tmp_path, _BOUNDED, native=touch)
     _refused(proc, rec, "The geometry rejection must precede voxel reads")
+
+
+def test_a_dangling_symlink_at_the_output_is_refused(tmp_path):
+    out = tmp_path / "probe.json"
+    out.symlink_to(tmp_path / "nowhere.json")
+    proc, _, built, _, _, _ = _probe(tmp_path, _BOUNDED)
+    _refused(proc, None, f"{out} exists; records are never overwritten")
+    assert built is None and not (tmp_path / "nowhere.json").exists()
 
 
 def test_a_record_is_never_overwritten(tmp_path):

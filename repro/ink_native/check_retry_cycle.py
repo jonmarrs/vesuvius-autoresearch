@@ -7,17 +7,21 @@ consumer, not training or whether default discovery selects these patches.
 Run in a configured Villa environment with its vesuvius/src on PYTHONPATH.
 
 Exit status: 0 when the retry is bounded (a RuntimeError after exactly the two
-patches), 1 when the probe ran and it is not, 2 when the probe refuses to run.
-Any other error, villa missing from PYTHONPATH among them, is a traceback and 1.
-It refuses a mesh that is not the published one, surface in either corner, a
-patch villa does not reject, a voxel read before the rejection and an existing
-record, and a refusal writes nothing.
+patches), 1 when the probe ran and it is not, 2 with "refused: ..." when the
+probe refuses to run (argparse's own usage errors also exit 2). Any other
+error, villa missing from PYTHONPATH among them, is a traceback and 1. It
+refuses, before running and without writing, an output path that exists or
+whose directory does not, a mesh that is missing a file or is not the
+published one, surface in either corner, a patch villa does not reject, and a
+platform without a POSIX interval timer; and it refuses a voxel read before
+the geometry rejection whenever it happens.
 """
 from __future__ import annotations
 
 import argparse
 import hashlib
 import json
+import os
 from pathlib import Path
 import signal
 import sys
@@ -66,9 +70,14 @@ def _probe():
     args = ap.parse_args()
     if not hasattr(signal, "setitimer"):
         raise Refused("This bounded probe requires a POSIX interval timer")
-    if args.out.exists():
+    # lexists: a dangling symlink is as much in the way as a file
+    if os.path.lexists(args.out):
         raise Refused(f"{args.out} exists; records are never overwritten")
+    if not args.out.parent.is_dir():
+        raise Refused(f"{args.out.parent} is not a directory; nowhere to write the record")
     for name, expected in HASHES.items():
+        if not (args.mesh / name).is_file():
+            raise Refused(f"{name}: missing from {args.mesh}")
         if hashlib.sha256((args.mesh / name).read_bytes()).hexdigest() != expected:
             raise Refused(f"{name}: not the stated published Scroll-1 mesh")
     surface = read_tifxyz(args.mesh)

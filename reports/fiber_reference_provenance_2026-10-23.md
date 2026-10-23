@@ -21,9 +21,10 @@ credited to their recorded annotators; this report does not alter those files.
 > **Noted 2026-10-23: "all listed" is unchecked.** The downloader that made these snapshots
 > skipped, without counting them, `.json` links containing `/`, `\`, `:` or `%`. That includes
 > any name an autoindex percent-encodes, such as one with a space. The captured listings are not
-> in the repository, so whether any file was skipped cannot be checked from here. The downloader
-> now decodes names before checking them, and lists every `.json` link it does not fetch in the
-> manifest's `skipped_hrefs`. The snapshot record names the version that ran.
+> in the repository, so whether any file was skipped cannot be checked from here. Since #203 the
+> downloader decodes names before checking them, and lists every `.json` link it does not fetch,
+> with the reason, in the manifest's `skipped_json_links`. The snapshot record names the version
+> that ran.
 
 ## What the data establishes
 
