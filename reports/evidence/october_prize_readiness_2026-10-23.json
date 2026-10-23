@@ -1,0 +1,225 @@
+{
+  "checked_at_utc": "2026-10-23T11:43:36.579628+00:00",
+  "submitted": false,
+  "deadline_pacific": "2026-10-31T23:59:00-07:00",
+  "deadline_utc": "2026-11-01T06:59:00+00:00",
+  "rules": {
+    "repository": "ScrollPrize/villa",
+    "commit": "e2254ebe0168a232e5ba7b94997c749b4e6a4544",
+    "path": "scrollprize.org/docs/34_prizes.md",
+    "sha256": "d849244eb5d9c82dcde5004005702a1f558e8d625fea0923d91e24ef0668bf28",
+    "deployed_page_http_status": 403
+  },
+  "form": {
+    "url": "https://docs.google.com/forms/d/e/1FAIpQLSc4flEfgK2nyjoczz2_U_XrIGMlgrnSknWatLqrFPnbtKfZwg/viewform",
+    "http_status": 200,
+    "title": "October 2026 Progress Prizes",
+    "html_sha256": "a6f778ee1a520c52dbd2cbd693ff414b5ccd994a7428e2a7c7b4c8578f978e79",
+    "email_required": true,
+    "questions": [
+      {
+        "label": "Your full name",
+        "required": true
+      },
+      {
+        "label": "Team description \u2014 are you submitting as an individual or as a team, and who is on your team? (If on a team, the team leader should be the one filling out this form)",
+        "required": true
+      },
+      {
+        "label": "If you are a member of our Discord server, what is your display name there?",
+        "required": false
+      },
+      {
+        "label": "URL of your open source / publicly available contribution, e.g. GitHub repo or PR (you can add multiple)",
+        "required": true
+      },
+      {
+        "label": "What is your contribution? Please mention (1) Which scroll data did you work on for this submission? (2) How does it substantially increase the probability of yourself or someone else reading those scrolls or others? (3) What does it enable that was not possible before? (4) What evidence have you provided for this?",
+        "required": true
+      },
+      {
+        "label": "Terms and Conditions\n\nPrizes are awarded at the sole discretion of Scroll Prize, Inc. and are subject to review by our Technical Team, Annotation Team, and Papyrological Team. We may issue more or fewer awards based on the spirit of the prize and the received submissions. You agree to make your method open source if you win a prize. It does not have to be open source at the time of submission, but you have to make it open source under a permissive license to accept the prize. Submissions for milestone prizes will close once the winner is announced and their methods are open sourced. Scroll Prize, Inc. reserves the right to modify prize terms at any time in order to more accurately reflect the spirit of the prize as designed. Prize winner must provide payment information to Scroll Prize, Inc. within 30 days of prize announcement to receive prize.",
+        "required": true
+      }
+    ]
+  },
+  "url_checks": [
+    {
+      "url": "https://docs.google.com/forms/d/e/1FAIpQLSc4flEfgK2nyjoczz2_U_XrIGMlgrnSknWatLqrFPnbtKfZwg/viewform",
+      "status": 200,
+      "final_url": "https://docs.google.com/forms/d/e/1FAIpQLSc4flEfgK2nyjoczz2_U_XrIGMlgrnSknWatLqrFPnbtKfZwg/viewform"
+    },
+    {
+      "url": "https://github.com/ScrollPrize/villa/commit/7a7b3f677991954ec5ecff17b9b08ab30ff6a926",
+      "status": 200,
+      "final_url": "https://github.com/ScrollPrize/villa/commit/7a7b3f677991954ec5ecff17b9b08ab30ff6a926"
+    },
+    {
+      "url": "https://github.com/ScrollPrize/villa/commit/9afddaf0fdc12efe088bab7b82534c4f9a79e536",
+      "status": 200,
+      "final_url": "https://github.com/ScrollPrize/villa/commit/9afddaf0fdc12efe088bab7b82534c4f9a79e536"
+    },
+    {
+      "url": "https://github.com/ScrollPrize/villa/commit/e016bc71d9b873b3e52871f42aa3e7a34520cfb1",
+      "status": 200,
+      "final_url": "https://github.com/ScrollPrize/villa/commit/e016bc71d9b873b3e52871f42aa3e7a34520cfb1"
+    },
+    {
+      "url": "https://github.com/ScrollPrize/villa/pull/1934",
+      "status": 200,
+      "final_url": "https://github.com/ScrollPrize/villa/pull/1934"
+    },
+    {
+      "url": "https://github.com/ScrollPrize/villa/pull/1934#issuecomment-6131993208",
+      "status": 200,
+      "final_url": "https://github.com/ScrollPrize/villa/pull/1934#issuecomment-6131993208"
+    },
+    {
+      "url": "https://github.com/ScrollPrize/villa/pull/2022",
+      "status": 200,
+      "final_url": "https://github.com/ScrollPrize/villa/pull/2022"
+    },
+    {
+      "url": "https://github.com/ScrollPrize/villa/pull/2044",
+      "status": 200,
+      "final_url": "https://github.com/ScrollPrize/villa/pull/2044"
+    },
+    {
+      "url": "https://github.com/ScrollPrize/villa/pull/2045",
+      "status": 200,
+      "final_url": "https://github.com/ScrollPrize/villa/pull/2045"
+    },
+    {
+      "url": "https://github.com/ScrollPrize/villa/pull/2141#issuecomment-6290970541",
+      "status": 200,
+      "final_url": "https://github.com/ScrollPrize/villa/pull/2141#issuecomment-6290970541"
+    },
+    {
+      "url": "https://github.com/ScrollPrize/villa/pull/2155",
+      "status": 200,
+      "final_url": "https://github.com/ScrollPrize/villa/pull/2155"
+    },
+    {
+      "url": "https://github.com/jonmarrs/inkagree",
+      "status": 200,
+      "final_url": "https://github.com/jonmarrs/inkagree"
+    },
+    {
+      "url": "https://github.com/jonmarrs/inkdelta",
+      "status": 200,
+      "final_url": "https://github.com/jonmarrs/inkdelta"
+    },
+    {
+      "url": "https://github.com/jonmarrs/scrollgt",
+      "status": 200,
+      "final_url": "https://github.com/jonmarrs/scrollgt"
+    },
+    {
+      "url": "https://github.com/jonmarrs/scrollgt/pull/1",
+      "status": 200,
+      "final_url": "https://github.com/jonmarrs/scrollgt/pull/1"
+    },
+    {
+      "url": "https://github.com/jonmarrs/scrollgt/tree/v0.4.0",
+      "status": 200,
+      "final_url": "https://github.com/jonmarrs/scrollgt/tree/v0.4.0"
+    },
+    {
+      "url": "https://github.com/jonmarrs/scrollgt/tree/v0.4.1",
+      "status": 200,
+      "final_url": "https://github.com/jonmarrs/scrollgt/tree/v0.4.1"
+    },
+    {
+      "url": "https://github.com/jonmarrs/scrollgt/tree/v0.8.2",
+      "status": 200,
+      "final_url": "https://github.com/jonmarrs/scrollgt/tree/v0.8.2"
+    },
+    {
+      "url": "https://github.com/jonmarrs/vesuvius-autoresearch",
+      "status": 200,
+      "final_url": "https://github.com/jonmarrs/vesuvius-autoresearch"
+    }
+  ],
+  "siblings": {
+    "scrollgt": {
+      "version": "0.8.2",
+      "commit": "c56d1d0031a77f72da0ed88560d5e3802f9bab49",
+      "pyproject_sha256": "df0418b0d2820fe0436c71e5cbd22861f9139297cb790c2da4e438571197883b"
+    },
+    "inkdelta": {
+      "version": "0.5.2",
+      "commit": "d7f103485825917ced0c9cc682c6048b4c67e92b",
+      "pyproject_sha256": "d7a789909a68114d1996ec3ad3b21f64ea84201874c3f2852b665e10d5b5cce3"
+    },
+    "inkagree": {
+      "version": "0.3.0",
+      "commit": "eb0c19a2592466bad47f79058a7e44af217101a3",
+      "pyproject_sha256": "e77c37884d5ce90e944d80cba046da9bdfde62d37a43aa26ab1ed755499614a8"
+    }
+  },
+  "merged_contributions": [
+    {
+      "number": 2022,
+      "url": "https://github.com/ScrollPrize/villa/pull/2022",
+      "title": "spiral-fitting: autoresearch.md launches runners/run_single.py with the flags it takes",
+      "merged": true,
+      "merged_at": "2026-10-11T23:25:33Z",
+      "merge_commit_sha": "7a7b3f677991954ec5ecff17b9b08ab30ff6a926"
+    },
+    {
+      "number": 2044,
+      "url": "https://github.com/ScrollPrize/villa/pull/2044",
+      "title": "get_ink_metrics: add --sequential-folds; average folds in place",
+      "merged": true,
+      "merged_at": "2026-10-12T01:49:09Z",
+      "merge_commit_sha": "9afddaf0fdc12efe088bab7b82534c4f9a79e536"
+    },
+    {
+      "number": 2155,
+      "url": "https://github.com/ScrollPrize/villa/pull/2155",
+      "title": "spiral-fitting README: install the cuda group in the pip route",
+      "merged": true,
+      "merged_at": "2026-10-21T19:50:31Z",
+      "merge_commit_sha": "e016bc71d9b873b3e52871f42aa3e7a34520cfb1"
+    }
+  ],
+  "open_villa_prs": [
+    2141,
+    2258,
+    2259
+  ],
+  "upstream_publication_block": "Linked GitHub integration: read-only Villa permission; PR creation and merge returned HTTP 403 as recorded in villa_pr_review_2026-10-23.json",
+  "generator_measurement_followup": {
+    "pr": 1934,
+    "state": "open",
+    "merged": false,
+    "comment": "https://github.com/ScrollPrize/villa/pull/1934#issuecomment-6131993208",
+    "adoption_claim": false
+  },
+  "verification": {
+    "filing_number_version_form_upstream_and_octant_tests": {
+      "passed": 59,
+      "skipped": 0,
+      "seconds": 0.55
+    },
+    "project_smoke": {
+      "passed": 8,
+      "skipped": 3,
+      "failed": 0
+    },
+    "upstream_claim_checks": {
+      "detailed_draft": "PASS",
+      "concise_form_answers": "PASS"
+    },
+    "filing_link_coverage": {
+      "detailed_draft": 19,
+      "concise_form_answers": 5,
+      "all_http_200": true
+    },
+    "limitations": [
+      "No form submission or terms acceptance",
+      "No full fresh benchmark scoring run or GPU experiment",
+      "Direct deployed prize page returned HTTP 403; official repository source was checked instead"
+    ]
+  }
+}
