@@ -16,7 +16,7 @@
 - **Never edit** `run_autoresearch_loop.py`, `scripts/training/train.py`, or any vendored file under `villa/ink-detection/` (run it as-is).
 - **Pause the loop before any GPU step** (set `.loop_paused`, kill `run_autoresearch_loop` then `train.py --config` PIDs), and **restart it** (`bash start.sh`) after.
 - Segment data + weights are **gitignored** (large); only docs/findings/helper scripts are committed.
-- Public data creds: `dl.ash2txt.org` basic-auth `registeredusers:only`. Weights: the repo's public Google Drive folder `1rn3GMOvtJRMBHOxVhWFVSY6IVI6xUnYp`.
+- Public data creds: `dl.ash2txt.org` basic-auth `$ASH2TXT_USER:$ASH2TXT_PASS` (from Vesuvius Challenge data registration; not stored in repo). Weights: the repo's public Google Drive folder `1rn3GMOvtJRMBHOxVhWFVSY6IVI6xUnYp`.
 - Repo root: `/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch` (referred to as `$ROOT`).
 
 ---
@@ -142,7 +142,7 @@ rclone version | head -1
 
 ```bash
 cd /home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/villa/ink-detection
-export USERNAME=registeredusers PASSWORD=only
+export USERNAME="$ASH2TXT_USER" PASSWORD="$ASH2TXT_PASS"  # from your Vesuvius Challenge data registration; not stored in repo
 for SEG in 20231210121321 20231221180251; do
   rclone copy ":http:/full-scrolls/Scroll1/PHercParis4.volpkg/paths/$SEG/${SEG}_mask.png" "./train_scrolls/$SEG/" \
     --http-url "http://$USERNAME:$PASSWORD@dl.ash2txt.org/" --progress --transfers=8

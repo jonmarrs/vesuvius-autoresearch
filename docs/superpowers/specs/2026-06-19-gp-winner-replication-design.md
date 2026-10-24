@@ -67,7 +67,7 @@ or `scripts/training/train.py`.
   `<segment_id>/layers/*.tif` + `<segment_id>/<segment_id>_mask.png`.
 - **Data** — gitignored under `villa/ink-detection/train_scrolls/` (and/or `eval_scrolls/`):
   - Segments via `download.sh` (rclone from `dl.ash2txt.org`, public basic-auth
-    `registeredusers:only`). Phase-1 targets: README demo segments **`20231210121321`**
+    `$ASH2TXT_USER:$ASH2TXT_PASS` (from Vesuvius Challenge data registration; not stored in repo)). Phase-1 targets: README demo segments **`20231210121321`**
     and **`20231221180251`** (the winners' public reveal segments; held-out, no labels →
     judged by legibility).
   - Published weights `timesformer_weights.ckpt` from the repo's Google Drive (via `gdown`).
@@ -101,7 +101,7 @@ or `scripts/training/train.py`.
   `pytorch-lightning==2.0.9`; if the checkpoint won't load, inspect its state-dict keys.
 - **Download size/time** (tens of GB of layer stacks) → 280 GB free is ample; run download
   in the background; start with the two demo segments only.
-- **Credentials/access** → `dl.ash2txt.org` uses public `registeredusers:only`; Drive
+- **Credentials/access** → `dl.ash2txt.org` uses public `$ASH2TXT_USER:$ASH2TXT_PASS` (from Vesuvius Challenge data registration; not stored in repo); Drive
   weights via `gdown` (public folder). If a download is gated, surface it to the user.
 - **GPU contention with the loop** → pause the loop for the inference step (brief), restart after.
 - **Success ambiguity** (no shipped reference image) → criterion is legibility of Greek
