@@ -5,7 +5,8 @@ about 1.5 GB of public download, so it waits for the owner's go-ahead.
 
 **Amended 2026-10-23, also before any padded run** (Amendment 1, at the end): the five Scroll-1 256³ cubes are added,
 and judged apart from these five by the same predictions. The amendment leaves the registered five, their predictions
-and their decision rule unchanged.
+and their decision rule unchanged. **Run 2026-10-23, 21:02–21:15 PDT, with the loop paused: finding 97,
+`reports/neural_tracer_ct_context.md`. P1, P2 and P3 held on both sets.**
 
 ## The question
 
