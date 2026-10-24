@@ -71,6 +71,15 @@ def core(volume: np.ndarray) -> np.ndarray:
     return cc.core(volume, MARGIN, SIZE)
 
 
+def to_uint8(raw: np.ndarray, slab: int = 64) -> np.ndarray:
+    """cc.to_uint8 a slab at a time: the same voxels, without float64 copies of a whole 768³ region (about 3.6 GB
+    each) beside the loop."""
+    out = np.empty(raw.shape, np.uint8)
+    for i in range(0, raw.shape[0], slab):
+        out[i : i + slab] = cc.to_uint8(raw[i : i + slab])
+    return out
+
+
 def read_padded(
     cube: str, cache: Path, get=cc._get, get_ranges=raw_tiff_region._get_ranges
 ) -> np.ndarray:
@@ -97,7 +106,7 @@ def fetch(
         dst = work / "ct" / f"{cube}.zarr"
         ref = G / "zarr" / f"{cube}.zarr"
         if not dst.exists():
-            padded = cc.to_uint8(
+            padded = to_uint8(
                 read_padded(cube, (cache or work / "cache") / cube, get, get_ranges)
             )
             if not np.array_equal(core(padded), zarr.open(str(ref), mode="r")[...]):

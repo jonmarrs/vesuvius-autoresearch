@@ -54,6 +54,13 @@ def test_the_cubes_are_the_eleven_512_cubes_inside_their_scans():
     assert c5.S3_SOURCE.endswith("PHerc332.volpkg/volumes/20231117143551")
 
 
+def test_the_conversion_by_slab_is_finding_97s():
+    raw = np.random.default_rng(3).integers(0, 65535, (150, 9, 7), dtype=np.uint16)
+    raw[0, 0, :4] = [0, 257, 65278, 65535]
+    assert np.array_equal(c5.to_uint8(raw), cc.to_uint8(raw))
+    assert np.array_equal(c5.to_uint8(raw, slab=7), cc.to_uint8(raw))
+
+
 def test_each_cube_is_read_from_its_own_scroll(tmp_path, monkeypatch):
     calls = []
     monkeypatch.setattr(
