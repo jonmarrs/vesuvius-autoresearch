@@ -3,6 +3,9 @@
 **Status: REGISTERED 2026-10-23, before any octant has been traced.** The run needs the GPU with the autoresearch loop
 paused, so it waits for the owner's go-ahead. Scoring is CPU only, at nice 19 with the loop running.
 
+**WITHDRAWN 2026-10-24 by the owner, never run.** Finding 97 answered the question more directly, and this test would
+hit the same seed rule again (see "Withdrawn", at the end).
+
 ## The question
 
 At a 4-voxel tolerance, villa's neural fiber tracer leads our tracer on all three in-sample 512³ cubes, and trails it
@@ -110,3 +113,24 @@ decision by the owner.
   each octant (timed by the smoke), and the neural tracer about 45 seconds. That is about 25 runs, expected within
   3 hours and far inside the one GPU day that `docs/PRIZE_PLAN_2026-10_FINAL_WEEK.md` allows.
 * **CPU:** scoring, about an hour at nice 19 with the loop running.
+
+## Withdrawn, 2026-10-24, never run
+
+Nothing in this registration ran: no smoke, no octant, no score.
+
+**Why.** Finding 97 (`reports/neural_tracer_ct_context.md`, registered as #209 and widened to the Scroll-1 cubes before
+its run) measured the cause directly. Given 128 voxels of real CT around each 256³ cube:
+* on the eight in-sample cubes, villa's neural tracer drops 0.002–0.010 of its seed dots as `no_heading`, against
+  0.542–0.678 given the cube alone (finding 96);
+* at tolerance 4 it leads our tracer on 6 of those 8, where finding 94 had it trailing on all 8.
+
+So most of the deficit this test asked about is the tracer's 77-voxel CT window at the cube's faces (finding 96).
+
+**This test would hit that rule again.** Each octant's CT would be the octant alone, so the neural tracer would drop
+the seeds near its faces as it did on the real cubes. A deficit on the octants would re-measure finding 96's rule. It
+could not separate the rule from the mask model's and our tracer's own context.
+
+**What stays open.** Finding 97 gave only the neural tracer more CT. Whether running the mask model and our tracer on
+the cube alone costs them anything is untested.
+
+The script and chain stay as registered. A run of them now would be an analysis outside any registration.

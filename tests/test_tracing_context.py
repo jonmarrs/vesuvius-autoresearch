@@ -401,3 +401,42 @@ def test_the_registrations_figures_are_the_evidence():
     assert f"lies in {lo:.2f}–{hi:.2f}" in flat
     assert f"| n < {tc.MIN_SCORED} | INCOMPLETE |" in flat
     assert "at least two thirds of the octants scored (16 of 24)" in flat
+
+
+def test_the_withdrawal_cites_finding_97():
+    """Withdrawn 2026-10-24, never run: the figures it gives are finding 97's, and its chain says so."""
+    import json
+
+    flat = " ".join(
+        (_REPO / "docs/preregistration/2026-10-23_tracing_context.md")
+        .read_text()
+        .split()
+    )
+    f97 = json.loads((_REPO / "reports/neural_tracer_ct_context.json").read_text())
+    in_sample = [c for c in f97["records"] if c in f91.IN_SAMPLE]
+    assert len(in_sample) == 8 and all(c.endswith("_256") for c in in_sample)
+    now = [f97["records"][c]["no_heading_share"] for c in in_sample]
+    before = [
+        f97["finding_96_records"][c]["no_heading"]
+        / f97["finding_96_records"][c]["dots"]
+        for c in in_sample
+    ]
+    assert (
+        f"drops {min(now):.3f}–{max(now):.3f} of its seed dots as `no_heading`, against "
+        f"{min(before):.3f}–{max(before):.3f} given the cube alone" in flat
+    )
+
+    def leads(rows):
+        return sum(rows[c][PEN] > f97["our_tracer_tol4"][c][PEN] for c in in_sample)
+
+    assert (leads(f97["rows_tol4"]), leads(f97["finding_94_rows_tol4"])) == (6, 0)
+    assert (
+        "it leads our tracer on 6 of those 8, where finding 94 had it trailing on all 8"
+        in flat
+    )
+    assert "**WITHDRAWN 2026-10-24 by the owner, never run.**" in flat
+    assert (
+        CHAIN.read_text()
+        .splitlines()[1]
+        .startswith("# WITHDRAWN 2026-10-24, never run")
+    )
