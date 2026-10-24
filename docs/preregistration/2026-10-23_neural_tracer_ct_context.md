@@ -3,6 +3,10 @@
 **Status: REGISTERED 2026-10-23, before any padded run.** The run needs the GPU with the autoresearch loop paused, and
 about 1.5 GB of public download, so it waits for the owner's go-ahead.
 
+**Amended 2026-10-23, also before any padded run** (Amendment 1, at the end): the five Scroll-1 256³ cubes are added,
+and judged apart from these five by the same predictions. The amendment leaves the registered five, their predictions
+and their decision rule unchanged.
+
 ## The question
 
 Finding 96 (`reports/neural_tracer_boundary.md`, exploratory) found that villa's neural tracer drops any seed whose
@@ -103,3 +107,51 @@ the owner's call.
 * **GPU, loop paused:** the smoke and five runs, each comparable to finding 91's 256³ runs (46–49 s), so a few
   minutes.
 * **CPU:** scoring, minutes.
+
+## Amendment 1: the five Scroll-1 256³ cubes
+
+**Written 2026-10-23, before any padded run.** The Scroll-5 download had begun, and its first cube's padded core had
+matched finding 85's array. No tracing had run.
+
+**Why.** ScrollGT shows the neural tracer trailing on these five cubes too. Finding 96 found the same signature on them
+as on Scroll 5's 256³ cubes:
+* 0.542–0.607 of seed dots dropped as `no_heading`;
+* coverage 0.212–0.268;
+* predicted over ground-truth length 0.551–0.776.
+
+**Source.** Scroll 1's raw 7.91 µm scan (PHercParis4, `20230205180739`) is public as one uncompressed 16-bit TIFF per
+slice. `scripts/raw_tiff_region.py` reads any region of it by HTTP byte ranges, and checks each slice's header first.
+Converted as above, a 4 × 64 × 64 corner of `s1_00497_01497_03997`, `s1_00997_02497_02997` and `s1_10997_02997_02997`
+equals the cube exactly. That was checked before this amendment. As for Scroll 5, `fetch` requires the whole 256³ core
+to match finding 85's array.
+
+**The cubes:** `s1_00497_01497_03997`, `s1_00497_02497_02997`, `s1_00997_02497_02997`, `s1_08997_02997_02497` and
+`s1_10997_02997_02997`.
+* All are 256³.
+* All are in the mask's sample.
+* Padded by 128, each lies inside the scan (14,376 × 7,888 × 8,096).
+
+**Design:** as for the registered five, covering the margin, box, presence, command, smoke, identity checks and
+scoring. The chain runs the registered five first.
+
+**Predictions, the same three, judged on these five alone:**
+
+1. **P1:** on every one, the share of seed dots dropped as `no_heading` is below 0.40. Finding 91 had 0.542–0.607.
+   Confidence high.
+2. **P2:** coverage at tolerance 2 rises on every cube, by a median factor of at least 1.3 over finding 91's
+   (0.212–0.268). Confidence moderate.
+3. **P3:** predicted over ground-truth length is at least 0.83 on all five, since all are in sample. Finding 91 had
+   0.551–0.776. Confidence low.
+
+**Decision rule:** the registered table, applied to these five. It is recorded as `status_scroll1` and `scroll1` in
+`reports/neural_tracer_ct_context.json`.
+* The identity checks and the manipulation check are per set. The smoke is shared.
+* An identity failure or a missing run in one set leaves the other's status unchanged.
+* `status` and the registered verdict are computed on the five Scroll-5 cubes alone, as before.
+
+**What this changes below "What the result cannot do":** the Scroll-1 256³ cubes are now tested. Scroll 3 (all 512³)
+and the 512³ cubes generally are still not.
+
+**Cost:**
+* about 1.3 GB more download, since each padded region is 512 slices of 512 row windows of 1 KB;
+* five more GPU runs of about a minute each.

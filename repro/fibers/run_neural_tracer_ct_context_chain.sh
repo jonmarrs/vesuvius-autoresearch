@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # docs/preregistration/2026-10-23_neural_tracer_ct_context.md -- villa's neural fiber tracer (villa #2045,
-# scrollprize/fiber_single_small at 4511825) on the five Scroll-5 256^3 cubes with 128 voxels of real CT around each,
-# the box still the cube, everything else as finding 91 ran it. Prepare first, CPU and network, with the loop running:
-#   (cd $REPO && .venv/bin/python scripts/neural_tracer_ct_context.py fetch --work $W)      # ~1.5 GB public download
+# scrollprize/fiber_single_small at 4511825) on the five Scroll-5 256^3 cubes and, by amendment 1, the five Scroll-1
+# 256^3 cubes, with 128 voxels of real CT around each, the box still the cube, everything else as finding 91 ran it.
+# Prepare first, CPU and network, with the loop running:
+#   (cd $REPO && .venv/bin/python scripts/neural_tracer_ct_context.py fetch --work $W)      # ~2.8 GB public download
 #   (cd $REPO && .venv/bin/python scripts/neural_tracer_ct_context.py presence --work $W)
 # Both must report every core identical, or this refuses. Then the identity smoke: finding 91's own command on
 # s5_07997_02997_05497_256 must reproduce its fibers.afv point for point, or no padded cube runs. The scripts are
@@ -25,7 +26,8 @@ G="${G:-/home/jon/openclaw-workspace/Neo-VM/spiral_out/afv_gen}"
 CKPT="scrollprize/fiber_single_small@451182558cb3270cfc2ddf967acbd4f36b9b816b"
 SMOKE=s5_07997_02997_05497_256
 CUBES="s5_03997_01497_03997_256 s5_07997_02997_05497_256 s5_14997_01497_01497_256 s5_13497_01497_02497_256
-s5_16997_03997_04497_256"
+s5_16997_03997_04497_256 s1_00497_01497_03997_256 s1_00497_02497_02997_256 s1_00997_02497_02997_256
+s1_08997_02997_02497_256 s1_10997_02997_02997_256"
 mkdir -p "$W/neural" "$W/smoke"
 LOG=$W/chain.log
 say() { echo "$*  $(date -Is)" | tee -a "$LOG"; }
@@ -37,14 +39,14 @@ for p in /proc/[0-9]*; do
     && { say "SC_ABORTED another GPU job is running"; exit 3; }
 done
 for f in neural_tracer_ct_context.py neural_tracer_boundary.py tolerance4_rescore.py neural_tracer_analysis.py \
-         afv_generator_analysis.py afv_to_labels.py; do
+         afv_generator_analysis.py afv_to_labels.py raw_tiff_region.py; do
   if [ -e "$W/$f" ]; then
     cmp -s "$REPO/scripts/$f" "$W/$f" || { say "SC_ABORTED $f differs from the copy frozen in $W"; exit 3; }
   else
     cp "$REPO/scripts/$f" "$W/" || { say "SC_ABORTED freeze"; exit 3; }
   fi
 done
-"$PY" -c 'import json, sys; p = json.load(open(sys.argv[1])); ok = all(r["core_equals_finding_85"] for r in p["ct"].values()) and all(r["core_equals_finding_91"] for r in p["presence"].values()) and len(p["ct"]) == len(p["presence"]) == 5; sys.exit(not ok)' \
+"$PY" -c 'import json, sys; p = json.load(open(sys.argv[1])); ok = all(r["core_equals_finding_85"] for r in p["ct"].values()) and all(r["core_equals_finding_91"] for r in p["presence"].values()) and len(p["ct"]) == len(p["presence"]) == 10; sys.exit(not ok)' \
   "$W/prepared.json" || { say "SC_ABORTED prepare (fetch, presence) incomplete or a core differs"; exit 3; }
 say "CHAIN_START $(git -C "$REPO" rev-parse --short HEAD) villa $(git -C "$T/villa" rev-parse --short HEAD)"
 
