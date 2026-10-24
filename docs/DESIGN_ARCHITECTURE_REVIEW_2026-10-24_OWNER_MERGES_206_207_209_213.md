@@ -83,9 +83,10 @@ This round covers the 00:12, 01:12, 02:12 and 03:12 UTC firings.
 
 ## Observations for the owner (not changed)
 
-- **The October filing draft does not yet carry finding 96.** Its neural-tracer section says the 256³
-  deficit's reasons are "only partly measured". Finding 96 attributes a large part of it to ScrollGT's
-  protocol. As with #201 for finding 95, folding it in is the owner's call.
+- **The October filing draft on main does not yet carry finding 96.** Its neural-tracer section says the
+  256³ deficit's reasons are "only partly measured". Finding 96 attributes a large part of it to ScrollGT's
+  protocol. The owner's open #216 folds it in, with a binding test. It is not reviewed here, since it is
+  not merged.
 - **#206's "Seed planes ... stay the same, by construction"** holds for the planes' positions. Finding 96
   shows that an octant run cannot seed on the planes at its own faces. Finding 96 records this, and the
   registration is frozen.
@@ -113,5 +114,8 @@ This round covers the 00:12, 01:12, 02:12 and 03:12 UTC firings.
 - **The standard suite** with the locked-package overlay: 2813 passed, 22 skipped and 1 xfailed, as on
   main. The ten failures are main's ten environmental ones: nine need villa files, one is
   `gp_winner`.
+- **The owner's open #212, #214, #215 and #216**, merged onto this branch in a scratch worktree, merge
+  without conflict. #212 widens #209 to the Scroll-1 cubes and edits the CT-context chain next to the
+  guard. The touched tests, with #212's and #216's own, give 108 passed and 5 skipped there.
 - **No independent review this round.** The changes are a two-line guard in four chains, checked by a
   test that fails on the old guard, and bindings checked by perturbation.
