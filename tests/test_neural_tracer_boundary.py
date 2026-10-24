@@ -214,8 +214,8 @@ def test_each_row_is_finding_91s_record():
 
 @pytestmark_json
 def test_the_trailing_cubes_are_finding_91s():
-    """ "Ten of the 13 cubes on which ScrollGT says it trails our tracer are 256³. The other three are
-    the in-sample 512³ cubes, where the deficit is a tolerance-2 result (finding 94).\" """
+    """The report's "Ten of the 13 cubes on which ScrollGT says it trails our tracer are 256³", and
+    its three others "where the deficit is a tolerance-2 result (finding 94)", from the rows."""
     rows, f91, t94 = (
         _d()["rows"],
         json.loads(_F91.read_text()),
