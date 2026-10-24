@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# WITHDRAWN 2026-10-24, never run: see the registration's last section. A run now is outside any registration.
 # docs/preregistration/2026-10-23_tracing_context.md -- run both tracers on the 24 octants of the three in-sample 512^3
 # cubes as cubes in their own right: our tracer by `bench_cli trace` at finding 80's published defaults (which runs the
 # mask model on the octant, as on every real cube), then villa's neural tracer (villa #2045,
