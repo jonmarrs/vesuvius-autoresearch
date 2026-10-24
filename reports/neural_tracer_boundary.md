@@ -69,6 +69,8 @@ differs between these two groups:
   unit length and fewer seeds per fiber also cut a 256³ run's output. Measuring the rule's whole effect needs the tracer
   run on each cube with real CT around it: at least 38 voxels from the scroll volume beyond each face, with the box
   still the cube. That is a GPU run and a download, and is untested here.
+  *(2026-10-24: finding 97 ran it, pre-registered, in `neural_tracer_ct_context.md`. With 128 voxels of real CT
+  around each of the ten 256³ cubes, the tracer's coverage rose 1.76–2.78× on every cube.)*
 * **A defect in villa's tracer.** Refusing a truncated window is a reasonable choice on a scroll. The mismatch is ours:
   the protocol gave it a CT no larger than the scored cube.
 * **That the reachable-share test is exact.** It is a node test, and nodes sit 1–2 voxels apart. It counts a fiber as
