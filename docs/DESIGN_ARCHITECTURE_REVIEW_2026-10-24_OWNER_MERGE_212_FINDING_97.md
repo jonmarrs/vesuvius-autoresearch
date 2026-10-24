@@ -57,5 +57,7 @@ keeps its seeds, and its coverage rises 1.76–2.78× on all ten. Every register
   - a padded coverage;
   - two edits to the pointer's text.
 - **Ruff** 0.9.10 `check` and `format` are clean on the test.
+- **Doc guards, the withdrawn-claims ledger, the suite guard and the two report tests:** 449 passed and 3 skipped.
+- **Doc audit:** the branch gains no entries.
 - **No independent review this round.** The changes are three tests and a dated note, each checked by
   perturbation.
