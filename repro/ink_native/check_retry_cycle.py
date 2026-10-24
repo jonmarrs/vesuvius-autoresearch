@@ -6,9 +6,10 @@ volume handles are sentinels that forbid voxel reads. This checks the retry
 consumer, not training or whether default discovery selects these patches.
 Run in a configured Villa environment with its vesuvius/src on PYTHONPATH.
 
-Exit status: 0 when the retry is bounded (a RuntimeError after exactly the two
-patches), 1 when the probe ran and it is not, 2 with "refused: ..." when the
-probe refuses to run (argparse's own usage errors also exit 2). Any other
+Exit status: 0 when the retry produces the expected native-crop RuntimeError
+after exactly the two patches, 1 otherwise (including unrelated RuntimeErrors),
+2 with "refused: ..." when the probe refuses to run (argparse's own usage
+errors also exit 2). Any other
 error, villa missing from PYTHONPATH among them, is a traceback and 1. It
 refuses, before running and without writing, an output path that exists or
 whose directory does not, a mesh that is missing a file or is not the
@@ -131,7 +132,14 @@ def _probe():
     finally:
         signal.setitimer(signal.ITIMER_REAL, 0.)
         signal.signal(signal.SIGALRM, previous_handler)
-    bounded = outcome == "runtime_error" and attempts == [0, 1]
+    # Two attempts alone can also precede an unrelated dataset failure. Only
+    # the measured native retry error establishes bounded rejection here.
+    expected_error = (
+        "No admissible native crop after trying 2 distinct patches "
+        "for requested idx 0 (dataset size 2); "
+        "check the native crop size, surface geometry and supervision masks"
+    )
+    bounded = outcome == "runtime_error" and attempts == [0, 1] and message == expected_error
     result = dict(
         scope="deliberately supplied invalid mesh patches; no discovery, voxel reads or training",
         source_url="https://vesuvius-challenge-open-data.s3.amazonaws.com/PHercParis4/segments/20230702185753/mesh/20230702185753-on-20260411134726-2.4um.tifxyz/",

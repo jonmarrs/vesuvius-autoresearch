@@ -5,7 +5,8 @@ corners of a published mesh and calls `__getitem__` under a two-second
 watchdog. Its before and after records are the evidence for the fix:
 
 - a cycle is a timeout and exits 1;
-- a bounded retry is a RuntimeError after exactly the two patches, and exits 0;
+- a bounded retry is the expected native-crop RuntimeError after exactly the
+  two patches, and exits 0;
 - it refuses, with exit 2 and no record, a mesh that is not the published one,
   a corner with surface in it, a patch villa does not reject, a voxel read
   before the geometry rejects the patch, and an existing record. Until
@@ -104,7 +105,11 @@ _BOUNDED = """
             if self._native_sample(self.patches[current]) is not None:
                 return "sample"
             if len(attempted) >= len(self.patches):
-                raise RuntimeError(f"after trying {len(attempted)} distinct patches")
+                raise RuntimeError(
+                    f"No admissible native crop after trying {len(attempted)} distinct patches "
+                    f"for requested idx {index} (dataset size {len(self.patches)}); "
+                    "check the native crop size, surface geometry and supervision masks"
+                )
             current = (current + 1) % len(self.patches)
 """
 _RETURNS = """
@@ -335,7 +340,7 @@ def test_a_bounded_retry_is_a_runtime_error_after_both_patches(tmp_path):
     proc, rec, built, _, _, mesh = _probe(tmp_path, _BOUNDED)
     assert proc.returncode == 0, proc.stderr
     assert rec["outcome"] == "runtime_error" and rec["bounded"] is True
-    assert rec["message"] == "after trying 2 distinct patches"
+    assert rec["message"] == json.loads(_AFTER.read_text())["message"]
     assert rec["first_attempts"] == [0, 1] and rec["attempt_count"] == 2
     # the corners come from the full-resolution grid
     h, w = _SHAPE
@@ -400,6 +405,21 @@ def test_an_error_that_is_not_the_retry_failure_is_not_classified(tmp_path):
     proc, rec, _, _, _, _ = _probe(tmp_path, _BOTH_THEN_OTHER_ERROR)
     assert proc.returncode == 1 and "ValueError: not a retry failure" in proc.stderr
     assert rec is None
+
+
+def test_an_unrelated_runtime_error_after_both_patches_is_not_bounded(tmp_path):
+    retry = _BOTH_THEN_OTHER_ERROR.replace("raise ValueError", "raise RuntimeError")
+    proc, rec, _, _, _, _ = _probe(tmp_path, retry)
+    assert proc.returncode == 1, proc.stderr
+    assert rec["outcome"] == "runtime_error" and rec["bounded"] is False
+    assert rec["first_attempts"] == [0, 1] and rec["message"] == "not a retry failure"
+
+
+def test_a_retry_error_for_the_wrong_request_is_not_bounded(tmp_path):
+    retry = _BOUNDED.replace("for requested idx {index}", "for requested idx 99")
+    proc, rec, _, _, _, _ = _probe(tmp_path, retry)
+    assert proc.returncode == 1, proc.stderr
+    assert rec["bounded"] is False and "requested idx 99" in rec["message"]
 
 
 def _refused(proc, rec, why):
