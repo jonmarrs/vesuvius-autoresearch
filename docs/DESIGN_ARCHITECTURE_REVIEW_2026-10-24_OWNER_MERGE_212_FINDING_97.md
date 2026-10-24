@@ -3,7 +3,7 @@
 Date: 2026-10-24. Baseline: `4cf3750c` (main after the owner's #212).
 Reviewer: Claude (Anthropic), at the owner's request.
 
-This round covers the 10:12, 11:12 and 12:12 UTC firings. #212 widens #209's registered CT-context test to the five
+This round covers the 10:12, 11:12, 12:12 and 13:12 UTC firings. #212 widens #209's registered CT-context test to the five
 Scroll-1 256³ cubes (amendment 1, `cb9bd1ab`) and reports its result, finding 97
 (`reports/neural_tracer_ct_context.md`). With 128 voxels of real CT around each 256³ cube, villa's neural tracer
 keeps its seeds, and its coverage rises 1.76–2.78× on all ten. Every registered prediction held on both sets.
