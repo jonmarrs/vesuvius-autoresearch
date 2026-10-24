@@ -124,14 +124,48 @@ def test_every_cube_is_inside_the_scan_with_its_margin():
     assert cc.SMOKE in cc.IN_SAMPLE and len(cc.IN_SAMPLE) == 3
 
 
-def _rows(cov, pred=1.0):
-    return {c: {COV: cov, "pred_length": pred, "gt_length": 1.0} for c in cc.CUBES}
+def test_amendment_1_adds_the_scroll_1_256_cubes_inside_their_scan():
+    import raw_tiff_region
+
+    shape = raw_tiff_region.VOLUMES["s1"]["shape"]
+    for c in cc.S1_CUBES:
+        lo, hi = cc.padded_bounds(c)
+        assert all(a >= 0 for a in lo) and all(
+            b <= s for b, s in zip(hi, shape, strict=True)
+        ), c
+    assert len(cc.S1_CUBES) == 5 and all(
+        c.startswith("s1_") and c.endswith("_256") for c in cc.S1_CUBES
+    )
+    assert cc.ALL_CUBES == cc.CUBES + cc.S1_CUBES  # the registered five first
+    assert cc.S1_SOURCE.endswith("PHercParis4.volpkg/volumes/20230205180739")
 
 
-def _records(nh, dist=10.0):
+def test_each_cube_is_read_from_its_own_scroll(tmp_path, monkeypatch):
+    import raw_tiff_region
+
+    calls = []
+    monkeypatch.setattr(
+        cc, "read_region", lambda lo, hi, cache, get: calls.append(("s5", lo, hi))
+    )
+    monkeypatch.setattr(raw_tiff_region, "read_region",
+                        lambda vol, lo, hi, cache, get_ranges: calls.append((vol, lo, hi)))  # fmt: skip
+    cc.read_padded("s5_07997_02997_05497_256", tmp_path)
+    cc.read_padded("s1_00497_01497_03997_256", tmp_path)
+    assert calls == [
+        ("s5", (7869, 2869, 5369), (8381, 3381, 5881)),
+        ("s1", (369, 1369, 3869), (881, 1881, 4381)),
+    ]
+    with pytest.raises(ValueError, match="no raw source"):
+        cc.read_padded("s3_00994_00494_01994_512", tmp_path)
+
+
+def _rows(cov, pred=1.0, cubes=cc.CUBES):
+    return {c: {COV: cov, "pred_length": pred, "gt_length": 1.0} for c in cubes}
+
+
+def _records(nh, dist=10.0, cubes=cc.CUBES):
     return {
-        c: {"no_heading_share": nh, "min_seed_face_distance_grid": dist}
-        for c in cc.CUBES
+        c: {"no_heading_share": nh, "min_seed_face_distance_grid": dist} for c in cubes
     }
 
 
@@ -154,6 +188,43 @@ def test_the_decision_rule():
     assert cc.verdict(_rows(0.3, pred=0.83), f91, _records(0.3))["prediction_P3"]
 
 
+def _all(make, *a):
+    return make(*a, cubes=cc.ALL_CUBES)
+
+
+def test_scroll_1_is_judged_apart_by_the_same_predictions():
+    f91 = _all(_rows, 0.2)
+    rows, records = _all(_rows, 0.26), _all(_records, 0.39)
+    s1 = cc.verdict(rows, f91, records, cc.S1_CUBES, cc.S1_CUBES)
+    assert s1["scored"] == 5 and s1["prediction_P1"] and s1["prediction_P2"]
+    assert set(s1["pred_over_gt_in_sample"]) == set(cc.S1_CUBES)  # P3 on all five
+    rows[cc.S1_CUBES[0]]["pred_length"] = 0.82
+    assert not cc.verdict(rows, f91, records, cc.S1_CUBES, cc.S1_CUBES)["prediction_P3"]
+    # the registered verdict ignores Scroll 1's cubes
+    assert cc.verdict(rows, f91, records) == cc.verdict(
+        {c: rows[c] for c in cc.CUBES}, f91, {c: records[c] for c in cc.CUBES}
+    )
+    records[cc.S1_CUBES[0]]["no_heading_share"] = 0.5
+    assert cc.verdict(rows, f91, records)["prediction_P1"]
+    assert not cc.verdict(rows, f91, records, cc.S1_CUBES, cc.S1_CUBES)["prediction_P1"]
+
+
+def test_a_scroll_1_identity_failure_leaves_the_registered_outcome():
+    f91, rows, records = _all(_rows, 0.2), _all(_rows, 0.3), _all(_records, 0.3)
+    bad = {cc.S1_CUBES[2]: ["ct"]}
+    assert cc.outcome(bad, True, rows, f91, records)[0] == "OK"
+    assert cc.outcome(bad, True, rows, f91, records, cc.S1_CUBES, cc.S1_CUBES) == (
+        "IDENTITY_FAILED",
+        None,
+    )
+    rows.pop(cc.S1_CUBES[-1])
+    assert cc.outcome({}, True, rows, f91, records)[0] == "OK"
+    assert (
+        cc.outcome({}, True, rows, f91, records, cc.S1_CUBES, cc.S1_CUBES)[0]
+        == "INCOMPLETE"
+    )
+
+
 def test_p2_needs_a_rise_on_every_cube():
     rows, f91 = _rows(0.5), _rows(0.2)
     rows[cc.CUBES[0]][COV] = 0.2
@@ -166,7 +237,7 @@ def test_outcomes():
         "SMOKE_FAILED",
         None,
     )
-    assert cc.outcome({"x": ["ct"]}, True, _rows(0.3), f91, _records(0.3)) == (
+    assert cc.outcome({cc.CUBES[1]: ["ct"]}, True, _rows(0.3), f91, _records(0.3)) == (
         "IDENTITY_FAILED",
         None,
     )
@@ -222,7 +293,8 @@ def test_the_smoke_gates_the_padded_runs():
     )
     assert "exit 4" in text.split('say "SMOKE_OK"')[0]
     cubes = re.search(r'CUBES="(.*?)"', text, re.S).group(1).split()
-    assert cubes == cc.CUBES and f"SMOKE={cc.SMOKE}" in text
+    assert cubes == cc.ALL_CUBES and f"SMOKE={cc.SMOKE}" in text
+    assert 'len(p["presence"]) == 10' in text
 
 
 def _local_imports(script: str, seen: set[str]) -> set[str]:
