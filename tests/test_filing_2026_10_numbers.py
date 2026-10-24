@@ -1283,3 +1283,30 @@ def test_scrollgt_0_9_0_is_described_as_released():
         "The URL field cites `tree/v0.9.0`" in txt
     )  # the checklist names the cite it set
     assert "first on merge-penalized ERL on 10 of the 21, against 8" in txt
+
+
+@pytest.mark.skipif(
+    not (_F91.exists() and _F97.exists() and _F98.exists()),
+    reason="finding 91, 97 or 98 artifact absent",
+)
+def test_the_scan_row_is_first_on_the_cubes_it_counts():
+    """ "first on merge-penalized ERL on 10 of the 21, against 8": first among every ScrollGT entrant (connected
+    components, #1934's generator and our tracer) at tolerance 2, with the scan around each cube (findings 97 and
+    98) and with the cube alone (finding 91)."""
+    pen = "erl_merge_penalized"
+    f91 = json.loads(_F91.read_text())
+    scan = {
+        **json.loads(_F97.read_text())["rows_tol2"],
+        **json.loads(_F98.read_text())["rows_tol2"],
+    }
+    assert f91["tolerance"] == 2.0 and set(scan) == set(f91["comparators"])
+    best = {c: max(r[pen] for r in comp.values()) for c, comp in f91["comparators"].items()}  # fmt: skip
+    with_scan = sum(scan[c][pen] > best[c] for c in best)
+    alone = sum(f91["neural_rows"][c][pen] > best[c] for c in best)
+    # the cube-only row stays beside the new one, and the new one is above it on every cube
+    assert all(scan[c][pen] > f91["neural_rows"][c][pen] for c in best)
+    assert (with_scan, alone, len(best)) == (10, 8, 21)
+    assert (
+        f"first on merge-penalized ERL on {with_scan} of the {len(best)}, against {alone}"
+        in _text()
+    )
