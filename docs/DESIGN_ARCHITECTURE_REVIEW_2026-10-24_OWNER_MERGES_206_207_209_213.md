@@ -106,3 +106,12 @@ This round covers the 00:12, 01:12, 02:12 and 03:12 UTC firings.
 - **The guard test** fails on the old guard for exit codes 2 and 127, on all four chains.
 - **Ruff** 0.9.10 `check` and `format` are clean on the touched tests and the three owner scripts.
   `bash -n` is clean on the four chains.
+- **The ledger and the suite coverage guard:** 53 passed. The new tests exercise report scripts and
+  repro chains, not the loop's code, so they sit outside the standard suite; the guard agrees.
+- **Doc guards:** 378 passed and 2 skipped on main `14b9087d` and on the branch.
+- **Doc audit:** the branch gains no entries.
+- **The standard suite** with the locked-package overlay: 2813 passed, 22 skipped and 1 xfailed, as on
+  main. The ten failures are main's ten environmental ones: nine need villa files, one is
+  `gp_winner`.
+- **No independent review this round.** The changes are a two-line guard in four chains, checked by a
+  test that fails on the old guard, and bindings checked by perturbation.
