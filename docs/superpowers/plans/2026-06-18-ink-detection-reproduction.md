@@ -30,7 +30,7 @@
 
 ## Task 0: Verify the local fragment data (NO download needed)
 
-**Files:** none. The canonical Kaggle ink-detection fragments map directly to the PHerc fragments we already have: **Kaggle Frag1 = PHercParis2Fr47** (train), **Frag2 = PHercParis2Fr143** (val) — both local, clean, aligned, in flat tif format. (Frag3-6 = PHercParis1Fr34/Fr39, PHerc1667Fr3, PHerc51Fr8 are also local but in the misaligned `(H,depth,W)` copies; not needed for this 2-fragment first run. If wanted later, pristine copies download with no Kaggle account from `https://dl.ash2txt.org/fragments/Frag{3..6}/` using basic-auth `registeredusers:only`.)
+**Files:** none. The canonical Kaggle ink-detection fragments map directly to the PHerc fragments we already have: **Kaggle Frag1 = PHercParis2Fr47** (train), **Frag2 = PHercParis2Fr143** (val) — both local, clean, aligned, in flat tif format. (Frag3-6 = PHercParis1Fr34/Fr39, PHerc1667Fr3, PHerc51Fr8 are also local but in the misaligned `(H,depth,W)` copies; not needed for this 2-fragment first run. If wanted later, pristine copies download with no Kaggle account from `https://dl.ash2txt.org/fragments/Frag{3..6}/` using basic-auth `$ASH2TXT_USER:$ASH2TXT_PASS` (from Vesuvius Challenge data registration; not stored in repo).)
 
 - [ ] **Step 1: Verify Fr47 (train) and Fr143 (val) layout**
 

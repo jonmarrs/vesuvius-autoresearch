@@ -16,7 +16,7 @@
 - **Never edit** `run_autoresearch_loop.py` / `scripts/training/train.py`.
 - **Pause the loop before any GPU step** (`.loop_paused` + kill `run_autoresearch_loop` then `train.py --config`), restart with `bash start.sh` after.
 - Segment data, labels, env, checkpoints are **gitignored** (already covered by `villa/ink-detection/train_scrolls/`, `.venv-gp/`, `repro/gp_winner/runs/`); add `villa/ink-detection/models/` to gitignore in Task 0.
-- Public data creds: `dl.ash2txt.org` basic-auth `registeredusers:only`. Repo root = `$ROOT` = `/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch`. rclone at `~/bin/rclone`.
+- Public data creds: `dl.ash2txt.org` basic-auth `$ASH2TXT_USER:$ASH2TXT_PASS` (from Vesuvius Challenge data registration; not stored in repo). Repo root = `$ROOT` = `/home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch`. rclone at `~/bin/rclone`.
 - **Run all training/inference from CWD `$ROOT/villa/ink-detection/`** (the scripts use relative paths `train_scrolls/`, `all_labels/`, `./models`).
 - Segments — train: `20231210121321` (already present), `20230702185753`, `20230826170124`, `20230903193206`, `20231005123336`; held-out valid: `20230820203112`. Layers 17–42 only.
 
@@ -56,7 +56,7 @@ git commit -m "chore(repro): gitignore GP-winner Phase 2 training outputs"
 
 ```bash
 cd /home/jon/openclaw-workspace/Neo-VM/projects/vesuvius-autoresearch/villa/ink-detection
-export USERNAME=registeredusers PASSWORD=only
+export USERNAME="$ASH2TXT_USER" PASSWORD="$ASH2TXT_PASS"  # from your Vesuvius Challenge data registration; not stored in repo
 URL="http://$USERNAME:$PASSWORD@dl.ash2txt.org/"
 BASE=":http:/full-scrolls/Scroll1/PHercParis4.volpkg/paths"
 for SEG in 20230702185753 20230826170124 20230903193206 20231005123336 20230820203112; do
