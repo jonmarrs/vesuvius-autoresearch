@@ -1162,3 +1162,124 @@ def test_the_failed_prediction_count_is_the_listed_tally():
     for key in _FAILED:
         assert sum(it.startswith(key) for it in items) == 1, key
     assert sum(_FAILED.values()) == 22
+
+
+_F98 = _REPO / "reports/neural_tracer_ct_context_512.json"
+
+
+@pytest.mark.skipif(not _F98.exists(), reason="finding 98 artifact absent")
+def test_ct_context_512_result_matches_finding_98():
+    d, txt = json.loads(_F98.read_text()), _text()
+    d97 = json.loads(_F97.read_text())
+    pen = "erl_merge_penalized"
+    assert (
+        d["status_scroll5"] == d["status_scroll3"] == "OK"
+        and d["smoke_identical"] is True
+    )
+    for v in (d["scroll5"], d["scroll3"]):
+        assert v["prediction_P1"] and v["prediction_P2"] and v["prediction_P3"]
+    assert d["scroll3"]["prediction_P4"] is True
+    assert (
+        "(finding 98, pre-registered; all four predictions held on both scrolls)" in txt
+    )
+    s5 = [c for c in d["rows_tol2"] if c.startswith("s5_")]
+    s3 = [c for c in d["rows_tol2"] if c.startswith("s3_")]
+    assert (len(s5), len(s3)) == (3, 8)
+
+    def span(vals, fmt="{:.3f}"):
+        return f"{fmt.format(min(vals))}–{fmt.format(max(vals))}"
+
+    rec, f96 = d["records"], d["finding_96_records"]
+    after = {
+        g: span([rec[c]["no_heading_share"] for c in g]) for g in (tuple(s5), tuple(s3))
+    }
+    before = {
+        g: span([f96[c]["no_heading"] / f96[c]["dots"] for c in g])
+        for g in (tuple(s5), tuple(s3))
+    }
+    assert (
+        f"it drops {after[tuple(s5)]} of its seed dots on the three in-sample Scroll-5 ones, against "
+        f"{before[tuple(s5)]}, and {after[tuple(s3)]} on the eight held-out Scroll-3 ones, against {before[tuple(s3)]}."
+        in txt
+    )
+    factor = [
+        d["rows_tol2"][c]["coverage"] / d["finding_91_rows_tol2"][c]["coverage"]
+        for c in s5 + s3
+    ]
+    small = [
+        d97["rows_tol2"][c]["coverage"] / d97["finding_91_rows_tol2"][c]["coverage"]
+        for c in d97["rows_tol2"]
+    ]
+    assert max(factor) < min(small)
+    assert (
+        f"Its coverage rises {span(factor, '{:.2f}')}× on all eleven, less than on the 256³ cubes"
+        in txt
+    )
+    ours2, ours4 = d["our_tracer_tol2"], d["our_tracer_tol4"]
+    assert all(d["rows_tol4"][c][pen] > ours4[c][pen] for c in s5 + s3)
+    assert all(d["rows_tol2"][c][pen] > ours2[c][pen] for c in s3)
+    assert all(d["rows_tol2"][c][pen] < ours2[c][pen] for c in s5)
+    now = statistics.median(d["rows_tol2"][c][pen] / ours2[c][pen] for c in s5)
+    was = statistics.median(
+        d["finding_91_rows_tol2"][c][pen] / ours2[c][pen] for c in s5
+    )
+    assert f"at a median {now:.2f} of our tracer rather than {was:.2f}." in txt
+
+    def leads(rows, ours, cubes):
+        return sum(rows[c][pen] > ours[c][pen] for c in cubes)
+
+    small_cubes = list(d97["rows_tol2"])
+    n4 = leads(d["rows_tol4"], ours4, s5 + s3) + leads(
+        d97["rows_tol4"], d97["our_tracer_tol4"], small_cubes
+    )
+    w4 = leads(d["finding_94_rows_tol4"], ours4, s5 + s3) + leads(
+        d97["finding_94_rows_tol4"], d97["our_tracer_tol4"], small_cubes
+    )
+    n2 = leads(d["rows_tol2"], ours2, s5 + s3) + leads(
+        d97["rows_tol2"], d97["our_tracer_tol2"], small_cubes
+    )
+    w2 = leads(d["finding_91_rows_tol2"], ours2, s5 + s3) + leads(
+        d97["finding_91_rows_tol2"], d97["our_tracer_tol2"], small_cubes
+    )
+    assert (n4, w4, n2, w2) == (19, 11, 10, 8)
+    assert (
+        f"it leads our tracer on {n4} at tolerance 4 ({w4} with the cube alone) and on {n2} at tolerance 2 ({w2})."
+        in txt
+    )
+    in_sample = s5 + [
+        c
+        for c in small_cubes
+        if c.startswith("s1_")
+        or c
+        in (
+            "s5_03997_01497_03997_256",
+            "s5_07997_02997_05497_256",
+            "s5_14997_01497_01497_256",
+        )
+    ]
+    rows = {**d97["rows_tol2"], **d["rows_tol2"]}
+    ours = {**d97["our_tracer_tol2"], **ours2}
+    assert len(in_sample) == 11 and all(rows[c][pen] < ours[c][pen] for c in in_sample)
+    assert (
+        "In sample it still trails at tolerance 2 on all 11 cubes given the scan (findings 97 and 98)."
+        in txt
+    )
+    assert (
+        "Finding 98 is in `reports/neural_tracer_ct_context_512.md`, with its committed JSON and pre-registration."
+        in txt
+    )
+    assert "findings 95–97 on 2026-10-23, and finding 98 on 2026-10-24" in txt
+
+
+def test_scrollgt_0_9_0_is_described_as_released():
+    """0.8.3 and 0.9.0 were merged on 2026-10-24 and tagged together as v0.9.0; the draft cites that tag."""
+    txt = _text()
+    assert "were merged on 2026-10-24 and tagged together as v0.9.0" in txt
+    assert (
+        "https://github.com/jonmarrs/scrollgt/tree/v0.9.0" in txt
+        and "scrollgt/tree/v0.8.2" not in txt
+    )
+    assert (
+        "The URL field cites `tree/v0.9.0`" in txt
+    )  # the checklist names the cite it set
+    assert "first on merge-penalized ERL on 10 of the 21, against 8" in txt

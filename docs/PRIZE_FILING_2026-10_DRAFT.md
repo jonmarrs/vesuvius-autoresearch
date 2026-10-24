@@ -66,10 +66,12 @@ clipped "#1780" to "#17".
 3. ScrollGT 0.6.0 (the held-out split) was tagged on 2026-10-11, 0.7.0 (the ERL fix, finding 85) on 2026-10-12, and
    0.8.0 (villa's neural tracer as an entrant, finding 91) and 0.8.1 (the pitch note on its Scroll-3 lead, finding 92)
    on 2026-10-19, and 0.8.2 (the placement note on five in-sample cubes, #157, and the tolerance note, finding 94) on
-   2026-10-20. The URL field cites
-   `tree/v0.8.2`; the test binds the cite to ScrollGT's newest tag, so a later
+   2026-10-20. 0.8.3 (the seed-rule note on the 256³ cubes, findings 96–97) and 0.9.0 (the scan around each cube,
+   findings 97–98) were merged on 2026-10-24 and tagged together as v0.9.0. The URL field cites
+   `tree/v0.9.0`; the test binds the cite to ScrollGT's newest tag, so a later
    release must update it. Findings 84–85 are folded in (2026-10-12). Finding 93 and the placement measurements
-   (#151, #157) are folded in (2026-10-20), finding 94 on 2026-10-20, and findings 95–97 on 2026-10-23.
+   (#151, #157) are folded in (2026-10-20), finding 94 on 2026-10-20, findings 95–97 on 2026-10-23, and finding 98
+   on 2026-10-24.
 4. Finding 85 measures an open villa PR (#1934). The user-approved comment sharing it with the author was posted
    2026-10-12 (https://github.com/ScrollPrize/villa/pull/1934#issuecomment-6131993208) and is cited in part (2). On filing day, re-read the thread: quote any reply verbatim, record
    whether #1934 is still open, and do not characterise silence.
@@ -87,7 +89,7 @@ https://github.com/ScrollPrize/villa/pull/2155
 https://github.com/jonmarrs/vesuvius-autoresearch
 https://github.com/jonmarrs/inkdelta
 https://github.com/jonmarrs/inkagree
-https://github.com/jonmarrs/scrollgt/tree/v0.8.2
+https://github.com/jonmarrs/scrollgt/tree/v0.9.0
 ```
 
 ---
@@ -241,6 +243,13 @@ four predictions held):
   of the 5 Scroll-1 cubes among them. At tolerance 2 it leads on both held-out cubes and still trails on the eight
   in-sample ones, at a median 0.60–0.65 of our tracer rather than 0.27–0.36. Our tracer's rows and the reference
   mask are unchanged, and both come from the cube alone.
+* **On the 512³ cubes too** (finding 98, pre-registered; all four predictions held on both scrolls). Given the scan
+  around each of the eleven 512³ cubes, it drops 0.004–0.012 of its seed dots on the three in-sample Scroll-5 ones,
+  against 0.258–0.283, and 0.011–0.088 on the eight held-out Scroll-3 ones, against 0.256–0.357. Its coverage rises
+  1.19–1.35× on all eleven, less than on the 256³ cubes, as registered. The ranking against our tracer does not
+  change: at tolerance 4 it leads on all eleven, and at tolerance 2 it leads on Scroll 3 and trails on Scroll 5, at a
+  median 0.59 of our tracer rather than 0.44. Across all 21 cubes, given the scan around each, it leads our tracer on
+  19 at tolerance 4 (11 with the cube alone) and on 10 at tolerance 2 (8).
 
 **(3) What it enables that was not possible before.**
 * [inkagree](https://github.com/jonmarrs/inkagree) (MIT; first released 2026-10-03, now 0.3.0, which evaluates only
@@ -277,6 +286,12 @@ four predictions held):
     the two thin entrants agree on a shift of 1.01–1.53 voxels, and the CT puts the fibers' centres 0.51–0.93 voxels
     off (#157). It also notes, where the neural tracer's in-sample deficit is claimed, that the deficit is a
     tolerance-2 result on the 512³ cubes (finding 94). No row changes.
+  * 0.8.3 notes, on the ten 256³ cubes, that ScrollGT's protocol kept the neural tracer from seeding near the faces
+    (finding 96), and gives each cube's values with the scan around it (finding 97). No row changes.
+  * 0.9.0 lets an entrant use the public scan around each cube. `tools/context_ct.py` fetches it, converted as the
+    cube's CT was, and checks that the core is the cube. The release adds the neural tracer run that way as a new row
+    on all 21 cubes (findings 97 and 98), beside the cube-only one: first on merge-penalized ERL on 10 of the 21,
+    against 8. Scoring and every existing row are unchanged.
 
 **(4) Evidence.**
 * Each study was pre-registered before its data, and each has a report and its scripts in
@@ -288,7 +303,8 @@ four predictions held):
   Finding 95 is in `reports/octant_crop_rescore.md`, with its committed JSON and pre-registration.
   Finding 96 is exploratory, not pre-registered. It is in `reports/neural_tracer_boundary.md`, with its committed JSON.
   Finding 97 is in `reports/neural_tracer_ct_context.md`, with its committed JSON and pre-registration (amended
-  before its run).
+  before its run). Finding 98 is in `reports/neural_tracer_ct_context_512.md`, with its committed JSON and
+  pre-registration.
 * Every figure here is bound by a test to the file that produced it.
 * [villa #2044](https://github.com/ScrollPrize/villa/pull/2044) records the memory limits, hardware,
   before/after runs and the averaging comparison behind the scorer fix. The full GPU scorer has
@@ -396,8 +412,8 @@ four predictions held):
 * Not "villa's neural tracer beats ours" or "trails ours" as a headline. It ranks first on merge-penalized ERL on
   Scroll 3 with less coverage, and at tolerance 2 trails on the other 13 cubes, for reasons only partly measured (at
   4 it leads on three of them, finding 94). On the ten 256³ ones, our protocol kept it from seeding near the faces
-  (finding 96). Given the scan around them, it leads on 8 of the 10 at tolerance 4 (finding 97). One checkpoint,
-  defaults.
+  (finding 96). Given the scan around them, it leads on 8 of the 10 at tolerance 4 (finding 97). In sample it still
+  trails at tolerance 2 on all 11 cubes given the scan (findings 97 and 98). One checkpoint, defaults.
 * Not "ScrollGT's ground truth is wrong on five cubes". Two entrants and the CT agree on an offset of about a voxel
   there, measured after the fact. It explains part of the in-sample gap, and the ground truth is unchanged.
 * Not "the Scroll-5 miss is the annotators". Finding 84 rules out a frame offset and a threshold, nothing more.
