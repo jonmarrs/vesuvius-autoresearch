@@ -1290,9 +1290,9 @@ def test_scrollgt_0_9_0_is_described_as_released():
     reason="finding 91, 97 or 98 artifact absent",
 )
 def test_the_scan_row_is_first_on_the_cubes_it_counts():
-    """ "first on merge-penalized ERL on 10 of the 21, against 8": first among every ScrollGT entrant (connected
-    components, #1934's generator and our tracer) at tolerance 2, with the scan around each cube (findings 97 and
-    98) and with the cube alone (finding 91)."""
+    """The draft's "first on merge-penalized ERL on 10 of the 21, against 8": first among every ScrollGT entrant
+    (connected components, #1934's generator and our tracer) at tolerance 2, with the scan around each cube
+    (findings 97 and 98) and with the cube alone (finding 91)."""
     pen = "erl_merge_penalized"
     f91 = json.loads(_F91.read_text())
     scan = {
