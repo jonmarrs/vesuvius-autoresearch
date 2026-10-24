@@ -67,7 +67,8 @@ lock still carries.
 ## Verification
 
 - **Hashes:** 75 locked files of #214's bumps against PyPI's JSON API, all equal.
-- **Advisories:** PyPI's `vulnerabilities` field for every package in the lock, before and after.
+- **Advisories:** PyPI's `vulnerabilities` field for the bumped packages at their old and new versions,
+  and for every package in the lock on main.
 - **Tests:** all of `tests/`, run in chunks of 30 files with each chunk's temporary directory removed.
   The first, single-session run filled this container's disk with test temporaries and was abandoned.
 - **Doc audit:** main gains no entries over #217's baseline.
