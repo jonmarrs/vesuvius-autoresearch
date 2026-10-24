@@ -52,7 +52,7 @@ Isolation preserved: **vendored code is not edited**; the loop's `.venv` is neve
    reviewable, and leaves the winner's file pristine. Run with the existing
    `villa/ink-detection/.venv-gp` (Phase-1 env; torch 2.12 cu130, `cuda True`).
 2. **Data download** — fetch layers 17–42 + mask for the 5 missing segments via the
-   per-file `rclone copyto` approach proven in Phase 1 (public `registeredusers:only`).
+   per-file `rclone copyto` approach proven in Phase 1 (public `$ASH2TXT_USER:$ASH2TXT_PASS` (from Vesuvius Challenge data registration; not stored in repo)).
 3. **`prepare.py`** (vendored) — inject `all_labels/<id>_inklabels.png` into each
    `train_scrolls/<id>/` folder (training reads `*inklabels.*` per segment).
 4. **Evaluation** — after training, run the Phase-1 `inference_timesformer.py` with
