@@ -956,6 +956,144 @@ def test_octant_numbers_match_finding_95():
     )
 
 
+_F96 = _REPO / "reports/neural_tracer_boundary.json"
+
+
+@pytest.mark.skipif(
+    not (_F96.exists() and _F94.exists()), reason="finding 96 artifact absent"
+)
+def test_boundary_caveat_matches_finding_96():
+    d, t4, txt = json.loads(_F96.read_text()), json.loads(_F94.read_text()), _text()
+    rows = d["rows"]
+    assert d["status"] == "OK" and d["exploratory"] is True
+    assert "(finding 96, exploratory: found after the fact, not pre-registered)" in txt
+    r = d["radius_ct_voxels"]
+    assert f"drops any seed whose {2 * r + 1}-voxel CT window crosses the edge" in txt
+    nearest = {v["min_seed_face_distance_grid"] for v in rows.values()}
+    assert len(rows) == 21 and nearest == {r / d["grid_scale"]}
+    assert (
+        f"No traced seed lies closer than {r / d['grid_scale']:.0f} trace-grid voxels ({r} CT voxels) to a face on any "
+        f"of the {len(rows)} cubes." in txt
+    )
+
+    def span(size, key):
+        vals = [v[key] for v in rows.values() if v["size"] == size]
+        return vals, f"{min(vals):.2f}–{max(vals):.2f}"
+
+    (nh256, s1), (pg256, s2) = (
+        span(256, "no_heading_share"),
+        span(256, "neural_pred_over_gt"),
+    )
+    (nh512, s3), (pg512, s4) = (
+        span(512, "no_heading_share"),
+        span(512, "neural_pred_over_gt"),
+    )
+    assert (len(nh256), len(nh512)) == (10, 11)
+    assert (
+        f"On the ten 256³ cubes it drops {s1} of its seed dots, and its output is {s2} of the ground-truth length. "
+        f"On the eleven 512³ cubes those are {s3} and {s4}." in txt
+    )
+    # "both separate by cube size", "our tracer's coverage does not"
+    assert min(nh256) > max(nh512) and max(pg256) < min(pg512)
+    _, t256 = span(256, "tracer_coverage")
+    tc = {
+        s: [v["tracer_coverage"] for v in rows.values() if v["size"] == s]
+        for s in (256, 512)
+    }
+    assert not (min(tc[256]) > max(tc[512]) or max(tc[256]) < min(tc[512])), t256
+    # "Ten of the 13 cubes on which it trails at tolerance 2 are 256³": the published tolerance-2 rows
+    trails = [c for c, n in t4["published_neural"].items()
+              if n["erl_merge_penalized"] < t4["published_tracer"][c]["erl_merge_penalized"]]  # fmt: skip
+    small = [c for c in trails if c.endswith("_256")]
+    assert (len(small), len(trails)) == (10, 13)
+    assert (
+        "Ten of the 13 cubes on which it trails at tolerance 2 are 256³. Finding 96 could not say how much of the gap "
+        "this explains; finding 97 measured it." in txt
+    )
+    in_sample_256 = [c for c in t4["groups"]["in_sample"] if c.endswith("_256")]
+    assert len(t4["groups"]["in_sample"]) == 11 and len(in_sample_256) == 8
+    assert (
+        "Eight of the 11 are 256³ cubes, where a large part of the deficit is how we ran it (findings 96 and 97, below)."
+        in txt
+    )
+    assert (
+        "On the ten 256³ ones, our protocol kept it from seeding near the faces (finding 96)."
+        in txt
+    )
+    assert (
+        "Finding 96 is exploratory, not pre-registered. It is in `reports/neural_tracer_boundary.md`"
+        in txt
+    )
+
+
+_F97 = _REPO / "reports/neural_tracer_ct_context.json"
+
+
+@pytest.mark.skipif(not _F97.exists(), reason="finding 97 artifact absent")
+def test_ct_context_result_matches_finding_97():
+    d, txt = json.loads(_F97.read_text()), _text()
+    pen = "erl_merge_penalized"
+    assert d["status"] == d["status_scroll1"] == "OK" and d["smoke_identical"] is True
+    for v in (d, d["scroll1"]):
+        assert v["prediction_P1"] and v["prediction_P2"] and v["prediction_P3"]
+    assert (
+        "(finding 97, pre-registered and widened to Scroll 1 before the run; all three predictions held on both scrolls)"
+        in txt
+    )
+    s5_in = [
+        "s5_03997_01497_03997_256",
+        "s5_07997_02997_05497_256",
+        "s5_14997_01497_01497_256",
+    ]
+    s1 = [c for c in d["rows_tol2"] if c.startswith("s1_")]
+    held_out = [c for c in d["rows_tol2"] if c not in s5_in + s1]
+    cubes = list(d["rows_tol2"])
+    assert (len(s1), len(held_out), len(cubes)) == (5, 2, 10)
+
+    def span(vals, fmt="{:.3f}"):
+        return f"{fmt.format(min(vals))}–{fmt.format(max(vals))}"
+
+    rec, f96 = d["records"], d["finding_96_records"]
+    after = span([rec[c]["no_heading_share"] for c in s5_in + s1])
+    before = span([f96[c]["no_heading"] / f96[c]["dots"] for c in s5_in + s1])
+    assert (
+        f"it drops {after} of its seed dots on the eight in-sample ones, against {before}."
+        in txt
+    )
+    factor = [
+        d["rows_tol2"][c]["coverage"] / d["finding_91_rows_tol2"][c]["coverage"]
+        for c in cubes
+    ]
+    assert f"Its coverage rises {span(factor, '{:.2f}')}× on all ten." in txt
+    leads4 = [c for c in cubes if d["rows_tol4"][c][pen] > d["our_tracer_tol4"][c][pen]]
+    assert len(leads4) == 8 and sum(c in s1 for c in leads4) == 4
+    assert (
+        "At tolerance 4 it then leads our tracer on 8 of the 10, 4 of the 5 Scroll-1 cubes among them."
+        in txt
+    )
+    assert (
+        "Given the scan around them, it leads on 8 of the 10 at tolerance 4 (finding 97)."
+        in txt
+    )
+    ours2 = d["our_tracer_tol2"]
+    assert all(d["rows_tol2"][c][pen] > ours2[c][pen] for c in held_out)
+    assert all(d["rows_tol2"][c][pen] < ours2[c][pen] for c in s5_in + s1)
+
+    def med(rows, group):
+        return statistics.median(rows[c][pen] / ours2[c][pen] for c in group)
+
+    now = (med(d["rows_tol2"], s5_in), med(d["rows_tol2"], s1))
+    was = (med(d["finding_91_rows_tol2"], s5_in), med(d["finding_91_rows_tol2"], s1))
+    assert (
+        f"at a median {now[0]:.2f}–{now[1]:.2f} of our tracer rather than {was[0]:.2f}–{was[1]:.2f}."
+        in txt
+    )
+    assert (
+        "Finding 97 is in `reports/neural_tracer_ct_context.md`, with its committed JSON and pre-registration"
+        in txt
+    )
+
+
 # Each failed registered prediction in the list, with how many it counts for. The stated total is their sum.
 _FAILED = {
     "finding 70 (": 1,
