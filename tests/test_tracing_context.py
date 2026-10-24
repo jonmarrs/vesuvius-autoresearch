@@ -338,3 +338,66 @@ def test_the_chain_runs_the_registered_commits_package():
     assert pin < text.index(
         '"$PY" "$LOOPDIR/scripts/loop_control.py"'
     ) and pin < text.index("vesuvius_autoresearch.fibers.bench_cli")
+
+
+def test_the_registrations_figures_are_the_evidence():
+    """The figures docs/preregistration/2026-10-23_tracing_context.md argues from are findings 91, 94
+    and 95's committed rows, and its thresholds are the script's."""
+    import json
+    import statistics
+    from collections import Counter
+
+    flat = " ".join(
+        (_REPO / "docs/preregistration/2026-10-23_tracing_context.md")
+        .read_text()
+        .split()
+    )
+    t94 = json.loads((_REPO / "reports/tolerance4_rescore.json").read_text())
+    f95j = json.loads((_REPO / "reports/octant_crop_rescore.json").read_text())
+    f91j = json.loads((_REPO / "reports/neural_tracer_entrant.json").read_text())
+
+    ratio = {
+        c: t94["rows_neural"][c][PEN] / t94["rows_tracer"][c][PEN]
+        for c in f91.IN_SAMPLE
+    }
+    small = [v for c, v in ratio.items() if c.endswith("_256")]
+    big = [v for c, v in ratio.items() if c.endswith("_512")]
+    assert len(small) == 8 and max(small) < 1 and len(big) == 3 and min(big) > 1
+    assert (
+        "leads our tracer on all three in-sample 512³ cubes, and trails it on all eight in-sample 256³ ones"
+        in flat
+    )
+    assert (
+        f"a median {statistics.median(small):.2f} of ours ({min(small):.2f}–{max(small):.2f})"
+        in flat
+    )
+
+    octant = {
+        k: v["neural"]["4.0"][PEN] / v["tracer"]["4.0"][PEN]
+        for k, v in f95j["octants"].items()
+    }
+    leads = [v for v in octant.values() if v > 1]
+    assert (
+        f"The lead held on {len(leads)} of {len(octant)}, a median {statistics.median(octant.values()):.2f}×"
+        in flat
+    )
+    assert (
+        f"{sum(v < 1.15 for v in leads)} of finding 95's {len(leads)} leads are under 1.15×"
+        in flat
+    )
+
+    stops = Counter()
+    for row in f91j["neural_rows"].values():
+        stops.update(row["stop_reasons"])
+    others = sum(stops.values()) - stops["bounds"]
+    assert (
+        f"finding 91's {len(f91j['neural_rows'])} runs record {stops['bounds']} `bounds` stops "
+        f"against {others:,} others" in flat
+    )
+    assert 1 - ((tc.SIZE - 2 * 64) / tc.SIZE) ** 3 == 7 / 8
+    assert "7/8 of an octant lies within 64 voxels of a face" in flat
+
+    lo, hi = tc.P2_BAND
+    assert f"lies in {lo:.2f}–{hi:.2f}" in flat
+    assert f"| n < {tc.MIN_SCORED} | INCOMPLETE |" in flat
+    assert "at least two thirds of the octants scored (16 of 24)" in flat

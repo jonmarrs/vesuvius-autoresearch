@@ -33,8 +33,14 @@ s3_01994_01994_01494_512 s3_02994_02494_01994_512 s3_03494_01494_00494_512 s3_04
 mkdir -p "$W/identity" "$W/A" "$W/B"
 LOG=$W/chain.log
 say() { echo "$*  $(date -Is)" | tee -a "$LOG"; }
-"$PY" "$LOOPDIR/scripts/loop_control.py" status --repo "$LOOPDIR" > /dev/null \
-  && { say "SC_ABORTED the autoresearch loop is running"; exit 3; }
+# Only 1 means nothing is running: 0 is a running loop, and 2 (or a missing interpreter) means loop_control cannot
+# tell, as when the lock is held without a valid PID.
+"$PY" "$LOOPDIR/scripts/loop_control.py" status --repo "$LOOPDIR" > /dev/null
+case $? in
+  1) ;;
+  0) say "SC_ABORTED the autoresearch loop is running"; exit 3 ;;
+  *) say "SC_ABORTED loop_control.py status cannot tell whether the autoresearch loop is running"; exit 3 ;;
+esac
 for p in /proc/[0-9]*; do
   [ "$p" = "/proc/$$" ] && continue
   tr '\0' ' ' < "$p/cmdline" 2>/dev/null | grep -qE "tracers\.fibers\.tracing\.volume|neural_tracer_seeding\.py|f1_noise_probe" \
