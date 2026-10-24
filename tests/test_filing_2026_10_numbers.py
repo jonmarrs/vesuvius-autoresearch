@@ -956,6 +956,76 @@ def test_octant_numbers_match_finding_95():
     )
 
 
+_F96 = _REPO / "reports/neural_tracer_boundary.json"
+
+
+@pytest.mark.skipif(
+    not (_F96.exists() and _F94.exists()), reason="finding 96 artifact absent"
+)
+def test_boundary_caveat_matches_finding_96():
+    d, t4, txt = json.loads(_F96.read_text()), json.loads(_F94.read_text()), _text()
+    rows = d["rows"]
+    assert d["status"] == "OK" and d["exploratory"] is True
+    assert "(finding 96, exploratory: found after the fact, not pre-registered)" in txt
+    r = d["radius_ct_voxels"]
+    assert f"drops any seed whose {2 * r + 1}-voxel CT window crosses the edge" in txt
+    nearest = {v["min_seed_face_distance_grid"] for v in rows.values()}
+    assert len(rows) == 21 and nearest == {r / d["grid_scale"]}
+    assert (
+        f"No traced seed lies closer than {r / d['grid_scale']:.0f} trace-grid voxels ({r} CT voxels) to a face on any "
+        f"of the {len(rows)} cubes." in txt
+    )
+
+    def span(size, key):
+        vals = [v[key] for v in rows.values() if v["size"] == size]
+        return vals, f"{min(vals):.2f}–{max(vals):.2f}"
+
+    (nh256, s1), (pg256, s2) = (
+        span(256, "no_heading_share"),
+        span(256, "neural_pred_over_gt"),
+    )
+    (nh512, s3), (pg512, s4) = (
+        span(512, "no_heading_share"),
+        span(512, "neural_pred_over_gt"),
+    )
+    assert (len(nh256), len(nh512)) == (10, 11)
+    assert (
+        f"On the ten 256³ cubes it drops {s1} of its seed dots, and its output is {s2} of the ground-truth length. "
+        f"On the eleven 512³ cubes those are {s3} and {s4}." in txt
+    )
+    # "both separate by cube size", "our tracer's coverage does not"
+    assert min(nh256) > max(nh512) and max(pg256) < min(pg512)
+    _, t256 = span(256, "tracer_coverage")
+    tc = {
+        s: [v["tracer_coverage"] for v in rows.values() if v["size"] == s]
+        for s in (256, 512)
+    }
+    assert not (min(tc[256]) > max(tc[512]) or max(tc[256]) < min(tc[512])), t256
+    # "Ten of the 13 cubes on which it trails at tolerance 2 are 256³": the published tolerance-2 rows
+    trails = [c for c, n in t4["published_neural"].items()
+              if n["erl_merge_penalized"] < t4["published_tracer"][c]["erl_merge_penalized"]]  # fmt: skip
+    small = [c for c in trails if c.endswith("_256")]
+    assert (len(small), len(trails)) == (10, 13)
+    assert (
+        "Ten of the 13 cubes on which it trails at tolerance 2 are 256³. How much of the gap this explains is "
+        "untested." in txt
+    )
+    in_sample_256 = [c for c in t4["groups"]["in_sample"] if c.endswith("_256")]
+    assert len(t4["groups"]["in_sample"]) == 11 and len(in_sample_256) == 8
+    assert (
+        "Eight of the 11 are 256³ cubes, where a large part of the deficit is how we ran it (finding 96, below)."
+        in txt
+    )
+    assert (
+        "On the ten 256³ ones, our protocol kept it from seeding near the faces (finding 96)."
+        in txt
+    )
+    assert (
+        "Finding 96 is exploratory, not pre-registered. It is in `reports/neural_tracer_boundary.md`"
+        in txt
+    )
+
+
 # Each failed registered prediction in the list, with how many it counts for. The stated total is their sum.
 _FAILED = {
     "finding 70 (": 1,
