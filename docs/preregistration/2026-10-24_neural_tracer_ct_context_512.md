@@ -1,7 +1,8 @@
 # Pre-registration: villa's neural tracer on the eleven 512³ cubes with real CT around each cube
 
 **Status: REGISTERED 2026-10-24, before any 512³ padded CT was downloaded or traced.** The owner approved the download
-and the GPU time on 2026-10-24. The run pauses the autoresearch loop.
+and the GPU time on 2026-10-24. The run pauses the autoresearch loop. **Run 2026-10-24, 07:08–07:48 PDT, with the loop
+paused: finding 98, `reports/neural_tracer_ct_context_512.md`. P1–P4 held on both sets.**
 
 ## The question
 
