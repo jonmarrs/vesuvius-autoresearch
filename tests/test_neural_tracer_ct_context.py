@@ -124,14 +124,48 @@ def test_every_cube_is_inside_the_scan_with_its_margin():
     assert cc.SMOKE in cc.IN_SAMPLE and len(cc.IN_SAMPLE) == 3
 
 
-def _rows(cov, pred=1.0):
-    return {c: {COV: cov, "pred_length": pred, "gt_length": 1.0} for c in cc.CUBES}
+def test_amendment_1_adds_the_scroll_1_256_cubes_inside_their_scan():
+    import raw_tiff_region
+
+    shape = raw_tiff_region.VOLUMES["s1"]["shape"]
+    for c in cc.S1_CUBES:
+        lo, hi = cc.padded_bounds(c)
+        assert all(a >= 0 for a in lo) and all(
+            b <= s for b, s in zip(hi, shape, strict=True)
+        ), c
+    assert len(cc.S1_CUBES) == 5 and all(
+        c.startswith("s1_") and c.endswith("_256") for c in cc.S1_CUBES
+    )
+    assert cc.ALL_CUBES == cc.CUBES + cc.S1_CUBES  # the registered five first
+    assert cc.S1_SOURCE.endswith("PHercParis4.volpkg/volumes/20230205180739")
 
 
-def _records(nh, dist=10.0):
+def test_each_cube_is_read_from_its_own_scroll(tmp_path, monkeypatch):
+    import raw_tiff_region
+
+    calls = []
+    monkeypatch.setattr(
+        cc, "read_region", lambda lo, hi, cache, get: calls.append(("s5", lo, hi))
+    )
+    monkeypatch.setattr(raw_tiff_region, "read_region",
+                        lambda vol, lo, hi, cache, get_ranges: calls.append((vol, lo, hi)))  # fmt: skip
+    cc.read_padded("s5_07997_02997_05497_256", tmp_path)
+    cc.read_padded("s1_00497_01497_03997_256", tmp_path)
+    assert calls == [
+        ("s5", (7869, 2869, 5369), (8381, 3381, 5881)),
+        ("s1", (369, 1369, 3869), (881, 1881, 4381)),
+    ]
+    with pytest.raises(ValueError, match="no raw source"):
+        cc.read_padded("s3_00994_00494_01994_512", tmp_path)
+
+
+def _rows(cov, pred=1.0, cubes=cc.CUBES):
+    return {c: {COV: cov, "pred_length": pred, "gt_length": 1.0} for c in cubes}
+
+
+def _records(nh, dist=10.0, cubes=cc.CUBES):
     return {
-        c: {"no_heading_share": nh, "min_seed_face_distance_grid": dist}
-        for c in cc.CUBES
+        c: {"no_heading_share": nh, "min_seed_face_distance_grid": dist} for c in cubes
     }
 
 
@@ -154,6 +188,43 @@ def test_the_decision_rule():
     assert cc.verdict(_rows(0.3, pred=0.83), f91, _records(0.3))["prediction_P3"]
 
 
+def _all(make, *a):
+    return make(*a, cubes=cc.ALL_CUBES)
+
+
+def test_scroll_1_is_judged_apart_by_the_same_predictions():
+    f91 = _all(_rows, 0.2)
+    rows, records = _all(_rows, 0.26), _all(_records, 0.39)
+    s1 = cc.verdict(rows, f91, records, cc.S1_CUBES, cc.S1_CUBES)
+    assert s1["scored"] == 5 and s1["prediction_P1"] and s1["prediction_P2"]
+    assert set(s1["pred_over_gt_in_sample"]) == set(cc.S1_CUBES)  # P3 on all five
+    rows[cc.S1_CUBES[0]]["pred_length"] = 0.82
+    assert not cc.verdict(rows, f91, records, cc.S1_CUBES, cc.S1_CUBES)["prediction_P3"]
+    # the registered verdict ignores Scroll 1's cubes
+    assert cc.verdict(rows, f91, records) == cc.verdict(
+        {c: rows[c] for c in cc.CUBES}, f91, {c: records[c] for c in cc.CUBES}
+    )
+    records[cc.S1_CUBES[0]]["no_heading_share"] = 0.5
+    assert cc.verdict(rows, f91, records)["prediction_P1"]
+    assert not cc.verdict(rows, f91, records, cc.S1_CUBES, cc.S1_CUBES)["prediction_P1"]
+
+
+def test_a_scroll_1_identity_failure_leaves_the_registered_outcome():
+    f91, rows, records = _all(_rows, 0.2), _all(_rows, 0.3), _all(_records, 0.3)
+    bad = {cc.S1_CUBES[2]: ["ct"]}
+    assert cc.outcome(bad, True, rows, f91, records)[0] == "OK"
+    assert cc.outcome(bad, True, rows, f91, records, cc.S1_CUBES, cc.S1_CUBES) == (
+        "IDENTITY_FAILED",
+        None,
+    )
+    rows.pop(cc.S1_CUBES[-1])
+    assert cc.outcome({}, True, rows, f91, records)[0] == "OK"
+    assert (
+        cc.outcome({}, True, rows, f91, records, cc.S1_CUBES, cc.S1_CUBES)[0]
+        == "INCOMPLETE"
+    )
+
+
 def test_p2_needs_a_rise_on_every_cube():
     rows, f91 = _rows(0.5), _rows(0.2)
     rows[cc.CUBES[0]][COV] = 0.2
@@ -166,7 +237,7 @@ def test_outcomes():
         "SMOKE_FAILED",
         None,
     )
-    assert cc.outcome({"x": ["ct"]}, True, _rows(0.3), f91, _records(0.3)) == (
+    assert cc.outcome({cc.CUBES[1]: ["ct"]}, True, _rows(0.3), f91, _records(0.3)) == (
         "IDENTITY_FAILED",
         None,
     )
@@ -222,7 +293,8 @@ def test_the_smoke_gates_the_padded_runs():
     )
     assert "exit 4" in text.split('say "SMOKE_OK"')[0]
     cubes = re.search(r'CUBES="(.*?)"', text, re.S).group(1).split()
-    assert cubes == cc.CUBES and f"SMOKE={cc.SMOKE}" in text
+    assert cubes == cc.ALL_CUBES and f"SMOKE={cc.SMOKE}" in text
+    assert 'len(p["presence"]) == 10' in text
 
 
 def _local_imports(script: str, seen: set[str]) -> set[str]:
@@ -249,3 +321,73 @@ def test_the_chain_freezes_every_script_it_runs():
             "neural_tracer_ct_context", {"neural_tracer_ct_context"}
         )
     }
+
+
+def test_a_padded_runs_fibers_are_scored_in_the_cubes_frame(monkeypatch):
+    """The padded CT puts the cube MARGIN voxels in on each axis, and villa writes the .afv in that
+    CT's voxels (trace grid times grid scale, no offset), so the score shifts them back by MARGIN."""
+    m = float(cc.MARGIN)
+    xyz = np.array([[m + 10, m + 20, m + 30], [m + 11, m + 20, m + 30]])
+    monkeypatch.setattr(cc.afv_to_labels, "read_afv", lambda path: {7: xyz})
+    lab = cc.labels_in_cube(Path("unused.afv"))
+    assert lab.shape == (cc.SIZE,) * 3 and np.count_nonzero(lab) == 2
+    assert lab[30, 20, 10] and lab[30, 20, 11]
+
+
+def test_the_registrations_figures_are_finding_96s():
+    """The figures docs/preregistration/2026-10-23_neural_tracer_ct_context.md argues from are
+    finding 96's committed rows, and its thresholds are the script's."""
+    flat = " ".join(
+        (_REPO / "docs/preregistration/2026-10-23_neural_tracer_ct_context.md")
+        .read_text()
+        .split()
+    )
+    rows = json.loads((_REPO / "reports/neural_tracer_boundary.json").read_text())[
+        "rows"
+    ]
+
+    def span(key, cubes, digits=3):
+        values = [rows[c][key] for c in cubes]
+        return f"{min(values):.{digits}f}–{max(values):.{digits}f}"
+
+    small = [c for c, r in rows.items() if r["size"] == 256]
+    big = [c for c, r in rows.items() if r["size"] == 512]
+    s5_big = [c for c in big if c.startswith("s5_")]
+    assert len(rows) == 21 and {
+        r["min_seed_face_distance_grid"] for r in rows.values()
+    } == {19.0}
+    assert (
+        "the closest traced seed is 19.00 trace-grid voxels (38 CT) from a face on all 21 cubes"
+        in flat
+    )
+    drops = [100 * rows[c]["no_heading_share"] for c in small]
+    assert (
+        f"it drops {min(drops):.0f}–{max(drops):.0f}% of its seed dots as `no_heading`"
+        in flat
+    )
+    assert set(cc.CUBES) == {c for c in small if c.startswith("s5_")}
+    assert (
+        f"they drop {span('no_heading_share', cc.CUBES)} of their seed dots, and the neural tracer "
+        f"covers {span('neural_coverage', cc.CUBES)} of their ground-truth length"
+        in flat
+    )
+    assert len(s5_big) == 3 and set(s5_big) <= set(cc.f91.IN_SAMPLE)
+    assert (
+        f"the 256³ cubes' predicted over ground-truth length is "
+        f"{span('neural_pred_over_gt', cc.IN_SAMPLE, 2)}, against "
+        f"{span('neural_pred_over_gt', s5_big, 2)} on the 512³ ones" in flat
+    )
+    assert (
+        f"Finding 91 had {span('no_heading_share', cc.CUBES)} here, and "
+        f"{span('no_heading_share', big)} on the 512³ cubes" in flat
+    )
+    lowest = min(rows[c]["neural_pred_over_gt"] for c in big)
+    assert f"{lowest:.2f}" == f"{cc.PRED_OVER_GT:.2f}"
+    assert (
+        f"at least {cc.PRED_OVER_GT:.2f}, the lowest 512³ value in finding 96" in flat
+    )
+    assert f"dropped as `no_heading` is below {cc.NO_HEADING_BELOW:.2f}" in flat
+    assert f"by a median factor of at least {cc.COVERAGE_FACTOR}" in flat
+    assert f"padded by {cc.MARGIN} CT voxels on every side" in flat
+    lo, hi = cc.box_grid()
+    assert f"`{lo},{lo},{lo},{hi},{hi},{hi}` in the padded trace grid" in flat

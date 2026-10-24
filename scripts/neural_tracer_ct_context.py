@@ -14,6 +14,11 @@ finding 85's array for the cube exactly. Everything else is finding 91's:
 MARGIN is 128 CT voxels, 64 trace-grid voxels: a multiple of the 64-voxel seed-plane spacing, so the cube's seed planes
 stay where finding 91 had them.
 
+Amendment 1 (2026-10-23, before any padded run) adds the five Scroll-1 256³ cubes, S1_CUBES. Their padding comes from
+Scroll 1's raw 7.91 um slices (PHercParis4, 20230205180739), read by byte range (scripts/raw_tiff_region.py) and
+converted the same way. They are judged apart from the registered five by the same predictions, and all five are in the
+mask's sample. The registered verdict is computed on the five Scroll-5 cubes alone, as before.
+
   fetch     download the chunks, write CT/<cube>.zarr/0 (zarr v2 uint8, as finding 85 wrote its arrays) and check its
             core; resumable, chunks cached in CACHE
   presence  write PRESENCE/<cube>_presence.zarr/1 from finding 91's level, and check its core
@@ -40,6 +45,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import afv_to_labels  # noqa: E402
 import neural_tracer_analysis as f91  # noqa: E402
 import neural_tracer_boundary as f96  # noqa: E402
+import raw_tiff_region  # noqa: E402
 
 PEN, COV = f91.PEN, f91.COV
 CUBES = [
@@ -50,10 +56,20 @@ CUBES = [
     "s5_16997_03997_04497_256",
 ]
 IN_SAMPLE = CUBES[:3]
+# Amendment 1: judged apart, by the same predictions; all five are in the mask's sample.
+S1_CUBES = [
+    "s1_00497_01497_03997_256",
+    "s1_00497_02497_02997_256",
+    "s1_00997_02497_02997_256",
+    "s1_08997_02997_02497_256",
+    "s1_10997_02997_02997_256",
+]
+ALL_CUBES = CUBES + S1_CUBES
 SIZE = 256
 MARGIN = 128  # CT voxels; MARGIN / 2 trace-grid voxels, a multiple of the 64-voxel seed-plane spacing
 PLANE_SPACING = 64
 SOURCE = "https://dl.ash2txt.org/full-scrolls/Scroll5/PHerc172.volpkg/volumes_zarr/20241024131838.zarr"
+S1_SOURCE = raw_tiff_region.VOLUMES["s1"]["url"]
 T = Path("/home/jon/openclaw-workspace/Neo-VM/spiral_out/neural_tracer")
 G = Path("/home/jon/openclaw-workspace/Neo-VM/spiral_out/afv_gen")
 SMOKE = "s5_07997_02997_05497_256"
@@ -121,6 +137,18 @@ def read_region(lo, hi, cache: Path, source: str = SOURCE, get=_get) -> np.ndarr
     return buf[s[0] : e[0], s[1] : e[1], s[2] : e[2]]
 
 
+def read_padded(
+    cube: str, cache: Path, get=_get, get_ranges=raw_tiff_region._get_ranges
+) -> np.ndarray:
+    """The cube's padded region of the raw uint16 scan it was cut from."""
+    lo, hi = padded_bounds(cube)
+    if cube.startswith("s5_"):
+        return read_region(lo, hi, cache, get=get)
+    if cube.startswith("s1_"):
+        return raw_tiff_region.read_region("s1", lo, hi, cache, get_ranges)
+    raise ValueError(f"{cube}: no raw source for this scroll")
+
+
 def padded_bounds(cube: str, margin: int = MARGIN):
     z, y, x, n = (int(v) for v in cube.split("_")[1:5])
     lo = (z - margin, y - margin, x - margin)
@@ -159,16 +187,21 @@ def _write_array(
         raise
 
 
-def fetch(work: Path, cubes=CUBES, get=_get, cache: Path | None = None) -> dict:
+def fetch(
+    work: Path,
+    cubes=ALL_CUBES,
+    get=_get,
+    cache: Path | None = None,
+    get_ranges=raw_tiff_region._get_ranges,
+) -> dict:
     import zarr
 
     out = {}
     for cube in cubes:
         dst = work / "ct" / f"{cube}.zarr"
         if not dst.exists():
-            lo, hi = padded_bounds(cube)
             padded = to_uint8(
-                read_region(lo, hi, (cache or work / "cache") / cube, get=get)
+                read_padded(cube, (cache or work / "cache") / cube, get, get_ranges)
             )
             if not np.array_equal(
                 core(padded), zarr.open(str(G / "zarr" / f"{cube}.zarr"), mode="r")[...]
@@ -189,7 +222,7 @@ def fetch(work: Path, cubes=CUBES, get=_get, cache: Path | None = None) -> dict:
     return out
 
 
-def presence(work: Path, cubes=CUBES) -> dict:
+def presence(work: Path, cubes=ALL_CUBES) -> dict:
     import zarr
 
     lo, hi = box_grid()
@@ -249,11 +282,15 @@ def labels_in_cube(afv: Path, margin: int = MARGIN, size: int = SIZE) -> np.ndar
     return afv_to_labels.rasterize(fibers, (size,) * 3)
 
 
-def verdict(rows: dict, f91_rows: dict, records: dict) -> dict:
-    """rows / f91_rows: cube -> row at tolerance 2; records: cube -> run_record."""
-    cubes = [c for c in CUBES if c in rows and c in records]
+def verdict(
+    rows: dict, f91_rows: dict, records: dict, cubes=CUBES, in_sample=IN_SAMPLE
+) -> dict:
+    """rows / f91_rows: cube -> row at tolerance 2; records: cube -> run_record. CUBES and IN_SAMPLE: the set judged
+    (the registered five, or amendment 1's)."""
+    want = cubes
+    cubes = [c for c in want if c in rows and c in records]
     out: dict = {"scored": len(cubes)}
-    if len(cubes) < len(CUBES):
+    if len(cubes) < len(want):
         out.update(
             prediction_P1=None, prediction_P2=None, prediction_P3=None, reading=None
         )
@@ -262,7 +299,7 @@ def verdict(rows: dict, f91_rows: dict, records: dict) -> dict:
         raise ValueError(f"no ratio over a coverage of 0: {zero}")
     nh = {c: records[c]["no_heading_share"] for c in cubes}
     factor = {c: rows[c][COV] / f91_rows[c][COV] for c in cubes}
-    pred = {c: rows[c]["pred_length"] / rows[c]["gt_length"] for c in IN_SAMPLE}
+    pred = {c: rows[c]["pred_length"] / rows[c]["gt_length"] for c in in_sample}
     out.update(
         no_heading_share=nh,
         coverage_factor=factor,
@@ -297,13 +334,19 @@ def verdict(rows: dict, f91_rows: dict, records: dict) -> dict:
 
 
 def outcome(
-    identity: dict, smoke_ok: bool | None, rows: dict, f91_rows: dict, records: dict
+    identity: dict,
+    smoke_ok: bool | None,
+    rows: dict,
+    f91_rows: dict,
+    records: dict,
+    cubes=CUBES,
+    in_sample=IN_SAMPLE,
 ):
     if smoke_ok is False:
         return "SMOKE_FAILED", None
-    if any(identity.values()):
+    if any(identity.get(c) for c in cubes):
         return "IDENTITY_FAILED", None
-    v = verdict(rows, f91_rows, records)
+    v = verdict(rows, f91_rows, records, cubes, in_sample)
     if v["prediction_P1"] is None:
         return "INCOMPLETE", v
     return ("MANIPULATION_FAILED" if not v["manipulation_seed_inside_19"] else "OK"), v
@@ -322,7 +365,7 @@ def cmd_score(work: Path, out_path: Path) -> int:
     t94 = json.loads(Path("reports/tolerance4_rescore.json").read_text())
     prep = json.loads((work / "prepared.json").read_text())
     identity = {c: [k for k in ("ct", "presence") if not prep[k][c][f"core_equals_finding_{85 if k == 'ct' else 91}"]]
-                for c in CUBES}  # fmt: skip
+                for c in ALL_CUBES}  # fmt: skip
     smoke = (
         json.loads((work / "smoke.json").read_text())["identical"]
         if (work / "smoke.json").exists()
@@ -332,7 +375,7 @@ def cmd_score(work: Path, out_path: Path) -> int:
     rows4: dict = {}
     records: dict = {}
     failed = []
-    for c in CUBES:
+    for c in ALL_CUBES:
         run = work / "neural" / c
         if not (run / "fibers.afv").exists():
             failed.append(c)
@@ -341,30 +384,36 @@ def cmd_score(work: Path, out_path: Path) -> int:
         lab = labels_in_cube(run / "fibers.afv")
         r = {t: score_tracing(skel, lab, tolerance=t).as_row() for t in TOLS}
         rows[c], rows4[c], records[c] = r[2.0], r[4.0], run_record(run)
-    f91_rows = {c: rep["neural_rows"][c] for c in CUBES}
+    f91_rows = {c: rep["neural_rows"][c] for c in ALL_CUBES}
     status, v = outcome(identity, smoke, rows, f91_rows, records)
+    status_s1, v_s1 = outcome(
+        identity, smoke, rows, f91_rows, records, S1_CUBES, S1_CUBES
+    )
     out = {
         "status": status,
+        "status_scroll1": status_s1,
         "margin_ct_voxels": MARGIN,
         "box_grid": list(box_grid()),
         "source": SOURCE,
+        "source_scroll1": S1_SOURCE,
         "identity_problems": {c: p for c, p in identity.items() if p},
         "smoke_identical": smoke,
         "failed": failed,
         "rows_tol2": rows,
         "rows_tol4": rows4,
         "finding_91_rows_tol2": f91_rows,
-        "finding_94_rows_tol4": {c: t94["rows_neural"][c] for c in CUBES},
-        "our_tracer_tol2": {c: rep["comparators"][c]["tracer"] for c in CUBES},
-        "our_tracer_tol4": {c: t94["rows_tracer"][c] for c in CUBES},
+        "finding_94_rows_tol4": {c: t94["rows_neural"][c] for c in ALL_CUBES},
+        "our_tracer_tol2": {c: rep["comparators"][c]["tracer"] for c in ALL_CUBES},
+        "our_tracer_tol4": {c: t94["rows_tracer"][c] for c in ALL_CUBES},
         "records": records,
-        "finding_96_records": {c: f96.run_counts(c) for c in CUBES},
+        "finding_96_records": {c: f96.run_counts(c) for c in ALL_CUBES},
     }
     if v is not None:
         out.update(v)
+    out["scroll1"] = v_s1
     out_path.write_text(json.dumps(out, indent=1) + "\n")
-    print(f"status {status}; wrote {out_path}")
-    return 0 if status == "OK" else 1
+    print(f"status {status}, Scroll 1 {status_s1}; wrote {out_path}")
+    return 0 if status == status_s1 == "OK" else 1
 
 
 def main(argv: list[str] | None = None) -> int:
