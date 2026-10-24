@@ -178,3 +178,43 @@ def test_the_descriptive_figures():
     )
     # "the padding reaches 64 trace-grid voxels beyond each face, past any window's 19-voxel reach"
     assert D["box_grid"] == [64, 192] and cc.MARGIN // 2 == 64
+
+
+def test_the_before_rows_are_the_committed_findings():
+    """The JSON's copies of findings 91, 94 and 96, and of our tracer's published rows, which every "before" in the
+    report reads, are those findings' committed rows."""
+    f91 = json.loads((ROOT / "reports/neural_tracer_entrant.json").read_text())
+    t94 = json.loads((ROOT / "reports/tolerance4_rescore.json").read_text())
+    f96 = json.loads((ROOT / "reports/neural_tracer_boundary.json").read_text())
+    for c in cc.ALL_CUBES:
+        assert F91[c] == f91["neural_rows"][c], c
+        assert OURS[c] == f91["comparators"][c]["tracer"], c
+        assert F94[c] == t94["rows_neural"][c], c
+        assert OURS4[c] == t94["rows_tracer"][c], c
+        assert all(
+            f96["rows"][c][k] == v for k, v in D["finding_96_records"][c].items()
+        ), c
+
+
+def test_both_verdicts_are_the_registered_rule_on_the_rows():
+    """The stored statuses and verdicts, recomputed by the script's rule from the JSON's own rows and records."""
+    identity = {c: [] for c in cc.ALL_CUBES}
+    args = (identity, D["smoke_identical"], NOW, F91, D["records"])
+    status, v = cc.outcome(*args)
+    assert status == D["status"] and all(D[k] == x for k, x in v.items())
+    status1, v1 = cc.outcome(*args, cc.S1_CUBES, cc.S1_CUBES)
+    assert status1 == D["status_scroll1"] and v1 == D["scroll1"]
+    for c in cc.ALL_CUBES:
+        r = D["records"][c]
+        assert r["no_heading_share"] == r["no_heading"] / r["dots"], c
+
+
+def test_finding_96_points_to_this_answer():
+    """Finding 96 left "how much of the gap the rule explains" untested; it now points here."""
+    factors = [NOW[c][COV] / F91[c][COV] for c in cc.ALL_CUBES]
+    f96 = " ".join((ROOT / "reports/neural_tracer_boundary.md").read_text().split())
+    assert (
+        "(2026-10-24: finding 97 ran it, pre-registered, in `neural_tracer_ct_context.md`. With 128 voxels of real CT "
+        f"around each of the ten 256³ cubes, the tracer's coverage rose {_span(factors, '{:.2f}')}× on every cube.)"
+        in f96
+    )
