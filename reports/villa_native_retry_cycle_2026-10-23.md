@@ -106,6 +106,13 @@ Run once against the unpatched checkout and once against the patched one,
 using different output paths. Expected probe statuses are 1 for the baseline
 timeout and 0 for the patched, bounded error. Output files are never
 overwritten. The probe checks input SHA-256 hashes and uses a POSIX watchdog.
+
+A successful rerun also requires the expected native-crop error message for
+request 0 and dataset size 2. An unrelated `RuntimeError` after both attempts
+now writes `bounded: false` and exits 1. An attempt count alone is insufficient
+evidence that the retry exhausted its budget. The committed historical records
+are preserved; the after record already carries the expected message.
+
 *(Noted 2026-10-23: a refusal now exits 2 and writes nothing. Before, a refusal
 exited 1 like the baseline timeout, so only the record told them apart. A status
 of 1 now means the probe ran and the retry was not bounded, or that it crashed
