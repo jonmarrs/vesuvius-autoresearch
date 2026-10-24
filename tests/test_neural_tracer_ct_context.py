@@ -249,3 +249,73 @@ def test_the_chain_freezes_every_script_it_runs():
             "neural_tracer_ct_context", {"neural_tracer_ct_context"}
         )
     }
+
+
+def test_a_padded_runs_fibers_are_scored_in_the_cubes_frame(monkeypatch):
+    """The padded CT puts the cube MARGIN voxels in on each axis, and villa writes the .afv in that
+    CT's voxels (trace grid times grid scale, no offset), so the score shifts them back by MARGIN."""
+    m = float(cc.MARGIN)
+    xyz = np.array([[m + 10, m + 20, m + 30], [m + 11, m + 20, m + 30]])
+    monkeypatch.setattr(cc.afv_to_labels, "read_afv", lambda path: {7: xyz})
+    lab = cc.labels_in_cube(Path("unused.afv"))
+    assert lab.shape == (cc.SIZE,) * 3 and np.count_nonzero(lab) == 2
+    assert lab[30, 20, 10] and lab[30, 20, 11]
+
+
+def test_the_registrations_figures_are_finding_96s():
+    """The figures docs/preregistration/2026-10-23_neural_tracer_ct_context.md argues from are
+    finding 96's committed rows, and its thresholds are the script's."""
+    flat = " ".join(
+        (_REPO / "docs/preregistration/2026-10-23_neural_tracer_ct_context.md")
+        .read_text()
+        .split()
+    )
+    rows = json.loads((_REPO / "reports/neural_tracer_boundary.json").read_text())[
+        "rows"
+    ]
+
+    def span(key, cubes, digits=3):
+        values = [rows[c][key] for c in cubes]
+        return f"{min(values):.{digits}f}–{max(values):.{digits}f}"
+
+    small = [c for c, r in rows.items() if r["size"] == 256]
+    big = [c for c, r in rows.items() if r["size"] == 512]
+    s5_big = [c for c in big if c.startswith("s5_")]
+    assert len(rows) == 21 and {
+        r["min_seed_face_distance_grid"] for r in rows.values()
+    } == {19.0}
+    assert (
+        "the closest traced seed is 19.00 trace-grid voxels (38 CT) from a face on all 21 cubes"
+        in flat
+    )
+    drops = [100 * rows[c]["no_heading_share"] for c in small]
+    assert (
+        f"it drops {min(drops):.0f}–{max(drops):.0f}% of its seed dots as `no_heading`"
+        in flat
+    )
+    assert set(cc.CUBES) == {c for c in small if c.startswith("s5_")}
+    assert (
+        f"they drop {span('no_heading_share', cc.CUBES)} of their seed dots, and the neural tracer "
+        f"covers {span('neural_coverage', cc.CUBES)} of their ground-truth length"
+        in flat
+    )
+    assert len(s5_big) == 3 and set(s5_big) <= set(cc.f91.IN_SAMPLE)
+    assert (
+        f"the 256³ cubes' predicted over ground-truth length is "
+        f"{span('neural_pred_over_gt', cc.IN_SAMPLE, 2)}, against "
+        f"{span('neural_pred_over_gt', s5_big, 2)} on the 512³ ones" in flat
+    )
+    assert (
+        f"Finding 91 had {span('no_heading_share', cc.CUBES)} here, and "
+        f"{span('no_heading_share', big)} on the 512³ cubes" in flat
+    )
+    lowest = min(rows[c]["neural_pred_over_gt"] for c in big)
+    assert f"{lowest:.2f}" == f"{cc.PRED_OVER_GT:.2f}"
+    assert (
+        f"at least {cc.PRED_OVER_GT:.2f}, the lowest 512³ value in finding 96" in flat
+    )
+    assert f"dropped as `no_heading` is below {cc.NO_HEADING_BELOW:.2f}" in flat
+    assert f"by a median factor of at least {cc.COVERAGE_FACTOR}" in flat
+    assert f"padded by {cc.MARGIN} CT voxels on every side" in flat
+    lo, hi = cc.box_grid()
+    assert f"`{lo},{lo},{lo},{hi},{hi},{hi}` in the padded trace grid" in flat

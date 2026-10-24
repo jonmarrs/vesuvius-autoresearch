@@ -186,3 +186,53 @@ def test_the_prose_figures_are_the_json():
         0.4 < pred["256"][1] / pred["512"][1] < 0.6
     )  # "about half the centreline per unit of ground truth"
     assert statistics.median([pred["256"][1], pred["512"][1]]) > 0
+
+
+_F91 = _REPO / "reports/neural_tracer_entrant.json"
+_T94 = _REPO / "reports/tolerance4_rescore.json"
+
+
+@pytestmark_json
+def test_each_row_is_finding_91s_record():
+    """The published figures in each row are finding 91's committed rows, the shares are the row's own
+    counts, and the size table is the rows' summary."""
+    d, f91 = _d(), json.loads(_F91.read_text())
+    assert set(d["rows"]) == set(f91["neural_rows"]) == set(nb.f91.ALL)
+    for cube, r in d["rows"].items():
+        neural, tracer = f91["neural_rows"][cube], f91["comparators"][cube]["tracer"]
+        assert r["size"] == int(cube.split("_")[-1]), cube
+        assert r["neural_coverage"] == neural["coverage"], cube
+        assert (
+            r["neural_pred_over_gt"] == neural["pred_length"] / neural["gt_length"]
+        ), cube
+        assert r["tracer_coverage"] == tracer["coverage"], cube
+        assert r["no_heading_share"] == r["no_heading"] / r["dots"], cube
+        assert r["seedable_share"] == nb.seedable_share(r["size"]), cube
+        assert (r["split"] == "held_out") == (cube not in nb.f91.IN_SAMPLE), cube
+    assert nb.summarize(d["rows"]) == d["by_size"]
+
+
+@pytestmark_json
+def test_the_trailing_cubes_are_finding_91s():
+    """The report's "Ten of the 13 cubes on which ScrollGT says it trails our tracer are 256³", and
+    its three others "where the deficit is a tolerance-2 result (finding 94)", from the rows."""
+    rows, f91, t94 = (
+        _d()["rows"],
+        json.loads(_F91.read_text()),
+        json.loads(_T94.read_text()),
+    )
+    pen = nb.f91.PEN
+    assert f91["tolerance"] == 2.0 and t94["tolerance"] == 4.0
+    trailing = {
+        c
+        for c, r in f91["neural_rows"].items()
+        if r[pen] < f91["comparators"][c]["tracer"][pen]
+    }
+    big = {c for c in trailing if rows[c]["size"] == 512}
+    assert len(trailing) == 13 and len(trailing) - len(big) == 10 and len(big) == 3
+    assert big <= set(nb.f91.IN_SAMPLE)
+    assert all(t94["rows_neural"][c][pen] > t94["rows_tracer"][c][pen] for c in big)
+    assert (
+        "The other three are the in-sample 512³ cubes, where the deficit is a tolerance-2 result (finding 94)."
+        in _flat()
+    )
