@@ -73,4 +73,8 @@ failure contract) and #216 and #221 (findings 96 and 97 in the October filing dr
   - each of three edits to the data behind it fails it: a padded row under our tracer's, connected components above
     a padded row, and the generator above a cube-only row.
 - **Ruff** 0.9.10 `check` and `format` are clean on the test file.
+- **Doc guards, the withdrawn-claims ledger, the suite guard and the filing tests:** 465 passed and 6 skipped.
+- **Doc audit:** the branch adds no entries.
+  - #225 adds one on main: the draft cites `tools/context_ct.py`, which is ScrollGT's file, not this repository's.
+  - The draft's name is dated (`2026-10`), so the live-documents test does not check it, and nothing fails.
 - **No independent review this round.** The change is one computed binding, checked by perturbation.
