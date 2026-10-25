@@ -1388,6 +1388,15 @@ def test_heading_residual_matches_finding_99():
         in txt
     )
     # its expectations: E2 failed (the presence direction is the closer), E3 failed on two Scroll-3 cubes
+    # E2 named no cubes: pooled over all 21, and per cube
+    near = [c[k]["near_gt"]["disagree"] for k in c]
+    n = sum(x["near"] for x in near)
+    pooled = sum(x["ct_axis_closer_share"] * x["near"] for x in near if x["near"]) / n
+    most = sum(x["near"] > 0 and x["ct_axis_closer_share"] < 0.5 for x in near)
+    assert (
+        f"the CT's axis is the closer at {pooled:.2f} of those {n:,} dots, and at fewer than half of them on {most} of "
+        "the 21 cubes." in txt
+    )
     assert all(c[k]["near_gt"]["disagree"]["ct_axis_closer_share"] < 0.5 for k in held)
     over = sorted(
         c[k]["dropped_share"]

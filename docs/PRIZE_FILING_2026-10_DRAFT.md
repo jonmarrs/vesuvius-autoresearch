@@ -394,9 +394,10 @@ four predictions held):
     in-sample cubes: it trailed on 8).
 * **Two of finding 99's three expectations failed too.** They were pushed before it ran, but finding 99 was not
   pre-registered, so they are not in the count above. I expected the presence direction to be the further from the
-  ground truth at most nearby dropped dots on the two held-out Scroll-5 cubes; it was the closer. I expected fewer
-  than 0.10 of all dots to be dropped on every other cube; two Scroll-3 cubes dropped 0.127 and 0.169 of their
-  sampled dots.
+  ground truth at most nearby dropped dots; it was the closer. Pooled over the 21 cubes, the CT's axis is the closer
+  at 0.12 of those 1,347 dots, and at fewer than half of them on 18 of the 21 cubes. I expected fewer than 0.10 of
+  all dots to be dropped on every cube but the two held-out Scroll-5 ones; two Scroll-3 cubes dropped 0.127 and 0.169
+  of their sampled dots.
 * **The effect's size depends on grid cell size** (finding 73, measured): about 1% per window on
   villa's 20-voxel segment meshes, a 6.2% median and −32% to +42% per window on 80-voxel grids like the
   spiral surfaces. Quote the size with the grid.
