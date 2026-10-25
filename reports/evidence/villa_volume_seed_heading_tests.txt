@@ -1,0 +1,25 @@
+# villa's own tests for repro/fibers/villa_volume_seed_heading.patch, 2026-10-25 PDT
+# A shallow sparse clone of github.com/ScrollPrize/villa main (vesuvius/src), the patch applied there.
+# Run in this repository's venv (the tracer's venv has no pytest), from <clone>/vesuvius, villa's pytest.ini in force:
+#   PYTHONPATH=<clone>/vesuvius/src python -m pytest -q -p no:cacheprovider src/vesuvius/neural_tracing/tracers/fibers/tests/test_volume_seed_heading.py
+#   (unpatched: volume.py checked out from main; patched: with test_volume_performance.py beside it)
+
+villa 322cb0899 (2026-10-24T12:20:46+02:00), Python 3.10.19, numpy 2.2.6
+== volume.py as on main (the new test file added, volume.py unpatched)
+volume.py == main: 55b66828be93ddf39bfea288a3d72464fa24cec7
+E       Mismatched elements: 3 / 3 (100%)
+E        ACTUAL: array(None, dtype=object)
+E        DESIRED: array([-1., -0., -0.])
+
+src/vesuvius/neural_tracing/tracers/fibers/tests/test_volume_seed_heading.py:14: AssertionError
+=========================== short test summary info ============================
+FAILED src/vesuvius/neural_tracing/tracers/fibers/tests/test_volume_seed_heading.py::test_seed_heading_is_the_ct_axis_signed_along_the_presence_direction[36]
+FAILED src/vesuvius/neural_tracing/tracers/fibers/tests/test_volume_seed_heading.py::test_seed_heading_is_the_ct_axis_signed_along_the_presence_direction[60]
+FAILED src/vesuvius/neural_tracing/tracers/fibers/tests/test_volume_seed_heading.py::test_seed_heading_is_the_ct_axis_signed_along_the_presence_direction[89]
+FAILED src/vesuvius/neural_tracing/tracers/fibers/tests/test_volume_seed_heading.py::test_seed_heading_is_the_ct_axis_signed_along_the_presence_direction[91]
+FAILED src/vesuvius/neural_tracing/tracers/fibers/tests/test_volume_seed_heading.py::test_seed_heading_is_the_ct_axis_signed_along_the_presence_direction[120]
+5 failed, 4 passed in 1.83s
+== volume.py patched
+volume.py patched: b210e43f0a9dd9fe900a4699921d1302b278faa3
+....................                                                     [100%]
+20 passed in 9.57s
