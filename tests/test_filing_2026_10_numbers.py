@@ -1154,7 +1154,7 @@ def test_the_failed_prediction_count_is_the_listed_tally():
     )
     section = raw[
         raw.index(head) + len(head) : raw.index(
-            "* **The effect's size depends on grid cell size**"
+            "* **Two of finding 99's three expectations failed too.**"
         )
     ]
     items = [" ".join(b.split()) for b in section.split("\n  * ")[1:]]
@@ -1268,7 +1268,7 @@ def test_ct_context_512_result_matches_finding_98():
         "Finding 98 is in `reports/neural_tracer_ct_context_512.md`, with its committed JSON and pre-registration."
         in txt
     )
-    assert "findings 95–97 on 2026-10-23, and finding 98 on 2026-10-24" in txt
+    assert "findings 95–97 on 2026-10-23, finding 98 on 2026-10-24" in txt
 
 
 def test_scrollgt_0_9_0_is_described_as_released():
@@ -1309,4 +1309,109 @@ def test_the_scan_row_is_first_on_the_cubes_it_counts():
     assert (
         f"first on merge-penalized ERL on {with_scan} of the {len(best)}, against {alone}"
         in _text()
+    )
+
+
+_F99 = _REPO / "reports/neural_tracer_heading_residual.json"
+
+
+@pytest.mark.skipif(
+    not (_F97.exists() and _F98.exists() and _F99.exists()),
+    reason="finding 97, 98 or 99 artifact absent",
+)
+def test_heading_residual_matches_finding_99():
+    """Finding 99 is exploratory: an association on the classified dots, its failed expectations disclosed apart
+    from the registered tally."""
+    d, txt = json.loads(_F99.read_text()), _text()
+    c = d["cubes"]
+    held = ["s5_13497_01497_02497_256", "s5_16997_03997_04497_256"]
+    s3 = [k for k in c if k.startswith("s3_")]
+    ten = held + s3
+    assert d["status"].startswith("exploratory,") and len(c) == 21 and len(s3) == 8
+    rec = {
+        **json.loads(_F97.read_text())["records"],
+        **json.loads(_F98.read_text())["records"],
+    }
+
+    def span(vals, fmt="{:.0f}"):
+        return f"{fmt.format(min(vals))}–{fmt.format(max(vals))}"
+
+    a, b = (rec[k]["no_heading_share"] for k in held)
+    assert (
+        f"it still drops {a:.3f} and {b:.3f} of its seed dots on the two held-out Scroll-5 256³ cubes, and "
+        f"{span([rec[k]['no_heading_share'] for k in s3], '{:.3f}')} on Scroll 3."
+        in txt
+    )
+    for k, r in c.items():  # every failure is the 35° test
+        assert (
+            r["counts"]["edge"]
+            == r["counts"]["no_normal"]
+            == r["counts"]["ambiguous"]
+            == 0
+        ), k
+        assert r["classified"] == (
+            r["dots"] if k.endswith("_256") else d["sample_512"]
+        ), k
+    assert d["agree_degrees"] == 35.0 and d["sample_512"] == 2000
+    assert (
+        "every classified dot that fails does so at one check in villa's seed heading"
+        in txt
+    )
+    assert "On the 512³ cubes a 2,000-dot sample was classified." in txt
+
+    def dis(key):
+        return [c[k]["near_gt"]["disagree"][key] for k in ten]
+
+    assert (
+        f"the presence direction lies a median {span(dis('median_presence_to_gt'))}° from its tangent, and the "
+        f"CT's axis {span(dis('median_ct_axis_to_gt'))}°." in txt
+    )
+    assert f"tilted a median {span(dis('median_sheet_tilt'))}° from vertical" in txt
+
+    def steep(k):
+        r = c[k]
+        return sum((r["near_gt"][g]["steep_sheet_share"] or 0) * r["counts"][g] for g in ("disagree", "ok")) / r["classified"]  # fmt: skip
+
+    def rank(v):
+        s = sorted(v)
+        return [s.index(x) + (s.count(x) - 1) / 2 for x in v]
+
+    xs, ys = [steep(k) for k in c], [c[k]["dropped_share"] for k in c]
+    r, rho = statistics.correlation(xs, ys), statistics.correlation(rank(xs), rank(ys))
+    assert f"(Pearson r {r:.2f} over the 21 cubes, Spearman {rho:.2f})" in txt
+    assert (
+        "That is an association, not a demonstrated cause: nothing was traced again."
+        in txt
+    )
+    assert (
+        "Finding 99 is exploratory, not pre-registered. It is in `reports/neural_tracer_heading_residual.md`"
+        in txt
+    )
+    # its expectations: E2 failed (the presence direction is the closer), E3 failed on two Scroll-3 cubes
+    assert all(c[k]["near_gt"]["disagree"]["ct_axis_closer_share"] < 0.5 for k in held)
+    over = sorted(
+        c[k]["dropped_share"]
+        for k in c
+        if k not in held and c[k]["dropped_share"] >= 0.10
+    )
+    assert len(over) == 2 and all(
+        k.startswith("s3_")
+        for k in c
+        if k not in held and c[k]["dropped_share"] >= 0.10
+    )
+    assert (
+        f"two Scroll-3 cubes dropped {over[0]:.3f} and {over[1]:.3f} of their sampled dots."
+        in txt
+    )
+    assert (
+        "* **Twenty-two of my registered predictions failed**" in txt
+        and "not in the count above" in txt
+    )
+    assert (
+        "findings 95–97 on 2026-10-23, finding 98 on 2026-10-24, and finding 99 on 2026-10-25."
+        in txt
+    )
+    assert (
+        'Not "tilted sheets cause the held-out seed loss", nor "following the sheet would add coverage".'
+        in txt
     )
