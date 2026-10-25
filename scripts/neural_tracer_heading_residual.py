@@ -154,8 +154,10 @@ def _median(values) -> float | None:
 
 
 def near_gt_summary(rows: list[dict]) -> dict:
-    """Per reason: the dots near the ground truth, the median angles to its tangent, and how often the CT's axis is
-    the closer of the two."""
+    """Per reason: tangent comparisons over dots near GT; sheet gaps and tilts over all classified dots.
+
+    The two populations differ: sheet evidence needs no ground-truth match.
+    """
     out = {}
     for reason in REASONS:
         near = [

@@ -5,13 +5,17 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import statistics
 import sys
 from pathlib import Path
 
+import pytest
+
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 import neural_tracer_heading_residual as hr  # noqa: E402
+from sibling_checkouts import main_checkout  # noqa: E402
 
 D = json.loads((ROOT / "reports/neural_tracer_heading_residual.json").read_text())
 P1 = json.loads(
@@ -52,10 +56,24 @@ def _rank(v):
 
 
 def test_the_run_is_the_runs_it_explains():
+    parameters = {
+        "agree_degrees": hr.AGREE_DEGREES,
+        "near": hr.NEAR,
+        "sample_512": hr.SAMPLE,
+        "seeds_512": hr.SEEDS,
+        "check": hr.CHECK,
+        "rng_seed": hr.RNG_SEED,
+    }
+    for artifact in (D, P1):
+        assert artifact["status"].startswith("exploratory,")
+        assert artifact["villa"] == "ccb431818"
+        assert {k: artifact[k] for k in parameters} == parameters
+        assert artifact["runs"] == {
+            str(k): "/".join(v.parts[-3:]) for k, v in hr.RUNS.items()
+        }
     assert (
         set(C) == set(P1["cubes"]) and len(C) == 21 and len(IN) == 11 and len(S3) == 8
     )
-    sg = hr.pl.f91.SG / "data"
     for c, r in C.items():
         assert r["dots"] == r["recorded"]["dots"], (
             c
@@ -69,12 +87,13 @@ def test_the_run_is_the_runs_it_explains():
         }, c
         assert P1["cubes"][c]["villa_check"] == {"dots": 50, "mismatches": 0}, c
         assert r["written_seeds"]["failing"] == r["written_seeds"]["unmatched"] == 0, c
-        assert (
-            r["skeleton_sha256"]
-            == hashlib.sha256(
-                (sg / f"fibers_{c}" / "skeleton.npz").read_bytes()
-            ).hexdigest()
-        )
+        assert r["skeleton_sha256"] == P1["cubes"][c]["skeleton_sha256"], c
+        assert sum(r["counts"].values()) == r["classified"], c
+        for reason in hr.REASONS:
+            assert sum(v[reason] for v in r["by_family"].values()) == r["counts"][reason], c
+        assert r["dropped_share"] == pytest.approx(
+            1 - r["counts"]["ok"] / r["classified"]
+        ), c
         if c.endswith(
             "_256"
         ):  # every dot classified: the run's drops, of the dots it offered, are among them
@@ -90,6 +109,19 @@ def test_the_run_is_the_runs_it_explains():
     )
 
 
+def test_skeleton_hashes_match_external_targets():
+    """Keep the optional external data check separate from the committed-record checks."""
+    sibling = main_checkout().parent / "scrollgt"
+    default = next((p for p in (sibling, hr.pl.f91.SG) if (p / "data").is_dir()), sibling)
+    sg = Path(os.environ.get("SCROLLGT_ROOT", default)) / "data"
+    if not sg.exists() and "SCROLLGT_ROOT" not in os.environ:
+        pytest.skip("ScrollGT targets absent; set SCROLLGT_ROOT to check their hashes")
+    for c, r in C.items():
+        assert r["skeleton_sha256"] == hashlib.sha256(
+            (sg / f"fibers_{c}" / "skeleton.npz").read_bytes()
+        ).hexdigest(), c
+
+
 def test_every_drop_is_the_agreement_test():
     for c, r in C.items():
         assert (
@@ -99,7 +131,8 @@ def test_every_drop_is_the_agreement_test():
             == 0
         ), c
         assert r["counts"]["disagree"] > 0, c
-    assert "On all 21 cubes, every dropped dot fails the last" in REPORT
+    assert "On all 21 cubes, every classified dot that fails does so at the last check" in REPORT
+    assert "The 512³ results describe the sampled dots; unsampled dots were not classified." in REPORT
     assert (
         hr.AGREE_DEGREES == 35.0
         and "lies more than 35° from the dot's direction" in REPORT
@@ -191,6 +224,8 @@ def test_per_cube_and_pooled():
 
 
 def test_the_table_is_the_json():
+    assert "Tilt medians use all classified dots in their dropped or kept group" in REPORT
+    assert "Angles to the ground truth and out of its CT sheet use only dropped dots within 4 voxels" in REPORT
     for c in C:
         r, a, o = C[c], dis(c), C[c]["near_gt"]["ok"]
         split = "in sample" if c in IN else "held out"
@@ -202,7 +237,7 @@ def test_the_table_is_the_json():
         )
         assert row in REPORT, c
     n = [C[c]["counts"]["disagree"] for c in IN]
-    assert f"few dots are dropped ({min(n)}–{max(n)})" in REPORT
+    assert f"few classified dots fail ({min(n)}–{max(n)})" in REPORT
 
 
 def test_the_figures_it_starts_from():
@@ -217,6 +252,13 @@ def test_the_figures_it_starts_from():
         c,
         r,
     ) in C.items():  # the runs this classifies are the ones findings 97 and 98 recorded
+        assert r["recorded"] == {
+            k: rec[c][k] for k in ("dots", "owned_dots", "traced", "no_heading")
+        }, c
+        assert r["recorded"] == P1["cubes"][c]["recorded"], c
+        assert r["written_seeds"]["checked"] == (
+            rec[c]["fibers"] if c.endswith("_256") else min(hr.SEEDS, rec[c]["fibers"])
+        ), c
         assert (
             abs(
                 rec[c]["no_heading_share"]

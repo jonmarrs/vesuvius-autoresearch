@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import sys
 import types
 from pathlib import Path
@@ -14,7 +15,9 @@ _REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(_REPO / "scripts"))
 import neural_tracer_heading_residual as hr  # noqa: E402
 
-TRACERS = _REPO / "villa/vesuvius/src/vesuvius/neural_tracing/tracers"
+TRACERS = Path(os.environ.get("VILLA_ROOT", _REPO / "villa")) / (
+    "vesuvius/src/vesuvius/neural_tracing/tracers"
+)
 
 
 class _Err(ValueError):
@@ -130,6 +133,8 @@ def test_the_35_degree_test_is_sign_free(degrees, reason):
 
 
 def test_the_constants_are_villas():
+    if not TRACERS.exists() and "VILLA_ROOT" not in os.environ:
+        pytest.skip("Villa tracer sources absent; set VILLA_ROOT to check them")
     volume = (TRACERS / "fibers/tracing/volume.py").read_text()
     assert (
         "if abs(h @ direction) < np.cos(np.radians(35)):\n        return None" in volume

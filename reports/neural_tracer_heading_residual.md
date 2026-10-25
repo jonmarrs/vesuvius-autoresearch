@@ -1,22 +1,22 @@
-# Finding 99: with the scan around each cube, villa's neural tracer drops a seed only where its CT axis misses the fiber, in papyrus sheets tilted far from vertical (2026-10-24)
+# Finding 99: CT-axis disagreement explains the classified heading failures and is associated with tilted sheets (2026-10-24)
 
 Exploratory, after finding 97; not pre-registered, but its expectations were pushed before it ran. Findings 97 and 98
 gave villa's neural tracer 128 voxels of the real scan around each cube. In sample, the share of seed dots it drops as
 `no_heading` fell to 0.002–0.012. It stayed at 0.266 and 0.353 on the two held-out Scroll-5 256³ cubes, and at
 0.011–0.088 on Scroll 3, where finding 96's edge rule cannot fire. This asks what drops them.
 
-**Answer: villa's own CT heading, in steep sheets.**
+**Answer: among the classified dots, heading failures are CT-axis disagreements, associated with tilted sheets.**
 * **The reason.** villa's `_seed_heading` (`tracers/fibers/tracing/volume.py`) drops a dot for four reasons. On all 21
-  cubes, every dropped dot fails the last: the CT's axis for the dot's fiber family lies more than 35° from the dot's
+  cubes, every classified dot that fails does so at the last check: the CT's axis for the dot's fiber family lies more than 35° from the dot's
   direction, which comes from the presence. None is dropped at the CT's edge, for want of a sheet normal, or as H/V
-  ambiguous.
-* **Which is wrong.** At the dropped dots near the ground truth, the presence direction lies a median 13–15° from the
+  ambiguous in this classified population. The 512³ results describe the sampled dots; unsampled dots were not classified.
+* **Which direction follows the reference.** At the dropped dots near the ground truth, the presence direction lies a median 13–15° from the
   ground-truth tangent on the two held-out Scroll-5 cubes, and 10–16° on Scroll 3. The CT's axis lies 58° and 65–81°
   from it. The CT's axis is the closer of the two on 0.09–0.18 and 0.03–0.19 of those dots.
-* **Why.** The CT shows a clear sheet at every dot: no relative eigengap is below villa's `MIN_EIGENGAP`, 0.05. On those
-  ten cubes the ground-truth tangent lies a median 6–14° out of that sheet, so its normal is right. But the sheets are
+* **Sheet evidence.** The CT has a clear leading normal at every classified dot: no relative eigengap is below villa's `MIN_EIGENGAP`, 0.05. On those
+  ten cubes the ground-truth tangent lies a median 6–14° out of that sheet, consistent with the estimated plane. The sheets are
   steep, tilted a median 52–74° from vertical at the dropped dots. villa's axis for an H fiber is the sheet's
-  horizontal line, which is the fiber's direction only in a sheet near vertical; 0.83–0.93 of those cubes' dropped
+  horizontal line, which need not follow the fiber on a tilted sheet; 0.83–0.93 of those cubes' dropped
   dots are H dots.
 * **Per cube**, the share of its dots in sheets tilted more than 45° tracks the share it drops: Pearson r 0.98 over the
   21 cubes, Spearman 0.92. That share is 0.78 and 0.84 on the two held-out Scroll-5 cubes, 0.04–0.35 on Scroll 3, and
@@ -44,8 +44,9 @@ gave villa's neural tracer 128 voxels of the real scan around each cube. In samp
 
 "Run": the run's `no_heading` over its dots. A run never offers a dot that lies on a fiber it has already written, so
 it counts only the dots it offered. "Here": the share of all the dots (on a 512³ cube, of the sample) that fail, with
-their number. "Steep": the share of the dots in a sheet tilted more than 45° from vertical. The angles are medians over
-the dropped dots within 4 voxels of the ground truth, except "tilt, kept".
+their number. "Steep": the share of the classified dots in a sheet tilted more than 45° from vertical.
+Tilt medians use all classified dots in their dropped or kept group, including dots without a nearby reference.
+Angles to the ground truth and out of its CT sheet use only dropped dots within 4 voxels of the ground truth.
 
 | cube | split | dropped, run | dropped, here (n) | steep | presence → GT | CT axis → GT | tilt, dropped | tilt, kept | GT out of the CT's sheet |
 |---|---|---|---|---|---|---|---|---|---|
@@ -71,7 +72,7 @@ the dropped dots within 4 voxels of the ground truth, except "tilt, kept".
 | s3_03494_01494_00494_512 | held out | 0.053 | 0.092 (184) | 0.194 | 10° | 74° | 69° | 19° | 9° |
 | s3_04494_00994_01494_512 | held out | 0.039 | 0.077 (153) | 0.168 | 13° | 65° | 67° | 21° | 8° |
 
-On the in-sample cubes few dots are dropped (4–43), so their medians move a lot from cube to cube.
+On the in-sample cubes few classified dots fail (4–43), so their medians move a lot from cube to cube.
 
 **The expectations, written before pass 1 ran:**
 
@@ -83,13 +84,14 @@ On the in-sample cubes few dots are dropped (4–43), so their medians move a lo
 
 ## What it means
 
-* **Finding 97's held-out residual and Scroll 3's smaller one are one mechanism.** villa's seed-heading policy
+* **The classified residuals share the same rejection check.** villa's seed-heading policy
   (`ct_sheet_hv_sigma2_8_v2`) takes an H fiber to run along the sheet's horizontal line, and a V fiber up it. That
-  holds where the sheets are near vertical, as nearly all the in-sample dots' are. Where the papyrus tilts, the CT's
-  axis misses the fiber, and the 35° test drops the seed. The presence direction it is compared with is the one that
-  follows the fiber.
-* **It is not the mask's model, nor the CT, nor "held out" as such.** The presence direction is the closer to the
-  ground truth, and the CT's sheet is clear and correct. On Scroll 3, held out too, it drops 0.020 of the dots on the
+  agrees more often with the presence direction where the sheets are near vertical, as nearly all the in-sample dots' are.
+  On the classified dots the failures are associated with tilt. Near the reference, the presence direction is closer
+  to its tangent on most rejected dots in the two held-out Scroll-5 cubes and Scroll 3.
+* **The evidence points to the H/V-axis assumption.** A clear sheet normal alone does not determine the fiber's
+  direction within that plane. The presence direction is usually closer to the ground truth at the rejected nearby
+  dots, while the estimated sheet plane is consistent with their tangents. On Scroll 3, held out too, it drops 0.020 of the dots on the
   cube with the fewest steep ones and 0.169 on one with many.
 
 ## What it does not say
@@ -98,9 +100,31 @@ On the in-sample cubes few dots are dropped (4–43), so their medians move a lo
   untested; that is a GPU run.
 * **Near the ground truth** means within 4 voxels of a sample of a ScrollGT centreline. Its tangent is that sample's
   edge's; where fibers cross, it can be another fiber's.
+* **A large eigengap and a tangent near the plane do not prove the sheet normal is correct.** A tangent constrains
+  one direction in the plane. The tilt association does not establish tilt as the sole cause of rejection, and the
+  reference-direction comparison does not cover dots without a nearby ground-truth sample.
 * **The tilt was added after a smoke of pass 2** on one cube (`s5_13497_01497_02497_256`). The 45° line was set then,
   before the full pass 2 ran.
 * **The pooled shares** mix every dot of the 256³ cubes with 2,000-dot samples of the 512³ ones.
 * **Whether the tilt is also why the reference mask covers less** on the two held-out Scroll-5 cubes (finding 84) is
   untested.
 * **No villa or ScrollGT change here.**
+
+## Verification after review (2026-10-25)
+
+The report distinguishes the 512³ sample from all available dots and the full-group tilt summaries from the
+near-reference tangent comparisons. The recorded measurements and both JSON files are unchanged.
+The test suite checks copied run counts against Findings 97–98 and keeps those checks independent of local datasets.
+For the external checks, point `VILLA_ROOT` at the measured Villa revision `ccb431818` and `SCROLLGT_ROOT` at ScrollGT
+with its published skeleton files:
+
+```sh
+VILLA_ROOT=/path/to/villa SCROLLGT_ROOT=/path/to/scrollgt python -m pytest -q \
+  tests/test_neural_tracer_heading_residual.py \
+  tests/test_neural_tracer_heading_residual_report.py
+```
+
+Review verified all 21 skeleton hashes against ScrollGT v0.9.0 and the heading constants against Villa
+`ccb431818fa68059138f2c964ae299fc474ff116`. Without those external files, only their two checks skip; the committed
+record and report checks still run. Explicitly configured paths must contain the required files. This review did
+not repeat the CT analysis or run GPU tracing.
