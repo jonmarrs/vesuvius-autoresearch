@@ -75,6 +75,6 @@ failure contract) and #216 and #221 (findings 96 and 97 in the October filing dr
 - **Ruff** 0.9.10 `check` and `format` are clean on the test file.
 - **Doc guards, the withdrawn-claims ledger, the suite guard and the filing tests:** 465 passed and 6 skipped.
 - **Doc audit:** the branch adds no entries.
-  - #225 adds one on main: the draft cites `tools/context_ct.py`, which is ScrollGT's file, not this repository's.
+  - #225 adds one on main: the draft cites ScrollGT's tools/context_ct.py, which is not this repository's file.
   - The draft's name is dated (`2026-10`), so the live-documents test does not check it, and nothing fails.
 - **No independent review this round.** The change is one computed binding, checked by perturbation.
