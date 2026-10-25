@@ -98,6 +98,9 @@ On the in-sample cubes few classified dots fail (4–43), so their medians move 
 
 * **Nothing was traced again.** How many traces a heading that followed a steep sheet would add, and what coverage, is
   untested; that is a GPU run.
+  *(2026-10-25: finding 100 ran it, pre-registered, in `neural_tracer_steep_heading.md`. Traced from the presence
+  direction projected into the CT's sheet, the skipped dots raised coverage 1.20× and 1.43× on the two held-out
+  Scroll-5 cubes, and 1.003–1.024× on Scroll 3.)*
 * **Near the ground truth** means within 4 voxels of a sample of a ScrollGT centreline. Its tangent is that sample's
   edge's; where fibers cross, it can be another fiber's.
 * **A large eigengap and a tangent near the plane do not prove the sheet normal is correct.** A tangent constrains
