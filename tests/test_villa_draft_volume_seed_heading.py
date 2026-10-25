@@ -72,10 +72,18 @@ def test_the_example_and_the_summary():
     b, k, rec = d["baseline_rows_tol2"], d["rows_tol2"]["keep"], d["baseline_records"]
     txt = _text()
     c = "s5_16997_03997_04497_256"
+    kr = d["records"]["keep"][c]
     assert (
-        f"`tracing.volume` skipped {rec[c]['no_heading']} of the cube's {rec[c]['dots']} seed dots on the 35° test. "
-        f"With this PR it traces them: coverage of the cube's hand-traced fibers rises from {b[c]['coverage']:.3f} "
-        f"to {k[c]['coverage']:.3f}, and precision from {b[c]['precision']:.3f} to {k[c]['precision']:.3f}."
+        kr["no_heading"] == 0
+        and kr["traced"] + kr["owned_dots"] == kr["dots"] == rec[c]["dots"]
+    )
+    assert kr["traced"] == kr["offered"]["agree"] + kr["offered"]["rescued"]
+    assert (
+        f"`tracing.volume` skipped {rec[c]['no_heading']} of the cube's {rec[c]['dots']} seed dots on the 35° test "
+        f"and traced {rec[c]['traced']}. With this PR it skips none on that test and traces {kr['traced']}, "
+        f"{kr['offered']['rescued']} of them dots that fail it; the rest of the {kr['dots']} lie on fibers already "
+        f"written. Coverage of the cube's hand-traced fibers rises from {b[c]['coverage']:.3f} to "
+        f"{k[c]['coverage']:.3f}, and precision from {b[c]['precision']:.3f} to {k[c]['precision']:.3f}."
         in txt
     )
 

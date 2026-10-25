@@ -1,12 +1,12 @@
-# Draft: fiber volume tracing seeds every dot the CT gives a heading, as training does
+# Draft: fiber volume tracing stops skipping seed dots on the 35° test, as training does
 
 **NOT POSTED.** Held for a slot: villa's three-open-PR cap is full (#2141, #2258, #2259, checked 2026-10-25). The owner
 approved proposing the change on 2026-10-25; posting needs the steps below first.
 
 The patch is `repro/fibers/villa_volume_seed_heading.patch` (+23/−4: two lines removed from `_seed_heading`, one
 docstring line, a new 21-line test). The measurement is finding 100 (`reports/neural_tracer_steep_heading.md`,
-pre-registered), its `keep` arm. That arm gave each skipped dot villa's own signed CT axis, which is exactly what the
-patched `_seed_heading` returns (bound by `tests/test_villa_draft_volume_seed_heading.py`).
+pre-registered), its `keep` arm. That arm gave each dot that fails the 35° test villa's own signed CT axis, which is
+exactly what the patched `_seed_heading` returns (bound by `tests/test_villa_draft_volume_seed_heading.py`).
 
 ## Before posting
 
@@ -33,14 +33,14 @@ patched `_seed_heading` returns (bound by `tests/test_villa_draft_volume_seed_he
 
 **Title:** `fiber volume: trace seed dots whose CT axis is far from the presence direction, as training does`
 
-**In one sentence:** Volume tracing now traces every seed dot the CT gives a heading for, signed along the dot's
-presence direction as training's seeds are, instead of skipping the dots whose CT axis lies more than 35° from that
-direction.
+**In one sentence:** Volume tracing no longer skips the seed dots whose CT axis lies more than 35° from the dot's
+presence direction: as training's seeds do, they take the CT axis signed along that direction.
 
 **One real example:** Starting with the scan around the ScrollGT fiber cube `s5_16997_03997_04497_256` (Scroll 5,
 7.91 µm; `scrollprize/fiber_single_small` at its defaults), `tracing.volume` skipped 316 of the cube's 895 seed dots on
-the 35° test. With this PR it traces them: coverage of the cube's hand-traced fibers rises from 0.268 to 0.343, and
-precision from 0.499 to 0.510.
+the 35° test and traced 288. With this PR it skips none on that test and traces 507, 251 of them dots that fail it;
+the rest of the 895 lie on fibers already written. Coverage of the cube's hand-traced fibers rises from 0.268 to
+0.343, and precision from 0.499 to 0.510.
 
 **Before:** `_seed_heading` returns `None` when the CT axis for the dot's family lies more than 35° from the dot's
 presence direction, and the dot is never traced. Training does not skip on this: `data/seeds.py` and
@@ -48,8 +48,9 @@ presence direction, and the dot is never traced. Training does not skip on this:
 lie ("exactly as in inference and collection", its docstring says). The VC3D service and `tracing/inference.py` do
 not skip either.
 
-**After this PR:** Each dot is traced from the CT axis, signed along its presence direction. A dot is still dropped
-when the CT gives no heading (`SeedHeadingError`).
+**After this PR:** A dot that fails the 35° test is traced like any other, from the CT axis signed along its presence
+direction. A dot is still dropped when the CT gives no heading (`SeedHeadingError`) and, as before, when it lies on a
+fiber already written.
 
 **Proof:** 21 ScrollGT v0.9.0 fiber cubes, each traced with the scan around it and scored with ScrollGT's fiber scorer
 (version 3, tolerance 2) against its hand-traced ground truth. The ten cubes ScrollGT's reference mask never trained
