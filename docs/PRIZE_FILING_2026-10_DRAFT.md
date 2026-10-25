@@ -71,7 +71,7 @@ clipped "#1780" to "#17".
    `tree/v0.9.0`; the test binds the cite to ScrollGT's newest tag, so a later
    release must update it. Findings 84–85 are folded in (2026-10-12). Finding 93 and the placement measurements
    (#151, #157) are folded in (2026-10-20), finding 94 on 2026-10-20, findings 95–97 on 2026-10-23, finding 98
-   on 2026-10-24, and finding 99 on 2026-10-25.
+   on 2026-10-24, and findings 99 and 100 on 2026-10-25.
 4. Finding 85 measures an open villa PR (#1934). The user-approved comment sharing it with the author was posted
    2026-10-12 (https://github.com/ScrollPrize/villa/pull/1934#issuecomment-6131993208) and is cited in part (2). On filing day, re-read the thread: quote any reply verbatim, record
    whether #1934 is still open, and do not characterise silence.
@@ -263,6 +263,17 @@ four predictions held):
   It classifies all 12,471 dots on the ten 256³ cubes and a fixed sample of 2,000 on each 512³ cube; this does not
   classify the unsampled dots. On the two held-out Scroll-5 cubes specifically, the presence direction is a median
   13–15° from its tangent, while the CT family axis is 58°. No tracing or coverage improvement was measured here.
+* **Tracing the seeds it skips** (finding 100, pre-registered; four of its five predictions held). Given the scan,
+  the dots whose CT axis lies more than 35° from their presence direction were traced instead of skipped, from the
+  presence direction projected into the CT's sheet. Every other dot was headed as villa heads it. On the two
+  held-out Scroll-5 cubes its coverage rises from 0.333 to 0.399 and from 0.268 to 0.382 (1.20× and 1.43×), and its
+  precision moves by −0.013 and +0.007. On Scroll 3 its coverage rises on all eight cubes, but by only 1.003–1.024×
+  (a median 1.017×), short of the registered 1.05×. Its precision stays within 0.017 of the baseline's on all ten
+  held-out cubes. Traced from villa's own CT axis instead, as villa's training seeds are, the same dots cover less
+  than along the sheet on 9 of the 10 (1.11× and 1.28× on the two Scroll-5 cubes). On the eleven in-sample cubes its
+  coverage stays within 0.995–1.015×. Whether it leads or trails our tracer changes on no cube, at either tolerance.
+  The gain rests on two cubes of one scroll, both cubes on which the reference mask also fails (finding 84), and
+  tilt was not varied, so it does not show that tilt is the cause.
 
 **(3) What it enables that was not possible before.**
 * [inkagree](https://github.com/jonmarrs/inkagree) (MIT; first released 2026-10-03, now 0.3.0, which evaluates only
@@ -318,7 +329,8 @@ four predictions held):
   Finding 97 is in `reports/neural_tracer_ct_context.md`, with its committed JSON and pre-registration (amended
   before its run). Finding 98 is in `reports/neural_tracer_ct_context_512.md`, with its committed JSON and
   pre-registration. Finding 99 is exploratory, not pre-registered. It is in `reports/neural_tracer_heading_residual.md`,
-  with its two committed JSONs.
+  with its two committed JSONs. Finding 100 is in `reports/neural_tracer_steep_heading.md`, with its committed JSON
+  and pre-registration.
 * Every figure here is bound by a test to the file that produced it.
 * [villa #2044](https://github.com/ScrollPrize/villa/pull/2044) records the memory limits, hardware,
   before/after runs and the averaging comparison behind the scorer fix. The full GPU scorer has
@@ -360,7 +372,7 @@ four predictions held):
   * finding 74 does not survive as stated (step 0.5 vs 1.0 is not consistent).
 
   inkagree 0.3.0 makes the supervised region its default. `reports/supervised_reanalysis.md`.
-* **Twenty-two of my registered predictions failed**, and the reports say so:
+* **Twenty-three of my registered predictions failed**, and the reports say so:
   * finding 70 (smooth would move the count < 1% in every crop window: it moved up to ±20%);
   * finding 71 prediction 1 (failed on three exclusions, one caused by a defect in my alignment gate. Re-analysed
     with inkagree's gate where the labels are defined, all 8 pass and it holds, while prediction 2, held on the
@@ -395,6 +407,8 @@ four predictions held):
     7.91 µm, fall to at most 0.80: 0.88).
   * finding 94 prediction 2 (at tolerance 4, villa's neural tracer would still trail our tracer on at least 9 of 11
     in-sample cubes: it trailed on 8).
+  * finding 100 prediction 2 (traced along the sheet, the seeds villa's neural tracer skips would raise its coverage
+    on Scroll 3 by a median of at least 1.05×: it rose on all eight cubes, by a median 1.017×).
 * **Two of finding 99's three expectations failed too.** They were pushed before it ran, but finding 99 was not
   pre-registered, so they are not in the count above. I expected the presence direction to be the further from the
   ground truth at most nearby dropped dots; it was the closer. Pooled over the 21 cubes, the CT's axis is the closer
@@ -434,8 +448,11 @@ four predictions held):
   4 it leads on three of them, finding 94). On the ten 256³ ones, our protocol kept it from seeding near the faces
   (finding 96). Given the scan around them, it leads on 8 of the 10 at tolerance 4 (finding 97). In sample it still
   trails at tolerance 2 on all 11 cubes given the scan (findings 97 and 98). One checkpoint, defaults.
-* Not "tilted sheets cause the held-out seed loss", nor "following the sheet would add coverage". Finding 99 is
-  exploratory and shows an association on the classified dots; nothing was traced again.
+* Not "tilted sheets cause the held-out seed loss". Finding 99 is exploratory and shows an association on the
+  classified dots. Finding 100 changed how the skipped dots are headed, not the tilt.
+* Not "following the sheet adds coverage" without its scope: 1.20× and 1.43× on two held-out Scroll-5 cubes, both
+  cubes on which the reference mask also fails, and at most 1.024× on Scroll 3 (finding 100). One checkpoint, and
+  villa's tracer is unchanged.
 * Not "ScrollGT's ground truth is wrong on five cubes". Two entrants and the CT agree on an offset of about a voxel
   there, measured after the fact. It explains part of the in-sample gap, and the ground truth is unchanged.
 * Not "the Scroll-5 miss is the annotators". Finding 84 rules out a frame offset and a threshold, nothing more.
