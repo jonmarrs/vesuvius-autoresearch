@@ -1481,7 +1481,7 @@ def test_steep_heading_matches_finding_100(monkeypatch):
     )
     above = sum(r2["sheet"][c][cov] > r2["keep"][c][cov] for c in held)
     assert (
-        f"the same dots cover less than along the sheet on {above} of the 10 ({fac('keep', a):.2f}× and "
+        f"the skipped dots cover less than along the sheet on {above} of the 10 ({fac('keep', a):.2f}× and "
         f"{fac('keep', b):.2f}× on the two Scroll-5 cubes)." in txt
     )
     assert (
