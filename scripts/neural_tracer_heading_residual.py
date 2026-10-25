@@ -27,6 +27,17 @@ Expected, written before it was run (guesses, not registered predictions):
      tangent than the CT's family axis is, on most of them: the mask's model, not the CT, is what disagrees;
   E3 (moderate) on every other cube fewer than 0.10 of all dots are dropped.
 
+Pass 2, added after pass 1's result (reports/neural_tracer_heading_residual_pass1.json, f77122d2): pass 1 found every
+dropped dot `disagree`, and near the ground truth the CT's family axis, not the presence direction, far from its
+tangent. Pass 2 asks why, from the same structure tensor villa's ct_sheet_normal computes (its normal checked equal to
+villa's on the first CHECK dots): the relative gap of its two largest eigenvalues (villa's MIN_EIGENGAP, 0.05, is where
+it calls the sheet unclear; the seed policy accepts any gap above SEED_MIN_GAP), and how far out of the CT's sheet the
+ground-truth tangent and the presence direction lie. It must give pass 1's reasons, dot for dot in count, on every
+cube. The sheet's tilt from vertical (`sheet_tilt`, the normal's angle out of the horizontal plane: 0 for a sheet
+parallel to the scroll's axis) was added after a smoke of pass 2 on s5_13497_01497_02497_256 put the ground-truth
+tangent within 6 degrees of the CT's sheet at its `disagree` dots: villa's H axis is the sheet's horizontal line,
+which a sheet tilted far from vertical leaves free to point anywhere in it.
+
 CPU only. Runs in villa's tracer environment (repro/fibers/setup_neural_tracer_env.sh) with HF_HUB_OFFLINE=1.
 Writes reports/neural_tracer_heading_residual.json.
 """
@@ -53,6 +64,13 @@ HELD_256 = ["s5_13497_01497_02497_256", "s5_16997_03997_04497_256"]
 MARGIN = 128  # CT voxels of scan around each cube in findings 97 and 98
 REASONS = ("edge", "no_normal", "ambiguous", "disagree", "ok")
 EDGE_MESSAGE = "CT seed context crosses the volume boundary"
+MIN_EIGENGAP = (
+    0.05  # villa's shared/ct_structure.py: below it the CT shows no clear sheet
+)
+STEEP_TILT = 45.0  # degrees from vertical: a sheet nearer horizontal than vertical
+SEED_MIN_GAP = (
+    1e-6  # villa's ct_sheet_normal's default min_gap, which the seed headings use
+)
 AGREE_DEGREES = 35.0  # villa's _seed_heading: |axis . direction| >= cos(35 degrees)
 NEAR = 4.0  # CT voxels from a ground-truth sample
 SAMPLE, SEEDS, CHECK, RNG_SEED = 2000, 300, 50, 0
@@ -66,27 +84,45 @@ def angle(a, b) -> float:
 
 
 def classify(vol, xyz, family, direction, ct, ct_structure):
-    """(reason, the CT's family axis or None): villa's _seed_heading's tests, in its order, told apart. `ct` and
-    `ct_structure` are villa's frames/ct.py and shared/ct_structure.py."""
+    """(reason, the CT's family axis or None, the CT's sheet {normal, gap}): villa's _seed_heading's tests, in its
+    order, told apart. `ct` and `ct_structure` are villa's frames/ct.py and shared/ct_structure.py. The normal is
+    ct_sheet_normal's, from the same tensor (`gap`: the relative gap of its two largest eigenvalues)."""
+    sheet: dict = {"normal": None, "gap": None}
     try:
         context = ct._ct_context(vol, xyz)
     except ct_structure.SeedHeadingError as error:
         if str(error) != EDGE_MESSAGE:
             raise
-        return "edge", None
-    try:
-        normal = ct_structure.ct_sheet_normal(*context)
-    except ct_structure.SeedHeadingError:
-        return "no_normal", None
+        return "edge", None, sheet
+    tensor = ct_structure.ct_structure_tensor(
+        *context,
+        derivative_sigma=ct_structure.CT_DERIVATIVE_SIGMA,
+        integration_sigma=ct_structure.CT_INTEGRATION_SIGMA,
+    )
+    values, vectors = np.linalg.eigh(tensor[::-1, ::-1])  # as ct_sheet_normal
+    if values[-1] > 1e-12:
+        sheet["gap"] = float((values[-1] - values[-2]) / values[-1])
+    if values[-1] <= 1e-12 or values[-1] - values[-2] <= SEED_MIN_GAP * values[-1]:
+        return "no_normal", None, sheet
+    normal = vectors[::-1, -1]
+    sheet["normal"] = normal
     try:
         axis = ct.sheet_heading(normal, family)
     except ct_structure.SeedHeadingError:
-        return "ambiguous", None
+        return "ambiguous", None, sheet
     if abs(axis @ np.asarray(direction)) < np.cos(
         np.radians(AGREE_DEGREES)
     ):  # villa's test, verbatim
-        return "disagree", axis
-    return "ok", axis
+        return "disagree", axis, sheet
+    return "ok", axis, sheet
+
+
+Z = (0.0, 0.0, 1.0)  # world xyz: the scroll's axis
+
+
+def out_of_plane(v, normal) -> float | None:
+    """How far a line lies out of the plane with this normal, in degrees (0-90)."""
+    return None if v is None or normal is None else 90.0 - angle(v, normal)
 
 
 def last_tile(run: Path) -> dict:
@@ -128,6 +164,14 @@ def near_gt_summary(rows: list[dict]) -> dict:
             if r["reason"] == reason and r["gt_tangent_angle_presence"] is not None
         ]
         both = [r for r in near if r["gt_tangent_angle_ct_axis"] is not None]
+        gaps = [
+            r["gap"] for r in rows if r["reason"] == reason and r.get("gap") is not None
+        ]
+        tilts = [
+            r["sheet_tilt"]
+            for r in rows
+            if r["reason"] == reason and r.get("sheet_tilt") is not None
+        ]
         out[reason] = {
             "near": len(near),
             "median_presence_to_gt": _median(
@@ -135,6 +179,28 @@ def near_gt_summary(rows: list[dict]) -> dict:
             ),
             "median_ct_axis_to_gt": _median(
                 [r["gt_tangent_angle_ct_axis"] for r in both]
+            ),
+            "median_gap": _median(gaps),
+            "median_sheet_tilt": _median(tilts),
+            "steep_sheet_share": sum(t > STEEP_TILT for t in tilts) / len(tilts)
+            if tilts
+            else None,
+            "unclear_sheet_share": sum(g < MIN_EIGENGAP for g in gaps) / len(gaps)
+            if gaps
+            else None,
+            "median_gt_out_of_ct_sheet": _median(
+                [
+                    r["gt_out_of_ct_sheet"]
+                    for r in near
+                    if r.get("gt_out_of_ct_sheet") is not None
+                ]
+            ),
+            "median_presence_out_of_ct_sheet": _median(
+                [
+                    r["presence_out_of_ct_sheet"]
+                    for r in near
+                    if r.get("presence_out_of_ct_sheet") is not None
+                ]
             ),
             "ct_axis_closer_share": (
                 sum(
@@ -193,18 +259,22 @@ def cube_row(
     tree = cKDTree(P)
 
     vm._WORKER_VOL = vol
-    rows, mismatches = [], 0
+    rows, mismatches, normal_mismatches = [], 0, 0
     for j, i in enumerate(pick):
         xyz, family, direction = (
             dots["xyz"][i],
             str(dots["family"][i]),
             dots["direction"][i],
         )
-        reason, axis = classify(vol, xyz, family, direction, ct, ct_structure)
-        if j < CHECK and (reason == "ok") != (
-            vm._seed_heading((xyz, family, direction)) is not None
-        ):
-            mismatches += 1
+        reason, axis, sheet = classify(vol, xyz, family, direction, ct, ct_structure)
+        if j < CHECK:
+            mismatches += (reason == "ok") != (
+                vm._seed_heading((xyz, family, direction)) is not None
+            )
+            if sheet["normal"] is not None:
+                normal_mismatches += not np.array_equal(
+                    sheet["normal"], ct.ct_normal(vol, xyz)
+                )
         d, k = tree.query(to_cube_zyx(xyz, vol.input_scale), distance_upper_bound=NEAR)
         g = D[k][::-1] if np.isfinite(d) else None  # zyx -> xyz
         rows.append({
@@ -214,6 +284,10 @@ def cube_row(
             "presence_to_ct_axis": None if axis is None else angle(axis, direction),
             "gt_tangent_angle_presence": None if g is None else angle(direction, g),
             "gt_tangent_angle_ct_axis": None if g is None or axis is None else angle(axis, g),
+            "gap": sheet["gap"],
+            "sheet_tilt": out_of_plane(sheet["normal"], Z),
+            "gt_out_of_ct_sheet": out_of_plane(g, sheet["normal"]),
+            "presence_out_of_ct_sheet": out_of_plane(direction, sheet["normal"]),
         })  # fmt: skip
 
     seeds, families = written_seeds(run)
@@ -252,7 +326,11 @@ def cube_row(
         "dropped_share": 1 - counts["ok"] / len(rows),
         "by_family": by_family,
         "near_gt": near_gt_summary(rows),
-        "villa_check": {"dots": min(CHECK, len(rows)), "mismatches": mismatches},
+        "villa_check": {
+            "dots": min(CHECK, len(rows)),
+            "mismatches": mismatches,
+            "normal_mismatches": normal_mismatches,
+        },
         "written_seeds": {
             "checked": int(len(s_pick)),
             "failing": seed_fail,

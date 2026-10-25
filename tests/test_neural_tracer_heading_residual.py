@@ -21,9 +21,14 @@ class _Err(ValueError):
     pass
 
 
-def _modules(
-    context_error=None, normal_error=False, ambiguous=False, axis=(1.0, 0.0, 0.0)
-):
+SHEET_Y = (
+    0.1,
+    1.0,
+    0.2,
+)  # an xyz tensor's diagonal: the sheet normal is y, the relative gap (1.0 - 0.2) / 1.0
+
+
+def _modules(context_error=None, tensor=SHEET_Y, ambiguous=False, axis=(1.0, 0.0, 0.0)):
     """Stand-ins for villa's frames/ct.py and shared/ct_structure.py, each failing as asked."""
     calls = []
 
@@ -33,11 +38,10 @@ def _modules(
             raise _Err(context_error)
         return "window", "centre"
 
-    def ct_sheet_normal(window, centre):
+    def ct_structure_tensor(window, centre, *, derivative_sigma, integration_sigma):
         calls.append("normal")
-        if normal_error:
-            raise _Err("CT seed context has no identifiable sheet normal")
-        return np.array([0.0, 1.0, 0.0])
+        assert (derivative_sigma, integration_sigma) == (2.0, 8.0)
+        return np.diag(np.asarray(tensor, float))
 
     def sheet_heading(normal, family):
         calls.append("heading")
@@ -46,21 +50,29 @@ def _modules(
         return np.asarray(axis, float)
 
     ct = types.SimpleNamespace(_ct_context=_ct_context, sheet_heading=sheet_heading)
-    cs = types.SimpleNamespace(SeedHeadingError=_Err, ct_sheet_normal=ct_sheet_normal)
+    cs = types.SimpleNamespace(SeedHeadingError=_Err, ct_structure_tensor=ct_structure_tensor,
+                               CT_DERIVATIVE_SIGMA=2.0, CT_INTEGRATION_SIGMA=8.0)  # fmt: skip
     return ct, cs, calls
 
 
 def _classify(direction=(1.0, 0.0, 0.0), **kw):
     ct, cs, calls = _modules(**kw)
-    reason, axis = hr.classify(
+    reason, axis, sheet = hr.classify(
         None, np.zeros(3), "H", np.asarray(direction, float), ct, cs
     )
-    return reason, axis, calls
+    return reason, axis, calls, sheet
 
 
 def test_each_reason_in_villas_order():
     assert _classify(context_error=hr.EDGE_MESSAGE)[::2] == ("edge", ["context"])
-    assert _classify(normal_error=True)[::2] == ("no_normal", ["context", "normal"])
+    assert _classify(tensor=(0.0, 0.0, 0.0))[::2] == (
+        "no_normal",
+        ["context", "normal"],
+    )
+    assert _classify(tensor=(1.0, 1.0, 0.1))[::2] == (
+        "no_normal",
+        ["context", "normal"],
+    )  # two equal largest
     assert _classify(ambiguous=True)[::2] == (
         "ambiguous",
         ["context", "normal", "heading"],
@@ -69,8 +81,40 @@ def test_each_reason_in_villas_order():
         "disagree",
         ["context", "normal", "heading"],
     )
-    reason, axis, _ = _classify()
+    reason, axis, _, sheet = _classify()
     assert reason == "ok" and np.allclose(axis, [1, 0, 0])
+    assert (
+        np.allclose(np.abs(sheet["normal"]), [0, 1, 0])
+        and abs(sheet["gap"] - 0.8) < 1e-12
+    )
+
+
+def test_the_sheet_evidence_rides_along():
+    assert _classify(context_error=hr.EDGE_MESSAGE)[3] == {"normal": None, "gap": None}
+    assert _classify(tensor=(0.0, 0.0, 0.0))[3] == {"normal": None, "gap": None}
+    assert _classify(tensor=(1.0, 1.0, 0.1))[3] == {"normal": None, "gap": 0.0}
+    sheet = _classify(tensor=(1.0, 0.98, 0.1))[
+        3
+    ]  # a sheet villa accepts, though not a clear one
+    assert abs(sheet["gap"] - 0.02) < 1e-12 and sheet["gap"] < hr.MIN_EIGENGAP
+    assert np.allclose(
+        np.abs(_classify(direction=(0.0, 1.0, 0.0))[3]["normal"]), [0, 1, 0]
+    )
+
+
+def test_out_of_plane():
+    assert hr.out_of_plane([1, 0, 0], [0, 0, 1]) == 0.0
+    assert hr.out_of_plane([0, 0, -2], [0, 0, 1]) == 90.0
+    assert abs(hr.out_of_plane([1, 0, 1], [0, 0, 1]) - 45.0) < 1e-9
+    assert (
+        hr.out_of_plane(None, [0, 0, 1]) is None
+        and hr.out_of_plane([1, 0, 0], None) is None
+    )
+    # the sheet's tilt from vertical: a normal across the scroll's axis is a vertical sheet
+    assert (
+        hr.out_of_plane([1, 0, 0], hr.Z) == 0.0
+        and hr.out_of_plane([0, 0, -1], hr.Z) == 90.0
+    )
 
 
 def test_another_context_error_is_not_counted_as_the_edge():
@@ -92,6 +136,22 @@ def test_the_constants_are_villas():
     )
     assert hr.AGREE_DEGREES == 35.0
     frames = (TRACERS / "fibers/frames/ct.py").read_text()
+    structure = (TRACERS / "shared/ct_structure.py").read_text()
+    # classify's normal is ct_sheet_normal's, from the same tensor, at the seed headings' min_gap
+    assert (
+        "def ct_sheet_normal(cube, center_zyx, *, min_gap=1e-6):" in structure
+        and hr.SEED_MIN_GAP == 1e-6
+    )
+    assert (
+        "if values[-1] <= 1e-12 or values[-1]-values[-2] <= min_gap*values[-1]:"
+        in structure
+    )
+    assert "return vectors[::-1, -1]" in structure
+    assert (
+        "derivative_sigma=CT_DERIVATIVE_SIGMA, integration_sigma=CT_INTEGRATION_SIGMA)[::-1, ::-1])"
+        in structure
+    )
+    assert "MIN_EIGENGAP = .05" in structure and hr.MIN_EIGENGAP == 0.05
     assert f"raise SeedHeadingError('{hr.EDGE_MESSAGE}')" in frames
     # villa's own order: the window, then the normal, then the family's axis, then the agreement
     body = volume.split("def _seed_heading(task):")[1].split("\ndef ")[0]
@@ -116,23 +176,34 @@ def test_angle_is_between_lines():
 
 
 def test_near_gt_summary():
-    def row(reason, presence, axis):
-        return {
-            "reason": reason,
-            "gt_tangent_angle_presence": presence,
-            "gt_tangent_angle_ct_axis": axis,
-        }
+    def row(
+        reason, presence, axis, gap=None, gt_out=None, presence_out=None, tilt=None
+    ):
+        return {"reason": reason, "gt_tangent_angle_presence": presence, "gt_tangent_angle_ct_axis": axis, "gap": gap,
+                "gt_out_of_ct_sheet": gt_out, "presence_out_of_ct_sheet": presence_out, "sheet_tilt": tilt}  # fmt: skip
 
-    rows = [row("disagree", 60.0, 10.0), row("disagree", 50.0, 70.0), row("disagree", 40.0, 5.0),
-            row("disagree", None, None), row("ambiguous", 20.0, None), row("ok", 3.0, 4.0)]  # fmt: skip
+    rows = [row("disagree", 60.0, 10.0, 0.01, 50.0, 5.0, 80.0), row("disagree", 50.0, 70.0, 0.20, 40.0, 6.0, 10.0),
+            row("disagree", 40.0, 5.0, 0.03, 30.0, 7.0, 60.0), row("disagree", None, None, 0.30, None, None, 50.0),
+            row("ambiguous", 20.0, None, 0.5, 1.0, 2.0), row("ok", 3.0, 4.0, 0.6, 2.0, 3.0, 5.0)]  # fmt: skip
     s = hr.near_gt_summary(rows)
     assert s["disagree"] == {"near": 3, "median_presence_to_gt": 50.0, "median_ct_axis_to_gt": 10.0,
+                             "median_gap": (0.03 + 0.20) / 2, "median_sheet_tilt": 55.0, "steep_sheet_share": 0.75,
+                             "unclear_sheet_share": 0.5,
+                             "median_gt_out_of_ct_sheet": 40.0, "median_presence_out_of_ct_sheet": 6.0,
                              "ct_axis_closer_share": 2 / 3}  # fmt: skip
     assert (
         s["ambiguous"]["near"] == 1 and s["ambiguous"]["ct_axis_closer_share"] is None
     )
-    assert s["edge"] == {"near": 0, "median_presence_to_gt": None, "median_ct_axis_to_gt": None,
-                         "ct_axis_closer_share": None}  # fmt: skip
+    assert s["edge"] == {"near": 0, "median_presence_to_gt": None, "median_ct_axis_to_gt": None, "median_gap": None,
+                         "median_sheet_tilt": None, "steep_sheet_share": None,
+                         "unclear_sheet_share": None, "median_gt_out_of_ct_sheet": None,
+                         "median_presence_out_of_ct_sheet": None, "ct_axis_closer_share": None}  # fmt: skip
+    # pass 1's rows carry no sheet fields: they summarise as before
+    old = [
+        {k: v for k, v in r.items() if k.startswith("gt_tangent") or k == "reason"}
+        for r in rows
+    ]
+    assert hr.near_gt_summary(old)["disagree"]["median_ct_axis_to_gt"] == 10.0
 
 
 def test_last_tile(tmp_path):
