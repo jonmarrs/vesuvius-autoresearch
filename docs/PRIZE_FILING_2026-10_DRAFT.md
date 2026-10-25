@@ -70,8 +70,8 @@ clipped "#1780" to "#17".
    findings 97–98) were merged on 2026-10-24 and tagged together as v0.9.0. The URL field cites
    `tree/v0.9.0`; the test binds the cite to ScrollGT's newest tag, so a later
    release must update it. Findings 84–85 are folded in (2026-10-12). Finding 93 and the placement measurements
-   (#151, #157) are folded in (2026-10-20), finding 94 on 2026-10-20, findings 95–97 on 2026-10-23, and finding 98
-   on 2026-10-24. Finding 99's exploratory heading analysis was reviewed and merged on 2026-10-25.
+   (#151, #157) are folded in (2026-10-20), finding 94 on 2026-10-20, findings 95–97 on 2026-10-23, finding 98
+   on 2026-10-24, and finding 99 on 2026-10-25.
 4. Finding 85 measures an open villa PR (#1934). The user-approved comment sharing it with the author was posted
    2026-10-12 (https://github.com/ScrollPrize/villa/pull/1934#issuecomment-6131993208) and is cited in part (2). On filing day, re-read the thread: quote any reply verbatim, record
    whether #1934 is still open, and do not characterise silence.
@@ -250,13 +250,19 @@ four predictions held):
   change: at tolerance 4 it leads on all eleven, and at tolerance 2 it leads on Scroll 3 and trails on Scroll 5, at a
   median 0.59 of our tracer rather than 0.44. Across all 21 cubes, given the scan around each, it leads our tracer on
   19 at tolerance 4 (11 with the cube alone) and on 10 at tolerance 2 (8).
-* **The remaining heading failures are CT-axis disagreements in the classified dots** (finding 99, exploratory,
-  not pre-registered). It classifies all 12,471 dots on the ten 256³ cubes and a fixed sample of 2,000 on each
-  512³ cube. Every classified failure is the 35° agreement check; this does not classify the unsampled dots.
-  Near ground truth on the two held-out Scroll-5 cubes, the presence direction is a median 13–15° from its
-  tangent, while the CT family axis is 58°. Failures are associated with sheet tilt, pointing to the H/V-axis
-  assumption as a useful next experiment. A large eigengap and a tangent near the plane do not prove the normal
-  correct, or establish tilt as the sole cause. No tracing or coverage improvement was measured here.
+* **What still drops seeds where it is held out** (finding 99, exploratory: not pre-registered, though its three
+  expectations were pushed before it ran; two failed, below). Given the scan, it still drops 0.266 and 0.353 of its
+  seed dots on the two held-out Scroll-5 256³ cubes, and 0.011–0.088 on Scroll 3. On all 21 cubes, every classified
+  dot that fails does so at one check in villa's seed heading: the CT's axis for the dot's fiber family lies more
+  than 35° from the dot's direction from the presence. On the 512³ cubes a 2,000-dot sample was classified. At the
+  dropped dots near the ground truth on those ten held-out cubes, the presence direction lies a median 10–16° from
+  its tangent, and the CT's axis 58–81°. The sheet the CT shows there is tilted a median 52–74° from vertical, and
+  villa takes an H fiber to run along the sheet's horizontal line. Per cube, the share of dots in sheets tilted more
+  than 45° tracks the share dropped (Pearson r 0.98 over the 21 cubes, Spearman 0.92). That is an association, not
+  a demonstrated cause: nothing was traced again.
+  It classifies all 12,471 dots on the ten 256³ cubes and a fixed sample of 2,000 on each 512³ cube; this does not
+  classify the unsampled dots. On the two held-out Scroll-5 cubes specifically, the presence direction is a median
+  13–15° from its tangent, while the CT family axis is 58°. No tracing or coverage improvement was measured here.
 
 **(3) What it enables that was not possible before.**
 * [inkagree](https://github.com/jonmarrs/inkagree) (MIT; first released 2026-10-03, now 0.3.0, which evaluates only
@@ -311,9 +317,8 @@ four predictions held):
   Finding 96 is exploratory, not pre-registered. It is in `reports/neural_tracer_boundary.md`, with its committed JSON.
   Finding 97 is in `reports/neural_tracer_ct_context.md`, with its committed JSON and pre-registration (amended
   before its run). Finding 98 is in `reports/neural_tracer_ct_context_512.md`, with its committed JSON and
-  pre-registration.
-  Finding 99 is exploratory, not pre-registered. It is in `reports/neural_tracer_heading_residual.md`, with both
-  measurement JSONs, its expectations and the review's population and interpretation limits.
+  pre-registration. Finding 99 is exploratory, not pre-registered. It is in `reports/neural_tracer_heading_residual.md`,
+  with its two committed JSONs.
 * Every figure here is bound by a test to the file that produced it.
 * [villa #2044](https://github.com/ScrollPrize/villa/pull/2044) records the memory limits, hardware,
   before/after runs and the averaging comparison behind the scorer fix. The full GPU scorer has
@@ -390,6 +395,12 @@ four predictions held):
     7.91 µm, fall to at most 0.80: 0.88).
   * finding 94 prediction 2 (at tolerance 4, villa's neural tracer would still trail our tracer on at least 9 of 11
     in-sample cubes: it trailed on 8).
+* **Two of finding 99's three expectations failed too.** They were pushed before it ran, but finding 99 was not
+  pre-registered, so they are not in the count above. I expected the presence direction to be the further from the
+  ground truth at most nearby dropped dots; it was the closer. Pooled over the 21 cubes, the CT's axis is the closer
+  at 0.12 of those 1,347 dots, and at fewer than half of them on 18 of the 21 cubes. I expected fewer than 0.10 of
+  all dots to be dropped on every cube but the two held-out Scroll-5 ones; two Scroll-3 cubes dropped 0.127 and 0.169
+  of their sampled dots.
 * **The effect's size depends on grid cell size** (finding 73, measured): about 1% per window on
   villa's 20-voxel segment meshes, a 6.2% median and −32% to +42% per window on 80-voxel grids like the
   spiral surfaces. Quote the size with the grid.
@@ -423,6 +434,8 @@ four predictions held):
   4 it leads on three of them, finding 94). On the ten 256³ ones, our protocol kept it from seeding near the faces
   (finding 96). Given the scan around them, it leads on 8 of the 10 at tolerance 4 (finding 97). In sample it still
   trails at tolerance 2 on all 11 cubes given the scan (findings 97 and 98). One checkpoint, defaults.
+* Not "tilted sheets cause the held-out seed loss", nor "following the sheet would add coverage". Finding 99 is
+  exploratory and shows an association on the classified dots; nothing was traced again.
 * Not "ScrollGT's ground truth is wrong on five cubes". Two entrants and the CT agree on an offset of about a voxel
   there, measured after the fact. It explains part of the in-sample gap, and the ground truth is unchanged.
 * Not "the Scroll-5 miss is the annotators". Finding 84 rules out a frame offset and a threshold, nothing more.

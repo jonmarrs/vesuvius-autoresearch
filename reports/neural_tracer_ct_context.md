@@ -77,6 +77,10 @@ around the cube it drops fewer seeds and covers more".
 * **The two held-out cubes still drop 0.266 and 0.353 of their seed dots.** That is not the window rule: the padding
   reaches 64 trace-grid voxels beyond each face, past any window's 19-voxel reach from inside the box. Its cause is
   untested. These are the two cubes where the reference mask also fails (finding 84).
+  *(2026-10-25: finding 99, exploratory, in `neural_tracer_heading_residual.md`, classified every seed dot of both
+  cubes. Each dot that fails does so at villa's last check: the CT's axis lies more than 35° from the dot's direction.
+  0.78 and 0.84 of their dots lie in sheets tilted more than 45° from vertical, against at most 0.04 on any in-sample
+  cube.)*
 
 ## What it means
 
