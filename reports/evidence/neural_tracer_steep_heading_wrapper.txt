@@ -1,0 +1,8 @@
+WRAPPER_START 9d31f36d 2026-10-25T00:58:16-07:00
+CYCLE_BOUNDARY history 1386 -> 1387 2026-10-25T01:09:56-07:00
+Autoresearch work stopped. Watchdog paused.
+LOOP_STOPPED rc 0 2026-10-25T01:09:57-07:00
+CHAIN_RC 0 2026-10-25T02:55:18-07:00
+LOOP_RESTARTED 2026-10-25T02:55:48-07:00
+status OK; reading a seed heading that follows the sheet recovers coverage on the two held-out Scroll-5 cubes, not as registered on Scroll 3, keeping its precision; the heading matters: villa's own axis, kept, recovers less; wrote reports/neural_tracer_steep_heading.json
+SCORE_RC 0 2026-10-25T04:15:34-07:00
