@@ -1,0 +1,1612 @@
+{
+ "status": "exploratory, after finding 97 (expectations E1-E3 in the script, written before it was run)",
+ "villa": "ccb431818",
+ "runs": {
+  "256": "neural_tracer/ct_context_run/neural",
+  "512": "neural_tracer/ct_context_512_run/neural"
+ },
+ "agree_degrees": 35.0,
+ "near": 4.0,
+ "sample_512": 2000,
+ "seeds_512": 300,
+ "check": 50,
+ "rng_seed": 0,
+ "cubes": {
+  "s1_00497_01497_03997_256": {
+   "recorded": {
+    "dots": 1457,
+    "owned_dots": 903,
+    "traced": 539,
+    "no_heading": 15
+   },
+   "dots": 1457,
+   "classified": 1457,
+   "counts": {
+    "edge": 0,
+    "no_normal": 0,
+    "ambiguous": 0,
+    "disagree": 18,
+    "ok": 1439
+   },
+   "dropped_share": 0.012354152367879179,
+   "by_family": {
+    "H": {
+     "edge": 0,
+     "no_normal": 0,
+     "ambiguous": 0,
+     "disagree": 9,
+     "ok": 783
+    },
+    "V": {
+     "edge": 0,
+     "no_normal": 0,
+     "ambiguous": 0,
+     "disagree": 9,
+     "ok": 656
+    }
+   },
+   "near_gt": {
+    "edge": {
+     "near": 0,
+     "median_presence_to_gt": null,
+     "median_ct_axis_to_gt": null,
+     "ct_axis_closer_share": null
+    },
+    "no_normal": {
+     "near": 0,
+     "median_presence_to_gt": null,
+     "median_ct_axis_to_gt": null,
+     "ct_axis_closer_share": null
+    },
+    "ambiguous": {
+     "near": 0,
+     "median_presence_to_gt": null,
+     "median_ct_axis_to_gt": null,
+     "ct_axis_closer_share": null
+    },
+    "disagree": {
+     "near": 7,
+     "median_presence_to_gt": 14.965857508136802,
+     "median_ct_axis_to_gt": 37.73949066360287,
+     "ct_axis_closer_share": 0.14285714285714285
+    },
+    "ok": {
+     "near": 1001,
+     "median_presence_to_gt": 8.9139164332285,
+     "median_ct_axis_to_gt": 11.728485475268677,
+     "ct_axis_closer_share": 0.3276723276723277
+    }
+   },
+   "villa_check": {
+    "dots": 50,
+    "mismatches": 0
+   },
+   "written_seeds": {
+    "checked": 276,
+    "failing": 0,
+    "unmatched": 0
+   },
+   "skeleton_sha256": "d7a8604aa9b2b84a1498d0669eb490e8a6bb7c7504be188e1792b2d5ebe87764"
+  },
+  "s1_00497_02497_02997_256": {
+   "recorded": {
+    "dots": 1357,
+    "owned_dots": 922,
+    "traced": 425,
+    "no_heading": 10
+   },
+   "dots": 1357,
+   "classified": 1357,
+   "counts": {
+    "edge": 0,
+    "no_normal": 0,
+    "ambiguous": 0,
+    "disagree": 14,
+    "ok": 1343
+   },
+   "dropped_share": 0.010316875460574804,
+   "by_family": {
+    "H": {
+     "edge": 0,
+     "no_normal": 0,
+     "ambiguous": 0,
+     "disagree": 10,
+     "ok": 680
+    },
+    "V": {
+     "edge": 0,
+     "no_normal": 0,
+     "ambiguous": 0,
+     "disagree": 4,
+     "ok": 663
+    }
+   },
+   "near_gt": {
+    "edge": {
+     "near": 0,
+     "median_presence_to_gt": null,
+     "median_ct_axis_to_gt": null,
+     "ct_axis_closer_share": null
+    },
+    "no_normal": {
+     "near": 0,
+     "median_presence_to_gt": null,
+     "median_ct_axis_to_gt": null,
+     "ct_axis_closer_share": null
+    },
+    "ambiguous": {
+     "near": 0,
+     "median_presence_to_gt": null,
+     "median_ct_axis_to_gt": null,
+     "ct_axis_closer_share": null
+    },
+    "disagree": {
+     "near": 11,
+     "median_presence_to_gt": 20.491324329926446,
+     "median_ct_axis_to_gt": 63.325599372383444,
+     "ct_axis_closer_share": 0.2727272727272727
+    },
+    "ok": {
+     "near": 1095,
+     "median_presence_to_gt": 7.810404494433656,
+     "median_ct_axis_to_gt": 9.626849673311908,
+     "ct_axis_closer_share": 0.35251141552511417
+    }
+   },
+   "villa_check": {
+    "dots": 50,
+    "mismatches": 0
+   },
+   "written_seeds": {
+    "checked": 258,
+    "failing": 0,
+    "unmatched": 0
+   },
+   "skeleton_sha256": "7b62d285a37b8cc6c5fd93cd7a1c8d6dcd79b5377247c6da3db04c97e16aa383"
+  },
+  "s1_00997_02497_02997_256": {
+   "recorded": {
+    "dots": 1461,
+    "owned_dots": 1025,
+    "traced": 433,
+    "no_heading": 3
+   },
+   "dots": 1461,
+   "classified": 1461,
+   "counts": {
+    "edge": 0,
+    "no_normal": 0,
+    "ambiguous": 0,
+    "disagree": 4,
+    "ok": 1457
+   },
+   "dropped_share": 0.002737850787132068,
+   "by_family": {
+    "H": {
+     "edge": 0,
+     "no_normal": 0,
+     "ambiguous": 0,
+     "disagree": 2,
+     "ok": 817
+    },
+    "V": {
+     "edge": 0,
+     "no_normal": 0,
+     "ambiguous": 0,
+     "disagree": 2,
+     "ok": 640
+    }
+   },
+   "near_gt": {
+    "edge": {
+     "near": 0,
+     "median_presence_to_gt": null,
+     "median_ct_axis_to_gt": null,
+     "ct_axis_closer_share": null
+    },
+    "no_normal": {
+     "near": 0,
+     "median_presence_to_gt": null,
+     "median_ct_axis_to_gt": null,
+     "ct_axis_closer_share": null
+    },
+    "ambiguous": {
+     "near": 0,
+     "median_presence_to_gt": null,
+     "median_ct_axis_to_gt": null,
+     "ct_axis_closer_share": null
+    },
+    "disagree": {
+     "near": 3,
+     "median_presence_to_gt": 45.67667290154994,
+     "median_ct_axis_to_gt": 32.36940636041004,
+     "ct_axis_closer_share": 0.6666666666666666
+    },
+    "ok": {
+     "near": 1124,
+     "median_presence_to_gt": 6.673211066652316,
+     "median_ct_axis_to_gt": 10.391546011962426,
+     "ct_axis_closer_share": 0.2998220640569395
+    }
+   },
+   "villa_check": {
+    "dots": 50,
+    "mismatches": 0
+   },
+   "written_seeds": {
+    "checked": 271,
+    "failing": 0,
+    "unmatched": 0
+   },
+   "skeleton_sha256": "42479ba3940cf13ec22fa52cca34ebd2f02a157e3a929eab1fd6faf1e7b8cc4d"
+  },
+  "s1_08997_02997_02497_256": {
+   "recorded": {
+    "dots": 1395,
+    "owned_dots": 978,
+    "traced": 414,
+    "no_heading": 3
+   },
+   "dots": 1395,
+   "classified": 1395,
+   "counts": {
+    "edge": 0,
+    "no_normal": 0,
+    "ambiguous": 0,
+    "disagree": 7,
+    "ok": 1388
+   },
+   "dropped_share": 0.00501792114695343,
+   "by_family": {
+    "H": {
+     "edge": 0,
+     "no_normal": 0,
+     "ambiguous": 0,
+     "disagree": 6,
+     "ok": 698
+    },
+    "V": {
+     "edge": 0,
+     "no_normal": 0,
+     "ambiguous": 0,
+     "disagree": 1,
+     "ok": 690
+    }
+   },
+   "near_gt": {
+    "edge": {
+     "near": 0,
+     "median_presence_to_gt": null,
+     "median_ct_axis_to_gt": null,
+     "ct_axis_closer_share": null
+    },
+    "no_normal": {
+     "near": 0,
+     "median_presence_to_gt": null,
+     "median_ct_axis_to_gt": null,
+     "ct_axis_closer_share": null
+    },
+    "ambiguous": {
+     "near": 0,
+     "median_presence_to_gt": null,
+     "median_ct_axis_to_gt": null,
+     "ct_axis_closer_share": null
+    },
+    "disagree": {
+     "near": 5,
+     "median_presence_to_gt": 10.557059737501492,
+     "median_ct_axis_to_gt": 57.09436604696623,
+     "ct_axis_closer_share": 0.4
+    },
+    "ok": {
+     "near": 1163,
+     "median_presence_to_gt": 11.577026159302312,
+     "median_ct_axis_to_gt": 18.312712083158868,
+     "ct_axis_closer_share": 0.22098022355975924
+    }
+   },
+   "villa_check": {
+    "dots": 50,
+    "mismatches": 0
+   },
+   "written_seeds": {
+    "checked": 260,
+    "failing": 0,
+    "unmatched": 0
+   },
+   "skeleton_sha256": "b75f06cd68a82c6bb7d0d486edf6fede71d065c414f02584b8519f48b5c8b145"
+  },
+  "s1_10997_02997_02997_256": {
+   "recorded": {
+    "dots": 1380,
+    "owned_dots": 958,
+    "traced": 414,
+    "no_heading": 8
+   },
+   "dots": 1380,
+   "classified": 1380,
+   "counts": {
+    "edge": 0,
+    "no_normal": 0,
+    "ambiguous": 0,
+    "disagree": 12,
+    "ok": 1368
+   },
+   "dropped_share": 0.008695652173912993,
+   "by_family": {
+    "H": {
+     "edge": 0,
+     "no_normal": 0,
+     "ambiguous": 0,
+     "disagree": 9,
+     "ok": 823
+    },
+    "V": {
+     "edge": 0,
+     "no_normal": 0,
+     "ambiguous": 0,
+     "disagree": 3,
+     "ok": 545
+    }
+   },
+   "near_gt": {
+    "edge": {
+     "near": 0,
+     "median_presence_to_gt": null,
+     "median_ct_axis_to_gt": null,
+     "ct_axis_closer_share": null
+    },
+    "no_normal": {
+     "near": 0,
+     "median_presence_to_gt": null,
+     "median_ct_axis_to_gt": null,
+     "ct_axis_closer_share": null
+    },
+    "ambiguous": {
+     "near": 0,
+     "median_presence_to_gt": null,
+     "median_ct_axis_to_gt": null,
+     "ct_axis_closer_share": null
+    },
+    "disagree": {
+     "near": 7,
+     "median_presence_to_gt": 59.260937157731014,
+     "median_ct_axis_to_gt": 41.75999679705205,
+     "ct_axis_closer_share": 0.42857142857142855
+    },
+    "ok": {
+     "near": 944,
+     "median_presence_to_gt": 7.032336589364872,
+     "median_ct_axis_to_gt": 8.126003175913366,
+     "ct_axis_closer_share": 0.4025423728813559
+    }
+   },
+   "villa_check": {
+    "dots": 50,
+    "mismatches": 0
+   },
+   "written_seeds": {
+    "checked": 245,
+    "failing": 0,
+    "unmatched": 0
+   },
+   "skeleton_sha256": "fe88b070dcfbee82cc5930de0f93e3b16529d75c7308bb09521f25232eb65d5c"
+  },
+  "s5_03997_01497_03997_256": {
+   "recorded": {
+    "dots": 1049,
+    "owned_dots": 687,
+    "traced": 352,
+    "no_heading": 10
+   },
+   "dots": 1049,
+   "classified": 1049,
+   "counts": {
+    "edge": 0,
+    "no_normal": 0,
+    "ambiguous": 0,
+    "disagree": 14,
+    "ok": 1035
+   },
+   "dropped_share": 0.013346043851286904,
+   "by_family": {
+    "H": {
+     "edge": 0,
+     "no_normal": 0,
+     "ambiguous": 0,
+     "disagree": 12,
+     "ok": 562
+    },
+    "V": {
+     "edge": 0,
+     "no_normal": 0,
+     "ambiguous": 0,
+     "disagree": 2,
+     "ok": 473
+    }
+   },
+   "near_gt": {
+    "edge": {
+     "near": 0,
+     "median_presence_to_gt": null,
+     "median_ct_axis_to_gt": null,
+     "ct_axis_closer_share": null
+    },
+    "no_normal": {
+     "near": 0,
+     "median_presence_to_gt": null,
+     "median_ct_axis_to_gt": null,
+     "ct_axis_closer_share": null
+    },
+    "ambiguous": {
+     "near": 0,
+     "median_presence_to_gt": null,
+     "median_ct_axis_to_gt": null,
+     "ct_axis_closer_share": null
+    },
+    "disagree": {
+     "near": 8,
+     "median_presence_to_gt": 20.442990690954865,
+     "median_ct_axis_to_gt": 69.943666183053,
+     "ct_axis_closer_share": 0.25
+    },
+    "ok": {
+     "near": 614,
+     "median_presence_to_gt": 9.376113174947779,
+     "median_ct_axis_to_gt": 11.177958060498632,
+     "ct_axis_closer_share": 0.3745928338762215
+    }
+   },
+   "villa_check": {
+    "dots": 50,
+    "mismatches": 0
+   },
+   "written_seeds": {
+    "checked": 193,
+    "failing": 0,
+    "unmatched": 0
+   },
+   "skeleton_sha256": "6b6863a5b2846e42af05b41f9b24d9b76113a49b5cb5c7a62110f934d260a511"
+  },
+  "s5_07997_02997_05497_256": {
+   "recorded": {
+    "dots": 1076,
+    "owned_dots": 729,
+    "traced": 343,
+    "no_heading": 4
+   },
+   "dots": 1076,
+   "classified": 1076,
+   "counts": {
+    "edge": 0,
+    "no_normal": 0,
+    "ambiguous": 0,
+    "disagree": 6,
+    "ok": 1070
+   },
+   "dropped_share": 0.005576208178438624,
+   "by_family": {
+    "H": {
+     "edge": 0,
+     "no_normal": 0,
+     "ambiguous": 0,
+     "disagree": 6,
+     "ok": 644
+    },
+    "V": {
+     "edge": 0,
+     "no_normal": 0,
+     "ambiguous": 0,
+     "disagree": 0,
+     "ok": 426
+    }
+   },
+   "near_gt": {
+    "edge": {
+     "near": 0,
+     "median_presence_to_gt": null,
+     "median_ct_axis_to_gt": null,
+     "ct_axis_closer_share": null
+    },
+    "no_normal": {
+     "near": 0,
+     "median_presence_to_gt": null,
+     "median_ct_axis_to_gt": null,
+     "ct_axis_closer_share": null
+    },
+    "ambiguous": {
+     "near": 0,
+     "median_presence_to_gt": null,
+     "median_ct_axis_to_gt": null,
+     "ct_axis_closer_share": null
+    },
+    "disagree": {
+     "near": 2,
+     "median_presence_to_gt": 20.263436061848196,
+     "median_ct_axis_to_gt": 85.35317027419026,
+     "ct_axis_closer_share": 0.0
+    },
+    "ok": {
+     "near": 869,
+     "median_presence_to_gt": 7.764362922876598,
+     "median_ct_axis_to_gt": 8.955052206231548,
+     "ct_axis_closer_share": 0.42577675489067895
+    }
+   },
+   "villa_check": {
+    "dots": 50,
+    "mismatches": 0
+   },
+   "written_seeds": {
+    "checked": 186,
+    "failing": 0,
+    "unmatched": 0
+   },
+   "skeleton_sha256": "c65934e971f09eddf9cbafd30d53023beb9f6c86069c9daf0b4b46e417c19dfc"
+  },
+  "s5_13497_01497_02497_256": {
+   "recorded": {
+    "dots": 910,
+    "owned_dots": 299,
+    "traced": 369,
+    "no_heading": 242
+   },
+   "dots": 910,
+   "classified": 910,
+   "counts": {
+    "edge": 0,
+    "no_normal": 0,
+    "ambiguous": 0,
+    "disagree": 284,
+    "ok": 626
+   },
+   "dropped_share": 0.3120879120879121,
+   "by_family": {
+    "H": {
+     "edge": 0,
+     "no_normal": 0,
+     "ambiguous": 0,
+     "disagree": 238,
+     "ok": 495
+    },
+    "V": {
+     "edge": 0,
+     "no_normal": 0,
+     "ambiguous": 0,
+     "disagree": 46,
+     "ok": 131
+    }
+   },
+   "near_gt": {
+    "edge": {
+     "near": 0,
+     "median_presence_to_gt": null,
+     "median_ct_axis_to_gt": null,
+     "ct_axis_closer_share": null
+    },
+    "no_normal": {
+     "near": 0,
+     "median_presence_to_gt": null,
+     "median_ct_axis_to_gt": null,
+     "ct_axis_closer_share": null
+    },
+    "ambiguous": {
+     "near": 0,
+     "median_presence_to_gt": null,
+     "median_ct_axis_to_gt": null,
+     "ct_axis_closer_share": null
+    },
+    "disagree": {
+     "near": 122,
+     "median_presence_to_gt": 14.712347908376097,
+     "median_ct_axis_to_gt": 58.12457700631634,
+     "ct_axis_closer_share": 0.18032786885245902
+    },
+    "ok": {
+     "near": 299,
+     "median_presence_to_gt": 9.959637656887258,
+     "median_ct_axis_to_gt": 18.135029107128485,
+     "ct_axis_closer_share": 0.2976588628762542
+    }
+   },
+   "villa_check": {
+    "dots": 50,
+    "mismatches": 0
+   },
+   "written_seeds": {
+    "checked": 193,
+    "failing": 0,
+    "unmatched": 0
+   },
+   "skeleton_sha256": "00cd1698626c83d019464e0bff1b7dc074c18690a06a62c9359806fb58e6f4e5"
+  },
+  "s5_14997_01497_01497_256": {
+   "recorded": {
+    "dots": 1491,
+    "owned_dots": 991,
+    "traced": 493,
+    "no_heading": 7
+   },
+   "dots": 1491,
+   "classified": 1491,
+   "counts": {
+    "edge": 0,
+    "no_normal": 0,
+    "ambiguous": 0,
+    "disagree": 12,
+    "ok": 1479
+   },
+   "dropped_share": 0.008048289738430636,
+   "by_family": {
+    "H": {
+     "edge": 0,
+     "no_normal": 0,
+     "ambiguous": 0,
+     "disagree": 10,
+     "ok": 773
+    },
+    "V": {
+     "edge": 0,
+     "no_normal": 0,
+     "ambiguous": 0,
+     "disagree": 2,
+     "ok": 706
+    }
+   },
+   "near_gt": {
+    "edge": {
+     "near": 0,
+     "median_presence_to_gt": null,
+     "median_ct_axis_to_gt": null,
+     "ct_axis_closer_share": null
+    },
+    "no_normal": {
+     "near": 0,
+     "median_presence_to_gt": null,
+     "median_ct_axis_to_gt": null,
+     "ct_axis_closer_share": null
+    },
+    "ambiguous": {
+     "near": 0,
+     "median_presence_to_gt": null,
+     "median_ct_axis_to_gt": null,
+     "ct_axis_closer_share": null
+    },
+    "disagree": {
+     "near": 11,
+     "median_presence_to_gt": 20.489197156428204,
+     "median_ct_axis_to_gt": 29.056238308575196,
+     "ct_axis_closer_share": 0.2727272727272727
+    },
+    "ok": {
+     "near": 1307,
+     "median_presence_to_gt": 8.429204585566106,
+     "median_ct_axis_to_gt": 13.06578015946757,
+     "ct_axis_closer_share": 0.26472838561591433
+    }
+   },
+   "villa_check": {
+    "dots": 50,
+    "mismatches": 0
+   },
+   "written_seeds": {
+    "checked": 299,
+    "failing": 0,
+    "unmatched": 0
+   },
+   "skeleton_sha256": "c23cc494d1db7f6aa2b5ffbcc5e27fed89b5a47d4b9fe0fa5acc103d3fed3293"
+  },
+  "s5_16997_03997_04497_256": {
+   "recorded": {
+    "dots": 895,
+    "owned_dots": 291,
+    "traced": 288,
+    "no_heading": 316
+   },
+   "dots": 895,
+   "classified": 895,
+   "counts": {
+    "edge": 0,
+    "no_normal": 0,
+    "ambiguous": 0,
+    "disagree": 377,
+    "ok": 518
+   },
+   "dropped_share": 0.42122905027932966,
+   "by_family": {
+    "H": {
+     "edge": 0,
+     "no_normal": 0,
+     "ambiguous": 0,
+     "disagree": 324,
+     "ok": 410
+    },
+    "V": {
+     "edge": 0,
+     "no_normal": 0,
+     "ambiguous": 0,
+     "disagree": 53,
+     "ok": 108
+    }
+   },
+   "near_gt": {
+    "edge": {
+     "near": 0,
+     "median_presence_to_gt": null,
+     "median_ct_axis_to_gt": null,
+     "ct_axis_closer_share": null
+    },
+    "no_normal": {
+     "near": 0,
+     "median_presence_to_gt": null,
+     "median_ct_axis_to_gt": null,
+     "ct_axis_closer_share": null
+    },
+    "ambiguous": {
+     "near": 0,
+     "median_presence_to_gt": null,
+     "median_ct_axis_to_gt": null,
+     "ct_axis_closer_share": null
+    },
+    "disagree": {
+     "near": 221,
+     "median_presence_to_gt": 13.354193292511695,
+     "median_ct_axis_to_gt": 58.29930020575792,
+     "ct_axis_closer_share": 0.08597285067873303
+    },
+    "ok": {
+     "near": 328,
+     "median_presence_to_gt": 12.78176306833154,
+     "median_ct_axis_to_gt": 17.181852295944964,
+     "ct_axis_closer_share": 0.36585365853658536
+    }
+   },
+   "villa_check": {
+    "dots": 50,
+    "mismatches": 0
+   },
+   "written_seeds": {
+    "checked": 182,
+    "failing": 0,
+    "unmatched": 0
+   },
+   "skeleton_sha256": "4e9d43b9ff12d999403d1e71e51fc59b9affbf45e485535a6d4fd340fe3f481b"
+  },
+  "s3_00994_00494_01994_512": {
+   "recorded": {
+    "dots": 10029,
+    "owned_dots": 6914,
+    "traced": 2375,
+    "no_heading": 740
+   },
+   "dots": 10029,
+   "classified": 2000,
+   "counts": {
+    "edge": 0,
+    "no_normal": 0,
+    "ambiguous": 0,
+    "disagree": 255,
+    "ok": 1745
+   },
+   "dropped_share": 0.12749999999999995,
+   "by_family": {
+    "H": {
+     "edge": 0,
+     "no_normal": 0,
+     "ambiguous": 0,
+     "disagree": 227,
+     "ok": 1082
+    },
+    "V": {
+     "edge": 0,
+     "no_normal": 0,
+     "ambiguous": 0,
+     "disagree": 28,
+     "ok": 663
+    }
+   },
+   "near_gt": {
+    "edge": {
+     "near": 0,
+     "median_presence_to_gt": null,
+     "median_ct_axis_to_gt": null,
+     "ct_axis_closer_share": null
+    },
+    "no_normal": {
+     "near": 0,
+     "median_presence_to_gt": null,
+     "median_ct_axis_to_gt": null,
+     "ct_axis_closer_share": null
+    },
+    "ambiguous": {
+     "near": 0,
+     "median_presence_to_gt": null,
+     "median_ct_axis_to_gt": null,
+     "ct_axis_closer_share": null
+    },
+    "disagree": {
+     "near": 124,
+     "median_presence_to_gt": 12.046777026701182,
+     "median_ct_axis_to_gt": 72.32434930708587,
+     "ct_axis_closer_share": 0.04838709677419355
+    },
+    "ok": {
+     "near": 1198,
+     "median_presence_to_gt": 9.98897853034587,
+     "median_ct_axis_to_gt": 14.247166125942648,
+     "ct_axis_closer_share": 0.2996661101836394
+    }
+   },
+   "villa_check": {
+    "dots": 50,
+    "mismatches": 0
+   },
+   "written_seeds": {
+    "checked": 300,
+    "failing": 0,
+    "unmatched": 0
+   },
+   "skeleton_sha256": "6161d4687a98831fecab9708ca253547a3e43f7dfb453a3fb5404851215863d4"
+  },
+  "s3_00994_01994_00494_512": {
+   "recorded": {
+    "dots": 10860,
+    "owned_dots": 8310,
+    "traced": 2166,
+    "no_heading": 384
+   },
+   "dots": 10860,
+   "classified": 2000,
+   "counts": {
+    "edge": 0,
+    "no_normal": 0,
+    "ambiguous": 0,
+    "disagree": 143,
+    "ok": 1857
+   },
+   "dropped_share": 0.07150000000000001,
+   "by_family": {
+    "H": {
+     "edge": 0,
+     "no_normal": 0,
+     "ambiguous": 0,
+     "disagree": 130,
+     "ok": 996
+    },
+    "V": {
+     "edge": 0,
+     "no_normal": 0,
+     "ambiguous": 0,
+     "disagree": 13,
+     "ok": 861
+    }
+   },
+   "near_gt": {
+    "edge": {
+     "near": 0,
+     "median_presence_to_gt": null,
+     "median_ct_axis_to_gt": null,
+     "ct_axis_closer_share": null
+    },
+    "no_normal": {
+     "near": 0,
+     "median_presence_to_gt": null,
+     "median_ct_axis_to_gt": null,
+     "ct_axis_closer_share": null
+    },
+    "ambiguous": {
+     "near": 0,
+     "median_presence_to_gt": null,
+     "median_ct_axis_to_gt": null,
+     "ct_axis_closer_share": null
+    },
+    "disagree": {
+     "near": 95,
+     "median_presence_to_gt": 13.062564958139985,
+     "median_ct_axis_to_gt": 77.83079975881495,
+     "ct_axis_closer_share": 0.031578947368421054
+    },
+    "ok": {
+     "near": 1491,
+     "median_presence_to_gt": 9.992031299816372,
+     "median_ct_axis_to_gt": 13.37827308056809,
+     "ct_axis_closer_share": 0.32193158953722334
+    }
+   },
+   "villa_check": {
+    "dots": 50,
+    "mismatches": 0
+   },
+   "written_seeds": {
+    "checked": 300,
+    "failing": 0,
+    "unmatched": 0
+   },
+   "skeleton_sha256": "32e5976150d63d5d38ebb52ad11a0862c445d61b75b9b6d025313424048ae08a"
+  },
+  "s3_00994_02494_01494_512": {
+   "recorded": {
+    "dots": 10879,
+    "owned_dots": 7410,
+    "traced": 2509,
+    "no_heading": 960
+   },
+   "dots": 10879,
+   "classified": 2000,
+   "counts": {
+    "edge": 0,
+    "no_normal": 0,
+    "ambiguous": 0,
+    "disagree": 338,
+    "ok": 1662
+   },
+   "dropped_share": 0.16900000000000004,
+   "by_family": {
+    "H": {
+     "edge": 0,
+     "no_normal": 0,
+     "ambiguous": 0,
+     "disagree": 310,
+     "ok": 951
+    },
+    "V": {
+     "edge": 0,
+     "no_normal": 0,
+     "ambiguous": 0,
+     "disagree": 28,
+     "ok": 711
+    }
+   },
+   "near_gt": {
+    "edge": {
+     "near": 0,
+     "median_presence_to_gt": null,
+     "median_ct_axis_to_gt": null,
+     "ct_axis_closer_share": null
+    },
+    "no_normal": {
+     "near": 0,
+     "median_presence_to_gt": null,
+     "median_ct_axis_to_gt": null,
+     "ct_axis_closer_share": null
+    },
+    "ambiguous": {
+     "near": 0,
+     "median_presence_to_gt": null,
+     "median_ct_axis_to_gt": null,
+     "ct_axis_closer_share": null
+    },
+    "disagree": {
+     "near": 213,
+     "median_presence_to_gt": 12.39912422878268,
+     "median_ct_axis_to_gt": 74.06198068577595,
+     "ct_axis_closer_share": 0.08450704225352113
+    },
+    "ok": {
+     "near": 1193,
+     "median_presence_to_gt": 9.376234378714113,
+     "median_ct_axis_to_gt": 14.4699236049284,
+     "ct_axis_closer_share": 0.2908633696563286
+    }
+   },
+   "villa_check": {
+    "dots": 50,
+    "mismatches": 0
+   },
+   "written_seeds": {
+    "checked": 300,
+    "failing": 0,
+    "unmatched": 0
+   },
+   "skeleton_sha256": "02cfdb8ee2fa625807c973c867c4afbd6573a9cb9e3b022956296a170b2bc2b1"
+  },
+  "s3_01994_01494_00994_512": {
+   "recorded": {
+    "dots": 9513,
+    "owned_dots": 5888,
+    "traced": 2949,
+    "no_heading": 676
+   },
+   "dots": 9513,
+   "classified": 2000,
+   "counts": {
+    "edge": 0,
+    "no_normal": 0,
+    "ambiguous": 0,
+    "disagree": 193,
+    "ok": 1807
+   },
+   "dropped_share": 0.09650000000000003,
+   "by_family": {
+    "H": {
+     "edge": 0,
+     "no_normal": 0,
+     "ambiguous": 0,
+     "disagree": 161,
+     "ok": 928
+    },
+    "V": {
+     "edge": 0,
+     "no_normal": 0,
+     "ambiguous": 0,
+     "disagree": 32,
+     "ok": 879
+    }
+   },
+   "near_gt": {
+    "edge": {
+     "near": 0,
+     "median_presence_to_gt": null,
+     "median_ct_axis_to_gt": null,
+     "ct_axis_closer_share": null
+    },
+    "no_normal": {
+     "near": 0,
+     "median_presence_to_gt": null,
+     "median_ct_axis_to_gt": null,
+     "ct_axis_closer_share": null
+    },
+    "ambiguous": {
+     "near": 0,
+     "median_presence_to_gt": null,
+     "median_ct_axis_to_gt": null,
+     "ct_axis_closer_share": null
+    },
+    "disagree": {
+     "near": 101,
+     "median_presence_to_gt": 15.736751690666944,
+     "median_ct_axis_to_gt": 68.20343533602188,
+     "ct_axis_closer_share": 0.09900990099009901
+    },
+    "ok": {
+     "near": 1275,
+     "median_presence_to_gt": 10.219118886884246,
+     "median_ct_axis_to_gt": 14.648845775229969,
+     "ct_axis_closer_share": 0.30901960784313726
+    }
+   },
+   "villa_check": {
+    "dots": 50,
+    "mismatches": 0
+   },
+   "written_seeds": {
+    "checked": 300,
+    "failing": 0,
+    "unmatched": 0
+   },
+   "skeleton_sha256": "04a59df25570c73b64c2b8e7c6fa9ebb9077a6d25c6051e3da0dc092cb936a3a"
+  },
+  "s3_01994_01994_01494_512": {
+   "recorded": {
+    "dots": 10503,
+    "owned_dots": 6771,
+    "traced": 3086,
+    "no_heading": 646
+   },
+   "dots": 10503,
+   "classified": 2000,
+   "counts": {
+    "edge": 0,
+    "no_normal": 0,
+    "ambiguous": 0,
+    "disagree": 189,
+    "ok": 1811
+   },
+   "dropped_share": 0.09450000000000003,
+   "by_family": {
+    "H": {
+     "edge": 0,
+     "no_normal": 0,
+     "ambiguous": 0,
+     "disagree": 164,
+     "ok": 950
+    },
+    "V": {
+     "edge": 0,
+     "no_normal": 0,
+     "ambiguous": 0,
+     "disagree": 25,
+     "ok": 861
+    }
+   },
+   "near_gt": {
+    "edge": {
+     "near": 0,
+     "median_presence_to_gt": null,
+     "median_ct_axis_to_gt": null,
+     "ct_axis_closer_share": null
+    },
+    "no_normal": {
+     "near": 0,
+     "median_presence_to_gt": null,
+     "median_ct_axis_to_gt": null,
+     "ct_axis_closer_share": null
+    },
+    "ambiguous": {
+     "near": 0,
+     "median_presence_to_gt": null,
+     "median_ct_axis_to_gt": null,
+     "ct_axis_closer_share": null
+    },
+    "disagree": {
+     "near": 93,
+     "median_presence_to_gt": 13.278334870754426,
+     "median_ct_axis_to_gt": 66.74166605748154,
+     "ct_axis_closer_share": 0.17204301075268819
+    },
+    "ok": {
+     "near": 1271,
+     "median_presence_to_gt": 8.679763012745541,
+     "median_ct_axis_to_gt": 12.766592689560365,
+     "ct_axis_closer_share": 0.2981904012588513
+    }
+   },
+   "villa_check": {
+    "dots": 50,
+    "mismatches": 0
+   },
+   "written_seeds": {
+    "checked": 300,
+    "failing": 0,
+    "unmatched": 0
+   },
+   "skeleton_sha256": "0727c2e493c7f2a097cf6ddbe986cd1accda6f238966fd5c6a21f3aaa865548b"
+  },
+  "s3_02994_02494_01994_512": {
+   "recorded": {
+    "dots": 11925,
+    "owned_dots": 9704,
+    "traced": 2094,
+    "no_heading": 127
+   },
+   "dots": 11925,
+   "classified": 2000,
+   "counts": {
+    "edge": 0,
+    "no_normal": 0,
+    "ambiguous": 0,
+    "disagree": 40,
+    "ok": 1960
+   },
+   "dropped_share": 0.020000000000000018,
+   "by_family": {
+    "H": {
+     "edge": 0,
+     "no_normal": 0,
+     "ambiguous": 0,
+     "disagree": 37,
+     "ok": 966
+    },
+    "V": {
+     "edge": 0,
+     "no_normal": 0,
+     "ambiguous": 0,
+     "disagree": 3,
+     "ok": 994
+    }
+   },
+   "near_gt": {
+    "edge": {
+     "near": 0,
+     "median_presence_to_gt": null,
+     "median_ct_axis_to_gt": null,
+     "ct_axis_closer_share": null
+    },
+    "no_normal": {
+     "near": 0,
+     "median_presence_to_gt": null,
+     "median_ct_axis_to_gt": null,
+     "ct_axis_closer_share": null
+    },
+    "ambiguous": {
+     "near": 0,
+     "median_presence_to_gt": null,
+     "median_ct_axis_to_gt": null,
+     "ct_axis_closer_share": null
+    },
+    "disagree": {
+     "near": 32,
+     "median_presence_to_gt": 15.174365960699177,
+     "median_ct_axis_to_gt": 80.683055582243,
+     "ct_axis_closer_share": 0.1875
+    },
+    "ok": {
+     "near": 1555,
+     "median_presence_to_gt": 8.757400554197591,
+     "median_ct_axis_to_gt": 11.057284133645396,
+     "ct_axis_closer_share": 0.3762057877813505
+    }
+   },
+   "villa_check": {
+    "dots": 50,
+    "mismatches": 0
+   },
+   "written_seeds": {
+    "checked": 300,
+    "failing": 0,
+    "unmatched": 0
+   },
+   "skeleton_sha256": "bdc540a34bb36ec419f7fe5b253c28f29a9c192429c3c4c13156f1844389bf3c"
+  },
+  "s3_03494_01494_00494_512": {
+   "recorded": {
+    "dots": 10154,
+    "owned_dots": 7599,
+    "traced": 2016,
+    "no_heading": 539
+   },
+   "dots": 10154,
+   "classified": 2000,
+   "counts": {
+    "edge": 0,
+    "no_normal": 0,
+    "ambiguous": 0,
+    "disagree": 184,
+    "ok": 1816
+   },
+   "dropped_share": 0.09199999999999997,
+   "by_family": {
+    "H": {
+     "edge": 0,
+     "no_normal": 0,
+     "ambiguous": 0,
+     "disagree": 170,
+     "ok": 988
+    },
+    "V": {
+     "edge": 0,
+     "no_normal": 0,
+     "ambiguous": 0,
+     "disagree": 14,
+     "ok": 828
+    }
+   },
+   "near_gt": {
+    "edge": {
+     "near": 0,
+     "median_presence_to_gt": null,
+     "median_ct_axis_to_gt": null,
+     "ct_axis_closer_share": null
+    },
+    "no_normal": {
+     "near": 0,
+     "median_presence_to_gt": null,
+     "median_ct_axis_to_gt": null,
+     "ct_axis_closer_share": null
+    },
+    "ambiguous": {
+     "near": 0,
+     "median_presence_to_gt": null,
+     "median_ct_axis_to_gt": null,
+     "ct_axis_closer_share": null
+    },
+    "disagree": {
+     "near": 140,
+     "median_presence_to_gt": 9.869318499257586,
+     "median_ct_axis_to_gt": 73.54642143578832,
+     "ct_axis_closer_share": 0.05714285714285714
+    },
+    "ok": {
+     "near": 1532,
+     "median_presence_to_gt": 9.267607615989519,
+     "median_ct_axis_to_gt": 12.1661527564282,
+     "ct_axis_closer_share": 0.37597911227154046
+    }
+   },
+   "villa_check": {
+    "dots": 50,
+    "mismatches": 0
+   },
+   "written_seeds": {
+    "checked": 300,
+    "failing": 0,
+    "unmatched": 0
+   },
+   "skeleton_sha256": "03601a1459e23fc0710ca655c1f5bee9c960bb616614df6c05300f8031b2c2d2"
+  },
+  "s3_04494_00994_01494_512": {
+   "recorded": {
+    "dots": 11576,
+    "owned_dots": 8677,
+    "traced": 2444,
+    "no_heading": 455
+   },
+   "dots": 11576,
+   "classified": 2000,
+   "counts": {
+    "edge": 0,
+    "no_normal": 0,
+    "ambiguous": 0,
+    "disagree": 153,
+    "ok": 1847
+   },
+   "dropped_share": 0.07650000000000001,
+   "by_family": {
+    "H": {
+     "edge": 0,
+     "no_normal": 0,
+     "ambiguous": 0,
+     "disagree": 136,
+     "ok": 1053
+    },
+    "V": {
+     "edge": 0,
+     "no_normal": 0,
+     "ambiguous": 0,
+     "disagree": 17,
+     "ok": 794
+    }
+   },
+   "near_gt": {
+    "edge": {
+     "near": 0,
+     "median_presence_to_gt": null,
+     "median_ct_axis_to_gt": null,
+     "ct_axis_closer_share": null
+    },
+    "no_normal": {
+     "near": 0,
+     "median_presence_to_gt": null,
+     "median_ct_axis_to_gt": null,
+     "ct_axis_closer_share": null
+    },
+    "ambiguous": {
+     "near": 0,
+     "median_presence_to_gt": null,
+     "median_ct_axis_to_gt": null,
+     "ct_axis_closer_share": null
+    },
+    "disagree": {
+     "near": 105,
+     "median_presence_to_gt": 12.785819983519438,
+     "median_ct_axis_to_gt": 65.0554741413304,
+     "ct_axis_closer_share": 0.1523809523809524
+    },
+    "ok": {
+     "near": 1433,
+     "median_presence_to_gt": 8.567338112013964,
+     "median_ct_axis_to_gt": 12.137924730403487,
+     "ct_axis_closer_share": 0.3279832519190509
+    }
+   },
+   "villa_check": {
+    "dots": 50,
+    "mismatches": 0
+   },
+   "written_seeds": {
+    "checked": 300,
+    "failing": 0,
+    "unmatched": 0
+   },
+   "skeleton_sha256": "f721b1e70abcc548d0dcf4e7c53ddcdeab7854c02fc0e3fe843340fa1fbd4b00"
+  },
+  "s5_06494_01994_03994_512": {
+   "recorded": {
+    "dots": 12432,
+    "owned_dots": 10513,
+    "traced": 1873,
+    "no_heading": 46
+   },
+   "dots": 12432,
+   "classified": 2000,
+   "counts": {
+    "edge": 0,
+    "no_normal": 0,
+    "ambiguous": 0,
+    "disagree": 19,
+    "ok": 1981
+   },
+   "dropped_share": 0.009499999999999953,
+   "by_family": {
+    "H": {
+     "edge": 0,
+     "no_normal": 0,
+     "ambiguous": 0,
+     "disagree": 15,
+     "ok": 884
+    },
+    "V": {
+     "edge": 0,
+     "no_normal": 0,
+     "ambiguous": 0,
+     "disagree": 4,
+     "ok": 1097
+    }
+   },
+   "near_gt": {
+    "edge": {
+     "near": 0,
+     "median_presence_to_gt": null,
+     "median_ct_axis_to_gt": null,
+     "ct_axis_closer_share": null
+    },
+    "no_normal": {
+     "near": 0,
+     "median_presence_to_gt": null,
+     "median_ct_axis_to_gt": null,
+     "ct_axis_closer_share": null
+    },
+    "ambiguous": {
+     "near": 0,
+     "median_presence_to_gt": null,
+     "median_ct_axis_to_gt": null,
+     "ct_axis_closer_share": null
+    },
+    "disagree": {
+     "near": 12,
+     "median_presence_to_gt": 36.20613241901276,
+     "median_ct_axis_to_gt": 16.39357840743278,
+     "ct_axis_closer_share": 0.6666666666666666
+    },
+    "ok": {
+     "near": 1510,
+     "median_presence_to_gt": 8.179639679602321,
+     "median_ct_axis_to_gt": 10.239214015809054,
+     "ct_axis_closer_share": 0.371523178807947
+    }
+   },
+   "villa_check": {
+    "dots": 50,
+    "mismatches": 0
+   },
+   "written_seeds": {
+    "checked": 300,
+    "failing": 0,
+    "unmatched": 0
+   },
+   "skeleton_sha256": "088c185ca3cd420e6f83ea6138251702a00a0b12883c05254a2ef4cdef656312"
+  },
+  "s5_06994_00994_04994_512": {
+   "recorded": {
+    "dots": 13806,
+    "owned_dots": 11085,
+    "traced": 2555,
+    "no_heading": 166
+   },
+   "dots": 13806,
+   "classified": 2000,
+   "counts": {
+    "edge": 0,
+    "no_normal": 0,
+    "ambiguous": 0,
+    "disagree": 43,
+    "ok": 1957
+   },
+   "dropped_share": 0.021499999999999964,
+   "by_family": {
+    "H": {
+     "edge": 0,
+     "no_normal": 0,
+     "ambiguous": 0,
+     "disagree": 36,
+     "ok": 993
+    },
+    "V": {
+     "edge": 0,
+     "no_normal": 0,
+     "ambiguous": 0,
+     "disagree": 7,
+     "ok": 964
+    }
+   },
+   "near_gt": {
+    "edge": {
+     "near": 0,
+     "median_presence_to_gt": null,
+     "median_ct_axis_to_gt": null,
+     "ct_axis_closer_share": null
+    },
+    "no_normal": {
+     "near": 0,
+     "median_presence_to_gt": null,
+     "median_ct_axis_to_gt": null,
+     "ct_axis_closer_share": null
+    },
+    "ambiguous": {
+     "near": 0,
+     "median_presence_to_gt": null,
+     "median_ct_axis_to_gt": null,
+     "ct_axis_closer_share": null
+    },
+    "disagree": {
+     "near": 27,
+     "median_presence_to_gt": 27.67773058930884,
+     "median_ct_axis_to_gt": 73.93133841219662,
+     "ct_axis_closer_share": 0.37037037037037035
+    },
+    "ok": {
+     "near": 1420,
+     "median_presence_to_gt": 8.578310077854344,
+     "median_ct_axis_to_gt": 10.861157050723302,
+     "ct_axis_closer_share": 0.37464788732394366
+    }
+   },
+   "villa_check": {
+    "dots": 50,
+    "mismatches": 0
+   },
+   "written_seeds": {
+    "checked": 300,
+    "failing": 0,
+    "unmatched": 0
+   },
+   "skeleton_sha256": "c1c93d7b1711b7d165788f9b14dfce638e76b8208055864dd18bb0b0763089b5"
+  },
+  "s5_07994_01994_05494_512": {
+   "recorded": {
+    "dots": 13464,
+    "owned_dots": 11380,
+    "traced": 2035,
+    "no_heading": 49
+   },
+   "dots": 13464,
+   "classified": 2000,
+   "counts": {
+    "edge": 0,
+    "no_normal": 0,
+    "ambiguous": 0,
+    "disagree": 14,
+    "ok": 1986
+   },
+   "dropped_share": 0.007000000000000006,
+   "by_family": {
+    "H": {
+     "edge": 0,
+     "no_normal": 0,
+     "ambiguous": 0,
+     "disagree": 10,
+     "ok": 962
+    },
+    "V": {
+     "edge": 0,
+     "no_normal": 0,
+     "ambiguous": 0,
+     "disagree": 4,
+     "ok": 1024
+    }
+   },
+   "near_gt": {
+    "edge": {
+     "near": 0,
+     "median_presence_to_gt": null,
+     "median_ct_axis_to_gt": null,
+     "ct_axis_closer_share": null
+    },
+    "no_normal": {
+     "near": 0,
+     "median_presence_to_gt": null,
+     "median_ct_axis_to_gt": null,
+     "ct_axis_closer_share": null
+    },
+    "ambiguous": {
+     "near": 0,
+     "median_presence_to_gt": null,
+     "median_ct_axis_to_gt": null,
+     "ct_axis_closer_share": null
+    },
+    "disagree": {
+     "near": 8,
+     "median_presence_to_gt": 67.16101814259476,
+     "median_ct_axis_to_gt": 28.290578339781604,
+     "ct_axis_closer_share": 0.875
+    },
+    "ok": {
+     "near": 1347,
+     "median_presence_to_gt": 9.10838160287581,
+     "median_ct_axis_to_gt": 9.853896820979234,
+     "ct_axis_closer_share": 0.4239049740163326
+    }
+   },
+   "villa_check": {
+    "dots": 50,
+    "mismatches": 0
+   },
+   "written_seeds": {
+    "checked": 300,
+    "failing": 0,
+    "unmatched": 0
+   },
+   "skeleton_sha256": "a7426d8bf422880308743fe7e1e8d4e0f2e5c804799cf5443267c063f8cd1b21"
+  }
+ }
+}
