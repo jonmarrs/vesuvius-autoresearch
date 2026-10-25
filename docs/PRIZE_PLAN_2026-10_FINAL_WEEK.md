@@ -1,7 +1,8 @@
 # October Progress Prize: readiness and final-week plan
 
-Plan updated **2026-10-25 UTC**; the rules, form and link snapshot below is
-from **2026-10-23 UTC**. We have a credible submission now, based on three
+Plan updated **2026-10-25 UTC**. The rules, form, links and merge states were
+rechecked; the [new snapshot](../reports/evidence/october_prize_readiness_2026-10-25.json)
+supplements the original **October 23** record. We have a credible submission now, based on three
 merged Villa contributions. Additional merges or research results can improve
 it; they are not prerequisites for filing the work already completed.
 
@@ -22,10 +23,21 @@ submitted and the receipt is preserved.
 | Existing filing URLs | All 19 pre-update links returned HTTP 200. Recheck final text on filing day. |
 | Live form | October title and four-part contribution question confirmed; required email/name/team/terms and optional Discord field identified. |
 
-[Concise form answers](PRIZE_FILING_2026-10_FORM_ANSWERS.md) now lead with the
+[Concise engineering form answers](PRIZE_FILING_2026-10_FORM_ANSWERS.md) lead with the
 three merged fixes. The [longer draft](PRIZE_FILING_2026-10_DRAFT.md) preserves
 the benchmark research and its disclosures. Three merges are evidence of
 integration, not a guarantee of a particular award or of ongoing usage.
+
+An [optional separate research answer](PRIZE_FILING_2026-10_RESEARCH_FORM_ANSWERS.md)
+now focuses on October's ScrollGT releases and the context studies. It gives
+Finding 99 its sampled-population and exploratory limits. Keep the engineering
+bundle ready independently; a new research experiment is not needed to file it.
+
+The [public-data CPU reproduction](../reports/scrollgt_cpu_reproduction_2026-10-25.md)
+has now run. It found and reproduced a 512³ scorer allocation failure; the
+prepared ScrollGT fix completes that same control at 2.57 GiB peak RSS under
+the unchanged budget, with the published row reproduced exactly. Its public
+walkthrough records the limit, source hashes and comparison scope.
 
 The official rules favor early releases, actual use, real-data improvements,
 useful fixes, actionable analysis and documentation. They explicitly ask for
@@ -38,11 +50,11 @@ returned HTTP 403, so the current repository source supplied the rules.
 
 | Priority | Work and useful outcome | Finish condition / dependency |
 | --- | --- | --- |
-| 1 | Complete the existing Villa contributions: #2141 SQLite track reader, #2258 fractional seeding, #2259 headless CLI docs. These address real workflows and already have measured evidence. | Available GitHub Actions runs pass and local checks pass. Incorporate new review feedback if it appears. A maintainer must merge: the linked account has read-only Villa permissions and normal merge returned HTTP 403. Vercel preview authorization is also outstanding. |
-| 2 | Publish the prepared #1482 native retry fix when permissions and an upstream PR slot allow. It turns deterministic hangs into bounded, descriptive failures. | Branch `jonmarrs/villa:fix/native-retry-cycle` is pushed; 13 selected tests pass. The real-mesh probe proves termination for deliberately supplied invalid regions. It does not reproduce full training or default discovery. Get a reproducible complete-environment or real-training confirmation if available. |
-| 3 | Make the existing benchmark easier to use: a compact example showing a real held-out Scroll-5 miss beside a Scroll-3 control, with exact commands, fixed versions and clear in-sample disclosure. | A fresh user can reproduce the published rows with documented inputs. Use ScrollGT v0.9.0, the release cited by the updated filing, and public artifacts; no retuning or new quality claim. Include the context distinction from Findings 97–98. A full cold-run check is still to be done here; the October 23 readiness review checked the then-cited versions and released metadata only. |
-| 4 | Review and package the completed tracing-context results, Findings 96–98. The proposed octant tracing study was withdrawn without being run. | Use the committed reports and their source-bound checks; do not launch the withdrawn registration. Keep cube-only and real-CT-context rows distinct, and preserve the unchanged-presence and unpadded-comparator limitations described below. |
-| 5 | Publish the eight-line reference-provenance clarification, after the code fix. It helps readers interpret tracer-assisted references. | Pushed branch `jonmarrs/villa:docs/fiber-reference-provenance`, backed by all 853 public annotation files. This establishes provenance, not score bias or an improved tracer. It shares the upstream publication permission blocker. |
+| 1 | Freeze and file the engineering bundle based on the three confirmed merges. | Final personal fields and terms, filing-day rechecks, actual submission and saved receipt. Target October 29; deadline October 31 at 11:59 p.m. Pacific. Do not wait for more merges. |
+| 2 | Finish the real-data CPU reproduction and its ScrollGT memory fix. The 512³ control exposed a whole-volume EDT allocation failure under a 7 GiB address-space budget. | Publish the bounded-slab implementation only after exact label/score comparisons and the fiber tests. Keep the scoring definition and published rows unchanged. Preserve both the baseline failure and the successful run, with commands and limits. |
+| 3 | Package the optional research submission around the released benchmark and Findings 96–99. | Review the separate form answer; preserve in-sample, context and exploratory disclosures. A measured improvement to a new heading policy is not part of the completed evidence. |
+| 4 | Complete the existing Villa contributions when access permits: #2141, #2258, #2259, then the prepared native-retry and reference-provenance branches. | The integration remains read-only. A maintainer must merge the existing PRs; prepared PR creation returned HTTP 403. All passing checks and pushed branches stay separate from merged credits. Incorporate actual new feedback if it arrives. |
+| 5 | Optionally run one pre-registered seed-heading pilot suggested by Finding 99. Compare the current H/V axis with the presence direction projected into the same CT sheet. | Needs the original padded inputs, checkpoint and an available GPU, which this environment does not provide. Fix the rule before outcomes; require the stock identity smoke; use paired runs on the two held-out Scroll-5 cubes and one Scroll-3 control, with a two-GPU-hour cap. Report coverage, merge-penalized ERL, merges and runtime, including a null or failure. No threshold sweep on the evaluation skeletons. Stop if the smoke or budget fails; do not delay filing. |
 
 The integration's creation and merge errors are preserved in
 [the review record](../reports/evidence/villa_pr_review_2026-10-23.json).
@@ -66,6 +78,10 @@ The replacement studies are already complete:
   Our tracer's comparator rows remain unpadded. They do not establish a
   matched-context comparison between both tracers or a new mask-model result.
   The detailed filing includes these results and cites ScrollGT v0.9.0.
+- [Finding 99](../reports/neural_tracer_heading_residual.md) classifies every
+  small-cube dot and samples the large-cube dots. The remaining classified
+  failures are CT-axis disagreements and correlate with sheet tilt. This is
+  an exploratory diagnosis, not a measured improvement to a new tracer.
 
 The October 25 PR review found no further defects in the three existing Villa
 PRs or the two prepared branches. Their heads remain unchanged. Available
@@ -87,7 +103,7 @@ record remains unchanged; this paragraph records the follow-up check.
   keep the existing PRs ready for maintainer review. Prepare the native retry
   handoff and the benchmark reproduction example.
 - **October 25–27:** finish that CPU reproduction work and review Findings
-  96–98 against the updated filing. Keep the withdrawn octant tracing study
+  96–99 against the updated filing. Keep the withdrawn octant tracing study
   withdrawn. Complete the prepared upstream contributions when publication
   and merge access become available.
 - **October 28:** freeze the submission narrative and public evidence links.

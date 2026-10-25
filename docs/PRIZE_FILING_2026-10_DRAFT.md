@@ -71,7 +71,7 @@ clipped "#1780" to "#17".
    `tree/v0.9.0`; the test binds the cite to ScrollGT's newest tag, so a later
    release must update it. Findings 84–85 are folded in (2026-10-12). Finding 93 and the placement measurements
    (#151, #157) are folded in (2026-10-20), finding 94 on 2026-10-20, findings 95–97 on 2026-10-23, and finding 98
-   on 2026-10-24.
+   on 2026-10-24. Finding 99's exploratory heading analysis was reviewed and merged on 2026-10-25.
 4. Finding 85 measures an open villa PR (#1934). The user-approved comment sharing it with the author was posted
    2026-10-12 (https://github.com/ScrollPrize/villa/pull/1934#issuecomment-6131993208) and is cited in part (2). On filing day, re-read the thread: quote any reply verbatim, record
    whether #1934 is still open, and do not characterise silence.
@@ -250,6 +250,13 @@ four predictions held):
   change: at tolerance 4 it leads on all eleven, and at tolerance 2 it leads on Scroll 3 and trails on Scroll 5, at a
   median 0.59 of our tracer rather than 0.44. Across all 21 cubes, given the scan around each, it leads our tracer on
   19 at tolerance 4 (11 with the cube alone) and on 10 at tolerance 2 (8).
+* **The remaining heading failures are CT-axis disagreements in the classified dots** (finding 99, exploratory,
+  not pre-registered). It classifies all 12,471 dots on the ten 256³ cubes and a fixed sample of 2,000 on each
+  512³ cube. Every classified failure is the 35° agreement check; this does not classify the unsampled dots.
+  Near ground truth on the two held-out Scroll-5 cubes, the presence direction is a median 13–15° from its
+  tangent, while the CT family axis is 58°. Failures are associated with sheet tilt, pointing to the H/V-axis
+  assumption as a useful next experiment. A large eigengap and a tangent near the plane do not prove the normal
+  correct, or establish tilt as the sole cause. No tracing or coverage improvement was measured here.
 
 **(3) What it enables that was not possible before.**
 * [inkagree](https://github.com/jonmarrs/inkagree) (MIT; first released 2026-10-03, now 0.3.0, which evaluates only
@@ -294,7 +301,7 @@ four predictions held):
     against 8. Scoring and every existing row are unchanged.
 
 **(4) Evidence.**
-* Each study was pre-registered before its data, and each has a report and its scripts in
+* Registered studies were pre-registered before their data; exploratory analyses are labelled separately. Reports and scripts are in
   https://github.com/jonmarrs/vesuvius-autoresearch (findings 69–85 in
   `reports/SPIRAL_FINDINGS_SUMMARY.md`; findings 91–94 in `reports/neural_tracer_entrant.md`,
   `reports/neural_tracer_pitch.md`, `reports/neural_tracer_seeding.md` and `reports/tolerance4_rescore.md`; the
@@ -305,6 +312,8 @@ four predictions held):
   Finding 97 is in `reports/neural_tracer_ct_context.md`, with its committed JSON and pre-registration (amended
   before its run). Finding 98 is in `reports/neural_tracer_ct_context_512.md`, with its committed JSON and
   pre-registration.
+  Finding 99 is exploratory, not pre-registered. It is in `reports/neural_tracer_heading_residual.md`, with both
+  measurement JSONs, its expectations and the review's population and interpretation limits.
 * Every figure here is bound by a test to the file that produced it.
 * [villa #2044](https://github.com/ScrollPrize/villa/pull/2044) records the memory limits, hardware,
   before/after runs and the averaging comparison behind the scorer fix. The full GPU scorer has

@@ -1,0 +1,234 @@
+{
+  "merged_contributions": [
+    {
+      "number": 2022,
+      "url": "https://github.com/ScrollPrize/villa/pull/2022",
+      "merged": true,
+      "merged_at": "2026-10-11T23:25:33Z",
+      "merge_commit": "7a7b3f677991954ec5ecff17b9b08ab30ff6a926"
+    },
+    {
+      "number": 2044,
+      "url": "https://github.com/ScrollPrize/villa/pull/2044",
+      "merged": true,
+      "merged_at": "2026-10-12T01:49:09Z",
+      "merge_commit": "9afddaf0fdc12efe088bab7b82534c4f9a79e536"
+    },
+    {
+      "number": 2155,
+      "url": "https://github.com/ScrollPrize/villa/pull/2155",
+      "merged": true,
+      "merged_at": "2026-10-21T19:50:31Z",
+      "merge_commit": "e016bc71d9b873b3e52871f42aa3e7a34520cfb1"
+    }
+  ],
+  "pending_contributions": [
+    {
+      "number": 2141,
+      "url": "https://github.com/ScrollPrize/villa/pull/2141",
+      "state": "open",
+      "head_sha": "19575a4527755b62f4f94e9b713c05769bc4118e"
+    },
+    {
+      "number": 2258,
+      "url": "https://github.com/ScrollPrize/villa/pull/2258",
+      "state": "open",
+      "head_sha": "242f0798cbf3d512f372db050be08203018e71d1"
+    },
+    {
+      "number": 2259,
+      "url": "https://github.com/ScrollPrize/villa/pull/2259",
+      "state": "open",
+      "head_sha": "d119561f3fb89fceae579bcf2e8671fb6d7e2c9a"
+    }
+  ],
+  "villa_permissions": {
+    "admin": false,
+    "maintain": false,
+    "pull": true,
+    "push": false,
+    "triage": false
+  },
+  "checked_at_utc": "2026-10-25T14:48:40.920158+00:00",
+  "submitted": false,
+  "deadline_pacific": "2026-10-31T23:59:00-07:00",
+  "deadline_utc": "2026-11-01T06:59:00+00:00",
+  "target_filing_date": "2026-10-29",
+  "rules": {
+    "repository": "ScrollPrize/villa",
+    "commit": "322cb0899ac9efe2588d5a3395dce6dc2dea3c89",
+    "path": "scrollprize.org/docs/34_prizes.md",
+    "sha256": "d849244eb5d9c82dcde5004005702a1f558e8d625fea0923d91e24ef0668bf28"
+  },
+  "form": {
+    "url": "https://docs.google.com/forms/d/e/1FAIpQLSc4flEfgK2nyjoczz2_U_XrIGMlgrnSknWatLqrFPnbtKfZwg/viewform",
+    "http_status": 200,
+    "title": "October 2026 Progress Prizes",
+    "html_sha256": "9d471f37a12276e53c1e0a3b7e6ffebb46a10bb2e5fc87d9b30bd9c61aef5f9c",
+    "email_required": true,
+    "sign_in_to_continue": true,
+    "questions": [
+      {
+        "label": "Your full name",
+        "required": true
+      },
+      {
+        "label": "Team description \u2014 are you submitting as an individual or as a team, and who is on your team? (If on a team, the team leader should be the one filling out this form)",
+        "required": true
+      },
+      {
+        "label": "If you are a member of our Discord server, what is your display name there?",
+        "required": false
+      },
+      {
+        "label": "URL of your open source / publicly available contribution, e.g. GitHub repo or PR (you can add multiple)",
+        "required": true
+      },
+      {
+        "label": "What is your contribution? Please mention (1) Which scroll data did you work on for this submission? (2) How does it substantially increase the probability of yourself or someone else reading those scrolls or others? (3) What does it enable that was not possible before? (4) What evidence have you provided for this?",
+        "required": true
+      },
+      {
+        "label": "Terms and Conditions\n\nPrizes are awarded at the sole discretion of Scroll Prize, Inc. and are subject to review by our Technical Team, Annotation Team, and Papyrological Team. We may issue more or fewer awards based on the spirit of the prize and the received submissions. You agree to make your method open source if you win a prize. It does not have to be open source at the time of submission, but you have to make it open source under a permissive license to accept the prize. Submissions for milestone prizes will close once the winner is announced and their methods are open sourced. Scroll Prize, Inc. reserves the right to modify prize terms at any time in order to more accurately reflect the spirit of the prize as designed. Prize winner must provide payment information to Scroll Prize, Inc. within 30 days of prize announcement to receive prize.",
+        "required": true
+      }
+    ],
+    "form_configuration_allows_updates": "Thanks for submitting your open source contributions! If you'd like to add more, please edit this form, or submit a new one."
+  },
+  "url_checks": [
+    {
+      "url": "https://docs.google.com/forms/d/e/1FAIpQLSc4flEfgK2nyjoczz2_U_XrIGMlgrnSknWatLqrFPnbtKfZwg/viewform",
+      "status": 200,
+      "final_url": "https://docs.google.com/forms/d/e/1FAIpQLSc4flEfgK2nyjoczz2_U_XrIGMlgrnSknWatLqrFPnbtKfZwg/viewform"
+    },
+    {
+      "url": "https://github.com/ScrollPrize/villa/commit/7a7b3f677991954ec5ecff17b9b08ab30ff6a926",
+      "status": 200,
+      "final_url": "https://github.com/ScrollPrize/villa/commit/7a7b3f677991954ec5ecff17b9b08ab30ff6a926"
+    },
+    {
+      "url": "https://github.com/ScrollPrize/villa/commit/9afddaf0fdc12efe088bab7b82534c4f9a79e536",
+      "status": 200,
+      "final_url": "https://github.com/ScrollPrize/villa/commit/9afddaf0fdc12efe088bab7b82534c4f9a79e536"
+    },
+    {
+      "url": "https://github.com/ScrollPrize/villa/commit/e016bc71d9b873b3e52871f42aa3e7a34520cfb1",
+      "status": 200,
+      "final_url": "https://github.com/ScrollPrize/villa/commit/e016bc71d9b873b3e52871f42aa3e7a34520cfb1"
+    },
+    {
+      "url": "https://github.com/ScrollPrize/villa/pull/1934",
+      "status": 200,
+      "final_url": "https://github.com/ScrollPrize/villa/pull/1934"
+    },
+    {
+      "url": "https://github.com/ScrollPrize/villa/pull/1934#issuecomment-6131993208",
+      "status": 200,
+      "final_url": "https://github.com/ScrollPrize/villa/pull/1934#issuecomment-6131993208"
+    },
+    {
+      "url": "https://github.com/ScrollPrize/villa/pull/2022",
+      "status": 200,
+      "final_url": "https://github.com/ScrollPrize/villa/pull/2022"
+    },
+    {
+      "url": "https://github.com/ScrollPrize/villa/pull/2044",
+      "status": 200,
+      "final_url": "https://github.com/ScrollPrize/villa/pull/2044"
+    },
+    {
+      "url": "https://github.com/ScrollPrize/villa/pull/2045",
+      "status": 200,
+      "final_url": "https://github.com/ScrollPrize/villa/pull/2045"
+    },
+    {
+      "url": "https://github.com/ScrollPrize/villa/pull/2141#issuecomment-6290970541",
+      "status": 200,
+      "final_url": "https://github.com/ScrollPrize/villa/pull/2141#issuecomment-6290970541"
+    },
+    {
+      "url": "https://github.com/ScrollPrize/villa/pull/2155",
+      "status": 200,
+      "final_url": "https://github.com/ScrollPrize/villa/pull/2155"
+    },
+    {
+      "url": "https://github.com/jonmarrs/inkagree",
+      "status": 200,
+      "final_url": "https://github.com/jonmarrs/inkagree"
+    },
+    {
+      "url": "https://github.com/jonmarrs/inkdelta",
+      "status": 200,
+      "final_url": "https://github.com/jonmarrs/inkdelta"
+    },
+    {
+      "url": "https://github.com/jonmarrs/scrollgt",
+      "status": 200,
+      "final_url": "https://github.com/jonmarrs/scrollgt"
+    },
+    {
+      "url": "https://github.com/jonmarrs/scrollgt/pull/1",
+      "status": 200,
+      "final_url": "https://github.com/jonmarrs/scrollgt/pull/1"
+    },
+    {
+      "url": "https://github.com/jonmarrs/scrollgt/tree/v0.4.0",
+      "status": 200,
+      "final_url": "https://github.com/jonmarrs/scrollgt/tree/v0.4.0"
+    },
+    {
+      "url": "https://github.com/jonmarrs/scrollgt/tree/v0.4.1",
+      "status": 200,
+      "final_url": "https://github.com/jonmarrs/scrollgt/tree/v0.4.1"
+    },
+    {
+      "url": "https://github.com/jonmarrs/scrollgt/tree/v0.9.0",
+      "status": 200,
+      "final_url": "https://github.com/jonmarrs/scrollgt/tree/v0.9.0"
+    },
+    {
+      "url": "https://github.com/jonmarrs/vesuvius-autoresearch",
+      "status": 200,
+      "final_url": "https://github.com/jonmarrs/vesuvius-autoresearch"
+    },
+    {
+      "url": "https://github.com/jonmarrs/scrollgt/blob/38496eb8ce5dc094c94ec852a332ee2293ea73a1/docs/FIBER_SCORER_MEMORY.md",
+      "status": 200,
+      "final_url": "https://github.com/jonmarrs/scrollgt/blob/38496eb8ce5dc094c94ec852a332ee2293ea73a1/docs/FIBER_SCORER_MEMORY.md"
+    },
+    {
+      "url": "https://github.com/jonmarrs/scrollgt/pull/14",
+      "status": 200,
+      "final_url": "https://github.com/jonmarrs/scrollgt/pull/14"
+    },
+    {
+      "url": "https://github.com/jonmarrs/vesuvius-autoresearch/blob/b808f3d3fe208440137022bfc63039829c92d613/reports/neural_tracer_ct_context.md",
+      "status": 200,
+      "final_url": "https://github.com/jonmarrs/vesuvius-autoresearch/blob/b808f3d3fe208440137022bfc63039829c92d613/reports/neural_tracer_ct_context.md"
+    },
+    {
+      "url": "https://github.com/jonmarrs/vesuvius-autoresearch/blob/b808f3d3fe208440137022bfc63039829c92d613/reports/neural_tracer_ct_context_512.md",
+      "status": 200,
+      "final_url": "https://github.com/jonmarrs/vesuvius-autoresearch/blob/b808f3d3fe208440137022bfc63039829c92d613/reports/neural_tracer_ct_context_512.md"
+    },
+    {
+      "url": "https://github.com/jonmarrs/vesuvius-autoresearch/blob/b808f3d3fe208440137022bfc63039829c92d613/reports/neural_tracer_heading_residual.md",
+      "status": 200,
+      "final_url": "https://github.com/jonmarrs/vesuvius-autoresearch/blob/b808f3d3fe208440137022bfc63039829c92d613/reports/neural_tracer_heading_residual.md"
+    }
+  ],
+  "upstream_claim_checks": {
+    "detailed_filing": "PASS",
+    "engineering_form_answers": "PASS"
+  },
+  "remaining_required_actions": [
+    "Final personal fields and terms",
+    "Filing-day form/rules/PR/link recheck",
+    "Actual submission and saved receipt"
+  ],
+  "optional_additions": [
+    "Separate research filing",
+    "Complete pending Villa PRs when maintainer/integration access allows",
+    "Registered seed-heading pilot if original inputs and GPU become available"
+  ]
+}
