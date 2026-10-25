@@ -13,13 +13,17 @@ patched `_seed_heading` returns (bound by `tests/test_villa_draft_volume_seed_he
 1. **A slot.** One of our three open villa PRs has closed. Code-fix PRs are at most two a week.
 2. **Re-verify against villa's main of that day.** `_seed_heading` and the module docstring unchanged (the patch
    still applies), and no PR or issue already covers it (`gh search prs --repo ScrollPrize/villa "seed heading"`).
-   Checked 2026-10-25 at `322cb0899`: the patch applies; `_seed_heading` is unchanged since our pin `ccb431818`;
-   #2165 changed the pool's chunking in `seed_headings` (the output order is kept) and rewrote the structure
-   tensor's filtering in `shared/ct_structure.py`, both described as exact. The only related open PR, #2265, is
-   VC3D's C++ fiber tracer, not this code.
-3. **The GPU re-run on villa's main, if the owner approves it** (it pauses the autoresearch loop for minutes). The
-   measurement is at `ccb431818`, before #2165, which says it keeps outputs exact. Until then the Details section
-   says so.
+   Checked 2026-10-25 at `322cb0899`: the patch applies, and `_seed_heading` is unchanged since our pin
+   `ccb431818`. #2165 ("without changing inference outputs") has since rewritten the volume tracer's hot path:
+   seed headings, path features and advancement, structure tensors, crop sampling and an optional CUDA graph. It
+   checked each part for exact outputs, not a whole run. The only related open PR, #2265, is VC3D's C++ fiber
+   tracer, not this code.
+3. **The GPU re-run on villa's main.** Done 2026-10-25 at `322cb0899`, with the owner's approval (the loop paused
+   13:16–13:21). villa's own CLI traced the two held-out Scroll-5 cubes with finding 97's inputs and command. Without
+   the patch, the traces are identical point for point to finding 97's runs at `ccb431818`; with it, to finding
+   100's `keep` arm (`repro/fibers/run_villa_seed_heading_rerun.sh`,
+   `reports/evidence/villa_volume_seed_heading_rerun.json`). If villa's tracer changes again before posting, re-run
+   it.
 4. **The owner's own commentary.** villa's CONTRIBUTING requires human-written commentary for LLM-assisted PRs, and a
    motivation from real use. The bracketed paragraph below is for the owner to write. Never check the
    personal-verification box on the owner's behalf.
@@ -84,8 +88,10 @@ gets more of its fibers. Elsewhere almost nothing changes.
 
 ## Details
 
-* **Measured at `ccb431818`, before #2165.** `_seed_heading` is unchanged since, so the patch applies to `322cb0899`
-  as written. #2165 says it keeps outputs exact. [The GPU re-run on current main, if done.]
+* **Measured at `ccb431818`, re-checked at `322cb0899`.** #2165 has since rewritten the tracer's hot path and
+  checked each part for exact outputs. On the two Scroll-5 cubes, villa's CLI at `322cb0899` gives the same traces
+  point for point as at `ccb431818`, both without this PR and with it, so their rows above hold on main. The
+  Scroll-3 and in-sample cubes were not re-run.
 * **How:** villa's own `tracing.volume` `main()`, with only `seed_headings` swapped for a copy that changes what
   happens to a dot that fails the 35° test. With the dots still skipped, that copy first reproduced villa's run of
   `s5_13497_01497_02497_256` point for point. Launcher, registration, data and scoring:

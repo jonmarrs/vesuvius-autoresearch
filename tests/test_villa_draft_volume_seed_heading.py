@@ -24,6 +24,8 @@ PATCH = ROOT / "repro/fibers/villa_volume_seed_heading.patch"
 F100 = ROOT / "reports/neural_tracer_steep_heading.json"
 F99 = ROOT / "reports/neural_tracer_heading_residual.json"
 EVIDENCE = ROOT / "reports/evidence/villa_volume_seed_heading_tests.txt"
+RERUN = ROOT / "reports/evidence/villa_volume_seed_heading_rerun.json"
+RERUN_LOG = ROOT / "reports/evidence/villa_volume_seed_heading_rerun_chain.txt"
 VOLUME = "vesuvius/src/vesuvius/neural_tracing/tracers/fibers/tracing/volume.py"
 VILLA = ROOT / "villa"
 
@@ -276,4 +278,55 @@ def test_the_villa_test_counts_are_the_transcript():
     assert (
         "Without the change 5 of its 9 cases fail (the dots at 36°, 60°, 89°, 91° and 120°); with it all 9 pass, and "
         "so do the 11 in `test_volume_performance.py`." in _text()
+    )
+
+
+def test_the_rerun_on_villa_main_reproduces_both_runs():
+    """repro/fibers/run_villa_seed_heading_rerun.sh, compared and scored by scripts/villa_seed_heading_rerun.py:
+    villa's CLI at 322cb0899 traced the two Scroll-5 cubes as at ccb431818, without the patch and with it."""
+    r = json.loads(RERUN.read_text())
+    d, _, _ = _d()
+    assert (r["status"], r["villa"], r["source_villa"]) == (
+        "IDENTICAL",
+        "322cb0899",
+        "ccb431818",
+    )
+    assert r["scoring_version"] == 3 and r["tolerance"] == 2.0
+    # the comparison tells the two runs apart
+    assert r["before_identical_to_after"] == {c: False for c in S5}
+    want = {"before": d["baseline_rows_tol2"], "after": d["rows_tol2"]["keep"]}
+    for side in ("before", "after"):
+        assert set(r["runs"][side]) == set(S5)
+        for c, run in r["runs"][side].items():
+            assert run["identical_to_source"] is True
+            assert run["counts"] == run["source_counts"]
+            assert run["row_tol2"] == {k: want[side][c][k] for k in run["row_tol2"]}
+    no_heading = {
+        s: [r["runs"][s][c]["counts"]["no_heading"] for c in S5] for s in r["runs"]
+    }
+    assert no_heading == {
+        "before": [d["baseline_records"][c]["no_heading"] for c in S5],
+        "after": [0, 0],
+    }
+    log = RERUN_LOG.read_text()
+    assert re.findall(r"^CHAIN_START repo \w+ villa (\w+)", log, re.M) == [r["villa"]]
+    assert re.findall(r"^(DONE \w+ \S+)", log, re.M) == [
+        f"DONE {s} {c}" for s in ("before", "after") for c in S5
+    ]
+    assert "FAILED" not in log and "CHAIN_COMPLETE" in log
+    # the loop's pause, from the wrapper that stopped and restarted it around the chain
+    wrap = (
+        ROOT / "reports/evidence/villa_volume_seed_heading_rerun_wrapper.txt"
+    ).read_text()
+    assert "status rc=1" in wrap and "chain rc=0" in wrap
+    (stop,) = re.findall(r"^2026-10-25 (\d\d:\d\d):\d\d stop\.sh rc=0$", wrap, re.M)
+    (h, m, sec) = re.findall(
+        r"^2026-10-25 (\d\d):(\d\d):(\d\d) start\.sh rc=0$", wrap, re.M
+    )[0]
+    start = f"{h}:{int(m) + (int(sec) >= 30):02d}"
+    assert f"(the loop paused {stop}–{start})" in _text()
+    assert (
+        "On the two Scroll-5 cubes, villa's CLI at `322cb0899` gives the same traces point for point as at "
+        "`ccb431818`, both without this PR and with it, so their rows above hold on main. The Scroll-3 and in-sample "
+        "cubes were not re-run." in _text()
     )
