@@ -245,3 +245,33 @@ def test_the_post_run_edit_is_disclosed():
     assert (
         "Its refusal messages were renamed from `SH_ABORTED` to `SC_ABORTED`" in REPORT
     )
+
+
+def test_the_copied_rows_are_the_committed_findings():
+    """The JSON copies the baseline's rows and records (findings 97 and 98) and our tracer's published rows. The
+    verdict and the ranking rest on those copies, so they must be the committed sources'."""
+    f97, f98 = (json.loads((ROOT / p).read_text()) for p in sh.BASE_REPORTS.values())
+    for key, mine in (("rows_tol2", B2), ("rows_tol4", B4), ("records", D["baseline_records"])):  # fmt: skip
+        src = {**f97[key], **f98[key]}
+        assert set(mine) == set(sh.ALL_CUBES), key
+        assert all(mine[c] == src[c] for c in mine), key
+    ent = json.loads((ROOT / "reports/neural_tracer_entrant.json").read_text())
+    t94 = json.loads((ROOT / "reports/tolerance4_rescore.json").read_text())
+    assert set(D["our_tracer_tol2"]) == set(D["our_tracer_tol4"]) == set(sh.ALL_CUBES)
+    for c in sh.ALL_CUBES:
+        assert D["our_tracer_tol2"][c] == ent["comparators"][c]["tracer"], c
+        assert D["our_tracer_tol4"][c] == t94["rows_tracer"][c], c
+
+
+def test_finding_99_points_to_this_answer():
+    """Finding 99 left what a heading that follows the sheet would add untested; it now points here."""
+    s5, s3 = [factor("sheet", c) for c in S5], [factor("sheet", c) for c in S3]
+    f99 = " ".join(
+        (ROOT / "reports/neural_tracer_heading_residual.md").read_text().split()
+    )
+    assert (
+        "(2026-10-25: finding 100 ran it, pre-registered, in `neural_tracer_steep_heading.md`. Traced from the presence "
+        "direction projected into the CT's sheet, the skipped dots raised coverage "
+        f"{s5[0]:.2f}× and {s5[1]:.2f}× on the two held-out Scroll-5 cubes, and {span(s3)}× on Scroll 3.)"
+        in f99
+    )
