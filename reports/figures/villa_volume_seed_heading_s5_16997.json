@@ -1,0 +1,22 @@
+{
+ "cube": "s5_16997_03997_04497_256",
+ "tolerance": 2.0,
+ "covered_share": {
+  "before": 0.26792410534447225,
+  "after": 0.34314477245821035
+ },
+ "scorer_coverage": {
+  "before": 0.2679,
+  "after": 0.3431
+ },
+ "json_coverage": {
+  "before": 0.2679,
+  "after": 0.3431
+ },
+ "length_share": {
+  "covered with and without the skip": 0.25172364292457367,
+  "covered only without the skip": 0.09142112953363668,
+  "covered only with the skip": 0.016200462419898594,
+  "covered by neither": 0.6406547651218909
+ }
+}
