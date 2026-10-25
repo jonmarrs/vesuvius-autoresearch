@@ -1,7 +1,8 @@
 # Pre-registration: does tracing the seeds villa's tracer skips on tilted sheets add coverage on the held-out cubes?
 
 **Status: REGISTERED 2026-10-25, before any arm was traced.** The owner approved the GPU test on 2026-10-25. The run
-pauses the autoresearch loop.
+pauses the autoresearch loop. **Run 2026-10-25, 01:09–02:55 PDT, with the loop paused: finding 100,
+`reports/neural_tracer_steep_heading.md`. P1, P3, P4 and P5 held; P2 failed.**
 
 ## The question
 
