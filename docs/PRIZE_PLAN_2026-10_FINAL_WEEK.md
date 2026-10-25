@@ -1,6 +1,7 @@
 # October Progress Prize: readiness and final-week plan
 
-Reviewed **2026-10-23 UTC**. We have a credible submission now, based on three
+Plan updated **2026-10-25 UTC**; the rules, form and link snapshot below is
+from **2026-10-23 UTC**. We have a credible submission now, based on three
 merged Villa contributions. Additional merges or research results can improve
 it; they are not prerequisites for filing the work already completed.
 
@@ -39,8 +40,8 @@ returned HTTP 403, so the current repository source supplied the rules.
 | --- | --- | --- |
 | 1 | Complete the existing Villa contributions: #2141 SQLite track reader, #2258 fractional seeding, #2259 headless CLI docs. These address real workflows and already have measured evidence. | Available GitHub Actions runs pass and local checks pass. Incorporate new review feedback if it appears. A maintainer must merge: the linked account has read-only Villa permissions and normal merge returned HTTP 403. Vercel preview authorization is also outstanding. |
 | 2 | Publish the prepared #1482 native retry fix when permissions and an upstream PR slot allow. It turns deterministic hangs into bounded, descriptive failures. | Branch `jonmarrs/villa:fix/native-retry-cycle` is pushed; 13 selected tests pass. The real-mesh probe proves termination for deliberately supplied invalid regions. It does not reproduce full training or default discovery. Get a reproducible complete-environment or real-training confirmation if available. |
-| 3 | Make the existing benchmark easier to use: a compact example showing a real held-out Scroll-5 miss beside a Scroll-3 control, with exact commands, fixed versions and clear in-sample disclosure. | A fresh user can reproduce the published rows with documented inputs. Use the current released ScrollGT v0.8.2 and public artifacts; no retuning or new quality claim. A full cold-run check is still to be done here; the readiness review checked the cited versions and released metadata only. |
-| 4 | Run one focused research follow-up: test tracing context on the 24 octants from Finding 95. | Conditional on GPU access and the original cubes/checkpoint/output artifacts, which are unavailable in this execution environment. Prepare the registration before outcomes; pin the prior study's tracer, scorer, checkpoint and global seed grid. Compare independent octant runs with existing crops of whole-cube runs on the same ground truth at tolerances 2 and 4. Estimate runtime from a pilot and cap the job at one GPU day. Do not retune thresholds on these results or describe cropped outputs as new tracing runs. |
+| 3 | Make the existing benchmark easier to use: a compact example showing a real held-out Scroll-5 miss beside a Scroll-3 control, with exact commands, fixed versions and clear in-sample disclosure. | A fresh user can reproduce the published rows with documented inputs. Use ScrollGT v0.9.0, the release cited by the updated filing, and public artifacts; no retuning or new quality claim. Include the context distinction from Findings 97–98. A full cold-run check is still to be done here; the October 23 readiness review checked the then-cited versions and released metadata only. |
+| 4 | Review and package the completed tracing-context results, Findings 96–98. The proposed octant tracing study was withdrawn without being run. | Use the committed reports and their source-bound checks; do not launch the withdrawn registration. Keep cube-only and real-CT-context rows distinct, and preserve the unchanged-presence and unpadded-comparator limitations described below. |
 | 5 | Publish the eight-line reference-provenance clarification, after the code fix. It helps readers interpret tracer-assisted references. | Pushed branch `jonmarrs/villa:docs/fiber-reference-provenance`, backed by all 853 public annotation files. This establishes provenance, not score bias or an improved tracer. It shares the upstream publication permission blocker. |
 
 The integration's creation and merge errors are preserved in
@@ -48,15 +49,47 @@ The integration's creation and merge errors are preserved in
 No upstream comments or messages were sent as part of this planning review.
 Open or pushed work stays separate from the filing's merged credits.
 
+## Completed research and October 25 review
+
+The [octant tracing registration](preregistration/2026-10-23_tracing_context.md)
+was withdrawn by the owner on October 24, never run. Finding 95 remains a
+rescore of cropped whole-cube predictions, not independent octant tracing.
+The replacement studies are already complete:
+
+- [Finding 96](../reports/neural_tracer_boundary.md) identifies the neural
+  tracer's boundary-related seed loss.
+- [Finding 97](../reports/neural_tracer_ct_context.md) supplies real CT around
+  all ten 256³ cubes; [Finding 98](../reports/neural_tracer_ct_context_512.md)
+  does the same for all eleven 512³ cubes. Neural-tracer coverage increases
+  on all 21, by 1.76–2.78× and 1.19–1.35× respectively.
+- These runs keep the original presence inside the cube and zeros outside.
+  Our tracer's comparator rows remain unpadded. They do not establish a
+  matched-context comparison between both tracers or a new mask-model result.
+  The detailed filing includes these results and cites ScrollGT v0.9.0.
+
+The October 25 PR review found no further defects in the three existing Villa
+PRs or the two prepared branches. Their heads remain unchanged. Available
+GitHub Actions runs on #2141, #2258 and #2259 pass; Vercel still requires team
+authorization. Local verification passed 20 fractional-seeding cases, five
+SQLite cases, 13 native-retry cases and 86 supporting evidence checks. The
+published AppImage's extracted `AppRun vc_render_tifxyz --help` also exited 0.
+These checks are verification, not additional research results.
+
+Villa still reports read-only permissions. A fresh native-retry PR creation
+attempt returned HTTP 403, “Resource not accessible by integration”. No new
+upstream PR was created, neither prepared branch has been merged, and the
+three existing PRs still need a maintainer to merge them. The earlier error
+record remains unchanged; this paragraph records the follow-up check.
+
 ## Suggested sequence
 
 - **October 23–24:** finish the filing evidence checks and concise narrative;
   keep the existing PRs ready for maintainer review. Prepare the native retry
   handoff and the benchmark reproduction example.
-- **October 25–27:** finish that CPU reproduction work. If GPU access and
-  inputs are available, run the one registered tracing-context test and
-  preserve every outcome, including a null or failure. Otherwise keep the
-  completed Finding 95 result; it already answers the scoring-size question.
+- **October 25–27:** finish that CPU reproduction work and review Findings
+  96–98 against the updated filing. Keep the withdrawn octant tracing study
+  withdrawn. Complete the prepared upstream contributions when publication
+  and merge access become available.
 - **October 28:** freeze the submission narrative and public evidence links.
   Review each claim against its source; make pending/merged status explicit.
 - **October 29:** recheck the current rules and form, complete personal fields
@@ -72,14 +105,14 @@ claims of improved reading. A separate research filing is warranted only if
 the result has its own clear contribution and evidence; the small-fix bundle
 is ready to proceed independently.
 
-## Checks performed
+## Original October 23 checks
 
 The [dated readiness record](../reports/evidence/october_prize_readiness_2026-10-23.json)
 preserves live merge timestamps, rules/form fingerprints, the public form's
 required questions, sibling repository revisions and all HTTP link results.
-The concise contribution answer is 371 words. The detailed draft now includes
-Finding 95 with a new numeric binding test; the concise answer stays focused
-on the three merged fixes.
+The concise contribution answer is 371 words. The October 23 detailed draft
+included Finding 95 with a new numeric binding test; subsequent updates add
+Findings 96–98. The concise answer stays focused on the three merged fixes.
 
 ```sh
 VILLA_REVIEW_ROOT=/workspace/villa-native-retry AGENTS_AGENT_MODE=1 \
