@@ -1,10 +1,10 @@
-# Design and architecture review — the owner's #232, finding 100
+# Design and architecture review — the owner's #232 (finding 100) and #231
 
-Date: 2026-10-25. Baseline: `4f359172` (main after the owner's #232).
+Date: 2026-10-25. Baseline: `4f359172` (main after the owner's #232); #231 merged at `11b29881` during the round.
 Reviewer: Claude (Anthropic), at the owner's request.
 
-This round covers the 15:13 UTC firing. The 08:12–14:12 firings found main unmoved after #230. #232 registers and
-reports finding 100 (`reports/neural_tracer_steep_heading.md`).
+This round covers the 15:13 UTC firing. The 08:12–14:12 firings found main unmoved after #230. #231 folds finding 99
+into the October filing draft. #232 registers and reports finding 100 (`reports/neural_tracer_steep_heading.md`).
 - It traces the seed dots villa's neural tracer skips where its CT axis lies more than 35° from the presence
   direction, in two arms: `sheet` (the presence direction projected into the CT's sheet) and `keep` (villa's own axis).
 - Sheet's coverage rose 1.20× and 1.43× on the two held-out Scroll-5 cubes, and 1.003–1.024× on Scroll 3.
@@ -56,8 +56,22 @@ reports finding 100 (`reports/neural_tracer_steep_heading.md`).
   registered order. The smoke gates the arms in the chain.
 - **The registration's commit message says 24 tests.** At `9d31f36d`, pytest collects 23, as the report says.
 - **Ruff** 0.9.10 is clean on #232's two scripts and two test files.
+- **#231's figures are finding 99's**, and its test computes each from the JSONs:
+  - the 0.266, 0.353 and 0.011–0.088 drop shares;
+  - the 10–16° and 58–81° angles and the 52–74° tilts on the ten held-out cubes;
+  - r 0.98 and Spearman 0.92;
+  - E2's 0.12 of 1,347 dots, failing on 18 of the 21 cubes;
+  - E3's 0.127 and 0.169.
+
+  The draft keeps finding 99's failed expectations out of the registered tally, since finding 99 was not
+  pre-registered, and states them apart.
 
 ## Observations for the owner (not changed)
+
+- **The draft's finding 99 text predates finding 100.** It says "nothing was traced again", and among the claims it
+  does not make lists "following the sheet would add coverage". Finding 100, merged before #231, has since traced
+  those dots, and sheet's coverage rose 1.20× and 1.43× on the two held-out Scroll-5 cubes. Both sentences remain true
+  of finding 99 alone. The owner's open #233 folds finding 100 into the draft, so the draft is not changed here.
 
 - **`score` treats a missing smoke result as passing.**
   - `status` returns `SMOKE_FAILED` only when `smoke.json` says the smoke failed. With no `smoke.json` it can return
@@ -86,5 +100,7 @@ reports finding 100 (`reports/neural_tracer_steep_heading.md`).
   - The one failure is `test_live_documents_stay_clean`, which lists villa paths absent from this container's villa
     checkout.
   - Its list is the same as in round 118.
+- **After merging #231:** the filing, form-answer, ledger and both report tests give 107 passed and 5 skipped, for
+  sibling checkouts absent here. Ruff 0.9.10 is clean on #231's test file.
 - **Doc audit:** #232 adds no entries, and neither does this branch.
 - **No independent review this round.** The change is a dated note and two tests, each checked by perturbation.
