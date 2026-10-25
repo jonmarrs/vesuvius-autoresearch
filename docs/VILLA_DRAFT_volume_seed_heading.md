@@ -3,8 +3,8 @@
 **NOT POSTED.** Held for a slot: villa's three-open-PR cap is full (#2141, #2258, #2259, checked 2026-10-25). The owner
 approved proposing the change on 2026-10-25; posting needs the steps below first.
 
-The patch is `repro/fibers/villa_volume_seed_heading.patch` (+23/−4: two lines removed from `_seed_heading`, one
-docstring line, a new 21-line test). The measurement is finding 100 (`reports/neural_tracer_steep_heading.md`,
+The patch is `repro/fibers/villa_volume_seed_heading.patch` (+23/−4: two lines removed from `_seed_heading`, two
+docstring lines reworded, a new 21-line test). The measurement is finding 100 (`reports/neural_tracer_steep_heading.md`,
 pre-registered), its `keep` arm. That arm gave each dot that fails the 35° test villa's own signed CT axis, which is
 exactly what the patched `_seed_heading` returns (bound by `tests/test_villa_draft_volume_seed_heading.py`).
 
