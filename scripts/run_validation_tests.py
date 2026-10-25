@@ -108,6 +108,7 @@ VALIDATION_TESTS = [
     "tests/test_loader_workers.py",
     "tests/test_loop_does_not_request_lasagna.py",
     "tests/test_loop_model_depth_offset.py",
+    "tests/test_loop_tweak_replication.py",
     "tests/test_pooled_seg_metrics.py",
     "tests/test_post_sprint_villa_handoff.py",
     "tests/test_prize_promotion_gates.py",
