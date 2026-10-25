@@ -1,6 +1,7 @@
 """Bind the separate research answer and Finding 99 filing claims to the measured artifacts."""
 
 import json
+import statistics
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -35,7 +36,7 @@ def test_finding_99_scope_and_angles_are_the_recorded_results():
     assert f"a median {min(angles):.0f}–{max(angles):.0f}° from its tangent" in DRAFT
     assert {round(r["median_ct_axis_to_gt"]) for r in held} == {58}
     assert "while the CT family axis is 58°" in DRAFT
-    assert "finding 99, exploratory, not pre-registered" in DRAFT
+    assert "finding 99, exploratory: not pre-registered" in DRAFT
     assert "No tracing or coverage improvement was measured here" in DRAFT
     assert "does not classify the unsampled dots" in DRAFT
 
@@ -44,7 +45,7 @@ def test_submissions_have_separate_scope_and_are_still_drafts():
     assert "not submitted" in RESEARCH
     assert "three merged Villa fixes; those fixes are not credited again here" in " ".join(RESEARCH.split())
     assert "11:59 p.m. Pacific" in RESEARCH and "October 31, 2026" in RESEARCH
-    assert "no improved tracer or coverage result is claimed" in " ".join(RESEARCH.split())
+    assert "production Villa and the published benchmark rows are unchanged" in " ".join(RESEARCH.split())
     assert "credited to him" in RESEARCH
 
 
@@ -60,3 +61,18 @@ def test_memory_claim_is_a_reproduction_not_a_new_quality_result():
     assert "under a 7 GiB address-space budget" in " ".join(RESEARCH.split())
     assert d["real_array_identity"]["raw_score_fields_identical"] is True
     assert "later usability patch" in RESEARCH
+
+
+def test_completed_heading_pilot_is_scoped_and_its_failed_prediction_is_kept():
+    d = json.loads((ROOT / "reports/neural_tracer_steep_heading.json").read_text())
+    text = " ".join(RESEARCH.split())
+    base, rows = d["baseline_rows_tol2"], d["rows_tol2"]["sheet"]
+    s5 = [c for c in base if c.startswith("s5_") and c.endswith("_256") and c in
+          ("s5_13497_01497_02497_256", "s5_16997_03997_04497_256")]
+    factors = [rows[c]["coverage"] / base[c]["coverage"] for c in s5]
+    assert f"{min(factors):.2f}–{max(factors):.2f}× coverage on the two held-out Scroll-5 cubes" in text
+    s3 = [c for c in base if c.startswith("s3_")]
+    med = statistics.median(rows[c]["coverage"] / base[c]["coverage"] for c in s3)
+    assert d["status"] == "OK" and d["verdict"]["prediction_P2"] is False
+    assert f"the median is only {med:.3f}×, below the registered 1.05×" in text
+    assert "does not establish tilt as the cause" in text

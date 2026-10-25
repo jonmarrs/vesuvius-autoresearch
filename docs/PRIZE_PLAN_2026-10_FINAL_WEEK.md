@@ -35,7 +35,7 @@ bundle ready independently; a new research experiment is not needed to file it.
 
 The [public-data CPU reproduction](../reports/scrollgt_cpu_reproduction_2026-10-25.md)
 has now run. It found and reproduced a 512³ scorer allocation failure; the
-prepared ScrollGT fix completes that same control at 2.57 GiB peak RSS under
+merged ScrollGT fix completes that same control at 2.57 GiB peak RSS under
 the unchanged budget, with the published row reproduced exactly. Its public
 walkthrough records the limit, source hashes and comparison scope.
 
@@ -51,10 +51,10 @@ returned HTTP 403, so the current repository source supplied the rules.
 | Priority | Work and useful outcome | Finish condition / dependency |
 | --- | --- | --- |
 | 1 | Freeze and file the engineering bundle based on the three confirmed merges. | Final personal fields and terms, filing-day rechecks, actual submission and saved receipt. Target October 29; deadline October 31 at 11:59 p.m. Pacific. Do not wait for more merges. |
-| 2 | Finish the real-data CPU reproduction and its ScrollGT memory fix. The 512³ control exposed a whole-volume EDT allocation failure under a 7 GiB address-space budget. | Publish the bounded-slab implementation only after exact label/score comparisons and the fiber tests. Keep the scoring definition and published rows unchanged. Preserve both the baseline failure and the successful run, with commands and limits. |
-| 3 | Package the optional research submission around the released benchmark and Findings 96–99. | Review the separate form answer; preserve in-sample, context and exploratory disclosures. A measured improvement to a new heading policy is not part of the completed evidence. |
+| 2 | Publish the completed CPU reproduction and merged ScrollGT memory fix (#14). The 512³ control exposed a whole-volume EDT allocation failure under a 7 GiB address-space budget. | The bounded-slab fix is merged: 213 fiber checks and CI pass; real label and score comparisons are exact. Keep the scoring definition and published rows unchanged. Preserve both the baseline failure and the successful run, with commands and limits. |
+| 3 | Package the optional research submission around the released benchmark and Findings 96–100. | Review the separate form answer; preserve in-sample, context and exploratory disclosures. A measured improvement to a new heading policy is not part of the completed evidence. |
 | 4 | Complete the existing Villa contributions when access permits: #2141, #2258, #2259, then the prepared native-retry and reference-provenance branches. | The integration remains read-only. A maintainer must merge the existing PRs; prepared PR creation returned HTTP 403. All passing checks and pushed branches stay separate from merged credits. Incorporate actual new feedback if it arrives. |
-| 5 | Optionally run one pre-registered seed-heading pilot suggested by Finding 99. Compare the current H/V axis with the presence direction projected into the same CT sheet. | Needs the original padded inputs, checkpoint and an available GPU, which this environment does not provide. Fix the rule before outcomes; require the stock identity smoke; use paired runs on the two held-out Scroll-5 cubes and one Scroll-3 control, with a two-GPU-hour cap. Report coverage, merge-penalized ERL, merges and runtime, including a null or failure. No threshold sweep on the evaluation skeletons. Stop if the smoke or budget fails; do not delay filing. |
+| 5 | Review and package the already prepared Villa seed-heading proposal from Finding 100. | The pilot has completed; do not repeat it as unfinished work. [Owner PR #235](https://github.com/jonmarrs/vesuvius-autoresearch/pull/235) prepares the `keep` rule, matching training's signed CT axis (1.11× and 1.28× coverage on two held-out Scroll-5 cubes). The `sheet` experiment recovered more (1.20×, 1.43×) but is a different rule. Keep their evidence distinct; observe the upstream PR cap, current-main verification and contribution requirements before posting. Further experiments are optional after the filing is frozen. |
 
 The integration's creation and merge errors are preserved in
 [the review record](../reports/evidence/villa_pr_review_2026-10-23.json).
@@ -82,6 +82,12 @@ The replacement studies are already complete:
   small-cube dot and samples the large-cube dots. The remaining classified
   failures are CT-axis disagreements and correlate with sheet tilt. This is
   an exploratory diagnosis, not a measured improvement to a new tracer.
+- [Finding 100](../reports/neural_tracer_steep_heading.md) has now tested both
+  heading arms on all 21 cubes in a registered GPU run. The `sheet` arm adds
+  1.20–1.43× coverage on the two held-out Scroll-5 cubes; Scroll 3's median
+  1.017× misses the registered 1.05×. Four of five predictions held. This does
+  not establish tilt as the cause. The detailed filing includes the failed P2
+  in its tally of 23 failed registered predictions.
 
 The October 25 PR review found no further defects in the three existing Villa
 PRs or the two prepared branches. Their heads remain unchanged. Available
@@ -103,7 +109,7 @@ record remains unchanged; this paragraph records the follow-up check.
   keep the existing PRs ready for maintainer review. Prepare the native retry
   handoff and the benchmark reproduction example.
 - **October 25–27:** finish that CPU reproduction work and review Findings
-  96–99 against the updated filing. Keep the withdrawn octant tracing study
+  96–100 against the updated filing. Keep the withdrawn octant tracing study
   withdrawn. Complete the prepared upstream contributions when publication
   and merge access become available.
 - **October 28:** freeze the submission narrative and public evidence links.

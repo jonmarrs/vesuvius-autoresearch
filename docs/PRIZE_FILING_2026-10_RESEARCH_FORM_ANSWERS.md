@@ -20,6 +20,7 @@ https://github.com/jonmarrs/scrollgt/pull/14
 https://github.com/jonmarrs/vesuvius-autoresearch/blob/b808f3d3fe208440137022bfc63039829c92d613/reports/neural_tracer_ct_context.md
 https://github.com/jonmarrs/vesuvius-autoresearch/blob/b808f3d3fe208440137022bfc63039829c92d613/reports/neural_tracer_ct_context_512.md
 https://github.com/jonmarrs/vesuvius-autoresearch/blob/b808f3d3fe208440137022bfc63039829c92d613/reports/neural_tracer_heading_residual.md
+https://github.com/jonmarrs/vesuvius-autoresearch/blob/4f35917240f6b359f674e8fe457f8c3c18cbd919/reports/neural_tracer_steep_heading.md
 ```
 
 ## What is your contribution?
@@ -47,6 +48,14 @@ against 8 with the cube alone. This is a protocol correction, not a new model.
 The mask and other entrants remain cube-only, so it is not a matched-context
 comparison between every entrant.
 
+The registered follow-up, Finding 100, traced previously skipped seeds from
+the presence direction projected into the CT sheet. It adds 1.20–1.43×
+coverage on the two held-out Scroll-5 cubes. On Scroll 3 the median is only
+1.017×, below the registered 1.05×, so that prediction failed. Precision
+stays within 0.017 of baseline on the ten held-out cubes; the ranking against
+our tracer changes on none. One checkpoint, two Scroll-5 cubes, and no
+manipulation of tilt: this does not establish tilt as the cause.
+
 **(3) What this enables.** Readers can score their own instance labels on
 public data, reproduce built-in baselines on CPU, distinguish held-out from
 in-sample results, and choose explicitly between cube-only and scan-context
@@ -65,7 +74,8 @@ and retain their identity checks and outcomes. The broader reports preserve
 failed predictions and label exploratory analyses. Finding 99 identifies
 CT-axis disagreement in every classified heading failure, with all small-cube
 dots and sampled large-cube dots analysed separately. It suggests testing the
-H/V-axis assumption; no improved tracer or coverage result is claimed.
+H/V-axis assumption. Finding 100's measured policy results have the limited
+scope given above; production Villa and the published benchmark rows are unchanged.
 
 Luke Finigan's earlier outside contribution fixed edge-order sensitivity in
 the scorer; that work is credited to him. It is evidence of outside use and

@@ -5,7 +5,7 @@ checkout of ScrollGT v0.9.0 reproduced the held-out Scroll-5 target's published
 connected-components row exactly. The Scroll-3 512³ control failed in SciPy's
 full-volume distance transform under a 7 GiB address-space limit.
 
-The resulting [ScrollGT PR #14](https://github.com/jonmarrs/scrollgt/pull/14)
+The merged [ScrollGT PR #14](https://github.com/jonmarrs/scrollgt/pull/14)
 processes both tolerance growth and precision in 64-plane z slabs with a
 `ceil(tolerance)` halo. It preserves the scorer's nearest-label behavior and
 skips empty halos, preventing an artificial outside seed from wrapping to a
@@ -38,3 +38,5 @@ This is a benchmark usability improvement, separate from the three merged
 Villa fixes in the engineering prize bundle. The released v0.9.0 remains the
 research filing's versioned benchmark reference; the new patch is identified
 by its PR and measured source commit.
+
+The focused fiber suite passed 213 tests (10 optional heavy cases deselected by the existing configuration), and GitHub CI passed.
