@@ -36,22 +36,22 @@ say() { echo "$*  $(date -Is)" | tee -a "$LOG"; }
 "$PY" "$LOOPDIR/scripts/loop_control.py" status --repo "$LOOPDIR" > /dev/null
 case $? in
   1) ;;
-  0) say "SH_ABORTED the autoresearch loop is running"; exit 3 ;;
-  *) say "SH_ABORTED loop_control.py status cannot tell whether the autoresearch loop is running"; exit 3 ;;
+  0) say "SC_ABORTED the autoresearch loop is running"; exit 3 ;;
+  *) say "SC_ABORTED loop_control.py status cannot tell whether the autoresearch loop is running"; exit 3 ;;
 esac
 for p in /proc/[0-9]*; do
   [ "$p" = "/proc/$$" ] && continue
   tr '\0' ' ' < "$p/cmdline" 2>/dev/null \
     | grep -qE "tracers\.fibers\.tracing\.volume|neural_tracer_heading_arm|bench_cli (trace|score|floors)|f1_noise_probe" \
-    && { say "SH_ABORTED another GPU job is running"; exit 3; }
+    && { say "SC_ABORTED another GPU job is running"; exit 3; }
 done
 for f in neural_tracer_heading_arm.py neural_tracer_steep_heading.py neural_tracer_ct_context_512.py \
          neural_tracer_ct_context.py neural_tracer_boundary.py tolerance4_rescore.py neural_tracer_analysis.py \
          afv_generator_analysis.py afv_to_labels.py raw_tiff_region.py; do
   if [ -e "$W/$f" ]; then
-    cmp -s "$REPO/scripts/$f" "$W/$f" || { say "SH_ABORTED $f differs from the copy frozen in $W"; exit 3; }
+    cmp -s "$REPO/scripts/$f" "$W/$f" || { say "SC_ABORTED $f differs from the copy frozen in $W"; exit 3; }
   else
-    cp "$REPO/scripts/$f" "$W/" || { say "SH_ABORTED freeze"; exit 3; }
+    cp "$REPO/scripts/$f" "$W/" || { say "SC_ABORTED freeze"; exit 3; }
   fi
 done
 say "CHAIN_START $(git -C "$REPO" rev-parse --short HEAD) villa $(git -C "$T/villa" rev-parse --short HEAD)"

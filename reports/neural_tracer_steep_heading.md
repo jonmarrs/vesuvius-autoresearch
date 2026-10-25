@@ -47,6 +47,9 @@ recovers less". Four of the five predictions held. P2 failed.
     traced.
   * No dot was degenerate, and none lacked a CT axis.
 * **Completeness:** all 42 runs finished, and the status is `OK` (`neural_tracer_steep_heading.json`).
+* **One edit to the chain after the run.** Its refusal messages were renamed from `SH_ABORTED` to `SC_ABORTED`, the
+  prefix the repository's chain guard (`tests/test_fiber_chain_loop_guard.py`) requires. None of them fired during the
+  run, and nothing else changed.
 * **Scoring:** in each cube's frame, ScrollGT scoring version 3, at tolerances 2 and 4. The baseline is findings 97 and
   98's runs, with the same inputs.
 

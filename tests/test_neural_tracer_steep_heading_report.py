@@ -235,3 +235,13 @@ def test_the_timings_are_the_logs():
     assert (
         done == order
     )  # sheet, then keep, on the held-out set, then both on the in-sample set
+
+
+def test_the_post_run_edit_is_disclosed():
+    """The chain's refusal prefix was renamed after the run, to the one the repository's chain guard requires; no
+    refusal fired during the run."""
+    chain = (ROOT / "repro/fibers/run_neural_tracer_steep_heading_chain.sh").read_text()
+    assert "SH_ABORTED" not in chain and "ABORTED" not in CHAIN
+    assert (
+        "Its refusal messages were renamed from `SH_ABORTED` to `SC_ABORTED`" in REPORT
+    )
