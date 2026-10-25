@@ -90,7 +90,9 @@ def test_the_run_is_the_runs_it_explains():
         assert r["skeleton_sha256"] == P1["cubes"][c]["skeleton_sha256"], c
         assert sum(r["counts"].values()) == r["classified"], c
         for reason in hr.REASONS:
-            assert sum(v[reason] for v in r["by_family"].values()) == r["counts"][reason], c
+            assert (
+                sum(v[reason] for v in r["by_family"].values()) == r["counts"][reason]
+            ), c
         assert r["dropped_share"] == pytest.approx(
             1 - r["counts"]["ok"] / r["classified"]
         ), c
@@ -112,14 +114,19 @@ def test_the_run_is_the_runs_it_explains():
 def test_skeleton_hashes_match_external_targets():
     """Keep the optional external data check separate from the committed-record checks."""
     sibling = main_checkout().parent / "scrollgt"
-    default = next((p for p in (sibling, hr.pl.f91.SG) if (p / "data").is_dir()), sibling)
+    default = next(
+        (p for p in (sibling, hr.pl.f91.SG) if (p / "data").is_dir()), sibling
+    )
     sg = Path(os.environ.get("SCROLLGT_ROOT", default)) / "data"
     if not sg.exists() and "SCROLLGT_ROOT" not in os.environ:
         pytest.skip("ScrollGT targets absent; set SCROLLGT_ROOT to check their hashes")
     for c, r in C.items():
-        assert r["skeleton_sha256"] == hashlib.sha256(
-            (sg / f"fibers_{c}" / "skeleton.npz").read_bytes()
-        ).hexdigest(), c
+        assert (
+            r["skeleton_sha256"]
+            == hashlib.sha256(
+                (sg / f"fibers_{c}" / "skeleton.npz").read_bytes()
+            ).hexdigest()
+        ), c
 
 
 def test_every_drop_is_the_agreement_test():
@@ -131,8 +138,14 @@ def test_every_drop_is_the_agreement_test():
             == 0
         ), c
         assert r["counts"]["disagree"] > 0, c
-    assert "On all 21 cubes, every classified dot that fails does so at the last check" in REPORT
-    assert "The 512³ results describe the sampled dots; unsampled dots were not classified." in REPORT
+    assert (
+        "On all 21 cubes, every classified dot that fails does so at the last check"
+        in REPORT
+    )
+    assert (
+        "The 512³ results describe the sampled dots; unsampled dots were not classified."
+        in REPORT
+    )
     assert (
         hr.AGREE_DEGREES == 35.0
         and "lies more than 35° from the dot's direction" in REPORT
@@ -224,8 +237,13 @@ def test_per_cube_and_pooled():
 
 
 def test_the_table_is_the_json():
-    assert "Tilt medians use all classified dots in their dropped or kept group" in REPORT
-    assert "Angles to the ground truth and out of its CT sheet use only dropped dots within 4 voxels" in REPORT
+    assert (
+        "Tilt medians use all classified dots in their dropped or kept group" in REPORT
+    )
+    assert (
+        "Angles to the ground truth and out of its CT sheet use only dropped dots within 4 voxels"
+        in REPORT
+    )
     for c in C:
         r, a, o = C[c], dis(c), C[c]["near_gt"]["ok"]
         split = "in sample" if c in IN else "held out"
@@ -292,6 +310,11 @@ def test_the_expectations():
         for c in C
         if c not in HELD and C[c]["dropped_share"] >= 0.10
     )
+    # E2 named no cubes: it fails pooled over all 21, and on most of them
+    near = [dis(c) for c in C]
+    closer = sum(d["ct_axis_closer_share"] * d["near"] for d in near)
+    assert closer / sum(d["near"] for d in near) < 0.5
+    assert sum(d["ct_axis_closer_share"] < 0.5 for d in near) > len(C) / 2
     assert e1 and other_way and len(over) == 2
     assert (
         "| E1: on the two held-out 256³ cubes most of the dropped dots are `disagree`, and none `edge` | **held**"
@@ -310,4 +333,22 @@ def test_the_expectations():
     assert (
         "E3 (moderate) on every other cube fewer than 0.10 of all dots are dropped"
         in doc
+    )
+
+
+def test_finding_97_points_to_this_answer():
+    """Finding 97 left the cause of its two held-out cubes' residual drops untested; it now points here."""
+    for c in HELD:  # every dot classified, and every failing one `disagree`
+        assert C[c]["classified"] == C[c]["dots"], c
+        assert (
+            C[c]["counts"]["disagree"] == C[c]["classified"] - C[c]["counts"]["ok"]
+        ), c
+    held = sorted(steep(c) for c in HELD)
+    f97 = " ".join((ROOT / "reports/neural_tracer_ct_context.md").read_text().split())
+    assert (
+        "(2026-10-25: finding 99, exploratory, in `neural_tracer_heading_residual.md`, classified every seed dot of both "
+        f"cubes. Each dot that fails does so at villa's last check: the CT's axis lies more than {hr.AGREE_DEGREES:.0f}° "
+        f"from the dot's direction. {held[0]:.2f} and {held[1]:.2f} of their dots lie in sheets tilted more than "
+        f"{hr.STEEP_TILT:.0f}° from vertical, against at most {max(steep(c) for c in IN):.2f} on any in-sample cube.)"
+        in f97
     )
