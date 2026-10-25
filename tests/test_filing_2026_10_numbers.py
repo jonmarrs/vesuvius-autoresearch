@@ -243,7 +243,7 @@ def test_fiber_heldout_numbers_match_finding_83():
         f"Coverage is {s5[0]:.2f} and {s5[1]:.2f}, against {min(in256):.2f}–{max(in256):.2f} on the in-sample "
         "Scroll-5 256³ cubes" in txt
     )
-    assert "Twenty-two of my registered predictions failed" in txt
+    assert "Twenty-three of my registered predictions failed" in txt
 
 
 def test_scrollgt_cite_is_its_newest_tag():
@@ -1113,6 +1113,7 @@ _FAILED = {
     "finding 92 predictions 2 and 3": 2,
     "finding 93 predictions 1–3": 3,
     "finding 94 prediction 2": 1,
+    "finding 100 prediction 2": 1,
 }
 
 
@@ -1149,9 +1150,7 @@ def test_failed_predictions_say_where_the_labels_change_them():
 
 def test_the_failed_prediction_count_is_the_listed_tally():
     raw = _DRAFT.read_text()
-    head = (
-        "* **Twenty-two of my registered predictions failed**, and the reports say so:"
-    )
+    head = "* **Twenty-three of my registered predictions failed**, and the reports say so:"
     section = raw[
         raw.index(head) + len(head) : raw.index(
             "* **Two of finding 99's three expectations failed too.**"
@@ -1161,7 +1160,7 @@ def test_the_failed_prediction_count_is_the_listed_tally():
     assert len(items) == len(_FAILED), items
     for key in _FAILED:
         assert sum(it.startswith(key) for it in items) == 1, key
-    assert sum(_FAILED.values()) == 22
+    assert sum(_FAILED.values()) == 23
 
 
 _F98 = _REPO / "reports/neural_tracer_ct_context_512.json"
@@ -1413,14 +1412,112 @@ def test_heading_residual_matches_finding_99():
         in txt
     )
     assert (
-        "* **Twenty-two of my registered predictions failed**" in txt
+        "* **Twenty-three of my registered predictions failed**" in txt
         and "not in the count above" in txt
     )
     assert (
-        "findings 95–97 on 2026-10-23, finding 98 on 2026-10-24, and finding 99 on 2026-10-25."
+        "findings 95–97 on 2026-10-23, finding 98 on 2026-10-24, and findings 99 and 100 on 2026-10-25."
         in txt
     )
     assert (
-        'Not "tilted sheets cause the held-out seed loss", nor "following the sheet would add coverage".'
+        'Not "tilted sheets cause the held-out seed loss". Finding 99 is exploratory and shows an association on the '
+        "classified dots." in txt
+    )
+
+
+_F100 = _REPO / "reports/neural_tracer_steep_heading.json"
+
+
+@pytest.mark.skipif(not _F100.exists(), reason="finding 100 artifact absent")
+def test_steep_heading_matches_finding_100(monkeypatch):
+    """Finding 100, pre-registered: the seeds villa's tracer skips on the 35° test, traced along the sheet (`sheet`)
+    or from villa's own CT axis (`keep`). Its P2 failed and is in the registered tally."""
+    monkeypatch.syspath_prepend(str(_REPO / "scripts"))
+    import neural_tracer_steep_heading as sh
+
+    d, txt = json.loads(_F100.read_text()), _text()
+    v, b2, r2 = d["verdict"], d["baseline_rows_tol2"], d["rows_tol2"]
+    cov, prec, pen = "coverage", "precision", "erl_merge_penalized"
+    s5, s3, held, ins = sh.HELD_S5, sh.S3, sh.HELD, sh.IN_SAMPLE
+    assert d["status"] == "OK" and d["failed"] == [] and len(s3) == 8 and len(ins) == 11
+    assert [v[f"prediction_P{i}"] for i in range(1, 6)] == [
+        True,
+        False,
+        True,
+        True,
+        True,
+    ]
+    assert "(finding 100, pre-registered; four of its five predictions held)" in txt
+
+    def fac(arm, c):
+        return r2[arm][c][cov] / b2[c][cov]
+
+    def span(vals, fmt="{:.3f}"):
+        return f"{fmt.format(min(vals))}–{fmt.format(max(vals))}"
+
+    def signed(x):
+        return f"{x:+.3f}".replace("-", "−")
+
+    a, b = s5
+    assert (
+        f"its coverage rises from {b2[a][cov]:.3f} to {r2['sheet'][a][cov]:.3f} and from {b2[b][cov]:.3f} to "
+        f"{r2['sheet'][b][cov]:.3f} ({fac('sheet', a):.2f}× and {fac('sheet', b):.2f}×), and its precision moves by "
+        f"{signed(r2['sheet'][a][prec] - b2[a][prec])} and {signed(r2['sheet'][b][prec] - b2[b][prec])}."
+        in txt
+    )
+    assert all(fac("sheet", c) >= sh.P1_FACTOR for c in s5)
+    f3 = [fac("sheet", c) for c in s3]
+    med = statistics.median(f3)
+    assert all(x > 1 for x in f3) and med < sh.P2_MEDIAN
+    assert (
+        f"its coverage rises on all eight cubes, but by only {span(f3)}× (a median {med:.3f}×), short of the "
+        f"registered {sh.P2_MEDIAN:.2f}×." in txt
+    )
+    drop = [r2["sheet"][c][prec] - b2[c][prec] for c in held]
+    assert max(abs(x) for x in drop) < sh.P3_DROP
+    assert (
+        f"within {max(abs(x) for x in drop):.3f} of the baseline's on all ten held-out cubes."
+        in txt
+    )
+    above = sum(r2["sheet"][c][cov] > r2["keep"][c][cov] for c in held)
+    assert (
+        f"the same dots cover less than along the sheet on {above} of the 10 ({fac('keep', a):.2f}× and "
+        f"{fac('keep', b):.2f}× on the two Scroll-5 cubes)." in txt
+    )
+    assert (
+        f"On the eleven in-sample cubes its coverage stays within {span([fac('sheet', c) for c in ins])}×."
+        in txt
+    )
+    for t in ("2", "4"):
+        rows, base, ours = (
+            d[f"rows_tol{t}"],
+            d[f"baseline_rows_tol{t}"],
+            d[f"our_tracer_tol{t}"],
+        )
+        for arm in ("sheet", "keep"):
+            assert all(
+                (rows[arm][c][pen] > ours[c][pen]) == (base[c][pen] > ours[c][pen])
+                for c in base
+            )
+    assert (
+        "Whether it leads or trails our tracer changes on no cube, at either tolerance."
+        in txt
+    )
+    assert (
+        "both cubes on which the reference mask also fails (finding 84), and tilt was not varied, so it does not "
+        "show that tilt is the cause." in txt
+    )
+    assert (
+        "finding 100 prediction 2 (traced along the sheet, the seeds villa's neural tracer skips would raise its "
+        f"coverage on Scroll 3 by a median of at least {sh.P2_MEDIAN:.2f}×: it rose on all eight cubes, by a median "
+        f"{med:.3f}×)." in txt
+    )
+    assert (
+        f'Not "following the sheet adds coverage" without its scope: {fac("sheet", a):.2f}× and '
+        f"{fac('sheet', b):.2f}× on two held-out Scroll-5 cubes, both cubes on which the reference mask also fails, "
+        f"and at most {max(f3):.3f}× on Scroll 3 (finding 100)." in txt
+    )
+    assert (
+        "Finding 100 is in `reports/neural_tracer_steep_heading.md`, with its committed JSON and pre-registration."
         in txt
     )
