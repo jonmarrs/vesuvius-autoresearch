@@ -83,5 +83,6 @@ This round covers the 18:13 UTC firing. The 12:33–17:13 firings found main unm
     container's villa checkout. Its list is the same as on main.
 - **Ruff** 0.9.10 `check` and `format`, and **mypy** with the hook's flags, are clean on the two changed Python
   files.
-- **Doc audit:** main's run differs from #243's only in three more cited paths, all present.
+- **Doc audit:** main's run differs from #243's only in three more cited paths, all present. This record adds no
+  entries.
 - **No independent review this round.** The change is one tuple and its test.
