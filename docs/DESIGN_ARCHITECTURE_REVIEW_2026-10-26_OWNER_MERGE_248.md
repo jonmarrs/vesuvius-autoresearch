@@ -37,6 +37,7 @@ Nothing. This record is the review.
 ## Verification
 
 - **The replicate-rule and confirmation tests** give 48 passed.
-- **The guard set**, with the replicate-rule, lifecycle and measurement tests, gives 576 passed and 6 skipped. The
+- **The guard set**, with the replicate-rule, lifecycle and measurement tests, gives 577 passed and 6 skipped. The
   one failure is the standing `test_live_documents_stay_clean`, whose list is the same as on main.
+- **Doc audit:** this record adds no entries.
 - **No independent review this round.** #248 is one test.
