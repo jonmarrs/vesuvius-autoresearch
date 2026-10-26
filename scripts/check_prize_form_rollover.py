@@ -21,6 +21,7 @@ import json
 import re
 import subprocess
 import sys
+import urllib.error
 import urllib.request
 from html.parser import HTMLParser
 from urllib.parse import urlsplit
@@ -101,10 +102,21 @@ class FormPage(HTMLParser):
 
 
 def form(url):
+    """The page at url. One that cannot be read is recorded as not accepting, not raised: urlopen raises on a 4xx
+    or 5xx status, and a rollover's diff may name no form."""
+    unread = {"url": url, "http_status": None, "final_url": None, "title": None,
+              "has_response_form": False, "accepting_responses": False}  # fmt: skip
+    if not url:
+        return {**unread, "error": "no form link"}
     request = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-    with urllib.request.urlopen(request, timeout=30) as response:
-        html = response.read().decode("utf-8", "replace")
-        status, final = response.status, response.geturl()
+    try:
+        with urllib.request.urlopen(request, timeout=30) as response:
+            html = response.read().decode("utf-8", "replace")
+            status, final = response.status, response.geturl()
+    except urllib.error.HTTPError as error:
+        html, status, final = error.read().decode("utf-8", "replace"), error.code, error.geturl()  # fmt: skip
+    except (urllib.error.URLError, TimeoutError) as error:
+        return {**unread, "error": str(getattr(error, "reason", error))}
     page = FormPage()
     page.feed(html)
     return {
@@ -123,7 +135,8 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--form", required=True, help="the form for the month being filed")
     ap.add_argument(
-        "--expected-title", required=True,
+        "--expected-title",
+        required=True,
         help="exact title of the intended month's form",
     )
     ap.add_argument("--out", help="write the record here (default: stdout)")
@@ -176,7 +189,9 @@ def main():
         file=sys.stderr,
     )
     if not record["filing_form_title_matches"]:
-        print(f"Unexpected form title; expected {args.expected_title!r}", file=sys.stderr)
+        print(
+            f"Unexpected form title; expected {args.expected_title!r}", file=sys.stderr
+        )
     for row in pending:
         print(
             f"villa #{row['number']} OPEN: would link {row['form_after']}",
