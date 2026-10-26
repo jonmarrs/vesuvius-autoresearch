@@ -84,7 +84,12 @@ _GIT_LOCATORS = (
 
 
 def _git_env():
-    return {k: v for k, v in os.environ.items() if k not in _GIT_LOCATORS}
+    """os.environ without the locators, and with lazy fetching off. villa/ can be a partial clone (blob:none), where
+    `git cat-file -e` on a commit it lacks fetches it from the promisor remote: the audit then wrote into villa/'s
+    object store, and its answer turned on the network and on whether the fetch beat the 30 s timeout."""
+    env = {k: v for k, v in os.environ.items() if k not in _GIT_LOCATORS}
+    env["GIT_NO_LAZY_FETCH"] = "1"
+    return env
 
 
 def _is_ancestor(sha, ref, cwd):
