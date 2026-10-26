@@ -706,6 +706,7 @@ LOOP_RUNTIME_STATE = (
     "run.log",
     "config_temp.json",
     "run_result.json",
+    "cycles.jsonl",
 )
 
 
@@ -766,3 +767,119 @@ def test_make_clean_keeps_the_loops_records():
                 w for a, w in zip(words, words[1:], strict=False) if a == "-name"
             ]
         assert not [(w, k) for w in targets for k in kept if removes(w, k)], words
+
+
+def _one_day_cycle(tmp_path, monkeypatch, returncode, result):
+    """Run the loop for one day cycle of lr=0.002 whose training exits returncode after writing result."""
+    import json
+
+    import run_autoresearch_loop as loop
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(loop, "__file__", str(tmp_path / "run_autoresearch_loop.py"))
+    monkeypatch.setattr(loop.signal, "signal", lambda *args: None)
+    monkeypatch.setattr(loop.time, "sleep", lambda *args: None)
+    hours = iter([12, 12, 20])  # one day cycle, then end the shift
+    monkeypatch.setattr(
+        loop.time, "localtime", lambda: SimpleNamespace(tm_hour=next(hours))
+    )
+    monkeypatch.setattr(
+        loop, "tweak_templates", [{"family": "lr", "attr": "lr", "vals": [0.002]}]
+    )
+    ExperimentConfig().save(tmp_path / "config.json")
+
+    class FakeSupervisor:
+        def run(self, command, **kwargs):
+            if "--smoke" in command:
+                return subprocess.CompletedProcess(command, 0)
+            (tmp_path / "run_result.json").write_text(json.dumps(result))
+            return subprocess.CompletedProcess(command, returncode)
+
+    monkeypatch.setattr(loop, "supervisor", FakeSupervisor())
+    monkeypatch.setattr(loop, "commit_promotion", lambda message: True)
+    loop.main()
+    lines = (tmp_path / loop.CYCLES_FILE).read_text().splitlines()
+    return [json.loads(line) for line in lines]
+
+
+@pytest.mark.parametrize("returncode", [0, 1])
+def test_every_cycle_is_recorded_with_its_tweak_code_and_result(
+    tmp_path, monkeypatch, returncode
+):
+    """Analyses joined the sprint logs to run.log by val_f1 to get a cycle's AUC and lift, and run.log rotates
+    at 10 MB (reports/loop_tweak_replication_2026-10-25.md). cycles.jsonl keeps one line per cycle instead."""
+    result = {"is_success": False, "val_f1": 0.27, "roc_auc": 0.59, "steps": 980}
+    (record,) = _one_day_cycle(tmp_path, monkeypatch, returncode, result)
+    log = next((tmp_path / "sprint_logs").glob("*.md"))
+    assert record["sprint_log"] == str(Path("sprint_logs") / log.name)
+    assert (record["cycle"], record["shift"]) == (1, "DAY SHIFT")
+    assert (record["tweak"], record["family"], record["attr"], record["value"]) == (
+        "lr_0.002",
+        "lr",
+        "lr",
+        0.002,
+    )
+    assert record["budget_s"] == 900
+    assert record["started"] <= record["logged"]
+    assert len(record["started"]) == 19 and record["started"][10] == "T"
+    assert (
+        record["commit"] is None and record["code_changes"] is None
+    )  # not a git checkout
+    if returncode == 0:
+        assert record["status"] == "REVERTED" and record["failure"] is None
+        assert record["result"] == result
+    else:
+        assert record["status"] == "CRASHED"
+        assert record["failure"] == "exited with code 1 after writing run_result.json"
+        assert record["result"] is None  # a crash's result is not read
+    assert f"## Cycle 1: lr_0.002 ({record['status']})" in log.read_text()
+
+
+def test_code_state_names_the_commit_and_changes_to_what_a_cycle_runs(
+    tmp_path, monkeypatch
+):
+    import run_autoresearch_loop as loop
+
+    def git(*args, cwd=tmp_path):
+        return subprocess.run(
+            ["git", "-c", "user.email=t@example.com", "-c", "user.name=t", *args],
+            cwd=cwd,
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+
+    villa = tmp_path / "villa"  # committed as a gitlink, as the submodule is
+    villa.mkdir()
+    git("init", "-q", cwd=villa)
+    (villa / "aug.py").write_text("a = 1\n")
+    git("add", ".", cwd=villa)
+    git("commit", "-q", "-m", "v", cwd=villa)
+    git("init", "-q")
+    (tmp_path / "scripts/training").mkdir(parents=True)
+    (tmp_path / "scripts/training/train.py").write_text("a = 1\n")
+    (tmp_path / "notes.md").write_text("x\n")
+    git("add", ".")
+    git("commit", "-q", "-m", "c")
+    monkeypatch.chdir(tmp_path)
+    assert loop.code_state() == (git("rev-parse", "HEAD"), [])
+    (villa / "weights.ckpt").write_text("")  # untracked inside villa: not its code
+    (tmp_path / "notes.md").write_text("y\n")  # not what a cycle runs
+    assert loop.code_state() == (git("rev-parse", "HEAD"), [])
+    (tmp_path / "scripts/training/train.py").write_text("a = 2\n")
+    (tmp_path / "uv.lock").write_text("")
+    (villa / "aug.py").write_text("a = 2\n")
+    commit, changes = loop.code_state()
+    assert commit == git("rev-parse", "HEAD")
+    assert changes == [" M scripts/training/train.py", " M villa", "?? uv.lock"]
+
+
+def test_a_record_that_cannot_be_written_does_not_stop_the_loop(tmp_path, capsys):
+    import run_autoresearch_loop as loop
+
+    loop.append_cycle_record({"cycle": 1}, path=str(tmp_path / "missing" / "c.jsonl"))
+    assert "could not append this cycle" in capsys.readouterr().out
+    loop.append_cycle_record(
+        {"cycle": 1, "value": {1, 2}}, path=str(tmp_path / "c.jsonl")
+    )
+    assert (tmp_path / "c.jsonl").read_text() == '{"cycle": 1, "value": "{1, 2}"}\n'

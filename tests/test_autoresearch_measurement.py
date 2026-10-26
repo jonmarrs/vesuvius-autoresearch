@@ -1287,6 +1287,44 @@ def test_train_writes_the_warm_start_it_made_into_run_result():
     assert entries["warm_start"] == "warm_started"
 
 
+def test_run_result_counts_the_steps_the_training_loop_took():
+    """The step count was only in run.log ("Step N |" every tenth step), which the
+    loop rotates at 10 MB; run_result.json, and so cycles.jsonl, now carries it."""
+    import ast
+
+    tree = ast.parse(Path(train.__file__).read_text())
+    body = next(
+        node
+        for node in ast.walk(tree)
+        if isinstance(node, ast.FunctionDef) and node.name == "train"
+    )
+    result = next(
+        node.value
+        for node in ast.walk(body)
+        if isinstance(node, ast.Assign)
+        and [ast.unparse(t) for t in node.targets] == ["result_data"]
+    )
+    entries = {
+        key.value: ast.unparse(value)
+        for key, value in zip(result.keys, result.values, strict=True)
+        if isinstance(key, ast.Constant)
+    }
+    assert entries["steps"] == "step"
+    counted = [
+        node
+        for node in ast.walk(body)
+        if isinstance(node, ast.AugAssign) and ast.unparse(node.target) == "step"
+    ]
+    assert [ast.unparse(n) for n in counted] == ["step += 1"]
+    starts = [
+        ast.unparse(node.value)
+        for node in ast.walk(body)
+        if isinstance(node, ast.Assign)
+        and [ast.unparse(t) for t in node.targets] == ["step"]
+    ]
+    assert starts == ["0"]
+
+
 def test_a_run_needs_a_config_that_exists(tmp_path):
     """A missing --config used to get ExperimentConfig's defaults written to it
     and run: a mistyped path trained, or passed --smoke on, gated_unet."""

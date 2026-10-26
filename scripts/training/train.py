@@ -3034,6 +3034,8 @@ def train(config: ExperimentConfig, *, strict_warm_start=False):
         # Steps not applied: a non-finite or > 1e6 loss, or a non-finite
         # gradient norm (see guarded_update).
         "skipped_updates": skipped_updates,
+        # Steps taken in the budget, the skipped ones included.
+        "steps": step,
         # UA-MT teacher passes per step: 4 when its passes are stochastic, 1
         # when not (uncertainty weights 1); None without UA-MT batches.
         "uamt_teacher_passes": teacher_passes,

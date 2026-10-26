@@ -71,7 +71,8 @@ Every run that finishes validation appends to `history.tsv` (it has no `val_f1`;
 the noise probe's and the ablation's runs write elsewhere); a
 promoting run appends to `results.tsv` (local-only) and `prize_readiness.tsv`, and
 replaces `best_model.pt` (which carries the honest metrics). Sprint logs, with each
-cycle's `val_f1`, land in `sprint_logs/`.
+cycle's `val_f1`, land in `sprint_logs/`. The loop also appends one line per cycle to
+`cycles.jsonl` (local): its tweak, start, commit and the run's `run_result.json`.
 
 ## The experiment loop
 
