@@ -310,12 +310,21 @@ RECENT_CONFIGS_FILE = "recent_configs.json"
 # run_result.json. Analyses of the loop used to join the sprint logs to run.log by val_f1
 # (scripts/loop_tweak_replication.py), and run.log rotates at 10 MB.
 CYCLES_FILE = "cycles.jsonl"
-# What a cycle runs. A working-tree change under one of these is recorded with the commit.
+# What a cycle runs: the loop, train.py, every module of this repository either one imports
+# (tests/test_loop_lifecycle.py walks their imports), villa and the locked environment. A
+# working-tree change under one of these is recorded with the commit.
 LOOP_CODE_PATHS = (
     "run_autoresearch_loop.py",
     "scripts/training",
     "scripts/loop_control.py",
     "scripts/process_supervisor.py",
+    "scripts/betti_loss_module.py",
+    "scripts/cldice_loss.py",
+    "scripts/pixel_auc.py",  # val ROC AUC
+    "scripts/wandb_tracking.py",
+    "scroll_augmentations.py",
+    "vesuvius_model.py",
+    "volume_cartographer_wrapper",
     "src",
     "villa",
     "pyproject.toml",
