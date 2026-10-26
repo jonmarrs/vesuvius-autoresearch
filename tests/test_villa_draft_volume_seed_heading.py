@@ -249,7 +249,9 @@ def test_the_patch_applies_to_the_pinned_villa(tmp_path):
     source = tmp_path / VOLUME
     source.parent.mkdir(parents=True)
     source.write_text((VILLA / VOLUME).read_text())
-    subprocess.run(["git", "init", "-q", str(tmp_path)], check=True, capture_output=True)
+    subprocess.run(
+        ["git", "init", "-q", str(tmp_path)], check=True, capture_output=True
+    )
     heading_functions = []
     for patch in (PATCH, ROOT / "repro/fibers/villa_volume_seed_resume.patch"):
         r = subprocess.run(
@@ -259,8 +261,11 @@ def test_the_patch_applies_to_the_pinned_villa(tmp_path):
             env={"PATH": "/usr/bin:/bin"},
         )
         assert r.returncode == 0, r.stderr
-        heading = next(n for n in ast.parse(source.read_text()).body
-                       if isinstance(n, ast.FunctionDef) and n.name == "_seed_heading")
+        heading = next(
+            n
+            for n in ast.parse(source.read_text()).body
+            if isinstance(n, ast.FunctionDef) and n.name == "_seed_heading"
+        )
         heading_functions.append(ast.dump(heading))
     # The follow-up guard changes resume validation, not the measured heading function.
     assert heading_functions[0] == heading_functions[1]

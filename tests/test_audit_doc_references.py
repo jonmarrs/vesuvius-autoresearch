@@ -24,8 +24,14 @@ restore_cuda_env()  # do not leave the mask for other test modules
 # a run creates. Keep the exceptions exact: a count allowance could hide a new
 # broken reference.
 KNOWN_HISTORICAL_PATHS = {
-    ("docs/VILLA_STRATEGY.md", "villa/segmentation/model_optimization_framework/run_autoresearch_nnunet.py"),
-    ("reports/spiral_satisfaction_winding_blindness.md", "villa/volume-cartographer/scripts/spiral/"),
+    (
+        "docs/VILLA_STRATEGY.md",
+        "villa/segmentation/model_optimization_framework/run_autoresearch_nnunet.py",
+    ),
+    (
+        "reports/spiral_satisfaction_winding_blindness.md",
+        "villa/volume-cartographer/scripts/spiral/",
+    ),
     # What resnet3d and i3d import from, "which villa moved to deprecated/ink-detection/".
     ("METHOD.md", "villa/ink-detection/models/"),
     # The detector's default data_root, which the reproduce step's conversion creates.
@@ -44,9 +50,21 @@ def history(tmp_path, monkeypatch):
 
     def git(cwd, *args):
         return subprocess.check_output(
-            ["git", "-C", str(cwd), "-c", "user.name=Test", "-c", "user.email=test@example.invalid",
-             "-c", "commit.gpgsign=false", *args],
-            env=mod._git_env(), text=True, stderr=subprocess.DEVNULL,
+            [
+                "git",
+                "-C",
+                str(cwd),
+                "-c",
+                "user.name=Test",
+                "-c",
+                "user.email=test@example.invalid",
+                "-c",
+                "commit.gpgsign=false",
+                *args,
+            ],
+            env=mod._git_env(),
+            text=True,
+            stderr=subprocess.DEVNULL,
         ).strip()
 
     for path, name in ((repo, "project"), (villa, "upstream")):
@@ -67,10 +85,18 @@ def test_it_reads_the_documents_a_contributor_reads_first():
     """Until 2026-10-21 it read only reports/ and docs/: the README, CONTRIBUTING and
     the README skeleton's project layouts were never checked."""
     docs = mod.documents()
-    for name in ("README.md", "CONTRIBUTING.md", "METHOD.md", "REPRODUCE.md",
-                 ".github/README_SKELETON.md"):
+    for name in (
+        "README.md",
+        "CONTRIBUTING.md",
+        "METHOD.md",
+        "REPRODUCE.md",
+        ".github/README_SKELETON.md",
+    ):
         assert name in docs, name
-    assert "reports/villa_prize_action_matrix.md" in docs and "docs/VILLA_STRATEGY.md" in docs
+    assert (
+        "reports/villa_prize_action_matrix.md" in docs
+        and "docs/VILLA_STRATEGY.md" in docs
+    )
 
 
 def test_audit_reads_every_document_it_lists(monkeypatch):
@@ -143,9 +169,8 @@ def test_live_documents_stay_clean():
     _, missing_paths, _, _, _ = mod.audit()
     live = {(d, p) for d, p in missing_paths if not mod.DATED_RE.search(d)}
     unexpected = live - KNOWN_HISTORICAL_PATHS
-    assert not unexpected, (
-        "new stale paths in live documents: "
-        + ", ".join(f"{p} in {d}" for d, p in sorted(unexpected))
+    assert not unexpected, "new stale paths in live documents: " + ", ".join(
+        f"{p} in {d}" for d, p in sorted(unexpected)
     )
 
 
@@ -188,3 +213,28 @@ def test_an_empty_villa_dir_does_not_claim_the_parents_commits(tmp_path, monkeyp
     # first fix passed under plain pytest and still failed inside the hook.
     monkeypatch.setenv("GIT_DIR", str(parent / ".git"))
     assert mod.where(head) != "villa submodule"
+
+
+def test_a_lookup_does_not_fetch_into_a_partial_clone(tmp_path):
+    """villa/ can be a partial clone, where `git cat-file -e` on a commit it lacks fetches it from the remote. The
+    audit answers from what is there: no network, nothing written into villa/'s object store."""
+    import subprocess as sp
+
+    def git(cwd, *args, env=None):
+        return sp.run(["git", "-C", str(cwd), "-c", "user.name=Test", "-c", "user.email=test@example.invalid",
+                       "-c", "commit.gpgsign=false", *args], env=env or mod._git_env(), text=True,
+                      capture_output=True)  # fmt: skip
+
+    server, clone = tmp_path / "server", tmp_path / "clone"
+    server.mkdir()
+    for args in (("init", "-q", "-b", "main"), ("config", "uploadpack.allowFilter", "true"),
+                 ("commit", "-q", "--allow-empty", "-m", "first")):  # fmt: skip
+        assert git(server, *args).returncode == 0
+    assert git(tmp_path, "clone", "-q", "--filter=blob:none", f"file://{server}", str(clone)).returncode == 0  # fmt: skip
+    assert git(server, "commit", "-q", "--allow-empty", "-m", "upstream only").returncode == 0  # fmt: skip
+    sha = git(server, "rev-parse", "HEAD").stdout.strip()
+    assert git(clone, "config", "remote.origin.promisor").stdout.strip() == "true"
+    assert not mod._exists(sha, str(clone))
+    # the control: without the guard, the same lookup fetches the commit from the remote and finds it
+    lazy = {k: v for k, v in mod._git_env().items() if k != "GIT_NO_LAZY_FETCH"}
+    assert git(clone, "cat-file", "-e", f"{sha}^{{commit}}", env=lazy).returncode == 0
