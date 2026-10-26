@@ -41,8 +41,8 @@ walkthrough records the limit, source hashes and comparison scope.
 
 The official rules favor early releases, actual use, real-data improvements,
 useful fixes, actionable analysis and documentation. They explicitly ask for
-small bug fixes to be bundled. The checked source is Villa `e2254ebe`,
-[`scrollprize.org/docs/34_prizes.md`](https://github.com/ScrollPrize/villa/blob/e2254ebe0168a232e5ba7b94997c749b4e6a4544/scrollprize.org/docs/34_prizes.md#progress-prizes).
+small bug fixes to be bundled. The October 25 checked source is Villa `322cb0899`,
+[`scrollprize.org/docs/34_prizes.md`](https://github.com/ScrollPrize/villa/blob/322cb0899ac9efe2588d5a3395dce6dc2dea3c89/scrollprize.org/docs/34_prizes.md#progress-prizes).
 The live form loaded successfully; direct access to the deployed prizes page
 returned HTTP 403, so the current repository source supplied the rules.
 
@@ -52,9 +52,9 @@ returned HTTP 403, so the current repository source supplied the rules.
 | --- | --- | --- |
 | 1 | Freeze and file the engineering bundle based on the three confirmed merges. | Final personal fields and terms, filing-day rechecks, actual submission and saved receipt. Target October 29; deadline October 31 at 11:59 p.m. Pacific. Do not wait for more merges. |
 | 2 | Publish the completed CPU reproduction and merged ScrollGT memory fix (#14). The 512³ control exposed a whole-volume EDT allocation failure under a 7 GiB address-space budget. | The bounded-slab fix is merged: 213 fiber checks and CI pass; real label and score comparisons are exact. Keep the scoring definition and published rows unchanged. Preserve both the baseline failure and the successful run, with commands and limits. |
-| 3 | Package the optional research submission around the released benchmark and Findings 96–100. | Review the separate form answer; preserve in-sample, context and exploratory disclosures. A measured improvement to a new heading policy is not part of the completed evidence. |
+| 3 | Package the optional research submission around the released benchmark and Findings 96–100. | Review the separate form answer; preserve in-sample, context and exploratory disclosures. Finding 100 is complete; retain its failed Scroll-3 prediction and distinguish its two heading rules. |
 | 4 | Complete the existing Villa contributions when access permits: #2141, #2258, #2259, then the prepared native-retry and reference-provenance branches. | The integration remains read-only. A maintainer must merge the existing PRs; prepared PR creation returned HTTP 403. All passing checks and pushed branches stay separate from merged credits. Incorporate actual new feedback if it arrives. |
-| 5 | Review and package the already prepared Villa seed-heading proposal from Finding 100. | The pilot has completed; do not repeat it as unfinished work. [Owner PR #235](https://github.com/jonmarrs/vesuvius-autoresearch/pull/235) prepares the `keep` rule, matching training's signed CT axis (1.11× and 1.28× coverage on two held-out Scroll-5 cubes). The `sheet` experiment recovered more (1.20×, 1.43×) but is a different rule. Keep their evidence distinct; observe the upstream PR cap, current-main verification and contribution requirements before posting. Further experiments are optional after the filing is frozen. |
+| 5 | Prepare upstream publication of the reviewed Villa seed-heading proposal from Finding 100 when a PR slot and access permit. | [Owner PR #235](https://github.com/jonmarrs/vesuvius-autoresearch/pull/235) and its follow-up review are merged here; no upstream PR is posted. Its `keep` rule matches training's signed CT axis (1.11× and 1.28× coverage on two held-out Scroll-5 cubes). The current-Villa-main re-run reproduces both before/after traces on those two cubes. The `sheet` experiment recovered more (1.20×, 1.43×) but is a different rule. Keep their evidence distinct; recheck current main, the upstream PR cap and the owner's required commentary before posting. Further experiments are optional after the filing is frozen. |
 
 The integration's creation and merge errors are preserved in
 [the review record](../reports/evidence/villa_pr_review_2026-10-23.json).
@@ -108,8 +108,9 @@ record remains unchanged; this paragraph records the follow-up check.
 - **October 23–24:** finish the filing evidence checks and concise narrative;
   keep the existing PRs ready for maintainer review. Prepare the native retry
   handoff and the benchmark reproduction example.
-- **October 25–27:** finish that CPU reproduction work and review Findings
-  96–100 against the updated filing. Keep the withdrawn octant tracing study
+- **October 25–27:** publish the completed CPU reproduction and review Findings
+  96–100 against the updated filing. The seed-heading proposal and current-main
+  re-run are also complete in this repository. Keep the withdrawn octant tracing study
   withdrawn. Complete the prepared upstream contributions when publication
   and merge access become available.
 - **October 28:** freeze the submission narrative and public evidence links.

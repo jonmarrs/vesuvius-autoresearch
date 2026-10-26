@@ -217,9 +217,9 @@
       "final_url": "https://github.com/jonmarrs/vesuvius-autoresearch/blob/b808f3d3fe208440137022bfc63039829c92d613/reports/neural_tracer_heading_residual.md"
     },
     {
-      "url": "https://github.com/ScrollPrize/villa/blob/e2254ebe0168a232e5ba7b94997c749b4e6a4544/scrollprize.org/docs/34_prizes.md#progress-prizes",
+      "url": "https://github.com/ScrollPrize/villa/blob/322cb0899ac9efe2588d5a3395dce6dc2dea3c89/scrollprize.org/docs/34_prizes.md#progress-prizes",
       "status": 200,
-      "final_url": "https://github.com/ScrollPrize/villa/blob/e2254ebe0168a232e5ba7b94997c749b4e6a4544/scrollprize.org/docs/34_prizes.md#progress-prizes"
+      "final_url": "https://github.com/ScrollPrize/villa/blob/322cb0899ac9efe2588d5a3395dce6dc2dea3c89/scrollprize.org/docs/34_prizes.md#progress-prizes"
     },
     {
       "url": "https://github.com/jonmarrs/vesuvius-autoresearch/blob/4f35917240f6b359f674e8fe457f8c3c18cbd919/reports/neural_tracer_steep_heading.md",
@@ -244,7 +244,7 @@
   "optional_additions": [
     "Separate research filing",
     "Complete pending Villa PRs when maintainer/integration access allows",
-    "Review the prepared Villa seed-heading proposal from completed Finding 100"
+    "Publish the reviewed Villa seed-heading proposal when an upstream PR slot, access and required owner commentary permit"
   ],
   "completed_follow_up": {
     "scrollgt_memory_pr": {
@@ -268,10 +268,20 @@
         2
       ]
     },
+    "villa_seed_heading_draft": {
+      "url": "https://github.com/jonmarrs/vesuvius-autoresearch/pull/235",
+      "merged_in_owner_repository": true,
+      "merge_commit": "ac43650f189b57127153d49d7ef07a47d107638e",
+      "follow_up_review_commit": "a96c7cc4da64f3b7c6b8af2416ed35c5cda049d0",
+      "posted_upstream": false,
+      "current_villa_rerun": "322cb0899",
+      "held_out_scroll_5_before_and_after_traces_identical_to_prior_runs": true
+    },
     "finding_100_filing_pr": {
       "number": 233,
       "merged": true,
       "merge_commit": "5fe8f07fd5c211b636f0e0f494a5b60dc8ee75a0"
     }
-  }
+  },
+  "follow_up_checked_at_utc": "2026-10-26T02:17:23.481785+00:00"
 }
