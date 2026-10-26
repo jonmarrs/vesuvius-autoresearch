@@ -1,5 +1,6 @@
 """Bind the replicate-rule replay (scripts/loop_replicate_rule.py) to its source record and its report."""
 
+import datetime as dt
 import hashlib
 import importlib.util
 import json
@@ -410,6 +411,76 @@ def test_the_window_null_is_reported_and_changes_no_reading():
     c = L.REGISTERED["c"]
     assert null["false_promotions"] == sum(m > c for m in null["shuffled"])
     assert null["centred_false_promotions"] == sum(m > c for m in null["centred"])
+
+
+def _loop_logs(tmp_path, n_standing, n=100):
+    """The loop's logs for a window: a shift from 15:45, so its first cycle starts before the window, the standing
+    tweak every 10th cycle while it lasts, and the runs split over run.log.old and run.log, as a rotation leaves them."""
+    sprint = ["# day shift", "- **Start Time**: 15:45:00", ""]
+    runs = []
+    for j in range(n):
+        standing = j % 10 == 4 and j // 10 < n_standing
+        tweak = STANDING if standing else f"t{j % 5}"
+        f1 = round(0.26 + 0.0001 * (j * 37 % 17) + 1e-6 * j + 0.006 * standing, 6)
+        auc = 0.58 + 0.001 * (j * 11 % 7) + 0.03 * standing
+        end = dt.datetime(2026, 10, 25, 15, 45) + dt.timedelta(minutes=15 * (j + 1))
+        sprint += [
+            f"## Cycle {j + 1}: {tweak} (REVERTED)",
+            f"- **Timestamp**: {end:%H:%M:%S}",
+            "- **Config**: lr: 0.0005, batch_size: 8, time_budget: 900, patch_size: 64",
+            f"- **Stats**: val_f1: {f1!r}, loss: 0.5",
+            "",
+        ]
+        runs.append(
+            [
+                f"{R.RUN_START}900s)...",
+                "Step 1000 | Loss: 0.5 | LR: 1e-4 | dt: 700ms | Remaining: 10s",
+                "avg_mean_ap:           0.5960",
+                f"val_f1:                {f1:.6f} (thr 0.100; incumbent 0.265762) ",
+                "ap_prevalence_lift:    1.1500",
+                f"roc_auc:               {auc:.4f}  [selection: F1 gated by AP-lift]",
+            ]
+        )
+    (tmp_path / "sprint_log_2026-10-25_15-45-00_day_shift.md").write_text(
+        "\n".join(sprint)
+    )
+    for name, part in (("run.log.old", runs[: n // 2]), ("run.log", runs[n // 2 :])):
+        (tmp_path / name).write_text("\n".join(ln for run in part for ln in run) + "\n")
+
+
+@pytest.mark.parametrize(
+    "n_standing, status, reading",
+    [(10, "OK", "TAKES_CONFIRMED_GAIN"), (5, "INCOMPLETE", None)],
+)
+def test_the_window_test_reads_what_the_registered_confirmation_writes(
+    tmp_path, n_standing, status, reading
+):
+    """Amendment 1's command on the loop's own log formats, then --window on its output, as the readout will run
+    them: the two scripts agree on the output's shape before any window cycle is read."""
+    _loop_logs(tmp_path, n_standing)
+    confirmation, out = tmp_path / "confirmation.json", tmp_path / "window.json"
+    R.main(
+        ["--registered", "--since", "2026-10-25T16:00:00", "--until", "2026-10-29T16:00:00",
+         "--sprint-logs", str(tmp_path / "sprint_log_2026-10-2*.md"),
+         "--run-log", str(tmp_path / "run.log.old"), str(tmp_path / "run.log"),
+         "--out", str(confirmation)]
+    )  # fmt: skip
+    L.main(["--window", str(confirmation), "--out", str(out)])
+    got = json.loads(out.read_text())
+    digest = hashlib.sha256(confirmation.read_bytes()).hexdigest()
+    assert got["source"]["sha256"] == digest
+    assert got["status"] == got["confirmation"]["status"] == status
+    assert got["reading"] == reading
+    if reading is None:
+        assert "first_promotion" not in got
+        return
+    assert got["confirmation"]["reading"] == "CONFIRMED"
+    # the shift's first cycle started at 15:45, before the window
+    assert got["first_start"] == "2026-10-25T16:00:00"
+    assert got["first_promotion"]["tweak"] == STANDING
+    assert got["first_promotion"]["tweak_cycles_so_far"] >= L.REGISTERED["min_cycles"]
+    assert len(got["standing_cycles"]) == L.CONFIRMATION["cut_at"]
+    assert len(got["null"]["shuffled"]) == L.PERMUTATIONS
 
 
 @pytest.fixture(scope="module")
