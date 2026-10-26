@@ -164,7 +164,20 @@ def test_the_patch_removes_only_the_35_degree_skip():
         ln.startswith("-") and not ln.startswith("---") for ln in text.splitlines()
     )
     assert (added, gone) == (23, 4)
-    assert "(+23/−4" in _text()
+    # the rest: the module docstring's two lines, reworded, and the new test file
+    doc = [ln for ln in removed if ln.startswith(("Tracing streams", "a dot whose"))]
+    test_lines = text.split("test_volume_seed_heading.py\n", 2)[-1].split(
+        "\ndiff --git", 1
+    )[0]
+    new_test = sum(
+        ln.startswith("+") and not ln.startswith("+++")
+        for ln in test_lines.splitlines()
+    )
+    assert (len(doc), new_test, added - new_test) == (2, 21, 2)
+    assert (
+        "(+23/−4: two lines removed from `_seed_heading`, two docstring lines reworded, a new 21-line test)"
+        in _text()
+    )
 
 
 def _villa_seed_heading(source: str, patched: bool):
