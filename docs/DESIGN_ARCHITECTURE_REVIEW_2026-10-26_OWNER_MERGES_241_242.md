@@ -80,7 +80,7 @@ This round covers the 11:24 UTC firing. The 04:12–10:15 firings found main unm
   - after it, the checker and villa-draft tests give 24 passed;
   - against #241's checker, the five new cases fail.
 - **Doc guards, the withdrawn-claims ledger, the suite guard, and the filing, form-answer, research-answer,
-  rollover-checker, villa-draft and loop-tweak tests:** 540 passed and 6 skipped.
+  rollover-checker, villa-draft and loop-tweak tests:** 541 passed and 6 skipped.
   - The one failure is `test_live_documents_stay_clean`, which lists villa paths absent from this container's villa
     checkout.
   - Its list is the same as on main.
