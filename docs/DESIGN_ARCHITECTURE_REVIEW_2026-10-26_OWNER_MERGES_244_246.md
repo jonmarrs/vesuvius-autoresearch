@@ -15,19 +15,23 @@ This round covers the 18:13 UTC firing. The 12:33–17:13 firings found main unm
 
 - **`cycles.jsonl` missed edits to part of the code a cycle runs.**
   - #245 records `git status` for `LOOP_CODE_PATHS`, as "any working-tree change to what a cycle runs".
-  - `train.py` also imports eight files of this repository from outside those paths:
+  - `train.py` also imports seven files of this repository from outside those paths:
     - the losses, `scripts/betti_loss_module.py` and `scripts/cldice_loss.py`;
     - `scripts/pixel_auc.py`, which computes the validation ROC AUC, one of the two measures the replicate rule
       reads;
     - the augmentations, `scroll_augmentations.py`;
     - the models, `vesuvius_model.py`;
     - the loader wrapper, `volume_cartographer_wrapper/`;
-    - `scripts/wandb_tracking.py` and `scripts/__init__.py`.
+    - `scripts/wandb_tracking.py`.
   - An uncommitted edit to any of them ran in the cycle, and the cycle was recorded as running the commit unchanged.
   - They are now in `LOOP_CODE_PATHS`.
   - A new test in `tests/test_loop_lifecycle.py` follows the imports of `train.py` and of the loop through this
     repository's files: imports inside functions count, relative ones too, and villa is left out. It requires every
-    file it reaches to be covered, and every listed path to exist. Against #245's list it fails, naming the eight.
+    file it reaches to be covered, and every listed path to exist. Against #245's list it fails, naming the seven.
+  - The empty `scripts/__init__.py` is not listed. The suite guard
+    (`tests/test_validation_suite_covers_the_loop.py`) counts a package marker with no code as no code. Listing it
+    made the loop name a file the guard reads as a script named but not run. The coverage test follows the same
+    rule, so a marker that gains code must be listed.
   - On this checkout, `code_state()` with the longer list takes 0.17 s and reports the edited loop file.
 
 ## Verified, no change needed
@@ -72,7 +76,11 @@ This round covers the 18:13 UTC firing. The 12:33–17:13 firings found main unm
 - **#244–#246's tests** (`tests/test_loop_replicate_rule.py`, `tests/test_loop_lifecycle.py`,
   `tests/test_autoresearch_measurement.py`, `tests/test_loop_tweak_replication.py`) gave 206 passed on main.
 - **The new coverage test** passes with the change and fails against #245's list.
-- **The guard set:** to be filled in from the run.
+- **The guard set:** the doc guards, the withdrawn-claims ledger, the suite guard, and the filing, form,
+  rollover, villa-draft, loop-tweak, replicate-rule, lifecycle and measurement tests.
+  - With the change it gives 575 passed and 6 skipped.
+  - The one failure is the standing `test_live_documents_stay_clean`, which lists villa paths absent from this
+    container's villa checkout. Its list is the same as on main.
 - **Ruff** 0.9.10 `check` and `format`, and **mypy** with the hook's flags, are clean on the two changed Python
   files.
 - **Doc audit:** main's run differs from #243's only in three more cited paths, all present.

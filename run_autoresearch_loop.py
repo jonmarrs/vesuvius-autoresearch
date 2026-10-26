@@ -318,7 +318,6 @@ LOOP_CODE_PATHS = (
     "scripts/training",
     "scripts/loop_control.py",
     "scripts/process_supervisor.py",
-    "scripts/__init__.py",
     "scripts/betti_loss_module.py",
     "scripts/cldice_loss.py",
     "scripts/pixel_auc.py",  # val ROC AUC

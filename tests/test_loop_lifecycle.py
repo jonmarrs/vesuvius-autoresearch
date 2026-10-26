@@ -920,12 +920,20 @@ def _local_imports(entry, roots):
 def test_the_cycle_record_covers_the_code_a_cycle_imports():
     """cycles.jsonl records working-tree changes under LOOP_CODE_PATHS. train.py also imports the losses, the AUC
     (scripts/pixel_auc.py), the augmentations, the models and the loader wrapper from outside scripts/training and
-    src, and an edit to those went unrecorded."""
+    src, and an edit to those went unrecorded. A package marker with no code is not code a cycle runs, as in
+    tests/test_validation_suite_covers_the_loop.py."""
+    import ast
+
     import run_autoresearch_loop as loop
+
+    def runs_code(path):
+        body = ast.parse((REPO / path).read_text()).body
+        return bool(body[1:] if body and isinstance(body[0], ast.Expr) else body)
 
     train = REPO / "scripts/training/train.py"
     imported = _local_imports(train, [train.parent, REPO, REPO / "src"])
     imported |= _local_imports(REPO / "run_autoresearch_loop.py", [REPO, REPO / "src"])
+    imported = {path for path in imported if runs_code(path)}
     assert {"scripts/pixel_auc.py", "vesuvius_model.py", "scroll_augmentations.py"} <= imported  # fmt: skip
 
     def covered(path):
