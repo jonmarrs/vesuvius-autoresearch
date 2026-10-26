@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import ast
 import json
+import os
 import re
 import statistics
 import subprocess
@@ -27,7 +28,7 @@ EVIDENCE = ROOT / "reports/evidence/villa_volume_seed_heading_tests.txt"
 RERUN = ROOT / "reports/evidence/villa_volume_seed_heading_rerun.json"
 RERUN_LOG = ROOT / "reports/evidence/villa_volume_seed_heading_rerun_chain.txt"
 VOLUME = "vesuvius/src/vesuvius/neural_tracing/tracers/fibers/tracing/volume.py"
-VILLA = ROOT / "villa"
+VILLA = Path(os.environ.get("VILLA_REVIEW_ROOT", ROOT / "villa"))
 
 S5 = ["s5_13497_01497_02497_256", "s5_16997_03997_04497_256"]
 
@@ -243,14 +244,26 @@ def test_patched_villa_seed_heading_is_the_keep_arm(monkeypatch):
 
 
 @pytest.mark.skipif(not (VILLA / VOLUME).exists(), reason="villa checkout absent")
-def test_the_patch_applies_to_the_pinned_villa():
-    r = subprocess.run(
-        ["git", "-C", str(VILLA), "apply", "--check", str(PATCH)],
-        capture_output=True,
-        text=True,
-        env={"PATH": "/usr/bin:/bin"},
-    )
-    assert r.returncode == 0, r.stderr
+def test_the_patch_applies_to_the_pinned_villa(tmp_path):
+    # Check the exact published patch sequence without changing the source checkout.
+    source = tmp_path / VOLUME
+    source.parent.mkdir(parents=True)
+    source.write_text((VILLA / VOLUME).read_text())
+    subprocess.run(["git", "init", "-q", str(tmp_path)], check=True, capture_output=True)
+    heading_functions = []
+    for patch in (PATCH, ROOT / "repro/fibers/villa_volume_seed_resume.patch"):
+        r = subprocess.run(
+            ["git", "-C", str(tmp_path), "apply", str(patch)],
+            capture_output=True,
+            text=True,
+            env={"PATH": "/usr/bin:/bin"},
+        )
+        assert r.returncode == 0, r.stderr
+        heading = next(n for n in ast.parse(source.read_text()).body
+                       if isinstance(n, ast.FunctionDef) and n.name == "_seed_heading")
+        heading_functions.append(ast.dump(heading))
+    # The follow-up guard changes resume validation, not the measured heading function.
+    assert heading_functions[0] == heading_functions[1]
 
 
 def test_the_image_is_the_scorers_coverage():

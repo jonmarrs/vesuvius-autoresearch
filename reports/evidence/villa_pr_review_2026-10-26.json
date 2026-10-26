@@ -1,0 +1,269 @@
+{
+  "date_utc": "2026-10-26",
+  "villa_main": "322cb0899ac9efe2588d5a3395dce6dc2dea3c89",
+  "repository_permissions": {
+    "admin": false,
+    "maintain": false,
+    "pull": true,
+    "push": false,
+    "triage": false
+  },
+  "existing_prs": [
+    {
+      "number": 2141,
+      "url": "https://github.com/ScrollPrize/villa/pull/2141",
+      "head_sha": "19575a4527755b62f4f94e9b713c05769bc4118e",
+      "state": "open",
+      "merged": false,
+      "mergeable": true,
+      "actions": [
+        {
+          "id": 39848890971,
+          "name": "CodeQL",
+          "status": "completed",
+          "conclusion": "success",
+          "run_number": 4527,
+          "jobs_url": "https://api.github.com/repos/ScrollPrize/villa/actions/runs/39848890971/jobs",
+          "logs_url": "https://api.github.com/repos/ScrollPrize/villa/actions/runs/39848890971/logs",
+          "workflow_id": 186908567
+        },
+        {
+          "id": 39848890608,
+          "name": "Continuous Integration (CI)",
+          "status": "completed",
+          "conclusion": "success",
+          "run_number": 3968,
+          "jobs_url": "https://api.github.com/repos/ScrollPrize/villa/actions/runs/39848890608/jobs",
+          "logs_url": "https://api.github.com/repos/ScrollPrize/villa/actions/runs/39848890608/logs",
+          "workflow_id": 186908570
+        }
+      ],
+      "external_statuses": [
+        {
+          "context": "Vercel",
+          "state": "failure",
+          "target_url": "https://vercel.com/git/authorize?team=scroll&slug=scroll&teamId=team_vaj9podZtoZhXLh5u4vJyGWa&type=github&job=%7B%22headInfo%22%3A%7B%22sha%22%3A%2219575a4527755b62f4f94e9b713c05769bc4118e%22%7D%2C%22id%22%3A%22QmRzfkxLXdwh91s14pdxPZHC8tAaFHjjrhvCC1M1UQ88S8%22%2C%22org%22%3A%22ScrollPrize%22%2C%22prId%22%3A2141%2C%22repo%22%3A%22villa%22%7D"
+        }
+      ],
+      "review_threads": {
+        "review_threads": []
+      },
+      "reviews": {
+        "reviews": []
+      }
+    },
+    {
+      "number": 2258,
+      "url": "https://github.com/ScrollPrize/villa/pull/2258",
+      "head_sha": "242f0798cbf3d512f372db050be08203018e71d1",
+      "state": "open",
+      "merged": false,
+      "mergeable": true,
+      "actions": [
+        {
+          "id": 39896812502,
+          "name": "Test vesuvius Python",
+          "status": "completed",
+          "conclusion": "success",
+          "run_number": 1111,
+          "jobs_url": "https://api.github.com/repos/ScrollPrize/villa/actions/runs/39896812502/jobs",
+          "logs_url": "https://api.github.com/repos/ScrollPrize/villa/actions/runs/39896812502/logs",
+          "workflow_id": 166338613
+        },
+        {
+          "id": 39896812433,
+          "name": "Continuous Integration (CI)",
+          "status": "completed",
+          "conclusion": "success",
+          "run_number": 3981,
+          "jobs_url": "https://api.github.com/repos/ScrollPrize/villa/actions/runs/39896812433/jobs",
+          "logs_url": "https://api.github.com/repos/ScrollPrize/villa/actions/runs/39896812433/logs",
+          "workflow_id": 186908570
+        },
+        {
+          "id": 39896812535,
+          "name": "CodeQL",
+          "status": "completed",
+          "conclusion": "success",
+          "run_number": 4541,
+          "jobs_url": "https://api.github.com/repos/ScrollPrize/villa/actions/runs/39896812535/jobs",
+          "logs_url": "https://api.github.com/repos/ScrollPrize/villa/actions/runs/39896812535/logs",
+          "workflow_id": 186908567
+        }
+      ],
+      "external_statuses": [
+        {
+          "context": "Vercel",
+          "state": "failure",
+          "target_url": "https://vercel.com/git/authorize?team=scroll&slug=scroll&teamId=team_vaj9podZtoZhXLh5u4vJyGWa&type=github&job=%7B%22headInfo%22%3A%7B%22sha%22%3A%22242f0798cbf3d512f372db050be08203018e71d1%22%7D%2C%22id%22%3A%22QmVcpyJw9ZK3Hkb4V71wbyuE82yE835Emzdk3x1Y4w7rKs%22%2C%22org%22%3A%22ScrollPrize%22%2C%22prId%22%3A2258%2C%22repo%22%3A%22villa%22%7D"
+        }
+      ],
+      "review_threads": {
+        "review_threads": []
+      },
+      "reviews": {
+        "reviews": []
+      }
+    },
+    {
+      "number": 2259,
+      "url": "https://github.com/ScrollPrize/villa/pull/2259",
+      "head_sha": "d119561f3fb89fceae579bcf2e8671fb6d7e2c9a",
+      "state": "open",
+      "merged": false,
+      "mergeable": true,
+      "actions": [
+        {
+          "id": 39899249444,
+          "name": "Test vesuvius Python",
+          "status": "completed",
+          "conclusion": "success",
+          "run_number": 1112,
+          "jobs_url": "https://api.github.com/repos/ScrollPrize/villa/actions/runs/39899249444/jobs",
+          "logs_url": "https://api.github.com/repos/ScrollPrize/villa/actions/runs/39899249444/logs",
+          "workflow_id": 166338613
+        },
+        {
+          "id": 39899249395,
+          "name": "VC3D Windows pull_request ed3617ae44c1afcf5bc5f37c00c0fbcf6f607cf7",
+          "status": "completed",
+          "conclusion": "success",
+          "run_number": 1636,
+          "jobs_url": "https://api.github.com/repos/ScrollPrize/villa/actions/runs/39899249395/jobs",
+          "logs_url": "https://api.github.com/repos/ScrollPrize/villa/actions/runs/39899249395/logs",
+          "workflow_id": 309688435
+        },
+        {
+          "id": 39899249419,
+          "name": "CodeQL",
+          "status": "completed",
+          "conclusion": "success",
+          "run_number": 4542,
+          "jobs_url": "https://api.github.com/repos/ScrollPrize/villa/actions/runs/39899249419/jobs",
+          "logs_url": "https://api.github.com/repos/ScrollPrize/villa/actions/runs/39899249419/logs",
+          "workflow_id": 186908567
+        },
+        {
+          "id": 39899249392,
+          "name": "Continuous Integration (CI)",
+          "status": "completed",
+          "conclusion": "success",
+          "run_number": 3982,
+          "jobs_url": "https://api.github.com/repos/ScrollPrize/villa/actions/runs/39899249392/jobs",
+          "logs_url": "https://api.github.com/repos/ScrollPrize/villa/actions/runs/39899249392/logs",
+          "workflow_id": 186908570
+        },
+        {
+          "id": 39899249412,
+          "name": "VC3D macOS pull_request ed3617ae44c1afcf5bc5f37c00c0fbcf6f607cf7",
+          "status": "completed",
+          "conclusion": "success",
+          "run_number": 1617,
+          "jobs_url": "https://api.github.com/repos/ScrollPrize/villa/actions/runs/39899249412/jobs",
+          "logs_url": "https://api.github.com/repos/ScrollPrize/villa/actions/runs/39899249412/logs",
+          "workflow_id": 309763943
+        },
+        {
+          "id": 39899249399,
+          "name": "VC3D Linux pull_request ed3617ae44c1afcf5bc5f37c00c0fbcf6f607cf7",
+          "status": "completed",
+          "conclusion": "success",
+          "run_number": 1585,
+          "jobs_url": "https://api.github.com/repos/ScrollPrize/villa/actions/runs/39899249399/jobs",
+          "logs_url": "https://api.github.com/repos/ScrollPrize/villa/actions/runs/39899249399/logs",
+          "workflow_id": 312185083
+        }
+      ],
+      "external_statuses": [
+        {
+          "context": "Vercel",
+          "state": "failure",
+          "target_url": "https://vercel.com/git/authorize?team=scroll&slug=scroll&teamId=team_vaj9podZtoZhXLh5u4vJyGWa&type=github&job=%7B%22headInfo%22%3A%7B%22sha%22%3A%22d119561f3fb89fceae579bcf2e8671fb6d7e2c9a%22%7D%2C%22id%22%3A%22QmebU5RafKG7ek9KVGrVLa4i24rfFnJAG81YucFJoFAyxk%22%2C%22org%22%3A%22ScrollPrize%22%2C%22prId%22%3A2259%2C%22repo%22%3A%22villa%22%7D"
+        }
+      ],
+      "review_threads": {
+        "review_threads": []
+      },
+      "reviews": {
+        "reviews": []
+      }
+    }
+  ],
+  "merge_attempt": {
+    "number": 2141,
+    "expected_head_sha": "19575a4527755b62f4f94e9b713c05769bc4118e",
+    "result": "HTTP 403",
+    "message": "Resource not accessible by integration",
+    "other_merges_not_retried": "Same read-only repository permission and Vercel authorization blocker"
+  },
+  "local_checks": {
+    "sqlite": {
+      "passed": 5
+    },
+    "fractional_seed_planes": {
+      "passed": 20
+    },
+    "native_retry": {
+      "passed": 13,
+      "deselected": 40
+    },
+    "headless_apprun": {
+      "exit_code": 0,
+      "stdout_bytes": 7422
+    },
+    "seed_heading_resume_and_performance": {
+      "passed": 23
+    },
+    "owner_supporting_and_filing_checks": {
+      "passed": 94,
+      "skipped": 0
+    }
+  },
+  "resume_review": {
+    "original_heading_patch_unchanged": true,
+    "missing_selection_and_old_selection_accepted_before_fix": true,
+    "before": {
+      "failed": 2,
+      "passed": 1
+    },
+    "after": {
+      "failed": 0,
+      "passed": 3
+    },
+    "new_field": "seed_heading_selection",
+    "new_value": "signed_ct_axis_v1",
+    "matching_policy_resumes": true,
+    "old_records_unchanged_on_rejection": true,
+    "validation_scope": "Real CLI settings validation, with tracer/volume construction replaced and execution stopped before loading tiles. No GPU or new real-data tracing run."
+  },
+  "publication": {
+    "upstream_open_prs": 3,
+    "upstream_open_pr_cap": 3,
+    "new_upstream_pr_created": false,
+    "reason": "No free upstream PR slot; integration remains read-only; required human commentary is still pending for seed-heading proposal."
+  },
+  "limitations": [
+    "Python 3.10.21 cached stack; no installs, GPU runs or full training.",
+    "Unrelated package initializers bypassed for CPU tests; SQLite's optional kornia import and native retry's unused FFT augmentation import stubbed as recorded in their existing reports.",
+    "Initial multiprocessing performance attempt used an unguarded local launcher, failed and was interrupted. A main-guarded launcher then passed all 23 tests. Repository multiprocessing code was unchanged.",
+    "No additional source defect found in the three unchanged open PRs."
+  ],
+  "prepared_seed_heading_branch": {
+    "repository": "jonmarrs/villa",
+    "branch": "fix/volume-seed-heading",
+    "head_sha": "d1de9ec1e2e17ecd0f06754041141dfda243ddb3",
+    "pushed": true,
+    "upstream_pr_created": false
+  },
+  "source_hashes_sha256": {
+    "repro/fibers/villa_volume_seed_heading.patch": "28328927e57105a65f1b406d76b84e930eeac15177fa860a5e96ae1a46bebbde",
+    "repro/fibers/villa_volume_seed_resume.patch": "9124ba5081d15608735691b2392f60e630bca6167c3cb0e8939911c3b1b7aae3"
+  },
+  "patched_volume_sha256": "86be3470beb13893c6014c2a31d62b61469ca6caaf86f2992c6f78eca26e952c",
+  "seed_heading_test_output": ".......................                                                  [100%]\n23 passed in 7.06s\n",
+  "discussion_review": {
+    "2141": "Maintainer comments at issuecomment-6324404963 are already addressed by reviewed head. Earlier Windows check covers only the original fix.",
+    "2258": "Only the Vercel authorization bot comment.",
+    "2259": "Only the Vercel authorization bot comment."
+  }
+}
