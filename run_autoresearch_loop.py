@@ -305,6 +305,22 @@ tweak_templates: list[dict[str, Any]] = [
 HISTORY_FILE = "autoresearch_history.json"
 CONFIG_FILE = "config.json"
 RECENT_CONFIGS_FILE = "recent_configs.json"
+# One JSON line per cycle that ran (scored, crashed or failed its preflight), appended when
+# the cycle is logged: its tweak, start, budget, the code it ran and train.py's
+# run_result.json. Analyses of the loop used to join the sprint logs to run.log by val_f1
+# (scripts/loop_tweak_replication.py), and run.log rotates at 10 MB.
+CYCLES_FILE = "cycles.jsonl"
+# What a cycle runs. A working-tree change under one of these is recorded with the commit.
+LOOP_CODE_PATHS = (
+    "run_autoresearch_loop.py",
+    "scripts/training",
+    "scripts/loop_control.py",
+    "scripts/process_supervisor.py",
+    "src",
+    "villa",
+    "pyproject.toml",
+    "uv.lock",
+)
 CURRENT_LOG_PTR = ".current_day_shift_log"
 TEMP_CONFIG = "config_temp.json"
 # sprint_logs/sprint_log_<when it was started>_<shift>.md
@@ -824,6 +840,44 @@ def _git_failure(code, output):
     return f"exited {code}" + (f": {reason}" if reason else "")
 
 
+def code_state():
+    """(commit, changes): the checkout's HEAD and `git status --porcelain` lines for
+    LOOP_CODE_PATHS, or None for what git could not say. Read without git's optional
+    index lock, so a stop cannot leave one behind. Untracked files inside villa (the
+    loop checkout keeps old ink-detection weights there) are not a change to its code;
+    another villa commit or an edit to its tracked files is."""
+    code, out = _run_git("rev-parse", "HEAD", timeout=30)
+    lines = [line.strip() for line in out.splitlines() if line.strip()]
+    commit = lines[-1] if code == 0 and lines else None
+    code, out = _run_git(
+        "--no-optional-locks",
+        "status",
+        "--porcelain",
+        "--ignore-submodules=untracked",
+        "--",
+        *LOOP_CODE_PATHS,
+        timeout=60,
+    )
+    status = re.compile(r"^[ MADRCUT?!]{2} ")
+    changes = (
+        [line for line in out.splitlines() if status.match(line)] if code == 0 else None
+    )
+    return commit, changes
+
+
+def append_cycle_record(record, path=CYCLES_FILE):
+    """Append one cycle's record to path as a JSON line, synced. A failure is
+    printed and the cycle goes on: the record never stops the loop."""
+    try:
+        line = json.dumps(record, sort_keys=True, default=str) + "\n"
+        with open(path, "a") as f:
+            f.write(line)
+            f.flush()
+            os.fsync(f.fileno())
+    except Exception as e:
+        print(f"Warning: could not append this cycle to {path} ({e})")
+
+
 def last_log_line(path="run.log", limit=300):
     """The run log's last non-empty line, for a failed cycle's sprint log entry."""
     try:
@@ -1110,6 +1164,8 @@ def main():
 
         print(f"Running {default_budget // 60}-minute training for {tweak_name}...")
         sys.stdout.flush()
+        started = time.strftime("%Y-%m-%dT%H:%M:%S")
+        commit, code_changes = code_state()
 
         if os.path.exists("run_result.json"):
             os.remove("run_result.json")
@@ -1215,6 +1271,7 @@ def main():
         # deferred: the supervisor has returned by now.
         STOP_DEFERRED.update(active=True, signal=None)
         val_bpb = train_loss = params = vram = vps = val_f1 = "N/A"
+        result = None  # run_result.json, when the cycle was scored
         skipped_updates = 0
         warm_start = None
         promotion_blocked = None
@@ -1257,6 +1314,7 @@ def main():
             try:
                 with open("run_result.json") as f:
                     res = json.load(f)
+                result = res
                 val_bpb = res.get("val_bpb", "N/A")  # type: ignore[attr-defined]
                 train_loss = res.get("train_loss", "N/A")  # type: ignore[attr-defined]
                 params = res.get("num_params_M", "N/A")  # type: ignore[attr-defined]
@@ -1345,6 +1403,27 @@ def main():
 
             log.write(f"- **Result**: {result_msg}\n\n")
             log.flush()
+
+        append_cycle_record(
+            {
+                "sprint_log": log_filename,
+                "shift": shift_name,
+                "cycle": i,
+                "started": started,
+                "logged": time.strftime("%Y-%m-%dT%H:%M:%S"),
+                "budget_s": default_budget,
+                "tweak": tweak_name,
+                "family": family,
+                "attr": attr,
+                "value": val,
+                "commit": commit,
+                "code_changes": code_changes,
+                "status": status,
+                "failure": failure,
+                "commit_failure": commit_failure,
+                "result": result,
+            }
+        )
 
         if is_success:
             print(f"IMPROVEMENT FOUND! (val_f1: {val_f1}) Committing config.")

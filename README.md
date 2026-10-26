@@ -329,6 +329,10 @@ promotion metrics.
 - **`docs/LAB_NOTEBOOK.md`**: High-level strategic record of research milestones.
 - **`sprint_logs/`**: one Markdown log per shift (a restart within the shift appends to it): each cycle's
   tweak, config, val_f1 and other statistics, and result.
+- **`cycles.jsonl`** (local, gitignored): one JSON line per loop cycle that ran (scored, crashed or failed its
+  preflight): its sprint log and cycle number, start, budget and tweak, the commit it ran and any working-tree
+  change to what a cycle runs, its status, and the run's `run_result.json` (val_f1, ROC AUC, AP lift, steps),
+  or null when the cycle was not scored. Analyses read it instead of matching sprint logs to `run.log`.
 - **Logs** (local): `run.log` collects the cycles' training output (moved to `run.log.old` once past
   10 MB), `autoresearch.out` the loop's own output, and `watchdog.log` the watchdog's. `run.log.old` is
   tracked by git (since June), so each rotation shows as a change to it.

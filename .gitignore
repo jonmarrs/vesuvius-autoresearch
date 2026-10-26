@@ -31,6 +31,8 @@ local_data/
 *.npy
 config_temp.json
 run_result.json
+# The loop's per-cycle record (run_autoresearch_loop.CYCLES_FILE)
+cycles.jsonl
 
 # Generated experiment artifacts
 wandb/
