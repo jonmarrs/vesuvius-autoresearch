@@ -1,7 +1,8 @@
 {
-  "checked_at_utc": "2026-10-26T11:04:45+00:00",
+  "checked_at_utc": "2026-10-26T11:18:35+00:00",
   "repository": "ScrollPrize/villa",
   "path": "scrollprize.org/docs/34_prizes.md",
+  "expected_form_title": "October 2026 Progress Prizes",
   "rollover_prs": [
     {
       "number": 1194,
@@ -74,6 +75,7 @@
     "http_status": 200,
     "final_url": "https://docs.google.com/forms/d/e/1FAIpQLSc4flEfgK2nyjoczz2_U_XrIGMlgrnSknWatLqrFPnbtKfZwg/viewform",
     "title": "October 2026 Progress Prizes",
+    "has_response_form": true,
     "accepting_responses": true
   },
   "open_rollover_forms": {
@@ -82,7 +84,9 @@
       "http_status": 200,
       "final_url": "https://docs.google.com/forms/d/e/1FAIpQLSeB6MC_--4UCCEGc3zalX57-uE4puRcE_vJoYJCrEt4uYaaaw/closedform",
       "title": "November 2026 Progress Prizes",
+      "has_response_form": false,
       "accepting_responses": false
     }
-  }
+  },
+  "filing_form_title_matches": true
 }

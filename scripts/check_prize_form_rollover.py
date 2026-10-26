@@ -8,10 +8,11 @@ the filing-day step "re-read the form URL at current upstream" leads there.
 
 This records every rollover PR (when it opened and merged, and the deadline and
 form it put in), then fetches the form being filed and the form of every rollover
-still open. The form being filed must answer HTTP 200 and not redirect to
-`/closedform`; anything else exits 1, and the filer checks the page by hand.
+still open. The form being filed must have the expected title, answer HTTP 200,
+contain a response form and not redirect to `/closedform`; anything else exits
+1. This checks the public page; the filer must still sign in and save a receipt.
 
-Usage:  python3 scripts/check_prize_form_rollover.py --form <the month's form URL> [--out record.json]
+Usage: python3 scripts/check_prize_form_rollover.py --form <URL> --expected-title 'October 2026 Progress Prizes' [--out record.json]
 """
 
 import argparse
@@ -21,6 +22,8 @@ import re
 import subprocess
 import sys
 import urllib.request
+from html.parser import HTMLParser
+from urllib.parse import urlsplit
 
 REPO = "ScrollPrize/villa"
 TITLE = re.compile(r"^Progress Prize rollover \d{4}-\d{2}$")
@@ -74,27 +77,59 @@ def rollover(number):
     }
 
 
+class FormPage(HTMLParser):
+    def __init__(self):
+        super().__init__()
+        self.in_title = False
+        self.title = []
+        self.has_response_form = False
+
+    def handle_starttag(self, tag, attrs):
+        if tag == "title":
+            self.in_title = True
+        if tag == "form":
+            action = dict(attrs).get("action") or ""
+            self.has_response_form |= urlsplit(action).path.endswith("/formResponse")
+
+    def handle_endtag(self, tag):
+        if tag == "title":
+            self.in_title = False
+
+    def handle_data(self, data):
+        if self.in_title:
+            self.title.append(data)
+
+
 def form(url):
     request = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
     with urllib.request.urlopen(request, timeout=30) as response:
         html = response.read().decode("utf-8", "replace")
         status, final = response.status, response.geturl()
-    title = re.search(r"<title>(.*?)</title>", html, re.S)
+    page = FormPage()
+    page.feed(html)
     return {
         "url": url,
         "http_status": status,
         "final_url": final,
-        "title": title.group(1).strip() if title else None,
+        "title": "".join(page.title).strip() or None,
+        "has_response_form": page.has_response_form,
         "accepting_responses": status == 200
-        and not final.split("?")[0].endswith("/closedform"),
+        and not urlsplit(final).path.rstrip("/").endswith("/closedform")
+        and page.has_response_form,
     }
 
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--form", required=True, help="the form for the month being filed")
+    ap.add_argument(
+        "--expected-title", required=True,
+        help="exact title of the intended month's form",
+    )
     ap.add_argument("--out", help="write the record here (default: stdout)")
     args = ap.parse_args()
+    if not args.expected_title.strip():
+        ap.error("--expected-title must not be empty")
 
     found = json.loads(
         gh(
@@ -118,12 +153,16 @@ def main():
         ),
         "repository": REPO,
         "path": "scrollprize.org/docs/34_prizes.md",
+        "expected_form_title": args.expected_title,
         "rollover_prs": rows,
         "filing_form": form(args.form),
         "open_rollover_forms": {
             str(row["number"]): form(row["form_after"]) for row in pending
         },
     }
+    record["filing_form_title_matches"] = (
+        record["filing_form"]["title"] == args.expected_title
+    )
     text = json.dumps(record, indent=2, ensure_ascii=False) + "\n"
     if args.out:
         with open(args.out, "w") as f:
@@ -136,6 +175,8 @@ def main():
         f"{filing['title']!r}: accepting responses = {filing['accepting_responses']}",
         file=sys.stderr,
     )
+    if not record["filing_form_title_matches"]:
+        print(f"Unexpected form title; expected {args.expected_title!r}", file=sys.stderr)
     for row in pending:
         print(
             f"villa #{row['number']} OPEN: would link {row['form_after']}",
@@ -149,7 +190,8 @@ def main():
             f"villa #{row['number']} MERGED {row['merged_at']}: the page no longer links this form",
             file=sys.stderr,
         )
-    return 0 if filing["accepting_responses"] else 1
+    ready = filing["accepting_responses"] and record["filing_form_title_matches"]
+    return 0 if ready else 1
 
 
 if __name__ == "__main__":

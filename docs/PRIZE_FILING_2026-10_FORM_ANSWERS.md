@@ -21,9 +21,15 @@ form, which was closed on 2026-10-26. The three earlier rollovers a maintainer
 merged landed after the month's deadline (#1235, #1623, #1947). #1194, merged
 by GitHub Actions, landed on 2026-07-21, while July's round was open. If #2301
 has merged by filing day, file at the October form above.
-`scripts/check_prize_form_rollover.py --form <the form above>` checks that it
-still says “October 2026 Progress Prizes” and accepts responses, and exits 1
-if it does not.
+Before filing, run the check below. It checks that the public page still says
+“October 2026 Progress Prizes” and accepts responses, and exits 1 if it does not.
+Sign in and preserve the actual submission receipt separately.
+
+```sh
+python3 scripts/check_prize_form_rollover.py \
+  --form https://docs.google.com/forms/d/e/1FAIpQLSc4flEfgK2nyjoczz2_U_XrIGMlgrnSknWatLqrFPnbtKfZwg/viewform \
+  --expected-title 'October 2026 Progress Prizes'
+```
 
 ## URL field
 
