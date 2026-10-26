@@ -445,3 +445,30 @@ def test_the_report_is_the_record():
     ot = [r for r in rest if r["tweak"] != "use_uamt_False"]
     r = np.corrcoef([x["steps"] for x in ot], [x["val_f1"] for x in ot])[0, 1]
     assert f"the correlation is {_s(r, 2)} over {len(ot)} cycles" in flat
+
+
+def test_the_registered_command_reads_both_run_logs():
+    """The loop renames run.log to run.log.old past 10 MB, so the window's runs can span both; the exploratory record
+    read both, and amendment 1 makes the registered command do the same."""
+    loop = (ROOT / "run_autoresearch_loop.py").read_text()
+    assert (
+        'os.rename("run.log", "run.log.old")' in loop
+        and 'os.remove("run.log.old")' in loop
+    )
+    assert [Path(p).name for p in json.loads(RECORD.read_text())["sources"]["run_logs"]] == ["run.log.old", "run.log"]  # fmt: skip
+    txt = REGISTRATION.read_text()
+    commands = re.findall(
+        r"^ {4}python3 scripts/loop_tweak_replication\.py --registered .*\n.*$",
+        txt,
+        re.M,
+    )
+    assert len(commands) == 2  # the original, and amendment 1's, which replaces it
+    assert "--run-log run.log --out" in commands[0]
+    assert "--run-log run.log.old run.log --out" in commands[1]
+    assert (
+        "**Amendment 1 (2026-10-26, during the window, before any analysis of it;"
+        in txt
+    )
+    assert "joined to the run logs as in the exploratory report" in " ".join(
+        txt.split()
+    )

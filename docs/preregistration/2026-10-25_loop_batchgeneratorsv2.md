@@ -70,6 +70,18 @@ unmatched run gives none, that the window is cut at the 8th standing cycle, and 
 
 `<end>` is 2026-10-29T16:00:00, or any earlier time after the 8th standing cycle ends.
 
+**Amendment 1 (2026-10-26, during the window, before any analysis of it; no prediction, threshold, window or rule
+changes).** The command above reads only `run.log`. The Window section joins the run logs "as in the exploratory
+report", which read `run.log.old` and `run.log`. The loop renames `run.log` to `run.log.old` once it passes 10 MB,
+deleting any older `run.log.old`. A rotation during the window would leave the cycles before it unmatched, and the rule
+above would give UNMATCHED_RUNS. The command reads both:
+
+    python3 scripts/loop_tweak_replication.py --registered --since 2026-10-25T16:00:00 --until <end> \
+        --sprint-logs 'sprint_logs/sprint_log_2026-10-2*.md' --run-log run.log.old run.log --out reports/X.json
+
+A second rotation before the analysis would delete the window's first runs. Copy `run.log.old` aside if `run.log`
+passes 10 MB again before then.
+
 ## What the result cannot do
 
 - **Show that it reads ink better off this sample.** Every cycle is scored on the loop's 400 Fr143 validation patches
