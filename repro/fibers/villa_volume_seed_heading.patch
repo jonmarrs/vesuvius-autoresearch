@@ -1,0 +1,51 @@
+diff --git a/vesuvius/src/vesuvius/neural_tracing/tracers/fibers/tests/test_volume_seed_heading.py b/vesuvius/src/vesuvius/neural_tracing/tracers/fibers/tests/test_volume_seed_heading.py
+new file mode 100644
+index 0000000..4e86c19
+--- /dev/null
++++ b/vesuvius/src/vesuvius/neural_tracing/tracers/fibers/tests/test_volume_seed_heading.py
+@@ -0,0 +1,21 @@
++import numpy as np
++import pytest
++
++from vesuvius.neural_tracing.tracers.fibers.tracing import volume
++from vesuvius.neural_tracing.tracers.shared.ct_structure import SeedHeadingError
++
++
++@pytest.mark.parametrize('degrees', [0, 34, 36, 60, 89, 91, 120, 179])
++def test_seed_heading_is_the_ct_axis_signed_along_the_presence_direction(monkeypatch, degrees):
++    """As training's oriented_seed_heading: the CT axis, however far the presence direction lies from it."""
++    axis = np.array([1., 0., 0.])
++    monkeypatch.setattr(volume, 'ct_seed_heading', lambda vol, xyz, family: axis)
++    direction = np.array([np.cos(np.radians(degrees)), np.sin(np.radians(degrees)), 0.])
++    np.testing.assert_array_equal(volume._seed_heading((None, 'H', direction)), axis if degrees < 90 else -axis)
++
++
++def test_a_dot_without_a_ct_heading_is_dropped(monkeypatch):
++    def unclear(vol, xyz, family):
++        raise SeedHeadingError('H/V is ambiguous for this sheet orientation')
++    monkeypatch.setattr(volume, 'ct_seed_heading', unclear)
++    assert volume._seed_heading((None, 'H', np.array([1., 0., 0.]))) is None
+diff --git a/vesuvius/src/vesuvius/neural_tracing/tracers/fibers/tracing/volume.py b/vesuvius/src/vesuvius/neural_tracing/tracers/fibers/tracing/volume.py
+index 55b6682..b210e43 100644
+--- a/vesuvius/src/vesuvius/neural_tracing/tracers/fibers/tracing/volume.py
++++ b/vesuvius/src/vesuvius/neural_tracing/tracers/fibers/tracing/volume.py
+@@ -15,8 +15,8 @@ Then a fill-in pass seeds from the tile's 3D ridge maxima (same ridge and family
+ strongest first; skipped within --fill-skip of a parallel written fiber) for fibers that cross no plane steeply
+ inside the tile.
+ 
+-Tracing streams: about --rows traces run at once (each dot traced both ways from the CT seed heading of its family;
+-a dot whose CT heading is more than 35 degrees from its presence direction is skipped), and new dots start as traces
++Tracing streams: about --rows traces run at once (each dot traced both ways from the CT seed heading of its family,
++signed along its presence direction as training seeds are), and new dots start as traces
+ end, in tile order, one tracer call per z row of tiles. A dot is skipped when it lies within --dedupe of a parallel
+ (|cos| > 0.8) written fiber, and waits while it is within --batch-spread of a running seed. Every step, for all
+ running traces at once, a trace stops
+@@ -460,8 +460,6 @@ def _seed_heading(task):
+         h = ct_seed_heading(_WORKER_VOL, xyz, family)
+     except SeedHeadingError:
+         return None
+-    if abs(h @ direction) < np.cos(np.radians(35)):
+-        return None
+     return h if h @ direction > 0 else -h
+ 
+ 
