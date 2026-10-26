@@ -8,6 +8,14 @@ docstring lines reworded, a new 21-line test). The measurement is finding 100 (`
 pre-registered), its `keep` arm. That arm gave each dot that fails the 35° test villa's own signed CT axis, which is
 exactly what the patched `_seed_heading` returns (bound by `tests/test_villa_draft_volume_seed_heading.py`).
 
+**October 26 review:** apply `repro/fibers/villa_volume_seed_resume.patch` after that measured patch.
+It records `seed_heading_selection='signed_ct_axis_v1'` in `run.json`, so the existing settings check refuses
+to mix tiles from the old 35° rule with new tiles. The original measured patch and GPU records stay unchanged;
+the follow-up changes run compatibility, not the fresh-run heading calculation.
+Both patches are pushed as `jonmarrs/villa:fix/volume-seed-heading` at
+`d1de9ec1e2e17ecd0f06754041141dfda243ddb3`;
+[compare the prepared branch](https://github.com/ScrollPrize/villa/compare/main...jonmarrs:fix/volume-seed-heading?expand=1).
+
 ## Before posting
 
 1. **A slot.** One of our three open villa PRs has closed. Code-fix PRs are at most two a week.
@@ -98,9 +106,11 @@ gets more of its fibers. Elsewhere almost nothing changes.
   `s5_13497_01497_02497_256` point for point. Launcher, registration, data and scoring:
   https://github.com/jonmarrs/vesuvius-autoresearch (`scripts/neural_tracer_heading_arm.py`,
   `reports/neural_tracer_steep_heading.md`).
-* **Not touched:** `seed_heading_policy` in `run.json` names the CT heading, which training shares, so it is unchanged.
-  A run started before this change therefore resumes under the new rule. If such a resume should be refused, one more
-  field in the volume's `run.json` record does it.
+* **Resume compatibility:** `seed_heading_policy` in `run.json` names the CT heading shared with training and stays
+  unchanged. The follow-up patch adds `seed_heading_selection='signed_ct_axis_v1'` to the run record. An old record
+  missing that field, or naming another selection rule, is refused before completed tiles are loaded. Start in a new
+  output directory to use this change; keep the old implementation to finish an existing run. Do not relabel an old
+  record or copy its finished tiles into the new run. A matching new record still resumes normally.
 * **A heading along the sheet recovered more** on those two cubes: the presence direction projected into the CT's
   sheet plane gave 1.20× and 1.43× coverage. That is a new rule the model never trained on, so it is not proposed here.
 * **Limits:** the gain is on two cubes of one scroll, both cubes on which ScrollGT's reference mask also does poorly.
@@ -110,3 +120,8 @@ gets more of its fibers. Elsewhere almost nothing changes.
   cases fail (the dots at 36°, 60°, 89°, 91° and 120°); with it all 9 pass, and so do the 11 in
   `test_volume_performance.py`. Run on Python 3.10.19; the package asks for 3.14 (our tracer environment, which has
   it, has no pytest).
+
+The October 26 follow-up adds three resume regressions. With only the measured heading patch, the missing-policy
+and old-policy cases fail and the matching-policy case passes. With both patches, all three pass. These tests exercise
+the real `main()` settings validation with model/volume construction replaced, stopping before tile loading or GPU
+work. The existing heading and performance checks were rerun alongside them; see the dated review record.
