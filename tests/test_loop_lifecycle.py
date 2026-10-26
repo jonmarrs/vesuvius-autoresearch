@@ -883,3 +883,53 @@ def test_a_record_that_cannot_be_written_does_not_stop_the_loop(tmp_path, capsys
         {"cycle": 1, "value": {1, 2}}, path=str(tmp_path / "c.jsonl")
     )
     assert (tmp_path / "c.jsonl").read_text() == '{"cycle": 1, "value": "{1, 2}"}\n'
+
+
+def _local_imports(entry, roots):
+    """The repository files outside villa that entry imports, directly or through another
+    such file: a walk of their ASTs, imports inside functions included."""
+    import ast
+
+    def resolve(base):
+        for path in (base.parent / f"{base.name}.py", base / "__init__.py"):
+            if path.is_file():
+                return path
+        return None
+
+    seen, todo = set(), [entry]
+    while todo:
+        path = todo.pop()
+        if path in seen:
+            continue
+        seen.add(path)
+        for node in ast.walk(ast.parse(path.read_text())):
+            if isinstance(node, ast.Import):
+                bases = [r.joinpath(*a.name.split(".")) for a in node.names for r in roots]  # fmt: skip
+            elif isinstance(node, ast.ImportFrom):
+                anchors = [path.parents[node.level - 1]] if node.level else roots
+                stems = [a.joinpath(*(node.module or "").split(".")) for a in anchors]
+                bases = [*stems, *(s / a.name for s in stems for a in node.names)]
+            else:
+                continue
+            for found in filter(None, map(resolve, bases)):
+                if found.relative_to(REPO).parts[0] != "villa":
+                    todo.append(found)
+    return {path.relative_to(REPO).as_posix() for path in seen}
+
+
+def test_the_cycle_record_covers_the_code_a_cycle_imports():
+    """cycles.jsonl records working-tree changes under LOOP_CODE_PATHS. train.py also imports the losses, the AUC
+    (scripts/pixel_auc.py), the augmentations, the models and the loader wrapper from outside scripts/training and
+    src, and an edit to those went unrecorded."""
+    import run_autoresearch_loop as loop
+
+    train = REPO / "scripts/training/train.py"
+    imported = _local_imports(train, [train.parent, REPO, REPO / "src"])
+    imported |= _local_imports(REPO / "run_autoresearch_loop.py", [REPO, REPO / "src"])
+    assert {"scripts/pixel_auc.py", "vesuvius_model.py", "scroll_augmentations.py"} <= imported  # fmt: skip
+
+    def covered(path):
+        return any(path == p or path.startswith(f"{p}/") for p in loop.LOOP_CODE_PATHS)
+
+    assert sorted(p for p in imported if not covered(p)) == []
+    assert [p for p in loop.LOOP_CODE_PATHS if not (REPO / p).exists()] == []
