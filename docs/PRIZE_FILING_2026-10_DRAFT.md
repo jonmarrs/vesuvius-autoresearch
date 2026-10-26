@@ -260,6 +260,9 @@ four predictions held):
   villa takes an H fiber to run along the sheet's horizontal line. Per cube, the share of dots in sheets tilted more
   than 45° tracks the share dropped (Pearson r 0.98 over the 21 cubes, Spearman 0.92). That is an association, not
   a demonstrated cause: nothing was traced again.
+  It classifies all 12,471 dots on the ten 256³ cubes and a fixed sample of 2,000 on each 512³ cube; this does not
+  classify the unsampled dots. On the two held-out Scroll-5 cubes specifically, the presence direction is a median
+  13–15° from its tangent, while the CT family axis is 58°. No tracing or coverage improvement was measured here.
 * **Tracing the seeds it skips** (finding 100, pre-registered; four of its five predictions held). Given the scan,
   the dots whose CT axis lies more than 35° from their presence direction were traced instead of skipped, from the
   presence direction projected into the CT's sheet. Every other dot was headed as villa heads it. On the two
@@ -315,7 +318,7 @@ four predictions held):
     against 8. Scoring and every existing row are unchanged.
 
 **(4) Evidence.**
-* Each study was pre-registered before its data, and each has a report and its scripts in
+* Registered studies were pre-registered before their data; exploratory analyses are labelled separately. Reports and scripts are in
   https://github.com/jonmarrs/vesuvius-autoresearch (findings 69–85 in
   `reports/SPIRAL_FINDINGS_SUMMARY.md`; findings 91–94 in `reports/neural_tracer_entrant.md`,
   `reports/neural_tracer_pitch.md`, `reports/neural_tracer_seeding.md` and `reports/tolerance4_rescore.md`; the
