@@ -61,6 +61,13 @@ The integration's creation and merge errors are preserved in
 No upstream comments or messages were sent as part of this planning review.
 Open or pushed work stays separate from the filing's merged credits.
 
+The [October 26 follow-up review](VILLA_PR_REVIEW_2026-10-26.md) rechecked all
+three upstream PRs and fixed a resume-compatibility gap in the prepared
+seed-heading proposal. Both patches are pushed to the fork. No new upstream
+PR or merge resulted: the PR cap remains full, Vercel requires authorization,
+and the merge attempt again returned HTTP 403. These remain pending work,
+not additional merged credits for the filing.
+
 ## Completed research and October 25 review
 
 The [octant tracing registration](preregistration/2026-10-23_tracing_context.md)
