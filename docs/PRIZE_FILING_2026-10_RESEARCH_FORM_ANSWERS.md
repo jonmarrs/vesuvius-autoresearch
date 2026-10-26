@@ -34,10 +34,11 @@ entrant trained on those ten would need its own disclosure.
 **(2) How this helps reading.** October's ScrollGT releases make fiber
 comparisons harder to misinterpret. Version 0.6 adds the held-out split and
 refuses to average it with in-sample scores. Version 0.7 fixes an ERL
-denominator that rewarded deleting short fragments: one deletion raised
-the old ERL from 35.39 to 41.46 while coverage fell from 0.62 to 0.38. The
-corrected score counts the fiber a labelling misses; all 126 published rows
-were re-scored, with their old values reproduced under the old definition.
+denominator that rewarded deleting short fragments: deleting our tracer's
+instances under 400 voxels raised the old ERL from 35.39 to 41.46 while
+coverage fell from 0.62 to 0.38. The corrected score counts the fiber a
+labelling misses; all 126 published rows were re-scored, with their old
+values reproduced under the old definition.
 
 Version 0.9 adds real scan context around each cube and a separate neural
 tracer row. The earlier cube-only protocol dropped seed dots near CT edges.
@@ -71,11 +72,12 @@ benchmark; the PR identifies this later usability patch.
 **(4) Evidence.** The released targets include provenance, scorer versions,
 baseline rows and commands. The linked context studies were pre-registered
 and retain their identity checks and outcomes. The broader reports preserve
-failed predictions and label exploratory analyses. Finding 99 identifies
-CT-axis disagreement in every classified heading failure, with all small-cube
-dots and sampled large-cube dots analysed separately. It suggests testing the
-H/V-axis assumption. Finding 100's measured policy results have the limited
-scope given above; production Villa and the published benchmark rows are unchanged.
+failed predictions and label exploratory analyses. Finding 99, exploratory
+and not pre-registered, identifies CT-axis disagreement in every classified
+heading failure, with all small-cube dots and sampled large-cube dots
+analysed separately. It suggests testing the H/V-axis assumption. Finding
+100's measured policy results have the limited scope given above;
+production Villa and the published benchmark rows are unchanged.
 
 Luke Finigan's earlier outside contribution fixed edge-order sensitivity in
 the scorer; that work is credited to him. It is evidence of outside use and
