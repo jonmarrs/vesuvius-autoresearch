@@ -25,6 +25,16 @@ The false-promotion rate is not: it comes from the shuffled labels. Only cycles 
 window (2026-10-25T16:00) are read.
 
     python3 scripts/loop_replicate_rule.py --record reports/loop_tweak_replication_2026-10-25.json --out reports/X.json
+
+THE REGISTERED WINDOW TEST (docs/preregistration/2026-10-26_loop_replicate_rule_window.md). The rule at the c chosen
+above (REGISTERED), frozen, on the confirmation window's cycles: --window reads the output of the confirmation's
+registered command, keeps the cycles its verdict reads (to the standing tweak's 8th), and replays the rule from the
+window's start. Its first promotion, set against the confirmation's reading, is the result. --power estimates, from
+the cycles before the window only, how often that happens when the standing tweak's effect is the exploratory one,
+half of it, or none.
+
+    python3 scripts/loop_replicate_rule.py --record reports/loop_tweak_replication_2026-10-25.json --power --out X.json
+    python3 scripts/loop_replicate_rule.py --window reports/<the confirmation's output>.json --out reports/Y.json
 """
 
 from __future__ import annotations
@@ -103,8 +113,8 @@ def shuffled(rows, rng):
     return labels
 
 
-def centred(rows, measures):
-    """Rows with each tweak's effect taken out: x_i - mean over the tweak's cycles of (x - other tweaks' epoch mean)."""
+def tweak_effects(rows, measures):
+    """Per measure and tweak: the mean over the tweak's cycles of (x - the other tweaks' mean in its epoch)."""
     by_epoch = defaultdict(list)
     for r in rows:
         by_epoch[r["epoch"]].append(r)
@@ -116,6 +126,12 @@ def centred(rows, measures):
             if others:
                 diffs[r["tweak"]].append(r[m] - sum(others) / len(others))
         effect[m] = {tw: sum(d) / len(d) for tw, d in diffs.items()}
+    return effect
+
+
+def centred(rows, measures):
+    """Rows with each tweak's effect taken out: x_i - mean over the tweak's cycles of (x - other tweaks' epoch mean)."""
+    effect = tweak_effects(rows, measures)
     return [
         {**r, **{m: r[m] - effect[m].get(r["tweak"], 0.0) for m in measures}}
         for r in rows
@@ -222,15 +238,266 @@ def analyse(record, permutations=PERMUTATIONS, seed=SEED):
     }
 
 
+# docs/preregistration/2026-10-26_loop_replicate_rule_window.md: the rule at the c the replay above chose, frozen.
+REGISTERED = {
+    "since": WINDOW_START,
+    "standing": "aug_mode_batchgeneratorsv2",
+    "measures": "val_f1_and_roc_auc",
+    "min_cycles": 6,
+    "min_others": MIN_OTHERS,
+    "c": 4.5,
+}
+# The confirmation's own window (loop_tweak_replication.REGISTERED): its cut, and when it gives no reading.
+CONFIRMATION = {"cut_at": 8, "min_standing": 6, "min_others": 60}
+# The standing tweak's exploratory effect, half of it, none.
+POWER_SCALES = (1.0, 0.5, 0.0)
+POWER_SIMULATIONS = 2000
+DEADLINE_HOURS = 96  # 2026-10-25 16:00 to the confirmation's deadline, 2026-10-29 16:00
+# Reported, not registered: the same simulation run on to the standing tweak's 20th cycle, with no deadline.
+HORIZON = {"cut_at": 20, "simulations": 1000}
+
+
+def _finite(x):
+    return None if not math.isfinite(x) else round(float(x), 4)
+
+
+def cap_cycles(rows):
+    """The cycles the window holds by its deadline, at the pace of the cycles before it."""
+    starts = sorted(np.datetime64(r["start"]) for r in rows)
+    hours = (starts[-1] - starts[0]) / np.timedelta64(1, "h")
+    return round(len(rows) / hours * DEADLINE_HOURS)
+
+
+def power(record, scales=POWER_SCALES, simulations=POWER_SIMULATIONS, seed=SEED, reg=REGISTERED, cut_at=CONFIRMATION["cut_at"], deadline=True):  # fmt: skip
+    """How often the frozen rule's first promotion in a window like the confirmation's is the standing tweak.
+
+    The noise is the record's cycles (all before the window) with every tweak's effect taken out (centred) and each
+    epoch's mean removed: cycle-to-cycle noise in one code epoch. Each simulated cycle is the standing tweak at the
+    record's rate, its noise the next of the standing tweak's own cycles (shuffled, so none repeats) plus `scale`
+    times its measured effect. Otherwise its noise is the next of the other cycles (shuffled; reshuffled when used
+    up), and its tweak is drawn from the other cycles' tweaks apart from that noise, so no tweak re-draws its own
+    few cycles. A window ends at the standing tweak's `cut_at`-th cycle or (with `deadline`) at the deadline's
+    cycle count, and gives no reading with fewer than 6 standing cycles or 60 others.
+    """
+    rows = sorted(record["rows"], key=lambda r: r["start"])
+    assert rows and max(r["start"] for r in rows) < WINDOW_START, (
+        "reads only cycles before the confirmation window"
+    )
+    measures = MEASURES[reg["measures"]]
+    effect = tweak_effects(rows, measures)
+    flat = centred(rows, measures)
+    means = {}
+    for e in {r["epoch"] for r in flat}:
+        members = [r for r in flat if r["epoch"] == e]
+        means[e] = {m: sum(r[m] for r in members) / len(members) for m in measures}
+    noise = [{m: r[m] - means[r["epoch"]][m] for m in measures} for r in flat]
+    labels = [r["tweak"] for r in rows]
+    mine = [noise[i] for i, t in enumerate(labels) if t == reg["standing"]]
+    rest = [noise[i] for i, t in enumerate(labels) if t != reg["standing"]]
+    rest_tweaks = [t for t in labels if t != reg["standing"]]
+    if cut_at > len(mine):
+        raise ValueError(
+            f"the standing tweak has {len(mine)} cycles, fewer than {cut_at}"
+        )
+    rate = len(mine) / len(rows)
+    cap = cap_cycles(rows) if deadline else math.inf
+    out = []
+    for index, scale in enumerate(scales):
+        rng = np.random.default_rng([seed, index])
+        lift = {m: scale * effect[m][reg["standing"]] for m in measures}
+        trace = []
+        for _ in range(simulations):
+            sim, tweaks = [], []
+            own = iter(rng.permutation(len(mine)))
+            other = iter(())
+            n_standing = 0
+            while len(sim) < cap and n_standing < cut_at:
+                if rng.random() < rate:
+                    x = mine[int(next(own))]
+                    sim.append({"epoch": "w", **{m: x[m] + lift[m] for m in measures}})  # fmt: skip
+                    tweaks.append(reg["standing"])
+                    n_standing += 1
+                    continue
+                k = next(other, None)
+                if k is None:
+                    other = iter(rng.permutation(len(rest)))
+                    k = next(other)
+                sim.append({"epoch": "w", **rest[int(k)]})
+                tweaks.append(rest_tweaks[int(rng.integers(len(rest_tweaks)))])
+            if (
+                n_standing < CONFIRMATION["min_standing"]
+                or len(tweaks) - n_standing < CONFIRMATION["min_others"]
+            ):
+                trace.append("incomplete")
+                continue
+            s = scores(sim, tweaks, measures, reg["min_cycles"], reg["min_others"])
+            fired = [j for j, x in enumerate(s) if x > reg["c"]]
+            if not fired:
+                trace.append("none")
+            elif tweaks[fired[0]] == reg["standing"]:
+                trace.append(f"standing@{tweaks[: fired[0] + 1].count(reg['standing'])}")  # fmt: skip
+            else:
+                trace.append("other")
+        outcomes = {k: 0 for k in ("standing", "other", "none", "incomplete")}
+        at = defaultdict(int)
+        for t in trace:
+            outcomes[t.split("@")[0]] += 1
+            if t.startswith("standing@"):
+                at[t.split("@")[1]] += 1
+        out.append(
+            {
+                "scale": scale,
+                "lift": lift,
+                "outcomes": outcomes,
+                "fired_at_standing_cycle": dict(
+                    sorted(at.items(), key=lambda kv: int(kv[0]))
+                ),
+                "trace": trace,
+            }
+        )
+    return {
+        "registered": reg,
+        "confirmation": CONFIRMATION,
+        "cycles": len(rows),
+        "cut_at": cut_at,
+        "cap_cycles": cap if deadline else None,
+        "simulations": simulations,
+        "seed": seed,
+        "standing_effect": {m: effect[m][reg["standing"]] for m in measures},
+        "scales": out,
+    }
+
+
+READINGS = {
+    ("standing", True): "TAKES_CONFIRMED_GAIN",
+    ("standing", False): "PROMOTES_UNCONFIRMED",
+    ("other", True): "PROMOTES_ANOTHER_TWEAK",
+    ("other", False): "PROMOTES_ANOTHER_TWEAK",
+    ("none", True): "MISSES_CONFIRMED_GAIN",
+    ("none", False): "ABSTAINS",
+}
+
+
+def window_test(confirmation, permutations=PERMUTATIONS, seed=SEED, reg=REGISTERED):
+    """The registered test: the frozen rule's first promotion on the confirmation window's cycles, and its reading."""
+    theirs = confirmation.get("registered") or {}
+    wanted = {"since": reg["since"], "standing": reg["standing"], **CONFIRMATION}
+    if {k: theirs.get(k) for k in wanted} != wanted:
+        raise SystemExit(
+            "not the output of the registered confirmation (its registered window differs)"
+        )
+    verdict = confirmation["verdict"]
+    base = {
+        "registered": reg,
+        "confirmation": {
+            "status": verdict["status"],
+            "reading": verdict.get("reading"),
+        },
+    }
+    rows = sorted(confirmation["rows"], key=lambda r: r["start"])
+    if rows and rows[0]["start"] < reg["since"]:
+        raise SystemExit(f"a cycle starts before the window ({rows[0]['start']})")
+    if verdict["status"] != "OK":
+        return dict(base, status=verdict["status"], reading=None)
+    standing = [j for j, r in enumerate(rows) if r["tweak"] == reg["standing"]]
+    if len(standing) > CONFIRMATION["cut_at"]:
+        rows = rows[: standing[CONFIRMATION["cut_at"] - 1] + 1]
+    labels = [r["tweak"] for r in rows]
+    measures = MEASURES[reg["measures"]]
+    args = (reg["min_cycles"], reg["min_others"])
+    s = scores(rows, labels, measures, *args)
+    each = {m: scores(rows, labels, (m,), *args) for m in measures}
+    fired = [j for j, x in enumerate(s) if x > reg["c"]]
+    first = None
+    outcome = "none"
+    if fired:
+        j = fired[0]
+        outcome = "standing" if labels[j] == reg["standing"] else "other"
+        first = {
+            "cycle": j + 1,
+            "start": rows[j]["start"],
+            "tweak": labels[j],
+            "tweak_cycles_so_far": labels[: j + 1].count(labels[j]),
+            "score": _finite(s[j]),
+        }
+    best = defaultdict(lambda: -math.inf)
+    for j, x in enumerate(s):
+        best[labels[j]] = max(best[labels[j]], float(x))
+    rng = np.random.default_rng(seed)
+    nulls = [shuffled(rows, rng) for _ in range(permutations)]
+    flat = centred(rows, measures)
+    plain = [float(scores(rows, n, measures, *args).max()) for n in nulls]
+    flat_max = [float(scores(flat, n, measures, *args).max()) for n in nulls]
+    return dict(
+        base,
+        status="OK",
+        cycles=len(rows),
+        first_start=rows[0]["start"],
+        last_start=rows[-1]["start"],
+        outcome=outcome,
+        first_promotion=first,
+        reading=READINGS[outcome, verdict.get("reading") == "CONFIRMED"],
+        standing_cycles=[
+            {
+                "start": rows[j]["start"],
+                "tweak_cycles_so_far": k + 1,
+                "score": _finite(s[j]),
+                **{f"t_{m}": _finite(each[m][j]) for m in measures},
+            }
+            for k, j in enumerate(
+                i for i, t in enumerate(labels) if t == reg["standing"]
+            )
+        ],
+        largest_score_by_tweak={
+            t: round(x, 3)
+            for t, x in sorted(best.items(), key=lambda kv: -kv[1])
+            if x > -math.inf
+        },
+        null={
+            "permutations": permutations,
+            "seed": seed,
+            "false_promotions": sum(m > reg["c"] for m in plain),
+            "centred_false_promotions": sum(m > reg["c"] for m in flat_max),
+            "shuffled": plain,
+            "centred": flat_max,
+        },
+    )
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    src = ap.add_mutually_exclusive_group(required=True)
+    src.add_argument("--record", help="loop_tweak_replication's JSON record")
+    src.add_argument(
+        "--window",
+        help="the registered confirmation's output (loop_tweak_replication.py --registered)",
+    )
     ap.add_argument(
-        "--record", required=True, help="loop_tweak_replication's JSON record"
+        "--power",
+        action="store_true",
+        help="with --record: the registered window test's power",
     )
     ap.add_argument("--out", required=True)
     args = ap.parse_args(argv)
-    raw = Path(args.record).read_bytes()
-    out = {"source": {"record": args.record, "sha256": hashlib.sha256(raw).hexdigest()}}
+    if args.power and not args.record:
+        ap.error("--power takes --record")
+    path = args.record or args.window
+    raw = Path(path).read_bytes()
+    key = "record" if args.record else "confirmation"
+    out = {"source": {key: path, "sha256": hashlib.sha256(raw).hexdigest()}}
+    if args.window:
+        out.update(window_test(json.loads(raw)))
+        Path(args.out).write_text(json.dumps(out, indent=1) + "\n")
+        print(json.dumps({k: out.get(k) for k in ("status", "confirmation", "outcome", "first_promotion", "reading")}, indent=1))  # fmt: skip
+        return
+    if args.power:
+        record = json.loads(raw)
+        out.update(power(record))
+        out["horizon"] = power(record, simulations=HORIZON["simulations"], cut_at=HORIZON["cut_at"], deadline=False)  # fmt: skip
+        Path(args.out).write_text(json.dumps(out, indent=1) + "\n")
+        for scale in out["scales"]:
+            print(scale["scale"], scale["outcomes"], scale["fired_at_standing_cycle"])
+        return
     out.update(analyse(json.loads(raw)))
     Path(args.out).write_text(json.dumps(out, indent=1) + "\n")
     for name, c in out["smallest_c_at_target"].items():

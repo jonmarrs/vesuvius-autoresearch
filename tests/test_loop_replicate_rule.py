@@ -285,3 +285,238 @@ def test_the_report_is_the_record(record):
         <= source["incumbent"] + source["tolerance"]
     )
     assert "The current rule promoted nothing in these 546 cycles" in text
+
+
+# The registered window test (docs/preregistration/2026-10-26_loop_replicate_rule_window.md).
+
+R = _load("loop_tweak_replication")
+POWER = ROOT / "reports/loop_replicate_rule_window_power_2026-10-26.json"
+REGISTRATION = ROOT / "docs/preregistration/2026-10-26_loop_replicate_rule_window.md"
+STANDING = "aug_mode_batchgeneratorsv2"
+
+
+def _window(n=240, seed=5, lift=None, only_after=None):
+    """Window cycles: the standing tweak every 20th from the 8th, the rest t0..t9. lift: tweak -> (val_f1, AUC)."""
+    rng = np.random.default_rng(seed)
+    lift = lift or {}
+    rows = []
+    for j in range(n):
+        tweak = STANDING if j % 20 == 7 else f"t{rng.integers(10)}"
+        if only_after and tweak == only_after[0] and j <= only_after[1]:
+            tweak = "t0"
+        f1, auc = lift.get(tweak, (0.0, 0.0))
+        rows.append(
+            {
+                "start": f"2026-10-{25 + (16 * 60 + 15 * j) // 1440}T"
+                f"{(16 * 60 + 15 * j) % 1440 // 60:02d}:{(15 * j) % 60:02d}:00",
+                "epoch": "139c6873",
+                "tweak": tweak,
+                "val_f1": 0.266 + f1 + rng.normal(0, 0.002),
+                "roc_auc": 0.58 + auc + rng.normal(0, 0.006),
+            }
+        )
+    return rows
+
+
+def _confirmation(rows, reading="CONFIRMED", status="OK", **registered):
+    return {
+        "registered": dict(R.REGISTERED, **registered),
+        "verdict": {"status": status, "reading": reading if status == "OK" else None},
+        "rows": rows,
+    }
+
+
+def test_the_window_rule_is_the_one_chosen_before_the_window(record):
+    reg = L.REGISTERED
+    key = f"{reg['measures']}/min_cycles_{reg['min_cycles']}"
+    assert key == "val_f1_and_roc_auc/min_cycles_6"
+    assert reg["c"] == record["smallest_c_at_target"][key] == 4.5
+    assert reg["min_others"] == L.MIN_OTHERS
+    assert reg["since"] == L.WINDOW_START == R.REGISTERED["since"]
+    assert reg["standing"] == R.REGISTERED["standing"] == STANDING
+    assert {k: R.REGISTERED[k] for k in L.CONFIRMATION} == L.CONFIRMATION
+
+
+def test_a_standing_tweak_that_beats_the_rest_is_taken():
+    rows = _window(lift={STANDING: (0.008, 0.03)})
+    got = L.window_test(_confirmation(rows), permutations=0)
+    assert got["outcome"] == "standing" and got["reading"] == "TAKES_CONFIRMED_GAIN"
+    assert got["first_promotion"]["tweak"] == STANDING
+    assert got["first_promotion"]["tweak_cycles_so_far"] >= L.REGISTERED["min_cycles"]
+    unconfirmed = L.window_test(_confirmation(rows, "F1_ONLY"), permutations=0)
+    assert unconfirmed["reading"] == "PROMOTES_UNCONFIRMED"
+
+
+def test_a_window_without_an_effect_promotes_nothing():
+    rows = _window()
+    got = L.window_test(_confirmation(rows, "NOT_REPLICATED"), permutations=0)
+    assert got["outcome"] == "none" and got["first_promotion"] is None
+    assert got["reading"] == "ABSTAINS"
+    missed = L.window_test(_confirmation(rows), permutations=0)
+    assert missed["reading"] == "MISSES_CONFIRMED_GAIN"
+    # the standing tweak's score at each of its cycles, as the rule saw it
+    assert [s["tweak_cycles_so_far"] for s in got["standing_cycles"]] == list(
+        range(1, 9)
+    )
+
+
+def test_another_tweak_promoted_first_is_read_as_such():
+    rows = _window(lift={"t3": (0.01, 0.04), STANDING: (0.008, 0.03)})
+    for reading in ("CONFIRMED", "NOT_REPLICATED"):
+        got = L.window_test(_confirmation(rows, reading), permutations=0)
+        assert got["outcome"] == "other" and got["first_promotion"]["tweak"] == "t3"
+        assert got["reading"] == "PROMOTES_ANOTHER_TWEAK"
+
+
+@pytest.mark.parametrize("status", ["INCOMPLETE", "UNMATCHED_RUNS"])
+def test_no_reading_when_the_confirmation_gives_none(status):
+    rows = _window(lift={STANDING: (0.008, 0.03)})
+    got = L.window_test(_confirmation(rows, status=status), permutations=0)
+    assert got["status"] == status and got["reading"] is None
+    assert "outcome" not in got and "first_promotion" not in got
+
+
+@pytest.mark.parametrize(
+    "registered",
+    [{"since": "2026-10-25T15:00:00"}, {"standing": "use_uamt_False"}, {"cut_at": 9}],
+)
+def test_it_refuses_another_window(registered):
+    with pytest.raises(SystemExit, match="registered"):
+        L.window_test(_confirmation(_window(), **registered), permutations=0)
+
+
+def test_it_refuses_a_cycle_before_the_window():
+    rows = _window()
+    rows[0] = dict(rows[0], start="2026-10-25T15:45:00")
+    with pytest.raises(SystemExit, match="before the window"):
+        L.window_test(_confirmation(rows), permutations=0)
+
+
+def test_cycles_after_the_8th_standing_cycle_are_dropped():
+    rows = _window(lift={"t9": (0.02, 0.08)}, only_after=("t9", 7 + 20 * 7))
+    cut = [j for j, r in enumerate(rows) if r["tweak"] == STANDING][7]
+    assert sum(r["tweak"] == "t9" for r in rows[cut + 1 :]) >= 6
+    got = L.window_test(_confirmation(rows), permutations=0)
+    assert got["cycles"] == cut + 1 and got["last_start"] == rows[cut]["start"]
+    assert got["outcome"] == "none"
+
+
+def test_the_window_null_is_reported_and_changes_no_reading():
+    rows = _window(lift={STANDING: (0.008, 0.03)})
+    got = L.window_test(_confirmation(rows), permutations=20, seed=1)
+    assert got["reading"] == "TAKES_CONFIRMED_GAIN"
+    null = got["null"]
+    assert len(null["shuffled"]) == len(null["centred"]) == 20
+    c = L.REGISTERED["c"]
+    assert null["false_promotions"] == sum(m > c for m in null["shuffled"])
+    assert null["centred_false_promotions"] == sum(m > c for m in null["centred"])
+
+
+@pytest.fixture(scope="module")
+def power():
+    return json.loads(POWER.read_text())
+
+
+def test_the_power_record_is_its_source(power):
+    source = json.loads(SOURCE.read_text())
+    assert power["source"]["sha256"] == hashlib.sha256(SOURCE.read_bytes()).hexdigest()
+    rows = source["rows"]
+    hours = (
+        np.datetime64(max(r["start"] for r in rows))
+        - np.datetime64(min(r["start"] for r in rows))
+    ) / np.timedelta64(1, "h")
+    assert power["cap_cycles"] == round(len(rows) / hours * 96) == L.cap_cycles(rows)
+    assert power["registered"] == L.REGISTERED
+    assert power["confirmation"] == L.CONFIRMATION
+    assert power["simulations"] == L.POWER_SIMULATIONS and power["seed"] == L.SEED
+    for scale in power["scales"]:
+        n = scale["outcomes"]
+        assert sum(n.values()) == power["simulations"]
+        assert sum(scale["fired_at_standing_cycle"].values()) == n["standing"]
+
+
+def test_the_first_power_simulations_reproduce(power):
+    record = json.loads(SOURCE.read_text())
+    again = L.power(record, simulations=40)
+    for got, stored in zip(again["scales"], power["scales"], strict=True):
+        assert got["scale"] == stored["scale"]
+        assert got["trace"] == stored["trace"][:40]
+
+
+def test_the_registration_is_the_power_record(power):
+    text = " ".join(REGISTRATION.read_text().split())
+    by = {s["scale"]: s for s in power["scales"]}
+    sims = power["simulations"]
+    for scale, label in (
+        (1.0, "the exploratory effect"),
+        (0.5, "half of it"),
+        (0.0, "none"),
+    ):
+        n = by[scale]["outcomes"]
+        assert (
+            f"| {label} | {n['standing'] / sims:.0%} | {n['other'] / sims:.1%} | "
+            f"{n['none'] / sims:.0%} | {n['incomplete'] / sims:.1%} |"
+        ) in text
+    assert f"{power['cap_cycles']} cycles" in text
+    assert f"{sims:,} simulated windows" in text
+
+
+def test_the_registrations_simulation_and_horizon_figures_are_the_record(power):
+    text = " ".join(REGISTRATION.read_text().split())
+    source = json.loads(SOURCE.read_text())
+    rows = source["rows"]
+    n_standing = sum(r["tweak"] == STANDING for r in rows)
+    assert f"({n_standing} in {len(rows)})" in text
+    assert f"its own {n_standing} cycles' noise" in text
+    assert f"the other {len(rows) - n_standing} cycles" in text
+    effect = power["standing_effect"]
+    assert f"(val_f1 {effect['val_f1']:+.4f}, AUC {effect['roc_auc']:+.4f})" in text
+    window = {s["scale"]: s for s in power["scales"]}
+    assert (
+        window[0.0]["outcomes"]["other"] == 1
+        and window[0.0]["outcomes"]["standing"] == 0
+    )
+    assert (
+        f"1 false promotion in {power['simulations']:,} windows like this one" in text
+    )
+
+    horizon = power["horizon"]
+    assert (
+        horizon["cut_at"] == L.HORIZON["cut_at"] == 20 and horizon["cap_cycles"] is None
+    )
+    assert horizon["simulations"] == L.HORIZON["simulations"]
+    by = {s["scale"]: s for s in horizon["scales"]}
+
+    def by_cycle(scale, k):
+        fired = by[scale]["fired_at_standing_cycle"]
+        return sum(v for n, v in fired.items() if int(n) <= k) / horizon["simulations"]
+
+    assert (
+        f"by the 9th cycle in {by_cycle(1.0, 9):.0%} of windows and by the 12th in {by_cycle(1.0, 12):.0%}"
+        in text
+    )
+    assert (
+        by_cycle(1.0, 8) < 0.5 <= by_cycle(1.0, 9) and "in about 9 replicates" in text
+    )
+    assert (
+        f"At half the effect it takes it by the 20th in {by_cycle(0.5, 20):.1%}" in text
+    )
+    assert by[0.0]["outcomes"]["other"] == 1
+    assert (
+        f"1 in {horizon['simulations']:,} run on to the standing tweak's 20th cycle"
+        in text
+    )
+    days = (
+        np.datetime64(source["until"]) - np.datetime64(source["since"])
+    ) / np.timedelta64(1, "D")
+    assert (
+        f"the {n_standing / days:.1f} cycles a day" in text
+        and 2.5 < 9 / (n_standing / days) < 3
+    )
+
+
+def test_the_first_horizon_simulations_reproduce(power):
+    record = json.loads(SOURCE.read_text())
+    again = L.power(record, simulations=20, cut_at=L.HORIZON["cut_at"], deadline=False)
+    for got, stored in zip(again["scales"], power["horizon"]["scales"], strict=True):
+        assert got["trace"] == stored["trace"][:20]
