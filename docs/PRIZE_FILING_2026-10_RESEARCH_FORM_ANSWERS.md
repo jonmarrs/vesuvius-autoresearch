@@ -8,8 +8,9 @@ releases are background, not new October work.
 
 The rules permit multiple submissions and ask for substantial independent
 contributions to be filed separately. Review this answer before deciding to
-file it. Complete personal fields and terms in the current October form;
-save the receipt and exact submitted answers. Deadline: **October 31, 2026,
+file it. Complete personal fields and terms in the October form that the
+engineering bundle links: villa's page may link November's form by then.
+Save the receipt and exact submitted answers. Deadline: **October 31, 2026,
 11:59 p.m. Pacific**. Target filing on October 29.
 
 ## URL field

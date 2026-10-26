@@ -14,6 +14,23 @@ full name, team description, optional Discord display name and terms yourself.
 Copy the answer sections from the file, not terminal-wrapped output. Preserve
 the receipt and exact submitted text afterward; no submission tag exists yet.
 
+**villa's prize page may link November's form before October closes.** The
+automated [villa #2301](https://github.com/ScrollPrize/villa/pull/2301), open
+since 2026-10-25, sets the page's deadline to November 30 and links November's
+form, which was closed on 2026-10-26. The three earlier rollovers a maintainer
+merged landed after the month's deadline (#1235, #1623, #1947). #1194, merged
+by GitHub Actions, landed on 2026-07-21, while July's round was open. If #2301
+has merged by filing day, file at the October form above.
+Before filing, run the check below. It checks that the public page still says
+“October 2026 Progress Prizes” and accepts responses, and exits 1 if it does not.
+Sign in and preserve the actual submission receipt separately.
+
+```sh
+python3 scripts/check_prize_form_rollover.py \
+  --form https://docs.google.com/forms/d/e/1FAIpQLSc4flEfgK2nyjoczz2_U_XrIGMlgrnSknWatLqrFPnbtKfZwg/viewform \
+  --expected-title 'October 2026 Progress Prizes'
+```
+
 ## URL field
 
 ```text

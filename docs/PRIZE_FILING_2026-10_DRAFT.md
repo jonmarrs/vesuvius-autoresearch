@@ -31,6 +31,8 @@ clipped "#1780" to "#17".
 
 1. Re-read the **whole** Progress section of villa `scrollprize.org/docs/34_prizes.md` at current
    upstream: form URL, deadline and criteria. The criteria changed mid-month in September.
+   Once villa #2301 (November's rollover) merges, that page links November's form, not October's: file at
+   the October form above (see [the concise answers](PRIZE_FILING_2026-10_FORM_ANSWERS.md)).
 2. **Lead with what landed in villa.** September paid $250 for "assorted useful merged villa PRs" and cited nothing
    else in the filing. villa #2022 was opened 2026-10-09 after its gate passed 33/33 at `a329895ea` and MERGED
    2026-10-11 by @pmh47 ([merge commit](https://github.com/ScrollPrize/villa/commit/7a7b3f677991954ec5ecff17b9b08ab30ff6a926)).
