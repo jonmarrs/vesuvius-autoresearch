@@ -19,6 +19,17 @@ def _load(name):
 
 
 U = _load("loop_unchanged_control")
+BASE = {"aug_mode": "batchgeneratorsv2", "lr": 0.0005, "batch_size": 8}
+
+
+def _config(tweak, base=BASE):
+    if tweak == U.REGISTERED["control"]:
+        return dict(base)
+    if tweak == U.REGISTERED["reverse"]:
+        return dict(base, aug_mode="albumentations")
+    return dict(base, lr=0.001)
+
+
 REG = U.REGISTERED
 STEPS = {"measures": {"val_f1": {"per_100_steps": -0.00005}, "roc_auc": {"per_100_steps": -0.00085}, "ap_lift": {"per_100_steps": -0.0045}}}  # fmt: skip
 
@@ -36,6 +47,10 @@ def _records(spec, start=REG["since"]):
             "incumbent_sha256": REG["incumbent_sha256"],
             "commit": "4a273ffe",
             "code_changes": [],
+            "code_sha256": "c" * 64,
+            "baseline_config": dict(BASE),
+            "baseline_config_sha256": U.configuration_fingerprint(BASE),
+            "config": _config(tweak),
             "result": {
                 "val_f1": f1,
                 "roc_auc": auc,
@@ -114,7 +129,7 @@ def test_the_window_ends_at_a_promotion_another_incumbent_or_code_and_the_deadli
     )
     moved = [dict(r) for r in base]
     for r in moved[len(moved) // 2 :]:
-        r["commit"] = "beefcafe"
+        r["code_sha256"] = "d" * 64
     assert (
         U.status(moved, now="2026-10-30T12:00:00")["ended_by"] == "another code epoch"
     )
@@ -184,3 +199,52 @@ def test_the_registration_quotes_the_confirmations_effects():
         ("Q3_ap_lift", "ap_lift"),
     ):
         assert -e[measure] * 0.7 <= REG[key] <= -e[measure] * 0.3
+
+
+def test_the_window_opens_at_the_first_cycle_recorded_with_263s_identities():
+    """Until #263 is pulled into the loop, its cycles carry no code_sha256 or baseline config: none counts, and the
+    pull that brings it does not end the window."""
+    old = _window(4, 4)
+    for r in old:
+        for k in ("code_sha256", "baseline_config", "baseline_config_sha256", "config"):
+            del r[k]
+        r["commit"] = "4a273ffe"
+    new = _records(
+        [
+            (REG["control"], 0.2715, 0.59, 1.24, 990),
+            (REG["reverse"], 0.2675, 0.58, 1.20, 1300),
+        ],
+        start=(
+            dt.datetime.fromisoformat(old[-1]["started"]) + dt.timedelta(minutes=17)
+        ).isoformat(),
+    )
+    st = U.status([*old, *new], now="2026-10-29T00:00:00")
+    assert (st["control_cycles"], st["reverse_cycles"], st["ended_by"]) == (1, 1, None)
+
+
+def test_a_new_baseline_ends_the_window_and_unverifiable_cycles_are_left_out():
+    records = _window(4, 4)
+    changed = [dict(r) for r in records]
+    for r in changed[len(changed) // 2 :]:
+        r["baseline_config"] = dict(BASE, lr=0.0001)
+        r["baseline_config_sha256"] = U.configuration_fingerprint(r["baseline_config"])
+    assert (
+        U.status(changed, now="2026-10-29T00:00:00")["ended_by"]
+        == "another baseline config"
+    )
+    forged = [dict(r) for r in records]
+    for r in forged:
+        if r["tweak"] == REG["control"]:
+            r["baseline_config_sha256"] = "0" * 64  # does not match its config
+    st = U.status(forged, now="2026-10-29T00:00:00")
+    assert (st["control_cycles"], st["reverse_cycles"], st["ended_by"]) == (0, 4, None)
+    wrong_arm = [dict(r) for r in records]
+    for r in wrong_arm:
+        if r["tweak"] == REG["reverse"]:
+            r["config"] = dict(
+                BASE, aug_mode="albumentations", lr=0.001
+            )  # more than the one change
+        if r["tweak"] == REG["control"]:
+            r["config"] = dict(BASE, lr=0.001)  # not its baseline
+    st = U.status(wrong_arm, now="2026-10-29T00:00:00")
+    assert (st["control_cycles"], st["reverse_cycles"], st["ended_by"]) == (0, 0, None)

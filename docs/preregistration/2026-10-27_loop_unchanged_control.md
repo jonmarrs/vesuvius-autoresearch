@@ -1,6 +1,7 @@
 # Pre-registration: does batchgeneratorsv2 beat the unchanged config, not only the loop's other tweaks?
 
-**Written 2026-10-27 (about 15:05 PDT), before either arm's first cycle.** The window starts at
+**Written 2026-10-27 (about 15:05 PDT), before either arm's first cycle; revised about 15:20, before any cycle could
+count, to open the window with #263's recorded identities.** The window starts no earlier than
 **2026-10-27 16:00:00 PDT**.
 
 ## The question
@@ -22,16 +23,23 @@ Old against new, directly. If batchgeneratorsv2 is the better recipe, the revers
 Both arms come from the loop's own sampler; nothing is added. The sampler repeats no config run in its last 20 cycles,
 so each arm runs at most once in 20, about 4 times a day at the loop's pace. Ten of each takes about three days. Every
 cycle's record, with its result and its incumbent's sha256, is in `cycles.jsonl` (#245, #258): no join to the run
-logs, the fault that left the confirmation's registered command without a reading.
+logs, the fault that left the confirmation's registered command without a reading. The window needs #263 in the
+loop's checkout (its stop, pull and start): its records carry each cycle's code digest and baseline config, which
+this window is held to. Nothing counts before that rollout. **Once the window opens, another pull into the loop's
+checkout ends it.**
 
 ## Window
 
-Every cycle in `cycles.jsonl` that starts at or after 2026-10-27 16:00:00 PDT, faced the incumbent
-`c80885969cc5b3d4c1dfeebc46d1c0c4c62f55fbe758ce48b263050dc293f18d` (best_model.pt as promoted), ran the 900 s budget
-and was scored (not crashed, not blocked from comparison). It ends at the first of:
+It opens with the first cycle in `cycles.jsonl` that starts at or after 2026-10-27 16:00:00 PDT and is recorded with
+#263's identities: `code_sha256`, and a `baseline_config` matching its `baseline_config_sha256`. It holds every later
+cycle that faced the incumbent `c80885969cc5b3d4c1dfeebc46d1c0c4c62f55fbe758ce48b263050dc293f18d` (best_model.pt as
+promoted), in the first cycle's code digest and baseline config, ran the 900 s budget, and was scored (not crashed,
+not blocked from comparison). A control cycle counts only if its `config` is its baseline; a reverse cycle only if its
+`config` is its batchgeneratorsv2 baseline with `aug_mode` albumentations and nothing else. A cycle whose identities
+are missing or do not verify is left out. The window ends at the first of:
 - each arm's first 10 cycles (later cycles of an arm are dropped);
 - a promotion (the promoted cycle is the last), or a cycle on another incumbent;
-- a cycle in another code epoch (commit and code_changes) than the window's first: a pull into the loop's checkout;
+- a cycle in another code digest or baseline config than the window's first (a pull, or a changed config.json);
 - 2026-11-03 16:00:00 PDT.
 
 With fewer than 6 cycles of either arm, there is no reading.

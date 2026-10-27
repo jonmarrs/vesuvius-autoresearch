@@ -7,8 +7,9 @@ albumentations, the old recipe. Both arms fine-tune the same incumbent at the sa
 sampler. The confirmation (#254) could only set batchgeneratorsv2 against the other tweaks; this sets the old recipe
 against the new one directly.
 
-It reads cycles.jsonl, one record per cycle with its result (#245): no join to the run logs. Until the window is
-complete it prints the arms' cycle counts and nothing they measured.
+It reads cycles.jsonl, one record per cycle with its result (#245): no join to the run logs. The window opens with the
+first cycle recorded with #263's identities (code_sha256, the baseline config and its hash), once that is pulled into
+the loop's checkout. Until the window is complete it prints the arms' cycle counts and nothing they measured.
 
     python3 scripts/loop_unchanged_control.py status --cycles cycles.jsonl
     python3 scripts/loop_unchanged_control.py read --cycles cycles.jsonl \
@@ -23,7 +24,15 @@ import hashlib
 import json
 import math
 import statistics
+import sys
 from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path[:0] = [
+    str(ROOT),
+    str(ROOT / "src"),
+]  # scripts.training.config imports the src package
+from scripts.training.config import configuration_fingerprint  # noqa: E402
 
 REGISTERED = {
     "since": "2026-10-27T16:00:00",
@@ -56,26 +65,55 @@ def _scored(record: dict) -> bool:
     )
 
 
+def identified(record: dict) -> bool:
+    """Recorded with #263's identities, its baseline config matching its hash."""
+    base = record.get("baseline_config")
+    return (
+        bool(record.get("code_sha256"))
+        and isinstance(base, dict)
+        and record.get("baseline_config_sha256") == configuration_fingerprint(base)
+        and isinstance(record.get("config"), dict)
+    )
+
+
+def runs_its_arm(record: dict, reg: dict = REGISTERED) -> bool:
+    """The control's config is its baseline; the reverse arm's is its baseline with aug_mode albumentations, from a
+    batchgeneratorsv2 baseline. Other tweaks are not checked."""
+    base, config = record["baseline_config"], record["config"]
+    if record["tweak"] == reg["control"]:
+        return config == base
+    if record["tweak"] == reg["reverse"]:
+        return base.get("aug_mode") == "batchgeneratorsv2" and config == dict(
+            base, aug_mode="albumentations"
+        )
+    return True
+
+
 def window(
     records: list[dict], reg: dict = REGISTERED
 ) -> tuple[list[dict], str | None]:
-    """The window's scored cycles in run order, and what ended it: from `since`, on the registered incumbent, in the
-    code epoch of its first cycle (commit and code_changes); a promotion ends it with that cycle, as does a cycle on
-    another incumbent or code, or one started at the deadline."""
-    out, epoch = [], None
+    """The window's scored cycles in run order, and what ended it. It opens with the first cycle at or after `since`
+    recorded with #263's identities, and holds the cycles on the registered incumbent in that cycle's code
+    (code_sha256) and baseline config (baseline_config_sha256). A promotion ends it with that cycle, as does a cycle
+    on another incumbent, code or baseline, or one started at the deadline. A cycle without verifiable identities, or
+    whose config is not its arm's, is left out."""
+    out, code, baseline = [], None, None
     for r in records:
         if r.get("started", "") < reg["since"]:
             continue
         if r["started"] >= reg["deadline"]:
             return out, "the deadline"
+        if not identified(r):
+            continue  # before #263 reaches the loop, or an identity it could not capture
+        if code is None:
+            code, baseline = r["code_sha256"], r["baseline_config_sha256"]
         if r.get("incumbent_sha256") != reg["incumbent_sha256"]:
             return out, "another incumbent"
-        code = json.dumps([r.get("commit"), r.get("code_changes")])
-        if epoch is None:
-            epoch = code
-        elif code != epoch:
+        if r["code_sha256"] != code:
             return out, "another code epoch"
-        if r.get("budget_s") == reg["budget_s"] and _scored(r):
+        if r["baseline_config_sha256"] != baseline:
+            return out, "another baseline config"
+        if r.get("budget_s") == reg["budget_s"] and _scored(r) and runs_its_arm(r, reg):
             out.append(r)
         if r.get("status") == "SUCCESS":
             return out, "a promotion"
