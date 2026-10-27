@@ -273,7 +273,21 @@
     "new_gpu_run": false,
     "source_host_deployed_by_this_review": false,
     "live_model_promoted_by_this_review": false,
-    "original_numerical_artifacts_changed": false
+    "original_numerical_artifacts_changed": false,
+    "integrated_validation": {
+      "tree_commit": "ea6582e5defe7b606e1f66a2fe4ae124063b415a",
+      "passed": 337,
+      "skipped": 6,
+      "seconds": 66.39,
+      "scope": "19 targeted suites: both PRs together with lifecycle and promotion checks, analysis and claim guards, October engineering/research/detailed filing checks, and live-checker unit tests",
+      "skips": {
+        "copied_readout_logs_absent": 1,
+        "source_host_sysstat_absent": 4,
+        "retained_candidate_absent": 1
+      },
+      "runtime": "CPython 3.10.21 via the cached review launcher; CPU thread counts set to 1; VILLA_ROOT and SCROLLGT_ROOT use existing review fixtures",
+      "lint_format": "Ruff check and format pass on all 12 changed Python files across both PRs"
+    }
   },
   "required_before_submission": [
     "Complete personal fields and terms",

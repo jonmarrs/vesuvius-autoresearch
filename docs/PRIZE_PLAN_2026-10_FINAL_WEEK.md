@@ -128,6 +128,10 @@ requires the original score join and cannot label a header join as registered.
 Original numerical artifacts and registrations are unchanged. Raw source-host
 logs, sysstat and the retained candidate are absent here, so their six checks
 skip; the analysis checks that use published artifacts and synthetic cases pass.
+The integrated review passes **337 checks**, with those six skips, across
+19 suites including both PRs, promotion/lifecycle checks and the October filing
+checks. Ruff passes on all 12 changed Python files; targeted mypy passes too.
+The full repository suite was not rerun on these final review commits.
 
 The most useful new research measurement is whether a tweak beats unchanged
 training from the **same checkpoint and inputs**, now that the sampler supports
