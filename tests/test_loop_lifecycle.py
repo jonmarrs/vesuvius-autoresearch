@@ -48,6 +48,9 @@ def test_config_roundtrip_preserves_nested_settings(tmp_path):
 def test_noop_and_disabled_tweaks_are_not_sampled():
     config = ExperimentConfig(use_ridges=False, use_uamt=False)
     for template in tweak_proposals(config)[0]:
+        # the no-change control (tests/test_loop_control_arm.py)
+        if template.get("control"):
+            continue
         assert getattr(config, template["attr"]) not in template["vals"]
         assert template["attr"] not in {
             "ridge_sigma",
@@ -77,7 +80,8 @@ def test_values_over_the_vram_cap_are_never_proposed():
     for template in active:
         for val in template["vals"]:
             candidate = production_like()
-            setattr(candidate, template["attr"], val)
+            if not template.get("control"):  # the control runs config.json itself
+                setattr(candidate, template["attr"], val)
             assert complexity_score(candidate) <= VRAM_COMPLEXITY_CAP
 
 
