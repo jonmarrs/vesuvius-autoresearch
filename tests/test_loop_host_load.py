@@ -67,13 +67,24 @@ _TABLE = json.loads((ROOT / LOAD).read_text())
     or not all((ROOT / s["path"]).exists() for s in _TABLE["sysstat"]),
     reason="the host's sysstat files (local_data/sysstat) are absent",
 )
-def test_the_load_table_regenerates_from_the_hosts_sysstat_files(tmp_path, monkeypatch):  # fmt: skip
+@pytest.mark.skipif(not hasattr(time, "tzset"), reason="time.tzset is POSIX only")
+@pytest.mark.parametrize("tz", [None, "UTC0", "GMT0BST,M3.5.0/1,M10.5.0"])
+def test_the_load_table_regenerates_from_the_hosts_sysstat_files(tmp_path, monkeypatch, tz):  # fmt: skip
+    """In any runner's zone. sadf -t (sysstat 12.6.1) takes the time of day from the host's clock but the date from
+    the runner's zone: under UTC, every sample after 17:00 PDT landed on the next day and 9 cycles lost their load."""
     monkeypatch.chdir(ROOT)
     for s in _TABLE["sysstat"]:
         assert hashlib.sha256(Path(s["path"]).read_bytes()).hexdigest() == s["sha256"]
     out = tmp_path / "cycles.json"
     paths = [s["path"] for s in _TABLE["sysstat"]]
-    H.main(["cycles", "--record", SOURCE, "--sysstat", *paths, "--out", str(out)])
+    try:
+        if tz is not None:
+            monkeypatch.setenv("TZ", tz)
+            time.tzset()
+        H.main(["cycles", "--record", SOURCE, "--sysstat", *paths, "--out", str(out)])
+    finally:
+        monkeypatch.undo()
+        time.tzset()
     _same(json.loads(out.read_text()), _TABLE)
 
 
@@ -114,25 +125,34 @@ def test_a_cycles_load_is_weighted_by_time_and_needs_its_span_covered():
 
 
 @pytest.mark.skipif(not hasattr(time, "tzset"), reason="time.tzset is POSIX only")
-def test_load_matching_does_not_use_the_runners_daylight_saving_transition(monkeypatch):
-    """Both inputs are the source host's wall clock, including on a runner whose clocks changed on October 25."""
-    text = "\n".join([
-        "# hostname;interval;timestamp;CPU;%nice;%idle",
-        "host;600;2026-10-25 02:05:00;-1;10;50",
-        "host;600;2026-10-25 02:15:00;-1;0;70",
-    ])  # fmt: skip
-    got = []
+def test_a_cycles_load_does_not_depend_on_the_runners_timezone(monkeypatch):
+    """sadf -t and the loop both write the host's naive local clock. Read with .timestamp() in Europe/London, whose
+    clocks went back at 02:00 on 2026-10-25, the samples after 02:00 moved an hour away from those before, and a
+    cycle that started at 01:45 lost its cover (#253 found the same in #250's hours)."""
+    header = (
+        "# hostname;interval;timestamp;CPU;%user;%nice;%system;%iowait;%steal;%idle"
+    )
+    lines = [header] + [
+        f"host;600;2026-10-25 {h:02d}:{m}0:01;-1;30.00;{m}.00;2.00;0.00;0.00;{50 + 3 * m + h}.00"
+        for h in range(4)
+        for m in range(6)
+    ]
+    london = "GMT0BST,M3.5.0/1,M10.5.0"  # Europe/London's rules as a POSIX TZ
+    got = {}
     try:
-        for tz in ("UTC0", "GMT0BST,M3.5.0/1,M10.5.0"):
+        for tz in ("UTC0", london):
             monkeypatch.setenv("TZ", tz)
             time.tzset()
-            got.append(H.cycle_load("2026-10-25T01:55:00", H.parse_sadf(text)))
+            table = H.parse_sadf("\n".join(lines))
+            got[tz] = [
+                H.cycle_load(f"2026-10-25T{s}", table)
+                for s in ("00:30:00", "01:45:00", "02:10:00")
+            ]
     finally:
         monkeypatch.undo()
         time.tzset()
-    assert got[0] == got[1]
-    assert got[0]["busy"] == pytest.approx((600 * 50 + 390 * 30) / 990)
-    assert got[0]["nice"] == pytest.approx(600 * 10 / 990)
+    assert all(got["UTC0"]), got["UTC0"]
+    assert got["UTC0"] == got[london]
 
 
 def test_input_hashes_describe_the_bytes_actually_parsed(tmp_path, monkeypatch):

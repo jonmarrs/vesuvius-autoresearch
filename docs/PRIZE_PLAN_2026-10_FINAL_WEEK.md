@@ -144,6 +144,12 @@ Preserve the source host's sysstat files along with the rotated run logs before
 they expire. Their absence in this cloud checkout prevents a fresh raw-log
 reproduction here; no confirmation-window measurements were read.
 
+The PR's 14:21 UTC update reports that the eighth standing cycle finished on
+October 27 at 05:19:55 PDT (12:19:55 UTC), and that the source host copied its
+sysstat files through that cycle. This is a reported stopping condition, not
+a reading of its measurements. The registered readout can now proceed on that
+host, with the eighth cycle's end as the input cutoff and the frozen rules.
+
 The object-store check confirms that current Villa imports `vc_object_store`
 while loading the volume tracer, and its export flags are now `--fibers-template`
 and `--no-fibers`. The cached environment lacks that native module. Run the

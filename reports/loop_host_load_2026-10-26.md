@@ -91,20 +91,22 @@ priority) shows only in busy, and the standing tweak's busy beside the others' i
 
 ## October 27 review
 
-Three new regression cases fail on the original code: reproducing the source host's wall clock across the runner's
-daylight-saving transition, binding input hashes to the JSON bytes actually parsed, and cutting the supplemental
-load summary when exactly eight standing cycles are present. The fixes leave the published pre-window numerical
+The review reproduced runner-timezone dependence, a mismatch between input hashes and the JSON bytes actually
+parsed, and an incorrect supplemental cutoff when exactly eight standing cycles are present. The concurrent
+branch update already fixes timezone handling, including `sadf`'s host-date issue; this review retains that update
+and its tests. New regressions cover the hash/parse mismatch and eight-cycle case. The fixes leave the pre-window numerical
 records unchanged. The registered confirmation script, predictions and thresholds are unchanged. Only the
 supplemental `window` summary now always stops at the eighth standing cycle when it is present.
 
 Local validation on cached Python 3.10.21 passes 89 focused analysis, neighbouring and validation-suite checks,
-with one skip because the raw sysstat files are absent. A further filing and document-guard run passes 221 checks,
+with three raw-sysstat regeneration cases skipped because those files are absent. A further filing and document-guard run passes 221 checks,
 skips two optional source checks, and fails the existing live-document path check. Comparing its missing paths
 against current main gives the same 38 references and no additions. Ruff and mypy are unavailable in this environment;
 no dependencies were installed. The full test suite was not run.
 
 This environment can regenerate the analysis from the published load table; it has neither the source host's
 sysstat files nor the live confirmation-window logs. No window measurements were read in this review. On the
-source host, preserve `sa25`–`sa29` and both run logs before rotation, then run the registered readout after its
-stopping condition. For an eight-cycle stop, pass the eighth cycle's end as `--until`, as the registration specifies;
+source host, the PR's October 27 update reports that the eighth standing cycle ended at 05:19:55 PDT and that
+the sysstat files through that cycle were copied aside. The readout can proceed there; retain both run logs too.
+For an eight-cycle stop, pass the eighth cycle's end as `--until`, as the registration specifies;
 do not include later cycles in the confirmation input.
