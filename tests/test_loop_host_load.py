@@ -34,11 +34,28 @@ def record():
     return json.loads(RECORD.read_text())
 
 
+def _same(a, b):
+    """Equal, but for the last bits of floats, which BLAS and runtime versions can change (#251)."""
+    assert type(a) is type(b)
+    if isinstance(a, dict):
+        assert a.keys() == b.keys()
+        for key in a:
+            _same(a[key], b[key])
+    elif isinstance(a, list):
+        assert len(a) == len(b)
+        for x, y in zip(a, b, strict=True):
+            _same(x, y)
+    elif isinstance(a, float):
+        assert a == pytest.approx(b, rel=1e-12, abs=1e-14)
+    else:
+        assert a == b
+
+
 def test_the_record_regenerates_from_its_sources(tmp_path, monkeypatch):
     monkeypatch.chdir(ROOT)
     out = tmp_path / "load.json"
     H.main(["analyse", "--record", SOURCE, "--load", LOAD, "--out", str(out)])
-    assert out.read_bytes() == RECORD.read_bytes()
+    _same(json.loads(out.read_text()), json.loads(RECORD.read_text()))
 
 
 _TABLE = json.loads((ROOT / LOAD).read_text())
@@ -56,7 +73,7 @@ def test_the_load_table_regenerates_from_the_hosts_sysstat_files(tmp_path, monke
     out = tmp_path / "cycles.json"
     paths = [s["path"] for s in _TABLE["sysstat"]]
     H.main(["cycles", "--record", SOURCE, "--sysstat", *paths, "--out", str(out)])
-    assert out.read_bytes() == (ROOT / LOAD).read_bytes()
+    _same(json.loads(out.read_text()), _TABLE)
 
 
 def test_the_load_table_covers_the_record_but_10_17_and_midnight():
