@@ -157,6 +157,46 @@ current-main CLI and real-data export in a configured environment before
 posting the seed-heading proposal. Do not change the pinned historical AFV
 launcher, which reproduces the older measurements.
 
+### Published readout and promotion-tool review
+
+[Owner PR #254](https://github.com/jonmarrs/vesuvius-autoresearch/pull/254)
+has now published the closed window's
+[readout](../reports/loop_confirmation_readout_2026-10-27.md).
+The registered command returns **UNMATCHED_RUNS, no reading**: seven of 135
+cycles have ambiguous matches when rounded scores recur outside the window.
+The post hoc header audit resolves all seven and all four predictions hold
+on the corrected rows. Across the eight standing cycles, the audited effects
+are +0.00435 F1, +0.0110 AUC and +0.0419 AP lift. Preserve both results and
+the disclosure that the audit was written after seeing the effects; do not
+describe this as a successful registered confirmation or a cross-scroll gain.
+
+[PR #256](https://github.com/jonmarrs/vesuvius-autoresearch/pull/256) prepares
+an explicit manual promotion. Its review fixes checkpoint-byte consistency,
+validation-diagnostic checks, log-header preflight and checkout locking.
+It also rejects an incumbent, config or validation-input change between the
+checks and apply. The tests apply only to temporary synthetic checkouts;
+this review neither pauses the source host nor promotes its retained model.
+Accepting the audited result, choosing a checkpoint and changing the live
+promotion rule remain separate decisions. The frozen registered analysis
+and the live loop are unchanged by this preparation.
+
+The filing's three merge claims and the live October form were rechecked
+again after the readout. They still pass. A historical-rollover lookup in
+the combined checker failed at GitHub's PR-diff endpoint; a direct check
+of the pinned October form returned HTTP 200, its exact October title and
+an accepting response form. Recheck on filing day and preserve the receipt.
+Keep the October 29 filing target independently of any promotion decision.
+
+Before month end, prioritize the engineering filing and the separate fiber
+research answer already prepared. On the source host, a useful next step is
+the reviewed promotion dry run if the owner accepts the audited evidence.
+A matched-step augmentation comparison or unchanged-training control could
+address the remaining causal question, with a new registration before runs,
+if data, GPU time and the filing schedule permit it. Additional sweeps and
+the live replicate-rule rollout can wait until after the filing. Existing
+Villa PRs still need maintainer access; the new loop result does not change
+their pending status or add merged credits.
+
 ## Completed research and October 25 review
 
 The [octant tracing registration](preregistration/2026-10-23_tracing_context.md)

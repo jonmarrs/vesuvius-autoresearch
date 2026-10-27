@@ -36,6 +36,8 @@ LOCK_HOLDER_ARGS = frozenset(
         "scripts.ablate_scroll_augmentations",
         "reevaluate_best_model.py",
         "scripts.reevaluate_best_model",
+        "promote_loop_candidate.py",
+        "scripts.promote_loop_candidate",
     }
 )
 
