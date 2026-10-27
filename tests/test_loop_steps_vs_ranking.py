@@ -2,6 +2,7 @@
 
 import importlib.util
 import json
+import time
 from pathlib import Path
 
 import numpy as np
@@ -48,7 +49,7 @@ def test_the_record_regenerates_from_its_source(tmp_path, monkeypatch):
                     same(a[key], b[key])
         elif isinstance(a, list):
             assert len(a) == len(b)
-            for x, y in zip(a, b):
+            for x, y in zip(a, b, strict=True):
                 same(x, y)
         elif isinstance(a, float):
             assert a == pytest.approx(b, rel=1e-12, abs=1e-14)
@@ -56,6 +57,24 @@ def test_the_record_regenerates_from_its_source(tmp_path, monkeypatch):
             assert a == b
 
     same(actual, expected)
+
+
+@pytest.mark.skipif(not hasattr(time, "tzset"), reason="time.tzset is POSIX only")
+def test_the_hours_do_not_depend_on_the_runners_timezone(monkeypatch):
+    """The starts are the loop's naive local clock. Read with .timestamp() in Europe/London, whose clocks went back
+    inside the record (2026-10-25), the within-group hours moved and so did with_hours."""
+    rows = json.loads((ROOT / SOURCE).read_text())["rows"]
+    london = "GMT0BST,M3.5.0/1,M10.5.0"  # Europe/London's rules as a POSIX TZ: no tz database needed
+    got = {}
+    try:
+        for tz in ("UTC0", london):
+            monkeypatch.setenv("TZ", tz)
+            time.tzset()
+            got[tz] = [d["hours"] for d in S.deviations(rows)]
+    finally:
+        monkeypatch.undo()
+        time.tzset()
+    assert got["UTC0"] == got[london]
 
 
 def test_the_source_ends_before_the_window(record):
