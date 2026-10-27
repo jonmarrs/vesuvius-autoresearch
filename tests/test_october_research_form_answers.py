@@ -1,6 +1,7 @@
 """Bind the separate research answer and Finding 99 filing claims to the measured artifacts."""
 
 import json
+import re
 import statistics
 import subprocess
 from pathlib import Path
@@ -140,9 +141,20 @@ def _ranking_changes(rows, before, ours, key):
 
 def test_the_context_leads_are_merge_penalized_erl_leads():
     docs = [json.loads((ROOT / f"reports/{n}.json").read_text()) for n in ("neural_tracer_ct_context", "neural_tracer_ct_context_512")]  # fmt: skip
+    comparators = json.loads((ROOT / "reports/neural_tracer_entrant.json").read_text())["comparators"]  # fmt: skip
     key = "erl_merge_penalized"
-    with_scan = sum(d["rows_tol2"][c][key] > d["our_tracer_tol2"][c][key] for d in docs for c in d["rows_tol2"])  # fmt: skip
-    cube_only = sum(d["finding_91_rows_tol2"][c][key] > d["our_tracer_tol2"][c][key] for d in docs for c in d["rows_tol2"])  # fmt: skip
+    assert all(
+        set(comp) == {"tracer", "generator", "cc"} for comp in comparators.values()
+    )
+
+    def first(arm):
+        return sum(
+            all(d[arm][c][key] > comp[key] for comp in comparators[c].values())
+            for d in docs
+            for c in d[arm]
+        )
+
+    with_scan, cube_only = first("rows_tol2"), first("finding_91_rows_tol2")
     assert (with_scan, cube_only) == (10, 8)
     text = " ".join(RESEARCH.split())
     assert (
@@ -159,8 +171,8 @@ def test_finding_100s_precision_and_ranking_name_their_measures():
     assert (
         len(held) == 10 and len(d["rows_tol2"]["sheet"]) == 21
     )  # ten held out, eleven in sample
-    change = [d["verdict"]["precision_change"]["sheet"][c] for c in held]
-    assert round(max(abs(x) for x in change), 3) == 0.017
+    change = [d["rows_tol2"]["sheet"][c]["precision"] - d["baseline_rows_tol2"][c]["precision"] for c in held]  # fmt: skip
+    span = f"{min(change):+.4f} to {max(change):+.4f}".replace("-", "−")
     crossed = {}
     for tol in ("tol2", "tol4"):
         args = (
@@ -178,7 +190,9 @@ def test_finding_100s_precision_and_ranking_name_their_measures():
         in report
     )
     text = " ".join(RESEARCH.split())
-    assert "Precision stays within 0.017 of baseline on the ten held-out cubes" in text
+    assert (
+        f"At tolerance 2, precision changes by {span} on the ten held-out cubes" in text
+    )
     assert (
         "on merge-penalized ERL its ranking against our tracer changes on none" in text
     )
@@ -186,6 +200,23 @@ def test_finding_100s_precision_and_ranking_name_their_measures():
         "Eleven cubes are in the reference mask model's training set; ten are held out"
         in text
     )
+    assert "On merge-penalized ERL, whether it leads or trails our tracer changes on no cube, at either tolerance" in DRAFT  # fmt: skip
+
+
+def test_the_filing_links_to_the_corrected_heading_report():
+    url = next(line for line in RESEARCH.splitlines() if line.endswith("/reports/neural_tracer_steep_heading.md"))  # fmt: skip
+    match = re.fullmatch(r"https://github.com/jonmarrs/vesuvius-autoresearch/blob/([0-9a-f]{40})/(reports/neural_tracer_steep_heading.md)", url)  # fmt: skip
+    assert match, "the evidence link must pin a full commit"
+    revision, path = match.groups()
+    result = subprocess.run(["git", "-C", str(ROOT), "show", f"{revision}:{path}"], capture_output=True, text=True)  # fmt: skip
+    if result.returncode:
+        pytest.skip("the linked report commit is absent in this checkout")
+    linked = " ".join(result.stdout.split())
+    assert (
+        "On merge-penalized ERL, the ranking against our tracer does not change"
+        in linked
+    )
+    assert "At tolerance 2, sheet's precision changes by −0.0171 to +0.0068" in linked
 
 
 def test_finding_98s_ranking_in_the_draft_names_its_measure():
@@ -212,6 +243,6 @@ SCROLLGT = main_checkout().parent / "scrollgt"
 def test_the_rescored_rows_are_scrollgts_v0_7_0():
     readme = subprocess.run(["git", "-C", str(SCROLLGT), "show", "v0.7.0:README.md"], capture_output=True, text=True)  # fmt: skip
     if readme.returncode:
-        pytest.skip("this ScrollGT checkout lacks the v0.7.0 tag")
+        pytest.skip("the ScrollGT v0.7.0 README is unavailable in this checkout")
     assert "126 rows on the 21 targets did" in " ".join(readme.stdout.split())
     assert "all 126 published rows were re-scored" in " ".join(RESEARCH.split())

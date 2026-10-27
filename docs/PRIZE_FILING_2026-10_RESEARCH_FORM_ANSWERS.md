@@ -21,7 +21,7 @@ https://github.com/jonmarrs/scrollgt/pull/14
 https://github.com/jonmarrs/vesuvius-autoresearch/blob/b808f3d3fe208440137022bfc63039829c92d613/reports/neural_tracer_ct_context.md
 https://github.com/jonmarrs/vesuvius-autoresearch/blob/b808f3d3fe208440137022bfc63039829c92d613/reports/neural_tracer_ct_context_512.md
 https://github.com/jonmarrs/vesuvius-autoresearch/blob/b808f3d3fe208440137022bfc63039829c92d613/reports/neural_tracer_heading_residual.md
-https://github.com/jonmarrs/vesuvius-autoresearch/blob/4f35917240f6b359f674e8fe457f8c3c18cbd919/reports/neural_tracer_steep_heading.md
+https://github.com/jonmarrs/vesuvius-autoresearch/blob/2fb41b271a60b86bae5e6e57a279cece06e8a4ab/reports/neural_tracer_steep_heading.md
 ```
 
 ## What is your contribution?
@@ -53,11 +53,11 @@ comparison between every entrant.
 The registered follow-up, Finding 100, traced previously skipped seeds from
 the presence direction projected into the CT sheet. It adds 1.20–1.43×
 coverage on the two held-out Scroll-5 cubes. On Scroll 3 the median is only
-1.017×, below the registered 1.05×, so that prediction failed. Precision
-stays within 0.017 of baseline on the ten held-out cubes; on merge-penalized
-ERL its ranking against our tracer changes on none. One checkpoint, two
-Scroll-5 cubes, and no manipulation of tilt: this does not establish tilt
-as the cause.
+1.017×, below the registered 1.05×, so that prediction failed. At tolerance 2,
+precision changes by −0.0171 to +0.0068 on the ten held-out cubes; on
+merge-penalized ERL its ranking against our tracer changes on none at either
+tolerance. One checkpoint, two Scroll-5 cubes, and no manipulation of tilt:
+this does not establish tilt as the cause.
 
 **(3) What this enables.** Readers can score their own instance labels on
 public data, reproduce built-in baselines on CPU, distinguish held-out from
