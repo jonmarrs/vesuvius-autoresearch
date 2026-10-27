@@ -402,6 +402,15 @@ def test_cycles_after_the_8th_standing_cycle_are_dropped():
     assert got["outcome"] == "none"
 
 
+def test_cycles_after_the_8th_standing_cycle_are_dropped_when_it_is_the_last():
+    """Exactly 8 standing cycles (the 8th at j = 147), then 19 others: the cut was len > 8, not >= 8."""
+    rows = _window(n=167, lift={STANDING: (0.008, 0.03)})
+    standing = [j for j, r in enumerate(rows) if r["tweak"] == STANDING]
+    assert len(standing) == 8 and standing[-1] == 147
+    got = L.window_test(_confirmation(rows), permutations=0)
+    assert got["cycles"] == 148 and got["last_start"] == rows[147]["start"]
+
+
 def test_the_window_null_is_reported_and_changes_no_reading():
     rows = _window(lift={STANDING: (0.008, 0.03)})
     got = L.window_test(_confirmation(rows), permutations=20, seed=1)

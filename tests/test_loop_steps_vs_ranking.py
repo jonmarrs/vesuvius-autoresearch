@@ -150,6 +150,28 @@ def test_the_window_adjustment_is_cut_at_the_8th_standing_cycle(record):
         assert got[m]["beyond_its_steps"] == pytest.approx(effect + 3 * slope)
 
 
+def test_the_window_adjustment_is_cut_at_the_8th_standing_cycle_when_it_is_the_last(
+    record,
+):
+    """Exactly 8 standing cycles, then others: the cut was len > 8, not >= 8."""
+    rows = []
+    for j in range(50):
+        standing = j % 6 == 2 and j < 45
+        rows.append(
+            {"start": f"2026-10-2{6 + j // 24}T{j % 24:02d}:00:00", "epoch": "139c6873",
+             "tweak": STANDING if standing else f"t{j % 4}", "steps": 900 if standing else 1200,
+             "val_f1": 0.27 if standing else 0.266, "roc_auc": 0.59 if standing else 0.58,
+             "ap_lift": 1.15 if standing else 1.1}
+        )  # fmt: skip
+    cut = [j for j, r in enumerate(rows) if r["tweak"] == STANDING]
+    assert len(cut) == 8
+    for r in rows[cut[-1] + 1 :]:  # what the verdict drops must not count
+        r["steps"], r["roc_auc"] = 99_999, 0.0
+    got = S.window_adjustment({"rows": rows}, record)
+    assert got["step_gap"] == pytest.approx(-300)
+    assert got["roc_auc"]["effect"] == pytest.approx(0.01)
+
+
 def _s(x, places):
     s = f"{x:+.{places}f}"
     return f"{0:.{places}f}" if float(s) == 0 else s.replace("-", "−")

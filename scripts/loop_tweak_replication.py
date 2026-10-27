@@ -5,7 +5,10 @@ promotes only a val_f1 more than F1_NOISE_TOLERANCE (0.01) above the stored incu
 (batch_size_8, 0.265762) no cycle has promoted, but each tweak has recurred, so each has replicates. This takes every
 scored 15-minute cycle that started in [--since, --until), from the sprint logs (tweak, start, budget, val_f1; parsed
 by epoch_boundary_overhead.cycles), and joins each to its run in the loop's run logs by val_f1 (six decimals, as the run
-log prints it) for the threshold-free measures the run also prints: ROC AUC, AP prevalence lift and mean AP.
+log prints it) for the threshold-free measures the run also prints: ROC AUC, AP prevalence lift and mean AP. A value
+whose runs and cycles do not pair off leaves its cycles unmatched; the run logs also hold runs before and after the
+window, so by default (--join header) such a cycle then gets the one run whose header (`--- DAY|NIGHT SHIFT CYCLE N:
+tweak ---`) names its shift, number and tweak (#254). --registered keeps the registered join, val_f1 alone.
 
 The loop's code changed under it: each merge into the loop's checkout that touched what it runs starts an EPOCH, and a
 cycle belongs to the epoch in force when it started. A tweak's effect is measured against its own epoch's other cycles:
@@ -28,7 +31,7 @@ import math
 import re
 import statistics
 import sys
-from collections import defaultdict
+from collections import Counter, defaultdict
 from pathlib import Path
 
 from scipy import stats
@@ -100,6 +103,59 @@ def runs(run_logs: list[str]) -> dict[float, list[dict]]:
     return out
 
 
+HEADER = re.compile(r"^--- (DAY|NIGHT) SHIFT CYCLE (\d+): (\S+) ---$")
+# epoch_boundary_overhead.cycles' own pattern for a sprint-log cycle
+BLOCK = re.compile(
+    r"Cycle (\d+): (\S+) \((\w+)( \(OOM\))?\)\n- \*\*Timestamp\*\*: (\d+:\d+:\d+)"
+)
+
+
+def headed_runs(run_logs: list[str]) -> dict[float, list[tuple[dict, tuple | None]]]:
+    """runs, each run with its header (shift, number, tweak): the last header line before the
+    run. A header that two scored runs follow pins neither (None)."""
+    lines = [ln for p in run_logs for ln in Path(p).read_text(errors="replace").split("\n")]  # fmt: skip
+    starts = [i for i, ln in enumerate(lines) if ln.startswith(RUN_START)]
+    heads, current = {}, None
+    for i, ln in enumerate(lines):
+        if m := HEADER.match(ln):
+            current = (i, m.group(1), int(m.group(2)), m.group(3))
+        if ln.startswith(RUN_START):
+            heads[i] = current
+    scored = []
+    for k, s in enumerate(starts):
+        seg = lines[s : starts[k + 1] if k + 1 < len(starts) else len(lines)]
+        val = next((m for m in map(VAL.match, seg) if m), None)
+        if val is not None:
+            scored.append((round(float(val.group(1)), 6), heads[s]))
+    used = Counter(h[0] for _, h in scored if h is not None)
+    by_key = defaultdict(list)
+    for key, h in scored:
+        by_key[key].append(None if h is None or used[h[0]] > 1 else h[1:])
+    recs = runs(run_logs)
+    if {k: len(v) for k, v in recs.items()} != {k: len(v) for k, v in by_key.items()}:
+        raise SystemExit("the headed runs are not the registered join's runs")
+    return {k: list(zip(recs[k], by_key[k], strict=True)) for k in recs}
+
+
+def numbered_cycles(patterns: list[str]) -> dict[str, tuple[str, int, str]]:
+    """Each sprint-log cycle's start (as the registered join reads it) -> its shift, number and tweak."""
+    out = {}
+    for path in sorted({p for pat in patterns for p in glob.glob(pat)}):
+        parsed = ebo.cycles(glob.escape(path))
+        blocks = re.split(r"\n## ", Path(path).read_text())[1:]
+        found = [m for m in (BLOCK.match(b) for b in blocks) if m]
+        if [m.group(2) for m in found] != [c["cycle"] for c in parsed]:
+            raise SystemExit(
+                f"{path}: its numbered cycles are not the registered join's"
+            )
+        kind = "NIGHT" if "night_shift" in Path(path).name else "DAY"
+        for m, c in zip(found, parsed, strict=True):
+            if c["start"] in out:
+                raise SystemExit(f"two sprint-log cycles start at {c['start']}")
+            out[c["start"]] = (kind, int(m.group(1)), c["cycle"])
+    return out
+
+
 def epoch_of(start: str) -> str:
     t = dt.datetime.fromisoformat(start)
     names = [sha for when, sha, _ in EPOCHS if t >= dt.datetime.fromisoformat(when)]
@@ -108,7 +164,7 @@ def epoch_of(start: str) -> str:
     return names[-1]
 
 
-def cycles(patterns: list[str], run_logs: list[str], since: str, until: str, incumbent: float, stop_at_promotion: bool = False) -> tuple[list[dict], dict]:  # fmt: skip
+def cycles(patterns: list[str], run_logs: list[str], since: str, until: str, incumbent: float, stop_at_promotion: bool = False, join: str = "header") -> tuple[list[dict], dict]:  # fmt: skip
     paths = sorted({p for pat in patterns for p in glob.glob(pat)})
     if not paths:
         raise SystemExit(f"no sprint log matches {patterns}")
@@ -164,6 +220,26 @@ def cycles(patterns: list[str], run_logs: list[str], since: str, until: str, inc
         else:
             tally["unmatched"] += 1
         rows.append(row)
+    if join == "header":
+        # The val_f1 join counts every run with a cycle's value, runs before and
+        # after the window included, so a value they repeat left its cycle
+        # unmatched (7 of #254's 135). Such a cycle gets the one run whose header
+        # (shift, number, tweak) is its own, as loop_confirmation_audit.py does.
+        tally["resolved_by_header"] = 0
+        if tally["unmatched"]:
+            heads = headed_runs(run_logs)
+            numbers = numbered_cycles([glob.escape(p) for p in paths])
+            for row in rows:
+                if "threshold" in row or row["start"] not in numbers:
+                    continue
+                want = numbers[row["start"]]
+                own = [rec for rec, h in heads.get(round(row["val_f1"], 6), []) if rec["incumbent"] == incumbent and h == want]  # fmt: skip
+                if len(own) == 1:
+                    row.update(own[0])
+                    tally["unmatched"] -= 1
+                    tally["resolved_by_header"] += 1
+    elif join != "val_f1":
+        raise ValueError(f"join is header or val_f1, not {join!r}")
     return rows, tally
 
 
@@ -262,7 +338,7 @@ def registered_verdict(
 ) -> dict:
     """The registered predictions and reading on the window's cycles, or a status that gives none."""
     standing = [r for r in rows if r["tweak"] == reg["standing"]]
-    if len(standing) > reg["cut_at"]:
+    if len(standing) >= reg["cut_at"]:
         last = standing[reg["cut_at"] - 1]["start"]
         rows = [r for r in rows if r["start"] <= last]
         standing = standing[: reg["cut_at"]]
@@ -311,7 +387,14 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="the registered confirmation: its window and rule",
     )
+    ap.add_argument(
+        "--join",
+        choices=("header", "val_f1"),
+        default=None,
+        help="how cycles find their runs: header (default) or val_f1 alone (the registered join, --registered's)",
+    )
     a = ap.parse_args(argv)
+    join = a.join or ("val_f1" if a.registered else "header")
     if a.registered and (a.since, a.standing) != (
         REGISTERED["since"],
         REGISTERED["standing"],
@@ -321,7 +404,7 @@ def main(argv: list[str] | None = None) -> int:
         )
     if a.registered and a.until > REGISTERED["deadline"]:
         raise SystemExit(f"--registered ends by {REGISTERED['deadline']}")
-    rows, tally = cycles(a.sprint_logs, a.run_log, a.since, a.until, a.incumbent, stop_at_promotion=a.registered)  # fmt: skip
+    rows, tally = cycles(a.sprint_logs, a.run_log, a.since, a.until, a.incumbent, stop_at_promotion=a.registered, join=join)  # fmt: skip
     faced = {r["incumbent"] for r in rows if "incumbent" in r}
     if faced - {a.incumbent}:
         raise SystemExit(

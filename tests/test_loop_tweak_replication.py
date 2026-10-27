@@ -115,6 +115,7 @@ def test_cycles_join_their_runs_in_time_order_on_this_incumbent(logs):
         "other_budget": 1,
         "unmatched": 0,
         "promoted": None,
+        "resolved_by_header": 0,
     }
     assert [(r["tweak"], r["val_f1"], r["roc_auc"], r["steps"]) for r in rows] == [
         ("a", 0.2660, 0.571, 1201),  # not the 0.2493 incumbent's run of the same value
@@ -134,6 +135,63 @@ def test_a_value_whose_runs_do_not_pair_off_is_left_unmatched(logs, tmp_path):
     )
     assert tally["unmatched"] == 2
     assert [("roc_auc" in r) for r in rows] == [False, True, True, False]
+
+
+def _headed(kind, n, tweak, *run, **kwargs):
+    return [f"--- {kind} SHIFT CYCLE {n}: {tweak} ---", *_run(*run, **kwargs)]
+
+
+@pytest.fixture
+def headed_logs(tmp_path):
+    """Three day-shift cycles. run.log.old holds an earlier night cycle of another tweak with cycle 1's val_f1, and
+    run.log, after the three, a later cycle of another tweak with cycle 3's (#254's readout: both left them unmatched)."""
+    _shift(
+        tmp_path,
+        "2026-10-26_07-15-03_day_shift",
+        "07:15:03",
+        [
+            (1, "a", "REVERTED", "07:32:00", 0.2660),
+            (2, "b", "REVERTED", "07:49:00", 0.2700),
+            (3, "a", "REVERTED", "08:06:00", 0.2662),
+        ],
+    )
+    old, new = tmp_path / "run.log.old", tmp_path / "run.log"
+    old.write_text("\n".join(_headed("NIGHT", 40, "c", 0.2660, 0.50, 1.0, 900)) + "\n")
+    new.write_text(
+        "\n".join(
+            _headed("DAY", 1, "a", 0.2660, 0.571, 1.11, 1201)
+            + _headed("DAY", 2, "b", 0.2700, 0.590, 1.20, 980)
+            + _headed("DAY", 3, "a", 0.2662, 0.572, 1.12, 1202)
+            + _headed("DAY", 4, "d", 0.2662, 0.400, 1.00, 900)
+        )
+        + "\n"
+    )
+    return [str(tmp_path / "sprint_log_*.md")], [str(old), str(new)]
+
+
+def test_a_cycle_whose_value_recurs_outside_the_window_gets_the_run_its_header_names(headed_logs):  # fmt: skip
+    sprint, runs = headed_logs
+    args = (sprint, runs, "2026-10-26T07:00:00", "2026-10-26T09:00:00", INC)
+    rows, tally = ltr.cycles(*args, join="val_f1")  # the registered join
+    assert tally["unmatched"] == 2 and "resolved_by_header" not in tally
+    rows, tally = ltr.cycles(*args)
+    assert (tally["unmatched"], tally["resolved_by_header"]) == (0, 2)
+    assert [(r["tweak"], r["roc_auc"], r["steps"]) for r in rows] == [
+        ("a", 0.571, 1201),
+        ("b", 0.590, 980),
+        ("a", 0.572, 1202),
+    ]
+
+
+def test_the_registered_command_keeps_the_registered_join(headed_logs, tmp_path):
+    sprint, runs = headed_logs
+    common = ["--sprint-logs", *sprint, "--run-log", *runs, "--since", "2026-10-25T16:00:00",
+              "--until", "2026-10-26T09:00:00"]  # fmt: skip
+    ltr.main([*common, "--registered", "--out", str(tmp_path / "registered.json")])
+    ltr.main([*common, "--out", str(tmp_path / "headers.json")])
+    ltr.main([*common, "--join", "val_f1", "--out", str(tmp_path / "values.json")])
+    unmatched = {n: json.loads((tmp_path / f"{n}.json").read_text())["tally"]["unmatched"] for n in ("registered", "headers", "values")}  # fmt: skip
+    assert unmatched == {"registered": 2, "headers": 0, "values": 2}
 
 
 def test_a_promotion_ends_a_window_or_refuses_it(tmp_path):
@@ -260,6 +318,16 @@ def test_a_short_window_or_an_unmatched_run_gives_no_reading():
 
 def test_the_window_ends_with_the_eighth_standing_cycle():
     rows = _window(8) + _rows([("E", "t0", 0.20, 0.50, 1.0)] * 30 + [("E", "aug_mode_batchgeneratorsv2", 0.20, 0.5, 1.0)] * 4)  # fmt: skip
+    for i, r in enumerate(rows):  # in time order
+        r["start"] = f"2026-10-26T{i // 60:02d}:{i % 60:02d}:00"
+    v = ltr.registered_verdict(rows, {"unmatched": 0, "promoted": None}, INC)
+    assert (v["n_standing"], v["n_others"], v["reading"]) == (8, 70, "CONFIRMED")
+
+
+def test_the_window_ends_with_the_eighth_standing_cycle_when_it_is_the_last():
+    """With exactly 8 standing cycles, the cycles after the 8th were counted: the cut was len > 8, not >= 8
+    (#254's readout)."""
+    rows = _window(8) + _rows([("E", "t0", 0.20, 0.50, 1.0)] * 30)
     for i, r in enumerate(rows):  # in time order
         r["start"] = f"2026-10-26T{i // 60:02d}:{i % 60:02d}:00"
     v = ltr.registered_verdict(rows, {"unmatched": 0, "promoted": None}, INC)

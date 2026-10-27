@@ -23,67 +23,15 @@ import argparse
 import glob
 import hashlib
 import json
-import re
 import sys
-from collections import Counter, defaultdict
+from collections import defaultdict
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-import epoch_boundary_overhead as ebo  # noqa: E402
 import loop_steps_vs_ranking as svr  # noqa: E402
 
 ltr = svr.ltr
-HEADER = re.compile(r"^--- (DAY|NIGHT) SHIFT CYCLE (\d+): (\S+) ---$")
-# epoch_boundary_overhead.cycles' own pattern for a sprint-log cycle
-BLOCK = re.compile(
-    r"Cycle (\d+): (\S+) \((\w+)( \(OOM\))?\)\n- \*\*Timestamp\*\*: (\d+:\d+:\d+)"
-)
-
-
-def headed_runs(run_logs: list[str]) -> dict[float, list[tuple[dict, tuple | None]]]:
-    """loop_tweak_replication.runs, each run with its header (shift, number, tweak): the last header line before the
-    run. A header that two scored runs follow pins neither (None)."""
-    lines = [ln for p in run_logs for ln in Path(p).read_text(errors="replace").split("\n")]  # fmt: skip
-    starts = [i for i, ln in enumerate(lines) if ln.startswith(ltr.RUN_START)]
-    heads, current = {}, None
-    for i, ln in enumerate(lines):
-        if m := HEADER.match(ln):
-            current = (i, m.group(1), int(m.group(2)), m.group(3))
-        if ln.startswith(ltr.RUN_START):
-            heads[i] = current
-    scored = []
-    for k, s in enumerate(starts):
-        seg = lines[s : starts[k + 1] if k + 1 < len(starts) else len(lines)]
-        val = next((m for m in map(ltr.VAL.match, seg) if m), None)
-        if val is not None:
-            scored.append((round(float(val.group(1)), 6), heads[s]))
-    used = Counter(h[0] for _, h in scored if h is not None)
-    by_key = defaultdict(list)
-    for key, h in scored:
-        by_key[key].append(None if h is None or used[h[0]] > 1 else h[1:])
-    recs = ltr.runs(run_logs)
-    if {k: len(v) for k, v in recs.items()} != {k: len(v) for k, v in by_key.items()}:
-        raise SystemExit("the headed runs are not the registered join's runs")
-    return {k: list(zip(recs[k], by_key[k], strict=True)) for k in recs}
-
-
-def numbered_cycles(patterns: list[str]) -> dict[str, tuple[str, int, str]]:
-    """Each sprint-log cycle's start (as the registered join reads it) -> its shift, number and tweak."""
-    out = {}
-    for path in sorted({p for pat in patterns for p in glob.glob(pat)}):
-        parsed = ebo.cycles(glob.escape(path))
-        blocks = re.split(r"\n## ", Path(path).read_text())[1:]
-        found = [m for m in (BLOCK.match(b) for b in blocks) if m]
-        if [m.group(2) for m in found] != [c["cycle"] for c in parsed]:
-            raise SystemExit(
-                f"{path}: its numbered cycles are not the registered join's"
-            )
-        kind = "NIGHT" if "night_shift" in Path(path).name else "DAY"
-        for m, c in zip(found, parsed, strict=True):
-            if c["start"] in out:
-                raise SystemExit(f"two sprint-log cycles start at {c['start']}")
-            out[c["start"]] = (kind, int(m.group(1)), c["cycle"])
-    return out
+headed_runs, numbered_cycles = ltr.headed_runs, ltr.numbered_cycles
 
 
 def audit(confirmation: dict, runs: dict, numbers: dict) -> dict:

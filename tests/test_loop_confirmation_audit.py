@@ -64,7 +64,7 @@ def _logs(tmp_path, window, before=(), after=()):
     rows, tally = ltr.cycles(
         [str(tmp_path / "sprint_logs/sprint_log_2026-10-2*.md")],
         [str(tmp_path / "run.log.old"), str(tmp_path / "run.log")],
-        "2026-10-25T16:00:00", "2026-10-29T16:00:00", INC, stop_at_promotion=True,
+        "2026-10-25T16:00:00", "2026-10-29T16:00:00", INC, stop_at_promotion=True, join="val_f1",
     )  # fmt: skip
     return {"incumbent": INC, "tally": tally, "rows": rows}
 
@@ -145,7 +145,7 @@ def test_a_registered_match_to_another_cycles_run_is_flagged(tmp_path):
     conf = {"incumbent": INC, **dict(zip(("rows", "tally"), ltr.cycles(
         [str(tmp_path / "sprint_logs/sprint_log_2026-10-2*.md")],
         [str(tmp_path / "run.log.old"), str(tmp_path / "run.log")],
-        "2026-10-25T16:00:00", "2026-10-29T16:00:00", INC, stop_at_promotion=True,
+        "2026-10-25T16:00:00", "2026-10-29T16:00:00", INC, stop_at_promotion=True, join="val_f1",
     ), strict=True))}  # fmt: skip
     assert conf["tally"]["unmatched"] == 0 and conf["rows"][0]["roc_auc"] == 0.50
     got = _audit(tmp_path, conf)
