@@ -17,8 +17,7 @@ recovers less". Four of the five predictions held. P2 failed.
   (1.20× and 1.43×). Merge-penalized ERL rises 1.27× and 1.33×. Precision moves by −0.013 and +0.007.
 * **Scroll 3 (P2 failed).** Coverage rises on all eight cubes, but by only 1.003–1.024×, a median of 1.017×. The
   registered median was at least 1.05×. Merge-penalized ERL moves by 0.98–1.02×.
-* **Precision (P3 held).** On all ten held-out cubes, sheet's precision is within 0.017 of the baseline's (−0.017 to
-  +0.007).
+* **Precision (P3 held).** At tolerance 2, sheet's precision changes by −0.0171 to +0.0068 on the ten held-out cubes.
 * **The heading matters (P4 held).** Sheet's coverage is above keep's on 9 of the 10 held-out cubes. On the two Scroll-5
   cubes, keep reaches 1.11× and 1.28×.
 * **In sample, nothing moves (P5 held).** Sheet's coverage factors lie in 0.995–1.015 on the eleven in-sample cubes,
@@ -96,7 +95,7 @@ Scroll-5 cubes came near that estimate; Scroll 3 came in far below it.
   * Tracing the skipped dots along the sheet adds a fifth and two fifths of the coverage, at the same precision.
   * villa's own axis recovers about half to two thirds of that gain, so the heading matters there, not only the skip.
 * **On Scroll 3 the skip is not what limits coverage.** It skipped 0.06–0.28 of the dots it offered there. Tracing them
-  added at most 2.4% to coverage and cost up to 0.017 of precision. Why they add so little is untested.
+  added at most 2.4% to coverage and cost up to 0.0171 of precision at tolerance 2. Why they add so little is untested.
 * **In sample nothing changes,** within 1.5% of coverage and 0.003 of precision. A change to villa's heading rule would
   leave the in-sample cubes as they are, under this checkpoint and presence.
 * **On merge-penalized ERL, the ranking against our tracer does not change** on any cube at either tolerance. On
