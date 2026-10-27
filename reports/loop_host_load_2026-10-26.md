@@ -74,7 +74,8 @@ days old (`HISTORY=7`, `find -mtime +7`). The window's files (`sa25` to `sa29`) 
 before that; `sa25` goes early on 11-03. At the readout, `cycles` makes the window's load table from the confirmation's output,
 and `window` reports, cut at the 8th standing cycle: the standing tweak's busy and %nice beside the other tweaks', and
 by tweak, the cycles a side job overlapped (mean %nice of 10 or more: a nice job on 40% or more of one CPU). That list
-covers every job at nice above 0, including other sessions' jobs, which my side-job ledger does not know.
+covers every job run above nice 0, whoever ran it, which my side-job ledger cannot. A job at nice 0 (the loop's own
+priority) shows only in busy, and the standing tweak's busy beside the others' is reported for that.
 
 ## What this cannot do
 
