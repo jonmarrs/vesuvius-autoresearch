@@ -100,3 +100,18 @@ One incumbent, one validation sample, one host, the loop's own tweak schedule (i
 ## Cost
 
 None beyond the loop's own cycles: no GPU time, no pause. The analysis takes about a minute of CPU.
+
+## Amendment 2 (2026-10-27, after the readout; the owner's decision)
+
+The registered command, run at the 8th standing cycle's end (2026-10-27 05:19:55), returned UNMATCHED_RUNS, so as
+registered the window gives no reading ([readout](../../reports/loop_confirmation_readout_2026-10-27.md)). The cause
+is the join, not a missing run: the 7 unmatched cycles, none of them batchgeneratorsv2, each share their val_f1 with a
+run from before the window that Amendment 1's `run.log.old` brought in. Pinning each run by its run-log header (shift,
+cycle number, tweak) as well as its val_f1 confirms all 128 registered matches and resolves the 7. On those rows the
+registered functions read CONFIRMED, with P1 to P4 all holding.
+
+The owner accepted that reading on 2026-10-27. It stays post hoc: the audit was written after the registered command
+had printed its effects table. It does not depend on the audit, since dropping the 7 cycles instead gives the same
+reading. The registered result on record remains UNMATCHED_RUNS. The owner also decided to promote
+batchgeneratorsv2 with the replicate rule's candidate (PR #256 prepares it) and to adopt the replicate rule beside the
+0.01 margin.

@@ -72,8 +72,6 @@ ENTRY_POINTS = (
 # them: reports that describe viewers and tools, the action matrix's launchers,
 # and the commands the lasagna worklist writes for a person to run.
 NAMED_NOT_RUN = {
-    # Recognized as a lock owner; the controller does not launch promotions.
-    "scripts/loop_control.py": {"scripts/promote_loop_candidate.py"},
     "scripts/build_lasagna_fiber_worklist.py": {
         "scripts/compute_structure_tensors.py",
         "scripts/crop_candidate_zarr.py",
