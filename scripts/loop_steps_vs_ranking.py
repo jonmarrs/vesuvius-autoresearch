@@ -41,6 +41,7 @@ PERMUTATIONS = 10_000
 BOOTSTRAPS = 2_000
 SEED = 0
 BINS = (-1000, -150, -50, 50, 150, 1000)
+EPOCH = dt.datetime(1970, 1, 1)
 
 
 def deviations(rows: list[dict], leave_out=(STANDING,)) -> list[dict]:
@@ -53,8 +54,12 @@ def deviations(rows: list[dict], leave_out=(STANDING,)) -> list[dict]:
     for (tweak, epoch), members in groups.items():
         if len(members) < 2:
             continue
+        # The starts are the loop's own clock, read the same on every machine. .timestamp() read them in the
+        # runner's zone, so a runner whose clocks changed inside the record (Europe/London on 10-25) got another
+        # with_hours.
         hours = [
-            dt.datetime.fromisoformat(r["start"]).timestamp() / 3600 for r in members
+            (dt.datetime.fromisoformat(r["start"]) - EPOCH).total_seconds() / 3600
+            for r in members
         ]
         keys = ("steps", *MEASURES)
         mean = {k: np.mean([r[k] for r in members]) for k in keys}

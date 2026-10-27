@@ -2,6 +2,7 @@
 
 import importlib.util
 import json
+import time
 from pathlib import Path
 
 import numpy as np
@@ -29,11 +30,47 @@ def record():
     return json.loads(RECORD.read_text())
 
 
+def _same(got, want, path="record"):
+    """Equal, floats to 1e-9. OpenBLAS picks its dot-product kernel for the CPU, and the kernels sum in different
+    orders: OPENBLAS_CORETYPE=Haswell or Zen gives the record's bytes, SkylakeX (AVX-512) changes the last digits of
+    13 numbers."""
+    if isinstance(want, float):
+        assert got == pytest.approx(want, rel=1e-9, abs=1e-15), path
+    elif isinstance(want, dict):
+        assert got.keys() == want.keys(), path
+        for k in want:
+            _same(got[k], want[k], f"{path}.{k}")
+    elif isinstance(want, list):
+        assert len(got) == len(want), path
+        for i, (g, w) in enumerate(zip(got, want, strict=True)):
+            _same(g, w, f"{path}[{i}]")
+    else:
+        assert got == want, path
+
+
 def test_the_record_regenerates_from_its_source(tmp_path, monkeypatch):
     monkeypatch.chdir(ROOT)
     out = tmp_path / "steps.json"
     S.main(["--record", SOURCE, "--out", str(out)])
-    assert out.read_bytes() == RECORD.read_bytes()
+    _same(json.loads(out.read_text()), json.loads(RECORD.read_text()))
+
+
+@pytest.mark.skipif(not hasattr(time, "tzset"), reason="time.tzset is POSIX only")
+def test_the_hours_do_not_depend_on_the_runners_timezone(monkeypatch):
+    """The starts are the loop's naive local clock. Read with .timestamp() in Europe/London, whose clocks went back
+    inside the record (2026-10-25), the within-group hours moved and so did with_hours."""
+    rows = json.loads((ROOT / SOURCE).read_text())["rows"]
+    london = "GMT0BST,M3.5.0/1,M10.5.0"  # Europe/London's rules as a POSIX TZ: no tz database needed
+    got = {}
+    try:
+        for tz in ("UTC0", london):
+            monkeypatch.setenv("TZ", tz)
+            time.tzset()
+            got[tz] = [d["hours"] for d in S.deviations(rows)]
+    finally:
+        monkeypatch.undo()
+        time.tzset()
+    assert got["UTC0"] == got[london]
 
 
 def test_the_source_ends_before_the_window(record):
