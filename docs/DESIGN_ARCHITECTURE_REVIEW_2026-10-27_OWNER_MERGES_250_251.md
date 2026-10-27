@@ -74,12 +74,18 @@ while the review of #250 was under way, and this branch merges it.
   - **Refusals:** it refuses window cycles, another incumbent, and an output that would replace an input.
   - **Rounding:** the half-widths of 0.00005 match the run log's four-decimal AUC and AP lift.
 - **#251's plan update.** Its checkable claims hold: 25 of 26 batchgeneratorsv2 cycles above the saved AUC, and
-  16:00 PDT is 23:00 UTC. The Villa-side claims (`39a8cf3a`, #2316) are outside this session's scope.
+  16:00 PDT is 23:00 UTC. The Villa-side claims (Villa main 39a8cf3a, #2316) are outside this session's scope.
 
 ## Observations for the owner (not changed)
 
 - **`window_adjustment` has no command line.** The report says it reports at the readout, but `main()` takes only
   `--record`. The readout will have to call it from Python on the confirmation's output and #250's record.
+- **Three doc-audit entries from #251.** No test fails.
+  - The prize plan and the seed-heading draft both backtick Villa main's 39a8cf3a, which this repository's villa
+    checkout does not hold.
+  - The incumbent-reference report backticks the checkpoint's 40-character Git blob id. The audit reads any
+    backticked 7–40 hex token as a commit, so a blob id is listed as resolving nowhere. Plain text would keep it
+    out.
 - **The timezone fix assumes the loop's clock does not change inside a record.** That holds for #250's record,
   which ends on 2026-10-25. A record that spans 2026-11-01, when PDT ends, would need the loop's zone to turn
   wall-clock starts into elapsed hours.
@@ -87,7 +93,11 @@ while the review of #250 was under way, and this branch merges it.
 ## Verification
 
 - **#250's and #251's test files** give 21 passed. Against #250's script, the new timezone test fails.
-- **The guard set**, with both test files: to be filled in from the run.
+- **The guard set**, with both test files, gives 598 passed and 6 skipped.
+  - The one failure is the standing `test_live_documents_stay_clean`, whose list is the same as on main.
+  - A first run failed `test_the_sweep_finds_at_least_the_known_good_quotes` as well. That test lists `docs/*.md`
+    when imported, and this record was renamed with `git mv` during the run. It passes on the committed tree.
+- **Doc audit:** this record adds no entries.
 - **Ruff** 0.9.10 `check` and `format` are clean on the four changed Python files. So is **mypy**, with the
   pre-commit hook's flags, over the whole repository.
 - **No independent review this round.** The changes are one line of arithmetic, a test, and lint and type fixes.
