@@ -8,9 +8,10 @@ cycles, the score is the smaller t; above c = 4.5 the rule fires. The scoring is
 its REGISTERED values, imported, not copied.
 
 The cycles are cycles.jsonl's: those that faced this checkpoint's bytes at this budget, validation protocol and input
-fingerprint, with complete matching patch counts (not crashed or blocked), in order, with this cycle last. Older
-records without a checkpoint identity cannot support the rule. A code epoch is a commit and its uncommitted
-changes to what a cycle runs (the record's commit and code_changes). A firing promotes this cycle's own candidate,
+fingerprint, with complete matching patch counts and the same captured baseline settings (not crashed or blocked),
+in order, with this cycle last. Older records without checkpoint, code-content and configuration identities cannot
+support the rule. A code epoch includes the commit, its status lines and launch-time code-content digest. The
+baseline and trial settings are retained in each new record. A firing promotes this cycle's own candidate,
 last_model.pt, only if it passes every other gate of train.py's promotion_decision and beats the incumbent (eligible).
 
 Importing this module loads neither torch nor the trainer; scoring imports SciPy only when needed.
@@ -21,9 +22,11 @@ from __future__ import annotations
 import hashlib
 import json
 import math
+import re
 from dataclasses import asdict
 from pathlib import Path
 
+from scripts.training.config import configuration_fingerprint
 from scripts.training.promotion import (  # noqa: F401
     HISTORY_COLUMNS,
     LIFT_MARGIN,
@@ -34,7 +37,33 @@ SCORED = ("REVERTED", "SUCCESS")
 
 
 def epoch(record: dict) -> str:
-    return json.dumps([record.get("commit"), record.get("code_changes")])
+    return json.dumps(
+        [record.get("commit"), record.get("code_changes"), record.get("code_sha256")]
+    )
+
+
+def _provenance(record: dict) -> bool:
+    baseline, changes = record.get("baseline_config"), record.get("code_changes")
+    code = record.get("code_sha256")
+    if (
+        not isinstance(record.get("commit"), str)
+        or not record["commit"]
+        or not isinstance(changes, list)
+        or not all(isinstance(s, str) for s in changes)
+        or not isinstance(code, str)
+        or re.fullmatch(r"[0-9a-f]{64}", code) is None
+        or not isinstance(baseline, dict)
+        or not baseline
+        or not isinstance(record.get("config"), dict)
+        or not record["config"]
+    ):
+        return False
+    try:
+        return record.get("baseline_config_sha256") == configuration_fingerprint(
+            baseline
+        )
+    except (TypeError, ValueError):
+        return False
 
 
 def _validation_key(result: dict) -> tuple | None:
@@ -66,7 +95,11 @@ def _scored(record: dict) -> bool:
         return False
     if result.get("promotion_blocked"):
         return False
-    if _validation_key(result) is None or not record.get("incumbent_sha256"):
+    if (
+        _validation_key(result) is None
+        or not record.get("incumbent_sha256")
+        or not _provenance(record)
+    ):
         return False
     return all(
         isinstance(result.get(k), (int, float)) and math.isfinite(result[k])
@@ -76,6 +109,8 @@ def _scored(record: dict) -> bool:
 
 def rows(records: list[dict], current: dict) -> list[dict]:
     """The cycles the rule reads at the end of current: those that faced its incumbent at its budget, it last."""
+    if not _scored(current):
+        return []
     inc, budget = current["result"]["incumbent_val_f1"], current.get("budget_s")
     same = [
         r
@@ -85,6 +120,7 @@ def rows(records: list[dict], current: dict) -> list[dict]:
         and r.get("incumbent_sha256") == current.get("incumbent_sha256")
         and _validation_key(r["result"]) == _validation_key(current["result"])
         and r.get("budget_s") == budget
+        and r["baseline_config_sha256"] == current["baseline_config_sha256"]
     ]
     return [
         {

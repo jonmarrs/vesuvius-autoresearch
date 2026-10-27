@@ -12,6 +12,23 @@ The deadline is **October 31, 2026 at 11:59 p.m. Pacific** (November 1 at
 Do not mark the package filed or create a submission tag until it is actually
 submitted and the receipt is preserved.
 
+The current repository includes [PR #262](https://github.com/jonmarrs/vesuvius-autoresearch/pull/262),
+which publishes the owner's promoted batchgeneratorsv2 checkpoint, F1 0.271004,
+and fixes historical-reference reproduction after an incumbent changes. Its
+saved metrics and recorded validation identity were checked on CPU; that is
+not a fresh evaluation or a comparison against unchanged training. The three
+Villa merge credits in the engineering answer remain the same.
+
+The latest engineering follow-up strengthens
+[cycle provenance](LOOP_CYCLE_PROVENANCE.md) before future control comparisons.
+It records the baseline and trial settings, fingerprints Git-visible code
+contents, and prevents the live replicate rule from pooling different
+baselines or unidentified code. Older journal rows stay preserved but cannot
+fill the new evidence pool without these identities. Deployment on the
+research host is still a separate step; no new GPU experiment was run here.
+The filing checks still pass and the October form is accepting responses.
+Keep the October 28 narrative freeze and October 29 filing target.
+
 ## What is ready
 
 | Evidence | Verified status |

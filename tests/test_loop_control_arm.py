@@ -60,6 +60,7 @@ def test_a_control_cycle_runs_config_json_unchanged_and_is_named_so(
     base = asdict(ExperimentConfig.load(tmp_path / "config.json"))
     volatile = ("pinned", "time_budget")
     assert {k: v for k, v in ran[0].items() if k not in volatile} == {k: v for k, v in base.items() if k not in volatile}  # fmt: skip
+    assert record["config"] == record["baseline_config"] == ran[0]
     log = next((tmp_path / "sprint_logs").glob("*.md")).read_text()
     assert f"## Cycle 1: {loop.CONTROL_TWEAK} (REVERTED)" in log
 

@@ -1,6 +1,7 @@
 import copy
 import datetime
 import glob
+import hashlib
 import json
 import os
 import random
@@ -17,7 +18,7 @@ from typing import Any
 
 from scripts.loop_control import acquire_lock, describe_run, unsupervised_runs
 from scripts.process_supervisor import ProcessSupervisor
-from scripts.training.config import ExperimentConfig
+from scripts.training.config import ExperimentConfig, configuration_fingerprint
 from scripts.training.promotion import (
     IncumbentUnavailable,
     _file_sha256,
@@ -831,7 +832,7 @@ def commit_promotion(message):
     return True
 
 
-def _run_git(*args, timeout=300):
+def _run_git(*args, timeout=300, raw_output=False):
     """Run git in a process group of its own, with its hooks (a terminal's
     Ctrl-C reaches neither). A hang is stopped with SIGTERM to the group, on
     which git removes its index.lock (a SIGKILL would leave it, failing every
@@ -842,8 +843,8 @@ def _run_git(*args, timeout=300):
         ["git", *args],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
-        text=True,
-        errors="replace",
+        text=not raw_output,
+        errors=None if raw_output else "replace",
         start_new_session=True,
     )
     try:
@@ -864,6 +865,8 @@ def _run_git(*args, timeout=300):
                 if stream is not None:
                     stream.close()
         return None, f"timed out after {timeout} s"
+    if raw_output:
+        return process.returncode, out if process.returncode == 0 else err + b"\n" + out
     return process.returncode, f"{err}\n{out}"
 
 
@@ -906,6 +909,57 @@ def code_state():
         [line for line in out.splitlines() if status.match(line)] if code == 0 else None
     )
     return commit, changes
+
+
+def code_fingerprint(commit, changes):
+    """Launch-time Git code contents, including dirty tracked submodules and
+    untracked runtime files outside submodules. Villa's untracked assets stay
+    excluded, as in code_state. Unknown or changing Git state gives no identity.
+    """
+    if not commit or changes is None:
+        return None
+    try:
+        status, diff = _run_git(
+            "--no-optional-locks",
+            "diff",
+            "--binary",
+            "--no-ext-diff",
+            "--no-textconv",
+            "--submodule=diff",
+            "--ignore-submodules=untracked",
+            "HEAD",
+            "--",
+            *LOOP_CODE_PATHS,
+            timeout=60,
+            raw_output=True,
+        )
+        if status != 0:
+            return None
+        status, untracked = _run_git(
+            "--no-optional-locks",
+            "ls-files",
+            "--others",
+            "--exclude-standard",
+            "-z",
+            "--",
+            *LOOP_CODE_PATHS,
+            timeout=30,
+            raw_output=True,
+        )
+        if status != 0:
+            return None
+        digest = hashlib.sha256(b"loop-code-v1\0")
+        digest.update(json.dumps([commit, changes], sort_keys=True).encode())
+        digest.update(len(diff).to_bytes(8, "big"))
+        digest.update(diff)
+        for name in sorted(filter(None, untracked.split(b"\0"))):
+            digest.update(name + b"\0")
+            digest.update(hashlib.sha256(Path(os.fsdecode(name)).read_bytes()).digest())
+        if code_state() != (commit, changes):
+            return None
+        return digest.hexdigest()
+    except (OSError, ValueError):
+        return None
 
 
 def append_cycle_record(record, path=CYCLES_FILE):
@@ -1242,6 +1296,10 @@ def main():
 
         # Save temporary config for this run
         config.save(TEMP_CONFIG)
+        baseline_config = asdict(
+            cycle_config(baseline_for_gate, {"control": True}, None, default_budget)
+        )
+        trial_config = asdict(config)
 
         cfg_str = ", ".join(
             [
@@ -1255,6 +1313,12 @@ def main():
         sys.stdout.flush()
         started = time.strftime("%Y-%m-%dT%H:%M:%S")
         commit, code_changes = code_state()
+        provenance = {
+            "code_sha256": code_fingerprint(commit, code_changes),
+            "baseline_config": baseline_config,
+            "baseline_config_sha256": configuration_fingerprint(baseline_config),
+            "config": trial_config,
+        }
         try:
             incumbent_sha256 = _file_sha256(INCUMBENT)
         except OSError:
@@ -1432,6 +1496,7 @@ def main():
         rule = None
         if not is_crash and not is_success and isinstance(result, dict):
             current = {
+                **provenance,
                 "started": started,
                 "budget_s": default_budget,
                 "tweak": tweak_name,
@@ -1532,6 +1597,7 @@ def main():
 
         append_cycle_record(
             {
+                **provenance,
                 "sprint_log": log_filename,
                 "shift": shift_name,
                 "cycle": i,
