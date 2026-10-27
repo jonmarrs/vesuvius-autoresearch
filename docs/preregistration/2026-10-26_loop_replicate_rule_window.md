@@ -130,3 +130,11 @@ unchanged.
 
 None beyond the loop's own cycles. The window test takes about a minute of CPU after the window closes. The candidate
 copies take about 41 MB a cycle, at most about 12 GB to the deadline.
+
+## Amendment (2026-10-27, after the readout; the owner's decision)
+
+The confirmation's registered command gave UNMATCHED_RUNS, so this test, as registered, gives no reading either. With
+the confirmation's audited join, which the owner accepted on 2026-10-27
+([readout](../../reports/loop_confirmation_readout_2026-10-27.md)), it reads TAKES_CONFIRMED_GAIN. The rule first
+promotes batchgeneratorsv2, at its 6th window cycle (score 7.17). Q1 holds and Q2 fails. That reading is post hoc for
+the same reason as the confirmation's. The owner decided to adopt the rule in the live loop beside the 0.01 margin.
