@@ -8,8 +8,9 @@ through the origin (fixed effects for tweak x epoch), gives what training fewer 
 standing tweak is left out of the slope it is compared with.
 
 `aug_mode_batchgeneratorsv2` keeps the model, loss, batch size and learning rate, and trains about 300 fewer steps
-because its augmentation starves the CPU-bound loader, as load does. UAMT off (about 4,150 cheaper steps) and batch 16
-(about 630 steps of twice the size) change what a step is, so the step gap is measured against the other tweaks.
+because its augmentation runs inside each training step, sample by sample, so each step takes longer, as load makes it
+(not in the loader: scripts/loop_host_load.py). UAMT off (about 4,150 cheaper steps) and batch 16 (about 630 steps of
+twice the size) change what a step is, so the step gap is measured against the other tweaks.
 
     python3 scripts/loop_steps_vs_ranking.py --record reports/loop_tweak_replication_2026-10-25.json --out reports/X.json
 

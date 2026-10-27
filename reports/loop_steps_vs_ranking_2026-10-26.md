@@ -60,8 +60,10 @@ losing the same steps to load gives other tweaks. What is left clears the confir
 ≥ +0.005, P3 AP lift ≥ +0.015) on this record.
 
 This rests on one assumption: batchgeneratorsv2's missing steps act like load's. For it: batchgeneratorsv2 keeps the
-model, loss, batch size and learning rate, and loses steps because its augmentation starves the CPU-bound loader, as
-load does. The slope does not carry across recipes that change what a step is. UAMT off trains about 2,900 more
+model, loss, batch size and learning rate, and loses steps because its augmentation runs inside each training step,
+sample by sample, so each step takes longer, as load makes it. (Corrected 10-26: this said its augmentation starves
+the CPU-bound loader. It does not run in the loader, and its cycles run the host no busier;
+[loop_host_load_2026-10-26.md](loop_host_load_2026-10-26.md).) The slope does not carry across recipes that change what a step is. UAMT off trains about 2,900 more
 steps than the rest and scores +0.0038 AUC; batch 16 trains about 630 fewer and scores −0.0015. batchgeneratorsv2's own
 26 cycles slope the same way and more steeply (−0.0075 AUC per 100 steps), on too few cycles to read.
 
