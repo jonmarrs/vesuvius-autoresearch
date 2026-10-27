@@ -228,7 +228,7 @@ def window_adjustment(confirmation: dict, analysis: dict) -> dict:
     reg = ltr.REGISTERED
     rows = sorted(confirmation["rows"], key=lambda r: r["start"])
     standing = [j for j, r in enumerate(rows) if r["tweak"] == reg["standing"]]
-    if len(standing) > reg["cut_at"]:
+    if len(standing) >= reg["cut_at"]:
         rows = rows[: standing[reg["cut_at"] - 1] + 1]
     gap = step_gap(rows, reg["standing"])
     out = {"step_gap": gap}

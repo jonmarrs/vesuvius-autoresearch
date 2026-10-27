@@ -400,7 +400,7 @@ def window_test(confirmation, permutations=PERMUTATIONS, seed=SEED, reg=REGISTER
     if verdict["status"] != "OK":
         return dict(base, status=verdict["status"], reading=None)
     standing = [j for j, r in enumerate(rows) if r["tweak"] == reg["standing"]]
-    if len(standing) > CONFIRMATION["cut_at"]:
+    if len(standing) >= CONFIRMATION["cut_at"]:
         rows = rows[: standing[CONFIRMATION["cut_at"] - 1] + 1]
     labels = [r["tweak"] for r in rows]
     measures = MEASURES[reg["measures"]]

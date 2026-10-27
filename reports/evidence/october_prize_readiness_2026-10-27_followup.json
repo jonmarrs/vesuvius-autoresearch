@@ -1,0 +1,304 @@
+{
+  "checked_at_utc": "2026-10-27T19:03:43+00:00",
+  "earlier_snapshot": "reports/evidence/october_prize_readiness_2026-10-27.json",
+  "submitted": false,
+  "target_filing_date": "2026-10-29",
+  "deadline_pacific": "2026-10-31T23:59:00-07:00",
+  "deadline_utc": "2026-11-01T06:59:00+00:00",
+  "rules": {
+    "repository": "ScrollPrize/villa",
+    "path": "scrollprize.org/docs/34_prizes.md",
+    "git_blob_sha": "9ba933ca826c8855d7544ed1068a5e6e3e9589aa",
+    "deadline_text": "11:59pm Pacific, October 31st, 2026",
+    "multiple_submissions_permitted": true,
+    "small_fixes_should_be_bundled": true
+  },
+  "merged_contributions": [
+    {
+      "number": 2022,
+      "url": "https://github.com/ScrollPrize/villa/pull/2022",
+      "merged": true,
+      "merged_at": "2026-10-11T23:25:33Z",
+      "merge_commit": "7a7b3f677991954ec5ecff17b9b08ab30ff6a926"
+    },
+    {
+      "number": 2044,
+      "url": "https://github.com/ScrollPrize/villa/pull/2044",
+      "merged": true,
+      "merged_at": "2026-10-12T01:49:09Z",
+      "merge_commit": "9afddaf0fdc12efe088bab7b82534c4f9a79e536"
+    },
+    {
+      "number": 2155,
+      "url": "https://github.com/ScrollPrize/villa/pull/2155",
+      "merged": true,
+      "merged_at": "2026-10-21T19:50:31Z",
+      "merge_commit": "e016bc71d9b873b3e52871f42aa3e7a34520cfb1"
+    }
+  ],
+  "pending_contributions": [
+    {
+      "number": 2141,
+      "url": "https://github.com/ScrollPrize/villa/pull/2141",
+      "state": "open",
+      "head_sha": "26d2fed44513fa89fef5c80f7391d0595229fb17",
+      "merged": false
+    },
+    {
+      "number": 2258,
+      "url": "https://github.com/ScrollPrize/villa/pull/2258",
+      "state": "open",
+      "head_sha": "242f0798cbf3d512f372db050be08203018e71d1",
+      "merged": false
+    },
+    {
+      "number": 2259,
+      "url": "https://github.com/ScrollPrize/villa/pull/2259",
+      "state": "open",
+      "head_sha": "d119561f3fb89fceae579bcf2e8671fb6d7e2c9a",
+      "merged": false
+    }
+  ],
+  "villa_permissions": {
+    "admin": false,
+    "maintain": false,
+    "pull": true,
+    "push": false,
+    "triage": false
+  },
+  "upstream_claim_check": {
+    "command": "python3 scripts/check_filing_upstream_claims.py --month 2026-10 --filing docs/PRIZE_FILING_2026-10_FORM_ANSWERS.md",
+    "exit_code": 0,
+    "result": "PASS: every upstream claim in the filing matches GitHub.",
+    "confirmed_october_merges": [
+      2022,
+      2044,
+      2155
+    ],
+    "still_open": [
+      2141,
+      2258,
+      2259
+    ]
+  },
+  "form_check": {
+    "checked_at_utc": "2026-10-27T18:55:22+00:00",
+    "repository": "ScrollPrize/villa",
+    "path": "scrollprize.org/docs/34_prizes.md",
+    "expected_form_title": "October 2026 Progress Prizes",
+    "rollover_prs": [
+      {
+        "number": 1194,
+        "url": "https://github.com/ScrollPrize/villa/pull/1194",
+        "title": "Progress Prize rollover 2026-08",
+        "state": "MERGED",
+        "created_at": "2026-07-21T13:46:08Z",
+        "merged_at": "2026-07-21T17:21:29Z",
+        "merged_by": "app/github-actions",
+        "deadline_before": "11:59pm Pacific, July 31st, 2026",
+        "deadline_after": "11:59pm Pacific, August 31st, 2026",
+        "form_before": "https://forms.gle/xoF5C3QsYutKP97x7",
+        "form_after": "https://docs.google.com/forms/d/e/1FAIpQLScF6CLnkcIq-YPHY0tT86lfmHhj0qz-GD2MJmwbyW5gX_CxRw/viewform"
+      },
+      {
+        "number": 1235,
+        "url": "https://github.com/ScrollPrize/villa/pull/1235",
+        "title": "Progress Prize rollover 2026-08",
+        "state": "MERGED",
+        "created_at": "2026-07-25T13:56:11Z",
+        "merged_at": "2026-08-05T22:06:27Z",
+        "merged_by": "pmh47",
+        "deadline_before": "11:59pm Pacific, July 31st, 2026",
+        "deadline_after": "11:59pm Pacific, August 31st, 2026",
+        "form_before": "https://forms.gle/xoF5C3QsYutKP97x7",
+        "form_after": "https://docs.google.com/forms/d/e/1FAIpQLSev2vJobu521iB6OuyehDktzYTEo131F4iUGwt3Qxa9a1fk6A/viewform"
+      },
+      {
+        "number": 1623,
+        "url": "https://github.com/ScrollPrize/villa/pull/1623",
+        "title": "Progress Prize rollover 2026-09",
+        "state": "MERGED",
+        "created_at": "2026-08-27T17:02:04Z",
+        "merged_at": "2026-09-06T14:13:13Z",
+        "merged_by": "pmh47",
+        "deadline_before": "11:59pm Pacific, August 31st, 2026",
+        "deadline_after": "11:59pm Pacific, September 30th, 2026",
+        "form_before": "https://docs.google.com/forms/d/e/1FAIpQLSev2vJobu521iB6OuyehDktzYTEo131F4iUGwt3Qxa9a1fk6A/viewform",
+        "form_after": "https://docs.google.com/forms/d/e/1FAIpQLScNBMj25FMnphngRG1Ciryv_2_Mkdq2YPJOD9WqPfZExII2iQ/viewform"
+      },
+      {
+        "number": 1947,
+        "url": "https://github.com/ScrollPrize/villa/pull/1947",
+        "title": "Progress Prize rollover 2026-10",
+        "state": "MERGED",
+        "created_at": "2026-10-02T23:43:41Z",
+        "merged_at": "2026-10-02T23:52:22Z",
+        "merged_by": "pmh47",
+        "deadline_before": "11:59pm Pacific, September 30th, 2026",
+        "deadline_after": "11:59pm Pacific, October 31st, 2026",
+        "form_before": "https://docs.google.com/forms/d/e/1FAIpQLScNBMj25FMnphngRG1Ciryv_2_Mkdq2YPJOD9WqPfZExII2iQ/viewform",
+        "form_after": "https://docs.google.com/forms/d/e/1FAIpQLSc4flEfgK2nyjoczz2_U_XrIGMlgrnSknWatLqrFPnbtKfZwg/viewform"
+      },
+      {
+        "number": 2301,
+        "url": "https://github.com/ScrollPrize/villa/pull/2301",
+        "title": "Progress Prize rollover 2026-11",
+        "state": "OPEN",
+        "created_at": "2026-10-25T13:24:58Z",
+        "merged_at": null,
+        "merged_by": null,
+        "deadline_before": "11:59pm Pacific, October 31st, 2026",
+        "deadline_after": "11:59pm Pacific, November 30th, 2026",
+        "form_before": "https://docs.google.com/forms/d/e/1FAIpQLSc4flEfgK2nyjoczz2_U_XrIGMlgrnSknWatLqrFPnbtKfZwg/viewform",
+        "form_after": "https://docs.google.com/forms/d/e/1FAIpQLSeB6MC_--4UCCEGc3zalX57-uE4puRcE_vJoYJCrEt4uYaaaw/viewform"
+      }
+    ],
+    "filing_form": {
+      "url": "https://docs.google.com/forms/d/e/1FAIpQLSc4flEfgK2nyjoczz2_U_XrIGMlgrnSknWatLqrFPnbtKfZwg/viewform",
+      "http_status": 200,
+      "final_url": "https://docs.google.com/forms/d/e/1FAIpQLSc4flEfgK2nyjoczz2_U_XrIGMlgrnSknWatLqrFPnbtKfZwg/viewform",
+      "title": "October 2026 Progress Prizes",
+      "has_response_form": true,
+      "accepting_responses": true
+    },
+    "open_rollover_forms": {
+      "2301": {
+        "url": "https://docs.google.com/forms/d/e/1FAIpQLSeB6MC_--4UCCEGc3zalX57-uE4puRcE_vJoYJCrEt4uYaaaw/viewform",
+        "http_status": 200,
+        "final_url": "https://docs.google.com/forms/d/e/1FAIpQLSeB6MC_--4UCCEGc3zalX57-uE4puRcE_vJoYJCrEt4uYaaaw/closedform",
+        "title": "November 2026 Progress Prizes",
+        "has_response_form": false,
+        "accepting_responses": false
+      }
+    },
+    "filing_form_title_matches": true
+  },
+  "filing_link_check": {
+    "checked_at_utc": "2026-10-27T18:59:36+00:00",
+    "sources": [
+      "docs/PRIZE_FILING_2026-10_FORM_ANSWERS.md",
+      "docs/PRIZE_FILING_2026-10_RESEARCH_FORM_ANSWERS.md"
+    ],
+    "url_checks": [
+      {
+        "url": "https://docs.google.com/forms/d/e/1FAIpQLSc4flEfgK2nyjoczz2_U_XrIGMlgrnSknWatLqrFPnbtKfZwg/viewform",
+        "status": 200,
+        "final_url": "https://docs.google.com/forms/d/e/1FAIpQLSc4flEfgK2nyjoczz2_U_XrIGMlgrnSknWatLqrFPnbtKfZwg/viewform"
+      },
+      {
+        "url": "https://github.com/ScrollPrize/villa/pull/2022",
+        "status": 200,
+        "final_url": "https://github.com/ScrollPrize/villa/pull/2022"
+      },
+      {
+        "url": "https://github.com/ScrollPrize/villa/pull/2044",
+        "status": 200,
+        "final_url": "https://github.com/ScrollPrize/villa/pull/2044"
+      },
+      {
+        "url": "https://github.com/ScrollPrize/villa/pull/2155",
+        "status": 200,
+        "final_url": "https://github.com/ScrollPrize/villa/pull/2155"
+      },
+      {
+        "url": "https://github.com/ScrollPrize/villa/pull/2301",
+        "status": 200,
+        "final_url": "https://github.com/ScrollPrize/villa/pull/2301"
+      },
+      {
+        "url": "https://github.com/jonmarrs/scrollgt/pull/14",
+        "status": 200,
+        "final_url": "https://github.com/jonmarrs/scrollgt/pull/14"
+      },
+      {
+        "url": "https://github.com/jonmarrs/scrollgt/tree/v0.9.0",
+        "status": 200,
+        "final_url": "https://github.com/jonmarrs/scrollgt/tree/v0.9.0"
+      },
+      {
+        "url": "https://github.com/jonmarrs/vesuvius-autoresearch",
+        "status": 200,
+        "final_url": "https://github.com/jonmarrs/vesuvius-autoresearch"
+      },
+      {
+        "url": "https://github.com/jonmarrs/vesuvius-autoresearch/blob/4f35917240f6b359f674e8fe457f8c3c18cbd919/reports/neural_tracer_steep_heading.md",
+        "status": 200,
+        "final_url": "https://github.com/jonmarrs/vesuvius-autoresearch/blob/4f35917240f6b359f674e8fe457f8c3c18cbd919/reports/neural_tracer_steep_heading.md"
+      },
+      {
+        "url": "https://github.com/jonmarrs/vesuvius-autoresearch/blob/b808f3d3fe208440137022bfc63039829c92d613/reports/neural_tracer_ct_context.md",
+        "status": 200,
+        "final_url": "https://github.com/jonmarrs/vesuvius-autoresearch/blob/b808f3d3fe208440137022bfc63039829c92d613/reports/neural_tracer_ct_context.md"
+      },
+      {
+        "url": "https://github.com/jonmarrs/vesuvius-autoresearch/blob/b808f3d3fe208440137022bfc63039829c92d613/reports/neural_tracer_ct_context_512.md",
+        "status": 200,
+        "final_url": "https://github.com/jonmarrs/vesuvius-autoresearch/blob/b808f3d3fe208440137022bfc63039829c92d613/reports/neural_tracer_ct_context_512.md"
+      },
+      {
+        "url": "https://github.com/jonmarrs/vesuvius-autoresearch/blob/b808f3d3fe208440137022bfc63039829c92d613/reports/neural_tracer_heading_residual.md",
+        "status": 200,
+        "final_url": "https://github.com/jonmarrs/vesuvius-autoresearch/blob/b808f3d3fe208440137022bfc63039829c92d613/reports/neural_tracer_heading_residual.md"
+      }
+    ]
+  },
+  "source_sha256": {
+    "docs/PRIZE_FILING_2026-10_FORM_ANSWERS.md": "2126c8a8d189feec6fe5d4140aabfcc5a1cbca80d82614a79fc7440d1a14942e",
+    "docs/PRIZE_FILING_2026-10_RESEARCH_FORM_ANSWERS.md": "45f1e330087b9a62cbe1767b0a59a073286f578bf6f0acf916710f4b831d55b2",
+    "scripts/loop_tweak_replication.py": "19ec80f2dee975ec75deb8c2325d022ccc8837eb760eb5bf71f919659a2c8b20",
+    "scripts/loop_confirmation_audit.py": "a3211a01e8d7f45d11ea55be036683efb63770d3bede22c3ab7c0430bab71657",
+    "scripts/loop_replicate_rule.py": "81590cd15c6fea7ad50311509b4585900ec3df2b2aa7ea927c38080a688443dd",
+    "scripts/loop_steps_vs_ranking.py": "aa510c11a135607a15a12ce26d99a70d898e1ab08c3321252173d85f2b734a43"
+  },
+  "reviewed_work": {
+    "control_pr": "https://github.com/jonmarrs/vesuvius-autoresearch/pull/259",
+    "control_reviewed_head": "057cc8cbc147fa27b82d0a8e75ac80fec92a6634",
+    "control_merge_commit": "a210ae81b1e680a341a838d34324ab65ad966449",
+    "control_tests": {
+      "passed": 112,
+      "skipped": 0,
+      "scope": "control, lifecycle, replicate/manual promotion, validation coverage, prize gates, file modes"
+    },
+    "analysis_pr": "https://github.com/jonmarrs/vesuvius-autoresearch/pull/260",
+    "analysis_tests": {
+      "passed": 175,
+      "skipped": 6,
+      "scope": "tweak, confirmation audit, replicate rule, steps, host load, live rule, claim and withdrawal guards, file modes",
+      "skips": "Raw source-host logs, sysstat or retained candidate absent in this checkout."
+    },
+    "new_regressions_failed_before_fixes": 4,
+    "lint_format": "Ruff passed on the changed Python files",
+    "targeted_type_checks": "mypy passed on 4 control files and 8 analysis files",
+    "full_suite_rerun_on_review_commits": false,
+    "new_gpu_run": false,
+    "source_host_deployed_by_this_review": false,
+    "live_model_promoted_by_this_review": false,
+    "original_numerical_artifacts_changed": false,
+    "integrated_validation": {
+      "tree_commit": "ea6582e5defe7b606e1f66a2fe4ae124063b415a",
+      "passed": 337,
+      "skipped": 6,
+      "seconds": 66.39,
+      "scope": "19 targeted suites: both PRs together with lifecycle and promotion checks, analysis and claim guards, October engineering/research/detailed filing checks, and live-checker unit tests",
+      "skips": {
+        "copied_readout_logs_absent": 1,
+        "source_host_sysstat_absent": 4,
+        "retained_candidate_absent": 1
+      },
+      "runtime": "CPython 3.10.21 via the cached review launcher; CPU thread counts set to 1; VILLA_ROOT and SCROLLGT_ROOT use existing review fixtures",
+      "lint_format": "Ruff check and format pass on all 12 changed Python files across both PRs"
+    }
+  },
+  "required_before_submission": [
+    "Complete personal fields and terms",
+    "Recheck the October form, rules, PR states and links on filing day",
+    "Submit the engineering answer and save the actual receipt"
+  ],
+  "recommended_remaining_work": [
+    "File the engineering bundle on October 29 if possible; preserve the receipt and exact text.",
+    "Optionally file the independent ScrollGT research answer, which already includes the completed memory fix and scoped context/heading results.",
+    "With preserved checkpoint/data and a research-host slot, register a comparison against unchanged training before new confirmatory measurements; a matched-step pair addresses the separate time-budget confound.",
+    "Verify the prepared seed-heading proposal through the current object-store CLI in a configured Villa environment before posting.",
+    "Have a maintainer land the existing Villa PRs; retain the three-open-PR cap for prepared follow-ups."
+  ]
+}
