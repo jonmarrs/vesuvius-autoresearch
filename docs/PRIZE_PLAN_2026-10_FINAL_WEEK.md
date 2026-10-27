@@ -12,6 +12,45 @@ The deadline is **October 31, 2026 at 11:59 p.m. Pacific** (November 1 at
 Do not mark the package filed or create a submission tag until it is actually
 submitted and the receipt is preserved.
 
+The current repository includes [PR #262](https://github.com/jonmarrs/vesuvius-autoresearch/pull/262),
+which publishes the owner's promoted batchgeneratorsv2 checkpoint, F1 0.271004,
+and fixes historical-reference reproduction after an incumbent changes. Its
+saved metrics and recorded validation identity were checked on CPU; that is
+not a fresh evaluation or a comparison against unchanged training. The three
+Villa merge credits in the engineering answer remain the same.
+
+The latest engineering follow-up strengthens
+[cycle provenance](LOOP_CYCLE_PROVENANCE.md) before future control comparisons.
+It records the baseline and trial settings, fingerprints Git-visible code
+contents, and prevents the live replicate rule from pooling different
+baselines or unidentified code. Older journal rows stay preserved but cannot
+fill the new evidence pool without these identities. Deployment on the
+research host is still a separate step; no new GPU experiment was run here.
+The filing checks still pass and the October form is accepting responses.
+Keep the October 28 narrative freeze and October 29 filing target.
+
+A [read-only probe plan](../reports/evidence/unchanged_training_probe_plan_2026-10-27.json)
+prepares four unchanged-config repeats from the promoted checkpoint using
+the existing isolated `f1_noise_probe.py` runner. Its training budget is
+four times 900 seconds, or 60 minutes, plus validation and startup. This is
+an operational preview from the cloud checkout: it does not establish data,
+GPU or checkpoint compatibility and has launched no training. Regenerate it
+on the research host before execution:
+
+```sh
+uv run python scripts/f1_noise_probe.py --config config.json \
+  --checkpoint best_model.pt --runs 4 \
+  --out local_data/unchanged_training_control_2026-10-28
+```
+
+The command plans only; `--execute` runs the repeats in isolated directories
+and requires the research lock and GPU slot to be free. It measures descriptive
+spread from unchanged settings, with actual warm starts checked by the runner.
+Register any confirmatory comparison and stopping rule before collecting
+its results. This bounded probe is more predictable to schedule than waiting
+for enough adaptively sampled control cycles. It can proceed separately from
+filing the completed engineering and fiber research work.
+
 ## What is ready
 
 | Evidence | Verified status |
