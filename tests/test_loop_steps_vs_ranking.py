@@ -33,7 +33,29 @@ def test_the_record_regenerates_from_its_source(tmp_path, monkeypatch):
     monkeypatch.chdir(ROOT)
     out = tmp_path / "steps.json"
     S.main(["--record", SOURCE, "--out", str(out)])
-    assert out.read_bytes() == RECORD.read_bytes()
+    actual, expected = json.loads(out.read_text()), json.loads(RECORD.read_text())
+
+    def same(a, b):
+        # BLAS/runtime versions can change the last bits of reductions and
+        # least-squares coefficients. Identities, counts and p-values stay exact.
+        assert type(a) is type(b)
+        if isinstance(a, dict):
+            assert a.keys() == b.keys()
+            for key in a:
+                if key == "permutation_p":
+                    assert a[key] == b[key]
+                else:
+                    same(a[key], b[key])
+        elif isinstance(a, list):
+            assert len(a) == len(b)
+            for x, y in zip(a, b):
+                same(x, y)
+        elif isinstance(a, float):
+            assert a == pytest.approx(b, rel=1e-12, abs=1e-14)
+        else:
+            assert a == b
+
+    same(actual, expected)
 
 
 def test_the_source_ends_before_the_window(record):

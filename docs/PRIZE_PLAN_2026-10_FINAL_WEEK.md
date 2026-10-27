@@ -1,8 +1,8 @@
 # October Progress Prize: readiness and final-week plan
 
-Plan updated **2026-10-25 UTC**. The rules, form, links and merge states were
-rechecked; the [new snapshot](../reports/evidence/october_prize_readiness_2026-10-25.json)
-supplements the original **October 23** record. We have a credible submission now, based on three
+Plan updated **2026-10-27 UTC**. The rules, form, links and merge states were
+rechecked; the [latest snapshot](../reports/evidence/october_prize_readiness_2026-10-27.json)
+supplements the October 23 and 25 records. We have a credible submission now, based on three
 merged Villa contributions. Additional merges or research results can improve
 it; they are not prerequisites for filing the work already completed.
 
@@ -41,10 +41,10 @@ walkthrough records the limit, source hashes and comparison scope.
 
 The official rules favor early releases, actual use, real-data improvements,
 useful fixes, actionable analysis and documentation. They explicitly ask for
-small bug fixes to be bundled. The October 25 checked source is Villa `322cb0899`,
-[`scrollprize.org/docs/34_prizes.md`](https://github.com/ScrollPrize/villa/blob/322cb0899ac9efe2588d5a3395dce6dc2dea3c89/scrollprize.org/docs/34_prizes.md#progress-prizes).
-The live form loaded successfully; direct access to the deployed prizes page
-returned HTTP 403, so the current repository source supplied the rules.
+small bug fixes to be bundled. The October 27 checked source is Villa `39a8cf3a`,
+[`scrollprize.org/docs/34_prizes.md`](https://github.com/ScrollPrize/villa/blob/39a8cf3a124bdd5540ee826e1cb30047c8dc8c85/scrollprize.org/docs/34_prizes.md#progress-prizes).
+The live form loaded successfully. Direct access to the deployed prizes page
+previously returned HTTP 403; this check uses the current repository source.
 
 ## Work ranked for the time remaining
 
@@ -67,6 +67,56 @@ seed-heading proposal. Both patches are pushed to the fork. No new upstream
 PR or merge resulted: the PR cap remains full, Vercel requires authorization,
 and the merge attempt again returned HTTP 403. These remain pending work,
 not additional merged credits for the filing.
+
+## October 27 priorities
+
+The engineering bundle is ready for final personal fields, terms and filing.
+The live October form and the three claimed Villa merges were rechecked on
+October 27. Keep the October 29 target; the optional research answer and new
+loop work do not need to delay it. Nothing has been submitted here.
+
+The most useful remaining research is the **already registered**
+[batchgeneratorsv2 confirmation](preregistration/2026-10-25_loop_batchgeneratorsv2.md)
+and [replicate-rule test](preregistration/2026-10-26_loop_replicate_rule_window.md).
+Read them only after the window ends: the end of the eighth standing cycle,
+a promotion, or October 29 at 16:00 PDT (23:00 UTC), whichever comes first.
+The six-cycle minimum permits a reading at a closed deadline window; it is
+not permission to peek at six or seven cycles before a stopping condition.
+Preserve both rotated run logs and the retained candidate checkpoints, add
+only allowed code epochs from the loop checkout's reflog, and keep the frozen
+predictions and analysis rules. Keep the step-count adjustment secondary.
+No confirmation-window measurements were read for this readiness update.
+
+A [new CPU-only follow-up](../reports/loop_incumbent_reference_2026-10-27.md)
+found that the unchanged incumbent already records ROC AUC 0.574202 and AP
+lift 1.169277. Of the 26 published pre-window batchgeneratorsv2 cycles, 25
+have AUC above that saved reference. This resolves a metadata lookup; it is
+not a new model evaluation, an unchanged-training control or confirmation
+of the exploratory gain. A new GPU run is unnecessary just to recover the
+saved numbers. Fresh evaluation would still be needed to check today's
+runtime and exact current inputs.
+
+After the registered readout, the useful conditional next experiment is a
+small preregistered matched-step comparison, or an unchanged-training control,
+if the original data, checkpoint, GPU slot and time are available. The
+observational step-count adjustment alone cannot establish the cause. Keep
+any new measurements separate from the registered reading and from claims of
+cross-scroll improvement. Avoid a new model sweep before the filing freeze.
+
+The remaining upstream engineering priority is landing #2141, #2258 and
+#2259 through a maintainer, then using a freed PR slot for the prepared
+native-retry or seed-heading fix. The current integration remains read-only;
+repeating rejected merge attempts adds no evidence. The seed-heading branch
+already includes the resume guard. These are pending contributions, not
+additional merged credits. The separate ScrollGT research filing can use
+the released benchmark and merged memory fix now.
+
+Villa main has since moved fibers from AFV files to `vc_object_store`
+(#2316, `39a8cf3a`). Both prepared seed-heading patches still apply, but the
+recorded real CLI re-run is at `322cb0899`. Verify the object-store CLI path
+before posting; do not present the older AFV run as a current-main re-run.
+This integration check is useful engineering work if the current dependencies
+and data are available; it is not a prerequisite for filing the completed work.
 
 ## Completed research and October 25 review
 

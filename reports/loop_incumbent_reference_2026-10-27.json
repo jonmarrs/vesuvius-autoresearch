@@ -1,0 +1,157 @@
+{
+  "measurement": "saved checkpoint metadata; no new inference",
+  "cycles": 546,
+  "last_start": "2026-10-25T14:10:57",
+  "reference": {
+    "sha256": "6e06598b941bdb6588ccc39499bcaee181decd060a2ab8c8385b426cf01b225a",
+    "git_blob_sha1": "932dbb4614a9ba89711761688bf4d0482ced932c",
+    "metrics": {
+      "val_f1": 0.2657620983146595,
+      "roc_auc": 0.5742016897052179,
+      "ap_prevalence_lift": 1.169276992828988
+    },
+    "validation_diag": {
+      "protocol": "seeded-sample-400-v3+z1-27",
+      "requested_patches": 400,
+      "empty_target_patches": 303,
+      "batch_errors": 0,
+      "scored_patches": 400,
+      "usable_patches": 97,
+      "complete": true,
+      "inputs_sha256": "75e57cf994a4b5d863c2277b05fa605aa5e5e70d19e908bee7d82e7d7cee2661",
+      "cc_errors": 0,
+      "crit_errors": 0,
+      "skeleton_errors": 0,
+      "centerline_errors": 0,
+      "mean_ap_errors": 0,
+      "topology_threshold_errors": 0,
+      "skel_samples": 10,
+      "centerline_samples": 10,
+      "cc_samples": 97,
+      "crit_samples": 97
+    },
+    "val_protocol": "seeded-sample-400-v3+z1-27",
+    "config": {
+      "architecture": "resenc_unet",
+      "num_layers": 16,
+      "patch_size": 64,
+      "val_uri": "local_data/PHercParis2Fr143/surface_volume.zarr",
+      "depth_band": [
+        1,
+        27
+      ],
+      "use_lasagna": false
+    }
+  },
+  "groups": {
+    "all_cycles": {
+      "cycles": 546,
+      "metrics": {
+        "val_f1": {
+          "saved_reference": 0.2657620983146595,
+          "recorded_mean": 0.2670342219645763,
+          "mean_minus_saved": 0.001272123649916801,
+          "log_rounding_half_width": 0.0,
+          "definitely_above": 383,
+          "definitely_below": 163,
+          "rounding_overlap": 0
+        },
+        "roc_auc": {
+          "saved_reference": 0.5742016897052179,
+          "recorded_mean": 0.5779282051282051,
+          "mean_minus_saved": 0.0037265154229871866,
+          "log_rounding_half_width": 5e-05,
+          "definitely_above": 385,
+          "definitely_below": 159,
+          "rounding_overlap": 2
+        },
+        "ap_lift": {
+          "saved_reference": 1.169276992828988,
+          "recorded_mean": 1.1812241758241757,
+          "mean_minus_saved": 0.011947182995187822,
+          "log_rounding_half_width": 5e-05,
+          "definitely_above": 347,
+          "definitely_below": 199,
+          "rounding_overlap": 0
+        }
+      }
+    },
+    "batchgeneratorsv2": {
+      "cycles": 26,
+      "metrics": {
+        "val_f1": {
+          "saved_reference": 0.2657620983146595,
+          "recorded_mean": 0.2710273937381858,
+          "mean_minus_saved": 0.005265295423526273,
+          "log_rounding_half_width": 0.0,
+          "definitely_above": 26,
+          "definitely_below": 0,
+          "rounding_overlap": 0
+        },
+        "roc_auc": {
+          "saved_reference": 0.5742016897052179,
+          "recorded_mean": 0.5896807692307693,
+          "mean_minus_saved": 0.015479079525551387,
+          "log_rounding_half_width": 5e-05,
+          "definitely_above": 25,
+          "definitely_below": 1,
+          "rounding_overlap": 0
+        },
+        "ap_lift": {
+          "saved_reference": 1.169276992828988,
+          "recorded_mean": 1.2184961538461538,
+          "mean_minus_saved": 0.04921916101716595,
+          "log_rounding_half_width": 5e-05,
+          "definitely_above": 23,
+          "definitely_below": 3,
+          "rounding_overlap": 0
+        }
+      }
+    },
+    "other_tweaks": {
+      "cycles": 520,
+      "metrics": {
+        "val_f1": {
+          "saved_reference": 0.2657620983146595,
+          "recorded_mean": 0.26683456337589584,
+          "mean_minus_saved": 0.0010724650612363162,
+          "log_rounding_half_width": 0.0,
+          "definitely_above": 357,
+          "definitely_below": 163,
+          "rounding_overlap": 0
+        },
+        "roc_auc": {
+          "saved_reference": 0.5742016897052179,
+          "recorded_mean": 0.5773405769230769,
+          "mean_minus_saved": 0.0031388872178590432,
+          "log_rounding_half_width": 5e-05,
+          "definitely_above": 360,
+          "definitely_below": 158,
+          "rounding_overlap": 2
+        },
+        "ap_lift": {
+          "saved_reference": 1.169276992828988,
+          "recorded_mean": 1.1793605769230768,
+          "mean_minus_saved": 0.010083584094088938,
+          "log_rounding_half_width": 5e-05,
+          "definitely_above": 324,
+          "definitely_below": 196,
+          "rounding_overlap": 0
+        }
+      }
+    }
+  },
+  "limits": [
+    "Descriptive comparison with one saved measurement; no significance test.",
+    "Cycle rows omit per-cycle validation input fingerprints; exact input equality is not independently verified.",
+    "Historical checkpoint metrics, not a fresh evaluation under today's runtime.",
+    "A zero-step saved model is not a same-budget unchanged-training control.",
+    "One selected incumbent and one reused Fr143 validation sample; no cross-scroll claim.",
+    "Does not change the registered confirmation, promotion rule or live loop."
+  ],
+  "sources": {
+    "checkpoint": "best_model.pt",
+    "record": "reports/loop_tweak_replication_2026-10-25.json",
+    "record_sha256": "b3ab1aa057fcc7e79ac0fec02f9d529ddc18af30cd5aca698e3aa7662530ea1c"
+  }
+}
