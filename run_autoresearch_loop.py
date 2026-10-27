@@ -300,7 +300,13 @@ tweak_templates: list[dict[str, Any]] = [
         "vals": [0.99, 0.999, 0.9999],
         "applies_when": lambda c: bool(getattr(c, "use_uamt", False)),
     },
+    # The no-change control (the owner, 2026-10-27): a cycle of config.json as it
+    # is, so a tweak can be read against the unchanged config, not only against
+    # the other tweaks. The sampler repeats no config run in the last 20 cycles
+    # (save_recent_configs), so it runs at most once in 20.
+    {"family": "control", "attr": None, "vals": [None], "control": True},
 ]
+CONTROL_TWEAK = "control_unchanged"
 
 HISTORY_FILE = "autoresearch_history.json"
 CONFIG_FILE = "config.json"
@@ -436,6 +442,11 @@ def tweak_proposals(config, cap=None):
     active, excluded = [], []
     for template in tweak_templates:
         if not template.get("applies_when", lambda _c: True)(config):
+            continue
+        if template.get("control"):
+            # config.json itself: offered while it fits the cap.
+            if complexity_score(config) <= cap:
+                active.append(template)
             continue
         attr = template["attr"]
         fits = []
@@ -1088,8 +1099,8 @@ def main():
             )
         else:
             note = ", ".join(f"{a}={v} ({s:.2f})" for a, v, s in excluded) or "none"
-        if not active_templates:
-            # Stdout only, like "Not starting": the watchdog restarts the loop every
+        if not [t for t in active_templates if not t.get("control")]:
+            # The control alone is no sprint. Stdout only, like "Not starting": the watchdog restarts the loop every
             # few minutes, and each restart would add the same lines to the sprint log.
             print(
                 f"No tweak differs from the baseline within VRAM cap "
@@ -1121,7 +1132,8 @@ def main():
             # Ensure we don't carry over 'pinned' status to evolved configs
             test_config.pinned = False
             test_config.time_budget = default_budget
-            setattr(test_config, attr, val)
+            if not template.get("control"):
+                setattr(test_config, attr, val)
 
             cfg_dict = asdict(test_config)
             # Remove volatile fields for comparison
@@ -1153,7 +1165,7 @@ def main():
             recent_configs = [cfg_dict]
             save_recent_configs(recent_configs)
 
-        tweak_name = f"{attr}_{val}"
+        tweak_name = CONTROL_TWEAK if template.get("control") else f"{attr}_{val}"
 
         print(
             f"\nCycle {i}: Applying {tweak_name} (Family Weight: {success_counts[family]})"
