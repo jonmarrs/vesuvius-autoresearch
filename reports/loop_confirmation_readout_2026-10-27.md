@@ -119,13 +119,13 @@ The registrations froze these scripts, so this PR changes none of them.
   starts at that second and is excluded, and the last row is the 8th standing cycle. (#252's review fixed the same
   in `loop_host_load.window`.)
 
-## For the owner
+## The owner's decisions (2026-10-27)
 
-- **Whether to accept the audited reading.** As registered there is no reading. With the audit, every prediction
-  holds and the frozen replicate rule takes batchgeneratorsv2 at its 6th window cycle.
-- **Whether to promote batchgeneratorsv2,** and with which checkpoint: the rule's (the 6th cycle's, kept above) or a
-  fresh run.
-- **Whether to adopt the replicate rule.** One window, one tweak: it took the confirmed gain and nothing else.
+- **The audited reading is accepted**, as post hoc; the registered result on record remains UNMATCHED_RUNS (Amendment
+  2 of the [confirmation's registration](../docs/preregistration/2026-10-25_loop_batchgeneratorsv2.md)).
+- **batchgeneratorsv2 is to be promoted** with the replicate rule's candidate, the 6th window cycle's (kept above;
+  PR #256 prepares it).
+- **The replicate rule is to be adopted** in the live loop, beside the 0.01 margin.
 
 ## What this cannot do
 
