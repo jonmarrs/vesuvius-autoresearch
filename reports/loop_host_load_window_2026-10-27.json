@@ -1,0 +1,175 @@
+{
+ "source": {
+  "path": "reports/loop_tweak_confirmation_2026-10-27.json",
+  "sha256": "79bda63467a02e5ac8d01d1c6b52166dc1497535252759984195dd2e9ace77f7"
+ },
+ "load": {
+  "path": "reports/loop_host_load_window_cycles_2026-10-27.json",
+  "sha256": "718ee86fc4808f318927f65dc23bb0cde280d7ae9b89fe2fa6865b5f0845e592"
+ },
+ "cycles": 135,
+ "without_load": 2,
+ "busy_gap": {
+  "mean": -1.3803889971217087,
+  "se": 4.001329877057183,
+  "n": 8
+ },
+ "nice_gap": {
+  "mean": -0.7849667607886865,
+  "se": 3.085305180852257,
+  "n": 8
+ },
+ "side_job_nice": 10.0,
+ "standing_with_side_job": [
+  1,
+  8
+ ],
+ "others_with_side_job": [
+  18,
+  125
+ ],
+ "by_tweak": {
+  "aug_mode_batchgeneratorsv2": [
+   1,
+   8
+  ],
+  "batch_size_16": [
+   2,
+   8
+  ],
+  "consistency_weight_0.05": [
+   0,
+   6
+  ],
+  "consistency_weight_0.2": [
+   2,
+   4
+  ],
+  "ema_decay_0.999": [
+   1,
+   4
+  ],
+  "ema_decay_0.9999": [
+   0,
+   3
+  ],
+  "loss_fiber_bce_0.1": [
+   2,
+   5
+  ],
+  "loss_fiber_bce_0.3": [
+   1,
+   3
+  ],
+  "loss_ink_bce_0.2": [
+   0,
+   4
+  ],
+  "loss_ink_bce_0.4": [
+   0,
+   2
+  ],
+  "loss_ink_dice_0.4": [
+   0,
+   3
+  ],
+  "loss_st_0.0": [
+   1,
+   3
+  ],
+  "loss_st_0.2": [
+   0,
+   2
+  ],
+  "lr_0.0001": [
+   0,
+   5
+  ],
+  "lr_0.001": [
+   1,
+   7
+  ],
+  "lr_1e-05": [
+   0,
+   6
+  ],
+  "lr_5e-05": [
+   1,
+   5
+  ],
+  "multi_task_heads_False": [
+   2,
+   8
+  ],
+  "ridge_sigma_2.0": [
+   1,
+   5
+  ],
+  "ridge_sigma_3.0": [
+   1,
+   7
+  ],
+  "target_fiber_source_sobel_z": [
+   0,
+   8
+  ],
+  "use_uamt_False": [
+   1,
+   6
+  ],
+  "weight_decay_0.0": [
+   0,
+   7
+  ],
+  "weight_decay_0.001": [
+   0,
+   7
+  ],
+  "weight_decay_0.1": [
+   2,
+   7
+  ]
+ },
+ "standing_cycles": [
+  {
+   "start": "2026-10-25T16:40:57",
+   "busy": 37.14489383215369,
+   "nice": 0.0
+  },
+  {
+   "start": "2026-10-25T23:18:32",
+   "busy": 45.936535353535355,
+   "nice": 0.0
+  },
+  {
+   "start": "2026-10-26T05:01:32",
+   "busy": 69.39066666666668,
+   "nice": 24.831535353535354
+  },
+  {
+   "start": "2026-10-26T11:38:52",
+   "busy": 49.79961577350859,
+   "nice": 1.251809908998989
+  },
+  {
+   "start": "2026-10-26T15:31:49",
+   "busy": 37.62036363636364,
+   "nice": 0.005030303030303031
+  },
+  {
+   "start": "2026-10-26T18:33:16",
+   "busy": 37.585,
+   "nice": 0.00409090909090909
+  },
+  {
+   "start": "2026-10-26T20:33:10",
+   "busy": 37.52285136501517,
+   "nice": 0.0
+  },
+  {
+   "start": "2026-10-27T05:03:32",
+   "busy": 37.386006066734076,
+   "nice": 1.0111223458038423e-05
+  }
+ ]
+}
