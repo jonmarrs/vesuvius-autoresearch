@@ -107,9 +107,10 @@ def promote(loop: Path, result: dict, stamp: str) -> Path:
     The loop then does the rest of a promotion: config.json, the family's weight, the commit."""
     from scripts import promote_loop_candidate as P
 
-    path = loop / "last_model.pt"
-    candidate = P.checkpoint(path.read_bytes())
+    # read once: the bytes validated here are the bytes installed
+    raw = (loop / "last_model.pt").read_bytes()
+    candidate = P.checkpoint(raw)
     if candidate.get("val_f1") != result.get("val_f1") or candidate.get("val_protocol") != result.get("val_protocol"):  # fmt: skip
         raise RuntimeError("last_model.pt is not this cycle's candidate")
     new_rows = P.rows(P.history_row(loop, candidate), candidate, stamp)
-    return P.promote_files(loop, path, new_rows, stamp)
+    return P.promote_files(loop, raw, new_rows, stamp, missing_ok=True)
