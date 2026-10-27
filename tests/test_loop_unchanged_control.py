@@ -1,8 +1,11 @@
 """scripts/loop_unchanged_control.py and its registration (docs/preregistration/2026-10-27_loop_unchanged_control.md)."""
 
 import datetime as dt
+import hashlib
 import importlib.util
 import json
+import os
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -31,6 +34,7 @@ def _config(tweak, base=BASE):
 
 
 REG = U.REGISTERED
+INPUTS = "75e57cf994a4b5d863c2277b05fa605aa5e5e70d19e908bee7d82e7d7cee2661"
 STEPS = {"measures": {"val_f1": {"per_100_steps": -0.00005}, "roc_auc": {"per_100_steps": -0.00085}, "ap_lift": {"per_100_steps": -0.0045}}}  # fmt: skip
 
 
@@ -57,6 +61,15 @@ def _records(spec, start=REG["since"]):
                 "ap_prevalence_lift": lift,
                 "steps": steps,
                 "promotion_blocked": None,
+                "val_protocol": "seeded-sample-400-v3+z1-27",
+                "validation_diag": {
+                    "protocol": "seeded-sample-400-v3+z1-27",
+                    "inputs_sha256": INPUTS,
+                    "complete": True,
+                    "batch_errors": 0,
+                    "requested_patches": 400,
+                    "scored_patches": 400,
+                },
             },
         }
         for k, v in (more[0] if more else {}).items():
@@ -116,6 +129,144 @@ def test_each_arm_keeps_its_first_ten_cycles():
         10,
         True,
     )
+
+
+def test_the_first_completed_quota_freezes_the_entire_readout():
+    records = _window(10, 10)
+    before = U.read(records, STEPS)
+    later = _records(
+        [("later_tweak", 0.01, 0.02, 0.03, 1, {"status": "SUCCESS"})],
+        start=(
+            dt.datetime.fromisoformat(records[-1]["started"]) + dt.timedelta(hours=1)
+        ).isoformat(),
+    )
+    assert U.read([*records, *later], STEPS) == before
+
+
+def test_window_boundaries_compare_instants_and_preserve_the_registered_pdt_deadline():
+    # The registration explicitly says PDT even though civil Pacific time is
+    # PST by November 3. Keep that registered instant: 23:00 UTC, 15:00 PST.
+    assert not U.status([], now="2026-11-03T22:59:59+00:00")["complete"]
+    assert U.status([], now="2026-11-03T23:00:00+00:00")["complete"]
+    before = _records([(REG["control"], 0.27, 0.59, 1.2, 990)])
+    before[0]["started"] = "2026-10-27T22:59:59+00:00"
+    assert U.status(before)["control_cycles"] == 0
+    before[0]["started"] = "2026-10-27T23:00:00+00:00"
+    assert U.status(before)["control_cycles"] == 1
+
+
+@pytest.mark.parametrize("identity", [True, "unknown", "c" * 63])
+def test_unverifiable_code_identity_is_not_evidence(identity):
+    records = _window(1, 1, others=0)
+    for record in records:
+        record["code_sha256"] = identity
+    assert U.status(records)["window_cycles"] == 0
+
+
+@pytest.mark.parametrize(
+    "damage", ["missing", "incomplete", "counts", "protocol", "inputs", "boolean"]
+)
+def test_only_the_registered_complete_validation_sample_counts(damage):
+    records = _window(1, 1, others=0)
+    for record in records:
+        result = record["result"]
+        if damage == "missing":
+            result.pop("validation_diag")
+        elif damage == "incomplete":
+            result["validation_diag"]["complete"] = False
+        elif damage == "counts":
+            result["validation_diag"]["scored_patches"] = 399
+        elif damage == "protocol":
+            result["val_protocol"] = result["validation_diag"]["protocol"] = (
+                "seeded-sample-400-v2+z1-27"
+            )
+        elif damage == "inputs":
+            result["validation_diag"]["inputs_sha256"] = "a" * 64
+        else:
+            result["val_f1"] = True
+    assert U.status(records)["window_cycles"] == 0
+
+
+def test_out_of_order_records_cannot_choose_a_different_first_arm_cycle():
+    records = _window(1, 1, others=0)
+    with pytest.raises(ValueError, match="chronological"):
+        U.status(list(reversed(records)))
+
+
+def test_source_wall_clock_can_repeat_an_hour_when_pacific_summer_time_ends():
+    records = _records([("other", 0.27, 0.59, 1.2, 990)] * 3)
+    for record, stamp in zip(
+        records,
+        ("2026-11-01T01:59:00", "2026-11-01T01:00:00", "2026-11-01T01:01:00"),
+        strict=True,
+    ):
+        record["started"] = stamp
+    assert U.status(records)["window_cycles"] == 3
+
+
+def test_validation_identity_is_bound_to_the_registered_starting_checkpoint():
+    from scripts.promote_loop_candidate import checkpoint
+
+    # A later loop promotion must not retarget this historical registration.
+    saved_blob = subprocess.run(
+        ["git", "cat-file", "blob", "e4251711249b93a5084b139f37ef42b98fab3457"],
+        cwd=ROOT,
+        capture_output=True,
+        env={**os.environ, "GIT_NO_LAZY_FETCH": "1"},
+        check=False,
+    )
+    if saved_blob.returncode:
+        pytest.skip("registered checkpoint blob absent in this shallow checkout")
+    raw = saved_blob.stdout
+    assert hashlib.sha256(raw).hexdigest() == REG["incumbent_sha256"]
+    saved = checkpoint(raw)
+    assert U.validation_key(saved) == U.REGISTERED_SAMPLE
+
+
+@pytest.mark.parametrize("alias", ["direct", "symlink", "hardlink"])
+def test_cli_cannot_overwrite_its_source_journal(tmp_path, alias):
+    cycles, steps = tmp_path / "cycles.jsonl", tmp_path / "steps.json"
+    raw = "".join(json.dumps(r) + "\n" for r in _window(10, 10))
+    cycles.write_text(raw)
+    steps.write_text(json.dumps(STEPS))
+    output = cycles if alias == "direct" else tmp_path / "output.json"
+    if alias == "symlink":
+        output.symlink_to(cycles)
+    elif alias == "hardlink":
+        os.link(cycles, output)
+    with pytest.raises(SystemExit) as error:
+        U.main(
+            [
+                "read",
+                "--cycles",
+                str(cycles),
+                "--steps",
+                str(steps),
+                "--out",
+                str(output),
+            ]
+        )
+    assert error.value.code == 2
+    assert cycles.read_text() == raw
+
+
+def test_constant_arm_scores_keep_the_decision_and_emit_strict_json():
+    records = _window(10, 10)
+    for record in records:
+        arm = record["tweak"]
+        if arm in (REG["control"], REG["reverse"]):
+            record["result"].update(
+                val_f1=0.271 if arm == REG["control"] else 0.267,
+                roc_auc=0.59,
+                ap_prevalence_lift=1.2,
+            )
+    got = U.read(records, STEPS)
+    assert got["verdict"]["reading"] == "F1_ONLY"
+    assert all(
+        effect["t"] is None and effect["p"] is None
+        for effect in got["effects"].values()
+    )
+    json.dumps(got, allow_nan=False)
 
 
 def test_the_window_ends_at_a_promotion_another_incumbent_or_code_and_the_deadline():
