@@ -194,6 +194,43 @@ def test_the_registered_command_keeps_the_registered_join(headed_logs, tmp_path)
     assert unmatched == {"registered": 2, "headers": 0, "values": 2}
 
 
+def test_header_join_rejects_another_cycles_run_even_when_score_counts_match(headed_logs):  # fmt: skip
+    sprint, run_logs = headed_logs
+    path = Path(run_logs[1])
+    # Cycle 1's run no longer has its score. The one old outside-window run
+    # makes the counts agree, but belongs to NIGHT/40/c instead of DAY/1/a.
+    path.write_text(path.read_text().replace("0.266000 (thr", "0.266900 (thr"))
+    rows, tally = ltr.cycles(sprint, run_logs, "2026-10-26T07:00:00", "2026-10-26T09:00:00", INC)  # fmt: skip
+    assert tally["unmatched"] == 1
+    assert not {"threshold", "incumbent", "roc_auc", "ap_lift", "mean_ap", "steps"} & rows[0].keys()  # fmt: skip
+
+
+def test_header_join_uses_cycle_identity_instead_of_run_order(tmp_path):
+    _shift(tmp_path, "2026-10-26_07-15-03_day_shift", "07:15:03", [
+        (1, "a", "REVERTED", "07:32:00", 0.2660),
+        (2, "b", "REVERTED", "07:49:00", 0.2660),
+    ])  # fmt: skip
+    path = tmp_path / "run.log"
+    path.write_text("\n".join(
+        _headed("DAY", 2, "b", 0.2660, 0.590, 1.20, 980)
+        + _headed("DAY", 1, "a", 0.2660, 0.571, 1.11, 1201)
+    ))  # fmt: skip
+    rows, tally = ltr.cycles([str(tmp_path / "sprint_log_*.md")], [str(path)],
+                            "2026-10-26T07:00:00", "2026-10-26T09:00:00", INC)  # fmt: skip
+    assert tally["unmatched"] == 0
+    assert [(r["tweak"], r["roc_auc"]) for r in rows] == [("a", 0.571), ("b", 0.590)]
+
+
+def test_registered_mode_cannot_label_a_header_join_as_registered(headed_logs, tmp_path):  # fmt: skip
+    sprint, runs = headed_logs
+    output = tmp_path / "result.json"
+    with pytest.raises(SystemExit):
+        ltr.main(["--sprint-logs", *sprint, "--run-log", *runs,
+                  "--since", ltr.REGISTERED["since"], "--until", "2026-10-26T09:00:00",
+                  "--registered", "--join", "header", "--out", str(output)])  # fmt: skip
+    assert not output.exists()
+
+
 def test_a_promotion_ends_a_window_or_refuses_it(tmp_path):
     _shift(
         tmp_path,

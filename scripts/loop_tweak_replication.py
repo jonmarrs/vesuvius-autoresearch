@@ -5,10 +5,10 @@ promotes only a val_f1 more than F1_NOISE_TOLERANCE (0.01) above the stored incu
 (batch_size_8, 0.265762) no cycle has promoted, but each tweak has recurred, so each has replicates. This takes every
 scored 15-minute cycle that started in [--since, --until), from the sprint logs (tweak, start, budget, val_f1; parsed
 by epoch_boundary_overhead.cycles), and joins each to its run in the loop's run logs by val_f1 (six decimals, as the run
-log prints it) for the threshold-free measures the run also prints: ROC AUC, AP prevalence lift and mean AP. A value
-whose runs and cycles do not pair off leaves its cycles unmatched; the run logs also hold runs before and after the
-window, so by default (--join header) such a cycle then gets the one run whose header (`--- DAY|NIGHT SHIFT CYCLE N:
-tweak ---`) names its shift, number and tweak (#254). --registered keeps the registered join, val_f1 alone.
+log prints it) for the threshold-free measures the run also prints: ROC AUC, AP prevalence lift and mean AP.
+By default (--join header), logs with cycle headers require one matching run whose header (`--- DAY|NIGHT SHIFT
+CYCLE N: tweak ---`) names the cycle's shift, number and tweak, even when the score counts agree. Fully headless
+legacy logs retain the score join. --registered keeps the registered join, val_f1 alone.
 
 The loop's code changed under it: each merge into the loop's checkout that touched what it runs starts an EPOCH, and a
 cycle belongs to the epoch in force when it started. A tweak's effect is measured against its own epoch's other cycles:
@@ -221,23 +221,21 @@ def cycles(patterns: list[str], run_logs: list[str], since: str, until: str, inc
             tally["unmatched"] += 1
         rows.append(row)
     if join == "header":
-        # The val_f1 join counts every run with a cycle's value, runs before and
-        # after the window included, so a value they repeat left its cycle
-        # unmatched (7 of #254's 135). Such a cycle gets the one run whose header
-        # (shift, number, tweak) is its own, as loop_confirmation_audit.py does.
+        # Counts can agree while a missing run is replaced by an outside-window
+        # run. When headers exist, verify every row and discard stale run fields
+        # before attaching the one run whose full cycle identity agrees.
         tally["resolved_by_header"] = 0
-        if tally["unmatched"]:
+        if any(HEADER.match(line) for p in run_logs for line in Path(p).read_text(errors="replace").splitlines()):  # fmt: skip
             heads = headed_runs(run_logs)
             numbers = numbered_cycles([glob.escape(p) for p in paths])
             for row in rows:
-                if "threshold" in row or row["start"] not in numbers:
-                    continue
-                want = numbers[row["start"]]
+                old = {key: row.pop(key) for key in ("threshold", "incumbent", "steps", *FIELDS) if key in row}  # fmt: skip
+                want = numbers.get(row["start"])
                 own = [rec for rec, h in heads.get(round(row["val_f1"], 6), []) if rec["incumbent"] == incumbent and h == want]  # fmt: skip
-                if len(own) == 1:
+                if want is not None and len(own) == 1:
                     row.update(own[0])
-                    tally["unmatched"] -= 1
-                    tally["resolved_by_header"] += 1
+                    tally["resolved_by_header"] += old != own[0]
+            tally["unmatched"] = sum("threshold" not in row for row in rows)
     elif join != "val_f1":
         raise ValueError(f"join is header or val_f1, not {join!r}")
     return rows, tally
@@ -395,6 +393,8 @@ def main(argv: list[str] | None = None) -> int:
     )
     a = ap.parse_args(argv)
     join = a.join or ("val_f1" if a.registered else "header")
+    if a.registered and join != "val_f1":
+        ap.error("--registered requires --join val_f1; the header join is post hoc")
     if a.registered and (a.since, a.standing) != (
         REGISTERED["since"],
         REGISTERED["standing"],

@@ -1,8 +1,9 @@
 # October Progress Prize: readiness and final-week plan
 
 Plan updated **2026-10-27 UTC**. The rules, form, links and merge states were
-rechecked; the [latest snapshot](../reports/evidence/october_prize_readiness_2026-10-27.json)
-supplements the October 23 and 25 records. We have a credible submission now, based on three
+rechecked; the [latest follow-up](../reports/evidence/october_prize_readiness_2026-10-27_followup.json)
+supplements the [earlier October 27 snapshot](../reports/evidence/october_prize_readiness_2026-10-27.json)
+and the October 23 and 25 records. We have a credible submission now, based on three
 merged Villa contributions. Additional merges or research results can improve
 it; they are not prerequisites for filing the work already completed.
 
@@ -54,7 +55,7 @@ previously returned HTTP 403; this check uses the current repository source.
 | 2 | Publish the completed CPU reproduction and merged ScrollGT memory fix (#14). The 512³ control exposed a whole-volume EDT allocation failure under a 7 GiB address-space budget. | The bounded-slab fix is merged: 213 fiber checks and CI pass; real label and score comparisons are exact. Keep the scoring definition and published rows unchanged. Preserve both the baseline failure and the successful run, with commands and limits. |
 | 3 | Package the optional research submission around the released benchmark and Findings 96–100. | Review the separate form answer; preserve in-sample, context and exploratory disclosures. Finding 100 is complete; retain its failed Scroll-3 prediction and distinguish its two heading rules. |
 | 4 | Complete the existing Villa contributions when access permits: #2141, #2258, #2259, then the prepared native-retry and reference-provenance branches. | The integration remains read-only. A maintainer must merge the existing PRs; prepared PR creation returned HTTP 403. All passing checks and pushed branches stay separate from merged credits. Incorporate actual new feedback if it arrives. |
-| 5 | Prepare upstream publication of the reviewed Villa seed-heading proposal from Finding 100 when a PR slot and access permit. | [Owner PR #235](https://github.com/jonmarrs/vesuvius-autoresearch/pull/235) and its follow-up review are merged here; no upstream PR is posted. Its `keep` rule matches training's signed CT axis (1.11× and 1.28× coverage on two held-out Scroll-5 cubes). The current-Villa-main re-run reproduces both before/after traces on those two cubes. The `sheet` experiment recovered more (1.20×, 1.43×) but is a different rule. Keep their evidence distinct; recheck current main, the upstream PR cap and the owner's required commentary before posting. Further experiments are optional after the filing is frozen. |
+| 5 | Prepare upstream publication of the reviewed Villa seed-heading proposal from Finding 100 when a PR slot and access permit. | [Owner PR #235](https://github.com/jonmarrs/vesuvius-autoresearch/pull/235) and its follow-up review are merged here; no upstream PR is posted. Its `keep` rule matches training's signed CT axis (1.11× and 1.28× coverage on two held-out Scroll-5 cubes). The recorded AFV re-run at `322cb0899` reproduces both before/after traces; the newer object-store CLI remains unverified here. The `sheet` experiment recovered more (1.20×, 1.43×) but is a different rule. Keep their evidence distinct; recheck current main, the upstream PR cap and the owner's required commentary before posting. Further experiments are optional after the filing is frozen. |
 
 The integration's creation and merge errors are preserved in
 [the review record](../reports/evidence/villa_pr_review_2026-10-23.json).
@@ -75,17 +76,12 @@ The live October form and the three claimed Villa merges were rechecked on
 October 27. Keep the October 29 target; the optional research answer and new
 loop work do not need to delay it. Nothing has been submitted here.
 
-The most useful remaining research is the **already registered**
-[batchgeneratorsv2 confirmation](preregistration/2026-10-25_loop_batchgeneratorsv2.md)
-and [replicate-rule test](preregistration/2026-10-26_loop_replicate_rule_window.md).
-Read them only after the window ends: the end of the eighth standing cycle,
-a promotion, or October 29 at 16:00 PDT (23:00 UTC), whichever comes first.
-The six-cycle minimum permits a reading at a closed deadline window; it is
-not permission to peek at six or seven cycles before a stopping condition.
-Preserve both rotated run logs and the retained candidate checkpoints, add
-only allowed code epochs from the loop checkout's reflog, and keep the frozen
-predictions and analysis rules. Keep the step-count adjustment secondary.
-No confirmation-window measurements were read for this readiness update.
+The [batchgeneratorsv2 confirmation](preregistration/2026-10-25_loop_batchgeneratorsv2.md)
+and [replicate-rule test](preregistration/2026-10-26_loop_replicate_rule_window.md)
+have closed and their readout is published below. The registered command gave
+no reading; the owner accepted the disclosed post hoc audit. Preserve the
+original records and that distinction. These completed analyses no longer
+need to hold up the filing.
 
 A [new CPU-only follow-up](../reports/loop_incumbent_reference_2026-10-27.md)
 found that the unchanged incumbent already records ROC AUC 0.574202 and AP
@@ -96,12 +92,51 @@ of the exploratory gain. A new GPU run is unnecessary just to recover the
 saved numbers. Fresh evaluation would still be needed to check today's
 runtime and exact current inputs.
 
-After the registered readout, the useful conditional next experiment is a
-small preregistered matched-step comparison, or an unchanged-training control,
+The useful conditional next experiment is an unchanged-training control or a
+small preregistered matched-step comparison,
 if the original data, checkpoint, GPU slot and time are available. The
 observational step-count adjustment alone cannot establish the cause. Keep
 any new measurements separate from the registered reading and from claims of
 cross-scroll improvement. Avoid a new model sweep before the filing freeze.
+
+### Latest review and next measurements
+
+The combined rollover/form checker now passes, including the historical PR
+lookup that failed earlier. The October form returns HTTP 200, its exact
+October title and an accepting response form. November's form remains closed
+and Villa #2301 remains open. All **12 URLs** in the two prepared form-answer
+files return HTTP 200. The upstream claim checker still confirms exactly
+Villa #2022, #2044 and #2155 as October merges. The latest follow-up snapshot
+preserves these checks separately from the earlier snapshots. Nothing has
+been submitted; complete personal details and terms, submit on October 29
+if possible, then preserve the receipt and exact answers.
+
+[PR #259](https://github.com/jonmarrs/vesuvius-autoresearch/pull/259) adds an
+unchanged-training control to the sampler. Review reproduced a retry fallback
+that could run the control every cycle. Controls are now excluded while their
+config is among the previous 20 cycles; that history survives retry exhaustion
+and also stays bounded in memory. Its 22-cycle regression runs controls at
+cycles 1 and 22. A control keeps the normal cycle budget and unpinned runtime
+settings, and does not guarantee a daily sample count.
+
+[PR #260](https://github.com/jonmarrs/vesuvius-autoresearch/pull/260) corrects
+the exactly-eight-cycle cutoff and offers header-based joins after the readout.
+Review also found balanced score collisions could still select the wrong run:
+the header mode now verifies every cycle identity and refuses missing or
+ambiguous matches. Fully headless logs keep the legacy join. Registered mode
+requires the original score join and cannot label a header join as registered.
+Original numerical artifacts and registrations are unchanged. Raw source-host
+logs, sysstat and the retained candidate are absent here, so their six checks
+skip; the analysis checks that use published artifacts and synthetic cases pass.
+
+The most useful new research measurement is whether a tweak beats unchanged
+training from the **same checkpoint and inputs**, now that the sampler supports
+that control. For a confirmatory claim, register the comparison, endpoints and
+stopping rule before collecting its results. A matched-step augmentation pair
+would separately address the time-budget confound. Both need a configured
+research host and preserved inputs; neither is a result of this CPU review.
+No live-host deployment, model promotion or new GPU experiment was performed
+here. File the completed work independently of those optional measurements.
 
 The remaining upstream engineering priority is landing #2141, #2258 and
 #2259 through a maintainer, then using a freed PR slot for the prepared
