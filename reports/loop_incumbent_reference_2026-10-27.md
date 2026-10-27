@@ -1,11 +1,14 @@
 # The incumbent's saved ranking metrics are already available
 
+Historical reference check made before the confirmation readout and October 27
+promotion. Reproduce it with the October 17 checkpoint identified below.
+
 The October 26 [step-count analysis](loop_steps_vs_ranking_2026-10-26.md)
 left open whether the cycles rank ink worse than their unchanged starting
 model. Its saved checkpoint already contains ranking metrics. Extracting
 them needs no new evaluation, training, data download or GPU job.
 
-The local `best_model.pt` is byte-identical to Git blob
+The reference check's `best_model.pt` is byte-identical to Git blob
 `932dbb4614a9ba89711761688bf4d0482ced932c`, committed by the
 [October 17 promotion](https://github.com/jonmarrs/vesuvius-autoresearch/commit/1b7a304cd459420272864ce16d45db304ff3758b).
 Its SHA-256 is `6e06598b941bdb6588ccc39499bcaee181decd060a2ab8c8385b426cf01b225a`.
@@ -54,11 +57,19 @@ or rewriting the October filing as a confirmed ink-model improvement.
 Reproduce the [machine-readable record](loop_incumbent_reference_2026-10-27.json):
 
 ```sh
+mkdir -p local_data/loop_references/2026-10-17
+git cat-file blob 932dbb4614a9ba89711761688bf4d0482ced932c \
+  > local_data/loop_references/2026-10-17/best_model.pt
 python3 scripts/loop_incumbent_reference.py \
-  --checkpoint best_model.pt \
+  --checkpoint local_data/loop_references/2026-10-17/best_model.pt \
   --record reports/loop_tweak_replication_2026-10-25.json \
   --out reports/reference-reproduction.json
 ```
+
+The output records the chosen checkpoint path. Extracting the original Git
+blob keeps this reference reproducible after the live incumbent advances;
+the test recreates the original relative paths in a temporary directory and
+compares the historical record byte for byte.
 
 The tool hashes and reads the same captured input bytes, loads metadata on
 CPU without constructing a model, rejects records reaching the confirmation
