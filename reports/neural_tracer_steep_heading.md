@@ -99,7 +99,8 @@ Scroll-5 cubes came near that estimate; Scroll 3 came in far below it.
   added at most 2.4% to coverage and cost up to 0.017 of precision. Why they add so little is untested.
 * **In sample nothing changes,** within 1.5% of coverage and 0.003 of precision. A change to villa's heading rule would
   leave the in-sample cubes as they are, under this checkpoint and presence.
-* **The ranking against our tracer does not change** on any cube at either tolerance.
+* **On merge-penalized ERL, the ranking against our tracer does not change** on any cube at either tolerance. On
+  coverage, sheet overtakes our tracer on 1 cube at tolerance 2 and 4 at tolerance 4.
 
 ## What it does not say
 

@@ -54,9 +54,10 @@ The registered follow-up, Finding 100, traced previously skipped seeds from
 the presence direction projected into the CT sheet. It adds 1.20–1.43×
 coverage on the two held-out Scroll-5 cubes. On Scroll 3 the median is only
 1.017×, below the registered 1.05×, so that prediction failed. Precision
-stays within 0.017 of baseline on the ten held-out cubes; the ranking against
-our tracer changes on none. One checkpoint, two Scroll-5 cubes, and no
-manipulation of tilt: this does not establish tilt as the cause.
+stays within 0.017 of baseline on the ten held-out cubes; on merge-penalized
+ERL its ranking against our tracer changes on none. One checkpoint, two
+Scroll-5 cubes, and no manipulation of tilt: this does not establish tilt
+as the cause.
 
 **(3) What this enables.** Readers can score their own instance labels on
 public data, reproduce built-in baselines on CPU, distinguish held-out from

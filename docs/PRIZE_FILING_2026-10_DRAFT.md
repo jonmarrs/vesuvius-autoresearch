@@ -248,10 +248,10 @@ four predictions held):
 * **On the 512³ cubes too** (finding 98, pre-registered; all four predictions held on both scrolls). Given the scan
   around each of the eleven 512³ cubes, it drops 0.004–0.012 of its seed dots on the three in-sample Scroll-5 ones,
   against 0.258–0.283, and 0.011–0.088 on the eight held-out Scroll-3 ones, against 0.256–0.357. Its coverage rises
-  1.19–1.35× on all eleven, less than on the 256³ cubes, as registered. The ranking against our tracer does not
-  change: at tolerance 4 it leads on all eleven, and at tolerance 2 it leads on Scroll 3 and trails on Scroll 5, at a
-  median 0.59 of our tracer rather than 0.44. Across all 21 cubes, given the scan around each, it leads our tracer on
-  19 at tolerance 4 (11 with the cube alone) and on 10 at tolerance 2 (8).
+  1.19–1.35× on all eleven, less than on the 256³ cubes, as registered. On merge-penalized ERL the ranking against
+  our tracer does not change: at tolerance 4 it leads on all eleven, and at tolerance 2 it leads on Scroll 3 and
+  trails on Scroll 5, at a median 0.59 of our tracer rather than 0.44. Across all 21 cubes, given the scan around
+  each, it leads our tracer on 19 at tolerance 4 (11 with the cube alone) and on 10 at tolerance 2 (8).
 * **What still drops seeds where it is held out** (finding 99, exploratory: not pre-registered, though its three
   expectations were pushed before it ran; two failed, below). Given the scan, it still drops 0.266 and 0.353 of its
   seed dots on the two held-out Scroll-5 256³ cubes, and 0.011–0.088 on Scroll 3. On all 21 cubes, every classified

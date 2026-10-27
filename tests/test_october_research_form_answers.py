@@ -2,7 +2,12 @@
 
 import json
 import statistics
+import subprocess
 from pathlib import Path
+
+import pytest
+
+from scripts.sibling_checkouts import main_checkout
 
 ROOT = Path(__file__).resolve().parents[1]
 RESEARCH = (ROOT / "docs/PRIZE_FILING_2026-10_RESEARCH_FORM_ANSWERS.md").read_text()
@@ -123,3 +128,90 @@ def test_the_erl_example_and_finding_99s_status_are_the_drafts():
     d = json.loads((ROOT / "reports/neural_tracer_heading_residual.json").read_text())
     assert d["status"].startswith("exploratory,")
     assert "Finding 99, exploratory and not pre-registered, identifies" in text
+
+
+def _ranking_changes(rows, before, ours, key):
+    return [
+        c
+        for c in rows
+        if (before[c][key] > ours[c][key]) != (rows[c][key] > ours[c][key])
+    ]
+
+
+def test_the_context_leads_are_merge_penalized_erl_leads():
+    docs = [json.loads((ROOT / f"reports/{n}.json").read_text()) for n in ("neural_tracer_ct_context", "neural_tracer_ct_context_512")]  # fmt: skip
+    key = "erl_merge_penalized"
+    with_scan = sum(d["rows_tol2"][c][key] > d["our_tracer_tol2"][c][key] for d in docs for c in d["rows_tol2"])  # fmt: skip
+    cube_only = sum(d["finding_91_rows_tol2"][c][key] > d["our_tracer_tol2"][c][key] for d in docs for c in d["rows_tol2"])  # fmt: skip
+    assert (with_scan, cube_only) == (10, 8)
+    text = " ".join(RESEARCH.split())
+    assert (
+        "it ranks first on merge-penalized ERL on 10 of 21, against 8 with the cube alone"
+        in text
+    )
+
+
+def test_finding_100s_precision_and_ranking_name_their_measures():
+    """The ranking against our tracer holds on merge-penalized ERL at both tolerances, but coverage, the measure the
+    sentence before reports, crosses our tracer's on some cubes: the claim names its measure."""
+    d = json.loads((ROOT / "reports/neural_tracer_steep_heading.json").read_text())
+    held = list(d["verdict"]["manipulation"]["sheet"])
+    assert (
+        len(held) == 10 and len(d["rows_tol2"]["sheet"]) == 21
+    )  # ten held out, eleven in sample
+    change = [d["verdict"]["precision_change"]["sheet"][c] for c in held]
+    assert round(max(abs(x) for x in change), 3) == 0.017
+    crossed = {}
+    for tol in ("tol2", "tol4"):
+        args = (
+            d[f"rows_{tol}"]["sheet"],
+            d[f"baseline_rows_{tol}"],
+            d[f"our_tracer_{tol}"],
+        )
+        assert _ranking_changes(*args, "erl_merge_penalized") == []
+        crossed[tol] = len(_ranking_changes(*args, "coverage"))
+    report = " ".join(
+        (ROOT / "reports/neural_tracer_steep_heading.md").read_text().split()
+    )
+    assert (
+        f"sheet overtakes our tracer on {crossed['tol2']} cube at tolerance 2 and {crossed['tol4']} at tolerance 4"
+        in report
+    )
+    text = " ".join(RESEARCH.split())
+    assert "Precision stays within 0.017 of baseline on the ten held-out cubes" in text
+    assert (
+        "on merge-penalized ERL its ranking against our tracer changes on none" in text
+    )
+    assert (
+        "Eleven cubes are in the reference mask model's training set; ten are held out"
+        in text
+    )
+
+
+def test_finding_98s_ranking_in_the_draft_names_its_measure():
+    d = json.loads((ROOT / "reports/neural_tracer_ct_context_512.json").read_text())
+    for tol, before in (
+        ("tol2", "finding_91_rows_tol2"),
+        ("tol4", "finding_94_rows_tol4"),
+    ):
+        args = (d[f"rows_{tol}"], d[before], d[f"our_tracer_{tol}"])
+        assert _ranking_changes(*args, "erl_merge_penalized") == []
+        assert _ranking_changes(*args, "coverage")
+    assert (
+        "On merge-penalized ERL the ranking against our tracer does not change" in DRAFT
+    )
+
+
+SCROLLGT = main_checkout().parent / "scrollgt"
+
+
+@pytest.mark.skipif(
+    not (SCROLLGT / ".git").exists(),
+    reason="the ScrollGT checkout (../scrollgt) is absent",
+)
+def test_the_rescored_rows_are_scrollgts_v0_7_0():
+    readme = subprocess.run(["git", "-C", str(SCROLLGT), "show", "v0.7.0:README.md"], capture_output=True, text=True)  # fmt: skip
+    if readme.returncode:
+        pytest.skip("this ScrollGT checkout lacks the v0.7.0 tag")
+    assert "126 rows on the 21 targets did" in " ".join(readme.stdout.split())
+    assert "all 126 published rows were re-scored" in " ".join(RESEARCH.split())
