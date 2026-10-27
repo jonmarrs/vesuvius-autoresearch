@@ -10,7 +10,9 @@ autoresearch_history.json, those paths only (`git commit --only`).
 This does the same for a candidate the owner promotes in place of the 0.01 margin; --reason says why. The candidate must
 pass every other part of the gate and beat the incumbent, and its config must be config.json with the one tweak. With
 --apply the loop must be stopped: .loop_paused present (so the watchdog leaves it), no lock holder, no training run in
-the checkout, no held incumbent. Before changing anything it copies the five files it changes to
+the checkout, no held incumbent. It holds the checkout lock while applying and refuses if the checked incumbent or
+config changed. It installs the captured checkpoint bytes that passed validation. Before changing anything it
+validates both log headers and the history weights, then copies the five files it changes to
 local_data/loop_promotions/<stamp>/. Without --apply it checks and changes nothing. Run it from the loop's checkout:
 
     cd <loop checkout> && python3 <repo>/scripts/promote_loop_candidate.py --candidate <checkpoint> \
@@ -45,6 +47,7 @@ from scripts.training.promotion import (  # noqa: E402
     LIFT_MARGIN,
     PRIZE_READINESS_COLUMNS,
     RESULTS_COLUMNS,
+    VALIDATION_SAMPLE_PATCHES,
     validation_inputs_fingerprint,
     validation_protocol,
 )
@@ -67,18 +70,12 @@ def checkpoint(raw: bytes) -> dict:
         return torch.load(io.BytesIO(raw), map_location="cpu", weights_only=True)
 
 
-def checks(candidate: dict, incumbent: dict, config: dict, attr: str, value, inputs: str) -> list[tuple[str, bool, str]]:  # fmt: skip
-    """promotion_decision's gates but the margin, and that the candidate is this config with the one tweak."""
+def comparison_checks(candidate: dict, incumbent: dict, config: dict, inputs: str) -> list[tuple[str, bool, str]]:  # fmt: skip
+    """Shared recorded-score gates for manual and replicate-rule promotion, without the F1 margin."""
     protocol = validation_protocol(config.get("depth_band"))
     diag, inc_diag = (
         candidate.get("validation_diag") or {},
         incumbent.get("validation_diag") or {},
-    )
-    want = {**config, attr: value}
-    differ = sorted(
-        k
-        for k in set(want) | set(candidate["config"])
-        if want.get(k) != candidate["config"].get(k)
     )
     f1, inc_f1, lift = (
         candidate.get("val_f1"),
@@ -90,23 +87,66 @@ def checks(candidate: dict, incumbent: dict, config: dict, attr: str, value, inp
         not config.get("enforce_prize_gates", True)
         or candidate.get("submittable") is True
     )
+    requested, scored = diag.get("requested_patches"), diag.get("scored_patches")
+    complete = (
+        diag.get("complete") is True
+        and diag.get("batch_errors") == 0
+        and isinstance(requested, int)
+        and not isinstance(requested, bool)
+        and 0 < requested <= VALIDATION_SAMPLE_PATCHES
+        and isinstance(scored, int)
+        and not isinstance(scored, bool)
+        and scored == requested == inc_diag.get("requested_patches")
+    )
+    return [
+        (
+            "protocol",
+            candidate.get("val_protocol") == incumbent.get("val_protocol") == protocol
+            and diag.get("protocol") == inc_diag.get("protocol") == protocol,
+            f"{candidate.get('val_protocol')} (incumbent {incumbent.get('val_protocol')}, loop {protocol})",
+        ),
+        (
+            "validation complete",
+            complete,
+            f"{diag.get('scored_patches')} of {diag.get('requested_patches')} patches, {diag.get('batch_errors')} batch errors",
+        ),
+        (
+            "validation inputs",
+            diag.get("inputs_sha256") == inc_diag.get("inputs_sha256") == inputs,
+            f"{str(diag.get('inputs_sha256'))[:16]} (incumbent {str(inc_diag.get('inputs_sha256'))[:16]}, now {inputs[:16]})",
+        ),
+        ("prize gates", gates, f"submittable {candidate.get('submittable')}"),
+        (
+            "AP lift",
+            isinstance(lift, (int, float))
+            and math.isfinite(lift)
+            and lift > 1 + LIFT_MARGIN,
+            f"{lift} (above {1 + LIFT_MARGIN})",
+        ),
+        (
+            "beats the incumbent",
+            finite and f1 > inc_f1,
+            f"{f1} against {inc_f1}: {f1 - inc_f1:+.6f}, the loop's margin {F1_NOISE_TOLERANCE}"
+            if finite
+            else "not finite",
+        ),
+    ]
+
+
+def checks(candidate: dict, incumbent: dict, config: dict, attr: str, value, inputs: str) -> list[tuple[str, bool, str]]:  # fmt: skip
+    """Shared comparison gates, plus the manual command's one-tweak and architecture requirements."""
+    want = {**config, attr: value}
+    differ = sorted(
+        k
+        for k in set(want) | set(candidate["config"])
+        if want.get(k) != candidate["config"].get(k)
+    )
     a, b = candidate["model_state_dict"], incumbent["model_state_dict"]
     same_model = a.keys() == b.keys() and all(a[k].shape == b[k].shape for k in a)
     return [
         ("tweak", config.get(attr) != value, f"config.json has {attr}={config.get(attr)!r}; the candidate {value!r}"),
         ("config", not differ, "config.json with the tweak" if not differ else f"differs in {differ}"),
-        ("protocol", candidate.get("val_protocol") == incumbent.get("val_protocol") == protocol,
-         f"{candidate.get('val_protocol')} (incumbent {incumbent.get('val_protocol')}, loop {protocol})"),
-        ("validation complete", diag.get("complete") is True and diag.get("batch_errors") == 0
-         and diag.get("scored_patches") == diag.get("requested_patches"),
-         f"{diag.get('scored_patches')} of {diag.get('requested_patches')} patches, {diag.get('batch_errors')} batch errors"),
-        ("validation inputs", diag.get("inputs_sha256") == inc_diag.get("inputs_sha256") == inputs,
-         f"{str(diag.get('inputs_sha256'))[:16]} (incumbent {str(inc_diag.get('inputs_sha256'))[:16]}, now {inputs[:16]})"),
-        ("prize gates", gates, f"submittable {candidate.get('submittable')}"),
-        ("AP lift", isinstance(lift, (int, float)) and math.isfinite(lift) and lift > 1 + LIFT_MARGIN,
-         f"{lift} (above {1 + LIFT_MARGIN})"),
-        ("beats the incumbent", finite and f1 > inc_f1,
-         f"{f1} against {inc_f1}: {f1 - inc_f1:+.6f}, the loop's margin {F1_NOISE_TOLERANCE}" if finite else "not finite"),
+        *comparison_checks(candidate, incumbent, config, inputs),
         ("architecture", same_model, f"{len(a)} tensors" + ("" if same_model else ", unlike the incumbent's")),
     ]  # fmt: skip
 
@@ -140,10 +180,10 @@ def rows(row: list[str], candidate: dict, stamp: str) -> dict[str, list]:
     }  # fmt: skip
 
 
-def stopped(loop: Path) -> None:
+def stopped(loop: Path, *, check_lock: bool = True) -> None:
     if not (loop / PAUSED).exists():
         raise SystemExit(f"{PAUSED} is missing, so the watchdog would restart the loop: stop it with scripts/loop_control.py stop")  # fmt: skip
-    pid = loop_control.running_pid(loop)
+    pid = loop_control.running_pid(loop) if check_lock else None
     if pid:
         raise SystemExit(f"the loop's lock is held by PID {pid}: stop it first")
     runs = loop_control.unsupervised_runs(loop)
@@ -165,10 +205,16 @@ def _replace(path: Path, write) -> None:
     os.replace(tmp, path)
 
 
-def _append(path: Path, columns: tuple, values: list) -> None:
-    """A row, under train.py's header: a missing file starts with it, as train.py's append_tsv_row starts one."""
-    if path.exists() and path.read_text().splitlines()[:1] != ["\t".join(columns)]:
+def _check_header(path: Path, columns: tuple) -> None:
+    if not path.exists():
+        return
+    lines = path.read_text().splitlines()
+    if not lines or tuple(lines[0].split("\t")) != columns:
         raise SystemExit(f"{path.name}'s header is not train.py's")
+
+
+def _append(path: Path, columns: tuple, values: list) -> None:
+    _check_header(path, columns)
     with open(path, "a") as f:
         if f.tell() == 0:
             f.write("\t".join(columns) + "\n")
@@ -177,10 +223,12 @@ def _append(path: Path, columns: tuple, values: list) -> None:
         os.fsync(f.fileno())
 
 
-def promote_files(loop: Path, candidate_path: Path, new_rows: dict, stamp: str) -> Path:
-    """What train.py does when it promotes: the candidate becomes best_model.pt and the run's rows are appended to
-    results.tsv and prize_readiness.tsv. The five files a promotion changes are first copied to
-    local_data/loop_promotions/<stamp>/, and put back if this fails partway."""
+def promote_files(loop: Path, candidate_raw: bytes, new_rows: dict, stamp: str) -> Path:
+    """Install the checked bytes and append their rows, keeping backups and restoring files on write failure.
+    The caller holds the checkout lock. Missing logs start with their schema; malformed existing logs are refused.
+    """
+    _check_header(loop / "results.tsv", RESULTS_COLUMNS)
+    _check_header(loop / "prize_readiness.tsv", PRIZE_READINESS_COLUMNS)
     kept = (
         loop / "local_data/loop_promotions" / stamp.replace(" ", "_").replace(":", "-")
     )
@@ -189,9 +237,13 @@ def promote_files(loop: Path, candidate_path: Path, new_rows: dict, stamp: str) 
     for name in present:
         shutil.copy2(loop / name, kept / name)
     try:
-        _replace(loop / INCUMBENT, lambda tmp: shutil.copyfile(candidate_path, tmp))
+        _replace(loop / INCUMBENT, lambda tmp: tmp.write_bytes(candidate_raw))
         _append(loop / "results.tsv", RESULTS_COLUMNS, new_rows["results.tsv"])
-        _append(loop / "prize_readiness.tsv", PRIZE_READINESS_COLUMNS, new_rows["prize_readiness.tsv"])  # fmt: skip
+        _append(
+            loop / "prize_readiness.tsv",
+            PRIZE_READINESS_COLUMNS,
+            new_rows["prize_readiness.tsv"],
+        )
     except BaseException:
         for name in CHANGED:
             if name in present:
@@ -204,12 +256,17 @@ def promote_files(loop: Path, candidate_path: Path, new_rows: dict, stamp: str) 
     return kept
 
 
-def apply(loop: Path, candidate_path: Path, cfg: ExperimentConfig, family: str, new_rows: dict, stamp: str, message: str) -> Path:  # fmt: skip
-    """promote_files, then what the loop does: config.json, the family's weight, the commit."""
-    kept = promote_files(loop, candidate_path, new_rows, stamp)
-    _replace(loop / "config.json", cfg.save)
+def apply(loop: Path, candidate_raw: bytes, cfg: ExperimentConfig, family: str, new_rows: dict, stamp: str, message: str) -> Path:  # fmt: skip
+    _check_header(loop / "results.tsv", RESULTS_COLUMNS)
+    _check_header(loop / "prize_readiness.tsv", PRIZE_READINESS_COLUMNS)
     counts = json.loads((loop / "autoresearch_history.json").read_text())
     counts[family] = counts.get(family, 1) + 1
+    if not isinstance(counts[family], (int, float)) or not math.isfinite(
+        counts[family]
+    ):
+        raise SystemExit(f"history weight for {family!r} must be finite")
+    kept = promote_files(loop, candidate_raw, new_rows, stamp)
+    _replace(loop / "config.json", cfg.save)
     _replace(loop / "autoresearch_history.json", lambda tmp: tmp.write_text(json.dumps(counts, indent=4)))  # fmt: skip
     git = ["git", "-C", str(loop)]
     subprocess.run([*git, "add", "--", *PROMOTION_FILES], check=True)
@@ -251,7 +308,8 @@ def main(argv=None):
     args = ap.parse_args(argv)
     loop = Path.cwd()
     attr, sep, raw_value = args.tweak.partition("=")
-    config = json.loads((loop / "config.json").read_text())
+    config_raw = (loop / "config.json").read_bytes()
+    config = json.loads(config_raw)
     if not sep or attr not in config:
         raise SystemExit(f"--tweak names no config.json field: {args.tweak}")
     try:
@@ -259,7 +317,8 @@ def main(argv=None):
     except ValueError:
         value = raw_value
     raw = args.candidate.read_bytes()
-    candidate, incumbent = checkpoint(raw), checkpoint((loop / INCUMBENT).read_bytes())
+    incumbent_raw = (loop / INCUMBENT).read_bytes()
+    candidate, incumbent = checkpoint(raw), checkpoint(incumbent_raw)
     inputs = validation_inputs_fingerprint(config["val_uri"], config.get("depth_band"))
     results = checks(candidate, incumbent, config, attr, value, inputs)
     for name, ok, detail in results:
@@ -288,7 +347,27 @@ def main(argv=None):
         print("dry run: nothing changed")
         return 0
     stopped(loop)
-    kept = apply(loop, args.candidate, cfg, args.family, new_rows, stamp, message)
+    try:
+        lock = loop_control.acquire_lock(loop / "autoresearch.lock")
+    except BlockingIOError:
+        raise SystemExit(
+            "the checkout lock was acquired by another process; retry after stopping it"
+        ) from None
+    with lock:
+        # Opening/closing the lock file via running_pid here would release this
+        # process's POSIX lock, so only repeat the other stopped-state checks.
+        stopped(loop, check_lock=False)
+        for name, expected in (("config.json", config_raw), (INCUMBENT, incumbent_raw)):
+            if (loop / name).read_bytes() != expected:
+                raise SystemExit(f"{name} changed after validation; retry the checks")
+        if (
+            validation_inputs_fingerprint(config["val_uri"], config.get("depth_band"))
+            != inputs
+        ):
+            raise SystemExit(
+                "validation inputs changed after validation; retry the checks"
+            )
+        kept = apply(loop, raw, cfg, args.family, new_rows, stamp, message)
     print(f"promoted; the old files are in {kept}")
     return 0
 

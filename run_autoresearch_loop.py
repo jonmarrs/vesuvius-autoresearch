@@ -20,6 +20,7 @@ from scripts.process_supervisor import ProcessSupervisor
 from scripts.training.config import ExperimentConfig
 from scripts.training.promotion import (
     IncumbentUnavailable,
+    _file_sha256,
     check_incumbent,
     first_use_record,
 )
@@ -894,15 +895,22 @@ def append_cycle_record(record, path=CYCLES_FILE):
 
 
 def read_cycle_records(path=CYCLES_FILE):
-    """cycles.jsonl's records, oldest first; a line that cannot be read is skipped."""
+    """cycles.jsonl's records, oldest first; refuse corrupt observations before applying the rule."""
     records = []
     try:
         with open(path) as f:
-            for line in f:
+            for number, line in enumerate(f, 1):
                 try:
-                    records.append(json.loads(line))
-                except ValueError:
-                    continue
+                    record = json.loads(line)
+                except ValueError as error:
+                    raise ValueError(
+                        f"cycle journal {path}, line {number}: invalid JSON"
+                    ) from error
+                if not isinstance(record, dict):
+                    raise ValueError(
+                        f"cycle journal {path}, line {number}: expected an object"
+                    )
+                records.append(record)
     except FileNotFoundError:
         pass
     return records
@@ -924,9 +932,11 @@ def replicate_rule_promotion(current, result, enforce_prize_gates):
         if refused:
             return dict(decision, refused=refused), False
         stamp = time.strftime("%Y-%m-%d %H:%M:%S")
-        kept = replicate_rule.promote(Path.cwd(), result, stamp)
+        kept = replicate_rule.promote(
+            Path.cwd(), result, stamp, current["incumbent_sha256"]
+        )
         return dict(decision, kept=str(kept)), True
-    except Exception as e:
+    except (Exception, SystemExit) as e:
         error = f"{type(e).__name__}: {e}"
         print(
             f"Warning: the replicate rule failed on this cycle ({error}); no promotion by it."
@@ -1222,6 +1232,12 @@ def main():
         sys.stdout.flush()
         started = time.strftime("%Y-%m-%dT%H:%M:%S")
         commit, code_changes = code_state()
+        try:
+            incumbent_sha256 = _file_sha256(INCUMBENT)
+        except OSError:
+            incumbent_sha256 = (
+                None  # An unidentified incumbent cannot support the replicate rule.
+            )
 
         if os.path.exists("run_result.json"):
             os.remove("run_result.json")
@@ -1398,6 +1414,7 @@ def main():
                 "tweak": tweak_name,
                 "commit": commit,
                 "code_changes": code_changes,
+                "incumbent_sha256": incumbent_sha256,
                 "status": "REVERTED",
                 "result": result,
             }
@@ -1504,6 +1521,7 @@ def main():
                 "value": val,
                 "commit": commit,
                 "code_changes": code_changes,
+                "incumbent_sha256": incumbent_sha256,
                 "status": status,
                 "failure": failure,
                 "commit_failure": commit_failure,

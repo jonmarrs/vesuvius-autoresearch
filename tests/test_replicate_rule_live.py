@@ -1,6 +1,7 @@
 """The replicate rule in the live loop (scripts/training/replicate_rule.py, run_autoresearch_loop.py)."""
 
 import ast
+import hashlib
 import json
 import subprocess
 from dataclasses import asdict
@@ -26,8 +27,12 @@ def _record(
 ):
     return {
         "started": start, "tweak": tweak, "commit": epoch, "code_changes": [], "status": status, "budget_s": budget,
+        "incumbent_sha256": "a" * 64,
         "result": {"val_f1": f1, "roc_auc": auc, "incumbent_val_f1": inc, "promotion_blocked": None,
-                   "validation_diag": {"complete": True}, **result},
+                   "val_protocol": validation_protocol(),
+                   "validation_diag": {"complete": True, "protocol": validation_protocol(),
+                                       "inputs_sha256": "shared-inputs", "requested_patches": 400,
+                                       "scored_patches": 400, "batch_errors": 0}, **result},
     }  # fmt: skip
 
 
@@ -81,6 +86,42 @@ def test_only_scored_cycles_against_the_same_incumbent_at_the_same_budget_are_re
     rows = RL.rows([*keep, *drop], current)
     assert [r["start"] for r in rows] == [r["started"] for r in [*keep, current]]
     assert len({r["epoch"] for r in rows}) == 1
+
+
+@pytest.mark.parametrize(
+    "change", ["checkpoint", "inputs", "protocol", "incomplete", "missing identity"]
+)
+def test_matching_f1_does_not_make_other_validation_or_checkpoint_records_comparable(
+    change,
+):
+    prior = _record("2026-11-01T07:00:00", "t0", 0.27, 0.58)
+    current = _record("2026-11-01T08:00:00", "t1", 0.27, 0.58)
+    if change == "checkpoint":
+        prior["incumbent_sha256"] = "b" * 64
+    elif change == "missing identity":
+        del prior["incumbent_sha256"]
+    elif change == "inputs":
+        prior["result"]["validation_diag"]["inputs_sha256"] = "another-input"
+    elif change == "protocol":
+        prior["result"]["val_protocol"] = "another protocol"
+        prior["result"]["validation_diag"]["protocol"] = "another protocol"
+    else:
+        prior["result"]["validation_diag"]["complete"] = False
+    assert RL.rows([prior], current) == RL.rows([], current)
+
+
+@pytest.mark.parametrize("contents", ['{"partial":', "null\n"])
+def test_a_corrupt_cycle_journal_is_refused_instead_of_selectively_dropping_observations(
+    tmp_path, contents
+):
+    import run_autoresearch_loop as loop
+
+    journal = tmp_path / "cycles.jsonl"
+    journal.write_text(
+        json.dumps(_record("2026-11-01T07:00:00", "t0", 0.27, 0.58)) + "\n" + contents
+    )
+    with pytest.raises(ValueError, match="cycle journal"):
+        loop.read_cycle_records(journal)
 
 
 @pytest.mark.parametrize(
@@ -153,7 +194,15 @@ def _history(tweak_f1, other_f1, inc=INC):
 
 
 def _cycle(
-    tmp_path, monkeypatch, history, f1=0.2716, inc=INC, rule_on=True, broken=False
+    tmp_path,
+    monkeypatch,
+    history,
+    f1=0.2716,
+    inc=INC,
+    rule_on=True,
+    broken=False,
+    bad_candidate=False,
+    invalid_header=None,
 ):
     import run_autoresearch_loop as loop
 
@@ -178,12 +227,21 @@ def _cycle(
     weights = {"w": torch.zeros(2, 3)}
     common = {"val_protocol": protocol, "val_bpb": 0.36, "avg_skel_dist": 28.9, "avg_centerline_dice": 0.22,
               "avg_cc_diff": 1.392, "submittable": True, "window_ok": True, "window_mm": 0.512,
-              "villa_metrics_ok": True, "validation_diag": {"complete": True, "inputs_sha256": inputs,
-                                                             "protocol": protocol}}  # fmt: skip
+              "villa_metrics_ok": True, "roc_auc": 0.5905, "ap_prevalence_lift": 1.24,
+              "validation_diag": {"complete": True, "inputs_sha256": inputs,
+                                  "protocol": protocol, "requested_patches": 400,
+                                  "scored_patches": 400, "batch_errors": 0}}  # fmt: skip
     torch.save({"model_state_dict": weights, "val_f1": inc, **common, "config": asdict(base)}, tmp_path / "best_model.pt")  # fmt: skip
+    digest = hashlib.sha256((tmp_path / "best_model.pt").read_bytes()).hexdigest()
+    for record in history:
+        record["incumbent_sha256"] = digest
+        record["result"]["val_protocol"] = protocol
+        record["result"]["validation_diag"] = dict(common["validation_diag"])
     (tmp_path / "cycles.jsonl").write_text(
         "".join(json.dumps(r) + "\n" for r in history)
     )
+    if invalid_header:
+        (tmp_path / invalid_header).write_text("invalid header\n")
     commits = []
 
     class FakeSupervisor:
@@ -191,7 +249,10 @@ def _cycle(
             if "--smoke" in command:
                 return subprocess.CompletedProcess(command, 0)
             cfg = json.loads((tmp_path / "config_temp.json").read_text())
-            torch.save({"model_state_dict": weights, "val_f1": f1, **common, "config": cfg}, tmp_path / "last_model.pt")  # fmt: skip
+            saved = {"model_state_dict": weights, "val_f1": f1, **common, "config": cfg}
+            if bad_candidate:
+                saved["ap_prevalence_lift"] = 0.0
+            torch.save(saved, tmp_path / "last_model.pt")
             row = ["2026-11-01 09:00:00", "0.360000", "28.900000", "0.220000", "1.392", "1.072", "0.3000",
                    "0.500000", "0.75", "10.227", "9087.7", json.dumps(cfg)]  # fmt: skip
             with open(tmp_path / "history.tsv", "a") as h:
@@ -200,7 +261,7 @@ def _cycle(
                 h.write("\t".join(row) + "\n")
             result = {"is_success": False, "val_f1": f1, "roc_auc": 0.5905, "incumbent_val_f1": inc,
                       "ap_prevalence_lift": 1.24, "submittable": True, "promotion_blocked": None,
-                      "val_protocol": protocol, "validation_diag": {"complete": True}}  # fmt: skip
+                      "val_protocol": protocol, "validation_diag": dict(common["validation_diag"])}  # fmt: skip
             (tmp_path / "run_result.json").write_text(json.dumps(result))
             return subprocess.CompletedProcess(command, 0)
 
@@ -242,6 +303,54 @@ def test_a_tweak_no_better_than_the_others_is_not_promoted(tmp_path, monkeypatch
         and not commits
     )
     assert ExperimentConfig.load(tmp_path / "config.json").lr != 0.002
+
+
+def test_the_checkpoint_must_match_the_result_that_made_the_rule_fire(
+    tmp_path, monkeypatch
+):
+    record, log, commits = _cycle(
+        tmp_path, monkeypatch, _history(0.2714, 0.2672), bad_candidate=True
+    )
+    assert record["status"] == "REVERTED" and not commits
+    assert "candidate" in record["replicate_rule"]["error"]
+    assert torch.load(tmp_path / "best_model.pt", weights_only=False)["val_f1"] == INC
+
+
+@pytest.mark.parametrize("header", ["results.tsv", "prize_readiness.tsv"])
+def test_log_header_refusals_do_not_exit_the_loop(tmp_path, monkeypatch, header):
+    record, log, commits = _cycle(
+        tmp_path, monkeypatch, _history(0.2714, 0.2672), invalid_header=header
+    )
+    assert record["status"] == "REVERTED" and not commits
+    assert "header" in record["replicate_rule"]["error"]
+    assert torch.load(tmp_path / "best_model.pt", weights_only=False)["val_f1"] == INC
+    assert (tmp_path / header).read_text() == "invalid header\n"
+
+
+def test_the_live_rule_installs_the_bytes_checked_before_the_path_changes(
+    tmp_path, monkeypatch
+):
+    from scripts import promote_loop_candidate as P
+
+    original_history = P.history_row
+    checked = {}
+
+    def replaced_after_checks(repo, candidate):
+        row = original_history(repo, candidate)
+        path = repo / "last_model.pt"
+        checked["raw"] = path.read_bytes()
+        path.write_bytes(b"changed after checks")
+        return row
+
+    monkeypatch.setattr(P, "history_row", replaced_after_checks)
+    record, log, commits = _cycle(tmp_path, monkeypatch, _history(0.2714, 0.2672))
+    assert record["status"] == "SUCCESS" and commits
+    assert (tmp_path / "best_model.pt").read_bytes() == checked["raw"]
+    kept = Path(record["replicate_rule"]["kept"])
+    assert (
+        record["incumbent_sha256"]
+        == hashlib.sha256((kept / "best_model.pt").read_bytes()).hexdigest()
+    )
 
 
 def test_a_firing_whose_candidate_does_not_beat_the_incumbent_is_not_promoted(
