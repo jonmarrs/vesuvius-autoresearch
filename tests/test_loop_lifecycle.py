@@ -321,8 +321,11 @@ def test_an_ignored_hangup_stays_ignored_and_threads_change_nothing():
     assert seen == [term]
 
 
-def test_stop_targets_lock_owner_with_unbuffered_python(tmp_path):
-    script = tmp_path / "run_autoresearch_loop.py"
+@pytest.mark.parametrize(
+    "script_name", ["run_autoresearch_loop.py", "promote_loop_candidate.py"]
+)
+def test_stop_targets_lock_owner_with_unbuffered_python(tmp_path, script_name):
+    script = tmp_path / script_name
     script.write_text("""
 import time
 from scripts.loop_control import acquire_lock

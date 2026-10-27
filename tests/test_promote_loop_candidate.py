@@ -5,6 +5,7 @@ import hashlib
 import importlib.util
 import json
 import subprocess
+import sys
 from dataclasses import asdict
 from pathlib import Path
 
@@ -132,6 +133,133 @@ def test_a_candidate_whose_config_differs_elsewhere_is_refused(tmp_path, monkeyp
     loop, candidate = _loop(tmp_path, config=config)
     with pytest.raises(SystemExit, match="config"):
         _run(loop, candidate, "--apply", monkeypatch=monkeypatch)
+
+
+def test_apply_uses_the_checkpoint_bytes_that_passed_validation(tmp_path, monkeypatch):
+    loop, candidate = _loop(tmp_path)
+    validated = candidate.read_bytes()
+    original_checks = P.checks
+
+    def changed_after_validation(*args, **kwargs):
+        result = original_checks(*args, **kwargs)
+        candidate.write_bytes(b"replaced after validation")
+        return result
+
+    monkeypatch.setattr(P, "checks", changed_after_validation)
+    assert _run(loop, candidate, "--apply", monkeypatch=monkeypatch) == 0
+    assert (loop / "best_model.pt").read_bytes() == validated
+    assert hashlib.sha256(validated).hexdigest() in _git(
+        loop, "log", "-1", "--format=%B"
+    )
+
+
+@pytest.mark.parametrize("log", ["results.tsv", "prize_readiness.tsv"])
+def test_invalid_log_headers_refuse_before_changing_promotion_files(
+    tmp_path, monkeypatch, log
+):
+    loop, candidate = _loop(tmp_path)
+    (loop / log).write_text("wrong header\n")
+    before, head = _hashes(loop), _git(loop, "rev-parse", "HEAD")
+    with pytest.raises(SystemExit, match="header"):
+        _run(loop, candidate, "--apply", monkeypatch=monkeypatch)
+    assert _hashes(loop) == before
+    assert _git(loop, "rev-parse", "HEAD") == head
+
+
+@pytest.mark.parametrize(
+    "patch, failed",
+    [
+        ({"requested_patches": None, "scored_patches": None}, "validation complete"),
+        ({"requested_patches": 0, "scored_patches": 0}, "validation complete"),
+        ({"requested_patches": 399, "scored_patches": 399}, "validation complete"),
+        ({"protocol": "another protocol"}, "protocol"),
+    ],
+)
+def test_inconsistent_validation_diagnostics_are_refused(
+    tmp_path, monkeypatch, patch, failed
+):
+    loop, candidate = _loop(tmp_path)
+    saved = torch.load(candidate, weights_only=False)
+    saved["validation_diag"].update(patch)
+    torch.save(saved, candidate)
+    before = _hashes(loop)
+    with pytest.raises(SystemExit, match=failed):
+        _run(loop, candidate, "--apply", monkeypatch=monkeypatch)
+    assert _hashes(loop) == before
+
+
+def test_apply_holds_the_checkout_lock_during_file_replacement(tmp_path, monkeypatch):
+    loop, candidate = _loop(tmp_path)
+    original_replace = P._replace
+    checked = []
+
+    def require_lock(path, write):
+        probe = subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                "import fcntl, sys\n"
+                "with open(sys.argv[1], 'a+') as stream:\n"
+                "    try:\n"
+                "        fcntl.lockf(stream, fcntl.LOCK_EX | fcntl.LOCK_NB)\n"
+                "    except BlockingIOError:\n"
+                "        sys.exit(0)\n"
+                "sys.exit(1)\n",
+                str(loop / "autoresearch.lock"),
+            ],
+            check=False,
+        )
+        assert probe.returncode == 0, "the checkout was not locked during promotion"
+        checked.append(path.name)
+        original_replace(path, write)
+
+    monkeypatch.setattr(P, "_replace", require_lock)
+    assert _run(loop, candidate, "--apply", monkeypatch=monkeypatch) == 0
+    assert len(checked) == len(P.PROMOTION_FILES)
+    assert set(checked) == set(P.PROMOTION_FILES)
+
+
+@pytest.mark.parametrize("changed", ["config.json", "best_model.pt"])
+def test_apply_refuses_if_checked_files_change_before_the_lock(
+    tmp_path, monkeypatch, changed
+):
+    loop, candidate = _loop(tmp_path)
+    original_stopped = P.stopped
+    after_change = {}
+
+    def changed_while_stopping(repo, **kwargs):
+        original_stopped(repo, **kwargs)
+        if kwargs.get("check_lock", True):
+            path = repo / changed
+            path.write_bytes(path.read_bytes() + b" ")
+            after_change.update(_hashes(repo))
+
+    monkeypatch.setattr(P, "stopped", changed_while_stopping)
+    head = _git(loop, "rev-parse", "HEAD")
+    with pytest.raises(SystemExit, match="changed after validation"):
+        _run(loop, candidate, "--apply", monkeypatch=monkeypatch)
+    assert _hashes(loop) == after_change
+    assert _git(loop, "rev-parse", "HEAD") == head
+
+
+def test_apply_refuses_if_validation_inputs_change_before_the_lock(
+    tmp_path, monkeypatch
+):
+    loop, candidate = _loop(tmp_path)
+    original_stopped = P.stopped
+
+    def changed_while_stopping(repo, **kwargs):
+        original_stopped(repo, **kwargs)
+        monkeypatch.setattr(
+            P, "validation_inputs_fingerprint", lambda uri, band: "changed"
+        )
+
+    monkeypatch.setattr(P, "stopped", changed_while_stopping)
+    before, head = _hashes(loop), _git(loop, "rev-parse", "HEAD")
+    with pytest.raises(SystemExit, match="validation inputs changed"):
+        _run(loop, candidate, "--apply", monkeypatch=monkeypatch)
+    assert _hashes(loop) == before
+    assert _git(loop, "rev-parse", "HEAD") == head
 
 
 def test_apply_refuses_unless_the_loop_is_stopped(tmp_path, monkeypatch):
