@@ -39,7 +39,7 @@ def checkpoint_metadata(raw: bytes) -> dict:
     try:
         from numpy._core.multiarray import scalar
     except ImportError:
-        from numpy.core.multiarray import scalar  # type: ignore[no-redef]
+        from numpy.core.multiarray import scalar  # type: ignore[no-redef]  # NumPy 1.x
     allowed = [scalar, np.dtype, type(np.dtype("float64")), type(np.dtype("float32"))]
     with torch.serialization.safe_globals(allowed):
         saved = torch.load(io.BytesIO(raw), map_location="cpu", weights_only=True)
