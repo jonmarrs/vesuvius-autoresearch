@@ -29,6 +29,28 @@ research host is still a separate step; no new GPU experiment was run here.
 The filing checks still pass and the October form is accepting responses.
 Keep the October 28 narrative freeze and October 29 filing target.
 
+A [read-only probe plan](../reports/evidence/unchanged_training_probe_plan_2026-10-27.json)
+prepares four unchanged-config repeats from the promoted checkpoint using
+the existing isolated `f1_noise_probe.py` runner. Its training budget is
+four times 900 seconds, or 60 minutes, plus validation and startup. This is
+an operational preview from the cloud checkout: it does not establish data,
+GPU or checkpoint compatibility and has launched no training. Regenerate it
+on the research host before execution:
+
+```sh
+uv run python scripts/f1_noise_probe.py --config config.json \
+  --checkpoint best_model.pt --runs 4 \
+  --out local_data/unchanged_training_control_2026-10-28
+```
+
+The command plans only; `--execute` runs the repeats in isolated directories
+and requires the research lock and GPU slot to be free. It measures descriptive
+spread from unchanged settings, with actual warm starts checked by the runner.
+Register any confirmatory comparison and stopping rule before collecting
+its results. This bounded probe is more predictable to schedule than waiting
+for enough adaptively sampled control cycles. It can proceed separately from
+filing the completed engineering and fiber research work.
+
 ## What is ready
 
 | Evidence | Verified status |
