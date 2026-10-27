@@ -103,3 +103,34 @@ None is either arm. The window starts after this registration is committed.
 ## Cost
 
 None beyond the loop's own cycles: no GPU time, no pause. The reading takes seconds of CPU.
+
+## October 27 implementation review
+
+The review used synthetic journals and the already-published starting checkpoint's
+metadata; it did not read live window measurements. The predictions, arm sizes,
+minimum counts and decision thresholds above are unchanged.
+
+- The first cycle that completes both ten-cycle arm quotas freezes the entire
+  window, including the reported comparison with other tweaks. Appending later
+  cycles must not change that readout. Earlier promotion, code, baseline and
+  incumbent stops still take precedence.
+- Code/config identities use the same verification as the live replicate rule.
+  A counted score must record complete validation on the declared 400-patch
+  Fr143 v3 sample. Its protocol is `seeded-sample-400-v3+z1-27`; its input hash,
+  already recorded by the registered starting checkpoint, is
+  `75e57cf994a4b5d863c2277b05fa605aa5e5e70d19e908bee7d82e7d7cee2661`.
+- Time comparisons use instants, independent of the analysis machine's zone.
+  Legacy offset-free journal stamps use the source host's Pacific wall clock.
+  The deadline above explicitly says **PDT**: preserve that fixed UTC−07:00
+  instant, **November 3 at 23:00 UTC**, which is **15:00 PST** after the clock
+  change. This review does not silently extend it to 16:00 PST.
+- The supplied journal must be in chronological run order. The source host's
+  November repeated hour is handled in that order. A zero-variance arm leaves
+  Welch's inferential diagnostics unavailable (`null`), while the registered
+  mean-difference decision remains defined.
+
+Run the analysis from a separate checkout if the live window is already open.
+Do not pull this review into the research checkout mid-window: the registered
+code-epoch stop still applies. The separate isolated repeatability probe is
+optional and should wait until this window closes so it does not compete for
+the loop's GPU. Neither study needs to delay the October prize filing.

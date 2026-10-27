@@ -26,6 +26,7 @@ import math
 import statistics
 import sys
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path[:0] = [
@@ -33,6 +34,10 @@ sys.path[:0] = [
     str(ROOT / "src"),
 ]  # scripts.training.config imports the src package
 from scripts.training.config import configuration_fingerprint  # noqa: E402
+from scripts.training.replicate_rule import (  # noqa: E402
+    _provenance as verified_provenance,
+    _validation_key as validation_key,
+)
 
 REGISTERED = {
     "since": "2026-10-27T16:00:00",
@@ -51,6 +56,27 @@ REGISTERED = {
 }
 MEASURES = {"val_f1": "val_f1", "roc_auc": "roc_auc", "ap_lift": "ap_prevalence_lift"}
 SCORED = ("REVERTED", "SUCCESS")
+PACIFIC = ZoneInfo("America/Los_Angeles")
+# Preserve the registration's explicit PDT cutoff across the November clock
+# change. Legacy journal timestamps have no offset and use the source host's
+# Pacific wall clock; offset-bearing timestamps already identify an instant.
+PDT = dt.timezone(dt.timedelta(hours=-7), "PDT")
+REGISTERED_SAMPLE = (
+    "seeded-sample-400-v3+z1-27",
+    "75e57cf994a4b5d863c2277b05fa605aa5e5e70d19e908bee7d82e7d7cee2661",
+    400,
+)
+
+
+def _instant(value: str, naive_zone=PACIFIC, *, after=None) -> dt.datetime:
+    stamp = dt.datetime.fromisoformat(value)
+    if stamp.tzinfo is None:
+        stamp = stamp.replace(tzinfo=naive_zone)
+        # A legacy journal rolls its wall clock back in November. Its record
+        # order distinguishes the second occurrence after the first has ended.
+        if after is not None and stamp.astimezone(dt.timezone.utc) < after:
+            stamp = stamp.replace(fold=1)
+    return stamp.astimezone(dt.timezone.utc)
 
 
 def _scored(record: dict) -> bool:
@@ -59,21 +85,17 @@ def _scored(record: dict) -> bool:
         return False
     if result.get("promotion_blocked"):
         return False
+    if validation_key(result) != REGISTERED_SAMPLE:
+        return False
     return all(
-        isinstance(result.get(k), (int, float)) and math.isfinite(result[k])
+        type(result.get(k)) in (int, float) and math.isfinite(result[k])
         for k in MEASURES.values()
     )
 
 
 def identified(record: dict) -> bool:
     """Recorded with #263's identities, its baseline config matching its hash."""
-    base = record.get("baseline_config")
-    return (
-        bool(record.get("code_sha256"))
-        and isinstance(base, dict)
-        and record.get("baseline_config_sha256") == configuration_fingerprint(base)
-        and isinstance(record.get("config"), dict)
-    )
+    return verified_provenance(record)
 
 
 def runs_its_arm(record: dict, reg: dict = REGISTERED) -> bool:
@@ -98,10 +120,17 @@ def window(
     on another incumbent, code or baseline, or one started at the deadline. A cycle without verifiable identities, or
     whose config is not its arm's, is left out."""
     out, code, baseline = [], None, None
+    since, deadline = (_instant(reg[key], PDT) for key in ("since", "deadline"))
+    counts = {reg["control"]: 0, reg["reverse"]: 0}
+    previous = None
     for r in records:
-        if r.get("started", "") < reg["since"]:
+        started = _instant(r["started"], after=previous)
+        if previous is not None and started < previous:
+            raise ValueError("cycle records must be chronological")
+        previous = started
+        if started < since:
             continue
-        if r["started"] >= reg["deadline"]:
+        if started >= deadline:
             return out, "the deadline"
         if not identified(r):
             continue  # before #263 reaches the loop, or an identity it could not capture
@@ -114,9 +143,15 @@ def window(
         if r["baseline_config_sha256"] != baseline:
             return out, "another baseline config"
         if r.get("budget_s") == reg["budget_s"] and _scored(r) and runs_its_arm(r, reg):
-            out.append(r)
+            arm = r["tweak"]
+            if arm not in counts or counts[arm] < reg["cut_at"]:
+                out.append(r)
+                if arm in counts:
+                    counts[arm] += 1
         if r.get("status") == "SUCCESS":
             return out, "a promotion"
+        if all(n >= reg["cut_at"] for n in counts.values()):
+            return out, f"both arms reached {reg['cut_at']} cycles"
     return out, None
 
 
@@ -137,7 +172,11 @@ def status(records: list[dict], reg: dict = REGISTERED, now: str | None = None) 
         and len(reverse) >= reg["cut_at"]
     ):
         ended = f"both arms reached {reg['cut_at']} cycles"
-    if ended is None and now is not None and now >= reg["deadline"]:
+    if (
+        ended is None
+        and now is not None
+        and _instant(now) >= _instant(reg["deadline"], PDT)
+    ):
         ended = "the deadline"
     return {
         "control_cycles": len(control),
@@ -155,6 +194,11 @@ def _welch(xs: list[float], ys: list[float]) -> dict:
     se = math.sqrt(
         statistics.variance(xs) / len(xs) + statistics.variance(ys) / len(ys)
     )
+    if se == 0:
+        # With no estimated within-arm variance the Welch statistic is
+        # undefined. Keep the registered mean-difference decision and report
+        # the inferential diagnostics as unavailable, not NaN/Infinity JSON.
+        return {"diff": d, "se": se, "t": None, "p": None}
     test = stats.ttest_ind(xs, ys, equal_var=False)
     return {"diff": d, "se": se, "t": float(test.statistic), "p": float(test.pvalue)}
 
@@ -244,7 +288,13 @@ def main(argv=None):
     )
     r.add_argument("--out", type=Path, required=True)
     args = ap.parse_args(argv)
-    now = dt.datetime.now().isoformat(timespec="seconds")
+    if args.cmd == "read":
+        for source in (args.cycles, args.steps):
+            if args.out.resolve() == source.resolve() or (
+                args.out.exists() and source.exists() and args.out.samefile(source)
+            ):
+                ap.error("output must not overwrite a source file")
+    now = dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds")
     records, raw = _records(args.cycles)
     if args.cmd == "status":
         print(json.dumps(status(records, now=now), indent=1))
@@ -263,7 +313,7 @@ def main(argv=None):
             "sha256": hashlib.sha256(steps_raw).hexdigest(),
         },
     }
-    args.out.write_text(json.dumps(out, indent=1) + "\n")
+    args.out.write_text(json.dumps(out, indent=1, allow_nan=False) + "\n")
     print(json.dumps({k: out[k] for k in ("verdict", "ended_by")}, indent=1))
     return 0
 

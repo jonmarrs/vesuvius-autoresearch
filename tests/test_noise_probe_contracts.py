@@ -30,6 +30,9 @@ def result(value=0.6, *, protocol=probe.VALIDATION_PROTOCOL):
         "val_positive_rate": 0.4,
         "val_protocol": protocol,
         "train_sampling_seed": 42,
+        "steps": 100,
+        "skipped_updates": 2,
+        "warm_start": {"loaded": 20, "model_tensors": 20, "reason": None},
         "is_success": False,  # a valid trial need not improve on the incumbent
         "validation_diag": {
             "protocol": protocol,
@@ -86,6 +89,7 @@ def fake_runner(
         "config = json.loads(Path(sys.argv[2]).read_text())\n"
         f"payload = json.loads({json.dumps(payload)!r})\n"
         "if Path.cwd().name.endswith('02'): payload['val_f1'] = 0.8\n"
+        "payload['train_sampling_seed'] += int(Path.cwd().name[-2:]) - 1\n"
         "assert Path(config['checkpoint_out']).parent == Path.cwd()\n"
         "assert Path(config['cache_dir']).parent == Path.cwd()\n"
         "assert config['use_wandb'] is False\n"
@@ -223,10 +227,14 @@ def test_complete_runs_preserve_loop_files_and_compute_sample_spread(
     }
     report = probe.execute(plan(inputs))
     assert report["status"] == "COMPLETE"
+    assert report["contract"] == 2
     assert report["f1_spread"]["n"] == 2
     assert report["f1_spread"]["mean"] == pytest.approx(0.7)
     assert report["f1_spread"]["sample_std"] == pytest.approx(math.sqrt(0.02))
     assert report["tolerance_calibrated"] is False
+    assert report["runs"][0]["steps"] == 100
+    assert report["runs"][0]["skipped_updates"] == 2
+    assert report["runs"][0]["warm_start"] == result()["warm_start"]
     for name, content in before.items():
         assert (project / name).read_bytes() == content
     assert running_pid(project) is None
@@ -275,6 +283,41 @@ def test_failed_exit_cannot_contribute_emitted_scores(inputs, monkeypatch):
     assert len(report["runs"]) == 1 and report["runs"][0]["returncode"] == 7
     assert "metrics" not in report["runs"][0]
     assert "ineligible" in report["runs"][0]["error"]
+
+
+@pytest.mark.parametrize(
+    "updates",
+    [
+        {"steps": None},
+        {"steps": 0},
+        {"steps": True},
+        {"skipped_updates": None},
+        {"skipped_updates": -1},
+        {"skipped_updates": 100},
+        {"warm_start": None},
+        {"warm_start": {"loaded": 0, "model_tensors": 20, "reason": "starting fresh"}},
+        {"warm_start": {"loaded": 19, "model_tensors": 20, "reason": None}},
+        {"warm_start": {"loaded": True, "model_tensors": 1, "reason": None}},
+    ],
+)
+def test_no_training_or_unverified_start_cannot_produce_a_spread(
+    inputs, monkeypatch, updates
+):
+    fake_runner(inputs, monkeypatch, invalid=updates)
+    report = probe.execute(plan(inputs))
+    assert report["status"] == "FAILED" and report["f1_spread"] is None
+    assert len(report["runs"]) == 1
+
+
+def test_repeated_sampling_seed_cannot_support_repeatability(inputs, monkeypatch):
+    fake_runner(
+        inputs,
+        monkeypatch,
+        extra="payload['train_sampling_seed'] = 42\nPath('run_result.json').write_text(json.dumps(payload))\n",
+    )
+    report = probe.execute(plan(inputs))
+    assert report["status"] == "FAILED" and report["f1_spread"] is None
+    assert "seed" in report["runs"][-1]["error"]
 
 
 @pytest.mark.parametrize(
