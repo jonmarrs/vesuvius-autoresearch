@@ -16,6 +16,12 @@ Both patches are pushed as `jonmarrs/villa:fix/volume-seed-heading` at
 `d1de9ec1e2e17ecd0f06754041141dfda243ddb3`;
 [compare the prepared branch](https://github.com/ScrollPrize/villa/compare/main...jonmarrs:fix/volume-seed-heading?expand=1).
 
+**October 27 source check:** both patches apply to Villa main `39a8cf3a`
+after #2316 moves fiber I/O to `vc_object_store`. This is an application check,
+not a new CLI or GPU run. The real-data re-run below remains at `322cb0899`;
+verify the object-store CLI path before posting. The older AFV command is not
+evidence that the new integration has run successfully.
+
 ## Before posting
 
 1. **A slot.** One of our three open villa PRs has closed. Code-fix PRs are at most two a week.

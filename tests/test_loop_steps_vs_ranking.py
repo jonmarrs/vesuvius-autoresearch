@@ -30,29 +30,33 @@ def record():
     return json.loads(RECORD.read_text())
 
 
-def _same(got, want, path="record"):
-    """Equal, floats to 1e-9. OpenBLAS picks its dot-product kernel for the CPU, and the kernels sum in different
-    orders: OPENBLAS_CORETYPE=Haswell or Zen gives the record's bytes, SkylakeX (AVX-512) changes the last digits of
-    13 numbers."""
-    if isinstance(want, float):
-        assert got == pytest.approx(want, rel=1e-9, abs=1e-15), path
-    elif isinstance(want, dict):
-        assert got.keys() == want.keys(), path
-        for k in want:
-            _same(got[k], want[k], f"{path}.{k}")
-    elif isinstance(want, list):
-        assert len(got) == len(want), path
-        for i, (g, w) in enumerate(zip(got, want, strict=True)):
-            _same(g, w, f"{path}[{i}]")
-    else:
-        assert got == want, path
-
-
 def test_the_record_regenerates_from_its_source(tmp_path, monkeypatch):
     monkeypatch.chdir(ROOT)
     out = tmp_path / "steps.json"
     S.main(["--record", SOURCE, "--out", str(out)])
-    _same(json.loads(out.read_text()), json.loads(RECORD.read_text()))
+    actual, expected = json.loads(out.read_text()), json.loads(RECORD.read_text())
+
+    def same(a, b):
+        # BLAS/runtime versions can change the last bits of reductions and
+        # least-squares coefficients. Identities, counts and p-values stay exact.
+        assert type(a) is type(b)
+        if isinstance(a, dict):
+            assert a.keys() == b.keys()
+            for key in a:
+                if key == "permutation_p":
+                    assert a[key] == b[key]
+                else:
+                    same(a[key], b[key])
+        elif isinstance(a, list):
+            assert len(a) == len(b)
+            for x, y in zip(a, b, strict=True):
+                same(x, y)
+        elif isinstance(a, float):
+            assert a == pytest.approx(b, rel=1e-12, abs=1e-14)
+        else:
+            assert a == b
+
+    same(actual, expected)
 
 
 @pytest.mark.skipif(not hasattr(time, "tzset"), reason="time.tzset is POSIX only")
