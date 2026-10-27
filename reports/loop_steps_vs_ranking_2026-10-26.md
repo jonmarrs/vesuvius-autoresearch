@@ -91,3 +91,10 @@ will list the overlapping cycles by tweak.
 (`reports/cycle_length_gain_prereg_2026-10-18.md`).
 
 **Cost.** Ten seconds of CPU.
+
+**October 27 follow-up:** the incumbent's saved checkpoint already contains
+ROC AUC 0.574202 and AP prevalence lift 1.169277, with a complete 400-patch
+validation record. [The saved-reference comparison](loop_incumbent_reference_2026-10-27.md)
+extracts those values without inference and compares only the published
+pre-window cycles. It narrows the open question above; it is not a fresh
+evaluation or an unchanged-training control and changes no registered reading.
