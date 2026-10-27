@@ -304,8 +304,8 @@ tweak_templates: list[dict[str, Any]] = [
     },
     # The no-change control (the owner, 2026-10-27): a cycle of config.json as it
     # is, so a tweak can be read against the unchanged config, not only against
-    # the other tweaks. The sampler repeats no config run in the last 20 cycles
-    # (save_recent_configs), so it runs at most once in 20.
+    # the other tweaks. The control is excluded while that config is among the
+    # previous 20 cycles, including cycles selected by the retry fallback.
     {"family": "control", "attr": None, "vals": [None], "control": True},
 ]
 CONTROL_TWEAK = "control_unchanged"
@@ -477,6 +477,22 @@ def template_weights(templates, success_counts):
     """Give each family its stated weight regardless of its number of axes."""
     sizes = Counter(t["family"] for t in templates)
     return [success_counts[t["family"]] / sizes[t["family"]] for t in templates]
+
+
+def cycle_config(baseline, template, value, budget):
+    candidate = copy.deepcopy(baseline)
+    candidate.pinned = False
+    candidate.time_budget = budget
+    if not template.get("control"):
+        setattr(candidate, template["attr"], value)
+    return candidate
+
+
+def recent_config_key(config):
+    fields = asdict(config)
+    for key in ("uri", "val_uri", "cache_dir", "time_budget"):
+        fields.pop(key, None)
+    return fields
 
 
 def load_history():
@@ -1079,7 +1095,7 @@ def main():
 
     env = os.environ.copy()
     i = 0
-    recent_configs = load_recent_configs()
+    recent_configs = load_recent_configs()[-20:]
     last_excluded: list = []
 
     while True:
@@ -1134,7 +1150,7 @@ def main():
                 log.write(f"- **Stopped before cycle {i}**: {exc}\n\n")
             break
 
-        # Every cycle is a single tweak of the promoted config. The every-10th-cycle
+        # Each cycle is one tweak of the promoted config or its unchanged control. The every-10th-cycle
         # "GP-winner baseline" (timesformer, patch 256) was removed 2026-10-12: the
         # VRAM estimate (complexity_score) scored it 74.7 > 1.5, so it was always skipped, and
         # had it run it could have been promoted, replacing config.json with a
@@ -1148,6 +1164,13 @@ def main():
         # The VRAM estimate filters values before sampling, so a rejected value
         # never takes a cycle number, a dedup slot or a decay step.
         active_templates, excluded = tweak_proposals(baseline_for_gate)
+        # The retry fallback may repeat a tweak, but must not bypass the
+        # control's cooldown. Filter it before sampling or computing weights.
+        active_templates = [
+            t for t in active_templates
+            if not t.get("control")
+            or recent_config_key(cycle_config(baseline_for_gate, t, t["vals"][0], default_budget)) not in recent_configs
+        ]  # fmt: skip
         baseline_score = complexity_score(baseline_for_gate)
         if baseline_score > VRAM_COMPLEXITY_CAP:
             note = (
@@ -1184,23 +1207,11 @@ def main():
             family = template["family"]
             attr = template["attr"]
 
-            # Apply tweak to a copy of current config
-            test_config = load_current_config()
-            # Ensure we don't carry over 'pinned' status to evolved configs
-            test_config.pinned = False
-            test_config.time_budget = default_budget
-            if not template.get("control"):
-                setattr(test_config, attr, val)
-
-            cfg_dict = asdict(test_config)
-            # Remove volatile fields for comparison
-            for k in ["uri", "val_uri", "cache_dir", "time_budget"]:
-                cfg_dict.pop(k, None)
+            test_config = cycle_config(baseline_for_gate, template, val, default_budget)
+            cfg_dict = recent_config_key(test_config)
 
             if cfg_dict not in recent_configs:
                 config = test_config
-                recent_configs.append(cfg_dict)
-                save_recent_configs(recent_configs)
                 applied = True
                 break
             else:
@@ -1212,15 +1223,15 @@ def main():
         # non-duplicate config, accept the LAST sampled config rather than
         # silently fall through (which would run the baseline config but
         # log it as having had the last rejected tweak — pollutes
-        # success_counts attribution). Reset recent_configs to clear the
-        # saturation so the next cycle has a fresh search space.
+        # success_counts attribution). Keep the last 20 cycles even when the
+        # search space is saturated, so the control's cooldown still holds.
         if not applied:
             print(
-                f"Cycle {i}: {max_retries} retries exhausted; accepting last sampled config ({attr}={val}) and resetting recent_configs."
+                f"Cycle {i}: {max_retries} retries exhausted; accepting last sampled config ({attr}={val})."
             )
             config = test_config
-            recent_configs = [cfg_dict]
-            save_recent_configs(recent_configs)
+        recent_configs = [*recent_configs, cfg_dict][-20:]
+        save_recent_configs(recent_configs)
 
         tweak_name = CONTROL_TWEAK if template.get("control") else f"{attr}_{val}"
 

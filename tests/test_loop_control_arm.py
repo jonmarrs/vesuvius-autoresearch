@@ -21,15 +21,15 @@ def test_the_control_is_offered_beside_the_tweaks_while_config_json_fits_the_cap
     assert CONTROL not in over
 
 
-def _one_cycle(tmp_path, monkeypatch, templates, pick):
+def _one_cycle(tmp_path, monkeypatch, templates, pick, cycles=1):
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(loop, "__file__", str(tmp_path / "run_autoresearch_loop.py"))
     monkeypatch.setattr(loop.signal, "signal", lambda *args: None)
     monkeypatch.setattr(loop.time, "sleep", lambda *args: None)
-    hours = iter([12, 12, 20])  # one day cycle, then end the shift
+    hours = iter([12] * (cycles + 1) + [20])
     monkeypatch.setattr(loop.time, "localtime", lambda: SimpleNamespace(tm_hour=next(hours)))  # fmt: skip
     monkeypatch.setattr(loop, "tweak_templates", templates)
-    monkeypatch.setattr(loop.random, "choices", lambda population, weights, k: [pick])
+    monkeypatch.setattr(loop.random, "choices", lambda population, weights, k: [pick(population) if callable(pick) else pick])  # fmt: skip
     ExperimentConfig().save(tmp_path / "config.json")
     ran = []
 
@@ -68,3 +68,20 @@ def test_the_sprint_still_ends_when_no_tweak_fits(tmp_path, monkeypatch, capsys)
     ran, records = _one_cycle(tmp_path, monkeypatch, [CONTROL], CONTROL)
     assert not ran and not records
     assert "No tweak differs from the baseline" in capsys.readouterr().out
+
+
+def test_control_cooldown_survives_retry_exhaustion_and_expires_after_twenty_cycles(
+    tmp_path, monkeypatch
+):
+    # Prefer the control whenever it is offered. With just one other config,
+    # retries exhaust every subsequent cycle; that must not reset its cooldown.
+    ran, records = _one_cycle(
+        tmp_path,
+        monkeypatch,
+        [LR, CONTROL],
+        lambda population: CONTROL if CONTROL in population else LR,
+        cycles=22,
+    )
+    assert len(ran) == 22
+    assert [i + 1 for i, r in enumerate(records) if r["family"] == "control"] == [1, 22]
+    assert len(json.loads((tmp_path / loop.RECENT_CONFIGS_FILE).read_text())) == 20
