@@ -33,6 +33,7 @@ import argparse
 import datetime as dt
 import hashlib
 import json
+import os
 import subprocess
 import sys
 from collections import defaultdict
@@ -48,9 +49,18 @@ STANDING = svr.STANDING
 MEASURES = svr.MEASURES
 SPAN = 990
 COVERED = 0.8  # share of a cycle's span its samples must cover
+# America/Los_Angeles, the host's zone, as a POSIX TZ
+HOST_TZ = "PST8PDT,M3.2.0,M11.1.0"
 SIDE_JOB_NICE = 10.0  # a cycle's mean %nice: a nice job on 40% or more of one CPU
 BOOTSTRAPS = 2_000
 SEED = 0
+
+
+def clock(stamp: str) -> float:
+    """Seconds on the host's naive local clock, which `sadf -t` and the loop both write, the same on every machine.
+    .timestamp() would read them in the runner's zone (#253). The host's clock does not change between 10-18 and
+    11-01, so its differences are elapsed time."""
+    return (dt.datetime.fromisoformat(stamp) - svr.EPOCH).total_seconds()
 
 
 def parse_sadf(text: str) -> list[tuple[float, int, float, float]]:
@@ -66,7 +76,7 @@ def parse_sadf(text: str) -> list[tuple[float, int, float, float]]:
         row = dict(zip(cols, f, strict=True))
         if row["CPU"] != "-1":
             continue
-        end = dt.datetime.fromisoformat(row["timestamp"]).timestamp()
+        end = clock(row["timestamp"])
         out.append(
             (end, int(row["interval"]), float(row["%nice"]), float(row["%idle"]))
         )
@@ -74,17 +84,20 @@ def parse_sadf(text: str) -> list[tuple[float, int, float, float]]:
 
 
 def samples(paths: list[str]) -> list[tuple[float, int, float, float]]:
+    # sadf -t (sysstat 12.6.1) takes the time of day from the host's clock but the date from the runner's zone, so
+    # it runs in the host's zone, given as its rules: no tz database needed.
+    env = {**os.environ, "TZ": HOST_TZ}
     got = set()
     for p in paths:
         cmd = ["sadf", "-d", "-t", p, "--", "-u"]
-        got.update(parse_sadf(subprocess.run(cmd, capture_output=True, text=True, check=True).stdout))  # fmt: skip
+        got.update(parse_sadf(subprocess.run(cmd, capture_output=True, text=True, check=True, env=env).stdout))  # fmt: skip
     return sorted(got)
 
 
 def cycle_load(start: str, table: list[tuple], span: int = SPAN) -> dict | None:
     """Time-weighted busy and %nice over [start, start + span); None when samples cover less than COVERED of it."""
     t = np.array(table, dtype=float).reshape(-1, 4)
-    t0 = dt.datetime.fromisoformat(start).timestamp()
+    t0 = clock(start)
     w = np.clip(np.minimum(t[:, 0], t0 + span) - np.maximum(t[:, 0] - t[:, 1], t0), 0, None)  # fmt: skip
     if w.sum() < COVERED * span:
         return None
