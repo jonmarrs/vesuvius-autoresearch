@@ -4,6 +4,7 @@ import hashlib
 import importlib.util
 import io
 import json
+import subprocess
 from pathlib import Path
 
 import numpy as np
@@ -139,7 +140,22 @@ def test_output_cannot_overwrite_the_checkpoint_or_cycle_record(tmp_path):
 def test_published_reference_regenerates_from_the_committed_inputs(
     tmp_path, monkeypatch
 ):
-    monkeypatch.chdir(ROOT)
+    # The live incumbent advances. Reproduce this historical record from its
+    # recorded immutable blob, keeping the original relative source paths.
+    published = ROOT / "reports/loop_incumbent_reference_2026-10-27.json"
+    blob = json.loads(published.read_text())["reference"]["git_blob_sha1"]
+    saved = subprocess.run(
+        ["git", "-C", str(ROOT), "cat-file", "blob", blob],
+        capture_output=True,
+        check=False,
+    )
+    if saved.returncode:
+        pytest.skip("the historical checkpoint blob is absent from this checkout")
+    (tmp_path / "best_model.pt").write_bytes(saved.stdout)
+    source = Path("reports/loop_tweak_replication_2026-10-25.json")
+    (tmp_path / source.parent).mkdir()
+    (tmp_path / source).write_bytes((ROOT / source).read_bytes())
+    monkeypatch.chdir(tmp_path)
     output = tmp_path / "reference.json"
     reference.main(
         [
@@ -151,10 +167,7 @@ def test_published_reference_regenerates_from_the_committed_inputs(
             str(output),
         ]
     )
-    assert (
-        output.read_bytes()
-        == (ROOT / "reports/loop_incumbent_reference_2026-10-27.json").read_bytes()
-    )
+    assert output.read_bytes() == published.read_bytes()
     record = json.loads(output.read_text())
     assert (
         record["reference"]["git_blob_sha1"]
