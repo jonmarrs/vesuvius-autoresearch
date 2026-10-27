@@ -26,7 +26,6 @@ import torch
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from loop_tweak_replication import REGISTERED
 
-
 MEASURES = {
     "val_f1": ("val_f1", 0.0),
     "roc_auc": ("roc_auc", 0.00005),
@@ -40,7 +39,7 @@ def checkpoint_metadata(raw: bytes) -> dict:
     try:
         from numpy._core.multiarray import scalar
     except ImportError:
-        from numpy.core.multiarray import scalar
+        from numpy.core.multiarray import scalar  # type: ignore[no-redef]  # NumPy 1.x
     allowed = [scalar, np.dtype, type(np.dtype("float64")), type(np.dtype("float32"))]
     with torch.serialization.safe_globals(allowed):
         saved = torch.load(io.BytesIO(raw), map_location="cpu", weights_only=True)
@@ -71,7 +70,12 @@ def checkpoint_metadata(raw: bytes) -> dict:
         "config": {
             k: config.get(k)
             for k in (
-                "architecture", "num_layers", "patch_size", "val_uri", "depth_band", "use_lasagna"
+                "architecture",
+                "num_layers",
+                "patch_size",
+                "val_uri",
+                "depth_band",
+                "use_lasagna",
             )
         },
     }
@@ -81,7 +85,9 @@ def compare(record: dict, reference: dict) -> dict:
     rows = record["rows"]
     boundary = dt.datetime.fromisoformat(REGISTERED["since"])
     if not rows or any(dt.datetime.fromisoformat(r["start"]) >= boundary for r in rows):
-        raise ValueError("only the published cycles before the confirmation window are allowed")
+        raise ValueError(
+            "only the published cycles before the confirmation window are allowed"
+        )
     incumbent = reference["metrics"]["val_f1"]
     if not math.isclose(record["incumbent"], incumbent, abs_tol=0.0000005, rel_tol=0):
         raise ValueError("the record and saved reference name different incumbents")
@@ -155,7 +161,9 @@ def main(argv=None):
         "record_sha256": hashlib.sha256(record_raw).hexdigest(),
     }
     args.out.write_text(json.dumps(result, indent=2) + "\n")
-    print(json.dumps({"cycles": result["cycles"], "groups": result["groups"]}, indent=2))
+    print(
+        json.dumps({"cycles": result["cycles"], "groups": result["groups"]}, indent=2)
+    )
     return 0
 
 
