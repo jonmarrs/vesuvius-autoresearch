@@ -3,10 +3,17 @@
 train.py re-exports both classes for older callers and checkpoint imports.
 """
 
+import hashlib
 import json
 from dataclasses import asdict, dataclass, field
 
 from vesuvius_autoresearch.core.inference_constants import DEPTH_MARGIN
+
+
+def configuration_fingerprint(values: dict) -> str:
+    """Hash the captured normalized settings, independently of JSON key order."""
+    raw = json.dumps(values, sort_keys=True, separators=(",", ":")).encode()
+    return hashlib.sha256(raw).hexdigest()
 
 
 # AuxiliaryConfig was previously imported from scripts/auxiliary_manager.py.

@@ -21,7 +21,7 @@ from run_autoresearch_loop import (
 )
 from scripts.loop_control import main as control_main, running_pid
 from scripts.process_supervisor import ProcessSupervisor, stops_interrupt
-from scripts.training.config import ExperimentConfig
+from scripts.training.config import ExperimentConfig, configuration_fingerprint
 
 REPO = Path(__file__).resolve().parents[1]
 
@@ -827,6 +827,13 @@ def test_every_cycle_is_recorded_with_its_tweak_code_and_result(
         0.002,
     )
     assert record["budget_s"] == 900
+    assert record["baseline_config"]["lr"] == 0.001
+    assert record["baseline_config"]["time_budget"] == 900
+    assert record["config"]["lr"] == 0.002
+    assert record["baseline_config_sha256"] == configuration_fingerprint(
+        record["baseline_config"]
+    )
+    assert record["code_sha256"] is None  # not a git checkout
     assert record["started"] <= record["logged"]
     assert len(record["started"]) == 19 and record["started"][10] == "T"
     assert (
@@ -870,15 +877,39 @@ def test_code_state_names_the_commit_and_changes_to_what_a_cycle_runs(
     git("commit", "-q", "-m", "c")
     monkeypatch.chdir(tmp_path)
     assert loop.code_state() == (git("rev-parse", "HEAD"), [])
+    clean_fingerprint = loop.code_fingerprint(*loop.code_state())
+    assert clean_fingerprint is not None
     (villa / "weights.ckpt").write_text("")  # untracked inside villa: not its code
     (tmp_path / "notes.md").write_text("y\n")  # not what a cycle runs
     assert loop.code_state() == (git("rev-parse", "HEAD"), [])
+    assert loop.code_fingerprint(*loop.code_state()) == clean_fingerprint
     (tmp_path / "scripts/training/train.py").write_text("a = 2\n")
     (tmp_path / "uv.lock").write_text("")
     (villa / "aug.py").write_text("a = 2\n")
     commit, changes = loop.code_state()
     assert commit == git("rev-parse", "HEAD")
     assert changes == [" M scripts/training/train.py", " M villa", "?? uv.lock"]
+    fingerprints = [loop.code_fingerprint(commit, changes)]
+    assert fingerprints[0] is not None
+    for path, value in (
+        (tmp_path / "scripts/training/train.py", "a = 3\n"),
+        (villa / "aug.py", "a = 3\n"),
+        (tmp_path / "uv.lock", "version = 1\n"),
+    ):
+        path.write_text(value)
+        assert loop.code_state() == (commit, changes)
+        fingerprints.append(loop.code_fingerprint(commit, changes))
+    assert None not in fingerprints and len(set(fingerprints)) == 4
+    (tmp_path / "notes.md").write_text("outside the code paths\n")
+    (villa / "weights.ckpt").write_text("still untracked assets\n")
+    assert loop.code_fingerprint(commit, changes) == fingerprints[-1]
+
+
+def test_an_unreadable_code_snapshot_has_no_fingerprint(monkeypatch):
+    import run_autoresearch_loop as loop
+
+    monkeypatch.setattr(loop, "_run_git", lambda *a, **kw: (1, b"unavailable"))
+    assert loop.code_fingerprint("commit", []) is None
 
 
 def test_a_record_that_cannot_be_written_does_not_stop_the_loop(tmp_path, capsys):

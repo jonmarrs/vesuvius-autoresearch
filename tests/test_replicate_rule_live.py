@@ -27,6 +27,10 @@ def _record(
 ):
     return {
         "started": start, "tweak": tweak, "commit": epoch, "code_changes": [], "status": status, "budget_s": budget,
+        "code_sha256": "c" * 64,
+        "baseline_config": {"lr": 0.001, "time_budget": budget},
+        "baseline_config_sha256": hashlib.sha256(json.dumps({"lr": 0.001, "time_budget": budget}, sort_keys=True, separators=(",", ":")).encode()).hexdigest(),
+        "config": {"lr": 0.001, "time_budget": budget},
         "incumbent_sha256": "a" * 64,
         "result": {"val_f1": f1, "roc_auc": auc, "incumbent_val_f1": inc, "promotion_blocked": None,
                    "val_protocol": validation_protocol(),
@@ -110,6 +114,37 @@ def test_matching_f1_does_not_make_other_validation_or_checkpoint_records_compar
     assert RL.rows([prior], current) == RL.rows([], current)
 
 
+def test_dirty_code_versions_with_the_same_git_status_have_different_epochs():
+    first = _record("one", "lr_0.002", 0.27, 0.58)
+    second = _record("two", "lr_0.002", 0.27, 0.58)
+    first["code_changes"] = second["code_changes"] = [" M scripts/training/train.py"]
+    second["code_sha256"] = "d" * 64
+    assert RL.epoch(first) != RL.epoch(second)
+
+
+def test_a_changed_baseline_is_not_pooled_under_the_same_checkpoint():
+    first = _record("one", "lr_0.002", 0.27, 0.58)
+    current = _record("two", "control_unchanged", 0.27, 0.58)
+    first["baseline_config"]["lr"] = 0.0001
+    first["baseline_config_sha256"] = hashlib.sha256(json.dumps(first["baseline_config"], sort_keys=True, separators=(",", ":")).encode()).hexdigest()  # fmt: skip
+    assert RL.rows([first], current) == RL.rows([], current)
+
+
+@pytest.mark.parametrize("missing", ["commit", "code_changes", "code_sha256", "baseline_config", "baseline_config_sha256", "config"])  # fmt: skip
+def test_unidentified_code_or_configs_cannot_support_the_rule(missing):
+    old = _record("one", "lr_0.002", 0.27, 0.58)
+    current = _record("two", "control_unchanged", 0.27, 0.58)
+    del old[missing]
+    assert RL.rows([old], current) == RL.rows([], current)
+
+
+def test_a_baseline_snapshot_must_match_its_recorded_hash():
+    old = _record("one", "lr_0.002", 0.27, 0.58)
+    current = _record("two", "control_unchanged", 0.27, 0.58)
+    old["baseline_config"]["lr"] = 0.002
+    assert RL.rows([old], current) == RL.rows([], current)
+
+
 @pytest.mark.parametrize("contents", ['{"partial":', "null\n"])
 def test_a_corrupt_cycle_journal_is_refused_instead_of_selectively_dropping_observations(
     tmp_path, contents
@@ -183,14 +218,22 @@ def _history(tweak_f1, other_f1, inc=INC):
                 tw,
                 f1,
                 auc,
-                epoch=None,
+                epoch="fixture-commit",
                 inc=inc,
             )
         )
         t += 17
-    for r in out:
-        r["code_changes"] = None
     return out
+
+
+def test_prior_replicates_cannot_promote_after_a_baseline_edit():
+    history = _history(0.2714, 0.2672)
+    current = _record("last", "lr_0.002", 0.2716, 0.5905, epoch="fixture-commit")
+    assert RL.decide(history, current)["fires"]
+    current["baseline_config"]["lr"] = 0.0001
+    current["baseline_config_sha256"] = hashlib.sha256(json.dumps(current["baseline_config"], sort_keys=True, separators=(",", ":")).encode()).hexdigest()  # fmt: skip
+    decision = RL.decide(history, current)
+    assert not decision["fires"] and decision["cycles"] == decision["tweak_cycles"] == 1
 
 
 def _cycle(
@@ -218,6 +261,8 @@ def _cycle(
         loop, "tweak_templates", [{"family": "lr", "attr": "lr", "vals": [0.002]}]
     )
     monkeypatch.setattr(loop, "REPLICATE_RULE", rule_on)
+    monkeypatch.setattr(loop, "code_state", lambda: ("fixture-commit", []))
+    monkeypatch.setattr(loop, "code_fingerprint", lambda *a: "c" * 64)
     if broken:
         monkeypatch.setattr(RL, "decide", lambda records, current: 1 / 0)
     base = ExperimentConfig()
@@ -234,6 +279,11 @@ def _cycle(
     torch.save({"model_state_dict": weights, "val_f1": inc, **common, "config": asdict(base)}, tmp_path / "best_model.pt")  # fmt: skip
     digest = hashlib.sha256((tmp_path / "best_model.pt").read_bytes()).hexdigest()
     for record in history:
+        record["baseline_config"] = asdict(base)
+        record["baseline_config"]["time_budget"] = 900
+        record["baseline_config_sha256"] = loop.configuration_fingerprint(
+            record["baseline_config"]
+        )
         record["incumbent_sha256"] = digest
         record["result"]["val_protocol"] = protocol
         record["result"]["validation_diag"] = dict(common["validation_diag"])
