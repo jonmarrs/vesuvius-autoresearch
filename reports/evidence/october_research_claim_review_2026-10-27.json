@@ -1,0 +1,129 @@
+{
+  "checked_at_utc": "2026-10-27T21:13:52+00:00",
+  "submitted": false,
+  "review_pr": "https://github.com/jonmarrs/vesuvius-autoresearch/pull/261",
+  "source_sha256": {
+    "reports/neural_tracer_ct_context.json": "498e9822928d58b9b9ce2e2592c8c071d830a506d5bf9592718923f80978dc5c",
+    "reports/neural_tracer_ct_context_512.json": "842636cc51134ffc17012ee62a5f88cfc367028e48870e155d44ae1947eab9fb",
+    "reports/neural_tracer_entrant.json": "6cc7fb7226b3375d1c435f3f744de2b5e8018e822c45bcee6e36b5b4a3db2d66",
+    "reports/neural_tracer_steep_heading.json": "41d1d834f29b23fdc34df6807a3637994f509500c7b71b4adc246828f4676e1c",
+    "reports/neural_tracer_steep_heading.md": "cb342c8d98aad96304a2a8a9c5c6b05644849d0528a2d2ffbccefc8186636153",
+    "docs/PRIZE_FILING_2026-10_RESEARCH_FORM_ANSWERS.md": "fe7ca3f2eea20aff3b42339e0e2c440b805c413237c508d0d800c30d84fc8910",
+    "docs/PRIZE_FILING_2026-10_DRAFT.md": "98afd9cf017fa7f169c0d7960db4b9b472cc7aa2f12c5da2575d0dac94551285"
+  },
+  "context_ranking": {
+    "metric": "erl_merge_penalized",
+    "tolerance": 2,
+    "comparison_methods": [
+      "tracer",
+      "generator",
+      "cc"
+    ],
+    "with_scan_first": [
+      "s5_13497_01497_02497_256",
+      "s5_16997_03997_04497_256",
+      "s3_00994_00494_01994_512",
+      "s3_00994_01994_00494_512",
+      "s3_00994_02494_01494_512",
+      "s3_01994_01494_00994_512",
+      "s3_01994_01994_01494_512",
+      "s3_02994_02494_01994_512",
+      "s3_03494_01494_00494_512",
+      "s3_04494_00994_01494_512"
+    ],
+    "cube_only_first": [
+      "s3_00994_00494_01994_512",
+      "s3_00994_01994_00494_512",
+      "s3_00994_02494_01494_512",
+      "s3_01994_01494_00994_512",
+      "s3_01994_01994_01494_512",
+      "s3_02994_02494_01994_512",
+      "s3_03494_01494_00494_512",
+      "s3_04494_00994_01494_512"
+    ]
+  },
+  "heading": {
+    "precision_tolerance": 2,
+    "held_out_cubes": [
+      "s5_13497_01497_02497_256",
+      "s5_16997_03997_04497_256",
+      "s3_00994_00494_01994_512",
+      "s3_00994_01994_00494_512",
+      "s3_00994_02494_01494_512",
+      "s3_01994_01494_00994_512",
+      "s3_01994_01994_01494_512",
+      "s3_02994_02494_01994_512",
+      "s3_03494_01494_00494_512",
+      "s3_04494_00994_01494_512"
+    ],
+    "precision_change_min": -0.0171,
+    "precision_change_max": 0.0068,
+    "erl_ranking_changes_at_either_tolerance": 0,
+    "coverage_overtakes": {
+      "tol2": [
+        "s5_13497_01497_02497_256"
+      ],
+      "tol4": [
+        "s5_13497_01497_02497_256",
+        "s5_16997_03997_04497_256",
+        "s3_01994_01494_00994_512",
+        "s3_01994_01994_01494_512"
+      ]
+    },
+    "failed_registered_prediction": "P2: Scroll-3 median coverage factor below 1.05",
+    "corrected_report_commit": "2fb41b271a60b86bae5e6e57a279cece06e8a4ab"
+  },
+  "scrollgt_v0_7": {
+    "commit": "6d05d64283368d1cfb74883f58414a40db7b810e",
+    "readme_sha256": "7b206d63a0645743b1c56acf3c43b2b719b2f03ec08d2d679ca53a174039246d",
+    "confirmed_rescored_rows": 126
+  },
+  "validation": {
+    "passed": 134,
+    "skipped": 0,
+    "seconds": 11.28,
+    "scope": [
+      "tests/test_october_research_form_answers.py",
+      "tests/test_october_prize_form_answers.py",
+      "tests/test_filing_2026_10_numbers.py",
+      "tests/test_neural_tracer_steep_heading_report.py",
+      "tests/test_audit_report_claims.py",
+      "tests/test_withdrawn_claims_stay_withdrawn.py",
+      "tests/test_file_modes.py"
+    ],
+    "lint": "Ruff check and format passed for three changed Python test files",
+    "types": "targeted mypy passed for the same three files",
+    "full_repository_suite_rerun": false
+  },
+  "filing_checks": {
+    "engineering_upstream_claims": "PASS: Villa #2022, #2044 and #2155 are merged in October Pacific dates",
+    "form": {
+      "url": "https://docs.google.com/forms/d/e/1FAIpQLSc4flEfgK2nyjoczz2_U_XrIGMlgrnSknWatLqrFPnbtKfZwg/viewform",
+      "http_status": 200,
+      "final_url": "https://docs.google.com/forms/d/e/1FAIpQLSc4flEfgK2nyjoczz2_U_XrIGMlgrnSknWatLqrFPnbtKfZwg/viewform",
+      "title": "October 2026 Progress Prizes",
+      "has_response_form": true,
+      "accepting_responses": true
+    },
+    "target_date": "2026-10-29",
+    "deadline_pacific": "2026-10-31T23:59:00-07:00",
+    "final_personal_fields_terms_submission_and_receipt_pending": true
+  },
+  "upstream": {
+    "own_prs_still_open": [
+      2141,
+      2258,
+      2259
+    ],
+    "maintainer_merge_access": false,
+    "already_proposed_fixes": {
+      "plain_array_patch_coordinates": 2205,
+      "numba_worker_quota": 2311,
+      "legacy_fiber_object_store_import": 2321
+    },
+    "note": "Do not duplicate these existing proposals. Prepared own follow-ups retain the three-open-PR cap."
+  },
+  "new_gpu_run": false,
+  "source_host_deployed_by_this_review": false,
+  "numerical_artifacts_changed": false
+}

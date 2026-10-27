@@ -33,6 +33,9 @@ An [optional separate research answer](PRIZE_FILING_2026-10_RESEARCH_FORM_ANSWER
 now focuses on October's ScrollGT releases and the context studies. It gives
 Finding 99 its sampled-population and exploratory limits. Keep the engineering
 bundle ready independently; a new research experiment is not needed to file it.
+The [October 27 research-claim audit](../reports/evidence/october_research_claim_review_2026-10-27.json)
+also checks the ranking, precision and corrected report citation before the
+October 28 narrative freeze.
 
 The [public-data CPU reproduction](../reports/scrollgt_cpu_reproduction_2026-10-25.md)
 has now run. It found and reproduced a 512³ scorer allocation failure; the
@@ -251,6 +254,48 @@ their pending status or add merged credits.
 
 ## Completed research and October 25 review
 
+### October 27 research-answer review
+
+[PR #261](https://github.com/jonmarrs/vesuvius-autoresearch/pull/261) names
+merge-penalized ERL wherever the filing says the ranking is unchanged.
+Coverage is a different result: the `sheet` arm overtakes our tracer on one
+cube at tolerance 2 and four at tolerance 4. The context result, first on
+10 of 21 cubes versus eight with cube-only inputs, was independently checked
+against all three recorded comparison methods: our tracer, the generator and
+connected components.
+
+The precision statement now gives the measured changes, **−0.0171 to +0.0068
+at tolerance 2**, on the ten held-out cubes. The failed Scroll-3 prediction
+and limits of the two Scroll-5 cubes remain explicit. The form answer's
+Finding 100 URL now pins the corrected report at `2fb41b27`; changing the
+current report alone would have left the filing linked to its older wording.
+The original JSON results and registrations are unchanged.
+
+The filing/report/claim-guard suites pass **134 checks with no skips**.
+Ruff and targeted mypy pass on the three changed test files. The ScrollGT
+v0.7.0 README was fetched and checked directly for the 126 re-scored rows;
+the full repository suite was not rerun for this documentation review.
+The engineering answer is unchanged, its three merge claims pass, and the
+live October form still accepts responses. Nothing has been submitted.
+
+The newest opportunity scan found existing proposals for the plain-array
+patch-coordinate bug ([Villa #2205](https://github.com/ScrollPrize/villa/pull/2205)),
+Numba worker oversubscription ([#2311](https://github.com/ScrollPrize/villa/pull/2311))
+and legacy fiber import into the object store ([#2321](https://github.com/ScrollPrize/villa/pull/2321)).
+All three are open; do not duplicate them as new contributions. Our own
+#2141, #2258 and #2259 remain open without new review feedback, and the
+integration still lacks merge access. The prepared native-retry and
+seed-heading proposals remain the useful next publication candidates when
+the existing PR cap and workflow-validation requirements permit them.
+
+Freeze the two prepared answers and their evidence links on October 28.
+Recheck the form and upstream status on October 29, complete personal fields
+and terms, submit and save the exact text and receipt. Use October 30–31 for
+material updates and receipt problems. Optional unchanged-training and
+matched-step experiments can proceed on a configured research host without
+delaying the completed submissions; this review ran no GPU experiment or
+live-host deployment.
+
 The [octant tracing registration](preregistration/2026-10-23_tracing_context.md)
 was withdrawn by the owner on October 24, never run. Finding 95 remains a
 rescore of cropped whole-cube predictions, not independent octant tracing.
@@ -297,8 +342,9 @@ record remains unchanged; this paragraph records the follow-up check.
   keep the existing PRs ready for maintainer review. Prepare the native retry
   handoff and the benchmark reproduction example.
 - **October 25–27:** publish the completed CPU reproduction and review Findings
-  96–100 against the updated filing. The seed-heading proposal and current-main
-  re-run are also complete in this repository. Keep the withdrawn octant tracing study
+  96–100 against the updated filing. The seed-heading proposal and its AFV
+  re-run at `322cb0899` are complete; the newer object-store CLI still needs
+  validation in a configured environment. Keep the withdrawn octant tracing study
   withdrawn. Complete the prepared upstream contributions when publication
   and merge access become available.
 - **October 28:** freeze the submission narrative and public evidence links.

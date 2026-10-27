@@ -92,7 +92,7 @@ def test_scroll_3():
     assert f"Merge-penalized ERL moves by {span(p, '{:.2f}')}×." in REPORT
     assert f"added at most {(max(f) - 1) * 100:.1f}% to coverage" in REPORT
     d = [R2["sheet"][c][PREC] - B2[c][PREC] for c in S3]
-    assert f"cost up to {-min(d):.3f} of precision" in REPORT
+    assert f"cost up to {-min(d):.4f} of precision at tolerance 2" in REPORT
     rec = D["baseline_records"]
     off = [rec[c]["no_heading"] / (rec[c]["dots"] - rec[c]["owned_dots"]) for c in S3]
     assert f"It skipped {span(off, '{:.2f}')} of the dots it offered there." in REPORT
@@ -101,10 +101,9 @@ def test_scroll_3():
 def test_precision_heading_and_in_sample():
     d = [R2["sheet"][c][PREC] - B2[c][PREC] for c in HELD]
     assert max(abs(x) for x in d) < 0.0175
+    change = f"{min(d):+.4f} to {max(d):+.4f}".replace("-", "−")
     assert (
-        f"sheet's precision is within 0.017 of the baseline's ({min(d):+.3f} to {max(d):+.3f})".replace(
-            "-", "−"
-        )
+        f"At tolerance 2, sheet's precision changes by {change} on the ten held-out cubes"
         in REPORT
     )
     above = sum(R2["sheet"][c][COV] > R2["keep"][c][COV] for c in HELD)
