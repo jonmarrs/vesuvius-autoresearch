@@ -53,6 +53,11 @@ BOOTSTRAPS = 2_000
 SEED = 0
 
 
+def _clock_seconds(value: str) -> float:
+    """Source-host wall-clock seconds, independent of the runner's timezone and DST rules."""
+    return (dt.datetime.fromisoformat(value) - svr.EPOCH).total_seconds()
+
+
 def parse_sadf(text: str) -> list[tuple[float, int, float, float]]:
     """`sadf -d -t <file> -- -u` -> (sample end, its interval in s, %nice, %idle), all CPUs together."""
     out, cols = [], None
@@ -66,7 +71,7 @@ def parse_sadf(text: str) -> list[tuple[float, int, float, float]]:
         row = dict(zip(cols, f, strict=True))
         if row["CPU"] != "-1":
             continue
-        end = dt.datetime.fromisoformat(row["timestamp"]).timestamp()
+        end = _clock_seconds(row["timestamp"])
         out.append(
             (end, int(row["interval"]), float(row["%nice"]), float(row["%idle"]))
         )
@@ -84,7 +89,7 @@ def samples(paths: list[str]) -> list[tuple[float, int, float, float]]:
 def cycle_load(start: str, table: list[tuple], span: int = SPAN) -> dict | None:
     """Time-weighted busy and %nice over [start, start + span); None when samples cover less than COVERED of it."""
     t = np.array(table, dtype=float).reshape(-1, 4)
-    t0 = dt.datetime.fromisoformat(start).timestamp()
+    t0 = _clock_seconds(start)
     w = np.clip(np.minimum(t[:, 0], t0 + span) - np.maximum(t[:, 0] - t[:, 1], t0), 0, None)  # fmt: skip
     if w.sum() < COVERED * span:
         return None
@@ -249,7 +254,7 @@ def window(confirmation: dict, load: dict) -> dict:
     reg = ltr.REGISTERED
     rows = sorted(confirmation["rows"], key=lambda r: r["start"])
     standing = [j for j, r in enumerate(rows) if r["tweak"] == reg["standing"]]
-    if len(standing) > reg["cut_at"]:
+    if len(standing) >= reg["cut_at"]:
         rows = rows[: standing[reg["cut_at"] - 1] + 1]
     joined = _joined(rows, load)
     side = defaultdict(lambda: [0, 0])
@@ -277,8 +282,8 @@ def window(confirmation: dict, load: dict) -> dict:
     }
 
 
-def _source(path: str) -> dict:
-    return {"path": path, "sha256": hashlib.sha256(Path(path).read_bytes()).hexdigest()}
+def _source(path: str, raw: bytes) -> dict:
+    return {"path": path, "sha256": hashlib.sha256(raw).hexdigest()}
 
 
 def main(argv=None):
@@ -296,15 +301,18 @@ def main(argv=None):
     for p in (c, a, w):
         p.add_argument("--out", required=True)
     args = ap.parse_args(argv)
+    record_path = args.confirmation if args.cmd == "window" else args.record
+    raw = Path(record_path).read_bytes()
+    out = {"source": _source(record_path, raw)}
+    record = json.loads(raw)
     if args.cmd == "cycles":
-        out = {"source": _source(args.record), "sysstat": [_source(p) for p in args.sysstat]}  # fmt: skip
-        out.update(cycles(json.loads(Path(args.record).read_text()), samples(args.sysstat)))  # fmt: skip
-    elif args.cmd == "analyse":
-        out = {"source": _source(args.record), "load": _source(args.load)}
-        out.update(analyse(json.loads(Path(args.record).read_text()), json.loads(Path(args.load).read_text())))  # fmt: skip
+        out["sysstat"] = [_source(p, Path(p).read_bytes()) for p in args.sysstat]
+        out.update(cycles(record, samples(args.sysstat)))
     else:
-        out = {"source": _source(args.confirmation), "load": _source(args.load)}
-        out.update(window(json.loads(Path(args.confirmation).read_text()), json.loads(Path(args.load).read_text())))  # fmt: skip
+        load_raw = Path(args.load).read_bytes()
+        out["load"] = _source(args.load, load_raw)
+        operation = analyse if args.cmd == "analyse" else window
+        out.update(operation(record, json.loads(load_raw)))
     Path(args.out).write_text(json.dumps(out, indent=1) + "\n")
 
 

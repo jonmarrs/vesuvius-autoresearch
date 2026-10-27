@@ -118,6 +118,39 @@ before posting; do not present the older AFV run as a current-main re-run.
 This integration check is useful engineering work if the current dependencies
 and data are available; it is not a prerequisite for filing the completed work.
 
+### October 27 follow-up
+
+At 14:17 UTC the October form still accepted responses and the upstream claim
+checker still found exactly the three merged Villa contributions above. The
+engineering answer remains ready for personal details, terms and submission.
+The separate research answer can use the released ScrollGT benchmark and merged
+memory fix; it does not need a new loop result. Keep the October 29 filing target.
+
+The newest SQLite review fixed a symlink case in
+[Villa #2141](https://github.com/ScrollPrize/villa/pull/2141): checking for a WAL
+beside the alias could silently omit committed rows beside the target. The
+pushed fix resolves the target before checking its WAL; all six local SQLite
+tests and available GitHub Actions pass. The PR is still open and requires a
+maintainer to merge it. It adds no merged credit to the filing.
+
+[Research PR #252](https://github.com/jonmarrs/vesuvius-autoresearch/pull/252)
+uses only published pre-window cycles and the source host's archived CPU load
+table. Measured load explains 60% of the within-tweak step variation. This
+supports a useful diagnostic, but the exclusion assumption remains unverified;
+it does not establish that fewer steps cause better ranking. Its review fixes
+runner-timezone dependence, JSON hash/parse consistency and the supplemental
+eight-cycle cutoff. The registered confirmation analysis stays unchanged.
+Preserve the source host's sysstat files along with the rotated run logs before
+they expire. Their absence in this cloud checkout prevents a fresh raw-log
+reproduction here; no confirmation-window measurements were read.
+
+The object-store check confirms that current Villa imports `vc_object_store`
+while loading the volume tracer, and its export flags are now `--fibers-template`
+and `--no-fibers`. The cached environment lacks that native module. Run the
+current-main CLI and real-data export in a configured environment before
+posting the seed-heading proposal. Do not change the pinned historical AFV
+launcher, which reproduces the older measurements.
+
 ## Completed research and October 25 review
 
 The [octant tracing registration](preregistration/2026-10-23_tracing_context.md)

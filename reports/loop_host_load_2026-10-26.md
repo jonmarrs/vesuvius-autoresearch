@@ -43,14 +43,16 @@ fit beside the steps, against what that much load does through the steps it cost
 | ROC AUC | −0.00004 (−0.00096 to +0.00088) | +0.00056 |
 | AP prevalence lift | −0.0001 (−0.0047 to +0.0044) | +0.0029 |
 
-**Reading.** #250's first premise holds. Load measured outside the loop accounts for 60% of the within-tweak spread
-in the steps, and the instrument is strong. Load's part of the steps and the part it leaves give the same AUC and AP
-lift slopes as all the steps together (AUC −0.00081 and −0.00087 against −0.00083; #250's 454 cycles gave −0.00085), so the slope is not carried by
-some other source of step variation. By themselves the instrumented slopes are imprecise: AUC's interval just reaches
+**Reading.** Measured load accounts for 60% of the within-tweak spread
+in the steps, and the first-stage association is strong. This supports load as a major source of variation;
+it does not establish #250's premise that load alone explains the spread. Load's part of the steps and the part it
+leaves give similar AUC and AP lift slopes to all the steps together (AUC −0.00081 and −0.00087 against −0.00083;
+#250's 454 cycles gave −0.00085). Similar point estimates do not rule out other sources of step variation or
+confounding. By themselves the instrumented slopes are imprecise: AUC's interval just reaches
 zero with groups resampled, and AP lift's excludes zero with groups resampled but not with days. The second premise,
 that load acts only through the steps, has a point estimate of no effect beside the steps, but its interval is wider
 than the step channel itself. It cannot rule out a direct effect of load as large as the one through the steps.
-Confidence: high that load drives the steps' spread; moderate that the slope is load's; the direct effect is untested
+Confidence: high that measured load predicts much of the steps' spread; its causal contribution and the direct effect are untested
 at a useful power.
 
 ## A correction to #250: where batchgeneratorsv2 loses its steps
@@ -86,3 +88,23 @@ priority) shows only in busy, and the standing tweak's busy beside the others' i
 - **Resolve a cycle finely.** One sample per 10 minutes, about 1.7 per cycle.
 
 **Cost.** One second of CPU.
+
+## October 27 review
+
+Three new regression cases fail on the original code: reproducing the source host's wall clock across the runner's
+daylight-saving transition, binding input hashes to the JSON bytes actually parsed, and cutting the supplemental
+load summary when exactly eight standing cycles are present. The fixes leave the published pre-window numerical
+records unchanged. The registered confirmation script, predictions and thresholds are unchanged. Only the
+supplemental `window` summary now always stops at the eighth standing cycle when it is present.
+
+Local validation on cached Python 3.10.21 passes 89 focused analysis, neighbouring and validation-suite checks,
+with one skip because the raw sysstat files are absent. A further filing and document-guard run passes 221 checks,
+skips two optional source checks, and fails the existing live-document path check. Comparing its missing paths
+against current main gives the same 38 references and no additions. Ruff and mypy are unavailable in this environment;
+no dependencies were installed. The full test suite was not run.
+
+This environment can regenerate the analysis from the published load table; it has neither the source host's
+sysstat files nor the live confirmation-window logs. No window measurements were read in this review. On the
+source host, preserve `sa25`–`sa29` and both run logs before rotation, then run the registered readout after its
+stopping condition. For an eight-cycle stop, pass the eighth cycle's end as `--until`, as the registration specifies;
+do not include later cycles in the confirmation input.

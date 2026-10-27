@@ -6,6 +6,7 @@ import hashlib
 import importlib.util
 import json
 import shutil
+import time
 from pathlib import Path
 
 import numpy as np
@@ -85,7 +86,7 @@ def test_the_load_table_covers_the_record_but_10_17_and_midnight():
 
 
 def _ts(s):
-    return dt.datetime.fromisoformat(s).timestamp()
+    return (dt.datetime.fromisoformat(s) - dt.datetime(1970, 1, 1)).total_seconds()
 
 
 def test_sadf_output_is_read_by_its_header():
@@ -110,6 +111,59 @@ def test_a_cycles_load_is_weighted_by_time_and_needs_its_span_covered():
     assert got["busy"] == pytest.approx(100 - (300 * 50 + 600 * 70) / 900)
     assert got["nice"] == pytest.approx(300 * 10 / 900)
     assert H.cycle_load("2026-10-20T10:10:00", table) is None  # 600 of 990 s covered
+
+
+@pytest.mark.skipif(not hasattr(time, "tzset"), reason="time.tzset is POSIX only")
+def test_load_matching_does_not_use_the_runners_daylight_saving_transition(monkeypatch):
+    """Both inputs are the source host's wall clock, including on a runner whose clocks changed on October 25."""
+    text = "\n".join([
+        "# hostname;interval;timestamp;CPU;%nice;%idle",
+        "host;600;2026-10-25 02:05:00;-1;10;50",
+        "host;600;2026-10-25 02:15:00;-1;0;70",
+    ])  # fmt: skip
+    got = []
+    try:
+        for tz in ("UTC0", "GMT0BST,M3.5.0/1,M10.5.0"):
+            monkeypatch.setenv("TZ", tz)
+            time.tzset()
+            got.append(H.cycle_load("2026-10-25T01:55:00", H.parse_sadf(text)))
+    finally:
+        monkeypatch.undo()
+        time.tzset()
+    assert got[0] == got[1]
+    assert got[0]["busy"] == pytest.approx((600 * 50 + 390 * 30) / 990)
+    assert got[0]["nice"] == pytest.approx(600 * 10 / 990)
+
+
+def test_input_hashes_describe_the_bytes_actually_parsed(tmp_path, monkeypatch):
+    source, load, out = (
+        tmp_path / name for name in ("source.json", "load.json", "out.json")
+    )
+    original = {
+        source: b'{"marker": "source before"}',
+        load: b'{"marker": "load before"}',
+    }
+    for path, raw in original.items():
+        path.write_bytes(raw)
+    read_bytes = Path.read_bytes
+
+    def rewritten_after_read(path):
+        raw = read_bytes(path)
+        if path in original:
+            path.write_text('{"marker": "after"}')
+        return raw
+
+    def analyse_markers(record, table):
+        return {"parsed_source": record["marker"], "parsed_load": table["marker"]}
+
+    monkeypatch.setattr(Path, "read_bytes", rewritten_after_read)
+    monkeypatch.setattr(H, "analyse", analyse_markers)
+    H.main(["analyse", "--record", str(source), "--load", str(load), "--out", str(out)])
+    result = json.loads(out.read_text())
+    assert result["source"]["sha256"] == hashlib.sha256(original[source]).hexdigest()
+    assert result["load"]["sha256"] == hashlib.sha256(original[load]).hexdigest()
+    assert result["parsed_source"] == "source before"
+    assert result["parsed_load"] == "load before"
 
 
 def _rows(rng, direct=0.0, other=0.0, n=40):
@@ -159,9 +213,12 @@ def test_the_analysis_refuses_the_window_and_a_load_table_from_another_record():
         H.analyse(record, other, bootstraps=1)
 
 
-def test_the_window_is_cut_at_the_8th_standing_cycle_and_counts_side_jobs():
+@pytest.mark.parametrize("standing_count", [8, 10])
+def test_the_window_is_cut_at_the_8th_standing_cycle_and_counts_side_jobs(
+    standing_count,
+):
     rows, cycles = [], []
-    for j in range(60):
+    for j in range(6 * standing_count):
         standing = j % 6 == 2
         start = (dt.datetime(2026, 10, 26) + dt.timedelta(minutes=17 * j)).isoformat()
         rows.append({"start": start, "epoch": "139c6873", "tweak": STANDING if standing else f"t{j % 4}"})  # fmt: skip
