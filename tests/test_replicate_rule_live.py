@@ -225,7 +225,7 @@ def _cycle(
     protocol = validation_protocol(base.depth_band)
     inputs = validation_inputs_fingerprint(base.val_uri, base.depth_band)
     weights = {"w": torch.zeros(2, 3)}
-    common = {"val_protocol": protocol, "val_bpb": 0.36, "avg_skel_dist": 28.9, "avg_centerline_dice": 0.22,
+    common: dict = {"val_protocol": protocol, "val_bpb": 0.36, "avg_skel_dist": 28.9, "avg_centerline_dice": 0.22,
               "avg_cc_diff": 1.392, "submittable": True, "window_ok": True, "window_mm": 0.512,
               "villa_metrics_ok": True, "roc_auc": 0.5905, "ap_prevalence_lift": 1.24,
               "validation_diag": {"complete": True, "inputs_sha256": inputs,
@@ -351,6 +351,27 @@ def test_the_live_rule_installs_the_bytes_checked_before_the_path_changes(
         record["incumbent_sha256"]
         == hashlib.sha256((kept / "best_model.pt").read_bytes()).hexdigest()
     )
+
+
+def test_a_failed_live_append_restores_the_model_and_removes_new_logs(
+    tmp_path, monkeypatch
+):
+    from scripts import promote_loop_candidate as P
+
+    original_append = P._append
+
+    def failed_append(path, columns, values, missing_ok=False):
+        if path.name == "prize_readiness.tsv":
+            raise OSError("simulated live append failure")
+        original_append(path, columns, values, missing_ok)
+
+    monkeypatch.setattr(P, "_append", failed_append)
+    record, log, commits = _cycle(tmp_path, monkeypatch, _history(0.2714, 0.2672))
+    assert record["status"] == "REVERTED" and not commits
+    assert "simulated live append failure" in record["replicate_rule"]["error"]
+    assert torch.load(tmp_path / "best_model.pt", weights_only=False)["val_f1"] == INC
+    assert not (tmp_path / "results.tsv").exists()
+    assert not (tmp_path / "prize_readiness.tsv").exists()
 
 
 def test_a_firing_whose_candidate_does_not_beat_the_incumbent_is_not_promoted(

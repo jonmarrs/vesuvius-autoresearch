@@ -183,4 +183,4 @@ def promote(loop: Path, result: dict, stamp: str, incumbent_sha256: str) -> Path
         != inputs
     ):
         raise RuntimeError("validation inputs changed before promotion")
-    return P.promote_files(loop, raw, new_rows, stamp)
+    return P.promote_files(loop, raw, new_rows, stamp, missing_ok=True)

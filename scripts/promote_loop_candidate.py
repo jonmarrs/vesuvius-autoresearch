@@ -205,16 +205,16 @@ def _replace(path: Path, write) -> None:
     os.replace(tmp, path)
 
 
-def _check_header(path: Path, columns: tuple) -> None:
-    if not path.exists():
+def _check_header(path: Path, columns: tuple, missing_ok: bool = False) -> None:
+    if missing_ok and not path.exists():
         return
     lines = path.read_text().splitlines()
     if not lines or tuple(lines[0].split("\t")) != columns:
         raise SystemExit(f"{path.name}'s header is not train.py's")
 
 
-def _append(path: Path, columns: tuple, values: list) -> None:
-    _check_header(path, columns)
+def _append(path: Path, columns: tuple, values: list, missing_ok: bool = False) -> None:
+    _check_header(path, columns, missing_ok)
     with open(path, "a") as f:
         if f.tell() == 0:
             f.write("\t".join(columns) + "\n")
@@ -223,12 +223,12 @@ def _append(path: Path, columns: tuple, values: list) -> None:
         os.fsync(f.fileno())
 
 
-def promote_files(loop: Path, candidate_raw: bytes, new_rows: dict, stamp: str) -> Path:
+def promote_files(loop: Path, candidate_raw: bytes, new_rows: dict, stamp: str, missing_ok: bool = False) -> Path:  # fmt: skip
     """Install the checked bytes and append their rows, keeping backups and restoring files on write failure.
-    The caller holds the checkout lock. Missing logs start with their schema; malformed existing logs are refused.
+    The caller holds the checkout lock. With missing_ok, missing logs start with their schema; malformed logs are refused.
     """
-    _check_header(loop / "results.tsv", RESULTS_COLUMNS)
-    _check_header(loop / "prize_readiness.tsv", PRIZE_READINESS_COLUMNS)
+    _check_header(loop / "results.tsv", RESULTS_COLUMNS, missing_ok)
+    _check_header(loop / "prize_readiness.tsv", PRIZE_READINESS_COLUMNS, missing_ok)
     kept = (
         loop / "local_data/loop_promotions" / stamp.replace(" ", "_").replace(":", "-")
     )
@@ -238,11 +238,14 @@ def promote_files(loop: Path, candidate_raw: bytes, new_rows: dict, stamp: str) 
         shutil.copy2(loop / name, kept / name)
     try:
         _replace(loop / INCUMBENT, lambda tmp: tmp.write_bytes(candidate_raw))
-        _append(loop / "results.tsv", RESULTS_COLUMNS, new_rows["results.tsv"])
+        _append(
+            loop / "results.tsv", RESULTS_COLUMNS, new_rows["results.tsv"], missing_ok
+        )
         _append(
             loop / "prize_readiness.tsv",
             PRIZE_READINESS_COLUMNS,
             new_rows["prize_readiness.tsv"],
+            missing_ok,
         )
     except BaseException:
         for name in CHANGED:
