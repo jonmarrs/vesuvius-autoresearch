@@ -320,3 +320,39 @@ def save_checkpoint_atomic(payload, path: str) -> None:
     finally:
         if os.path.exists(temporary):
             os.unlink(temporary)
+
+
+# train.py's TSV row schemas and promotion gates, for code that promotes without importing train.py (an import
+# patches wandb for the whole process): scripts/promote_loop_candidate.py and scripts/training/replicate_rule.py.
+# tests/test_promote_loop_candidate.py compares them with train.py's.
+HISTORY_COLUMNS = (
+    "timestamp",
+    "val_bpb",
+    "avg_skel_dist",
+    "avg_centerline_dice",
+    "avg_cc_diff",
+    "avg_crit_comp",
+    "avg_mean_ap",
+    "train_loss",
+    "throughput_Mvps",
+    "num_params_M",
+    "peak_vram_mb",
+    "config",
+)
+RESULTS_COLUMNS = tuple(c for c in HISTORY_COLUMNS if c != "avg_mean_ap")
+PRIZE_READINESS_COLUMNS = (
+    "timestamp",
+    "submittable",
+    "window_ok",
+    "window_mm",
+    "villa_metrics_ok",
+    "patch_size",
+    "val_bpb",
+    "avg_skel_dist",
+    "avg_centerline_dice",
+    "avg_cc_diff",
+    "avg_crit_comp",
+    "config",
+)
+LIFT_MARGIN = 0.02
+F1_NOISE_TOLERANCE = 1e-2

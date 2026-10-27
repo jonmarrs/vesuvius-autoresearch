@@ -37,48 +37,19 @@ import torch
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-sys.path.insert(0, str(ROOT / "scripts"))
-import loop_control  # noqa: E402
-
+from scripts import loop_control  # noqa: E402
 from scripts.training.config import ExperimentConfig  # noqa: E402
 from scripts.training.promotion import (  # noqa: E402
+    F1_NOISE_TOLERANCE,
+    HISTORY_COLUMNS,
+    LIFT_MARGIN,
+    PRIZE_READINESS_COLUMNS,
+    RESULTS_COLUMNS,
     validation_inputs_fingerprint,
     validation_protocol,
 )
 from vesuvius_autoresearch.core.file_modes import replacement_mode  # noqa: E402
 
-# train.py's, which it does not import (an import patches wandb for the process); the tests compare them.
-HISTORY_COLUMNS = (
-    "timestamp",
-    "val_bpb",
-    "avg_skel_dist",
-    "avg_centerline_dice",
-    "avg_cc_diff",
-    "avg_crit_comp",
-    "avg_mean_ap",
-    "train_loss",
-    "throughput_Mvps",
-    "num_params_M",
-    "peak_vram_mb",
-    "config",
-)
-RESULTS_COLUMNS = tuple(c for c in HISTORY_COLUMNS if c != "avg_mean_ap")
-PRIZE_READINESS_COLUMNS = (
-    "timestamp",
-    "submittable",
-    "window_ok",
-    "window_mm",
-    "villa_metrics_ok",
-    "patch_size",
-    "val_bpb",
-    "avg_skel_dist",
-    "avg_centerline_dice",
-    "avg_cc_diff",
-    "avg_crit_comp",
-    "config",
-)
-LIFT_MARGIN = 0.02
-F1_NOISE_TOLERANCE = 1e-2
 # run_autoresearch_loop.PROMOTION_FILES: what a promotion commits
 PROMOTION_FILES = ("config.json", "best_model.pt", "autoresearch_history.json")
 CHANGED = (*PROMOTION_FILES, "results.tsv", "prize_readiness.tsv")
@@ -195,28 +166,51 @@ def _replace(path: Path, write) -> None:
 
 
 def _append(path: Path, columns: tuple, values: list) -> None:
-    if path.read_text().splitlines()[0].split("\t") != list(columns):
+    """A row, under train.py's header: a missing file starts with it, as train.py's append_tsv_row starts one."""
+    if path.exists() and path.read_text().splitlines()[:1] != ["\t".join(columns)]:
         raise SystemExit(f"{path.name}'s header is not train.py's")
     with open(path, "a") as f:
+        if f.tell() == 0:
+            f.write("\t".join(columns) + "\n")
         f.write("\t".join(str(v) for v in values) + "\n")
         f.flush()
         os.fsync(f.fileno())
 
 
-def apply(loop: Path, candidate_path: Path, cfg: ExperimentConfig, family: str, new_rows: dict, stamp: str, message: str) -> Path:  # fmt: skip
+def promote_files(loop: Path, candidate_path: Path, new_rows: dict, stamp: str) -> Path:
+    """What train.py does when it promotes: the candidate becomes best_model.pt and the run's rows are appended to
+    results.tsv and prize_readiness.tsv. The five files a promotion changes are first copied to
+    local_data/loop_promotions/<stamp>/, and put back if this fails partway."""
     kept = (
         loop / "local_data/loop_promotions" / stamp.replace(" ", "_").replace(":", "-")
     )
     kept.mkdir(parents=True)
-    for name in CHANGED:
+    present = [name for name in CHANGED if (loop / name).exists()]
+    for name in present:
         shutil.copy2(loop / name, kept / name)
-    _replace(loop / INCUMBENT, lambda tmp: shutil.copyfile(candidate_path, tmp))
+    try:
+        _replace(loop / INCUMBENT, lambda tmp: shutil.copyfile(candidate_path, tmp))
+        _append(loop / "results.tsv", RESULTS_COLUMNS, new_rows["results.tsv"])
+        _append(loop / "prize_readiness.tsv", PRIZE_READINESS_COLUMNS, new_rows["prize_readiness.tsv"])  # fmt: skip
+    except BaseException:
+        for name in CHANGED:
+            if name in present:
+                _replace(
+                    loop / name, lambda tmp, n=name: shutil.copyfile(kept / n, tmp)
+                )
+            elif (loop / name).exists():
+                (loop / name).unlink()
+        raise
+    return kept
+
+
+def apply(loop: Path, candidate_path: Path, cfg: ExperimentConfig, family: str, new_rows: dict, stamp: str, message: str) -> Path:  # fmt: skip
+    """promote_files, then what the loop does: config.json, the family's weight, the commit."""
+    kept = promote_files(loop, candidate_path, new_rows, stamp)
     _replace(loop / "config.json", cfg.save)
     counts = json.loads((loop / "autoresearch_history.json").read_text())
     counts[family] = counts.get(family, 1) + 1
     _replace(loop / "autoresearch_history.json", lambda tmp: tmp.write_text(json.dumps(counts, indent=4)))  # fmt: skip
-    _append(loop / "results.tsv", RESULTS_COLUMNS, new_rows["results.tsv"])
-    _append(loop / "prize_readiness.tsv", PRIZE_READINESS_COLUMNS, new_rows["prize_readiness.tsv"])  # fmt: skip
     git = ["git", "-C", str(loop)]
     subprocess.run([*git, "add", "--", *PROMOTION_FILES], check=True)
     done = subprocess.run(

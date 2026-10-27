@@ -229,3 +229,13 @@ def test_the_row_schemas_are_train_pys():
         "best_model.pt",
         "autoresearch_history.json",
     )
+
+
+def test_a_promotion_that_fails_partway_puts_the_old_files_back(tmp_path, monkeypatch):
+    """best_model.pt is replaced first; a log whose header is not train.py's then stops it."""
+    loop, candidate = _loop(tmp_path)
+    (loop / "prize_readiness.tsv").write_text("timestamp\tsomething else\n")
+    before = _hashes(loop)
+    with pytest.raises(SystemExit, match="header"):
+        _run(loop, candidate, "--apply", monkeypatch=monkeypatch)
+    assert _hashes(loop) == before
