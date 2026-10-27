@@ -176,9 +176,22 @@ validation-diagnostic checks, log-header preflight and checkout locking.
 It also rejects an incumbent, config or validation-input change between the
 checks and apply. The tests apply only to temporary synthetic checkouts;
 this review neither pauses the source host nor promotes its retained model.
-Accepting the audited result, choosing a checkpoint and changing the live
-promotion rule remain separate decisions. The frozen registered analysis
-and the live loop are unchanged by this preparation.
+The owner's acceptance, checkpoint choice and decision to adopt the rule are
+now recorded in [Amendment 2 / PR #257](https://github.com/jonmarrs/vesuvius-autoresearch/pull/257).
+The result stays post hoc and the original UNMATCHED_RUNS record is preserved.
+
+[PR #258](https://github.com/jonmarrs/vesuvius-autoresearch/pull/258) adds the
+rule beside the single-cycle margin, with the registered scoring function and
+thresholds unchanged. Its review preserves #256's guards and binds journal
+observations to the starting checkpoint's SHA-256, budget, validation protocol,
+input fingerprint and complete patch counts. Records without that identity
+cannot support the rule. A corrupt journal or rejected candidate records a
+failed rule decision and leaves the cycle reverted. The checked checkpoint
+bytes go through the shared promotion writer, with restoration on write failure.
+These are repository changes; this review has not deployed them to the source
+host or promoted its model. Pulling into that checkout and its planned manual
+promotion remain an explicit operational step. The frozen registered analysis
+files are unchanged.
 
 The filing's three merge claims and the live October form were rechecked
 again after the readout. They still pass. A historical-rollover lookup in

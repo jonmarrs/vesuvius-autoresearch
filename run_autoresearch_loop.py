@@ -12,6 +12,7 @@ import tempfile
 import time
 from collections import Counter, defaultdict
 from dataclasses import asdict
+from pathlib import Path
 from typing import Any
 
 from scripts.loop_control import acquire_lock, describe_run, unsupervised_runs
@@ -19,6 +20,7 @@ from scripts.process_supervisor import ProcessSupervisor
 from scripts.training.config import ExperimentConfig
 from scripts.training.promotion import (
     IncumbentUnavailable,
+    _file_sha256,
     check_incumbent,
     first_use_record,
 )
@@ -310,6 +312,9 @@ RECENT_CONFIGS_FILE = "recent_configs.json"
 # run_result.json. Analyses of the loop used to join the sprint logs to run.log by val_f1
 # (scripts/loop_tweak_replication.py), and run.log rotates at 10 MB.
 CYCLES_FILE = "cycles.jsonl"
+# The replicate rule (scripts/training/replicate_rule.py), adopted by the owner on 2026-10-27 beside train.py's
+# single-cycle margin. False turns it off.
+REPLICATE_RULE = True
 # What a cycle runs: the loop, train.py, every module of this repository either one imports
 # (tests/test_loop_lifecycle.py walks their imports), villa and the locked environment. A
 # working-tree change under one of these is recorded with the commit.
@@ -317,6 +322,8 @@ LOOP_CODE_PATHS = (
     "run_autoresearch_loop.py",
     "scripts/training",
     "scripts/loop_control.py",
+    "scripts/loop_replicate_rule.py",  # the replicate rule's scores
+    "scripts/promote_loop_candidate.py",  # its promotion
     "scripts/process_supervisor.py",
     "scripts/betti_loss_module.py",
     "scripts/cldice_loss.py",
@@ -887,6 +894,56 @@ def append_cycle_record(record, path=CYCLES_FILE):
         print(f"Warning: could not append this cycle to {path} ({e})")
 
 
+def read_cycle_records(path=CYCLES_FILE):
+    """cycles.jsonl's records, oldest first; refuse corrupt observations before applying the rule."""
+    records = []
+    try:
+        with open(path) as f:
+            for number, line in enumerate(f, 1):
+                try:
+                    record = json.loads(line)
+                except ValueError as error:
+                    raise ValueError(
+                        f"cycle journal {path}, line {number}: invalid JSON"
+                    ) from error
+                if not isinstance(record, dict):
+                    raise ValueError(
+                        f"cycle journal {path}, line {number}: expected an object"
+                    )
+                records.append(record)
+    except FileNotFoundError:
+        pass
+    return records
+
+
+def replicate_rule_promotion(current, result, enforce_prize_gates):
+    """The replicate rule's decision at the end of this cycle (current: its cycles.jsonl record so far) and, when it
+    fires on a candidate that passes the other gates, the candidate promoted as train.py promotes. Returns
+    (decision or None, promoted). It never raises: a failure is printed and recorded, and the cycle goes on."""
+    if not REPLICATE_RULE:
+        return None, False
+    try:
+        from scripts.training import replicate_rule
+
+        decision = replicate_rule.decide(read_cycle_records(), current)
+        if not decision["fires"]:
+            return decision, False
+        refused = replicate_rule.eligible(result, enforce_prize_gates)
+        if refused:
+            return dict(decision, refused=refused), False
+        stamp = time.strftime("%Y-%m-%d %H:%M:%S")
+        kept = replicate_rule.promote(
+            Path.cwd(), result, stamp, current["incumbent_sha256"]
+        )
+        return dict(decision, kept=str(kept)), True
+    except (Exception, SystemExit) as e:
+        error = f"{type(e).__name__}: {e}"
+        print(
+            f"Warning: the replicate rule failed on this cycle ({error}); no promotion by it."
+        )
+        return {"error": error}, False
+
+
 def last_log_line(path="run.log", limit=300):
     """The run log's last non-empty line, for a failed cycle's sprint log entry."""
     try:
@@ -1175,6 +1232,12 @@ def main():
         sys.stdout.flush()
         started = time.strftime("%Y-%m-%dT%H:%M:%S")
         commit, code_changes = code_state()
+        try:
+            incumbent_sha256 = _file_sha256(INCUMBENT)
+        except OSError:
+            incumbent_sha256 = (
+                None  # An unidentified incumbent cannot support the replicate rule.
+            )
 
         if os.path.exists("run_result.json"):
             os.remove("run_result.json")
@@ -1340,6 +1403,25 @@ def main():
                 failure = f"run_result.json is unreadable ({e})"
         incumbent_note = settle_incumbent(held, failed=is_crash)
 
+        # The replicate rule: before the outcome is recorded, so a promotion by it
+        # takes the same path as train.py's (the family's reward, config.json, the
+        # commit, the sprint log).
+        rule = None
+        if not is_crash and not is_success and isinstance(result, dict):
+            current = {
+                "started": started,
+                "budget_s": default_budget,
+                "tweak": tweak_name,
+                "commit": commit,
+                "code_changes": code_changes,
+                "incumbent_sha256": incumbent_sha256,
+                "status": "REVERTED",
+                "result": result,
+            }
+            rule, is_success = replicate_rule_promotion(
+                current, result, getattr(config, "enforce_prize_gates", True)
+            )
+
         # Success-biased decay: every scored cycle decays all the families it
         # could have sampled, so a family that stops producing promotions loses
         # its dominance; a promotion then rewards its family. A crash (or failed
@@ -1371,8 +1453,14 @@ def main():
         # Committed before the cycle is logged, so a failure is in its entry.
         commit_failure = None
         if is_success:
+            by_rule = (
+                f" (replicate rule: t {rule['score']} > {rule['c']} over "
+                f"{rule['tweak_cycles']} of its cycles)"
+                if rule and rule.get("kept")
+                else ""
+            )
             committed = commit_promotion(
-                f"{shift_name}: {tweak_name} improved model to val_f1 {val_f1}"
+                f"{shift_name}: {tweak_name} improved model to val_f1 {val_f1}{by_rule}"
             )
             if committed is not True:
                 commit_failure = committed
@@ -1395,6 +1483,12 @@ def main():
                 result_msg = f"Promotion blocked: {promotion_blocked}. Config reverted."
             if is_success:
                 result_msg = "Improvement detected. Config updated."
+                if rule and rule.get("kept"):
+                    result_msg = (
+                        f"Promoted by the replicate rule (t {rule['score']} > "
+                        f"{rule['c']} over {rule['tweak_cycles']} of its cycles). "
+                        "Config updated."
+                    )
             elif is_crash:
                 result_msg = f"Training crashed ({'out of memory' if oom_detected else failure}). No success reward; family remains eligible for exploration."
                 if log_line and not oom_detected:
@@ -1427,10 +1521,12 @@ def main():
                 "value": val,
                 "commit": commit,
                 "code_changes": code_changes,
+                "incumbent_sha256": incumbent_sha256,
                 "status": status,
                 "failure": failure,
                 "commit_failure": commit_failure,
                 "result": result,
+                "replicate_rule": rule,
             }
         )
 

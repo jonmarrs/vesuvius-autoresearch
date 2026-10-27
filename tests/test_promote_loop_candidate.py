@@ -166,6 +166,21 @@ def test_invalid_log_headers_refuse_before_changing_promotion_files(
     assert _git(loop, "rev-parse", "HEAD") == head
 
 
+@pytest.mark.parametrize("log", ["results.tsv", "prize_readiness.tsv"])
+def test_manual_promotion_still_requires_its_existing_log_files(
+    tmp_path, monkeypatch, log
+):
+    loop, candidate = _loop(tmp_path)
+    (loop / log).unlink()
+    before = {name: (loop / name).read_bytes() for name in FILES if name != log}
+    head = _git(loop, "rev-parse", "HEAD")
+    with pytest.raises(FileNotFoundError):
+        _run(loop, candidate, "--apply", monkeypatch=monkeypatch)
+    assert not (loop / log).exists()
+    assert {name: (loop / name).read_bytes() for name in before} == before
+    assert _git(loop, "rev-parse", "HEAD") == head
+
+
 @pytest.mark.parametrize(
     "patch, failed",
     [
@@ -357,3 +372,20 @@ def test_the_row_schemas_are_train_pys():
         "best_model.pt",
         "autoresearch_history.json",
     )
+
+
+def test_a_promotion_that_fails_partway_puts_the_old_files_back(tmp_path, monkeypatch):
+    """A real append failure after checkpoint replacement restores the original bytes."""
+    loop, candidate = _loop(tmp_path)
+    original_append = P._append
+
+    def failed_append(path, columns, values, missing_ok=False):
+        if path.name == "prize_readiness.tsv":
+            raise OSError("simulated append failure")
+        original_append(path, columns, values, missing_ok)
+
+    monkeypatch.setattr(P, "_append", failed_append)
+    before = _hashes(loop)
+    with pytest.raises(OSError, match="simulated append failure"):
+        _run(loop, candidate, "--apply", monkeypatch=monkeypatch)
+    assert _hashes(loop) == before
