@@ -106,6 +106,7 @@ VALIDATION_TESTS = [
     "tests/test_improvement_criterion.py",
     "tests/test_load.py",
     "tests/test_loader_workers.py",
+    "tests/test_loop_control_arm.py",
     "tests/test_loop_does_not_request_lasagna.py",
     "tests/test_loop_host_load.py",
     "tests/test_promote_loop_candidate.py",
