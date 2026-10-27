@@ -7,6 +7,31 @@ and the October 23 and 25 records. We have a credible submission now, based on t
 merged Villa contributions. Additional merges or research results can improve
 it; they are not prerequisites for filing the work already completed.
 
+**Latest October 27 follow-up:** [PR #264](https://github.com/jonmarrs/vesuvius-autoresearch/pull/264)
+registers the old augmentation recipe against unchanged training from the
+promoted checkpoint. It waits for #263's recorded identities and starts no
+earlier than October 27 at 16:00 PDT. Use its `status` command for counts only
+until the window closes. Ten cycles per arm are the target, at least six each
+are required, and the window can end early or run beyond the prize deadline.
+Do not delay either prepared filing for this study. Once its window opens,
+another pull into the research checkout ends it; analyze from a separate
+checkout. The review below fixes the reader without deploying or reading live
+study measurements.
+
+The control-evidence review freezes all comparisons at the registered stop,
+checks complete validation and code/config identities, and removes dependence
+on the analysis host's timezone. The separate repeatability probe now requires
+a recorded complete warm start, at least one applied update and distinct
+training sampling seeds. New probe reports use contract 2 and retain step,
+skipped-update and warm-start diagnostics; archived contract-1 reports and
+registrations are unchanged. These are measurement safeguards, not new quality
+results. The three Villa merges and accepting October form were rechecked.
+The integrated control, loop, historical-readout and filing suites passed
+284 checks with three raw-source skips. After the final source-file guard and
+immutable-checkpoint test review, both changed suites passed all 100 checks.
+Ruff and targeted mypy pass on the four changed Python files; the full
+repository suite was not rerun. No new GPU training or deployment was performed.
+
 The deadline is **October 31, 2026 at 11:59 p.m. Pacific** (November 1 at
 06:59 UTC). Target filing on **October 29**, leaving time to check the receipt.
 Do not mark the package filed or create a submission tag until it is actually
@@ -50,6 +75,9 @@ Register any confirmatory comparison and stopping rule before collecting
 its results. This bounded probe is more predictable to schedule than waiting
 for enough adaptively sampled control cycles. It can proceed separately from
 filing the completed engineering and fiber research work.
+If the registered #264 window has opened, defer this isolated probe until it
+closes. Pausing that window or pulling new runtime code would compromise its
+intended uninterrupted conditions.
 
 ## What is ready
 

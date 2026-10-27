@@ -186,6 +186,15 @@ def read_result(path, protocol):
     seed = _integer(
         result.get("train_sampling_seed"), "train_sampling_seed", 0, 2**31 - 1
     )
+    steps = _integer(result.get("steps"), "steps", 1, 2**63 - 1)
+    skipped = _integer(result.get("skipped_updates"), "skipped_updates", 0, steps - 1)
+    warm = result.get("warm_start")
+    if not isinstance(warm, dict):
+        raise ValueError("result records no complete warm start")
+    tensors = _integer(warm.get("model_tensors"), "model_tensors", 1, 2**31 - 1)
+    _integer(warm.get("loaded"), "loaded", tensors, tensors)
+    if warm.get("reason") is not None:
+        raise ValueError("result records no complete warm start")
     metrics = {}
     for key in METRICS:
         value = result.get(key)
@@ -216,6 +225,9 @@ def read_result(path, protocol):
             "inputs_sha256": inputs,
         },
         "train_sampling_seed": seed,
+        "steps": steps,
+        "skipped_updates": skipped,
+        "warm_start": {"loaded": tensors, "model_tensors": tensors, "reason": None},
     }
 
 
@@ -306,6 +318,14 @@ def execute(plan):
                             f"trainer exited {completed.returncode}; emitted scores are ineligible"
                         )
                     evidence = read_result(workspace / "run_result.json", plan.protocol)
+                    if any(
+                        row.get("train_sampling_seed")
+                        == evidence["train_sampling_seed"]
+                        for row in records
+                    ):
+                        raise ValueError(
+                            "training sampling seed repeats an earlier trial"
+                        )
                     candidate = workspace / "candidate.pt"
                     if (
                         candidate.is_symlink()
@@ -358,7 +378,7 @@ def execute(plan):
                     )
             values = [row["metrics"]["val_f1"] for row in records] if complete else []
             summary = {
-                "contract": 1,
+                "contract": 2,
                 "scope": "identical_config_repeatability",
                 "status": "COMPLETE"
                 if complete
