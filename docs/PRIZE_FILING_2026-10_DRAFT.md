@@ -248,10 +248,10 @@ four predictions held):
 * **On the 512³ cubes too** (finding 98, pre-registered; all four predictions held on both scrolls). Given the scan
   around each of the eleven 512³ cubes, it drops 0.004–0.012 of its seed dots on the three in-sample Scroll-5 ones,
   against 0.258–0.283, and 0.011–0.088 on the eight held-out Scroll-3 ones, against 0.256–0.357. Its coverage rises
-  1.19–1.35× on all eleven, less than on the 256³ cubes, as registered. The ranking against our tracer does not
-  change: at tolerance 4 it leads on all eleven, and at tolerance 2 it leads on Scroll 3 and trails on Scroll 5, at a
-  median 0.59 of our tracer rather than 0.44. Across all 21 cubes, given the scan around each, it leads our tracer on
-  19 at tolerance 4 (11 with the cube alone) and on 10 at tolerance 2 (8).
+  1.19–1.35× on all eleven, less than on the 256³ cubes, as registered. On merge-penalized ERL the ranking against
+  our tracer does not change: at tolerance 4 it leads on all eleven, and at tolerance 2 it leads on Scroll 3 and
+  trails on Scroll 5, at a median 0.59 of our tracer rather than 0.44. Across all 21 cubes, given the scan around
+  each, it leads our tracer on 19 at tolerance 4 (11 with the cube alone) and on 10 at tolerance 2 (8).
 * **What still drops seeds where it is held out** (finding 99, exploratory: not pre-registered, though its three
   expectations were pushed before it ran; two failed, below). Given the scan, it still drops 0.266 and 0.353 of its
   seed dots on the two held-out Scroll-5 256³ cubes, and 0.011–0.088 on Scroll 3. On all 21 cubes, every classified
@@ -270,11 +270,11 @@ four predictions held):
   presence direction projected into the CT's sheet. Every other dot was headed as villa heads it. On the two
   held-out Scroll-5 cubes its coverage rises from 0.333 to 0.399 and from 0.268 to 0.382 (1.20× and 1.43×), and its
   precision moves by −0.013 and +0.007. On Scroll 3 its coverage rises on all eight cubes, but by only 1.003–1.024×
-  (a median 1.017×), short of the registered 1.05×. Its precision stays within 0.017 of the baseline's on all ten
-  held-out cubes. Traced from villa's own CT axis instead, as villa's training seeds are, the skipped dots cover
+  (a median 1.017×), short of the registered 1.05×. At tolerance 2, its precision changes by −0.0171 to +0.0068 on
+  all ten held-out cubes. Traced from villa's own CT axis instead, as villa's training seeds are, the skipped dots cover
   less than along the sheet on 9 of the 10 (1.11× and 1.28× on the two Scroll-5 cubes). On the eleven in-sample
-  cubes its coverage stays within 0.995–1.015×. Whether it leads or trails our tracer changes on no cube, at either
-  tolerance. The gain rests on two cubes of one scroll, both cubes on which the reference mask also fails (finding
+  cubes its coverage stays within 0.995–1.015×. On merge-penalized ERL, whether it leads or trails our tracer changes
+  on no cube, at either tolerance. The gain rests on two cubes of one scroll, both cubes on which the reference mask also fails (finding
   84), and tilt was not varied, so it does not show that tilt is the cause.
 
 **(3) What it enables that was not possible before.**

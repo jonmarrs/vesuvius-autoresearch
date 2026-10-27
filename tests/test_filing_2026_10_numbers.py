@@ -1475,8 +1475,9 @@ def test_steep_heading_matches_finding_100(monkeypatch):
     )
     drop = [r2["sheet"][c][prec] - b2[c][prec] for c in held]
     assert max(abs(x) for x in drop) < sh.P3_DROP
+    change = f"{min(drop):+.4f} to {max(drop):+.4f}".replace("-", "−")
     assert (
-        f"within {max(abs(x) for x in drop):.3f} of the baseline's on all ten held-out cubes."
+        f"At tolerance 2, its precision changes by {change} on all ten held-out cubes."
         in txt
     )
     above = sum(r2["sheet"][c][cov] > r2["keep"][c][cov] for c in held)
@@ -1500,7 +1501,7 @@ def test_steep_heading_matches_finding_100(monkeypatch):
                 for c in base
             )
     assert (
-        "Whether it leads or trails our tracer changes on no cube, at either tolerance."
+        "On merge-penalized ERL, whether it leads or trails our tracer changes on no cube, at either tolerance."
         in txt
     )
     assert (
