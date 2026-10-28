@@ -45,6 +45,25 @@ CLI comparison is still required before posting.
    100's `keep` arm (`repro/fibers/run_villa_seed_heading_rerun.sh`,
    `reports/evidence/villa_volume_seed_heading_rerun.json`). If villa's tracer changes again before posting, re-run
    it.
+
+   **Changed again: villa #2316 (`39a8cf3a`, 2026-10-26) moved fiber export from `.afv` to `vc_object_store`.** Rechecked
+   2026-10-28. Villa's `vesuvius/` was the same at that day's main, `7154682e1`. Findings:
+   - The patch still applies (one hunk moved by one line).
+   - `_seed_heading` is unchanged.
+   - Villa's tests give the same counts as at `322cb0899`, run under the tracer's Python 3.14 because #2316's
+     `volume.py` imports the native store (`reports/evidence/villa_volume_seed_heading_tests_39a8cf3a.txt`).
+   - Of the modules the tracer loads, #2316 changes only the export, a fiber-JSON parser and comments.
+   - No villa PR or issue but #2165 matches "seed heading".
+
+   The run still has to be repeated, because #2316 changed what the run writes. #2316's tracer writes its fibers at
+   the end as an object store bound to an open-data volume. A local CT crop has no open-data volume, so
+   `repro/fibers/run_villa_seed_heading_rerun.sh` passes `--no-fibers` and the run's tiles are its fibers. The
+   comparison now reads every run's fibers from its tiles. On the recorded `322cb0899` runs that reproduces their
+   comparison exactly, and every run's tiles give its `.afv`'s fibers point for point
+   (`reports/evidence/villa_volume_seed_heading_rerun_322cb0899_from_tiles.json`).
+
+   `DRY_RUN=1` of the launcher at `39a8cf3a` prepares and checks both sources and their imports. **The re-run itself is
+   not done.** It needs the GPU, about four minutes with the loop paused, and the owner's approval.
 4. **The owner's own commentary.** villa's CONTRIBUTING requires human-written commentary for LLM-assisted PRs, and a
    motivation from real use. The bracketed paragraph below is for the owner to write. Never check the
    personal-verification box on the owner's behalf.

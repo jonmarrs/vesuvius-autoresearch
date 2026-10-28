@@ -275,11 +275,15 @@ def run_record(run: Path, margin: int = MARGIN) -> dict:
 
 def labels_in_cube(afv: Path, margin: int = MARGIN, size: int = SIZE) -> np.ndarray:
     """The run's fibers (padded-frame voxels) shifted to the cube's frame and rasterised as finding 91 did."""
-    fibers = {
-        k: afv_to_labels.to_cube_zyx(v, (margin,) * 3)
-        for k, v in afv_to_labels.read_afv(afv).items()
-    }
-    return afv_to_labels.rasterize(fibers, (size,) * 3)
+    return labels_of_fibers(afv_to_labels.read_afv(afv), margin, size)
+
+
+def labels_of_fibers(
+    fibers: dict, margin: int = MARGIN, size: int = SIZE
+) -> np.ndarray:
+    """labels_in_cube for fibers already read: fiber id -> (N, 3) xyz in padded-frame voxels."""
+    zyx = {k: afv_to_labels.to_cube_zyx(v, (margin,) * 3) for k, v in fibers.items()}
+    return afv_to_labels.rasterize(zyx, (size,) * 3)
 
 
 def verdict(
