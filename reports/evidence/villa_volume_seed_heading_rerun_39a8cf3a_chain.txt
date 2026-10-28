@@ -1,0 +1,14 @@
+patching file vesuvius/src/vesuvius/neural_tracing/tracers/fibers/tests/test_volume_seed_heading.py
+patching file vesuvius/src/vesuvius/neural_tracing/tracers/fibers/tracing/volume.py
+Hunk #2 succeeded at 461 (offset 1 line).
+DRY_RUN_OK villa 39a8cf3a1 store=1  2026-10-28T14:27:54-07:00
+CHAIN_START repo 648fda93 villa 39a8cf3a1  2026-10-28T14:34:45-07:00
+TRACE before s5_13497_01497_02497_256  2026-10-28T14:34:45-07:00
+DONE before s5_13497_01497_02497_256  2026-10-28T14:35:55-07:00
+TRACE before s5_16997_03997_04497_256  2026-10-28T14:35:55-07:00
+DONE before s5_16997_03997_04497_256  2026-10-28T14:36:55-07:00
+TRACE after s5_13497_01497_02497_256  2026-10-28T14:36:55-07:00
+DONE after s5_13497_01497_02497_256  2026-10-28T14:37:58-07:00
+TRACE after s5_16997_03997_04497_256  2026-10-28T14:37:58-07:00
+DONE after s5_16997_03997_04497_256  2026-10-28T14:38:55-07:00
+CHAIN_COMPLETE  2026-10-28T14:38:55-07:00

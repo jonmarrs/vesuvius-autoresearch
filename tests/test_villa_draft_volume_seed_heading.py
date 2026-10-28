@@ -320,14 +320,19 @@ def test_the_villa_test_counts_are_the_transcript():
     )
 
 
-def test_the_rerun_on_villa_main_reproduces_both_runs():
+@pytest.mark.parametrize(
+    "villa, day, suffix",
+    [("322cb0899", "2026-10-25", ""), ("39a8cf3a1", "2026-10-28", "_39a8cf3a")],
+)
+def test_the_rerun_on_villa_main_reproduces_both_runs(villa, day, suffix):
     """repro/fibers/run_villa_seed_heading_rerun.sh, compared and scored by scripts/villa_seed_heading_rerun.py:
-    villa's CLI at 322cb0899 traced the two Scroll-5 cubes as at ccb431818, without the patch and with it."""
-    r = json.loads(RERUN.read_text())
+    villa's CLI at a later commit traced the two Scroll-5 cubes as at ccb431818, without the patch and with it."""
+    ev = ROOT / "reports/evidence"
+    r = json.loads((ev / f"villa_volume_seed_heading_rerun{suffix}.json").read_text())
     d, _, _ = _d()
     assert (r["status"], r["villa"], r["source_villa"]) == (
         "IDENTICAL",
-        "322cb0899",
+        villa,
         "ccb431818",
     )
     assert r["scoring_version"] == 3 and r["tolerance"] == 2.0
@@ -340,6 +345,9 @@ def test_the_rerun_on_villa_main_reproduces_both_runs():
             assert run["identical_to_source"] is True
             assert run["counts"] == run["source_counts"]
             assert run["row_tol2"] == {k: want[side][c][k] for k in run["row_tol2"]}
+            # from #2316 a run has tiles only (--no-fibers); its source's tiles are its .afv's fibers
+            assert run.get("tiles_match_afv", True) in (True, None)
+            assert run.get("source_tiles_match_afv", True) is True
     no_heading = {
         s: [r["runs"][s][c]["counts"]["no_heading"] for c in S5] for s in r["runs"]
     }
@@ -347,27 +355,51 @@ def test_the_rerun_on_villa_main_reproduces_both_runs():
         "before": [d["baseline_records"][c]["no_heading"] for c in S5],
         "after": [0, 0],
     }
-    log = RERUN_LOG.read_text()
+    log = (ev / f"villa_volume_seed_heading_rerun{suffix}_chain.txt").read_text()
     assert re.findall(r"^CHAIN_START repo \w+ villa (\w+)", log, re.M) == [r["villa"]]
     assert re.findall(r"^(DONE \w+ \S+)", log, re.M) == [
         f"DONE {s} {c}" for s in ("before", "after") for c in S5
     ]
     assert "FAILED" not in log and "CHAIN_COMPLETE" in log
     # the loop's pause, from the wrapper that stopped and restarted it around the chain
-    wrap = (
-        ROOT / "reports/evidence/villa_volume_seed_heading_rerun_wrapper.txt"
-    ).read_text()
+    wrap = (ev / f"villa_volume_seed_heading_rerun{suffix}_wrapper.txt").read_text()
     assert "status rc=1" in wrap and "chain rc=0" in wrap
-    (stop,) = re.findall(r"^2026-10-25 (\d\d:\d\d):\d\d stop\.sh rc=0$", wrap, re.M)
+    (stop,) = re.findall(rf"^{day} (\d\d:\d\d):\d\d stop\.sh rc=0$", wrap, re.M)
     (h, m, sec) = re.findall(
-        r"^2026-10-25 (\d\d):(\d\d):(\d\d) start\.sh rc=0$", wrap, re.M
+        rf"^{day} (\d\d):(\d\d):(\d\d) start\.sh rc=0$", wrap, re.M
     )[0]
     start = f"{h}:{int(m) + (int(sec) >= 30):02d}"
-    assert f"(the loop paused {stop}–{start})" in _text()
+    assert f"paused {stop}–{start}" in _text()
+
+
+def test_the_posted_details_cite_the_newest_rerun():
+    """The PR text's claim is the re-run at villa's newest main, whose evidence the test above checks."""
     assert (
-        "On the two Scroll-5 cubes, villa's CLI at `322cb0899` gives the same traces point for point as at "
-        "`ccb431818`, both without this PR and with it, so their rows above hold on main. The Scroll-3 and in-sample "
-        "cubes were not re-run." in _text()
+        "On the two Scroll-5 cubes, villa's CLI at `39a8cf3a` gives the same traces point for point as at `ccb431818`, "
+        "both without this PR and with it, so their rows above hold on main." in _text()
+    )
+    assert "**Done 2026-10-28 at `39a8cf3a`**" in _text()
+    # the newest re-run did not run the object-store export, and the draft says so
+    assert "so #2316's object-store export itself did not run" in _text()
+
+
+def test_the_follow_up_resume_tests_at_39a8cf3a_are_the_transcript():
+    ev = (
+        ROOT / "reports/evidence/villa_volume_seed_resume_tests_39a8cf3a.txt"
+    ).read_text()
+    heading_only, both = ev.split("== both patches")
+    failed = re.findall(r"^FAILED \S+test_resume_requires_the_same_seed_selection\[(\S+)\]$", heading_only, re.M)  # fmt: skip
+    assert failed == ["None-False", "ct_axis_35deg_v1-False"]
+    assert "2 failed, 21 passed" in heading_only
+    assert "23 passed" in both and "failed" not in both
+    # 'heading only' is the measured patch's volume.py, the one the GPU re-run traced with
+    tests = (
+        ROOT / "reports/evidence/villa_volume_seed_heading_tests_39a8cf3a.txt"
+    ).read_text()
+    patched = re.findall(r"^volume\.py sha1 \(git blob\): (\w+)$", tests.split("== volume.py patched")[1], re.M)  # fmt: skip
+    assert (
+        re.findall(r"^volume\.py sha1 \(git blob\): (\w+)$", heading_only, re.M)
+        == patched
     )
 
 
@@ -399,7 +431,7 @@ def test_villas_tests_at_39a8cf3a_are_the_transcript():
     assert "20 passed" in patched and "failed" not in patched
     text = _text()
     assert "`reports/evidence/villa_volume_seed_heading_tests_39a8cf3a.txt`" in text
-    assert "**The re-run itself is not done.**" in text
+    assert "**Done 2026-10-28 at `39a8cf3a`**" in text
 
 
 def test_the_launcher_passes_no_fibers_only_without_the_afv_export():
