@@ -369,3 +369,46 @@ def test_the_rerun_on_villa_main_reproduces_both_runs():
         "`ccb431818`, both without this PR and with it, so their rows above hold on main. The Scroll-3 and in-sample "
         "cubes were not re-run." in _text()
     )
+
+
+def test_the_tile_comparison_reproduces_the_recorded_rerun():
+    """scripts/villa_seed_heading_rerun.py, now reading every run's fibers from its tiles, run again on the recorded
+    322cb0899 runs: the recorded comparison, field for field, and each run's tiles are its .afv's fibers."""
+    old = json.loads(RERUN.read_text())
+    new = json.loads((ROOT / "reports/evidence/villa_volume_seed_heading_rerun_322cb0899_from_tiles.json").read_text())  # fmt: skip
+    assert new.pop("fibers_from") == "tiles"
+    added = ("tiles_match_afv", "source_tiles_match_afv")
+    for side in new["runs"]:
+        for c, run in new["runs"][side].items():
+            assert [run.pop(k) for k in added] == [True, True], (side, c)
+    assert new == old
+
+
+def test_villas_tests_at_39a8cf3a_are_the_transcript():
+    ev = (
+        ROOT / "reports/evidence/villa_volume_seed_heading_tests_39a8cf3a.txt"
+    ).read_text()
+    main, patched = ev.split("== volume.py patched")
+    assert "villa 39a8cf3a1" in ev and "Python 3.14" in ev
+    (blob, pinned) = re.findall(
+        r"^volume\.py sha1 \(git blob\): (\w+) == main: (\w+)$", main, re.M
+    )[0]
+    assert blob == pinned
+    failed = sorted(int(x) for x in re.findall(r"^FAILED \S+signed_along_the_presence_direction\[(\d+)\]$", main, re.M))  # fmt: skip
+    assert failed == [36, 60, 89, 91, 120] and "5 failed, 15 passed" in main
+    assert "20 passed" in patched and "failed" not in patched
+    text = _text()
+    assert "`reports/evidence/villa_volume_seed_heading_tests_39a8cf3a.txt`" in text
+    assert "**The re-run itself is not done.**" in text
+
+
+def test_the_launcher_passes_no_fibers_only_without_the_afv_export():
+    """Before #2316 the chain frames fibers.afv with finding 97's template; from #2316 it passes --no-fibers and needs
+    the native store's directory."""
+    sh = (ROOT / "repro/fibers/run_villa_seed_heading_rerun.sh").read_text()
+    assert 'if grep -q -- "\'--afv-template\'" "$W/src_before/$VOL"; then' in sh
+    assert (
+        'if [ "$STORE" = 1 ]; then ARGS+=(--no-fibers); else ARGS+=(--afv-template "$G/run/$2.afv"); fi'
+        in sh
+    )
+    assert 'VILLA_SHA="${VILLA_SHA:-39a8cf3a124bdd5540ee826e1cb30047c8dc8c85}"' in sh
