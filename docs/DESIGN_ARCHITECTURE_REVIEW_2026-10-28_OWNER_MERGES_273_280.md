@@ -113,8 +113,8 @@ merges them so that it merges cleanly, and the next round reviews them.
 
 - **The changed tests**, with every test of the touched scripts, gave 844 passed, before the validator fix. The one
   failure was the stale test above. The validator's test file then gives 48 passed.
-- **The standard suite** (`scripts/run_validation_tests.py`) on the branch gives 43 failures and 2 modules that
-  cannot be collected.
+- **The standard suite** (`scripts/run_validation_tests.py`) on the branch gives 3347 passed and 24 skipped, with 43
+  failures and 2 modules that cannot be collected.
   - The same 43 fail on main. They need `s3fs`, `numba`, `jsonschema` or Villa files absent here.
   - The 2 modules need `tensorstore` and `s3fs`.
 - **The guard set** with the seven PRs' tests gives 1313 passed and 15 skipped. The one failure is the standing
