@@ -506,6 +506,7 @@ def test_custom_prediction_run_metadata_is_checked_and_recorded(inputs):
 
 
 def test_requested_missing_prediction_metadata_is_not_ignored(inputs):
-    with pytest.raises(FileNotFoundError):
+    # read through scripts/text_snapshot.py since #279: a missing input is not a regular file
+    with pytest.raises(ValueError, match="regular file"):
         generate(inputs, prediction_metadata=str(inputs[0].parent / "missing.json"))
     assert not inputs[2].exists()

@@ -172,10 +172,14 @@ def prepare(villa, run, out, volume, ct=None):
     if hashlib.sha256(raw).hexdigest() != before["run.json"]:
         raise ValueError("run record changed while reading")
     record = json.loads(raw)
-    if not (ct or record.get("ct_zarr") or record.get("ct")):
+    recorded = record.get("ct_zarr") or record.get("ct")
+    if not (ct or recorded):
         raise ValueError(
             "pass --ct for a legacy record; checkpoint fallback is disabled"
         )
+    # Naming another store would bind the traced CT's coordinates to that volume.
+    if ct and recorded and ct != recorded:
+        raise ValueError("the run recorded the CT it traced; --ct cannot replace it")
     scale = float(record["grid_scale"])
     if not math.isfinite(scale) or scale <= 0 or not tiles(run):
         raise ValueError("requires a positive finite grid_scale and finished tiles")
