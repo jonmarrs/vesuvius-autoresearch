@@ -67,6 +67,9 @@ def review_catalog(coords):
         raise ValueError(
             "patch catalog must contain nonnegative integer y/x coordinates"
         )
+    if len(np.unique(catalog, axis=0)) != len(catalog):
+        # A repeated patch would be scored, ranked and counted twice in the review queue.
+        raise ValueError("patch catalog repeats a y/x coordinate")
     return catalog.copy()
 
 
