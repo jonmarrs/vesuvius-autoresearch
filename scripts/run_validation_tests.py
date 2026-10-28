@@ -1,13 +1,21 @@
 #!/usr/bin/env python3
 """
-Run the lightweight validation test suite with the active Python interpreter.
+Run the curated validation suite with the active Python interpreter.
 
-This avoids accidentally using a system pytest entrypoint that is not connected
-to the project virtualenv.
+Uses this checkout as the working directory and hides CUDA unless --allow-cuda
+is supplied. --list only prints module paths; --match selects by path glob.
+Pass pytest options after --, for example: --match '*noise_probe*' -- -x -rs
 """
 
+import argparse
+import fnmatch
+import os
+import shlex
 import subprocess
 import sys
+from pathlib import Path
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
 
 VALIDATION_TESTS = [
     "tests/test_artifact_hashes.py",
@@ -67,6 +75,7 @@ VALIDATION_TESTS = [
     "tests/test_detector_contracts.py",
     "tests/test_convert_fragment.py",
     "tests/test_submission_contracts.py",
+    "tests/test_evidence_workflow_contracts.py",
     "tests/test_interpolation_evidence.py",
     "tests/test_interpolation_drivers.py",
     "tests/test_production_predict.py",
@@ -105,6 +114,7 @@ VALIDATION_TESTS = [
     # tests/test_validation_suite_covers_the_loop.py now fails when one is
     # missing.
     "tests/test_validation_suite_covers_the_loop.py",
+    "tests/test_validation_runner.py",
     "tests/test_betti_loss.py",
     "tests/test_checkout_imports_its_own_code.py",
     "tests/test_detector_depth_ablation.py",
@@ -162,11 +172,85 @@ VALIDATION_TESTS = [
 ]
 
 
-def main():
-    cmd = [sys.executable, "-m", "pytest", "-q", *VALIDATION_TESTS]
-    print("Running:", " ".join(cmd), flush=True)
-    raise SystemExit(subprocess.call(cmd))
+def select_tests(patterns):
+    """Select the union of globs in registry order, rejecting silent omissions."""
+    if not VALIDATION_TESTS or len(set(VALIDATION_TESTS)) != len(VALIDATION_TESTS):
+        raise ValueError(
+            "validation registry must be nonempty and contain no duplicates"
+        )
+    for name in VALIDATION_TESTS:
+        path = REPO_ROOT / name
+        if not path.is_file() or not path.resolve().is_relative_to(REPO_ROOT):
+            raise ValueError(
+                f"validation module is missing or outside this checkout: {name}"
+            )
+    selected = set()
+    for pattern in patterns:
+        matches = {
+            name for name in VALIDATION_TESTS if fnmatch.fnmatchcase(name, pattern)
+        }
+        if not matches:
+            raise ValueError(f"--match pattern matched no curated modules: {pattern!r}")
+        selected.update(matches)
+    return [name for name in VALIDATION_TESTS if not patterns or name in selected]
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__, allow_abbrev=False)
+    parser.add_argument(
+        "--match",
+        action="append",
+        default=[],
+        metavar="GLOB",
+        help="Select curated module paths by glob; repeat to take their union",
+    )
+    parser.add_argument(
+        "--list",
+        action="store_true",
+        help="List selected modules without running pytest",
+    )
+    parser.add_argument(
+        "--allow-cuda",
+        action="store_true",
+        help="Preserve inherited CUDA visibility for tests (default: hide CUDA)",
+    )
+    arguments = list(sys.argv[1:] if argv is None else argv)
+    separator = arguments.index("--") if "--" in arguments else len(arguments)
+    args = parser.parse_args(arguments[:separator])
+    pytest_args = arguments[separator + 1 :]
+    if args.list and pytest_args:
+        parser.error("--list does not run pytest; remove arguments after --")
+    try:
+        tests = select_tests(args.match)
+    except ValueError as exc:
+        parser.error(str(exc))
+    if args.list:
+        print("\n".join(tests))
+        return 0
+
+    cmd = [sys.executable, "-m", "pytest", "-q", *tests, *pytest_args]
+    env = os.environ.copy()
+    if not args.allow_cuda:
+        env["CUDA_VISIBLE_DEVICES"] = ""
+    print(
+        f"Validation scope: {len(tests)}/{len(VALIDATION_TESTS)} curated modules",
+        flush=True,
+    )
+    print(f"Working directory: {REPO_ROOT}", flush=True)
+    print(
+        "CUDA visibility: " + ("inherited" if args.allow_cuda else "hidden"), flush=True
+    )
+    print("Running:", shlex.join(cmd), flush=True)
+    try:
+        status = subprocess.call(cmd, cwd=REPO_ROOT, env=env)
+    except OSError as exc:
+        print(f"Could not launch validation: {exc}", file=sys.stderr)
+        return 1
+    except KeyboardInterrupt:
+        print("\nValidation interrupted.", file=sys.stderr)
+        return 130
+    return status if status >= 0 else 128 - status
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())
