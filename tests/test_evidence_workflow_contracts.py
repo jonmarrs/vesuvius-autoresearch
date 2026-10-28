@@ -282,6 +282,18 @@ def test_report_aliases_via_filesystem_identity_are_rejected(tmp_path, kind):
     assert metadata.read_text() == "{}"
 
 
+def test_a_remote_file_uri_replaces_the_previous_report_with_a_failure(tmp_path):
+    """Without --out the record is reported as FAIL; with it, planning the report path raised on the remote URI and
+    exited before writing, so an earlier PASS stayed on disk."""
+    metadata, output = tmp_path / "meta.json", tmp_path / "report.json"
+    metadata.write_text(json.dumps({"train_mask_path": "file://nas/masks/train.npy"}))
+    output.write_text(json.dumps({"status": "PASS"}))
+    with pytest.raises(SystemExit) as exit_info:
+        validator.main(["--metadata", str(metadata), "--out", str(output)])
+    assert exit_info.value.code == 1
+    assert json.loads(output.read_text())["status"] == "FAIL"
+
+
 def test_changed_metadata_aborts_report_publication(tmp_path, monkeypatch):
     metadata, output = tmp_path / "meta.json", tmp_path / "report.json"
     metadata.write_text("{}")
