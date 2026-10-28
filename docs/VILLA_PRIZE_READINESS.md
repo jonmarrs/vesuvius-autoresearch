@@ -118,9 +118,15 @@ uv run python scripts/build_lasagna_fiber_worklist.py \
   --limit 12
 ```
 
-This writes `reports/lasagna_fiber_worklist.json` and `.tsv`, filtering to
-submittable occupied local windows and adding commands for structure-tensor
-preprocessing plus follow-up evidence-chain runs.
+This writes `reports/lasagna_fiber_worklist.json` and `.tsv`, filtering to local
+rows with the legacy `submittable_window=true` flag and occupancy other than
+`false` (unknown occupancy is included). It adds preprocessing and evidence
+commands; the flag and priority do not certify prize eligibility. Both outputs
+are checked together and publication errors attempt to restore the previous pair.
+Use `--bundle-dir reports/candidate_review_001` for a new review directory with
+JSON, TSV, a summary, and the captured ranked source. Generated evidence commands
+pin that source's SHA-256 and relative-path base. See the
+[worklist contracts](CANDIDATE_PREPROCESSING.md#review-a-captured-worklist-before-processing).
 
 Generate exact inference commands for the top ranked rows:
 

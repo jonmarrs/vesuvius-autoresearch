@@ -9,6 +9,7 @@ opportunity around compressed and highly curved regions.
 
 import argparse
 import csv
+import html
 import json
 import math
 import shlex
@@ -19,11 +20,15 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from scripts.candidate_artifacts import integer
+from scripts.candidate_artifacts import integer, write_json
 from scripts.inference.run_ranked_inference import (
     build_predict_command,
-    load_candidates,
+    read_candidate_table,
+    resolve_candidate_paths,
 )
+from scripts.labeling.label_artifacts import publish_new
+from scripts.worklist_publication import publish_pair
+from vesuvius_autoresearch.core.prediction_artifacts import validate_plan_paths
 
 
 def _float(row, key, default=0.0):
@@ -49,7 +54,7 @@ def _artifact_stem(row):
     )
 
 
-def _candidate_score(row):
+def _priority_components(row):
     review_score = _float(row, "review_score")
     ink_max = _float(row, "ink_max")
     ink_std = _float(row, "ink_std")
@@ -59,22 +64,32 @@ def _candidate_score(row):
     core_bonus = 0.25 if row.get("division") in {"div_90", "div_100"} else 0.0
     # Prefer regions with geometry/fiber signal and some ink structure, but keep
     # high-priority unpredicted candidates eligible for first-pass preprocessing.
-    return (
-        review_score
-        + occupied_bonus
-        + prediction_bonus
-        + core_bonus
-        + 2.0 * ink_max
-        + ink_std
-        + 0.5 * fiber_mean
-    )
+    return {
+        "review_score": review_score,
+        "occupied_bonus": occupied_bonus,
+        "prediction_bonus": prediction_bonus,
+        "core_bonus": core_bonus,
+        "weighted_ink_max": 2.0 * ink_max,
+        "ink_std": ink_std,
+        "weighted_fiber_mean": 0.5 * fiber_mean,
+    }
 
 
-def _load_rows(ranked_path):
-    return load_candidates(ranked_path, require_local=False)
+def _candidate_score(row):
+    return sum(_priority_components(row).values())
 
 
-def _work_item(row, rank, output_root, python_executable, ranked_path, candidate_index):
+def _work_item(
+    row,
+    rank,
+    output_root,
+    python_executable,
+    ranked_path,
+    candidate_index,
+    ranked_sha256,
+    input_base_dir,
+    checkpoint,
+):
     stem = _artifact_stem(row)
     out_dir = Path(output_root) / f"{rank:03d}_{stem}"
     crop_dir = out_dir / "candidate_crop.zarr"
@@ -123,11 +138,15 @@ def _work_item(row, rank, output_root, python_executable, ranked_path, candidate
         str(Path(ranked_path).resolve()),
         "--candidate-index",
         str(candidate_index),
+        "--ranked-sha256",
+        ranked_sha256,
+        "--input-base-dir",
+        str(input_base_dir),
         "--out-dir",
         str(evidence_dir),
         "--execute",
         "--checkpoint",
-        "best_model.pt",
+        str(checkpoint),
     ]
     for key, flag in (
         ("train_mask_path", "--train-mask"),
@@ -145,7 +164,10 @@ def _work_item(row, rank, output_root, python_executable, ranked_path, candidate
         "rank": rank,
         "candidate_index": candidate_index,
         "ranked_path": str(Path(ranked_path).resolve()),
+        "ranked_sha256": ranked_sha256,
+        "input_base_dir": str(input_base_dir),
         "priority_score": round(_candidate_score(row), 6),
+        "priority_components": _priority_components(row),
         "official_issue": "https://github.com/ScrollPrize/villa/issues/191",
         "scroll_id": row.get("scroll_id"),
         "short_id": row.get("short_id"),
@@ -185,10 +207,28 @@ def build_worklist(
     ranked_path,
     output_root="reports/lasagna_fiber_candidates",
     limit=12,
-    python_executable=".venv/bin/python",
+    python_executable=sys.executable,
+    *,
+    checkpoint="best_model.pt",
+):
+    _, report, _ = _plan_worklist(
+        ranked_path, output_root, limit, python_executable, checkpoint
+    )
+    return report["candidates"]
+
+
+def _plan_worklist(
+    ranked_path,
+    output_root,
+    limit,
+    python_executable,
+    checkpoint,
+    ranked_reference=None,
 ):
     limit = integer(limit, "limit", 1)
-    rows = _load_rows(ranked_path)
+    source, rows = read_candidate_table(ranked_path)
+    input_base_dir = Path.cwd().resolve()
+    rows = [resolve_candidate_paths(row, input_base_dir) for row in rows]
     eligible = [
         (index, row)
         for index, row in enumerate(rows)
@@ -203,22 +243,61 @@ def build_worklist(
             raise ValueError("candidate priority score must be finite")
     eligible.sort(key=lambda item: _candidate_score(item[1]), reverse=True)
     output_root = Path(output_root).resolve()
-    return [
-        _work_item(row, rank, output_root, python_executable, ranked_path, index)
+    checkpoint = Path(checkpoint).resolve()
+    python_executable = (
+        str(Path(python_executable).absolute())
+        if "/" in str(python_executable)
+        else str(python_executable)
+    )
+    items = [
+        _work_item(
+            row,
+            rank,
+            output_root,
+            python_executable,
+            ranked_reference or source.path,
+            index,
+            source.provenance()["sha256"],
+            input_base_dir,
+            checkpoint,
+        )
         for rank, (index, row) in enumerate(eligible[:limit])
     ]
+    return (
+        source,
+        {
+            "contract": 2,
+            "ranked_path": str(source.path),
+            "source": source.provenance(),
+            "input_base_dir": str(input_base_dir),
+            "opportunity": "villa-issue-191",
+            "scope": "CT preprocessing plan; priority is a heuristic, not model quality or prize eligibility",
+            "selection": {
+                "source_rows": len(rows),
+                "eligible_rows": len(eligible),
+                "selected_rows": len(items),
+                "limit": limit,
+                "rule": "local_uri present, submittable_window=true, ct_occupied_status!=false",
+                "selected_unknown_occupancy": sum(
+                    item["ct_occupied_status"] not in {"true", "false"}
+                    for item in items
+                ),
+            },
+            "candidates": items,
+        },
+        rows,
+    )
 
 
 def _write_tsv(path, rows):
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    if not rows:
-        path.write_text("")
-        return
     fields = [
         "rank",
         "candidate_index",
         "ranked_path",
+        "ranked_sha256",
+        "input_base_dir",
         "priority_score",
         "official_issue",
         "scroll_id",
@@ -254,35 +333,132 @@ def _write_tsv(path, rows):
             writer.writerow({field: row.get(field, "") for field in fields})
 
 
-def main():
+def _validate_paths(outputs, source, rows, items, checkpoint):
+    reads = [
+        (source.path, "ranked table"),
+        (checkpoint, "checkpoint"),
+        (REPO_ROOT / "autoresearch.lock", "research lock"),
+    ]
+    for row in rows:
+        for key in ("local_uri", "train_mask_path", "predict_mask_path"):
+            if row.get(key) and "://" not in row[key]:
+                reads.append((row[key], f"candidate {key}"))
+    writes = [(path, "worklist output") for path in outputs]
+    writes += [
+        (item["output_dir"], f"candidate {item['rank']} planned artifacts")
+        for item in items
+    ]
+    for path in outputs:
+        if Path(path).is_symlink() or (
+            Path(path).exists() and not Path(path).is_file()
+        ):
+            raise ValueError(f"worklist output must be a regular file: {path}")
+    validate_plan_paths(writes, reads)
+
+
+def _readme(report):
+    lines = [
+        "# CT preprocessing worklist",
+        "",
+        report["scope"],
+        "",
+        "Source/evidence paths are resolved from the recorded input base directory.",
+        "This bundle plans crops and tensors; it does not fit a surface or run inference.",
+        "",
+        "| Priority rank | Source candidate index | Artifact | Heuristic priority |",
+        "| --- | --- | --- | --- |",
+    ]
+    for item in report["candidates"]:
+        stem = (
+            html.escape(item["artifact_stem"])
+            .replace("|", "&#124;")
+            .replace("`", "&#96;")
+        )
+        lines.append(
+            f"| {item['rank']} | {item['candidate_index']} | <code>{stem}</code> | {item['priority_score']} |"
+        )
+    lines += [
+        "",
+        "See worklist.json for score components, selection counts and commands.",
+        "The captured sources/ranked.tsv and its SHA-256 pin evidence row identity.",
+        "",
+    ]
+    return "\n".join(lines)
+
+
+def main(argv=None):
     parser = argparse.ArgumentParser()
     parser.add_argument("--ranked", default="reports/scroll23_ranked_candidates.tsv")
-    parser.add_argument("--out", default="reports/lasagna_fiber_worklist.json")
-    parser.add_argument("--tsv", default="reports/lasagna_fiber_worklist.tsv")
+    parser.add_argument("--out", default=None)
+    parser.add_argument("--tsv", default=None)
+    parser.add_argument(
+        "--bundle-dir",
+        type=Path,
+        help="Publish a new review bundle containing JSON, TSV, README and captured ranked source",
+    )
+    parser.add_argument("--checkpoint", default="best_model.pt")
     parser.add_argument("--output-root", default="reports/lasagna_fiber_candidates")
     parser.add_argument("--limit", type=int, default=12)
-    parser.add_argument("--python-executable", default=".venv/bin/python")
-    args = parser.parse_args()
-
-    rows = build_worklist(
-        args.ranked, args.output_root, args.limit, args.python_executable
+    parser.add_argument("--python-executable", default=sys.executable)
+    args = parser.parse_args(argv)
+    if args.bundle_dir and (args.out is not None or args.tsv is not None):
+        parser.error("--bundle-dir cannot be combined with --out or --tsv")
+    bundle = args.bundle_dir.absolute() if args.bundle_dir else None
+    source, report, rows = _plan_worklist(
+        args.ranked,
+        args.output_root,
+        args.limit,
+        args.python_executable,
+        args.checkpoint,
+        bundle / "sources/ranked.tsv" if bundle else None,
     )
-    out = Path(args.out)
-    out.parent.mkdir(parents=True, exist_ok=True)
-    with open(out, "w") as f:
-        json.dump(
-            {
-                "ranked_path": args.ranked,
-                "opportunity": "villa-issue-191",
-                "candidates": rows,
-            },
-            f,
-            indent=2,
+    if not report["candidates"]:
+        raise ValueError("no eligible local candidates; previous worklist retained")
+    if bundle:
+        _validate_paths(
+            [bundle],
+            source,
+            rows,
+            report["candidates"],
+            Path(args.checkpoint).resolve(),
         )
-    _write_tsv(args.tsv, rows)
-    print(f"Wrote {len(rows)} Lasagna/fiber candidates to {args.out}")
-    print(f"Wrote TSV to {args.tsv}")
+        with publish_new(bundle) as staging:
+            source.copy_into(staging, "ranked.tsv")
+            _write_tsv(staging / "worklist.tsv", report["candidates"])
+            write_json(staging / "worklist.json", report)
+            (staging / "README.md").write_text(_readme(report), encoding="utf-8")
+            source.verify()
+        print(
+            f"Published {len(report['candidates'])} candidates to review bundle: {bundle}"
+        )
+        return bundle
+    output = Path(args.out or "reports/lasagna_fiber_worklist.json").absolute()
+    tsv = Path(args.tsv or "reports/lasagna_fiber_worklist.tsv").absolute()
+
+    def verify():
+        _validate_paths(
+            [output, tsv],
+            source,
+            rows,
+            report["candidates"],
+            Path(args.checkpoint).resolve(),
+        )
+        source.verify()
+
+    verify()
+
+    def render(json_path, tsv_path):
+        write_json(json_path, report)
+        _write_tsv(tsv_path, report["candidates"])
+
+    publish_pair([output, tsv], render, verify)
+    print(f"Wrote {len(report['candidates'])} candidates to {output} and {tsv}")
+    return output
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except (OSError, ValueError, csv.Error, RuntimeError) as exc:
+        print(f"Worklist planning failed: {exc}", file=sys.stderr)
+        raise SystemExit(1) from None

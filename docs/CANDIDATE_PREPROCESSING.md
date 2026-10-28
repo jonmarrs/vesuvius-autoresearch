@@ -19,6 +19,61 @@ positive integer dimensions, and a safe artifact name. Invalid eligible candidat
 fail before execution. Relative input and mask paths resolve from the caller's
 working directory; generated helper commands use absolute script paths.
 
+## Review a captured worklist before processing
+
+```sh
+uv run python scripts/build_lasagna_fiber_worklist.py \
+  --ranked path/to/candidates.tsv --limit 3 --checkpoint best_model.pt \
+  --bundle-dir reports/candidate_review_001
+```
+
+This only plans work. It publishes a **new** directory containing `worklist.json`,
+`worklist.tsv`, a human-readable `README.md`, and the exact captured
+`sources/ranked.tsv`. It reads no CT arrays or checkpoint weights and starts no
+processing commands. Keep the planned artifact output root separate from the
+review bundle and input paths. Existing bundle paths are rejected.
+
+The JSON records source SHA-256/byte size, source/eligible/selected row counts,
+selected unknown-occupancy count, and each priority score's components. Priority
+is the existing heuristic; it is not a measured quality score or prize eligibility
+decision. Rows require a local URI and the legacy `submittable_window=true` flag,
+and exclude `ct_occupied_status=false`; unknown occupancy remains eligible.
+Equal priorities retain source order. `candidate_index` is the zero-based parsed
+data-record index before filtering or ranking; headers, blank lines and newlines
+inside quoted cells do not count as separate candidates.
+
+Evidence commands use the captured TSV in bundle mode. All newly generated
+evidence commands include `--ranked-sha256` and `--input-base-dir`: the evidence
+reader checks and parses the same captured bytes before touching its output,
+and resolves relative volume/mask paths from the planning directory. Checkpoint
+and crop source paths are absolute. Executable paths become absolute without
+dereferencing virtualenv interpreter symlinks; bare executable names still use
+`PATH`. This permits running a generated command from another directory while
+keeping its selected candidate and path interpretation. Input arrays, masks and
+checkpoint contents are not frozen by a worklist; only the ranked text is captured.
+
+The existing JSON/TSV output paths and `--out`/`--tsv` options remain supported.
+Both outputs are preflighted together against each other, ranked inputs,
+checkpoint, named volumes/masks, research lock and planned artifact directories.
+Symlinks, directories and aliases are rejected. Both files are rendered before
+replacement, and caught publication errors attempt to restore the previous pair.
+Modes of replaced regular files are preserved. If restoration fails, the error
+names retained hidden directories containing recoverable `previous` files.
+No eligible candidates or changed source bytes fail without replacing prior
+worklists. Legacy commands refer to the original ranked path and refuse a changed
+table; regenerate the plan or use bundle mode to preserve the source.
+
+The shared TSV reader accepts UTF-8 (with optional BOM) and quoted multiline
+cells. Duplicate/empty headers, inconsistent row widths, malformed quoting and
+invalid UTF-8 fail. Limits of 16 MiB and 100,000 data records apply to the full
+source before filtering or limiting. The existing experiment reports share the
+same bounded byte-capture helper without changing their report contract.
+
+Serialize writers and readers during legacy two-file replacement. It cannot be
+atomic across two paths and is not crash-transactional; a killed process can leave
+hidden staging/backup directories. Bundle mode publishes one immutable directory.
+Keep source paths stable during planning and inputs stable during execution.
+
 ## Crop and tensor publication
 
 Crop origins that overrun a positive source boundary are clamped to fit, preserving
@@ -126,6 +181,8 @@ Report paths are checked before publication, protecting ranked inputs,
 checkpoints, supplied source/mask paths, artifact directories and the research
 lock from direct or resolved overlap. The path check is a snapshot; serialize
 concurrent writers as with directory publication.
+Captured work-item source and mask paths are protected too, even if the current
+ranked file differs from the capture used to build the work item.
 
 ## Measuring stored tensors
 

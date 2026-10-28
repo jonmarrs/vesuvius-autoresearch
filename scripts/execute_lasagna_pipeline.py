@@ -224,11 +224,16 @@ def _validate_report_path(args, items=()):
                 reads.append((value, f"candidate {key}"))
     for item in items:
         for key in (
+            "local_uri",
+            "train_mask_path",
+            "predict_mask_path",
             "cropped_volume_uri",
             "structure_tensor_output",
             "evidence_output_dir",
         ):
-            reads.append((item[key], f"candidate {key}"))
+            value = item.get(key)
+            if value and "://" not in str(value):
+                reads.append((value, f"captured candidate {key}"))
     validate_plan_paths([(args.report, "pipeline report")], reads)
 
 

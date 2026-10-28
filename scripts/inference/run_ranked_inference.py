@@ -7,6 +7,7 @@ Dry-run is the default. Use --execute to run commands serially.
 
 import argparse
 import csv
+import io
 import math
 import os
 import shlex
@@ -14,11 +15,13 @@ import subprocess
 import sys
 import tempfile
 from pathlib import Path
+from urllib.parse import unquote, urlsplit
 
 if __package__ in (None, ""):
     root = Path(__file__).resolve().parents[2]
     sys.path[:0] = [str(root), str(root / "src")]
 
+from scripts.text_snapshot import Snapshot
 from vesuvius_autoresearch.core.file_modes import replacement_mode
 from vesuvius_autoresearch.core.prediction_artifacts import (
     prediction_paths,
@@ -27,6 +30,8 @@ from vesuvius_autoresearch.core.prediction_artifacts import (
 )
 
 PREDICT_SCRIPT = Path(__file__).resolve().with_name("predict.py")
+MAX_CANDIDATE_BYTES = 16 * 1024**2
+MAX_CANDIDATE_ROWS = 100_000
 
 
 def _as_int(row, key, default=0):
@@ -111,11 +116,64 @@ def build_predict_command(
     ]
 
 
+def read_candidate_table(path, expected_sha256=None):
+    source = Snapshot.read(path, MAX_CANDIDATE_BYTES)
+    if expected_sha256 is not None and source.provenance()["sha256"] != expected_sha256:
+        raise ValueError("ranked candidate table changed; regenerate the worklist")
+    try:
+        return source, parse_candidate_table(source.text())
+    except csv.Error as exc:
+        raise ValueError(f"invalid candidate TSV: {exc}") from exc
+
+
+def resolve_candidate_paths(row, base_dir):
+    """Resolve recorded filesystem paths once; leave remote source URIs intact."""
+    row = dict(row)
+    base = Path(base_dir).resolve()
+    for key in ("local_uri", "source_uri", "train_mask_path", "predict_mask_path"):
+        value = row.get(key)
+        if not value:
+            continue
+        parts = urlsplit(value)
+        if (base / value).exists() or not parts.scheme:
+            row[key] = str((base / value).resolve())
+        elif parts.scheme == "file":
+            if parts.netloc not in {"", "localhost"}:
+                raise ValueError("file URI must refer to the local host")
+            row[key] = str((base / unquote(parts.path)).resolve())
+    return row
+
+
+def parse_candidate_table(text):
+    reader = csv.reader(io.StringIO(text, newline=""), delimiter="\t", strict=True)
+    try:
+        columns = next(reader)
+    except StopIteration as exc:
+        raise ValueError("candidate table is empty") from exc
+    if (
+        not columns
+        or any(not column for column in columns)
+        or len(set(columns)) != len(columns)
+    ):
+        raise ValueError("candidate table has empty or duplicate column names")
+    rows = []
+    for cells in reader:
+        if not cells:
+            continue  # Match DictReader's treatment of genuinely blank lines.
+        if len(rows) >= MAX_CANDIDATE_ROWS:
+            raise ValueError(f"candidate table exceeds {MAX_CANDIDATE_ROWS} rows")
+        if len(cells) != len(columns):
+            raise ValueError(
+                f"candidate table line {reader.line_num} has wrong column count"
+            )
+        rows.append(dict(zip(columns, cells, strict=True)))
+    return rows
+
+
 def load_candidates(path, limit=None, require_local=True):
     if limit is not None and (type(limit) is not int or limit <= 0):
         raise ValueError("limit must be a positive integer")
-    with open(path, newline="") as f:
-        rows = list(csv.DictReader(f, delimiter="\t"))
+    _, rows = read_candidate_table(path)
     if require_local:
         rows = [row for row in rows if row.get("local_uri")]
     if limit is not None:
