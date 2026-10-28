@@ -38,6 +38,8 @@ LOCK_HOLDER_ARGS = frozenset(
         "scripts.reevaluate_best_model",
         "promote_loop_candidate.py",
         "scripts.promote_loop_candidate",
+        "run_post_sprint_villa_handoff.py",
+        "scripts.run_post_sprint_villa_handoff",
     }
 )
 
@@ -83,6 +85,54 @@ def running_pid(repo):
 # session of its own: the loop's train.py and the ablation's cell. Run here,
 # both write run_result.json, and train.py the loop's files as well.
 RUN_SCRIPTS = ("scripts/training/train.py", "scripts/train_with_new_augs.py")
+RUN_MODULES = frozenset(name.removesuffix(".py").replace("/", ".") for name in RUN_SCRIPTS)
+
+
+def _python_module(args):
+    """The interpreter's -m target, never a script's own -m argument.
+
+    Accept the Python options which can precede -m, including combined short
+    flags and the operand-taking -W/-X options. uv's ordinary ``run python``
+    wrapper is recognized so its Python child is counted as the same run.
+    Unknown interpreter/wrapper syntax is left alone.
+    """
+    if not args:
+        return None
+    if os.path.basename(args[0]) == "uv":
+        if len(args) < 3 or args[1] != "run":
+            return None
+        args = args[2:]
+        if args and args[0] == "--":
+            args = args[1:]
+    if not args or not os.path.basename(args[0]).startswith("python"):
+        return None
+    index = 1
+    while index < len(args):
+        arg = args[index]
+        index += 1
+        if arg in ("-", "--") or not arg.startswith("-"):
+            return None  # stdin or a script: remaining arguments belong to it
+        if arg == "--check-hash-based-pycs":
+            index += 1
+            continue
+        if arg.startswith("--check-hash-based-pycs="):
+            continue
+        if arg.startswith("--"):
+            return None
+        flags = arg[1:]
+        while flags:
+            flag, flags = flags[0], flags[1:]
+            if flag == "m":
+                return flags or (args[index] if index < len(args) else None)
+            if flag in "cVh?":
+                return None  # -c executes text; version/help execute no module
+            if flag in "WX":
+                if not flags:
+                    index += 1  # the next token is the option's operand
+                break
+            if flag not in "bBdEiIOPqRsSuvx":
+                return None
+    return None
 
 
 def _stat_fields(pid):
@@ -112,7 +162,8 @@ def unsupervised_runs(repo, supervisor=None):
     run_result.json and, for train.py, replace best_model.pt. A run started
     here by hand writes the same files. A run is an interpreter (python, uv)
     working in this checkout with one of RUN_SCRIPTS among its arguments, by
-    path; an editor or pager open on the file is not one. A run whose session
+    path or Python -m target; an editor or pager open on the file is not one.
+    A run whose session
     leader is a child of supervisor (the lock holder's PID) is that holder's
     own and is skipped. Supervisor-started runs are session leaders with a
     config_temp* config. A run's own processes (uv run's python child, with
@@ -147,7 +198,10 @@ def unsupervised_runs(repo, supervisor=None):
         program = os.path.basename(args[0])
         if not (program.startswith("python") or program == "uv"):
             continue
-        if not any(os.path.realpath(os.path.join(cwd, a)) in scripts for a in args[1:]):
+        named_script = any(
+            os.path.realpath(os.path.join(cwd, a)) in scripts for a in args[1:]
+        )
+        if not named_script and _python_module(args) not in RUN_MODULES:
             continue
         started = session == pid and any(
             os.path.basename(a).startswith("config_temp") for a in args

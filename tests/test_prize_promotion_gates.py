@@ -85,7 +85,7 @@ def test_skeleton_distance_fallback_returns_nan_when_official_metric_is_missing(
     assert math.isnan(compute_skeleton_dist(empty, empty))
 
 
-def test_prize_gates_fail_when_window_exceeds_official_guidance():
+def test_local_gates_keep_the_registered_window_limit():
     config = ExperimentConfig(patch_size=128)
 
     gates = evaluate_prize_gates(
@@ -102,7 +102,7 @@ def test_prize_gates_fail_when_window_exceeds_official_guidance():
     assert gates["window_ok"] is False
     assert gates["submittable"] is False
     assert any(
-        "exceeds official prize guidance" in failure for failure in gates["failures"]
+        "exceeds the local evaluation limit" in failure for failure in gates["failures"]
     )
 
 

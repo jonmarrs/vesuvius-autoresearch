@@ -6,6 +6,10 @@ discovery image of a region at least 1 cm wide (the declared scale bar must fit)
 valid geometry, and supplied overlap masks. A provided VC3D export must have
 coherent array and OME metadata. This does not establish that masks describe the
 model's complete training history.
+
+The retained 64px/0.5mm limit is this project's local artifact contract, not
+the current official reading-prize rule. Larger windows require independent
+anti-hallucination evidence; see docs/RESEARCH_STRATEGY.md.
 """
 
 import argparse
@@ -285,6 +289,8 @@ def validate(metadata_path, train_mask=None, predict_mask=None, zarr_path=None):
     metadata_path = Path(metadata_path)
     report = {
         "status": "FAIL",
+        "scope": "local_artifact_checks",
+        "prize_eligibility": "not_assessed",
         "metadata_path": str(metadata_path),
         "ml_window_px": None,
         "ml_window_mm": None,
@@ -374,7 +380,7 @@ def validate(metadata_path, train_mask=None, predict_mask=None, zarr_path=None):
         report["ml_window_px"], report["ml_window_mm"] = window, window_mm
         if window > MAX_ML_WINDOW_PX and window_mm > MAX_ML_WINDOW_MM + 1e-9:
             failures.append(
-                f"ML window is {window}px/{window_mm:.3f}mm; expected <= {MAX_ML_WINDOW_PX}px or <= {MAX_ML_WINDOW_MM:.3f}mm"
+                f"ML window is {window}px/{window_mm:.3f}mm; local artifact contract expects <= {MAX_ML_WINDOW_PX}px or <= {MAX_ML_WINDOW_MM:.3f}mm"
             )
     except (ValueError, TypeError, OverflowError) as exc:
         failures.append(str(exc))
