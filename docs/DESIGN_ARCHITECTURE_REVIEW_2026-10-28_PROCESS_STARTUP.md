@@ -50,6 +50,12 @@ only across child registration, rather than throughout the command. Callback
 restoration uses `ExitStack` so restoring another handler still happens if a
 callback raises.
 
+The PR review reproduced a second edge case in the initial fix: if process
+creation also failed, the queued stop request was skipped. Three new cases
+failed for SIGTERM, SIGHUP and SIGINT. Signal replay now runs from `finally`
+after restoration, including failed launches. A pending stop still takes
+priority over a launch error, rather than allowing the loop to continue.
+
 Review covered ignored signals, returning and exiting handlers, spawn failure,
 timeout escalation, child/grandchild termination, local lock release, report
 aliases, CLI parsing and stopping before later pipeline steps. The existing
@@ -63,6 +69,12 @@ Tests use isolated CPU children and tiny synthetic inputs. The startup
 regressions initially returned **4 failed, 1 passed**. After the fix, the initial
 startup/lifecycle run passed 42 checks; the expanded shutdown/handoff run
 passed 88. New regressions are included in the standard validation list.
+After the PR review's failed-launch cancellation fix, the four focused suites
+(`test_supervisor_startup`, `test_handoff_deadlines`,
+`test_post_sprint_villa_handoff` and `test_loop_lifecycle`) passed **92 checks,
+no skips, in 25.02 seconds**. Ruff and targeted mypy passed again on the final
+source. The three review regressions fail on the first PR revision and pass
+on the final revision.
 
 The temporary Python 3.10 environment `/tmp/vesuvius-review-env` exposes already
 cached dependencies. Commands run with `OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1

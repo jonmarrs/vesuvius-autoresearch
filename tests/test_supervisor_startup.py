@@ -101,6 +101,22 @@ def test_spawn_failure_restores_handlers_and_supervisor_can_be_reused(tmp_path):
     assert supervisor.run([sys.executable, "-c", "pass"], timeout=3).returncode == 0
 
 
+@pytest.mark.parametrize("sig", [signal.SIGTERM, signal.SIGHUP, signal.SIGINT])
+def test_stop_is_not_lost_when_spawn_also_fails(monkeypatch, sig):
+    def interrupted_failure(*args, **kwargs):
+        os.kill(os.getpid(), sig)
+        raise FileNotFoundError("spawn also failed")
+
+    monkeypatch.setattr(module.subprocess, "Popen", interrupted_failure)
+    supervisor = module.ProcessSupervisor(grace_seconds=0.1)
+    with module.stops_interrupt():
+        previous = signal.getsignal(sig)
+        with pytest.raises(KeyboardInterrupt):
+            supervisor.run(["missing"], timeout=1)
+        assert signal.getsignal(sig) is previous
+    assert supervisor.active is None and supervisor.stopping is None
+
+
 def test_returning_handler_receives_registered_worker_and_keeps_running(monkeypatch):
     original = subprocess.Popen
     supervisor = module.ProcessSupervisor(grace_seconds=0.1)

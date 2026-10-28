@@ -51,21 +51,25 @@ def _register_before_interrupting():
     """
     pending = []
 
-    with contextlib.ExitStack() as restore:
-        if threading.current_thread() is threading.main_thread():
-            for sig in (*STOP_SIGNALS, signal.SIGINT):
-                previous = signal.getsignal(sig)
-                if not callable(previous):
-                    continue
+    try:
+        with contextlib.ExitStack() as restore:
+            if threading.current_thread() is threading.main_thread():
+                for sig in (*STOP_SIGNALS, signal.SIGINT):
+                    previous = signal.getsignal(sig)
+                    if not callable(previous):
+                        continue
 
-                def queue(signum, frame, handler=previous):
-                    pending.append((handler, signum, frame))
+                    def queue(signum, frame, handler=previous):
+                        pending.append((handler, signum, frame))
 
-                restore.callback(signal.signal, sig, previous)
-                signal.signal(sig, queue)
-        yield
-    for handler, signum, frame in pending:
-        handler(signum, frame)
+                    restore.callback(signal.signal, sig, previous)
+                    signal.signal(sig, queue)
+            yield
+    finally:
+        # A failed spawn must not swallow a queued stop request. ExitStack has
+        # restored the original handlers before either delivery path runs.
+        for handler, signum, frame in pending:
+            handler(signum, frame)
 
 
 class ProcessSupervisor:
