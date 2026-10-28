@@ -24,6 +24,8 @@ if str(REPO_ROOT) not in sys.path:
 from scripts.inference.run_ranked_inference import (
     build_predict_command,
     load_candidates,
+    read_candidate_table,
+    resolve_candidate_paths,
 )
 from scripts.validate_prize_artifact import resolve_artifact_path, validate
 
@@ -51,13 +53,19 @@ def _artifact_stem(row):
     )
 
 
-def select_candidate(ranked_path, index=0):
-    rows = load_candidates(ranked_path, require_local=False)
+def select_candidate(
+    ranked_path, index=0, *, expected_sha256=None, input_base_dir=None
+):
+    _, rows = read_candidate_table(ranked_path, expected_sha256)
     if not rows:
         raise ValueError(f"no candidates found in {ranked_path}")
     if index < 0 or index >= len(rows):
         raise IndexError(f"candidate index {index} outside 0..{len(rows) - 1}")
-    return rows[index]
+    return (
+        resolve_candidate_paths(rows[index], input_base_dir)
+        if input_base_dir is not None
+        else rows[index]
+    )
 
 
 def _write_json(path, data):
@@ -151,7 +159,21 @@ def build_evidence_chain(
     neural_tracing=False,
     train_mask=None,
     predict_mask=None,
+    ranked_sha256=None,
+    input_base_dir=None,
 ):
+    # A pinned plan must fail before touching an existing evidence directory if
+    # its candidate table has changed. Parsing and hashing use one byte capture.
+    pinned = (
+        select_candidate(
+            ranked_path,
+            candidate_index,
+            expected_sha256=ranked_sha256,
+            input_base_dir=input_base_dir,
+        )
+        if ranked_sha256 is not None
+        else None
+    )
     out_dir = Path(out_dir)
     prediction_dir = out_dir / "predictions"
     prediction_dir.mkdir(parents=True, exist_ok=True)
@@ -176,7 +198,13 @@ def build_evidence_chain(
         },
     )
 
-    row = select_candidate(ranked_path, candidate_index)
+    row = (
+        pinned
+        if pinned is not None
+        else select_candidate(
+            ranked_path, candidate_index, input_base_dir=input_base_dir
+        )
+    )
     stem = _artifact_stem(row)
     cmd = build_predict_command(
         row,
@@ -209,6 +237,10 @@ def build_evidence_chain(
         )
 
     metadata = patch_prediction_metadata(metadata_path, row, train_mask, predict_mask)
+    metadata["ranked_sha256"] = ranked_sha256
+    metadata["candidate_input_base_dir"] = str(
+        Path(input_base_dir or Path.cwd()).resolve()
+    )
     metadata["candidate"]["output_image_path"] = str(image_path.resolve())
     evidence_metadata_path = out_dir / "evidence_metadata.json"
     _write_json(evidence_metadata_path, metadata)
@@ -223,6 +255,10 @@ def build_evidence_chain(
         out_dir / "manifest.json",
         {
             "candidate_index": candidate_index,
+            "ranked_sha256": ranked_sha256,
+            "candidate_input_base_dir": str(
+                Path(input_base_dir or Path.cwd()).resolve()
+            ),
             "candidate": row,
             "prediction_image": str(image_path),
             "prediction_metadata": str(metadata_path),
@@ -240,11 +276,22 @@ def build_evidence_chain(
 
 
 def preflight_evidence_chain(
-    ranked_path, out_dir, candidate_index=0, execute=False, checkpoint="best_model.pt"
+    ranked_path,
+    out_dir,
+    candidate_index=0,
+    execute=False,
+    checkpoint="best_model.pt",
+    ranked_sha256=None,
+    input_base_dir=None,
 ):
     out_dir = Path(out_dir)
     prediction_dir = out_dir / "predictions"
-    row = select_candidate(ranked_path, candidate_index)
+    row = select_candidate(
+        ranked_path,
+        candidate_index,
+        expected_sha256=ranked_sha256,
+        input_base_dir=input_base_dir,
+    )
     stem = _artifact_stem(row)
     image_path = prediction_dir / f"{stem}.png"
     metadata_path = prediction_dir / f"{stem}_meta.json"
@@ -289,6 +336,8 @@ def preflight_evidence_chain(
         "status": "PASS" if not failures else "FAIL",
         "scope": "inference prerequisites; submission evidence is validated after prediction",
         "ranked_path": str(ranked_path),
+        "ranked_sha256": ranked_sha256,
+        "candidate_input_base_dir": str(Path(input_base_dir or Path.cwd()).resolve()),
         "out_dir": str(out_dir),
         "candidate_index": candidate_index,
         "candidate": row,
@@ -304,6 +353,15 @@ def preflight_evidence_chain(
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--ranked", default="reports/scroll23_ranked_candidates.tsv")
+    parser.add_argument(
+        "--ranked-sha256",
+        help="Require the exact ranked table captured by a generated worklist",
+    )
+    parser.add_argument(
+        "--input-base-dir",
+        type=Path,
+        help="Base directory for relative candidate volume and mask paths",
+    )
     parser.add_argument("--candidate-index", type=int, default=0)
     parser.add_argument("--out-dir", default="submission_evidence/candidate_000")
     parser.add_argument(
@@ -339,6 +397,8 @@ def main():
             candidate_index=args.candidate_index,
             execute=args.execute,
             checkpoint=args.checkpoint,
+            ranked_sha256=args.ranked_sha256,
+            input_base_dir=args.input_base_dir,
         )
         if args.preflight_report:
             _write_json(args.preflight_report, report)
@@ -355,6 +415,8 @@ def main():
         neural_tracing=args.neural_tracing,
         train_mask=args.train_mask,
         predict_mask=args.predict_mask,
+        ranked_sha256=args.ranked_sha256,
+        input_base_dir=args.input_base_dir,
     )
     print(json.dumps(report, indent=2))
     raise SystemExit(0 if report["status"] == "PASS" else 1)
