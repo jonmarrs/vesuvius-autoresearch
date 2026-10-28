@@ -55,13 +55,16 @@ def render_charts(results: Results, directory: Path):
         ax.set_ylabel(label)
         ax.grid(True, alpha=0.25)
     axes[0].set_ylim(-0.03, 1.03)
-    locator = AutoDateLocator()
+    # Unqualified datetimes use these coordinates only to retain wall labels;
+    # aware records were normalized to UTC by the shared input reader.
+    locator = AutoDateLocator(tz=dt.timezone.utc)
     axes[1].xaxis.set_major_locator(locator)
-    axes[1].xaxis.set_major_formatter(ConciseDateFormatter(locator))
+    axes[1].xaxis.set_major_formatter(ConciseDateFormatter(locator, tz=dt.timezone.utc))
     axes[1].set_xlabel(results.time_basis)
     diagnostics.suptitle(
         "Recorded experiment diagnostics\n"
-        "F1 / AP-lift promotion metrics are not plotted; validation regimes may differ"
+        "F1 / AP-lift promotion metrics are not plotted; validation regimes may differ\n"
+        + results.selection_label
     )
 
     hardware = Figure(figsize=(10, 6), layout="constrained")
@@ -83,13 +86,20 @@ def render_charts(results: Results, directory: Path):
     ax.set_ylabel("Recorded training throughput (Mvps)")
     ax.set_title(
         "Recorded hardware observations\n"
-        "Configurations and validation regimes may differ; no ranking inferred"
+        "Configurations and validation regimes may differ; no ranking inferred\n"
+        + results.selection_label
     )
     ax.grid(True, alpha=0.25)
 
     artifacts = {}
     description = json.dumps(
-        {"results": results.source.provenance(), "scope": results.manifest()["scope"]}
+        {
+            "results": results.source.provenance(),
+            "scope": results.manifest()["scope"],
+            "selection": results.manifest()["selection"],
+            "source_row_count": results.source_row_count,
+            "row_count": len(rows),
+        }
     )
     for name, figure in figures:
         FigureCanvasAgg(figure)
@@ -126,8 +136,8 @@ def write_manifest(directory, manifest):
         raise ValueError("report manifest verification failed")
 
 
-def plot_results(results="results.tsv", output=None):
-    data = read_results(results)
+def plot_results(results="results.tsv", output=None, *, last_rows=None):
+    data = read_results(results, last_rows=last_rows)
     output = new_output(
         output if output is not None else default_output("experiment_charts"),
         data.source.path,
@@ -148,11 +158,17 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--results", type=Path, default=Path("results.tsv"))
     parser.add_argument(
+        "--last-rows",
+        type=int,
+        metavar="N",
+        help="Display the last N TSV records in source order; keep the full captured source",
+    )
+    parser.add_argument(
         "--out", type=Path, help="New directory for charts and report.json"
     )
     args = parser.parse_args(argv)
     try:
-        plot_results(args.results, args.out)
+        plot_results(args.results, args.out, last_rows=args.last_rows)
     except REPORT_ERRORS as exc:
         print(f"Experiment charts failed: {exc}", file=sys.stderr)
         return 1
