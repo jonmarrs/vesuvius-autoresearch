@@ -40,6 +40,38 @@ def stops_interrupt():
             signal.signal(sig, signal.SIG_DFL if previous is None else previous)
 
 
+@contextlib.contextmanager
+def _register_before_interrupting():
+    """Deliver handled stop signals after the new process can be cleaned up.
+
+    Temporarily queue callbacks in the parent instead of blocking OS signals:
+    the child must retain its ordinary signal mask. Default/ignored dispositions
+    stay intact, including nohup's ignored SIGHUP. Callers install their normal
+    stop handlers (or stops_interrupt) around supervised work.
+    """
+    pending = []
+
+    try:
+        with contextlib.ExitStack() as restore:
+            if threading.current_thread() is threading.main_thread():
+                for sig in (*STOP_SIGNALS, signal.SIGINT):
+                    previous = signal.getsignal(sig)
+                    if not callable(previous):
+                        continue
+
+                    def queue(signum, frame, handler=previous):
+                        pending.append((handler, signum, frame))
+
+                    restore.callback(signal.signal, sig, previous)
+                    signal.signal(sig, queue)
+            yield
+    finally:
+        # A failed spawn must not swallow a queued stop request. ExitStack has
+        # restored the original handlers before either delivery path runs.
+        for handler, signum, frame in pending:
+            handler(signum, frame)
+
+
 class ProcessSupervisor:
     def __init__(self, grace_seconds=5):
         self.active = None
@@ -122,9 +154,13 @@ class ProcessSupervisor:
     def run(self, command, *, timeout, check=False, **kwargs):
         if self.active is not None:
             raise RuntimeError("a supervised process is already running")
-        process = subprocess.Popen(command, start_new_session=True, **kwargs)
-        self.active = process
         try:
+            # Popen may already have a live child when a Python signal handler
+            # runs. Register it before delivering any handled stop or Ctrl-C,
+            # and keep both registration and delivery inside the cleanup scope.
+            with _register_before_interrupting():
+                process = subprocess.Popen(command, start_new_session=True, **kwargs)
+                self.active = process
             returncode = process.wait(timeout=timeout)
             if check and returncode:
                 raise subprocess.CalledProcessError(returncode, command)

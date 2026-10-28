@@ -1,140 +1,142 @@
-# Vesuvius Autoresearch Strategy: Systematic Progress Plan
+# Research strategy: useful progress on one RTX 4090
 
-*Rewritten 2026-07-11. The April–May version of this document (see git history) described
-a Grand-Prize-era plan and readiness-audit checkboxes that our own findings later refuted;
-`FINDINGS.md` is the authoritative record of what actually works.*
+**Reviewed October 28, 2026 UTC.** This is the current strategy, replacing the
+July plan. [FINDINGS](../FINDINGS.md), published measurements and registrations
+remain the record of results. The budgets and gates below are proposals for
+new work, not registrations or measured runtimes. No new experiment was run
+for this review.
 
-This document outlines the research strategy for winning Vesuvius Challenge prizes while
-operating within strict hardware, storage, and bandwidth constraints. The current plan of
-record is summarized in **[research_plan.md](./research_plan.md)** (Q3 2026: ScrollGT
-benchmark primary; capped First-Letters swing; monthly filing discipline).
+The best-supported route is a useful contribution that others can run in the
+existing Vesuvius workflow: finish the pending fixes, improve conservative
+fiber tracing, then test a small label-quality intervention. Keep ink-model
+exploration bounded until it demonstrates new signal on independent data.
+Our September $250 award for useful merged Villa PRs is evidence that this
+kind of work can be recognized; it does not establish an award probability
+or expected amount ([award record](PROGRESS_PRIZE_AWARDS.md)).
 
-## 1. Constraints & Compliance
+## Current rules and our local experimental contracts
 
-*   **GPU (RTX 4090):** 24 GB VRAM. Single card — GPU time is the scarcest resource;
-    workstreams are explicitly budgeted (benchmark work has priority; the autonomous loop
-    runs in idle windows only).
-*   **Prize compliance:** strict **0.5×0.5 mm window (64×64 px @ 8µm)** and **zero
-    train/predict overlap** — mechanically enforced by
-    `scripts/validate_prize_artifact.py` and the loop's `evaluate_prize_gates`.
-*   **Storage:** 500 GB project limit; prioritize labeled segment-volume pairs over full
-    scroll volumes.
-*   **Reproducibility:** MIT, open anonymous-S3 data only, no credentials, single-GPU
-    reproducible. `Dockerfile` provided.
+The [official prize rules][prizes], read at Villa commit
+`39a8cf3a124bdd5540ee826e1cb30047c8dc8c85`, say:
 
-## 2. Evaluation Strategy (the load-bearing asset)
+> Large windows are fine, but you must demonstrate that the text is not
+> hallucinated — for example by finding plausible text on held-out regions.
 
-Honest measurement is this project's differentiator:
+That quotation is from the Grand Prize false-positive requirement; First
+Letters makes the same allowance and asks for different, plausible letters
+on a held-out region. These rules require no training/prediction overlap,
+reproducible inputs and methods, held-out validation and evidence of genuine
+letterforms. They do **not** impose our historic 64-pixel / 0.5-mm cap.
+The previous strategy wrongly treated that local restriction as current
+eligibility policy and used it to dismiss larger-context research.
 
-*   **Metric contract:** threshold-swept F1 (primary), AP-prevalence-lift (imbalance-robust
-    real-signal gate), ROC-AUC (secondary) — `src/vesuvius_autoresearch/detector/metrics.py`
-    + the `measure` CLI. The inherited `skeleton_distance` gate was proven invalid
-    (location-blind) and removed from all decision paths.
-*   **Ground-truth registration:** `repro/sota_data/register*.py` registers 2023 human ink
-    labels onto the open SOTA re-flattened geometry (obj-exact bridge, ~8-voxel residual,
-    teacher-free alignment gates). This enabled the first independent GT calibration of the
-    released canon predictions and is being productized as the **ScrollGT** benchmark.
-*   **Selection:** the autonomous loop promotes models on this contract as of 2026-07-11
-    (`scripts/training/train.py`, `is_f1_improvement`).
+The detector and submission tools still impose their own conservative window
+contracts. Their pass/fail results are local checks, not prize eligibility or
+scientific validation. This strategy does not relax those runtime contracts,
+change trained models or revise frozen experiments. A larger-window study
+needs a separate explicit configuration, evidence contract and untouched
+validation regions. Check the current official rules again before filing.
 
-## 3. Established findings that bound the strategy (see FINDINGS.md for detail)
+For Progress Prizes, the same official source favors work that is released
+early, actually used, improves real-data results, fixes tools people use, or
+produces actionable analysis. Small fixes should be bundled. Prizes remain
+at the organizers' discretion; adding internal tests or PRs alone does not
+establish community impact. The October deadline is October 31 at 11:59 p.m.
+Pacific; the existing [filing plan](PRIZE_PLAN_2026-10_FINAL_WEEK.md) targets
+October 29 and should not wait for new research.
 
-*   Fresh 64px training sits near chance on our data; capacity/pipeline are proven fine.
-*   Distillation from the released canon predictions reproduces the teacher **including its
-    failures**. ⚠ **CORRECTED 2026-08-15.** This bullet used to end "distilled students read
-    near chance on held-out human GT (~0.55 ROC)". That was a misregistration artifact, not a
-    result: a hardcoded `LEVEL0_SHAPE` put the held-out label ~1766 voxels out of place.
-    Re-registered, the same students score **roc 0.731 (arm B) / 0.746 (arm C)** against
-    **0.518** for the all-positive floor, and the canon teacher **0.753**. The students were
-    reading held-out ink the whole time. The teacher-reproduction half of the bullet stands;
-    the near-chance half is retracted
-    ([`registration_offset_2026-08-07.md`](../reports/detector/registration_offset_2026-08-07.md)).
-*   ~~GT fine-tuning on registered labels (POC, 2 segments) made held-out reading *worse*.~~
-    ⚠ **RETRACTED 2026-08-15.** That model was fine-tuned on a displaced label and scored
-    against a displaced label; degradation toward the trivial all-positive predictor is the
-    expected behaviour of a model measured against a mislocated target. The experiment has
-    not been re-run and **cannot be**: exactly one Scroll-1 segment is hand-labelled,
-    re-flattened and correctly placed, and it is spent as the held-out evaluation target, so
-    there is no training set
-    ([`gt_training_data_exhaustion_2026-08-15.md`](../reports/detector/gt_training_data_exhaustion_2026-08-15.md)).
-*   Cross-scroll transfer is weak (lift 2.07 same-scroll, its epoch chosen there → 1.29 cross); training-scroll
-    diversity helps (1.22 → 2.12 on an unseen scroll; the 2.12 is the best epoch on that
-    region) and a third scroll showed no measured gain over that selected row (~2.1, its
-    last epoch; a gain over a fixed-rule row is not excluded; corrected 2026-10-16 from
-    "saturates").
-*   **Detection at the prize window is real and held-out; legibility is not, and the
-    detection we have is borrowed.** (Re-derived 2026-08-15, replacing the bullet retired
-    below.)
+## Ranked work
 
-    Distilled students run at `size = 64`, and `DetectorConfig.validate_window()` hard-fails
-    anything wider, so every number here is **inside** the 64 px @ 8 µm prize window. Against
-    registered human ground truth on held-out `20231210121321` (all-positive floor 0.518):
-    arm B **0.7305**, arm C **0.7462**, canon teacher **0.7526** roc_auc, AP-lift 2.3–2.4.
-    Arm A scores 0.7716 but was best-epoch-selected on this segment, so read B and C as the
-    clean rows. That is genuine held-out detection at the prize window, and it retires the
-    "near chance" premise outright.
+| Rank | Direction and concrete next deliverable | Proposed bounded pilot | Continue / stop decision |
+| --- | --- | --- | --- |
+| 1 | **Finish usable upstream engineering.** Resolve feedback on Villa [#2141][wal], [#2258][grid] and [#2259][headless], then complete the current object-store replay for the prepared seed-heading change. Publish one reproducible before/after workflow and a command a user can run. | Two engineer-days; zero GPU for feedback and closed-run export replay. Use an already configured native environment. Allow at most two GPU-hours for the retained two-cube tracer integration check once the GPU is free. These are scheduling ceilings, not runtime estimates. | Require current-main real-data behavior, native export/readback and preserved identities. Fixture tests alone are insufficient. If dependencies, data or upstream access block completion, record that dependency and move to another usable deliverable. Respect the existing three-open-PR / two-code-fixes-per-week limits. |
+| 2 | **Conservative fiber tracing that reaches farther without switching fibers.** Finish the existing signed-CT-axis seed proposal, then investigate one failure mode such as premature confidence stops. Keep the two changes separate. Export accepted traces through Villa's native store for actual annotation or fitting use. | After integration, a four-GPU-hour development pilot on a few fixed crops, with stock and one candidate given the same CT halo, presence inputs, seeds and trace budget. Freeze the rule before any new confirmation data. | Measure independent human-click reach or independently reviewed continuity, wrong connections, precision and cost; coverage alone cannot pass. Require no observed increase in wrong connections on the reviewed pilot and at least a 10% useful-continuity gain to justify a larger registered test. Report uncertainty: a small pilot is a screen, not proof of safety. Stop if the gain depends on extra context, a learned reference, or a precision loss. |
+| 3 | **Better labels in hard regions, with a measured downstream effect.** Release a small reviewed CT/label correction set for compressed or curved papyrus, using existing annotation formats and tools. Compare the original labels with one conservative correction method. | First inspect 12 bounded crops across two scans, with a two-hour human-review budget and no training. If the physical feature and recto side are identifiable, permit six GPU-hours total for a paired fine-tuning feasibility check from an existing model. | Obtain independent review before treating a CT ridge or model output as truth. Keep unresolved regions ignored. Advance only if correction agreement and held-out topology/continuity improve without new sheet switches; stop if labels cannot be adjudicated or only the correction method's own score improves. An insufficiently trained pilot is inconclusive. |
+| 4 | **A small, controlled cross-scroll ink experiment using released models.** Test one training-data or resolution intervention on the current native ink workflow. Use a released checkpoint; do not start collection-scale foundation pretraining. | After the active registered study closes, budget at most 12 GPU-hours total for three paired seeds, stock and one intervention, with matched successful update counts. Profile a short run first and reduce scope or stop if the required schedule cannot fit. | Lock checkpoint choice and all thresholds using development data. Confirm once on disjoint regions of another scroll after checking all upstream training/pseudo-label exposure. Report AP lift, ROC AUC, fixed-rule F1, null controls and readable images together. Teacher agreement or best-epoch selection on the test region does not establish independent reading. Stop if there is no credible signal beyond the unchanged-training spread. |
 
-    Three things nonetheless keep the strategic conclusion standing, on new grounds:
+Ranks 2 and 3 address explicit official requests: reliable fiber connectivity,
+more accurate labels and small amounts of carefully chosen annotation
+([open problems][problems]; [label generation #193][labels]). Rank 4 addresses
+cross-scroll transfer, but the local evidence does not justify treating it as
+a likely First Letters win. A whole-scroll Grand Prize pipeline is a potential
+team contribution, not a realistic solo promise on the current evidence.
 
-    1.  **The capability is inherited, not learned.** Fresh 64 px training still sits at
-        chance (first bullet, unretracted). The students match the teacher rather than
-        beating it — 0.73–0.75 against its 0.753 — which is distillation fidelity, exactly
-        what the second bullet says. Nothing here demonstrates *independent* reading.
-    2.  **The window costs legibility, not detectability.** 224 px reads letterforms; 64 px
-        yields detectable-not-legible signal (`LAB_NOTEBOOK.md`, 2026-06-16 verdict as
-        refined). Detection at 0.75 roc_auc is not letter-reading, and the gap between them
-        is the window itself, which the prize fixes.
-    3.  **Our instrument cannot certify legibility at this scale anyway.** The registered-GT
-        floor is ~0.31 mm against a 0.512 mm window — ~60%. Registered-GT evaluation can
-        establish detection but is structurally unable to resolve within-window letterform
-        structure, so "we read letters at 64 px" is not a claim this evidence *could* support
-        even if it were true.
+## Evidence that constrains these pilots
 
-    **Conclusion, re-derived: independent letter-reading at the prize window is still not
-    within reach** — but for a materially different reason than before. It is no longer "our
-    models do not read held-out ink," which was false. It is that detection ≠ legibility, and
-    what detection we have is the teacher's.
+- The [seed-heading study](../reports/neural_tracer_steep_heading.md) already
+  found 1.11× and 1.28× coverage for the proposed signed-axis rule on two
+  Scroll-5 cubes. The stronger `sheet` arm is a different rule; its failed
+  Scroll-3 prediction remains a failure. The existing 21-cube corpus has
+  already informed development and cannot be recycled as unseen confirmation
+  for a new tweak. Keep model-training exposure separate from researcher
+  selection exposure.
+- The [reference audit](../reports/fiber_reference_provenance_2026-10-23.md)
+  distinguishes human control points from tracer-generated line points.
+  Following a reference generated by the same tracer can favor that tracer;
+  separately report click-based and line-based evaluations. The upstream
+  [sheet-plane proposal #2265][sheet-plane] likewise reports a line-score gain
+  without a resolved human-click gain. Do not duplicate its intervention.
+- [ScrollGT's CPU reproduction](../reports/scrollgt_corpus_reproduction_2026-10-27.md)
+  verifies the existing scorer on all 21 targets under a 7 GiB address-space
+  cap. Extend it when a real user needs an additional contract or baseline;
+  another audit of unchanged numbers is not the next scientific result.
+- The clean distilled students' held-out Scroll-1 ROC AUC of approximately
+  0.731–0.746 is close to the teacher's 0.753, not proof that they outperform it
+  ([measurement](../reports/detector/registered_gt_heldout_validation.md)).
+  **A constant predictor's ROC AUC is 0.500.** The legacy detector's measured
+  0.518 is not an all-positive mathematical floor. Prior strategy text used
+  the wrong label. Detection metrics do not establish legible letters, and
+  historical registration uncertainty still limits interpretation.
 
-    **Escalation gate, updated.** The old implicit trigger was "can we get off chance?" —
-    already passed, and it passed a month ago without anyone noticing because the
-    misregistration hid it. The trigger that now means something: **a model that beats the
-    canon teacher held-out at ≤64 px by a margin wider than the selection caveat.** Matching
-    it is fidelity; beating it is independence. Reading-prize work stays a capped exploration
-    behind that gate, not the primary lane.
+## Where to reuse existing work
 
-## 4. Prize-Specific Workflows
+The [community catalogue][catalogue], read on October 28, already lists
+ScrollFiesta, winding-sync, winding-ruler, spiralcheck, TIFXYZ Doctor, an ink
+validation harness and first-letters-survey. Prefer an adapter, a measured
+fix or a useful dataset over another general evaluator or rendering wrapper.
+The present contribution queue also contains work by other contributors:
 
-*Aligned to the 2026-07-15 announcement: the monthly prize is now "$20,000 … to the best
-open-source submission that makes the collection easier to read," and milestone submissions
-require held-out ground-truth validation + false-positive mitigation.*
+- [#2248][fiber-qa] checks fiber geometry; [#2265][sheet-plane] tests a
+  sheet-plane penalty. Reuse or evaluate these rather than offering parallel
+  implementations.
+- [#2294][render-memory] already includes another contributor's render-memory
+  patch and asks for real-data validation. Independent reproduction could be
+  useful; a competing implementation is not the default next task.
+- Plain-Zarr patch coordinates ([#2205][plain-zarr]), loader oversubscription
+  ([#2311][loader]) and legacy fiber import ([#2321][import]) already have PRs.
+  Recheck their state before starting related work.
 
-*   **Monthly open-source Progress Prizes (primary):** two MIT tools that make the
-    collection easier to read / evaluate — the **surface-volume renderer** (mesh-only
-    segments → detector-ready volumes) and **ScrollGT** (held-out registered-GT evaluation +
-    AP-lift false-positive gate). File every cycle (deadline discipline after the lapsed
-    June cycle). Grow ScrollGT with more *orientation-verifiable* Scroll-1 targets — NOT a
-    Scrolls 2–3 extension, which is impossible (unread scrolls ship no human GT; Scroll 2
-    ships no segments at all — bucket survey 2026-07-17). The v0.2 (August) lead is
-    **PHerc 1667**: render its June-2026 merged mesh-only segment, then align the published
-    full-reading transcription as the first non-training-scroll GT — see
-    `reports/detector/scrollgt_v02_groundwork.md`.
-*   **First Letters / Title (secondary, ≤20% GPU):** run the window-compliant arms on
-    rendered Scroll-3 data, score honestly. ⚠ **This bullet's gate was superseded 2026-08-16
-    and the two must not be read together.** It said "held-out ROC > 0.65 or clearly legible
-    letterforms", which the corrected numbers now *clear* (arms B/C at 0.7305/0.7462), while
-    the gate re-derived in section 3 above (**beat the canon teacher, 0.7526, by more than
-    the selection caveat**) is *not* cleared. Two gates giving opposite answers is an
-    artifact of adding the second without reconciling the first; **section 3's gate
-    governs.** This one is also inapplicable on its own terms: it was written for rendered
-    Scroll-3 data, which ships no human ground truth at all, so it was never testable there
-    and the Scroll-1 substitute is a single held-out target. Submission mechanics
-    (`scripts/generate_submission_package.py` + validator) stay dormant until a real
-    discovery exists.
+These are source observations, not endorsements of unmerged code. The three
+owner PRs in rank 1 were still open at this review; no additional merged
+credit or maintainer adoption is assumed.
 
-## 5. Operational Notes
+## Resource and release discipline
 
-*   The autonomous loop (`run_autoresearch_loop.py` → `scripts/training/train.py`) runs
-    Day/Night shifts in idle windows; pause it (`.loop_paused` + kill PIDs — `stop.sh`'s
-    pattern misses `-u` invocations) before editing model/train code.
-*   Daily review artifacts: `sprint_logs/`, `history.tsv`, `reports/detector/`,
-    `scripts/generate_daily_report.py`.
+Use one RTX 4090 with 24 GB VRAM and the project's existing 500 GB storage
+budget. Stream bounded crops, cap cache sizes and profile memory before a
+larger run. Choose one primary research pilot at a time. During the registered
+[unchanged-control window](preregistration/2026-10-27_loop_unchanged_control.md),
+use the counts-only status command and separate review checkouts; a pull into
+the live checkout ends the window. Defer competing GPU work until it closes.
+Outside a registered window, use the documented `./stop.sh` / `./start.sh`
+controls and checkout lock rather than the obsolete manual-PID instructions.
+
+A completed pilot should leave a pinned input/model/code manifest, baseline
+and candidate commands, both successful and failed cases, time/memory costs,
+and output that a Villa or VC3D user can consume. Ask whether it changes a
+real user's decision or removes an obstacle. Measured adoption and real
+pipeline improvement are the route to stronger future prize submissions.
+
+[prizes]: https://github.com/ScrollPrize/villa/blob/39a8cf3a124bdd5540ee826e1cb30047c8dc8c85/scrollprize.org/docs/34_prizes.md
+[problems]: https://github.com/ScrollPrize/villa/blob/39a8cf3a124bdd5540ee826e1cb30047c8dc8c85/scrollprize.org/docs/37_2026_open_problems.md
+[catalogue]: https://github.com/ScrollPrize/villa/blob/39a8cf3a124bdd5540ee826e1cb30047c8dc8c85/scrollprize.org/docs/20_community_projects.md
+[wal]: https://github.com/ScrollPrize/villa/pull/2141
+[grid]: https://github.com/ScrollPrize/villa/pull/2258
+[headless]: https://github.com/ScrollPrize/villa/pull/2259
+[labels]: https://github.com/ScrollPrize/villa/issues/193
+[sheet-plane]: https://github.com/ScrollPrize/villa/pull/2265
+[fiber-qa]: https://github.com/ScrollPrize/villa/pull/2248
+[render-memory]: https://github.com/ScrollPrize/villa/issues/2294
+[plain-zarr]: https://github.com/ScrollPrize/villa/pull/2205
+[loader]: https://github.com/ScrollPrize/villa/pull/2311
+[import]: https://github.com/ScrollPrize/villa/pull/2321

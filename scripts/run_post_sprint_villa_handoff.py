@@ -7,10 +7,18 @@ research work is using the GPU (the loop, a noise probe, an ablation or a
 re-score; see active_sprint_processes). Without --execute-* flags it only
 refreshes manifests and preflight reports; use --preflight-only to allow that
 non-GPU planning path while a sprint is active.
+Use --step-timeout SECONDS to bound each command, plus worker cleanup; the
+plan records completion, interruption, or the first named failure.
+
+An executing GPU handoff holds this checkout's research lock until its child
+process groups have ended. --force can override the other-checkout name scan,
+but cannot bypass this checkout's lock or unsupervised training runs.
 """
 
 import argparse
 import json
+import math
+import os
 import re
 import subprocess
 import sys
@@ -19,8 +27,13 @@ from pathlib import Path
 if __package__ in (None, ""):  # run as a script: make `scripts` importable
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from scripts import loop_control  # noqa: E402
+from scripts.process_supervisor import ProcessSupervisor, stops_interrupt  # noqa: E402
 
 REPO = Path(__file__).resolve().parents[1]
+HANDOFF_ARGS = {"run_post_sprint_villa_handoff.py", "scripts.run_post_sprint_villa_handoff"}
+HANDOFF_COMMAND_PATTERN = re.compile(
+    r"(^|[\s/\"'])(?:run_post_sprint_villa_handoff\.py|scripts\.run_post_sprint_villa_handoff)(?=$|[\s\"'])"
+)
 
 # By name, in any checkout, since the GPU is shared: what takes the loop's lock,
 # and the training each runs (the noise probe's trials train in-process in
@@ -29,6 +42,7 @@ REPO = Path(__file__).resolve().parents[1]
 _ACTIVE_NAMES = sorted(
     loop_control.LOCK_HOLDER_ARGS
     | {Path(script).name for script in loop_control.RUN_SCRIPTS}
+    | loop_control.RUN_MODULES
     | {"run_noise_probe.py"}
 )
 ACTIVE_PROCESS_PATTERN = (
@@ -65,7 +79,61 @@ def _named_processes():
     )
     if result.returncode not in (0, 1):
         raise RuntimeError(result.stderr.strip() or "pgrep failed")
-    return [line for line in result.stdout.splitlines() if line.strip()]
+    # pgrep sees this command and possibly its `uv run` launcher. Neither is
+    # competing work. Other handoffs count only when they request GPU steps.
+    ancestors = {os.getpid()}
+    parent = os.getppid()
+    while parent > 1 and parent not in ancestors:
+        ancestors.add(parent)
+        try:
+            parent = int(loop_control._stat_fields(parent)[1])
+        except (OSError, ValueError, IndexError):
+            break
+    active = []
+    for line in result.stdout.splitlines():
+        if not line.strip():
+            continue
+        try:
+            pid = int(line.split()[0])
+        except (ValueError, IndexError):
+            active.append(line)  # uncertain scan output must not mean idle
+            continue
+        if pid == os.getpid():
+            continue
+        try:
+            args = [os.fsdecode(a) for a in Path(f"/proc/{pid}/cmdline").read_bytes().split(b"\0") if a]
+        except FileNotFoundError:
+            continue
+        except OSError:
+            active.append(line)
+            continue
+        if pid in ancestors and _shell_handoff_launcher(args):
+            continue
+        if any(Path(arg).name in HANDOFF_ARGS for arg in args):
+            if pid in ancestors or not any(
+                arg in {"--execute-inference", "--execute-evidence"} for arg in args
+            ):
+                continue
+        active.append(line)
+    return active
+
+
+def _shell_handoff_launcher(args):
+    """A shell waiting on our launch, not a Python research supervisor.
+
+    With ``bash -c 'python .../handoff.py --execute-inference; :'`` the entire
+    command is one argv token. pgrep matches it, although the shell itself is
+    only waiting. Restrict this exception to shell -c command strings and our
+    ancestors; actual research processes remain visible to the normal scan.
+    """
+    if not args or Path(args[0]).name not in {"sh", "bash", "dash", "zsh", "ksh", "fish"}:
+        return False
+    for index, arg in enumerate(args[1:], 1):
+        if not arg.startswith("-") or arg == "--":
+            break  # a shell script's later arguments are not interpreter flags
+        if not arg.startswith("--") and "c" in arg[1:]:
+            return index + 1 < len(args) and HANDOFF_COMMAND_PATTERN.search(args[index + 1]) is not None
+    return False
 
 
 def build_handoff_steps(args):
@@ -285,11 +353,13 @@ def build_handoff_steps(args):
     return steps
 
 
-def write_plan(path, active_processes, steps, status):
+def write_plan(path, active_processes, steps, status, *, step_timeout=None, failure=None):
     payload = {
         "status": status,
         "active_processes": active_processes,
         "steps": steps,
+        "step_timeout_seconds": step_timeout,
+        "failure": failure,
     }
     out = Path(path)
     out.parent.mkdir(parents=True, exist_ok=True)
@@ -307,13 +377,129 @@ def resolve_status(active_processes, steps, force=False, preflight_only=False):
     return "BLOCKED_ACTIVE_SPRINT"
 
 
-def run_steps(steps):
-    for step in steps:
-        subprocess.run(step["command"], check=True)
+def positive_seconds(value):
+    try:
+        number = float(value)
+    except (TypeError, ValueError, OverflowError) as exc:
+        raise argparse.ArgumentTypeError("step timeout must be positive and finite") from exc
+    if isinstance(value, bool) or not math.isfinite(number) or number <= 0:
+        raise argparse.ArgumentTypeError("step timeout must be positive and finite")
+    return number
 
 
-def main():
-    parser = argparse.ArgumentParser()
+class HandoffStepError(RuntimeError):
+    def __init__(self, step, kind, message, *, timeout=None, returncode=None):
+        super().__init__(f"Handoff step {step!r}: {message}")
+        self.details = {
+            "step": step,
+            "kind": kind,
+            "message": message,
+            "timeout_seconds": timeout,
+            "returncode": returncode,
+        }
+
+
+def run_steps(steps, *, step_timeout=None):
+    if step_timeout is not None:
+        step_timeout = positive_seconds(step_timeout)
+    supervisor = ProcessSupervisor()
+    with stops_interrupt():
+        for step in steps:
+            try:
+                supervisor.run(step["command"], check=True, timeout=step_timeout, cwd=REPO)
+            except subprocess.TimeoutExpired as exc:
+                raise HandoffStepError(
+                    step["name"], "timeout",
+                    f"timed out after {step_timeout:g} seconds; worker group cleaned up",
+                    timeout=step_timeout,
+                ) from exc
+            except subprocess.CalledProcessError as exc:
+                raise HandoffStepError(
+                    step["name"], "exit", f"command exited with code {exc.returncode}",
+                    returncode=exc.returncode,
+                ) from exc
+            except OSError as exc:
+                raise HandoffStepError(step["name"], "launch", str(exc)) from exc
+
+
+def _validate_plan_path(path):
+    """A report must never open the research lock, even through an alias.
+
+    Closing any descriptor for that inode releases this process's POSIX lock.
+    On a blocked launch it would instead erase the other holder's PID record.
+    Check before acquiring the lock as well as before writing a refusal plan.
+    """
+    output = Path(path)
+    lock = REPO / "autoresearch.lock"
+    if output.resolve() == lock.resolve():
+        raise ValueError("plan output must not alias autoresearch.lock")
+    identities = []
+    for candidate in (output, lock):
+        try:
+            info = candidate.stat()
+        except FileNotFoundError:
+            identities.append(None)
+        else:
+            identities.append((info.st_dev, info.st_ino))
+    if identities[0] is not None and identities[0] == identities[1]:
+        raise ValueError("plan output must not alias autoresearch.lock")
+
+
+def execute_handoff(steps, plan_out, *, force=False, preflight_only=False, step_timeout=None):
+    """Keep GPU steps mutually exclusive with this checkout's research work."""
+    try:
+        if step_timeout is not None:
+            step_timeout = positive_seconds(step_timeout)
+        _validate_plan_path(plan_out)
+    except (OSError, RuntimeError, ValueError, argparse.ArgumentTypeError) as exc:
+        print(f"Cannot prepare handoff: {exc}", file=sys.stderr)
+        return 2
+    lock = None
+    try:
+        if any(step.get("gpu") for step in steps):
+            try:
+                lock = loop_control.acquire_lock(REPO / "autoresearch.lock")
+            except OSError as exc:
+                plan = write_plan(plan_out, [f"checkout lock: {exc}"], steps, "BLOCKED_LOCAL_LOCK", step_timeout=step_timeout)
+                print(json.dumps(plan, indent=2))
+                return 2
+            # Do not call running_pid with our lock held: opening then closing
+            # another descriptor would release this process's POSIX lock.
+            local_runs = loop_control.unsupervised_runs(REPO)
+            active = [f"unsupervised training run: {loop_control.describe_run(*run)}" for run in local_runs]
+            active += _named_processes()
+            status = "BLOCKED_LOCAL_TRAINING" if local_runs else resolve_status(
+                active, steps, force=force, preflight_only=preflight_only
+            )
+        else:
+            active = active_sprint_processes(REPO)
+            status = resolve_status(active, steps, force=force, preflight_only=preflight_only)
+        plan = write_plan(plan_out, active, steps, status, step_timeout=step_timeout)
+        print(json.dumps(plan, indent=2))
+        if not status.startswith("READY"):
+            return 2
+        try:
+            run_steps(steps, step_timeout=step_timeout)
+        except HandoffStepError as exc:
+            status = "FAILED_TIMEOUT" if exc.details["kind"] == "timeout" else "FAILED_STEP"
+            write_plan(plan_out, active, steps, status, step_timeout=step_timeout, failure=exc.details)
+            print(f"{exc}. Report: {plan_out}", file=sys.stderr)
+            return 124 if status == "FAILED_TIMEOUT" else 1
+        except KeyboardInterrupt:
+            write_plan(plan_out, active, steps, "STOPPED", step_timeout=step_timeout)
+            raise
+        write_plan(plan_out, active, steps, "COMPLETE", step_timeout=step_timeout)
+        print(f"Handoff complete. Report: {plan_out}")
+        return 0
+    finally:
+        # ProcessSupervisor cleans the child group before run_steps unwinds,
+        # so a watchdog cannot acquire this lock before GPU workers are stopped.
+        if lock is not None:
+            lock.close()
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(allow_abbrev=False)
     parser.add_argument("--ranked", default="reports/scroll23_ranked_candidates.tsv")
     parser.add_argument("--queue", default="reports/scroll23_search_queue.tsv")
     parser.add_argument("--prediction-dir", default="predictions")
@@ -376,6 +562,10 @@ def main():
     parser.add_argument("--execute-inference", action="store_true")
     parser.add_argument("--execute-evidence", action="store_true")
     parser.add_argument(
+        "--step-timeout", type=positive_seconds, metavar="SECONDS",
+        help="Maximum seconds for each command, plus worker cleanup; timeout stops the handoff (default: no deadline)",
+    )
+    parser.add_argument(
         "--preflight-only",
         action="store_true",
         help="Allow non-GPU manifest/preflight steps to run while a sprint is active",
@@ -383,24 +573,20 @@ def main():
     parser.add_argument(
         "--force",
         action="store_true",
-        help="Allow execution while a sprint process is active",
+        help="Override the other-checkout process scan; never bypass this checkout's lock or training runs",
     )
     parser.add_argument("--python-executable", default=sys.executable)
-    args = parser.parse_args()
-
-    active = active_sprint_processes()
+    args = parser.parse_args(argv)
+    # Lock ownership is verified against /proc/<pid>/cwd. Relative commands,
+    # data paths and the lock must all refer to this same checkout.
+    os.chdir(REPO)
     steps = build_handoff_steps(args)
-    status = resolve_status(
-        active, steps, force=args.force, preflight_only=args.preflight_only
-    )
-    plan = write_plan(args.plan_out, active, steps, status)
-    print(json.dumps(plan, indent=2))
-
-    if not status.startswith("READY"):
-        raise SystemExit(2)
-
-    run_steps(steps)
+    try:
+        return execute_handoff(steps, args.plan_out, force=args.force, preflight_only=args.preflight_only, step_timeout=args.step_timeout)
+    except KeyboardInterrupt:
+        print("Handoff stopped; supervised child processes have been cleaned up.", file=sys.stderr)
+        return 130
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

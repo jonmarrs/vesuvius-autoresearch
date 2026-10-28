@@ -58,6 +58,7 @@ from scripts import wandb_tracking
 from scripts.betti_loss_module import BettiLoss
 from scripts.cldice_loss import SoftClDiceLoss
 from scripts.training.config import ExperimentConfig
+from scripts.training.input_paths import training_label_path
 from scripts.training.promotion import (
     RESCORE_COMMAND,
     VALIDATION_LABEL_FILES,
@@ -836,35 +837,6 @@ def build_validation_dataset(config: ExperimentConfig):
     return dataset
 
 
-def training_label_path(uri: str, config: ExperimentConfig) -> str:
-    """The label file training reads for a labeled volume.
-
-    A `<segment>_pseudo.png` in pseudo_label_dir takes precedence over the
-    volume's own labels (docs/PSEUDO_LABEL_HANDOFF.md). Its uncertain band (PNG
-    128) is a target like any other unless use_confidence_weight down-weights it,
-    so a pseudo-label from pseudo_label_dir without it is refused rather than
-    trained as ink 128/255.
-    """
-    if config.pseudo_label_dir:
-        segment = os.path.basename(os.path.dirname(uri.rstrip("/")))
-        pseudo = os.path.join(config.pseudo_label_dir, f"{segment}_pseudo.png")
-        if os.path.exists(pseudo):
-            if not getattr(config, "use_confidence_weight", False):
-                raise ValueError(
-                    f"{pseudo} replaces the labels of {uri}, but "
-                    "use_confidence_weight is off, so its uncertain band would be "
-                    "trained as ink probability 128/255 (docs/PSEUDO_LABEL_HANDOFF.md)"
-                )
-            return pseudo
-    path = validation_label_path(uri)  # the same order as validation
-    if not os.path.exists(path):
-        raise FileNotFoundError(
-            f"no label file for training volume {uri} (looked for "
-            f"{', '.join(VALIDATION_LABEL_FILES)} beside it)"
-        )
-    return path
-
-
 def resolve_training_labels(config: ExperimentConfig) -> dict[str, str]:
     """Each training volume's label file (training_label_path), printed.
 
@@ -1211,13 +1183,19 @@ def evaluate_prize_gates(
     num_centerline_samples: int,
     num_cc_samples: int,
 ) -> dict[str, bool | float | list[str]]:
+    """Legacy local quality/window gates, not official prize eligibility.
+
+    Keep these thresholds fixed for comparable experiments. Current reading-prize
+    rules permit larger windows with anti-hallucination evidence; see
+    docs/RESEARCH_STRATEGY.md. The historic `submittable` key is retained for readers.
+    """
     window_mm = config.patch_size * 8.0 / 1000.0
     window_ok = config.patch_size <= 64 or window_mm <= 0.5 + 1e-9
     failures = []
 
     if not window_ok:
         failures.append(
-            f"ML window {config.patch_size}px/{window_mm:.3f}mm exceeds official prize guidance"
+            f"ML window {config.patch_size}px/{window_mm:.3f}mm exceeds the local evaluation limit"
         )
     if not np.isfinite(val_bpb):
         failures.append("val_bpb is not finite")

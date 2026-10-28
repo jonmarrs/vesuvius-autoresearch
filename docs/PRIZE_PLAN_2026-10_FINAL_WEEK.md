@@ -132,6 +132,22 @@ not a new quality result or extra Villa merge credit. The prepared answers
 and copy-ready candidate remain valid and unchanged. Keep the October 28
 freeze and October 29 filing target; nothing has been submitted.
 
+The [October 27 publication audit](https://github.com/jonmarrs/scrollgt/pull/16)
+also corrects stale benchmark instructions: the legacy model's 0.518 AUC is
+separate from the constant floor's 0.500, the old 0.60 contributor threshold
+is retired, fiber target assets total 38.79 MB, and the README now cites the
+measured 0.9.1 memory use and states which prediction inputs are needed.
+The constant floor was recomputed on the shipped 4096×4096 ink target: AP lift
+1.000 and F1 0.311230. More directly relevant to the fiber filing, all 21
+recorded upstream NML annotations were freshly fetched: every hash matches,
+and both the existing verification CLI and an independent XML parser reproduce
+all nine skeleton arrays per target. The [public audit](https://github.com/jonmarrs/scrollgt/blob/24b2da4ca4e8e6771d80998e1555cdc3f3f3a791/docs/GUIDANCE_AUDIT_2026-10-27.md)
+preserves all 189 array comparisons, source/input hashes and raw harness/logs.
+This verifies annotation identity and packaging, not physical accuracy in CT
+or model quality. Target data, scoring behavior and version tags are unchanged.
+The prepared form answers and submission candidate remain unchanged; no new
+merged Villa credit or live-study result is claimed.
+
 The official rules favor early releases, actual use, real-data improvements,
 useful fixes, actionable analysis and documentation. They explicitly ask for
 small bug fixes to be bundled. The October 27 checked source is Villa `39a8cf3a`,
@@ -248,6 +264,17 @@ recorded real CLI re-run is at `322cb0899`. Verify the object-store CLI path
 before posting; do not present the older AFV run as a current-main re-run.
 This integration check is useful engineering work if the current dependencies
 and data are available; it is not a prerequisite for filing the completed work.
+
+The [finished-tile object-store replay check](VILLA_OBJECT_STORE_EXPORT_CHECK.md)
+now prepares export verification on that configured host without a new GPU
+run. It plans by default and, with `--execute`, copies a closed run, invokes
+the current export CLI twice and checks exact native coordinates, stable
+identities, links and volume metadata through the native reader. Fixture tests
+verify failure detection; no native export or current-main tracer inference
+was run here. Complete the real-data replay and current-main before/after
+tracer comparison before posting the seed-heading proposal. The prepared
+filing answers and candidate are unchanged; the October form is still accepting
+and the same three Villa merges pass their live claim check.
 
 ### October 27 follow-up
 

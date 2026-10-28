@@ -3,7 +3,7 @@
 # All targets run inside the project's uv-managed venv. If `uv` is not on
 # PATH, install it: `curl -LsSf https://astral.sh/uv/install.sh | sh`.
 
-.PHONY: help install smoke test reeval shift clean clean-cache check-deps
+.PHONY: help install smoke test reeval shift clean clean-cache check-deps status
 
 help:
 	@echo "Common targets:"
@@ -13,6 +13,7 @@ help:
 	@echo "  make reeval       re-evaluate best_model.pt under today's code path"
 	@echo "  make shift        spawn an autoresearch bandit shift in background"
 	@echo "  make check-deps   verify GPU + key imports"
+	@echo "  make status       read-only setup/process check (no ML dependencies or CUDA)"
 	@echo "  make clean        remove old launchers' stdout logs (keeps run.log and sprint_logs/)"
 	@echo "  make clean-cache  also remove __pycache__ and valid_coords_*.npy"
 
@@ -23,6 +24,9 @@ smoke:
 	CUDA_VISIBLE_DEVICES="" uv run python scripts/smoke_test.py
 
 test: smoke
+
+status:
+	@python3 scripts/workspace_status.py
 
 reeval:
 	uv run python scripts/reevaluate_best_model.py

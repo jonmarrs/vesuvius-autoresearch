@@ -96,10 +96,10 @@ def test_the_ground_truth_calibration_matches_its_validations():
     auc, lift, f1 = (
         [r[k] for r in clean] for k in ("roc_auc", "ap_prevalence_lift", "f1_at_0.5")
     )
-    floor = held["legacy detector"]["roc_auc"]
+    legacy_auc = held["legacy detector"]["roc_auc"]
     assert (
-        f"**ROC-AUC {min(auc):.3f}–{max(auc):.3f} / lift {min(lift):.1f}–{max(lift):.1f}** against an "
-        f"all-positive floor of {floor:.3f}"
+        f"**ROC-AUC {min(auc):.3f}–{max(auc):.3f} / lift {min(lift):.1f}–{max(lift):.1f}** against a "
+        f"constant-prediction ROC-AUC floor of 0.500 (the near-constant legacy detector scored {legacy_auc:.3f})"
     ) in txt
     assert max(auc) < teacher["roc_auc"]  # "at or just under the canon teacher's"
     assert (

@@ -22,6 +22,13 @@ not a new CLI or GPU run. The real-data re-run below remains at `322cb0899`;
 verify the object-store CLI path before posting. The older AFV command is not
 evidence that the new integration has run successfully.
 
+The [finished-tile export check](VILLA_OBJECT_STORE_EXPORT_CHECK.md) now prepares
+the CPU-only export/readback part of that verification on a configured host.
+It plans by default, uses an isolated copy of a closed real-data run and checks
+both exports against its original tile geometry and identities. Its fixture
+tests are not native integration evidence; the current-main volume-tracing
+CLI comparison is still required before posting.
+
 ## Before posting
 
 1. **A slot.** One of our three open villa PRs has closed. Code-fix PRs are at most two a week.
