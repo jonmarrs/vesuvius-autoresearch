@@ -76,8 +76,8 @@ merges them so that it merges cleanly, and the next round reviews them.
   - `--match` with no matching module exits 2 before pytest starts. A selection that runs no test passes pytest's
     exit 5 through.
 - **The checks pass** (mine).
-  - Ruff 0.9.10 `check` and `format` are clean on the twelve changed Python files.
-  - Mypy, with the pre-commit hook's flags, is clean over the whole repository (826 files at `289f9ffb`).
+  - Ruff 0.9.10 `check` and `format` are clean on the ten changed Python files.
+  - Mypy, with the pre-commit hook's flags, is clean over the whole repository (830 files on this branch).
 
 ## Observations for the owner (not changed)
 
