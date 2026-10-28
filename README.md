@@ -320,6 +320,12 @@ and reading quality need independent checks.
 For the local Python Zarr read contract and comparable timings on an explicit
 voxel region, see [Local volume reads and benchmarking](docs/LOCAL_VOLUME_READS.md).
 
+For new BOOTSTRAP, RANDOM and STRIPMATCH symlink datasets, see
+[Patch dataset selection](docs/PATCH_DATASET_SELECTION.md). Builders publish a
+new selection with a manifest of IDs, reference hashes and matching diagnostics;
+existing datasets are preserved. Selection preparation does not establish
+scientific improvement.
+
 ## Running the agent
 
 Spin up your coding agent of choice in this repo, then prompt something like:
