@@ -1,0 +1,110 @@
+{
+ "status": "IDENTICAL",
+ "before_identical_to_after": {
+  "s5_13497_01497_02497_256": false,
+  "s5_16997_03997_04497_256": false
+ },
+ "villa": "322cb0899",
+ "source_villa": "ccb431818",
+ "sources": {
+  "before": "/home/jon/openclaw-workspace/Neo-VM/spiral_out/neural_tracer/ct_context_run/neural",
+  "after": "/home/jon/openclaw-workspace/Neo-VM/spiral_out/neural_tracer/steep_heading_run/keep"
+ },
+ "fibers_from": "tiles",
+ "scoring_version": 3,
+ "tolerance": 2.0,
+ "runs": {
+  "before": {
+   "s5_13497_01497_02497_256": {
+    "identical_to_source": true,
+    "tiles_match_afv": true,
+    "source_tiles_match_afv": true,
+    "counts": {
+     "dots": 910,
+     "no_heading": 242,
+     "traced": 369,
+     "fibers": 193
+    },
+    "source_counts": {
+     "dots": 910,
+     "no_heading": 242,
+     "traced": 369,
+     "fibers": 193
+    },
+    "row_tol2": {
+     "coverage": 0.3332,
+     "precision": 0.3645,
+     "erl_merge_penalized": 11.41
+    }
+   },
+   "s5_16997_03997_04497_256": {
+    "identical_to_source": true,
+    "tiles_match_afv": true,
+    "source_tiles_match_afv": true,
+    "counts": {
+     "dots": 895,
+     "no_heading": 316,
+     "traced": 288,
+     "fibers": 182
+    },
+    "source_counts": {
+     "dots": 895,
+     "no_heading": 316,
+     "traced": 288,
+     "fibers": 182
+    },
+    "row_tol2": {
+     "coverage": 0.2679,
+     "precision": 0.4989,
+     "erl_merge_penalized": 9.87
+    }
+   }
+  },
+  "after": {
+   "s5_13497_01497_02497_256": {
+    "identical_to_source": true,
+    "tiles_match_afv": true,
+    "source_tiles_match_afv": true,
+    "counts": {
+     "dots": 910,
+     "no_heading": 0,
+     "traced": 556,
+     "fibers": 240
+    },
+    "source_counts": {
+     "dots": 910,
+     "no_heading": 0,
+     "traced": 556,
+     "fibers": 240
+    },
+    "row_tol2": {
+     "coverage": 0.3688,
+     "precision": 0.3475,
+     "erl_merge_penalized": 12.55
+    }
+   },
+   "s5_16997_03997_04497_256": {
+    "identical_to_source": true,
+    "tiles_match_afv": true,
+    "source_tiles_match_afv": true,
+    "counts": {
+     "dots": 895,
+     "no_heading": 0,
+     "traced": 507,
+     "fibers": 229
+    },
+    "source_counts": {
+     "dots": 895,
+     "no_heading": 0,
+     "traced": 507,
+     "fibers": 229
+    },
+    "row_tol2": {
+     "coverage": 0.3431,
+     "precision": 0.51,
+     "erl_merge_penalized": 11.82
+    }
+   }
+  }
+ }
+}
