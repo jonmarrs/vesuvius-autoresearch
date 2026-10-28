@@ -35,6 +35,11 @@ import tempfile
 
 import numpy as np
 
+from scripts.training.input_paths import (
+    VALIDATION_LABEL_FILES,
+    validation_input_paths,
+    validation_label_path,
+)
 from vesuvius_autoresearch.core.file_modes import replacement_mode
 
 VALIDATION_PROTOCOL = "seeded-sample-400-v3"
@@ -68,37 +73,9 @@ def scores_ink_free_patches(protocol: str) -> bool:
     raise ValueError(f"unknown validation protocol {protocol!r}")
 
 
-# The label file validation (and training) reads: the first of these beside
-# the volume.
-VALIDATION_LABEL_FILES = (
-    "inklabels_refined.png",
-    "inklabels_filled.png",
-    "inklabels.png",
-)
 # A zarr's metadata (shape, dtype, chunks), at its root and its level 0: small,
 # and changed by a volume rebuilt in place.
 ZARR_METADATA_FILES = (".zarray", ".zgroup", ".zattrs", "zarr.json")
-
-
-def validation_label_path(val_uri: str) -> str:
-    """The label file read for this volume (inklabels.png when none exists)."""
-    parent = os.path.dirname(val_uri.rstrip("/"))
-    for name in VALIDATION_LABEL_FILES:
-        path = os.path.join(parent, name)
-        if os.path.exists(path):
-            return path
-    return path
-
-
-def validation_input_paths(val_uri: str) -> dict[str, str]:
-    """The files beside the volume that validation reads, by role. The one
-    definition build_validation_dataset and the fingerprint both use."""
-    parent = os.path.dirname(val_uri.rstrip("/"))
-    return {
-        "labels": validation_label_path(val_uri),
-        "mask": os.path.join(parent, "mask.png"),
-        "patches_json": os.path.join(parent, "patches.json"),
-    }
 
 
 def _file_sha256(path: str) -> str | None:

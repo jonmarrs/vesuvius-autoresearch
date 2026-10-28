@@ -86,6 +86,8 @@ def test_validate_prize_artifact_passes_with_masks_and_vc3d_metadata(tmp_path):
     report = validate(metadata_path)
 
     assert report["status"] == "PASS"
+    assert report["scope"] == "local_artifact_checks"
+    assert report["prize_eligibility"] == "not_assessed"
     assert report["failures"] == []
 
 

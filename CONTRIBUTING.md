@@ -8,6 +8,11 @@ PRs and issues are welcome.
 
 ## Development
 
+Inspect setup without installing dependencies or starting work:
+`python3 scripts/workspace_status.py` ([status guide](docs/WORKSPACE_STATUS.md)).
+An `ok` report checks local paths and configuration parsing; it does not certify
+GPU readiness or checkpoint compatibility.
+
 ```sh
 uv sync
 git submodule update --init villa    # the pinned ScrollPrize/villa

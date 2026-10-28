@@ -2,7 +2,8 @@
 
 Defaults are the proven Grand-Prize recipe values (held-out pixel-AUC 0.711 on
 PHercParis2Fr47 -> Fr143). Depth (in_chans) is the through-surface signal axis and is
-not subject to the lateral prize window; only the lateral patch `size` is constrained.
+not subject to the local lateral window contract; only patch `size` is constrained.
+This recipe limit does not determine eligibility under current prize rules.
 """
 
 import math
@@ -42,7 +43,7 @@ class DetectorConfig:
     model_dir: str = "models/detector"
     reports_dir: str = "reports/detector"
     use_tta: bool = False
-    # prize window
+    # Local recipe window, not a current official prize-eligibility rule.
     max_lateral_px: int = 64
     um_per_px: float = 8.0
     # architecture selection (Sub-project B)
@@ -131,7 +132,7 @@ class DetectorConfig:
         mm = self.size * self.um_per_px / 1000.0
         if self.size > self.max_lateral_px or mm > max_mm + 1e-9:
             raise ValueError(
-                f"lateral window {self.size}px/{mm:.3f}mm exceeds prize guidance "
+                f"lateral window {self.size}px/{mm:.3f}mm exceeds the configured recipe limit "
                 f"(<= {self.max_lateral_px}px / {max_mm:.3f}mm)"
             )
 
