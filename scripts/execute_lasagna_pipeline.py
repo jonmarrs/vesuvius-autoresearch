@@ -215,7 +215,9 @@ def _validate_report_path(args, items=()):
     ]
     try:
         rows = load_candidates(args.ranked, require_local=False)
-    except FileNotFoundError:
+    except (OSError, ValueError):
+        # An unreadable table names no candidate paths; build_worklist then fails on it and the old report is
+        # replaced with a FAIL. (Its reader raises ValueError, not FileNotFoundError, for a missing file.)
         rows = []
     for row in rows:
         for key in ("local_uri", "train_mask_path", "predict_mask_path"):
