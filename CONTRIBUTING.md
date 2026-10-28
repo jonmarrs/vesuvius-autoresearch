@@ -22,6 +22,20 @@ uv run python scripts/smoke_test.py  # ~20s, exercises the main code paths
 The smoke test forces `CUDA_VISIBLE_DEVICES=""`. Run it while the machine is
 idle: CPU tests still compete with fits and renders for RAM and CPU time.
 
+Inspect the curated validation suite with
+`python3 scripts/run_validation_tests.py --list`. Use the project interpreter to
+run it, or select modules with quoted, repeatable `--match` globs; pass pytest
+options after `--`. For example:
+
+```sh
+uv run python scripts/run_validation_tests.py --match '*noise_probe*' -- -x -rs
+```
+
+The runner launches pytest from its own checkout and hides CUDA by default.
+`--allow-cuda` preserves the caller's visibility settings for an intentional GPU
+test run. A selected subset is not the full suite; include the selection and
+pytest arguments in the PR's test report. See [validation usage](README.md#-validation).
+
 ## Pull requests
 
 Every meaningful PR includes a test report. The structure is in

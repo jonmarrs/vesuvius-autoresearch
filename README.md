@@ -320,6 +320,12 @@ and reading quality need independent checks.
 For the local Python Zarr read contract and comparable timings on an explicit
 voxel region, see [Local volume reads and benchmarking](docs/LOCAL_VOLUME_READS.md).
 
+For new BOOTSTRAP, RANDOM and STRIPMATCH symlink datasets, see
+[Patch dataset selection](docs/PATCH_DATASET_SELECTION.md). Builders publish a
+new selection with a manifest of IDs, reference hashes and matching diagnostics;
+existing datasets are preserved. Selection preparation does not establish
+scientific improvement.
+
 ## Running the agent
 
 Spin up your coding agent of choice in this repo, then prompt something like:
@@ -366,6 +372,29 @@ dependencies installed.
 ```bash
 uv run python scripts/run_validation_tests.py
 ```
+
+The runner uses its own checkout as the working directory and hides CUDA from
+the pytest process by default. To inspect or narrow the curated suite:
+
+```bash
+uv run python scripts/run_validation_tests.py --list
+uv run python scripts/run_validation_tests.py --list --match '*noise_probe*'
+uv run python scripts/run_validation_tests.py --match '*noise_probe*' -- -x -rs
+```
+
+Quote globs so the shell does not expand them. Repeat `--match` to select the
+union of matching module paths, in registry order; an unmatched pattern is an
+error. No `--match` runs the full curated list. `--list` starts no test process
+and needs only Python's standard library. Pytest arguments belong after `--`;
+they can further filter tests or add paths, so record those arguments with your
+results. The printed module count describes the curated selection, not the
+number of tests collected or passed.
+
+Use `--allow-cuda` only when you intend to preserve inherited CUDA visibility;
+it does not select a GPU or verify one is available. Tests still use CPU/RAM,
+may require optional data/dependencies, and may themselves alter device settings.
+Run validation when the machine is idle. The runner prints the scope, checkout,
+device policy and shell-quoted command, and preserves pytest's failure status.
 
 This suite uses a local Zarr fixture by default. To also exercise the public S3
 volume (requires network access), run
