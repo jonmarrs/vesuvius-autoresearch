@@ -137,6 +137,7 @@ NOT_CHECKED = {
     # They move a subdirectory they create with mkdir, never the temporary directory.
     "scripts/candidate_artifacts.py::staged_directory",
     "scripts/export_fiber_targets.py::main",
+    "scripts/patch_dataset_artifacts.py::publish_dataset",  # tests/test_patch_dataset_artifacts.py checks its modes
     # Scratch, never renamed into place.
     "scripts/f1_noise_probe.py::execute",
     "scripts/tracer_rescore_analysis.py::v1_scorer",

@@ -3,6 +3,7 @@
 import json
 import os
 import random
+import stat
 import subprocess
 import sys
 from pathlib import Path
@@ -15,6 +16,7 @@ from scripts import (
     build_stripmatch_dataset as strip,
     patch_dataset_artifacts as artifacts,
 )
+from vesuvius_autoresearch.core.file_modes import current_umask
 
 
 @pytest.fixture
@@ -68,6 +70,21 @@ def test_relative_source_links_resolve_after_publication(world, monkeypatch):
     )
     assert (root / "output/config.json").read_text() == '{"synthetic": true}'
     assert (root / "output/verified_patches/a/meta.json").is_file()
+
+
+def test_the_published_dataset_has_the_umasks_modes_not_mkdtemps(world, monkeypatch):
+    """publish_dataset renames a directory it made with mkdir out of its 0700 mkdtemp workspace, so the published
+    directory and manifest have ordinary modes (tests/test_file_modes.py's NOT_CHECKED)."""
+    root, _, _, _ = world
+    args = ["--source", "source", "--satisfied", "reference.json", "--out", "output", "--mode", "bootstrap"]  # fmt: skip
+    assert invoke(monkeypatch, filtered, *args) == 0
+    umask = current_umask()
+    for path in (root / "output", root / "output/verified_patches"):
+        assert stat.S_IMODE(path.lstat().st_mode) == 0o777 & ~umask, path
+    manifest = next(
+        p for p in (root / "output").iterdir() if p.is_file() and not p.is_symlink()
+    )
+    assert stat.S_IMODE(manifest.stat().st_mode) == 0o666 & ~umask
 
 
 def test_stripmatch_refuses_to_merge_with_an_existing_selection(world, monkeypatch):
