@@ -15,28 +15,75 @@ anti-hallucination evidence; see docs/RESEARCH_STRATEGY.md.
 import argparse
 import json
 import math
+import sys
 from pathlib import Path
+from urllib.parse import unquote, urlsplit
 
 import numpy as np
 from PIL import Image
 
+ROOT = Path(__file__).resolve().parents[1]
+if __package__ in (None, ""):
+    sys.path[:0] = [str(ROOT), str(ROOT / "src")]
+
+from scripts.candidate_artifacts import write_json
+from scripts.text_snapshot import Snapshot
 from vesuvius_autoresearch.core.inference_constants import INK_PROBABILITY
+from vesuvius_autoresearch.core.prediction_artifacts import validate_plan_paths
 
 MAX_ML_WINDOW_MM = 0.5
 MAX_ML_WINDOW_PX = 64
 DEFAULT_VOXEL_UM = 8.0
+MAX_METADATA_BYTES = 2 * 1024**2
+ARTIFACT_INPUT_KEYS = (
+    "output_image_path",
+    "source_image_path",
+    "train_mask_path",
+    "predict_mask_path",
+    "vc3d_zarr_path",
+    "prediction_zarr_path",
+    "fiber_vc3d_zarr_path",
+    "fiber_prediction_zarr_path",
+    "checkpoint_path",
+)
 
 
 def _reject_constant(value):
     raise ValueError(f"nonfinite JSON value {value}")
 
 
-def _load_json(path):
-    with open(path) as stream:
-        data = json.load(stream, parse_constant=_reject_constant)
+def _unique_keys(pairs):
+    result = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError(f"duplicate JSON field {key!r}")
+        result[key] = value
+    return result
+
+
+def _decode_json(text, path):
+    try:
+        data = json.loads(
+            text, parse_constant=_reject_constant, object_pairs_hook=_unique_keys
+        )
+    except RecursionError as exc:
+        raise ValueError("metadata JSON nesting is too deep") from exc
     if not isinstance(data, dict):
         raise ValueError(f"{path} must contain a JSON object")
     return data
+
+
+def _load_json(path):
+    return _decode_json(Snapshot.read(path, MAX_METADATA_BYTES).text(), path)
+
+
+def artifact_inputs(metadata_path, metadata, keys=ARTIFACT_INPUT_KEYS):
+    reads = [(metadata_path, "prediction metadata")]
+    for key in keys:
+        value = metadata.get(key)
+        if isinstance(value, str) and value:
+            reads.append((resolve_artifact_path(value, metadata_path), key))
+    return reads
 
 
 def _as_bool(value):
@@ -84,9 +131,22 @@ def _position(value):
     return value
 
 
+def _local_file_path(value):
+    if (
+        isinstance(value, str)
+        and value.lower().startswith("file:")
+        and not Path(value).exists()
+    ):
+        parts = urlsplit(value)
+        if parts.netloc not in {"", "localhost"}:
+            raise ValueError("file URI must refer to the local host")
+        value = unquote(parts.path)
+    return Path(value)
+
+
 def resolve_artifact_path(value, metadata_path):
     """Prefer metadata-relative paths; accept existing legacy CWD-relative paths."""
-    path = Path(value)
+    path = _local_file_path(value)
     if path.is_absolute():
         return path
     relative = Path(metadata_path).resolve().parent / path
@@ -96,6 +156,8 @@ def resolve_artifact_path(value, metadata_path):
 
 
 def _load_mask(path):
+    if not Path(path).is_file():
+        raise ValueError(f"mask must be a regular file: {path}")
     if Path(path).suffix.lower() == ".npy":
         mask = np.load(path, allow_pickle=False)
     else:
@@ -285,9 +347,8 @@ def _check_vc3d_zarr(root, voxel_um, label, image_shape=None):
             )
 
 
-def validate(metadata_path, train_mask=None, predict_mask=None, zarr_path=None):
-    metadata_path = Path(metadata_path)
-    report = {
+def _report_template(metadata_path):
+    return {
         "status": "FAIL",
         "scope": "local_artifact_checks",
         "prize_eligibility": "not_assessed",
@@ -298,12 +359,13 @@ def validate(metadata_path, train_mask=None, predict_mask=None, zarr_path=None):
         "failures": [],
         "warnings": [],
     }
+
+
+def _validate_metadata(
+    metadata_path, metadata, train_mask=None, predict_mask=None, zarr_path=None
+):
+    report = _report_template(metadata_path)
     failures, warnings = report["failures"], report["warnings"]
-    try:
-        metadata = _load_json(metadata_path)
-    except (OSError, ValueError, TypeError) as exc:
-        failures.append(f"metadata could not be loaded: {exc}")
-        return report
     voxel_um = None
     image_shape = None
     # Every predictor records it; metadata without it cannot show that the
@@ -334,8 +396,8 @@ def validate(metadata_path, train_mask=None, predict_mask=None, zarr_path=None):
         if (
             not isinstance(value, (int, float))
             or isinstance(value, bool)
-            or not math.isfinite(value)
             or value != 1.0
+            or not math.isfinite(value)
         ):
             failures.append("prediction coverage is partial or unverified")
     try:
@@ -453,7 +515,10 @@ def validate(metadata_path, train_mask=None, predict_mask=None, zarr_path=None):
         failures.append("a static discovery image path must be provided")
     else:
         try:
-            with Image.open(resolve_artifact_path(image, metadata_path)) as loaded:
+            image_path = resolve_artifact_path(image, metadata_path)
+            if not image_path.is_file():
+                raise ValueError("discovery image must be a regular file")
+            with Image.open(image_path) as loaded:
                 loaded.verify()
         except (OSError, ValueError, TypeError) as exc:
             failures.append(f"discovery image could not be read: {exc}")
@@ -517,7 +582,43 @@ def validate(metadata_path, train_mask=None, predict_mask=None, zarr_path=None):
     return report
 
 
-def main():
+def validate(metadata_path, train_mask=None, predict_mask=None, zarr_path=None):
+    try:
+        metadata_path = _local_file_path(metadata_path)
+        source = Snapshot.read(metadata_path, MAX_METADATA_BYTES)
+        metadata = _decode_json(source.text(), metadata_path)
+    except (OSError, ValueError, TypeError) as exc:
+        report = _report_template(metadata_path)
+        report["failures"].append(f"metadata could not be loaded: {exc}")
+        return report
+    report = _checked_validation(
+        source.path, metadata, train_mask, predict_mask, zarr_path
+    )
+    report["metadata_source"] = source.provenance()
+    try:
+        source.verify()
+    except (OSError, ValueError, TypeError) as exc:
+        report["status"] = "FAIL"
+        report["failures"].append(f"metadata changed during validation: {exc}")
+    return report
+
+
+def _checked_validation(
+    metadata_path, metadata, train_mask=None, predict_mask=None, zarr_path=None
+):
+    try:
+        return _validate_metadata(
+            metadata_path, metadata, train_mask, predict_mask, zarr_path
+        )
+    except OverflowError as exc:
+        report = _report_template(metadata_path)
+        report["failures"].append(
+            f"metadata numeric value is outside the supported range: {exc}"
+        )
+        return report
+
+
+def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--metadata", required=True, help="Prediction or submission metadata JSON"
@@ -526,14 +627,50 @@ def main():
     parser.add_argument("--predict-mask", help="Actual prediction mask .npy/image")
     parser.add_argument("--zarr", help="Optional VC3D prediction zarr directory")
     parser.add_argument("--out", help="Optional JSON report path")
-    args = parser.parse_args()
-    report = validate(args.metadata, args.train_mask, args.predict_mask, args.zarr)
+    args = parser.parse_args(argv)
+    try:
+        metadata_input = _local_file_path(args.metadata)
+    except (OSError, ValueError, TypeError) as exc:
+        parser.exit(1, f"Invalid metadata path: {exc}\n")
+    source, metadata, error = None, {}, None
+    try:
+        source = Snapshot.read(metadata_input, MAX_METADATA_BYTES)
+        metadata = _decode_json(source.text(), args.metadata)
+    except (OSError, ValueError, TypeError) as exc:
+        error = exc
+    try:
+        if args.out:
+            reads = artifact_inputs(
+                source.path if source is not None else metadata_input, metadata
+            )
+            reads.append((args.metadata, "requested metadata path"))
+            reads.append((ROOT / "autoresearch.lock", "research lock"))
+            reads.extend(
+                (value, name)
+                for name, value in (
+                    ("train mask", args.train_mask),
+                    ("predict mask", args.predict_mask),
+                    ("VC3D export", args.zarr),
+                )
+                if value
+            )
+            validate_plan_paths([(args.out, "validation report")], reads)
+        if error is not None:
+            report = _report_template(args.metadata)
+            report["failures"].append(f"metadata could not be loaded: {error}")
+        else:
+            report = _checked_validation(
+                source.path, metadata, args.train_mask, args.predict_mask, args.zarr
+            )
+        if source is not None:
+            report["metadata_source"] = source.provenance()
+            source.verify()
+        if args.out:
+            write_json(args.out, report)
+    except (OSError, ValueError, RuntimeError) as exc:
+        parser.exit(1, f"Artifact validation failed: {exc}\n")
     encoded = json.dumps(report, indent=2, allow_nan=False)
     print(encoded)
-    if args.out:
-        path = Path(args.out)
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(encoded + "\n")
     raise SystemExit(0 if report["status"] == "PASS" else 1)
 
 

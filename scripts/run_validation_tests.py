@@ -67,6 +67,7 @@ VALIDATION_TESTS = [
     "tests/test_detector_contracts.py",
     "tests/test_convert_fragment.py",
     "tests/test_submission_contracts.py",
+    "tests/test_evidence_workflow_contracts.py",
     "tests/test_interpolation_evidence.py",
     "tests/test_interpolation_drivers.py",
     "tests/test_production_predict.py",

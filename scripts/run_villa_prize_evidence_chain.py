@@ -10,24 +10,25 @@ PRIZE_READINESS_REPORT.json from scripts.validate_prize_artifact.
 
 import argparse
 import json
+import math
 import shlex
 import subprocess
 import sys
 from pathlib import Path
 
-import numpy as np
-
 REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
+from scripts.candidate_artifacts import write_json
+from scripts.evidence_paths import validate_evidence_paths
 from scripts.inference.run_ranked_inference import (
     build_predict_command,
     load_candidates,
     read_candidate_table,
     resolve_candidate_paths,
 )
-from scripts.validate_prize_artifact import resolve_artifact_path, validate
+from scripts.validate_prize_artifact import _load_json, resolve_artifact_path, validate
 
 
 def _as_int(row, key, default=0):
@@ -69,21 +70,15 @@ def select_candidate(
 
 
 def _write_json(path, data):
-    path = Path(path)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with open(path, "w") as f:
-        json.dump(data, f, indent=2, allow_nan=False)
+    write_json(path, data)
 
 
 def patch_prediction_metadata(
-    metadata_path, row, train_mask_path=None, predict_mask_path=None
+    metadata_path, row, train_mask_path=None, predict_mask_path=None, *, captured=None
 ):
     """Enrich a copy; never replace prediction geometry or clear evidence flags."""
     metadata_path = Path(metadata_path)
-    with metadata_path.open() as stream:
-        metadata = json.load(stream)
-    if not isinstance(metadata, dict):
-        raise ValueError(f"{metadata_path} must contain a JSON object")
+    metadata = dict(_load_json(metadata_path) if captured is None else captured)
     metadata["candidate"] = dict(row)
     if metadata.get("scroll_id") in (None, "", "unknown"):
         metadata["scroll_id"] = row.get("scroll_id")
@@ -149,6 +144,27 @@ def _attach_neural_tracing_plan(out_dir, row, python_executable):
     return None
 
 
+def _invalidate_evidence(out_dir):
+    out_dir = Path(out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    # No processing starts unless the FAIL marker has been published.
+    _write_json(
+        out_dir / "PRIZE_READINESS_REPORT.json",
+        {
+            "status": "FAIL",
+            "failures": ["evidence chain has not completed"],
+            "warnings": [],
+        },
+    )
+    for stale in (
+        "evidence_metadata.json",
+        "manifest.json",
+        "neural_tracing.json",
+        "validation_report.json",
+    ):
+        (out_dir / stale).unlink(missing_ok=True)
+
+
 def build_evidence_chain(
     ranked_path,
     out_dir,
@@ -162,58 +178,67 @@ def build_evidence_chain(
     ranked_sha256=None,
     input_base_dir=None,
 ):
-    # A pinned plan must fail before touching an existing evidence directory if
-    # its candidate table has changed. Parsing and hashing use one byte capture.
-    pinned = (
-        select_candidate(
+    out_dir = Path(out_dir)
+    prediction_dir = out_dir / "predictions"
+    validate_evidence_paths(
+        ranked_path,
+        out_dir,
+        checkpoint,
+        train_mask=train_mask,
+        predict_mask=predict_mask,
+    )
+    row = None
+    try:
+        row = select_candidate(
             ranked_path,
             candidate_index,
             expected_sha256=ranked_sha256,
             input_base_dir=input_base_dir,
         )
-        if ranked_sha256 is not None
-        else None
-    )
-    out_dir = Path(out_dir)
-    prediction_dir = out_dir / "predictions"
-    prediction_dir.mkdir(parents=True, exist_ok=True)
-    # A failed attempt must not leave a previous successful report authoritative,
-    # nor the evidence it validated: the review manifest's validate command reads
-    # evidence_metadata.json, which names artifacts this run may have overwritten.
-    # First, before anything that can raise (a candidate the table no longer has,
-    # a row the command builder refuses).
-    for stale in (
-        "evidence_metadata.json",
-        "manifest.json",
-        "neural_tracing.json",
-        "validation_report.json",
-    ):
-        (out_dir / stale).unlink(missing_ok=True)
-    _write_json(
-        out_dir / "PRIZE_READINESS_REPORT.json",
-        {
-            "status": "FAIL",
-            "failures": ["evidence chain has not completed"],
-            "warnings": [],
-        },
-    )
-
-    row = (
-        pinned
-        if pinned is not None
-        else select_candidate(
-            ranked_path, candidate_index, input_base_dir=input_base_dir
+        cmd = build_predict_command(
+            row,
+            python_executable=python_executable,
+            prediction_dir=str(prediction_dir),
+            checkpoint=checkpoint,
         )
-    )
-    stem = _artifact_stem(row)
-    cmd = build_predict_command(
-        row,
-        python_executable=python_executable,
-        prediction_dir=str(prediction_dir),
-        checkpoint=checkpoint,
-    )
+    except (OSError, ValueError, IndexError):
+        # Preserve the previous directory on a rejected pinned plan. Legacy
+        # attempts still invalidate stale readiness after safe path preflight.
+        if ranked_sha256 is None:
+            validate_evidence_paths(
+                ranked_path,
+                out_dir,
+                checkpoint,
+                row=row,
+                train_mask=train_mask,
+                predict_mask=predict_mask,
+            )
+            _invalidate_evidence(out_dir)
+        raise
+    stem = cmd[cmd.index("--artifact_stem") + 1]
     image_path = prediction_dir / f"{stem}.png"
     metadata_path = prediction_dir / f"{stem}_meta.json"
+    captured, metadata_error = None, None
+    if metadata_path.is_file():
+        try:
+            captured = _load_json(metadata_path)
+        except (OSError, ValueError, TypeError) as exc:
+            metadata_error = exc
+    validate_evidence_paths(
+        ranked_path,
+        out_dir,
+        checkpoint,
+        row,
+        cmd,
+        execute,
+        train_mask,
+        predict_mask,
+        captured,
+    )
+    _invalidate_evidence(out_dir)
+    prediction_dir.mkdir(parents=True, exist_ok=True)
+    if not execute and metadata_error is not None:
+        raise metadata_error
 
     _write_json(out_dir / "candidate.json", row)
     (out_dir / "predict_command.sh").write_text(shlex.join(cmd) + "\n")
@@ -236,7 +261,22 @@ def build_evidence_chain(
             f"{image_path} does not exist; prize evidence requires the static prediction image"
         )
 
-    metadata = patch_prediction_metadata(metadata_path, row, train_mask, predict_mask)
+    if execute:
+        captured = _load_json(metadata_path)
+        validate_evidence_paths(
+            ranked_path,
+            out_dir,
+            checkpoint,
+            row,
+            cmd,
+            execute,
+            train_mask,
+            predict_mask,
+            captured,
+        )
+    metadata = patch_prediction_metadata(
+        metadata_path, row, train_mask, predict_mask, captured=captured
+    )
     metadata["ranked_sha256"] = ranked_sha256
     metadata["candidate_input_base_dir"] = str(
         Path(input_base_dir or Path.cwd()).resolve()
@@ -283,58 +323,240 @@ def preflight_evidence_chain(
     checkpoint="best_model.pt",
     ranked_sha256=None,
     input_base_dir=None,
+    train_mask=None,
+    predict_mask=None,
+    preflight_report=None,
 ):
     out_dir = Path(out_dir)
     prediction_dir = out_dir / "predictions"
-    row = select_candidate(
-        ranked_path,
-        candidate_index,
-        expected_sha256=ranked_sha256,
-        input_base_dir=input_base_dir,
-    )
-    stem = _artifact_stem(row)
-    image_path = prediction_dir / f"{stem}.png"
-    metadata_path = prediction_dir / f"{stem}_meta.json"
+    checks, failures, warnings, actions = {}, [], [], []
+
+    def add(name, passed, message, action=None):
+        checks[name] = {
+            "status": "NOT_CHECKED" if passed is None else "PASS" if passed else "FAIL",
+            "message": message,
+        }
+        if passed is False:
+            failures.append(message)
+            if action and action not in actions:
+                actions.append(action)
+
+    def readable_file(path):
+        try:
+            path = Path(path)
+            if not path.is_file() or path.stat().st_size == 0:
+                return False
+            with path.open("rb"):
+                return True
+        except (OSError, TypeError, ValueError):
+            return False
+
+    row, command, image_path, metadata_path, metadata = {}, None, None, None, None
+    try:
+        row = select_candidate(
+            ranked_path,
+            candidate_index,
+            expected_sha256=ranked_sha256,
+            input_base_dir=input_base_dir,
+        )
+        command = build_predict_command(
+            row, prediction_dir=str(prediction_dir), checkpoint=checkpoint
+        )
+        stem = command[command.index("--artifact_stem") + 1]
+        image_path, metadata_path = (
+            prediction_dir / f"{stem}.png",
+            prediction_dir / f"{stem}_meta.json",
+        )
+        add(
+            "candidate_geometry",
+            True,
+            "Candidate geometry passes the prediction command's checks.",
+        )
+    except (OSError, ValueError, TypeError, IndexError) as exc:
+        add(
+            "candidate_geometry",
+            False,
+            str(exc),
+            "Correct the ranked table or candidate index and regenerate the plan.",
+        )
+
     local_uri = row.get("local_uri")
-    failures = []
-    warnings = []
-
-    if not local_uri and execute:
-        failures.append(
-            "candidate has no local_uri; execute mode cannot run predict.py locally"
+    if local_uri:
+        exists = Path(local_uri).exists()
+        add(
+            "local_volume",
+            exists,
+            f"Candidate local_uri {'exists' if exists else 'does not exist'}: {local_uri}",
+            "Provide the candidate's local CT path.",
         )
-    elif local_uri and not Path(local_uri).exists():
-        failures.append(f"candidate local_uri does not exist: {local_uri}")
-
-    if execute and not Path(checkpoint).exists():
-        failures.append(
-            f"{checkpoint} is missing; run training or place a checkpoint before execute mode"
+    elif execute:
+        add(
+            "local_volume",
+            False,
+            "candidate has no local_uri; execute mode cannot run predict.py locally",
+            "Provide a local_uri before executing inference.",
+        )
+    else:
+        add(
+            "local_volume",
+            None,
+            "No local_uri supplied; existing artifacts will need validation.",
         )
 
+    if execute:
+        readable = readable_file(checkpoint)
+        add(
+            "checkpoint_file",
+            readable,
+            f"{checkpoint} is missing or is not a nonempty readable regular file"
+            if not readable
+            else "Checkpoint file is readable; weights and compatibility are not checked.",
+            "Provide a nonempty readable checkpoint file.",
+        )
+    else:
+        add(
+            "checkpoint_file",
+            None,
+            "Existing-artifact mode does not load a checkpoint.",
+        )
+
+    if metadata_path is not None and metadata_path.is_file():
+        try:
+            metadata = _load_json(metadata_path)
+        except (OSError, ValueError, TypeError) as exc:
+            if not execute:
+                add(
+                    "prediction_metadata",
+                    False,
+                    f"Existing prediction metadata is invalid: {exc}",
+                    "Regenerate or repair the original prediction metadata.",
+                )
     if not execute:
-        if not image_path.exists():
-            failures.append(f"existing prediction image is missing: {image_path}")
-        if not metadata_path.exists():
-            failures.append(f"existing prediction metadata is missing: {metadata_path}")
+        if image_path is not None:
+            readable = readable_file(image_path)
+            add(
+                "prediction_image",
+                readable,
+                f"Existing prediction image {'is present' if readable else 'is missing or empty'}: {image_path}",
+                "Generate or supply the original prediction image.",
+            )
+        if "prediction_metadata" not in checks and metadata_path is not None:
+            add(
+                "prediction_metadata",
+                metadata is not None,
+                f"Existing prediction metadata {'parses' if metadata is not None else 'is missing'}: {metadata_path}",
+                "Generate or supply the original prediction metadata.",
+            )
 
-    patch_size = _as_int(row, "patch_size", 64)
-    voxel_um = _as_float(row, "voxel_um", 7.91)
-    if patch_size <= 0 or not np.isfinite(voxel_um) or voxel_um <= 0:
-        failures.append(
-            "candidate patch size and voxel size must be positive and finite"
+    for key, explicit in (("train_mask", train_mask), ("predict_mask", predict_mask)):
+        # Fresh predictions replace old metadata and do not inherit its masks.
+        declared = (metadata or {}).get(key + "_path") if not execute else None
+        path = explicit or (
+            resolve_artifact_path(declared, metadata_path)
+            if isinstance(declared, str) and declared and metadata_path
+            else None
         )
-    elif patch_size > 64 and patch_size * voxel_um / 1000.0 > 0.5 + 1e-9:
-        failures.append(
-            f"candidate ML window is not submittable: {patch_size}px at {voxel_um}um"
+        if path is None:
+            add(
+                key,
+                None,
+                "No mask supplied; content, alignment and overlap remain unverified.",
+            )
+        else:
+            readable = readable_file(path)
+            add(
+                key,
+                readable,
+                f"{key} {'is readable' if readable else 'is missing or empty'}: {path}",
+                f"Provide a readable {key} file in the intended coordinate frame.",
+            )
+
+    if command is not None:
+        patch_size, voxel_um = (
+            int(command[command.index("--patch_size") + 1]),
+            float(row.get("voxel_um") or 7.91),
         )
-    elif patch_size * voxel_um / 1000.0 > 0.5:
-        warnings.append(
-            f"candidate is {patch_size * voxel_um / 1000.0:.4f}mm; accepted only because it is <=64px per prize guidance"
+        window_mm = patch_size * voxel_um / 1000.0
+        fits = math.isfinite(window_mm) and (
+            patch_size <= 64 or window_mm <= 0.5 + 1e-9
+        )
+        add(
+            "local_window_contract",
+            fits,
+            f"Candidate window: {patch_size}px at {voxel_um:g}um; this checks the local artifact contract, not prize eligibility.",
+            "Use a window supported by the local artifact contract.",
+        )
+        if fits and window_mm > 0.5:
+            warnings.append(
+                f"Candidate window is {window_mm:.4f}mm; the local contract accepts its <=64px size. Prize eligibility remains unassessed."
+            )
+    try:
+        validate_evidence_paths(
+            ranked_path,
+            out_dir,
+            checkpoint,
+            row,
+            command,
+            execute,
+            train_mask,
+            predict_mask,
+            metadata,
+        )
+        add(
+            "output_paths",
+            True,
+            "Planned evidence outputs are separate from declared inputs.",
+        )
+    except (OSError, ValueError) as exc:
+        add(
+            "output_paths",
+            False,
+            str(exc),
+            "Choose evidence output paths separate from inputs.",
+        )
+    if preflight_report is not None:
+        validate_evidence_paths(
+            ranked_path,
+            out_dir,
+            checkpoint,
+            row,
+            command,
+            execute,
+            train_mask,
+            predict_mask,
+            metadata,
+            report_path=preflight_report,
+        )
+
+    add(
+        "checkpoint_compatibility",
+        None,
+        "Weights, architecture and warm-start compatibility are not inspected.",
+    )
+    add(
+        "volume_contents",
+        None,
+        "Volume contents and coordinate bounds are not inspected.",
+    )
+    add(
+        "artifact_validation",
+        None,
+        "Image content, masks, exports and submission evidence need artifact validation.",
+    )
+    if not failures:
+        actions.append(
+            "Run inference, then validate its artifacts with actual overlap masks."
+            if execute
+            else "Validate the existing artifacts and actual overlap masks before using their evidence."
         )
 
     return {
         "status": "PASS" if not failures else "FAIL",
         "scope": "inference prerequisites; submission evidence is validated after prediction",
+        "mode": "preflight",
+        "prize_eligibility": "not_assessed",
+        "checks": checks,
+        "next_actions": actions,
         "ranked_path": str(ranked_path),
         "ranked_sha256": ranked_sha256,
         "candidate_input_base_dir": str(Path(input_base_dir or Path.cwd()).resolve()),
@@ -342,15 +564,19 @@ def preflight_evidence_chain(
         "candidate_index": candidate_index,
         "candidate": row,
         "execute": execute,
-        "checkpoint": checkpoint,
-        "expected_prediction_image": str(image_path),
-        "expected_prediction_metadata": str(metadata_path),
+        "checkpoint": str(checkpoint),
+        "expected_prediction_image": str(image_path)
+        if image_path is not None
+        else None,
+        "expected_prediction_metadata": str(metadata_path)
+        if metadata_path is not None
+        else None,
         "failures": failures,
         "warnings": warnings,
     }
 
 
-def main():
+def main(argv=None):
     parser = argparse.ArgumentParser()
     parser.add_argument("--ranked", default="reports/scroll23_ranked_candidates.tsv")
     parser.add_argument(
@@ -388,7 +614,9 @@ def main():
         action="store_true",
         help="Attach a neural_tracing trace_service readiness plan to the evidence dir.",
     )
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
+    if args.preflight_report and not args.preflight:
+        parser.error("--preflight-report requires --preflight")
 
     if args.preflight:
         report = preflight_evidence_chain(
@@ -399,6 +627,9 @@ def main():
             checkpoint=args.checkpoint,
             ranked_sha256=args.ranked_sha256,
             input_base_dir=args.input_base_dir,
+            train_mask=args.train_mask,
+            predict_mask=args.predict_mask,
+            preflight_report=args.preflight_report,
         )
         if args.preflight_report:
             _write_json(args.preflight_report, report)
@@ -423,4 +654,14 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except (
+        OSError,
+        ValueError,
+        IndexError,
+        RuntimeError,
+        subprocess.CalledProcessError,
+    ) as exc:
+        print(f"Evidence preparation failed: {exc}", file=sys.stderr)
+        raise SystemExit(1) from None
