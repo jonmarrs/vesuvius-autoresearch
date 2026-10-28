@@ -83,6 +83,25 @@ is unavailable. A Fontconfig cache warning did not fail the smoke test. Ruff
 and formatting passed for nine files; targeted mypy reported no issues in nine
 files with imported implementations skipped. Diff whitespace checks passed.
 
+PR review added two interruption regressions, both of which failed on the first
+published version: an interrupt after a completed rename but before the Python
+state update left a partial pair, and an interrupt during rollback deleted the
+backup directories. Publication intent is now recorded before rename, missing
+new destinations are harmless during cleanup, and backup retention is enabled
+before rollback begins. The reviewed test run below supersedes the initial
+320-test result.
+
+Reviewed suite: **322 passed in 107.91 seconds**, including 26 new cases.
+Review also removed per-candidate hashing of the entire captured TSV; the planner
+computes source provenance once and reuses it for all items. After that change,
+the focused planning/worklist suites reported **28 passed in 1.18 seconds**:
+
+```sh
+OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 CUDA_VISIBLE_DEVICES='' /tmp/vesuvius-review-env/bin/python -m pytest -q tests/test_worklist_planning_contracts.py tests/test_lasagna_fiber_worklist.py
+```
+
+Targeted mypy and lint/format checks remained clean after review fixes.
+
 The initial broader preprocessing run hit eight missing-runner failures in the
 uninitialized review submodule. The existing cached pinned runner was copied
 into this checkout and verified against Git blob

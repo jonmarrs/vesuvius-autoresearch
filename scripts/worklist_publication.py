@@ -41,9 +41,13 @@ def publish_pair(outputs, render, verify):
                 output, workspace = entry.output, entry.workspace
                 if output.exists() or output.is_symlink():
                     output.rename(workspace / "previous")
-                (workspace / "new").rename(output)
+                # Record intent before rename: an interrupt may arrive after
+                # the filesystem mutation but before Python regains control.
                 entry.published = True
+                (workspace / "new").rename(output)
         except BaseException as exc:
+            # Keep backups if rollback itself is interrupted.
+            preserve = True
             failures = []
             for entry in reversed(entries):
                 try:
@@ -51,15 +55,15 @@ def publish_pair(outputs, render, verify):
                     if previous.exists() or previous.is_symlink():
                         previous.replace(entry.output)
                     elif entry.published:
-                        entry.output.unlink()
+                        entry.output.unlink(missing_ok=True)
                 except OSError as rollback_error:
                     failures.append(str(rollback_error))
             if failures:
-                preserve = True
                 raise RuntimeError(
                     "worklist rollback failed; recover retained files in "
                     + ", ".join(str(entry.workspace) for entry in entries)
                 ) from exc
+            preserve = False
             raise
     finally:
         if not preserve:

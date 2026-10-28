@@ -317,3 +317,47 @@ def test_failed_rollback_retains_recoverable_backups(workspace, monkeypatch):
         "old json",
         "old tsv",
     }
+
+
+def test_interrupt_after_first_new_file_rename_removes_partial_pair(
+    workspace, monkeypatch
+):
+    root, _, run = workspace
+    output, tsv = root / "plan.json", root / "plan.tsv"
+    rename = Path.rename
+
+    def interrupted(path, destination):
+        result = rename(path, destination)
+        if path.name == "new" and Path(destination) == output:
+            raise KeyboardInterrupt
+        return result
+
+    monkeypatch.setattr(Path, "rename", interrupted)
+    with pytest.raises(KeyboardInterrupt):
+        run("--out", str(output), "--tsv", str(tsv))
+    assert not output.exists() and not tsv.exists()
+
+
+def test_interrupt_during_rollback_keeps_old_backups(workspace, monkeypatch):
+    root, _, run = workspace
+    output, tsv = root / "plan.json", root / "plan.tsv"
+    output.write_text("old json")
+    tsv.write_text("old tsv")
+    rename = Path.rename
+
+    def fail_publish(path, destination):
+        if path.name == "new" and Path(destination) == tsv:
+            raise OSError("publish failed")
+        return rename(path, destination)
+
+    def interrupt_restore(*args):
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr(Path, "rename", fail_publish)
+    monkeypatch.setattr(Path, "replace", interrupt_restore)
+    with pytest.raises(KeyboardInterrupt):
+        run("--out", str(output), "--tsv", str(tsv))
+    assert {p.read_text() for p in root.glob(".plan.*-*/previous")} == {
+        "old json",
+        "old tsv",
+    }

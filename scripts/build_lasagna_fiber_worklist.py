@@ -227,6 +227,7 @@ def _plan_worklist(
 ):
     limit = integer(limit, "limit", 1)
     source, rows = read_candidate_table(ranked_path)
+    source_info = source.provenance()
     input_base_dir = Path.cwd().resolve()
     rows = [resolve_candidate_paths(row, input_base_dir) for row in rows]
     eligible = [
@@ -257,7 +258,7 @@ def _plan_worklist(
             python_executable,
             ranked_reference or source.path,
             index,
-            source.provenance()["sha256"],
+            source_info["sha256"],
             input_base_dir,
             checkpoint,
         )
@@ -268,7 +269,7 @@ def _plan_worklist(
         {
             "contract": 2,
             "ranked_path": str(source.path),
-            "source": source.provenance(),
+            "source": source_info,
             "input_base_dir": str(input_base_dir),
             "opportunity": "villa-issue-191",
             "scope": "CT preprocessing plan; priority is a heuristic, not model quality or prize eligibility",
