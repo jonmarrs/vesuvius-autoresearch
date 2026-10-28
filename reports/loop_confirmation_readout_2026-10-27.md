@@ -80,7 +80,8 @@ would promote is kept: `local_data/loop_candidates/window_2026-10-25/candidate_2
 | cycles a side job overlapped dropped (114 cycles, 7 standing) | +0.00432 | +0.0108 | +0.0407 | | |
 
 The reading does not depend on how the 7 are handled. The host's sysstat record covers 133 of the 135 cycles (2 span
-the 23:50–00:10 gap it leaves each day; `reports/loop_host_load_window_2026-10-27.json`). batchgeneratorsv2's cycles
+the 23:50–00:00 gap it leaves each day; `reports/loop_host_load_window_2026-10-27.json`. Corrected 10-27: this said
+23:50–00:10; cycles that start at 00:01 and 00:02 have a load). batchgeneratorsv2's cycles
 ran the host no busier than the others: −1.4 points of busy (SE 4.0), −0.8 of %nice (SE 3.1). A job above nice 0 (mean
 %nice of 10 or more) overlapped 1 of its 8 cycles (10-26 05:01, my 05:09–05:30 job) and 18 of the other 125.
 

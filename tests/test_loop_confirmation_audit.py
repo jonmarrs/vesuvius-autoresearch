@@ -386,3 +386,23 @@ def test_the_report_is_the_records():
         f"({adj['val_f1']['from_its_steps'] / adj['val_f1']['effect']:.0%})",
         f"+{adj['roc_auc']['beyond_its_steps']:.4f} AUC and +{adj['ap_lift']['beyond_its_steps']:.3f} AP lift")  # fmt: skip
     has(f"median is {s['steps_median']:.0f} against {s['steps_median_others']:,}")
+
+
+def test_the_daily_gap_the_report_names_is_the_load_tables():
+    """The readout said sysstat leaves 23:50 to 00:10 unsampled each day. A cycle's load needs COVERED of its SPAN
+    sampled, so under that gap no cycle starting before 00:10 less (1 - COVERED) x SPAN (00:06:42) could have one.
+    Cycles that start at 00:01 and 00:02 have a load: the gap ends at 00:00, as reports/loop_host_load_2026-10-26.md
+    says."""
+    tables = [_json(CYCLES), _json("reports/loop_host_load_cycles_2026-10-26.json")]
+    latest = 600 - (1 - H.COVERED) * H.SPAN
+    early = [
+        c["start"]
+        for t in tables
+        for c in t["cycles"]
+        if c["start"][11:13] == "00"
+        and int(c["start"][14:16]) * 60 + int(c["start"][17:19]) < latest
+    ]
+    assert len(early) >= 2, early
+    uncovered = _json(CYCLES)["uncovered"]
+    text = " ".join(REPORT.read_text().split())
+    assert f"({len(uncovered)} span the 23:50–00:00 gap it leaves each day;" in text
