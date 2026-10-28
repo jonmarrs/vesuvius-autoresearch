@@ -190,6 +190,16 @@ def test_legacy_record_requires_ct_instead_of_loading_a_checkpoint(inputs):
     assert plan["ct_override"] == "explicit-CT" and not out.exists()
 
 
+def test_ct_cannot_replace_the_ct_a_run_recorded(inputs):
+    """A run that traced a local crop is not bound to a public store by naming one: the exporter would place the
+    crop's coordinates in that volume."""
+    villa, run, out, _ = inputs
+    with pytest.raises(ValueError, match="recorded the CT it traced"):
+        check.prepare(villa, run, out, "volume-id", ct="s3://another/CT.zarr")
+    plan, _, _, _ = check.prepare(villa, run, out, "volume-id", ct="recorded-CT")
+    assert plan["ct_override"] == "recorded-CT" and not out.exists()
+
+
 def test_captured_config_hash_cannot_bind_different_parsed_contents(
     inputs, monkeypatch
 ):
