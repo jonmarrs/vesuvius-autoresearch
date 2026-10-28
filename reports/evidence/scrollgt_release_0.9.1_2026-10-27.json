@@ -1,0 +1,94 @@
+{
+  "recorded_at_utc": "2026-10-28T01:12:11+00:00",
+  "recorded_at_pacific": "2026-10-27T18:12:11-07:00",
+  "repository": "jonmarrs/scrollgt",
+  "version": "0.9.1",
+  "scoring_version": 3,
+  "tag": "v0.9.1",
+  "tag_object": "bff9de386403224cb4ae67d2f2501b7fdaef65c4",
+  "release_commit": "0f3fa90890fe40bc48a1f0274154697d23c29f9a",
+  "tested_head": "d2f082b9243b619692b9cddaf01edd231bf877c0",
+  "tag_url": "https://github.com/jonmarrs/scrollgt/tree/v0.9.1",
+  "release_pr": "https://github.com/jonmarrs/scrollgt/pull/15",
+  "tag_published": true,
+  "channel": "Git tag and source install; no PyPI upload or GitHub release announcement",
+  "tested_and_released_trees_identical": true,
+  "data_unchanged_from_v0_9_0": true,
+  "scoring_modules_identical_to_corpus_check": true,
+  "default_suite": {
+    "passed": 511,
+    "heavy_deselected": 10,
+    "seconds": 605.15,
+    "python": "3.10.21"
+  },
+  "ci": {
+    "url": "https://github.com/jonmarrs/scrollgt/actions/runs/40612296386",
+    "conclusion": "success",
+    "jobs": [
+      {
+        "name": "test (3.14)",
+        "conclusion": "success"
+      },
+      {
+        "name": "test (3.12)",
+        "conclusion": "success"
+      },
+      {
+        "name": "test (3.11)",
+        "conclusion": "success"
+      },
+      {
+        "name": "test (3.10)",
+        "conclusion": "success"
+      },
+      {
+        "name": "test (3.13)",
+        "conclusion": "success"
+      }
+    ]
+  },
+  "lock_check": "uv lock --check --offline passed; dependency resolutions unchanged",
+  "local_build": {
+    "version": "0.9.1",
+    "installed_module": "/workspace/scrollgt-release-wheel-env/lib/python3.10/site-packages/scrollgt/__init__.py",
+    "runtime": {
+      "python": "3.10.21",
+      "numpy": "2.2.6",
+      "scipy": "1.15.3",
+      "sklearn": "1.7.2"
+    },
+    "wheel_sources_equal": true,
+    "source_distribution_fiber_files_identical": 63,
+    "installed_wheel_cli_fields_identical": 15,
+    "dependency_scope": "existing cached numerical runtime; not a fresh dependency-install test",
+    "artifacts": {
+      "scrollgt-0.9.1-py3-none-any.whl": {
+        "bytes": 52491,
+        "sha256": "581643c9102599853cc7810f8b078c6f0b647d27ca9c0f069c4903169b886764"
+      },
+      "scrollgt-0.9.1.tar.gz": {
+        "bytes": 40623180,
+        "sha256": "b20de1aa3ac3f2a907552bdf585930b95d42bc20a4d8487aa16af7d2760188e3"
+      }
+    }
+  },
+  "scope": "Versioned release of the already merged memory fix and documentation. No new model quality measurement or additional merged Villa contribution.",
+  "filing": {
+    "prepared_answers_unchanged": true,
+    "submitted": false,
+    "villa_merged_credits": [
+      2022,
+      2044,
+      2155
+    ],
+    "prepared_answer_sha256": {
+      "docs/PRIZE_FILING_2026-10_FORM_ANSWERS.md": "2126c8a8d189feec6fe5d4140aabfcc5a1cbca80d82614a79fc7440d1a14942e",
+      "docs/PRIZE_FILING_2026-10_RESEARCH_FORM_ANSWERS.md": "fe7ca3f2eea20aff3b42339e0e2c440b805c413237c508d0d800c30d84fc8910"
+    }
+  },
+  "research_host": {
+    "deployed": false,
+    "gpu_experiment_launched": false,
+    "live_window_measurements_read": false
+  }
+}
