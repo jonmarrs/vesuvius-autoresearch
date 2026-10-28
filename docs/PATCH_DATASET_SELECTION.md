@@ -3,18 +3,20 @@
 These commands prepare new local symlink datasets for the existing BOOTSTRAP,
 RANDOM and STRIPMATCH recipes. They do not fit models, read study endpoints or
 establish scientific improvement. Historical datasets and study results are not
-updated by these code changes.
+updated by these code changes. Use the project interpreter (Python 3.10, as
+required by `pyproject.toml`) for builds and checks; system Python versions can
+use different floating-point summation behavior.
 
 ```sh
-python3 scripts/build_filtered_patch_dataset.py \
+uv run python scripts/build_filtered_patch_dataset.py \
   --source /path/to/full_dataset --satisfied /path/to/reference.json \
   --out /path/to/new_bootstrap --mode bootstrap --threshold 0.90
 
-python3 scripts/build_filtered_patch_dataset.py \
+uv run python scripts/build_filtered_patch_dataset.py \
   --source /path/to/full_dataset --satisfied /path/to/reference.json \
   --out /path/to/new_random --mode random --threshold 0.90 --seed 0
 
-python3 scripts/build_stripmatch_dataset.py \
+uv run python scripts/build_stripmatch_dataset.py \
   --full /path/to/full_dataset --reference /path/to/reference.json \
   --bootstrap /path/to/new_bootstrap --out /path/to/new_stripmatch --seed 0
 ```
@@ -77,10 +79,10 @@ overwrite existing datasets or write through source symlinks.
 Continue to run the registered checks before any fit, using explicit paths:
 
 ```sh
-python3 scripts/check_patch_selection.py \
+uv run python scripts/check_patch_selection.py \
   --reference /path/to/reference.json --bootstrap /path/to/new_bootstrap \
   --random /path/to/new_random --threshold 0.90
-python3 scripts/check_patch_spatial_balance.py \
+uv run python scripts/check_patch_spatial_balance.py \
   --reference /path/to/reference.json --bootstrap /path/to/new_bootstrap \
   --random /path/to/new_stripmatch --full /path/to/full_dataset
 ```
@@ -91,7 +93,7 @@ instead of inventing new acceptance thresholds from observed outcomes.
 ## Inspect seeded draws without publishing
 
 ```sh
-python3 scripts/build_stripmatch_dataset.py \
+uv run python scripts/build_stripmatch_dataset.py \
   --full /path/to/full_dataset --reference /path/to/reference.json \
   --bootstrap /path/to/new_bootstrap --out /path/to/unused_output \
   --stability 10
