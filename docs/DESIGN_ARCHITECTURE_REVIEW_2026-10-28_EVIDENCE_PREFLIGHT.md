@@ -44,6 +44,12 @@ cases cover reserved report destinations, mask forwarding, failure-marker
 publication, symlink/hardlink aliases, metadata drift/rebasing, serializer errors,
 ambiguous/deep JSON and large numeric values.
 
+Author review of the published PR found an additional exception-path gap:
+invalid candidate geometry could trigger stale-evidence removal before the
+candidate's named inputs were checked. Three regressions reproduced deletion
+for local/source/mask inputs at a managed manifest path. The exception handler
+now checks the selected row's inputs before invalidation as well.
+
 ## Design and architecture decisions
 
 Preflight retains the existing `status`, `failures` and `warnings`, with named
@@ -81,7 +87,8 @@ PYTHONPATH=/tmp/vesuvius-pr256-types python3 -m mypy --follow-imports=skip --exp
 git diff --check
 ```
 
-Results: **222 passed in 42.28s** across the seven regression modules. Smoke:
+Results after fixing the published-PR finding: **225 passed in 29.81s** across
+the seven regression modules (the preceding run passed 222 in 42.28s). Smoke:
 **8/11 passed, 3 skipped, 0 failed in 18.3s**; two dataloader checks lacked local
 training inputs and the optional bg2 augmentation implementation was unavailable.
 Ruff check/format passed for all five changed Python files, scoped mypy reported

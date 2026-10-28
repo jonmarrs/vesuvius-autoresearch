@@ -194,6 +194,20 @@ def test_preflight_success_only_checks_prerequisites(workspace):
     assert not (root / "evidence").exists()
 
 
+@pytest.mark.parametrize("field", ["local_uri", "source_uri", "train_mask_path"])
+def test_invalid_geometry_cannot_invalidate_a_candidate_input(workspace, field):
+    root, ranked, checkpoint, save = workspace
+    out = root / "evidence"
+    out.mkdir()
+    candidate_input = out / "manifest.json"
+    candidate_input.write_bytes(b"candidate input must survive")
+    save(height="0", **{field: str(candidate_input)})
+    with pytest.raises(ValueError):
+        chain.build_evidence_chain(ranked, out, checkpoint=checkpoint)
+    assert candidate_input.read_bytes() == b"candidate input must survive"
+    assert not (out / "PRIZE_READINESS_REPORT.json").exists()
+
+
 @pytest.mark.parametrize("execute", [False, True])
 def test_preflight_only_inherits_metadata_masks_for_existing_artifacts(
     workspace, execute

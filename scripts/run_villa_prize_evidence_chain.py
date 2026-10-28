@@ -187,6 +187,7 @@ def build_evidence_chain(
         train_mask=train_mask,
         predict_mask=predict_mask,
     )
+    row = None
     try:
         row = select_candidate(
             ranked_path,
@@ -204,6 +205,14 @@ def build_evidence_chain(
         # Preserve the previous directory on a rejected pinned plan. Legacy
         # attempts still invalidate stale readiness after safe path preflight.
         if ranked_sha256 is None:
+            validate_evidence_paths(
+                ranked_path,
+                out_dir,
+                checkpoint,
+                row=row,
+                train_mask=train_mask,
+                predict_mask=predict_mask,
+            )
             _invalidate_evidence(out_dir)
         raise
     stem = cmd[cmd.index("--artifact_stem") + 1]
