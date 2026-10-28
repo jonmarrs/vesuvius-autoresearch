@@ -249,6 +249,17 @@ before posting; do not present the older AFV run as a current-main re-run.
 This integration check is useful engineering work if the current dependencies
 and data are available; it is not a prerequisite for filing the completed work.
 
+The [finished-tile object-store replay check](VILLA_OBJECT_STORE_EXPORT_CHECK.md)
+now prepares export verification on that configured host without a new GPU
+run. It plans by default and, with `--execute`, copies a closed run, invokes
+the current export CLI twice and checks exact native coordinates, stable
+identities, links and volume metadata through the native reader. Fixture tests
+verify failure detection; no native export or current-main tracer inference
+was run here. Complete the real-data replay and current-main before/after
+tracer comparison before posting the seed-heading proposal. The prepared
+filing answers and candidate are unchanged; the October form is still accepting
+and the same three Villa merges pass their live claim check.
+
 ### October 27 follow-up
 
 At 14:17 UTC the October form still accepted responses and the upstream claim
