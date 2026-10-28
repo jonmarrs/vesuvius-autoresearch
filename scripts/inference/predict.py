@@ -4,6 +4,8 @@ Performs inference on a specific block of a Vesuvius scroll volume.
 Usage: uv run python -m scripts.inference.predict --uri "s3://..." --z 1000 --y 2000 --x 3000
 """
 
+import hashlib
+import io
 import json
 import os
 import sys
@@ -245,6 +247,7 @@ def write_prediction_metadata(
         "checkpoint_path": str(Path(args.checkpoint).resolve())
         if getattr(args, "checkpoint", None)
         else None,
+        "checkpoint_sha256": getattr(args, "checkpoint_sha256", None),
         "inference_recipe": getattr(args, "inference_recipe", None),
         "ink_stats": ink_stats,
         "fiber_stats": fiber_stats or {},
@@ -324,7 +327,10 @@ def predict():
             f"Trained model not found at {checkpoint_path}. Please run training first."
         )
 
-    checkpoint = torch.load(checkpoint_path, map_location=device, weights_only=False)
+    checkpoint_bytes = Path(checkpoint_path).read_bytes()
+    args.checkpoint_sha256 = hashlib.sha256(checkpoint_bytes).hexdigest()
+    checkpoint = torch.load(io.BytesIO(checkpoint_bytes), map_location=device, weights_only=False)
+    del checkpoint_bytes
     if not isinstance(checkpoint, dict) or not isinstance(
         checkpoint.get("config", {}), dict
     ):

@@ -34,13 +34,22 @@ output. Existing-directory replacement uses two renames and attempts rollback
 on publication errors; serialize writers and readers during replacement. A killed
 process may leave a hidden staging directory or a recoverable `previous` backup.
 
-Crop contract 1 records source shape/dtype, requested/actual origin, output shape,
-and a unique generation. Tensor completion records that generation and the
-effective sigma. Rebuilding a crop invalidates older tensor output. Resume checks
-reject legacy marker-only output and mismatched geometry, sigma, generation, or
-missing eigenanalysis components. They do not hash the full original CT volume
-or scan every payload on each resume. If a source volume changes in place, rerun
-with `--force`.
+Crop contract 2 records source shape/dtype, requested/actual origin, output shape,
+a unique generation and a content fingerprint. Resume compares both the saved
+crop and the selected source region with that fingerprint. Tensor completion
+contract 2 binds its source crop, sigma and all eleven output arrays to their
+decoded content. Changed, deleted or corrupt payloads therefore require
+recomputation even when their metadata stays the same. Rebuilding a crop still
+invalidates older tensors through its generation record.
+
+Resume scans the selected crop region and stored tensor outputs in fixed 64³
+spatial blocks; it reads additional CPU data compared with the former metadata
+check. It hashes no whole-scroll volume. Changes outside the crop leave its
+fingerprint valid. Zarr's valid fill-value behavior still applies to chunks
+absent at initial creation; these checks establish content identity from that
+point onward. Contract-1 artifacts lack the new fingerprints and need one
+recomputation before automatic reuse. Previous outputs are retained if a
+replacement fails.
 
 The tensor wrapper runs villa's `run_create_st.py` with the active interpreter,
 resolved repository paths, and the upstream source path in `PYTHONPATH`. It
@@ -70,6 +79,10 @@ after preprocessing. Each selected TSV row must supply `train_mask_path` and
 `predict_mask_path` in the same coordinate frame. Both files must exist at
 preflight; the evidence validator checks their content and alignment afterward.
 The chosen checkpoint must match the existing evidence before reuse.
+New single-model predictions record the SHA-256 of the exact bytes loaded;
+replacing a checkpoint at the same path invalidates reuse. Legacy prediction
+metadata without that digest needs fresh inference. A rebuilt crop also
+refreshes requested CT evidence.
 
 ```sh
 .venv/bin/python scripts/execute_lasagna_pipeline.py \
@@ -84,9 +97,35 @@ candidates can finish, but any failed candidate makes the overall exit status 1.
 A new attempt invalidates the old execution report before processing begins.
 
 See [Submission evidence](SUBMISSION_EVIDENCE.md) for the evidence contract.
-This path uses CT prediction; it does not consume a newly fitted surface. Source
-and checkpoint content freshness are not cryptographically attested; use `--force`
-after replacing inputs at the same paths.
+This path uses CT prediction; it does not consume a newly fitted surface. The
+evidence checks cover local artifact mechanics and the checkpoint identity.
+Complete prediction inputs, any context beyond the candidate crop and training
+exposure require a separate audit. Use `--force` when intentionally refreshing
+those inputs. Capturing checkpoint bytes also needs one checkpoint-sized CPU
+buffer while loading; this is separate from GPU memory.
+
+## Verify existing outputs before scheduling work
+
+```sh
+.venv/bin/python scripts/execute_lasagna_pipeline.py \
+  --ranked reports/scroll23_ranked_candidates.tsv --limit 3 \
+  --output-root reports/lasagna_fiber_candidates --verify-only \
+  --report reports/lasagna_pipeline_verification.json
+```
+
+This reads existing artifact content and writes the verification report. It
+launches no crop, tensor or inference commands and preserves artifact bytes and
+modification times. The report uses `mode: verify_only` and stage states
+`VERIFIED`, `STALE_OR_MISSING` or a dependency-blocked state. Exit 0 means all
+requested checks passed; exit 1 identifies stale, missing or failed checks.
+Rerun without `--verify-only` to rebuild required stages. `--force` and
+`--verify-only` cannot be combined. Add `--with-evidence` only when the selected
+rows supply the masks required for the separate CT evidence check.
+
+Report paths are checked before publication, protecting ranked inputs,
+checkpoints, supplied source/mask paths, artifact directories and the research
+lock from direct or resolved overlap. The path check is a snapshot; serialize
+concurrent writers as with directory publication.
 
 ## Measuring stored tensors
 

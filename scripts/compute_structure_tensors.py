@@ -16,10 +16,12 @@ if str(REPO_ROOT) not in sys.path:
 from scripts.candidate_artifacts import (
     ARTIFACT_ERRORS,
     array_3d,
+    array_content_sha256,
     separate_paths,
     spatial_blocks,
     staged_directory,
     tensor_arrays,
+    tensor_content_sha256,
     tensor_settings,
 )
 
@@ -36,6 +38,7 @@ def compute_structure_tensors(input_path, output_path, sigma=2.0, gpus="all", rh
     input_path, output_path = separate_paths(input_path, output_path)
     source = array_3d(input_path)
     source_attrs = dict(source.attrs)
+    source_hash = array_content_sha256(source)
     env = os.environ.copy()
     env["PYTHONPATH"] = os.pathsep.join(
         filter(None, (str(VESUVIUS_SRC), env.get("PYTHONPATH")))
@@ -65,14 +68,20 @@ def compute_structure_tensors(input_path, output_path, sigma=2.0, gpus="all", rh
                 raise ValueError("upstream structure tensor contains nonfinite values")
             for array in arrays[1:]:
                 array[selection]  # reject corrupt encoded payloads before publication
-        if dict(array_3d(input_path).attrs) != source_attrs:
+        current = array_3d(input_path)
+        if (
+            dict(current.attrs) != source_attrs
+            or array_content_sha256(current) != source_hash
+        ):
             raise RuntimeError(
                 "source crop changed during structure tensor computation"
             )
         root.attrs["candidate_tensor_completion"] = {
-            "contract": 1,
+            "contract": 2,
             "source_path": str(input_path),
             "source_crop": source_attrs,
+            "source_content_sha256": source_hash,
+            "outputs_sha256": tensor_content_sha256(arrays),
             "sigma": sigma,
             "gpus": gpus,
             "upstream_script": str(RUN_SCRIPT),

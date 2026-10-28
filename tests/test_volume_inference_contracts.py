@@ -163,6 +163,22 @@ def test_invalid_stem_refuses_before_checkpoint_loading(tmp_path, monkeypatch, m
         runner()
 
 
+def test_checkpoint_hash_is_bound_to_bytes_actually_loaded(tmp_path, monkeypatch):
+    import hashlib
+    runner, _, _, _, checkpoints = setup_prediction(tmp_path, monkeypatch, "single")
+    path = Path(checkpoints[0])
+    original_hash = hashlib.sha256(path.read_bytes()).hexdigest()
+    original_load = torch.load
+    def load_captured(stream, **kwargs):
+        path.write_bytes(b"replacement at the same path")
+        return original_load(stream, **kwargs)
+    monkeypatch.setattr(torch, "load", load_captured)
+    runner()
+    metadata = json.loads(next((tmp_path / "out").glob("*_meta.json")).read_text())
+    assert metadata["checkpoint_sha256"] == original_hash
+    assert metadata["checkpoint_sha256"] != hashlib.sha256(path.read_bytes()).hexdigest()
+
+
 @pytest.mark.parametrize("mode", ["single", "ensemble"])
 @pytest.mark.parametrize("tta", [False, True])
 @pytest.mark.parametrize("gaussian", [False, True])

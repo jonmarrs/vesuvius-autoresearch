@@ -2,16 +2,20 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
+import lzma
 import math
 import os
 import re
 import shutil
 import tempfile
+import zlib
 from contextlib import contextmanager
 from itertools import product
 from pathlib import Path
 
+import numpy as np
 import zarr
 
 from vesuvius_autoresearch.core.file_modes import replacement_mode
@@ -22,6 +26,10 @@ ARTIFACT_ERRORS = (
     KeyError,
     TypeError,
     AttributeError,
+    RuntimeError,
+    EOFError,
+    zlib.error,
+    lzma.LZMAError,
     zarr.errors.MetadataError,
 )
 
@@ -145,6 +153,50 @@ def array_3d(path):
     return array
 
 
+def array_content_sha256(array, start=(0, 0, 0), shape=None):
+    """Hash decoded values in fixed spatial blocks, independent of chunk layout.
+
+    Crops use 3D arrays and tensors use six leading channels. No whole source
+    volume is materialized. Codecs may still decode their underlying chunks.
+    """
+    if array.ndim not in (3, 4) or array.dtype.hasobject:
+        raise ValueError("content hashing requires non-object 3D/4D arrays")
+    shape = tuple(shape or array.shape[-3:])
+    if (
+        len(start) != 3
+        or len(shape) != 3
+        or any(
+            origin < 0 or size <= 0 or origin + size > limit
+            for origin, size, limit in zip(start, shape, array.shape[-3:], strict=True)
+        )
+    ):
+        raise ValueError("hash region must fit inside the array")
+    digest = hashlib.sha256(
+        json.dumps(
+            {
+                "contract": 1,
+                "shape": list(array.shape[:-3]) + list(shape),
+                "dtype": str(array.dtype),
+            },
+            sort_keys=True,
+        ).encode()
+    )
+    prefix = (slice(None),) * (array.ndim - 3)
+    for selection in spatial_blocks(shape):
+        region = tuple(
+            slice(part.start + origin, part.stop + origin)
+            for part, origin in zip(selection, start, strict=True)
+        )
+        data = np.ascontiguousarray(array[prefix + region])
+        digest.update(data.tobytes(order="C"))
+    return digest.hexdigest()
+
+
+def tensor_content_sha256(arrays):
+    hashes = [array_content_sha256(array) for array in arrays]
+    return hashlib.sha256(json.dumps(hashes).encode()).hexdigest()
+
+
 def tensor_arrays(path, shape=None, mode="r"):
     root = zarr.open_group(str(path), mode=mode)
     tensor = root["structure_tensor"]
@@ -172,7 +224,7 @@ def crop_matches(path, source, requested, shape):
         return (
             array.shape == tuple(shape)
             and array.dtype == src.dtype
-            and attrs.get("candidate_crop_contract") == 1
+            and attrs.get("candidate_crop_contract") == 2
             and attrs.get("source_path") == str(Path(source).resolve())
             and attrs.get("source_requested_zyx") == list(requested)
             and attrs.get("crop_shape_zyx") == list(shape)
@@ -184,6 +236,10 @@ def crop_matches(path, source, requested, shape):
                 for origin, limit, size in zip(requested, src.shape, shape, strict=True)
             ]
             and bool(attrs.get("crop_generation"))
+            and isinstance(attrs.get("content_sha256"), str)
+            and attrs["content_sha256"] == array_content_sha256(array)
+            and attrs["content_sha256"]
+            == array_content_sha256(src, attrs["source_start_zyx"], shape)
         )
     except ARTIFACT_ERRORS:
         return False
@@ -192,16 +248,21 @@ def crop_matches(path, source, requested, shape):
 def tensor_matches(path, source=None, sigma=2.0):
     try:
         src = array_3d(source) if source is not None else None
-        root, _ = tensor_arrays(path, src.shape if src is not None else None)
+        root, arrays = tensor_arrays(path, src.shape if src is not None else None)
         completion = root.attrs.get("candidate_tensor_completion", {})
         return (
-            completion.get("contract") == 1
+            completion.get("contract") == 2
             and completion.get("sigma") == sigma
             and (
                 src is None
                 or completion.get("source_path") == str(Path(source).resolve())
             )
             and (src is None or completion.get("source_crop") == dict(src.attrs))
+            and (
+                src is None
+                or completion.get("source_content_sha256") == array_content_sha256(src)
+            )
+            and completion.get("outputs_sha256") == tensor_content_sha256(arrays)
         )
     except ARTIFACT_ERRORS:
         return False
