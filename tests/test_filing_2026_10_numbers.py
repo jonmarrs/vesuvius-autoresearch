@@ -1522,3 +1522,37 @@ def test_steep_heading_matches_finding_100(monkeypatch):
         "Finding 100 is in `reports/neural_tracer_steep_heading.md`, with its committed JSON and pre-registration."
         in txt
     )
+
+
+def test_scrollgt_corpus_check_and_0_9_1_match_their_records():
+    """The corpus check's and the 0.9.1 release's figures (#266, #267), which "Every figure here is bound" covers."""
+    txt = _text()
+    corpus = _json("reports/evidence/scrollgt_corpus_reproduction_2026-10-27.json")
+    cases = corpus["cases"]
+    limit = corpus["measurement_scope"]["address_space_limit_bytes"]
+    assert corpus["status"] == "EXACT" and all(c["exact_match"] for c in cases)
+    assert all(c["measurement"]["address_space_limit_bytes"] == limit for c in cases)
+    assert all(c["expected"] == c["metrics"] for c in cases)
+    assert limit % 2**30 == 0
+    assert (
+        f"reproduces all {len(cases)} released connected-components rows with the merged ScrollGT memory fix: all "
+        f"{sum(len(c['metrics']) for c in cases)} published field values match, with every CLI process under a "
+        f"{limit // 2**30} GiB address-space limit." in txt
+    )
+
+    rel = _json("reports/evidence/scrollgt_release_0.9.1_2026-10-27.json")
+    jobs = rel["ci"]["jobs"]
+    pythons = sorted(
+        (j["name"].removeprefix("test (").removesuffix(")") for j in jobs),
+        key=lambda v: tuple(map(int, v.split("."))),
+    )
+    assert rel["tag_published"] and rel["ci"]["conclusion"] == "success"
+    assert all(j["conclusion"] == "success" for j in jobs)
+    assert rel["data_unchanged_from_v0_9_0"]
+    assert rel["scoring_modules_identical_to_corpus_check"]
+    assert f"[0.9.1]({rel['tag_url']}) releases the merged memory fix" in txt
+    assert (
+        f"its data match 0.9.0, and scoring version remains {rel['scoring_version']}."
+        in txt
+    )
+    assert f"passing Python {pythons[0]}–{pythons[-1]} CI" in txt

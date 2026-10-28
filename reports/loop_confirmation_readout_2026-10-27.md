@@ -120,6 +120,11 @@ The registrations froze these scripts, so this PR changes none of them.
   starts at that second and is excluded, and the last row is the 8th standing cycle. (#252's review fixed the same
   in `loop_host_load.window`.)
 
+Later (#260, 10-27): the three functions now also cut when there are exactly 8 standing cycles, and the committed
+records regenerate unchanged.
+`registered_verdict` still counts the join's unmatched cycles before the cut, so with an `--until` past the 8th
+standing cycle's end, a later cycle without its run still gives UNMATCHED_RUNS.
+
 ## The owner's decisions (2026-10-27)
 
 - **The audited reading is accepted**, as post hoc; the registered result on record remains UNMATCHED_RUNS (Amendment
