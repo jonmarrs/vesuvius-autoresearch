@@ -68,6 +68,8 @@ VALIDATION_TESTS = [
     "tests/test_production_predict.py",
     "tests/test_predict_checkpoint_loading.py",
     "tests/test_loop_lifecycle.py",
+    "tests/test_supervisor_startup.py",
+    "tests/test_handoff_deadlines.py",
     "tests/test_loop_control_modules.py",
     "tests/test_loop_unchanged_control.py",
     "tests/test_workspace_status.py",
