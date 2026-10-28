@@ -344,9 +344,11 @@ with open('autoresearch.lock', 'a+') as handle:
 def test_failed_gpu_step_releases_lock(monkeypatch, tmp_path):
     _isolated_handoff(monkeypatch, tmp_path)
     steps = [{"name": "fake_gpu", "gpu": True, "command": [sys.executable, "-c", "raise SystemExit(7)"]}]
-    with pytest.raises(subprocess.CalledProcessError) as error:
-        handoff.execute_handoff(steps, tmp_path / "plan.json")
-    assert error.value.returncode == 7
+    assert handoff.execute_handoff(steps, tmp_path / "plan.json") == 1
+    plan = json.loads((tmp_path / "plan.json").read_text())
+    assert plan["status"] == "FAILED_STEP"
+    assert plan["failure"]["step"] == "fake_gpu"
+    assert plan["failure"]["returncode"] == 7
     subprocess.run([sys.executable, "-c", _TAKE_LOCK], cwd=tmp_path, check=True)
 
 
@@ -442,7 +444,7 @@ def test_non_gpu_preflight_does_not_acquire_lock(monkeypatch, tmp_path):
     monkeypatch.setattr(handoff, "active_sprint_processes", lambda repo: ["123 active loop"])
     monkeypatch.setattr(loop_control, "acquire_lock", lambda path: pytest.fail("non-GPU preflight must not acquire lock"))
     completed = []
-    monkeypatch.setattr(handoff, "run_steps", lambda steps: completed.extend(steps))
+    monkeypatch.setattr(handoff, "run_steps", lambda steps, **kwargs: completed.extend(steps))
     steps = [{"name": "plan", "gpu": False, "command": []}]
     assert handoff.execute_handoff(steps, tmp_path / "plan.json", preflight_only=True) == 0
     assert completed == steps
@@ -557,6 +559,7 @@ except KeyboardInterrupt:
         assert loop_control.running_pid(tmp_path) == process.pid
         assert loop_control.main(["stop", "--repo", str(tmp_path), "--timeout", "15"]) == 0
         assert process.wait(timeout=2) == 130
+        assert json.loads((tmp_path / "plan.json").read_text())["status"] == "STOPPED"
         for pid in children:
             try:
                 assert loop_control._stat_fields(pid)[0] == "Z"

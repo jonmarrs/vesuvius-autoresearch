@@ -19,7 +19,7 @@ submodule:
 
 ```bash
 git -C villa fetch origin main
-uv run python scripts/audit_villa_upstream.py
+uv run python scripts/archive/audit_villa_upstream.py
 uv run python scripts/plan_villa_prize_opportunities.py
 uv run python scripts/review_villa_pin.py
 ```
@@ -125,7 +125,7 @@ preprocessing plus follow-up evidence-chain runs.
 Generate exact inference commands for the top ranked rows:
 
 ```bash
-uv run python scripts/run_ranked_inference.py \
+uv run python scripts/inference/run_ranked_inference.py \
   --ranked reports/scroll23_ranked_candidates.tsv \
   --limit 8 \
   --manifest reports/scroll23_inference_commands.sh
@@ -199,10 +199,31 @@ uv run python scripts/run_post_sprint_villa_handoff.py
 This writes `reports/post_sprint_villa_handoff_plan.json` and refuses to run
 while any of that research is going. After the GPU is free,
 use `--execute-inference` and `--execute-evidence` to run the full prize evidence
-chain. The underlying manual sequence is:
+chain. Set an optional deadline for each command when running a bounded job:
 
 ```bash
-uv run python scripts/run_ranked_inference.py \
+uv run python scripts/run_post_sprint_villa_handoff.py \
+  --execute-inference --step-timeout 3600
+```
+
+The example allows one hour per command, plus process-group cleanup. It is an
+operator-selected budget, not a measured runtime estimate; omitted, the option
+retains the existing unlimited wait. Values must be positive and finite.
+The deadline applies to planning commands as well as GPU commands.
+
+The plan records `step_timeout_seconds`. After execution its `status` becomes
+`COMPLETE`, `FAILED_TIMEOUT`, `FAILED_STEP` or `STOPPED`. Refused work retains
+its `BLOCKED_*` state. Failure details name the step, cause and exit code when
+available. Timeout exits with code 124; a failed or missing command exits 1;
+refused setup exits 2 and an interrupted CLI exits 130. Execution stops at the
+first failure, after child-group cleanup and before releasing the research
+lock. Inspect completed outputs before deciding to rerun: this is a serial
+workflow with no automatic resume or rollback of earlier steps.
+
+The underlying manual sequence is:
+
+```bash
+uv run python scripts/inference/run_ranked_inference.py \
   --ranked reports/scroll23_ranked_candidates.tsv \
   --limit 8 \
   --manifest reports/scroll23_inference_commands.sh \
