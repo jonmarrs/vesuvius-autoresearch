@@ -1,0 +1,24 @@
+# villa's own tests for repro/fibers/villa_volume_seed_heading.patch at villa 39a8cf3a (#2316), 2026-10-28 PDT
+# Sources: repro/fibers/run_villa_seed_heading_rerun.sh DRY_RUN=1 (git archive of vesuvius/src, the patch applied to src_after);
+# the new test file copied into src_before; villa's vesuvius/pytest.ini (unchanged since 322cb0899) beside each.
+# Run in the tracer's venv (Python 3.14; #2316's volume.py imports the native vc_object_store, which this repository's
+# Python 3.10 venv cannot load), with vc_object_store and pytest from their own directories, CUDA hidden:
+#   cd <src_SIDE>/vesuvius && PYTHONPATH=<src_SIDE>/vesuvius/src:<VC_SITE>:<site-pytest> CUDA_VISIBLE_DEVICES= \
+#     <T>/venv/bin/python -m pytest -q -p no:cacheprovider src/vesuvius/neural_tracing/tracers/fibers/tests/test_volume_seed_heading.py src/vesuvius/neural_tracing/tracers/fibers/tests/test_volume_performance.py
+
+villa 39a8cf3a1 (2026-10-26T21:02:19+00:00), Python 3.14.3, numpy 2.4.6, torch 2.12.1+cu130, pytest 9.2.0
+== volume.py as on main (the new test file added, volume.py unpatched)
+volume.py sha1 (git blob): 49e5957131e14f820a6899f4ac918a0331fc4915 == main: 49e5957131e14f820a6899f4ac918a0331fc4915
+=============================== warnings summary ===============================
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+FAILED src/vesuvius/neural_tracing/tracers/fibers/tests/test_volume_seed_heading.py::test_seed_heading_is_the_ct_axis_signed_along_the_presence_direction[36]
+FAILED src/vesuvius/neural_tracing/tracers/fibers/tests/test_volume_seed_heading.py::test_seed_heading_is_the_ct_axis_signed_along_the_presence_direction[60]
+FAILED src/vesuvius/neural_tracing/tracers/fibers/tests/test_volume_seed_heading.py::test_seed_heading_is_the_ct_axis_signed_along_the_presence_direction[89]
+FAILED src/vesuvius/neural_tracing/tracers/fibers/tests/test_volume_seed_heading.py::test_seed_heading_is_the_ct_axis_signed_along_the_presence_direction[91]
+FAILED src/vesuvius/neural_tracing/tracers/fibers/tests/test_volume_seed_heading.py::test_seed_heading_is_the_ct_axis_signed_along_the_presence_direction[120]
+5 failed, 15 passed, 1 warning in 10.93s
+== volume.py patched
+volume.py sha1 (git blob): c8ca22dbb74546048bfb7fd23336135203b9a32f
+=============================== warnings summary ===============================
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+20 passed, 1 warning in 10.66s

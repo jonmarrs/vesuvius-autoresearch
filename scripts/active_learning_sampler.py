@@ -120,7 +120,7 @@ class ActiveLearningSampler:
         if not getattr(dataloader, "in_order", True):
             raise ValueError("active learning requires worker batches in dataset order")
         catalog = review_catalog(getattr(dataloader.dataset, "valid_coords", None))
-        uncertainties = []
+        batch_scores = []
 
         print(f"Sampling {n_samples} high-uncertainty regions...")
 
@@ -160,13 +160,13 @@ class ActiveLearningSampler:
                 # Prediction entropy (ambiguity); out_ink is [B, 1, H, W].
                 score = calculate_entropy(probs).mean(dim=tuple(range(1, probs.ndim)))
 
-                uncertainties.append(score.cpu().numpy())
+                batch_scores.append(score.cpu().numpy())
 
                 offset += len(x)
 
-        if not uncertainties:
+        if not batch_scores:
             raise ValueError("no patches available for active learning")
-        uncertainties = np.concatenate(uncertainties)
+        uncertainties = np.concatenate(batch_scores)
         if not np.isfinite(uncertainties).all():
             raise ValueError("uncertainty scores must be finite")
         if not np.array_equal(np.asarray(dataloader.dataset.valid_coords), catalog):

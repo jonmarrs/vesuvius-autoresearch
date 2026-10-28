@@ -39,7 +39,14 @@ unchanged-control window is open.
 For an old run with no recorded CT path, supply `--ct` with its actual public
 CT store. It is passed to the export command, without editing the original
 record. The verifier refuses the exporter's checkpoint fallback, avoiding a
-checkpoint lookup or download just to recover that path. If its run predates
+checkpoint lookup or download just to recover that path. A run that recorded
+its CT keeps it: `--ct` cannot replace it, since the exporter writes the traced
+CT's coordinates unchanged and naming another store would bind them to that
+volume. Villa's exporter finds the volume only from a Vesuvius open-data store,
+or from a fiber store of the same scan (`--template`, not passed here). A run
+traced on a local crop therefore has no truthful export through this check:
+on October 28 every closed run on the tracing host (`ct/`, `ct_9p6/` resampled
+to 9.6 µm, and the context crops) was one. If its run predates
 `fiber_namespace`, the check derives a deterministic
 namespace from the input hashes and adds it **only to the export copy**. That
 copy is an export fixture: never use it to resume tracing or treat its added

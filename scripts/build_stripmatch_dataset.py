@@ -24,16 +24,29 @@ The registration requires `check_patch_selection.py` and
 """
 
 import argparse
-import json
 import os
 import random
 import sys
+from pathlib import Path
 
 STRIP_LO, STRIP_HI = 1593.0, 3311.0
 CX, CY = 3644.0, 4621.0
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from check_patch_spatial_balance import load_boxes, radial_extent  # noqa: E402
+REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+from scripts.check_patch_spatial_balance import radial_extent
+from scripts.patch_dataset_artifacts import (
+    MANIFEST,
+    bootstrap_ids,
+    dataset_links,
+    fingerprint,
+    geometry,
+    publish_dataset,
+    reference_patches,
+    verify_geometry,
+)
 
 
 def strip_weight(extent, lo=STRIP_LO, hi=STRIP_HI):
@@ -46,6 +59,8 @@ def strip_weight(extent, lo=STRIP_LO, hi=STRIP_HI):
 
 
 def profile(ids, area, weight):
+    # Set iteration order varies across Python processes. Keep target sums stable.
+    ids = sorted(ids)
     a = sum(area[i] for i in ids)
     if a == 0:
         return 0.0, 0.0
@@ -114,8 +129,8 @@ def draw_stability(pool, area, weight, target_area, target_share, seeds, frac=No
     return rows
 
 
-def main() -> int:
-    ap = argparse.ArgumentParser()
+def main(argv=None) -> int:
+    ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--reference", required=True)
     ap.add_argument("--bootstrap", required=True)
     ap.add_argument("--full", required=True, help="unfiltered source dataset")
@@ -129,25 +144,42 @@ def main() -> int:
         help="draw N times under the same constraints and report agreement "
         "instead of writing a dataset; tests the single-draw limitation",
     )
-    args = ap.parse_args()
+    args = ap.parse_args(argv)
+    try:
+        if args.stability != 0 and not 2 <= args.stability <= 1000:
+            raise ValueError("--stability must be 0 (build) or 2..1000 draws")
+        return build(args)
+    except (OSError, ValueError, TypeError, OverflowError) as exc:
+        print(f"STRIPMATCH preparation failed: {exc}", file=sys.stderr)
+        return 1
 
-    ref = json.load(open(args.reference))["patches"]
-    area = {p["id"]: p["total_area"] for p in ref}
-    frac = {p["id"]: p["fraction"] for p in ref}
-    boot = (
-        set(os.listdir(os.path.join(args.bootstrap, "verified_patches"))) & area.keys()
-    )
 
-    boxes = load_boxes(args.full, set(area))
+def build(args):
+    reference, records = reference_patches(args.reference)
+    area = {pid: value[1] for pid, value in records.items()}
+    frac = {pid: value[0] for pid, value in records.items()}
+    links = dataset_links(args.full, records)
+    bootstrap, boot = bootstrap_ids(args.bootstrap, records)
+    boxes, geometry_sources = geometry(links[0], area)
     weight = {i: strip_weight(radial_extent(boxes[i], CX, CY)) for i in boxes}
 
     ta, ts = profile(boot, area, weight)
+    if ta <= 0:
+        raise ValueError("bootstrap target area must be positive")
+
+    def verify():
+        reference.verify()
+        verify_geometry(geometry_sources)
+        if bootstrap_ids(bootstrap, records)[1] != boot:
+            raise ValueError("bootstrap selection changed before publication")
+
     print(f"BOOTSTRAP  area {ta:,.0f}  in-strip share {ts:.4f}")
 
     if args.stability:
         rows = draw_stability(
             set(boxes), area, weight, ta, ts, range(args.stability), frac
         )
+        verify()
         print(
             f"\n{'seed':<6}{'n':>9}{'area %target':>14}{'in-strip':>10}"
             f"{'mean satisf':>13}{'overlap':>10}"
@@ -162,10 +194,10 @@ def main() -> int:
         ms = [r["mean_satisfaction"] for r in rows]
         print(
             f"\nin-strip share spans {max(sh) - min(sh):.4f}; mean satisfaction spans "
-            f"{max(ms) - min(ms):.4f}. Draws overlap only "
+            f"{max(ms) - min(ms):.4f}. Draw overlap with the first is "
             f"{100 * min(r['overlap_with_first'] for r in rows[1:]):.0f}-"
-            f"{100 * max(r['overlap_with_first'] for r in rows[1:]):.0f}%, so these are "
-            "genuinely different subsets agreeing on what the comparison rests on."
+            f"{100 * max(r['overlap_with_first'] for r in rows[1:]):.0f}%. "
+            "Compare these input diagnostics before fitting."
         )
         return 0
 
@@ -176,22 +208,39 @@ def main() -> int:
         f"in-strip {ks:.4f} (gap {abs(ks - ts):.4f})  {len(keep):,} patches"
     )
     if abs(ks - ts) > 0.005 or abs(ka - ta) / ta > 0.01:
-        raise SystemExit("did not converge on both constraints; refusing to write")
+        raise ValueError("did not converge on both constraints; refusing to write")
 
-    src = os.path.abspath(args.full)
-    dst = os.path.abspath(args.out)
-    os.makedirs(os.path.join(dst, "verified_patches"), exist_ok=True)
-    for entry in os.listdir(src):
-        if entry == "verified_patches":
-            continue
-        link = os.path.join(dst, entry)
-        if not os.path.lexists(link):
-            os.symlink(os.path.join(src, entry), link)
-    for i in keep:
-        link = os.path.join(dst, "verified_patches", i)
-        if not os.path.lexists(link):
-            os.symlink(os.path.join(src, "verified_patches", i), link)
-    print(f"wrote {dst} ({len(keep):,} patch symlinks)")
+    publish_dataset(
+        links,
+        args.out,
+        keep,
+        {
+            "mode": "stripmatch",
+            "seed": args.seed,
+            "reference": reference.provenance(),
+            "scored_patches": len(records),
+            "bootstrap": str(bootstrap),
+            "bootstrap_ids": sorted(boot),
+            "bootstrap_target_area": ta,
+            "bootstrap_target_strip_share": ts,
+            "selected_area": ka,
+            "selected_strip_share": ks,
+            "selected_count": len(keep),
+            "strip_radius_bounds": [STRIP_LO, STRIP_HI],
+            "center_xy": [CX, CY],
+            "geometry_sources_sha256": fingerprint(geometry_sources),
+            "matching_basis": "unchanged seeded greedy draw; 1% area and 0.005 strip-share tolerance",
+        },
+        inputs=(
+            reference.path,
+            bootstrap,
+            bootstrap / "verified_patches",
+            *(bootstrap / "verified_patches" / pid for pid in boot),
+        ),
+        verify=verify,
+    )
+    print(f"wrote {Path(args.out).resolve()} ({len(keep):,} patch symlinks)")
+    print(f"selection record: {Path(args.out) / MANIFEST}")
     return 0
 
 
