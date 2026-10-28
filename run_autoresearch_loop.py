@@ -1009,6 +1009,12 @@ def replicate_rule_promotion(current, result, enforce_prize_gates):
         decision = replicate_rule.decide(read_cycle_records(), current)
         if not decision["fires"]:
             return decision, False
+        if current["tweak"] == CONTROL_TWEAK:
+            # The rule's evidence is that a change to the recipe replicates. The control changes nothing, so a
+            # firing on it would promote one cycle's retrain of config.json without train.py's margin.
+            return dict(
+                decision, refused="the no-change control changes no setting"
+            ), False
         refused = replicate_rule.eligible(result, enforce_prize_gates)
         if refused:
             return dict(decision, refused=refused), False

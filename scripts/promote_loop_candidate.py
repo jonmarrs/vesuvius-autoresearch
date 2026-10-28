@@ -248,15 +248,18 @@ def promote_files(loop: Path, candidate_raw: bytes, new_rows: dict, stamp: str, 
             missing_ok,
         )
     except BaseException:
-        for name in CHANGED:
-            if name in present:
-                _replace(
-                    loop / name, lambda tmp, n=name: shutil.copyfile(kept / n, tmp)
-                )
-            elif (loop / name).exists():
-                (loop / name).unlink()
+        _restore(loop, kept)
         raise
     return kept
+
+
+def _restore(loop: Path, kept: Path) -> None:
+    """Put back the files promote_files kept, and remove the ones it created."""
+    for name in CHANGED:
+        if (kept / name).exists():
+            _replace(loop / name, lambda tmp, n=name: shutil.copyfile(kept / n, tmp))
+        elif (loop / name).exists():
+            (loop / name).unlink()
 
 
 def apply(loop: Path, candidate_raw: bytes, cfg: ExperimentConfig, family: str, new_rows: dict, stamp: str, message: str) -> Path:  # fmt: skip
@@ -269,13 +272,18 @@ def apply(loop: Path, candidate_raw: bytes, cfg: ExperimentConfig, family: str, 
     ):
         raise SystemExit(f"history weight for {family!r} must be finite")
     kept = promote_files(loop, candidate_raw, new_rows, stamp)
-    _replace(loop / "config.json", cfg.save)
-    _replace(loop / "autoresearch_history.json", lambda tmp: tmp.write_text(json.dumps(counts, indent=4)))  # fmt: skip
+    try:
+        _replace(loop / "config.json", cfg.save)
+        _replace(loop / "autoresearch_history.json", lambda tmp: tmp.write_text(json.dumps(counts, indent=4)))  # fmt: skip
+    except BaseException:
+        _restore(loop, kept)  # not the new checkpoint beside the old config
+        raise
     git = ["git", "-C", str(loop)]
-    subprocess.run([*git, "add", "--", *PROMOTION_FILES], check=True)
-    done = subprocess.run(
-        [*git, "commit", "--only", "-m", message, "--", *PROMOTION_FILES]
-    )
+    done = subprocess.run([*git, "add", "--", *PROMOTION_FILES])
+    if done.returncode == 0:
+        done = subprocess.run(
+            [*git, "commit", "--only", "-m", message, "--", *PROMOTION_FILES]
+        )
     if done.returncode != 0:
         subprocess.run([*git, "reset", "-q", "--", *PROMOTION_FILES])
         raise SystemExit(

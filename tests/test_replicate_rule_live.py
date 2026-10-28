@@ -196,22 +196,20 @@ def test_the_gate_constant_is_train_pys():
 PRIOR = 5  # earlier cycles of the tweak the loop runs; the cycle run is its 6th
 
 
-def _history(tweak_f1, other_f1, inc=INC):
+def _history(tweak_f1, other_f1, inc=INC, tweak="lr_0.002"):
     out, t = [], 0
     for k in range(30):
         tw = (
-            "lr_0.002"
-            if k % 6 == 0 and sum(r["tweak"] == "lr_0.002" for r in out) < PRIOR
+            tweak
+            if k % 6 == 0 and sum(r["tweak"] == tweak for r in out) < PRIOR
             else f"other_{k % 4}"
         )
         f1 = (
             tweak_f1 + 0.0004 * (k % 3)
-            if tw == "lr_0.002"
+            if tw == tweak
             else other_f1 + 0.0004 * (k % 5 - 2)
         )
-        auc = (
-            0.590 + 0.001 * (k % 3) if tw == "lr_0.002" else 0.578 + 0.001 * (k % 5 - 2)
-        )
+        auc = 0.590 + 0.001 * (k % 3) if tw == tweak else 0.578 + 0.001 * (k % 5 - 2)
         out.append(
             _record(
                 f"2026-11-01T{t // 60:02d}:{t % 60:02d}:00",
@@ -246,6 +244,7 @@ def _cycle(
     broken=False,
     bad_candidate=False,
     invalid_header=None,
+    templates=({"family": "lr", "attr": "lr", "vals": [0.002]},),
 ):
     import run_autoresearch_loop as loop
 
@@ -257,9 +256,7 @@ def _cycle(
     monkeypatch.setattr(
         loop.time, "localtime", lambda: SimpleNamespace(tm_hour=next(hours))
     )
-    monkeypatch.setattr(
-        loop, "tweak_templates", [{"family": "lr", "attr": "lr", "vals": [0.002]}]
-    )
+    monkeypatch.setattr(loop, "tweak_templates", list(templates))
     monkeypatch.setattr(loop, "REPLICATE_RULE", rule_on)
     monkeypatch.setattr(loop, "code_state", lambda: ("fixture-commit", []))
     monkeypatch.setattr(loop, "code_fingerprint", lambda *a: "c" * 64)
@@ -341,6 +338,29 @@ def test_the_loop_promotes_a_tweaks_cycle_when_the_rule_fires(tmp_path, monkeypa
     assert "## Cycle 1: lr_0.002 (SUCCESS)" in log and "replicate rule" in log
     assert len((tmp_path / "results.tsv").read_text().splitlines()) == 2
     assert next((tmp_path / "local_data/loop_promotions").iterdir()).is_dir()
+
+
+def test_the_rule_never_promotes_the_no_change_control(tmp_path, monkeypatch):
+    """The control (#259) changes no setting, so the rule's evidence, that a change replicates, says nothing for it:
+    its firing would promote one cycle's retrain of config.json without train.py's margin."""
+    import run_autoresearch_loop as loop
+
+    (control,) = [t for t in loop.tweak_templates if t.get("control")]
+    lr = {"family": "lr", "attr": "lr", "vals": [0.002]}
+    # the control alone is no sprint; the sampler draws it
+    monkeypatch.setattr(loop.random, "choices", lambda *a, **k: [control])
+    history = _history(0.2714, 0.2672, tweak=loop.CONTROL_TWEAK)
+    record, log, commits = _cycle(
+        tmp_path, monkeypatch, history, templates=(lr, control)
+    )
+    assert record["tweak"] == loop.CONTROL_TWEAK and record["replicate_rule"]["fires"]
+    assert (
+        record["replicate_rule"]["refused"]
+        == "the no-change control changes no setting"
+    )
+    assert record["status"] == "REVERTED" and not commits
+    assert torch.load(tmp_path / "best_model.pt", weights_only=False)["val_f1"] == INC
+    assert json.loads((tmp_path / loop.HISTORY_FILE).read_text())["control"] == 1.0
 
 
 def test_a_tweak_no_better_than_the_others_is_not_promoted(tmp_path, monkeypatch):

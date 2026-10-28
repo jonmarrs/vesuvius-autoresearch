@@ -389,3 +389,43 @@ def test_a_promotion_that_fails_partway_puts_the_old_files_back(tmp_path, monkey
     with pytest.raises(OSError, match="simulated append failure"):
         _run(loop, candidate, "--apply", monkeypatch=monkeypatch)
     assert _hashes(loop) == before
+
+
+@pytest.mark.parametrize("name", ["config.json", "autoresearch_history.json"])
+def test_a_failed_config_or_history_write_puts_the_old_files_back(
+    tmp_path, monkeypatch, name
+):
+    """They are written after the checkpoint and the logs: a failure there left the new checkpoint beside the old
+    config.json, which a restart would train from."""
+    loop, candidate = _loop(tmp_path)
+    original_replace, failed = P._replace, []
+
+    def replace(path, write):
+        if path.name == name and not failed:
+            failed.append(path)
+            raise OSError("simulated write failure")
+        original_replace(path, write)
+
+    monkeypatch.setattr(P, "_replace", replace)
+    before, status = _hashes(loop), _git(loop, "status", "--porcelain", "--", *FILES)
+    with pytest.raises(OSError, match="simulated write failure"):
+        _run(loop, candidate, "--apply", monkeypatch=monkeypatch)
+    assert failed and _hashes(loop) == before
+    assert _git(loop, "status", "--porcelain", "--", *FILES) == status
+
+
+def test_a_failed_git_add_says_where_the_old_files_are(tmp_path, monkeypatch):
+    loop, candidate = _loop(tmp_path)
+    real = subprocess.run
+
+    def run(cmd, *args, **kwargs):
+        if cmd[:1] == ["git"] and cmd[3:4] == ["add"]:
+            return subprocess.CompletedProcess(cmd, 128)
+        return real(cmd, *args, **kwargs)
+
+    monkeypatch.setattr(P.subprocess, "run", run)
+    with pytest.raises(SystemExit, match="not committed; the old files are in"):
+        _run(loop, candidate, "--apply", monkeypatch=monkeypatch)
+    monkeypatch.undo()
+    assert (loop / "best_model.pt").read_bytes() == candidate.read_bytes()
+    assert _git(loop, "diff", "--cached", "--name-only") == ""
