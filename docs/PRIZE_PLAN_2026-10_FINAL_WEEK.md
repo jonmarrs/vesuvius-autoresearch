@@ -1,5 +1,41 @@
 # October Progress Prize: readiness and final-week plan
 
+## October 28 readiness decision
+
+The engineering entry is ready for final owner fields and filing. The
+[October 28 audit](../reports/evidence/october_prize_readiness_2026-10-28.json)
+rechecks the three merged Villa contributions (#2022, #2044 and #2155), the
+current rules, release identity and filing links. The October form accepts
+responses. Submit on **October 29** if possible; the deadline remains
+**October 31, 2026 at 11:59 p.m. Pacific**. Nothing has been submitted.
+
+Both prepared answers are frozen and unchanged: 371 words for engineering
+and 554 for the optional separate research entry. A refreshed copy-ready
+candidate, `october-progress-prize-candidate-2026-10-28_134941-PDT.zip`,
+preserves those answers and adds dated checks and optional research links.
+Its SHA-256 and payload identity are recorded in the audit. Historical HTTP
+checks remain distinct from today's GitHub connector retrieval checks.
+The filing suites pass all 91 tests; CPU smoke passes eight checks with
+three expected skips. This is a readiness check, not a new research result.
+
+The useful work for the remaining days is bounded:
+
+| Priority | Work | Finish condition |
+| --- | --- | --- |
+| 1 | File the completed engineering entry; choose whether to file the separate research entry. | Owner completes personal fields and terms, checks the form on filing day, submits, and preserves each receipt and the exact submitted text. |
+| 2 | Keep Villa #2141, #2258 and #2259 ready for maintainer review. | All three remain open; #2141's latest feedback is addressed. Count no additional merge credit until a merge occurs. The three-PR cap is full. |
+| 3 | Use completed ScrollGT work as optional research support. | v0.9.1, the exact 21-target/315-field CPU reproduction and the public annotation audit are published. They verify usability and provenance, not a new model-quality improvement. |
+| 4 | Verify current-main object-store/tracer integration when its native environment and a free GPU are available. | Use correctly identified public CT. Existing local-crop runs cannot be relabeled with `--ct`. This is not a filing dependency. |
+| 5 | Prepare a small hard-region label packet using the existing crop tools, if expert review is available. | Start with 12 crops across two scans and preserve review/provenance; generated hints are not ground truth. A new model claim needs separate confirmation. |
+
+The registered unchanged-training comparison remains undisturbed: no live
+measurements were read, no GPU jobs were started and no runtime was deployed.
+Do not launch a competing sweep or wait for that window to file. The earlier
+dated notes below preserve the progression of this plan; this October 28
+decision is the current filing status.
+
+## Earlier October 27 checks
+
 Plan updated **2026-10-27 Pacific (2026-10-28 UTC)**. The rules, form, links and merge states were
 rechecked; the [latest follow-up](../reports/evidence/october_prize_readiness_2026-10-27_followup.json)
 supplements the [earlier October 27 snapshot](../reports/evidence/october_prize_readiness_2026-10-27.json)
