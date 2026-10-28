@@ -99,14 +99,28 @@ class Results:
     columns: tuple[str, ...]
     records: tuple[Record, ...]
     time_basis: str
+    source_row_count: int
+    last_rows: int | None = None
+
+    @property
+    def selection_label(self):
+        if self.last_rows is None:
+            return f"All {self.source_row_count} source rows"
+        return f"Last {len(self.records)} of {self.source_row_count} source rows"
 
     def manifest(self):
         return {
-            "schema_version": 1,
+            "schema_version": 2,
             "scope": SCOPE,
             "results": self.source.provenance(),
             "columns": list(self.columns),
             "row_count": len(self.records),
+            "source_row_count": self.source_row_count,
+            "selection": {
+                "kind": "all_rows" if self.last_rows is None else "last_source_rows",
+                "requested_last_rows": self.last_rows,
+                "source_line_numbers": sorted(row.source_line for row in self.records),
+            },
             "time_basis": self.time_basis,
             "row_order": "timestamp ascending, stable source order for ties",
             "records": [row.as_dict() for row in self.records],
@@ -114,7 +128,9 @@ class Results:
         }
 
 
-def read_results(path):
+def read_results(path, *, last_rows=None):
+    if last_rows is not None and (type(last_rows) is not int or last_rows <= 0):
+        raise ValueError("--last-rows must be a positive integer")
     source = Snapshot.read(path, MAX_RESULTS_BYTES)
     reader = csv.reader(io.StringIO(source.text()), delimiter="\t", strict=True)
     try:
@@ -169,13 +185,18 @@ def read_results(path):
         raise ValueError("results TSV has no data rows")
     if len(aware) > 1:
         raise ValueError("results TSV mixes timezone-aware and unqualified timestamps")
+    source_row_count = len(records)
+    if last_rows is not None:
+        records = records[-last_rows:]
     records.sort(key=lambda row: row.timestamp)
     time_basis = (
         "UTC (normalized from recorded offsets)"
         if True in aware
         else "recorded local wall time (timezone not recorded)"
     )
-    return Results(source, tuple(columns), tuple(records), time_basis)
+    return Results(
+        source, tuple(columns), tuple(records), time_basis, source_row_count, last_rows
+    )
 
 
 def read_notebook(path):

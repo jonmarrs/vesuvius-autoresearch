@@ -94,9 +94,10 @@ def _render_pdf(data, notebook, charts, path, generated_at):
     pdf.paragraph(
         f"Results: {data.source.path}\n"
         f"SHA-256: {data.source.provenance()['sha256']}\n"
-        f"Recorded rows: {len(data.records)}\nTime basis: {data.time_basis}"
+        f"Captured source rows: {data.source_row_count}\n"
+        f"Displayed selection: {data.selection_label}\nTime basis: {data.time_basis}"
     )
-    pdf.heading("Recent recorded rows (newest first; no metric ranking)")
+    pdf.heading("Recent timestamp labels (descending; no metric ranking)")
     widths = (18, 66, 31, 36, 39)
     headers = ("TSV line", "Timestamp", "val_bpb", "Mvps", "Params (M)")
     pdf.set_font("DejaVu", "B", 8)
@@ -131,7 +132,9 @@ def _render_pdf(data, notebook, charts, path, generated_at):
     pdf.ln(4)
     pdf.paragraph(
         "The table displays whole seconds; report.json preserves timestamp precision "
-        "and offsets. Source TSV lines identify rows even when timestamps tie."
+        "and offsets. Source TSV lines identify rows even when timestamps tie. "
+        "At most five selected rows are tabulated; charts include the full selection. "
+        "Last-row selection follows source order before timestamp labels are sorted."
     )
 
     if notebook is not None:
@@ -158,8 +161,14 @@ def _render_pdf(data, notebook, charts, path, generated_at):
         raise ValueError("PDF verification failed")
 
 
-def generate_pdf(results="results.tsv", notebook="docs/LAB_NOTEBOOK.md", output=None):
-    data = read_results(results)
+def generate_pdf(
+    results="results.tsv",
+    notebook="docs/LAB_NOTEBOOK.md",
+    output=None,
+    *,
+    last_rows=None,
+):
+    data = read_results(results, last_rows=last_rows)
     notebook_source, excerpt = (
         read_notebook(notebook) if notebook is not None else (None, None)
     )
@@ -205,6 +214,12 @@ def generate_pdf(results="results.tsv", notebook="docs/LAB_NOTEBOOK.md", output=
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--results", type=Path, default=Path("results.tsv"))
+    parser.add_argument(
+        "--last-rows",
+        type=int,
+        metavar="N",
+        help="Display the last N TSV records in source order; keep the full captured source",
+    )
     group = parser.add_mutually_exclusive_group()
     group.add_argument("--notebook", type=Path, default=Path("docs/LAB_NOTEBOOK.md"))
     group.add_argument(
@@ -216,7 +231,10 @@ def main(argv=None):
     args = parser.parse_args(argv)
     try:
         generate_pdf(
-            args.results, None if args.no_notebook else args.notebook, args.out
+            args.results,
+            None if args.no_notebook else args.notebook,
+            args.out,
+            last_rows=args.last_rows,
         )
     except (*REPORT_ERRORS, FPDFException) as exc:
         print(f"Experiment PDF failed: {exc}", file=sys.stderr)

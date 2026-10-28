@@ -17,6 +17,21 @@ uv run python scripts/plot_results.py --results results.tsv --out reports/my_exp
 uv run python scripts/generate_daily_report.py --results results.tsv --notebook docs/LAB_NOTEBOOK.md --out reports/my_experiment_report
 ```
 
+To focus either report on the last 50 appended records, add `--last-rows 50`:
+
+```bash
+uv run python scripts/generate_daily_report.py --results results.tsv --no-notebook --last-rows 50 --out reports/recent_diagnostics
+```
+
+`N` must be a positive integer. Selection takes the last N TSV records in source
+order **before** sorting their timestamp labels. It therefore follows appended
+records even if a recorded clock moves backward. A request larger than the table
+selects every row; omission selects every row too. This is a count of records,
+not a time interval, shift boundary, metric ranking, or evaluation regime. Charts
+and the PDF visibly identify the selection. The full TSV is still validated,
+captured, hashed, and copied; this option does not bypass input limits or allow
+malformed rows outside the selection.
+
 Each `--out` is a **new directory**. Existing files, directories, symlinks, and
 source aliases are rejected. If omitted, the tools choose a new directory under
 `reports/` using a UTC timestamp with microseconds. A timestamp collision fails
@@ -43,21 +58,23 @@ The PDF bundle contains `report.pdf`, those four charts under `charts/`,
 copied as `sources/notebook.md`. Source copies retain original bytes and all TSV
 columns, including the configuration-last column.
 
-`report.json` records the source paths, SHA-256 hashes, byte sizes, row count,
-column names, timestamp interpretation, ordered numeric records, scope, and each
-output's hash/size. Rows retain original TSV line numbers and timestamp strings;
-normalized timestamps support ordering. PNG metadata also identifies the captured
-TSV and report scope. Hashes bind the report to supplied bytes; they do not verify
-training outcomes or scientific eligibility.
+`report.json` schema version 2 records the source paths, SHA-256 hashes, byte
+sizes, row count, column names, timestamp interpretation, ordered numeric
+records, scope, and each output's hash/size. Rows retain original TSV line numbers and timestamp strings;
+normalized timestamps support ordering. `source_row_count` counts the full table;
+`row_count` counts selected records. `selection` records the policy, requested
+count (or null), and selected source line numbers. PNG and SVG metadata also
+identify the captured TSV, selection, and report scope. Hashes bind the report to
+supplied bytes; they do not verify training outcomes or scientific eligibility.
 
 The timeline uses separate scatter plots for auxiliary loss and training
 throughput. It does not join different regimes into an improvement curve. Loss
 and color scales are linear, so a legitimate zero loss remains visible. The
 hardware chart shows observations without computing a frontier or ranking.
 
-The PDF lists the five most recent recorded rows, newest first. It does not
-select the lowest auxiliary loss or label rows discoveries. For tied timestamps,
-later source rows appear first; the manifest's ascending order is stable. The
+The PDF lists at most five selected rows in descending timestamp-label order. It
+does not select the lowest auxiliary loss or label rows discoveries. For tied
+timestamps, later source rows appear first; the manifest's ascending order is stable. The
 PDF displays whole seconds, while the manifest and source copy preserve full
 timestamp precision and recorded offsets.
 
@@ -83,6 +100,9 @@ and parameter count positive. No row is silently dropped, imputed, or repaired.
 Dates must include a valid ISO date and time down to seconds. Offset-qualified
 dates are normalized to UTC; unqualified dates retain recorded wall time with
 the timezone explicitly unknown. Mixing qualified and unqualified dates fails.
+Chart tick labels preserve this interpretation regardless of Matplotlib's global
+timezone setting. The UTC plotting coordinate used for unqualified timestamps
+preserves wall labels; it does not establish their actual timezone.
 Inputs are bounded to 16 MiB and 10,000 rows for TSV, and 2 MiB for notebook.
 
 Each input is captured once. Charts and the PDF use that capture, and the source
@@ -102,7 +122,8 @@ remain historical artifacts.
 
 Python callers can use `plot_results(results, output)` to obtain the published
 directory, or `generate_pdf(results, notebook, output)` to obtain its PDF path.
-Pass `notebook=None` for explicit omission.
+Both accept the optional keyword `last_rows=N`. Pass `notebook=None` for explicit
+omission.
 
 No training, promotion, evaluation harness, metric computation, or TSV schema
 changes are included. This workflow cannot reconstruct F1/AP rankings or certify
