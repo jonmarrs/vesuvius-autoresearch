@@ -8,10 +8,23 @@ Dry-run is the default. Use --execute to run commands serially.
 import argparse
 import csv
 import math
+import os
 import shlex
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
+
+if __package__ in (None, ""):
+    root = Path(__file__).resolve().parents[2]
+    sys.path[:0] = [str(root), str(root / "src")]
+
+from vesuvius_autoresearch.core.file_modes import replacement_mode
+from vesuvius_autoresearch.core.prediction_artifacts import (
+    prediction_paths,
+    prediction_stem,
+    validate_plan_paths,
+)
 
 PREDICT_SCRIPT = Path(__file__).resolve().with_name("predict.py")
 
@@ -46,16 +59,12 @@ def build_predict_command(
         )
     if any(key not in row or _as_int(row, key) < 0 for key in ("x", "y", "z")):
         raise ValueError("candidate must provide nonnegative x/y/z voxel indices")
-    stem = (
-        row.get("artifact_stem")
-        or f"pred_{_as_int(row, 'z')}_{_as_int(row, 'y')}_{_as_int(row, 'x')}_{width}x{height}"
+    stem = prediction_stem(
+        f"pred_{_as_int(row, 'z')}_{_as_int(row, 'y')}_{_as_int(row, 'x')}_{width}x{height}",
+        row.get("artifact_stem") or None,
     )
     uri = row.get("local_uri") or row.get("source_uri")
-    if Path(stem).name != stem or stem in {".", ".."}:
-        raise ValueError(
-            "candidate artifact_stem must be a filename without directory components"
-        )
-    if not uri:
+    if not isinstance(uri, str) or not uri.strip():
         raise ValueError(f"candidate {stem} has no local_uri/source_uri")
 
     output_img = str(Path(prediction_dir) / f"{stem}.png")
@@ -73,7 +82,7 @@ def build_predict_command(
             raise ValueError("candidate voxel_um must be positive and finite")
         voxel = ["--voxel_size_um", str(voxel_um)]
     return [
-        python_executable,
+        os.fspath(python_executable),
         str(PREDICT_SCRIPT),
         "--uri",
         uri,
@@ -93,14 +102,18 @@ def build_predict_command(
         output_img,
         "--metadata_out",
         metadata_out,
+        "--artifact_stem",
+        stem,
         "--checkpoint",
-        checkpoint,
+        os.fspath(checkpoint),
         *voxel,
         "--skip_active_learning",
     ]
 
 
 def load_candidates(path, limit=None, require_local=True):
+    if limit is not None and (type(limit) is not int or limit <= 0):
+        raise ValueError("limit must be a positive integer")
     with open(path, newline="") as f:
         rows = list(csv.DictReader(f, delimiter="\t"))
     if require_local:
@@ -110,15 +123,53 @@ def load_candidates(path, limit=None, require_local=True):
     return rows
 
 
+def plan_inference(
+    rows,
+    ranked_path,
+    manifest,
+    prediction_dir="predictions",
+    checkpoint="best_model.pt",
+):
+    commands = []
+    writes = [(Path(manifest), "command manifest")]
+    reads = [(Path(ranked_path), "ranked input"), (Path(checkpoint), "checkpoint")]
+    reads.append(
+        (Path(__file__).resolve().parents[2] / "autoresearch.lock", "research lock")
+    )
+    for index, row in enumerate(rows, 1):
+        command = build_predict_command(
+            row, prediction_dir=prediction_dir, checkpoint=checkpoint
+        )
+        commands.append(command)
+        stem = command[command.index("--artifact_stem") + 1]
+        owner = f"candidate {index} ({stem})"
+        writes.extend((path, owner) for path in prediction_paths(prediction_dir, stem))
+        uri = row.get("local_uri") or row.get("source_uri")
+        if uri and "://" not in uri:
+            reads.append((Path(uri), f"{owner} source volume"))
+    validate_plan_paths(writes, reads)
+    return commands
+
+
 def write_manifest(commands, out_path):
+    encoded = "".join(shlex.join(command) + "\n" for command in commands)
     out_path = Path(out_path)
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    with open(out_path, "w") as f:
-        for cmd in commands:
-            f.write(shlex.join(cmd) + "\n")
+    staged = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w", dir=out_path.parent, prefix=f".{out_path.name}.", delete=False
+        ) as f:
+            staged = Path(f.name)
+            f.write(encoded)
+        os.chmod(staged, replacement_mode(out_path))
+        os.replace(staged, out_path)
+    finally:
+        if staged is not None:
+            staged.unlink(missing_ok=True)
 
 
-def main():
+def main(argv=None):
     parser = argparse.ArgumentParser()
     parser.add_argument("--ranked", default="reports/scroll23_ranked_candidates.tsv")
     parser.add_argument("--limit", type=int, default=8)
@@ -131,18 +182,23 @@ def main():
         help="Run commands serially; default only writes/prints commands",
     )
     parser.add_argument("--allow-missing-local-uri", action="store_true")
-    args = parser.parse_args()
-
-    rows = load_candidates(
-        args.ranked, limit=args.limit, require_local=not args.allow_missing_local_uri
-    )
-    commands = [
-        build_predict_command(
-            row, prediction_dir=args.prediction_dir, checkpoint=args.checkpoint
+    args = parser.parse_args(argv)
+    try:
+        rows = load_candidates(
+            args.ranked,
+            limit=args.limit,
+            require_local=not args.allow_missing_local_uri,
         )
-        for row in rows
-    ]
-    write_manifest(commands, args.manifest)
+        if not rows:
+            raise ValueError(
+                "no eligible candidates; check the ranked table and local_uri fields (use --allow-missing-local-uri to plan remote sources)"
+            )
+        commands = plan_inference(
+            rows, args.ranked, args.manifest, args.prediction_dir, args.checkpoint
+        )
+        write_manifest(commands, args.manifest)
+    except (OSError, ValueError) as exc:
+        parser.error(str(exc))
 
     print(f"Wrote {len(commands)} inference commands to {args.manifest}")
     for cmd in commands:

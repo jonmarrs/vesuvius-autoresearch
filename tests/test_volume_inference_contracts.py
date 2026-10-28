@@ -124,6 +124,46 @@ def setup_prediction(tmp_path, monkeypatch, mode, configs=None, bad=None):
 
 
 @pytest.mark.parametrize("mode", ["single", "ensemble"])
+def test_custom_stems_keep_same_coordinate_predictions_separate_and_rankable(tmp_path, monkeypatch, mode):
+    from scripts.rank_scroll23_candidates import score_row
+
+    runner, argv, _, first_volume, _ = setup_prediction(tmp_path, monkeypatch, mode)
+    output = tmp_path / "out"
+    argv.extend(["--artifact_stem", "scroll_two", "--disable_tta"])
+    argv[argv.index("--output_img") + 1] = str(output / "scroll_two.png")
+    runner()
+    first = {str(p.relative_to(output)): (p.read_bytes(), p.stat().st_mtime_ns)
+             for p in output.rglob("*") if p.is_file()}
+    second_volume = tmp_path / "other.zarr"
+    zarr.open(str(second_volume), mode="w", shape=(6, 24, 24), chunks=(2, 8, 8), dtype="u1")[:] = 128
+    argv[argv.index("--uri") + 1] = str(second_volume)
+    argv[argv.index("--artifact_stem") + 1] = "scroll_three"
+    argv[argv.index("--output_img") + 1] = str(output / "scroll_three.png")
+    runner()
+    for relative, original in first.items():
+        path = output / relative
+        assert (path.read_bytes(), path.stat().st_mtime_ns) == original
+    for stem, volume in (("scroll_two", first_volume), ("scroll_three", second_volume)):
+        assert (output / f"{stem}_ink.npy").is_file()
+        assert (output / f"{stem}_meta.json").is_file()
+        assert (output / f"{stem}_ink.zarr").is_dir()
+        row = {"artifact_stem": stem, "local_uri": str(volume), "x": 3, "y": 2, "z": 1,
+               "width": 13, "height": 11, "patch_size": 8, "voxel_um": 2}
+        scored = score_row(row, prediction_dir=output)
+        assert scored["prediction_found"] == "true", scored["metadata_error"]
+        assert scored["artifact_stem"] == stem
+
+
+@pytest.mark.parametrize("mode", ["single", "ensemble"])
+def test_invalid_stem_refuses_before_checkpoint_loading(tmp_path, monkeypatch, mode):
+    runner, argv, _, _, _ = setup_prediction(tmp_path, monkeypatch, mode)
+    argv.extend(["--artifact_stem", "../outside"])
+    monkeypatch.setattr(torch, "load", lambda *args, **kwargs: pytest.fail("must not load checkpoint"))
+    with pytest.raises(ValueError, match="artifact_stem"):
+        runner()
+
+
+@pytest.mark.parametrize("mode", ["single", "ensemble"])
 @pytest.mark.parametrize("tta", [False, True])
 @pytest.mark.parametrize("gaussian", [False, True])
 def test_complete_region_has_no_black_edges_and_consistent_exports(

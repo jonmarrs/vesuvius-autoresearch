@@ -16,6 +16,7 @@ from zipfile import BadZipFile
 import numpy as np
 
 from vesuvius_autoresearch.core.inference_constants import INK_PROBABILITY
+from vesuvius_autoresearch.core.prediction_artifacts import prediction_stem
 
 ARTIFACT_ERRORS = (
     OSError,
@@ -136,7 +137,10 @@ def _float(row, key, default=0.0):
 def _artifact_stem(row):
     geometry = _geometry(row)
     x, y, z = geometry["position_xyz"]
-    return f"pred_{z}_{y}_{x}_{geometry['width_px']}x{geometry['height_px']}"
+    return prediction_stem(
+        f"pred_{z}_{y}_{x}_{geometry['width_px']}x{geometry['height_px']}",
+        row.get("artifact_stem") or None,
+    )
 
 
 def _source_identity(uri):
