@@ -318,6 +318,10 @@ four predictions held):
     cube's CT was, and checks that the core is the cube. The release adds the neural tracer run that way as a new row
     on all 21 cubes (findings 97 and 98), beside the cube-only one: first on merge-penalized ERL on 10 of the 21,
     against 8. Scoring and every existing row are unchanged.
+  * [0.9.1](https://github.com/jonmarrs/scrollgt/tree/v0.9.1) releases the merged memory fix as a versioned source
+    tag. Its scoring modules match the whole-corpus verification, its data match 0.9.0, and scoring version
+    remains 3. The [release record](../reports/evidence/scrollgt_release_0.9.1_2026-10-27.json) preserves the tag,
+    package checks and passing Python 3.10–3.14 CI. This is packaging of the existing usability fix.
 
 **(4) Evidence.**
 * Registered studies were pre-registered before their data; exploratory analyses are labelled separately. Reports and scripts are in

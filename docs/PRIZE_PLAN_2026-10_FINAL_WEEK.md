@@ -121,6 +121,17 @@ it does not recompute the other floors or measure a new model-quality gain.
 The prepared form answers and submission candidate remain unchanged. The
 October form and three claimed Villa merges still pass their live checks.
 
+[ScrollGT v0.9.1](https://github.com/jonmarrs/scrollgt/tree/v0.9.1) now gives
+the merged memory fix a versioned source tag. The [release record](../reports/evidence/scrollgt_release_0.9.1_2026-10-27.json)
+captures the reviewed commit, tag identity, package-build checks and five
+passing CI jobs on Python 3.10–3.14. The default local suite passes 511 tests
+with the ten opt-in heavy cases deselected. The installed wheel reproduces
+a real target's 15-field row, and its source distribution retains all 63
+fiber target files unchanged. This packages existing measured work; it is
+not a new quality result or extra Villa merge credit. The prepared answers
+and copy-ready candidate remain valid and unchanged. Keep the October 28
+freeze and October 29 filing target; nothing has been submitted.
+
 The official rules favor early releases, actual use, real-data improvements,
 useful fixes, actionable analysis and documentation. They explicitly ask for
 small bug fixes to be bundled. The October 27 checked source is Villa `39a8cf3a`,
