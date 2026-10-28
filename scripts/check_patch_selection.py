@@ -29,136 +29,184 @@ REPORTED, not enforced:
 
 import argparse
 import json
-import os
 import statistics as st
 import sys
+from pathlib import Path
 
-# Area shares are computed from the same reference json for both arms, so they
-# agree to well under a point when the build is correct; the observed gap is 0.01.
-# 0.5 leaves room for a rebuild without admitting the 6.4-point count-matched miss.
+REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+from scripts.patch_check_inputs import (
+    INPUT_ERRORS,
+    arm_provenance,
+    read_arm,
+    verify_arm,
+)
+from scripts.patch_dataset_artifacts import number, reference_patches
+
 AREA_TOL_PCT = 0.5
 
 
 def load_reference(path):
-    patches = json.load(open(path))["patches"]
+    _, rows = reference_patches(path)
     return (
-        {p["id"]: p["fraction"] for p in patches},
-        {p["id"]: p["total_area"] for p in patches},
+        {pid: row[0] for pid, row in rows.items()},
+        {pid: row[1] for pid, row in rows.items()},
     )
 
 
 def arm_ids(dataset_dir):
-    return set(os.listdir(os.path.join(dataset_dir, "verified_patches")))
+    return set(read_arm(dataset_dir)["targets"])
 
 
 def summarise(ids, frac, area):
-    v = [frac[i] for i in ids]
-    tot = sum(area[i] for i in ids)
+    ids = sorted(ids)
+    values = [frac[pid] for pid in ids]
+    total = number(sum(area[pid] for pid in ids), "selection total area")
     return {
-        "n": len(v),
-        "mean": st.mean(v),
-        "median": st.median(v),
-        "p25": st.quantiles(v, n=4)[0],
-        "area_weighted_mean": sum(frac[i] * area[i] for i in ids) / tot,
-        "area": tot,
+        "n": len(values),
+        "mean": st.mean(values) if values else None,
+        "median": st.median(values) if values else None,
+        "p25": st.quantiles(values, n=4)[0] if len(values) > 1 else None,
+        "area_weighted_mean": sum(frac[pid] * area[pid] for pid in ids) / total
+        if total
+        else None,
+        "area": total,
     }
+
+
+def build_report(reference, boot_dir, rand_dir, threshold=0.9):
+    report = {
+        "schema": "patch-selection-check-v1",
+        "status": "FAIL",
+        "scope": "patch_selection_input_checks",
+        "scientific_validity_verified": False,
+        "payload_contents_hashed": False,
+        "failures": [],
+        "statistics": {},
+    }
+    failures = report["failures"]
+    try:
+        number(threshold, "threshold", upper=1)
+        source, rows = reference_patches(reference)
+        report["reference_source"] = source.provenance()
+        frac = {pid: value[0] for pid, value in rows.items()}
+        area = {pid: value[1] for pid, value in rows.items()}
+        captures = {"BOOTSTRAP": read_arm(boot_dir), "RANDOM": read_arm(rand_dir)}
+        report["arms"] = {
+            name: arm_provenance(value) for name, value in captures.items()
+        }
+        known = {}
+        for name, captured in captures.items():
+            raw = set(captured["targets"])
+            unknown = raw - rows.keys()
+            if unknown:
+                failures.append(
+                    f"{name} has {len(unknown)} patch(es) absent from the reference fit, e.g. {sorted(unknown)[:3]}; the arms must be subsets of it"
+                )
+            known[name] = raw & rows.keys()
+            if not known[name]:
+                failures.append(f"{name} must contain scored patches")
+        boot, rand = known["BOOTSTRAP"], known["RANDOM"]
+        below = [pid for pid in sorted(boot) if frac[pid] < threshold]
+        if below:
+            failures.append(
+                f"BOOTSTRAP contains {len(below)} patch(es) below the {threshold} threshold (min {min(frac[pid] for pid in below):.4f}); the selection leaked"
+            )
+        stats = {name: summarise(ids, frac, area) for name, ids in known.items()}
+        stats["ALL"] = summarise(rows, frac, area)
+        for name in ("BOOTSTRAP", "RANDOM"):
+            if stats[name]["area"] <= 0:
+                failures.append(f"{name} must have positive total area")
+        total_area = stats["ALL"]["area"]
+        pb, pr = (
+            100 * (stats[name]["area"] / total_area) for name in ("BOOTSTRAP", "RANDOM")
+        )
+        if abs(pb - pr) > AREA_TOL_PCT:
+            failures.append(
+                f"the arms are NOT area-matched: BOOTSTRAP {pb:.2f}% vs RANDOM {pr:.2f}% of total area, gap {abs(pb - pr):.2f} > {AREA_TOL_PCT} points. The control cannot separate evidence quality from evidence quantity."
+            )
+        stats.update(
+            {
+                "boot_area_pct": pb,
+                "rand_area_pct": pr,
+                "rand_below_threshold": sum(frac[pid] < threshold for pid in rand),
+                "overlap": len(boot & rand),
+            }
+        )
+        report["statistics"] = stats
+        report["threshold"] = threshold
+        report["area_tolerance_percentage_points"] = AREA_TOL_PCT
+        source.verify()
+        for captured in captures.values():
+            verify_arm(captured)
+    except INPUT_ERRORS as exc:
+        failures.append(f"input validation failed: {exc}")
+    report["status"] = "FAIL" if failures else "PASS"
+    return report
 
 
 def check(reference, boot_dir, rand_dir, threshold):
-    frac, area = load_reference(reference)
-    total_area = sum(area.values())
-    boot_raw, rand_raw = arm_ids(boot_dir), arm_ids(rand_dir)
+    report = build_report(reference, boot_dir, rand_dir, threshold)
+    return report["failures"], report["statistics"]
 
-    failures = []
-    for name, raw in (("BOOTSTRAP", boot_raw), ("RANDOM", rand_raw)):
-        unknown = raw - frac.keys()
-        if unknown:
-            failures.append(
-                f"{name} has {len(unknown)} patch(es) absent from the reference fit, "
-                f"e.g. {sorted(unknown)[:3]}; the arms must be subsets of it"
+
+def format_number(value, digits=4):
+    return "n/a" if value is None else f"{value:.{digits}f}"
+
+
+def render(report):
+    stats = report["statistics"]
+    if stats:
+        print(f"{'set':<12}{'n':>9}{'mean':>9}{'median':>9}{'p25':>9}{'area-wtd':>10}")
+        for name in ("BOOTSTRAP", "RANDOM", "ALL"):
+            row = stats[name]
+            print(
+                f"{name:<12}{row['n']:>9,}{format_number(row['mean']):>9}{format_number(row['median']):>9}{format_number(row['p25']):>9}{format_number(row['area_weighted_mean']):>10}"
             )
-
-    boot, rand = boot_raw & frac.keys(), rand_raw & frac.keys()
-    below = [i for i in boot if frac[i] < threshold]
-    if below:
-        failures.append(
-            f"BOOTSTRAP contains {len(below)} patch(es) below the {threshold} "
-            f"threshold (min {min(frac[i] for i in below):.4f}); the selection leaked"
-        )
-
-    sb = summarise(boot, frac, area)
-    sr = summarise(rand, frac, area)
-    sa = summarise(set(frac), frac, area)
-    pb, pr = 100 * sb["area"] / total_area, 100 * sr["area"] / total_area
-    if abs(pb - pr) > AREA_TOL_PCT:
-        failures.append(
-            f"the arms are NOT area-matched: BOOTSTRAP {pb:.2f}% vs RANDOM {pr:.2f}% "
-            f"of total area, gap {abs(pb - pr):.2f} > {AREA_TOL_PCT} points. The "
-            "control cannot separate evidence quality from evidence quantity."
-        )
-
-    return failures, {
-        "BOOTSTRAP": sb,
-        "RANDOM": sr,
-        "ALL": sa,
-        "boot_area_pct": pb,
-        "rand_area_pct": pr,
-        "rand_below_threshold": sum(1 for i in rand if frac[i] < threshold),
-        "overlap": len(boot & rand),
-    }
-
-
-def main() -> int:
-    ap = argparse.ArgumentParser()
-    ap.add_argument(
-        "--reference", required=True, help="reference satisfied_fitted.json"
-    )
-    ap.add_argument("--bootstrap", required=True, help="BOOTSTRAP dataset dir")
-    ap.add_argument("--random", required=True, dest="random_dir", help="RANDOM dir")
-    ap.add_argument("--threshold", type=float, default=0.90)
-    args = ap.parse_args()
-
-    failures, s = check(args.reference, args.bootstrap, args.random_dir, args.threshold)
-
-    print(f"{'set':<12}{'n':>9}{'mean':>9}{'median':>9}{'p25':>9}{'area-wtd':>10}")
-    for k in ("BOOTSTRAP", "RANDOM", "ALL"):
-        r = s[k]
+        pb, pr = stats["boot_area_pct"], stats["rand_area_pct"]
         print(
-            f"{k:<12}{r['n']:>9,}{r['mean']:>9.4f}{r['median']:>9.4f}"
-            f"{r['p25']:>9.4f}{r['area_weighted_mean']:>10.4f}"
+            f"\narea share: BOOTSTRAP {pb:.2f}%  RANDOM {pr:.2f}% (gap {abs(pb - pr):.2f} pts, tolerance {AREA_TOL_PCT})"
         )
-
-    print(
-        f"\narea share: BOOTSTRAP {s['boot_area_pct']:.2f}%  "
-        f"RANDOM {s['rand_area_pct']:.2f}%  "
-        f"(gap {abs(s['boot_area_pct'] - s['rand_area_pct']):.2f} pts, "
-        f"tolerance {AREA_TOL_PCT})"
-    )
-    print(f"overlap BOOTSTRAP & RANDOM: {s['overlap']:,} patches")
-    print(
-        f"RANDOM patches below threshold: {s['rand_below_threshold']:,} "
-        "-- this is the contrast the study depends on"
-    )
-
-    d_all = abs(s["RANDOM"]["mean"] - s["ALL"]["mean"])
-    print(
-        f"\nmanipulation contrast: BOOTSTRAP mean {s['BOOTSTRAP']['mean']:.4f} vs "
-        f"RANDOM {s['RANDOM']['mean']:.4f}"
-    )
-    print(
-        f"RANDOM vs FULL population: {s['RANDOM']['mean']:.4f} vs "
-        f"{s['ALL']['mean']:.4f} (|diff| {d_all:.4f}). A single draw that tracks the "
-        "population is not an extreme draw ON THIS VARIABLE; it says nothing about "
-        "any other dimension."
-    )
-
-    if failures:
+        print(f"overlap BOOTSTRAP & RANDOM: {stats['overlap']:,} patches")
+        print(f"RANDOM patches below threshold: {stats['rand_below_threshold']:,}")
+        print(
+            f"mean satisfaction: BOOTSTRAP {format_number(stats['BOOTSTRAP']['mean'])}; RANDOM {format_number(stats['RANDOM']['mean'])}; ALL {format_number(stats['ALL']['mean'])}"
+        )
+    if report["failures"]:
         print("\nSELECTION CHECK FAILED:")
-        for f in failures:
-            print(f"  - {f}")
-        return 1
-    print("\nselection check: PASS (subset, threshold, area-match all hold)")
-    return 0
+        for failure in report["failures"]:
+            print(f"  - {failure}")
+    else:
+        print(
+            "\nselection check: PASS (subset, threshold, area-match and directory checks hold)"
+        )
+    print(
+        "Scope: mechanical input checks; payload integrity and scientific validity are unverified."
+    )
+
+
+def main(argv=None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--reference", required=True)
+    parser.add_argument("--bootstrap", required=True)
+    parser.add_argument("--random", required=True, dest="random_dir")
+    parser.add_argument("--threshold", type=float, default=0.90)
+    parser.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit one finite JSON report instead of text",
+    )
+    args = parser.parse_args(argv)
+    report = build_report(
+        args.reference, args.bootstrap, args.random_dir, args.threshold
+    )
+    if args.json:
+        print(json.dumps(report, indent=2, allow_nan=False))
+    else:
+        render(report)
+    return 0 if report["status"] == "PASS" else 1
 
 
 if __name__ == "__main__":
