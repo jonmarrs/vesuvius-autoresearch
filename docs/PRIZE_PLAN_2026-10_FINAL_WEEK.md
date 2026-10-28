@@ -132,6 +132,22 @@ not a new quality result or extra Villa merge credit. The prepared answers
 and copy-ready candidate remain valid and unchanged. Keep the October 28
 freeze and October 29 filing target; nothing has been submitted.
 
+The [October 27 publication audit](https://github.com/jonmarrs/scrollgt/pull/16)
+also corrects stale benchmark instructions: the legacy model's 0.518 AUC is
+separate from the constant floor's 0.500, the old 0.60 contributor threshold
+is retired, fiber target assets total 38.79 MB, and the README now cites the
+measured 0.9.1 memory use and states which prediction inputs are needed.
+The constant floor was recomputed on the shipped 4096×4096 ink target: AP lift
+1.000 and F1 0.311230. More directly relevant to the fiber filing, all 21
+recorded upstream NML annotations were freshly fetched: every hash matches,
+and both the existing verification CLI and an independent XML parser reproduce
+all nine skeleton arrays per target. The [public audit](https://github.com/jonmarrs/scrollgt/blob/24b2da4ca4e8e6771d80998e1555cdc3f3f3a791/docs/GUIDANCE_AUDIT_2026-10-27.md)
+preserves all 189 array comparisons, source/input hashes and raw harness/logs.
+This verifies annotation identity and packaging, not physical accuracy in CT
+or model quality. Target data, scoring behavior and version tags are unchanged.
+The prepared form answers and submission candidate remain unchanged; no new
+merged Villa credit or live-study result is claimed.
+
 The official rules favor early releases, actual use, real-data improvements,
 useful fixes, actionable analysis and documentation. They explicitly ask for
 small bug fixes to be bundled. The October 27 checked source is Villa `39a8cf3a`,
