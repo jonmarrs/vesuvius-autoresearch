@@ -343,6 +343,12 @@ four predictions held):
   all 315 published field values match, with every CLI process under a 7 GiB address-space limit.
   The report includes the frozen harness, hashes and all raw scorecards and logs. This is numerical
   reproduction and usability evidence, not a new quality result or additional merged Villa credit.
+* The [October 27 source-annotation audit](https://github.com/jonmarrs/scrollgt/blob/24b2da4ca4e8e6771d80998e1555cdc3f3f3a791/docs/GUIDANCE_AUDIT_2026-10-27.md#fresh-upstream-annotation-check)
+  freshly downloads all 21 recorded NML sources. Every SHA-256 matches the target's provenance,
+  and both the existing verification CLI and an independent XML parser reproduce all nine
+  packed skeleton arrays per target (189 comparisons). This verifies annotation identity and
+  packaging fidelity, not annotation accuracy in CT or a new model-quality result. No labels,
+  model rows or prepared form answers change; the raw harness, logs and hashes are published.
 * [villa #2044](https://github.com/ScrollPrize/villa/pull/2044) records the memory limits, hardware,
   before/after runs and the averaging comparison behind the scorer fix. The full GPU scorer has
   run-to-run variation; bit-identical output was checked for the averaging step, not the whole run.
